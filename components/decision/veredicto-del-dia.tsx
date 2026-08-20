@@ -19,13 +19,35 @@ const QUE_REVISO = [
   'carga de trabajo del equipo',
 ];
 
-export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, procesando, whatsappHref }: {
+/** Cabecera / estado global (reorganización Centro de Control §1). Un mismo
+ * titular para las dos ramas "nada pendiente" (SILENCIO y MENSAJE ya
+ * resuelto): si el piloto hizo algo hoy, se dice explícitamente — es el
+ * valor central de la pantalla, no un detalle a adivinar en Actividad. */
+function tituloEstadoGlobal(nAutonomasHoy: number): { titulo: string; subtitulo: string } {
+  if (nAutonomasHoy > 0) {
+    const accion = nAutonomasHoy === 1 ? 'acción' : 'acciones';
+    return {
+      titulo: 'Ya te ocupaste de lo de hoy.',
+      subtitulo: `Tentare ha resuelto ${nAutonomasHoy} ${accion} automáticamente. Nada más necesita tu criterio por ahora.`,
+    };
+  }
+  return {
+    titulo: 'Todo bajo control.',
+    subtitulo: 'No hay ninguna acción pendiente que requiera tu criterio ahora mismo.',
+  };
+}
+
+export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, procesando, whatsappHref, nAutonomasHoy = 0 }: {
   veredicto: VeredictoAPI;
   onHecho: () => void;
   onYaLoSe: () => void;
   onPosponer: () => void;
   procesando?: boolean;
   whatsappHref?: string | null;
+  /** Reorganización Centro de Control §1: cuántas acciones ejecutó el piloto
+   * automático hoy sin esperar criterio — cambia el titular de "nada
+   * pendiente" para que se note que Tentare ya trabajó, no solo que calló. */
+  nAutonomasHoy?: number;
 }) {
   const [porQueAbierto, setPorQueAbierto] = useState(false);
   const [queRevisoAbierto, setQueRevisoAbierto] = useState(false);
@@ -43,16 +65,18 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
   }
 
   if (veredicto.tipo === 'SILENCIO') {
+    const { titulo, subtitulo } = tituloEstadoGlobal(nAutonomasHoy);
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
           <div aria-hidden className="h-8 w-8 rounded-full" style={{ border: '2.5px solid var(--success)' }} />
-          <h2 className="font-heading text-[18px] font-semibold text-foreground">
-            {veredicto.semanaTranquila ? 'Esta semana no hubo nada que mereciera interrumpirte.' : 'Todo va bien.'}
-          </h2>
-          <p className="max-w-sm text-[13.5px] text-muted-foreground">
-            No he encontrado nada que necesite tu criterio {veredicto.semanaTranquila ? 'estos días' : 'hoy'}.
-          </p>
+          <h2 className="font-heading text-[18px] font-semibold text-foreground">{titulo}</h2>
+          <p className="max-w-sm text-[13.5px] text-muted-foreground">{subtitulo}</p>
+          {veredicto.semanaTranquila && (
+            <p className="max-w-sm text-[12.5px] text-muted-foreground">
+              Esta semana no hubo nada que mereciera interrumpirte.
+            </p>
+          )}
           <button
             type="button"
             onClick={() => setQueRevisoAbierto(v => !v)}
@@ -78,12 +102,13 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
   // nota (arriba del todo, antes de Seguimiento). Mismo tratamiento visual
   // que SILENCIO, pero reconociendo que sí hubo algo y ya se gestionó.
   if (!r) {
+    const { titulo, subtitulo } = tituloEstadoGlobal(nAutonomasHoy);
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
           <div aria-hidden className="h-8 w-8 rounded-full" style={{ border: '2.5px solid var(--success)' }} />
-          <h2 className="font-heading text-[18px] font-semibold text-foreground">Ya te ocupaste de lo de hoy.</h2>
-          <p className="max-w-sm text-[13.5px] text-muted-foreground">Nada más necesita tu criterio por ahora.</p>
+          <h2 className="font-heading text-[18px] font-semibold text-foreground">{titulo}</h2>
+          <p className="max-w-sm text-[13.5px] text-muted-foreground">{subtitulo}</p>
         </CardContent>
       </Card>
     );

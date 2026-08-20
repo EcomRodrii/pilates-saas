@@ -1,5 +1,7 @@
 // ─── Core types ──────────────────────────────────────────────────────────────
 
+import type { EspecialidadNetwork } from '@/lib/network/catalogo.ts';
+
 export type Rol = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION' | 'MANAGER';
 export type EstadoSuscripcion = 'ACTIVA' | 'PAUSADA' | 'CANCELADA' | 'EXPIRADA';
 export type TipoPlan = 'MENSUAL' | 'BONO' | 'PUNTUAL';
@@ -103,6 +105,9 @@ export interface Studio {
   subscriptionId: string | null;
   subscriptionStatus: string | null;
   currentPeriodEnd: string | null;
+  /** Fin de la prueba gratuita LOCAL de 7 días (sin tarjeta). null = sin prueba
+   *  local. Lo fija un trigger de la BD al crear el estudio, nunca el cliente. */
+  trialEndsAt: string | null;
   // Política de reservas y cancelaciones (auditoría C-2/C-4).
   cancelacionVentanaHoras: number;
   cancelacionDevolverBonoTardia: boolean;
@@ -245,8 +250,18 @@ export interface Integracion {
   studioId: string;
   tipo: TipoIntegracion;
   activo: boolean;
-  config: Record<string, string>;
+  // ⚠️ `config` NO viaja al navegador. Las credenciales (token de WhatsApp,
+  // clave de Kisi) solo llegan al abrir el modal de edición, vía
+  // GET /api/integrations/config — no en cada carga del panel. Si necesitas
+  // leerlas en cliente, pídelas ahí; que no estén en este tipo es a propósito,
+  // para que el compilador lo impida en vez de que se cuele otra vez.
   actualizadoEn: string;
+  // Salud real del servicio, no del formulario (ver lib/integraciones/salud.ts).
+  // `activo` solo dice que el estudio la encendió; estas tres dicen si el
+  // servicio de verdad respondió la última vez que se habló con él.
+  ultimoOkEn: string | null;
+  ultimoError: string | null;
+  ultimoErrorEn: string | null;
 }
 
 export interface Usuario {
@@ -493,6 +508,12 @@ export interface PlanTarifa {
   // Permite el "Bono 10 Reformer" que no sirve para Mat.
   tiposClaseIds?: string[];
   activo: boolean;
+  // P2 (auditoría "Veredicto de Marta"): fecha de fin de una oferta temporal
+  // sobre `precio` — PURAMENTE informativa, no cambia ningún cálculo de
+  // dinero. La propietaria sigue fijando el precio rebajado a mano en
+  // `precio`; esto solo pinta un aviso para que se acuerde de subirlo de
+  // vuelta al pasar la fecha. null = sin oferta activa.
+  ofertaHasta?: string | null;
 }
 
 export interface Suscripcion {
@@ -653,6 +674,11 @@ export interface TipoClase {
   // Fase 3 (migr 20260730225253): mismo patrón de override, resuelto en SQL
   // directo dentro de cancelar_reserva_plaza (ver comentario en Studio).
   penalizacionImporteEur: number | null;
+  // Fase 11 de Network↔Sustituciones (migr 20260818010000): traduce este tipo
+  // de clase al catálogo fijo de Tentare Network (lib/network/catalogo.ts).
+  // null = sin mapear, no genera sugerencias de sustitutas de Network para
+  // este tipo de clase — nunca un matching aproximado por texto.
+  especialidadNetwork: EspecialidadNetwork | null;
 }
 
 export interface FavoritoClase {
@@ -715,6 +741,15 @@ export interface Instructor {
   // muestra nada. Pasa a mapInstructorPublico() sin filtrar: es un dato
   // pensado para mostrarse a visitantes anónimos.
   bio?: string | null;
+  /**
+   * Su nota, agregada de `valoraciones`. Ausente = nadie la ha valorado.
+   *
+   * ⚠️ Va la MEDIA y el TOTAL, nunca la media sola: quien la pinte necesita el
+   * total para decidir si se puede enseñar. Con dos valoraciones un «5,0» dice
+   * que es perfecta cuando lo que pasa es que la han puntuado dos veces. Ver
+   * `lib/portal-tema/valoracion.ts`.
+   */
+  valoracion?: { media: number; total: number };
 }
 
 // P1 auditoría Momence-vs-Tentare: una sustitución YA confirmada para una

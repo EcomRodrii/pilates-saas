@@ -4,9 +4,10 @@ import assert from 'node:assert/strict';
 import type { Suscripcion, PlanTarifa } from '@/lib/types';
 import {
   hayAlgoQueContratar,
-  bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo,
+  bonoConsumible, bonoDevolvible, calcularConsumoBono, tieneEntitlementActivo,
   calcularFechaFinBono, superaLimiteSemanal, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
+  saldoSesionesBono,
 } from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -106,17 +107,50 @@ test('calcularConsumoBono nunca baja de 0', () => {
   assert.deepEqual(calcularConsumoBono(0), { nuevasRestantes: 0, agotado: true });
 });
 
-// ── calcularDevolucionBono ───────────────────────────────────────────────────
-test('calcularDevolucionBono suma una sesión', () => {
-  assert.equal(calcularDevolucionBono(2, 10), 3);
+// ── bonoDevolvible (I-5) ─────────────────────────────────────────────────────
+// El tope ya no se calcula aquí: lo aplica la RPC `devolver_sesion_bono` dentro
+// de su WHERE (I-10). Lo que se prueba aquí es a QUÉ bono hay que devolverle la
+// sesión, que es donde estaba el fallo.
+
+test('bonoDevolvible SÍ elige un bono agotado — el caso que bonoConsumible descarta', () => {
+  const suscripciones = [sus({ id: 's-0', socioId: 'a', planId: 'p1', sesionesRestantes: 0 })];
+  const planes = [plan({ id: 'p1', tipo: 'BONO', sesiones: 10 })];
+  // Este es el bug I-5: cancelar la clase que gastó la ÚLTIMA sesión no
+  // devolvía nada, porque un bono a 0 no es "consumible".
+  assert.equal(bonoConsumible('a', suscripciones, planes), null);
+  assert.equal(bonoDevolvible('a', suscripciones, planes)?.suscripcion.id, 's-0');
 });
 
-test('calcularDevolucionBono no supera el total del plan', () => {
-  assert.equal(calcularDevolucionBono(10, 10), 10);
+test('bonoDevolvible ignora el bono que ya está al total del plan (no hay hueco)', () => {
+  const suscripciones = [sus({ id: 's-lleno', socioId: 'a', planId: 'p1', sesionesRestantes: 10 })];
+  assert.equal(bonoDevolvible('a', suscripciones, [plan({ id: 'p1', tipo: 'BONO', sesiones: 10 })]), null);
 });
 
-test('calcularDevolucionBono sin tope de plan (sesiones null) suma sin límite', () => {
-  assert.equal(calcularDevolucionBono(99, null), 100);
+test('bonoDevolvible con un plan sin tope de sesiones siempre admite la devolución', () => {
+  const suscripciones = [sus({ id: 's-x', socioId: 'a', planId: 'p1', sesionesRestantes: 99 })];
+  assert.equal(bonoDevolvible('a', suscripciones, [plan({ id: 'p1', tipo: 'BONO', sesiones: null })])?.suscripcion.id, 's-x');
+});
+
+test('bonoDevolvible respeta la cobertura por tipo de clase, igual que consumir', () => {
+  const suscripciones = [sus({ id: 's-ref', socioId: 'a', planId: 'p-ref', sesionesRestantes: 0 })];
+  const planes = [plan({ id: 'p-ref', tipo: 'BONO', sesiones: 10, tiposClaseIds: ['tc-reformer'] })];
+  assert.equal(bonoDevolvible('a', suscripciones, planes, '2026-07-26', 'tc-reformer')?.suscripcion.id, 's-ref');
+  assert.equal(bonoDevolvible('a', suscripciones, planes, '2026-07-26', 'tc-mat'), null);
+});
+
+test('bonoDevolvible no resucita un bono caducado', () => {
+  const suscripciones = [sus({ id: 's-cad', socioId: 'a', planId: 'p1', sesionesRestantes: 0, fechaFin: '2026-07-01' })];
+  assert.equal(bonoDevolvible('a', suscripciones, [plan({ id: 'p1', tipo: 'BONO' })], '2026-07-25'), null);
+});
+
+test('bonoDevolvible usa el MISMO orden que consumir: devuelve al que caduca antes', () => {
+  const suscripciones = [
+    sus({ id: 's-tarde', socioId: 'a', planId: 'p1', sesionesRestantes: 0, fechaFin: '2026-12-31' }),
+    sus({ id: 's-pronto', socioId: 'a', planId: 'p1', sesionesRestantes: 0, fechaFin: '2026-08-31' }),
+  ];
+  // Si el orden divergiera del de consumir, se devolvería a un bono distinto del
+  // que se descontó.
+  assert.equal(bonoDevolvible('a', suscripciones, [plan({ id: 'p1', tipo: 'BONO' })], '2026-07-25')?.suscripcion.id, 's-pronto');
 });
 
 // ── tieneEntitlementActivo (C-4) ──────────────────────────────────────────────
@@ -393,4 +427,74 @@ test('la caducidad sigue mandando entre los que SÍ tienen saldo', () => {
   ];
   const planes = [plan({ id: 'p1', tipo: 'BONO', sesiones: 4 })];
   assert.equal(bonoConsumible('a', suscripciones, planes, '2026-08-11')?.suscripcion.id, 's-pronto');
+});
+
+// ── saldoSesionesBono ────────────────────────────────────────────────────────
+//
+// El caso de producción del 2026-08-18: 6 bonos activos, 17 sesiones pagadas, y
+// todas las pantallas enseñando el saldo de uno solo. Comprar otro bono no
+// recarga el anterior (los bonos con saldo conviven a propósito), así que
+// "cuánto le queda" solo se responde sumando.
+
+const HOY_S = '2026-08-18';
+
+test('saldoSesionesBono suma TODOS los bonos vigentes, no el primero', () => {
+  const suscripciones = [
+    sus({ id: 's1', socioId: 'a', planId: 'p1', sesionesRestantes: 3, fechaFin: '2026-10-10' }),
+    sus({ id: 's2', socioId: 'a', planId: 'p1', sesionesRestantes: 4, fechaFin: '2026-10-17' }),
+    sus({ id: 's3', socioId: 'a', planId: 'p1', sesionesRestantes: 2, fechaFin: '2026-10-08' }),
+  ];
+  const planes = [plan({ id: 'p1', tipo: 'BONO', sesiones: 4 })];
+  assert.deepEqual(saldoSesionesBono('a', suscripciones, planes, HOY_S), { restantes: 9, total: 12, bonos: 3 });
+});
+
+test('saldoSesionesBono: comprar otro bono sube el saldo', () => {
+  const planes = [plan({ id: 'p1', tipo: 'BONO', sesiones: 4 })];
+  const antes = [sus({ id: 's1', socioId: 'a', planId: 'p1', sesionesRestantes: 3 })];
+  const despues = [...antes, sus({ id: 's2', socioId: 'a', planId: 'p1', sesionesRestantes: 4 })];
+  assert.equal(saldoSesionesBono('a', antes, planes, HOY_S)?.restantes, 3);
+  assert.equal(saldoSesionesBono('a', despues, planes, HOY_S)?.restantes, 7);
+});
+
+test('saldoSesionesBono no cuenta caducados, PAUSADAS ni de otra socia', () => {
+  const planes = [plan({ id: 'p1', tipo: 'BONO', sesiones: 4 })];
+  const suscripciones = [
+    sus({ id: 's1', socioId: 'a', planId: 'p1', sesionesRestantes: 4, fechaFin: '2026-08-17' }), // caducado ayer
+    sus({ id: 's2', socioId: 'a', planId: 'p1', sesionesRestantes: 4, estado: 'PAUSADA' }),
+    sus({ id: 's3', socioId: 'b', planId: 'p1', sesionesRestantes: 4 }),
+    sus({ id: 's4', socioId: 'a', planId: 'p1', sesionesRestantes: 1, fechaFin: HOY_S }), // caduca HOY: vale
+  ];
+  assert.deepEqual(saldoSesionesBono('a', suscripciones, planes, HOY_S), { restantes: 1, total: 4, bonos: 1 });
+});
+
+test('saldoSesionesBono: un bono agotado cuenta en el denominador, no en el saldo', () => {
+  // Si saliera del total, «12/24» pasaría a «12/20» al gastar un bono entero:
+  // el total comprado bajaría solo. Mismo criterio que bonos-portal.
+  const planes = [plan({ id: 'p1', tipo: 'BONO', sesiones: 4 })];
+  const suscripciones = [
+    sus({ id: 's1', socioId: 'a', planId: 'p1', sesionesRestantes: 0 }),
+    sus({ id: 's2', socioId: 'a', planId: 'p1', sesionesRestantes: 4 }),
+  ];
+  assert.deepEqual(saldoSesionesBono('a', suscripciones, planes, HOY_S), { restantes: 4, total: 8, bonos: 2 });
+});
+
+test('saldoSesionesBono: sin bonos devuelve null, no 0', () => {
+  // Un 0 se lee como «se le acabó»; null es «no tiene nada que contar».
+  const planes = [plan({ id: 'p1', tipo: 'MENSUAL', sesiones: null })];
+  const suscripciones = [sus({ socioId: 'a', planId: 'p1', sesionesRestantes: null })];
+  assert.equal(saldoSesionesBono('a', suscripciones, planes, HOY_S), null);
+  assert.equal(saldoSesionesBono('a', [], planes, HOY_S), null);
+});
+
+test('saldoSesionesBono respeta los tipos de clase del bono', () => {
+  const planes = [
+    plan({ id: 'p-ref', tipo: 'BONO', sesiones: 10, tiposClaseIds: ['tc-reformer'] }),
+    plan({ id: 'p-mat', tipo: 'BONO', sesiones: 5, tiposClaseIds: ['tc-mat'] }),
+  ];
+  const suscripciones = [
+    sus({ id: 's1', socioId: 'a', planId: 'p-ref', sesionesRestantes: 6 }),
+    sus({ id: 's2', socioId: 'a', planId: 'p-mat', sesionesRestantes: 2 }),
+  ];
+  assert.equal(saldoSesionesBono('a', suscripciones, planes, HOY_S, 'tc-mat')?.restantes, 2);
+  assert.equal(saldoSesionesBono('a', suscripciones, planes, HOY_S)?.restantes, 8, 'sin clase concreta, todo');
 });

@@ -111,6 +111,37 @@ test('cambios de clase: avisan a las alumnas Y a quien la imparte', () => {
   assert.match(render(pl.body, { clase: 'Reformer', cuando: 'lunes a las 9:00' }), /Reformer.*lunes a las 9:00/);
 });
 
+test('red.candidatura_recibida: plantilla para PROPIETARIO y MANAGER (gerencia), sin recepción', () => {
+  assert.deepEqual(ROLES_POR_AUDIENCIA[REGLAS[EVENTOS.RED_CANDIDATURA_RECIBIDA].audiencia], ['PROPIETARIO', 'MANAGER']);
+  for (const rol of ROLES_POR_AUDIENCIA[REGLAS[EVENTOS.RED_CANDIDATURA_RECIBIDA].audiencia]) {
+    assert.ok(plantillaDe(EVENTOS.RED_CANDIDATURA_RECIBIDA, rol), `falta plantilla red.candidatura_recibida#${rol}`);
+  }
+  const pl = plantillaDe(EVENTOS.RED_CANDIDATURA_RECIBIDA, 'PROPIETARIO')!;
+  assert.match(render(pl.body, { profesional: 'Laura', vacanteTitulo: 'Reformer' }), /Laura.*Reformer/);
+  assert.equal(pl.deepLink!({ vacanteId: 'redvac-1' }), '/network/vacantes/redvac-1');
+});
+
+test('reserva.pagada_sin_plaza (I-3): ALTA + PUSH al mostrador, con plantilla en sus tres roles', () => {
+  const r = REGLAS[EVENTOS.RESERVA_PAGADA_SIN_PLAZA];
+  assert.equal(r.priority, 'ALTA');
+  assert.deepEqual(r.canales, ['PUSH']);
+  assert.equal(r.audiencia, 'mostrador');
+  for (const rol of ROLES_POR_AUDIENCIA[r.audiencia]) {
+    assert.ok(plantillaDe(EVENTOS.RESERVA_PAGADA_SIN_PLAZA, rol), `falta plantilla reserva.pagada_sin_plaza#${rol}`);
+  }
+  const pl = plantillaDe(EVENTOS.RESERVA_PAGADA_SIN_PLAZA, 'PROPIETARIO')!;
+  assert.match(render(pl.body, { socia: 'María', clase: 'Reformer', cuando: 'hoy a las 18:00' }), /María.*Reformer.*hoy a las 18:00/);
+  assert.equal(pl.deepLink!({ sesionId: 'ses1' }), '/calendario?sesion=ses1');
+});
+
+test('red.vacante_encaja: solo PUSH (único push no solicitado de Network), plantilla INSTRUCTOR', () => {
+  const regla = REGLAS[EVENTOS.RED_VACANTE_ENCAJA];
+  assert.deepEqual(regla.canales, ['PUSH']);
+  assert.deepEqual(ROLES_POR_AUDIENCIA[regla.audiencia], ['INSTRUCTOR']);
+  const pl = plantillaDe(EVENTOS.RED_VACANTE_ENCAJA, 'INSTRUCTOR')!;
+  assert.match(render(pl.body, { titulo: 'Instructora de Reformer' }), /Instructora de Reformer/);
+});
+
 test('clase cubierta: dice que la clase SIGUE, y con nombre y apellidos', () => {
   // Solo las alumnas: a quien entra a cubrir ya le llega sustitucion.aceptada.
   assert.equal(REGLAS[EVENTOS.CLASE_SUSTITUTA].audiencia, 'socias-de-la-sesion');
@@ -133,22 +164,83 @@ function fakeAdmin() {
   const notifs: Record<string, unknown>[] = [];
   const deliveries: Record<string, unknown>[] = [];
   const dedup = new Set<string>();
-  const chain = {
-    select() { return chain; }, eq() { return chain; }, is() { return chain; }, limit() { return chain; },
+
+  function insertarUna(row: Record<string, unknown>): { error: { code: string } | null } {
+    // Detecta la tabla por una columna característica de la fila.
+    if ('recipient_role' in row) {
+      const k = row.dedup_key as string | null;
+      if (k && dedup.has(k)) return { error: { code: '23505' } };
+      if (k) dedup.add(k);
+      notifs.push(row); return { error: null };
+    }
+    if ('channel' in row) { deliveries.push(row); return { error: null }; }
+    return { error: null };
+  }
+
+  // Genérico: vale para `notification`/`notification_preference`/etc, donde
+  // `maybeSingle()` sin más contexto que devolver null es lo correcto (no hay
+  // fixtures de preferencias en estos tests → siempre cae a PREF_DEFECTO).
+  const chainGenerico = {
+    select() { return chainGenerico; }, eq() { return chainGenerico; }, is() { return chainGenerico; },
+    limit() { return chainGenerico; }, neq() { return chainGenerico; }, lt() { return chainGenerico; },
     maybeSingle: async () => ({ data: null }),
-    async insert(row: Record<string, unknown>) {
-      // Detecta la tabla por una columna característica de la fila.
-      if ('recipient_role' in row) {
-        const k = row.dedup_key as string | null;
-        if (k && dedup.has(k)) return { error: { code: '23505' } };
-        if (k) dedup.add(k);
-        notifs.push(row); return { error: null };
+    async insert(row: Record<string, unknown> | Record<string, unknown>[]) {
+      const filas = Array.isArray(row) ? row : [row];
+      for (const r of filas) {
+        const res = insertarUna(r);
+        if (res.error) return res;
       }
-      if ('channel' in row) { deliveries.push(row); return { error: null }; }
       return { error: null };
     },
   };
-  const admin = { from: () => chain } as unknown as Parameters<typeof procesarEvento>[0];
+
+  // C-5: SOLO para `notification_delivery` — `reclamarODejarConstancia`
+  // busca la fila PENDING que `crearInApp` ya escribió (por notification_id +
+  // channel). Este fake no filtra por columna (no lleva `eq()` con estado
+  // real), así que busca la ÚLTIMA fila insertada que siga en PENDING — es
+  // lo mismo que "la que crearInApp acaba de dejar y nadie ha resuelto
+  // todavía". Aislado en su PROPIA tabla (`from('notification_delivery')`)
+  // para no interferir con `maybeSingle()` de otras tablas como
+  // `notification_preference` (`preferenciaDe`), que deben seguir viendo
+  // `{data: null}` sin fixtures.
+  const chainDelivery = {
+    select() { return chainDelivery; }, eq() { return chainDelivery; }, is() { return chainDelivery; },
+    limit() { return chainDelivery; }, neq() { return chainDelivery; }, lt() { return chainDelivery; },
+    maybeSingle: async () => {
+      const pendiente = [...deliveries].reverse().find(d => d.status === 'PENDING');
+      return { data: pendiente ?? null };
+    },
+    update(cambios: Record<string, unknown>) {
+      const upd = {
+        eq() { return upd; },
+        select() { return upd; },
+        maybeSingle: async () => {
+          const fila = [...deliveries].reverse().find(d => d.status === 'PENDING');
+          if (!fila) return { data: null };
+          Object.assign(fila, cambios);
+          return { data: { id: fila.id } };
+        },
+        then: (res: (v: { data: null; error: null }) => unknown) => {
+          const fila = [...deliveries].reverse().find(d => d.status === 'PENDING');
+          if (fila) Object.assign(fila, cambios);
+          return res({ data: null, error: null });
+        },
+      };
+      return upd;
+    },
+    async insert(row: Record<string, unknown> | Record<string, unknown>[]) {
+      const filas = Array.isArray(row) ? row : [row];
+      for (const r of filas) {
+        const res = insertarUna(r);
+        if (res.error) return res;
+      }
+      return { error: null };
+    },
+  };
+
+  const admin = {
+    from: (tabla: string) => (tabla === 'notification_delivery' ? chainDelivery : chainGenerico),
+  } as unknown as Parameters<typeof procesarEvento>[0];
   return { admin, notifs, deliveries };
 }
 
@@ -300,8 +392,11 @@ test('crearInApp escribe la notificación y su entrega in-app, sin canales exter
   assert.equal(r.creadas.length, 1);
   assert.equal(notifs.length, 1);
   assert.equal(notifs[0].title, 'Reserva confirmada');
-  // Solo la entrega in-app; el push queda pendiente para la cola.
-  assert.deepEqual(deliveries.map(d => `${d.channel}:${d.status}`), ['INAPP:SENT']);
+  // La entrega in-app se resuelve en el acto; el push queda como fila PENDING
+  // durable (C-5) — antes no existía ninguna hasta que el salto HTTP a
+  // /api/notifications/deliver se ejecutaba de verdad; ahora sobrevive aunque
+  // ese salto nunca llegue a intentarse.
+  assert.deepEqual(deliveries.map(d => `${d.channel}:${d.status}`).sort(), ['INAPP:SENT', 'PUSH:PENDING']);
   assert.deepEqual(r.creadas[0].canalesExtra, ['PUSH']);
   // Devuelve la fila lista para entregar, sin volver a leer de BD.
   assert.equal(r.creadas[0].fila.id, r.creadas[0].id);

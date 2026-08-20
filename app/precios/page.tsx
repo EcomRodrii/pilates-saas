@@ -7,6 +7,7 @@ import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { FeatureFaq } from '@/components/funcionalidades/bloques';
+import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLANES, PLAN_ENTITLEMENTS, PLAN_INFO, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
 import { funcionalidades, paginaDe, urlDe, BASE_URL } from '@/lib/seo/paginas';
 import { LEGAL } from '@/lib/legal-info';
@@ -26,8 +27,8 @@ export const metadata: Metadata = {
 // mano aquí sería la vía rápida a una página de precios que promete un límite
 // distinto del que aplica el servidor.
 const RESUMEN: Record<Plan, { gancho: string; para: string; cta: string }> = {
-  BASE: { gancho: 'Para empezar', para: 'Un estudio con una sala y una o dos instructoras.', cta: 'Crear mi estudio' },
-  ESTUDIO: { gancho: 'El más elegido', para: 'Un estudio en marcha, con equipo y horario completo.', cta: 'Crear mi estudio' },
+  BASE: { gancho: 'Para empezar', para: 'Un estudio con una sala y una o dos instructoras.', cta: 'Empezar gratis' },
+  ESTUDIO: { gancho: 'El más elegido', para: 'Un estudio en marcha, con equipo y horario completo.', cta: 'Empezar gratis' },
   CADENA: { gancho: 'Varias sedes', para: 'Dos o más centros bajo la misma marca.', cta: 'Hablar con nosotros' },
 };
 
@@ -36,28 +37,22 @@ function tope(plan: Plan): string {
   return max === Infinity ? 'Sin límite de alumnas' : `Hasta ${max} alumnas activas`;
 }
 
-// Solo se listan features que un estudio puede USAR hoy. `marketing`, `ia` y
-// `gamificacion` existen en los entitlements pero su módulo está desactivado en
-// el producto (lib/feature-flags.ts / lib/frozen-features.ts): anunciarlas aquí
-// sería vender una pantalla a la que nadie puede llegar.
-const COMPARATIVA: { fila: string; valor: (p: Plan) => string }[] = [
-  { fila: 'Alumnas activas', valor: (p) => (PLAN_ENTITLEMENTS[p].maxSocios === Infinity ? 'Sin límite' : String(PLAN_ENTITLEMENTS[p].maxSocios)) },
-  { fila: 'Reservas, calendario y salas', valor: () => 'Incluido' },
-  { fila: 'Bonos, cuotas y plazas fijas', valor: () => 'Incluido' },
-  { fila: 'Cobros y facturación Veri*Factu', valor: () => 'Incluido' },
-  { fila: 'Fichas de alumna y ficha de salud', valor: () => 'Incluido' },
-  { fila: 'Automatizaciones y avisos', valor: () => 'Incluido' },
-  { fila: 'Sustituciones manual y asistida', valor: () => 'Incluido' },
-  { fila: 'Sustituciones autónomas y modo Vacaciones', valor: (p) => (PLAN_ENTITLEMENTS[p].features.sustitucionesAutonomas ? 'Sí' : '—') },
-  { fila: 'App de marca para tus alumnas', valor: (p) => (PLAN_ENTITLEMENTS[p].features.marca ? 'Sí' : '—') },
-  { fila: 'Centro de Control con recomendaciones', valor: (p) => (PLAN_ENTITLEMENTS[p].features.decisiones ? 'Sí' : '—') },
-  { fila: 'Varias sedes en un mismo panel', valor: (p) => (PLAN_ENTITLEMENTS[p].features.multiCentro ? 'Sí' : '—') },
-];
+// La comparativa por categorías vive en lib/billing/catalogo-planes.ts y la
+// pinta <ComparativaPlanes>. Esta página tenía su propia lista de 11 filas
+// escrita a mano, y /suscripcion otra distinta de 4 bullets por plan: dos
+// promesas del mismo producto que ya habían empezado a separarse. El
+// comentario que había aquí excluía `marketing`, `ia` y `gamificacion` por
+// estar desactivadas — dejó de ser cierto el 2026-08-13, cuando
+// MARKETING_MODULE_ENABLED volvió a true, y nadie lo revisó.
 
 const FAQ = [
   {
     q: `¿La prueba de ${TRIAL_DIAS} días pide tarjeta?`,
-    a: `Sí. La prueba dura ${TRIAL_DIAS} días y se activa con tarjeta a través de Stripe; no se cobra nada durante ese periodo y puedes cancelar antes de que termine. Pedirla evita el trabajo de montar un estudio entero para descubrir después que la forma de pago no encaja.`,
+    a: `No. Creas tu estudio y entras: ${TRIAL_DIAS} días con todo abierto sin darnos ningún dato de pago. Al terminar no se te cobra nada — si no eliges plan, la prueba simplemente se acaba y tus datos siguen ahí intactos, sin borrar nada.`,
+  },
+  {
+    q: `¿Qué pasa exactamente cuando terminan los ${TRIAL_DIAS} días?`,
+    a: 'Que dejas de poder entrar al panel hasta que elijas un plan. No se borra nada: tus alumnas, tus clases, tus bonos y tus facturas siguen donde estaban, y en cuanto contrates vuelves a encontrarlo todo tal cual lo dejaste. Tus alumnas tampoco pierden su historial.',
   },
   {
     q: '¿Hay permanencia?',
@@ -121,7 +116,10 @@ export default function PreciosPage() {
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 18px' }}>Precio público.<br />Sin permanencia.</h1>
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, margin: '0 auto', maxWidth: 560 }}>
             Tres planes, publicados. Sin «solicita una demo para saber el precio», sin comisión sobre tus cobros y sin
-            contrato anual. Prueba de {TRIAL_DIAS} días.
+            contrato anual.
+          </p>
+          <p className="lp-mono" style={{ display: 'inline-block', marginTop: 20, padding: '8px 16px', borderRadius: 999, background: ACC, color: '#D9C29E', fontSize: 13, fontWeight: 700 }}>
+            {TRIAL_DIAS} días gratis · Sin tarjeta de crédito
           </p>
         </div>
       </header>
@@ -168,35 +166,7 @@ export default function PreciosPage() {
             Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es el tamaño y cuánto
             trabaja el sistema por su cuenta.
           </p>
-          <div style={{ border: '1px solid #E7E7E0', borderRadius: 18, overflow: 'hidden', background: '#fff' }}>
-            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <table style={{ width: '100%', minWidth: 620, borderCollapse: 'separate', borderSpacing: 0, fontSize: 14.5 }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: 'left', padding: '15px 18px', fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8E8E86', background: '#F5F5F1', borderBottom: '1px solid #E7E7E0', minWidth: 260 }}>Funcionalidad</th>
-                    {PLANES.map((p) => (
-                      <th key={p} style={{ textAlign: 'left', padding: '15px 16px', fontSize: 13, fontWeight: 700, color: p === 'ESTUDIO' ? '#D9C29E' : '#5A5A52', background: p === 'ESTUDIO' ? ACC : '#F5F5F1', borderBottom: `1px solid ${p === 'ESTUDIO' ? ACC : '#E7E7E0'}` }}>
-                        {PLAN_INFO[p].nombre}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {COMPARATIVA.map((f, i) => (
-                    <tr key={f.fila}>
-                      <td style={{ padding: '13px 18px', borderBottom: i === COMPARATIVA.length - 1 ? 'none' : '1px solid #F0F0EA', fontWeight: 600, color: '#1A1A1A' }}>{f.fila}</td>
-                      {PLANES.map((p) => {
-                        const v = f.valor(p);
-                        return (
-                          <td key={p} style={{ padding: '13px 16px', borderBottom: i === COMPARATIVA.length - 1 ? 'none' : '1px solid #F0F0EA', color: v === '—' ? '#C4C4BC' : '#4A4A44', background: p === 'ESTUDIO' ? '#FAFBF6' : undefined }}>{v}</td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <ComparativaPlanes todoAbierto destacado="ESTUDIO" />
           <p className="lp-mono" style={{ fontSize: 11.5, color: '#A8A89F', margin: '14px 0 0' }}>
             Cada funcionalidad tiene su página con el detalle: <Link href="/funcionalidades" style={{ color: ACC }}>ver todas</Link>
           </p>

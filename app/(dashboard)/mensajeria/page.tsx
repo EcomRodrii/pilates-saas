@@ -10,6 +10,22 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
+import type { LeadStage } from '@/lib/types';
+
+// P2 (auditoría "Veredicto de Marta"): mismas etiquetas de etapa que
+// /clientas (app/(dashboard)/clientas/page.tsx) — un texto por rol en cada
+// sitio sería fácil de dejar divergir.
+const ETAPA_OPTIONS: { id: LeadStage; label: string }[] = [
+  { id: 'LEAD', label: 'Lead (primer contacto)' },
+  { id: 'INTERESADA', label: 'Interesada' },
+  { id: 'PRUEBA', label: 'En prueba' },
+  { id: 'ACTIVA', label: 'Activa (convertida)' },
+  { id: 'EN_RIESGO', label: 'En riesgo' },
+  { id: 'PERDIDA', label: 'Perdida' },
+];
+
+type SocioParaBroadcast = { id: string; nombre: string; apellidos: string; email: string; leadStage?: LeadStage; tags?: string[] };
+type ModoDestinatario = 'todos' | 'etapa' | 'etiqueta' | 'persona';
 
 type Tab = 'notificaciones' | 'comunidad' | 'enviar';
 
@@ -33,18 +49,36 @@ const TIPO_ICON = {
 
 // ── Message composer ──────────────────────────────────────────────────────────
 
-function Compositor({ socios }: { socios: { id: string; nombre: string; apellidos: string; email: string }[] }) {
+function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
   const uid = useId();
-  const [destinatario, setDestinatario] = useState<'todos' | string>('todos');
+  // P2 (auditoría "Veredicto de Marta"): antes solo "todas" o una persona —
+  // sin forma de avisar solo a las "En riesgo" o solo a quienes llevan la
+  // etiqueta "VIP". Reutiliza leadStage/tags, ya presentes en Socio y ya
+  // filtrables en /clientas — mismo modelo, sin dato nuevo.
+  const [modo, setModo] = useState<ModoDestinatario>('todos');
+  const [etapaSel, setEtapaSel] = useState<LeadStage | ''>('');
+  const [etiquetaSel, setEtiquetaSel] = useState('');
+  const [personaSel, setPersonaSel] = useState('');
   const [asunto, setAsunto] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<{ ok: number; fallidos: number } | null>(null);
 
+  const etiquetasDisponibles = useMemo(
+    () => Array.from(new Set(socios.flatMap(s => s.tags ?? []))).sort((a, b) => a.localeCompare(b, 'es')),
+    [socios],
+  );
+
+  const destinatarios = useMemo(() => {
+    if (modo === 'persona') return socios.filter(s => s.id === personaSel);
+    if (modo === 'etapa') return etapaSel ? socios.filter(s => s.leadStage === etapaSel) : [];
+    if (modo === 'etiqueta') return etiquetaSel ? socios.filter(s => (s.tags ?? []).includes(etiquetaSel)) : [];
+    return socios;
+  }, [modo, socios, etapaSel, etiquetaSel, personaSel]);
+
   async function enviar() {
-    if (!asunto.trim() || !mensaje.trim()) return;
+    if (!asunto.trim() || !mensaje.trim() || destinatarios.length === 0) return;
     setEnviando(true);
-    const destinatarios = destinatario === 'todos' ? socios : socios.filter(s => s.id === destinatario);
     // P0-33: concurrencia acotada en vez de un fetch por socio simultáneo (con
     // 200k socios, cientos de miles de promesas en vuelo cuelgan la pestaña y
     // saturan el backend de envío).
@@ -68,7 +102,10 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
     setResultado(null);
     setAsunto('');
     setMensaje('');
-    setDestinatario('todos');
+    setModo('todos');
+    setEtapaSel('');
+    setEtiquetaSel('');
+    setPersonaSel('');
   }
 
   if (resultado) {
@@ -97,15 +134,62 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
       <div>
         <label htmlFor={`${uid}-1`} className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5 block">Destinatario</label>
         <select id={`${uid}-1`}
-          value={destinatario}
-          onChange={e => setDestinatario(e.target.value)}
+          value={modo}
+          onChange={e => setModo(e.target.value as ModoDestinatario)}
           className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
         >
           <option value="todos">Todas las clientas ({socios.length})</option>
-          {socios.map(s => (
-            <option key={s.id} value={s.id}>{s.nombre} {s.apellidos}</option>
-          ))}
+          <option value="etapa">Por etapa del embudo…</option>
+          {etiquetasDisponibles.length > 0 && <option value="etiqueta">Por etiqueta…</option>}
+          <option value="persona">Una persona…</option>
         </select>
+        {modo === 'etapa' && (
+          <select
+            value={etapaSel}
+            onChange={e => setEtapaSel(e.target.value as LeadStage | '')}
+            className="w-full mt-2 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
+          >
+            <option value="">Elige una etapa</option>
+            {ETAPA_OPTIONS.map(o => (
+              <option key={o.id} value={o.id}>
+                {o.label} ({socios.filter(s => s.leadStage === o.id).length})
+              </option>
+            ))}
+          </select>
+        )}
+        {modo === 'etiqueta' && (
+          <select
+            value={etiquetaSel}
+            onChange={e => setEtiquetaSel(e.target.value)}
+            className="w-full mt-2 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
+          >
+            <option value="">Elige una etiqueta</option>
+            {etiquetasDisponibles.map(tag => (
+              <option key={tag} value={tag}>
+                {tag} ({socios.filter(s => (s.tags ?? []).includes(tag)).length})
+              </option>
+            ))}
+          </select>
+        )}
+        {modo === 'persona' && (
+          <select
+            value={personaSel}
+            onChange={e => setPersonaSel(e.target.value)}
+            className="w-full mt-2 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
+          >
+            <option value="">Elige una clienta</option>
+            {socios.map(s => (
+              <option key={s.id} value={s.id}>{s.nombre} {s.apellidos}</option>
+            ))}
+          </select>
+        )}
+        {modo !== 'todos' && (
+          <p className="text-xs text-muted-foreground mt-1.5">
+            {destinatarios.length === 0
+              ? 'Nadie coincide con este filtro todavía.'
+              : `Se enviará a ${destinatarios.length} clienta${destinatarios.length === 1 ? '' : 's'}.`}
+          </p>
+        )}
       </div>
       <div>
         <label htmlFor={`${uid}-2`} className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5 block">Asunto</label>
@@ -134,7 +218,7 @@ function Compositor({ socios }: { socios: { id: string; nombre: string; apellido
         </div>
         <button
           onClick={enviar}
-          disabled={enviando || !asunto.trim() || !mensaje.trim()}
+          disabled={enviando || !asunto.trim() || !mensaje.trim() || destinatarios.length === 0}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-bold transition-all disabled:opacity-40"
           style={{ backgroundColor: 'var(--brand)' }}
         >

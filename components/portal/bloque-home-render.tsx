@@ -9,6 +9,7 @@ import { coloresDe } from '@/lib/theme/superficie';
 import { resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto, type BloqueHome, type BloqueTipoCatalogo, type EstiloBloque, type ContenedorConfig } from '@/lib/portal-home-bloques';
 import { paraKind, type PropsBloqueRender } from '@/components/portal/bloques/registro-render';
 import { TextoRico } from './texto-rico';
+import { usePortalHref } from '@/components/portal/portal-preview-bridge';
 
 // Presentación de los bloques del catálogo (Fase 3) — banner/texto/cta/faq.
 // Los bloques `sistema` NO pasan por aquí: siguen siendo el JSX ya existente
@@ -70,6 +71,7 @@ function contenedorDe(estilo: EstiloBloque | undefined): React.CSSProperties {
 
 function BannerBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'banner' }>; slug: string }) {
   const { t, noche } = useModo();
+  const portalHref = usePortalHref();
   const { imagenUrl, titulo, texto: cuerpo, href } = bloque.config;
   const { estilo } = bloque;
   const resuelto = href ? resolverHrefBloque(href) : null;
@@ -113,7 +115,7 @@ function BannerBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'b
       {!resuelto ? (
         <div style={estiloBanner}>{contenido}</div>
       ) : resuelto.interno ? (
-        <Link href={`/portal/${slug}${resuelto.valor}`} style={estiloBanner}>{contenido}</Link>
+        <Link href={portalHref(`/${slug}${resuelto.valor}`)} style={estiloBanner}>{contenido}</Link>
       ) : (
         <a href={resuelto.valor} target="_blank" rel="noopener noreferrer" style={estiloBanner}>{contenido}</a>
       )}
@@ -136,6 +138,7 @@ function TextoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'texto' }
 
 function CtaBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'cta' }>; slug: string }) {
   const { t } = useModo();
+  const portalHref = usePortalHref();
   const { titulo, textoBoton, href } = bloque.config;
   const { estilo } = bloque;
   const resuelto = resolverHrefBloque(href)!; // BloqueHomeRender ya comprobó completoSi
@@ -154,7 +157,7 @@ function CtaBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'cta'
     }}>
       {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, t).ink }}>{titulo}</div>}
       {resuelto.interno ? (
-        <Link href={`/portal/${slug}${resuelto.valor}`} style={estiloBoton}>{textoBoton}</Link>
+        <Link href={portalHref(`/${slug}${resuelto.valor}`)} style={estiloBoton}>{textoBoton}</Link>
       ) : (
         <a href={resuelto.valor} target="_blank" rel="noopener noreferrer" style={estiloBoton}>{textoBoton}</a>
       )}

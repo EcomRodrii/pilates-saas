@@ -113,7 +113,9 @@ test.describe('Avisos', () => {
     // aserción tras llegar: `next dev` compila esta ruta bajo demanda.
     await expect(page.getByText('Dos cosas nuevas.')).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('button', { name: 'Volver a Inicio' }).click();
+    // `link`, no `button`: la flecha pasó a ser un enlace de verdad para que
+    // navegue sin depender de la hidratación.
+    await page.getByRole('link', { name: 'Volver a Inicio' }).click();
     // Timeout explícito: con `next dev`, la primera navegación a /home compila
     // la ruta bajo demanda y se pasa de los 5s por defecto.
     await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/home$`), { timeout: 30_000 });

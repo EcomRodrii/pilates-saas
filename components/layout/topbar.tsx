@@ -7,6 +7,7 @@ import { GlobalSearch } from '@/components/search/global-search';
 import { ProfileMenu } from '@/components/layout/profile-menu';
 import { IconButton } from '@/components/ui/icon-button';
 import { NotificationBell } from '@/components/notifications/notification-bell';
+import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { usePanelPrivacy } from '@/lib/panel-privacy';
 
 export function Topbar() {
@@ -44,6 +45,7 @@ export function Topbar() {
         />
       </div>
       <div className="flex items-center gap-1.5">
+        <PildoraPrueba className="mr-1" />
         <IconButton
           label={oculto ? 'Mostrar cifras' : 'Ocultar cifras (modo privacidad)'}
           icon={oculto ? EyeOff : Eye}

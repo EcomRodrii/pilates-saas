@@ -19,7 +19,7 @@
 import { useMemo, useState, useEffect, useId, type CSSProperties } from 'react';
 import {
   ChevronLeft, ChevronRight, Clock, MapPin, Users, X,
-  CheckCircle, AlertCircle, CalendarDays,
+  CheckCircle, AlertCircle, CalendarDays, Ticket,
 } from 'lucide-react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { NivelClase, EstadoReserva, Spot } from '@/lib/types';
@@ -33,6 +33,7 @@ import {
   agruparPorDia, etiquetaDia,
 } from '@/lib/reserva-calendario-logic';
 import { SpotPicker } from './spot-picker';
+import { TiraDias } from './tira-dias';
 
 // Instrument Sans, la misma familia sans que el resto de /reservar
 // (lib/reservar-publico-tokens.ts, que a su vez reexporta de portal-design.ts
@@ -82,6 +83,20 @@ export interface ReservaSlot {
    */
   miOfertaExpiraEn?: string | null;
   precio?: number | null;     // se muestra en el CTA si no hay cobertura de plan
+  /**
+   * §3 — Qué le cuesta a la alumna reservar ESTA clase, en una frase, ya
+   * resuelta por `lib/reservar/cobertura.ts` ("Descuenta 1 sesión de tu Bono 10
+   * Reformer · te quedarán 4", "Tu bono no cubre esta clase · 15 € como clase
+   * suelta"). Llega como texto y no como estructura a propósito: este
+   * componente también se compila en el bundle embebido (esbuild, Shadow DOM) y
+   * no debe arrastrar la lógica de bonos por una línea de copia.
+   *
+   * `null`/ausente = no hay nada honesto que decir (sin sesión y sin precio
+   * público configurado), y entonces no se pinta nada. Antes esto no existía:
+   * con plan que cubre, el botón decía "Reservar" a secas y la alumna no sabía
+   * qué se le iba a descontar.
+   */
+  coberturaTexto?: string | null;
 }
 
 export interface ReservaCalendarioProps {
@@ -128,8 +143,54 @@ export interface ReservaCalendarioProps {
   ventanaPorTipo?: Record<string, number>;
   /** Copys de estado vacío. */
   vacio?: { titulo: string; cuerpo: string };
+  /**
+   * Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md): la carga
+   * pública falló de verdad (red/servidor), a diferencia de "cero clases" —
+   * antes ambos casos eran indistinguibles (`cargarPublico` fallaba en
+   * silencio a un catálogo vacío). Presente = pinta el estado de error en vez
+   * del vacío, con el mismo hueco visual, en TODAS las variantes.
+   */
+  error?: { onReintentar: () => void; titulo?: string };
   fontFamily?: string;
+  /**
+   * Fase 1 del rediseño (docs/widget-reservas-theme-builder-diseno.md): la
+   * tira de 10 días con scroll horizontal de las pantallas 01/02 del handoff,
+   * en vez de la tira de SEMANA con paginación ‹ › de siempre. Por defecto
+   * 'semana' — cero cambio para cualquier caller existente (Modo B, "Mis
+   * reservas", vista Mes...). Solo Modo A la activa hoy, y solo en la tab
+   * "Clases"; el resto del componente (spot picker, hoja, estados vacíos,
+   * variant='lista') es idéntico en ambos estilos.
+   *
+   * `'grid'` (Fase 4, formato 06 "Calendario embebido"): rejilla de 7
+   * columnas con TODOS los días a la vez, en vez de tira+un-día. Solo la usa
+   * Modo B (`app/widget-bundle/main.tsx`) — es la única variante cuyos
+   * colores NO salen de `t`: el brief de diseño fija neutros de verdad
+   * (`docs/widget-reservas-fase4-brief-diseno.md`, formato 06) porque el
+   * widget corre en Shadow DOM dentro de la web de un tercero, sin el resto
+   * del tema del estudio alrededor. El único punto de marca sigue siendo
+   * `--portal-brand` (la hora de cada chip), que SÍ llega aquí — main.tsx ya
+   * lo fija en la raíz del shadow root.
+   */
+  estiloDias?: 'semana' | 'dias' | 'grid';
+  /**
+   * Fase 4 del rediseño: las clases de HOY que ya empezaron/terminaron, para
+   * pintarlas en gris con "FINALIZADA" en la tarjeta del día — `slots`
+   * arriba las excluye a propósito (filtra `inicio > ahora`, y de eso
+   * dependen Mes/Semana/RailFiltros, así que esa regla no se toca). Solo se
+   * pintan cuando `estiloDias === 'dias'` y el día elegido es hoy. Sin
+   * acción — no llevan `miReservaId`/aforo/precio, no se puede reservar algo
+   * que ya pasó.
+   */
+  finalizadasHoy?: { id: string; inicio: string; fin: string; claseNombre: string; instructorNombre: string | null; instructorColor: string | null; instructorFotoUrl: string | null }[];
 }
+
+// Neutros FIJOS del formato 06 — nunca `t`. Ver comentario de `estiloDias` arriba.
+const GRID_NEUTROS = {
+  bg: '#FFFFFF', ink: '#1A1A1A', mut: '#8A8A8A', mut2: '#6E6E6E',
+  linea: '#E8E8E8', linea2: '#ECECEC', radio: 8,
+};
+const GRID_FUENTE = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+const DOW_GRID = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
 
 function fmtHora(iso: string): string {
   return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -167,8 +228,8 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
 
 export function ReservaCalendario({
   t, slots, onReservar, onCancelar, onAceptarOferta,
-  variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, fontFamily = FUENTE,
-  irADia,
+  variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE,
+  irADia, estiloDias = 'semana', finalizadasHoy,
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
@@ -212,6 +273,22 @@ export function ReservaCalendario({
   const [enviando, setEnviando] = useState(false);
 
   const semana = useMemo(() => diasSemana(weekAnchor), [weekAnchor]);
+  // 'dias' (Fase 1 del rediseño): 10 días fijos desde hoy, scroll horizontal —
+  // no paginación por semana. Independiente de `weekAnchor`/`navegarSemana`,
+  // que siguen existiendo tal cual para `estiloDias === 'semana'`.
+  const diez = useMemo(() => Array.from({ length: 10 }, (_, i) => addDays(hoy, i)), [hoy]);
+  // `estiloDias === 'grid'`: 7 días rodantes desde hoy (no semana natural
+  // lunes-domingo) — mismo criterio de ventana rodante que `diez`, solo que
+  // más corta porque aquí los 7 caben a la vez en pantalla.
+  const siete = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(hoy, i)), [hoy]);
+  const slotsPorDiaGrid = useMemo(() => {
+    if (estiloDias !== 'grid') return new Map<string, ReservaSlot[]>();
+    const m = new Map<string, ReservaSlot[]>();
+    for (const dia of siete) {
+      m.set(localDayKey(dia), slotsDelDia(slots, localDayKey(dia)).sort((a, b) => a.inicio.localeCompare(b.inicio)));
+    }
+    return m;
+  }, [estiloDias, siete, slots]);
   const conteoPorDia = useMemo(() => contarSlotsPorDia(slots), [slots]);
   const slotsDia = useMemo(() => slotsDelDia(slots, selectedDayKey), [slots, selectedDayKey]);
   const gruposLista = useMemo(() => (variant === 'lista' ? agruparPorDia(slots) : []), [variant, slots]);
@@ -270,7 +347,23 @@ export function ReservaCalendario({
 
   return (
     <div style={{ fontFamily }}>
-      {variant === 'calendario' && (
+      {variant === 'calendario' && estiloDias === 'dias' && (
+        <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${t.line}` }}>
+          <TiraDias
+            dias={diez}
+            seleccionado={selectedDayKey}
+            conteos={conteoPorDia}
+            onSeleccionar={setSelectedDayKey}
+            tokens={{
+              surface: t.surface, line: t.line, ink: t.ink, mutedText: t.muted,
+              acento: 'var(--portal-brand)', acentoTexto: 'var(--portal-brand-foreground)',
+              fuenteDisplay: serif, fuenteUI: fontFamily, radioChip: 12,
+            }}
+          />
+        </div>
+      )}
+
+      {variant === 'calendario' && estiloDias === 'semana' && (
         <>
           {/* ── Navegación de semana ─────────────────────────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -316,6 +409,11 @@ export function ReservaCalendario({
                     boxShadow: isSel ? shadow.headerBtn : undefined,
                     opacity: vacío && !isSel ? 0.55 : 1,
                     transition: `background .5s ${EASE}, box-shadow .5s ${EASE}`,
+                    // Mismo gotcha que tira-dias.tsx: sin esto, un toque en
+                    // móvil puede leerse como selección de texto en vez de
+                    // tap y `onClick` no llega.
+                    WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   <span style={{
@@ -341,9 +439,102 @@ export function ReservaCalendario({
               );
             })}
           </div>
+        </>
+      )}
 
-          {/* ── Horarios del día ─────────────────────────────────────────── */}
-          {slotsDia.length === 0 ? (
+      {variant === 'calendario' && estiloDias === 'grid' && (
+        error ? (
+          <RejillaGridError titulo={error.titulo} onReintentar={error.onReintentar} />
+        ) : siete.every(d => (slotsPorDiaGrid.get(localDayKey(d)) ?? []).length === 0) ? (
+          <RejillaGridVacio titulo="Sin clases esta semana" cuerpo="Vuelve a mirar en unos días." />
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(96px, 1fr))', gap: 8, minWidth: 700 }}>
+              {siete.map(dia => {
+                const key = localDayKey(dia);
+                const slotsDelDiaGrid = slotsPorDiaGrid.get(key) ?? [];
+                return (
+                  <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontFamily: GRID_FUENTE, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', color: GRID_NEUTROS.mut, paddingBottom: 4 }}>
+                      {DOW_GRID[dia.getDay()]} {dia.getDate()}
+                    </div>
+                    {slotsDelDiaGrid.length === 0 ? (
+                      <div style={{ height: 1 }} />
+                    ) : slotsDelDiaGrid.map(slot => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => abrirSlot(slot)}
+                        title={slot.claseNombre}
+                        style={{
+                          textAlign: 'left', border: `1px solid ${GRID_NEUTROS.linea}`, borderRadius: GRID_NEUTROS.radio,
+                          padding: '7px 9px', background: GRID_NEUTROS.bg, cursor: 'pointer',
+                          fontFamily: GRID_FUENTE, fontSize: 11.5, fontWeight: 600, color: GRID_NEUTROS.mut2,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          transition: 'background .15s ease',
+                        }}
+                      >
+                        <span style={{ color: 'var(--portal-brand)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                          {new Date(slot.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                        </span>{' '}
+                        {slot.claseNombre}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )
+      )}
+
+      {variant === 'calendario' && estiloDias === 'dias' && (() => {
+        const diaSel = new Date(`${selectedDayKey}T12:00:00`);
+        const esHoy = selectedDayKey === hoyKey;
+        const finalizadas = esHoy ? (finalizadasHoy ?? []) : [];
+        const totalDia = slotsDia.length + finalizadas.length;
+        const dayLabel = `${capitaliza(diaSel.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}${esHoy ? ' — hoy' : ''}`;
+        const countLabel = error ? '—' : (totalDia ? `${totalDia} ${totalDia === 1 ? 'clase' : 'clases'}` : 'Sin clases');
+        return (
+          // Contenedor con cabecera «día · nº de clases» (Fase 4 del rediseño,
+          // docs/widget-reservas-fase4-brief-diseno.md, formato 01) — solo en
+          // Modo A (única consumidora de `estiloDias='dias'`). Las filas siguen
+          // siendo `SlotRow` tal cual, con su propia sombra/tarjeta: no se toca
+          // ese componente porque también lo usa el portal privado
+          // (`estiloDias='semana'`), fuera del alcance de este rediseño.
+          <div style={{ borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}`, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: `1px solid ${t.line}`, background: t.surface2 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.02em', color: t.ink }}>{dayLabel}</span>
+              <span style={{ fontSize: 11.5, color: t.muted }}>{countLabel}</span>
+            </div>
+            <div>
+              {error ? (
+                <div style={{ padding: 14 }}><EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} /></div>
+              ) : totalDia === 0 ? (
+                <div style={{ padding: 14 }}><EstadoVacio t={t} titulo="Sin clases este día" cuerpo="Prueba otro día de la semana" /></div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px' }}>
+                  {/* Las de hoy que ya pasaron van PRIMERO — es el orden
+                      cronológico del día, y coincide con el handoff. */}
+                  {finalizadas.map(f => (
+                    <FilaFinalizada key={f.id} t={t} slot={f} />
+                  ))}
+                  {slotsDia.map(slot => (
+                    <SlotRow key={slot.id} t={t} slot={slot} onOpen={() => abrirSlot(slot)} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {variant === 'calendario' && estiloDias === 'semana' && (
+        <>
+          {/* ── Horarios del día (portal privado) ───────────────────────── */}
+          {error ? (
+            <EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} />
+          ) : slotsDia.length === 0 ? (
             <EstadoVacio t={t} titulo="Sin clases este día" cuerpo="Prueba otro día de la semana" />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -356,7 +547,9 @@ export function ReservaCalendario({
       )}
 
       {variant === 'lista' && (
-        gruposLista.length === 0 ? (
+        error ? (
+          <EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} />
+        ) : gruposLista.length === 0 ? (
           <EstadoVacio t={t} titulo={emptyCopy.titulo} cuerpo={emptyCopy.cuerpo} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -432,12 +625,75 @@ export function ReservaCalendario({
 
 // ── Fila de slot (tarjeta de horario) ────────────────────────────────────────
 
+/** Fase 4 del rediseño: fila de una clase de HOY ya finalizada — mismo porte
+ *  que `SlotRow` (misma tarjeta, mismo hueco de hora/nombre/instructora),
+ *  pero sin `onClick` ni CTA: no se puede reservar algo que ya pasó. */
+/** Iniciales de un nombre — mismo criterio simple que el resto del kit
+ *  (dos primeras letras significativas, sin acentos raros que resolver). */
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/);
+  return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase();
+}
+
+/** Avatar de instructora en iniciales — más compacto que `RoundPhoto`, es el
+ *  formato del handoff (design_handoff_widget_reservas) para la fila de
+ *  lista: una foto de 32px por fila competía visualmente con la hora/nombre
+ *  de la clase, que es lo que de verdad hay que leer de un vistazo. */
+function AvatarIniciales({ nombre, opaco }: { nombre: string; opaco?: boolean }) {
+  return (
+    <span style={{
+      width: 20, height: 20, borderRadius: 999, background: 'var(--portal-velo-suave)',
+      border: '1px solid var(--portal-line)', display: 'inline-flex', alignItems: 'center',
+      justifyContent: 'center', fontSize: 8.5, fontWeight: 800, letterSpacing: '.03em',
+      color: 'var(--portal-muted)', flexShrink: 0, opacity: opaco ? 0.7 : 1,
+    }}>
+      {iniciales(nombre)}
+    </span>
+  );
+}
+
+/** Fase 4 del rediseño: fila de una clase de HOY ya finalizada — mismo porte
+ *  que `SlotRow` (misma tarjeta, mismo hueco de hora/nombre/instructora),
+ *  pero sin `onClick` ni CTA: no se puede reservar algo que ya pasó. */
+function FilaFinalizada({ t, slot }: {
+  t: ModoTokens;
+  slot: { id: string; inicio: string; fin: string; claseNombre: string; instructorNombre: string | null; instructorColor: string | null; instructorFotoUrl: string | null };
+}) {
+  const duracionMin = Math.round((new Date(slot.fin).getTime() - new Date(slot.inicio).getTime()) / 60000);
+  return (
+    <div style={{
+      display: 'flex', width: '100%', alignItems: 'center', flexWrap: 'wrap', gap: 14,
+      borderTop: `1px solid ${t.line}`, padding: '18px 4px', opacity: 0.5,
+    }}>
+      <div style={{ flex: '0 0 auto', width: 62 }}>
+        <div style={{ fontFamily: serif, fontSize: 23, lineHeight: 1 }}>{fmtHora(slot.inicio)}</div>
+        <div style={{ fontSize: 11, color: t.muted, marginTop: 5, letterSpacing: '.03em' }}>{duracionMin} min</div>
+      </div>
+      <div style={{ flex: '1 1 150px', minWidth: 0 }}>
+        <div style={{ fontFamily: serif, fontSize: 18.5, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {slot.claseNombre}
+        </div>
+        {slot.instructorNombre && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 6 }}>
+            <AvatarIniciales nombre={slot.instructorNombre} />
+            <span style={{ fontSize: 12.5, color: t.muted }}>{slot.instructorNombre}</span>
+          </div>
+        )}
+      </div>
+      <span style={{ flex: '0 0 auto', marginLeft: 'auto', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: t.muted }}>
+        FINALIZADA
+      </span>
+    </div>
+  );
+}
+
 function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen: () => void }) {
   const libres = Math.max(0, slot.aforoMaximo - slot.ocupadas);
   const ratio = ratioOcupacion(slot.ocupadas, slot.aforoMaximo);
   const capColor = colorOcupacion(ratio);
   const lleno = libres <= 0;
   const duracionMin = Math.round((new Date(slot.fin).getTime() - new Date(slot.inicio).getTime()) / 60000);
+  const yaMia = slot.miEstado === 'CONFIRMADA' || slot.miEstado === 'LISTA_ESPERA';
 
   return (
     <button
@@ -448,87 +704,71 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
         : slot.miEstado === 'LISTA_ESPERA' ? 'estás en lista de espera'
         : lleno ? 'completa' : `${libres} plazas`}`}
       style={{
-        display: 'flex', width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none',
-        alignItems: 'center', flexWrap: 'wrap', gap: cq(12, 1.8, 24),
-        background: lleno ? 'var(--portal-velo-suave)' : (slot.miEstado === 'CONFIRMADA' ? 'var(--portal-surface-2)' : t.surface),
-        borderRadius: radius.card, padding: `${cq(20, 2.2, 26)} ${cq(20, 2.6, 30)}`,
-        boxShadow: lleno ? undefined : shadow.card,
+        display: 'flex', width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'transparent',
+        alignItems: 'center', flexWrap: 'wrap', gap: 14, borderTop: `1px solid ${t.line}`, padding: '18px 4px',
       }}
     >
-      {/* La foto del tipo de clase, si la propietaria subió una.
-          ⚠️ Aquí NO entra la foto por defecto, y es deliberado: en un listado
-          la misma imagen repetida en ocho filas se lee como un error, mientras
-          que en la cabecera del detalle —donde se pinta grande y sola— sí
-          ayuda. Este `claseFotoUrl` llevaba tiempo viajando hasta aquí sin que
-          nadie lo pintara, y el panel prometía que salía en esta página. */}
-      {slot.claseFotoUrl && (
-        <div style={{ flex: '0 0 auto', width: 52, height: 52, borderRadius: 14, overflow: 'hidden' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={slot.claseFotoUrl}
-            alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: lleno ? 0.6 : 1 }}
-          />
-        </div>
-      )}
-
       {/* Hora + duración */}
-      <div style={{ flex: '0 0 auto' }}>
-        <div style={{ fontFamily: serif, fontSize: cq(24, 2.4, 30), lineHeight: 1, color: lleno ? t.muted : t.ink }}>
+      <div style={{ flex: '0 0 auto', width: 62 }}>
+        <div style={{ fontFamily: serif, fontSize: 23, lineHeight: 1, color: t.ink, fontVariantNumeric: 'tabular-nums' }}>
           {fmtHora(slot.inicio)}
         </div>
-        <div style={{ fontSize: 10, color: t.muted, marginTop: 6 }}>{duracionMin} min</div>
+        <div style={{ fontSize: 11, color: t.muted, marginTop: 5, letterSpacing: '.03em' }}>{duracionMin} min</div>
       </div>
 
-      {/* Nombre + nivel/instructora */}
+      {/* Nombre + instructora + disponibilidad */}
       <div style={{ flex: '1 1 150px', minWidth: 0 }}>
-        {slot.miEstado && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
-            <EstadoIcono estado={slot.miEstado} />
-            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '.2em', color: t.ink }}>
-              {slot.miEstado === 'CONFIRMADA' ? 'RESERVADA' : 'EN LISTA DE ESPERA'}
+        <div style={{ fontFamily: serif, fontSize: 18.5, lineHeight: 1.2, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {slot.claseNombre}
+        </div>
+        {slot.instructorNombre && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 6 }}>
+            <AvatarIniciales nombre={slot.instructorNombre} />
+            <span style={{ fontSize: 12.5, color: t.muted }}>{slot.instructorNombre}</span>
+          </div>
+        )}
+        {!yaMia && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: lleno ? t.muted : capColor, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, fontWeight: ratio >= 0.85 && !lleno ? 700 : 500, color: lleno ? t.muted : capColor, letterSpacing: '.01em' }}>
+              {lleno ? 'Completa' : ratio >= 0.85 ? `¡${etiquetaOcupacion(ratio).toLowerCase()}!` : `${libres} ${libres === 1 ? 'plaza libre' : 'plazas libres'}`}
             </span>
           </div>
         )}
-        <div style={{ fontFamily: serif, fontSize: cq(21, 2.2, 27), lineHeight: 1.05, color: lleno ? t.muted : t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {slot.claseNombre}
-        </div>
-        <div style={{ fontSize: 11.5, color: t.muted, marginTop: 8 }}>
-          {NIVEL_LABEL[slot.nivel]}{slot.salaNombre ? ` · ${slot.salaNombre}` : ''} · {slot.aforoMaximo} plazas
-          {/* Antes el precio solo se veía al abrir el detalle — para comparar
-              clases hay que abrir cada una. null = cubierta por plan, no "gratis". */}
-          {slot.precio != null && ` · ${slot.precio} €`}
-        </div>
       </div>
 
-      {/* Instructora */}
-      {slot.instructorNombre && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 auto' }}>
-          <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={32} />
-          <span style={{ fontSize: 12, fontWeight: 500, color: t.ink, whiteSpace: 'nowrap' }}>{slot.instructorNombre}</span>
-        </div>
-      )}
-
-      {/* Plazas libres. `etiquetaOcupacion` ya existía (lib/ocupacion.ts, misma
-          semántica de color que `capColor`) sin ningún caller aquí — el color
-          ya avisaba de "casi lleno", pero sin texto alguien mirando rápido en
-          móvil no lo lee como urgencia. */}
-      <div style={{ flex: '0 0 auto', fontSize: 11.5, fontWeight: 500, color: lleno ? t.muted : capColor, whiteSpace: 'nowrap' }}>
-        {lleno ? 'completa' : ratio >= 0.85 ? `¡${etiquetaOcupacion(ratio).toLowerCase()}!` : `${libres} ${libres === 1 ? 'libre' : 'libres'}`}
+      {/* Acción — checkmark si ya es mía, botón sólido si se puede reservar,
+          botón de contorno si está completa (lista de espera). Mismo criterio
+          que el handoff (design_handoff_widget_reservas): tres estados
+          visuales distintos, no un único CTA genérico. */}
+      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 'auto' }}>
+        {yaMia ? (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: radius.pillBtnSm - 2,
+            background: 'color-mix(in oklab, var(--portal-brand) 10%, var(--portal-surface))', color: 'var(--portal-brand)',
+            fontSize: 12.5, fontWeight: 700,
+          }}>
+            <EstadoIcono estado={slot.miEstado as 'CONFIRMADA' | 'LISTA_ESPERA'} />
+            {slot.miEstado === 'CONFIRMADA' ? 'Reservada' : 'En espera'}
+          </span>
+        ) : lleno ? (
+          <span aria-hidden="true" style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, padding: '0 16px',
+            border: '1px solid color-mix(in oklab, var(--portal-brand) 40%, transparent)', borderRadius: radius.pillBtnSm - 2,
+            color: 'var(--portal-brand)', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+          }}>
+            Lista de espera
+          </span>
+        ) : (
+          <span aria-hidden="true" style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, padding: '0 18px',
+            background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', borderRadius: radius.pillBtnSm - 2,
+            fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+          }}>
+            Reservar
+          </span>
+        )}
       </div>
-
-      {/* CTA visual (decorativo: toda la fila es el control clicable) */}
-      <span aria-hidden="true" style={{
-        flex: '0 0 auto', height: 44, padding: '0 22px', borderRadius: radius.pillBtnSm - 2,
-        display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
-        ...(slot.miEstado === 'CONFIRMADA'
-          ? { border: `1px solid ${t.line}`, color: t.ink }
-          : lleno
-            ? { border: `1px solid ${t.line}`, color: t.ink }
-            : { background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' }),
-      }}>
-        {slot.miEstado === 'CONFIRMADA' ? 'Ver reserva' : slot.miEstado === 'LISTA_ESPERA' ? 'En espera' : lleno ? 'Lista de espera' : 'Reservar'}
-      </span>
     </button>
   );
 }
@@ -596,12 +836,33 @@ function BookingSheet({
       aria-modal="true"
       aria-labelledby={titleId}
       onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.5)', fontFamily }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50, display: 'flex',
+        // Abajo en móvil (hoja), centrado en pantallas grandes (diálogo).
+        alignItems: 'flex-end', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.5)', fontFamily,
+      }}
     >
       <div
         onClick={e => e.stopPropagation()}
+        // Medido en el navegador a 1280px: esto era una banda a TODO el ancho
+        // pegada al borde inferior, con ~1000px de vacío entre cada etiqueta y
+        // su valor («HORARIO ......... 10:00 – 10:50») y un botón «RESERVAR» de
+        // 1240px. Un patrón de móvil ampliado, no un diseño de escritorio.
+        //
+        // Se arregla con un `maxWidth` y el centrado del padre, SIN CSS nuevo y
+        // sin media queries: por debajo de 560px sigue siendo exactamente la
+        // hoja de siempre (el 100% manda), y por encima queda una tarjeta
+        // centrada del ancho de una columna legible.
+        //
+        // ⚠️ Con una clase CSS habría quedado mejor (diálogo centrado en
+        // vertical), pero este componente es inline-styled A PROPÓSITO: también
+        // lo compila esbuild para el bundle embebido, sin Tailwind ni PostCSS
+        // (solo `animate-spin`, resuelto a mano en widget.css). Una clase nueva
+        // habría que duplicarla ahí, y el widget incrustado se vería distinto
+        // del alojado en cuanto una de las dos se quedara atrás.
         style={{
-          width: '100%', background: t.bg, borderRadius: '24px 24px 0 0',
+          width: '100%', maxWidth: 560, background: t.bg, borderRadius: '24px 24px 0 0',
           padding: `10px 20px ${sheetBottomPadding}`, display: 'flex', flexDirection: 'column', gap: 14,
           maxHeight: '88vh', overflowY: 'auto',
         }}
@@ -706,6 +967,24 @@ function BookingSheet({
           </div>
         )}
 
+        {/* §3 — Qué consume la reserva, justo encima del botón y no perdido en
+            una esquina: es el último dato que ve antes de pulsar. Solo al
+            reservar — con la reserva ya hecha, el saldo que se enseñaría sería
+            el de ANTES de descontar, y sonaría a que se va a cobrar otra vez. */}
+        {!tieneReserva && !lleno && slot.coberturaTexto && (
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
+              borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}`,
+            }}
+          >
+            <Ticket size={15} style={{ color: t.muted, flexShrink: 0 }} aria-hidden />
+            <p style={{ fontSize: 12.5, fontWeight: 700, color: t.ink, lineHeight: 1.35 }}>
+              {slot.coberturaTexto}
+            </p>
+          </div>
+        )}
+
         {ventanaEfectiva != null && ventanaEfectiva > 0 && !tieneReserva && !lleno && (
           <p style={{ fontSize: 12, color: t.muted }}>
             Cancela con al menos {ventanaEfectiva}h de antelación para recuperar tu sesión.
@@ -772,14 +1051,87 @@ function Banner({ tipo, texto }: { tipo: 'ok' | 'warn'; texto: string }) {
   );
 }
 
-function EstadoVacio({ t, titulo, cuerpo }: { t: ModoTokens; titulo: string; cuerpo: string }) {
+// Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md): patrón
+// único de estado no feliz — icono circular 52px, título display, cuerpo
+// acotado a 300px, CTA outline opcional. Compartido por los 6 formatos porque
+// todos montan `ReservaCalendario` en algún momento (Modo B incluido).
+function EstadoVacio({ t, titulo, cuerpo, ctaLabel, onCta }: {
+  t: ModoTokens; titulo: string; cuerpo: string; ctaLabel?: string; onCta?: () => void;
+}) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '28px 16px', gap: 8, borderRadius: 18, background: t.surface, border: `1px solid ${t.line}` }}>
-      <div style={{ width: 44, height: 44, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.surface2, color: t.ink }}>
-        <Clock size={18} />
+    <div style={{ textAlign: 'center', padding: '52px 24px 56px' }}>
+      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.surface2, color: t.muted }}>
+        <Clock size={22} />
       </div>
-      <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>{titulo}</p>
-      <p style={{ fontSize: 12.5, color: t.muted, maxWidth: 240 }}>{cuerpo}</p>
+      <p style={{ fontFamily: serif, fontSize: 21, marginTop: 16, color: t.ink }}>{titulo}</p>
+      <p style={{ fontSize: 13, color: t.muted, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>{cuerpo}</p>
+      {ctaLabel && onCta && (
+        <button type="button" onClick={onCta} style={{
+          marginTop: 18, height: 42, padding: '0 20px', borderRadius: 999, cursor: 'pointer',
+          background: 'transparent', border: '1px solid color-mix(in oklab, var(--portal-brand) 40%, transparent)',
+          color: 'var(--portal-brand)', fontFamily: sans, fontWeight: 700, fontSize: 13,
+        }}>
+          {ctaLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Mismo hueco visual que `EstadoVacio`, para cuando la carga falló de verdad
+ *  (red/servidor) en vez de simplemente no haber nada que mostrar. */
+function EstadoErrorRed({ t, titulo = 'No hemos podido cargar el horario', onReintentar }: {
+  t: ModoTokens; titulo?: string; onReintentar: () => void;
+}) {
+  return (
+    <div style={{ textAlign: 'center', padding: '52px 24px 56px' }} role="alert">
+      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: semantic.danger.soft, color: semantic.danger.text }}>
+        <AlertCircle size={22} />
+      </div>
+      <p style={{ fontFamily: serif, fontSize: 21, marginTop: 16, color: t.ink }}>{titulo}</p>
+      <p style={{ fontSize: 13, color: t.muted, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>
+        Parece un problema de conexión. Inténtalo de nuevo en unos segundos.
+      </p>
+      <button type="button" onClick={onReintentar} style={{
+        marginTop: 18, height: 42, padding: '0 20px', borderRadius: 999, cursor: 'pointer', border: 'none',
+        background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontFamily: sans, fontWeight: 700, fontSize: 13,
+      }}>
+        Reintentar
+      </button>
+    </div>
+  );
+}
+
+// Versiones en neutros FIJOS de arriba, solo para `estiloDias === 'grid'`
+// (formato 06, Modo B) — "los estados de carga/vacío/error usan los mismos
+// patrones en neutros y fuente de sistema" (brief de diseño Fase 4).
+function RejillaGridVacio({ titulo, cuerpo }: { titulo: string; cuerpo: string }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '52px 24px 56px', fontFamily: GRID_FUENTE }}>
+      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: GRID_NEUTROS.linea2, color: GRID_NEUTROS.mut }}>
+        <Clock size={22} />
+      </div>
+      <p style={{ fontSize: 17, fontWeight: 700, marginTop: 16, color: GRID_NEUTROS.ink }}>{titulo}</p>
+      <p style={{ fontSize: 13, color: GRID_NEUTROS.mut, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>{cuerpo}</p>
+    </div>
+  );
+}
+function RejillaGridError({ titulo = 'No hemos podido cargar el horario', onReintentar }: { titulo?: string; onReintentar: () => void }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '52px 24px 56px', fontFamily: GRID_FUENTE }} role="alert">
+      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: semantic.danger.soft, color: semantic.danger.text }}>
+        <AlertCircle size={22} />
+      </div>
+      <p style={{ fontSize: 17, fontWeight: 700, marginTop: 16, color: GRID_NEUTROS.ink }}>{titulo}</p>
+      <p style={{ fontSize: 13, color: GRID_NEUTROS.mut, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>
+        Parece un problema de conexión. Inténtalo de nuevo en unos segundos.
+      </p>
+      <button type="button" onClick={onReintentar} style={{
+        marginTop: 18, height: 42, padding: '0 20px', borderRadius: 999, cursor: 'pointer', border: 'none',
+        background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontFamily: GRID_FUENTE, fontWeight: 700, fontSize: 13,
+      }}>
+        Reintentar
+      </button>
     </div>
   );
 }

@@ -229,9 +229,24 @@ secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
 max_frequency = "1m0s"
 # Number of characters used in the email OTP.
-otp_length = 8
+#
+# Antes 8 (nunca se mostraba: el flujo viejo era un enlace de confirmación,
+# `{{ .ConfirmationURL }}`, no un código). Bajado a 6 para la migración a
+# verificación por OTP (app/login "Verifica tu correo") — es un único valor
+# global de gotrue, compartido con el magic link del portal y el enlace de
+# recuperación de contraseña, pero en esos dos el token sigue viajando dentro
+# de la URL del enlace, nunca se le enseña a nadie, así que su longitud no
+# cambia nada visible ahí.
+otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+#
+# Antes 3600 (1h) — demasiado para un código de 6 dígitos que se escribe a
+# mano nada más llegar (más ventana de fuerza bruta y de "código antiguo
+# reenviado sigue siendo válido" sin necesidad real). 10 min es lo habitual en
+# SaaS con OTP y sigue siendo cómodo. Mismo valor global que arriba: también
+# acorta la validez del enlace de recuperación/magic-link, lo cual es un
+# endurecimiento, no una regresión, para esos dos flujos.
+otp_expiry = 600
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]
@@ -249,6 +264,10 @@ otp_expiry = 3600
 # recuperar contraseña (resetPasswordForEmail, ver app/clave-nueva) y el
 # magic link del portal de socias (signInWithOtp). Sin esto, Supabase usa su
 # plantilla por defecto, sin marca ninguna.
+[auth.email.template.confirmation]
+subject = "Tu código de verificación de Tentare"
+content_path = "./supabase/templates/confirmation.html"
+
 [auth.email.template.recovery]
 subject = "Recupera tu contraseña en Tentare"
 content_path = "./supabase/templates/recovery.html"

@@ -123,6 +123,16 @@ function varsTitularPortal(t: ThemeConfig): Record<string, string> {
       '--portal-heading-weight': '500',
     };
   }
+  if (t.portalHeadingFontId === 'libreCaslon') {
+    // Tema "Sereno". Peso 400 y no 500/700 por el mismo motivo que Instrument
+    // Serif: es una Caslon de texto, el contraste del trazo ya la hace pesar a
+    // los 30px del título de pantalla, y engordarla la ensucia. Su 700 se
+    // carga igualmente porque el kit lo usa donde el prototipo lo pide.
+    return {
+      '--portal-heading-font': "var(--font-libre-caslon), Georgia, serif",
+      '--portal-heading-weight': '400',
+    };
+  }
   if (t.portalHeadingFontId === 'poppins') {
     // Tema "Bloom" — reusa --font-poppins (ya cargada para el cuerpo del
     // mismo tema) en negrita para el titular, sin fuente nueva.
@@ -383,6 +393,16 @@ export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   // necesita gate.
   if (t.barraOscura && !cumpleContraste(colorDestacado(t), t.primary, { grande: true }))
     errores.push('Con la barra oscura, el color destacado no contrasta con la marca (mínimo 3:1).');
+  // Fase 1 rediseño del widget (docs/widget-reservas-theme-builder-diseno.md
+  // §2.2): solo se valida cuando el estudio TOCA el par — con ambos en `null`
+  // el widget cae a MODO_TOKENS.dia/.noche, ya cubierto por
+  // portal-paleta.test.ts, y no hace falta reconstruir aquí ese default para
+  // validar algo que ya se sabe correcto.
+  if (t.widgetTinta && t.widgetSuperficie && !cumpleContraste(t.widgetTinta, t.widgetSuperficie))
+    errores.push('El texto del widget no contrasta bien con la superficie elegida (mínimo WCAG AA 4.5:1).');
+  if (t.widgetTinta && typeof t.widgetFondo === 'string' && t.widgetFondo !== 'transparente'
+    && !cumpleContraste(t.widgetTinta, t.widgetFondo))
+    errores.push('El texto del widget no contrasta bien con el fondo elegido (mínimo WCAG AA 4.5:1).');
   // NO se valida aquí `secondary` en general: en Oliva/Bloom/Noir es una
   // "superficie suave" a propósito (ver comentario en THEME_DEFINITIONS de
   // noir), no necesariamente texto — y algunos tests de este módulo lo usan

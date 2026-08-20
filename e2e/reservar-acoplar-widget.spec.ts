@@ -54,13 +54,16 @@ async function medir(page: Page, q: string) {
 }
 
 
-test('sin parámetros, el widget sigue exactamente como estaba', async ({ page }) => {
+test('sin parámetros, el widget sigue exactamente como estaba (salvo la barra de pestañas)', async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 760 });
   await mocks(page);
   const r = await medir(page, '');
   expect(r.fondo).not.toBe('rgba(0, 0, 0, 0)');
   expect(r.linkFuente).toBe(false);
-  expect(r.pestanas).toBe(5);
+  // 1 widget = 1 propósito: en `embedMode` la barra de pestañas ya no enseña
+  // las otras cuatro secciones aunque no se pida `solo-pestana=1` — es el
+  // comportamiento fijo, no uno opcional (ver components/configuracion/tab-api.tsx).
+  expect(r.pestanas).toBe(1);
   expect(r.hayPie).toBe(true);
 });
 

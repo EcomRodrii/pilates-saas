@@ -1,9 +1,21 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import { mapFilaAVacante, type FilaRedVacante } from '@/lib/network/mapeo';
+import { encajeCandidaturaDe } from '@/lib/network/encaje-candidatura';
+import { emitirRedVacanteEncaja } from '@/lib/notifications/emit';
+import type { VacanteNetwork } from '@/lib/network/tipos';
+
+// Umbral de "encaja lo bastante como para avisar" — solo push, sin canal
+// EMAIL: es el único evento de Network no solicitado por quien lo recibe
+// (ver lib/notifications/catalog.ts). 2+ criterios aplicables evita avisar
+// por una única coincidencia casual (p. ej. solo la ciudad, con el resto de
+// datos ausentes en algún lado, daría barra=100 con un solo dato real).
+const ENCAJE_MINIMO = 50;
+const CRITERIOS_MINIMOS = 2;
 
 const SELECT_COLUMNAS = `
   id, studio_id, titulo, especialidades, horarios, tipo_trabajo, tarifa_rango,
@@ -44,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const { data: fila, error: errLeer } = await admin
     .from('red_vacantes')
-    .select('id, studio_id, titulo, descripcion, especialidades, estado')
+    .select('id, studio_id, titulo, descripcion, especialidades, horarios, tipo_trabajo, tarifa_rango, estado, studios ( ciudad )')
     .eq('id', id)
     .maybeSingle();
   if (errLeer) return errorInterno('network:vacantes:estado:leer', errLeer, 'No se ha podido leer la vacante.');
@@ -54,7 +66,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return errorPeticion(`No se puede pasar de "${fila.estado}" a "${estado}".`);
   }
   if (estado === 'published') {
-    const motivo = motivoNoPublicable(fila as FilaRedVacante);
+    const motivo = motivoNoPublicable(fila as Pick<FilaRedVacante, 'titulo' | 'descripcion' | 'especialidades'>);
     if (motivo) return errorPeticion(motivo);
   }
 
@@ -70,5 +82,67 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .single();
   if (error) return errorInterno('network:vacantes:estado:actualizar', error, 'No se ha podido cambiar el estado de la vacante.');
 
+  // Avisar a instructoras activas cuyo perfil encaja — solo al publicar, en
+  // el momento de la acción (sin cron, sin tabla de alertas guardadas: ver
+  // diseño de tentare-arquitecto). Best-effort: nunca puede convertir un
+  // publicar exitoso en un error de cara al estudio.
+  if (estado === 'published') {
+    await avisarInstructorasQueEncajan(admin, {
+      vacanteId: id,
+      studioId: fila.studio_id,
+      titulo: fila.titulo,
+      especialidades: fila.especialidades as VacanteNetwork['especialidades'],
+      horarios: fila.horarios as VacanteNetwork['horarios'],
+      tipoTrabajo: fila.tipo_trabajo as VacanteNetwork['tipoTrabajo'],
+      tarifaRango: fila.tarifa_rango as VacanteNetwork['tarifaRango'],
+      estudioCiudad: (fila.studios as unknown as { ciudad: string | null } | null)?.ciudad ?? null,
+    });
+  }
+
   return NextResponse.json({ vacante: mapFilaAVacante(data as unknown as FilaRedVacante) });
+}
+
+// Perfiles activos publicados, en memoria contra `encajeCandidaturaDe` — sin
+// cron, sin tabla de alertas guardadas. Coste proporcional al volumen de
+// `red_perfiles` en ese instante y a UNA acción humana (publicar), no a un
+// tic periódico contra todos los estudios (el patrón que ya se comió cuota
+// de Inngest con recordatorios/penalizaciones). Best-effort: un fallo aquí
+// nunca debe convertir "vacante publicada con éxito" en un error 500.
+async function avisarInstructorasQueEncajan(
+  admin: SupabaseClient,
+  vacante: {
+    vacanteId: string; studioId: string; titulo: string;
+    especialidades: VacanteNetwork['especialidades']; horarios: VacanteNetwork['horarios'];
+    tipoTrabajo: VacanteNetwork['tipoTrabajo']; tarifaRango: VacanteNetwork['tarifaRango'];
+    estudioCiudad: string | null;
+  },
+): Promise<void> {
+  try {
+    const { data: perfiles } = await admin
+      .from('red_perfiles')
+      .select('auth_user_id, ciudad, especialidades, disponibilidad_horarios, tipo_trabajo, tarifa_rango')
+      .eq('estado', 'published')
+      .in('disponibilidad_estado', ['disponible', 'disponible_sustituciones', 'buscando_trabajo']);
+
+    const authUserIds = (perfiles ?? [])
+      .filter(p => {
+        const encaje = encajeCandidaturaDe(vacante, {
+          ciudad: p.ciudad,
+          especialidades: p.especialidades as VacanteNetwork['especialidades'],
+          disponibilidadHorarios: p.disponibilidad_horarios as VacanteNetwork['horarios'],
+          tipoTrabajo: p.tipo_trabajo as string[],
+          tarifaRango: p.tarifa_rango as VacanteNetwork['tarifaRango'] | null,
+        });
+        return encaje.criterios.length >= CRITERIOS_MINIMOS && encaje.barra >= ENCAJE_MINIMO;
+      })
+      .map(p => p.auth_user_id as string);
+
+    if (authUserIds.length === 0) return;
+
+    await emitirRedVacanteEncaja(admin, {
+      studioId: vacante.studioId, vacanteId: vacante.vacanteId, titulo: vacante.titulo, authUserIds,
+    });
+  } catch (e) {
+    console.error('[network] avisarInstructorasQueEncajan:', e instanceof Error ? e.message : e);
+  }
 }

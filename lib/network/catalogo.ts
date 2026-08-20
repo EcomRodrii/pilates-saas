@@ -17,6 +17,51 @@ export const ESPECIALIDAD_LABEL: Record<EspecialidadNetwork, string> = {
   otro: 'Otro',
 };
 
+// Network es multi-disciplina (Pilates + Yoga, iguales en marca/SEO — no
+// "yoga cabe en el catálogo de Pilates"). `reformer`/`mat`/`maquina` son
+// técnicas DENTRO de Pilates; `hiit`/`otro` no pertenecen a ninguna
+// disciplina fija (null a propósito — nunca se fuerza un "Instructora de
+// Pilates" falso para un perfil que solo hace HIIT). Sin tabla nueva ni
+// migración: mismo criterio que el resto de este catálogo — constante en
+// código, `red_perfiles.especialidades` no cambia de valores válidos.
+export const DISCIPLINAS_NETWORK = ['pilates', 'yoga'] as const;
+export type DisciplinaNetwork = (typeof DISCIPLINAS_NETWORK)[number];
+
+export const DISCIPLINA_LABEL: Record<DisciplinaNetwork, string> = {
+  pilates: 'Pilates',
+  yoga: 'Yoga',
+};
+
+export const DISCIPLINA_DE_ESPECIALIDAD: Record<EspecialidadNetwork, DisciplinaNetwork | null> = {
+  reformer: 'pilates',
+  mat: 'pilates',
+  maquina: 'pilates',
+  yoga: 'yoga',
+  hiit: null,
+  otro: null,
+};
+
+/** Disciplinas reales que cubre un conjunto de especialidades, sin duplicados. */
+export function disciplinasDe(especialidades: EspecialidadNetwork[]): DisciplinaNetwork[] {
+  const vistas = new Set<DisciplinaNetwork>();
+  const orden: DisciplinaNetwork[] = [];
+  for (const e of especialidades) {
+    const d = DISCIPLINA_DE_ESPECIALIDAD[e];
+    if (d && !vistas.has(d)) { vistas.add(d); orden.push(d); }
+  }
+  return orden;
+}
+
+// Para jobTitle/H1/preview: "Instructora de Pilates", "Instructora de
+// Yoga", "Instructora de Pilates y Yoga" — o el genérico si el perfil solo
+// tiene especialidades sin disciplina (hiit/otro) o ninguna todavía. Nunca
+// "Pilates" fijo cuando el dato real dice otra cosa (o nada).
+export function tituloProfesionalDe(especialidades: EspecialidadNetwork[]): string {
+  const discs = disciplinasDe(especialidades);
+  if (discs.length === 0) return 'Profesional de Tentare Network';
+  return `Instructora de ${discs.map(d => DISCIPLINA_LABEL[d]).join(' y ')}`;
+}
+
 export const HORARIOS_NETWORK = ['mananas', 'tardes', 'noches', 'fines_semana'] as const;
 export type HorarioNetwork = (typeof HORARIOS_NETWORK)[number];
 

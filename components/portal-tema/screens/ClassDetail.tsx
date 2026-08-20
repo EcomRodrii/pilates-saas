@@ -39,7 +39,10 @@ function FavouriteButton({ fav, glass, size }: { fav: boolean; glass?: boolean; 
 export function ClassDetail({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   const esDemo = useEsDemo();
-  const bleed = vm.features.detail_style === "bleed";
+  // Las dos formas con foto a sangre comparten el bloque de la foto; lo que
+  // cambia es si el título va encima o debajo.
+  const bajo = vm.features.detail_style === "bleed-bajo";
+  const bleed = vm.features.detail_style === "bleed" || bajo;
   const d = vm.detail;
 
   // La clase ya no está: la ha cancelado el estudio, o la socia llegó aquí con
@@ -79,14 +82,23 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
             </button>
             <FavouriteButton fav={d.fav} glass size={18} />
           </div>
-          <div className="detail-hero">
-            <h1 className="detail-hero__title">{d.name}</h1>
-            <Pill glass>{d.pill}</Pill>
-            <div className="detail-hero__teacher">
-              <Avatar size="sm">{d.initial}</Avatar>
-              <span className="detail-hero__name">{d.teacher}</span>
+          {/* Con el título debajo, sobre la foto solo va el ESTADO: es el dato
+              que hay que ver antes de entrar («Disponible», «Completa»), y el
+              único que se sostiene sobre una imagen cualquiera. */}
+          {bajo ? (
+            <div className="detail-hero detail-hero--solo-estado">
+              <Pill glass>{d.estado}</Pill>
             </div>
-          </div>
+          ) : (
+            <div className="detail-hero">
+              <h1 className="detail-hero__title">{d.name}</h1>
+              <Pill glass>{d.pill}</Pill>
+              <div className="detail-hero__teacher">
+                <Avatar size="sm" foto={d.teacherFoto}>{d.initial}</Avatar>
+                <span className="detail-hero__name">{d.teacher}</span>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -104,7 +116,24 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
         </>
       )}
 
-      <div className={"sheet " + (bleed ? "sheet--scroll" : "sheet--card") + " animate-rise no-scrollbar"}>
+      <div className={"sheet " + (bleed ? "sheet--scroll" : "sheet--card") + (bajo ? " sheet--bajo" : "") + " animate-rise no-scrollbar"}>
+        {bajo ? (
+          <>
+            <h1 className="detail__titulo-bajo">{d.name}</h1>
+            {/* Chips de dos líneas: rótulo arriba y valor debajo. En una sola
+                línea («Nivel todos») se leen como una frase y dejan de ser
+                datos separados. */}
+            <div className="rail rail--chips2">
+              {d.chips.map((c) => (
+                <span className="chip2" key={c.label}>
+                  <span className="chip2__label">{c.label}</span>
+                  <span className="chip2__valor">{c.valor}</span>
+                </span>
+              ))}
+            </div>
+            {d.description ? <p className="detail__desc">{d.description}</p> : null}
+          </>
+        ) : null}
         {!bleed ? (
           <>
             <p className="detail__title">{d.name}</p>
@@ -120,8 +149,15 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
           </>
         ) : null}
 
-        <p className="detail__label">Sobre la clase</p>
-        <p className="detail__body">{d.description}</p>
+        {/* Con el título abajo la descripción ya va pegada a los chips, sin
+            rótulo: repetirla aquí la sacaba dos veces en la misma pantalla
+            —visto al comparar con la captura—. */}
+        {bajo ? null : (
+          <>
+            <p className="detail__label">Sobre la clase</p>
+            <p className="detail__body">{d.description}</p>
+          </>
+        )}
 
         {/* De `tipos_clase.objetivos` (lista FIJA, compartida con la página
             pública). Sin objetivos marcados no se pinta: el prototipo traía

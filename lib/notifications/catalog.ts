@@ -37,7 +37,13 @@ export type Audiencia =
   // Tentare Network (Fase 9): quien ENVIÓ una solicitud de contacto, resuelta
   // por `data.solicitanteAuthUserId` — nunca toda la gerencia, el mensaje
   // lleva datos de contacto privados.
-  | 'red-solicitante-contacto';
+  | 'red-solicitante-contacto'
+  // Tentare Network (Fase 2, matching): lista de profesionales resuelta por
+  // `data.authUserIds` (N personas, no una) — a diferencia de
+  // 'red-profesional', que resuelve una sola por `data.authUserId`. Sin
+  // relación con el `studioId` del evento (el estudio que publicó, no uno al
+  // que pertenezcan).
+  | 'red-instructoras-lista';
 
 export interface ReglaEvento {
   category: NotificationCategory;
@@ -85,6 +91,16 @@ export const EVENTOS = {
   // de RESERVA_CANCELADA: ahí existió una reserva y se deshizo; aquí no llegó
   // a crearse ninguna, así que ese evento mentiría.
   RESERVA_PLAZA_FIJA_NO_MATERIALIZADA: 'reserva.plaza_fija_no_materializada',
+  // I-3 (auditoría 19-ago): checkout embebido — el pago se confirmó y el
+  // plan ya se entregó, pero la clase concreta que la socia intentaba
+  // reservar no se pudo confirmar (aforo lleno/cancelada entre crear el
+  // PaymentIntent y que Stripe confirmara el pago). La UI del widget ya
+  // había dado la reserva por hecha (handlePagoExitoso, optimista, sin
+  // volver a preguntar al servidor), así que sin este aviso nadie del
+  // estudio se entera y la socia se queda creyendo que tiene plaza.
+  // Distinto de RESERVA_PENDIENTE_APROBACION (aquí no hay nada que aprobar,
+  // hay que resolver el error a mano: ofrecer otra clase o compensar).
+  RESERVA_PAGADA_SIN_PLAZA: 'reserva.pagada_sin_plaza',
   CLASE_CANCELADA: 'clase.cancelada',
   CLASE_MODIFICADA: 'clase.modificada',
   // Cubrir NO es mover: la clase se queda donde está y solo cambia quién la da.
@@ -167,6 +183,12 @@ export const EVENTOS = {
   // listado (ver comentario en la migración de red_solicitudes_contacto).
   RED_CONTACTO_SOLICITADO: 'red.contacto_solicitado',
   RED_CONTACTO_ACEPTADO: 'red.contacto_aceptado',
+  // Fase 2 (matching): un estudio recibe una candidatura a una vacante.
+  RED_CANDIDATURA_RECIBIDA: 'red.candidatura_recibida',
+  // Fase 2 (matching): se publica una vacante que encaja con tu perfil.
+  // Única audiencia "no solicitada" de todo Network — ver la regla en
+  // REGLAS más abajo (solo PUSH, sin EMAIL).
+  RED_VACANTE_ENCAJA: 'red.vacante_encaja',
 } as const;
 
 // Reglas por evento. La 1ª tanda cableada de la Fase 1 cubre los 3 roles.
@@ -184,6 +206,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // esta requiere una acción de la propietaria/mostrador antes de que empiece
   // la clase.
   [EVENTOS.RESERVA_PENDIENTE_APROBACION]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH'], audiencia: 'mostrador' },
+  // ALTA + PUSH, mismo criterio que RESERVA_PENDIENTE_APROBACION: hay dinero
+  // ya cobrado y una clienta que cree tener plaza sin tenerla — el mostrador
+  // tiene que resolverlo hoy, no cuando alguien mire el panel por casualidad.
+  [EVENTOS.RESERVA_PAGADA_SIN_PLAZA]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH'], audiencia: 'mostrador' },
   // ALTA + PUSH: la socia tiene un plazo real para aceptar antes de que se
   // ofrezca a la siguiente — mismo criterio que RESERVA_PLAZA_LIBERADA, pero
   // aquí SÍ hace falta que actúe (no basta con enterarse).
@@ -273,6 +299,14 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // ALTA (no MEDIA): a diferencia de una verificación, aquí hay una persona
   // al otro lado esperando una respuesta concreta para poder escribirle.
   [EVENTOS.RED_CONTACTO_ACEPTADO]:   { category: 'red', priority: 'ALTA',  canales: ['PUSH', 'EMAIL'], audiencia: 'red-solicitante-contacto' },
+  // MEDIA + PUSH/EMAIL: mismo criterio que RED_VERIFICACION_SOLICITADA
+  // (alguien de fuera pide que la gerencia actúe, sin urgencia de reloj).
+  [EVENTOS.RED_CANDIDATURA_RECIBIDA]: { category: 'red', priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'gerencia' },
+  // BAJA + solo PUSH: a diferencia de los demás eventos `red.*` (reacción a
+  // algo que la propia persona pidió), este es el único push NO solicitado —
+  // un canal más (sobre todo EMAIL) sería spam de bandeja para alguien que
+  // nunca pidió que le avisaran de esta vacante concreta.
+  [EVENTOS.RED_VACANTE_ENCAJA]: { category: 'red', priority: 'BAJA', canales: ['PUSH'], audiencia: 'red-instructoras-lista' },
 };
 
 // Qué roles recibe cada audiencia. Se deriva de recipients.ts, pero declarado
@@ -297,6 +331,8 @@ export const ROLES_POR_AUDIENCIA: Record<Audiencia, NotificationRole[]> = {
   'red-profesional': ['INSTRUCTOR'],
   // Quien haya enviado la solicitud puede ser cualquier rol de staff.
   'red-solicitante-contacto': ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'],
+  // Mismo criterio que 'red-profesional': no es un rol dentro de un estudio.
+  'red-instructoras-lista': ['INSTRUCTOR'],
 };
 
 // Canales que este rol puede llegar a recibir en esta categoría, según lo que
@@ -397,6 +433,22 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#RECEPCION`]: {
     title: 'Reserva pendiente de aprobar',
     body: '{socia} quiere reservar {clase} el {cuando}. Requiere tu aprobación.',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
+  },
+  // Pagado pero sin plaza (checkout embebido) → mostrador
+  [`${EVENTOS.RESERVA_PAGADA_SIN_PLAZA}#PROPIETARIO`]: {
+    title: 'Cobrado pero sin plaza',
+    body: '{socia} pagó {clase} el {cuando} pero no se pudo confirmar su plaza. Contacta con ella para resolverlo.',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
+  },
+  [`${EVENTOS.RESERVA_PAGADA_SIN_PLAZA}#MANAGER`]: {
+    title: 'Cobrado pero sin plaza',
+    body: '{socia} pagó {clase} el {cuando} pero no se pudo confirmar su plaza. Contacta con ella para resolverlo.',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
+  },
+  [`${EVENTOS.RESERVA_PAGADA_SIN_PLAZA}#RECEPCION`]: {
+    title: 'Cobrado pero sin plaza',
+    body: '{socia} pagó {clase} el {cuando} pero no se pudo confirmar su plaza. Contacta con ella para resolverlo.',
     deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
   },
   // Clase cancelada → cada socia apuntada
@@ -664,6 +716,21 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: '{profesional} ha aceptado tu solicitud',
     body: 'Puedes escribirle a {emailContacto}{telefonoTexto}.',
     deepLink: () => `/network`,
+  },
+  [`${EVENTOS.RED_CANDIDATURA_RECIBIDA}#PROPIETARIO`]: {
+    title: 'Nueva candidatura en Network',
+    body: '{profesional} ha aplicado a "{vacanteTitulo}".',
+    deepLink: (d: Datos) => `/network/vacantes/${s(d.vacanteId)}`,
+  },
+  [`${EVENTOS.RED_CANDIDATURA_RECIBIDA}#MANAGER`]: {
+    title: 'Nueva candidatura en Network',
+    body: '{profesional} ha aplicado a "{vacanteTitulo}".',
+    deepLink: (d: Datos) => `/network/vacantes/${s(d.vacanteId)}`,
+  },
+  [`${EVENTOS.RED_VACANTE_ENCAJA}#INSTRUCTOR`]: {
+    title: 'Una vacante que podría interesarte',
+    body: '"{titulo}" encaja con tu perfil en Tentare Network.',
+    deepLink: () => `/network/oportunidades`,
   },
 };
 

@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from('sustituciones')
-    .select('id, estado, motivo, origen, creado_en, resuelto_en, instructor_original_id, sustituta_final_id, ranking, sesion_id, sesiones(inicio, fin, tipo_clase_id, cancelada)')
+    .select('id, estado, motivo, origen, creado_en, resuelto_en, instructor_original_id, sustituta_final_id, ranking, candidatos_network, sesion_id, sesiones(inicio, fin, tipo_clase_id, cancelada)')
     .eq('studio_id', sesion.studioId)
     .order('creado_en', { ascending: false })
     .limit(50);

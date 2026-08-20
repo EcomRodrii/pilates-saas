@@ -1,4 +1,4 @@
-# OAuth 2.0 para terceros (Zapier) — Fases 0-4
+# OAuth 2.0 para terceros (Zapier) — Fases 0-4, extensiones Fase 9
 
 Servidor OAuth 2.0 Authorization Code + PKCE + refresh tokens para que apps
 externas actúen en nombre de un estudio, con consentimiento explícito del
@@ -25,6 +25,7 @@ contraria: Tentare pasa a ser **servidor** OAuth.
 | `/api/oauth/v1/reservas/cancelar` | POST | Bearer + `reservas:escribir` | Action "Cancelar reserva" |
 | `/api/oauth/v1/notas` | POST | Bearer + `notas:escribir` | Action "Crear nota" |
 | `/api/oauth/v1/tareas` | POST | Bearer + `tareas:escribir` | Action "Crear tarea" |
+| `/api/oauth/v1/planes` | GET | Bearer + `planes:leer` | Consultar plan/bono de una clienta (Fase 9) |
 
 ## Tablas (`supabase/migrations/20260814100000_oauth_esquema_base.sql`)
 
@@ -54,7 +55,14 @@ son NULL), ver `lib/auth-server.ts`.
   `/api/oauth/revoke`), nunca solo en la UI.
 - **Scopes** (`lib/oauth-crypto.ts`): `clientas:*`, `reservas:*`, `pagos:leer`
   (sin `pagos:escribir` — dinero nunca se mueve vía terceros en v1),
-  `instructores:leer`, `notas:*`, `tareas:*`, `leads:*`.
+  `planes:leer` (Fase 9 — suscripciones/bonos, no recibos), `instructores:leer`,
+  `notas:*`, `tareas:*`, `leads:*`.
+- **Fase 9** (`docs/api-publica-v1-diseno.md`): extensiones incrementales sobre
+  este mismo servidor, no una API paralela. `?socioId=` en `GET
+  /api/oauth/v1/reservas` (filtro adicional, sin scope nuevo) y `GET
+  /api/oauth/v1/planes` (`planes:leer`, nuevo). `instructores:leer`,
+  `notas:leer`, `tareas:leer`, `leads:*` siguen reservados sin endpoint —
+  quedan para cuando haya petición real, mismo criterio que ya dejó esta fase.
 - **`/api/oauth/me` es lista blanca**, nunca el objeto crudo de
   `studios`/`instructores` — mismo criterio que `studioPublico()`.
 - **Auditoría**: cada llamada Bearer autenticada escribe una fila en

@@ -76,6 +76,14 @@ export function CoberturaDialog({ open, onOpenChange, sesion, sesiones, instruct
                         ? `Ha dado esta clase ${c.vecesImpartida} ${c.vecesImpartida === 1 ? 'vez' : 'veces'}`
                         : 'Nunca ha dado esta clase'}
                     </p>
+                    {/* P2 (auditoría "Veredicto de Marta"): antes solo el
+                        ranking por historial, nada sobre el resto de su día —
+                        podía llevar a escribir a alguien ya muy ocupada. */}
+                    <p className="text-[11px] text-muted-foreground/80">
+                      {c.otrasClasesHoy.length === 0
+                        ? 'Libre el resto del día'
+                        : `Hoy también: ${c.otrasClasesHoy.map(x => new Date(x.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })).join(', ')}`}
+                    </p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {wa && (

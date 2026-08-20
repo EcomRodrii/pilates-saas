@@ -7,6 +7,7 @@ import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/li
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
 import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
+import { metodoReutilizableDe } from '@/lib/billing/metodo-reutilizable';
 import { registrarDevolucion, referenciaDevolucion, origenDeReembolso } from '@/lib/billing/registrar-devolucion';
 import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
 
@@ -198,7 +199,44 @@ async function procesarEvento(
       return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
     }
 
-    if (session.mode === 'setup' && session.metadata?.purpose === 'sepa_mandate') {
+    if (session.mode === 'setup' && session.metadata?.purpose === 'tarjeta') {
+      // La socia autorizó una tarjeta sin pagar nada (/api/stripe/setup-tarjeta).
+      // Es el único camino por el que una socia que paga en mostrador, por
+      // Bizum o importada de otra plataforma llega a tener método cobrable.
+      // Mismo trato que el guardado tras un pago: si no se puede persistir se
+      // devuelve 5xx y Stripe reintenta (idempotente, mismos ids).
+      if (socioId && typeof session.setup_intent === 'string') {
+        const si = await stripe.setupIntents.retrieve(
+          session.setup_intent,
+          { expand: ['payment_method'] },
+          event.account ? { stripeAccount: event.account } : undefined,
+        );
+        const pm = si.payment_method;
+        const pmId = typeof pm === 'string' ? pm : (pm?.id ?? null);
+        const esTarjeta = typeof pm === 'string' ? true : pm?.type === 'card';
+        if (!studioId) {
+          // Mismo criterio que el guardado tras pago: sin studioId no se acota
+          // el UPDATE al estudio dueño de la socia, y no se escribe.
+          Sentry.captureMessage('[stripe webhook] setup de tarjeta sin studioId: no se guarda', {
+            level: 'warning', extra: { socioId, sessionId: session.id },
+          });
+        } else if (pmId && esTarjeta) {
+          const update: Record<string, string> = { stripe_payment_method_id: pmId };
+          if (typeof session.customer === 'string') update.stripe_customer_id = session.customer;
+          const { error } = await admin.from('socios')
+            .update(update).eq('id', socioId).eq('studio_id', studioId);
+          if (error) {
+            console.error('[stripe webhook] no se pudo guardar la tarjeta autorizada', socioId, error);
+            return NextResponse.json({ error: 'Fallo al guardar la tarjeta' }, { status: 500 });
+          }
+          // Caducidad para los avisos de Fase 3 del Brain. Best-effort: lo que
+          // importa (poder cobrar) ya está escrito.
+          await guardarCaducidadTarjeta(admin, stripe, {
+            socioId, studioId, paymentMethodId: pmId, stripeAccount: event.account,
+          });
+        }
+      }
+    } else if (session.mode === 'setup' && session.metadata?.purpose === 'sepa_mandate') {
       // Fase 1 · PR-2 — alta de mandato SEPA: la socia aceptó la domiciliación.
       // Guardamos el PaymentMethod (sepa_debit) y el mandato para poder cobrar
       // la mensualidad off-session (PR-3). El SetupIntent vive en la cuenta
@@ -289,20 +327,54 @@ async function procesarEvento(
             metodoCobro = tipo === 'bizum' ? 'BIZUM' : 'TARJETA';
           } catch { /* si falla la lectura, dejamos TARJETA por defecto */ }
         }
-        const { error } = await admin.from('recibos')
-          .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodoCobro })
+        const piId = typeof session.payment_intent === 'string' ? session.payment_intent : null;
+        const { data: marcado, error } = await admin.from('recibos')
+          .update({
+            estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodoCobro,
+            // Un cobro por checkout no dejaba el PaymentIntent en NINGUNA parte
+            // de Tentare (solo lo escribían el cobro off-session y la compra de
+            // plan). Por eso /api/reembolsos tenía que buscarlo en Stripe por
+            // metadata['reciboId'], y con dos cargos descartaba el resultado y
+            // respondía "no encontramos el cobro de este recibo".
+            ...(piId ? { stripe_payment_intent_id: piId } : {}),
+            // Pagada: deja de haber una sesión abierta que reutilizar.
+            checkout_session_id: null,
+          })
           // Acotado al tenant y a los estados realmente cobrables, que según el
           // CHECK de `recibos` son PENDIENTE, FALLIDO (recuperación tras dunning)
           // y EN_CURSO (adeudo SEPA en vuelo: el portal se lo muestra a la socia
           // como pendiente, así que un pago con tarjeta sobre él es legítimo y
           // debe marcarlo cobrado). Quedan fuera COBRADO —para no reescribir la
           // fecha_cobro con un evento tardío o duplicado— y DEVUELTO, para no
-          // resucitar un recibo ya devuelto. 0 filas afectadas no es un error.
+          // resucitar un recibo ya devuelto.
           .eq('id', reciboId).eq('studio_id', studioId)
-          .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO']);
+          .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO'])
+          .select('id').maybeSingle();
         if (error) {
           console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
           return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
+        }
+        // 0 filas tiene DOS causas muy distintas y hasta ahora se trataban igual
+        // (ni siquiera se miraba: el update iba sin `.select()`):
+        //   · Stripe reentrega el MISMO evento — normal, no hay nada que hacer.
+        //   · Un SEGUNDO cobro real del mismo recibo — dinero cobrado dos veces.
+        // Se distinguen por el PaymentIntent: si el recibo ya guarda uno y llega
+        // otro distinto, no es un reintento. Es el aviso que faltaba para que
+        // esto deje de ser invisible; devolver el cargo sigue siendo manual.
+        if (!marcado && piId) {
+          const { data: previo } = await admin.from('recibos')
+            .select('stripe_payment_intent_id')
+            .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
+          const anterior = (previo?.stripe_payment_intent_id as string | null) ?? null;
+          if (anterior && anterior !== piId) {
+            Sentry.captureMessage('[stripe webhook] SEGUNDO cobro del mismo recibo: hay que devolver uno', {
+              level: 'error',
+              extra: {
+                reciboId, studioId, sessionId: session.id,
+                paymentIntentCobrado: anterior, paymentIntentDuplicado: piId,
+              },
+            });
+          }
         }
         // Renovación en servidor (refill de bono / extensión del mensual):
         // antes solo la aplicaba el panel al "marcar cobrado" a mano, así que
@@ -397,17 +469,17 @@ async function procesarEvento(
         // devuelve "no such payment_intent".
         const paymentIntent = await stripe.paymentIntents.retrieve(
           session.payment_intent,
-          {},
+          // Expandido a propósito: sin el objeto no se sabe con qué método se
+          // pagó DE VERDAD, solo qué métodos se ofrecieron. En una sesión con
+          // Bizum + tarjeta esa diferencia decide entre guardar una tarjeta
+          // cobrable y guardar un método de Bizum que romperá el próximo cobro.
+          // No cuesta una llamada extra: es el mismo retrieve.
+          { expand: ['payment_method'] },
           event.account ? { stripeAccount: event.account } : undefined
         );
-        const paymentMethodId = typeof paymentIntent.payment_method === 'string'
-          ? paymentIntent.payment_method
-          : paymentIntent.payment_method?.id;
-        // Solo guardamos como método recurrente si es una tarjeta reutilizable.
-        const piPmTypes = (paymentIntent.payment_method_types ?? []) as string[];
-        const esTarjetaReutilizable = piPmTypes.includes('card')
-          && paymentIntent.setup_future_usage === 'off_session';
-        if (paymentMethodId && esTarjetaReutilizable) {
+        // Una sola regla, con tests: lib/billing/metodo-reutilizable.ts.
+        const paymentMethodId = metodoReutilizableDe(paymentIntent);
+        if (paymentMethodId) {
           if (!studioId) {
             // Sin studioId no se puede acotar el UPDATE al estudio dueño de la
             // socia: preferimos no escribir a escribir cross-tenant sobre un id
@@ -549,18 +621,51 @@ async function procesarEvento(
         return NextResponse.json({ error: 'Fallo al entregar el plan comprado' }, { status: 500 });
       }
 
+      // Sella el recibo en la metadata del PaymentIntent. SIN ESTO, una compra
+      // por el checkout embebido es INVISIBLE a reembolsos y disputas: sus tres
+      // handlers filtran por `pi.metadata.reciboId && ORIGENES_CON_RECIBO.has(
+      // pi.metadata.origen)`, y aunque 'plan_web_embebido' SÍ está en esa lista
+      // —lo que daba una falsa sensación de cobertura— el `reciboId` no se
+      // escribía nunca aquí, porque el recibo `rec-web-…` no existe hasta que
+      // `entregarPlanComprado` lo crea. La condición era siempre falsa: se
+      // devolvía el dinero (o se perdía un chargeback) y el recibo se quedaba
+      // COBRADO para siempre, con el bono activo y los ingresos inflados.
+      //
+      // Es exactamente el mismo olvido que documenta el comentario de
+      // ORIGENES_CON_RECIBO, ahora en el sentido contrario: allí se añadió la
+      // metadata y se olvidó la lista; aquí se añadió la lista y se olvidó la
+      // metadata. Al añadir un origen nuevo hay que tocar LOS DOS SITIOS.
+      //
+      // Best-effort igual que en checkout.session.completed: el bono ya está
+      // entregado, así que un fallo aquí no puede tumbar el evento — pero queda
+      // en Sentry.
+      try {
+        await stripe.paymentIntents.update(
+          pi.id,
+          { metadata: { ...pi.metadata, reciboId: entrega.reciboId } },
+          event.account ? { stripeAccount: event.account } : undefined,
+        );
+      } catch (err) {
+        Sentry.captureMessage('[stripe webhook] checkout embebido: plan entregado pero sin reciboId en el PaymentIntent', {
+          level: 'warning',
+          extra: { paymentIntentId: pi.id, reciboId: entrega.reciboId, studioId, detalle: String(err) },
+        });
+      }
+
       // Guardado de tarjeta (§6 del diseño): con PaymentIntent directo, el
       // propio evento YA ES el PaymentIntent — a diferencia de
       // checkout.session.completed no hace falta expandir/recuperar nada.
       // Un fallo aquí devuelve 5xx para reintentar (idempotente: mismos
       // customer/payment_method). Bizum no aplica: este endpoint solo ofrece
       // tarjeta (payment_method_types:['card'] fijo).
-      if (typeof pi.customer === 'string' && typeof pi.payment_method === 'string') {
-        const piPmTypes = (pi.payment_method_types ?? []) as string[];
-        const esTarjetaReutilizable = piPmTypes.includes('card') && pi.setup_future_usage === 'off_session';
-        if (esTarjetaReutilizable) {
+      if (typeof pi.customer === 'string') {
+        // Misma regla única que en checkout.session.completed. Aquí el evento ya
+        // ES el PaymentIntent y este endpoint solo ofrece tarjeta, así que el
+        // `payment_method` sin expandir basta.
+        const pmReutilizable = metodoReutilizableDe(pi);
+        if (pmReutilizable) {
           const { error } = await admin.from('socios')
-            .update({ stripe_customer_id: pi.customer, stripe_payment_method_id: pi.payment_method })
+            .update({ stripe_customer_id: pi.customer, stripe_payment_method_id: pmReutilizable })
             .eq('id', entrega.socioId).eq('studio_id', studioId);
           if (error) {
             console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia (checkout embebido)', entrega.socioId, error);
@@ -570,7 +675,7 @@ async function procesarEvento(
           // que en checkout.session.completed: el método de pago —lo que
           // importa— ya está guardado.
           await guardarCaducidadTarjeta(admin, stripe, {
-            socioId: entrega.socioId, studioId, paymentMethodId: pi.payment_method, stripeAccount: event.account,
+            socioId: entrega.socioId, studioId, paymentMethodId: pmReutilizable, stripeAccount: event.account,
           });
         }
       }
@@ -579,6 +684,40 @@ async function procesarEvento(
       await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
       const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
       await enviarEmailReciboWebhook(admin, { studioId, reciboId: entrega.reciboId });
+
+      // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
+      // §4.2): si el checkout venía con una clase concreta, reservarla ahora
+      // que el plan que la cubre ya está entregado. Best-effort a propósito,
+      // igual que el guardado de tarjeta de arriba: el dinero y el plan ya
+      // se entregaron, un fallo aquí no debe hacer que Stripe reintente el
+      // cobro — se reporta a Sentry y queda para conciliación manual.
+      if (pi.metadata.sesionId) {
+        try {
+          const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
+          const r = await reservarPlazaTrasPagoPublico({
+            studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id,
+          });
+          if (!r.ok) {
+            // `error`, no `warning`: la socia ha PAGADO por una clase concreta
+            // y se ha quedado sin plaza. La pantalla ya le ha dicho que estaba
+            // reservada (handlePagoExitoso pasa a 'done' sin volver a preguntar
+            // al servidor), así que nadie más se va a enterar. Con `warning` no
+            // saltaba ninguna alerta y esto se descubría por la socia.
+            Sentry.captureMessage('[stripe webhook] checkout embebido: plan entregado pero NO se pudo reservar la clase', {
+              level: 'error',
+              extra: { studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id, motivo: r.motivo, detalle: r.detalle },
+            });
+            // I-3 (auditoría 19-ago): además de la alerta de Sentry, avisa al
+            // mostrador dentro del propio panel — Sentry lo ve el equipo
+            // técnico, esto lo ve quien puede llamar a la socia hoy mismo.
+            // Best-effort: que falle este aviso no debe tumbar el webhook.
+            const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+            await emitirReservaPagadaSinPlaza(admin, { studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId });
+          }
+        } catch (e) {
+          Sentry.captureException(e, { extra: { contexto: 'reservarPlazaTrasPagoPublico', studioId, sesionId: pi.metadata.sesionId, paymentIntentId: pi.id } });
+        }
+      }
 
       // R4: señal de GMV (analítica de producto, no-op si POSTHOG_KEY no está).
       capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'checkout' } });

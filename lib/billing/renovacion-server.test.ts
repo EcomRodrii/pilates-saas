@@ -14,10 +14,20 @@ import { aplicarRenovacionServidor } from './renovacion-server.ts';
 
 type Fila = Record<string, unknown>;
 
-/** Supabase de mentira: sirve la suscripción y el plan, y guarda los updates. */
-function fakeAdmin(opts: { sus: Fila; plan: Fila }) {
+/** Supabase de mentira: sirve la suscripción y el plan, y guarda los updates.
+ *  `rpcSaldo` es lo que devuelve `renovar_bono_idempotente`: el saldo nuevo, o
+ *  null cuando este recibo ya había entregado (reintento). */
+function fakeAdmin(opts: { sus: Fila; plan: Fila; rpcSaldo?: number | null }) {
   const updates: Record<string, Fila[]> = { recibos: [], suscripciones: [] };
+  const rpcs: Array<{ nombre: string; args: Fila }> = [];
   const api = {
+    rpc(nombre: string, args: Fila) {
+      rpcs.push({ nombre, args });
+      // La RPC recarga la suscripción por dentro, así que se refleja aquí para
+      // que el test siga midiendo "¿se tocó la suscripción?".
+      if (opts.rpcSaldo != null) updates.suscripciones.push({ sesiones_restantes: opts.rpcSaldo });
+      return Promise.resolve({ data: opts.rpcSaldo ?? null, error: null });
+    },
     from(tabla: string) {
       return {
         select() { return this; },
@@ -32,7 +42,7 @@ function fakeAdmin(opts: { sus: Fila; plan: Fila }) {
       };
     },
   };
-  return { admin: api as never, updates };
+  return { admin: api as never, updates, rpcs };
 }
 
 const BONO = { tipo: 'BONO', sesiones: 10 };
@@ -43,11 +53,13 @@ const params = { studioId: 'studio-1', reciboId: 'rec-1' };
 const snapshot = (u: Record<string, Fila[]>) => u.recibos[0];
 
 test('bono agotado: recarga Y deja constancia de que el saldo previo era 0', async () => {
-  const { admin, updates } = fakeAdmin({
+  const { admin, updates, rpcs } = fakeAdmin({
     sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: 0, fecha_fin: '2026-09-01', estado: 'EXPIRADA' },
     plan: BONO,
+    rpcSaldo: 10, // 0 + 10: desde saldo 0 el resultado es el mismo que siempre
   });
   const r = await aplicarRenovacionServidor(admin, params);
+  assert.equal(rpcs[0]?.nombre, 'renovar_bono_idempotente', 'la recarga va por la RPC idempotente');
 
   assert.equal(r.aplicada, true);
   assert.equal(r.tipo, 'BONO');
@@ -66,20 +78,39 @@ test('bono agotado: recarga Y deja constancia de que el saldo previo era 0', asy
   assert.equal(s.entrega_fecha_fin_despues, '2026-09-01');
 });
 
-test('bono con saldo: NO recarga, y lo deja escrito como "se evaluó y no cambió nada"', async () => {
-  // Es el caso que hacía que un recibo COBRADO no probara que hubo entrega.
-  // Sin esta distinción, después se ofrecería revertir algo que nunca ocurrió.
-  const { admin, updates } = fakeAdmin({
+test('I-6 · bono con saldo: AHORA sí entrega, sumando en vez de no hacer nada', async () => {
+  // Antes esto devolvía `aplicada: false` sin tocar nada: el dinero cobrado y el
+  // servicio sin entregar, registrado en una columna que no mira ninguna alerta.
+  // El guard `sesiones_restantes !== 0` confundía "ya lo recargué" con "todavía
+  // no lo había agotado".
+  const { admin, updates, rpcs } = fakeAdmin({
     sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: 3, fecha_fin: null, estado: 'ACTIVA' },
     plan: BONO,
+    rpcSaldo: 13, // 3 + 10: no pierde las que le quedaban
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+
+  assert.equal(r.aplicada, true);
+  assert.equal(rpcs[0]?.args.p_sesiones, 10);
+  assert.equal(updates.suscripciones.length, 1, 'tiene que entregar lo comprado');
+  assert.equal(snapshot(updates).entrega_aplicada, true);
+  assert.equal(snapshot(updates).entrega_sesiones_antes, 3);
+  assert.equal(snapshot(updates).entrega_sesiones_despues, 13, 'suma, no reemplaza: 3 + 10');
+});
+
+test('I-6 · reintento del mismo recibo: la RPC dice null y no se pisa el snapshot bueno', async () => {
+  // La idempotencia ya no la da el saldo, la da el recibo. Un segundo webhook
+  // sobre el mismo recibo no entrega otra vez.
+  const { admin, updates } = fakeAdmin({
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: 13, fecha_fin: null, estado: 'ACTIVA' },
+    plan: BONO,
+    rpcSaldo: null, // ya había entregado
   });
   const r = await aplicarRenovacionServidor(admin, params);
 
   assert.equal(r.aplicada, false);
-  assert.equal(updates.suscripciones.length, 0, 'no debe tocar la suscripción');
-  assert.equal(snapshot(updates).entrega_aplicada, false);
-  assert.equal(snapshot(updates).entrega_sesiones_antes, 3);
-  assert.equal(snapshot(updates).entrega_sesiones_despues, 3, 'antes y después iguales: no cambió nada');
+  assert.equal(updates.suscripciones.length, 0, 'no debe recargar dos veces');
+  assert.equal(updates.recibos.length, 0, 'ni reescribir el snapshot de la entrega buena');
 });
 
 test('mensual: extiende la fecha y guarda la de antes, que si no se pierde', async () => {

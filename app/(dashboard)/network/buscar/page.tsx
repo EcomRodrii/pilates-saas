@@ -8,11 +8,12 @@ import { FiltrosBusquedaNetwork } from '@/components/network/filtros-busqueda';
 import { TarjetaResultadoNetwork } from '@/components/network/tarjeta-resultado';
 import { buscarPerfilesNetwork } from '@/lib/api-client';
 import { useCercaDeMi, distanciaDePerfil, ordenarPorCercania } from '@/lib/network/use-cerca-de-mi';
+import { encajeBusquedaDe } from '@/lib/network/encaje-busqueda';
 import type { FiltroBusquedaNetwork, PerfilNetworkPublico } from '@/lib/network/tipos';
 import { cardCls } from '@/app/(dashboard)/configuracion/page';
 
 const FILTRO_VACIO: FiltroBusquedaNetwork = {
-  ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [],
+  ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
 };
 
 // Buscador de profesionales — docs/NETWORK-IMPLEMENTATION-PLAN.md Fases 4/5
@@ -55,7 +56,7 @@ export default function NetworkBuscadorPage() {
     <div className="space-y-6">
       <PageHeader
         title="Buscar instructoras"
-        description="Encuentra profesionales de Pilates de Tentare Network disponibles para tu estudio."
+        description="Encuentra profesionales de Pilates y Yoga de Tentare Network disponibles para tu estudio."
       />
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -101,7 +102,12 @@ export default function NetworkBuscadorPage() {
             </div>
           ) : (
             resultadosOrdenados.map(({ item: perfil, distanciaKm }) => (
-              <TarjetaResultadoNetwork key={perfil.id} perfil={perfil} distanciaKm={distanciaKm} />
+              <TarjetaResultadoNetwork
+                key={perfil.id}
+                perfil={perfil}
+                distanciaKm={distanciaKm}
+                encaje={encajeBusquedaDe(filtro, perfil)}
+              />
             ))
           )}
         </div>

@@ -76,6 +76,44 @@ export function eventoIcs(e: EventoCalendario, ahora: Date): string {
   ].join('\r\n');
 }
 
+/**
+ * Enlace para añadir la clase al Google Calendar de LA ALUMNA.
+ *
+ * Nada que ver con la integración Google Calendar del ESTUDIO (esa sincroniza
+ * la agenda del negocio con la cuenta de la propietaria, `lib/google-calendar.ts`).
+ * Son dos cosas distintas y con frecuencia se confunden: que la propietaria
+ * tenga la suya conectada no pone ni una clase en el calendario de su alumna.
+ *
+ * Vivía suelta dentro de `app/reservar/[slug]/page.tsx`, así que el portal de la
+ * alumna —donde más falta hace, porque es su app— solo podía ofrecer el `.ics`.
+ * Al traerla aquí, junto a `eventoIcs` y con su misma entrada, se corrigen de
+ * paso dos cosas que la versión suelta hacía mal:
+ *
+ *   · Metía «Instructora:  · Sala: » literal cuando no había ninguna de las dos,
+ *     porque construía la cadena sin filtrar. `eventoIcs` sí filtraba.
+ *   · Separaba el sitio con « · », que Google Maps no sabe leer como dirección.
+ *     Con coma, «Estudio Alma, Calle Larios 1» sí se geocodifica.
+ *
+ * Las fechas van en el formato UTC de `aFechaCal` (`20260904T160000Z`), que es
+ * lo que evita que la clase aparezca corrida de hora en un móvil con otra zona.
+ */
+export function urlGoogleCalendar(e: EventoCalendario): string {
+  const detalle = [
+    e.instructora ? `Instructora: ${e.instructora}` : '',
+    e.sala ? `Sala: ${e.sala}` : '',
+  ].filter(Boolean).join(' · ');
+
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: e.titulo,
+    dates: `${aFechaCal(e.inicio)}/${aFechaCal(e.fin)}`,
+    location: [e.estudioNombre, e.estudioDireccion].filter(Boolean).join(', '),
+  });
+  // Solo si hay algo que contar: un `details=` vacío es ruido en la URL.
+  if (detalle) params.set('details', detalle);
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 /** El nombre del fichero: `reformer-suave-2026-09-04.ics`. */
 export function nombreIcs(titulo: string, inicio: string): string {
   const base = titulo.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'clase';

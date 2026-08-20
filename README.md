@@ -263,13 +263,16 @@ La implementación se encuentra en:
 lib/auth/captcha-servidor.ts
 ```
 
-Uno de los endpoints que utiliza esta validación es:
+⚠️ **Hoy ningún endpoint propio la usa.** Su único consumidor era
+`/api/public/interes-lanzamiento` (el formulario de lista de espera), que se
+borró al abrir Tentare al público. El alta nueva (`/crear-estudio`) no pasa por
+un endpoint propio: va directa a gotrue, que verifica el token de Turnstile a
+nivel de PROYECTO en Supabase. La utilidad se conserva para el próximo endpoint
+público que haga falta — pero si se pinta un captcha en un formulario nuevo,
+hay que acordarse de llamarla desde el servidor, o el token será decoración
+(fue exactamente el bug de #847).
 
-```text
-/api/public/interes-lanzamiento
-```
-
-El servidor utiliza el mecanismo `siteverify` de Cloudflare para validar el token.
+Cuando se usa, el servidor valida el token con el mecanismo `siteverify` de Cloudflare.
 
 La variable:
 

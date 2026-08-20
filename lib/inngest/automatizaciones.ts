@@ -201,6 +201,14 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       estudioNombre: studioNombre,
       colorPrimario: studioColor,
       logoUrl: studioLogo,
+      // I-5 (auditoría 19-ago): el motor clásico renderizaba esto SIN
+      // unsubscribeUrl para sus dos candidatos comerciales (AUSENCIA_DIAS/
+      // NUEVA_SOCIA sin aprobación humana — computeAutomationCandidatos ya
+      // exige consentimiento vigente para que lleguen aquí). El resto
+      // (PAGO_PENDIENTE_DIAS, CLASE_MANANA, RENOVACION_COBRADA) son avisos de
+      // servicio, no comerciales — LSSI no les exige enlace de baja, y
+      // dárselo insinuaría que dejar de recibirlos es opcional.
+      ...(c.comercial ? { unsubscribeUrl: `${appUrl()}/api/marketing/baja?token=${firmarBajaMarketing(studioId, c.socio.id)}` } : {}),
     }));
     // Un 429 (u otro fallo transitorio de Resend) no debe perderse como
     // FALLIDO permanente — ver lib/emails/resend-reintentos.ts (dentro de
@@ -441,6 +449,26 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       };
     });
 
+    // Guard de consentimiento (art. 7.4 RGPD, docs/marketing-integrations-arquitectura.md
+    // §7): select TARGETED con el texto completo — data.socios (arriba) NO lo
+    // trae, mismo motivo que aceptacion_version (ver FilaSocioPanel). Filas
+    // crudas, no un Map: lo que devuelve un step.run se serializa como estado
+    // de Inngest y un Map se reconstruye como {} en el replay (mismo gotcha ya
+    // documentado para dbGetFeatureFlags) — el Map se construye fuera del step.
+    // I-5: antes solo alimentaba al motor de MARKETING; el motor clásico
+    // (computeAutomationCandidatos, justo debajo) también manda ENVIAR_EMAIL
+    // comerciales (AUSENCIA_DIAS/NUEVA_SOCIA) y necesita el mismo guard.
+    const filasConsentimiento = await step.run('fetch-consentimientos', async () => {
+      const { data: rows } = await requireSupabaseAdmin()
+        .from('socios').select('id, consentimiento_marketing_texto').eq('studio_id', studioId);
+      return (rows ?? []) as { id: string; consentimiento_marketing_texto: string | null }[];
+    });
+    const consentimientosMarketing = new Map<string, string>();
+    for (const row of filasConsentimiento) {
+      if (row.consentimiento_marketing_texto) consentimientosMarketing.set(row.id, row.consentimiento_marketing_texto);
+    }
+    const textoConsentimientoVigente = textoConsentimientoMarketing({ nombre: studioNombre });
+
     // Puro y determinista: se recomputa igual en cada replay del handler.
     const candidatos = computeAutomationCandidatos(
       {
@@ -453,6 +481,8 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
         tiposClase: data.tiposClase,
         suscripciones: data.suscripciones,
         planesTarifa: data.planesTarifa,
+        consentimientosMarketing,
+        textoConsentimientoVigente,
       },
       now
     );
@@ -485,23 +515,6 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
         }
       });
     }
-
-    // Guard de consentimiento (art. 7.4 RGPD, docs/marketing-integrations-arquitectura.md
-    // §7): select TARGETED con el texto completo — data.socios (arriba) NO lo
-    // trae, mismo motivo que aceptacion_version (ver FilaSocioPanel). Filas
-    // crudas, no un Map: lo que devuelve un step.run se serializa como estado
-    // de Inngest y un Map se reconstruye como {} en el replay (mismo gotcha ya
-    // documentado para dbGetFeatureFlags) — el Map se construye fuera del step.
-    const filasConsentimiento = await step.run('fetch-consentimientos', async () => {
-      const { data: rows } = await requireSupabaseAdmin()
-        .from('socios').select('id, consentimiento_marketing_texto').eq('studio_id', studioId);
-      return (rows ?? []) as { id: string; consentimiento_marketing_texto: string | null }[];
-    });
-    const consentimientosMarketing = new Map<string, string>();
-    for (const row of filasConsentimiento) {
-      if (row.consentimiento_marketing_texto) consentimientosMarketing.set(row.id, row.consentimiento_marketing_texto);
-    }
-    const textoConsentimientoVigente = textoConsentimientoMarketing({ nombre: studioNombre });
 
     // ── Automatizaciones de MARKETING (tipo Automatizacion, con triggers) ──────
     // Antes se creaban pero nada las ejecutaba. Mismo patrón: candidatas puras +

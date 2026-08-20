@@ -32,7 +32,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       statusBarStyle: 'default' as const,
       title: nombre,
     },
-    icons: { icon: theme?.faviconUrl || urlMonograma(nombre, studio?.colorPrimario, 192) },
+    // `icon` (pestaña/favicon) ya iba por estudio, pero especificar `icons`
+    // aquí desactiva TAMBIÉN el `apple-icon.png` de convención de fichero del
+    // layout raíz (es de Tentare) sin sustituirlo por nada — Next no cae a él,
+    // así que "Añadir a pantalla de inicio" en iOS se quedaba sin ningún
+    // <link rel="apple-touch-icon">, y Safari termina resolviendo el icono de
+    // marca de OTRO negocio. Mismo valor que `icon`: no hace falta un asset
+    // aparte para que la alumna vea el icono de SU estudio, no el de Tentare.
+    icons: {
+      icon: theme?.faviconUrl || urlMonograma(nombre, studio?.colorPrimario, 192),
+      apple: theme?.faviconUrl || urlMonograma(nombre, studio?.colorPrimario, 192),
+    },
   };
 }
 

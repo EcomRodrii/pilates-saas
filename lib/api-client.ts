@@ -9,6 +9,7 @@ import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_I
 import { mensajeSeguro, mensajeHttp, type ResultadoEscritura } from '@/lib/errores';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
+import type { FaseTrial } from '@/lib/billing/trial';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import type {
@@ -19,6 +20,8 @@ import type {
   CertificacionNetwork, NuevaCertificacionNetwork,
   VacanteNetwork, NuevaVacanteNetwork, CambiosVacanteNetwork, CandidaturaNetwork,
 } from '@/lib/network/tipos';
+import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
+import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -411,6 +414,8 @@ export interface SustitucionPanel {
   instructor_original_id: string | null;
   sustituta_final_id: string | null;
   ranking: SustitucionCandidata[];
+  // Ausente en filas anteriores a la migración 20260818010000 → tratar como [].
+  candidatos_network?: CandidatoNetworkSustitucion[] | null;
   sesion_id: string;
   sesiones: { inicio: string; fin: string; tipo_clase_id: string | null; cancelada: boolean } | null;
   // Traza de contactos (embed). Ausente en respuestas antiguas → tratar como [].
@@ -744,16 +749,47 @@ export async function aprobarCobroAutonomo(params: {
 // nada — sustituye a crearCheckoutStripe para este botón (esa función crea un
 // Checkout Session público, pensado para /reservar y el portal, no para un
 // reintento desde el panel). Mismo 202/CobroAprobado que aprobarCobroAutonomo.
-export async function cobrarOnlineDirecto(params: { reciboId: string; socioId: string }): Promise<CobroAprobado | { error: string }> {
+export async function cobrarOnlineDirecto(params: { reciboId: string; socioId: string }): Promise<CobroAprobado | { error: string; errorCode?: string }> {
   const res = await fetch('/api/cobros/cobrar-online', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
     body: JSON.stringify(params),
   });
   const data = await res.json();
-  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  // `errorCode` se propaga: sin él, "la socia no tiene método de pago guardado"
+  // llegaba a la pantalla como un texto rojo indistinguible de un fallo de red,
+  // y no había forma de ofrecer la única salida real (pedirle la tarjeta).
+  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)), errorCode: data.errorCode };
   const aviso = leerAvisoCobro(data);
   return aviso ? { ok: true, ...aviso } : { ok: true };
+}
+
+/**
+ * Enlace para que una socia AUTORICE una tarjeta sin pagar nada (Stripe
+ * Checkout en `mode: 'setup'`). Es la salida cuando un cobro off-session
+ * responde `SIN_TARJETA`: la propietaria le manda este enlace y, en cuanto la
+ * socia lo completa, el webhook deja el método guardado y "Cobrar online"
+ * funciona. Nunca pasa por aquí ningún dato de la tarjeta: la recoge Stripe.
+ */
+export async function crearEnlaceTarjeta(params: {
+  studioId: string;
+  socioId: string;
+  slug?: string;
+}): Promise<{ url: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/stripe/setup-tarjeta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json() as { url?: string; error?: string };
+    // `res.ok` ANTES del cuerpo, mismo criterio que postCheckout: un 500 no se
+    // le cuenta a nadie como un problema de su conexión.
+    if (!res.ok || !data.url) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { url: data.url };
+  } catch {
+    return { error: 'No se ha podido preparar el enlace. Comprueba tu conexión.' };
+  }
 }
 
 // Fase 3: aprueba un cobro de penalización pendiente (cancelación
@@ -862,6 +898,10 @@ export interface EstadoBilling {
   // Fin del periodo facturado = fecha del próximo cobro (ISO). Fuera de la
   // prueba es lo que la dueña quiere ver: cuándo se le pasa el recibo.
   periodoTermina?: string | null;
+  /** Estado de la prueba ya derivado EN SERVIDOR. La píldora del panel lo pinta
+   *  tal cual: si contara los días con el reloj del navegador, un portátil con
+   *  la hora desfasada enseñaría una cuenta atrás distinta a la real. */
+  trial?: { fase: FaseTrial; diasRestantes: number; finaliza: string | null };
 }
 
 // Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve
@@ -2585,11 +2625,16 @@ export async function fetchVacanteNetwork(id: string): Promise<VacanteNetwork | 
   }
 }
 
-export async function fetchCandidaturasVacanteNetwork(vacanteId: string): Promise<CandidaturaNetwork[]> {
+// Solo esta lista (candidaturas de UNA vacante, lado estudio) trae `encaje`
+// — el resto de usos de CandidaturaNetwork (mis-candidaturas, lado
+// instructora) no tiene una vacante fija contra la que calcularlo.
+export type CandidaturaConEncaje = CandidaturaNetwork & { encaje: EncajeCandidatura | null };
+
+export async function fetchCandidaturasVacanteNetwork(vacanteId: string): Promise<CandidaturaConEncaje[]> {
   try {
     const res = await fetch(`/api/network/vacantes/${encodeURIComponent(vacanteId)}/candidaturas`, { headers: await authHeader() });
     if (!res.ok) return [];
-    const data = (await res.json()) as { candidaturas?: CandidaturaNetwork[] };
+    const data = (await res.json()) as { candidaturas?: CandidaturaConEncaje[] };
     return data.candidaturas ?? [];
   } catch {
     return [];
@@ -2648,6 +2693,118 @@ export async function fetchMisCandidaturasNetwork(): Promise<CandidaturaNetwork[
     if (!res.ok) return [];
     const data = (await res.json()) as { candidaturas?: CandidaturaNetwork[] };
     return data.candidaturas ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Una clase pasada de la socia. Espejo de `ClaseAsistida`. */
+export interface ClaseAsistidaCliente {
+  reservaId: string;
+  sesionId: string;
+  inicio: string;
+  nombre: string;
+  instructora: string;
+  /** Cómo acabó. Ver `ClaseAsistida.estado`. */
+  estado: 'ASISTIDA' | 'CANCELADA' | 'NO_SHOW';
+}
+
+/**
+ * El historial de clases asistidas de la socia en sesión.
+ *
+ * Va aparte del catálogo público a propósito y se pide EN DIFERIDO, solo
+ * cuando se abre la lista de la agenda: el catálogo acota las sesiones a
+ * `fin >= ahora` para no arrastrar meses de historia en cada carga, y
+ * ensancharlo habría penalizado a todos los portales.
+ *
+ * `portalAuthHeader()` manda el JWT de la socia; el servidor deriva de ahí su
+ * identidad y no se fía de ningún id del body. Sin sesión devuelve 401, y aquí
+ * eso es una lista vacía, no un error en pantalla: la sección simplemente no
+ * se pinta.
+ */
+/**
+ * Quita la tarjeta guardada de la socia en sesión.
+ *
+ * Devuelve `null` si el servidor lo confirmó, o el mensaje de error si no.
+ * ⚠️ Nada de escritura optimista: quitar un método de pago se anuncia con lo
+ * que responde el servidor, no antes — es el mismo criterio que el resto de los
+ * flujos de dinero de este repo.
+ */
+/**
+ * Al entrar (por Google o por el enlace del correo): enlaza la ficha de la
+ * socia, o la crea si no la tiene.
+ *
+ * ⚠️ Va contra un endpoint PROPIO y no contra `/api/public/session`: esa se
+ * llama en cada carga del portal, así que meter el alta ahí daría de alta a
+ * cualquiera con una sesión de Supabase por el mero hecho de VISITAR el portal
+ * de un estudio.
+ */
+export async function altaAlEntrar(slug: string, via: 'google' | 'enlace'): Promise<{ error?: string; creada?: boolean }> {
+  try {
+    const res = await fetch('/api/public/alta-al-entrar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ slug, via }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; creada?: boolean };
+    if (res.ok) return { creada: data.creada };
+    return { error: data.error ?? 'No se ha podido completar el acceso.' };
+  } catch {
+    return { error: 'No hemos podido conectar. Inténtalo de nuevo.' };
+  }
+}
+
+export async function borrarTarjetaPublica(studioId: string): Promise<string | null> {
+  try {
+    const res = await fetch('/api/public/tarjeta', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ studioId }),
+    });
+    if (res.ok) return null;
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return data.error ?? 'No se ha podido quitar la tarjeta.';
+  } catch {
+    return 'No hemos podido conectar. Inténtalo de nuevo.';
+  }
+}
+
+/**
+ * Abre la página de Stripe para guardar una tarjeta. Devuelve la URL, o el
+ * mensaje de error.
+ *
+ * ⚠️ La UI de tarjeta la aloja STRIPE: aquí no se pide nunca un número ni un
+ * CVC en nuestro propio DOM. Ver el comentario de `/api/stripe/setup-tarjeta`.
+ */
+export async function urlParaGuardarTarjeta(
+  studioId: string, socioId: string, slug: string,
+): Promise<{ url: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/stripe/setup-tarjeta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ studioId, socioId, slug }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+    if (res.ok && data.url) return { url: data.url };
+    return { error: data.error ?? 'No se ha podido abrir la página para guardar la tarjeta.' };
+  } catch {
+    return { error: 'No hemos podido conectar. Inténtalo de nuevo.' };
+  }
+}
+
+export async function fetchHistorialAsistidas(
+  studioId: string, limite?: number,
+): Promise<ClaseAsistidaCliente[]> {
+  try {
+    const res = await fetch('/api/public/historial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ studioId, limite }),
+    });
+    if (!res.ok) return [];
+    const data = (await res.json().catch(() => ({}))) as { clases?: ClaseAsistidaCliente[] };
+    return data.clases ?? [];
   } catch {
     return [];
   }

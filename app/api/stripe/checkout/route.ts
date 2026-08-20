@@ -7,6 +7,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
+import { decidirSesionCheckout } from '@/lib/billing/sesion-checkout';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -85,12 +86,15 @@ export async function POST(req: NextRequest) {
   let importe: number;
   let concepto: string;
   let socioId: string | null = body.socioId ?? null;
+  // Sesión de Checkout que este recibo ya tenga abierta (migr 20260817214500).
+  // Es lo que impide crear una SEGUNDA sesión pagable del mismo recibo.
+  let sesionAbiertaId: string | null = null;
   const metadata: Record<string, string> = { studioId: body.studioId };
 
   if (body.reciboId) {
     const { data: recibo, error } = await admin
       .from('recibos')
-      .select('importe, concepto, estado, studio_id, socio_id')
+      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id')
       .eq('id', body.reciboId)
       .maybeSingle();
     if (error || !recibo) {
@@ -105,6 +109,7 @@ export async function POST(req: NextRequest) {
     importe = Number(recibo.importe);
     concepto = recibo.concepto;
     socioId = recibo.socio_id ?? socioId;
+    sesionAbiertaId = (recibo.checkout_session_id as string | null) ?? null;
     metadata.reciboId = body.reciboId;
   } else if (body.planId) {
     const { data: plan, error } = await admin
@@ -174,11 +179,73 @@ export async function POST(req: NextRequest) {
   // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
   const fee = applicationFeeAmount(Math.round(importe * 100));
 
-  // Con Bizum: ofrecemos Bizum + tarjeta pero NO guardamos la tarjeta (Bizum no
-  // admite setup_future_usage y es solo puntual). Sin Bizum: solo tarjeta y la
-  // guardamos para cobros recurrentes off-session.
+  // Bizum no admite `setup_future_usage` (es un pago puntual sin mandato
+  // reutilizable), así que durante un tiempo pedir Bizum apagaba el guardado de
+  // tarjeta de TODA la sesión — incluido `customer_creation`. El problema es que
+  // esa sesión sigue ofreciendo tarjeta: el botón "Pagar con Bizum" del widget
+  // manda `bizum: true`, y una socia que allí acabara pagando CON TARJETA no
+  // dejaba ni Customer ni PaymentMethod. Después, "Cobrar online" en el panel
+  // solo podía decir "La socia no tiene tarjeta ni mandato SEPA guardado".
+  //
+  // `payment_method_options.card.setup_future_usage` resuelve exactamente esto:
+  // el guardado se pide POR MÉTODO, así que la tarjeta se guarda y Bizum no
+  // arrastra una opción que no soporta. Ver el webhook
+  // (`checkout.session.completed`), que comprueba el método REALMENTE usado
+  // antes de guardar nada.
+  //
+  // ⚠️ El `setup_future_usage` GLOBAL se sigue pidiendo cuando no hay Bizum,
+  // aunque el por-método ya lo cubriría. No es redundancia por descuido:
+  //
+  //   · El camino sin Bizum (portal, panel, /reservar, enlace de pago) YA
+  //     funcionaba con el global, y el webhook comprobaba justo ese campo.
+  //   · Dejar solo el por-método haría que ese camino que funciona dependa de
+  //     que Stripe devuelva `payment_method_options.card.setup_future_usage` en
+  //     el PaymentIntent recuperado. Es lo esperable, pero aquí no hay Stripe en
+  //     modo test para comprobarlo, y si no lo devolviera se dejarían de guardar
+  //     tarjetas en el único camino por el que hoy se guardan.
+  //
+  // Con Bizum sí va solo el por-método: el global es incompatible con `bizum` y
+  // Stripe rechazaría la sesión. Así el camino nuevo gana capacidad sin poner en
+  // riesgo el que ya iba, y `metodoReutilizableDe` acepta las dos formas.
   const conBizum = body.bizum === true;
   const paymentMethodTypes: Array<'card' | 'bizum'> = conBizum ? ['card', 'bizum'] : ['card'];
+
+  // DOBLE COBRO (C-3). Hasta aquí esto solo LEÍA el estado del recibo y creaba
+  // la sesión sin escribir nada: un TOCTOU de manual. Dos pestañas —o dos clics
+  // separados por minutos— producían DOS sesiones pagables del mismo recibo, y
+  // las dos cobraban de verdad. El segundo cargo era además invisible: el
+  // webhook lo acota con `.in('estado', [...])`, así que casaba 0 filas y no
+  // dejaba rastro en ninguna parte de Tentare.
+  //
+  // Se reutiliza la sesión que ya esté abierta en vez de crear otra (y de paso
+  // la socia recupera su checkout, que es mejor que un error). Si pide otro
+  // método de pago, la anterior se EXPIRA antes de crear la nueva: expirada ya
+  // no se puede pagar, así que nunca hay dos sesiones cobrables vivas a la vez.
+  if (sesionAbiertaId) {
+    try {
+      const previa = await stripe.checkout.sessions.retrieve(
+        sesionAbiertaId,
+        undefined,
+        { stripeAccount: studio.stripe_account_id },
+      );
+      const decision = decidirSesionCheckout(previa, paymentMethodTypes);
+      if (decision === 'reutilizar' && previa.url) {
+        return conCorsWidget(req, NextResponse.json({ url: previa.url }));
+      }
+      if (decision === 'expirar-y-crear') {
+        await stripe.checkout.sessions.expire(
+          sesionAbiertaId,
+          undefined,
+          { stripeAccount: studio.stripe_account_id },
+        );
+      }
+    } catch (err) {
+      // La sesión guardada ya no se puede consultar (borrada, cuenta cambiada,
+      // Stripe caído). No es motivo para impedir el pago: se sigue y se crea
+      // una nueva. El peor caso es exactamente el comportamiento de antes.
+      console.error('[stripe/checkout] no se pudo revisar la sesión previa', sesionAbiertaId, err);
+    }
+  }
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -198,9 +265,16 @@ export async function POST(req: NextRequest) {
         },
       ],
       customer_email: body.socioEmail ?? undefined,
-      // Solo creamos Customer + guardamos tarjeta cuando NO hay Bizum (flujo recurrente).
-      ...(conBizum ? {} : { customer_creation: 'always' as const }),
+      // Siempre: sin Customer no hay dónde adjuntar la tarjeta, y esto vale
+      // igual cuando se paga por Bizum (el Customer se queda sin método
+      // reutilizable, que es lo correcto, en vez de no existir).
+      customer_creation: 'always' as const,
+      // Guardado POR MÉTODO: la tarjeta sí, Bizum no lo admite. Es lo que
+      // permite ofrecer Bizum y seguir pudiendo cobrar después.
+      payment_method_options: { card: { setup_future_usage: 'off_session' as const } },
       payment_intent_data: {
+        // Y el global cuando no hay Bizum, para no cambiar en nada el camino que
+        // ya funcionaba (ver el comentario largo más arriba).
         ...(conBizum ? {} : { setup_future_usage: 'off_session' as const }),
         ...(fee !== undefined ? { application_fee_amount: fee } : {}),
         // El handler `charge.refunded` lee la metadata del PAYMENT INTENT, no de la
@@ -217,7 +291,42 @@ export async function POST(req: NextRequest) {
       success_url: retorno.successUrl,
       cancel_url: retorno.cancelUrl,
       locale: 'es',
-    }, { stripeAccount: studio.stripe_account_id });
+    }, {
+      stripeAccount: studio.stripe_account_id,
+      // Cinturón además de los tirantes: la reutilización de arriba no cubre la
+      // carrera de dos peticiones que entran ANTES de que ninguna haya llegado a
+      // guardar `checkout_session_id`. Con la misma clave, Stripe devuelve la
+      // sesión que ya creó en vez de crear otra. Lleva los métodos de pago
+      // porque cambiarlos sí exige una sesión distinta, y con la misma clave y
+      // parámetros distintos Stripe respondería un error de idempotencia.
+      // Solo para recibos: en la compra de un plan no hay un id estable con el
+      // que construir una clave que no colisione entre personas distintas.
+      ...(body.reciboId
+        ? { idempotencyKey: `checkout-${body.reciboId}-${[...paymentMethodTypes].sort().join('-')}` }
+        : {}),
+    });
+
+    // Se registra ANTES de devolver la URL. Si esto fallara y devolviéramos la
+    // sesión igualmente, quedaría una sesión pagable que Tentare no conoce — y
+    // la siguiente petición crearía otra: exactamente el bug que cierra esto.
+    // Regla de la casa: cero escritura optimista en el camino del dinero.
+    if (body.reciboId) {
+      const { error: errGuardar } = await admin
+        .from('recibos')
+        .update({ checkout_session_id: session.id })
+        .eq('id', body.reciboId)
+        .eq('studio_id', body.studioId);
+      if (errGuardar) {
+        console.error('[stripe/checkout] no se pudo registrar la sesión', session.id, errGuardar);
+        await stripe.checkout.sessions
+          .expire(session.id, undefined, { stripeAccount: studio.stripe_account_id })
+          .catch(() => { /* si ni siquiera se puede expirar, el aviso de arriba es el rastro */ });
+        return conCorsWidget(req, NextResponse.json(
+          { error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' },
+          { status: 500 },
+        ));
+      }
+    }
 
     return conCorsWidget(req, NextResponse.json({ url: session.url }));
   } catch (err) {

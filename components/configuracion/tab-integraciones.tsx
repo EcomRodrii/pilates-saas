@@ -18,6 +18,7 @@ import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import { StripeIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
 import { authHeader } from '@/lib/api-client';
+import { saludIntegracion, textoSalud } from '@/lib/integraciones/salud';
 import type { TipoIntegracion } from '@/lib/types';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 import { uuidV4 } from '@/lib/utils';
@@ -61,21 +62,38 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'RESEND',
     nombre: 'Resend',
-    descripcion: 'Envía emails de bienvenida, recibos y campañas desde tu propio dominio.',
+    // "desde tu propio dominio" era falso: la dirección que FIRMA es siempre la
+    // verificada de la plataforma (ver lib/emails/remitente.ts) — usar una del
+    // estudio sin verificar en Resend haría rebotar el correo, y verificar un
+    // dominio no se resuelve pegando un campo aquí. Lo que sí se puede dar al
+    // estudio es el nombre visible y la dirección de respuesta, que es
+    // exactamente lo que hacen estos dos campos desde que dejaron de ser
+    // decorativos (antes se guardaban y no los leía ni una línea del producto).
+    descripcion: 'Pon tu nombre y tu dirección de respuesta en los correos a tus alumnas: bienvenida, recibos, recordatorios y campañas.',
     Icon: ResendIcon,
     color: 'var(--foreground)',
     bg: '#F5F5F5',
     campos: [
-      { key: 'fromEmail', label: 'Email remitente', placeholder: 'hola@tentare.es' },
-      { key: 'fromName', label: 'Nombre remitente', placeholder: 'Tentare' },
+      // Etiquetas y ejemplos del ESTUDIO, no de Tentare: el placeholder anterior
+      // ('hola@tentare.es' / 'Tentare') invitaba a rellenarlo con nuestros
+      // datos, que es lo contrario de lo que hace el campo.
+      { key: 'fromEmail', label: 'Email para respuestas', placeholder: 'hola@tuestudio.es' },
+      { key: 'fromName', label: 'Nombre que verán tus alumnas', placeholder: 'Studio Pilates Barcelona' },
     ],
     secretoEnv: 'RESEND_API_KEY',
-    docsUrl: 'https://resend.com/api-keys',
+    // Sin `docsUrl`: apuntaba a resend.com/api-keys, o sea a sacar una clave de
+    // API que la propietaria NO debe gestionar — el propio aviso de este modal
+    // dice que el proveedor de envío lo lleva Tentare. Mandarla ahí contradecía
+    // ese aviso dos líneas más abajo.
   },
   {
     tipo: 'GOOGLE_CALENDAR',
     nombre: 'Google Calendar',
-    descripcion: 'Sincroniza las clases del estudio con el calendario de Google de la propietaria. Conexión OAuth — no necesitas pegar ninguna clave.',
+    // Decía "sincroniza las clases con tu calendario" sin más. Es cierto, pero
+    // solo cuando ella pulsa "Sincronizar ahora": no hay ningún proceso que
+    // empuje una clase nueva, movida o cancelada por su cuenta. Dicho así, se
+    // entiende igual que "sincronizado" y espera que se mantenga solo.
+    descripcion: 'Copia las clases de las próximas 4 semanas a tu calendario de Google cada vez que pulses «Sincronizar ahora». No se actualiza solo. Conexión OAuth — no necesitas pegar ninguna clave.',
     Icon: GoogleCalendarIcon,
     color: '#4285F4',
     bg: '#F5F5F5',
@@ -119,7 +137,13 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'GMAIL',
     nombre: 'Gmail',
-    descripcion: 'Envía emails desde el Gmail de la propietaria y trae sus contactos como clientas nuevas. Conexión OAuth — no necesitas pegar ninguna clave.',
+    // Prometía "envía emails desde el Gmail de la propietaria" y eso NO existe:
+    // `enviarEmailGmail` tiene un único llamador en todo el repo, el botón de
+    // "Enviar email de prueba" de esta misma tarjeta. Ningún correo a una
+    // alumna sale por Gmail — todos van por Resend. La otra mitad (traer
+    // contactos) sí es real. Dos estudios la tienen conectada desde el 16-ago,
+    // así que se corrige el texto; desactivarla les quitaría algo que usan.
+    descripcion: 'Trae los contactos de tu Gmail como clientas nuevas. Los correos a tus alumnas los sigue enviando Tentare, no tu Gmail. Conexión OAuth — no necesitas pegar ninguna clave.',
     Icon: Mail,
     color: '#EA4335',
     bg: '#F5F5F5',
@@ -129,12 +153,21 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'ZOOM',
     nombre: 'Zoom',
-    descripcion: 'Lleva tus clases más allá del estudio y ofrece sesiones en cualquier momento y lugar. Conexión OAuth — no necesitas pegar ninguna clave.',
+    // Estaba ofreciéndose como conectable y conectarla NO HACÍA NADA: el OAuth,
+    // el "probar conexión" y hasta `crearReunionZoom()` existen, pero esa
+    // función no tiene ni un llamador en todo el repo, así que ninguna clase
+    // llega a tener reunión. Pasa a "Próximamente" (mismo patrón que
+    // Mailchimp/Brevo) en vez de dejar un botón que promete y no entrega.
+    // Cero estudios la tienen conectada en producción, así que nadie pierde
+    // nada; y las rutas OAuth se quedan, listas para cuando se cablee de verdad
+    // — hoy las clases online están en feature-freeze (lib/frozen-features.ts).
+    descripcion: 'Clases online con su enlace de Zoom en cada sesión del calendario.',
     Icon: ZoomIcon,
     color: '#0B5CFF',
     bg: '#F5F5F5',
     categoria: 'Contenido digital',
     campos: [],
+    proximamente: true,
   },
   {
     tipo: 'KISI',
@@ -164,7 +197,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'KLAVIYO',
     nombre: 'Klaviyo',
-    descripcion: 'Sincroniza las clientas que han consentido marketing por email con tu cuenta de Klaviyo. Conexión OAuth — no necesitas pegar ninguna clave.',
+    // Funciona de verdad, pero igual que Google Calendar: solo cuando ella
+    // pulsa. Sin decirlo, "sincroniza" se lee como continuo.
+    descripcion: 'Envía a tu cuenta de Klaviyo las clientas que han consentido marketing por email, cada vez que pulses «Sincronizar ahora». Conexión OAuth — no necesitas pegar ninguna clave.',
     Icon: Megaphone,
     color: '#000000',
     bg: '#F5F5F5',
@@ -562,10 +597,30 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
   };
 
-  const abrirConfig = (cat: CatalogoIntegracion) => {
-    const actual = getIntegracion(cat.tipo);
-    setForm(actual?.config ?? {});
-    setEditando(cat.tipo);
+  // Las credenciales ya no viajan en el arranque del panel, así que se piden al
+  // abrir el modal. `configOriginal` guarda lo que había, para saber después si
+  // de verdad se cambió algo (y solo entonces reiniciar la salud).
+  const [configOriginal, setConfigOriginal] = useState<Record<string, string>>({});
+  const [abriendo, setAbriendo] = useState<TipoIntegracion | null>(null);
+
+  const abrirConfig = async (cat: CatalogoIntegracion) => {
+    setAbriendo(cat.tipo);
+    try {
+      const res = await fetch(`/api/integrations/config?tipo=${cat.tipo}`, { headers: await authHeader() });
+      // ⚠️ Si no se pueden leer, NO se abre el modal. Abrirlo en blanco es el
+      // modo de fallo caro: la propietaria vería sus campos vacíos, pulsaría
+      // Guardar y se llevaría por delante un token que estaba bien.
+      if (!res.ok) { showToast('No se pudieron cargar las credenciales. Inténtalo otra vez.'); return; }
+      const data = (await res.json()) as { config?: Record<string, string> };
+      const cfg = data.config ?? {};
+      setConfigOriginal(cfg);
+      setForm(cfg);
+      setEditando(cat.tipo);
+    } catch {
+      showToast('No se pudieron cargar las credenciales. Inténtalo otra vez.');
+    } finally {
+      setAbriendo(null);
+    }
   };
 
   const guardar = (cat: CatalogoIntegracion) => {
@@ -573,13 +628,13 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     // esto, marcarlo sin haber pegado token/phoneId activaría la integración
     // como si estuviera conectada.
     const rellenos = cat.campos.filter(c => c.tipo !== 'checkbox').some(c => (form[c.key] ?? '').trim() !== '');
-    upsertIntegracion(cat.tipo, rellenos, form);
+    upsertIntegracion(cat.tipo, rellenos, form, configOriginal);
     setEditando(null);
     showToast(`${cat.nombre} ${rellenos ? 'conectado' : 'actualizado'}`);
   };
 
   const desconectar = (cat: CatalogoIntegracion) => {
-    upsertIntegracion(cat.tipo, false, {});
+    upsertIntegracion(cat.tipo, false, {}, configOriginal);
     setEditando(null);
     showToast(`${cat.nombre} desconectado`);
   };
@@ -683,6 +738,15 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CATALOGO_INTEGRACIONES.map(cat => {
           const intg = getIntegracion(cat.tipo);
+          // La salud SOLO aplica a las que viven en `integraciones` (WhatsApp,
+          // Kisi, Resend). Las de OAuth (Stripe, Google, Gmail...) no tienen
+          // fila aquí, así que salen APAGADA y la tarjeta queda igual que antes.
+          const salud = saludIntegracion(intg && {
+            activo: intg.activo, ultimoOkEn: intg.ultimoOkEn,
+            ultimoError: intg.ultimoError, ultimoErrorEn: intg.ultimoErrorEn,
+          });
+          const fallando = salud.estado === 'FALLANDO';
+          const lineaSalud = textoSalud(salud);
           const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : cat.tipo === 'KLAVIYO' ? klaviyoConectado : cat.tipo === 'ZAPIER' ? zapierConectado : !!intg?.activo;
           return (
             <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
@@ -700,15 +764,29 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                     ) : cat.accion !== 'exportar' && (
                       <span className={cn(
                         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
-                        conectado ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
+                        // Verde SOLO si el servicio respondió la última vez. Con
+                        // el token caducado esto seguía diciendo «Conectado»
+                        // mientras las clientas dejaban de recibir nada.
+                        fallando ? 'bg-destructive/10 text-destructive'
+                          : conectado ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
                       )}>
-                        <span className={cn('w-1.5 h-1.5 rounded-full', conectado ? 'bg-success' : 'bg-muted-foreground')} />
-                        {conectado ? 'Conectado' : 'No conectado'}
+                        <span className={cn('w-1.5 h-1.5 rounded-full',
+                          fallando ? 'bg-destructive' : conectado ? 'bg-success' : 'bg-muted-foreground')} />
+                        {fallando ? 'Con problemas' : conectado ? 'Conectado' : 'No conectado'}
                       </span>
                     )}
                   </div>
                   {cat.categoria && <p className="text-[10px] font-bold uppercase tracking-wide text-[#B8B8AE] mt-0.5">{cat.categoria}</p>}
                   <p className="text-[12px] text-muted-foreground mt-1 leading-snug">{cat.descripcion}</p>
+                  {lineaSalud && (
+                    <p className={cn(
+                      'text-[11px] mt-1.5 leading-snug',
+                      lineaSalud.tono === 'error' ? 'text-destructive font-semibold'
+                        : lineaSalud.tono === 'ok' ? 'text-success' : 'text-muted-foreground',
+                    )}>
+                      {lineaSalud.texto}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-[#F1F1F4] flex items-center gap-2">
@@ -800,7 +878,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   )
                 ) : (
                   <>
-                    <button onClick={() => abrirConfig(cat)} className={conectado ? btnSecondary : btnPrimary}>
+                    <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(conectado ? btnSecondary : btnPrimary, abriendo === cat.tipo && 'opacity-60')}>
                       {conectado ? 'Gestionar' : 'Conectar'}
                     </button>
                     {conectado && cat.probarUrl && (

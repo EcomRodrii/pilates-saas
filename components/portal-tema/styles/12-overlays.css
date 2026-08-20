@@ -3,7 +3,7 @@
 
 .overlay {
   position: absolute; inset: 0;
-  z-index: 20;
+  z-index: var(--z-velo);
   background: rgba(18,20,16,.42);
   backdrop-filter: blur(3px);
   display: flex;
@@ -79,7 +79,7 @@
 .popover {
   position: absolute;
   top: calc(100% + 8px); left: 0;
-  z-index: 24;
+  z-index: var(--z-emergente);
   min-width: 208px;
   padding: 8px;
   border-radius: 18px;
@@ -111,7 +111,7 @@
   position: absolute;
   bottom: calc(100% + 8px); left: 50%;
   transform: translate(-50%, 4px);
-  z-index: 26;
+  z-index: var(--z-pista);
   padding: 7px 11px;
   border-radius: 10px;
   background: rgba(19,19,19,.94);
@@ -130,7 +130,7 @@
  * Un solo cascarón para las siete del prototipo: velo, panel que sube y asa.
  * Se pintan al final del árbol de la pantalla, así que tapan también la barra.
  */
-.hoja { position: absolute; inset: 0; z-index: 100; }
+.hoja { position: absolute; inset: 0; z-index: var(--z-hoja); }
 .hoja__velo {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
@@ -153,6 +153,25 @@
 }
 .hoja__titulo { font-size: 17px; font-weight: 800; color: var(--ink); }
 .hoja__texto { margin-top: 8px; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+
+/* El desenlace del crédito al cancelar. Va en su propia caja y no como una
+ * línea más del párrafo porque es la información por la que se abre esta hoja:
+ * si la sesión vuelve al bono o se pierde. Tokens, no colores sueltos — así el
+ * ámbar es el `--warning` de cada tema. */
+.hoja__nota {
+  margin-top: 10px;
+  padding: 11px 13px;
+  border-radius: var(--radius-input, 13px);
+  background: var(--support-soft, var(--support));
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.hoja__nota--aviso {
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  color: color-mix(in srgb, var(--warning) 78%, var(--ink));
+}
+.hoja__nota--aviso strong { font-weight: 700; color: var(--warning); }
 .hoja__profe { display: flex; align-items: center; gap: 14px; }
 /* El botón destructivo: contorno y no relleno. Un rojo macizo del ancho de la
  * pantalla pesa más que «Mantener reserva», y la que conserva la plaza es la

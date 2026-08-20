@@ -17,6 +17,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
+import { AvisoIntegracionesCaidas } from '@/components/dashboard/aviso-integraciones-caidas';
 import { ActionCenter } from '@/components/decision/action-center';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
 import { fetchLayout, authHeader } from '@/lib/api-client';
@@ -34,6 +35,7 @@ import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-d
 import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pendientes';
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
+import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -71,31 +73,41 @@ function limpiarActividad(texto: string): string {
   return texto.replace(/^.*?\bdio de (?:alta|baja) a\s+/i, '').trim() || texto;
 }
 
+// Color por tipo de actividad. ⚠️ NO usa la paleta categórica (--cat-*): esto
+// es un mapa SEMÁNTICO, no categórico. Los 23 tipos se agrupan a propósito en
+// seis lecturas —verde algo salió bien, terracota algo se borró, ocre algo
+// queda pendiente, marca las cosas de plan/reserva, azul algo cambió, gris el
+// ruido de fondo— y darle un tono distinto a cada tipo rompería justo eso.
+// Que varias filas compartan color aquí es la intención, no una colisión.
+//
+// Todas las parejas texto/fondo se miden contra --card en claro y en oscuro
+// (lib/paleta-panel.test.ts). La etiqueta es texto de 10px en negrita, así que
+// le aplica el 4.5:1 de AA — "es solo un chip" no la exime.
 const actividadConfig: Record<TipoActividad, { color: string; bg: string; label: string }> = {
   NUEVA_SOCIA:        { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Alta' },
-  NUEVA_RESERVA:      { color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', label: 'Reserva' },
+  NUEVA_RESERVA:      { color: 'var(--brand-medio)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', label: 'Reserva' },
   CANCELACION:        { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Cancelación' },
   PAGO_COBRADO:       { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Cobro' },
   PAGO_PENDIENTE:     { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Pendiente' },
-  NUEVA_SUSCRIPCION:  { color: 'var(--brand)', bg: 'var(--accent)', label: 'Plan' },
+  NUEVA_SUSCRIPCION:  { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Plan' },
   SUSCRIPCION_PAUSADA:{ color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Pausa' },
-  CITA_CREADA:        { color: '#0891B2', bg: '#ECFEFF', label: 'Cita' },
+  CITA_CREADA:        { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Cita' },
   CITA_COMPLETADA:    { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Cita ✓' },
   VENTA_POS:          { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Venta' },
   MENSAJE_ENVIADO:    { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Email' },
-  SOCIA_EDITADA:      { color: '#0891B2', bg: '#ECFEFF', label: 'Edición' },
+  SOCIA_EDITADA:      { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Edición' },
   SOCIA_ELIMINADA:    { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Baja' },
-  PLAN_CREADO:        { color: 'var(--brand)', bg: 'var(--accent)', label: 'Plan nuevo' },
-  PLAN_EDITADO:       { color: 'var(--brand)', bg: 'var(--accent)', label: 'Plan editado' },
+  PLAN_CREADO:        { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Plan nuevo' },
+  PLAN_EDITADO:       { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Plan editado' },
   PLAN_ELIMINADO:     { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Plan borrado' },
-  PLAN_ASIGNADO:      { color: 'var(--brand)', bg: 'var(--accent)', label: 'Plan asignado' },
+  PLAN_ASIGNADO:      { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Plan asignado' },
   COBRO_MANUAL:       { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Cobro manual' },
   EQUIPO_ALTA:        { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Alta equipo' },
-  EQUIPO_EDITADO:     { color: '#0891B2', bg: '#ECFEFF', label: 'Equipo editado' },
+  EQUIPO_EDITADO:     { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Equipo editado' },
   EQUIPO_BAJA:        { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Baja equipo' },
   AUTOMATIZACION_CAMBIO: { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Automatización' },
-  DECISION_GESTIONADA: { color: 'var(--brand)', bg: 'var(--accent)', label: 'Centro de Control' },
-  SESION_REASIGNADA:  { color: '#0891B2', bg: '#ECFEFF', label: 'Sustitución' },
+  DECISION_GESTIONADA: { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Centro de Control' },
+  SESION_REASIGNADA:  { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Sustitución' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────
@@ -432,6 +444,7 @@ export default function Dashboard() {
     cobrarTodosPendientes,
     actividadReciente,
     automationLogs,
+    studio,
   } = useStudio();
 
   // Personalización de la home por estudio (reordenar/ocultar secciones). Se
@@ -445,7 +458,16 @@ export default function Dashboard() {
     window.addEventListener('tentare-layout-changed', onCambio);
     return () => { vivo = false; window.removeEventListener('tentare-layout-changed', onCambio); };
   }, []);
-  const homeVisibles = ordenarSeccionesHome(aplicarLayout(HOME_SECCIONES.map((s) => s.id), layout.home));
+  // `studio.onbPrioridad` es lo que la propietaria contestó a "¿qué es lo que
+  // más te preocupa ahora mismo?" en el asistente de bienvenida. El asistente
+  // prometía "con eso ordenamos tu panel de inicio" y la respuesta no la leía
+  // nadie; esto es lo que la cumple. Un estudio que haya reordenado su home a
+  // mano sigue mandando en el resto del orden: la prioridad solo sube su
+  // sección, no rehace la página.
+  const homeVisibles = ordenarSeccionesHome(
+    aplicarLayout(HOME_SECCIONES.map((s) => s.id), layout.home),
+    studio?.onbPrioridad,
+  );
   const ordenSeccion = (id: string) => {
     const i = homeVisibles.indexOf(id);
     return i === -1 ? undefined : i; // undefined → oculta
@@ -799,6 +821,14 @@ export default function Dashboard() {
           }
         />
 
+        {/* ── Una integración caída ───────────────────────────────────────────
+            Fuera de `wrap(...)` a propósito: no es una sección reordenable, es
+            un aviso de estado que aparece y se va solo (misma categoría que el
+            Header). Sin rol que comprobar: la RLS de `integraciones` solo
+            devuelve filas a la propietaria, así que para el resto llega vacío.
+            Se pinta solo si hay algo roto de verdad. */}
+        <AvisoIntegracionesCaidas />
+
         {/* ── Lo que necesita su atención (Decision OS) ──────────────────────── */}
         {/* El Brain vivía entero en /centro-de-control y esta pantalla —la que
             se abre al entrar— no lo mencionaba. Aquí se trae el resumen, con
@@ -966,6 +996,13 @@ export default function Dashboard() {
         </Card>
         </div>
         )}
+
+        {/* ── Crecimiento web (embudo del widget) ─────────────────────────────── */}
+        {/* Se pinta sola (EmbudoWidgetCard devuelve null sin rol o sin visitas
+            este mes) — mismo criterio que Ingresos, gateado dentro del
+            componente porque el rol que aplica aquí es puedeGestionarPortalHome
+            (marketing/captación), no puedeVerFinanzas. */}
+        <div {...wrap('crecimiento')}><EmbudoWidgetCard /></div>
 
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
         <div {...wrap('kpis')}>
@@ -1209,14 +1246,14 @@ export default function Dashboard() {
                 )}
                 <Link
                   href="/calendario"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-secondary transition-colors"
                 >
                   <CalendarPlus size={14} /> Nueva reserva
                 </Link>
                 {mueveDinero && (
                 <Link
                   href="/cobros?tab=pendientes"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-secondary transition-colors"
                 >
                   <CreditCard size={14} /> Cobrar
                 </Link>

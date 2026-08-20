@@ -38,7 +38,30 @@ test('con ciudad pero sin especialidades, aterriza en el paso "Especialidades"',
   assert.equal(PASOS_ONBOARDING[idx].titulo, 'Especialidades');
 });
 
-test('con ciudad y especialidades, aterriza cerca del final (revisar)', () => {
-  const idx = pasoIncompletoDe(perfil({ ciudad: 'Barcelona', especialidades: ['reformer'], estado: 'draft' }));
-  assert.equal(idx, PASOS_ONBOARDING.length - 3);
+test('con ciudad y especialidades pero sin tipo de trabajo, aterriza en "Cómo quieres trabajar" — NUNCA salta directo al final', () => {
+  const idx = pasoIncompletoDe(perfil({ ciudad: 'Barcelona', especialidades: ['reformer'], tipoTrabajo: [], estado: 'draft' }));
+  assert.equal(PASOS_ONBOARDING[idx].titulo, 'Cómo quieres trabajar');
+});
+
+test('con tipo de trabajo pero sin horarios, aterriza en "Disponibilidad"', () => {
+  const idx = pasoIncompletoDe(perfil({
+    ciudad: 'Barcelona', especialidades: ['reformer'], tipoTrabajo: ['freelance'], disponibilidadHorarios: [],
+  }));
+  assert.equal(PASOS_ONBOARDING[idx].titulo, 'Disponibilidad');
+});
+
+test('con horarios pero sin tarifa, aterriza en "Tarifa"', () => {
+  const idx = pasoIncompletoDe(perfil({
+    ciudad: 'Barcelona', especialidades: ['reformer'], tipoTrabajo: ['freelance'],
+    disponibilidadHorarios: ['mananas'], tarifaRango: null,
+  }));
+  assert.equal(PASOS_ONBOARDING[idx].titulo, 'Tarifa');
+});
+
+test('con todo lo obligatorio relleno, aterriza en "Tu perfil" — Formación se salta a propósito (opcional)', () => {
+  const idx = pasoIncompletoDe(perfil({
+    ciudad: 'Barcelona', especialidades: ['reformer'], tipoTrabajo: ['freelance'],
+    disponibilidadHorarios: ['mananas'], tarifaRango: '25-30',
+  }));
+  assert.equal(PASOS_ONBOARDING[idx].titulo, 'Tu perfil');
 });

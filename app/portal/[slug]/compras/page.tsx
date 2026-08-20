@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 // COMPRAS — pantalla del prototipo navegable de Claude Design.
 //
 // La mitad «paso por caja» de lo que era `/mi-plan`: catálogo de bonos y planes,
@@ -19,7 +21,7 @@
 //     mientras estás aquí, en vez de saltar a Inicio como hacía el lienzo.
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
@@ -32,7 +34,6 @@ import type { PlanTarifa } from '@/lib/types';
 
 export default function ComprasPage() {
   const { slug } = useParams<{ slug: string }>();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { session } = usePortalAuth();
   const { studio, socios, planesTarifa, recibos, facturas, planMasElegidoId } = useStudio();
@@ -155,8 +156,19 @@ export default function ComprasPage() {
   return (
     <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
       <div style={{ padding: '62px 24px 24px' }}>
-        <button
-          onClick={() => router.push(`/portal/${slug}/bonos`)}
+        {/* ⚠️ `<Link>` y no un `<button onClick={router.push}>`, que es lo que
+            había: un botón que navega con JavaScript NO HACE NADA hasta que la
+            página hidrata. En un móvil lento la socia toca la flecha de volver
+            y no pasa nada — la misma sensación de «la app no responde» que ya
+            costó otros arreglos. Un enlace navega igual sin JS, y Next lo
+            precarga.
+
+            Es también la causa de que `portal-bonos-compras` fallara en la
+            PRIMERA pasada de CI y pasara al relanzar: en frío la hidratación
+            llega tarde y el clic se pierde. Se arregla en la app, no en el
+            test. */}
+        <Link
+          href={`/portal/${slug}/bonos`}
           aria-label="Volver a Bonos"
           style={{
             width: 38, height: 38, borderRadius: '50%', border: `1px solid ${t.line}`,
@@ -167,7 +179,7 @@ export default function ComprasPage() {
           }}
         >
           ←
-        </button>
+        </Link>
 
         <h1 style={{ ...display(50), color: t.ink, marginTop: 20 }}>Compras</h1>
         <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>Bonos, planes y facturas.</p>

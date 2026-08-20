@@ -10,7 +10,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
-  transition: border-color .2s ease, box-shadow .2s ease;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
 }
 .class-row:hover { border-color: var(--card-hover-border); box-shadow: var(--shadow-card-hover); }
 .class-row.is-booked { border-color: var(--dot); }
@@ -48,8 +48,8 @@
 }
 .status--booked { background: var(--done-bg); border-color: transparent; color: var(--done-ink); }
 .status--full { background: rgba(0,0,0,.05); border-color: transparent; color: var(--muted); }
-.status--error { background: rgba(180,60,60,.1); border-color: transparent; color: #A33B3B; }
-.status--success { background: rgba(47,107,79,.12); border-color: transparent; color: #2F6B4F; }
+.status--error { background: color-mix(in srgb, var(--danger) 10%, transparent); border-color: transparent; color: var(--danger); }
+.status--success { background: color-mix(in srgb, var(--success) 12%, transparent); border-color: transparent; color: var(--success); }
 
 /* ── Reservas ───────────────────────────────────────────────────────────── */
 .booking { padding: 18px; }
@@ -69,6 +69,17 @@
   font-size: 60px; line-height: .85; letter-spacing: -.02em; color: var(--ink);
 }
 .pass__note { font-size: 11.5px; line-height: 1.45; color: var(--muted); }
+/* «2 de 10 usadas», bajo la barra. El dato ya estaba en la tarjeta (la barra lo
+ * dibuja) pero sin cifra: una barra al 80 % no dice cuántas quedan por usar. */
+.pass__uso {
+  margin-top: 10px;
+  font-family: var(--section-title-family, var(--font-body));
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: var(--section-title-tracking, .04em);
+  text-transform: var(--section-title-transform, none);
+  color: var(--muted);
+}
 .pass__bar {
   margin-top: 18px; height: 8px;
   border-radius: 999px;
@@ -130,7 +141,7 @@
   flex: none;
   width: 44px; height: 26px;
   border-radius: 999px;
-  background: #D9D9D2;
+  background: var(--track);
   display: flex; align-items: center;
   padding: 3px;
   justify-content: flex-start;
@@ -140,7 +151,7 @@
 .switch__ball {
   display: block; width: 20px; height: 20px;
   border-radius: 999px;
-  background: #FFFFFF;
+  background: var(--surface);
   box-shadow: 0 1px 3px rgba(0,0,0,.25);
   transition: transform .2s cubic-bezier(.16,1,.3,1);
 }
@@ -273,3 +284,173 @@
 }
 .wait-empty__title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
 .wait-empty__text { margin-top: 5px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+
+/* ── Clases completadas (Agenda › Lista) ───────────────────────────────── */
+/* Fila apagada a propósito: es historial, no algo sobre lo que actuar. Sin
+ * botones — la clase ya pasó y no hay nada que cancelar ni que ver. */
+.completada {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 16px;
+  margin-top: 9px;
+  background: var(--done-bg);
+  color: var(--done-ink);
+}
+.completada__check {
+  flex: none;
+  width: 28px; height: 28px;
+  border-radius: 999px;
+  display: grid; place-items: center;
+  background: var(--surface);
+  color: var(--success);
+}
+.completada__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.completada__name { font-size: 13.5px; font-weight: 600; color: var(--done-ink); }
+.completada__meta { font-size: 12px; color: var(--muted); }
+
+/* ── La fila del horario de Sereno ──────────────────────────────────────── */
+/* Hora | separador | cuerpo | chevron. El separador es la pieza que ordena la
+ * lectura: sin él la hora y el nombre se leen como una sola frase. */
+.class-row--sereno { align-items: center; gap: 14px; padding: 15px 16px; }
+.class-row--sereno .class-row__time { flex: 0 0 46px; text-align: center; }
+.class-row--sereno .class-row__hour { font-family: var(--font-body); font-size: 15px; font-weight: 600; }
+.class-row--sereno .class-row__dur { margin-top: 2px; font-size: 11px; }
+.class-row__sep { flex: none; align-self: stretch; width: 1px; background: var(--border); }
+.class-row--sereno .class-row__name {
+  font-family: var(--font-body);
+  font-size: 15px; font-weight: 600; letter-spacing: 0;
+}
+.class-row--sereno .class-row__meta { margin-top: 3px; font-size: 12.5px; }
+.class-row--sereno .class-row__foot { margin-top: 7px; gap: 8px; }
+/* El badge deja de irse a la derecha: aquí va pegado al texto, con las plazas
+ * detrás. Es una frase («Disponible · 4 plazas»), no una columna. */
+.class-row--sereno .status { margin-left: 0; }
+.class-row__plazas { font-size: 11.5px; color: var(--muted); }
+.class-row--sereno > .icon { flex: none; color: var(--card-hover-border); }
+/* «Hoy · 3 clases», entre los filtros y la lista. */
+.dia-frase { margin-top: 14px; font-size: 12.5px; color: var(--muted); }
+/* Los badges de esta fila, con el peso que pide la captura: la reserva en
+ * tinta maciza (es LA suya) y lo disponible en verde apagado. Van acotados a
+ * `--sereno` para no repintar los badges del resto de temas. */
+.class-row--sereno .status--booked { background: var(--ink); color: var(--on-brand); }
+.class-row--sereno .status--free {
+  background: color-mix(in srgb, var(--success) 13%, var(--surface));
+  border-color: transparent;
+  color: var(--success);
+}
+
+/* ── Filas de la agenda (Sereno) ────────────────────────────────────────── */
+.agenda-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  margin-top: 9px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card-sm, 16px);
+  text-align: left;
+  transition: border-color .2s ease;
+}
+.agenda-row:hover { border-color: var(--card-hover-border); }
+/* La barra de acento dice de un vistazo que la fila es SUYA. En malva cuando
+ * es una plaza y en el gris del track cuando solo está en la cola: son dos
+ * cosas distintas y la píldora sola no basta a la velocidad a la que se
+ * escanea una lista. */
+.agenda-row__marca { flex: none; align-self: stretch; width: 4px; border-radius: 2px; background: var(--accent); }
+.agenda-row__marca--espera { background: var(--track); }
+.agenda-row__fecha { flex: none; width: 40px; display: flex; flex-direction: column; align-items: center; }
+.agenda-row__dow { font-size: 10.5px; font-weight: 600; letter-spacing: .05em; color: var(--muted); }
+.agenda-row__num { font-family: var(--font-body); font-size: 17px; font-weight: 600; color: var(--ink); }
+.agenda-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.agenda-row__name { font-size: 14px; font-weight: 600; color: var(--ink); }
+.agenda-row__meta { font-size: 12.5px; color: var(--muted); }
+.agenda-pill {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--on-brand);
+  font-size: 11px; font-weight: 600;
+}
+.agenda-pill--espera { background: var(--accent-soft); color: var(--accent-ink); }
+
+/* ── Perfil de Sereno ───────────────────────────────────────────────────── */
+.perfil-cab { display: flex; align-items: center; gap: 14px; }
+.perfil-cab__avatar {
+  position: relative; flex: none;
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: var(--brand); color: var(--on-brand);
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-size: 24px;
+}
+.perfil-cab__editar {
+  position: absolute; bottom: -2px; right: -2px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  display: grid; place-items: center;
+}
+.perfil-cab__body { flex: 1; min-width: 0; }
+.perfil-cab__nombre {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 24px; line-height: 1.15; letter-spacing: -.02em; color: var(--ink);
+}
+.perfil-cab__meta { margin-top: 2px; font-size: 13px; line-height: 1.35; color: var(--muted); }
+
+.perfil-cifras { display: flex; gap: 10px; margin-top: 20px; }
+.perfil-cifra {
+  flex: 1; min-width: 0;
+  padding: 13px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.perfil-cifra__valor {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 22px; line-height: 1.1; color: var(--ink);
+}
+.perfil-cifra__label { margin-top: 2px; font-size: 11.5px; line-height: 1.25; color: var(--muted); }
+
+/* Fichas de opciones: filas separadas por una línea, sin hueco entre ellas. */
+.filas { padding: 0; overflow: hidden; }
+.fila {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 15px 16px;
+  text-align: left;
+  background: none;
+}
+.fila + .fila { border-top: 1px solid var(--border); }
+.fila__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.fila__label { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 500; color: var(--ink); }
+.fila__body .fila__label { flex: none; }
+.fila__nota { font-size: 12px; color: var(--muted); }
+.fila__valor { flex: none; font-size: 13px; color: var(--muted); }
+.fila > .icon { flex: none; color: var(--card-hover-border); }
+.perfil-salir { color: var(--danger); }
+.perfil-firma { margin-top: 14px; text-align: center; font-size: 11px; color: var(--card-hover-border); }
+
+/* ── Bandeja de avisos (Sereno) ─────────────────────────────────────────── */
+.aviso {
+  margin-top: 9px;
+  padding: 15px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-quick-link);
+}
+/* Los leídos se apagan enteros con opacidad y no con dos grises nuevos: así
+ * sigue funcionando igual en modo noche, donde unos grises fijos se verían
+ * apagados al revés. Mismo criterio que la pantalla de siempre. */
+.aviso.is-leido { opacity: .81; }
+.aviso__top { display: flex; align-items: center; gap: 8px; }
+.aviso__dot { flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--accent); }
+.aviso.is-leido .aviso__dot { background: var(--track); }
+.aviso__tipo {
+  font-family: var(--font-body);
+  font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted);
+}
+.aviso__cuando { margin-left: auto; font-size: 11.5px; color: var(--card-hover-border); }
+.aviso__texto { margin-top: 6px; font-size: 14px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }

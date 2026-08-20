@@ -11,6 +11,17 @@ const nextConfig: NextConfig = {
   // este rewrite. Sin `NEXT_PUBLIC_IMPORTS_HOST` configurado (local, preview
   // deploys) no se añade ninguna regla — nunca una regla que use `undefined`
   // como valor de host y acabe matcheando cualquier cosa.
+  // /network/unirse era la landing de instructoras antes de que /network (la
+  // pública nueva) tomase ese puesto — se queda huérfana de enlaces internos
+  // pero seguía siendo alcanzable por URL directa/SEO histórico como una
+  // segunda landing paralela. 301 real: nunca se llega a renderizar el JSX
+  // viejo, así que un buscador o un enlace compartido antiguo aterriza en la
+  // landing real, no en una copia obsoleta.
+  async redirects() {
+    return [
+      { source: '/network/unirse', destination: '/network', permanent: true },
+    ];
+  },
   async rewrites() {
     const host = process.env.NEXT_PUBLIC_IMPORTS_HOST;
     if (!host) return [];

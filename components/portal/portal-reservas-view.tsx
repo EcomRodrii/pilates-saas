@@ -37,6 +37,7 @@ import { formatFechaCorta as formatFecha, formatHoraCorta as formatHora } from '
 import { Toast, type AvisoToast } from '@/components/portal/ui';
 import { semantic } from '@/lib/portal-tokens';
 import { HojaPase, type DatosPase } from '@/components/portal/hoja-pase';
+import { BotonesCalendario } from '@/components/portal/botones-calendario';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
 import type { PortalSession } from '@/lib/portal-auth';
 import {
@@ -373,6 +374,35 @@ export function PortalReservasView({
                       >
                         {aceptandoId === r.id ? 'Aceptando…' : 'Aceptar plaza'}
                       </button>
+                    </div>
+                  )}
+
+                  {/* §6 — Añadir ESTA reserva al calendario de la alumna. Nada
+                      que ver con la integración Google Calendar del ESTUDIO: esa
+                      sincroniza la agenda del negocio con la cuenta de la
+                      propietaria y no pone ni una clase en el calendario de su
+                      alumna. Solo en las que aún no han pasado: añadir al
+                      calendario una clase de la semana pasada no sirve de nada.
+                      El evento se construye con el MISMO helper que el resto del
+                      producto (lib/calendario-ics.ts), así que el .ics del portal
+                      y el de la página pública no pueden decir cosas distintas. */}
+                  {!apagado && r.estado !== 'CANCELADA' && (
+                    <div style={{ marginTop: 14 }}>
+                      <BotonesCalendario
+                        evento={{
+                          id: s.id,
+                          // El instante real, no la hora de pared: un evento sin
+                          // zona se corre de hora en un móvil de otro huso.
+                          inicio: s.inicio,
+                          fin: s.fin,
+                          titulo: tipo?.nombre ?? 'Clase',
+                          instructora: instr?.nombre,
+                          sala: sala?.nombre,
+                          estudioNombre: studio?.nombre ?? 'Tu estudio',
+                          estudioDireccion: [studio?.direccion, studio?.ciudad].filter(Boolean).join(', '),
+                        }}
+                        t={t}
+                      />
                     </div>
                   )}
 

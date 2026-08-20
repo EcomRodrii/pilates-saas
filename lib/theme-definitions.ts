@@ -275,6 +275,89 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
     // El anillo de progreso semanal primero, luego accesos rápidos.
     bloquesHome: ['proximaClase', 'progresoSemanal', 'accesosRapidos', 'contenidoEstudio'],
   },
+  {
+    // ── Sereno — la nueva app de alumna ─────────────────────────────────────
+    //
+    // Quinto tema del kit (`themes/sereno/`). A diferencia de Oliva/Bloom/Noir
+    // —que llegaron como paquetes de 119 ficheros que hubo que destilar— el
+    // paquete de Claude Design ya venía en el formato REAL del registro
+    // (`config.ts` + `tokens.css` contra `tipos-tema.ts`), así que esta entrada
+    // no interpreta nada: cada valor sale de `themes/sereno/config.ts` o de
+    // `themes/sereno/tokens.css`.
+    //
+    // ⚠️ Va el ÚLTIMO de la biblioteca a propósito, no el primero: el
+    // predeterminado sigue siendo Tentada (`TEMA_PORTAL_POR_DEFECTO`), y
+    // cambiarlo repintaría el portal de los estudios que todavía no han
+    // publicado ninguno. Entregar un tema no es hacerlo el de casa.
+    id: 'sereno',
+    version: 1,
+    label: 'Sereno',
+    description: 'Porcelana cálida, tinta y un acento malva. Titulares en Libre Caslon: calma editorial con la próxima clase siempre a un toque.',
+    capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
+    defaults: {
+      // La MARCA de Sereno es la tinta, no un color: sus CTA son oscuros
+      // (`--brand: #221F1C`). El malva es `destacado`, no `primary` — como
+      // el dorado de Noir y el rosa de Bloom.
+      primary: '#221F1C',
+      secondary: '#ECE8E1',
+      // En el vocabulario del panel `accent` es un FONDO pálido (ver el
+      // comentario de `varsColorSobreTema` en themes/registro.ts), así que
+      // aquí va el malva DILUIDO — el `--accent-soft` del tema—, no el malva
+      // a pelo, que ahí sería ilegible como superficie.
+      accent: '#F4EEF1',
+      destacado: '#8A6478',
+      background: '#F6F4F1',
+      text: '#221F1C',
+      fontId: 'figtree',
+      portalHeadingFontId: 'libreCaslon',
+      radius: 'rounded',
+      buttonStyle: 'solid',
+      // `--shadow-card` de Sereno es una sombra larga y muy difusa
+      // (`0 18px 40px -30px`), no `none` como Oliva/Tentada.
+      cardStyle: 'elevated',
+      // `tab_bar_style: "floating"` en el config del tema. Es el segundo tema
+      // que flota, después de Bloom.
+      //
+      // ⚠️ Esto gobierna la barra del portal de SIEMPRE (`--portal-tabbar-*`),
+      // que es la que ven las rutas que el kit no cubre (/preferencias,
+      // /progreso, /videos). Ahí la pastilla activa sale de MARCA con el texto
+      // autoderivado por contraste, mientras que en el prototipo de Sereno es
+      // una pastilla arena con la tinta encima. Es la traducción más cercana
+      // que ofrece ese vocabulario —la alternativa, `barraClasica`, pegaría la
+      // barra abajo y perdería lo que más se reconoce del tema— y las dos
+      // barras ya son mecanismos distintos por diseño.
+      barraFlotante: true,
+      // Valores EXACTOS de `designSystem.radii` en themes/sereno/config.ts.
+      radioTema: { card: 22, boton: 16, chip: 999, acceso: 18 },
+      // ⚠️ Solo CUATRO de los seis pasos, y los dos que faltan no son un
+      // descuido:
+      //
+      //  · `seccion` — el paso `section` de Sereno son versalitas de 11px
+      //    («TU PRÓXIMA CLASE»), no un rótulo de sección. Declararlo dejaría
+      //    los titulares del portal de siempre (`escala('seccion', 24)`) en
+      //    11px, y además envenenaría el factor de `varsEscalaSobreTema`, que
+      //    es un PROMEDIO — el mismo error que ya dejó fuera a `numeroBono`.
+      //  · `saludo` — Sereno saluda con el título de pantalla (30px, el mismo
+      //    que `tituloPantalla`); su `--size-greeting` de 13px es la línea
+      //    micro que va ENCIMA del nombre, otra cosa.
+      //
+      // Ausente = hereda, que es justo lo que hace falta aquí.
+      escalaTexto: { tituloPantalla: 30, tituloHero: 22, bienvenida: 34, numeroBono: 60 },
+      // Cabecera con avatar y saludo (`greeting_style: "micro-first"`),
+      // accesos en baldosa (`quick_links_style: "cards"`), bienvenida sobre la
+      // foto del estudio (`welcome_style: "photo"`) y la tarjeta principal
+      // rotulada, como los otros cuatro.
+      //
+      // `barra: 'todas'` y no el `soloActiva` que hereda Bloom: en el
+      // prototipo de Sereno las CUATRO pestañas llevan etiqueta, esté activa o
+      // no. Sin relleno del icono activo — eso es de Oliva.
+      variantes: { cabeceraInicio: 'saludo', accesosRapidos: 'rejilla', barra: 'todas', tarjetaPrincipal: 'rotulada', bienvenida: 'foto' },
+    },
+    // Los `home_blocks` de themes/sereno/config.ts traducidos al vocabulario
+    // del rail (`BLOQUE_EDITOR_A_KIT`, lib/portal-tema/equivalencias.ts).
+    // `greeting` no entra: no tiene ficha en el editor, igual que en Oliva.
+    bloquesHome: ['proximaClase', 'tarjetaBono', 'accesosRapidos', 'misReservas', 'citaEstudio'],
+  },
 ];
 
 export function getThemeDefinition(id: string): ThemeDefinition | undefined {

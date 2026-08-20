@@ -54,6 +54,7 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
     return valor ? valor.split(',').map(v => v.trim()).filter(Boolean) : [];
   };
   const experienciaMinimaRaw = sp.get('experienciaMinima');
+  const valoracionMinimaRaw = sp.get('valoracionMinima');
   return {
     ciudad: sp.get('ciudad')?.trim() || null,
     especialidades: listaParam('especialidades').filter(esEspecialidadValida) as FiltroBusquedaNetwork['especialidades'],
@@ -62,6 +63,11 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
     tipoTrabajo: listaParam('tipoTrabajo').filter(esTipoTrabajoValido) as FiltroBusquedaNetwork['tipoTrabajo'],
     experienciaMinima: experienciaMinimaRaw && Number.isFinite(Number(experienciaMinimaRaw)) ? Number(experienciaMinimaRaw) : null,
     tarifaRango: listaParam('tarifaRango').filter(esTarifaRangoValida) as FiltroBusquedaNetwork['tarifaRango'],
+    soloIdentidadVerificada: sp.get('identidadVerificada') === '1',
+    soloExperienciaVerificada: sp.get('experienciaVerificada') === '1',
+    soloCertificacionVerificada: sp.get('certificacionVerificada') === '1',
+    valoracionMinima: valoracionMinimaRaw && Number.isFinite(Number(valoracionMinimaRaw)) ? Number(valoracionMinimaRaw) : null,
+    idioma: sp.get('idioma')?.trim() || null,
   };
 }
 
@@ -103,7 +109,7 @@ export const PERFILES_SEED_E2E: readonly PerfilNetworkPublico[] = [
     estado: 'published', destacado: true, identidadVerificadaEn: '2026-01-15T10:00:00.000Z',
     creadoEn: '2026-01-01T00:00:00.000Z', actualizadoEn: '2026-08-01T00:00:00.000Z', ultimoAccesoEn: null,
     idiomas: ['es', 'en'], instagram: null, linkedin: null, web: null,
-    experienciaVerificada: true, resumenResenas: { promedio: 4.8, total: 12 },
+    experienciaVerificada: true, certificacionVerificada: true, resumenResenas: { promedio: 4.8, total: 12 },
   },
   {
     id: 'perfil-e2e-2', slug: 'sofia-ruiz-e2e', nombre: 'Sofía Ruiz',
@@ -115,7 +121,7 @@ export const PERFILES_SEED_E2E: readonly PerfilNetworkPublico[] = [
     estado: 'published', destacado: false, identidadVerificadaEn: null,
     creadoEn: '2026-03-01T00:00:00.000Z', actualizadoEn: '2026-07-15T00:00:00.000Z', ultimoAccesoEn: null,
     idiomas: ['es'], instagram: null, linkedin: null, web: null,
-    experienciaVerificada: false, resumenResenas: { promedio: null, total: 0 },
+    experienciaVerificada: false, certificacionVerificada: false, resumenResenas: { promedio: null, total: 0 },
   },
 ];
 
@@ -135,6 +141,11 @@ export function perfilCoincideFiltro(p: PerfilNetworkPublico, filtro: FiltroBusq
   if (filtro.tipoTrabajo.length && !p.tipoTrabajo.some(t => filtro.tipoTrabajo.includes(t))) return false;
   if (filtro.experienciaMinima != null && (p.aniosExperiencia == null || p.aniosExperiencia < filtro.experienciaMinima)) return false;
   if (filtro.tarifaRango.length && (p.tarifaRango == null || !filtro.tarifaRango.includes(p.tarifaRango))) return false;
+  if (filtro.soloIdentidadVerificada && !p.identidadVerificadaEn) return false;
+  if (filtro.soloExperienciaVerificada && !p.experienciaVerificada) return false;
+  if (filtro.soloCertificacionVerificada && !p.certificacionVerificada) return false;
+  if (filtro.valoracionMinima != null && (p.resumenResenas.promedio == null || p.resumenResenas.promedio < filtro.valoracionMinima)) return false;
+  if (filtro.idioma && !p.idiomas.some(i => i.toLowerCase().includes(filtro.idioma!.toLowerCase()))) return false;
   return true;
 }
 
@@ -163,6 +174,7 @@ export async function buscarPerfilesPublico(
   if (filtro.tipoTrabajo.length > 0) query = query.overlaps('tipo_trabajo', filtro.tipoTrabajo);
   if (filtro.experienciaMinima != null) query = query.gte('anios_experiencia', filtro.experienciaMinima);
   if (filtro.tarifaRango.length > 0) query = query.in('tarifa_rango', filtro.tarifaRango);
+  if (filtro.soloIdentidadVerificada) query = query.not('identidad_verificada_en', 'is', null);
 
   const { data, error } = await query;
   if (error) return { error };
@@ -179,6 +191,13 @@ export async function buscarPerfilesPublico(
     : { data: [] as { perfil_id: string }[] };
   const perfilesConExperienciaVerificada = new Set((experienciasConfirmadas ?? []).map(e => e.perfil_id as string));
 
+  // "Formación verificada" en LOTE, mismo criterio: una consulta con
+  // `.in(perfil_id)` para todo el listado, nunca por tarjeta.
+  const { data: certificacionesVerificadas } = ids.length
+    ? await admin.from('red_certificaciones').select('perfil_id').in('perfil_id', ids).eq('estado', 'verificado')
+    : { data: [] as { perfil_id: string }[] };
+  const perfilesConCertificacionVerificada = new Set((certificacionesVerificadas ?? []).map(c => c.perfil_id as string));
+
   // Reseñas en LOTE, mismo criterio que arriba: una query con `.in(perfil_id)`
   // para todo el listado, agregada en JS (Supabase-js no hace GROUP BY).
   const { data: resenasData } = ids.length
@@ -191,9 +210,28 @@ export async function buscarPerfilesPublico(
     puntuacionesPorPerfil.set(r.perfil_id as string, lista);
   }
 
-  const perfiles = filas.map(f => mapFilaAPerfilPublico(
+  let perfiles = filas.map(f => mapFilaAPerfilPublico(
     f, perfilesConExperienciaVerificada.has(f.id), resumenDesdePuntuaciones(puntuacionesPorPerfil.get(f.id) ?? []),
+    perfilesConCertificacionVerificada.has(f.id),
   ));
+
+  // Post-filtro, no SQL: los datos ya se calcularon en lote arriba para
+  // pintar el badge/la reseña de cada tarjeta — filtrar por ellos aquí no
+  // añade ninguna consulta nueva, solo reusa lo ya traído.
+  if (filtro.soloExperienciaVerificada) perfiles = perfiles.filter(p => p.experienciaVerificada);
+  if (filtro.soloCertificacionVerificada) perfiles = perfiles.filter(p => p.certificacionVerificada);
+  if (filtro.valoracionMinima != null) {
+    const minimo = filtro.valoracionMinima;
+    perfiles = perfiles.filter(p => p.resumenResenas.promedio != null && p.resumenResenas.promedio >= minimo);
+  }
+  // `idiomas` es un array de texto libre (sin catálogo fijo) — coincidencia
+  // parcial en JS, no `.ilike` de SQL (eso solo sirve sobre una columna de
+  // texto simple como `ciudad`).
+  if (filtro.idioma) {
+    const idioma = filtro.idioma.toLowerCase();
+    perfiles = perfiles.filter(p => p.idiomas.some(i => i.toLowerCase().includes(idioma)));
+  }
+
   return { perfiles: ordenarResultadosNetwork(perfiles, filtro) };
 }
 
@@ -220,19 +258,25 @@ async function detallePerfilDesdeFila(
 ): Promise<DetallePerfilPublico | { error: unknown }> {
   const id = data.id as string;
 
-  const { data: experienciasData, error: errExp } = await admin
-    .from('red_experiencias')
-    .select('id, studio_id, nombre_estudio, fecha_inicio, fecha_fin, especialidades, descripcion, estado_verificacion, creado_en')
-    .eq('perfil_id', id)
-    .order('fecha_inicio', { ascending: false });
-  if (errExp) return { error: errExp };
-
-  const experiencias = ((experienciasData ?? []) as unknown as Omit<FilaRedExperiencia, 'perfil_id'>[]).map(mapFilaAExperienciaPublica);
-
-  // `auth_user_id` se pide APARTE (nunca en SELECT_COLUMNAS_PUBLICAS) solo
-  // para resolver si el email de la cuenta está confirmado — un único
-  // perfil, un único lookup, no el N+1 que sería hacerlo en un listado.
-  const [{ data: filaAuth }, { count: referenciasConfirmadas }, { data: resenasData }, { data: certificacionesData }] = await Promise.all([
+  // Las 5 queries son independientes entre sí (ninguna depende del
+  // resultado de otra, todas solo necesitan `id`) — antes `red_experiencias`
+  // iba en un `await` suelto ANTES del `Promise.all` de las otras 4, una
+  // ida-y-vuelta de red completa evitable (auditoría de performance,
+  // 2026-08-18). `auth_user_id` se pide APARTE (nunca en
+  // SELECT_COLUMNAS_PUBLICAS) solo para resolver si el email de la cuenta
+  // está confirmado — un único perfil, un único lookup, no el N+1 que sería
+  // hacerlo en un listado.
+  const [
+    { data: experienciasData, error: errExp },
+    { data: filaAuth },
+    { count: referenciasConfirmadas },
+    { data: resenasData },
+    { data: certificacionesData },
+  ] = await Promise.all([
+    admin.from('red_experiencias')
+      .select('id, studio_id, nombre_estudio, fecha_inicio, fecha_fin, especialidades, descripcion, estado_verificacion, creado_en')
+      .eq('perfil_id', id)
+      .order('fecha_inicio', { ascending: false }),
     admin.from('red_perfiles').select('auth_user_id').eq('id', id).maybeSingle(),
     admin.from('red_referencias').select('id', { count: 'exact', head: true }).eq('perfil_id', id).eq('estado', 'confirmada'),
     admin.from('red_resenas').select('id, puntuacion, comentario, creado_en, studios ( nombre )')
@@ -240,6 +284,9 @@ async function detallePerfilDesdeFila(
     admin.from('red_certificaciones').select('nombre, institucion, anio')
       .eq('perfil_id', id).eq('estado', 'verificado').order('anio', { ascending: false }),
   ]);
+  if (errExp) return { error: errExp };
+
+  const experiencias = ((experienciasData ?? []) as unknown as Omit<FilaRedExperiencia, 'perfil_id'>[]).map(mapFilaAExperienciaPublica);
   const certificaciones: CertificacionNetworkPublica[] = (certificacionesData ?? []) as CertificacionNetworkPublica[];
   const { data: userData } = filaAuth?.auth_user_id
     ? await admin.auth.admin.getUserById(filaAuth.auth_user_id as string)
@@ -265,7 +312,10 @@ async function detallePerfilDesdeFila(
   };
 
   return {
-    perfil: mapFilaAPerfilPublico(filaPublica, tieneExperienciaVerificada, resumenDesdePuntuaciones(resenas.map(r => r.puntuacion))),
+    perfil: mapFilaAPerfilPublico(
+      filaPublica, tieneExperienciaVerificada, resumenDesdePuntuaciones(resenas.map(r => r.puntuacion)),
+      certificaciones.length > 0,
+    ),
     experiencias,
     certificaciones,
     badges,
@@ -293,4 +343,31 @@ export async function obtenerPerfilPublicoPorSlug(
   if (error) return { error };
   if (!data) return null;
   return detallePerfilDesdeFila(admin, data as Record<string, unknown>);
+}
+
+// Slug de URL para /network/instructoras/ciudad/[ciudad] — a propósito NO
+// quita tildes (a diferencia de normalizarSlug de lib/network/slug.ts, hecho
+// para slugs de perfil): `ciudadDesdeParam` (la página que lo decodifica)
+// no las reconstruye si se pierden, y el filtro de búsqueda (`ilike`) es
+// sensible a acentos — "Alcala" no encontraría a nadie en "Alcalá de
+// Henares". Los caracteres no-ASCII van bien en una URL (el navegador los
+// percent-encoda); solo hay que encodeURIComponent() donde se interpole en
+// un href/loc.
+export function slugCiudadUrl(ciudad: string): string {
+  return ciudad.trim().toLowerCase().replace(/\s+/g, '-');
+}
+
+// Ciudades con AL MENOS un perfil publicado — nunca la lista fija de
+// ciudades-coords.ts (esa es para geolocalización "cerca de mí", no para
+// generar páginas: usarla crearía páginas SEO vacías de ciudades sin
+// ninguna instructora, justo lo que ya evita el comentario de
+// app/sitemap.ts sobre "nunca miles de páginas vacías generadas a priori").
+export async function ciudadesConPerfilesPublicados(admin: SupabaseClient): Promise<string[]> {
+  const { data } = await admin
+    .from('red_perfiles')
+    .select('ciudad')
+    .eq('estado', 'published')
+    .not('ciudad', 'is', null);
+  const ciudades = new Set((data ?? []).map(f => (f.ciudad as string).trim()).filter(Boolean));
+  return [...ciudades].sort((a, b) => a.localeCompare(b, 'es'));
 }

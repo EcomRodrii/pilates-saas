@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
-import { Avatar, EmptyState } from "@/components/portal-tema/components/ui/primitives";
+import { Avatar, EmptyState, Valoracion } from "@/components/portal-tema/components/ui/primitives";
 import { StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
@@ -27,7 +27,7 @@ export function Teachers({ vm }: { vm: ViewModel }) {
           <button className="icon-btn is-pressable" onClick={actions.back} aria-label="Atrás">
             <Icon name="back" stroke={1.9} />
           </button>
-          <p className="topbar__title">Profesores</p>
+          <p className="topbar__title">Instructores</p>
           <span style={{ width: 40 }}></span>
         </div>
 
@@ -38,9 +38,11 @@ export function Teachers({ vm }: { vm: ViewModel }) {
                 className="profe is-pressable" key={t.id}
                 onClick={() => actions.abrirHoja({ tipo: 'profesor', id: t.id })}
               >
-                <Avatar>{t.inicial}</Avatar>
+                <Avatar foto={t.foto}>{t.inicial}</Avatar>
                 <span className="profe__body">
                   <span className="profe__name">{t.nombre}</span>
+                  {/* Solo con muestra suficiente; si no, ni hueco. */}
+                  <Valoracion valoracion={t.valoracion} />
                   {/* En la lista, la bio recortada; entera en la hoja. */}
                   {t.bio ? <span className="profe__bio">{t.bio}</span> : null}
                 </span>
@@ -49,7 +51,7 @@ export function Teachers({ vm }: { vm: ViewModel }) {
             ))
           ) : (
             <EmptyState
-              title="Todavía no hay profesoras publicadas"
+              title="Todavía no hay instructoras publicadas"
               text="En cuanto el estudio dé de alta a su equipo, lo verás aquí."
             />
           )}

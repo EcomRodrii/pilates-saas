@@ -771,13 +771,88 @@ seguidos en la misma pestaña provoca ese 300031, y el síntoma es idéntico al 
 un acceso roto en producción (30 s sin token). Por poco se revierte un
 despliegue sano por esto: en pestaña nueva daba token en 5,7 s.
 
-Quién verifica el token **no es la app, salvo en un sitio**: en las cinco
-pantallas de auth lo valida gotrue (el captcha se exige a nivel de PROYECTO en
-Supabase). El único endpoint propio que lo comprueba es
-`/api/public/interes-lanzamiento`, vía `lib/auth/captcha-servidor.ts` (#847), y
-necesita `TURNSTILE_SECRET_KEY`; sin esa variable devuelve `'ok'` sin llamar a
-nadie. Fail-CLOSED en el veredicto de Cloudflare, fail-OPEN si la llamada no
-llega a completarse.
+Quién verifica el token **no es la app**: lo valida gotrue en todas las
+pantallas de auth (el captcha se exige a nivel de PROYECTO en Supabase), y eso
+incluye el alta nueva de `/crear-estudio`.
+
+⚠️ **`lib/auth/captcha-servidor.ts` y `lib/auth/trampa-bots.ts` se han quedado
+SIN NINGÚN consumidor** al abrir Tentare al público: su único caller era
+`/api/public/interes-lanzamiento` (el formulario de lista de espera), borrado
+con ella. Siguen en el repo como primitivas para el próximo endpoint público
+propio — pero un honeypot o un captcha que nadie comprueba EN SERVIDOR es
+decoración, que es literalmente el bug de #847. Si se pinta un captcha en un
+formulario nuevo que no pase por gotrue, hay que llamar a `verificarCaptcha()`
+desde el servidor; necesita `TURNSTILE_SECRET_KEY` y sin esa variable devuelve
+`'ok'` sin llamar a nadie. Fail-CLOSED en el veredicto de Cloudflare,
+fail-OPEN si la llamada no llega a completarse.
+
+## Tentare ABIERTO al público — prueba de 7 días sin tarjeta (2026-08-19)
+
+Se ha quitado la lista de espera de lanzamiento. `/crear-estudio` vuelve a dar
+de alta un estudio real; el endpoint `/api/public/interes-lanzamiento` y su
+formulario **están borrados**. ⚠️ No confundir con la **lista de espera de
+CLASES**, que es una funcionalidad viva del producto y no se toca.
+
+- **La prueba es LOCAL, no de Stripe.** 7 días (`TRIAL_DIAS`,
+  `lib/billing/trial.ts`), sin pedir tarjeta. `/api/billing/checkout` ya **no**
+  manda `trial_period_days`: quien llega ahí es porque decidió pagar.
+- ⚠️ **Se materializa reutilizando `subscription_status = 'trialing'`**, no con
+  un estado nuevo. Es deliberado: `suscripcionActiva()` ya lo da por bueno, y de
+  ahí cuelgan los ~18 `tieneFeature()` que deciden Centro de Control,
+  sustituciones autónomas y multi-sede. Un estado paralelo obligaría a tocar los
+  18 para que la prueba no se sintiera como un plan capado.
+- ⚠️ **Ahora conviven DOS 'trialing'** y solo los distingue `subscription_id`:
+  con él es de Stripe (lo cierra Stripe), sin él es la nuestra (**no la cierra
+  nadie solo**). De ahí que un 'trialing' local sin vigilar sea acceso gratis
+  para siempre. Se ataja por partida doble, con el patrón de siempre —regla de
+  negocio, no de reloj—: `estadoTrial()` deriva el vencimiento EN CADA
+  petición de `/api/billing/status` (el gate real), y el cron
+  `cerrar-pruebas-vencidas` (pg_cron, cada 15 min) solo pone la BD al día para
+  los `tieneFeature()` de servidor.
+- ⚠️ **El estado final del barrido es `'trial_expirado'`, NO `NULL`.** Volver a
+  NULL parece lo natural, pero `checkout` decidía la prueba con
+  `primeraVez = !subscription_status`: cada estudio que agotara su prueba local
+  recibiría OTRA, ahora de Stripe, al ir a pagar.
+- ⚠️ **La prueba la fija un TRIGGER, nunca el cliente.** `dbCreateStudio` hace
+  un INSERT directo con la sesión de la propietaria, así que un `trial_ends_at`
+  en el payload sería una prueba hasta el año 3000 pedida a mano.
+  `trg_arrancar_prueba_gratuita` ignora lo que llegue y escribe `now() + 7 días`
+  (solo si `cadena_id is null` — una sede hereda de su cadena). Verificado en
+  vivo con `execute_sql`+`ROLLBACK`, incluido el payload falsificado.
+- **El plan se elige en el alta y es el que se disfruta durante la prueba.** Ese
+  valor viaja en el INSERT del cliente, así que lo acota un CHECK
+  (`studios_plan_valido`): elegir tu plan de prueba es intencionado, escribir
+  cualquier cosa en la columna no.
+- **Catálogo de planes único**: `lib/billing/catalogo-planes.ts`, DERIVADO de
+  `PLAN_ENTITLEMENTS`. Lo comparten /precios, /suscripcion y el alta — antes
+  cada una tenía su propia lista a mano y ya divergían. No añadir ahí nada
+  congelado (`lib/frozen-features.ts`); hay un test que lo comprueba.
+- **El rosa fuera de sistema estaba en `/suscripcion`** (`ACC = '#FFC8E2'` y un
+  `#F7A6C4`, restos de la plantilla anterior al cambio de identidad) pintando el
+  botón principal y la etiqueta «POPULAR». Migrado a tokens, con un test e2e que
+  falla si esos dos hex vuelven. ⚠️ **NO se tocaron las paletas CATEGÓRICAS**
+  (colores de salas, tipos de clase, avatares de equipo, series de gráficas, el
+  tema Bloom): ahí el color distingue, no marca — misma trampa que ya documenta
+  [[identidad-visual-oliva]].
+
+⚠️ **Aviso heredado de #1222, con su premisa ya cumplida.** Ese documento decía
+que el endpoint estaba «vivo y con consumidor» y que por eso no se retirara
+ninguna de las dos primitivas. Lo escribió para frenar justo eso, y hacía bien:
+el grep que las daba por huérfanas venía de otro worktree. Pero contemplaba el
+caso de hoy —«si algún día se abre el alta de verdad y el endpoint muere»— y ese
+día es este: el alta pública está abierta y `/api/public/interes-lanzamiento`
+**ya no existe**.
+
+Lo que sigue vigente de aquel aviso, y es lo que de verdad importaba:
+**conservar `captcha-servidor.ts` antes que rehacerla.** Es la única pieza del
+repo que sabe llamar al `siteverify` de Cloudflare, y reescribirla a mano es
+exactamente cómo apareció #847. Igual con `trampa-bots.ts`: el honeypot protege
+**sin depender de ninguna clave ni servicio externo**, que es justo lo que hace
+falta cuando `TURNSTILE_SECRET_KEY` no está puesta. Las dos se quedan.
+
+Y lo que también sigue vigente es el método: **no declares nada huérfano con un
+grep de un solo worktree** — cruza contra `origin/main` primero. Mismo error de
+categoría que [[colisiones-entre-sesiones-paralelas]].
 
 ## ⚠️ Un merge de solo documentación NO despliega
 

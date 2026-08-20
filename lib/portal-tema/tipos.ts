@@ -17,6 +17,17 @@ export interface StudioClass {
   type: string;
   /** Día del MES (no día de la semana): es lo que casa con la rejilla. */
   day: number;
+  /**
+   * La fecha local completa, 'YYYY-MM-DD'.
+   *
+   * ⚠️ `day` NO basta para comparar, y este adaptador ya se comió ese bug una
+   * vez: «una clase del 5 de septiembre tiene `day` 5 igual que el 5 de agosto
+   * y se colaba en el horario» (ver `clasesDeLaSemana`). Dentro de UNA semana
+   * los números no se repiten, así que la tira funciona con `day`; en cuanto
+   * algo compara contra la rejilla del MES —que trae celdas de los meses
+   * vecinos— hace falta la fecha entera.
+   */
+  fecha: string;
   time: string;
   end: string;
   /**
@@ -30,6 +41,15 @@ export interface StudioClass {
   level: string;
   teacher: string;
   initial: string;
+  /**
+   * La foto de quien la da. Vacía = se pinta su monograma.
+   *
+   * Se resuelve AQUÍ, donde el adaptador ya tiene el índice de instructoras
+   * (`porInstructor`), y no en la pantalla cruzando por nombre: dos
+   * instructoras que se llamen igual son un caso raro, pero cruzar personas
+   * por su nombre es un error que solo se descubre cuando pasa.
+   */
+  teacherFoto: string;
   /** Plazas libres. 0 = completa, y entonces la UI ofrece lista de espera. */
   seats: number;
   /**
@@ -68,6 +88,13 @@ export interface DiaPortal {
   label: string;
   /** Día del mes, para casar con `StudioClass.day`. */
   num: number;
+  /**
+   * La fecha local completa, 'YYYY-MM-DD'. `diasDeLaSemana` ya la calculaba y
+   * `semanaDe` la tiraba; se conserva por el mismo motivo que
+   * `StudioClass.fecha`: comparar por número de día miente en cuanto hay dos
+   * meses en juego.
+   */
+  fecha: string;
 }
 
 export interface FiltroPortal {
@@ -138,6 +165,22 @@ export interface ProfesorPortal {
   inicial: string;
   /** Bio pública (`instructores.bio`). Vacía = no se pinta nada, no un hueco. */
   bio: string;
+  /**
+   * Su foto (`instructores.foto_url`, o `avatar` si no hay). Vacía = se pinta
+   * el monograma, que es lo que hacen las capturas del tema.
+   *
+   * ⚠️ El dato SIEMPRE llegaba al portal (`mapInstructorPublico` lo incluye) y
+   * este adaptador lo tiraba. En producción 7 de las 9 instructoras del
+   * estudio piloto tienen foto, así que se estaba sustituyendo una cara real
+   * por una inicial en todas partes.
+   */
+  foto: string;
+  /**
+   * Su nota, ya agregada. Ausente = nadie la ha valorado — y no es lo mismo que
+   * «tiene mala nota». Quien la pinta decide si se puede enseñar con
+   * `valoracionParaPantalla`, que exige un mínimo de valoraciones.
+   */
+  valoracion?: { media: number; total: number };
 }
 
 export interface SociaPortal {
@@ -239,6 +282,15 @@ export interface DatosPortal {
    */
   ahoraISO: string;
   /**
+   * `studios.cancelacion_devolver_bono_tardia`. La segunda mitad de la
+   * política: con `cancelHoras` sola no se puede saber si la socia recupera la
+   * sesión, porque la RPC decide con «devuelve en tardía O no es tardía».
+   *
+   * Va aquí y no en la clase porque es del ESTUDIO — la ventana sí es por tipo
+   * de clase, esto no.
+   */
+  devolverBonoTardia: boolean;
+  /**
    * Hoy en la zona del estudio. `num` es el día del MES (casa con
    * `StudioClass.day`) y `largo` la fecha en palabras que pinta la cabecera
    * del Inicio. Van juntas para que no puedan discrepar — ver `hoyDe`.
@@ -292,6 +344,16 @@ export interface DatosPortal {
   socia: SociaPortal;
   /** Quien da clase, activas y que imparten. Mismo criterio que `/instructores`. */
   profesores: ProfesorPortal[];
+  /**
+   * Los TIPOS de clase que la socia tiene marcados como favoritos.
+   *
+   * ⚠️ Por tipo de clase, no por sesión, y esto era un desencuentro real: el
+   * kit guardaba el id de LA SESIÓN («el Reformer del martes a las 18») en
+   * `localStorage` y el backend guarda `tipo_clase_id` («Reformer»). Marcar
+   * una cosa y guardar la otra hacía que el corazón se apagara solo al pasar
+   * de semana, y que nada llegara nunca al servidor.
+   */
+  favoritas: string[];
   /**
    * Las reservas VIVAS de la socia.
    *

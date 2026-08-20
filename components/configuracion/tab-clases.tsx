@@ -9,10 +9,11 @@ import { colorSalaPorDefecto } from '@/components/configuracion/tab-salas';
 import { useStudio } from '@/lib/studio-context';
 import { OBJETIVOS, resolverObjetivos } from '@/lib/reservar/objetivos';
 import type { TipoClase } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, formatEuro } from '@/lib/utils';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { imagenDeClase } from '@/lib/imagenes-por-defecto';
 import { CampoImagen } from '@/components/ui/campo-imagen';
+import { ESPECIALIDADES_NETWORK, ESPECIALIDAD_LABEL, type EspecialidadNetwork } from '@/lib/network/catalogo.ts';
 
 // "Hereda" = usa el ajuste general del estudio (Configuración → Estudio →
 // Reservas y cancelaciones). Un checkbox no puede representar tres estados
@@ -46,6 +47,10 @@ type ClaseForm = {
   minimoAsistentesPorClase: string;
   // Fase 3 (migr 20260730225253): mismo patrón, vacío = null = hereda.
   penalizacionImporteEur: string;
+  // Fase 11 de Network↔Sustituciones (migr 20260818010302): '' = sin mapear,
+  // no null directo — mismo criterio que el resto de selects opcionales de
+  // este formulario (ventanaCancelacionHoras usa '' para lo mismo).
+  especialidadNetwork: EspecialidadNetwork | '';
 };
 
 const emptyClaseForm = (color: string): ClaseForm => ({
@@ -64,6 +69,7 @@ const emptyClaseForm = (color: string): ClaseForm => ({
   listaEsperaPlazoAceptacionMinutos: '',
   minimoAsistentesPorClase: '',
   penalizacionImporteEur: '',
+  especialidadNetwork: '',
 });
 
 function claseToForm(t: TipoClase): ClaseForm {
@@ -83,7 +89,27 @@ function claseToForm(t: TipoClase): ClaseForm {
     listaEsperaPlazoAceptacionMinutos: t.listaEsperaPlazoAceptacionMinutos != null ? String(t.listaEsperaPlazoAceptacionMinutos) : '',
     minimoAsistentesPorClase: t.minimoAsistentesPorClase != null ? String(t.minimoAsistentesPorClase) : '',
     penalizacionImporteEur: t.penalizacionImporteEur != null ? String(t.penalizacionImporteEur) : '',
+    especialidadNetwork: t.especialidadNetwork ?? '',
   };
+}
+
+// P2 (auditoría "Veredicto de Marta"): la card solo enseñaba la ventana de
+// cancelación de las 8 reglas configurables — con 3-5 tipos de clase, tocaba
+// reabrir cada modal para ver qué se había fijado en cada uno. Un chip por
+// regla ACTIVA (null = hereda del estudio, no se enseña aquí: la card es solo
+// para lo que este tipo de clase SOBRESCRIBE).
+function overridesDeTipoClase(tc: TipoClase): string[] {
+  const chips: string[] = [];
+  if (tc.ventanaCancelacionHoras != null) chips.push(`Cancela ${tc.ventanaCancelacionHoras}h antes`);
+  if (tc.reservaExigirPlan != null) chips.push(tc.reservaExigirPlan ? 'Exige plan/bono' : 'No exige plan/bono');
+  if (tc.reservaVentanaMinimaMinutos != null) chips.push(`Reserva hasta ${tc.reservaVentanaMinimaMinutos} min antes`);
+  if (tc.reservaAntelacionMaximaDias != null) chips.push(`Se abre ${tc.reservaAntelacionMaximaDias}d antes`);
+  if (tc.permiteListaEspera != null) chips.push(tc.permiteListaEspera ? 'Con lista de espera' : 'Sin lista de espera');
+  if (tc.requiereAprobacion) chips.push('Aprobación manual');
+  if (tc.listaEsperaPlazoAceptacionMinutos != null) chips.push(`Plazo espera: ${tc.listaEsperaPlazoAceptacionMinutos} min`);
+  if (tc.minimoAsistentesPorClase != null) chips.push(`Mín. ${tc.minimoAsistentesPorClase} asistentes`);
+  if (tc.penalizacionImporteEur != null) chips.push(`Penalización ${formatEuro(tc.penalizacionImporteEur)}`);
+  return chips;
 }
 
 const NIVEL_LABELS: Record<TipoClase['nivel'], string> = {
@@ -163,6 +189,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       listaEsperaPlazoAceptacionMinutos: form.listaEsperaPlazoAceptacionMinutos.trim() === '' ? null : Math.max(0, parseInt(form.listaEsperaPlazoAceptacionMinutos, 10) || 0),
       minimoAsistentesPorClase: form.minimoAsistentesPorClase.trim() === '' ? null : Math.max(0, parseInt(form.minimoAsistentesPorClase, 10) || 0),
       penalizacionImporteEur: form.penalizacionImporteEur.trim() === '' ? null : Math.max(0, Number(form.penalizacionImporteEur) || 0),
+      especialidadNetwork: form.especialidadNetwork === '' ? null : form.especialidadNetwork,
     };
     if (modal === 'nueva') {
       // Esperamos a la base de datos antes de decir que está creado.
@@ -236,10 +263,17 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 </p>
               )}
             </div>
-            {tc.ventanaCancelacionHoras != null && (
-              <p className="text-[11px] text-muted-foreground">
-                Cancelación: {tc.ventanaCancelacionHoras}h de antelación (propia de este tipo)
-              </p>
+            {overridesDeTipoClase(tc).length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {overridesDeTipoClase(tc).map(chip => (
+                  <span
+                    key={chip}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-background text-muted-foreground"
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
             )}
             {/* Actions */}
             <div className="flex items-center gap-1 pt-1 border-t border-background">
@@ -339,6 +373,21 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 </select>
               </Field>
             </div>
+            <Field
+              label="Especialidad en Tentare Network"
+              description="Para sugerir sustitutas de Network cuando falte instructora en esta clase. Sin elegir una, esta clase no sugiere a nadie de fuera del equipo."
+            >
+              <select
+                className={inputCls}
+                value={form.especialidadNetwork}
+                onChange={e => setForm(f => ({ ...f, especialidadNetwork: e.target.value as ClaseForm['especialidadNetwork'] }))}
+              >
+                <option value="">Sin mapear (no sugiere Network)</option>
+                {ESPECIALIDADES_NETWORK.map(e => (
+                  <option key={e} value={e}>{ESPECIALIDAD_LABEL[e]}</option>
+                ))}
+              </select>
+            </Field>
             <Field
               label="¿Para qué sirve esta clase?"
               description="Lo usa el asistente de tu página pública para recomendarla. Si no marcas ninguno, la clase se ofrece para todos los objetivos."

@@ -12,10 +12,24 @@
 // La sesión ya está resuelta cuando se llega: si `session` existe, Supabase
 // confirmó el email Y el servidor confirmó que pertenece a una socia de este
 // estudio (`resolverSociaAutenticada`). Solo entonces se deja fijar clave.
+//
+// ⚠️ Y si NO era socia, aquí es donde se da de alta — no antes. `resolver` deja
+// la sesión en `null` cuando el email autenticado no pertenece a ninguna socia
+// del estudio, así que sin este paso quien creaba cuenta por correo aterrizaba
+// en «ese enlace ya no vale»: un callejón, y encima mintiendo, porque el enlace
+// había funcionado perfectamente.
+//
+// El alta va AQUÍ y no dentro de `resolver` a propósito: en `resolver` se
+// dispararía en cualquier navegación —una socia de otro estudio abriendo este
+// portal quedaría dada de alta sin haber hecho nada—, y lo que se aprobó es dar
+// de alta a quien ENTRA. Este aterrizaje y la vuelta de Google son las dos
+// puertas de entrada, y son los dos únicos sitios donde se llama.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
+import { altaAlEntrar } from '@/lib/api-client';
+import { supabasePortal } from '@/lib/db/supabase-portal';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { dur, display, micro, texto } from '@/lib/portal-design';
@@ -28,7 +42,12 @@ const MIN_LEN = 8;
 export default function PortalClaveNueva() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { session, isLoading, establecerPassword } = usePortalAuth();
+  const { session, isLoading, establecerPassword, revalidarSesion } = usePortalAuth();
+  // Una sola vez por carga: si el alta no la deja entrar, reintentarla en bucle
+  // no la va a dejar entrar tampoco. Es estado y no un `ref` porque el render
+  // depende de ello — un `ref` no repinta y la pantalla se quedaría colgada en
+  // «comprobando».
+  const [alta, setAlta] = useState<'sin-mirar' | 'en-curso' | 'resuelta'>('sin-mirar');
   const { studio } = useStudio();
   const { t } = useModo();
   const [password, setPassword] = useState('');
@@ -49,8 +68,28 @@ export default function PortalClaveNueva() {
     setTimeout(() => router.replace(`/portal/${slug}/home`), dur.washInner);
   }
 
+  // Autenticada de verdad pero sin ficha de socia: es un alta, no un enlace
+  // caducado. Se le crea la ficha y se vuelve a preguntar.
+  useEffect(() => {
+    if (isLoading || session || alta !== 'sin-mirar') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Marca que el trámite con el servidor ha empezado, y es justo lo que impide que se repita. Misma sincronización con un sistema externo que `resolver` en `portal-auth`.
+    setAlta('en-curso');
+    (async () => {
+      // Distinguir las dos razones de no haber sesión: un enlace REALMENTE
+      // caducado no deja token ninguno, y ahí no hay a quién dar de alta.
+      const { data: { session: sb } } = await supabasePortal.auth.getSession();
+      if (sb?.access_token) {
+        await altaAlEntrar(slug, 'enlace');
+        await revalidarSesion();
+      }
+      setAlta('resuelta');
+    })();
+  }, [isLoading, session, alta, slug, revalidarSesion]);
+
   const nombre = studio?.nombre?.trim() || 'Tentare';
-  const caducado = !isLoading && !session;
+  // Solo se declara caducado cuando ya se ha intentado el alta y sigue sin
+  // haber socia — si no, se acusaría al enlace de algo que no ha hecho.
+  const caducado = !isLoading && !session && alta === 'resuelta';
 
   return (
     <div style={{ minHeight: '100dvh', background: t.bg, display: 'flex', flexDirection: 'column' }}>
@@ -149,7 +188,7 @@ function Comprobando() {
  * ⚠️ El texto NO distingue entre «ha caducado», «ya se usó» y «tu email no es
  * de ninguna socia de este centro», aunque el código sí sabría cuál es: decir
  * el tercero confirmaría a un desconocido que ese email NO está dado de alta,
- * y eso es la misma enumeración de cuentas que el paso 2 evita. Un solo
+ * y eso es la misma enumeración de cuentas que la puerta evita. Un solo
  * mensaje para los tres casos, y salida a pedir otro enlace.
  */
 function Caducado({ onPedir }: { onPedir: () => void }) {

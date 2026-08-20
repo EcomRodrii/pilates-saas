@@ -194,11 +194,23 @@ export async function montarPortal(page: Page, opciones: {
    * se pusiera rojo — se veían los cuatro temas con la misma píldora blanca.
    */
   tema?: string;
+  /** Con tarjeta guardada: la hoja de pago enseña quitarla y cambiarla. */
+  conTarjeta?: boolean;
+  /** Los tipos de clase que la socia ya tiene marcados como favoritos. */
+  favoritos?: string[];
+  /** Catálogo correcto pero SIN socia: es lo que devuelve el servidor cuando el
+   *  token de la socia ya no vale, mientras el navegador todavía cree que hay
+   *  sesión. La app se monta entera y el perfil llega vacío. */
+  sinSocia?: boolean;
+  /** Monta el portal del KIT (`portalReact`) con este tema publicado. Sin esto
+   *  se monta el portal de siempre — que es lo que hacía SIEMPRE, y por eso
+   *  ninguna pantalla del kit tenía cobertura e2e en su ruta real. */
+  kit?: string;
 }) {
   const { conSesion, fotoUrl = null, imagenBienvenidaUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, sinProximaReserva = false, variosBonos = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
-          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema } = opciones;
+          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema, kit, sinSocia = false, favoritos = [], conTarjeta = false } = opciones;
 
   // Un tema de la galería decide DOS cosas por caminos distintos: los ejes JS
   // (studio-data, más abajo) y las CSS vars (aquí). Hay que montar los dos o
@@ -322,7 +334,11 @@ export async function montarPortal(page: Page, opciones: {
     studio: {
       id: STUDIO_ID, nombre: 'Estudio Alma', ciudad: 'Marbella', slug: SLUG,
       colorPrimario: '#2C352C', temaPortal: 'oliva', logoUrl: null, fotoUrl, imagenBienvenidaUrl,
+      // `PortalShell` exige las DOS para montar el kit: sin `portalReact` cae
+      // al portal de siempre sin decir nada.
+      portalReact: !!kit,
     },
+    themeIdPublicado: kit ?? null,
     sesiones: [...SESIONES, ...HISTORIAL.map(h => h.ses)],
     tiposClase: TIPOS,
     salas: [{ id: 'sala-1', studioId: STUDIO_ID, nombre: 'Sala Norte', capacidad: 12 }],
@@ -344,8 +360,9 @@ export async function montarPortal(page: Page, opciones: {
       ? [...(sinProximaReserva ? [] : [{ id: MI_RESERVA.id, sesion_id: 'ses-1', estado: 'CONFIRMADA', spot_id: null }]),
          ...HISTORIAL.map(h => ({ id: h.res.id, sesion_id: h.ses.id, estado: 'ASISTIDA', spot_id: null }))]
       : [],
-    socia: conSesion ? {
-      socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null },
+    socia: conSesion && !sinSocia ? {
+      socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null,
+        ...(conTarjeta ? { tarjetaMarca: 'visa', tarjetaUltimos4: '4242', tarjetaExpMes: 9, tarjetaExpAnio: 2029 } : null) },
       reservas: [...(sinProximaReserva ? [] : [MI_RESERVA]), ...HISTORIAL.map(h => h.res)],
       suscripciones: sinBono ? [] : variosBonos ? [
         // Cuatro bonos vigentes: 8+4+0+5 = 17 sesiones de 10+5+5+5 = 25.
@@ -360,7 +377,7 @@ export async function montarPortal(page: Page, opciones: {
       plazasFijas: [PLAZA_FIJA],
       memberCredits: [], rewardHistory: [], rewardRedemptions: [],
       achievementProgress: [], challengeProgress: [], creditTransactions: [], citas: [],
-      favoritos: [], retosApuntados: Array.from(retosApuntadosVivos),
+      favoritos: favoritos.map((tipoClaseId, i) => ({ id: `fav-${i}`, studioId: STUDIO_ID, socioId: SOCIA.socioId, tipoClaseId, creadoEn: '2026-08-01T00:00:00.000Z' })), retosApuntados: Array.from(retosApuntadosVivos),
     } : null,
   }));
 }

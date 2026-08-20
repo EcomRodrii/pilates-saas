@@ -8,7 +8,7 @@ import {
   DISPONIBILIDAD_ESTADOS_NETWORK, DISPONIBILIDAD_ESTADO_LABEL,
   TARIFAS_RANGO_NETWORK, TARIFA_RANGO_LABEL,
 } from '@/lib/network/catalogo';
-import { NW_TINTA, NW_GRIS_VERDOSO, NW_BORDE, NW_PRODUCTO, NW_SAGE } from './tokens';
+import { NW_TINTA, NW_GRIS_VERDOSO, NW_BORDE, NW_PRODUCTO, NW_SAGE, NW_FONDO } from './tokens';
 
 // Sidebar de filtros del marketplace (1b del rediseño) — mismo mecanismo que
 // components/network-publico/filtros-marketplace.tsx (URL-driven,
@@ -27,6 +27,12 @@ const EXPERIENCIA_OPCIONES = [
   { valor: '10', etiqueta: '10+' },
 ] as const;
 
+const VALORACION_OPCIONES = [
+  { valor: '', etiqueta: 'Cualquiera' },
+  { valor: '4', etiqueta: '4+ ★' },
+  { valor: '4.5', etiqueta: '4,5+ ★' },
+] as const;
+
 function Grupo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div className="py-5" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
@@ -36,12 +42,49 @@ function Grupo({ titulo, children }: { titulo: string; children: React.ReactNode
   );
 }
 
+// Antes eran <span onClick> sin ningún <input> real detrás — sin rol de
+// checkbox/radio, sin tabIndex, sin manejo de teclado: invisibles para un
+// lector de pantalla y para quien navega sin ratón (hallazgo de la
+// auditoría del sistema de diseño, 2026-08-18). El control real vive oculto
+// (sr-only) delante del visual decorativo — el label sigue reaccionando al
+// clic como antes, y ahora también a Tab/Espacio/flechas.
+function CheckboxFiltro({ activo, onChange, children }: { activo: boolean; onChange: () => void; children: React.ReactNode }) {
+  return (
+    <label className="flex items-center gap-2.5 cursor-pointer text-[13.5px]" style={{ color: NW_TINTA }}>
+      <input type="checkbox" checked={activo} onChange={onChange} className="sr-only peer" />
+      <span
+        aria-hidden="true"
+        className="shrink-0 flex items-center justify-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1"
+        style={{ width: 19, height: 19, borderRadius: 6, background: activo ? NW_PRODUCTO : '#fff', border: `1.5px solid ${activo ? NW_PRODUCTO : NW_BORDE}` }}
+      >
+        {activo && <Check size={13} color="#fff" strokeWidth={3} />}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function RadioFiltro({ nombre, activo, onChange, children }: { nombre: string; activo: boolean; onChange: () => void; children: React.ReactNode }) {
+  return (
+    <label className="flex items-center gap-2.5 cursor-pointer text-[13.5px]" style={{ color: NW_TINTA }}>
+      <input type="radio" name={nombre} checked={activo} onChange={onChange} className="sr-only peer" />
+      <span
+        aria-hidden="true"
+        className="shrink-0 rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1"
+        style={{ width: 16, height: 16, border: `1.5px solid ${activo ? NW_PRODUCTO : NW_BORDE}`, boxShadow: activo ? `inset 0 0 0 3px #fff, inset 0 0 0 999px ${NW_PRODUCTO}` : undefined }}
+      />
+      {children}
+    </label>
+  );
+}
+
 export function FiltrosSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
   const [ciudad, setCiudad] = useState(searchParams.get('ciudad') ?? '');
+  const [idioma, setIdioma] = useState(searchParams.get('idioma') ?? '');
 
   function actualizar(clave: string, valor: string | null) {
     const sp = new URLSearchParams(searchParams.toString());
@@ -88,35 +131,25 @@ export function FiltrosSidebar() {
 
       <Grupo titulo="Especialidad">
         <div className="space-y-2">
-          {ESPECIALIDADES_NETWORK.map(v => {
-            const activo = especialidadesActivas.includes(v);
-            return (
-              <label key={v} className="flex items-center gap-2.5 cursor-pointer text-[13.5px]" style={{ color: NW_TINTA }}>
-                <span
-                  className="shrink-0 flex items-center justify-center transition-colors"
-                  style={{ width: 19, height: 19, borderRadius: 6, background: activo ? NW_PRODUCTO : '#fff', border: `1.5px solid ${activo ? NW_PRODUCTO : NW_BORDE}` }}
-                  onClick={() => toggleEnLista('especialidades', v)}
-                >
-                  {activo && <Check size={13} color="#fff" strokeWidth={3} />}
-                </span>
-                <span onClick={() => toggleEnLista('especialidades', v)}>{ESPECIALIDAD_LABEL[v]}</span>
-              </label>
-            );
-          })}
+          {ESPECIALIDADES_NETWORK.map(v => (
+            <CheckboxFiltro key={v} activo={especialidadesActivas.includes(v)} onChange={() => toggleEnLista('especialidades', v)}>
+              {ESPECIALIDAD_LABEL[v]}
+            </CheckboxFiltro>
+          ))}
         </div>
       </Grupo>
 
       <Grupo titulo="Experiencia">
         <div className="space-y-2">
-          {EXPERIENCIA_OPCIONES.map(o => {
-            const activo = (searchParams.get('experienciaMinima') ?? '') === o.valor;
-            return (
-              <label key={o.valor} className="flex items-center gap-2.5 cursor-pointer text-[13.5px]" style={{ color: NW_TINTA }} onClick={() => actualizar('experienciaMinima', o.valor || null)}>
-                <span className="shrink-0 rounded-full" style={{ width: 16, height: 16, border: `1.5px solid ${activo ? NW_PRODUCTO : NW_BORDE}`, boxShadow: activo ? `inset 0 0 0 3px #fff, inset 0 0 0 999px ${NW_PRODUCTO}` : undefined }} />
-                {o.etiqueta} años
-              </label>
-            );
-          })}
+          {EXPERIENCIA_OPCIONES.map(o => (
+            <RadioFiltro
+              key={o.valor} nombre="experienciaMinima"
+              activo={(searchParams.get('experienciaMinima') ?? '') === o.valor}
+              onChange={() => actualizar('experienciaMinima', o.valor || null)}
+            >
+              {o.etiqueta} años
+            </RadioFiltro>
+          ))}
         </div>
       </Grupo>
 
@@ -153,6 +186,55 @@ export function FiltrosSidebar() {
           })}
         </div>
       </Grupo>
+
+      <Grupo titulo="Valoración mínima">
+        <div className="space-y-2">
+          {VALORACION_OPCIONES.map(o => (
+            <RadioFiltro
+              key={o.valor} nombre="valoracionMinima"
+              activo={(searchParams.get('valoracionMinima') ?? '') === o.valor}
+              onChange={() => actualizar('valoracionMinima', o.valor || null)}
+            >
+              {o.etiqueta}
+            </RadioFiltro>
+          ))}
+        </div>
+      </Grupo>
+
+      <Grupo titulo="Verificación">
+        <div className="space-y-2">
+          <CheckboxFiltro
+            activo={searchParams.get('identidadVerificada') === '1'}
+            onChange={() => actualizar('identidadVerificada', searchParams.get('identidadVerificada') === '1' ? null : '1')}
+          >
+            Identidad verificada
+          </CheckboxFiltro>
+          <CheckboxFiltro
+            activo={searchParams.get('experienciaVerificada') === '1'}
+            onChange={() => actualizar('experienciaVerificada', searchParams.get('experienciaVerificada') === '1' ? null : '1')}
+          >
+            Experiencia verificada
+          </CheckboxFiltro>
+          <CheckboxFiltro
+            activo={searchParams.get('certificacionVerificada') === '1'}
+            onChange={() => actualizar('certificacionVerificada', searchParams.get('certificacionVerificada') === '1' ? null : '1')}
+          >
+            Formación verificada
+          </CheckboxFiltro>
+        </div>
+      </Grupo>
+
+      <Grupo titulo="Idioma">
+        <input
+          value={idioma}
+          onChange={e => setIdioma(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && actualizar('idioma', idioma || null)}
+          onBlur={() => actualizar('idioma', idioma || null)}
+          placeholder="Inglés, francés..."
+          className="w-full px-3 py-2.5 text-[13.5px] outline-none"
+          style={{ border: `1px solid ${NW_BORDE}`, borderRadius: 13, color: NW_TINTA }}
+        />
+      </Grupo>
     </div>
   );
 }
@@ -174,12 +256,29 @@ export function ChipsActivos() {
   for (const v of (searchParams.get('tarifaRango') ?? '').split(',').filter(Boolean)) {
     if (esTarifa(v)) chips.push({ clave: 'tarifaRango', valor: v, etiqueta: TARIFA_RANGO_LABEL[v] });
   }
+  if (searchParams.get('valoracionMinima')) {
+    chips.push({ clave: 'valoracionMinima', valor: searchParams.get('valoracionMinima')!, etiqueta: `${searchParams.get('valoracionMinima')}+ ★` });
+  }
+  if (searchParams.get('identidadVerificada') === '1') {
+    chips.push({ clave: 'identidadVerificada', valor: '1', etiqueta: 'Identidad verificada' });
+  }
+  if (searchParams.get('experienciaVerificada') === '1') {
+    chips.push({ clave: 'experienciaVerificada', valor: '1', etiqueta: 'Experiencia verificada' });
+  }
+  if (searchParams.get('idioma')) {
+    chips.push({ clave: 'idioma', valor: searchParams.get('idioma')!, etiqueta: searchParams.get('idioma')! });
+  }
+  if (searchParams.get('certificacionVerificada') === '1') {
+    chips.push({ clave: 'certificacionVerificada', valor: '1', etiqueta: 'Formación verificada' });
+  }
 
   if (chips.length === 0) return null;
 
+  const CLAVES_VALOR_UNICO = new Set(['ciudad', 'valoracionMinima', 'identidadVerificada', 'experienciaVerificada', 'certificacionVerificada', 'idioma']);
+
   function quitar(clave: string, valor: string) {
     const sp = new URLSearchParams(searchParams.toString());
-    if (clave === 'ciudad') { sp.delete('ciudad'); }
+    if (CLAVES_VALOR_UNICO.has(clave)) { sp.delete(clave); }
     else {
       const restantes = (sp.get(clave) ?? '').split(',').filter(v => v && v !== valor);
       if (restantes.length) sp.set(clave, restantes.join(',')); else sp.delete(clave);
@@ -193,7 +292,7 @@ export function ChipsActivos() {
         <button
           key={`${c.clave}-${c.valor}`} type="button" onClick={() => quitar(c.clave, c.valor)}
           className="inline-flex items-center gap-1.5 pl-3.5 pr-2.5 py-1.5 rounded-full text-[12.5px] font-semibold"
-          style={{ background: NW_TINTA, color: '#FAF9F5' }}
+          style={{ background: NW_TINTA, color: NW_FONDO }}
         >
           {c.etiqueta} <X size={12} />
         </button>

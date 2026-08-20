@@ -1,6 +1,7 @@
 'use client';
 
 import { opcionesDe, vaLaPena, type ClaseFiltrable, type OpcionFiltro } from '@/lib/reservar/filtros-clases';
+import { radius } from '@/lib/reservar-publico-tokens';
 
 // El rail de filtros de la página pública: tipo de clase, instructora, nivel y
 // horario, en una columna a la izquierda del horario.
@@ -67,8 +68,20 @@ export function RailFiltros({
 
   if (campos.length === 0) return null;
 
+  // ⚠️ La TARJETA la pinta este componente, no quien lo coloca. Antes el
+  // envoltorio vivía en `app/reservar/[slug]/page.tsx` con su fondo, su borde y
+  // su padding, así que cuando este componente decidía no pintarse (el
+  // `return null` de arriba) quedaba una tarjeta blanca de 320x42 con CERO
+  // contenido en la barra lateral — medida en el navegador, no supuesta. El
+  // comentario de esa página ya decía "se pinta solo si algún filtro tiene más
+  // de una opción"; el que no lo cumplía era el envoltorio. Teniendo el
+  // contenedor aquí, la condición y lo que se pinta no pueden divergir.
   return (
-    <div style={{ fontFamily, display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{
+      fontFamily, display: 'flex', flexDirection: 'column', gap: 12,
+      borderRadius: radius.hero, background: 'var(--portal-velo)',
+      border: '1px solid var(--portal-line)', padding: '20px 22px',
+    }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
         <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.1em', color: 'var(--portal-muted-2)' }}>FILTRAR</span>
         {/* Solo cuando hay algo que limpiar: un «Limpiar» permanente y sin

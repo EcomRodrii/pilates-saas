@@ -21,7 +21,7 @@ import { BadgeCheck, Star } from 'lucide-react';
 import { FotoInstructora } from './FotoInstructora';
 import { ESPECIALIDAD_LABEL, TARIFA_RANGO_LABEL } from '@/lib/network/catalogo';
 import type { PerfilNetworkPublico } from '@/lib/network/tipos';
-import { NW_TINTA, NW_MUTED, NW_MUTED_2, NW_ESTRELLA, NW_PRODUCTO, NW_BORDE, NW_BORDE_HOVER } from './tokens';
+import { NW_TINTA, NW_MUTED, NW_MUTED_2, NW_ESTRELLA, NW_PRODUCTO, NW_BORDE, NW_BORDE_HOVER, NW_ESTADO } from './tokens';
 
 // "Tarjeta de instructora (patrón)" del README: foto grande, chip
 // verificada arriba-izda, CTA "Ver perfil" que aparece al hover, nombre +
@@ -55,7 +55,7 @@ export function TarjetaInstructora({ perfil, distanciaKm }: { perfil: PerfilNetw
         {perfil.experienciaVerificada && (
           <span
             className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold"
-            style={{ background: 'rgba(255,255,255,.93)', color: '#2E5A3A' }}
+            style={{ background: 'rgba(255,255,255,.93)', color: NW_ESTADO.verificada.color }}
           >
             <BadgeCheck size={12} /> Verificada
           </span>

@@ -706,6 +706,24 @@ export const CAMPOS_LISTADO_CLASES = [
   },
 ] as const satisfies readonly CampoSchema[];
 
+// Fase 7 "Widget Experience Builder": los únicos campos reales que faltaban
+// en reservarHorario, ya señalados por el comentario de arriba como "la fase
+// siguiente". `porDefecto: true` en las cuatro pestañas — un estudio que no
+// toca este ajuste ve exactamente lo mismo que hoy. "Clases" no lleva
+// checkbox: es la pestaña de caída (`?? 'clases'`) y el propio propósito de
+// la página, apagarla la dejaría sin destino.
+export const CAMPOS_RESERVAR_HORARIO = [
+  {
+    tipo: 'booleano', id: 'mostrarQuiz', etiqueta: 'Ayuda a elegir clase (quiz)', porDefecto: true,
+    ayuda: 'El banner «¿Primera vez? Te ayudamos a encontrar tu clase» y su filtro guiado.',
+  },
+  { tipo: 'booleano', id: 'mostrarCitas', etiqueta: 'Pestaña «Citas»', porDefecto: true, grupo: 'Pestañas' },
+  { tipo: 'booleano', id: 'mostrarMisReservas', etiqueta: 'Pestaña «Mis reservas»', porDefecto: true, grupo: 'Pestañas' },
+  { tipo: 'booleano', id: 'mostrarEstudio', etiqueta: 'Pestaña «El estudio»', porDefecto: true, grupo: 'Pestañas' },
+  { tipo: 'booleano', id: 'mostrarCuenta', etiqueta: 'Pestaña «Mi cuenta»', porDefecto: true, grupo: 'Pestañas' },
+] as const satisfies readonly CampoSchema[];
+export type ReservarHorarioConfig = ConfigDe<typeof CAMPOS_RESERVAR_HORARIO>;
+
 export const CAMPOS_LISTADO_BONOS = [
   {
     tipo: 'imagen', id: 'fotoUrl', etiqueta: 'Foto de cabecera', porDefecto: '',
@@ -911,7 +929,7 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   reservarHorario: {
     id: 'sistema', sistemaId: 'reservarHorario', nombre: 'Horario y reservas',
     descripcion: 'Las clases y el calendario.',
-    icono: 'CalendarRange', origen: 'sistema', estilizable: false, campos: [],
+    icono: 'CalendarRange', origen: 'sistema', estilizable: false, campos: CAMPOS_RESERVAR_HORARIO,
   },
   reservarBonos: {
     id: 'sistema', sistemaId: 'reservarBonos', nombre: 'Bonos y membresías',

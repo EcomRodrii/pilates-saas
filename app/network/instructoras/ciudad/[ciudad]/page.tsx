@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { MarketplaceLayout } from '@/components/network-v2/MarketplaceLayout';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
+import { LEGAL } from '@/lib/legal-info';
 
 // Variante SEO del marketplace por ciudad (README: "MISMO layout, título
 // dinámico «Instructoras de Pilates en {Ciudad}»"). Bajo /ciudad/ y no
@@ -13,20 +14,29 @@ function ciudadDesdeParam(param: string): string {
 }
 
 const FILTRO_BASE: Omit<FiltroBusquedaNetwork, 'ciudad'> = {
-  especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [],
+  especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ ciudad: string }> }): Promise<Metadata> {
   const { ciudad } = await params;
   const nombre = ciudadDesdeParam(ciudad);
   return {
-    title: `Instructoras de Pilates en ${nombre} | Tentare Network`,
-    description: `Encuentra instructoras de Pilates verificadas en ${nombre}. Filtra por especialidad y disponibilidad, contacta directamente.`,
+    title: `Instructoras de Pilates y Yoga en ${nombre}`,
+    description: `Encuentra instructoras de Pilates y Yoga verificadas en ${nombre}. Filtra por especialidad y disponibilidad, contacta directamente.`,
   };
 }
 
 export default async function MarketplacePorCiudadPage({ params }: { params: Promise<{ ciudad: string }> }) {
   const { ciudad } = await params;
   const nombre = ciudadDesdeParam(ciudad);
-  return <MarketplaceLayout filtro={{ ...FILTRO_BASE, ciudad: nombre }} tituloCiudad={nombre} />;
+  return (
+    <MarketplaceLayout
+      filtro={{ ...FILTRO_BASE, ciudad: nombre }}
+      tituloCiudad={nombre}
+      migasPan={[
+        { name: 'Instructoras', item: `${LEGAL.url}/network/instructoras` },
+        { name: nombre, item: `${LEGAL.url}/network/instructoras/ciudad/${ciudad}` },
+      ]}
+    />
+  );
 }

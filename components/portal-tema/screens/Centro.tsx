@@ -69,7 +69,7 @@ export function Centro({ vm }: { vm: ViewModel }) {
         <div className="centro__rows">
           {[
             { label: "Horario del centro", go: () => actions.goInfo("horario") },
-            { label: "Profesores", go: actions.goTeachers },
+            { label: "Instructores", go: actions.goTeachers },
             { label: "Normas del centro", go: () => actions.goInfo("normas") },
             { label: "Contacto", go: () => actions.goInfo("contacto") },
             { label: "Privacidad", go: () => actions.goInfo("privacidad") },

@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Icon, type IconName } from "./Icon";
+import { valoracionParaPantalla } from "@/lib/portal-tema/valoracion";
 
 /* ── Botón ──────────────────────────────────────────────────────────────── */
 
@@ -79,8 +81,43 @@ export function Divider() {
 
 /* ── Piezas pequeñas ────────────────────────────────────────────────────── */
 
-export function Avatar({ children, size }: { children: React.ReactNode; size?: "xs" | "sm" }) {
-  return <span className={("avatar " + (size ? "avatar--" + size : "")).trim()}>{children}</span>;
+/**
+ * El avatar de una persona: su foto si la hay, su monograma si no.
+ *
+ * ⚠️ La foto va DEBAJO del monograma, no en su lugar. Así una imagen que no
+ * carga —enlace roto, red caída, el bucket sin permiso— deja ver la inicial en
+ * vez de un hueco, y el encuadre no se mueve ni un píxel: el `<img>` se
+ * posiciona sobre el mismo círculo. Es la diferencia entre «no se ve su foto» y
+ * «esta fila se ha descolocado».
+ *
+ * `alt=""` a propósito: al lado SIEMPRE va su nombre escrito, y repetirlo se lo
+ * leería dos veces a quien use lector de pantalla.
+ */
+export function Avatar({ children, size, foto }: {
+  children: React.ReactNode;
+  size?: "xs" | "sm";
+  /** Vacío = sin foto; se queda el monograma, que es lo que pintan las capturas. */
+  foto?: string;
+}) {
+  const [rota, setRota] = useState(false);
+  return (
+    <span className={("avatar " + (size ? "avatar--" + size : "")).trim()}>
+      {children}
+      {foto && !rota ? (
+        // `<img>` crudo y no `next/image`, por la MISMA decisión ya documentada
+        // en `FotoTema` y en `public/por-defecto/README.md`: es un fondo con
+        // `position:absolute` + `object-fit:cover`, donde el optimizador no
+        // aporta y sí obliga a medidas fijas.
+        //
+        // ⚠️ No se reutiliza `FotoTema` porque su respaldo cambia a OTRA
+        // IMAGEN, y aquí el respaldo es el monograma que ya está debajo:
+        // cargar una imagen de reserva taparía la inicial con un dibujo
+        // genérico en vez de dejar ver quién es.
+        // eslint-disable-next-line @next/next/no-img-element -- ver comentario de arriba
+        <img className="avatar__foto" src={foto} alt="" loading="lazy" onError={() => setRota(true)} />
+      ) : null}
+    </span>
+  );
 }
 
 export function Chip({ active, children, ...rest }: { active?: boolean } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
@@ -101,6 +138,31 @@ export function Spinner() {
 
 export function Skeleton({ width, height, radius = 12 }: { width?: number | string; height?: number; radius?: number }) {
   return <span className="skeleton" style={{ width, height, borderRadius: radius }}></span>;
+}
+
+/**
+ * La nota de una instructora. No pinta NADA si no hay muestra suficiente.
+ *
+ * ⚠️ El respaldo va SIEMPRE pegado a la nota, no como detalle opcional: una
+ * media sin el número de valoraciones detrás es un número con aspecto de dato y
+ * sin dato — el mismo fallo que el «Compatibilidad 87 %» de la tarjeta de
+ * sustituciones, que salía de un `clamp(score, 55, 99)`.
+ *
+ * Y cuando no se puede enseñar no se deja hueco ni «Sin valoraciones»: un
+ * espacio vacío en la ficha se lee como «mala», que es peor que no decir nada.
+ */
+export function Valoracion({ valoracion }: {
+  valoracion?: { media: number; total: number };
+}) {
+  const v = valoracionParaPantalla(valoracion);
+  if (!v) return null;
+  return (
+    <span className="valoracion">
+      <Icon name="star" size={13} fill="currentColor" stroke={0} />
+      <span className="valoracion__nota">{v.nota}</span>
+      <span className="valoracion__respaldo">{v.respaldo}</span>
+    </span>
+  );
 }
 
 export function Notice({ tone = "info", children }: { tone?: "info" | "warning" | "danger"; children: React.ReactNode }) {
@@ -146,6 +208,33 @@ export function Field({
       {children}
       {error ? <span className="field__error">{error}</span> : null}
       {hint && !error ? <span className="field__hint">{hint}</span> : null}
+    </div>
+  );
+}
+
+/**
+ * Algo ha fallado y se puede reintentar.
+ *
+ * ⚠️ Distinto de `EmptyState` a propósito, aunque se parezcan: vacío significa
+ * «aquí no hay nada todavía» y error significa «esto debería tener algo y no he
+ * podido traerlo». Enseñar el vacío cuando la red ha fallado le dice a la socia
+ * que no tiene reservas cuando sí las tiene.
+ *
+ * Siempre con salida: un error sin botón deja a la socia sin nada que hacer más
+ * que cerrar la app.
+ */
+export function ErrorState({ title = "No hemos podido cargarlo", text, onRetry, cta = "Reintentar" }: {
+  title?: string; text?: string; onRetry?: () => void; cta?: string;
+}) {
+  return (
+    <div className="empty empty--error" role="alert">
+      <p className="empty__title">{title}</p>
+      {/* Sin detalle no se inventa uno: un «Error desconocido» no ayuda a nadie
+          y suena a que la app no sabe lo que le pasa. */}
+      {text ? <p className="empty__text">{text}</p> : null}
+      {onRetry ? (
+        <Button variant="ghost" size="sm" className="empty__accion" onClick={onRetry}>{cta}</Button>
+      ) : null}
     </div>
   );
 }

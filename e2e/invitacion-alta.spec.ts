@@ -12,6 +12,15 @@ import { test, expect, type Route } from '@playwright/test';
 // Y al llegar a /login aterrizaba en "Iniciar sesión" — un formulario para
 // entrar con una cuenta que todavía no existe. El `?alta=1` viajaba desde el
 // principio; simplemente nadie lo leía.
+//
+// Detectado en producción tras esto: una propietaria invitó a alguien como
+// PROPIETARIO, el alta y el código OTP fueron perfectos, pero la cuenta acabó
+// sin vincular a ningún estudio — sessionStorage se había perdido en el salto
+// de /invitacion a /login sin dejar traza de la causa exacta (partición de
+// almacenamiento del navegador, un cliente de correo reescribiendo el
+// enlace...). El token ahora viaja TAMBIÉN por la URL (`&token=`), y /login
+// lo vuelve a guardar en sessionStorage al montar — una segunda vía que no
+// depende de que ese storage sobreviva el salto.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TOKEN = 'payload-de-prueba.firma-de-prueba';
@@ -38,8 +47,24 @@ test.describe('Invitación: alta de la persona invitada', () => {
     await expect(page).toHaveURL(/\/login\?/, { timeout: 30_000 });
     // Sigue ahí tras el salto de página, listo para viajar en la metadata del alta.
     expect(await page.evaluate(() => sessionStorage.getItem('pending_invitacion'))).toBe(TOKEN);
+    // Y el botón de continuar llevó el token también en la URL de destino —
+    // la segunda vía, no solo sessionStorage.
+    await expect(page).toHaveURL(new RegExp(`token=${encodeURIComponent(TOKEN)}`));
     // Y el formulario que se ve es el de CREAR, no el de entrar.
     await expect(page.getByRole('heading', { name: 'Crear cuenta de equipo' })).toBeVisible();
+  });
+
+  test('regresión: si sessionStorage se pierde en el salto, la URL rescata el token igual', async ({ page }) => {
+    // Reproduce el caso real: nunca se pasa por /invitacion en esta pestaña
+    // (o su sessionStorage no sobrevivió), así que se llega a /login SOLO con
+    // el token en la URL — exactamente como lo deja /invitacion ahora.
+    await page.route('**/api/**', route => json(route, {}));
+    await page.goto(`/login?destino=/dashboard&alta=1&token=${encodeURIComponent(TOKEN)}`);
+
+    await expect(page.getByRole('heading', { name: 'Crear cuenta de equipo' })).toBeVisible({ timeout: 30_000 });
+    // La URL, no sessionStorage, es la única fuente aquí — y aun así queda
+    // guardado, listo para viajar en la metadata del alta.
+    expect(await page.evaluate(() => sessionStorage.getItem('pending_invitacion'))).toBe(TOKEN);
   });
 
   test('sin ?alta=1 el login sigue abriendo en "iniciar sesión"', async ({ page }) => {

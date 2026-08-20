@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { aFechaCal, eventoIcs, nombreIcs } from './calendario-ics.ts';
+import { aFechaCal, eventoIcs, nombreIcs, urlGoogleCalendar } from './calendario-ics.ts';
 
 const AHORA = new Date('2026-09-01T08:00:00.000Z');
 const BASE = {
@@ -67,4 +67,58 @@ test('eventoIcs: el UID es estable por sesión — reimportar actualiza, no dupl
 test('nombreIcs: legible y con la fecha, sin acentos ni espacios', () => {
   assert.equal(nombreIcs('Reformer suave', '2026-09-04T16:00:00.000Z'), 'reformer-suave-2026-09-04.ics');
   assert.equal(nombreIcs('', '2026-09-04T16:00:00.000Z'), 'clase-2026-09-04.ics');
+});
+
+// ── Enlace a Google Calendar de la ALUMNA (§6) ───────────────────────────────
+
+const CLASE = {
+  id: 'ses-1',
+  inicio: '2026-09-04T16:00:00.000Z',
+  fin: '2026-09-04T16:50:00.000Z',
+  titulo: 'Reformer suave',
+  instructora: 'Ana',
+  sala: 'Sala 1',
+  estudioNombre: 'Estudio Alma',
+  estudioDireccion: 'Carrer de la Pau, 12',
+};
+
+test('urlGoogleCalendar lleva la clase con su hora en UTC', () => {
+  const u = new URL(urlGoogleCalendar(CLASE));
+  assert.equal(u.origin + u.pathname, 'https://calendar.google.com/calendar/render');
+  assert.equal(u.searchParams.get('action'), 'TEMPLATE');
+  assert.equal(u.searchParams.get('text'), 'Reformer suave');
+  // En UTC (Z), que es lo que evita que la clase salga corrida de hora en un
+  // móvil configurado en otra zona.
+  assert.equal(u.searchParams.get('dates'), '20260904T160000Z/20260904T165000Z');
+});
+
+test('la ubicación va con coma, para que Google Maps la entienda', () => {
+  const u = new URL(urlGoogleCalendar(CLASE));
+  assert.equal(u.searchParams.get('location'), 'Estudio Alma, Carrer de la Pau, 12');
+});
+
+test('sin instructora ni sala NO se cuela «Instructora:  · Sala: »', () => {
+  // Es lo que hacía la versión suelta de /reservar: construía la cadena sin
+  // filtrar y el evento entraba con ese texto vacío dentro.
+  const u = new URL(urlGoogleCalendar({ ...CLASE, instructora: undefined, sala: undefined }));
+  assert.equal(u.searchParams.get('details'), null);
+});
+
+test('con solo instructora, el detalle no arrastra el separador', () => {
+  const u = new URL(urlGoogleCalendar({ ...CLASE, sala: undefined }));
+  assert.equal(u.searchParams.get('details'), 'Instructora: Ana');
+});
+
+test('sin dirección no queda un separador colgando', () => {
+  const u = new URL(urlGoogleCalendar({ ...CLASE, estudioDireccion: undefined }));
+  assert.equal(u.searchParams.get('location'), 'Estudio Alma');
+});
+
+test('el mismo evento sirve para el .ics y para Google', () => {
+  // Misma entrada para los dos: si divergieran, la alumna vería una cosa en su
+  // móvil y otra en Google.
+  const ics = eventoIcs(CLASE, new Date('2026-09-01T00:00:00.000Z'));
+  const u = new URL(urlGoogleCalendar(CLASE));
+  assert.ok(ics.includes('DTSTART:20260904T160000Z'));
+  assert.equal(u.searchParams.get('dates')?.split('/')[0], '20260904T160000Z');
 });

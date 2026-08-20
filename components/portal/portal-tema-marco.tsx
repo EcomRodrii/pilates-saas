@@ -36,6 +36,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { TabBar } from '@/components/portal-tema/components/layout/chrome';
 import { Hojas } from '@/components/portal-tema/components/ui/hojas';
+import { Toast } from '@/components/portal-tema/components/ui/overlays';
 import { useDatosPortal } from './usar-datos-portal';
 import { PortalProvider, usePortal, type AlCancelarPortal, type AlPagarPortal, type AlReservarPortal, type CompraPortalVuelta, type DestinoPortal, type ScreenId } from '@/components/portal-tema/store/PortalStore';
 import { TemaProvider } from '@/components/portal-tema/store/TemaContext';
@@ -53,10 +54,36 @@ import { Teachers } from '@/components/portal-tema/screens/Teachers';
 import { Info } from '@/components/portal-tema/screens/Info';
 import { MyData } from '@/components/portal-tema/screens/MyData';
 import { BonoActivado } from '@/components/portal-tema/screens/BonoActivado';
+import { Avisos } from '@/components/portal-tema/screens/Avisos';
+import { Historial } from '@/components/portal-tema/screens/Historial';
+import { Welcome } from '@/components/portal-tema/screens/Welcome';
+import { Favoritas } from '@/components/portal-tema/screens/Favoritas';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useModo } from '@/lib/portal-modo';
-import { crearCheckoutPlan } from '@/lib/api-client';
+import { borrarTarjetaPublica, crearCheckoutPlan, fetchHistorialAsistidas, portalAuthHeader, urlParaGuardarTarjeta } from '@/lib/api-client';
+import { fetchNotificaciones, accionNotificacion } from '@/lib/notifications/client';
+import { selloTemporal } from '@/lib/avisos-portal';
+
+/**
+ * El rótulo de cada aviso, en palabras de la socia.
+ *
+ * `NotificationCategory` es vocabulario del motor (`reservas`, `sistema`,
+ * `decisiones`…) y algunas de esas categorías no le dicen nada a quien lo lee.
+ * Se traduce aquí, en el borde, y no en el motor: allí la categoría decide
+ * canales y permisos, no cómo se titula en una pantalla.
+ */
+const CATEGORIA_AVISO: Record<string, string> = {
+  reservas: 'Reserva',
+  clases: 'Clase',
+  sustituciones: 'Cambio de instructora',
+  pagos: 'Pago',
+  marketing: 'Del estudio',
+  sistema: 'Aviso',
+  // `decisiones` y `red` son de PANEL, no de socia (ver lib/notifications/
+  // ambito.ts), así que no deberían llegar aquí; si llegaran, «Aviso» es
+  // preferible a enseñarle la palabra interna.
+};
 import { diaDelMesHoy } from '@/lib/portal-tema/datos';
 import { TEMAS_PORTAL, TEMA_PORTAL_POR_DEFECTO, esTemaPortal } from '@/themes/registro';
 import '@/components/portal-tema/portal-tema.css';
@@ -69,6 +96,9 @@ const RUTA_A_PANTALLA: Record<string, ScreenId> = {
   bonos: 'bonos',
   centro: 'centro',
   perfil: 'perfil',
+  // La bandeja pasa a pintarla el kit, en la MISMA ruta de siempre: quien
+  // tenga guardado `/notificaciones` sigue llegando a sus avisos.
+  notificaciones: 'avisos',
 };
 
 const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
@@ -76,6 +106,9 @@ const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
   // Avisos y Progreso siguen siendo del portal de siempre: las dos tienen más
   // de lo que dibuja el prototipo (canales + push, recompensas + créditos).
   preferencias: 'preferencias', progreso: 'progreso',
+  // Ruta propia: la bandeja se comparte por enlace desde los correos y los
+  // push, y una pantalla sin URL rompería esos enlaces.
+  avisos: 'notificaciones',
   // «Invitar a una amiga» es una fila del perfil en el prototipo y una HOJA
   // con un código inventado («LAURA-2026»). Aquí no: el portal ya tiene una
   // pantalla de invitación de verdad, con el enlace personal de la socia, las
@@ -117,10 +150,35 @@ const PANTALLAS = {
   info: Info,
   misdatos: MyData,
   perfil: Profile,
+  avisos: Avisos,
+  historial: Historial,
+  welcome: Welcome,
+  favoritas: Favoritas,
 } as const;
 
-/** Las que sí manda la URL. Ver `pantallasDeRuta` en el store. */
-const PANTALLAS_DE_RUTA = Object.values(RUTA_A_PANTALLA);
+/**
+ * Las que sí manda la URL.
+ *
+ * ⚠️ `welcome` va explícita porque su ruta es la RAÍZ pelada, que no está en
+ * `RUTA_A_PANTALLA` (ese mapa va por segmento). Sin ella aquí, `welcome` caería
+ * en «pantallas sin ruta» — y como es el estado inicial del store, volvería a
+ * bloquear la URL desde el primer render: exactamente el congelado que costó
+ * #1176. Lo reintroduje al montar la bienvenida y lo cazó su propio test.
+ */
+const PANTALLAS_DE_RUTA = [...Object.values(RUTA_A_PANTALLA), 'welcome' as const];
+
+/**
+ * Las que este kit pinta SIN ruta propia — el detalle de una clase y la
+ * confirmación. Son las ÚNICAS que pueden quedarse por encima de la ruta.
+ *
+ * ⚠️ Se calcula restando, no a mano: una pantalla nueva sin ruta entra sola, y
+ * —más importante— nada que no pinte este kit puede colarse. Cuando esto se
+ * expresaba al revés (la lista de las que SÍ tienen ruta, y mandaba el store
+ * para todo lo demás), el estado inicial `welcome` bloqueaba la ruta desde el
+ * primer render y el portal se quedaba sin barra de pestañas y sin responder.
+ */
+const PANTALLAS_SIN_RUTA = (Object.keys(PANTALLAS) as ScreenId[])
+  .filter((p) => !(PANTALLAS_DE_RUTA as string[]).includes(p));
 
 /**
  * `null` = esta ruta NO la cubre el kit y tiene que seguir con el portal
@@ -129,12 +187,20 @@ const PANTALLAS_DE_RUTA = Object.values(RUTA_A_PANTALLA);
  * descubrir que no pinta nada.
  */
 export function pantallaDeRuta(pathname: string, slug: string): keyof typeof PANTALLAS | null {
+  // La raíz pelada (`/portal/<slug>`) es la BIENVENIDA del tema. El kit la trae
+  // desde el principio y el portal real no la montaba nunca: esa ruta redirigía
+  // en el servidor a `/acceso`, así que la primera impresión que diseñó el tema
+  // no la veía nadie. Se sigue acabando en `/acceso` — es lo que hace el botón.
+  if (pathname === `/portal/${slug}`) return 'welcome';
   const resto = pathname.replace(`/portal/${slug}/`, '').split('/')[0];
   const pantalla = RUTA_A_PANTALLA[resto];
   return pantalla && pantalla in PANTALLAS ? (pantalla as keyof typeof PANTALLAS) : null;
 }
 
-export function PortalTemaMarco() {
+export function PortalTemaMarco({ alEntrar }: {
+  /** Qué hace el botón de la bienvenida. Ver `AlEntrarPortal`. */
+  alEntrar?: () => void;
+} = {}) {
   const router = useRouter();
   const pathname = usePathname() ?? '';
   const { session, logout } = usePortalAuth();
@@ -146,7 +212,7 @@ export function PortalTemaMarco() {
     // lo que este marco usa por su cuenta: el tema, las escrituras y el
     // refresco.
     studio, themeIdPublicado,
-    cancelarReserva, addReserva, updateSocio, recargarPublico,
+    cancelarReserva, addReserva, updateSocio, recargarPublico, toggleFavorito,
   } = useStudio();
 
   const slug = studio?.slug ?? '';
@@ -198,16 +264,28 @@ export function PortalTemaMarco() {
 
   const navegar = useMemo(() => (destino: DestinoPortal): boolean => {
     const ruta = PANTALLA_A_RUTA[destino.screen];
-    // `false` = "esta no la tengo como ruta"; la abre el store dentro de la
-    // ruta actual. Es el caso del detalle de una clase, que vive dentro de
-    // Clases igual que la hoja de reserva del portal de siempre.
+    // `false` = «no he navegado yo»; entonces la pantalla la aplica el store
+    // dentro de la ruta actual. Es el caso del detalle de una clase, que vive
+    // dentro de Clases igual que la hoja de reserva del portal de siempre.
     if (!ruta) return false;
     const destinoUrl = `/portal/${slug}/${ruta}`;
-    // Ya estamos aquí: navegar apilaría una entrada de historial idéntica y
-    // el botón atrás dejaría de funcionar como espera la socia. Lo que sí
-    // cambia (el día, la pestaña) ya lo ha aplicado el store antes de
-    // llamarnos — ver `ir()` en `PortalStore`.
-    if (pathname !== destinoUrl) router.push(destinoUrl);
+    // Ya estamos en esa URL: no se navega, porque apilaría una entrada de
+    // historial idéntica y el botón atrás del navegador dejaría de funcionar
+    // como espera la socia.
+    //
+    // ⚠️ Pero se devuelve `false`, NO `true`, y esto era un CALLEJÓN SIN SALIDA
+    // en toda la app. `ir()` solo aplica la pantalla al store cuando esto dice
+    // que no ha navegado. Favoritas e Historial no tienen ruta propia: se abren
+    // desde Inicio, así que al pulsar «atrás» el destino (`/home`) YA era la
+    // URL actual → no se navegaba, se devolvía `true`, el store no cambiaba de
+    // pantalla y la socia se quedaba encerrada. Lo mismo en cualquier pantalla
+    // sin ruta abierta desde su propia sección.
+    //
+    // El contrato pasa a ser «¿he navegado yo?», no «¿es esto una ruta mía?».
+    // Cuando la URL ya es la buena, quien tiene que mover la pantalla es el
+    // store — y ponerle el mismo valor que ya tenía no hace nada.
+    if (pathname === destinoUrl) return false;
+    router.push(destinoUrl);
     return true;
   }, [router, slug, pathname]);
 
@@ -271,6 +349,44 @@ export function PortalTemaMarco() {
 
   // Guardar sus datos: la MISMA vía que el perfil de siempre (`updateSocio`),
   // esperando la respuesta del servidor antes de decir nada.
+  /**
+   * El corazón, contra el servidor.
+   *
+   * ⚠️ `toggleFavorito` ya era optimista y re-sincroniza desde el catálogo al
+   * terminar, así que aquí NO se toca nada más: solo se traduce su resultado al
+   * `string | null` que espera el kit.
+   */
+  const alAlternarFavorito = useCallback(async (
+    tipoClaseId: string, accion: 'marcar' | 'desmarcar',
+  ): Promise<string | null> => {
+    const r = await toggleFavorito(tipoClaseId, accion);
+    return r.ok ? null : (r.error ?? 'No hemos podido guardar tu favorita.');
+  }, [toggleFavorito]);
+
+  /**
+   * Guardar una tarjeta: se sale a la página de Stripe.
+   *
+   * ⚠️ Es una navegación FUERA de la app, no un formulario nuestro: aquí no se
+   * pide nunca un número ni un CVC en nuestro DOM. La vuelta cae en
+   * `/compras?tarjeta=ok`, que es lo que ya monta `setup-tarjeta`.
+   */
+  const alAnadirTarjeta = useCallback(async (): Promise<string | null> => {
+    if (!studioId || !socioId) return 'Entra en tu cuenta para guardar una tarjeta.';
+    const r = await urlParaGuardarTarjeta(studioId, socioId, slug);
+    if ('error' in r) return r.error;
+    window.location.href = r.url;
+    return null;
+  }, [studioId, socioId, slug]);
+
+  const alQuitarTarjeta = useCallback(async (): Promise<string | null> => {
+    if (!studioId) return 'No hemos podido identificar el estudio.';
+    const error = await borrarTarjetaPublica(studioId);
+    // Se re-sincroniza para que la hoja deje de enseñar unos dígitos que ya no
+    // existen: el catálogo es quien trae la tarjeta.
+    if (!error) recargarRef.current();
+    return error;
+  }, [studioId]);
+
   const alGuardarDatos = useCallback(async (campos: {
     nombre: string; apellidos: string; email: string;
     telefono: string; fechaNacimiento: string; direccion: string;
@@ -288,6 +404,53 @@ export function PortalTemaMarco() {
     } as Parameters<typeof updateSocio>[1]);
     return r.ok ? null : r.error;
   }, [socioId, updateSocio]);
+
+  // El historial de clases asistidas, para «Completadas». Va por un endpoint
+  // propio y NO por el catálogo público: ese acota las sesiones a `fin >= ahora`
+  // (para que el aforo no arrastre meses de historia en cada carga), y
+  // ensancharlo habría penalizado a TODOS los portales, también los que no
+  // enseñan historial. La identidad la deriva el servidor del JWT de la socia;
+  // aquí no se manda ningún `socioId`.
+  //
+  // Sin estudio no se pide nada: devolver `[]` diría «no has asistido a
+  // ninguna», y lo cierto es que no se sabe.
+  const alPedirHistorial = useCallback(async () => {
+    if (!studioId) return [];
+    return fetchHistorialAsistidas(studioId);
+  }, [studioId]);
+
+  // La bandeja de avisos. MISMOS datos que ya servía `/notificaciones`
+  // (`fetchNotificaciones`, tabla `notification`, acotada por el JWT de la
+  // socia): cero backend nuevo, solo cambia quién lo pinta.
+  const avisosRef = useRef<Map<string, string>>(new Map());
+  const alPedirAvisos = useCallback(async () => {
+    if (!studioId) return [];
+    const { items } = await fetchNotificaciones(portalAuthHeader, { ambito: 'socia', studioId });
+    // Al abrir la bandeja se marcan todas como leídas, igual que hacía la
+    // pantalla de siempre — es lo que apaga el punto de la campana. El estado
+    // local NO se toca: los puntos siguen mientras la pantalla está abierta,
+    // que es justo lo que se ha venido a mirar.
+    if (items.some((i) => i.readAt == null)) {
+      void accionNotificacion(portalAuthHeader, { ambito: 'socia', studioId }, 'read-all');
+    }
+    // El destino de cada aviso se guarda aquí: el kit solo maneja ids, y así
+    // no tiene que conocer las rutas del portal.
+    avisosRef.current = new Map(items.filter((n) => n.deepLink).map((n) => [n.id, n.deepLink as string]));
+    return items.map((n) => ({
+      id: n.id,
+      tipo: CATEGORIA_AVISO[n.category] ?? 'Aviso',
+      texto: [n.title, n.body].filter(Boolean).join(' · '),
+      cuando: selloTemporal(n.createdAt),
+      leido: n.readAt != null,
+      // Solo hay botón si el aviso lleva a algún sitio de verdad.
+      accion: n.deepLink ? 'Ver' : null,
+    }));
+  }, [studioId]);
+
+  const alAbrirAviso = useCallback((id: string) => {
+    const destino = avisosRef.current.get(id);
+    if (destino) router.push(destino);
+  }, [router]);
 
   const alSalir = useCallback(() => {
     logout();
@@ -314,14 +477,21 @@ export function PortalTemaMarco() {
         alPagar={alPagar}
         alCancelar={alCancelar}
         alReservar={alReservar}
+        alAlternarFavorito={alAlternarFavorito}
+        alEntrar={alEntrar}
+        alAnadirTarjeta={alAnadirTarjeta}
+        alQuitarTarjeta={alQuitarTarjeta}
         alGuardarDatos={alGuardarDatos}
+        alPedirHistorial={alPedirHistorial}
+        alPedirAvisos={alPedirAvisos}
+        alAbrirAviso={alAbrirAviso}
         alSalir={alSalir}
         // El día/noche del portal de siempre (`lib/portal-modo`), tal cual: el
         // kit no lo conoce, solo lo pinta. Sin esto la fila «Aspecto» no se
         // pinta, que es lo correcto en la previsualización.
         aspecto={aspecto}
         compra={compra}
-        pantallasDeRuta={PANTALLAS_DE_RUTA}
+        pantallasSinRuta={PANTALLAS_SIN_RUTA}
         pantalla={pantalla}
         // El día de HOY en la semana del estudio, no el 4 de la demo.
         diaPorDefecto={hoy}
@@ -356,6 +526,19 @@ function Pantalla() {
       {vm.showTabBar ? <TabBar tabs={vm.tabs} floating={vm.tabBarFloating} /> : null}
       {/* Al final del árbol: las hojas tapan también la barra. */}
       <Hojas vm={vm} />
+      {/* ⚠️ ESTO FALTABA, y no era un detalle de acabado: el portal real no
+          montaba `<Toast>` en ninguna parte —solo lo hacía la previsualización—
+          así que TODOS los avisos del store se descartaban en silencio.
+          «Reserva cancelada», «Datos guardados», «Guardada en favoritas»,
+          «Tarjeta quitada»… ninguno llegaba a la socia.
+
+          Y lo grave no es perderse una confirmación: `notify(error)` tampoco se
+          veía, así que un FALLO era indistinguible de un éxito. Toda la
+          disciplina de este kit —nada de escritura optimista, se avisa con lo
+          que responde el servidor— se apoyaba en un mensaje que no se pintaba.
+          Es también parte de por qué la app «no respondía»: tocabas y nunca
+          decía nada. */}
+      <Toast text={vm.toast} id={vm.toastId} />
     </div>
   );
 }

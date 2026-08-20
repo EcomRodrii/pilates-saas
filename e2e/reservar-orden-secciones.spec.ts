@@ -240,16 +240,12 @@ test('se pueden ocultar desde el editor', async ({ page }) => {
 
 test('los textos propios del estudio sustituyen a los de fábrica', async ({ page }) => {
   await montar(page, null, {
-    reservarAvisoQuiz: '¿Vienes por primera vez? Te acompañamos.',
     reservarComoFunciona: 'ASÍ FUNCIONA',
     reservarAyuda: '¿Te ayudamos? Escríbenos:',
   });
   await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('¿Vienes por primera vez? Te acompañamos.')).toBeVisible();
   await expect(page.getByText('ASÍ FUNCIONA')).toBeVisible();
   await expect(page.getByText('¿Te ayudamos? Escríbenos:')).toBeVisible();
-  // Y el de fábrica ya no está: si conviviesen, se vería dos veces.
-  await expect(page.getByText('¿Primera vez en el estudio?', { exact: false })).toHaveCount(0);
 });
 
 test('⚠️ sin escribir nada se sigue viendo el texto de fábrica', async ({ page }) => {
@@ -258,7 +254,6 @@ test('⚠️ sin escribir nada se sigue viendo el texto de fábrica', async ({ p
   // sí significa «no pintes la sección».
   await montar(page);
   await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('¿Primera vez en el estudio?', { exact: false })).toBeVisible();
   await expect(page.getByText('CÓMO FUNCIONA', { exact: true })).toBeVisible();
 });
 

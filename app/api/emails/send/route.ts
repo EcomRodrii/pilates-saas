@@ -68,7 +68,13 @@ export async function POST(req: NextRequest) {
   // cada caller de /api/emails/send tenga que acordarse de pasarla.
   const marca = await resolverMarcaEstudio(sesion.studioId);
   const dv = body.data as { estudioNombre?: string; claseNombre?: string };
-  const varsPlantilla = { nombre: body.toName, estudio: dv.estudioNombre, clase: dv.claseNombre };
+  // `{estudio}` en una plantilla personalizada sale del nombre REAL del estudio
+  // (sesión → studios.nombre), no de lo que mande el cliente: ningún emisor de
+  // lib/api-client.ts pone `estudioNombre` en el body, así que la variable se
+  // interpolaba a cadena vacía y la propietaria veía "Bienvenida a  " en su
+  // propio asunto. Mismo motivo que el default 'Tentare' del encabezado.
+  const nombreEstudio = marca.nombre || dv.estudioNombre;
+  const varsPlantilla = { nombre: body.toName, estudio: nombreEstudio, clase: dv.claseNombre };
   const introCustom = plantilla.intro ? interpolar(plantilla.intro, varsPlantilla) : undefined;
   const asuntoCustom = plantilla.asunto ? interpolar(plantilla.asunto, varsPlantilla) : undefined;
   // Personalización total (cuerpo libre, marca y pie por plantilla). Para los
@@ -80,7 +86,7 @@ export async function POST(req: NextRequest) {
       concepto: string; importe: number; fechaCobro: string;
       numeroFactura?: string; estudioNombre?: string;
     };
-    html = await render(ReciboEmail({ socioNombre: body.toName, ...marca, ...d }));
+    html = await render(ReciboEmail({ socioNombre: body.toName, ...d, ...marca }));
     subject = `Pago confirmado — ${d.concepto}`;
   } else if (body.tipo === 'bienvenida') {
     const d = body.data as { planNombre?: string; estudioNombre?: string };
@@ -90,32 +96,32 @@ export async function POST(req: NextRequest) {
     // lo dispara el staff en vez de esperar a que la socia lo pida ella misma.
     // Fallo suave: si algo falla, la bienvenida sale igual, sin el botón.
     const urlAcceso = marca.slug ? await generarEnlaceAccesoSocia(marca.slug, body.to) : null;
-    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, url: urlAcceso ?? undefined, ...marca, ...d }));
-    subject = asuntoCustom ?? `¡Bienvenida a ${d.estudioNombre ?? 'Tentare'}!`;
+    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, url: urlAcceso ?? undefined, ...d, ...marca }));
+    subject = asuntoCustom ?? `¡Bienvenida a ${nombreEstudio ?? 'tu estudio'}!`;
   } else if (body.tipo === 'reserva') {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; estudioNombre?: string;
     };
-    html = await render(ReservaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...marca, ...d }));
+    html = await render(ReservaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...d, ...marca }));
     subject = asuntoCustom ?? `Reserva confirmada — ${d.claseNombre}`;
   } else if (body.tipo === 'automatizacion') {
     const d = body.data as { titulo: string; mensaje: string; estudioNombre?: string };
-    html = await render(AutomatizacionEmail({ socioNombre: body.toName, ...marca, ...d }));
+    html = await render(AutomatizacionEmail({ socioNombre: body.toName, ...d, ...marca }));
     subject = d.titulo;
   } else if (body.tipo === 'promocion') {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; estudioNombre?: string; bonoConsumido?: boolean;
     };
-    html = await render(PromocionEsperaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...marca, ...d }));
+    html = await render(PromocionEsperaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...d, ...marca }));
     subject = asuntoCustom ?? `Se ha liberado tu plaza — ${d.claseNombre}`;
   } else if (body.tipo === 'cancelacion') {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; estudioNombre?: string; bonoDevuelto?: boolean;
     };
-    html = await render(CancelacionClaseEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...marca, ...d }));
+    html = await render(CancelacionClaseEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...d, ...marca }));
     subject = asuntoCustom ?? `Clase cancelada — ${d.claseNombre}`;
   } else if (body.tipo === 'cambio') {
     const d = body.data as {
@@ -123,7 +129,7 @@ export async function POST(req: NextRequest) {
       sala: string; instructor: string; instructorAnterior?: string; estudioNombre?: string;
       cambioHora?: boolean; cambioSala?: boolean;
     };
-    html = await render(CambioClaseEmail({ socioNombre: body.toName, intro: introCustom, ...marca, ...d }));
+    html = await render(CambioClaseEmail({ socioNombre: body.toName, intro: introCustom, ...d, ...marca }));
     // Asunto según qué cambió de verdad — antes siempre decía "instructora"
     // aunque el motivo fuera mover la clase de hora/sala.
     const motivoAsunto = d.cambioHora || d.cambioSala ? 'Cambio de horario' : 'Cambio de instructora';
@@ -133,7 +139,7 @@ export async function POST(req: NextRequest) {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; estudioNombre?: string;
     };
-    html = await render(RecordatorioEmail({ socioNombre: body.toName, intro: introCustom, ...marca, ...d }));
+    html = await render(RecordatorioEmail({ socioNombre: body.toName, intro: introCustom, ...d, ...marca }));
     subject = asuntoCustom ?? `Recordatorio — ${d.claseNombre}`;
   } else {
     return NextResponse.json({ error: 'Tipo de email desconocido' }, { status: 400 });
@@ -142,7 +148,11 @@ export async function POST(req: NextRequest) {
   const { data, error } = await resend.emails.send({
     // Remitente con el nombre del estudio (misma dirección verificada de
     // siempre, ver lib/emails/remitente.ts) — sin nombre resuelto, cae a Tentare.
-    from: remitentePorMarca(marca.nombre || dv.estudioNombre || 'Tentare'),
+    from: remitentePorMarca(nombreEstudio || 'Tentare'),
+    // Reply-To del estudio: si la clienta contesta, le contesta a SU
+    // estudio. La dirección que firma sigue siendo la verificada de la
+    // plataforma (una del estudio sin verificar en Resend rebotaría).
+    ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
     to: [body.to],
     subject,
     html,

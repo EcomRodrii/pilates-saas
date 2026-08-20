@@ -93,7 +93,7 @@ export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
   {
     titulo: 'Recursos',
     enlaces: [
-      { href: '/recursos', label: 'Guías' },
+      { href: '/recursos', label: 'Blog' },
       { href: '/glosario', label: 'Glosario' },
       { href: 'mailto:hola@tentare.app', label: 'Contacto' },
     ],

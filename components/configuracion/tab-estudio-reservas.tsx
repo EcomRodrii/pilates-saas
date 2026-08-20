@@ -6,6 +6,12 @@ import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
 import { Toggle, inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
 
+// P2 (auditoría "Veredicto de Marta"): los 13 campos de este formulario iban
+// todos con el mismo peso visual en una sola columna — fácil confundir un
+// campo con otro configurando rápido, sobre todo los de dinero. Puramente
+// visual: no cambia ningún campo ni su lógica.
+const grupoCls = 'text-[11px] font-bold uppercase tracking-wide text-muted-foreground pt-2 first:pt-0';
+
 type PoliticaForm = {
   cancelacionVentanaHoras: number;
   cancelacionDevolverBonoTardia: boolean;
@@ -86,6 +92,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
           Reglas que se aplican cuando una clienta reserva o cancela desde la página pública de reservas.
         </p>
         <div className="space-y-4">
+          <p className={grupoCls}>General</p>
           <div>
             <p className={labelCls}>Ventana de cancelación (horas)</p>
             <input
@@ -160,6 +167,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
           {/* Fase 1 de reglas por tipo de clase (migr 20260730152516): estos son
               los defaults del estudio; cada tipo de clase los puede sobrescribir
               desde Clases → editar tipo de clase. */}
+          <p className={grupoCls}>Antelación</p>
           <div>
             <p className={labelCls}>Antelación mínima para reservar (minutos)</p>
             <input
@@ -189,6 +197,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               </p>
             )}
           </div>
+          <p className={grupoCls}>Lista de espera y confirmación</p>
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
               Permitir lista de espera
@@ -241,6 +250,7 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               Si a 2h del inicio no se alcanza, la clase se cancela automáticamente y se devuelve el bono a las apuntadas. Vacío o 0 = sin mínimo.
             </p>
           </div>
+          <p className={grupoCls}>Dinero y penalizaciones</p>
           <div>
             <p className={labelCls}>Penalización por cancelación tardía o no-show (€)</p>
             <input

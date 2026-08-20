@@ -43,11 +43,16 @@ async function renderPorTipo(
   plantilla: PlantillaOverride,
   marca: MarcaEstudio,
 ): Promise<{ html: string; subject: string }> {
-  const vars = { nombre: toName, estudio: d.estudioNombre, clase: d.claseNombre };
+  const vars = { nombre: toName, estudio: marca.nombre || d.estudioNombre, clase: d.claseNombre };
   const intro = plantilla.intro ? interpolar(plantilla.intro, vars) : undefined;
   const asunto = plantilla.asunto ? interpolar(plantilla.asunto, vars) : undefined;
   const personalizacion = interpolarPersonalizacion(plantilla, vars);
-  const base = { socioNombre: toName, intro, personalizacion, ...marca, ...d };
+  // `...marca` al final a propósito: el nombre/logo/color del estudio los
+  // resuelve el servidor desde `studios`, y eso manda sobre lo que traiga `d`.
+  // Con el orden inverso, un `d` sin `estudioNombre` dejaba el encabezado en
+  // "TENTARE" (default de la plantilla). `marca` omite las claves que no tiene,
+  // así que sin studioId el `d.estudioNombre` del caller sigue valiendo.
+  const base = { socioNombre: toName, intro, personalizacion, ...d, ...marca };
   switch (tipo) {
     case 'promocion':
       return { html: await render(PromocionEsperaEmail(base)), subject: asunto ?? `Se ha liberado tu plaza — ${d.claseNombre}` };
@@ -98,6 +103,9 @@ export async function enviarEmailTransaccional(params: {
         // Remitente con el nombre del estudio (misma dirección verificada de
         // siempre, ver lib/emails/remitente.ts) — sin marca resuelta, cae a Tentare.
         from: remitentePorMarca(marca.nombre || params.data.estudioNombre || 'Tentare'),
+      // Reply-To del estudio: si la clienta contesta, le contesta a SU estudio.
+      // La dirección que firma sigue siendo la verificada de la plataforma.
+        ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
         to: [params.to],
         subject,
         html,

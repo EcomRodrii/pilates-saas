@@ -5,7 +5,8 @@ import { THEME_DEFINITIONS, getThemeDefinition } from './theme-definitions.ts';
 import { themeDraftSchema, themeConfigSchema, DEFAULT_THEME } from './theme-schema.ts';
 import { validarContrasteTheme, themeToCssVars } from './theme-runtime.ts';
 import { VARIANTES_PORTAL } from './theme-variantes.ts';
-import { TEMAS_PORTAL, TEMA_PORTAL_POR_DEFECTO } from '../themes/registro.ts';
+import { BLOQUE_KIT_A_EDITOR } from './portal-tema/equivalencias.ts';
+import { TEMAS_PORTAL, TEMA_PORTAL_POR_DEFECTO, varsEscalaSobreTema } from '../themes/registro.ts';
 
 test('THEME_DEFINITIONS: ids únicos, y "classic" existe con defaults vacíos (el tema de siempre)', () => {
   const ids = THEME_DEFINITIONS.map((d) => d.id);
@@ -48,8 +49,113 @@ test('THEME_DEFINITIONS: todos los temas pasan el gate de contraste, sin retocar
   }
 });
 
-test('la biblioteca es Tentada, el tema de siempre y los tres de diseño, nada más', () => {
-  assert.deepEqual(THEME_DEFINITIONS.map((t) => t.id), ['tentada', 'classic', 'oliva', 'bloom', 'noir']);
+test('la biblioteca es Tentada, el tema de siempre, los tres de diseño y Sereno, nada más', () => {
+  assert.deepEqual(THEME_DEFINITIONS.map((t) => t.id), ['tentada', 'classic', 'oliva', 'bloom', 'noir', 'sereno']);
+});
+
+// ── Sereno ──────────────────────────────────────────────────────────────────
+// Los guardias de arriba (ThemeDraft válido, ThemeConfig completo, gate de
+// contraste, ejes de variante del catálogo) ya recorren el registro ENTERO, así
+// que Sereno pasa por ellos sin escribir nada. Lo que sigue fija lo que es
+// DECISIÓN suya y podría "corregirse" por parecido con los otros cuatro.
+
+test('Sereno va el ÚLTIMO: entregarlo no lo convierte en el predeterminado', () => {
+  // El riesgo real de esta tanda: dar por hecho que "la nueva app de alumna"
+  // significa "la de todos". `themeId` es un dato de la fila del estudio y
+  // `TEMA_PORTAL_POR_DEFECTO` sigue apuntando a Tentada.
+  assert.equal(THEME_DEFINITIONS[THEME_DEFINITIONS.length - 1].id, 'sereno');
+  assert.equal(THEME_DEFINITIONS[0].id, 'tentada');
+  assert.equal(TEMA_PORTAL_POR_DEFECTO, 'tentada');
+});
+
+test('Sereno está en las DOS capas: biblioteca y kit, con el mismo id', () => {
+  // Un tema dado de alta solo en `THEME_DEFINITIONS` se puede elegir y no se
+  // pinta; solo en `TEMAS_PORTAL`, se pinta y no se puede elegir. Las dos o
+  // ninguna.
+  assert.ok(getThemeDefinition('sereno'));
+  assert.ok(TEMAS_PORTAL.sereno);
+  assert.equal(TEMAS_PORTAL.sereno.id, 'sereno');
+});
+
+test('Sereno: la marca es la TINTA y el malva es `destacado`', () => {
+  // El error fácil sería poner el malva de `primary`: los CTA de Sereno son
+  // oscuros a propósito («la marca es la calma, no un color», tokens.css) y el
+  // malva solo señala estado y foco. Mismo papel que el dorado en Noir.
+  const d = getThemeDefinition('sereno')!.defaults;
+  assert.equal(d.primary, '#221F1C');
+  assert.equal(d.destacado, '#8A6478');
+  assert.notEqual(d.primary, d.destacado);
+});
+
+test('Sereno: barra flotante, y ahora son DOS temas los que flotan', () => {
+  assert.equal(getThemeDefinition('sereno')!.defaults.barraFlotante, true);
+  assert.ok(!getThemeDefinition('sereno')!.defaults.barraClasica);
+  assert.deepEqual(
+    THEME_DEFINITIONS.filter((t) => t.defaults.barraFlotante).map((t) => t.id), ['bloom', 'sereno']);
+});
+
+test('Sereno: las cuatro pestañas llevan etiqueta (Bloom hereda solo la activa)', () => {
+  assert.equal(getThemeDefinition('sereno')!.defaults.variantes?.barra, 'todas');
+  assert.equal(getThemeDefinition('bloom')!.defaults.variantes?.barra, undefined);
+});
+
+test('Sereno: escalaTexto declara CUATRO pasos, no seis', () => {
+  // ⚠️ El guardia que impide "completarla por coherencia". `seccion` son
+  // versalitas de 11px en este tema —no un rótulo— y declararlo dejaría los
+  // titulares del portal de siempre en 11px además de envenenar el promedio de
+  // `varsEscalaSobreTema`, que es exactamente lo que ya dejó fuera a
+  // `numeroBono`. `saludo` no está porque Sereno saluda con el título de
+  // pantalla; su `--size-greeting` es otra cosa.
+  const e = getThemeDefinition('sereno')!.defaults.escalaTexto!;
+  assert.deepEqual(Object.keys(e).sort(), ['bienvenida', 'numeroBono', 'tituloHero', 'tituloPantalla']);
+  assert.equal(e.seccion, undefined);
+  assert.equal(e.saludo, undefined);
+});
+
+test('Sereno: la escala del tema y la de la biblioteca dicen lo mismo (factor 1)', () => {
+  // Si los dos ficheros discreparan, instalar el tema le cambiaría el tamaño
+  // de letra a la propietaria sin que ella tocara nada: `varsEscalaSobreTema`
+  // saca un FACTOR de comparar lo que pide la biblioteca contra lo que declara
+  // el tema, y con valores iguales no debe emitir ninguna var.
+  const tema = TEMAS_PORTAL.sereno;
+  const e = getThemeDefinition('sereno')!.defaults.escalaTexto!;
+  const porToken = new Map(tema.designSystem.type.map((t) => [t.token, t.size]));
+  assert.equal(e.tituloPantalla, porToken.get('screen-title'));
+  assert.equal(e.tituloHero, porToken.get('hero-title'));
+  assert.equal(e.bienvenida, porToken.get('welcome'));
+  assert.deepEqual(varsEscalaSobreTema(e as Record<string, number | undefined>, tema), {});
+});
+
+test('Sereno: es la única que titula con Libre Caslon, y su cuerpo es Figtree', () => {
+  assert.equal(getThemeDefinition('sereno')!.defaults.portalHeadingFontId, 'libreCaslon');
+  assert.equal(getThemeDefinition('sereno')!.defaults.fontId, 'figtree');
+  assert.equal(
+    THEME_DEFINITIONS.filter((t) => t.defaults.portalHeadingFontId === 'libreCaslon').length, 1);
+  const v = varsDe('sereno');
+  assert.match(v['--portal-heading-font'], /--font-libre-caslon/);
+  assert.equal(v['--portal-heading-weight'], '400');
+});
+
+test('Sereno: radioTema con los valores exactos de su designSystem.radii', () => {
+  const radii = new Map(TEMAS_PORTAL.sereno.designSystem.radii.map((r) => [r.name, r.value]));
+  assert.deepEqual(getThemeDefinition('sereno')!.defaults.radioTema, {
+    card: radii.get('card'), boton: radii.get('button'),
+    chip: radii.get('chip'), acceso: radii.get('quick-link'),
+  });
+});
+
+test('Sereno: bloquesHome es la traducción EXACTA de sus home_blocks', () => {
+  // Derivado, no copiado a mano: si alguien toca `home_blocks` en el config
+  // del tema y no esta lista, instalar Sereno ocultaría una sección que el kit
+  // sí pinta. `greeting` no tiene ficha en el editor y por eso no cuenta.
+  const esperado = TEMAS_PORTAL.sereno.home_blocks
+    .map((kit) => BLOQUE_KIT_A_EDITOR[kit])
+    .filter(Boolean);
+  assert.deepEqual(getThemeDefinition('sereno')!.bloquesHome, esperado);
+  const idsValidos = new Set<string>(BLOQUES_SISTEMA_IDS);
+  for (const b of getThemeDefinition('sereno')!.bloquesHome!) {
+    assert.ok(idsValidos.has(b), `id de bloque desconocido: "${b}"`);
+  }
 });
 
 test('Tentada va PRIMERA: es el tema predeterminado de la app de la alumna', () => {
@@ -80,11 +186,15 @@ test('los ids retirados no se reciclan para otro tema', () => {
   }
 });
 
-test('Noir es el único que pide barra oscura; Bloom el único que pide barra flotante', () => {
+test('Noir es el único que pide barra oscura; flotan Bloom y Sereno', () => {
   assert.equal(getThemeDefinition('noir')!.defaults.barraOscura, true);
   assert.equal(THEME_DEFINITIONS.filter((t) => t.defaults.barraOscura).length, 1);
   assert.equal(getThemeDefinition('bloom')!.defaults.barraFlotante, true);
-  assert.equal(THEME_DEFINITIONS.filter((t) => t.defaults.barraFlotante).length, 1);
+  // ⚠️ Aquí decía "Bloom el único que flota". Dejó de ser verdad con Sereno
+  // (`tab_bar_style: "floating"` en su config) — lo que sigue siendo único es
+  // la barra OSCURA de Noir.
+  assert.deepEqual(
+    THEME_DEFINITIONS.filter((t) => t.defaults.barraFlotante).map((t) => t.id), ['bloom', 'sereno']);
 });
 
 test('Tentada, Oliva y Noir piden barra clásica; Bloom no la pide (sigue flotando)', () => {

@@ -1,0 +1,55 @@
+-- red_perfiles: cerrar DE VERDAD la lectura por REST de los datos de contacto.
+--
+-- ANTECEDENTE. La migración 20260814080001 (red_perfiles_revoke_columnas_contacto,
+-- aplicada en producción pero que NUNCA llegó a existir como fichero en ninguna
+-- rama de este repo — ver AUDITORIA-SEMANAL-2026-08-17.md) intentó cerrar esto
+-- con un REVOKE de COLUMNA:
+--
+--   revoke select (email_contacto, telefono_contacto, auth_user_id)
+--     on public.red_perfiles from authenticated;
+--
+-- La sentencia se ejecutó sin error y quedó registrada como aplicada, pero NO
+-- TUVO NINGÚN EFECTO. En PostgreSQL un privilegio de columna no se "resta" de
+-- un privilegio de tabla: si el rol tiene GRANT SELECT sobre la TABLA (que es
+-- justo lo que hace el default de Supabase, `authenticated=arwdDxtm/postgres`
+-- en pg_class.relacl), el REVOKE por columna es un no-op silencioso.
+--
+-- Comprobado contra producción el 17 ago 2026, DESPUÉS de aquella migración:
+--   has_column_privilege('authenticated','public.red_perfiles','email_contacto','SELECT')    => true
+--   has_column_privilege('authenticated','public.red_perfiles','telefono_contacto','SELECT') => true
+--   has_column_privilege('authenticated','public.red_perfiles','auth_user_id','SELECT')      => true
+--
+-- Es decir: el agujero descrito el 14 ago seguía abierto hoy, con la ficha
+-- marcada como cerrada. Cualquier persona con cuenta (el alta de Network es
+-- abierta, app/network/unirse) podía pedir con la anon key
+--   /rest/v1/red_perfiles?estado=eq.published&select=nombre,email_contacto,telefono_contacto
+-- y volcar el contacto de toda la red. La policy red_perfiles_select_publicado
+-- (estado = 'published') filtra FILAS, no COLUMNAS.
+--
+-- LA CORRECCIÓN. Se revoca el SELECT de TABLA, no columnas sueltas. Es más
+-- fuerte y, sobre todo, falla en cerrado: una columna nueva y sensible añadida
+-- mañana a red_perfiles no queda expuesta por olvido.
+--
+-- POR QUÉ NO ROMPE NADA (verificado, no supuesto):
+--   * Ningún componente de navegador consulta red_perfiles. Las 30 lecturas del
+--     repo pasan por getSupabaseAdmin() (service_role, que ignora GRANTs y RLS)
+--     o por lib/network/publico.ts, que es explícitamente "server-only,
+--     service_role" (su cabecera lo documenta, igual que docs/NETWORK-AUDIT-2.md §11).
+--   * Las páginas públicas del marketplace (app/network/instructoras/*) son
+--     Server Components sin sesión y usan SELECT_COLUMNAS_PUBLICAS.
+--   * `anon` ya no tenía SELECT sobre esta tabla (has_table_privilege => false).
+--
+-- Las policies de SELECT se DEJAN en su sitio a propósito: hoy son inertes sin
+-- el GRANT, pero si alguien vuelve a conceder SELECT sobre la tabla siguen
+-- limitando las filas. Defensa en profundidad, no redundancia inútil.
+--
+-- Las escrituras (INSERT/UPDATE/DELETE) no se tocan: siguen protegidas por sus
+-- policies "propio", endurecidas en 20260814001815. Verificado tras aplicar:
+--   relacl => {postgres=arwdDxtm/postgres,authenticated=awdDxtm/postgres,service_role=arwdDxtm/postgres}
+--   (la 'r' desaparece solo para authenticated; service_role la conserva)
+--
+-- OJO: esta migración va SIEMPRE acompañada de 20260817144931
+-- (red_perfiles_grant_minimo_para_policies). Por sí sola rompe 20 policies de
+-- otras 7 tablas de Network. Lee la cabecera de aquella antes de tocar esto.
+
+revoke select on public.red_perfiles from authenticated;

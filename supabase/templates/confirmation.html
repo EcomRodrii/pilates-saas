@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Verifica tu correo</title>
+  </head>
+  <!-- Correo de Tentare (marca de Tentare, no del estudio — igual que recovery.html
+       y magic_link.html). Sustituye al viejo "Haz clic aquí para verificar": ahora
+       el cuerpo del mensaje ES el código, sin botón ni enlace — {{ .Token }} es el
+       OTP de 6 dígitos que gotrue genera (otp_length=6, supabase/config.toml),
+       nunca {{ .ConfirmationURL }}. Espaciado 3+3 (letter-spacing en vez de un
+       espacio literal) para que se lea como un código, no como un número de
+       seis cifras corrido — mismo motivo por el que el propio componente OTP del
+       panel (components/auth/otp-input.tsx) pinta 6 recuadros y no un campo único. -->
+  <body style="margin:0; padding:0; background-color:#EEEEE8;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#EEEEE8;">
+      <tr>
+        <td align="center" style="padding:44px 20px 32px;">
+          <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px; width:100%;">
+
+            <tr>
+              <td style="padding-bottom:22px;">
+                <img src="https://www.tentare.app/logo-horizontal.png" width="132" height="35" alt="Tentare" style="display:block; border:0; width:132px; height:35px;" />
+              </td>
+            </tr>
+            <tr>
+              <td style="border-top:2px solid #D9C29E; font-size:0; line-height:0; height:2px;">&nbsp;</td>
+            </tr>
+
+            <tr>
+              <td style="padding-top:30px;">
+                <h1 style="margin:0; color:#343825; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:28px; line-height:1.2; font-weight:700; letter-spacing:-0.025em;">
+                  Verifica tu correo
+                </h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-top:16px;">
+                <p style="margin:0; color:#3A3A34; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:16px; line-height:1.65;">
+                  Tu código de verificación es:
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding-top:24px; padding-bottom:4px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="background-color:#343825; border-radius:16px; padding:20px 28px;">
+                      <span style="color:#D9C29E; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:34px; font-weight:700; letter-spacing:0.28em;">
+                        {{ .Token }}
+                      </span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding-top:20px;">
+                <p style="margin:0; color:#63635D; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:14px; line-height:1.6;">
+                  Este código caduca en 10 minutos.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding-top:34px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="56">
+                  <tr><td style="border-top:1px solid #D3CFC2; font-size:0; line-height:0; height:1px;">&nbsp;</td></tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-top:14px;">
+                <p style="margin:0; color:#63635D; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:13.5px; line-height:1.6;">
+                  Si no has solicitado crear una cuenta en Tentare, puedes ignorar este correo con tranquilidad.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding-top:38px;">
+                <p style="margin:0; color:#8A8A82; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:12px; line-height:1.5;">
+                  Tentare · software para estudios de Pilates
+                </p>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -35,6 +35,7 @@ import {
   dbOtorgarCreditoDisparador,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem, dbAjustarStock,
   dbConsumirSesionBono,
+  dbDevolverSesionBono,
   dbInsertRewardRedemption, dbUpdateRewardRedemption,
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
   dbUpsertAchievementProgress, dbInsertAchievementHistory,
@@ -184,12 +185,13 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, calcularFechaFinBono, calcularReactivacion } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion } from '@/lib/bono-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
 import { useDashboardChartsStore } from '@/lib/stores/use-dashboard-charts-store';
 import { useProgressNotesStore } from '@/lib/stores/use-progress-notes-store';
+import type { AparienciaWidget } from '@/lib/reservar/apariencia-widget';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -493,7 +495,7 @@ interface StudioContextValue {
   addPost: (texto: string) => void;
   toggleLikePost: (postId: string) => void;
   integraciones: Integracion[];
-  upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>) => void;
+  upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => void;
   rewardRules: RewardRule[];
   rewardActions: RewardAction[];
   rewardHistory: RewardHistory[];
@@ -590,6 +592,14 @@ interface StudioContextValue {
   // Studio management
   resetDatosPilates: () => void;
   dataLoaded: boolean;
+  /**
+   * La carga pública falló de verdad (red/servidor) — distinto de `dataLoaded`
+   * con catálogo vacío, que hoy es indistinguible de "0 clases" para quien
+   * pinta la pantalla. Fase 4 del rediseño del widget
+   * (docs/widget-reservas-fase4-brief-diseno.md): antes cualquier fallo se
+   * tragaba en `console.error` y el visitante veía un vacío mentiroso.
+   */
+  errorPublico: boolean;
   // Recarga los datos en ruta pública (tras el login de la socia).
   recargarPublico: () => void;
   /**
@@ -636,6 +646,7 @@ export function useStudio(): StudioContextValue {
 
 export function StudioProvider({ children, studioIdOverride, publicSlug }: { children: ReactNode; studioIdOverride?: string; publicSlug?: string }) {
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [errorPublico, setErrorPublico] = useState(false);
   const [dbError, setDbError] = useState<{ msg: string; key: number } | null>(null);
 
   // /portal, /reservar y /kiosk montan SU PROPIO StudioProvider (con
@@ -694,8 +705,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     titular: '', subtitulo: '', cta: '', sobreTitulo: '', sobreTexto: '',
     avisoQuiz: '', vacioTitulo: '', vacioTexto: '', confirmacion: '', listaEspera: '', ayuda: '', comoFunciona: '',
   });
-  const [aparienciaWidget, setAparienciaWidget] = useState<{ fondo: string | null; fuente: string | null; ocultarPie: boolean; soloPestana: boolean; texto: 'auto' | 'claro' | 'oscuro' }>(
-    { fondo: null, fuente: null, ocultarPie: false, soloPestana: false, texto: 'auto' });
+  // `radio`/`radioInput`(el legacy de radio de tarjeta) no viajan aquí a
+  // propósito: hoy solo existen como parámetro de URL (`?radio=`), sin campo
+  // persistido — mismo estado que tenía antes de esta fase.
+  const [aparienciaWidget, setAparienciaWidget] = useState<Omit<AparienciaWidget, 'radio'>>({
+    fondo: null, fuente: null, ocultarPie: false, soloPestana: false, texto: 'auto',
+    fuenteDisplay: null, radioBoton: null, radioInput: null,
+    superficie: null, tinta: null, textoSecundario: null, linea: null, relleno: null,
+  });
   const [ordenReservar, setOrdenReservar] = useState<{ orden: string[]; ocultos: string[] }>({ orden: [], ocultos: [] });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
@@ -888,6 +905,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // traer sus datos una vez identificada.
   function cargarPublico() {
     if (!publicSlug) return;
+    setErrorPublico(false);
     setCurrentStudioId(studioIdOverride ?? '');
     // La socia se deriva del JWT en el servidor (cargarDatosPublicos manda el
     // Bearer); ya no se pasa {socioId,email} desde el cliente.
@@ -898,7 +916,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // que `shadowedByPublicRoute` arriba, basado en el pathname real).
     const liviano = (pathname ?? '').startsWith('/reservar/');
     cargarDatosPublicos(publicSlug, { liviano }).then(pub => {
-      if (!pub || pub.error) { setDataLoaded(true); return; }
+      if (!pub || pub.error) { setErrorPublico(true); setDataLoaded(true); return; }
       // El horario de apertura viaja aparte (sale de `studio_horario`, no de
       // una columna de `studios`) y se pega aquí para que el portal lo lea
       // donde ya lo espera: `studio.horarioSemana`, la misma forma que usa el
@@ -951,13 +969,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // queda al borrar lo escrito, y no puede publicar un titular en blanco.
       // Haciéndolo aquí, ningún consumidor tiene que acordarse.
       const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
-      const p2 = pub as { widgetFondo?: unknown; widgetFuente?: unknown; widgetOcultarPie?: unknown; widgetSoloPestana?: unknown; widgetTexto?: unknown };
+      const p2 = pub as {
+        widgetFondo?: unknown; widgetFuente?: unknown; widgetOcultarPie?: unknown; widgetSoloPestana?: unknown; widgetTexto?: unknown;
+        widgetFuenteDisplay?: unknown; widgetRadioBoton?: unknown; widgetRadioInput?: unknown;
+        widgetSuperficie?: unknown; widgetTinta?: unknown; widgetTextoSecundario?: unknown; widgetLinea?: unknown; widgetRelleno?: unknown;
+      };
+      const colorOn = (v: unknown) => typeof v === 'string' ? v : null;
+      const radioOn = (v: unknown) => typeof v === 'number' ? v : null;
       setAparienciaWidget({
         fondo: typeof p2.widgetFondo === 'string' ? p2.widgetFondo : null,
         fuente: typeof p2.widgetFuente === 'string' ? p2.widgetFuente : null,
         ocultarPie: p2.widgetOcultarPie === true,
         soloPestana: p2.widgetSoloPestana === true,
         texto: p2.widgetTexto === 'claro' || p2.widgetTexto === 'oscuro' ? p2.widgetTexto : 'auto',
+        fuenteDisplay: typeof p2.widgetFuenteDisplay === 'string' ? p2.widgetFuenteDisplay : null,
+        radioBoton: radioOn(p2.widgetRadioBoton),
+        radioInput: radioOn(p2.widgetRadioInput),
+        superficie: colorOn(p2.widgetSuperficie),
+        tinta: colorOn(p2.widgetTinta),
+        textoSecundario: colorOn(p2.widgetTextoSecundario),
+        linea: colorOn(p2.widgetLinea),
+        relleno: colorOn(p2.widgetRelleno),
       });
       setTextosReservar({
         sobreTitulo: texto((pub as { reservarSobreTitulo?: unknown }).reservarSobreTitulo),
@@ -1005,7 +1037,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setFavoritos(socia?.favoritos ?? []);
       setRetosApuntados(socia?.retosApuntados ?? []);
       setDataLoaded(true);
-    }).catch(err => { console.error('Error cargando datos públicos:', err); setDataLoaded(true); });
+    }).catch(err => { console.error('Error cargando datos públicos:', err); setErrorPublico(true); setDataLoaded(true); });
   }
 
   /**
@@ -1071,6 +1103,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // servidor scopeado (service-role), NO del acceso anónimo directo. Solo el
     // catálogo del estudio + los datos de la socia en sesión.
     if (publicSlug) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga de datos públicos: el estado viene de la red (o de un reintento explícito vía recargarPublico). No hay nada que sincronizar sin llamarla.
       cargarPublico();
       return;
     }
@@ -1086,7 +1119,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // como un toast de error real a cualquier visitante de la home pública.
     if (!studioIdOverride && !authUserId) {
       setCurrentStudioId('');
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga de datos del estudio: marca dataLoaded para los casos en que no hay nada que pedir. El estado viene de la red.
       setDataLoaded(true);
       return;
     }
@@ -1303,7 +1335,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // que un DELETE no puede cumplir. El mecanismo correcto ya existe
     // (`activo`): degradar a desactivación cuando esté contratada, en vez de
     // intentar un borrado que la propia BD va a rechazar.
-    const contratada = suscripciones.some(s => s.planId === id && s.estado === 'ACTIVA');
+    //
+    // ⚠️ El guardia mira CUALQUIER suscripción, de cualquier estado, no solo
+    // las ACTIVAS. `suscripciones_plan_id_fkey` es RESTRICT y las bajas NO se
+    // borran: se quedan como CANCELADA/EXPIRADA/PAUSADA apuntando al plan (ver
+    // dbCancelarSuscripcion). Con el filtro `estado === 'ACTIVA'`, un plan que
+    // solo tuvo socias ya dadas de baja se saltaba el archivado, caía al DELETE
+    // duro y la BD lo rechazaba con 23503: la propietaria veía "no se ha podido
+    // eliminar" sin ninguna explicación y el plan seguía en el catálogo. La
+    // suite no lo ve porque `page.route` nunca devuelve el 4xx real de la RPC.
+    const contratada = suscripciones.some(s => s.planId === id);
     if (contratada) {
       const res = await dbUpdatePlanTarifa(id, { activo: false });
       if (!res.ok) return res;
@@ -1496,12 +1537,31 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // promovida (igual que cancelarReserva).
     setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r));
     const res = await dbCancelarReservaPlaza(getCurrentStudioId(), reservaId);
-    if (res && !('error' in res) && res.promovidaSocioId && sesionId) {
+    // Si la BD rechaza la cancelación hay que deshacer las DOS cosas que ya se
+    // hicieron: el optimista y —sobre todo— la recuperación, que se concedió
+    // arriba. Antes no había esta rama: se devolvía 'CREADA' pasara lo que
+    // pasara, así que un fallo de la RPC dejaba a la socia con una recuperación
+    // regalada, la reserva viva en BD (la plaza no se libera ni promociona la
+    // lista de espera) y la pantalla pintándola cancelada. La propietaria
+    // además le mandaba el WhatsApp de «Recuperación guardada» por algo que no
+    // había ocurrido.
+    if (!res || 'error' in res) {
+      setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: cancelada.estado } : r));
+      // La recuperación se identifica por `origenReservaId`, que es justo el
+      // `reservaId` con el que se creó arriba. `lista` ya está cargada.
+      const recienCreada = lista.find(x => x.origenReservaId === reservaId && x.estado === 'DISPONIBLE');
+      if (recienCreada) {
+        await dbAnularRecuperacion(recienCreada.id);
+        setRecuperaciones(await dbListRecuperaciones(getCurrentStudioId()));
+      }
+      return { recuperacion: 'ERROR', caduca: null };
+    }
+    if (res.promovidaSocioId && sesionId) {
       const promovidaSocioId = res.promovidaSocioId;
       setReservas(prev => prev.map(r =>
         (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
           ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
-      consumirSesionBono(promovidaSocioId, sesionId);
+      await consumirSesionBono(promovidaSocioId, sesionId);
     }
     return { recuperacion: 'CREADA', caduca };
   }
@@ -1992,8 +2052,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const cpub = ctxPublico();
     if (cpub) {
       // La socia edita su propio perfil vía endpoint (whitelist de campos).
+      //
+      // Se espera la respuesta y solo se pinta si el servidor la acepta. Antes
+      // era fire-and-forget con `return { ok: true }` fijo: /api/public/socio
+      // rechaza con 400/401/429 (actualizarSociaPublica), y ese rechazo no
+      // llegaba a nadie. Como PortalStore.guardarDatos decide el aviso con lo
+      // que devuelve esto, la socia cambiaba su email o su teléfono, leía
+      // «Datos guardados» y volvía atrás sin que se hubiera guardado nada.
+      // Mismo patrón que ya se corrigió en addReserva y cancelarReserva.
+      const anterior = socios.find(s => s.id === id);
       setSocios(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s)); // optimista
-      postPublico('/api/public/socio', { accion: 'actualizar', studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, cambios: changes });
+      const r = await postPublico('/api/public/socio', { accion: 'actualizar', studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, cambios: changes });
+      if (!r.ok) {
+        // Revierte: la fila vuelve a lo que había antes del optimista.
+        if (anterior) setSocios(prev => prev.map(s => s.id === id ? anterior : s));
+        return r;
+      }
       // El portal re-sincroniza contra el servidor al terminar (cargarPublico).
       return { ok: true };
     }
@@ -2589,25 +2663,33 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // con dos bonos vivos regala saldo en uno y lo deja perdido en el otro.
   async function devolverSesionBono(socioId: string, sesionId?: string | null) {
     const tipoClaseId = sesionId ? sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null : null;
-    const consumible = bonoConsumible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
-    if (!consumible) return;
-    const { suscripcion: sus, plan, sesionesRestantes } = consumible;
+    // I-5: `bonoDevolvible`, no `bonoConsumible`. Para devolver hace falta HUECO,
+    // no saldo: usando el de consumir, cancelar la clase que gastó la ÚLTIMA
+    // sesión no devolvía nada, porque un bono a 0 ya no es "consumible".
+    const devolvible = bonoDevolvible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
+    if (!devolvible) return;
+    const { suscripcion: sus } = devolvible;
 
-    const nuevasRestantes = calcularDevolucionBono(sesionesRestantes, plan.sesiones);
-    // Se espera y se comprueba (antes era fire-and-forget, mismo motivo que
-    // consumirSesionBono más arriba): la cancelación de la reserva que llama a
-    // esto ya se confirmó en servidor, así que un fallo aquí no debe deshacer
-    // nada — pero sí hay que enterarse, o la socia pierde una sesión de bono
-    // sin que quede rastro.
-    const res = await dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
-    if (!res.ok) {
+    // I-10: incremento ATÓMICO en la BD con el tope dentro del WHERE, en vez de
+    // calcular `min(tope, restantes+1)` aquí sobre un estado que puede estar
+    // desfasado y escribirlo. Dos cancelaciones a la vez perdían una devolución.
+    // Se sigue esperando y comprobando (antes era fire-and-forget): la
+    // cancelación de la reserva ya se confirmó en servidor, así que un fallo
+    // aquí no debe deshacer nada — pero sí hay que enterarse, o la socia pierde
+    // una sesión de bono sin que quede rastro.
+    const res = await dbDevolverSesionBono(sus.id, getCurrentStudioId());
+    if ('error' in res) {
       capturarMensaje('[devolverSesionBono] no se pudo devolver la sesión al bono', 'error', {
         extra: { socioId, sesionId, suscripcionId: sus.id, error: res.error },
       });
       return;
     }
+    // `saldo` null = no había hueco (bono ya al tope): no es un fallo, pero
+    // tampoco hay nada que reflejar en pantalla.
+    if (res.saldo == null) return;
+    const saldo = res.saldo;
     setSuscripciones(prev => prev.map(s =>
-      s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
+      s.id === sus.id ? { ...s, sesionesRestantes: saldo } : s
     ));
   }
 
@@ -2669,7 +2751,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setReservas(prev => prev.map(x => x.id === reservaId
         ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera } : x));
     }
-    if (r.estado === 'CONFIRMADA') consumirSesionBono(socioId, sesionId);
+    if (r.estado === 'CONFIRMADA') await consumirSesionBono(socioId, sesionId);
     if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
     // I12: evaluar logros/retos sobre el set con el estado AUTORITATIVO de la
     // RPC, no sobre la estimación optimista. Si la estimación fue CONFIRMADA
@@ -2793,7 +2875,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // del tipo, así que la misma cancelación salía tardía o a tiempo según por
     // dónde entrara la socia. Recalcular una regla en cada superficie es cómo
     // se llega a eso; ahora hay una sola respuesta y esto la obedece.
-    if (eraConfirmada && cancelada && devolverBono) {
+    //
+    // Y las plazas fijas quedan fuera: `materializar_plazas_fijas` las inserta
+    // CONFIRMADAS sin consumir bono, así que devolver una sesión al cancelarlas
+    // crea saldo de la nada (su compensación es la recuperación, no el bono).
+    // El camino servidor ya tenía este guard —supabase-data-admin.ts:1860,
+    // `const esPlazaFija = params.reservaId.startsWith('res-pf-')`— y a este le
+    // faltaba: cancelar la MISMA reserva desde el panel regalaba una sesión que
+    // por el portal no se regalaba. Es la misma asimetría panel↔portal que ya
+    // causó el bug de la ventana de cancelación; se cierra copiando el guard.
+    const esPlazaFija = reservaId.startsWith('res-pf-');
+    if (eraConfirmada && cancelada && devolverBono && !esPlazaFija) {
       void devolverSesionBono(cancelada.socioId, sesionId);
     }
 
@@ -2818,7 +2910,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
         ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
     // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
-    consumirSesionBono(promovidaSocioId, sesionId);
+    await consumirSesionBono(promovidaSocioId, sesionId);
 
     const socio = socios.find(s => s.id === promovidaSocioId);
     const sesion = sesiones.find(s => s.id === sesionId);
@@ -4500,6 +4592,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dismissLog,
     actualizarLog,
     dataLoaded,
+    errorPublico,
     planMasElegidoId,
     sustitucionesConfirmadas,
     recargarPublico: cargarPublico,
@@ -4539,7 +4632,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     backups,
     studioConfig,
     automationRules, automationLogs, progressNotesStore.notasProgreso,
-    dataLoaded, planMasElegidoId, sustitucionesConfirmadas,
+    dataLoaded, errorPublico, planMasElegidoId, sustitucionesConfirmadas,
     studio,
     authUserId, publicSlug, studioIdOverride,
   ]);

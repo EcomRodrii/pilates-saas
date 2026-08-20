@@ -3,6 +3,7 @@
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Status } from "@/components/portal-tema/components/ui/primitives";
 import { useActions, useCromoDemo } from "@/components/portal-tema/store/PortalStore";
+import { useTema } from "@/components/portal-tema/store/TemaContext";
 import { alFallarImagen, IMAGENES_CLASE, IMAGENES_POR_DEFECTO } from "@/lib/imagenes-por-defecto";
 
 /**
@@ -65,13 +66,33 @@ export function TabBar({
   floating: boolean;
 }) {
   const actions = useActions();
+  // Con las CUATRO etiquetas puestas, la cápsula no cabe en fila: icono y
+  // texto pasan a columna, como en la barra pegada. Se deduce de los propios
+  // tabs en vez de con otra prop — quien decide es `tab_labels` del tema, y
+  // pasarlo dos veces sería otro sitio donde puedan discrepar.
+  const conEtiquetas = floating && tabs.every((t) => t.showLabel);
   return (
-    <nav className={("tab-bar " + (floating ? "tab-bar--floating" : "")).trim()} aria-label="Navegación principal">
+    <nav
+      className={["tab-bar", floating && "tab-bar--floating", conEtiquetas && "tab-bar--etiquetas"]
+        .filter(Boolean).join(" ")}
+      aria-label="Navegación principal"
+    >
       {tabs.map((item) => (
         <button
           key={item.key}
-          className={("tab " + (item.active ? "is-active" : "")).trim()}
+          /* ⚠️ `is-pressable` faltaba, y era lo ÚNICO del kit sin respuesta al
+             toque: todos los demás botones se hunden al pulsarlos menos la
+             navegación principal, que es la que más se usa. Un toque que no
+             acusa recibo se lee como que la app no lo ha cogido — y entonces se
+             vuelve a tocar, que es justo lo que provoca navegaciones dobles. */
+          className={("tab is-pressable " + (item.active ? "is-active" : "")).trim()}
           aria-current={item.active ? "page" : undefined}
+          /* ⚠️ SIEMPRE etiquetado, aunque el texto no se vea. Las barras
+             flotantes que solo escriben la pestaña activa (Bloom) dejaban las
+             otras tres como botones SIN NOMBRE: un lector de pantalla anunciaba
+             «botón, botón, botón» en la navegación principal. El icono no
+             cuenta como nombre accesible. */
+          aria-label={item.label}
           onClick={() => actions.goTab(item.key as "inicio")}
         >
           <Icon name={item.icon} fill={item.fill} stroke={item.stroke} />
@@ -83,12 +104,22 @@ export function TabBar({
 }
 
 export function DayStrip({
-  week, tight, boxed,
+  week, tight, boxed, inicial,
 }: {
   week: { label: string; num: number; active: boolean; hasClass: boolean }[];
   tight?: boolean;
   /** La tira de la pantalla de Reservas de Tentada: cajas, no círculos. */
   boxed?: boolean;
+  /**
+   * Una sola letra por día (L M M J V S D) en vez de tres (LUN MAR MIÉ).
+   *
+   * ⚠️ Es la diferencia entre las dos capturas del tema: el horario
+   * (`05-clases.jpg`) escribe tres letras y la agenda (`10-agenda-semana.jpg`)
+   * una. Se RECORTA aquí en vez de crear una segunda lista de días: dos
+   * fuentes para el mismo dato es como se acaba con el lunes en un sitio y el
+   * martes en otro.
+   */
+  inicial?: boolean;
 }) {
   const actions = useActions();
   return (
@@ -99,7 +130,7 @@ export function DayStrip({
           className={("day " + (day.active ? "is-active" : "")).trim()}
           onClick={() => actions.selectDay(day.num)}
         >
-          <span className="day__label">{day.label}</span>
+          <span className="day__label">{inicial ? day.label.charAt(0) : day.label}</span>
           <span className="day__num">{day.num}</span>
           {day.hasClass ? <i className="day__dot"></i> : null}
         </button>
@@ -122,14 +153,68 @@ export interface ClassRowData {
    */
   eligeSitio?: boolean;
   id: string; name: string; time: string; duration: string; initial: string; teacher: string;
+  /** Su foto. Vacía = se queda el monograma, que es lo que pintan las capturas. */
+  teacherFoto: string;
   meta: string; room: string; booked: boolean; status: string; statusTone: "booked" | "free" | "full";
+  /** «Emma · Sala A · Todos» — la instructora subida a la línea de metadatos. */
+  metaLarga: string;
+  /** «4 plazas», o vacío cuando el badge ya lo dice todo. */
+  plazas: string;
+  /** «Disponible» / «Reservada» / «Completa» — el estado sin la cifra. */
+  estadoCorto: string;
   /** En la cola de esa clase, no con plaza. Son cosas distintas. */
   waiting: boolean;
   full: boolean;
 }
 
+/**
+ * La fila del horario de Sereno: hora | separador | cuerpo | chevron.
+ *
+ * La diferencia con la de siempre no es de color: la instructora sube a la
+ * línea de metadatos (con su avatar, la fila se lee de abajo arriba), el badge
+ * va acompañado de las plazas que quedan, y el chevron dice que se entra a
+ * algún sitio. Va aquí y no en un fichero por tema porque sigue siendo la misma
+ * fila con los mismos datos — es composición, no otra pantalla.
+ */
+function ClassRowSereno({ row }: { row: ClassRowData }) {
+  const actions = useActions();
+  const cls = ["class-row", "class-row--sereno", "is-pressable", row.booked ? "is-booked" : "", row.statusTone === "full" ? "is-full" : ""]
+    .filter(Boolean).join(" ");
+  return (
+    <button className={cls} onClick={() => actions.openClass(row.id)}>
+      <span className="class-row__time">
+        <span className="class-row__hour">{row.time}</span>
+        <span className="class-row__dur">{row.duration}</span>
+      </span>
+      <span className="class-row__sep" aria-hidden="true"></span>
+      <span className="class-row__body">
+        <span className="class-row__name">{row.name}</span>
+        <span className="class-row__meta">{row.metaLarga}</span>
+        <span className="class-row__foot">
+          <Status tone={row.statusTone}>{row.estadoCorto}</Status>
+          {row.plazas ? <span className="class-row__plazas">{row.plazas}</span> : null}
+        </span>
+      </span>
+      <Icon name="forward" size={13} stroke={1.8} />
+    </button>
+  );
+}
+
+/**
+ * Una fila del horario. UNA entrada para las tres formas.
+ *
+ * ⚠️ La forma la decide el TEMA (`row_style`), no la pantalla. Antes `Schedule`
+ * elegía: la de Sereno con `day_strip_style === "cajas"` —una bandera de la
+ * TIRA DE DÍAS— y la de Tentada llamando a otro componente exportado aparte.
+ * O sea, la misma cosa por tres puertas distintas y dos de ellas deducidas de
+ * un eje que no era el suyo. Ausente = `clasica`, que es lo que pintan
+ * Oliva/Bloom/Noir.
+ */
 export function ClassRow({ row }: { row: ClassRowData }) {
   const actions = useActions();
+  const estilo = useTema().features.row_style ?? "clasica";
+  if (estilo === "sereno") return <ClassRowSereno row={row} />;
+  if (estilo === "plana") return <ClassRowPlana row={row} />;
   const cls = ["class-row", "is-pressable", row.booked ? "is-booked" : "", row.statusTone === "full" ? "is-full" : ""]
     .filter(Boolean).join(" ");
   return (
@@ -142,7 +227,7 @@ export function ClassRow({ row }: { row: ClassRowData }) {
         <span className="class-row__name">{row.name}</span>
         <span className="class-row__meta">{row.meta}</span>
         <span className="class-row__foot">
-          <Avatar size="xs">{row.initial}</Avatar>
+          <Avatar size="xs" foto={row.teacherFoto}>{row.initial}</Avatar>
           <span className="class-row__teacher">{row.teacher}</span>
           <Status tone={row.statusTone}>{row.status}</Status>
         </span>
@@ -173,7 +258,7 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
  * `alReservar` y su respuesta del servidor. No hay atajo optimista aquí — es
  * el camino que costó el bug #500.
  */
-export function ClassRowPlana({ row }: { row: ClassRowData }) {
+function ClassRowPlana({ row }: { row: ClassRowData }) {
   const actions = useActions();
   if (row.booked) {
     return (

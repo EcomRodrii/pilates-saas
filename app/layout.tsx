@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { BASE_URL } from '@/lib/seo/paginas';
-import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins, Cormorant_Garamond } from 'next/font/google';
+import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins, Cormorant_Garamond, Libre_Caslon_Text, Figtree } from 'next/font/google';
 import { StudioProvider } from '@/lib/studio-context';
 import { AuthProvider } from '@/lib/auth-context';
 import './globals.css';
@@ -77,24 +77,58 @@ const cormorant = Cormorant_Garamond({
   display: 'swap',
 });
 
+// Tema "Sereno" (themes/sereno/) — las DOS familias del tema son nuevas en el
+// repo, a diferencia de los cuatro anteriores, que reusaban lo ya cargado
+// salvo la Garamond de Tentada.
+//
+// Libre Caslon Text titula: el saludo, el nombre de la clase, los titulares de
+// las hojas y el numerazo del bono. Se pide la CURSIVA porque la cita del
+// estudio va en cursiva de verdad (mismo motivo que Instrument Serif y
+// Cormorant: sin ella el navegador inclina la redonda, y en una Caslon se nota
+// tanto como en las otras dos). El 700 entra porque `--section-title-weight`
+// de Sereno es 600 en la SANS pero la display se usa a 400 y a 700 en el
+// prototipo (nombre de clase vs. rótulos fuertes).
+const libreCaslon = Libre_Caslon_Text({
+  subsets: ['latin'],
+  variable: '--font-libre-caslon',
+  weight: ['400', '700'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+});
+
+// El cuerpo de Sereno. Se piden 300-700 porque el prototipo usa 500/600 en
+// metadatos y rótulos y 700 en los importes. Mismo criterio que `outfit`,
+// `poppins` y `cormorant`: coste fijo, se carga siempre, `next/font` no admite
+// carga condicional por tenant.
+const figtree = Figtree({
+  subsets: ['latin'],
+  variable: '--font-figtree',
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
-  title: 'Software de Gestión para Estudios de Pilates | Tentare',
+  title: 'Software de Gestión para Estudios de Pilates en Barcelona',
   description:
-    'Gestiona tu estudio de Pilates con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
+    'Gestiona tu estudio de Pilates en Barcelona con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     locale: 'es_ES',
     siteName: 'Tentare',
-    title: 'Tentare — Software para estudios de Pilates',
+    title: 'Software para estudios de Pilates en Barcelona',
     description:
       'Todo tu estudio de Pilates en un solo software — y el que cubre las bajas de instructoras solo. Sin permanencia, desde 29€/mes.',
     url: BASE_URL,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Tentare — Software para estudios de Pilates',
+    // @tentaresoftware es la cuenta real de la marca (el mismo handle que
+    // enlaza el pie de la landing, components/landing/SeccionCtaFinal.tsx) —
+    // sin `site` aquí, una tarjeta compartida no atribuye la mención a nadie.
+    site: '@tentaresoftware',
+    title: 'Software para estudios de Pilates en Barcelona',
     description:
       'Todo tu estudio de Pilates en un solo software — y el que cubre las bajas de instructoras solo.',
   },
@@ -112,7 +146,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} ${poppins.variable} ${cormorant.variable} antialiased`}>
+    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} ${poppins.variable} ${cormorant.variable} ${libreCaslon.variable} ${figtree.variable} antialiased`}>
       <body className="bg-background">
         <AuthProvider>
           <StudioProvider>{children}</StudioProvider>

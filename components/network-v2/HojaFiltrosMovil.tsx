@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { FiltrosSidebar } from './FiltrosSidebar';
-import { NW_TINTA, NW_BORDE, NW_PRODUCTO } from './tokens';
+import { NW_TINTA, NW_BORDE, NW_PRODUCTO, NW_FONDO } from './tokens';
 
 // Bottom sheet de filtros para móvil (README 1b/1e: "filtros en bottom
 // sheet tras botón Filtros") — deliberadamente NO reutiliza
@@ -27,7 +27,7 @@ export function HojaFiltrosMovil() {
       {abierto && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Filtros">
           <div className="absolute inset-0 bg-black/40" onClick={() => setAbierto(false)} />
-          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[26px] bg-[#FAF9F5] p-5 pb-8">
+          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[26px] p-5 pb-8" style={{ background: NW_FONDO }}>
             <div className="flex items-center justify-between mb-4">
               <p className="text-[15px] font-extrabold" style={{ color: NW_TINTA }}>Filtros</p>
               <button onClick={() => setAbierto(false)} aria-label="Cerrar"><X size={20} color={NW_TINTA} /></button>

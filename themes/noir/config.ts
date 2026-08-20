@@ -42,6 +42,7 @@ export const THEME: ThemeConfig = {
     "weekly-progress",
     "quick-links"
   ],
+  "next_class_label": "Tu próxima clase",
   "member_name": "Clara",
   "member_initial": "C",
   "welcome": {

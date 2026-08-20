@@ -19,8 +19,8 @@
 // esa hoja se inyecta como <style> DENTRO del shadow root, nunca en el
 // <head> del documento anfitrión.
 import { createRoot } from 'react-dom/client';
-import { StrictMode, useEffect, useRef, useState } from 'react';
-import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
+import { StrictMode, useCallback, useEffect, useRef, useState } from 'react';
+import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
@@ -86,6 +86,37 @@ function WidgetApp({ slug }: { slug: string }) {
   const walkInSinFicha = autenticado && !socia;
   const mostrarFormulario = walkInSinFicha || accesoAbierto;
 
+  // Modo A (page.tsx) recuerda la clase que se intentaba reservar cuando no
+  // hay sesión (`bookingSesionId`) y la retoma sola tras el login. Modo B no
+  // tenía equivalente: `onReservar` del hook devolvía "Inicia sesión para
+  // reservar." como un aviso sin salida — cerraba la hoja y ahí se quedaba,
+  // sin abrir el acceso ni recordar la clase (auditoría de esta sesión).
+  // `pendienteReserva` es ese mismo recuerdo, solo que aquí no hay una hoja
+  // reabrible desde fuera (el slot abierto es estado INTERNO de
+  // <ReservaCalendario>) — en vez de reabrirla, la reserva se completa sola
+  // en cuanto `socia` pasa a tener valor, y el resultado se avisa con un
+  // banner (mismo patrón que `avisoPago` más abajo).
+  const [pendienteReserva, setPendienteReserva] = useState<{ slot: ReservaSlot; spotId: string | null } | null>(null);
+  const [avisoReservaPendiente, setAvisoReservaPendiente] = useState<'CONFIRMADA' | 'LISTA_ESPERA' | string | null>(null);
+  const manejarReservar = useCallback(async (slot: ReservaSlot, spotId: string | null) => {
+    if (!socia?.socioId) {
+      setPendienteReserva({ slot, spotId });
+      setAccesoAbierto(true);
+      return; // Sin resultado → <ReservaCalendario> cierra la hoja (mismo contrato que Modo A).
+    }
+    return onReservar(slot, spotId);
+  }, [socia, onReservar]);
+  useEffect(() => {
+    if (!socia?.socioId || !pendienteReserva) return;
+    const { slot, spotId } = pendienteReserva;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda contra doble envío: limpia el pendiente ANTES del await, no un dato derivado de un render anterior.
+    setPendienteReserva(null);
+    void onReservar(slot, spotId).then(r => {
+      if (!r) return;
+      setAvisoReservaPendiente(r.ok ? r.estado : r.error);
+    });
+  }, [socia, pendienteReserva, onReservar]);
+
   // 3DS forzado a salir (poco común, ver checkout-embebido.tsx): vuelve a la
   // MISMA página del estudio con este marcador — se lee una vez al montar y
   // se limpia de la URL para que un refresh no repita el aviso.
@@ -102,11 +133,19 @@ function WidgetApp({ slug }: { slug: string }) {
 
   const hayPlanesActivos = planesTarifa.some(p => p.activo);
 
-  if (error) {
-    return <div style={{ padding: 24, textAlign: 'center', color: TEMA.muted, fontSize: 14 }}>{error}</div>;
-  }
+  // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
+  // 06): antes un fallo de carga sustituía TODO el widget por un párrafo
+  // suelto, sin forma de reintentar salvo recargar la página del estudio
+  // entera. Ahora usa el mismo patrón de error-con-reintentar que el resto
+  // de formatos (en neutros fijos, vía `estiloDias="grid"` más abajo).
   if (cargando) {
-    return <div style={{ padding: 24, textAlign: 'center', color: TEMA.muted, fontSize: 14 }}>Cargando clases…</div>;
+    return (
+      <div style={{ padding: '52px 24px', display: 'grid', gridTemplateColumns: 'repeat(7, minmax(96px, 1fr))', gap: 8, minWidth: 700, overflowX: 'auto' }} aria-busy="true">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} style={{ height: 96, borderRadius: 8, background: 'linear-gradient(100deg, #ECECEC 40%, #E0E0E0 50%, #ECECEC 60%)', backgroundSize: '200% 100%', animation: 'widget-skeleton-shimmer 1.1s linear infinite' }} />
+        ))}
+      </div>
+    );
   }
   return (
     <div>
@@ -114,6 +153,16 @@ function WidgetApp({ slug }: { slug: string }) {
         <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: TEMA.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span>Si has confirmado el pago con tu banco, en unos segundos verás el plan activo en Mi cuenta.</span>
           <button type="button" onClick={() => setAvisoPago(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: TEMA.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+        </div>
+      )}
+      {avisoReservaPendiente && (
+        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: TEMA.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <span>
+            {avisoReservaPendiente === 'CONFIRMADA' ? 'Reserva confirmada.'
+              : avisoReservaPendiente === 'LISTA_ESPERA' ? 'Te hemos apuntado a la lista de espera.'
+                : avisoReservaPendiente}
+          </span>
+          <button type="button" onClick={() => setAvisoReservaPendiente(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: TEMA.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14, marginBottom: 10 }}>
@@ -178,10 +227,15 @@ function WidgetApp({ slug }: { slug: string }) {
       <ReservaCalendario
         t={TEMA}
         slots={slots}
-        onReservar={onReservar}
+        onReservar={manejarReservar}
         onCancelar={onCancelar}
         onAceptarOferta={onAceptarOferta}
         vacio={{ titulo: 'No hay clases disponibles', cuerpo: 'Vuelve a mirar más tarde.' }}
+        // Fase 4 del rediseño, formato 06: rejilla de 7 columnas en neutros
+        // fijos (ver comentario de `estiloDias` en reserva-calendario.tsx) en
+        // vez de tira+un-día — es lo único que cambia respecto a Modo A.
+        estiloDias="grid"
+        error={error ? { onReintentar: recargar, titulo: 'No hemos podido cargar el horario' } : undefined}
       />
     </div>
   );

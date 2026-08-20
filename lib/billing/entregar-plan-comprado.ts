@@ -100,6 +100,11 @@ export function idsDe(sessionId: string) {
     suscripcionId: `sus-web-${base}`,
     reciboId: `rec-web-${base}`,
     socioId: `soc-web-${base}`,
+    // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
+    // §4.2): idempotencia de la RESERVA nacida de este pago, mismo patrón —
+    // un reintento del webhook deriva el MISMO id, así que reservar_plaza
+    // choca por PK en vez de duplicar la plaza.
+    reservaId: `res-web-${base}`,
   };
 }
 

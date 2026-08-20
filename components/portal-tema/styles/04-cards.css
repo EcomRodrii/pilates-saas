@@ -14,6 +14,32 @@ a.card:hover, button.card:hover, .card--interactive:hover {
   box-shadow: var(--shadow-card-hover);
 }
 
+/* ── El levante en el hover ────────────────────────────────────────────────
+ *
+ * Acotado a `(hover: hover) and (pointer: fine)` a propósito: en táctil el
+ * hover se queda PEGADO tras el toque (mismo motivo que ya documenta
+ * `.is-pressable` en `01-base.css`), y una tarjeta que se «levanta» y se
+ * queda levantada hasta el siguiente toque se lee como que se ha quedado
+ * enganchada. En ratón sí hay un puntero de verdad saliendo de la tarjeta al
+ * dejar de pasar por encima, así que el gesto tiene sentido ahí.
+ *
+ * Es una capa NUEVA sobre el borde/sombra que ya cambiaban en cualquier
+ * dispositivo — no los sustituye. */
+@media (hover: hover) and (pointer: fine) {
+  a.card:hover, button.card:hover, .card--interactive:hover,
+  a.class-row:hover, button.class-row:hover {
+    transform: translateY(-2px);
+  }
+}
+/* Quien haya pedido menos movimiento no lo quiere aquí tampoco: el color de
+ * borde y la sombra ya avisan del hover sin desplazar nada. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  a.card:hover, button.card:hover, .card--interactive:hover,
+  a.class-row:hover, button.class-row:hover {
+    transform: none;
+  }
+}
+
 .card--pad { padding: 18px; }
 .card--pad-lg { padding: 24px; }
 
@@ -87,6 +113,25 @@ a.card:hover, button.card:hover, .card--interactive:hover {
   font-size: 13.5px; font-weight: 600;
 }
 
+/* ── Estado de error ──────────────────────────────────────────────────────
+ *
+ * Comparte cascarón con el vacío a propósito —misma caja, mismo ritmo— pero se
+ * distingue: vacío es «aquí no hay nada todavía» y error es «esto debería tener
+ * algo y no he podido traerlo». Sin esa diferencia, una red caída le dice a la
+ * socia que no tiene reservas cuando sí las tiene.
+ *
+ * La marca es un filo, no un fondo rojo: esto no es una alarma, es un aviso con
+ * una salida al lado. */
+.empty--error {
+  border-left-width: 3px;
+  /* `--warning` lo declaran los cinco temas; comprobado antes de usarlo. Un
+     token que no existe no falla, hereda — y el filo saldría del color de la
+     tinta sin que nadie se entere. */
+  border-left-color: var(--warning);
+}
+.empty--error .empty__title { font-size: 16.5px; }
+.empty__accion { margin-top: 14px; }
+
 /* ── Cifras ──────────────────────────────────────────────────────────────── */
 .metrics { display: flex; gap: 9px; }
 .metric {
@@ -116,6 +161,21 @@ a.card:hover, button.card:hover, .card--interactive:hover {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 18px;
+  /* Para colocar la foto encima del monograma sin sacarla del círculo. */
+  position: relative;
+  overflow: hidden;
+}
+/* ⚠️ La foto va ENCIMA del monograma, ocupando exactamente el mismo círculo, y
+ * no en su lugar: si no carga se retira y debajo sigue estando la inicial. Con
+ * un `<img>` en el flujo, una imagen rota deja un hueco y descoloca la fila —
+ * que es peor que no tener foto. Y `object-fit: cover` porque las fotos de
+ * perfil vienen de todos los tamaños: sin él se estiran las caras. */
+.avatar__foto {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
 }
 .avatar--sm {
   flex: 0 0 34px; width: 34px; height: 34px; font-size: 13px;
@@ -126,3 +186,31 @@ a.card:hover, button.card:hover, .card--interactive:hover {
   background: var(--brand); color: var(--on-brand);
   display: inline-flex; align-items: center; justify-content: center;
 }
+
+/* Cabecera de pantalla con flecha atrás a la izquierda del título (Sereno). */
+.screen-head--atras { justify-content: flex-start; gap: 12px; }
+.icon-btn--redondo {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+/* ── La nota de una instructora ───────────────────────────────────────────
+ *
+ * ⚠️ La nota y su respaldo van JUNTOS y con el mismo peso de lectura: el
+ * número de valoraciones no es un detalle secundario, es lo que convierte la
+ * media en un dato. Sin él vuelve a ser el «87 %» que salía de un clamp.
+ *
+ * No hay estado «sin valoraciones»: cuando no hay muestra, el componente no
+ * pinta nada — un hueco vacío en la ficha se lee como «mala». */
+.valoracion {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--muted);
+}
+.valoracion__nota { font-weight: 600; color: var(--ink); }

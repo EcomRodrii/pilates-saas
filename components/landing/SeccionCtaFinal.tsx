@@ -10,6 +10,7 @@ import { esExterno, PIE_V5 } from './enlaces';
 const REDES_TENTARE = [
   { href: 'https://x.com/tentaresoftware', label: 'X (Twitter)', Icono: X },
   { href: 'https://www.instagram.com/tentareapp/', label: 'Instagram', Icono: IconoInstagram },
+  { href: 'https://www.linkedin.com/company/tentare/', label: 'LinkedIn', Icono: IconoLinkedIn },
 ];
 
 function IconoInstagram({ size = 16 }: { size?: number }) {
@@ -18,6 +19,19 @@ function IconoInstagram({ size = 16 }: { size?: number }) {
       <rect x={3} y={3} width={18} height={18} rx={5} />
       <circle cx={12} cy={12} r={4} />
       <circle cx={17.2} cy={6.8} r={1.1} fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+// Sin icono LinkedIn en lucide-react (no está en el set) — mismo criterio
+// que IconoInstagram, dibujado a mano.
+function IconoLinkedIn({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <rect x={3} y={3} width={18} height={18} rx={3} fill="none" stroke="currentColor" strokeWidth={1.8} />
+      <circle cx={8} cy={8.2} r={1.3} />
+      <rect x={6.9} y={10.8} width={2.2} height={7} />
+      <path d="M12 10.8h2.1v1.05c.5-.72 1.28-1.2 2.35-1.2 1.9 0 2.85 1.25 2.85 3.35V17.8h-2.2v-3.4c0-.95-.35-1.55-1.2-1.55-.85 0-1.35.58-1.35 1.55v3.4H12v-7z" />
     </svg>
   );
 }

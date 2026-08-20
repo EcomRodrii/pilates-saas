@@ -42,6 +42,13 @@ test('timestamp: se incluye solo si se pasa', () => {
   assert.equal(con.timestamp, '2026-07-14T00:00:00.000Z');
 });
 
+test('reserva_completada: sin socioId ni sesionId, solo la señal de negocio', () => {
+  const ev = construirEvento('studio-1', { nombre: 'reserva_completada', props: { con_spot_elegido: true } });
+  assert.equal(ev.event, 'reserva_completada');
+  assert.equal(ev.distinct_id, 'studio-1');
+  assert.deepEqual(Object.keys(ev.properties).sort(), ['$lib', 'con_spot_elegido']);
+});
+
 // Nota de tipos: el union EventoAnalitica es la barrera real anti-PII; esto solo
 // documenta que un evento válido compila con la forma esperada.
 const _muestra: EventoAnalitica = { nombre: 'pago_completado', props: { importe_centimos: 0, via: 'checkout' } };
