@@ -92,5 +92,50 @@ export function useDialogA11y({
     };
   }, [open, disparador]);
 
+  useBloquearScrollFondo(open);
+
   return { sheetRef };
+}
+
+/**
+ * Bloquea el scroll de la página de fondo mientras hay una hoja abierta.
+ *
+ * ⚠️ Esto NO existía en ninguna hoja del flujo de reserva — medido en
+ * producción: con la hoja de clase abierta, `body` seguía en
+ * `overflow: visible`. El efecto en móvil es el «scroll chaining» clásico: al
+ * llegar al final del contenido de la hoja el gesto no se para, sigue y
+ * arrastra el listado de clases de detrás. La hoja parece despegarse y, al
+ * cerrarla, el fondo ha viajado a otro sitio.
+ *
+ * Vive suelto (y no solo dentro de `useDialogA11y`) porque el `BookingSheet`
+ * del calendario —la PRIMERA hoja que se abre, y la que más se usa— tiene su
+ * propio shell y no pasa por ese hook.
+ *
+ * Se guarda y restaura el valor ANTERIOR en vez de escribir `''`: las hojas se
+ * encadenan (la ficha de clase abre encima el modal de reserva) y la de dentro,
+ * al cerrarse, desbloquearía el fondo con la de fuera todavía abierta.
+ */
+export function useBloquearScrollFondo(activo: boolean) {
+  useEffect(() => {
+    if (!activo) return;
+    // ⚠️ Hacen falta LOS DOS. Con `overflow: hidden` solo en `body`, el
+    // elemento que scrollea de verdad en esta página es `documentElement`, así
+    // que el fondo seguía moviéndose exactamente igual — el arreglo parecía
+    // hecho y no lo estaba (lo destapó el e2e midiendo `scrollY`, no el CSS).
+    const raiz = document.documentElement;
+    const previoBody = document.body.style.overflow;
+    const previoRaiz = raiz.style.overflow;
+    document.body.style.overflow = 'hidden';
+    raiz.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previoBody;
+      raiz.style.overflow = previoRaiz;
+    };
+    // A propósito NO se usa el truco de `position: fixed` + restaurar scroll,
+    // que es el remedio habitual para iOS: aquí colapsaría la altura del
+    // documento, y esa altura es justo la que se le anuncia al anfitrión por
+    // `tentareEmbedAltura` — el iframe del estudio se encogería a nada al abrir
+    // una hoja. El encadenamiento del gesto se corta aparte, con
+    // `overscroll-behavior: contain` en el scroller de cada hoja.
+  }, [activo]);
 }

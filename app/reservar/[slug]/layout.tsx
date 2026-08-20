@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { getStudioSeo } from '@/lib/studio-seo';
 import { BASE_URL } from '@/lib/seo/paginas';
@@ -34,6 +34,24 @@ import { urlMonograma } from '@/lib/monograma-estudio';
 //
 // Sigue sin indexarse lo que no debe: una página OCULTA (la propietaria aún la
 // está preparando) y un slug que no existe.
+// ⚠️ `env(safe-area-inset-bottom)` estaba usado en el pie fijo de la hoja de
+// reserva (reserva-calendario.tsx) desde hacía tiempo… y no hacía NADA: sin
+// `viewportFit: 'cover'` iOS devuelve 0 para todos los `env(safe-area-*)`. O
+// sea, el código parecía correcto, el CTA quedaba a 14px del borde real y en un
+// iPhone con barra de gestos el botón de pagar caía justo debajo de ella.
+// Mismo motivo y mismo comentario que en app/portal/[slug]/layout.tsx.
+//
+// `maximumScale` NO se fija aquí a propósito, al revés que en el portal: esto
+// es una pantalla pública donde alguien puede necesitar ampliar para leer, y
+// bloquear el zoom es una barrera de accesibilidad. El zoom automático de iOS
+// al enfocar un input se evita por la vía correcta —inputs de 16px—, no
+// prohibiendo ampliar.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const studio = await getStudioSeo(slug);

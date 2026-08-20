@@ -62,5 +62,9 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    /* Faltaba respecto a globals.css, y no era teórico: la tira de días llama
+       a `scrollBy({ behavior: 'smooth' })`, así que en Modo B seguía animando
+       el scroll con «reducir movimiento» activado. */
+    scroll-behavior: auto !important;
   }
 }
