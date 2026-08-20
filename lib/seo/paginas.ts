@@ -382,12 +382,12 @@ export const PAGINAS: PaginaSeo[] = [
   // ── Ya existían antes de este registro ────────────────────────────────────
   {
     path: '/comparativa',
-    titulo: 'Comparativa: Tentare frente a los 8 software de gestión de Pilates',
+    titulo: 'Comparativa: Tentare frente a los 13 software de gestión de Pilates',
     descripcion:
-      'Compara Tentare con los 8 software con los que más se compara en estudios de Pilates: facturación Veri*factu, precio público, permanencia, datos en la UE y sustitución de instructoras.',
+      'Compara Tentare con los 13 software con los que más se compara en estudios de Pilates: facturación Veri*factu, precio público, permanencia, datos en la UE y sustitución de instructoras.',
     grupo: 'software',
     etiqueta: 'Comparativa',
-    resumen: 'Tentare frente a las ocho plataformas con las que más se compara.',
+    resumen: 'Tentare frente a las trece plataformas con las que más se compara.',
     prioridad: 0.8,
     changeFrequency: 'monthly',
     actualizado: '2026-08-13',
@@ -417,6 +417,23 @@ export const PAGINAS: PaginaSeo[] = [
       'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Lorari, punto por punto.'],
     ['tentare-vs-bonsai', 'Bonsai', ['/funcionalidades/facturacion', '/funcionalidades/sustituciones'],
       'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Bonsai, punto por punto.'],
+    // Estos 5 no salieron de una lista genérica de "competidores conocidos"
+    // como los 8 de arriba — son los que de verdad aparecen en el SERP español
+    // para "gestión pilates"/"gestión centros de pilates", las 2 únicas
+    // queries con volumen real en Search Console a 20-ago-2026 (auditoría GSC,
+    // ver docs/ si se documenta). Cada dato de sus filas se verificó en vivo
+    // en su web pública — donde no se encontró un dato, la fila dice
+    // "no encontrada"/"no especifica", nunca se asumió.
+    ['tentare-vs-viday', 'ViDay', ['/funcionalidades/sustituciones', '/precios'],
+      'Precio, permanencia, Veri*factu, gestión por reformer individual y sustitución de instructoras — Tentare frente a ViDay, punto por punto.'],
+    ['tentare-vs-gesyoga', 'GesYoga', ['/funcionalidades/sustituciones', '/precios'],
+      'Precio, permanencia, Veri*factu, gestión por reformer individual y sustitución de instructoras — Tentare frente a GesYoga, punto por punto.'],
+    ['tentare-vs-bookyway', 'BookyWay', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
+      'Precio, modelo de pago, Veri*factu, gestión por reformer individual y sustitución de instructoras — Tentare frente a BookyWay, punto por punto.'],
+    ['tentare-vs-deporweb', 'DeporWeb', ['/funcionalidades/sustituciones', '/precios'],
+      'Precio, transparencia de información, gestión por reformer individual y sustitución de instructoras — Tentare frente a DeporWeb, punto por punto.'],
+    ['tentare-vs-flowstark', 'Flowstark', ['/funcionalidades/sustituciones', '/precios'],
+      'Precio, permanencia, Veri*factu, gestión por reformer individual y sustitución de instructoras — Tentare frente a Flowstark, punto por punto.'],
   ] as const).map(([slug, nombre, relacionadasFuncionalidad, descripcion]): PaginaSeo => ({
     path: `/comparativa/${slug}`,
     titulo: `Tentare vs ${nombre}: comparativa para estudios de Pilates en España`,
