@@ -151,7 +151,7 @@ export function textoCobertura(c: Cobertura): string | null {
         ? `Usarás tu última sesión de ${c.planNombre}`
         : `Descuenta 1 sesión de tu ${c.planNombre} · te quedarán ${c.sesionesRestantes - 1}`;
     case 'NO_CUBRE_ESTA_CLASE':
-      // Sin repetir el importe: el CTA ya dice "Reservar · 15 €" justo debajo, y
+      // Sin repetir el importe: el CTA ya dice "Reservar por 15 €" justo debajo, y
       // verificado en captura que el mismo número dos veces en 40 px se lee como
       // un descuadre. Aquí lo que hace falta es el POR QUÉ y qué está comprando.
       return c.precio != null

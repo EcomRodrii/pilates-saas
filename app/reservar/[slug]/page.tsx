@@ -1188,6 +1188,9 @@ export default function ReservarPage() {
           sesionId: bookingSesionId,
           socioEmail: loginForm.email.trim(),
           socioNombre: `${loginForm.nombre.trim()} ${loginForm.apellidos.trim()}`.trim(),
+          // Antes se validaba y se TIRABA: la ficha que crea el webhook
+          // quedaba sin teléfono aunque la persona lo acabara de escribir.
+          socioTelefono: loginForm.telefono.trim(),
           origenLead: searchParams.get('ref') ?? null,
           codigoDescuento: codigoDescuento.trim() || undefined,
         }),
@@ -2587,10 +2590,14 @@ export default function ReservarPage() {
                 </div>
                 {pagoWebSinLogin && (
                   <div className="w-full rounded-2xl p-3.5 text-left bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
+                    {/* Copy honesto (P0): la reserva y la cuenta las crea el
+                        WEBHOOK después del pago — aquí solo consta el cobro.
+                        No se da la plaza por hecha ni la cuenta por creada:
+                        se dice lo único cierto, que estamos en ello. */}
                     <p className="text-[var(--portal-ink)] text-sm">
-                      Hemos creado automáticamente tu cuenta con{' '}
-                      <span className="font-semibold">{loginForm.email}</span>. Te llegará un email de
-                      confirmación en cuanto tu plaza quede asignada.
+                      Estamos confirmando tu plaza. En un momento te llegará a{' '}
+                      <span className="font-semibold">{loginForm.email}</span> el email de
+                      confirmación con el acceso a tu cuenta.
                     </p>
                   </div>
                 )}
@@ -2872,7 +2879,20 @@ export default function ReservarPage() {
                   // arriba) — no la fija del estudio a secas, la de SU tipo de
                   // clase si tiene override.
                   ventanaCancelacionHoras={bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0}
-                  textoBoton={`Pagar y reservar → ${datosPlan.precio} €`}
+                  // El importe nunca detrás de la flecha: "→ 1 €" se leía
+                  // como "-1 €" (queja literal del fundador).
+                  textoBoton={`Pagar ${datosPlan.precio} € y reservar`}
+                  // Prefija en el Payment Element lo que se acaba de escribir
+                  // en el paso 1 — Link volvía a pedir email y teléfono.
+                  datosPago={{
+                    nombre: `${loginForm.nombre.trim()} ${loginForm.apellidos.trim()}`.trim(),
+                    email: loginForm.email.trim(),
+                    telefono: loginForm.telefono.trim(),
+                  }}
+                  // La fuente REAL del widget para dentro del iframe de Stripe
+                  // (appearance no resuelve var(--font-ui)); sin fuente
+                  // personalizada, el componente cae a Instrument Sans.
+                  fuentePago={apariencia.fuente && cssFuente ? { familia: apariencia.fuente, cssSrc: cssFuente } : undefined}
                   onExito={handlePagoExitoso}
                   onCerrar={() => setLoginStep('datos')}
                 />

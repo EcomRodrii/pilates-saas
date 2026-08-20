@@ -20,7 +20,7 @@ import { semantic } from '@/lib/portal-tokens';
 
 export function CheckoutEmbebido({
   t, plan, clientSecret, publishableKey, stripeAccountId, onExito, onBizum, onCerrar,
-  resumenClase, textoBoton, ventanaCancelacionHoras,
+  resumenClase, textoBoton, ventanaCancelacionHoras, datosPago, fuentePago,
 }: {
   t: ModoTokens;
   plan: PlanTarifa;
@@ -45,7 +45,11 @@ export function CheckoutEmbebido({
    * "vas a pagar X €" sin contexto de qué clase es.
    */
   resumenClase?: { nombre: string; fecha: string; hora: string; instructor?: string | null };
-  /** Copy del botón de pago — "Pagar y reservar →" cuando hay clase de por medio. */
+  /**
+   * Copy del botón de pago — "Pagar X € y reservar" cuando hay clase de por
+   * medio. El importe NUNCA va precedido de flecha/guion/interpunto: "→ 1 €"
+   * se leía como "-1 €" (queja literal del fundador).
+   */
   textoBoton?: string;
   /**
    * Fase 2 del rediseño (docs/widget-reservas-theme-builder-diseno.md,
@@ -55,6 +59,21 @@ export function CheckoutEmbebido({
    * cierto para este tipo de clase. `undefined`/`0` = sin esa línea.
    */
   ventanaCancelacionHoras?: number;
+  /**
+   * Los datos que la persona ACABA de escribir en el paso anterior — se
+   * prefijan en el Payment Element (`defaultValues.billingDetails`) para que
+   * Stripe (Link incluido) no vuelva a pedir email y teléfono recién
+   * introducidos.
+   */
+  datosPago?: { nombre?: string; email?: string; telefono?: string };
+  /**
+   * La fuente REAL del widget para dentro del iframe de Stripe. Su
+   * `appearance` no resuelve custom properties (`var(--font-ui)` ahí no
+   * existe) ni ve las fuentes cargadas fuera del iframe: hacen falta nombres
+   * de familia literales + la URL de Google Fonts (`fonts[].cssSrc`) para que
+   * el bloque de tarjeta no salga en Times/serif del navegador.
+   */
+  fuentePago?: { familia: string; cssSrc: string | null };
 }) {
   // `useMemo`, no una constante a nivel de módulo: `stripeAccount` cambia
   // según de qué estudio sea el widget (varios widgets, distintos estudios,
@@ -112,6 +131,13 @@ export function CheckoutEmbebido({
   // fallback razonable en vez de dejar el pago sin marca.
   const marcaRef = useRef<HTMLDivElement>(null);
   const [colorMarca, setColorMarca] = useState(t.ink);
+  // Fallback: la fuente base del widget (Instrument Sans, la de `sans`),
+  // pedida a Google Fonts porque dentro del iframe la copia self-hosted de
+  // next/font no existe.
+  const fuenteCheckout = fuentePago ?? {
+    familia: 'Instrument Sans',
+    cssSrc: 'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap',
+  };
   useEffect(() => {
     if (!marcaRef.current) return;
     const valor = getComputedStyle(marcaRef.current).getPropertyValue('--portal-brand').trim();
@@ -160,13 +186,19 @@ export function CheckoutEmbebido({
         stripe={stripePromise}
         options={{
           clientSecret,
+          locale: 'es',
+          // Ver el docblock de `fuentePago`: dentro del iframe de Stripe ni
+          // existen las custom properties ni están cargadas nuestras fuentes.
+          // Sin prop se pide la base del widget (Instrument Sans) a Google
+          // Fonts, con system-ui de reserva mientras carga.
+          fonts: fuenteCheckout.cssSrc ? [{ cssSrc: fuenteCheckout.cssSrc }] : undefined,
           appearance: {
             theme: 'stripe',
             variables: {
               colorPrimary: colorMarca,
               colorBackground: t.surface,
               colorText: t.ink,
-              fontFamily: sans,
+              fontFamily: `'${fuenteCheckout.familia}', system-ui, sans-serif`,
               borderRadius: `${radius.card}px`,
             },
           },
@@ -174,7 +206,7 @@ export function CheckoutEmbebido({
       >
         <FormularioPago
           t={t} plan={plan} onExito={onExito} onBizum={onBizum} onCerrar={onCerrar} textoBoton={textoBoton}
-          ventanaCancelacionHoras={ventanaCancelacionHoras}
+          ventanaCancelacionHoras={ventanaCancelacionHoras} datosPago={datosPago}
         />
       </Elements>
     </div>
@@ -182,10 +214,11 @@ export function CheckoutEmbebido({
 }
 
 function FormularioPago({
-  t, plan, onExito, onBizum, onCerrar, textoBoton, ventanaCancelacionHoras,
+  t, plan, onExito, onBizum, onCerrar, textoBoton, ventanaCancelacionHoras, datosPago,
 }: {
   t: ModoTokens; plan: PlanTarifa; onExito: () => void; onBizum?: () => void; onCerrar: () => void;
   textoBoton?: string; ventanaCancelacionHoras?: number;
+  datosPago?: { nombre?: string; email?: string; telefono?: string };
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -222,7 +255,20 @@ function FormularioPago({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <PaymentElement onReady={() => setElementoListo(true)} />
+      {/* `defaultValues`: sin esto, el banner de Link volvía a pedir el email
+          y el teléfono que la persona acababa de escribir en el paso 1. */}
+      <PaymentElement
+        onReady={() => setElementoListo(true)}
+        options={datosPago ? {
+          defaultValues: {
+            billingDetails: {
+              name: datosPago.nombre || undefined,
+              email: datosPago.email || undefined,
+              phone: datosPago.telefono || undefined,
+            },
+          },
+        } : undefined}
+      />
       {error && (
         // Pantalla 06 del handoff (pago fallido) — SIN prometer un hold de
         // plaza que este flujo no tiene: aquí no se ha reservado nada
@@ -234,6 +280,12 @@ function FormularioPago({
           <div>
             <p style={{ fontSize: 12.5, fontWeight: 700, color: semantic.warning.text }}>No hemos podido procesar el pago</p>
             <p style={{ fontSize: 12, color: semantic.warning.text, marginTop: 2 }}>{error} No se ha realizado ningún cargo.</p>
+            {/* Accionable, no solo diagnóstico: qué hacer ahora. El botón de
+                pagar ya vuelve solo a su estado normal (setEnviando(false)
+                antes de pintar este error). */}
+            <p style={{ fontSize: 12, fontWeight: 600, color: semantic.warning.text, marginTop: 4 }}>
+              Revisa los datos de la tarjeta o prueba con otra e inténtalo de nuevo.
+            </p>
           </div>
         </div>
       )}

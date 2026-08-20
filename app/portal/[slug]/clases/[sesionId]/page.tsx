@@ -329,7 +329,9 @@ export default function ClaseDetallePage() {
               style={{ width: '100%' }}
             >
               {libres > 0
-                ? (cubierta || precioClaseSuelta == null ? 'Reservar' : `Reservar · ${precioClaseSuelta} €`)
+                // "por", nunca interpunto pegado al importe — mismo criterio
+                // que el CTA del widget (P0 checkout).
+                ? (cubierta || precioClaseSuelta == null ? 'Reservar' : `Reservar por ${precioClaseSuelta} €`)
                 : 'Unirme a la lista de espera'}
             </Button>
           )}

@@ -125,6 +125,9 @@ test('rellenar datos y continuar llama a checkout-embebido con nombre/email/tel�
   expect(ultimoBody).toMatchObject({
     studioId: STUDIO_ID, planId: 'plan-suelto', sesionId: SESION_ID,
     socioEmail: 'marta.ruiz@example.com', socioNombre: 'Marta Ruiz',
+    // El teléfono viaja al servidor (antes se validaba y se TIRABA — la
+    // ficha creada por el webhook quedaba sin él).
+    socioTelefono: '+34 600 123 456',
   });
 
   // Sin socioId: nunca se manda una identidad que la visitante no tiene todavía.
@@ -132,8 +135,18 @@ test('rellenar datos y continuar llama a checkout-embebido con nombre/email/tel�
 
   // Llega al paso de pago — la cabecera del modal cambia y aparece el resumen
   // de la clase. No se comprueba el Payment Element de Stripe (límite de
-  // entorno, ver cabecera del fichero).
-  await expect(page.getByRole('dialog', { name: 'Pagar y reservar' })).toBeVisible({ timeout: 15_000 });
+  // entorno, ver cabecera del fichero) — y por lo mismo tampoco los
+  // `defaultValues.billingDetails` prefijados: viven DENTRO del iframe de
+  // Stripe, que con un clientSecret de mentira no llega a montarse.
+  const dialogoPago = page.getByRole('dialog', { name: 'Pagar y reservar' });
+  await expect(dialogoPago).toBeVisible({ timeout: 15_000 });
+
+  // P0 (queja literal del fundador): "Pagar y reservar → 1 €" se leía como
+  // "-1 €". El CTA dice ahora el importe SIN flecha/guion/interpunto delante.
+  await expect(dialogoPago.getByRole('button', { name: 'Pagar 18 € y reservar' })).toBeVisible();
+  const textoDialogo = await dialogoPago.innerText();
+  expect(textoDialogo, 'ningún importe puede ir precedido de una flecha').not.toMatch(/→\s*\d+([.,]\d+)?\s*€/);
+  expect(textoDialogo, 'ningún importe puede ir precedido de un interpunto').not.toMatch(/·\s*\d+([.,]\d+)?\s*€/);
 });
 
 test('⚠️ un 409 de checkout-embebido NO se anuncia como pago iniciado', async ({ page }) => {

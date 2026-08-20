@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
@@ -9,6 +10,9 @@ import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { claveCheckoutEmbebido } from '@/lib/billing/clave-checkout-embebido';
+import { setupFutureUsageCheckout } from '@/lib/billing/uso-futuro-tarjeta';
+import { telefonoValido } from '@/lib/csv';
+import type { TipoPlan } from '@/lib/types';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
@@ -33,6 +37,23 @@ export async function OPTIONS(req: NextRequest) {
 // La clave de idempotencia vive en lib/billing/clave-checkout-embebido.ts —
 // tiene su propia batería de tests, porque decide si dos intentos de pago son
 // "el mismo" y eso es dinero.
+
+// El error COMPLETO de Stripe para Sentry. El fallo del Customer de invitada
+// se reproduce en producción al 100% con la clave correcta ya verificada por
+// el fundador (restricted key descartada) — este capture ES el diagnóstico
+// definitivo que falta, así que no basta el message: tipo, código, requestId
+// y raw incluidos.
+function detalleErrorStripe(e: unknown): Record<string, unknown> {
+  const err = e as Partial<Stripe.errors.StripeError> & { requestId?: string; raw?: { message?: string; code?: string } };
+  return {
+    tipo: err?.type ?? null,
+    codigo: err?.code ?? err?.raw?.code ?? null,
+    mensaje: e instanceof Error ? e.message : String(e),
+    rawMessage: err?.raw?.message ?? null,
+    requestId: err?.requestId ?? null,
+    statusCode: err?.statusCode ?? null,
+  };
+}
 
 export async function POST(req: NextRequest) {
   // Bucket dedicado, no 'stripe-checkout': un checkout embebido tiene más idas
@@ -65,6 +86,9 @@ export async function POST(req: NextRequest) {
     socioId?: string | null;
     socioEmail?: string | null;
     socioNombre?: string;
+    // El teléfono que puso en el paso de datos — antes se validaba en el
+    // cliente y se TIRABA: la ficha creada por el webhook quedaba sin él.
+    socioTelefono?: string | null;
     origenLead?: string | null;
     // NUEVO — "pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
     // §4.1): la clase que se quiere reservar en cuanto el pago se confirme.
@@ -93,10 +117,19 @@ export async function POST(req: NextRequest) {
   if (body.socioEmail != null && !EMAIL_RE.test(body.socioEmail.trim())) {
     return conCorsWidget(req, NextResponse.json({ error: 'Email no válido' }, { status: 400 }));
   }
+  // Teléfono: saneado pero NO bloqueante — a diferencia del email (que decide
+  // a qué ficha se asocia el bono, y por eso 400ea), el teléfono es un dato de
+  // contacto secundario: un formato raro no puede frenar un cobro legítimo.
+  // Mismo criterio "aviso, no bloqueo" que telefonoValido documenta en el
+  // importador. Inválido o ausente → simplemente no viaja.
+  const telefonoCrudo = body.socioTelefono?.trim() ?? '';
+  const socioTelefono = telefonoCrudo && telefonoCrudo.length <= 32 && telefonoValido(telefonoCrudo)
+    ? telefonoCrudo
+    : null;
 
   const { data: plan, error: errPlan } = await admin
     .from('planes_tarifa')
-    .select('nombre, precio, studio_id, activo')
+    .select('nombre, precio, tipo, studio_id, activo')
     .eq('id', body.planId)
     .maybeSingle();
   if (errPlan || !plan) {
@@ -108,6 +141,9 @@ export async function POST(req: NextRequest) {
   if (!plan.activo) {
     return conCorsWidget(req, NextResponse.json({ error: 'Ese plan ya no está disponible' }, { status: 409 }));
   }
+  // ¿Este pago autoriza cargos futuros? Solo MENSUAL (renovación automática).
+  // El CHECK de planes_tarifa garantiza que `tipo` es uno de los tres valores.
+  const usoFuturo = setupFutureUsageCheckout(plan.tipo as TipoPlan);
 
   // ⚠️ El `socioId` NUNCA se toma del body.
   //
@@ -285,7 +321,15 @@ export async function POST(req: NextRequest) {
           customerId = null;
         }
       } catch (e) {
+        // Fail-open en el COBRO, fail-visible en el error: en producción este
+        // catch se comía en silencio el 100% de los fallos (2 PIs
+        // inspeccionados con customer: null) y nadie se enteraba de que la
+        // tarjeta nunca se guardaba. El pago sigue adelante igual.
         console.error('[checkout-embebido] no se pudo crear el customer de Stripe', e);
+        Sentry.captureException(e instanceof Error ? e : new Error(String(e)), {
+          tags: { modulo: 'checkout-embebido', paso: 'customer' },
+          extra: { studioId: body.studioId, invitada: false, ...detalleErrorStripe(e) },
+        });
         customerId = null;
       }
     }
@@ -297,14 +341,34 @@ export async function POST(req: NextRequest) {
     // sobre la socia recién creada en la rama de guardado de tarjeta, así
     // que con `customer` presente en el PI ese camino empieza a funcionar
     // solo, sin tocar el webhook.
+    //
+    // Revisado a fondo buscando una causa estática del fallo del 100% en
+    // producción (params, idempotencyKey, stripeAccount): no se encontró
+    // ninguna. Un matiz relevante: Stripe REPLAYA durante ~24h el resultado
+    // de una idempotencyKey aunque fuera un error, así que un primer fallo
+    // se repetía en cada reintento del mismo intento con la clave vieja —
+    // el `-v2` de la clave estrena espacio de claves limpio. Si el fallo
+    // persiste, el capture de abajo (tipo/código/requestId) es el diagnóstico.
     try {
       const customer = await stripe.customers.create(
-        { name: body.socioNombre, email: body.socioEmail, metadata: { socioEmail: body.socioEmail, studioId: body.studioId } },
+        {
+          name: body.socioNombre,
+          email: body.socioEmail,
+          phone: socioTelefono ?? undefined,
+          metadata: { socioEmail: body.socioEmail, studioId: body.studioId },
+        },
         { stripeAccount, idempotencyKey: `${idemKey}:customer` },
       );
       customerId = customer.id;
     } catch (e) {
+      // Mismo criterio que arriba: seguir sin customer (el pago no se
+      // bloquea), pero que el fallo se VEA. Este es el caso confirmado en
+      // producción — hipótesis principal: restricted key sin Customers:write.
       console.error('[checkout-embebido] no se pudo crear el customer de Stripe (invitada)', e);
+      Sentry.captureException(e instanceof Error ? e : new Error(String(e)), {
+        tags: { modulo: 'checkout-embebido', paso: 'customer' },
+        extra: { studioId: body.studioId, invitada: true, ...detalleErrorStripe(e) },
+      });
     }
   }
 
@@ -321,6 +385,7 @@ export async function POST(req: NextRequest) {
   if (body.origenLead) metadata.origenLead = body.origenLead;
   if (body.socioEmail) metadata.socioEmail = body.socioEmail;
   if (body.socioNombre) metadata.socioNombre = body.socioNombre;
+  if (socioTelefono) metadata.socioTelefono = socioTelefono;
   if (body.sesionId) metadata.sesionId = body.sesionId;
   if (codigoDescuentoId) metadata.codigoDescuentoId = codigoDescuentoId;
 
@@ -338,7 +403,12 @@ export async function POST(req: NextRequest) {
       // que hiciera falta — no son un redirect, son la misma tarjeta con
       // menos fricción.
       automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
-      setup_future_usage: 'off_session',
+      // Condicional por tipo de plan (P0): solo MENSUAL autoriza cargos
+      // futuros. Con 'off_session' incondicional, una clase suelta de 1 €
+      // pintaba el consentimiento de cargos futuros de Stripe sin necesitarlo.
+      // Ver lib/billing/uso-futuro-tarjeta.ts (y el `-v2` de la clave de
+      // idempotencia, versionada por este mismo cambio).
+      ...(usoFuturo ? { setup_future_usage: usoFuturo } : {}),
       ...(customerId ? { customer: customerId } : {}),
       receipt_email: body.socioEmail ?? undefined,
       description: plan.nombre,

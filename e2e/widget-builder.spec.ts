@@ -42,7 +42,7 @@ function mananaA(hora: number): string {
 
 // Catálogo público que consume la vista previa del widget embebido
 // (PreviewWidgetScript → useDatosWidget → /api/public/studio-data). Con plan
-// PUNTUAL activo y sin socia, la hoja de reserva enseña «Reservar · 15 €» —
+// PUNTUAL activo y sin socia, la hoja de reserva enseña «Reservar por 15 €» —
 // la materia prima del toggle «Ocultar precio».
 function fixturePublico() {
   return {
@@ -163,7 +163,7 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
     // el precio en la hoja de reserva.
     await page.getByRole('button', { name: '10:00 Reformer' }).click();
     const hoja = page.getByRole('dialog');
-    await expect(hoja.locator('.reserva-cta-btn')).toHaveText(/Reservar · 15 €/);
+    await expect(hoja.locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
     await hoja.getByRole('button', { name: 'Cerrar' }).click();
     await expect(hoja).toHaveCount(0);
 

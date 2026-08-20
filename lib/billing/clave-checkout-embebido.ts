@@ -64,7 +64,15 @@ export function claveCheckoutEmbebido(
   ahoraMs: number = Date.now(),
 ): string {
   const partes = [
-    'checkout-embebido',
+    // `-v2`: al hacer `setup_future_usage` condicional (P0 del checkout, antes
+    // era 'off_session' incondicional), un intento arrancado antes del deploy y
+    // reintentado después mandaría la MISMA clave con parámetros distintos — y
+    // Stripe rechaza ese reintento legítimo con un error de idempotencia en vez
+    // de devolver el PaymentIntent. Versionar la clave hace que el reintento
+    // post-deploy sea un intento nuevo (sin doble cobro: el PI del intento
+    // viejo nunca llegó a confirmarse, si se hubiera confirmado no habría
+    // reintento).
+    'checkout-embebido-v2',
     datos.studioId,
     datos.planId,
     quienPaga(datos.socioId, datos.socioEmail),

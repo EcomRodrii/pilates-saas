@@ -88,7 +88,9 @@ test('invitada sin email y sin clase: sigue habiendo clave, no revienta', () => 
     { studioId: 's1', planId: 'p1', socioId: null, socioEmail: null, sesionId: null, codigoDescuentoId: null },
     Date.parse('2026-08-19T10:00:00.000Z'),
   );
-  assert.ok(clave.startsWith('checkout-embebido-s1-p1-guest-'));
+  // `-v2`: la clave se versionó al hacer `setup_future_usage` condicional —
+  // ver el comentario en claveCheckoutEmbebido.
+  assert.ok(clave.startsWith('checkout-embebido-v2-s1-p1-guest-'));
 });
 
 // Regresión (diseño #canje-codigos-descuento-checkout): sin el código de
