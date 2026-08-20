@@ -13,6 +13,7 @@ import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { COLOR_VALIDO, fuenteValida, familiaCssDe, urlFuenteGoogle } from '@/lib/reservar/config-widget';
+import { SelectorFuente } from '@/components/ui/selector-fuente';
 import { scriptSnippetIframe } from '@/lib/reservar/snippet-embed';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 
@@ -410,42 +411,6 @@ function CampoColor({ etiqueta, descripcion, valor, porDefecto, onChange }: {
         >
           Restablecer al color de marca
         </button>
-      )}
-    </div>
-  );
-}
-
-// Fuente por NOMBRE (Google Fonts) — mismo patrón que el editor de temas
-// (theme-editor.tsx, campo «Tipografía»): un input de texto libre, no un
-// dropdown con el catálogo entero de Google Fonts. Validación en vivo con la
-// MISMA puerta que aplicará el parser (fuenteValida): un nombre inválido se
-// avisa y NO se emite en el snippet — nunca rompe, igual que un hex a medias.
-function CampoFuente({ etiqueta, descripcion, valor, onChange }: {
-  etiqueta: string;
-  descripcion: string;
-  valor: string | null;
-  onChange: (v: string | null) => void;
-}) {
-  const invalida = valor !== null && valor.trim() !== '' && !fuenteValida(valor);
-  return (
-    <div>
-      <Field label={etiqueta} description={descripcion}>
-        <input
-          type="text"
-          value={valor ?? ''}
-          maxLength={40}
-          onChange={e => onChange(e.target.value.trim() === '' ? null : e.target.value)}
-          placeholder="Space Grotesk"
-          className={cn(
-            'w-full rounded-lg border bg-background px-3 py-2 text-[13px] text-foreground',
-            invalida ? 'border-destructive' : 'border-border',
-          )}
-        />
-      </Field>
-      {invalida && (
-        <p className="mt-1 text-[11px] text-destructive">
-          Solo letras, números y espacios — escribe el nombre tal cual aparece en Google Fonts.
-        </p>
       )}
     </div>
   );
@@ -920,19 +885,21 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
                 porDefecto={MODO_TOKENS.dia.ink}
                 onChange={v => cambiar({ negro: v })}
               />
-              <CampoFuente
+              <SelectorFuente
                 etiqueta="Tipografía"
-                descripcion={widget.modo === 'script'
-                  ? 'La fuente de tu web, por su nombre en Google Fonts — la cargamos nosotros. Sin tocar, la del sistema.'
-                  : 'Por su nombre en Google Fonts. Sin tocar, la del tema publicado (Apariencia).'}
+                ayuda={widget.modo === 'script'
+                  ? 'La cargamos nosotros en tu web. Sin tocar, la del sistema.'
+                  : 'Sin tocar, la del tema publicado (Apariencia).'}
                 valor={config.fuente}
                 onChange={v => cambiar({ fuente: v })}
+                etiquetaPorDefecto={widget.modo === 'script' ? 'La del sistema' : 'La del tema publicado'}
               />
-              <CampoFuente
+              <SelectorFuente
                 etiqueta="Tipografía de titulares"
-                descripcion="Para títulos, horas y precios. Sin tocar, la misma de arriba (o la serif de siempre)."
+                ayuda="Para títulos, horas y precios. Sin tocar, la misma de arriba."
                 valor={config.fuenteDisplay}
                 onChange={v => cambiar({ fuenteDisplay: v })}
+                etiquetaPorDefecto="Igual que la de arriba"
               />
               {widget.modo !== 'script' && (
                 <FilaAjuste etiqueta="Ancho" descripcion="Cómo se comporta el iframe dentro de tu web.">
