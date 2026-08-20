@@ -73,6 +73,20 @@ export default function CentroDeControlPage() {
     [data, fechaHoy],
   );
 
+  // Puente Centro de Control ↔ Dashboard: mismo total que suma el Action
+  // Center (`tituloAtencion`, lib/decision/action-center.ts) para que "Todo
+  // bajo control" nunca contradiga "N cosas necesitan tu atención" a un clic
+  // de distancia — ver hallazgo de auditoría "Veredicto de Marta" 2026-08-20.
+  const totalPendiente = data ? data.prioridades.length + data.masSituaciones.length : 0;
+  const anclaPendiente = enSeguimiento.length > 0 ? 'seguimiento' : 'recomendaciones';
+
+  function handleVerPendiente() {
+    setDetalleAbierto(true);
+    setTimeout(() => {
+      document.getElementById(anclaPendiente)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+
   const gruposSituacion = useMemo(() => {
     const grupos = new Map<NivelSituacion, RecomendacionAPI[]>([['ACCION_RECOMENDADA', []], ['REVISAR', []], ['SENAL', []]]);
     for (const r of situacionesNuevas) grupos.get(nivelSituacion(r.prioridad))!.push(r);
@@ -191,10 +205,14 @@ export default function CentroDeControlPage() {
         procesando={!!data.veredicto.recomendacion && procesandoId === data.veredicto.recomendacion.id}
         whatsappHref={data.veredicto.recomendacion ? whatsappHref(data.veredicto.recomendacion) : null}
         nAutonomasHoy={data.nAutonomasHoy ?? 0}
+        totalPendiente={totalPendiente}
+        onVerPendiente={handleVerPendiente}
       />
 
       {/* 2. Seguimiento — situaciones ya detectadas, sin cambios desde la última revisión */}
-      <SeguimientoPendiente items={enSeguimiento} />
+      <div id="seguimiento">
+        <SeguimientoPendiente items={enSeguimiento} />
+      </div>
 
       <button
         type="button"
