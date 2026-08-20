@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { dbSetStripeAccountId } from '@/lib/db/supabase-data-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarEstadoOAuth } from '@/lib/oauth-state';
+import { registrarDominiosWalletEstudio } from '@/lib/billing/dominios-wallets';
 
 // Vuelta del OAuth de Stripe Connect (ver el botón "Conectar con Stripe" en
 // Configuración → Integraciones). Cambia el `code` de un solo uso por el id
@@ -37,6 +39,31 @@ export async function GET(req: NextRequest) {
       throw new Error('Stripe no devolvió una cuenta conectada');
     }
     await dbSetStripeAccountId(studioId, token.stripe_user_id);
+
+    // Con la cuenta recién conectada, registra sus dominios de wallets:
+    // www.tentare.app + ápice (Modo A: el Payment Element vive en el iframe
+    // de tentare.app) y los dominios del widget ya autorizados si los hubiera
+    // (Modo B). Con Connect direct charge el registro es POR cuenta conectada
+    // — sin él, Apple Pay nunca aparece en el checkout de este estudio.
+    // Falla-suave por construcción (dominios-wallets.ts nunca lanza), y se
+    // espera antes del redirect porque en serverless nada sobrevive a la
+    // respuesta.
+    // Try propio: en este punto la conexión YA está guardada — un tropiezo
+    // aquí no debe caer al catch de abajo y anunciar «no se pudo conectar».
+    try {
+      const admin = getSupabaseAdmin();
+      const { data: studio } = admin
+        ? await admin.from('studios').select('widget_dominios_autorizados').eq('id', studioId).maybeSingle()
+        : { data: null };
+      await registrarDominiosWalletEstudio(
+        stripe,
+        token.stripe_user_id,
+        (studio?.widget_dominios_autorizados as string[] | null) ?? [],
+      );
+    } catch (e) {
+      console.error('[stripe/connect/callback] registro de dominios de wallets', e);
+    }
+
     return NextResponse.redirect(`${appUrl}/configuracion?stripe_connected=1`);
   } catch (err) {
     console.error('[stripe/connect/callback]', err instanceof Error ? err.message : err);

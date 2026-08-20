@@ -349,11 +349,21 @@ Concreto, no genérico:
 
 ## 10. Qué NO se aborda en esta fase de diseño
 
-- **Apple Pay / Google Pay** dentro del Payment Element — técnicamente los
+- ~~**Apple Pay / Google Pay** dentro del Payment Element — técnicamente los
   habilitaría `automatic_payment_methods`, pero exigen verificación de
   dominio del ESTUDIO ante Stripe (`domain association file` servido desde SU
   dominio, que Tentare no controla). Esta fase fija `payment_method_types`
-  explícito a `['card']` precisamente para no abrir esa puerta sin diseñarla.
+  explícito a `['card']` precisamente para no abrir esa puerta sin diseñarla.~~
+  **RESUELTO (bloque P0-2 de wallets)** — y la premisa de arriba estaba
+  desactualizada: con el API moderno de `payment_method_domains` NO hace falta
+  ningún `domain association file` (la «merchant validation» de Apple la hace
+  Stripe entre bastidores; doc oficial pmd-registration). Con Connect direct
+  charge el registro es por CUENTA CONECTADA + dominio:
+  `lib/billing/dominios-wallets.ts` registra `www.tentare.app` + ápice
+  (Modo A, iframe) y los dominios del widget (Modo B) — automático al
+  conectar Stripe (`app/api/stripe/connect/callback`) y al autorizar un
+  dominio del widget (`app/api/widget/dominios-wallet`); catch-up para
+  cuentas ya conectadas en `app/api/interno/wallets/registrar-dominios`.
 - **Cobro directo de recibo pendiente (`body.reciboId`) desde el widget** — el
   endpoint nuevo es solo para `planId`; el camino de recibo sigue en Checkout
   Session sin cambios.

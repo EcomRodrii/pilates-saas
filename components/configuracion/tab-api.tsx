@@ -1015,6 +1015,16 @@ function GestionDominios({ dominios, onGuardar, showToast }: {
     setGuardando(false);
     if (!r.ok) { showToast(r.error ?? 'No se pudo guardar el dominio'); return; }
     setNuevo('');
+    // Fire-and-forget: registra el dominio recién autorizado como dominio de
+    // wallets (Apple Pay/Google Pay) sobre la cuenta conectada del estudio.
+    // Sin esto, Apple Pay nunca aparece en el checkout embebido en la web del
+    // estudio (Modo B). El endpoint lee de la BD lo que se acaba de guardar y
+    // es no-op si el estudio no tiene Stripe conectado; su fallo no afecta al
+    // guardado, que ya está hecho.
+    void (async () => {
+      const headers = await authHeader();
+      await fetch('/api/widget/dominios-wallet', { method: 'POST', headers });
+    })().catch(() => { /* mejora, no requisito: el registro se reintenta al volver a guardar */ });
   }
 
   async function quitar(origenAQuitar: string) {
