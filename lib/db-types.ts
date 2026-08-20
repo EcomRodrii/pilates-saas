@@ -830,6 +830,10 @@ export interface RowStudios {
   klaviyo_account_name: string | null;
   // migr 20260814140800.
   widget_dominios_autorizados: string[] | null;
+  // migr 20260820103000. Última config del Widget Builder por tipo de widget
+  // (solo comodidad del panel — la config efectiva viaja congelada en el
+  // snippet copiado). NUNCA en studioPublico().
+  widget_builder: Record<string, unknown> | null;
   // migr 20260819110611. Fin de la prueba gratuita LOCAL de 7 días (sin
   // tarjeta). La fija el trigger `trg_arrancar_prueba_gratuita` al crear el
   // estudio, NUNCA el cliente. NULL = sin prueba local (los estudios

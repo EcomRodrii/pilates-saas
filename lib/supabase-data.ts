@@ -3839,6 +3839,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('colorPrimario' in changes) db.color_primario = changes.colorPrimario;
   if ('temaPortal' in changes) db.tema_portal = changes.temaPortal;
   if ('widgetDominiosAutorizados' in changes) db.widget_dominios_autorizados = changes.widgetDominiosAutorizados;
+  if ('widgetBuilder' in changes) db.widget_builder = changes.widgetBuilder;
   if ('logoUrl' in changes) db.logo_url = changes.logoUrl;
   if ('ivaPorDefecto' in changes) db.iva_por_defecto = changes.ivaPorDefecto;
   if ('depUmbralAlto' in changes) db.dep_umbral_alto = changes.depUmbralAlto;
@@ -4191,6 +4192,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     temaPortal: r.tema_portal ?? 'original',
     portalReact: r.portal_react ?? false,
     widgetDominiosAutorizados: r.widget_dominios_autorizados ?? [],
+    widgetBuilder: r.widget_builder ?? {},
     logoUrl: r.logo_url ?? null,
     ivaPorDefecto: r.iva_por_defecto ?? 21,
     depUmbralAlto: r.dep_umbral_alto ?? 25,

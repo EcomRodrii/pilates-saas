@@ -63,6 +63,15 @@ export interface Studio {
    * dominio todavía (el iframe sigue funcionando igual, no depende de esto).
    */
   widgetDominiosAutorizados?: string[];
+  /**
+   * Última config del Widget Builder (Configuración → API), por tipo de widget
+   * ({ "clases": {...}, "embed-script": {...} }). Solo comodidad del panel para
+   * no perderlo al recargar: la config EFECTIVA viaja congelada en el snippet
+   * copiado (query params / data-*), nunca se lee de aquí en la página pública.
+   * La forma concreta la valida quien lo lee (tab-api.tsx) — es jsonb libre.
+   * ⚠️ Dato interno del panel: NUNCA añadirlo a studioPublico().
+   */
+  widgetBuilder?: Record<string, unknown>;
   logoUrl: string | null;
   // Tipo de IVA general del estudio (%). El precio del recibo es IVA incluido;
   // este tipo solo cambia el desglose base/cuota de la factura, no el total.
