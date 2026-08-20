@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { CAMPO_TRAMPA } from '@/lib/auth/trampa-bots';
+import { capturarEvento } from '@/lib/posthog-cliente';
 import { NW_TINTA, NW_MUTED, NW_BORDE, NW_PRODUCTO } from './tokens';
 
 // Captación de demanda de estudio cuando la oferta de instructoras todavía
@@ -32,6 +33,8 @@ export function FormularioInteresEstudio({
         body: JSON.stringify(Object.fromEntries(datos.entries())),
       });
       setEstado(res.ok ? 'ok' : 'error');
+      // Sin email/nombre/mensaje — el evento cuenta la conversión, no repite el lead (que ya vive en plataforma_lead).
+      if (res.ok) capturarEvento('network_estudio_interes_enviado', { variante });
     } catch {
       setEstado('error');
     }

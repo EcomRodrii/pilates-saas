@@ -10,6 +10,7 @@ import { TarjetaInstructora } from '@/components/network-v2/TarjetaInstructora';
 import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { FormularioInteresEstudio } from '@/components/network-v2/FormularioInteresEstudio';
 import { Reveal } from '@/components/network-v2/Reveal';
+import { EnlaceRastreo } from '@/components/network-v2/EnlaceRastreo';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_SAND, NW_BORDE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_ESTADO, NW_PROBLEMA } from '@/components/network-v2/tokens';
 
 // Landing pública de Tentare Network (1a del rediseño) — Server Component:
@@ -224,20 +225,32 @@ export default async function NetworkLandingPage() {
       </section>
 
       <section className="max-w-[1240px] mx-auto px-6 pb-24 grid sm:grid-cols-2 gap-6">
+        {/* Reencuadrado 2026-08-20 (tentare-producto): "espera a que te
+            encuentren" es un beneficio pasivo y débil con 2 perfiles reales
+            en toda la red — nadie va a "encontrarte" todavía. El perfil
+            público (/network/instructoras/[slug]) ya existe y funciona como
+            página propia enlazable independientemente de que haya tráfico
+            de estudios o no; eso es lo que se vende primero. La promesa
+            activa (el equipo avisa si encaja con una petición concierge) va
+            después, no como titular — es cierta pero no es algo que se
+            pueda prometer con fecha. */}
         <Reveal className="rounded-[24px] p-10 transition-transform duration-300 hover:-translate-y-1" style={{ background: NW_VERDE_OSCURO }}>
           <h2 className="text-[24px] font-extrabold text-white leading-tight">
-            Soy instructora — Deja que los estudios te encuentren.
+            Soy instructora — Tu perfil profesional, listo para compartir.
           </h2>
           <p className="mt-3 text-[14px]" style={{ color: 'rgba(255,255,255,.72)' }}>
-            Publica tu perfil, tu disponibilidad y tu experiencia. Gratis, sin comisión.
+            Créalo en unos minutos y úsalo como tu CV online — en tu bio de Instagram, en un
+            mensaje, donde quieras. Y si un estudio busca justo tu perfil, te avisamos nosotros.
+            Gratis, sin comisión.
           </p>
-          <Link
+          <EnlaceRastreo
             href="/network/crear-perfil"
+            evento="network_click_crear_perfil"
             className="inline-block mt-6 px-6 py-3 rounded-full text-[14px] font-bold transition-transform hover:scale-[1.04]"
             style={{ background: NW_SAND, color: NW_VERDE_OSCURO }}
           >
             Crear perfil gratis
-          </Link>
+          </EnlaceRastreo>
         </Reveal>
         {/* Concierge como puerta principal del lado estudio, no el buscador
             — decisión de producto 2026-08-19 (tras auditoría cruzada

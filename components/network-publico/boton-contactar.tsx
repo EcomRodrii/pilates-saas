@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { Loader2, X, Flag } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { contactarPerfilNetwork, reportarPerfilNetwork } from '@/lib/api-client';
+import { capturarEvento } from '@/lib/posthog-cliente';
 
 const MOTIVOS_REPORTE = [
   { valor: 'informacion_falsa', etiqueta: 'Información falsa' },
@@ -34,6 +35,8 @@ export function BotonContactar({ perfilId, nombre }: { perfilId: string; nombre:
     setEnviando(false);
     if (!res.ok) { setError(res.error ?? 'No se ha podido enviar.'); return; }
     setEnviado(true);
+    // Sin perfilId/nombre — el embudo de conversión no necesita saber A QUIÉN, solo que pasó.
+    capturarEvento('network_contacto_enviado');
   }
 
   if (loading) return null;
