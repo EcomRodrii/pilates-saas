@@ -3559,6 +3559,10 @@ export async function dbSetKlaviyoAccountName(studioId: string, nombre: string |
   if (error) reportDbError('[dbSetKlaviyoAccountName]', error);
 }
 
+// Mailchimp: sin OAuth (ver lib/mailchimp.ts) — la clave API/audienceId/
+// serverPrefix del estudio viven en la tabla genérica `integraciones`,
+// leídas con dbGetIntegracionConfig(studioId, 'MAILCHIMP') igual que Kisi.
+
 // Gmail: mismo patrón exacto que Google Calendar (misma app de Google,
 // mismo `integracion_credenciales` genérico por proveedor — solo cambia el
 // valor de `provider` a 'gmail' para no mezclar los tokens de las dos

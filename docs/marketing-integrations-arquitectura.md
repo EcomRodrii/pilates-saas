@@ -463,7 +463,28 @@ solo el enlace de email.
    existente, no una tabla nueva. Bloqueado para pruebas reales hasta que
    Marcos registre una app OAuth en developers.klaviyo.com y configure
    `KLAVIYO_CLIENT_ID`/`SECRET`.
-8. Brevo, Mailchimp — repetición del patrón de (7), no rediseño.
+8. ✅ **Mailchimp: NO es repetición del patrón (7).** Se intentó OAuth
+   primero (mismo patrón que Klaviyo: app registrada en
+   admin.mailchimp.com/account/oauth2, `MAILCHIMP_CLIENT_ID/SECRET` de
+   plataforma, `integracion_credenciales`) — se registró la app real y se
+   verificó en vivo, pero decisión explícita del usuario (2026-08-20) fue
+   descartar ese camino: la propietaria prefiere pegar su propia clave API,
+   sin depender de una app de plataforma. Reconstruido sobre el patrón
+   Kisi/WhatsApp en su lugar: `campos` (`apiKey`/`audienceId`/
+   `serverPrefix`) en `CATALOGO_INTEGRACIONES`, guardado en la tabla
+   genérica `integraciones` (no en `integracion_credenciales`, que es solo
+   para OAuth), auth Basic (`anystring:apiKey`) contra
+   `https://{serverPrefix}.api.mailchimp.com/3.0`. Sin endpoint de bulk
+   síncrono en la API de Mailchimp (el oficial es asíncrono con polling) —
+   la sincronización hace un PUT idempotente por socia (`subscriber_hash`),
+   aceptable para el volumen de un estudio. La columna
+   `studios.mailchimp_account_name` (pensada para el "nombre de cuenta" que
+   solo tiene sentido con OAuth) se creó y se revirtió en el mismo día —
+   sin OAuth no hay nombre de cuenta que pintar.
+   Brevo queda fuera de esta pieza a propósito: mismo motivo que llevó a
+   descartar el OAuth de Mailchimp (Brevo tampoco ofrece registro OAuth
+   self-service) — su integración, si se pide, sería el mismo patrón de
+   API key ya construido aquí, no un caso nuevo.
 9. Analítica de conversión (campaña → mensaje → reserva → ingreso) sobre
    el modelo de eventos ya unificado en (6 del audit)/(§6 aquí).
 

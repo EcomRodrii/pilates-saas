@@ -218,14 +218,29 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   },
   {
     tipo: 'MAILCHIMP',
-    nombre: 'Mailchimp / Brevo',
-    descripcion: 'Sincroniza clientas, leads, etiquetas y campañas con tu lista de email marketing. Muy útil si vienes de otra plataforma.',
+    nombre: 'Mailchimp',
+    // Sin OAuth: Mailchimp no ofrece registro de app de terceros self-service
+    // (a diferencia de Klaviyo/Google) — la propietaria pega su propia clave
+    // API, igual que ya hace con Kisi. Solo sube cuando ella pulsa
+    // «Sincronizar ahora», nada se mantiene solo.
+    descripcion: 'Envía a tu audiencia de Mailchimp las clientas que han consentido marketing por email, cada vez que pulses «Sincronizar ahora». Pega tu clave API — no hace falta autorizar nada más.',
     Icon: Megaphone,
     color: '#B08A00',
     bg: '#FFF9E0',
     categoria: 'Marketing',
-    campos: [],
-    proximamente: true,
+    campos: [
+      { key: 'apiKey', label: 'Clave API', placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-us6', tipo: 'password' },
+      { key: 'audienceId', label: 'ID de audiencia', placeholder: 'a1b2c3d4e5' },
+      { key: 'serverPrefix', label: 'Prefijo del servidor', placeholder: 'us6' },
+    ],
+    instrucciones: [
+      'Entra en tu cuenta de Mailchimp → icono de tu perfil (abajo a la izquierda) → Extras → Claves API.',
+      'Pulsa "Crear una clave API" y cópiala. El prefijo de servidor es la parte final de esa clave (después del guion, ej. "...-us6") — también lo ves en la URL de tu panel: https://us6.admin.mailchimp.com/ → prefijo "us6".',
+      'Ve a Audiencia → All contacts → Settings → Audience name and defaults, y copia el "Audience ID".',
+      'Pega aquí los tres datos y pulsa Guardar.',
+    ],
+    docsUrl: 'https://mailchimp.com/help/about-api-keys/',
+    probarUrl: '/api/integrations/mailchimp/probar',
   },
 ];
 
@@ -562,6 +577,23 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
   };
 
+  // Mailchimp: sin OAuth — clave API pegada por la propietaria (mismo
+  // patrón que Kisi/WhatsApp, ver lib/mailchimp.ts). Conectar/Gestionar y
+  // Probar conexión los da el modal genérico (abrirConfig/guardar/
+  // probarCampos, más abajo); esto solo añade el botón "Sincronizar ahora",
+  // que no existe en Kisi/WhatsApp.
+  const [sincronizandoMailchimp, setSincronizandoMailchimp] = useState(false);
+  const sincronizarMailchimp = async () => {
+    setSincronizandoMailchimp(true);
+    try {
+      const res = await fetch('/api/integrations/mailchimp/sync', { method: 'POST', headers: await authHeader() });
+      const data = await res.json();
+      showToast(res.ok ? `${data.sincronizadas} clientas sincronizadas con Mailchimp` : `Error: ${data.error ?? 'no se pudo sincronizar'}`);
+    } finally {
+      setSincronizandoMailchimp(false);
+    }
+  };
+
   // Zapier: al revés que el resto — Tentare es el SERVIDOR OAuth, así que la
   // conexión la inicia Zapier (o quien construye el Zap), nunca un botón de
   // aquí. Esta tarjeta solo refleja el estado (GET /api/oauth/consentimientos,
@@ -865,6 +897,25 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   ) : (
                     <NoDisponibleTodavia variable="NEXT_PUBLIC_KLAVIYO_CLIENT_ID" />
                   )
+                ) : cat.tipo === 'MAILCHIMP' ? (
+                  // Modal genérico de campos (Conectar/Gestionar) + Probar
+                  // conexión, igual que Kisi/WhatsApp — solo se añade el
+                  // botón de sincronización manual, que esos no tienen.
+                  <>
+                    <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(conectado ? btnSecondary : btnPrimary, abriendo === cat.tipo && 'opacity-60')}>
+                      {conectado ? 'Gestionar' : 'Conectar'}
+                    </button>
+                    {conectado && (
+                      <button onClick={sincronizarMailchimp} disabled={sincronizandoMailchimp} className={cn(btnPrimary, sincronizandoMailchimp && 'opacity-50')}>
+                        {sincronizandoMailchimp ? 'Sincronizando…' : 'Sincronizar ahora'}
+                      </button>
+                    )}
+                    {conectado && cat.probarUrl && (
+                      <button onClick={() => probarCampos(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
+                        {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
+                      </button>
+                    )}
+                  </>
                 ) : cat.tipo === 'ZAPIER' ? (
                   zapierConectado ? (
                     <button onClick={revocarZapier} disabled={revocandoZapier} className={cn(btnSecondary, revocandoZapier && 'opacity-50')}>
