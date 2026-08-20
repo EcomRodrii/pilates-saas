@@ -192,6 +192,21 @@ export interface ReservaCalendarioProps {
    * tenían su propio hueco vacío tolerable antes de esto.
    */
   loading?: boolean;
+  // ── Parámetros del snippet embebido (lib/reservar/config-widget.ts) ──────
+  // Defaults = todo visible y ventana completa: sin props, el componente se
+  // comporta EXACTAMENTE igual que antes (retrocompatibilidad con cualquier
+  // snippet ya incrustado).
+  /** Quita el precio del CTA y la línea de cobertura/coste de la hoja. */
+  ocultarPrecio?: boolean;
+  /** Quita el badge de nivel de la hoja. */
+  ocultarNivel?: boolean;
+  /** Quita el aviso «Sustituye a X hoy» (queda el rótulo de rol de siempre). */
+  ocultarSustituta?: boolean;
+  /**
+   * 'hoy' = la ventana de días se reduce al día de hoy (una sola columna en
+   * 'grid', un solo chip en 'dias'). 'todo' = la ventana de siempre.
+   */
+  vistaInicial?: 'hoy' | 'todo';
 }
 
 // Neutros FIJOS del formato 06 — nunca `t`. Ver comentario de `estiloDias` arriba.
@@ -240,6 +255,7 @@ export function ReservaCalendario({
   t, slots, onReservar, onCancelar, onAceptarOferta,
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE,
   irADia, estiloDias = 'semana', finalizadasHoy, loading = false,
+  ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, vistaInicial = 'todo',
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
@@ -286,11 +302,20 @@ export function ReservaCalendario({
   // 'dias' (Fase 1 del rediseño): 10 días fijos desde hoy, scroll horizontal —
   // no paginación por semana. Independiente de `weekAnchor`/`navegarSemana`,
   // que siguen existiendo tal cual para `estiloDias === 'semana'`.
-  const diez = useMemo(() => Array.from({ length: 10 }, (_, i) => addDays(hoy, i)), [hoy]);
+  // `vistaInicial='hoy'` (snippet embebido) encoge las dos ventanas rodantes a
+  // un solo día — no cambia el día seleccionado (ya es hoy por defecto), quita
+  // los demás de la vista.
+  const diez = useMemo(
+    () => Array.from({ length: vistaInicial === 'hoy' ? 1 : 10 }, (_, i) => addDays(hoy, i)),
+    [hoy, vistaInicial],
+  );
   // `estiloDias === 'grid'`: 7 días rodantes desde hoy (no semana natural
   // lunes-domingo) — mismo criterio de ventana rodante que `diez`, solo que
   // más corta porque aquí los 7 caben a la vez en pantalla.
-  const siete = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(hoy, i)), [hoy]);
+  const siete = useMemo(
+    () => Array.from({ length: vistaInicial === 'hoy' ? 1 : 7 }, (_, i) => addDays(hoy, i)),
+    [hoy, vistaInicial],
+  );
   const slotsPorDiaGrid = useMemo(() => {
     if (estiloDias !== 'grid') return new Map<string, ReservaSlot[]>();
     const m = new Map<string, ReservaSlot[]>();
@@ -460,10 +485,12 @@ export function ReservaCalendario({
         error ? (
           <RejillaGridError titulo={error.titulo} onReintentar={error.onReintentar} />
         ) : siete.every(d => (slotsPorDiaGrid.get(localDayKey(d)) ?? []).length === 0) ? (
-          <RejillaGridVacio titulo="Sin clases esta semana" cuerpo="Vuelve a mirar en unos días." />
+          <RejillaGridVacio titulo={vistaInicial === 'hoy' ? 'Sin clases hoy' : 'Sin clases esta semana'} cuerpo="Vuelve a mirar en unos días." />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(96px, 1fr))', gap: 8, minWidth: 700 }}>
+            {/* Con `vistaInicial='hoy'` la rejilla es de UNA columna: repetir 7
+                dejaría seis columnas fantasma y 700px de ancho mínimo vacíos. */}
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${siete.length}, minmax(96px, 1fr))`, gap: 8, minWidth: siete.length * 100 }}>
               {siete.map(dia => {
                 const key = localDayKey(dia);
                 const slotsDelDiaGrid = slotsPorDiaGrid.get(key) ?? [];
@@ -596,6 +623,9 @@ export function ReservaCalendario({
           cancelacionVentanaHoras={cancelacionVentanaHoras}
           ventanaPorTipo={ventanaPorTipo}
           fontFamily={fontFamily}
+          ocultarPrecio={ocultarPrecio}
+          ocultarNivel={ocultarNivel}
+          ocultarSustituta={ocultarSustituta}
           onClose={cerrarHoja}
           onAceptarOferta={onAceptarOferta ? async () => {
             if (!openSlot.miReservaId || enviando) return;
@@ -829,7 +859,8 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
 
 function BookingSheet({
   t, slot, selectedSpot, onSelectSpot, resultado, errorReserva, enviando, cancelacionVentanaHoras, ventanaPorTipo,
-  fontFamily, onClose, onReservar, onCancelar, onAceptarOferta,
+  fontFamily, ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false,
+  onClose, onReservar, onCancelar, onAceptarOferta,
 }: {
   t: ModoTokens;
   slot: ReservaSlot;
@@ -841,6 +872,9 @@ function BookingSheet({
   cancelacionVentanaHoras?: number;
   ventanaPorTipo?: Record<string, number>;
   fontFamily: string;
+  ocultarPrecio?: boolean;
+  ocultarNivel?: boolean;
+  ocultarSustituta?: boolean;
   onClose: () => void;
   onReservar: () => void;
   onCancelar: () => void;
@@ -874,7 +908,7 @@ function BookingSheet({
     ? (enEspera ? 'Salir de la lista de espera' : 'Cancelar reserva')
     : lleno
       ? 'Apuntarme a la lista de espera'
-      : (slot.precio != null ? `Reservar · ${slot.precio} €` : 'Reservar');
+      : (slot.precio != null && !ocultarPrecio ? `Reservar · ${slot.precio} €` : 'Reservar');
 
   const esCancelar = tieneReserva;
 
@@ -927,7 +961,7 @@ function BookingSheet({
         {/* Cabecera */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ minWidth: 0 }}>
-            <span style={{ ...nivelBadge(slot.nivel), marginBottom: 8 }}>{NIVEL_LABEL[slot.nivel]}</span>
+            {!ocultarNivel && <span style={{ ...nivelBadge(slot.nivel), marginBottom: 8 }}>{NIVEL_LABEL[slot.nivel]}</span>}
             <h2 id={titleId} style={{ fontSize: 22, fontWeight: 800, color: t.ink, lineHeight: 1.1, textTransform: 'uppercase', letterSpacing: '-0.02em', marginTop: 8 }}>
               {slot.claseNombre}
             </h2>
@@ -966,7 +1000,7 @@ function BookingSheet({
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: 13.5, fontWeight: 800, color: t.ink, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.instructorNombre}</p>
                 <p style={{ fontSize: 11.5, color: t.muted }}>
-                  {slot.instructorOriginalNombre
+                  {slot.instructorOriginalNombre && !ocultarSustituta
                     ? `Sustituye a ${slot.instructorOriginalNombre} hoy`
                     : (slot.instructorRol === 'PROPIETARIO' ? 'Directora' : 'Instructora')}
                 </p>
@@ -1038,7 +1072,10 @@ function BookingSheet({
             una esquina: es el último dato que ve antes de pulsar. Solo al
             reservar — con la reserva ya hecha, el saldo que se enseñaría sería
             el de ANTES de descontar, y sonaría a que se va a cobrar otra vez. */}
-        {!tieneReserva && !lleno && slot.coberturaTexto && (
+        {/* `ocultarPrecio` también apaga esta caja: la cobertura habla de
+            importes («15 € como clase suelta») — dejarla con el CTA mudo
+            filtraría el precio por la puerta de atrás. */}
+        {!tieneReserva && !lleno && slot.coberturaTexto && !ocultarPrecio && (
           <div
             style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
