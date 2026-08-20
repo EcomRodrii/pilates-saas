@@ -37,11 +37,13 @@ import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } fr
 import { resolverHrefBloque } from '@/lib/portal-home-bloques';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
+import { piDeClientSecret, RETARDOS_POLL_MS, type RespuestaEstadoPago } from '@/lib/billing/estado-pago-publico';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import {
   Users, CheckCircle2, X, Calendar, Clock, MapPin,
   CreditCard, FileText, Download, ExternalLink, Mail, ChevronLeft,
+  Loader2, AlertTriangle, Hourglass,
 } from 'lucide-react';
 
 // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
@@ -532,6 +534,14 @@ export default function ReservarPage() {
   // Marca que la pantalla 'done' llegó vía este camino (pago sin login), para
   // mostrar la mención de "hemos creado tu cuenta" en vez del copy genérico.
   const [pagoWebSinLogin, setPagoWebSinLogin] = useState(false);
+  // P1-3: estado REAL de la reserva tras el pago (la crea el WEBHOOK, no esta
+  // página). 'confirmando' mientras se pregunta a /api/public/estado-pago;
+  // 'tardando' cuando se agota el techo del polling sin respuesta — la
+  // pantalla nunca dice «confirmada» sin que el servidor lo haya dicho antes.
+  const [confirmacionPago, setConfirmacionPago] = useState<
+    'confirmando' | 'confirmada' | 'lista_espera' | 'pendiente_aprobacion' | 'tardando' | 'fallida'
+  >('confirmando');
+  const [claseConfirmada, setClaseConfirmada] = useState<{ nombre: string; inicio: string } | null>(null);
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
   // Login con contraseña (día a día, sin depender del viaje de email — ver
   // lib/use-socia-session.ts): alternativa al enlace mágico dentro del mismo
@@ -1295,8 +1305,61 @@ export default function ReservarPage() {
     const token = await pedirToken();
     await enviarEnlace(loginForm.email, bookingSesionId || undefined, token || undefined);
     setPagoWebSinLogin(true);
+    setConfirmacionPago('confirmando');
+    setClaseConfirmada(null);
     setLoginStep('done');
   }
+
+  // P1-3: polling del estado REAL tras el pago. El webhook de Stripe crea la
+  // reserva DESPUÉS de que esta pantalla llegue a 'done' — hasta ahora el
+  // copy honesto («estamos confirmando») era todo lo que había; esto pregunta
+  // a /api/public/estado-pago con backoff creciente (~35s de techo) y solo
+  // anuncia la plaza cuando el servidor dice que existe. Agotado el techo, el
+  // copy de «tardando» sigue siendo honesto: pago recibido, confirmación por
+  // email, y el estudio como recurso. NUNCA se inventa una confirmación.
+  useEffect(() => {
+    if (!pagoWebSinLogin || loginStep !== 'done') return;
+    const pi = piDeClientSecret(datosClientSecret);
+    const email = loginForm.email.trim();
+    const studioId = studio?.id;
+    if (!pi || !email || !studioId) return;
+
+    let vivo = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function preguntar(intento: number) {
+      let resuelto: RespuestaEstadoPago | null = null;
+      try {
+        const res = await fetch(
+          `/api/public/estado-pago?pi=${encodeURIComponent(pi as string)}&email=${encodeURIComponent(email)}&studioId=${encodeURIComponent(studioId as string)}`,
+        );
+        if (res.ok) resuelto = await res.json() as RespuestaEstadoPago;
+      } catch { /* red caída en un poll: se reintenta con el siguiente */ }
+      if (!vivo) return;
+      if (resuelto && resuelto.estado !== 'en_proceso') {
+        setConfirmacionPago(resuelto.estado);
+        if (resuelto.clase) setClaseConfirmada(resuelto.clase);
+        return;
+      }
+      if (intento + 1 >= RETARDOS_POLL_MS.length) {
+        setConfirmacionPago('tardando');
+        return;
+      }
+      timer = setTimeout(() => preguntar(intento + 1), RETARDOS_POLL_MS[intento + 1]);
+    }
+
+    timer = setTimeout(() => preguntar(0), RETARDOS_POLL_MS[0]);
+    return () => { vivo = false; if (timer) clearTimeout(timer); };
+    // loginForm.email no cambia una vez en 'done'; el efecto arranca al entrar.
+  }, [pagoWebSinLogin, loginStep, datosClientSecret, loginForm.email, studio?.id]);
+
+  // Título de la pantalla 'done' del pago sin login, según lo que el servidor
+  // haya dicho de verdad — «plaza confirmada» solo cuando LO ESTÁ.
+  const tituloPagoWeb =
+    confirmacionPago === 'confirmada' ? '¡Plaza confirmada!'
+    : confirmacionPago === 'lista_espera' ? '¡En lista de espera!'
+    : confirmacionPago === 'pendiente_aprobacion' ? 'Pendiente de aprobación'
+    : '¡Pago recibido!';
 
   async function handleSignContract() {
     if (socia?.socioId) {
@@ -2634,7 +2697,7 @@ export default function ReservarPage() {
         onClose={closeBooking}
         closeOnBackdropClick={false}
         label={
-          loginStep === 'done' ? (pagoWebSinLogin ? '¡Pago recibido!' : (textosReservar.confirmacion || '¡Reserva confirmada!'))
+          loginStep === 'done' ? (pagoWebSinLogin ? tituloPagoWeb : (textosReservar.confirmacion || '¡Reserva confirmada!'))
           : loginStep === 'espera' ? '¡En lista de espera!'
           : loginStep === 'pendiente' ? 'Pendiente de aprobación'
           : loginStep === 'login' ? (enlaceEnviado ? 'Revisa tu email' : 'Entra para reservar')
@@ -2676,15 +2739,34 @@ export default function ReservarPage() {
             {/* ── DONE ── */}
             {loginStep === 'done' && bookingSesion && (
               <div className="flex flex-col items-center text-center gap-4 contenido-anim">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#D1FAE5' }}>
-                  <CheckCircle2 size={30} style={{ color: '#2F6B4F' }} />
-                </div>
+                {/* P1-3: el icono dice la verdad del momento — spinner mientras
+                    se confirma, verde solo con confirmación REAL del servidor,
+                    ámbar para espera/pendiente/tardando/fallida. */}
+                {!pagoWebSinLogin || confirmacionPago === 'confirmada' ? (
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#D1FAE5' }}>
+                    <CheckCircle2 size={30} style={{ color: '#2F6B4F' }} />
+                  </div>
+                ) : confirmacionPago === 'confirmando' ? (
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
+                    <Loader2 size={30} className="animate-spin text-[var(--portal-muted)]" aria-label="Confirmando tu plaza" />
+                  </div>
+                ) : confirmacionPago === 'lista_espera' || confirmacionPago === 'pendiente_aprobacion' ? (
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
+                    <Hourglass size={30} style={{ color: '#8F6215' }} />
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
+                    <AlertTriangle size={30} style={{ color: '#8F6215' }} />
+                  </div>
+                )}
                 <div>
                   <p className="text-[var(--portal-ink)] font-extrabold text-xl">
-                    {pagoWebSinLogin ? '¡Pago recibido!' : (textosReservar.confirmacion || '¡Reserva confirmada!')}
+                    {pagoWebSinLogin ? tituloPagoWeb : (textosReservar.confirmacion || '¡Reserva confirmada!')}
                   </p>
                   <p className="text-[var(--portal-muted-2)] text-sm mt-1">
-                    {bookingSesion.tipo?.nombre} · {fmtLong(new Date(bookingSesion.inicio))} a las {fmtTime(bookingSesion.inicio)}
+                    {pagoWebSinLogin && claseConfirmada
+                      ? <>{claseConfirmada.nombre} · {fmtLong(new Date(claseConfirmada.inicio))} a las {fmtTime(claseConfirmada.inicio)}</>
+                      : <>{bookingSesion.tipo?.nombre} · {fmtLong(new Date(bookingSesion.inicio))} a las {fmtTime(bookingSesion.inicio)}</>}
                   </p>
                 </div>
                 {/* Cierre digno del pago (P1-confianza): resumen de LO COMPRADO
@@ -2699,17 +2781,50 @@ export default function ReservarPage() {
                 )}
                 {pagoWebSinLogin && (
                   <div className="w-full rounded-2xl p-3.5 text-left bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
-                    {/* Copy honesto (P0): la reserva y la cuenta las crea el
-                        WEBHOOK después del pago — aquí solo consta el cobro.
-                        No se da la plaza por hecha ni la cuenta por creada:
-                        se dice lo único cierto, que estamos en ello. */}
+                    {/* Copy honesto (P0 → P1-3): la reserva y la cuenta las
+                        crea el WEBHOOK después del pago. Antes esta caja decía
+                        «estamos confirmando» para siempre; ahora el polling a
+                        /api/public/estado-pago trae la respuesta real y cada
+                        estado dice EXACTAMENTE lo que consta — nunca una
+                        confirmación inventada. */}
                     <p className="text-[var(--portal-ink)] text-sm">
-                      Estamos confirmando tu plaza. En un momento te llegará a{' '}
-                      <span className="font-semibold">{loginForm.email}</span> el email de
-                      confirmación con el acceso a tu cuenta.
+                      {confirmacionPago === 'confirmando' && (
+                        <>Estamos confirmando tu plaza. En un momento te llegará a{' '}
+                        <span className="font-semibold">{loginForm.email}</span> el email de
+                        confirmación con el acceso a tu cuenta.</>
+                      )}
+                      {confirmacionPago === 'confirmada' && (
+                        <>Tu plaza está confirmada. Te llegará a{' '}
+                        <span className="font-semibold">{loginForm.email}</span> el email de
+                        confirmación con el acceso a tu cuenta.</>
+                      )}
+                      {confirmacionPago === 'lista_espera' && (
+                        <>El pago está recibido y tu bono queda en tu cuenta, pero la clase
+                        se ha llenado justo antes de confirmar tu plaza: estás en la lista
+                        de espera y te avisaremos a{' '}
+                        <span className="font-semibold">{loginForm.email}</span> si se libera un sitio.</>
+                      )}
+                      {confirmacionPago === 'pendiente_aprobacion' && (
+                        <>El pago está recibido. Este estudio revisa cada reserva antes de
+                        confirmarla: te llegará a{' '}
+                        <span className="font-semibold">{loginForm.email}</span> la
+                        confirmación en cuanto la aprueben.</>
+                      )}
+                      {confirmacionPago === 'tardando' && (
+                        <>El pago está recibido, pero la confirmación de tu plaza está
+                        tardando más de lo normal. Te llegará por email a{' '}
+                        <span className="font-semibold">{loginForm.email}</span>; si no
+                        llega en unos minutos, escribe al estudio y te lo resuelven.</>
+                      )}
+                      {confirmacionPago === 'fallida' && (
+                        <>El pago está recibido, pero no hemos podido asignarte la plaza en
+                        esta clase. El estudio ya está avisado y se pondrá en contacto
+                        contigo para darte una solución.</>
+                      )}
                     </p>
                   </div>
                 )}
+                {(!pagoWebSinLogin || confirmacionPago === 'confirmada') && (
                 <div className="w-full space-y-2.5 mt-1">
                   <p className="text-[var(--portal-muted)] text-xs font-semibold uppercase tracking-wide">Añadir a tu calendario</p>
                   <a href={makeGoogleCalUrl(bookingSesion, estudioNombre, estudioDireccion)} target="_blank" rel="noopener noreferrer"
@@ -2722,6 +2837,7 @@ export default function ReservarPage() {
                     <Download size={14} />Descargar .ics (Apple / Outlook)
                   </button>
                 </div>
+                )}
                 {/* Quien reserva aquí ya es socia, pero nadie se lo dice: tiene
                     portal propio (sus bonos, su historial, sus próximas clases).
                     Si ya fijó contraseña en 'registro' (o entró con
