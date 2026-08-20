@@ -166,6 +166,45 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
+// Los manejadores de reembolso/disputa necesitan el PaymentIntent porque la
+// metadata con `reciboId` vive ahí, no en el charge — y este retrieve corre
+// dentro de `after()`, con el 200 ya enviado. Si lanza, Stripe NO va a
+// reintentar el evento y no existe ningún conciliador de reembolsos ni de
+// disputas que lo recoja después: el recibo se quedaría COBRADO con el dinero
+// ya devuelto, y la única señal era la excepción genérica del catch de
+// `after()`, indistinguible de cualquier otro fallo. El SDK ya reintenta solo
+// los fallos transitorios (maxNetworkRetries=2 por defecto: cortes de
+// conexión, 409, 5xx y todo lo que Stripe marque con `stripe-should-retry`),
+// así que llegar aquí es un fallo SOSTENIDO que alguien tiene que mirar.
+//
+// La reclamación de idempotencia NO se marca en este camino (expira sola en
+// 120 s), así que el `queHacer` del aviso funciona de verdad: reenviar el
+// evento desde el Dashboard de Stripe lo reprocesa entero.
+async function recuperarPaymentIntent(
+  stripe: Stripe,
+  piId: string,
+  event: Stripe.Event,
+  tipo: 'reembolso-perdido' | 'disputa-perdida',
+): Promise<Stripe.PaymentIntent | null> {
+  try {
+    return await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
+  } catch (e) {
+    Sentry.captureMessage('[stripe webhook] reversión de dinero SIN aplicar: no se pudo recuperar el PaymentIntent', {
+      level: 'error',
+      tags: { area: 'cobros', tipo },
+      extra: {
+        eventId: event.id,
+        eventType: event.type,
+        paymentIntentId: piId,
+        eventAccount: event.account,
+        detalle: e instanceof Error ? e.message : String(e),
+        queHacer: 'El recibo puede seguir COBRADO con el dinero ya revertido. Esperar ~2 min (la reclamación de idempotencia expira a los 120 s; antes, el reenvío se descarta como duplicado) y reenviar el evento desde el Dashboard de Stripe (Developers → Events → Resend): el reenvío se procesa entero.',
+      },
+    });
+    return null;
+  }
+}
+
 /** Todo el trabajo pesado. Su valor de retorno se descarta: la respuesta ya se envió. */
 async function procesarEvento(
   stripe: Stripe,
@@ -876,7 +915,8 @@ async function procesarEvento(
     const charge = event.data.object as Stripe.Charge;
     const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
     if (piId) {
-      const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
+      const pi = await recuperarPaymentIntent(stripe, piId, event, 'reembolso-perdido');
+      if (!pi) return NextResponse.json({ error: 'No se pudo recuperar el PaymentIntent' }, { status: 500 });
       const reciboId = pi.metadata?.reciboId;
       const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
       // Solo un reembolso TOTAL anula el recibo: marcar DEVUELTO un parcial
@@ -952,7 +992,8 @@ async function procesarEvento(
     const dispute = event.data.object as Stripe.Dispute;
     const piId = typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id;
     if (piId) {
-      const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
+      const pi = await recuperarPaymentIntent(stripe, piId, event, 'disputa-perdida');
+      if (!pi) return NextResponse.json({ error: 'No se pudo recuperar el PaymentIntent' }, { status: 500 });
       const reciboId = pi.metadata?.reciboId;
       const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
       if (reciboId && esRecibo) {
@@ -988,7 +1029,8 @@ async function procesarEvento(
     const dispute = event.data.object as Stripe.Dispute;
     const piId = typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id;
     if (piId) {
-      const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
+      const pi = await recuperarPaymentIntent(stripe, piId, event, 'disputa-perdida');
+      if (!pi) return NextResponse.json({ error: 'No se pudo recuperar el PaymentIntent' }, { status: 500 });
       const reciboId = pi.metadata?.reciboId;
       const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
       if (reciboId && esRecibo) {
