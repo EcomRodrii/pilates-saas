@@ -102,6 +102,29 @@ Google Calendar. ⚠️ **Sin verificar contra la Klaviyo real** — ver
    verificar en el dashboard de Klaviyo que llegaron a la lista "Tentare —
    Marketing" con `subscriptions.email.marketing.consent = SUBSCRIBED`.
 
+## Mailchimp — sincronización de marketing (paso 8 del Marketing Hub)
+
+**Sin OAuth, ni variables de entorno de plataforma.** A diferencia de
+Klaviyo (paso 7), Mailchimp no ofrece registro de app OAuth self-service
+para terceros (solo vía su programa de partners, proceso manual con ellos)
+— decisión explícita del usuario, 2026-08-20. Cada estudio pega su propia
+**clave API de Mailchimp** (BYO account: la propietaria gestiona/paga su
+propio plan, Tentare no crea cuentas ni paga nada) directamente en
+**Configuración → Integraciones → Mailchimp**, mismo patrón que Kisi/
+WhatsApp Business — sin ningún paso de despliegue ni variable nueva.
+
+La propietaria necesita, de su propia cuenta de Mailchimp:
+1. **Clave API** (perfil → Extras → Claves API → "Crear una clave API").
+2. **Prefijo de servidor** (la cola de esa clave, tras el guion — p.ej.
+   `us6` — o la parte inicial de la URL de su panel).
+3. **ID de audiencia** (Audiencia → All contacts → Settings → Audience name
+   and defaults).
+
+**Probar en un estudio de pruebas primero**: conectar con una clave real →
+"Probar conexión" → "Sincronizar ahora" con un puñado de socias de prueba
+con consentimiento de marketing dado → verificar en el panel de Mailchimp
+que llegaron a esa audiencia.
+
 ## Agregadores (ClassPass, Urban Sports Club, Wellhub, EGYM Wellpass, myclubs)
 
 No se conectan por API pública: requieren **alta como partner** (contrato) con
