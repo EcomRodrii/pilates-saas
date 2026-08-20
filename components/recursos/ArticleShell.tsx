@@ -85,8 +85,12 @@ export function ArticleShell({
           <p style={{ fontSize: 'clamp(17px,1.6vw,20px)', lineHeight: 1.55, color: 'rgba(255,255,255,.86)', maxWidth: 600, margin: '0 0 28px' }}>{intro}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 15, color: '#fff' }}>T</span>
-              <div><div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>Equipo Tentare</div><div className="lp-mono" style={{ fontSize: 11, color: 'rgba(255,255,255,.7)' }}>Contenido</div></div>
+              <span style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 15, color: '#fff' }}>MR</span>
+              {/* Autor visible con nombre real (no "Equipo Tentare") — señal de
+                  E-E-A-T explícita, auditoría GEO 2026-08-20. Mismo nombre que
+                  ya consta en /legal (Marcos Roca Rodríguez), en su forma
+                  pública/informal habitual. */}
+              <div><div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>Marcos Roca</div><div className="lp-mono" style={{ fontSize: 11, color: 'rgba(255,255,255,.7)' }}>Fundador de Tentare</div></div>
             </div>
             <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(255,255,255,.4)' }} />
             <span className="lp-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,.8)' }}>{readTime}</span>

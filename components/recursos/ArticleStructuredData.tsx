@@ -37,7 +37,10 @@ export function ArticleStructuredData({
     url,
     datePublished,
     dateModified,
-    author: { '@type': 'Organization', name: LEGAL.marca, url: LEGAL.url },
+    // Person, no Organization — mismo nombre que el byline visible
+    // (ArticleShell) y que /legal (Marcos Roca Rodríguez, en su forma
+    // pública). Señal de E-E-A-T real, auditoría GEO 2026-08-20.
+    author: { '@type': 'Person', name: 'Marcos Roca', jobTitle: 'Fundador de Tentare', url: `${LEGAL.url}/legal` },
     publisher: { '@type': 'Organization', name: LEGAL.marca, url: LEGAL.url },
     mainEntityOfPage: { '@type': 'WebPage', '@id': url },
   };
