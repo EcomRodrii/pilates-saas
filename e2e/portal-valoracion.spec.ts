@@ -18,9 +18,9 @@ test.setTimeout(120_000);
 test('con muestra suficiente se enseña la nota, y nunca sin su respaldo', async ({ page }) => {
   await page.goto('/portal-tema-preview/tentada');
   await page.locator('.welcome__cta').click();
-  // La lista vive dentro de «Mi centro» → «Profesores».
+  // La lista vive dentro de «Mi centro» → «Instructores».
   await page.getByRole('button', { name: 'Mi centro' }).first().click();
-  await page.getByRole('button', { name: 'Profesores' }).click();
+  await page.getByRole('button', { name: 'Instructores' }).click();
 
   const nota = page.locator('.valoracion').first();
   await expect(nota).toBeVisible({ timeout: 30_000 });
@@ -32,9 +32,9 @@ test('con muestra suficiente se enseña la nota, y nunca sin su respaldo', async
 test('por debajo del mínimo no se pinta nada, ni un hueco', async ({ page }) => {
   await page.goto('/portal-tema-preview/tentada');
   await page.locator('.welcome__cta').click();
-  // La lista vive dentro de «Mi centro» → «Profesores».
+  // La lista vive dentro de «Mi centro» → «Instructores».
   await page.getByRole('button', { name: 'Mi centro' }).first().click();
-  await page.getByRole('button', { name: 'Profesores' }).click();
+  await page.getByRole('button', { name: 'Instructores' }).click();
   await expect(page.locator('.valoracion').first()).toBeVisible({ timeout: 30_000 });
 
   // Emma tiene 2 valoraciones de 5. Ni «5,0», ni «Sin valoraciones», ni estrellas
