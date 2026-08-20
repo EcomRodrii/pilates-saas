@@ -25,6 +25,9 @@ import { cn } from '@/lib/utils';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { PageHeader } from '@/components/ui/page-header';
+import { ConstructorSegmentos } from '@/components/segmentos/constructor-segmento';
+import { construirContextoSegmento, evaluarSegmento } from '@/lib/segmentos/evaluador';
+import type { SegmentoCliente } from '@/lib/segmentos/tipos';
 
 // ─── Shared style tokens ────────────────────────────────────────────────────
 const inputCls =
@@ -161,8 +164,10 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Socios() {
   const router = useRouter();
-  const { socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados } =
-    useStudio();
+  const {
+    socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados,
+    segmentosClientes, addSegmentoCliente, updateSegmentoCliente, deleteSegmentoCliente,
+  } = useStudio();
   const rol = useRol();
   const verSemaforo = puedeVerSemaforo(rol);
   // El servidor y la RLS ya rechazan esto a la instructora (migr 0112/0118). Lo
@@ -201,6 +206,7 @@ export default function Socios() {
   // Filter & sort state
   const [busqueda, setBusqueda] = useState('');
   const [smartFilter, setSmartFilter] = useState<SmartFilter>('todas');
+  const [segmentoAplicado, setSegmentoAplicado] = useState<SegmentoCliente | null>(null);
   // P1 (auditoría "Veredicto de Marta"): la etapa del embudo y las etiquetas
   // solo se veían/editaban dentro de cada ficha — sin forma de ver "todas mis
   // Interesadas" juntas. '' = sin filtrar por esa dimensión.
@@ -424,6 +430,9 @@ export default function Socios() {
     // Sin normalizar acentos, buscar "maria" no encontraba a "María" (y
     // viceversa) — el gesto más natural de escribir rápido en el buscador.
     const q = normalizaBusqueda(busqueda);
+    const ctxSegmento = segmentoAplicado
+      ? construirContextoSegmento(socios, suscripciones, reservas, sesiones, camposPersonalizados, ahoraMs ? new Date(ahoraMs) : new Date())
+      : null;
     const filtered = socios.filter((s) => {
       // Search
       const matchB =
@@ -437,7 +446,8 @@ export default function Socios() {
       if (smartFilter === 'inactivas_30d') matchF = isInactiva30d(s.id, s);
       const matchEtapa = !filtroEtapa || s.leadStage === filtroEtapa;
       const matchEtiqueta = !filtroEtiqueta || (s.tags ?? []).includes(filtroEtiqueta);
-      return matchB && matchF && matchEtapa && matchEtiqueta;
+      const matchSegmento = !segmentoAplicado || !ctxSegmento || evaluarSegmento(segmentoAplicado.condiciones, s, ctxSegmento);
+      return matchB && matchF && matchEtapa && matchEtiqueta && matchSegmento;
     });
 
     return [...filtered].sort((a, b) => {
@@ -463,7 +473,13 @@ export default function Socios() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socios, suscripciones, reservas, sesiones, busqueda, smartFilter, filtroEtapa, filtroEtiqueta, sortKey, sortDir, ahoraMs]);
+  }, [socios, suscripciones, reservas, sesiones, camposPersonalizados, busqueda, smartFilter, filtroEtapa, filtroEtiqueta, segmentoAplicado, sortKey, sortDir, ahoraMs]);
+
+  // Auditoría PR #1276 (QA): el estado vacío y "Limpiar filtros" solo miraban
+  // busqueda/smartFilter — con filtroEtapa/filtroEtiqueta/segmentoAplicado
+  // vaciando la lista, se veía "Aún no hay clientas" (mensaje de cuenta
+  // nueva) sin ningún botón para salir del filtro.
+  const hayFiltrosActivos = Boolean(busqueda || smartFilter !== 'todas' || filtroEtapa || filtroEtiqueta || segmentoAplicado);
 
   // ── Sort toggle ────────────────────────────────────────────────────────────
   function toggleSort(key: SortKey) {
@@ -811,6 +827,33 @@ export default function Socios() {
             </select>
           )}
 
+          {/* Seguridad (auditoría PR #1276): crear/editar/borrar un segmento es
+              escritura sobre una audiencia compartida del estudio, mismo
+              criterio de rol que el resto de esta pantalla — gestionaClientas,
+              no solo "puede ver /clientas" (INSTRUCTOR llega aquí pero no
+              gestiona). La RLS de segmentos_clientes también exige rol
+              explícito (migr 20260820130000), este gate es defensa en
+              profundidad, no la cerradura real. */}
+          {gestionaClientas && (
+            <ConstructorSegmentos
+              segmentos={segmentosClientes}
+              camposPersonalizados={camposPersonalizados}
+              onCrear={addSegmentoCliente}
+              onActualizar={(id, changes) => updateSegmentoCliente(id, changes)}
+              onEliminar={deleteSegmentoCliente}
+              onAplicar={setSegmentoAplicado}
+            />
+          )}
+          {segmentoAplicado && (
+            <button
+              type="button"
+              onClick={() => setSegmentoAplicado(null)}
+              className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium bg-brand text-brand-foreground border border-foreground shadow-sm inline-flex items-center gap-1 shrink-0"
+            >
+              {segmentoAplicado.nombre} <X size={12} />
+            </button>
+          )}
+
           {/* Sort select */}
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="text-[11px] font-medium text-muted-foreground hidden sm:inline">Ordenar:</span>
@@ -878,16 +921,16 @@ export default function Socios() {
               <Users size={28} className="text-muted-foreground" />
             </div>
             <h3 className="text-[15px] font-semibold text-foreground mb-1">
-              {busqueda || smartFilter !== 'todas'
+              {hayFiltrosActivos
                 ? 'No hay resultados'
                 : 'Aún no hay clientas'}
             </h3>
             <p className="text-[13px] text-muted-foreground mb-5 max-w-xs">
-              {busqueda || smartFilter !== 'todas'
+              {hayFiltrosActivos
                 ? 'Prueba con otros filtros o términos de búsqueda.'
                 : 'Añade tu primera clienta para empezar a gestionar el estudio.'}
             </p>
-            {!busqueda && smartFilter === 'todas' && (
+            {!hayFiltrosActivos && (
               <button
                 onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
@@ -896,9 +939,9 @@ export default function Socios() {
                 Añadir primera clienta
               </button>
             )}
-            {(busqueda || smartFilter !== 'todas') && (
+            {hayFiltrosActivos && (
               <button
-                onClick={() => { setBusqueda(''); setSmartFilter('todas'); }}
+                onClick={() => { setBusqueda(''); setSmartFilter('todas'); setFiltroEtapa(''); setFiltroEtiqueta(''); setSegmentoAplicado(null); }}
                 className="text-[12px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
               >
                 Limpiar filtros

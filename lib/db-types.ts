@@ -2140,3 +2140,13 @@ export interface RowRecordatorioEnvios {
   canal: string;
   enviado_en: string;
 }
+
+export interface RowSegmentosClientes {
+  id: string;
+  studio_id: string;
+  nombre: string;
+  condiciones: any;
+  creado_por: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}

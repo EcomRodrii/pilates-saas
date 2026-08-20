@@ -4,6 +4,7 @@ import { supabase } from '@/lib/db/supabase';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
 import type { Plan } from '@/lib/billing/entitlements';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
 // (Aquí había dos imports de `send-server` y `whatsapp` cuyos cuatro bindings
 // no se usaban en las 4200 líneas del fichero. Turbopack ya los sacudía bien
 // —comprobado: `@react-email/render` no aparece en ninguno de los 170 chunks
@@ -1755,6 +1756,53 @@ export async function dbUpdateCampoPersonalizado(id: string, changes: Partial<Ca
 export async function dbDeleteCampoPersonalizado(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('campos_personalizados').delete().eq('id', id);
   return error ? falloEscritura('[dbDeleteCampoPersonalizado]', error) : ESCRITURA_OK;
+}
+
+// ── Segmentos de clientes guardables (auditoría vs Momence) ────────────────
+// Sin Row generado (tabla nueva, gen-db-types.py aún no la conoce) — mismo
+// criterio inline que fetchAbandonoCheckoutReciente justo arriba en este
+// fichero. `condiciones` es jsonb, se lee/escribe entera.
+type RowSegmentoCliente = {
+  id: string; studio_id: string; nombre: string; condiciones: DefinicionSegmento;
+  creado_por: string | null; creado_en: string; actualizado_en: string;
+};
+
+function mapSegmentoCliente(r: RowSegmentoCliente): SegmentoCliente {
+  return {
+    id: r.id, studioId: r.studio_id, nombre: r.nombre, condiciones: r.condiciones,
+    creadoPor: r.creado_por, creadoEn: r.creado_en, actualizadoEn: r.actualizado_en,
+  };
+}
+
+// Sin filtro por studio_id explícito: RLS (segmentos_clientes_por_estudio)
+// ya acota a current_studio_id() — mismo criterio que dbFetchCamposPersonalizados.
+export async function dbFetchSegmentosClientes(): Promise<SegmentoCliente[]> {
+  const { data, error } = await supabase
+    .from('segmentos_clientes')
+    .select('*')
+    .order('creado_en', { ascending: false }) as { data: RowSegmentoCliente[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[dbFetchSegmentosClientes]', error); return []; }
+  return (data ?? []).map(mapSegmentoCliente);
+}
+
+export async function dbInsertSegmentoCliente(seg: SegmentoCliente): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('segmentos_clientes').insert({
+    id: seg.id, studio_id: seg.studioId, nombre: seg.nombre, condiciones: seg.condiciones, creado_por: seg.creadoPor,
+  });
+  return error ? falloEscritura('[dbInsertSegmentoCliente]', error) : ESCRITURA_OK;
+}
+
+export async function dbUpdateSegmentoCliente(id: string, changes: Partial<Pick<SegmentoCliente, 'nombre' | 'condiciones'>>): Promise<ResultadoEscritura> {
+  const db: Record<string, unknown> = { actualizado_en: new Date().toISOString() };
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('condiciones' in changes) db.condiciones = changes.condiciones;
+  const { error } = await supabase.from('segmentos_clientes').update(db).eq('id', id);
+  return error ? falloEscritura('[dbUpdateSegmentoCliente]', error) : ESCRITURA_OK;
+}
+
+export async function dbDeleteSegmentoCliente(id: string): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('segmentos_clientes').delete().eq('id', id);
+  return error ? falloEscritura('[dbDeleteSegmentoCliente]', error) : ESCRITURA_OK;
 }
 
 // ── Cuestionario de salud configurable (Fase 1, ficha Lorari-vs-Tentare) ────
