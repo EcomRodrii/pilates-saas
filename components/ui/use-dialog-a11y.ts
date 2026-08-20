@@ -92,5 +92,70 @@ export function useDialogA11y({
     };
   }, [open, disparador]);
 
+  useBloquearScrollFondo(open);
+
   return { sheetRef };
+}
+
+/**
+ * Bloquea el scroll de la página de fondo mientras hay una hoja abierta.
+ *
+ * ⚠️ Esto NO existía en ninguna hoja del flujo de reserva — medido en
+ * producción: con la hoja de clase abierta, `body` seguía en
+ * `overflow: visible`. El efecto en móvil es el «scroll chaining» clásico: al
+ * llegar al final del contenido de la hoja el gesto no se para, sigue y
+ * arrastra el listado de clases de detrás. La hoja parece despegarse y, al
+ * cerrarla, el fondo ha viajado a otro sitio.
+ *
+ * Vive suelto (y no solo dentro de `useDialogA11y`) porque el `BookingSheet`
+ * del calendario —la PRIMERA hoja que se abre, y la que más se usa— tiene su
+ * propio shell y no pasa por ese hook.
+ *
+ * Se guarda y restaura el valor ANTERIOR en vez de escribir `''`: las hojas se
+ * encadenan (la ficha de clase abre encima el modal de reserva) y la de dentro,
+ * al cerrarse, desbloquearía el fondo con la de fuera todavía abierta.
+ */
+// Cuántas hojas hay abiertas ahora mismo, y qué había en el CSS antes de la
+// primera. Ver el porqué del contador en `useBloquearScrollFondo`.
+let hojasAbiertas = 0;
+let overflowPrevio: { body: string; raiz: string } | null = null;
+
+export function useBloquearScrollFondo(activo: boolean) {
+  useEffect(() => {
+    if (!activo) return;
+
+    // ⚠️ Un contador, y no «guardo el valor anterior y lo restauro»: las hojas
+    // de este flujo SE SOLAPAN —la ficha de clase abre encima el modal de
+    // reserva y se desmonta— y al desmontarse restauraba el valor de antes,
+    // desbloqueando el fondo con el modal todavía abierto. El e2e lo pilló
+    // midiendo `scrollY`; leyendo el CSS parecía correcto.
+    //
+    // ⚠️ Y hacen falta LAS DOS raíces: con `overflow: hidden` solo en `body`,
+    // quien scrollea de verdad en esta página es `documentElement` y el fondo
+    // seguía moviéndose igual.
+    if (hojasAbiertas === 0) {
+      overflowPrevio = {
+        body: document.body.style.overflow,
+        raiz: document.documentElement.style.overflow,
+      };
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    }
+    hojasAbiertas += 1;
+
+    return () => {
+      hojasAbiertas -= 1;
+      if (hojasAbiertas === 0 && overflowPrevio) {
+        document.body.style.overflow = overflowPrevio.body;
+        document.documentElement.style.overflow = overflowPrevio.raiz;
+        overflowPrevio = null;
+      }
+    };
+    // A propósito NO se usa el truco de `position: fixed` + restaurar scroll,
+    // que es el remedio habitual para iOS: aquí colapsaría la altura del
+    // documento, y esa altura es justo la que se le anuncia al anfitrión por
+    // `tentareEmbedAltura` — el iframe del estudio se encogería a nada al abrir
+    // una hoja. El encadenamiento del gesto se corta aparte, con
+    // `overscroll-behavior: contain` en el scroller de cada hoja.
+  }, [activo]);
 }

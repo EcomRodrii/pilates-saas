@@ -48,6 +48,7 @@ import { altura } from '@/lib/portal-design';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import { IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { CampoImagen } from '@/components/ui/campo-imagen';
+import { SelectorFuente } from '@/components/ui/selector-fuente';
 
 // "Ajustes" del workspace de Apariencia (theme-workspace.tsx) — color de
 // marca, tipografía, radios, navegación del portal, redes sociales, logo/
@@ -788,24 +789,15 @@ export function AjustesCategoriaPanel({
           </p>
         </div>
 
-        <label className="block space-y-1">
-          <span className="text-[13px] font-medium text-foreground">Tipografía</span>
-          <input
-            type="text"
-            value={draft.widgetFuente ?? ''}
-            maxLength={40}
-            onChange={(e) => setCampo('widgetFuente', e.target.value.trim() === '' ? null : e.target.value)}
-            placeholder="Space Grotesk"
-            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background"
-          />
-          {/* ⚠️ Se dice la verdad en vez de prometer una herencia que no existe:
-              un iframe es otro documento y NO puede heredar la fuente de la web
-              que lo contiene. Escribir el nombre es lo que sí funciona. */}
-          <span className="block text-[11px] text-muted-foreground">
-            Escribe el nombre de la fuente de tu web, tal cual (la buscamos en Google Fonts).
-            No podemos heredarla sola: el widget vive en un marco aparte.
-          </span>
-        </label>
+        {/* ⚠️ Se dice la verdad en vez de prometer una herencia que no existe:
+            un iframe es otro documento y NO puede heredar la fuente de la web
+            que lo contiene. Elegirla aquí es lo que sí funciona. */}
+        <SelectorFuente
+          etiqueta="Tipografía"
+          ayuda="El widget vive en un marco aparte y no puede heredar la fuente de tu web: elige aquí la que más se le parezca."
+          valor={draft.widgetFuente ?? null}
+          onChange={(v) => setCampo('widgetFuente', v)}
+        />
 
         <div className="space-y-1.5">
           <span className="text-[13px] font-medium text-foreground">Al incrustarlo</span>
@@ -893,20 +885,13 @@ export function AjustesCategoriaPanel({
           </label>
         </div>
 
-        <label className="block space-y-1">
-          <span className="text-[13px] font-medium text-foreground">Tipografía de titulares</span>
-          <input
-            type="text"
-            value={draft.widgetFuenteDisplay ?? ''}
-            maxLength={40}
-            onChange={(e) => setCampo('widgetFuenteDisplay', e.target.value.trim() === '' ? null : e.target.value)}
-            placeholder="Igual que la tipografía de arriba"
-            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background"
-          />
-          <span className="block text-[11px] text-muted-foreground">
-            Para titulares, horas y precios — el resto del texto sigue usando la tipografía de arriba.
-          </span>
-        </label>
+        <SelectorFuente
+          etiqueta="Tipografía de titulares"
+          ayuda="Para titulares, horas y precios — el resto del texto sigue usando la tipografía de arriba."
+          valor={draft.widgetFuenteDisplay ?? null}
+          onChange={(v) => setCampo('widgetFuenteDisplay', v)}
+          etiquetaPorDefecto="Igual que la de arriba"
+        />
 
         <WidgetPreview
           slug={studio?.slug}

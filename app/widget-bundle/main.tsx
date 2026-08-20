@@ -112,6 +112,9 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
     sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
     stripeAccountId, onActualizarPerfil, logout, crearCheckoutEmbebido, comprarConBizum, recargar,
   } = useDatosWidget(slug, ORIGEN_TENTARE, filtros);
+  // Cuántas columnas va a tener DE VERDAD el calendario, para que el esqueleto
+  // reserve ese ancho y no siete siempre (ver el comentario de abajo).
+  const columnasEsqueleto = config.vistaInicial === 'hoy' ? 1 : 7;
   const trackedRef = useRef(false);
   useEffect(() => {
     if (!studioId || trackedRef.current) return;
@@ -186,8 +189,13 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   // de formatos (en neutros fijos, vía `estiloDias="grid"` más abajo).
   if (cargando) {
     return (
-      <div style={{ padding: '52px 24px', display: 'grid', gridTemplateColumns: 'repeat(7, minmax(96px, 1fr))', gap: 8, minWidth: 700, overflowX: 'auto' }} aria-busy="true">
-        {Array.from({ length: 7 }).map((_, i) => (
+      // ⚠️ El ancho mínimo se derivaba de siete columnas SIEMPRE, aunque el
+      // snippet pidiera `vista=hoy` (una sola). El esqueleto medía 700px, el
+      // calendario real medía una columna, y el layout pegaba un salto al
+      // terminar de cargar. Ahora las columnas del esqueleto son las que de
+      // verdad va a haber.
+      <div style={{ padding: '52px 24px', display: 'grid', gridTemplateColumns: `repeat(${columnasEsqueleto}, minmax(96px, 1fr))`, gap: 8, minWidth: columnasEsqueleto * 100, overflowX: 'auto' }} aria-busy="true">
+        {Array.from({ length: columnasEsqueleto }).map((_, i) => (
           <div key={i} style={{ height: 96, borderRadius: 8, background: 'linear-gradient(100deg, #ECECEC 40%, #E0E0E0 50%, #ECECEC 60%)', backgroundSize: '200% 100%', animation: 'widget-skeleton-shimmer 1.1s linear infinite' }} />
         ))}
       </div>

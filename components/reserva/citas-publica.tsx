@@ -50,6 +50,19 @@ export interface CitasPublicaProps {
   onCancelar: (citaId: string) => void | Promise<{ ok: true } | { ok: false; error: string }>;
   primary: string;
   primaryFg: string;
+  /**
+   * El anclaje del overlay cuando el widget vive dentro de un iframe
+   * auto-dimensionado (ver `overlayStyle` en PublicSheet). Sin esto, la hoja
+   * de confirmar cita se ancla al fondo del iframe, no a lo que se ve.
+   */
+  overlayStyle?: React.CSSProperties;
+  /**
+   * Avisa de si la hoja está abierta, para que el contenedor pueda pedirle al
+   * anfitrión la franja visible (`tentareScrollTo`). El estado vive aquí
+   * dentro, así que sin este aviso el contenedor no puede saberlo — y el
+   * seguimiento del scroll se perdía en silencio.
+   */
+  onOverlayAbierto?: (abierto: boolean) => void;
 }
 
 function fmtHora(iso: string) { return horaEstudio(iso); }
@@ -60,6 +73,7 @@ const CUALQUIERA = '__cualquiera__';
 export function CitasPublica({
   studioId, servicios, instructores, disponibilidad, misCitas,
   autenticada, onNeedLogin, onReservar, onCancelar, primary, primaryFg,
+  overlayStyle, onOverlayAbierto,
 }: CitasPublicaProps) {
   const [hoy] = useState(() => new Date());
   const [paso, setPaso] = useState<'servicio' | 'huecos'>('servicio');
@@ -72,6 +86,9 @@ export function CitasPublica({
   const [errorHuecos, setErrorHuecos] = useState(false);
   const [booking, setBooking] = useState<Hueco | null>(null);
   const [confirmando, setConfirmando] = useState(false);
+  // El contenedor necesita saber que hay un overlay abierto para pedirle al
+  // anfitrión la franja visible del iframe (ver `onOverlayAbierto`).
+  useEffect(() => { onOverlayAbierto?.(confirmando); }, [confirmando, onOverlayAbierto]);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<{ ok: true } | { error: string } | null>(null);
   const [cancelandoId, setCancelandoId] = useState<string | null>(null);
@@ -331,6 +348,13 @@ export function CitasPublica({
         onClose={cerrarSheet}
         label={resultado && 'ok' in resultado ? 'Cita reservada' : 'Confirmar cita'}
         sheetClassName="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
+        // ⚠️ Esta hoja era la ÚNICA del flujo que no participaba del protocolo
+        // de anclaje del iframe: dentro de un widget auto-dimensionado se
+        // anclaba al fondo del iframe entero, a cientos de píxeles de lo que
+        // la persona ve. «Citas» es una pestaña embebible por sí sola
+        // (`?tab=citas`), así que le pasa exactamente igual que a «Clases»
+        // antes de arreglarlo.
+        overlayStyle={overlayStyle}
       >
         {booking && servicio && (
           <>

@@ -145,7 +145,10 @@ export function TiraDias({
 function botonFlecha(tokens: TokensTiraDias): CSSProperties {
   return {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    width: 34, height: 34, borderRadius: 999, flexShrink: 0,
+    // 44px, no 34: por debajo de ese tamaño el dedo falla más de lo que
+    // acierta, y estas dos flechas son la única forma de llegar a los días
+    // que no caben en pantalla.
+    width: 44, height: 44, borderRadius: 999, flexShrink: 0,
     border: `1px solid ${tokens.line}`, background: tokens.surface, color: tokens.ink,
     cursor: 'pointer',
   };

@@ -201,54 +201,74 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
     await expect(page.getByRole('group', { name: 'Tipos de clase' }).getByRole('button', { name: 'Reformer' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  // El campo de tipografía dejó de ser un `<input>` de texto libre y pasó a ser
+  // un selector con las diez familias del catálogo, cada una escrita en su
+  // propia letra. Elegir es abrir y pulsar la opción.
+  async function elegirFuente(page: Page, campo: string, familia: string) {
+    await page.getByRole('button', { name: campo, exact: true }).click();
+    await page.getByRole('option', { name: new RegExp(familia) }).click();
+  }
+
   test('⚠️ tipografía: entra en el snippet (iframe y script), pinta la previa real y se persiste', async ({ page }) => {
     const { patches } = await montar(page);
 
     // Iframe (Modo A): el nombre viaja como query param CONGELADO — el mismo
     // vocabulario `fuente=`/`fuente-display=` que ya resuelve resolverApariencia.
-    await page.getByLabel('Tipografía', { exact: true }).fill('Space Grotesk');
-    await page.getByLabel('Tipografía de titulares').fill('Lobster');
-    await expect(snippet(page)).toContainText('fuente=Space%20Grotesk');
-    await expect(snippet(page)).toContainText('fuente-display=Lobster');
+    await elegirFuente(page, 'Tipografía', 'Poppins');
+    await elegirFuente(page, 'Tipografía de titulares', 'Playfair Display');
+    await expect(snippet(page)).toContainText('fuente=Poppins');
+    // Con espacio, para seguir cubriendo la codificación (%20 → +, nunca %2B).
+    await expect(snippet(page)).toContainText('fuente-display=Playfair%20Display');
 
-    // Un nombre inválido NO entra en el snippet (misma puerta que el parser).
-    await page.getByLabel('Tipografía de titulares').fill('Foo"; }');
-    await expect(page.getByText('Solo letras, números y espacios', { exact: false })).toBeVisible();
-    await expect(snippet(page)).not.toContainText('fuente-display=');
-    await page.getByLabel('Tipografía de titulares').fill('Lobster');
+    // ⚠️ Ya no hay test de «nombre inválido»: con un catálogo cerrado no se
+    // puede escribir una errata. Antes había que teclear el nombre EXACTO de
+    // la familia y una mayúscula de menos se guardaba tan tranquila sin que la
+    // fuente llegara nunca al widget. Lo que se comprueba ahora es que la
+    // lista ofrece las diez y ni una más.
+    await page.getByRole('button', { name: 'Tipografía', exact: true }).click();
+    await expect(page.getByRole('option')).toHaveCount(11); // 10 + «la de Tentare»
+    await page.keyboard.press('Escape');
 
     // Persistencia en widget_builder (debounce real, se espera al PATCH).
     await expect.poll(
       () => patches.some(p => typeof p.widget_builder === 'object' && p.widget_builder !== null
-        && JSON.stringify(p.widget_builder).includes('Space Grotesk')),
+        && JSON.stringify(p.widget_builder).includes('Poppins')),
       { timeout: 10_000 },
     ).toBe(true);
 
     // Script (Modo B): atributos data-* y la vista previa REAL del panel — la
     // familia computada del calendario montado, no un texto decorativo.
     await page.getByRole('button', { name: /Calendario embebido \(sin iframe\)/ }).click();
-    await page.getByLabel('Tipografía', { exact: true }).fill('Space Grotesk');
-    await page.getByLabel('Tipografía de titulares').fill('Lobster');
-    await expect(snippet(page)).toContainText('data-fuente="Space Grotesk"');
-    await expect(snippet(page)).toContainText('data-fuente-display="Lobster"');
+    await elegirFuente(page, 'Tipografía', 'Poppins');
+    await elegirFuente(page, 'Tipografía de titulares', 'Playfair Display');
+    await expect(snippet(page)).toContainText('data-fuente="Poppins"');
+    await expect(snippet(page)).toContainText('data-fuente-display="Playfair Display"');
     const boton = page.getByRole('button', { name: '10:00 Reformer' });
     await boton.waitFor();
     // El <link> de Google Fonts se inyecta en el documento del panel (igual
     // que hará montarUno en la web real) y la previa computa la familia.
-    await expect.poll(() => page.evaluate(() => document.querySelectorAll('link[href*="Space+Grotesk"]').length)).toBe(1);
+    // `>= 1` y no `=== 1`: el propio selector carga las diez familias del
+    // catálogo para poder enseñar cada nombre en su letra, así que hay un
+    // segundo <link> que también menciona Poppins. La prueba de verdad es la
+    // familia computada de la línea siguiente.
+    await expect.poll(() => page.evaluate(() => document.querySelectorAll('link[href*="Poppins"]').length)).toBeGreaterThanOrEqual(1);
     const fam = await boton.evaluate(el => getComputedStyle(el.closest('div[style*="--font-ui"]')!).fontFamily);
-    expect(fam).toContain('Space Grotesk');
+    expect(fam).toContain('Poppins');
   });
 
   test('al volver a entrar, la tipografía guardada se restaura (control y snippet)', async ({ page }) => {
+    // ⚠️ A propósito con familias que NO están en el catálogo: son las que un
+    // estudio pudo escribir a mano cuando esto era un campo de texto libre.
+    // Tienen que seguir funcionando exactamente igual — el catálogo añade una
+    // forma cómoda de elegir, no un vocabulario nuevo que invalide lo guardado.
     await montar(page, {
       widgetBuilder: { clases: { fuente: 'Space Grotesk', fuenteDisplay: 'Lobster' } },
     });
     const codigo = await snippet(page).textContent();
     expect(codigo).toContain('fuente=Space%20Grotesk');
     expect(codigo).toContain('fuente-display=Lobster');
-    await expect(page.getByLabel('Tipografía', { exact: true })).toHaveValue('Space Grotesk');
-    await expect(page.getByLabel('Tipografía de titulares')).toHaveValue('Lobster');
+    await expect(page.getByRole('button', { name: 'Tipografía', exact: true })).toContainText('Space Grotesk');
+    await expect(page.getByRole('button', { name: 'Tipografía de titulares', exact: true })).toContainText('Lobster');
   });
 
   test('⚠️ guardar un dominio dispara el registro de wallets (contador real, no fe)', async ({ page }) => {

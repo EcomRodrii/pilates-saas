@@ -27,6 +27,7 @@ import type { ResultadoReserva } from '@/lib/studio-context';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { semantic } from '@/lib/portal-tokens';
 import { colorOcupacion, ratioOcupacion, etiquetaOcupacion } from '@/lib/ocupacion';
+import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
 import { serif, sans, cq, radius, shadow, EASE } from '@/lib/reservar-publico-tokens';
 import {
   localDayKey, addDays, diasSemana, contarSlotsPorDia, slotsDelDia,
@@ -240,7 +241,11 @@ const GRID_NEUTROS = {
   bg: '#FFFFFF', ink: '#1A1A1A', mut: '#8A8A8A', mut2: '#6E6E6E',
   linea: '#E8E8E8', linea2: '#ECECEC', radio: 8,
 };
-const GRID_FUENTE = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+// ⚠️ La rejilla compacta tenía aquí la pila del sistema escrita a fuego, así
+// que era la única parte del widget que NO cambiaba al elegir tipografía — y
+// justo es el diseño «ligero», el que trae el bundle por defecto. Ahora lee la
+// misma variable que el resto y solo cae al sistema si nadie la fijó.
+const GRID_FUENTE = "var(--font-ui), system-ui, -apple-system, 'Segoe UI', sans-serif";
 const DOW_GRID = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
 
 function fmtHora(iso: string): string {
@@ -1204,6 +1209,11 @@ function BookingSheet({
     ? (franjaVisible ? '100%' : 'min(88vh, 640px)')
     : '88vh';
 
+  // Con la hoja abierta, el listado de detrás ya no se mueve. Ver el docblock
+  // del hook: medido en producción, `body` se quedaba en `overflow: visible` y
+  // el gesto se encadenaba al fondo al llegar al final de la hoja.
+  useBloquearScrollFondo(true);
+
   return (
     <div
       role="dialog"
@@ -1250,6 +1260,9 @@ function BookingSheet({
           borderRadius: enIframe && !franjaVisible ? 24 : '24px 24px 0 0',
           padding: '10px 20px 0', display: 'flex', flexDirection: 'column', gap: 14,
           maxHeight: sheetMaxHeight, overflowY: 'auto',
+          // Corta el encadenamiento del gesto: al llegar al final de la hoja,
+          // el scroll NO pasa al listado de detrás.
+          overscrollBehavior: 'contain',
         }}
       >
         <div style={{ width: 36, height: 4, borderRadius: 999, background: t.line, margin: '6px auto 4px', flexShrink: 0 }} />

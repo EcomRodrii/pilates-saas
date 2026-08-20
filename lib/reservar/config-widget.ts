@@ -12,6 +12,8 @@
 // basura se IGNORA (queda el default), nunca rompe — estos parámetros llegan
 // por la URL de una página pública y cualquiera puede escribirlos.
 
+import { pesosDe, reservaDe } from './fuentes-catalogo.ts';
+
 /**
  * Color `#rgb`/`#rrggbb`/`#rrggbbaa`. Vive aquí (módulo común sin dependencias)
  * y `apariencia-widget.ts` lo importa — una sola puerta anti-XSS para todo lo
@@ -41,7 +43,7 @@ export function fuenteValida(v: string): boolean {
  * rato se ve en Times New Roman.
  */
 export function familiaCssDe(nombre: string): string {
-  return `'${nombre.trim()}', system-ui, sans-serif`;
+  return `'${nombre.trim()}', ${reservaDe(nombre)}`;
 }
 
 /**
@@ -57,11 +59,19 @@ export function familiaCssDe(nombre: string): string {
  * pedirías la familia «Space+Grotesk» con un signo más literal en el nombre.
  * `display=swap` a propósito: la carga de la fuente nunca bloquea el pintado
  * del widget — mientras llega se ve la pila de reserva.
+ *
+ * ⚠️ Los pesos salen del catálogo (`pesosDe`), no de una lista fija. Pedir
+ * `400;500;600;700` para todo parecía inofensivo porque Google responde 200
+ * igual, pero solo devuelve los que existen: **Instrument Serif publica solo el
+ * 400**, y es la fuente de titulares por defecto. El navegador no encontraba el
+ * 600 del titular y lo falsificaba engordando el trazo. Para una familia que no
+ * esté en el catálogo se piden los cuatro de siempre, así que nada de lo ya
+ * guardado cambia.
  */
 export function urlFuenteGoogle(nombre: string | null | undefined): string | null {
   if (!nombre || !fuenteValida(nombre)) return null;
   const familia = encodeURIComponent(nombre.trim()).replace(/%20/g, '+');
-  return `https://fonts.googleapis.com/css2?family=${familia}:wght@400;500;600;700&display=swap`;
+  return `https://fonts.googleapis.com/css2?family=${familia}:wght@${pesosDe(nombre).join(';')}&display=swap`;
 }
 
 // Ids del repo: UUIDs en producción, slugs cortos en fixtures/tests. Letras,

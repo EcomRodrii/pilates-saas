@@ -19,6 +19,8 @@ import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { localDayKey } from '@/lib/reserva-calendario-logic';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import { PublicSheet } from '@/components/ui/public-sheet';
+import { IndicadorPasos } from '@/components/reserva/indicador-pasos';
+import { recorridoDe } from '@/lib/reservar/pasos-flujo';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
@@ -605,6 +607,9 @@ export default function ReservarPage() {
   // solo se usa para posicionar overlays — nunca toca datos ni navegación.
   const [franjaVisible, setFranjaVisible] = useState<{ top: number; height: number } | null>(null);
   const franjaRef = useRef<{ top: number; height: number } | null>(null);
+  // La hoja de confirmar cita vive dentro de <CitasPublica>; nos avisa por
+  // `onOverlayAbierto` para poder anclarla igual que las demás.
+  const [citaConfirmandoAbierta, setCitaConfirmandoAbierta] = useState(false);
   const overlayEmbebidoAbiertoRef = useRef(false);
   const [fichaCalendarioAbierta, setFichaCalendarioAbierta] = useState(false);
   useEffect(() => {
@@ -631,7 +636,11 @@ export default function ReservarPage() {
   // (snippet viejo, o el iframe casi fuera de pantalla), pide al host que
   // traiga el iframe a la vista. Con el snippet nuevo, el scroll que provoca
   // dispara mensajes nuevos y el overlay se recoloca solo.
-  const overlayEmbebidoAbierto = embedMode && (fichaCalendarioAbierta || bookingSesionId !== null || legalDoc !== null);
+  // ⚠️ Toda hoja nueva del flujo tiene que sumarse a esta expresión o pierde
+  // el seguimiento del scroll EN SILENCIO: se pinta una vez con la franja
+  // congelada y luego se despega. Le pasaba a la de «Citas», que ni
+  // siquiera exponía su estado hacia fuera.
+  const overlayEmbebidoAbierto = embedMode && (fichaCalendarioAbierta || bookingSesionId !== null || legalDoc !== null || citaConfirmandoAbierta);
   useEffect(() => {
     overlayEmbebidoAbiertoRef.current = overlayEmbebidoAbierto;
     if (!overlayEmbebidoAbierto || typeof window === 'undefined' || window.parent === window) return;
@@ -1722,12 +1731,27 @@ export default function ReservarPage() {
       <style>{`html,body{background:${fondoCss(apariencia) ?? 'var(--portal-bg)'} !important;}`}</style>
     )}
     <div style={{
-      ...containerRoot, width: '100%', minHeight: '100vh',
+      // `dvh` y no `vh`: con la barra de Safari visible, `100vh` sobra y deja un
+      // scroll fantasma — y como esta es justo la altura que se le anuncia al
+      // anfitrión por `tentareEmbedAltura`, ese sobrante se convertía en un
+      // hueco real dentro de la web del estudio. La pantalla de error de esta
+      // misma página ya usaba `dvh`; eran dos unidades distintas para lo mismo.
+      ...containerRoot, width: '100%', minHeight: '100dvh',
       // `transparent` deja ver el fondo de la web anfitriona. Era el problema
       // gordo: un `#F6F7F9` opaco es una losa casi blanca sobre una web oscura.
       background: fondoCss(apariencia) ?? 'var(--portal-bg)',
       color: 'var(--portal-ink)',
       fontFamily: fuenteWidget ?? sans,
+      // ⚠️ `fontFamily` a secas SOLO alcanza al texto que hereda, y en esta
+      // pantalla casi nada hereda: el calendario, los botones, el checkout y
+      // los modales declaran su propia familia leyendo `var(--font-ui)` /
+      // `var(--font-display)`. Dentro del iframe esas variables EXISTEN —las
+      // define el layout de Next— así que resolvían a Instrument Sans y la
+      // fuente elegida no llegaba a ninguno de ellos: se aplicaba al hueco
+      // entre componentes y a poco más. Modo B ya las fijaba (main.tsx), o sea
+      // que los dos modos pintaban distinto con el mismo snippet.
+      ...(fuenteWidget ? { '--font-ui': fuenteWidget } : {}),
+      ...(fuenteDisplayWidget ? { '--font-display': fuenteDisplayWidget } : {}),
       // Solo se pisa la variable cuando hay fuente de titulares que aplicar —
       // emitirla siempre rompería el fallback a `--font-display` (la pila
       // `serif` de siempre) para quien no tocó nada.
@@ -1932,6 +1956,8 @@ export default function ReservarPage() {
             <button key={t} onClick={() => setTab(t)}
               style={{
                 flex: '0 0 auto', padding: '0 2px 16px', marginBottom: -1, background: 'none', border: 'none', cursor: 'pointer',
+                // La barra scrollea en horizontal: mismo motivo que arriba.
+                WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation',
                 borderBottom: tab === t ? '1.5px solid var(--portal-ink)' : '1.5px solid transparent',
                 fontFamily: serif, fontSize: cq(19, 2.1, 27), color: tab === t ? 'var(--portal-ink)' : 'var(--portal-muted)',
                 whiteSpace: 'nowrap', transition: 'color .35s ease',
@@ -2019,7 +2045,13 @@ export default function ReservarPage() {
             {tiposClaseVisibles.length > 0 && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 18 }} role="group" aria-label="Filtrar por tipo de clase">
                 <button type="button" onClick={() => setFiltroTipo('')} aria-pressed={filtroTipo === ''} style={{
-                  padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
+                  padding: '8px 14px', minHeight: 44, borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
+                  // Mismo blindaje táctil que ya lleva la tira de días: sin
+                  // `user-select`/`touch-action`, un toque real puede leerse como
+                  // inicio de selección de texto y el `onClick` no llega nunca
+                  // (el bug de #1257, que aquí seguía abierto). Y 44px de alto
+                  // mínimo, que es el destino táctil por debajo del cual se falla.
+                  WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation',
                   background: filtroTipo === '' ? PRIMARY : 'transparent',
                   color: filtroTipo === '' ? PRIMARY_FG : 'var(--portal-muted)',
                   borderColor: filtroTipo === '' ? 'transparent' : 'var(--portal-line)',
@@ -2028,7 +2060,13 @@ export default function ReservarPage() {
                 </button>
                 {tiposClaseVisibles.map(t => (
                   <button key={t.id} type="button" onClick={() => setFiltroTipo(t.id)} aria-pressed={filtroTipo === t.id} style={{
-                    padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
+                    padding: '8px 14px', minHeight: 44, borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
+                  // Mismo blindaje táctil que ya lleva la tira de días: sin
+                  // `user-select`/`touch-action`, un toque real puede leerse como
+                  // inicio de selección de texto y el `onClick` no llega nunca
+                  // (el bug de #1257, que aquí seguía abierto). Y 44px de alto
+                  // mínimo, que es el destino táctil por debajo del cual se falla.
+                  WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation',
                     background: filtroTipo === t.id ? PRIMARY : 'transparent',
                     color: filtroTipo === t.id ? PRIMARY_FG : 'var(--portal-muted)',
                     borderColor: filtroTipo === t.id ? 'transparent' : 'var(--portal-line)',
@@ -2124,6 +2162,8 @@ export default function ReservarPage() {
         {tab === 'citas' && (
           <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
             <CitasPublica
+              overlayStyle={overlayEmbed}
+              onOverlayAbierto={setCitaConfirmandoAbierta}
               studioId={studio?.id ?? ''}
               servicios={citasServicios}
               instructores={instructores}
@@ -2711,7 +2751,7 @@ export default function ReservarPage() {
         // (Claude Design, no la copia local desfasada del handoff) — ese
         // asistente es más ancho que el resto de pasos de este modal (login,
         // confirmar, etc.), así que la hoja crece solo para esos dos.
-        sheetClassName={`bg-white w-full ${loginStep === 'datos' || loginStep === 'pago' ? 'max-w-lg' : 'max-w-sm'} rounded-3xl p-6 relative shadow-2xl`}
+        sheetClassName={`bg-white w-full ${loginStep === 'datos' || loginStep === 'pago' ? 'max-w-lg' : 'max-w-sm'} rounded-3xl p-6 relative shadow-2xl transition-[max-width] duration-300 ease-out`}
         // P0-3: en el iframe embebido, `90vh` es el 90% del IFRAME entero (que
         // mide lo que su contenido) — el modal se anclaba junto al pie de la
         // web del estudio, a ~1000px de la vista del usuario (medido). Con
@@ -2720,8 +2760,20 @@ export default function ReservarPage() {
         sheetStyle={{
           maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(90vh, 640px)') : '90vh',
           overflowY: 'auto',
+          overscrollBehavior: 'contain',
         }}
         overlayStyle={overlayEmbed}
+        // El CTA del paso «datos» va anclado abajo, no al final del scroll:
+        // con el teclado abierto en móvil quedaba fuera de alcance, y con él la
+        // casilla de privacidad que lo habilita (ver el docblock de `footer`).
+        footer={loginStep === 'datos' ? (
+          <button onClick={handleDatosContinuar}
+            disabled={!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono) || !privacidadAceptada || datosCargando}
+            className="w-full py-3.5 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+            style={{ backgroundColor: PRIMARY }}>
+            {datosCargando ? 'Un momento…' : 'Continuar al pago'}
+          </button>
+        ) : undefined}
       >
         {bookingSesionId !== null && (
           <>
@@ -2906,7 +2958,7 @@ export default function ReservarPage() {
 
             {/* ── LOGIN (magic link) ── */}
             {loginStep === 'login' && (
-              <div className="contenido-anim">
+              <div className="paso-anim">
                 {!enlaceEnviado ? (
                   <>
                     <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">Entra para reservar</h2>
@@ -2919,7 +2971,7 @@ export default function ReservarPage() {
                       onChange={e => { setLoginForm(f => ({ ...f, email: e.target.value })); setLoginError(''); }}
                       onKeyDown={e => e.key === 'Enter' && handleContinuarAcceso()}
                       autoFocus
-                      className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
+                      className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                       style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                     <input type="password"
                       placeholder="Tu contraseña (si la tienes)"
@@ -2927,7 +2979,7 @@ export default function ReservarPage() {
                       onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
                       onKeyDown={e => e.key === 'Enter' && handleContinuarAcceso()}
                       autoComplete="current-password"
-                      className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
+                      className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                       style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                     {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                     {/* Sin margen propio: mide 0 px salvo que Cloudflare pida
@@ -2963,13 +3015,13 @@ export default function ReservarPage() {
                 (que incluye login/registro separado) — se rotula honesto a lo
                 que este camino realmente tiene. */}
             {loginStep === 'datos' && bookingSesion && datosPlan && (
-              <div className="contenido-anim">
+              <div className="paso-anim">
                 <div className="flex items-center justify-between mb-3">
                   <button type="button" onClick={closeBooking}
                     className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
                     <ChevronLeft size={14} strokeWidth={2.5} />Clases
                   </button>
-                  <p className="text-[10.5px] font-bold tracking-[0.14em] text-[var(--portal-muted)] uppercase">Paso 1 de 2</p>
+                  <IndicadorPasos recorrido={recorridoDe('datos')!} />
                 </div>
                 {/* Rediseño del popup (referencia Momence móvil, orden pedido
                     por el fundador): foto de la clase, título, fecha + hora +
@@ -3023,29 +3075,34 @@ export default function ReservarPage() {
                 <p className="text-[var(--portal-muted-2)] text-sm mb-4">
                   No necesitas crear una cuenta. Al completar tu reserva crearemos automáticamente tu acceso para que puedas gestionar tus próximas clases.
                 </p>
-                <div className="grid grid-cols-2 gap-2 mb-2">
+                {/* `auto-fit` + `minmax` en vez de `grid-cols-2` fijo: a 320px las dos
+                    columnas dejaban ~108px útiles para «Apellidos» (con 32px de
+                    padding dentro de cada campo), y se pasa solo a una columna sin
+                    breakpoint. Un `min-[380px]:` habría medido el ancho del IFRAME,
+                    que es la trampa que ya documenta PublicSheet. */}
+                <div className="gap-2 mb-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
                   <input type="text" placeholder="Nombre"
                     value={loginForm.nombre}
                     onChange={e => setLoginForm(f => ({ ...f, nombre: e.target.value }))}
                     autoFocus
-                    className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors"
+                    className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors"
                     style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                   <input type="text" placeholder="Apellidos"
                     value={loginForm.apellidos}
                     onChange={e => setLoginForm(f => ({ ...f, apellidos: e.target.value }))}
-                    className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors"
+                    className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors"
                     style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                 </div>
                 <input type="email" placeholder="Tu email"
                   value={loginForm.email}
                   onChange={e => { setLoginForm(f => ({ ...f, email: e.target.value })); setDatosError(''); }}
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-2"
+                  className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-2"
                   style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                 <input type="tel" placeholder="Tu teléfono (+34 600 000 000)"
                   value={loginForm.telefono}
                   onChange={e => setLoginForm(f => ({ ...f, telefono: e.target.value }))}
                   onKeyDown={e => e.key === 'Enter' && handleDatosContinuar()}
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
+                  className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
                   style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                 {datosError && <p className="text-destructive text-sm mb-3">{datosError}</p>}
                 <p className="text-[11px] text-[var(--portal-muted)] mb-3">
@@ -3069,24 +3126,20 @@ export default function ReservarPage() {
                     </button>.
                   </span>
                 </label>
-                <button onClick={handleDatosContinuar}
-                  disabled={!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono) || !privacidadAceptada || datosCargando}
-                  className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
-                  style={{ backgroundColor: PRIMARY }}>
-                  {datosCargando ? 'Un momento…' : 'Continuar al pago →'}
-                </button>
+                {/* El botón de continuar ya NO vive aquí: es el `footer` de la
+                    hoja, para que el teclado del móvil no lo tape. */}
               </div>
             )}
 
             {/* ── PAGO (checkout embebido, "pagar y reservar sin login previo") ── */}
             {loginStep === 'pago' && bookingSesion && datosPlan && datosClientSecret && studio?.stripeAccountId && STRIPE_PUBLISHABLE_KEY && (
-              <div className="contenido-anim">
+              <div className="paso-anim">
                 <div className="flex items-center justify-between mb-3">
                   <button type="button" onClick={() => setLoginStep('datos')}
                     className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
                     <ChevronLeft size={14} strokeWidth={2.5} />Datos
                   </button>
-                  <p className="text-[10.5px] font-bold tracking-[0.14em] text-[var(--portal-muted)] uppercase">Paso 2 de 2</p>
+                  <IndicadorPasos recorrido={recorridoDe('pago')!} />
                 </div>
                 <CheckoutEmbebido
                   t={tokensCalendario}
@@ -3131,7 +3184,8 @@ export default function ReservarPage() {
 
             {/* ── REGISTRO (walk-in ya autenticado: nombre) ── */}
             {loginStep === 'registro' && (
-              <div className="contenido-anim">
+              <div className="paso-anim">
+                <div className="mb-3"><IndicadorPasos recorrido={recorridoDe('registro')!} /></div>
                 <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">¿Cómo te llamas?</h2>
                 <p className="text-[var(--portal-muted-2)] text-sm mb-5">Completa tus datos para tu primera reserva — el estudio los usará para avisarte de cualquier cambio en tus clases.</p>
                 <input type="text"
@@ -3139,14 +3193,14 @@ export default function ReservarPage() {
                   value={loginForm.nombre}
                   onChange={e => setLoginForm(f => ({ ...f, nombre: e.target.value }))}
                   autoFocus
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
+                  className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                   style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                 <input type="tel"
                   placeholder="Tu teléfono (+34 600 000 000)"
                   value={loginForm.telefono}
                   onChange={e => setLoginForm(f => ({ ...f, telefono: e.target.value }))}
                   onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
+                  className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
                   style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                 {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                 <p className="text-[11px] text-[var(--portal-muted)] mb-5">El teléfono solo lo usa {estudioNombre} para avisos de tus clases.</p>
@@ -3160,7 +3214,8 @@ export default function ReservarPage() {
 
             {/* ── CONTRATO (aceptación clickwrap) ── */}
             {loginStep === 'contrato' && (
-              <div className="contenido-anim">
+              <div className="paso-anim">
+                <div className="mb-3"><IndicadorPasos recorrido={recorridoDe('contrato')!} /></div>
                 <div className="flex items-center gap-2 mb-1">
                   <FileText size={16} style={{ color: PRIMARY }} className="shrink-0" />
                   <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg">Acepta los términos</h2>
@@ -3202,7 +3257,7 @@ export default function ReservarPage() {
 
             {/* ── CONFIRM ── */}
             {loginStep === 'confirm' && bookingSesion && (
-              <div className="contenido-anim">
+              <div className="paso-anim">
                 <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-4">Confirmar reserva</h2>
                 <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
                   <div className="flex items-center gap-2 mb-1.5">

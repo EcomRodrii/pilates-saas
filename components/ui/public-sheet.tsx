@@ -22,6 +22,7 @@ export function PublicSheet({
   sheetStyle,
   overlayStyle,
   closeOnBackdropClick = true,
+  footer,
 }: {
   open: boolean;
   onClose: () => void;
@@ -39,14 +40,40 @@ export function PublicSheet({
    */
   overlayStyle?: React.CSSProperties;
   closeOnBackdropClick?: boolean;
+  /**
+   * La acción principal, anclada abajo y SIEMPRE visible.
+   *
+   * ⚠️ Sin esto, el CTA era el último hijo de un contenedor con `maxHeight` y
+   * scroll, y en el paso «datos» quedaba detrás del teclado: hay foto, título,
+   * tres filas de datos, descripción, cuatro campos y una casilla obligatoria
+   * por encima. Al enfocar el último campo, en iOS el teclado tapa la mitad
+   * inferior del modal (el viewport de layout no encoge), así que no se veía ni
+   * el botón ni la casilla que lo habilita — la persona veía un formulario sin
+   * salida y sin saber por qué. Es exactamente el mismo defecto que ya se
+   * arregló para la hoja de la ficha de clase, que sí tiene footer propio.
+   *
+   * Con `footer`, la hoja pasa a ser columna: el contenido scrollea y esto no.
+   */
+  footer?: React.ReactNode;
 }) {
   const { sheetRef } = useDialogA11y({ open, onClose });
 
   if (!open) return null;
 
+  // Solo se reestructura cuando hay footer: sin él, la hoja se comporta
+  // EXACTAMENTE igual que antes (el caller sigue mandando con `sheetStyle`).
+  const cuerpo = footer
+    ? <div style={{ overflowY: 'auto', overscrollBehavior: 'contain', flex: '1 1 auto', minHeight: 0 }}>{children}</div>
+    : children;
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6 animate-sheet-backdrop-in"
+      // z-60 y no z-50: el BookingSheet del calendario (la ficha de clase)
+      // también usa 50, y esta hoja se abre ENCIMA de aquella. Empatados,
+      // ganaba por orden de aparición en el DOM — funcionaba, pero por
+      // casualidad: mover un bloque de JSX habría invertido el apilamiento sin
+      // que nada lo delatara.
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 sm:p-6 animate-sheet-backdrop-in"
       style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', ...overlayStyle }}
       onClick={closeOnBackdropClick ? onClose : undefined}
     >
@@ -57,10 +84,32 @@ export function PublicSheet({
         aria-label={label}
         tabIndex={-1}
         className={`${sheetClassName} animate-sheet-pop-in`}
-        style={sheetStyle}
+        style={footer
+          // `overflow: hidden` en la hoja y el scroll en el cuerpo: si el
+          // scroll se quedara aquí, el footer scrollearía con el contenido y no
+          // serviría de nada.
+          ? { ...sheetStyle, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+          : sheetStyle}
         onClick={e => e.stopPropagation()}
       >
-        {children}
+        {cuerpo}
+        {footer && (
+          <div style={{
+            flexShrink: 0,
+            // Una línea de pelo separa la acción del contenido que scrollea
+            // por detrás — sin ella, el botón parece parte del formulario y no
+            // se lee como «el paso siguiente».
+            borderTop: '1px solid rgba(0,0,0,0.07)',
+            // El aire propio del footer, más la barra de gestos del iPhone.
+            // `env(safe-area-inset-bottom)` funciona aquí desde que el layout
+            // de /reservar declara `viewportFit: 'cover'` — antes devolvía 0 y
+            // este cálculo habría sido decorativo.
+            padding: ' 14px 0 calc(env(safe-area-inset-bottom, 0px))',
+            marginTop: 2,
+          }}>
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

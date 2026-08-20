@@ -369,6 +369,15 @@ nextjs-portal { display: none !important; }
 @keyframes contenido-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .contenido-anim { animation: contenido-rise .4s ease both; }
 
+/* Cambio de paso dentro del modal de reserva.
+   ⚠️ Los pasos usaban `.contenido-anim`, que son .4s pensados para tarjetas de
+   dashboard que aparecen SOLAS al cargar una pantalla. Aquí el usuario acaba de
+   pulsar un botón y espera respuesta: 400ms de subida se perciben como que la
+   aplicación va lenta, no como elegancia. Menos recorrido y menos de la mitad
+   de tiempo — se nota que ha cambiado algo, sin hacer esperar. */
+@keyframes paso-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.paso-anim { animation: paso-rise .2s cubic-bezier(.16, 1, .3, 1) both; }
+
 /* Landing page (app/page.tsx) */
 @keyframes lp-riseIn { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
 @keyframes lp-floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
