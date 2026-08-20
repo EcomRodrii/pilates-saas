@@ -2505,7 +2505,12 @@ export async function dbCancelarReservasPorSesiones(sesionIds: string[]): Promis
     .from('reservas')
     .update({ estado: 'CANCELADA', posicion_espera: null })
     .in('sesion_id', sesionIds)
-    .in('estado', ['CONFIRMADA', 'LISTA_ESPERA'])
+    // PENDIENTE_APROBACION incluido: una petición pendiente de aprobar sobre
+    // una clase cancelada quedaba huérfana para siempre (gap que ya señalaba
+    // cancelarSesionPorMinimoNoAlcanzado). No consume bono todavía —la RPC
+    // solo gasta saldo con estado CONFIRMADA—, así que cancelarla no debe
+    // devolver nada. Mismo set que la ruta de sustituciones.
+    .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION'])
     .select('id');
   if (error) { reportDbError('[dbCancelarReservasPorSesiones]', error); return { error: error.message }; }
   return { ok: true, ids: (data ?? []).map(r => r.id as string) };

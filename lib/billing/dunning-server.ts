@@ -117,9 +117,38 @@ export async function confirmarCobroSepaExitoso(params: {
   const { admin, reciboId, studioId } = params;
   const { data: rec, error: updErr } = await admin.from('recibos')
     .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: 'SEPA', sepa_estado: 'succeeded' })
-    .eq('id', reciboId).eq('studio_id', studioId).select('id').maybeSingle();
+    // Mismo guardia de estados que el camino de checkout (webhook/route.ts) y
+    // el conciliador: quedan fuera COBRADO —para no reescribir fecha_cobro con
+    // un evento tardío o reentregado— y sobre todo DEVUELTO, para no RESUCITAR
+    // un recibo ya devuelto. Un adeudo SEPA se puede devolver hasta 8 semanas
+    // después, así que la secuencia succeeded → refunded → reentrega del
+    // succeeded original es perfectamente posible; sin este `.in(...)` volvía a
+    // COBRADO con fecha_devolucion puesta Y re-ejecutaba renovación,
+    // notificación y email de recibo.
+    .eq('id', reciboId).eq('studio_id', studioId)
+    .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO'])
+    .select('id').maybeSingle();
   if (updErr) return { ok: false, error: updErr.message };
-  if (!rec) return { ok: false, error: 'Recibo no encontrado' };
+  // 0 filas tiene ahora DOS causas y hay que distinguirlas, porque el llamador
+  // (webhook: 'Recibo no encontrado') usa una de ellas para detectar un cobro
+  // que apunta a un recibo de OTRO estudio. Sin esta segunda consulta, ese
+  // aviso cross-tenant se volvía inalcanzable y el caso pasaba en silencio.
+  // Mismo criterio que el gemelo de checkout en webhook/route.ts.
+  if (!rec) {
+    const { data: existe } = await admin.from('recibos')
+      .select('id, estado').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
+    // No existe (o es de otro estudio): sigue siendo un error para el llamador,
+    // que lo usa para detectar un cobro que apunta a otro tenant.
+    if (!existe) return { ok: false, error: 'Recibo no encontrado' };
+    // DEVUELTO es el caso que motivó el guardia: NO se resucita ni se repiten
+    // sus efectos. Un adeudo SEPA se puede devolver hasta 8 semanas después,
+    // así que succeeded → refunded → reentrega del succeeded es real.
+    if (existe.estado === 'DEVUELTO') return { ok: true };
+    // Ya COBRADO: es una reentrega del evento. Se deja caer al bloque de abajo
+    // igual que hace el gemelo de checkout, porque esos pasos son idempotentes
+    // y son la ÚNICA red si el proceso murió entre el UPDATE y la renovación
+    // (el conciliador no lo repara: solo mira recibos EN_CURSO).
+  }
 
   await aplicarRenovacionServidor(admin, { studioId, reciboId });
   const { emitirPagoRealizado } = await import('../notifications/emit.ts');

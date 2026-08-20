@@ -307,6 +307,33 @@ test('contarReservasActivasFuturas: cuenta CONFIRMADA y LISTA_ESPERA en clases f
   assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora), 2);
 });
 
+// Regresión R-1 (auditoría 20-ago): cancelar una clase dejaba sus reservas en
+// CONFIRMADA. Esas reservas fantasma le comían a la socia el tope de reservas
+// simultáneas de forma permanente: no puede cancelarlas desde su portal (la
+// clase ya no aparece) y el estudio no tiene por qué saber que existen.
+test('contarReservasActivasFuturas: una clase CANCELADA no gasta cupo de reservas simultáneas', () => {
+  const ahora = new Date('2026-07-10T00:00:00.000Z');
+  const sesiones = [
+    { id: 'viva', inicio: '2026-07-11T08:00:00.000Z', cancelada: false },
+    { id: 'anulada', inicio: '2026-07-12T08:00:00.000Z', cancelada: true },
+  ];
+  const rs: Reserva[] = [
+    res({ sesionId: 'viva', socioId: 'a', estado: 'CONFIRMADA' }),
+    // La reserva fantasma: quedó CONFIRMADA sobre una clase que no va a ocurrir.
+    res({ sesionId: 'anulada', socioId: 'a', estado: 'CONFIRMADA' }),
+  ];
+  assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora), 1);
+});
+
+// `cancelada` es opcional a propósito: quien pase sesiones recortadas (sin esa
+// columna) debe seguir contando igual que antes, no perder reservas.
+test('contarReservasActivasFuturas: sin campo `cancelada` cuenta como antes', () => {
+  const ahora = new Date('2026-07-10T00:00:00.000Z');
+  const sesiones = [{ id: 'fut1', inicio: '2026-07-11T08:00:00.000Z' }];
+  const rs: Reserva[] = [res({ sesionId: 'fut1', socioId: 'a', estado: 'CONFIRMADA' })];
+  assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora), 1);
+});
+
 test('contarReservasActivasFuturas: 0 si no hay clases futuras activas', () => {
   const ahora = new Date('2026-07-10T00:00:00.000Z');
   const sesiones = [{ id: 'pas1', inicio: '2026-07-09T08:00:00.000Z' }];

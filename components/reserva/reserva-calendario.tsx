@@ -672,8 +672,19 @@ export function ReservaCalendario({
             if (!openSlot.miReservaId || enviando) return;
             setErrorReserva(null);
             setEnviando(true);
-            const r = await onAceptarOferta(openSlot.miReservaId);
-            setEnviando(false);
+            // try/finally: si la llamada LANZA (red caída, 500 de Next), sin
+            // esto `enviando` se quedaba en true para siempre y el botón moría
+            // sin decir nada. El guardia `if (enviando) return` de arriba lo
+            // hacía definitivo: ni un segundo intento.
+            let r;
+            try {
+              r = await onAceptarOferta(openSlot.miReservaId);
+            } catch {
+              setErrorReserva('No hemos podido conectar. Inténtalo de nuevo.');
+              return;
+            } finally {
+              setEnviando(false);
+            }
             if (r && !r.ok) { setErrorReserva(r.error); return; }
             setResultado('CONFIRMADA');
           } : undefined}
@@ -681,8 +692,17 @@ export function ReservaCalendario({
             if (enviando) return;
             setErrorReserva(null);
             setEnviando(true);
-            const r = await onReservar(openSlot, selectedSpot);
-            setEnviando(false);
+            // Ver el try/finally de onAceptarOferta: este es el botón de
+            // RESERVAR, donde quedarse muerto es más caro todavía.
+            let r;
+            try {
+              r = await onReservar(openSlot, selectedSpot);
+            } catch {
+              setErrorReserva('No hemos podido conectar. Inténtalo de nuevo.');
+              return;
+            } finally {
+              setEnviando(false);
+            }
             // Sin resultado → el flujo se ha derivado a otra superficie (modal de
             // acceso del widget público): cerramos la hoja para que no quede
             // apilada detrás de ese modal.
@@ -696,8 +716,15 @@ export function ReservaCalendario({
             if (!openSlot.miReservaId || enviando) return;
             setErrorReserva(null);
             setEnviando(true);
-            const r = await onCancelar(openSlot.miReservaId);
-            setEnviando(false);
+            let r;
+            try {
+              r = await onCancelar(openSlot.miReservaId);
+            } catch {
+              setErrorReserva('No hemos podido conectar. Inténtalo de nuevo.');
+              return;
+            } finally {
+              setEnviando(false);
+            }
             // `void` = quien lo pasa no informa (vía panel, que se corrige sola).
             if (r && !r.ok) { setErrorReserva(r.error); return; }
             setResultado('CANCELADA');

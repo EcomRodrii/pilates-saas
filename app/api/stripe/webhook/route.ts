@@ -987,12 +987,27 @@ async function procesarEvento(
           });
           return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
         }
-        const update: Record<string, string> = { disputa_estado: dispute.status };
-        if (dispute.status === 'lost') {
-          update.estado = 'DEVUELTO';
-          update.fecha_devolucion = new Date().toISOString();
+        // Se parte en DOS escrituras a propósito. `disputa_estado` debe sellarse
+        // SIEMPRE (es el estado real de la disputa en Stripe y es idempotente);
+        // `estado`/`fecha_devolucion` necesitan el guardia `.neq('DEVUELTO')`
+        // de su gemelo `charge.refunded`, para que una reentrega no reescriba
+        // la fecha_devolucion original con la de hoy. Con una sola sentencia
+        // había que elegir: o se perdía el guardia, o el guardia descartaba la
+        // fila entera y `disputa_estado` no se guardaba nunca.
+        const { error } = await admin.from('recibos')
+          .update({ disputa_estado: dispute.status })
+          .eq('id', reciboId).eq('studio_id', studioId);
+        let errDevuelto = null;
+        if (!error && dispute.status === 'lost') {
+          const r = await admin.from('recibos')
+            .update({ estado: 'DEVUELTO', fecha_devolucion: new Date().toISOString() })
+            .eq('id', reciboId).eq('studio_id', studioId).neq('estado', 'DEVUELTO');
+          errDevuelto = r.error;
         }
-        const { error } = await admin.from('recibos').update(update).eq('id', reciboId).eq('studio_id', studioId);
+        if (errDevuelto) {
+          console.error('[stripe webhook] disputa perdida: no se pudo marcar DEVUELTO', reciboId, errDevuelto);
+          return NextResponse.json({ error: 'Fallo al cerrar la disputa' }, { status: 500 });
+        }
         if (error) {
           console.error('[stripe webhook] no se pudo cerrar la disputa', reciboId, error);
           return NextResponse.json({ error: 'Fallo al cerrar la disputa' }, { status: 500 });

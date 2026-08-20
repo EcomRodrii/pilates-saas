@@ -395,6 +395,9 @@ interface StudioContextValue {
   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
   cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura>;
+  /** Marca CANCELADA las reservas activas de estas sesiones. Llamar SIEMPRE
+   *  después de haber avisado a las socias (ver updateSesion). */
+  cancelarReservasDeSesiones: (ids: string[], op: string) => void;
 
   // Reservas
   // opciones.checkInInmediato: walk-in (I-alta pilar 6) — se añade y se marca
@@ -2437,6 +2440,31 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
+  // Fuente única para "esta sesión ya no va a ocurrir → sus reservas activas
+  // dejan de estarlo". La usan `cancelarSerieDesde` y `cancelarSesion` (en
+  // calendario/page.tsx); antes solo existía dentro de cancelarSerieDesde y el
+  // camino de clase SUELTA —el habitual— no la tenía, así que las reservas se
+  // quedaban CONFIRMADA apuntando a una clase cancelada.
+  //
+  // ⚠️ Llamarla SIEMPRE después de avisar a las socias: los destinatarios se
+  // resuelven en servidor filtrando estado='CONFIRMADA'.
+  //
+  // NO devuelve el bono a propósito (decisión de producto pendiente, ver
+  // cancelarSerieDesde). OJO: `cancelarSesionPorMinimoNoAlcanzado` SÍ lo
+  // devuelve, así que la política todavía no es única — está pendiente.
+  function cancelarReservasDeSesiones(ids: string[], op: string) {
+    if (ids.length === 0) return;
+    void dbCancelarReservasPorSesiones(ids).then(res => {
+      if (!('ok' in res)) return;
+      const idsSet = new Set(res.ids);
+      if (idsSet.size === 0) return;
+      setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+    }).catch(e => {
+      console.error(`[${op}:dbCancelarReservasPorSesiones]`, e);
+      capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'calendario', op } });
+    });
+  }
+
   async function updateSesion(id: string, changes: Partial<Sesion>): Promise<ResultadoEscritura> {
     const anterior = sesiones.find(s => s.id === id);
     setSesiones(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
@@ -2445,6 +2473,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // la clase), deshace el cambio optimista para no mostrar en el panel un
     // movimiento que no ocurrió. Quien llama enseña el motivo (res.error).
     if (!res.ok && anterior) setSesiones(prev => prev.map(s => s.id === id ? anterior : s));
+    // OJO: aquí NO se cancelan las reservas de una sesión que pasa a
+    // `cancelada: true`, aunque sea tentador por ser el punto único de paso.
+    // `avisarClaseCancelada` resuelve sus destinatarios en el servidor con
+    // estado = 'CONFIRMADA'; si las reservas se cancelan antes de que ese
+    // aviso resuelva, el push/in-app se manda a NADIE. Quien cancela debe
+    // llamar a `cancelarReservasDeSesiones` DESPUÉS de avisar — igual que
+    // `deleteSesion` espera al aviso antes de borrar, y por el mismo motivo.
     return res;
   }
 
@@ -2552,7 +2587,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // (igual que cancelar una clase suelta, que sí lo hacía). Sin esto, cancelar
     // "esta y las siguientes" de una serie solo mandaba email y las socias no
     // recibían ningún aviso in-app/push.
-    ids.forEach(id => { void avisarClaseCancelada(id); });
+    // Se ESPERA a que los avisos resuelvan sus destinatarios antes de cancelar
+    // las reservas: `avisarClaseCancelada` los busca en servidor por
+    // estado = 'CONFIRMADA', así que cancelarlas antes deja el aviso sin
+    // nadie a quien mandarlo (mismo motivo por el que `deleteSesion` espera).
+    await Promise.all(ids.map(id => avisarClaseCancelada(id)));
     // Las reservas de esas sesiones quedaban en CONFIRMADA/LISTA_ESPERA
     // apuntando a una sesión ya cancelada — la socia veía en su portal una
     // plaza "confirmada" para una clase que nunca va a pasar. Se marcan
@@ -2562,15 +2601,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // no de la socia — qué política de reembolso aplica en ese caso es una
     // decisión de producto pendiente, no algo para improvisar en un fix de
     // integridad de datos.
-    void dbCancelarReservasPorSesiones(ids).then(res => {
-      if (!('ok' in res)) return;
-      const idsSet = new Set(res.ids);
-      if (idsSet.size === 0) return;
-      setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
-    }).catch(e => {
-      console.error('[cancelarSerieDesde:dbCancelarReservasPorSesiones]', e);
-      capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'calendario', op: 'cancelarSerieDesde' } });
-    });
+    cancelarReservasDeSesiones(ids, 'cancelarSerieDesde');
     return { ok: true };
   }
 
@@ -3022,8 +3053,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (publicSlug) {
       // Kiosk público: el check-in (ASISTIDA + créditos + premio de referido) lo
       // hace el servidor; se re-sincroniza al terminar.
+      const previas = base;
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'ASISTIDA' as const, checkInEn: new Date().toISOString() } : r)); // optimista
-      postPublico('/api/public/checkin', { studioId: studioIdOverride ?? '', reservaId });
+      // Antes esto era fire-and-forget Y devolvía { ok: true } pasara lo que
+      // pasara: con el token de kiosko caducado, un 429 o un 500, la pantalla
+      // decía "check-in hecho" y en la BD no había nada. Es el mismo patrón que
+      // ya se corrigió en addReserva y cancelarReserva; aquí quedó vivo.
+      const res = await postPublico('/api/public/checkin', { studioId: studioIdOverride ?? '', reservaId });
+      if (!res.ok) {
+        setReservas(previas); // revertir: el servidor no lo registró
+        return res;
+      }
       return { ok: true };
     }
     const checkInEn = new Date().toISOString();
@@ -4508,6 +4548,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addSesionesSerie,
     editarSerieDesde,
     cancelarSerieDesde,
+    cancelarReservasDeSesiones,
     addReserva,
     cancelarReserva,
     aceptarOfertaEspera,
