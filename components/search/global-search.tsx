@@ -210,15 +210,15 @@ export function GlobalSearch({
               {modulosRes.length > 0 && (
                 <div className="mb-1">
                   <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>
-                    Ir a
+                    Secciones
                   </p>
                   {modulosRes.map(m => {
                     const Icon = m.icon;
                     return (
                       <button key={m.href} onClick={() => go(m.href)}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 12%, var(--card))' }}>
-                          <Icon size={14} style={{ color: 'var(--brand)' }} />
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-muted">
+                          <Icon size={14} style={{ color: 'var(--foreground)' }} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-foreground truncate">{m.label}</p>
