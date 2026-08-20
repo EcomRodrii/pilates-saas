@@ -73,6 +73,65 @@ export function estadoInicialDevolucion(recibo: {
   return 'PENDIENTE_REVISION';
 }
 
+// ── D-8: el reembolso que FALLA días después de crearse ─────────────────────
+//
+// Un refund puede fallar mucho después de `charge.refunded` (SEPA sobre todo):
+// Stripe devuelve el dinero al estudio y DECREMENTA `amount_refunded` — pero
+// Tentare ya marcó el recibo DEVUELTO, anotó la devolución y quizá la
+// propietaria ya pulsó REVERTIDA (le quitó lo entregado a la socia): pagó Y
+// perdió sesiones. Aquí se DECIDE qué corregir; el webhook ejecuta.
+//
+// Decisiones con el charge FRESCO, nunca con el evento: tras el fallo, el
+// acumulado real ya está decrementado, y es lo único que dice la verdad si
+// hubo varios reembolsos parciales.
+
+export interface PlanFalloDevolucion {
+  /**
+   * DEVUELTO → COBRADO. Solo si tras el fallo el cargo ya NO está totalmente
+   * devuelto, y nunca sobre un chargeback perdido (ese DEVUELTO lo puso la
+   * disputa, no este refund).
+   */
+  flipar: boolean;
+  /** Un `sepa_recibo` que se flipa debe restaurar el estado del adeudo bueno. */
+  sepaEstadoRestaurado: 'succeeded' | null;
+  /**
+   * La referencia con la que se creó la fila de `devoluciones` al anotarse el
+   * reembolso: en aquel momento el acumulado era el fresco de hoy MÁS lo que
+   * este refund intentaba devolver (Stripe lo restó al fallar).
+   */
+  referenciaOriginal: string;
+  /** Acumulado real tras el fallo, en euros — valor ABSOLUTO, idempotente. */
+  importeDevueltoFresco: number;
+}
+
+export function resolverFalloDevolucion(p: {
+  estadoRecibo: string;
+  disputaEstado: string | null;
+  esSepa: boolean;
+  chargeId: string;
+  /** Charge FRESCO tras el fallo. */
+  refunded: boolean;
+  acumuladoCentimos: number;
+  totalCentimos: number;
+  /** Lo que el refund fallido intentaba devolver. */
+  refundCentimos: number;
+}): PlanFalloDevolucion {
+  const sigueTotalmenteDevuelto =
+    p.refunded || (p.totalCentimos > 0 && p.acumuladoCentimos >= p.totalCentimos);
+  const flipar =
+    p.estadoRecibo === 'DEVUELTO' && p.disputaEstado !== 'lost' && !sigueTotalmenteDevuelto;
+  return {
+    flipar,
+    sepaEstadoRestaurado: flipar && p.esSepa ? 'succeeded' : null,
+    referenciaOriginal: referenciaDevolucion({
+      tipo: 'reembolso',
+      chargeId: p.chargeId,
+      acumuladoDevueltoCentimos: p.acumuladoCentimos + p.refundCentimos,
+    }),
+    importeDevueltoFresco: p.acumuladoCentimos / 100,
+  };
+}
+
 export interface DevolucionRegistrada {
   id: string;
   estado: EstadoDevolucion;

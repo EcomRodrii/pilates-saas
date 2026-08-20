@@ -63,3 +63,29 @@ test('textoEspera pasa a horas y a días, en singular y plural', () => {
   assert.equal(textoEspera(1440), '1 día');
   assert.equal(textoEspera(4320), '3 días');
 });
+
+// ── D-8: la fase FALLIDA ────────────────────────────────────────────────────
+
+test('D-8: reembolso fallido → FALLIDA, no "atascada" con su mentira de que el dinero pudo salir', () => {
+  const r = estadoReembolso(
+    { estado: 'COBRADO', reembolsoSolicitadoEn: '2026-08-18T10:00:00Z', reembolsoFallidoEn: '2026-08-20T10:00:00Z' },
+    new Date('2026-08-20T12:00:00Z'),
+  );
+  assert.equal(r?.fase, 'FALLIDA');
+});
+
+test('D-8: FALLIDA aunque el reembolso no se pidiera desde Tentare (hecho en Stripe)', () => {
+  const r = estadoReembolso(
+    { estado: 'COBRADO', reembolsoFallidoEn: '2026-08-20T10:00:00Z' },
+    new Date('2026-08-20T12:00:00Z'),
+  );
+  assert.equal(r?.fase, 'FALLIDA');
+});
+
+test('D-8: si un reintento triunfó (DEVUELTO otra vez), DEVUELTA gana a la marca de fallo vieja', () => {
+  const r = estadoReembolso(
+    { estado: 'DEVUELTO', reembolsoFallidoEn: '2026-08-20T10:00:00Z' },
+    new Date('2026-08-21T12:00:00Z'),
+  );
+  assert.equal(r?.fase, 'DEVUELTA');
+});
