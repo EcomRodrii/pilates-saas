@@ -496,7 +496,7 @@ export default function Socios() {
   // todavía la paginación y la selección viejas, y el reset entraba en un
   // segundo render. Así React descarta el render en curso y rehace antes de
   // tocar el DOM: ese frame intermedio no llega a existir.
-  const filtroActual = `${busqueda} ${smartFilter} ${filtroEtapa} ${filtroEtiqueta} ${sortKey} ${sortDir}`;
+  const filtroActual = `${busqueda}\x00${smartFilter}\x00${filtroEtapa}\x00${filtroEtiqueta}\x00${sortKey}\x00${sortDir}`;
   const [filtroPrevio, setFiltroPrevio] = useState(filtroActual);
   if (filtroActual !== filtroPrevio) {
     setFiltroPrevio(filtroActual);
