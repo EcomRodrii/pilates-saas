@@ -1195,7 +1195,7 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
   // 1) Sesiones de la ventana, con todo lo que el email necesita (1 query).
   const { data: sesionesRaw, error } = await admin
     .from('sesiones')
-    .select('id, studio_id, inicio, tipo_clase_id, sala_id, instructor_id')
+    .select('id, studio_id, inicio, tipo_clase_id, sala_id, instructor_id, zoom_join_url')
     .eq('studio_id', studioId)
     .eq('cancelada', false)
     .gte('inicio', desdeISO)
@@ -1290,6 +1290,7 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
       sala: (ses.sala_id ? salaNombre.get(ses.sala_id as string) : '') ?? '',
       instructor: (ses.instructor_id ? instNombre.get(ses.instructor_id as string) : '') ?? '',
       estudioNombre: studioNombre.get(ses.studio_id as string) ?? 'Tentare',
+      zoomJoinUrl: (ses.zoom_join_url as string | null) ?? null,
     };
     for (const r of rs) {
       const socia = sociaPorId.get(r.socio_id);
