@@ -2,12 +2,26 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { fijarUsuario } from '@/lib/sentry-cliente';
+import { fijarUsuario, capturarMensaje } from '@/lib/sentry-cliente';
 import { identificar as identificarEnPosthog, resetear as resetearPosthog } from '@/lib/posthog-cliente';
 import { supabase } from './db/supabase';
 import { captchaGastado } from './auth/captcha-usado.ts';
 import { ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
-import { setCurrentStudioId } from './supabase-data';
+import { setCurrentStudioId, setJwtCaducadoListener } from './supabase-data';
+import { decidirRecuperacionJwt } from './recuperar-sesion.ts';
+
+// A-3: marca de la última recarga por sesión caducada (anti-bucle, ver
+// VENTANA_ANTIBUCLE_MS en lib/recuperar-sesion.ts).
+const CLAVE_RECARGA_JWT = 'tentare-recarga-jwt';
+
+// A-3, candado de reentrada A NIVEL DE MÓDULO, nunca en la closure del efecto
+// (hallazgo de la revisión): el propio refreshSession() emite TOKEN_REFRESHED
+// → setSession → el efecto con deps [session] se re-registra con una closure
+// NUEVA — un candado dentro de ella nacería abierto en plena recuperación, y
+// una consulta tardía del abanico (aún con el token viejo) entraría de nuevo,
+// leería la marca anti-bucle recién escrita y acabaría en signOut: el caso que
+// A-3 arregla convertido en logout forzado.
+let recuperacionJwtEnCurso = false;
 
 // B0.6: identifica al usuario en Sentry para poder medir el impacto real de cada
 // error (antes los issues llegaban sin usuario). Solo el id (un UUID), nunca
@@ -73,6 +87,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // A-3 (auditoría 20-ago): recuperación de la sesión cuando una consulta
+  // muere con PGRST303 (JWT caducado — pestaña dormida). Antes ese fallo
+  // devolvía `[]` a la UI y, si pillaba a resolveStudioId en el arranque, la
+  // propietaria veía su estudio entero VACÍO sin explicación. La tabla de
+  // decisión (recargar / login / nada) es pura y está testeada en
+  // lib/recuperar-sesion.ts. El listener solo se registra CON sesión de staff:
+  // una visitante de una página pública jamás acaba en /login por esto.
+  useEffect(() => {
+    if (!session) {
+      setJwtCaducadoListener(null);
+      return;
+    }
+    setJwtCaducadoListener(({ recargable }) => {
+      // El candado es de módulo (ver su comentario): sobrevive al re-registro
+      // que el propio refreshSession provoca vía TOKEN_REFRESHED → [session].
+      if (recuperacionJwtEnCurso) return;
+      recuperacionJwtEnCurso = true;
+      void (async () => {
+        let refreshOk = false;
+        try {
+          const { data, error } = await supabase.auth.refreshSession();
+          refreshOk = !error && !!data.session;
+        } catch {
+          refreshOk = false;
+        }
+        let ultima: number | null = null;
+        try {
+          const v = sessionStorage.getItem(CLAVE_RECARGA_JWT);
+          const n = v ? Number(v) : NaN;
+          ultima = Number.isFinite(n) ? n : null;
+        } catch { /* sessionStorage puede no estar (SSR, privacidad) */ }
+
+        const decision = decidirRecuperacionJwt({
+          haySesionLocal: true, refreshOk, ultimaRecargaMs: ultima, ahoraMs: Date.now(),
+        });
+
+        if (decision === 'recargar') {
+          // Sin `recargable` (todo salvo la lectura crítica del arranque): la
+          // sesión ya está renovada y con eso basta — el siguiente clic o
+          // sondeo funciona; recargar borraría lo que la usuaria tenía a
+          // medias. Se libera el candado tras un margen para absorber la
+          // ráfaga de fallos hermanos del mismo token viejo.
+          if (!recargable) {
+            setTimeout(() => { recuperacionJwtEnCurso = false; }, 15_000);
+            return;
+          }
+          try { sessionStorage.setItem(CLAVE_RECARGA_JWT, String(Date.now())); } catch { /* íd. */ }
+          window.location.reload();
+          // Si la recarga no llega a ocurrir (un beforeunload con cambios sin
+          // guardar puede cancelarla), el candado no puede quedarse echado
+          // para siempre.
+          setTimeout(() => { recuperacionJwtEnCurso = false; }, 15_000);
+          return;
+        }
+        if (decision === 'login') {
+          // Refresh token muerto (o recarga en bucle): esto SÍ es accionable y
+          // se reporta — es la única rama de la recuperación que ve Sentry.
+          // Caso residual documentado: una propietaria con sesión de staff
+          // navegando su PROPIA página pública puede acabar aquí — raro y
+          // desconcertante, pero honesto: su sesión estaba muerta de verdad.
+          capturarMensaje('[recuperar-sesion] refresh fallido o bucle: se corta a /login', 'warning', {
+            tags: { area: 'auth', tipo: 'sesion-caducada' },
+            extra: { refreshOk, ultimaRecargaMs: ultima },
+          });
+          try { await supabase.auth.signOut(); } catch { /* la sesión ya no vale */ }
+          window.location.assign('/login?motivo=sesion-caducada');
+          setTimeout(() => { recuperacionJwtEnCurso = false; }, 15_000);
+          return;
+        }
+        recuperacionJwtEnCurso = false;
+      })();
+    });
+    return () => setJwtCaducadoListener(null);
+  }, [session]);
 
   // Supabase responde en inglés y con su propia jerga. Lo que llegaba a la
   // pantalla del alta era, literalmente:
