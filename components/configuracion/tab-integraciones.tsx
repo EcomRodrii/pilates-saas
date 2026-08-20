@@ -158,7 +158,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     // 15 min (app/api/cron/zoom-sync/route.ts) — para cada tipo de clase con
     // esOnline=true (Configuración → Clases). Antes estaba en "Próximamente"
     // porque conectar Zoom no hacía nada; ya no es el caso.
-    descripcion: 'Clases online con su enlace de Zoom en cada sesión del calendario.',
+    descripcion: 'Crea automáticamente una reunión de Zoom única para cada sesión de los tipos de clase que marques como "online" (Configuración → Clases) — nunca tienes que ir copiando enlaces a mano. Puedes desconectar el acceso cuando quieras; las clases ya creadas y actualizadas dejan de sincronizarse, no se borra nada retroactivamente.',
     Icon: ZoomIcon,
     color: '#0B5CFF',
     bg: '#F5F5F5',
@@ -786,6 +786,14 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                         : lineaSalud.tono === 'ok' ? 'text-success' : 'text-muted-foreground',
                     )}>
                       {lineaSalud.texto}
+                    </p>
+                  )}
+                  {cat.tipo === 'ZOOM' && zoomConectado && (
+                    <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
+                      Importante: en zoom.us → Configuración, desactiva &ldquo;Usar ID de reunión
+                      personal (PMI) al programar&rdquo; — con PMI activado, todas las clases
+                      compartirían la misma sala en vez de tener cada una la suya. Tu cuenta
+                      de Zoom necesita un plan de pago para crear reuniones de más de 40 minutos.
                     </p>
                   )}
                 </div>
