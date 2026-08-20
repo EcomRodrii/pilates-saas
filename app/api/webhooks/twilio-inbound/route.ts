@@ -41,23 +41,28 @@ export async function POST(request: NextRequest) {
   const para = params.To;
   if (!sid || !de || !para) return NextResponse.json({ ok: false }, { status: 400 });
 
+  // tentare-seguridad: la ÚNICA función de este endpoint es medir. A
+  // diferencia de un envío saliente que puede degradar en silencio, aquí
+  // "no insertar" es "perder el dato durante las 2-3 semanas de medición"
+  // — falla ruidoso (503) en vez de responder 200 sin haber guardado nada,
+  // mismo criterio que ya usa /api/billing/webhook.
   const admin = getSupabaseAdmin();
-  if (admin) {
-    // twilio_sid es UNIQUE: un reintento de Twilio del mismo mensaje no
-    // duplica la fila. Se ignora el conflicto en vez de tratarlo como error
-    // — es el comportamiento idempotente esperado, no un fallo.
-    const { error } = await admin.from('mensajes_entrantes_medicion').insert({
-      id: `msg-in-${uid()}`,
-      canal: de.startsWith('whatsapp:') ? 'WHATSAPP' : 'SMS',
-      de_numero: de,
-      para_numero: para,
-      cuerpo: params.Body ?? null,
-      twilio_sid: sid,
-    });
-    if (error && error.code !== '23505') {
-      // 23505 = unique_violation (reintento de Twilio) — no es un fallo real.
-      return NextResponse.json({ ok: false }, { status: 500 });
-    }
+  if (!admin) return NextResponse.json({ ok: false }, { status: 503 });
+
+  // twilio_sid es UNIQUE: un reintento de Twilio del mismo mensaje no
+  // duplica la fila. Se ignora el conflicto en vez de tratarlo como error
+  // — es el comportamiento idempotente esperado, no un fallo.
+  const { error } = await admin.from('mensajes_entrantes_medicion').insert({
+    id: `msg-in-${uid()}`,
+    canal: de.startsWith('whatsapp:') ? 'WHATSAPP' : 'SMS',
+    de_numero: de,
+    para_numero: para,
+    cuerpo: params.Body ?? null,
+    twilio_sid: sid,
+  });
+  if (error && error.code !== '23505') {
+    // 23505 = unique_violation (reintento de Twilio) — no es un fallo real.
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
 
   // TwiML vacío: no se responde nada automático — es solo medición.
