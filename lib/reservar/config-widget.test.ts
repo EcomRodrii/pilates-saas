@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   resolverConfigWidget, fuenteDeDataset, CONFIG_WIDGET_POR_DEFECTO,
+  fuenteValida, familiaCssDe, urlFuenteGoogle,
 } from './config-widget.ts';
 
 test('sin parámetros devuelve exactamente los defaults (todo visible, sin filtros)', () => {
@@ -76,6 +77,40 @@ test('fuenteDeDataset traduce kebab a camelCase como hace DOMStringMap', () => {
   assert.equal(c.ocultarPrecio, true);
   assert.equal(c.vistaInicial, 'hoy');
   assert.equal(c.colorNegro, '#111111');
+});
+
+test('fuente y fuente-display: nombre de Google Fonts válido pasa, basura se ignora', () => {
+  const c = resolverConfigWidget(new URLSearchParams('fuente=Space+Grotesk&fuente-display=Lobster'));
+  assert.equal(c.fuente, 'Space Grotesk');
+  assert.equal(c.fuenteDisplay, 'Lobster');
+  // La puerta anti-XSS: nada que sirva para salirse de la declaración CSS o
+  // del <link> que la carga — mismo criterio que fuenteValida en Modo A.
+  const mala = resolverConfigWidget(new URLSearchParams("fuente=Foo'; }&fuente-display=url(javascript:alert(1))"));
+  assert.equal(mala.fuente, null);
+  assert.equal(mala.fuenteDisplay, null);
+  // Sin parámetro, null: display hereda de fuente EN EL CONSUMIDOR, no aquí.
+  assert.equal(resolverConfigWidget(new URLSearchParams('fuente=Lobster')).fuenteDisplay, null);
+});
+
+test('fuente por data-* (Modo B): data-fuente-display llega como dataset.fuenteDisplay', () => {
+  const c = resolverConfigWidget(fuenteDeDataset({ fuente: 'Space Grotesk', fuenteDisplay: 'Lobster' }));
+  assert.equal(c.fuente, 'Space Grotesk');
+  assert.equal(c.fuenteDisplay, 'Lobster');
+});
+
+test('fuenteValida / familiaCssDe / urlFuenteGoogle: el trío compartido de los dos modos', () => {
+  assert.equal(fuenteValida('Space Grotesk'), true);
+  assert.equal(fuenteValida("Foo'; }"), false);
+  assert.equal(fuenteValida(''), false);
+  assert.equal(fuenteValida('a'.repeat(41)), false);
+  assert.equal(familiaCssDe('Lobster'), "'Lobster', system-ui, sans-serif");
+  // %20 → '+' DESPUÉS de codificar (al revés, Google devuelve 400) y siempre
+  // con display=swap: la carga nunca bloquea el pintado.
+  const url = urlFuenteGoogle('Space Grotesk');
+  assert.ok(url!.includes('family=Space+Grotesk'));
+  assert.ok(url!.includes('display=swap'));
+  assert.equal(urlFuenteGoogle("Foo'; }"), null);
+  assert.equal(urlFuenteGoogle(null), null);
 });
 
 test('fuenteDeDataset: atributo ausente es null, no cadena vacía', () => {

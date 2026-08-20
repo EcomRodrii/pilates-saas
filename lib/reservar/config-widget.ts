@@ -19,6 +19,51 @@
  */
 export const COLOR_VALIDO = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
+/**
+ * ⚠️ Un nombre de fuente llega por la URL de una página PÚBLICA (Modo A) o por
+ * un atributo `data-*` que cualquiera puede escribir (Modo B). Se acota a
+ * letras, números y espacios: es lo que cabe en un nombre de familia de Google
+ * Fonts, y deja fuera comillas, llaves y paréntesis — o sea, todo lo que haría
+ * falta para salirse de la declaración CSS o del `<link>` que la carga.
+ * Vive aquí (módulo común sin dependencias, compilado por esbuild para el
+ * bundle) y `apariencia-widget.ts` lo importa — UNA puerta anti-XSS, no dos
+ * copias que puedan divergir.
+ */
+export const FUENTE_VALIDA = /^[A-Za-z0-9][A-Za-z0-9 ]{0,39}$/;
+
+export function fuenteValida(v: string): boolean {
+  return FUENTE_VALIDA.test(v.trim());
+}
+
+/**
+ * El `font-family` completo de una familia nombrada, con la pila de reserva
+ * detrás: la fuente puede tardar en cargar o no existir, y sin reserva ese
+ * rato se ve en Times New Roman.
+ */
+export function familiaCssDe(nombre: string): string {
+  return `'${nombre.trim()}', system-ui, sans-serif`;
+}
+
+/**
+ * La URL de Google Fonts para cargar una familia nombrada, o `null`.
+ *
+ * Se valida el nombre aquí aunque el caller ya lo haya filtrado: son dos
+ * puertas para lo mismo a propósito, porque esta cadena acaba en el `href` de
+ * un `<link>` que se inyecta en un documento (el nuestro en Modo A, el de la
+ * WEB DEL ESTUDIO en Modo B).
+ *
+ * ⚠️ Se codifica PRIMERO y se cambian los `%20` por `+` DESPUÉS. Al revés
+ * —meter los `+` y luego codificar— salen `%2B` y Google Fonts devuelve un 400:
+ * pedirías la familia «Space+Grotesk» con un signo más literal en el nombre.
+ * `display=swap` a propósito: la carga de la fuente nunca bloquea el pintado
+ * del widget — mientras llega se ve la pila de reserva.
+ */
+export function urlFuenteGoogle(nombre: string | null | undefined): string | null {
+  if (!nombre || !fuenteValida(nombre)) return null;
+  const familia = encodeURIComponent(nombre.trim()).replace(/%20/g, '+');
+  return `https://fonts.googleapis.com/css2?family=${familia}:wght@400;500;600;700&display=swap`;
+}
+
 // Ids del repo: UUIDs en producción, slugs cortos en fixtures/tests. Letras,
 // números y guiones basta para ambos y deja fuera todo lo que serviría para
 // salirse de un atributo o un selector.
@@ -49,6 +94,14 @@ export interface ConfigWidget {
   colorPrimario: string | null;
   /** La tinta del texto (Modo B; en Modo A ya existe `?tinta=`). */
   colorNegro: string | null;
+  /**
+   * Nombre de familia (Google Fonts) para el cuerpo/UI (Modo B; en Modo A ya
+   * existe `?fuente=`, resuelto por `resolverApariencia` con lo guardado en el
+   * tema debajo — mismo reparto que `fondo`/`tinta`).
+   */
+  fuente: string | null;
+  /** Fuente de titulares/horas/precios. `null` = la misma que `fuente`. */
+  fuenteDisplay: string | null;
 }
 
 export const CONFIG_WIDGET_POR_DEFECTO: ConfigWidget = {
@@ -57,6 +110,7 @@ export const CONFIG_WIDGET_POR_DEFECTO: ConfigWidget = {
   ocultarPrecio: false, ocultarNivel: false, ocultarSustituta: false,
   diseno: null,
   colorFondo: null, colorPrimario: null, colorNegro: null,
+  fuente: null, fuenteDisplay: null,
 };
 
 /** Lo mínimo que hace falta de la fuente. Un `URLSearchParams` encaja tal cual. */
@@ -104,13 +158,18 @@ function leerColor(v: string | null): string | null {
   return COLOR_VALIDO.test(t) ? t : null;
 }
 
+function leerFuente(v: string | null): string | null {
+  if (v == null) return null;
+  return fuenteValida(v) ? v.trim() : null;
+}
+
 /**
  * Parser único del snippet, para ambos modos. Nombres exactos del vocabulario
  * (query param en Modo A / `data-<nombre>` en Modo B):
  * `tipos`, `instructoras`, `salas` (ids separados por coma), `vista`
  * (`hoy`|`todo`), `ocultar-precio`, `ocultar-nivel`, `ocultar-sustituta`
  * (booleanos), `diseno` (`completo`|`ligero`), `fondo`, `marca`, `negro`
- * (colores hex).
+ * (colores hex), `fuente`, `fuente-display` (familias de Google Fonts).
  *
  * ⚠️ En Modo A, `fondo` y `negro`/`tinta` los sigue resolviendo
  * `resolverApariencia` (mismos nombres de siempre, con lo guardado debajo) —
@@ -131,5 +190,7 @@ export function resolverConfigWidget(fuente: FuenteConfig): ConfigWidget {
     colorFondo: leerColor(fuente.get('fondo')),
     colorPrimario: leerColor(fuente.get('marca')),
     colorNegro: leerColor(fuente.get('negro')),
+    fuente: leerFuente(fuente.get('fuente')),
+    fuenteDisplay: leerFuente(fuente.get('fuente-display')),
   };
 }
