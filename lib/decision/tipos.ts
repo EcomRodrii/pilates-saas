@@ -42,7 +42,9 @@ export type TipoRecomendacion =
   // Riesgo por intentos de reserva fallidos (informe fila 14)
   | 'RIESGO_RESERVA_FALLIDA'
   // Conversión bono→suscripción según frecuencia real (informe fila 16)
-  | 'PROPONER_SUSCRIPCION_MENSUAL';
+  | 'PROPONER_SUSCRIPCION_MENSUAL'
+  // Abandono de checkout en el widget de reservas (Captación C3)
+  | 'REVISAR_ABANDONO_CHECKOUT';
 
 export type NivelAutonomia = 0 | 1 | 2 | 3;
 export type NivelConfianza = 'ALTA' | 'MEDIA' | 'BAJA';
@@ -319,6 +321,18 @@ export interface BloqueoAgendaSnapshot {
   horaFin: string | null;
 }
 
+// Fila cruda de `widget_eventos` para medir abandono de checkout en el
+// widget de reservas (Captación C3 — "carrito abandonado", auditoría vs
+// Momence). Array, NO Map: mismo motivo que IntentoFallidoSnapshot arriba —
+// SnapshotEstudio cruza la frontera de un step.run de Inngest, que serializa
+// a JSON entre steps. La agregación por sesión vive en `tasaAbandonoCheckout`
+// (senales.ts), calculada siempre fuera de cualquier step.
+export interface WidgetEventoAbandonoSnapshot {
+  sessionId: string;
+  tipo: 'checkout_started' | 'booking_completed';
+  creadoEn: string;
+}
+
 // Contexto de "tamaño" del estudio — pensado para que los especialistas
 // puedan calibrar umbrales según estudio pequeño/grande/cadena en vez de un
 // umbral único para todos (feedback P2-5, cadena de 2 sedes/850 clientas
@@ -353,5 +367,8 @@ export interface SnapshotEstudio {
   // hacia delante: un bloqueo de la semana pasada ya no puede poner en riesgo
   // ninguna clase que se pueda salvar.
   bloqueosAgenda: BloqueoAgendaSnapshot[];
+  // 60d, ver WidgetEventoAbandonoSnapshot arriba (por qué array, no Map, y
+  // por qué solo estos dos tipos de widget_eventos).
+  widgetEventosCheckout: WidgetEventoAbandonoSnapshot[];
   contexto: ContextoEstudio;
 }

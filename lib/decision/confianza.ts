@@ -260,6 +260,25 @@ export function confianzaOcupacionBajaEstructural(c: {
   return evaluarNivel(criterios, a && b, a, false);
 }
 
+// REVISAR_ABANDONO_CHECKOUT (Captación C3) — el checkout del widget se está
+// cayendo por debajo de SU PROPIO histórico, no de un corte fijo (auditoría
+// vs Momence: "cae mucho" no significa lo mismo en un estudio con 95% de
+// conversión que en uno con 60%, mismo criterio que confianzaRiesgoDeCobro).
+// Techo MEDIA a propósito: es una estimación sobre pocas sesiones anónimas,
+// nunca algo tan seguro como para marcarlo ALTA.
+// MEDIA: a+b (histórico suficiente Y caída clara). BAJA: solo a.
+export function confianzaAbandonoCheckout(c: {
+  historialSuficiente: boolean;
+  caidaClara: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.historialSuficiente, etiqueta: 'suficientes checkouts recientes con desenlace conocido' },
+    { valor: c.caidaClara, etiqueta: 'la tasa de éxito reciente cae claramente frente a la habitual de este estudio' },
+  ];
+  const { historialSuficiente: a, caidaClara: b } = c;
+  return evaluarNivel(criterios, false, a && b, a);
+}
+
 // PROPONER_RENOVACION_BONO (Finanzas F1) — a una socia con bono casi agotado se
 // le propone renovar antes de que se quede sin sesiones (y sin venir).
 // ALTA: a+b (bono al límite y socia activa) · MEDIA: solo a · BAJA: solo b.

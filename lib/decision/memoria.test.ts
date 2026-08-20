@@ -101,7 +101,7 @@ function log(p: Partial<AutomationLog> & Pick<AutomationLog, 'socioId'>): Automa
   return { id: `l-${Math.random()}`, studioId: 'e1', ruleId: 'r', automatizacionId: null, ruleName: 'R', resultado: 'EJECUTADO', accion: 'ENVIAR_EMAIL', socioNombre: null, pasoIndex: 0, detalle: '', ejecutadoEn: diasAntes(10), proximaAccionEn: null, ...p };
 }
 function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
-  return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [],  sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 }, ...over };
+  return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [],  sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 }, ...over };
 }
 
 test('detectarHechosPorRegla: 3+ emails sin respuesta en 60d → NUNCA_RESPONDE_EMAIL', () => {

@@ -33,6 +33,7 @@ const COOLDOWN_DIAS: Record<TipoRecomendacion, number> = {
   PREPARAR_CAMPANA: 14,
   CONTACTAR_LEAD: 10,
   CONVERTIR_PRUEBA: 10,
+  REVISAR_ABANDONO_CHECKOUT: 14, // agregada a nivel de estudio, mismo cooldown que FUSIONAR_SESIONES (agregada equivalente de Agenda)
   REVISAR_CARGA_EQUIPO: 14,
   IMPULSAR_ONBOARDING: 7,
   RIESGO_RESERVA_FALLIDA: 7,
