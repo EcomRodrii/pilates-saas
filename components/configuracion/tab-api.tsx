@@ -12,7 +12,7 @@ import { TabCrecimientoWeb } from '@/components/configuracion/tab-crecimiento-we
 import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { MODO_TOKENS } from '@/lib/portal-modo';
-import { COLOR_VALIDO } from '@/lib/reservar/config-widget';
+import { COLOR_VALIDO, fuenteValida, familiaCssDe, urlFuenteGoogle } from '@/lib/reservar/config-widget';
 import { scriptSnippetIframe } from '@/lib/reservar/snippet-embed';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 
@@ -92,13 +92,18 @@ interface ConfigBuilder {
   fondo: string | null;
   marca: string | null;
   negro: string | null;
+  // Google Fonts, por nombre — `null` = sin tocar (el iframe cae a la
+  // tipografía del TEMA publicado; el bundle, a su base sin webfonts).
+  fuente: string | null;
+  fuenteDisplay: string | null;
   anchoCompleto: boolean;
 }
 
 const CONFIG_BUILDER_DEFECTO: ConfigBuilder = {
   vista: 'todo', tipos: [], instructoras: [], salas: [],
   ocultarPrecio: false, ocultarNivel: false, ocultarSustituta: false,
-  diseno: null, fondo: null, marca: null, negro: null, anchoCompleto: false,
+  diseno: null, fondo: null, marca: null, negro: null,
+  fuente: null, fuenteDisplay: null, anchoCompleto: false,
 };
 
 // Solo estos dos honran filtros/vista/toggles/diseño DE VERDAD (son el
@@ -129,6 +134,9 @@ function leerConfigGuardada(raw: unknown): ConfigBuilder {
   c.fondo = color(o.fondo);
   c.marca = color(o.marca);
   c.negro = color(o.negro);
+  const fuente = (v: unknown) => (typeof v === 'string' && fuenteValida(v) ? v.trim() : null);
+  c.fuente = fuente(o.fuente);
+  c.fuenteDisplay = fuente(o.fuenteDisplay);
   c.anchoCompleto = o.anchoCompleto === true;
   return c;
 }
@@ -143,6 +151,9 @@ function leerConfigsGuardadas(raw: Record<string, unknown> | undefined): Record<
 // El hex de un ColorInput puede estar a medio teclear — solo un color completo
 // entra en el snippet (misma puerta anti-basura que valida el parser al leer).
 const colorSnippet = (v: string | null) => (v && COLOR_VALIDO.test(v) ? v : null);
+// Igual para una fuente a medio teclear: solo un nombre válido entra en el
+// snippet — la misma puerta (fuenteValida) que aplicará el parser al leerlo.
+const fuenteSnippet = (v: string | null) => (v && fuenteValida(v) ? v.trim() : null);
 
 // Query params del snippet iframe (Modo A) — SOLO lo que difiere del default.
 // `fondo`/`tinta` son los params de resolverApariencia de siempre; el resto es
@@ -166,6 +177,13 @@ function paramsSnippetIframe(c: ConfigBuilder, conFiltros: boolean): string {
   if (marca) p.push(`marca=${encodeURIComponent(marca)}`);
   if (fondo) p.push(`fondo=${encodeURIComponent(fondo)}`);
   if (tinta) p.push(`tinta=${encodeURIComponent(tinta)}`);
+  // Tipografía, misma regla que los colores: CONGELADA en el snippet solo si
+  // se toca aquí. Sin tocar no se emite nada y el iframe sigue con la del TEMA
+  // publicado (resolverApariencia pone la URL por encima de lo guardado).
+  const fuente = fuenteSnippet(c.fuente);
+  const fuenteDisplay = fuenteSnippet(c.fuenteDisplay);
+  if (fuente) p.push(`fuente=${encodeURIComponent(fuente)}`);
+  if (fuenteDisplay) p.push(`fuente-display=${encodeURIComponent(fuenteDisplay)}`);
   return p.length ? `&${p.join('&')}` : '';
 }
 
@@ -189,6 +207,10 @@ function atributosSnippetScript(c: ConfigBuilder): string {
   if (marca) a.push(`data-marca="${marca}"`);
   if (fondo) a.push(`data-fondo="${fondo}"`);
   if (negro) a.push(`data-negro="${negro}"`);
+  const fuente = fuenteSnippet(c.fuente);
+  const fuenteDisplay = fuenteSnippet(c.fuenteDisplay);
+  if (fuente) a.push(`data-fuente="${fuente}"`);
+  if (fuenteDisplay) a.push(`data-fuente-display="${fuenteDisplay}"`);
   return a.map(x => ` ${x}`).join('');
 }
 
@@ -388,6 +410,42 @@ function CampoColor({ etiqueta, descripcion, valor, porDefecto, onChange }: {
         >
           Restablecer al color de marca
         </button>
+      )}
+    </div>
+  );
+}
+
+// Fuente por NOMBRE (Google Fonts) — mismo patrón que el editor de temas
+// (theme-editor.tsx, campo «Tipografía»): un input de texto libre, no un
+// dropdown con el catálogo entero de Google Fonts. Validación en vivo con la
+// MISMA puerta que aplicará el parser (fuenteValida): un nombre inválido se
+// avisa y NO se emite en el snippet — nunca rompe, igual que un hex a medias.
+function CampoFuente({ etiqueta, descripcion, valor, onChange }: {
+  etiqueta: string;
+  descripcion: string;
+  valor: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const invalida = valor !== null && valor.trim() !== '' && !fuenteValida(valor);
+  return (
+    <div>
+      <Field label={etiqueta} description={descripcion}>
+        <input
+          type="text"
+          value={valor ?? ''}
+          maxLength={40}
+          onChange={e => onChange(e.target.value.trim() === '' ? null : e.target.value)}
+          placeholder="Space Grotesk"
+          className={cn(
+            'w-full rounded-lg border bg-background px-3 py-2 text-[13px] text-foreground',
+            invalida ? 'border-destructive' : 'border-border',
+          )}
+        />
+      </Field>
+      {invalida && (
+        <p className="mt-1 text-[11px] text-destructive">
+          Solo letras, números y espacios — escribe el nombre tal cual aparece en Google Fonts.
+        </p>
       )}
     </div>
   );
@@ -862,6 +920,20 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
                 porDefecto={MODO_TOKENS.dia.ink}
                 onChange={v => cambiar({ negro: v })}
               />
+              <CampoFuente
+                etiqueta="Tipografía"
+                descripcion={widget.modo === 'script'
+                  ? 'La fuente de tu web, por su nombre en Google Fonts — la cargamos nosotros. Sin tocar, la del sistema.'
+                  : 'Por su nombre en Google Fonts. Sin tocar, la del tema publicado (Apariencia).'}
+                valor={config.fuente}
+                onChange={v => cambiar({ fuente: v })}
+              />
+              <CampoFuente
+                etiqueta="Tipografía de titulares"
+                descripcion="Para títulos, horas y precios. Sin tocar, la misma de arriba (o la serif de siempre)."
+                valor={config.fuenteDisplay}
+                onChange={v => cambiar({ fuenteDisplay: v })}
+              />
               {widget.modo !== 'script' && (
                 <FilaAjuste etiqueta="Ancho" descripcion="Cómo se comporta el iframe dentro de tu web.">
                   <Pills
@@ -956,10 +1028,31 @@ function PreviewWidgetScript({ slug, config }: { slug: string; config: ConfigBui
     ...(config.negro ? { ink: config.negro } : {}),
     ...(config.fondo ? { bg: config.fondo } : {}),
   }), [config.negro, config.fondo]);
+  // Tipografía: mismo par de pasos que hará montarUno en la web real —
+  // <link> de Google Fonts en el documento (aquí, el del panel) + las vars en
+  // el contenedor. Solo nombres YA válidos (fuenteSnippet): uno a medio
+  // teclear no pide nada. Los <link> se quedan hasta salir de la pantalla —
+  // limpiarlos a mitad de tecleo haría parpadear la previa, y son hojas de
+  // fuentes deduplicadas, no una fuga.
+  const fuentePrevia = fuenteSnippet(config.fuente);
+  const fuenteDisplayPrevia = fuenteSnippet(config.fuenteDisplay);
+  useEffect(() => {
+    for (const nombre of [fuentePrevia, fuenteDisplayPrevia]) {
+      const url = urlFuenteGoogle(nombre);
+      if (!url || document.head.querySelector(`link[href="${url}"]`)) continue;
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = url;
+      document.head.appendChild(link);
+    }
+  }, [fuentePrevia, fuenteDisplayPrevia]);
+  const fuenteUiPrevia = fuentePrevia ? familiaCssDe(fuentePrevia) : "'Instrument Sans', system-ui, sans-serif";
+  const displayPrevia = fuenteDisplayPrevia ? familiaCssDe(fuenteDisplayPrevia)
+    : fuentePrevia ? familiaCssDe(fuentePrevia) : "'Instrument Serif', Georgia, serif";
   return (
     <div
       style={{
-        // Mismas 5 CSS vars que fija app/widget-bundle/main.tsx al montar el
+        // Mismas CSS vars que fija app/widget-bundle/main.tsx al montar el
         // bundle real — el resto de tokens de color salen de `--portal-*`,
         // ninguno hardcodeado aquí.
         '--portal-brand': config.marca ?? COLOR_WIDGET_POR_DEFECTO,
@@ -967,6 +1060,10 @@ function PreviewWidgetScript({ slug, config }: { slug: string; config: ConfigBui
         '--success': '#2F6B4F',
         '--warning': '#8F6215',
         '--destructive': '#A8442A',
+        '--font-ui': fuenteUiPrevia,
+        '--font-display': displayPrevia,
+        '--portal-heading-font': displayPrevia,
+        fontFamily: fuenteUiPrevia,
         ...(config.fondo ? { background: config.fondo } : {}),
       } as CSSProperties}
       className="p-4"

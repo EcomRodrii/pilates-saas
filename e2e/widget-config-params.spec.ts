@@ -120,6 +120,126 @@ test('marca= pisa el color primario del widget', async ({ page }) => {
   await expect(todas).toHaveCSS('background-color', 'rgb(17, 34, 51)');
 });
 
+test('fuente= y fuente-display= cambian la letra REAL (computada), cuerpo y titulares por separado', async ({ page }) => {
+  await abrir(page, '&fuente=Space%20Grotesk&fuente-display=Lobster');
+  const r = await page.evaluate(() => {
+    const raiz = document.querySelector('#horario')!.closest('div[style*="min-height"]') as HTMLElement;
+    // Los titulares llevan la pila `serif` (portal-design.ts), que empieza por
+    // var(--portal-heading-font) — ese literal en el style en línea es la
+    // firma inequívoca de un titular, sin atar el test a un selector concreto.
+    // Con `var(` incluido: la RAÍZ del widget también nombra la custom
+    // property (la DEFINE, sin var), y es la primera en orden de documento.
+    const titular = document.querySelector('[style*="var(--portal-heading-font"]') as HTMLElement;
+    return {
+      cuerpo: getComputedStyle(raiz).fontFamily,
+      titular: titular ? getComputedStyle(titular).fontFamily : null,
+      linksCuerpo: document.querySelectorAll('link[href*="Space+Grotesk"]').length,
+      linksTitular: document.querySelectorAll('link[href*="family=Lobster"]').length,
+    };
+  });
+  expect(r.cuerpo).toContain('Space Grotesk');
+  expect(r.titular).toContain('Lobster');
+  expect(r.linksCuerpo).toBe(1);
+  expect(r.linksTitular).toBe(1);
+});
+
+test('solo fuente=: los titulares la heredan (contrato «display null = la misma que fuente»)', async ({ page }) => {
+  await abrir(page, '&fuente=Lobster');
+  const r = await page.evaluate(() => {
+    const titular = document.querySelector('[style*="var(--portal-heading-font"]') as HTMLElement | null;
+    return {
+      titular: titular ? getComputedStyle(titular).fontFamily : null,
+      // Misma familia → UN solo <link>, no dos.
+      links: document.querySelectorAll('link[href*="family=Lobster"]').length,
+    };
+  });
+  expect(r.titular).toContain('Lobster');
+  expect(r.links).toBe(1);
+});
+
+test('⚠️ Modo B (bundle real): data-fuente/data-fuente-display pintan el shadow y el <link> va al HOST con dedupe', async ({ page }) => {
+  // El bundle compilado de verdad (public/widget.js — `npm run build` lo
+  // genera antes que Next), montado en una "web del estudio" servida por
+  // route(): DOS widgets con la misma fuente de cuerpo, para vigilar el
+  // dedupe del <link> en el <head> del anfitrión.
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await mocks(page);
+  await page.route('**/api/public/studio-data**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx()) }));
+  await page.route('**/host-widget-e2e', r => r.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body>
+      <div data-tentare-booking data-studio="${SLUG}" data-fuente="Space Grotesk" data-fuente-display="Lobster"></div>
+      <div data-tentare-booking data-studio="${SLUG}" data-fuente="Space Grotesk"></div>
+      <script src="/widget.js" async></script>
+    </body></html>`,
+  }));
+  await page.goto('/host-widget-e2e');
+  // La rejilla del primer widget, ya con datos (los locators de Playwright
+  // atraviesan el shadow root solos).
+  await page.getByRole('button', { name: '10:00 Reformer' }).first().waitFor({ timeout: 30_000 });
+  const r = await page.evaluate(() => {
+    const hosts = Array.from(document.querySelectorAll<HTMLElement>('[data-tentare-booking]'));
+    const raices = hosts.map(h => h.shadowRoot!.querySelector('div')!);
+    return {
+      cuerpo: getComputedStyle(raices[0]).fontFamily,
+      display: getComputedStyle(raices[0]).getPropertyValue('--font-display'),
+      // El segundo widget no pide `fuente-display` → sus titulares heredan la
+      // de cuerpo (mismo contrato que Modo A).
+      displaySegundo: getComputedStyle(raices[1]).getPropertyValue('--font-display'),
+      // Dedupe: DOS widgets nombrando Space Grotesk = UN solo <link>.
+      linksCuerpo: document.querySelectorAll('link[href*="Space+Grotesk"]').length,
+      linksTitular: document.querySelectorAll('link[href*="family=Lobster"]').length,
+    };
+  });
+  expect(r.cuerpo).toContain('Space Grotesk');
+  expect(r.display).toContain('Lobster');
+  expect(r.displaySegundo).toContain('Space Grotesk');
+  expect(r.linksCuerpo).toBe(1);
+  expect(r.linksTitular).toBe(1);
+  // Y un titular de carne y hueso dentro del shadow: cualquier elemento de la
+  // hoja cuya pila EMPIEZA por var(--portal-heading-font) — la firma de
+  // `serif` (portal-design.ts), sin atar el test a un tag concreto.
+  await page.getByRole('button', { name: '10:00 Reformer' }).first().click();
+  const hoja = page.getByRole('dialog').first();
+  await expect(hoja.locator('.reserva-cta-btn')).toBeVisible();
+  const famTitular = await hoja.locator('[style*="var(--portal-heading-font"]').first()
+    .evaluate(el => getComputedStyle(el).fontFamily);
+  expect(famTitular).toContain('Lobster');
+});
+
+test('⚠️ Modo B sin fuentes: el shadow tiene pilas REALES, no una var inválida que cae a system-ui', async ({ page }) => {
+  // El bug de partida: --font-ui no existía en el shadow → `var(--font-ui)`
+  // invalidaba la declaración entera y TODO (titulares incluidos) salía en
+  // system-ui. La base honesta no carga ninguna webfont (decisión de
+  // rendimiento), pero las pilas quedan definidas: sans del sistema para el
+  // cuerpo y Georgia (la serif de reserva del diseño) para titulares.
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await mocks(page);
+  await page.route('**/api/public/studio-data**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx()) }));
+  await page.route('**/host-widget-e2e', r => r.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body>
+      <div data-tentare-booking data-studio="${SLUG}"></div>
+      <script src="/widget.js" async></script>
+    </body></html>`,
+  }));
+  await page.goto('/host-widget-e2e');
+  await page.getByRole('button', { name: '10:00 Reformer' }).first().waitFor({ timeout: 30_000 });
+  const r = await page.evaluate(() => {
+    const host = document.querySelector<HTMLElement>('[data-tentare-booking]')!;
+    const raiz = host.shadowRoot!.querySelector('div')!;
+    return {
+      ui: getComputedStyle(raiz).getPropertyValue('--font-ui'),
+      display: getComputedStyle(raiz).getPropertyValue('--font-display'),
+      links: document.querySelectorAll('link[href*="fonts.googleapis"]').length,
+    };
+  });
+  expect(r.ui).toContain('system-ui');
+  expect(r.display).toContain('Georgia');
+  // Sin fuente pedida, NI UNA petición a Google Fonts.
+  expect(r.links).toBe(0);
+});
+
 test('⚠️ la página SUELTA ignora los parámetros del snippet', async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 760 });
   await mocks(page);
