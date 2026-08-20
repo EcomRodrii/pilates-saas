@@ -127,7 +127,7 @@ test('la vigilancia de cobros detecta pero NO entrega', () => {
   );
   assert.ok(cuerpo.includes('captureMessage'), 'debe avisar de lo que encuentra');
   assert.ok(
-    cuerpo.includes('s.created < limite'),
+    cuerpo.includes('creado < limite'),
     'solo debe avisar de lo que ya está FUERA del alcance del barrido de 12 h; lo más reciente es ruido diario garantizado',
   );
 });
