@@ -22,23 +22,28 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await db
     .from('red_verificaciones_identidad')
-    .select('id, estado, motivo_rechazo, documento_path, creado_en, resuelto_en, red_perfiles ( id, nombre, slug )')
+    .select('id, estado, motivo_rechazo, documento_path, documento_path_reverso, creado_en, resuelto_en, red_perfiles ( id, nombre, slug )')
     .eq('estado', estado)
     .order('creado_en', { ascending: true }) // más antigua primero: la cola se vacía por orden de llegada
     .limit(500);
   if (error) return NextResponse.json({ error: 'No se han podido cargar las verificaciones.' }, { status: 500 });
 
   type FilaCruda = {
-    id: string; estado: string; motivo_rechazo: string | null; documento_path: string;
+    id: string; estado: string; motivo_rechazo: string | null; documento_path: string; documento_path_reverso: string | null;
     creado_en: string; resuelto_en: string | null;
     red_perfiles: { id: string; nombre: string; slug: string | null } | null;
   };
+  // El path crudo del bucket privado no viaja a este listado (igual que ya
+  // no viajaba `documento_path` antes de este cambio) — solo un booleano
+  // para que el panel sepa si pintar el botón "Ver reverso". La URL firmada
+  // real se pide aparte, por documento, en el endpoint .../documento.
   const verificaciones = ((data ?? []) as unknown as FilaCruda[]).map(f => ({
     id: f.id,
     estado: f.estado,
     motivoRechazo: f.motivo_rechazo,
     creadoEn: f.creado_en,
     resueltoEn: f.resuelto_en,
+    tieneReverso: f.documento_path_reverso != null,
     perfilId: f.red_perfiles?.id ?? null,
     perfilNombre: f.red_perfiles?.nombre ?? 'Perfil eliminado',
     perfilSlug: f.red_perfiles?.slug ?? null,

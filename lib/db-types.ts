@@ -1962,6 +1962,8 @@ export interface RowRedVerificacionesIdentidad {
   creado_en: string;
   resuelto_en: string | null;
   resuelto_por: string | null;
+  // migr 20260819212346.
+  documento_path_reverso: string | null;
 }
 
 export interface RowRedCertificaciones {

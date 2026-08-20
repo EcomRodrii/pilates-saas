@@ -160,9 +160,19 @@ export default function CrearPerfilNetworkPage() {
   const [error, setError] = useState('');
   const fileInputFoto = useRef<HTMLInputElement>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
-  const fileInputDoc = useRef<HTMLInputElement>(null);
-  const [subiendoDoc, setSubiendoDoc] = useState(false);
-  const [errorDoc, setErrorDoc] = useState('');
+  // Anverso/reverso del documento de identidad: dos dropzones, dos subidas
+  // independientes — el DNI/NIE necesita las dos caras, el Pasaporte solo
+  // el anverso (sin reverso). El POST de verificación no se dispara hasta
+  // que el conjunto que exige `identidad.tipoDocumento` está completo (ver
+  // intentarEnviarVerificacion), nunca tras la primera cara sola.
+  const [docAnverso, setDocAnverso] = useState<string | null>(null);
+  const [docReverso, setDocReverso] = useState<string | null>(null);
+  const fileInputDocAnverso = useRef<HTMLInputElement>(null);
+  const fileInputDocReverso = useRef<HTMLInputElement>(null);
+  const [subiendoAnverso, setSubiendoAnverso] = useState(false);
+  const [subiendoReverso, setSubiendoReverso] = useState(false);
+  const [errorDocAnverso, setErrorDocAnverso] = useState('');
+  const [errorDocReverso, setErrorDocReverso] = useState('');
   const [publicando, setPublicando] = useState(false);
 
   // Carga inicial: si ya hay perfil (volviendo a medio hacer), rellena todo.
@@ -278,17 +288,36 @@ export default function CrearPerfilNetworkPage() {
     if (guardado.ok) setPerfil(guardado.perfil);
   }
 
-  async function subirDocIdentidad(file: File) {
+  // Envía la verificación solo cuando el conjunto de caras que exige el
+  // tipo de documento elegido está completo — Pasaporte no tiene reverso,
+  // DNI/NIE sí. Se llama tanto tras cada subida como al cambiar de tipo de
+  // documento (elegir Pasaporte después de subir el anverso no debe dejar
+  // el envío colgado esperando un reverso que ya no hace falta).
+  async function intentarEnviarVerificacion(anverso: string | null, reverso: string | null) {
+    if (!anverso) return;
+    const necesitaReverso = identidad.tipoDocumento !== 'Pasaporte';
+    if (necesitaReverso && !reverso) return;
+    const res = await enviarVerificacionIdentidadNetwork(anverso, reverso);
+    if (!res.ok) { setErrorDocAnverso(res.error); return; }
+    setVerificacion(res.verificacion);
+  }
+
+  async function subirDocIdentidad(cara: 'anverso' | 'reverso', file: File) {
     if (!user) return;
     const invalido = validarDocumentoIdentidad(file);
-    if (invalido) { setErrorDoc(invalido); return; }
-    setErrorDoc(''); setSubiendoDoc(true);
-    const subida = await subirDocumentoIdentidad(user.id, 'identidad', file);
-    if ('error' in subida) { setErrorDoc(subida.error); setSubiendoDoc(false); return; }
-    const res = await enviarVerificacionIdentidadNetwork(subida.path);
-    setSubiendoDoc(false);
-    if (!res.ok) { setErrorDoc(res.error); return; }
-    setVerificacion(res.verificacion);
+    const setSubiendo = cara === 'anverso' ? setSubiendoAnverso : setSubiendoReverso;
+    const setErrorCara = cara === 'anverso' ? setErrorDocAnverso : setErrorDocReverso;
+    const setPath = cara === 'anverso' ? setDocAnverso : setDocReverso;
+    if (invalido) { setErrorCara(invalido); return; }
+    setErrorCara(''); setSubiendo(true);
+    const subida = await subirDocumentoIdentidad(user.id, `identidad-${cara}`, file);
+    setSubiendo(false);
+    if ('error' in subida) { setErrorCara(subida.error); return; }
+    setPath(subida.path);
+    await intentarEnviarVerificacion(
+      cara === 'anverso' ? subida.path : docAnverso,
+      cara === 'reverso' ? subida.path : docReverso,
+    );
   }
 
   if (cargandoSesion || cargando) return null;
@@ -490,7 +519,13 @@ export default function CrearPerfilNetworkPage() {
                 <label className={labelCls} style={{ color: NW_TINTA }}>Documento</label>
                 <div className="flex gap-2 mb-2">
                   {(['DNI', 'NIE', 'Pasaporte'] as const).map(t => (
-                    <button key={t} type="button" onClick={() => setIdentidad(v => ({ ...v, tipoDocumento: t }))}
+                    <button key={t} type="button" onClick={() => {
+                      setIdentidad(v => ({ ...v, tipoDocumento: t }));
+                      // Cambiar a Pasaporte (sin reverso) tras ya haber subido
+                      // el anverso no debe dejar el envío colgado esperando un
+                      // reverso que con este tipo ya no hace falta.
+                      if (t === 'Pasaporte' && docAnverso) void intentarEnviarVerificacion(docAnverso, docReverso);
+                    }}
                       className="px-4 py-2 rounded-full text-[13px] font-semibold"
                       style={{ background: identidad.tipoDocumento === t ? NW_TINTA : '#fff', color: identidad.tipoDocumento === t ? '#fff' : NW_TINTA, border: `1px solid ${NW_BORDE}` }}>
                       {t}
@@ -499,11 +534,26 @@ export default function CrearPerfilNetworkPage() {
                 </div>
                 <input value={identidad.numeroDocumento} onChange={e => setIdentidad(v => ({ ...v, numeroDocumento: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Número de documento" />
               </div>
-              <DropzoneDocumento
-                etiqueta="Subir documento · PDF o foto · las dos caras"
-                subiendo={subiendoDoc} error={errorDoc} inputRef={fileInputDoc}
-                onArchivo={subirDocIdentidad}
-              />
+              {/* Sin verificación viva (o la última fue rechazada): se puede
+                  subir. Con una pendiente/en_revision/verificada, ocultar los
+                  dropzones — reintentar aquí solo devolvía un 400 sin mensaje
+                  claro ("Ya tienes una verificación en curso."). */}
+              {(!verificacion || verificacion.estado === 'rechazado') && (
+                <>
+                  <DropzoneDocumento
+                    etiqueta="Anverso · PDF o foto"
+                    subiendo={subiendoAnverso} error={errorDocAnverso} inputRef={fileInputDocAnverso}
+                    onArchivo={f => subirDocIdentidad('anverso', f)}
+                  />
+                  {identidad.tipoDocumento !== 'Pasaporte' && (
+                    <DropzoneDocumento
+                      etiqueta="Reverso · PDF o foto"
+                      subiendo={subiendoReverso} error={errorDocReverso} inputRef={fileInputDocReverso}
+                      onArchivo={f => subirDocIdentidad('reverso', f)}
+                    />
+                  )}
+                </>
+              )}
               {verificacion && <EstadoDocumento estado={verificacion.estado} motivo={verificacion.motivoRechazo} />}
               <div>
                 <p className={labelCls} style={{ color: NW_TINTA }} id={`${uid}-direccion`}>Dirección — privada, nunca se muestra</p>
