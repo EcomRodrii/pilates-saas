@@ -102,21 +102,39 @@ export async function registrarFalloCobro(params: {
   return { estado: plan.estado, intentos: plan.intentos };
 }
 
-// Confirma un cobro SEPA que Stripe ya liquidó (`payment_intent.succeeded`):
-// marca el recibo COBRADO, renueva la suscripción y sella la factura del
-// ciclo. La usan el webhook (`payment_intent.succeeded`) y el reconciliador
-// de `lib/inngest/dunning.ts` (backstop cuando el webhook nunca llegó) — misma
-// función, para que las dos vías no diverjan. `studioId` viene siempre de una
-// fuente fiable del llamante (la cuenta Connect del evento, o el propio
-// recibo ya scopeado por estudio), nunca de la metadata del PaymentIntent.
-export async function confirmarCobroSepaExitoso(params: {
+// Confirma un cobro que Stripe ya liquidó (`payment_intent.succeeded`): marca
+// el recibo COBRADO, renueva la suscripción y sella la factura del ciclo.
+//
+// Nació para SEPA (adeudo asíncrono: el webhook ES el camino normal) y la usan
+// el webhook y el reconciliador de `lib/inngest/dunning.ts` (backstop cuando
+// el webhook nunca llegó) — misma función, para que las vías no diverjan.
+//
+// D-6 (auditoría 20-ago): también TARJETA. El cobro con tarjeta guardada es
+// síncrono (`cobrarReciboOffSession` persiste al confirmar), así que aquí el
+// webhook no es el camino normal sino la RED: recoge el COBRADO_SIN_PERSISTIR
+// (cargo OK en Stripe, UPDATE del recibo fallido) y el caso D-5 de respuesta
+// perdida cuando la clave de idempotencia ya expiró (>24 h). Es la pieza que
+// cierra de verdad la ventana que documenta lib/billing/clasificar-error-cobro.ts.
+//
+// `studioId` viene siempre de una fuente fiable del llamante (la cuenta
+// Connect del evento, o el propio recibo ya scopeado por estudio), nunca de la
+// metadata del PaymentIntent.
+export async function confirmarCobroExitoso(params: {
   admin: SupabaseClient;
   reciboId: string;
   studioId: string;
+  metodo: 'SEPA' | 'TARJETA';
+  /** El cargo real, para poder devolverlo desde el panel. Solo se escribe si viene. */
+  paymentIntentId?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { admin, reciboId, studioId } = params;
+  const { admin, reciboId, studioId, metodo } = params;
+  const esSepa = metodo === 'SEPA';
   const { data: rec, error: updErr } = await admin.from('recibos')
-    .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: 'SEPA', sepa_estado: 'succeeded' })
+    .update({
+      estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodo,
+      ...(esSepa ? { sepa_estado: 'succeeded' } : {}),
+      ...(params.paymentIntentId ? { stripe_payment_intent_id: params.paymentIntentId } : {}),
+    })
     // Mismo guardia de estados que el camino de checkout (webhook/route.ts) y
     // el conciliador: quedan fuera COBRADO —para no reescribir fecha_cobro con
     // un evento tardío o reentregado— y sobre todo DEVUELTO, para no RESUCITAR
@@ -144,23 +162,51 @@ export async function confirmarCobroSepaExitoso(params: {
     // sus efectos. Un adeudo SEPA se puede devolver hasta 8 semanas después,
     // así que succeeded → refunded → reentrega del succeeded es real.
     if (existe.estado === 'DEVUELTO') return { ok: true };
-    // Ya COBRADO: es una reentrega del evento. Se deja caer al bloque de abajo
-    // igual que hace el gemelo de checkout, porque esos pasos son idempotentes
-    // y son la ÚNICA red si el proceso murió entre el UPDATE y la renovación
-    // (el conciliador no lo repara: solo mira recibos EN_CURSO).
+    // Ya COBRADO, vía TARJETA: es el caso NORMAL, no una reentrega rara — el
+    // webhook llega para cada cargo y `cobrarReciboOffSession` ya lo persistió
+    // todo de forma síncrona. Se repara en silencio lo idempotente (renovación
+    // y sellado, la única red si el proceso murió entre el UPDATE y la
+    // renovación) pero SIN notificación ni email: el camino síncrono de
+    // tarjeta nunca los ha enviado, y mandarlos aquí estrenaría un email por
+    // cada cobro normal — un cambio de producto disfrazado de reconciliación.
+    if (!esSepa) {
+      await aplicarRenovacionServidor(admin, { studioId, reciboId });
+      try {
+        const sell = await sellarFacturaDeRecibo(admin, { studioId, reciboId, facturaId: `fac-off-${reciboId}` });
+        // Solo consola, sin Sentry: en esta rama el sellado ya lo intentó (y
+        // reportó, si falló) la vía síncrona segundos antes — capturarlo aquí
+        // también duplicaría el aviso en CADA cobro de un estudio sin NIF.
+        if (!sell.ok) console.error('[confirmarCobroExitoso] reparación: factura sin sellar', reciboId, sell.error);
+      } catch (e) {
+        console.error('[confirmarCobroExitoso] reparación: fallo al sellar', reciboId, e);
+      }
+      return { ok: true };
+    }
+    // Ya COBRADO, vía SEPA: es una reentrega del evento. Se deja caer al bloque
+    // de abajo igual que hace el gemelo de checkout, porque esos pasos son
+    // idempotentes y son la ÚNICA red si el proceso murió entre el UPDATE y la
+    // renovación (el conciliador no lo repara: solo mira recibos EN_CURSO).
   }
 
+  // Transición real (o reentrega SEPA): efectos completos. En TARJETA llegar
+  // aquí significa que el webhook acaba de RECUPERAR un cobro que el camino
+  // síncrono perdió — avisar a la socia es lo correcto: nadie más lo hará.
   await aplicarRenovacionServidor(admin, { studioId, reciboId });
   const { emitirPagoRealizado } = await import('../notifications/emit.ts');
   await emitirPagoRealizado(admin, { studioId, reciboId });
   const { enviarEmailReciboWebhook } = await import('../emails/enviar-recibo-webhook.ts');
   await enviarEmailReciboWebhook(admin, { studioId, reciboId });
   try {
-    const sell = await sellarFacturaDeRecibo(admin, { studioId, reciboId, facturaId: `fac-sepa-${reciboId}` });
+    // TARJETA usa el MISMO id de factura que `cobrarReciboOffSession`
+    // (`fac-off-…`): si el camino síncrono ya selló, esto colisiona y no
+    // duplica (el sellado además dedupea por recibo_id, cinturón y tirantes).
+    const sell = await sellarFacturaDeRecibo(admin, {
+      studioId, reciboId, facturaId: esSepa ? `fac-sepa-${reciboId}` : `fac-off-${reciboId}`,
+    });
     if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');
   } catch (e) {
-    Sentry.captureException(e instanceof Error ? e : new Error('Fallo al sellar la factura del cobro SEPA'), {
-      level: 'warning', tags: { area: 'facturacion', tipo: 'sepa_ciclo' }, extra: { reciboId },
+    Sentry.captureException(e instanceof Error ? e : new Error('Fallo al sellar la factura del cobro'), {
+      level: 'warning', tags: { area: 'facturacion', tipo: esSepa ? 'sepa_ciclo' : 'tarjeta_recibo' }, extra: { reciboId },
     });
   }
   return { ok: true };

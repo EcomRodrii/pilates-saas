@@ -9,7 +9,7 @@ import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
 import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 import { metodoReutilizableDe } from '@/lib/billing/metodo-reutilizable';
 import { registrarDevolucion, referenciaDevolucion, origenDeReembolso } from '@/lib/billing/registrar-devolucion';
-import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
+import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
@@ -427,7 +427,7 @@ async function procesarEvento(
         // alguien abría el panel. Best-effort e idempotente.
         await aplicarRenovacionServidor(admin, { studioId, reciboId });
         // Sellado de factura: mismo criterio que cobrarReciboOffSession
-        // (lib/billing/stripe-cobros.ts) y confirmarCobroSepaExitoso — este
+        // (lib/billing/stripe-cobros.ts) y confirmarCobroExitoso — este
         // era el ÚNICO de los tres caminos de dinero real que no la sellaba.
         // Un pago desde el portal (la socia paga su recibo pendiente vía
         // Checkout hospedado) confirmaba el cobro y nunca generaba factura;
@@ -861,7 +861,7 @@ async function procesarEvento(
         });
         return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
       }
-      const confirmado = await confirmarCobroSepaExitoso({ admin, reciboId, studioId });
+      const confirmado = await confirmarCobroExitoso({ admin, reciboId, studioId, metodo: 'SEPA' });
       if (!confirmado.ok) {
         // "Recibo no encontrado" es o bien el recibo ya no existe o es de otro
         // estudio (intento de confirmar un cobro ajeno) — se registra y se
@@ -876,6 +876,56 @@ async function procesarEvento(
         return NextResponse.json({ error: 'Fallo al confirmar el cobro SEPA' }, { status: 500 });
       }
       capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'sepa' } });
+    }
+
+    // D-6 (auditoría 20-ago) — cobro con TARJETA guardada confirmado. A
+    // diferencia de SEPA, aquí el webhook NO es el camino normal:
+    // cobrarReciboOffSession persiste de forma síncrona al confirmar el cargo,
+    // y este evento llega igualmente para cada cobro. Esta rama es la RED que
+    // faltaba, y cierra dos huecos reales:
+    //   · COBRADO_SIN_PERSISTIR: el cargo entró en Stripe pero el UPDATE del
+    //     recibo falló — antes solo quedaba un aviso en Sentry y reconciliación
+    //     a mano.
+    //   · D-5 con clave expirada: un fallo transitorio con cargo hecho se
+    //     reintenta con la MISMA Idempotency-Key, pero las claves de Stripe se
+    //     purgan a las ~24 h y el dunning corre a diario — si la clave murió,
+    //     el reintento cobraría OTRA vez; con esta rama, el recibo ya estará
+    //     COBRADO antes del siguiente barrido (el webhook llega en segundos) y
+    //     el recibo sale de la lista de candidatos.
+    // confirmarCobroExitoso distingue: recibo aún cobrable → recuperación
+    // completa (con aviso y email a la socia — nadie más se lo dará); ya
+    // COBRADO (el caso normal, la vía síncrona funcionó) → reparación muda de
+    // lo idempotente, sin estrenar emails en cada cobro normal.
+    if (pi.metadata?.origen === 'tarjeta_recibo' && pi.metadata?.reciboId) {
+      const reciboId = pi.metadata.reciboId;
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        console.error('[stripe webhook] service role no configurada (tarjeta succeeded)');
+        return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+      }
+      const studioId = await studioDeCuentaConnect(admin, event.account);
+      if (!studioId) {
+        Sentry.captureMessage('[stripe webhook] cobro con tarjeta de una cuenta Connect no reconocida', {
+          level: 'error', extra: { reciboId, eventAccount: event.account },
+        });
+        return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+      }
+      const confirmado = await confirmarCobroExitoso({
+        admin, reciboId, studioId, metodo: 'TARJETA', paymentIntentId: pi.id,
+      });
+      if (!confirmado.ok) {
+        if (confirmado.error === 'Recibo no encontrado') {
+          Sentry.captureMessage('[stripe webhook] cobro con tarjeta apunta a recibo inexistente o de otro estudio', {
+            level: 'error', extra: { reciboId, studioId, eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
+        }
+        console.error('[stripe webhook] no se pudo confirmar el cobro con tarjeta', reciboId, confirmado.error);
+        return NextResponse.json({ error: 'Fallo al confirmar el cobro con tarjeta' }, { status: 500 });
+      }
+      // Sin `capturar` de GMV aquí a propósito: la vía síncrona ya lo captura
+      // al cobrar (charge-off-session / cobrar-online) y este evento llega
+      // TAMBIÉN en cada cobro normal — contarlo aquí duplicaría el GMV.
     }
   }
 
