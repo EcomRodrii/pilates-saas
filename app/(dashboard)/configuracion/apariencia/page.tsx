@@ -1,5 +1,6 @@
 import { ThemeLibrary } from '@/components/theme/theme-library';
 import { PageHeader } from '@/components/ui/page-header';
+import { Badge } from '@/components/ui/badge';
 
 // La pantalla de llegada de Apariencia es la BIBLIOTECA de temas: se elige un
 // punto de partida mirándolo, y el ajuste fino (colores, tipografía, bloques
@@ -13,6 +14,7 @@ export default function AparienciaPage() {
         back={{ href: '/configuracion', label: 'Volver a Configuración' }}
         title="Apariencia"
         description="Elige el tema de la app de tus socias y de tu página pública de reservas."
+        badge={<Badge variant="outline" className="uppercase tracking-wide">Beta</Badge>}
       />
       <ThemeLibrary />
     </div>
