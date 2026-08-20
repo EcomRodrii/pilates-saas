@@ -132,7 +132,7 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
     await montar(page);
     const codigo = await snippet(page).textContent();
     expect(codigo).toContain(`/reservar/${SLUG}?embed=1&tab=clases`);
-    for (const nunca of ['tipos=', 'instructoras=', 'salas=', 'vista=', 'ocultar-', 'diseno=', 'marca=', 'fondo=', 'tinta=']) {
+    for (const nunca of ['tipos=', 'instructoras=', 'salas=', 'vista=', 'ocultar-', 'diseno=', 'marca=', 'fondo=', 'tinta=', 'fuente=', 'fuente-display=']) {
       expect(codigo, `un default emitido (${nunca}) rompe el contrato Momence`).not.toContain(nunca);
     }
   });
@@ -199,6 +199,56 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
     // Y los controles reflejan lo restaurado — no solo el texto del snippet.
     await expect(page.getByRole('button', { name: 'Ocultar precio' })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('group', { name: 'Tipos de clase' }).getByRole('button', { name: 'Reformer' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('⚠️ tipografía: entra en el snippet (iframe y script), pinta la previa real y se persiste', async ({ page }) => {
+    const { patches } = await montar(page);
+
+    // Iframe (Modo A): el nombre viaja como query param CONGELADO — el mismo
+    // vocabulario `fuente=`/`fuente-display=` que ya resuelve resolverApariencia.
+    await page.getByLabel('Tipografía', { exact: true }).fill('Space Grotesk');
+    await page.getByLabel('Tipografía de titulares').fill('Lobster');
+    await expect(snippet(page)).toContainText('fuente=Space%20Grotesk');
+    await expect(snippet(page)).toContainText('fuente-display=Lobster');
+
+    // Un nombre inválido NO entra en el snippet (misma puerta que el parser).
+    await page.getByLabel('Tipografía de titulares').fill('Foo"; }');
+    await expect(page.getByText('Solo letras, números y espacios', { exact: false })).toBeVisible();
+    await expect(snippet(page)).not.toContainText('fuente-display=');
+    await page.getByLabel('Tipografía de titulares').fill('Lobster');
+
+    // Persistencia en widget_builder (debounce real, se espera al PATCH).
+    await expect.poll(
+      () => patches.some(p => typeof p.widget_builder === 'object' && p.widget_builder !== null
+        && JSON.stringify(p.widget_builder).includes('Space Grotesk')),
+      { timeout: 10_000 },
+    ).toBe(true);
+
+    // Script (Modo B): atributos data-* y la vista previa REAL del panel — la
+    // familia computada del calendario montado, no un texto decorativo.
+    await page.getByRole('button', { name: /Calendario embebido \(sin iframe\)/ }).click();
+    await page.getByLabel('Tipografía', { exact: true }).fill('Space Grotesk');
+    await page.getByLabel('Tipografía de titulares').fill('Lobster');
+    await expect(snippet(page)).toContainText('data-fuente="Space Grotesk"');
+    await expect(snippet(page)).toContainText('data-fuente-display="Lobster"');
+    const boton = page.getByRole('button', { name: '10:00 Reformer' });
+    await boton.waitFor();
+    // El <link> de Google Fonts se inyecta en el documento del panel (igual
+    // que hará montarUno en la web real) y la previa computa la familia.
+    await expect.poll(() => page.evaluate(() => document.querySelectorAll('link[href*="Space+Grotesk"]').length)).toBe(1);
+    const fam = await boton.evaluate(el => getComputedStyle(el.closest('div[style*="--font-ui"]')!).fontFamily);
+    expect(fam).toContain('Space Grotesk');
+  });
+
+  test('al volver a entrar, la tipografía guardada se restaura (control y snippet)', async ({ page }) => {
+    await montar(page, {
+      widgetBuilder: { clases: { fuente: 'Space Grotesk', fuenteDisplay: 'Lobster' } },
+    });
+    const codigo = await snippet(page).textContent();
+    expect(codigo).toContain('fuente=Space%20Grotesk');
+    expect(codigo).toContain('fuente-display=Lobster');
+    await expect(page.getByLabel('Tipografía', { exact: true })).toHaveValue('Space Grotesk');
+    await expect(page.getByLabel('Tipografía de titulares')).toHaveValue('Lobster');
   });
 
   test('⚠️ guardar un dominio dispara el registro de wallets (contador real, no fe)', async ({ page }) => {

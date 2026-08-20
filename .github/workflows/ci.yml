@@ -195,8 +195,13 @@ jobs:
 
       # El artefacto NO incluye .next/cache (solo sirve para recompilar, y son
       # cientos de MB que multiplicarían la subida y las 6 bajadas de los shards).
+      # ⚠️ public/widget.js va TAMBIÉN en el artefacto: lo genera build:widget
+      # dentro de `npm run build` y está gitignorado, así que el checkout de los
+      # shards no lo tiene — y sin él, cualquier e2e que monte el bundle real
+      # (`<script src="/widget.js">`) muere en 404 con un timeout que se lee
+      # como flake. Pasó con los primeros e2e de Modo B (tipografía, PR #1307).
       - name: Empaquetar salida del build
-        run: tar -cf build.tar --exclude=.next/cache .next
+        run: tar -cf build.tar --exclude=.next/cache .next public/widget.js
 
       - name: Subir salida del build
         uses: actions/upload-artifact@v4

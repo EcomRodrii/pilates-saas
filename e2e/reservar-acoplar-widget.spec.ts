@@ -86,6 +86,24 @@ test('la tipografía se NOMBRA y se carga de verdad', async ({ page }) => {
   expect(r.linkFuente).toBe(true);
 });
 
+test('la tipografía de TITULARES también se nombra y se carga (widgetFuenteDisplay resucitado)', async ({ page }) => {
+  // El control existía en el editor de temas y se guardaba… y la página nunca
+  // lo consumía (auditoría P1): los titulares seguían en la serif fija.
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await mocks(page);
+  await medir(page, '&fuente-display=Lobster');
+  const r = await page.evaluate(() => {
+    // Un titular real: su style en línea USA la var (la raíz solo la define).
+    const titular = document.querySelector('[style*="var(--portal-heading-font"]') as HTMLElement | null;
+    return {
+      titular: titular ? getComputedStyle(titular).fontFamily : null,
+      linkDisplay: !!document.querySelector('link[href*="family=Lobster"]'),
+    };
+  });
+  expect(r.titular).toContain('Lobster');
+  expect(r.linkDisplay).toBe(true);
+});
+
 test('sin pie y con una sola pestaña', async ({ page }) => {
   // Quien incrusta «Horario y reserva de clases» no espera que su visitante se
   // vaya a «El estudio» dentro de un recuadro de su propia web. Y el pie con la

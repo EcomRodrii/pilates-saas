@@ -17,9 +17,13 @@
 // estudio la NOMBRE («Space Grotesk») y la carguemos nosotros. La interfaz lo
 // dice con esas palabras en vez de prometer una herencia que no existe.
 
-// El regex de color vive en config-widget.ts (módulo común de los dos modos de
-// embebido, sin dependencias) — una sola puerta anti-XSS, no dos copias.
-import { COLOR_VALIDO } from './config-widget.ts';
+// El regex de color Y el de fuente viven en config-widget.ts (módulo común de
+// los dos modos de embebido, sin dependencias) — una sola puerta anti-XSS, no
+// dos copias. `fuenteValida` se reexporta para no romper a quien ya lo
+// importaba de aquí.
+import { COLOR_VALIDO, fuenteValida, familiaCssDe, urlFuenteGoogle } from './config-widget.ts';
+
+export { fuenteValida };
 
 export interface AparienciaWidget {
   /** `null` = el fondo del portal, como hasta ahora. */
@@ -67,19 +71,6 @@ export const APARIENCIA_POR_DEFECTO: AparienciaWidget = {
   fuenteDisplay: null, radioBoton: null, radioInput: null,
   superficie: null, tinta: null, textoSecundario: null, linea: null, relleno: null,
 };
-
-/**
- * ⚠️ Un nombre de fuente llega por la URL de una página PÚBLICA, así que
- * cualquiera puede escribirlo. Se acota a letras, números y espacios: es lo que
- * cabe en un nombre de familia de Google Fonts, y deja fuera comillas, llaves y
- * paréntesis — o sea, todo lo que haría falta para salirse de la declaración
- * CSS o del `<link>` que la carga.
- */
-const FUENTE_VALIDA = /^[A-Za-z0-9][A-Za-z0-9 ]{0,39}$/;
-
-export function fuenteValida(v: string): boolean {
-  return FUENTE_VALIDA.test(v.trim());
-}
 
 function leerFondo(v: string | null): AparienciaWidget['fondo'] | undefined {
   if (v == null) return undefined;
@@ -221,37 +212,27 @@ export function fondoCss(a: AparienciaWidget): string | null {
  */
 export function familiaCss(a: AparienciaWidget): string | null {
   if (!a.fuente) return null;
-  return `'${a.fuente}', system-ui, sans-serif`;
+  return familiaCssDe(a.fuente);
 }
 
 /**
- * La URL de Google Fonts para cargarla, o `null`.
- *
- * Se vuelve a validar el nombre aunque ya haya pasado el filtro al resolverlo:
- * son dos puertas para lo mismo a propósito, porque esta cadena acaba en el
- * `href` de un `<link>` que se inyecta en el documento.
- *
- * ⚠️ Se codifica PRIMERO y se cambian los `%20` por `+` DESPUÉS. Al revés
- * —meter los `+` y luego codificar— salen `%2B` y Google Fonts devuelve un 400:
- * pedirías la familia «Space+Grotesk» con un signo más literal en el nombre.
+ * La URL de Google Fonts para cargarla, o `null`. La construcción (y la
+ * segunda puerta de validación, ver su comentario) vive en `urlFuenteGoogle`
+ * (config-widget.ts) — compartida con el bundle de Modo B.
  */
 export function urlFuente(a: AparienciaWidget): string | null {
-  if (!a.fuente || !fuenteValida(a.fuente)) return null;
-  const familia = encodeURIComponent(a.fuente.trim()).replace(/%20/g, '+');
-  return `https://fonts.googleapis.com/css2?family=${familia}:wght@400;500;600;700&display=swap`;
+  return urlFuenteGoogle(a.fuente);
 }
 
 /** Igual que `familiaCss`, para la fuente de titulares/horas/precios. */
 export function familiaDisplayCss(a: AparienciaWidget): string | null {
   if (!a.fuenteDisplay) return null;
-  return `'${a.fuenteDisplay}', system-ui, sans-serif`;
+  return familiaCssDe(a.fuenteDisplay);
 }
 
 /** Igual que `urlFuente`, para la fuente de titulares/horas/precios. */
 export function urlFuenteDisplay(a: AparienciaWidget): string | null {
-  if (!a.fuenteDisplay || !fuenteValida(a.fuenteDisplay)) return null;
-  const familia = encodeURIComponent(a.fuenteDisplay.trim()).replace(/%20/g, '+');
-  return `https://fonts.googleapis.com/css2?family=${familia}:wght@400;500;600;700&display=swap`;
+  return urlFuenteGoogle(a.fuenteDisplay);
 }
 
 /**
