@@ -115,6 +115,27 @@ test('bono_caduca_en_dias: cuenta hacia atrás desde fechaFin, positivo = días 
   assert.equal(evaluarSegmento(def, s, ctx([s], suscripciones)), true);
 });
 
+// Regresión QA (PR #1276, hallazgo 1): un comparador que 'etiqueta' no
+// admite (solo admite igual/distinto) no debe interpretarse como 'igual'.
+test('etiqueta: comparador no soportado (mayor_que) no cumple, no se confunde con igual', () => {
+  const conTag = socio({ id: 's1', tags: ['vip'] });
+  const sinTag = socio({ id: 's2', tags: [] });
+  const def: DefinicionSegmento = { operador: 'AND', condiciones: [{ campo: 'etiqueta', comparador: 'mayor_que', valor: 'vip' }] };
+  assert.equal(evaluarSegmento(def, conTag, ctx([conTag])), false);
+  assert.equal(evaluarSegmento(def, sinTag, ctx([sinTag])), false);
+});
+
+// Regresión QA (PR #1276, hallazgo 5): un campo personalizado desactivado
+// (no borrado) debe tratarse igual que uno borrado — el builder ya no deja
+// crear condiciones nuevas sobre él, así que un segmento existente tampoco
+// debe seguir evaluándolo con normalidad.
+test('campo_extra desactivado (activo=false) no se evalúa, igual que uno borrado', () => {
+  const campos: CampoPersonalizado[] = [{ id: 'peso', studioId: 'e1', etiqueta: 'Peso', tipo: 'numero', opciones: [], requerido: false, orden: 0, activo: false }];
+  const s = socio({ id: 's1', camposExtra: { peso: 72 } });
+  const def: DefinicionSegmento = { operador: 'AND', condiciones: [{ campo: 'campo_extra:peso', comparador: 'mayor_que', valor: 70 }] };
+  assert.equal(evaluarSegmento(def, s, ctx([s], [], [], [], campos)), false);
+});
+
 test('cumpleanos_en_proximos_dias: ignora el año de nacimiento', () => {
   const s = socio({ id: 's1', fechaNacimiento: '1990-08-22' }); // 2 días después de NOW (2026-08-20)
   const def: DefinicionSegmento = { operador: 'AND', condiciones: [{ campo: 'cumpleanos_en_proximos_dias', comparador: 'menor_que', valor: 5 }] };

@@ -118,6 +118,14 @@ export function evaluarCondicion(cond: CondicionSegmento, socio: Socio, ctx: Con
     return compararNumero(dias, cond.comparador, Number(cond.valor));
   }
   if (campo === 'etiqueta') {
+    // QA (PR #1276, hallazgo 1): antes cualquier comparador que no fuera
+    // 'distinto' (incluidos mayor_que/menor_que/es_verdadero, que la UI
+    // nunca ofrece para este campo) se trataba como 'igual' en silencio —
+    // solo alcanzable con un jsonb editado a mano o si CAMPOS_FIJOS_META
+    // cambia y deja segmentos guardados con un comparador ya no válido.
+    // Mismo criterio seguro que el resto de comparadores: si no es uno de
+    // los dos que este campo admite, no cumple, en vez de adivinar.
+    if (cond.comparador !== 'igual' && cond.comparador !== 'distinto') return false;
     const tieneEtiqueta = (socio.tags ?? []).includes(String(cond.valor));
     return cond.comparador === 'distinto' ? !tieneEtiqueta : tieneEtiqueta;
   }
@@ -134,8 +142,14 @@ export function evaluarCondicion(cond: CondicionSegmento, socio: Socio, ctx: Con
   }
   if (campo.startsWith('campo_extra:')) {
     const campoId = campo.slice('campo_extra:'.length);
-    const def = ctx.camposPersonalizados.find(c => c.id === campoId);
-    if (!def) return false; // campo borrado desde que se guardó el segmento
+    // QA (PR #1276, hallazgo 5): antes se buscaba en TODOS los campos
+    // personalizados, activos o no — un campo desactivado (pero no borrado)
+    // seguía evaluándose con normalidad, mientras que el builder
+    // (opcionesCampo) ya no dejaba crear condiciones nuevas sobre él.
+    // Se trata igual que "campo borrado": desactivar tiene el mismo efecto
+    // que borrar sobre los segmentos que ya lo usaban, coherente con la UI.
+    const def = ctx.camposPersonalizados.find(c => c.id === campoId && c.activo);
+    if (!def) return false; // campo borrado o desactivado desde que se guardó el segmento
     const actual = valorCampoExtra(socio, campoId, def.tipo);
     if (def.tipo === 'numero') return compararNumero(actual as number | null, cond.comparador, Number(cond.valor));
     if (def.tipo === 'booleano') return compararBooleano(Boolean(actual), cond.comparador);
