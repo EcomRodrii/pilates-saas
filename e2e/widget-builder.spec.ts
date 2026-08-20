@@ -201,6 +201,32 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
     await expect(page.getByRole('group', { name: 'Tipos de clase' }).getByRole('button', { name: 'Reformer' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  test('⚠️ guardar un dominio dispara el registro de wallets (contador real, no fe)', async ({ page }) => {
+    const { patches } = await montar(page);
+    // Registrada DESPUÉS de montar: en Playwright la última ruta gana, así
+    // que esta pisa el catch-all **/api/** para poder CONTAR los intentos —
+    // sin contador, este test saldría verde sin haberse pedido nada
+    // ([[test-4xx-necesita-contador-de-intentos]]).
+    let intentosWallet = 0;
+    await page.route('**/api/widget/dominios-wallet', route => {
+      intentosWallet++;
+      return json(route, { registrados: [] });
+    });
+
+    await page.getByRole('button', { name: /Calendario embebido \(sin iframe\)/ }).click();
+    await page.getByPlaceholder('midominio.com').fill('otrodominio.com');
+    await page.getByRole('button', { name: 'Añadir' }).click();
+
+    // Primero el guardado real del dominio (PATCH a studios)...
+    await expect.poll(
+      () => patches.some(p => Array.isArray(p.widget_dominios_autorizados)
+        && (p.widget_dominios_autorizados as string[]).includes('https://otrodominio.com')),
+      { timeout: 10_000 },
+    ).toBe(true);
+    // ...y detrás, el fire-and-forget que registra el dominio para Apple Pay.
+    await expect.poll(() => intentosWallet, { timeout: 10_000 }).toBeGreaterThan(0);
+  });
+
   test('los widgets que no honran filtros no los ofrecen (nada de UI fake)', async ({ page }) => {
     await montar(page);
     // La tarjeta del selector, no la pestaña «Citas» de Configuración — se
