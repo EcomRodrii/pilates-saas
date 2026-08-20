@@ -2,7 +2,7 @@
 import { aFechaCal, eventoIcs, nombreIcs } from '@/lib/calendario-ics';
 import { queImparten } from '@/lib/equipo';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
@@ -567,6 +567,73 @@ export default function ReservarPage() {
   // Documento legal a mostrar en modal (texto renderizado por React → escapado;
   // sustituye al document.write con HTML sin escapar, que era un vector XSS).
   const [legalDoc, setLegalDoc] = useState<{ label: string; text: string } | null>(null);
+
+  // ── P0-3 (mobile UX embebido): overlays anclados a lo que el usuario VE ──
+  // El iframe de Modo A se auto-dimensiona a TODO el contenido (2000px o más),
+  // así que un overlay con `inset: 0` se ancla al iframe entero: medido en
+  // producción, el modal «Tus datos» apareció a ~1000px por debajo del borde de
+  // la pantalla del usuario. El snippet NUEVO (tab-api.tsx) informa por
+  // postMessage (`tentareHostViewport`) de qué franja del iframe está visible
+  // de verdad; los overlays se posicionan dentro de ella. Con el snippet VIEJO
+  // (ya pegado en webs que no se actualizan solas) no llega ningún mensaje:
+  // los overlays caen al anclaje al TOP del iframe (siempre mejor que el
+  // fondo — el usuario acaba de tocar algo que está en su pantalla) y se envía
+  // `tentareScrollTo`, que el snippet nuevo atiende con scrollIntoView y el
+  // viejo ignora sin romperse.
+  //
+  // El origen del mensaje no se puede validar contra una lista aquí (el host
+  // es la web de cada estudio, cualquiera): se valida ESTRUCTURA estricta y
+  // solo se usa para posicionar overlays — nunca toca datos ni navegación.
+  const [franjaVisible, setFranjaVisible] = useState<{ top: number; height: number } | null>(null);
+  const franjaRef = useRef<{ top: number; height: number } | null>(null);
+  const overlayEmbebidoAbiertoRef = useRef(false);
+  const [fichaCalendarioAbierta, setFichaCalendarioAbierta] = useState(false);
+  useEffect(() => {
+    if (!embedMode || typeof window === 'undefined' || window.parent === window) return;
+    const onMsg = (e: MessageEvent) => {
+      const v = (e.data as { tentareHostViewport?: { top?: unknown; height?: unknown } } | null)?.tentareHostViewport;
+      if (!v || typeof v !== 'object') return;
+      const top = Number(v.top);
+      const height = Number(v.height);
+      if (!Number.isFinite(top) || !Number.isFinite(height) || top < 0 || height <= 0) return;
+      const franja = { top: Math.round(top), height: Math.min(Math.round(height), 4000) };
+      franjaRef.current = franja;
+      // Solo re-render con un overlay abierto que la use: el host manda un
+      // mensaje por frame de scroll y esta página es grande. Mantenerla viva
+      // mientras el overlay está abierto es a propósito — si el usuario
+      // scrollea el host con el modal abierto, el modal le sigue.
+      if (overlayEmbebidoAbiertoRef.current) setFranjaVisible(franja);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [embedMode]);
+  // Al abrir cualquier overlay embebido: congela la última franja conocida en
+  // estado (para posicionarlo ya en este render) y, si no hay franja útil
+  // (snippet viejo, o el iframe casi fuera de pantalla), pide al host que
+  // traiga el iframe a la vista. Con el snippet nuevo, el scroll que provoca
+  // dispara mensajes nuevos y el overlay se recoloca solo.
+  const overlayEmbebidoAbierto = embedMode && (fichaCalendarioAbierta || bookingSesionId !== null || legalDoc !== null);
+  useEffect(() => {
+    overlayEmbebidoAbiertoRef.current = overlayEmbebidoAbierto;
+    if (!overlayEmbebidoAbierto || typeof window === 'undefined' || window.parent === window) return;
+    // Copia puntual de la última franja recibida (vive en un ref para no
+    // re-renderizar la página en cada frame de scroll del host).
+    setFranjaVisible(franjaRef.current);
+    if (!franjaRef.current || franjaRef.current.height < 320) {
+      window.parent.postMessage({ tentareScrollTo: true, tentareSlug: slug }, '*');
+    }
+  }, [overlayEmbebidoAbierto, slug]);
+  // Callback estable para el calendario (su efecto interno lo lleva en deps).
+  const alCambiarFicha = useCallback((abierta: boolean) => setFichaCalendarioAbierta(abierta), []);
+  // Posicionamiento que se pasa a los PublicSheet en modo embebido. `top`/
+  // `height` + `bottom: auto` pisan el `inset-0` de la clase; `alignItems`
+  // pisa `items-end sm:items-center` (ese `sm:` mide el ancho del IFRAME, no
+  // de la pantalla real — con un iframe estrecho anclaba SIEMPRE al fondo).
+  const overlayEmbed = embedMode
+    ? (franjaVisible
+      ? { top: franjaVisible.top, height: franjaVisible.height, bottom: 'auto', alignItems: 'center' } as const
+      : { alignItems: 'flex-start' } as const)
+    : undefined;
 
   // Sitio (reformer) elegido por la socia al reservar (I-12). null = sin elegir.
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
@@ -1927,6 +1994,12 @@ export default function ReservarPage() {
                 // haya clases — antes ambos casos eran indistinguibles.
                 error={dataLoaded && errorPublico ? { onReintentar: recargarPublico } : undefined}
                 finalizadasHoy={slotsFinalizadosHoy}
+                // P0-3: dentro del iframe, la hoja de ficha se ancla a la
+                // franja visible (o al top como fallback), nunca al fondo del
+                // iframe entero. Ver el bloque de `franjaVisible` arriba.
+                enIframe={embedMode}
+                franjaVisible={franjaVisible}
+                alCambiarFicha={alCambiarFicha}
               />
             </div>
 
@@ -2559,7 +2632,16 @@ export default function ReservarPage() {
         // asistente es más ancho que el resto de pasos de este modal (login,
         // confirmar, etc.), así que la hoja crece solo para esos dos.
         sheetClassName={`bg-white w-full ${loginStep === 'datos' || loginStep === 'pago' ? 'max-w-lg' : 'max-w-sm'} rounded-3xl p-6 relative shadow-2xl`}
-        sheetStyle={{ maxHeight: '90vh', overflowY: 'auto' }}
+        // P0-3: en el iframe embebido, `90vh` es el 90% del IFRAME entero (que
+        // mide lo que su contenido) — el modal se anclaba junto al pie de la
+        // web del estudio, a ~1000px de la vista del usuario (medido). Con
+        // franja, el modal vive DENTRO de ella (maxHeight al 100% de la franja,
+        // menos el p-4 del backdrop); sin franja, tope fijo razonable.
+        sheetStyle={{
+          maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(90vh, 640px)') : '90vh',
+          overflowY: 'auto',
+        }}
+        overlayStyle={overlayEmbed}
       >
         {bookingSesionId !== null && (
           <>
@@ -3067,7 +3149,9 @@ export default function ReservarPage() {
         onClose={() => setLegalDoc(null)}
         label={legalDoc?.label ?? 'Documento legal'}
         sheetClassName="bg-white w-full max-w-lg rounded-3xl relative shadow-2xl flex flex-col"
-        sheetStyle={{ maxHeight: '85vh' }}
+        // P0-3: mismo criterio que el modal de reserva de arriba.
+        sheetStyle={{ maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(85vh, 640px)') : '85vh' }}
+        overlayStyle={overlayEmbed}
       >
         {legalDoc && (
           <>

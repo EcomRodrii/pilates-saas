@@ -20,6 +20,7 @@ export function PublicSheet({
   children,
   sheetClassName = 'bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl',
   sheetStyle,
+  overlayStyle,
   closeOnBackdropClick = true,
 }: {
   open: boolean;
@@ -28,6 +29,15 @@ export function PublicSheet({
   children: React.ReactNode;
   sheetClassName?: string;
   sheetStyle?: React.CSSProperties;
+  /**
+   * Pisa el posicionamiento del backdrop (P0-3, widget embebido): dentro de un
+   * <iframe> auto-dimensionado, `inset-0` + `items-end` anclan el modal al
+   * FONDO del iframe entero — a ~1000px de lo que el usuario ve (medido). El
+   * caller embebido pasa aquí la franja visible (`top`/`height`) o el anclaje
+   * al top como fallback. Ojo: el `sm:items-center` de la clase mide el ancho
+   * del IFRAME, no de la pantalla real — por eso esto va por style, que gana.
+   */
+  overlayStyle?: React.CSSProperties;
   closeOnBackdropClick?: boolean;
 }) {
   const { sheetRef } = useDialogA11y({ open, onClose });
@@ -37,7 +47,7 @@ export function PublicSheet({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6 animate-sheet-backdrop-in"
-      style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+      style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', ...overlayStyle }}
       onClick={closeOnBackdropClick ? onClose : undefined}
     >
       <div
