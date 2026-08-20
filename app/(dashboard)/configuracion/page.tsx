@@ -92,12 +92,13 @@ export function Field({
   );
 }
 
-export function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+export function Toggle({ on, onChange, ariaLabel }: { on: boolean; onChange: (v: boolean) => void; ariaLabel?: string }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!on)}
       aria-pressed={on}
+      aria-label={ariaLabel}
       className={cn(
         'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
         on ? 'bg-primary' : 'bg-muted-foreground/40'

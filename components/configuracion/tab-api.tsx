@@ -1,17 +1,19 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Check, Copy, Plug } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Building2, Calendar, CalendarCheck2, Check, Clock, ClipboardCheck, Code2, Copy, Plug, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeGestionarAppsOAuth } from '@/lib/permisos';
 import { authHeader } from '@/lib/api-client';
-import { labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { Field, ColorInput, Toggle, cardCls } from '@/app/(dashboard)/configuracion/page';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import { TabCrecimientoWeb } from '@/components/configuracion/tab-crecimiento-web';
 import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { MODO_TOKENS } from '@/lib/portal-modo';
+import { COLOR_VALIDO } from '@/lib/reservar/config-widget';
+import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 
 const COLOR_WIDGET_POR_DEFECTO = '#343825';
 
@@ -54,8 +56,341 @@ const WIDGETS = [
   { id: 'misreservas', tabParam: 'misreservas', nombre: 'Mis reservas', desc: 'Para clientas ya dadas de alta: ven y cancelan sus reservas sin entrar en la app completa.', alto: 520, requiereSesion: false, modo: 'iframe' },
   { id: 'estudio', tabParam: 'estudio', nombre: 'El estudio', desc: 'Descripción, horario general y políticas — para tu página "Sobre nosotras".', alto: 480, requiereSesion: false, modo: 'iframe' },
   { id: 'clase-concreta', tabParam: 'clases', nombre: 'Reserva esta clase', desc: 'Apunta directo a una clase concreta — para un post, una story o un newsletter, en vez de al calendario entero.', alto: 640, requiereSesion: true, modo: 'iframe' },
-  { id: 'embed-script', tabParam: 'clases', nombre: 'Calendario embebido (sin iframe)', desc: 'El mismo calendario, pero integrado de verdad en tu web — sin marco, con tu tipografía alrededor. Requiere autorizar tu dominio abajo.', alto: 0, requiereSesion: false, modo: 'script' },
+  { id: 'embed-script', tabParam: 'clases', nombre: 'Calendario embebido (sin iframe)', desc: 'El mismo calendario, pero integrado de verdad en tu web — sin marco, con tu tipografía alrededor. Requiere autorizar tu dominio en «Personaliza».', alto: 0, requiereSesion: false, modo: 'script' },
 ] as const;
+
+// Un icono por tipo de widget — mismo criterio que ya usa
+// tab-estudio-enlaces.tsx para sus filas de enlaces públicos, para que el
+// selector no rompa el lenguaje visual del resto de Configuración.
+const WIDGET_ICONOS: Record<(typeof WIDGETS)[number]['id'], LucideIcon> = {
+  clases: Calendar,
+  citas: Clock,
+  misreservas: ClipboardCheck,
+  estudio: Building2,
+  'clase-concreta': CalendarCheck2,
+  'embed-script': Code2,
+};
+
+// ── Widget Builder ────────────────────────────────────────────────────────────
+// La config del builder, POR TIPO de widget. Se guarda en
+// studios.widget_builder (jsonb, migr 20260820103000) solo para no perderla al
+// recargar la pantalla — la config EFECTIVA viaja CONGELADA en el snippet que
+// se copia (lib/reservar/config-widget.ts es el vocabulario, y el único
+// parser). `null` en diseño/colores = «default del widget», y un default NO se
+// emite en el snippet (mismo criterio que Momence): un snippet sin tocar se
+// comporta EXACTAMENTE igual que el widget de siempre.
+interface ConfigBuilder {
+  vista: 'todo' | 'hoy';
+  tipos: string[];
+  instructoras: string[];
+  salas: string[];
+  ocultarPrecio: boolean;
+  ocultarNivel: boolean;
+  ocultarSustituta: boolean;
+  diseno: 'completo' | 'ligero' | null;
+  fondo: string | null;
+  marca: string | null;
+  negro: string | null;
+  anchoCompleto: boolean;
+}
+
+const CONFIG_BUILDER_DEFECTO: ConfigBuilder = {
+  vista: 'todo', tipos: [], instructoras: [], salas: [],
+  ocultarPrecio: false, ocultarNivel: false, ocultarSustituta: false,
+  diseno: null, fondo: null, marca: null, negro: null, anchoCompleto: false,
+};
+
+// Solo estos dos honran filtros/vista/toggles/diseño DE VERDAD (son el
+// calendario, en iframe o en bundle — ver e2e/widget-config-params.spec.ts).
+// Pintar esos controles en «Citas» o «El estudio» sería un control que no hace
+// nada, que es exactamente lo que el encargo prohíbe. Los COLORES sí aplican a
+// todos: en Modo A `fondo`/`tinta`/`marca` pintan la página embebida entera
+// (resolverApariencia + varsMarca), sea cual sea la pestaña.
+const WIDGETS_CON_FILTROS = new Set<(typeof WIDGETS)[number]['id']>(['clases', 'embed-script']);
+
+// Lo guardado en jsonb es texto libre para la BD: se valida campo a campo al
+// leer, y cualquier basura cae al default en silencio — mismo criterio que
+// resolverConfigWidget con los params del snippet.
+function leerConfigGuardada(raw: unknown): ConfigBuilder {
+  const c = { ...CONFIG_BUILDER_DEFECTO };
+  if (!raw || typeof raw !== 'object') return c;
+  const o = raw as Record<string, unknown>;
+  const lista = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+  const color = (v: unknown) => (typeof v === 'string' && COLOR_VALIDO.test(v) ? v : null);
+  if (o.vista === 'hoy') c.vista = 'hoy';
+  c.tipos = lista(o.tipos);
+  c.instructoras = lista(o.instructoras);
+  c.salas = lista(o.salas);
+  c.ocultarPrecio = o.ocultarPrecio === true;
+  c.ocultarNivel = o.ocultarNivel === true;
+  c.ocultarSustituta = o.ocultarSustituta === true;
+  if (o.diseno === 'completo' || o.diseno === 'ligero') c.diseno = o.diseno;
+  c.fondo = color(o.fondo);
+  c.marca = color(o.marca);
+  c.negro = color(o.negro);
+  c.anchoCompleto = o.anchoCompleto === true;
+  return c;
+}
+
+function leerConfigsGuardadas(raw: Record<string, unknown> | undefined): Record<string, ConfigBuilder> {
+  const out: Record<string, ConfigBuilder> = {};
+  if (!raw) return out;
+  for (const w of WIDGETS) if (w.id in raw) out[w.id] = leerConfigGuardada(raw[w.id]);
+  return out;
+}
+
+// El hex de un ColorInput puede estar a medio teclear — solo un color completo
+// entra en el snippet (misma puerta anti-basura que valida el parser al leer).
+const colorSnippet = (v: string | null) => (v && COLOR_VALIDO.test(v) ? v : null);
+
+// Query params del snippet iframe (Modo A) — SOLO lo que difiere del default.
+// `fondo`/`tinta` son los params de resolverApariencia de siempre; el resto es
+// el vocabulario nuevo de config-widget.ts.
+function paramsSnippetIframe(c: ConfigBuilder, conFiltros: boolean): string {
+  const p: string[] = [];
+  if (conFiltros) {
+    if (c.vista === 'hoy') p.push('vista=hoy');
+    if (c.tipos.length) p.push(`tipos=${c.tipos.join(',')}`);
+    if (c.instructoras.length) p.push(`instructoras=${c.instructoras.join(',')}`);
+    if (c.salas.length) p.push(`salas=${c.salas.join(',')}`);
+    if (c.ocultarPrecio) p.push('ocultar-precio=1');
+    if (c.ocultarNivel) p.push('ocultar-nivel=1');
+    if (c.ocultarSustituta) p.push('ocultar-sustituta=1');
+    // El default del iframe es 'completo' (la tira de días de Modo A).
+    if (c.diseno === 'ligero') p.push('diseno=ligero');
+  }
+  const marca = colorSnippet(c.marca);
+  const fondo = colorSnippet(c.fondo);
+  const tinta = colorSnippet(c.negro);
+  if (marca) p.push(`marca=${encodeURIComponent(marca)}`);
+  if (fondo) p.push(`fondo=${encodeURIComponent(fondo)}`);
+  if (tinta) p.push(`tinta=${encodeURIComponent(tinta)}`);
+  return p.length ? `&${p.join('&')}` : '';
+}
+
+// Atributos data-* del snippet script (Modo B) — mismo criterio: solo lo que
+// difiere. Un toggle activo va como atributo booleano a pelo
+// (`data-ocultar-precio`), que el parser ya cuenta como «sí».
+function atributosSnippetScript(c: ConfigBuilder): string {
+  const a: string[] = [];
+  if (c.vista === 'hoy') a.push('data-vista="hoy"');
+  if (c.tipos.length) a.push(`data-tipos="${c.tipos.join(',')}"`);
+  if (c.instructoras.length) a.push(`data-instructoras="${c.instructoras.join(',')}"`);
+  if (c.salas.length) a.push(`data-salas="${c.salas.join(',')}"`);
+  if (c.ocultarPrecio) a.push('data-ocultar-precio');
+  if (c.ocultarNivel) a.push('data-ocultar-nivel');
+  if (c.ocultarSustituta) a.push('data-ocultar-sustituta');
+  // El default del bundle es 'ligero' (la rejilla compacta de siempre).
+  if (c.diseno === 'completo') a.push('data-diseno="completo"');
+  const marca = colorSnippet(c.marca);
+  const fondo = colorSnippet(c.fondo);
+  const negro = colorSnippet(c.negro);
+  if (marca) a.push(`data-marca="${marca}"`);
+  if (fondo) a.push(`data-fondo="${fondo}"`);
+  if (negro) a.push(`data-negro="${negro}"`);
+  return a.map(x => ` ${x}`).join('');
+}
+
+// Tokenizador manual, no un parser general (no hay shiki/prism/highlight.js
+// en package.json — grepeado antes de escribir esto, y añadir una
+// dependencia para pintar 2 líneas de HTML fijo sería sobre-ingeniería).
+// Cubre justo las formas que generan codigoScript/codigoIframe: etiquetas,
+// nombres de atributo, valores entre comillas y el resto de texto (incluido
+// el cuerpo del <script>, que se pinta como texto plano — no hace falta
+// tokenizar JS para que se lea bien).
+// ⚠️ Solo decide CÓMO se pinta — el string que se copia al portapapeles
+// sigue siendo `codigo` tal cual, nunca los tokens de aquí.
+type TokenCodigo = { texto: string; clase: string };
+// El espacio va en su propio grupo, separado del texto genérico: sin eso, un
+// atributo booleano sin valor (`data-tentare-booking`, sin espacio detrás
+// hasta el siguiente `data-studio="..."`) se fundía con el atributo real
+// siguiente en un solo token de texto plano y ese SÍ perdía su color de
+// atributo — el espacio de por medio es lo que deja que el atributo
+// siguiente vuelva a evaluarse desde su propio inicio.
+const PATRON_TOKEN_CODIGO = /(<!--[\s\S]*?-->)|(<\/?[a-zA-Z][\w-]*)|([a-zA-Z-]+(?=\s*=))|("[^"]*"|'[^']*')|([<>=/])|(\s+)|([^<>="'\s]+)/g;
+
+function tokenizarCodigo(codigo: string): TokenCodigo[] {
+  const tokens: TokenCodigo[] = [];
+  for (const m of codigo.matchAll(PATRON_TOKEN_CODIGO)) {
+    const [, comentario, etiqueta, atributo, cadena, puntuacion, espacio, resto] = m;
+    if (comentario) tokens.push({ texto: comentario, clase: 'text-muted-foreground' });
+    else if (etiqueta) tokens.push({ texto: etiqueta, clase: 'text-brand font-semibold' });
+    else if (atributo) tokens.push({ texto: atributo, clase: 'text-info' });
+    else if (cadena) tokens.push({ texto: cadena, clase: 'text-success' });
+    else if (puntuacion) tokens.push({ texto: puntuacion, clase: 'text-muted-foreground' });
+    else if (espacio) tokens.push({ texto: espacio, clase: 'text-foreground' });
+    else if (resto) tokens.push({ texto: resto, clase: 'text-foreground' });
+  }
+  return tokens;
+}
+
+function CodigoResaltado({ codigo }: { codigo: string }) {
+  const tokens = useMemo(() => tokenizarCodigo(codigo), [codigo]);
+  return (
+    <pre className="text-[11.5px] leading-relaxed font-mono bg-muted rounded-lg p-3.5 overflow-x-auto whitespace-pre-wrap break-words text-foreground">
+      {tokens.map((t, i) => (
+        <span key={i} className={t.clase}>{t.texto}</span>
+      ))}
+    </pre>
+  );
+}
+
+// Header + acción opcional (el botón "Copiar código" va aquí, no suelto
+// debajo del bloque) para las secciones de "Widgets para tu web". Sin frase
+// de ayuda propia: cada tarjeta del selector y cada <Field> de "Personaliza"
+// ya trae la suya, y repetirla a nivel de sección no aportaba nada.
+function BloqueSeccion({ titulo, accion, children }: {
+  titulo: string;
+  accion?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <div className="flex items-center flex-wrap justify-between gap-x-3 gap-y-1.5 mb-2">
+        <h4 className="text-[13px] font-semibold text-foreground">{titulo}</h4>
+        {accion}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// Fila de configuración estilo Momence: etiqueta en negrita + descripción gris
+// debajo + el control. Es el esqueleto común de todo el rail izquierdo del
+// builder — pills, multi-selectores y toggles comparten esta jerarquía.
+function FilaAjuste({ etiqueta, descripcion, children }: {
+  etiqueta: string;
+  descripcion: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <p className="text-[13px] font-semibold text-foreground">{etiqueta}</p>
+      <p className="text-[12px] text-muted-foreground mt-0.5 mb-2 leading-relaxed">{descripcion}</p>
+      {children}
+    </div>
+  );
+}
+
+// Grupo de pills excluyentes (una sola opción activa) — mismo lenguaje visual
+// que la sub-navegación Widgets/Crecimiento de arriba.
+function Pills<T extends string>({ label, opciones, valor, onChange }: {
+  label: string;
+  opciones: readonly { valor: T; nombre: string }[];
+  valor: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-wrap gap-1.5">
+      {opciones.map(o => (
+        <button
+          key={o.valor}
+          type="button"
+          onClick={() => onChange(o.valor)}
+          aria-pressed={valor === o.valor}
+          className={cn(
+            'px-2.5 py-1.5 rounded-full text-[11px] font-semibold border transition-colors',
+            valor === o.valor ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
+          )}
+        >
+          {o.nombre}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Multi-selección por chips: nada marcado = «todo» (mismo contrato que el
+// vocabulario del snippet, donde lista vacía = sin filtro y el param no se
+// emite). Por eso no hay chip «Todas» que gestionar: desmarcarlo todo ES todas.
+function MultiSelector({ etiqueta, descripcion, opciones, seleccion, onChange }: {
+  etiqueta: string;
+  descripcion: string;
+  opciones: { id: string; nombre: string }[];
+  seleccion: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  function alternar(id: string) {
+    onChange(seleccion.includes(id) ? seleccion.filter(x => x !== id) : [...seleccion, id]);
+  }
+  return (
+    <FilaAjuste etiqueta={etiqueta} descripcion={descripcion}>
+      {opciones.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground">Todavía no hay ninguna configurada.</p>
+      ) : (
+        <div role="group" aria-label={etiqueta} className="flex flex-wrap gap-1.5">
+          {opciones.map(o => {
+            const marcada = seleccion.includes(o.id);
+            return (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => alternar(o.id)}
+                aria-pressed={marcada}
+                className={cn(
+                  'flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium border transition-colors',
+                  marcada ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
+                )}
+              >
+                {marcada && <Check size={11} className="text-brand" />}
+                {o.nombre}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </FilaAjuste>
+  );
+}
+
+// Toggle con etiqueta en negrita + descripción gris debajo (patrón Momence) —
+// el interruptor va alineado arriba a la derecha, junto a la etiqueta.
+function FilaToggle({ etiqueta, descripcion, on, onChange }: {
+  etiqueta: string;
+  descripcion: string;
+  on: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-[13px] font-semibold text-foreground">{etiqueta}</p>
+        <p className="text-[12px] text-muted-foreground mt-0.5 leading-relaxed">{descripcion}</p>
+      </div>
+      <div className="shrink-0 pt-0.5">
+        <Toggle on={on} onChange={onChange} ariaLabel={etiqueta} />
+      </div>
+    </div>
+  );
+}
+
+// Color con «Restablecer»: `valor === null` significa «el default del widget»
+// (y entonces NO se emite nada en el snippet); `porDefecto` es solo lo que se
+// pinta en el swatch mientras no se toca.
+function CampoColor({ etiqueta, descripcion, valor, porDefecto, onChange }: {
+  etiqueta: string;
+  descripcion: string;
+  valor: string | null;
+  porDefecto: string;
+  onChange: (v: string | null) => void;
+}) {
+  return (
+    <div>
+      <Field label={etiqueta} description={descripcion}>
+        <ColorInput value={valor ?? porDefecto} onChange={onChange} />
+      </Field>
+      {valor !== null && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className="mt-1.5 text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+        >
+          Restablecer al color de marca
+        </button>
+      )}
+    </div>
+  );
+}
 
 // "Crecimiento web" vivía como pestaña propia de primer nivel (Fase 8) — se
 // mueve aquí dentro porque es la misma superficie de negocio que "API": el
@@ -72,7 +407,10 @@ export function TabApi({ showToast }: { showToast: (m: string) => void }) {
   if (!studio?.slug) return null;
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    // max-w-5xl (no el max-w-2xl del resto de pestañas de una columna): el
+    // builder es un layout de dos columnas config + preview/código, y a 2xl la
+    // vista previa quedaba aplastada en ~250px.
+    <div className="space-y-5 max-w-5xl">
       <div>
         <h2 className="text-[16px] font-semibold text-foreground">API</h2>
         <p className="text-[13px] text-muted-foreground mt-0.5">
@@ -191,22 +529,39 @@ function AppsConectadas({ showToast }: { showToast: (m: string) => void }) {
 }
 
 function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: string) => void }) {
-  const { sesiones, tiposClase, studio, updateStudio } = useStudio();
+  const { sesiones, tiposClase, salas, instructores, studio, updateStudio } = useStudio();
   const [activo, setActivo] = useState<(typeof WIDGETS)[number]['id']>('clases');
   const [copiado, setCopiado] = useState(false);
   const [sesionElegida, setSesionElegida] = useState('');
-  // Compacto (480px, pensado para una barra lateral) vs ancho completo (100%
-  // del contenedor anfitrión) — antes venía fijo a 480px sin más opción.
-  const [anchoCompleto, setAnchoCompleto] = useState(false);
-  // Color del widget "Calendario embebido (sin iframe)" — el único dato que
-  // hoy soporta personalizar (`data-color` en el snippet, ver
-  // app/widget-bundle/main.tsx). Antes había que escribir el hex a mano
-  // sobre el placeholder `TU-COLOR-HEX` sin ver el resultado; el mismo
-  // <ReservaCalendario> que monta el bundle real se pinta aquí con datos
-  // reales del estudio (useDatosWidget, misma llamada que usa el bundle) para
-  // ver el color de verdad antes de copiar el código.
-  const [colorWidget, setColorWidget] = useState(COLOR_WIDGET_POR_DEFECTO);
+  // La config del builder, por tipo de widget. Arranca desde lo guardado en
+  // studios.widget_builder (validado campo a campo) para que al volver a
+  // entrar esté todo como se dejó — la ventaja sobre Momence, que lo pierde
+  // todo al recargar.
+  const [configs, setConfigs] = useState<Record<string, ConfigBuilder>>(
+    () => leerConfigsGuardadas(studio?.widgetBuilder),
+  );
+  const config = configs[activo] ?? CONFIG_BUILDER_DEFECTO;
+  // Guardado con debounce y SOLO tras una edición de la usuaria — nunca al
+  // cargar/montar (la lección de [[autoguardado-linea-base-al-cargar]]: fijar
+  // línea base al montar escribe datos que nadie tocó). Sin toast de error a
+  // propósito: perder esta comodidad no rompe nada (el snippet copiado sigue
+  // siendo válido), y un toast por cada tecleo de hex sería ruido.
+  const guardarTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (guardarTimer.current) clearTimeout(guardarTimer.current); }, []);
+  function cambiar(parcial: Partial<ConfigBuilder>) {
+    const siguientes = { ...configs, [activo]: { ...config, ...parcial } };
+    setConfigs(siguientes);
+    if (guardarTimer.current) clearTimeout(guardarTimer.current);
+    guardarTimer.current = setTimeout(() => {
+      void updateStudio({ widgetBuilder: siguientes as unknown as Record<string, unknown> });
+    }, 1200);
+  }
   const widget = WIDGETS.find(w => w.id === activo)!;
+  const conFiltros = WIDGETS_CON_FILTROS.has(activo);
+  // El default de diseño depende del modo (iframe abre en tira completa, el
+  // bundle en rejilla ligera) — por eso `diseno: null` en la config significa
+  // «el de este widget» y las pills lo traducen aquí.
+  const disenoDefecto: 'completo' | 'ligero' = widget.modo === 'script' ? 'ligero' : 'completo';
   const origen = typeof window !== 'undefined' ? window.location.origin : '';
 
   // `Date.now()` no puede llamarse durante el render (regla de pureza del
@@ -230,9 +585,33 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
       .slice(0, 50);
   }, [sesiones, ahora]);
 
-  const maxWidth = anchoCompleto ? '100%' : '480px';
+  // Un tipo/instructora/sala borrados después de guardarse en el builder no
+  // deben colarse en el snippet: un filtro por un id que ya no existe dejaría
+  // el calendario vacío sin que nadie entienda por qué.
+  const instructorasActivas = useMemo(() => instructores.filter(i => i.activo), [instructores]);
+  const configEfectiva = useMemo<ConfigBuilder>(() => {
+    const idsTipos = new Set(tiposClase.map(t => t.id));
+    const idsInstructoras = new Set(instructorasActivas.map(i => i.id));
+    const idsSalas = new Set(salas.map(s => s.id));
+    return {
+      ...config,
+      tipos: config.tipos.filter(id => idsTipos.has(id)),
+      instructoras: config.instructoras.filter(id => idsInstructoras.has(id)),
+      salas: config.salas.filter(id => idsSalas.has(id)),
+    };
+  }, [config, tiposClase, instructorasActivas, salas]);
+
+  const maxWidth = config.anchoCompleto ? '100%' : '480px';
   const sesionQuery = widget.requiereSesion && sesionElegida ? `&sesion=${encodeURIComponent(sesionElegida)}` : '';
-  const src = `${origen}/reservar/${slug}?embed=1&tab=${widget.tabParam}${sesionQuery}`;
+  const src = `${origen}/reservar/${slug}?embed=1&tab=${widget.tabParam}${sesionQuery}${paramsSnippetIframe(configEfectiva, conFiltros)}`;
+  // La vista previa del iframe se recarga entera con cada cambio de src — un
+  // hex a medio teclear la remontaría en cada pulsación. El SNIPPET sí cambia
+  // en vivo sin debounce: es texto, no cuesta nada.
+  const [srcPreview, setSrcPreview] = useState(src);
+  useEffect(() => {
+    const t = setTimeout(() => setSrcPreview(src), 300);
+    return () => clearTimeout(t);
+  }, [src]);
   // Id único por widget (no solo por estudio): una web puede embeber varios
   // widgets del mismo estudio a la vez (clases + citas), y el listener de
   // abajo necesita distinguir qué iframe redimensionar. Para "Reserva esta
@@ -264,7 +643,7 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   // código a copiar es un `<div>`+`<script>` sueltos, sin el listener de
   // auto-resize (no hace falta: es contenido normal de la página, no un
   // documento aparte con su propia altura que comunicar).
-  const codigoScript = `<div data-tentare-booking data-studio="${slug}" data-color="${colorWidget}"></div>
+  const codigoScript = `<div data-tentare-booking data-studio="${slug}"${atributosSnippetScript(configEfectiva)}></div>
 <script src="${origen}/widget.js" async></script>`;
   // `allow="payment"` es lo que delega el Feature-Policy de pago al iframe:
   // sin él, el checkout embebido de Stripe (Payment Request API/Apple Pay)
@@ -306,145 +685,242 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   return (
     <div className={cn(cardCls, 'p-6')}>
       <h3 className="text-[14px] font-semibold text-foreground mb-1">Widgets para tu web</h3>
-      <p className="text-[12px] text-muted-foreground mb-4">
+      <p className="text-[12px] text-muted-foreground mb-5">
         Elige cuál quieres y pega su código en WordPress, Squarespace, Wix o
         una web hecha a mano.
       </p>
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {WIDGETS.map(w => (
-          <button
-            key={w.id}
-            onClick={() => setActivo(w.id)}
-            className={cn(
-              'px-3 py-1.5 rounded-full text-[12px] font-semibold border transition-colors',
-              activo === w.id ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
-            )}
-          >
-            {w.nombre}
-          </button>
-        ))}
-      </div>
-      <p className="text-[12px] text-muted-foreground mb-4">{widget.desc}</p>
-      {widget.requiereSesion && (
-        <div className="mb-4">
-          <p className={labelCls}>Qué clase</p>
-          <select
-            value={sesionElegida}
-            onChange={e => setSesionElegida(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground"
-          >
-            <option value="">Elige una clase próxima…</option>
-            {proximasSesiones.map(s => {
-              const tipo = tiposClasePorId.get(s.tipoClaseId);
-              const fecha = new Date(s.inicio).toLocaleString('es-ES', {
-                weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-              });
-              return (
-                <option key={s.id} value={s.id}>
-                  {tipo?.nombre ?? 'Clase'} — {fecha}
-                </option>
-              );
-            })}
-          </select>
-          {proximasSesiones.length === 0 && (
-            <p className="text-[11px] text-muted-foreground mt-1">No hay clases próximas todavía — crea alguna en el calendario primero.</p>
-          )}
-        </div>
-      )}
-      {widget.modo === 'script' && (
-        <>
-          <GestionDominios
-            dominios={dominiosAutorizados}
-            onGuardar={dominios => updateStudio({ widgetDominiosAutorizados: dominios })}
-            showToast={showToast}
-          />
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-[12px] text-muted-foreground">Color:</span>
-            <input
-              type="color"
-              value={colorWidget}
-              onChange={e => setColorWidget(e.target.value)}
-              className="h-7 w-9 rounded border border-border bg-transparent p-0.5 cursor-pointer"
-              aria-label="Color del widget"
-            />
-            <input
-              type="text"
-              value={colorWidget}
-              onChange={e => setColorWidget(e.target.value)}
-              className="w-24 rounded-lg border border-border bg-background px-2 py-1 text-[12px] font-mono text-foreground"
-            />
-            {colorWidget !== COLOR_WIDGET_POR_DEFECTO && (
+
+      <BloqueSeccion titulo="Elige tu widget">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {WIDGETS.map(w => {
+            const Icono = WIDGET_ICONOS[w.id];
+            const seleccionado = activo === w.id;
+            return (
               <button
-                onClick={() => setColorWidget(COLOR_WIDGET_POR_DEFECTO)}
-                className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                key={w.id}
+                type="button"
+                onClick={() => setActivo(w.id)}
+                aria-pressed={seleccionado}
+                className={cn(
+                  'flex items-start gap-3 text-left rounded-xl border px-3.5 py-3 transition-colors',
+                  seleccionado ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+                )}
               >
-                Restablecer
+                <span
+                  className={cn(
+                    'shrink-0 flex items-center justify-center w-8 h-8 rounded-lg transition-colors',
+                    seleccionado ? 'bg-brand text-brand-foreground' : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  <Icono size={15} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-semibold text-foreground">{w.nombre}</span>
+                  <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">{w.desc}</span>
+                </span>
               </button>
-            )}
-          </div>
-        </>
-      )}
-      {widget.modo !== 'script' && (
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-[12px] text-muted-foreground">Ancho:</span>
-        <button
-          onClick={() => setAnchoCompleto(false)}
-          className={cn(
-            'px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors',
-            !anchoCompleto ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
-          )}
-        >
-          Compacto (480px)
-        </button>
-        <button
-          onClick={() => setAnchoCompleto(true)}
-          className={cn(
-            'px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors',
-            anchoCompleto ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
-          )}
-        >
-          Ancho completo
-        </button>
-      </div>
-      )}
-      <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-4">
-        <div className="rounded-xl border border-border overflow-y-auto bg-muted/30" style={{ maxHeight: 640 }}>
-          {widget.modo === 'script' ? (
-            <PreviewWidgetScript slug={slug} color={colorWidget} />
-          ) : listo ? (
-            <iframe ref={previewRef} key={`${activo}-${sesionElegida}`} src={src} title={`Vista previa: ${widget.nombre}`} className="w-full" style={{ border: 0, height: widget.alto }} allow="payment" />
-          ) : (
-            <div className="flex items-center justify-center h-40 text-[12px] text-muted-foreground text-center px-4">
-              Elige una clase arriba para generar la vista previa.
-            </div>
-          )}
+            );
+          })}
         </div>
-        <div className="min-w-0">
-          <p className={labelCls}>Código para pegar en tu web</p>
-          {listo ? (
-            <>
-              <pre className="text-[11px] font-mono bg-muted rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all text-foreground">{codigo}</pre>
+      </BloqueSeccion>
+
+      <div className="h-px bg-border my-6" />
+
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-x-8 gap-y-6">
+        <div className="space-y-7 min-w-0">
+          {(conFiltros || widget.requiereSesion) && (
+            <BloqueSeccion titulo="Elige qué mostrar">
+              <div className="space-y-5">
+                {widget.requiereSesion && (
+                  <>
+                    <Field label="Qué clase" description="A qué sesión concreta apunta este widget.">
+                      <select
+                        value={sesionElegida}
+                        onChange={e => setSesionElegida(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground"
+                      >
+                        <option value="">Elige una clase próxima…</option>
+                        {proximasSesiones.map(s => {
+                          const tipo = tiposClasePorId.get(s.tipoClaseId);
+                          const fecha = new Date(s.inicio).toLocaleString('es-ES', {
+                            weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                          });
+                          return (
+                            <option key={s.id} value={s.id}>
+                              {tipo?.nombre ?? 'Clase'} — {fecha}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </Field>
+                    {proximasSesiones.length === 0 && (
+                      <p className="text-[11px] text-muted-foreground -mt-3.5">
+                        No hay clases próximas todavía — crea alguna en el calendario primero.
+                      </p>
+                    )}
+                  </>
+                )}
+                {conFiltros && (
+                  <>
+                    <FilaAjuste
+                      etiqueta="Filtro de tiempo inicial"
+                      descripcion="Con qué ventana de días abre el calendario en tu web."
+                    >
+                      <Pills
+                        label="Filtro de tiempo inicial"
+                        opciones={[{ valor: 'todo', nombre: 'Mostrar todo' }, { valor: 'hoy', nombre: 'Hoy' }] as const}
+                        valor={config.vista}
+                        onChange={v => cambiar({ vista: v })}
+                      />
+                    </FilaAjuste>
+                    <MultiSelector
+                      etiqueta="Tipos de clase"
+                      descripcion="Marca solo los que quieras enseñar. Sin nada marcado, se enseñan todos."
+                      opciones={tiposClase}
+                      seleccion={config.tipos}
+                      onChange={ids => cambiar({ tipos: ids })}
+                    />
+                    <MultiSelector
+                      etiqueta="Instructoras"
+                      descripcion="Solo las clases de las que marques. Sin nada marcado, todas."
+                      opciones={instructorasActivas}
+                      seleccion={config.instructoras}
+                      onChange={ids => cambiar({ instructoras: ids })}
+                    />
+                    <MultiSelector
+                      etiqueta="Salas"
+                      descripcion="Solo las clases de las salas que marques. Sin nada marcado, todas."
+                      opciones={salas}
+                      seleccion={config.salas}
+                      onChange={ids => cambiar({ salas: ids })}
+                    />
+                    <div className="space-y-4 pt-1">
+                      <FilaToggle
+                        etiqueta="Ocultar precio"
+                        descripcion="Las clases se enseñan y se reservan sin el precio a la vista."
+                        on={config.ocultarPrecio}
+                        onChange={v => cambiar({ ocultarPrecio: v })}
+                      />
+                      <FilaToggle
+                        etiqueta="Ocultar nivel"
+                        descripcion="Quita la etiqueta de nivel (principiante, medio…) de cada clase."
+                        on={config.ocultarNivel}
+                        onChange={v => cambiar({ ocultarNivel: v })}
+                      />
+                      <FilaToggle
+                        etiqueta="Ocultar sustituta"
+                        descripcion="No avisa de que una clase la da una sustituta ese día."
+                        on={config.ocultarSustituta}
+                        onChange={v => cambiar({ ocultarSustituta: v })}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </BloqueSeccion>
+          )}
+
+          <BloqueSeccion titulo="Personaliza apariencia y colores">
+            <div className="space-y-5">
+              {conFiltros && (
+                <FilaAjuste
+                  etiqueta="Tipo de diseño"
+                  descripcion="Completo: tira de días con el día abierto. Ligero: rejilla compacta de la semana."
+                >
+                  <Pills
+                    label="Tipo de diseño"
+                    opciones={[{ valor: 'completo', nombre: 'Completo' }, { valor: 'ligero', nombre: 'Ligero' }] as const}
+                    valor={config.diseno ?? disenoDefecto}
+                    onChange={v => cambiar({ diseno: v === disenoDefecto ? null : v })}
+                  />
+                </FilaAjuste>
+              )}
+              <CampoColor
+                etiqueta="Color de fondo"
+                descripcion="El lienzo detrás del widget. Sin tocar, se queda el de siempre."
+                valor={config.fondo}
+                porDefecto={MODO_TOKENS.dia.bg}
+                onChange={v => cambiar({ fondo: v })}
+              />
+              <CampoColor
+                etiqueta="Color primario"
+                descripcion="El botón de reservar y los acentos del calendario."
+                valor={config.marca}
+                porDefecto={widget.modo === 'script' ? COLOR_WIDGET_POR_DEFECTO : (studio?.colorPrimario ?? COLOR_WIDGET_POR_DEFECTO)}
+                onChange={v => cambiar({ marca: v })}
+              />
+              <CampoColor
+                etiqueta="Color negro"
+                descripcion="El color del texto principal — para una web oscura, uno claro."
+                valor={config.negro}
+                porDefecto={MODO_TOKENS.dia.ink}
+                onChange={v => cambiar({ negro: v })}
+              />
+              {widget.modo !== 'script' && (
+                <FilaAjuste etiqueta="Ancho" descripcion="Cómo se comporta el iframe dentro de tu web.">
+                  <Pills
+                    label="Ancho del widget"
+                    opciones={[{ valor: 'compacto', nombre: 'Compacto (480px)' }, { valor: 'completo', nombre: 'Ancho completo' }] as const}
+                    valor={config.anchoCompleto ? 'completo' : 'compacto'}
+                    onChange={v => cambiar({ anchoCompleto: v === 'completo' })}
+                  />
+                </FilaAjuste>
+              )}
+              {widget.modo === 'script' && (
+                <GestionDominios
+                  dominios={dominiosAutorizados}
+                  onGuardar={dominios => updateStudio({ widgetDominiosAutorizados: dominios })}
+                  showToast={showToast}
+                />
+              )}
+            </div>
+          </BloqueSeccion>
+        </div>
+
+        <div className="space-y-6 min-w-0">
+          <BloqueSeccion titulo="Vista previa">
+            <div className="rounded-xl border border-border bg-background overflow-y-auto" style={{ maxHeight: 640 }}>
+              {widget.modo === 'script' ? (
+                <PreviewWidgetScript slug={slug} config={configEfectiva} />
+              ) : listo ? (
+                <iframe ref={previewRef} key={`${activo}-${sesionElegida}`} src={srcPreview} title={`Vista previa: ${widget.nombre}`} className="w-full" style={{ border: 0, height: widget.alto }} allow="payment" />
+              ) : (
+                <div className="flex items-center justify-center h-40 text-[12px] text-muted-foreground text-center px-4">
+                  Elige una clase en «Elige qué mostrar» para generar la vista previa.
+                </div>
+              )}
+            </div>
+          </BloqueSeccion>
+
+          <BloqueSeccion
+            titulo="Código para pegar en tu web"
+            accion={listo ? (
               <button
                 onClick={copiar}
-                className="mt-2 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors"
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors"
               >
                 {copiado ? <Check size={13} className="text-success" /> : <Copy size={13} />}
                 {copiado ? 'Copiado' : 'Copiar código'}
               </button>
-              {widget.modo === 'script' && (
+            ) : undefined}
+          >
+            {listo ? (
+              <>
+                <CodigoResaltado codigo={codigo} />
                 <p className="text-[11px] text-muted-foreground mt-2">
-                  Ya lleva el color que elegiste arriba — vuelve a copiarlo si
-                  lo cambias después de pegarlo en tu web.
+                  El código ya lleva toda la configuración de esta pantalla. Si
+                  ya lo pegaste en tu web, reemplázalo después de cambiar algo
+                  aquí — el widget instalado no se actualiza solo.
                 </p>
-              )}
-            </>
-          ) : (
-            <p className="text-[12px] text-muted-foreground">
-              {widget.modo === 'script'
-                ? 'Autoriza al menos un dominio arriba para generar el código.'
-                : 'Elige una clase arriba para generar el código.'}
-            </p>
-          )}
+              </>
+            ) : (
+              <p className="text-[12px] text-muted-foreground">
+                {widget.modo === 'script'
+                  ? 'Autoriza al menos un dominio en «Personaliza apariencia y colores» para generar el código.'
+                  : 'Elige una clase en «Elige qué mostrar» para generar el código.'}
+              </p>
+            )}
+          </BloqueSeccion>
         </div>
       </div>
     </div>
@@ -457,22 +933,37 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
 // Componente separado (no un `if` dentro de WidgetEmbebible) para que
 // useDatosWidget solo pida datos públicos cuando esta pestaña está activa —
 // las reglas de los hooks no permiten llamarlo condicionalmente en el padre.
-function PreviewWidgetScript({ slug, color }: { slug: string; color: string }) {
-  const { slots, cargando, error, recargar } = useDatosWidget(slug, '');
-  const t = MODO_TOKENS.dia;
+function PreviewWidgetScript({ slug, config }: { slug: string; config: ConfigBuilder }) {
+  // Referencia estable para el useMemo de `slots` en useDatosWidget — los
+  // arrays de la config solo cambian de identidad cuando la usuaria toca un
+  // filtro, así que esto solo recalcula entonces.
+  const filtros = useMemo<FiltrosSlots>(
+    () => ({ tipos: config.tipos, instructoras: config.instructoras, salas: config.salas }),
+    [config.tipos, config.instructoras, config.salas],
+  );
+  const { slots, cargando, error, recargar } = useDatosWidget(slug, '', filtros);
+  // Mismo tema derivado que construye app/widget-bundle/main.tsx con
+  // data-fondo/data-negro: tokens pisados sobre MODO_TOKENS.dia, nunca un
+  // filtro CSS por encima — lo que se ve aquí es lo que montará el bundle.
+  const t = useMemo(() => ({
+    ...MODO_TOKENS.dia,
+    ...(config.negro ? { ink: config.negro } : {}),
+    ...(config.fondo ? { bg: config.fondo } : {}),
+  }), [config.negro, config.fondo]);
   return (
     <div
       style={{
         // Mismas 5 CSS vars que fija app/widget-bundle/main.tsx al montar el
         // bundle real — el resto de tokens de color salen de `--portal-*`,
         // ninguno hardcodeado aquí.
-        '--portal-brand': color,
+        '--portal-brand': config.marca ?? COLOR_WIDGET_POR_DEFECTO,
         '--portal-brand-foreground': '#D9C29E',
         '--success': '#2F6B4F',
         '--warning': '#8F6215',
         '--destructive': '#A8442A',
+        ...(config.fondo ? { background: config.fondo } : {}),
       } as CSSProperties}
-      className="p-3"
+      className="p-4"
     >
       <ReservaCalendario
         t={t}
@@ -480,7 +971,11 @@ function PreviewWidgetScript({ slug, color }: { slug: string; color: string }) {
         onReservar={() => {}}
         onCancelar={() => {}}
         vacio={{ titulo: 'No hay clases disponibles', cuerpo: 'Vuelve a mirar más tarde.' }}
-        estiloDias="grid"
+        estiloDias={config.diseno === 'completo' ? 'dias' : 'grid'}
+        vistaInicial={config.vista}
+        ocultarPrecio={config.ocultarPrecio}
+        ocultarNivel={config.ocultarNivel}
+        ocultarSustituta={config.ocultarSustituta}
         loading={cargando}
         error={error ? { onReintentar: recargar, titulo: 'No hemos podido cargar el horario' } : undefined}
       />
@@ -530,9 +1025,9 @@ function GestionDominios({ dominios, onGuardar, showToast }: {
   }
 
   return (
-    <div className="mb-4">
-      <p className={labelCls}>Dominios autorizados</p>
-      <p className="text-[11px] text-muted-foreground mb-2">
+    <div>
+      <p className="text-[13px] font-semibold text-foreground">Dominios autorizados</p>
+      <p className="text-[12px] text-muted-foreground mt-0.5 mb-2 leading-relaxed">
         Solo estas webs podrán cargar el widget — protege contra que otro sitio lo copie sin permiso.
       </p>
       {dominios.length > 0 && (
