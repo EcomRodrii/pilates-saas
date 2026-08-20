@@ -1136,7 +1136,9 @@ function BookingSheet({
     ? (enEspera ? 'Salir de la lista de espera' : 'Cancelar reserva')
     : lleno
       ? 'Apuntarme a la lista de espera'
-      : (slot.precio != null && !ocultarPrecio ? `Reservar · ${slot.precio} €` : 'Reservar');
+      // "por", nunca un interpunto pegado al importe: "· 1 €" se lee como un
+      // signo raro delante del precio (mismo criterio que el CTA de pago).
+      : (slot.precio != null && !ocultarPrecio ? `Reservar por ${slot.precio} €` : 'Reservar');
 
   const esCancelar = tieneReserva;
 

@@ -102,7 +102,7 @@ test('la clase que el bono NO cubre conserva su precio (el bug de la cobertura c
   // quien tiene 5 sesiones de Reformer no entiende por qué Mat le cuesta.
   await expect(page.getByText(/no cubre esta clase/i)).toBeVisible({ timeout: 30_000 });
   // Y el precio sigue ahí. Antes desaparecía por el Reformer abierto antes.
-  await expect(page.getByRole('button', { name: /^Reservar · 15 €$/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Reservar por 15 €$/ })).toBeVisible();
 });
 
 test('sin sesión no se afirma nada sobre el saldo de nadie', async ({ page }) => {

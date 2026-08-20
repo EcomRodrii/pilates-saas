@@ -24,7 +24,7 @@ function fx() {
       { id: 'ins-2', studioId: S, nombre: 'Bea', rol: 'INSTRUCTOR' },
     ],
     spots: [],
-    // PUNTUAL activo: sin socia, cada clase enseña «Reservar · 15 €» — la
+    // PUNTUAL activo: sin socia, cada clase enseña «Reservar por 15 €» — la
     // materia prima de `ocultar-precio`.
     planesTarifa: [{ id: 'p1', studioId: S, tipo: 'PUNTUAL', activo: true, precio: 15, nombre: 'Clase suelta' }],
     // s1 (Reformer hoy 10:00) la da Ana sustituyendo a Bea — la materia prima
@@ -60,7 +60,7 @@ test('⚠️ regresión: sin parámetros nuevos, todo sigue exactamente igual', 
   await expect(page.locator('.reserva-slot-row')).toHaveCount(2); // Reformer 10:00 + Mat 12:00 (hoy)
   await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
   const hoja = page.getByRole('dialog');
-  await expect(hoja.locator('.reserva-cta-btn')).toHaveText(/Reservar · 15 €/);
+  await expect(hoja.locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
   await expect(hoja.getByText('Todos los niveles')).toBeVisible();
   await expect(hoja.getByText('Sustituye a Bea hoy')).toBeVisible();
 });
@@ -130,5 +130,5 @@ test('⚠️ la página SUELTA ignora los parámetros del snippet', async ({ pag
   await expect(page.locator('.reserva-slot-row')).toHaveCount(2);
   await expect(tabsDia(page)).toHaveCount(10);
   await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
-  await expect(page.getByRole('dialog').locator('.reserva-cta-btn')).toHaveText(/Reservar · 15 €/);
+  await expect(page.getByRole('dialog').locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
 });
