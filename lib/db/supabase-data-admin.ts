@@ -1554,7 +1554,9 @@ export async function crearReservaPublica(params: {
       // histórico del estudio y PostgREST lo cortaba en 1000 filas — un estudio
       // con meses de uso podía perder sesiones futuras del corte y contar mal
       // el máximo de reservas simultáneas.
-      admin.from('sesiones').select('id, inicio').eq('studio_id', params.studioId).gte('inicio', new Date().toISOString()),
+      // `cancelada` hace falta: contarReservasActivasFuturas descuenta las
+      // clases canceladas, y sin la columna no podría distinguirlas.
+      admin.from('sesiones').select('id, inicio, cancelada').eq('studio_id', params.studioId).gte('inicio', new Date().toISOString()),
     ]);
     const hoyISO = new Date().toISOString().slice(0, 10);
     // El tipo de la clase importa: un bono acotado a Reformer no da derecho a
@@ -1582,7 +1584,14 @@ export async function crearReservaPublica(params: {
       const activas = contarReservasActivasFuturas(
         params.socioId,
         (resRows ?? []).map(mapReserva),
-        (sesRows ?? []).map(r => ({ id: r.id as string, inicio: r.inicio as string })),
+        // `cancelada` DEBE propagarse: si se queda fuera del map llega como
+        // undefined y el filtro de clases canceladas de
+        // contarReservasActivasFuturas es inerte (el campo es opcional, así
+        // que TypeScript no avisa). Este es el camino del widget público.
+        (sesRows ?? []).map(r => ({
+          id: r.id as string, inicio: r.inicio as string,
+          cancelada: (r.cancelada as boolean | null) ?? false,
+        })),
         new Date(),
       );
       if (activas >= pol.maxSimultaneas) {

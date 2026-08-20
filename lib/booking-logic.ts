@@ -67,15 +67,27 @@ export function puedeReservarPorVentanaMinima(
 
 // Nº de reservas activas de la socia en clases aún por empezar. Cuentan para el
 // tope de reservas simultáneas (C-4): CONFIRMADA y LISTA_ESPERA ocupan cupo.
+//
+// Una clase CANCELADA no cuenta: no va a ocurrir, así que no puede gastarle a
+// la socia una de sus reservas simultáneas. Antes no se miraba, y una reserva
+// que quedaba CONFIRMADA sobre una clase cancelada (ver el fix de
+// updateSesion/cancelar_clase, que ahora las cancela) le bloqueaba el cupo de
+// forma permanente y sin explicación posible desde su portal. Se mantiene el
+// filtro aquí además de arreglar el origen: son dos defensas independientes y
+// esta protege también a las reservas fantasma que YA existen en la BD (no hay
+// backfill). OJO: esto cubre el tope de SIMULTÁNEAS, que se calcula aquí. El
+// cupo SEMANAL se cuenta en SQL dentro de reservar_plaza y ese sí sigue sin
+// mirar `cancelada` — pendiente, ver el informe de auditoría del 20-ago.
+// `cancelada` es opcional para no romper a quien pase sesiones recortadas.
 export function contarReservasActivasFuturas(
   socioId: string,
   reservas: Reserva[],
-  sesiones: { id: string; inicio: string }[],
+  sesiones: { id: string; inicio: string; cancelada?: boolean | null }[],
   ahora: Date,
 ): number {
   const t = ahora.getTime();
   const futuras = new Set(
-    sesiones.filter(s => new Date(s.inicio).getTime() > t).map(s => s.id),
+    sesiones.filter(s => !s.cancelada && new Date(s.inicio).getTime() > t).map(s => s.id),
   );
   return reservas.filter(
     r => r.socioId === socioId &&

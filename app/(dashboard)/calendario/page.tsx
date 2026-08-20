@@ -500,6 +500,7 @@ export default function Calendario() {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
     suscripciones, planesTarifa, studio,
     addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
+    cancelarReservasDeSesiones,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
     addActividadReciente, addRecibo, resetDatosPilates,
@@ -1246,7 +1247,19 @@ export default function Calendario() {
         if (ok) avisadas++; else sinAvisar++;
       }
     }
-    void avisarClaseCancelada(sesionId);
+    // Se espera el aviso ANTES de cancelar las reservas: avisarClaseCancelada
+    // resuelve destinatarios en servidor filtrando por estado = 'CONFIRMADA',
+    // así que cancelarlas primero dejaría el push/in-app sin nadie a quien ir.
+    await avisarClaseCancelada(sesionId);
+    // La clase no va a ocurrir: sus reservas activas dejan de estarlo. Sin esto
+    // quedaban CONFIRMADA apuntando a una sesión cancelada — la socia veía en
+    // su portal una plaza "confirmada" para una clase que nunca iba a pasar, y
+    // esa reserva fantasma le seguía comiendo el tope de reservas simultáneas
+    // del plan. Es el mismo tratamiento que ya recibía
+    // cancelar una SERIE; el camino de clase suelta (el habitual) no lo tenía.
+    // (El cupo SEMANAL se cuenta en SQL dentro de reservar_plaza, que tampoco
+    // mira `cancelada` — eso sigue pendiente, ver el informe de auditoría.)
+    cancelarReservasDeSesiones([sesionId], 'cancelarSesion');
     setSesionId(null);
     showToast(sinAvisar > 0
       ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`

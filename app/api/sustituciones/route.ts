@@ -348,6 +348,37 @@ export async function PATCH(req: NextRequest) {
     const alumnas = await avisarAlumnas(admin, {
       sesionId: sust.sesion_id as string, studioId: sesion.studioId, tipo: 'cancelada',
     });
+
+    // ORDEN CRÍTICO: esto va DESPUÉS de avisarAlumnas, nunca antes.
+    // `alumnas_apuntadas()` y `sociasDeSesion()` seleccionan por
+    // estado = 'CONFIRMADA'; si se cancelan las reservas primero, las dos
+    // devuelven 0 filas y la cancelación se manda a NADIE, en silencio y
+    // devolviendo ok:true ("0 de 0 alumnas avisadas"). Justo el miedo nº1 de
+    // la propietaria que el comentario de arriba dice querer evitar.
+    //
+    // La clase ya no va a ocurrir: sus reservas activas dejan de estarlo. Sin
+    // esto quedaban CONFIRMADA/LISTA_ESPERA apuntando a una sesión cancelada
+    // — la socia veía en el portal una plaza "confirmada" para una clase que
+    // nunca iba a pasar, y esa reserva fantasma le seguía consumiendo el
+    // límite de reservas simultáneas y el cupo semanal del plan.
+    // NO se devuelve el bono aquí: misma decisión de producto pendiente que el
+    // camino de panel y que cancelarSerieDesde. (`cancelarSesionPorMinimo-
+    // NoAlcanzado` sí lo devuelve; unificar esa política sigue pendiente.)
+    //
+    // A las de LISTA_ESPERA y PENDIENTE_APROBACION se les cancela sin aviso:
+    // avisarAlumnas solo alcanza a las CONFIRMADA. Es lo que ya hacía el panel.
+    const cancRes = await admin.from('reservas')
+      .update({ estado: 'CANCELADA', posicion_espera: null })
+      .eq('sesion_id', sust.sesion_id)
+      .eq('studio_id', sesion.studioId) // admin client: sin RLS, se acota a mano
+      .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']);
+    if (cancRes.error) {
+      // No se corta el flujo: la clase YA está cancelada y las alumnas YA
+      // están avisadas. Se registra para poder repararlo a mano.
+      console.error('[sustituciones:cancelar_clase:cancelar-reservas]',
+        cancRes.error.message, `sesion=${sust.sesion_id}`, `studio=${sesion.studioId}`);
+    }
+
     return NextResponse.json({ ok: true, alumnas });
   }
 

@@ -60,11 +60,23 @@ export function CheckoutEmbebido({
   // según de qué estudio sea el widget (varios widgets, distintos estudios,
   // en la misma página con Modo B — ver comentario de montarUno en main.tsx).
   //
-  // ⚠️ `loadStripe()` valida la FORMA de `publishableKey` y lanza de forma
-  // SÍNCRONA si no la reconoce (encontrado en CI: una clave con forma
-  // inválida tumbaba la página entera con el error boundary genérico, «Algo
-  // se ha roto», en vez de quedarse solo sin pago). Sin try/catch aquí, un
-  // typo o una env var mal puesta en un despliegue real haría lo mismo.
+  // ⚠️ `loadStripe()` falla de DOS maneras distintas y hacen falta las dos redes:
+  //
+  //  1. SÍNCRONA, si no reconoce la forma de `publishableKey` (encontrado en
+  //     CI: una clave con forma inválida tumbaba la página entera con el error
+  //     boundary genérico, «Algo se ha roto», en vez de quedarse solo sin pago).
+  //  2. RECHAZANDO LA PROMESA, que es lo que pasa de verdad en producción: si
+  //     la clave es una `sk_`/`rk_` (secreta) Stripe.js valida DENTRO de la
+  //     promesa y lanza `IntegrationError: You should not use your secret key
+  //     with Stripe.js`. Visto en Sentry el 19-ago en /reservar (build
+  //     361882dfa4fc, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY mal puesta).
+  //
+  // Solo se cubría la 1. Con la 2, `stripePromise` NO era null, el guardia de
+  // abajo no se disparaba y el fallback («El pago online no está disponible»)
+  // no se pintaba nunca: `<Elements>` se quedaba montado con una promesa
+  // rechazada y la socia veía un spinner eterno DESPUÉS de que el servidor ya
+  // hubiera creado el PaymentIntent. Reserva perdida y PaymentIntent huérfano.
+  const [stripeKo, setStripeKo] = useState(false);
   const stripePromise = useMemo(() => {
     try {
       return loadStripe(publishableKey, { stripeAccount: stripeAccountId });
@@ -72,6 +84,24 @@ export function CheckoutEmbebido({
       return null;
     }
   }, [publishableKey, stripeAccountId]);
+
+  // El caso (2) solo se puede detectar suscribiéndose a la promesa: si se
+  // rechaza, `stripePromise` sigue siendo un objeto (truthy), así que el
+  // guardia `if (!stripePromise)` de abajo NO se dispara — y `<Elements>` con
+  // una promesa rechazada (o resuelta a null) nunca monta el PaymentElement:
+  // spinner eterno. Hace falta un estado real. El error se re-lanza a la
+  // consola a propósito: era la ÚNICA señal que delató la env mal puesta.
+  useEffect(() => {
+    if (!stripePromise) return;
+    let vivo = true;
+    stripePromise
+      .then(s => { if (vivo && !s) setStripeKo(true); })
+      .catch((e: unknown) => {
+        if (vivo) setStripeKo(true);
+        console.error('[checkout-embebido] loadStripe falló', e);
+      });
+    return () => { vivo = false; };
+  }, [stripePromise]);
 
   // Stripe Elements NO resuelve custom properties de CSS — su `appearance`
   // exige valores de color literales, no `var(--portal-brand)` como string
@@ -88,7 +118,7 @@ export function CheckoutEmbebido({
     if (valor) setColorMarca(valor);
   }, []);
 
-  if (!stripePromise) {
+  if (!stripePromise || stripeKo) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontFamily: sans }}>
         <p style={{ fontSize: 13, color: semantic.warning.text, background: semantic.warning.soft, padding: '10px 12px', borderRadius: radius.cardSmall }}>

@@ -973,9 +973,18 @@ export function PortalProvider({
         }
         if (!reservaId || stateRef.current.loading) return;
         set({ loading: true });
+        // `.then(ok, err)` y NO `.then(...).catch(...)`: encadenar el catch
+        // también capturaría lo que lance el handler de éxito, y la socia
+        // vería "Reserva cancelada" seguido de "No se ha podido cancelar".
         cancelar(reservaId).then((error) => {
           set({ loading: false });
           notify(error ?? "Reserva cancelada");
+        }, () => {
+          // Sin este manejador de rechazo, un fallo (red caída, 500) dejaba
+          // `loading` en true PARA SIEMPRE: la socia no podía ni reintentar la
+          // cancelación ni saber por qué el botón había dejado de responder.
+          set({ loading: false });
+          notify("No se ha podido cancelar. Inténtalo de nuevo.");
         });
       },
       /**
@@ -1060,6 +1069,13 @@ export function PortalProvider({
           if (!error) return;
           set({ paying: false });
           notify(error);
+        }, () => {
+          // El razonamiento de arriba solo cubre la promesa RESUELTA. Si
+          // `pagar` RECHAZA (red caída, 500 al crear la sesión de Stripe) no
+          // hay redirección ninguna, así que dejar `paying` puesto no protege
+          // nada: solo deja el botón de pagar muerto y sin explicación.
+          set({ paying: false });
+          notify("No se ha podido iniciar el pago. Inténtalo de nuevo.");
         });
       },
       pay: () => {
