@@ -13,6 +13,7 @@ import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { COLOR_VALIDO } from '@/lib/reservar/config-widget';
+import { scriptSnippetIframe } from '@/lib/reservar/snippet-embed';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 
 const COLOR_WIDGET_POR_DEFECTO = '#343825';
@@ -653,8 +654,13 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   // botón de pago con tarjeta normal, pero la promesa interna de Stripe
   // revienta sin capturar. No cambia nada más: solo habilita la Payment
   // Request API dentro de este iframe concreto.
+  // P0-3 (mobile UX): además del auto-resize, el snippet informa al iframe de
+  // qué franja de él está visible en la pantalla real (`tentareHostViewport`)
+  // y atiende `tentareScrollTo` — el script vive en lib/reservar/snippet-embed
+  // (función pura) para que el e2e monte una página anfitriona con EL MISMO
+  // código que se copia de verdad. Ver el comentario largo allí.
   const codigoIframe = `<iframe id="${iframeId}" src="${src}" style="width:100%;max-width:${maxWidth};height:${widget.alto}px;border:0;border-radius:12px;" title="${widget.nombre}" allow="payment"></iframe>
-<script>window.addEventListener('message',function(e){if(e.data&&e.data.tentareEmbedAltura&&e.data.tentareSlug==='${slug}'){var f=document.getElementById('${iframeId}');if(f)f.style.height=e.data.tentareEmbedAltura+'px';}});</script>`;
+${scriptSnippetIframe({ origen, slug, iframeId })}`;
   const codigo = widget.modo === 'script' ? codigoScript : codigoIframe;
 
   async function copiar() {

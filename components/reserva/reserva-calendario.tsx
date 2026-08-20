@@ -25,7 +25,7 @@ import type { ModoTokens } from '@/lib/portal-modo';
 import type { NivelClase, EstadoReserva, Spot } from '@/lib/types';
 import type { ResultadoReserva } from '@/lib/studio-context';
 import type { ResultadoEscritura } from '@/lib/errores';
-import { semantic, sheetBottomPadding } from '@/lib/portal-tokens';
+import { semantic } from '@/lib/portal-tokens';
 import { colorOcupacion, ratioOcupacion, etiquetaOcupacion } from '@/lib/ocupacion';
 import { serif, sans, cq, radius, shadow, EASE } from '@/lib/reservar-publico-tokens';
 import {
@@ -207,6 +207,32 @@ export interface ReservaCalendarioProps {
    * 'grid', un solo chip en 'dias'). 'todo' = la ventana de siempre.
    */
   vistaInicial?: 'hoy' | 'todo';
+  // ── P0-3 (mobile UX del checkout embebido) ───────────────────────────────
+  /**
+   * El calendario vive dentro de un <iframe> auto-dimensionado a TODO su
+   * contenido (Modo A, `?embed=1`). Ahí `position: fixed; inset: 0` ancla la
+   * hoja al FONDO del iframe — que puede estar a más de 1000px de lo que el
+   * usuario ve (medido en producción). Con esto activo, la hoja se ancla a
+   * `franjaVisible` si el snippet nuevo la informa, y al TOP del iframe si no
+   * (snippet viejo): quien abre la ficha acaba de tocar una tarjeta que está
+   * en su pantalla, así que el top del iframe siempre está más cerca que el
+   * fondo. Fuera del iframe (página completa, bundle Shadow DOM) no cambia
+   * nada.
+   */
+  enIframe?: boolean;
+  /**
+   * Franja del iframe visible en la pantalla real del usuario, en px relativos
+   * al propio iframe (mensaje `tentareHostViewport` del snippet nuevo,
+   * components/configuracion/tab-api.tsx). `null`/ausente = el host no informa
+   * (snippet viejo) y se usa el fallback de `enIframe`.
+   */
+  franjaVisible?: { top: number; height: number } | null;
+  /**
+   * Aviso de que la hoja de ficha se abre/cierra. Modo A embebido lo usa para
+   * pedir al host (`tentareScrollTo`) que traiga el iframe a la vista cuando
+   * el snippet no informa de su viewport.
+   */
+  alCambiarFicha?: (abierta: boolean) => void;
 }
 
 // Neutros FIJOS del formato 06 — nunca `t`. Ver comentario de `estiloDias` arriba.
@@ -295,6 +321,7 @@ export function ReservaCalendario({
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE,
   irADia, estiloDias = 'semana', finalizadasHoy, loading = false,
   ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, vistaInicial = 'todo',
+  enIframe = false, franjaVisible = null, alCambiarFicha,
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
@@ -403,6 +430,15 @@ export function ReservaCalendario({
     setErrorReserva(null);
     setEnviando(false);
   }
+
+  // P0-3: avisa fuera de que la ficha se abre/cierra. En efecto y no en
+  // abrirSlot/cerrarHoja porque la hoja también se cierra sola cuando el slot
+  // desaparece de `slots` (el ajuste durante render de arriba) — ese camino no
+  // pasa por cerrarHoja y dejaría al caller creyendo que sigue abierta.
+  const hayFichaAbierta = !!openSlot;
+  useEffect(() => {
+    alCambiarFicha?.(hayFichaAbierta);
+  }, [hayFichaAbierta, alCambiarFicha]);
 
   const microLabel: CSSProperties = {
     fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted,
@@ -667,6 +703,8 @@ export function ReservaCalendario({
           ocultarPrecio={ocultarPrecio}
           ocultarNivel={ocultarNivel}
           ocultarSustituta={ocultarSustituta}
+          enIframe={enIframe}
+          franjaVisible={franjaVisible}
           onClose={cerrarHoja}
           onAceptarOferta={onAceptarOferta ? async () => {
             if (!openSlot.miReservaId || enviando) return;
@@ -1088,6 +1126,7 @@ function TarjetaClase({ t, slot, onOpen, ocultarPrecio }: {
 function BookingSheet({
   t, slot, selectedSpot, onSelectSpot, resultado, errorReserva, enviando, cancelacionVentanaHoras, ventanaPorTipo,
   fontFamily, ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false,
+  enIframe = false, franjaVisible = null,
   onClose, onReservar, onCancelar, onAceptarOferta,
 }: {
   t: ModoTokens;
@@ -1103,6 +1142,8 @@ function BookingSheet({
   ocultarPrecio?: boolean;
   ocultarNivel?: boolean;
   ocultarSustituta?: boolean;
+  enIframe?: boolean;
+  franjaVisible?: { top: number; height: number } | null;
   onClose: () => void;
   onReservar: () => void;
   onCancelar: () => void;
@@ -1146,6 +1187,23 @@ function BookingSheet({
   // ausente (Modo B sin endpoint público wireado todavía) cae al aviso pasivo.
   const hayOferta = enEspera && !!slot.miOfertaExpiraEn && !!onAceptarOferta;
 
+  // P0-3 (mobile UX): dónde anclar la hoja. Fuera de un iframe, la hoja de
+  // siempre (abajo del viewport real). Dentro de un iframe auto-dimensionado,
+  // «el viewport» es TODO el iframe (2000px o más), así que:
+  //  - con `franjaVisible` (snippet nuevo): la hoja se ancla al fondo de la
+  //    franja que el usuario está viendo de verdad;
+  //  - sin ella (snippet viejo): al TOP del iframe — quien abre la ficha acaba
+  //    de tocar una tarjeta que está en su pantalla, y el top del iframe está
+  //    como mucho a un scroll corto, nunca a 1000px como el fondo.
+  const overlayPos: CSSProperties = enIframe
+    ? (franjaVisible
+      ? { left: 0, right: 0, top: franjaVisible.top, height: franjaVisible.height, alignItems: 'flex-end' }
+      : { inset: 0, alignItems: 'flex-start', paddingTop: 16 })
+    : { inset: 0, alignItems: 'flex-end' };
+  const sheetMaxHeight = enIframe
+    ? (franjaVisible ? '100%' : 'min(88vh, 640px)')
+    : '88vh';
+
   return (
     <div
       role="dialog"
@@ -1154,10 +1212,12 @@ function BookingSheet({
       onClick={onClose}
       className="animate-sheet-backdrop-in"
       style={{
-        position: 'fixed', inset: 0, zIndex: 50, display: 'flex',
+        position: 'fixed', zIndex: 50, display: 'flex',
         // Abajo en móvil (hoja), centrado en pantallas grandes (diálogo).
-        alignItems: 'flex-end', justifyContent: 'center',
+        // `overlayPos` decide el anclaje real (ver arriba: iframe vs página).
+        justifyContent: 'center',
         background: 'rgba(0,0,0,0.5)', fontFamily,
+        ...overlayPos,
       }}
     >
       <div
@@ -1180,10 +1240,16 @@ function BookingSheet({
         // widget.css). Una clase nueva habría que duplicarla ahí, y el widget
         // incrustado se vería distinto del alojado en cuanto una de las dos se
         // quedara atrás.
+        // P0-3: el CTA ya no va al final del contenido scrolleable (nacía fuera
+        // de pantalla: medido, top 894px con viewport de 844) — ahora es un
+        // footer sticky DENTRO del scroller (ver abajo), así que el padding
+        // inferior gigante de antes (`sheetBottomPadding`) sobra: el footer
+        // lleva el suyo propio con `env(safe-area-inset-bottom)`.
         style={{
-          width: '100%', maxWidth: 560, background: t.bg, borderRadius: '24px 24px 0 0',
-          padding: `10px 20px ${sheetBottomPadding}`, display: 'flex', flexDirection: 'column', gap: 14,
-          maxHeight: '88vh', overflowY: 'auto',
+          width: '100%', maxWidth: 560, background: t.bg,
+          borderRadius: enIframe && !franjaVisible ? 24 : '24px 24px 0 0',
+          padding: '10px 20px 0', display: 'flex', flexDirection: 'column', gap: 14,
+          maxHeight: sheetMaxHeight, overflowY: 'auto',
         }}
       >
         <div style={{ width: 36, height: 4, borderRadius: 999, background: t.line, margin: '6px auto 4px', flexShrink: 0 }} />
@@ -1325,38 +1391,56 @@ function BookingSheet({
           </div>
         )}
 
-        {ventanaEfectiva != null && ventanaEfectiva > 0 && !tieneReserva && !lleno && (
-          <p style={{ fontSize: 12, color: t.muted }}>
-            Cancela con al menos {ventanaEfectiva}h de antelación para recuperar tu sesión.
-          </p>
-        )}
-
-        {/* Acción principal */}
-        <button
-          type="button"
-          onClick={esCancelar ? onCancelar : onReservar}
-          disabled={resultado === 'CANCELADA' || enviando}
-          aria-busy={enviando}
-          className="reserva-cta-btn"
-          // Más alto y con más cuerpo que antes (52→58): feedback literal del
-          // fundador — «los sitios son muy grandes y el botón de reservar es muy
-          // pequeño». La jerarquía se invierte: spots compactos, CTA protagonista.
+        {/* ── Footer sticky (P0-3) ─────────────────────────────────────────
+            Aviso de cancelación + CTA, SIEMPRE visibles al abrir la hoja: el
+            contenido scrollea por debajo. `sticky bottom: 0` dentro del
+            scroller, fondo sólido y sombra superior sutil para separarlo del
+            contenido que pasa por detrás; los márgenes negativos lo llevan a
+            sangre (el scroller lleva el padding horizontal) para que no se
+            vea contenido asomando por los lados. `flexShrink: 0`: sin él, con
+            la hoja llena el flex lo comprimiría antes de activar el scroll. */}
+        <div
           style={{
-            width: '100%', height: 58, borderRadius: 16, fontSize: 15.5, fontWeight: 800,
-            textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none',
-            cursor: resultado === 'CANCELADA' || enviando ? 'default' : 'pointer',
-            marginTop: 2, opacity: resultado === 'CANCELADA' ? 0.4 : enviando ? 0.7 : 1,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            ...(esCancelar
-              ? { background: semantic.danger.soft, color: semantic.danger.text }
-              : { background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' }),
+            position: 'sticky', bottom: 0, zIndex: 1, flexShrink: 0,
+            margin: '0 -20px', padding: '12px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)',
+            background: t.bg,
+            boxShadow: `0 -1px 0 ${t.line}, 0 -12px 18px -14px rgba(0,0,0,0.22)`,
+            display: 'flex', flexDirection: 'column', gap: 10,
           }}
         >
-          {enviando && (
-            <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: 999, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.85, flexShrink: 0 }} />
+          {ventanaEfectiva != null && ventanaEfectiva > 0 && !tieneReserva && !lleno && (
+            <p style={{ fontSize: 12, color: t.muted }}>
+              Cancela con al menos {ventanaEfectiva}h de antelación para recuperar tu sesión.
+            </p>
           )}
-          {resultado === 'CANCELADA' ? 'Cancelada' : enviando ? 'Un momento…' : label}
-        </button>
+
+          {/* Acción principal */}
+          <button
+            type="button"
+            onClick={esCancelar ? onCancelar : onReservar}
+            disabled={resultado === 'CANCELADA' || enviando}
+            aria-busy={enviando}
+            className="reserva-cta-btn"
+            // Más alto y con más cuerpo que antes (52→58): feedback literal del
+            // fundador — «los sitios son muy grandes y el botón de reservar es muy
+            // pequeño». La jerarquía se invierte: spots compactos, CTA protagonista.
+            style={{
+              width: '100%', height: 58, borderRadius: 16, fontSize: 15.5, fontWeight: 800,
+              textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none',
+              cursor: resultado === 'CANCELADA' || enviando ? 'default' : 'pointer',
+              opacity: resultado === 'CANCELADA' ? 0.4 : enviando ? 0.7 : 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0,
+              ...(esCancelar
+                ? { background: semantic.danger.soft, color: semantic.danger.text }
+                : { background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' }),
+            }}
+          >
+            {enviando && (
+              <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: 999, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.85, flexShrink: 0 }} />
+            )}
+            {resultado === 'CANCELADA' ? 'Cancelada' : enviando ? 'Un momento…' : label}
+          </button>
+        </div>
       </div>
     </div>
   );
