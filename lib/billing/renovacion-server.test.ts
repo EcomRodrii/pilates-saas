@@ -17,7 +17,7 @@ type Fila = Record<string, unknown>;
 /** Supabase de mentira: sirve la suscripción y el plan, y guarda los updates.
  *  `rpcSaldo` es lo que devuelve `renovar_bono_idempotente`: el saldo nuevo, o
  *  null cuando este recibo ya había entregado (reintento). */
-function fakeAdmin(opts: { sus: Fila; plan: Fila; rpcSaldo?: number | null }) {
+function fakeAdmin(opts: { sus: Fila; plan: Fila; rpcSaldo?: number | null; recibo?: Fila }) {
   const updates: Record<string, Fila[]> = { recibos: [], suscripciones: [] };
   const rpcs: Array<{ nombre: string; args: Fila }> = [];
   const api = {
@@ -33,7 +33,7 @@ function fakeAdmin(opts: { sus: Fila; plan: Fila; rpcSaldo?: number | null }) {
         select() { return this; },
         eq() { return this; },
         maybeSingle() {
-          if (tabla === 'recibos') return Promise.resolve({ data: { suscripcion_id: 'sus-1' }, error: null });
+          if (tabla === 'recibos') return Promise.resolve({ data: opts.recibo ?? { suscripcion_id: 'sus-1' }, error: null });
           if (tabla === 'suscripciones') return Promise.resolve({ data: opts.sus, error: null });
           if (tabla === 'planes_tarifa') return Promise.resolve({ data: opts.plan, error: null });
           return Promise.resolve({ data: null, error: null });
@@ -141,6 +141,62 @@ test('mensual ya extendido: no vuelve a extender, y lo deja escrito', async () =
   assert.equal(r.aplicada, false, 'el guard de idempotencia sigue vivo');
   assert.equal(updates.suscripciones.length, 0);
   assert.equal(snapshot(updates).entrega_aplicada, false);
+});
+
+// ── B1/B1b (revisión de D-6): idempotencia anclada al RECIBO ────────────────
+
+test('⚠️ B1: un recibo con snapshot ya escrito NO se reescribe ni se toca la suscripción', async () => {
+  // La reparación muda del webhook corre en CADA cobro con tarjeta: sin este
+  // guard, el no-op MENSUAL pisaba el snapshot bueno (aplicada true→false con
+  // el "antes" ya renovado) y toda devolución futura salía OMITIDA_SIN_ENTREGA.
+  const { admin, updates } = fakeAdmin({
+    recibo: { suscripcion_id: 'sus-1', entrega_tipo: 'MENSUAL', entrega_aplicada: true },
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: null, fecha_fin: '2026-01-15', estado: 'ACTIVA' },
+    plan: MENSUAL,
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+
+  assert.equal(r.aplicada, true, 'refleja la decisión ya tomada de ESTE recibo');
+  assert.equal(r.tipo, 'MENSUAL');
+  assert.equal(updates.recibos.length, 0, 'el snapshot bueno no se pisa');
+  assert.equal(updates.suscripciones.length, 0, 'B1b: una reentrega tardía no re-extiende fecha_fin de regalo');
+});
+
+test('B1: con snapshot previo de no-op, tampoco se re-evalúa (aplicada=false se conserva)', async () => {
+  const { admin, updates } = fakeAdmin({
+    recibo: { suscripcion_id: 'sus-1', entrega_tipo: 'MENSUAL', entrega_aplicada: false },
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: null, fecha_fin: '2026-01-15', estado: 'EXPIRADA' },
+    plan: MENSUAL,
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+  assert.equal(r.aplicada, false);
+  assert.equal(updates.recibos.length, 0);
+  assert.equal(updates.suscripciones.length, 0);
+});
+
+test('B1: un BONO con snapshot ni siquiera llama a la RPC', async () => {
+  const { admin, rpcs } = fakeAdmin({
+    recibo: { suscripcion_id: 'sus-1', entrega_tipo: 'BONO', entrega_aplicada: true },
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: 3, fecha_fin: null, estado: 'ACTIVA' },
+    plan: BONO,
+    rpcSaldo: 13,
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+  assert.equal(r.aplicada, true);
+  assert.equal(rpcs.length, 0, 'la RPC ya tiene su candado, pero no hace falta ni llegar a ella');
+});
+
+test('B1: un snapshot de otra familia (ALTA_WEB) también corta, sin mentir el tipo', async () => {
+  const { admin, updates } = fakeAdmin({
+    recibo: { suscripcion_id: 'sus-1', entrega_tipo: 'ALTA_WEB', entrega_aplicada: true },
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: null, fecha_fin: '2026-01-15', estado: 'ACTIVA' },
+    plan: MENSUAL,
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+  assert.equal(r.aplicada, true);
+  assert.equal(r.tipo, 'NINGUNA', 'ALTA_WEB no cabe en el union: se degrada honesto, nunca se inventa');
+  assert.equal(updates.recibos.length, 0);
+  assert.equal(updates.suscripciones.length, 0);
 });
 
 test('recibo sin suscripción (una penalización): NINGUNA, no en blanco', async () => {

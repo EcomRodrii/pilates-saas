@@ -75,10 +75,28 @@ export async function aplicarRenovacionServidor(
   try {
     const { data: rec } = await admin
       .from('recibos')
-      .select('suscripcion_id')
+      .select('suscripcion_id, entrega_tipo, entrega_aplicada')
       .eq('id', reciboId)
       .eq('studio_id', studioId)
       .maybeSingle();
+    // B1/B1b (revisión de D-6): si este recibo YA tiene snapshot de entrega,
+    // su renovación ya se decidió — aplicada o no-op — y no hay nada que
+    // re-aplicar NI que reescribir. Sin este guard, la reparación muda del
+    // webhook (que corre en cada cobro con tarjeta) entraba en el no-op
+    // MENSUAL y su `guardar(aplicada: false, antes: <ya renovado>)` PISABA el
+    // snapshot bueno — cualquier devolución futura se clasificaba
+    // OMITIDA_SIN_ENTREGA y la reversión no se ofrecía nunca. Y una reentrega
+    // tardía del webhook (Stripe reintenta días) re-extendía `fecha_fin` de
+    // regalo: la idempotencia MENSUAL estaba anclada al RELOJ (`nuevaFin` se
+    // calcula con `new Date()`); esto la ancla al RECIBO, espejo del candado
+    // por recibo que BONO ya tiene dentro de `renovar_bono_idempotente`.
+    // Un recibo solo se cobra una vez (guardia de estados), así que snapshot
+    // presente ⇒ la decisión de ESTE recibo ya está tomada.
+    if (rec?.entrega_tipo != null) {
+      const tipoPrevio: ResultadoRenovacion['tipo'] =
+        rec.entrega_tipo === 'BONO' || rec.entrega_tipo === 'MENSUAL' ? rec.entrega_tipo : 'NINGUNA';
+      return { aplicada: rec.entrega_aplicada === true, tipo: tipoPrevio, antes: null, despues: null };
+    }
     // Sin suscripción no hay nada que entregar (p. ej. una penalización). Se
     // marca NINGUNA en vez de dejarlo en blanco: distingue "no aplicaba" de
     // "no se llegó a mirar".

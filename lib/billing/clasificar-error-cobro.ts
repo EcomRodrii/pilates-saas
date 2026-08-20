@@ -29,19 +29,19 @@ import Stripe from 'stripe';
 //    `succeeded` y el recibo se marca COBRADO; si no llegó, lo crea limpio.
 //    Las dos ramas son seguras.
 //
-// ⚠️ Límite conocido, y NO es un caso raro: las claves de idempotencia de
-// Stripe se purgan a partir de las 24 h, y el dispatcher de dunning corre UNA
-// vez al día ('30 8 * * *') — el reintento automático de un transitorio cae
-// justo en esa frontera, así que su deduplicación es probable pero no
-// garantizada. La protección firme es para los reintentos del MISMO día
-// (endpoints manuales, re-disparos). Sigue siendo estrictamente mejor que lo
-// de antes (clave nueva garantizada → doble cargo garantizado si el cargo
-// había entrado); cerrar el hueco del todo es D-6 — que el webhook persista
-// `payment_intent.succeeded` de `origen: 'tarjeta_recibo'` —, pendiente
-// aparte. Y en SEPA muerde más fuerte: "create llegó + respuesta perdida"
-// implica casi seguro un adeudo vivo en `processing`, así que una clave
-// purgada allí significa un SEGUNDO adeudo, no solo un cargo síncrono
-// duplicado — D-6 debe cubrir también ese matiz.
+// ⚠️ Límite de las claves: se purgan a partir de las 24 h, y el dispatcher de
+// dunning corre UNA vez al día ('30 8 * * *') — el reintento automático de un
+// transitorio cae justo en esa frontera. Para TARJETA el hueco quedó cerrado
+// por D-6: el webhook persiste `payment_intent.succeeded` de
+// `origen: 'tarjeta_recibo'` (llega en segundos), así que un cargo hecho con
+// respuesta perdida está COBRADO mucho antes del siguiente barrido y sale de
+// la lista de candidatos. RESIDUO ABIERTO, solo SEPA: si el `create` del
+// adeudo llegó y la respuesta se perdió, el PI queda vivo en `processing` SIN
+// `stripe_payment_intent_id` ni EN_CURSO en el recibo — el webhook de
+// `succeeded` lo resolverá al liquidar (días), pero si el barrido diario
+// reintenta ANTES con la clave ya purgada, puede emitir un SEGUNDO adeudo.
+// Ventana estrecha (transitorio en SEPA + clave purgada + barrido antes de la
+// liquidación) y sin red hoy — documentado, no resuelto.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ClaseErrorCobro = 'FALLO_COBRO' | 'ERROR_TRANSITORIO';

@@ -12,7 +12,7 @@ import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
-import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
+import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 
 // Dispatcher: a las 08:30 UTC (evita las 07:00 de automatizaciones y las
@@ -153,7 +153,7 @@ export const procesarDunningEstudio = inngest.createFunction(
           extra: { reciboId: rec.id, studioId, paymentIntentId: pi.id, status: pi.status },
         });
         if (pi.status === 'succeeded') {
-          const out = await confirmarCobroSepaExitoso({ admin, reciboId: rec.id, studioId });
+          const out = await confirmarCobroExitoso({ admin, reciboId: rec.id, studioId, metodo: 'SEPA' });
           return { tipo: 'reconciliado' as const, ok: out.ok };
         }
         // requires_payment_method / canceled / cualquier estado terminal no exitoso.
