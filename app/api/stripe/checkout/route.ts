@@ -8,6 +8,9 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { decidirSesionCheckout } from '@/lib/billing/sesion-checkout';
+import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
+import { mapCodigoDescuento } from '@/lib/supabase-data';
+import type { RowCodigosDescuento } from '@/lib/db-types';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -73,6 +76,11 @@ export async function POST(req: NextRequest) {
     // P1 auditoría Momence: lead-id crudo del widget público (`?ref=`),
     // viaja en la metadata de Stripe hasta entregarPlanComprado.
     origenLead?: string | null;
+    // Auditoría vs Momence (#canje-codigos-descuento-checkout): texto tal
+    // cual lo escribe la socia. Solo aplica a compra de plan (body.planId),
+    // nunca al cobro de un recibo ya generado — el importe de un recibo
+    // viene fijado por reglas de facturación anteriores, no de marketing.
+    codigoDescuento?: string;
   } | null;
 
   if (!body?.studioId) {
@@ -145,6 +153,30 @@ export async function POST(req: NextRequest) {
     importe = Number(plan.precio);
     concepto = plan.nombre;
     metadata.planId = body.planId;
+
+    // Auditoría vs Momence: canje de código de descuento, solo en compra de
+    // plan. El servidor SIEMPRE recalcula — el texto del código es lo único
+    // que viaja del cliente, el importe final sale de aquí, nunca del body.
+    // Un código inválido/caducado/agotado no bloquea la compra: se ignora en
+    // silencio y se cobra el precio de catálogo (mismo criterio que el POS
+    // congelado, que tampoco impedía la venta por un código malo).
+    if (body.codigoDescuento) {
+      const { data: codigosRaw } = await admin
+        .from('codigos_descuento')
+        .select('*')
+        .eq('studio_id', body.studioId);
+      const codigos = (codigosRaw ?? []).map(r => mapCodigoDescuento(r as RowCodigosDescuento));
+      const resultado = resolverDescuentoCheckout(codigos, body.codigoDescuento, {
+        hoyISO: new Date().toISOString(),
+        subtotal: importe,
+        esNueva: !socioId,
+      });
+      if (resultado.ok) {
+        importe = Math.max(0, Math.round((importe - resultado.descuento) * 100) / 100);
+        const codigoAplicado = codigos.find(c => c.codigo.trim().toUpperCase() === body.codigoDescuento!.trim().toUpperCase());
+        if (codigoAplicado) metadata.codigoDescuentoId = codigoAplicado.id;
+      }
+    }
   } else {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el recibo o el plan a cobrar' }, { status: 400 }));
   }

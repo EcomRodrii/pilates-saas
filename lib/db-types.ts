@@ -2164,3 +2164,9 @@ export interface RowMensajesEntrantesMedicion {
   twilio_sid: string;
   creado_en: string;
 }
+
+export interface RowCodigosDescuentoConsumos {
+  recibo_id: string;
+  codigo_id: string;
+  consumido_en: string;
+}

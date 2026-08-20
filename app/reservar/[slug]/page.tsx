@@ -572,6 +572,12 @@ export default function ReservarPage() {
   // Stripe
   const [stripeLoading, setStripeLoading] = useState<string | null>(null);
   const [stripeError, setStripeError] = useState<string | null>(null);
+  // Auditoría vs Momence (#canje-codigos-descuento-checkout): plegado por
+  // defecto — la mayoría de visitas no traen código, no hace falta ruido
+  // visual permanente por un campo que casi nadie usa. El servidor valida y
+  // aplica el descuento al crear el checkout; aquí solo viaja el texto.
+  const [mostrarCodigo, setMostrarCodigo] = useState(false);
+  const [codigoDescuento, setCodigoDescuento] = useState('');
 
   // `now` es estable entre ticks del reloj (viene de estado), así que esto no
   // necesita memo: solo cambia de identidad cuando cambia de verdad la hora.
@@ -1169,6 +1175,7 @@ export default function ReservarPage() {
           socioEmail: loginForm.email.trim(),
           socioNombre: `${loginForm.nombre.trim()} ${loginForm.apellidos.trim()}`.trim(),
           origenLead: searchParams.get('ref') ?? null,
+          codigoDescuento: codigoDescuento.trim() || undefined,
         }),
       });
       const data = await res.json() as { clientSecret?: string; error?: string };
@@ -1354,6 +1361,7 @@ export default function ReservarPage() {
           // `openBooking`, `Date.now` en `handleSignContract`, mutación de
           // `window.top`) — mismo valor, sin ese efecto colateral.
           origenLead: searchParams.get('ref') ?? null,
+          codigoDescuento: codigoDescuento.trim() || undefined,
         }),
       });
       const data = await res.json() as { url?: string; error?: string };
@@ -2307,6 +2315,32 @@ export default function ReservarPage() {
                 {stripeError}
               </div>
             )}
+            {/* Auditoría vs Momence: código de descuento, plegado por defecto.
+                El precio final que se cobra siempre lo decide el servidor al
+                crear el checkout — esto solo manda el texto. */}
+            <div style={{ textAlign: 'center', marginTop: 10 }}>
+              {!mostrarCodigo ? (
+                <button
+                  onClick={() => setMostrarCodigo(true)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--portal-muted-2)', textDecoration: 'underline' }}
+                >
+                  ¿Tienes un código de descuento?
+                </button>
+              ) : (
+                <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={codigoDescuento}
+                    onChange={e => setCodigoDescuento(e.target.value)}
+                    placeholder="Código de descuento"
+                    style={{
+                      height: 36, padding: '0 12px', borderRadius: R.pillBtnXs, fontSize: 12.5,
+                      border: '1px solid var(--portal-line)', background: 'var(--portal-surface)', color: 'var(--portal-ink)',
+                    }}
+                  />
+                </div>
+              )}
+            </div>
             {/* Rejilla de tres, no una pila a lo ancho: los planes se COMPARAN,
                 y apilados obligaban a recordar el precio anterior al bajar. */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, marginTop: 16, alignItems: 'stretch' }}>

@@ -187,6 +187,11 @@ async function procesarEvento(
     const planId = session.metadata?.planId;
     // P1 auditoría Momence: lead-id crudo del widget público.
     const origenLead = session.metadata?.origenLead;
+    // Auditoría vs Momence (#canje-codigos-descuento-checkout): el código ya
+    // se validó y descontó del importe al crear la sesión — aquí solo se
+    // consume el uso, y solo tras confirmar el pago (nunca al crear el
+    // checkout: un checkout abandonado no debe gastar el uso de nadie).
+    const codigoDescuentoId = session.metadata?.codigoDescuentoId;
 
     // P0-18: la persistencia se hace con service-role (bypassa RLS; el webhook
     // no tiene sesión de usuario) y cualquier fallo de escritura devuelve un
@@ -453,6 +458,37 @@ async function procesarEvento(
             });
           }
         }
+        // Consumo del código de descuento (best-effort, igual que la
+        // actualización de metadata de arriba): el pago ya está cobrado y el
+        // plan ya entregado, así que un fallo aquí no puede tumbar el evento
+        // — pero sí queda en Sentry, porque un código que no se descuenta de
+        // su límite es un uso gratis que nadie contó.
+        //
+        // tentare-stripe: consumir_codigo_descuento no es idempotente por sí
+        // sola (solo protege contra concurrencia del POS, no contra que este
+        // webhook reprocese el MISMO evento). El INSERT en
+        // codigos_descuento_consumos es el compare-and-set: gana el primer
+        // intento, un reintento choca por PK (23505) y se salta el consumo
+        // sin sumar un uso de más — mismo criterio que entregarPlanComprado.
+        if (codigoDescuentoId) {
+          const { error: errMarcarConsumo } = await admin
+            .from('codigos_descuento_consumos')
+            .insert({ recibo_id: entrega.reciboId, codigo_id: codigoDescuentoId });
+          if (!errMarcarConsumo) {
+            const { error: errConsumo } = await admin.rpc('consumir_codigo_descuento', { p_codigo_id: codigoDescuentoId });
+            if (errConsumo) {
+              Sentry.captureMessage('[stripe webhook] plan entregado pero el código de descuento no se consumió', {
+                level: 'warning',
+                extra: { codigoDescuentoId, studioId, sessionId: session.id, detalle: String(errConsumo) },
+              });
+            }
+          } else if (errMarcarConsumo.code !== '23505') {
+            Sentry.captureMessage('[stripe webhook] no se pudo registrar el consumo del código de descuento', {
+              level: 'warning',
+              extra: { codigoDescuentoId, studioId, sessionId: session.id, detalle: String(errMarcarConsumo) },
+            });
+          }
+        }
         const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
         await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
         const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
@@ -676,6 +712,30 @@ async function procesarEvento(
           // importa— ya está guardado.
           await guardarCaducidadTarjeta(admin, stripe, {
             socioId: entrega.socioId, studioId, paymentMethodId: pmReutilizable, stripeAccount: event.account,
+          });
+        }
+      }
+
+      // Consumo del código de descuento — mismo criterio que
+      // checkout.session.completed: best-effort, tras confirmar el pago, no
+      // al crear el PaymentIntent, y con el mismo compare-and-set contra
+      // reprocesamiento del evento (ver comentario largo en la otra rama).
+      if (pi.metadata.codigoDescuentoId) {
+        const { error: errMarcarConsumo } = await admin
+          .from('codigos_descuento_consumos')
+          .insert({ recibo_id: entrega.reciboId, codigo_id: pi.metadata.codigoDescuentoId });
+        if (!errMarcarConsumo) {
+          const { error: errConsumo } = await admin.rpc('consumir_codigo_descuento', { p_codigo_id: pi.metadata.codigoDescuentoId });
+          if (errConsumo) {
+            Sentry.captureMessage('[stripe webhook] checkout embebido: plan entregado pero el código de descuento no se consumió', {
+              level: 'warning',
+              extra: { codigoDescuentoId: pi.metadata.codigoDescuentoId, studioId, paymentIntentId: pi.id, detalle: String(errConsumo) },
+            });
+          }
+        } else if (errMarcarConsumo.code !== '23505') {
+          Sentry.captureMessage('[stripe webhook] checkout embebido: no se pudo registrar el consumo del código de descuento', {
+            level: 'warning',
+            extra: { codigoDescuentoId: pi.metadata.codigoDescuentoId, studioId, paymentIntentId: pi.id, detalle: String(errMarcarConsumo) },
           });
         }
       }

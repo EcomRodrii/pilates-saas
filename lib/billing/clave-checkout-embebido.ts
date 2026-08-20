@@ -37,6 +37,14 @@ export interface DatosClaveCheckoutEmbebido {
   socioEmail: string | null;
   /** "Pagar y reservar sin login": la clase concreta que se está pagando. */
   sesionId: string | null;
+  // Canje de códigos de descuento (auditoría vs Momence): sin esto en la
+  // clave, un reintento con un código distinto (o quitado) reutilizaría el
+  // mismo PaymentIntent con el `amount` del primer intento — o Stripe
+  // rechazaría el reintento por "parámetros distintos con la misma
+  // idempotency key". El id del código, no su texto: dos textos que resuelven
+  // al mismo código (mayúsculas/espacios) deben seguir siendo el MISMO
+  // intento.
+  codigoDescuentoId: string | null;
 }
 
 /**
@@ -60,6 +68,7 @@ export function claveCheckoutEmbebido(
     datos.studioId,
     datos.planId,
     quienPaga(datos.socioId, datos.socioEmail),
+    datos.codigoDescuentoId ? `d${datos.codigoDescuentoId}` : 'dnone',
   ];
   if (datos.sesionId) {
     // Con clase concreta se ELIMINA el componente temporal: "pagar esta clase
