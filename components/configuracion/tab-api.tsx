@@ -700,16 +700,32 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
 
   // Misma auto-resize para la vista previa DENTRO del panel — el listener de
   // arriba solo se activa en la web anfitriona una vez pegado el código.
+  //
+  // P2 de la auditoría del checkout, punto 1 — este listener no validaba
+  // `e.origin`. A diferencia del snippet público (ver el comentario largo en
+  // lib/reservar/snippet-embed.ts), esto vive DETRÁS de login en el panel: el
+  // peor caso real es que otra pestaña ya autenticada en el panel le cambie el
+  // alto a un iframe de mentira — higiene, no un agujero — pero validar cuesta
+  // lo mismo que no hacerlo. `origen` ya está calculado arriba en este mismo
+  // componente para construir `src`/`codigoIframe` — se reutiliza, no se
+  // recalcula. `e.source` se compara contra `previewRef.current.contentWindow`
+  // en vez de contra el iframe del snippet copiado (ese vive en otra página);
+  // aquí la única fuente legítima es la vista previa que este propio
+  // componente monta.
   const previewRef = useRef<HTMLIFrameElement>(null);
   useEffect(() => {
     function onMessage(e: MessageEvent) {
-      if (e.data?.tentareEmbedAltura && e.data?.tentareSlug === slug && previewRef.current) {
-        previewRef.current.style.height = `${Math.min(e.data.tentareEmbedAltura, 900)}px`;
-      }
+      if (
+        e.origin !== origen
+        || e.source !== previewRef.current?.contentWindow
+        || !e.data?.tentareEmbedAltura
+        || e.data?.tentareSlug !== slug
+      ) return;
+      if (previewRef.current) previewRef.current.style.height = `${Math.min(e.data.tentareEmbedAltura, 900)}px`;
     }
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [slug]);
+  }, [slug, origen]);
 
   return (
     <div className={cn(cardCls, 'p-6')}>

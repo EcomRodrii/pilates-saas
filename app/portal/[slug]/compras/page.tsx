@@ -25,18 +25,26 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { iniciarDomiciliacionSepa, sepaDisponibleParaEstudio, crearCheckoutStripe, crearCheckoutPlan, prepararRenovacionPlan } from '@/lib/api-client';
+import { iniciarDomiciliacionSepa, sepaDisponibleParaEstudio, crearCheckoutStripe, crearCheckoutPlan, crearCheckoutEmbebidoPlan, prepararRenovacionPlan } from '@/lib/api-client';
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
 import { precioPorClase } from '@/lib/estudio-publico';
 import { fechaLarga } from '@/lib/bonos-portal';
 import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
+import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
+import { BottomSheet } from '@/components/portal/ui/BottomSheet';
 import type { PlanTarifa } from '@/lib/types';
+
+// El portal SIEMPRE tiene `socioId` (ruta gateada por sesión) — a diferencia
+// del widget público (`/reservar/[slug]`), que solo migra a embebido cuando
+// hay socia autenticada y mantiene el redirect hosted para visitantes. Ver
+// «Camino A» en `.claude/tentare-os.md`.
+const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
 export default function ComprasPage() {
   const { slug } = useParams<{ slug: string }>();
   const searchParams = useSearchParams();
   const { session } = usePortalAuth();
-  const { studio, socios, planesTarifa, recibos, facturas, planMasElegidoId } = useStudio();
+  const { studio, socios, planesTarifa, recibos, facturas, planMasElegidoId, recargarPublico } = useStudio();
   const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
 
@@ -47,6 +55,11 @@ export default function ComprasPage() {
   const [error, setError] = useState<string | null>(null);
   const [sepaLoading, setSepaLoading] = useState(false);
   const [sepaDisponible, setSepaDisponible] = useState<boolean | null>(null);
+  // Checkout embebido en curso — nunca a la vez que `comprando` (uno abre un
+  // PaymentIntent, el otro un redirect hosted; ver `contratar`).
+  const [pago, setPago] = useState<{ plan: PlanTarifa; clientSecret: string } | null>(null);
+  const [pagoExito, setPagoExito] = useState<PlanTarifa | null>(null);
+  const puedeEmbebido = !!studio?.stripeAccountId && !!STRIPE_PUBLISHABLE_KEY;
 
   // Se comprueba antes de ofrecerlo: si el estudio no tiene SEPA activado, la
   // socia se enteraba ya dentro de Stripe.
@@ -84,21 +97,32 @@ export default function ComprasPage() {
   // desde aquí no es superficie de fraude.
 
   async function contratar(plan: PlanTarifa) {
-    if (!studio?.id || comprando) return;
+    if (!studio?.id || !socioId || comprando || pago) return;
     setComprando(plan.id);
     setError(null);
-    // El manejo de errores (incluido el "res.ok antes del cuerpo", que se
-    // arregló tras contarle a una socia un 500 nuestro como fallo de SU red)
-    // vive en `crearCheckoutPlan`, compartido con la pantalla de Bonos del kit
-    // de temas. Dos pantallas de compra, un solo camino de pago.
-    const r = await crearCheckoutPlan({
+    // Camino A (`.claude/tentare-os.md`): el portal SIEMPRE tiene socioId (ruta
+    // gateada por sesión), así que migra a embebido sin condición — a
+    // diferencia del widget público, que solo lo hace con socia autenticada.
+    // Sin `stripeAccountId`/publishableKey configurados, cae al hosted de
+    // siempre en vez de abrir un `<CheckoutEmbebido>` que se sabe roto.
+    if (!puedeEmbebido) {
+      const r = await crearCheckoutPlan({
+        studioId: studio.id, planId: plan.id, socioId,
+        socioEmail: socia?.email ?? null, socioNombre: socia?.nombre ?? 'Socia',
+        origen: 'portal',
+      });
+      if ('url' in r) { window.location.assign(r.url); return; }
+      setError(r.error);
+      setComprando(null);
+      return;
+    }
+    const r = await crearCheckoutEmbebidoPlan({
       studioId: studio.id, planId: plan.id, socioId,
       socioEmail: socia?.email ?? null, socioNombre: socia?.nombre ?? 'Socia',
-      origen: 'portal',
     });
-    if ('url' in r) { window.location.assign(r.url); return; }
-    setError(r.error);
     setComprando(null);
+    if ('error' in r) { setError(r.error); return; }
+    setPago({ plan, clientSecret: r.clientSecret });
   }
 
   async function pagarRecibo(reciboId: string) {
@@ -222,7 +246,7 @@ export default function ComprasPage() {
                   key={p.id}
                   type="button"
                   onClick={() => void contratar(p)}
-                  disabled={comprando != null}
+                  disabled={comprando != null || pago != null}
                   style={{
                     borderRadius: radio.card, border: 'none', textAlign: 'left',
                     background: destacado ? '#2C352C' : t.surface,
@@ -367,7 +391,7 @@ export default function ComprasPage() {
                       <button
                         type="button"
                         onClick={() => void pagarRecibo(rec.id)}
-                        disabled={comprando != null}
+                        disabled={comprando != null || pago != null}
                         style={{
                           height: 38, padding: '0 14px', borderRadius: 19, border: 'none',
                           background: 'var(--portal-brand)', color: t.accentInk,
@@ -409,7 +433,7 @@ export default function ComprasPage() {
         <button
           type="button"
           onClick={() => void renovar()}
-          disabled={comprando != null}
+          disabled={comprando != null || pago != null}
           style={{
             height: 54, width: '100%', borderRadius: radio.botonAlto - 6, marginTop: 24,
             border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
@@ -433,6 +457,45 @@ export default function ComprasPage() {
           <div className="w-8 h-8 rounded-full animate-spin" style={{ border: `3px solid ${t.line}`, borderTopColor: t.ink }} />
         </div>
       )}
+
+      {/* Checkout embebido — Camino A. `studio?.stripeAccountId` y
+          `STRIPE_PUBLISHABLE_KEY` van garantizados no-nulos aquí: `pago` solo
+          se fija tras pasar `puedeEmbebido` en `contratar`. */}
+      <BottomSheet open={pago != null} onClose={() => setPago(null)}>
+        {pago && studio?.stripeAccountId && STRIPE_PUBLISHABLE_KEY && (
+          <CheckoutEmbebido
+            t={t}
+            plan={pago.plan}
+            clientSecret={pago.clientSecret}
+            publishableKey={STRIPE_PUBLISHABLE_KEY}
+            stripeAccountId={studio.stripeAccountId}
+            onExito={() => {
+              setPagoExito(pago.plan);
+              setPago(null);
+              recargarPublico();
+            }}
+            onCerrar={() => setPago(null)}
+          />
+        )}
+      </BottomSheet>
+
+      {/* Confirmación tras el pago — mismo tono que la de `ListaPlanes`
+          (Modo B): la factura la registra el webhook, así que esto confirma
+          el COBRO, no da por hecho que la factura ya esté abajo en la lista. */}
+      <BottomSheet open={pagoExito != null} onClose={() => setPagoExito(null)}>
+        {pagoExito && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: sans, textAlign: 'center', padding: '12px 0 4px' }}>
+            <p style={{ fontSize: 16, fontWeight: 800, color: t.ink }}>¡Pago confirmado!</p>
+            <p style={{ fontSize: 13, color: t.muted }}>{pagoExito.nombre} ya está activo en tu cuenta.</p>
+            <button type="button" onClick={() => setPagoExito(null)} style={{
+              width: '100%', height: 44, borderRadius: radio.botonAlto - 6, border: 'none', fontSize: 13.5, fontWeight: 800,
+              background: 'var(--portal-brand)', color: t.accentInk, cursor: 'pointer',
+            }}>
+              Cerrar
+            </button>
+          </div>
+        )}
+      </BottomSheet>
     </div>
   );
 }

@@ -22,6 +22,17 @@
 // Tentare Y cuyo `e.source` sea ESTE iframe (dos widgets del mismo estudio en
 // la misma página no se pisan entre sí).
 //
+// P2 de la auditoría, punto 2 — listeners deduplicados: antes, cada widget
+// pegado en la misma página anfitriona (p. ej. clases + citas, o dos "Reserva
+// esta clase" de un newsletter) sumaba su PROPIO `addEventListener` de
+// scroll/resize/message — con N widgets, un scroll disparaba N handlers, cada
+// uno filtrando el mensaje del resto sin usarlo. `window.__tentareEmbeds` es
+// un registro compartido (una entrada por widget pegado); los tres listeners
+// se enganchan UNA sola vez por página (`window.__tentareEmbedListeners`) y
+// recorren el registro. El filtro por `slug`+`e.source===st.f.contentWindow`
+// es EXACTAMENTE el mismo de antes, por entrada — ningún widget ve ni actúa
+// sobre el mensaje de otro.
+//
 // ⚠️ El snippet ya pegado en webs existentes NO se actualiza solo: el widget
 // debe funcionar sin estos mensajes (fallback: overlays anclados al top del
 // iframe) y mejorar cuando lleguen. No romper nunca esa retrocompatibilidad.
@@ -30,5 +41,5 @@ export function scriptSnippetIframe({ origen, slug, iframeId }: {
   slug: string;
   iframeId: string;
 }): string {
-  return `<script>(function(){var o='${origen}';var f=document.getElementById('${iframeId}');var raf=null;function vp(){raf=null;if(!f||!f.contentWindow)return;var r=f.getBoundingClientRect();var h=Math.min(r.bottom,window.innerHeight)-Math.max(r.top,0);f.contentWindow.postMessage({tentareHostViewport:{top:Math.max(0,-r.top),height:Math.max(0,h)}},o);}function pv(){if(!raf)raf=requestAnimationFrame(vp);}window.addEventListener('scroll',pv,true);window.addEventListener('resize',pv);window.addEventListener('message',function(e){if(e.origin!==o||!e.data||e.data.tentareSlug!=='${slug}'||!f||e.source!==f.contentWindow)return;if(e.data.tentareEmbedAltura){f.style.height=e.data.tentareEmbedAltura+'px';pv();}if(e.data.tentareScrollTo){f.scrollIntoView({block:'start',behavior:'smooth'});}});pv();})();</script>`;
+  return `<script>(function(){var w=window;var reg=w.__tentareEmbeds||(w.__tentareEmbeds=[]);var st={o:'${origen}',s:'${slug}',f:document.getElementById('${iframeId}'),raf:null};reg.push(st);function vp(e){e.raf=null;if(!e.f||!e.f.contentWindow)return;var r=e.f.getBoundingClientRect();var h=Math.min(r.bottom,w.innerHeight)-Math.max(r.top,0);e.f.contentWindow.postMessage({tentareHostViewport:{top:Math.max(0,-r.top),height:Math.max(0,h)}},e.o);}function pv(e){if(!e.raf)e.raf=requestAnimationFrame(function(){vp(e);});}st.pv=function(){pv(st);};if(!w.__tentareEmbedListeners){w.__tentareEmbedListeners=true;w.addEventListener('scroll',function(){reg.forEach(function(e){pv(e);});},true);w.addEventListener('resize',function(){reg.forEach(function(e){pv(e);});});w.addEventListener('message',function(e){for(var i=0;i<reg.length;i++){var st2=reg[i];if(e.origin!==st2.o||!e.data||e.data.tentareSlug!==st2.s||!st2.f||e.source!==st2.f.contentWindow)continue;if(e.data.tentareEmbedAltura){st2.f.style.height=e.data.tentareEmbedAltura+'px';pv(st2);}if(e.data.tentareScrollTo){st2.f.scrollIntoView({block:'start',behavior:'smooth'});}}});}st.pv();})();</script>`;
 }
