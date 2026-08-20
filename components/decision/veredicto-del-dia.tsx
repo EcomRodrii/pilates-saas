@@ -37,7 +37,7 @@ function tituloEstadoGlobal(nAutonomasHoy: number): { titulo: string; subtitulo:
   };
 }
 
-export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, procesando, whatsappHref, nAutonomasHoy = 0 }: {
+export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, procesando, whatsappHref, nAutonomasHoy = 0, totalPendiente = 0, onVerPendiente }: {
   veredicto: VeredictoAPI;
   onHecho: () => void;
   onYaLoSe: () => void;
@@ -48,9 +48,25 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
    * automático hoy sin esperar criterio — cambia el titular de "nada
    * pendiente" para que se note que Tentare ya trabajó, no solo que calló. */
   nAutonomasHoy?: number;
+  /** Cuántas situaciones sigue habiendo en Prioridades + Más situaciones
+   * aunque El Umbral haya decidido no interrumpir hoy — el mismo número que
+   * ya suma el Action Center del Dashboard. Sin esto, "Todo bajo control"
+   * contradice a un clic de distancia a "9 cosas necesitan tu atención". */
+  totalPendiente?: number;
+  onVerPendiente?: () => void;
 }) {
   const [porQueAbierto, setPorQueAbierto] = useState(false);
   const [queRevisoAbierto, setQueRevisoAbierto] = useState(false);
+
+  const puente = totalPendiente > 0 && onVerPendiente && (
+    <button
+      type="button"
+      onClick={onVerPendiente}
+      className="max-w-sm text-[12.5px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+    >
+      Nada cruza el umbral hoy, pero tienes {totalPendiente} {totalPendiente === 1 ? 'situación' : 'situaciones'} en seguimiento.
+    </button>
+  );
 
   if (veredicto.tipo === 'SIN_ANALIZAR') {
     return (
@@ -72,6 +88,7 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
           <div aria-hidden className="h-8 w-8 rounded-full" style={{ border: '2.5px solid var(--success)' }} />
           <h2 className="font-heading text-[18px] font-semibold text-foreground">{titulo}</h2>
           <p className="max-w-sm text-[13.5px] text-muted-foreground">{subtitulo}</p>
+          {puente}
           {veredicto.semanaTranquila && (
             <p className="max-w-sm text-[12.5px] text-muted-foreground">
               Esta semana no hubo nada que mereciera interrumpirte.
@@ -109,6 +126,7 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
           <div aria-hidden className="h-8 w-8 rounded-full" style={{ border: '2.5px solid var(--success)' }} />
           <h2 className="font-heading text-[18px] font-semibold text-foreground">{titulo}</h2>
           <p className="max-w-sm text-[13.5px] text-muted-foreground">{subtitulo}</p>
+          {puente}
         </CardContent>
       </Card>
     );
