@@ -6,7 +6,8 @@ import { useStudio } from '@/lib/studio-context';
 import { Search, ArrowRight, Calendar, CreditCard, X, Zap, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePermisos } from '@/lib/permisos';
-import { buscarTareas, rutaBase } from '@/lib/tareas';
+import { buscarTareas, normalizar, rutaBase } from '@/lib/tareas';
+import { MODULOS } from '@/lib/nav-config';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 
 export function GlobalSearch({
@@ -113,6 +114,27 @@ export function GlobalSearch({
     [q, puedeVer],
   );
 
+  // Secciones del menú lateral (Calendario, Cobros...) como resultado de
+  // primera clase: escribir el nombre EXACTO de una sección a un clic de
+  // distancia no encontraba nada, porque TAREAS son frases-verbo ("Cobrar una
+  // mensualidad") sin el rótulo del menú en `claves`. Prioridad por encima de
+  // TAREAS (coincidencia parcial) — es el caso de uso más básico de un ⌘K.
+  const modulosRes = useMemo(() => {
+    if (q.length < 1) return [];
+    const nq = normalizar(q);
+    return MODULOS
+      .filter(m => puedeVer(m.href))
+      .map(m => {
+        const nl = normalizar(m.label);
+        const punt = nl.startsWith(nq) ? 100 : nl.includes(nq) ? 70 : 0;
+        return { m, punt };
+      })
+      .filter(x => x.punt > 0)
+      .sort((a, b) => b.punt - a.punt)
+      .slice(0, 4)
+      .map(x => x.m);
+  }, [q, puedeVer]);
+
   // Instructoras/equipo (#849): mismo criterio de nombre que sociosRes, y
   // acotado a quien ya puede ver /equipo (RECEPCION no) — el mismo guard que
   // ya bloquea esa sección en el menú, no uno nuevo.
@@ -124,7 +146,7 @@ export function GlobalSearch({
       : instructores.filter(i => i.activo).slice(0, 3);
   }, [instructores, puedeVerEquipo, q]);
 
-  const hasResults = tareasRes.length > 0 || sociosRes.length > 0 || sesionesRes.length > 0 || recibosRes.length > 0 || instructoresRes.length > 0;
+  const hasResults = modulosRes.length > 0 || tareasRes.length > 0 || sociosRes.length > 0 || sesionesRes.length > 0 || recibosRes.length > 0 || instructoresRes.length > 0;
 
   function go(href: string) { router.push(href); setOpen(false); }
 
@@ -184,6 +206,30 @@ export function GlobalSearch({
 
             {/* Results */}
             <div className="max-h-[400px] overflow-y-auto p-2">
+              {/* Secciones del menú — primero: "escribo Calendario, quiero ir a Calendario" */}
+              {modulosRes.length > 0 && (
+                <div className="mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>
+                    Ir a
+                  </p>
+                  {modulosRes.map(m => {
+                    const Icon = m.icon;
+                    return (
+                      <button key={m.href} onClick={() => go(m.href)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 12%, var(--card))' }}>
+                          <Icon size={14} style={{ color: 'var(--brand)' }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{m.label}</p>
+                        </div>
+                        <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Tareas — primero: responde a "¿qué quiero hacer?" */}
               {tareasRes.length > 0 && (
                 <div className="mb-1">
