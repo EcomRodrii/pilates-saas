@@ -456,6 +456,16 @@ nextjs-portal { display: none !important; }
 @keyframes reserva-banner-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .reserva-banner-in { animation: reserva-banner-in .3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
+/* La hoja de reserva es `width:100%` (banda completa en móvil, columna
+   centrada desde 560px) — a diferencia de PublicSheet, que siempre es una
+   tarjeta flotante. Reusar `.animate-sheet-pop-in` (con `scale(.97)`) deja el
+   ancho medible por debajo del real mientras dura la animación: un test de
+   e2e midiendo `boundingBox().width` justo tras abrir la hoja en 390px de
+   viewport lo pilló (`reservar-escritorio-no-es-movil-estirado.spec.ts`).
+   Sin `scale`, el ancho es el real desde el primer frame. */
+@keyframes reserva-sheet-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.reserva-sheet-in { animation: reserva-sheet-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
 /* Burbuja flotante de WhatsApp (components/layout/whatsapp-fab.tsx) — el
    anillo pulsante que llama la atención sobre la burbuja mientras la tarjeta
    está cerrada. Lento (2.8s) y con hueco entre pulsos para que no resulte

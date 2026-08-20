@@ -31,11 +31,14 @@
 }
 
 /* Pulido de reserva-calendario.tsx (pedido del fundador tras #1256), mismo
-   motivo de duplicado que arriba. Ver el comentario largo en app/globals.css. */
+   motivo de duplicado que arriba. Ver el comentario largo en app/globals.css.
+   Sin `scale`: la hoja aquí es SIEMPRE `width:100%` (nunca la tarjeta
+   flotante de PublicSheet, que no vive en este bundle), y un `scale(.97)`
+   deja el ancho medible por debajo del real mientras dura la animación. */
 @keyframes sheet-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes sheet-pop-in { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes reserva-sheet-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 .animate-sheet-backdrop-in { animation: sheet-backdrop-in .2s ease both; }
-.animate-sheet-pop-in { animation: sheet-pop-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.reserva-sheet-in { animation: reserva-sheet-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 .reserva-slot-row { transition: background-color .18s ease; }
 .reserva-slot-row:hover { background-color: color-mix(in oklab, var(--portal-brand) 6%, transparent); }

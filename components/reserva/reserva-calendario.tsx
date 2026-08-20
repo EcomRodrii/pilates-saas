@@ -898,7 +898,7 @@ function BookingSheet({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="animate-sheet-pop-in"
+        className="reserva-sheet-in"
         // Medido en el navegador a 1280px: esto era una banda a TODO el ancho
         // pegada al borde inferior, con ~1000px de vacío entre cada etiqueta y
         // su valor («HORARIO ......... 10:00 – 10:50») y un botón «RESERVAR» de
