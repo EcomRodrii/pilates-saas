@@ -10,6 +10,7 @@ import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, mapInstructor,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbFetchCamposPersonalizados, dbInsertCampoPersonalizado, dbUpdateCampoPersonalizado, dbDeleteCampoPersonalizado,
+  dbFetchSegmentosClientes, dbInsertSegmentoCliente, dbUpdateSegmentoCliente, dbDeleteSegmentoCliente,
   dbFetchPlantillasEmail, dbUpsertPlantillaEmail,
   dbFetchDependencySnapshots,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
@@ -88,6 +89,7 @@ export type ResultadoReserva =
   | { ok: false; error: string };
 import { horarioConNuevaHora } from '@/lib/serie-horario';
 import { politicaPrivacidadPorDefecto, terminosServicioPorDefecto, type DatosEstudioLegal } from '@/lib/legal-textos';
+import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
 import type {
   Studio,
   DiaHorario,
@@ -560,6 +562,12 @@ interface StudioContextValue {
   updateCampoPersonalizado: (id: string, changes: Partial<Omit<CampoPersonalizado, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteCampoPersonalizado: (id: string) => Promise<ResultadoEscritura>;
 
+  // Segmentos de clientes guardables (auditoría vs Momence)
+  segmentosClientes: SegmentoCliente[];
+  addSegmentoCliente: (nombre: string, condiciones: DefinicionSegmento) => Promise<ResultadoEscritura>;
+  updateSegmentoCliente: (id: string, changes: Partial<Pick<SegmentoCliente, 'nombre' | 'condiciones'>>) => Promise<ResultadoEscritura>;
+  deleteSegmentoCliente: (id: string) => Promise<ResultadoEscritura>;
+
   // Plantillas de email transaccional
   plantillasEmail: PlantillaEmail[];
   upsertPlantillaEmail: (tipo: PlantillaEmail['tipo'], changes: CambiosPlantillaEmail) => Promise<ResultadoEscritura>;
@@ -718,6 +726,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
   const [retoConteos, setRetoConteos] = useState<Record<string, number>>({});
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
+  const [segmentosClientes, setSegmentosClientes] = useState<SegmentoCliente[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
   const [dependencySnapshots, setDependencySnapshots] = useState<InstructorDependencySnapshot[]>([]);
   const [instructores, setInstructores] = useState<Instructor[]>([]);
@@ -1197,6 +1206,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // Campos personalizados y plantillas de email: no son ruta crítica (solo
       // config + fichas), se cargan aparte sin bloquear el primer pintado.
       dbFetchCamposPersonalizados().then(setCamposPersonalizados).catch(() => {});
+      dbFetchSegmentosClientes().then(setSegmentosClientes).catch(() => {});
       dbFetchPlantillasEmail().then(setPlantillasEmail).catch(() => {});
       dbFetchDependencySnapshots().then(setDependencySnapshots).catch(() => {});
       // RECEPCION/MANAGER simplemente reciben [] aquí (la RLS los excluye) —
@@ -1693,6 +1703,29 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbDeleteCampoPersonalizado(id);
     if (!res.ok) return res;
     setCamposPersonalizados(prev => prev.filter(c => c.id !== id));
+    return res;
+  }
+
+  async function addSegmentoCliente(nombre: string, condiciones: DefinicionSegmento): Promise<ResultadoEscritura> {
+    const nuevo: SegmentoCliente = {
+      id: `segmento-${uid()}`, studioId: getCurrentStudioId(), nombre, condiciones,
+      creadoPor: authUserId, creadoEn: new Date().toISOString(), actualizadoEn: new Date().toISOString(),
+    };
+    const res = await dbInsertSegmentoCliente(nuevo);
+    if (!res.ok) return res;
+    setSegmentosClientes(prev => [nuevo, ...prev]);
+    return res;
+  }
+  async function updateSegmentoCliente(id: string, changes: Partial<Pick<SegmentoCliente, 'nombre' | 'condiciones'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateSegmentoCliente(id, changes);
+    if (!res.ok) return res;
+    setSegmentosClientes(prev => prev.map(s => s.id === id ? { ...s, ...changes, actualizadoEn: new Date().toISOString() } : s));
+    return res;
+  }
+  async function deleteSegmentoCliente(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteSegmentoCliente(id);
+    if (!res.ok) return res;
+    setSegmentosClientes(prev => prev.filter(s => s.id !== id));
     return res;
   }
 
@@ -4427,6 +4460,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addCampoPersonalizado,
     updateCampoPersonalizado,
     deleteCampoPersonalizado,
+    segmentosClientes,
+    addSegmentoCliente,
+    updateSegmentoCliente,
+    deleteSegmentoCliente,
     plantillasEmail,
     upsertPlantillaEmail,
     dependencySnapshots,
@@ -4614,7 +4651,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }), [
     planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
-    camposPersonalizados, plantillasEmail, dependencySnapshots,
+    camposPersonalizados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,
     plantillasCuestionarioSalud, respuestasCuestionarioSalud,
