@@ -56,7 +56,16 @@ const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const ORIGEN_TENTARE = (() => {
   try {
     const src = (document.currentScript as HTMLScriptElement | null)?.src;
-    return src ? new URL(src).origin : window.location.origin;
+    const origen = src ? new URL(src).origin : window.location.origin;
+    // ⚠️ El apex redirige 308 a www a nivel de dominio (Vercel), y un
+    // preflight CORS NO sigue redirects: con `src="https://tentare.app/..."`
+    // el script carga (los <script> sí siguen redirects) pero TODAS las
+    // llamadas a la API mueren con "Redirect is not allowed for a preflight
+    // request" — el widget se pinta y se queda sin datos, en silencio.
+    // Encontrado en la prueba de campo del 2026-08-20, no en ningún e2e:
+    // el snippet generado por el panel siempre lleva www, pero basta que un
+    // estudio recorte la URL a mano para caer aquí.
+    return origen === 'https://tentare.app' ? 'https://www.tentare.app' : origen;
   } catch {
     return window.location.origin;
   }
