@@ -10,6 +10,7 @@ import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 import { metodoReutilizableDe } from '@/lib/billing/metodo-reutilizable';
 import { registrarDevolucion, referenciaDevolucion, origenDeReembolso } from '@/lib/billing/registrar-devolucion';
 import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
+import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -386,6 +387,22 @@ async function procesarEvento(
         // un pago por enlace dejaba la suscripción sin renovar hasta que
         // alguien abría el panel. Best-effort e idempotente.
         await aplicarRenovacionServidor(admin, { studioId, reciboId });
+        // Sellado de factura: mismo criterio que cobrarReciboOffSession
+        // (lib/billing/stripe-cobros.ts) y confirmarCobroSepaExitoso — este
+        // era el ÚNICO de los tres caminos de dinero real que no la sellaba.
+        // Un pago desde el portal (la socia paga su recibo pendiente vía
+        // Checkout hospedado) confirmaba el cobro y nunca generaba factura;
+        // best-effort e idempotente: el cobro ya está persistido, un fallo
+        // aquí no puede tumbar el evento.
+        const selladoFactura = await sellarFacturaDeRecibo(admin, {
+          studioId, reciboId, facturaId: `fac-checkout-${reciboId}`,
+        });
+        if (!selladoFactura.ok) {
+          Sentry.captureMessage('[stripe webhook] cobro OK pero factura sin sellar', {
+            level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
+            extra: { reciboId, studioId, error: selladoFactura.error },
+          });
+        }
         // Notification Engine: confirmación de pago a la socia.
         const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
         await emitirPagoRealizado(admin, { studioId, reciboId });
