@@ -59,6 +59,70 @@ function quienPaga(socioId: string | null, socioEmail: string | null): string {
   return 'guest';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// D-3 (auditoría 20-ago): la MISMA regla, para la compra de plan del Modo A
+// (`app/api/stripe/checkout/route.ts`, Checkout Session). Allí la clave y la
+// reserva de sesión existían solo para recibos; la compra de un plan no tenía
+// ninguna de las dos — dos pestañas eran dos `cs_` pagables, dos cargos, dos
+// recibos COBRADOS y dos suscripciones, y el conciliador tampoco lo detectaba
+// (los ids de entrega derivan del id de sesión, que es distinto).
+//
+// Diferencias deliberadas respecto a `claveCheckoutEmbebido`:
+//
+//  · PREFIJO PROPIO ('checkout-plan'). El fallback de Bizum del widget llama a
+//    este MISMO endpoint después de un intento embebido: con la misma clave en
+//    dos llamadas distintas de la API (paymentIntents.create vs
+//    checkout.sessions.create), Stripe respondería idempotency_error y esa
+//    persona NO PODRÍA PAGAR — el fallo de ventas nº2 de la HISTORIA de
+//    arriba, por otra vía.
+//
+//  · LOS MÉTODOS DE PAGO VAN EN LA CLAVE, como ya hace la clave de recibos del
+//    mismo endpoint: pasar de tarjeta a tarjeta+Bizum exige una sesión
+//    distinta, y con la misma clave y parámetros distintos Stripe rechaza el
+//    intento. El precio es que un cambio de método deja la sesión anterior
+//    viva hasta que caduque (aquí no hay fila donde anclar una reserva que
+//    permita expirarla, a diferencia del recibo) — pagar las DOS exigiría
+//    completar dos checkouts a propósito.
+//
+//  · SIN IDENTIDAD NO HAY CLAVE (null). Este endpoint es semipúblico y el
+//    email no está garantizado: un 'guest' a secas colisionaría entre personas
+//    distintas comprando el mismo plan en el mismo minuto. En Modo B se acepta
+//    porque su formulario siempre recoge el email antes de cobrar; aquí lo
+//    conservador es no arriesgar una venta — sin clave se queda el
+//    comportamiento de antes, que ya era el statu quo.
+//
+// Sin `sesionId`: el Modo A no tiene "pagar y reservar" — siempre es compra
+// suelta, así que siempre lleva la ventana de un minuto (repetir la compra de
+// un bono SÍ puede ser legítimo). Mismo residuo documentado que Modo B: dos
+// pestañas separadas por más de 60 s siguen creando dos sesiones.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DatosClaveCheckoutPlan {
+  studioId: string;
+  planId: string;
+  socioId: string | null;
+  socioEmail: string | null;
+  codigoDescuentoId: string | null;
+  /** `payment_method_types` de la sesión: cambiarlos exige una sesión distinta. */
+  metodos: string[];
+}
+
+export function claveCheckoutPlanModoA(
+  datos: DatosClaveCheckoutPlan,
+  ahoraMs: number = Date.now(),
+): string | null {
+  if (!datos.socioId && !datos.socioEmail) return null;
+  return [
+    'checkout-plan',
+    datos.studioId,
+    datos.planId,
+    quienPaga(datos.socioId, datos.socioEmail),
+    datos.codigoDescuentoId ? `d${datos.codigoDescuentoId}` : 'dnone',
+    [...datos.metodos].sort().join('+'),
+    String(Math.floor(ahoraMs / 60000)),
+  ].join('-');
+}
+
 export function claveCheckoutEmbebido(
   datos: DatosClaveCheckoutEmbebido,
   ahoraMs: number = Date.now(),

@@ -8,6 +8,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { decidirSesionCheckout } from '@/lib/billing/sesion-checkout';
+import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
@@ -279,6 +280,25 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // D-3 (auditoría 20-ago): clave de idempotencia también para la compra de
+  // PLAN. Antes existía solo para recibos y dos pestañas del mismo intento eran
+  // dos `cs_` pagables → dos cargos, dos recibos COBRADOS y dos suscripciones,
+  // sin que nada lo detectara. Misma regla que el checkout embebido (Modo B),
+  // con prefijo y componentes propios — el porqué de cada diferencia está en
+  // `lib/billing/clave-checkout-embebido.ts`. Devuelve null sin identidad
+  // (endpoint semipúblico, el email no está garantizado): en ese caso se queda
+  // el comportamiento de antes en vez de arriesgar una colisión entre personas.
+  const clavePlan = !body.reciboId && body.planId
+    ? claveCheckoutPlanModoA({
+        studioId: body.studioId,
+        planId: body.planId,
+        socioId,
+        socioEmail: body.socioEmail ?? null,
+        codigoDescuentoId: metadata.codigoDescuentoId ?? null,
+        metodos: paymentMethodTypes,
+      })
+    : null;
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -331,11 +351,17 @@ export async function POST(req: NextRequest) {
       // sesión que ya creó en vez de crear otra. Lleva los métodos de pago
       // porque cambiarlos sí exige una sesión distinta, y con la misma clave y
       // parámetros distintos Stripe respondería un error de idempotencia.
-      // Solo para recibos: en la compra de un plan no hay un id estable con el
-      // que construir una clave que no colisione entre personas distintas.
+      //
+      // Para la compra de un plan, `clavePlan` (D-3): la afirmación que vivía
+      // aquí —"no hay un id estable con el que construir una clave que no
+      // colisione entre personas"— dejó de ser cierta cuando el Modo B lo
+      // resolvió identificando el INTENTO (persona hasheada + plan + descuento
+      // + ventana), y quedó sin aplicar en este camino.
       ...(body.reciboId
         ? { idempotencyKey: `checkout-${body.reciboId}-${[...paymentMethodTypes].sort().join('-')}` }
-        : {}),
+        : clavePlan
+          ? { idempotencyKey: clavePlan }
+          : {}),
     });
 
     // Se registra ANTES de devolver la URL. Si esto fallara y devolviéramos la
