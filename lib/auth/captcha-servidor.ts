@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/nextjs';
+
 // Verificación de un token de Turnstile CONTRA CLOUDFLARE, en el servidor.
 //
 // ⚠️ Por qué hace falta esto, si ya hay captcha en media docena de pantallas:
@@ -75,6 +77,20 @@ export async function verificarCaptcha(
     // timeout, y se trata igual.
     if (!res.ok) {
       console.error('[captcha] siteverify respondió', res.status);
+      // P2 de la auditoría del checkout, punto 3 — un 429 aquí es Cloudflare
+      // frenándonos a NOSOTROS (todo el tráfico de Tentare comparte el mismo
+      // secreto), no a una persona ni a un bot concreto: si empieza a pasar de
+      // verdad, cada alta/login que dependa de este veredicto queda fail-open
+      // (sin proteger, silenciosamente) hasta que se note. `console.error` en
+      // serverless se pierde sin que nadie lo mire — esto lo sube a Sentry para
+      // que un veredicto que deja de proteger AVISE, sin cambiar el fail-open
+      // en sí (seguiría siendo peor perder altas reales que dejar pasar unas
+      // pocas de más mientras dura el frenazo).
+      if (res.status === 429) {
+        Sentry.captureMessage('[captcha] Cloudflare Turnstile nos está limitando (429) — verificación en fail-open', {
+          level: 'warning', tags: { modulo: 'captcha-servidor' },
+        });
+      }
       return 'ok';
     }
     const datos = (await res.json()) as { success?: boolean; 'error-codes'?: string[] };

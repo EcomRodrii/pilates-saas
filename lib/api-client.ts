@@ -681,6 +681,35 @@ export async function crearCheckoutPlan(params: {
   return postCheckout('/api/stripe/checkout', params);
 }
 
+/**
+ * Contratar un PLAN sin salir del portal — checkout EMBEBIDO (Camino A de la
+ * migración hosted→embebido, `.claude/tentare-os.md`). Exige sesión de socia:
+ * `socioId` NUNCA se toma del body en el servidor, se deriva del Bearer que
+ * manda `portalAuthHeader()` (ver app/api/public/checkout-embebido/route.ts).
+ * Devuelve el `clientSecret` para montar `<CheckoutEmbebido>`, no una URL.
+ */
+export async function crearCheckoutEmbebidoPlan(params: {
+  studioId: string;
+  planId: string;
+  socioId: string;
+  socioEmail: string | null;
+  socioNombre: string;
+}): Promise<{ clientSecret: string } | { error: string }> {
+  try {
+    const headers = await portalAuthHeader();
+    const res = await fetch('/api/public/checkout-embebido', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json().catch(() => null) as { clientSecret?: string; error?: string } | null;
+    if (!res.ok || !data?.clientSecret) return { error: data?.error ?? mensajeHttp(res.status) };
+    return { clientSecret: data.clientSecret };
+  } catch {
+    return { error: 'Error de conexión. Inténtalo de nuevo.' };
+  }
+}
+
 export async function crearCheckoutStripe(params: {
   reciboId: string;
   socioId: string;
