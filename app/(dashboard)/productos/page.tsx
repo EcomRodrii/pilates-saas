@@ -4,9 +4,10 @@ import { useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero } from '@/lib/permisos';
-import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS } from '@/lib/types';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
@@ -417,16 +418,14 @@ export default function Productos() {
           </div>
 
           {planesTarifa.filter(p => p.tipo === tipoTab).length === 0 ? (
-            <div className="bg-card rounded-2xl border-2 border-dashed border-border px-5 py-12 text-center text-muted-foreground">
-              <p className="text-sm font-semibold text-foreground">Aún no tienes {TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}</p>
-              <p className="text-[13px] mt-1">Crea uno nuevo o cambia de pestaña para ver otro tipo.</p>
-              <button onClick={() => setPlanModal('new')}
-                className="mt-4 text-sm font-semibold text-brand-medio hover:underline underline-offset-2">
-                Añadir {TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'plan'}
-              </button>
-            </div>
+            <EmptyState
+              icono={Package}
+              titulo={`Aún no tienes ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}`}
+              descripcion="Crea uno nuevo o cambia de pestaña para ver otro tipo."
+              cta={{ label: `Añadir ${TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'plan'}`, onClick: () => setPlanModal('new') }}
+            />
           ) : planesFiltrados.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Sin resultados para &quot;{busqueda}&quot;.</p>
+            <EmptyState compacto titulo={`Sin resultados para "${busqueda}".`} />
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {planesFiltrados.map(plan => {
@@ -451,11 +450,11 @@ export default function Productos() {
                   <div className="flex gap-1 shrink-0">
                     <button onClick={() => setPlanModal(plan)} aria-label="Editar plan"
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-                      <Pencil size={13} />
+                      <Pencil size={14} />
                     </button>
                     <button onClick={() => setBorrando(plan)} aria-label="Eliminar plan"
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                      <Trash2 size={13} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
@@ -535,7 +534,7 @@ export default function Productos() {
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: c.bg }}>
-                              <ShoppingBag size={13} style={{ color: c.text }} />
+                              <ShoppingBag size={14} style={{ color: c.text }} />
                             </div>
                             <span className="font-semibold text-foreground">{p.nombre}</span>
                           </div>
@@ -557,7 +556,7 @@ export default function Productos() {
                         <td className="px-5 py-3.5">
                           <button onClick={() => setPosModal(p)} aria-label="Editar producto"
                             className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
-                            <Pencil size={13} />
+                            <Pencil size={14} />
                           </button>
                         </td>
                       </tr>

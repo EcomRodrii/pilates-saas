@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Building2, Calendar, CalendarCheck2, Check, Clock, ClipboardCheck, Code2, Copy, Plug, type LucideIcon } from 'lucide-react';
+import { Building2, Calendar, CalendarCheck, Check, Clock, ClipboardCheck, Code2, Copy, Plug, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeGestionarAppsOAuth } from '@/lib/permisos';
@@ -67,7 +67,7 @@ const WIDGET_ICONOS: Record<(typeof WIDGETS)[number]['id'], LucideIcon> = {
   citas: Clock,
   misreservas: ClipboardCheck,
   estudio: Building2,
-  'clase-concreta': CalendarCheck2,
+  'clase-concreta': CalendarCheck,
   'embed-script': Code2,
 };
 
@@ -899,7 +899,7 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
                 onClick={copiar}
                 className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors"
               >
-                {copiado ? <Check size={13} className="text-success" /> : <Copy size={13} />}
+                {copiado ? <Check size={14} className="text-success" /> : <Copy size={14} />}
                 {copiado ? 'Copiado' : 'Copiar código'}
               </button>
             ) : undefined}

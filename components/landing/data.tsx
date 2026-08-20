@@ -1,5 +1,5 @@
 import { ACC_SOFT } from './theme';
-import { IconAlert, IconCalendar, IconInvoice, IconUsers } from './icons';
+import { AlertTriangle, Calendar, CreditCard, Users } from 'lucide-react';
 
 // Menú principal. También alimenta el `SiteNavigationElement` de
 // components/OrganizationStructuredData.tsx, así que cambiar esta lista mueve
@@ -308,8 +308,8 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
 ];
 
 export const FLOW_STEPS = [
-  { icon: IconAlert, title: 'Entra la baja', cap: 'Ana avisa desde la app · jue 19:00' },
-  { icon: IconUsers, title: 'Busca y contacta', cap: '3 candidatas disponibles · avisadas' },
-  { icon: IconCalendar, title: 'Confirma y cuadra', cap: 'Lucía acepta · calendario y horas al día' },
-  { icon: IconInvoice, title: 'Avisa a las alumnas', cap: 'Cambio notificado por su canal' },
+  { icon: AlertTriangle, title: 'Entra la baja', cap: 'Ana avisa desde la app · jue 19:00' },
+  { icon: Users, title: 'Busca y contacta', cap: '3 candidatas disponibles · avisadas' },
+  { icon: Calendar, title: 'Confirma y cuadra', cap: 'Lucía acepta · calendario y horas al día' },
+  { icon: CreditCard, title: 'Avisa a las alumnas', cap: 'Cambio notificado por su canal' },
 ];

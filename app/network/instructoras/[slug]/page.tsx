@@ -149,7 +149,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
           <div>
             {badges.experienciaVerificada && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold mb-3" style={{ background: NW_ESTADO.verificada.fondo, color: NW_ESTADO.verificada.color }}>
-                <BadgeCheck size={13} /> Perfil verificado
+                <BadgeCheck size={14} /> Perfil verificado
               </span>
             )}
             <h1 className="text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight">{perfil.nombre}</h1>
@@ -165,7 +165,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                 </span>
               )}
               {perfil.ciudad && (
-                <span className="flex items-center gap-1"><MapPin size={13} />{perfil.ciudad}{perfil.zona ? ` · ${perfil.zona}` : ''}</span>
+                <span className="flex items-center gap-1"><MapPin size={14} />{perfil.ciudad}{perfil.zona ? ` · ${perfil.zona}` : ''}</span>
               )}
             </div>
 
@@ -228,7 +228,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                       <div>
                         <div className="flex items-center gap-1.5">
                           <p className="text-[15px] font-bold" style={{ color: NW_TINTA }}>{exp.nombreEstudio}</p>
-                          {exp.estadoVerificacion === 'confirmada' && <BadgeCheck size={13} color={NW_PRODUCTO} />}
+                          {exp.estadoVerificacion === 'confirmada' && <BadgeCheck size={14} color={NW_PRODUCTO} />}
                         </div>
                         <p className="text-[13px]" style={{ color: NW_MUTED_2 }}>{rangoAnios(exp.fechaInicio, exp.fechaFin)}</p>
                         {exp.descripcion && <p className="text-[13.5px] mt-1" style={{ color: NW_MUTED }}>{exp.descripcion}</p>}
@@ -279,7 +279,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-0.5">
                           {Array.from({ length: 5 }, (_, j) => (
-                            <Star key={j} size={13} style={{ color: j < r.puntuacion ? NW_ESTRELLA : NW_BORDE }} fill="currentColor" />
+                            <Star key={j} size={14} style={{ color: j < r.puntuacion ? NW_ESTRELLA : NW_BORDE }} fill="currentColor" />
                           ))}
                         </div>
                         <span className="text-[12px]" style={{ color: NW_MUTED_2 }}>{r.estudioNombre}</span>

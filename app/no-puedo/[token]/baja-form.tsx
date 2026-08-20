@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
+import { IconoDesenlace } from '@/components/publico/icono-desenlace';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 // "No puedo dar esta clase" desde el móvil de la instructora, sin login.
@@ -79,7 +81,7 @@ export function BajaForm({ token }: { token: string }) {
     return (
       <Pantalla>
         <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
-          <div className="mb-3 text-4xl">✅</div>
+          <IconoDesenlace icono={CheckCircle2} tono="exito" />
           <h1 className="text-lg font-semibold text-slate-900">Avisado</h1>
           <p className="mt-2 text-sm text-slate-500">
             {datos?.estudioNombre || 'Tu estudio'} ya sabe que no puedes dar{' '}

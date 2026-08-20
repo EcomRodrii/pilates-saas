@@ -46,7 +46,7 @@ export function TabEstudioEnlaces({ showToast }: { showToast: (m: string) => voi
               <p className="text-[13px] font-semibold text-foreground">Página pública de reservas</p>
               <p className="text-[11px] text-muted-foreground">Sin cuenta: cualquiera reserva una clase suelta. El enlace para Instagram, la puerta, los folletos.</p>
             </div>
-            <ExternalLink size={13} className="text-muted-foreground shrink-0" />
+            <ExternalLink size={14} className="text-muted-foreground shrink-0" />
           </a>
           )}
           {/* La app de socias (app/portal/[slug]) es OTRA cosa: instalable, con
@@ -87,7 +87,7 @@ function EnlacePortalSocias({ slug, showToast }: { slug: string; showToast: (m: 
         onClick={copiar}
         className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors"
       >
-        {copiado ? <Check size={13} className="text-success" /> : <Copy size={13} />}
+        {copiado ? <Check size={14} className="text-success" /> : <Copy size={14} />}
         {copiado ? 'Copiado' : 'Copiar'}
       </button>
     </div>

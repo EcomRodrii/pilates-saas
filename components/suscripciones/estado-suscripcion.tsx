@@ -13,7 +13,7 @@
 // (`calcularEstadoSuscripcion`/`textoCaducidad`) para no tener dos cuentas de
 // días que puedan divergir.
 
-import { Calendar, RefreshCw, AlertCircle, PauseCircle, XCircle } from 'lucide-react';
+import { Calendar, RefreshCw, PauseCircle, XCircle } from 'lucide-react';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
 import type { Suscripcion, PlanTarifa } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -66,7 +66,7 @@ export function EstadoSuscripcion({
   if (estado.kind === 'expirada') {
     return (
       <div className={cn('inline-flex items-center gap-1 font-semibold', lineaCls, className)} style={{ color: TONO_COLOR.destructive }}>
-        <AlertCircle size={12} />
+        <XCircle size={12} />
         Bono expirado
       </div>
     );

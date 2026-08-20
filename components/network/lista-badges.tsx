@@ -26,7 +26,7 @@ export function ListaBadgesNetwork({ badges }: { badges: BadgesNetwork }) {
     <div className="space-y-1.5">
       {activos.map(({ clave, texto }) => (
         <p key={clave} className="text-[12px] text-foreground flex items-center gap-1.5">
-          <Check size={13} className="text-success shrink-0" />
+          <Check size={14} className="text-success shrink-0" />
           {texto}
         </p>
       ))}

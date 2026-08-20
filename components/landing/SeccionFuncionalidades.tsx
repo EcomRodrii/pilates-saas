@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { funcionalidades } from '@/lib/seo/paginas';
 
 // Vitrina de funcionalidades de la home, v2: cada tarjeta lleva una viñeta
@@ -230,12 +231,7 @@ function Vineta({ path, destacada }: { path: string; destacada?: boolean }) {
   );
 }
 
-const Flecha = (
-  <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M5 12h14" />
-    <path d="m12 5 7 7-7 7" />
-  </svg>
-);
+const Flecha = <ArrowRight size={15} aria-hidden />;
 
 export function SeccionFuncionalidades() {
   const items = funcionalidades();

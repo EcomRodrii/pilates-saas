@@ -29,13 +29,15 @@ import {
   Home, CalendarDays, Ticket, Video, User, Star, Heart, Bell, MessageCircle, Sparkles, MapPin, Dumbbell,
   type LucideIcon,
 } from 'lucide-react';
+import { PilatesIcon } from '@/components/icons/pilates-icon';
 import { useModo } from '@/lib/portal-modo';
 import { EASE, dur, texto, radio, altura, sombra, cristal, desenfoque } from '@/lib/portal-design';
 import type { NavItemDefault } from '@/lib/portal-nav';
 import { usePortalHref } from './portal-preview-bridge';
 
-const ICONOS: Record<string, LucideIcon> = {
+const ICONOS: Record<string, LucideIcon | typeof PilatesIcon> = {
   Home, CalendarDays, Ticket, Video, User, Star, Heart, Bell, MessageCircle, Sparkles, MapPin, Dumbbell,
+  Pilates: PilatesIcon,
 };
 
 export function PortalNav({

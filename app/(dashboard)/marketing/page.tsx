@@ -6,7 +6,7 @@ import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation'
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags'
 import { cn } from '@/lib/utils'
-import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send, Play, Pause, Flag, ArrowRight, ArrowUpRight, Pencil } from 'lucide-react'
+import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send, Play, Pause, Flag, ArrowRight, ArrowUpRight, Pencil, UserPlus, Calendar, CreditCard } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
 import { authHeader } from '@/lib/api-client'
@@ -15,6 +15,7 @@ import { FlowBuilder, ACCIONES } from '@/components/marketing/flow-builder'
 import { leerPublicacionesContenido } from '@/lib/contenido/read-publicaciones'
 import type { PublicacionAsociada } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state'
 import { utilizacionCodigos } from '@/lib/codigos-descuento'
 import { copiarAlPortapapeles } from '@/lib/utils'
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos'
@@ -296,10 +297,12 @@ function ConversionFunnelCard({ socios }: { socios: { leadStage?: LeadStage }[] 
   if (total === 0) {
     return (
       <WidgetCard icon={Filter} title="Embudo de captación" className="lg:col-span-2">
-        <div className="flex flex-col items-center justify-center text-center py-10">
-          <p className="text-[14px] font-semibold text-foreground">Aún no hay leads en el embudo</p>
-          <p className="text-[12px] text-muted-foreground mt-1">Asigna una etapa (lead, interesada, prueba…) a tus clientas en su ficha para ver la conversión real aquí.</p>
-        </div>
+        <EmptyState
+          compacto
+          icono={UserPlus}
+          titulo="Aún no hay leads en el embudo"
+          descripcion="Asigna una etapa (lead, interesada, prueba…) a tus clientas en su ficha para ver la conversión real aquí."
+        />
       </WidgetCard>
     )
   }
@@ -354,10 +357,12 @@ function TopClasesCard({ sesiones, reservas, tiposClase }: {
   return (
     <WidgetCard icon={BarChart3} title="Clases más demandadas" action={<span className="text-[11px] font-semibold text-muted-foreground px-2">Todo el histórico</span>} className="lg:col-span-2">
       {total === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center py-10">
-          <p className="text-[14px] font-semibold text-foreground">Aún no hay reservas</p>
-          <p className="text-[12px] text-muted-foreground mt-1">Cuando tus clientas empiecen a reservar clases, verás aquí el ranking real de demanda.</p>
-        </div>
+        <EmptyState
+          compacto
+          icono={Calendar}
+          titulo="Aún no hay reservas"
+          descripcion="Cuando tus clientas empiecen a reservar clases, verás aquí el ranking real de demanda."
+        />
       ) : (
         <div className="space-y-3">
           {ranking.map(r => (
@@ -401,10 +406,12 @@ function RevenueDonutCard({ recibos, suscripciones, planesTarifa }: {
   return (
     <WidgetCard icon={PieChart} title="Ingresos por tipo de plan" className="lg:col-span-2">
       {total === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center py-10">
-          <p className="text-[14px] font-semibold text-foreground">Aún no hay cobros registrados</p>
-          <p className="text-[12px] text-muted-foreground mt-1">El desglose aparecerá en cuanto se cobren recibos.</p>
-        </div>
+        <EmptyState
+          compacto
+          icono={CreditCard}
+          titulo="Aún no hay cobros registrados"
+          descripcion="El desglose aparecerá en cuanto se cobren recibos."
+        />
       ) : (
         <>
           <div className="relative w-full flex items-center justify-center py-4">

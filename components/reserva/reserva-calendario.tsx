@@ -19,7 +19,7 @@
 import { useMemo, useState, useEffect, useId, type CSSProperties } from 'react';
 import {
   ChevronLeft, ChevronRight, Clock, MapPin, Users, X,
-  CheckCircle, AlertCircle, CalendarDays, Ticket,
+  CheckCircle2, AlertCircle, AlertTriangle, CalendarDays, Ticket,
 } from 'lucide-react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { NivelClase, EstadoReserva, Spot } from '@/lib/types';
@@ -1379,8 +1379,8 @@ function FilaDato({ t, icon, label, valor, valorColor }: {
 
 function EstadoIcono({ estado }: { estado: 'CONFIRMADA' | 'LISTA_ESPERA' }) {
   return estado === 'CONFIRMADA'
-    ? <CheckCircle size={14} style={{ color: semantic.success.text, flexShrink: 0 }} />
-    : <AlertCircle size={14} style={{ color: semantic.warning.text, flexShrink: 0 }} />;
+    ? <CheckCircle2 size={14} style={{ color: semantic.success.text, flexShrink: 0 }} />
+    : <AlertTriangle size={14} style={{ color: semantic.warning.text, flexShrink: 0 }} />;
 }
 
 function Banner({ tipo, texto }: { tipo: 'ok' | 'warn'; texto: string }) {
@@ -1388,8 +1388,8 @@ function Banner({ tipo, texto }: { tipo: 'ok' | 'warn'; texto: string }) {
   return (
     <div role="status" className="reserva-banner-in" style={{ display: 'flex', alignItems: 'center', gap: 8, borderRadius: 14, padding: '11px 14px', background: c.soft }}>
       {tipo === 'ok'
-        ? <CheckCircle size={15} style={{ color: c.text, flexShrink: 0 }} />
-        : <AlertCircle size={15} style={{ color: c.text, flexShrink: 0 }} />}
+        ? <CheckCircle2 size={15} style={{ color: c.text, flexShrink: 0 }} />
+        : <AlertTriangle size={15} style={{ color: c.text, flexShrink: 0 }} />}
       <p style={{ fontSize: 13, fontWeight: 700, color: c.text }}>{texto}</p>
     </div>
   );

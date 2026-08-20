@@ -57,11 +57,11 @@ export function BotonesCalendario({ evento, t }: { evento: EventoCalendario; t: 
         rel="noopener noreferrer"
         style={estilo}
       >
-        <CalendarPlus size={13} aria-hidden />
+        <CalendarPlus size={14} aria-hidden />
         Google Calendar
       </a>
       <button type="button" onClick={descargarIcs} style={estilo}>
-        <Download size={13} aria-hidden />
+        <Download size={14} aria-hidden />
         Mi calendario
       </button>
     </div>

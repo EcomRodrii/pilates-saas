@@ -226,7 +226,7 @@ export default function ImportarMembresiasPage() {
             </div>
             {!obligatoriosMapeados && (
               <p className="text-[12px] mt-4 flex items-center gap-1.5" style={{ color: 'var(--destructive, #8E3722)' }}>
-                <AlertTriangle size={13} /> Asigna al menos <strong>Email</strong> y <strong>Plan</strong> para continuar.
+                <AlertTriangle size={14} /> Asigna al menos <strong>Email</strong> y <strong>Plan</strong> para continuar.
               </p>
             )}
           </div>
@@ -319,7 +319,7 @@ export default function ImportarMembresiasPage() {
                   onClick={() => descargar('errores-membresias.csv', serializeCsv(['Fila', 'Email', 'Motivo'], resultado.errores.map((e) => [String(e.fila), e.email, e.motivo])))}
                   className="inline-flex items-center gap-1.5 text-[12px] text-primary font-medium hover:underline"
                 >
-                  <Download size={13} /> Descargar
+                  <Download size={14} /> Descargar
                 </button>
               </div>
               <div className="max-h-52 overflow-y-auto text-[13px]">

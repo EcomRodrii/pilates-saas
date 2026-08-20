@@ -88,7 +88,7 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
                   onClick={iniciar}
                   className="flex items-center gap-1.5 px-4 py-2 bg-brand text-brand-foreground rounded-xl text-xs font-bold hover:brightness-95 transition-colors"
                 >
-                  <Mic size={13} /> Grabar
+                  <Mic size={14} /> Grabar
                 </button>
                 )
               ) : (
@@ -96,7 +96,7 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
                   onClick={detener}
                   className="flex items-center gap-1.5 px-4 py-2 bg-destructive text-white rounded-xl text-xs font-bold hover:brightness-95 transition-colors"
                 >
-                  <Square size={13} /> Parar
+                  <Square size={14} /> Parar
                 </button>
               )}
               {!grabando && transcripcion.trim() && !resultado && (
@@ -105,7 +105,7 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
                   disabled={procesando}
                   className="flex items-center gap-1.5 px-4 py-2 border border-border rounded-xl text-xs font-bold disabled:opacity-40 hover:bg-muted transition-colors"
                 >
-                  {procesando ? <Loader2 size={13} className="animate-spin" /> : <Bot size={13} />}
+                  {procesando ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
                   {procesando ? 'Procesando…' : 'Estructurar con IA'}
                 </button>
               )}

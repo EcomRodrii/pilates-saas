@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { CalendarX, CheckCircle2, PartyPopper, ThumbsUp } from 'lucide-react';
+import { IconoDesenlace } from '@/components/publico/icono-desenlace';
 
 // Un tap: ACEPTO / No puedo. La confirmación de verdad (compare-and-set +
 // re-check de solape de horario, 0048) ocurre en el servidor; aquí solo se
@@ -40,15 +42,15 @@ export function AceptarForm({
 
   if (estado === 'aceptada' || estado === 'rechazada' || estado === 'ya_cubierta' || estado === 'conflicto_horario') {
     const conf = {
-      aceptada: { icono: '🎉', titulo: '¡Confirmado!', texto: `Gracias, ${instructorNombre}. Ya estás asignada a ${claseNombre}. ${estudioNombre} lo sabe.` },
-      rechazada: { icono: '👍', titulo: 'Entendido', texto: 'Buscaremos a otra persona. ¡Gracias por responder tan rápido!' },
-      ya_cubierta: { icono: '✅', titulo: 'Ya está cubierta', texto: 'Otra persona la cogió antes. ¡Gracias igualmente!' },
-      conflicto_horario: { icono: '🗓️', titulo: 'No puede ser', texto: 'Parece que ya tienes otra clase asignada justo en ese horario, así que no podemos confirmarte esta. Avisamos al estudio para que lo resuelva.' },
+      aceptada: { icono: PartyPopper, tono: 'exito' as const, titulo: '¡Confirmado!', texto: `Gracias, ${instructorNombre}. Ya estás asignada a ${claseNombre}. ${estudioNombre} lo sabe.` },
+      rechazada: { icono: ThumbsUp, tono: 'neutro' as const, titulo: 'Entendido', texto: 'Buscaremos a otra persona. ¡Gracias por responder tan rápido!' },
+      ya_cubierta: { icono: CheckCircle2, tono: 'neutro' as const, titulo: 'Ya está cubierta', texto: 'Otra persona la cogió antes. ¡Gracias igualmente!' },
+      conflicto_horario: { icono: CalendarX, tono: 'neutro' as const, titulo: 'No puede ser', texto: 'Parece que ya tienes otra clase asignada justo en ese horario, así que no podemos confirmarte esta. Avisamos al estudio para que lo resuelva.' },
     }[estado];
     return (
       <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
         <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
-          <div className="text-5xl mb-3">{conf.icono}</div>
+          <IconoDesenlace icono={conf.icono} tono={conf.tono} />
           <h1 className="text-xl font-semibold text-slate-900">{conf.titulo}</h1>
           <p className="mt-2 text-sm text-slate-500 leading-relaxed">{conf.texto}</p>
         </div>

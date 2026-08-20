@@ -86,7 +86,7 @@ export function ProfileMenu() {
           className="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full hover:bg-background transition-colors"
         >
           <ProfileAvatar avatarId={yo ? yo.avatar : studio?.avatarAdmin} fotoUrl={yo ? yo.fotoUrl : studio?.fotoUrl} nombre={userInitials} size="sm" />
-          <ChevronDown size={13} className="text-muted-foreground" />
+          <ChevronDown size={14} className="text-muted-foreground" />
         </button>
 
         {open && (
@@ -116,7 +116,7 @@ export function ProfileMenu() {
                     )}
                   >
                     <span className="truncate">{s.nombre}</span>
-                    {s.id === studio?.id && <Check size={13} className="text-success shrink-0" />}
+                    {s.id === studio?.id && <Check size={14} className="text-success shrink-0" />}
                   </button>
                 ))}
               </div>

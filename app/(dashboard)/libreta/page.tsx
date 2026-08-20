@@ -7,7 +7,8 @@
 
 import { useMemo } from 'react';
 import { useStudio } from '@/lib/studio-context';
-import { Printer } from 'lucide-react';
+import { Printer, Notebook } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
@@ -96,7 +97,7 @@ export default function Libreta() {
           </tbody>
         </table>
 
-        {filas.length === 0 && <p className="text-sm text-muted-foreground py-6 text-center">No hay clientas activas todavía.</p>}
+        {filas.length === 0 && <EmptyState compacto icono={Notebook} titulo="No hay clientas activas todavía." />}
 
         <p className="text-[11px] text-muted-foreground mt-6 leading-relaxed">
           Esta es tu libreta: cada socia con su plan, sus sesiones, sus recuperaciones vivas y su plaza fija. Son tus datos, siempre contigo.

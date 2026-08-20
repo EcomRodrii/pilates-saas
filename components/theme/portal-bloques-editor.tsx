@@ -9,7 +9,7 @@ import {
   Image as ImageIcon, Type, MousePointerClick, HelpCircle,
   GalleryHorizontal, Video, Quote, type LucideIcon, ChevronUp, ChevronDown, Copy,
   Rows3, Hand, Square, CalendarDays, LayoutGrid, UserPlus, Megaphone,
-  CalendarRange, Ticket, CalendarCheck, CircleDashed, Trophy } from 'lucide-react';
+  CalendarRange, Ticket, CalendarCheck, CircleDashed, Trophy, BarChart3 } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -67,7 +67,7 @@ const ICONOS: Record<string, LucideIcon> = {
   Image: ImageIcon, Type, MousePointerClick, HelpCircle,
   GalleryHorizontal, Video, Quote, Rows3,
   Hand, Square, CalendarDays, LayoutGrid, UserPlus, Megaphone,
-  CalendarRange, Ticket, CalendarCheck, CircleDashed, Trophy,
+  CalendarRange, Ticket, CalendarCheck, CircleDashed, Trophy, BarChart3,
 };
 
 /**
@@ -752,7 +752,7 @@ function HijosDe({ hook, pantalla, padre, seleccionId, onSeleccionar }: {
           disabled={lleno}
           className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1.5 rounded-lg border border-dashed border-border text-muted-foreground hover:text-foreground disabled:opacity-40"
         >
-          <Plus size={13} /> {lleno ? `Máximo ${def.hijos.max}` : `Añadir dentro de ${def.nombre}`}
+          <Plus size={14} /> {lleno ? `Máximo ${def.hijos.max}` : `Añadir dentro de ${def.nombre}`}
         </button>
         {picker && (
           <CatalogoBloques

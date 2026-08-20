@@ -100,7 +100,7 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
                 {!a.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactivo</span>}
               </div>
               <button onClick={() => openEditar(a)} aria-label="Editar logro" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground shrink-0">
-                <Pencil size={13} />
+                <Pencil size={14} />
               </button>
             </div>
           ))}

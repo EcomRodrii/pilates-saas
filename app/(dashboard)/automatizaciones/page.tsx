@@ -15,6 +15,7 @@ import { resultadoDeCobro } from '@/lib/billing/resultado-cobro';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -680,10 +681,7 @@ export default function AutomatizacionesPage() {
             </button>
           </div>
           {automationRules.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <Bot size={32} className="mx-auto mb-2 opacity-30" />
-              <p className="text-sm">Todavía no tienes ninguna automatización activa</p>
-            </div>
+            <EmptyState icono={Bot} titulo="Todavía no tienes ninguna automatización activa" />
           )}
           {automationRules.map(rule => (
             <RuleCard
@@ -714,10 +712,7 @@ export default function AutomatizacionesPage() {
             ))}
           </div>
           {filteredLogs.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Bot size={32} className="mx-auto mb-2 opacity-30" />
-              <p className="text-sm">No hay registros para este filtro</p>
-            </div>
+            <EmptyState compacto titulo="No hay registros para este filtro" />
           ) : (
             <div className="space-y-2">
               {filteredLogs.map(log => (

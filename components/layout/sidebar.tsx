@@ -428,7 +428,7 @@ export function Sidebar() {
                   title="Cerrar sesión"
                   className="p-1.5 rounded-lg transition-colors hover:bg-card/10"
                 >
-                  <LogOut size={13} className="text-white/30 hover:text-white/60" />
+                  <LogOut size={14} className="text-white/30 hover:text-white/60" />
                 </button>
               </>
             )}
@@ -448,7 +448,7 @@ export function Sidebar() {
                     className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-[12px] font-semibold text-white/70 hover:bg-card/5 hover:text-white transition-colors text-left"
                   >
                     {SIDEBAR_SIZES[key].label}
-                    {size === key && <Check size={13} className="text-brand-medio shrink-0" />}
+                    {size === key && <Check size={14} className="text-brand-medio shrink-0" />}
                   </button>
                 ))}
               </div>

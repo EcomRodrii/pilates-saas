@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { AlertTriangle } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
@@ -30,7 +31,7 @@ export function Limite({ titulo, children }: { titulo: string; children: React.R
   return (
     <div style={{ background: '#FBF6F4', border: '1px solid #F0DED8', borderRadius: 14, padding: '16px 18px', margin: '24px 0', display: 'flex', gap: 13 }}>
       <span style={{ flexShrink: 0, color: '#C2503A', marginTop: 1 }}>
-        <svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></svg>
+        <AlertTriangle size={19} />
       </span>
       <div>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3, color: '#7A2E1F' }}>{titulo}</div>

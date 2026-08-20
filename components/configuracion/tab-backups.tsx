@@ -163,7 +163,7 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
                   onClick={() => { setRestaurando(b); setConfirmText(''); setError(null); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors shrink-0"
                 >
-                  <RotateCcw size={13} /> Restaurar
+                  <RotateCcw size={14} /> Restaurar
                 </button>
               </div>
             );
@@ -187,7 +187,7 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
               disabled={exportando === e.tabla}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-40"
             >
-              {exportando === e.tabla ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+              {exportando === e.tabla ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               {e.label}
             </button>
           ))}

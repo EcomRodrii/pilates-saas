@@ -209,7 +209,7 @@ function VistaPreviaViva({ tipo, borrador }: { tipo: TipoPlantillaEmail; borrado
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Así lo recibe tu clienta
         </p>
-        {cargando && <Loader2 size={13} className="animate-spin text-muted-foreground" />}
+        {cargando && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
       </div>
 
       {/* La línea de bandeja: el asunto es lo único que se ve antes de abrir. */}
@@ -499,7 +499,7 @@ function EditorPlantilla({
           onClick={() => setB(VACIO)}
           className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground underline underline-offset-2"
         >
-          <Undo2 size={13} /> Dejarlo como viene de fábrica
+          <Undo2 size={14} /> Dejarlo como viene de fábrica
         </button>
         <div className="flex items-center gap-2">
           <button onClick={enviarPrueba} disabled={enviando} className={cn(btnSecondary, 'disabled:opacity-50')}>

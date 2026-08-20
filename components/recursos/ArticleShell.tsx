@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { ACC } from '@/components/landing/theme';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { SiteNav } from './SiteNav';
@@ -114,7 +115,7 @@ export function ArticleShell({
               })}
             </nav>
             <Link href="/#precio" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 24, fontSize: 13, fontWeight: 700, color: ACC }}>
-              Ver Tentare <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+              Ver Tentare <ArrowRight size={14} />
             </Link>
           </aside>
 

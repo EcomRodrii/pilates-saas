@@ -90,12 +90,12 @@ export function ActionCenter() {
             suyo. Es la diferencia entre una bandeja y una lista de deberes. */}
         {r.nUnToque > 0 ? (
           <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <Zap size={13} style={{ color: 'var(--brand-secondary)' }} />
+            <Zap size={14} style={{ color: 'var(--brand-secondary)' }} />
             {r.nUnToque === 1 ? 'Una la hago yo con un toque' : `${r.nUnToque} las hago yo con un toque`}
           </span>
         ) : <span />}
         <span className="flex items-center gap-1 text-[12px] font-semibold text-brand-secondary">
-          Ver y decidir <ArrowRight size={13} />
+          Ver y decidir <ArrowRight size={14} />
         </span>
       </div>
     </Link>

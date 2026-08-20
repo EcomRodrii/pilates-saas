@@ -3,11 +3,11 @@
 
 import {
   LayoutDashboard, Calendar, Users, CreditCard,
-  Settings, BarChart2,
+  Settings, BarChart3,
   Clock, MessageCircle, Megaphone, Play,
   Bot, Package, Store, Inbox,
   UserCog, Users2, Compass, Replace, Network,
-  Calculator, Notebook, DownloadCloud,
+  Calculator, Notebook, DownloadCloud, Wallet,
 } from 'lucide-react';
 // Relativos y con extensión: `npm test` corre `node --test
 // --experimental-strip-types`, que no resuelve ni el alias `@/` ni las
@@ -88,7 +88,7 @@ const allSections: NavSection[] = [
       // entrada, la separación real la da ese sub-nav.
       { href: '/network/buscar', label: 'Tentare Network', icon: Network },
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
-      { href: '/informes', label: 'Informes', icon: BarChart2 },
+      { href: '/informes', label: 'Informes', icon: BarChart3 },
       { href: '/cierre', label: 'Cierre de año', icon: Calculator },
       { href: '/libreta', label: 'Libreta de clientas', icon: Notebook },
       // La pantalla existía pero no había forma de llegar a ella: había que
@@ -96,7 +96,10 @@ const allSections: NavSection[] = [
       // que viene de otra app piensa en migrar, piensa en traerse lo suyo.
       { href: '/migracion', label: 'Traer mis datos', icon: DownloadCloud },
       { href: '/configuracion', label: 'Configuración', icon: Settings },
-      { href: '/suscripcion', label: 'Suscripción', icon: CreditCard },
+      // Wallet y no CreditCard: CreditCard ya es /cobros (dinero de las socias)
+      // y repetirlo aquí hacía indistinguibles dos conceptos opuestos — cobrar
+      // tú vs pagar tu cuota de Tentare (auditoría 2026-08-20).
+      { href: '/suscripcion', label: 'Suscripción', icon: Wallet },
     ],
   },
 ];

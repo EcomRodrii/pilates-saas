@@ -197,7 +197,7 @@ export function GlobalSearch({
               />
               {query ? (
                 <button onClick={() => setQuery('')} aria-label="Borrar búsqueda" className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
-                  <X size={13} style={{ color: 'var(--muted-foreground)' }} />
+                  <X size={14} style={{ color: 'var(--muted-foreground)' }} />
                 </button>
               ) : (
                 <kbd className="shrink-0 text-[10px] px-1.5 py-0.5 rounded border border-border font-mono" style={{ color: 'var(--muted-foreground)' }}>Esc</kbd>
@@ -223,7 +223,7 @@ export function GlobalSearch({
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-foreground truncate">{m.label}</p>
                         </div>
-                        <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+                        <ArrowRight size={14} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
                       </button>
                     );
                   })}
@@ -248,7 +248,7 @@ export function GlobalSearch({
                           <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>{t.pista}</p>
                         )}
                       </div>
-                      <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+                      <ArrowRight size={14} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
                     </button>
                   ))}
                 </div>
@@ -275,7 +275,7 @@ export function GlobalSearch({
                           {s.tags![0]}
                         </span>
                       )}
-                      <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+                      <ArrowRight size={14} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
                     </button>
                   ))}
                 </div>
@@ -297,7 +297,7 @@ export function GlobalSearch({
                         <p className="text-sm font-semibold text-foreground truncate">{i.nombre}</p>
                         {i.email && <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>{i.email}</p>}
                       </div>
-                      <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+                      <ArrowRight size={14} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
                     </button>
                   ))}
                 </div>
@@ -322,7 +322,7 @@ export function GlobalSearch({
                             {d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })} · {d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
-                        <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+                        <ArrowRight size={14} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
                       </button>
                     );
                   })}
@@ -347,7 +347,7 @@ export function GlobalSearch({
                             {s ? `${s.nombre} ${s.apellidos}` : '—'} · {r.importe} €
                           </p>
                         </div>
-                        <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+                        <ArrowRight size={14} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
                       </button>
                     );
                   })}

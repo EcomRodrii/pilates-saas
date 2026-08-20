@@ -1,5 +1,5 @@
+import { Check, Info } from 'lucide-react';
 import { ACC } from '@/components/landing/theme';
-import { IconCheck } from '@/components/landing/icons';
 
 // Dark stat callout used for "the real cost" / "calendar" figure blocks.
 export function StatBlock({ eyebrow, eyebrowColor = '#A8B080', stats, note }: { eyebrow: string; eyebrowColor?: string; stats: { value: string; label: string }[]; note?: string }) {
@@ -24,7 +24,7 @@ export function Callout({ title, children, bg = '#F1F2EA', border = '#E0E5D0', i
   return (
     <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 16, padding: '18px 20px', margin: '26px 0', display: 'flex', gap: 14 }}>
       <span style={{ flexShrink: 0, color: iconColor }}>
-        <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx={12} cy={12} r={10} /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+        <Info size={22} />
       </span>
       <div>
         <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 3 }}>{title}</div>
@@ -42,7 +42,7 @@ export function Checklist({ eyebrow, items }: { eyebrow: string; items: React.Re
       <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
         {items.map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-            <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 6, background: '#E7F3EC', color: '#4E9E7F', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>{IconCheck(12)}</span>
+            <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 6, background: '#E7F3EC', color: '#4E9E7F', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}><Check size={12} /></span>
             <span style={{ fontSize: 15, lineHeight: 1.5, color: '#3A3A34' }}>{item}</span>
           </div>
         ))}

@@ -188,7 +188,7 @@ export function TabEstudioHorario({ showToast }: { showToast: (m: string) => voi
                 title={`Copiar ${NOMBRES_DIA[local]} a todos los días`}
                 className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
-                <Copy size={13} />
+                <Copy size={14} />
               </button>
             </div>
           ))}

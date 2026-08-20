@@ -140,7 +140,7 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
       <div className="flex items-center justify-between">
         <p className="text-[13px] text-muted-foreground">{planesTarifa.length === 1 ? '1 plan configurado' : `${planesTarifa.length} planes configurados`}</p>
         <button className={btnPrimary} onClick={openNuevo}>
-          <Plus size={13} />
+          <Plus size={14} />
           Nuevo plan
         </button>
       </div>
@@ -219,14 +219,14 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                           className="p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
                           aria-label="Editar plan"
                         >
-                          <Pencil size={13} />
+                          <Pencil size={14} />
                         </button>
                         <button
                           onClick={() => setConfirmDel(plan.id)}
                           className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                           aria-label="Eliminar plan"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
@@ -263,10 +263,10 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => openEditar(plan)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground" aria-label="Editar plan">
-                        <Pencil size={13} />
+                        <Pencil size={14} />
                       </button>
                       <button onClick={() => setConfirmDel(plan.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" aria-label="Eliminar plan">
-                        <Trash2 size={13} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </div>

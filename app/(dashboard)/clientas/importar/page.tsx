@@ -227,12 +227,12 @@ export default function ImportarSociasPage() {
 
           <div className="text-[13px] pt-1">
             <Link href="/clientas/importar/membresias" className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline">
-              ¿Ya tienes tus clientas? Importa sus membresías y bonos <ArrowRight size={13} />
+              ¿Ya tienes tus clientas? Importa sus membresías y bonos <ArrowRight size={14} />
             </Link>
           </div>
           <div className="text-[13px]">
             <Link href="/clientas/importar/plazas-fijas" className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline">
-              ¿Migras de Excel? Importa las plazas fijas (huecos semanales) <ArrowRight size={13} />
+              ¿Migras de Excel? Importa las plazas fijas (huecos semanales) <ArrowRight size={14} />
             </Link>
           </div>
         </div>
@@ -281,7 +281,7 @@ export default function ImportarSociasPage() {
             </div>
             {!obligatoriosMapeados && (
               <p className="text-[12px] mt-4 flex items-center gap-1.5" style={{ color: 'var(--destructive, #8E3722)' }}>
-                <AlertTriangle size={13} /> Asigna al menos <strong>Nombre</strong> y <strong>Email</strong> para continuar.
+                <AlertTriangle size={14} /> Asigna al menos <strong>Nombre</strong> y <strong>Email</strong> para continuar.
               </p>
             )}
           </div>
@@ -385,7 +385,7 @@ export default function ImportarSociasPage() {
                   onClick={() => descargar('errores-import.csv', serializeCsv(['Fila', 'Email', 'Motivo'], resultado.errores.map((e) => [String(e.fila), e.email, e.motivo])))}
                   className="inline-flex items-center gap-1.5 text-[12px] text-primary font-medium hover:underline"
                 >
-                  <Download size={13} /> Descargar
+                  <Download size={14} /> Descargar
                 </button>
               </div>
               <div className="max-h-52 overflow-y-auto text-[13px]">

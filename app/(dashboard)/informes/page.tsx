@@ -770,7 +770,7 @@ export default function Informes() {
             {ventasTipo.map(v => (
               <div key={v.tipo} className="rounded-lg p-4" style={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center gap-1.5 mb-2">
-                  <Package size={13} style={{ color: 'var(--muted-foreground)' }} />
+                  <Package size={14} style={{ color: 'var(--muted-foreground)' }} />
                   <p className="text-xs font-semibold" style={{ color: 'var(--muted-foreground)' }}>{v.etiqueta}</p>
                 </div>
                 <CifraPrivada className="text-lg font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>

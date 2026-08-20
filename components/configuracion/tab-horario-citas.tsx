@@ -231,13 +231,13 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
                       onChange={e => updateFranja(dia.dow, idx, 'horaFin', e.target.value)}
                       className={cn('bg-transparent text-[12px] focus:outline-none w-[62px]', f.horaFin > f.horaInicio ? 'text-foreground' : 'text-destructive')} />
                     <button onClick={() => removeFranja(dia.dow, idx)} className="ml-0.5 text-muted-foreground hover:text-destructive" aria-label="Quitar franja">
-                      <X size={13} />
+                      <X size={14} />
                     </button>
                   </div>
                 ))}
                 <button onClick={() => addFranja(dia.dow)}
                   className="flex items-center gap-1 text-[12px] font-medium text-brand-medio hover:brightness-90 px-1.5 py-1">
-                  <Plus size={13} />Franja
+                  <Plus size={14} />Franja
                 </button>
               </div>
             </div>
@@ -249,10 +249,10 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button className={cn(btnSecondary, 'flex items-center gap-1.5')} onClick={copiarLunes}>
-            <Copy size={13} />Copiar lunes a L–V
+            <Copy size={14} />Copiar lunes a L–V
           </button>
           <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <Clock size={13} />{horas} h/semana
+            <Clock size={14} />{horas} h/semana
           </span>
         </div>
         <button className={btnPrimary} onClick={guardar} disabled={!dirty}>

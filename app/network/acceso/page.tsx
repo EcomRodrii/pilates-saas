@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { authHeader } from '@/lib/api-client';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
-import { GoogleIcon } from '@/components/auth/google-icon';
+import { GoogleIcon } from '@/components/icons/brand-icons';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import { LogoTentare } from '@/components/marca/logo-tentare';
@@ -180,7 +180,7 @@ export default function AccesoNetworkPage() {
                 style={{ border: '1.5px solid rgba(255,255,255,.5)' }}
               >
                 Ir a Tentare Software
-                <ArrowLeftRight size={13} aria-hidden="true" />
+                <ArrowLeftRight size={14} aria-hidden="true" />
               </Link>
             </div>
           </div>
@@ -240,7 +240,7 @@ export default function AccesoNetworkPage() {
             className="w-full mt-6 flex items-center justify-center gap-2.5 py-2.5 rounded-xl text-[13.5px] font-semibold hover:bg-black/[.02] transition-colors disabled:opacity-60"
             style={{ border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}
           >
-            <GoogleIcon />
+            <GoogleIcon size={16} />
             {conectandoGoogle ? 'Conectando…' : 'Continuar con Google'}
           </button>
 

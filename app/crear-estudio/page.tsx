@@ -514,7 +514,7 @@ export default function CrearEstudioPage() {
       </div>
 
       <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-[12px] text-muted-foreground">
-        <ShieldCheck size={13} aria-hidden="true" className="shrink-0" />
+        <ShieldCheck size={14} aria-hidden="true" className="shrink-0" />
         Sin tarjeta de crédito · Sin permanencia
       </p>
 

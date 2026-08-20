@@ -199,7 +199,7 @@ export default function ImportarPlazasFijasPage() {
             </div>
             {!obligatoriosMapeados && (
               <p className="text-[12px] mt-4 flex items-center gap-1.5" style={{ color: 'var(--destructive, #8E3722)' }}>
-                <AlertTriangle size={13} /> Asigna <strong>Email</strong>, <strong>Día</strong>, <strong>Hora</strong> y <strong>Sala</strong> para continuar.
+                <AlertTriangle size={14} /> Asigna <strong>Email</strong>, <strong>Día</strong>, <strong>Hora</strong> y <strong>Sala</strong> para continuar.
               </p>
             )}
           </div>
@@ -282,7 +282,7 @@ export default function ImportarPlazasFijasPage() {
                 <span className="text-[12px] font-semibold text-muted-foreground">Filas con problemas</span>
                 <button onClick={() => descargar('errores-plazas-fijas.csv', serializeCsv(['Fila', 'Email', 'Motivo'], resultado.errores.map((e) => [String(e.fila), e.email, e.motivo])))}
                   className="inline-flex items-center gap-1.5 text-[12px] text-primary font-medium hover:underline">
-                  <Download size={13} /> Descargar
+                  <Download size={14} /> Descargar
                 </button>
               </div>
               <div className="max-h-52 overflow-y-auto text-[13px]">

@@ -8,9 +8,10 @@ import type { EstadoRecibo, Socio, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn, copiarAlPortapapeles, formatEuro } from '@/lib/utils';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
+import { EmptyState } from '@/components/ui/empty-state';
 import { cobrarOnlineDirecto, crearEnlaceTarjeta, enviarEmailRecibo } from '@/lib/api-client';
 import {
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   RefreshCw,
   Plus,
@@ -690,7 +691,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
             ? 'bg-success/10 border-[#A7F3D0] text-success'
             : 'bg-destructive/10 border-[#FECACA] text-destructive'
         )}>
-          {stripeToast.tipo === 'ok' ? <CheckCircle size={16} /> : <XCircle size={16} />}
+          {stripeToast.tipo === 'ok' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
           {stripeToast.msg}
         </div>
       )}
@@ -957,10 +958,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
             </div>
 
             {filtradosCobros.length === 0 ? (
-              <div className="py-16 text-center">
-                <CreditCard size={32} className="text-border mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Sin recibos en esta categoría</p>
-              </div>
+              <EmptyState compacto icono={CreditCard} titulo="Sin recibos en esta categoría" />
             ) : (
               <div className="divide-y divide-background">
                 {filtradosCobros.map(r => {
@@ -1030,7 +1028,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-success/10 text-success hover:bg-[#A7F3D0] transition-colors"
                                 title="Marcar cobrado (elige cómo) y enviar email"
                               >
-                                <CheckCircle size={12} />
+                                <CheckCircle2 size={12} />
                                 Cobrar
                               </button>
                               <button
@@ -1189,16 +1187,12 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
           </div>
 
           {suscripciones.filter(s => s.estado === 'ACTIVA').length === 0 ? (
-            <div className="py-16 text-center">
-              <Users size={32} className="text-border mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground mb-4">No hay suscripciones activas</p>
-              <Link
-                href="/clientas?nuevo=1"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:brightness-95 transition-colors"
-              >
-                Añadir clienta con plan
-              </Link>
-            </div>
+            <EmptyState
+              compacto
+              icono={Users}
+              titulo="No hay suscripciones activas"
+              cta={{ label: 'Añadir clienta con plan', href: '/clientas?nuevo=1' }}
+            />
           ) : (
             <div className="overflow-x-auto">
               {/* Table header */}
@@ -1328,7 +1322,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                 )}
               >
                 {exportState === 'loading' && <Loader2 size={14} className="animate-spin" />}
-                {exportState === 'done' && <CheckCircle size={14} />}
+                {exportState === 'done' && <CheckCircle2 size={14} />}
                 {exportState === 'idle' && <Download size={14} />}
                 {exportState === 'idle' ? 'Exportar' : exportState === 'loading' ? 'Exportando…' : 'Exportado'}
               </button>
@@ -1337,9 +1331,8 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
 
           {/* Grouped by month */}
           {historialAgrupado.length === 0 ? (
-            <div className="bg-card border border-border rounded-xl py-16 text-center">
-              <BarChart3 size={32} className="text-border mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Sin resultados para los filtros seleccionados</p>
+            <div className="bg-card border border-border rounded-xl">
+              <EmptyState compacto icono={BarChart3} titulo="Sin resultados para los filtros seleccionados" />
             </div>
           ) : (
             historialAgrupado.map(group => (
@@ -1559,7 +1552,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                             ? 'bg-success border-success'
                             : 'border-muted-foreground bg-card'
                         )}>
-                          {isSelected && <CheckCircle size={12} className="text-white" />}
+                          {isSelected && <CheckCircle2 size={12} className="text-white" />}
                         </div>
 
                         {/* Avatar */}

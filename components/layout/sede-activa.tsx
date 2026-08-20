@@ -103,7 +103,7 @@ export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 't
           </span>
           <span className="block text-[13px] font-semibold truncate leading-tight">{studio?.nombre ?? '—'}</span>
         </span>
-        <ChevronDown size={13} className={cn('shrink-0', enSidebar ? 'opacity-60' : 'text-muted-foreground')} />
+        <ChevronDown size={14} className={cn('shrink-0', enSidebar ? 'opacity-60' : 'text-muted-foreground')} />
       </button>
 
       {open && (
@@ -135,8 +135,8 @@ export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 't
                 )}
               </span>
               {cambiando === s.id
-                ? <Loader2 size={13} className="animate-spin shrink-0 text-muted-foreground" />
-                : s.id === studio?.id && <Check size={13} className="text-success shrink-0" />}
+                ? <Loader2 size={14} className="animate-spin shrink-0 text-muted-foreground" />
+                : s.id === studio?.id && <Check size={14} className="text-success shrink-0" />}
             </button>
           ))}
         </div>

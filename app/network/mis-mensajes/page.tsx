@@ -34,7 +34,7 @@ export default function MensajesNetworkPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <Link href="/network/solicitudes" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-        <ArrowLeft size={13} /> Volver a solicitudes
+        <ArrowLeft size={14} /> Volver a solicitudes
       </Link>
 
       <PageHeader

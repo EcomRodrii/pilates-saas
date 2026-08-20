@@ -78,7 +78,7 @@ export default function VerificacionesNetworkPage() {
                   disabled={resolviendoId === p.id}
                   className="px-3.5 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5 disabled:opacity-60"
                 >
-                  {resolviendoId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                  {resolviendoId === p.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                   Confirmar experiencia
                 </button>
                 <button
@@ -86,7 +86,7 @@ export default function VerificacionesNetworkPage() {
                   disabled={resolviendoId === p.id}
                   className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] text-foreground flex items-center gap-1.5 disabled:opacity-60"
                 >
-                  <X size={13} /> No puedo confirmarla
+                  <X size={14} /> No puedo confirmarla
                 </button>
               </div>
             </div>

@@ -232,10 +232,10 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button onClick={() => openEditar(item)} aria-label="Editar recompensa" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
-                    <Pencil size={13} />
+                    <Pencil size={14} />
                   </button>
                   <button onClick={() => setConfirmDel(item)} aria-label="Eliminar recompensa" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
-                    <Trash2 size={13} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>

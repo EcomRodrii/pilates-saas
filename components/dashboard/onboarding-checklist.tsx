@@ -75,7 +75,7 @@ export function OnboardingChecklist() {
 
       {topRecomendacion && (
         <Link href={topRecomendacion.href} className="flex items-start gap-2 text-[12px] text-foreground mt-3 hover:underline">
-          <Lightbulb size={13} className="text-warning shrink-0 mt-[1px]" />
+          <Lightbulb size={14} className="text-warning shrink-0 mt-[1px]" />
           <span>{topRecomendacion.texto}</span>
         </Link>
       )}
@@ -84,7 +84,7 @@ export function OnboardingChecklist() {
         href="/primeros-pasos"
         className="flex items-center justify-center gap-1.5 text-[12px] font-medium text-brand-secondary hover:underline mt-3"
       >
-        Ver todos los pasos <ArrowRight size={13} />
+        Ver todos los pasos <ArrowRight size={14} />
       </Link>
     </div>
   );

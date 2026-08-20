@@ -49,7 +49,7 @@ export default function OportunidadDetalleNetworkPage({ params }: { params: Prom
     return (
       <div className="space-y-4">
         <Link href="/network/oportunidades" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-          <ArrowLeft size={13} /> Volver a oportunidades
+          <ArrowLeft size={14} /> Volver a oportunidades
         </Link>
         <div className={`${cardCls} p-8 text-center`}>
           <p className="text-[13px] text-muted-foreground">Esta vacante ya no está disponible.</p>
@@ -61,7 +61,7 @@ export default function OportunidadDetalleNetworkPage({ params }: { params: Prom
   return (
     <div className="space-y-5">
       <Link href="/network/oportunidades" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-        <ArrowLeft size={13} /> Volver a oportunidades
+        <ArrowLeft size={14} /> Volver a oportunidades
       </Link>
 
       <div>

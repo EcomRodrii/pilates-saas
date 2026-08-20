@@ -5,7 +5,7 @@ import { useStudio } from '@/lib/studio-context';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { UsersRound, RefreshCw, ChevronDown, ShieldCheck } from 'lucide-react';
+import { Users, RefreshCw, ChevronDown, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { InstructorDependencySnapshot } from '@/lib/types';
 
@@ -54,7 +54,7 @@ function TarjetaDetalle({ s, nombre, ventana }: { s: InstructorDependencySnapsho
         {s.detalle.length > 0 && (
           <>
             <button onClick={() => setAbierto(v => !v)} className="mt-2.5 flex items-center gap-1 text-[12px] font-medium text-foreground hover:underline">
-              <ChevronDown size={13} className={cn('transition-transform', abierto && 'rotate-180')} />
+              <ChevronDown size={14} className={cn('transition-transform', abierto && 'rotate-180')} />
               {abierto ? 'Ocultar' : `Ver las ${s.detalle.length} alumnas cautivas`}
             </button>
             {abierto && (
@@ -115,7 +115,7 @@ export function EspecialistaCartera() {
         <CardContent className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <UsersRound size={16} className="shrink-0 text-muted-foreground" />
+              <Users size={16} className="shrink-0 text-muted-foreground" />
               <span className="text-[13px] font-semibold text-foreground truncate">Riesgo de cartera</span>
             </div>
             <Badge style={{ backgroundColor: estado.bg, color: estado.color }} className="shrink-0">
@@ -143,7 +143,7 @@ export function EspecialistaCartera() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-              <UsersRound size={17} /> Riesgo de cartera por instructor
+              <Users size={17} /> Riesgo de cartera por instructor
             </DialogTitle>
           </DialogHeader>
 
@@ -153,7 +153,7 @@ export function EspecialistaCartera() {
             </p>
             <button onClick={handleRecalcular} disabled={recalculando}
               className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 shrink-0">
-              <RefreshCw size={13} className={cn(recalculando && 'animate-spin')} />
+              <RefreshCw size={14} className={cn(recalculando && 'animate-spin')} />
               {recalculando ? 'Calculando…' : 'Recalcular'}
             </button>
           </div>

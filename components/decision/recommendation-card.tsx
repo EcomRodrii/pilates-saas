@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, Check, X, Mail, Euro, MessageCircle, ChevronDown, TriangleAlert } from 'lucide-react';
+import { Clock, Check, X, Mail, Euro, MessageCircle, ChevronDown, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ESPECIALISTA_INFO } from './especialista-info';
@@ -89,7 +89,7 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
 
         {conflictoCon && (
           <div className="flex items-start gap-2 rounded-lg px-3 py-2 text-[12px]" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)' }}>
-            <TriangleAlert size={14} className="mt-0.5 shrink-0" />
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>Puede chocar con otra recomendación: {conflictoCon}</span>
           </div>
         )}

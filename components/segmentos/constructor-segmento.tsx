@@ -155,7 +155,7 @@ export function ConstructorSegmentos({
         onClick={() => { setAbierto(true); if (condiciones.length === 0 && !editando) empezarNuevo(); }}
         className="px-3 py-1.5 rounded-lg text-[12px] font-medium border bg-card text-muted-foreground border-border hover:border-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 shrink-0"
       >
-        <Bookmark size={13} /> Segmentos{segmentos.length > 0 ? ` (${segmentos.length})` : ''}
+        <Bookmark size={14} /> Segmentos{segmentos.length > 0 ? ` (${segmentos.length})` : ''}
       </button>
 
       <Dialog open={abierto} onOpenChange={setAbierto}>
@@ -223,7 +223,7 @@ export function ConstructorSegmentos({
                 onClick={() => setCondiciones(prev => [...prev, condicionVacia(opciones)])}
                 className="text-[12px] font-medium text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
               >
-                <Plus size={13} /> Añadir condición
+                <Plus size={14} /> Añadir condición
               </button>
 
               {error && <p className="text-[12px] text-destructive">{error}</p>}

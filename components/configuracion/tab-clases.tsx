@@ -233,7 +233,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
           {tiposClase.length === 1 ? '1 tipo de clase configurado' : `${tiposClase.length} tipos de clase configurados`}
         </p>
         <button className={btnPrimary} onClick={openNueva}>
-          <Plus size={13} />
+          <Plus size={14} />
           Nuevo tipo de clase
         </button>
       </div>

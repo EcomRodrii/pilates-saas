@@ -1,4 +1,4 @@
-import { Heart, TrendingUp, Calendar, Megaphone, Wallet, UsersRound, UserPlus, Rocket, type LucideIcon } from 'lucide-react';
+import { Heart, TrendingUp, Calendar, Megaphone, Wallet, UserCog, UserPlus, Rocket, type LucideIcon } from 'lucide-react';
 
 // Nombre corto + icono por especialista — única fuente de verdad, usada por
 // SpecialistCard ("Mi Equipo") y por RecommendationCard (atribución de cada
@@ -12,6 +12,8 @@ export const ESPECIALISTA_INFO: Record<string, { nombre: string; icon: LucideIco
   CAPTACION: { nombre: 'Captación', icon: UserPlus },
   MARKETING: { nombre: 'Marketing', icon: Megaphone },
   FINANZAS: { nombre: 'Finanzas', icon: Wallet },
-  EQUIPO: { nombre: 'Equipo', icon: UsersRound },
+  // UserCog y no UsersRound: es el mismo concepto que la entrada /equipo del
+  // sidebar, y "personas" a secas ya significa clientas en todo el panel.
+  EQUIPO: { nombre: 'Equipo', icon: UserCog },
   ONBOARDING: { nombre: 'Onboarding', icon: Rocket },
 };

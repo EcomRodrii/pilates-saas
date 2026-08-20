@@ -249,10 +249,10 @@ function CatalogoCadena({ cadenaId, showToast }: { cadenaId: string; showToast: 
               </div>
               <NivelBadge nivel={t.nivel} />
               <button onClick={() => abrirEditar(t)} className="p-1.5 rounded-lg text-muted-foreground hover:bg-background hover:text-foreground transition-colors">
-                <Pencil size={13} />
+                <Pencil size={14} />
               </button>
               <button onClick={() => borrar(t.id)} className="p-1.5 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
-                <Trash2 size={13} />
+                <Trash2 size={14} />
               </button>
             </div>
           ))}

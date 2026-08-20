@@ -109,10 +109,10 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
                 </div>
                 <div className="flex flex-col gap-1 shrink-0">
                   <button onClick={() => openEditar(c)} aria-label="Editar reto" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
-                    <Pencil size={13} />
+                    <Pencil size={14} />
                   </button>
                   <button onClick={() => setBorrarId(c.id)} aria-label="Eliminar reto" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#FFF2F2] text-[#C4695A]">
-                    <Trash2 size={13} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>

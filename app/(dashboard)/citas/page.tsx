@@ -10,6 +10,7 @@ import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calenda
 import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
 import { cn, formatEuro, formatFechaCorta, formatHoraCorta } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   Dialog,
   DialogContent,
@@ -167,18 +168,18 @@ function CitaCard({
 
       {/* Instructor */}
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
-        <User size={13} className="shrink-0" />
+        <User size={14} className="shrink-0" />
         <span className="truncate max-w-[120px]">{instructorNombre}</span>
       </div>
 
       {/* Date & duration */}
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
-        <Calendar size={13} className="shrink-0" />
+        <Calendar size={14} className="shrink-0" />
         <span>{formatFecha(cita.inicio)}</span>
       </div>
 
       <div className="flex items-center gap-1 text-sm text-muted-foreground shrink-0">
-        <Clock size={13} className="shrink-0" />
+        <Clock size={14} className="shrink-0" />
         <span>{mins} min</span>
       </div>
 
@@ -624,7 +625,7 @@ export default function CitasPage() {
       {/* Instructor filter */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Filter size={13} />
+          <Filter size={14} />
           <span>Instructor</span>
         </div>
         <button
@@ -657,13 +658,11 @@ export default function CitasPage() {
       {/* Cita list */}
       <div className="space-y-3">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Calendar size={40} className="text-muted-foreground mb-3" />
-            <p className="text-muted-foreground text-sm">No hay citas que mostrar</p>
-            <p className="text-muted-foreground text-xs mt-1">
-              Prueba a cambiar el filtro o crear una nueva cita
-            </p>
-          </div>
+          <EmptyState
+            icono={Clock}
+            titulo="No hay citas que mostrar"
+            descripcion="Prueba a cambiar el filtro o crear una nueva cita"
+          />
         ) : (
           filtered.map((cita) => {
             const socio = getSocio(cita.socioId);

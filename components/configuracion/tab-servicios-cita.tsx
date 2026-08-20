@@ -113,7 +113,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
           los marcados como <span className="font-medium text-foreground">auto-reservables</span> aparecen en la reserva pública
         </p>
         <button className={btnPrimary} onClick={openNueva}>
-          <Plus size={13} />
+          <Plus size={14} />
           Nuevo servicio
         </button>
       </div>
@@ -151,16 +151,16 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
                     <td className="px-5 py-3 text-muted-foreground">{s.precio != null ? `${s.precio} €` : '—'}</td>
                     <td className="px-5 py-3">
                       {s.autoReservable
-                        ? <span className="inline-flex items-center gap-1 text-[12px] font-medium text-success"><Check size={13} />Sí</span>
+                        ? <span className="inline-flex items-center gap-1 text-[12px] font-medium text-success"><Check size={14} />Sí</span>
                         : <span className="text-[12px] text-muted-foreground">No</span>}
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-1">
                         <button onClick={() => openEditar(s)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground transition-colors" aria-label="Editar servicio">
-                          <Pencil size={13} />
+                          <Pencil size={14} />
                         </button>
                         <button onClick={() => setConfirmDel(s.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" aria-label="Eliminar servicio">
-                          <Trash2 size={13} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
@@ -184,10 +184,10 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => openEditar(s)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground" aria-label="Editar servicio">
-                      <Pencil size={13} />
+                      <Pencil size={14} />
                     </button>
                     <button onClick={() => setConfirmDel(s.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" aria-label="Eliminar servicio">
-                      <Trash2 size={13} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>

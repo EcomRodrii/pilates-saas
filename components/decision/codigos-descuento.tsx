@@ -81,7 +81,7 @@ export function CodigosDescuento() {
           onClick={() => setAbierto(a => !a)}
           className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
-          {abierto ? <X size={13} /> : <Plus size={13} />}
+          {abierto ? <X size={14} /> : <Plus size={14} />}
           {abierto ? 'Cancelar' : 'Nuevo código'}
         </button>
       </div>

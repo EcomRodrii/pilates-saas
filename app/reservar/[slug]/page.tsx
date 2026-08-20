@@ -2399,7 +2399,7 @@ export default function ReservarPage() {
                       }}>
                       {stripeLoading === p.id
                         ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'currentColor', borderRadius: 999, display: 'inline-block' }} className="animate-spin" />
-                        : <><CreditCard size={13} />Contratar</>}
+                        : <><CreditCard size={14} />Contratar</>}
                     </button>
                   </div>
                 );
@@ -2742,7 +2742,7 @@ export default function ReservarPage() {
                 <div className="flex items-center justify-between mb-3">
                   <button type="button" onClick={closeBooking}
                     className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
-                    <ChevronLeft size={13} strokeWidth={2.5} />Clases
+                    <ChevronLeft size={14} strokeWidth={2.5} />Clases
                   </button>
                   <p className="text-[10.5px] font-bold tracking-[0.14em] text-[var(--portal-muted)] uppercase">Paso 1 de 2</p>
                 </div>
@@ -2859,7 +2859,7 @@ export default function ReservarPage() {
                 <div className="flex items-center justify-between mb-3">
                   <button type="button" onClick={() => setLoginStep('datos')}
                     className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
-                    <ChevronLeft size={13} strokeWidth={2.5} />Datos
+                    <ChevronLeft size={14} strokeWidth={2.5} />Datos
                   </button>
                   <p className="text-[10.5px] font-bold tracking-[0.14em] text-[var(--portal-muted)] uppercase">Paso 2 de 2</p>
                 </div>

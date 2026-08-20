@@ -27,7 +27,7 @@ export function ResultadosMarketplace({ perfiles, hayFiltrosActivos }: { perfile
           disabled={estado === 'pidiendo' || estado === 'activo'}
           className="flex items-center gap-1.5 text-[12.5px] font-medium text-[#1A1A1A] disabled:opacity-70"
         >
-          {estado === 'pidiendo' ? <Loader2 size={13} className="animate-spin" /> : <MapPin size={13} />}
+          {estado === 'pidiendo' ? <Loader2 size={14} className="animate-spin" /> : <MapPin size={14} />}
           {estado === 'activo' ? 'Ordenado por cercanía' : 'Cerca de mí'}
         </button>
         {estado === 'denegado' && (

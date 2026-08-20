@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useId } from 'react';
 import {
-  UploadCloud, FileSpreadsheet, AlertTriangle, CheckCircle2, Sparkles,
+  Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, Sparkles,
   Loader2, Undo2, ChevronDown, ChevronUp, ArrowRight,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
@@ -376,7 +376,7 @@ export default function MigracionPage() {
             onDrop={e => { e.preventDefault(); setArrastrando(false); void onFiles(e.dataTransfer.files); }}
             className={`w-full rounded-2xl border-2 border-dashed p-10 text-center transition-colors ${arrastrando ? 'border-brand bg-brand/5' : 'border-border bg-card hover:border-brand/50'}`}
           >
-            <UploadCloud size={34} className="mx-auto mb-3 text-brand-medio" />
+            <Upload size={34} className="mx-auto mb-3 text-brand-medio" />
             <p className="text-[15px] font-bold text-foreground">Arrastra aquí lo que puedas exportar de tu software actual</p>
             <p className="text-[13px] text-muted-foreground mt-1.5">
               Clientas, bonos, horario, reservas, citas — CSV o Excel, da igual el formato o el nombre de las columnas. Hasta 8 archivos.
@@ -435,7 +435,7 @@ export default function MigracionPage() {
                       disabled={deshaciendoReciente === b.id}
                       className="flex items-center gap-1.5 py-2 px-3 rounded-xl border border-border text-[12px] font-bold text-foreground hover:bg-muted disabled:opacity-50 transition shrink-0"
                     >
-                      <Undo2 size={13} /> {deshaciendoReciente === b.id ? 'Deshaciendo…' : 'Deshacer'}
+                      <Undo2 size={14} /> {deshaciendoReciente === b.id ? 'Deshaciendo…' : 'Deshacer'}
                     </button>
                   </div>
                 ))}
@@ -525,7 +525,7 @@ export default function MigracionPage() {
               </div>
 
               {a.avisos.map(av => (
-                <p key={av} className="mt-2 flex items-start gap-1.5 text-[12px] text-warning"><AlertTriangle size={13} className="shrink-0 mt-0.5" />{av}</p>
+                <p key={av} className="mt-2 flex items-start gap-1.5 text-[12px] text-warning"><AlertTriangle size={14} className="shrink-0 mt-0.5" />{av}</p>
               ))}
 
               {a.entidad && a.muestra.length > 0 && (
@@ -552,7 +552,7 @@ export default function MigracionPage() {
               {a.cuarentena.length > 0 && (
                 <div className="mt-2">
                   <button onClick={() => toggleAbierto(a.nombre)} className="flex items-center gap-1 text-[12px] font-semibold text-warning">
-                    {abiertos.has(a.nombre) ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    {abiertos.has(a.nombre) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     {a.cuarentena.length} fila{a.cuarentena.length === 1 ? '' : 's'} no se importará{a.cuarentena.length === 1 ? '' : 'n'} (ver motivos)
                   </button>
                   {abiertos.has(a.nombre) && (
@@ -603,7 +603,7 @@ export default function MigracionPage() {
                       <span className="text-[11px] text-muted-foreground">
                         {p.filas} fila{p.filas === 1 ? '' : 's'}
                       </span>
-                      <ArrowRight size={13} className="text-muted-foreground shrink-0" />
+                      <ArrowRight size={14} className="text-muted-foreground shrink-0" />
                       <select
                         aria-label={`Tarifa para «${p.nombre}»`}
                         className="flex-1 min-w-[170px] px-2.5 py-1.5 rounded-lg border border-border bg-background text-[13px] text-foreground"

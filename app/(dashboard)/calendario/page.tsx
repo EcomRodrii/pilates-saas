@@ -2131,19 +2131,19 @@ export default function Calendario() {
               onClick={() => setVista('dia')}
               className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', vista === 'dia' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
             >
-              <Rows3 size={13} />Día
+              <Rows3 size={14} />Día
             </button>
             <button
               onClick={() => setVista('semana')}
               className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', vista === 'semana' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
             >
-              <LayoutGrid size={13} />Semana
+              <LayoutGrid size={14} />Semana
             </button>
             <button
               onClick={() => setVista('mes')}
               className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', vista === 'mes' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
             >
-              <CalendarDays size={13} />Mes
+              <CalendarDays size={14} />Mes
             </button>
           </div>
 
@@ -2427,7 +2427,7 @@ export default function Calendario() {
               {alertasClase.length > 0 && (
                 <div className="mb-3 rounded-xl border p-3" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', borderColor: '#FDE68A' }}>
                   <p className="text-[11px] font-bold mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--warning)' }}>
-                    <AlertTriangle size={13} /> Adaptaciones para esta clase
+                    <AlertTriangle size={14} /> Adaptaciones para esta clase
                   </p>
                   <ul className="space-y-1">
                     {alertasClase.map((a, i) => <li key={i} className="text-[11px] leading-snug" style={{ color: '#78350F' }}>· {a}</li>)}
@@ -2442,7 +2442,7 @@ export default function Calendario() {
                       disabled={prepIALoading}
                       className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[11px] font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-50 transition-colors"
                     >
-                      {prepIALoading ? <Loader2 size={13} className="animate-spin" /> : <Bot size={13} />}
+                      {prepIALoading ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
                       {prepIALoading ? 'Preparando…' : 'Preparar clase con IA'}
                     </button>
                   )}
@@ -2451,7 +2451,7 @@ export default function Calendario() {
                     <div className="rounded-xl border border-border bg-card p-3 space-y-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-xs text-foreground leading-snug">{prepIA.resumen}</p>
-                        <button onClick={() => setPrepIA(null)} title="Cerrar" className="text-muted-foreground hover:text-foreground shrink-0"><X size={13} /></button>
+                        <button onClick={() => setPrepIA(null)} title="Cerrar" className="text-muted-foreground hover:text-foreground shrink-0"><X size={14} /></button>
                       </div>
                       {prepIA.evitar.length > 0 && (
                         <div>
@@ -2475,7 +2475,7 @@ export default function Calendario() {
                   onClick={() => setShowAnadir(true)}
                   className="w-full flex items-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-border text-xs font-bold text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors mb-3"
                 >
-                  <UserPlus size={13} />Añadir clienta a la clase
+                  <UserPlus size={14} />Añadir clienta a la clase
                 </button>
               ) : (
                 <div className="mb-3 space-y-2">

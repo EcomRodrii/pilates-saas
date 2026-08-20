@@ -1207,7 +1207,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         onClick={() => setShowAddRecibo(true)}
                         className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                       >
-                        <Plus size={13} />Nuevo cobro
+                        <Plus size={14} />Nuevo cobro
                       </button>
                       {pendientes.length > 0 && (
                         <button
@@ -1220,7 +1220,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg transition-colors"
                           style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
                         >
-                          <CheckCircle2 size={13} />Cobrar pendientes ({pendientes.length})
+                          <CheckCircle2 size={14} />Cobrar pendientes ({pendientes.length})
                         </button>
                       )}
                     </div>
@@ -1416,7 +1416,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       onClick={() => setShowSendMessage(true)}
                       className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                     >
-                      <Send size={13} />Enviar mensaje
+                      <Send size={14} />Enviar mensaje
                     </button>
                   </div>
 
@@ -1528,29 +1528,29 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             {/* Contact info */}
             <div className="space-y-2.5 border-t border-muted pt-4">
               <div className="flex items-center gap-2.5">
-                <Mail size={13} className="text-muted-foreground shrink-0" />
+                <Mail size={14} className="text-muted-foreground shrink-0" />
                 <span className="text-xs font-medium text-foreground truncate flex-1">{socio.email}</span>
               </div>
               {socio.telefono && (
                 <div className="flex items-center gap-2.5">
-                  <Phone size={13} className="text-muted-foreground shrink-0" />
+                  <Phone size={14} className="text-muted-foreground shrink-0" />
                   <span className="text-xs font-medium text-foreground">{socio.telefono}</span>
                 </div>
               )}
               {socio.nif && (
                 <div className="flex items-center gap-2.5">
-                  <CreditCard size={13} className="text-muted-foreground shrink-0" />
+                  <CreditCard size={14} className="text-muted-foreground shrink-0" />
                   <span className="text-xs font-medium text-foreground">{socio.nif}</span>
                 </div>
               )}
               {socio.origenLead && (
                 <div className="flex items-center gap-2.5">
-                  <Megaphone size={13} className="text-muted-foreground shrink-0" />
+                  <Megaphone size={14} className="text-muted-foreground shrink-0" />
                   <span className="text-xs font-medium text-foreground truncate">Origen: {socio.origenLead}</span>
                 </div>
               )}
               <div className="flex items-center gap-2.5">
-                <Calendar size={13} className="text-muted-foreground shrink-0" />
+                <Calendar size={14} className="text-muted-foreground shrink-0" />
                 <span className="text-xs font-medium text-muted-foreground">Alta: {fecha(socio.fechaAlta)}</span>
               </div>
               {/* Etapa del embudo de captación: lo LEE el especialista de Captación
@@ -1558,7 +1558,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   de fijarlo desde la UI → ambos salían siempre vacíos. */}
               {gestionaClientas && (
               <div className="flex items-center gap-2.5">
-                <Filter size={13} className="text-muted-foreground shrink-0" />
+                <Filter size={14} className="text-muted-foreground shrink-0" />
                 <select
                   value={socio.leadStage ?? ''}
                   onChange={(e) => { void updateSocio(id, { leadStage: (e.target.value || undefined) as LeadStage | undefined }).then(res => { if (!res.ok) setToast(res.error); }); }}
@@ -1728,7 +1728,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             {socio.aceptacionContrato ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-success/10">
-                  <CheckCircle2 size={13} className="text-success shrink-0" />
+                  <CheckCircle2 size={14} className="text-success shrink-0" />
                   <span className="text-xs font-bold text-success">Contrato aceptado</span>
                 </div>
                 <div className="text-xs text-muted-foreground space-y-1 pt-1">
@@ -1757,7 +1757,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             ) : (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-warning/10">
-                  <AlertTriangle size={13} className="text-warning shrink-0" />
+                  <AlertTriangle size={14} className="text-warning shrink-0" />
                   <span className="text-xs font-bold text-warning">Pendiente de firma</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
@@ -1778,7 +1778,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             {socio.consentimientoMarketing ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-success/10">
-                  <CheckCircle2 size={13} className="text-success shrink-0" />
+                  <CheckCircle2 size={14} className="text-success shrink-0" />
                   <span className="text-xs font-bold text-success">Consiente recibir marketing por email</span>
                 </div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1">

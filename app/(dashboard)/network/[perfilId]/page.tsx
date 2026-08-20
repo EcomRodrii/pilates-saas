@@ -99,7 +99,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
     return (
       <div className="space-y-4 max-w-xl">
         <Link href="/network/buscar" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-          <ArrowLeft size={13} /> Volver al buscador
+          <ArrowLeft size={14} /> Volver al buscador
         </Link>
         <div className={`${cardCls} p-8 text-center`}>
           <p className="text-[13px] text-muted-foreground">
@@ -113,7 +113,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
   return (
     <div className="space-y-5 max-w-2xl">
       <Link href="/network/buscar" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-        <ArrowLeft size={13} /> Volver al buscador
+        <ArrowLeft size={14} /> Volver al buscador
       </Link>
 
       <PageHeader title={perfil.nombre} description={tituloProfesionalDe(perfil.especialidades)} />
@@ -124,7 +124,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
           <div>
             {perfil.ciudad && (
               <p className="text-[13px] text-muted-foreground flex items-center gap-1">
-                <MapPin size={13} />
+                <MapPin size={14} />
                 {perfil.ciudad}{perfil.zona ? ` · ${perfil.zona}` : ''}
                 {perfil.radioKm != null ? ` · ${perfil.radioKm} km` : ''}
               </p>
@@ -225,18 +225,18 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
             href={`/network/mensajes?hilo=${solicitudIdAceptada}`}
             className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5 hover:brightness-95 transition-colors"
           >
-            <MessageCircle size={13} /> Enviar mensaje
+            <MessageCircle size={14} /> Enviar mensaje
           </Link>
         ) : enviado ? (
           <p className="text-[12px] text-success flex items-center gap-1.5">
-            <Check size={13} /> Solicitud enviada. Te avisaremos si {perfil.nombre.split(' ')[0]} la acepta.
+            <Check size={14} /> Solicitud enviada. Te avisaremos si {perfil.nombre.split(' ')[0]} la acepta.
           </p>
         ) : (
           <button
             onClick={() => setModalAbierto(true)}
             className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5 hover:brightness-95 transition-colors"
           >
-            <Send size={13} /> Contactar
+            <Send size={14} /> Contactar
           </button>
         )}
         <button
@@ -291,7 +291,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
         <div className={`${cardCls} p-5`}>
           {yaResenado ? (
             <p className="text-[12.5px] text-muted-foreground flex items-center gap-1.5">
-              <Check size={13} className="text-success" /> Ya has dejado una reseña sobre {perfil.nombre.split(' ')[0]}.
+              <Check size={14} className="text-success" /> Ya has dejado una reseña sobre {perfil.nombre.split(' ')[0]}.
             </p>
           ) : faltaClaseCompletada ? (
             // Aceptó el contacto, pero todavía no ha impartido ninguna clase
@@ -310,7 +310,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
                 onClick={() => setModalResenaAbierto(true)}
                 className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground flex items-center gap-1.5"
               >
-                <Star size={13} /> Dejar una reseña
+                <Star size={14} /> Dejar una reseña
               </button>
             </>
           )}

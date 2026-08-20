@@ -944,7 +944,7 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   reservarCifras: {
     id: 'sistema', sistemaId: 'reservarCifras', nombre: 'Cifras del estudio',
     descripcion: 'Clases por semana, instructoras.',
-    icono: 'BarChart2', origen: 'sistema', estilizable: false, campos: [],
+    icono: 'BarChart3', origen: 'sistema', estilizable: false, campos: [],
   },
   reservarContacto: {
     id: 'sistema', sistemaId: 'reservarContacto', nombre: 'Contacto y pie',

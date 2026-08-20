@@ -177,7 +177,7 @@ export default function SuscripcionPage() {
                 <p className="mt-1 text-[13.5px] text-muted-foreground">al mes, IVA incluido · sin permanencia</p>
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1.5 text-[12.5px] font-bold text-success">
-                <Check size={13} strokeWidth={3} aria-hidden="true" /> Activa
+                <Check size={14} strokeWidth={3} aria-hidden="true" /> Activa
               </span>
             </div>
 

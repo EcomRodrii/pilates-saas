@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ArrowRight } from 'lucide-react';
 import { ACC, MUTED, MUTED_DARK } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
@@ -206,7 +207,7 @@ export default function ComparativaPage() {
           <Reveal style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 22, overflow: 'hidden', boxShadow: '0 30px 60px -44px rgba(26,26,26,.3)' }}>
             <div className="cmp-hint lp-mono" style={{ display: 'none', alignItems: 'center', gap: 7, padding: '12px 16px 0', fontSize: 11, color: '#A8A89F' }}>
               Desliza la tabla para ver todo
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+              <ArrowRight size={14} />
             </div>
             <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <table style={{ width: '100%', minWidth: 1360, borderCollapse: 'separate', borderSpacing: 0 }}>
