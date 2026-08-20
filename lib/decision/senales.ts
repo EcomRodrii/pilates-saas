@@ -830,6 +830,17 @@ export interface AbandonoCheckout {
  * Ventana reciente (14d) vs base (14-60d) para poder comparar el estudio
  * contra SU PROPIO histórico — nunca contra un corte fijo ni contra otros
  * estudios (mismo criterio que F5/confianzaRiesgoDeCobro).
+ *
+ * ⚠️ Limitación conocida (QA PR #1274, no corregida a propósito): si una
+ * misma session_id tiene VARIOS checkout_started seguidos de un solo
+ * booking_completed (reintento tras pago rechazado, patrón real de Stripe),
+ * TODOS los inicios de esa sesión cuentan como éxito — la sesión sale 100%,
+ * escondiendo que el primer intento sí se abandonó. Infla exitos y total por
+ * igual, así que no genera falsos positivos de "cae la tasa" por sí solo,
+ * pero sí puede enmascarar una caída real si el patrón de reintentos
+ * aumenta. Corregirlo exigiría tratar cada session_id como UNA observación
+ * (éxito/fracaso), no una por cada checkout_started — cambio de modelo
+ * mayor, fuera de esta iteración.
  */
 export function tasaAbandonoCheckout(eventos: SnapshotEstudio['widgetEventosCheckout'], now: Date): AbandonoCheckout {
   const corteReciente = now.getTime() - ABANDONO_DIAS_RECIENTE * MS_DIA;

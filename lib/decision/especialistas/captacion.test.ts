@@ -75,6 +75,19 @@ test('CAPTACION C3: un estudio con conversión históricamente baja (60%) no se 
   const c = detectar(snap([], [], [...eventosBase(20, 0.6), ...eventosRecientes(10, 0.55)]));
   assert.equal(c.filter(x => x.tipo === 'REVISAR_ABANDONO_CHECKOUT').length, 0);
 });
+
+// Regresión QA (PR #1274, hallazgo 2): con solo 1-4 checkouts en la ventana
+// base, el prior sale 0%/100% y una caída "real" frente a ese prior es
+// estadísticamente vacía — no debe generar una Candidata.
+test('CAPTACION C3: ventana base con muestra insuficiente (< 5) no dispara aunque la caída parezca clara', () => {
+  const c = detectar(snap([], [], [...eventosBase(1, 1.0), ...eventosRecientes(5, 0)]));
+  assert.equal(c.filter(x => x.tipo === 'REVISAR_ABANDONO_CHECKOUT').length, 0);
+});
+
+test('CAPTACION C3: ventana base justo en el mínimo (5) sí puede disparar con caída clara', () => {
+  const c = detectar(snap([], [], [...eventosBase(5, 1.0), ...eventosRecientes(10, 0.1)]));
+  assert.ok(c.find(x => x.tipo === 'REVISAR_ABANDONO_CHECKOUT'), 'con muestra base suficiente y caída real, sí debe disparar');
+});
 const detectar = (s: SnapshotEstudio) => captacion.detectar(s, new Map() as MemoriaEstudio, NOW);
 
 test('CAPTACION: lead sin seguimiento (10 días, sin contacto) → CONTACTAR_LEAD', () => {

@@ -6,7 +6,7 @@
 import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
 import { construirIndices, diasDesdeUltimoContacto, tasaAbandonoCheckout, type IndicesSenal } from '../senales.ts';
 import { confianzaContactarLead, confianzaConvertirPrueba, confianzaAbandonoCheckout } from '../confianza.ts';
-import { estimarProbabilidad, tasaBase } from '../prediccion.ts';
+import { estimarProbabilidad, tasaBase, MUESTRA_MINIMA } from '../prediccion.ts';
 
 const MS_DIA = 86400000;
 const DIAS_LEAD_MADURO = 7;      // un lead sin avanzar tras 7 días se está enfriando
@@ -102,6 +102,14 @@ const C3_FRACCION_DEL_ESTUDIO = 0.7; // mismo criterio que F5_FRACCION_DEL_ESTUD
  */
 function reglaC3(s: SnapshotEstudio, now: Date): Candidata | null {
   const tasa = tasaAbandonoCheckout(s.widgetEventosCheckout, now);
+  // QA (PR #1274): tasaBase() solo exige total>0, sin mínimo de muestra —
+  // con 1-2 checkouts en la ventana base el prior sale 0% o 100% y genera
+  // falsos positivos/negativos indistinguibles de una caída real. A
+  // diferencia de agenda.ts/finanzas.ts (prior sobre TODAS las sesiones/
+  // recibos del estudio, volumen amplio), aquí el prior sale de la MISMA
+  // señal delgada que la ventana reciente — se exige el mismo MUESTRA_MINIMA
+  // que ya aplica a la ventana reciente dentro de estimarProbabilidad().
+  if (tasa.totalBase < MUESTRA_MINIMA) return null;
   const prior = tasaBase(tasa.exitosBase, tasa.totalBase);
   if (prior === null) return null; // sin ventana base — estudio recién abierto o widget recién activado
 

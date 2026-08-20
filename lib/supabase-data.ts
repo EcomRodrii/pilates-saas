@@ -4682,12 +4682,22 @@ export interface WidgetEventoAbandonoRow {
 
 export async function fetchAbandonoCheckoutReciente(studioId: string, desdeISO: string): Promise<WidgetEventoAbandonoRow[]> {
   const db = getSupabaseAdmin() ?? supabase;
+  // QA (PR #1274): sin `order`, PostgREST corta en `max_rows` (1000, ver
+  // supabase/config.toml) sin garantía de qué filas caen dentro — mismo
+  // patrón ya documentado en memoria del proyecto (truncado-1000-filas), pero
+  // esta query es nueva. El widget público acumula tráfico anónimo sin gate
+  // de login en checkout_started, así que un estudio con volumen medio/alto
+  // puede superar 1000 eventos en 60 días. `order` por fecha descendente da
+  // al menos un corte determinista y prioriza lo más reciente (que es lo que
+  // más pesa en la ventana de 14d) sobre lo más antiguo de la ventana base.
   const { data, error } = await db
     .from('widget_eventos')
     .select('session_id, tipo, creado_en')
     .eq('studio_id', studioId)
     .in('tipo', ['checkout_started', 'booking_completed'])
-    .gte('creado_en', desdeISO) as { data: { session_id: string; tipo: 'checkout_started' | 'booking_completed'; creado_en: string }[] | null; error: { message: string } | null };
+    .gte('creado_en', desdeISO)
+    .order('creado_en', { ascending: false })
+    .limit(1000) as { data: { session_id: string; tipo: 'checkout_started' | 'booking_completed'; creado_en: string }[] | null; error: { message: string } | null };
   if (error) { reportDbError('[fetchAbandonoCheckoutReciente]', error); return []; }
   return (data ?? []).map(r => ({ sessionId: r.session_id, tipo: r.tipo, creadoEn: r.creado_en }));
 }
