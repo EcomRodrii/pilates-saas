@@ -3,6 +3,7 @@ import { LogoTentare } from '@/components/marca/logo-tentare';
 import { NW_TINTA, NW_MUTED_2, NW_PRODUCTO, NW_BORDE } from './tokens';
 import { MenuMovil } from './MenuMovil';
 import { InsigniaBeta } from './InsigniaBeta';
+import { EnlaceRastreo } from './EnlaceRastreo';
 
 // Cabecera pública compartida por /network, /network/instructoras(/[slug]) —
 // README 1a: logo 148px, nav "Explorar instructoras · Cómo funciona", derecha
@@ -40,13 +41,14 @@ export function NavPublico() {
           <Link href="/network/acceso" className="hidden sm:inline-flex items-center min-h-11 text-[14px] font-bold" style={{ color: NW_TINTA }}>
             Iniciar sesión
           </Link>
-          <Link
+          <EnlaceRastreo
             href="/network/crear-perfil"
+            evento="network_click_crear_perfil"
             className="inline-flex items-center min-h-11 px-[22px] rounded-full text-[13.5px] font-bold text-white transition-all hover:brightness-110"
             style={{ background: NW_PRODUCTO }}
           >
             Crear perfil
-          </Link>
+          </EnlaceRastreo>
           <MenuMovil />
         </div>
       </div>

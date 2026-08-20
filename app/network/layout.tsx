@@ -23,11 +23,13 @@
 // /network pasa sin la cabecera "logo + salir" ni el `max-w-2xl` que la
 // aplastaría a una columna estrecha y apilaría dos barras de navegación.
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { InsigniaBeta } from '@/components/network-v2/InsigniaBeta';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
+import { cargarCuandoOcioso } from '@/lib/posthog-cliente';
 
 // Secciones del autoservicio (Fase 2, punto 15 del brief: "no solo Mi
 // perfil, sino Network con un Inicio"). Deja hueco a propósito: el día que
@@ -54,6 +56,14 @@ function coincide(pathname: string, href: string): boolean {
 export default function NetworkLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
+
+  // `lib/posthog-cliente.ts` existía en el repo sin un solo caller (auditoría
+  // 2026-08-19) — este layout envuelve TODO /network, público y autoservicio,
+  // así que es el único sitio que hace falta tocar para que la analítica de
+  // conversión del embudo (instrumentada en BuscadorHero/FormularioInteresEstudio/
+  // BotonContactar) llegue a algún sitio. `capture_pageview: true` ya cubre las
+  // vistas de página sin nada más que hacer aquí.
+  useEffect(() => { cargarCuandoOcioso(); }, []);
 
   if (!SUBNAV.some(s => coincide(pathname ?? '', s.href))) return <>{children}</>;
 

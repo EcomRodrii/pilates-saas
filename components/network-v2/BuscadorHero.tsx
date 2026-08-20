@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { capturarEvento } from '@/lib/posthog-cliente';
 import { NW_TINTA, NW_GRIS_VERDOSO, NW_PRODUCTO, NW_BORDE } from './tokens';
 
 const POPULARES = [
@@ -28,6 +29,8 @@ export function BuscadorHero() {
     if (esp) sp.set('especialidades', esp);
     if (ciudad.trim()) sp.set('ciudad', ciudad.trim());
     if (overrides?.disponibilidad) sp.set('disponibilidad', overrides.disponibilidad);
+    // Sin nombre/email/teléfono — solo lo que ya va en la URL pública.
+    capturarEvento('network_busqueda_realizada', { especialidad: esp || null, con_ciudad: Boolean(ciudad.trim()) });
     router.push(`/network/instructoras${sp.toString() ? `?${sp}` : ''}`);
   }
 
