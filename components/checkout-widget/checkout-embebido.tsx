@@ -20,7 +20,7 @@ import { semantic } from '@/lib/portal-tokens';
 
 export function CheckoutEmbebido({
   t, plan, clientSecret, publishableKey, stripeAccountId, onExito, onBizum, onCerrar,
-  resumenClase, textoBoton, ventanaCancelacionHoras, datosPago, fuentePago,
+  resumenClase, textoBoton, ventanaCancelacionHoras, datosPago, fuentePago, radioInput,
 }: {
   t: ModoTokens;
   plan: PlanTarifa;
@@ -74,6 +74,15 @@ export function CheckoutEmbebido({
    * el bloque de tarjeta no salga en Times/serif del navegador.
    */
   fuentePago?: { familia: string; cssSrc: string | null };
+  /**
+   * Radio de INPUT del Widget Builder (`radiosDe(...).input`) para que los
+   * campos de la tarjeta dentro del iframe de Stripe redondeen igual que los
+   * inputs de fuera. Sin prop, el default de input del widget (`radius.spot`,
+   * 15px) — antes se usaba `radius.card` (26px), que es un radio de TARJETA:
+   * inputs de 44px con esquinas de 26px se leían como juguete, no como
+   * checkout.
+   */
+  radioInput?: number;
 }) {
   // `useMemo`, no una constante a nivel de módulo: `stripeAccount` cambia
   // según de qué estudio sea el widget (varios widgets, distintos estudios,
@@ -192,14 +201,44 @@ export function CheckoutEmbebido({
           // Sin prop se pide la base del widget (Instrument Sans) a Google
           // Fonts, con system-ui de reserva mientras carga.
           fonts: fuenteCheckout.cssSrc ? [{ cssSrc: fuenteCheckout.cssSrc }] : undefined,
+          // El PaymentElement ya trae su propio skeleton por campo — con
+          // 'always' se pinta desde el primer frame en vez de dejar un hueco
+          // en blanco mientras carga el iframe (P1-confianza; ver además el
+          // skeleton propio en <FormularioPago>, que cubre el hueco ANTES de
+          // que exista iframe alguno).
+          loader: 'always',
           appearance: {
             theme: 'stripe',
+            // Labels flotantes, como el Checkout de Stripe propio (la
+            // referencia de calidad del encargo): más compactas que 'above'
+            // en 320-390px y con los `defaultValues` prefijados el label ya
+            // nace arriba, nunca tapa el dato.
+            labels: 'floating',
             variables: {
               colorPrimary: colorMarca,
               colorBackground: t.surface,
               colorText: t.ink,
+              // El aviso legal/terms y los textos de apoyo del iframe salen
+              // de aquí — integrados como secundario del tema, no en el
+              // negro/serif por defecto de Stripe.
+              colorTextSecondary: t.muted,
+              colorTextPlaceholder: t.muted,
+              colorDanger: semantic.danger.text,
               fontFamily: `'${fuenteCheckout.familia}', system-ui, sans-serif`,
-              borderRadius: `${radius.card}px`,
+              // Radio de INPUT (ver docblock de `radioInput`), nunca el de
+              // tarjeta.
+              borderRadius: `${radioInput ?? radius.spot}px`,
+            },
+            rules: {
+              // Borde en reposo con la línea del tema (el default de Stripe
+              // es un gris ajeno a la paleta del estudio) y focus ring del
+              // color de marca — el mismo lenguaje de foco que los inputs
+              // del paso 'datos' de fuera del iframe.
+              '.Input': { borderColor: t.line, boxShadow: 'none' },
+              '.Input:focus': { borderColor: colorMarca, boxShadow: `0 0 0 1px ${colorMarca}`, outline: 'none' },
+              // El aviso legal de Stripe (terms), en cuerpo de secundario:
+              // sin esto quedaba como un pegote a tamaño de párrafo.
+              '.TermsText': { color: t.muted, fontSize: '11.5px' },
             },
           },
         }}
@@ -255,20 +294,41 @@ function FormularioPago({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* `defaultValues`: sin esto, el banner de Link volvía a pedir el email
-          y el teléfono que la persona acababa de escribir en el paso 1. */}
-      <PaymentElement
-        onReady={() => setElementoListo(true)}
-        options={datosPago ? {
-          defaultValues: {
-            billingDetails: {
-              name: datosPago.nombre || undefined,
-              email: datosPago.email || undefined,
-              phone: datosPago.telefono || undefined,
+      {/* Mientras el iframe del PaymentElement no existe todavía (antes
+          incluso del `loader: 'always'` de Stripe, que ya cubre la carga DE
+          los campos) había un hueco en blanco de altura cero y el CTA
+          "saltaba" hacia abajo al montar. El contenedor reserva la altura
+          típica del bloque de tarjeta y pinta un shimmer encima hasta el
+          `ready` — mismo keyframe `widget-skeleton-shimmer` que ya duplican
+          app/globals.css y app/widget-bundle/widget.css (este componente
+          también corre en el Shadow DOM del bundle). */}
+      <div style={{ position: 'relative', minHeight: elementoListo ? undefined : 220 }}>
+        {!elementoListo && (
+          <div aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[44, 44, 44].map((h, i) => (
+              <div key={i} style={{
+                height: h, borderRadius: 12,
+                background: `linear-gradient(100deg, ${t.surface2} 40%, ${t.line} 50%, ${t.surface2} 60%)`,
+                backgroundSize: '200% 100%', animation: 'widget-skeleton-shimmer 1.1s linear infinite',
+              }} />
+            ))}
+          </div>
+        )}
+        {/* `defaultValues`: sin esto, el banner de Link volvía a pedir el email
+            y el teléfono que la persona acababa de escribir en el paso 1. */}
+        <PaymentElement
+          onReady={() => setElementoListo(true)}
+          options={datosPago ? {
+            defaultValues: {
+              billingDetails: {
+                name: datosPago.nombre || undefined,
+                email: datosPago.email || undefined,
+                phone: datosPago.telefono || undefined,
+              },
             },
-          },
-        } : undefined}
-      />
+          } : undefined}
+        />
+      </div>
       {error && (
         // Pantalla 06 del handoff (pago fallido) — SIN prometer un hold de
         // plaza que este flujo no tiene: aquí no se ha reservado nada
@@ -298,14 +358,23 @@ function FormularioPago({
           cursor: (!stripe || !elementoListo || enviando) ? 'default' : 'pointer', opacity: (!stripe || !elementoListo || enviando) ? 0.6 : 1,
         }}
       >
-        {enviando ? 'Procesando…' : (textoBoton ?? `Pagar ${plan.precio} €`)}
+        {enviando ? (
+          // Spinner real, no solo texto — mismo patrón (clase `animate-spin`,
+          // presente en Tailwind y duplicada en widget.css para el Shadow
+          // DOM) que ya usa el CTA de la hoja de reserva.
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: 999, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.85, flexShrink: 0 }} />
+            Procesando el pago…
+          </span>
+        ) : (textoBoton ?? `Pagar ${plan.precio} €`)}
       </button>
-      {/* Línea de confianza (pantalla 04) — candado + la ventana de
-          cancelación REAL de esta clase, nunca un genérico. */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 11.5, color: t.muted }}>
-        <Lock size={12} />
+      {/* Línea de confianza (pantalla 04) — candado + un hecho VERAZ (el pago
+          lo procesa Stripe de verdad; nada de sellos ni "100% seguro") + la
+          ventana de cancelación REAL de esta clase, nunca un genérico. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 11.5, color: t.muted, textAlign: 'center' }}>
+        <Lock size={12} style={{ flexShrink: 0 }} />
         <span>
-          Pago seguro cifrado
+          Pago seguro procesado por Stripe
           {!!ventanaCancelacionHoras && ` · Cancelación gratuita hasta ${ventanaCancelacionHoras}h antes`}
         </span>
       </div>

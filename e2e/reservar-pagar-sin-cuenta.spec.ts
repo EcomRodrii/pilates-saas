@@ -82,6 +82,15 @@ async function abrirClaseSinSesion(page: Page) {
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
   const botonReservar = page.getByRole('button', { name: /^Reservar/ }).last();
   await expect(botonReservar).toBeVisible({ timeout: 15_000 });
+
+  // P1-confianza: la fila de plazas de la hoja habla en plazas LIBRES («10
+  // plazas libres»), nunca en el ratio de panel «0/10 · 10 libres» que la
+  // auditoría señaló como confuso («0/10» se leía como «cero plazas»). Se
+  // comprueba aquí, con la hoja ya abierta, en vez de en un test aparte que
+  // repetiría todo este arranque.
+  await expect(page.getByRole('dialog').getByText('10 plazas libres')).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('0/10')).not.toBeVisible();
+
   await botonReservar.click();
 }
 
@@ -144,6 +153,11 @@ test('rellenar datos y continuar llama a checkout-embebido con nombre/email/tel�
   // P0 (queja literal del fundador): "Pagar y reservar → 1 €" se leía como
   // "-1 €". El CTA dice ahora el importe SIN flecha/guion/interpunto delante.
   await expect(dialogoPago.getByRole('button', { name: 'Pagar 18 € y reservar' })).toBeVisible();
+
+  // P1-confianza: la línea de confianza nombra a Stripe (hecho veraz — el
+  // pago lo procesa Stripe) y arrastra la ventana de cancelación REAL del
+  // estudio del fixture (12h), nunca un genérico.
+  await expect(dialogoPago.getByText('Pago seguro procesado por Stripe · Cancelación gratuita hasta 12h antes')).toBeVisible();
   const textoDialogo = await dialogoPago.innerText();
   expect(textoDialogo, 'ningún importe puede ir precedido de una flecha').not.toMatch(/→\s*\d+([.,]\d+)?\s*€/);
   expect(textoDialogo, 'ningún importe puede ir precedido de un interpunto').not.toMatch(/·\s*\d+([.,]\d+)?\s*€/);

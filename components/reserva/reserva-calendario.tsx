@@ -1282,7 +1282,12 @@ function BookingSheet({
             t={t}
             icon={<Users size={14} />}
             label="Plazas"
-            valor={lleno ? `Completa (${slot.aforoMaximo}/${slot.aforoMaximo})` : `${slot.ocupadas}/${slot.aforoMaximo} · ${libres} ${libres === 1 ? 'libre' : 'libres'}`}
+            // Auditoría P1-confianza: «0/8 · 8 libres» se leía como «cero
+            // plazas» — el ratio ocupadas/aforo es jerga de panel, no de
+            // clienta. La cifra que importa es cuántas quedan, con el mismo
+            // copy que la tarjeta rica («X plazas libres»); la barra de abajo
+            // ya cuenta la ocupación de un vistazo.
+            valor={lleno ? 'Completa' : `${libres} ${libres === 1 ? 'plaza libre' : 'plazas libres'}`}
             valorColor={lleno ? semantic.danger.text : (libres <= 2 ? semantic.warning.text : t.ink)}
           />
           {/* Barra de ocupación — la cifra de arriba ya lo dice, esto es para
