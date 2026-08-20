@@ -115,21 +115,41 @@ export function useDialogA11y({
  * encadenan (la ficha de clase abre encima el modal de reserva) y la de dentro,
  * al cerrarse, desbloquearía el fondo con la de fuera todavía abierta.
  */
+// Cuántas hojas hay abiertas ahora mismo, y qué había en el CSS antes de la
+// primera. Ver el porqué del contador en `useBloquearScrollFondo`.
+let hojasAbiertas = 0;
+let overflowPrevio: { body: string; raiz: string } | null = null;
+
 export function useBloquearScrollFondo(activo: boolean) {
   useEffect(() => {
     if (!activo) return;
-    // ⚠️ Hacen falta LOS DOS. Con `overflow: hidden` solo en `body`, el
-    // elemento que scrollea de verdad en esta página es `documentElement`, así
-    // que el fondo seguía moviéndose exactamente igual — el arreglo parecía
-    // hecho y no lo estaba (lo destapó el e2e midiendo `scrollY`, no el CSS).
-    const raiz = document.documentElement;
-    const previoBody = document.body.style.overflow;
-    const previoRaiz = raiz.style.overflow;
-    document.body.style.overflow = 'hidden';
-    raiz.style.overflow = 'hidden';
+
+    // ⚠️ Un contador, y no «guardo el valor anterior y lo restauro»: las hojas
+    // de este flujo SE SOLAPAN —la ficha de clase abre encima el modal de
+    // reserva y se desmonta— y al desmontarse restauraba el valor de antes,
+    // desbloqueando el fondo con el modal todavía abierto. El e2e lo pilló
+    // midiendo `scrollY`; leyendo el CSS parecía correcto.
+    //
+    // ⚠️ Y hacen falta LAS DOS raíces: con `overflow: hidden` solo en `body`,
+    // quien scrollea de verdad en esta página es `documentElement` y el fondo
+    // seguía moviéndose igual.
+    if (hojasAbiertas === 0) {
+      overflowPrevio = {
+        body: document.body.style.overflow,
+        raiz: document.documentElement.style.overflow,
+      };
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    }
+    hojasAbiertas += 1;
+
     return () => {
-      document.body.style.overflow = previoBody;
-      raiz.style.overflow = previoRaiz;
+      hojasAbiertas -= 1;
+      if (hojasAbiertas === 0 && overflowPrevio) {
+        document.body.style.overflow = overflowPrevio.body;
+        document.documentElement.style.overflow = overflowPrevio.raiz;
+        overflowPrevio = null;
+      }
     };
     // A propósito NO se usa el truco de `position: fixed` + restaurar scroll,
     // que es el remedio habitual para iOS: aquí colapsaría la altura del

@@ -87,6 +87,10 @@ export function SelectorFuente({ etiqueta, ayuda, valor, onChange, etiquetaPorDe
         <button
           type="button"
           onClick={() => setAbierto(v => !v)}
+          // El nombre accesible es la etiqueta del campo, no el valor actual:
+          // sin esto, el único nombre del control sería la fuente elegida, y
+          // ni un lector de pantalla ni un test podrían decir de qué campo es.
+          aria-label={etiqueta}
           aria-haspopup="listbox"
           aria-expanded={abierto}
           aria-controls={abierto ? idLista : undefined}
