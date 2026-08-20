@@ -809,3 +809,64 @@ export function precioMedioSesion(s: SnapshotEstudio, idx: IndicesSenal): number
   if (precios.length === 0) return 0;
   return precios.reduce((a, b) => a + b, 0) / precios.length;
 }
+
+const ABANDONO_DIAS_RECIENTE = 14;
+const ABANDONO_DIAS_BASE_HASTA = 60; // ventana base: 14-60d, previa e inmediatamente anterior a la reciente
+
+export interface AbandonoCheckout {
+  exitosReciente: number; // checkout_started con booking_completed de la misma sesión
+  totalReciente: number;  // checkout_started en la ventana reciente
+  exitosBase: number;
+  totalBase: number;
+}
+
+/**
+ * Abandono de checkout en el widget de reservas (Captación C3 — auditoría
+ * vs Momence, "carrito abandonado" que ellos solo enseñan y aquí se convierte
+ * en señal). Agrupa `checkout_started`/`booking_completed` por `session_id`:
+ * una sesión "tiene éxito" si, tras un checkout_started, existe un
+ * booking_completed posterior de la MISMA sesión — cruce por session_id, no
+ * solo contar tipos, porque una sesión puede iniciar varios checkouts.
+ * Ventana reciente (14d) vs base (14-60d) para poder comparar el estudio
+ * contra SU PROPIO histórico — nunca contra un corte fijo ni contra otros
+ * estudios (mismo criterio que F5/confianzaRiesgoDeCobro).
+ *
+ * ⚠️ Limitación conocida (QA PR #1274, no corregida a propósito): si una
+ * misma session_id tiene VARIOS checkout_started seguidos de un solo
+ * booking_completed (reintento tras pago rechazado, patrón real de Stripe),
+ * TODOS los inicios de esa sesión cuentan como éxito — la sesión sale 100%,
+ * escondiendo que el primer intento sí se abandonó. Infla exitos y total por
+ * igual, así que no genera falsos positivos de "cae la tasa" por sí solo,
+ * pero sí puede enmascarar una caída real si el patrón de reintentos
+ * aumenta. Corregirlo exigiría tratar cada session_id como UNA observación
+ * (éxito/fracaso), no una por cada checkout_started — cambio de modelo
+ * mayor, fuera de esta iteración.
+ */
+export function tasaAbandonoCheckout(eventos: SnapshotEstudio['widgetEventosCheckout'], now: Date): AbandonoCheckout {
+  const corteReciente = now.getTime() - ABANDONO_DIAS_RECIENTE * MS_DIA;
+  const corteBase = now.getTime() - ABANDONO_DIAS_BASE_HASTA * MS_DIA;
+
+  const porSesion = new Map<string, { inicios: number[]; completoEn: number | null }>();
+  for (const ev of eventos) {
+    const t = new Date(ev.creadoEn).getTime();
+    let fila = porSesion.get(ev.sessionId);
+    if (!fila) { fila = { inicios: [], completoEn: null }; porSesion.set(ev.sessionId, fila); }
+    if (ev.tipo === 'checkout_started') fila.inicios.push(t);
+    else if (fila.completoEn === null || t < fila.completoEn) fila.completoEn = t;
+  }
+
+  let exitosReciente = 0, totalReciente = 0, exitosBase = 0, totalBase = 0;
+  for (const fila of porSesion.values()) {
+    for (const inicio of fila.inicios) {
+      const exito = fila.completoEn !== null && fila.completoEn >= inicio;
+      if (inicio >= corteReciente) {
+        totalReciente++;
+        if (exito) exitosReciente++;
+      } else if (inicio >= corteBase) {
+        totalBase++;
+        if (exito) exitosBase++;
+      }
+    }
+  }
+  return { exitosReciente, totalReciente, exitosBase, totalBase };
+}

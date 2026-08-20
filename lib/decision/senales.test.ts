@@ -37,7 +37,7 @@ function log(p: Partial<AutomationLog> & Pick<AutomationLog, 'socioId' | 'result
 function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
   return {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
     ...over,
   };
 }
