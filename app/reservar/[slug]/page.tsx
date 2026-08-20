@@ -40,7 +40,7 @@ import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import {
-  Users, CheckCircle2, X, Calendar,
+  Users, CheckCircle2, X, Calendar, Clock, MapPin,
   CreditCard, FileText, Download, ExternalLink, Mail, ChevronLeft,
 } from 'lucide-react';
 
@@ -204,7 +204,10 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
       <div className="rounded-lg py-1.5 text-center text-[9px] font-bold uppercase tracking-widest bg-[var(--portal-surface-2)] text-[var(--portal-muted)] mb-2">
         Parte frontal · Instructora
       </div>
-      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${columnas.length}, minmax(0, 1fr))` }}>
+      {/* Celdas compactas de tamaño fijo acotado y centradas (feedback del
+          fundador: «los sitios son muy grandes»), mismo criterio que el
+          SpotPicker del calendario compartido. */}
+      <div className="grid gap-1.5 justify-center" style={{ gridTemplateColumns: `repeat(${columnas.length}, minmax(30px, 48px))` }}>
         {filas.map(f => columnas.map(c => {
           const spot = spots.find(s => s.fila === f && s.columna === c);
           if (!spot) return <div key={`${f}-${c}`} />;
@@ -214,7 +217,7 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
             <button key={spot.id} type="button" disabled={taken}
               onClick={() => onSelect(isSel ? null : spot.id)}
               title={taken ? 'Ocupado' : spot.nombre}
-              className="aspect-[3/4] rounded-xl border text-[10px] font-bold flex items-center justify-center transition-all disabled:cursor-not-allowed"
+              className="aspect-square rounded-[10px] border text-[10px] font-bold flex items-center justify-center transition-all disabled:cursor-not-allowed"
               style={taken
                 ? { backgroundColor: 'var(--portal-surface-2)', borderColor: 'var(--portal-line)', color: 'var(--portal-micro)' }
                 : isSel
@@ -554,6 +557,12 @@ export default function ReservarPage() {
 
   // Aceptación del contrato (clickwrap: checkbox + fecha + versión).
   const [terminosAceptados, setTerminosAceptados] = useState(false);
+  // Casilla explícita del popup «pagar y reservar sin cuenta» (rediseño
+  // Momence): «Al inscribirme, acepto la política de privacidad». Solo abre la
+  // puerta al pago — la aceptación del contrato completo sigue registrándose
+  // por el mecanismo de siempre (el portal la pide en la primera visita, ver
+  // nota CREAR_FICHA en app/api/public/checkout-embebido/route.ts).
+  const [privacidadAceptada, setPrivacidadAceptada] = useState(false);
 
   // Documento legal a mostrar en modal (texto renderizado por React → escapado;
   // sustituye al document.write con HTML sin escapar, que era un vector XSS).
@@ -1019,6 +1028,7 @@ export default function ReservarPage() {
     if (sesionId) trackEventoWidget(studio?.id, 'class_selected', { sesionClaseId: sesionId });
     setBookingSesionId(sesionId);
     setTerminosAceptados(false);
+    setPrivacidadAceptada(false);
     setEnlaceEnviado(false);
     setLoginError('');
     setGateError('');
@@ -1162,6 +1172,10 @@ export default function ReservarPage() {
   async function handleDatosContinuar() {
     if (!bookingSesionId || !datosPlan || !studio?.id || datosCargando) return;
     if (!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono)) return;
+    // La casilla de privacidad es obligatoria (rediseño del popup): sin ella
+    // no se inicia ningún pago. El botón ya va deshabilitado, esto es el
+    // cinturón por si se llega por Enter.
+    if (!privacidadAceptada) return;
     setDatosError('');
     setDatosCargando(true);
     try {
@@ -2725,20 +2739,54 @@ export default function ReservarPage() {
                   </button>
                   <p className="text-[10.5px] font-bold tracking-[0.14em] text-[var(--portal-muted)] uppercase">Paso 1 de 2</p>
                 </div>
-                <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-[var(--portal-line)] flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: bookingSesion.tipo?.color ?? PRIMARY }} />
-                      <p className="text-[var(--portal-ink)] font-bold">{bookingSesion.tipo?.nombre}</p>
-                    </div>
-                    <p className="text-[var(--portal-muted-2)] text-sm">{fmtLong(new Date(bookingSesion.inicio))}</p>
-                    <p className="text-[var(--portal-muted-2)] text-sm">{fmtTime(bookingSesion.inicio)}{bookingSesion.instructor?.nombre ? ` · ${bookingSesion.instructor.nombre}` : ''}</p>
+                {/* Rediseño del popup (referencia Momence móvil, orden pedido
+                    por el fundador): foto de la clase, título, fecha + hora +
+                    duración, ubicación, descripción completa — y debajo los
+                    datos y el pago. */}
+                {bookingSesion.tipo?.fotoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- foto subida por el estudio, no un asset conocido en build
+                  <img src={bookingSesion.tipo.fotoUrl} alt="" loading="lazy" decoding="async"
+                    className="w-full h-36 object-cover rounded-2xl mb-4" />
+                ) : (
+                  <div aria-hidden="true" className="w-full h-24 rounded-2xl mb-4 flex items-center justify-center"
+                    style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${bookingSesion.tipo?.color ?? PRIMARY} 55%, #fff) 0%, ${bookingSesion.tipo?.color ?? PRIMARY} 100%)` }}>
+                    <span className="font-[var(--font-display),Georgia,serif] text-4xl" style={{ color: 'rgba(255,255,255,0.92)' }}>
+                      {(bookingSesion.tipo?.nombre ?? 'C').charAt(0).toUpperCase()}
+                    </span>
                   </div>
+                )}
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-2xl leading-tight">
+                    {bookingSesion.tipo?.nombre}
+                  </h2>
                   <div className="text-right shrink-0">
                     <p className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] text-xl leading-none">{datosPlan.precio} €</p>
                     <p className="text-[11px] text-[var(--portal-muted)] mt-1">1 clase</p>
                   </div>
                 </div>
+                <div className="space-y-1.5 mb-3">
+                  <p className="flex items-center gap-2 text-[var(--portal-muted-2)] text-sm">
+                    <Calendar size={14} className="shrink-0 text-[var(--portal-muted)]" />
+                    {fmtLong(new Date(bookingSesion.inicio))}
+                  </p>
+                  <p className="flex items-center gap-2 text-[var(--portal-muted-2)] text-sm">
+                    <Clock size={14} className="shrink-0 text-[var(--portal-muted)]" />
+                    {fmtTime(bookingSesion.inicio)} - {fmtTime(bookingSesion.fin)}
+                    {bookingSesion.tipo?.duracionMinutos ? ` · ${bookingSesion.tipo.duracionMinutos} min` : ''}
+                    {bookingSesion.instructor?.nombre ? ` · ${bookingSesion.instructor.nombre}` : ''}
+                  </p>
+                  {bookingSesion.sala?.nombre && (
+                    <p className="flex items-center gap-2 text-[var(--portal-muted-2)] text-sm">
+                      <MapPin size={14} className="shrink-0 text-[var(--portal-muted)]" />
+                      {bookingSesion.sala.nombre} · {estudioNombre}
+                    </p>
+                  )}
+                </div>
+                {bookingSesion.tipo?.descripcion && (
+                  <p className="text-[var(--portal-muted-2)] text-[13px] leading-relaxed mb-4">
+                    {bookingSesion.tipo.descripcion}
+                  </p>
+                )}
                 <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-2xl mb-1">Tus datos</h2>
                 <p className="text-[var(--portal-muted-2)] text-sm mb-4">
                   No necesitas crear una cuenta. Al completar tu reserva crearemos automáticamente tu acceso para que puedas gestionar tus próximas clases.
@@ -2768,11 +2816,29 @@ export default function ReservarPage() {
                   className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
                   style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                 {datosError && <p className="text-destructive text-sm mb-3">{datosError}</p>}
-                <p className="text-[11px] text-[var(--portal-muted)] mb-4">
+                <p className="text-[11px] text-[var(--portal-muted)] mb-3">
                   ¿Ya tienes cuenta? <button type="button" onClick={() => setLoginStep('login')} className="underline font-semibold">Entra aquí</button>.
                 </p>
+                {/* Casilla explícita de privacidad (rediseño del popup). El
+                    enlace abre el texto completo en el visor legal existente. */}
+                <label className="flex items-start gap-2.5 mb-4 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={privacidadAceptada}
+                    onChange={e => setPrivacidadAceptada(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--portal-ink)]"
+                  />
+                  <span className="text-[var(--portal-ink)] text-xs leading-relaxed">
+                    Al inscribirme, acepto la{' '}
+                    <button type="button"
+                      onClick={e => { e.preventDefault(); setLegalDoc({ label: 'Política de privacidad', text: studioConfig.politicaPrivacidad }); }}
+                      className="underline font-semibold">
+                      política de privacidad
+                    </button>.
+                  </span>
+                </label>
                 <button onClick={handleDatosContinuar}
-                  disabled={!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono) || datosCargando}
+                  disabled={!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono) || !privacidadAceptada || datosCargando}
                   className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
                   style={{ backgroundColor: PRIMARY }}>
                   {datosCargando ? 'Un momento…' : 'Continuar al pago →'}

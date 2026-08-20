@@ -20,12 +20,17 @@ export function SpotPicker({
   const filas = useMemo(() => [...new Set(spots.map(s => s.fila))].sort((a, b) => a - b), [spots]);
   const columnas = useMemo(() => [...new Set(spots.map(s => s.columna))].sort((a, b) => a - b), [spots]);
 
+  // Compacto a propósito (feedback literal del fundador: «los sitios son muy
+  // grandes y el botón de reservar es muy pequeño»): celdas de tamaño FIJO
+  // acotado (máx 48px, cuadradas) y centradas, en vez de estirarse a partes
+  // iguales por todo el ancho de la hoja — con 8 plazas en 2 filas aquello
+  // ocupaba varias pantallas de scroll antes del CTA.
   return (
-    <div style={{ background: t.surface, border: `1px solid ${t.line}`, borderRadius: radius.card, padding: 14 }}>
-      <div style={{ background: t.surface2, borderRadius: 10, padding: '5px 0', textAlign: 'center', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.14em', color: t.muted, textTransform: 'uppercase', marginBottom: 10 }}>
+    <div style={{ background: t.surface, border: `1px solid ${t.line}`, borderRadius: radius.card, padding: 10 }}>
+      <div style={{ background: t.surface2, borderRadius: 8, padding: '4px 0', textAlign: 'center', fontSize: 9, fontWeight: 800, letterSpacing: '0.14em', color: t.muted, textTransform: 'uppercase', marginBottom: 8 }}>
         Frente · Instructor
       </div>
-      <div style={{ display: 'grid', gap: 8, gridTemplateColumns: `repeat(${columnas.length}, minmax(0, 1fr))` }}>
+      <div style={{ display: 'grid', gap: 6, gridTemplateColumns: `repeat(${columnas.length}, minmax(30px, 48px))`, justifyContent: 'center' }}>
         {filas.map(fila =>
           columnas.map(col => {
             const spot = spots.find(s => s.fila === fila && s.columna === col);
@@ -41,8 +46,8 @@ export function SpotPicker({
                 aria-label={`Sitio ${spot.nombre}${taken ? ' (ocupado)' : ''}`}
                 onClick={() => onSelect(isSel ? null : spot.id)}
                 style={{
-                  aspectRatio: '3 / 4', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 800, cursor: taken ? 'not-allowed' : 'pointer',
+                  aspectRatio: '1 / 1', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10.5, fontWeight: 800, cursor: taken ? 'not-allowed' : 'pointer',
                   border: `2px solid ${isSel ? 'var(--portal-brand)' : taken ? 'transparent' : t.line}`,
                   background: isSel ? 'var(--portal-brand)' : taken ? t.surface2 : t.surface,
                   color: isSel ? 'var(--portal-brand-foreground)' : taken ? t.muted : t.ink,
