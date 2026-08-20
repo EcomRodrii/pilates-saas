@@ -2150,3 +2150,13 @@ export interface RowSegmentosClientes {
   creado_en: string;
   actualizado_en: string;
 }
+
+export interface RowMensajesEntrantesMedicion {
+  id: string;
+  canal: string;
+  de_numero: string;
+  para_numero: string;
+  cuerpo: string | null;
+  twilio_sid: string;
+  creado_en: string;
+}
