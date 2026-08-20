@@ -114,6 +114,10 @@ test('rellenar datos y continuar llama a checkout-embebido con nombre/email/tel�
   await page.getByPlaceholder('Apellidos').fill('Ruiz');
   await page.getByPlaceholder('Tu email').fill('marta.ruiz@example.com');
   await page.getByPlaceholder('Tu teléfono (+34 600 000 000)').fill('+34 600 123 456');
+  // Casilla explícita de privacidad (rediseño del popup): sin marcarla, el
+  // botón de pago queda deshabilitado.
+  await expect(page.getByRole('button', { name: /Continuar al pago/ })).toBeDisabled();
+  await page.getByRole('checkbox', { name: /política de privacidad/i }).check();
   await page.getByRole('button', { name: /Continuar al pago/ }).click();
 
   await page.waitForTimeout(1500);
@@ -146,6 +150,7 @@ test('⚠️ un 409 de checkout-embebido NO se anuncia como pago iniciado', asyn
   await page.getByPlaceholder('Apellidos').fill('Ruiz');
   await page.getByPlaceholder('Tu email').fill('marta.ruiz@example.com');
   await page.getByPlaceholder('Tu teléfono (+34 600 000 000)').fill('+34 600 123 456');
+  await page.getByRole('checkbox', { name: /política de privacidad/i }).check();
   await page.getByRole('button', { name: /Continuar al pago/ }).click();
   await page.waitForTimeout(1500);
 

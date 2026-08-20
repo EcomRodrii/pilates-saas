@@ -223,6 +223,45 @@ function fmtHora(iso: string): string {
 function fmtDiaLargo(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 }
+// La tarjeta rica del listado enseña el año completo («Jueves, 20 de agosto de
+// 2026») — es el formato de la referencia (Momence móvil) que pidió el fundador.
+function fmtDiaCompleto(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// Foto de la clase (tarjeta rica y cabecera de la hoja). Sin foto subida, cae a
+// un bloque con el color del tipo de clase y su inicial — NUNCA a una imagen de
+// /public: este componente también corre en el bundle Shadow DOM incrustado en
+// la web de un tercero, donde una URL relativa resolvería contra el dominio del
+// estudio y daría 404 (mismo motivo por el que todo aquí llega por props).
+function FotoClase({ nombre, color, fotoUrl, ancho, alto, radio }: {
+  nombre: string; color: string; fotoUrl?: string | null;
+  ancho: number | string; alto: number; radio: number;
+}) {
+  if (fotoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- foto subida por el estudio, no un asset estático conocido en build (mismo criterio que RoundPhoto)
+      <img
+        src={fotoUrl}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        style={{ width: ancho, height: alto, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block' }}
+      />
+    );
+  }
+  return (
+    <div aria-hidden="true" style={{
+      width: ancho, height: alto, borderRadius: radio, flexShrink: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: `linear-gradient(135deg, color-mix(in srgb, ${color} 55%, #fff) 0%, ${color} 100%)`,
+    }}>
+      <span style={{ fontFamily: serif, fontSize: Math.round(alto * 0.4), color: 'rgba(255,255,255,0.92)', lineHeight: 1 }}>
+        {nombre.charAt(0).toUpperCase()}
+      </span>
+    </div>
+  );
+}
 
 // Foto redonda — de la instructora o de la clase. Si no hay foto, cae a la
 // inicial del nombre sobre su color (mismo criterio que components/ui/profile-avatar).
@@ -537,35 +576,37 @@ export function ReservaCalendario({
         const dayLabel = `${capitaliza(diaSel.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}${esHoy ? ' — hoy' : ''}`;
         const countLabel = error ? '—' : (totalDia ? `${totalDia} ${totalDia === 1 ? 'clase' : 'clases'}` : 'Sin clases');
         return (
-          // Contenedor con cabecera «día · nº de clases» (Fase 4 del rediseño,
-          // docs/widget-reservas-fase4-brief-diseno.md, formato 01) — solo en
-          // Modo A (única consumidora de `estiloDias='dias'`). Las filas siguen
-          // siendo `SlotRow` tal cual, con su propia sombra/tarjeta: no se toca
-          // ese componente porque también lo usa el portal privado
-          // (`estiloDias='semana'`), fuera del alcance de este rediseño.
-          <div style={{ borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}`, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: `1px solid ${t.line}`, background: t.surface2 }}>
+          // Cabecera «día · nº de clases» + tarjetas RICAS por clase (rediseño
+          // pedido por el fundador con Momence móvil de referencia): foto,
+          // rótulo «CLASE», título grande, instructora, descripción con
+          // «Mostrar más», filas con icono y precio + «Reservar ahora». Solo en
+          // Modo A (única consumidora de `estiloDias='dias'`); `SlotRow` sigue
+          // intacto para el portal privado ('semana') y «Mis reservas» ('lista').
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '12px 18px', borderRadius: radius.card, border: `1px solid ${t.line}`, background: t.surface2, marginBottom: 14 }}>
               <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.02em', color: t.ink }}>{dayLabel}</span>
               <span style={{ fontSize: 11.5, color: t.muted }}>{countLabel}</span>
             </div>
-            <div>
-              {error ? (
-                <div style={{ padding: 14 }}><EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} /></div>
-              ) : totalDia === 0 ? (
-                <div style={{ padding: 14 }}><EstadoVacio t={t} titulo="Sin clases este día" cuerpo="Prueba otro día de la semana" /></div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px' }}>
-                  {/* Las de hoy que ya pasaron van PRIMERO — es el orden
-                      cronológico del día, y coincide con el handoff. */}
-                  {finalizadas.map(f => (
-                    <FilaFinalizada key={f.id} t={t} slot={f} />
-                  ))}
-                  {slotsDia.map(slot => (
-                    <SlotRow key={slot.id} t={t} slot={slot} onOpen={() => abrirSlot(slot)} />
-                  ))}
-                </div>
-              )}
-            </div>
+            {error ? (
+              <div style={{ borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}` }}>
+                <EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} />
+              </div>
+            ) : totalDia === 0 ? (
+              <div style={{ borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}` }}>
+                <EstadoVacio t={t} titulo="Sin clases este día" cuerpo="Prueba otro día de la semana" />
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* Las de hoy que ya pasaron van PRIMERO — es el orden
+                    cronológico del día, y coincide con el handoff. */}
+                {finalizadas.map(f => (
+                  <FilaFinalizada key={f.id} t={t} slot={f} />
+                ))}
+                {slotsDia.map(slot => (
+                  <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => abrirSlot(slot)} ocultarPrecio={ocultarPrecio} />
+                ))}
+              </div>
+            )}
           </div>
         );
       })()}
@@ -682,22 +723,26 @@ function SkeletonDias({ t }: { t: ModoTokens }) {
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${t.line}`, overflow: 'hidden' }}>
         {Array.from({ length: 6 }).map((_, i) => <div key={i} style={bloque(56, 68, 18)} />)}
       </div>
-      <div style={{ borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}`, overflow: 'hidden' }}>
-        <div style={{ padding: '13px 20px', borderBottom: `1px solid ${t.line}`, background: t.surface2 }}>
-          <div style={bloque(140, 12)} />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px' }}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, borderTop: i > 0 ? `1px solid ${t.line}` : undefined, padding: '18px 4px' }}>
-              <div style={bloque(46, 23, 6)} />
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={bloque('60%', 18)} />
+      <div style={{ padding: '12px 18px', borderRadius: radius.card, border: `1px solid ${t.line}`, background: t.surface2, marginBottom: 14 }}>
+        <div style={bloque(140, 12)} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} style={{ borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}`, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <div style={bloque(76, 76, 14)} />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
+                <div style={bloque(44, 10)} />
+                <div style={bloque('60%', 20)} />
                 <div style={bloque('35%', 12)} />
               </div>
-              <div style={bloque(88, 40, radius.pillBtnSm - 2)} />
             </div>
-          ))}
-        </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={bloque(64, 22)} />
+              <div style={bloque(140, 46, radius.pillBtnSm - 2)} />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -743,7 +788,8 @@ function FilaFinalizada({ t, slot }: {
   return (
     <div style={{
       display: 'flex', width: '100%', alignItems: 'center', flexWrap: 'wrap', gap: 14,
-      borderTop: `1px solid ${t.line}`, padding: '18px 4px', opacity: 0.5,
+      border: `1px solid ${t.line}`, borderRadius: radius.card, background: t.surface,
+      padding: '14px 16px', opacity: 0.55,
     }}>
       <div style={{ flex: '0 0 auto', width: 62 }}>
         <div style={{ fontFamily: serif, fontSize: 23, lineHeight: 1 }}>{fmtHora(slot.inicio)}</div>
@@ -855,6 +901,161 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
   );
 }
 
+// ── Tarjeta rica de clase (rediseño Momence, solo estiloDias='dias') ─────────
+//
+// Pedido literal del fundador con capturas de Momence móvil de referencia:
+// foto de la clase, rótulo pequeño «CLASE», título grande, instructora,
+// descripción truncada con «Mostrar más», filas con icono (fecha completa,
+// hora + duración, sala) y abajo PRECIO grande + botón sólido «Reservar
+// ahora». Mantiene el contrato de los e2e existentes: className
+// `reserva-slot-row`, role=button y el mismo aria-label que `SlotRow`.
+//
+// Es un <div role="button"> y no un <button> porque «Mostrar más» necesita ser
+// interactivo DENTRO de la tarjeta, y un botón anidado en otro botón es HTML
+// inválido (el navegador lo re-anida y el click se pierde).
+function TarjetaClase({ t, slot, onOpen, ocultarPrecio }: {
+  t: ModoTokens; slot: ReservaSlot; onOpen: () => void; ocultarPrecio: boolean;
+}) {
+  const [verMas, setVerMas] = useState(false);
+  const libres = Math.max(0, slot.aforoMaximo - slot.ocupadas);
+  const ratio = ratioOcupacion(slot.ocupadas, slot.aforoMaximo);
+  const capColor = colorOcupacion(ratio);
+  const lleno = libres <= 0;
+  const duracionMin = Math.round((new Date(slot.fin).getTime() - new Date(slot.inicio).getTime()) / 60000);
+  const yaMia = slot.miEstado === 'CONFIRMADA' || slot.miEstado === 'LISTA_ESPERA';
+  // Umbral generoso: por debajo, dos líneas de clamp no recortan nada y el
+  // «Mostrar más» sería un botón que no hace nada visible.
+  const descLarga = (slot.descripcion ?? '').length > 120;
+  const mostrarPrecio = slot.precio != null && !ocultarPrecio && !yaMia;
+
+  const filaIcono = (icon: React.ReactNode, texto: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+      <span style={{ color: t.muted, display: 'inline-flex', flexShrink: 0 }}>{icon}</span>
+      <span style={{ fontSize: 13, color: t.ink, fontWeight: 600 }}>{texto}</span>
+    </div>
+  );
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      className="reserva-slot-row"
+      aria-label={`${slot.claseNombre} a las ${fmtHora(slot.inicio)}${slot.instructorNombre ? `, con ${slot.instructorNombre}` : ''}, ${
+        slot.miEstado === 'CONFIRMADA' ? 'ya la tienes reservada'
+        : slot.miEstado === 'LISTA_ESPERA' ? 'estás en lista de espera'
+        : lleno ? 'completa' : `${libres} plazas`}`}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left', cursor: 'pointer',
+        background: t.surface, border: `1px solid ${t.line}`, borderRadius: radius.card, padding: 16,
+        WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      {/* Foto + rótulo + título */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+        <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho={76} alto={76} radio={14} />
+        <div style={{ minWidth: 0, flex: 1, paddingTop: 2 }}>
+          <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: t.muted }}>Clase</p>
+          <h3 style={{ fontFamily: serif, fontSize: 21, fontWeight: 400, lineHeight: 1.15, color: t.ink, marginTop: 4 }}>
+            {slot.claseNombre}
+          </h3>
+          {!yaMia && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 7 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: lleno ? t.muted : capColor, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, fontWeight: ratio >= 0.85 && !lleno ? 700 : 500, color: lleno ? t.muted : capColor, letterSpacing: '.01em' }}>
+                {lleno ? 'Completa' : ratio >= 0.85 ? `¡${etiquetaOcupacion(ratio).toLowerCase()}!` : `${libres} ${libres === 1 ? 'plaza libre' : 'plazas libres'}`}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: t.line }} />
+
+      {/* Instructora */}
+      {slot.instructorNombre && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={26} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {slot.instructorNombre}
+          </span>
+        </div>
+      )}
+
+      {/* Descripción truncada con «Mostrar más» */}
+      {slot.descripcion && (
+        <div>
+          <p style={{
+            fontSize: 13, color: t.muted2, lineHeight: 1.5,
+            ...(descLarga && !verMas
+              ? { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }
+              : {}),
+          }}>
+            {slot.descripcion}
+          </p>
+          {descLarga && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={e => { e.stopPropagation(); setVerMas(v => !v); }}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setVerMas(v => !v); } }}
+              style={{ display: 'inline-block', marginTop: 4, fontSize: 12.5, fontWeight: 700, color: 'var(--portal-brand)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+            >
+              {verMas ? 'Mostrar menos' : 'Mostrar más'}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Filas con icono: fecha completa, hora + duración, sala */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {filaIcono(<CalendarDays size={15} />, capitaliza(fmtDiaCompleto(slot.inicio)))}
+        {filaIcono(<Clock size={15} />, `${fmtHora(slot.inicio)} - ${fmtHora(slot.fin)} · ${duracionMin} min`)}
+        {slot.salaNombre && filaIcono(<MapPin size={15} />, slot.salaNombre)}
+      </div>
+
+      <div style={{ height: 1, background: t.line }} />
+
+      {/* Precio grande + CTA protagonista. El CTA es un span aria-hidden (la
+          tarjeta entera ya es el botón accesible), mismo criterio que SlotRow. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        {mostrarPrecio ? (
+          <span style={{ fontFamily: serif, fontSize: 24, lineHeight: 1, color: t.ink, fontVariantNumeric: 'tabular-nums' }}>
+            {slot.precio} €
+          </span>
+        ) : <span />}
+        {yaMia ? (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '12px 18px', borderRadius: radius.pillBtnSm - 2,
+            background: 'color-mix(in oklab, var(--portal-brand) 10%, var(--portal-surface))', color: 'var(--portal-brand)',
+            fontSize: 13, fontWeight: 700,
+          }}>
+            <EstadoIcono estado={slot.miEstado as 'CONFIRMADA' | 'LISTA_ESPERA'} />
+            {slot.miEstado === 'CONFIRMADA' ? 'Reservada' : 'En espera'}
+          </span>
+        ) : lleno ? (
+          <span aria-hidden="true" className="reserva-cta-btn" style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 46, padding: '0 20px',
+            border: '1px solid color-mix(in oklab, var(--portal-brand) 40%, transparent)', borderRadius: radius.pillBtnSm - 2,
+            color: 'var(--portal-brand)', fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap',
+          }}>
+            Lista de espera
+          </span>
+        ) : (
+          <span aria-hidden="true" className="reserva-cta-btn" style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 46, padding: '0 22px',
+            background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', borderRadius: radius.pillBtnSm - 2,
+            fontSize: 14, fontWeight: 800, whiteSpace: 'nowrap',
+          }}>
+            Reservar ahora
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Hoja inferior (bottom sheet) ─────────────────────────────────────────────
 
 function BookingSheet({
@@ -957,6 +1158,12 @@ function BookingSheet({
         }}
       >
         <div style={{ width: 36, height: 4, borderRadius: 999, background: t.line, margin: '6px auto 4px', flexShrink: 0 }} />
+
+        {/* Foto de la clase — primer elemento del popup (orden pedido por el
+            fundador: foto, título, fecha/hora/duración, ubicación, descripción,
+            acción). Con fallback al color del tipo, nunca a un asset de /public
+            (ver FotoClase). */}
+        <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho="100%" alto={slot.claseFotoUrl ? 150 : 96} radio={16} />
 
         {/* Cabecera */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
@@ -1102,8 +1309,11 @@ function BookingSheet({
           disabled={resultado === 'CANCELADA' || enviando}
           aria-busy={enviando}
           className="reserva-cta-btn"
+          // Más alto y con más cuerpo que antes (52→58): feedback literal del
+          // fundador — «los sitios son muy grandes y el botón de reservar es muy
+          // pequeño». La jerarquía se invierte: spots compactos, CTA protagonista.
           style={{
-            width: '100%', height: 52, borderRadius: 14, fontSize: 14.5, fontWeight: 800,
+            width: '100%', height: 58, borderRadius: 16, fontSize: 15.5, fontWeight: 800,
             textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none',
             cursor: resultado === 'CANCELADA' || enviando ? 'default' : 'pointer',
             marginTop: 2, opacity: resultado === 'CANCELADA' ? 0.4 : enviando ? 0.7 : 1,
