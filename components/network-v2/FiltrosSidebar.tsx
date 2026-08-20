@@ -42,37 +42,27 @@ function Grupo({ titulo, children }: { titulo: string; children: React.ReactNode
   );
 }
 
-// Antes eran <span onClick> sin ningún <input> real detrás — sin rol de
-// checkbox/radio, sin tabIndex, sin manejo de teclado: invisibles para un
-// lector de pantalla y para quien navega sin ratón (hallazgo de la
-// auditoría del sistema de diseño, 2026-08-18). El control real vive oculto
-// (sr-only) delante del visual decorativo — el label sigue reaccionando al
-// clic como antes, y ahora también a Tab/Espacio/flechas.
-function CheckboxFiltro({ activo, onChange, children }: { activo: boolean; onChange: () => void; children: React.ReactNode }) {
+// Antes "Especialidad"/"Experiencia"/"Valoración"/"Verificación" eran
+// checkbox/radio de formulario mientras "Disponibilidad"/"Precio" ya eran
+// pills — la misma sidebar mezclaba dos lenguajes visuales, y el de
+// checkbox es el que usa cualquier filtro de `/dashboard`: es justo lo que
+// hacía sentir el marketplace como panel de admin en vez de Bsport/Momence
+// (auditoría UX 2026-08-20). Un único control (pill) para toda la sidebar,
+// semántica intacta (`<input type="checkbox"|"radio">` real y oculto,
+// sr-only, mismo criterio de accesibilidad que ya tenían CheckboxFiltro/
+// RadioFiltro) — solo cambia el visual.
+function PillFiltro({
+  tipo, nombre, activo, onChange, children,
+}: {
+  tipo: 'checkbox' | 'radio'; nombre?: string; activo: boolean; onChange: () => void; children: React.ReactNode;
+}) {
   return (
-    <label className="flex items-center gap-2.5 cursor-pointer text-[13.5px]" style={{ color: NW_TINTA }}>
-      <input type="checkbox" checked={activo} onChange={onChange} className="sr-only peer" />
-      <span
-        aria-hidden="true"
-        className="shrink-0 flex items-center justify-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1"
-        style={{ width: 19, height: 19, borderRadius: 6, background: activo ? NW_PRODUCTO : '#fff', border: `1.5px solid ${activo ? NW_PRODUCTO : NW_BORDE}` }}
-      >
-        {activo && <Check size={13} color="#fff" strokeWidth={3} />}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function RadioFiltro({ nombre, activo, onChange, children }: { nombre: string; activo: boolean; onChange: () => void; children: React.ReactNode }) {
-  return (
-    <label className="flex items-center gap-2.5 cursor-pointer text-[13.5px]" style={{ color: NW_TINTA }}>
-      <input type="radio" name={nombre} checked={activo} onChange={onChange} className="sr-only peer" />
-      <span
-        aria-hidden="true"
-        className="shrink-0 rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1"
-        style={{ width: 16, height: 16, border: `1.5px solid ${activo ? NW_PRODUCTO : NW_BORDE}`, boxShadow: activo ? `inset 0 0 0 3px #fff, inset 0 0 0 999px ${NW_PRODUCTO}` : undefined }}
-      />
+    <label
+      className="inline-flex items-center gap-1.5 cursor-pointer px-3 py-1.5 text-[12.5px] font-semibold transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-offset-1"
+      style={{ borderRadius: 999, border: `1px solid ${activo ? NW_PRODUCTO : NW_BORDE}`, background: activo ? NW_SAGE : '#fff', color: NW_TINTA }}
+    >
+      <input type={tipo} name={nombre} checked={activo} onChange={onChange} className="sr-only" />
+      {activo && <Check size={12} strokeWidth={3} style={{ color: NW_PRODUCTO }} />}
       {children}
     </label>
   );
@@ -130,97 +120,86 @@ export function FiltrosSidebar() {
       </Grupo>
 
       <Grupo titulo="Especialidad">
-        <div className="space-y-2">
+        <div className="flex flex-wrap gap-1.5">
           {ESPECIALIDADES_NETWORK.map(v => (
-            <CheckboxFiltro key={v} activo={especialidadesActivas.includes(v)} onChange={() => toggleEnLista('especialidades', v)}>
+            <PillFiltro key={v} tipo="checkbox" activo={especialidadesActivas.includes(v)} onChange={() => toggleEnLista('especialidades', v)}>
               {ESPECIALIDAD_LABEL[v]}
-            </CheckboxFiltro>
+            </PillFiltro>
           ))}
         </div>
       </Grupo>
 
       <Grupo titulo="Experiencia">
-        <div className="space-y-2">
+        <div className="flex flex-wrap gap-1.5">
           {EXPERIENCIA_OPCIONES.map(o => (
-            <RadioFiltro
-              key={o.valor} nombre="experienciaMinima"
+            <PillFiltro
+              key={o.valor} tipo="radio" nombre="experienciaMinima"
               activo={(searchParams.get('experienciaMinima') ?? '') === o.valor}
               onChange={() => actualizar('experienciaMinima', o.valor || null)}
             >
               {o.etiqueta} años
-            </RadioFiltro>
+            </PillFiltro>
           ))}
         </div>
       </Grupo>
 
       <Grupo titulo="Disponibilidad">
         <div className="flex flex-wrap gap-1.5">
-          {DISPONIBILIDAD_ESTADOS_NETWORK.filter(v => v !== 'no_disponible').map(v => {
-            const activo = disponibilidadActiva.includes(v);
-            return (
-              <button
-                key={v} type="button" onClick={() => toggleEnLista('disponibilidad', v)}
-                className="px-3 py-1.5 text-[12px] font-semibold transition-colors"
-                style={{ borderRadius: 999, border: `1px solid ${activo ? NW_PRODUCTO : NW_BORDE}`, background: activo ? NW_SAGE : '#fff', color: NW_TINTA }}
-              >
-                {DISPONIBILIDAD_ESTADO_LABEL[v]}
-              </button>
-            );
-          })}
+          {DISPONIBILIDAD_ESTADOS_NETWORK.filter(v => v !== 'no_disponible').map(v => (
+            <PillFiltro key={v} tipo="checkbox" activo={disponibilidadActiva.includes(v)} onChange={() => toggleEnLista('disponibilidad', v)}>
+              {DISPONIBILIDAD_ESTADO_LABEL[v]}
+            </PillFiltro>
+          ))}
         </div>
       </Grupo>
 
       <Grupo titulo="Precio máximo">
         <div className="flex flex-wrap gap-1.5">
-          {TARIFAS_RANGO_NETWORK.map(v => {
-            const activo = tarifaActiva.includes(v);
-            return (
-              <button
-                key={v} type="button" onClick={() => toggleEnLista('tarifaRango', v)}
-                className="px-3 py-1.5 text-[12px] font-semibold transition-colors"
-                style={{ borderRadius: 999, border: `1px solid ${activo ? NW_PRODUCTO : NW_BORDE}`, background: activo ? NW_SAGE : '#fff', color: NW_TINTA }}
-              >
-                {TARIFA_RANGO_LABEL[v]}
-              </button>
-            );
-          })}
+          {TARIFAS_RANGO_NETWORK.map(v => (
+            <PillFiltro key={v} tipo="checkbox" activo={tarifaActiva.includes(v)} onChange={() => toggleEnLista('tarifaRango', v)}>
+              {TARIFA_RANGO_LABEL[v]}
+            </PillFiltro>
+          ))}
         </div>
       </Grupo>
 
       <Grupo titulo="Valoración mínima">
-        <div className="space-y-2">
+        <div className="flex flex-wrap gap-1.5">
           {VALORACION_OPCIONES.map(o => (
-            <RadioFiltro
-              key={o.valor} nombre="valoracionMinima"
+            <PillFiltro
+              key={o.valor} tipo="radio" nombre="valoracionMinima"
               activo={(searchParams.get('valoracionMinima') ?? '') === o.valor}
               onChange={() => actualizar('valoracionMinima', o.valor || null)}
             >
               {o.etiqueta}
-            </RadioFiltro>
+            </PillFiltro>
           ))}
         </div>
       </Grupo>
 
       <Grupo titulo="Verificación">
-        <div className="space-y-2">
-          <CheckboxFiltro
+        <div className="flex flex-wrap gap-1.5">
+          <PillFiltro
+            tipo="checkbox"
             activo={searchParams.get('identidadVerificada') === '1'}
             onChange={() => actualizar('identidadVerificada', searchParams.get('identidadVerificada') === '1' ? null : '1')}
           >
             Identidad verificada
-          </CheckboxFiltro>
-          <CheckboxFiltro
+          </PillFiltro>
+          <PillFiltro
+            tipo="checkbox"
             activo={searchParams.get('experienciaVerificada') === '1'}
             onChange={() => actualizar('experienciaVerificada', searchParams.get('experienciaVerificada') === '1' ? null : '1')}
           >
             Experiencia verificada
-          </CheckboxFiltro>
-          <CheckboxFiltro
+          </PillFiltro>
+          <PillFiltro
+            tipo="checkbox"
             activo={searchParams.get('certificacionVerificada') === '1'}
             onChange={() => actualizar('certificacionVerificada', searchParams.get('certificacionVerificada') === '1' ? null : '1')}
           >
             Formación verificada
-          </CheckboxFiltro>
+          </PillFiltro>
         </div>
       </Grupo>
 
