@@ -1219,9 +1219,14 @@ function BookingSheet({
   //  - sin ella (snippet viejo): al TOP del iframe — quien abre la ficha acaba
   //    de tocar una tarjeta que está en su pantalla, y el top del iframe está
   //    como mucho a un scroll corto, nunca a 1000px como el fondo.
+  // `top`/`height` en `var(--tentare-overlay-*, fallback)`: el fallback es el
+  // valor de React (correcto al abrir), y el valor VIVO durante el scroll lo
+  // escribe la página por DOM directo en su nodo raíz — esta hoja lo hereda
+  // por cascada CSS sin que el scroll dispare un solo re-render (medido como
+  // la causa de los trompicones al arrastrar con esta hoja abierta).
   const overlayPos: CSSProperties = enIframe
     ? (franjaVisible
-      ? { left: 0, right: 0, top: franjaVisible.top, height: franjaVisible.height, alignItems: 'flex-end' }
+      ? { left: 0, right: 0, top: `var(--tentare-overlay-top, ${franjaVisible.top}px)`, height: `var(--tentare-overlay-height, ${franjaVisible.height}px)`, alignItems: 'flex-end' }
       : { inset: 0, alignItems: 'flex-start', paddingTop: 16 })
     : { inset: 0, alignItems: 'flex-end' };
   const sheetMaxHeight = enIframe
