@@ -220,7 +220,13 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
 
   useEffect(() => {
     if (stripeToast) {
-      const t = setTimeout(() => setStripeToast(null), 4000);
+      // Los errores se quedan más tiempo que los "ok" (4s de siempre): el fallo
+      // de sellado de factura tras "Cobrar" ahora explica QUÉ pasar a
+      // continuación ("reintenta desde Sin factura...") — 4s no bastan para
+      // leerlo, y era justo la brevedad del aviso equivalente (`dbError`, 6s,
+      // en un canal sin relación visible con el clic) lo que hacía parecer que
+      // el cobro se había perdido.
+      const t = setTimeout(() => setStripeToast(null), stripeToast.tipo === 'error' ? 10000 : 4000);
       return () => clearTimeout(t);
     }
   }, [stripeToast]);
@@ -507,7 +513,12 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
       for (let i = 0; i < ids.length; i += CHUNK) {
         const lote = ids.slice(i, i + CHUNK);
         const res = await Promise.all(lote.map(id => marcarCobrado(id)));
-        res.forEach((r, j) => { if (!r.ok) fallidos.push(lote[j]); });
+        // `cobroRegistrado` (ver comentario de marcarCobrado): el dinero SÍ se
+        // registró, solo falló el sellado de la factura — contarlo aquí como
+        // "fallido" mentiría al resumen final ("N cobros no se pudieron
+        // procesar" sobre cobros que sí se procesaron). Esas filas quedan
+        // igual con su botón "Sin factura" en la pestaña Cobrado.
+        res.forEach((r, j) => { if (!r.ok && !('cobroRegistrado' in r)) fallidos.push(lote[j]); });
         setMasivoCobrando(Math.min(i + CHUNK, ids.length));
         await new Promise(r => setTimeout(r, 0));
       }
@@ -588,17 +599,30 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
 
   async function cobrarYEmail(reciboId: string, metodo?: MetodoCobro) {
     const marcado = await marcarCobrado(reciboId, metodo);
-    if (!marcado.ok) {
+    // `cobroRegistrado` distingue el fallo del SELLADO fiscal (el dinero ya se
+    // registró como cobrado; solo falló la factura, típicamente por el NIF del
+    // ESTUDIO en Configuración → Mi estudio) de un fallo real al marcar el
+    // cobro (nada se registró). Solo en el segundo caso no se manda el
+    // justificante: sería un email falso. En el primero, la socia SÍ pagó, así
+    // que el email debe salir igual — lo único que falta es la factura, y esa
+    // fila ya tiene su botón "Sin factura" en la pestaña Cobrado para
+    // reintentar el sellado.
+    if (!marcado.ok && !('cobroRegistrado' in marcado)) {
       setStripeToast({ tipo: 'error', msg: marcado.error });
-      return; // sin marcar no se manda el justificante: sería un email falso
+      return;
     }
     const r = recibos.find(x => x.id === reciboId);
     const socio = r ? socios.find(s => s.id === r.socioId) : null;
     const factura = facturas.find(f => f.reciboId === reciboId);
     // Sin esto la fila desaparecía de "Quién me debe" en silencio y parecía
     // que el clic no había hecho nada — el estado sí se actualizaba, solo
-    // faltaba decirlo.
-    setStripeToast({ tipo: 'ok', msg: r ? `Cobro registrado: ${formatEuro(r.importe)} de ${socioName(r.socioId)}.` : 'Cobro registrado.' });
+    // faltaba decirlo. Y si el sellado falló, el toast lo dice explícito (en
+    // vez del `dbError` global, que se autodescarta a los 6s sin relación
+    // visible con este clic) y se queda más tiempo en pantalla (ver el efecto
+    // de arriba) que un "ok" normal.
+    setStripeToast(marcado.ok
+      ? { tipo: 'ok', msg: r ? `Cobro registrado: ${formatEuro(r.importe)} de ${socioName(r.socioId)}.` : 'Cobro registrado.' }
+      : { tipo: 'error', msg: `Cobro registrado, pero la factura no se pudo sellar: ${marcado.error}. Reintenta desde "Sin factura" en la pestaña Cobrado.` });
     if (socio?.email && r) {
       enviarEmailRecibo({
         to: socio.email,
@@ -1355,6 +1379,15 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                 <div className="divide-y divide-background">
                   {group.items.map(r => {
                     const badge = BADGE[r.estado] ?? BADGE.PENDIENTE;
+                    // El cobro se registró pero la factura no llegó a sellarse
+                    // (NIF del estudio inválido/vacío en el momento del cobro,
+                    // red...) — "Lo que he cobrado" es el sitio natural donde
+                    // alguien busca esto, y hasta ahora esta vista no ofrecía
+                    // NINGÚN botón para arreglarlo (solo existía, oculto tras
+                    // hover, en la vista "Quién me debe" filtrada por estado).
+                    // SIEMPRE visible, sin gating de hover: es la recuperación
+                    // de un fallo, no una acción rutinaria que deba esconderse.
+                    const sinFactura = r.estado === 'COBRADO' && !facturas.some(f => f.reciboId === r.id);
                     return (
                       <div key={r.id} className="flex items-center gap-4 px-5 py-3.5">
                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand-medio shrink-0">
@@ -1376,6 +1409,19 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                         <p className="text-xs text-muted-foreground shrink-0 hidden sm:block">
                           {r.fechaCobro ? fecha(r.fechaCobro) : fecha(r.fechaVencimiento)}
                         </p>
+                        {sinFactura && (
+                          <button
+                            onClick={() => handleReintentarFactura(r.id)}
+                            disabled={reintentandoFactura === r.id}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-60 shrink-0"
+                            title="El cobro se registró pero la factura no llegó a sellarse — reintentar"
+                          >
+                            {reintentandoFactura === r.id
+                              ? <Loader2 size={12} className="animate-spin" />
+                              : <RefreshCw size={12} />}
+                            Sin factura
+                          </button>
+                        )}
                       </div>
                     );
                   })}

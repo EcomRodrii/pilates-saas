@@ -426,7 +426,7 @@ interface StudioContextValue {
   // Recibos
   addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => Promise<ResultadoEscritura>;
   crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }) => Promise<ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }>;
-  marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura>;
+  marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }>;
   marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentarSelladoFactura: (reciboId: string) => Promise<ResultadoEscritura>;
@@ -3406,7 +3406,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return buildFactura(reciboCobrado, facturasActuales);
   }
 
-  async function marcarCobrado(reciboId: string, metodo?: MetodoCobro): Promise<ResultadoEscritura> {
+  async function marcarCobrado(reciboId: string, metodo?: MetodoCobro): Promise<ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }> {
     // Re-entrada: si este recibo ya se está cobrando (doble clic), no se repite
     // el sellado de factura ni la renovación del bono. Se responde ok para no
     // marcar como fallido el segundo intento del mismo recibo en el cobro masivo.
@@ -3436,6 +3436,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       r.id === reciboId ? { ...r, estado: 'COBRADO' as const, fechaCobro, metodoCobro: metodo ?? r.metodoCobro ?? null } : r
     ));
     // 2.2: construirFacturaCobro es pura; el sellado va fuera del updater.
+    //
+    // ⚠️ SE ESPERA el sellado (antes `void`, fire-and-forget): el llamador de
+    // "Cobrar" (un solo recibo) devolvía éxito en cuanto se marcaba COBRADO, y
+    // si el sellado fallaba después (NIF del estudio inválido/vacío, red...) el
+    // aviso llegaba por el toast global `dbError`, que se autodescarta a los 6s
+    // y no tiene ninguna relación visible con el clic que se acaba de hacer —
+    // el recibo pasaba a la pestaña "Cobrado" (correcto, el dinero SÍ se
+    // registró) mientras el toast de éxito seguía en pantalla, y a quien no
+    // llegó a ver el toast de error le parecía que el pago había desaparecido
+    // sin más. Mismo patrón ya usado por `crearFacturaDirecta`: se espera
+    // aquí porque es una acción manual de un solo recibo, no el cobro masivo
+    // (que sigue en fire-and-forget para no bloquearse recibo a recibo).
+    let resSellado: ResultadoEscritura = { ok: true };
     {
       const recibo = recibos.find(r => r.id === reciboId) ??
         { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
@@ -3443,7 +3456,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const fac = construirFacturaCobro(updatedRecibo, facturas);
       if (fac) {
         setFacturas(prev => [...prev, fac]);
-        void sellarFacturaYActualizar(fac);
+        resSellado = await sellarFacturaYActualizar(fac);
       }
     }
     // Refill bono or extend mensual when renewal payment is collected
@@ -3461,7 +3474,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         otorgarCreditos(recibo.socioId, 'RENOVACION_PLAN', reciboId);
       }
     }
-    return res;
+    // `cobroRegistrado` distingue el fallo del SELLADO fiscal (el dinero ya se
+    // registró como cobrado, solo falta la factura) de un fallo real al
+    // escribir el cobro (nada pasó todavía) — mismo criterio que
+    // `crearFacturaDirecta`. El llamador nunca debe tratar esto como "vuelve a
+    // intentarlo": el cobro ya está hecho, reintentarlo duplicaría la
+    // atestación; lo que hay que reintentar es solo el sellado
+    // (`reintentarSelladoFactura`, ya expuesto en la pestaña "Cobrado").
+    return resSellado.ok ? res : { ...resSellado, cobroRegistrado: true };
     } finally {
       cobrosEnCursoRef.current.delete(reciboId);
     }
