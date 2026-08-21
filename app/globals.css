@@ -154,6 +154,27 @@
      cuerpo (5,69:1 sobre el fondo del panel) sin salirse de la familia.
      NO sustituye a --brand en botones ni rellenos: solo donde el oliva se
      comportaría como un neutro. */
+
+  /* ── Tenti, la mascota ───────────────────────────────────────────────────
+     El kit de diseño venía en índigo (#3D3B73) y coral (#F07C80). Ninguno de
+     los dos está en el sistema de Tentare, así que la mascota se TIÑE aquí a
+     la identidad oliva/arena en vez de traerse su paleta — mismo motivo por
+     el que se purgó el rosa fuera de sistema de /suscripcion.
+
+     El dibujo NO cambia: son exactamente los trazados del kit
+     (components/marca/tenti-poses.ts), solo con los colores por variable.
+
+     ⚠️ El traje (`--tenti-traje`) va en verde medio y no en arena a propósito:
+     el torso es el trazo más gordo del dibujo y la arena se le pega a la piel,
+     que también es arena — Tenti se quedaba en una silueta sin ropa. El verde
+     medio la separa manteniendo la familia. Se puede pisar por instancia
+     (style={{'--tenti-traje': ...}}) igual que el kit permitía elegir traje. */
+  --tenti-contorno: #343825;
+  --tenti-traje: #5A6142;
+  --tenti-piel: #EBD9B8;
+  --tenti-pelo: #CFD2C0;
+  --tenti-rubor: #C98F76;
+  --tenti-chispa: #C9A96A;
   --brand-medio: #55622C;
   /* Delimita el botón cuando el fondo es oscuro y el oliva no se despega de él
      (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
@@ -260,6 +281,17 @@
      5-10% son un verde apenas perceptible en vez de un baño beige. La arena se
      queda donde siempre debió estar en oscuro: como TEXTO sobre la marca. */
   --brand: #8A9165;
+  /* Tenti en oscuro. El contorno NO puede seguir siendo el oliva #343825: sobre
+     #16161A se funde con el fondo y la mascota se queda sin dibujo — manchas de
+     color sin silueta. Sube al oliva claro, que es el mismo salto que ya hace
+     `--brand` justo arriba. La piel baja de brillo para no ser un foco en una
+     pantalla apagada, y el traje sube para no comerse el contorno nuevo. */
+  --tenti-contorno: #C3CBA2;
+  --tenti-traje: #6F784C;
+  --tenti-piel: #C7B492;
+  --tenti-pelo: #8E9382;
+  --tenti-rubor: #A9755E;
+  --tenti-chispa: #A98C55;
   --brand-foreground: #16161A;
   --brand-secondary: #A8B37A;
   --brand-borde: transparent;

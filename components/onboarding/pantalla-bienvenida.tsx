@@ -26,6 +26,7 @@ import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { authHeader } from '@/lib/api-client';
 import type { Studio } from '@/lib/types';
 import { useStudio } from '@/lib/studio-context';
+import { PantallasValor } from './pantallas-valor';
 // Las opciones se pintan DESDE el módulo puro a propósito: la etiqueta que se
 // enseña y la que se interpreta son el mismo dato, así que no pueden divergir
 // al editar una de las dos (hay un test que recorre las listas enteras).
@@ -417,7 +418,25 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
 
 type Vals = ReturnType<typeof computeVals>;
 
+/**
+ * Lo primero al entrar: primero se ENSEÑA lo que hace Tentare, y solo después
+ * se pregunta. Antes esto abría directamente con «¿cuántos centros tienes?»
+ * a alguien que acaba de registrarse y todavía no sabe qué gana con esto.
+ *
+ * Son dos componentes y no una fase más del motor de dentro a propósito: ese
+ * motor es un bucle de requestAnimationFrame con audio y una máquina de
+ * estados en un ref, y meterle una fase previa significaba que el tecleo de la
+ * intro corriera —y se gastara— por detrás de las pantallas de valor. Montando
+ * el asistente solo cuando la baraja termina, la intro empieza cuando se ve.
+ */
 export function PantallaBienvenida({ studio }: { studio: Studio }) {
+  const [valorVisto, setValorVisto] = useState(false);
+  const saltarValor = useCallback(() => setValorVisto(true), []);
+  if (!valorVisto) return <PantallasValor onContinuar={saltarValor} />;
+  return <AsistenteBienvenida studio={studio} />;
+}
+
+function AsistenteBienvenida({ studio }: { studio: Studio }) {
   const { updateStudio } = useStudio();
   const router = useRouter();
   const nombreEstudio = studio.nombre || 'Tu estudio';
