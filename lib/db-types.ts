@@ -679,8 +679,6 @@ export interface RowStudios {
   direccion: string | null;
   ciudad: string | null;
   codigo_postal: string | null;
-  // migr 20260821101500.
-  sitio_web: string | null;
   email: string | null;
   telefono: string | null;
   color_primario: string | null;
@@ -850,6 +848,8 @@ export interface RowStudios {
   // widget (solo comodidad del panel — la config efectiva viaja congelada
   // en el snippet copiado). NUNCA en studioPublico().
   widget_builder: Record<string, unknown> | null;
+  // migr 20260821101500.
+  sitio_web: string | null;
 }
 
 export interface RowSuscripciones {
