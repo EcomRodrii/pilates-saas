@@ -18,6 +18,8 @@ import { Building2, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
 import { cn } from '@/lib/utils';
+import { ETIQUETA_ROL } from '@/lib/permisos-reglas';
+import type { Rol } from '@/lib/types';
 import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/lib/supabase-data';
 
 /** Marca la sede recién elegida para poder confirmarlo al aterrizar. Exportada:
@@ -29,9 +31,9 @@ const CLAVE_CAMBIO = CLAVE_CAMBIO_SEDE;
 // P2-14: rol legible por sede — instructoras multi-sede pueden ser
 // PROPIETARIO/MANAGER en una y solo INSTRUCTOR en otra, y conviene que no
 // les sorprenda el cambio de permisos al cambiar de sede en este menú.
-const ETIQUETA_ROL: Record<string, string> = {
-  PROPIETARIO: 'Propietaria', MANAGER: 'Gerencia', RECEPCION: 'Recepción', INSTRUCTOR: 'Instructora',
-};
+// `ETIQUETA_ROL` viene de lib/permisos-reglas.ts — fuente única (auditoría
+// integral 2026-08-21: este archivo tenía su propio catálogo, con MANAGER
+// llamado "Gerencia" mientras otros sitios lo llamaban "Responsable de sede").
 
 export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 'topbar' }) {
   const { user } = useAuth();
@@ -130,8 +132,8 @@ export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 't
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate">{s.nombre}</span>
-                {s.rol && ETIQUETA_ROL[s.rol] && (
-                  <span className="block text-[11px] text-muted-foreground truncate">{ETIQUETA_ROL[s.rol]}</span>
+                {s.rol && ETIQUETA_ROL[s.rol as Rol] && (
+                  <span className="block text-[11px] text-muted-foreground truncate">{ETIQUETA_ROL[s.rol as Rol].label}</span>
                 )}
               </span>
               {cambiando === s.id

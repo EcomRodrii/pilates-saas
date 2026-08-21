@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveStudioIdBySlug } from '@/lib/supabase-data';
-import { fetchPublicStudioData, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { fetchPublicStudioData } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -29,18 +28,18 @@ export async function POST(req: NextRequest) {
   }
   const liviano = body?.liviano === true;
 
-  let member: { socioId: string; email: string } | undefined;
+  // La resolución de estudio por slug (y la comprobación de si este JWT
+  // pertenece a una socia de ese estudio) vive DENTRO de fetchPublicStudioData
+  // — antes se resolvía aquí Y otra vez ahí, dos round-trips por el mismo
+  // slug en cada visita autenticada (auditoría integral 2026-08-21, P0-1).
   const user = await verificarUsuarioSupabase(req);
-  if (user) {
-    const studioId = await resolveStudioIdBySlug(slug);
-    if (studioId) {
-      const socioId = await socioAutenticado(user.userId, studioId);
-      if (socioId) member = { socioId, email: user.email };
-    }
-  }
 
   try {
-    const data = await fetchPublicStudioData(slug, member, { liviano });
+    const data = await fetchPublicStudioData(
+      slug,
+      user ? { authUserId: user.userId, email: user.email } : undefined,
+      { liviano },
+    );
     if (!data) {
       return conCorsWidget(req, NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 }));
     }

@@ -4814,6 +4814,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       deleteInstructor={deleteInstructor}
       marcarNotificacionLeida={marcarNotificacionLeida}
       marcarTodasLeidas={marcarTodasLeidas}
+      navPortal={navPortal}
+      barraClasica={barraClasicaEfectiva}
+      tabBarStyle={tabBarStyleEfectivo}
+      variantes={variantesEfectivas}
+      themeIdPublicado={themeIdEfectivo}
+      portalReact={portalReact}
     >
     <StudioContext.Provider value={value}>
       {children}

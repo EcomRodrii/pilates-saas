@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortalTemaMarco } from './portal-tema-marco';
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { esTemaPortal } from '@/themes/registro';
 
@@ -22,7 +22,8 @@ import { esTemaPortal } from '@/themes/registro';
  */
 export function PortalRaiz({ slug }: { slug: string }) {
   const router = useRouter();
-  const { themeIdPublicado, portalReact, dataLoaded } = useStudio();
+  // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
+  const { themeIdPublicado, portalReact, dataLoaded } = useCore();
   const { session, isLoading } = usePortalAuth();
   const acceso = `/portal/${slug}/acceso`;
 
