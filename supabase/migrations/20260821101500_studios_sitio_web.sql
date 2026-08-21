@@ -19,10 +19,22 @@
 -- (`hrefCanal`, lib/canales-estudio.ts), no el guardado. Un CHECK aquí
 -- rechazaría la forma en que la gente escribe de verdad su web.
 --
--- Puramente aditiva: NULL = no la ha puesto. Ninguna política RLS nueva —
--- `studios` no tiene grants por columna, así que la columna hereda las
--- políticas de tabla que ya existen (la propietaria actualiza su estudio, el
--- portal la lee vía service-role en `studioPublico`).
+-- Puramente aditiva: NULL = no la ha puesto. Ninguna política RLS nueva: la
+-- columna hereda las políticas de tabla que ya existen (la propietaria
+-- actualiza su estudio con su sesión).
+--
+-- ⚠️ Y ningún GRANT nuevo, pero NO porque `studios` no tenga grants por
+-- columna — sí los tiene. `anon` quedó acotado a once columnas mínimas
+-- (id, nombre, slug, ciudad, color_primario, tema_portal, avatar_admin y las
+-- cuatro de política de reserva) en `20260820165632_cierra_lectura_anon_cross_tenant`,
+-- así que una columna nueva nace INVISIBLE para `anon`. Verificado en vivo
+-- contra `information_schema.column_privileges` antes de escribir esto.
+--
+-- `sitio_web` se queda fuera de esa lista A PROPÓSITO, igual que `email`,
+-- `telefono` y `direccion`, que tampoco están: al portal llega por
+-- `studioPublico()`, que usa service-role (SELECT sobre la tabla entera). Si
+-- algún día hiciera falta leerla como `anon`, el GRANT va añadido a esa lista
+-- blanca de forma explícita — nunca abriendo la tabla entera.
 
 alter table public.studios
   add column if not exists sitio_web text;
