@@ -32,6 +32,7 @@ import { PantallasValor } from './pantallas-valor';
 // al editar una de las dos (hay un test que recorre las listas enteras).
 import {
   OPCIONES_SALAS, OPCIONES_AFORO, OPCIONES_DURACION, OPCIONES_COBRO, OPCIONES_IMPARTE,
+  OPCIONES_HORARIO,
   TIPOS_CLASE_SUGERIDOS, interpretarRespuestasWizard, planificarConfiguracion,
   planVacio,
 } from '@/lib/onboarding/plan-configuracion';
@@ -63,6 +64,7 @@ type Respuestas = {
   clases?: string[];
   cobro?: string[];
   imparte?: string;
+  horario?: string;
 };
 
 type Paso = {
@@ -164,6 +166,14 @@ const PASOS: Paso[] = [
     multi: 2,
   },
   {
+    id: 'horario', etiqueta: 'Tu espacio', titulo: '¿A qué horas das clases?',
+    // Ajusta la franja que pinta el calendario. Sin esto se abre de 8:00 a
+    // 22:00 por defecto, así que un estudio de tardes se encuentra media
+    // pantalla de horas vacías el primer día.
+    nota: 'Es la franja que verás en tu calendario. La afinas por días cuando quieras.',
+    opciones: OPCIONES_HORARIO.map(o => o.label),
+  },
+  {
     id: 'imparte', etiqueta: 'Tu equipo', titulo: '¿Das clases tú?',
     // La única de las cinco de operativa que crea una PERSONA y no una cosa.
     // Sin ella, una propietaria que da clases entra al panel con el checklist
@@ -220,7 +230,19 @@ type Engine = {
 
 function nuevoEngine(reduced: boolean, now: number): Engine {
   return {
-    reduced, fase: 'intro', ans: {}, paso: 0,
+    // ⚠️ Arranca en 'wizard', NO en 'intro'.
+    //
+    // La intro tecleaba «Tu estudio ya está en marcha / Calendario, bonos y
+    // cobros quedan listos desde el primer día / Ahora solo falta hacerlo
+    // tuyo». Es EXACTAMENTE lo que cuentan las pantallas de valor que ahora van
+    // delante, pero en abstracto: la propietaria se comía dos bienvenidas
+    // seguidas diciendo lo mismo antes de que le preguntáramos nada.
+    //
+    // La fase 'intro' y su motor de tecleo se quedan en el fichero a propósito
+    // en vez de borrarse: `PantallasValor` puede saltarse (y se salta), y este
+    // asistente sigue siendo montable por su cuenta. Lo que cambia es por
+    // dónde EMPIEZA, no lo que sabe hacer.
+    reduced, fase: 'wizard', ans: {}, paso: 0,
     idx: 0, typed: 0, t0: now, holdAt: null, out: null,
     lastCharAt: -1e6, charCount: 0, buttonAt: null, qAt: now,
     energy: 0, prev: now,
@@ -416,7 +438,12 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
     // responde tiene teclado — la mayoría toca con el dedo o hace clic.
     pista: enIntro ? 'Toca para acelerar' : e.fase === 'wizard' ? 'Elige una opción' : '',
     pistaOpacity: e.fase === 'resumen' || (enIntro && e.buttonAt != null) ? '0' : '1',
-    textoBoton: e.fase === 'resumen' ? 'Entrar al panel' : 'Empezar',
+    // Este botón solo se VE en el resumen (`btnOpacity` lo deja a 0 en el
+    // resto), así que su texto es siempre el del resumen. Decía «Empezar»
+    // porque era el CTA de la intro tecleada; con la intro fuera —las
+    // pantallas de valor ya hacen esa función— ese texto no lo veía nadie y
+    // solo quedaba en el DOM confundiendo a quien buscara el botón.
+    textoBoton: 'Entrar al panel',
     btnOpacity: (enIntro || e.fase === 'resumen' ? bt : 0).toFixed(3),
     btnTransform: `translateY(${(8 * (1 - bt)).toFixed(2)}px)`,
     btnEvents: ((enIntro || e.fase === 'resumen') && bt > 0.9 ? 'auto' : 'none') as 'auto' | 'none',
@@ -440,8 +467,23 @@ type Vals = ReturnType<typeof computeVals>;
  */
 export function PantallaBienvenida({ studio }: { studio: Studio }) {
   const [valorVisto, setValorVisto] = useState(false);
+  const { updateStudio } = useStudio();
   const saltarValor = useCallback(() => setValorVisto(true), []);
-  if (!valorVisto) return <PantallasValor onContinuar={saltarValor} />;
+  const guardarLogo = useCallback(async (url: string) => {
+    await updateStudio({ logoUrl: url });
+  }, [updateStudio]);
+
+  if (!valorVisto) {
+    return (
+      <PantallasValor
+        onContinuar={saltarValor}
+        studioId={studio.id}
+        studioNombre={studio.nombre}
+        logoActual={studio.logoUrl}
+        onGuardarLogo={guardarLogo}
+      />
+    );
+  }
   return <AsistenteBienvenida studio={studio} />;
 }
 

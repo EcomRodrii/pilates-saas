@@ -72,6 +72,10 @@ export interface RespuestasOperativa {
   /** Da clases ella misma. Crea su ficha de instructora, que es lo que permite
    *  asignarse una clase en el calendario el primer día. */
   imparteClases?: boolean;
+  /** Franja en la que da clases, en horas 'HH:MM:SS'. Ausente = no tocar la
+   *  del estudio. */
+  horaApertura?: string;
+  horaCierre?: string;
 }
 
 export interface SalaAPlanificar { nombre: string; capacidad: number; color: string }
@@ -92,7 +96,22 @@ export interface PlanConfiguracion {
    *  nombre ni email: los pone el ejecutor desde la SESIÓN, nunca desde el
    *  body — mismo criterio que el `studio_id`. */
   instructoraPropia: boolean;
+  /** La franja del calendario. `null` = no tocarla.
+   *
+   *  ⚠️ Es la ÚNICA parte del plan que MODIFICA algo existente en vez de crear
+   *  filas nuevas — `studios.hora_apertura/hora_cierre` son NOT NULL con
+   *  default 08:00/22:00, así que la fila siempre trae un valor. Por eso el
+   *  ejecutor solo escribe si lo que hay es EXACTAMENTE ese default: es la
+   *  única forma de distinguir «no lo ha tocado» de «lo ha puesto a mano», y
+   *  sin esa comprobación reenviar el asistente le pisaría un horario que ella
+   *  ya hubiera ajustado. */
+  horario: { apertura: string; cierre: string } | null;
 }
+
+/** El default de la columna en la BD. Si el estudio tiene esto, nadie lo ha
+ *  tocado. Vive aquí, con nombre, para que el ejecutor no lleve dos horas
+ *  sueltas en un `if` sin explicación. */
+export const HORARIO_POR_DEFECTO = { apertura: '08:00:00', cierre: '22:00:00' } as const;
 
 // Topes de cordura. No son política de producto: son el freno a un número
 // absurdo (un 0, un negativo, un 999 de un dedo resbalado) creando 999 filas.
@@ -167,7 +186,14 @@ export function planificarConfiguracion(r: RespuestasOperativa): PlanConfiguraci
     planes.push({ nombre: 'Clase suelta', tipo: 'PUNTUAL', precio: 0, sesiones: 1, activo: false });
   }
 
-  return { salas, tiposClase, planes, instructoraPropia: r.imparteClases === true };
+  // Solo si vienen las DOS y en orden: media franja no dice nada, y una
+  // apertura posterior al cierre dejaría el calendario sin ninguna fila
+  // visible — peor que el default.
+  const horario = r.horaApertura && r.horaCierre && r.horaApertura < r.horaCierre
+    ? { apertura: r.horaApertura, cierre: r.horaCierre }
+    : null;
+
+  return { salas, tiposClase, planes, instructoraPropia: r.imparteClases === true, horario };
 }
 
 /** ¿Hay algo que hacer? Evita llamar al ejecutor para nada.
@@ -178,7 +204,7 @@ export function planificarConfiguracion(r: RespuestasOperativa): PlanConfiguraci
  *  la peor forma de no hacer algo. */
 export function planVacio(p: PlanConfiguracion): boolean {
   return p.salas.length === 0 && p.tiposClase.length === 0
-    && p.planes.length === 0 && !p.instructoraPropia;
+    && p.planes.length === 0 && !p.instructoraPropia && !p.horario;
 }
 
 // ─── Etiquetas del asistente → respuestas ────────────────────────────────────
@@ -198,6 +224,21 @@ export const OPCIONES_DURACION = ['45 minutos', '50 minutos', '55 minutos', '60 
 export const OPCIONES_COBRO = ['Bonos de sesiones', 'Cuota mensual', 'Clase suelta'] as const;
 export const OPCIONES_IMPARTE = ['Sí, yo doy clases', 'No, solo gestiono'] as const;
 
+/** Franjas de clase. La etiqueta LLEVA las horas y las horas viven en la misma
+ *  fila: así lo que se pinta y lo que se interpreta no son dos listas que
+ *  puedan divergir, sino el mismo dato — mismo criterio que el resto de
+ *  opciones de este módulo.
+ *
+ *  Cuatro y no un selector de horas: es una pregunta de un toque. Quien tenga
+ *  una franja rara la ajusta en Configuración, que es donde de todos modos
+ *  está el horario por día. */
+export const OPCIONES_HORARIO = [
+  { label: 'Solo mañanas (7:00 a 15:00)', apertura: '07:00:00', cierre: '15:00:00' },
+  { label: 'Solo tardes (15:00 a 22:00)', apertura: '15:00:00', cierre: '22:00:00' },
+  { label: 'Mañana y tarde (7:00 a 22:00)', apertura: '07:00:00', cierre: '22:00:00' },
+  { label: 'De 9:00 a 21:00', apertura: '09:00:00', cierre: '21:00:00' },
+] as const;
+
 // "4 o más" / "12 o más" se quedan en el número que dicen, no en un invento
 // mayor: si tiene 7 salas, crear 4 y que añada 3 es mucho mejor que crear 10 y
 // que borre 3. Lo mismo con el aforo, donde además pasarse deja entrar reservas
@@ -216,6 +257,7 @@ export function interpretarRespuestasWizard(ans: {
   clases?: string[];
   cobro?: string[];
   imparte?: string;
+  horario?: string;
 }): RespuestasOperativa {
   const cobro = ans.cobro ?? [];
   return {
@@ -230,5 +272,11 @@ export function interpretarRespuestasWizard(ans: {
     // OPCIONES_IMPARTE — no contra un `startsWith('Sí')` que se rompería al
     // reescribir el texto de la opción.
     imparteClases: ans.imparte === OPCIONES_IMPARTE[0],
+    // Se busca la fila por su etiqueta exacta; si no está (respuesta vieja,
+    // borrador manipulado), no se toca el horario del estudio.
+    ...(() => {
+      const f = OPCIONES_HORARIO.find(o => o.label === ans.horario);
+      return f ? { horaApertura: f.apertura, horaCierre: f.cierre } : {};
+    })(),
   };
 }

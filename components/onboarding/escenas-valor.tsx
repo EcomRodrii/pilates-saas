@@ -34,12 +34,17 @@ const T = 'cubic-bezier(0.22, 1, 0.36, 1)';
  *  Está aquí y no repetido en cada escena para que las cuatro no puedan
  *  divergir en cómo explican lo mismo. */
 function AntesDespues({
-  antes, despues, activa, pie,
+  antes, despues, activa, pie, captura,
 }: {
   antes: React.ReactNode;
   despues: React.ReactNode;
   activa: boolean;
   pie: string;
+  /** Cuando la hay, el panel «Con Tentare» enseña una CAPTURA REAL del producto
+   *  en vez de filas de texto. Se generan con `capturas-onboarding.mjs` contra
+   *  el build, así que no pueden enseñar una pantalla que ya no existe — y hay
+   *  que regenerarlas cuando esa pantalla cambie. */
+  captura?: { src: string; alt: string };
 }) {
   return (
     <div style={{ width: '100%', maxWidth: 430 }}>
@@ -65,7 +70,21 @@ function AntesDespues({
           transition: `transform 520ms ${T}, opacity 380ms linear`,
         }}
       >
-        <Panel etiqueta="Con Tentare" tono="despues">{despues}</Panel>
+        <Panel etiqueta="Con Tentare" tono="despues" ajustada={!!captura}>
+          {captura ? (
+            // `<img>` y no next/image: va dentro de un panel de ancho fijo, ya
+            // está servida al tamaño justo, y no necesita el runtime de
+            // optimización para un asset estático de 27 KB.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={captura.src}
+              alt={captura.alt}
+              width={1100}
+              height={620}
+              style={{ display: 'block', width: '100%', height: 'auto', borderRadius: 9 }}
+            />
+          ) : despues}
+        </Panel>
       </div>
 
       <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--valor-tenue)', lineHeight: 1.45 }}>
@@ -75,7 +94,12 @@ function AntesDespues({
   );
 }
 
-function Panel({ etiqueta, tono, children }: { etiqueta: string; tono: 'antes' | 'despues'; children: React.ReactNode }) {
+function Panel({ etiqueta, tono, children, ajustada }: {
+  etiqueta: string; tono: 'antes' | 'despues'; children: React.ReactNode;
+  /** Con una captura dentro, el relleno lateral se reduce: la imagen ya trae su
+   *  propio margen visual y con el del panel encima se quedaba en un sello. */
+  ajustada?: boolean;
+}) {
   const esAntes = tono === 'antes';
   return (
     <div
@@ -83,7 +107,7 @@ function Panel({ etiqueta, tono, children }: { etiqueta: string; tono: 'antes' |
         background: esAntes ? 'var(--valor-neutro)' : 'var(--valor-superficie)',
         border: `1px solid ${esAntes ? 'var(--valor-linea)' : 'var(--valor-marca)'}`,
         borderRadius: 14,
-        padding: '10px 13px 12px',
+        padding: ajustada ? '9px 9px 9px' : '10px 13px 12px',
         boxShadow: esAntes ? 'none' : '0 10px 28px -20px rgba(0,0,0,.35)',
       }}
     >
@@ -135,6 +159,7 @@ export function EscenaReservas({ activa }: PropsEscena) {
   return (
     <AntesDespues
       activa={activa}
+      captura={{ src: '/onboarding/reservar.webp', alt: 'La página de reservas de un estudio, con su horario y su botón de reservar' }}
       pie="Ninguna te escribió a ti. Se apuntaron desde tu página, cada una a su hora."
       antes={<>
         <Suelto texto="«¿Queda sitio el jueves?»" meta="23:47" />
@@ -192,6 +217,7 @@ export function EscenaInformes({ activa }: PropsEscena) {
   return (
     <AntesDespues
       activa={activa}
+      captura={{ src: '/onboarding/calendario.webp', alt: 'El calendario del panel, con la ocupación media de la semana y las clases que no llenan' }}
       pie="El aviso salta solo: esa clase lleva tres semanas sin llenarse."
       antes={<>
         <Suelto texto="Reformer 10:00" meta="¿Va bien?" />

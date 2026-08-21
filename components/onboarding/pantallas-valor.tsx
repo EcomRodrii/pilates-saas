@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import { Tenti, type TentiPose } from '@/components/marca/tenti';
+import { PasoLogo } from './paso-logo';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import {
   EscenaReservas, EscenaCobros, EscenaSustituciones, EscenaInformes,
@@ -41,7 +42,9 @@ type Pantalla = {
    *  aire, y se leen de un vistazo sin tener que leerse el párrafo. */
   puntos: string[];
   pose: TentiPose;
-  Escena: (p: { activa: boolean }) => React.ReactElement;
+  /** `null` en la pantalla del logo: ahí no hay antes/después que enseñar,
+   *  hay algo que hacer. */
+  Escena: ((p: { activa: boolean }) => React.ReactElement) | null;
 };
 
 const PANTALLAS: Pantalla[] = [
@@ -81,13 +84,32 @@ const PANTALLAS: Pantalla[] = [
     pose: 'celebracion',
     Escena: EscenaInformes,
   },
+  {
+    // La única que PIDE algo en vez de enseñar. Va la última a propósito: se
+    // pide después de haber demostrado, no antes.
+    id: 'logo',
+    problema: '«Quiero que mis alumnas vean mi estudio, no una plantilla»',
+    titular: 'Ponle tu logo y ya es tuyo',
+    apoyo: 'Es lo único que te pedimos ahora. El resto —colores, textos, tu página— lo afinas cuando quieras.',
+    puntos: ['Tu página de reservas', 'La app de tus alumnas', 'Sus correos'],
+    pose: 'con-amor',
+    Escena: null,
+  },
 ];
 
 /** Cuánto tarda la escena en pasar de «antes» a «después» al entrar. Deja leer
  *  el titular primero: si la transformación ocurre a la vez, no se ve. */
 const MS_ANTES_DE_TRANSFORMAR = 900;
 
-export function PantallasValor({ onContinuar }: { onContinuar: () => void }) {
+export function PantallasValor({
+  onContinuar, studioId, studioNombre, logoActual, onGuardarLogo,
+}: {
+  onContinuar: () => void;
+  studioId: string;
+  studioNombre: string;
+  logoActual: string | null;
+  onGuardarLogo: (url: string) => Promise<void>;
+}) {
   const [i, setI] = useState(0);
   const [transformada, setTransformada] = useState(false);
   const tituloRef = useRef<HTMLHeadingElement>(null);
@@ -276,7 +298,7 @@ export function PantallasValor({ onContinuar }: { onContinuar: () => void }) {
                   fontFamily: 'inherit',
                 }}
               >
-                {ultima ? 'Montamos tu estudio' : 'Siguiente'}
+                {ultima ? 'Montar mi estudio' : 'Siguiente'}
                 <ArrowRight size={16} strokeWidth={2.5} />
               </button>
 
@@ -306,7 +328,16 @@ export function PantallasValor({ onContinuar }: { onContinuar: () => void }) {
               de una escena volvería a romperlo. Decorativa: el titular de al
               lado ya dice lo que ella celebra. */}
           <div style={{ gridArea: 'escena', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-            <Escena activa={transformada} />
+            {Escena ? (
+              <Escena activa={transformada} />
+            ) : (
+              <PasoLogo
+                studioId={studioId}
+                studioNombre={studioNombre}
+                logoActual={logoActual}
+                onGuardar={onGuardarLogo}
+              />
+            )}
             <div
               style={{
                 alignSelf: 'flex-end', marginRight: 4,

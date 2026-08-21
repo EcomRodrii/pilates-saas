@@ -2,16 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
+import { getThemeBorrador, getThemePublicado } from '@/lib/theme-data';
 import { uid } from '@/lib/utils';
 import {
-  planificarConfiguracion, planVacio, type RespuestasOperativa,
+  planificarConfiguracion, planVacio, HORARIO_POR_DEFECTO, type RespuestasOperativa,
 } from '@/lib/onboarding/plan-configuracion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §8 — Aplica al estudio lo que la propietaria acaba de responder en el
 // asistente de bienvenida: crea sus salas con su aforo, sus tipos de clase con
-// su duración, los borradores de bono/cuota/clase suelta, y —si da clases ella
-// misma— su propia ficha de instructora.
+// su duración, los borradores de bono/cuota/clase suelta, la franja horaria de
+// su calendario, y —si da clases ella misma— su propia ficha de instructora.
 //
 // Deliberadamente tonto: TODA la decisión de qué crear vive en la función pura
 // `planificarConfiguracion` (con 17 tests). Aquí solo se aplica el plan. Es lo
@@ -51,11 +52,58 @@ export async function POST(req: NextRequest) {
   // de rango (ver plan-configuracion.ts), así que un body manipulado no puede
   // crear filas con nombres arbitrarios ni 999 salas.
   const plan = planificarConfiguracion(body);
-  if (planVacio(plan)) {
-    return NextResponse.json({ ok: true, salas: 0, tiposClase: 0, planes: 0, nada: true });
+  const studioId = sesion.studioId;
+
+  // ── Favicon derivado del logo ─────────────────────────────────────────────
+  //
+  // Va ANTES del corte por plan vacío a propósito: si solo sube el logo y se
+  // salta todas las preguntas, el plan es «nada que crear» y aun así queremos
+  // que su pestaña deje de ser la de Tentare.
+  //
+  // El favicon vive en el TEMA, no en `studios` (a diferencia del logo), y
+  // apunta a la MISMA URL que el logo en vez de copiar el fichero: es la
+  // imagen que ella acaba de elegir, y duplicarla en `favicon-<id>` solo
+  // añadiría un fichero que mantener sincronizado.
+  //
+  // ⚠️ Se parte de `getThemePublicado`/`getThemeBorrador` y no de un objeto
+  // vacío: sin fila en `studio_theme`, esas funciones caen al preset viejo del
+  // estudio (`studios.tema_portal`). Escribir `{ faviconUrl }` a secas crearía
+  // la fila y ese preset dejaría de aplicarse — le cambiaríamos los colores del
+  // portal por poner un favicon.
+  //
+  // Y solo si NO tiene ya uno: elegir un favicon a mano gana siempre.
+  let faviconPuesto = false;
+  try {
+    const { data: filaStudio } = await admin
+      .from('studios').select('logo_url').eq('id', studioId).maybeSingle();
+    const logoUrl = (filaStudio?.logo_url as string | null) ?? null;
+    if (logoUrl) {
+      const publicado = await getThemePublicado(studioId);
+      if (!publicado.faviconUrl) {
+        const borrador = await getThemeBorrador(studioId);
+        const ahora = new Date().toISOString();
+        const { error } = await admin.from('studio_theme').upsert(
+          {
+            studio_id: studioId,
+            config_draft: { ...borrador, faviconUrl: logoUrl },
+            config_published: { ...publicado, faviconUrl: logoUrl },
+            actualizado_en: ahora,
+          },
+          { onConflict: 'studio_id' },
+        );
+        if (error) console.error('[onboarding:configurar:favicon]', error);
+        else faviconPuesto = true;
+      }
+    }
+  } catch (err) {
+    // Fallo suave: un favicon no justifica que el asistente diga que no ha
+    // podido preparar el estudio.
+    console.error('[onboarding:configurar:favicon]', err);
   }
 
-  const studioId = sesion.studioId;
+  if (planVacio(plan)) {
+    return NextResponse.json({ ok: true, salas: 0, tiposClase: 0, planes: 0, nada: true, favicon: faviconPuesto });
+  }
 
   try {
     const [{ data: salasExist }, { data: tiposExist }, { data: planesExist }] = await Promise.all([
@@ -155,12 +203,44 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // La franja del calendario. Es lo ÚNICO del plan que modifica algo que ya
+    // existe, así que lleva su propio candado: `hora_apertura`/`hora_cierre`
+    // son NOT NULL con default 08:00/22:00, y la única manera de distinguir
+    // «no lo ha tocado» de «lo ha puesto a mano» es comparar contra ese
+    // default. Sin esto, reenviar el asistente —doble toque, red que
+    // reintenta— le pisaría un horario que ella ya hubiera ajustado, que es
+    // justo lo que la idempotencia por nombre evita en el resto del plan.
+    let horarioAjustado = false;
+    if (plan.horario) {
+      const { data: actual } = await admin
+        .from('studios')
+        .select('hora_apertura, hora_cierre')
+        .eq('id', studioId)
+        .maybeSingle();
+      const sinTocar = actual
+        && actual.hora_apertura === HORARIO_POR_DEFECTO.apertura
+        && actual.hora_cierre === HORARIO_POR_DEFECTO.cierre;
+      if (sinTocar) {
+        const { error } = await admin
+          .from('studios')
+          .update({ hora_apertura: plan.horario.apertura, hora_cierre: plan.horario.cierre })
+          .eq('id', studioId);
+        // Fallo suave, mismo criterio que la ficha de instructora: llegados
+        // aquí el resto ya está creado, y lo peor que pasa es que el
+        // calendario se abra de 8 a 22 como hasta ahora.
+        if (error) console.error('[onboarding:configurar:horario]', error);
+        else horarioAjustado = true;
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       salas: salasNuevas.length,
       tiposClase: tiposNuevos.length,
       planes: planesNuevos.length,
       instructora: instructoraCreada,
+      horario: horarioAjustado,
+      favicon: faviconPuesto,
     });
   } catch (err) {
     return errorInterno('onboarding:configurar', err,

@@ -1,6 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BORRADOR_ALTA, validarPaso, MIN_CLAVE, type BorradorAlta } from './borrador.ts';
+import {
+  BORRADOR_ALTA, validarPaso, MIN_CLAVE, OPCIONES_COMO_NOS_CONOCIO,
+  guardarBorrador, leerBorrador, type BorradorAlta,
+} from './borrador.ts';
+
+// `guardarBorrador`/`leerBorrador` salen antes si no hay `window`, así que bajo
+// `node --test` hay que dárselo. Es un almacén de mentira de tres líneas, no un
+// jsdom: lo único que se usa de él son get/set/remove.
+const almacen = new Map<string, string>();
+(globalThis as { window?: unknown }).window = {
+  localStorage: {
+    getItem: (k: string) => almacen.get(k) ?? null,
+    setItem: (k: string, v: string) => { almacen.set(k, v); },
+    removeItem: (k: string) => { almacen.delete(k); },
+  },
+};
 
 const lleno: BorradorAlta = {
   estudio: 'Estudio Tentare',
@@ -58,4 +73,34 @@ test('el plan por defecto es ESTUDIO: durante la prueba se ve el producto entero
 test('los espacios sobrantes no cuentan como contenido', () => {
   assert.equal(validarPaso(1, { ...BORRADOR_ALTA, estudio: '   ' }), 'Escribe el nombre de tu estudio.');
   assert.equal(validarPaso(3, { ...lleno, persona: '  ' }), 'Escribe tu nombre.');
+});
+
+// ── ¿Cómo conociste Tentare? ────────────────────────────────────────────────
+// El campo llevaba desde la migración 0123 leyéndose y sin que nada lo
+// escribiera: `crear-estudio` lo mandaba en `pending_studio`, pero no había
+// ningún control en pantalla que lo rellenara. Estos casos fijan que la lista
+// que se pinta y la que se acepta son la misma.
+
+test('la lista de canales está completa y sin repetidos', () => {
+  assert.equal(OPCIONES_COMO_NOS_CONOCIO.length, 14);
+  assert.equal(new Set(OPCIONES_COMO_NOS_CONOCIO).size, 14);
+  for (const o of OPCIONES_COMO_NOS_CONOCIO) assert.ok(o.trim().length > 0);
+});
+
+test('el borrador recupera un canal de la lista', () => {
+  guardarBorrador({ ...BORRADOR_ALTA, estudio: 'Casa Pilates', comoNosConocio: 'TikTok' });
+  assert.equal(leerBorrador()?.comoNosConocio, 'TikTok');
+});
+
+// Lo que hay en localStorage lo puede editar cualquiera desde las herramientas
+// del navegador, y este valor acaba en una columna que el panel interno agrupa
+// POR VALOR: un canal inventado ensuciaría el reparto para siempre.
+test('un canal que no está en la lista se descarta al recuperar', () => {
+  guardarBorrador({ ...BORRADOR_ALTA, estudio: 'Casa Pilates', comoNosConocio: 'Un canal inventado' });
+  assert.equal(leerBorrador()?.comoNosConocio, '');
+});
+
+test('no responder es una respuesta válida: se queda vacío', () => {
+  guardarBorrador({ ...BORRADOR_ALTA, estudio: 'Casa Pilates', comoNosConocio: '' });
+  assert.equal(leerBorrador()?.comoNosConocio, '');
 });
