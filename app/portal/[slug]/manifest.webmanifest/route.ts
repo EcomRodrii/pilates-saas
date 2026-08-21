@@ -1,5 +1,5 @@
 import { getStudioSeo } from '@/lib/studio-seo';
-import { urlMonograma } from '@/lib/monograma-estudio';
+import { urlIconoEstudio } from '@/lib/monograma-estudio';
 
 // Manifest PWA POR ESTUDIO: la "app de marca" instalada debe llamarse como el
 // estudio y llevar su color y su logo — no "Mi Estudio Pilates" con el tema de
@@ -23,29 +23,29 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
       background_color: '#F8F9FA',
       theme_color: studio?.colorPrimario ?? '#131313',
       orientation: 'portrait',
-      icons: studio?.logoUrl
-        ? [
-            { src: studio.logoUrl, sizes: 'any' },
-            // El logo cubre el requisito de instalación por sí solo, pero se
-            // añaden igual los dos tamaños declarados por si el logo no es
-            // cuadrado — algunos instaladores de Android lo descartan sin un
-            // 192/512 exacto entre las opciones.
-            { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-          ]
-        : [
-            // Sin logo, antes esto caía al icono de TENTARE — la app
-            // instalada de un estudio de Pilates llevaba la marca de otro
-            // negocio en la pantalla de inicio de su alumna. La inicial de su
-            // nombre sobre su propio color de marca es su icono, no un
-            // préstamo.
-            // `nombre` (ya con el fallback 'Mi estudio' aplicado) y no
-            // `studio?.nombre`: sin esto, un estudio no encontrado enseñaba
-            // «Mi estudio» como nombre de la app y un «?» como icono —
-            // inconsistentes entre sí porque cada uno leía una fuente distinta.
-            { src: urlMonograma(nombre, studio?.colorPrimario, 192), sizes: '192x192', type: 'image/png' },
-            { src: urlMonograma(nombre, studio?.colorPrimario, 512), sizes: '512x512', type: 'image/png' },
-          ],
+      // ⚠️ Aquí NO puede aparecer ningún icono de Tentare, ni como respaldo.
+      //
+      // Antes, teniendo logo, esta lista añadía `/icon-192.png` y
+      // `/icon-512.png` —los de Tentare— «por si el logo no es cuadrado». Y ahí
+      // estaba el fallo que reportó una propietaria con su logo ya subido: un
+      // instalador de Android que exige un 192/512 exacto DESCARTA el logo
+      // (declarado `sizes: 'any'`) y se queda con el único candidato de ese
+      // tamaño, que era la marca de otra empresa. La alumna acababa con el
+      // icono de Tentare en su pantalla de inicio.
+      //
+      // Los tamaños exactos siguen haciendo falta; lo que cambia es que ahora
+      // son SUYOS: `/icono-estudio` compone su logo sobre su color de marca en
+      // un lienzo cuadrado, y sin logo cae a la inicial. Nunca a Tentare.
+      //
+      // `nombre` (ya con el fallback 'Mi estudio' aplicado) y no
+      // `studio?.nombre`: sin esto, un estudio no encontrado enseñaba «Mi
+      // estudio» como nombre de la app y un «?» como icono — inconsistentes
+      // entre sí porque cada uno leía una fuente distinta.
+      icons: [
+        ...(studio?.logoUrl ? [{ src: studio.logoUrl, sizes: 'any' }] : []),
+        { src: urlIconoEstudio(nombre, studio?.colorPrimario, 192, studio?.logoUrl, process.env.NEXT_PUBLIC_SUPABASE_URL), sizes: '192x192', type: 'image/png' },
+        { src: urlIconoEstudio(nombre, studio?.colorPrimario, 512, studio?.logoUrl, process.env.NEXT_PUBLIC_SUPABASE_URL), sizes: '512x512', type: 'image/png' },
+      ],
     },
     { headers: { 'Content-Type': 'application/manifest+json', 'Cache-Control': 'public, max-age=3600' } },
   );
