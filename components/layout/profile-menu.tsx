@@ -142,6 +142,9 @@ export function ProfileMenu() {
             >
               <Palette size={15} className="text-muted-foreground" />
               Apariencia
+              <span className="ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-info/10 text-info">
+                Beta
+              </span>
             </button>
             <button
               onClick={() => { setActualizacionesOpen(true); setOpen(false); }}
