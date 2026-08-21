@@ -369,6 +369,33 @@ nextjs-portal { display: none !important; }
 @keyframes contenido-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .contenido-anim { animation: contenido-rise .4s ease both; }
 
+/* Hoja de reserva en móvil: altura ESTABLE entre pasos.
+
+   ⚠️ El defecto que arregla se ve de un vistazo comparando dos capturas del
+   mismo flujo a 390px: el paso «datos» ocupaba casi toda la pantalla y el de
+   «pago» era una caja baja pegada al borde inferior con media pantalla muerta
+   encima. La hoja crecía y encogía con su contenido, así que cambiaba de
+   tamaño Y de posición en cada paso — que es exactamente lo que se percibe
+   como «no hay estructura»: el contenedor no se está quieto.
+
+   Con una altura mínima, la hoja se comporta como una bottom sheet de verdad:
+   el marco no se mueve, y lo que cambia es lo de dentro.
+
+   `@media` y no una variante `sm:` de Tailwind a propósito: dentro del widget
+   embebido esa variante mide el ancho del IFRAME, no el de la pantalla (trampa
+   ya documentada en PublicSheet). Y por eso mismo la clase solo se aplica
+   FUERA del embebido, donde la franja visible ya gobierna la altura. */
+@media (max-width: 640px) {
+  /* Altura FIJA, no mínima: con `min-height` el paso «datos» seguía siendo 90px
+     más alto que el de «pago» (medido: 748 vs 658), así que el marco seguía
+     saltando, solo que menos. Con una altura fija el contenedor no se mueve
+     NUNCA y lo que scrollea es el contenido — que es como se comporta una
+     bottom sheet de verdad.
+     Queda por debajo del `maxHeight: 90vh` que el caller pone en línea, así
+     que no pelean. */
+  .reserva-hoja-estable { height: 88dvh; }
+}
+
 /* Cambio de paso dentro del modal de reserva.
    ⚠️ Los pasos usaban `.contenido-anim`, que son .4s pensados para tarjetas de
    dashboard que aparecen SOLAS al cargar una pantalla. Aquí el usuario acaba de

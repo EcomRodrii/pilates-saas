@@ -119,3 +119,34 @@ test('nombre y apellidos no se estrangulan en una pantalla estrecha', async ({ p
   const ancho = await page.getByPlaceholder('Apellidos').evaluate(el => el.getBoundingClientRect().width);
   expect(ancho).toBeGreaterThan(140);
 });
+
+test('⚠️ el marco de la hoja NO cambia de tamaño ni de sitio entre pasos', async ({ page }) => {
+  // El defecto se veía comparando dos capturas del mismo flujo a 390px: el paso
+  // «datos» ocupaba casi toda la pantalla y el de «pago» era una caja baja
+  // pegada al borde inferior, con media pantalla muerta encima. Medido antes
+  // del arreglo: 748px de alto en `datos` contra 658 en `pago`, y 90px de
+  // diferencia en la posición. Eso es lo que se percibe como «no hay
+  // estructura»: el contenedor no se está quieto.
+  await abrirPasoDatos(page);
+
+  const hoja = page.getByRole('dialog');
+  const antes = (await hoja.boundingBox())!;
+
+  await page.getByPlaceholder('Nombre').fill('Marta');
+  await page.getByPlaceholder('Apellidos').fill('Ruiz');
+  await page.getByPlaceholder('Tu email').fill('marta@example.com');
+  await page.getByPlaceholder('Tu teléfono (+34 600 000 000)').fill('+34 600 123 456');
+  await page.getByRole('checkbox', { name: /política de privacidad/i }).check();
+
+  // No hace falta llegar al paso de pago de verdad (eso exige Stripe): basta
+  // con que la hoja mantenga su marco mientras el contenido cambia de tamaño.
+  await page.getByPlaceholder('Nombre').fill('Un nombre bastante más largo que el anterior');
+  await page.waitForTimeout(300);
+
+  const despues = (await hoja.boundingBox())!;
+  expect(Math.abs(despues.height - antes.height)).toBeLessThan(8);
+  expect(Math.abs(despues.y - antes.y)).toBeLessThan(8);
+
+  // Y el marco ocupa de verdad la pantalla, no una caja pequeña centrada.
+  expect(antes.height).toBeGreaterThan(600);
+});

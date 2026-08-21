@@ -2768,7 +2768,10 @@ export default function ReservarPage() {
         // (Claude Design, no la copia local desfasada del handoff) — ese
         // asistente es más ancho que el resto de pasos de este modal (login,
         // confirmar, etc.), así que la hoja crece solo para esos dos.
-        sheetClassName={`bg-white w-full ${loginStep === 'datos' || loginStep === 'pago' ? 'max-w-lg' : 'max-w-sm'} rounded-3xl p-6 relative shadow-2xl transition-[max-width] duration-300 ease-out`}
+        // `reserva-hoja-estable` solo fuera del embebido: dentro, la franja
+        // visible del iframe ya manda sobre la altura (ver `overlayEmbed`), y
+        // forzar un mínimo la sacaría de esa franja.
+        sheetClassName={`bg-white w-full ${loginStep === 'datos' || loginStep === 'pago' ? 'max-w-lg' : 'max-w-sm'} ${embedMode ? '' : 'reserva-hoja-estable'} rounded-3xl p-6 relative shadow-2xl transition-[max-width] duration-300 ease-out`}
         // P0-3: en el iframe embebido, `90vh` es el 90% del IFRAME entero (que
         // mide lo que su contenido) — el modal se anclaba junto al pie de la
         // web del estudio, a ~1000px de la vista del usuario (medido). Con
