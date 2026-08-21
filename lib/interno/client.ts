@@ -254,3 +254,20 @@ export interface AnaliticaNetwork {
   altasPorMes: Array<{ mes: string; altas: number }>;
 }
 export const fetchAnaliticaNetworkInterno = () => pedir<AnaliticaNetwork>('/network/analitica');
+
+// Badge «NUEVO» del menú del panel (ver lib/menu-novedades.ts). El lado de
+// LECTURA no pasa por aquí: el panel lee `menu_novedades` directo con RLS,
+// igual que el widget de Actualizaciones lee el changelog.
+export interface NovedadMenuInterna {
+  href: string;
+  expira_en: string;
+  creado_en: string;
+}
+export const fetchNovedadesMenu = () =>
+  pedir<{ novedades: NovedadMenuInterna[]; opciones: Array<{ href: string; label: string }>; hoy: string }>('/menu-novedades');
+
+export const marcarNovedadMenu = (href: string, expiraEn: string) =>
+  pedir<{ ok: true }>('/menu-novedades', { method: 'PUT', body: JSON.stringify({ href, expiraEn }) });
+
+export const quitarNovedadMenu = (href: string) =>
+  pedir<{ ok: true }>(`/menu-novedades?href=${encodeURIComponent(href)}`, { method: 'DELETE' });

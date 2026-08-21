@@ -11,10 +11,11 @@
 // estado. Solo se ve con el permiso `content.write`.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Loader2, Plus, Rocket, Trash2, X } from 'lucide-react';
+import { Check, Loader2, Plus, Rocket, Sparkles, Trash2, X } from 'lucide-react';
 import {
-  borrarVersionChangelog, crearVersionChangelog, fetchChangelog, guardarVersionChangelog,
-  publicarVersionChangelog, type EtiquetaCambio, type VersionChangelog,
+  borrarVersionChangelog, crearVersionChangelog, fetchChangelog, fetchNovedadesMenu,
+  guardarVersionChangelog, marcarNovedadMenu, publicarVersionChangelog, quitarNovedadMenu,
+  type EtiquetaCambio, type NovedadMenuInterna, type VersionChangelog,
 } from '@/lib/interno/client';
 
 const ETIQUETA_LABEL: Record<EtiquetaCambio, string> = {
@@ -240,6 +241,105 @@ function NuevaVersion({ onCreada }: { onCreada: () => void }) {
   );
 }
 
+// ─── Badge «NUEVO» del menú del panel ─────────────────────────────────────────
+//
+// Vive en esta pantalla y no en una propia porque es la MISMA decisión contada
+// dos veces: se publica la versión que trae algo nuevo y se señala dónde está.
+// Separarlas garantiza que un día se publique una y se olvide la otra.
+function BadgeNuevoMenu() {
+  const [novedades, setNovedades] = useState<NovedadMenuInterna[] | null>(null);
+  const [opciones, setOpciones] = useState<Array<{ href: string; label: string }>>([]);
+  const [href, setHref] = useState('');
+  const [expira, setExpira] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const cargar = useCallback(async () => {
+    try {
+      const r = await fetchNovedadesMenu();
+      setNovedades(r.novedades);
+      setOpciones(r.opciones);
+      setHref(h => h || r.opciones[0]?.href || '');
+      // La fecha por defecto la calcula el servidor si no se manda: aquí solo
+      // se PROPONE, para que se vea antes de guardar cuánto va a durar.
+      setExpira(e => e || new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10));
+      setError(null);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
+  }, []);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  const marcar = async () => {
+    setGuardando(true); setError(null);
+    try {
+      await marcarNovedadMenu(href, expira);
+      await cargar();
+    } catch (e) { setError(e instanceof Error ? e.message : 'No se ha podido marcar.'); }
+    finally { setGuardando(false); }
+  };
+
+  const quitar = async (h: string) => {
+    setError(null);
+    try { await quitarNovedadMenu(h); await cargar(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se ha podido quitar.'); }
+  };
+
+  const etiquetaDe = (h: string) => opciones.find(o => o.href === h)?.label ?? h;
+  const campo = 'rounded-xl border border-border bg-background px-3 py-2 text-[13px] text-foreground';
+
+  return (
+    <section className="rounded-2xl border border-border bg-card px-4 py-3.5">
+      <div className="flex items-center gap-1.5">
+        <Sparkles className="size-4 text-brand-medio" />
+        <h2 className="text-[14px] font-bold text-foreground">Señalar en el menú</h2>
+      </div>
+      <p className="mt-1 text-[12.5px] text-muted-foreground">
+        La entrada que elijas sale con un distintivo <strong>NUEVO</strong> en el menú de
+        todas las propietarias. Se apaga solo en la fecha de fin, y también en cuanto
+        ella entra en esa sección.
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <select className={campo} value={href} onChange={e => setHref(e.target.value)} aria-label="Entrada del menú">
+          {opciones.map(o => <option key={o.href} value={o.href}>{o.label}</option>)}
+        </select>
+        <input className={campo} type="date" value={expira} onChange={e => setExpira(e.target.value)} aria-label="Hasta cuándo se ve" />
+        <button
+          type="button" disabled={guardando || !href}
+          onClick={() => void marcar()}
+          className="flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-2 text-[13px] font-bold text-brand-foreground disabled:opacity-40"
+        >
+          {guardando ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+          Marcar como nuevo
+        </button>
+      </div>
+
+      {error && <p className="mt-2 text-[12.5px] text-red-600 dark:text-red-400">{error}</p>}
+
+      <div className="mt-3 flex flex-col gap-1.5">
+        {novedades?.length === 0 && (
+          <p className="text-[12.5px] text-muted-foreground">Ahora mismo no hay ninguna entrada señalada.</p>
+        )}
+        {(novedades ?? []).map(n => (
+          <div key={n.href} className="flex items-center justify-between gap-3 rounded-xl bg-background px-3 py-2">
+            <span className="flex items-center gap-2 text-[13px] text-foreground">
+              <span className="rounded-full bg-sidebar-primary-foreground px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-sidebar">
+                Nuevo
+              </span>
+              {etiquetaDe(n.href)}
+              <span className="text-muted-foreground">hasta el {fecha(n.expira_en)}</span>
+            </span>
+            <button type="button" onClick={() => void quitar(n.href)} aria-label={`Quitar el NUEVO de ${etiquetaDe(n.href)}`}>
+              <Trash2 className="size-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function ActualizacionesInterno() {
   const [versiones, setVersiones] = useState<VersionChangelog[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -273,6 +373,8 @@ export default function ActualizacionesInterno() {
         </div>
         <NuevaVersion onCreada={() => void cargar()} />
       </div>
+
+      <BadgeNuevoMenu />
 
       {borradores.length > 0 && (
         <section>
