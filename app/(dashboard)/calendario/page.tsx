@@ -22,7 +22,7 @@ import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
-import { detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
+import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
 import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
@@ -1684,19 +1684,6 @@ export default function Calendario() {
     return accionParaEstado(it.estado, { enEspera: it.enEspera, sobreaforo: it.sobreaforo, huecosLibres: it.huecosLibres });
   }
 
-  // "Mejor candidata" para CUBRIR: primera instructora activa sin ausencia ni
-  // solape a esa hora (elegirLibre) — la RPC re-valida solape real antes de
-  // confirmar, así que un acierto parcial aquí nunca cuela una sustituta ocupada.
-  function candidataParaSustitucion(s: { instructorId: string; inicio: string; fin: string }) {
-    const candidatos = instructoresActivos
-      .filter(i => i.id !== s.instructorId)
-      .filter(i => !ausenciaEnFecha(ausencias, i.id, s.inicio))
-      .map(i => i.id);
-    if (candidatos.length === 0) return null;
-    const libreId = elegirLibre(candidatos, 'instructorId', s.inicio, s.fin, existentesSlot);
-    return instructoresActivos.find(i => i.id === libreId) ?? null;
-  }
-
   // ── Las 6 acciones con nombre propio (punto 4) ──────────────────────────────
 
   async function ejecutarCubrir(sesionId: string, instructorId: string) {
@@ -1816,7 +1803,7 @@ export default function Calendario() {
     const accion = accionParaSesion(d.sesion.id);
     if (!accion) return null;
     if (accion === 'CUBRIR') {
-      const candidata = candidataParaSustitucion(d.sesion);
+      const candidata = candidataParaSustitucion(d.sesion, instructoresActivos, ausencias, existentesSlot);
       if (!candidata) return null;
       return { texto: `Cubrir con ${candidata.nombre}`, onClick: () => setDialogoAccion({ tipo: 'CUBRIR', sesionId: d.sesion.id }) };
     }
@@ -2959,7 +2946,7 @@ export default function Calendario() {
       {dialogoAccion?.tipo === 'CUBRIR' && (() => {
         const s = datosVista?.sesiones.find(x => x.id === dialogoAccion.sesionId);
         if (!s) return null;
-        const candidata = candidataParaSustitucion(s);
+        const candidata = candidataParaSustitucion(s, instructoresActivos, ausencias, existentesSlot);
         const n = (reservasPorSesion.get(s.id) ?? []).filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
         return (
           <DialogoDecision

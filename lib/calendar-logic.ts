@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { ausenciaEnFecha } from './ausencias.ts';
 import type { AusenciaInstructora } from './api-client.ts';
+import type { Instructor } from './types.ts';
 
 export interface SlotSesion {
   id?: string;
@@ -84,4 +85,37 @@ export function elegirLibre(
 // cuántas confirmadas exceden el nuevo aforo (0 = sin problema).
 export function plazasSobrantesTrasAforo(confirmadas: number, nuevoAforo: number): number {
   return Math.max(0, confirmadas - nuevoAforo);
+}
+
+// Auditoría integral 2026-08-21 (arquitectura, hallazgo P1): vivía como
+// función anidada dentro de app/(dashboard)/calendario/page.tsx
+// ("candidataParaSustitucion"), imposible de testear sin renderizar la
+// pantalla entera. Extraída aquí, al lado de `elegirLibre` (que envuelve
+// directamente), en vez de en lib/sustituciones/ — no depende de ese motor
+// (afinidad/encaje/disponibilidad), solo de la lógica de solape/ausencia que
+// ya vive en este mismo módulo, y moverla a sustituciones/ acoplaría ese
+// dominio con `SlotSesion`, un tipo puramente de calendario.
+//
+// "Mejor candidata" para CUBRIR una clase: primera instructora activa sin
+// ausencia ni solape a esa hora. La ausencia se filtra ANTES de llamar a
+// `elegirLibre` (no pasándola como su parámetro `ausencias`) a propósito:
+// el fallback de `elegirLibre` cuando nadie está libre es devolver la
+// PRIMERA candidata de la lista tal cual — si una instructora ausente
+// siguiera en esa lista, podría salir como "candidata" pese a estar de
+// vacaciones. La RPC de confirmar sustitución re-valida solape real de
+// todas formas, así que un acierto parcial aquí nunca cuela una sustituta
+// realmente ocupada — esto es solo la sugerencia que ve la propietaria.
+export function candidataParaSustitucion(
+  s: { instructorId: string; inicio: string; fin: string },
+  instructoresActivos: Instructor[],
+  ausencias: AusenciaInstructora[],
+  existentesSlot: SlotSesion[],
+): Instructor | null {
+  const candidatos = instructoresActivos
+    .filter(i => i.id !== s.instructorId)
+    .filter(i => !ausenciaEnFecha(ausencias, i.id, s.inicio))
+    .map(i => i.id);
+  if (candidatos.length === 0) return null;
+  const libreId = elegirLibre(candidatos, 'instructorId', s.inicio, s.fin, existentesSlot);
+  return instructoresActivos.find(i => i.id === libreId) ?? null;
 }

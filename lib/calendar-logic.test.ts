@@ -1,10 +1,16 @@
 // Tests de conflictos de calendario (I-1) y aforo (I-2). Runner nativo de Node.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { solapan, detectarConflictos, hayConflicto, elegirLibre, plazasSobrantesTrasAforo, type SlotSesion } from './calendar-logic.ts';
+import { solapan, detectarConflictos, hayConflicto, elegirLibre, plazasSobrantesTrasAforo, candidataParaSustitucion, type SlotSesion } from './calendar-logic.ts';
+import type { Instructor } from './types.ts';
 
 const slot = (p: Partial<SlotSesion> & Pick<SlotSesion, 'inicio' | 'fin'>): SlotSesion => ({
   id: 'x', salaId: 'sala-1', instructorId: 'ins-1', cancelada: false, ...p,
+});
+
+const instructor = (id: string, nombre: string): Instructor => ({
+  id, studioId: 's', nombre, email: null, telefono: null, color: '#000', activo: true,
+  avatar: null, fotoUrl: null, rol: 'INSTRUCTOR', authUserId: null,
 });
 
 // ── solapan ───────────────────────────────────────────────────────────────────
@@ -127,4 +133,49 @@ test('plazasSobrantesTrasAforo: confirmadas por encima del nuevo aforo', () => {
   assert.equal(plazasSobrantesTrasAforo(8, 4), 4);
   assert.equal(plazasSobrantesTrasAforo(4, 8), 0);
   assert.equal(plazasSobrantesTrasAforo(8, 8), 0);
+});
+
+// ── candidataParaSustitucion ────────────────────────────────────────────────
+// Extraída de app/(dashboard)/calendario/page.tsx (auditoría integral
+// 2026-08-21) — antes solo se podía probar renderizando la pantalla entera.
+test('candidataParaSustitucion: propone a la primera instructora libre, nunca a la propia clase', () => {
+  const s = { instructorId: 'ins-1', inicio: '2026-07-13T10:00:00Z', fin: '2026-07-13T11:00:00Z' };
+  const activas = [instructor('ins-1', 'Ana'), instructor('ins-2', 'Bea')];
+  const r = candidataParaSustitucion(s, activas, [], []);
+  assert.equal(r?.id, 'ins-2');
+});
+
+test('candidataParaSustitucion: descarta a quien tiene la hora ocupada con otra clase', () => {
+  const s = { instructorId: 'ins-1', inicio: '2026-07-13T10:00:00Z', fin: '2026-07-13T11:00:00Z' };
+  const activas = [instructor('ins-1', 'Ana'), instructor('ins-2', 'Bea'), instructor('ins-3', 'Carla')];
+  const ocupada = [slot({ instructorId: 'ins-2', inicio: '2026-07-13T10:00:00Z', fin: '2026-07-13T11:00:00Z' })];
+  const r = candidataParaSustitucion(s, activas, [], ocupada);
+  assert.equal(r?.id, 'ins-3');
+});
+
+test('candidataParaSustitucion: nunca propone a quien está de vacaciones ese día', () => {
+  const s = { instructorId: 'ins-1', inicio: '2026-07-13T10:00:00Z', fin: '2026-07-13T11:00:00Z' };
+  const activas = [instructor('ins-1', 'Ana'), instructor('ins-2', 'Bea')];
+  const ausencias = [{ id: 'a1', instructorId: 'ins-2', tipo: 'VACACIONES' as const, desde: '2026-07-10', hasta: '2026-07-20', motivo: null }];
+  const r = candidataParaSustitucion(s, activas, ausencias, []);
+  assert.equal(r, null);
+});
+
+test('candidataParaSustitucion: si TODAS las candidatas están ocupadas, no cae en el fallback de elegirLibre (nunca sugiere a una ausente)', () => {
+  // Regresión del gotcha documentado en el propio código: elegirLibre() sin
+  // libre devuelve candidatas[0] igualmente — candidataParaSustitucion debe
+  // haber excluido ya a las ausentes ANTES de esa llamada, o una instructora
+  // de vacaciones podría colarse como "sugerencia" pese a estar descartada.
+  const s = { instructorId: 'ins-1', inicio: '2026-07-13T10:00:00Z', fin: '2026-07-13T11:00:00Z' };
+  const activas = [instructor('ins-1', 'Ana'), instructor('ins-2', 'Bea')];
+  const ausencias = [{ id: 'a1', instructorId: 'ins-2', tipo: 'VACACIONES' as const, desde: '2026-07-10', hasta: '2026-07-20', motivo: null }];
+  const ocupada: SlotSesion[] = [];
+  const r = candidataParaSustitucion(s, activas, ausencias, ocupada);
+  assert.equal(r, null);
+});
+
+test('candidataParaSustitucion: sin ninguna otra instructora activa, devuelve null', () => {
+  const s = { instructorId: 'ins-1', inicio: '2026-07-13T10:00:00Z', fin: '2026-07-13T11:00:00Z' };
+  const r = candidataParaSustitucion(s, [instructor('ins-1', 'Ana')], [], []);
+  assert.equal(r, null);
 });
