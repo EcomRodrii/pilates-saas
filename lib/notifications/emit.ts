@@ -195,24 +195,60 @@ export async function emitirReservaPendienteAprobacion(
 }
 
 // I-3: pagado por el checkout embebido pero la clase concreta no se pudo
-// reservar (aforo lleno/cancelada entre crear el PaymentIntent y confirmar
-// el pago) — avisa al mostrador para que lo resuelva a mano con la socia.
+// reservar — avisa al mostrador para que lo resuelva a mano con la socia.
+//
+// `situacion` cubre los TRES momentos en que ese hecho es cierto, con un solo
+// evento (ver el comentario de sus plantillas en catalog.ts):
+//  · 'sin-reserva' — reservarPlazaTrasPagoPublico devolvió !ok: no hay fila en
+//    `reservas` (clase cancelada, ya empezada, o llena sin lista de espera).
+//  · 'en-espera'   — devolvió ok con estado LISTA_ESPERA: la reserva existe,
+//    pero la clase se llenó entre crear el PaymentIntent y confirmar el pago.
+//    Desde el panel es indistinguible de quien se apuntó a la cola por gusto,
+//    y aquí hay dinero cobrado: el mostrador tiene que saberlo HOY.
+//  · 'cerrada'     — la clase pasó y nunca se liberó sitio (barrido diario).
+//
+// ⚠️ dedupKey PROPIA por situación: `uq_notification_dedup` es un UNIQUE
+// permanente, así que si 'cerrada' reusara la clave de 'en-espera' el segundo
+// aviso —el que de verdad pide una decisión— se descartaría en silencio.
+export type SituacionPagadaSinPlaza = 'sin-reserva' | 'en-espera' | 'cerrada';
+
+const SITUACION_PAGADA_SIN_PLAZA: Record<SituacionPagadaSinPlaza, { texto: string; dedup: string }> = {
+  'sin-reserva': {
+    texto: ' pero no se pudo confirmar su plaza.',
+    dedup: 'reserva-pagada-sin-plaza',
+  },
+  'en-espera': {
+    texto: ' y se quedó en lista de espera: la clase se llenó justo antes de confirmarla. Su crédito está intacto.',
+    dedup: 'reserva-pagada-en-espera',
+  },
+  cerrada: {
+    texto: ' y nunca llegó a liberarse sitio. Su pago sigue en su cuenta sin usar.',
+    dedup: 'espera-sin-plaza-cerrada',
+  },
+};
+
 export async function emitirReservaPagadaSinPlaza(
-  admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string },
+  admin: SupabaseClient,
+  p: { studioId: string; sesionId: string; socioId: string; situacion?: SituacionPagadaSinPlaza },
 ): Promise<void> {
   try {
+    const situacion = p.situacion ?? 'sin-reserva';
+    const { texto, dedup } = SITUACION_PAGADA_SIN_PLAZA[situacion];
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
     const { data: socio } = await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle();
     const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
     await publish({
       type: EVENTOS.RESERVA_PAGADA_SIN_PLAZA, studioId: p.studioId,
-      data: { ...ctx, socioId: p.socioId, socia },
+      // `cerrada` decide el deepLink de la plantilla: con la clase ya pasada lo
+      // útil es su ficha (ahí está el botón de devolver el recibo), no el
+      // calendario de una clase a la que ya no puede ir.
+      data: { ...ctx, socioId: p.socioId, socia, situacion: texto, cerrada: situacion === 'cerrada' },
       resource: { type: 'sesion', id: p.sesionId },
       // Sin dedup por paymentIntentId a propósito: si el webhook reintenta el
       // MISMO evento no debe duplicarse, y no hay más de un pago por
       // (sesión, socia) en este camino — reservarPlazaTrasPagoPublico ya lo
       // impide (mismo criterio que emitirReservaPendienteAprobacion).
-      dedupKey: `reserva-pagada-sin-plaza:${p.sesionId}:${p.socioId}`,
+      dedupKey: `${dedup}:${p.sesionId}:${p.socioId}`,
     });
   } catch (e) {
     console.error('[notifications] emitirReservaPagadaSinPlaza:', e instanceof Error ? e.message : e);

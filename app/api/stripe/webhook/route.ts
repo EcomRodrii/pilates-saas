@@ -839,6 +839,18 @@ async function procesarEvento(
             // Best-effort: que falle este aviso no debe tumbar el webhook.
             const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
             await emitirReservaPagadaSinPlaza(admin, { studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId });
+          } else if (r.estado === 'LISTA_ESPERA') {
+            // Pagó y la clase se llenó entre crear el PaymentIntent y confirmar
+            // el pago: `reservar_plaza` la metió en la cola (ok:true), así que
+            // hasta ahora esto no avisaba a NADIE. Desde el panel es una fila de
+            // lista de espera igual que la de quien se apuntó por gusto — pero
+            // aquí hay dinero cobrado. El aviso no cambia nada del flujo: si se
+            // libera plaza, la promoción automática sigue siendo el camino
+            // normal; esto solo hace que el mostrador pueda llamarla hoy.
+            const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+            await emitirReservaPagadaSinPlaza(admin, {
+              studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, situacion: 'en-espera',
+            });
           }
         } catch (e) {
           Sentry.captureException(e, { extra: { contexto: 'reservarPlazaTrasPagoPublico', studioId, sesionId: pi.metadata.sesionId, paymentIntentId: pi.id } });

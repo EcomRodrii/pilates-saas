@@ -424,6 +424,14 @@ async function entregar(
           });
           const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
           await emitirReservaPagadaSinPlaza(admin, { studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId });
+        } else if (r.estado === 'LISTA_ESPERA') {
+          // Mismo caso que en el webhook: cobrado y en la cola, no confirmada.
+          // Se avisa aquí también porque el conciliador es el camino PRINCIPAL
+          // de rescate de este repo, no un plan B teórico.
+          const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+          await emitirReservaPagadaSinPlaza(admin, {
+            studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, situacion: 'en-espera',
+          });
         }
       } catch (e) {
         Sentry.captureException(e instanceof Error ? e : new Error('conciliador reservarPlazaTrasPagoPublico'), {

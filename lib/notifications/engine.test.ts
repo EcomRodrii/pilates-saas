@@ -86,6 +86,23 @@ test('clase.* no declara EMAIL: el panel ya manda su propio correo a las alumnas
   }
 });
 
+test('pagada sin plaza: las tres situaciones tienen copy propio y destino propio', () => {
+  const pl = plantillaDe(EVENTOS.RESERVA_PAGADA_SIN_PLAZA, 'PROPIETARIO')!;
+  const base = { socia: 'Marta', clase: 'Reformer', cuando: 'el martes', sesionId: 'ses-1', socioId: 'soc-1' };
+  // El copy tiene que DECIR en cuál de las tres está: desde el panel, "pagó y
+  // se quedó en la cola" y "pagó y no pudo reservarse" piden cosas distintas.
+  assert.match(render(pl.body, { ...base, situacion: ' pero no se pudo confirmar su plaza.' }), /no se pudo confirmar/);
+  assert.match(render(pl.body, { ...base, situacion: ' y se quedó en lista de espera: la clase se llenó justo antes de confirmarla. Su crédito está intacto.' }), /lista de espera/);
+  // Con la clase ya pasada, el calendario no sirve de nada: lo que hace falta
+  // es su ficha, que es donde vive el botón de devolver el recibo.
+  assert.equal(pl.deepLink!({ ...base, cerrada: true }), '/clientas/soc-1');
+  assert.equal(pl.deepLink!({ ...base }), '/calendario?sesion=ses-1');
+  // Los tres roles del mostrador leen exactamente lo mismo.
+  for (const rol of ['MANAGER', 'RECEPCION'] as const) {
+    assert.equal(plantillaDe(EVENTOS.RESERVA_PAGADA_SIN_PLAZA, rol)!.body, pl.body);
+  }
+});
+
 test('canalesDisponibles: refleja lo que cada rol puede recibir por categoría', () => {
   // La socia recibe push de sus reservas; la recepción, desde Fase 2a, también
   // — una reserva PENDIENTE_APROBACION necesita acción antes de que empiece

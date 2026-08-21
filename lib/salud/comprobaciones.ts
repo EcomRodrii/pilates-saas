@@ -21,6 +21,9 @@
 // no pasa nada.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
+// Relativo y con `.ts` explícita: el alias `@/` no lo resuelve el runner de
+// `node --test`, y este módulo sí tiene test unitario propio (salud.test.ts).
+import { PREFIJO_RESERVA_WEB } from '../lista-espera/esperas-sin-plaza.ts';
 
 export type EstadoSalud = 'ok' | 'aviso' | 'fallo';
 
@@ -54,6 +57,11 @@ interface Definicion {
 
 const menos = (ahora: Date, minutos: number) => new Date(ahora.getTime() - minutos * 60_000).toISOString();
 
+// La misma ventana que barre `barrerEsperasSinPlaza` (VENTANA_NO_SHOWS_DIAS, el
+// cron del que cuelga). Duplicada aquí y no importada porque ese módulo es
+// `server-only` con medio repo detrás, y esto solo necesita un número.
+const VENTANA_ESPERAS_DIAS = 30;
+
 export const DEFINICIONES: Definicion[] = [
   {
     id: 'reservas-pendientes-sin-expirar',
@@ -83,6 +91,32 @@ export const DEFINICIONES: Definicion[] = [
       .eq('estado', 'LISTA_ESPERA')
       .not('oferta_expira_en', 'is', null)
       .lte('oferta_expira_en', menos(ahora, 15)),
+  },
+  {
+    id: 'esperas-pagadas-sin-cerrar',
+    que: 'Reservas PAGADAS desde el widget que siguen en lista de espera con la clase ya terminada hace más de un día.',
+    impacto:
+      'Cada una es alguien que pagó, nunca entró en la clase y no ha recibido el aviso de que su dinero sigue ' +
+      'disponible — justo el correo que la pantalla de pago le prometió. Indica que el barrido de esperas del cron ' +
+      'de no-shows (diario, 23:00) no está corriendo.',
+    umbralAviso: 1,
+    umbralFallo: 5,
+    // ⚠️ Mide EXACTAMENTE el conjunto que `barrerEsperasSinPlaza` puede vaciar,
+    // no uno mayor: una fila fuera de su ventana de 30 días, o de una clase
+    // cancelada, sería una luz roja que ningún barrido podría apagar nunca.
+    // Por eso repite sus tres filtros (prefijo, no cancelada, ventana) y toma
+    // el prefijo de la MISMA constante, no de un literal copiado.
+    contar: (admin, ahora) => admin
+      .from('reservas')
+      .select('id, sesiones!inner(fin, cancelada)', { count: 'exact', head: true })
+      .eq('estado', 'LISTA_ESPERA')
+      // Solo el camino del dinero: una espera sin pago detrás no es un problema.
+      .like('id', `${PREFIJO_RESERVA_WEB}%`)
+      .eq('sesiones.cancelada', false)
+      .gte('sesiones.fin', new Date(ahora.getTime() - VENTANA_ESPERAS_DIAS * 86_400_000).toISOString())
+      // Un día entero de margen: el barrido es diario, así que una clase que
+      // terminó hace tres horas todavía no ha tenido su turno.
+      .lte('sesiones.fin', menos(ahora, 24 * 60)),
   },
   {
     id: 'webhooks-sin-completar',
