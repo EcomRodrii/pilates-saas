@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import { Tenti, type TentiPose } from '@/components/marca/tenti';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import {
@@ -35,8 +35,11 @@ type Pantalla = {
    *  no un eslogan: quien lo lee tiene que reconocerse, no admirarnos. */
   problema: string;
   titular: string;
-  /** Una sola línea. Si necesita dos, es que el titular no está claro. */
+  /** Una o dos líneas, planas: qué hace el software, sin eslogan. */
   apoyo: string;
+  /** Tres cosas concretas. Rellenan con INFORMACIÓN el hueco que antes era
+   *  aire, y se leen de un vistazo sin tener que leerse el párrafo. */
+  puntos: string[];
   pose: TentiPose;
   Escena: (p: { activa: boolean }) => React.ReactElement;
 };
@@ -45,32 +48,36 @@ const PANTALLAS: Pantalla[] = [
   {
     id: 'reservas',
     problema: '«Me escriben a las once de la noche para apuntarse»',
-    titular: 'Tus alumnas se apuntan solas',
-    apoyo: 'Tu página de reservas está abierta cuando tú no lo estás. Con su aforo, sus normas y su lista de espera.',
+    titular: 'Tus alumnas reservan solas, a cualquier hora',
+    apoyo: 'Tienes una página de reservas propia. Se apuntan ellas, y Tentare respeta tu aforo y tus normas de cancelación.',
+    puntos: ['Aforo por sala', 'Lista de espera', 'Cancelan según tus normas'],
     pose: 'hola',
     Escena: EscenaReservas,
   },
   {
     id: 'cobros',
     problema: '«Cada mes persigo a las mismas cinco personas»',
-    titular: 'El bono se cobra solo',
-    apoyo: 'Cuotas y bonos se cobran el día que toca, con su recibo y su factura. Tú te enteras de que ha entrado el dinero.',
+    titular: 'Cobras las cuotas y los bonos automáticamente',
+    apoyo: 'El día que toca, Tentare cobra la tarjeta guardada y envía el recibo. Si un pago falla, lo reintenta y te avisa.',
+    puntos: ['Cobro el día 1', 'Recibo y factura', 'Reintento si falla'],
     pose: 'lo-lograste',
     Escena: EscenaCobros,
   },
   {
     id: 'sustituciones',
     problema: '«Si una instructora se cae, se me va la mañana en llamadas»',
-    titular: 'La sustituta la buscamos nosotros',
-    apoyo: 'Tentare avisa por orden de quien mejor encaja con esa clase, y para cuando alguien acepta. Sin que llames a nadie.',
+    titular: 'Cuando una instructora no puede, buscamos sustituta',
+    apoyo: 'Tentare avisa a las que encajan con esa clase, de una en una, hasta que alguna acepta. Y avisa a las alumnas.',
+    puntos: ['Por orden de encaje', 'Avisa a las alumnas', 'Sin llamar a nadie'],
     pose: 'pensando',
     Escena: EscenaSustituciones,
   },
   {
     id: 'informes',
     problema: '«No sé qué clases me salen a cuenta»',
-    titular: 'Sabes qué clase sostiene el estudio',
-    apoyo: 'Ocupación y margen de cada clase, con sus números y no con una sensación. También la que lleva semanas vacía.',
+    titular: 'Ves qué clases se llenan y cuáles no',
+    apoyo: 'Ocupación y margen de cada clase, con sus números. Y te avisa de la que lleva semanas sin llenarse.',
+    puntos: ['Ocupación por clase', 'Margen real', 'Aviso si una se vacía'],
     pose: 'celebracion',
     Escena: EscenaInformes,
   },
@@ -132,25 +139,28 @@ export function PantallasValor({ onContinuar }: { onContinuar: () => void }) {
   return (
     <div
       style={{
-        // ⚠️ Lienzo de un solo look, con los valores fijos y no con
-        // `var(--background)`: esta baraja es un momento a pantalla completa
-        // con la marca en grande, y en modo oscuro `--brand` se INVIERTE a
-        // oliva claro (#8A9165) — el fondo se volvería verde pálido y el texto
-        // arena desaparecería. Aquí el oliva profundo es el mismo en los dos
-        // modos a propósito. Los tokens `--valor-*` los consumen las escenas.
-        '--valor-fondo': '#2A2E1E',
-        '--valor-superficie': '#FBFAF6',
-        '--valor-linea': '#E3E1D6',
-        '--valor-neutro': '#EDEBE2',
-        '--valor-tinta': '#22261A',
-        '--valor-tenue': '#767366',
-        '--valor-marca': '#4A5330',
-        '--valor-marca-suave': '#E4E8D4',
-        '--valor-aviso': '#A8622A',
-        '--valor-arena': '#D9C29E',
+        // Lienzo CLARO y con los tokens reales del panel, no una paleta propia.
+        // La primera versión era un oliva muy oscuro a pantalla completa: se
+        // veía imponente en una captura y se sentía frío y pesado siendo quien
+        // acaba de registrarse. Y encima era un salto: entrabas al producto y
+        // el producto es claro. Al mapear `--valor-*` a los tokens del sistema,
+        // esto sigue al tema (claro/oscuro) solo, y es literalmente el mismo
+        // material que el panel al que va a entrar.
+        '--valor-fondo': 'var(--background)',
+        '--valor-superficie': 'var(--card)',
+        '--valor-linea': 'var(--border)',
+        '--valor-neutro': 'var(--muted)',
+        '--valor-tinta': 'var(--foreground)',
+        '--valor-tenue': 'var(--muted-foreground)',
+        // El oliva MEDIO y no `--brand`: a tamaño pequeño —un icono de 16 px,
+        // el borde de un panel— el #343825 se lee como negro y la pantalla se
+        // apaga. Es la razón por la que `--brand-medio` existe.
+        '--valor-marca': 'var(--brand-medio)',
+        '--valor-sobre-marca': '#FFFFFF',
+        '--valor-aviso': 'var(--destructive)',
         position: 'fixed', inset: 0, zIndex: 60,
         background: 'var(--valor-fondo)',
-        color: '#F2F0E6',
+        color: 'var(--valor-tinta)',
         display: 'flex', flexDirection: 'column',
         overflowY: 'auto',
         fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
@@ -160,13 +170,17 @@ export function PantallasValor({ onContinuar }: { onContinuar: () => void }) {
           desde la PRIMERA pantalla — esconderla hasta el final para forzar que
           se lo lean es exactamente lo que hace que se lo salten con desprecio. */}
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', flexShrink: 0 }}>
-        <LogoTentare alto={22} tinta="blanco" decorativo />
+        {/* `tinta="auto"` y no la de por defecto: `color` pinta el disco en
+            magenta (#B4537E), que no es lo que ve en el panel — y esta pantalla
+            es su primer contacto con la marca. `auto` es la que usa el sidebar
+            y además sigue al modo claro/oscuro desde globals.css. */}
+        <LogoTentare alto={24} tinta="auto" decorativo />
         <button
           type="button"
           onClick={onContinuar}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            color: 'rgba(242,240,230,.62)', fontSize: 13, fontWeight: 600,
+            color: 'var(--valor-tenue)', fontSize: 13, fontWeight: 600,
             padding: '8px 4px', fontFamily: 'inherit',
           }}
         >
@@ -183,8 +197,8 @@ export function PantallasValor({ onContinuar }: { onContinuar: () => void }) {
         <div
           key={p.id}
           style={{
-            width: '100%', maxWidth: 980,
-            display: 'grid', gap: 'clamp(22px, 4vw, 40px) clamp(28px, 5vw, 64px)',
+            width: '100%', maxWidth: 1000,
+            display: 'grid', gap: 'clamp(20px, 3vw, 30px) clamp(28px, 5vw, 56px)',
             alignItems: 'center',
             animation: 'valor-entra 520ms cubic-bezier(0.22,1,0.36,1) both',
           }}
@@ -193,8 +207,8 @@ export function PantallasValor({ onContinuar }: { onContinuar: () => void }) {
           <div style={{ gridArea: 'texto' }}>
             <p
               style={{
-                margin: 0, fontSize: 'clamp(13px, 1.6vw, 15px)', lineHeight: 1.45,
-                color: 'var(--valor-arena)', fontStyle: 'italic', maxWidth: 420,
+                margin: 0, fontSize: 'clamp(13px, 1.6vw, 14.5px)', lineHeight: 1.45,
+                color: 'var(--valor-tenue)', fontStyle: 'italic', maxWidth: 430,
               }}
             >
               {p.problema}
@@ -203,25 +217,46 @@ export function PantallasValor({ onContinuar }: { onContinuar: () => void }) {
               ref={tituloRef}
               tabIndex={-1}
               style={{
-                margin: '12px 0 0', outline: 'none',
-                fontFamily: 'var(--font-display), Georgia, serif',
-                fontSize: 'clamp(32px, 5.4vw, 54px)',
-                lineHeight: 1.02, letterSpacing: '-0.015em', fontWeight: 400,
-                color: '#F7F5EC', maxWidth: 460,
+                // La MISMA tipografía que todo el panel, no una serif de
+                // display solo aquí: introducir una voz distinta en la primera
+                // pantalla hace que el producto de detrás parezca otro. Grande
+                // y en negrita para que pese sin necesitar otra familia.
+                margin: '10px 0 0', outline: 'none',
+                fontSize: 'clamp(26px, 3.6vw, 38px)',
+                lineHeight: 1.12, letterSpacing: '-0.025em', fontWeight: 800,
+                color: 'var(--valor-tinta)', maxWidth: 480,
               }}
             >
               {p.titular}
             </h1>
             <p
               style={{
-                margin: '16px 0 0', maxWidth: 430,
-                fontSize: 'clamp(13.5px, 1.7vw, 15.5px)', lineHeight: 1.55,
-                color: 'rgba(242,240,230,.74)',
+                margin: '12px 0 0', maxWidth: 460,
+                fontSize: 'clamp(13.5px, 1.7vw, 15px)', lineHeight: 1.55,
+                color: 'var(--valor-tenue)',
               }}
             >
               {p.apoyo}
             </p>
 
+            {/* Tres cosas concretas. Antes aquí solo había aire — y «demasiado
+                vacío» se lee como «falta algo», no como calma. */}
+            <ul style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 8px', listStyle: 'none', margin: '16px 0 0', padding: 0 }}>
+              {p.puntos.map((punto) => (
+                <li
+                  key={punto}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    background: 'var(--valor-neutro)', border: '1px solid var(--valor-linea)',
+                    borderRadius: 999, padding: '5px 11px 5px 8px',
+                    fontSize: 12.5, fontWeight: 600, color: 'var(--valor-tinta)',
+                  }}
+                >
+                  <Check size={13} strokeWidth={3} style={{ color: 'var(--valor-marca)', flexShrink: 0 }} aria-hidden />
+                  {punto}
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* Acciones en su propia zona de la rejilla, no dentro del texto.
@@ -235,7 +270,7 @@ export function PantallasValor({ onContinuar }: { onContinuar: () => void }) {
                 onClick={siguiente}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
-                  background: 'var(--valor-arena)', color: '#22261A',
+                  background: 'var(--valor-marca)', color: 'var(--valor-sobre-marca)',
                   border: 'none', borderRadius: 999, cursor: 'pointer',
                   padding: '13px 24px', fontSize: 14.5, fontWeight: 700,
                   fontFamily: 'inherit',
@@ -253,13 +288,13 @@ export function PantallasValor({ onContinuar }: { onContinuar: () => void }) {
                     key={q.id}
                     style={{
                       width: n === i ? 22 : 7, height: 7, borderRadius: 999,
-                      background: n <= i ? 'var(--valor-arena)' : 'rgba(242,240,230,.22)',
+                      background: n <= i ? 'var(--valor-marca)' : 'var(--valor-linea)',
                       transition: 'width 380ms cubic-bezier(0.22,1,0.36,1), background 380ms linear',
                     }}
                   />
                 ))}
               </div>
-              <span style={{ fontSize: 12, color: 'rgba(242,240,230,.5)' }}>
+              <span style={{ fontSize: 12, color: 'var(--valor-tenue)' }}>
                 {i + 1} de {PANTALLAS.length}
               </span>
             </div>
