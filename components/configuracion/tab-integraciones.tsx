@@ -7,16 +7,12 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   ExternalLink,
-  KeyRound,
   BellRing,
-  Mail,
-  Megaphone,
-  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
-import { StripeIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
+import { StripeIcon, WhatsAppAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon, GmailIcon, MailchimpIcon, ZapierIcon, ExcelIcon, KisiIcon, KlaviyoIcon } from '@/components/icons/brand-icons';
 import { authHeader } from '@/lib/api-client';
 import { saludIntegracion, textoSalud } from '@/lib/integraciones/salud';
 import type { TipoIntegracion } from '@/lib/types';
@@ -32,6 +28,12 @@ type CatalogoIntegracion = {
   Icon: React.ElementType;
   color: string;
   bg: string;
+  // El icono de marca ya es un icono de APLICACIÓN — trae su propio fondo de
+  // color (Stripe, Resend, WhatsApp, Zoom, Zapier, Kisi, Mailchimp). Se pinta
+  // llenando la casilla de 40 px en
+  // vez de un glifo de 20 px sobre la placa gris: si no, queda caja dentro de
+  // caja y encima se ve más pequeño que el resto.
+  placaPropia?: boolean;
   campos: CampoIntegracion[];
   secretoEnv?: string;
   docsUrl?: string;
@@ -55,6 +57,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     nombre: 'Stripe',
     descripcion: 'Cobra suscripciones y bonos con tarjeta o SEPA. El dinero va directo a tu propia cuenta de Stripe — conéctala con un clic, sin claves.',
     Icon: StripeIcon,
+    placaPropia: true,
     color: '#635BFF',
     bg: '#F5F5F5',
     campos: [],
@@ -71,6 +74,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     // decorativos (antes se guardaban y no los leía ni una línea del producto).
     descripcion: 'Pon tu nombre y tu dirección de respuesta en los correos a tus alumnas: bienvenida, recibos, recordatorios y campañas.',
     Icon: ResendIcon,
+    placaPropia: true,
     color: 'var(--foreground)',
     bg: '#F5F5F5',
     campos: [
@@ -104,7 +108,8 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     tipo: 'WHATSAPP',
     nombre: 'WhatsApp Business',
     descripcion: 'Envía recordatorios de clase por WhatsApp desde tu propio número de WhatsApp Business.',
-    Icon: WhatsAppIcon,
+    Icon: WhatsAppAppIcon,
+    placaPropia: true,
     color: '#25D366',
     bg: '#F5F5F5',
     categoria: 'Mensajería',
@@ -128,7 +133,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     tipo: 'EXCEL',
     nombre: 'Exportar a Excel',
     descripcion: 'Descarga tus clientas, su historial de reservas y asistencia, y los recibos en archivos compatibles con Excel.',
-    Icon: FileSpreadsheet,
+    Icon: ExcelIcon,
     color: '#1D6F42',
     bg: '#E7F4EC',
     campos: [],
@@ -144,7 +149,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     // contactos) sí es real. Dos estudios la tienen conectada desde el 16-ago,
     // así que se corrige el texto; desactivarla les quitaría algo que usan.
     descripcion: 'Trae los contactos de tu Gmail como clientas nuevas. Los correos a tus alumnas los sigue enviando Tentare, no tu Gmail. Conexión OAuth — no necesitas pegar ninguna clave.',
-    Icon: Mail,
+    Icon: GmailIcon,
     color: '#EA4335',
     bg: '#F5F5F5',
     categoria: 'Correo',
@@ -160,6 +165,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     // porque conectar Zoom no hacía nada; ya no es el caso.
     descripcion: 'Crea automáticamente una reunión de Zoom única para cada sesión de los tipos de clase que marques como "online" (Configuración → Clases) — nunca tienes que ir copiando enlaces a mano. Puedes desconectar el acceso cuando quieras; las clases ya creadas y actualizadas dejan de sincronizarse, no se borra nada retroactivamente.',
     Icon: ZoomIcon,
+    placaPropia: true,
     color: '#0B5CFF',
     bg: '#F5F5F5',
     categoria: 'Contenido digital',
@@ -169,8 +175,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     tipo: 'KISI',
     nombre: 'Kisi',
     descripcion: 'Ofrece acceso seguro y rápido a tu estudio. Gestiona el estado de tus clientes en tiempo real.',
-    Icon: KeyRound,
-    color: '#4A5033',
+    Icon: KisiIcon,
+    placaPropia: true,
+    color: '#4857F7',
     bg: '#EEF0FE',
     categoria: 'Control de acceso',
     campos: [
@@ -196,8 +203,8 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     // Funciona de verdad, pero igual que Google Calendar: solo cuando ella
     // pulsa. Sin decirlo, "sincroniza" se lee como continuo.
     descripcion: 'Envía a tu cuenta de Klaviyo las clientas que han consentido marketing por email, cada vez que pulses «Sincronizar ahora». Conexión OAuth — no necesitas pegar ninguna clave.',
-    Icon: Megaphone,
-    color: '#000000',
+    Icon: KlaviyoIcon,
+    color: '#232325',
     bg: '#F5F5F5',
     categoria: 'Marketing',
     campos: [],
@@ -206,8 +213,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     tipo: 'ZAPIER',
     nombre: 'Zapier',
     descripcion: 'Conecta Tentare con miles de apps: crea reservas, sincroniza clientas o avisa por Slack cuando pasa algo en tu estudio. La conexión se autoriza desde Zapier, no desde aquí.',
-    Icon: Zap,
-    color: '#FF4A00',
+    Icon: ZapierIcon,
+    placaPropia: true,
+    color: '#FF4F00',
     bg: '#FFF1EB',
     categoria: 'Automatización',
     campos: [],
@@ -220,8 +228,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     // API, igual que ya hace con Kisi. Solo sube cuando ella pulsa
     // «Sincronizar ahora», nada se mantiene solo.
     descripcion: 'Envía a tu audiencia de Mailchimp las clientas que han consentido marketing por email, cada vez que pulses «Sincronizar ahora». Pega tu clave API — no hace falta autorizar nada más.',
-    Icon: Megaphone,
-    color: '#B08A00',
+    Icon: MailchimpIcon,
+    placaPropia: true,
+    color: '#FFE01B',
     bg: '#FFF9E0',
     categoria: 'Marketing',
     campos: [
@@ -784,8 +793,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
           return (
             <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: cat.bg }}>
-                  <cat.Icon size={20} style={{ color: cat.color }} />
+                <div
+                  className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', cat.placaPropia && 'overflow-hidden')}
+                  style={cat.placaPropia ? undefined : { backgroundColor: cat.bg }}>
+                  <cat.Icon size={cat.placaPropia ? 40 : 26} style={cat.placaPropia ? undefined : { color: cat.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -973,8 +984,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
             <DialogContent>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: cat.bg }}>
-                    <cat.Icon size={15} style={{ color: cat.color }} />
+                  <span
+                    className={cn('w-7 h-7 rounded-lg flex items-center justify-center', cat.placaPropia && 'overflow-hidden')}
+                    style={cat.placaPropia ? undefined : { backgroundColor: cat.bg }}>
+                    <cat.Icon size={cat.placaPropia ? 28 : 18} style={cat.placaPropia ? undefined : { color: cat.color }} />
                   </span>
                   Configurar {cat.nombre}
                 </DialogTitle>
