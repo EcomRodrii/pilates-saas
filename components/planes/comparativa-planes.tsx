@@ -46,65 +46,84 @@ export function ComparativaPlanes({
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
-      {/* Cabecera pegajosa con los tres planes. En móvil el contenedor de cada
-          categoría hace scroll horizontal por su cuenta (ver .cmp-scroll), así
-          que la columna del nombre se mantiene siempre visible. */}
-      <div className="sticky top-0 z-10 grid grid-cols-[1fr_repeat(3,minmax(64px,88px))] items-end gap-2 border-b border-border bg-muted/70 px-4 py-3 backdrop-blur-sm sm:grid-cols-[1fr_repeat(3,minmax(88px,120px))] sm:px-5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Funcionalidad
-        </span>
-        {PLANES.map((p) => (
-          <span
-            key={p}
-            className={`text-center text-[12px] font-bold sm:text-[13px] ${
-              p === destacado ? 'text-brand-medio' : 'text-muted-foreground'
-            }`}
-          >
-            {PLAN_INFO[p].nombre}
-            <span className="block text-[10px] font-medium tabular-nums opacity-70">
-              {PLAN_INFO[p].precioMes}€
+      {/* Aviso de que se puede deslizar, solo en móvil. Antes el comentario de
+          abajo prometía scroll horizontal «por su cuenta» pero solo existía
+          dentro de la hoja modal (`.cmp-scroll`): usada directa en /precios y
+          /suscripcion, esta tabla no tenía NINGÚN mecanismo de desbordamiento
+          — el `overflow-hidden` de arriba se limitaba a RECORTAR en silencio
+          lo que no cabía en columnas de marca de apenas 64px. Ahora scrollea
+          de verdad (ver el div `overflow-x-auto` de abajo), así que el aviso
+          es honesto. */}
+      <p className="border-b border-border bg-muted/40 px-4 py-1.5 text-center text-[11px] font-medium text-muted-foreground sm:hidden">
+        Desliza para ver los tres planes →
+      </p>
+
+      {/* Cabecera pegajosa (verticalmente, contra el scroll de la PÁGINA) +
+          categorías, dentro de un único contenedor con scroll HORIZONTAL: la
+          cabecera y las filas viajan juntas porque comparten el mismo
+          ancestro con overflow-x, y `min-w-[400px]` es el ancho mínimo en el
+          que las cuatro columnas siguen siendo legibles (nombre + 3 marcas)
+          — por debajo de eso, scroll en vez de aplastar el texto. */}
+      <div className="overflow-x-auto overscroll-x-contain">
+        <div className="min-w-[400px]">
+          <div className="sticky top-0 z-10 grid grid-cols-[minmax(150px,1fr)_repeat(3,minmax(76px,96px))] items-end gap-2 border-b border-border bg-muted/70 px-4 py-3 backdrop-blur-sm sm:grid-cols-[minmax(180px,1fr)_repeat(3,minmax(96px,124px))] sm:px-5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Funcionalidad
             </span>
-          </span>
-        ))}
-      </div>
-
-      {CATEGORIAS.map((cat, i) => (
-        <details
-          key={cat.id}
-          open={todoAbierto || i === 0}
-          className="group border-b border-border last:border-0"
-        >
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring sm:px-5 [&::-webkit-details-marker]:hidden">
-            <span className="text-[14px] font-semibold text-foreground sm:text-[15px]">{cat.titulo}</span>
-            <ChevronDown
-              size={16}
-              aria-hidden="true"
-              className="shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
-            />
-          </summary>
-
-          <div className="pb-1">
-            {cat.filas.map((fila) => (
-              <div
-                key={fila.nombre}
-                className="grid grid-cols-[1fr_repeat(3,minmax(64px,88px))] items-center gap-2 px-4 py-2.5 odd:bg-muted/25 sm:grid-cols-[1fr_repeat(3,minmax(88px,120px))] sm:px-5"
+            {PLANES.map((p) => (
+              <span
+                key={p}
+                className={`text-center text-[12px] font-bold sm:text-[13px] ${
+                  p === destacado ? 'text-brand-medio' : 'text-muted-foreground'
+                }`}
               >
-                <div className="min-w-0 pr-2">
-                  <div className="text-[13.5px] font-medium leading-snug text-foreground">{fila.nombre}</div>
-                  {fila.detalle && (
-                    <div className="mt-0.5 text-[12px] leading-snug text-muted-foreground">{fila.detalle}</div>
-                  )}
-                </div>
-                {PLANES.map((p) => (
-                  <div key={p} className="flex items-center justify-center">
-                    <Marca valor={fila.valor(p)} />
+                {PLAN_INFO[p].nombre}
+                <span className="block text-[10px] font-medium tabular-nums opacity-70">
+                  {PLAN_INFO[p].precioMes}€
+                </span>
+              </span>
+            ))}
+          </div>
+
+          {CATEGORIAS.map((cat, i) => (
+            <details
+              key={cat.id}
+              open={todoAbierto || i === 0}
+              className="group border-b border-border last:border-0"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring sm:px-5 [&::-webkit-details-marker]:hidden">
+                <span className="text-[14px] font-semibold text-foreground sm:text-[15px]">{cat.titulo}</span>
+                <ChevronDown
+                  size={16}
+                  aria-hidden="true"
+                  className="shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
+                />
+              </summary>
+
+              <div className="pb-1">
+                {cat.filas.map((fila) => (
+                  <div
+                    key={fila.nombre}
+                    className="grid grid-cols-[minmax(150px,1fr)_repeat(3,minmax(76px,96px))] items-center gap-2 px-4 py-2.5 odd:bg-muted/25 sm:grid-cols-[minmax(180px,1fr)_repeat(3,minmax(96px,124px))] sm:px-5"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="text-[13.5px] font-medium leading-snug text-foreground">{fila.nombre}</div>
+                      {fila.detalle && (
+                        <div className="mt-0.5 text-[12px] leading-snug text-muted-foreground">{fila.detalle}</div>
+                      )}
+                    </div>
+                    {PLANES.map((p) => (
+                      <div key={p} className="flex items-center justify-center">
+                        <Marca valor={fila.valor(p)} />
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
-            ))}
-          </div>
-        </details>
-      ))}
+            </details>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
