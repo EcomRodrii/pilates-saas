@@ -40,8 +40,15 @@ function keyframesDe(css: string): Set<string> {
 // corta y estar justificada.
 const SOLO_MODO_A = new Set([
   // `PublicSheet` y los pasos del modal viven en app/reservar/[slug]/page.tsx,
-  // que es una página de Next: no la compila esbuild.
-  'animate-sheet-pop-in',
+  // que es una página de Next: no la compila esbuild. Entrada y salida.
+  'animate-sheet-pop-in', 'animate-sheet-pop-out', 'animate-sheet-backdrop-out',
+  // La altura estable de la hoja en móvil se aplica SOLO fuera del embebido
+  // (dentro manda la franja visible del iframe), así que en el bundle no
+  // pintaría nada aunque estuviera.
+  'reserva-hoja-estable',
+  // La portada de /reservar solo existe FUERA del embebido (`!embedMode`), así
+  // que sus clases no tienen nada que hacer en el bundle.
+  'reserva-hero-foto', 'reserva-hero-portada', 'reserva-tabs',
   // `components/ui/dashboard-drawer.tsx` — cajón del PANEL, tras login. El
   // bundle público no lo incluye ni puede incluirlo.
   'animate-drawer-sheet-in', 'animate-drawer-sheet-out',
@@ -62,7 +69,8 @@ test('todo @keyframes usado por esas clases existe en las dos copias', () => {
   // la landing, el dashboard y el portal, que no pintan nada aquí.
   const nuestros = [...keyframesDe(globals)].filter(k => /^(reserva|sheet|widget-skeleton)-/.test(k));
   const faltan = nuestros
-    .filter(k => k !== 'sheet-pop-in')
+    // Los de `PublicSheet`: mismo motivo que su clase en SOLO_MODO_A.
+    .filter(k => !['sheet-pop-in', 'sheet-pop-out', 'sheet-backdrop-out'].includes(k))
     .filter(k => !keyframesDe(widget).has(k));
   assert.deepEqual(faltan, [], `Keyframes que el widget embebido NO tiene: ${faltan.join(', ')}`);
 });

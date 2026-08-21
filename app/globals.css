@@ -369,6 +369,52 @@ nextjs-portal { display: none !important; }
 @keyframes contenido-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .contenido-anim { animation: contenido-rise .4s ease both; }
 
+/* Hoja de reserva en móvil: altura ESTABLE entre pasos.
+
+   ⚠️ El defecto que arregla se ve de un vistazo comparando dos capturas del
+   mismo flujo a 390px: el paso «datos» ocupaba casi toda la pantalla y el de
+   «pago» era una caja baja pegada al borde inferior con media pantalla muerta
+   encima. La hoja crecía y encogía con su contenido, así que cambiaba de
+   tamaño Y de posición en cada paso — que es exactamente lo que se percibe
+   como «no hay estructura»: el contenedor no se está quieto.
+
+   Con una altura mínima, la hoja se comporta como una bottom sheet de verdad:
+   el marco no se mueve, y lo que cambia es lo de dentro.
+
+   `@media` y no una variante `sm:` de Tailwind a propósito: dentro del widget
+   embebido esa variante mide el ancho del IFRAME, no el de la pantalla (trampa
+   ya documentada en PublicSheet). Y por eso mismo la clase solo se aplica
+   FUERA del embebido, donde la franja visible ya gobierna la altura. */
+/* Portada de /reservar en móvil.
+
+   ⚠️ Medido a 390px: la portada se comía la pantalla entera y el horario —lo
+   único a lo que viene la gente— empezaba por debajo del pliegue. El bloque más
+   pesado era la foto: `aspect-ratio 4/3` a ancho completo son ~262px de alto en
+   un móvil. En escritorio esa proporción está bien y no se toca; en móvil pasa
+   a banda ancha, que cuenta lo mismo ocupando la mitad.
+
+   Solo afecta a la página SUELTA: en el widget embebido la portada ni se pinta. */
+@media (max-width: 640px) {
+  .reserva-hero-foto { max-height: 148px; }
+  .reserva-hero-portada { padding-top: 18px !important; padding-bottom: 16px !important; }
+  /* El aire entre la portada y las pestañas está calculado para escritorio
+     (46px arriba). En un móvil es justo lo que separa a la persona de lo que ha
+     venido a ver. `!important` porque el valor vive en un `style` en línea, que
+     de otro modo gana. */
+  .reserva-tabs { margin-top: 12px !important; }
+}
+
+@media (max-width: 640px) {
+  /* Altura FIJA, no mínima: con `min-height` el paso «datos» seguía siendo 90px
+     más alto que el de «pago» (medido: 748 vs 658), así que el marco seguía
+     saltando, solo que menos. Con una altura fija el contenedor no se mueve
+     NUNCA y lo que scrollea es el contenido — que es como se comporta una
+     bottom sheet de verdad.
+     Queda por debajo del `maxHeight: 90vh` que el caller pone en línea, así
+     que no pelean. */
+  .reserva-hoja-estable { height: 88dvh; }
+}
+
 /* Cambio de paso dentro del modal de reserva.
    ⚠️ Los pasos usaban `.contenido-anim`, que son .4s pensados para tarjetas de
    dashboard que aparecen SOLAS al cargar una pantalla. Aquí el usuario acaba de
@@ -440,6 +486,15 @@ nextjs-portal { display: none !important; }
    un pop sutil (fade + alzado), no un deslizamiento desde un borde. */
 @keyframes sheet-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sheet-pop-in { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+/* Salida de la hoja pública.
+   ⚠️ Sin `scale`, al revés que la entrada: `sheet-pop-in` lo lleva y ya costó
+   un rojo de CI (falseaba `boundingBox().width` mientras corría). La salida
+   solo baja y se desvanece — y además es más corta que la entrada, porque
+   cerrar tiene que sentirse inmediato y abrir puede permitirse presencia. */
+@keyframes sheet-pop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(12px); } }
+@keyframes sheet-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+.animate-sheet-pop-out { animation: sheet-pop-out .16s ease both; }
+.animate-sheet-backdrop-out { animation: sheet-backdrop-out .16s ease both; }
 .animate-sheet-backdrop-in { animation: sheet-backdrop-in .2s ease both; }
 .animate-sheet-pop-in { animation: sheet-pop-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
 

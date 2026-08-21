@@ -21,6 +21,7 @@ import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } f
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { IndicadorPasos } from '@/components/reserva/indicador-pasos';
 import { recorridoDe } from '@/lib/reservar/pasos-flujo';
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, BOTON_TERCIARIO } from '@/lib/reservar/botones';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
@@ -1365,6 +1366,23 @@ export default function ReservarPage() {
     : confirmacionPago === 'pendiente_aprobacion' ? 'Pendiente de aprobación'
     : '¡Pago recibido!';
 
+  // El estado de la RESERVA, dicho con todas las letras y separado del estado
+  // del pago: son dos cosas distintas y pueden no coincidir (pago recibido +
+  // plaza en lista de espera es el caso que más confunde). Nunca «confirmada»
+  // sin que el servidor lo haya confirmado.
+  const etiquetaEstadoReserva =
+    confirmacionPago === 'confirmada' ? 'Confirmada'
+    : confirmacionPago === 'lista_espera' ? 'En lista de espera'
+    : confirmacionPago === 'pendiente_aprobacion' ? 'Pendiente de aprobación'
+    : confirmacionPago === 'fallida' ? 'Sin plaza — el estudio te contactará'
+    : confirmacionPago === 'tardando' ? 'Confirmando'
+    : 'Confirmando…';
+
+  // La referencia del pago: el id del PaymentIntent, que es lo que el estudio
+  // puede buscar en Stripe. Se enseña acortado —el id completo es largo e
+  // ilegible— pero es el mismo que consta en el recibo.
+  const referenciaPago = piDeClientSecret(datosClientSecret ?? '');
+
   async function handleSignContract() {
     if (socia?.socioId) {
       const res = await updateSocio(socia.socioId, {
@@ -1871,6 +1889,7 @@ export default function ReservarPage() {
             tiene su web), pero no se mueve — ver la nota del degradado arriba. */}
         {!embedMode && seccionVisible('portada') && (
         <div
+          className="reserva-hero-portada"
           style={{
             position: 'relative',
             padding: `${cq(28, 4, 56)} ${cq(20, 3.8, 48)} ${cq(24, 3, 44)}`,
@@ -1925,6 +1944,7 @@ export default function ReservarPage() {
               src={heroFoto}
               alt=""
               onError={alFallarImagen(IMAGENES_POR_DEFECTO.portada[0])}
+              className="reserva-hero-foto"
               style={{
                 width: '100%', aspectRatio: '4 / 3', objectFit: 'cover',
                 borderRadius: R.card, display: 'block',
@@ -1938,7 +1958,7 @@ export default function ReservarPage() {
             ⚠️ El `div#horario` se pinta SIEMPRE, con pestañas o sin ellas: es el
             ancla a la que salta el botón de la portada y el que usan los tests.
             Lo que desaparece con `soloPestana` son los botones de dentro. */}
-        <div id="horario" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
+        <div id="horario" className={embedMode ? undefined : 'reserva-tabs'} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
           {/* Un widget embebido es 1 propósito, no un portal en miniatura:
               en `embedMode` se enseña SIEMPRE únicamente la pestaña que pidió
               `?tab=`, sin barra — quien incrusta «Horario y reserva de
@@ -2746,7 +2766,10 @@ export default function ReservarPage() {
         // (Claude Design, no la copia local desfasada del handoff) — ese
         // asistente es más ancho que el resto de pasos de este modal (login,
         // confirmar, etc.), así que la hoja crece solo para esos dos.
-        sheetClassName={`bg-white w-full ${loginStep === 'datos' || loginStep === 'pago' ? 'max-w-lg' : 'max-w-sm'} rounded-3xl p-6 relative shadow-2xl transition-[max-width] duration-300 ease-out`}
+        // `reserva-hoja-estable` solo fuera del embebido: dentro, la franja
+        // visible del iframe ya manda sobre la altura (ver `overlayEmbed`), y
+        // forzar un mínimo la sacaría de esa franja.
+        sheetClassName={`bg-white w-full ${loginStep === 'datos' || loginStep === 'pago' ? 'max-w-lg' : 'max-w-sm'} ${embedMode ? '' : 'reserva-hoja-estable'} rounded-3xl p-6 relative shadow-2xl transition-[max-width] duration-300 ease-out`}
         // P0-3: en el iframe embebido, `90vh` es el 90% del IFRAME entero (que
         // mide lo que su contenido) — el modal se anclaba junto al pie de la
         // web del estudio, a ~1000px de la vista del usuario (medido). Con
@@ -2764,7 +2787,7 @@ export default function ReservarPage() {
         footer={loginStep === 'datos' ? (
           <button onClick={handleDatosContinuar}
             disabled={!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono) || !privacidadAceptada || datosCargando}
-            className="w-full py-3.5 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+            className={BOTON_PRIMARIO}
             style={{ backgroundColor: PRIMARY }}>
             {datosCargando ? 'Un momento…' : 'Continuar al pago'}
           </button>
@@ -2810,21 +2833,61 @@ export default function ReservarPage() {
                   <p className="text-[var(--portal-ink)] font-extrabold text-xl">
                     {pagoWebSinLogin ? tituloPagoWeb : (textosReservar.confirmacion || '¡Reserva confirmada!')}
                   </p>
-                  <p className="text-[var(--portal-muted-2)] text-sm mt-1">
-                    {pagoWebSinLogin && claseConfirmada
-                      ? <>{claseConfirmada.nombre} · {fmtLong(new Date(claseConfirmada.inicio))} a las {fmtTime(claseConfirmada.inicio)}</>
-                      : <>{bookingSesion.tipo?.nombre} · {fmtLong(new Date(bookingSesion.inicio))} a las {fmtTime(bookingSesion.inicio)}</>}
-                  </p>
+                  {/* Sin pago de por medio no hay resguardo debajo, así que
+                      aquí sigue haciendo falta la línea de clase/fecha/hora.
+                      Con pago, la repetiría: el resguardo la dice mejor. */}
+                  {!pagoWebSinLogin && (
+                    <p className="text-[var(--portal-muted-2)] text-sm mt-1">
+                      {bookingSesion.tipo?.nombre} · {fmtLong(new Date(bookingSesion.inicio))} a las {fmtTime(bookingSesion.inicio)}
+                    </p>
+                  )}
                 </div>
-                {/* Cierre digno del pago (P1-confianza): resumen de LO COMPRADO
-                    — qué plan y cuánto se ha cobrado — encima del copy honesto
-                    de "estamos confirmando". El recibo formal llega por email;
-                    esto es el eco inmediato de que el cargo es el esperado. */}
-                {pagoWebSinLogin && datosPlan && (
-                  <div className="w-full flex items-baseline justify-between gap-3 rounded-2xl px-3.5 py-2.5 bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
-                    <span className="text-[var(--portal-muted-2)] text-xs font-semibold text-left">{datosPlan.nombre}</span>
-                    <span className="text-[var(--portal-ink)] text-sm font-extrabold whitespace-nowrap">{datosPlan.precio} €</span>
-                  </div>
+                {/* El resguardo de la reserva.
+                    Antes esto era una sola línea con el plan y el precio, y la
+                    clase/fecha/hora vivían sueltas bajo el título. Faltaba lo
+                    que de verdad se busca en una pantalla de confirmación:
+                    DÓNDE es, en qué estado está la reserva, en qué estado está
+                    el pago, y una referencia que poder citar si algo falla.
+                    Los dos estados van SEPARADOS a propósito: son cosas
+                    distintas y pueden no coincidir — el pago puede estar
+                    recibido y la plaza en lista de espera, que es justo el caso
+                    que más confunde. */}
+                {pagoWebSinLogin && (
+                  <dl className="w-full rounded-2xl divide-y divide-[var(--portal-line)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] text-left">
+                    {[
+                      ['Clase', claseConfirmada?.nombre ?? bookingSesion.tipo?.nombre ?? '—'],
+                      ['Fecha', fmtLong(new Date(claseConfirmada?.inicio ?? bookingSesion.inicio))],
+                      ['Hora', fmtTime(claseConfirmada?.inicio ?? bookingSesion.inicio)],
+                      ['Estudio', [estudioNombre, estudioDireccion].filter(Boolean).join(' · ')],
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
+                        <dt className="text-[var(--portal-muted-2)] text-xs font-semibold shrink-0">{k}</dt>
+                        <dd className="text-[var(--portal-ink)] text-[13px] font-semibold text-right">{v}</dd>
+                      </div>
+                    ))}
+                    <div className="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
+                      <dt className="text-[var(--portal-muted-2)] text-xs font-semibold shrink-0">Reserva</dt>
+                      <dd className="text-[13px] font-bold text-right">{etiquetaEstadoReserva}</dd>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
+                      <dt className="text-[var(--portal-muted-2)] text-xs font-semibold shrink-0">Pago</dt>
+                      <dd className="text-[var(--portal-ink)] text-[13px] font-semibold text-right">
+                        Recibido{datosPlan ? ` · ${datosPlan.precio} €` : ''}
+                      </dd>
+                    </div>
+                    {/* La referencia sirve para una sola cosa, y es la que
+                        importa: poder decirle al estudio EXACTAMENTE qué pago
+                        es si hay que buscarlo. Va en monoespaciada y
+                        seleccionable; el id completo es largo e ilegible, así
+                        que se enseñan los últimos tramos, que es lo que
+                        distingue un pago de otro. */}
+                    {referenciaPago && (
+                      <div className="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
+                        <dt className="text-[var(--portal-muted-2)] text-xs font-semibold shrink-0">Referencia</dt>
+                        <dd className="text-[var(--portal-muted-2)] text-[12px] font-mono select-all text-right break-all">{referenciaPago}</dd>
+                      </div>
+                    )}
+                  </dl>
                 )}
                 {pagoWebSinLogin && (
                   <div className="w-full rounded-2xl p-3.5 text-left bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
@@ -2874,14 +2937,23 @@ export default function ReservarPage() {
                 {(!pagoWebSinLogin || confirmacionPago === 'confirmada') && (
                 <div className="w-full space-y-2.5 mt-1">
                   <p className="text-[var(--portal-muted)] text-xs font-semibold uppercase tracking-wide">Añadir a tu calendario</p>
+                  {/* ⚠️ Estos dos botones tenían jerarquía invertida y fuera de
+                      marca: el de Google iba en `#4285F4` —azul de Google, un
+                      hex fijo que no es de este estudio ni de ningún otro— y
+                      pesaba más que la propia confirmación, mientras el de
+                      .ics parecía secundario sin serlo. Son la MISMA acción con
+                      dos destinos, así que ahora comparten tratamiento: el
+                      principal en el color del estudio, el alternativo en
+                      superficie. Cero hex de terceros en una pantalla que
+                      lleva la marca de un estudio. */}
                   <a href={makeGoogleCalUrl(bookingSesion, estudioNombre, estudioDireccion)} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-white transition-all"
-                    style={{ backgroundColor: '#4285F4' }}>
+                    className={`${BOTON_PRIMARIO} flex items-center justify-center gap-2`}
+                    style={{ backgroundColor: PRIMARY }}>
                     <ExternalLink size={14} />Google Calendar
                   </a>
                   <button onClick={() => downloadICS(bookingSesion, estudioNombre, estudioDireccion)}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
-                    <Download size={14} />Descargar .ics (Apple / Outlook)
+                    className={`${BOTON_SECUNDARIO} flex items-center justify-center gap-2`}>
+                    <Download size={14} />Apple / Outlook (.ics)
                   </button>
                 </div>
                 )}
@@ -2896,19 +2968,35 @@ export default function ReservarPage() {
                 <div className="w-full pt-3 mt-1 border-t border-[var(--portal-line)]">
                   <p className="text-[var(--portal-muted)] text-xs leading-relaxed text-center">
                     Tus clases y tus bonos están en tu portal.{' '}
+                    {/* ⚠️ En el widget, ABRIR EN OTRA PESTAÑA no es un detalle:
+                        es lo que impide que el widget deje de ser un widget.
+                        Sin `target`, este enlace navegaba el propio iframe a
+                        `/portal/<slug>/acceso`, que es una pantalla de portal a
+                        pantalla completa (`minHeight: 100dvh`, portada de
+                        260px y `justify-content: space-between`). Metida en el
+                        marco del widget, ese `space-between` reparte el
+                        contenido entre el borde de arriba y el de abajo: de ahí
+                        el hueco enorme entre el texto y los botones, y la
+                        sensación de popup larguísimo. Y en Modo B (el bundle
+                        corre en el DOM del estudio) era peor todavía: se
+                        llevaba por delante la página entera de su web.
+                        Fuera del embebido se queda como estaba — ahí navegar
+                        es lo correcto. */}
                     {tienePasswordPropia ? (
-                      <a href={`/portal/${slug}/login`} className="font-bold underline" style={{ color: PRIMARY }}>
+                      <a href={`/portal/${slug}/login`} className="font-bold underline" style={{ color: PRIMARY }}
+                        {...(embedMode ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
                         Entra con tu contraseña
                       </a>
                     ) : (
-                      <a href={`/portal/${slug}/acceso`} className="font-bold underline" style={{ color: PRIMARY }}>
+                      <a href={`/portal/${slug}/acceso`} className="font-bold underline" style={{ color: PRIMARY }}
+                        {...(embedMode ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
                         Crea tu contraseña
                       </a>
                     )}{' '}
                     y entra cuando quieras.
                   </p>
                 </div>
-                <button onClick={closeBooking} className="text-[var(--portal-muted)] text-sm hover:text-[var(--portal-ink)] transition-colors mt-1">
+                <button onClick={closeBooking} className={`${BOTON_TERCIARIO} mt-1`}>
                   Cerrar
                 </button>
               </div>
@@ -2928,7 +3016,7 @@ export default function ReservarPage() {
                   <p className="text-[var(--portal-muted-2)] text-sm mt-1">{textosReservar.listaEspera || 'Si se libera una plaza, te avisaremos por email.'}</p>
                 </div>
                 <button onClick={closeBooking}
-                  className="w-full py-3 rounded-2xl text-sm font-bold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
+                  className={BOTON_SECUNDARIO}>
                   Cerrar
                 </button>
               </div>
@@ -2945,7 +3033,7 @@ export default function ReservarPage() {
                   <p className="text-[var(--portal-muted-2)] text-sm mt-1">Tu reserva está pendiente de aprobación. Te avisaremos en cuanto se confirme.</p>
                 </div>
                 <button onClick={closeBooking}
-                  className="w-full py-3 rounded-2xl text-sm font-bold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
+                  className={BOTON_SECUNDARIO}>
                   Cerrar
                 </button>
               </div>
@@ -2981,7 +3069,7 @@ export default function ReservarPage() {
                         resolver algo a mano. */}
                     {captcha}
                     <button onClick={handleContinuarAcceso} disabled={!loginForm.email || enviandoEnlace || enviandoLoginPassword}
-                      className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+                      className={BOTON_PRIMARIO}
                       style={{ backgroundColor: PRIMARY }}>
                       {enviandoLoginPassword ? 'Entrando…' : enviandoEnlace ? 'Enviando…' : loginPassword.trim() ? 'Iniciar sesión →' : 'Continuar →'}
                     </button>
@@ -3200,7 +3288,7 @@ export default function ReservarPage() {
                 {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                 <p className="text-[11px] text-[var(--portal-muted)] mb-5">El teléfono solo lo usa {estudioNombre} para avisos de tus clases.</p>
                 <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)}
-                  className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+                  className={BOTON_PRIMARIO}
                   style={{ backgroundColor: PRIMARY }}>
                   Continuar →
                 </button>
@@ -3238,11 +3326,11 @@ export default function ReservarPage() {
                 </label>
                 <div className="flex gap-2">
                   <button onClick={() => setLoginStep('login')}
-                    className="flex-1 py-3 rounded-2xl text-sm font-semibold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
+                    className={`${BOTON_SECUNDARIO} flex-1`}>
                     Volver
                   </button>
                   <button onClick={handleSignContract} disabled={!terminosAceptados}
-                    className="flex-[2] py-3 rounded-2xl text-sm font-bold text-white transition-all disabled:opacity-40"
+                    className={`${BOTON_PRIMARIO} flex-[2]`}
                     style={{ backgroundColor: PRIMARY }}>
                     Aceptar y continuar →
                   </button>
@@ -3319,7 +3407,7 @@ export default function ReservarPage() {
                   </div>
                 )}
                 <button onClick={handleConfirm} disabled={confirmando}
-                  className="w-full py-3 rounded-2xl font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                  className={BOTON_PRIMARIO}
                   style={{ backgroundColor: PRIMARY }}>
                   {confirmando
                     ? 'Un momento…'
