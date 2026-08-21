@@ -944,6 +944,37 @@ async function devolverBonoServidor(
   return nuevoSaldo != null;
 }
 
+// P-1 (auditoría 21-ago): política única, compartida por los caminos
+// server-side que cancelan una clase COMPLETA (sustituciones/cancelar_clase
+// y el cron de mínimo de asistentes) — el estudio decide si sus socias
+// recuperan la sesión o se les agota igual (`studios.cancelacion_clase_
+// devuelve_bono`, default true). El camino de panel/serie corre en cliente
+// y resuelve la misma pregunta con `devolverSesionBono` en studio-context.tsx
+// (necesita `admin` para leer suscripciones/planes cross-socia; el panel no
+// lo tiene con RLS de staff).
+//
+// Devuelve por socia si REALMENTE se devolvió (no solo si la política lo
+// permite): mismo cuidado que `devolverBonoServidor` ya documentaba (I-5),
+// para que el email de cancelación nunca prometa una sesión que no recuperó.
+export async function devolverBonosPorCancelacionClase(
+  admin: SupabaseClient, studioId: string,
+  confirmadas: { socioId: string; tipoClaseId: string | null }[],
+): Promise<Map<string, boolean>> {
+  const devueltoPorSocia = new Map<string, boolean>();
+  if (confirmadas.length === 0) return devueltoPorSocia;
+  const { data } = await admin.from('studios')
+    .select('cancelacion_clase_devuelve_bono').eq('id', studioId).maybeSingle();
+  const devuelve = (data?.cancelacion_clase_devuelve_bono ?? true) as boolean;
+  if (!devuelve) {
+    confirmadas.forEach(c => devueltoPorSocia.set(c.socioId, false));
+    return devueltoPorSocia;
+  }
+  for (const c of confirmadas) {
+    devueltoPorSocia.set(c.socioId, await devolverBonoServidor(admin, studioId, c.socioId, c.tipoClaseId));
+  }
+  return devueltoPorSocia;
+}
+
 // Reúne los datos de una clase para un email transaccional (nombre de clase,
 // fecha/hora en hora de España, sala e instructora, nombre del estudio). Formato
 // legible para la socia; devuelve null si la sesión no existe.
@@ -2223,10 +2254,11 @@ export async function expirarOfertaListaEspera(params: {
 
 // Fase 2c: cancela una sesión completa porque no alcanzó el mínimo de
 // asistentes a 2h del inicio — llamado solo por el cron
-// (lib/minimo-asistentes/cancelar-por-minimo.ts), sin sesión de staff detrás. A
-// diferencia de dbCancelarReservasPorSesiones (cancelación manual, cliente,
-// nunca devuelve bono), aquí SÍ se devuelve a cada CONFIRMADA: no es
-// decisión de la socia, es el sistema el que rompe el compromiso.
+// (lib/minimo-asistentes/cancelar-por-minimo.ts), sin sesión de staff detrás.
+// La devolución de bono a cada CONFIRMADA sigue la misma política de estudio
+// que el resto de cancelaciones de clase completa (P-1, ver
+// devolverBonosPorCancelacionClase) — antes era incondicional aquí y nunca
+// ocurría en los otros dos caminos, la asimetría que cerró esa pieza.
 //
 // Dos guardas de idempotencia INDEPENDIENTES (no una sola compuesta): si el
 // cron reintenta tras un fallo parcial, la sesión ya marcada cancelada=true
@@ -2267,11 +2299,8 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
   // I-5: se guarda POR SOCIA si la devolución tuvo efecto, para que el email no
   // le prometa a nadie una sesión que no ha recuperado. En esta cancelación cada
   // socia recibe su propio correo, así que el dato es por persona, no global.
-  const devueltoPorSocia = new Map<string, boolean>();
-  for (const r of confirmadas) {
-    const socioId = r.socio_id as string;
-    devueltoPorSocia.set(socioId, await devolverBonoServidor(admin, params.studioId, socioId, tipoClaseId));
-  }
+  const devueltoPorSocia = await devolverBonosPorCancelacionClase(admin, params.studioId,
+    confirmadas.map(r => ({ socioId: r.socio_id as string, tipoClaseId })));
 
   const { emitirClaseCancelada } = await import('@/lib/notifications/emit');
   await emitirClaseCancelada(admin, { studioId: params.studioId, sesionId: params.sesionId });

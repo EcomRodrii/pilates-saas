@@ -13,6 +13,7 @@ import {
   puedeRecalcular, filtrarYaRechazadas, estadoTrasRecalcular, resumenRecalculo,
 } from '@/lib/sustituciones/recalculo';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { devolverBonosPorCancelacionClase } from '@/lib/db/supabase-data-admin';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
@@ -361,12 +362,17 @@ export async function PATCH(req: NextRequest) {
     // — la socia veía en el portal una plaza "confirmada" para una clase que
     // nunca iba a pasar, y esa reserva fantasma le seguía consumiendo el
     // límite de reservas simultáneas y el cupo semanal del plan.
-    // NO se devuelve el bono aquí: misma decisión de producto pendiente que el
-    // camino de panel y que cancelarSerieDesde. (`cancelarSesionPorMinimo-
-    // NoAlcanzado` sí lo devuelve; unificar esa política sigue pendiente.)
+    // P-1 (auditoría 21-ago): la devolución de bono sigue la política del
+    // estudio (`devolverBonosPorCancelacionClase`), unificada con el cron de
+    // mínimo de asistentes y con el camino de panel/serie. Se lee QUIÉN tenía
+    // plaza CONFIRMADA antes del UPDATE, porque después ya no hay forma de
+    // saberlo (el estado se sobrescribe a CANCELADA).
     //
     // A las de LISTA_ESPERA y PENDIENTE_APROBACION se les cancela sin aviso:
     // avisarAlumnas solo alcanza a las CONFIRMADA. Es lo que ya hacía el panel.
+    const { data: confirmadasAntes } = await admin.from('reservas').select('socio_id')
+      .eq('sesion_id', sust.sesion_id).eq('studio_id', sesion.studioId).eq('estado', 'CONFIRMADA');
+
     const cancRes = await admin.from('reservas')
       .update({ estado: 'CANCELADA', posicion_espera: null })
       .eq('sesion_id', sust.sesion_id)
@@ -377,6 +383,12 @@ export async function PATCH(req: NextRequest) {
       // están avisadas. Se registra para poder repararlo a mano.
       console.error('[sustituciones:cancelar_clase:cancelar-reservas]',
         cancRes.error.message, `sesion=${sust.sesion_id}`, `studio=${sesion.studioId}`);
+    } else if (confirmadasAntes?.length) {
+      const { data: sesionInfo } = await admin.from('sesiones').select('tipo_clase_id')
+        .eq('id', sust.sesion_id).maybeSingle();
+      const tipoClaseId = sesionInfo?.tipo_clase_id as string | null;
+      await devolverBonosPorCancelacionClase(admin, sesion.studioId,
+        confirmadasAntes.map(r => ({ socioId: r.socio_id as string, tipoClaseId })));
     }
 
     return NextResponse.json({ ok: true, alumnas });

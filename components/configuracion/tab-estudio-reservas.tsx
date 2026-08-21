@@ -15,6 +15,7 @@ const grupoCls = 'text-[11px] font-bold uppercase tracking-wide text-muted-foreg
 type PoliticaForm = {
   cancelacionVentanaHoras: number;
   cancelacionDevolverBonoTardia: boolean;
+  cancelacionClaseDevuelveBono: boolean;
   reservaExigirPlan: boolean;
   reservaMaxSimultaneas: number | null;
   compraPublicaModo: 'EXIGIR_REGISTRO' | 'CREAR_FICHA';
@@ -46,6 +47,7 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
   return {
     cancelacionVentanaHoras: s?.cancelacionVentanaHoras ?? 12,
     cancelacionDevolverBonoTardia: s?.cancelacionDevolverBonoTardia ?? false,
+    cancelacionClaseDevuelveBono: s?.cancelacionClaseDevuelveBono ?? true,
     reservaExigirPlan: s?.reservaExigirPlan ?? true,
     reservaMaxSimultaneas: s?.reservaMaxSimultaneas ?? null,
     compraPublicaModo: s?.compraPublicaModo ?? 'EXIGIR_REGISTRO',
@@ -110,6 +112,17 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               <span className="block text-[11px] text-muted-foreground">Desactivado: una cancelación tardía pierde la sesión (recomendado).</span>
             </span>
             <Toggle on={pol.cancelacionDevolverBonoTardia} onChange={v => setPol(p => ({ ...p, cancelacionDevolverBonoTardia: v }))} />
+          </label>
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-[13px] text-foreground">
+              Devolver la sesión al cancelar tú una clase
+              <span className="block text-[11px] text-muted-foreground">
+                Cuando cancelas tú una clase completa (avería, baja de la instructora, mal
+                tiempo...), las socias apuntadas recuperan la sesión en su bono. Desactívalo
+                si prefieres que se les agote igual.
+              </span>
+            </span>
+            <Toggle on={pol.cancelacionClaseDevuelveBono} onChange={v => setPol(p => ({ ...p, cancelacionClaseDevuelveBono: v }))} />
           </label>
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">

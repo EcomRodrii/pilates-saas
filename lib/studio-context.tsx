@@ -2448,16 +2448,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // ⚠️ Llamarla SIEMPRE después de avisar a las socias: los destinatarios se
   // resuelven en servidor filtrando estado='CONFIRMADA'.
   //
-  // NO devuelve el bono a propósito (decisión de producto pendiente, ver
-  // cancelarSerieDesde). OJO: `cancelarSesionPorMinimoNoAlcanzado` SÍ lo
-  // devuelve, así que la política todavía no es única — está pendiente.
+  // P-1 (auditoría 21-ago): si `cancelacionClaseDevuelveBono` está activo
+  // (política por estudio, default true), a cada socia que tenía plaza
+  // CONFIRMADA se le devuelve la sesión — mismo criterio que ya aplicaba
+  // `cancelarSesionPorMinimoNoAlcanzado` sin poder desactivarse. Las
+  // "confirmadas antes" se capturan del estado local ANTES de cancelar (la
+  // respuesta del servidor solo trae qué reservas se cancelaron, no su
+  // estado previo ni la socia).
   function cancelarReservasDeSesiones(ids: string[], op: string) {
     if (ids.length === 0) return;
+    const sesionIdsSet = new Set(ids);
+    const confirmadasAntes = reservas.filter(r => sesionIdsSet.has(r.sesionId) && r.estado === 'CONFIRMADA');
     void dbCancelarReservasPorSesiones(ids).then(res => {
       if (!('ok' in res)) return;
-      const idsSet = new Set(res.ids);
-      if (idsSet.size === 0) return;
-      setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+      const canceladasSet = new Set(res.ids);
+      if (canceladasSet.size === 0) return;
+      setReservas(prev => prev.map(r => canceladasSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+      if (studio?.cancelacionClaseDevuelveBono ?? true) {
+        confirmadasAntes
+          .filter(r => canceladasSet.has(r.id))
+          .forEach(r => void devolverSesionBono(r.socioId, r.sesionId));
+      }
     }).catch(e => {
       console.error(`[${op}:dbCancelarReservasPorSesiones]`, e);
       capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'calendario', op } });
@@ -2594,12 +2605,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Las reservas de esas sesiones quedaban en CONFIRMADA/LISTA_ESPERA
     // apuntando a una sesión ya cancelada — la socia veía en su portal una
     // plaza "confirmada" para una clase que nunca va a pasar. Se marcan
-    // CANCELADA. NO se devuelve el bono aquí a propósito: a diferencia de
-    // cancelar una reserva suelta (con su propia ventana de cancelación por
-    // tipo de clase), cancelar una serie entera es una decisión del estudio,
-    // no de la socia — qué política de reembolso aplica en ese caso es una
-    // decisión de producto pendiente, no algo para improvisar en un fix de
-    // integridad de datos.
+    // CANCELADA, y `cancelarReservasDeSesiones` devuelve el bono a cada
+    // socia confirmada si `studio.cancelacionClaseDevuelveBono` lo permite
+    // (P-1, política por estudio — cancelar una serie entera es siempre
+    // decisión del estudio, no de la socia).
     cancelarReservasDeSesiones(ids, 'cancelarSerieDesde');
     return { ok: true };
   }

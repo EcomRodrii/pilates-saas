@@ -127,6 +127,9 @@ export interface Studio {
   // Política de reservas y cancelaciones (auditoría C-2/C-4).
   cancelacionVentanaHoras: number;
   cancelacionDevolverBonoTardia: boolean;
+  /** Cuando el ESTUDIO cancela una clase completa (no una reserva suelta):
+   *  true = devuelve la sesión a cada socia con plaza confirmada. */
+  cancelacionClaseDevuelveBono: boolean;
   reservaExigirPlan: boolean;
   /** Compra desde el enlace público sin ficha previa (migr 0110).
    *  EXIGIR_REGISTRO = se registra antes de pagar. CREAR_FICHA = se cobra y
