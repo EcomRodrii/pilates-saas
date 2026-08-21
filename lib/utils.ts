@@ -107,6 +107,28 @@ export function finDeSemana(fecha: Date | string): Date {
 // dos horas distintas. Un único sitio, y que no vuelva a pasar.
 export const TZ_ESTUDIO = 'Europe/Madrid';
 
+/**
+ * El día de HOY en la zona del estudio, como 'YYYY-MM-DD'.
+ *
+ * ⚠️ Existe porque `new Date().toISOString().slice(0, 10)` da el día en **UTC**,
+ * y eso no es «hoy» para nadie en España durante casi la mitad del día. Un pago
+ * hecho a las 01:33 de la madrugada del 21 de agosto en Madrid son las 23:33
+ * UTC del 20: el recibo se guardaba con fecha del día ANTERIOR al que lo vivió
+ * la clienta y lo vive la propietaria en su panel. Con una clase reservada esa
+ * misma noche, la factura y el cobro salían descuadrados un día.
+ *
+ * Mismo criterio que el resto de fechas de cara al usuario en este repo
+ * (`fechaCortaEstudio`, `horaEstudio`): la hora del estudio manda, nunca la del
+ * servidor ni la del navegador.
+ */
+export function hoyEnEstudio(ahora: Date = new Date()): string {
+  // 'en-CA' da exactamente 'YYYY-MM-DD', que es el formato que espera una
+  // columna `date` de Postgres.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ_ESTUDIO, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(ahora);
+}
+
 // ── Franja horaria local (día de la semana + hora del estudio) ──────────────
 //
 // Vive aquí, con TZ_ESTUDIO, porque la usan dos lados que no deberían

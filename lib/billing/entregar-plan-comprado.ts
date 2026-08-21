@@ -15,6 +15,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+// Relativo y con `.ts` explícita: el alias `@/` no lo resuelve el runner de
+// `node --test`, y este módulo sí tiene test unitario propio.
+import { hoyEnEstudio } from '../utils.ts';
 
 export interface CompraPlan {
   /**
@@ -143,7 +146,10 @@ export async function entregarPlanComprado(
   const importeReal = compra.importeCobradoCentimos != null
     ? compra.importeCobradoCentimos / 100
     : Number(plan.precio);
-  const hoy = ahora.slice(0, 10);
+  // El día del ESTUDIO, no el de UTC: un pago de la 01:33 de la madrugada en
+  // España son las 23:33 UTC del día anterior, y el recibo salía fechado un día
+  // antes de cuando lo vivió la clienta. Ver `hoyEnEstudio`.
+  const hoy = hoyEnEstudio(new Date(ahora));
 
   // ── 1. La socia ────────────────────────────────────────────────────────────
   let socioId = compra.socioId;
