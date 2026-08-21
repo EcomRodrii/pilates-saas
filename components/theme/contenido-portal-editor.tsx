@@ -2,7 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { Plus, Trash2, Upload, MessageSquare, Image as ImageIcon } from 'lucide-react';
-import { inputCls, labelCls, btnPrimary, Field, Toggle, ConfirmDialog } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, labelCls, btnPrimary, Field, Toggle } from '@/app/(dashboard)/configuracion/page';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useStudio } from '@/lib/studio-context';
 import { usePermisos } from '@/lib/permisos';
 import { subirBannerEstudio, eliminarBannerEstudio } from '@/lib/portal-storage';
@@ -241,8 +242,10 @@ function BannerPanel({ banner, onToast }: { banner: BannerPortal; onToast: (m: s
       <ConfirmDialog
         open={confirmDel}
         onOpenChange={setConfirmDel}
-        title="¿Eliminar este banner?"
-        description="Se quitará del portal de tus clientas. No se puede deshacer."
+        titulo="¿Eliminar este banner?"
+        descripcion="Se quitará del portal de tus clientas. No se puede deshacer."
+        textoConfirmar="Eliminar"
+        destructivo
         onConfirm={handleEliminar}
       />
     </div>

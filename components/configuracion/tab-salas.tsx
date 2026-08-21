@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ColorInput, ColorSwatch, ConfirmDialog, Field, btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
+import { ColorInput, ColorSwatch, Field, btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudio } from '@/lib/studio-context';
 import type { Sala } from '@/lib/types';
@@ -531,8 +532,10 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       <ConfirmDialog
         open={!!confirmDel}
         onOpenChange={open => !open && setConfirmDel(null)}
-        title="¿Eliminar sala?"
-        description="Se eliminará esta sala de forma permanente. Esta acción no se puede deshacer."
+        titulo="¿Eliminar sala?"
+        descripcion="Se eliminará esta sala de forma permanente. Esta acción no se puede deshacer."
+        textoConfirmar="Eliminar"
+        destructivo
         onConfirm={handleDelete}
       />
 

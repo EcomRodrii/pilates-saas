@@ -2,9 +2,10 @@
 
 import { useCallback, useState } from 'react';
 import {
-  ColorInput, ColorSwatch, ConfirmDialog, Field, Toggle,
+  ColorInput, ColorSwatch, Field, Toggle,
   btnPrimary, btnSecondary, cardCls, inputCls, labelCls,
 } from '@/app/(dashboard)/configuracion/page';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudio } from '@/lib/studio-context';
 import type { ServicioCita, TipoCita } from '@/lib/types';
@@ -279,8 +280,10 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
       <ConfirmDialog
         open={!!confirmDel}
         onOpenChange={open => !open && setConfirmDel(null)}
-        title="¿Eliminar servicio?"
-        description="Se eliminará este servicio de cita. Las citas ya reservadas no se ven afectadas."
+        titulo="¿Eliminar servicio?"
+        descripcion="Se eliminará este servicio de cita. Las citas ya reservadas no se ven afectadas."
+        textoConfirmar="Eliminar"
+        destructivo
         onConfirm={handleDelete}
       />
     </div>
