@@ -222,6 +222,18 @@ export function nombreAppPorRol(rol: Rol): 'Tentare Core' | 'Tentare Manager' {
   return rol === 'INSTRUCTOR' ? 'Tentare Core' : 'Tentare Manager';
 }
 
+// Fuente de verdad única de "cómo se llama este rol" — auditoría integral
+// 2026-08-21: había 4 catálogos distintos (tab-perfil.tsx, sede-activa.tsx,
+// equipo/page.tsx, notificaciones/page.tsx), dos de ellos sin la clave
+// MANAGER (crash real al abrir "Mi perfil" con ese rol) y con el mismo rol
+// llamado "Gerencia" en un sitio y "Responsable de sede" en otro.
+export const ETIQUETA_ROL: Record<Rol, { label: string; bg: string; text: string }> = {
+  PROPIETARIO: { label: 'Propietaria', bg: '#F1F2EA', text: '#343825' },
+  MANAGER: { label: 'Responsable de sede', bg: '#EFF3FF', text: '#2E3A5C' },
+  INSTRUCTOR: { label: 'Instructora', bg: '#FFF2F7', text: '#5A6142' },
+  RECEPCION: { label: 'Recepción', bg: '#EAF6FF', text: '#3F5A7A' },
+};
+
 
 export function puedeVer(rol: Rol, path: string): boolean {
   // Feature-freeze PMF: los módulos congelados no son visibles para NINGÚN rol.

@@ -26,7 +26,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
 import { useRol } from '@/lib/permisos';
-import { rolesQuePuedeAsignar, puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { rolesQuePuedeAsignar, puedeGestionarEquipo, ETIQUETA_ROL } from '@/lib/permisos-reglas';
 import {
   DIAS, DIAS_LARGOS, estado as estadoTarjeta, cifras as cifrasTarjeta, accion as accionTarjeta,
   filtrar as filtrarMiembros, ordenar as ordenarMiembros, ordenesDisponibles, situacionDe,
@@ -60,12 +60,10 @@ const COLORES = ['#F7A6C4', '#14B8A6', '#7C3AED', '#EC4899', '#059669', '#0EA5E9
 const inputCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all';
 const labelCls = 'text-[12px] font-semibold text-foreground block mb-1.5';
 
-const ROL_LABEL: Record<Rol, string> = {
-  PROPIETARIO: 'Propietaria',
-  MANAGER: 'Responsable de sede',
-  RECEPCION: 'Recepción',
-  INSTRUCTOR: 'Instructora',
-};
+// Auditoría integral 2026-08-21: ETIQUETA_ROL (lib/permisos-reglas.ts) es
+// ahora la fuente única de "cómo se llama este rol" — ROL_DESC (abajo) sigue
+// aquí porque es contenido propio de esta pantalla (descripción larga del
+// selector de rol), no un catálogo duplicado en más sitios.
 const ROL_DESC: Record<Rol, string> = {
   PROPIETARIO: 'Acceso total: negocio, marketing, automatizaciones y equipo.',
   MANAGER: 'Lleva el día a día de la sede: horario, clientas, lista de espera, sustituciones y equipo. No ve facturación, informes de ingresos ni ajustes del negocio, y no puede dar acceso de propietaria.',
@@ -619,7 +617,7 @@ export default function EquipoPage() {
                   >
                     <ShieldCheck size={15} className={form.rol === r ? 'text-brand-secondary mt-0.5 shrink-0' : 'text-muted-foreground mt-0.5 shrink-0'} />
                     <div className="min-w-0">
-                      <p className="text-[13px] font-bold text-foreground">{ROL_LABEL[r]}</p>
+                      <p className="text-[13px] font-bold text-foreground">{ETIQUETA_ROL[r].label}</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">{ROL_DESC[r]}</p>
                     </div>
                   </button>
@@ -876,7 +874,7 @@ function TarjetaMiembro({
                 <span className={`w-1.5 h-1.5 rounded-full ${m.activo ? 'bg-success' : 'bg-muted-foreground'}`} />
                 {m.activo ? 'Activa' : 'Inactiva'}
               </span>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ROL_LABEL[m.rol]}</span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-muted text-foreground">{ETIQUETA_ROL[m.rol].label}</span>
               {ausente && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
                   <Plane size={10} />{AUSENCIA_ETIQUETA[ausente.tipo]}

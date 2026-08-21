@@ -20,7 +20,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 import { useModo } from '@/lib/portal-modo';
 import { sans, altura, radio } from '@/lib/portal-design';
 import { NAV_DISPONIBLES, navItemsVisibles } from '@/lib/portal-nav';
@@ -31,7 +31,11 @@ import { esTemaPortal } from '@/themes/registro';
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { dataLoaded, navPortal, barraClasica, variantes, portalReact, themeIdPublicado } = useStudio();
+  // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore() en vez de
+  // useStudio() — este marco se monta en TODAS las pantallas del portal, y
+  // solo necesita estos 6 campos de tema/nav publicados, no los ~85 del
+  // context gigante (ver lib/core-context.tsx).
+  const { dataLoaded, navPortal, barraClasica, variantes, portalReact, themeIdPublicado } = useCore();
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   const pathname = usePathname();
   const router = useRouter();

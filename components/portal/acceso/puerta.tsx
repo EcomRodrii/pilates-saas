@@ -27,7 +27,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 import { useModo } from '@/lib/portal-modo';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
@@ -50,7 +50,8 @@ export function PuertaPortal() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const params = useSearchParams();
-  const { studio, dataLoaded, tabBarStyle, variantes, portalReact, themeIdPublicado } = useStudio();
+  // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
+  const { studio, dataLoaded, tabBarStyle, variantes, portalReact, themeIdPublicado } = useCore();
   const { t } = useModo();
   const { loginConPassword, enviarEnlace, entrarConGoogle, session } = usePortalAuth();
 

@@ -17,6 +17,9 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { Studio, Instructor, Notificacion } from '@/lib/types';
+import type { NavConfigShape } from '@/lib/portal-nav';
+import type { VariantesResueltas } from '@/lib/theme-variantes';
+import type { TabBarStyleId } from '@/lib/theme-schema';
 
 export interface CoreContextValue {
   studio: Studio | null;
@@ -30,6 +33,20 @@ export interface CoreContextValue {
   deleteInstructor: (id: string) => void;
   marcarNotificacionLeida: (notiId: string) => void;
   marcarTodasLeidas: () => void;
+  // Auditoría integral 2026-08-21 (rendimiento, hallazgo P0-2): mismo criterio
+  // que el resto de este Context — `PortalShell` (el marco montado en TODAS
+  // las pantallas del portal, tab bar incluida) solo necesita estos 5 campos
+  // de tema/nav publicados, y antes los leía de `useStudio()`, así que
+  // cualquiera de los ~85 campos del context gigante (reservar una clase,
+  // marcar un favorito) lo re-renderizaba igual. Van los valores YA
+  // resueltos (con la vista previa del editor de temas aplicada si la hay),
+  // no el estado interno crudo — mismo dato que useStudio() expone hoy.
+  navPortal: NavConfigShape;
+  barraClasica: boolean;
+  tabBarStyle: TabBarStyleId;
+  variantes: VariantesResueltas;
+  themeIdPublicado: string | null;
+  portalReact: boolean;
 }
 
 const CoreContext = createContext<CoreContextValue | null>(null);
@@ -47,11 +64,20 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
     deleteInstructor: core.deleteInstructor,
     marcarNotificacionLeida: core.marcarNotificacionLeida,
     marcarTodasLeidas: core.marcarTodasLeidas,
+    navPortal: core.navPortal,
+    barraClasica: core.barraClasica,
+    tabBarStyle: core.tabBarStyle,
+    variantes: core.variantes,
+    themeIdPublicado: core.themeIdPublicado,
+    portalReact: core.portalReact,
     // Las funciones se recrean cada render en StudioProvider (no están
     // envueltas en useCallback) — mismo patrón/limitación ya existente en el
     // useMemo de useStudio(). Solo el ESTADO decide cuándo recalcular.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [core.studio, core.instructores, core.notificaciones, core.dataLoaded]);
+  }), [
+    core.studio, core.instructores, core.notificaciones, core.dataLoaded,
+    core.navPortal, core.barraClasica, core.tabBarStyle, core.variantes, core.themeIdPublicado, core.portalReact,
+  ]);
 
   return <CoreContext.Provider value={value}>{children}</CoreContext.Provider>;
 }

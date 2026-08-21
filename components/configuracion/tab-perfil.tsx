@@ -11,12 +11,7 @@ import { subirFotoAdmin, eliminarFotoAdmin, subirFotoInstructor, eliminarFotoIns
 import { fetchTarifasEquipo } from '@/lib/api-client';
 import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
-
-const ROL_LABEL: Record<string, { label: string; bg: string; text: string }> = {
-  PROPIETARIO: { label: 'Propietaria', bg: '#F1F2EA', text: '#343825' },
-  INSTRUCTOR: { label: 'Instructora', bg: '#FFF2F7', text: '#5A6142' },
-  RECEPCION: { label: 'Recepción', bg: '#EAF6FF', text: '#3F5A7A' },
-};
+import { ETIQUETA_ROL } from '@/lib/permisos-reglas';
 
 export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   const { studio, updateAvatarAdmin, updateStudio, instructores, updateInstructor, sesiones } = useStudio();
@@ -27,7 +22,12 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
 
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const rol = yo?.rol ?? 'PROPIETARIO';
-  const rolInfo = ROL_LABEL[rol];
+  // Auditoría integral 2026-08-21: este catálogo vivía local a este archivo y
+  // no tenía la clave MANAGER — cualquiera con ese rol reventaba "Mi perfil"
+  // al leer `rolInfo.label` de `undefined`. Ahora viene de
+  // lib/permisos-reglas.ts (fuente única, ver ETIQUETA_ROL), con fallback
+  // defensivo por si algún día aparece un rol que ese catálogo no cubra.
+  const rolInfo = ETIQUETA_ROL[rol] ?? ETIQUETA_ROL.PROPIETARIO;
   const metaNombre = (user?.user_metadata?.nombre as string | undefined) ?? '';
   const metaApellidos = (user?.user_metadata?.apellidos as string | undefined) ?? '';
 

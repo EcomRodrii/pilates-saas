@@ -408,7 +408,7 @@ export async function fetchAforoPublico(slug: string): Promise<
 
 export async function fetchPublicStudioData(
   slug: string,
-  member?: { socioId: string; email: string },
+  usuario?: { authUserId: string; email: string },
   opts?: { liviano?: boolean },
 ) {
   const admin = getSupabaseAdmin();
@@ -419,6 +419,22 @@ export async function fetchPublicStudioData(
   const studioRow = resuelto.row as unknown as RowStudios;
   const studioId: string = studioRow.id;
   const liviano = opts?.liviano ?? false;
+
+  // Auditoría integral 2026-08-21 (rendimiento, hallazgo P0-1): antes el
+  // llamador (app/api/public/studio-data/route.ts) resolvía el estudio por
+  // slug con una RPC SOLO para poder comprobar si el JWT es de una socia de
+  // ESTE estudio, y esta función volvía a resolver el MISMO estudio por slug
+  // (el `select('*')` de resolverStudioPorSlug, ~54 columnas) para el
+  // catálogo — dos resoluciones por slug en cada visita autenticada al
+  // portal/widget, la ruta pública más repetida del sistema. Ahora el
+  // llamador manda el JWT ya verificado y la comprobación de socia se hace
+  // AQUÍ, reutilizando el `studioId` que ya se acaba de resolver arriba —
+  // una sola resolución por slug, no dos.
+  let member: { socioId: string; email: string } | undefined;
+  if (usuario) {
+    const socioId = await socioAutenticado(usuario.authUserId, studioId);
+    if (socioId) member = { socioId, email: usuario.email };
+  }
 
   // Catálogo público (nada de PII): clases, horarios, salas, instructoras,
   // planes, spots, vídeos y la configuración de gamificación (niveles, logros,

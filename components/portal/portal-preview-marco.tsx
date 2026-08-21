@@ -18,14 +18,15 @@
 // aviso de notificaciones. Aquí no hay socia que autenticar ni a quien avisar.
 
 import { usePathname } from 'next/navigation';
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 import { altura } from '@/lib/portal-design';
 import { NAV_DISPONIBLES, navItemsVisibles } from '@/lib/portal-nav';
 import { PortalNav } from './portal-nav';
 import { esTemaPortal } from '@/themes/registro';
 
 export function PortalPreviewMarco({ slug, children }: { slug: string; children: React.ReactNode }) {
-  const { navPortal, barraClasica, variantes, themeIdPublicado } = useStudio();
+  // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
+  const { navPortal, barraClasica, variantes, themeIdPublicado } = useCore();
   const pathname = usePathname() ?? '';
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   // La bienvenida es ANTERIOR al acceso: ahí todavía no hay menú, igual que en

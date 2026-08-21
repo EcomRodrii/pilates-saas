@@ -1,6 +1,6 @@
 'use client';
 
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 
 import { useDatosPortal } from './usar-datos-portal';
 import { PortalApp } from '@/components/portal-tema/PortalApp';
@@ -41,7 +41,8 @@ import '@/components/portal-tema/portal-tema.css';
  * ahí sí deja navegar.
  */
 export function useVistaPreviaKit(pantalla: ScreenId): React.ReactElement | null {
-  const { themeIdPublicado } = useStudio();
+  // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
+  const { themeIdPublicado } = useCore();
   // `null` = sin socia identificada. La vista previa corre a propósito sin
   // sesión: comparte origen con el portal real, así que un token suyo guardado
   // en este navegador enseñaría avisos de verdad dentro del editor.
