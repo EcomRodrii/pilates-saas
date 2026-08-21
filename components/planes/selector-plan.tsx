@@ -53,7 +53,13 @@ export function SelectorPlan({
     // Sin `aria-label` en cada radio, su nombre accesible se calcularía del
     // contenido entero de la tarjeta —nombre, para quién, precio y cuatro
     // bullets—, o sea un párrafo por opción antes de poder comparar nada.
-    <div role="radiogroup" aria-label="Plan" className={`grid gap-3 sm:grid-cols-3 ${className}`}>
+    // `md:` y no `sm:` (640px) a propósito: a 640-767px (tablet chica, o un
+    // móvil grande en horizontal) tres columnas dentro de una tarjeta de
+    // ancho acotado (p.ej. el paso 2 del alta, `max-w-2xl`) dejaban ~176px
+    // por columna — el nombre, el precio y los bullets se aplastaban antes de
+    // tener sitio de verdad. Con `md:` la tarjeta se queda en una columna
+    // (lectura cómoda) hasta que hay ancho real para las tres.
+    <div role="radiogroup" aria-label="Plan" className={`grid gap-3 md:grid-cols-3 ${className}`}>
       {PLANES.map((plan) => {
         const info = PLAN_INFO[plan];
         const elegido = plan === valor;
@@ -68,7 +74,7 @@ export function SelectorPlan({
             tabIndex={elegido ? 0 : -1}
             onClick={() => onCambio(plan)}
             onKeyDown={(e) => alTeclado(e, plan)}
-            className={`relative flex cursor-pointer flex-col rounded-2xl border-2 p-4 text-left transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none sm:p-5 ${
+            className={`relative flex min-w-0 cursor-pointer flex-col rounded-2xl border-2 p-4 text-left transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none sm:p-5 ${
               elegido
                 ? 'border-brand bg-brand/[0.06] shadow-sm'
                 : 'border-border bg-card hover:border-brand/40 hover:bg-muted/40'
