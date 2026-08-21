@@ -734,24 +734,43 @@ export function ReservaCalendario({
           onReservar={async () => {
             if (enviando) return;
             setErrorReserva(null);
+            // ⚠️ `onReservar(openSlot, selectedSpot)` puede devolver DE VERDAD
+            // undefined en el mismo tick síncrono: es lo que hace
+            // `handleReservarCalendario` cuando delega al modal de acceso
+            // (`openBooking()`, sin `await` dentro). Antes esto se detectaba
+            // con `await resultado` y solo ENTONCES se cerraba esta hoja — un
+            // `await` SIEMPRE cede al menos un microtask, y React confirma
+            // (pinta) el estado ya abierto de `openBooking()` antes de que ese
+            // microtask corra. Resultado: un fotograma real, no teórico, con
+            // las DOS hojas montadas a la vez — invisible en los e2e
+            // (ejecución síncrona instantánea) pero visible a ojo en un
+            // dispositivo real (encontrado en vídeo, franja naranja del CTA de
+            // esta hoja asomando tras el modal de "Tus datos").
+            //
+            // Se detecta ANTES de tocar `enviando`/await: si lo que llega no
+            // es un thenable, es la rama sin plaza que decidir todavía —
+            // cerrar YA, en el MISMO batch de React que abrió el otro modal,
+            // así que nunca coexisten en un commit pintado.
+            const posible = onReservar(openSlot, selectedSpot);
+            if (!posible || typeof (posible as Promise<unknown>).then !== 'function') {
+              cerrarHoja();
+              return;
+            }
             setEnviando(true);
             // Ver el try/finally de onAceptarOferta: este es el botón de
             // RESERVAR, donde quedarse muerto es más caro todavía.
             let r;
             try {
-              r = await onReservar(openSlot, selectedSpot);
+              r = await posible;
             } catch {
               setErrorReserva('No hemos podido conectar. Inténtalo de nuevo.');
               return;
             } finally {
               setEnviando(false);
             }
-            // Sin resultado → el flujo se ha derivado a otra superficie (modal de
-            // acceso del widget público): cerramos la hoja para que no quede
-            // apilada detrás de ese modal.
-            if (!r) { cerrarHoja(); return; }
             // Con un "no" del servidor la hoja SE QUEDA ABIERTA y dice por qué:
             // cerrarla dejaría a la clienta sin plaza y sin explicación.
+            if (!r) return;
             if (!r.ok) { setErrorReserva(r.error); return; }
             setResultado(r.estado);
           }}
