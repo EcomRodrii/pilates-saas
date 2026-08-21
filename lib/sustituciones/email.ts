@@ -15,6 +15,8 @@ import { remitentePorMarca } from '@/lib/emails/remitente';
 interface Marca {
   logoUrl?: string | null;
   colorPrimario?: string | null;
+  /** El email del estudio: a dónde contesta la alumna si responde al aviso. */
+  replyTo?: string | null;
 }
 
 export async function enviarEmailContactoSustituta(params: Marca & {
@@ -75,7 +77,19 @@ export async function enviarEmailAvisoAlumna(params: Marca & {
   aviso: AvisoAlumna;
 }): Promise<EnvioResultado> {
   const html = await render(AlumnaAvisoClaseEmail(params));
-  return enviar(params.to, asuntoAvisoAlumna(params.aviso, params.claseNombre), html, 'Tentare');
+  // ⚠️ Aquí ponía `'Tentare'`. Es un email A LA ALUMNA que dice que su clase se
+  // cancela o cambia de instructora, y llegaba con el nombre de la plataforma
+  // como remitente mientras el cuerpo ya llevaba el logo y el color del
+  // estudio: incoherente, y contrario a la regla de marca del repo (a las
+  // alumnas se les habla SIEMPRE con la marca de su estudio, nunca con la
+  // nuestra). El comentario de `enviar()` justificaba el «Tentare» diciendo que
+  // los nombres de producto interno no le dicen nada a una alumna — cierto, pero
+  // la conclusión correcta de eso es el nombre del ESTUDIO, no la marca
+  // paraguas.
+  return enviar(
+    params.to, asuntoAvisoAlumna(params.aviso, params.claseNombre), html,
+    params.estudioNombre, params.replyTo,
+  );
 }
 
 type EnvioResultado = { ok: true; id?: string } | { ok: false; skipped: true } | { ok: false; error: string };
@@ -90,11 +104,14 @@ function conTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-// `marca`: nombre de producto mostrado como remitente. 'Tentare Core' para
-// instructoras, 'Tentare Manager' para propietaria/gerencia, 'Tentare' (marca
-// paraguas) para alumnas — a ellas los nombres de producto interno no les
-// dicen nada.
-async function enviar(to: string, subject: string, html: string, marca: string): Promise<EnvioResultado> {
+// `marca`: nombre mostrado como remitente. 'Tentare Core' para instructoras y
+// 'Tentare Manager' para propietaria/gerencia (son NUESTRO producto, ver
+// `nombreAppPorRol`); para las ALUMNAS, el nombre de su estudio — a ellas los
+// nombres de producto interno no les dicen nada, y la marca paraguas tampoco.
+//
+// `replyTo`: a quién contesta la alumna si responde. Sin esto la respuesta se
+// pierde en el buzón de la plataforma en vez de llegar a su estudio.
+async function enviar(to: string, subject: string, html: string, marca: string, replyTo?: string | null): Promise<EnvioResultado> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
   if (!to) return { ok: false, error: 'Sin destinatario' };
@@ -103,6 +120,7 @@ async function enviar(to: string, subject: string, html: string, marca: string):
     const { data, error } = await conTimeout(resend.emails.send({
       from: remitentePorMarca(marca),
       to: [to], subject, html,
+      ...(replyTo ? { replyTo } : {}),
     }), 10_000);
     if (error) { console.error('[sustituciones/email]', error); return { ok: false, error: error.message }; }
     return { ok: true, id: data?.id };

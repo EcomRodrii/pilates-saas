@@ -21,7 +21,7 @@ export async function avisarAlumnas(
   params: { sesionId: string; studioId: string; tipo: 'cubierta' | 'cancelada' | 'reprogramada'; sustituta?: string; cuandoAntes?: string },
 ): Promise<{ avisadas: number; total: number; skipped: boolean; desactivado: boolean }> {
   const { data: estudio } = await admin
-    .from('studios').select('nombre, slug, avisar_alumnas, color_primario, logo_url').eq('id', params.studioId).maybeSingle();
+    .from('studios').select('nombre, slug, avisar_alumnas, color_primario, logo_url, email').eq('id', params.studioId).maybeSingle();
   if (!estudio?.avisar_alumnas) return { avisadas: 0, total: 0, skipped: false, desactivado: true };
 
   const { data: ses } = await admin
@@ -103,7 +103,9 @@ export async function avisarAlumnas(
       ? { tipo: 'reprogramada', cuandoNuevo: cuando }
       : { tipo: 'cancelada' };
   const cuandoAviso = params.tipo === 'reprogramada' ? (params.cuandoAntes ?? cuando) : cuando;
-  const marca = { colorPrimario: estudio.color_primario, logoUrl: estudio.logo_url };
+  // `replyTo`: el email del estudio, para que responder al aviso le llegue a
+  // ELLOS y no se pierda en el buzón de la plataforma.
+  const marca = { colorPrimario: estudio.color_primario, logoUrl: estudio.logo_url, replyTo: estudio.email };
 
   let avisadas = 0, skipped = false;
   for (const a of lista) {
