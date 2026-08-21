@@ -28,13 +28,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
 
   const { data: studio } = await db.from('studios')
-    .select('id, slug, nombre, plan, email, telefono, direccion, creado_en, stripe_customer_id, stripe_account_id, owner_auth_user_id, suspendido_en, suspendido_motivo')
+    .select('id, slug, nombre, plan, email, telefono, direccion, creado_en, stripe_customer_id, stripe_account_id, owner_auth_user_id, suspendido_en, suspendido_motivo, review_boost_elegible_en, review_boost_mostrado_en')
     .eq('id', id).maybeSingle();
   if (!studio) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
 
   const hace30 = new Date(Date.now() - 30 * 864e5).toISOString();
 
-  const [equipo, nSocias, nClases, reservas30, recibos, duenaAuth] = await Promise.all([
+  const [equipo, nSocias, nClases, reservas30, recibos, duenaAuth, reviewBoostFeedback, reviewBoostRecompensa] = await Promise.all([
     db.from('instructores').select('id, nombre, rol, activo, auth_user_id').eq('studio_id', id),
     db.from('socios').select('id', { count: 'exact', head: true }).eq('studio_id', id),
     db.from('sesiones').select('id', { count: 'exact', head: true }).eq('studio_id', id),
@@ -43,6 +43,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     studio.owner_auth_user_id
       ? db.auth.admin.getUserById(studio.owner_auth_user_id as string)
       : Promise.resolve({ data: { user: null } }),
+    db.from('review_boost_feedback').select('rating, creado_en').eq('studio_id', id).maybeSingle(),
+    db.from('review_boost_recompensas').select('canjeada_en').eq('studio_id', id).maybeSingle(),
   ]);
 
   // Facturación DEL ESTUDIO a sus socias (su negocio), no lo que nos paga a
@@ -98,5 +100,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       facturacionPropia30d: Math.round(facturacion30d * 100) / 100,
     },
     equipo: equipoFilas,
+    reviewBoost: {
+      elegibleEn: (studio.review_boost_elegible_en as string | null) ?? null,
+      mostradoEn: (studio.review_boost_mostrado_en as string | null) ?? null,
+      feedback: reviewBoostFeedback.data
+        ? { rating: reviewBoostFeedback.data.rating as number, creadoEn: reviewBoostFeedback.data.creado_en as string }
+        : null,
+      recompensaCanjeada: Boolean(reviewBoostRecompensa.data?.canjeada_en),
+    },
   });
 }

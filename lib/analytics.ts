@@ -21,6 +21,16 @@ import { construirEvento, type EventoAnalitica } from './analytics-eventos.ts';
 
 const HOST = process.env.POSTHOG_HOST || 'https://eu.i.posthog.com';
 
+/**
+ * Envía de inmediato, sin `after()` — para llamar desde fuera de scope de
+ * request (crons/Inngest, donde `after()` no aplica). El resto del código
+ * sigue usando `capturar()`.
+ */
+export async function enviarAhora(studioId: string, evento: EventoAnalitica, timestampISO?: string): Promise<void> {
+  if (!studioId) return;
+  return enviar(studioId, evento, timestampISO);
+}
+
 async function enviar(studioId: string, evento: EventoAnalitica, timestampISO?: string): Promise<void> {
   const key = process.env.POSTHOG_KEY;
   if (!key) return;

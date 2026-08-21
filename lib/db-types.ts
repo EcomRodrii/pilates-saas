@@ -850,6 +850,14 @@ export interface RowStudios {
   widget_builder: Record<string, unknown> | null;
   // migr 20260821101500.
   sitio_web: string | null;
+  // migr 20260821120000.
+  review_boost_elegible_en: string | null;
+  // migr 20260821120000.
+  review_boost_mostrado_en: string | null;
+  // migr 20260821120000.
+  review_boost_pospuesto_en: string | null;
+  // migr 20260821120000.
+  review_boost_veces_mostrado: number | null;
 }
 
 export interface RowSuscripciones {
@@ -2185,4 +2193,24 @@ export interface RowCodigosDescuentoConsumos {
   recibo_id: string;
   codigo_id: string;
   consumido_en: string;
+}
+
+export interface RowReviewBoostFeedback {
+  id: string;
+  studio_id: string;
+  rating: number;
+  comentario: string | null;
+  fuente: string;
+  estado: string;
+  creado_en: string;
+}
+
+export interface RowReviewBoostRecompensas {
+  id: string;
+  studio_id: string;
+  feedback_id: string;
+  stripe_coupon_id: string;
+  concedida_en: string;
+  canjeada_en: string | null;
+  creado_en: string;
 }

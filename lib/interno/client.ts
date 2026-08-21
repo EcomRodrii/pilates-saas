@@ -76,6 +76,12 @@ export interface FichaEstudio {
   suspension: { suspendido: boolean; desde: string | null; motivo: string | null };
   uso: { socias: number; clases: number; reservas30d: number; facturacionPropia30d: number };
   equipo: Array<{ nombre: string; rol: string; activo: boolean; tieneCuenta: boolean }>;
+  reviewBoost: {
+    elegibleEn: string | null;
+    mostradoEn: string | null;
+    feedback: { rating: number; creadoEn: string } | null;
+    recompensaCanjeada: boolean;
+  };
 }
 
 export const fetchSesionInterna = () => pedir<SesionInterna>('/sesion');
@@ -115,6 +121,8 @@ export interface Crecimiento {
 
 export const fetchCrecimiento = () => pedir<Crecimiento>('/crecimiento');
 
+export const fetchReviewBoost = () => pedir<import('./review-boost.ts').ResumenReviewBoost>('/crecimiento/review-boost');
+
 export const guardarLead = (cuerpo: Record<string, unknown>) =>
   pedir<{ ok: true; id: string }>('/crecimiento', { method: 'POST', body: JSON.stringify(cuerpo) });
 
@@ -130,7 +138,7 @@ export const fetchAuditoria = (objetivoId?: string) =>
 // Acciones sobre un estudio. Devuelven el error del servidor tal cual: los
 // mensajes ya están escritos para leerse ("Escribe un motivo de al menos…").
 export const accionEstudio = (id: string, cuerpo: Record<string, unknown>) =>
-  pedir<{ ok: true; avisoStripe?: boolean }>(`/estudios/${id}/acciones`, {
+  pedir<{ ok: true; avisoStripe?: boolean; reviewBoostElegible?: boolean }>(`/estudios/${id}/acciones`, {
     method: 'POST', body: JSON.stringify(cuerpo),
   });
 

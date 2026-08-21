@@ -3968,6 +3968,9 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('decisionContratoVistoEn' in changes) db.decision_contrato_visto_en = changes.decisionContratoVistoEn;
   if ('tourVistoEn' in changes) db.tour_visto_en = changes.tourVistoEn;
   if ('gestoriaEnvioAutomatico' in changes) db.gestoria_envio_automatico = changes.gestoriaEnvioAutomatico;
+  if ('reviewBoostMostradoEn' in changes) db.review_boost_mostrado_en = changes.reviewBoostMostradoEn;
+  if ('reviewBoostPospuestoEn' in changes) db.review_boost_pospuesto_en = changes.reviewBoostPospuestoEn;
+  if ('reviewBoostVecesMostrado' in changes) db.review_boost_veces_mostrado = changes.reviewBoostVecesMostrado;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   return error ? falloEscritura('[dbUpdateStudio]', error) : ESCRITURA_OK;
 }
@@ -4343,6 +4346,10 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     decisionContratoVistoEn: r.decision_contrato_visto_en ?? null,
     tourVistoEn: r.tour_visto_en ?? null,
     horarioSemana: horario?.map(mapDiaHorario),
+    reviewBoostElegibleEn: r.review_boost_elegible_en ?? null,
+    reviewBoostMostradoEn: r.review_boost_mostrado_en ?? null,
+    reviewBoostPospuestoEn: r.review_boost_pospuesto_en ?? null,
+    reviewBoostVecesMostrado: r.review_boost_veces_mostrado ?? 0,
   } as Studio;
 }
 

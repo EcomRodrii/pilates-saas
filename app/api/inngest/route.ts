@@ -38,6 +38,7 @@ import { penalizacionesDispatcher } from '@/lib/inngest/penalizaciones';
 import { conciliarCobrosDispatcher, conciliarCobrosVigilancia } from '@/lib/inngest/conciliar-cobros';
 import { cierreGestoriaAutomaticoDispatcher } from '@/lib/inngest/cierre-gestoria-automatico';
 import { procesarEnvioCampana } from '@/lib/inngest/campanas';
+import { reviewBoostDispatcher } from '@/lib/inngest/review-boost';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -70,5 +71,6 @@ export const { GET, POST, PUT } = serve({
     conciliarCobrosVigilancia,
     cierreGestoriaAutomaticoDispatcher,
     procesarEnvioCampana,
+    reviewBoostDispatcher,
   ],
 });

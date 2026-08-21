@@ -16,6 +16,7 @@ import { Spotlight } from '@/components/tour/spotlight';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida';
+import { ReviewBoostModal } from '@/components/growth/review-boost-modal';
 import { estadoBilling } from '@/lib/api-client';
 import { navSections } from '@/lib/nav-config';
 
@@ -229,6 +230,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               estado del tour y localiza el data-tour="..." real de la ruta
               actual (ver lib/tour-pasos.ts). */}
           <Spotlight />
+          {/* Overlay, NO pantalla completa (a diferencia de PantallaBienvenida
+              arriba): no debe bloquear el panel. Se autogobierna con
+              debeMostrarModal() — el componente decide si se muestra. */}
+          <ReviewBoostModal studio={studio} rol={rolResuelto ? rol : null} />
           <main className="lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200">
             <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <Topbar />

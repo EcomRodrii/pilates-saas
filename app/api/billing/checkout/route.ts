@@ -7,6 +7,7 @@ import { priceIdDe } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
 import { errorInterno } from '@/lib/errores-servidor';
+import { capturar } from '@/lib/analytics';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
 // suscribir su negocio. Crea (o reutiliza) el Customer de Stripe del estudio y
@@ -53,6 +54,29 @@ export async function POST(req: NextRequest) {
 
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+
+  // Review Boost: si hay una recompensa pendiente (feedback interno 4-5★, ver
+  // app/api/growth/review-boost/feedback/route.ts), se aplica el 20% al
+  // Checkout SIN que el estudio tenga que teclear ningún código —
+  // `discounts` y `allow_promotion_codes` son mutuamente excluyentes en la
+  // API de Stripe. Compare-and-set: si otra petición concurrente ya la
+  // canjeó, esta pierde la carrera y cae al camino normal sin fallar.
+  //
+  // Límite conocido y aceptado (documentado en el plan): un checkout
+  // abandonado deja la recompensa "canjeada" sin que el estudio haya pagado
+  // — bajo impacto (20% de un mes), no justifica una reserva-con-TTL.
+  let discounts: Stripe.Checkout.SessionCreateParams['discounts'] | undefined;
+  const { data: recompensa } = await admin
+    .from('review_boost_recompensas')
+    .select('id, stripe_coupon_id')
+    .eq('studio_id', studio.id).is('canjeada_en', null).maybeSingle();
+  if (recompensa) {
+    const { data: reclamada } = await admin
+      .from('review_boost_recompensas')
+      .update({ canjeada_en: new Date().toISOString() })
+      .eq('id', recompensa.id).is('canjeada_en', null).select('id').maybeSingle();
+    if (reclamada) discounts = [{ coupon: recompensa.stripe_coupon_id as string }];
+  }
 
   try {
     // Plan CADENA: una sola suscripción cubre todas las sedes de la cadena
@@ -128,9 +152,10 @@ export async function POST(req: NextRequest) {
         success_url: `${appUrl}/configuracion?suscripcion=ok`,
         cancel_url: `${appUrl}/configuracion?suscripcion=cancel`,
         locale: 'es',
-        allow_promotion_codes: true,
+        ...(discounts ? { discounts } : { allow_promotion_codes: true }),
       });
 
+      if (discounts) capturar(studio.id, { nombre: 'review_boost_reward_claimed', props: {} });
       return NextResponse.json({ url: session.url });
     }
 
@@ -181,9 +206,10 @@ export async function POST(req: NextRequest) {
       success_url: `${appUrl}/configuracion?suscripcion=ok`,
       cancel_url: `${appUrl}/configuracion?suscripcion=cancel`,
       locale: 'es',
-      allow_promotion_codes: true,
+      ...(discounts ? { discounts } : { allow_promotion_codes: true }),
     });
 
+    if (discounts) capturar(studio.id, { nombre: 'review_boost_reward_claimed', props: {} });
     return NextResponse.json({ url: session.url });
   } catch (err) {
     return errorInterno('billing/checkout:POST', err, 'No se pudo iniciar la suscripción. Inténtalo de nuevo más tarde.');

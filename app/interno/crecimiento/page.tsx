@@ -14,13 +14,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Flame, Loader2, Plus, X } from 'lucide-react';
 import {
-  fetchCrecimiento, guardarLead, type Crecimiento,
+  fetchCrecimiento, fetchReviewBoost, guardarLead, type Crecimiento,
 } from '@/lib/interno/client';
 import {
   ESTADOS, ESTADO_ETIQUETA, ORIGENES, ORIGEN_ETIQUETA,
   agruparPeticiones, deDondeVienen, loQueQuemaHoy, perfilDeLosEstudios, resumirEmbudo,
   type EstadoLead, type Lead, type OrigenLead, type RepartoRespuesta,
 } from '@/lib/interno/crecimiento';
+import type { ResumenReviewBoost } from '@/lib/interno/review-boost';
 
 const fecha = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
@@ -141,6 +142,7 @@ export default function CrecimientoInterno() {
   const [ahora, setAhora] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [editando, setEditando] = useState<Partial<Lead> | null>(null);
+  const [reviewBoost, setReviewBoost] = useState<ResumenReviewBoost | null>(null);
 
   const cargar = useCallback(async () => {
     try { setD(await fetchCrecimiento()); setAhora(Date.now()); setError(null); }
@@ -149,6 +151,10 @@ export default function CrecimientoInterno() {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void cargar(); }, [cargar]);
+  // Sección aparte, permiso aparte (growth.read): si alguien tiene crm.update
+  // pero no growth.read, no debe romper el resto de la pantalla — falla en
+  // silencio, sin sección, en vez de tumbar toda la página con un 403.
+  useEffect(() => { void fetchReviewBoost().then(setReviewBoost).catch(() => {}); }, []);
 
   const vista = useMemo(() => {
     if (!d) return null;
@@ -222,6 +228,21 @@ export default function CrecimientoInterno() {
             pie="Dudas y mejoras que han mandado los estudios." />
         </div>
       </section>
+
+      {reviewBoost && (
+        <section>
+          <h2 className="mb-2 text-[13px] font-bold text-foreground">Review Boost</h2>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+            <Tarjeta titulo="Elegibles" valor={String(reviewBoost.elegibles)} />
+            <Tarjeta titulo="Mostrados" valor={String(reviewBoost.mostrados)} />
+            <Tarjeta titulo="Feedbacks 1-3★" valor={String(reviewBoost.ratingsBajos)} />
+            <Tarjeta titulo="Feedbacks 4-5★" valor={String(reviewBoost.ratingsAltos)} />
+            <Tarjeta titulo="Recompensas concedidas" valor={String(reviewBoost.recompensasConcedidas)} />
+            <Tarjeta titulo="Recompensas canjeadas" valor={String(reviewBoost.recompensasCanjeadas)}
+              pie="Descuento aplicado en un Checkout real." />
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">

@@ -230,6 +230,13 @@ export interface Studio {
   // fallback si un estudio no tuviera ninguna fila aquí. undefined = aún no
   // cargado; [] nunca debería darse (el backfill garantiza 7 filas).
   horarioSemana?: DiaHorario[];
+  // Review Boost (feedback interno + reseña honesta + recompensa desacoplada
+  // del clic externo). Mismo patrón que bienvenidaVistaEn: flags "vistos una
+  // vez" en el estudio, evaluados por el cron lib/inngest/review-boost.ts.
+  reviewBoostElegibleEn: string | null;
+  reviewBoostMostradoEn: string | null;
+  reviewBoostPospuestoEn: string | null;
+  reviewBoostVecesMostrado: number;
 }
 
 // Horario de un día de la semana (0=domingo..6=sábado, EXTRACT(DOW) — mismo
