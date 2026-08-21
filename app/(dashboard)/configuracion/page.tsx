@@ -6,8 +6,6 @@ import dynamic from 'next/dynamic';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useSearchParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Toast, useToast } from '@/components/ui/toast';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
@@ -147,50 +145,6 @@ export function ColorSwatch({ color, size = 'md' }: { color: string; size?: 'sm'
       className={cn(cls, 'inline-block border border-black/10 shrink-0')}
       style={{ backgroundColor: color }}
     />
-  );
-}
-
-export function ConfirmDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  onConfirm,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  title: string;
-  description: string;
-  onConfirm: () => void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <div className="flex flex-col items-center text-center gap-4 py-2">
-          <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
-            <AlertTriangle size={20} className="text-destructive" />
-          </div>
-          <div>
-            <h3 className="text-[14px] font-semibold text-foreground mb-1">{title}</h3>
-            <p className="text-[13px] text-muted-foreground">{description}</p>
-          </div>
-          <div className="flex gap-2 w-full">
-            <button
-              className={cn(btnSecondary, 'flex-1 justify-center')}
-              onClick={() => onOpenChange(false)}
-            >
-              Cancelar
-            </button>
-            <button
-              className="flex-1 bg-destructive text-white rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-red-700 transition-colors"
-              onClick={() => { onConfirm(); onOpenChange(false); }}
-            >
-              Eliminar
-            </button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 

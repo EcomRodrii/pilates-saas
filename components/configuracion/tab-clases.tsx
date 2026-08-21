@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { ColorInput, ColorSwatch, ConfirmDialog, Field, NivelBadge, Toggle, btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
+import { ColorInput, ColorSwatch, Field, NivelBadge, Toggle, btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { InfoTip } from '@/components/ui/tooltip';
 import { eliminarFotoClase, subirFotoClase } from '@/lib/portal-storage';
@@ -625,8 +626,10 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       <ConfirmDialog
         open={!!confirmDel}
         onOpenChange={open => !open && setConfirmDel(null)}
-        title="¿Eliminar tipo de clase?"
-        description="Se eliminará este tipo de clase. Las sesiones existentes no se verán afectadas."
+        titulo="¿Eliminar tipo de clase?"
+        descripcion="Se eliminará este tipo de clase. Las sesiones existentes no se verán afectadas."
+        textoConfirmar="Eliminar"
+        destructivo
         onConfirm={handleDelete}
       />
     </div>

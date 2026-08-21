@@ -20,7 +20,8 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { cn } from '@/lib/utils';
 import type { PlantillaCuestionarioSalud } from '@/lib/types';
-import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle, ConfirmDialog } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/app/(dashboard)/configuracion/page';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 const TIPOS_RESPUESTA: { id: PlantillaCuestionarioSalud['tipoRespuesta']; label: string }[] = [
   { id: 'texto',              label: 'Texto libre' },
@@ -171,8 +172,10 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
       <ConfirmDialog
         open={confirmDel !== null}
         onOpenChange={o => { if (!o) setConfirmDel(null); }}
-        title="Eliminar pregunta"
-        description="Se quita del cuestionario. Las respuestas ya guardadas en las clientas no se muestran, pero no se borran."
+        titulo="Eliminar pregunta"
+        descripcion="Se quita del cuestionario. Las respuestas ya guardadas en las clientas no se muestran, pero no se borran."
+        textoConfirmar="Eliminar"
+        destructivo
         onConfirm={async () => {
           if (confirmDel) {
             const res = await deletePlantillaCuestionarioSalud(confirmDel);

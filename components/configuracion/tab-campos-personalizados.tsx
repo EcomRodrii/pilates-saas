@@ -5,7 +5,8 @@ import { Check, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { cn } from '@/lib/utils';
 import type { CampoPersonalizado } from '@/lib/types';
-import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle, ConfirmDialog } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/app/(dashboard)/configuracion/page';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 // ─── Campos personalizados de socia ──────────────────────────────────────────
 
@@ -156,8 +157,10 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
       <ConfirmDialog
         open={confirmDel !== null}
         onOpenChange={o => { if (!o) setConfirmDel(null); }}
-        title="Eliminar campo"
-        description="Se quitará de las altas y fichas. Los valores ya guardados en las clientas no se muestran, pero no se borran."
+        titulo="Eliminar campo"
+        descripcion="Se quitará de las altas y fichas. Los valores ya guardados en las clientas no se muestran, pero no se borran."
+        textoConfirmar="Eliminar"
+        destructivo
         onConfirm={async () => {
           if (confirmDel) {
             const res = await deleteCampoPersonalizado(confirmDel);

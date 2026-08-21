@@ -36,7 +36,6 @@ import {
 import {
   Field,
   Toggle,
-  ConfirmDialog,
   TipoPlanBadge,
   inputCls,
   labelCls,
@@ -44,6 +43,7 @@ import {
   btnSecondary,
   cardCls,
 } from '@/app/(dashboard)/configuracion/page';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 // El formulario y su derivación viven en lib/planes/formulario.ts, compartidos
 // con app/(dashboard)/productos/page.tsx. Eran dos copias de la misma entidad y
@@ -501,10 +501,12 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
       <ConfirmDialog
         open={!!confirmDel}
         onOpenChange={open => !open && setConfirmDel(null)}
-        title="¿Eliminar plan?"
-        description={confirmDel && susContratadasDelPlan(confirmDel) > 0
+        titulo="¿Eliminar plan?"
+        descripcion={confirmDel && susContratadasDelPlan(confirmDel) > 0
           ? `Lo tienen contratado ${susContratadasDelPlan(confirmDel)} clienta${susContratadasDelPlan(confirmDel) !== 1 ? 's' : ''}. Seguirán con su plan y se les seguirá cobrando; lo que desaparece es la tarifa del catálogo, para que no puedas venderla más.`
           : 'Esta acción no se puede deshacer. No lo tiene contratado nadie.'}
+        textoConfirmar="Eliminar"
+        destructivo
         onConfirm={handleDelete}
       />
     </div>
