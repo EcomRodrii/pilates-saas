@@ -93,17 +93,27 @@ export async function resolverMarcaEstudio(studioId: string | null | undefined):
   if (!studioId) return {};
   const admin = getSupabaseAdmin();
   if (!admin) return {};
-  const [{ data }, override] = await Promise.all([
+  const [{ data }, tema, override] = await Promise.all([
     admin
       .from('studios')
       // `email` es nuevo aquí: alimenta el Reply-To (ver marca.ts).
-      .select('nombre, color_primario, logo_url, slug, email')
+      // `sitio_web` es el canal «web» del estudio (migr 20260821101500).
+      .select('nombre, color_primario, logo_url, slug, email, sitio_web')
       .eq('id', studioId)
       .maybeSingle(),
+    // Las REDES del estudio viven en el tema publicado, no en `studios` (ver
+    // lib/canales-estudio.ts: la web es contacto, las redes son apariencia del
+    // portal). Es la única razón por la que este resolver toca una segunda
+    // tabla. En paralelo, y tolerante: si la fila no existe o la lectura
+    // falla, el correo sale con el pie de siempre — un pie sin iconos no
+    // justifica dejar de enviar una confirmación de reserva.
+    Promise.resolve(
+      admin.from('studio_theme').select('config_published').eq('studio_id', studioId).maybeSingle(),
+    ).then((r) => r.data?.config_published as { redesSociales?: Record<string, string> } | null, () => null),
     resolverRemitenteResend(studioId),
   ]);
   if (!data) return {};
-  const marca = marcaDesdeFila(data);
+  const marca = marcaDesdeFila(data, tema?.redesSociales ?? null);
   // La integración "Resend" del estudio deja de ser decorativa: hasta ahora
   // guardaba `fromEmail`/`fromName` en `integraciones.config` y NINGUNA línea
   // del producto los leía — dos estudios en producción la tenían en verde

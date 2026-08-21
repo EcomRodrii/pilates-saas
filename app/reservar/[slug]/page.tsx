@@ -36,7 +36,7 @@ import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
-import { resolverHrefBloque } from '@/lib/portal-home-bloques';
+import { canalesDelEstudio } from '@/lib/canales-estudio';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
 import { piDeClientSecret, RETARDOS_POLL_MS, type RespuestaEstadoPago } from '@/lib/billing/estado-pago-publico';
@@ -75,13 +75,6 @@ const CitasPublica = dynamic(
   { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando citas…</div> },
 );
 
-// Redes sociales del pie de página (Fase 3 del Theme Builder, lib/theme-schema.ts
-// → RedSocialId) — orden y etiqueta de cada icono del pie.
-const REDES_SOCIALES: { id: 'instagram' | 'facebook' | 'whatsapp'; label: string }[] = [
-  { id: 'instagram', label: 'Instagram' },
-  { id: 'facebook', label: 'Facebook' },
-  { id: 'whatsapp', label: 'WhatsApp' },
-];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -323,6 +316,8 @@ export default function ReservarPage() {
   const estudioNombre = studio?.nombre ?? '';
   const estudioLogo = studio?.logoUrl ?? null;
   const estudioDireccion = [studio?.ciudad, studio?.direccion].filter(Boolean).join(' · ');
+  // Web + redes, ya resueltas a enlaces seguros y en el orden del catálogo.
+  const canalesEstudio = canalesDelEstudio({ sitioWeb: studio?.sitioWeb, redesSociales });
   const estudioEmail = studio?.email ?? '';
   const estudioTelefono = studio?.telefono ?? '';
   // La foto de portada. `fotoUrl` es la del estudio y `imagenBienvenidaUrl` la
@@ -2692,23 +2687,23 @@ export default function ReservarPage() {
             <span>{estudioDireccion}</span>
           </div>
 
-          {REDES_SOCIALES.some(({ id }) => resolverHrefBloque(redesSociales[id])) && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              {REDES_SOCIALES.map(({ id, label }) => {
-                const resuelto = resolverHrefBloque(redesSociales[id]);
-                if (!resuelto) return null;
-                return (
-                  <a
-                    key={id}
-                    href={resuelto.valor}
-                    target={resuelto.interno ? undefined : '_blank'}
-                    rel={resuelto.interno ? undefined : 'noopener noreferrer'}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--portal-muted)', textDecoration: 'none', fontSize: 12 }}
-                  >
-                    <ExternalLink size={12} />{label}
-                  </a>
-                );
-              })}
+          {/* Los CANALES del estudio: su web (columna `studios.sitio_web`) y sus
+              redes (tema publicado). El pie no tiene que saber que viven en dos
+              sitios — `canalesDelEstudio()` los reúne y devuelve solo los que
+              de verdad resuelven a un enlace. */}
+          {canalesEstudio.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+              {canalesEstudio.map(({ id, label, href }) => (
+                <a
+                  key={id}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--portal-muted)', textDecoration: 'none', fontSize: 12 }}
+                >
+                  <ExternalLink size={12} />{label}
+                </a>
+              ))}
             </div>
           )}
 

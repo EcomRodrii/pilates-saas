@@ -253,6 +253,12 @@ function studioPublico(r: RowStudios) {
     // centro» e «Información del centro», que los pintan.
     codigoPostal: r.codigo_postal,
     normasTexto: (r as { normas_texto?: string | null }).normas_texto ?? null,
+    // Canal «web» del estudio (migr 20260821101500). Va explícito porque esta
+    // lista es blanca: sin esta línea el pie del portal no pintaría nunca el
+    // enlace a su web, sin fallar y sin avisar — exactamente lo que ya pasó
+    // con `fotoUrl` aquí abajo. Las REDES no viajan por aquí: llegan por
+    // `camposTema.redesSociales`, que sale del tema publicado.
+    sitioWeb: r.sitio_web ?? null,
     email: r.email,
     telefono: r.telefono,
     colorPrimario: r.color_primario,

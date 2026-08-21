@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useId } from 'react';
 import Link from 'next/link';
 import { RotateCcw, Palette, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { nifValido } from '@/lib/nif';
+import { CANALES, hrefCanal } from '@/lib/canales-estudio';
 import type { Studio } from '@/lib/types';
 import { inputCls, labelCls, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
@@ -17,7 +18,7 @@ import { inputCls, labelCls, btnSecondary, cardCls } from '@/app/(dashboard)/con
 type StudioForm = {
   nombre: string; razonSocial: string; nif: string;
   direccion: string; ciudad: string; codigoPostal: string;
-  telefono: string; email: string;
+  telefono: string; email: string; sitioWeb: string;
   descripcion: string; anioFundacion: string; normasTexto: string;
 };
 
@@ -31,6 +32,7 @@ function studioToForm(s: Studio | null): StudioForm {
     codigoPostal: s?.codigoPostal ?? '',
     telefono: s?.telefono ?? '',
     email: s?.email ?? '',
+    sitioWeb: s?.sitioWeb ?? '',
     descripcion: s?.descripcion ?? '',
     anioFundacion: s?.anioFundacion ? String(s.anioFundacion) : '',
     normasTexto: s?.normasTexto ?? '',
@@ -39,8 +41,12 @@ function studioToForm(s: Studio | null): StudioForm {
 
 export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => void }) {
   const { resetDatosPilates, studio, updateStudio } = useStudio();
+  const idWeb = useId();
   const [form, setForm] = useState<StudioForm>(() => studioToForm(studio));
   const nifInvalido = form.nif.trim() !== '' && !nifValido(form.nif);
+  // Aviso, no bloqueo: se guarda igual (mismo criterio que el resto de
+  // canales). Solo evita el silencio de guardar algo que después no se pinta.
+  const webNoResuelve = form.sitioWeb.trim() !== '' && !hrefCanal('web', form.sitioWeb);
 
   // Reajusta el formulario cuando `studio` cambia de referencia (llega de la
   // BD, o se cambia de sede) — ajuste de estado durante el render, no un
@@ -60,9 +66,13 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
     if (nifInvalido) { showToast('El NIF/CIF no es válido: revisa la letra o el dígito de control.'); return; }
     const anio = form.anioFundacion.trim();
     if (anio && !/^\d{4}$/.test(anio)) { showToast('El año de apertura tiene que ser de cuatro cifras.'); return; }
-    const { anioFundacion, descripcion, normasTexto, ...resto } = form;
+    const { anioFundacion, descripcion, normasTexto, sitioWeb, ...resto } = form;
     const res = await updateStudio({
       ...resto,
+      // Igual que `normasTexto`: en blanco se guarda como NULL, no como cadena
+      // vacía — «no la ha puesto» y «la ha puesto vacía» tienen que ser lo
+      // mismo para quien decide si pintar el enlace.
+      sitioWeb: sitioWeb.trim() || null,
       descripcion: descripcion.trim() || null,
       anioFundacion: anio ? Number(anio) : null,
       // Vacío se guarda como NULL, no como cadena vacía: el portal distingue
@@ -107,6 +117,29 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
           <div>
             <p className={labelCls}>Ciudad</p>
             <input className={inputCls} value={form.ciudad} onChange={e => setForm(f => ({ ...f, ciudad: e.target.value }))} />
+          </div>
+          <div>
+            {/* La web va aquí y no en «Marca y colores» junto a las redes: no es
+                una red social, es un dato de contacto —hermano del teléfono y
+                el email— y la usan sitios que no cargan el tema, empezando por
+                el pie de tus correos. Ver lib/canales-estudio.ts. */}
+            {/* `<label htmlFor>` de verdad y no el `<p>` que usa el resto de
+                esta tarjeta: así el campo tiene nombre accesible. Los demás no
+                lo tienen —es de antes de este cambio— y arreglarlos es una
+                pasada aparte, no algo que colar aquí de tapadillo. */}
+            <label className={labelCls} htmlFor={idWeb}>Web</label>
+            <input
+              id={idWeb}
+              className={inputCls}
+              value={form.sitioWeb}
+              placeholder={CANALES.web.placeholder}
+              onChange={e => setForm(f => ({ ...f, sitioWeb: e.target.value }))}
+            />
+            {webNoResuelve && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                No parece una dirección web: no se verá en tu página ni en tus correos.
+              </p>
+            )}
           </div>
           <div className="sm:col-span-2">
             <p className={labelCls}>Cómo te presentas</p>

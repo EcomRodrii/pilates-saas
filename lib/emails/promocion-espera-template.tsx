@@ -1,4 +1,5 @@
 import { Text, Section, Hr } from '@react-email/components';
+import type { CanalResuelto } from '@/lib/canales-estudio';
 import { EmailLayout, EmailInfoRow } from '@/lib/emails/layout';
 import { PlantillaEditableEmail, type PersonalizacionPlantilla } from '@/lib/emails/cuerpo-editable';
 
@@ -12,6 +13,8 @@ interface Props {
   estudioNombre?: string;
   logoUrl?: string | null;
   colorPrimario?: string | null;
+  // Web y redes del estudio para el pie (MarcaEstudio.canales) — ver lib/canales-estudio.ts.
+  canales?: CanalResuelto[];
   // Si a la socia se le ha consumido una sesión del bono al ascender, se le
   // dice explícitamente (transparencia: nunca se le descuenta sin avisar).
   bonoConsumido?: boolean;
@@ -31,6 +34,7 @@ export function PromocionEsperaEmail({
   estudioNombre = 'Tentare',
   logoUrl,
   colorPrimario,
+  canales,
   bonoConsumido = false,
   intro,
   personalizacion,
@@ -38,7 +42,7 @@ export function PromocionEsperaEmail({
   if (personalizacion?.cuerpo) {
     return (
       <PlantillaEditableEmail
-        estudioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario}
+        estudioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} canales={canales}
         personalizacion={{ ...personalizacion, cuerpo: personalizacion.cuerpo }}
         preview={`Se ha liberado tu plaza en ${claseNombre}`}
         filas={[
@@ -52,7 +56,7 @@ export function PromocionEsperaEmail({
   }
 
   return (
-    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} headerColor="#065F46" titulo="¡Se ha liberado tu plaza!" preview={`Tu plaza en ${claseNombre} ya está confirmada`}>
+    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} canales={canales} headerColor="#065F46" titulo="¡Se ha liberado tu plaza!" preview={`Tu plaza en ${claseNombre} ya está confirmada`}>
       <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 24px' }}>
         {intro ?? <>Hola <strong>{socioNombre}</strong>, estabas en lista de espera y ha quedado una plaza libre. </>}
         Tu reserva ya está <strong>confirmada</strong>.

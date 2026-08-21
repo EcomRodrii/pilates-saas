@@ -3911,6 +3911,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('direccion' in changes) db.direccion = changes.direccion;
   if ('ciudad' in changes) db.ciudad = changes.ciudad;
   if ('codigoPostal' in changes) db.codigo_postal = changes.codigoPostal;
+  if ('sitioWeb' in changes) db.sitio_web = changes.sitioWeb;
   if ('normasTexto' in changes) db.normas_texto = changes.normasTexto;
   if ('email' in changes) db.email = changes.email;
   if ('telefono' in changes) db.telefono = changes.telefono;
@@ -4263,6 +4264,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     descripcion: r.descripcion ?? null,
     anioFundacion: r.anio_fundacion ?? null,
     codigoPostal: r.codigo_postal,
+    sitioWeb: r.sitio_web ?? null,
     normasTexto: r.normas_texto ?? null,
     email: r.email,
     telefono: r.telefono,

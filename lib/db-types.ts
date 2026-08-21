@@ -848,6 +848,8 @@ export interface RowStudios {
   // widget (solo comodidad del panel — la config efectiva viaja congelada
   // en el snippet copiado). NUNCA en studioPublico().
   widget_builder: Record<string, unknown> | null;
+  // migr 20260821101500.
+  sitio_web: string | null;
 }
 
 export interface RowSuscripciones {

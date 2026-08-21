@@ -1,4 +1,5 @@
 import { Markdown, Section } from '@react-email/components';
+import type { CanalResuelto } from '@/lib/canales-estudio';
 import { EmailLayout, EmailButton, EmailInfoRow } from '@/lib/emails/layout';
 import { sanearMarkdown } from '@/lib/emails/sanear-markdown';
 
@@ -69,11 +70,14 @@ const TOKENS = /^[ \t]*\{(datos|boton)\}[ \t]*$/gim;
  * esto, o no lo hay y no cambia nada.
  */
 export function PlantillaEditableEmail({
-  estudioNombre, logoUrl, colorPrimario, personalizacion, filas, boton, preview,
+  estudioNombre, logoUrl, colorPrimario, personalizacion, filas, boton, preview, canales,
 }: {
   estudioNombre: string;
   logoUrl?: string | null;
   colorPrimario?: string | null;
+  // Los canales van DEBAJO del pie, así que siguen apareciendo aunque la
+  // propietaria haya escrito el suyo propio (`p.pie`) — ver EmailLayout.
+  canales?: CanalResuelto[];
   personalizacion: PersonalizacionPlantilla & { cuerpo: string };
   filas: FilaDato[];
   boton?: { href: string; texto: string };
@@ -93,6 +97,7 @@ export function PlantillaEditableEmail({
       preview={preview}
       fuente={p.fuente}
       pie={p.pie}
+      canales={canales}
     >
       <CuerpoEditable
         cuerpo={p.cuerpo}

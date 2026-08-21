@@ -1,4 +1,5 @@
 import { Text, Section, Hr } from '@react-email/components';
+import type { CanalResuelto } from '@/lib/canales-estudio';
 import { EmailLayout, EmailInfoRow } from '@/lib/emails/layout';
 import { PlantillaEditableEmail, type PersonalizacionPlantilla } from '@/lib/emails/cuerpo-editable';
 
@@ -12,6 +13,8 @@ interface Props {
   estudioNombre?: string;
   logoUrl?: string | null;
   colorPrimario?: string | null;
+  // Web y redes del estudio para el pie (MarcaEstudio.canales) — ver lib/canales-estudio.ts.
+  canales?: CanalResuelto[];
   intro?: string;
   // Personalización total del estudio (plantillas_email). Si trae `cuerpo`,
   // manda ella y este componente no pinta su estructura por defecto.
@@ -31,6 +34,7 @@ export function RecordatorioEmail({
   estudioNombre = 'Tentare',
   logoUrl,
   colorPrimario,
+  canales,
   intro,
   personalizacion,
   zoomJoinUrl,
@@ -38,7 +42,7 @@ export function RecordatorioEmail({
   if (personalizacion?.cuerpo) {
     return (
       <PlantillaEditableEmail
-        estudioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario}
+        estudioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} canales={canales}
         personalizacion={{ ...personalizacion, cuerpo: personalizacion.cuerpo }}
         preview={`Te esperamos en ${claseNombre}`}
         filas={[
@@ -53,7 +57,7 @@ export function RecordatorioEmail({
   }
 
   return (
-    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} titulo="Recordatorio de tu clase" preview={`Te esperamos en ${claseNombre}`}>
+    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} canales={canales} titulo="Recordatorio de tu clase" preview={`Te esperamos en ${claseNombre}`}>
       <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 24px' }}>
         {intro ?? <>Hola <strong>{socioNombre}</strong>, te esperamos en tu próxima clase. Aquí tienes los detalles.</>}
       </Text>

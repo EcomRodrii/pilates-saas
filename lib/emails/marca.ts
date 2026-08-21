@@ -12,6 +12,8 @@
 // panel pasaba `estudioNombre` a mano y tampoco lo destapaba.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { canalesDelEstudio, type CanalResuelto, type RedSocialId } from '../canales-estudio.ts';
+
 export type MarcaEstudio = {
   // Para el remitente: `remitentePorMarca(marca.nombre)`.
   nombre?: string | null;
@@ -34,16 +36,31 @@ export type MarcaEstudio = {
   // escribía en realidad al buzón compartido de Tentare, y su estudio no se
   // enteraba nunca. Ninguno de los correos a clientas ponía Reply-To.
   replyTo?: string;
+  // Los CANALES del estudio (su web y sus redes), ya resueltos a enlaces
+  // seguros: `<EmailLayout canales={...}>` los pinta en el pie. Vienen de dos
+  // sitios distintos —`studios.sitio_web` y el tema publicado— y `marcaDesdeFila`
+  // es quien los junta, para que ninguna plantilla tenga que saberlo.
+  // Ausente/vacío = el pie de siempre, sin una línea de más.
+  canales?: CanalResuelto[];
 };
 
-// Fila de `studios` → marca. Pura a propósito.
-export function marcaDesdeFila(fila: {
-  nombre?: unknown; color_primario?: unknown; logo_url?: unknown; slug?: unknown; email?: unknown;
-}): MarcaEstudio {
+// Fila de `studios` (+ las redes del tema publicado, que viven en otra tabla)
+// → marca. Pura a propósito.
+export function marcaDesdeFila(
+  fila: {
+    nombre?: unknown; color_primario?: unknown; logo_url?: unknown; slug?: unknown;
+    email?: unknown; sitio_web?: unknown;
+  },
+  redesSociales?: Partial<Record<RedSocialId, string>> | null,
+): MarcaEstudio {
   const nombre = (fila.nombre as string | null) ?? null;
   // Igual que `estudioNombre`: se omite si no hay valor, para no pisar con
   // `undefined` lo que traiga el caller en un spread.
   const email = ((fila.email as string | null) ?? '').trim();
+  const canales = canalesDelEstudio({
+    sitioWeb: (fila.sitio_web as string | null) ?? null,
+    redesSociales,
+  });
   return {
     nombre,
     ...(email ? { replyTo: email } : {}),
@@ -54,5 +71,8 @@ export function marcaDesdeFila(fila: {
     colorPrimario: (fila.color_primario as string | null) ?? undefined,
     logoUrl: (fila.logo_url as string | null) ?? null,
     slug: (fila.slug as string | null) ?? null,
+    // Solo si hay alguno: una clave presente con array vacío obligaría a cada
+    // consumidor a distinguir «sin canales» de «no me los han pasado».
+    ...(canales.length ? { canales } : {}),
   };
 }

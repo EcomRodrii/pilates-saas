@@ -71,3 +71,36 @@ test('un enlace de red social peligroso (javascript:) no se pinta', async ({ pag
   await expect(page.getByRole('button', { name: 'Política de privacidad' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('link', { name: 'Instagram' })).toHaveCount(0);
 });
+
+// ── Canales completos: web + TikTok ─────────────────────────────────────────
+// La web NO viaja por `redesSociales` (vive en `studios.sitio_web`, ver
+// lib/canales-estudio.ts), así que este test es el que prueba que las dos
+// mitades del modelo llegan al MISMO pie. Si alguien la olvidara en la lista
+// blanca de `studioPublico()`, aquí se cae — que es justo el fallo que nunca
+// avisa por sí solo.
+test('la web del estudio y TikTok se pintan en el mismo pie que el resto', async ({ page }) => {
+  await montar(page, {
+    studio: {
+      id: S, nombre: 'Estudio Alma', slug: SLUG, ciudad: 'Marbella',
+      email: 'hola@alma.es', telefono: '+34 600 111 222', cancelacionVentanaHoras: 12,
+      colorPrimario: '#2C352C', sitioWeb: 'estudioalma.es',
+    },
+    redesSociales: { instagram: '', facebook: '', tiktok: '@estudioalma', whatsapp: '' },
+  });
+  const web = page.getByRole('link', { name: 'Web' });
+  await expect(web).toBeVisible({ timeout: 30_000 });
+  // Sin protocolo en la BD: el enlace lo completa el render, no el guardado.
+  await expect(web).toHaveAttribute('href', 'https://estudioalma.es');
+  const tiktok = page.getByRole('link', { name: 'TikTok' });
+  await expect(tiktok).toBeVisible();
+  await expect(tiktok).toHaveAttribute('href', 'https://www.tiktok.com/@estudioalma');
+});
+
+// Un @usuario se guardaba y desaparecía del pie sin decir nada: era lo más
+// natural de teclear en una casilla que pone «Instagram».
+test('un @usuario de Instagram se convierte en enlace en vez de desaparecer', async ({ page }) => {
+  await montar(page, { redesSociales: { instagram: '@estudio.alma', facebook: '', tiktok: '', whatsapp: '' } });
+  const enlace = page.getByRole('link', { name: 'Instagram' });
+  await expect(enlace).toBeVisible({ timeout: 30_000 });
+  await expect(enlace).toHaveAttribute('href', 'https://instagram.com/estudio.alma');
+});

@@ -176,7 +176,8 @@ import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
-import type { TabBarStyleId, RedSocialId } from '@/lib/theme-schema';
+import type { TabBarStyleId } from '@/lib/theme-schema';
+import { redesSocialesCompletas, type RedSocialId } from '@/lib/canales-estudio';
 import { DEFAULT_NAV_CONFIG, resolveNavConfig, type NavConfigShape } from '@/lib/portal-nav';
 import { DEFAULT_VARIANTES, resolveVariantes, type VariantesResueltas } from '@/lib/theme-variantes';
 import { MENSAJE_TEMA_PREVIEW, resolveTemaJs, type TemaJs } from '@/lib/theme-preview-puente';
@@ -711,7 +712,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
   const [themeIdPublicado, setThemeIdPublicado] = useState<string | null>(null);
   const [portalReact, setPortalReact] = useState(false);
-  const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
+  const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>(() => redesSocialesCompletas(null));
   const [textosReservar, setTextosReservar] = useState({
     titular: '', subtitulo: '', cta: '', sobreTitulo: '', sobreTexto: '',
     avisoQuiz: '', vacioTitulo: '', vacioTexto: '', confirmacion: '', listaEspera: '', ayuda: '', comoFunciona: '',
@@ -972,11 +973,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setNavPortal(resolveNavConfig(pub.navPortal));
       setThemeIdPublicado((pub as { themeIdPublicado?: string | null }).themeIdPublicado ?? null);
       setPortalReact((pub.studio as { portalReact?: boolean } | null)?.portalReact === true);
-      setRedesSociales({
-        instagram: typeof pub.redesSociales?.instagram === 'string' ? pub.redesSociales.instagram : '',
-        facebook: typeof pub.redesSociales?.facebook === 'string' ? pub.redesSociales.facebook : '',
-        whatsapp: typeof pub.redesSociales?.whatsapp === 'string' ? pub.redesSociales.whatsapp : '',
-      });
+      // Las cuatro claves siempre presentes, cada una saneada a string: un
+      // tema publicado antes de que existiera TikTok trae solo tres.
+      setRedesSociales(redesSocialesCompletas(pub.redesSociales));
       // `.trim()` al ENTRAR, una sola vez: un campo con solo espacios es lo que
       // queda al borrar lo escrito, y no puede publicar un titular en blanco.
       // Haciéndolo aquí, ningún consumidor tiene que acordarse.

@@ -20,8 +20,12 @@ import {
   subirImagenPortal,
 } from '@/lib/portal-storage';
 import {
-  DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, REDES_SOCIALES_IDS,
-  type ThemeConfig, type RedSocialId, POSICION_FOTO,
+  CANALES, REDES_SOCIALES_IDS, redesSocialesCompletas, hrefCanal,
+  type RedSocialId,
+} from '@/lib/canales-estudio';
+import {
+  DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA,
+  type ThemeConfig, POSICION_FOTO,
   SEO_TITULO_MAX, SEO_DESCRIPCION_MAX,
   RESERVAR_TITULAR_MAX, RESERVAR_SUBTITULO_MAX, RESERVAR_CTA_MAX,
   RESERVAR_AVISO_QUIZ_MAX, RESERVAR_VACIO_TITULO_MAX, RESERVAR_VACIO_TEXTO_MAX,
@@ -125,14 +129,6 @@ const CAMPOS_COLOR: { key: keyof ThemeConfig; label: string }[] = [
   { key: 'text', label: 'Texto' },
 ];
 
-const RED_SOCIAL_LABEL: Record<RedSocialId, string> = {
-  instagram: 'Instagram', facebook: 'Facebook', whatsapp: 'WhatsApp',
-};
-const RED_SOCIAL_PLACEHOLDER: Record<RedSocialId, string> = {
-  instagram: 'https://instagram.com/tu-estudio',
-  facebook: 'https://facebook.com/tu-estudio',
-  whatsapp: 'https://wa.me/34600000000',
-};
 
 // Paletas de arranque: el usuario elige un color de marca bonito y el resto de
 // la paleta se deriva armónicamente (derivarPaleta). Después puede afinar.
@@ -225,7 +221,7 @@ export function useThemeEditor() {
   // `draft.navPortal`/`draft.redesSociales` pueden faltar en un tema que no
   // pasó por resolveTheme (parcial/legado) — nunca se leen crudos.
   const navPortalResuelto = resolveNavConfig(draft.navPortal);
-  const redesSocialesResueltas = { instagram: '', facebook: '', whatsapp: '', ...(draft.redesSociales as Partial<Record<RedSocialId, string>> | undefined) };
+  const redesSocialesResueltas = redesSocialesCompletas(draft.redesSociales as Partial<Record<RedSocialId, string>> | undefined);
 
   // Cualquier edición manual ("Personalizar") marca el tema como
   // personalizado: la tarjeta del tema elegido en "Tema" deja de decir solo
@@ -295,13 +291,12 @@ export function useThemeEditor() {
 
   // Redes sociales del pie de página público (Fase 3). Igual que arriba: el
   // dato se guarda tal cual, sin validar como URL estricta aquí — el filtro
-  // de enlaces peligrosos vive en el render (resolverHrefBloque).
+  // de enlaces peligrosos vive en el render (`hrefCanal`).
   function setRedSocial(id: RedSocialId, valor: string) {
     setDraft((d) => ({
       ...d,
       redesSociales: {
-        instagram: '', facebook: '', whatsapp: '',
-        ...(d.redesSociales as Partial<Record<RedSocialId, string>> | undefined),
+        ...redesSocialesCompletas(d.redesSociales as Partial<Record<RedSocialId, string>> | undefined),
         [id]: valor,
       },
       themeCustomized: true,
@@ -1151,20 +1146,37 @@ export function AjustesCategoriaPanel({
       <div className="space-y-3">
         <p className="text-[11.5px] text-muted-foreground">
           Se ven en el pie de tu página pública de reservas. Deja en blanco la que no uses.
+          Tu web se pone en <strong>Configuración → Estudio</strong>: no es una red social y la
+          usan también tus correos.
         </p>
         <div className="space-y-2">
-          {REDES_SOCIALES_IDS.map((id) => (
-            <label key={id} className="flex items-center gap-3">
-              <span className="w-20 shrink-0 text-[12px] font-semibold text-foreground">{RED_SOCIAL_LABEL[id]}</span>
-              <input
-                value={redesSocialesResueltas[id]}
-                onChange={(e) => hook.setRedSocial(id, e.target.value)}
-                placeholder={RED_SOCIAL_PLACEHOLDER[id]}
-                aria-label={RED_SOCIAL_LABEL[id]}
-                className="min-w-0 flex-1 text-[12.5px] px-2.5 py-1.5 rounded-lg border border-border bg-background"
-              />
-            </label>
-          ))}
+          {REDES_SOCIALES_IDS.map((id) => {
+            const valor = redesSocialesResueltas[id];
+            // Aviso, no bloqueo: el campo se guarda igual (mismo criterio de
+            // siempre). Pero antes, escribir algo que no diera para un enlace
+            // se guardaba y el icono no salía nunca en el pie, sin error y sin
+            // aviso — que es justo lo que nadie descubre solo.
+            const noResuelve = valor.trim() !== '' && !hrefCanal(id, valor);
+            return (
+              <label key={id} className="flex items-start gap-3">
+                <span className="w-20 shrink-0 pt-1.5 text-[12px] font-semibold text-foreground">{CANALES[id].label}</span>
+                <span className="min-w-0 flex-1">
+                  <input
+                    value={valor}
+                    onChange={(e) => hook.setRedSocial(id, e.target.value)}
+                    placeholder={CANALES[id].placeholder}
+                    aria-label={CANALES[id].label}
+                    className="w-full text-[12.5px] px-2.5 py-1.5 rounded-lg border border-border bg-background"
+                  />
+                  {noResuelve && (
+                    <span className="mt-1 block text-[11px] text-muted-foreground">
+                      No parece un enlace ni un usuario: no se verá en tu pie. Prueba con {CANALES[id].placeholder}.
+                    </span>
+                  )}
+                </span>
+              </label>
+            );
+          })}
         </div>
       </div>
     );

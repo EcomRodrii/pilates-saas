@@ -1,4 +1,5 @@
 import { Text, Section, Hr } from '@react-email/components';
+import type { CanalResuelto } from '@/lib/canales-estudio';
 import { EmailLayout } from '@/lib/emails/layout';
 import { PlantillaEditableEmail, type PersonalizacionPlantilla } from '@/lib/emails/cuerpo-editable';
 
@@ -9,6 +10,8 @@ interface Props {
   estudioNombre?: string;
   logoUrl?: string | null;
   colorPrimario?: string | null;
+  // Web y redes del estudio para el pie (MarcaEstudio.canales) — ver lib/canales-estudio.ts.
+  canales?: CanalResuelto[];
   // true = fallo definitivo tras agotar los reintentos (acción requerida);
   // false = primer fallo (informativo, aún se reintentará solo).
   definitivo: boolean;
@@ -27,6 +30,7 @@ export function ImpagoEmail({
   estudioNombre = 'Tentare',
   logoUrl,
   colorPrimario,
+  canales,
   definitivo,
   intro,
   personalizacion,
@@ -34,7 +38,7 @@ export function ImpagoEmail({
   if (personalizacion?.cuerpo) {
     return (
       <PlantillaEditableEmail
-        estudioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario}
+        estudioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} canales={canales}
         personalizacion={{ ...personalizacion, cuerpo: personalizacion.cuerpo }}
         preview={`Problema con el cobro de ${concepto}`}
         filas={[
@@ -52,7 +56,7 @@ export function ImpagoEmail({
     : 'Hemos intentado cobrar tu cuota y el pago no se ha completado. Lo volveremos a intentar automáticamente en los próximos días — no tienes que hacer nada, pero revisa que tu método de pago esté al día.';
 
   return (
-    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} headerColor={acento} titulo={titulo} preview={(intro ?? cuerpo).slice(0, 90)}>
+    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} canales={canales} headerColor={acento} titulo={titulo} preview={(intro ?? cuerpo).slice(0, 90)}>
       <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 24px' }}>
         {intro ?? <>Hola <strong>{socioNombre}</strong>, {cuerpo}</>}
       </Text>
