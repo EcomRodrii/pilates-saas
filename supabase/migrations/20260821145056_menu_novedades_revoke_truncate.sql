@@ -1,0 +1,18 @@
+-- `TRUNCATE` y `TRIGGER` BYPASAN la RLS.
+--
+-- En `menu_novedades` la RLS es la ÚNICA defensa de escritura: la política solo
+-- concede SELECT, y no hay ninguna de INSERT/UPDATE/DELETE para nadie (escribe
+-- solo `service_role`, vía /api/interno/menu-novedades). Con `TRUNCATE` puesto,
+-- cualquiera con sesión podía vaciar la tabla de un golpe sin tocar ninguna
+-- política; con `TRIGGER`, colgarle código propio.
+--
+-- ⚠️ Los tres privilegios (TRUNCATE/TRIGGER/REFERENCES) los concede el default
+-- del proyecto a `anon`/`authenticated` en TODA tabla nueva — es el gemelo, en
+-- tablas, del gotcha de `pg_default_acl` que ya documenta el repo para las
+-- funciones `SECURITY DEFINER`. Verificado tras aplicar: `anon` se queda sin
+-- ningún privilegio y `authenticated` solo con SELECT.
+--
+-- En el resto de tablas del esquema siguen concedidos (comprobado contra
+-- `reservas`, `socios` y `changelog_versiones`). No se tocan aquí: es un
+-- cambio de esquema entero, no de esta funcionalidad.
+revoke truncate, trigger, references on public.menu_novedades from anon, authenticated;

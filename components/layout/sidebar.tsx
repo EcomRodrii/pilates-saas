@@ -12,6 +12,7 @@ import { useCore } from '@/lib/core-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
+import { useMenuNovedades } from '@/lib/menu-novedades-cliente';
 import { fetchLayout } from '@/lib/api-client';
 import { filtrarItemsMenu } from '@/lib/layout-runtime';
 import { SedeActiva } from '@/components/layout/sede-activa';
@@ -40,14 +41,44 @@ export function useNavMode() {
 
 // ─── Desktop nav item ─────────────────────────────────────────────────────────
 
-function NavItem({ href, label, Icon, onClick, collapsed }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean }) {
+// Distintivo «NUEVO»: lo que Tentare señala desde /interno (ver
+// lib/menu-novedades.ts). Arena sobre el casi negro del menú — NO `bg-brand`,
+// que es el relleno del item ACTIVO: si compartieran color, «nuevo» y «donde
+// estás» se leerían igual.
+//
+// ⚠️ `sidebar-primary-foreground`/`sidebar` y no `brand-foreground`: el menú es
+// una superficie SIEMPRE oscura, también en modo claro, y los tokens de marca
+// se INVIERTEN en oscuro (`--brand-foreground` pasa a #16161A) — el badge se
+// volvería negro sobre negro la mitad del tiempo. Los `--sidebar-*` no se
+// redefinen nunca, justo por esto.
+function BadgeNuevo({ compacto }: { compacto?: boolean }) {
+  // Colapsado no hay sitio para la palabra: un punto en la esquina del icono,
+  // con el texto accesible para quien no ve el color.
+  if (compacto) {
+    return (
+      <span
+        className="absolute right-1.5 top-1.5 size-2 rounded-full bg-sidebar-primary-foreground ring-2 ring-sidebar"
+        role="status"
+      >
+        <span className="sr-only">Nuevo</span>
+      </span>
+    );
+  }
+  return (
+    <span className="ml-auto rounded-full bg-sidebar-primary-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sidebar">
+      Nuevo
+    </span>
+  );
+}
+
+function NavItem({ href, label, Icon, onClick, collapsed, nuevo }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean; nuevo?: boolean }) {
   const pathname = usePathname();
   const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
   return (
     <Link
       href={href}
       onClick={onClick}
-      title={collapsed ? label : undefined}
+      title={collapsed ? (nuevo ? `${label} (nuevo)` : label) : undefined}
       className={cn(
         'flex items-center rounded-full text-[13px] font-medium transition-all relative',
         collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
@@ -56,6 +87,7 @@ function NavItem({ href, label, Icon, onClick, collapsed }: { href: string; labe
     >
       <Icon size={15} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
       {!collapsed && label}
+      {nuevo && <BadgeNuevo compacto={collapsed} />}
     </Link>
   );
 }
@@ -97,6 +129,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
   sections: typeof navSections;
 }) {
   const pathname = usePathname();
+  const conNovedad = useMenuNovedades(pathname);
 
   return (
     // --sidebar (#0F0F0F en los dos modos), no --foreground: este cajón es una
@@ -147,6 +180,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
                 >
                   <item.icon size={18} strokeWidth={active ? 2.5 : 2} />
                   {item.label}
+                  {conNovedad.has(item.href) && <BadgeNuevo />}
                 </Link>
               );
             })}
@@ -183,6 +217,10 @@ const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label:
 };
 
 export function Sidebar() {
+  const pathnameActual = usePathname();
+  // Los `href` señalados como NUEVO desde /interno. La ruta actual entra porque
+  // el badge se apaga en cuanto ella visita esa sección (ver el hook).
+  const conNovedad = useMenuNovedades(pathnameActual);
   const [masOpen, setMasOpen] = useState(false);
   const [size, setSize] = useState<SidebarSize>('normal');
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
@@ -386,7 +424,7 @@ export function Sidebar() {
                 <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
               )}
               {section.items.map(item => (
-                <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} collapsed={collapsed} />
+                <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} collapsed={collapsed} nuevo={conNovedad.has(item.href)} />
               ))}
             </div>
           ))}
