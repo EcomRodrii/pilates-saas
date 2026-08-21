@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import { puedeGestionarEquipo, puedeGestionarFichaDe } from '@/lib/permisos-reglas';
+import type { Rol } from '@/lib/types';
 import { generarLiquidacionBorrador, transicionarLiquidacion, listarLiquidaciones, obtenerLiquidacion } from '@/lib/equipo/liquidacion-datos.ts';
 
 // Fila 11 del informe estratégico: liquidación de instructoras (desglose
@@ -83,9 +84,10 @@ export async function POST(req: NextRequest) {
     .from('instructores').select('id, rol').eq('id', instructorId).eq('studio_id', sesion.studioId).maybeSingle();
   if (!ficha) return NextResponse.json({ error: 'Instructora no encontrada' }, { status: 404 });
 
-  // Mismo guard que PATCH /api/equipo/tarifas: un manager no gestiona la
-  // compensación de la propietaria ni de otro manager.
-  if (sesion.rol === 'MANAGER' && !rolesQuePuedeAsignar('MANAGER').includes(ficha.rol as never)) {
+  // Mismo guard que POST /api/equipo/tarifas (`puedeGestionarFichaDe`,
+  // lib/permisos-reglas.ts): un manager no gestiona la compensación de la
+  // propietaria ni de otro manager.
+  if (sesion.rol === 'MANAGER' && !puedeGestionarFichaDe(sesion.rol, ficha.rol as Rol)) {
     return NextResponse.json({ error: 'No puedes generar la liquidación de esta persona.' }, { status: 403 });
   }
 
@@ -116,7 +118,7 @@ export async function PATCH(req: NextRequest) {
       .from('liquidaciones_instructoras').select('instructor_id').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
     if (!liq) return NextResponse.json({ error: 'Liquidación no encontrada' }, { status: 404 });
     const { data: ficha } = await admin.from('instructores').select('rol').eq('id', liq.instructor_id).maybeSingle();
-    if (!ficha || !rolesQuePuedeAsignar('MANAGER').includes(ficha.rol as never)) {
+    if (!ficha || !puedeGestionarFichaDe(sesion.rol, ficha.rol as Rol)) {
       return NextResponse.json({ error: 'No puedes gestionar la liquidación de esta persona.' }, { status: 403 });
     }
   }

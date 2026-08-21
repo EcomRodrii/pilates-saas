@@ -111,7 +111,7 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
                   <button onClick={() => openEditar(c)} aria-label="Editar reto" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground">
                     <Pencil size={14} />
                   </button>
-                  <button onClick={() => setBorrarId(c.id)} aria-label="Eliminar reto" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#FFF2F2] text-[#C4695A]">
+                  <button onClick={() => setBorrarId(c.id)} aria-label="Eliminar reto" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 text-destructive">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -221,7 +221,7 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
           <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este reto? El progreso de las clientas en él se perderá.</p>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setBorrarId(null)} className={btnSecondary}>Cancelar</button>
-            <button onClick={confirmarBorrar} className="px-4 py-2 rounded-xl bg-[#C4695A] text-white text-[13px] font-semibold hover:bg-[#B25B4D]">Eliminar</button>
+            <button onClick={confirmarBorrar} className="px-4 py-2 rounded-xl bg-destructive text-white text-[13px] font-semibold hover:bg-red-700">Eliminar</button>
           </div>
         </DialogContent>
       </Dialog>

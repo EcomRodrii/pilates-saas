@@ -121,7 +121,7 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
             {resultado.planProximaSesion && <p className="text-sm text-foreground"><span className="font-bold">Próxima sesión: </span>{resultado.planProximaSesion}</p>}
             {resultado.ejerciciosCasa && <p className="text-sm text-foreground"><span className="font-bold">Ejercicios casa: </span>{resultado.ejerciciosCasa}</p>}
             <div className="flex gap-2 pt-2 border-t border-border">
-              <button onClick={guardar} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-bold hover:bg-[#2A2A24] transition-colors">
+              <button onClick={guardar} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-bold hover:brightness-95 transition-colors">
                 <CheckCircle2 size={12} /> Guardar nota
               </button>
               <button onClick={() => setResultado(null)} className="px-3 py-1.5 border border-border text-foreground rounded-lg text-xs font-bold hover:bg-muted transition-colors">
