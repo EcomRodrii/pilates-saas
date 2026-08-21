@@ -858,6 +858,8 @@ export interface RowStudios {
   review_boost_pospuesto_en: string | null;
   // migr 20260821120000.
   review_boost_veces_mostrado: number | null;
+  // migr 20260821140000.
+  cancelacion_clase_devuelve_bono: boolean | null;
 }
 
 export interface RowSuscripciones {

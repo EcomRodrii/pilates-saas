@@ -3931,6 +3931,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('anioFundacion' in changes) db.anio_fundacion = changes.anioFundacion;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
+  if ('cancelacionClaseDevuelveBono' in changes) db.cancelacion_clase_devuelve_bono = changes.cancelacionClaseDevuelveBono;
   if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;
   if ('compraPublicaModo' in changes) db.compra_publica_modo = changes.compraPublicaModo;
   if ('reservaMaxSimultaneas' in changes) db.reserva_max_simultaneas = changes.reservaMaxSimultaneas;
@@ -4304,6 +4305,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     trialEndsAt: r.trial_ends_at ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
+    cancelacionClaseDevuelveBono: r.cancelacion_clase_devuelve_bono ?? true,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
