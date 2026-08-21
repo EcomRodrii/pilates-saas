@@ -1,4 +1,5 @@
 import { Text, Section, Hr } from '@react-email/components';
+import type { CanalResuelto } from '@/lib/canales-estudio';
 import { EmailLayout, EmailButton } from '@/lib/emails/layout';
 import { PlantillaEditableEmail, type PersonalizacionPlantilla } from '@/lib/emails/cuerpo-editable';
 
@@ -8,6 +9,8 @@ interface Props {
   estudioNombre?: string;
   logoUrl?: string | null;
   colorPrimario?: string | null;
+  // Web y redes del estudio para el pie (MarcaEstudio.canales) — ver lib/canales-estudio.ts.
+  canales?: CanalResuelto[];
   intro?: string; // texto de introducción personalizado por el estudio
   // Enlace de acceso directo al portal (magic link de Supabase, generado en
   // app/api/emails/send). Sin él (Resend/Supabase Admin no disponibles), el
@@ -23,6 +26,7 @@ export function BienvenidaEmail({
   estudioNombre = 'Tentare',
   logoUrl,
   colorPrimario,
+  canales,
   intro,
   url,
   personalizacion,
@@ -30,7 +34,7 @@ export function BienvenidaEmail({
   if (personalizacion?.cuerpo) {
     return (
       <PlantillaEditableEmail
-        estudioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario}
+        estudioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} canales={canales}
         personalizacion={{ ...personalizacion, cuerpo: personalizacion.cuerpo }}
         preview={`Ya eres parte de ${estudioNombre}`}
         filas={planNombre ? [{ label: 'Tu plan', value: planNombre }] : []}
@@ -40,7 +44,7 @@ export function BienvenidaEmail({
   }
 
   return (
-    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} titulo="¡Bienvenida! 🎉" preview={`Ya eres parte de ${estudioNombre}`}>
+    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} canales={canales} titulo="¡Bienvenida! 🎉" preview={`Ya eres parte de ${estudioNombre}`}>
       <Text style={{ color: '#374151', fontSize: 15, lineHeight: 1.6, margin: '0 0 20px' }}>
         {intro ?? <>Hola <strong>{socioNombre}</strong>, estamos encantadas de tenerte en {estudioNombre}.</>}
       </Text>

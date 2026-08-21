@@ -3,6 +3,7 @@ import {
 } from '@react-email/components';
 import { foregroundParaFondo } from '@/lib/wcag-contrast';
 import { LEGAL } from '@/lib/legal-info';
+import type { CanalResuelto } from '@/lib/canales-estudio';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Plantilla base compartida por TODOS los emails del producto (transaccionales,
@@ -44,6 +45,12 @@ interface EmailLayoutProps {
   fuente?: string | null;
   // Pie propio del estudio. Ausente = "Enviado por X · Powered by Tentare · año".
   pie?: React.ReactNode;
+  // Canales del estudio (web y redes), ya resueltos a enlaces seguros por
+  // `canalesDelEstudio()` — llegan en `MarcaEstudio.canales` y las plantillas
+  // los pasan tal cual. Se pintan DEBAJO del pie, no en su lugar: el pie dice
+  // quién manda el correo, esto dice dónde encontrar al estudio. Vacío o
+  // ausente = el correo de siempre, sin una línea más.
+  canales?: CanalResuelto[];
   children: React.ReactNode;
 }
 
@@ -56,6 +63,7 @@ export function EmailLayout({
   preview,
   fuente,
   pie,
+  canales,
   children,
 }: EmailLayoutProps) {
   const primario = colorPrimario || COLOR_PRIMARIO_DEFECTO;
@@ -107,6 +115,20 @@ export function EmailLayout({
             <Text style={{ color: '#63635D', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
               {pie ?? <>Enviado por {studioNombre} · Powered by Tentare · {new Date().getFullYear()}</>}
             </Text>
+            {/* Enlaces de texto y no iconos: los clientes de correo bloquean
+                imágenes por defecto, y una fila de iconos bloqueados es una
+                fila de cuadros rotos. `target="_blank"` no se pone porque en un
+                correo no significa nada. */}
+            {canales && canales.length > 0 && (
+              <Text style={{ color: '#63635D', fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>
+                {canales.map((c, i) => (
+                  <span key={c.id}>
+                    {i > 0 && ' · '}
+                    <a href={c.href} style={{ color: '#63635D', textDecoration: 'underline' }}>{c.label}</a>
+                  </span>
+                ))}
+              </Text>
+            )}
           </Section>
         </Container>
       </Body>

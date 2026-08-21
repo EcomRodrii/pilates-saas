@@ -679,6 +679,8 @@ export interface RowStudios {
   direccion: string | null;
   ciudad: string | null;
   codigo_postal: string | null;
+  // migr 20260821101500.
+  sitio_web: string | null;
   email: string | null;
   telefono: string | null;
   color_primario: string | null;

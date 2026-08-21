@@ -24,6 +24,13 @@ export interface Studio {
   direccion: string;
   ciudad: string;
   codigoPostal: string;
+  /**
+   * Web propia del estudio (migr 20260821101500). Canal de contacto, hermano de
+   * `email`/`telefono`/`direccion` — las REDES sociales no viven aquí, viven en
+   * el tema (`redesSociales`). Los dos lados se reúnen en
+   * `canalesDelEstudio()` (lib/canales-estudio.ts). Null = no la ha puesto.
+   */
+  sitioWeb: string | null;
   /** Presentación del estudio en su página pública (migr 0134). Null = no se pinta. */
   descripcion: string | null;
   /** Año en que abrió. NO es `creadoEn`, que es el alta en Tentare (migr 0134). */

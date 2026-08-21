@@ -65,3 +65,21 @@ test('sin email de estudio no se pone Reply-To (clave omitida, no undefined)', (
   // Un campo en blanco vale lo mismo que un campo sin rellenar.
   assert.ok(!('replyTo' in marcaDesdeFila({ nombre: 'Casa Pilates', email: '   ' })));
 });
+
+// Los canales del estudio llegan al correo desde DOS sitios: la columna
+// `studios.sitio_web` y el `redesSociales` del tema publicado. Esta función es
+// la única costura donde se juntan; si alguien pide solo la fila, el pie del
+// correo se queda sin las redes y nada falla.
+test('marcaDesdeFila reúne la web de la fila y las redes del tema', () => {
+  const marca = marcaDesdeFila(
+    { nombre: 'Casa Pilates', sitio_web: 'casapilates.es' },
+    { instagram: '@casapilates', tiktok: '', facebook: '', whatsapp: '' },
+  );
+  assert.deepEqual(marca.canales?.map((c) => c.id), ['web', 'instagram']);
+  assert.equal(marca.canales?.[0].href, 'https://casapilates.es');
+});
+
+test('sin ningún canal la clave se omite (no un array vacío)', () => {
+  assert.ok(!('canales' in marcaDesdeFila({ nombre: 'Casa Pilates' })));
+  assert.ok(!('canales' in marcaDesdeFila({ nombre: 'Casa Pilates', sitio_web: '  ' }, {})));
+});

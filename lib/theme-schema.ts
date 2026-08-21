@@ -116,15 +116,29 @@ export type TabBarStyleId = (typeof ESTILOS_TAB_BAR)[number]['id'];
  * campo se guarda TAL CUAL lo escribe el estudio, sin validar como URL
  * estricta aquí — mismo criterio que los `href` de banner/CTA en
  * layout-schema.ts. El filtro real de enlaces peligrosos vive en el RENDER
- * (resolverHrefBloque, lib/portal-home-bloques.ts), no en el guardado.
+ * (`hrefCanal`, lib/canales-estudio.ts — mismo criterio de solo-http(s) que
+ * `resolverHrefBloque`), no en el guardado.
  */
-export const REDES_SOCIALES_IDS = ['instagram', 'facebook', 'whatsapp'] as const;
-export type RedSocialId = (typeof REDES_SOCIALES_IDS)[number];
+// El catálogo (ids, etiquetas, y cómo se resuelve el enlace de cada uno) vive
+// en lib/canales-estudio.ts, que además reúne estas cuatro con la WEB — que NO
+// es una red social y por eso vive en `studios.sitio_web`, no aquí. Se
+// REEXPORTA en vez de tener una lista propia: añadir una red es un solo sitio.
+export { REDES_SOCIALES_IDS, type RedSocialId } from './canales-estudio.ts';
 
+// ⚠️ Cada clave lleva su `.default('')`, no solo el objeto entero: un tema
+// guardado antes de que existiera TikTok trae tres claves, y con campos
+// `z.string()` a secas este `.strict()` lo RECHAZARÍA de golpe — el estudio
+// perdería de vista sus tres redes de siempre al publicar. Con el default por
+// clave, ese JSON de tres claves sigue validando y gana `tiktok: ''`.
 const redesSocialesSchema = z
-  .object({ instagram: z.string(), facebook: z.string(), whatsapp: z.string() })
+  .object({
+    instagram: z.string().default(''),
+    facebook: z.string().default(''),
+    tiktok: z.string().default(''),
+    whatsapp: z.string().default(''),
+  })
   .strict()
-  .default({ instagram: '', facebook: '', whatsapp: '' });
+  .default({ instagram: '', facebook: '', tiktok: '', whatsapp: '' });
 
 const navSegIdSchema = z.enum(NAV_SEG_IDS);
 const navIconoSchema = z.enum(NAV_ICONOS_DISPONIBLES);
@@ -529,7 +543,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   escalaTexto: undefined,
   variantes: undefined,
   navPortal: DEFAULT_NAV_CONFIG,
-  redesSociales: { instagram: '', facebook: '', whatsapp: '' },
+  redesSociales: { instagram: '', facebook: '', tiktok: '', whatsapp: '' },
   themeId: 'classic',
   themeVersion: 1,
   themeCustomized: false,

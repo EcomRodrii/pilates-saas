@@ -222,18 +222,31 @@ test('resolveTheme: navPortal corrupto no lanza y cae al default', () => {
   assert.deepEqual(resolveTheme({ navPortal: 'basura' }).navPortal, { ocultos: [], etiquetas: {}, iconos: {} });
 });
 
+// Compatibilidad hacia atrás con los temas que YA están guardados en producción:
+// se publicaron con tres claves, antes de que TikTok existiera. Con campos
+// `z.string()` sin default, este `.strict()` los habría rechazado enteros y el
+// estudio habría perdido de vista sus tres redes de siempre al republicar.
+test('themeConfigSchema: un redesSociales de TRES claves (tema ya publicado) sigue valiendo', () => {
+  const r = themeConfigSchema.safeParse({
+    ...DEFAULT_THEME,
+    redesSociales: { instagram: '@x', facebook: '', whatsapp: '' },
+  });
+  assert.equal(r.success, true);
+  if (r.success) assert.deepEqual(r.data.redesSociales, { instagram: '@x', facebook: '', tiktok: '', whatsapp: '' });
+});
+
 test('themeConfigSchema: redesSociales ausente → default vacío (tema guardado antes de la Fase 3)', () => {
   const sinRedes: Record<string, unknown> = { ...DEFAULT_THEME };
   delete sinRedes.redesSociales;
   const r = themeConfigSchema.safeParse(sinRedes);
   assert.equal(r.success, true);
-  if (r.success) assert.deepEqual(r.data.redesSociales, { instagram: '', facebook: '', whatsapp: '' });
+  if (r.success) assert.deepEqual(r.data.redesSociales, { instagram: '', facebook: '', tiktok: '', whatsapp: '' });
 });
 
-test('themeConfigSchema acepta redesSociales con las tres cuentas', () => {
+test('themeConfigSchema acepta redesSociales con las cuatro cuentas', () => {
   const r = themeConfigSchema.safeParse({
     ...DEFAULT_THEME,
-    redesSociales: { instagram: 'https://instagram.com/x', facebook: 'https://facebook.com/x', whatsapp: 'https://wa.me/34600000000' },
+    redesSociales: { instagram: 'https://instagram.com/x', facebook: 'https://facebook.com/x', tiktok: 'https://tiktok.com/@x', whatsapp: 'https://wa.me/34600000000' },
   });
   assert.equal(r.success, true);
 });
@@ -241,14 +254,14 @@ test('themeConfigSchema acepta redesSociales con las tres cuentas', () => {
 test('themeConfigSchema rechaza claves extra en redesSociales (strict)', () => {
   const r = themeConfigSchema.safeParse({
     ...DEFAULT_THEME,
-    redesSociales: { instagram: '', facebook: '', whatsapp: '', tiktok: 'https://tiktok.com/@x' },
+    redesSociales: { instagram: '', facebook: '', tiktok: '', whatsapp: '', threads: 'https://threads.net/@x' },
   });
   assert.equal(r.success, false);
 });
 
 test('resolveTheme: redesSociales corrupto no lanza y cae al default vacío', () => {
   assert.doesNotThrow(() => resolveTheme({ redesSociales: 'basura' }));
-  assert.deepEqual(resolveTheme({ redesSociales: 'basura' }).redesSociales, { instagram: '', facebook: '', whatsapp: '' });
+  assert.deepEqual(resolveTheme({ redesSociales: 'basura' }).redesSociales, { instagram: '', facebook: '', tiktok: '', whatsapp: '' });
 });
 
 // ── Variantes de forma por bloque ───────────────────────────────────────────
@@ -305,13 +318,14 @@ test('instalarTema: lo que es del ESTUDIO y no del tema sí sobrevive', () => {
   const draft: ThemeConfig = {
     ...DEFAULT_THEME,
     faviconUrl: 'https://estudio/favicon.png',
-    redesSociales: { instagram: '@miestudio', facebook: '', whatsapp: '600' },
+    redesSociales: { instagram: '@miestudio', facebook: '', tiktok: '@miestudio', whatsapp: '600' },
   };
   const noir = instalarTema(draft, { barraOscura: true }, { themeId: 'noir', themeVersion: 6 });
 
   // Cambiar de tema no puede borrarle el favicon ni las redes al estudio.
   assert.equal(noir.faviconUrl, 'https://estudio/favicon.png');
   assert.equal(noir.redesSociales.instagram, '@miestudio');
+  assert.equal(noir.redesSociales.tiktok, '@miestudio');
 });
 
 test('instalarTema: clona los objetos anidados del tema', () => {
