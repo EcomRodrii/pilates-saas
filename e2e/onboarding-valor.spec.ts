@@ -47,10 +47,10 @@ test('la primera pantalla enseña valor antes de pedir un solo dato', async ({ p
   await expect(page.getByRole('heading', { name: 'Tus alumnas reservan solas, a cualquier hora' })).toBeVisible({ timeout: 30_000 });
   // Lo que NO debe aparecer todavía: la primera pregunta del asistente.
   await expect(page.getByText('¿Cuántos centros tienes?')).toHaveCount(0);
-  await expect(page.getByText('1 de 4')).toBeVisible();
+  await expect(page.getByText('1 de 5')).toBeVisible();
 });
 
-test('las cuatro pantallas avanzan y desembocan en el asistente', async ({ page }) => {
+test('las cinco pantallas avanzan y desembocan en el asistente', async ({ page }) => {
   await montarBienvenida(page);
   await expect(page.getByRole('heading', { name: 'Tus alumnas reservan solas, a cualquier hora' })).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Siguiente' }).click();
@@ -59,9 +59,13 @@ test('las cuatro pantallas avanzan y desembocan en el asistente', async ({ page 
   await expect(page.getByRole('heading', { name: 'Cuando una instructora no puede, buscamos sustituta' })).toBeVisible();
   await page.getByRole('button', { name: 'Siguiente' }).click();
   await expect(page.getByRole('heading', { name: 'Ves qué clases se llenan y cuáles no' })).toBeVisible();
-  await expect(page.getByText('4 de 4')).toBeVisible();
+  await expect(page.getByText('4 de 5')).toBeVisible();
   // La última no dice "Siguiente": dice lo que va a pasar.
-  await page.getByRole('button', { name: 'Montamos tu estudio' }).click();
+  // La quinta y última: la única que pide algo (el logo), y también saltable.
+  await page.getByRole('button', { name: 'Siguiente' }).click();
+  await expect(page.getByRole('heading', { name: 'Ponle tu logo y ya es tuyo' })).toBeVisible();
+  await expect(page.getByText('5 de 5')).toBeVisible();
+  await page.getByRole('button', { name: 'Montar mi estudio' }).click();
   await expect(page.getByRole('heading', { name: 'Tus alumnas reservan solas, a cualquier hora' })).toHaveCount(0);
 });
 
@@ -84,4 +88,33 @@ test('Tenti se pinta con los colores de marca, no con el índigo del kit', async
   const html = await page.content();
   expect(html).not.toContain('#3D3B73');
   expect(html).not.toContain('#F07C80');
+});
+
+// La intro tecleada del asistente («Tu estudio ya está en marcha…») decía lo
+// MISMO que las pantallas de valor, así que la propietaria se comía dos
+// bienvenidas seguidas antes de que le preguntáramos nada. El asistente arranca
+// ya en la primera pregunta.
+test('no hay dos bienvenidas: tras la baraja se pregunta, no se saluda otra vez', async ({ page }) => {
+  await montarBienvenida(page);
+  await expect(page.getByRole('button', { name: 'Saltar' })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Saltar' }).click();
+
+  await expect(page.getByText('¿Cuántos centros tienes?')).toBeVisible();
+  // Ni la frase de la intro vieja ni su botón.
+  await expect(page.getByText('Tu estudio ya está en marcha')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Empezar' })).toHaveCount(0);
+});
+
+// El criterio del fundador era «nombre + logo bastan», y el logo no se pedía en
+// ningún sitio: ni en el alta ni en las once preguntas del asistente.
+test('la baraja termina pidiendo el logo, y se puede seguir sin ponerlo', async ({ page }) => {
+  await montarBienvenida(page);
+  for (let i = 0; i < 4; i++) {
+    await page.getByRole('button', { name: 'Siguiente' }).click({ timeout: 30_000 });
+  }
+  await expect(page.getByRole('heading', { name: 'Ponle tu logo y ya es tuyo' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Elige tu logo' })).toBeVisible();
+  // No bloquea: se entra al asistente sin haber subido nada.
+  await page.getByRole('button', { name: 'Montar mi estudio' }).click();
+  await expect(page.getByText('¿Cuántos centros tienes?')).toBeVisible();
 });

@@ -20,6 +20,7 @@ import {
   guardarBorrador,
   olvidarBorrador,
   validarPaso,
+  OPCIONES_COMO_NOS_CONOCIO,
   type BorradorAlta,
 } from '@/lib/alta/borrador';
 
@@ -406,6 +407,31 @@ export default function CrearEstudioPage() {
               placeholder="Ej. Madrid"
               autoComplete="address-level2"
             />
+            {/* Un <select> y no catorce botones: son catorce opciones y esto es
+                el primer paso del alta. Nativo se despliega bien en móvil, se
+                contesta de un toque y no empuja el botón de continuar fuera de
+                pantalla. Opcional: no bloquea `validarPaso`. */}
+            <div>
+              <label htmlFor={`${uid}-conocio`} className="mb-1.5 block text-[13px] font-semibold text-foreground">
+                ¿Cómo conociste Tentare?
+                <span className="ml-1 font-normal text-muted-foreground"> (opcional)</span>
+              </label>
+              <select
+                id={`${uid}-conocio`}
+                value={datos.comoNosConocio}
+                onChange={(e) => setDatos({ ...datos, comoNosConocio: e.target.value })}
+                aria-describedby={`${uid}-conocio-ayuda`}
+                className="w-full rounded-xl border border-border bg-card px-3.5 py-3 text-[14.5px] text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-ring/30"
+              >
+                <option value="">Prefiero no decirlo</option>
+                {OPCIONES_COMO_NOS_CONOCIO.map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+              <p id={`${uid}-conocio-ayuda`} className="mt-1.5 text-[12px] text-muted-foreground">
+                Nos ayuda mucho saber cómo llegaste hasta aquí.
+              </p>
+            </div>
           </div>
         )}
 

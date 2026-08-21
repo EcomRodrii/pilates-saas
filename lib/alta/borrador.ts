@@ -32,6 +32,36 @@ export const BORRADOR_ALTA: BorradorAlta = {
   comoNosConocio: '',
 };
 
+/**
+ * De dónde nos conoció. La lista es CERRADA a propósito, igual que el resto de
+ * opciones del onboarding: `studios.como_nos_conocio` se agrega por valor en
+ * /interno → Crecimiento, y con texto libre cada respuesta sería su propio
+ * canal de uno («insta», «Instagram», «IG»).
+ *
+ * ⚠️ Este campo llevaba desde la migración 0123 LEYÉNDOSE y sin que nada lo
+ * escribiera: `crear-estudio` lo mandaba en `pending_studio`, pero no había
+ * ningún control en pantalla que lo rellenara, así que viajaba siempre vacío.
+ * Comprobado en producción antes de tocarlo: 1 de 6 estudios tenía valor, y no
+ * había salido de aquí. Es el mismo fallo que las cuatro `onb_*` —dato que se
+ * guarda y no se usa— pero al revés: dato que se lee y nadie escribe.
+ */
+export const OPCIONES_COMO_NOS_CONOCIO = [
+  'Instagram',
+  'TikTok',
+  'Google / buscador',
+  'Recomendación de un conocido',
+  'Me lo recomendó otro estudio',
+  'Vi un anuncio',
+  'YouTube',
+  'LinkedIn',
+  'Reddit / comunidad online',
+  'Un evento o conferencia',
+  'Un artículo o blog',
+  'Buscando un software para mi estudio',
+  'Ya conocía Tentare',
+  'Otro',
+] as const;
+
 const CLAVE = 'tentare:alta-borrador';
 /** Un borrador viejo es ruido: a los 7 días se descarta. */
 const CADUCA_MS = 7 * 86_400_000;
@@ -112,7 +142,12 @@ export function leerBorrador(): Partial<BorradorAlta> | null {
       ciudad: texto(d.ciudad),
       persona: texto(d.persona),
       email: texto(d.email),
-      comoNosConocio: texto(d.comoNosConocio),
+      // Solo si es una de las opciones: lo que hay en localStorage lo puede
+      // editar cualquiera, y este valor acaba en una columna que después se
+      // agrupa por valor en el panel interno.
+      comoNosConocio: (OPCIONES_COMO_NOS_CONOCIO as readonly string[]).includes(texto(d.comoNosConocio))
+        ? texto(d.comoNosConocio)
+        : '',
       plan,
     };
   } catch {

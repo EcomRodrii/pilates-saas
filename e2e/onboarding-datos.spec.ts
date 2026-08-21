@@ -49,6 +49,8 @@ async function montar(page: Page) {
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
   await page.goto('/dashboard');
+  // Las pantallas de valor van delante; se saltan para llegar al asistente.
+  await page.getByRole('button', { name: 'Saltar' }).click({ timeout: 30_000 });
   return { configurar };
 }
 
@@ -88,9 +90,10 @@ async function recorrer(page: Page, aElegir: string[]) {
 test('«Clase suelta» y «doy clases» llegan al ejecutor, no se quedan por el camino', async ({ page }) => {
   const { configurar } = await montar(page);
 
-  // El asistente abre con la intro tecleada; su botón la cierra.
-  await page.getByRole('button', { name: 'Empezar' }).click({ timeout: 30_000 });
-  await expect(page.getByText('¿Cuántos centros tienes?')).toBeVisible();
+  // El asistente ya NO abre con una intro tecleada: las pantallas de valor
+  // hacen esa función, y tener las dos era darle dos bienvenidas seguidas.
+  // Arranca directamente en la primera pregunta.
+  await expect(page.getByText('¿Cuántos centros tienes?')).toBeVisible({ timeout: 30_000 });
   await recorrer(page, ['Clase suelta', 'Sí, yo doy clases']);
 
   await expect.poll(() => configurar.length, { timeout: 15_000 }).toBeGreaterThan(0);
