@@ -176,6 +176,80 @@ export function deDondeVienen(
   };
 }
 
+/**
+ * El perfil de los estudios que ya están dentro, según lo que contestaron en el
+ * asistente de bienvenida.
+ *
+ * ⚠️ Estas cuatro columnas llevaban desde que existe el asistente
+ * ESCRIBIÉNDOSE Y SIN QUE LAS LEYERA NADIE — comprobado con grep: las únicas
+ * referencias de `onb_centros`, `onb_software_anterior`, `onb_alumnos_activos`
+ * y `onb_importar_datos` fuera del propio asistente eran el mapper de
+ * escritura, el mapper de lectura y la declaración de tipo. Cero pantallas.
+ * Es exactamente el problema que ya avisa la cabecera de
+ * lib/onboarding/plan-configuracion.ts: datos que se guardan y no se usan.
+ *
+ * Y son justo las que responden «de dónde vienen nuestros usuarios»: de qué
+ * software llegan, cuántas alumnas traen, si son una sede o una cadena, y
+ * cuántos han pedido que les migremos los datos.
+ *
+ * Mismo criterio que `deDondeVienen`: «sin responder» NO es un valor. Se cuenta
+ * aparte y se deja fuera del reparto, porque el asistente se puede saltar
+ * entero y contar los silencios como una categoría convertiría «la mayoría no
+ * contestó» en «la mayoría son X».
+ */
+export interface RespuestasAsistente {
+  onbCentros: string | null;
+  onbSoftwareAnterior: string | null;
+  onbAlumnosActivos: string | null;
+  onbImportarDatos: string | null;
+}
+
+export interface RepartoRespuesta {
+  valores: Array<{ valor: string; n: number }>;
+  respondieron: number;
+  sinResponder: number;
+}
+
+/** Cuenta por valor ignorando vacíos y espacios. Compartido por los cuatro
+ *  repartos para que ninguno pueda contar los silencios de otra manera. */
+function reparto(valores: ReadonlyArray<string | null>): RepartoRespuesta {
+  const cuenta = new Map<string, number>();
+  let sinResponder = 0;
+  for (const v of valores) {
+    const t = (v ?? '').trim();
+    if (!t) { sinResponder++; continue; }
+    cuenta.set(t, (cuenta.get(t) ?? 0) + 1);
+  }
+  return {
+    valores: [...cuenta.entries()].map(([valor, n]) => ({ valor, n })).sort((a, b) => b.n - a.n),
+    respondieron: valores.length - sinResponder,
+    sinResponder,
+  };
+}
+
+/** La respuesta afirmativa de la pregunta de migración, literal del asistente
+ *  (components/onboarding/pantalla-bienvenida.tsx). Vive aquí como constante
+ *  para que cambiar el texto de la opción rompa el test en vez de dejar el
+ *  contador a cero en silencio. */
+export const RESPUESTA_QUIERE_IMPORTAR = 'Sí, importadlos';
+
+export function perfilDeLosEstudios(estudios: ReadonlyArray<RespuestasAsistente>): {
+  software: RepartoRespuesta;
+  tamano: RepartoRespuesta;
+  centros: RepartoRespuesta;
+  /** Cuántos pidieron que les migremos los datos. Es una LISTA DE TRABAJO, no
+   *  una estadística: cada uno es alguien esperando que alguien le importe sus
+   *  alumnas. */
+  quierenImportar: number;
+} {
+  return {
+    software: reparto(estudios.map(e => e.onbSoftwareAnterior)),
+    tamano: reparto(estudios.map(e => e.onbAlumnosActivos)),
+    centros: reparto(estudios.map(e => e.onbCentros)),
+    quierenImportar: estudios.filter(e => (e.onbImportarDatos ?? '').trim() === RESPUESTA_QUIERE_IMPORTAR).length,
+  };
+}
+
 export interface Peticion {
   id: string;
   tipo: string;

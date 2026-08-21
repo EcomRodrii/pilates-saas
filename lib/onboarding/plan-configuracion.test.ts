@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  planificarConfiguracion, planVacio, colorPorIndice, TIPOS_CLASE_SUGERIDOS,
+  planificarConfiguracion, planVacio, colorPorIndice, TIPOS_CLASE_SUGERIDOS, OPCIONES_IMPARTE,
   interpretarRespuestasWizard, OPCIONES_SALAS, OPCIONES_AFORO, OPCIONES_DURACION,
 } from './plan-configuracion.ts';
 
@@ -173,13 +173,75 @@ test('cada combinación de salas × aforo del asistente crea salas', () => {
   }
 });
 
-test('"Clase suelta" sola no crea ningún plan', () => {
-  // No hay nada que sembrar: una clase suelta es un precio puntual, no un plan
-  // con sesiones. Prometer un borrador aquí sería inventar.
-  const r = interpretarRespuestasWizard({ cobro: ['Clase suelta'] });
-  assert.deepEqual(planificarConfiguracion(r).planes, []);
-});
+// ⚠️ Este caso afirmaba lo CONTRARIO: «"Clase suelta" sola no crea ningún
+// plan», con el motivo «una clase suelta es un precio puntual, no un plan con
+// sesiones». Sobre ESTE código eso no era cierto, y se ha revertido a
+// propósito, no por descuido:
+//
+//   · `TipoPlan` incluye `PUNTUAL`, y `tab-planes.tsx` le exige `sesiones`
+//     igual que a un bono — sí es un plan con sesiones.
+//   · `/reservar/[slug]` y el portal calculan el precio de una clase suelta
+//     como `planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)`. Sin un
+//     plan PUNTUAL, la página pública NO PUEDE cobrar una clase suelta.
+//
+// O sea: contestar «cobro por clase suelta» y no recibir nada dejaba a ese
+// estudio sin la única pieza que le permite venderla. El borrador se crea con
+// `activo: false`, así que sigue sin poder cobrarle a nadie hasta que ella le
+// ponga precio y lo active — que es la regla 1 de la cabecera, intacta.
 
 test('sin tocar nada, el asistente no configura nada', () => {
   assert.ok(planVacio(planificarConfiguracion(interpretarRespuestasWizard({}))));
+});
+
+// ── Clase suelta ────────────────────────────────────────────────────────────
+// «Clase suelta» se ofrecía en el asistente desde el principio y el planificador
+// NO la miraba: se elegía, el asistente decía «dejamos preparado lo que uses» y
+// no se creaba nada. Datos recogidos y no usados, dentro del módulo que existe
+// para arreglar justo eso.
+test('elegir «Clase suelta» crea su borrador, no se tira', () => {
+  const p = planificarConfiguracion(interpretarRespuestasWizard({ cobro: ['Clase suelta'] }));
+  assert.deepEqual(p.planes, [
+    { nombre: 'Clase suelta', tipo: 'PUNTUAL', precio: 0, sesiones: 1, activo: false },
+  ]);
+});
+
+test('los tres modos de cobro conviven, y ninguno se crea vendible', () => {
+  const p = planificarConfiguracion(interpretarRespuestasWizard({
+    cobro: ['Bonos de sesiones', 'Cuota mensual', 'Clase suelta'],
+  }));
+  assert.deepEqual(p.planes.map(x => x.tipo), ['BONO', 'MENSUAL', 'PUNTUAL']);
+  // Regla 1 de la cabecera: nada que pueda cobrar dinero se crea activo.
+  assert.ok(p.planes.every(x => x.activo === false && x.precio === 0));
+});
+
+// ── Su propia ficha de instructora ──────────────────────────────────────────
+test('«Sí, yo doy clases» pide crear su ficha', () => {
+  const p = planificarConfiguracion(interpretarRespuestasWizard({ imparte: 'Sí, yo doy clases' }));
+  assert.equal(p.instructoraPropia, true);
+});
+
+test('«No, solo gestiono» —y no contestar— no crean ninguna ficha', () => {
+  assert.equal(planificarConfiguracion(interpretarRespuestasWizard({ imparte: 'No, solo gestiono' })).instructoraPropia, false);
+  assert.equal(planificarConfiguracion(interpretarRespuestasWizard({})).instructoraPropia, false);
+});
+
+// El fallo que este caso impide: con `planVacio` mirando solo salas/tipos/planes,
+// una propietaria que SOLO contestara que da clases tendría un plan «vacío», el
+// asistente no llamaría al ejecutor, y su ficha no se crearía nunca. En silencio.
+test('solo decir que das clases YA es motivo para llamar al ejecutor', () => {
+  const p = planificarConfiguracion(interpretarRespuestasWizard({ imparte: 'Sí, yo doy clases' }));
+  assert.equal(p.salas.length, 0);
+  assert.equal(p.tiposClase.length, 0);
+  assert.equal(p.planes.length, 0);
+  assert.equal(planVacio(p), false);
+});
+
+// La comparación va contra la etiqueta EXACTA que se pinta. Si alguien reescribe
+// el texto de la opción sin tocar el intérprete, este test se cae — en vez de
+// dejar el contador a cero en silencio.
+test('la etiqueta que se pinta y la que se interpreta son el mismo dato', () => {
+  assert.equal(
+    planificarConfiguracion(interpretarRespuestasWizard({ imparte: OPCIONES_IMPARTE[0] })).instructoraPropia,
+    true,
+  );
 });

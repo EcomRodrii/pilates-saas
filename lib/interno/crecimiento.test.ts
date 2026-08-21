@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  agruparPeticiones, deDondeVienen, loQueQuemaHoy, resumirEmbudo, validarLead,
+  agruparPeticiones, deDondeVienen, loQueQuemaHoy, perfilDeLosEstudios,
+  RESPUESTA_QUIERE_IMPORTAR, resumirEmbudo, validarLead,
   type Lead, type Peticion,
 } from './crecimiento.ts';
 
@@ -146,4 +147,50 @@ test('un PERDIDO sin motivo no se guarda', () => {
 test('un PERDIDO con motivo sí, y un email inválido no', () => {
   assert.equal(validarLead({ email: 'a@b.com', estado: 'PERDIDO', motivoPerdida: 'Precio' }).ok, true);
   assert.equal(validarLead({ email: 'no-es-email', estado: 'NUEVO' }).ok, false);
+});
+
+// ── perfilDeLosEstudios ─────────────────────────────────────────────────────
+// Las cuatro respuestas del asistente que se guardaban sin que las leyera nadie.
+
+const VACIO = { onbCentros: null, onbSoftwareAnterior: null, onbAlumnosActivos: null, onbImportarDatos: null };
+
+test('perfilDeLosEstudios agrupa de qué software vienen, de mayor a menor', () => {
+  const r = perfilDeLosEstudios([
+    { ...VACIO, onbSoftwareAnterior: 'Bsport' },
+    { ...VACIO, onbSoftwareAnterior: 'Bsport' },
+    { ...VACIO, onbSoftwareAnterior: 'TIMP' },
+  ]);
+  assert.deepEqual(r.software.valores, [{ valor: 'Bsport', n: 2 }, { valor: 'TIMP', n: 1 }]);
+  assert.equal(r.software.respondieron, 3);
+  assert.equal(r.software.sinResponder, 0);
+});
+
+// Mismo criterio que deDondeVienen: el asistente se puede saltar entero, así
+// que contar los silencios como una categoría convertiría «la mayoría no
+// contestó» en «la mayoría son X».
+test('«sin responder» no es un valor: se cuenta aparte', () => {
+  const r = perfilDeLosEstudios([
+    { ...VACIO, onbAlumnosActivos: '50-150' },
+    { ...VACIO, onbAlumnosActivos: null },
+    { ...VACIO, onbAlumnosActivos: '   ' },
+  ]);
+  assert.deepEqual(r.tamano.valores, [{ valor: '50-150', n: 1 }]);
+  assert.equal(r.tamano.respondieron, 1);
+  assert.equal(r.tamano.sinResponder, 2);
+});
+
+test('quienes piden migración se cuentan por la respuesta literal del asistente', () => {
+  const r = perfilDeLosEstudios([
+    { ...VACIO, onbImportarDatos: RESPUESTA_QUIERE_IMPORTAR },
+    { ...VACIO, onbImportarDatos: 'No, empiezo de cero' },
+    { ...VACIO, onbImportarDatos: null },
+  ]);
+  assert.equal(r.quierenImportar, 1);
+});
+
+test('sin ningún estudio no se inventa nada', () => {
+  const r = perfilDeLosEstudios([]);
+  assert.deepEqual(r.software.valores, []);
+  assert.equal(r.software.respondieron, 0);
+  assert.equal(r.quierenImportar, 0);
 });

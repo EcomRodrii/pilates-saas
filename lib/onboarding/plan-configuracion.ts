@@ -61,6 +61,17 @@ export interface RespuestasOperativa {
   usaBonos?: boolean;
   /** Vende cuotas mensuales. */
   usaMembresias?: boolean;
+  /** Vende clases sueltas.
+   *
+   *  ⚠️ «Clase suelta» se ofrecía en el asistente desde el principio y aquí NO
+   *  se miraba: la propietaria la elegía, el asistente decía «dejamos preparado
+   *  lo que uses» y no se creaba nada. Es el mismo fallo que este módulo
+   *  existe para arreglar —datos que se recogen y no se usan— colado dentro
+   *  del propio arreglo. */
+  usaClaseSuelta?: boolean;
+  /** Da clases ella misma. Crea su ficha de instructora, que es lo que permite
+   *  asignarse una clase en el calendario el primer día. */
+  imparteClases?: boolean;
 }
 
 export interface SalaAPlanificar { nombre: string; capacidad: number; color: string }
@@ -77,6 +88,10 @@ export interface PlanConfiguracion {
   salas: SalaAPlanificar[];
   tiposClase: TipoClaseAPlanificar[];
   planes: PlanAPlanificar[];
+  /** Si hay que darla de alta como instructora de su propio estudio. No lleva
+   *  nombre ni email: los pone el ejecutor desde la SESIÓN, nunca desde el
+   *  body — mismo criterio que el `studio_id`. */
+  instructoraPropia: boolean;
 }
 
 // Topes de cordura. No son política de producto: son el freno a un número
@@ -145,13 +160,25 @@ export function planificarConfiguracion(r: RespuestasOperativa): PlanConfiguraci
   if (r.usaMembresias) {
     planes.push({ nombre: 'Cuota mensual', tipo: 'MENSUAL', precio: 0, sesiones: null, activo: false });
   }
+  // `PUNTUAL` con una sesión: es literalmente «una clase». Va con el mismo
+  // freno que los otros dos —precio 0 y `activo: false`— porque es igual de
+  // vendible que ellos en cuanto alguien le ponga precio.
+  if (r.usaClaseSuelta) {
+    planes.push({ nombre: 'Clase suelta', tipo: 'PUNTUAL', precio: 0, sesiones: 1, activo: false });
+  }
 
-  return { salas, tiposClase, planes };
+  return { salas, tiposClase, planes, instructoraPropia: r.imparteClases === true };
 }
 
-/** ¿Hay algo que hacer? Evita llamar al ejecutor para nada. */
+/** ¿Hay algo que hacer? Evita llamar al ejecutor para nada.
+ *
+ *  ⚠️ `instructoraPropia` cuenta. Sin mirarla, una propietaria que solo
+ *  contestara «sí, doy clases» y nada más tendría un plan «vacío», el asistente
+ *  no llamaría al ejecutor y su ficha no se crearía nunca — en silencio, que es
+ *  la peor forma de no hacer algo. */
 export function planVacio(p: PlanConfiguracion): boolean {
-  return p.salas.length === 0 && p.tiposClase.length === 0 && p.planes.length === 0;
+  return p.salas.length === 0 && p.tiposClase.length === 0
+    && p.planes.length === 0 && !p.instructoraPropia;
 }
 
 // ─── Etiquetas del asistente → respuestas ────────────────────────────────────
@@ -169,6 +196,7 @@ export const OPCIONES_SALAS = ['1 sala', '2 salas', '3 salas', '4 o más'] as co
 export const OPCIONES_AFORO = ['4 plazas', '6 plazas', '8 plazas', '10 plazas', '12 o más'] as const;
 export const OPCIONES_DURACION = ['45 minutos', '50 minutos', '55 minutos', '60 minutos'] as const;
 export const OPCIONES_COBRO = ['Bonos de sesiones', 'Cuota mensual', 'Clase suelta'] as const;
+export const OPCIONES_IMPARTE = ['Sí, yo doy clases', 'No, solo gestiono'] as const;
 
 // "4 o más" / "12 o más" se quedan en el número que dicen, no en un invento
 // mayor: si tiene 7 salas, crear 4 y que añada 3 es mucho mejor que crear 10 y
@@ -187,6 +215,7 @@ export function interpretarRespuestasWizard(ans: {
   duracion?: string;
   clases?: string[];
   cobro?: string[];
+  imparte?: string;
 }): RespuestasOperativa {
   const cobro = ans.cobro ?? [];
   return {
@@ -196,5 +225,10 @@ export function interpretarRespuestasWizard(ans: {
     tiposClase: ans.clases ?? [],
     usaBonos: cobro.includes('Bonos de sesiones'),
     usaMembresias: cobro.includes('Cuota mensual'),
+    usaClaseSuelta: cobro.includes('Clase suelta'),
+    // Se compara contra la etiqueta EXACTA que se pinta, que sale de
+    // OPCIONES_IMPARTE — no contra un `startsWith('Sí')` que se rompería al
+    // reescribir el texto de la opción.
+    imparteClases: ans.imparte === OPCIONES_IMPARTE[0],
   };
 }

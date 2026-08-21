@@ -30,7 +30,7 @@ import { useStudio } from '@/lib/studio-context';
 // enseña y la que se interpreta son el mismo dato, así que no pueden divergir
 // al editar una de las dos (hay un test que recorre las listas enteras).
 import {
-  OPCIONES_SALAS, OPCIONES_AFORO, OPCIONES_DURACION, OPCIONES_COBRO,
+  OPCIONES_SALAS, OPCIONES_AFORO, OPCIONES_DURACION, OPCIONES_COBRO, OPCIONES_IMPARTE,
   TIPOS_CLASE_SUGERIDOS, interpretarRespuestasWizard, planificarConfiguracion,
   planVacio,
 } from '@/lib/onboarding/plan-configuracion';
@@ -61,6 +61,7 @@ type Respuestas = {
   duracion?: string;
   clases?: string[];
   cobro?: string[];
+  imparte?: string;
 };
 
 type Paso = {
@@ -160,6 +161,14 @@ const PASOS: Paso[] = [
     nota: 'Dejamos preparado lo que uses; el precio lo pones tú antes de activarlo.',
     opciones: [...OPCIONES_COBRO],
     multi: 2,
+  },
+  {
+    id: 'imparte', etiqueta: 'Tu equipo', titulo: '¿Das clases tú?',
+    // La única de las cinco de operativa que crea una PERSONA y no una cosa.
+    // Sin ella, una propietaria que da clases entra al panel con el checklist
+    // pidiéndole «añade tu primera instructora» — siendo ella.
+    nota: 'Si las das, te dejamos tu ficha creada y podrás asignarte clases desde hoy.',
+    opciones: [...OPCIONES_IMPARTE],
   },
   {
     id: 'importar', etiqueta: 'Migración', titulo: '¿Quieres que importemos tus datos?',

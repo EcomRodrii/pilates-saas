@@ -100,9 +100,12 @@ export const altaEnEquipo = (
 export const cambiarMiembro = (userId: string, cuerpo: { activo?: boolean; permisos?: string[]; cargo?: string | null }) =>
   pedir<{ ok: true; sinCambios: boolean }>(`/equipo/${userId}`, { method: 'PATCH', body: JSON.stringify(cuerpo) });
 
-export interface EstudioOrigen {
+/** Un estudio ya dentro, con lo que contestó en el alta y en el asistente.
+ *  Hereda las cuatro respuestas del asistente de `RespuestasAsistente` para
+ *  que añadir una pregunta nueva no obligue a tocar dos listas. */
+export type EstudioOrigen = import('./crecimiento.ts').RespuestasAsistente & {
   id: string; nombre: string; comoNosConocio: string | null; creadoEn: string;
-}
+};
 
 export interface Crecimiento {
   leads: import('./crecimiento.ts').Lead[];

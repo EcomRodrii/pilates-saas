@@ -10,7 +10,8 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // §8 — Aplica al estudio lo que la propietaria acaba de responder en el
 // asistente de bienvenida: crea sus salas con su aforo, sus tipos de clase con
-// su duración, y los borradores de bono/cuota.
+// su duración, los borradores de bono/cuota/clase suelta, y —si da clases ella
+// misma— su propia ficha de instructora.
 //
 // Deliberadamente tonto: TODA la decisión de qué crear vive en la función pura
 // `planificarConfiguracion` (con 17 tests). Aquí solo se aplica el plan. Es lo
@@ -116,11 +117,50 @@ export async function POST(req: NextRequest) {
         'No se han podido crear tus bonos. Puedes crearlos en Configuración → Bonos y membresías.');
     }
 
+    // Su propia ficha de instructora, si ha dicho que da clases.
+    //
+    // El nombre y el email salen de la SESIÓN, nunca del body — mismo criterio
+    // que el `studio_id`: si vinieran del cuerpo, cualquiera podría darse de
+    // alta con el nombre que quisiera en su propio estudio, y de paso habría
+    // dos sitios distintos diciendo quién es esta persona.
+    //
+    // Idempotente igual que el resto, pero por `auth_user_id` y no por nombre:
+    // la cerradura real es el UNIQUE(auth_user_id, studio_id) de la migración
+    // 20260731003736, así que aunque dos peticiones se crucen solo puede
+    // quedar una fila. Se comprueba antes para no gastar un insert que ya
+    // sabemos que va a chocar, y se trata el 23505 como éxito por si se cruzan
+    // de todos modos — mismo tratamiento que dbInsertInstructoraPropia.
+    let instructoraCreada = false;
+    if (plan.instructoraPropia) {
+      const { data: yaEsta } = await admin
+        .from('instructores')
+        .select('id')
+        .eq('studio_id', studioId)
+        .eq('auth_user_id', sesion.userId)
+        .maybeSingle();
+      if (!yaEsta) {
+        const { error } = await admin.from('instructores').insert({
+          id: uid(), studio_id: studioId, auth_user_id: sesion.userId,
+          nombre: sesion.nombre, email: sesion.email, rol: 'PROPIETARIO', activo: true,
+        });
+        // Fallo suave y NO abortar: llegados aquí sus salas, clases y bonos ya
+        // están creados. Devolver un error ahora le diría que no se ha podido
+        // preparar su estudio cuando lo único que falta es una ficha que el
+        // checklist de primeros pasos ya le va a pedir igualmente.
+        if (error && error.code !== '23505') {
+          console.error('[onboarding:configurar:instructora]', error);
+        } else {
+          instructoraCreada = true;
+        }
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       salas: salasNuevas.length,
       tiposClase: tiposNuevos.length,
       planes: planesNuevos.length,
+      instructora: instructoraCreada,
     });
   } catch (err) {
     return errorInterno('onboarding:configurar', err,

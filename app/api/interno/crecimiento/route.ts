@@ -55,7 +55,12 @@ export async function GET(req: NextRequest) {
 
   const [leads, estudios, peticiones] = await Promise.all([
     db.from('plataforma_lead').select('*').order('creado_en', { ascending: false }),
-    db.from('studios').select('id, nombre, como_nos_conocio, creado_en'),
+    // Las cuatro `onb_*` son las respuestas del asistente de bienvenida, que
+    // se llevaban escribiendo sin que ninguna pantalla las leyera. Ver
+    // `perfilDeLosEstudios` en lib/interno/crecimiento.ts.
+    db.from('studios').select(
+      'id, nombre, como_nos_conocio, creado_en, onb_centros, onb_software_anterior, onb_alumnos_activos, onb_importar_datos',
+    ),
     // `soporte_solicitudes` tiene RLS por tenant: desde aquí solo se lee con
     // service-role, y solo después de haber validado `crm.update` arriba.
     db.from('soporte_solicitudes')
@@ -77,6 +82,10 @@ export async function GET(req: NextRequest) {
       nombre: (e.nombre as string | null) ?? (e.id as string),
       comoNosConocio: (e.como_nos_conocio as string | null) ?? null,
       creadoEn: String(e.creado_en ?? ''),
+      onbCentros: (e.onb_centros as string | null) ?? null,
+      onbSoftwareAnterior: (e.onb_software_anterior as string | null) ?? null,
+      onbAlumnosActivos: (e.onb_alumnos_activos as string | null) ?? null,
+      onbImportarDatos: (e.onb_importar_datos as string | null) ?? null,
     })),
     peticiones: (peticiones.data ?? []).map(p => ({
       id: p.id as string,
