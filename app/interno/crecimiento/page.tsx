@@ -18,8 +18,8 @@ import {
 } from '@/lib/interno/client';
 import {
   ESTADOS, ESTADO_ETIQUETA, ORIGENES, ORIGEN_ETIQUETA,
-  agruparPeticiones, deDondeVienen, loQueQuemaHoy, resumirEmbudo,
-  type EstadoLead, type Lead, type OrigenLead,
+  agruparPeticiones, deDondeVienen, loQueQuemaHoy, perfilDeLosEstudios, resumirEmbudo,
+  type EstadoLead, type Lead, type OrigenLead, type RepartoRespuesta,
 } from '@/lib/interno/crecimiento';
 
 const fecha = (iso: string | null) =>
@@ -156,6 +156,7 @@ export default function CrecimientoInterno() {
       quema: loQueQuemaHoy(d.leads, ahora),
       embudo: resumirEmbudo(d.leads),
       origen: deDondeVienen(d.estudios),
+      perfil: perfilDeLosEstudios(d.estudios),
       piden: agruparPeticiones(d.peticiones),
     };
   }, [d, ahora]);
@@ -373,6 +374,64 @@ export default function CrecimientoInterno() {
           )}
         </div>
       </section>
+
+      <section>
+        <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">
+          Quiénes son los estudios que ya están dentro
+        </h2>
+        {/* Estas cuatro respuestas llevaban desde que existe el asistente
+            guardándose sin que ninguna pantalla las leyera. Son las que
+            contestan de qué software llegan, qué tamaño tienen y cuántos
+            esperan que les migremos los datos. */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Reparto titulo="De qué software vienen" datos={vista.perfil.software} />
+          <Reparto titulo="Cuántas alumnas traen" datos={vista.perfil.tamano} />
+          <Reparto titulo="Cuántos centros tienen" datos={vista.perfil.centros} />
+        </div>
+        {vista.perfil.quierenImportar > 0 && (
+          <p className="mt-2.5 flex items-start gap-1.5 text-[12px] text-foreground leading-snug">
+            <Flame className="mt-0.5 size-3.5 shrink-0 text-amber-600" aria-hidden />
+            <span>
+              <strong>{vista.perfil.quierenImportar}</strong>
+              {vista.perfil.quierenImportar === 1 ? ' estudio ha pedido' : ' estudios han pedido'} que
+              le migremos sus datos. Es una lista de trabajo, no una estadística: cada uno es
+              alguien esperando a que alguien le importe sus alumnas.
+            </span>
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** Un reparto de respuestas del asistente. Mismo aviso que «cómo nos
+ *  conocieron»: con pocas respuestas esto no es un reparto, es una anécdota —
+ *  y el asistente entero se puede saltar. */
+function Reparto({ titulo, datos }: { titulo: string; datos: RepartoRespuesta }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card px-3.5 py-3">
+      <p className="text-[11.5px] font-semibold text-foreground mb-2">{titulo}</p>
+      {datos.valores.length === 0 ? (
+        <p className="text-[12px] text-muted-foreground">Nadie lo ha contestado todavía.</p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {datos.valores.map(v => (
+            <div key={v.valor} className="flex items-center gap-2 text-[12px]">
+              <span className="w-24 shrink-0 truncate text-foreground" title={v.valor}>{v.valor}</span>
+              <span
+                className="h-2 rounded-full bg-brand-medio"
+                style={{ width: `${Math.max(6, (v.n / Math.max(1, datos.respondieron)) * 100)}%` }}
+              />
+              <span className="tabular-nums text-muted-foreground">{v.n}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {datos.sinResponder > 0 && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {datos.respondieron} de {datos.respondieron + datos.sinResponder} lo han contestado.
+        </p>
+      )}
     </div>
   );
 }
