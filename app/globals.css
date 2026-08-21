@@ -385,6 +385,25 @@ nextjs-portal { display: none !important; }
    embebido esa variante mide el ancho del IFRAME, no el de la pantalla (trampa
    ya documentada en PublicSheet). Y por eso mismo la clase solo se aplica
    FUERA del embebido, donde la franja visible ya gobierna la altura. */
+/* Portada de /reservar en móvil.
+
+   ⚠️ Medido a 390px: la portada se comía la pantalla entera y el horario —lo
+   único a lo que viene la gente— empezaba por debajo del pliegue. El bloque más
+   pesado era la foto: `aspect-ratio 4/3` a ancho completo son ~262px de alto en
+   un móvil. En escritorio esa proporción está bien y no se toca; en móvil pasa
+   a banda ancha, que cuenta lo mismo ocupando la mitad.
+
+   Solo afecta a la página SUELTA: en el widget embebido la portada ni se pinta. */
+@media (max-width: 640px) {
+  .reserva-hero-foto { max-height: 148px; }
+  .reserva-hero-portada { padding-top: 18px !important; padding-bottom: 16px !important; }
+  /* El aire entre la portada y las pestañas está calculado para escritorio
+     (46px arriba). En un móvil es justo lo que separa a la persona de lo que ha
+     venido a ver. `!important` porque el valor vive en un `style` en línea, que
+     de otro modo gana. */
+  .reserva-tabs { margin-top: 12px !important; }
+}
+
 @media (max-width: 640px) {
   /* Altura FIJA, no mínima: con `min-height` el paso «datos» seguía siendo 90px
      más alto que el de «pago» (medido: 748 vs 658), así que el marco seguía

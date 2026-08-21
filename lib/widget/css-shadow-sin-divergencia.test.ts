@@ -46,6 +46,9 @@ const SOLO_MODO_A = new Set([
   // (dentro manda la franja visible del iframe), así que en el bundle no
   // pintaría nada aunque estuviera.
   'reserva-hoja-estable',
+  // La portada de /reservar solo existe FUERA del embebido (`!embedMode`), así
+  // que sus clases no tienen nada que hacer en el bundle.
+  'reserva-hero-foto', 'reserva-hero-portada', 'reserva-tabs',
   // `components/ui/dashboard-drawer.tsx` — cajón del PANEL, tras login. El
   // bundle público no lo incluye ni puede incluirlo.
   'animate-drawer-sheet-in', 'animate-drawer-sheet-out',

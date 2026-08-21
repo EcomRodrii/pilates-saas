@@ -1894,6 +1894,7 @@ export default function ReservarPage() {
             tiene su web), pero no se mueve — ver la nota del degradado arriba. */}
         {!embedMode && seccionVisible('portada') && (
         <div
+          className="reserva-hero-portada"
           style={{
             position: 'relative',
             padding: `${cq(28, 4, 56)} ${cq(20, 3.8, 48)} ${cq(24, 3, 44)}`,
@@ -1948,6 +1949,7 @@ export default function ReservarPage() {
               src={heroFoto}
               alt=""
               onError={alFallarImagen(IMAGENES_POR_DEFECTO.portada[0])}
+              className="reserva-hero-foto"
               style={{
                 width: '100%', aspectRatio: '4 / 3', objectFit: 'cover',
                 borderRadius: R.card, display: 'block',
@@ -1961,7 +1963,7 @@ export default function ReservarPage() {
             ⚠️ El `div#horario` se pinta SIEMPRE, con pestañas o sin ellas: es el
             ancla a la que salta el botón de la portada y el que usan los tests.
             Lo que desaparece con `soloPestana` son los botones de dentro. */}
-        <div id="horario" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
+        <div id="horario" className={embedMode ? undefined : 'reserva-tabs'} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
           {/* Un widget embebido es 1 propósito, no un portal en miniatura:
               en `embedMode` se enseña SIEMPRE únicamente la pestaña que pidió
               `?tab=`, sin barra — quien incrusta «Horario y reserva de
