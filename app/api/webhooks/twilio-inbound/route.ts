@@ -29,8 +29,11 @@ export async function POST(request: NextRequest) {
     // indistinguible de "ninguna socia responde" — el modo de fallo produce
     // justo la respuesta que cierra el proyecto. Hoy en producción hay 0 filas,
     // así que esto no es teórico.
+    // 503 y no 403 a propósito, como estaba: Twilio reintenta en 5xx y no en
+    // 4xx, y esto es un fallo de configuración NUESTRO que se arregla
+    // desplegando — interesa que el mensaje vuelva a intentarlo.
     Sentry.captureMessage('[twilio inbound] TWILIO_AUTH_TOKEN no configurado: la medición no recibe nada', { level: 'warning' });
-    return NextResponse.json({ ok: false }, { status: 403 });
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 
   const raw = await request.text();
@@ -40,15 +43,17 @@ export async function POST(request: NextRequest) {
   // hubiera (aquí no hay). request.url puede venir con el host interno tras
   // un proxy; NEXT_PUBLIC_APP_URL es el origen público real, mismo patrón ya
   // usado para construir URLs firmadas en el resto del repo.
-  // El fallback a `new URL(request.url).origin` se ha quitado: esa URL sale del
-  // Host/X-Forwarded-Host de la petición, o sea del cliente. No era un bypass
-  // (forjar la firma sigue exigiendo el auth token) pero es superficie inútil, y
-  // además enmascaraba el desajuste de configuración detrás de un 403 mudo.
-  const base = process.env.NEXT_PUBLIC_APP_URL;
-  if (!base) {
-    Sentry.captureMessage('[twilio inbound] NEXT_PUBLIC_APP_URL no configurado: no se puede validar la firma', { level: 'warning' });
-    return NextResponse.json({ ok: false }, { status: 403 });
-  }
+  // El fallback a `new URL(request.url).origin` SE CONSERVA. La revisión de la
+  // auditoría propuso quitarlo (esa URL sale del Host/X-Forwarded-Host, o sea
+  // del cliente) y sería lo correcto SI la variable estuviera garantizada — pero
+  // no lo está: docs/DEPLOY.md dice literalmente que "no es imprescindible", no
+  // hay `.env.example` ni bloque `env` en vercel.json, y ~30 sitios del repo la
+  // leen con fallback. Quitarlo convertiría este endpoint en un 403 permanente
+  // si no está puesta, que es justo el modo de fallo que la medición no puede
+  // permitirse. Y no es un bypass: forjar la firma sigue exigiendo el auth
+  // token, que el atacante no tiene. Se registra cuál se usó, que es lo que
+  // faltaba para poder diagnosticarlo.
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
   const url = `${base}/api/webhooks/twilio-inbound`;
   const firma = request.headers.get('X-Twilio-Signature');
 

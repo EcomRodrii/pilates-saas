@@ -135,10 +135,13 @@ const CLAVES_SIZE_DE_LOS_TEMAS: string[] = TEMAS_PORTAL_IDS.flatMap(
 );
 
 export const CLAVES_KIT_PERMITIDAS: ReadonlySet<string> = new Set([
-  // (`--accent` estaba aquí y NINGÚN tema lo emite: `varsColorSobreTema` no lo
-  // declara. Es un token global de la app —dashboard y login— que se coló en la
-  // lista del kit, así que el listener hacía `removeProperty('--accent')` sobre
-  // el documento del preview en cada mensaje. Fuera; el test de abajo lo impide.)
+  // (`--accent` estaba aquí y NINGÚN emisor del KIT lo produce:
+  // `varsColorSobreTema` no lo declara. Es un token global de la app —dashboard
+  // y login— que se coló en esta lista. En la práctica era inerte, porque los
+  // tres emisores parten también de `themeToCssVars`, que sí emite `--accent`
+  // por el otro vocabulario, así que siempre caía en `aplicar` y nunca en
+  // `borrar`. Sale de aquí por higiene; sigue en CLAVES_PREVIEW_PERMITIDAS, que
+  // es donde le corresponde. El test de abajo impide que vuelva.)
   '--brand', '--on-brand', '--support', '--bg', '--ink',
   '--font-body', '--font-display', '--weight-display',
   '--radius-card', '--radius-button', '--radius-chip', '--radius-quick-link',

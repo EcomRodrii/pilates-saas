@@ -2457,8 +2457,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // llamaba enseñaba «Clase cancelada · clientas avisadas» pasara lo que pasara,
   // así que un fallo del UPDATE reintroducía EXACTAMENTE las reservas fantasma
   // que este mismo código fue a arreglar, y en silencio. Ahora devuelve el
-  // resultado para que el toast pueda decir la verdad; el reporte a Sentry se
-  // conserva tal cual.
+  // resultado para que el toast pueda decir la verdad — en los DOS llamantes
+  // (clase suelta y serie); el reporte a Sentry se conserva tal cual.
   async function cancelarReservasDeSesiones(ids: string[], op: string): Promise<ResultadoEscritura> {
     if (ids.length === 0) return { ok: true };
     try {
@@ -2618,7 +2618,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // no de la socia — qué política de reembolso aplica en ese caso es una
     // decisión de producto pendiente, no algo para improvisar en un fix de
     // integridad de datos.
-    cancelarReservasDeSesiones(ids, 'cancelarSerieDesde');
+    // Se espera igual que en el camino de clase suelta: era el otro llamante y
+    // se quedó fuera del fix, devolviendo {ok:true} sin mirar si las reservas se
+    // habían cancelado de verdad (lo encontró la revisión de la auditoría).
+    const resReservas = await cancelarReservasDeSesiones(ids, 'cancelarSerieDesde');
+    if (!resReservas.ok) return resReservas;
     return { ok: true };
   }
 

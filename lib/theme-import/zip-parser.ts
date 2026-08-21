@@ -87,7 +87,7 @@ export function descomprimirTema(buffer: Uint8Array): ZipDescomprimido {
   // Se rechaza el ZIP entero en vez de filtrar la entrada: un ZIP con rutas así
   // no es un export legítimo de ninguna herramienta, y aceptarlo a medias
   // dejaría un tema roto sin explicar por qué. Ver la defensa en profundidad en
-  // subirObjetoR2 (lib/r2.ts), que además valida el prefijo resultante.
+  // subirObjetoR2 (lib/r2.ts), que rechaza la misma clase de clave.
   const sospechosa = rutas.find(rutaConTravesia);
   if (sospechosa) {
     throw new ZipInvalidoError(

@@ -646,8 +646,10 @@ async function postCheckout(ruta: string, params: unknown): Promise<{ url: strin
     // compra de un PLAN el servidor ya no acepta el `socioId` del body sin JWT
     // (ver app/api/stripe/checkout/route.ts). Las dos pantallas que compran
     // plan —/compras y el kit de temas— corren siempre con sesión de socia, así
-    // que la cabecera existe. En el cobro de un RECIBO no hace falta y no
-    // estorba: ahí el servidor deriva el socio de la fila del recibo.
+    // que la cabecera existe. Los otros dos usos de este helper (cobro de un
+    // RECIBO y alta de mandato SEPA) no la necesitan y no les estorba: allí el
+    // servidor deriva el socio de la fila del recibo, y una cabecera de más se
+    // ignora. `portalAuthHeader` devuelve `{}` sin sesión, nunca lanza.
     const auth = await portalAuthHeader();
     res = await fetch(ruta, {
       method: 'POST',
