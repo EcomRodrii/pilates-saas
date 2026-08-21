@@ -14,6 +14,8 @@ import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
+import { LEGAL } from '@/lib/legal-info';
+import { decidirCierreDeEspera, suscripcionDeReservaWeb, PREFIJO_RESERVA_WEB } from '@/lib/lista-espera/esperas-sin-plaza';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
@@ -1189,6 +1191,143 @@ export async function barrerNoShows(nowISO: string) {
     marcadas += (upd ?? []).length;
   }
   return { reservasPendientes: ids.length, reservasMarcadas: marcadas, truncado };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cierre de las esperas PAGADAS que ya no pueden resolverse.
+//
+// Gemelo de `barrerNoShows` (misma ventana, mismo cron diario, misma forma:
+// reservas atascadas en un estado transitorio de una clase ya terminada), por
+// eso vive aquí y no en un cron nuevo — Inngest está al ~84 % del plan free y
+// esto no justifica ni una invocación más.
+//
+// Solo mira reservas `res-web-…`: las que nacieron de un pago del widget sin
+// cuenta (`reservarPlazaTrasPagoPublico`). Una socia con bono que se apunta a
+// la cola por gusto no pagó por ESA clase, así que contarle que «su crédito
+// sigue vivo» sería inventarse un problema.
+//
+// Idempotente sin columna nueva: el propio paso a CANCELADA saca la fila del
+// conjunto, así que la migración que haría falta para marcarla como «ya
+// avisada» no hace falta. Y el aviso solo se manda si el UPDATE tocó la fila
+// de verdad (compare-and-set contra LISTA_ESPERA), nunca antes.
+//
+// No devuelve ningún bono a propósito: una reserva en LISTA_ESPERA nunca
+// consumió uno (solo `CONFIRMADA` llama a `consumirBonoServidor`). Devolver
+// aquí regalaría una sesión que nadie descontó — el mismo error que el guard de
+// plazas fijas de `ejecutarCancelacionReserva` ya evita.
+export async function barrerEsperasSinPlaza(nowISO: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const desdeISO = new Date(Date.parse(nowISO) - VENTANA_NO_SHOWS_DIAS * 86_400_000).toISOString();
+  const { filas, truncado } = await leerCatalogoCompleto<{ id: string; studio_id: string; socio_id: string; sesion_id: string }>(
+    (desde, hasta) => admin
+      .from('reservas')
+      .select('id, studio_id, socio_id, sesion_id, sesiones!inner(fin, cancelada)')
+      .eq('estado', 'LISTA_ESPERA')
+      .like('id', `${PREFIJO_RESERVA_WEB}%`)
+      .eq('sesiones.cancelada', false)
+      .lt('sesiones.fin', nowISO)
+      .gte('sesiones.fin', desdeISO)
+      // Orden ESTABLE para que la paginación no repita ni salte filas (mismo
+      // criterio que barrerNoShows: el orden semántico da igual).
+      .order('id', { ascending: true })
+      .range(desde, hasta),
+  );
+  if (truncado) {
+    capturarMensaje('barrerEsperasSinPlaza: se alcanzó el tope de paginación, quedan esperas sin cerrar', 'warning', {
+      tags: { area: 'cron-no-shows' }, extra: { desdeISO, nowISO },
+    });
+  }
+
+  let cerradas = 0;
+  let avisadas = 0;
+  for (const fila of filas) {
+    // Compare-and-set: entre la lectura y aquí, mostrador puede haberla
+    // promocionado o cancelado a mano. Si no devuelve fila, no se avisa.
+    const { data: upd, error: updErr } = await admin
+      .from('reservas')
+      .update({ estado: 'CANCELADA' })
+      .eq('id', fila.id)
+      .eq('estado', 'LISTA_ESPERA')
+      .select('id');
+    if (updErr) { reportDbError('[barrerEsperasSinPlaza]', updErr); continue; }
+    if (!upd?.length) continue;
+    cerradas++;
+    if (await avisarEsperaSinPlaza(admin, fila)) avisadas++;
+  }
+  return { esperasPendientes: filas.length, esperasCerradas: cerradas, sociasAvisadas: avisadas, truncado };
+}
+
+// El aviso en sí. Best-effort a propósito: la reserva YA está cerrada cuando se
+// llega aquí, y un fallo de Resend no debe dejar el barrido a medias ni hacer
+// que se reintente el cierre. Devuelve si se avisó a la socia.
+async function avisarEsperaSinPlaza(
+  admin: SupabaseClient, fila: { id: string; studio_id: string; socio_id: string; sesion_id: string },
+): Promise<boolean> {
+  try {
+    const suscripcionId = suscripcionDeReservaWeb(fila.id);
+    if (!suscripcionId) return false;
+
+    const { data: sus } = await admin
+      .from('suscripciones')
+      .select('estado, sesiones_restantes, fecha_fin, planes_tarifa(tipo)')
+      .eq('id', suscripcionId).eq('studio_id', fila.studio_id).maybeSingle();
+    const plan = sus?.planes_tarifa as { tipo?: string } | { tipo?: string }[] | null | undefined;
+    const tipoPlan = (Array.isArray(plan) ? plan[0]?.tipo : plan?.tipo) ?? null;
+
+    const cierre = decidirCierreDeEspera({
+      tipoPlan,
+      sesionesRestantes: (sus?.sesiones_restantes as number | null) ?? null,
+      estadoSuscripcion: (sus?.estado as string | null) ?? null,
+    });
+    if (!cierre.avisarSocia) return false;
+
+    // Al mostrador PRIMERO: es quien puede actuar hoy, y su aviso no depende de
+    // que Resend esté configurado.
+    if (cierre.avisarEstudio) {
+      const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+      await emitirReservaPagadaSinPlaza(admin, {
+        studioId: fila.studio_id, sesionId: fila.sesion_id, socioId: fila.socio_id, situacion: 'cerrada',
+      });
+    }
+
+    const [{ data: socia }, { data: studio }, datos] = await Promise.all([
+      admin.from('socios').select('nombre, email').eq('id', fila.socio_id).eq('studio_id', fila.studio_id).maybeSingle(),
+      admin.from('studios').select('slug, email').eq('id', fila.studio_id).maybeSingle(),
+      datosClaseParaEmail(admin, fila.studio_id, fila.sesion_id),
+    ]);
+    if (!socia?.email || !datos) return false;
+
+    const base = process.env.NEXT_PUBLIC_APP_URL || LEGAL.url;
+    const slug = (studio?.slug as string | null) ?? '';
+    const r = await enviarEmailTransaccional({
+      tipo: 'espera-sin-plaza',
+      to: socia.email as string,
+      toName: (socia.nombre as string | null) ?? 'Socia',
+      data: {
+        ...datos,
+        sesionesRestantes: cierre.sesionesRestantes,
+        // `fecha_fin` es un DATE ('2026-09-30'). Se lee al mediodía UTC para que
+        // no se corra un día al pasarlo a hora de España — mismo idiom que el
+        // cron de bonos por caducar.
+        caducaEl: sus?.fecha_fin ? fechaLargaEstudio(new Date(`${sus.fecha_fin as string}T12:00:00Z`)) : null,
+        urlHorario: slug ? `${base}/reservar/${slug}` : null,
+        emailEstudio: (studio?.email as string | null) ?? null,
+      },
+      studioId: fila.studio_id,
+      // Determinista: una espera se cierra UNA vez, y si el cron se repitiera
+      // tras un despliegue a medias Resend no reenvía en 24 h.
+      idempotencyKey: `espera-sin-plaza-${fila.id}`,
+    });
+    return r.ok === true;
+  } catch (e) {
+    capturarMensaje('barrerEsperasSinPlaza: la espera se cerró pero el aviso falló', 'warning', {
+      tags: { area: 'cron-no-shows' },
+      extra: { reservaId: fila.id, studioId: fila.studio_id, detalle: e instanceof Error ? e.message : String(e) },
+    });
+    return false;
+  }
 }
 
 // Recordatorios de clase: para cada sesión no cancelada cuyo inicio cae en la

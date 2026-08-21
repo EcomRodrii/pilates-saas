@@ -370,6 +370,25 @@ export interface Plantilla {
 type Datos = Record<string, unknown>;
 const s = (v: unknown, def = '') => (v == null ? def : String(v));
 
+// Los tres roles de `mostrador` comparten palabra por palabra el aviso de
+// "cobrado sin plaza": quien lo lea tiene que hacer lo mismo sea cual sea su
+// rol. Se generan en vez de copiarse tres veces para que el copy no pueda
+// divergir entre roles al editarlo (ya pasó con otros avisos del mostrador).
+function plantillasPagadaSinPlaza(): Record<string, Plantilla> {
+  const plantilla: Plantilla = {
+    title: 'Cobrado pero sin plaza',
+    body: '{socia} pagó {clase} el {cuando}{situacion} Contacta con ella para resolverlo.',
+    // `cerrada` lo pone SOLO el barrido de esperas que ya no pueden entrar
+    // (lib/lista-espera/esperas-sin-plaza.ts). Sin él, el destino de siempre.
+    deepLink: (d: Datos) => (d.cerrada ? `/clientas/${s(d.socioId)}` : `/calendario?sesion=${s(d.sesionId)}`),
+  };
+  return Object.fromEntries(
+    (['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const).map(
+      rol => [`${EVENTOS.RESERVA_PAGADA_SIN_PLAZA}#${rol}`, plantilla],
+    ),
+  );
+}
+
 export const PLANTILLAS: Record<string, Plantilla> = {
   // Reserva creada → la dueña y el mostrador (nueva inscripción)
   [`${EVENTOS.RESERVA_CREADA}#PROPIETARIO`]: {
@@ -444,22 +463,22 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: '{socia} quiere reservar {clase} el {cuando}. Requiere tu aprobación.',
     deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
   },
-  // Pagado pero sin plaza (checkout embebido) → mostrador
-  [`${EVENTOS.RESERVA_PAGADA_SIN_PLAZA}#PROPIETARIO`]: {
-    title: 'Cobrado pero sin plaza',
-    body: '{socia} pagó {clase} el {cuando} pero no se pudo confirmar su plaza. Contacta con ella para resolverlo.',
-    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
-  },
-  [`${EVENTOS.RESERVA_PAGADA_SIN_PLAZA}#MANAGER`]: {
-    title: 'Cobrado pero sin plaza',
-    body: '{socia} pagó {clase} el {cuando} pero no se pudo confirmar su plaza. Contacta con ella para resolverlo.',
-    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
-  },
-  [`${EVENTOS.RESERVA_PAGADA_SIN_PLAZA}#RECEPCION`]: {
-    title: 'Cobrado pero sin plaza',
-    body: '{socia} pagó {clase} el {cuando} pero no se pudo confirmar su plaza. Contacta con ella para resolverlo.',
-    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
-  },
+  // Pagado pero sin plaza (checkout embebido) → mostrador.
+  //
+  // UN evento para los TRES momentos en que ese hecho es cierto, distinguidos
+  // por `{situacion}` (mismo patrón que `{motivoTexto}` de RESERVA_CANCELADA:
+  // el hecho es el mismo —hay dinero cobrado sin plaza—, solo cambia por qué se
+  // lo contamos). Los tres traen dedupKey PROPIA: la clave es un UNIQUE
+  // permanente, así que reusarla se tragaría en silencio el segundo aviso.
+  //  · sin reserva  → 'reserva-pagada-sin-plaza:…'   (el webhook no pudo reservar)
+  //  · lista espera → 'reserva-pagada-en-espera:…'   (cayó en la cola, aún puede entrar)
+  //  · cerrada      → 'espera-sin-plaza-cerrada:…'   (la clase pasó y nunca entró)
+  //
+  // `deepLink` a la ficha de la clienta SOLO en el último: es donde vive el
+  // botón de devolver el recibo, que es la acción que toca cuando ya no hay
+  // clase a la que llevarla. Mientras la clase no ha pasado, lo útil sigue
+  // siendo el calendario.
+  ...plantillasPagadaSinPlaza(),
   // Clase cancelada → cada socia apuntada
   [`${EVENTOS.CLASE_CANCELADA}#SOCIA`]: {
     title: 'Clase cancelada',

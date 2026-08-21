@@ -4,6 +4,7 @@ import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
 import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { ReservaEmail } from '@/lib/emails/reserva-template';
+import { EsperaSinPlazaEmail } from '@/lib/emails/espera-sin-plaza-template';
 import { resolverPlantilla, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, type PlantillaOverride, type MarcaEstudio } from '@/lib/emails/plantillas-server';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from './remitente.ts';
@@ -27,13 +28,24 @@ export interface DatosClaseEmail {
   colorPrimario?: string | null;
   bonoConsumido?: boolean;
   bonoDevuelto?: boolean;
+  // Solo para 'espera-sin-plaza': lo que le queda en el bono que pagó y no
+  // llegó a gastar en esa clase, y a dónde mandarla a gastarlo.
+  sesionesRestantes?: number;
+  caducaEl?: string | null;
+  urlHorario?: string | null;
+  emailEstudio?: string | null;
   // Solo presente si tipos_clase.es_online=true y el cron de zoom-sync ya
   // generó la reunión (lib/zoom-sync.ts). undefined = clase presencial, o
   // online pero la reunión aún no se ha creado (no bloquea el envío).
   zoomJoinUrl?: string | null;
 }
 
-export type TipoEmailTransaccional = 'promocion' | 'cancelacion' | 'recordatorio' | 'reserva';
+// ⚠️ 'espera-sin-plaza' NO está en TIPOS_PLANTILLA_EDITABLES (plantillas-server)
+// a propósito: es el cierre de una promesa concreta —«te avisaremos si se
+// libera un sitio»— y el estudio no debería poder reescribir el párrafo que
+// dice que su dinero sigue disponible. `resolverPlantilla` devuelve {} para un
+// tipo no editable, así que cae a los textos por defecto sin ningún caso extra.
+export type TipoEmailTransaccional = 'promocion' | 'cancelacion' | 'recordatorio' | 'reserva' | 'espera-sin-plaza';
 
 type Resultado =
   | { ok: true; id?: string }
@@ -66,6 +78,15 @@ async function renderPorTipo(
       return { html: await render(RecordatorioEmail(base)), subject: asunto ?? `Recordatorio — ${d.claseNombre}` };
     case 'reserva':
       return { html: await render(ReservaEmail(base)), subject: asunto ?? `Reserva confirmada — ${d.claseNombre}` };
+    case 'espera-sin-plaza': {
+      const sesiones = d.sesionesRestantes ?? 1;
+      return {
+        html: await render(EsperaSinPlazaEmail({ ...base, sesionesRestantes: sesiones })),
+        subject: asunto ?? (sesiones <= 1
+          ? `Tu clase de ${d.claseNombre} se llenó — te devolvemos el dinero si quieres`
+          : `No se liberó sitio en ${d.claseNombre}, pero tu bono está intacto`),
+      };
+    }
   }
 }
 

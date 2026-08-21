@@ -85,6 +85,25 @@ export const DEFINICIONES: Definicion[] = [
       .lte('oferta_expira_en', menos(ahora, 15)),
   },
   {
+    id: 'esperas-pagadas-sin-cerrar',
+    que: 'Reservas PAGADAS desde el widget que siguen en lista de espera con la clase ya terminada hace más de un día.',
+    impacto:
+      'Cada una es alguien que pagó, nunca entró en la clase y no ha recibido el aviso de que su dinero sigue ' +
+      'disponible — justo el correo que la pantalla de pago le prometió. Indica que el barrido de esperas del cron ' +
+      'de no-shows (diario, 23:00) no está corriendo.',
+    umbralAviso: 1,
+    umbralFallo: 5,
+    contar: (admin, ahora) => admin
+      .from('reservas')
+      .select('id, sesiones!inner(fin)', { count: 'exact', head: true })
+      .eq('estado', 'LISTA_ESPERA')
+      // Solo el camino del dinero: una espera sin pago detrás no es un problema.
+      .like('id', 'res-web-%')
+      // Un día entero de margen: el barrido es diario, así que una clase que
+      // terminó hace tres horas todavía no ha tenido su turno.
+      .lte('sesiones.fin', menos(ahora, 24 * 60)),
+  },
+  {
     id: 'webhooks-sin-completar',
     que: 'Eventos de Stripe reclamados hace más de 1 hora y nunca marcados como procesados.',
     impacto:

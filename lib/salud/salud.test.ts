@@ -41,7 +41,7 @@ function adminFalso(porTabla: Record<string, { count: number | null; error: { me
   const encadenable = (tabla: string) => {
     const r = respuesta(tabla);
     const self: Record<string, unknown> = {};
-    for (const m of ['select', 'eq', 'lte', 'not', 'is', 'limit']) self[m] = () => self;
+    for (const m of ['select', 'eq', 'lte', 'gte', 'like', 'not', 'is', 'limit']) self[m] = () => self;
     // `then` lo hace awaitable: es lo que consume `contar`.
     self.then = (res: (v: typeof r) => unknown) => Promise.resolve(r).then(res);
     return self;

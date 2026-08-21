@@ -46,6 +46,18 @@ test('resolverEstadoPago: sin reserva y con aviso al mostrador → fallida', () 
   assert.equal(resolverEstadoPago(undefined, true), 'fallida');
 });
 
+// ⚠️ Desde que el webhook avisa al mostrador TAMBIÉN cuando la reserva cae en
+// lista de espera, esa notificación deja de significar «no hay plaza» a secas.
+// Si el orden de resolución cambiara y `avisoSinPlaza` ganase a la reserva, la
+// pantalla de éxito le diría «no hemos podido asignarte la plaza» a quien SÍ
+// tiene sitio en la cola — y el copy honesto de que su bono queda en su cuenta
+// se perdería. La fila de `reservas` manda siempre que exista.
+test('resolverEstadoPago: en lista de espera manda la reserva, no el aviso al mostrador', () => {
+  assert.equal(resolverEstadoPago('LISTA_ESPERA', true), 'lista_espera');
+  assert.equal(resolverEstadoPago('CONFIRMADA', true), 'confirmada');
+  assert.equal(resolverEstadoPago('PENDIENTE_APROBACION', true), 'pendiente_aprobacion');
+});
+
 test('resolverEstadoPago: sin reserva y sin aviso → en_proceso (el webhook puede no haber llegado)', () => {
   assert.equal(resolverEstadoPago(null, false), 'en_proceso');
 });
