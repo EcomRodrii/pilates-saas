@@ -802,7 +802,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   <div className="flex items-center gap-2">
                     <p className="text-[14px] font-semibold text-foreground">{cat.nombre}</p>
                     {cat.proximamente ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FFF7ED] text-warning">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning/10 text-warning">
                         Próximamente
                       </span>
                     ) : cat.accion !== 'exportar' && (
@@ -820,7 +820,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                       </span>
                     )}
                   </div>
-                  {cat.categoria && <p className="text-[10px] font-bold uppercase tracking-wide text-[#B8B8AE] mt-0.5">{cat.categoria}</p>}
+                  {cat.categoria && <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mt-0.5">{cat.categoria}</p>}
                   <p className="text-[12px] text-muted-foreground mt-1 leading-snug">{cat.descripcion}</p>
                   {lineaSalud && (
                     <p className={cn(
@@ -841,7 +841,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   )}
                 </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-[#F1F1F4] flex items-center gap-2">
+              <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
                 {cat.proximamente ? (
                   <button
                     onClick={() => avisarme(cat)}
@@ -1022,7 +1022,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   </div>
                 ))}
                 {cat.secretoEnv && (
-                  <div className="flex items-start gap-2 bg-warning/10 border border-[#FDE68A] rounded-lg p-3">
+                  <div className="flex items-start gap-2 bg-warning/10 border border-warning/30 rounded-lg p-3">
                     <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
                     <p className="text-[11px] text-warning leading-snug">
                       El proveedor de envío lo gestiona Tentare a nivel de plataforma — aquí solo

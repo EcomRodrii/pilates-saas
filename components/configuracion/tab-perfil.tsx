@@ -403,9 +403,9 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
         </p>
 
         <div className="space-y-2.5">
-          <div className="flex items-center justify-between px-3.5 py-3 rounded-xl border border-[#E7E7E0]">
+          <div className="flex items-center justify-between px-3.5 py-3 rounded-xl border border-border">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#F1F2EA] flex items-center justify-center text-[13px]">✉️</div>
+              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-[13px]">✉️</div>
               <div>
                 <p className="text-[13px] font-medium text-foreground">Email y contraseña</p>
                 <p className="text-[11px] text-muted-foreground">{user?.email}</p>
@@ -416,9 +416,9 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
             </span>
           </div>
 
-          <div className="flex items-center justify-between px-3.5 py-3 rounded-xl border border-[#E7E7E0]">
+          <div className="flex items-center justify-between px-3.5 py-3 rounded-xl border border-border">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#F1F2EA] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
                 <GoogleIcon size={15} />
               </div>
               <div>

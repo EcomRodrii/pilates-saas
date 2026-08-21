@@ -1218,7 +1218,73 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
               cta={{ label: 'Añadir clienta con plan', href: '/clientas?nuevo=1' }}
             />
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Auditoría integral 2026-08-21 (UX, hallazgo P1): esta tabla era
+                un grid de 6 columnas con `min-w-[700px]` forzado dentro de
+                `overflow-x-auto` — en móvil obligaba a hacer scroll horizontal
+                para ver el nombre de la clienta o el próximo cobro. Mismo
+                módulo (Cobros) que `panel-facturas.tsx` ya resuelve bien con
+                un `lg:hidden`/`hidden lg:block` — se replica aquí ese mismo
+                patrón, sin inventar uno nuevo. Las ACCIONES ya no dependen de
+                hover (`opacity-0 group-hover:opacity-100`, inalcanzable en
+                móvil sin ratón): visibles siempre en ambas vistas. */}
+            <div className="lg:hidden divide-y divide-background">
+              {suscripciones
+                .filter(s => s.estado === 'ACTIVA')
+                .map(sus => {
+                  const socio = socios.find(s => s.id === sus.socioId);
+                  const plan  = planesTarifa.find(p => p.id === sus.planId);
+                  const initials = socioInitials(sus.socioId);
+                  const nextCobro = sus.fechaFin
+                    ? new Date(sus.fechaFin)
+                    : (() => { const d = new Date(sus.fechaInicio); d.setMonth(d.getMonth() + 1); return d; })();
+
+                  return (
+                    <div key={sus.id} className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-info/10 text-brand-medio shrink-0">
+                          {initials}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/clientas/${sus.socioId}`}
+                            className="text-sm font-semibold text-foreground truncate hover:text-brand-medio hover:underline block">
+                            {socio ? `${socio.nombre} ${socio.apellidos}` : 'Clienta eliminada'}
+                          </Link>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{plan?.nombre ?? '—'}</p>
+                        </div>
+                        <CifraPrivada className="text-sm font-bold text-foreground shrink-0">
+                          {plan ? formatEuro(plan.precio) : '—'}
+                        </CifraPrivada>
+                      </div>
+                      <div className="flex items-center justify-between mt-2.5 pl-11">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-muted-foreground">Próximo: {fecha(nextCobro.toISOString())}</p>
+                          {sus.sesionesRestantes != null ? (
+                            <span className={cn(
+                              'text-xs font-bold px-2 py-0.5 rounded-full',
+                              sus.sesionesRestantes <= 2 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'
+                            )}>
+                              {sus.sesionesRestantes} ses.
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Ilimitadas</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2.5 pl-11">
+                        <button className="text-xs px-2.5 py-1.5 rounded-lg font-bold border border-border text-muted-foreground hover:bg-background transition-colors">
+                          Cambiar plan
+                        </button>
+                        <button className="text-xs px-2.5 py-1.5 rounded-lg font-bold text-destructive hover:bg-destructive/10 transition-colors">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div className="overflow-x-auto hidden lg:block">
               {/* Table header */}
               <div className="grid grid-cols-6 gap-4 px-5 py-2 bg-muted border-b border-border min-w-[700px]">
                 {['Cliente', 'Plan', 'Precio/mes', 'Próximo cobro', 'Sesiones rest.', 'Acciones'].map(h => (
@@ -1294,6 +1360,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                   })}
               </div>
             </div>
+            </>
           )}
         </div>
         </div>

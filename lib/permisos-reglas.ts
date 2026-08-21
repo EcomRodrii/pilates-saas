@@ -203,6 +203,17 @@ export function rolesQuePuedeAsignar(rol: Rol): Rol[] {
   return [];
 }
 
+// Auditoría integral 2026-08-21 (duplicación, hallazgo P1): "¿puede rolActor
+// gestionar la ficha de alguien con rolFicha?" se copiaba a mano 3 veces en
+// app/api/equipo/{tarifas,liquidaciones}/route.ts, cada una con su propio
+// comentario "mismo guard que...". Un manager no gestiona la tarifa/
+// liquidación/compensación de la propietaria ni de otro manager — la misma
+// regla que ya usa `rolesQuePuedeAsignar` para decidir a quién puede DAR de
+// alta, reutilizada aquí para decidir sobre quién ya existente puede actuar.
+export function puedeGestionarFichaDe(rolActor: Rol, rolFicha: Rol): boolean {
+  return rolesQuePuedeAsignar(rolActor).includes(rolFicha);
+}
+
 // Conectar/revocar una app de terceros (OAuth, p.ej. Zapier) para el estudio
 // entero. Mismo criterio que puedeGestionarEquipo: es una decisión de negocio
 // de la sede, no algo que competa a RECEPCION/INSTRUCTOR. Barrera de UI; la

@@ -167,7 +167,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                       title="Máximo de referidos premiados al mes (vacío = sin tope)"
                       ariaLabel={`Tope mensual de ${def.nombre}`}
                     />
-                    <span className="text-[9px] text-[#A8A89F] mt-0.5">tope/mes</span>
+                    <span className="text-[9px] text-muted-foreground mt-0.5">tope/mes</span>
                   </div>
                 )}
                 <CampoNumero

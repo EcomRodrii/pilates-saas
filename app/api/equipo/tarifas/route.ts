@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import { puedeGestionarEquipo, puedeGestionarFichaDe } from '@/lib/permisos-reglas';
+import type { Rol } from '@/lib/types';
 
 // Tarifa por hora de una instructora — tabla aparte de `instructores` (ver
 // migración 20260731110000_instructor_tarifas.sql) para no filtrar el dato
@@ -137,8 +138,10 @@ export async function PATCH(req: NextRequest) {
   if (!ficha) return NextResponse.json({ error: 'Instructora no encontrada' }, { status: 404 });
 
   // Un manager no puede fijar la tarifa de la propietaria ni de otro manager —
-  // mismo guard que ya usa PATCH /api/equipo para "puedeEditarEsaFicha".
-  if (sesion.rol === 'MANAGER' && !rolesQuePuedeAsignar('MANAGER').includes(ficha.rol as never)) {
+  // mismo guard que ya usa PATCH /api/equipo para "puedeEditarEsaFicha"
+  // (`puedeGestionarFichaDe`, lib/permisos-reglas.ts — consolidado en la
+  // auditoría integral 2026-08-21, antes copiado a mano 3 veces).
+  if (sesion.rol === 'MANAGER' && !puedeGestionarFichaDe(sesion.rol, ficha.rol as Rol)) {
     return NextResponse.json({ error: 'No puedes fijar la tarifa de esta persona.' }, { status: 403 });
   }
 
