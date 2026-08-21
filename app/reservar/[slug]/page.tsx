@@ -603,6 +603,18 @@ export default function ReservarPage() {
   // solo se usa para posicionar overlays — nunca toca datos ni navegación.
   const [franjaVisible, setFranjaVisible] = useState<{ top: number; height: number } | null>(null);
   const franjaRef = useRef<{ top: number; height: number } | null>(null);
+  // Nodo raíz del widget: el seguimiento de scroll escribe aquí las custom
+  // properties `--tentare-overlay-top`/`-height` DIRECTAMENTE por DOM en cada
+  // fotograma, sin pasar por setState. Cascadean por herencia CSS a cualquier
+  // descendiente que las lea con `var(...)` — que es como quedan expresados
+  // `overlayEmbed` y `overlayPos` (BookingSheet) más abajo. Ver el bloque de
+  // `onMsg` para el porqué: un `setState` por frame de scroll re-renderiza
+  // esta página entera (~3200 líneas, sin memoización por sección), y eso es
+  // justo el trabajo de hilo principal que compite con el scroll nativo y se
+  // siente como trompicones — medido/reportado en vídeo real, invisible en
+  // capturas fotograma a fotograma porque cada una pinta bien; lo que falla
+  // es el tiempo ENTRE fotogramas.
+  const rootRef = useRef<HTMLDivElement>(null);
   // La hoja de confirmar cita vive dentro de <CitasPublica>; nos avisa por
   // `onOverlayAbierto` para poder anclarla igual que las demás.
   const [citaConfirmandoAbierta, setCitaConfirmandoAbierta] = useState(false);
@@ -618,11 +630,18 @@ export default function ReservarPage() {
       if (!Number.isFinite(top) || !Number.isFinite(height) || top < 0 || height <= 0) return;
       const franja = { top: Math.round(top), height: Math.min(Math.round(height), 4000) };
       franjaRef.current = franja;
-      // Solo re-render con un overlay abierto que la use: el host manda un
-      // mensaje por frame de scroll y esta página es grande. Mantenerla viva
-      // mientras el overlay está abierto es a propósito — si el usuario
-      // scrollea el host con el modal abierto, el modal le sigue.
-      if (overlayEmbebidoAbiertoRef.current) setFranjaVisible(franja);
+      // El host manda un mensaje por frame de scroll y esta página es grande:
+      // un `setState` aquí re-renderiza el árbol entero en cada uno (medido
+      // como la causa del scroll a trompicones reportado en vídeo real). Con
+      // un overlay abierto, el seguimiento sigue vivo pero por DOM directo
+      // (las custom properties del root), NUNCA por React — `setFranjaVisible`
+      // solo se llama una vez al ABRIR (ver el efecto de abajo), para que el
+      // primer render ya salga en el sitio correcto antes de que llegue el
+      // primer mensaje.
+      if (overlayEmbebidoAbiertoRef.current && rootRef.current) {
+        rootRef.current.style.setProperty('--tentare-overlay-top', `${franja.top}px`);
+        rootRef.current.style.setProperty('--tentare-overlay-height', `${franja.height}px`);
+      }
     };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
@@ -643,6 +662,19 @@ export default function ReservarPage() {
     // Copia puntual de la última franja recibida (vive en un ref para no
     // re-renderizar la página en cada frame de scroll del host).
     setFranjaVisible(franjaRef.current);
+    // Sincroniza las custom properties AL ABRIR: si un overlay anterior dejó
+    // un valor de scroll distinto escrito ahí, `var(--x, fallback)` preferiría
+    // ese resto sobre el fallback nuevo de React y la hoja nacería en el sitio
+    // equivocado hasta el siguiente frame de scroll.
+    if (rootRef.current) {
+      if (franjaRef.current) {
+        rootRef.current.style.setProperty('--tentare-overlay-top', `${franjaRef.current.top}px`);
+        rootRef.current.style.setProperty('--tentare-overlay-height', `${franjaRef.current.height}px`);
+      } else {
+        rootRef.current.style.removeProperty('--tentare-overlay-top');
+        rootRef.current.style.removeProperty('--tentare-overlay-height');
+      }
+    }
     if (!franjaRef.current || franjaRef.current.height < 320) {
       window.parent.postMessage({ tentareScrollTo: true, tentareSlug: slug }, '*');
     }
@@ -653,9 +685,14 @@ export default function ReservarPage() {
   // `height` + `bottom: auto` pisan el `inset-0` de la clase; `alignItems`
   // pisa `items-end sm:items-center` (ese `sm:` mide el ancho del IFRAME, no
   // de la pantalla real — con un iframe estrecho anclaba SIEMPRE al fondo).
+  // `top`/`height` van como `var(--tentare-overlay-*, fallback)`: el fallback
+  // es el valor de React (correcto al abrir), pero el valor VIVO durante el
+  // scroll lo escribe `onMsg` directo en el DOM (ver `rootRef` arriba) — así
+  // esta hoja sigue el scroll del host sin que ninguno de esos frames pase
+  // por un re-render de la página.
   const overlayEmbed = embedMode
     ? (franjaVisible
-      ? { top: franjaVisible.top, height: franjaVisible.height, bottom: 'auto', alignItems: 'center' } as const
+      ? { top: `var(--tentare-overlay-top, ${franjaVisible.top}px)`, height: `var(--tentare-overlay-height, ${franjaVisible.height}px)`, bottom: 'auto', alignItems: 'center' } as const
       : { alignItems: 'flex-start' } as const)
     : undefined;
 
@@ -1743,7 +1780,7 @@ export default function ReservarPage() {
     {embedMode && (
       <style>{`html,body{background:${fondoCss(apariencia) ?? 'var(--portal-bg)'} !important;}`}</style>
     )}
-    <div style={{
+    <div ref={rootRef} style={{
       // `dvh` y no `vh`: con la barra de Safari visible, `100vh` sobra y deja un
       // scroll fantasma — y como esta es justo la altura que se le anuncia al
       // anfitrión por `tentareEmbedAltura`, ese sobrante se convertía en un
