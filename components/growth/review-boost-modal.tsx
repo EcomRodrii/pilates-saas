@@ -4,15 +4,26 @@
 // Review Boost — modal de feedback tras el trial. Overlay, no pantalla
 // completa (a diferencia de PantallaBienvenida): no debe bloquear el panel.
 //
-// Visibilidad DERIVADA de `studio` en cada render, sin estado local "abierto"
-// — mismo patrón que PantallaBienvenida (bienvenidaVistaEn): "cerrar" es
-// escribir el campo que hace que la condición deje de cumplirse, no un
-// booleano aparte que se pueda desincronizar. Marcar `reviewBoostMostradoEn`
-// en el momento de ABRIR (en vez de al cerrar) fue exactamente el bug que una
-// prueba real en navegador destapó: en cuanto se marcaba, la propia condición
-// de "primera vez" pasaba a falso a media interacción y el modal se
-// desmontaba solo mientras la propietaria intentaba pulsar una estrella. Por
-// eso aquí solo se escribe al CERRAR, nunca al abrir.
+// `elegible` (¿debería mostrarse, según los datos del estudio?) se DERIVA en
+// cada render; `open` (¿está mostrándose AHORA?) es estado local, decidido
+// UNA vez en un efecto — nunca directamente `open={elegible}`. Dos bugs
+// reales encontrados y corregidos, los dos con la misma raíz («la
+// visibilidad no puede depender de algo que el propio modal escribe o que
+// coincide con el instante del montaje»):
+//
+//  1. Marcar `reviewBoostMostradoEn` al ABRIR (en vez de al cerrar) hacía que
+//     la propia condición de "primera vez" pasara a falso a media
+//     interacción — el modal se desmontaba solo mientras la propietaria
+//     pulsaba una estrella (encontrado con una prueba real en navegador).
+//  2. Con `open={elegible}` ya en `true` en el MISMO render que la
+//     navegación a /dashboard, el diálogo se autocerraba casi al instante en
+//     producción — el clic que llevó hasta aquí (u otro listener global del
+//     panel) llegaba a la capa de "clic fuera" justo al montarse, y cero
+//     feedbacks llegaron a guardarse. Diferir la apertura a un efecto (tras
+//     el evento que disparó el render) rompe esa carrera.
+//
+// "Cerrar" (`cerrar()`) escribe `reviewBoostMostradoEn`/`Pospuesto` — nunca
+// al abrir.
 //
 // La recompensa (20% primer mes) se concede por dar feedback interno honesto
 // 4-5★, NUNCA por el clic en Capterra/GetApp — ver tentare-os.md, cumplimiento
@@ -45,6 +56,7 @@ async function enviarFeedback(rating: number, comentario?: string) {
 
 export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: string | null }) {
   const { updateStudio } = useStudio();
+  const [open, setOpen] = useState(false);
   const [pantalla, setPantalla] = useState<Pantalla>('rating');
   const [rating, setRating] = useState(0);
   const [comentario, setComentario] = useState('');
@@ -53,8 +65,18 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
   // distingue "respondió" (solo marca visto) de "cerró sin responder" (marca
   // visto + pospuesto, para la regla de reaparición a los 14 días).
   const respondidoRef = useRef(false);
+  // Bug real en producción (2026-08-21): con `open` derivado del prop y ya en
+  // `true` en el MISMO render que la navegación a /dashboard, el diálogo se
+  // autocerraba casi al instante — el propio clic que llevó hasta aquí (u
+  // otro listener global del panel, ⌘K/tour) llegaba a la capa de "clic
+  // fuera" del diálogo justo al montarse. Cero feedbacks llegaron a guardarse
+  // porque el modal desaparecía antes de que diera tiempo a responder.
+  // Diferir la apertura a un efecto (después del evento que disparó el
+  // render) rompe esa carrera: para cuando `setOpen(true)` corre, cualquier
+  // clic en curso ya ha terminado de despacharse.
+  const decididoRef = useRef(false);
 
-  const debeVerse = rol === 'PROPIETARIO' && !!studio && debeMostrarModal({
+  const elegible = rol === 'PROPIETARIO' && !!studio && debeMostrarModal({
     reviewBoostElegibleEn: studio.reviewBoostElegibleEn,
     reviewBoostMostradoEn: studio.reviewBoostMostradoEn,
     reviewBoostPospuestoEn: studio.reviewBoostPospuestoEn,
@@ -62,12 +84,16 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
   });
 
   useEffect(() => {
-    if (debeVerse) capturarEvento('review_boost_shown');
-  }, [debeVerse]);
+    if (decididoRef.current || !elegible) return;
+    decididoRef.current = true;
+    setOpen(true);
+    capturarEvento('review_boost_shown');
+  }, [elegible]);
 
-  if (!debeVerse) return null;
+  if (!open) return null;
 
   function cerrar(sinResponder: boolean) {
+    setOpen(false);
     const cambios: Partial<Studio> = {};
     if (!studio!.reviewBoostMostradoEn) cambios.reviewBoostMostradoEn = new Date().toISOString();
     if (sinResponder && !respondidoRef.current) {
@@ -99,7 +125,7 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
   }
 
   return (
-    <Dialog open={debeVerse} onOpenChange={(o) => { if (!o) cerrar(true); }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) cerrar(true); }}>
       <DialogContent className="max-w-[min(calc(100%-2rem),26rem)]">
         {pantalla === 'rating' && (
           <>
