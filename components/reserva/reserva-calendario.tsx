@@ -35,6 +35,7 @@ import {
 } from '@/lib/reserva-calendario-logic';
 import { SpotPicker } from './spot-picker';
 import { TiraDias } from './tira-dias';
+import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
 
 // Instrument Sans, la misma familia sans que el resto de /reservar
 // (lib/reservar-publico-tokens.ts, que a su vez reexporta de portal-design.ts
@@ -234,6 +235,14 @@ export interface ReservaCalendarioProps {
    * el snippet no informa de su viewport.
    */
   alCambiarFicha?: (abierta: boolean) => void;
+  /**
+   * Origen absoluto de la app (`ORIGEN_TENTARE` en `app/widget-bundle/main.tsx`)
+   * para prefijar la foto de clase POR DEFECTO de la hoja de detalle cuando la
+   * propietaria no ha subido la suya — solo hace falta en Modo B (Shadow DOM en
+   * la web de un tercero); en Modo A, mismo origen que la app, se deja vacío y
+   * la ruta relativa de siempre sigue resolviendo bien. Ver `FotoClase`.
+   */
+  origenTentare?: string;
 }
 
 // Neutros FIJOS del formato 06 — nunca `t`. Ver comentario de `estiloDias` arriba.
@@ -265,9 +274,27 @@ function fmtDiaCompleto(iso: string): string {
 // /public: este componente también corre en el bundle Shadow DOM incrustado en
 // la web de un tercero, donde una URL relativa resolvería contra el dominio del
 // estudio y daría 404 (mismo motivo por el que todo aquí llega por props).
-function FotoClase({ nombre, color, fotoUrl, ancho, alto, radio }: {
+//
+// `conFotoPorDefecto` activa la MISMA foto de Tentare por familia de clase que
+// ya usa el portal de la socia (`imagenDeClase`, lib/imagenes-por-defecto.ts) —
+// a propósito solo en la cabecera de la hoja de detalle, no en la lista: ese
+// documento ya deja escrito que la lista se distingue mejor por color (la
+// misma foto repetida ocho veces se lee como un error) y que la vista grande
+// «detalle, sesión guiada» sí lleva default. El widget público es exactamente
+// ese caso «detalle» y no lo tenía — la propietaria veía la promesa cumplida en
+// Configuración («mientras no pongas la tuya, se usa una foto de Tentare») pero
+// la visitante seguía viendo solo la inicial.
+//
+// `origenTentare` prefija esa foto por defecto con el origen de la app
+// (`ORIGEN_TENTARE` en el bundle Modo B) por el mismo motivo que la propia foto
+// SUBIDA nunca se sirve por ruta relativa: en Shadow DOM, `/por-defecto/...`
+// resolvería contra el dominio del estudio y daría 404. En Modo A (siempre
+// mismo origen que la app) se deja sin pasar y la ruta relativa de siempre
+// sigue funcionando igual que hoy.
+function FotoClase({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefecto = false, origenTentare = '' }: {
   nombre: string; color: string; fotoUrl?: string | null;
   ancho: number | string; alto: number; radio: number;
+  conFotoPorDefecto?: boolean; origenTentare?: string;
 }) {
   if (fotoUrl) {
     return (
@@ -277,6 +304,19 @@ function FotoClase({ nombre, color, fotoUrl, ancho, alto, radio }: {
         alt=""
         loading="lazy"
         decoding="async"
+        style={{ width: ancho, height: alto, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block' }}
+      />
+    );
+  }
+  if (conFotoPorDefecto) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- foto de catálogo propio (public/por-defecto/), servida por origen absoluto en Modo B
+      <img
+        src={`${origenTentare}${imagenDeClase({ nombre })}`}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onError={alFallarImagen(`${origenTentare}${IMAGENES_CLASE.generica}`)}
         style={{ width: ancho, height: alto, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block' }}
       />
     );
@@ -326,7 +366,7 @@ export function ReservaCalendario({
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE,
   irADia, estiloDias = 'semana', finalizadasHoy, loading = false,
   ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, vistaInicial = 'todo',
-  enIframe = false, franjaVisible = null, alCambiarFicha,
+  enIframe = false, franjaVisible = null, alCambiarFicha, origenTentare = '',
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
@@ -710,6 +750,7 @@ export function ReservaCalendario({
           ocultarSustituta={ocultarSustituta}
           enIframe={enIframe}
           franjaVisible={franjaVisible}
+          origenTentare={origenTentare}
           onClose={cerrarHoja}
           onAceptarOferta={onAceptarOferta ? async () => {
             if (!openSlot.miReservaId || enviando) return;
@@ -1150,7 +1191,7 @@ function TarjetaClase({ t, slot, onOpen, ocultarPrecio }: {
 function BookingSheet({
   t, slot, selectedSpot, onSelectSpot, resultado, errorReserva, enviando, cancelacionVentanaHoras, ventanaPorTipo,
   fontFamily, ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false,
-  enIframe = false, franjaVisible = null,
+  enIframe = false, franjaVisible = null, origenTentare = '',
   onClose, onReservar, onCancelar, onAceptarOferta,
 }: {
   t: ModoTokens;
@@ -1168,6 +1209,7 @@ function BookingSheet({
   ocultarSustituta?: boolean;
   enIframe?: boolean;
   franjaVisible?: { top: number; height: number } | null;
+  origenTentare?: string;
   onClose: () => void;
   onReservar: () => void;
   onCancelar: () => void;
@@ -1293,15 +1335,22 @@ function BookingSheet({
 
         {/* Foto de la clase — primer elemento del popup (orden pedido por el
             fundador: foto, título, fecha/hora/duración, ubicación, descripción,
-            acción). Con fallback al color del tipo, nunca a un asset de /public
-            (ver FotoClase). */}
-        <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho="100%" alto={slot.claseFotoUrl ? 150 : 96} radio={16} />
+            acción). Con fallback a la foto de catálogo de Tentare por familia
+            de clase (mismo criterio que ya usa el portal de la socia), y solo
+            si tampoco hay ninguna al color del tipo (ver FotoClase). */}
+        <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho="100%" alto={150} radio={16} conFotoPorDefecto origenTentare={origenTentare} />
 
         {/* Cabecera */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ minWidth: 0 }}>
             {!ocultarNivel && <span style={{ ...nivelBadge(slot.nivel), marginBottom: 8 }}>{NIVEL_LABEL[slot.nivel]}</span>}
-            <h2 id={titleId} style={{ fontSize: 22, fontWeight: 800, color: t.ink, lineHeight: 1.1, textTransform: 'uppercase', letterSpacing: '-0.02em', marginTop: 8 }}>
+            {/* `fontFamily: serif` (mismo token que el nombre de clase en
+                SlotRow/FilaFinalizada): era la única pieza de este archivo
+                donde el nombre de la clase NO llevaba la tipografía de
+                titulares del estudio — se notaba al pintar la foto de
+                catálogo por defecto en la hoja, sin ningún elemento de
+                verdad reflejando `data-fuente-display` ahí dentro. */}
+            <h2 id={titleId} style={{ fontFamily: serif, fontSize: 22, fontWeight: 800, color: t.ink, lineHeight: 1.1, textTransform: 'uppercase', letterSpacing: '-0.02em', marginTop: 8 }}>
               {slot.claseNombre}
             </h2>
           </div>

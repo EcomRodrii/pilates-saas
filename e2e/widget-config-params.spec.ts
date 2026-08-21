@@ -198,7 +198,11 @@ test('⚠️ Modo B (bundle real): data-fuente/data-fuente-display pintan el sha
   expect(r.linksTitular).toBe(1);
   // Y un titular de carne y hueso dentro del shadow: cualquier elemento de la
   // hoja cuya pila EMPIEZA por var(--portal-heading-font) — la firma de
-  // `serif` (portal-design.ts), sin atar el test a un tag concreto.
+  // `serif` (portal-design.ts), sin atar el test a un tag concreto. El título
+  // de la clase (h2) es el candidato estable: a diferencia de la foto de
+  // cabecera (que puede ser la SUBIDA por el estudio, una <img> de catálogo
+  // por defecto, o el bloque de color — ninguna de las tres es un "titular"),
+  // el nombre de la clase siempre se pinta con la tipografía de titulares.
   await page.getByRole('button', { name: '10:00 Reformer' }).first().click();
   const hoja = page.getByRole('dialog').first();
   await expect(hoja.locator('.reserva-cta-btn')).toBeVisible();

@@ -296,6 +296,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
         ocultarNivel={config.ocultarNivel}
         ocultarSustituta={config.ocultarSustituta}
         error={error ? { onReintentar: recargar, titulo: 'No hemos podido cargar el horario' } : undefined}
+        origenTentare={ORIGEN_TENTARE}
       />
     </div>
   );
