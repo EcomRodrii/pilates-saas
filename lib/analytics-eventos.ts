@@ -22,7 +22,19 @@ export type EventoAnalitica =
   // Una reserva quedó CONFIRMADA (nunca lista de espera/pendiente). Señal de
   // conversión del embudo de reserva — sin socioId ni sesionId: eso ya
   // identificaría a una socia/clase concreta, y el distinct_id es el tenant.
-  | { nombre: 'reserva_completada'; props: { con_spot_elegido: boolean } };
+  | { nombre: 'reserva_completada'; props: { con_spot_elegido: boolean } }
+  // Review Boost — feedback interno al terminar el trial + invitación a
+  // reseñar (Capterra/GetApp) + recompensa DESACOPLADA del clic externo (ver
+  // tentare-os.md, cumplimiento Capterra/GetApp/Software Advice).
+  | { nombre: 'review_boost_eligible'; props: Record<string, never> }
+  | { nombre: 'review_boost_shown'; props: Record<string, never> }
+  | { nombre: 'review_boost_feedback_submitted'; props: { rating: number } }
+  | { nombre: 'review_boost_positive_feedback'; props: { rating: number } }
+  | { nombre: 'review_boost_negative_feedback'; props: { rating: number } }
+  | { nombre: 'review_boost_platform_clicked'; props: { plataforma: 'capterra' | 'getapp' } }
+  | { nombre: 'review_boost_reward_offered'; props: Record<string, never> }
+  | { nombre: 'review_boost_reward_claimed'; props: Record<string, never> }
+  | { nombre: 'review_boost_converted_to_paid'; props: Record<string, never> };
 
 /** ¿Está configurada la analítica? (POSTHOG_KEY presente). */
 export function analyticsHabilitado(): boolean {

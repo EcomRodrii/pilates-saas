@@ -153,6 +153,14 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
     if (error) throw new Error(`update studios: ${error.message}`);
     // R4: señal de ciclo de vida de la suscripción (alta/renovación/impago/baja).
     capturar(studioId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+    // Review Boost: señal directa "vino de Review Boost y pagó", sin tener que
+    // cruzar tablas en PostHog. Gate en `active` (no en cada actualización de
+    // una suscripción ya activa) para no repetirlo en cada renovación.
+    if (sub.status === 'active') {
+      const { data: recompensa } = await admin
+        .from('review_boost_recompensas').select('id').eq('studio_id', studioId).maybeSingle();
+      if (recompensa) capturar(studioId, { nombre: 'review_boost_converted_to_paid', props: {} });
+    }
     return;
   }
 

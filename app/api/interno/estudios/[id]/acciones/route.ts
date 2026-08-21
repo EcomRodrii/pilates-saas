@@ -17,7 +17,8 @@ export const runtime = 'nodejs';
 type Accion =
   | { accion: 'cambiar-plan'; plan: string }
   | { accion: 'suspender'; motivo: string }
-  | { accion: 'reactivar' };
+  | { accion: 'reactivar' }
+  | { accion: 'activar-review-boost' };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const g = await exigirPermiso(req, 'studios.update');
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!cuerpo?.accion) return NextResponse.json({ error: 'Falta la acción' }, { status: 400 });
 
   const { data: antes } = await db.from('studios')
-    .select('id, slug, nombre, plan, suspendido_en, suspendido_motivo')
+    .select('id, slug, nombre, plan, suspendido_en, suspendido_motivo, review_boost_elegible_en')
     .eq('id', id).maybeSingle();
   if (!antes) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
 
@@ -108,6 +109,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       antes: { suspendido: true, motivo: antes.suspendido_motivo }, despues: { suspendido: false },
     });
     return NextResponse.json({ ok: true, suspendido: false });
+  }
+
+  if (cuerpo.accion === 'activar-review-boost') {
+    // Activación manual: salta el cron de elegibilidad (lib/inngest/review-boost.ts)
+    // para un estudio concreto — el mismo campo que marca ese cron, así que el
+    // resto del flujo (modal, feedback, recompensa) no distingue cómo llegó a
+    // estar elegible.
+    if (antes.review_boost_elegible_en) {
+      return NextResponse.json({ error: 'Ya está activado para este estudio.' }, { status: 409 });
+    }
+    const { data: yaRespondio } = await db.from('review_boost_feedback').select('id').eq('studio_id', id).maybeSingle();
+    if (yaRespondio) return NextResponse.json({ error: 'Este estudio ya dio su feedback — no tiene sentido reactivarlo.' }, { status: 409 });
+
+    const { error } = await db.from('studios').update({ review_boost_elegible_en: new Date().toISOString() }).eq('id', id);
+    if (error) return NextResponse.json({ error: 'No se ha podido activar.' }, { status: 500 });
+
+    await registrar(db, req, {
+      actor: g.admin,
+      accion: 'estudio.review_boost.activado_manual',
+      objetivoTipo: 'studio', objetivoId: id,
+      resumen: `${nombre}: Review Boost activado manualmente`,
+      antes: { reviewBoostElegibleEn: null }, despues: { reviewBoostElegibleEn: true },
+    });
+    return NextResponse.json({ ok: true, reviewBoostElegible: true });
   }
 
   return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 });

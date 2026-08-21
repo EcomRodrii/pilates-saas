@@ -17,8 +17,9 @@ import { PLANES, PLAN_INFO } from '@/lib/billing/entitlements';
 import { useSesionInterna } from '../../layout';
 import { tienePermiso } from '@/lib/interno/permisos';
 
-export function AccionesEstudio({ id, plan, suspendido, motivo }: {
+export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost }: {
   id: string; plan: string; suspendido: boolean; motivo: string | null;
+  reviewBoost: { elegibleEn: string | null; mostradoEn: string | null; feedback: { rating: number; creadoEn: string } | null; recompensaCanjeada: boolean };
 }) {
   const sesion = useSesionInterna();
   const router = useRouter();
@@ -108,6 +109,32 @@ export function AccionesEstudio({ id, plan, suspendido, motivo }: {
                 </button>
               </div>
             </div>
+          )}
+        </div>
+
+        <div className="border-t border-border/60 pt-3">
+          <p className="text-[12.5px] font-semibold text-foreground mb-1">Review Boost</p>
+          {reviewBoost.feedback ? (
+            <p className="text-[12.5px] text-muted-foreground">
+              Ya dio su feedback: {reviewBoost.feedback.rating}★{reviewBoost.recompensaCanjeada ? ' · descuento canjeado' : ''}.
+              No tiene sentido volver a activarlo.
+            </p>
+          ) : reviewBoost.elegibleEn ? (
+            <p className="text-[12.5px] text-muted-foreground">
+              Activado {reviewBoost.mostradoEn ? '— ya se le mostró el modal, esperando respuesta.' : '— aún no ha entrado al panel desde entonces.'}
+            </p>
+          ) : (
+            <>
+              <p className="text-[12px] text-muted-foreground mb-2">
+                Normalmente lo activa solo el cron diario al terminar el trial, si el estudio cumple las señales de
+                buen uso. Esto lo salta para este estudio en concreto.
+              </p>
+              <button type="button" disabled={ocupado}
+                onClick={() => ejecutar({ accion: 'activar-review-boost' }, 'Review Boost activado: verá el modal la próxima vez que entre.')}
+                className="px-3 py-1.5 rounded-lg text-[12.5px] font-bold bg-brand text-brand-foreground disabled:opacity-50">
+                Activar manualmente
+              </button>
+            </>
           )}
         </div>
 
