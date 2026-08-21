@@ -5,7 +5,7 @@ import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { ThemeStyle } from '@/components/theme-style';
 import { getStudioSeo } from '@/lib/studio-seo';
 import { getThemePublicado } from '@/lib/theme-data';
-import { urlMonograma } from '@/lib/monograma-estudio';
+import { urlIconoEstudio } from '@/lib/monograma-estudio';
 
 // Metadata dinámica: el portal es la "app de marca" del estudio, así que el
 // título, el nombre de la app instalada (appleWebApp.title) y el manifest son
@@ -39,9 +39,19 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     // <link rel="apple-touch-icon">, y Safari termina resolviendo el icono de
     // marca de OTRO negocio. Mismo valor que `icon`: no hace falta un asset
     // aparte para que la alumna vea el icono de SU estudio, no el de Tentare.
+    // ⚠️ Con favicon propio manda ese; si no, el icono compuesto CON SU LOGO
+    // (`urlIconoEstudio`), y solo sin logo la inicial. Antes se saltaba el logo
+    // por completo: un estudio con logo subido pero sin favicon —que es el caso
+    // normal, porque el favicon vive en el editor de tema y el logo en
+    // Configuración— veía la inicial de su nombre en el icono de la app de su
+    // alumna en vez de su marca.
+    //
+    // Y va COMPUESTO en un cuadrado, no el logo crudo: `apple-touch-icon` no
+    // admite transparencia y iOS lo rellena por su cuenta, así que un PNG
+    // transparente y apaisado sale sobre un fondo que no eligió nadie.
     icons: {
-      icon: theme?.faviconUrl || urlMonograma(nombre, studio?.colorPrimario, 192),
-      apple: theme?.faviconUrl || urlMonograma(nombre, studio?.colorPrimario, 192),
+      icon: theme?.faviconUrl || urlIconoEstudio(nombre, studio?.colorPrimario, 192, studio?.logoUrl, process.env.NEXT_PUBLIC_SUPABASE_URL),
+      apple: theme?.faviconUrl || urlIconoEstudio(nombre, studio?.colorPrimario, 192, studio?.logoUrl, process.env.NEXT_PUBLIC_SUPABASE_URL),
     },
   };
 }

@@ -61,3 +61,52 @@ export function urlMonograma(
   const params = new URLSearchParams({ inicial: inicialDe(nombre), color: coloresMonograma(colorPrimario).fondo, size: String(size) });
   return `/icono-estudio?${params.toString()}`;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El icono cuadrado del estudio, CON su logo cuando lo tiene.
+//
+// ⚠️ EL FALLO QUE ARREGLA. El manifest del portal ya usaba `logoUrl`… y además
+// declaraba `/icon-192.png` y `/icon-512.png`, que son los de TENTARE
+// (`scripts/regenerar-marca.mjs` los genera de `tentare-icono-color.svg`). Se
+// habían añadido «por si el logo no es cuadrado», y ahí está el problema: un
+// instalador de Android que exige un 192/512 exacto descarta el logo —que va
+// como `sizes: 'any'`— y se queda con el único candidato de ese tamaño, que es
+// la marca de otra empresa. La alumna acababa con el icono de Tentare en su
+// pantalla de inicio.
+//
+// La solución no es quitar los tamaños exactos (los hacen falta), sino que esos
+// tamaños exactos sean SUYOS: el logo compuesto sobre su color de marca, en un
+// lienzo cuadrado. Y si no hay logo, el monograma de siempre.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * ¿Es una URL de logo que esta app puede pedir?
+ *
+ * ⚠️ La ruta del icono descarga esta URL en el SERVIDOR para componer el PNG,
+ * así que un parámetro libre sería una puerta para hacerle pedir lo que sea a
+ * donde sea (SSRF). Solo se acepta el almacenamiento público de nuestro propio
+ * Supabase, que es de donde salen los logos (`subirLogoEstudio`).
+ */
+export function logoServible(logoUrl: string | null | undefined, baseSupabase: string | null | undefined): boolean {
+  const url = (logoUrl ?? '').trim();
+  const base = (baseSupabase ?? '').trim().replace(/\/$/, '');
+  if (!url || !base) return false;
+  return url.startsWith(`${base}/storage/v1/object/public/`);
+}
+
+/**
+ * La URL del icono del estudio a un tamaño exacto. Con logo servible, el icono
+ * lo lleva; sin él, la inicial. Nunca el de Tentare.
+ */
+export function urlIconoEstudio(
+  nombre: string | null | undefined,
+  colorPrimario: string | null | undefined,
+  size: TamanoMonograma,
+  logoUrl?: string | null,
+  baseSupabase?: string | null,
+): string {
+  const base = urlMonograma(nombre, colorPrimario, size);
+  return logoServible(logoUrl, baseSupabase)
+    ? `${base}&logo=${encodeURIComponent((logoUrl as string).trim())}`
+    : base;
+}
