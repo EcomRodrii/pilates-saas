@@ -5,8 +5,13 @@ import glob, os
 # supabase/schema.sql, un snapshot hecho a mano que se declaraba a sí mismo
 # NO AUTORITATIVO y llevaba días divergido: faltaban sustituciones,
 # valoraciones, webhook_events y rate_limits, así que el código las usaba
-# sin tipos. Las migraciones son aditivas (ningún DROP/RENAME real), por lo
-# que leerlas en orden reconstruye el esquema correctamente.
+# sin tipos. Leerlas EN ORDEN DE APLICACIÓN reconstruye el esquema.
+#
+# ⚠️ Aquí ponía «las migraciones son aditivas (ningún DROP/RENAME real)», y esa
+# premisa ya no se sostiene: hay un `drop column` real en el historial
+# (20260820190000). El orden importa de verdad, no es solo para poder emitir el
+# comentario `// migr NNN`. Los RENAME siguen sin estar contemplados: si alguna
+# vez aparece uno, hay que enseñárselo igual que se le enseñó el DROP.
 #
 # Se leen fichero a fichero (no concatenadas) para saber de QUÉ migración sale
 # cada columna y poder emitir el comentario `// migr NNN` automáticamente.
@@ -89,6 +94,21 @@ for ruta in ficheros:
             if col not in tables[name]:
                 tables[name][col] = sql_to_ts(parse_type(rest), False)
                 origen[(name, col)] = version
+
+        # ...y los DROP COLUMN, en el mismo orden de aplicación.
+        #
+        # ⚠️ Esto NO estaba, y la cabecera de este script afirmaba que las
+        # migraciones eran puramente aditivas («ningún DROP/RENAME real»). Dejó
+        # de ser cierto: `20260820190000_studios_drop_mailchimp_account_name`
+        # quita una columna que su pareja había añadido el mismo día. Sin este
+        # bucle, `db-types.ts` declaraba `studios.mailchimp_account_name` — una
+        # columna que en producción NO existe. `tsc` no lo caza (la fila llega
+        # como `any` en el mapeo) y quien la usara se comería un 400 de
+        # PostgREST en tiempo de ejecución: el tipo miente, no falla.
+        for col in re.findall(r'drop column\s+(?:if exists\s+)?([a-z_][a-z0-9_]*)', cuerpo, re.I):
+            if name in tables:
+                tables[name].pop(col, None)
+                origen.pop((name, col), None)
 
 # Afinado manual de columnas jsonb: el SQL solo dice "jsonb", que se traduce a
 # `any`. Estas tienen forma conocida y estaba declarada a mano en el
