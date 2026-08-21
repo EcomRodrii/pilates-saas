@@ -21,6 +21,7 @@ import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } f
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { IndicadorPasos } from '@/components/reserva/indicador-pasos';
 import { recorridoDe } from '@/lib/reservar/pasos-flujo';
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, BOTON_TERCIARIO } from '@/lib/reservar/botones';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
@@ -2789,7 +2790,7 @@ export default function ReservarPage() {
         footer={loginStep === 'datos' ? (
           <button onClick={handleDatosContinuar}
             disabled={!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono) || !privacidadAceptada || datosCargando}
-            className="w-full py-3.5 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+            className={BOTON_PRIMARIO}
             style={{ backgroundColor: PRIMARY }}>
             {datosCargando ? 'Un momento…' : 'Continuar al pago'}
           </button>
@@ -2949,12 +2950,12 @@ export default function ReservarPage() {
                       superficie. Cero hex de terceros en una pantalla que
                       lleva la marca de un estudio. */}
                   <a href={makeGoogleCalUrl(bookingSesion, estudioNombre, estudioDireccion)} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold text-white transition-all active:scale-[.99]"
+                    className={`${BOTON_PRIMARIO} flex items-center justify-center gap-2`}
                     style={{ backgroundColor: PRIMARY }}>
                     <ExternalLink size={14} />Google Calendar
                   </a>
                   <button onClick={() => downloadICS(bookingSesion, estudioNombre, estudioDireccion)}
-                    className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] transition-all active:scale-[.99] hover:border-[var(--portal-ink)]">
+                    className={`${BOTON_SECUNDARIO} flex items-center justify-center gap-2`}>
                     <Download size={14} />Apple / Outlook (.ics)
                   </button>
                 </div>
@@ -2998,7 +2999,7 @@ export default function ReservarPage() {
                     y entra cuando quieras.
                   </p>
                 </div>
-                <button onClick={closeBooking} className="text-[var(--portal-muted)] text-sm hover:text-[var(--portal-ink)] transition-colors mt-1">
+                <button onClick={closeBooking} className={`${BOTON_TERCIARIO} mt-1`}>
                   Cerrar
                 </button>
               </div>
@@ -3018,7 +3019,7 @@ export default function ReservarPage() {
                   <p className="text-[var(--portal-muted-2)] text-sm mt-1">{textosReservar.listaEspera || 'Si se libera una plaza, te avisaremos por email.'}</p>
                 </div>
                 <button onClick={closeBooking}
-                  className="w-full py-3 rounded-2xl text-sm font-bold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
+                  className={BOTON_SECUNDARIO}>
                   Cerrar
                 </button>
               </div>
@@ -3035,7 +3036,7 @@ export default function ReservarPage() {
                   <p className="text-[var(--portal-muted-2)] text-sm mt-1">Tu reserva está pendiente de aprobación. Te avisaremos en cuanto se confirme.</p>
                 </div>
                 <button onClick={closeBooking}
-                  className="w-full py-3 rounded-2xl text-sm font-bold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
+                  className={BOTON_SECUNDARIO}>
                   Cerrar
                 </button>
               </div>
@@ -3071,7 +3072,7 @@ export default function ReservarPage() {
                         resolver algo a mano. */}
                     {captcha}
                     <button onClick={handleContinuarAcceso} disabled={!loginForm.email || enviandoEnlace || enviandoLoginPassword}
-                      className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+                      className={BOTON_PRIMARIO}
                       style={{ backgroundColor: PRIMARY }}>
                       {enviandoLoginPassword ? 'Entrando…' : enviandoEnlace ? 'Enviando…' : loginPassword.trim() ? 'Iniciar sesión →' : 'Continuar →'}
                     </button>
@@ -3290,7 +3291,7 @@ export default function ReservarPage() {
                 {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                 <p className="text-[11px] text-[var(--portal-muted)] mb-5">El teléfono solo lo usa {estudioNombre} para avisos de tus clases.</p>
                 <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)}
-                  className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+                  className={BOTON_PRIMARIO}
                   style={{ backgroundColor: PRIMARY }}>
                   Continuar →
                 </button>
@@ -3328,11 +3329,11 @@ export default function ReservarPage() {
                 </label>
                 <div className="flex gap-2">
                   <button onClick={() => setLoginStep('login')}
-                    className="flex-1 py-3 rounded-2xl text-sm font-semibold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
+                    className={`${BOTON_SECUNDARIO} flex-1`}>
                     Volver
                   </button>
                   <button onClick={handleSignContract} disabled={!terminosAceptados}
-                    className="flex-[2] py-3 rounded-2xl text-sm font-bold text-white transition-all disabled:opacity-40"
+                    className={`${BOTON_PRIMARIO} flex-[2]`}
                     style={{ backgroundColor: PRIMARY }}>
                     Aceptar y continuar →
                   </button>
@@ -3409,7 +3410,7 @@ export default function ReservarPage() {
                   </div>
                 )}
                 <button onClick={handleConfirm} disabled={confirmando}
-                  className="w-full py-3 rounded-2xl font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                  className={BOTON_PRIMARIO}
                   style={{ backgroundColor: PRIMARY }}>
                   {confirmando
                     ? 'Un momento…'

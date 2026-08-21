@@ -467,6 +467,15 @@ nextjs-portal { display: none !important; }
    un pop sutil (fade + alzado), no un deslizamiento desde un borde. */
 @keyframes sheet-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sheet-pop-in { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+/* Salida de la hoja pública.
+   ⚠️ Sin `scale`, al revés que la entrada: `sheet-pop-in` lo lleva y ya costó
+   un rojo de CI (falseaba `boundingBox().width` mientras corría). La salida
+   solo baja y se desvanece — y además es más corta que la entrada, porque
+   cerrar tiene que sentirse inmediato y abrir puede permitirse presencia. */
+@keyframes sheet-pop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(12px); } }
+@keyframes sheet-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+.animate-sheet-pop-out { animation: sheet-pop-out .16s ease both; }
+.animate-sheet-backdrop-out { animation: sheet-backdrop-out .16s ease both; }
 .animate-sheet-backdrop-in { animation: sheet-backdrop-in .2s ease both; }
 .animate-sheet-pop-in { animation: sheet-pop-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
 

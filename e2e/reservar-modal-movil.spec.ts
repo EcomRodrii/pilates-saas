@@ -130,6 +130,10 @@ test('⚠️ el marco de la hoja NO cambia de tamaño ni de sitio entre pasos', 
   await abrirPasoDatos(page);
 
   const hoja = page.getByRole('dialog');
+  // ⚠️ Esperar a que la ENTRADA termine antes de medir: `sheet-pop-in` lleva
+  // `scale(.97)`, así que a media animación la caja mide 353px en vez de 358 y
+  // el test se compara contra un fotograma intermedio. Ya costó un rojo aquí.
+  await page.waitForTimeout(450);
   const antes = (await hoja.boundingBox())!;
 
   await page.getByPlaceholder('Nombre').fill('Marta');

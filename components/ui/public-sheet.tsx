@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useDialogA11y } from './use-dialog-a11y';
 
 // Hoja/modal accesible para las páginas públicas (reserva, confirmación de
@@ -58,7 +59,28 @@ export function PublicSheet({
 }) {
   const { sheetRef } = useDialogA11y({ open, onClose });
 
-  if (!open) return null;
+  // Se queda montada un instante más al cerrar, para que la animación de salida
+  // se vea. Con `if (!open) return null` a secas, TODAS las hojas de este flujo
+  // —reserva, acceso, registro, contrato, legales, citas— entraban animadas y
+  // desaparecían de golpe: la asimetría que hacía que cerrar se sintiera como
+  // un corte. El patrón es el mismo que ya usa `DashboardDrawer`, que resolvió
+  // esto mismo en el panel; `prefers-reduced-motion` ya acorta las animaciones
+  // a ~0 desde globals.css, así que no hay que comprobarlo aquí.
+  const [rendered, setRendered] = useState(open);
+  const [cerrando, setCerrando] = useState(false);
+
+  // Ajuste durante el render y no en un efecto: con efecto, al abrir se pinta un
+  // frame sin la hoja (`rendered` todavía en false) y la entrada arranca un
+  // fotograma tarde. Es lo que documenta React para reaccionar a un cambio de
+  // prop.
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
+    if (open) { setRendered(true); setCerrando(false); }
+    else if (rendered) setCerrando(true);
+  }
+
+  if (!rendered) return null;
 
   // Solo se reestructura cuando hay footer: sin él, la hoja se comporta
   // EXACTAMENTE igual que antes (el caller sigue mandando con `sheetStyle`).
@@ -73,7 +95,7 @@ export function PublicSheet({
       // ganaba por orden de aparición en el DOM — funcionaba, pero por
       // casualidad: mover un bloque de JSX habría invertido el apilamiento sin
       // que nada lo delatara.
-      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 sm:p-6 animate-sheet-backdrop-in"
+      className={`fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 sm:p-6 ${cerrando ? 'animate-sheet-backdrop-out' : 'animate-sheet-backdrop-in'}`}
       style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', ...overlayStyle }}
       onClick={closeOnBackdropClick ? onClose : undefined}
     >
@@ -83,7 +105,10 @@ export function PublicSheet({
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className={`${sheetClassName} animate-sheet-pop-in`}
+        className={`${sheetClassName} ${cerrando ? 'animate-sheet-pop-out' : 'animate-sheet-pop-in'}`}
+        // Desmontar al TERMINAR la salida, no por temporizador: un `setTimeout`
+        // que no case con la duración real deja la hoja fantasma o la corta.
+        onAnimationEnd={() => { if (cerrando) setRendered(false); }}
         style={footer
           // `overflow: hidden` en la hoja y el scroll en el cuerpo: si el
           // scroll se quedara aquí, el footer scrollearía con el contenido y no
