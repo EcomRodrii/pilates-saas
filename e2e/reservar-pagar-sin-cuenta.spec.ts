@@ -187,3 +187,57 @@ test('⚠️ un 409 de checkout-embebido NO se anuncia como pago iniciado', asyn
   // Reintentable: el botón no se queda inerte tras el fallo.
   await expect(page.getByRole('button', { name: /Continuar al pago/ })).toBeEnabled();
 });
+
+test('⚠️ la hoja de la ficha y el modal de acceso nunca coexisten en pantalla', async ({ page }) => {
+  // El bug real: `handleReservarCalendario` delega al modal de acceso
+  // (`openBooking()`) de forma SÍNCRONA cuando no hay sesión, pero
+  // `BookingSheet` solo cerraba su propia hoja DESPUÉS de un `await` sobre ese
+  // resultado. Un `await` siempre cede al menos un microtask, así que React
+  // podía pintar el frame en el que el modal de acceso YA está abierto y la
+  // hoja de la ficha TODAVÍA no se ha cerrado — invisible en la ejecución
+  // instantánea de un test normal, pero real en un dispositivo más lento
+  // (visto en vídeo: la franja naranja del CTA de la ficha asomando tras el
+  // modal de "Tus datos").
+  //
+  // ⚠️ No se reutiliza `abrirClaseSinSesion`: su última línea YA hace el clic
+  // que abre "Tus datos", así que instrumentar DESPUÉS de llamarla llega
+  // tarde — el tránsito ya ocurrió. Se repite el arranque hasta justo antes
+  // del clic, a propósito.
+  await page.clock.install({ time: new Date(AHORA) });
+  await page.route('**/rest/v1/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: STUDIO_ID }) }));
+  await page.route('**/api/theme**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }) }));
+  await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixtureClaseConPlanPuntual()) }));
+  await page.route('**/api/public/session', (r) => r.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'sin sesión' }) }));
+  for (let intento = 0; intento < 3; intento++) {
+    await page.goto(`/reservar/${SLUG}?tab=clases`);
+    if (await page.locator('#horario').waitFor({ timeout: 30_000 }).then(() => true).catch(() => false)) break;
+  }
+  await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
+  const botonReservar = page.getByRole('button', { name: /^Reservar/ }).last();
+  await expect(botonReservar).toBeVisible({ timeout: 15_000 });
+
+  // Se instrumenta con un MutationObserver —no con `requestAnimationFrame`—
+  // porque el reloj simulado de `page.clock.install()` (arriba) también
+  // congela rAF, y con él la instrumentación nunca se ejecutaría. Un
+  // MutationObserver corre en cuanto el DOM cambia, sin depender de ningún
+  // reloj: cuenta, en cada mutación, cuántos `role="dialog"` hay a la vez.
+  await page.evaluate(() => {
+    (window as unknown as { __maxDialogs: number }).__maxDialogs = 0;
+    const medir = () => {
+      const n = document.querySelectorAll('[role="dialog"]').length;
+      const w = window as unknown as { __maxDialogs: number };
+      if (n > w.__maxDialogs) w.__maxDialogs = n;
+    };
+    medir();
+    new MutationObserver(medir).observe(document.body, { childList: true, subtree: true, attributes: true });
+  });
+
+  await botonReservar.click();
+  await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible({ timeout: 30_000 });
+  // Unos fotogramas más tras la transición, por si el pico llega tarde.
+  await page.waitForTimeout(300);
+
+  const maxDialogs = await page.evaluate(() => (window as unknown as { __maxDialogs: number }).__maxDialogs);
+  expect(maxDialogs, 'las dos hojas coexistieron en algún fotograma pintado').toBeLessThanOrEqual(1);
+});
+
