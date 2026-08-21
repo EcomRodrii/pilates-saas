@@ -1247,7 +1247,11 @@ export async function barrerEsperasSinPlaza(nowISO: string) {
     // promocionado o cancelado a mano. Si no devuelve fila, no se avisa.
     const { data: upd, error: updErr } = await admin
       .from('reservas')
-      .update({ estado: 'CANCELADA' })
+      // `posicion_espera`/`oferta_expira_en` se limpian igual que hacen
+      // dbCancelarReservasPorSesiones y expirar_oferta_lista_espera. Es inerte
+      // (todo lo que las mira filtra por estado LISTA_ESPERA), pero dejar la
+      // fila coherente cuesta dos claves.
+      .update({ estado: 'CANCELADA', posicion_espera: null, oferta_expira_en: null })
       .eq('id', fila.id)
       .eq('estado', 'LISTA_ESPERA')
       .select('id');
@@ -1272,7 +1276,12 @@ async function avisarEsperaSinPlaza(
     const { data: sus } = await admin
       .from('suscripciones')
       .select('estado, sesiones_restantes, fecha_fin, planes_tarifa(tipo)')
-      .eq('id', suscripcionId).eq('studio_id', fila.studio_id).maybeSingle();
+      // Por estudio Y por socia: el email lleva su saldo y su caducidad. Cruzar
+      // de persona exigiría una colisión de la base de 24 caracteres de
+      // `idsDe()` (que chocaría antes por la PK de `reservas`), así que no es
+      // una fuga real — pero la línea convierte "improbable" en "imposible".
+      .eq('id', suscripcionId).eq('studio_id', fila.studio_id).eq('socio_id', fila.socio_id)
+      .maybeSingle();
     const plan = sus?.planes_tarifa as { tipo?: string } | { tipo?: string }[] | null | undefined;
     const tipoPlan = (Array.isArray(plan) ? plan[0]?.tipo : plan?.tipo) ?? null;
 
