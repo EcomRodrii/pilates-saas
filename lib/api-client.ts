@@ -642,9 +642,16 @@ export async function descartarSustitucion(sustitucionId: string): Promise<{ ok:
 async function postCheckout(ruta: string, params: unknown): Promise<{ url: string } | { error: string }> {
   let res: Response;
   try {
+    // El Bearer del portal es OBLIGATORIO desde la auditoría del 21-ago: en la
+    // compra de un PLAN el servidor ya no acepta el `socioId` del body sin JWT
+    // (ver app/api/stripe/checkout/route.ts). Las dos pantallas que compran
+    // plan —/compras y el kit de temas— corren siempre con sesión de socia, así
+    // que la cabecera existe. En el cobro de un RECIBO no hace falta y no
+    // estorba: ahí el servidor deriva el socio de la fila del recibo.
+    const auth = await portalAuthHeader();
     res = await fetch(ruta, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify(params),
     });
   } catch {

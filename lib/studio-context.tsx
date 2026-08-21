@@ -397,7 +397,7 @@ interface StudioContextValue {
   cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura>;
   /** Marca CANCELADA las reservas activas de estas sesiones. Llamar SIEMPRE
    *  después de haber avisado a las socias (ver updateSesion). */
-  cancelarReservasDeSesiones: (ids: string[], op: string) => void;
+  cancelarReservasDeSesiones: (ids: string[], op: string) => Promise<ResultadoEscritura>;
 
   // Reservas
   // opciones.checkInInmediato: walk-in (I-alta pilar 6) — se añade y se marca
@@ -420,8 +420,8 @@ interface StudioContextValue {
   deshacerCheckin: (reservaId: string) => Promise<ResultadoEscritura>;
   marcarNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
   revertirNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
-  liberarSpot: (reservaId: string) => void;
-  asignarSpot: (sesionId: string, socioId: string, spotId: string) => void;
+  liberarSpot: (reservaId: string) => Promise<ResultadoEscritura>;
+  asignarSpot: (sesionId: string, socioId: string, spotId: string) => Promise<ResultadoEscritura>;
 
   // Recibos
   addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => Promise<ResultadoEscritura>;
@@ -2452,17 +2452,34 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // NO devuelve el bono a propósito (decisión de producto pendiente, ver
   // cancelarSerieDesde). OJO: `cancelarSesionPorMinimoNoAlcanzado` SÍ lo
   // devuelve, así que la política todavía no es única — está pendiente.
-  function cancelarReservasDeSesiones(ids: string[], op: string) {
-    if (ids.length === 0) return;
-    void dbCancelarReservasPorSesiones(ids).then(res => {
-      if (!('ok' in res)) return;
+  //
+  // ⚠️ Auditoría 21-ago: era `void ...then()`, es decir fire-and-forget. Quien
+  // llamaba enseñaba «Clase cancelada · clientas avisadas» pasara lo que pasara,
+  // así que un fallo del UPDATE reintroducía EXACTAMENTE las reservas fantasma
+  // que este mismo código fue a arreglar, y en silencio. Ahora devuelve el
+  // resultado para que el toast pueda decir la verdad; el reporte a Sentry se
+  // conserva tal cual.
+  async function cancelarReservasDeSesiones(ids: string[], op: string): Promise<ResultadoEscritura> {
+    if (ids.length === 0) return { ok: true };
+    try {
+      const res = await dbCancelarReservasPorSesiones(ids);
+      // `dbCancelarReservasPorSesiones` devuelve `{ error }` a secas (sin `ok`),
+      // no un ResultadoEscritura: se normaliza aquí en vez de propagarlo tal
+      // cual, que era lo que dejaba el error sin forma para quien llama.
+      if (!('ok' in res)) {
+        console.error(`[${op}:dbCancelarReservasPorSesiones]`, res.error);
+        return { ok: false, error: 'La clase se ha cancelado, pero no hemos podido cancelar sus reservas. Recarga la página.' };
+      }
       const idsSet = new Set(res.ids);
-      if (idsSet.size === 0) return;
-      setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
-    }).catch(e => {
+      if (idsSet.size > 0) {
+        setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+      }
+      return { ok: true };
+    } catch (e) {
       console.error(`[${op}:dbCancelarReservasPorSesiones]`, e);
       capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'calendario', op } });
-    });
+      return { ok: false, error: 'La clase se ha cancelado, pero no hemos podido cancelar sus reservas. Recarga la página.' };
+    }
   }
 
   async function updateSesion(id: string, changes: Partial<Sesion>): Promise<ResultadoEscritura> {
@@ -3208,19 +3225,38 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function liberarSpot(reservaId: string) {
+  // ⚠️ Auditoría 21-ago: las dos escribían de forma optimista y NO esperaban ni
+  // revertían — el mismo patrón que ya se corrigió en addReserva/cancelarReserva
+  // y que aquí seguía vivo. Importa porque hay un índice único real que puede
+  // rechazar la escritura (`uq_reserva_spot_activo` sobre (sesion_id, spot_id)):
+  // dos personas del staff asignando el mismo reformer desde el panel dejaban la
+  // pantalla enseñando una asignación que la BD había rechazado, y el descuadre
+  // solo se veía al recargar.
+  //
+  // Además `find` no filtraba por estado y podía enganchar una reserva CANCELADA
+  // de la misma socia en la misma clase (el índice único de reserva activa no
+  // cubre CANCELADA, así que puede haber varias), escribiendo el spot en la fila
+  // equivocada.
+  async function liberarSpot(reservaId: string): Promise<ResultadoEscritura> {
+    const anterior = reservas.find(r => r.id === reservaId);
     setReservas(prev => prev.map(r =>
       r.id === reservaId ? { ...r, spotId: null } : r
     ));
-    dbUpdateReserva(reservaId, { spotId: null });
+    const res = await dbUpdateReserva(reservaId, { spotId: null });
+    if (!res.ok && anterior) setReservas(prev => prev.map(r => r.id === reservaId ? anterior : r));
+    return res;
   }
 
-  function asignarSpot(sesionId: string, socioId: string, spotId: string) {
-    const reserva = reservas.find(r => r.sesionId === sesionId && r.socioId === socioId);
-    setReservas(prev => prev.map(r =>
-      r.sesionId === sesionId && r.socioId === socioId ? { ...r, spotId } : r
-    ));
-    if (reserva) dbUpdateReserva(reserva.id, { spotId });
+  async function asignarSpot(sesionId: string, socioId: string, spotId: string): Promise<ResultadoEscritura> {
+    const reserva = reservas.find(r =>
+      r.sesionId === sesionId && r.socioId === socioId && r.estado !== 'CANCELADA'
+    );
+    if (!reserva) return { ok: false, error: 'No hemos encontrado la reserva de esa clienta en esta clase.' };
+    const anterior = reserva;
+    setReservas(prev => prev.map(r => r.id === reserva.id ? { ...r, spotId } : r));
+    const res = await dbUpdateReserva(reserva.id, { spotId });
+    if (!res.ok) setReservas(prev => prev.map(r => r.id === reserva.id ? anterior : r));
+    return res;
   }
 
   // ── Recibos ──────────────────────────────────────────────────────────────────

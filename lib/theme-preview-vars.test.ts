@@ -1,11 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CLAVES_PREVIEW_PERMITIDAS, varsDePreview, varsKitDePreview } from './theme-preview-vars.ts';
+import { CLAVES_PREVIEW_PERMITIDAS, CLAVES_KIT_PERMITIDAS, varsDePreview, varsKitDePreview } from './theme-preview-vars.ts';
 // `themeToCssVars` es literalmente lo que HomePreview/ThemeThumbVivo mandan
 // por postMessage — mejor oráculo que la interna que lo alimenta.
-import { themeToCssVars } from './theme-runtime.ts';
+import { themeToCssVars, varsKitMap } from './theme-runtime.ts';
 import { THEME_DEFINITIONS } from './theme-definitions.ts';
+import { TEMAS_PORTAL_IDS } from '../themes/registro.ts';
+import { DEFAULT_THEME } from './theme-schema.ts';
 
 // Ejes de FORMA del tema: son los que hacen que un tema declare vars que otro
 // no declara, y por tanto los que pueden dejar la whitelist corta.
@@ -68,6 +70,48 @@ test('la whitelist no tiene claves que el motor ya no emita', () => {
   for (const tema of temas) for (const c of Object.keys(themeToCssVars(tema))) emitidas.add(c);
 
   const sobran = [...CLAVES_PREVIEW_PERMITIDAS].filter((c) => !emitidas.has(c)).sort();
+  assert.deepEqual(sobran, []);
+});
+
+// ⚠️ El MISMO test, para el vocabulario del KIT. No existía, y por eso las 6
+// claves `--size-*` que `varsEscalaSobreTema` emite de verdad llevaban meses
+// fuera de la whitelist sin que nada avisara (auditoría 21-ago): la escala
+// tipográfica cambiaba en producción y no en la vista previa. Las de arriba
+// cubren `themeToCssVars`; estas dos cubren `varsKitMap`, que es el otro emisor.
+test('ninguna var del KIT que emita el motor se queda fuera de su whitelist', () => {
+  const fuera = new Set<string>();
+  for (const id of TEMAS_PORTAL_IDS) {
+    for (const ejes of [
+      {}, { cardStyle: 'elevated' }, { cardStyle: 'bordered' }, { cardStyle: 'flat' },
+      { portalHeadingFontId: 'instrumentSansBold' },
+      { radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 } },
+      // La escala se pide por PASOS (`escalaTexto`), y el motor deriva un
+      // factor; con un paso desviado ya emite la escala entera del tema.
+      { escalaTexto: { seccion: 30 } }, { escalaTexto: { tituloHero: 60, saludo: 20 } },
+    ]) {
+      const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
+      for (const clave of Object.keys(varsKitMap(tema))) {
+        if (!CLAVES_KIT_PERMITIDAS.has(clave)) fuera.add(clave);
+      }
+    }
+  }
+  assert.deepEqual([...fuera].sort(), [], 'vars del kit que el preview descartaría');
+});
+
+test('la whitelist del kit no tiene claves que ningún tema emita', () => {
+  const emitidas = new Set<string>();
+  for (const id of TEMAS_PORTAL_IDS) {
+    for (const ejes of [
+      {}, { cardStyle: 'elevated' }, { cardStyle: 'bordered' },
+      { portalHeadingFontId: 'instrumentSansBold' },
+      { radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 } },
+      { escalaTexto: { seccion: 30 } },
+    ]) {
+      const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
+      for (const c of Object.keys(varsKitMap(tema))) emitidas.add(c);
+    }
+  }
+  const sobran = [...CLAVES_KIT_PERMITIDAS].filter((c) => !emitidas.has(c)).sort();
   assert.deepEqual(sobran, []);
 });
 

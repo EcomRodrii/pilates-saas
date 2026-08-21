@@ -13,6 +13,7 @@
 // peso en runtimes serverless con cold start.
 
 import { unzipSync, strFromU8 } from 'fflate';
+import { rutaConTravesia } from '../ruta-segura.ts';
 import { clasificarFichero, construirManifest, type FicheroImportado, type ImportedThemeManifest } from './manifest.ts';
 
 export const LIMITE_ZIP_BYTES = 25 * 1024 * 1024; // 25 MB — un tema estático no debería pesar más.
@@ -65,6 +66,33 @@ export function descomprimirTema(buffer: Uint8Array): ZipDescomprimido {
     throw new ZipInvalidoError(
       `El ZIP trae ${rutas.length} ficheros — el límite son ${LIMITE_FICHEROS}. ` +
       'Puede que incluya carpetas de dependencias (node_modules) que no hacen falta subir.',
+    );
+  }
+
+  // 🔴 AUDITORÍA 21-ago — ZIP-SLIP CROSS-TENANT.
+  //
+  // Los nombres de entrada del ZIP se usaban tal cual para componer la clave de
+  // R2 (`temas-importados/${studioId}/${id}/${ruta}`, app/api/theme/importar-zip)
+  // y esa clave acaba dentro de un `new URL(...)` en lib/r2.ts, que COLAPSA los
+  // `..` antes de firmar Y antes de enviar el PUT. Comprobado:
+  //
+  //   temas-importados/S/ID/../../OTRO/ID2/index.html  → /temas-importados/OTRO/ID2/index.html
+  //   temas-importados/S/ID/../../../backups/O/b.json  → /backups/O/b.json
+  //
+  // Es decir: una propietaria con plan Estudio podía subir un ZIP "compatible"
+  // (basta HTML+CSS) con entradas `..` y sobrescribir el tema publicado —o el
+  // snapshot de backup, mismo bucket— de OTRO estudio. El único saneado que
+  // había era el de `__MACOSX/` y ficheros ocultos, que no mira los `..`.
+  //
+  // Se rechaza el ZIP entero en vez de filtrar la entrada: un ZIP con rutas así
+  // no es un export legítimo de ninguna herramienta, y aceptarlo a medias
+  // dejaría un tema roto sin explicar por qué. Ver la defensa en profundidad en
+  // subirObjetoR2 (lib/r2.ts), que además valida el prefijo resultante.
+  const sospechosa = rutas.find(rutaConTravesia);
+  if (sospechosa) {
+    throw new ZipInvalidoError(
+      'El ZIP contiene rutas no válidas (fuera de su propia carpeta). ' +
+      'Vuelve a exportarlo desde la herramienta de diseño sin comprimir a mano.',
     );
   }
 

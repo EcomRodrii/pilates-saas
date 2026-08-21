@@ -75,9 +75,10 @@ export function puedeReservarPorVentanaMinima(
 // forma permanente y sin explicación posible desde su portal. Se mantiene el
 // filtro aquí además de arreglar el origen: son dos defensas independientes y
 // esta protege también a las reservas fantasma que YA existen en la BD (no hay
-// backfill). OJO: esto cubre el tope de SIMULTÁNEAS, que se calcula aquí. El
-// cupo SEMANAL se cuenta en SQL dentro de reservar_plaza y ese sí sigue sin
-// mirar `cancelada` — pendiente, ver el informe de auditoría del 20-ago.
+// backfill: quedan 7 filas históricas en producción, todas de clases ya
+// pasadas). OJO: esto cubre el tope de SIMULTÁNEAS, que se calcula aquí. El
+// cupo SEMANAL se cuenta en SQL dentro de reservar_plaza, que desde la
+// migración 20260821090000 también excluye las clases canceladas.
 // `cancelada` es opcional para no romper a quien pase sesiones recortadas.
 export function contarReservasActivasFuturas(
   socioId: string,

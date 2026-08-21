@@ -1,3 +1,5 @@
+// Relativo con .ts explícito: este módulo lo cargan tests bajo `node --test`.
+import { TEMAS_PORTAL, TEMAS_PORTAL_IDS } from '../themes/registro.ts';
 // Claves de CSS var que el preview en vivo puede sobreescribir por
 // postMessage. Es una whitelist de SEGURIDAD: el mensaje llega de otra ventana
 // y no se acepta cualquier propiedad, solo estas.
@@ -115,15 +117,34 @@ export function varsDePreview(
 // escribir `initial` sería el error: `border-radius: var(--radius-card)` no
 // lleva respaldo, así que un `initial` dejaría las tarjetas con las esquinas
 // cuadradas.
+//
+// ⚠️ Auditoría 21-ago: los `--size-*` estaban escritos A MANO y la lista no
+// coincidía con la realidad. `varsEscalaSobreTema` los deriva de
+// `tema.designSystem.type`, que es distinto por tema; comparando la lista con lo
+// que emiten los 5 temas salían 6 claves reales fuera de la whitelist
+// (`--size-body`, `--size-caption`, `--size-meta`, `--size-micro`,
+// `--size-pass-number`, `--size-timer`) y 5 entradas muertas que no existen en
+// ningún tema. Efecto: tocar la escala tipográfica cambiaba el cuerpo, los
+// metadatos y el número del bono en PRODUCCIÓN y no en la vista previa — el
+// mismo bug histórico que este fichero dice prevenir.
+//
+// Ahora se derivan del registro de temas, así que un tema nuevo con un token
+// nuevo entra solo. El test guardián de theme-preview-vars.test.ts lo comprueba.
+const CLAVES_SIZE_DE_LOS_TEMAS: string[] = TEMAS_PORTAL_IDS.flatMap(
+  id => TEMAS_PORTAL[id].designSystem.type.map(t => `--size-${t.token}`),
+);
+
 export const CLAVES_KIT_PERMITIDAS: ReadonlySet<string> = new Set([
-  '--brand', '--on-brand', '--support', '--accent', '--bg', '--ink',
+  // (`--accent` estaba aquí y NINGÚN tema lo emite: `varsColorSobreTema` no lo
+  // declara. Es un token global de la app —dashboard y login— que se coló en la
+  // lista del kit, así que el listener hacía `removeProperty('--accent')` sobre
+  // el documento del preview en cada mensaje. Fuera; el test de abajo lo impide.)
+  '--brand', '--on-brand', '--support', '--bg', '--ink',
   '--font-body', '--font-display', '--weight-display',
   '--radius-card', '--radius-button', '--radius-chip', '--radius-quick-link',
   // La escala se emite entera o no se emite: `varsEscalaSobreTema` aplica un
   // factor a TODOS los pasos del tema, no solo a los que se tocaron.
-  '--size-section', '--size-section-title', '--size-screen-title',
-  '--size-greeting', '--size-hero-title', '--size-pass-name',
-  '--size-detail-label', '--size-welcome', '--size-welcome-text',
+  ...CLAVES_SIZE_DE_LOS_TEMAS,
   // `cardStyle` → sombra (`varsSombraSobreTema`): 'flat' no las declara, así
   // que se borran igual que el resto — la tarjeta vuelve a la sombra propia
   // del fichero del tema, no a un `initial` sin respaldo.

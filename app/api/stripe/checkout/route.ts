@@ -11,6 +11,8 @@ import { decidirSesionCheckout } from '@/lib/billing/sesion-checkout';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
+import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -134,6 +136,36 @@ export async function POST(req: NextRequest) {
     if (!plan.activo) {
       return conCorsWidget(req, NextResponse.json({ error: 'Ese plan ya no está disponible' }, { status: 409 }));
     }
+    // ⚠️ En la compra de un PLAN el `socioId` NUNCA se toma del body.
+    //
+    // Es exactamente la fuga que la auditoría del 19-ago cerró en el endpoint
+    // hermano (app/api/public/checkout-embebido, c5539af3) y que aquí se quedó
+    // abierta: este endpoint es semipúblico (una socia paga sin sesión de
+    // staff) y `body.socioId` viajaba tal cual por `metadata` hasta
+    // `entregarPlanComprado` —que inserta `suscripciones` y `recibos` con ese
+    // id— y hasta el webhook, que escribe `stripe_customer_id` /
+    // `stripe_payment_method_id` sobre esa fila de `socios`.
+    // `suscripciones_socio_id_fkey` es una FK SIMPLE a `socios(id)`, no
+    // compuesta con `studio_id`, así que la BD tampoco lo impedía: pagando con
+    // tarjeta PROPIA se podía escribir el bono a nombre de otra socia —incluso
+    // de otro estudio— y, peor, sobrescribir su método de pago guardado, con lo
+    // que los cobros off-session posteriores irían a la tarjeta del atacante.
+    //
+    // El camino de RECIBO no necesita esto: allí `socioId` sale de la fila del
+    // recibo (`recibo.socio_id`), no del body. Por eso la comprobación vive
+    // dentro de esta rama y no arriba: exigir JWT en el cobro de un recibo
+    // rompería "Cobrar online" del panel y los enlaces de pago.
+    if (body.socioId) {
+      const usuario = await verificarUsuarioSupabase(req);
+      if (!usuario) {
+        return conCorsWidget(req, NextResponse.json({ error: 'Inicia sesión para comprar.' }, { status: 401 }));
+      }
+      socioId = await socioAutenticado(usuario.userId, body.studioId);
+      if (!socioId) {
+        return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 403 }));
+      }
+    }
+
     // Comprar un plan sin ficha: decide el estudio (0110). En EXIGIR_REGISTRO
     // no se cobra a quien no se ha registrado — sin ficha no hay contrato
     // aceptado, así que cobrar antes sería cobrar sin consentimiento.
@@ -150,6 +182,7 @@ export async function POST(req: NextRequest) {
         ));
       }
     }
+
     importe = Number(plan.precio);
     concepto = plan.nombre;
     metadata.planId = body.planId;

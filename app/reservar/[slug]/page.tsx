@@ -38,6 +38,7 @@ import { resolverHrefBloque } from '@/lib/portal-home-bloques';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
 import { LogoTentare } from '@/components/marca/logo-tentare';
+import { portalAuthHeader } from '@/lib/api-client';
 import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import {
   Users, CheckCircle2, X, Calendar, Clock, MapPin,
@@ -1355,9 +1356,13 @@ export default function ReservarPage() {
     setStripeError(null);
     setStripeLoading(plan.id);
     try {
+      // Mismo motivo que en postCheckout (auditoría 21-ago): con `socioId` el
+      // servidor exige el JWT del portal. Si `socia` está resuelta es porque
+      // /api/public/studio-data validó su token, así que la sesión existe.
+      const authHeader = await portalAuthHeader();
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader },
         // El importe/concepto NO se envían: los deriva el servidor del plan en
         // la BD (validando que sea de este estudio y esté activo). Ver
         // app/api/stripe/checkout/route.ts.

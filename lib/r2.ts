@@ -3,6 +3,7 @@ import type { BackupSnapshot } from '@/lib/engines/backup-engine';
 // Relativo con .ts explícito para que `backup-engine` (que importa este módulo)
 // se pueda cargar desde `node --test`. Ver tentare-os.md.
 import { fetchExterno, TIMEOUT_EXTERNO_MS, TIMEOUT_TRANSFERENCIA_MS } from './fetch-externo.ts';
+import { rutaConTravesia } from './ruta-segura.ts';
 
 // Cloudflare R2 (S3-compatible) para guardar los snapshots de backup FUERA de
 // Postgres (P0-13/14). Guardar el backup dentro de la misma BD que respalda es
@@ -97,6 +98,19 @@ export async function descargarSnapshot(key: string): Promise<BackupSnapshot> {
  *  `subirSnapshot` (aws4fetch + Vercel/undici → 411 sin esto). */
 export async function subirObjetoR2(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
   const url = `${endpointBase()}/${key}`;
+  // Defensa en profundidad del zip-slip (auditoría 21-ago): `new URL()` colapsa
+  // los `..`, así que una clave con travesía se firma y se sube a OTRA ruta —
+  // potencialmente el prefijo de otro estudio. El saneado principal está en
+  // lib/theme-import/zip-parser.ts; esto garantiza el invariante en el único
+  // punto por el que pasan TODAS las subidas de objetos, venga la clave de
+  // donde venga.
+  //
+  // Se comprueba la CLAVE, no la URL resultante: comparar pathnames rechazaría
+  // claves legítimas con espacios o acentos (`assets/logo ñ.png`), que `URL`
+  // percent-codifica y que el importador de temas sí produce.
+  if (rutaConTravesia(key)) {
+    throw new Error(`R2: clave con travesía de ruta, se rechaza la subida (${key})`);
+  }
   // `Blob` en vez de pasar el `Uint8Array` tal cual como `BodyInit`: algunas
   // combinaciones de lib DOM de TS no lo aceptan directamente, y Blob es
   // universal (Node y el runtime de Vercel) sin copiar los bytes dos veces.
