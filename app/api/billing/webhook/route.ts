@@ -25,7 +25,22 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(bodyText, sig, whSecret ?? '');
-  } catch {
+  } catch (err) {
+    // Antes esto fallaba en TOTAL SILENCIO — ni log ni Sentry. Así estuvo roto
+    // varios días (18→21-ago) sin que nadie se enterara: un estudio pagó de
+    // verdad, Stripe entregó el evento, la firma no verificó, y el 400 se
+    // perdió sin dejar rastro — la suscripción se quedó en `trialing` para
+    // siempre y nada avisó. `error` siempre, sin condicionales: si falta el
+    // secreto es un fallo nuestro de configuración; si está puesto pero no
+    // verifica, puede ser tráfico probando la URL, pero es EXACTAMENTE el
+    // mismo síntoma que un secreto rotado en Stripe sin actualizar Vercel —
+    // Sentry agrupa por fingerprint, así que esto no se convierte en una
+    // alarma que suena sin parar por ruido de internet.
+    Sentry.captureMessage('[billing webhook] firma inválida — la suscripción del estudio puede quedarse sin sincronizar', {
+      level: 'error',
+      tags: { area: 'cobros', tipo: whSecret ? 'firma-no-verifica' : 'secreto-no-configurado' },
+      extra: { error: err instanceof Error ? err.message : String(err), secretoConfigurado: Boolean(whSecret) },
+    });
     return NextResponse.json({ error: 'Firma de webhook inválida' }, { status: 400 });
   }
 
