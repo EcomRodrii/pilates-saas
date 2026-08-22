@@ -12,6 +12,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // webhook de Connect (pagos de socias). Fuente de verdad del estado de la
 // suscripción: actualiza studios.subscription_status/plan/current_period_end.
 // Requiere su propio secreto: STRIPE_BILLING_WEBHOOK_SECRET.
+//
+// Incidente 22-ago: el secreto llevaba desactualizado desde el 30-jul (el
+// endpoint de Stripe se roló sin actualizar Vercel) — confirmado en Sentry
+// con "No signatures found matching the expected signature for payload".
+// Corregido en Vercel; este commit solo fuerza el redeploy real, porque el
+// `ignoreCommand` de vercel.json cancela un redeploy manual del MISMO commit
+// (diff vacío contra sí mismo) — no basta con guardar la env var.
 export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
   const whSecret = process.env.STRIPE_BILLING_WEBHOOK_SECRET;
