@@ -28,6 +28,23 @@ test('⚠️ un proyecto exportado con carpeta raíz única se PELA — un solo 
   assert.deepEqual(manifest.stylesheets, ['styles.css']);
 });
 
+test('zip-slip: una entrada con ".." se rechaza — el ZIP entero, no solo esa entrada', () => {
+  const zip = zipSync({
+    'index.html': t('<html></html>'),
+    '../../otro-studio/index.html': t('<html>hostil</html>'),
+  });
+  assert.throws(() => descomprimirTema(zip), ZipInvalidoError);
+});
+
+test('zip-slip: una travesía tras pelar la carpeta raíz también se rechaza', () => {
+  const zip = zipSync({
+    'mi-tema/index.html': t('<html></html>'),
+    // Con la carpeta raíz "mi-tema/" pelada, esto se queda en "../fuera.html".
+    'mi-tema/../fuera.html': t('hostil'),
+  });
+  assert.throws(() => descomprimirTema(zip), ZipInvalidoError);
+});
+
 test('__MACOSX y ficheros ocultos (.DS_Store) no cuentan como contenido del tema', () => {
   const zip = zipSync({
     'index.html': t('<html></html>'),

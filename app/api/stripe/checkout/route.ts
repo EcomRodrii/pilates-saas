@@ -12,6 +12,8 @@ import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
+import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -94,7 +96,17 @@ export async function POST(req: NextRequest) {
   // webhook no intenta marcar como cobrado un recibo inexistente).
   let importe: number;
   let concepto: string;
-  let socioId: string | null = body.socioId ?? null;
+  // ⚠️ El `socioId` NUNCA se toma del body a pelo (auditoría 21/22-ago, C-1).
+  // Antes era `body.socioId ?? null` sin comprobar nada: pagando con tarjeta
+  // propia se podía escribir bono/recibo/suscripción a nombre de OTRA socia
+  // —incluso de otro estudio— y sobrescribir su método de pago guardado, con
+  // lo que los cobros off-session posteriores irían a la tarjeta del
+  // atacante. `suscripciones_socio_id_fkey` es una FK simple a `socios(id)`,
+  // no compuesta con `studio_id`, así que la BD tampoco lo impedía.
+  // En la rama de RECIBO no hace falta: `socioId` sale de la fila del recibo
+  // dos bloques más abajo, nunca del body. Solo la rama de PLAN confiaba en
+  // el valor crudo — ahí se exige el Bearer del portal (ver más abajo).
+  let socioId: string | null = null;
   // Sesión de Checkout que este recibo ya tenga abierta (migr 20260817214500).
   // Es lo que impide crear una SEGUNDA sesión pagable del mismo recibo.
   let sesionAbiertaId: string | null = null;
@@ -134,6 +146,19 @@ export async function POST(req: NextRequest) {
     }
     if (!plan.activo) {
       return conCorsWidget(req, NextResponse.json({ error: 'Ese plan ya no está disponible' }, { status: 409 }));
+    }
+    // La identidad de la socia sale del JWT verificado, nunca del body — mismo
+    // criterio que /api/public/checkout-embebido (auditoría 19-ago, c5539af3).
+    // Sin socioId es el camino de invitada (compra sin ficha, más abajo).
+    if (body.socioId) {
+      const usuario = await verificarUsuarioSupabase(req);
+      if (!usuario) {
+        return conCorsWidget(req, NextResponse.json({ error: 'Inicia sesión para comprar.' }, { status: 401 }));
+      }
+      socioId = await socioAutenticado(usuario.userId, body.studioId);
+      if (!socioId) {
+        return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 403 }));
+      }
     }
     // Comprar un plan sin ficha: decide el estudio (0110). En EXIGIR_REGISTRO
     // no se cobra a quien no se ha registrado — sin ficha no hay contrato
