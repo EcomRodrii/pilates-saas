@@ -1,6 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // En qué modo de Stripe estamos, y si ese modo pega con dónde estamos corriendo.
 //
+// Incidente 22-ago: STRIPE_SECRET_KEY rotada (auditoría 14ª pasada, C-2 —
+// Sentry JAVASCRIPT-NEXTJS-1P). Este commit solo fuerza el redeploy real: el
+// `ignoreCommand` de vercel.json cancela un redeploy manual sin commit nuevo
+// (diff vacío contra sí mismo) — guardar la env var en Vercel no basta.
+//
 // El código ya era agnóstico de modo: `STRIPE_SECRET_KEY` puede ser `sk_live_` o
 // `sk_test_` y todo funciona igual (el centinela `sk_test_XXXX` significa "sin
 // configurar", no "modo test"). Lo que faltaba era impedir la mezcla, que tiene
