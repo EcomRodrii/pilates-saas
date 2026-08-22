@@ -16,7 +16,7 @@
 // que le pasa la página (la BD sigue siendo autoritativa).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useMemo, useState, useEffect, useId, type CSSProperties } from 'react';
+import { useMemo, useState, useEffect, useId, memo, type CSSProperties } from 'react';
 import {
   ChevronLeft, ChevronRight, Clock, MapPin, Users, X,
   CheckCircle2, AlertCircle, AlertTriangle, CalendarDays, Ticket,
@@ -291,7 +291,7 @@ function fmtDiaCompleto(iso: string): string {
 // resolvería contra el dominio del estudio y daría 404. En Modo A (siempre
 // mismo origen que la app) se deja sin pasar y la ruta relativa de siempre
 // sigue funcionando igual que hoy.
-function FotoClase({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefecto = false, origenTentare = '' }: {
+function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefecto = false, origenTentare = '' }: {
   nombre: string; color: string; fotoUrl?: string | null;
   ancho: number | string; alto: number; radio: number;
   conFotoPorDefecto?: boolean; origenTentare?: string;
@@ -304,7 +304,11 @@ function FotoClase({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefec
         alt=""
         loading="lazy"
         decoding="async"
-        style={{ width: ancho, height: alto, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block' }}
+        // El color del tipo de clase de fondo mientras carga (~1s medido en
+        // vivo con `loading="lazy"`): un blanco puro ahí se lee como hueco
+        // roto; con el color de la clase, la foto se siente una mejora
+        // progresiva, no una carga que falló.
+        style={{ width: ancho, height: alto, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
       />
     );
   }
@@ -317,7 +321,7 @@ function FotoClase({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefec
         loading="lazy"
         decoding="async"
         onError={alFallarImagen(`${origenTentare}${IMAGENES_CLASE.generica}`)}
-        style={{ width: ancho, height: alto, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block' }}
+        style={{ width: ancho, height: alto, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
       />
     );
   }
@@ -333,6 +337,13 @@ function FotoClase({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefec
     </div>
   );
 }
+// Cada fila de SlotRow monta su propia FotoClase — sin memo, escribir en el
+// formulario de alta (un `setState` ajeno arriba en la página) reconciliaba
+// TODAS las fotos de la lista visible en cada tecleo. Props escalares/objeto
+// pequeño y estable (slot.claseColor/claseFotoUrl no cambian entre renders
+// del padre salvo que la clase en sí cambie), así que la comparación
+// superficial de memo() es barata y siempre correcta aquí.
+const FotoClase = memo(FotoClaseImpl);
 
 // Foto redonda — de la instructora o de la clase. Si no hay foto, cae a la
 // inicial del nombre sobre su color (mismo criterio que components/ui/profile-avatar).
@@ -346,7 +357,7 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
         alt={nombre}
         loading="lazy"
         decoding="async"
-        style={{ width: size, height: size, borderRadius: 999, objectFit: 'cover', flexShrink: 0, ...ringStyle }}
+        style={{ width: size, height: size, borderRadius: 999, objectFit: 'cover', flexShrink: 0, background: color ?? 'var(--portal-brand)', ...ringStyle }}
       />
     );
   }
@@ -943,7 +954,7 @@ function FilaFinalizada({ t, slot }: {
   );
 }
 
-function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen: () => void }) {
+function SlotRowImpl({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen: () => void }) {
   const libres = Math.max(0, slot.aforoMaximo - slot.ocupadas);
   const ratio = ratioOcupacion(slot.ocupadas, slot.aforoMaximo);
   const capColor = colorOcupacion(ratio);
@@ -1030,6 +1041,10 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
     </button>
   );
 }
+// Cada fila de la lista es un SlotRow — sin memo, cualquier tecleo en un
+// campo ajeno del padre (p. ej. el buscador de código de descuento)
+// reconciliaba TODAS las filas visibles, no solo la que cambió.
+const SlotRow = memo(SlotRowImpl);
 
 // ── Tarjeta rica de clase (rediseño Momence, solo estiloDias='dias') ─────────
 //
@@ -1043,7 +1058,7 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
 // Es un <div role="button"> y no un <button> porque «Mostrar más» necesita ser
 // interactivo DENTRO de la tarjeta, y un botón anidado en otro botón es HTML
 // inválido (el navegador lo re-anida y el click se pierde).
-function TarjetaClase({ t, slot, onOpen, ocultarPrecio }: {
+function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio }: {
   t: ModoTokens; slot: ReservaSlot; onOpen: () => void; ocultarPrecio: boolean;
 }) {
   const [verMas, setVerMas] = useState(false);
@@ -1185,6 +1200,8 @@ function TarjetaClase({ t, slot, onOpen, ocultarPrecio }: {
     </div>
   );
 }
+// Mismo motivo que SlotRow — cada tarjeta rica de la lista, memoizada.
+const TarjetaClase = memo(TarjetaClaseImpl);
 
 // ── Hoja inferior (bottom sheet) ─────────────────────────────────────────────
 
@@ -1270,7 +1287,10 @@ function BookingSheet({
     ? (franjaVisible
       ? { left: 0, right: 0, top: `var(--tentare-overlay-top, ${franjaVisible.top}px)`, height: `var(--tentare-overlay-height, ${franjaVisible.height}px)`, alignItems: 'flex-end' }
       : { inset: 0, alignItems: 'flex-start', paddingTop: 16 })
-    : { inset: 0, alignItems: 'flex-end' };
+    // `alignItems` NO va aquí: lo decide `.reserva-sheet-overlay-desktop`
+    // (móvil abajo, ≥640px centrado) — un valor inline ganaría siempre a su
+    // media query, sin importar el ancho real de la ventana.
+    : { inset: 0 };
   const sheetMaxHeight = enIframe
     ? (franjaVisible ? '100%' : 'min(88vh, 640px)')
     : '88vh';
@@ -1286,7 +1306,7 @@ function BookingSheet({
       aria-modal="true"
       aria-labelledby={titleId}
       onClick={onClose}
-      className="animate-sheet-backdrop-in"
+      className={`animate-sheet-backdrop-in ${enIframe ? '' : 'reserva-sheet-overlay-desktop'}`}
       style={{
         position: 'fixed', zIndex: 50, display: 'flex',
         // Abajo en móvil (hoja), centrado en pantallas grandes (diálogo).
@@ -1381,10 +1401,14 @@ function BookingSheet({
               que el punto de SlotRow (lib/ocupacion.ts), nunca un número
               inventado aparte. */}
           <div style={{ height: 4, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+            {/* `transform: scaleX` en vez de animar `width`: la misma barra,
+                pero sin forzar recálculo de layout en cada frame de la
+                transición de apertura — solo compositing. */}
             <div style={{
-              height: '100%', width: `${Math.round(ratioOcupacion(slot.ocupadas, slot.aforoMaximo) * 100)}%`,
+              height: '100%', width: '100%', transformOrigin: 'left',
+              transform: `scaleX(${ratioOcupacion(slot.ocupadas, slot.aforoMaximo)})`,
               background: colorOcupacion(ratioOcupacion(slot.ocupadas, slot.aforoMaximo)), borderRadius: 999,
-              transition: `width .5s ${EASE}`,
+              transition: `transform .5s ${EASE}`,
             }} />
           </div>
           {slot.instructorNombre && (

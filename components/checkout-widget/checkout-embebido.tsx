@@ -178,6 +178,62 @@ export function CheckoutEmbebido({
     }
   }, []);
 
+  // Objeto memoizado, no literal inline: sin esto, CUALQUIER re-render de
+  // este componente (p. ej. la propietaria escribe en el código de
+  // descuento, ajeno al checkout) le pasaba a <Elements> un objeto nuevo
+  // cada vez, y @stripe/react-stripe-js llama a `elements.update(options)`
+  // en cuanto detecta un cambio de identidad — un resíncrono del iframe de
+  // pago justo en el momento más sensible del flujo (tecleando la tarjeta).
+  const elementsOptions = useMemo(() => ({
+    clientSecret,
+    locale: 'es' as const,
+    // Ver el docblock de `fuentePago`: dentro del iframe de Stripe ni
+    // existen las custom properties ni están cargadas nuestras fuentes.
+    // Sin prop se pide la base del widget (Instrument Sans) a Google
+    // Fonts, con system-ui de reserva mientras carga.
+    fonts: fuenteCheckout.cssSrc ? [{ cssSrc: fuenteCheckout.cssSrc }] : undefined,
+    // El PaymentElement ya trae su propio skeleton por campo — con
+    // 'always' se pinta desde el primer frame en vez de dejar un hueco
+    // en blanco mientras carga el iframe (P1-confianza; ver además el
+    // skeleton propio en <FormularioPago>, que cubre el hueco ANTES de
+    // que exista iframe alguno).
+    loader: 'always' as const,
+    appearance: {
+      theme: 'stripe' as const,
+      // Labels flotantes, como el Checkout de Stripe propio (la
+      // referencia de calidad del encargo): más compactas que 'above'
+      // en 320-390px y con los `defaultValues` prefijados el label ya
+      // nace arriba, nunca tapa el dato.
+      labels: 'floating' as const,
+      variables: {
+        colorPrimary: colorMarca,
+        colorBackground: t.surface,
+        colorText: t.ink,
+        // El aviso legal/terms y los textos de apoyo del iframe salen
+        // de aquí — integrados como secundario del tema, no en el
+        // negro/serif por defecto de Stripe.
+        colorTextSecondary: t.muted,
+        colorTextPlaceholder: t.muted,
+        colorDanger: semantic.danger.text,
+        fontFamily: `'${fuenteCheckout.familia}', system-ui, sans-serif`,
+        // Radio de INPUT (ver docblock de `radioInput`), nunca el de
+        // tarjeta.
+        borderRadius: `${radioInput ?? radius.spot}px`,
+      },
+      rules: {
+        // Borde en reposo con la línea del tema (el default de Stripe
+        // es un gris ajeno a la paleta del estudio) y focus ring del
+        // color de marca — el mismo lenguaje de foco que los inputs
+        // del paso 'datos' de fuera del iframe.
+        '.Input': { borderColor: t.line, boxShadow: 'none' },
+        '.Input:focus': { borderColor: colorMarca, boxShadow: `0 0 0 1px ${colorMarca}`, outline: 'none' },
+        // El aviso legal de Stripe (terms), en cuerpo de secundario:
+        // sin esto quedaba como un pegote a tamaño de párrafo.
+        '.TermsText': { color: t.muted, fontSize: '11.5px' },
+      },
+    },
+  }), [clientSecret, colorMarca, t.surface, t.ink, t.muted, t.line, fuenteCheckout.cssSrc, fuenteCheckout.familia, radioInput]);
+
   if (!stripePromise || stripeKo) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontFamily: sans }}>
@@ -218,55 +274,7 @@ export function CheckoutEmbebido({
       </div>
       <Elements
         stripe={stripePromise}
-        options={{
-          clientSecret,
-          locale: 'es',
-          // Ver el docblock de `fuentePago`: dentro del iframe de Stripe ni
-          // existen las custom properties ni están cargadas nuestras fuentes.
-          // Sin prop se pide la base del widget (Instrument Sans) a Google
-          // Fonts, con system-ui de reserva mientras carga.
-          fonts: fuenteCheckout.cssSrc ? [{ cssSrc: fuenteCheckout.cssSrc }] : undefined,
-          // El PaymentElement ya trae su propio skeleton por campo — con
-          // 'always' se pinta desde el primer frame en vez de dejar un hueco
-          // en blanco mientras carga el iframe (P1-confianza; ver además el
-          // skeleton propio en <FormularioPago>, que cubre el hueco ANTES de
-          // que exista iframe alguno).
-          loader: 'always',
-          appearance: {
-            theme: 'stripe',
-            // Labels flotantes, como el Checkout de Stripe propio (la
-            // referencia de calidad del encargo): más compactas que 'above'
-            // en 320-390px y con los `defaultValues` prefijados el label ya
-            // nace arriba, nunca tapa el dato.
-            labels: 'floating',
-            variables: {
-              colorPrimary: colorMarca,
-              colorBackground: t.surface,
-              colorText: t.ink,
-              // El aviso legal/terms y los textos de apoyo del iframe salen
-              // de aquí — integrados como secundario del tema, no en el
-              // negro/serif por defecto de Stripe.
-              colorTextSecondary: t.muted,
-              colorTextPlaceholder: t.muted,
-              colorDanger: semantic.danger.text,
-              fontFamily: `'${fuenteCheckout.familia}', system-ui, sans-serif`,
-              // Radio de INPUT (ver docblock de `radioInput`), nunca el de
-              // tarjeta.
-              borderRadius: `${radioInput ?? radius.spot}px`,
-            },
-            rules: {
-              // Borde en reposo con la línea del tema (el default de Stripe
-              // es un gris ajeno a la paleta del estudio) y focus ring del
-              // color de marca — el mismo lenguaje de foco que los inputs
-              // del paso 'datos' de fuera del iframe.
-              '.Input': { borderColor: t.line, boxShadow: 'none' },
-              '.Input:focus': { borderColor: colorMarca, boxShadow: `0 0 0 1px ${colorMarca}`, outline: 'none' },
-              // El aviso legal de Stripe (terms), en cuerpo de secundario:
-              // sin esto quedaba como un pegote a tamaño de párrafo.
-              '.TermsText': { color: t.muted, fontSize: '11.5px' },
-            },
-          },
-        }}
+        options={elementsOptions}
       >
         <FormularioPago
           t={t} plan={plan} onExito={onExito} onBizum={onBizum} onCerrar={onCerrar} textoBoton={textoBoton}

@@ -562,6 +562,46 @@ nextjs-portal { display: none !important; }
 @keyframes reserva-sheet-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 .reserva-sheet-in { animation: reserva-sheet-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
+/* BookingSheet (ficha de clase) fuera de un iframe embebido: hoja anclada
+   abajo en móvil, diálogo centrado en vertical a partir de 640px — mismo
+   contrato que ya tiene PublicSheet (`items-end sm:items-center`). Sin esto,
+   una clase con selector de sitio (8+ plazas) podía dejar el CTA de reservar
+   fuera del viewport en escritorio, pegado siempre al borde inferior.
+   Clase y no inline porque el componente ya documenta por qué es
+   inline-styled a propósito (también lo compila esbuild para Modo B, que no
+   tiene PostCSS) — esto SÍ puede ir por clase porque, a diferencia de una
+   clase nueva de Tailwind, `reserva-*` ya se duplica a mano en widget.css.
+   Base (móvil) explícita: el caller ya NO manda `alignItems` inline para
+   este caso — un inline style habría ganado siempre a la media query de
+   abajo, sin importar el ancho. */
+.reserva-sheet-overlay-desktop { align-items: flex-end; }
+@media (min-width: 640px) {
+  .reserva-sheet-overlay-desktop { align-items: center; }
+}
+
+/* Hoja del modal genérico (PublicSheet) a sangre en móvil, como ya es
+   BookingSheet (reserva-calendario.tsx, la ficha de clase): sin esto, al
+   pasar de la ficha a "Tus datos"/"Pago" la interfaz saltaba de una hoja de
+   borde a borde a una tarjeta flotante con hueco gris alrededor — dos
+   sistemas de modal distintos cosidos en el mismo flujo, justo en el paso de
+   más fricción (dar los datos de pago). `!important` porque pisa el `p-4` de
+   Tailwind (misma capa de utilidades, orden no garantizado). Solo móvil: en
+   escritorio la tarjeta flotante centrada es la lectura correcta. */
+@media (max-width: 640px) {
+  .reserva-modal-edge { padding: 0 !important; }
+}
+
+/* Tira de pestañas (#horario, app/reservar/[slug]/page.tsx) con scroll
+   horizontal: en 375px de ancho la última pestaña quedaba cortada a mitad de
+   palabra, con la barra de scroll nativa del sistema debajo (gris, sin
+   estilo) como única pista de que había más. Se quita la barra nativa
+   (`scrollbar-width`/`-ms-overflow-style` aquí; `::-webkit-scrollbar` abajo,
+   que no puede ir en un style en línea) y se sustituye por un degradado en
+   el borde derecho — la misma insinuación visual que ya usa la tira de días
+   justo debajo. */
+.reserva-tabs-scroll { scrollbar-width: none; -ms-overflow-style: none; mask-image: linear-gradient(to right, black calc(100% - 28px), transparent); }
+.reserva-tabs-scroll::-webkit-scrollbar { display: none; }
+
 /* Burbuja flotante de WhatsApp (components/layout/whatsapp-fab.tsx) — el
    anillo pulsante que llama la atención sobre la burbuja mientras la tarjeta
    está cerrada. Lento (2.8s) y con hueco entre pulsos para que no resulte
