@@ -3,6 +3,8 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // ─────────────────────────────────────────────────────────────────────────────
 // Badge «NUEVO» del menú lateral: Tentare marca una entrada desde /interno
 // (tabla `menu_novedades`) y a la propietaria le sale un distintivo al lado.
+// Puramente manual: no caduca y no se apaga al visitar la sección, la única
+// forma de quitarlo es borrar la fila desde /interno.
 //
 // Se prueba AQUÍ y no solo con `node --test` porque las reglas puras
 // (lib/menu-novedades.test.ts) no pueden ver lo único que importa de verdad:
@@ -42,7 +44,7 @@ async function seedAuth(page: Page) {
   }, STORAGE_KEY);
 }
 
-async function mockBackend(page: Page, novedades: Array<{ href: string; expira_en: string }>) {
+async function mockBackend(page: Page, novedades: Array<{ href: string }>) {
   await page.clock.setFixedTime(new Date(`${HOY}T12:00:00`));
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/api/layout**', route =>
@@ -66,7 +68,7 @@ function enlaceMenu(page: Page, nombre: string) {
 
 test.describe('Badge NUEVO del menú', () => {
   test('la entrada marcada sale con el distintivo, y solo ella', async ({ page }) => {
-    await mockBackend(page, [{ href: '/cobros', expira_en: '2026-09-30' }]);
+    await mockBackend(page, [{ href: '/cobros' }]);
     await seedAuth(page);
     await page.goto('/dashboard');
 
@@ -76,33 +78,20 @@ test.describe('Badge NUEVO del menú', () => {
     await expect(enlaceMenu(page, 'Calendario')).not.toContainText('Nuevo');
   });
 
-  test('una marca ya caducada no pinta nada', async ({ page }) => {
-    // El día de fin cuenta como vigente, así que para que NO se vea tiene que
-    // haber pasado de verdad (ayer respecto al reloj fijado).
-    await mockBackend(page, [{ href: '/cobros', expira_en: '2026-08-20' }]);
-    await seedAuth(page);
-    await page.goto('/dashboard');
-
-    await expect(enlaceMenu(page, 'Cobros')).toBeVisible({ timeout: 30_000 });
-    await expect(enlaceMenu(page, 'Cobros')).not.toContainText('Nuevo');
-  });
-
-  test('se apaga en cuanto entra en esa sección, y no vuelve al recargar', async ({ page }) => {
-    await mockBackend(page, [{ href: '/cobros', expira_en: '2026-09-30' }]);
+  test('sigue viéndose después de visitar esa sección y de recargar', async ({ page }) => {
+    // Puramente manual: visitar la sección no lo apaga, solo borrar la fila
+    // desde /interno lo hace. Antes se apagaba al entrar — eso era el bug.
+    await mockBackend(page, [{ href: '/cobros' }]);
     await seedAuth(page);
     await page.goto('/dashboard');
     await expect(enlaceMenu(page, 'Cobros')).toContainText('Nuevo', { timeout: 30_000 });
 
     await enlaceMenu(page, 'Cobros').click();
     await expect(page).toHaveURL(/\/cobros/, { timeout: 30_000 });
-    await expect(enlaceMenu(page, 'Cobros')).not.toContainText('Nuevo');
+    await expect(enlaceMenu(page, 'Cobros')).toContainText('Nuevo');
 
-    // Lo que de verdad importa: que se quede apagado. Si el "ya lo vi" no
-    // persistiera, el badge volvería en la siguiente visita y la propietaria
-    // lo vería para siempre — que es justo lo que lo convierte en ruido.
     await page.goto('/dashboard');
-    await expect(enlaceMenu(page, 'Cobros')).toBeVisible({ timeout: 30_000 });
-    await expect(enlaceMenu(page, 'Cobros')).not.toContainText('Nuevo');
+    await expect(enlaceMenu(page, 'Cobros')).toContainText('Nuevo', { timeout: 30_000 });
   });
 
   test('si la consulta falla, el menú sigue entero', async ({ page }) => {

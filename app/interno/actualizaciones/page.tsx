@@ -250,7 +250,6 @@ function BadgeNuevoMenu() {
   const [novedades, setNovedades] = useState<NovedadMenuInterna[] | null>(null);
   const [opciones, setOpciones] = useState<Array<{ href: string; label: string }>>([]);
   const [href, setHref] = useState('');
-  const [expira, setExpira] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -260,9 +259,6 @@ function BadgeNuevoMenu() {
       setNovedades(r.novedades);
       setOpciones(r.opciones);
       setHref(h => h || r.opciones[0]?.href || '');
-      // La fecha por defecto la calcula el servidor si no se manda: aquí solo
-      // se PROPONE, para que se vea antes de guardar cuánto va a durar.
-      setExpira(e => e || new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10));
       setError(null);
     } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
   }, []);
@@ -273,7 +269,7 @@ function BadgeNuevoMenu() {
   const marcar = async () => {
     setGuardando(true); setError(null);
     try {
-      await marcarNovedadMenu(href, expira);
+      await marcarNovedadMenu(href);
       await cargar();
     } catch (e) { setError(e instanceof Error ? e.message : 'No se ha podido marcar.'); }
     finally { setGuardando(false); }
@@ -296,15 +292,14 @@ function BadgeNuevoMenu() {
       </div>
       <p className="mt-1 text-[12.5px] text-muted-foreground">
         La entrada que elijas sale con un distintivo <strong>NUEVO</strong> en el menú de
-        todas las propietarias. Se apaga solo en la fecha de fin, y también en cuanto
-        ella entra en esa sección.
+        todas las propietarias. Se queda ahí hasta que la quites tú aquí abajo — no
+        caduca ni se apaga sola.
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <select className={campo} value={href} onChange={e => setHref(e.target.value)} aria-label="Entrada del menú">
           {opciones.map(o => <option key={o.href} value={o.href}>{o.label}</option>)}
         </select>
-        <input className={campo} type="date" value={expira} onChange={e => setExpira(e.target.value)} aria-label="Hasta cuándo se ve" />
         <button
           type="button" disabled={guardando || !href}
           onClick={() => void marcar()}
@@ -328,7 +323,6 @@ function BadgeNuevoMenu() {
                 Nuevo
               </span>
               {etiquetaDe(n.href)}
-              <span className="text-muted-foreground">hasta el {fecha(n.expira_en)}</span>
             </span>
             <button type="button" onClick={() => void quitar(n.href)} aria-label={`Quitar el NUEVO de ${etiquetaDe(n.href)}`}>
               <Trash2 className="size-3.5 text-muted-foreground" />

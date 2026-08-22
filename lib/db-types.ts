@@ -2219,7 +2219,6 @@ export interface RowReviewBoostRecompensas {
 
 export interface RowMenuNovedades {
   href: string;
-  expira_en: string;
   creado_por: string | null;
   creado_en: string;
 }

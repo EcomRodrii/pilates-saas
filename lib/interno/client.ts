@@ -260,14 +260,13 @@ export const fetchAnaliticaNetworkInterno = () => pedir<AnaliticaNetwork>('/netw
 // igual que el widget de Actualizaciones lee el changelog.
 export interface NovedadMenuInterna {
   href: string;
-  expira_en: string;
   creado_en: string;
 }
 export const fetchNovedadesMenu = () =>
-  pedir<{ novedades: NovedadMenuInterna[]; opciones: Array<{ href: string; label: string }>; hoy: string }>('/menu-novedades');
+  pedir<{ novedades: NovedadMenuInterna[]; opciones: Array<{ href: string; label: string }> }>('/menu-novedades');
 
-export const marcarNovedadMenu = (href: string, expiraEn: string) =>
-  pedir<{ ok: true }>('/menu-novedades', { method: 'PUT', body: JSON.stringify({ href, expiraEn }) });
+export const marcarNovedadMenu = (href: string) =>
+  pedir<{ ok: true }>('/menu-novedades', { method: 'PUT', body: JSON.stringify({ href }) });
 
 export const quitarNovedadMenu = (href: string) =>
   pedir<{ ok: true }>(`/menu-novedades?href=${encodeURIComponent(href)}`, { method: 'DELETE' });

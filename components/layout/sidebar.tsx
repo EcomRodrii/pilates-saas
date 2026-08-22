@@ -129,7 +129,7 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
   sections: typeof navSections;
 }) {
   const pathname = usePathname();
-  const conNovedad = useMenuNovedades(pathname);
+  const conNovedad = useMenuNovedades();
 
   return (
     // --sidebar (#0F0F0F en los dos modos), no --foreground: este cajón es una
@@ -217,10 +217,8 @@ const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label:
 };
 
 export function Sidebar() {
-  const pathnameActual = usePathname();
-  // Los `href` señalados como NUEVO desde /interno. La ruta actual entra porque
-  // el badge se apaga en cuanto ella visita esa sección (ver el hook).
-  const conNovedad = useMenuNovedades(pathnameActual);
+  // Los `href` señalados como NUEVO desde /interno.
+  const conNovedad = useMenuNovedades();
   const [masOpen, setMasOpen] = useState(false);
   const [size, setSize] = useState<SidebarSize>('normal');
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
