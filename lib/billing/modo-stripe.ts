@@ -6,6 +6,11 @@
 // `ignoreCommand` de vercel.json cancela un redeploy manual sin commit nuevo
 // (diff vacío contra sí mismo) — guardar la env var en Vercel no basta.
 //
+// Segunda rotación el mismo día: el valor que quedó guardado tras la primera
+// no era el que se mostró (confusión de portapapeles entre dos rotaciones
+// seguidas) — una alumna real no pudo pagar (`Expired API Key ...aBvx`,
+// lib/inngest/conciliar-cobros.ts). Clave rotada de nuevo y verificada.
+//
 // El código ya era agnóstico de modo: `STRIPE_SECRET_KEY` puede ser `sk_live_` o
 // `sk_test_` y todo funciona igual (el centinela `sk_test_XXXX` significa "sin
 // configurar", no "modo test"). Lo que faltaba era impedir la mezcla, que tiene
