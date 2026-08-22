@@ -232,7 +232,6 @@ export function CheckoutEmbebido({
         '.TermsText': { color: t.muted, fontSize: '11.5px' },
       },
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `t`/`fuenteCheckout` son objetos derivados cada render; se listan por los campos primitivos que de verdad importan.
   }), [clientSecret, colorMarca, t.surface, t.ink, t.muted, t.line, fuenteCheckout.cssSrc, fuenteCheckout.familia, radioInput]);
 
   if (!stripePromise || stripeKo) {
