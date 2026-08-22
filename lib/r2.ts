@@ -3,6 +3,7 @@ import type { BackupSnapshot } from '@/lib/engines/backup-engine';
 // Relativo con .ts explícito para que `backup-engine` (que importa este módulo)
 // se pueda cargar desde `node --test`. Ver tentare-os.md.
 import { fetchExterno, TIMEOUT_EXTERNO_MS, TIMEOUT_TRANSFERENCIA_MS } from './fetch-externo.ts';
+import { rutaConTravesia } from './ruta-segura.ts';
 
 // Cloudflare R2 (S3-compatible) para guardar los snapshots de backup FUERA de
 // Postgres (P0-13/14). Guardar el backup dentro de la misma BD que respalda es
@@ -96,6 +97,13 @@ export async function descargarSnapshot(key: string): Promise<BackupSnapshot> {
 /** Sube un fichero binario a R2. Mismo motivo de Content-Length manual que
  *  `subirSnapshot` (aws4fetch + Vercel/undici → 411 sin esto). */
 export async function subirObjetoR2(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
+  // Segunda capa: el importador de temas ya rechaza el ZIP con travesía
+  // (lib/theme-import/zip-parser.ts), pero este es el ÚNICO punto por el que
+  // pasan TODAS las subidas a R2 — la defensa de verdad va aquí, no en cada
+  // llamante. Ver lib/ruta-segura.ts.
+  if (rutaConTravesia(key)) {
+    throw new Error(`Clave de R2 con travesía de ruta rechazada: ${key}`);
+  }
   const url = `${endpointBase()}/${key}`;
   // `Blob` en vez de pasar el `Uint8Array` tal cual como `BodyInit`: algunas
   // combinaciones de lib DOM de TS no lo aceptan directamente, y Blob es

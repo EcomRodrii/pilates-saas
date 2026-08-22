@@ -639,12 +639,14 @@ export async function descartarSustitucion(sustitucionId: string): Promise<{ ok:
 // al `res.json()`— la promesa rechazaba, el `setComprando(null)` no llegaba a
 // ejecutarse y la socia se quedaba con el overlay a pantalla completa y el
 // spinner girando para siempre, sin mensaje y sin salida salvo recargar.
-async function postCheckout(ruta: string, params: unknown): Promise<{ url: string } | { error: string }> {
+async function postCheckout(
+  ruta: string, params: unknown, headers?: Record<string, string>,
+): Promise<{ url: string } | { error: string }> {
   let res: Response;
   try {
     res = await fetch(ruta, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(params),
     });
   } catch {
@@ -678,7 +680,11 @@ export async function crearCheckoutPlan(params: {
   socioNombre: string;
   origen?: OrigenPago;
 }): Promise<{ url: string } | { error: string }> {
-  return postCheckout('/api/stripe/checkout', params);
+  // El servidor exige el Bearer del portal cuando `socioId` viaja en el body
+  // (auditoría 21/22-ago, C-1) — sin esto, la sesión de socia se perdía y
+  // el servidor devolvía 401 en el camino más habitual (comprar logueada).
+  const headers = params.socioId ? await portalAuthHeader() : undefined;
+  return postCheckout('/api/stripe/checkout', params, headers);
 }
 
 /**

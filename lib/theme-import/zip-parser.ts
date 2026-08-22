@@ -14,6 +14,7 @@
 
 import { unzipSync, strFromU8 } from 'fflate';
 import { clasificarFichero, construirManifest, type FicheroImportado, type ImportedThemeManifest } from './manifest.ts';
+import { rutaConTravesia } from '../ruta-segura.ts';
 
 export const LIMITE_ZIP_BYTES = 25 * 1024 * 1024; // 25 MB — un tema estático no debería pesar más.
 export const LIMITE_FICHEROS = 500;
@@ -74,6 +75,12 @@ export function descomprimirTema(buffer: Uint8Array): ZipDescomprimido {
   for (const ruta of rutas) {
     const relativa = raiz ? ruta.slice(raiz.length) : ruta;
     if (!relativa) continue;
+    // Zip-slip: se rechaza el ZIP ENTERO, no solo la entrada — un ZIP que
+    // trae una travesía es hostil por construcción, no un fichero de más a
+    // ignorar. Ver lib/ruta-segura.ts.
+    if (rutaConTravesia(relativa)) {
+      throw new ZipInvalidoError('El ZIP trae una ruta no válida — revisa que no incluya "..".');
+    }
     const datos = entradas[ruta];
     contenidos.set(relativa, datos);
     ficheros.push({ ruta: relativa, clase: clasificarFichero(relativa), bytes: datos.byteLength });
