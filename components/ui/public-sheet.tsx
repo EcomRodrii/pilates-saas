@@ -22,6 +22,7 @@ export function PublicSheet({
   sheetClassName = 'bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl',
   sheetStyle,
   overlayStyle,
+  overlayClassName = '',
   closeOnBackdropClick = true,
   footer,
 }: {
@@ -31,6 +32,14 @@ export function PublicSheet({
   children: React.ReactNode;
   sheetClassName?: string;
   sheetStyle?: React.CSSProperties;
+  /**
+   * Clases extra en el backdrop (además de `p-4 sm:p-6`) — el único hueco que
+   * `overlayStyle` no puede cubrir: es un `style` en línea, así que no puede
+   * expresar "sin relleno solo en móvil". Pensado para el caller que quiera
+   * una hoja a sangre en móvil (mismo borde a borde que `BookingSheet` de
+   * `reserva-calendario.tsx`) en vez de la tarjeta flotante de siempre.
+   */
+  overlayClassName?: string;
   /**
    * Pisa el posicionamiento del backdrop (P0-3, widget embebido): dentro de un
    * <iframe> auto-dimensionado, `inset-0` + `items-end` anclan el modal al
@@ -95,7 +104,7 @@ export function PublicSheet({
       // ganaba por orden de aparición en el DOM — funcionaba, pero por
       // casualidad: mover un bloque de JSX habría invertido el apilamiento sin
       // que nada lo delatara.
-      className={`fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 sm:p-6 ${cerrando ? 'animate-sheet-backdrop-out' : 'animate-sheet-backdrop-in'}`}
+      className={`fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4 sm:p-6 ${overlayClassName} ${cerrando ? 'animate-sheet-backdrop-out' : 'animate-sheet-backdrop-in'}`}
       style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', ...overlayStyle }}
       onClick={closeOnBackdropClick ? onClose : undefined}
     >

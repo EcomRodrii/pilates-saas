@@ -39,6 +39,10 @@
 @keyframes reserva-sheet-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 .animate-sheet-backdrop-in { animation: sheet-backdrop-in .2s ease both; }
 .reserva-sheet-in { animation: reserva-sheet-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.reserva-sheet-overlay-desktop { align-items: flex-end; }
+@media (min-width: 640px) {
+  .reserva-sheet-overlay-desktop { align-items: center; }
+}
 
 .reserva-slot-row { transition: background-color .18s ease; }
 .reserva-slot-row:hover { background-color: color-mix(in oklab, var(--portal-brand) 6%, transparent); }

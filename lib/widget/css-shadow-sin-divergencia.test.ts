@@ -42,6 +42,8 @@ const SOLO_MODO_A = new Set([
   // `PublicSheet` y los pasos del modal viven en app/reservar/[slug]/page.tsx,
   // que es una página de Next: no la compila esbuild. Entrada y salida.
   'animate-sheet-pop-in', 'animate-sheet-pop-out', 'animate-sheet-backdrop-out',
+  // La hoja a sangre en móvil de PublicSheet — mismo motivo, solo Modo A.
+  'reserva-modal-edge',
   // La altura estable de la hoja en móvil se aplica SOLO fuera del embebido
   // (dentro manda la franja visible del iframe), así que en el bundle no
   // pintaría nada aunque estuviera.
@@ -49,6 +51,8 @@ const SOLO_MODO_A = new Set([
   // La portada de /reservar solo existe FUERA del embebido (`!embedMode`), así
   // que sus clases no tienen nada que hacer en el bundle.
   'reserva-hero-foto', 'reserva-hero-portada', 'reserva-tabs',
+  // La tira de pestañas (#horario) solo existe en app/reservar/[slug]/page.tsx.
+  'reserva-tabs-scroll',
   // `components/ui/dashboard-drawer.tsx` — cajón del PANEL, tras login. El
   // bundle público no lo incluye ni puede incluirlo.
   'animate-drawer-sheet-in', 'animate-drawer-sheet-out',

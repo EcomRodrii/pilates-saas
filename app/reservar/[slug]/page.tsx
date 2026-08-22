@@ -38,7 +38,7 @@ import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
-import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
+import { imagenDeEstudio, imagenDeClase, alFallarImagen, IMAGENES_POR_DEFECTO, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
 import { piDeClientSecret, RETARDOS_POLL_MS, type RespuestaEstadoPago } from '@/lib/billing/estado-pago-publico';
 import { LogoTentare } from '@/components/marca/logo-tentare';
@@ -1995,7 +1995,7 @@ export default function ReservarPage() {
             ⚠️ El `div#horario` se pinta SIEMPRE, con pestañas o sin ellas: es el
             ancla a la que salta el botón de la portada y el que usan los tests.
             Lo que desaparece con `soloPestana` son los botones de dentro. */}
-        <div id="horario" className={embedMode ? undefined : 'reserva-tabs'} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
+        <div id="horario" className={`reserva-tabs-scroll ${embedMode ? '' : 'reserva-tabs'}`} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
           {/* Un widget embebido es 1 propósito, no un portal en miniatura:
               en `embedMode` se enseña SIEMPRE únicamente la pestaña que pidió
               `?tab=`, sin barra — quien incrusta «Horario y reserva de
@@ -2449,7 +2449,7 @@ export default function ReservarPage() {
                     <div key={i.id} style={{ borderRadius: R.chipCard, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', padding: '18px 14px', textAlign: 'center' }}>
                       {i.fotoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={i.fotoUrl} alt={i.nombre} style={{ width: 46, height: 46, borderRadius: 999, objectFit: 'cover', marginInline: 'auto' }} />
+                        <img src={i.fotoUrl} alt={i.nombre} loading="lazy" decoding="async" style={{ width: 46, height: 46, borderRadius: 999, objectFit: 'cover', marginInline: 'auto' }} />
                       ) : (
                         <div style={{ width: 46, height: 46, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: 'var(--portal-muted)', background: 'var(--portal-surface-2)', border: '1px solid var(--portal-line)', marginInline: 'auto' }}>
                           {i.nombre.split(' ').map(n => n[0]).join('')}
@@ -2806,7 +2806,8 @@ export default function ReservarPage() {
         // `reserva-hoja-estable` solo fuera del embebido: dentro, la franja
         // visible del iframe ya manda sobre la altura (ver `overlayEmbed`), y
         // forzar un mínimo la sacaría de esa franja.
-        sheetClassName={`bg-white w-full ${loginStep === 'datos' || loginStep === 'pago' ? 'max-w-lg' : 'max-w-sm'} ${embedMode ? '' : 'reserva-hoja-estable'} rounded-3xl p-6 relative shadow-2xl transition-[max-width] duration-300 ease-out`}
+        sheetClassName={`bg-white w-full ${loginStep === 'datos' || loginStep === 'pago' ? 'max-w-lg' : 'max-w-sm'} ${embedMode ? '' : 'reserva-hoja-estable'} rounded-t-3xl sm:rounded-3xl p-6 relative shadow-2xl transition-[max-width] duration-300 ease-out`}
+        overlayClassName="reserva-modal-edge"
         // P0-3: en el iframe embebido, `90vh` es el 90% del IFRAME entero (que
         // mide lo que su contenido) — el modal se anclaba junto al pie de la
         // web del estudio, a ~1000px de la vista del usuario (medido). Con
@@ -3147,18 +3148,18 @@ export default function ReservarPage() {
                     por el fundador): foto de la clase, título, fecha + hora +
                     duración, ubicación, descripción completa — y debajo los
                     datos y el pago. */}
-                {bookingSesion.tipo?.fotoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- foto subida por el estudio, no un asset conocido en build
-                  <img src={bookingSesion.tipo.fotoUrl} alt="" loading="lazy" decoding="async"
-                    className="w-full h-36 object-cover rounded-2xl mb-4" />
-                ) : (
-                  <div aria-hidden="true" className="w-full h-24 rounded-2xl mb-4 flex items-center justify-center"
-                    style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${bookingSesion.tipo?.color ?? PRIMARY} 55%, #fff) 0%, ${bookingSesion.tipo?.color ?? PRIMARY} 100%)` }}>
-                    <span className="font-[var(--font-display),Georgia,serif] text-4xl" style={{ color: 'rgba(255,255,255,0.92)' }}>
-                      {(bookingSesion.tipo?.nombre ?? 'C').charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
+                {/* Misma foto que ya vio en la ficha un paso atrás (subida
+                    por el estudio, o la de catálogo por familia de clase si
+                    no hay ninguna — `imagenDeClase`, igual que `FotoClase` en
+                    reserva-calendario.tsx): sin esto, la cabecera cambiaba a
+                    un bloque de color justo al pasar a dar los datos de
+                    pago, como si se hubiera perdido de vista qué se estaba
+                    reservando. */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- foto de catálogo o subida por el estudio, no un asset conocido en build */}
+                <img src={imagenDeClase(bookingSesion.tipo)} alt="" loading="lazy" decoding="async"
+                  onError={alFallarImagen(IMAGENES_CLASE.generica)}
+                  style={{ background: bookingSesion.tipo?.color ?? PRIMARY }}
+                  className="w-full h-36 object-cover rounded-2xl mb-4" />
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-2xl leading-tight">
                     {bookingSesion.tipo?.nombre}
@@ -3471,10 +3472,11 @@ export default function ReservarPage() {
         open={legalDoc !== null}
         onClose={() => setLegalDoc(null)}
         label={legalDoc?.label ?? 'Documento legal'}
-        sheetClassName="bg-white w-full max-w-lg rounded-3xl relative shadow-2xl flex flex-col"
+        sheetClassName="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl relative shadow-2xl flex flex-col"
         // P0-3: mismo criterio que el modal de reserva de arriba.
         sheetStyle={{ maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(85vh, 640px)') : '85vh' }}
         overlayStyle={overlayEmbed}
+        overlayClassName="reserva-modal-edge"
       >
         {legalDoc && (
           <>
