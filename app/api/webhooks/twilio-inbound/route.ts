@@ -1,6 +1,6 @@
 // Webhook de mensajes ENTRANTES de Twilio (WhatsApp/SMS) — instrumentación
 // de medición, no el inbox completo. Ver comentario de la migración
-// 20260820140000_mensajes_entrantes_medicion.sql para el contexto: hoy no
+// 20260820100831_mensajes_entrantes_medicion.sql para el contexto: hoy no
 // hay ningún dato de cuántas socias responden a un mensaje de Tentare, así
 // que antes de construir una bandeja de entrada de verdad se mide el
 // volumen real durante unas semanas con esta única tabla, sin UI.
@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { firmaTwilioValida } from '@/lib/twilio-firma';
 import { uid } from '@/lib/utils';
+import * as Sentry from '@sentry/nextjs';
 
 export async function POST(request: NextRequest) {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -19,7 +20,21 @@ export async function POST(request: NextRequest) {
   // un webhook sin verificar (fail-closed, mismo criterio que
   // verificarCaptcha() con TURNSTILE_SECRET_KEY ausente, pero al revés:
   // aquí SÍ hay dinero/PII potencial en el cuerpo del mensaje).
-  if (!authToken) return NextResponse.json({ ok: false }, { status: 503 });
+  if (!authToken) {
+    // Auditoría 21-ago: TODOS los caminos de error eran MUDOS, y eso rompe el
+    // propósito de la feature. Es una MEDICIÓN cuyo resultado decide si se
+    // construye el inbox: si `NEXT_PUBLIC_APP_URL` no coincide EXACTAMENTE con
+    // la URL configurada en la consola de Twilio (apex vs www, barra final), la
+    // firma nunca valida, la tabla se queda a cero, y "cero filas" es
+    // indistinguible de "ninguna socia responde" — el modo de fallo produce
+    // justo la respuesta que cierra el proyecto. Hoy en producción hay 0 filas,
+    // así que esto no es teórico.
+    // 503 y no 403 a propósito, como estaba: Twilio reintenta en 5xx y no en
+    // 4xx, y esto es un fallo de configuración NUESTRO que se arregla
+    // desplegando — interesa que el mensaje vuelva a intentarlo.
+    Sentry.captureMessage('[twilio inbound] TWILIO_AUTH_TOKEN no configurado: la medición no recibe nada', { level: 'warning' });
+    return NextResponse.json({ ok: false }, { status: 503 });
+  }
 
   const raw = await request.text();
   const params = Object.fromEntries(new URLSearchParams(raw)) as Record<string, string>;
@@ -28,11 +43,29 @@ export async function POST(request: NextRequest) {
   // hubiera (aquí no hay). request.url puede venir con el host interno tras
   // un proxy; NEXT_PUBLIC_APP_URL es el origen público real, mismo patrón ya
   // usado para construir URLs firmadas en el resto del repo.
+  // El fallback a `new URL(request.url).origin` SE CONSERVA. La revisión de la
+  // auditoría propuso quitarlo (esa URL sale del Host/X-Forwarded-Host, o sea
+  // del cliente) y sería lo correcto SI la variable estuviera garantizada — pero
+  // no lo está: docs/DEPLOY.md dice literalmente que "no es imprescindible", no
+  // hay `.env.example` ni bloque `env` en vercel.json, y ~30 sitios del repo la
+  // leen con fallback. Quitarlo convertiría este endpoint en un 403 permanente
+  // si no está puesta, que es justo el modo de fallo que la medición no puede
+  // permitirse. Y no es un bypass: forjar la firma sigue exigiendo el auth
+  // token, que el atacante no tiene. Se registra cuál se usó, que es lo que
+  // faltaba para poder diagnosticarlo.
   const base = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
   const url = `${base}/api/webhooks/twilio-inbound`;
   const firma = request.headers.get('X-Twilio-Signature');
 
   if (!firmaTwilioValida(authToken, url, params, firma)) {
+    // La causa abrumadoramente más probable NO es un atacante, es un desajuste
+    // de URL entre esta constante y la consola de Twilio. Se registra la URL
+    // usada (no es secreta) para poder compararla de un vistazo. Nunca se
+    // registran `params`: llevan el cuerpo del mensaje y el teléfono.
+    Sentry.captureMessage('[twilio inbound] firma no válida', {
+      level: 'warning',
+      extra: { urlUsadaParaLaFirma: url, traeFirma: !!firma },
+    });
     return NextResponse.json({ ok: false }, { status: 403 });
   }
 
@@ -62,6 +95,10 @@ export async function POST(request: NextRequest) {
   });
   if (error && error.code !== '23505') {
     // 23505 = unique_violation (reintento de Twilio) — no es un fallo real.
+    Sentry.captureMessage('[twilio inbound] no se pudo guardar el mensaje entrante', {
+      level: 'warning',
+      extra: { codigo: error.code, detalle: String(error.message) },
+    });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
