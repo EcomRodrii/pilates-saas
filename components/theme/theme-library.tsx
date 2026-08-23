@@ -330,7 +330,16 @@ export function ThemeLibrary() {
             // El tema tal cual lo define la galería, sin lo que el estudio haya
             // tocado encima: la miniatura tiene que enseñar lo que se va a
             // instalar, no lo que hay ahora.
-            const config: ThemeConfig = { ...DEFAULT_THEME, ...def.defaults };
+            //
+            // ⚠️ `themeId` va EXPLÍCITO. `def.defaults` no lo trae en ninguna de
+            // las 6 definiciones, así que sin esto la miniatura heredaba el
+            // `'classic'` de DEFAULT_THEME — que no está en TEMAS_PORTAL— y
+            // tanto `varsKitMap` como `resolveTemaJs` devolvían vacío: las cinco
+            // filas acababan pintadas por el `:root:root` del tema PUBLICADO que
+            // ThemeStyle emite en el iframe. Es el mismo `{ themeId: def.id }`
+            // que `instalar()` aplica 180 líneas más arriba, que es justo lo que
+            // el comentario de aquí promete enseñar.
+            const config: ThemeConfig = { ...DEFAULT_THEME, ...def.defaults, themeId: def.id };
             return (
               <div
                 key={def.id}

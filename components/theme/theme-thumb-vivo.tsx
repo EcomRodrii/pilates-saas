@@ -22,7 +22,7 @@
 // Una fuente de verdad, que es la regla que este editor lleva persiguiendo.
 
 import { useEffect, useRef, useState } from 'react';
-import { themeToCssVars } from '@/lib/theme-runtime';
+import { themeToCssVars, varsKitMap } from '@/lib/theme-runtime';
 import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
 import { altoOcupado } from '@/lib/theme/dispositivos';
 import type { ThemeConfig } from '@/lib/theme-schema';
@@ -76,7 +76,17 @@ export function ThemeThumbVivo({
     w.postMessage(
       {
         type: MENSAJE_TEMA_PREVIEW,
-        vars: themeToCssVars(config) as Record<string, string>,
+        // Auditoría 21-ago: faltaba `varsKitMap`. Sin las claves del kit, el
+        // listener las mete todas en `borrar` y hace `removeProperty` sobre
+        // propiedades que nunca estuvieron en línea — no-op. Lo que quedaba
+        // pintando era el `:root:root` que `ThemeStyle` emite en servidor con
+        // el tema PUBLICADO, que gana en especificidad (0-2-0 vs 0-1-1) al
+        // `html[data-theme=…]` del tema que la miniatura dice enseñar.
+        // Resultado: las cinco miniaturas de la Biblioteca compartían el color
+        // de marca del tema publicado. Es el mismo síntoma que theme-preview-vars
+        // documenta como arreglado para `--portal-*`, que aquí seguía abierto
+        // para el kit. Mismo vocabulario doble que ya manda `home-preview`.
+        vars: { ...themeToCssVars(config), ...varsKitMap(config) } as Record<string, string>,
         temaJs: resolveTemaJs(config),
       },
       window.location.origin,
