@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
+import { fetchAllRows } from '@/lib/supabase-data';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { getValidAccessToken, listarContactosGmail } from '@/lib/gmail';
 import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing/billing-guard';
@@ -33,10 +34,18 @@ export async function POST(req: NextRequest) {
       'No se han podido leer los contactos de Gmail. Vuelve a conectar la cuenta desde Configuración → Integraciones.');
   }
 
-  const { data: existentes, error: errLeer } = await admin
-    .from('socios')
-    .select('email')
-    .eq('studio_id', sesion.studioId);
+  // Auditoría 22-ago: sin paginar, PostgREST corta en 1000 filas EN SILENCIO
+  // (ver `fetchAllRows`). Aquí el corte no solo pierde datos: esta lectura es
+  // la que DEDUPLICA. Un estudio con más de 1000 socias no veía las que están
+  // por encima del corte y las volvía a importar como clientas nuevas.
+  const { data: existentes, error: errLeer } = await fetchAllRows<{ email: string | null }>(
+    sesion.studioId,
+    'socios',
+    (from, to) => admin.from('socios')
+      .select('email')
+      .eq('studio_id', sesion.studioId)
+      .order('email').range(from, to),
+  );
   if (errLeer) return errorInterno('gmail:sync-contacts:leer-socios', errLeer,
     'No se ha podido comprobar qué clientas ya existen.');
 
