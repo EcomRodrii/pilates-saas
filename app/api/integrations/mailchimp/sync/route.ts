@@ -5,6 +5,7 @@ import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { suscribirPerfiles, type PerfilSincronizar } from '@/lib/mailchimp';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 import { tieneConsentimientoMarketingVigente } from '@/lib/marketing/consentimiento';
+import { fetchAllRows } from '@/lib/supabase-data';
 
 // Sincronización manual ("Sincronizar ahora" en Configuración →
 // Integraciones) — SÍNCRONA dentro de la propia request, mismo patrón que
@@ -30,15 +31,30 @@ export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Supabase admin no configurado' }, { status: 503 });
 
-  const [{ data: socios }, { data: studio }] = await Promise.all([
-    admin.from('socios')
-      .select('id, nombre, email, telefono, consentimiento_marketing_texto')
-      .eq('studio_id', sesion.studioId).is('borrado_en', null),
+  // Auditoría 22-ago: sin paginar, PostgREST corta en 1000 filas EN SILENCIO
+  // (ver el comentario de `fetchAllRows`). Un estudio con más de 1000 socias
+  // sincronizaba solo las 1000 primeras y la UI le respondía `total: 1000`
+  // como si fuera todo.
+  const [{ data: socios, error: errSocios }, { data: studio }] = await Promise.all([
+    fetchAllRows<{ id: string; nombre: string; email: string; telefono: string | null; consentimiento_marketing_texto: string | null }>(
+      sesion.studioId,
+      'socios',
+      (from, to) => admin.from('socios')
+        .select('id, nombre, email, telefono, consentimiento_marketing_texto')
+        .eq('studio_id', sesion.studioId).is('borrado_en', null)
+        .order('id').range(from, to),
+    ),
     admin.from('studios').select('nombre').eq('id', sesion.studioId).maybeSingle(),
   ]);
 
   const textoVigente = textoConsentimientoMarketing({ nombre: studio?.nombre });
-  const filas = (socios ?? []) as { id: string; nombre: string; email: string; telefono: string | null; consentimiento_marketing_texto: string | null }[];
+  // `fetchAllRows` devuelve lo que SÍ pudo leer más el error de la página que
+  // falló (y ya avisa a Sentry). Sincronizar media lista y responder «hecho»
+  // sería peor que fallar: nadie volvería a darle.
+  if (errSocios) {
+    return NextResponse.json({ error: 'No hemos podido leer tus clientas completas. Inténtalo de nuevo en un momento.' }, { status: 502 });
+  }
+  const filas = socios ?? [];
   const perfiles: PerfilSincronizar[] = filas
     .filter(s => s.email && tieneConsentimientoMarketingVigente(s.consentimiento_marketing_texto ?? undefined, textoVigente))
     .map(s => ({ email: s.email, nombre: s.nombre, telefono: s.telefono }));
