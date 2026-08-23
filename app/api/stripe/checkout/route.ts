@@ -10,6 +10,7 @@ import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { decidirSesionCheckout } from '@/lib/billing/sesion-checkout';
 import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
+import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
@@ -195,7 +196,7 @@ export async function POST(req: NextRequest) {
       const resultado = resolverDescuentoCheckout(codigos, body.codigoDescuento, {
         hoyISO: new Date().toISOString(),
         subtotal: importe,
-        esNueva: !socioId,
+        esNueva: await esSociaNueva(admin, body.studioId, socioId, body.socioEmail),
       });
       if (resultado.ok) {
         importe = Math.max(0, Math.round((importe - resultado.descuento) * 100) / 100);

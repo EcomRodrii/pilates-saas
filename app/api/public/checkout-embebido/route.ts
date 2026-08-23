@@ -14,6 +14,7 @@ import { setupFutureUsageCheckout } from '@/lib/billing/uso-futuro-tarjeta';
 import { telefonoValido } from '@/lib/csv';
 import type { TipoPlan } from '@/lib/types';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
+import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 
@@ -221,7 +222,7 @@ export async function POST(req: NextRequest) {
     const resultado = resolverDescuentoCheckout(codigos, body.codigoDescuento, {
       hoyISO: new Date().toISOString(),
       subtotal: importe,
-      esNueva: !socioId,
+      esNueva: await esSociaNueva(admin, body.studioId, socioId, body.socioEmail),
     });
     if (resultado.ok) {
       importe = Math.max(0, Math.round((importe - resultado.descuento) * 100) / 100);
