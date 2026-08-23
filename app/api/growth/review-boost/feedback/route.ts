@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -77,6 +78,15 @@ export async function POST(req: NextRequest) {
       // feedback ya guardado — se registra para investigarlo, no se falla la
       // petición (el estudio ya ve su "gracias" en pantalla).
       console.error('[review-boost/feedback] no se pudo conceder la recompensa', err);
+      // Auditoría 22-ago: solo `console.error`. El feedback ya está guardado y
+      // la fila tiene `unique(studio_id)`, así que NO hay segunda oportunidad:
+      // al estudio se le ha prometido un 20% que el checkout nunca encontrará
+      // en `review_boost_recompensas` y nadie se entera.
+      Sentry.captureException(err instanceof Error ? err : new Error(String(err)), {
+        level: 'error',
+        tags: { area: 'growth', tipo: 'review-boost-recompensa' },
+        extra: { studioId: sesion.studioId, feedbackId: fila.id, queHacer: 'conceder el cupón a mano' },
+      });
     }
   }
 
