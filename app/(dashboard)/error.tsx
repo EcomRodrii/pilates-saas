@@ -15,10 +15,17 @@
 // puedan fallar, mejor, y si el propio asset no carga, el alt vacío la hace
 // invisible sin romper nada.
 import { useEffect } from 'react';
+import { capturarExcepcion } from '@/lib/sentry-cliente';
 
 export default function PanelError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error('[panel]', error);
+    // Sin esta línea el fallo NO llega a Sentry: app/global-error.tsx es el
+    // único que reporta, y en cuanto un error.tsx de segmento ATRAPA el error
+    // el global-error ya no se monta. Es decir, tener esta pantalla bonita
+    // apagaba la alarma — peor que no tener boundary, porque da sensación de
+    // estar cubierto.
+    capturarExcepcion(error, { tags: { area: 'panel' }, extra: { digest: error.digest } });
   }, [error]);
 
   return (

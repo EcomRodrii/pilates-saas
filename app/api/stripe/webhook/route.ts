@@ -113,9 +113,33 @@ export async function POST(req: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret ?? '');
   } catch {
+    // El primer catch NO reporta a propósito: aquí todavía es el caso normal
+    // (un evento de Connect firmado con el OTRO secreto). El silencio solo es
+    // un problema si TAMBIÉN falla el segundo.
     try {
       event = stripe.webhooks.constructEvent(body, sig, connectWebhookSecret ?? '');
-    } catch {
+    } catch (err) {
+      // Mismo fallo mudo que e45f765c cerró en /api/billing/webhook, su gemelo
+      // — pero por AQUÍ entra el dinero de las socias (bonos, recibos,
+      // reembolsos y disputas), no la suscripción del estudio. Sin esto, un
+      // secreto rotado en Stripe y no actualizado en Vercel deja de entregar
+      // eventos y nadie se entera: la alumna paga, el bono no se activa y la
+      // propietaria no ve el cobro. Es un riesgo vivo: la clave de Stripe se ha
+      // rotado dos veces en 3 días (84d921c5, 92ff8e9f). `error` siempre —
+      // Sentry agrupa por fingerprint, así que el ruido de internet contra la
+      // URL no convierte esto en una alarma que suena sin parar.
+      Sentry.captureMessage('[stripe webhook connect] firma inválida — un pago de una socia puede quedarse sin registrar', {
+        level: 'error',
+        tags: {
+          area: 'cobros',
+          tipo: webhookSecret || connectWebhookSecret ? 'firma-no-verifica' : 'secreto-no-configurado',
+        },
+        extra: {
+          error: err instanceof Error ? err.message : String(err),
+          secretoPlataformaConfigurado: Boolean(webhookSecret),
+          secretoConnectConfigurado: Boolean(connectWebhookSecret),
+        },
+      });
       return NextResponse.json({ error: 'Webhook signature inválida' }, { status: 400 });
     }
   }

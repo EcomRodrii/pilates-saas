@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import { autorizarSobreSocia } from '@/lib/billing/socia-autorizada';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Autorizar una TARJETA sin pagar nada (Checkout hosted en `mode: 'setup'`).
@@ -55,6 +56,20 @@ export async function POST(req: NextRequest) {
 
   if (!body?.studioId || !body?.socioId) {
     return NextResponse.json({ error: 'Falta el estudio o la socia' }, { status: 400 });
+  }
+
+  // Auditoría 22-ago: pertenecer al estudio NO basta. Sin esto, conocer un
+  // `socioId` del estudio bastaba para abrir un Checkout de autorización y que
+  // el webhook guardara el método de pago de QUIEN LLAMA sobre la ficha ajena
+  // — secuestro del instrumento con el que se cobrará después. Fuente única en
+  // lib/billing/socia-autorizada.ts: el gemelo la usa igual, que es el fallo
+  // recurrente de este repo (arreglar un endpoint y no su hermano).
+  //
+  // Va ANTES de leer la ficha a propósito: hacerlo después convertía el 404
+  // «Socia no encontrada» en un oráculo para enumerar ids del estudio.
+  const permiso = await autorizarSobreSocia(req, body.studioId, body.socioId);
+  if (!permiso.ok) {
+    return NextResponse.json({ error: permiso.error }, { status: permiso.status });
   }
 
   const { data: socio, error: socioErr } = await admin

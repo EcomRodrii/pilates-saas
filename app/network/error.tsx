@@ -20,12 +20,19 @@
 // si se quiere loading para /network o /network/instructoras en el futuro,
 // tiene que vivir en esos segmentos SIN alcanzar a instructoras/[slug].
 import { useEffect } from 'react';
+import { capturarExcepcion } from '@/lib/sentry-cliente';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_PRODUCTO } from '@/components/network-v2/tokens';
 
 export default function NetworkError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error('[network]', error);
+    // Sin esta línea el fallo NO llega a Sentry: app/global-error.tsx es el
+    // único que reporta, y en cuanto un error.tsx de segmento ATRAPA el error
+    // el global-error ya no se monta. Es decir, tener esta pantalla bonita
+    // apagaba la alarma — peor que no tener boundary, porque da sensación de
+    // estar cubierto.
+    capturarExcepcion(error, { tags: { area: 'network' }, extra: { digest: error.digest } });
   }, [error]);
 
   return (
