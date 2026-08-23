@@ -1257,13 +1257,18 @@ export default function Calendario() {
     // esa reserva fantasma le seguía comiendo el tope de reservas simultáneas
     // del plan. Es el mismo tratamiento que ya recibía
     // cancelar una SERIE; el camino de clase suelta (el habitual) no lo tenía.
-    // (El cupo SEMANAL se cuenta en SQL dentro de reservar_plaza, que tampoco
-    // mira `cancelada` — eso sigue pendiente, ver el informe de auditoría.)
-    cancelarReservasDeSesiones([sesionId], 'cancelarSesion');
+    // (El cupo SEMANAL se cuenta en SQL dentro de reservar_plaza, que también
+    // excluye las clases canceladas de ese conteo.)
+    // Se ESPERA: antes era fire-and-forget y el toast daba por buena la
+    // cancelación de las reservas pasara lo que pasara, así que un fallo del
+    // UPDATE reintroducía las reservas fantasma sin que nadie se enterara.
+    const resReservas = await cancelarReservasDeSesiones([sesionId], 'cancelarSesion');
     setSesionId(null);
-    showToast(sinAvisar > 0
-      ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
-      : 'Clase cancelada · clientas avisadas');
+    showToast(!resReservas.ok
+      ? 'Clase cancelada · no hemos podido cancelar sus reservas, recarga la página'
+      : sinAvisar > 0
+        ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
+        : 'Clase cancelada · clientas avisadas');
     void refrescarVista();
   }
 
