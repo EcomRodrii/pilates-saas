@@ -6,6 +6,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
+import { portalAuthHeader } from '@/lib/api-client';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva } from '@/lib/types';
@@ -1347,7 +1348,15 @@ export default function ReservarPage() {
     const token = await pedirToken();
     await enviarEnlace(loginForm.email, bookingSesionId || undefined, token || undefined);
     setPagoWebSinLogin(true);
-    setConfirmacionPago('confirmando');
+    // Auditoría 22-ago: se ponía 'confirmando' a ciegas. El efecto de polling
+    // de abajo sale sin hacer nada si falta el PaymentIntent, el email o el
+    // estudio, y el techo de ~35s vive DENTRO de `preguntar` — así que en ese
+    // caso la pantalla se quedaba en «Estamos confirmando tu plaza» con el
+    // spinner girando para siempre, con el cargo ya hecho. Sin nada a lo que
+    // preguntar, el estado honesto es 'tardando': pago recibido, confirmación
+    // por email.
+    const puedePreguntar = !!piDeClientSecret(datosClientSecret) && !!loginForm.email.trim() && !!studio?.id;
+    setConfirmacionPago(puedePreguntar ? 'confirmando' : 'tardando');
     setClaseConfirmada(null);
     setLoginStep('done');
   }
@@ -1556,9 +1565,14 @@ export default function ReservarPage() {
     setStripeError(null);
     setStripeLoading(plan.id);
     try {
+      // Con `socioId` el servidor exige el JWT del portal (auditoría 21-ago,
+      // C-1): si `socia` está resuelta es porque /api/public/studio-data ya
+      // validó su token, así que la sesión existe. Sin esta cabecera, toda
+      // socia logueada comprando un plan desde este widget recibía 401.
+      const authHeader = await portalAuthHeader();
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader },
         // El importe/concepto NO se envían: los deriva el servidor del plan en
         // la BD (validando que sea de este estudio y esté activo). Ver
         // app/api/stripe/checkout/route.ts.
