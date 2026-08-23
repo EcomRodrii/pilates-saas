@@ -738,7 +738,10 @@ export async function iniciarDomiciliacionSepa(params: {
   socioId: string;
   slug: string;
 }): Promise<{ url: string } | { error: string }> {
-  return postCheckout('/api/stripe/setup-sepa', params);
+  // El Bearer de la socia es obligatorio: el servidor deriva de él quién puede
+  // autorizar un mandato sobre esta ficha (lib/billing/socia-autorizada.ts).
+  // `postCheckout` NO lo adjunta solo — lo recibe como tercer argumento.
+  return postCheckout('/api/stripe/setup-sepa', params, await portalAuthHeader());
 }
 
 // Comprobación proactiva antes de OFRECER el botón "Domiciliar": sin esto, la

@@ -147,8 +147,16 @@ export async function crearReunionZoom(
     body: JSON.stringify({ topic: tema.slice(0, 200), type: 2, start_time: inicioISO, duration: duracionMin, timezone: 'Europe/Madrid' }),
   });
   const data = (await res.json().catch(() => null)) as { id?: number; join_url?: string; message?: string } | null;
-  if (!res.ok || !data?.join_url) return { ok: false, error: data?.message ?? `Zoom API ${res.status}` };
-  return { ok: true, joinUrl: data.join_url, id: data.id ?? 0 };
+  // `!data.id` va en la MISMA guarda a propósito: sin id no hay reunión
+  // utilizable. El `?? 0` de antes devolvía ok con id 0, que se guardaba en
+  // `zoom_meeting_id` y es FALSY — el cron (lib/zoom-sync.ts) entra por
+  // `if (!fila.zoom_meeting_id)` y volvía a crear otra reunión cada 15 min,
+  // para siempre, contra la cuenta de Zoom de la propietaria. Y
+  // actualizarReunionZoom haría PATCH a /meetings/0.
+  if (!res.ok || !data?.join_url || !data.id) {
+    return { ok: false, error: data?.message ?? `Zoom API ${res.status}` };
+  }
+  return { ok: true, joinUrl: data.join_url, id: data.id };
 }
 
 /** Actualiza la hora de una reunión ya creada (sesión reprogramada) — nunca crea una nueva. */
