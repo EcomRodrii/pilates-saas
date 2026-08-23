@@ -24,6 +24,7 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { IconButton } from '@/components/ui/icon-button';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { authHeader } from '@/lib/api-client';
+import { capturarExcepcion } from '@/lib/sentry-cliente';
 import type { Studio } from '@/lib/types';
 import { useStudio } from '@/lib/studio-context';
 import { PantallasValor } from './pantallas-valor';
@@ -500,6 +501,14 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
   const avanceTRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioRef = useRef<{ ctx: AudioContext; master: GainNode } | null>(null);
   const guardadoRef = useRef(false);
+  // Auditoría 22-ago: `finalizar` marcaba `guardadoRef` ANTES de escribir y
+  // descartaba el resultado de `updateStudio` (que no lanza: devuelve
+  // `{ok:false}`). La ÚNICA salida de esta pantalla es
+  // `studio.bienvenidaVistaEn` truthy (components/layout/dashboard-shell.tsx),
+  // así que un UPDATE fallido —RLS, JWT caducado, red— dejaba a la propietaria
+  // encerrada en el onboarding: el botón no hacía nada y el segundo clic salía
+  // por el `if (guardadoRef.current) return`.
+  const [errorGuardado, setErrorGuardado] = useState(false);
 
   useEffect(() => {
     sonidoActivoRef.current = sonidoActivo;
@@ -532,7 +541,8 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
   const finalizar = useCallback(async (ans: Respuestas) => {
     if (guardadoRef.current) return;
     guardadoRef.current = true;
-    await updateStudio({
+    setErrorGuardado(false);
+    const resSellado = await updateStudio({
       bienvenidaVistaEn: new Date().toISOString(),
       onbCentros: ans.centros ?? null,
       onbSoftwareAnterior: ans.software ?? null,
@@ -541,6 +551,14 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
       onbPrioridad: ans.foco ?? null,
       onbAyudaAlta: ans.ayuda ?? null,
     });
+    // Si el sellado falla no se sigue: sin `bienvenidaVistaEn` el panel vuelve
+    // a esta misma pantalla. Se libera el cerrojo para que pueda reintentar.
+    if (!resSellado.ok) {
+      guardadoRef.current = false;
+      setErrorGuardado(true);
+      capturarExcepcion(new Error(resSellado.error ?? 'No se pudo sellar bienvenida_vista_en'), { tags: { area: 'onboarding' } });
+      return;
+    }
 
     // §8 — Lo que de verdad convierte el cuestionario en un estudio montado:
     // crea sus salas con su aforo, sus tipos de clase con su duración y los
@@ -561,12 +579,21 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     const operativa = interpretarRespuestasWizard(ans);
     if (!planVacio(planificarConfiguracion(operativa))) {
       try {
-        await fetch('/api/onboarding/configurar', {
+        const res = await fetch('/api/onboarding/configurar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
           body: JSON.stringify(operativa),
         });
-      } catch { /* fallo suave: el checklist de primeros pasos sigue estando */ }
+        // Auditoría 22-ago: solo se cubría el fallo de RED. Un 403/500 pasaba
+        // en silencio después de haber prometido «las creamos por ti», y nadie
+        // se enteraba de que el estudio se quedaba sin montar.
+        if (!res.ok) {
+          capturarExcepcion(new Error(`[onboarding/configurar] HTTP ${res.status}`), { tags: { area: 'onboarding' } });
+        }
+      } catch (e) {
+        // Fallo suave: el checklist de primeros pasos sigue estando.
+        capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'onboarding' } });
+      }
     }
     // "Quiero una videollamada" / "Configuradlo por mí": antes esto se quedaba
     // solo en la columna onb_ayuda_alta y nadie del equipo se enteraba de que
@@ -856,6 +883,12 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
               </div>
             </div>
           </div>
+        )}
+
+        {errorGuardado && (
+          <p role="alert" className="absolute left-0 right-0 px-[clamp(28px,6vw,84px)] text-[12.5px] font-semibold text-destructive" style={{ bottom: 'calc(clamp(24px,4vh,40px) + 68px)' }}>
+            No hemos podido guardar tus respuestas. Comprueba tu conexión y vuelve a pulsar «Entrar al panel».
+          </p>
         )}
 
         <div className="absolute left-0 right-0 bottom-0 px-[clamp(28px,6vw,84px)] pb-[clamp(24px,4vh,40px)]">
