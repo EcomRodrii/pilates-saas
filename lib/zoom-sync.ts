@@ -83,8 +83,18 @@ export async function sincronizarReunionesZoom(admin: SupabaseClient) {
 
         if (!fila.zoom_meeting_id) {
           const r = await crearReunionZoom(accessToken, tema, fila.inicio, duracion);
-          if (r.ok && await guardarReunion(admin, fila.id, r.id, r.joinUrl)) creadas++;
-          else fallidas++;
+          if (!r.ok) { fallidas++; continue; }
+          if (await guardarReunion(admin, fila.id, r.id, r.joinUrl)) {
+            creadas++;
+          } else {
+            // Auditoría 22-ago: la reunión YA existe en la cuenta Zoom de la
+            // propietaria pero no hemos podido apuntarla. Sin este borrado, la
+            // siguiente pasada del cron (15 min) vuelve a entrar por este mismo
+            // `if` y crea otra — y otra, y otra. Se limpia la huérfana para que
+            // el reintento sea idempotente de verdad.
+            await eliminarReunionZoom(accessToken, r.id).catch(() => { /* mejor esfuerzo */ });
+            fallidas++;
+          }
         } else {
           const r = await actualizarReunionZoom(accessToken, fila.zoom_meeting_id, fila.inicio, duracion);
           if (r.ok) actualizadas++;
