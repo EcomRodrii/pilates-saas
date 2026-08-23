@@ -46,12 +46,26 @@ import type { Studio } from '@/lib/types';
 type Pantalla = 'rating' | 'negativo' | 'positivo';
 
 async function enviarFeedback(rating: number, comentario?: string) {
-  const res = await fetch('/api/growth/review-boost/feedback', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({ rating, comentario }),
-  });
-  return res.ok;
+  // Auditoría 22-ago: sin try/catch, un fallo de red (offline, CORS) lanzaba
+  // desde el llamante y dejaba el modal con las estrellas y el botón
+  // `disabled` para siempre, sin mensaje. Aquí se normaliza a `false` y quien
+  // llama decide qué enseñar.
+  try {
+    const res = await fetch('/api/growth/review-boost/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ rating, comentario }),
+    });
+    // 409 = ya había feedback de este estudio (`unique(studio_id)`), es decir
+    // el insert de un intento anterior SÍ cuajó y se perdió la respuesta. Para
+    // quien mira la pantalla eso es éxito, no fallo: tratarlo como error dejaba
+    // el modal en rojo para siempre —el reintento siempre da 409— y, al no
+    // marcar `respondidoRef`, lo reprogramaba para reaparecer a los 14 días y
+    // volver a fallar. Encontrado revisando este mismo fix.
+    return res.ok || res.status === 409;
+  } catch {
+    return false;
+  }
 }
 
 export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: string | null }) {
@@ -61,6 +75,12 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
   const [rating, setRating] = useState(0);
   const [comentario, setComentario] = useState('');
   const [enviando, setEnviando] = useState(false);
+  // Auditoría 22-ago: el resultado de `enviarFeedback` no lo leía NADIE. Con un
+  // 401/409/500 el modal pasaba igual a la pantalla del 20% y marcaba
+  // `respondidoRef`, así que el feedback se perdía sin remedio (la fila tiene
+  // unique(studio_id): no hay segundo intento) y se prometía un descuento que
+  // el checkout nunca iba a encontrar en `review_boost_recompensas`.
+  const [error, setError] = useState(false);
   // Feedback ya enviado al servidor en ESTA sesión del modal — al cerrar,
   // distingue "respondió" (solo marca visto) de "cerró sin responder" (marca
   // visto + pospuesto, para la regla de reaparición a los 14 días).
@@ -107,9 +127,11 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
     setRating(n);
     if (n >= 4) {
       setEnviando(true);
-      await enviarFeedback(n);
-      respondidoRef.current = true;
+      setError(false);
+      const ok = await enviarFeedback(n);
       setEnviando(false);
+      if (!ok) { setError(true); return; }
+      respondidoRef.current = true;
       setPantalla('positivo');
     } else {
       setPantalla('negativo');
@@ -118,9 +140,11 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
 
   async function enviarComentarioNegativo() {
     setEnviando(true);
-    await enviarFeedback(rating, comentario);
-    respondidoRef.current = true;
+    setError(false);
+    const ok = await enviarFeedback(rating, comentario);
     setEnviando(false);
+    if (!ok) { setError(true); return; }
+    respondidoRef.current = true;
     cerrar(false);
   }
 
@@ -147,6 +171,11 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
                 </button>
               ))}
             </div>
+            {error && (
+              <p role="alert" className="text-center text-[12.5px] text-destructive">
+                No hemos podido guardar tu valoración. Inténtalo de nuevo en un momento.
+              </p>
+            )}
           </>
         )}
 
@@ -162,6 +191,11 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
               rows={4} maxLength={2000}
               className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-[13px] text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
             />
+            {error && (
+              <p role="alert" className="text-[12.5px] text-destructive">
+                No hemos podido enviar tu comentario. Inténtalo de nuevo en un momento.
+              </p>
+            )}
             <div className="flex justify-end">
               <Button onClick={() => void enviarComentarioNegativo()} disabled={enviando}>
                 Enviar
