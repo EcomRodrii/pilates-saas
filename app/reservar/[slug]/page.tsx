@@ -812,6 +812,29 @@ export default function ReservarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Retorno de Stripe tras un 3DS que SÍ exige salir de la página (banco sin
+  // soporte para el modal embebido — poco común, ver el comentario de `pagar()`
+  // en checkout-embebido.tsx). Antes SOLO lo leía app/widget-bundle/main.tsx
+  // (Modo A, embebido en la web de terceros) — quien pagaba directamente en
+  // esta página (Modo B, /reservar/[slug]) volvía de la redirección a esta
+  // MISMA pantalla con `?tentare_pago=retorno` en la URL y nadie lo leía: sin
+  // aviso de ningún tipo, con el estado de React perdido por la navegación
+  // completa (datosClientSecret/loginForm ya no existen). El mensaje es
+  // deliberadamente neutro, igual que en Modo A — no se intenta resumir el
+  // flujo de confirmación con estado que ya no está, solo se dice la verdad:
+  // si el banco confirmó, la reserva llega por email en cuanto el webhook (o
+  // el conciliador) la procese.
+  const [avisoPagoRetorno, setAvisoPagoRetorno] = useState(false);
+  useEffect(() => {
+    if (searchParams.get('tentare_pago') !== 'retorno') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee el parámetro de retorno una sola vez y limpia la URL a continuación; depende de la URL, no de props ni estado.
+    setAvisoPagoRetorno(true);
+    const limpio = new URLSearchParams(searchParams.toString());
+    limpio.delete('tentare_pago');
+    router.replace(`/reservar/${slug}${limpio.toString() ? `?${limpio.toString()}` : ''}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // P0-30: se agregan las plazas ocupadas por sesión en UNA pasada y se
   // resuelven tipo/sala/instructora por Map — antes era O(sesiones × reservas)
   // en cada visita (tráfico anónimo, la ruta de mayor impacto en conversión).
@@ -2052,6 +2075,22 @@ export default function ReservarPage() {
                 : 'Pago cancelado — puedes intentarlo de nuevo cuando quieras.'}
             </span>
             <button onClick={() => setPagoAviso(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16, lineHeight: 1 }} aria-label="Cerrar aviso">×</button>
+          </div>
+        </div>
+      )}
+
+      {/* Vuelta de un 3DS que exigió salir de la página (Modo B, poco común
+          pero antes nadie la leía aquí — ver el comentario de `avisoPagoRetorno`
+          más arriba). Mismo lugar/orden que el aviso de arriba, deliberadamente
+          neutro: no hay estado de React que resumir tras la navegación. */}
+      {avisoPagoRetorno && (
+        <div style={{ order: orden('horario'), padding: `12px ${cq(20, 3.8, 48)} 0`, maxWidth: 1280, marginInline: 'auto' }}>
+          <div
+            className="text-muted-foreground bg-muted/50 border-[var(--portal-line)]"
+            style={{ border: '1px solid', borderRadius: 14, padding: '10px 16px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+          >
+            <span>Si has confirmado el pago con tu banco, en unos segundos verás tu reserva por email.</span>
+            <button onClick={() => setAvisoPagoRetorno(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16, lineHeight: 1 }} aria-label="Cerrar aviso">×</button>
           </div>
         </div>
       )}
