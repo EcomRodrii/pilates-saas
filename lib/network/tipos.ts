@@ -47,6 +47,13 @@ export interface PerfilNetwork {
   instagram: string | null;
   linkedin: string | null;
   web: string | null;
+  // F1 "Actualmente en Tentare" — opt-in, apagado por defecto (migración
+  // 20260824193100). Si es `true`, el perfil público muestra las sedes
+  // reales donde la instructora trabaja HOY en el SaaS (mis_estudios()),
+  // solo nombre/ciudad. Decisión del fundador: una instructora activa en un
+  // estudio puede no querer que un competidor sepa dónde trabaja, aunque el
+  // dato ya sea público en el directorio de ese estudio.
+  mostrarEstudiosActuales: boolean;
 }
 
 // Campos que la propia dueña puede editar desde /network/mi-perfil. `estado`
@@ -59,6 +66,7 @@ export type CambiosPerfilNetwork = Partial<
     | 'disponibilidadEstado' | 'disponibilidadHorarios' | 'tipoTrabajo'
     | 'emailContacto' | 'telefonoContacto'
     | 'idiomas' | 'instagram' | 'linkedin' | 'web'
+    | 'mostrarEstudiosActuales'
   >
 >;
 
@@ -83,8 +91,12 @@ export type CambiosPerfilNetwork = Partial<
 // nunca una consulta por tarjeta. Una certificación 'pendiente'/'en_revision'
 // NO cuenta — mismo criterio que "Formación verificada" del perfil público
 // (docs/README): no se enseña como logro solo por haberla subido.
+// `mostrarEstudiosActuales` fuera a propósito: es el interruptor privado de
+// la dueña, no un dato del listado — lo que un tercero ve es el resultado ya
+// resuelto (`DetallePerfilPublico.estudiosActuales`, calculado en el
+// servidor con el JOIN instructores↔studios), nunca el booleano en crudo.
 export type PerfilNetworkPublico =
-  Omit<PerfilNetwork, 'authUserId' | 'emailContacto' | 'telefonoContacto'>
+  Omit<PerfilNetwork, 'authUserId' | 'emailContacto' | 'telefonoContacto' | 'mostrarEstudiosActuales'>
   & { experienciaVerificada: boolean; certificacionVerificada: boolean; resumenResenas: ResumenResenas };
 
 // Filtros del buscador (docs/NETWORK-IMPLEMENTATION-PLAN.md §4, §8). Todos
@@ -149,6 +161,16 @@ export type NuevaExperienciaNetwork = Pick<
 // Lo que ve un estudio en el perfil público de otra persona: sin `perfilId`
 // (identificador interno sin uso del lado cliente en ese contexto).
 export type ExperienciaNetworkPublica = Omit<ExperienciaNetwork, 'perfilId'>;
+
+// F1 "Actualmente en Tentare" — una sede real donde la instructora trabaja
+// HOY (JOIN instructores↔studios, no mis_estudios(): el detalle público
+// corre con service_role, sin auth.uid()). Deliberadamente solo
+// nombre/ciudad — nunca rol/tarifa/cualquier otra columna de
+// instructores/instructor_tarifas, que son datos internos de gestión.
+export interface EstudioActualNetwork {
+  nombre: string;
+  ciudad: string | null;
+}
 
 // Referencia profesional — red_referencias (migr 20260813111231). El
 // referente NO tiene por qué ser usuaria de Tentare: se resuelve por token

@@ -26,7 +26,7 @@ import {
 } from './catalogo.ts';
 import type {
   FiltroBusquedaNetwork, PerfilNetworkPublico, ExperienciaNetworkPublica, BadgesNetwork,
-  ResumenResenas, ResenaNetwork, MediaNetwork,
+  ResumenResenas, ResenaNetwork, MediaNetwork, EstudioActualNetwork,
 } from './tipos.ts';
 import { mapFilaAMedia, type FilaRedPerfilMedia } from './mapeo.ts';
 
@@ -51,7 +51,8 @@ const SELECT_COLUMNAS_PUBLICAS = `
   id, slug, nombre, foto_url, ciudad, zona, radio_km, descripcion,
   especialidades, anios_experiencia, tarifa_rango, disponibilidad_estado,
   disponibilidad_horarios, tipo_trabajo, estado, destacado, identidad_verificada_en,
-  creado_en, actualizado_en, ultimo_acceso_en, idiomas, instagram, linkedin, web
+  creado_en, actualizado_en, ultimo_acceso_en, idiomas, instagram, linkedin, web,
+  mostrar_estudios_actuales
 `;
 
 // Tope sin paginar: mismo criterio pragmático que otros listados de este
@@ -263,6 +264,9 @@ export interface DetallePerfilPublico {
   badges: BadgesNetwork;
   resenas: ResenaNetwork[];
   mediaFotos: MediaNetwork[];
+  // F1 "Actualmente en Tentare" — vacío si el opt-in está apagado
+  // (mostrar_estudios_actuales=false) o si no trabaja hoy en ninguna sede.
+  estudiosActuales: EstudioActualNetwork[];
 }
 
 async function detallePerfilDesdeFila(
@@ -339,6 +343,24 @@ async function detallePerfilDesdeFila(
     activaRecientemente: activaRecientemente(filaPublica.ultimo_acceso_en, new Date()),
   };
 
+  // F1 "Actualmente en Tentare" — solo si la dueña activó el opt-in
+  // (apagado por defecto). JOIN directo instructores↔studios por
+  // auth_user_id: mis_estudios() exige auth.uid() real y este endpoint
+  // corre con service_role (sin sesión de la instructora). Columnas
+  // explícitas — nunca rol/tarifa/cualquier otro dato interno de gestión.
+  let estudiosActuales: EstudioActualNetwork[] = [];
+  if (filaPublica.mostrar_estudios_actuales && filaAuth?.auth_user_id) {
+    const { data: sedesData } = await admin
+      .from('instructores')
+      .select('studios ( nombre, ciudad )')
+      .eq('auth_user_id', filaAuth.auth_user_id as string)
+      .eq('activo', true);
+    type FilaSedeActual = { studios: { nombre: string; ciudad: string | null } | null };
+    estudiosActuales = ((sedesData ?? []) as unknown as FilaSedeActual[])
+      .filter((s): s is { studios: { nombre: string; ciudad: string | null } } => s.studios !== null)
+      .map(s => ({ nombre: s.studios.nombre, ciudad: s.studios.ciudad }));
+  }
+
   return {
     perfil: mapFilaAPerfilPublico(
       filaPublica, tieneExperienciaVerificada, resumenDesdePuntuaciones(resenas.map(r => r.puntuacion)),
@@ -349,6 +371,7 @@ async function detallePerfilDesdeFila(
     badges,
     resenas,
     mediaFotos,
+    estudiosActuales,
   };
 }
 

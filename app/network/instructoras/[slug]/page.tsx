@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, BadgeCheck, Star, MapPin, GraduationCap } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Star, MapPin, GraduationCap, Building2 } from 'lucide-react';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { obtenerPerfilPublicoPorSlug } from '@/lib/network/publico';
 import { NavPublico } from '@/components/network-v2/NavPublico';
@@ -101,7 +101,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
   const detalle = await cargar(slug);
   if (!detalle) notFound();
 
-  const { perfil, experiencias, certificaciones, badges, resenas, mediaFotos } = detalle;
+  const { perfil, experiencias, certificaciones, badges, resenas, mediaFotos, estudiosActuales } = detalle;
 
   const url = `${LEGAL.url}/network/instructoras/${slug}`;
   const jsonLd = {
@@ -232,6 +232,22 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                         </div>
                         <p className="text-[13px]" style={{ color: NW_MUTED_2 }}>{rangoAnios(exp.fechaInicio, exp.fechaFin)}</p>
                         {exp.descripcion && <p className="text-[13.5px] mt-1" style={{ color: NW_MUTED }}>{exp.descripcion}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Seccion>
+            )}
+
+            {estudiosActuales.length > 0 && (
+              <Seccion titulo="Actualmente en" compacta>
+                <div className="space-y-3">
+                  {estudiosActuales.map((e, i) => (
+                    <div key={`${e.nombre}-${i}`} className="flex items-start gap-3">
+                      <div className="shrink-0 mt-0.5" style={{ color: NW_PRODUCTO }}><Building2 size={16} /></div>
+                      <div>
+                        <p className="text-[14px] font-bold" style={{ color: NW_TINTA }}>{e.nombre}</p>
+                        {e.ciudad && <p className="text-[13px]" style={{ color: NW_MUTED_2 }}>{e.ciudad}</p>}
                       </div>
                     </div>
                   ))}
