@@ -350,7 +350,10 @@ export function PantallaReserva({
                           placeholder="Código promocional"
                           style={{
                             flex: 1, border: 'none', outline: 'none', background: 'none',
-                            fontSize: 14, color: 'var(--portal-ink)',
+                            // 16px, no 14: por debajo de 16px iOS Safari amplía
+                            // la página entera al enfocar el campo (mismo
+                            // motivo que CampoTexto más abajo).
+                            fontSize: 16, color: 'var(--portal-ink)',
                           }}
                         />
                         {codigoEstadoMostrado === 'validando' && (
@@ -548,7 +551,10 @@ function CampoTexto({
   autoFocus?: boolean; onEnter?: () => void;
 }) {
   const estilo: CSSProperties = {
-    width: '100%', padding: '13px 15px', fontSize: 15, color: 'var(--portal-ink)',
+    // 16px, no 15: por debajo de 16px iOS Safari amplía la página entera al
+    // enfocar el campo y no la devuelve a su sitio (medido, e2e/reservar-
+    // modal-movil.spec.ts).
+    width: '100%', padding: '13px 15px', fontSize: 16, color: 'var(--portal-ink)',
     background: 'var(--portal-surface-2)', border: '1.5px solid var(--portal-line)',
     borderRadius: 16, outline: 'none',
     transition: 'border-color .2s ease, box-shadow .2s ease',
