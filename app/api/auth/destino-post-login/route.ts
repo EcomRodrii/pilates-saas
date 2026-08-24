@@ -15,7 +15,8 @@ import { resolverDestinoPostLogin, resolverAccesoPorProducto, type Producto } fr
 // lib/auth-server.ts) — no se reimplementa esa consulta aquí, solo se usa su
 // resultado.
 //
-// ⚠️ Software vs Network, dos productos independientes (2026-08-19). El bug
+// ⚠️ Software vs Network vs Network-alumna, tres productos independientes
+// (network-alumna añadido en F0 de Network 2.0, 2026-08-24). El bug
 // real que motivó este cambio: esta ruta SOLO miraba "¿tiene estudio?" antes
 // de mirar Network, sin saber por qué PÁGINA se había llamado. Una identidad
 // dual (self-claim: instructora con ficha de Software y perfil de Network)
@@ -31,7 +32,8 @@ import { resolverDestinoPostLogin, resolverAccesoPorProducto, type Producto } fr
 export async function GET(req: NextRequest) {
   const productoParam = req.nextUrl.searchParams.get('producto');
   const producto: Producto | null =
-    productoParam === 'software' || productoParam === 'network' ? productoParam : null;
+    productoParam === 'software' || productoParam === 'network' || productoParam === 'network-alumna'
+      ? productoParam : null;
 
   const sesion = await verificarSesionStaff(req);
   const tieneEstudio = !!sesion;
@@ -43,13 +45,22 @@ export async function GET(req: NextRequest) {
     : { data: null };
   const estadoPerfilNetwork = perfil?.estado ?? null;
 
+  // F0: tercera vía, independiente de la de instructora — una identidad puede
+  // tener perfil en las dos tablas a la vez (mismo criterio de self-claim).
+  const { data: perfilAlumna } = admin
+    ? await admin.from('red_perfiles_alumna').select('estado').eq('auth_user_id', usuario!.userId).maybeSingle()
+    : { data: null };
+  const estadoPerfilNetworkAlumna = perfilAlumna?.estado ?? null;
+
   if (!producto) {
     // Sin gate: solo /clave-nueva llega aquí sin `producto`. Se manda a donde
     // de verdad tiene algo esta identidad, sin bloquear nada — recuperar la
     // contraseña no es "entrar en" ningún producto en concreto.
-    return NextResponse.json({ destino: resolverDestinoPostLogin(tieneEstudio, estadoPerfilNetwork) });
+    return NextResponse.json({
+      destino: resolverDestinoPostLogin(tieneEstudio, estadoPerfilNetwork, estadoPerfilNetworkAlumna),
+    });
   }
 
-  const resultado = resolverAccesoPorProducto(producto, { tieneEstudio, estadoPerfilNetwork });
+  const resultado = resolverAccesoPorProducto(producto, { tieneEstudio, estadoPerfilNetwork, estadoPerfilNetworkAlumna });
   return NextResponse.json(resultado);
 }

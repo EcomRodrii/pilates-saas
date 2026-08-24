@@ -10,6 +10,9 @@
 export interface CuentaInfo {
   tieneEstudio: boolean;
   estadoPerfilNetwork: string | null;
+  /** F0: tercera vía, perfil de alumna en `red_perfiles_alumna` — independiente
+   *  del de instructora, una identidad puede tener los dos a la vez. */
+  estadoPerfilNetworkAlumna: string | null;
 }
 
 /**
@@ -21,13 +24,22 @@ export interface CuentaInfo {
  * el producto — no bloquearla con el mensaje de "esta cuenta es de otro
  * producto", que aquí no aplica.
  */
-export function resolverDestinoPostLogin(tieneEstudio: boolean, estadoPerfilNetwork: string | null): string {
+export function resolverDestinoPostLogin(
+  tieneEstudio: boolean,
+  estadoPerfilNetwork: string | null,
+  estadoPerfilNetworkAlumna: string | null = null,
+): string {
   if (tieneEstudio) return '/dashboard';
-  return estadoPerfilNetwork === 'published' || estadoPerfilNetwork === 'en_revision'
-    ? '/network/inicio' : '/network/reanudar';
+  if (estadoPerfilNetwork === 'published' || estadoPerfilNetwork === 'en_revision') return '/network/inicio';
+  if (estadoPerfilNetwork !== null) return '/network/reanudar';
+  // Sin nada de instructora: mira alumna antes de asumir "reanudar" (que es
+  // destino de instructora) — mismo criterio que la rama de instructora.
+  if (estadoPerfilNetworkAlumna === 'published') return '/network/alumna/inicio';
+  if (estadoPerfilNetworkAlumna !== null) return '/network/alumna/reanudar';
+  return '/network/reanudar';
 }
 
-export type Producto = 'software' | 'network';
+export type Producto = 'software' | 'network' | 'network-alumna';
 
 export type ResultadoAcceso =
   | { tipo: 'entra'; destino: string }
@@ -46,31 +58,44 @@ export type ResultadoAcceso =
  * se adivina de la cuenta: es la regla central de todo este cambio ("el
  * contexto determina el producto, no la identidad").
  *
- * Una identidad con AMBAS cosas (self-claim: instructora con ficha de
- * Software que además tiene perfil de Network) entra a las dos sin bloqueo —
- * eso es justo lo que el self-claim existe para permitir. Lo que se bloquea es
- * la cuenta que NO tiene nada en el producto por el que intenta entrar.
+ * Una identidad con VARIAS cosas a la vez (self-claim instructora+estudio, o
+ * instructora+alumna, o las tres) entra a cada una sin bloqueo — eso es justo
+ * lo que el self-claim existe para permitir. Lo que se bloquea es la cuenta
+ * que NO tiene nada en el producto por el que intenta entrar.
  */
 export function resolverAccesoPorProducto(producto: Producto, cuenta: CuentaInfo): ResultadoAcceso {
   const tieneSoftware = cuenta.tieneEstudio;
   const tieneNetwork = cuenta.estadoPerfilNetwork !== null;
+  const tieneNetworkAlumna = cuenta.estadoPerfilNetworkAlumna !== null;
 
   if (producto === 'software') {
     if (tieneSoftware) return { tipo: 'entra', destino: '/dashboard' };
-    if (tieneNetwork) return { tipo: 'cuenta-de-otro-producto' };
+    if (tieneNetwork || tieneNetworkAlumna) return { tipo: 'cuenta-de-otro-producto' };
     return { tipo: 'cuenta-nueva' };
   }
 
-  // producto === 'network'
-  if (tieneNetwork) {
+  if (producto === 'network') {
+    if (tieneNetwork) {
+      return {
+        tipo: 'entra',
+        // Mismo criterio que resolverDestinoPostLogin: 'en_revision' es
+        // wizard TERMINADO esperando aprobación, va a inicio, no a reanudar.
+        destino: cuenta.estadoPerfilNetwork === 'published' || cuenta.estadoPerfilNetwork === 'en_revision'
+          ? '/network/inicio' : '/network/reanudar',
+      };
+    }
+    if (tieneSoftware || tieneNetworkAlumna) return { tipo: 'cuenta-de-otro-producto' };
+    return { tipo: 'cuenta-nueva' };
+  }
+
+  // producto === 'network-alumna'
+  if (tieneNetworkAlumna) {
     return {
       tipo: 'entra',
-      // Mismo criterio que resolverDestinoPostLogin: 'en_revision' es
-      // wizard TERMINADO esperando aprobación, va a inicio, no a reanudar.
-      destino: cuenta.estadoPerfilNetwork === 'published' || cuenta.estadoPerfilNetwork === 'en_revision'
-        ? '/network/inicio' : '/network/reanudar',
+      destino: cuenta.estadoPerfilNetworkAlumna === 'published'
+        ? '/network/alumna/inicio' : '/network/alumna/reanudar',
     };
   }
-  if (tieneSoftware) return { tipo: 'cuenta-de-otro-producto' };
+  if (tieneSoftware || tieneNetwork) return { tipo: 'cuenta-de-otro-producto' };
   return { tipo: 'cuenta-nueva' };
 }
