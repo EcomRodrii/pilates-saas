@@ -26,8 +26,19 @@ import {
 } from './catalogo.ts';
 import type {
   FiltroBusquedaNetwork, PerfilNetworkPublico, ExperienciaNetworkPublica, BadgesNetwork,
-  ResumenResenas, ResenaNetwork,
+  ResumenResenas, ResenaNetwork, MediaNetwork, EstudioActualNetwork,
 } from './tipos.ts';
+import { mapFilaAMedia, type FilaRedPerfilMedia } from './mapeo.ts';
+
+// Portfolio de fotos (F1) — mismo bucket privado y mismo criterio de "toda
+// lectura pasa por URL firmada" que app/api/network/portfolio/route.ts (ver
+// lib/network/portfolio-storage.ts para el porqué no es el bucket público
+// `avatars`). 10 minutos aquí, más corto que en la vista propia (1h): una
+// visita al marketplace es un vistazo de un momento, no una sesión de
+// edición larga — y una página pública indexable no debería llevar cosida
+// una URL firmada de vida larga en el HTML servido.
+const BUCKET_PORTFOLIO = 'red-documentos-identidad';
+const CADUCIDAD_URL_PORTFOLIO_SEGUNDOS = 600;
 
 /** Media a 1 decimal; `null` sin reseñas — nunca 0 estrellas fabricadas. */
 function resumenDesdePuntuaciones(puntuaciones: number[]): ResumenResenas {
@@ -40,7 +51,8 @@ const SELECT_COLUMNAS_PUBLICAS = `
   id, slug, nombre, foto_url, ciudad, zona, radio_km, descripcion,
   especialidades, anios_experiencia, tarifa_rango, disponibilidad_estado,
   disponibilidad_horarios, tipo_trabajo, estado, destacado, identidad_verificada_en,
-  creado_en, actualizado_en, ultimo_acceso_en, idiomas, instagram, linkedin, web
+  creado_en, actualizado_en, ultimo_acceso_en, idiomas, instagram, linkedin, web,
+  mostrar_estudios_actuales
 `;
 
 // Tope sin paginar: mismo criterio pragmático que otros listados de este
@@ -251,6 +263,10 @@ export interface DetallePerfilPublico {
   certificaciones: CertificacionNetworkPublica[];
   badges: BadgesNetwork;
   resenas: ResenaNetwork[];
+  mediaFotos: MediaNetwork[];
+  // F1 "Actualmente en Tentare" — vacío si el opt-in está apagado
+  // (mostrar_estudios_actuales=false) o si no trabaja hoy en ninguna sede.
+  estudiosActuales: EstudioActualNetwork[];
 }
 
 async function detallePerfilDesdeFila(
@@ -272,6 +288,7 @@ async function detallePerfilDesdeFila(
     { count: referenciasConfirmadas },
     { data: resenasData },
     { data: certificacionesData },
+    { data: mediaData },
   ] = await Promise.all([
     admin.from('red_experiencias')
       .select('id, studio_id, nombre_estudio, fecha_inicio, fecha_fin, especialidades, descripcion, estado_verificacion, creado_en')
@@ -283,8 +300,23 @@ async function detallePerfilDesdeFila(
       .eq('perfil_id', id).eq('estado', 'publicada').order('creado_en', { ascending: false }),
     admin.from('red_certificaciones').select('nombre, institucion, anio')
       .eq('perfil_id', id).eq('estado', 'verificado').order('anio', { ascending: false }),
+    admin.from('red_perfil_media').select('id, perfil_id, path, orden, creado_en')
+      .eq('perfil_id', id).order('orden', { ascending: true }).order('creado_en', { ascending: true }),
   ]);
   if (errExp) return { error: errExp };
+
+  const filasMedia = (mediaData ?? []) as unknown as FilaRedPerfilMedia[];
+  let mediaFotos: MediaNetwork[] = [];
+  if (filasMedia.length > 0) {
+    const { data: firmadas } = await admin.storage
+      .from(BUCKET_PORTFOLIO)
+      .createSignedUrls(filasMedia.map(f => f.path), CADUCIDAD_URL_PORTFOLIO_SEGUNDOS);
+    if (firmadas) {
+      mediaFotos = filasMedia
+        .map((f, i) => (firmadas[i]?.signedUrl ? mapFilaAMedia(f, firmadas[i].signedUrl) : null))
+        .filter((m): m is MediaNetwork => m !== null);
+    }
+  }
 
   const experiencias = ((experienciasData ?? []) as unknown as Omit<FilaRedExperiencia, 'perfil_id'>[]).map(mapFilaAExperienciaPublica);
   const certificaciones: CertificacionNetworkPublica[] = (certificacionesData ?? []) as CertificacionNetworkPublica[];
@@ -311,6 +343,24 @@ async function detallePerfilDesdeFila(
     activaRecientemente: activaRecientemente(filaPublica.ultimo_acceso_en, new Date()),
   };
 
+  // F1 "Actualmente en Tentare" — solo si la dueña activó el opt-in
+  // (apagado por defecto). JOIN directo instructores↔studios por
+  // auth_user_id: mis_estudios() exige auth.uid() real y este endpoint
+  // corre con service_role (sin sesión de la instructora). Columnas
+  // explícitas — nunca rol/tarifa/cualquier otro dato interno de gestión.
+  let estudiosActuales: EstudioActualNetwork[] = [];
+  if (filaPublica.mostrar_estudios_actuales && filaAuth?.auth_user_id) {
+    const { data: sedesData } = await admin
+      .from('instructores')
+      .select('studios ( nombre, ciudad )')
+      .eq('auth_user_id', filaAuth.auth_user_id as string)
+      .eq('activo', true);
+    type FilaSedeActual = { studios: { nombre: string; ciudad: string | null } | null };
+    estudiosActuales = ((sedesData ?? []) as unknown as FilaSedeActual[])
+      .filter((s): s is { studios: { nombre: string; ciudad: string | null } } => s.studios !== null)
+      .map(s => ({ nombre: s.studios.nombre, ciudad: s.studios.ciudad }));
+  }
+
   return {
     perfil: mapFilaAPerfilPublico(
       filaPublica, tieneExperienciaVerificada, resumenDesdePuntuaciones(resenas.map(r => r.puntuacion)),
@@ -320,6 +370,8 @@ async function detallePerfilDesdeFila(
     certificaciones,
     badges,
     resenas,
+    mediaFotos,
+    estudiosActuales,
   };
 }
 

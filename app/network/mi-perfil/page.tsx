@@ -8,16 +8,19 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { SelectorChips } from '@/components/network/selector-chips';
 import { SeccionExperienciaNetwork } from '@/components/network/seccion-experiencia';
+import { SeccionReferenciasNetwork } from '@/components/network/seccion-referencias';
+import { SeccionPortfolioNetwork } from '@/components/network/seccion-portfolio';
 import { ListaBadgesNetwork } from '@/components/network/lista-badges';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
 import { fetchMiPerfilNetwork, guardarPerfilNetwork, cambiarEstadoPerfilNetwork, fetchSolicitudesContactoNetwork } from '@/lib/api-client';
 import { subirFotoPerfilNetwork, validarFotoPerfil } from '@/lib/portal-storage';
+import { fetchMisEstudios, type SedeSeleccionable } from '@/lib/supabase-data';
 import { calcularCompletitudPerfil, type DetalleCompletitud } from '@/lib/network/completitud';
 import {
   emailVerificado, experienciaVerificada, referenciaProfesional, identidadVerificada, activaRecientemente,
 } from '@/lib/network/badges';
-import type { PerfilNetwork, ExperienciaNetwork } from '@/lib/network/tipos';
+import type { PerfilNetwork, ExperienciaNetwork, ReferenciaNetwork } from '@/lib/network/tipos';
 import {
   ESPECIALIDADES_NETWORK, ESPECIALIDAD_LABEL,
   HORARIOS_NETWORK, HORARIO_LABEL,
@@ -55,6 +58,7 @@ interface FormState {
   tipoTrabajo: PerfilNetwork['tipoTrabajo'];
   emailContacto: string;
   telefonoContacto: string;
+  mostrarEstudiosActuales: boolean;
 }
 
 function formVacio(nombreInicial: string): FormState {
@@ -62,7 +66,7 @@ function formVacio(nombreInicial: string): FormState {
     nombre: nombreInicial, ciudad: '', zona: '', radioKm: '', descripcion: '',
     especialidades: [], aniosExperiencia: '', tarifaRango: undefined,
     disponibilidadEstado: 'no_disponible', disponibilidadHorarios: [], tipoTrabajo: [],
-    emailContacto: '', telefonoContacto: '',
+    emailContacto: '', telefonoContacto: '', mostrarEstudiosActuales: false,
   };
 }
 
@@ -81,6 +85,7 @@ function formDesdePerfil(p: PerfilNetwork): FormState {
     tipoTrabajo: p.tipoTrabajo,
     emailContacto: p.emailContacto ?? '',
     telefonoContacto: p.telefonoContacto ?? '',
+    mostrarEstudiosActuales: p.mostrarEstudiosActuales,
   };
 }
 
@@ -128,12 +133,19 @@ export default function MiPerfilNetworkPage() {
   const [errorEstado, setErrorEstado] = useState('');
   const [experiencias, setExperiencias] = useState<ExperienciaNetwork[]>([]);
   const tieneExperiencia = experiencias.length > 0;
+  const [referencias, setReferencias] = useState<ReferenciaNetwork[]>([]);
   const [paso, setPaso] = useState(0);
   const [pasoInicialElegido, setPasoInicialElegido] = useState(false);
   // "Oportunidades" (brief §18): cuántos estudios han escrito y siguen sin
   // respuesta — mismo dato que ya pinta /network/solicitudes, aquí solo el
   // recuento, para no duplicar esa pantalla dentro del resumen.
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<number | null>(null);
+  // "Actualmente en Tentare" (F1, opt-in): vista previa de las sedes reales
+  // donde trabaja hoy, vía mis_estudios() (RPC con sesión propia, distinta
+  // del JOIN service_role que usa el perfil público). Se carga una vez —
+  // barata, y solo se pinta si el toggle está activado.
+  const [sedesActuales, setSedesActuales] = useState<SedeSeleccionable[]>([]);
+  const [cargandoSedes, setCargandoSedes] = useState(true);
 
   // Rediseño 2026-08: mi-perfil deja de ser el sitio del alta inicial (eso
   // es /network/crear-perfil, el wizard de 12 pasos) — pasa a ser el panel
@@ -150,6 +162,9 @@ export default function MiPerfilNetworkPage() {
     });
     fetchSolicitudesContactoNetwork().then(sols => {
       if (vivo) setSolicitudesPendientes(sols.filter(s => s.estado === 'pendiente').length);
+    });
+    fetchMisEstudios().then(sedes => {
+      if (vivo) { setSedesActuales(sedes); setCargandoSedes(false); }
     });
     return () => { vivo = false; };
   }, [user, router]);
@@ -206,6 +221,7 @@ export default function MiPerfilNetworkPage() {
       tipoTrabajo: form.tipoTrabajo,
       emailContacto: form.emailContacto || null,
       telefonoContacto: form.telefonoContacto || null,
+      mostrarEstudiosActuales: form.mostrarEstudiosActuales,
     });
     setGuardando(false);
     if (!res.ok) { setError(res.error); return false; }
@@ -249,12 +265,10 @@ export default function MiPerfilNetworkPage() {
   const badges = useMemo(() => ({
     emailVerificado: emailVerificado(user?.email_confirmed_at ?? null),
     experienciaVerificada: experienciaVerificada(experiencias.map(e => e.estadoVerificacion)),
-    // La solicitud/confirmación de una referencia profesional es un flujo
-    // que todavía no se ha construido — 0 a propósito, no un descuido.
-    referenciaProfesional: referenciaProfesional(0),
+    referenciaProfesional: referenciaProfesional(referencias.filter(r => r.estado === 'confirmada').length),
     identidadVerificada: identidadVerificada(perfil?.identidadVerificadaEn ?? null),
     activaRecientemente: activaRecientemente(perfil?.ultimoAccesoEn ?? null, new Date()),
-  }), [user, experiencias, perfil]);
+  }), [user, experiencias, referencias, perfil]);
 
   if (cargandoSesion || !user || cargando) {
     return (
@@ -399,18 +413,73 @@ export default function MiPerfilNetworkPage() {
             />
           </div>
           {perfil && <SeccionExperienciaNetwork onExperienciasChange={setExperiencias} />}
+          {perfil && <SeccionReferenciasNetwork onReferenciasChange={setReferencias} />}
+          {perfil && user && <SeccionPortfolioNetwork authUserId={user.id} />}
         </div>
       )}
 
       {idPaso === 'trabajo' && (
-        <div className={`${cardCls} p-6 space-y-3`}>
-          <h3 className="text-[14px] font-semibold text-foreground">Dónde trabajas</h3>
-          <p className="text-[12.5px] text-muted-foreground -mt-1">Qué tipo de trabajo aceptas.</p>
-          <SelectorChips
-            opciones={TIPOS_TRABAJO_NETWORK.map(v => ({ valor: v, etiqueta: TIPO_TRABAJO_LABEL[v] }))}
-            seleccion={form.tipoTrabajo ?? []}
-            onChange={sel => setForm(f => ({ ...f, tipoTrabajo: sel }))}
-          />
+        <div className="space-y-5">
+          <div className={`${cardCls} p-6 space-y-3`}>
+            <h3 className="text-[14px] font-semibold text-foreground">Dónde trabajas</h3>
+            <p className="text-[12.5px] text-muted-foreground -mt-1">Qué tipo de trabajo aceptas.</p>
+            <SelectorChips
+              opciones={TIPOS_TRABAJO_NETWORK.map(v => ({ valor: v, etiqueta: TIPO_TRABAJO_LABEL[v] }))}
+              seleccion={form.tipoTrabajo ?? []}
+              onChange={sel => setForm(f => ({ ...f, tipoTrabajo: sel }))}
+            />
+          </div>
+
+          <div className={`${cardCls} p-6 space-y-3`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-[14px] font-semibold text-foreground">Actualmente en Tentare</h3>
+                <p className="text-[12.5px] text-muted-foreground mt-0.5">
+                  Muestra en tu perfil público las sedes donde trabajas hoy en Tentare. Apagado por
+                  defecto — actívalo solo si quieres que un estudio que mire tu perfil sepa dónde
+                  trabajas ya.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.mostrarEstudiosActuales}
+                aria-label="Mostrar mis estudios actuales en mi perfil público"
+                onClick={() => setForm(f => ({ ...f, mostrarEstudiosActuales: !f.mostrarEstudiosActuales }))}
+                className={cn(
+                  'shrink-0 w-10 h-6 rounded-full transition-colors relative',
+                  form.mostrarEstudiosActuales ? 'bg-brand' : 'bg-muted',
+                )}
+              >
+                <span
+                  className={cn(
+                    'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform',
+                    form.mostrarEstudiosActuales && 'translate-x-4',
+                  )}
+                />
+              </button>
+            </div>
+            {form.mostrarEstudiosActuales && (
+              <div className="pt-3 border-t border-border/60">
+                <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Así lo verán los estudios:</p>
+                {cargandoSedes ? (
+                  <Loader2 size={14} className="animate-spin text-muted-foreground" />
+                ) : sedesActuales.length === 0 ? (
+                  <p className="text-[12px] text-muted-foreground">
+                    Hoy no trabajas en ninguna sede de Tentare — no se mostrará nada hasta que la haya.
+                  </p>
+                ) : (
+                  <ul className="space-y-1">
+                    {sedesActuales.map(s => (
+                      <li key={s.id} className="text-[12.5px] text-foreground">
+                        {s.nombre}{s.ciudad ? ` · ${s.ciudad}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

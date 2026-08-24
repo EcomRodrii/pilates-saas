@@ -5,15 +5,24 @@ import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
 import type { MensajeNetwork } from '@/lib/network/tipos';
 
-// Mensajería interna (brief §9) — un hilo por solicitud de contacto YA
-// ACEPTADA. Dos vías de auth completamente distintas conviven en Network
-// (staff de estudio vs. cuenta de instructora sin estudio,
-// docs/NETWORK-AUDIT-2.md §4), así que esta ruta resuelve las DOS: quien
-// pide el hilo es o bien staff del estudio de la solicitud, o bien la
-// dueña del perfil — nunca un tercero. Mismo criterio que ya cierra la RLS
-// de la tabla (20260813183513); aquí se repite en TS porque hace falta
-// además resolver "esta persona escribió el mensaje" para pintar burbujas
-// propias/ajenas, que la RLS no puede decir.
+// Tope de mensajes por remitente MIENTRAS la solicitud sigue 'pendiente'
+// (F1, decisión ya confirmada con el fundador). Aplicado aquí y no en RLS
+// (20260824193200_red_mensajes_permite_pendiente.sql): contar filas en una
+// policy es frágil, mismo criterio que el resto del repo para límites de
+// este tipo. Sin tope una vez 'aceptada'.
+const TOPE_MENSAJES_PENDIENTE = 3;
+
+// Mensajería interna (brief §9) — un hilo por solicitud de contacto
+// pendiente O aceptada (F1: se permite un primer intercambio antes de que
+// el estudio acepte, para aclarar dudas sin comprometerse). Dos vías de
+// auth completamente distintas conviven en Network (staff de estudio vs.
+// cuenta de instructora sin estudio, docs/NETWORK-AUDIT-2.md §4), así que
+// esta ruta resuelve las DOS: quien pide el hilo es o bien staff del
+// estudio de la solicitud, o bien la dueña del perfil — nunca un tercero.
+// Mismo criterio que ya cierra la RLS de la tabla; aquí se repite en TS
+// porque hace falta además resolver "esta persona escribió el mensaje" para
+// pintar burbujas propias/ajenas (que la RLS no puede decir) y el estado de
+// la solicitud, para aplicar el tope de arriba.
 async function resolverParticipante(req: NextRequest, admin: ReturnType<typeof getSupabaseAdmin>) {
   const usuario = await verificarUsuarioSupabase(req);
   if (!usuario || !admin) return null;
@@ -25,20 +34,21 @@ async function resolverParticipante(req: NextRequest, admin: ReturnType<typeof g
   const { data: solicitud } = await admin
     .from('red_solicitudes_contacto')
     .select('id, perfil_id, studio_id, estado, red_perfiles ( auth_user_id )')
-    .eq('id', solicitudId).eq('estado', 'aceptada').maybeSingle();
+    .eq('id', solicitudId).in('estado', ['pendiente', 'aceptada']).maybeSingle();
   if (!solicitud) return null;
 
+  const estado = solicitud.estado as 'pendiente' | 'aceptada';
   const perfil = solicitud.red_perfiles as unknown as { auth_user_id: string } | null;
   if (perfil?.auth_user_id === usuario.userId) {
-    return { userId: usuario.userId, solicitudId, autorizado: true };
+    return { userId: usuario.userId, solicitudId, estado, autorizado: true };
   }
 
   const sesionStaff = await verificarSesionStaff(req);
   if (sesionStaff && sesionStaff.studioId === solicitud.studio_id) {
-    return { userId: usuario.userId, solicitudId, autorizado: true };
+    return { userId: usuario.userId, solicitudId, estado, autorizado: true };
   }
 
-  return { userId: usuario.userId, solicitudId, autorizado: false };
+  return { userId: usuario.userId, solicitudId, estado, autorizado: false };
 }
 
 export async function GET(req: NextRequest) {
@@ -72,7 +82,14 @@ export async function GET(req: NextRequest) {
     leidoEn: (m.leido_en as string | null) ?? null,
   }));
 
-  return NextResponse.json({ mensajes });
+  // Cuántos le quedan de los TOPE_MENSAJES_PENDIENTE — null significa "sin
+  // tope" (solicitud ya aceptada), no "cero". La UI lo enseña para que no
+  // sea una sorpresa cuando el POST empiece a rechazar.
+  const limiteRestante = participante.estado === 'pendiente'
+    ? Math.max(0, TOPE_MENSAJES_PENDIENTE - (data ?? []).filter(m => m.remitente === participante.userId).length)
+    : null;
+
+  return NextResponse.json({ mensajes, limiteRestante });
 }
 
 export async function POST(req: NextRequest) {
@@ -86,6 +103,17 @@ export async function POST(req: NextRequest) {
   const participante = await resolverParticipante(req, admin);
   if (!participante) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!participante.autorizado) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+
+  if (participante.estado === 'pendiente') {
+    const { count, error: errorConteo } = await admin
+      .from('red_mensajes')
+      .select('id', { count: 'exact', head: true })
+      .eq('solicitud_id', participante.solicitudId).eq('remitente', participante.userId);
+    if (errorConteo) return errorInterno('network:mensajes:POST:conteo', errorConteo, 'No se ha podido enviar el mensaje.');
+    if ((count ?? 0) >= TOPE_MENSAJES_PENDIENTE) {
+      return errorPeticion('Habla con más detalle una vez aceptéis el contacto — de momento solo hay margen para 3 mensajes por parte.');
+    }
+  }
 
   const { error } = await admin.from('red_mensajes').insert({
     id: `redmsg-${uid()}`, solicitud_id: participante.solicitudId, remitente: participante.userId, cuerpo,

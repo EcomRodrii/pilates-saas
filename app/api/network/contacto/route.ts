@@ -60,12 +60,33 @@ export async function POST(req: NextRequest) {
     solicitudId: solicitud.id as string, estudioNombre: estudio?.nombre ?? sesion.nombre,
   });
 
-  return NextResponse.json({ ok: true });
+  // F1: el estudio necesita el id para poder abrir el chat pre-match
+  // (app/(dashboard)/network/[perfilId]) sin recargar la página.
+  return NextResponse.json({ ok: true, solicitudId: solicitud.id as string });
 }
 
 export async function GET(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+
+  // Lado estudio (F1): ¿ya hay una solicitud (de cualquier estado) de mi
+  // estudio con este perfil concreto? Sirve para que la ficha de la
+  // candidata sepa si debe ofrecer "Contactar" o abrir el chat ya
+  // existente. Distinto del resto de este GET (que es del lado instructora,
+  // sin perfilId) — se distingue por el query param, nunca por el tipo de
+  // sesión a ciegas.
+  const perfilIdParam = req.nextUrl.searchParams.get('perfilId');
+  if (perfilIdParam) {
+    const sesion = await verificarSesionStaff(req);
+    if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    const { data, error } = await admin
+      .from('red_solicitudes_contacto')
+      .select('id, estado')
+      .eq('studio_id', sesion.studioId).eq('perfil_id', perfilIdParam)
+      .order('creado_en', { ascending: false }).limit(1).maybeSingle();
+    if (error) return errorInterno('network:contacto:GET:perfil', error, 'No se ha podido comprobar la solicitud.');
+    return NextResponse.json({ solicitud: data ? { id: data.id, estado: data.estado } : null });
+  }
 
   const usuario = await verificarUsuarioSupabase(req);
   if (!usuario) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });

@@ -20,7 +20,7 @@ const SELECT_COLUMNAS = `
   especialidades, anios_experiencia, tarifa_rango, disponibilidad_estado,
   disponibilidad_horarios, tipo_trabajo, email_contacto, telefono_contacto,
   estado, destacado, identidad_verificada_en, creado_en, actualizado_en, ultimo_acceso_en,
-  idiomas, instagram, linkedin, web
+  idiomas, instagram, linkedin, web, mostrar_estudios_actuales
 `;
 
 export async function GET(req: NextRequest) {
@@ -120,6 +120,7 @@ function saneaCambios(body: Record<string, unknown>): { row: Record<string, unkn
   if ('instagram' in body) row.instagram = body.instagram == null || body.instagram === '' ? null : String(body.instagram).trim();
   if ('linkedin' in body) row.linkedin = body.linkedin == null || body.linkedin === '' ? null : String(body.linkedin).trim();
   if ('web' in body) row.web = body.web == null || body.web === '' ? null : String(body.web).trim();
+  if ('mostrarEstudiosActuales' in body) row.mostrar_estudios_actuales = Boolean(body.mostrarEstudiosActuales);
 
   return { row };
 }

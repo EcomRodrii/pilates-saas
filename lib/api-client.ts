@@ -15,10 +15,11 @@ import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import type {
   PerfilNetwork, PerfilNetworkPublico, CambiosPerfilNetwork, FiltroBusquedaNetwork,
   ExperienciaNetwork, ExperienciaNetworkPublica, NuevaExperienciaNetwork, BadgesNetwork,
-  MensajeNetwork, FormalizacionNetwork,
+  MensajeNetwork, RespuestaMensajesNetwork, FormalizacionNetwork,
   PerfilIdentidadNetwork, CambiosPerfilIdentidadNetwork, VerificacionIdentidadNetwork,
   CertificacionNetwork, NuevaCertificacionNetwork,
   VacanteNetwork, NuevaVacanteNetwork, CambiosVacanteNetwork, CandidaturaNetwork,
+  ReferenciaNetwork, NuevaReferenciaNetwork, MediaNetwork,
 } from '@/lib/network/tipos';
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
@@ -2184,6 +2185,83 @@ export async function eliminarExperienciaNetwork(id: string): Promise<{ ok: bool
   }
 }
 
+// Referencias profesionales (gestión desde /network/mi-perfil) — la
+// resolución del referente (sin cuenta, por token) no pasa por api-client:
+// vive en app/network/referencia/[token]/referencia-form.tsx contra
+// /api/public/network/referencia directamente.
+export async function fetchMisReferenciasNetwork(): Promise<ReferenciaNetwork[]> {
+  try {
+    const res = await fetch('/api/network/referencias', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { referencias?: ReferenciaNetwork[] };
+    return data.referencias ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function crearReferenciaNetwork(
+  nueva: NuevaReferenciaNetwork,
+): Promise<{ ok: true; referencia: ReferenciaNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/referencias', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(nueva),
+    });
+    const data = (await res.json().catch(() => ({}))) as { referencia?: ReferenciaNetwork; error?: string };
+    if (!res.ok || !data.referencia) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, referencia: data.referencia };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar la solicitud de referencia' };
+  }
+}
+
+// Portfolio de fotos (F1, gestión desde /network/mi-perfil) — la subida en
+// sí (Storage) va por lib/network/portfolio-storage.ts; esto solo registra/
+// borra la fila que la referencia y trae la URL firmada para pintarla.
+export async function fetchMiPortfolioNetwork(): Promise<MediaNetwork[]> {
+  try {
+    const res = await fetch('/api/network/portfolio', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { fotos?: MediaNetwork[] };
+    return data.fotos ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function crearFotoPortfolioNetwork(
+  path: string,
+): Promise<{ ok: true; foto: MediaNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ path }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { foto?: MediaNetwork; error?: string };
+    if (!res.ok || !data.foto) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, foto: data.foto };
+  } catch {
+    return { ok: false, error: 'No se pudo guardar la foto' };
+  }
+}
+
+export async function eliminarFotoPortfolioNetwork(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/portfolio', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo eliminar la foto' };
+  }
+}
+
 // Fase 2 (wizard): datos privados de identidad (paso 02).
 export async function fetchPerfilIdentidadNetwork(): Promise<PerfilIdentidadNetwork | null> {
   try {
@@ -2358,17 +2436,37 @@ export async function resolverVerificacionNetwork(
 // Fase 9: contacto.
 export async function contactarPerfilNetwork(
   perfilId: string, mensaje: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: true; solicitudId: string } | { ok: false; error: string }> {
   try {
     const res = await fetch('/api/network/contacto', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ perfilId, mensaje: mensaje || null }),
     });
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
-    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    const data = (await res.json().catch(() => ({}))) as { solicitudId?: string; error?: string };
+    if (!res.ok || !data.solicitudId) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, solicitudId: data.solicitudId };
   } catch {
     return { ok: false, error: 'No se pudo enviar la solicitud de contacto' };
+  }
+}
+
+// F1 — mensajería pre-match: la ficha de una candidata (app/(dashboard)/
+// network/[perfilId]) necesita saber si el estudio YA tiene una solicitud
+// con esta persona (pendiente o aceptada) para abrir el chat directamente
+// en vez de reofrecer "Contactar". Dual de fetchSolicitudesContactoNetwork
+// (esa es del lado instructora); esta es del lado estudio, filtrada a UN
+// perfil concreto porque no hace falta traer la lista entera aquí.
+export async function fetchSolicitudEnviadaNetwork(
+  perfilId: string,
+): Promise<{ id: string; estado: 'pendiente' | 'aceptada' | 'rechazada' } | null> {
+  try {
+    const res = await fetch(`/api/network/contacto?perfilId=${encodeURIComponent(perfilId)}`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { solicitud?: { id: string; estado: 'pendiente' | 'aceptada' | 'rechazada' } | null };
+    return data.solicitud ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -2491,14 +2589,14 @@ export async function enviarResenaNetwork(
 // Mensajería interna — brief §9. Un hilo por solicitud de contacto ya
 // aceptada; funciona igual para staff de estudio y para la instructora
 // (dos vías de auth distintas, la ruta resuelve cuál aplica).
-export async function fetchMensajesNetwork(solicitudId: string): Promise<MensajeNetwork[]> {
+export async function fetchMensajesNetwork(solicitudId: string): Promise<RespuestaMensajesNetwork> {
   try {
     const res = await fetch(`/api/network/mensajes?solicitudId=${encodeURIComponent(solicitudId)}`, { headers: await authHeader() });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { mensajes?: MensajeNetwork[] };
-    return data.mensajes ?? [];
+    if (!res.ok) return { mensajes: [], limiteRestante: null };
+    const data = (await res.json()) as { mensajes?: MensajeNetwork[]; limiteRestante?: number | null };
+    return { mensajes: data.mensajes ?? [], limiteRestante: data.limiteRestante ?? null };
   } catch {
-    return [];
+    return { mensajes: [], limiteRestante: null };
   }
 }
 

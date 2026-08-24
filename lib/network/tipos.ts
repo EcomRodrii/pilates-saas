@@ -47,6 +47,13 @@ export interface PerfilNetwork {
   instagram: string | null;
   linkedin: string | null;
   web: string | null;
+  // F1 "Actualmente en Tentare" — opt-in, apagado por defecto (migración
+  // 20260824193100). Si es `true`, el perfil público muestra las sedes
+  // reales donde la instructora trabaja HOY en el SaaS (mis_estudios()),
+  // solo nombre/ciudad. Decisión del fundador: una instructora activa en un
+  // estudio puede no querer que un competidor sepa dónde trabaja, aunque el
+  // dato ya sea público en el directorio de ese estudio.
+  mostrarEstudiosActuales: boolean;
 }
 
 // Campos que la propia dueña puede editar desde /network/mi-perfil. `estado`
@@ -59,6 +66,7 @@ export type CambiosPerfilNetwork = Partial<
     | 'disponibilidadEstado' | 'disponibilidadHorarios' | 'tipoTrabajo'
     | 'emailContacto' | 'telefonoContacto'
     | 'idiomas' | 'instagram' | 'linkedin' | 'web'
+    | 'mostrarEstudiosActuales'
   >
 >;
 
@@ -83,8 +91,12 @@ export type CambiosPerfilNetwork = Partial<
 // nunca una consulta por tarjeta. Una certificación 'pendiente'/'en_revision'
 // NO cuenta — mismo criterio que "Formación verificada" del perfil público
 // (docs/README): no se enseña como logro solo por haberla subido.
+// `mostrarEstudiosActuales` fuera a propósito: es el interruptor privado de
+// la dueña, no un dato del listado — lo que un tercero ve es el resultado ya
+// resuelto (`DetallePerfilPublico.estudiosActuales`, calculado en el
+// servidor con el JOIN instructores↔studios), nunca el booleano en crudo.
 export type PerfilNetworkPublico =
-  Omit<PerfilNetwork, 'authUserId' | 'emailContacto' | 'telefonoContacto'>
+  Omit<PerfilNetwork, 'authUserId' | 'emailContacto' | 'telefonoContacto' | 'mostrarEstudiosActuales'>
   & { experienciaVerificada: boolean; certificacionVerificada: boolean; resumenResenas: ResumenResenas };
 
 // Filtros del buscador (docs/NETWORK-IMPLEMENTATION-PLAN.md §4, §8). Todos
@@ -150,6 +162,51 @@ export type NuevaExperienciaNetwork = Pick<
 // (identificador interno sin uso del lado cliente en ese contexto).
 export type ExperienciaNetworkPublica = Omit<ExperienciaNetwork, 'perfilId'>;
 
+// F1 "Actualmente en Tentare" — una sede real donde la instructora trabaja
+// HOY (JOIN instructores↔studios, no mis_estudios(): el detalle público
+// corre con service_role, sin auth.uid()). Deliberadamente solo
+// nombre/ciudad — nunca rol/tarifa/cualquier otra columna de
+// instructores/instructor_tarifas, que son datos internos de gestión.
+export interface EstudioActualNetwork {
+  nombre: string;
+  ciudad: string | null;
+}
+
+// Referencia profesional — red_referencias (migr 20260813111231). El
+// referente NO tiene por qué ser usuaria de Tentare: se resuelve por token
+// (app/network/referencia/[token]), no por sesión. `token`/`tokenExpiraEn`
+// nunca viajan al cliente propietario del perfil (solo al servidor que
+// genera el enlace del email), así que no forman parte de este tipo.
+export interface ReferenciaNetwork {
+  id: string;
+  perfilId: string;
+  nombreReferente: string;
+  emailReferente: string;
+  relacion: string | null;
+  estado: 'pendiente' | 'confirmada' | 'rechazada' | 'expirada';
+  solicitadoEn: string;
+  resueltoEn: string | null;
+}
+
+export type NuevaReferenciaNetwork = Pick<ReferenciaNetwork, 'nombreReferente' | 'emailReferente' | 'relacion'>;
+
+// Portfolio de fotos — red_perfil_media (migr 20260824193000). Solo fotos:
+// vídeo queda fuera a propósito (feature-freeze de VOD, lib/frozen-
+// features.ts). `url` es SIEMPRE una URL firmada de vida corta (el bucket
+// que las guarda es privado, ver lib/network/portfolio-storage.ts) — nunca
+// persistirla más allá de la carga en la que llega.
+export interface MediaNetwork {
+  id: string;
+  url: string;
+  orden: number;
+}
+
+// Límite de producto (no de esquema — el comentario de la tabla lo deja
+// explícito): lo aplican tanto la API (app/api/network/portfolio/route.ts)
+// como la UI (components/network/seccion-portfolio.tsx), nunca solo el
+// cliente.
+export const PORTFOLIO_MAX_FOTOS = 6;
+
 // Badges de confianza (Fase 8) — ver lib/network/badges.ts para el cálculo
 // y components/network/lista-badges.tsx para el render.
 export interface BadgesNetwork {
@@ -181,16 +238,24 @@ export interface ResumenResenas {
   total: number;
 }
 
-// Mensajería interna (brief §9) — un hilo por solicitud de contacto YA
-// ACEPTADA, no un concepto de "conversación" aparte. `remitenteSoyYo` se
-// resuelve en el servidor (compara con quien pide el hilo), nunca se manda
-// el auth_user_id del remitente al cliente sin necesidad.
+// Mensajería interna (brief §9) — un hilo por solicitud de contacto
+// pendiente o aceptada (F1: mensajería pre-match), no un concepto de
+// "conversación" aparte. `remitenteSoyYo` se resuelve en el servidor
+// (compara con quien pide el hilo), nunca se manda el auth_user_id del
+// remitente al cliente sin necesidad.
 export interface MensajeNetwork {
   id: string;
   cuerpo: string;
   remitenteSoyYo: boolean;
   creadoEn: string;
   leidoEn: string | null;
+}
+
+// Respuesta de GET /api/network/mensajes. `limiteRestante` es null cuando
+// la solicitud ya está aceptada (sin tope) — no confundir con 0 (agotado).
+export interface RespuestaMensajesNetwork {
+  mensajes: MensajeNetwork[];
+  limiteRestante: number | null;
 }
 
 // Sugerencia sin puntuar de Tentare Network para cubrir un hueco de

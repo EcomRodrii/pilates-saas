@@ -3,7 +3,7 @@
 import type {
   PerfilNetwork, PerfilNetworkPublico, ExperienciaNetwork, ExperienciaNetworkPublica, ResumenResenas,
   PerfilIdentidadNetwork, VerificacionIdentidadNetwork, CertificacionNetwork,
-  VacanteNetwork, CandidaturaNetwork,
+  VacanteNetwork, CandidaturaNetwork, ReferenciaNetwork, MediaNetwork,
 } from './tipos.ts';
 
 export interface FilaRedPerfil {
@@ -34,6 +34,7 @@ export interface FilaRedPerfil {
   instagram: string | null;
   linkedin: string | null;
   web: string | null;
+  mostrar_estudios_actuales: boolean;
 }
 
 // Subconjunto público: el endpoint de búsqueda ni siquiera consulta
@@ -71,6 +72,7 @@ export function mapFilaAPerfil(f: FilaRedPerfil): PerfilNetwork {
     instagram: f.instagram,
     linkedin: f.linkedin,
     web: f.web,
+    mostrarEstudiosActuales: f.mostrar_estudios_actuales,
   };
 }
 
@@ -113,6 +115,45 @@ export function mapFilaAExperienciaPublica(f: Omit<FilaRedExperiencia, 'perfil_i
     descripcion: f.descripcion,
     estadoVerificacion: f.estado_verificacion as ExperienciaNetworkPublica['estadoVerificacion'],
     creadoEn: f.creado_en,
+  };
+}
+
+// Fila de red_perfil_media. `path` NUNCA sale de este módulo hacia el
+// cliente (es la clave del objeto en el bucket privado) — mapFilaAMedia
+// recibe la URL firmada aparte y no toca `path`.
+export interface FilaRedPerfilMedia {
+  id: string;
+  perfil_id: string;
+  path: string;
+  orden: number;
+  creado_en: string;
+}
+
+export function mapFilaAMedia(f: Pick<FilaRedPerfilMedia, 'id' | 'orden'>, url: string): MediaNetwork {
+  return { id: f.id, url, orden: f.orden };
+}
+
+export interface FilaRedReferencia {
+  id: string;
+  perfil_id: string;
+  nombre_referente: string;
+  email_referente: string;
+  relacion: string | null;
+  estado: string;
+  solicitado_en: string;
+  resuelto_en: string | null;
+}
+
+export function mapFilaAReferencia(f: FilaRedReferencia): ReferenciaNetwork {
+  return {
+    id: f.id,
+    perfilId: f.perfil_id,
+    nombreReferente: f.nombre_referente,
+    emailReferente: f.email_referente,
+    relacion: f.relacion,
+    estado: f.estado as ReferenciaNetwork['estado'],
+    solicitadoEn: f.solicitado_en,
+    resueltoEn: f.resuelto_en,
   };
 }
 
