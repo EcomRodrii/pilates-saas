@@ -211,7 +211,7 @@ export function PortalTemaMarco({ alEntrar }: {
     // Lo que hace falta para PINTAR lo arma `useDatosPortal`; aquí solo queda
     // lo que este marco usa por su cuenta: el tema, las escrituras y el
     // refresco.
-    studio, themeIdPublicado,
+    studio, themeIdPublicado, quickLinksStyle,
     cancelarReserva, addReserva, updateSocio, recargarPublico, toggleFavorito,
   } = useStudio();
 
@@ -249,9 +249,16 @@ export function PortalTemaMarco({ alEntrar }: {
     const relojes = [3000, 8000].map((ms) => setTimeout(() => recargarRef.current(), ms));
     return () => relojes.forEach(clearTimeout);
   }, [compraOk]);
-  const tema = esTemaPortal(themeIdPublicado)
+  const temaBase = esTemaPortal(themeIdPublicado)
     ? TEMAS_PORTAL[themeIdPublicado]
     : TEMAS_PORTAL[TEMA_PORTAL_POR_DEFECTO];
+  // Mismo override que la vista previa del editor (vista-previa-kit.tsx) —
+  // los accesos rápidos del Inicio son la primera pieza del "de siempre"
+  // que pisa una FEATURE del kit, no solo una CSS var. `null` = sin tocar,
+  // se queda el `quick_links_style` de fábrica del tema.
+  const tema = quickLinksStyle
+    ? { ...temaBase, features: { ...temaBase.features, quick_links_style: quickLinksStyle } }
+    : temaBase;
 
   // El día de HOY en la zona del estudio. Sin esto sale el 4 de la demo, que
   // con datos reales es un día cualquiera del pasado.

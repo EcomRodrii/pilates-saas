@@ -42,12 +42,22 @@ import '@/components/portal-tema/portal-tema.css';
  */
 export function useVistaPreviaKit(pantalla: ScreenId): React.ReactElement | null {
   // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
-  const { themeIdPublicado } = useCore();
+  const { themeIdPublicado, quickLinksStyle } = useCore();
   // `null` = sin socia identificada. La vista previa corre a propósito sin
   // sesión: comparte origen con el portal real, así que un token suyo guardado
   // en este navegador enseñaría avisos de verdad dentro del editor.
   const { datos } = useDatosPortal(null);
   if (!esTemaPortal(themeIdPublicado)) return null;
+  const base = TEMAS_PORTAL[themeIdPublicado];
+  // ⚠️ Primer campo del "de siempre" (`ThemeConfig`/`AJUSTES_CATEGORIAS`) que
+  // sobrescribe algo del kit a nivel de FEATURE, no de CSS var — el bridge
+  // de color/radio/sombra (`varsKitMap`) no llega aquí porque esto decide
+  // qué CLASE se pinta, no un valor de propiedad. `null` = sin tocar: se
+  // queda el `quick_links_style` de fábrica del tema (Noir 'bare', el resto
+  // 'cards').
+  const tema = quickLinksStyle
+    ? { ...base, features: { ...base.features, quick_links_style: quickLinksStyle } }
+    : base;
   // `bare`: el marco de teléfono lo pone el editor alrededor del iframe. Dos
   // marcos anidados dejarían el portal dentro de un teléfono dentro de otro.
   // ⚠️ Con `datos`, no con los de muestra. Sin ellos la propietaria mira su
@@ -56,5 +66,5 @@ export function useVistaPreviaKit(pantalla: ScreenId): React.ReactElement | null
   // que es justo lo que hacía la vista previa de siempre y lo que hace que
   // reconozca su portal. Los arma `useDatosPortal`, el MISMO hook que el
   // portal real, para que las dos pantallas no puedan volver a separarse.
-  return <PortalApp tema={TEMAS_PORTAL[themeIdPublicado]} datos={datos} bare pantalla={pantalla} />;
+  return <PortalApp tema={tema} datos={datos} bare pantalla={pantalla} />;
 }

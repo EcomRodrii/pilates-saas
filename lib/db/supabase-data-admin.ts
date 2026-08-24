@@ -677,6 +677,12 @@ export async function fetchPublicStudioData(
     // Barra clásica (Oliva/Noir): decisión de LAYOUT que portal-shell.tsx toma
     // con JS (position flotante o no), no algo que una CSS var pueda decidir.
     barraClasica: temaPublicado?.barraClasica ?? null,
+    // Accesos rápidos del Inicio — solo temas del kit. `null` real (hereda
+    // del tema) es un valor válido, no "sin dato": por eso NO se colapsa a
+    // `?? null` sobre `null` como si fuera ausencia (sería un no-op, pero
+    // hay que dejarlo explícito para que quien lo toque después no lo lea
+    // como un olvido).
+    quickLinksStyle: temaPublicado?.quickLinksStyle ?? null,
     // Variantes de forma por bloque (theme-variantes.ts): deciden qué
     // elementos EXISTEN, algo que una CSS var no puede decidir.
     variantes: temaPublicado?.variantes ?? null,

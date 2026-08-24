@@ -176,7 +176,7 @@ import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
-import type { TabBarStyleId } from '@/lib/theme-schema';
+import type { TabBarStyleId, QuickLinksStyleId } from '@/lib/theme-schema';
 import { redesSocialesCompletas, type RedSocialId } from '@/lib/canales-estudio';
 import { DEFAULT_NAV_CONFIG, resolveNavConfig, type NavConfigShape } from '@/lib/portal-nav';
 import { DEFAULT_VARIANTES, resolveVariantes, type VariantesResueltas } from '@/lib/theme-variantes';
@@ -284,6 +284,9 @@ interface StudioContextValue {
   // Barra clásica, no flotante (Oliva/Noir) — mismo motivo JS que tabBarStyle:
   // decide el `position` de <PortalNav>, algo que una CSS var no puede hacer.
   barraClasica: boolean;
+  // Estilo de los accesos rápidos del Inicio — SOLO temas del kit, ver
+  // ESTILOS_ACCESOS_RAPIDOS en theme-schema.ts. `null` = hereda del tema.
+  quickLinksStyle: QuickLinksStyleId | null;
   // Variantes de FORMA por bloque (accesos rápidos en rejilla/círculos,
   // etiquetas de la barra, retos de color...) — ver lib/theme-variantes.ts.
   // Siempre completo: los componentes nunca tienen que poner su propio
@@ -702,6 +705,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [bloquesReservar, setBloquesReservar] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.reservar.publicado);
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
   const [barraClasica, setBarraClasica] = useState(false);
+  const [quickLinksStyle, setQuickLinksStyle] = useState<QuickLinksStyleId | null>(null);
   const [variantes, setVariantes] = useState<VariantesResueltas>(DEFAULT_VARIANTES);
   // Tema en BORRADOR dentro del iframe del editor (/portal-preview, /reservar).
   // Estado APARTE del publicado, no un `setVariantes` desde el mensaje: la
@@ -967,6 +971,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setBloquesReservar(pub.bloquesReservar ?? DEFAULT_LAYOUT.bloques.reservar.publicado);
       setTabBarStyle(pub.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica');
       setBarraClasica(pub.barraClasica === true);
+      setQuickLinksStyle(pub.quickLinksStyle === 'cards' || pub.quickLinksStyle === 'bare' ? pub.quickLinksStyle : null);
       // resolveVariantes valida clave a clave y siempre devuelve el objeto
       // completo — un valor corrupto en un eje no arrastra a los demás.
       setVariantes(resolveVariantes(pub.variantes));
@@ -4503,6 +4508,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // lo publicado. Fuera del preview es `null` y esto es exactamente lo de antes.
   const tabBarStyleEfectivo = temaJsPreview?.tabBarStyle ?? tabBarStyle;
   const barraClasicaEfectiva = temaJsPreview?.barraClasica ?? barraClasica;
+  // ⚠️ NO `??`: `quickLinksStyle` es un campo NULLABLE de verdad (`null` =
+  // "hereda del tema", no "sin valor todavía"). Con `temaJsPreview?.x ?? y`,
+  // un borrador que quiere heredar (`quickLinksStyle: null` dentro del
+  // preview) caería a lo YA PUBLICADO en vez de quedarse en `null` — el
+  // mismo bug de categoría que ya evita el ternario de `themeIdEfectivo` de
+  // abajo. El ternario distingue "sin preview activo" (`temaJsPreview` es
+  // `null`) de "preview activo, y su valor es `null`".
+  const quickLinksStyleEfectivo = temaJsPreview ? temaJsPreview.quickLinksStyle : quickLinksStyle;
   const variantesEfectivas = temaJsPreview?.variantes ?? variantes;
   // ⚠️ El borrador manda también aquí, y este eje pesa más que los otros tres:
   // decide qué portal se pinta ENTERO. Sin él, la vista previa del editor
@@ -4523,6 +4536,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bloquesReservar,
     tabBarStyle: tabBarStyleEfectivo,
     barraClasica: barraClasicaEfectiva,
+    quickLinksStyle: quickLinksStyleEfectivo,
     variantes: variantesEfectivas,
     navPortal,
     themeIdPublicado: themeIdEfectivo,
@@ -4764,7 +4778,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // notara.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
@@ -4864,6 +4878,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       navPortal={navPortal}
       barraClasica={barraClasicaEfectiva}
       tabBarStyle={tabBarStyleEfectivo}
+      quickLinksStyle={quickLinksStyleEfectivo}
       variantes={variantesEfectivas}
       themeIdPublicado={themeIdEfectivo}
       portalReact={portalReact}

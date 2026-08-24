@@ -20,6 +20,8 @@ test('resolveTemaJs: objeto vacío → el aspecto de hoy, completo', () => {
     variantes: DEFAULT_VARIANTES,
     barraClasica: false,
     tabBarStyle: 'clasica',
+    // Solo temas del kit; sin objeto que resolver, se queda en null (hereda).
+    quickLinksStyle: null,
     // Sin tema del kit: se pinta el portal de siempre, que es lo de antes.
     temaKit: null,
   });
@@ -68,6 +70,12 @@ test('resolveTemaJs: `barraClasica`/`tabBarStyle` reales sí pasan', () => {
   const r = resolveTemaJs({ barraClasica: true, tabBarStyle: 'pestanaActiva' })!;
   assert.equal(r.barraClasica, true);
   assert.equal(r.tabBarStyle, 'pestanaActiva');
+});
+
+test('resolveTemaJs: `quickLinksStyle` inventado cae a null (hereda), los dos válidos pasan', () => {
+  assert.equal(resolveTemaJs({ quickLinksStyle: 'circulo-mágico' })?.quickLinksStyle, null);
+  assert.equal(resolveTemaJs({ quickLinksStyle: 'cards' })?.quickLinksStyle, 'cards');
+  assert.equal(resolveTemaJs({ quickLinksStyle: 'bare' })?.quickLinksStyle, 'bare');
 });
 
 
