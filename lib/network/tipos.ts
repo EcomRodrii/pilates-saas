@@ -97,7 +97,16 @@ export type CambiosPerfilNetwork = Partial<
 // servidor con el JOIN instructores↔studios), nunca el booleano en crudo.
 export type PerfilNetworkPublico =
   Omit<PerfilNetwork, 'authUserId' | 'emailContacto' | 'telefonoContacto' | 'mostrarEstudiosActuales'>
-  & { experienciaVerificada: boolean; certificacionVerificada: boolean; resumenResenas: ResumenResenas };
+  & {
+    experienciaVerificada: boolean;
+    certificacionVerificada: boolean;
+    // Badge 4 — al menos una referencia profesional CONFIRMADA
+    // (red_referencias). En el listado se calcula en lote
+    // (buscarPerfilesPublico); en el detalle sale de la misma query que ya
+    // usaba solo para `badges.referenciaProfesional` (detallePerfilDesdeFila).
+    referenciaProfesional: boolean;
+    resumenResenas: ResumenResenas;
+  };
 
 // Filtros del buscador (docs/NETWORK-IMPLEMENTATION-PLAN.md §4, §8). Todos
 // opcionales: sin filtros, se listan todos los perfiles publicados.

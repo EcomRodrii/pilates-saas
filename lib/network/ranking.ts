@@ -13,6 +13,7 @@
 // reciente.
 import type { DisponibilidadEstadoNetwork } from './catalogo.ts';
 import type { FiltroBusquedaNetwork, PerfilNetworkPublico } from './tipos.ts';
+import { identidadVerificada, activaRecientemente } from './badges.ts';
 
 const PRIORIDAD_DISPONIBILIDAD: Record<DisponibilidadEstadoNetwork, number> = {
   disponible: 3,
@@ -42,21 +43,34 @@ function distanciaAproximada(ciudad: string | null, filtroCiudad: string | null)
 }
 
 /**
- * Badges de verificación. `identidadVerificadaEn` (Badge 5, siempre null en
- * V1) y `experienciaVerificada` (Badge 3, en lote desde Fase 8 —
- * app/api/network/buscar) ya llegan calculados en `PerfilNetworkPublico`.
- * Badge 4 (referencia confirmada) todavía no tiene flujo de confirmación
- * construido (lib/network/badges.ts) y se deja fuera hasta que exista.
+ * Cuenta cuántos de los 4 badges de confianza (identidad, experiencia,
+ * referencia profesional, actividad reciente) están activos para este
+ * perfil. `identidadVerificadaEn` se escribe desde F1
+ * (app/api/interno/network/verificaciones-identidad/route.ts, ya NO es
+ * "siempre null" como en V1) y `experienciaVerificada`/`referenciaProfesional`
+ * llegan calculados en LOTE en `PerfilNetworkPublico` (buscarPerfilesPublico).
+ * Usada tanto para ORDENAR (aquí) como para ENSEÑAR el contador "X de 4
+ * verificaciones" en la tarjeta del buscador (F2) — una sola fuente de
+ * verdad, nunca un porcentaje fabricado (ver Tentare Brain en
+ * .claude/tentare-os.md sobre "Compatibilidad 87%").
  */
-function contarBadgesVerificacion(p: Pick<PerfilNetworkPublico, 'identidadVerificadaEn' | 'experienciaVerificada'>): number {
-  return (p.identidadVerificadaEn ? 1 : 0) + (p.experienciaVerificada ? 1 : 0);
+export function contarBadgesVerificacion(
+  p: Pick<PerfilNetworkPublico, 'identidadVerificadaEn' | 'experienciaVerificada' | 'referenciaProfesional' | 'ultimoAccesoEn'>,
+  ahora: Date,
+): number {
+  return (
+    (identidadVerificada(p.identidadVerificadaEn) ? 1 : 0) +
+    (p.experienciaVerificada ? 1 : 0) +
+    (p.referenciaProfesional ? 1 : 0) +
+    (activaRecientemente(p.ultimoAccesoEn, ahora) ? 1 : 0)
+  );
 }
 
 function actividadRecienteMs(ultimoAccesoEn: string | null): number {
   return ultimoAccesoEn ? new Date(ultimoAccesoEn).getTime() : 0;
 }
 
-function clavesOrden(p: PerfilNetworkPublico, filtro: FiltroBusquedaNetwork): number[] {
+function clavesOrden(p: PerfilNetworkPublico, filtro: FiltroBusquedaNetwork, ahora: Date): number[] {
   return [
     // Destacado (app/interno/network, editorial — nunca la propia
     // instructora) manda sobre todo lo demás, incluida la disponibilidad:
@@ -66,7 +80,7 @@ function clavesOrden(p: PerfilNetworkPublico, filtro: FiltroBusquedaNetwork): nu
     -coincidenciaEspecialidad(p.especialidades, filtro.especialidades),
     distanciaAproximada(p.ciudad, filtro.ciudad),
     -(p.aniosExperiencia ?? 0),
-    -contarBadgesVerificacion(p),
+    -contarBadgesVerificacion(p, ahora),
     -actividadRecienteMs(p.ultimoAccesoEn),
   ];
 }
@@ -75,9 +89,13 @@ export function ordenarResultadosNetwork(
   perfiles: readonly PerfilNetworkPublico[],
   filtro: FiltroBusquedaNetwork,
 ): PerfilNetworkPublico[] {
+  // Una sola vez por llamada, no por par comparado: `contarBadgesVerificacion`
+  // depende de "ahora" (activaRecientemente) y un sort estable no debe ver el
+  // reloj moverse entre comparaciones de la misma pasada.
+  const ahora = new Date();
   return [...perfiles].sort((a, b) => {
-    const clavesA = clavesOrden(a, filtro);
-    const clavesB = clavesOrden(b, filtro);
+    const clavesA = clavesOrden(a, filtro, ahora);
+    const clavesB = clavesOrden(b, filtro, ahora);
     for (let i = 0; i < clavesA.length; i++) {
       if (clavesA[i] !== clavesB[i]) return clavesA[i] - clavesB[i];
     }

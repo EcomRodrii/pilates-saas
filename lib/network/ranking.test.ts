@@ -13,7 +13,7 @@ function perfil(overrides: Partial<PerfilNetworkPublico> & { id: string }): Perf
     destacado: false,
     resumenResenas: { promedio: null, total: 0 },
     nombre: 'Test', fotoUrl: null, ciudad: null, zona: null, radioKm: null, descripcion: null,
-    especialidades: [], aniosExperiencia: null, tarifaRango: null, experienciaVerificada: false, certificacionVerificada: false,
+    especialidades: [], aniosExperiencia: null, tarifaRango: null, experienciaVerificada: false, certificacionVerificada: false, referenciaProfesional: false,
     disponibilidadEstado: 'no_disponible', disponibilidadHorarios: [], tipoTrabajo: [],
     estado: 'published', identidadVerificadaEn: null,
     creadoEn: '2026-01-01T00:00:00Z', actualizadoEn: '2026-01-01T00:00:00Z', ultimoAccesoEn: null,

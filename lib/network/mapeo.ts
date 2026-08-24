@@ -159,13 +159,14 @@ export function mapFilaAReferencia(f: FilaRedReferencia): ReferenciaNetwork {
 
 export function mapFilaAPerfilPublico(
   f: FilaRedPerfilPublica, experienciaVerificada: boolean, resumenResenas: ResumenResenas = { promedio: null, total: 0 },
-  certificacionVerificada = false,
+  certificacionVerificada = false, referenciaProfesional = false,
 ): PerfilNetworkPublico {
   return {
     id: f.id,
     slug: f.slug,
     experienciaVerificada,
     certificacionVerificada,
+    referenciaProfesional,
     resumenResenas,
     nombre: f.nombre,
     fotoUrl: f.foto_url,
