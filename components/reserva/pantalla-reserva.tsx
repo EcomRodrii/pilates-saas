@@ -178,11 +178,20 @@ export function PantallaReserva({
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
             cursor: 'pointer', color: 'var(--portal-muted)', fontSize: 13, fontWeight: 600, padding: 0,
+            flexShrink: 0,
           }}>
           <ChevronLeft size={16} strokeWidth={2.5} />
           {fase === 'pago' ? 'Editar mis datos' : 'Volver a la clase'}
         </button>
-        <span style={{ fontFamily: serif, fontSize: cq(14, 1.6, 16), color: 'var(--portal-ink)', letterSpacing: '-0.01em' }}>
+        {/* Fase 4 (mobile-first): sin `minWidth: 0` un hijo de flex nunca
+            encoge por debajo del ancho de su contenido — el nombre de un
+            estudio largo ("Centro de Pilates y Bienestar Marbella Este")
+            empujaba la cabecera fuera del viewport en un Android estrecho
+            (360px) en vez de truncarse. */}
+        <span style={{
+          fontFamily: serif, fontSize: cq(14, 1.6, 16), color: 'var(--portal-ink)', letterSpacing: '-0.01em',
+          minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 12,
+        }}>
           {estudioNombre}
         </span>
       </header>
@@ -200,7 +209,18 @@ export function PantallaReserva({
       <div className="pantalla-reserva-contenedor" style={{ flex: '1 1 auto', overflowY: 'auto', overscrollBehavior: 'contain' }}>
         <div style={{
           maxWidth: 1040, margin: '0 auto',
-          padding: `${cq(20, 3, 40)} ${cq(18, 3, 28)} ${cq(40, 6, 64)}`,
+          paddingTop: cq(20, 3, 40),
+          paddingInline: cq(18, 3, 28),
+          // Fase 4 (mobile-first): la franja del gesto de inicio de iPhone se
+          // suma al aire de siempre, no lo sustituye — `viewportFit: 'cover'`
+          // ya está declarado en app/reservar/[slug]/layout.tsx (el único
+          // sitio que hace que `env(safe-area-inset-*)` deje de devolver 0),
+          // pero sin este `calc()` el CTA/fila de confianza quedaban a ras
+          // del indicador de inicio en vez de tener aire por debajo — hueco
+          // real porque esta pantalla, al no llevar `footer` en `PublicSheet`,
+          // no hereda el `env(safe-area-inset-bottom)` que sí lleva su patrón
+          // de pie fijo de siempre.
+          paddingBottom: `calc(${cq(40, 6, 64)} + env(safe-area-inset-bottom, 0px))`,
           display: 'grid', gap: cq(28, 3.4, 44),
           gridTemplateColumns: 'minmax(0, 1fr)',
         }}
