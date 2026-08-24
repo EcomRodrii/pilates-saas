@@ -80,7 +80,7 @@ async function montarBuscador(page: Page, opts: { contactoStatus?: number } = {}
     if (route.request().method() !== 'POST') return json(route, { solicitudes: [] });
     intentosContacto++;
     return contactoStatus === 200
-      ? json(route, { ok: true })
+      ? json(route, { ok: true, solicitudId: 'red-solicitud-1' })
       : json(route, { error: 'No se ha podido enviar la solicitud.' }, contactoStatus);
   });
 
@@ -106,7 +106,11 @@ test.describe('Buscador de Network (panel del estudio)', () => {
     await page.getByPlaceholder(/Cuéntale por qué la contactas/i).fill('Buscamos sustituta para reformer los martes.');
     await page.getByRole('button', { name: /Enviar solicitud/i }).click();
 
-    await expect(page.getByText(/Solicitud enviada/i)).toBeVisible({ timeout: 10_000 });
+    // F1: tras enviar con éxito, la solicitud queda 'pendiente' y la UI ya
+    // no muestra el texto viejo "Solicitud enviada" — pasa directo al estado
+    // con el botón de mensajería pre-match (mismo dato, mejor affordance).
+    await expect(page.getByText(/Solicitud pendiente de aceptar/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: /Mensajes/i })).toBeVisible();
   });
 
   test('si el servidor rechaza el contacto, no se anuncia un envío que no ocurrió', async ({ page }) => {
