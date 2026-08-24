@@ -23,6 +23,7 @@ import type {
 } from '@/lib/network/tipos';
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
+import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -2116,6 +2117,10 @@ export async function buscarPerfilesNetwork(filtro: FiltroBusquedaNetwork): Prom
     if (filtro.horarios.length) qs.set('horarios', filtro.horarios.join(','));
     if (filtro.tipoTrabajo.length) qs.set('tipoTrabajo', filtro.tipoTrabajo.join(','));
     if (filtro.experienciaMinima != null) qs.set('experienciaMinima', String(filtro.experienciaMinima));
+    // 'cercania' se envía igual (el servidor no la conoce y cae a
+    // 'relevancia', ver lib/network/ranking.ts) para no tener dos caminos
+    // según el valor; el reordenamiento real de esa opción es client-side.
+    if (filtro.ordenarPor && filtro.ordenarPor !== 'relevancia') qs.set('ordenarPor', filtro.ordenarPor);
 
     const res = await fetch(`/api/network/buscar?${qs.toString()}`, { headers: await authHeader() });
     if (!res.ok) return [];
@@ -2139,6 +2144,21 @@ export async function fetchPerfilNetworkPublico(
     return { perfil: data.perfil, experiencias: data.experiencias ?? [], badges: data.badges };
   } catch {
     return null;
+  }
+}
+
+// Tercera pieza de F2: comparación de 2-3 perfiles a la vez. El tope de 3 se
+// respeta ya en el buscador (Set de seleccionados, ver /network/buscar) y de
+// nuevo en el servidor (app/api/network/comparar) — aquí no hace falta
+// recortar otra vez, solo enviar lo que llega.
+export async function compararPerfilesNetwork(ids: string[]): Promise<DetallePerfilPublico[]> {
+  try {
+    const res = await fetch(`/api/network/comparar?ids=${ids.map(encodeURIComponent).join(',')}`, { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { perfiles?: DetallePerfilPublico[] };
+    return data.perfiles ?? [];
+  } catch {
+    return [];
   }
 }
 

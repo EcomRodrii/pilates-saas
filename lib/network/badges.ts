@@ -30,7 +30,9 @@ export function referenciaProfesional(referenciasConfirmadas: number): boolean {
   return referenciasConfirmadas > 0;
 }
 
-/** Badge 5, reservado — siempre false en V1 (docs/NETWORK-AUDIT.md §6). */
+/** Badge 5. Desde F1, `identidadVerificadaEn` la escribe
+ * app/api/interno/network/verificaciones-identidad/route.ts — ya no es
+ * "siempre false" (docs/NETWORK-AUDIT.md §6 quedó desfasado con esa fase). */
 export function identidadVerificada(identidadVerificadaEn: string | null): boolean {
   return Boolean(identidadVerificadaEn);
 }

@@ -21,9 +21,9 @@ test('referenciaProfesional: cuenta > 0', () => {
   assert.equal(referenciaProfesional(1), true);
 });
 
-test('identidadVerificada: siempre false en V1 (columna sin escritor)', () => {
+test('identidadVerificada: null sin verificar, cualquier fecha verificado', () => {
   assert.equal(identidadVerificada(null), false);
-  assert.equal(identidadVerificada('2026-01-01T00:00:00Z'), true); // la función no miente si algún día se escribe
+  assert.equal(identidadVerificada('2026-01-01T00:00:00Z'), true);
 });
 
 test('activaRecientemente: dentro de 30 días es verdadero, más allá no', () => {

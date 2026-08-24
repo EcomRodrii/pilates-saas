@@ -4,8 +4,11 @@ import Link from 'next/link';
 import { MapPin, Check, Star } from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { ESPECIALIDAD_LABEL, TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL } from '@/lib/network/catalogo';
+import { contarBadgesVerificacion } from '@/lib/network/ranking';
 import type { PerfilNetworkPublico } from '@/lib/network/tipos';
 import type { EncajeBusqueda } from '@/lib/network/encaje-busqueda';
+
+const TOTAL_BADGES_CONFIANZA = 4;
 
 const PUNTO_DISPONIBILIDAD: Record<PerfilNetworkPublico['disponibilidadEstado'], string> = {
   disponible: '#2F9E44',
@@ -15,18 +18,45 @@ const PUNTO_DISPONIBILIDAD: Record<PerfilNetworkPublico['disponibilidadEstado'],
 };
 
 export function TarjetaResultadoNetwork({
-  perfil, distanciaKm, encaje,
+  perfil, distanciaKm, encaje, comparando,
 }: {
   perfil: PerfilNetworkPublico;
   distanciaKm?: number | null;
   /** Solo cuando el buscador tiene 2+ opciones marcadas en especialidad/horario/tipo de trabajo — ver lib/network/encaje-busqueda.ts. */
   encaje?: EncajeBusqueda;
+  // Tercera pieza de F2: comparación de 2-3 perfiles. El estado de selección
+  // (Set<string>, tope 3) vive en el padre (buscar/page.tsx) — esta tarjeta
+  // solo pinta el checkbox y avisa del clic, nunca duplica el estado.
+  comparando?: { seleccionado: boolean; deshabilitado: boolean; onToggle: (id: string) => void };
 }) {
+  // Contador honesto de badges de confianza (identidad, experiencia,
+  // referencia profesional, actividad reciente) — nunca un porcentaje
+  // fabricado, ver Tentare Brain / .claude/tentare-os.md sobre el bug de
+  // "Compatibilidad 87%". Misma función que ya ordena el buscador
+  // (lib/network/ranking.ts), ahora también se enseña.
+  const verificaciones = contarBadgesVerificacion(perfil, new Date());
+
   return (
     <Link
       href={`/network/${perfil.id}`}
-      className="flex items-start gap-3.5 p-4 rounded-xl bg-card border border-border hover:border-brand/40 hover:bg-muted/40 transition-colors"
+      className="relative flex items-start gap-3.5 p-4 rounded-xl bg-card border border-border hover:border-brand/40 hover:bg-muted/40 transition-colors"
     >
+      {comparando && (
+        <label
+          onClick={e => e.stopPropagation()}
+          title={comparando.deshabilitado ? 'Ya tienes 3 perfiles seleccionados para comparar' : 'Comparar'}
+          className="absolute top-3 right-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"
+        >
+          <input
+            type="checkbox"
+            checked={comparando.seleccionado}
+            disabled={comparando.deshabilitado}
+            onChange={() => comparando.onToggle(perfil.id)}
+            className="w-3.5 h-3.5 rounded accent-brand disabled:opacity-40"
+          />
+          Comparar
+        </label>
+      )}
       <ProfileAvatar fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} size="lg" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
@@ -59,9 +89,9 @@ export function TarjetaResultadoNetwork({
           {perfil.aniosExperiencia != null && <span>{perfil.aniosExperiencia} años exp.</span>}
           {perfil.tarifaRango && <span>{TARIFA_RANGO_LABEL[perfil.tarifaRango]}</span>}
         </div>
-        {perfil.experienciaVerificada && (
+        {verificaciones > 0 && (
           <p className="text-[11px] text-success flex items-center gap-1 mt-1">
-            <Check size={11} /> Experiencia verificada
+            <Check size={11} /> {verificaciones} de {TOTAL_BADGES_CONFIANZA} verificaciones
           </p>
         )}
         {encaje && encaje.criterios.length > 0 && (
