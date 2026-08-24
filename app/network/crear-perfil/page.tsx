@@ -18,100 +18,49 @@
 // subirFotoPerfilNetwork (paso 10). Solo los pasos 02 (identidad) y 06
 // (formación) son de verdad nuevos — necesitan el modelo de documentos que
 // no existía antes de esta fase.
-import { useEffect, useId, useRef, useState } from 'react';
-import Image from 'next/image';
+//
+// F0 del roadmap de Tentare Network 2.0: partido en un componente por paso
+// (./pasos/) para no seguir creciendo un único fichero de ~950 líneas. Este
+// fichero se queda solo con el estado de orquestación compartido, las
+// funciones que llaman a la API y mutan `perfil`, el rail de progreso y el
+// pie de navegación — cero cambio de comportamiento respecto a la versión
+// anterior.
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  Check, Loader2, Camera, Upload, X, Clock3, ShieldCheck, Lock, ChevronLeft, ChevronRight,
+  Check, Loader2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
-import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
-import { GoogleIcon } from '@/components/icons/brand-icons';
-import { SelectorChips } from '@/components/network/selector-chips';
-import { SeccionExperienciaNetwork } from '@/components/network/seccion-experiencia';
 import {
   fetchMiPerfilNetwork, guardarPerfilNetwork, cambiarEstadoPerfilNetwork,
   fetchPerfilIdentidadNetwork, guardarPerfilIdentidadNetwork,
   fetchVerificacionIdentidadNetwork, enviarVerificacionIdentidadNetwork,
-  fetchCertificacionesNetwork, crearCertificacionNetwork, eliminarCertificacionNetwork,
+  fetchCertificacionesNetwork,
 } from '@/lib/api-client';
 import { subirFotoPerfilNetwork, validarFotoPerfil } from '@/lib/portal-storage';
 import { subirDocumentoIdentidad, validarDocumentoIdentidad } from '@/lib/network/documentos-identidad';
-import {
-  ESPECIALIDADES_NETWORK, ESPECIALIDAD_LABEL,
-  HORARIOS_NETWORK, HORARIO_LABEL,
-  TIPOS_TRABAJO_NETWORK, TIPO_TRABAJO_LABEL,
-  TARIFAS_RANGO_NETWORK, TARIFA_RANGO_LABEL,
-  DISPONIBILIDAD_ESTADOS_NETWORK, DISPONIBILIDAD_ESTADO_LABEL,
-  tituloProfesionalDe,
-} from '@/lib/network/catalogo';
-import type { PerfilNetwork, PerfilIdentidadNetwork, VerificacionIdentidadNetwork, CertificacionNetwork } from '@/lib/network/tipos';
+import type { PerfilNetwork, VerificacionIdentidadNetwork, CertificacionNetwork } from '@/lib/network/tipos';
 import { PASOS_ONBOARDING as PASOS, pasoIncompletoDe } from '@/lib/network/pasos-onboarding';
-import { NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAGE, NW_PRODUCTO, NW_ESTADO, NW_FONDO } from '@/components/network-v2/tokens';
-
-const inputCls = 'w-full px-3.5 py-2.5 rounded-xl text-[14px] outline-none';
-const inputStyle = { border: `1px solid ${NW_BORDE}`, color: NW_TINTA };
-const labelCls = 'block text-[13px] font-semibold mb-1.5';
-
-interface FormState {
-  ciudad: string; zona: string; radioKm: string;
-  especialidades: PerfilNetwork['especialidades'];
-  aniosExperiencia: string;
-  tarifaRango: PerfilNetwork['tarifaRango'] | undefined;
-  disponibilidadEstado: PerfilNetwork['disponibilidadEstado'];
-  disponibilidadHorarios: PerfilNetwork['disponibilidadHorarios'];
-  tipoTrabajo: PerfilNetwork['tipoTrabajo'];
-  descripcion: string;
-  idiomasTexto: string;
-  instagram: string; linkedin: string; web: string;
-}
-
-function formVacio(): FormState {
-  return {
-    ciudad: '', zona: '', radioKm: '', especialidades: [], aniosExperiencia: '',
-    tarifaRango: undefined, disponibilidadEstado: 'no_disponible', disponibilidadHorarios: [], tipoTrabajo: [],
-    descripcion: '', idiomasTexto: '', instagram: '', linkedin: '', web: '',
-  };
-}
-
-function formDesdePerfil(p: PerfilNetwork): FormState {
-  return {
-    ciudad: p.ciudad ?? '', zona: p.zona ?? '', radioKm: p.radioKm != null ? String(p.radioKm) : '',
-    especialidades: p.especialidades, aniosExperiencia: p.aniosExperiencia != null ? String(p.aniosExperiencia) : '',
-    tarifaRango: p.tarifaRango ?? undefined, disponibilidadEstado: p.disponibilidadEstado,
-    disponibilidadHorarios: p.disponibilidadHorarios, tipoTrabajo: p.tipoTrabajo,
-    descripcion: p.descripcion ?? '', idiomasTexto: p.idiomas.join(', '),
-    instagram: p.instagram ?? '', linkedin: p.linkedin ?? '', web: p.web ?? '',
-  };
-}
-
-interface IdentidadForm {
-  apellido1: string; apellido2: string; fechaNacimiento: string; paisResidencia: string;
-  tipoDocumento: 'DNI' | 'NIE' | 'Pasaporte' | ''; numeroDocumento: string;
-  direccionCp: string; direccionCiudad: string; direccionProvincia: string; direccionPais: string;
-}
-
-function identidadVacia(): IdentidadForm {
-  return {
-    apellido1: '', apellido2: '', fechaNacimiento: '', paisResidencia: '',
-    tipoDocumento: '', numeroDocumento: '', direccionCp: '', direccionCiudad: '', direccionProvincia: '', direccionPais: '',
-  };
-}
-
-function identidadDesdeApi(i: PerfilIdentidadNetwork): IdentidadForm {
-  return {
-    apellido1: i.apellido1 ?? '', apellido2: i.apellido2 ?? '', fechaNacimiento: i.fechaNacimiento ?? '',
-    paisResidencia: i.paisResidencia ?? '', tipoDocumento: i.tipoDocumento ?? '', numeroDocumento: i.numeroDocumento ?? '',
-    direccionCp: i.direccionCp ?? '', direccionCiudad: i.direccionCiudad ?? '', direccionProvincia: i.direccionProvincia ?? '',
-    direccionPais: i.direccionPais ?? '',
-  };
-}
+import { NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAGE, NW_PRODUCTO, NW_FONDO } from '@/components/network-v2/tokens';
+import type { FormState, IdentidadForm } from './form-state';
+import { formVacio, formDesdePerfil, identidadVacia, identidadDesdeApi } from './form-state';
+import { PasoCuenta } from './pasos/paso-cuenta';
+import { PasoIdentidad } from './pasos/paso-identidad';
+import { PasoUbicacion } from './pasos/paso-ubicacion';
+import { PasoExperiencia } from './pasos/paso-experiencia';
+import { PasoEspecialidades } from './pasos/paso-especialidades';
+import { PasoFormacion } from './pasos/paso-formacion';
+import { PasoComoTrabajar } from './pasos/paso-como-trabajar';
+import { PasoDisponibilidad } from './pasos/paso-disponibilidad';
+import { PasoTarifa } from './pasos/paso-tarifa';
+import { PasoPerfil } from './pasos/paso-perfil';
+import { PasoRevisar } from './pasos/paso-revisar';
+import { PasoPublicar } from './pasos/paso-publicar';
 
 export default function CrearPerfilNetworkPage() {
-  const uid = useId();
   const { user, loading: cargandoSesion, signUp, signInWithGoogle, verificarOtpSignup, reenviarConfirmacion } = useAuth();
 
   // ── Paso 01: cuenta (sin sesión todavía) ──────────────────────────────
@@ -237,6 +186,13 @@ export default function CrearPerfilNetworkPage() {
     setPaso(1);
   }
 
+  function limpiarOtp() {
+    olvidarEmailOtpPendiente();
+    setEmailOtp(null);
+    setErrorCuenta('');
+    setInfoCuenta('');
+  }
+
   async function guardar(cambios: Partial<FormState> = {}): Promise<boolean> {
     setError(''); setGuardando(true);
     const f = { ...form, ...cambios };
@@ -320,92 +276,35 @@ export default function CrearPerfilNetworkPage() {
     );
   }
 
-  if (cargandoSesion || cargando) return null;
-
-  // ── Paso 01 sin sesión, alta creada: verificar código ─────────────────
-  if (emailOtp && !user) {
-    return (
-      <ShellCentrado>
-        <Link href="/network" className="inline-flex mb-8"><LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={24} decorativo /></Link>
-        <OtpVerificacion
-          email={emailOtp}
-          onVerificar={codigo => verificarOtpSignup(emailOtp, codigo)}
-          onReenviar={async () => {
-            const token = await pedirToken();
-            if (token === null) return { error: ERROR_CAPTCHA };
-            return reenviarConfirmacion(emailOtp, token || undefined);
-          }}
-          onCambiarEmail={() => { olvidarEmailOtpPendiente(); setEmailOtp(null); setErrorCuenta(''); setInfoCuenta(''); }}
-          onVerificado={() => olvidarEmailOtpPendiente()}
-        />
-      </ShellCentrado>
-    );
+  async function publicarPerfil() {
+    setPublicando(true);
+    const res = await cambiarEstadoPerfilNetwork('en_revision');
+    setPublicando(false);
+    if (!res.ok) { setError(res.error); return; }
+    setPerfil(res.perfil);
   }
 
-  // ── Paso 01 sin sesión: pantalla de alta ──────────────────────────────
+  if (cargandoSesion || cargando) return null;
+
+  // ── Paso 01 sin sesión (cuenta, código OTP y Google) ───────────────────
   if (!user) {
     return (
-      <ShellCentrado>
-        <Link href="/network" className="inline-flex mb-8"><LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={24} decorativo /></Link>
-        {/* Antes solo había texto "Paso 1 de 12" — el resto del wizard (pasos
-            2-12) sí tiene barra+lista completa en su rail; el primer contacto
-            de la usuaria con el producto era, de todo el flujo, el que MENOS
-            orientación daba (hallazgo de la auditoría UX). */}
-        <div className="mb-1.5 h-1.5 rounded-full overflow-hidden" style={{ background: NW_BORDE }}>
-          <div className="h-full rounded-full" style={{ width: `${Math.round((1 / PASOS.length) * 100)}%`, background: NW_PRODUCTO }} />
-        </div>
-        <p className="text-[12px] font-bold uppercase tracking-wide mb-1" style={{ color: NW_PRODUCTO }}>Paso 1 de 12</p>
-        <h1 className="text-[30px] font-extrabold" style={{ color: NW_TINTA }}>
-          Tu <span style={{ color: NW_PRODUCTO }}>cuenta</span>
-        </h1>
-        <p className="mt-2 text-[14px] mb-6" style={{ color: NW_MUTED }}>Crea tu cuenta gratis. Es el primer paso para publicar tu perfil.</p>
-
-        <button
-          type="button"
-          disabled={conectandoGoogle}
-          onClick={() => void conectarConGoogle()}
-          className="w-full max-w-sm flex items-center justify-center gap-2.5 py-2.5 rounded-xl text-[13.5px] font-semibold hover:bg-black/[.02] transition-colors disabled:opacity-60 mb-4"
-          style={{ border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}
-        >
-          <GoogleIcon size={16} />
-          {conectandoGoogle ? 'Conectando…' : 'Continuar con Google'}
-        </button>
-        <div className="flex items-center gap-3 mb-4 max-w-sm">
-          <div className="h-px flex-1" style={{ background: NW_BORDE }} />
-          <span className="text-[11px] font-medium" style={{ color: NW_MUTED_2 }}>o</span>
-          <div className="h-px flex-1" style={{ background: NW_BORDE }} />
-        </div>
-
-        <form onSubmit={crearCuenta} className="space-y-4 max-w-sm">
-          <div>
-            <label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-n`}>Tu nombre</label>
-            <input id={`${uid}-n`} required value={nombreCuenta} onChange={e => setNombreCuenta(e.target.value)} className={inputCls} style={inputStyle} placeholder="Ana García" />
-          </div>
-          <div>
-            <label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-e`}>Email</label>
-            <input id={`${uid}-e`} type="email" required value={emailCuenta} onChange={e => setEmailCuenta(e.target.value)} className={inputCls} style={inputStyle} placeholder="tu@email.com" />
-          </div>
-          <div>
-            <label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-p`}>Contraseña</label>
-            <input id={`${uid}-p`} type="password" required minLength={6} value={passwordCuenta} onChange={e => setPasswordCuenta(e.target.value)} className={inputCls} style={inputStyle} placeholder="••••••••" />
-          </div>
-          {errorCuenta && <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{errorCuenta}</p>}
-          {infoCuenta && (
-            <p className="text-[13px] rounded-lg px-3 py-2" style={{ background: NW_SAGE, color: NW_TINTA }}>
-              {infoCuenta}{cuentaExistente && (
-                <> <Link href="/network/acceso" className="font-semibold underline" style={{ color: NW_TINTA }}>Inicia sesión</Link>.</>
-              )}
-            </p>
-          )}
-          {captcha}
-          <button type="submit" disabled={creandoCuenta} className="w-full py-3 rounded-full text-[14px] font-bold text-white disabled:opacity-60" style={{ background: NW_PRODUCTO }}>
-            {creandoCuenta ? 'Un momento…' : 'Continuar'}
-          </button>
-        </form>
-        <p className="text-center text-[12px] mt-5" style={{ color: NW_MUTED_2 }}>
-          ¿Ya tienes cuenta? <Link href="/network/acceso" className="font-semibold underline" style={{ color: NW_TINTA }}>Inicia sesión</Link>
-        </p>
-      </ShellCentrado>
+      <PasoCuenta
+        emailOtp={emailOtp}
+        nombreCuenta={nombreCuenta} setNombreCuenta={setNombreCuenta}
+        emailCuenta={emailCuenta} setEmailCuenta={setEmailCuenta}
+        passwordCuenta={passwordCuenta} setPasswordCuenta={setPasswordCuenta}
+        errorCuenta={errorCuenta} infoCuenta={infoCuenta} cuentaExistente={cuentaExistente}
+        creandoCuenta={creandoCuenta}
+        conectandoGoogle={conectandoGoogle} conectarConGoogle={conectarConGoogle}
+        captcha={captcha}
+        crearCuenta={crearCuenta}
+        verificarOtpSignup={verificarOtpSignup}
+        pedirToken={pedirToken}
+        reenviarConfirmacion={reenviarConfirmacion}
+        onCambiarEmail={limpiarOtp}
+        onVerificado={() => olvidarEmailOtpPendiente()}
+      />
     );
   }
 
@@ -498,234 +397,43 @@ export default function CrearPerfilNetworkPage() {
           {error && <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2 mb-4">{error}</p>}
 
           {paso === 1 && (
-            <div className="space-y-4">
-              <div className="flex items-start gap-2.5 p-4 rounded-xl" style={{ background: NW_SAGE }}>
-                <Lock size={16} className="mt-0.5 shrink-0" style={{ color: NW_TINTA }} />
-                <p className="text-[13px]" style={{ color: NW_TINTA }}>
-                  <strong>Esta información es privada.</strong> La usamos únicamente para verificar tu identidad. No aparecerá en tu perfil público.
-                </p>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-apellido1`}>Primer apellido</label>
-                  <input id={`${uid}-apellido1`} value={identidad.apellido1} onChange={e => setIdentidad(v => ({ ...v, apellido1: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-apellido2`}>Segundo apellido (opcional)</label>
-                  <input id={`${uid}-apellido2`} value={identidad.apellido2} onChange={e => setIdentidad(v => ({ ...v, apellido2: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-nacimiento`}>Fecha de nacimiento</label>
-                  <input id={`${uid}-nacimiento`} type="date" value={identidad.fechaNacimiento} onChange={e => setIdentidad(v => ({ ...v, fechaNacimiento: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-pais`}>País de residencia</label>
-                  <input id={`${uid}-pais`} value={identidad.paisResidencia} onChange={e => setIdentidad(v => ({ ...v, paisResidencia: e.target.value }))} className={inputCls} style={inputStyle} placeholder="España" /></div>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: NW_TINTA }}>Documento</label>
-                <div className="flex gap-2 mb-2">
-                  {(['DNI', 'NIE', 'Pasaporte'] as const).map(t => (
-                    <button key={t} type="button" onClick={() => {
-                      setIdentidad(v => ({ ...v, tipoDocumento: t }));
-                      // Cambiar a Pasaporte (sin reverso) tras ya haber subido
-                      // el anverso no debe dejar el envío colgado esperando un
-                      // reverso que con este tipo ya no hace falta.
-                      if (t === 'Pasaporte' && docAnverso) void intentarEnviarVerificacion(docAnverso, docReverso);
-                    }}
-                      className="px-4 py-2 rounded-full text-[13px] font-semibold"
-                      style={{ background: identidad.tipoDocumento === t ? NW_TINTA : '#fff', color: identidad.tipoDocumento === t ? '#fff' : NW_TINTA, border: `1px solid ${NW_BORDE}` }}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
-                <input value={identidad.numeroDocumento} onChange={e => setIdentidad(v => ({ ...v, numeroDocumento: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Número de documento" />
-              </div>
-              {/* Sin verificación viva (o la última fue rechazada): se puede
-                  subir. Con una pendiente/en_revision/verificada, ocultar los
-                  dropzones — reintentar aquí solo devolvía un 400 sin mensaje
-                  claro ("Ya tienes una verificación en curso."). */}
-              {(!verificacion || verificacion.estado === 'rechazado') && (
-                <>
-                  <DropzoneDocumento
-                    etiqueta="Anverso · PDF o foto"
-                    subiendo={subiendoAnverso} error={errorDocAnverso} inputRef={fileInputDocAnverso}
-                    onArchivo={f => subirDocIdentidad('anverso', f)}
-                  />
-                  {identidad.tipoDocumento !== 'Pasaporte' && (
-                    <DropzoneDocumento
-                      etiqueta="Reverso · PDF o foto"
-                      subiendo={subiendoReverso} error={errorDocReverso} inputRef={fileInputDocReverso}
-                      onArchivo={f => subirDocIdentidad('reverso', f)}
-                    />
-                  )}
-                </>
-              )}
-              {verificacion && <EstadoDocumento estado={verificacion.estado} motivo={verificacion.motivoRechazo} />}
-              <div>
-                <p className={labelCls} style={{ color: NW_TINTA }} id={`${uid}-direccion`}>Dirección — privada, nunca se muestra</p>
-                <div className="grid sm:grid-cols-3 gap-3" role="group" aria-labelledby={`${uid}-direccion`}>
-                  <input aria-label="Código postal" value={identidad.direccionCp} onChange={e => setIdentidad(v => ({ ...v, direccionCp: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Código postal" />
-                  <input aria-label="Ciudad" value={identidad.direccionCiudad} onChange={e => setIdentidad(v => ({ ...v, direccionCiudad: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Ciudad" />
-                  <input aria-label="Provincia" value={identidad.direccionProvincia} onChange={e => setIdentidad(v => ({ ...v, direccionProvincia: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Provincia" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {paso === 2 && (
-            <div className="space-y-4">
-              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-ciudad`}>Ciudad</label>
-                <input id={`${uid}-ciudad`} value={form.ciudad} onChange={e => setForm(v => ({ ...v, ciudad: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Barcelona" /></div>
-              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-zona`}>Zona / barrio (opcional)</label>
-                <input id={`${uid}-zona`} value={form.zona} onChange={e => setForm(v => ({ ...v, zona: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Gràcia" /></div>
-              <div>
-                <label className={labelCls} style={{ color: NW_TINTA }}>Radio de desplazamiento</label>
-                <div className="flex gap-2">
-                  {['5', '10', '25', '50'].map(km => (
-                    <button key={km} type="button" onClick={() => setForm(v => ({ ...v, radioKm: km }))}
-                      className="px-4 py-2 rounded-full text-[13px] font-semibold"
-                      style={{ background: form.radioKm === km ? NW_TINTA : '#fff', color: form.radioKm === km ? '#fff' : NW_TINTA, border: `1px solid ${NW_BORDE}` }}>
-                      {km} km
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {paso === 3 && (
-            <div className="space-y-4">
-              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-anios`}>Años de experiencia</label>
-                <input id={`${uid}-anios`} type="number" min={0} value={form.aniosExperiencia} onChange={e => setForm(v => ({ ...v, aniosExperiencia: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-recorrido`}>Cuéntanos tu recorrido (opcional)</label>
-                <textarea id={`${uid}-recorrido`} value={form.descripcion} onChange={e => setForm(v => ({ ...v, descripcion: e.target.value }))} rows={4} className={inputCls} style={inputStyle} /></div>
-              <SeccionExperienciaNetwork onExperienciasChange={() => {}} tokensNetworkV2 />
-            </div>
-          )}
-
-          {paso === 4 && (
-            <SelectorChips
-              v2
-              opciones={ESPECIALIDADES_NETWORK.map(v => ({ valor: v, etiqueta: ESPECIALIDAD_LABEL[v] }))}
-              seleccion={form.especialidades}
-              onChange={sel => { setForm(v => ({ ...v, especialidades: sel })); guardar({ especialidades: sel }); }}
+            <PasoIdentidad
+              identidad={identidad} setIdentidad={setIdentidad}
+              verificacion={verificacion}
+              docAnverso={docAnverso} docReverso={docReverso}
+              subiendoAnverso={subiendoAnverso} errorDocAnverso={errorDocAnverso} fileInputDocAnverso={fileInputDocAnverso}
+              subiendoReverso={subiendoReverso} errorDocReverso={errorDocReverso} fileInputDocReverso={fileInputDocReverso}
+              subirDocIdentidad={subirDocIdentidad}
+              intentarEnviarVerificacion={intentarEnviarVerificacion}
             />
           )}
+
+          {paso === 2 && <PasoUbicacion form={form} setForm={setForm} />}
+
+          {paso === 3 && <PasoExperiencia form={form} setForm={setForm} />}
+
+          {paso === 4 && <PasoEspecialidades form={form} setForm={setForm} guardar={guardar} />}
 
           {paso === 5 && (
             <PasoFormacion certificaciones={certificaciones} setCertificaciones={setCertificaciones} userId={user.id} />
           )}
 
-          {paso === 6 && (
-            <div className="space-y-4">
-              <p className={labelCls} style={{ color: NW_TINTA }}>Modalidad y tipo de oportunidades</p>
-              <SelectorChips
-                v2
-                opciones={TIPOS_TRABAJO_NETWORK.map(v => ({ valor: v, etiqueta: TIPO_TRABAJO_LABEL[v] }))}
-                seleccion={form.tipoTrabajo}
-                onChange={sel => setForm(v => ({ ...v, tipoTrabajo: sel }))}
-              />
-            </div>
-          )}
+          {paso === 6 && <PasoComoTrabajar form={form} setForm={setForm} />}
 
-          {paso === 7 && (
-            <div className="space-y-4">
-              <div>
-                <p className={labelCls} style={{ color: NW_TINTA }}>Estado</p>
-                <SelectorChips
-                  unico
-                  v2
-                  opciones={DISPONIBILIDAD_ESTADOS_NETWORK.map(v => ({ valor: v, etiqueta: DISPONIBILIDAD_ESTADO_LABEL[v] }))}
-                  seleccion={[form.disponibilidadEstado]}
-                  onChange={sel => setForm(v => ({ ...v, disponibilidadEstado: sel[0] ?? v.disponibilidadEstado }))}
-                />
-              </div>
-              <div>
-                <p className={labelCls} style={{ color: NW_TINTA }}>Horarios</p>
-                <SelectorChips
-                  v2
-                  opciones={HORARIOS_NETWORK.map(v => ({ valor: v, etiqueta: HORARIO_LABEL[v] }))}
-                  seleccion={form.disponibilidadHorarios}
-                  onChange={sel => setForm(v => ({ ...v, disponibilidadHorarios: sel }))}
-                />
-              </div>
-            </div>
-          )}
+          {paso === 7 && <PasoDisponibilidad form={form} setForm={setForm} />}
 
-          {paso === 8 && (
-            <SelectorChips
-              unico
-              v2
-              opciones={TARIFAS_RANGO_NETWORK.map(v => ({ valor: v, etiqueta: TARIFA_RANGO_LABEL[v] }))}
-              seleccion={form.tarifaRango ? [form.tarifaRango] : []}
-              onChange={sel => setForm(v => ({ ...v, tarifaRango: sel[0] }))}
-            />
-          )}
+          {paso === 8 && <PasoTarifa form={form} setForm={setForm} />}
 
           {paso === 9 && (
-            <div className="space-y-5">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  {perfil?.fotoUrl
-                    // eslint-disable-next-line @next/next/no-img-element -- foto subida por la instructora
-                    ? <img src={perfil.fotoUrl} alt={perfil.nombre} width={80} height={80} className="w-20 h-20 rounded-full object-cover" />
-                    : <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: NW_SAGE }}><Camera size={22} color={NW_MUTED} /></div>}
-                </div>
-                <div>
-                  <input ref={fileInputFoto} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) subirFoto(f); }} />
-                  <button type="button" disabled={subiendoFoto || !perfil} onClick={() => fileInputFoto.current?.click()} className="px-4 py-2 rounded-full text-[13px] font-semibold" style={{ border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}>
-                    {subiendoFoto ? 'Subiendo…' : 'Subir foto'}
-                  </button>
-                  <p className="text-[12px] mt-1.5" style={{ color: NW_MUTED_2 }}>Una foto real, de cara. Recomendado: cuadrada, buena luz.</p>
-                </div>
-              </div>
-              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-idiomas`}>Idiomas (separados por coma)</label>
-                <input id={`${uid}-idiomas`} value={form.idiomasTexto} onChange={e => setForm(v => ({ ...v, idiomasTexto: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Español (nativo), Inglés (avanzado)" /></div>
-              <div className="grid sm:grid-cols-3 gap-3">
-                <input aria-label="Instagram" value={form.instagram} onChange={e => setForm(v => ({ ...v, instagram: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Instagram (opcional)" />
-                <input aria-label="LinkedIn" value={form.linkedin} onChange={e => setForm(v => ({ ...v, linkedin: e.target.value }))} className={inputCls} style={inputStyle} placeholder="LinkedIn (opcional)" />
-                <input aria-label="Web" value={form.web} onChange={e => setForm(v => ({ ...v, web: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Web (opcional)" />
-              </div>
-            </div>
+            <PasoPerfil perfil={perfil} form={form} setForm={setForm} fileInputFoto={fileInputFoto} subiendoFoto={subiendoFoto} subirFoto={subirFoto} />
           )}
 
           {paso === 10 && perfil && (
             <PasoRevisar perfil={perfil} form={form} verificacion={verificacion} onEditar={setPaso} />
           )}
 
-          {paso === 11 && perfil && (perfil.estado === 'en_revision' || perfil.estado === 'published') ? (
-            <div className="text-center py-8">
-              <p className="text-[20px] font-extrabold" style={{ color: NW_TINTA }}>
-                {perfil.estado === 'published' ? 'Tu perfil ya está publicado.' : 'Tu perfil está en revisión.'}
-              </p>
-              {perfil.estado === 'en_revision' && (
-                <p className="mt-2 text-[14px] max-w-sm mx-auto" style={{ color: NW_MUTED }}>
-                  El equipo de Tentare lo revisa antes de que aparezca en la network — normalmente en menos de 48 h.
-                </p>
-              )}
-              <Link
-                href="/network/mi-perfil"
-                className="inline-block mt-6 px-8 py-3.5 rounded-full text-[15px] font-bold text-white"
-                style={{ background: NW_PRODUCTO }}
-              >
-                Ir a mi perfil
-              </Link>
-            </div>
-          ) : paso === 11 && perfil && (
-            <div className="text-center py-8">
-              <p className="text-[20px] font-extrabold" style={{ color: NW_TINTA }}>Tu perfil está listo.</p>
-              <p className="mt-2 text-[14px] max-w-sm mx-auto" style={{ color: NW_MUTED }}>
-                Lo revisa el equipo de Tentare antes de publicarlo — así evitamos perfiles falsos o spam en la network.
-              </p>
-              <button
-                type="button" disabled={publicando}
-                onClick={async () => {
-                  setPublicando(true);
-                  const res = await cambiarEstadoPerfilNetwork('en_revision');
-                  setPublicando(false);
-                  if (!res.ok) { setError(res.error); return; }
-                  setPerfil(res.perfil);
-                }}
-                className="mt-6 px-8 py-3.5 rounded-full text-[15px] font-bold text-white disabled:opacity-60"
-                style={{ background: NW_PRODUCTO }}
-              >
-                {publicando ? 'Enviando…' : 'Enviar a revisión'}
-              </button>
-            </div>
+          {paso === 11 && perfil && (
+            <PasoPublicar perfil={perfil} publicando={publicando} onPublicar={publicarPerfil} />
           )}
 
           {paso !== 11 && (
@@ -755,196 +463,6 @@ export default function CrearPerfilNetworkPage() {
           )}
         </main>
       </div>
-    </div>
-  );
-}
-
-// Split-screen en escritorio (lg+): antes era una columna de 384px centrada
-// en toda la pantalla, con ~60% de aire vacío a los lados y sin ninguna
-// imagen ni contexto de marca — la pantalla con MENOS orientación de todo
-// el wizard justo en el primer contacto de la usuaria (hallazgo de la
-// auditoría UX). Reutiliza /disciplinas/pilates.jpg — la misma foto real
-// que ya usa SeccionHeroNetwork/SeccionCtaFinal para Network, no una
-// encargada de nuevo (mismo criterio de marca: el producto se distingue
-// por su color, no rehaciendo el material). En móvil/tablet, columna
-// centrada como antes — el panel de foto se oculta, no se apila encima.
-function ShellCentrado({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-dvh lg:flex" style={{ background: NW_FONDO }}>
-      <div className="flex items-center justify-center px-6 py-16 lg:flex-1 lg:py-24">
-        <div className="max-w-sm w-full">{children}</div>
-      </div>
-      <div className="hidden lg:block lg:flex-1 relative">
-        <Image src="/disciplinas/pilates.jpg" alt="" fill sizes="50vw" style={{ objectFit: 'cover' }} />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(26,26,26,.05), rgba(26,26,26,.35))' }} />
-        <div className="absolute bottom-10 left-10 right-10">
-          <p className="text-[22px] font-extrabold leading-tight text-white">
-            La red profesional de instructoras de Pilates y Yoga.
-          </p>
-          <p className="mt-2 text-[14px] text-white/85">
-            Publica tu perfil una vez. Los estudios te contactan a ti.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DropzoneDocumento({
-  etiqueta, subiendo, error, inputRef, onArchivo,
-}: {
-  etiqueta: string; subiendo: boolean; error: string; inputRef: React.RefObject<HTMLInputElement | null>; onArchivo: (f: File) => void;
-}) {
-  return (
-    <div>
-      <input ref={inputRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) onArchivo(f); }} />
-      <button
-        type="button" disabled={subiendo} onClick={() => inputRef.current?.click()}
-        className="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-xl text-[13px] font-semibold disabled:opacity-60"
-        style={{ border: `1.5px dashed ${NW_BORDE}`, color: NW_MUTED }}
-      >
-        {subiendo ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
-        {subiendo ? 'Subiendo…' : etiqueta}
-      </button>
-      {error && <p className="text-[12.5px] text-destructive mt-1.5">{error}</p>}
-    </div>
-  );
-}
-
-function EstadoDocumento({ estado, motivo }: { estado: VerificacionIdentidadNetwork['estado']; motivo: string | null }) {
-  if (estado === 'verificado') return <EstadoPill estilo="verificada" texto="Verificada" />;
-  if (estado === 'rechazado') {
-    return (
-      <div className="p-3 rounded-xl" style={{ background: NW_ESTADO.rechazada.fondo }}>
-        <div className="flex items-center gap-1.5"><X size={14} style={{ color: NW_ESTADO.rechazada.color }} /><span className="text-[12.5px] font-bold" style={{ color: NW_ESTADO.rechazada.color }}>Rechazada</span></div>
-        {motivo && <p className="text-[12px] mt-1" style={{ color: NW_ESTADO.rechazada.color }}>{motivo}</p>}
-      </div>
-    );
-  }
-  return <EstadoPill estilo="pendiente" texto={estado === 'en_revision' ? 'En revisión' : 'Pendiente de verificación'} />;
-}
-
-function EstadoPill({ estilo, texto }: { estilo: 'verificada' | 'pendiente' | 'rechazada'; texto: string }) {
-  const c = NW_ESTADO[estilo];
-  const Icono = estilo === 'verificada' ? ShieldCheck : Clock3;
-  return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold" style={{ background: c.fondo, color: c.color }}>
-      <Icono size={13} /> {texto}
-    </span>
-  );
-}
-
-function PasoFormacion({
-  certificaciones, setCertificaciones, userId,
-}: {
-  certificaciones: CertificacionNetwork[]; setCertificaciones: (c: CertificacionNetwork[]) => void; userId: string;
-}) {
-  const [abierto, setAbierto] = useState(certificaciones.length === 0);
-  const [nombre, setNombre] = useState('');
-  const [institucion, setInstitucion] = useState('');
-  const [anio, setAnio] = useState('');
-  const [duracion, setDuracion] = useState('');
-  const [errorLocal, setErrorLocal] = useState('');
-  const [subiendo, setSubiendo] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  async function subir(file: File) {
-    if (!nombre.trim() || !institucion.trim()) { setErrorLocal('Indica nombre e institución antes de subir el documento.'); return; }
-    const invalido = validarDocumentoIdentidad(file);
-    if (invalido) { setErrorLocal(invalido); return; }
-    setErrorLocal(''); setSubiendo(true);
-    const subida = await subirDocumentoIdentidad(userId, `certificacion-${Date.now()}`, file);
-    if ('error' in subida) { setErrorLocal(subida.error); setSubiendo(false); return; }
-    const res = await crearCertificacionNetwork({ nombre: nombre.trim(), institucion: institucion.trim(), anio: anio ? Number(anio) : null, duracion: duracion || null, documentoPath: subida.path });
-    setSubiendo(false);
-    if (!res.ok) { setErrorLocal(res.error); return; }
-    setCertificaciones([res.certificacion, ...certificaciones]);
-    setNombre(''); setInstitucion(''); setAnio(''); setDuracion(''); setAbierto(false);
-  }
-
-  return (
-    <div className="space-y-4">
-      <p className="text-[13px]" style={{ color: NW_MUTED }}>
-        Publica tu formación con el certificado — una certificación no se marca verificada solo por subirla.
-      </p>
-
-      {certificaciones.map(c => (
-        <div key={c.id} className="p-4 rounded-xl" style={{ border: `1px solid ${NW_BORDE}` }}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[14px] font-bold" style={{ color: NW_TINTA }}>{c.nombre}</p>
-              <p className="text-[12.5px]" style={{ color: NW_MUTED_2 }}>{c.institucion}{c.anio ? ` · ${c.anio}` : ''}</p>
-            </div>
-            <EstadoDocumento estado={c.estado} motivo={c.motivoRechazo} />
-          </div>
-          {c.estado === 'rechazado' && (
-            <button type="button" onClick={async () => { await eliminarCertificacionNetwork(c.id); setCertificaciones(certificaciones.filter(x => x.id !== c.id)); setAbierto(true); }} className="mt-2 text-[12.5px] font-semibold underline" style={{ color: NW_TINTA }}>
-              Volver a subir
-            </button>
-          )}
-        </div>
-      ))}
-
-      {abierto ? (
-        <div className="p-4 rounded-xl space-y-3" style={{ border: `1.5px dashed ${NW_BORDE}` }}>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <input value={nombre} onChange={e => setNombre(e.target.value)} className={inputCls} style={inputStyle} placeholder="Nombre de la certificación" />
-            <input value={institucion} onChange={e => setInstitucion(e.target.value)} className={inputCls} style={inputStyle} placeholder="Institución" />
-            <input value={anio} onChange={e => setAnio(e.target.value)} className={inputCls} style={inputStyle} placeholder="Año" />
-            <input value={duracion} onChange={e => setDuracion(e.target.value)} className={inputCls} style={inputStyle} placeholder="Duración (opcional)" />
-          </div>
-          {errorLocal && <p className="text-[12.5px] text-destructive">{errorLocal}</p>}
-          <DropzoneDocumento etiqueta="Subir certificado" subiendo={subiendo} error="" inputRef={fileRef} onArchivo={subir} />
-        </div>
-      ) : (
-        <button type="button" onClick={() => setAbierto(true)} className="text-[13.5px] font-semibold" style={{ color: NW_PRODUCTO }}>+ Añadir otra formación</button>
-      )}
-    </div>
-  );
-}
-
-function PasoRevisar({
-  perfil, form, verificacion, onEditar,
-}: {
-  perfil: PerfilNetwork; form: FormState; verificacion: VerificacionIdentidadNetwork | null; onEditar: (paso: number) => void;
-}) {
-  return (
-    <div className="text-center">
-      <p className="text-[20px] font-extrabold mb-1" style={{ color: NW_TINTA }}>
-        Así verán tu perfil <em style={{ color: NW_PRODUCTO }}>los estudios</em>
-      </p>
-      <p className="text-[13px] mb-6" style={{ color: NW_MUTED }}>Tus datos privados —documento, dirección, teléfono— no aparecen.</p>
-
-      <div className="text-left rounded-2xl p-6 mb-6" style={{ border: `1px solid ${NW_BORDE}`, background: '#fff' }}>
-        <div className="flex items-center gap-3">
-          {perfil.fotoUrl
-            // eslint-disable-next-line @next/next/no-img-element -- foto subida por la instructora
-            ? <img src={perfil.fotoUrl} alt={perfil.nombre} width={56} height={56} className="w-14 h-14 rounded-full object-cover" />
-            : <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: NW_SAGE }}><Camera size={18} color={NW_MUTED} /></div>}
-          <div>
-            <p className="text-[15px] font-extrabold" style={{ color: NW_TINTA }}>{perfil.nombre}</p>
-            <p className="text-[13px] font-bold" style={{ color: NW_PRODUCTO }}>{tituloProfesionalDe(form.especialidades)}</p>
-          </div>
-        </div>
-        <p className="text-[12.5px] mt-3" style={{ color: NW_MUTED_2 }}>{form.ciudad || 'Ciudad'} · {form.aniosExperiencia || '0'} años · {DISPONIBILIDAD_ESTADO_LABEL[form.disponibilidadEstado]}</p>
-        {form.especialidades.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {form.especialidades.map(e => <span key={e} className="px-2.5 py-1 rounded-full text-[11.5px] font-semibold" style={{ background: NW_SAGE, color: NW_TINTA }}>{ESPECIALIDAD_LABEL[e]}</span>)}
-          </div>
-        )}
-        <p className="text-[13px] font-bold mt-3" style={{ color: NW_TINTA }}>{form.tarifaRango ? `Desde ${TARIFA_RANGO_LABEL[form.tarifaRango]}` : 'Tarifa a consultar'}</p>
-      </div>
-
-      <div className="text-left space-y-1.5 mb-6">
-        <p className="text-[12.5px] flex items-center gap-1.5" style={{ color: NW_MUTED }}><Check size={14} style={{ color: NW_PRODUCTO }} /> Email verificado</p>
-        <p className="text-[12.5px] flex items-center gap-1.5" style={{ color: NW_MUTED }}>
-          {verificacion?.estado === 'verificado'
-            ? <><Check size={14} style={{ color: NW_PRODUCTO }} /> Identidad verificada</>
-            : <><Clock3 size={14} style={{ color: NW_ESTADO.pendiente.color }} /> Identidad {verificacion ? 'en revisión' : 'pendiente'}</>}
-        </p>
-      </div>
-
-      <button type="button" onClick={() => onEditar(0)} className="text-[13px] font-semibold underline" style={{ color: NW_TINTA }}>Editar algo</button>
     </div>
   );
 }
