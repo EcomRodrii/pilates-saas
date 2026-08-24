@@ -2880,17 +2880,32 @@ export default function ReservarPage() {
           paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
         }}
         overlayStyle={overlayEmbed}
-        // El CTA del paso «datos» va anclado abajo, no al final del scroll:
-        // con el teclado abierto en móvil quedaba fuera de alcance, y con él la
-        // casilla de privacidad que lo habilita (ver el docblock de `footer`).
-        footer={loginStep === 'datos' ? (
-          <button onClick={handleDatosContinuar}
-            disabled={!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono) || !privacidadAceptada || datosCargando}
-            className={BOTON_PRIMARIO}
-            style={{ backgroundColor: PRIMARY }}>
-            {datosCargando ? 'Un momento…' : 'Continuar al pago'}
-          </button>
-        ) : undefined}
+        // El CTA de cada paso con inputs va anclado abajo, no al final del
+        // scroll: con el teclado abierto en móvil (los tres pasos siguientes
+        // llevan `autoFocus`) quedaba fuera de alcance, y con él la casilla
+        // de privacidad que lo habilita en «datos» (ver el docblock de `footer`).
+        footer={
+          loginStep === 'datos' ? (
+            <button onClick={handleDatosContinuar}
+              disabled={!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono) || !privacidadAceptada || datosCargando}
+              className={BOTON_PRIMARIO}
+              style={{ backgroundColor: PRIMARY }}>
+              {datosCargando ? 'Un momento…' : 'Continuar al pago'}
+            </button>
+          ) : loginStep === 'login' && !enlaceEnviado ? (
+            <button onClick={handleContinuarAcceso} disabled={!loginForm.email || enviandoEnlace || enviandoLoginPassword}
+              className={BOTON_PRIMARIO}
+              style={{ backgroundColor: PRIMARY }}>
+              {enviandoLoginPassword ? 'Entrando…' : enviandoEnlace ? 'Enviando…' : loginPassword.trim() ? 'Iniciar sesión →' : 'Continuar →'}
+            </button>
+          ) : loginStep === 'registro' ? (
+            <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)}
+              className={BOTON_PRIMARIO}
+              style={{ backgroundColor: PRIMARY }}>
+              Continuar →
+            </button>
+          ) : undefined
+        }
       >
         {bookingSesionId !== null && (
           <>
@@ -2907,7 +2922,7 @@ export default function ReservarPage() {
 
             {/* ── DONE ── */}
             {loginStep === 'done' && bookingSesion && (
-              <div className="flex flex-col items-center text-center gap-4 contenido-anim">
+              <div className="flex flex-col items-center text-center gap-4 paso-anim">
                 {/* P1-3: el icono dice la verdad del momento — spinner mientras
                     se confirma, verde solo con confirmación REAL del servidor,
                     ámbar para espera/pendiente/tardando/fallida. */}
@@ -3103,7 +3118,7 @@ export default function ReservarPage() {
 
             {/* ── ESPERA ── */}
             {loginStep === 'espera' && (
-              <div className="flex flex-col items-center text-center py-4 gap-4 contenido-anim">
+              <div className="flex flex-col items-center text-center py-4 gap-4 paso-anim">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
                   <CheckCircle2 size={30} style={{ color: '#8F6215' }} />
                 </div>
@@ -3123,7 +3138,7 @@ export default function ReservarPage() {
 
             {/* ── PENDIENTE DE APROBACIÓN (Fase 2a) ── */}
             {loginStep === 'pendiente' && (
-              <div className="flex flex-col items-center text-center py-4 gap-4 contenido-anim">
+              <div className="flex flex-col items-center text-center py-4 gap-4 paso-anim">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
                   <CheckCircle2 size={30} style={{ color: '#8F6215' }} />
                 </div>
@@ -3165,13 +3180,9 @@ export default function ReservarPage() {
                       style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                     {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                     {/* Sin margen propio: mide 0 px salvo que Cloudflare pida
-                        resolver algo a mano. */}
+                        resolver algo a mano. El CTA vive en el `footer` de
+                        `PublicSheet`, anclado abajo del sheet. */}
                     {captcha}
-                    <button onClick={handleContinuarAcceso} disabled={!loginForm.email || enviandoEnlace || enviandoLoginPassword}
-                      className={BOTON_PRIMARIO}
-                      style={{ backgroundColor: PRIMARY }}>
-                      {enviandoLoginPassword ? 'Entrando…' : enviandoEnlace ? 'Enviando…' : loginPassword.trim() ? 'Iniciar sesión →' : 'Continuar →'}
-                    </button>
                   </>
                 ) : (
                   <div className="flex flex-col items-center text-center py-4 gap-4">
@@ -3385,12 +3396,8 @@ export default function ReservarPage() {
                   className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
                   style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                 {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
-                <p className="text-[11px] text-[var(--portal-muted)] mb-5">El teléfono solo lo usa {estudioNombre} para avisos de tus clases.</p>
-                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)}
-                  className={BOTON_PRIMARIO}
-                  style={{ backgroundColor: PRIMARY }}>
-                  Continuar →
-                </button>
+                <p className="text-[11px] text-[var(--portal-muted)]">El teléfono solo lo usa {estudioNombre} para avisos de tus clases.</p>
+                {/* El CTA vive en el `footer` de `PublicSheet`, anclado abajo. */}
               </div>
             )}
 
