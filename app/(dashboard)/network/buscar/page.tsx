@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SlidersHorizontal, Loader2, MapPin } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { SlidersHorizontal, Loader2, MapPin, Scale, X } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { FiltrosBusquedaNetwork } from '@/components/network/filtros-busqueda';
@@ -24,16 +25,32 @@ const OPCIONES_ORDEN: Array<{ valor: OrdenarPorNetwork; etiqueta: string }> = [
   { valor: 'cercania', etiqueta: 'Cercanía' },
 ];
 
+// Tercera pieza de F2 (comparación) — tope confirmado con el fundador.
+const MAX_COMPARAR = 3;
+
 // Buscador de profesionales — docs/NETWORK-IMPLEMENTATION-PLAN.md Fases 4/5
 // fusionadas: el backend ya soporta todos los filtros a la vez (mismo coste
 // que construirlos por separado), así que no tenía sentido enviar primero
 // una pantalla con solo ciudad+especialidad y volver en el turno siguiente
 // a añadir el resto — el usuario habría visto la misma pantalla dos veces.
 export default function NetworkBuscadorPage() {
+  const router = useRouter();
   const [filtro, setFiltro] = useState<FiltroBusquedaNetwork>(FILTRO_VACIO);
   const [resultados, setResultados] = useState<PerfilNetworkPublico[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  // Comparación de 2-3 perfiles: el estado vive AQUÍ (no en la tarjeta) para
+  // que la barra flotante y el checkbox de cada tarjeta compartan la misma
+  // fuente de verdad, sin duplicarlo.
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
+  function alternarSeleccion(id: string) {
+    setSeleccionados(prev => {
+      const siguiente = new Set(prev);
+      if (siguiente.has(id)) siguiente.delete(id);
+      else if (siguiente.size < MAX_COMPARAR) siguiente.add(id);
+      return siguiente;
+    });
+  }
   const { estado: estadoCercaDeMi, posicion, activar: activarCercaDeMi } = useCercaDeMi();
   // `null` = "sin elección manual", no un valor de orden real. Se deriva el
   // orden EFECTIVO más abajo en vez de sincronizar un `setFiltro` desde un
@@ -150,6 +167,11 @@ export default function NetworkBuscadorPage() {
                 perfil={perfil}
                 distanciaKm={distanciaKm}
                 encaje={encajeBusquedaDe(filtro, perfil)}
+                comparando={{
+                  seleccionado: seleccionados.has(perfil.id),
+                  deshabilitado: !seleccionados.has(perfil.id) && seleccionados.size >= MAX_COMPARAR,
+                  onToggle: alternarSeleccion,
+                }}
               />
             ))
           )}
@@ -175,6 +197,27 @@ export default function NetworkBuscadorPage() {
           <FiltrosBusquedaNetwork filtro={filtro} onChange={setFiltro} />
         </div>
       </DashboardSheet>
+
+      {seleccionados.size >= 2 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border shadow-2xl">
+          <p className="text-[12.5px] font-medium text-foreground">
+            {seleccionados.size} de {MAX_COMPARAR} seleccionadas para comparar
+          </p>
+          <button
+            onClick={() => router.push(`/network/comparar?ids=${[...seleccionados].map(encodeURIComponent).join(',')}`)}
+            className="px-3.5 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5 hover:brightness-95 transition-colors"
+          >
+            <Scale size={14} /> Comparar ({seleccionados.size})
+          </button>
+          <button
+            onClick={() => setSeleccionados(new Set())}
+            title="Cancelar comparación"
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

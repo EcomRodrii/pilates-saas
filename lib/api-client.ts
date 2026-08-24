@@ -23,6 +23,7 @@ import type {
 } from '@/lib/network/tipos';
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
+import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -2143,6 +2144,21 @@ export async function fetchPerfilNetworkPublico(
     return { perfil: data.perfil, experiencias: data.experiencias ?? [], badges: data.badges };
   } catch {
     return null;
+  }
+}
+
+// Tercera pieza de F2: comparación de 2-3 perfiles a la vez. El tope de 3 se
+// respeta ya en el buscador (Set de seleccionados, ver /network/buscar) y de
+// nuevo en el servidor (app/api/network/comparar) — aquí no hace falta
+// recortar otra vez, solo enviar lo que llega.
+export async function compararPerfilesNetwork(ids: string[]): Promise<DetallePerfilPublico[]> {
+  try {
+    const res = await fetch(`/api/network/comparar?ids=${ids.map(encodeURIComponent).join(',')}`, { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { perfiles?: DetallePerfilPublico[] };
+    return data.perfiles ?? [];
+  } catch {
+    return [];
   }
 }
 

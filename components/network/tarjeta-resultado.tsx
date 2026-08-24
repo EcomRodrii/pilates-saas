@@ -18,12 +18,16 @@ const PUNTO_DISPONIBILIDAD: Record<PerfilNetworkPublico['disponibilidadEstado'],
 };
 
 export function TarjetaResultadoNetwork({
-  perfil, distanciaKm, encaje,
+  perfil, distanciaKm, encaje, comparando,
 }: {
   perfil: PerfilNetworkPublico;
   distanciaKm?: number | null;
   /** Solo cuando el buscador tiene 2+ opciones marcadas en especialidad/horario/tipo de trabajo — ver lib/network/encaje-busqueda.ts. */
   encaje?: EncajeBusqueda;
+  // Tercera pieza de F2: comparación de 2-3 perfiles. El estado de selección
+  // (Set<string>, tope 3) vive en el padre (buscar/page.tsx) — esta tarjeta
+  // solo pinta el checkbox y avisa del clic, nunca duplica el estado.
+  comparando?: { seleccionado: boolean; deshabilitado: boolean; onToggle: (id: string) => void };
 }) {
   // Contador honesto de badges de confianza (identidad, experiencia,
   // referencia profesional, actividad reciente) — nunca un porcentaje
@@ -35,8 +39,24 @@ export function TarjetaResultadoNetwork({
   return (
     <Link
       href={`/network/${perfil.id}`}
-      className="flex items-start gap-3.5 p-4 rounded-xl bg-card border border-border hover:border-brand/40 hover:bg-muted/40 transition-colors"
+      className="relative flex items-start gap-3.5 p-4 rounded-xl bg-card border border-border hover:border-brand/40 hover:bg-muted/40 transition-colors"
     >
+      {comparando && (
+        <label
+          onClick={e => e.stopPropagation()}
+          title={comparando.deshabilitado ? 'Ya tienes 3 perfiles seleccionados para comparar' : 'Comparar'}
+          className="absolute top-3 right-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"
+        >
+          <input
+            type="checkbox"
+            checked={comparando.seleccionado}
+            disabled={comparando.deshabilitado}
+            onChange={() => comparando.onToggle(perfil.id)}
+            className="w-3.5 h-3.5 rounded accent-brand disabled:opacity-40"
+          />
+          Comparar
+        </label>
+      )}
       <ProfileAvatar fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} size="lg" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
