@@ -70,6 +70,24 @@ export const ESTILOS_TARJETA = [
 export type CardStyleId = (typeof ESTILOS_TARJETA)[number]['id'];
 
 /**
+ * Estilo de los accesos rápidos del Inicio — SOLO afecta a los 5 temas del
+ * kit (`components/portal-tema/`, `HomeBlocks.tsx: vm.features.quick_links_
+ * style`). El portal "de siempre" no tiene este concepto, así que un tema que
+ * no sea del kit ignora este campo sin más — mismo criterio que
+ * `barraFlotante`/`barraOscura`, que también son ejes solo del kit.
+ *
+ * `null` = hereda el valor que trae el tema elegido (Noir nace en `bare`, los
+ * otros cuatro en `cards`) — no fuerza un valor único para los 5, que es
+ * justo lo que perdería la identidad de Noir si el default fuera 'cards'.
+ */
+export const ESTILOS_ACCESOS_RAPIDOS = [
+  { id: 'cards', label: 'Tarjeta con icono' },
+  { id: 'bare', label: 'Círculo sin tarjeta' },
+] as const;
+
+export type QuickLinksStyleId = (typeof ESTILOS_ACCESOS_RAPIDOS)[number]['id'];
+
+/**
  * Tipografía de TITULARES del portal cliente (`display()` en
  * `lib/portal-design.ts`) — distinta de `fontId`/`FUENTES` de arriba, que solo
  * gobierna el cuerpo/dashboard. `instrumentSerif` es el look de siempre.
@@ -273,6 +291,9 @@ const widgetColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[
 const widgetRadioSchema = z.number().int().min(0).max(32).nullable();
 const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleId, ...ButtonStyleId[]]);
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
+// Nullable, no `.default('cards')`: `null` = hereda del tema (Noir nace en
+// 'bare') — ver el comentario de ESTILOS_ACCESOS_RAPIDOS arriba.
+const quickLinksStyleSchema = z.enum(ESTILOS_ACCESOS_RAPIDOS.map((q) => q.id) as [QuickLinksStyleId, ...QuickLinksStyleId[]]).nullable();
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
 const tabBarStyleSchema = z.enum(ESTILOS_TAB_BAR.map((t) => t.id) as [TabBarStyleId, ...TabBarStyleId[]]);
 // Dónde se ancla la foto del estudio cuando se recorta para la portada.
@@ -436,6 +457,10 @@ export const themeConfigSchema = z
     // estos campos, y debe seguir viéndose exactamente igual (solid/flat).
     buttonStyle: buttonStyleSchema.default('solid'),
     cardStyle: cardStyleSchema.default('flat'),
+    // Solo aplica a temas del kit — ver ESTILOS_ACCESOS_RAPIDOS arriba.
+    // `null` (no un id) es el default: un tema guardado antes de esta fase
+    // sigue heredando el look de fábrica de su tema, sin forzar 'cards'.
+    quickLinksStyle: quickLinksStyleSchema.default(null),
     // Titular del portal cliente — ver ESTILOS_TITULAR_PORTAL arriba.
     portalHeadingFontId: portalHeadingFontSchema.default('instrumentSerif'),
     // Barra inferior del portal cliente — ver ESTILOS_TAB_BAR arriba.
@@ -532,6 +557,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   widgetRelleno: null,
   buttonStyle: 'solid',
   cardStyle: 'flat',
+  quickLinksStyle: null,
   portalHeadingFontId: 'instrumentSerif',
   tabBarStyle: 'clasica',
   barraOscura: false,
@@ -678,6 +704,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     widgetRelleno: pick('widgetRelleno', widgetColorSchema),
     buttonStyle: pick('buttonStyle', buttonStyleSchema),
     cardStyle: pick('cardStyle', cardStyleSchema),
+    quickLinksStyle: pick('quickLinksStyle', quickLinksStyleSchema),
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
     tabBarStyle: pick('tabBarStyle', tabBarStyleSchema),
     barraOscura: pick('barraOscura', barraOscuraSchema),

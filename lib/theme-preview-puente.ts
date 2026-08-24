@@ -23,7 +23,7 @@
 // de TIPO y su validación se escribe a mano abajo.
 
 import { resolveVariantes, type VariantesResueltas } from './theme-variantes.ts';
-import type { TabBarStyleId } from './theme-schema.ts';
+import type { TabBarStyleId, QuickLinksStyleId } from './theme-schema.ts';
 // `esTemaPortal` es una guarda pura sobre un objeto literal — no arrastra React
 // ni zod, así que puede entrar en este módulo.
 import { esTemaPortal, type TemaPortalId } from '../themes/registro.ts';
@@ -37,6 +37,12 @@ export interface TemaJs {
   variantes: VariantesResueltas;
   barraClasica: boolean;
   tabBarStyle: TabBarStyleId;
+  // Solo afecta a temas del kit — ver ESTILOS_ACCESOS_RAPIDOS en
+  // theme-schema.ts. `null` = hereda el look de fábrica del tema (Noir
+  // 'bare', los otros 'cards'), igual en emisor y receptor: mismo nombre de
+  // campo en los dos extremos, sin la asimetría que tiene `temaKit` más
+  // abajo.
+  quickLinksStyle: QuickLinksStyleId | null;
   /**
    * Qué tema del kit en React es el borrador, si es que lo es.
    *
@@ -77,6 +83,10 @@ export function resolveTemaJs(raw: unknown): TemaJs | null {
     variantes: resolveVariantes(o.variantes),
     barraClasica: o.barraClasica === true,
     tabBarStyle: o.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica',
+    // Entrada no confiable, mismo criterio que el resto: solo 'cards'/'bare'
+    // pasan, cualquier otra cosa (incluido un mensaje viejo sin el campo) cae
+    // a `null` — "no pises nada", no un valor por defecto inventado.
+    quickLinksStyle: o.quickLinksStyle === 'cards' || o.quickLinksStyle === 'bare' ? o.quickLinksStyle : null,
     // ⚠️ Se aceptan LOS DOS nombres, y no es por comodidad: esta función corre
     // en los dos extremos del puente (lo dice la cabecera). El emisor se la
     // aplica al `ThemeConfig`, donde el campo se llama `themeId`, y devuelve

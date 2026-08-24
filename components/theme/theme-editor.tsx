@@ -24,7 +24,7 @@ import {
   type RedSocialId,
 } from '@/lib/canales-estudio';
 import {
-  DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA,
+  DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, ESTILOS_ACCESOS_RAPIDOS,
   type ThemeConfig, POSICION_FOTO,
   SEO_TITULO_MAX, SEO_DESCRIPCION_MAX,
   RESERVAR_TITULAR_MAX, RESERVAR_SUBTITULO_MAX, RESERVAR_CTA_MAX,
@@ -37,6 +37,7 @@ import { metadatosPublicos, tituloAutomatico, descripcionAutomatica, IMAGEN_COMP
 import { PanelVisibilidad } from './panel-visibilidad';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
 import { resolveVariantes } from '@/lib/theme-variantes';
+import { esTemaPortal } from '@/themes/registro';
 import { crearHistorial, registrar, deshacer as deshacerHist, rehacer as rehacerHist } from '@/lib/theme/editor-historial';
 import { CamposForm, FilaOpciones } from './inspector/campos-form';
 import type { CampoSchema } from '@/lib/theme/campos';
@@ -1038,18 +1039,46 @@ export function AjustesCategoriaPanel({
 
   if (categoriaId === 'tarjetas') {
     return (
-      <div className="flex gap-2">
-        {ESTILOS_TARJETA.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => setCampo('cardStyle', c.id)}
-            className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
-              draft.cardStyle === c.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
-            }`}
-          >
-            {c.label}
-          </button>
-        ))}
+      <div className="space-y-5">
+        <div className="flex gap-2">
+          {ESTILOS_TARJETA.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setCampo('cardStyle', c.id)}
+              className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
+                draft.cardStyle === c.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        {/* Solo tiene efecto en un tema del kit — el portal "de siempre" no
+            usa este eje. Explicado, no ocultado sin más: un control que no
+            hace nada y desaparece sin decir por qué es peor que uno inerte
+            con la razón puesta al lado. */}
+        {esTemaPortal(draft.themeId) ? (
+          <div>
+            <p className="text-[13px] font-semibold text-foreground mb-2">Accesos rápidos del Inicio</p>
+            <div className="flex gap-2">
+              {ESTILOS_ACCESOS_RAPIDOS.map((q) => (
+                <button
+                  key={q.id}
+                  onClick={() => setCampo('quickLinksStyle', q.id)}
+                  className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
+                    draft.quickLinksStyle === q.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+                  }`}
+                >
+                  {q.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-[11.5px] text-muted-foreground">
+            Los accesos rápidos del Inicio solo se pueden personalizar en un tema de la biblioteca — el que tienes instalado no los usa.
+          </p>
+        )}
       </div>
     );
   }

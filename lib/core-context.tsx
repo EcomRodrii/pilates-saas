@@ -19,7 +19,7 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { Studio, Instructor, Notificacion } from '@/lib/types';
 import type { NavConfigShape } from '@/lib/portal-nav';
 import type { VariantesResueltas } from '@/lib/theme-variantes';
-import type { TabBarStyleId } from '@/lib/theme-schema';
+import type { TabBarStyleId, QuickLinksStyleId } from '@/lib/theme-schema';
 
 export interface CoreContextValue {
   studio: Studio | null;
@@ -44,6 +44,9 @@ export interface CoreContextValue {
   navPortal: NavConfigShape;
   barraClasica: boolean;
   tabBarStyle: TabBarStyleId;
+  // Solo lo consumen las pantallas del kit (vista-previa-kit.tsx,
+  // portal-tema-marco.tsx) — mismo motivo de estar aquí que barraClasica.
+  quickLinksStyle: QuickLinksStyleId | null;
   variantes: VariantesResueltas;
   themeIdPublicado: string | null;
   portalReact: boolean;
@@ -67,6 +70,7 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
     navPortal: core.navPortal,
     barraClasica: core.barraClasica,
     tabBarStyle: core.tabBarStyle,
+    quickLinksStyle: core.quickLinksStyle,
     variantes: core.variantes,
     themeIdPublicado: core.themeIdPublicado,
     portalReact: core.portalReact,
@@ -76,7 +80,7 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     core.studio, core.instructores, core.notificaciones, core.dataLoaded,
-    core.navPortal, core.barraClasica, core.tabBarStyle, core.variantes, core.themeIdPublicado, core.portalReact,
+    core.navPortal, core.barraClasica, core.tabBarStyle, core.quickLinksStyle, core.variantes, core.themeIdPublicado, core.portalReact,
   ]);
 
   return <CoreContext.Provider value={value}>{children}</CoreContext.Provider>;
