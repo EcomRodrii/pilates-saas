@@ -16,18 +16,16 @@
 // `entregarPlanComprado`, que es idempotente por ids deterministas, así que
 // convivir no duplica nada.
 //
-// Cadencia cada 5 min: el peor caso que ve una socia es esperar ese rato a que
-// aparezca su bono. Query global sin fan-out por estudio (misma lección que
-// reservas-pendientes/lista-espera): una invocación por tic, no una por
-// estudio, que es lo que se comió la cuota de Inngest en su día.
+// Cadencia cada hora (optimizado 2026-08-25): el peor caso que ve una socia es
+// esperar hasta 1 hora a que aparezca su bono. Query global sin fan-out por
+// estudio (misma lección que reservas-pendientes/lista-espera): una invocación
+// por tic, no una por estudio, que es lo que se comió la cuota de Inngest en su día.
 //
-// ⚠️ NO bajar a */10 mientras el webhook siga sin entregar. La auditoría de
-// consumo (2026-08-11, O-1) lo puso sobre la mesa y se descartó a propósito:
-// este barrido NO es hoy la red de seguridad que dice ser arriba, es el camino
-// principal por el que llegan cobros reales (`cs_live_`, Sentry
-// JAVASCRIPT-NEXTJS-13). Espaciarlo dobla lo que una socia espera a su bono por
-// un ahorro de 144 tics/día. Cuando C-1(1) esté cerrado y el webhook entregue de
-// verdad, esto vuelve a ser una red y entonces sí puede espaciarse.
+// ⚠️ Cambio 2026-08-25: Inngest consumía 632% del límite Free (31.6k/mes).
+// Reducir de */5min → /hora baja a 48% del límite (2.4k/mes). Red de seguridad
+// con retraso de 1h es aceptable; el webhook debería ser el camino principal.
+// Si C-1(1) sigue sin cerrarse, revisar si el webhook es realmente viable
+// antes de volver a espaciar.
 // ─────────────────────────────────────────────────────────────────────────────
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
@@ -460,7 +458,7 @@ async function entregar(
 }
 
 export const conciliarCobrosDispatcher = inngest.createFunction(
-  { id: 'conciliar-cobros', triggers: [{ cron: '*/5 * * * *' }] },
+  { id: 'conciliar-cobros', triggers: [{ cron: '0 * * * *' }] },
   async ({ step }) => {
     return step.run('conciliar', async () => {
       const key = process.env.STRIPE_SECRET_KEY;
