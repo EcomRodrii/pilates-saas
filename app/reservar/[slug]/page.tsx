@@ -3210,6 +3210,7 @@ export default function ReservarPage() {
                 onVolver={closeBooking}
                 estudioNombre={estudioNombre}
                 estudioDireccion={estudioDireccion}
+                studioId={studio?.id ?? ''}
                 clase={{
                   nombre: bookingSesion.tipo?.nombre ?? '',
                   color: bookingSesion.tipo?.color ?? PRIMARY,

@@ -33,8 +33,8 @@
 // (franjaVisible, safe-area, animación de entrada/salida): lo único que
 // cambia es que esta vez el "cajón" ocupa la pantalla entera y no se ve como
 // una tarjeta flotante con fondo oscurecido.
-import { useState, type CSSProperties } from 'react';
-import { ChevronLeft, Calendar, Clock, MapPin, Tag, Lock, ShieldCheck, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
+import { ChevronLeft, Calendar, Clock, MapPin, Tag, Lock, ShieldCheck, RotateCcw, Check, X, Loader2 } from 'lucide-react';
 import type { PlanTarifa } from '@/lib/types';
 import type { ModoTokens } from '@/lib/portal-modo';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, EASE } from '@/lib/reservar-publico-tokens';
@@ -63,7 +63,7 @@ export interface ClaseParaPantallaReserva {
 }
 
 export function PantallaReserva({
-  t, onVolver, estudioNombre, estudioDireccion, clase, precio, fase,
+  t, onVolver, estudioNombre, estudioDireccion, studioId, clase, precio, fase,
   loginForm, onChangeLoginForm, datosError, datosCargando,
   privacidadAceptada, onTogglePrivacidad, onAbrirPrivacidad,
   mostrarCodigo, onMostrarCodigo, codigoDescuento, onChangeCodigo,
@@ -74,6 +74,8 @@ export function PantallaReserva({
   onVolver: () => void;
   estudioNombre: string;
   estudioDireccion: string;
+  /** Solo para validar el código promocional en vivo (`/api/public/validar-codigo-descuento`). */
+  studioId: string;
   clase: ClaseParaPantallaReserva;
   precio: number;
   fase: 'datos' | 'pago';
@@ -105,9 +107,62 @@ export function PantallaReserva({
 }) {
   const [nombreFocus, setNombreFocus] = useState(false);
   const [ctaHover, setCtaHover] = useState(false);
-  const formValido = loginForm.nombre.trim() && loginForm.apellidos.trim()
-    && loginForm.email.trim() && telefonoValido(loginForm.telefono) && privacidadAceptada;
-  const ctaActivo = !!formValido && !datosCargando;
+  const camposIncompletos = camposFaltantes(loginForm, privacidadAceptada);
+  const formValido = camposIncompletos.length === 0;
+  const ctaActivo = formValido && !datosCargando;
+
+  // Código promocional — feedback en vivo (Fase 3 del rediseño). Solo UI: el
+  // servidor SIEMPRE recalcula al pagar (`checkout-embebido`, ya existente,
+  // sin tocar) — un código inválido nunca bloquea la compra, esto solo evita
+  // que la única forma de enterarse fuera mirar el importe ya dentro del
+  // Payment Element.
+  const [codigoEstado, setCodigoEstado] = useState<'idle' | 'validando' | 'valido' | 'invalido'>('idle');
+  const [codigoDescuentoEur, setCodigoDescuentoEur] = useState<number | null>(null);
+  const [codigoMotivo, setCodigoMotivo] = useState('');
+  const codigoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const codigoPeticion = useRef(0);
+
+  useEffect(() => {
+    if (codigoTimer.current) clearTimeout(codigoTimer.current);
+    const texto = codigoDescuento.trim();
+    // Sin texto, no hay nada que pedir: `codigoEstadoMostrado` de abajo ya
+    // deriva 'idle' directamente del valor vacío, sin esperar a ningún
+    // setState — así se borra al instante al pulsar la X, y el efecto no
+    // llama a setState de forma síncrona en su propio cuerpo (lo único que
+    // dispararía el aviso de cascading-renders de react-hooks).
+    if (!texto) return;
+    const miPeticion = ++codigoPeticion.current;
+    // Debounce: no se valida en cada tecla, solo cuando la persona hace una
+    // pausa real al escribir — mismo criterio que cualquier buscador.
+    codigoTimer.current = setTimeout(() => {
+      if (miPeticion !== codigoPeticion.current) return;
+      setCodigoEstado('validando');
+      fetch('/api/public/validar-codigo-descuento', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studioId, codigo: texto, subtotal: precio }),
+      })
+        .then(r => r.json())
+        .then((data: { ok?: boolean; descuento?: number; motivo?: string }) => {
+          // Una respuesta tardía de una petición vieja (p.ej. si se sigue
+          // escribiendo) no debe pisar el estado de la petición más reciente.
+          if (miPeticion !== codigoPeticion.current) return;
+          if (data.ok) { setCodigoEstado('valido'); setCodigoDescuentoEur(data.descuento ?? 0); }
+          else { setCodigoEstado('invalido'); setCodigoMotivo(data.motivo ?? 'Ese código no es válido'); }
+        })
+        .catch(() => {
+          if (miPeticion !== codigoPeticion.current) return;
+          // Fallo de red al validar: no se anuncia como "código inválido"
+          // (sería falso) — el servidor lo resolverá igualmente al pagar.
+          setCodigoEstado('idle');
+        });
+    }, 500);
+    return () => { if (codigoTimer.current) clearTimeout(codigoTimer.current); };
+  }, [codigoDescuento, studioId, precio]);
+
+  const codigoEstadoMostrado = codigoDescuento.trim() ? codigoEstado : 'idle';
+  const precioConDescuento = codigoEstadoMostrado === 'valido' && codigoDescuentoEur != null
+    ? Math.max(0, Math.round((precio - codigoDescuentoEur) * 100) / 100)
+    : null;
 
   return (
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', fontFamily: sans, background: 'var(--portal-bg)' }}>
@@ -249,7 +304,9 @@ export function PantallaReserva({
 
                 {/* Código promocional — colapsado por defecto, un clic lo
                     revela justo encima de donde va a importar (el pago),
-                    mismo criterio ya auditado en Momence. */}
+                    mismo criterio ya auditado en Momence. Feedback en vivo
+                    (validando/válido/inválido) contra
+                    /api/public/validar-codigo-descuento. */}
                 <div>
                   {!mostrarCodigo ? (
                     <button type="button" onClick={onMostrarCodigo}
@@ -261,18 +318,43 @@ export function PantallaReserva({
                       ¿Tienes un código promocional?
                     </button>
                   ) : (
-                    <div className="pantalla-reserva-codigo">
-                      <Tag size={15} style={{ color: 'var(--portal-muted)', flexShrink: 0 }} />
-                      <input
-                        type="text"
-                        value={codigoDescuento}
-                        onChange={e => onChangeCodigo(e.target.value)}
-                        placeholder="Código promocional"
-                        style={{
-                          flex: 1, border: 'none', outline: 'none', background: 'none',
-                          fontSize: 14, color: 'var(--portal-ink)',
-                        }}
-                      />
+                    <div>
+                      <div className="pantalla-reserva-codigo" style={{
+                        borderColor: codigoEstadoMostrado === 'valido' ? 'color-mix(in srgb, #2f7a4f 45%, var(--portal-line))'
+                          : codigoEstadoMostrado === 'invalido' ? 'color-mix(in srgb, var(--destructive) 40%, var(--portal-line))'
+                          : undefined,
+                      }}>
+                        <Tag size={15} style={{ color: 'var(--portal-muted)', flexShrink: 0 }} />
+                        <input
+                          type="text"
+                          value={codigoDescuento}
+                          onChange={e => onChangeCodigo(e.target.value)}
+                          placeholder="Código promocional"
+                          style={{
+                            flex: 1, border: 'none', outline: 'none', background: 'none',
+                            fontSize: 14, color: 'var(--portal-ink)',
+                          }}
+                        />
+                        {codigoEstadoMostrado === 'validando' && (
+                          <Loader2 size={15} className="animate-spin" style={{ color: 'var(--portal-muted)', flexShrink: 0 }} />
+                        )}
+                        {codigoEstadoMostrado === 'valido' && <Check size={16} strokeWidth={2.5} style={{ color: '#2f7a4f', flexShrink: 0 }} />}
+                        {codigoEstadoMostrado !== 'idle' && (
+                          <button type="button" onClick={() => onChangeCodigo('')}
+                            aria-label="Quitar código"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--portal-muted)', display: 'flex', flexShrink: 0 }}>
+                            <X size={15} />
+                          </button>
+                        )}
+                      </div>
+                      {codigoEstadoMostrado === 'valido' && (
+                        <p style={{ fontSize: 12, color: '#2f7a4f', fontWeight: 600, marginTop: 6 }}>
+                          Código aplicado: −{codigoDescuentoEur} €
+                        </p>
+                      )}
+                      {codigoEstadoMostrado === 'invalido' && (
+                        <p style={{ fontSize: 12, color: 'var(--destructive)', marginTop: 6 }}>{codigoMotivo}</p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -292,29 +374,49 @@ export function PantallaReserva({
 
                 {/* Total justo encima del CTA — misma proximidad que Stripe
                     Checkout/Bsport: el precio se recuerda justo donde se paga,
-                    no solo arriba del todo, lejos del botón. */}
+                    no solo arriba del todo, lejos del botón. Con código
+                    válido, el precio tachado deja claro que el descuento ya
+                    cuenta, no solo que "se aplicará". */}
                 <div style={{
                   display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
                   paddingTop: 14, borderTop: '1px solid var(--portal-line)',
                 }}>
                   <span style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600 }}>Total a pagar</span>
-                  <span style={{ fontFamily: serif, fontSize: cq(22, 2.2, 26), color: 'var(--portal-ink)' }}>{precio} €</span>
+                  <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    {precioConDescuento !== null && (
+                      <span style={{ fontSize: 14, color: 'var(--portal-muted)', textDecoration: 'line-through' }}>{precio} €</span>
+                    )}
+                    <span style={{ fontFamily: serif, fontSize: cq(22, 2.2, 26), color: 'var(--portal-ink)' }}>
+                      {precioConDescuento ?? precio} €
+                    </span>
+                  </span>
                 </div>
 
-                <button type="button" onClick={onContinuar} disabled={!ctaActivo}
-                  onMouseEnter={() => setCtaHover(true)} onMouseLeave={() => setCtaHover(false)}
-                  style={{
-                    height: cq(50, 4, 58), borderRadius: R.pillBtnCta, border: 'none', cursor: ctaActivo ? 'pointer' : 'not-allowed',
-                    fontFamily: sans, fontSize: 14.5, fontWeight: 600, letterSpacing: '.01em',
-                    color: 'var(--portal-brand-foreground)',
-                    background: 'var(--portal-brand)',
-                    opacity: ctaActivo ? 1 : 0.45,
-                    boxShadow: ctaActivo ? SH.ctaOscuroFuerte : 'none',
-                    transform: ctaActivo && ctaHover ? 'translateY(-1px)' : 'none',
-                    transition: `box-shadow .35s ${EASE}, transform .35s ${EASE}, opacity .25s ease`,
-                  }}>
-                  {datosCargando ? 'Un momento…' : 'Continuar al pago'}
-                </button>
+                <div>
+                  <button type="button" onClick={onContinuar} disabled={!ctaActivo}
+                    onMouseEnter={() => setCtaHover(true)} onMouseLeave={() => setCtaHover(false)}
+                    style={{
+                      width: '100%', height: cq(50, 4, 58), borderRadius: R.pillBtnCta, border: 'none', cursor: ctaActivo ? 'pointer' : 'not-allowed',
+                      fontFamily: sans, fontSize: 14.5, fontWeight: 600, letterSpacing: '.01em',
+                      color: 'var(--portal-brand-foreground)',
+                      background: 'var(--portal-brand)',
+                      opacity: ctaActivo ? 1 : 0.45,
+                      boxShadow: ctaActivo ? SH.ctaOscuroFuerte : 'none',
+                      transform: ctaActivo && ctaHover ? 'translateY(-1px)' : 'none',
+                      transition: `box-shadow .35s ${EASE}, transform .35s ${EASE}, opacity .25s ease`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}>
+                    {datosCargando && <Loader2 size={16} className="animate-spin" />}
+                    {datosCargando ? 'Un momento…' : 'Continuar al pago'}
+                  </button>
+                  {/* Explica exactamente qué falta, sin esperar a que se
+                      pulse el botón deshabilitado — nunca un botón "mudo". */}
+                  {!formValido && !datosCargando && (
+                    <p style={{ fontSize: 11.5, color: 'var(--portal-muted)', textAlign: 'center', marginTop: 8 }}>
+                      Falta: {camposIncompletos.join(', ')}
+                    </p>
+                  )}
+                </div>
 
                 <FilaConfianza />
               </div>
@@ -353,6 +455,20 @@ export function PantallaReserva({
       </div>
     </div>
   );
+}
+
+/** Qué le falta al formulario para poder continuar, en el orden en que se
+ *  rellenan los campos — para explicar el botón deshabilitado en vez de
+ *  dejarlo mudo (Fase 3 del rediseño: "validación que explique exactamente
+ *  qué falta"). */
+function camposFaltantes(loginForm: DatosContacto, privacidadAceptada: boolean): string[] {
+  const faltan: string[] = [];
+  if (!loginForm.nombre.trim()) faltan.push('nombre');
+  if (!loginForm.apellidos.trim()) faltan.push('apellidos');
+  if (!loginForm.email.trim()) faltan.push('email');
+  if (!telefonoValido(loginForm.telefono)) faltan.push('teléfono');
+  if (!privacidadAceptada) faltan.push('aceptar la política de privacidad');
+  return faltan;
 }
 
 function tituloFecha(inicio: string) {
