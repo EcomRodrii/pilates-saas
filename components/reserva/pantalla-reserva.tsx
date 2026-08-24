@@ -105,7 +105,6 @@ export function PantallaReserva({
     onVolverADatos: () => void;
   };
 }) {
-  const [nombreFocus, setNombreFocus] = useState(false);
   const [ctaHover, setCtaHover] = useState(false);
   const camposIncompletos = camposFaltantes(loginForm, privacidadAceptada);
   const formValido = camposIncompletos.length === 0;
@@ -308,8 +307,7 @@ export function PantallaReserva({
                 <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
                   <CampoTexto placeholder="Nombre" value={loginForm.nombre}
                     onChange={v => onChangeLoginForm({ nombre: v })}
-                    autoFocus onFocus={() => setNombreFocus(true)} onBlur={() => setNombreFocus(false)}
-                    resaltado={nombreFocus} />
+                    autoFocus />
                   <CampoTexto placeholder="Apellidos" value={loginForm.apellidos}
                     onChange={v => onChangeLoginForm({ apellidos: v })} />
                 </div>
@@ -544,17 +542,16 @@ function FilaConfianza() {
 }
 
 function CampoTexto({
-  placeholder, value, onChange, type = 'text', autoFocus, onEnter, onFocus, onBlur, resaltado,
+  placeholder, value, onChange, type = 'text', autoFocus, onEnter,
 }: {
   placeholder: string; value: string; onChange: (v: string) => void; type?: string;
-  autoFocus?: boolean; onEnter?: () => void; onFocus?: () => void; onBlur?: () => void; resaltado?: boolean;
+  autoFocus?: boolean; onEnter?: () => void;
 }) {
   const estilo: CSSProperties = {
     width: '100%', padding: '13px 15px', fontSize: 15, color: 'var(--portal-ink)',
-    background: 'var(--portal-surface-2)', border: `1.5px solid ${resaltado ? 'var(--portal-brand)' : 'var(--portal-line)'}`,
+    background: 'var(--portal-surface-2)', border: '1.5px solid var(--portal-line)',
     borderRadius: 16, outline: 'none',
-    boxShadow: resaltado ? '0 0 0 3px color-mix(in srgb, var(--portal-brand) 18%, transparent)' : 'none',
-    transition: `border-color .2s ease, box-shadow .2s ease`,
+    transition: 'border-color .2s ease, box-shadow .2s ease',
   };
   return (
     <input
@@ -562,10 +559,13 @@ function CampoTexto({
       placeholder={placeholder}
       value={value}
       onChange={e => onChange(e.target.value)}
-      onFocus={onFocus}
-      onBlur={onBlur}
       autoFocus={autoFocus}
       onKeyDown={e => { if (e.key === 'Enter' && onEnter) onEnter(); }}
+      // El foco de teclado lo pinta `.pantalla-reserva-campo:focus` en
+      // globals.css — un `:focus` en CSS cubre los cuatro campos por
+      // construcción, sin depender de que cada llamador cablee su propio
+      // estado (era justo el hueco: solo "Nombre" lo tenía).
+      className="pantalla-reserva-campo"
       style={estilo}
     />
   );

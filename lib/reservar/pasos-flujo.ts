@@ -30,13 +30,15 @@ export interface Recorrido {
  * `null` para los pasos terminales (`done`/`espera`/`pendiente`: ya no hay
  * nada por delante que anunciar) y para `login`, que es la puerta de entrada
  * —todavía no se sabe qué camino tocará— y no un paso numerable.
+ *
+ * ⚠️ `datos`/`pago` volvieron a `null` en la Fase 2 del rediseño de la
+ * pantalla de reserva (docs/rediseno-pantalla-reserva-diseno.md): ya no son
+ * dos hojas separadas con «‹ Datos»/«‹ Pago» — `PantallaReserva` los funde en
+ * un único scroll continuo a propósito ("sin pasos fragmentados tipo
+ * wizard", pedido explícito), así que ya no hay un «Paso 1 de 2» que anunciar.
  */
 export function recorridoDe(paso: PasoFlujo): Recorrido | null {
   switch (paso) {
-    // Camino de invitada que paga: sabemos los dos pasos desde el principio.
-    case 'datos': return { etiquetas: ['Tus datos', 'Pago'], actual: 0 };
-    case 'pago': return { etiquetas: ['Tus datos', 'Pago'], actual: 1 };
-
     // Alta con contrato: tres pantallas, y aquí sí se conocen las tres — al
     // llegar a `registro` el servidor ya dijo que hace falta ficha y firma.
     case 'registro': return { etiquetas: ['Tus datos', 'Términos', 'Confirmar'], actual: 0 };
@@ -46,8 +48,10 @@ export function recorridoDe(paso: PasoFlujo): Recorrido | null {
     // tercero de tres) o directo desde `login` cuando ya está todo firmado (es
     // el único paso que queda). Como no se puede distinguir mirando solo el
     // paso, no se numera: se enseña sin recorrido, que es lo honesto.
-    case 'confirm': return null;
+    case 'confirm':
 
+    case 'datos':
+    case 'pago':
     case 'login':
     case 'done':
     case 'espera':

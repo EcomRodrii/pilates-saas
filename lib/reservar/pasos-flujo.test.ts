@@ -2,11 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { recorridoDe, textoPaso } from './pasos-flujo.ts';
 
-test('el camino de invitada que paga son dos pasos, en orden', () => {
-  assert.deepEqual(recorridoDe('datos'), { etiquetas: ['Tus datos', 'Pago'], actual: 0 });
-  assert.deepEqual(recorridoDe('pago'), { etiquetas: ['Tus datos', 'Pago'], actual: 1 });
-  assert.equal(textoPaso(recorridoDe('datos')!), 'Paso 1 de 2');
-  assert.equal(textoPaso(recorridoDe('pago')!), 'Paso 2 de 2');
+test('⚠️ el camino de invitada que paga ya NO se numera (Fase 2 del rediseño)', () => {
+  // Hasta el rediseño de la pantalla de reserva eran dos hojas separadas con
+  // «‹ Datos»/«‹ Pago» y un «Paso 1 de 2». `PantallaReserva`
+  // (components/reserva/pantalla-reserva.tsx) las funde en un único scroll
+  // continuo a propósito — numerarlas otra vez reintroduciría justo la
+  // sensación de wizard que ese rediseño pidió evitar.
+  assert.equal(recorridoDe('datos'), null);
+  assert.equal(recorridoDe('pago'), null);
 });
 
 test('el alta con contrato son tres, y se conocen al llegar a la primera', () => {

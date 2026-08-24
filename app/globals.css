@@ -640,6 +640,25 @@ nextjs-portal { display: none !important; }
   border: 1.5px solid var(--portal-line); background: var(--portal-surface-2);
 }
 
+/* Fase 5 (QA): foco de teclado visible en TODOS los campos, no solo en
+   "Nombre" — `CampoTexto` (pantalla-reserva.tsx) quita el `outline` nativo
+   del navegador, y antes de esto solo el campo "Nombre" tenía un reemplazo
+   (un estado de React que cada llamador tenía que acordarse de cablear a
+   mano, y solo uno lo hacía). Un `:focus` en CSS cubre los cuatro campos por
+   construcción, sin depender de que nadie recuerde nada. */
+.pantalla-reserva-campo:focus {
+  border-color: var(--portal-brand) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--portal-brand) 18%, transparent);
+}
+/* El input de código promocional vive DENTRO de `.pantalla-reserva-codigo`
+   con su propio `outline: none` (el borde lo pinta el contenedor, no el
+   input) — mismo hueco de foco que de arriba, mismo motivo: `:focus-within`
+   en vez de depender de que el input pinte su propio anillo. */
+.pantalla-reserva-codigo:focus-within {
+  border-color: var(--portal-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--portal-brand) 18%, transparent);
+}
+
 /* Tira de pestañas (#horario, app/reservar/[slug]/page.tsx) con scroll
    horizontal: en 375px de ancho la última pestaña quedaba cortada a mitad de
    palabra, con la barra de scroll nativa del sistema debajo (gris, sin
