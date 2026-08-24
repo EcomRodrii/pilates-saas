@@ -127,6 +127,10 @@ TIPOS_MANUALES = {
     # mapper siempre la escribe, y el `| null` obligaba a comprobarla en cada uso.
     ('sustituciones', 'candidatos_network'): 'any',
     ('studios', 'widget_builder'): 'Record<string, unknown> | null',
+    # `alter table ... alter column solicitud_id drop not null` (migr
+    # 20260824191315) — el script no interpreta ALTER COLUMN DROP NOT NULL,
+    # solo ADD/DROP COLUMN, así que sin esto quedaría `string` a secas.
+    ('red_resenas', 'solicitud_id'): 'string | null',
 }
 for (tabla, col), ts in TIPOS_MANUALES.items():
     if tabla in tables and col in tables[tabla]:
@@ -149,6 +153,10 @@ NOTAS_MANUALES = {
         'Última config del Widget Builder por tipo de widget (solo comodidad del '
         'panel — la config efectiva viaja congelada en el snippet copiado). '
         'NUNCA en studioPublico().',
+    ('red_resenas', 'solicitud_id'):
+        'NULL cuando la reseña viene de una alumna vía reserva_id en vez de una '
+        'solicitud de contacto aceptada — ver constraint red_resenas_gate_unico '
+        '(migr 20260824191315): exactamente uno de los dos, nunca ninguno ni ambos.',
 }
 
 def envolver(texto, ancho=76):

@@ -860,6 +860,10 @@ export interface RowStudios {
   review_boost_veces_mostrado: number | null;
   // migr 20260821143226.
   cancelacion_clase_devuelve_bono: boolean | null;
+  // migr 20260824191258.
+  lat: number | null;
+  // migr 20260824191258.
+  lng: number | null;
 }
 
 export interface RowSuscripciones {
@@ -1872,6 +1876,10 @@ export interface RowRedPerfiles {
   linkedin: string | null;
   // migr 20260813223506.
   web: string | null;
+  // migr 20260824191258.
+  lat: number | null;
+  // migr 20260824191258.
+  lng: number | null;
 }
 
 export interface RowRedExperiencias {
@@ -1946,7 +1954,11 @@ export interface RowRedResenas {
   id: string;
   perfil_id: string;
   studio_id: string;
-  solicitud_id: string;
+  // NULL cuando la reseña viene de una alumna vía reserva_id en vez de una
+  // solicitud de contacto aceptada — ver constraint red_resenas_gate_unico
+  // (migr 20260824191315): exactamente uno de los dos, nunca ninguno ni
+  // ambos.
+  solicitud_id: string | null;
   autor: string;
   puntuacion: number;
   comentario: string | null;
@@ -1954,6 +1966,8 @@ export interface RowRedResenas {
   creado_en: string;
   moderado_en: string | null;
   moderado_por: string | null;
+  // migr 20260824191315.
+  reserva_id: string | null;
 }
 
 export interface RowRedMensajes {
@@ -2221,4 +2235,20 @@ export interface RowMenuNovedades {
   href: string;
   creado_por: string | null;
   creado_en: string;
+}
+
+export interface RowRedPerfilesAlumna {
+  id: string;
+  auth_user_id: string;
+  nombre: string;
+  foto_url: string | null;
+  ciudad: string | null;
+  zona: string | null;
+  lat: number | null;
+  lng: number | null;
+  intereses: string[];
+  disponibilidad_horarios: string[];
+  estado: string;
+  creado_en: string;
+  actualizado_en: string;
 }
