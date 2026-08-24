@@ -181,16 +181,24 @@ export interface ResumenResenas {
   total: number;
 }
 
-// Mensajería interna (brief §9) — un hilo por solicitud de contacto YA
-// ACEPTADA, no un concepto de "conversación" aparte. `remitenteSoyYo` se
-// resuelve en el servidor (compara con quien pide el hilo), nunca se manda
-// el auth_user_id del remitente al cliente sin necesidad.
+// Mensajería interna (brief §9) — un hilo por solicitud de contacto
+// pendiente o aceptada (F1: mensajería pre-match), no un concepto de
+// "conversación" aparte. `remitenteSoyYo` se resuelve en el servidor
+// (compara con quien pide el hilo), nunca se manda el auth_user_id del
+// remitente al cliente sin necesidad.
 export interface MensajeNetwork {
   id: string;
   cuerpo: string;
   remitenteSoyYo: boolean;
   creadoEn: string;
   leidoEn: string | null;
+}
+
+// Respuesta de GET /api/network/mensajes. `limiteRestante` es null cuando
+// la solicitud ya está aceptada (sin tope) — no confundir con 0 (agotado).
+export interface RespuestaMensajesNetwork {
+  mensajes: MensajeNetwork[];
+  limiteRestante: number | null;
 }
 
 // Sugerencia sin puntuar de Tentare Network para cubrir un hueco de

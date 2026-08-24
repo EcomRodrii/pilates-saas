@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Check, X, Loader2, MessageCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
+import { DashboardSheet } from '@/components/ui/dashboard-sheet';
+import { HiloMensajes } from '@/components/network/hilo-mensajes';
 import { useAuth } from '@/lib/auth-context';
 import {
   fetchSolicitudesContactoNetwork, resolverSolicitudContactoNetwork, type SolicitudContactoRecibida,
@@ -30,6 +32,10 @@ export default function SolicitudesNetworkPage() {
   const [cargando, setCargando] = useState(true);
   const [solicitudes, setSolicitudes] = useState<SolicitudContactoRecibida[]>([]);
   const [resolviendoId, setResolviendoId] = useState<string | null>(null);
+  // F1 — mensajería pre-match: qué solicitud PENDIENTE tiene el chat
+  // abierto ahora mismo. Aceptar/Rechazar siguen viviendo en la propia
+  // tarjeta tal cual estaban; esto solo añade el hilo, no lo sustituye.
+  const [hiloAbierto, setHiloAbierto] = useState<SolicitudContactoRecibida | null>(null);
 
   // Misma razón que app/network/mi-perfil/page.tsx: fuera de (dashboard), sin
   // guard de sesión heredado.
@@ -116,6 +122,14 @@ export default function SolicitudesNetworkPage() {
                   >
                     <X size={14} /> Rechazar
                   </button>
+                  {/* F1: unos pocos mensajes ANTES de decidir, para aclarar
+                      dudas sin comprometerse — no sustituye Aceptar/Rechazar. */}
+                  <button
+                    onClick={() => setHiloAbierto(s)}
+                    className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] text-foreground flex items-center gap-1.5"
+                  >
+                    <MessageCircle size={14} /> Mensajes
+                  </button>
                 </div>
               )}
               {/* Sin esto, "Aceptada" era una palabra suelta — nada en esta
@@ -134,6 +148,22 @@ export default function SolicitudesNetworkPage() {
           ))}
         </div>
       )}
+
+      <DashboardSheet
+        open={Boolean(hiloAbierto)}
+        onClose={() => setHiloAbierto(null)}
+        label={hiloAbierto ? `Mensajes con ${hiloAbierto.estudioNombre}` : 'Mensajes'}
+        sheetClassName="bg-card rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden"
+      >
+        {hiloAbierto && (
+          <>
+            <div className="px-4 py-3 border-b border-border">
+              <p className="text-[13px] font-semibold text-foreground">{hiloAbierto.estudioNombre}</p>
+            </div>
+            <HiloMensajes solicitudId={hiloAbierto.id} />
+          </>
+        )}
+      </DashboardSheet>
 
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>

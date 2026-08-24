@@ -20,6 +20,7 @@ const TIPO_CONTRATO_LABEL = { temporal: 'temporal', indefinido: 'indefinido' } a
 // de mensajería de bajo volumen.
 export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
   const [mensajes, setMensajes] = useState<MensajeNetwork[] | null>(null);
+  const [limiteRestante, setLimiteRestante] = useState<number | null>(null);
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
@@ -37,7 +38,9 @@ export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
     let vivo = true;
     async function cargar() {
       const r = await fetchMensajesNetwork(solicitudId);
-      if (vivo) setMensajes(r);
+      if (!vivo) return;
+      setMensajes(r.mensajes);
+      setLimiteRestante(r.limiteRestante);
     }
     void cargar();
     const id = setInterval(cargar, 5000);
@@ -73,7 +76,9 @@ export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
     setEnviando(false);
     if (!res.ok) { setError(res.error ?? 'No se ha podido enviar.'); return; }
     setTexto('');
-    setMensajes(await fetchMensajesNetwork(solicitudId));
+    const r = await fetchMensajesNetwork(solicitudId);
+    setMensajes(r.mensajes);
+    setLimiteRestante(r.limiteRestante);
   }
 
   async function enviarPropuesta() {
@@ -97,7 +102,13 @@ export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
 
   return (
     <div className="flex flex-col h-[480px]">
-      {!cargandoFormalizacion && (
+      {/* Formalizar contratación exige una solicitud ya ACEPTADA (RLS +
+          resolverParticipante en app/api/network/formalizacion). Mientras
+          la solicitud sigue pendiente, ese GET no resuelve participante y
+          fetchFormalizacionNetwork devuelve null → miLado también null:
+          condición explícita para no enseñar "Formalizar contratación"
+          antes de que exista siquiera un contacto aceptado. */}
+      {!cargandoFormalizacion && miLado && (
         <TarjetaFormalizacion
           formalizacion={formalizacion}
           miLado={miLado}
@@ -137,6 +148,18 @@ export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
         <div ref={finRef} />
       </div>
 
+      {/* Antes de aceptar: aviso del tope de 3 mensajes por parte (F1),
+          para que el rechazo del POST al llegar a 0 no sea una sorpresa. */}
+      {limiteRestante != null && (
+        <p className="text-[11px] text-muted-foreground px-4 pb-1">
+          {limiteRestante > 0
+            ? (limiteRestante === 1
+              ? 'Te queda 1 mensaje antes de aceptar el contacto.'
+              : `Te quedan ${limiteRestante} mensajes antes de aceptar el contacto.`)
+            : 'Habla con más detalle una vez aceptéis el contacto — has llegado al límite de mensajes antes de aceptar.'}
+        </p>
+      )}
+
       {error && <p className="text-[11px] text-destructive px-4">{error}</p>}
       <div className="flex items-center gap-2 border-t border-border p-3">
         <input
@@ -144,11 +167,12 @@ export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
           onChange={e => setTexto(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); } }}
           placeholder="Escribe un mensaje…"
-          className="flex-1 rounded-lg border border-border bg-card px-3 py-2 text-[13px] text-foreground"
+          disabled={limiteRestante === 0}
+          className="flex-1 rounded-lg border border-border bg-card px-3 py-2 text-[13px] text-foreground disabled:opacity-50"
         />
         <button
           onClick={enviar}
-          disabled={enviando || !texto.trim()}
+          disabled={enviando || !texto.trim() || limiteRestante === 0}
           className="p-2 rounded-lg bg-brand text-brand-foreground disabled:opacity-50"
         >
           {enviando ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}

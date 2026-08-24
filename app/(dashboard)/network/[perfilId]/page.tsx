@@ -6,11 +6,12 @@ import { ArrowLeft, MapPin, Loader2, Send, Check, Flag, Heart, Star, MessageCirc
 import { PageHeader } from '@/components/ui/page-header';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
+import { HiloMensajes } from '@/components/network/hilo-mensajes';
 import {
   fetchPerfilNetworkPublico, contactarPerfilNetwork, reportarPerfilNetwork,
   fetchFavoritosNetwork, toggleFavoritoNetwork,
   elegibilidadResenaNetwork, enviarResenaNetwork,
-  fetchHilosMensajesNetwork,
+  fetchSolicitudEnviadaNetwork,
 } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import {
@@ -49,12 +50,14 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
   const [comentarioResena, setComentarioResena] = useState('');
   const [enviandoResena, setEnviandoResena] = useState(false);
   const [errorResena, setErrorResena] = useState('');
-  // Solicitud ya aceptada con esta persona → hay un hilo de verdad, no solo
-  // el flag local `enviado` (que se olvida en cuanto se recarga la
-  // página: antes, volver a esta ficha después de que ella aceptara seguía
-  // enseñando "Contactar" como si nada, sin ningún camino hacia la
-  // conversación real).
-  const [solicitudIdAceptada, setSolicitudIdAceptada] = useState<string | null>(null);
+  // Solicitud ya enviada a esta persona (pendiente o aceptada) → hay un
+  // hilo de verdad, no solo el flag local `enviado` (que se olvida en
+  // cuanto se recarga la página: antes, volver a esta ficha después de que
+  // ella aceptara seguía enseñando "Contactar" como si nada, sin ningún
+  // camino hacia la conversación real). F1: también cubre 'pendiente' para
+  // poder abrir el chat pre-match sin esperar a que acepte.
+  const [solicitudPropia, setSolicitudPropia] = useState<{ id: string; estado: 'pendiente' | 'aceptada' | 'rechazada' } | null>(null);
+  const [hiloAbierto, setHiloAbierto] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -72,11 +75,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
       setYaResenado(r.yaResenado);
       setFaltaClaseCompletada(r.faltaClaseCompletada);
     });
-    fetchHilosMensajesNetwork().then(hilos => {
-      if (!vivo) return;
-      const hilo = hilos.find(h => h.perfilId === perfilId);
-      if (hilo) setSolicitudIdAceptada(hilo.solicitudId);
-    });
+    fetchSolicitudEnviadaNetwork(perfilId).then(s => { if (vivo) setSolicitudPropia(s); });
     return () => { vivo = false; };
   }, [perfilId]);
 
@@ -220,13 +219,28 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
       )}
 
       <div className="flex items-center gap-2">
-        {solicitudIdAceptada ? (
+        {solicitudPropia?.estado === 'aceptada' ? (
           <Link
-            href={`/network/mensajes?hilo=${solicitudIdAceptada}`}
+            href={`/network/mensajes?hilo=${solicitudPropia.id}`}
             className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5 hover:brightness-95 transition-colors"
           >
             <MessageCircle size={14} /> Enviar mensaje
           </Link>
+        ) : solicitudPropia?.estado === 'pendiente' ? (
+          // F1: unos pocos mensajes ANTES de que acepte, para aclarar dudas
+          // sin comprometerse — no sustituye el aviso de "solicitud enviada",
+          // solo añade un camino a la conversación mientras se decide.
+          <>
+            <button
+              onClick={() => setHiloAbierto(true)}
+              className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5 hover:brightness-95 transition-colors"
+            >
+              <MessageCircle size={14} /> Mensajes
+            </button>
+            <p className="text-[12px] text-muted-foreground">
+              Solicitud pendiente de aceptar.
+            </p>
+          </>
         ) : enviado ? (
           <p className="text-[12px] text-success flex items-center gap-1.5">
             <Check size={14} /> Solicitud enviada. Te avisaremos si {perfil.nombre.split(' ')[0]} la acepta.
@@ -271,6 +285,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
                 if (!res.ok) { setError(res.error ?? 'No se ha podido enviar.'); return; }
                 setModalAbierto(false);
                 setEnviado(true);
+                setSolicitudPropia({ id: res.solicitudId, estado: 'pendiente' });
               }}
               disabled={enviando}
               className="px-3.5 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium disabled:opacity-60"
@@ -286,6 +301,21 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
           </div>
         </div>
       </DashboardSheet>
+
+      {solicitudPropia?.estado === 'pendiente' && (
+        <DashboardSheet
+          open={hiloAbierto}
+          onClose={() => setHiloAbierto(false)}
+          label={`Mensajes con ${perfil.nombre}`}
+          sheetClassName="bg-card rounded-2xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden"
+        >
+          <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border">
+            <ProfileAvatar fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} size="sm" />
+            <p className="text-[13px] font-semibold text-foreground">{perfil.nombre}</p>
+          </div>
+          <HiloMensajes solicitudId={solicitudPropia.id} />
+        </DashboardSheet>
+      )}
 
       {(elegibleResena || yaResenado || faltaClaseCompletada) && (
         <div className={`${cardCls} p-5`}>
