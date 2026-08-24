@@ -17,9 +17,9 @@
 //    evita el FOUC / flash sin tema).
 
 import type { CSSProperties } from 'react';
-import { resolveTheme, FUENTES, RADIOS, DEFAULT_THEME, type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
+import { resolveTheme, FUENTES, RADIOS, RADIO_PRESET_PX, DEFAULT_THEME, type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
 // El vocabulario del kit de temas vive con los temas, no aquí.
-import { TEMAS_PORTAL, varsColorSobreTema, varsEscalaSobreTema, varsRadioSobreTema, varsSombraSobreTema, type TemaPortalId } from '../themes/registro.ts';
+import { TEMAS_PORTAL, varsColorSobreTema, varsEscalaSobreTema, varsRadioSobreTema, varsRadioPresetSobreTema, varsSombraSobreTema, varsBotonSobreTema, type TemaPortalId } from '../themes/registro.ts';
 import { getPreset } from './theme-presets.ts';
 import { cumpleContraste, foregroundParaFondo, hexARgb } from './wcag-contrast.ts';
 import { colorLegibleSobreClaro } from './color-utils.ts';
@@ -215,10 +215,6 @@ function varsBarraFlotante(t: ThemeConfig, marcaForeground: string): Record<stri
   };
 }
 
-// Radio por pieza de las secciones NUEVAS de cada tema (tarjeta de próxima
-// clase, tiraSemana, progresoSemanal) — nunca del resto del portal, que sigue
-// leyendo los números fijos de lib/portal-design.ts. Sin `radioTema`, ninguna
-// var — mismo mecanismo que el resto de esta fase.
 // Escala tipográfica por pieza. Mismo criterio que varsRadioTema: una var por
 // eje que el tema fije, ninguna para los que no — así el portal de un estudio
 // sin tema de esta tanda no cambia ni un píxel.
@@ -235,9 +231,22 @@ function varsEscalaTexto(t: ThemeConfig): Record<string, string> {
   return vars;
 }
 
+// `radius` (preset Recto/Redondeado/Píldora) siembra las 4 piezas con el
+// mismo valor; `radioTema` (ajuste fino) pisa por pieza encima. Antes,
+// `radius` solo alimentaba `--radius` (la escala de Tailwind del PANEL de
+// gestión) — ningún componente del portal ni del widget lo leía, así que
+// elegir Recto/Redondeado/Píldora no cambiaba un solo píxel visible (C1 de la
+// auditoría de uso real, 2026-08-24).
 function varsRadioTema(t: ThemeConfig): Record<string, string> {
-  if (!t.radioTema) return {};
   const vars: Record<string, string> = {};
+  if (t.radius) {
+    const preset = RADIO_PRESET_PX[t.radius];
+    vars['--portal-radius-card'] = `${preset.card}px`;
+    vars['--portal-radius-boton'] = `${preset.boton}px`;
+    vars['--portal-radius-chip'] = `${preset.chip}px`;
+    vars['--portal-radius-acceso'] = `${preset.acceso}px`;
+  }
+  if (!t.radioTema) return vars;
   if (t.radioTema.card !== undefined) vars['--portal-radius-card'] = `${t.radioTema.card}px`;
   if (t.radioTema.boton !== undefined) vars['--portal-radius-boton'] = `${t.radioTema.boton}px`;
   if (t.radioTema.chip !== undefined) vars['--portal-radius-chip'] = `${t.radioTema.chip}px`;
@@ -341,9 +350,13 @@ export function varsKitMap(raw: unknown): Record<string, string> {
       headingStack: varsTitularPortal(t)['--portal-heading-font'],
       headingWeight: varsTitularPortal(t)['--portal-heading-weight'],
     }),
+    // El preset (Recto/Redondeado/Píldora) siembra el default; `radioTema`
+    // (ajuste fino) pisa por pieza — por eso va DESPUÉS, no antes.
+    ...varsRadioPresetSobreTema(t.radius),
     ...varsRadioSobreTema(t.radioTema),
     ...varsEscalaSobreTema(t.escalaTexto as Record<string, number | undefined> | undefined, tema),
     ...varsSombraSobreTema(t.cardStyle, t.text),
+    ...varsBotonSobreTema(t.buttonStyle, t.primary),
   };
 }
 

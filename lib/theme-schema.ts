@@ -48,6 +48,18 @@ export const RADIOS = [
 export type RadiusId = (typeof RADIOS)[number]['id'];
 
 /**
+ * Preset de esquinas → px por pieza, para cuando NO hay `radioTema` (ajuste
+ * fino) que lo pise. `radioTema` sigue ganando pieza a pieza — esto es solo
+ * el valor de partida cuando la propietaria elige Recto/Redondeado/Píldora
+ * sin entrar a afinar cada pieza a mano.
+ */
+export const RADIO_PRESET_PX: Record<RadiusId, { card: number; boton: number; chip: number; acceso: number }> = {
+  sharp: { card: 4, boton: 4, chip: 4, acceso: 4 },
+  rounded: { card: 16, boton: 16, chip: 16, acceso: 16 },
+  pill: { card: 32, boton: 32, chip: 32, acceso: 32 },
+};
+
+/**
  * Estilo del botón principal (CTA de marca). `solid` es el look de siempre
  * (fondo de marca sólido) — los estudios que ya tienen tema no ven ningún
  * cambio hasta que eligen uno distinto.
@@ -188,7 +200,13 @@ const navConfigSchema = z
   .default(DEFAULT_NAV_CONFIG);
 
 const fontIdSchema = z.enum(FUENTES.map((f) => f.id) as [FontId, ...FontId[]]);
-const radiusSchema = z.enum(RADIOS.map((r) => r.id) as [RadiusId, ...RadiusId[]]);
+// Nullable = hereda: mismo criterio que quickLinksStyle. `null` es "ningún
+// preset elegido" — para un tema del kit, eso significa "conserva la
+// esquina propia del tema" en vez de pisarla con un valor fijo que ni
+// siquiera se pidió (era el bug real de C1: el default 'rounded' de antes
+// nunca podía significar "hereda", así que el control no tenía forma de no
+// pisar nada).
+const radiusSchema = z.enum(RADIOS.map((r) => r.id) as [RadiusId, ...RadiusId[]]).nullable();
 const faviconSchema = z.string().url().nullable();
 
 /**
@@ -415,7 +433,7 @@ export const themeConfigSchema = z
     background: hexSchema,
     text: hexSchema,
     fontId: fontIdSchema,
-    radius: radiusSchema,
+    radius: radiusSchema.default(null),
     faviconUrl: faviconSchema.default(null),
     // Compartir y buscadores — ver el comentario de los schemas arriba.
     // Vacío/null = se genera solo, que es lo que hacía antes de existir estos
@@ -525,7 +543,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   background: '#F6F7F9',
   text: '#1A1A1A',
   fontId: 'jakarta',
-  radius: 'rounded',
+  radius: null,
   faviconUrl: null,
   seoTitulo: '',
   seoDescripcion: '',
