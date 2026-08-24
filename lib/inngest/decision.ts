@@ -42,11 +42,15 @@ async function nombrePropietarioDe(studioId: string): Promise<{ nombrePropietari
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// F1 · DISPATCHER (cron) — 06:30 y 14:30 UTC, desplazado del de
-// automatizaciones (07:00) para no competir por la concurrency del plan free.
+// F1 · DISPATCHER (cron) — 14:30 UTC una sola vez al día (optimizado 2026-08-25).
+// Antes corría a las 06:30 y 14:30, pero el análisis de 06:30 no tenía suficientes
+// datos nuevos (solo 8h desde cierre del día anterior). A las 14:30 hay 30+ horas
+// de reservas, pagos, sustituciones nuevas. Reducir a 1x/día baja el consumo sin
+// perder señales reales. Desplazado del de automatizaciones (07:00) para no
+// competir por la concurrency del plan free.
 // ═══════════════════════════════════════════════════════════════════════════
 export const decisionDispatcher = inngest.createFunction(
-  { id: 'decision-dispatcher', triggers: [{ cron: '30 6,14 * * *' }] },
+  { id: 'decision-dispatcher', triggers: [{ cron: '30 14 * * *' }] },
   async ({ step }) => {
     const nowISO = await step.run('now', async () => new Date().toISOString());
 
