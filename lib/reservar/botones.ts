@@ -29,9 +29,12 @@ const BASE =
 
 /**
  * La acción que hace avanzar el flujo. El color de fondo va aparte, en línea:
- * es el de la marca del estudio y no puede vivir en una clase estática.
+ * es el de la marca del estudio y no puede vivir en una clase estática, así
+ * que el hover tampoco puede ser un `bg-*` fijo — un `filter` sí funciona
+ * sobre cualquier color sin conocerlo.
  */
-export const BOTON_PRIMARIO = `${BASE} text-white`;
+export const BOTON_PRIMARIO =
+  `${BASE} text-white hover:brightness-90 disabled:hover:brightness-100`;
 
 /**
  * La alternativa a la acción principal (descargar, volver, otra vía). Ahora el
