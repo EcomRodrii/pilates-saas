@@ -26,8 +26,19 @@ import {
 } from './catalogo.ts';
 import type {
   FiltroBusquedaNetwork, PerfilNetworkPublico, ExperienciaNetworkPublica, BadgesNetwork,
-  ResumenResenas, ResenaNetwork,
+  ResumenResenas, ResenaNetwork, MediaNetwork,
 } from './tipos.ts';
+import { mapFilaAMedia, type FilaRedPerfilMedia } from './mapeo.ts';
+
+// Portfolio de fotos (F1) — mismo bucket privado y mismo criterio de "toda
+// lectura pasa por URL firmada" que app/api/network/portfolio/route.ts (ver
+// lib/network/portfolio-storage.ts para el porqué no es el bucket público
+// `avatars`). 10 minutos aquí, más corto que en la vista propia (1h): una
+// visita al marketplace es un vistazo de un momento, no una sesión de
+// edición larga — y una página pública indexable no debería llevar cosida
+// una URL firmada de vida larga en el HTML servido.
+const BUCKET_PORTFOLIO = 'red-documentos-identidad';
+const CADUCIDAD_URL_PORTFOLIO_SEGUNDOS = 600;
 
 /** Media a 1 decimal; `null` sin reseñas — nunca 0 estrellas fabricadas. */
 function resumenDesdePuntuaciones(puntuaciones: number[]): ResumenResenas {
@@ -251,6 +262,7 @@ export interface DetallePerfilPublico {
   certificaciones: CertificacionNetworkPublica[];
   badges: BadgesNetwork;
   resenas: ResenaNetwork[];
+  mediaFotos: MediaNetwork[];
 }
 
 async function detallePerfilDesdeFila(
@@ -272,6 +284,7 @@ async function detallePerfilDesdeFila(
     { count: referenciasConfirmadas },
     { data: resenasData },
     { data: certificacionesData },
+    { data: mediaData },
   ] = await Promise.all([
     admin.from('red_experiencias')
       .select('id, studio_id, nombre_estudio, fecha_inicio, fecha_fin, especialidades, descripcion, estado_verificacion, creado_en')
@@ -283,8 +296,23 @@ async function detallePerfilDesdeFila(
       .eq('perfil_id', id).eq('estado', 'publicada').order('creado_en', { ascending: false }),
     admin.from('red_certificaciones').select('nombre, institucion, anio')
       .eq('perfil_id', id).eq('estado', 'verificado').order('anio', { ascending: false }),
+    admin.from('red_perfil_media').select('id, perfil_id, path, orden, creado_en')
+      .eq('perfil_id', id).order('orden', { ascending: true }).order('creado_en', { ascending: true }),
   ]);
   if (errExp) return { error: errExp };
+
+  const filasMedia = (mediaData ?? []) as unknown as FilaRedPerfilMedia[];
+  let mediaFotos: MediaNetwork[] = [];
+  if (filasMedia.length > 0) {
+    const { data: firmadas } = await admin.storage
+      .from(BUCKET_PORTFOLIO)
+      .createSignedUrls(filasMedia.map(f => f.path), CADUCIDAD_URL_PORTFOLIO_SEGUNDOS);
+    if (firmadas) {
+      mediaFotos = filasMedia
+        .map((f, i) => (firmadas[i]?.signedUrl ? mapFilaAMedia(f, firmadas[i].signedUrl) : null))
+        .filter((m): m is MediaNetwork => m !== null);
+    }
+  }
 
   const experiencias = ((experienciasData ?? []) as unknown as Omit<FilaRedExperiencia, 'perfil_id'>[]).map(mapFilaAExperienciaPublica);
   const certificaciones: CertificacionNetworkPublica[] = (certificacionesData ?? []) as CertificacionNetworkPublica[];
@@ -320,6 +348,7 @@ async function detallePerfilDesdeFila(
     certificaciones,
     badges,
     resenas,
+    mediaFotos,
   };
 }
 

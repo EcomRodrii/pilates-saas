@@ -19,7 +19,7 @@ import type {
   PerfilIdentidadNetwork, CambiosPerfilIdentidadNetwork, VerificacionIdentidadNetwork,
   CertificacionNetwork, NuevaCertificacionNetwork,
   VacanteNetwork, NuevaVacanteNetwork, CambiosVacanteNetwork, CandidaturaNetwork,
-  ReferenciaNetwork, NuevaReferenciaNetwork,
+  ReferenciaNetwork, NuevaReferenciaNetwork, MediaNetwork,
 } from '@/lib/network/tipos';
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
@@ -2214,6 +2214,51 @@ export async function crearReferenciaNetwork(
     return { ok: true, referencia: data.referencia };
   } catch {
     return { ok: false, error: 'No se pudo enviar la solicitud de referencia' };
+  }
+}
+
+// Portfolio de fotos (F1, gestión desde /network/mi-perfil) — la subida en
+// sí (Storage) va por lib/network/portfolio-storage.ts; esto solo registra/
+// borra la fila que la referencia y trae la URL firmada para pintarla.
+export async function fetchMiPortfolioNetwork(): Promise<MediaNetwork[]> {
+  try {
+    const res = await fetch('/api/network/portfolio', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { fotos?: MediaNetwork[] };
+    return data.fotos ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function crearFotoPortfolioNetwork(
+  path: string,
+): Promise<{ ok: true; foto: MediaNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/portfolio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ path }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { foto?: MediaNetwork; error?: string };
+    if (!res.ok || !data.foto) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, foto: data.foto };
+  } catch {
+    return { ok: false, error: 'No se pudo guardar la foto' };
+  }
+}
+
+export async function eliminarFotoPortfolioNetwork(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/portfolio', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo eliminar la foto' };
   }
 }
 

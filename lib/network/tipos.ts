@@ -168,6 +168,23 @@ export interface ReferenciaNetwork {
 
 export type NuevaReferenciaNetwork = Pick<ReferenciaNetwork, 'nombreReferente' | 'emailReferente' | 'relacion'>;
 
+// Portfolio de fotos — red_perfil_media (migr 20260824193000). Solo fotos:
+// vídeo queda fuera a propósito (feature-freeze de VOD, lib/frozen-
+// features.ts). `url` es SIEMPRE una URL firmada de vida corta (el bucket
+// que las guarda es privado, ver lib/network/portfolio-storage.ts) — nunca
+// persistirla más allá de la carga en la que llega.
+export interface MediaNetwork {
+  id: string;
+  url: string;
+  orden: number;
+}
+
+// Límite de producto (no de esquema — el comentario de la tabla lo deja
+// explícito): lo aplican tanto la API (app/api/network/portfolio/route.ts)
+// como la UI (components/network/seccion-portfolio.tsx), nunca solo el
+// cliente.
+export const PORTFOLIO_MAX_FOTOS = 6;
+
 // Badges de confianza (Fase 8) — ver lib/network/badges.ts para el cálculo
 // y components/network/lista-badges.tsx para el render.
 export interface BadgesNetwork {

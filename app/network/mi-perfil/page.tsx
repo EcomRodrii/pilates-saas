@@ -9,6 +9,7 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { SelectorChips } from '@/components/network/selector-chips';
 import { SeccionExperienciaNetwork } from '@/components/network/seccion-experiencia';
 import { SeccionReferenciasNetwork } from '@/components/network/seccion-referencias';
+import { SeccionPortfolioNetwork } from '@/components/network/seccion-portfolio';
 import { ListaBadgesNetwork } from '@/components/network/lista-badges';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
@@ -400,6 +401,7 @@ export default function MiPerfilNetworkPage() {
           </div>
           {perfil && <SeccionExperienciaNetwork onExperienciasChange={setExperiencias} />}
           {perfil && <SeccionReferenciasNetwork onReferenciasChange={setReferencias} />}
+          {perfil && user && <SeccionPortfolioNetwork authUserId={user.id} />}
         </div>
       )}
 

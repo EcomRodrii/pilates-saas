@@ -3,7 +3,7 @@
 import type {
   PerfilNetwork, PerfilNetworkPublico, ExperienciaNetwork, ExperienciaNetworkPublica, ResumenResenas,
   PerfilIdentidadNetwork, VerificacionIdentidadNetwork, CertificacionNetwork,
-  VacanteNetwork, CandidaturaNetwork, ReferenciaNetwork,
+  VacanteNetwork, CandidaturaNetwork, ReferenciaNetwork, MediaNetwork,
 } from './tipos.ts';
 
 export interface FilaRedPerfil {
@@ -114,6 +114,21 @@ export function mapFilaAExperienciaPublica(f: Omit<FilaRedExperiencia, 'perfil_i
     estadoVerificacion: f.estado_verificacion as ExperienciaNetworkPublica['estadoVerificacion'],
     creadoEn: f.creado_en,
   };
+}
+
+// Fila de red_perfil_media. `path` NUNCA sale de este módulo hacia el
+// cliente (es la clave del objeto en el bucket privado) — mapFilaAMedia
+// recibe la URL firmada aparte y no toca `path`.
+export interface FilaRedPerfilMedia {
+  id: string;
+  perfil_id: string;
+  path: string;
+  orden: number;
+  creado_en: string;
+}
+
+export function mapFilaAMedia(f: Pick<FilaRedPerfilMedia, 'id' | 'orden'>, url: string): MediaNetwork {
+  return { id: f.id, url, orden: f.orden };
 }
 
 export interface FilaRedReferencia {

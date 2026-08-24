@@ -101,7 +101,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
   const detalle = await cargar(slug);
   if (!detalle) notFound();
 
-  const { perfil, experiencias, certificaciones, badges, resenas } = detalle;
+  const { perfil, experiencias, certificaciones, badges, resenas, mediaFotos } = detalle;
 
   const url = `${LEGAL.url}/network/instructoras/${slug}`;
   const jsonLd = {
@@ -249,6 +249,19 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                         <p className="text-[14px] font-bold" style={{ color: NW_TINTA }}>{c.nombre}</p>
                         <p className="text-[13px]" style={{ color: NW_MUTED_2 }}>{c.institucion}{c.anio ? ` · ${c.anio}` : ''}</p>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              </Seccion>
+            )}
+
+            {mediaFotos.length > 0 && (
+              <Seccion titulo="Portfolio" compacta>
+                <div className="grid grid-cols-3 gap-2">
+                  {mediaFotos.map(m => (
+                    <div key={m.id} className="aspect-square rounded-lg overflow-hidden" style={{ background: NW_SAND }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- URL firmada de vida corta, no vale la pena que next/image la cachee */}
+                      <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                     </div>
                   ))}
                 </div>
