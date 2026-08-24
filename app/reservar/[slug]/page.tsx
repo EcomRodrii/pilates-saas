@@ -2870,6 +2870,14 @@ export default function ReservarPage() {
           maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(90vh, 640px)') : '90vh',
           overflowY: 'auto',
           overscrollBehavior: 'contain',
+          // El paso 'done' (confirmación) es el único de este modal sin
+          // `footer` — su contenido scrollea dentro de este mismo `p-6`, así
+          // que el botón "Añadir a tu calendario" caía justo en el borde de
+          // los 24px fijos, sin el margen de la barra inferior de Safari en
+          // iPhone (`env(safe-area-inset-bottom)`). Mismo cálculo que ya usa
+          // el `footer` de PublicSheet para el paso 'datos' — se suma al
+          // padding normal, no lo sustituye.
+          paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
         }}
         overlayStyle={overlayEmbed}
         // El CTA del paso «datos» va anclado abajo, no al final del scroll:
