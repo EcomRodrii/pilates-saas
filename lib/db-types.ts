@@ -864,6 +864,8 @@ export interface RowStudios {
   lat: number | null;
   // migr 20260824191258.
   lng: number | null;
+  // migr 20260824230506.
+  visible_en_network: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -2261,5 +2263,14 @@ export interface RowRedPerfilMedia {
   tipo: string;
   path: string;
   orden: number;
+  creado_en: string;
+}
+
+export interface RowRedFavoritosAlumna {
+  id: string;
+  auth_user_id: string;
+  tipo: string;
+  studio_id: string | null;
+  perfil_id: string | null;
   creado_en: string;
 }
