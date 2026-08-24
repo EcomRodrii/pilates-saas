@@ -1880,6 +1880,8 @@ export interface RowRedPerfiles {
   lat: number | null;
   // migr 20260824191258.
   lng: number | null;
+  // migr 20260824193100.
+  mostrar_estudios_actuales: boolean | null;
 }
 
 export interface RowRedExperiencias {
@@ -2251,4 +2253,13 @@ export interface RowRedPerfilesAlumna {
   estado: string;
   creado_en: string;
   actualizado_en: string;
+}
+
+export interface RowRedPerfilMedia {
+  id: string;
+  perfil_id: string;
+  tipo: string;
+  path: string;
+  orden: number;
+  creado_en: string;
 }
