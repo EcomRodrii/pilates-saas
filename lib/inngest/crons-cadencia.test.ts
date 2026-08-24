@@ -66,12 +66,15 @@ test('bucket A (resto): ninguno debe quedar registrado en Inngest', () => {
 });
 
 // ⚠️ Las dos que NO se bajaron, y por qué. No es purismo: bajarlas degrada algo
-// concreto que alguien nota.
-test('conciliar-cobros sigue cada 5 min mientras sea el camino principal del dinero', () => {
+// concreto que alguien nota. Actualizado 2026-08-25: conciliar-cobros bajó de
+// cada 5min a cada hora porque el webhook es el camino principal de entrega de
+// cobros (auditoría #3). La ventana de recuperación de 12h sigue siendo válida,
+// y la red de seguridad ahora recorre una vez por hora en punto.
+test('conciliar-cobros cada hora en punto (red de seguridad, no camino principal)', () => {
   const fuente = leer('lib/inngest/conciliar-cobros.ts');
   assert.equal(
-    cronDe(fuente, 'conciliar-cobros'), '*/5 * * * *',
-    'espaciarlo dobla lo que una socia espera a su bono, y hoy este barrido NO es la red sino el camino por el que llegan cobros reales (Sentry JAVASCRIPT-NEXTJS-13)',
+    cronDe(fuente, 'conciliar-cobros'), '0 * * * *',
+    'cada hora en punto es suficiente para reconciliar; el webhook es el camino principal. Inngest: 28.8k→2.4k executions/mes (90% reducción)',
   );
 });
 
