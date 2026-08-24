@@ -591,6 +591,55 @@ nextjs-portal { display: none !important; }
   .reserva-modal-edge { padding: 0 !important; }
 }
 
+/* Pantalla de reserva a pantalla completa (Fase 2 del rediseño, pedido del
+   fundador: "que deje de sentirse como un modal disfrazado"). Reutiliza el
+   mismo backdrop de PublicSheet (franja del iframe, safe-area, animación de
+   entrada/salida ya resueltas) pero sin tarjeta flotante ni fondo
+   oscurecido — la hoja ocupa el 100% del espacio disponible, con el color de
+   fondo de la propia página detrás. `!important` por el mismo motivo que
+   `.reserva-modal-edge`: pisa utilidades de Tailwind cuyo orden en la hoja
+   final no está garantizado. */
+.reserva-pantalla-completa {
+  padding: 0 !important;
+  background-color: var(--portal-bg) !important;
+  backdrop-filter: none !important;
+}
+.reserva-pantalla-completa-hoja {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* Grid de la pantalla de reserva: una columna en móvil, dos en escritorio —
+   por CONTAINER QUERY (mide el contenedor real, no el viewport) y no por
+   breakpoint de Tailwind, por el gotcha ya documentado en este archivo: en el
+   iframe embebido `sm:`/`md:` miden el ancho del IFRAME, no de la pantalla
+   real. Un container query mide el ancho real del propio nodo, que SÍ
+   coincide con el ancho visible del iframe (el host lo dimensiona con CSS
+   normal) — sortea el problema en vez de necesitar el sistema `cq(...)` de
+   tokens, pensado para interpolar un número, no para cambiar de layout. */
+.pantalla-reserva-contenedor { container-type: inline-size; }
+@container (min-width: 760px) {
+  .pantalla-reserva-grid { grid-template-columns: 1fr 1fr !important; align-items: start; }
+}
+
+/* Transición entre "Tus datos" y "Pago" — nunca un salto seco de página a
+   página (eso es justo la sensación de "wizard" que se pidió evitar). */
+@keyframes pantalla-reserva-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.pantalla-reserva-seccion { animation: pantalla-reserva-entra .32s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Código promocional expandido — mismo criterio visual que el resto de
+   campos de la pantalla (línea + fondo sutil), auditado contra Momence. */
+.pantalla-reserva-codigo {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: 12px;
+  border: 1.5px solid var(--portal-line); background: var(--portal-surface-2);
+}
+
 /* Tira de pestañas (#horario, app/reservar/[slug]/page.tsx) con scroll
    horizontal: en 375px de ancho la última pestaña quedaba cortada a mitad de
    palabra, con la barra de scroll nativa del sistema debajo (gris, sin

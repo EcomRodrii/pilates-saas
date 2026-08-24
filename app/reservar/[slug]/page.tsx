@@ -39,14 +39,15 @@ import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
-import { imagenDeEstudio, imagenDeClase, alFallarImagen, IMAGENES_POR_DEFECTO, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
-import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
+import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
+import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
+import { PantallaReserva } from '@/components/reserva/pantalla-reserva';
 import { piDeClientSecret, RETARDOS_POLL_MS, type RespuestaEstadoPago } from '@/lib/billing/estado-pago-publico';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import {
-  Users, CheckCircle2, X, Calendar, Clock, MapPin,
-  CreditCard, FileText, Download, ExternalLink, Mail, ChevronLeft,
+  Users, CheckCircle2, X, Calendar,
+  CreditCard, FileText, Download, ExternalLink, Mail,
   Loader2, AlertTriangle, Hourglass,
 } from 'lucide-react';
 
@@ -89,9 +90,9 @@ function pad2(n: number) { return String(n).padStart(2, '0'); }
 function localDate(d: Date) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
-function fmtTime(iso: string) {
-  const d = new Date(iso); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
+// fmtTime/fmtLong/telefonoValido: extraídas a lib/reservar/formato.ts para
+// que pantalla-reserva.tsx las use sin crear un import circular con esta
+// página.
 // Franja horaria del discovery quiz — misma hora local sin timezone fija
 // que ya usa `fmtTime` para mostrar la hora de la sesión al visitante.
 function horarioDeSesion(iso: string): 'manana' | 'mediodia' | 'tarde' {
@@ -99,9 +100,6 @@ function horarioDeSesion(iso: string): 'manana' | 'mediodia' | 'tarde' {
   if (h < 12) return 'manana';
   if (h < 17) return 'mediodia';
   return 'tarde';
-}
-function fmtLong(d: Date) {
-  return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 const NIVEL_LABEL: Record<string, string> = {
@@ -277,9 +275,6 @@ const RT = RESERVAR_TOKENS;
 // Mínimo razonable de dígitos para un teléfono real (España: 9). No se valida
 // prefijo — el estudio contacta por WhatsApp/llamada, un formato demasiado
 // estricto rechazaría números correctos de otros países sin aportar nada.
-function telefonoValido(telefono: string): boolean {
-  return telefono.replace(/[^0-9]/g, '').length >= 9;
-}
 
 export default function ReservarPage() {
   const {
@@ -1672,6 +1667,11 @@ export default function ReservarPage() {
   const PRIMARY = 'var(--portal-brand)';
   const PRIMARY_FG = 'var(--portal-brand-foreground)';
 
+  // Fase 2 del rediseño (docs/rediseno-pantalla-reserva-diseno.md): "datos" y
+  // "pago" dejaron de ser un paso más del modal pequeño — son la nueva
+  // <PantallaReserva>, a pantalla completa dentro de la misma <PublicSheet>.
+  const esPantallaReserva = loginStep === 'datos' || loginStep === 'pago';
+
   // F0 · POR-1: no ofrecer planes a 0 € como contratables en público
   // (cualquiera obtendría clases gratis). El precio > 0 es requisito del
   // checkout de Stripe igualmente.
@@ -2852,47 +2852,43 @@ export default function ReservarPage() {
           : loginStep === 'contrato' ? 'Acepta los términos'
           : 'Confirmar reserva'
         }
-        // "Datos"/"pago" calcan el asistente de 2 pasos del prototipo real
-        // (Claude Design, no la copia local desfasada del handoff) — ese
-        // asistente es más ancho que el resto de pasos de este modal (login,
-        // confirmar, etc.), así que la hoja crece solo para esos dos.
-        // `reserva-hoja-estable` solo fuera del embebido: dentro, la franja
-        // visible del iframe ya manda sobre la altura (ver `overlayEmbed`), y
-        // forzar un mínimo la sacaría de esa franja.
-        sheetClassName={`bg-white w-full ${loginStep === 'datos' || loginStep === 'pago' ? 'max-w-lg' : 'max-w-sm'} ${embedMode ? '' : 'reserva-hoja-estable'} rounded-t-3xl sm:rounded-3xl p-6 relative shadow-2xl transition-[max-width] duration-300 ease-out`}
-        overlayClassName="reserva-modal-edge"
+        // Fase 2 del rediseño: "datos"/"pago" dejaron de ser un paso más del
+        // asistente pequeño — son la nueva <PantallaReserva>, a pantalla
+        // completa (`reserva-pantalla-completa*`, ver globals.css). El resto
+        // de pasos (login/registro/contrato/confirmar/espera/pendiente/éxito)
+        // se quedan con la hoja pequeña de siempre, sin tocar.
+        sheetClassName={esPantallaReserva
+          ? 'reserva-pantalla-completa-hoja bg-transparent relative'
+          : `bg-white w-full max-w-sm ${embedMode ? '' : 'reserva-hoja-estable'} rounded-t-3xl sm:rounded-3xl p-6 relative shadow-2xl transition-[max-width] duration-300 ease-out`}
+        overlayClassName={esPantallaReserva ? 'reserva-pantalla-completa' : 'reserva-modal-edge'}
         // P0-3: en el iframe embebido, `90vh` es el 90% del IFRAME entero (que
         // mide lo que su contenido) — el modal se anclaba junto al pie de la
         // web del estudio, a ~1000px de la vista del usuario (medido). Con
         // franja, el modal vive DENTRO de ella (maxHeight al 100% de la franja,
         // menos el p-4 del backdrop); sin franja, tope fijo razonable.
-        sheetStyle={{
-          maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(90vh, 640px)') : '90vh',
-          overflowY: 'auto',
-          overscrollBehavior: 'contain',
-          // El paso 'done' (confirmación) es el único de este modal sin
-          // `footer` — su contenido scrollea dentro de este mismo `p-6`, así
-          // que el botón "Añadir a tu calendario" caía justo en el borde de
-          // los 24px fijos, sin el margen de la barra inferior de Safari en
-          // iPhone (`env(safe-area-inset-bottom)`). Mismo cálculo que ya usa
-          // el `footer` de PublicSheet para el paso 'datos' — se suma al
-          // padding normal, no lo sustituye.
-          paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
-        }}
+        // Pantalla completa: el scroll vive DENTRO de <PantallaReserva>, no en
+        // la hoja — `overflow: hidden` aquí evita un doble scroll anidado.
+        // Fuera de pantalla completa, sigue el tratamiento de siempre —
+        // incluido el `paddingBottom` con safe-area del paso 'done' (el botón
+        // "Añadir a tu calendario" quedaba a ras de la barra de gestos del
+        // iPhone, #1365): ese paso no lleva `footer`, así que su contenido
+        // scrollea dentro de este mismo `p-6`.
+        sheetStyle={esPantallaReserva
+          ? { maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(94vh, 760px)') : '100dvh', overflow: 'hidden' }
+          : {
+            maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(90vh, 640px)') : '90vh',
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
+          }}
         overlayStyle={overlayEmbed}
-        // El CTA de cada paso con inputs va anclado abajo, no al final del
-        // scroll: con el teclado abierto en móvil (los tres pasos siguientes
-        // llevan `autoFocus`) quedaba fuera de alcance, y con él la casilla
-        // de privacidad que lo habilita en «datos» (ver el docblock de `footer`).
+        // El CTA de 'login'/'registro' va anclado abajo, no al final del
+        // scroll: con el teclado abierto en móvil (ambos llevan `autoFocus`)
+        // quedaba fuera de alcance (#1366). 'datos'/'pago' ya NO pasan por
+        // aquí — <PantallaReserva> lleva su propio CTA dentro de la tarjeta
+        // de pago, no en un footer fijo de PublicSheet.
         footer={
-          loginStep === 'datos' ? (
-            <button onClick={handleDatosContinuar}
-              disabled={!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono) || !privacidadAceptada || datosCargando}
-              className={BOTON_PRIMARIO}
-              style={{ backgroundColor: PRIMARY }}>
-              {datosCargando ? 'Un momento…' : 'Continuar al pago'}
-            </button>
-          ) : loginStep === 'login' && !enlaceEnviado ? (
+          loginStep === 'login' && !enlaceEnviado ? (
             <button onClick={handleContinuarAcceso} disabled={!loginForm.email || enviandoEnlace || enviandoLoginPassword}
               className={BOTON_PRIMARIO}
               style={{ backgroundColor: PRIMARY }}>
@@ -3201,178 +3197,70 @@ export default function ReservarPage() {
               </div>
             )}
 
-            {/* ── DATOS (pagar y reservar sin login previo) ──
-                Fase 2 del rediseño (docs/widget-reservas-theme-builder-diseno.md,
-                pantalla 03): resumen con precio a la derecha + eyebrow de paso.
-                Nuestro flujo son 2 pasos (datos → pago), no los 3 del handoff
-                (que incluye login/registro separado) — se rotula honesto a lo
-                que este camino realmente tiene. */}
-            {loginStep === 'datos' && bookingSesion && datosPlan && (
-              <div className="paso-anim">
-                <div className="flex items-center justify-between mb-3">
-                  <button type="button" onClick={closeBooking}
-                    className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
-                    <ChevronLeft size={14} strokeWidth={2.5} />Clases
-                  </button>
-                  <IndicadorPasos recorrido={recorridoDe('datos')!} />
-                </div>
-                {/* Rediseño del popup (referencia Momence móvil, orden pedido
-                    por el fundador): foto de la clase, título, fecha + hora +
-                    duración, ubicación, descripción completa — y debajo los
-                    datos y el pago. */}
-                {/* Misma foto que ya vio en la ficha un paso atrás (subida
-                    por el estudio, o la de catálogo por familia de clase si
-                    no hay ninguna — `imagenDeClase`, igual que `FotoClase` en
-                    reserva-calendario.tsx): sin esto, la cabecera cambiaba a
-                    un bloque de color justo al pasar a dar los datos de
-                    pago, como si se hubiera perdido de vista qué se estaba
-                    reservando. */}
-                {/* eslint-disable-next-line @next/next/no-img-element -- foto de catálogo o subida por el estudio, no un asset conocido en build */}
-                <img src={imagenDeClase(bookingSesion.tipo)} alt="" loading="lazy" decoding="async"
-                  onError={alFallarImagen(IMAGENES_CLASE.generica)}
-                  style={{ background: bookingSesion.tipo?.color ?? PRIMARY }}
-                  className="w-full h-36 object-cover rounded-2xl mb-4" />
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-2xl leading-tight">
-                    {bookingSesion.tipo?.nombre}
-                  </h2>
-                  <div className="text-right shrink-0">
-                    <p className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] text-xl leading-none">{datosPlan.precio} €</p>
-                    <p className="text-[11px] text-[var(--portal-muted)] mt-1">1 clase</p>
-                  </div>
-                </div>
-                <div className="space-y-1.5 mb-3">
-                  <p className="flex items-center gap-2 text-[var(--portal-muted-2)] text-sm">
-                    <Calendar size={14} className="shrink-0 text-[var(--portal-muted)]" />
-                    {fmtLong(new Date(bookingSesion.inicio))}
-                  </p>
-                  <p className="flex items-center gap-2 text-[var(--portal-muted-2)] text-sm">
-                    <Clock size={14} className="shrink-0 text-[var(--portal-muted)]" />
-                    {fmtTime(bookingSesion.inicio)} - {fmtTime(bookingSesion.fin)}
-                    {bookingSesion.tipo?.duracionMinutos ? ` · ${bookingSesion.tipo.duracionMinutos} min` : ''}
-                    {bookingSesion.instructor?.nombre ? ` · ${bookingSesion.instructor.nombre}` : ''}
-                  </p>
-                  {bookingSesion.sala?.nombre && (
-                    <p className="flex items-center gap-2 text-[var(--portal-muted-2)] text-sm">
-                      <MapPin size={14} className="shrink-0 text-[var(--portal-muted)]" />
-                      {bookingSesion.sala.nombre} · {estudioNombre}
-                    </p>
-                  )}
-                </div>
-                {bookingSesion.tipo?.descripcion && (
-                  <p className="text-[var(--portal-muted-2)] text-[13px] leading-relaxed mb-4">
-                    {bookingSesion.tipo.descripcion}
-                  </p>
-                )}
-                <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-2xl mb-1">Tus datos</h2>
-                <p className="text-[var(--portal-muted-2)] text-sm mb-4">
-                  No necesitas crear una cuenta. Al completar tu reserva crearemos automáticamente tu acceso para que puedas gestionar tus próximas clases.
-                </p>
-                {/* `auto-fit` + `minmax` en vez de `grid-cols-2` fijo: a 320px las dos
-                    columnas dejaban ~108px útiles para «Apellidos» (con 32px de
-                    padding dentro de cada campo), y se pasa solo a una columna sin
-                    breakpoint. Un `min-[380px]:` habría medido el ancho del IFRAME,
-                    que es la trampa que ya documenta PublicSheet. */}
-                <div className="gap-2 mb-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-                  <input type="text" placeholder="Nombre"
-                    value={loginForm.nombre}
-                    onChange={e => setLoginForm(f => ({ ...f, nombre: e.target.value }))}
-                    autoFocus
-                    className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors"
-                    style={{ backgroundColor: 'var(--portal-surface-2)' }} />
-                  <input type="text" placeholder="Apellidos"
-                    value={loginForm.apellidos}
-                    onChange={e => setLoginForm(f => ({ ...f, apellidos: e.target.value }))}
-                    className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors"
-                    style={{ backgroundColor: 'var(--portal-surface-2)' }} />
-                </div>
-                <input type="email" placeholder="Tu email"
-                  value={loginForm.email}
-                  onChange={e => { setLoginForm(f => ({ ...f, email: e.target.value })); setDatosError(''); }}
-                  className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-2"
-                  style={{ backgroundColor: 'var(--portal-surface-2)' }} />
-                <input type="tel" placeholder="Tu teléfono (+34 600 000 000)"
-                  value={loginForm.telefono}
-                  onChange={e => setLoginForm(f => ({ ...f, telefono: e.target.value }))}
-                  onKeyDown={e => e.key === 'Enter' && handleDatosContinuar()}
-                  className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
-                  style={{ backgroundColor: 'var(--portal-surface-2)' }} />
-                {datosError && <p className="text-destructive text-sm mb-3">{datosError}</p>}
-                <p className="text-[11px] text-[var(--portal-muted)] mb-3">
-                  ¿Ya tienes cuenta? <button type="button" onClick={() => setLoginStep('login')} className="underline font-semibold">Entra aquí</button>.
-                </p>
-                {/* Casilla explícita de privacidad (rediseño del popup). El
-                    enlace abre el texto completo en el visor legal existente. */}
-                <label className="flex items-start gap-2.5 mb-4 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={privacidadAceptada}
-                    onChange={e => setPrivacidadAceptada(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--portal-ink)]"
-                  />
-                  <span className="text-[var(--portal-ink)] text-xs leading-relaxed">
-                    Al inscribirme, acepto la{' '}
-                    <button type="button"
-                      onClick={e => { e.preventDefault(); setLegalDoc({ label: 'Política de privacidad', text: studioConfig.politicaPrivacidad }); }}
-                      className="underline font-semibold">
-                      política de privacidad
-                    </button>.
-                  </span>
-                </label>
-                {/* El botón de continuar ya NO vive aquí: es el `footer` de la
-                    hoja, para que el teclado del móvil no lo tape. */}
-              </div>
-            )}
-
-            {/* ── PAGO (checkout embebido, "pagar y reservar sin login previo") ── */}
-            {loginStep === 'pago' && bookingSesion && datosPlan && datosClientSecret && studio?.stripeAccountId && STRIPE_PUBLISHABLE_KEY && (
-              <div className="paso-anim">
-                <div className="flex items-center justify-between mb-3">
-                  <button type="button" onClick={() => setLoginStep('datos')}
-                    className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
-                    <ChevronLeft size={14} strokeWidth={2.5} />Datos
-                  </button>
-                  <IndicadorPasos recorrido={recorridoDe('pago')!} />
-                </div>
-                <CheckoutEmbebido
-                  t={tokensCalendario}
-                  plan={datosPlan}
-                  clientSecret={datosClientSecret}
-                  publishableKey={STRIPE_PUBLISHABLE_KEY}
-                  stripeAccountId={studio.stripeAccountId}
-                  resumenClase={{
-                    nombre: bookingSesion.tipo?.nombre ?? '',
-                    fecha: fmtLong(new Date(bookingSesion.inicio)),
-                    hora: fmtTime(bookingSesion.inicio),
-                    instructor: bookingSesion.instructor?.nombre ?? null,
-                  }}
-                  // Misma cifra honesta que ya usa el paso 'confirm' (línea de
-                  // arriba) — no la fija del estudio a secas, la de SU tipo de
-                  // clase si tiene override.
-                  ventanaCancelacionHoras={bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0}
+            {/* ── PANTALLA DE RESERVA (Fase 2 del rediseño) ──
+                "Datos"+"pago" del flujo "pagar y reservar sin login previo"
+                fusionados en una sola pantalla continua (docs/rediseno-
+                pantalla-reserva-diseno.md) — sin el "‹ Datos"/"‹ Pago" de
+                antes, sin sensación de wizard. Toda la lógica (validación,
+                POST a checkout-embebido, Stripe) es la MISMA de siempre; lo
+                único que cambia es la presentación. */}
+            {esPantallaReserva && bookingSesion && datosPlan && (
+              <PantallaReserva
+                t={tokensCalendario}
+                onVolver={closeBooking}
+                estudioNombre={estudioNombre}
+                estudioDireccion={estudioDireccion}
+                clase={{
+                  nombre: bookingSesion.tipo?.nombre ?? '',
+                  color: bookingSesion.tipo?.color ?? PRIMARY,
+                  fotoUrl: bookingSesion.tipo?.fotoUrl ?? null,
+                  descripcion: bookingSesion.tipo?.descripcion ?? null,
+                  inicio: bookingSesion.inicio,
+                  fin: bookingSesion.fin,
+                  duracionMinutos: bookingSesion.tipo?.duracionMinutos ?? null,
+                  instructorNombre: bookingSesion.instructor?.nombre ?? null,
+                  salaNombre: bookingSesion.sala?.nombre ?? null,
+                  nivel: bookingSesion.tipo?.nivel ? NIVEL_LABEL[bookingSesion.tipo.nivel] : null,
+                }}
+                precio={datosPlan.precio}
+                fase={loginStep === 'pago' ? 'pago' : 'datos'}
+                loginForm={loginForm}
+                onChangeLoginForm={patch => { setLoginForm(f => ({ ...f, ...patch })); if (patch.email !== undefined) setDatosError(''); }}
+                datosError={datosError}
+                datosCargando={datosCargando}
+                privacidadAceptada={privacidadAceptada}
+                onTogglePrivacidad={setPrivacidadAceptada}
+                onAbrirPrivacidad={() => setLegalDoc({ label: 'Política de privacidad', text: studioConfig.politicaPrivacidad })}
+                mostrarCodigo={mostrarCodigo}
+                onMostrarCodigo={() => setMostrarCodigo(true)}
+                codigoDescuento={codigoDescuento}
+                onChangeCodigo={setCodigoDescuento}
+                onContinuar={handleDatosContinuar}
+                pago={loginStep === 'pago' && datosClientSecret && studio?.stripeAccountId && STRIPE_PUBLISHABLE_KEY ? {
+                  plan: datosPlan,
+                  clientSecret: datosClientSecret,
+                  publishableKey: STRIPE_PUBLISHABLE_KEY,
+                  stripeAccountId: studio.stripeAccountId,
+                  // Misma cifra honesta que ya usa el paso 'confirm' — no la
+                  // fija del estudio a secas, la de SU tipo de clase si tiene
+                  // override.
+                  ventanaCancelacionHoras: bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0,
                   // El importe nunca detrás de la flecha: "→ 1 €" se leía
                   // como "-1 €" (queja literal del fundador).
-                  textoBoton={`Pagar ${datosPlan.precio} € y reservar`}
-                  // Prefija en el Payment Element lo que se acaba de escribir
-                  // en el paso 1 — Link volvía a pedir email y teléfono.
-                  datosPago={{
-                    nombre: `${loginForm.nombre.trim()} ${loginForm.apellidos.trim()}`.trim(),
-                    email: loginForm.email.trim(),
-                    telefono: loginForm.telefono.trim(),
-                  }}
+                  textoBoton: `Pagar ${datosPlan.precio} € y reservar`,
                   // La fuente REAL del widget para dentro del iframe de Stripe
                   // (appearance no resuelve var(--font-ui)); sin fuente
                   // personalizada, el componente cae a Instrument Sans.
-                  fuentePago={apariencia.fuente && cssFuente ? { familia: apariencia.fuente, cssSrc: cssFuente } : undefined}
+                  fuentePago: apariencia.fuente && cssFuente ? { familia: apariencia.fuente, cssSrc: cssFuente } : undefined,
                   // El radio de input del Widget Builder, para que los campos
                   // de la tarjeta (iframe de Stripe) redondeen igual que los
                   // inputs del paso 'datos'. Mismos defaults que
                   // `resolverTokensReservar`.
-                  radioInput={radiosDe(apariencia, { tarjeta: R.card, boton: R.pill, input: R.spot }).input}
-                  onExito={handlePagoExitoso}
-                  onCerrar={() => setLoginStep('datos')}
-                />
-              </div>
+                  radioInput: radiosDe(apariencia, { tarjeta: R.card, boton: R.pill, input: R.spot }).input,
+                  onExito: handlePagoExitoso,
+                  onVolverADatos: () => setLoginStep('datos'),
+                } : undefined}
+              />
             )}
 
             {/* ── REGISTRO (walk-in ya autenticado: nombre) ── */}

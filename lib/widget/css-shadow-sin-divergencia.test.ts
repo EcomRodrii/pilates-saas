@@ -53,6 +53,9 @@ const SOLO_MODO_A = new Set([
   'reserva-hero-foto', 'reserva-hero-portada', 'reserva-tabs',
   // La tira de pestañas (#horario) solo existe en app/reservar/[slug]/page.tsx.
   'reserva-tabs-scroll',
+  // Pantalla de reserva a sangre completa (Fase 2 del rediseño) — monta
+  // dentro de PublicSheet, que solo vive en app/reservar/[slug]/page.tsx.
+  'reserva-pantalla-completa', 'reserva-pantalla-completa-hoja',
   // `components/ui/dashboard-drawer.tsx` — cajón del PANEL, tras login. El
   // bundle público no lo incluye ni puede incluirlo.
   'animate-drawer-sheet-in', 'animate-drawer-sheet-out',
