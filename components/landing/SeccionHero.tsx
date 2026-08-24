@@ -90,7 +90,7 @@ export function SeccionHero() {
       )}
 
       <header id="top" className="v5-hero">
-        <Image src="/hero-video-poster.jpg" alt="" fill priority sizes="100vw"
+        <Image src="/hero-video-poster.jpg" alt="Estudio de Pilates con reformers en uso" fill priority sizes="100vw"
           style={{ objectFit: 'cover', objectPosition: 'center 42%' }} />
         <div className="v5-hero-velo" aria-hidden />
         <div className="v5-hero-wrap">

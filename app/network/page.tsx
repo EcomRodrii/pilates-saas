@@ -21,6 +21,12 @@ import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_SAND, NW_BORDE, NW_VERDE_OSCU
 export const metadata: Metadata = {
   title: 'Tentare Network — Encuentra tu instructora de Pilates y Yoga',
   description: 'La red profesional de instructoras de Pilates y Yoga. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
+  openGraph: {
+    type: 'website',
+    title: 'Tentare Network — Red de instructoras de Pilates y Yoga',
+    description: 'La red profesional donde estudios buscan instructoras y viceversa.',
+    images: [{ url: '/network/opengraph-image' }],
+  },
 };
 
 // Antes un único bloque de 3 pasos servía "para los dos lados" a la vez —

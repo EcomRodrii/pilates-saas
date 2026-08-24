@@ -22,6 +22,7 @@ export const metadata: Metadata = {
     title: pagina.titulo,
     description: 'Las diferencias que se notan cada día y cada fin de mes en un estudio de Pilates en España.',
     url: urlDe(PATH),
+    images: [{ url: '/comparativa/opengraph-image' }],
   },
 };
 

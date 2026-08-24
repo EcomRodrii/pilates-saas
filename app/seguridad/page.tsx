@@ -22,6 +22,7 @@ export const metadata: Metadata = {
     title: pagina.titulo,
     description: 'Datos aislados por estudio, alojados en la UE y conformes al RGPD. Sin permanencia.',
     url: urlDe(PATH),
+    images: [{ url: '/seguridad/opengraph-image' }],
   },
 };
 

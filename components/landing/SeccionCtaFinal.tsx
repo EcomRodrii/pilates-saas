@@ -59,7 +59,7 @@ export function SeccionCtaFinal() {
   return (
     <>
       <section className="v5-cta" aria-labelledby="v5-cta-h">
-        <Image src="/disciplinas/pilates.jpg" alt="" fill sizes="100vw" style={{ objectFit: 'cover', objectPosition: 'center 35%' }} />
+        <Image src="/disciplinas/pilates.jpg" alt="Sala de Pilates con reformers y clientes en clase" fill sizes="100vw" style={{ objectFit: 'cover', objectPosition: 'center 35%' }} />
         <div className="v5-cta-velo" aria-hidden />
         <div className="v5-cta-cuerpo">
           <h2 id="v5-cta-h" className="v5-cta-h2">Vale. Esto es diferente. Pruébalo.</h2>

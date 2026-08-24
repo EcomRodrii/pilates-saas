@@ -1,9 +1,9 @@
 import { OG_IMAGE_CONTENT_TYPE, OG_IMAGE_SIZE, generarOgImage } from '@/lib/og-image';
 
-export const alt = 'Comparativa: Tentare vs bsport, Mindbody y Eversports';
+export const alt = 'Comparativa Tentare — Software para estudios de Pilates';
 export const size = OG_IMAGE_SIZE;
 export const contentType = OG_IMAGE_CONTENT_TYPE;
 
 export default async function Image() {
-  return generarOgImage('Tentare frente a bsport, Mindbody y Eversports.', 'Las diferencias que se notan cada día y cada fin de mes en un estudio de Pilates en España.');
+  return generarOgImage('Tentare frente a la competencia.', 'Sustituciones automáticas de instructoras, facturación electrónica, lista de espera inteligente y dashboards que enseñan números reales.');
 }

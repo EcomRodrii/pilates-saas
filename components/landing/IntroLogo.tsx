@@ -120,7 +120,7 @@ export function IntroLogo({ autenticado }: { autenticado: boolean }) {
           <img
             key={p.nombre}
             src={`/logo-piezas/${p.nombre}.webp`}
-            alt=""
+            alt={p.nombre === 'asta' ? 'Asta del logo de Tentare' : p.nombre === 'bol' ? 'Bol del logo de Tentare' : p.nombre === 'hoja-izq' ? 'Hoja izquierda del logo de Tentare' : 'Hoja derecha del logo de Tentare'}
             // Van en el HTML inicial, así que el escáner de precarga del
             // navegador las pide antes de ejecutar nada. Con 28 KB llegan de
             // sobra antes de que a cada una le toque entrar.

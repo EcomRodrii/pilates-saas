@@ -15,6 +15,7 @@ export const metadata: Metadata = {
     title: 'Centro de Recursos — Tentare',
     description: 'Guías prácticas para propietarias de estudios de Pilates.',
     url: urlDe('/recursos'),
+    images: [{ url: '/recursos/opengraph-image' }],
   },
 };
 

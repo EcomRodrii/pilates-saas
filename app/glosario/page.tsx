@@ -19,6 +19,7 @@ export const metadata: Metadata = {
     title: 'Glosario del software de gestión para estudios de Pilates',
     description: 'Definiciones claras y neutrales de los términos que se usan al gestionar un estudio de Pilates.',
     url: urlDe('/glosario'),
+    images: [{ url: '/glosario/opengraph-image' }],
   },
 };
 
