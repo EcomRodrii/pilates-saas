@@ -54,6 +54,12 @@ export interface PerfilNetwork {
   // estudio puede no querer que un competidor sepa dónde trabaja, aunque el
   // dato ya sea público en el directorio de ese estudio.
   mostrarEstudiosActuales: boolean;
+  // F2 — mapa real del buscador (migr 20260824191258). `null` mientras no
+  // se haya geocodificado (todo perfil hasta que corra el backfill, o
+  // cualquiera cuya ciudad/zona no resuelva en Nominatim) — nunca una
+  // posición inventada, mismo criterio que coordsDeCiudad.
+  lat: number | null;
+  lng: number | null;
 }
 
 // Campos que la propia dueña puede editar desde /network/mi-perfil. `estado`

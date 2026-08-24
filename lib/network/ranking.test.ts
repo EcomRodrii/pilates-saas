@@ -17,7 +17,7 @@ function perfil(overrides: Partial<PerfilNetworkPublico> & { id: string }): Perf
     disponibilidadEstado: 'no_disponible', disponibilidadHorarios: [], tipoTrabajo: [],
     estado: 'published', identidadVerificadaEn: null,
     creadoEn: '2026-01-01T00:00:00Z', actualizadoEn: '2026-01-01T00:00:00Z', ultimoAccesoEn: null,
-    idiomas: [], instagram: null, linkedin: null, web: null,
+    idiomas: [], instagram: null, linkedin: null, web: null, lat: null, lng: null,
     ...overrides,
   };
 }

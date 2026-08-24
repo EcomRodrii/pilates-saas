@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { SlidersHorizontal, Loader2, MapPin, Scale, X } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { SlidersHorizontal, Loader2, MapPin, Scale, X, List, Map as MapIcon } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { FiltrosBusquedaNetwork } from '@/components/network/filtros-busqueda';
 import { TarjetaResultadoNetwork } from '@/components/network/tarjeta-resultado';
+import { AvisoCoberturaMapa } from '@/components/network/mapa-resultados';
 import { buscarPerfilesNetwork } from '@/lib/api-client';
 import { useCercaDeMi, distanciaDePerfil, ordenarPorCercania } from '@/lib/network/use-cerca-de-mi';
 import { encajeBusquedaDe } from '@/lib/network/encaje-busqueda';
@@ -28,6 +30,14 @@ const OPCIONES_ORDEN: Array<{ valor: OrdenarPorNetwork; etiqueta: string }> = [
 // Tercera pieza de F2 (comparación) — tope confirmado con el fundador.
 const MAX_COMPARAR = 3;
 
+// Mapa real del buscador (F2, cuarta pieza) — leaflet toca `window` en
+// import, así que va sin SSR (mismo motivo que cualquier librería de mapas
+// en Next: el HTML inicial no tiene navegador detrás).
+const MapaResultadosNetwork = dynamic(
+  () => import('@/components/network/mapa-resultados').then(m => m.MapaResultadosNetwork),
+  { ssr: false, loading: () => <div className="h-[520px] rounded-xl bg-muted animate-pulse" /> },
+);
+
 // Buscador de profesionales — docs/NETWORK-IMPLEMENTATION-PLAN.md Fases 4/5
 // fusionadas: el backend ya soporta todos los filtros a la vez (mismo coste
 // que construirlos por separado), así que no tenía sentido enviar primero
@@ -43,6 +53,18 @@ export default function NetworkBuscadorPage() {
   // que la barra flotante y el checkbox de cada tarjeta compartan la misma
   // fuente de verdad, sin duplicarlo.
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
+  // Mapa real (F2): toggle Lista/Mapa. Solo tiene sentido enseñarlo si hay
+  // AL MENOS un resultado geocodificado — antes del backfill en producción
+  // eso puede ser ninguno, y un botón "Mapa" que lleva a un mapa vacío es
+  // peor que no ofrecerlo (mismo criterio "honesto, nunca cobertura
+  // fingida" del resto de esta pieza).
+  const [vistaElegida, setVistaElegida] = useState<'lista' | 'mapa'>('lista');
+  const hayGeocodificados = resultados.some(p => p.lat != null && p.lng != null);
+  // Derivado, no sincronizado con un efecto (mismo criterio que
+  // ordenarPorEfectivo más abajo): si la búsqueda cambia y deja de haber
+  // ningún resultado geocodificado, la vista "Mapa" deja de tener sentido
+  // sin que haga falta un setState encadenado.
+  const vista: 'lista' | 'mapa' = hayGeocodificados ? vistaElegida : 'lista';
   function alternarSeleccion(id: string) {
     setSeleccionados(prev => {
       const siguiente = new Set(prev);
@@ -121,6 +143,22 @@ export default function NetworkBuscadorPage() {
         {estadoCercaDeMi === 'denegado' && (
           <p className="text-[11px] text-muted-foreground">No hemos podido acceder a tu ubicación.</p>
         )}
+        {hayGeocodificados && (
+          <div className="flex items-center rounded-lg border border-border bg-card p-0.5 text-[12px] font-medium">
+            <button
+              onClick={() => setVistaElegida('lista')}
+              className={`px-2.5 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${vista === 'lista' ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <List size={13} /> Lista
+            </button>
+            <button
+              onClick={() => setVistaElegida('mapa')}
+              className={`px-2.5 py-1.5 rounded-md flex items-center gap-1.5 transition-colors ${vista === 'mapa' ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <MapIcon size={13} /> Mapa
+            </button>
+          </div>
+        )}
         <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground ml-auto">
           Ordenar por
           <select
@@ -160,6 +198,11 @@ export default function NetworkBuscadorPage() {
                   : 'Todavía no hay profesionales publicadas en tu zona.'}
               />
             </div>
+          ) : vista === 'mapa' ? (
+            <>
+              <AvisoCoberturaMapa perfiles={resultados} />
+              <MapaResultadosNetwork perfiles={resultados} />
+            </>
           ) : (
             resultadosOrdenados.map(({ item: perfil, distanciaKm }) => (
               <TarjetaResultadoNetwork

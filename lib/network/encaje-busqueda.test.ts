@@ -18,7 +18,7 @@ function perfil(overrides: Partial<PerfilNetworkPublico> = {}): PerfilNetworkPub
     disponibilidadEstado: 'disponible', disponibilidadHorarios: [], tipoTrabajo: [],
     estado: 'published', destacado: false, identidadVerificadaEn: null,
     creadoEn: '2026-01-01T00:00:00Z', actualizadoEn: '2026-01-01T00:00:00Z', ultimoAccesoEn: null,
-    idiomas: [], instagram: null, linkedin: null, web: null,
+    idiomas: [], instagram: null, linkedin: null, web: null, lat: null, lng: null,
     experienciaVerificada: false, certificacionVerificada: false, referenciaProfesional: false, resumenResenas: { promedio: null, total: 0 },
     ...overrides,
   };

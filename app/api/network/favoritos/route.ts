@@ -13,7 +13,7 @@ const SELECT_COLUMNAS_PUBLICAS = `
   id, slug, nombre, foto_url, ciudad, zona, radio_km, descripcion,
   especialidades, anios_experiencia, tarifa_rango, disponibilidad_estado,
   disponibilidad_horarios, tipo_trabajo, estado, destacado, identidad_verificada_en,
-  creado_en, actualizado_en, ultimo_acceso_en
+  creado_en, actualizado_en, ultimo_acceso_en, lat, lng
 `;
 
 export async function GET(req: NextRequest) {

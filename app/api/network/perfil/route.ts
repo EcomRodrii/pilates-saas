@@ -7,6 +7,7 @@ import { mapFilaAPerfil, type FilaRedPerfil } from '@/lib/network/mapeo';
 import {
   esEspecialidadValida, esHorarioValido, esTipoTrabajoValido, esTarifaRangoValida,
 } from '@/lib/network/catalogo';
+import { geocodificarDireccion } from '@/lib/network/geocodificar';
 
 // Perfil profesional de Tentare Network (docs/NETWORK-IMPLEMENTATION-PLAN.md
 // §1). Identidad por auth_user_id, NUNCA por studio_id — verificarSesionStaff
@@ -20,7 +21,7 @@ const SELECT_COLUMNAS = `
   especialidades, anios_experiencia, tarifa_rango, disponibilidad_estado,
   disponibilidad_horarios, tipo_trabajo, email_contacto, telefono_contacto,
   estado, destacado, identidad_verificada_en, creado_en, actualizado_en, ultimo_acceso_en,
-  idiomas, instagram, linkedin, web, mostrar_estudios_actuales
+  idiomas, instagram, linkedin, web, mostrar_estudios_actuales, lat, lng
 `;
 
 export async function GET(req: NextRequest) {
@@ -141,7 +142,7 @@ export async function PUT(req: NextRequest) {
 
   const { data: existente, error: errLeer } = await admin
     .from('red_perfiles')
-    .select('id, estado')
+    .select('id, estado, ciudad, zona')
     .eq('auth_user_id', usuario.userId)
     .maybeSingle();
   if (errLeer) return errorInterno('network:perfil:PUT:leer', errLeer, 'No se ha podido guardar tu perfil.');
@@ -152,6 +153,19 @@ export async function PUT(req: NextRequest) {
   // tiene PATCH /api/network/perfil/estado.
   if (existente?.estado === 'suspended') {
     return errorPeticion('Tu perfil ha sido suspendido por moderación y no puedes modificarlo. Contacta con soporte si crees que es un error.', 403);
+  }
+
+  // F2 — mapa real: si ciudad/zona cambian, re-geocodificar. Mejor
+  // esfuerzo, nunca bloquea el guardado del perfil: si Nominatim no
+  // encuentra nada (o la petición falla), lat/lng quedan a null en vez de
+  // conservar una posición que ya no corresponde al texto guardado — mismo
+  // criterio "nunca inventa" que geocodificarDireccion.
+  if ('ciudad' in row || 'zona' in row) {
+    const ciudadFinal = 'ciudad' in row ? (row.ciudad as string | null) : (existente?.ciudad ?? null);
+    const zonaFinal = 'zona' in row ? (row.zona as string | null) : (existente?.zona ?? null);
+    const coords = ciudadFinal ? await geocodificarDireccion(ciudadFinal, zonaFinal) : null;
+    row.lat = coords?.lat ?? null;
+    row.lng = coords?.lng ?? null;
   }
 
   const ahora = new Date().toISOString();

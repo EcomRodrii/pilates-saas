@@ -35,6 +35,8 @@ export interface FilaRedPerfil {
   linkedin: string | null;
   web: string | null;
   mostrar_estudios_actuales: boolean;
+  lat: number | null;
+  lng: number | null;
 }
 
 // Subconjunto público: el endpoint de búsqueda ni siquiera consulta
@@ -73,6 +75,8 @@ export function mapFilaAPerfil(f: FilaRedPerfil): PerfilNetwork {
     linkedin: f.linkedin,
     web: f.web,
     mostrarEstudiosActuales: f.mostrar_estudios_actuales,
+    lat: f.lat,
+    lng: f.lng,
   };
 }
 
@@ -190,6 +194,8 @@ export function mapFilaAPerfilPublico(
     instagram: f.instagram,
     linkedin: f.linkedin,
     web: f.web,
+    lat: f.lat,
+    lng: f.lng,
   };
 }
 

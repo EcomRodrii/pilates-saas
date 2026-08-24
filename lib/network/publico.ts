@@ -53,7 +53,7 @@ const SELECT_COLUMNAS_PUBLICAS = `
   especialidades, anios_experiencia, tarifa_rango, disponibilidad_estado,
   disponibilidad_horarios, tipo_trabajo, estado, destacado, identidad_verificada_en,
   creado_en, actualizado_en, ultimo_acceso_en, idiomas, instagram, linkedin, web,
-  mostrar_estudios_actuales
+  mostrar_estudios_actuales, lat, lng
 `;
 
 // Tope sin paginar: mismo criterio pragmático que otros listados de este
@@ -126,6 +126,10 @@ export const PERFILES_SEED_E2E: readonly PerfilNetworkPublico[] = [
     idiomas: ['es', 'en'], instagram: null, linkedin: null, web: null,
     experienciaVerificada: true, certificacionVerificada: true, referenciaProfesional: true,
     resumenResenas: { promedio: 4.8, total: 12 },
+    // Geocodificada (Madrid centro) a propósito: la otra semilla se deja
+    // sin lat/lng para que el e2e/manual también vea el caso "cobertura
+    // parcial" del mapa, no solo "todo geocodificado".
+    lat: 40.4168, lng: -3.7038,
   },
   {
     id: 'perfil-e2e-2', slug: 'sofia-ruiz-e2e', nombre: 'Sofía Ruiz',
@@ -139,6 +143,7 @@ export const PERFILES_SEED_E2E: readonly PerfilNetworkPublico[] = [
     idiomas: ['es'], instagram: null, linkedin: null, web: null,
     experienciaVerificada: false, certificacionVerificada: false, referenciaProfesional: false,
     resumenResenas: { promedio: null, total: 0 },
+    lat: null, lng: null,
   },
 ];
 
