@@ -150,6 +150,24 @@ export type NuevaExperienciaNetwork = Pick<
 // (identificador interno sin uso del lado cliente en ese contexto).
 export type ExperienciaNetworkPublica = Omit<ExperienciaNetwork, 'perfilId'>;
 
+// Referencia profesional — red_referencias (migr 20260813111231). El
+// referente NO tiene por qué ser usuaria de Tentare: se resuelve por token
+// (app/network/referencia/[token]), no por sesión. `token`/`tokenExpiraEn`
+// nunca viajan al cliente propietario del perfil (solo al servidor que
+// genera el enlace del email), así que no forman parte de este tipo.
+export interface ReferenciaNetwork {
+  id: string;
+  perfilId: string;
+  nombreReferente: string;
+  emailReferente: string;
+  relacion: string | null;
+  estado: 'pendiente' | 'confirmada' | 'rechazada' | 'expirada';
+  solicitadoEn: string;
+  resueltoEn: string | null;
+}
+
+export type NuevaReferenciaNetwork = Pick<ReferenciaNetwork, 'nombreReferente' | 'emailReferente' | 'relacion'>;
+
 // Badges de confianza (Fase 8) — ver lib/network/badges.ts para el cálculo
 // y components/network/lista-badges.tsx para el render.
 export interface BadgesNetwork {

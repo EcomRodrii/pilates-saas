@@ -8,6 +8,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { SelectorChips } from '@/components/network/selector-chips';
 import { SeccionExperienciaNetwork } from '@/components/network/seccion-experiencia';
+import { SeccionReferenciasNetwork } from '@/components/network/seccion-referencias';
 import { ListaBadgesNetwork } from '@/components/network/lista-badges';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
@@ -17,7 +18,7 @@ import { calcularCompletitudPerfil, type DetalleCompletitud } from '@/lib/networ
 import {
   emailVerificado, experienciaVerificada, referenciaProfesional, identidadVerificada, activaRecientemente,
 } from '@/lib/network/badges';
-import type { PerfilNetwork, ExperienciaNetwork } from '@/lib/network/tipos';
+import type { PerfilNetwork, ExperienciaNetwork, ReferenciaNetwork } from '@/lib/network/tipos';
 import {
   ESPECIALIDADES_NETWORK, ESPECIALIDAD_LABEL,
   HORARIOS_NETWORK, HORARIO_LABEL,
@@ -128,6 +129,7 @@ export default function MiPerfilNetworkPage() {
   const [errorEstado, setErrorEstado] = useState('');
   const [experiencias, setExperiencias] = useState<ExperienciaNetwork[]>([]);
   const tieneExperiencia = experiencias.length > 0;
+  const [referencias, setReferencias] = useState<ReferenciaNetwork[]>([]);
   const [paso, setPaso] = useState(0);
   const [pasoInicialElegido, setPasoInicialElegido] = useState(false);
   // "Oportunidades" (brief §18): cuántos estudios han escrito y siguen sin
@@ -249,12 +251,10 @@ export default function MiPerfilNetworkPage() {
   const badges = useMemo(() => ({
     emailVerificado: emailVerificado(user?.email_confirmed_at ?? null),
     experienciaVerificada: experienciaVerificada(experiencias.map(e => e.estadoVerificacion)),
-    // La solicitud/confirmación de una referencia profesional es un flujo
-    // que todavía no se ha construido — 0 a propósito, no un descuido.
-    referenciaProfesional: referenciaProfesional(0),
+    referenciaProfesional: referenciaProfesional(referencias.filter(r => r.estado === 'confirmada').length),
     identidadVerificada: identidadVerificada(perfil?.identidadVerificadaEn ?? null),
     activaRecientemente: activaRecientemente(perfil?.ultimoAccesoEn ?? null, new Date()),
-  }), [user, experiencias, perfil]);
+  }), [user, experiencias, referencias, perfil]);
 
   if (cargandoSesion || !user || cargando) {
     return (
@@ -399,6 +399,7 @@ export default function MiPerfilNetworkPage() {
             />
           </div>
           {perfil && <SeccionExperienciaNetwork onExperienciasChange={setExperiencias} />}
+          {perfil && <SeccionReferenciasNetwork onReferenciasChange={setReferencias} />}
         </div>
       )}
 

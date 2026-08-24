@@ -19,6 +19,7 @@ import type {
   PerfilIdentidadNetwork, CambiosPerfilIdentidadNetwork, VerificacionIdentidadNetwork,
   CertificacionNetwork, NuevaCertificacionNetwork,
   VacanteNetwork, NuevaVacanteNetwork, CambiosVacanteNetwork, CandidaturaNetwork,
+  ReferenciaNetwork, NuevaReferenciaNetwork,
 } from '@/lib/network/tipos';
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
@@ -2181,6 +2182,38 @@ export async function eliminarExperienciaNetwork(id: string): Promise<{ ok: bool
     return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
   } catch {
     return { ok: false, error: 'No se pudo eliminar la experiencia' };
+  }
+}
+
+// Referencias profesionales (gestión desde /network/mi-perfil) — la
+// resolución del referente (sin cuenta, por token) no pasa por api-client:
+// vive en app/network/referencia/[token]/referencia-form.tsx contra
+// /api/public/network/referencia directamente.
+export async function fetchMisReferenciasNetwork(): Promise<ReferenciaNetwork[]> {
+  try {
+    const res = await fetch('/api/network/referencias', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { referencias?: ReferenciaNetwork[] };
+    return data.referencias ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function crearReferenciaNetwork(
+  nueva: NuevaReferenciaNetwork,
+): Promise<{ ok: true; referencia: ReferenciaNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/referencias', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(nueva),
+    });
+    const data = (await res.json().catch(() => ({}))) as { referencia?: ReferenciaNetwork; error?: string };
+    if (!res.ok || !data.referencia) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, referencia: data.referencia };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar la solicitud de referencia' };
   }
 }
 
