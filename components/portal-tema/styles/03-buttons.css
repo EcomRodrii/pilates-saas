@@ -17,7 +17,11 @@
   transition: background .22s ease, color .22s ease, box-shadow .22s ease, opacity .22s ease;
 }
 
-.btn--primary { background: var(--brand); color: var(--on-brand); }
+.btn--primary {
+  background: var(--btn-primary-bg, var(--brand));
+  color: var(--btn-primary-fg, var(--on-brand));
+  border: var(--btn-primary-border, none);
+}
 .btn--primary:hover { background: var(--brand-hover); }
 
 .btn--ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }

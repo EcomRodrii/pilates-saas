@@ -21,6 +21,8 @@ import { THEME as BLOOM } from './bloom/config.ts';
 import { THEME as NOIR } from './noir/config.ts';
 import { THEME as SERENO } from './sereno/config.ts';
 import type { ThemeConfig } from '../components/portal-tema/tipos-tema.ts';
+import { RADIO_PRESET_PX, type RadiusId } from '../lib/theme-schema.ts';
+import { hexARgb } from '../lib/wcag-contrast.ts';
 
 export type TemaPortalId = 'tentada' | 'oliva' | 'bloom' | 'noir' | 'sereno';
 
@@ -139,6 +141,59 @@ export function varsRadioSobreTema(radio: {
   if (radio.chip !== undefined) v['--radius-chip'] = `${radio.chip}px`;
   if (radio.acceso !== undefined) v['--radius-quick-link'] = `${radio.acceso}px`;
   return v;
+}
+
+/**
+ * `radius` (preset Recto/Redondeado/Píldora, "de siempre") → los 4 tokens de
+ * radio del kit, como valor de PARTIDA. `varsRadioSobreTema` (el ajuste fino
+ * por pieza) se llama DESPUÉS y pisa encima — mismo orden que en
+ * `lib/theme-runtime.ts` para el portal "de siempre". Sin preset elegido
+ * (`null`, el default), no declara nada: el tema del kit conserva su propia
+ * esquina, que es su identidad visual (la píldora de Bloom, la esquina suave
+ * de Oliva) — pisarla con un valor fijo sin que nadie lo pida sería el mismo
+ * bug que esto arregla, solo que en la dirección contraria.
+ */
+export function varsRadioPresetSobreTema(radius: RadiusId | null | undefined): Record<string, string> {
+  if (!radius) return {};
+  const preset = RADIO_PRESET_PX[radius];
+  return {
+    '--radius-card': `${preset.card}px`,
+    '--radius-button': `${preset.boton}px`,
+    '--radius-chip': `${preset.chip}px`,
+    '--radius-quick-link': `${preset.acceso}px`,
+  };
+}
+
+/**
+ * `buttonStyle` ("de siempre") → el botón primario del kit. Mismo criterio
+ * que `varsSombraSobreTema`: 'solid' (el default) no declara nada — el botón
+ * conserva `--brand`/`--on-brand` de siempre, que es lo que `03-buttons.css`
+ * ya pintaba. Antes, elegir "Contorno"/"Suave" en un tema del kit no cambiaba
+ * nada: el campo se guardaba (sobrevivía a publicar) pero `.btn--primary`
+ * solo leía `--brand`/`--on-brand` a secas, sin ningún var que ese estilo
+ * pudiera pisar (mitad del hallazgo C1 de la auditoría de uso real,
+ * 2026-08-24 — la otra mitad es `varsRadioPresetSobreTema`, arriba).
+ */
+export function varsBotonSobreTema(buttonStyle: string | undefined, primary: string | undefined): Record<string, string> {
+  if (!primary) return {};
+  if (buttonStyle === 'outline') {
+    return {
+      '--btn-primary-bg': 'transparent',
+      '--btn-primary-fg': primary,
+      '--btn-primary-border': `1px solid ${primary}`,
+    };
+  }
+  if (buttonStyle === 'soft') {
+    // rgba(), no color-mix(): mismo motivo que varsBoton en theme-runtime.ts
+    // (Safari <16.2 no soporta color-mix() como valor de custom property).
+    const rgb = hexARgb(primary);
+    return {
+      '--btn-primary-bg': rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)` : `color-mix(in srgb, ${primary} 15%, transparent)`,
+      '--btn-primary-fg': primary,
+      '--btn-primary-border': 'none',
+    };
+  }
+  return {};
 }
 
 /**
