@@ -49,5 +49,15 @@ export function useModo() {
   const toggle = useCallback(() => setModo(readModo() === 'noche' ? 'dia' : 'noche'), [setModo]);
 
   const noche = modo === 'noche';
-  return { modo, noche, toggle, setModo, t: MODO_TOKENS[modo] };
+  // Fondo del estudio ("Fondo" en Apariencia), solo modo Día — mismo criterio
+  // que `/reservar` (sin interruptor de modo, ver paletaPortalCssText). Se
+  // expresa como un var() en vez de resolver el valor aquí a propósito: este
+  // hook es deliberadamente "sin contexto" (ver cabecera del fichero), y
+  // `--portal-bg-dia` ya llega inyectado en el HTML server-side
+  // (ThemeStyle/themeToCssText) antes de la primera pintura — cero parpadeo,
+  // cero plumbing de Context nuevo. Sin el campo tocado, la var no existe y
+  // el fallback deja el aspecto de hoy intacto para todo estudio.
+  const base = MODO_TOKENS[modo];
+  const t = modo === 'dia' ? { ...base, bg: `var(--portal-bg-dia, ${base.bg})` } : base;
+  return { modo, noche, toggle, setModo, t };
 }

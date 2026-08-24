@@ -115,7 +115,7 @@ export function themeIdSeguro(pedido: string | null | undefined, porDefecto: Tem
  */
 export function varsColorSobreTema(c: {
   primary?: string; onPrimary?: string; secondary?: string;
-  background?: string; text?: string;
+  background?: string | null; text?: string;
   fontStack?: string; headingStack?: string; headingWeight?: string;
 }): Record<string, string> {
   const v: Record<string, string> = {};
