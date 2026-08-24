@@ -24,6 +24,7 @@ import {
 import {
   esEspecialidadValida, esHorarioValido, esTipoTrabajoValido, esDisponibilidadEstadoValido, esTarifaRangoValida,
 } from './catalogo.ts';
+import { esOrdenarPorValido } from './tipos.ts';
 import type {
   FiltroBusquedaNetwork, PerfilNetworkPublico, ExperienciaNetworkPublica, BadgesNetwork,
   ResumenResenas, ResenaNetwork, MediaNetwork, EstudioActualNetwork,
@@ -67,6 +68,7 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
   };
   const experienciaMinimaRaw = sp.get('experienciaMinima');
   const valoracionMinimaRaw = sp.get('valoracionMinima');
+  const ordenarPorRaw = sp.get('ordenarPor');
   return {
     ciudad: sp.get('ciudad')?.trim() || null,
     especialidades: listaParam('especialidades').filter(esEspecialidadValida) as FiltroBusquedaNetwork['especialidades'],
@@ -80,6 +82,7 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
     soloCertificacionVerificada: sp.get('certificacionVerificada') === '1',
     valoracionMinima: valoracionMinimaRaw && Number.isFinite(Number(valoracionMinimaRaw)) ? Number(valoracionMinimaRaw) : null,
     idioma: sp.get('idioma')?.trim() || null,
+    ordenarPor: esOrdenarPorValido(ordenarPorRaw) ? ordenarPorRaw : undefined,
   };
 }
 

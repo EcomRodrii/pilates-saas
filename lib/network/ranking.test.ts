@@ -80,3 +80,55 @@ test('sin ningún filtro ni diferencia, el orden es estable', () => {
   const resultado = ordenarResultadosNetwork([a, b], FILTRO_VACIO);
   assert.deepEqual(resultado.map(p => p.id), ['a', 'b']);
 });
+
+// Segunda pieza de F2 — orden explícito (precio/valoración/cercanía).
+
+test('ordenarPor "relevancia" (o ausente) no cambia nada: destacado sigue mandando', () => {
+  const sinDestacar = perfil({ id: 'a', disponibilidadEstado: 'disponible', destacado: false, tarifaRango: '20-25' });
+  const destacada = perfil({ id: 'b', disponibilidadEstado: 'no_disponible', destacado: true, tarifaRango: '30-35' });
+  const filtro: FiltroBusquedaNetwork = { ...FILTRO_VACIO, ordenarPor: 'relevancia' };
+  const [primero] = ordenarResultadosNetwork([sinDestacar, destacada], filtro);
+  assert.equal(primero.id, 'b');
+});
+
+test('ordenarPor "precio" ordena de más barata a más cara, ignorando destacado', () => {
+  const cara = perfil({ id: 'cara', tarifaRango: '30-35', destacado: true });
+  const barata = perfil({ id: 'barata', tarifaRango: '20-25', destacado: false });
+  const filtro: FiltroBusquedaNetwork = { ...FILTRO_VACIO, ordenarPor: 'precio' };
+  const resultado = ordenarResultadosNetwork([cara, barata], filtro);
+  assert.deepEqual(resultado.map(p => p.id), ['barata', 'cara']);
+});
+
+test('ordenarPor "precio": sin tarifa o "a_negociar" van SIEMPRE al final, nunca como 0€', () => {
+  const sinTarifa = perfil({ id: 'sin-tarifa', tarifaRango: null });
+  const aNegociar = perfil({ id: 'a-negociar', tarifaRango: 'a_negociar' });
+  const conTarifa = perfil({ id: 'con-tarifa', tarifaRango: '20-25' });
+  const filtro: FiltroBusquedaNetwork = { ...FILTRO_VACIO, ordenarPor: 'precio' };
+  const resultado = ordenarResultadosNetwork([sinTarifa, aNegociar, conTarifa], filtro);
+  assert.equal(resultado[0].id, 'con-tarifa');
+  assert.deepEqual(new Set(resultado.slice(1).map(p => p.id)), new Set(['sin-tarifa', 'a-negociar']));
+});
+
+test('ordenarPor "valoracion" ordena de mejor a peor valorada, ignorando destacado', () => {
+  const peor = perfil({ id: 'peor', resumenResenas: { promedio: 3.2, total: 4 }, destacado: true });
+  const mejor = perfil({ id: 'mejor', resumenResenas: { promedio: 4.8, total: 10 }, destacado: false });
+  const filtro: FiltroBusquedaNetwork = { ...FILTRO_VACIO, ordenarPor: 'valoracion' };
+  const resultado = ordenarResultadosNetwork([peor, mejor], filtro);
+  assert.deepEqual(resultado.map(p => p.id), ['mejor', 'peor']);
+});
+
+test('ordenarPor "valoracion": sin reseñas va SIEMPRE al final, nunca como 0 estrellas', () => {
+  const sinResenas = perfil({ id: 'sin-resenas', resumenResenas: { promedio: null, total: 0 } });
+  const conResenaBaja = perfil({ id: 'con-resena-baja', resumenResenas: { promedio: 1.5, total: 2 } });
+  const filtro: FiltroBusquedaNetwork = { ...FILTRO_VACIO, ordenarPor: 'valoracion' };
+  const resultado = ordenarResultadosNetwork([sinResenas, conResenaBaja], filtro);
+  assert.deepEqual(resultado.map(p => p.id), ['con-resena-baja', 'sin-resenas']);
+});
+
+test('ordenarPor "cercania": sin cálculo de distancia posible en servidor, cae al orden de relevancia', () => {
+  const sinDestacar = perfil({ id: 'a', disponibilidadEstado: 'disponible', destacado: false });
+  const destacada = perfil({ id: 'b', disponibilidadEstado: 'no_disponible', destacado: true });
+  const filtro: FiltroBusquedaNetwork = { ...FILTRO_VACIO, ordenarPor: 'cercania' };
+  const [primero] = ordenarResultadosNetwork([sinDestacar, destacada], filtro);
+  assert.equal(primero.id, 'b');
+});

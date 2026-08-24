@@ -143,6 +143,22 @@ export interface FiltroBusquedaNetwork {
   // elemento del array — mismo criterio que `ciudad`, pero en JS (post-
   // query) porque es un array, no una columna de texto simple.
   idioma: string | null;
+  // Segunda pieza de F2 (buscador): orden explícito pedido por el estudio,
+  // sobre el orden por tuplas de `ordenarResultadosNetwork`
+  // (lib/network/ranking.ts). `undefined`/`'relevancia'` = comportamiento de
+  // siempre, sin cambios. `'cercania'` solo tiene sentido con "Cerca de mí"
+  // activo (posición del navegador) — el servidor no la resuelve (no conoce
+  // esa posición), así que aquí cae al mismo orden que 'relevancia' y la
+  // reordenación real la hace el cliente reutilizando `ordenarPorCercania`
+  // (lib/network/use-cerca-de-mi.ts), nunca duplicando el cálculo de
+  // distancia en el servidor.
+  ordenarPor?: OrdenarPorNetwork;
+}
+
+export const ORDENAR_POR_NETWORK = ['relevancia', 'precio', 'valoracion', 'cercania'] as const;
+export type OrdenarPorNetwork = (typeof ORDENAR_POR_NETWORK)[number];
+export function esOrdenarPorValido(v: unknown): v is OrdenarPorNetwork {
+  return typeof v === 'string' && (ORDENAR_POR_NETWORK as readonly string[]).includes(v);
 }
 
 // Historial laboral declarado — docs/NETWORK-IMPLEMENTATION-PLAN.md §3.

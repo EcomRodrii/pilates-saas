@@ -9,13 +9,20 @@ import { TarjetaResultadoNetwork } from '@/components/network/tarjeta-resultado'
 import { buscarPerfilesNetwork } from '@/lib/api-client';
 import { useCercaDeMi, distanciaDePerfil, ordenarPorCercania } from '@/lib/network/use-cerca-de-mi';
 import { encajeBusquedaDe } from '@/lib/network/encaje-busqueda';
-import type { FiltroBusquedaNetwork, PerfilNetworkPublico } from '@/lib/network/tipos';
+import type { FiltroBusquedaNetwork, OrdenarPorNetwork, PerfilNetworkPublico } from '@/lib/network/tipos';
 import { cardCls } from '@/app/(dashboard)/configuracion/page';
 import { EmptyState } from '@/components/ui/empty-state';
 
 const FILTRO_VACIO: FiltroBusquedaNetwork = {
   ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
 };
+
+const OPCIONES_ORDEN: Array<{ valor: OrdenarPorNetwork; etiqueta: string }> = [
+  { valor: 'relevancia', etiqueta: 'Relevancia' },
+  { valor: 'precio', etiqueta: 'Precio (más barato)' },
+  { valor: 'valoracion', etiqueta: 'Mejor valoradas' },
+  { valor: 'cercania', etiqueta: 'Cercanía' },
+];
 
 // Buscador de profesionales — docs/NETWORK-IMPLEMENTATION-PLAN.md Fases 4/5
 // fusionadas: el backend ya soporta todos los filtros a la vez (mismo coste
@@ -28,6 +35,14 @@ export default function NetworkBuscadorPage() {
   const [cargando, setCargando] = useState(true);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const { estado: estadoCercaDeMi, posicion, activar: activarCercaDeMi } = useCercaDeMi();
+  // `null` = "sin elección manual", no un valor de orden real. Se deriva el
+  // orden EFECTIVO más abajo en vez de sincronizar un `setFiltro` desde un
+  // efecto que observa `estadoCercaDeMi` (encadenaría renders, regla
+  // react-hooks/set-state-in-effect) — así "Cerca de mí" sigue ordenando por
+  // cercanía en cuanto hay posición, sin que haga falta un segundo clic en
+  // el selector, y basta con elegir a mano para dejar de seguir ese default.
+  const [ordenarPorElegido, setOrdenarPorElegido] = useState<OrdenarPorNetwork | null>(null);
+  const ordenarPorEfectivo: OrdenarPorNetwork = ordenarPorElegido ?? (posicion ? 'cercania' : 'relevancia');
 
   useEffect(() => {
     let vivo = true;
@@ -39,18 +54,26 @@ export default function NetworkBuscadorPage() {
     // encadena renders.
     const t = setTimeout(() => {
       setCargando(true);
-      buscarPerfilesNetwork(filtro).then(r => { if (vivo) { setResultados(r); setCargando(false); } });
+      buscarPerfilesNetwork({ ...filtro, ordenarPor: ordenarPorEfectivo }).then(r => { if (vivo) { setResultados(r); setCargando(false); } });
     }, 250);
     return () => { vivo = false; clearTimeout(t); };
-  }, [filtro]);
+  }, [filtro, ordenarPorEfectivo]);
 
   const hayFiltrosActivos = Boolean(
     filtro.ciudad || filtro.especialidades.length || filtro.disponibilidad.length
     || filtro.horarios.length || filtro.tipoTrabajo.length || filtro.experienciaMinima != null,
   );
 
+  // La cercanía solo se reordena aquí, en el cliente — el servidor ya
+  // devuelve `resultados` en el orden pedido para 'relevancia'/'precio'/
+  // 'valoracion' (lib/network/ranking.ts), y 'cercania' cae ahí también
+  // porque el servidor no conoce la posición del navegador. La distancia se
+  // sigue mostrando en la tarjeta aunque no se esté ordenando por ella
+  // (p.ej. "Cerca de mí" activo pero orden por precio elegido a mano).
   const resultadosOrdenados = posicion
-    ? ordenarPorCercania(resultados, p => distanciaDePerfil(p.ciudad, posicion))
+    ? ordenarPorEfectivo === 'cercania'
+      ? ordenarPorCercania(resultados, p => distanciaDePerfil(p.ciudad, posicion))
+      : resultados.map(item => ({ item, distanciaKm: distanciaDePerfil(item.ciudad, posicion) }))
     : resultados.map(item => ({ item, distanciaKm: null as number | null }));
 
   return (
@@ -81,6 +104,24 @@ export default function NetworkBuscadorPage() {
         {estadoCercaDeMi === 'denegado' && (
           <p className="text-[11px] text-muted-foreground">No hemos podido acceder a tu ubicación.</p>
         )}
+        <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground ml-auto">
+          Ordenar por
+          <select
+            value={ordenarPorEfectivo}
+            onChange={e => setOrdenarPorElegido(e.target.value as OrdenarPorNetwork)}
+            className="px-2.5 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground"
+          >
+            {OPCIONES_ORDEN.map(o => (
+              // Sin posición conocida, "Cercanía" no significa nada — se
+              // deshabilita en vez de ocultarse para que la propietaria
+              // entienda por qué (activa "Cerca de mí" primero), no
+              // desaparezca sin explicación.
+              <option key={o.valor} value={o.valor} disabled={o.valor === 'cercania' && !posicion}>
+                {o.etiqueta}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="flex gap-6">

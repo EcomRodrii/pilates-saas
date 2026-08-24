@@ -2116,6 +2116,10 @@ export async function buscarPerfilesNetwork(filtro: FiltroBusquedaNetwork): Prom
     if (filtro.horarios.length) qs.set('horarios', filtro.horarios.join(','));
     if (filtro.tipoTrabajo.length) qs.set('tipoTrabajo', filtro.tipoTrabajo.join(','));
     if (filtro.experienciaMinima != null) qs.set('experienciaMinima', String(filtro.experienciaMinima));
+    // 'cercania' se envía igual (el servidor no la conoce y cae a
+    // 'relevancia', ver lib/network/ranking.ts) para no tener dos caminos
+    // según el valor; el reordenamiento real de esa opción es client-side.
+    if (filtro.ordenarPor && filtro.ordenarPor !== 'relevancia') qs.set('ordenarPor', filtro.ordenarPor);
 
     const res = await fetch(`/api/network/buscar?${qs.toString()}`, { headers: await authHeader() });
     if (!res.ok) return [];

@@ -70,12 +70,32 @@ function actividadRecienteMs(ultimoAccesoEn: string | null): number {
   return ultimoAccesoEn ? new Date(ultimoAccesoEn).getTime() : 0;
 }
 
+/**
+ * Límite inferior de `tarifaRango` para poder ordenar por precio — el dato
+ * real es un rango categórico ('20-25', no un número, ver
+ * TARIFAS_RANGO_NETWORK en catalogo.ts), así que se parsea el primer número
+ * antes del guion. `null` para perfiles sin tarifa Y para 'a_negociar' (no
+ * tiene cifra que ordenar) — mismo trato, "sin dato", nunca 0€/hora.
+ */
+function tarifaInferior(rango: PerfilNetworkPublico['tarifaRango']): number | null {
+  if (!rango) return null;
+  const match = /^(\d+)-/.exec(rango);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Clave [sinDato, valor] para un criterio de orden con "sin dato" explícito.
+ * `sinDato` va primero siempre en último lugar (1 > 0) sea cual sea el
+ * signo de `valor` — nunca se trata la ausencia de dato como el valor más
+ * bajo (penalizaría a perfiles nuevos/incompletos) ni como el más alto
+ * (favorecería inventar datos).
+ */
+function claveConDato(valor: number | null): [number, number] {
+  return valor == null ? [1, 0] : [0, valor];
+}
+
 function clavesOrden(p: PerfilNetworkPublico, filtro: FiltroBusquedaNetwork, ahora: Date): number[] {
-  return [
-    // Destacado (app/interno/network, editorial — nunca la propia
-    // instructora) manda sobre todo lo demás, incluida la disponibilidad:
-    // es una decisión humana del equipo de Tentare, no una señal del perfil.
-    p.destacado ? 0 : 1,
+  const clavesResto = [
     -PRIORIDAD_DISPONIBILIDAD[p.disponibilidadEstado],
     -coincidenciaEspecialidad(p.especialidades, filtro.especialidades),
     distanciaAproximada(p.ciudad, filtro.ciudad),
@@ -83,6 +103,28 @@ function clavesOrden(p: PerfilNetworkPublico, filtro: FiltroBusquedaNetwork, aho
     -contarBadgesVerificacion(p, ahora),
     -actividadRecienteMs(p.ultimoAccesoEn),
   ];
+  // Destacado (app/interno/network, editorial — nunca la propia
+  // instructora) es la clave PRIMERA por defecto (manda sobre todo lo
+  // demás, incluida la disponibilidad: es una decisión humana del equipo de
+  // Tentare, no una señal del perfil). Con un orden explícito por
+  // precio/valoración, ese criterio pedido pasa a ser la primera clave y
+  // destacado baja a desempate — pedir "ordenar por precio" y ver arriba a
+  // alguien caro solo porque el equipo la destacó rompería la promesa del
+  // selector.
+  if (filtro.ordenarPor === 'precio') {
+    return [...claveConDato(tarifaInferior(p.tarifaRango)), p.destacado ? 0 : 1, ...clavesResto];
+  }
+  if (filtro.ordenarPor === 'valoracion') {
+    const { promedio, total } = p.resumenResenas;
+    const valor = total > 0 && promedio != null ? -promedio : null; // descendente: mejor valorada primero
+    return [...claveConDato(valor), p.destacado ? 0 : 1, ...clavesResto];
+  }
+  // 'relevancia' (default) y 'cercania': la cercanía no se resuelve aquí —
+  // el servidor no tiene la posición del navegador — así que cae al orden
+  // de relevancia de siempre; el cliente la reordena después reutilizando
+  // `ordenarPorCercania` (lib/network/use-cerca-de-mi.ts) sobre esta misma
+  // lista, sin duplicar el cálculo de distancia.
+  return [p.destacado ? 0 : 1, ...clavesResto];
 }
 
 export function ordenarResultadosNetwork(
