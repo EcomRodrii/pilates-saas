@@ -39,6 +39,7 @@ test('ninguna var que emita el motor se queda fuera de la whitelist del preview'
       ...ejes,
       radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 },
       destacado: '#D9B166',
+      background: '#101820',
     })),
   ];
 
@@ -61,6 +62,7 @@ test('la whitelist no tiene claves que el motor ya no emita', () => {
       ...ejes,
       radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 },
       destacado: '#D9B166',
+      background: '#101820',
     })),
     // Estilos que declaran vars propias frente a los que heredan el fallback.
     { buttonStyle: 'outline' }, { buttonStyle: 'ghost' },
@@ -88,6 +90,7 @@ test('ninguna var del KIT que emita el motor se queda fuera de su whitelist', ()
       // La escala se pide por PASOS (`escalaTexto`), y el motor deriva un
       // factor; con un paso desviado ya emite la escala entera del tema.
       { escalaTexto: { seccion: 30 } }, { escalaTexto: { tituloHero: 60, saludo: 20 } },
+      { background: '#101820' },
     ]) {
       const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
       for (const clave of Object.keys(varsKitMap(tema))) {
@@ -106,6 +109,7 @@ test('la whitelist del kit no tiene claves que ningún tema emita', () => {
       { portalHeadingFontId: 'instrumentSansBold' },
       { radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 } },
       { escalaTexto: { seccion: 30 } },
+      { background: '#101820' },
     ]) {
       const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
       for (const c of Object.keys(varsKitMap(tema))) emitidas.add(c);

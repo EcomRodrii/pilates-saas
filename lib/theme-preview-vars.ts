@@ -23,8 +23,11 @@ export const CLAVES_PREVIEW_PERMITIDAS: ReadonlySet<string> = new Set([
   '--brand-foreground',
   '--brand-secondary',
   '--accent',
-  '--background',
   '--foreground',
+  // Fondo del portal en modo Día ("Fondo") — C2, ver varsFondoPortal en
+  // lib/theme-runtime.ts. Ya no hay `--background`: ese var pintaba el PANEL,
+  // no el portal, y se retiró junto con el campo que lo alimentaba.
+  '--portal-bg-dia',
   '--radius',
   '--font-sans',
   '--font-heading',

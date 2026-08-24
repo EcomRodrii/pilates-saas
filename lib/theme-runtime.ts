@@ -23,6 +23,7 @@ import { TEMAS_PORTAL, varsColorSobreTema, varsEscalaSobreTema, varsRadioSobreTe
 import { getPreset } from './theme-presets.ts';
 import { cumpleContraste, foregroundParaFondo, hexARgb } from './wcag-contrast.ts';
 import { colorLegibleSobreClaro } from './color-utils.ts';
+import { MODO_TOKENS } from './portal-paleta.ts';
 
 // foregroundParaFondo vive en wcag-contrast.ts (cero dependencias) y se
 // reexporta aquí por compatibilidad — así PanelThemeProvider (montado en TODO
@@ -254,6 +255,17 @@ function varsRadioTema(t: ThemeConfig): Record<string, string> {
   return vars;
 }
 
+// `background` ("Fondo") → el fondo de modo DÍA del portal de siempre. Sin
+// valor (null, el default — "hereda"), ninguna var: `useModo()` (lib/portal-
+// modo.tsx) cae a `MODO_TOKENS.dia.bg`, el aspecto de hoy para todos los
+// estudios que nunca tocaron este campo. Solo DÍA: mismo criterio que ya usa
+// `paletaPortalCssText` para `/reservar` (previo al login, sin interruptor
+// de modo) — Noche sigue siendo fijo hasta que se decida ese caso aparte.
+function varsFondoPortal(t: ThemeConfig): Record<string, string> {
+  if (!t.background) return {};
+  return { '--portal-bg-dia': t.background };
+}
+
 /** Mapa var→valor a partir de un tema (crudo o resuelto). Interno. */
 function themeToVarMap(raw: unknown): Record<string, string> {
   const t = resolveTheme(raw);
@@ -275,9 +287,14 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     // superficie. Se garantiza legible aquí, no en el dato del tema (ver
     // colorLegibleSobreClaro en color-utils.ts).
     '--brand-secondary': colorLegibleSobreClaro(t.secondary),
-    // Neutros y acento
+    // Neutros y acento. Sin `--background` a propósito: era el campo "Fondo"
+    // del editor, pero pintaba el PANEL de gestión (Informes, Clientas,
+    // Cierre...), no el portal de las socias que la propia pantalla de
+    // Apariencia promete — hallazgo C2 de la auditoría de uso real
+    // (2026-08-24). El panel vuelve a su fondo fijo de siempre
+    // (app/globals.css); "Fondo" ahora pinta de verdad el portal, ver
+    // `varsFondoPortal` más abajo.
     '--accent': t.accent,
-    '--background': t.background,
     '--foreground': t.text,
     // Forma y tipografía
     '--radius': radius,
@@ -297,6 +314,8 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     ...varsBarraFlotante(t, marcaForeground),
     // Radio por pieza de las secciones nuevas
     ...varsRadioTema(t),
+    // Fondo del portal en modo Día ("Fondo")
+    ...varsFondoPortal(t),
     // Escala tipográfica por pieza (token del tema, ver theme-schema.ts)
     ...varsEscalaTexto(t),
     // Dónde se ancla la foto del estudio al recortarla para una portada.
@@ -392,12 +411,17 @@ export interface ChequeoContraste {
 export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   const t = resolveTheme(raw);
   const errores: string[] = [];
-  if (!cumpleContraste(t.text, t.background))
-    errores.push('El texto no contrasta bien con el fondo (mínimo WCAG AA 4.5:1).');
+  // `background` ("Fondo") ya no pinta el panel (C2, ver varsFondoPortal) —
+  // el par a proteger es el fondo EFECTIVO del portal en modo Día (el propio
+  // valor si lo hay, si no el de MODO_TOKENS.dia que ya usa todo estudio sin
+  // tocar este campo) contra la tinta fija de ese modo.
+  const fondoPortalDia = t.background ?? MODO_TOKENS.dia.bg;
+  if (!cumpleContraste(MODO_TOKENS.dia.ink, fondoPortalDia))
+    errores.push('El texto del portal no contrasta bien con el fondo elegido (mínimo WCAG AA 4.5:1).');
   // El foreground de marca se autoderiva, así que el par marca/texto-de-marca
-  // siempre cumple; validamos además la marca sobre el fondo para elementos
-  // como enlaces/botones fantasma que pintan `--portal-brand` sobre `--background`.
-  if (!cumpleContraste(t.primary, t.background, { grande: true }))
+  // siempre cumple; validamos además la marca sobre el fondo del portal para
+  // elementos como enlaces/botones fantasma que pintan `--portal-brand` ahí.
+  if (!cumpleContraste(t.primary, fondoPortalDia, { grande: true }))
     errores.push('El color de marca no contrasta bien con el fondo (mínimo WCAG AA 3:1 para elementos grandes).');
   // Par que solo estrena la barra oscura: SOLO ahí `destacado` se pinta sobre
   // la marca (`--portal-tabbar-bg` pasa a ser `primary` en varsBarra). La

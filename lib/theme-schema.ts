@@ -430,7 +430,13 @@ export const themeConfigSchema = z
     primary: hexSchema,
     secondary: hexSchema,
     accent: hexSchema,
-    background: hexSchema,
+    // Nullable = hereda, mismo criterio que `radius`/`quickLinksStyle`. `null`
+    // es "no lo he tocado" — para el portal de siempre, hereda el fondo de
+    // MODO_TOKENS.dia (lib/portal-paleta.ts); para el panel de gestión, ya NO
+    // pisa nada (ver C2 de la auditoría de uso real: este campo pintaba el
+    // panel de la propietaria, no el portal de sus socias — se desconectó del
+    // panel y se conectó de verdad al portal).
+    background: hexSchema.nullable().default(null),
     text: hexSchema,
     fontId: fontIdSchema,
     radius: radiusSchema.default(null),
@@ -540,7 +546,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   primary: '#343825',
   secondary: '#5A6142',
   accent: '#F1F2EA',
-  background: '#F6F7F9',
+  background: null,
   text: '#1A1A1A',
   fontId: 'jakarta',
   radius: null,
@@ -687,7 +693,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     primary: pick('primary', hexSchema),
     secondary: pick('secondary', hexSchema),
     accent: pick('accent', hexSchema),
-    background: pick('background', hexSchema),
+    background: pick('background', hexSchema.nullable()),
     text: pick('text', hexSchema),
     fontId: pick('fontId', fontIdSchema),
     radius: pick('radius', radiusSchema),
