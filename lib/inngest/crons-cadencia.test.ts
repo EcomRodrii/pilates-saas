@@ -31,8 +31,9 @@ function cronScheduleDeMigracion(fuente: string, jobName: string): string | null
   return m ? m[1] : null;
 }
 
-test('las cadencias bajadas en O-1 se mantienen', () => {
-  assert.equal(cronDe(leer('lib/inngest/penalizaciones.ts'), 'penalizaciones-procesar'), '*/30 * * * *');
+test('penalizaciones-procesar: reducida de cada 30min a cada hora (auditoría #3)', () => {
+  assert.equal(cronDe(leer('lib/inngest/penalizaciones.ts'), 'penalizaciones-procesar'), '0 * * * *',
+    'auditoría #3: las penalizaciones no necesitan ejecutarse cada 30min; cada hora es suficiente');
 });
 
 // Piloto de arquitectura, resto del bucket A (2026-08-11): estos siete
