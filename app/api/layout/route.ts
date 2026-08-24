@@ -1,32 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verificarSesionStaff } from '@/lib/auth-server';
-import { errorInterno } from '@/lib/errores-servidor';
-import { getLayout, guardarLayout } from '@/lib/layout-data';
-import { layoutDraftSchema } from '@/lib/layout-schema';
+import { getLayoutAction, guardarLayoutAction } from '@/lib/actions/layout';
 
-// GET /api/layout → config de menú del estudio del staff autenticado.
-export async function GET(req: NextRequest) {
-  const sesion = await verificarSesionStaff(req);
-  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  return NextResponse.json(await getLayout(sesion.studioId));
+// DEPRECATED: Mantener para compatibilidad backwards. Usar lib/actions/layout.ts directamente en componentes.
+
+export async function GET(_req: NextRequest) {
+  try {
+    const result = await getLayoutAction();
+    return NextResponse.json(result);
+  } catch (e) {
+    return NextResponse.json(
+      { error: (e as Error).message || 'No autorizado' },
+      { status: 401 }
+    );
+  }
 }
 
-// PUT /api/layout → guarda la config de menú. Solo PROPIETARIO.
 export async function PUT(req: NextRequest) {
-  const sesion = await verificarSesionStaff(req);
-  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (sesion.rol !== 'PROPIETARIO')
-    return NextResponse.json({ error: 'Solo el propietario puede configurar el menú' }, { status: 403 });
-
-  const body = await req.json().catch(() => null);
-  const parsed = layoutDraftSchema.safeParse(body);
-  if (!parsed.success)
-    return NextResponse.json({ error: 'Configuración inválida', detalles: parsed.error.issues }, { status: 400 });
-
   try {
-    return NextResponse.json(await guardarLayout(sesion.studioId, parsed.data));
+    const body = await req.json().catch(() => null);
+    const result = await guardarLayoutAction(body);
+    return NextResponse.json(result);
   } catch (e) {
-    return errorInterno('layout:guardar', e,
-      'No se ha podido guardar el menú. Vuelve a intentarlo.');
+    const message = (e as Error).message || 'Error';
+    const status = message.includes('propietario') ? 403 : message.includes('inválida') ? 400 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
