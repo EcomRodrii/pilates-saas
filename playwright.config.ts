@@ -48,6 +48,13 @@ const SPECS_WEBKIT = [
   '**/reservar-citas-movil.spec.ts',
   '**/reservar-selector-fecha-movil.spec.ts',
   '**/network-marketplace-publico.spec.ts',
+  // La pantalla de reserva a pantalla completa (Fase 2-4 del rediseño,
+  // docs/rediseno-pantalla-reserva-diseno.md): cumple el criterio de sobra —
+  // pública, y es el camino de "pagar y reservar sin login previo" que una
+  // visitante nueva abre casi siempre desde el enlace del estudio en Instagram
+  // o su propia web, o sea Safari de iPhone la primera vez que prueba Tentare.
+  '**/reservar-pagar-sin-cuenta.spec.ts',
+  '**/reservar-pago-confirmacion.spec.ts',
   // El alta pública. Cumple el criterio de arriba de sobra: es PÚBLICA y quien
   // sufre un fallo es alguien de fuera —una propietaria que todavía no es
   // clienta y que, si el formulario no le funciona, no llama: se va a otra

@@ -241,3 +241,47 @@ test('⚠️ la hoja de la ficha y el modal de acceso nunca coexisten en pantall
   expect(maxDialogs, 'las dos hojas coexistieron en algún fotograma pintado').toBeLessThanOrEqual(1);
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Fase 3 del rediseño (docs/rediseno-pantalla-reserva-diseno.md): feedback en
+// vivo del código promocional contra /api/public/validar-codigo-descuento —
+// antes la única forma de enterarse de que un código no valía era mirar el
+// importe ya dentro del Payment Element.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('código promocional: válido muestra el descuento, inválido explica por qué', async ({ page }) => {
+  await abrirClaseSinSesion(page);
+  await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible({ timeout: 30_000 });
+
+  let ultimoCodigo = '';
+  await page.route('**/api/public/validar-codigo-descuento', (r) => {
+    ultimoCodigo = (r.request().postDataJSON() as { codigo?: string }).codigo ?? '';
+    if (ultimoCodigo.toUpperCase() === 'BIENVENIDA') {
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, descuento: 3 }) });
+    }
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, motivo: 'Ese código no existe' }) });
+  });
+
+  // Todo escopado al diálogo: el fondo (Bonos y membresías, etc.) sigue en el
+  // DOM detrás del modal y también dice "18 €" en algún sitio.
+  const dialogoDatos = page.getByRole('dialog', { name: 'Tus datos' });
+  await dialogoDatos.getByText('¿Tienes un código promocional?').click();
+  const campoCodigo = dialogoDatos.getByPlaceholder('Código promocional');
+
+  // Inválido: explica el motivo, no un genérico "código no válido".
+  await campoCodigo.fill('LOQUESEA');
+  await expect(dialogoDatos.getByText('Ese código no existe')).toBeVisible({ timeout: 3_000 });
+  expect(ultimoCodigo).toBe('LOQUESEA');
+
+  // Válido: el descuento se ve ANTES de pagar, y el total tachado deja claro
+  // que ya cuenta (P0 auditado contra Momence: nunca "se aplicará luego").
+  await campoCodigo.fill('BIENVENIDA');
+  await expect(dialogoDatos.getByText('Código aplicado: −3 €')).toBeVisible({ timeout: 3_000 });
+  await expect(dialogoDatos.getByText('18 €', { exact: true })).toBeVisible();
+  await expect(dialogoDatos.getByText('15 €', { exact: true })).toBeVisible();
+
+  // Quitar: el botón X limpia el código y su estado, sin esperar a nada.
+  await dialogoDatos.getByRole('button', { name: 'Quitar código' }).click();
+  await expect(dialogoDatos.getByText('Código aplicado')).not.toBeVisible();
+  await expect(campoCodigo).toHaveValue('');
+});
+

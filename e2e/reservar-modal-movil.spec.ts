@@ -14,6 +14,15 @@ import { test, expect, type Page } from '@playwright/test';
 //  · Los campos medían 14px, y por debajo de 16px iOS Safari amplía la página
 //    al enfocarlos y ya no la devuelve a su sitio.
 //  · Siete de los nueve pasos no decían en cuál estabas.
+//
+// ⚠️ Actualizado en el rediseño de la pantalla de reserva (Fase 2-5,
+// docs/rediseno-pantalla-reserva-diseno.md): 'datos'/'pago' dejaron de vivir
+// en ESTE modal — ahora es <PantallaReserva>, un scroll continuo a pantalla
+// completa sin CTA fijo ni indicador de paso, a propósito (referencia
+// Momence: "sin ningún control de paso anterior salvo el propio del
+// navegador"). Dos de los tests de abajo se actualizaron para reflejar eso;
+// el resto (fondo bloqueado, 16px, marco estable, apellidos sin estrangular)
+// siguen protegiendo defectos reales que la nueva pantalla también evita.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.setTimeout(180_000);
@@ -63,18 +72,19 @@ async function abrirPasoDatos(page: Page) {
   await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible({ timeout: 30_000 });
 }
 
-test('el botón de continuar se ve SIN hacer scroll dentro del modal', async ({ page }) => {
+test('⚠️ el botón de continuar es ALCANZABLE con scroll, nunca inexistente', async ({ page }) => {
+  // Antes de la Fase 2 el CTA vivía en un `footer` fijo SIEMPRE visible sin
+  // scroll — eso exigía "toBeInViewport" al abrir. `PantallaReserva` lo
+  // cambia a propósito: el CTA es el último elemento de un scroll continuo
+  // (mismo criterio que Momence, docs/rediseno-pantalla-reserva-diseno.md),
+  // así que con una descripción larga NO está en pantalla al abrir — lo que
+  // habría sido el defecto real es que no se pudiera llegar a él NI
+  // scrolleando, que es justo lo que comprobaba antes el "y sigue estándolo"
+  // de más abajo.
   await abrirPasoDatos(page);
 
   const cta = page.getByRole('button', { name: /Continuar al pago/ });
-  // `toBeInViewport` es la comprobación que importa: antes el botón existía en
-  // el DOM y era «visible» para Playwright, pero nacía por debajo del área
-  // visible del modal.
-  await expect(cta).toBeInViewport();
-
-  // Y sigue estándolo con el contenido scrolleado hasta arriba del todo, que es
-  // donde antes desaparecía sin remedio.
-  await page.getByPlaceholder('Nombre').scrollIntoViewIfNeeded();
+  await cta.scrollIntoViewIfNeeded();
   await expect(cta).toBeInViewport();
 });
 
@@ -104,9 +114,19 @@ test('⚠️ los campos miden 16px: por debajo, iOS amplía la página al enfoca
   }
 });
 
-test('el modal dice en qué paso estás', async ({ page }) => {
+test('⚠️ "Tus datos"/"pago" ya NO dicen "Paso X de Y" — es un scroll continuo, no un wizard', async ({ page }) => {
+  // Antes 'datos' y 'pago' eran dos hojas separadas con "‹ Datos"/"‹ Pago" y
+  // un "Paso 1 de 2 · Tus datos". `PantallaReserva` (Fase 2 del rediseño) las
+  // funde en un único scroll continuo A PROPÓSITO — un indicador numerado
+  // reintroduciría justo la sensación de wizard que ese rediseño pidió
+  // evitar (mismo criterio que confirma lib/reservar/pasos-flujo.test.ts:
+  // `recorridoDe('datos'|'pago')` vuelve a `null`). La orientación la da
+  // ahora el propio encabezado de la tarjeta ("Paso final" + "Tus datos"),
+  // no un contador.
   await abrirPasoDatos(page);
-  await expect(page.getByText('Paso 1 de 2 · Tus datos')).toBeVisible();
+  await expect(page.getByText('Paso 1 de 2 · Tus datos')).not.toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible();
+  await expect(page.getByText('Paso final')).toBeVisible();
 });
 
 test('nombre y apellidos no se estrangulan en una pantalla estrecha', async ({ page }) => {
