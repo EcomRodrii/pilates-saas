@@ -146,8 +146,6 @@ export async function equipoTarifasAction(input: {
   const sesion = await requireAuthInServerAction();
   const admin = getSupabaseAdmin();
 
-  if (!admin) throw new Error('Servidor no configurado');
-
   const method = (input.method || 'GET').toUpperCase();
 
   if (method === 'GET') {
@@ -155,6 +153,7 @@ export async function equipoTarifasAction(input: {
   }
 
   if (method === 'PATCH') {
+    if (!admin) throw new Error('Servidor no configurado');
     return await patchTarifa(admin, sesion, input);
   }
 

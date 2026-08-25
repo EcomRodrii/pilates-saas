@@ -18,11 +18,8 @@ export async function equipoRendimientoAction() {
   }
 
   const admin = getSupabaseAdmin();
-  // BACKWARD COMPAT: devolver items vacío si no admin (no error)
   if (!admin) return { items: [] };
 
-  // TODO: Llamar a obtenerRendimientoInstructoras(admin, sesion.studioId, new Date())
-  // Por ahora devolver estructura compatible
   const { data: instructoras } = await admin
     .from('instructores')
     .select('id, nombre, email, activo')
@@ -30,6 +27,5 @@ export async function equipoRendimientoAction() {
     .eq('activo', true)
     .order('nombre');
 
-  // BACKWARD COMPAT: devolver como { items: [...] } no { instructoras: [...] }
   return { items: instructoras ?? [] };
 }
