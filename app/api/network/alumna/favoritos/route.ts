@@ -62,7 +62,14 @@ export async function GET(req: NextRequest) {
 
   let estudios: EstudioListadoPublico[] = [];
   if (studioIds.length > 0) {
-    const { data, error } = await admin.from('studios').select(SELECT_COLUMNAS_LISTADO_ESTUDIO).in('id', studioIds);
+    // `visible_en_network` es un opt-in apagado por defecto: un estudio que
+    // se ha salido del directorio no puede seguir apareciendo aquí solo
+    // porque alguien lo marcó como favorito antes. Mismo filtro que el único
+    // camino legítimo de lectura (lib/network/publico-estudios.ts).
+    const { data, error } = await admin.from('studios')
+      .select(SELECT_COLUMNAS_LISTADO_ESTUDIO)
+      .eq('visible_en_network', true)
+      .in('id', studioIds);
     if (error) return errorInterno('network:alumna:favoritos:GET:estudios', error, 'No se han podido cargar tus favoritos.');
     estudios = ((data ?? []) as unknown as FilaEstudioListado[])
       .map(mapFilaAEstudioListado)
@@ -71,7 +78,12 @@ export async function GET(req: NextRequest) {
 
   let perfiles: ReturnType<typeof mapFilaAPerfilPublico>[] = [];
   if (perfilIds.length > 0) {
-    const { data, error } = await admin.from('red_perfiles').select(SELECT_COLUMNAS_PUBLICAS_PERFIL).in('id', perfilIds);
+    // Igual con los perfiles: uno despublicado o suspendido por moderación
+    // deja de mostrarse aunque siga en la lista de favoritos.
+    const { data, error } = await admin.from('red_perfiles')
+      .select(SELECT_COLUMNAS_PUBLICAS_PERFIL)
+      .eq('estado', 'published')
+      .in('id', perfilIds);
     if (error) return errorInterno('network:alumna:favoritos:GET:perfiles', error, 'No se han podido cargar tus favoritos.');
     perfiles = ((data ?? []) as unknown as FilaRedPerfilPublica[]).map(f => mapFilaAPerfilPublico(f, false));
   }
@@ -102,6 +114,15 @@ export async function POST(req: NextRequest) {
     if (error) return errorInterno('network:alumna:favoritos:POST:quitar', error, 'No se ha podido quitar de favoritos.');
     return NextResponse.json({ ok: true, favorito: false });
   }
+
+  // Solo al AÑADIR: no se puede marcar como favorito lo que no está en el
+  // directorio. La FK de la migración solo comprueba EXISTENCIA, no
+  // visibilidad. Quitar sí se permite siempre — si el estudio se salió de
+  // Network después, la alumna tiene que poder deshacerse de la fila.
+  const visible = tipo === 'estudio'
+    ? await admin.from('studios').select('id').eq('id', id).eq('visible_en_network', true).maybeSingle()
+    : await admin.from('red_perfiles').select('id').eq('id', id).eq('estado', 'published').maybeSingle();
+  if (!visible.data) return errorPeticion('No está disponible en Network.');
 
   // `id` no se pasa: la columna es `uuid default gen_random_uuid()`, mismo
   // motivo que ya documenta app/api/network/favoritos/route.ts.

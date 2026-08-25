@@ -8,6 +8,7 @@ import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
 import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 import { metodoReutilizableDe } from '@/lib/billing/metodo-reutilizable';
+import { identidadDemostradaEnCompra } from '@/lib/billing/identidad-compra';
 import { registrarDevolucion, referenciaDevolucion, origenDeReembolso, resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
@@ -784,7 +785,29 @@ async function procesarEvento(
       // Un fallo aquí devuelve 5xx para reintentar (idempotente: mismos
       // customer/payment_method). Bizum no aplica: este endpoint solo ofrece
       // tarjeta (payment_method_types:['card'] fijo).
-      if (typeof pi.customer === 'string') {
+      // Auditoría 25-ago. `socioEmail` NO es una identidad demostrada: en el
+      // camino de invitada (sin socioId, docs/reserva-sin-login-diseno.md
+      // §4.1) `entregarPlanComprado` resuelve la ficha con
+      // `.ilike('email', …)`, así que quien conozca el email de una socia del
+      // estudio podía comprar un plan MENSUAL a su nombre y —por esta rama—
+      // dejarle SU tarjeta guardada. A partir de ahí los cobros off-session
+      // del estudio y las renovaciones irían a la tarjeta del atacante, con el
+      // chargeback contra el estudio. El bloqueo por comodines de `ilike` que
+      // ya había en checkout-embebido tapaba la variante con `%`/`_`, pero no
+      // la de saber el email exacto.
+      //
+      // Solo se guarda la tarjeta cuando sabemos de quién es:
+      //  - `socioId` en la metadata → checkout-embebido lo validó contra el
+      //    JWT (`socioAutenticado`) antes de crear el PaymentIntent;
+      //  - `fichaCreada` → la ficha acaba de nacer de esta compra, no hay
+      //    nadie a quien suplantar.
+      // El resto (invitada que cae sobre una ficha que ya existía) paga y
+      // recibe su plan igual, pero no toca credenciales de pago ajenas.
+      const identidadDemostrada = identidadDemostradaEnCompra({
+        socioIdVerificado: pi.metadata.socioId,
+        fichaCreada: entrega.fichaCreada,
+      });
+      if (typeof pi.customer === 'string' && identidadDemostrada) {
         // Misma regla única que en checkout.session.completed. Aquí el evento ya
         // ES el PaymentIntent y este endpoint solo ofrece tarjeta, así que el
         // `payment_method` sin expandir basta.
