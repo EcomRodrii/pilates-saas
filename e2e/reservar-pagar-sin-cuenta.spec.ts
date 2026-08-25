@@ -88,8 +88,12 @@ async function abrirClaseSinSesion(page: Page) {
   // auditoría señaló como confuso («0/10» se leía como «cero plazas»). Se
   // comprueba aquí, con la hoja ya abierta, en vez de en un test aparte que
   // repetiría todo este arranque.
-  await expect(page.getByRole('dialog').getByText('10 plazas libres')).toBeVisible();
-  await expect(page.getByRole('dialog').getByText('0/10')).not.toBeVisible();
+  // ⚠️ Ya no va scopeado a `getByRole('dialog')`: el rediseño "sin popup"
+  // (docs/rediseno-widget-sin-popup-diseno.md) quitó el modal — la ficha es
+  // una vista normal de la página, no un `role="dialog"`. No hace falta
+  // ninguna otra ficha visible a la vez con la que confundirse.
+  await expect(page.getByText('10 plazas libres')).toBeVisible();
+  await expect(page.getByText('0/10')).not.toBeVisible();
 
   await botonReservar.click();
 }
@@ -142,25 +146,28 @@ test('rellenar datos y continuar llama a checkout-embebido con nombre/email/tel�
   // Sin socioId: nunca se manda una identidad que la visitante no tiene todavía.
   expect(ultimoBody.socioId).toBeUndefined();
 
-  // Llega al paso de pago — la cabecera del modal cambia y aparece el resumen
-  // de la clase. No se comprueba el Payment Element de Stripe (límite de
-  // entorno, ver cabecera del fichero) — y por lo mismo tampoco los
-  // `defaultValues.billingDetails` prefijados: viven DENTRO del iframe de
-  // Stripe, que con un clientSecret de mentira no llega a montarse.
-  const dialogoPago = page.getByRole('dialog', { name: 'Pagar y reservar' });
-  await expect(dialogoPago).toBeVisible({ timeout: 15_000 });
-
-  // P0 (queja literal del fundador): "Pagar y reservar → 1 €" se leía como
-  // "-1 €". El CTA dice ahora el importe SIN flecha/guion/interpunto delante.
-  await expect(dialogoPago.getByRole('button', { name: 'Pagar 18 € y reservar' })).toBeVisible();
+  // Llega al paso de pago y aparece el resumen de la clase. No se comprueba
+  // el Payment Element de Stripe (límite de entorno, ver cabecera del
+  // fichero) — y por lo mismo tampoco los `defaultValues.billingDetails`
+  // prefijados: viven DENTRO del iframe de Stripe, que con un clientSecret
+  // de mentira no llega a montarse.
+  // ⚠️ Ya no hay `role="dialog"` que darle nombre (rediseño "sin popup") — el
+  // paso de pago se distingue por su propio CTA, único en la página.
+  const ctaPago = page.getByRole('button', { name: 'Pagar 18 € y reservar' });
+  await expect(ctaPago).toBeVisible({ timeout: 15_000 });
 
   // P1-confianza: la línea de confianza nombra a Stripe (hecho veraz — el
   // pago lo procesa Stripe) y arrastra la ventana de cancelación REAL del
   // estudio del fixture (12h), nunca un genérico.
-  await expect(dialogoPago.getByText('Pago seguro procesado por Stripe · Cancelación gratuita hasta 12h antes')).toBeVisible();
-  const textoDialogo = await dialogoPago.innerText();
-  expect(textoDialogo, 'ningún importe puede ir precedido de una flecha').not.toMatch(/→\s*\d+([.,]\d+)?\s*€/);
-  expect(textoDialogo, 'ningún importe puede ir precedido de un interpunto').not.toMatch(/·\s*\d+([.,]\d+)?\s*€/);
+  await expect(page.getByText('Pago seguro procesado por Stripe · Cancelación gratuita hasta 12h antes')).toBeVisible();
+  // P0 (queja literal del fundador): "Pagar y reservar → 1 €" se leía como
+  // "-1 €". Se comprueba sobre el propio botón (único importe con flecha
+  // posible en este paso), no sobre toda la página: la ficha de la clase
+  // (columna izquierda) también enseña el precio, sin flecha, y no debe
+  // hacer sospechosa la aserción.
+  const textoCta = await ctaPago.innerText();
+  expect(textoCta, 'ningún importe puede ir precedido de una flecha').not.toMatch(/→\s*\d+([.,]\d+)?\s*€/);
+  expect(textoCta, 'ningún importe puede ir precedido de un interpunto').not.toMatch(/·\s*\d+([.,]\d+)?\s*€/);
 });
 
 test('⚠️ un 409 de checkout-embebido NO se anuncia como pago iniciado', async ({ page }) => {
@@ -182,7 +189,11 @@ test('⚠️ un 409 de checkout-embebido NO se anuncia como pago iniciado', asyn
   await page.waitForTimeout(1500);
 
   expect(intentos, 'el pago no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
-  await expect(page.getByRole('dialog', { name: 'Pagar y reservar' })).not.toBeVisible();
+  // Sin `role="dialog"` que comprobar (rediseño "sin popup"): el CTA de pago
+  // ("Pagar 18 € y reservar") es la prueba de que SÍ se llegó a montar el
+  // paso de pago — su ausencia sería la señal real de que el 409 se coló
+  // como si el pago hubiera arrancado.
+  await expect(page.getByRole('button', { name: 'Pagar 18 € y reservar' })).not.toBeVisible();
   await expect(page.getByText('Esta clase ya ha empezado')).toBeVisible();
   // Reintentable: el botón no se queda inerte tras el fallo.
   await expect(page.getByRole('button', { name: /Continuar al pago/ })).toBeEnabled();
@@ -261,27 +272,28 @@ test('código promocional: válido muestra el descuento, inválido explica por q
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, motivo: 'Ese código no existe' }) });
   });
 
-  // Todo escopado al diálogo: el fondo (Bonos y membresías, etc.) sigue en el
-  // DOM detrás del modal y también dice "18 €" en algún sitio.
-  const dialogoDatos = page.getByRole('dialog', { name: 'Tus datos' });
-  await dialogoDatos.getByText('¿Tienes un código promocional?').click();
-  const campoCodigo = dialogoDatos.getByPlaceholder('Código promocional');
+  // ⚠️ Ya no hace falta escopar a un diálogo (rediseño "sin popup"): con el
+  // flujo de reserva activo, el resto de la página (Bonos y membresías, la
+  // ficha de la clase, etc.) se oculta entera — no hay ningún otro "18 €"
+  // con el que confundirse.
+  await page.getByText('¿Tienes un código promocional?').click();
+  const campoCodigo = page.getByPlaceholder('Código promocional');
 
   // Inválido: explica el motivo, no un genérico "código no válido".
   await campoCodigo.fill('LOQUESEA');
-  await expect(dialogoDatos.getByText('Ese código no existe')).toBeVisible({ timeout: 3_000 });
+  await expect(page.getByText('Ese código no existe')).toBeVisible({ timeout: 3_000 });
   expect(ultimoCodigo).toBe('LOQUESEA');
 
   // Válido: el descuento se ve ANTES de pagar, y el total tachado deja claro
   // que ya cuenta (P0 auditado contra Momence: nunca "se aplicará luego").
   await campoCodigo.fill('BIENVENIDA');
-  await expect(dialogoDatos.getByText('Código aplicado: −3 €')).toBeVisible({ timeout: 3_000 });
-  await expect(dialogoDatos.getByText('18 €', { exact: true })).toBeVisible();
-  await expect(dialogoDatos.getByText('15 €', { exact: true })).toBeVisible();
+  await expect(page.getByText('Código aplicado: −3 €')).toBeVisible({ timeout: 3_000 });
+  await expect(page.getByText('18 €', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('15 €', { exact: true }).first()).toBeVisible();
 
   // Quitar: el botón X limpia el código y su estado, sin esperar a nada.
-  await dialogoDatos.getByRole('button', { name: 'Quitar código' }).click();
-  await expect(dialogoDatos.getByText('Código aplicado')).not.toBeVisible();
+  await page.getByRole('button', { name: 'Quitar código' }).click();
+  await expect(page.getByText('Código aplicado')).not.toBeVisible();
   await expect(campoCodigo).toHaveValue('');
 });
 

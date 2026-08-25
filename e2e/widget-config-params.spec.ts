@@ -59,10 +59,12 @@ test('⚠️ regresión: sin parámetros nuevos, todo sigue exactamente igual', 
   await expect(tabsDia(page)).toHaveCount(10);
   await expect(page.locator('.reserva-slot-row')).toHaveCount(2); // Reformer 10:00 + Mat 12:00 (hoy)
   await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
-  const hoja = page.getByRole('dialog');
-  await expect(hoja.locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
-  await expect(hoja.getByText('Todos los niveles')).toBeVisible();
-  await expect(hoja.getByText('Sustituye a Bea hoy')).toBeVisible();
+  // ⚠️ Rediseño "sin popup": la ficha ya no es `role="dialog"` — sustituye
+  // el listado en el sitio de siempre (oculto mientras está abierta), así
+  // que no hace falta acotar contra nada más visible detrás.
+  await expect(page.locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
+  await expect(page.getByText('Todos los niveles')).toBeVisible();
+  await expect(page.getByText('Sustituye a Bea hoy')).toBeVisible();
 });
 
 test('un filtro de tipo enseña SOLO ese tipo (listado y chips)', async ({ page }) => {
@@ -87,23 +89,23 @@ test('filtro por instructora, por id', async ({ page }) => {
 test('⚠️ ocultar-precio quita el precio DE VERDAD, no solo del botón', async ({ page }) => {
   await abrir(page, '&ocultar-precio=1');
   await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
-  const hoja = page.getByRole('dialog');
-  await expect(hoja.locator('.reserva-cta-btn')).toHaveText('Reservar');
-  // Ni en la línea de cobertura ni en ningún otro rincón de la hoja.
-  await expect(hoja).not.toContainText('€');
+  await expect(page.locator('.reserva-cta-btn')).toHaveText('Reservar');
+  // Ni en la línea de cobertura ni en ningún otro rincón de la página: con
+  // la ficha abierta, el listado/bonos/cifras que también podrían mostrar un
+  // precio están ocultos (`enVistaReserva`, app/reservar/[slug]/page.tsx).
+  await expect(page.locator('body')).not.toContainText('€');
 });
 
 test('ocultar-nivel y ocultar-sustituta apagan cada uno lo suyo', async ({ page }) => {
   await abrir(page, '&ocultar-nivel=1&ocultar-sustituta=1');
   await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
-  const hoja = page.getByRole('dialog');
-  await expect(hoja.getByText('Reformer')).toBeVisible();
-  await expect(hoja.getByText('Todos los niveles')).toHaveCount(0);
-  await expect(hoja.getByText('Sustituye a Bea hoy')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Reformer' })).toBeVisible();
+  await expect(page.getByText('Todos los niveles')).toHaveCount(0);
+  await expect(page.getByText('Sustituye a Bea hoy')).toHaveCount(0);
   // Sin el aviso queda el rótulo de rol de siempre, no un hueco.
-  await expect(hoja.getByText('Instructora')).toBeVisible();
+  await expect(page.getByText('Instructora')).toBeVisible();
   // Y el precio sigue: los toggles son independientes.
-  await expect(hoja.locator('.reserva-cta-btn')).toHaveText(/15 €/);
+  await expect(page.locator('.reserva-cta-btn')).toHaveText(/15 €/);
 });
 
 test('vista=hoy abre en hoy y SOLO hoy', async ({ page }) => {
@@ -254,5 +256,5 @@ test('⚠️ la página SUELTA ignora los parámetros del snippet', async ({ pag
   await expect(page.locator('.reserva-slot-row')).toHaveCount(2);
   await expect(tabsDia(page)).toHaveCount(10);
   await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
-  await expect(page.getByRole('dialog').locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
+  await expect(page.locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
 });

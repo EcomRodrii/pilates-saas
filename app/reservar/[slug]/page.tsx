@@ -46,7 +46,7 @@ import { piDeClientSecret, RETARDOS_POLL_MS, type RespuestaEstadoPago } from '@/
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import {
-  Users, CheckCircle2, X, Calendar,
+  Users, CheckCircle2, X, Calendar, ChevronLeft,
   CreditCard, FileText, Download, ExternalLink, Mail,
   Loader2, AlertTriangle, Hourglass,
 } from 'lucide-react';
@@ -252,6 +252,30 @@ const TAB_IDS: readonly Tab[] = ['clases', 'citas', 'misreservas', 'estudio', 'c
 // clase que no exige plan sigue yendo por 'login' como siempre (Fase 2,
 // deferred — ver nota en la implementación).
 type Step = 'login' | 'datos' | 'pago' | 'registro' | 'contrato' | 'confirm' | 'done' | 'espera' | 'pendiente';
+
+// Botón Atrás real (docs/rediseno-widget-sin-popup-diseno.md): la ficha de una
+// clase y el flujo de login/datos/pago son dos NIVELES de profundidad sobre el
+// listado, no una lista plana de pasos — `nivelDeVista` es la única fuente de
+// verdad de esa jerarquía, la usan tanto el efecto que empuja historial como
+// el que lo restaura al hacer Atrás/Adelante, para no desincronizarse entre
+// sí. 0 = listado, 1 = ficha de una clase, 2 = cualquier paso del flujo
+// (login/registro/contrato/confirm/datos/pago/espera/pendiente/done) — el
+// flujo entero cuenta como UN nivel: cambiar de paso reemplaza la entrada de
+// historial en vez de apilar una por paso (nueve pasos posibles harían que
+// completar una reserva dejara nueve pulsaciones de Atrás para volver al
+// listado). Un único Atrás desde cualquier paso del flujo vuelve a la ficha
+// (o al listado si se entró sin pasar por ella, p. ej. "Acceder" en la
+// cabecera); un Atrás más desde la ficha vuelve al listado.
+type VistaPaso = 'ficha' | Step;
+function nivelDeVista(paso: VistaPaso | null): 0 | 1 | 2 {
+  if (paso === null) return 0;
+  if (paso === 'ficha') return 1;
+  return 2;
+}
+/** Clave de comparación barata para «¿ha cambiado de verdad el paso/clase?». */
+function claveDeVista(paso: VistaPaso | null, claseId: string): string {
+  return paso ? `${paso}:${claseId}` : '';
+}
 
 // Criterios de estado (mismos que el portal): qué reservas ocupan plaza y cuáles
 // cuentan como reserva activa de la propia socia.
@@ -615,7 +639,11 @@ export default function ReservarPage() {
   // `onOverlayAbierto` para poder anclarla igual que las demás.
   const [citaConfirmandoAbierta, setCitaConfirmandoAbierta] = useState(false);
   const overlayEmbebidoAbiertoRef = useRef(false);
-  const [fichaCalendarioAbierta, setFichaCalendarioAbierta] = useState(false);
+  // Botón Atrás real: qué slot tiene abierta su ficha, no solo si "hay una
+  // ficha abierta" — el id hace falta para reflejarlo en la URL (`?clase=`) y
+  // para poder reabrirla al restaurar desde el historial o desde un refresh.
+  const [fichaAbiertaSlotId, setFichaAbiertaSlotId] = useState<string | null>(null);
+  const fichaCalendarioAbierta = fichaAbiertaSlotId !== null;
   useEffect(() => {
     if (!embedMode || typeof window === 'undefined' || window.parent === window) return;
     const onMsg = (e: MessageEvent) => {
@@ -652,6 +680,17 @@ export default function ReservarPage() {
   // congelada y luego se despega. Le pasaba a la de «Citas», que ni
   // siquiera exponía su estado hacia fuera.
   const overlayEmbebidoAbierto = embedMode && (fichaCalendarioAbierta || bookingSesionId !== null || legalDoc !== null || citaConfirmandoAbierta);
+  // Rediseño "sin popup": el listado (título "Clases", filtros, calendario,
+  // caja "cómo funciona") se oculta mientras se ve la ficha de una clase O
+  // el flujo de login/datos/pago que viene después — las DOS mitades de la
+  // misma "vista de reserva". Solo con la ficha (`fichaCalendarioAbierta`) no
+  // basta: en cuanto se pulsa "Reservar" dentro de ella, `cerrarHoja()` la
+  // cierra sola (se delega al flujo, ver el docblock de `onReservar` en
+  // `ReservaCalendario`) y `fichaCalendarioAbierta` vuelve a `false` — sin
+  // este OR, el listado reaparecía DEBAJO del flujo en el mismo instante en
+  // que se pulsaba el botón (encontrado con la propia captura de
+  // verificación de esta fase, no antes de escribirlo).
+  const enVistaReserva = fichaCalendarioAbierta || bookingSesionId !== null;
   useEffect(() => {
     overlayEmbebidoAbiertoRef.current = overlayEmbebidoAbierto;
     if (!overlayEmbebidoAbierto || typeof window === 'undefined' || window.parent === window) return;
@@ -676,7 +715,53 @@ export default function ReservarPage() {
     }
   }, [overlayEmbebidoAbierto, slug]);
   // Callback estable para el calendario (su efecto interno lo lleva en deps).
-  const alCambiarFicha = useCallback((abierta: boolean) => setFichaCalendarioAbierta(abierta), []);
+  const alCambiarFicha = useCallback(
+    (abierta: boolean, slotId: string | null) => setFichaAbiertaSlotId(abierta ? slotId : null),
+    [],
+  );
+  // Orden puntual para abrir (o cerrar) una ficha concreta desde FUERA del
+  // calendario — mismo patrón que `irADia` en `ReservaCalendarioProps`: el
+  // día/la ficha abierta los sigue llevando el estado INTERNO del componente,
+  // esto es una orden de una sola vez, no un control continuo. Hace falta
+  // para restaurar la ficha al volver con el Atrás del navegador o al
+  // refrescar sobre una URL con `?paso=ficha&clase=...`.
+  const [abrirFichaExterna, setAbrirFichaExterna] = useState<{ slotId: string | null; nonce: number }>({ slotId: null, nonce: 0 });
+
+  // ── Botón Atrás real (docs/rediseno-widget-sin-popup-diseno.md) ───────────
+  // ⚠️ `router.push`/`router.replace` (`next/navigation`) NO llegan a
+  // comprometerse en esta ruta para una navegación que SOLO cambia la query
+  // string: se llama, el fetch RSC de verdad sale y responde 200, pero
+  // `useSearchParams()`/`window.location` nunca se actualizan — medido en
+  // build de producción, reproducido incluso con un `onClick` plano sin
+  // ningún efecto de por medio, así que no es un problema de esta lógica.
+  // El History API crudo (`pushState`/`replaceState`/`go`) SÍ confirma
+  // cambiar `window.location` de verdad, así que el mecanismo entero vive
+  // sobre él en vez de sobre el router — un caso real de "decide la
+  // arquitectura más segura", no un capricho.
+  //
+  // Dos efectos que se turnan sin pisarse: uno refleja el estado (ficha/flujo
+  // abiertos) en la URL, el otro hace lo inverso al recibir un cambio de URL
+  // (Atrás/Adelante del navegador, o una carga directa/refresh sobre una URL
+  // con `?paso=`). `claveVistaRef` es el único punto de verdad de "qué cree
+  // cada uno que ya está aplicado" — el efecto que causa un cambio lo escribe
+  // ahí ANTES de tocar la URL/estado, así que cuando el cambio se refleja de
+  // vuelta el otro lo ve ya sincronizado y no hace nada. Sin este cerrojo,
+  // cada Atrás real desencadenaría un push nuevo que a su vez... — el bucle
+  // exacto que pide evitar el rediseño.
+  const claveVistaRef = useRef('');
+  // Cuántas entradas de historial hemos empujado NOSOTROS desde el listado.
+  // Sin este contador, un cierre programático (botón "Volver"/"Cerrar", NO
+  // el Atrás físico) no sabría cuántas veces retroceder con `history.go()` —
+  // y adivinarlo con un solo paso deja colgada una entrada extra si se saltó
+  // del flujo directo a cerrar sin pasar por la ficha.
+  const entradasPropiasRef = useRef(0);
+  // La PRIMERA vez que el efecto de "URL → estado" corre, puede ser porque la
+  // página se cargó (o refrescó) ya con `?paso=...` en la URL — un enlace
+  // compartido, no algo que hayamos empujado nosotros. Esa entrada no cuenta
+  // para `entradasPropiasRef` (no la puede deshacer un `history.go()` propio,
+  // no sabemos si hay nada detrás en el historial de esta pestaña).
+  const primerPasoUrlRef = useRef(true);
+
   // Posicionamiento que se pasa a los PublicSheet en modo embebido. `top`/
   // `height` + `bottom: auto` pisan el `inset-0` de la clase; `alignItems`
   // pisa `items-end sm:items-center` (ese `sm:` mide el ancho del IFRAME, no
@@ -1015,6 +1100,171 @@ export default function ReservarPage() {
         } satisfies ReservaSlot;
       });
   }, [sesionesRich, nowMs, configWidget, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
+
+  // Efecto A — URL → estado. Cubre tres disparadores con el mismo código:
+  // carga inicial/refresh con `?paso=` en la URL, y Atrás/Adelante del
+  // navegador. Lee `searchParams` (Next) directamente en vez de un
+  // `popstate` propio: `pushState`/`replaceState` (usados más abajo para
+  // TODAS las escrituras de este flujo) SÍ integran con el router de
+  // Next y resincronizan `useSearchParams()` — está documentado
+  // (`node_modules/next/dist/docs/01-app/01-getting-started/
+  // 04-linking-and-navigating.md`, "Native History API") y se confirmó en
+  // vivo con un `pushState` de prueba. Un listener manual solo duplicaba lo
+  // que Next ya hace.
+  useEffect(() => {
+    if (!mounted) return;
+    const esPrimeraAplicacion = primerPasoUrlRef.current;
+
+    const paso = searchParams.get('paso') as VistaPaso | null;
+    const claseId = searchParams.get('clase') ?? '';
+    const clave = claveDeVista(paso, claseId);
+    if (clave === claveVistaRef.current) {
+      // Ya sincronizado — incluye la carga inicial sin `?paso=` en la URL
+      // (clave `''` contra el `''` inicial de `claveVistaRef`), que por eso
+      // SÍ tiene que limpiar `primerPasoUrlRef` aquí y no solo más abajo.
+      primerPasoUrlRef.current = false;
+      return;
+    }
+
+    // Datos aún cargando: reintenta cuando `sesiones` (en las deps de abajo)
+    // llegue, sin tocar `claveVistaRef`/`primerPasoUrlRef` — este intento no
+    // cuenta como aplicado.
+    if (paso === 'ficha' && claseId && !sesiones.length) return;
+    if (paso && paso !== 'ficha' && !sesiones.length) return; // Ruta A (`openBooking`) necesita el catálogo para decidir si exige plan
+
+    if (!esPrimeraAplicacion) {
+      const nivelPrevio = nivelDeVista(claveVistaRef.current ? (claveVistaRef.current.split(':')[0] as VistaPaso) : null);
+      const nivelNuevo = nivelDeVista(paso);
+      // Un cambio que llega por aquí (no por el efecto de abajo, que ya deja
+      // `claveVistaRef` sincronizado antes de tocar la URL) solo puede venir
+      // de UNA pulsación física de Atrás/Adelante — exactamente UNA entrada
+      // de historial, sea cual sea el salto de NIVEL que represente (un
+      // `pushState` puede saltar 0→2 de una vez, ver el efecto de abajo).
+      // Contar por nivel en vez de por entrada desincroniza
+      // `entradasPropiasRef` del historial real.
+      entradasPropiasRef.current = Math.max(0, entradasPropiasRef.current + (nivelNuevo > nivelPrevio ? 1 : nivelNuevo < nivelPrevio ? -1 : 0));
+    }
+    primerPasoUrlRef.current = false;
+    claveVistaRef.current = clave;
+
+    if (paso === 'ficha') {
+      const existe = !!claseId && slots.some(s => s.id === claseId);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Sincroniza con la URL (sistema externo): abre la ficha que pide `?paso=ficha&clase=...` al volver con Atrás/Adelante o al refrescar. No es estado derivable de props/estado local.
+      setAbrirFichaExterna(v => ({ slotId: existe ? claseId : null, nonce: v.nonce + 1 }));
+      // Un Atrás desde el flujo (login/datos/pago/...) aterriza aquí — hay
+      // que cerrar el flujo TAMBIÉN, no solo abrir la ficha: sin esto,
+      // `bookingSesionId` seguía sin `null` y el flujo se quedaba pintado
+      // por encima de la ficha recién reabierta.
+      if (bookingSesionId !== null) closeBooking();
+    } else if (paso) {
+      // ⚠️ El guardia es `fichaAbiertaSlotId !== null` (la verdad real de si
+      // HAY una ficha abierta ahora mismo, reflejada desde ReservaCalendario
+      // vía `alCambiarFicha`) — NO `v.slotId` (`abrirFichaExterna` es un
+      // canal de ÓRDENES de salida, nunca lo actualiza un clic normal del
+      // usuario: comparar contra su propio valor anterior lo dejaría en
+      // no-op para la ficha abierta por el camino de siempre).
+      if (fichaAbiertaSlotId !== null) setAbrirFichaExterna(v => ({ slotId: null, nonce: v.nonce + 1 }));
+      // Reabre vía `openBooking()`, NUNCA restaurando `loginStep` a ciegas:
+      // decide el paso correcto según el estado de auth ACTUAL. `datos`/`pago`
+      // dependen de un `datosClientSecret` (PaymentIntent) que no sobrevive a
+      // un refresh — intentar restaurarlos tal cual dejaría una pantalla de
+      // pago rota. `openBooking` nunca resuelve en 'pago' por sí sola, así
+      // que ese caso cae a 'datos' (si sigue aplicando la Ruta A) o 'login' —
+      // "conserva el estado cuando es posible, si no cae al camino seguro",
+      // que es justo lo pedido.
+      openBooking(claseId);
+    } else {
+      // Mismo motivo que arriba: comparar contra el estado REAL de la ficha,
+      // no contra la última orden que le mandamos.
+      if (fichaAbiertaSlotId !== null) setAbrirFichaExterna(v => ({ slotId: null, nonce: v.nonce + 1 }));
+      if (bookingSesionId !== null) closeBooking();
+    }
+    // `slots` en las deps a propósito, además de `sesiones`: es la lista
+    // FILTRADA que `ReservaCalendario` de verdad pinta (pasadas/ocultas por
+    // filtro o por restricción de embed quedan fuera de `slots` aunque
+    // sigan en `sesiones`), y hace falta su valor FRESCO del mismo render en
+    // que se evalúa `existe` — una `ref` sincronizada por un efecto aparte
+    // se queda un render por detrás justo cuando `sesiones`/`slots` cambian
+    // juntos (p. ej. al recargar con `?paso=ficha` en la URL), y `existe`
+    // salía `false` para una clase que sí existía. Que reaccione también a
+    // cambios de filtro no es problema: si `clave` sigue igual a
+    // `claveVistaRef.current`, el efecto ya corta arriba sin hacer nada.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openBooking/closeBooking se redeclaran cada render (cierran sobre mucho estado); esto solo debe reaccionar a la URL y a los datos cargando.
+  }, [mounted, searchParams, sesiones, slots]);
+
+  // Efecto B — estado → URL. La cara complementaria: cuando la ficha o el
+  // flujo cambian por una acción normal (clic en una clase, "Reservar",
+  // "Volver"), refleja ese cambio en la URL/historial con el History API
+  // crudo (ver el porqué al principio de este bloque).
+  useEffect(() => {
+    if (!mounted) return;
+    const paso: VistaPaso | null = bookingSesionId !== null ? loginStep : (fichaAbiertaSlotId ? 'ficha' : null);
+    const claseId = bookingSesionId !== null ? bookingSesionId : (fichaAbiertaSlotId ?? '');
+    const clave = claveDeVista(paso, claseId);
+    if (clave === claveVistaRef.current) return; // esto ya lo reflejaba la URL (venía de Atrás/Adelante)
+
+    const nivelPrevio = nivelDeVista(claveVistaRef.current ? (claveVistaRef.current.split(':')[0] as VistaPaso) : null);
+    const nivelNuevo = nivelDeVista(paso);
+    // Se fija ANTES de tocar la URL: si esto dispara de vuelta el efecto de
+    // arriba (que solo reacciona a `popstate`, no a esto), lo vería ya
+    // sincronizado — aunque en la práctica ni siquiera llega a intentarlo,
+    // `pushState`/`replaceState` no emiten `popstate` por sí mismos.
+    claveVistaRef.current = clave;
+
+    const params = new URLSearchParams(window.location.search);
+    if (paso) {
+      params.set('paso', paso);
+      if (claseId) params.set('clase', claseId); else params.delete('clase');
+      // ⚠️ El `tab` ACTUAL, no forzado a 'clases': el flujo también se abre
+      // desde Citas (`CitasPublica.onNeedLogin`) y desde el botón "Acceder"
+      // de la cabecera (visible en cualquier pestaña). Forzar 'clases' aquí
+      // hacía que un refresh a mitad del flujo devolviera a la visitante a
+      // la pestaña equivocada, perdiendo dónde estaba. Explícito y no
+      // implícito: sin esto, restaurar `?paso=...` desde un refresh
+      // dependería de que 'clases' siga siendo la pestaña por defecto.
+      if (params.get('tab') !== tab) params.set('tab', tab);
+    } else {
+      params.delete('paso');
+      params.delete('clase');
+    }
+    const url = `/reservar/${slug}${params.toString() ? `?${params.toString()}` : ''}`;
+
+    if (nivelNuevo > nivelPrevio) {
+      // Listado → ficha, listado → flujo directo, o ficha → flujo: UNA
+      // entrada nueva — es lo que hace que Atrás vuelva un nivel en vez de
+      // sacar de la página entera. Una sola entrada aunque el salto sea de
+      // más de un nivel (listado → flujo directo, sin pasar por la ficha):
+      // `pushState` crea UNA entrada de historial, sea cual sea el nivel que
+      // represente — contar niveles en vez de entradas desincronizaría el
+      // contador del historial real (ver el cierre, más abajo).
+      entradasPropiasRef.current += 1;
+      window.history.pushState(null, '', url);
+    } else if (nivelNuevo === nivelPrevio) {
+      // Paso a paso DENTRO del mismo nivel (login→registro→confirm→..., o la
+      // reapertura de la ficha tras cambiar de sitio): reemplaza la entrada
+      // actual, no apila una por paso — nueve pasos posibles no deben ser
+      // nueve pulsaciones de Atrás para salir del flujo.
+      window.history.replaceState(null, '', url);
+    } else {
+      // Cierre PROGRAMÁTICO (botón "Volver"/"Cerrar"/X, nunca el Atrás físico
+      // — ese lo captura el efecto de arriba y nunca llega aquí porque ya
+      // deja `claveVistaRef` sincronizado). SIEMPRE cierra al listado
+      // (nivel 0: ningún botón de este flujo deja a medias, solo entra por
+      // pasos): deshacer TODAS las entradas que empujamos nosotros con un
+      // único `history.go()` deja el historial limpio (un Adelante después
+      // no reabriría nada fantasma). Si no empujamos ninguna (se entró ya
+      // con `?paso=...` en la URL — un enlace compartido, sin nada nuestro
+      // que deshacer), limpiar la URL con `replaceState` es el camino
+      // seguro: no hay overlay ni back-stack propio que deshacer.
+      if (entradasPropiasRef.current > 0) {
+        const saltos = entradasPropiasRef.current;
+        entradasPropiasRef.current = 0;
+        window.history.go(-saltos);
+      } else {
+        window.history.replaceState(null, '', url);
+      }
+    }
+  }, [mounted, fichaAbiertaSlotId, bookingSesionId, loginStep, slug, tab]);
 
   // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
   // 01): las clases de HOY que ya empezaron/terminaron se ven en gris con
@@ -1667,9 +1917,13 @@ export default function ReservarPage() {
   const PRIMARY = 'var(--portal-brand)';
   const PRIMARY_FG = 'var(--portal-brand-foreground)';
 
-  // Fase 2 del rediseño (docs/rediseno-pantalla-reserva-diseno.md): "datos" y
-  // "pago" dejaron de ser un paso más del modal pequeño — son la nueva
-  // <PantallaReserva>, a pantalla completa dentro de la misma <PublicSheet>.
+  // "datos"/"pago" se pintan con <PantallaReserva> (Fase 2 del rediseño,
+  // docs/rediseno-pantalla-reserva-diseno.md), que lleva su PROPIO "‹ Volver"
+  // — el resto de pasos usan el genérico de más abajo. Con el rediseño
+  // "sin popup" (docs/rediseno-widget-sin-popup-diseno.md) ambos grupos son
+  // igual de "vista inline", ya no hay una diferencia visual de "pantalla
+  // completa vs. hoja pequeña"; lo único que sigue distinguiendo es quién
+  // pinta el botón de volver.
   const esPantallaReserva = loginStep === 'datos' || loginStep === 'pago';
 
   // F0 · POR-1: no ofrecer planes a 0 € como contratables en público
@@ -2041,7 +2295,12 @@ export default function ReservarPage() {
               URL sigue aceptándose (snippets ya pegados no cambian) pero ya
               no hace falta: fuera de `embedMode` (la página completa
               /reservar/[slug]) la barra se ve entera como siempre. */}
-          {((embedMode || apariencia.soloPestana) ? tabs.filter(([t]) => t === tab) : tabs).map(([t, label]) => (
+          {/* Rediseño "sin popup": con la vista de reserva activa, ni rastro
+              de las demás pestañas — "sensación de app de reservas", no de
+              página con pestañas debajo. El `div#horario` en sí NO se oculta
+              (comentario de arriba: es el ancla de scroll/tests), solo sus
+              botones. */}
+          {!enVistaReserva && ((embedMode || apariencia.soloPestana) ? tabs.filter(([t]) => t === tab) : tabs).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               style={{
                 flex: '0 0 auto', padding: '0 2px 16px', marginBottom: -1, background: 'none', border: 'none', cursor: 'pointer',
@@ -2126,6 +2385,12 @@ export default function ReservarPage() {
         {tab === 'clases' && !fichaSesionId && (
           <div style={{ maxWidth: 760, marginInline: 'auto', width: '100%', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
 
+            {/* Rediseño "sin popup": con la ficha de una clase abierta (click
+                en "Reservar" de una fila), el título/mes y los filtros se
+                ocultan — `<ReservaCalendario estiloFicha="vista">` ya deja de
+                montar su propio calendario y pinta SOLO la ficha, así que
+                nada de esto debe seguir a la vista por encima. */}
+            {!enVistaReserva && (<>
             {/* Título + mes — formato 01 del handoff
                 (design_handoff_widget_reservas/Tentare Widget.dc.html). */}
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
@@ -2181,6 +2446,7 @@ export default function ReservarPage() {
                 ))}
               </div>
             )}
+            </>)}
 
             {/* Calendario de reservas — componente compartido (estilo Acuity), el
                 mismo que usa el portal de socias, re-vestido con el lenguaje
@@ -2188,12 +2454,27 @@ export default function ReservarPage() {
                 se enruta por handleReservarCalendario, que respeta el
                 step-machine de acceso.
                 ⚠️ Único caller de Modo A que activa `estiloDias='dias'` (tira de
-                10 días con scroll) — el portal privado sigue en 'semana'. */}
-            <div style={{ marginTop: 20 }}>
+                10 días con scroll) — el portal privado sigue en 'semana'.
+                `estiloFicha="vista"`: rediseño "sin popup" (Modo A únicamente —
+                Modo B, `app/widget-bundle/main.tsx`, no pasa esta prop y sigue
+                con su hoja modal de siempre).
+                ⚠️ `bookingSesionId === null`, no `!enVistaReserva`: mientras se
+                ve LA FICHA (antes del login/pago), `bookingSesionId` sigue
+                siendo `null` y este componente debe seguir montado — es quien
+                pinta la ficha (`soloFicha` interno, activado por su propio
+                `openSlot`). Lo que hay que evitar es que se quede montado
+                DESPUÉS, en el flujo de login/datos/pago: ahí su ficha ya se
+                cerró sola (`cerrarHoja()`, mismo tick que `openBooking()`) y
+                sin este guardia volvía a pintar su calendario de siempre por
+                debajo del flujo — encontrado con la propia captura de
+                verificación de esta fase. */}
+            {bookingSesionId === null && (
+            <div style={{ marginTop: fichaCalendarioAbierta ? 0 : 20 }}>
               <ReservaCalendario
                 t={tokensCalendario}
                 slots={slots}
                 variant="calendario"
+                estiloFicha="vista"
                 // `?diseno=ligero` (snippet, solo llega con embed=1) cambia a
                 // la rejilla compacta del bundle; el default sigue siendo la
                 // tira de 10 días.
@@ -2223,8 +2504,10 @@ export default function ReservarPage() {
                 enIframe={embedMode}
                 franjaVisible={franjaVisible}
                 alCambiarFicha={alCambiarFicha}
+                abrirSlotExterno={abrirFichaExterna}
               />
             </div>
+            )}
 
             {/* Restaurado tras romper e2e/reservar-ventana-por-tipo.spec.ts: no
                 es copy decorativa, es el aviso honesto de cancelación/antelación
@@ -2234,7 +2517,11 @@ export default function ReservarPage() {
                 trae esta caja porque ese plazo lo enseña en la hoja de detalle
                 de cada clase (SlotRow → BookingSheet) — pero el tope de
                 ANTELACIÓN MÁXIMA solo se anuncia aquí, así que se queda, ahora
-                en columna única bajo la lista en vez de en un rail lateral. */}
+                en columna única bajo la lista en vez de en un rail lateral.
+                Oculto con la ficha abierta (rediseño "sin popup"): es un
+                "cómo funciona" general del listado, fuera de lugar debajo de
+                UNA clase concreta. */}
+            {!enVistaReserva && (
             <div style={{ marginTop: 20, borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '22px 24px' }}>
               <div style={eyebrow(9)}>{textosReservar.comoFunciona || 'CÓMO FUNCIONA'}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 28px', marginTop: 16 }}>
@@ -2255,6 +2542,7 @@ export default function ReservarPage() {
                 </p>
               )}
             </div>
+            )}
           </div>
         )}
 
@@ -2264,7 +2552,7 @@ export default function ReservarPage() {
             servicios configurados como en su estado vacío — una cabecera
             aparte aquí quedaba duplicada en el primer caso y con el título
             equivocado ("Citas privadas") en el segundo. */}
-        {tab === 'citas' && (
+        {tab === 'citas' && !enVistaReserva && (
           <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
             <CitasPublica
               overlayStyle={overlayEmbed}
@@ -2614,7 +2902,7 @@ export default function ReservarPage() {
           mismo de siempre (activo y precio > 0, que además es requisito del
           checkout de Stripe): una banda «Bonos y membresías» vacía en la
           página pública es peor que no tenerla. */}
-      {seccionVisible('bonos') && planesContratables.length > 0 && (
+      {!enVistaReserva && seccionVisible('bonos') && planesContratables.length > 0 && (
         <div style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
             <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
@@ -2727,7 +3015,7 @@ export default function ReservarPage() {
           criterio que la bio de instructora (#946).
 
           El título solo no basta: un encabezado sobre nada es peor que nada. */}
-      {seccionVisible('sobre') && textosReservar.sobreTexto && (
+      {!enVistaReserva && seccionVisible('sobre') && textosReservar.sobreTexto && (
         <div style={{ order: orden('sobre'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 720, marginInline: 'auto', textAlign: 'center' }}>
             {textosReservar.sobreTitulo && (
@@ -2747,7 +3035,7 @@ export default function ReservarPage() {
         </div>
       )}
 
-      {seccionVisible('cifras') && mereceBanda(cifras) && (
+      {!enVistaReserva && seccionVisible('cifras') && mereceBanda(cifras) && (
         <div style={{ order: orden('cifras'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(26, 3, 38)} ${cq(20, 3.8, 48)} 0` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: cq(28, 4, 60) }}>
             {cifras.map(c => (
@@ -2771,7 +3059,7 @@ export default function ReservarPage() {
       {/* `ocultarPie` solo puede venir en modo incrustado (ver `apariencia`),
           así que la página suelta conserva su pie con los legales pase lo que
           pase. Ahí es el único sitio donde vive esa información. */}
-      {!apariencia.ocultarPie && seccionVisible('contacto') && (
+      {!enVistaReserva && !apariencia.ocultarPie && seccionVisible('contacto') && (
       <footer style={{ order: orden('contacto'), borderTop: '1px solid var(--portal-surface-2)', marginTop: 40, padding: `${cq(28, 3, 40)} ${cq(20, 3.8, 48)}` }}>
         <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center' }}>
           {/* ¿Dudas? — teléfono y email del estudio. Cada uno se pinta SOLO si
@@ -2848,7 +3136,7 @@ export default function ReservarPage() {
       <PublicSheet
         open={bookingSesionId !== null}
         onClose={closeBooking}
-        closeOnBackdropClick={false}
+        inline
         label={
           loginStep === 'done' ? (pagoWebSinLogin ? tituloPagoWeb : (textosReservar.confirmacion || '¡Reserva confirmada!'))
           : loginStep === 'espera' ? '¡En lista de espera!'
@@ -2860,41 +3148,30 @@ export default function ReservarPage() {
           : loginStep === 'contrato' ? 'Acepta los términos'
           : 'Confirmar reserva'
         }
-        // Fase 2 del rediseño: "datos"/"pago" dejaron de ser un paso más del
-        // asistente pequeño — son la nueva <PantallaReserva>, a pantalla
-        // completa (`reserva-pantalla-completa*`, ver globals.css). El resto
-        // de pasos (login/registro/contrato/confirmar/espera/pendiente/éxito)
-        // se quedan con la hoja pequeña de siempre, sin tocar.
-        sheetClassName={esPantallaReserva
-          ? 'reserva-pantalla-completa-hoja bg-transparent relative'
-          : `bg-white w-full max-w-sm ${embedMode ? '' : 'reserva-hoja-estable'} rounded-t-3xl sm:rounded-3xl p-6 relative shadow-2xl transition-[max-width] duration-300 ease-out`}
-        overlayClassName={esPantallaReserva ? 'reserva-pantalla-completa' : 'reserva-modal-edge'}
-        // P0-3: en el iframe embebido, `90vh` es el 90% del IFRAME entero (que
-        // mide lo que su contenido) — el modal se anclaba junto al pie de la
-        // web del estudio, a ~1000px de la vista del usuario (medido). Con
-        // franja, el modal vive DENTRO de ella (maxHeight al 100% de la franja,
-        // menos el p-4 del backdrop); sin franja, tope fijo razonable.
-        // Pantalla completa: el scroll vive DENTRO de <PantallaReserva>, no en
-        // la hoja — `overflow: hidden` aquí evita un doble scroll anidado.
-        // Fuera de pantalla completa, sigue el tratamiento de siempre —
-        // incluido el `paddingBottom` con safe-area del paso 'done' (el botón
-        // "Añadir a tu calendario" quedaba a ras de la barra de gestos del
-        // iPhone, #1365): ese paso no lleva `footer`, así que su contenido
-        // scrollea dentro de este mismo `p-6`.
-        sheetStyle={esPantallaReserva
-          ? { maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(94vh, 760px)') : '100dvh', overflow: 'hidden' }
-          : {
-            maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(90vh, 640px)') : '90vh',
-            overflowY: 'auto',
-            overscrollBehavior: 'contain',
-            paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
-          }}
-        overlayStyle={overlayEmbed}
-        // El CTA de 'login'/'registro' va anclado abajo, no al final del
-        // scroll: con el teclado abierto en móvil (ambos llevan `autoFocus`)
-        // quedaba fuera de alcance (#1366). 'datos'/'pago' ya NO pasan por
-        // aquí — <PantallaReserva> lleva su propio CTA dentro de la tarjeta
-        // de pago, no en un footer fijo de PublicSheet.
+        // Rediseño "sin popup" (pedido explícito: eliminar el modal de
+        // reserva, sustituirlo por una vista dentro del propio widget). Ya no
+        // hay backdrop ni tope de altura que simular: el iframe se
+        // redimensiona solo al alto real del documento (postMessage
+        // `tentareEmbedAltura` más arriba en este mismo fichero), así que
+        // esta pantalla es un bloque más de la página, tan alta como su
+        // contenido — el `min-h-` solo evita un salto al pasar de una fila
+        // corta de "Mis reservas" a un formulario largo.
+        sheetClassName="w-full min-h-[50vh] px-6 pt-6"
+        // Sin `footer` (done/espera/pendiente/confirm/contrato), nada más
+        // le pone aire por debajo — mismo `paddingBottom` con safe-area que
+        // ya llevaba esta hoja antes del rediseño (#1365: el botón "Añadir a
+        // tu calendario" quedaba a ras de la barra de gestos del iPhone).
+        // Con `footer` esa hoja YA lleva su propio padding con safe-area
+        // (public-sheet.tsx), así que aquí se omite para no duplicarlo.
+        sheetStyle={((loginStep === 'login' && !enlaceEnviado) || loginStep === 'registro')
+          ? undefined
+          : { paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+        // El CTA de 'login'/'registro' sigue con `footer`: separa la acción
+        // del contenido con una línea de pelo, aunque ya no vaya "pegado
+        // abajo" (no hay altura acotada que fijarlo) — sigue siendo lo
+        // siguiente que se lee tras el último campo, alcanzable con scroll
+        // normal. 'datos'/'pago' ya NO pasan por aquí — <PantallaReserva>
+        // lleva su propio CTA dentro de la tarjeta de pago.
         footer={
           loginStep === 'login' && !enlaceEnviado ? (
             <button onClick={handleContinuarAcceso} disabled={!loginForm.email || enviandoEnlace || enviandoLoginPassword}
@@ -2913,15 +3190,19 @@ export default function ReservarPage() {
       >
         {bookingSesionId !== null && (
           <>
-            {/* "Datos"/"pago" llevan su propio "‹ atrás" arriba del contenido
-                (mismo patrón que el prototipo: "‹ Clases" / "‹ Datos"), así
-                que ahí no hace falta la X flotante — evita dos controles de
-                cierre a la vez. */}
-            {loginStep !== 'datos' && loginStep !== 'pago' && (
-              <button onClick={closeBooking} aria-label="Cerrar"
-                className="absolute top-4 right-4 text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
-                <X size={18} />
-              </button>
+            {/* Un único "‹ Volver a las clases" arriba de todo — nunca la X
+                flotante de antes. 'datos'/'pago' llevan el SUYO PROPIO dentro
+                de <PantallaReserva> ("‹ Volver a la clase"/"Editar mis
+                datos"), así que aquí no se repite: dos controles de "atrás" a
+                la vez confundían más de lo que ayudaban. */}
+            {!esPantallaReserva && (
+              <div className="flex items-center justify-between mb-4">
+                <button type="button" onClick={closeBooking}
+                  className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
+                  <ChevronLeft size={16} strokeWidth={2.5} />
+                  Volver a las clases
+                </button>
+              </div>
             )}
 
             {/* ── DONE ── */}
