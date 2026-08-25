@@ -4464,31 +4464,33 @@ export async function fetchCriticalStudioData(studioId?: string) {
     codigosDescuentoRes,
     actividadRecienteRes,
     notificacionesRes,
-    videosOnDemandRes,
-    postsComunidadRes,
-    notasInternasRes,
-    condicionesSaludRes,
-    respuestasSesionRes,
+    // Sprint 1: lazy-load variables
+    // videosOnDemandRes,
+    // postsComunidadRes,
+    // notasInternasRes,
+    // condicionesSaludRes,
+    // respuestasSesionRes,
     integracionesRes,
     mensajesEquipoRes,
-    rewardRulesRes,
-    rewardActionsRes,
-    memberCreditsRes,
-    rewardCatalogRes,
-    rewardRedemptionsRes,
-    achievementDefinitionsRes,
-    achievementProgressRes,
-    levelDefinitionsRes,
-    challengeDefinitionsRes,
-    challengeProgressRes,
-    dashboardChartsRes,
-    citasServiciosRes,
-    citasDisponibilidadRes,
-    bloqueosMaquinaRes,
-    plazasFijasRes,
-    recuperacionesRes,
-    socioExcepcionesRes,
-    mandatosSepaRes,
+    // Sprint 1: lazy-load variables
+    // rewardRulesRes,
+    // rewardActionsRes,
+    // memberCreditsRes,
+    // rewardCatalogRes,
+    // rewardRedemptionsRes,
+    // achievementDefinitionsRes,
+    // achievementProgressRes,
+    // levelDefinitionsRes,
+    // challengeDefinitionsRes,
+    // challengeProgressRes,
+    // dashboardChartsRes,
+    // citasServiciosRes,
+    // citasDisponibilidadRes,
+    // bloqueosMaquinaRes,
+    // plazasFijasRes,
+    // recuperacionesRes,
+    // socioExcepcionesRes,
+    // mandatosSepaRes,
     contenidoPortalRes,
     bannersPortalRes,
     // Añadido AL FINAL de la lista a propósito: el desestructurado es
@@ -4539,11 +4541,13 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // consumidor agrega sobre el histórico completo (ver P0-2/9).
     db.from('actividad_reciente').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('notificaciones').select('*').eq('studio_id', sid).order('creada_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
-    db.from('videos_on_demand').select('*').eq('studio_id', sid),
-    db.from('posts_comunidad').select('*').eq('studio_id', sid),
-    db.from('notas_internas').select('*').eq('studio_id', sid),
-    db.from('condiciones_salud').select('*').eq('studio_id', sid),
-    db.from('respuestas_sesion').select('*').eq('studio_id', sid),
+    // Sprint 1: lazy-load non-critical tables (auditoría #4). Commented out to reduce
+    // bootstrap payload size. These will be loaded on-demand from their respective pages.
+    // db.from('videos_on_demand').select('*').eq('studio_id', sid),
+    // db.from('posts_comunidad').select('*').eq('studio_id', sid),
+    // db.from('notas_internas').select('*').eq('studio_id', sid),
+    // db.from('condiciones_salud').select('*').eq('studio_id', sid),
+    // db.from('respuestas_sesion').select('*').eq('studio_id', sid),
     // Columnas explícitas y SIN `config`: el arranque del panel no necesita el
     // token de WhatsApp ni la clave de Kisi, y mandarlos en cada carga los deja
     // en la memoria del navegador todo el día para nada. Se piden al abrir el
@@ -4556,24 +4560,24 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // para no romper el desestructurado posicional de abajo, pero acotado para
     // no traer el histórico completo en cada arranque.
     db.from('mensajes_equipo').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(1),
-    db.from('reward_rules').select('*').eq('studio_id', sid),
-    db.from('reward_actions').select('*').eq('studio_id', sid),
-    db.from('member_credits').select('*').eq('studio_id', sid),
-    db.from('reward_catalog').select('*').eq('studio_id', sid),
-    db.from('reward_redemptions').select('*').eq('studio_id', sid),
-    db.from('achievement_definitions').select('*').eq('studio_id', sid),
-    db.from('achievement_progress').select('*').eq('studio_id', sid),
-    db.from('level_definitions').select('*').eq('studio_id', sid),
-    db.from('challenge_definitions').select('*').eq('studio_id', sid),
-    db.from('challenge_progress').select('*').eq('studio_id', sid),
-    db.from('dashboard_charts').select('*').eq('studio_id', sid),
-    db.from('citas_servicios').select('*').eq('studio_id', sid),
-    db.from('citas_disponibilidad').select('*').eq('studio_id', sid),
-    db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
-    db.from('plazas_fijas').select('*').eq('studio_id', sid),
-    db.from('recuperaciones').select('*').eq('studio_id', sid),
-    db.from('socio_excepciones').select('*').eq('studio_id', sid),
-    db.from('mandatos_sepa').select('*').eq('studio_id', sid),
+    // db.from('reward_rules').select('*').eq('studio_id', sid),
+    // db.from('reward_actions').select('*').eq('studio_id', sid),
+    // db.from('member_credits').select('*').eq('studio_id', sid),
+    // db.from('reward_catalog').select('*').eq('studio_id', sid),
+    // db.from('reward_redemptions').select('*').eq('studio_id', sid),
+    // db.from('achievement_definitions').select('*').eq('studio_id', sid),
+    // db.from('achievement_progress').select('*').eq('studio_id', sid),
+    // db.from('level_definitions').select('*').eq('studio_id', sid),
+    // db.from('challenge_definitions').select('*').eq('studio_id', sid),
+    // db.from('challenge_progress').select('*').eq('studio_id', sid),
+    // db.from('dashboard_charts').select('*').eq('studio_id', sid),
+    // db.from('citas_servicios').select('*').eq('studio_id', sid),
+    // db.from('citas_disponibilidad').select('*').eq('studio_id', sid),
+    // db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
+    // db.from('plazas_fijas').select('*').eq('studio_id', sid),
+    // db.from('recuperaciones').select('*').eq('studio_id', sid),
+    // db.from('socio_excepciones').select('*').eq('studio_id', sid),
+    // db.from('mandatos_sepa').select('*').eq('studio_id', sid),
     db.from('contenido_portal').select('*').eq('studio_id', sid).maybeSingle(),
     // Sin filtrar por activo/ubicación: el editor del dashboard necesita ver
     // TODOS los banners (incluidos inactivos/de otras pantallas) para poder
@@ -4622,31 +4626,31 @@ export async function fetchCriticalStudioData(studioId?: string) {
     codigosDescuento: (codigosDescuentoRes.data ?? []).map(mapCodigoDescuento),
     actividadReciente: (actividadRecienteRes.data ?? []).map(mapActividadReciente),
     notificaciones: (notificacionesRes.data ?? []).map(mapNotificacion),
-    videosOnDemand: (videosOnDemandRes.data ?? []).map(mapVideoOnDemand),
-    postsComunidad: (postsComunidadRes.data ?? []).map(mapPostComunidad),
-    notasInternas: (notasInternasRes.data ?? []).map(mapNotaInterna),
-    condicionesSalud: (condicionesSaludRes.data ?? []).map(mapCondicionSalud),
-    respuestasSesion: (respuestasSesionRes.data ?? []).map(mapRespuestaSesion),
+    videosOnDemand: [], // Sprint 1: lazy-load
+    postsComunidad: [], // Sprint 1: lazy-load
+    notasInternas: [], // Sprint 1: lazy-load
+    condicionesSalud: [], // Sprint 1: lazy-load
+    respuestasSesion: [], // Sprint 1: lazy-load
     integraciones: (integracionesRes.data ?? []).map(mapIntegracion),
     mensajesEquipo: (mensajesEquipoRes.data ?? []).map(mapMensajeEquipo),
-    rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
-    rewardActions: (rewardActionsRes.data ?? []).map(mapRewardAction),
-    memberCredits: (memberCreditsRes.data ?? []).map(mapMemberCredits),
-    rewardCatalog: (rewardCatalogRes.data ?? []).map(mapRewardCatalogItem),
-    rewardRedemptions: (rewardRedemptionsRes.data ?? []).map(mapRewardRedemption),
-    achievementDefinitions: (achievementDefinitionsRes.data ?? []).map(mapAchievementDefinition),
-    achievementProgress: (achievementProgressRes.data ?? []).map(mapAchievementProgress),
-    levelDefinitions: (levelDefinitionsRes.data ?? []).map(mapLevelDefinition),
-    challengeDefinitions: (challengeDefinitionsRes.data ?? []).map(mapChallengeDefinition),
-    challengeProgress: (challengeProgressRes.data ?? []).map(mapChallengeProgress),
-    dashboardCharts: (dashboardChartsRes.data ?? []).map(mapDashboardChart),
-    citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
-    citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
-    bloqueosMaquina: (bloqueosMaquinaRes.data ?? []).map(mapBloqueoMaquina),
-    plazasFijas: (plazasFijasRes.data ?? []).map(mapPlazaFija),
-    recuperaciones: (recuperacionesRes.data ?? []).map(mapRecuperacion),
-    socioExcepciones: (socioExcepcionesRes.data ?? []).map(mapSocioExcepcion),
-    mandatosSepa: (mandatosSepaRes.data ?? []).map(mapMandatoSepa),
+    rewardRules: [], // Sprint 1: lazy-load
+    rewardActions: [], // Sprint 1: lazy-load
+    memberCredits: [], // Sprint 1: lazy-load
+    rewardCatalog: [], // Sprint 1: lazy-load
+    rewardRedemptions: [], // Sprint 1: lazy-load
+    achievementDefinitions: [], // Sprint 1: lazy-load
+    achievementProgress: [], // Sprint 1: lazy-load
+    levelDefinitions: [], // Sprint 1: lazy-load
+    challengeDefinitions: [], // Sprint 1: lazy-load
+    challengeProgress: [], // Sprint 1: lazy-load
+    dashboardCharts: [], // Sprint 1: lazy-load
+    citasServicios: [], // Sprint 1: lazy-load
+    citasDisponibilidad: [], // Sprint 1: lazy-load
+    bloqueosMaquina: [], // Sprint 1: lazy-load
+    plazasFijas: [], // Sprint 1: lazy-load
+    recuperaciones: [], // Sprint 1: lazy-load
+    socioExcepciones: [], // Sprint 1: lazy-load
+    mandatosSepa: [], // Sprint 1: lazy-load
   };
 }
 
