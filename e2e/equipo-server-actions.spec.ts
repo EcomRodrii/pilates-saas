@@ -1,5 +1,33 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
+// ⚠️ EN CUARENTENA (2026-08-25) — nunca ha pasado, ni en la rama de #1404 que
+// lo introdujo: el archivo llegó a main con marcadores de conflicto sin
+// resolver, así que su propio CI nunca pudo compilar ni correr esto.
+//
+// El diseño mismo del test es incompatible con cómo autentica este repo.
+// `seedAuth` solo escribe una sesión FALSA en localStorage (el sitio donde
+// vive la sesión de Supabase del NAVEGADOR); `makeRequestEquipo` deja pasar
+// la petición a `/api/equipo*` con `route.continue()` para golpear el
+// servidor Next.js REAL — y ese servidor valida con
+// `requireAuthInServerAction()` (lib/auth-server-action.ts), que exige la
+// cabecera `Authorization: Bearer <jwt>` con un JWT que Supabase Auth
+// reconozca de verdad. Un `fetch()` de `page.evaluate` no manda esa
+// cabecera, y aunque la mandara, 'e2e-fake-token' no es un JWT real —
+// siempre 401. `mockBackendEquipo` mockea `**/rest/v1/**` (la REST API de
+// Supabase) pensando que así sustituye la base de datos, pero esas llamadas
+// las hace el SERVIDOR desde Node, no el navegador — `page.route` no puede
+// interceptarlas. Confirmado en vivo: los 68 tests de este archivo fallan
+// con 401/status-inesperado en la primera petición real, no un flake.
+//
+// Ningún patrón equivalente existe hoy en el repo (rutas de staff se
+// prueban con datos reales sembrados en Supabase, no con sesión falseada +
+// mocks de red del navegador) — arreglarlo de verdad necesita diseño propio
+// (¿un JWT de prueba firmado en CI? ¿otro punto de intercepción?), no un
+// parche. Se deja en cuarentena (`test.describe.skip`) para no bloquear CI
+// mientras se decide cómo abordarlo — no se ha borrado ni se ha "arreglado
+// a ciegas": los casos de prueba documentados aquí siguen siendo válidos
+// como especificación de comportamiento, solo la mecánica de ejecución está
+// rota.
 const STUDIO_ID = 'studio-equipo-test';
 const STUDIO_SLUG = 'estudio-equipo-test';
 const STORAGE_KEY = 'sb-example-auth-token';
@@ -173,7 +201,7 @@ async function makeRequestEquipo(
   return { ...response, requestCount };
 }
 
-test.describe('POST /api/equipo (crear instructora)', () => {
+test.describe.skip('POST /api/equipo (crear instructora)', () => {
   test('happy path: crear instructora con datos válidos → 200', async ({
     page,
   }) => {
@@ -243,7 +271,7 @@ test.describe('POST /api/equipo (crear instructora)', () => {
   });
 });
 
-test.describe('PATCH /api/equipo (editar instructora)', () => {
+test.describe.skip('PATCH /api/equipo (editar instructora)', () => {
   test('happy path: editar nombre → 200', async ({ page }) => {
     await mockBackendEquipo(page, { rol: 'PROPIETARIO' });
     await seedAuth(page, PROPIETARIA_ID, 'maria@test.com');
@@ -313,7 +341,7 @@ test.describe('PATCH /api/equipo (editar instructora)', () => {
   });
 });
 
-test.describe('DELETE /api/equipo (baja instructora)', () => {
+test.describe.skip('DELETE /api/equipo (baja instructora)', () => {
   test('happy path: baja de instructora → 200', async ({ page }) => {
     await mockBackendEquipo(page, { rol: 'PROPIETARIO' });
     await seedAuth(page, PROPIETARIA_ID, 'maria@test.com');
@@ -360,7 +388,7 @@ test.describe('DELETE /api/equipo (baja instructora)', () => {
   });
 });
 
-test.describe('POST /api/equipo/invitar (enviar invitación)', () => {
+test.describe.skip('POST /api/equipo/invitar (enviar invitación)', () => {
   test('happy path: enviar invitación → 200', async ({ page }) => {
     await mockBackendEquipo(page, { rol: 'PROPIETARIO' });
     await seedAuth(page, PROPIETARIA_ID, 'maria@test.com');
@@ -417,7 +445,7 @@ test.describe('POST /api/equipo/invitar (enviar invitación)', () => {
   });
 });
 
-test.describe('GET /api/equipo/tarifas', () => {
+test.describe.skip('GET /api/equipo/tarifas', () => {
   test('happy path: PROPIETARIO ve todas → 200', async ({ page }) => {
     await mockBackendEquipo(page, { rol: 'PROPIETARIO' });
     await seedAuth(page, PROPIETARIA_ID, 'maria@test.com');
@@ -455,7 +483,7 @@ test.describe('GET /api/equipo/tarifas', () => {
   });
 });
 
-test.describe('PATCH /api/equipo/tarifas', () => {
+test.describe.skip('PATCH /api/equipo/tarifas', () => {
   test('happy path: fijar tarifa → 200', async ({ page }) => {
     await mockBackendEquipo(page, { rol: 'PROPIETARIO' });
     await seedAuth(page, PROPIETARIA_ID, 'maria@test.com');
@@ -504,7 +532,7 @@ test.describe('PATCH /api/equipo/tarifas', () => {
   });
 });
 
-test.describe('GET /api/equipo/rendimiento', () => {
+test.describe.skip('GET /api/equipo/rendimiento', () => {
   test('happy path: ver rendimiento → 200', async ({ page }) => {
     await mockBackendEquipo(page, { rol: 'PROPIETARIO' });
     await seedAuth(page, PROPIETARIA_ID, 'maria@test.com');
@@ -530,7 +558,7 @@ test.describe('GET /api/equipo/rendimiento', () => {
   });
 });
 
-test.describe('POST /api/equipo/reclamar', () => {
+test.describe.skip('POST /api/equipo/reclamar', () => {
   test('happy path: reclamar acceso con token válido → 200', async ({
     page,
   }) => {
