@@ -20,8 +20,9 @@ import type {
   PerfilIdentidadNetwork, CambiosPerfilIdentidadNetwork, VerificacionIdentidadNetwork,
   CertificacionNetwork, NuevaCertificacionNetwork,
   VacanteNetwork, NuevaVacanteNetwork, CambiosVacanteNetwork, CandidaturaNetwork,
-  ReferenciaNetwork, NuevaReferenciaNetwork, MediaNetwork,
+  ReferenciaNetwork, NuevaReferenciaNetwork, MediaNetwork, ResenaNetwork, EstudioActualNetwork,
 } from '@/lib/network/tipos';
+import type { CertificacionNetworkPublica } from '@/lib/network/publico';
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
 import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
@@ -2157,15 +2158,29 @@ export async function buscarPerfilesNetwork(filtro: FiltroBusquedaNetwork): Prom
 
 export async function fetchPerfilNetworkPublico(
   id: string,
-): Promise<{ perfil: PerfilNetworkPublico; experiencias: ExperienciaNetworkPublica[]; badges: BadgesNetwork } | null> {
+): Promise<{
+  perfil: PerfilNetworkPublico; experiencias: ExperienciaNetworkPublica[]; badges: BadgesNetwork;
+  certificaciones: CertificacionNetworkPublica[]; resenas: ResenaNetwork[]; mediaFotos: MediaNetwork[];
+  estudiosActuales: EstudioActualNetwork[];
+} | null> {
   try {
     const res = await fetch(`/api/network/perfil/${encodeURIComponent(id)}`, { headers: await authHeader() });
     if (!res.ok) return null;
     const data = (await res.json()) as {
       perfil?: PerfilNetworkPublico; experiencias?: ExperienciaNetworkPublica[]; badges?: BadgesNetwork;
+      certificaciones?: CertificacionNetworkPublica[]; resenas?: ResenaNetwork[]; mediaFotos?: MediaNetwork[];
+      estudiosActuales?: EstudioActualNetwork[];
     };
     if (!data.perfil || !data.badges) return null;
-    return { perfil: data.perfil, experiencias: data.experiencias ?? [], badges: data.badges };
+    return {
+      perfil: data.perfil, experiencias: data.experiencias ?? [], badges: data.badges,
+      // Mismo endpoint que ya devolvía estos campos (app/api/network/perfil/[id]/route.ts,
+      // obtenerPerfilPublicoPorId) — solo se descartaban aquí. La ficha del
+      // panel (app/(dashboard)/network/[perfilId]/page.tsx) los necesita
+      // para dejar de ser una versión empobrecida del perfil público.
+      certificaciones: data.certificaciones ?? [], resenas: data.resenas ?? [],
+      mediaFotos: data.mediaFotos ?? [], estudiosActuales: data.estudiosActuales ?? [],
+    };
   } catch {
     return null;
   }
