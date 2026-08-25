@@ -9,6 +9,7 @@ import { NavPublico } from '@/components/network-v2/NavPublico';
 import { PieNetwork } from '@/components/network-v2/PieNetwork';
 import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { BotonFavoritoAlumna } from '@/components/network/boton-favorito-alumna';
+import { FormularioResenaAlumna } from '@/components/network/formulario-resena-alumna';
 import { LEGAL } from '@/lib/legal-info';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAND, NW_BORDE } from '@/components/network-v2/tokens';
 
@@ -156,6 +157,13 @@ export default async function FichaEstudioPage({ params }: { params: Promise<{ s
             Ficha de descubrimiento de {estudio.nombre} en el directorio de Tentare Network.
           </p>
         </div>
+
+        {/* Solo se pinta si el servidor confirma elegibilidad — ver
+            components/network/formulario-resena-alumna.tsx. Hoy nunca se
+            muestra aquí (red_resenas.perfil_id sigue NOT NULL, sin perfil
+            natural para "el estudio en sí"), documentado en ese componente
+            y en app/api/network/alumna/resenas/route.ts. */}
+        <FormularioResenaAlumna tipo="estudio" id={estudio.id} nombre={estudio.nombre} />
       </div>
 
       <PieNetwork />

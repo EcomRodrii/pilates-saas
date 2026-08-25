@@ -2666,6 +2666,52 @@ export async function enviarResenaNetwork(
   }
 }
 
+// Reseñas de ALUMNA → estudio/instructora — última pieza de F3, gate
+// estricto (app/api/network/alumna/resenas/route.ts). `disponible: false`
+// para tipo='estudio' es intencionado (ver comentario de cabecera del
+// endpoint: red_resenas.perfil_id sigue NOT NULL, sin migración no hay
+// dónde guardar una reseña de solo-estudio) — el formulario nunca se
+// muestra en ese caso, no es un fallo de red.
+export interface ElegibilidadResenaAlumna {
+  elegible: boolean;
+  disponible: boolean;
+  yaResenado: boolean;
+  faltaClaseCompletada: boolean;
+}
+
+const ELEGIBILIDAD_RESENA_ALUMNA_VACIA: ElegibilidadResenaAlumna = {
+  elegible: false, disponible: false, yaResenado: false, faltaClaseCompletada: false,
+};
+
+export async function elegibilidadResenaAlumnaNetwork(
+  tipo: 'estudio' | 'instructora', id: string,
+): Promise<ElegibilidadResenaAlumna> {
+  try {
+    const parametro = tipo === 'estudio' ? 'studioId' : 'perfilId';
+    const res = await fetch(`/api/network/alumna/resenas?tipo=${tipo}&${parametro}=${encodeURIComponent(id)}`, { headers: await authHeader() });
+    if (!res.ok) return ELEGIBILIDAD_RESENA_ALUMNA_VACIA;
+    return (await res.json()) as ElegibilidadResenaAlumna;
+  } catch {
+    return ELEGIBILIDAD_RESENA_ALUMNA_VACIA;
+  }
+}
+
+export async function enviarResenaAlumnaNetwork(
+  tipo: 'estudio' | 'instructora', id: string, puntuacion: number, comentario: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/alumna/resenas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(tipo === 'estudio' ? { tipo, studioId: id, puntuacion, comentario } : { tipo, perfilId: id, puntuacion, comentario }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar la reseña' };
+  }
+}
+
 // Mensajería interna — brief §9. Un hilo por solicitud de contacto ya
 // aceptada; funciona igual para staff de estudio y para la instructora
 // (dos vías de auth distintas, la ruta resuelve cuál aplica).

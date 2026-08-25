@@ -10,6 +10,7 @@ import { PieNetwork } from '@/components/network-v2/PieNetwork';
 import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { BotonContactar, BotonReportar } from '@/components/network-publico/boton-contactar';
 import { BotonFavoritoAlumna } from '@/components/network/boton-favorito-alumna';
+import { FormularioResenaAlumna } from '@/components/network/formulario-resena-alumna';
 import { rangoAnios } from '@/lib/network/formato';
 import {
   ESPECIALIDAD_LABEL, HORARIO_LABEL, TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL,
@@ -325,6 +326,10 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                 </div>
               </Seccion>
             )}
+
+            {/* Solo se pinta si el servidor confirma elegibilidad — ver
+                components/network/formulario-resena-alumna.tsx. */}
+            <FormularioResenaAlumna tipo="instructora" id={perfil.id} nombre={perfil.nombre} />
           </div>
 
           {/* Aside sticky — oculto en móvil, sustituido por la barra fija de abajo. */}
