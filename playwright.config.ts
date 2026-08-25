@@ -55,10 +55,6 @@ const SPECS_WEBKIT = [
   // o su propia web, o sea Safari de iPhone la primera vez que prueba Tentare.
   '**/reservar-pagar-sin-cuenta.spec.ts',
   '**/reservar-pago-confirmacion.spec.ts',
-  // Botón Atrás real del widget (rediseño "sin popup"): incluye un test
-  // dedicado embebido en <iframe>, y el resto del criterio de arriba —
-  // pública, la sufre una visitante desde su móvil — aplica igual.
-  '**/reservar-boton-atras.spec.ts',
   // El alta pública. Cumple el criterio de arriba de sobra: es PÚBLICA y quien
   // sufre un fallo es alguien de fuera —una propietaria que todavía no es
   // clienta y que, si el formulario no le funciona, no llama: se va a otra
