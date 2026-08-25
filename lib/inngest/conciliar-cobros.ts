@@ -375,6 +375,9 @@ async function entregar(
     socioId: p.socioId,
     ...datos,
     origenLead: p.origenLead,
+    // Mismo criterio que el webhook (app/api/stripe/webhook/route.ts): sin
+    // socioId conocido, es una compra de invitada.
+    esInvitada: !p.socioId,
   });
 
   if (!entrega.ok) {

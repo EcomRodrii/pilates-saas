@@ -13,9 +13,9 @@ import { ErrorAccion } from '@/lib/actions/errores';
  * JSON codificado. Las Server Actions llamadas desde componentes cliente
  * reciben esta cookie automáticamente (no necesitan ningún header especial).
  */
-function extraerTokenDeCookie(): string | null {
+async function extraerTokenDeCookie(): Promise<string | null> {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     // El projectId está en NEXT_PUBLIC_SUPABASE_URL (ej. https://abc123.supabase.co)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!supabaseUrl) return null;
@@ -47,7 +47,7 @@ function extraerTokenDeCookie(): string | null {
  * form submissions desde el navegador.
  */
 export async function getAuthInServerAction(): Promise<SesionStaff | null> {
-  const token = extraerTokenDeCookie();
+  const token = await extraerTokenDeCookie();
   if (!token) return null;
 
   // Reutilizar verificarSesionStaff pero construir un NextRequest con el token

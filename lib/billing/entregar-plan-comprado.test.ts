@@ -52,6 +52,10 @@ const COMPRA: CompraPlan = {
   importeCobradoCentimos: 13000,
   paymentIntentId: 'pi_test_abc123',
   origenLead: null,
+  // false: estos tests fijan el comportamiento previo a I-8 (reutilizar por
+  // email si ya existe ficha) — ver el test "si ya existe alguien con ese
+  // email, se reutiliza en vez de duplicar" más abajo.
+  esInvitada: false,
 };
 
 // Fase 3 — checkout embebido: idsDe() amplió su regex para aceptar también
