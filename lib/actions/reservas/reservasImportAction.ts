@@ -8,7 +8,7 @@ import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
  * Bulk import reservations
  */
 
-export async function reservasImportAction(input: {
+export async function reservasImportAction(_input: {
   data?: unknown[];
 }) {
   const sesion = await requireAuthInServerAction();

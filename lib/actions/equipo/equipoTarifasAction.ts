@@ -14,7 +14,7 @@ import type { Rol } from '@/lib/types';
 const TARIFA_MAX = 999.99;
 
 async function resolverPropioInstructorId(
-  admin: ReturnType<typeof getSupabaseAdmin>,
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   userId: string,
   studioId: string,
 ): Promise<string | null> {
@@ -39,7 +39,7 @@ function mapTarifaRow(r: {
 }
 
 async function getTarifas(
-  admin: ReturnType<typeof getSupabaseAdmin>,
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
 ) {
   if (!puedeGestionarEquipo(sesion.rol)) {
@@ -64,7 +64,7 @@ async function getTarifas(
 }
 
 async function patchTarifa(
-  admin: ReturnType<typeof getSupabaseAdmin>,
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
   body: Record<string, unknown>,
 ) {

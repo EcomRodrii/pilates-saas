@@ -7,9 +7,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const result = await equipoReclamarAction({ ...body, jwt });
     return NextResponse.json(result);
-  } catch (error: any) {
-    const status = error?.message?.includes('no vale') ? 400 : 
-                   error?.message?.includes('No autorizado') ? 401 : 500;
-    return NextResponse.json({ error: error?.message || 'Error' }, { status });
+  } catch (error) {
+    const mensaje = error instanceof Error ? error.message : 'Error';
+    const status = mensaje.includes('no vale') ? 400 :
+                   mensaje.includes('No autorizado') ? 401 : 500;
+    return NextResponse.json({ error: mensaje }, { status });
   }
 }

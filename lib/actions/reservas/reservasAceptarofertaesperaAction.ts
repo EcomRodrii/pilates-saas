@@ -11,7 +11,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 export async function reservasAceptarofertaesperaAction(input: {
   reservaId?: string;
 }) {
-  const sesion = await requireAuthInServerAction();
+  const _sesion = await requireAuthInServerAction();
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Servidor no configurado');
 
