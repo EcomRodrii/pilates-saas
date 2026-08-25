@@ -934,7 +934,16 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 <>
                   {b.imagenUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={b.imagenUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }} />
+                    <img
+                      src={b.imagenUrl} alt=""
+                      // Sin foto por defecto a propósito (ver lib/imagenes-por-defecto.ts):
+                      // es contenido que la propietaria decide subir, no un hueco a
+                      // rellenar. Si la URL no carga, se oculta y queda el degradado +
+                      // texto de abajo — no un icono de imagen rota (C3 de la auditoría
+                      // de uso real, 2026-08-24).
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }}
+                    />
                   ) : (
                     <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
                   )}
@@ -1070,6 +1079,12 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
                         src={fotoReto} alt=""
+                        // Sin foto por defecto a propósito (ver comentario de arriba y
+                        // lib/imagenes-por-defecto.ts): si la URL no carga, la tarjeta
+                        // se queda con su color, igual que cuando nunca hubo foto — no
+                        // un icono de imagen rota (C3 de la auditoría de uso real,
+                        // 2026-08-24).
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
                         style={{
                           display: 'block', width: 'calc(100% + 36px)', height: 116,
                           margin: '-18px -18px 14px', objectFit: 'cover',
