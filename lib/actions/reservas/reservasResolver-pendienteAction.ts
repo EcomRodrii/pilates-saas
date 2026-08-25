@@ -1,9 +1,7 @@
 'use server';
 
-import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { errorInterno } from '@/lib/errores-servidor';
 
 /**
  * reservasResolver-pendienteAction
@@ -13,8 +11,8 @@ import { errorInterno } from '@/lib/errores-servidor';
  *
  * HTTP Methods supported: POST
  */
-export async function reservasResolver-pendienteAction(input: Record<string, unknown>) {
-  const sesion = await requireAuthInServerAction();
+export async function reservasResolverPendienteAction(_input: Record<string, unknown>) {
+  const _sesion = await requireAuthInServerAction();
   const admin = getSupabaseAdmin();
 
   if (!admin) {

@@ -22,7 +22,7 @@ function esEmailDuplicado(error: { code?: string; message?: string } | null): bo
 const ROLES_VALIDOS = new Set(['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR']);
 
 async function quedariaSinPropietaria(
-  admin: ReturnType<typeof getSupabaseAdmin>,
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   studioId: string,
   idExcluido: string,
 ): Promise<boolean> {
@@ -61,7 +61,7 @@ function saneaFieldsPropios(src: Record<string, unknown>): Record<string, unknow
 }
 
 async function crearInstructora(
-  admin: ReturnType<typeof getSupabaseAdmin>,
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
   body: Record<string, unknown>,
 ) {
@@ -143,7 +143,7 @@ async function crearInstructora(
 }
 
 async function editarInstructora(
-  admin: ReturnType<typeof getSupabaseAdmin>,
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
   body: { id?: unknown; changes?: unknown },
 ) {
@@ -221,7 +221,7 @@ async function editarInstructora(
 }
 
 async function bajaInstructora(
-  admin: ReturnType<typeof getSupabaseAdmin>,
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
   body: { id?: unknown },
 ) {
@@ -281,14 +281,14 @@ export async function equipoAction(input: {
   }
 
   if (method === 'PATCH') {
-    return await editarInstructora(admin, sesion, input as any);
+    return await editarInstructora(admin, sesion, input as { id?: unknown; changes?: unknown });
   }
 
   if (method === 'DELETE') {
     if (!puedeGestionarEquipo(sesion.rol)) {
       throw new Error('No tienes permiso para dar de baja a nadie');
     }
-    return await bajaInstructora(admin, sesion, input as any);
+    return await bajaInstructora(admin, sesion, input as { id?: unknown });
   }
 
   throw new Error(`Método ${method} no soportado`);

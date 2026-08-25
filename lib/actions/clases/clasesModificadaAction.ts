@@ -8,7 +8,7 @@ import { requireAuthInServerAction } from '@/lib/auth-server-action';
  */
 
 export async function clasesModificadaAction() {
-  const sesion = await requireAuthInServerAction();
+  const _sesion = await requireAuthInServerAction();
   // TODO: Implement modified notification
   return { notified: true };
 }
