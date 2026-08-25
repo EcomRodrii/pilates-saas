@@ -399,9 +399,19 @@ export function themeToCssText(raw: unknown, selector = ':root'): string {
   return `${selector} { ${cuerpo} }`;
 }
 
+/**
+ * `categoriaId` es el id real de `AJUSTES_CATEGORIAS` (theme-editor.tsx) donde
+ * vive el campo causante — sin importar el tipo desde ahí para no arrastrar un
+ * componente a este módulo, es un literal plano que ambos lados conocen.
+ */
+export interface ErrorContraste {
+  mensaje: string;
+  categoriaId: 'color-marca' | 'reservar-widget';
+}
+
 export interface ChequeoContraste {
   ok: boolean;
-  errores: string[];
+  errores: ErrorContraste[];
 }
 
 /**
@@ -410,19 +420,19 @@ export interface ChequeoContraste {
  */
 export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   const t = resolveTheme(raw);
-  const errores: string[] = [];
+  const errores: ErrorContraste[] = [];
   // `background` ("Fondo") ya no pinta el panel (C2, ver varsFondoPortal) —
   // el par a proteger es el fondo EFECTIVO del portal en modo Día (el propio
   // valor si lo hay, si no el de MODO_TOKENS.dia que ya usa todo estudio sin
   // tocar este campo) contra la tinta fija de ese modo.
   const fondoPortalDia = t.background ?? MODO_TOKENS.dia.bg;
   if (!cumpleContraste(MODO_TOKENS.dia.ink, fondoPortalDia))
-    errores.push('El texto del portal no contrasta bien con el fondo elegido (mínimo WCAG AA 4.5:1).');
+    errores.push({ mensaje: 'El texto del portal no contrasta bien con el fondo elegido (mínimo WCAG AA 4.5:1).', categoriaId: 'color-marca' });
   // El foreground de marca se autoderiva, así que el par marca/texto-de-marca
   // siempre cumple; validamos además la marca sobre el fondo del portal para
   // elementos como enlaces/botones fantasma que pintan `--portal-brand` ahí.
   if (!cumpleContraste(t.primary, fondoPortalDia, { grande: true }))
-    errores.push('El color de marca no contrasta bien con el fondo (mínimo WCAG AA 3:1 para elementos grandes).');
+    errores.push({ mensaje: 'El color de marca no contrasta bien con el fondo (mínimo WCAG AA 3:1 para elementos grandes).', categoriaId: 'color-marca' });
   // Par que solo estrena la barra oscura: SOLO ahí `destacado` se pinta sobre
   // la marca (`--portal-tabbar-bg` pasa a ser `primary` en varsBarra). La
   // barra flotante también pinta sobre la marca desde que su pastilla activa
@@ -430,17 +440,17 @@ export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   // contraste, el mismo de los botones — cumple por construcción y no
   // necesita gate.
   if (t.barraOscura && !cumpleContraste(colorDestacado(t), t.primary, { grande: true }))
-    errores.push('Con la barra oscura, el color destacado no contrasta con la marca (mínimo 3:1).');
+    errores.push({ mensaje: 'Con la barra oscura, el color destacado no contrasta con la marca (mínimo 3:1).', categoriaId: 'color-marca' });
   // Fase 1 rediseño del widget (docs/widget-reservas-theme-builder-diseno.md
   // §2.2): solo se valida cuando el estudio TOCA el par — con ambos en `null`
   // el widget cae a MODO_TOKENS.dia/.noche, ya cubierto por
   // portal-paleta.test.ts, y no hace falta reconstruir aquí ese default para
   // validar algo que ya se sabe correcto.
   if (t.widgetTinta && t.widgetSuperficie && !cumpleContraste(t.widgetTinta, t.widgetSuperficie))
-    errores.push('El texto del widget no contrasta bien con la superficie elegida (mínimo WCAG AA 4.5:1).');
+    errores.push({ mensaje: 'El texto del widget no contrasta bien con la superficie elegida (mínimo WCAG AA 4.5:1).', categoriaId: 'reservar-widget' });
   if (t.widgetTinta && typeof t.widgetFondo === 'string' && t.widgetFondo !== 'transparente'
     && !cumpleContraste(t.widgetTinta, t.widgetFondo))
-    errores.push('El texto del widget no contrasta bien con el fondo elegido (mínimo WCAG AA 4.5:1).');
+    errores.push({ mensaje: 'El texto del widget no contrasta bien con el fondo elegido (mínimo WCAG AA 4.5:1).', categoriaId: 'reservar-widget' });
   // NO se valida aquí `secondary` en general: en Oliva/Bloom/Noir es una
   // "superficie suave" a propósito (ver comentario en THEME_DEFINITIONS de
   // noir), no necesariamente texto — y algunos tests de este módulo lo usan

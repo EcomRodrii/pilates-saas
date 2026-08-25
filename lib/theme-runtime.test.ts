@@ -93,7 +93,17 @@ test('validarContrasteTheme: un `background` sin contraste con la tinta del port
   // tinta fija de texto del portal, ratio ~1:1, ilegible.
   const r = validarContrasteTheme({ ...DEFAULT_THEME, background: '#242822' });
   assert.equal(r.ok, false);
-  assert.ok(r.errores.some((e) => e.includes('portal')));
+  assert.ok(r.errores.some((e) => e.mensaje.includes('portal')));
+  // C4 de la auditoría de uso real (2026-08-25): cada error lleva la categoría
+  // real del editor donde vive el campo causante — sin esto, la propietaria
+  // no tenía forma de saber dónde corregirlo.
+  assert.ok(r.errores.every((e) => e.categoriaId === 'color-marca'));
+});
+
+test('validarContrasteTheme: un error del widget lleva categoriaId "reservar-widget"', () => {
+  const r = validarContrasteTheme({ ...DEFAULT_THEME, widgetTinta: '#22261F', widgetSuperficie: '#22261F' });
+  assert.equal(r.ok, false);
+  assert.ok(r.errores.some((e) => e.categoriaId === 'reservar-widget' && e.mensaje.includes('widget')));
 });
 
 // `secondary` NO se valida en este gate a propósito — en Oliva/Bloom/Noir es una

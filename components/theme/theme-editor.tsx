@@ -327,7 +327,7 @@ export function useThemeEditor() {
       if (r.ok) {
         window.dispatchEvent(new CustomEvent('tentare-theme-changed'));
         setAviso({ tipo: 'ok', texto: '¡Publicado! Ya lo ven tus clientas.' });
-      } else setAviso({ tipo: 'error', texto: r.errores.join(' ') });
+      } else setAviso({ tipo: 'error', texto: r.errores.map((e) => e.mensaje).join(' ') });
     } catch (e) {
       setAviso({ tipo: 'error', texto: mensajeSeguro((e as Error).message, ERROR_RED) });
     } finally {
@@ -851,11 +851,9 @@ export function AjustesCategoriaPanel({
               </div>
             );
           })}
-          {contraste.errores.some((e) => e.includes('widget')) && (
-            <p className="text-[11px] text-destructive">
-              {contraste.errores.find((e) => e.includes('widget'))}
-            </p>
-          )}
+          {contraste.errores.filter((e) => e.categoriaId === 'reservar-widget').map((e) => (
+            <p key={e.mensaje} className="text-[11px] text-destructive">{e.mensaje}</p>
+          ))}
         </div>
 
         <div className="grid grid-cols-2 gap-3 pt-1 border-t border-border">
@@ -947,10 +945,10 @@ export function AjustesCategoriaPanel({
         >
           <Sparkles size={14} /> Generar paleta desde este color
         </button>
-        {!contraste.ok && (
+        {contraste.errores.some((e) => e.categoriaId === 'color-marca') && (
           <div className="flex items-start gap-2 text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
             <AlertTriangle size={15} className="shrink-0 mt-0.5" />
-            <span>{contraste.errores.join(' ')}</span>
+            <span>{contraste.errores.filter((e) => e.categoriaId === 'color-marca').map((e) => e.mensaje).join(' ')}</span>
           </div>
         )}
         <div className="border-t border-border pt-3 space-y-3">

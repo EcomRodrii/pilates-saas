@@ -4,6 +4,7 @@ import { supabase } from '@/lib/db/supabase';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
+import type { ErrorContraste } from '@/lib/theme-runtime';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_IDS } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp, type ResultadoEscritura } from '@/lib/errores';
@@ -113,13 +114,13 @@ export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeCon
 
 export type ResultadoPublicar =
   | { ok: true; theme: ThemeConfig }
-  | { ok: false; errores: string[] };
+  | { ok: false; errores: ErrorContraste[] };
 
 export async function publicarThemeApi(): Promise<ResultadoPublicar> {
   const res = await fetch('/api/theme/publish', { method: 'POST', headers: await authHeader() });
   if (res.status === 422) {
-    const b = (await res.json()) as { errores?: string[] };
-    return { ok: false, errores: b.errores ?? ['Contraste insuficiente'] };
+    const b = (await res.json()) as { errores?: ErrorContraste[] };
+    return { ok: false, errores: b.errores ?? [{ mensaje: 'Contraste insuficiente', categoriaId: 'color-marca' }] };
   }
   if (!res.ok) throw new Error('Error al publicar');
   return { ok: true, theme: await res.json() };
