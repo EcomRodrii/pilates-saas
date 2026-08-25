@@ -1,0 +1,24 @@
+'use server';
+
+import { requireAuthInServerAction } from '@/lib/auth-server-action';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+
+/**
+ * reembolsos
+ *
+ * Migrated from: app/api/reembolsos/route.ts
+ * Domain: reembolsos
+ *
+ * TODO: Extract and implement logic from the original API route
+ */
+export async function reembolsos(input: Record<string, unknown>) {
+  const sesion = await requireAuthInServerAction();
+  const admin = getSupabaseAdmin();
+
+  if (!admin) {
+    throw new Error('Servidor no configurado');
+  }
+
+  // TODO: Extract handler logic from reembolsos route
+  throw new Error('Not yet implemented - extract from app/api/reembolsos/route.ts');
+}

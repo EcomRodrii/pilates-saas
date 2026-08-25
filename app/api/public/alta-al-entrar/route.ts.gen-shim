@@ -1,0 +1,43 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { publicAltaalentrar } from '@/lib/actions/public/publicAltaalentrar';
+
+/**
+ * DEPRECATED: Use the Server Action instead
+ * @see lib/actions/public/publicAltaalentrar
+ */
+async function handleRequest(req: NextRequest, method: string) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const result = await publicAltaalentrar({ ...body, method });
+    return NextResponse.json(result);
+  } catch (error: any) {
+    const message = error?.message || 'Error procesando la solicitud';
+    let status = 500;
+
+    if (message.includes('No autorizado')) status = 401;
+    if (message.includes('No tienes permiso')) status = 403;
+    if (message.includes('Faltan datos') || message.includes('Falta')) status = 400;
+    if (message.includes('no encontrada')) status = 404;
+
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  return handleRequest(req, 'POST');
+}
+
+export async function PATCH(req: NextRequest) {
+  return handleRequest(req, 'PATCH');
+}
+
+export async function DELETE(req: NextRequest) {
+  return handleRequest(req, 'DELETE');
+}
+
+export async function GET(req: NextRequest) {
+  return handleRequest(req, 'GET');
+}
+export async function PUT(req: NextRequest) {
+  return handleRequest(req, 'PUT');
+}
