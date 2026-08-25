@@ -22,14 +22,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowRight, Heart, Users, Building2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { fetchPuenteAlumnaNetwork, type EstudioPuenteAlumna } from '@/lib/api-client';
+import { fetchPuenteAlumnaNetwork, fetchFavoritosAlumnaNetwork, type EstudioPuenteAlumna, type FavoritosAlumnaNetwork } from '@/lib/api-client';
+import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { HeaderAlumna } from '@/components/network-v2/HeaderAlumna';
-import { NW_FONDO, NW_TINTA, NW_MUTED, NW_BORDE, NW_SAGE, NW_PRODUCTO, NW_RADIO } from '@/components/network-v2/tokens';
+import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAGE, NW_PRODUCTO, NW_RADIO } from '@/components/network-v2/tokens';
 
 export default function InicioAlumnaNetworkPage() {
   const router = useRouter();
   const { user, loading: cargandoSesion } = useAuth();
   const [estudios, setEstudios] = useState<EstudioPuenteAlumna[]>([]);
+  const [favoritos, setFavoritos] = useState<FavoritosAlumnaNetwork>({ estudios: [], perfiles: [] });
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -43,6 +45,10 @@ export default function InicioAlumnaNetworkPage() {
       if (!vivo) return;
       setEstudios(lista);
       setCargando(false);
+    });
+    fetchFavoritosAlumnaNetwork().then(res => {
+      if (!vivo) return;
+      setFavoritos(res);
     });
     return () => { vivo = false; };
   }, [user]);
@@ -123,11 +129,54 @@ export default function InicioAlumnaNetworkPage() {
           </Link>
         </div>
 
-        <div className="p-5 flex items-start gap-3" style={{ borderRadius: NW_RADIO.tarjeta, border: `1px solid ${NW_BORDE}` }}>
-          <Heart size={16} style={{ color: NW_MUTED }} className="mt-0.5 shrink-0" />
-          <p className="text-[12.5px]" style={{ color: NW_MUTED }}>
-            Muy pronto: guarda tus estudios e instructoras favoritas y descubre nuevos sitios donde practicar.
-          </p>
+        {/* "Mis favoritos" — tercera pieza de F3 (el corazón de las fichas de
+            /network/instructoras/[slug] y /network/estudios/[slug]). Este
+            bloque reemplaza el aviso "muy pronto" que había aquí: la
+            funcionalidad que prometía ya existe. Sin tocar los dos bloques
+            de descubrimiento de arriba. */}
+        <div className="p-5" style={{ borderRadius: NW_RADIO.tarjeta, border: `1px solid ${NW_BORDE}` }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Heart size={16} style={{ color: NW_MUTED }} />
+            <p className="text-[13px] font-semibold" style={{ color: NW_TINTA }}>Mis favoritos</p>
+          </div>
+          {favoritos.estudios.length === 0 && favoritos.perfiles.length === 0 ? (
+            <p className="text-[12.5px]" style={{ color: NW_MUTED }}>
+              Guarda estudios e instructoras que te interesen desde su ficha, con el corazón.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {favoritos.perfiles.map(p => (
+                <Link
+                  key={`instructora-${p.id}`}
+                  href={`/network/instructoras/${p.slug}`}
+                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-black/[0.03] transition-colors"
+                >
+                  <div className="w-10 h-10 shrink-0 rounded-full overflow-hidden">
+                    <FotoInstructora fotoUrl={p.fotoUrl} nombre={p.nombre} aspectRatio="1 / 1" radius={999} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold truncate" style={{ color: NW_TINTA }}>{p.nombre}</p>
+                    <p className="text-[11.5px]" style={{ color: NW_MUTED_2 }}>Instructora{p.ciudad ? ` · ${p.ciudad}` : ''}</p>
+                  </div>
+                </Link>
+              ))}
+              {favoritos.estudios.map(e => (
+                <Link
+                  key={`estudio-${e.id}`}
+                  href={`/network/estudios/${e.slug}`}
+                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-black/[0.03] transition-colors"
+                >
+                  <div className="w-10 h-10 shrink-0 rounded-full overflow-hidden">
+                    <FotoInstructora fotoUrl={e.fotoUrl ?? e.logoUrl} nombre={e.nombre} aspectRatio="1 / 1" radius={999} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold truncate" style={{ color: NW_TINTA }}>{e.nombre}</p>
+                    <p className="text-[11.5px]" style={{ color: NW_MUTED_2 }}>Estudio{e.ciudad ? ` · ${e.ciudad}` : ''}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </main>
     </div>

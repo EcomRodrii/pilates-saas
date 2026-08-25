@@ -8,6 +8,7 @@ import { obtenerEstudioPublicoPorSlug } from '@/lib/network/publico-estudios';
 import { NavPublico } from '@/components/network-v2/NavPublico';
 import { PieNetwork } from '@/components/network-v2/PieNetwork';
 import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
+import { BotonFavoritoAlumna } from '@/components/network/boton-favorito-alumna';
 import { LEGAL } from '@/lib/legal-info';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAND, NW_BORDE } from '@/components/network-v2/tokens';
 
@@ -95,7 +96,12 @@ export default async function FichaEstudioPage({ params }: { params: Promise<{ s
           </div>
 
           <div>
-            <h1 className="text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight">{estudio.nombre}</h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight">{estudio.nombre}</h1>
+              <div className="shrink-0 mt-2">
+                <BotonFavoritoAlumna tipo="estudio" id={estudio.id} compacto />
+              </div>
+            </div>
             <div className="mt-4 flex items-center gap-4 flex-wrap text-[13.5px]" style={{ color: NW_MUTED }}>
               {estudio.ciudad && (
                 <span className="flex items-center gap-1"><MapPin size={14} />{estudio.ciudad}</span>

@@ -24,6 +24,7 @@ import type {
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
 import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
+import type { EstudioListadoPublico } from '@/lib/network/publico-estudios.ts';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -2562,6 +2563,43 @@ export async function toggleFavoritoNetwork(
     return { ok: true, favorito: data.favorito };
   } catch {
     return { ok: false, error: 'No se pudo actualizar favoritas' };
+  }
+}
+
+// Favoritos de la ALUMNA (estudio o instructora) — F3 pieza 2. Endpoint y
+// tabla distintos de fetchFavoritosNetwork/toggleFavoritoNetwork de arriba
+// (ese lado es estudio→instructora); mismo patrón de toggle, misma cabecera
+// de sesión que fetchPuenteAlumnaNetwork (JWT de alumna, no de staff).
+export interface FavoritosAlumnaNetwork {
+  estudios: EstudioListadoPublico[];
+  perfiles: PerfilNetworkPublico[];
+}
+
+export async function fetchFavoritosAlumnaNetwork(): Promise<FavoritosAlumnaNetwork> {
+  try {
+    const res = await fetch('/api/network/alumna/favoritos', { headers: await authHeader() });
+    if (!res.ok) return { estudios: [], perfiles: [] };
+    const data = (await res.json()) as { estudios?: EstudioListadoPublico[]; perfiles?: PerfilNetworkPublico[] };
+    return { estudios: data.estudios ?? [], perfiles: data.perfiles ?? [] };
+  } catch {
+    return { estudios: [], perfiles: [] };
+  }
+}
+
+export async function toggleFavoritoAlumnaNetwork(
+  tipo: 'estudio' | 'instructora', id: string,
+): Promise<{ ok: true; favorito: boolean } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/alumna/favoritos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ tipo, id }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { favorito?: boolean; error?: string };
+    if (!res.ok || data.favorito === undefined) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, favorito: data.favorito };
+  } catch {
+    return { ok: false, error: 'No se pudo actualizar tus favoritos' };
   }
 }
 

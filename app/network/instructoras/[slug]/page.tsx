@@ -9,6 +9,7 @@ import { NavPublico } from '@/components/network-v2/NavPublico';
 import { PieNetwork } from '@/components/network-v2/PieNetwork';
 import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { BotonContactar, BotonReportar } from '@/components/network-publico/boton-contactar';
+import { BotonFavoritoAlumna } from '@/components/network/boton-favorito-alumna';
 import { rangoAnios } from '@/lib/network/formato';
 import {
   ESPECIALIDAD_LABEL, HORARIO_LABEL, TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL,
@@ -152,7 +153,12 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                 <BadgeCheck size={14} /> Perfil verificado
               </span>
             )}
-            <h1 className="text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight">{perfil.nombre}</h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight">{perfil.nombre}</h1>
+              <div className="shrink-0 mt-2">
+                <BotonFavoritoAlumna tipo="instructora" id={perfil.id} compacto />
+              </div>
+            </div>
             <p className="mt-2 text-[16px] font-bold" style={{ color: NW_PRODUCTO }}>
               {tituloProfesionalDe(perfil.especialidades)}
               {perfil.especialidades.length > 0 ? ` · ${perfil.especialidades.slice(0, 2).map(e => ESPECIALIDAD_LABEL[e]).join(' & ')}` : ''}
