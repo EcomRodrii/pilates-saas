@@ -1,6 +1,6 @@
 'use server';
 
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import { NextRequest } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import type { SesionStaff } from '@/lib/auth-server';
