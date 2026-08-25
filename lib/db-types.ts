@@ -2279,3 +2279,23 @@ export interface RowRedFavoritosAlumna {
   perfil_id: string | null;
   creado_en: string;
 }
+
+export interface RowWebhookReembolsos {
+  id: string;
+  pi_stripe_id: string;
+  charge_stripe_id: string;
+  recibo_id: string | null;
+  amount_refunded_cents: number;
+  total_charge_cents: number;
+  es_reembolso_total: boolean;
+  procesado_en: string;
+}
+
+export interface RowWebhookDisputas {
+  id: string;
+  pi_stripe_id: string;
+  dispute_stripe_id: string;
+  recibo_id: string | null;
+  dispute_status: string;
+  procesado_en: string;
+}
