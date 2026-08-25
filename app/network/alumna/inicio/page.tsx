@@ -20,7 +20,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, ArrowRight, Heart, Users } from 'lucide-react';
+import { Loader2, ArrowRight, Heart, Users, Building2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { fetchPuenteAlumnaNetwork, type EstudioPuenteAlumna } from '@/lib/api-client';
 import { HeaderAlumna } from '@/components/network-v2/HeaderAlumna';
@@ -105,6 +105,21 @@ export default function InicioAlumnaNetworkPage() {
             style={{ color: NW_PRODUCTO }}
           >
             Ver instructoras <ArrowRight size={13} />
+          </Link>
+        </div>
+
+        <div className="p-5" style={{ borderRadius: NW_RADIO.tarjeta, background: NW_SAGE }}>
+          <Building2 size={16} style={{ color: NW_MUTED }} className="mb-2" />
+          <p className="text-[13px] font-semibold" style={{ color: NW_TINTA }}>Descubre estudios</p>
+          <p className="text-[12.5px] mt-0.5 mb-3" style={{ color: NW_MUTED }}>
+            Explora estudios de Pilates y Yoga en el directorio de Tentare Network.
+          </p>
+          <Link
+            href="/network/estudios"
+            className="inline-flex items-center gap-1 text-[12.5px] font-bold"
+            style={{ color: NW_PRODUCTO }}
+          >
+            Ver estudios <ArrowRight size={13} />
           </Link>
         </div>
 
