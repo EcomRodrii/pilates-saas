@@ -912,7 +912,7 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
               />
               <SelectorFuente
                 etiqueta="Tipografía de titulares"
-                ayuda="Para títulos, horas y precios. Sin tocar, la misma de arriba."
+                ayuda="Solo el nombre de la clase, la fecha/hora grande y el precio — el resto del texto (etiquetas, botones) usa la de arriba."
                 valor={config.fuenteDisplay}
                 onChange={v => cambiar({ fuenteDisplay: v })}
                 etiquetaPorDefecto="Igual que la de arriba"
