@@ -11,8 +11,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
  *
  * TODO: Extract and implement logic from the original API route
  */
-export async function integrationsKlaviyoDisconnect(input: Record<string, unknown>) {
-  const sesion = await requireAuthInServerAction();
+export async function integrationsKlaviyoDisconnect(_input: Record<string, unknown>) {
+  const _sesion = await requireAuthInServerAction();
   const admin = getSupabaseAdmin();
 
   if (!admin) {

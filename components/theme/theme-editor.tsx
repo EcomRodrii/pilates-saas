@@ -881,7 +881,7 @@ export function AjustesCategoriaPanel({
 
         <SelectorFuente
           etiqueta="Tipografía de titulares"
-          ayuda="Para titulares, horas y precios — el resto del texto sigue usando la tipografía de arriba."
+          ayuda="Solo el nombre de la clase, la fecha/hora grande y el precio — el resto del texto (etiquetas, botones) sigue usando la tipografía de arriba."
           valor={draft.widgetFuenteDisplay ?? null}
           onChange={(v) => setCampo('widgetFuenteDisplay', v)}
           etiquetaPorDefecto="Igual que la de arriba"

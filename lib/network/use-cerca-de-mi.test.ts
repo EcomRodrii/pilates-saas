@@ -15,11 +15,17 @@ test('ordenarPorCercania: sin distancia conocida va al final, sin desaparecer', 
   assert.equal(resultado.length, 2);
 });
 
-test('distanciaDePerfil: null si la ciudad no resuelve coordenadas', () => {
-  assert.equal(distanciaDePerfil('Un Pueblo Inventado', { lat: 40, lng: -3 }), null);
+test('distanciaDePerfil: null si no hay lat/lng ni la ciudad resuelve coordenadas', () => {
+  assert.equal(distanciaDePerfil({ ciudad: 'Un Pueblo Inventado' }, { lat: 40, lng: -3 }), null);
 });
 
-test('distanciaDePerfil: número redondeado si la ciudad sí resuelve', () => {
-  const km = distanciaDePerfil('Madrid', { lat: 40.4168, lng: -3.7038 });
+test('distanciaDePerfil: número redondeado si la ciudad sí resuelve (sin lat/lng)', () => {
+  const km = distanciaDePerfil({ ciudad: 'Madrid' }, { lat: 40.4168, lng: -3.7038 });
   assert.equal(km, 0);
+});
+
+test('distanciaDePerfil: prioriza lat/lng reales sobre la aproximación por ciudad', () => {
+  // "Madrid" aproximaría a 0 km, pero el perfil da su posición real en Barcelona.
+  const km = distanciaDePerfil({ ciudad: 'Madrid', lat: 41.3851, lng: 2.1734 }, { lat: 40.4168, lng: -3.7038 });
+  assert.ok(km != null && km > 400, `esperaba > 400km (Madrid-Barcelona real), dio ${km}`);
 });

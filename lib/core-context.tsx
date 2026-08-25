@@ -2,7 +2,7 @@
 
 // Primer paso del troceo del god-context (ver studio-context.tsx). `sidebar`,
 // `profile-menu`, `topbar` y `help-widget` se montan en CADA página del
-// dashboard y solo necesitan studio/instructores/notificaciones/dataLoaded —
+// dashboard y solo necesitan studio/instructores/dataLoaded —
 // pero al vivir todo en un único StudioContext, un cambio en CUALQUIERA de
 // los ~150 otros campos (marcar una reserva, cobrar un recibo) los
 // re-renderiza igual. Este Context aparte aísla justo esos 4 campos.
@@ -16,7 +16,7 @@
 // existente tiene que cambiar).
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import type { Studio, Instructor, Notificacion } from '@/lib/types';
+import type { Studio, Instructor } from '@/lib/types';
 import type { NavConfigShape } from '@/lib/portal-nav';
 import type { VariantesResueltas } from '@/lib/theme-variantes';
 import type { TabBarStyleId, QuickLinksStyleId } from '@/lib/theme-schema';
@@ -24,15 +24,12 @@ import type { TabBarStyleId, QuickLinksStyleId } from '@/lib/theme-schema';
 export interface CoreContextValue {
   studio: Studio | null;
   instructores: Instructor[];
-  notificaciones: Notificacion[];
   dataLoaded: boolean;
   updateStudio: (changes: Partial<Studio>) => Promise<unknown> | void;
   updateAvatarAdmin: (avatarId: string | null) => void;
   addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>, id?: string) => void;
   updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => void;
   deleteInstructor: (id: string) => void;
-  marcarNotificacionLeida: (notiId: string) => void;
-  marcarTodasLeidas: () => void;
   // Auditoría integral 2026-08-21 (rendimiento, hallazgo P0-2): mismo criterio
   // que el resto de este Context — `PortalShell` (el marco montado en TODAS
   // las pantallas del portal, tab bar incluida) solo necesita estos 5 campos
@@ -58,15 +55,12 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
   const value = useMemo<CoreContextValue>(() => ({
     studio: core.studio,
     instructores: core.instructores,
-    notificaciones: core.notificaciones,
     dataLoaded: core.dataLoaded,
     updateStudio: core.updateStudio,
     updateAvatarAdmin: core.updateAvatarAdmin,
     addInstructor: core.addInstructor,
     updateInstructor: core.updateInstructor,
     deleteInstructor: core.deleteInstructor,
-    marcarNotificacionLeida: core.marcarNotificacionLeida,
-    marcarTodasLeidas: core.marcarTodasLeidas,
     navPortal: core.navPortal,
     barraClasica: core.barraClasica,
     tabBarStyle: core.tabBarStyle,
@@ -79,7 +73,7 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
     // useMemo de useStudio(). Solo el ESTADO decide cuándo recalcular.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    core.studio, core.instructores, core.notificaciones, core.dataLoaded,
+    core.studio, core.instructores, core.dataLoaded,
     core.navPortal, core.barraClasica, core.tabBarStyle, core.quickLinksStyle, core.variantes, core.themeIdPublicado, core.portalReact,
   ]);
 

@@ -93,8 +93,10 @@ test('la clase que el bono NO cubre conserva su precio (el bug de la cobertura c
   // antiguo, porque fijaba `cubierta = true` para todo el listado.
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
   await expect(page.getByText(/te quedarán 4/)).toBeVisible({ timeout: 30_000 });
-  // `exact` porque la cabecera tiene un "Cerrar sesión" que también casaría.
-  await page.getByRole('button', { name: 'Cerrar', exact: true }).click();
+  // ⚠️ Rediseño "sin popup": la ficha ya no tiene una X flotante con
+  // `aria-label="Cerrar"` — la sustituye la cabecera "‹ Volver a las clases"
+  // (BookingSheet en modo 'vista', components/reserva/reserva-calendario.tsx).
+  await page.getByRole('button', { name: 'Volver a las clases' }).click();
 
   // Y ahora la de Mat, que su bono no cubre.
   await page.getByRole('button', { name: /Mat a las 12:00/ }).click();

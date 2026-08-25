@@ -1,22 +1,30 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { MapPin } from 'lucide-react';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { buscarEstudiosPublicos, filtroEstudiosDesdeSearchParams } from '@/lib/network/publico-estudios';
 import { NavPublico } from '@/components/network-v2/NavPublico';
 import { PieNetwork } from '@/components/network-v2/PieNetwork';
-import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
+import { TarjetaEstudio } from '@/components/network-v2/TarjetaEstudio';
 import { LEGAL } from '@/lib/legal-info';
-import { NW_FONDO, NW_TINTA, NW_MUTED, NW_BORDE, NW_RADIO } from '@/components/network-v2/tokens';
+import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAND_2, NW_PRODUCTO } from '@/components/network-v2/tokens';
 
 // Listado público de ESTUDIOS (piezas 1a+1b de F3) — hermano deliberadamente
 // más sencillo de MarketplaceLayout (instructoras): sin mapa/orden/
-// comparación, una lista de tarjetas nombre/ciudad/foto que enlaza a
-// /network/estudios/[slug] (ya construida en el commit anterior). Server
-// Component, mismo motivo de SEO que el resto de /network (docs/NETWORK-
-// AUDIT-2.md §11) — la consulta va directa a buscarEstudiosPublicos, no vía
-// fetch al endpoint público (ese existe como primitiva aparte, ver
+// comparación, una lista de tarjetas que enlaza a /network/estudios/[slug].
+// Server Component, mismo motivo de SEO que el resto de /network (docs/
+// NETWORK-AUDIT-2.md §11) — la consulta va directa a buscarEstudiosPublicos,
+// no vía fetch al endpoint público (ese existe como primitiva aparte, ver
 // app/api/public/network/estudios/buscar/route.ts).
+//
+// Auditoría UX 2026-08-25: la tarjeta pintaba solo foto+nombre+ciudad y
+// tiraba `descripcion` (ya venía de la query) sin usarla, sin el
+// tratamiento de hover/CTA que sí tiene TarjetaInstructora, y el estado
+// vacío era un párrafo plano frente al estado rico de MarketplaceLayout.
+// Cerrado con TarjetaEstudio.tsx (mismo lenguaje visual) y un estado vacío
+// con el mismo patrón (título grande + dos CTAs) — sin reutilizar
+// FormularioInteresEstudio aquí: su copy ("perfiles que puedan encajar")
+// es específico de la demanda de instructoras, no encaja con un directorio
+// de estudios vacío.
 export const metadata: Metadata = {
   title: 'Estudios de Pilates y Yoga | Tentare Network',
   description: 'Descubre estudios de Pilates y Yoga en el directorio de Tentare Network.',
@@ -66,25 +74,26 @@ export default async function MarketplaceEstudiosPage({
 
         {estudios.length > 0 && (
           <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-            {estudios.map(e => (
-              <Link key={e.id} href={`/network/estudios/${e.slug}`} className="block group">
-                <FotoInstructora fotoUrl={e.fotoUrl ?? e.logoUrl} nombre={e.nombre} aspectRatio="1 / 1.1" radius={18} />
-                <p className="mt-2.5 text-[14.5px] font-bold truncate" style={{ color: NW_TINTA }}>{e.nombre}</p>
-                {e.ciudad && (
-                  <p className="mt-0.5 flex items-center gap-1 text-[12.5px]" style={{ color: NW_MUTED }}>
-                    <MapPin size={12} />{e.ciudad}
-                  </p>
-                )}
-              </Link>
-            ))}
+            {estudios.map(e => <TarjetaEstudio key={e.id} estudio={e} />)}
           </div>
         )}
 
         {estudios.length === 0 && (
-          <div className="mt-8 p-8 text-center" style={{ borderRadius: NW_RADIO.tarjeta, border: `1px solid ${NW_BORDE}` }}>
-            <p className="text-[13.5px]" style={{ color: NW_MUTED }}>
-              Vuelve pronto — el directorio de estudios se está construyendo.
+          <div className="mt-8 rounded-[22px] p-10 text-center" style={{ background: NW_SAND_2 }}>
+            <p className="text-[22px] font-extrabold">
+              Todavía no hay estudios publicados aquí.
             </p>
+            <p className="mt-2 text-[14px]" style={{ color: NW_MUTED }}>
+              Estamos empezando por Barcelona y Madrid — mientras tanto, explora las instructoras ya disponibles.
+            </p>
+            <div className="mt-6 flex items-center justify-center gap-3 flex-wrap">
+              <Link href="/network/instructoras" className="px-5 py-2.5 rounded-full text-[13.5px] font-bold text-white" style={{ background: NW_PRODUCTO }}>
+                Explorar instructoras
+              </Link>
+              <Link href="/network/acceso" className="px-5 py-2.5 rounded-full text-[13.5px] font-bold" style={{ border: `1px solid ${NW_TINTA}`, color: NW_TINTA }}>
+                Soy un estudio
+              </Link>
+            </div>
           </div>
         )}
       </div>

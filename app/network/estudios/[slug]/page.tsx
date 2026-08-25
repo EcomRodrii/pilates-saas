@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, MapPin, Globe } from 'lucide-react';
+import { ArrowLeft, MapPin, Globe, CalendarCheck } from 'lucide-react';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { obtenerEstudioPublicoPorSlug } from '@/lib/network/publico-estudios';
 import { NavPublico } from '@/components/network-v2/NavPublico';
@@ -11,16 +11,21 @@ import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { BotonFavoritoAlumna } from '@/components/network/boton-favorito-alumna';
 import { FormularioResenaAlumna } from '@/components/network/formulario-resena-alumna';
 import { LEGAL } from '@/lib/legal-info';
-import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAND, NW_BORDE } from '@/components/network-v2/tokens';
+import { NW_FONDO, NW_TINTA, NW_MUTED, NW_PRODUCTO } from '@/components/network-v2/tokens';
 
 // Ficha pública de ESTUDIO (quinta pieza de F3) — hermana de
 // app/network/instructoras/[slug]/page.tsx, mismo patrón de estructura
 // (NavPublico/PieNetwork, generateMetadata + cache(), JSON-LD). A
 // diferencia de esa ficha, esta es puro descubrimiento: sin email/teléfono
 // del estudio (decisión ya confirmada con el fundador — ver
-// lib/network/publico-estudios.ts) y sin ningún CTA de "reservar" — el
-// único enlace de acción posible es hacia /reservar/[slug], que esta
-// pantalla no reconstruye.
+// lib/network/publico-estudios.ts) y sin reconstruir el motor de reservas
+// aquí.
+//
+// Decisión revisada 2026-08-25: en vez de contacto directo, el CTA
+// deep-linkea a /reservar/[slug] — MISMA columna `studios.slug` que usa
+// fetchPublicStudioData (lib/db/supabase-data-admin.ts:339), verificado
+// antes de enlazar. Da la sensación de camino corto sin duplicar el stack
+// real de reserva (bono/salud/pago/cancelación) dentro de Network.
 const cargar = cache(async (slug: string) => {
   const admin = getSupabaseAdmin();
   if (!admin) return null;
@@ -118,11 +123,30 @@ export default async function FichaEstudioPage({ params }: { params: Promise<{ s
                   <Globe size={14} /> Sitio web
                 </a>
               )}
+              {estudio.lat != null && estudio.lng != null && (
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${estudio.lat}&mlon=${estudio.lng}#map=15/${estudio.lat}/${estudio.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="flex items-center gap-1 font-semibold hover:opacity-70"
+                  style={{ color: NW_TINTA }}
+                >
+                  <MapPin size={14} /> Ver ubicación
+                </a>
+              )}
             </div>
 
-            {estudio.descripcion && (
-              <p className="mt-6 text-[15px] leading-[1.7] max-w-[640px]" style={{ color: '#4A5347' }}>{estudio.descripcion}</p>
-            )}
+            <p className="mt-6 text-[15px] leading-[1.7] max-w-[640px]" style={{ color: '#4A5347' }}>
+              {estudio.descripcion ?? `${estudio.nombre} todavía no ha añadido una descripción de su estudio en Tentare Network.`}
+            </p>
+
+            <Link
+              href={`/reservar/${estudio.slug}`}
+              className="mt-7 inline-flex items-center gap-2 px-6 py-3 rounded-full text-[14px] font-bold text-white transition-all hover:brightness-110"
+              style={{ background: NW_PRODUCTO }}
+            >
+              <CalendarCheck size={16} /> Reservar en {estudio.nombre}
+            </Link>
           </div>
         </div>
 
@@ -148,15 +172,6 @@ export default async function FichaEstudioPage({ params }: { params: Promise<{ s
             </div>
           </div>
         )}
-
-        {/* Sin ficha de contacto directo (email/teléfono) por diseño — ver
-            lib/network/publico-estudios.ts. Este bloque solo señala que el
-            estudio existe en el directorio, sin ningún CTA de reserva. */}
-        <div className="mt-14 rounded-[22px] p-6" style={{ background: NW_SAND, border: `1px solid ${NW_BORDE}` }}>
-          <p className="text-[13.5px]" style={{ color: NW_MUTED_2 }}>
-            Ficha de descubrimiento de {estudio.nombre} en el directorio de Tentare Network.
-          </p>
-        </div>
 
         {/* Solo se pinta si el servidor confirma elegibilidad — ver
             components/network/formulario-resena-alumna.tsx. Hoy nunca se

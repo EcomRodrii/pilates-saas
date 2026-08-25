@@ -9,7 +9,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
  * Offers a spot from waiting list
  */
 
-export async function reservasOfrecerplazaAction(input: {
+export async function reservasOfrecerplazaAction(_input: {
   sesionId?: string;
   socioId?: string;
 }) {

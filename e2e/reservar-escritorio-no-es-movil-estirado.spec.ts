@@ -37,12 +37,20 @@ test('en escritorio la hoja es una tarjeta legible, no una banda de 1280px', asy
   await page.goto(`/reservar/${SLUG}?tab=clases`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
-  await expect(page.getByRole('dialog')).toBeVisible({ timeout: 30_000 });
+  // ⚠️ Rediseño "sin popup": la ficha ya no es `role="dialog"` — es
+  // contenido normal de la página (BookingSheet en modo 'vista',
+  // components/reserva/reserva-calendario.tsx), identificado aquí por su
+  // propia clase de entrada (`paso-anim`, reutilizada del resto del sitio).
+  const hoja = page.locator('.paso-anim').first();
+  await expect(hoja).toBeVisible({ timeout: 30_000 });
 
-  const caja = await page.locator('div[role=dialog] > div').first().boundingBox();
+  const caja = await hoja.boundingBox();
   expect(caja).not.toBeNull();
-  // Una columna legible, no el ancho de la ventana.
-  expect(caja!.width).toBeLessThanOrEqual(640);
+  // Una columna legible, no el ancho de la ventana. El contenedor de la
+  // pestaña «Clases» acota a 760px centrados (app/reservar/[slug]/page.tsx)
+  // — más ancho que la vieja tarjeta modal (560/640), pero sigue siendo una
+  // columna de lectura, no una banda de 1280px pegada al viewport.
+  expect(caja!.width).toBeLessThanOrEqual(760);
   // Y centrada: sin esto, "estrecha" podría significar pegada a un lado.
   const centro = caja!.x + caja!.width / 2;
   expect(Math.abs(centro - 640)).toBeLessThan(4);
@@ -50,16 +58,23 @@ test('en escritorio la hoja es una tarjeta legible, no una banda de 1280px', asy
 
 test('en móvil la hoja sigue ocupando todo el ancho', async ({ page }) => {
   // El arreglo de escritorio no puede encoger la hoja en un teléfono: ahí el
-  // patrón correcto ES el panel inferior a todo el ancho.
+  // patrón correcto ES el panel a todo el ancho ("prácticamente full-screen
+  // dentro del widget", el criterio explícito del rediseño).
   await page.setViewportSize({ width: 390, height: 844 });
   await sembrarSociaLista(page);
   await page.goto(`/reservar/${SLUG}?tab=clases`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
-  await expect(page.getByRole('dialog')).toBeVisible({ timeout: 30_000 });
+  const hoja = page.locator('.paso-anim').first();
+  await expect(hoja).toBeVisible({ timeout: 30_000 });
 
-  const caja = await page.locator('div[role=dialog] > div').first().boundingBox();
-  expect(caja!.width).toBe(390);
+  const caja = await hoja.boundingBox();
+  // 390 - 40: el contenedor de la ficha lleva su propio padding horizontal
+  // de 20px por lado (BookingSheet en modo 'vista',
+  // components/reserva/reserva-calendario.tsx) en vez del padding de página
+  // que llevaba la vieja tarjeta modal — sigue siendo "todo el ancho
+  // disponible", solo que medido desde dentro del propio padding.
+  expect(caja!.width).toBe(350);
 });
 
 test('la barra lateral no pinta tarjetas vacías', async ({ page }) => {

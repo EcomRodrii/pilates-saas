@@ -8,7 +8,7 @@ import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
  * Bulk import classes
  */
 
-export async function clasesImportAction(input: {
+export async function clasesImportAction(_input: {
   data?: unknown[];
 }) {
   const sesion = await requireAuthInServerAction();

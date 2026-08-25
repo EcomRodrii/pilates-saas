@@ -138,13 +138,17 @@ const CLAVES_SIZE_DE_LOS_TEMAS: string[] = TEMAS_PORTAL_IDS.flatMap(
 );
 
 export const CLAVES_KIT_PERMITIDAS: ReadonlySet<string> = new Set([
-  // (`--accent` estaba aquí y NINGÚN emisor del KIT lo produce:
-  // `varsColorSobreTema` no lo declara. Es un token global de la app —dashboard
-  // y login— que se coló en esta lista. En la práctica era inerte, porque los
-  // tres emisores parten también de `themeToCssVars`, que sí emite `--accent`
-  // por el otro vocabulario, así que siempre caía en `aplicar` y nunca en
-  // `borrar`. Sale de aquí por higiene; sigue en CLAVES_PREVIEW_PERMITIDAS, que
-  // es donde le corresponde. El test de abajo impide que vuelva.)
+  // `--accent` SALIÓ de aquí por higiene (auditoría previa: ningún emisor del
+  // kit lo producía) y VUELVE ahora que sí lo produce de verdad: `destacado`
+  // ("Acento") → `varsColorSobreTema({accent: ...})` — P1 de la auditoría del
+  // Theme Builder, cableando el kit para que deje de tener campos inertes.
+  // Es TINTA (el dorado de Noir, el rosa de Bloom), nunca el fondo pálido del
+  // vocabulario viejo con el mismo nombre — ver el comentario de
+  // `varsColorSobreTema` en themes/registro.ts.
+  '--accent',
+  // `barraOscura` → `varsBarraOscuraSobreTema` → fondo de `TabBar`. Mismo
+  // motivo y misma fase que `--accent` de arriba.
+  '--tab-bar-bg',
   '--brand', '--on-brand', '--support', '--bg', '--ink',
   '--font-body', '--font-display', '--weight-display',
   '--radius-card', '--radius-button', '--radius-chip', '--radius-quick-link',
@@ -155,6 +159,12 @@ export const CLAVES_KIT_PERMITIDAS: ReadonlySet<string> = new Set([
   // que se borran igual que el resto — la tarjeta vuelve a la sombra propia
   // del fichero del tema, no a un `initial` sin respaldo.
   '--shadow-card', '--shadow-card-hover',
+  // `buttonStyle` sobre un tema del KIT (`varsBotonSobreTema`) — faltaban las
+  // tres, así que "Botón principal" guardaba el borrador (autosave, "1 sin
+  // publicar") pero la vista previa seguía enseñando el botón sólido: solo se
+  // veía el cambio real al publicar. Reproducido en vivo 2026-08-25.
+  // 'solid' no las declara, así que se borran igual que el resto.
+  '--btn-primary-bg', '--btn-primary-fg', '--btn-primary-border',
 ]);
 
 /** Las que vienen, filtradas. Las que no vienen NO salen: se borran. */

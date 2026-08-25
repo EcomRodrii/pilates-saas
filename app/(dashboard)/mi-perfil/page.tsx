@@ -14,6 +14,7 @@ import { TabPerfil } from '@/components/configuracion/tab-perfil';
 import { TabMiDisponibilidad } from '@/components/mi-perfil/tab-mi-disponibilidad';
 import { TabMiAusencia } from '@/components/mi-perfil/tab-mi-ausencia';
 import { TabMisEstudios } from '@/components/mi-perfil/tab-mis-estudios';
+import { TabInvitacionNetwork } from '@/components/mi-perfil/tab-invitacion-network';
 import { useRol } from '@/lib/permisos';
 
 export default function MiPerfilPage() {
@@ -30,6 +31,7 @@ export default function MiPerfilPage() {
       {esInstructor && <TabMiDisponibilidad showToast={showToast} />}
       {esInstructor && <TabMiAusencia showToast={showToast} />}
       {esInstructor && <TabMisEstudios />}
+      {esInstructor && <TabInvitacionNetwork />}
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
   );

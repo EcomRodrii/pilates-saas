@@ -11,8 +11,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
  *
  * TODO: Extract and implement logic from the original API route
  */
-export async function plantillas-emailPrueba(input: Record<string, unknown>) {
-  const sesion = await requireAuthInServerAction();
+export async function plantillasEmailPrueba(_input: Record<string, unknown>) {
+  const _sesion = await requireAuthInServerAction();
   const admin = getSupabaseAdmin();
 
   if (!admin) {

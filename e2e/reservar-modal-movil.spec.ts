@@ -140,37 +140,59 @@ test('nombre y apellidos no se estrangulan en una pantalla estrecha', async ({ p
   expect(ancho).toBeGreaterThan(140);
 });
 
-test('⚠️ el marco de la hoja NO cambia de tamaño ni de sitio entre pasos', async ({ page }) => {
-  // El defecto se veía comparando dos capturas del mismo flujo a 390px: el paso
-  // «datos» ocupaba casi toda la pantalla y el de «pago» era una caja baja
-  // pegada al borde inferior, con media pantalla muerta encima. Medido antes
-  // del arreglo: 748px de alto en `datos` contra 658 en `pago`, y 90px de
-  // diferencia en la posición. Eso es lo que se percibe como «no hay
-  // estructura»: el contenedor no se está quieto.
+test('⚠️ rellenar el formulario no desplaza el encabezado ni añade salto de layout', async ({ page }) => {
+  // El defecto original se veía comparando dos capturas del mismo flujo a
+  // 390px: el paso «datos» ocupaba casi toda la pantalla y el de «pago» era
+  // una caja baja pegada al borde inferior, con media pantalla muerta
+  // encima — 748px de alto en `datos` contra 658 en `pago`, 90px de
+  // diferencia en la posición. Eso salía de que la hoja era una caja con
+  // `maxHeight` FIJO y contenido interno de tamaño variable entre pasos.
+  //
+  // ⚠️ Actualizado en el rediseño "sin popup": ya no hay ninguna caja con
+  // `role="dialog"` ni `maxHeight` que medir — el paso «datos»/«pago» es
+  // contenido normal de la página (`PublicSheet inline`), y su altura crece
+  // con el contenido A PROPÓSITO (el iframe se auto-dimensiona alrededor,
+  // ver `reservar-embed-overlays-visibles.spec.ts`). Comparar el frame ya no
+  // tiene sentido — pero el defecto de fondo que este test protegía
+  // («la pantalla da un salto al escribir») sigue siendo real de verificar:
+  // escribir en un campo NO debe mover el encabezado ni el total de la
+  // página, porque nada nuevo se añade al árbol (un input no crece de alto
+  // por tener más texto).
   await abrirPasoDatos(page);
 
-  const hoja = page.getByRole('dialog');
+  const titulo = page.getByRole('heading', { name: 'Tus datos' });
   // ⚠️ Esperar a que la ENTRADA termine antes de medir: `sheet-pop-in` lleva
-  // `scale(.97)`, así que a media animación la caja mide 353px en vez de 358 y
-  // el test se compara contra un fotograma intermedio. Ya costó un rojo aquí.
+  // `scale(.97)`, así que a media animación la posición no es la final.
   await page.waitForTimeout(450);
-  const antes = (await hoja.boundingBox())!;
 
   await page.getByPlaceholder('Nombre').fill('Marta');
   await page.getByPlaceholder('Apellidos').fill('Ruiz');
   await page.getByPlaceholder('Tu email').fill('marta@example.com');
   await page.getByPlaceholder('Tu teléfono (+34 600 000 000)').fill('+34 600 123 456');
   await page.getByRole('checkbox', { name: /política de privacidad/i }).check();
+  await page.waitForTimeout(300);
+
+  // La medición «antes» se toma DESPUÉS de rellenar y marcar la casilla (eso
+  // puede legítimamente revelar contenido nuevo, p. ej. un enlace al
+  // contrato) — lo que este test protege es más estrecho: que escribir un
+  // nombre más largo en un campo YA EXISTENTE no mueve nada, porque un
+  // <input> no cambia de alto por llevar más texto.
+  const antesY = (await titulo.boundingBox())!.y;
+  const antesAlto = await page.evaluate(() => document.documentElement.scrollHeight);
 
   // No hace falta llegar al paso de pago de verdad (eso exige Stripe): basta
-  // con que la hoja mantenga su marco mientras el contenido cambia de tamaño.
+  // con que escribir un nombre más largo no mueva nada que ya estaba en
+  // pantalla.
   await page.getByPlaceholder('Nombre').fill('Un nombre bastante más largo que el anterior');
   await page.waitForTimeout(300);
 
-  const despues = (await hoja.boundingBox())!;
-  expect(Math.abs(despues.height - antes.height)).toBeLessThan(8);
-  expect(Math.abs(despues.y - antes.y)).toBeLessThan(8);
+  const despuesY = (await titulo.boundingBox())!.y;
+  const despuesAlto = await page.evaluate(() => document.documentElement.scrollHeight);
+  expect(Math.abs(despuesY - antesY)).toBeLessThan(8);
+  expect(Math.abs(despuesAlto - antesAlto)).toBeLessThan(8);
 
-  // Y el marco ocupa de verdad la pantalla, no una caja pequeña centrada.
-  expect(antes.height).toBeGreaterThan(600);
+  // Y la página ocupa de verdad la pantalla, no una caja pequeña centrada
+  // con aire alrededor (el criterio explícito del rediseño: "prácticamente
+  // full-screen dentro del widget" en móvil).
+  expect(antesAlto).toBeGreaterThan(600);
 });

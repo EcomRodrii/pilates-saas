@@ -22,7 +22,11 @@ function esEmailDuplicado(error: { code?: string; message?: string } | null): bo
 const ROLES_VALIDOS = new Set(['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR']);
 
 async function quedariaSinPropietaria(
+<<<<<<< HEAD
   admin: ReturnType<typeof getSupabaseAdmin>,
+=======
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+>>>>>>> origin/main
   studioId: string,
   idExcluido: string,
 ): Promise<boolean> {
@@ -61,7 +65,11 @@ function saneaFieldsPropios(src: Record<string, unknown>): Record<string, unknow
 }
 
 async function crearInstructora(
+<<<<<<< HEAD
   admin: ReturnType<typeof getSupabaseAdmin>,
+=======
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+>>>>>>> origin/main
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
   body: Record<string, unknown>,
 ) {
@@ -143,7 +151,11 @@ async function crearInstructora(
 }
 
 async function editarInstructora(
+<<<<<<< HEAD
   admin: ReturnType<typeof getSupabaseAdmin>,
+=======
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+>>>>>>> origin/main
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
   body: { id?: unknown; changes?: unknown },
 ) {
@@ -221,7 +233,11 @@ async function editarInstructora(
 }
 
 async function bajaInstructora(
+<<<<<<< HEAD
   admin: ReturnType<typeof getSupabaseAdmin>,
+=======
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+>>>>>>> origin/main
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
   body: { id?: unknown },
 ) {
@@ -281,14 +297,22 @@ export async function equipoAction(input: {
   }
 
   if (method === 'PATCH') {
+<<<<<<< HEAD
     return await editarInstructora(admin, sesion, input as any);
+=======
+    return await editarInstructora(admin, sesion, input as { id?: unknown; changes?: unknown });
+>>>>>>> origin/main
   }
 
   if (method === 'DELETE') {
     if (!puedeGestionarEquipo(sesion.rol)) {
       throw new Error('No tienes permiso para dar de baja a nadie');
     }
+<<<<<<< HEAD
     return await bajaInstructora(admin, sesion, input as any);
+=======
+    return await bajaInstructora(admin, sesion, input as { id?: unknown });
+>>>>>>> origin/main
   }
 
   throw new Error(`Método ${method} no soportado`);

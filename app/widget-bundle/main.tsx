@@ -297,6 +297,15 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
         ocultarSustituta={config.ocultarSustituta}
         error={error ? { onReintentar: recargar, titulo: 'No hemos podido cargar el horario' } : undefined}
         origenTentare={ORIGEN_TENTARE}
+        // BUG del popup en Modo B: el rediseño "sin popup" (#1369) solo llegó
+        // a Modo A (`estiloFicha="vista"` en app/reservar/[slug]/page.tsx) —
+        // este bundle nunca pasaba la prop y caía al 'modal' de siempre, con
+        // el backdrop de toda la vida. 'inline' es la variante pensada para
+        // aquí: mismo "sin popup", pero sin `window.scrollTo` de página
+        // completa (ver el docblock de `estiloFicha` en reserva-calendario.tsx)
+        // — el widget vive a mitad de la web del estudio, no en una página
+        // propia.
+        estiloFicha="inline"
       />
     </div>
   );

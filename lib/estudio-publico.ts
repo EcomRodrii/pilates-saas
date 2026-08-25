@@ -28,6 +28,20 @@ export interface FranjaHorario {
   horas: string;
 }
 
+export interface HorarioPublico {
+  franjas: FranjaHorario[];
+  /**
+   * false cuando hay muy pocos días distintos con clase programada para
+   * afirmar que el resto de la semana está cerrado — un estudio nuevo con
+   * el calendario a medio cargar (una sola clase recurrente) no "abre 50
+   * minutos a la semana", solo le falta cargar el resto.
+   */
+  confiable: boolean;
+}
+
+/** Por debajo de esto, no se declara ningún día "Cerrado": faltan datos. */
+const MIN_DIAS_CON_CLASE_PARA_CERRADO = 3;
+
 const NOMBRE_DIA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 // El orden en que se lee un horario: la semana empieza en lunes, no en domingo.
 const ORDEN: DiaSemana[] = [1, 2, 3, 4, 5, 6, 0];
@@ -63,9 +77,12 @@ export function tramosPorDia(sesiones: Sesion[]): TramoDia[] {
 }
 
 /** Une los días seguidos que comparten horario: «Lunes a viernes 07:00 – 21:00». */
-export function horarioPublico(sesiones: Sesion[]): FranjaHorario[] {
+export function horarioPublico(sesiones: Sesion[]): HorarioPublico {
   const tramos = tramosPorDia(sesiones);
-  if (tramos.every(t => !t.abre)) return [];
+  const diasConClase = tramos.filter(t => t.abre).length;
+  if (diasConClase === 0) return { franjas: [], confiable: true };
+
+  const confiable = diasConClase >= MIN_DIAS_CON_CLASE_PARA_CERRADO;
 
   const franjas: FranjaHorario[] = [];
   let bloque: TramoDia[] = [];
@@ -90,7 +107,11 @@ export function horarioPublico(sesiones: Sesion[]): FranjaHorario[] {
     bloque.push(t);
   }
   cerrar();
-  return franjas;
+
+  // Sin confianza suficiente, se calla en vez de afirmar: se enseñan los días
+  // que sí tienen clase real y se omiten los bloques "Cerrado" en lugar de
+  // dar por hecho que el resto de la semana no abre.
+  return { franjas: confiable ? franjas : franjas.filter(f => f.horas !== 'Cerrado'), confiable };
 }
 
 // ── El bono más elegido ──────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cargarDatosPublicos } from '@/lib/api-client';
 import { postPublicoWidget } from '@/lib/reservar/api-publica';
 import { construirSlots, type FiltrosSlots } from '@/lib/reservar/construir-slots';
@@ -64,8 +64,13 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const recargar = useCallback(() => {
-    setCargando(true);
+  // `silencioso`: el tic de refresco periódico (más abajo) no debe tapar el
+  // calendario con el estado de carga en cada pasada — eso convertiría "una
+  // clase nueva aparece sola" en "el widget parpadea cada minuto". Los
+  // callers de siempre (montaje, tras reservar/cancelar/etc.) siguen
+  // pidiendo el loading visible, que sí tiene sentido ahí.
+  const recargar = useCallback((opts?: { silencioso?: boolean }) => {
+    if (!opts?.silencioso) setCargando(true);
     cargarDatosPublicos(slug, { liviano: true, baseUrl }).then(pub => {
       if (!pub || pub.error) { setError('No se ha podido cargar el estudio.'); setCargando(false); return; }
       const aforo: Reserva[] = (pub.aforoReservas ?? []).map(
@@ -101,6 +106,23 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga inicial del catálogo público del estudio, sistema externo (fetch).
     recargar();
   }, [recargar]);
+
+  // BUG del calendario que no se enteraba de una clase nueva: Modo B (este
+  // hook) solo cargaba una vez al montar y tras acciones de la propia
+  // socia — sin listener de `visibilitychange`/foco como Modo A (ese vive en
+  // studio-context.tsx, que este bundle no usa a propósito, ver el
+  // comentario "liviano" arriba). Sin ningún tic, un widget embebido que
+  // alguien deja mirando en la web del estudio nunca ve una clase nueva.
+  // Silencioso (no toca `cargando`) y se salta el tic con la pestaña oculta.
+  const recargarRef = useRef(recargar);
+  useEffect(() => { recargarRef.current = recargar; });
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      recargarRef.current({ silencioso: true });
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // `Date.now()` es impuro — no puede llamarse dentro del cuerpo de un
   // `useMemo` (regla de pureza de React Compiler) ni siquiera en un

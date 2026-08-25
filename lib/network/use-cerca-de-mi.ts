@@ -31,9 +31,23 @@ export function useCercaDeMi() {
   return { estado, posicion, activar };
 }
 
-/** Distancia del perfil a `miPosicion`, o `null` si su ciudad no resuelve coordenadas. */
-export function distanciaDePerfil(ciudad: string | null, miPosicion: { lat: number; lng: number }): number | null {
-  const coords = coordsDeCiudad(ciudad);
+/**
+ * Distancia del perfil a `miPosicion`, o `null` si no hay forma de saberla.
+ * Prioriza `lat`/`lng` reales (geocodificados en F2, Nominatim) cuando
+ * existen — antes esta función solo sabía comparar contra el centro
+ * aproximado de la ciudad (`coordsDeCiudad`), aunque el perfil ya tuviera
+ * su posición real guardada. `coordsDeCiudad` se queda como red de
+ * seguridad para los perfiles que todavía no han pasado por el backfill de
+ * geocodificación (docs/NETWORK-Fase2-mapa.md).
+ */
+export function distanciaDePerfil(
+  perfil: { ciudad: string | null; lat?: number | null; lng?: number | null },
+  miPosicion: { lat: number; lng: number },
+): number | null {
+  if (perfil.lat != null && perfil.lng != null) {
+    return Math.round(distanciaKm(miPosicion, { lat: perfil.lat, lng: perfil.lng }));
+  }
+  const coords = coordsDeCiudad(perfil.ciudad);
   return coords ? Math.round(distanciaKm(miPosicion, coords)) : null;
 }
 
