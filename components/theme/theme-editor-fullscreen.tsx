@@ -360,7 +360,7 @@ export function ThemeEditorFullscreen() {
       await Promise.all(PANTALLA_IDS.map((p) => guardarBloquesBorradorApi(p, bloquesHook.bloquesDe(p))));
       const rTema = await publicarThemeApi();
       if (!rTema.ok) {
-        setAvisoPublicar({ tipo: 'error', texto: rTema.errores.join(' ') });
+        setAvisoPublicar({ tipo: 'error', texto: rTema.errores.map((e) => e.mensaje).join(' ') });
         return;
       }
       await Promise.all(PANTALLA_IDS.map((p) => publicarBloquesApi(p)));
@@ -856,7 +856,7 @@ export function ThemeEditorFullscreen() {
           {!puedePublicar && (
             <div className="rounded-lg bg-destructive/10 p-3 space-y-1">
               {!ajustesHook.contraste.ok && ajustesHook.contraste.errores.map((e) => (
-                <p key={e} className="flex items-start gap-1.5 text-[12.5px] text-destructive"><AlertTriangle size={14} className="flex-none mt-0.5" />{e}</p>
+                <button key={e.mensaje} type="button" onClick={() => { setDialogoAbierto(false); seleccionar({ tipo: 'tema', categoria: e.categoriaId }); }} className="flex items-start gap-1.5 text-[12.5px] text-destructive text-left underline decoration-dotted"><AlertTriangle size={14} className="flex-none mt-0.5" />{e.mensaje}</button>
               ))}
               {bloquesIncompletos.map(({ pantalla, bloque }) => (
                 <p key={bloque.id} className="flex items-start gap-1.5 text-[12.5px] text-destructive">

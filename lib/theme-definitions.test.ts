@@ -45,7 +45,7 @@ test('THEME_DEFINITIONS: cada tema aplicado sobre DEFAULT_THEME es un ThemeConfi
 test('THEME_DEFINITIONS: todos los temas pasan el gate de contraste, sin retocar colores', () => {
   for (const def of THEME_DEFINITIONS) {
     const chequeo = validarContrasteTheme({ ...DEFAULT_THEME, ...def.defaults });
-    assert.equal(chequeo.ok, true, `El tema "${def.id}" no pasa el contraste: ${chequeo.errores.join(' / ')}`);
+    assert.equal(chequeo.ok, true, `El tema "${def.id}" no pasa el contraste: ${chequeo.errores.map((e) => e.mensaje).join(' / ')}`);
   }
 });
 
@@ -254,7 +254,7 @@ test('validarContrasteTheme: con barra oscura, un destacado ilegible sobre la ma
     destacado: '#1E2B22', // casi el mismo verde que la marca: invisible como icono activo
   });
   assert.equal(malo.ok, false);
-  assert.ok(malo.errores.some((e) => e.includes('destacado')));
+  assert.ok(malo.errores.some((e) => e.mensaje.includes('destacado')));
 });
 
 test('validarContrasteTheme: con barra flotante (sin oscura), el par destacado/marca NO se comprueba', () => {
