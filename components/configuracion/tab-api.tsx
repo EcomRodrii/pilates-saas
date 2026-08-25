@@ -58,7 +58,7 @@ const WIDGETS = [
   { id: 'misreservas', tabParam: 'misreservas', nombre: 'Mis reservas', desc: 'Para clientas ya dadas de alta: ven y cancelan sus reservas sin entrar en la app completa.', alto: 520, requiereSesion: false, modo: 'iframe' },
   { id: 'estudio', tabParam: 'estudio', nombre: 'El estudio', desc: 'Descripción, horario general y políticas — para tu página "Sobre nosotras".', alto: 480, requiereSesion: false, modo: 'iframe' },
   { id: 'clase-concreta', tabParam: 'clases', nombre: 'Reserva esta clase', desc: 'Apunta directo a una clase concreta — para un post, una story o un newsletter, en vez de al calendario entero.', alto: 640, requiereSesion: true, modo: 'iframe' },
-  { id: 'embed-script', tabParam: 'clases', nombre: 'Calendario embebido (sin iframe)', desc: 'El mismo calendario, pero integrado de verdad en tu web — sin marco, con tu tipografía alrededor. Requiere autorizar tu dominio en «Personaliza».', alto: 0, requiereSesion: false, modo: 'script' },
+  { id: 'embed-script', tabParam: 'clases', nombre: 'Calendario embebido (integración directa)', desc: 'El mismo calendario, pero integrado de verdad en tu web — sin marco ni recuadro, con tu tipografía alrededor. Requiere autorizar tu dominio en «Personaliza».', alto: 0, requiereSesion: false, modo: 'script' },
 ] as const;
 
 // Un icono por tipo de widget — mismo criterio que ya usa
@@ -263,8 +263,9 @@ function CodigoResaltado({ codigo }: { codigo: string }) {
 // debajo del bloque) para las secciones de "Widgets para tu web". Sin frase
 // de ayuda propia: cada tarjeta del selector y cada <Field> de "Personaliza"
 // ya trae la suya, y repetirla a nivel de sección no aportaba nada.
-function BloqueSeccion({ titulo, accion, children }: {
+function BloqueSeccion({ titulo, descripcion, accion, children }: {
   titulo: string;
+  descripcion?: string;
   accion?: ReactNode;
   children: ReactNode;
 }) {
@@ -274,6 +275,7 @@ function BloqueSeccion({ titulo, accion, children }: {
         <h4 className="text-[13px] font-semibold text-foreground">{titulo}</h4>
         {accion}
       </div>
+      {descripcion && <p className="text-[12px] text-muted-foreground mb-2">{descripcion}</p>}
       {children}
     </div>
   );
@@ -525,7 +527,7 @@ function AppsConectadas({ showToast }: { showToast: (m: string) => void }) {
         <h3 className="text-[14px] font-semibold text-foreground">Aplicaciones conectadas</h3>
       </div>
       <p className="text-[12px] text-muted-foreground mb-4">
-        Apps de terceros (como Zapier) con permiso para acceder a los datos de tu estudio.
+        Apps de terceros — como Zapier (conecta Tentare con miles de otras apps sin programar) — con permiso para acceder a los datos de tu estudio.
       </p>
       {apps.length === 0 ? (
         <p className="text-[12px] text-muted-foreground">Ninguna aplicación conectada todavía.</p>
@@ -732,7 +734,7 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
       <h3 className="text-[14px] font-semibold text-foreground mb-1">Widgets para tu web</h3>
       <p className="text-[12px] text-muted-foreground mb-5">
         Elige cuál quieres y pega su código en WordPress, Squarespace, Wix o
-        una web hecha a mano.
+        en el HTML de tu web si la has hecho con código propio.
       </p>
 
       <BloqueSeccion titulo="Elige tu widget">
@@ -918,7 +920,7 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
                 etiquetaPorDefecto="Igual que la de arriba"
               />
               {widget.modo !== 'script' && (
-                <FilaAjuste etiqueta="Ancho" descripcion="Cómo se comporta el iframe dentro de tu web.">
+                <FilaAjuste etiqueta="Ancho" descripcion="Cómo se comporta el recuadro embebido (técnicamente, un iframe) dentro de tu web.">
                   <Pills
                     label="Ancho del widget"
                     opciones={[{ valor: 'compacto', nombre: 'Compacto (480px)' }, { valor: 'completo', nombre: 'Ancho completo' }] as const}
@@ -955,6 +957,7 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
 
           <BloqueSeccion
             titulo="Código para pegar en tu web"
+            descripcion="Esto es más técnico — si no lo entiendes, pásaselo a quien lleve tu web."
             accion={listo ? (
               <button
                 onClick={copiar}
