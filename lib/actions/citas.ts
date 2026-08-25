@@ -1,8 +1,9 @@
 'use server';
 
+import { accionSinImplementar } from '@/lib/actions/errores';
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 
-export async function importarCitasAction(data: unknown) {
-  const sesion = await requireAuthInServerAction();
-  return { ok: true, imported: 0 };
+export async function importarCitasAction(_data: unknown) {
+  await requireAuthInServerAction();
+  accionSinImplementar('importarCitasAction');
 }

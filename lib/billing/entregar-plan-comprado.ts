@@ -80,6 +80,15 @@ export interface CompraPlan {
    * compra posterior.
    */
   origenLead: string | null;
+  /**
+   * I-8: ¿es compra de invitada (sin login)?
+   *
+   * Si es verdad, SIEMPRE crear ficha nueva incluso si el email ya existe en BD.
+   * Motivo: una invitada que paga con email ajeno (p.ej. copia-pega de typo)
+   * no debe consumir el bono de la titular. Crear ficha nueva garantiza que
+   * cada compra de invitada es autónoma — sin riesgo de suplantar bonos ajenos.
+   */
+  esInvitada: boolean;
 }
 
 export type ResultadoEntrega =
@@ -160,18 +169,30 @@ export async function entregarPlanComprado(
     // peor que no crearla: quedaría un bono que nadie puede reclamar.
     if (!compra.email) return { ok: false, motivo: 'sin-socia' };
 
-    // ¿Ya existe alguien con ese email en el estudio? (compró dos veces, o se
-    // registró entre medias). Se reutiliza en vez de duplicar.
-    const { data: existente } = await admin
-      .from('socios')
-      .select('id')
-      .eq('studio_id', compra.studioId)
-      .ilike('email', compra.email)
-      .maybeSingle();
+    // I-8: si es invitada, SIEMPRE crear ficha nueva — no reutilizar aunque
+    // el email ya exista. Motivo: quien paga sin login (invitada) puede meter
+    // un email por error / copia-pega. Si reutilizamos, el bono va a la ficha
+    // existente y la invitada no recibe lo que pagó. Crear ficha nueva garantiza
+    // que cada compra de invitada es autónoma — sin riesgo de suplantar bonos.
+    const debeCrearFichaNueva = compra.esInvitada;
 
-    if (existente) {
-      socioId = existente.id as string;
-    } else {
+    if (!debeCrearFichaNueva) {
+      // ¿Ya existe alguien con ese email en el estudio? (compró dos veces
+      // autenticada, o se registró entre medias). Se reutiliza en vez de duplicar.
+      const { data: existente } = await admin
+        .from('socios')
+        .select('id')
+        .eq('studio_id', compra.studioId)
+        .ilike('email', compra.email)
+        .maybeSingle();
+
+      if (existente) {
+        socioId = existente.id as string;
+      }
+    }
+
+    if (!socioId) {
+      // No existe, o es invitada (debe crear nueva): INSERT nueva ficha
       const partes = (compra.nombre ?? '').trim().split(/\s+/);
       const { error } = await admin.from('socios').insert({
         id: ids.socioId,

@@ -157,7 +157,7 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
 
   test('⚠️ Ocultar precio: el snippet gana el atributo Y la vista previa real lo pierde', async ({ page }) => {
     await montar(page);
-    await page.getByRole('button', { name: /Calendario embebido \(sin iframe\)/ }).click();
+    await page.getByRole('button', { name: /Calendario embebido \(integración directa\)/ }).click();
 
     // Estado de partida: el calendario REAL montado en la vista previa enseña
     // el precio en la hoja de reserva.
@@ -238,7 +238,7 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
 
     // Script (Modo B): atributos data-* y la vista previa REAL del panel — la
     // familia computada del calendario montado, no un texto decorativo.
-    await page.getByRole('button', { name: /Calendario embebido \(sin iframe\)/ }).click();
+    await page.getByRole('button', { name: /Calendario embebido \(integración directa\)/ }).click();
     await elegirFuente(page, 'Tipografía', 'Poppins');
     await elegirFuente(page, 'Tipografía de titulares', 'Playfair Display');
     await expect(snippet(page)).toContainText('data-fuente="Poppins"');
@@ -283,7 +283,7 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
       return json(route, { registrados: [] });
     });
 
-    await page.getByRole('button', { name: /Calendario embebido \(sin iframe\)/ }).click();
+    await page.getByRole('button', { name: /Calendario embebido \(integración directa\)/ }).click();
     await page.getByPlaceholder('midominio.com').fill('otrodominio.com');
     await page.getByRole('button', { name: 'Añadir' }).click();
 

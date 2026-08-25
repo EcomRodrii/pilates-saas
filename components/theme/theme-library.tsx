@@ -312,7 +312,7 @@ export function ThemeLibrary() {
 
               {!contraste.ok && (
                 <ul className="text-[11.5px] text-destructive space-y-0.5">
-                  {contraste.errores.map((e) => <li key={e}>{e}</li>)}
+                  {contraste.errores.map((e) => (<li key={e.mensaje}><span className="font-semibold">{e.categoriaId === 'reservar-widget' ? 'Widget en tu web' : 'Color de marca'}:</span> {e.mensaje}</li>))}
                 </ul>
               )}
               {aviso && (

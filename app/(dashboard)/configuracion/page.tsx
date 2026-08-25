@@ -191,7 +191,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
   { id: 'clases-salas', label: 'Clases y salas' },
   { id: 'citas',       label: 'Citas' },
-  { id: 'gamificacion', label: 'Gamificación' },
+  { id: 'gamificacion', label: 'Logros y motivación' },
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
   { id: 'api',         label: 'API' },

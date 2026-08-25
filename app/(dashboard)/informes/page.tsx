@@ -549,7 +549,8 @@ export default function Informes() {
               >
                 <Activity size={17} style={{ color: 'var(--warning)' }} />
               </div>
-              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ticket medio de quien pagó</p>
+              <p className="text-xs font-semibold" style={{ color: 'var(--muted-foreground)' }}>Ticket medio de quien pagó</p>
+              <p className="text-[11px] mb-1" style={{ color: 'var(--muted-foreground)' }}>Lo que paga de media cada clienta que ha pagado algo este periodo</p>
               <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
                 {fmtEurFull(ticketMedio)}
               </CifraPrivada>
@@ -566,7 +567,8 @@ export default function Informes() {
           >
             <Users size={17} style={{ color: tasaRetencion >= 80 ? 'var(--success)' : tasaRetencion >= 60 ? 'var(--warning)' : 'var(--destructive)' }} />
           </div>
-          <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Tasa retención</p>
+          <p className="text-xs font-semibold" style={{ color: 'var(--muted-foreground)' }}>Tasa retención</p>
+          <p className="text-[11px] mb-1" style={{ color: 'var(--muted-foreground)' }}>Cuántas de tus clientas siguen activas hoy</p>
           <p
             className="text-2xl font-extrabold leading-none"
             style={{ color: tasaRetencion >= 80 ? 'var(--success)' : tasaRetencion >= 60 ? 'var(--warning)' : 'var(--destructive)' }}
@@ -853,8 +855,8 @@ export default function Informes() {
 
         {/* Right: Cohort retention table */}
         <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Retención por cohorte</h2>
-          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>Clientas nuevas por mes y su actividad posterior</p>
+          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Cuántas siguen viniendo, por mes de alta</h2>
+          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>Clientas nuevas por mes y su actividad posterior (también llamado &quot;retención por cohorte&quot;)</p>
 
           {cohortRows.every(r => r.total === 0) ? (
             <div className="flex items-center justify-center h-40">
@@ -881,7 +883,7 @@ export default function Informes() {
                       <td className="py-2 pr-3 font-semibold capitalize" style={{ color: 'var(--foreground)' }}>{row.mes}</td>
                       <td className="py-2 pr-3 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{row.total}</td>
                       <td className="py-2 pr-3 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{row.active30}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums" style={{ color: row.active90 < 0 ? 'var(--muted-foreground)' : 'var(--foreground)' }}>
+                      <td className="py-2 pr-3 text-right tabular-nums" style={{ color: row.active90 < 0 ? 'var(--muted-foreground)' : 'var(--foreground)' }} title={row.active90 < 0 ? 'Todavía no ha pasado suficiente tiempo desde el alta para saberlo' : undefined}>
                         {row.active90 < 0 ? '—' : row.active90}
                       </td>
                       <td className="py-2 text-right">
@@ -891,6 +893,7 @@ export default function Informes() {
                             backgroundColor: row.pct30 >= 70 ? 'color-mix(in srgb, var(--success) 12%, var(--card))' : row.pct30 >= 40 ? 'color-mix(in srgb, var(--warning) 12%, var(--card))' : 'color-mix(in srgb, var(--destructive) 12%, var(--card))',
                             color: row.pct30 >= 70 ? 'var(--success)' : row.pct30 >= 40 ? 'var(--warning)' : '#7A2F1D',
                           }}
+                          title={row.total === 0 ? 'Sin altas ese mes: no hay nada que medir' : undefined}
                         >
                           {row.total > 0 ? `${row.pct30}%` : '—'}
                         </span>
@@ -1031,7 +1034,7 @@ export default function Informes() {
                 <th className="px-2 py-2 font-semibold text-right">Ingreso</th>
                 {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right">Coste</th>}
                 {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right">Margen</th>}
-                {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right">Break-even</th>}
+                {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right" title="Cuántas alumnas tienen que venir para que la clase no dé pérdidas">Punto de equilibrio</th>}
               </tr>
             </thead>
             <tbody>
@@ -1043,8 +1046,8 @@ export default function Informes() {
                     <td className="px-2 py-2 whitespace-nowrap" style={{ color: 'var(--foreground)' }}>
                       {fechaLargaEstudio(m.sesion.inicio)} · {horaEstudio(m.sesion.inicio)}
                     </td>
-                    <td className="px-2 py-2" style={{ color: 'var(--foreground)' }}>{tipo?.nombre ?? '—'}</td>
-                    <td className="px-2 py-2" style={{ color: 'var(--foreground)' }}>{instructora?.nombre ?? '—'}</td>
+                    <td className="px-2 py-2" style={{ color: 'var(--foreground)' }} title={tipo ? undefined : 'Este tipo de clase ya no existe'}>{tipo?.nombre ?? '—'}</td>
+                    <td className="px-2 py-2" style={{ color: 'var(--foreground)' }} title={instructora ? undefined : 'Esta instructora ya no está de alta'}>{instructora?.nombre ?? '—'}</td>
                     <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{m.asistentes}</td>
                     <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{fmtEurFull(m.ingresoImputado)}</td>
                     {verCosteInstructoras && (
@@ -1056,12 +1059,13 @@ export default function Informes() {
                       <td
                         className="px-2 py-2 text-right tabular-nums font-bold"
                         style={{ color: m.margen === null ? 'var(--muted-foreground)' : m.margen < 0 ? 'var(--destructive)' : 'var(--success)' }}
+                        title={m.margen === null ? 'No se puede calcular sin coste de instructora' : undefined}
                       >
                         {m.margen === null ? '—' : fmtEurFull(m.margen)}
                       </td>
                     )}
                     {verCosteInstructoras && (
-                      <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>
+                      <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }} title={m.breakEvenAsistentes === null ? 'No se puede calcular sin coste de instructora' : undefined}>
                         {m.breakEvenAsistentes === null ? '—' : `${m.breakEvenAsistentes}`}
                       </td>
                     )}
@@ -1091,6 +1095,7 @@ export default function Informes() {
             <button
               onClick={exportCSV}
               disabled={csvState !== 'idle'}
+              title="Un archivo que se abre en Excel o Google Sheets"
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
               style={csvState === 'done'
                 ? { backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)', borderColor: '#A7F3D0' }
