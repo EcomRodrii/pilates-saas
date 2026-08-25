@@ -42,7 +42,7 @@ const PROPIETARIA = {
   rol: 'PROPIETARIO',
   activo: true,
   auth_user_id: PROPIETARIA_ID,
-  telefono: null,
+  telefono: null as string | null,
   color: '#2C352C',
 };
 
@@ -54,7 +54,7 @@ const MANAGER = {
   rol: 'MANAGER',
   activo: true,
   auth_user_id: MANAGER_ID,
-  telefono: null,
+  telefono: null as string | null,
   color: '#7C6A52',
 };
 
@@ -66,7 +66,7 @@ const RECEPCION = {
   rol: 'RECEPCION',
   activo: true,
   auth_user_id: RECEPCION_ID,
-  telefono: null,
+  telefono: null as string | null,
   color: '#6B7A64',
 };
 
@@ -101,7 +101,7 @@ async function seedAuth(page: Page, uid: string, email: string) {
 
 async function mockBackendEquipo(
   page: Page,
-  { rol = 'PROPIETARIO', instructoras = [INSTRUCTORA_ACTIVA] } = {},
+  { rol = 'PROPIETARIO', instructoras: _instructoras = [INSTRUCTORA_ACTIVA] } = {},
 ) {
   await page.clock.setFixedTime(new Date(AHORA));
 
