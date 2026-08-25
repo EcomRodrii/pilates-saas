@@ -13,8 +13,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 const VENTANA_HORAS = 24;
 
 export const conciliarReembolsos = inngest.createFunction(
-  { id: 'conciliar-reembolsos-disputas', retries: 0 },
-  { cron: '0 */2 * * *' }, // cada 2 horas
+  // cada 2 horas
+  { id: 'conciliar-reembolsos-disputas', retries: 0, triggers: [{ cron: '0 */2 * * *' }] },
   async () => {
     const admin = getSupabaseAdmin();
     if (!admin) {
@@ -50,15 +50,16 @@ async function conciliarRefunds(stripe: Stripe, admin: ReturnType<typeof getSupa
 
   const ventanaInicio = new Date(Date.now() - VENTANA_HORAS * 3600 * 1000).toISOString();
 
-  // Charges que fueron refundadas DESPUÉS de cierta fecha, sin estar en webhook_reembolsos
+  // Charges que fueron refundadas DESPUÉS de cierta fecha, sin estar en webhook_reembolsos.
+  // La API de Stripe no filtra charges por `refunded` (ChargeListParams no lo
+  // tiene) — se filtra aquí, en el código.
   const { data: charges } = await stripe.charges.list({
-    refunded: true,
     created: { gte: Math.floor(Date.parse(ventanaInicio) / 1000) },
     limit: 100,
   });
 
   for (const charge of charges) {
-    if (!charge.payment_intent) continue;
+    if (!charge.refunded || !charge.payment_intent) continue;
 
     const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent.id;
 

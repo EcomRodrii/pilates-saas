@@ -447,7 +447,13 @@ export default function Socios() {
       const matchEtapa = !filtroEtapa || s.leadStage === filtroEtapa;
       const matchEtiqueta = !filtroEtiqueta || (s.tags ?? []).includes(filtroEtiqueta);
       const matchSegmento = !segmentoAplicado || !ctxSegmento || evaluarSegmento(segmentoAplicado.condiciones, s, ctxSegmento);
-      return matchB && matchF && matchEtapa && matchEtiqueta && matchSegmento;
+      // Mismo criterio que stats_clientas() (migr 20260731004515): un LEAD/
+      // INTERESADA aún no es clienta, así que no cuenta por defecto — ni en
+      // las tarjetas ni en esta tabla. Elegir esa etapa a propósito en el
+      // filtro de arriba es la vía explícita para verlas.
+      const esLeadSinConvertir = s.leadStage === 'LEAD' || s.leadStage === 'INTERESADA';
+      const matchLead = Boolean(filtroEtapa) || !esLeadSinConvertir;
+      return matchB && matchF && matchEtapa && matchEtiqueta && matchSegmento && matchLead;
     });
 
     return [...filtered].sort((a, b) => {
