@@ -36,6 +36,7 @@ import {
 } from '@/lib/inngest/recordatorios';
 import { penalizacionesDispatcher } from '@/lib/inngest/penalizaciones';
 import { conciliarCobrosDispatcher, conciliarCobrosVigilancia } from '@/lib/inngest/conciliar-cobros';
+import { conciliarReembolsos } from '@/lib/inngest/conciliar-reembolsos';
 import { cierreGestoriaAutomaticoDispatcher } from '@/lib/inngest/cierre-gestoria-automatico';
 import { procesarEnvioCampana } from '@/lib/inngest/campanas';
 import { reviewBoostDispatcher } from '@/lib/inngest/review-boost';
@@ -69,6 +70,7 @@ export const { GET, POST, PUT } = serve({
     penalizacionesDispatcher,
     conciliarCobrosDispatcher,
     conciliarCobrosVigilancia,
+    conciliarReembolsos,
     cierreGestoriaAutomaticoDispatcher,
     procesarEnvioCampana,
     reviewBoostDispatcher,
