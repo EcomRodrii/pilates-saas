@@ -117,11 +117,14 @@ export function Spotlight() {
   const pad = 8;
 
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-label={`Tour guiado: ${paso.titulo}`}>
+    <div className="fixed inset-0 z-50 pointer-events-none" role="dialog" aria-label={`Tour guiado: ${paso.titulo}`}>
       {/* Máscara oscura con un hueco recortado sobre el elemento real —
-          box-shadow inset, sin dependencia nueva. */}
+          box-shadow inset, sin dependencia nueva. El contenedor entero es
+          pointer-events-none (la máscara nunca debe bloquear la página de
+          debajo); la tarjeta de abajo se lo devuelve a pointer-events-auto
+          para que sus botones sigan siendo pulsables. */}
       <div
-        className="absolute rounded-xl transition-all duration-200 pointer-events-none"
+        className="absolute rounded-xl transition-all duration-200"
         style={{
           top: rect.top - pad, left: rect.left - pad,
           width: rect.width + pad * 2, height: rect.height + pad * 2,
@@ -131,7 +134,7 @@ export function Spotlight() {
       />
       <div
         ref={cardRef}
-        className="absolute rounded-2xl border border-border bg-card p-4 shadow-lg w-[300px] animate-in fade-in-0 zoom-in-95 duration-150"
+        className="absolute pointer-events-auto rounded-2xl border border-border bg-card p-4 shadow-lg w-[300px] animate-in fade-in-0 zoom-in-95 duration-150"
         style={{
           // Mientras no hay medición real (primer render de este paso), se
           // pinta fuera de la pantalla en vez de en (0,0) — evita un parpadeo
