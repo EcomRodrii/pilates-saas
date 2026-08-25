@@ -155,6 +155,12 @@ export const CLAVES_KIT_PERMITIDAS: ReadonlySet<string> = new Set([
   // que se borran igual que el resto — la tarjeta vuelve a la sombra propia
   // del fichero del tema, no a un `initial` sin respaldo.
   '--shadow-card', '--shadow-card-hover',
+  // `buttonStyle` sobre un tema del KIT (`varsBotonSobreTema`) — faltaban las
+  // tres, así que "Botón principal" guardaba el borrador (autosave, "1 sin
+  // publicar") pero la vista previa seguía enseñando el botón sólido: solo se
+  // veía el cambio real al publicar. Reproducido en vivo 2026-08-25.
+  // 'solid' no las declara, así que se borran igual que el resto.
+  '--btn-primary-bg', '--btn-primary-fg', '--btn-primary-border',
 ]);
 
 /** Las que vienen, filtradas. Las que no vienen NO salen: se borran. */
