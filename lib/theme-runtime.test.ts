@@ -23,7 +23,7 @@ test('themeToCssVars: mapea el tema a las CSS vars que consume la app', () => {
     primary: '#0F766E',
     secondary: '#FF7F50',
     accent: '#F5E6CA',
-    background: '#FFFFFF',
+    background: null,
     text: '#111111',
     fontId: 'inter',
     radius: 'pill',
@@ -32,13 +32,31 @@ test('themeToCssVars: mapea el tema a las CSS vars que consume la app', () => {
   assert.equal(vars['--portal-brand'], '#0F766E');
   assert.equal(vars['--brand'], '#0F766E');
   assert.equal(vars['--portal-brand-secondary'], '#FF7F50');
-  assert.equal(vars['--background'], '#FFFFFF');
   assert.equal(vars['--foreground'], '#111111');
   assert.equal(vars['--radius'], '2rem'); // pill
   assert.match(vars['--font-sans'], /font-inter/);
   // foreground de marca autoderivado por contraste (teal oscuro → blanco)
   assert.equal(vars['--portal-brand-foreground'], '#FFFFFF');
   assert.equal(vars['--brand-foreground'], '#FFFFFF');
+});
+
+// C2 de la auditoría de uso real (2026-08-24): "Fondo" pintaba el PANEL de
+// gestión (--background), no el portal de las socias que la propia pantalla
+// de Apariencia promete. Se retiró del panel (vuelve a su fondo fijo de
+// app/globals.css) y se conectó de verdad al portal de siempre, en modo Día.
+test('themeToCssVars: ya no existe `--background` (pintaba el panel, no el portal)', () => {
+  const vars = themeToCssVars({ ...DEFAULT_THEME, background: '#101820' }) as Record<string, string>;
+  assert.equal(vars['--background'], undefined);
+});
+
+test('themeToCssVars: sin `background` (hereda), ninguna var de fondo del portal', () => {
+  const vars = themeToCssVars({ ...DEFAULT_THEME }) as Record<string, string>;
+  assert.equal(vars['--portal-bg-dia'], undefined);
+});
+
+test('themeToCssVars: `background` declara el fondo de modo Día del portal', () => {
+  const vars = themeToCssVars({ ...DEFAULT_THEME, background: '#101820' }) as Record<string, string>;
+  assert.equal(vars['--portal-bg-dia'], '#101820');
 });
 
 test('themeToCssVars: valores crudos/parciales caen a default por token', () => {
@@ -56,15 +74,36 @@ test('themeToCssText: envuelve las vars en el selector dado', () => {
 });
 
 test('validarContrasteTheme: tema legible pasa el gate', () => {
-  const r = validarContrasteTheme({ ...DEFAULT_THEME, text: '#111111', background: '#FFFFFF', primary: '#0F766E' });
+  const r = validarContrasteTheme({ ...DEFAULT_THEME, text: '#111111', background: null, primary: '#0F766E' });
   assert.equal(r.ok, true);
   assert.deepEqual(r.errores, []);
 });
 
-test('validarContrasteTheme: texto sin contraste falla con mensaje', () => {
-  const r = validarContrasteTheme({ ...DEFAULT_THEME, text: '#EEEEEE', background: '#FFFFFF' });
+// C2: el par que protege este gate ya no es t.text/t.background (t.background
+// dejó de pintar nada del panel) — es la tinta FIJA del portal en modo Día
+// (MODO_TOKENS.dia.ink) contra el "Fondo" elegido, que es justo el bug que
+// motivó la auditoría: se podía publicar un fondo ilegible sin ningún aviso.
+test('validarContrasteTheme: sin `background` (hereda), el gate pasa siempre — MODO_TOKENS.dia ya cumple', () => {
+  const r = validarContrasteTheme({ ...DEFAULT_THEME, background: null });
+  assert.equal(r.ok, true);
+});
+
+test('validarContrasteTheme: un `background` sin contraste con la tinta del portal falla con mensaje', () => {
+  // Cercano a MODO_TOKENS.dia.ink ('#22261F') — el mismo tono oscuro que la
+  // tinta fija de texto del portal, ratio ~1:1, ilegible.
+  const r = validarContrasteTheme({ ...DEFAULT_THEME, background: '#242822' });
   assert.equal(r.ok, false);
-  assert.ok(r.errores.some((e) => e.includes('texto')));
+  assert.ok(r.errores.some((e) => e.mensaje.includes('portal')));
+  // C4 de la auditoría de uso real (2026-08-25): cada error lleva la categoría
+  // real del editor donde vive el campo causante — sin esto, la propietaria
+  // no tenía forma de saber dónde corregirlo.
+  assert.ok(r.errores.every((e) => e.categoriaId === 'color-marca'));
+});
+
+test('validarContrasteTheme: un error del widget lleva categoriaId "reservar-widget"', () => {
+  const r = validarContrasteTheme({ ...DEFAULT_THEME, widgetTinta: '#22261F', widgetSuperficie: '#22261F' });
+  assert.equal(r.ok, false);
+  assert.ok(r.errores.some((e) => e.categoriaId === 'reservar-widget' && e.mensaje.includes('widget')));
 });
 
 // `secondary` NO se valida en este gate a propósito — en Oliva/Bloom/Noir es una

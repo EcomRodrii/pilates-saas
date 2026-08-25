@@ -25,6 +25,7 @@ import { useThemeEditor } from './theme-editor';
 import { useStudio } from '@/lib/studio-context';
 import { ThemeThumbVivo } from './theme-thumb-vivo';
 import { THEME_DEFINITIONS, getThemeDefinition, type ThemeDefinition } from '@/lib/theme-definitions';
+import { MODO_TOKENS } from '@/lib/portal-paleta';
 import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, fetchBloquesPublicado, guardarBloquesBorradorApi, fetchHomePreviewToken } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
@@ -66,9 +67,12 @@ function nombreTitular(id: ThemeConfig['portalHeadingFontId']): string {
 
 /** La fila de los cinco colores del tema. */
 function Colores({ config }: { config: ThemeConfig }) {
+  // `background` es "hereda" cuando es null (C2 de la auditoría de uso real:
+  // ya no pisa el panel, solo el portal de siempre en modo Día) — el swatch
+  // muestra el fondo efectivo, mismo fallback que `varsFondoPortal`.
   const colores: [string, string][] = [
     ['Marca', config.primary], ['Secundario', config.secondary], ['Acento', config.accent],
-    ['Fondo', config.background], ['Texto', config.text],
+    ['Fondo', config.background ?? MODO_TOKENS.dia.bg], ['Texto', config.text],
   ];
   return (
     <div className="flex items-center gap-1.5">
@@ -308,7 +312,7 @@ export function ThemeLibrary() {
 
               {!contraste.ok && (
                 <ul className="text-[11.5px] text-destructive space-y-0.5">
-                  {contraste.errores.map((e) => <li key={e}>{e}</li>)}
+                  {contraste.errores.map((e) => (<li key={e.mensaje}><span className="font-semibold">{e.categoriaId === 'reservar-widget' ? 'Widget en tu web' : 'Color de marca'}:</span> {e.mensaje}</li>))}
                 </ul>
               )}
               {aviso && (

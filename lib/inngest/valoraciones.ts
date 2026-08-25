@@ -21,10 +21,12 @@ function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
 }
 
-// Dispatcher: cada 6 h (a y 15 para no chocar con dunning 08:30 / decision 06:30·14:30
-// / automatizaciones 07:00). Una clase recién terminada recibe la petición en <6 h.
+// Dispatcher: cada 12 h (a las 00:15 y 12:15 UTC para no chocar con dunning 08:30
+// / decision 06:30·14:30 / automatizaciones 07:00). Una clase recién terminada
+// recibe la petición en <12 h. Auditoría #3 (2026-08-25): reducido de cada 6h
+// porque las valoraciones son nice-to-have, no críticas. Ahorro: ~240/mes.
 export const valoracionesDispatcher = inngest.createFunction(
-  { id: 'valoraciones-dispatcher', triggers: [{ cron: '15 */6 * * *' }] },
+  { id: 'valoraciones-dispatcher', triggers: [{ cron: '15 */12 * * *' }] },
   async ({ step }) => {
     const nowISO = await step.run('now', async () => new Date().toISOString());
 

@@ -173,11 +173,13 @@ export const penalizacionesDispatcher = inngest.createFunction(
   // urgencia es la más baja de todos los crons de dinero: la DETECCIÓN ya
   // ocurrió (en la RPC de cancelación o en el trigger de no-show, no aquí), y
   // esto solo crea el recibo y cobra o lo deja pendiente de aprobación. Que una
-  // penalización tarde 30 min en cobrarse no cambia nada para nadie.
+  // penalización tarde 1 hora en cobrarse no cambia nada para nadie (antes: 30 min).
   //
   // Sin ventana atada al periodo: filtra por `estado = DETECTADA`, así que
   // espaciarlo no abre huecos, solo alarga la cola.
-  { id: 'penalizaciones-procesar', triggers: [{ cron: '*/30 * * * *' }] },
+  // Auditoría #3 (2026-08-25): reducido de cada 30min a cada hora.
+  // Ahorro: ~1.440 - 24 = ~1.416/mes
+  { id: 'penalizaciones-procesar', triggers: [{ cron: '0 * * * *' }] },
   async ({ step }) => {
     return step.run('procesar', async () => {
       const admin = getSupabaseAdmin();

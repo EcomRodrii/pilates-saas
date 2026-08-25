@@ -35,6 +35,8 @@ export interface FilaRedPerfil {
   linkedin: string | null;
   web: string | null;
   mostrar_estudios_actuales: boolean;
+  lat: number | null;
+  lng: number | null;
 }
 
 // Subconjunto público: el endpoint de búsqueda ni siquiera consulta
@@ -73,6 +75,8 @@ export function mapFilaAPerfil(f: FilaRedPerfil): PerfilNetwork {
     linkedin: f.linkedin,
     web: f.web,
     mostrarEstudiosActuales: f.mostrar_estudios_actuales,
+    lat: f.lat,
+    lng: f.lng,
   };
 }
 
@@ -159,13 +163,14 @@ export function mapFilaAReferencia(f: FilaRedReferencia): ReferenciaNetwork {
 
 export function mapFilaAPerfilPublico(
   f: FilaRedPerfilPublica, experienciaVerificada: boolean, resumenResenas: ResumenResenas = { promedio: null, total: 0 },
-  certificacionVerificada = false,
+  certificacionVerificada = false, referenciaProfesional = false,
 ): PerfilNetworkPublico {
   return {
     id: f.id,
     slug: f.slug,
     experienciaVerificada,
     certificacionVerificada,
+    referenciaProfesional,
     resumenResenas,
     nombre: f.nombre,
     fotoUrl: f.foto_url,
@@ -189,6 +194,8 @@ export function mapFilaAPerfilPublico(
     instagram: f.instagram,
     linkedin: f.linkedin,
     web: f.web,
+    lat: f.lat,
+    lng: f.lng,
   };
 }
 

@@ -3951,6 +3951,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('reembolsoPlazoDias' in changes) db.reembolso_plazo_dias = changes.reembolsoPlazoDias;
   if ('reembolsoSoloSinUsar' in changes) db.reembolso_solo_sin_usar = changes.reembolsoSoloSinUsar;
   if ('requiereCheckinQr' in changes) db.requiere_checkin_qr = changes.requiereCheckinQr;
+  if ('visibleEnNetwork' in changes) db.visible_en_network = changes.visibleEnNetwork;
   // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
   // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
@@ -4289,6 +4290,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     imagenBienvenidaUrl: r.imagen_bienvenida_url ?? null,
     ownerAuthUserId: r.owner_auth_user_id ?? null,
     slug: r.slug ?? null,
+    visibleEnNetwork: r.visible_en_network ?? false,
     creadoEn: r.creado_en,
     stripeAccountId: r.stripe_account_id ?? null,
     googleCalendarEmail: r.google_calendar_email ?? null,
@@ -4464,31 +4466,33 @@ export async function fetchCriticalStudioData(studioId?: string) {
     codigosDescuentoRes,
     actividadRecienteRes,
     notificacionesRes,
-    videosOnDemandRes,
-    postsComunidadRes,
-    notasInternasRes,
-    condicionesSaludRes,
-    respuestasSesionRes,
+    // Sprint 1: lazy-load variables
+    // videosOnDemandRes,
+    // postsComunidadRes,
+    // notasInternasRes,
+    // condicionesSaludRes,
+    // respuestasSesionRes,
     integracionesRes,
     mensajesEquipoRes,
-    rewardRulesRes,
-    rewardActionsRes,
-    memberCreditsRes,
-    rewardCatalogRes,
-    rewardRedemptionsRes,
-    achievementDefinitionsRes,
-    achievementProgressRes,
-    levelDefinitionsRes,
-    challengeDefinitionsRes,
-    challengeProgressRes,
-    dashboardChartsRes,
-    citasServiciosRes,
-    citasDisponibilidadRes,
-    bloqueosMaquinaRes,
-    plazasFijasRes,
-    recuperacionesRes,
-    socioExcepcionesRes,
-    mandatosSepaRes,
+    // Sprint 1: lazy-load variables
+    // rewardRulesRes,
+    // rewardActionsRes,
+    // memberCreditsRes,
+    // rewardCatalogRes,
+    // rewardRedemptionsRes,
+    // achievementDefinitionsRes,
+    // achievementProgressRes,
+    // levelDefinitionsRes,
+    // challengeDefinitionsRes,
+    // challengeProgressRes,
+    // dashboardChartsRes,
+    // citasServiciosRes,
+    // citasDisponibilidadRes,
+    // bloqueosMaquinaRes,
+    // plazasFijasRes,
+    // recuperacionesRes,
+    // socioExcepcionesRes,
+    // mandatosSepaRes,
     contenidoPortalRes,
     bannersPortalRes,
     // Añadido AL FINAL de la lista a propósito: el desestructurado es
@@ -4539,11 +4543,13 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // consumidor agrega sobre el histórico completo (ver P0-2/9).
     db.from('actividad_reciente').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('notificaciones').select('*').eq('studio_id', sid).order('creada_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
-    db.from('videos_on_demand').select('*').eq('studio_id', sid),
-    db.from('posts_comunidad').select('*').eq('studio_id', sid),
-    db.from('notas_internas').select('*').eq('studio_id', sid),
-    db.from('condiciones_salud').select('*').eq('studio_id', sid),
-    db.from('respuestas_sesion').select('*').eq('studio_id', sid),
+    // Sprint 1: lazy-load non-critical tables (auditoría #4). Commented out to reduce
+    // bootstrap payload size. These will be loaded on-demand from their respective pages.
+    // db.from('videos_on_demand').select('*').eq('studio_id', sid),
+    // db.from('posts_comunidad').select('*').eq('studio_id', sid),
+    // db.from('notas_internas').select('*').eq('studio_id', sid),
+    // db.from('condiciones_salud').select('*').eq('studio_id', sid),
+    // db.from('respuestas_sesion').select('*').eq('studio_id', sid),
     // Columnas explícitas y SIN `config`: el arranque del panel no necesita el
     // token de WhatsApp ni la clave de Kisi, y mandarlos en cada carga los deja
     // en la memoria del navegador todo el día para nada. Se piden al abrir el
@@ -4556,24 +4562,24 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // para no romper el desestructurado posicional de abajo, pero acotado para
     // no traer el histórico completo en cada arranque.
     db.from('mensajes_equipo').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(1),
-    db.from('reward_rules').select('*').eq('studio_id', sid),
-    db.from('reward_actions').select('*').eq('studio_id', sid),
-    db.from('member_credits').select('*').eq('studio_id', sid),
-    db.from('reward_catalog').select('*').eq('studio_id', sid),
-    db.from('reward_redemptions').select('*').eq('studio_id', sid),
-    db.from('achievement_definitions').select('*').eq('studio_id', sid),
-    db.from('achievement_progress').select('*').eq('studio_id', sid),
-    db.from('level_definitions').select('*').eq('studio_id', sid),
-    db.from('challenge_definitions').select('*').eq('studio_id', sid),
-    db.from('challenge_progress').select('*').eq('studio_id', sid),
-    db.from('dashboard_charts').select('*').eq('studio_id', sid),
-    db.from('citas_servicios').select('*').eq('studio_id', sid),
-    db.from('citas_disponibilidad').select('*').eq('studio_id', sid),
-    db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
-    db.from('plazas_fijas').select('*').eq('studio_id', sid),
-    db.from('recuperaciones').select('*').eq('studio_id', sid),
-    db.from('socio_excepciones').select('*').eq('studio_id', sid),
-    db.from('mandatos_sepa').select('*').eq('studio_id', sid),
+    // db.from('reward_rules').select('*').eq('studio_id', sid),
+    // db.from('reward_actions').select('*').eq('studio_id', sid),
+    // db.from('member_credits').select('*').eq('studio_id', sid),
+    // db.from('reward_catalog').select('*').eq('studio_id', sid),
+    // db.from('reward_redemptions').select('*').eq('studio_id', sid),
+    // db.from('achievement_definitions').select('*').eq('studio_id', sid),
+    // db.from('achievement_progress').select('*').eq('studio_id', sid),
+    // db.from('level_definitions').select('*').eq('studio_id', sid),
+    // db.from('challenge_definitions').select('*').eq('studio_id', sid),
+    // db.from('challenge_progress').select('*').eq('studio_id', sid),
+    // db.from('dashboard_charts').select('*').eq('studio_id', sid),
+    // db.from('citas_servicios').select('*').eq('studio_id', sid),
+    // db.from('citas_disponibilidad').select('*').eq('studio_id', sid),
+    // db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
+    // db.from('plazas_fijas').select('*').eq('studio_id', sid),
+    // db.from('recuperaciones').select('*').eq('studio_id', sid),
+    // db.from('socio_excepciones').select('*').eq('studio_id', sid),
+    // db.from('mandatos_sepa').select('*').eq('studio_id', sid),
     db.from('contenido_portal').select('*').eq('studio_id', sid).maybeSingle(),
     // Sin filtrar por activo/ubicación: el editor del dashboard necesita ver
     // TODOS los banners (incluidos inactivos/de otras pantallas) para poder
@@ -4622,31 +4628,31 @@ export async function fetchCriticalStudioData(studioId?: string) {
     codigosDescuento: (codigosDescuentoRes.data ?? []).map(mapCodigoDescuento),
     actividadReciente: (actividadRecienteRes.data ?? []).map(mapActividadReciente),
     notificaciones: (notificacionesRes.data ?? []).map(mapNotificacion),
-    videosOnDemand: (videosOnDemandRes.data ?? []).map(mapVideoOnDemand),
-    postsComunidad: (postsComunidadRes.data ?? []).map(mapPostComunidad),
-    notasInternas: (notasInternasRes.data ?? []).map(mapNotaInterna),
-    condicionesSalud: (condicionesSaludRes.data ?? []).map(mapCondicionSalud),
-    respuestasSesion: (respuestasSesionRes.data ?? []).map(mapRespuestaSesion),
+    videosOnDemand: [], // Sprint 1: lazy-load
+    postsComunidad: [], // Sprint 1: lazy-load
+    notasInternas: [], // Sprint 1: lazy-load
+    condicionesSalud: [], // Sprint 1: lazy-load
+    respuestasSesion: [], // Sprint 1: lazy-load
     integraciones: (integracionesRes.data ?? []).map(mapIntegracion),
     mensajesEquipo: (mensajesEquipoRes.data ?? []).map(mapMensajeEquipo),
-    rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
-    rewardActions: (rewardActionsRes.data ?? []).map(mapRewardAction),
-    memberCredits: (memberCreditsRes.data ?? []).map(mapMemberCredits),
-    rewardCatalog: (rewardCatalogRes.data ?? []).map(mapRewardCatalogItem),
-    rewardRedemptions: (rewardRedemptionsRes.data ?? []).map(mapRewardRedemption),
-    achievementDefinitions: (achievementDefinitionsRes.data ?? []).map(mapAchievementDefinition),
-    achievementProgress: (achievementProgressRes.data ?? []).map(mapAchievementProgress),
-    levelDefinitions: (levelDefinitionsRes.data ?? []).map(mapLevelDefinition),
-    challengeDefinitions: (challengeDefinitionsRes.data ?? []).map(mapChallengeDefinition),
-    challengeProgress: (challengeProgressRes.data ?? []).map(mapChallengeProgress),
-    dashboardCharts: (dashboardChartsRes.data ?? []).map(mapDashboardChart),
-    citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
-    citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
-    bloqueosMaquina: (bloqueosMaquinaRes.data ?? []).map(mapBloqueoMaquina),
-    plazasFijas: (plazasFijasRes.data ?? []).map(mapPlazaFija),
-    recuperaciones: (recuperacionesRes.data ?? []).map(mapRecuperacion),
-    socioExcepciones: (socioExcepcionesRes.data ?? []).map(mapSocioExcepcion),
-    mandatosSepa: (mandatosSepaRes.data ?? []).map(mapMandatoSepa),
+    rewardRules: [], // Sprint 1: lazy-load
+    rewardActions: [], // Sprint 1: lazy-load
+    memberCredits: [], // Sprint 1: lazy-load
+    rewardCatalog: [], // Sprint 1: lazy-load
+    rewardRedemptions: [], // Sprint 1: lazy-load
+    achievementDefinitions: [], // Sprint 1: lazy-load
+    achievementProgress: [], // Sprint 1: lazy-load
+    levelDefinitions: [], // Sprint 1: lazy-load
+    challengeDefinitions: [], // Sprint 1: lazy-load
+    challengeProgress: [], // Sprint 1: lazy-load
+    dashboardCharts: [], // Sprint 1: lazy-load
+    citasServicios: [], // Sprint 1: lazy-load
+    citasDisponibilidad: [], // Sprint 1: lazy-load
+    bloqueosMaquina: [], // Sprint 1: lazy-load
+    plazasFijas: [], // Sprint 1: lazy-load
+    recuperaciones: [], // Sprint 1: lazy-load
+    socioExcepciones: [], // Sprint 1: lazy-load
+    mandatosSepa: [], // Sprint 1: lazy-load
   };
 }
 
@@ -4664,6 +4670,7 @@ export async function fetchDeferredStudioData(studioId?: string) {
     challengeHistoryRes,
     notasProgresoRes,
     backupsRes,
+    condicionesSaludRes,
   ] = await enTandas([
     // I5: estos tres historiales son append-only y crecen sin fin, pero ninguna
     // vista de STAFF los consume (el portal usa la versión member-scoped de otro
@@ -4678,6 +4685,14 @@ export async function fetchDeferredStudioData(studioId?: string) {
     db.from('challenge_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('notas_progreso').select('*').eq('studio_id', sid),
     db.from('backups').select('id, studio_id, tipo, creado_en').eq('studio_id', sid).order('creado_en', { ascending: false }),
+    // Sprint 1 (auditoría #4) quitó esto de fetchCriticalStudioData para no
+    // bloquear el primer pintado — pero nunca se le dio ningún sitio nuevo
+    // (el comentario decía "on-demand from their respective pages", pero
+    // ninguna página lo pide). Sin esto, `condicionesSalud` queda `[]` SIEMPRE
+    // — ficha clínica, semáforo y "Preparar clase con IA" se quedan ciegos en
+    // silencio (ver e2e/preparar-clase-ia.spec.ts). De vuelta aquí, en la 2ª
+    // ola — sigue sin bloquear el primer pintado, que era el objetivo real.
+    db.from('condiciones_salud').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -4689,6 +4704,7 @@ export async function fetchDeferredStudioData(studioId?: string) {
     // La query de backups usa un select estrecho (excluye la columna 'datos'
     // pesada); afirmamos la fila para el mapper.
     backups: (backupsRes.data ?? []).map(r => mapBackupMeta(r as RowBackups)),
+    condicionesSalud: (condicionesSaludRes.data ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud)),
   };
 }
 

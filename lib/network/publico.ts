@@ -24,6 +24,7 @@ import {
 import {
   esEspecialidadValida, esHorarioValido, esTipoTrabajoValido, esDisponibilidadEstadoValido, esTarifaRangoValida,
 } from './catalogo.ts';
+import { esOrdenarPorValido } from './tipos.ts';
 import type {
   FiltroBusquedaNetwork, PerfilNetworkPublico, ExperienciaNetworkPublica, BadgesNetwork,
   ResumenResenas, ResenaNetwork, MediaNetwork, EstudioActualNetwork,
@@ -52,7 +53,7 @@ const SELECT_COLUMNAS_PUBLICAS = `
   especialidades, anios_experiencia, tarifa_rango, disponibilidad_estado,
   disponibilidad_horarios, tipo_trabajo, estado, destacado, identidad_verificada_en,
   creado_en, actualizado_en, ultimo_acceso_en, idiomas, instagram, linkedin, web,
-  mostrar_estudios_actuales
+  mostrar_estudios_actuales, lat, lng
 `;
 
 // Tope sin paginar: mismo criterio pragmático que otros listados de este
@@ -67,6 +68,7 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
   };
   const experienciaMinimaRaw = sp.get('experienciaMinima');
   const valoracionMinimaRaw = sp.get('valoracionMinima');
+  const ordenarPorRaw = sp.get('ordenarPor');
   return {
     ciudad: sp.get('ciudad')?.trim() || null,
     especialidades: listaParam('especialidades').filter(esEspecialidadValida) as FiltroBusquedaNetwork['especialidades'],
@@ -80,6 +82,7 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
     soloCertificacionVerificada: sp.get('certificacionVerificada') === '1',
     valoracionMinima: valoracionMinimaRaw && Number.isFinite(Number(valoracionMinimaRaw)) ? Number(valoracionMinimaRaw) : null,
     idioma: sp.get('idioma')?.trim() || null,
+    ordenarPor: esOrdenarPorValido(ordenarPorRaw) ? ordenarPorRaw : undefined,
   };
 }
 
@@ -121,7 +124,12 @@ export const PERFILES_SEED_E2E: readonly PerfilNetworkPublico[] = [
     estado: 'published', destacado: true, identidadVerificadaEn: '2026-01-15T10:00:00.000Z',
     creadoEn: '2026-01-01T00:00:00.000Z', actualizadoEn: '2026-08-01T00:00:00.000Z', ultimoAccesoEn: null,
     idiomas: ['es', 'en'], instagram: null, linkedin: null, web: null,
-    experienciaVerificada: true, certificacionVerificada: true, resumenResenas: { promedio: 4.8, total: 12 },
+    experienciaVerificada: true, certificacionVerificada: true, referenciaProfesional: true,
+    resumenResenas: { promedio: 4.8, total: 12 },
+    // Geocodificada (Madrid centro) a propósito: la otra semilla se deja
+    // sin lat/lng para que el e2e/manual también vea el caso "cobertura
+    // parcial" del mapa, no solo "todo geocodificado".
+    lat: 40.4168, lng: -3.7038,
   },
   {
     id: 'perfil-e2e-2', slug: 'sofia-ruiz-e2e', nombre: 'Sofía Ruiz',
@@ -133,7 +141,9 @@ export const PERFILES_SEED_E2E: readonly PerfilNetworkPublico[] = [
     estado: 'published', destacado: false, identidadVerificadaEn: null,
     creadoEn: '2026-03-01T00:00:00.000Z', actualizadoEn: '2026-07-15T00:00:00.000Z', ultimoAccesoEn: null,
     idiomas: ['es'], instagram: null, linkedin: null, web: null,
-    experienciaVerificada: false, certificacionVerificada: false, resumenResenas: { promedio: null, total: 0 },
+    experienciaVerificada: false, certificacionVerificada: false, referenciaProfesional: false,
+    resumenResenas: { promedio: null, total: 0 },
+    lat: null, lng: null,
   },
 ];
 
@@ -210,6 +220,16 @@ export async function buscarPerfilesPublico(
     : { data: [] as { perfil_id: string }[] };
   const perfilesConCertificacionVerificada = new Set((certificacionesVerificadas ?? []).map(c => c.perfil_id as string));
 
+  // "Referencia profesional" en LOTE, mismo criterio que arriba: una query
+  // con `.in(perfil_id)` para todo el listado — antes solo se calculaba con
+  // un `count` por perfil individual dentro de `detallePerfilDesdeFila`
+  // (ver más abajo), que no escala a un listado de hasta LIMITE_RESULTADOS
+  // perfiles.
+  const { data: referenciasConfirmadasLote } = ids.length
+    ? await admin.from('red_referencias').select('perfil_id').in('perfil_id', ids).eq('estado', 'confirmada')
+    : { data: [] as { perfil_id: string }[] };
+  const perfilesConReferenciaProfesional = new Set((referenciasConfirmadasLote ?? []).map(r => r.perfil_id as string));
+
   // Reseñas en LOTE, mismo criterio que arriba: una query con `.in(perfil_id)`
   // para todo el listado, agregada en JS (Supabase-js no hace GROUP BY).
   const { data: resenasData } = ids.length
@@ -224,7 +244,7 @@ export async function buscarPerfilesPublico(
 
   let perfiles = filas.map(f => mapFilaAPerfilPublico(
     f, perfilesConExperienciaVerificada.has(f.id), resumenDesdePuntuaciones(puntuacionesPorPerfil.get(f.id) ?? []),
-    perfilesConCertificacionVerificada.has(f.id),
+    perfilesConCertificacionVerificada.has(f.id), perfilesConReferenciaProfesional.has(f.id),
   ));
 
   // Post-filtro, no SQL: los datos ya se calcularon en lote arriba para
@@ -335,10 +355,11 @@ async function detallePerfilDesdeFila(
 
   const filaPublica = data as unknown as FilaRedPerfilPublica;
   const tieneExperienciaVerificada = experienciaVerificada(experiencias.map(e => e.estadoVerificacion));
+  const tieneReferenciaProfesional = referenciaProfesional(referenciasConfirmadas ?? 0);
   const badges: BadgesNetwork = {
     emailVerificado: emailVerificado(userData.user?.email_confirmed_at ?? null),
     experienciaVerificada: tieneExperienciaVerificada,
-    referenciaProfesional: referenciaProfesional(referenciasConfirmadas ?? 0),
+    referenciaProfesional: tieneReferenciaProfesional,
     identidadVerificada: identidadVerificada(filaPublica.identidad_verificada_en),
     activaRecientemente: activaRecientemente(filaPublica.ultimo_acceso_en, new Date()),
   };
@@ -364,7 +385,7 @@ async function detallePerfilDesdeFila(
   return {
     perfil: mapFilaAPerfilPublico(
       filaPublica, tieneExperienciaVerificada, resumenDesdePuntuaciones(resenas.map(r => r.puntuacion)),
-      certificaciones.length > 0,
+      certificaciones.length > 0, tieneReferenciaProfesional,
     ),
     experiencias,
     certificaciones,

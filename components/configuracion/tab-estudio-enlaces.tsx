@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { normalizarSlug, motivoSlugInvalido } from '@/lib/slug';
-import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls, Toggle } from '@/app/(dashboard)/configuracion/page';
 import { copiarAlPortapapeles } from '@/lib/utils';
 
 // Los widgets embebibles (antes aquí) viven ahora en su propio tab de
@@ -56,6 +56,52 @@ export function TabEstudioEnlaces({ showToast }: { showToast: (m: string) => voi
           {studio?.slug && <EnlacePortalSocias slug={studio.slug} showToast={showToast} />}
           {/* CONGELADO (feature-freeze PMF): se quitó el enlace "Modo quiosco" →
               /kiosk/[slug]. Ver lib/frozen-features.ts. */}
+        </div>
+      </div>
+
+      <TarjetaVisibilidadNetwork showToast={showToast} />
+    </div>
+  );
+}
+
+// Tentare Network F4 — opt-in al directorio público (`visible_en_network`,
+// migr 20260824230506). Apagado por defecto: distinto de los enlaces de
+// arriba, que solo los encuentra quien ya los tiene — este además pone al
+// estudio delante de gente que todavía no lo conocía, así que lo enciende
+// la propietaria a propósito, nunca por defecto. Mismo patrón de guardado
+// inmediato al tocar el interruptor que el resto del panel (p. ej. los
+// `Toggle` de tab-campos-personalizados.tsx), sin botón "Guardar" aparte.
+function TarjetaVisibilidadNetwork({ showToast }: { showToast: (m: string) => void }) {
+  const { studio, updateStudio } = useStudio();
+  const [guardando, setGuardando] = useState(false);
+  const visible = studio?.visibleEnNetwork ?? false;
+
+  async function cambiar(v: boolean) {
+    if (guardando) return;
+    setGuardando(true);
+    const res = await updateStudio({ visibleEnNetwork: v });
+    setGuardando(false);
+    showToast(res.ok
+      ? (v ? 'Tu estudio ya aparece en el directorio de Network' : 'Tu estudio ha dejado de aparecer en el directorio de Network')
+      : res.error);
+  }
+
+  return (
+    <div className={cn(cardCls, 'p-6')}>
+      <h3 className="text-[14px] font-semibold text-foreground mb-1">Tentare Network</h3>
+      <p className="text-[12px] text-muted-foreground mb-3">
+        El directorio donde alumnas e instructoras buscan estudios en Tentare.
+      </p>
+      <div className="flex items-start justify-between gap-3 px-3.5 py-3 rounded-xl border border-border">
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-foreground">Aparecer en el directorio público de Network</p>
+          <p className="text-[12px] text-muted-foreground mt-0.5 leading-relaxed">
+            Las alumnas podrán encontrar tu estudio buscando en Tentare Network,
+            aunque no tengan todavía el enlace de tu página de reservas.
+          </p>
+        </div>
+        <div className="shrink-0 pt-0.5">
+          <Toggle on={visible} onChange={cambiar} ariaLabel="Aparecer en el directorio público de Network" />
         </div>
       </div>
     </div>

@@ -54,6 +54,12 @@ export interface PerfilNetwork {
   // estudio puede no querer que un competidor sepa dónde trabaja, aunque el
   // dato ya sea público en el directorio de ese estudio.
   mostrarEstudiosActuales: boolean;
+  // F2 — mapa real del buscador (migr 20260824191258). `null` mientras no
+  // se haya geocodificado (todo perfil hasta que corra el backfill, o
+  // cualquiera cuya ciudad/zona no resuelva en Nominatim) — nunca una
+  // posición inventada, mismo criterio que coordsDeCiudad.
+  lat: number | null;
+  lng: number | null;
 }
 
 // Campos que la propia dueña puede editar desde /network/mi-perfil. `estado`
@@ -97,7 +103,16 @@ export type CambiosPerfilNetwork = Partial<
 // servidor con el JOIN instructores↔studios), nunca el booleano en crudo.
 export type PerfilNetworkPublico =
   Omit<PerfilNetwork, 'authUserId' | 'emailContacto' | 'telefonoContacto' | 'mostrarEstudiosActuales'>
-  & { experienciaVerificada: boolean; certificacionVerificada: boolean; resumenResenas: ResumenResenas };
+  & {
+    experienciaVerificada: boolean;
+    certificacionVerificada: boolean;
+    // Badge 4 — al menos una referencia profesional CONFIRMADA
+    // (red_referencias). En el listado se calcula en lote
+    // (buscarPerfilesPublico); en el detalle sale de la misma query que ya
+    // usaba solo para `badges.referenciaProfesional` (detallePerfilDesdeFila).
+    referenciaProfesional: boolean;
+    resumenResenas: ResumenResenas;
+  };
 
 // Filtros del buscador (docs/NETWORK-IMPLEMENTATION-PLAN.md §4, §8). Todos
 // opcionales: sin filtros, se listan todos los perfiles publicados.
@@ -134,6 +149,22 @@ export interface FiltroBusquedaNetwork {
   // elemento del array — mismo criterio que `ciudad`, pero en JS (post-
   // query) porque es un array, no una columna de texto simple.
   idioma: string | null;
+  // Segunda pieza de F2 (buscador): orden explícito pedido por el estudio,
+  // sobre el orden por tuplas de `ordenarResultadosNetwork`
+  // (lib/network/ranking.ts). `undefined`/`'relevancia'` = comportamiento de
+  // siempre, sin cambios. `'cercania'` solo tiene sentido con "Cerca de mí"
+  // activo (posición del navegador) — el servidor no la resuelve (no conoce
+  // esa posición), así que aquí cae al mismo orden que 'relevancia' y la
+  // reordenación real la hace el cliente reutilizando `ordenarPorCercania`
+  // (lib/network/use-cerca-de-mi.ts), nunca duplicando el cálculo de
+  // distancia en el servidor.
+  ordenarPor?: OrdenarPorNetwork;
+}
+
+export const ORDENAR_POR_NETWORK = ['relevancia', 'precio', 'valoracion', 'cercania'] as const;
+export type OrdenarPorNetwork = (typeof ORDENAR_POR_NETWORK)[number];
+export function esOrdenarPorValido(v: unknown): v is OrdenarPorNetwork {
+  return typeof v === 'string' && (ORDENAR_POR_NETWORK as readonly string[]).includes(v);
 }
 
 // Historial laboral declarado — docs/NETWORK-IMPLEMENTATION-PLAN.md §3.

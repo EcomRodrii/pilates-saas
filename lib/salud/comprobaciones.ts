@@ -129,8 +129,9 @@ export const DEFINICIONES: Definicion[] = [
     // desde el 9-ago. Sus gemelas `billing:` sí completaron. La causa está
     // localizada: `app/api/stripe/webhook/route.ts` devuelve 403 cuando la
     // cuenta Connect no cuadra con `metadata.studioId`, y ese `return` NO marca
-    // el evento como procesado — así que Stripe reintenta, vuelve a dar 403, y
-    // el evento se queda en `procesando` para siempre. Ver C-1 del informe.
+    // el evento como procesado — pero STRIPE NO REINTENTA (responde 200 antes de
+    // procesar en after()). El evento se queda en `procesando` para siempre y
+    // solo lo rescata el conciliador (I-5). Ver C-1 del informe.
     umbralAviso: 1,
     umbralFallo: 5,
     contar: (admin, ahora) => admin

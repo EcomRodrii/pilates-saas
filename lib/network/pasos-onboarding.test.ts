@@ -12,7 +12,7 @@ function perfil(overrides: Partial<PerfilNetwork> = {}): PerfilNetwork {
     estado: 'draft', destacado: false, identidadVerificadaEn: null,
     creadoEn: '2026-01-01T00:00:00Z', actualizadoEn: '2026-01-01T00:00:00Z', ultimoAccesoEn: null,
     idiomas: [], instagram: null, linkedin: null, web: null,
-    mostrarEstudiosActuales: false,
+    mostrarEstudiosActuales: false, lat: null, lng: null,
     ...overrides,
   };
 }
