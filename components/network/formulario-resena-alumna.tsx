@@ -11,13 +11,10 @@
 // que la propia comprobación de aquí sea la última palabra — el POST vuelve
 // a comprobar el gate server-side (app/api/network/alumna/resenas/route.ts).
 //
-// Para tipo='estudio' el GET siempre devuelve `disponible:false` (ver
-// comentario de cabecera del endpoint: red_resenas.perfil_id sigue NOT NULL
-// y no hay ningún "perfil" natural para un estudio sin más — hace falta una
-// migración fuera de alcance de esta pieza). Este componente no distingue
-// esos dos casos con lógica propia: simplemente no pinta nada si
-// `disponible` o `elegible` vienen a false, así que en la ficha de estudio
-// el bloque de reseña sencillamente no aparece todavía.
+// Ambos tipos ('estudio' e 'instructora') guardan de verdad desde la
+// migración 20260825004019 (red_resenas.perfil_id nullable). Este
+// componente no distingue los dos casos con lógica propia: simplemente no
+// pinta nada si `disponible` o `elegible` vienen a false.
 import { useEffect, useState } from 'react';
 import { Loader2, Star } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';

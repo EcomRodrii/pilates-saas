@@ -2667,11 +2667,9 @@ export async function enviarResenaNetwork(
 }
 
 // Reseñas de ALUMNA → estudio/instructora — última pieza de F3, gate
-// estricto (app/api/network/alumna/resenas/route.ts). `disponible: false`
-// para tipo='estudio' es intencionado (ver comentario de cabecera del
-// endpoint: red_resenas.perfil_id sigue NOT NULL, sin migración no hay
-// dónde guardar una reseña de solo-estudio) — el formulario nunca se
-// muestra en ese caso, no es un fallo de red.
+// estricto (app/api/network/alumna/resenas/route.ts). Ambos tipos guardan
+// (migr 20260825004019 hizo red_resenas.perfil_id nullable exactamente
+// para el caso de reseña de solo-estudio, sin perfil natural que rellenar).
 export interface ElegibilidadResenaAlumna {
   elegible: boolean;
   disponible: boolean;

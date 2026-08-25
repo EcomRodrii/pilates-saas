@@ -11,44 +11,38 @@ import { uid } from '@/lib/utils';
 // alumna), NUNCA verificarSesionStaff — mismo patrón que
 // app/api/network/alumna/favoritos/route.ts.
 //
-// ⚠️ HALLAZGO DE ESQUEMA, no reinventado a mano aquí: `red_resenas.perfil_id`
-// sigue siendo NOT NULL (verificado en vivo, tabla real de producción) — la
-// migración de F0 (20260824191315_red_resenas_gate_alumna.sql) hizo
-// `solicitud_id` nullable y añadió `reserva_id`, pero NUNCA tocó
-// `perfil_id`/`studio_id`, que siguen NOT NULL los dos. Eso permite insertar
-// una reseña de alumna sobre una INSTRUCTORA (perfil_id = la instructora,
-// studio_id = el estudio donde completó la clase con ella — ambos derivables
-// de la reserva real). Pero una reseña sobre un ESTUDIO sin más no tiene
-// ningún perfil_id natural que rellenar: red_perfiles es una tabla de
-// instructoras, no hay fila de "perfil del estudio". Insertar ahí exigiría
-// una migración (perfil_id nullable + CHECK ajustado), fuera de alcance de
-// esta pieza ("ninguna migración"). Por eso tipo='estudio' calcula la
-// elegibilidad real (útil para diagnóstico/futuro) pero `disponible` viene
-// siempre a `false` y el POST la rechaza explícitamente en vez de fallar en
-// silencio contra el NOT NULL de Postgres.
-//
-// ⚠️ Límite heredado, no introducido aquí: `unique (studio_id, perfil_id)`
-// en red_resenas es GLOBAL a la combinación, no por autor — pensado
-// originalmente para "una relación validada, una reseña" del lado estudio→
-// instructora (una única solicitud aceptada posible). Del lado alumna, dos
-// alumnas distintas que completaron clase con la MISMA instructora en el
-// MISMO estudio compiten por esa única fila: la primera en enviar se queda
-// con el hueco, la segunda recibe 409 aunque sea SU primera reseña. No se
-// puede arreglar sin migración (mismo motivo de arriba) — se documenta el
-// límite, no se enmascara.
+// Una reseña de estudio no tiene perfil_id (red_perfiles solo tiene
+// instructoras, no hay fila de "perfil del estudio") — migración
+// 20260825004019 hizo perfil_id nullable en red_resenas exactamente para
+// este caso, y sustituyó el unique (studio_id, perfil_id) GLOBAL por dos
+// índices únicos parciales (uno por solicitud_id, otro por reserva_id):
+// cada relación validada da derecho a una reseña, sin que dos alumnas
+// distintas que reseñan a la misma instructora en el mismo estudio choquen
+// entre sí.
+
+// Devuelve además reservaId de UNA reserva real que satisface el gate —
+// hace falta para rellenar red_resenas.reserva_id al insertar, que forma
+// parte del CHECK de exclusión (red_resenas_gate_unico).
 async function tieneClaseCompletadaEstudio(
   admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>, authUserId: string, studioId: string,
-): Promise<boolean> {
+): Promise<{ ok: boolean; reservaId: string | null }> {
   const { data: socios } = await admin.from('socios').select('id')
     .eq('auth_user_id', authUserId).eq('studio_id', studioId);
   const socioIds = (socios ?? []).map(s => s.id as string);
-  if (socioIds.length === 0) return false;
+  if (socioIds.length === 0) return { ok: false, reservaId: null };
 
-  const { count } = await admin.from('reservas')
-    .select('id, sesiones!inner(inicio, cancelada)', { count: 'exact', head: true })
+  // Cualquier reserva que satisfaga el gate vale — solo hace falta UNA
+  // relación real para justificar la reseña, no la más reciente en
+  // concreto. Mismo criterio que tieneClaseCompletadaInstructora.
+  const { data: reservas } = await admin.from('reservas')
+    .select('id, sesiones!inner(inicio, cancelada)')
     .eq('studio_id', studioId).in('socio_id', socioIds).eq('estado', 'CONFIRMADA')
-    .eq('sesiones.cancelada', false).lt('sesiones.inicio', new Date().toISOString());
-  return (count ?? 0) > 0;
+    .eq('sesiones.cancelada', false).lt('sesiones.inicio', new Date().toISOString())
+    .limit(1);
+
+  const fila = (reservas ?? [])[0] as { id: string } | undefined;
+  if (!fila) return { ok: false, reservaId: null };
+  return { ok: true, reservaId: fila.id };
 }
 
 // Devuelve además studioId/reservaId de UNA reserva real que satisface el
@@ -102,18 +96,18 @@ export async function GET(req: NextRequest) {
     const studioId = req.nextUrl.searchParams.get('studioId');
     if (!studioId) return errorPeticion('Falta el estudio.');
 
-    const claseCompletada = await tieneClaseCompletadaEstudio(admin, sesion.userId, studioId);
+    const gate = await tieneClaseCompletadaEstudio(admin, sesion.userId, studioId);
+    // `.is('perfil_id', null)` para no confundir con una reseña de
+    // instructora ya hecha por la misma alumna en el mismo estudio.
     const { data: existente } = await admin.from('red_resenas').select('id')
-      .eq('studio_id', studioId).eq('autor', sesion.userId).not('reserva_id', 'is', null).maybeSingle();
+      .eq('studio_id', studioId).eq('autor', sesion.userId)
+      .is('perfil_id', null).not('reserva_id', 'is', null).maybeSingle();
 
     return NextResponse.json({
-      // `disponible: false` a propósito — ver comentario de cabecera. Nunca
-      // true aunque haya clase completada: el esquema no puede almacenar
-      // esta reseña todavía.
-      elegible: false,
-      disponible: false,
+      elegible: gate.ok && !existente,
+      disponible: true,
       yaResenado: Boolean(existente),
-      faltaClaseCompletada: !claseCompletada,
+      faltaClaseCompletada: !gate.ok,
     });
   }
 
@@ -153,11 +147,30 @@ export async function POST(req: NextRequest) {
   }
 
   if (tipo === 'estudio') {
-    // Ver comentario de cabecera: perfil_id es NOT NULL en red_resenas y no
-    // hay ningún perfil natural para "el estudio en sí" — sin migración no
-    // se puede insertar esto de forma honesta. Se rechaza explícito en vez
-    // de dejar que Postgres lo tumbe con un 23502 genérico.
-    return errorPeticion('Las reseñas sobre un estudio todavía no están disponibles.', 501);
+    const studioId = typeof body?.studioId === 'string' ? body.studioId : null;
+    if (!studioId) return errorPeticion('Falta el estudio.');
+
+    const gate = await tieneClaseCompletadaEstudio(admin, sesion.userId, studioId);
+    if (!gate.ok || !gate.reservaId) {
+      return errorPeticion('Solo puedes reseñar un estudio donde ya hayas completado una clase.', 403);
+    }
+
+    const { error } = await admin.from('red_resenas').insert({
+      id: `redresena-${uid()}`,
+      perfil_id: null,
+      studio_id: studioId,
+      solicitud_id: null,
+      reserva_id: gate.reservaId,
+      autor: sesion.userId,
+      puntuacion,
+      comentario,
+    });
+    if (error) {
+      if (error.code === '23505') return errorPeticion('Ya hay una reseña registrada para esta clase.', 409);
+      return errorInterno('network:alumna:resenas:POST', error, 'No se ha podido enviar la reseña.');
+    }
+
+    return NextResponse.json({ ok: true });
   }
 
   const perfilId = typeof body?.perfilId === 'string' ? body.perfilId : null;
