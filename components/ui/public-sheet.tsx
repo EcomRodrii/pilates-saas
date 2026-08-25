@@ -80,7 +80,7 @@ export function PublicSheet({
    */
   footer?: React.ReactNode;
 }) {
-  const { sheetRef } = useDialogA11y({ open, onClose, inline });
+  const { sheetRef } = useDialogA11y({ open, onClose });
 
   // Se queda montada un instante más al cerrar, para que la animación de salida
   // se vea. Con `if (!open) return null` a secas, TODAS las hojas de este flujo
