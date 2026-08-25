@@ -9,7 +9,7 @@ export async function enviarEmailAction(data: {
   data: Record<string, unknown>;
   socioId?: string;
 }) {
-  const sesion = await requireAuthInServerAction();
+  await requireAuthInServerAction();
   if (!data.to) throw new Error('Falta destinatario');
   return { ok: true, messageId: 'msg_' + Date.now() };
 }

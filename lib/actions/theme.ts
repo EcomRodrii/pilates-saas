@@ -37,7 +37,7 @@ export async function guardarThemeAction(body: unknown) {
 
   try {
     return await guardarBorradorTheme(sesion.studioId, parsed.data);
-  } catch (e) {
+  } catch {
     throw new Error('No se han podido guardar los cambios de marca. Vuelve a intentarlo.');
   }
 }

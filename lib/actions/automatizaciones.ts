@@ -2,7 +2,7 @@
 
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 
-export async function ejecutarAutomatizacionAction(data: unknown) {
-  const sesion = await requireAuthInServerAction();
+export async function ejecutarAutomatizacionAction(_data: unknown) {
+  await requireAuthInServerAction();
   return { ok: true };
 }

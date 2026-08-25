@@ -2,7 +2,7 @@
 
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 
-export async function enviarGestoriaAction(data: unknown) {
-  const sesion = await requireAuthInServerAction();
+export async function enviarGestoriaAction(_data: unknown) {
+  await requireAuthInServerAction();
   return { ok: true };
 }

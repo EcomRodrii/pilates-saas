@@ -1,7 +1,6 @@
 'use server';
 
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
-import { errorInterno } from '@/lib/errores-servidor';
 import { getLayout, guardarLayout } from '@/lib/layout-data';
 import { layoutDraftSchema } from '@/lib/layout-schema';
 
@@ -30,7 +29,7 @@ export async function guardarLayoutAction(body: unknown) {
 
   try {
     return await guardarLayout(sesion.studioId, parsed.data);
-  } catch (e) {
+  } catch {
     throw new Error('No se ha podido guardar el menú. Vuelve a intentarlo.');
   }
 }
