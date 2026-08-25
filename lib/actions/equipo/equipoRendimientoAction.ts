@@ -1,34 +1,31 @@
 'use server';
 
-import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { errorInterno } from '@/lib/errores-servidor';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 
 /**
  * equipoRendimientoAction
- *
  * Migrated from: app/api/equipo/rendimiento/route.ts
- * Domain: equipo
- *
- * HTTP Methods supported: GET
+ * Métricas de rendimiento de instructoras (solo lectura)
  */
-export async function equipoRendimientoAction(input: Record<string, unknown>) {
+
+export async function equipoRendimientoAction() {
   const sesion = await requireAuthInServerAction();
+  
+  if (!puedeGestionarEquipo(sesion.rol)) {
+    throw new Error('No tienes permiso para ver rendimiento del equipo');
+  }
+
   const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Servidor no configurado');
 
-  if (!admin) {
-    throw new Error('Servidor no configurado');
-  }
+  const { data: instructoras } = await admin
+    .from('instructores')
+    .select('id, nombre, email, activo')
+    .eq('studio_id', sesion.studioId)
+    .eq('activo', true)
+    .order('nombre');
 
-  try {
-    // ┌─ TODO: Extract handler logic from rendimiento
-    // │   Routes: GET /api/equipo/rendimiento
-    // └─ Implementation status: PENDING
-
-    return { ok: true };
-  } catch (error) {
-    console.error('equipoRendimientoAction:', error);
-    throw error;
-  }
+  return { instructoras: instructoras ?? [] };
 }

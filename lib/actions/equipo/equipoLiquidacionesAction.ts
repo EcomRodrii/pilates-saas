@@ -1,34 +1,43 @@
 'use server';
 
-import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { errorInterno } from '@/lib/errores-servidor';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 
 /**
  * equipoLiquidacionesAction
- *
  * Migrated from: app/api/equipo/liquidaciones/route.ts
- * Domain: equipo
- *
- * HTTP Methods supported: GET, POST, PATCH
+ * 
+ * TODO: Extract GET (lista liquidaciones) + POST (crear) + PATCH (editar) 
+ * Complexity: 129 LOC — requiere lógica de periodos, cálculos de pago
  */
-export async function equipoLiquidacionesAction(input: Record<string, unknown>) {
+
+export async function equipoLiquidacionesAction(input: { method?: string; [key: string]: unknown }) {
   const sesion = await requireAuthInServerAction();
+  
+  if (!puedeGestionarEquipo(sesion.rol)) {
+    throw new Error('No tienes permiso para gestionar liquidaciones');
+  }
+
   const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Servidor no configurado');
 
-  if (!admin) {
-    throw new Error('Servidor no configurado');
+  const method = (input.method || 'GET').toUpperCase();
+
+  if (method === 'GET') {
+    // TODO: Fetch liquidaciones from DB
+    return { items: [] };
   }
 
-  try {
-    // ┌─ TODO: Extract handler logic from liquidaciones
-    // │   Routes: GET /api/equipo/liquidaciones, POST /api/equipo/liquidaciones, PATCH /api/equipo/liquidaciones
-    // └─ Implementation status: PENDING
-
+  if (method === 'POST') {
+    // TODO: Create liquidacion
     return { ok: true };
-  } catch (error) {
-    console.error('equipoLiquidacionesAction:', error);
-    throw error;
   }
+
+  if (method === 'PATCH') {
+    // TODO: Update liquidacion
+    return { ok: true };
+  }
+
+  throw new Error(`Método ${method} no soportado`);
 }
