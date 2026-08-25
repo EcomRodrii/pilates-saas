@@ -53,7 +53,6 @@ import type {
   RowRespuestasSesion,
   RowNotasInternas,
   RowNotasProgreso,
-  RowNotificaciones,
   RowPlanesTarifa,
   RowPostsComunidad,
   RowProductosPos,
@@ -123,7 +122,6 @@ import type {
   RespuestaSesionRow,
   NotaInterna,
   NotaProgreso,
-  Notificacion,
   NivelSemaforo,
   PlanTarifa,
   PostComunidad,
@@ -1225,32 +1223,6 @@ export function mapCanalEquipo(r: RowCanalesEquipo): CanalEquipo {
     nombre: r.nombre,
     creadoEn: r.creado_en ?? '',
   };
-}
-
-export function mapNotificacion(r: RowNotificaciones): Notificacion {
-  return {
-    id: r.id,
-    studioId: r.studio_id,
-    titulo: r.titulo,
-    texto: r.texto,
-    leida: r.leida,
-    tipo: r.tipo,
-    enlace: r.enlace ?? null,
-    creadaEn: r.creada_en,
-  } as Notificacion;
-}
-
-// El marcado de "leída" solo vivía en estado local y se perdía al recargar.
-// La política RLS admin_notificaciones permite al staff (sesión) escribir las de
-// su estudio, así que persiste con el cliente anónimo + sesión.
-export async function dbMarcarNotificacionLeida(id: string) {
-  const { error } = await supabase.from('notificaciones').update({ leida: true }).eq('id', id);
-  if (error) reportDbError('[dbMarcarNotificacionLeida]', error);
-}
-
-export async function dbMarcarNotificacionesLeidas(studioId: string) {
-  const { error } = await supabase.from('notificaciones').update({ leida: true }).eq('studio_id', studioId).eq('leida', false);
-  if (error) reportDbError('[dbMarcarNotificacionesLeidas]', error);
 }
 
 export function mapVideoOnDemand(r: RowVideosOnDemand): VideoOnDemand {
@@ -4465,7 +4437,6 @@ export async function fetchCriticalStudioData(studioId?: string) {
     automationLogsRes,
     codigosDescuentoRes,
     actividadRecienteRes,
-    notificacionesRes,
     // Sprint 1: lazy-load variables
     // videosOnDemandRes,
     // postsComunidadRes,
@@ -4542,7 +4513,6 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // Feeds de solo-display: ventana reciente ordenada. Seguro acotar — ningún
     // consumidor agrega sobre el histórico completo (ver P0-2/9).
     db.from('actividad_reciente').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
-    db.from('notificaciones').select('*').eq('studio_id', sid).order('creada_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     // Sprint 1: lazy-load non-critical tables (auditoría #4). Commented out to reduce
     // bootstrap payload size. These will be loaded on-demand from their respective pages.
     // db.from('videos_on_demand').select('*').eq('studio_id', sid),
@@ -4627,7 +4597,6 @@ export async function fetchCriticalStudioData(studioId?: string) {
     automationLogs: (automationLogsRes.data ?? []).map(mapAutomationLog),
     codigosDescuento: (codigosDescuentoRes.data ?? []).map(mapCodigoDescuento),
     actividadReciente: (actividadRecienteRes.data ?? []).map(mapActividadReciente),
-    notificaciones: (notificacionesRes.data ?? []).map(mapNotificacion),
     videosOnDemand: [], // Sprint 1: lazy-load
     postsComunidad: [], // Sprint 1: lazy-load
     notasInternas: [], // Sprint 1: lazy-load
