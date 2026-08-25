@@ -13,9 +13,18 @@ const FOCUSABLE =
 export function useDialogA11y({
   open,
   onClose,
+  // `PublicSheet`'s modo `inline` (rediseño "sin popup"): sin backdrop ni
+  // altura acotada, el contenido scrollea con la PÁGINA — bloquear
+  // `body`/`documentElement` aquí (pensado para una hoja flotante con fondo
+  // que proteger) deja contenido más alto que la pantalla inalcanzable, sin
+  // ningún scroll posible. Por defecto `false`: el resto de callers
+  // (DashboardSheet, hojas flotantes de siempre) no lo pasan y no ven ningún
+  // cambio.
+  inline = false,
 }: {
   open: boolean;
   onClose: () => void;
+  inline?: boolean;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
   // Ref para la versión más reciente de onClose: el efecto de abajo NO puede
@@ -92,7 +101,7 @@ export function useDialogA11y({
     };
   }, [open, disparador]);
 
-  useBloquearScrollFondo(open);
+  useBloquearScrollFondo(open && !inline);
 
   return { sheetRef };
 }

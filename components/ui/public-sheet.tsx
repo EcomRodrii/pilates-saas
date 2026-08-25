@@ -25,6 +25,7 @@ export function PublicSheet({
   overlayClassName = '',
   closeOnBackdropClick = true,
   footer,
+  inline = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -32,6 +33,19 @@ export function PublicSheet({
   children: React.ReactNode;
   sheetClassName?: string;
   sheetStyle?: React.CSSProperties;
+  /**
+   * Rediseño "sin popup" (petición explícita: eliminar el modal de reserva,
+   * sustituirlo por una vista que ocupa el sitio del listado dentro del
+   * propio widget). Sin backdrop, sin `position: fixed`, sin `role="dialog"`
+   * — un bloque normal que ocupa el sitio que el padre le da. El foco al
+   * abrir y el cierre con Escape se conservan (siguen viniendo de
+   * `useDialogA11y`); lo que desaparece es la semántica y el aspecto visual
+   * de "ventana flotante encima de otra cosa", porque ya no hay ninguna otra
+   * cosa detrás con la que competir (el caller oculta el listado mientras
+   * esto está abierto). Por defecto `false` — el resto de callers de
+   * `PublicSheet` (dashboard, citas) no lo pasan y no ven ningún cambio.
+   */
+  inline?: boolean;
   /**
    * Clases extra en el backdrop (además de `p-4 sm:p-6`) — el único hueco que
    * `overlayStyle` no puede cubrir: es un `style` en línea, así que no puede
@@ -66,7 +80,7 @@ export function PublicSheet({
    */
   footer?: React.ReactNode;
 }) {
-  const { sheetRef } = useDialogA11y({ open, onClose });
+  const { sheetRef } = useDialogA11y({ open, onClose, inline });
 
   // Se queda montada un instante más al cerrar, para que la animación de salida
   // se vea. Con `if (!open) return null` a secas, TODAS las hojas de este flujo
@@ -86,6 +100,11 @@ export function PublicSheet({
   if (open !== abiertoPrevio) {
     setAbiertoPrevio(open);
     if (open) { setRendered(true); setCerrando(false); }
+    // `inline`: sin backdrop no hay animación de salida que esperar (el
+    // `onAnimationEnd` que hace `setRendered(false)` está desactivado más
+    // abajo para este caso) — desmontar YA, o se quedaría montado para
+    // siempre en cuanto `open` pasara a `false`.
+    else if (inline) setRendered(false);
     else if (rendered) setCerrando(true);
   }
 
@@ -96,6 +115,57 @@ export function PublicSheet({
   const cuerpo = footer
     ? <div style={{ overflowY: 'auto', overscrollBehavior: 'contain', flex: '1 1 auto', minHeight: 0 }}>{children}</div>
     : children;
+
+  const hoja = (
+    <div
+      ref={sheetRef}
+      role={inline ? undefined : 'dialog'}
+      aria-modal={inline ? undefined : true}
+      aria-label={label}
+      tabIndex={-1}
+      className={inline ? (sheetClassName || undefined) : `${sheetClassName} ${cerrando ? 'animate-sheet-pop-out' : 'animate-sheet-pop-in'}`}
+      // Desmontar al TERMINAR la salida, no por temporizador: un `setTimeout`
+      // que no case con la duración real deja la hoja fantasma o la corta.
+      // Sin animación de salida en `inline` (no hay `animate-sheet-pop-out`
+      // que la dispare), así que se desmonta directo.
+      onAnimationEnd={inline ? undefined : () => { if (cerrando) setRendered(false); }}
+      style={footer
+        // `overflow: hidden` en la hoja y el scroll en el cuerpo: si el
+        // scroll se quedara aquí, el footer scrollearía con el contenido y no
+        // serviría de nada.
+        ? { ...sheetStyle, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+        : sheetStyle}
+      onClick={inline ? undefined : e => e.stopPropagation()}
+    >
+      {cuerpo}
+      {footer && (
+        <div style={{
+          flexShrink: 0,
+          // Una línea de pelo separa la acción del contenido que scrollea
+          // por detrás — sin ella, el botón parece parte del formulario y no
+          // se lee como «el paso siguiente».
+          borderTop: '1px solid rgba(0,0,0,0.07)',
+          // El aire propio del footer, más la barra de gestos del iPhone.
+          // `env(safe-area-inset-bottom)` funciona aquí desde que el layout
+          // de /reservar declara `viewportFit: 'cover'` — antes devolvía 0 y
+          // este cálculo habría sido decorativo.
+          padding: ' 14px 0 calc(env(safe-area-inset-bottom, 0px))',
+          marginTop: 2,
+        }}>
+          {footer}
+        </div>
+      )}
+    </div>
+  );
+
+  // Rediseño "sin popup": sin backdrop, sin `position: fixed`, sin apilar
+  // encima de nada — el caller ya oculta lo que hubiera detrás. Como no hay
+  // fondo que oscurecer, tampoco hace falta `onAnimationEnd` del backdrop ni
+  // el `useEffect` que espera a que termine su salida — se desmonta en el
+  // mismo commit que `rendered` pasa a `false` (ver el `if (!rendered)` de
+  // arriba, que ya cubre este caso: el padre deja de pedir `open` y este
+  // componente deja de pintar nada).
+  if (inline) return hoja;
 
   return (
     <div
@@ -108,43 +178,7 @@ export function PublicSheet({
       style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', ...overlayStyle }}
       onClick={closeOnBackdropClick ? onClose : undefined}
     >
-      <div
-        ref={sheetRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
-        tabIndex={-1}
-        className={`${sheetClassName} ${cerrando ? 'animate-sheet-pop-out' : 'animate-sheet-pop-in'}`}
-        // Desmontar al TERMINAR la salida, no por temporizador: un `setTimeout`
-        // que no case con la duración real deja la hoja fantasma o la corta.
-        onAnimationEnd={() => { if (cerrando) setRendered(false); }}
-        style={footer
-          // `overflow: hidden` en la hoja y el scroll en el cuerpo: si el
-          // scroll se quedara aquí, el footer scrollearía con el contenido y no
-          // serviría de nada.
-          ? { ...sheetStyle, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
-          : sheetStyle}
-        onClick={e => e.stopPropagation()}
-      >
-        {cuerpo}
-        {footer && (
-          <div style={{
-            flexShrink: 0,
-            // Una línea de pelo separa la acción del contenido que scrollea
-            // por detrás — sin ella, el botón parece parte del formulario y no
-            // se lee como «el paso siguiente».
-            borderTop: '1px solid rgba(0,0,0,0.07)',
-            // El aire propio del footer, más la barra de gestos del iPhone.
-            // `env(safe-area-inset-bottom)` funciona aquí desde que el layout
-            // de /reservar declara `viewportFit: 'cover'` — antes devolvía 0 y
-            // este cálculo habría sido decorativo.
-            padding: ' 14px 0 calc(env(safe-area-inset-bottom, 0px))',
-            marginTop: 2,
-          }}>
-            {footer}
-          </div>
-        )}
-      </div>
+      {hoja}
     </div>
   );
 }

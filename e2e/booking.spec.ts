@@ -141,13 +141,15 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await expect(page.getByText('Reformer').first()).toBeVisible();
   });
 
-  // Nueva UI de reserva: calendario → día → slot (SlotRow) → hoja inferior
-  // (BookingSheet, role=dialog) → acción "Reservar". Ver
+  // Nueva UI de reserva: calendario → día → slot (SlotRow) → ficha de la
+  // clase (BookingSheet) → acción "Reservar". Rediseño "sin popup"
+  // (docs/rediseno-widget-sin-popup-diseno.md): la ficha ya no es un
+  // `role="dialog"`, es una vista normal de la página. Ver
   // components/reserva/reserva-calendario.tsx.
   async function abrirYReservar(page: Page) {
     await page.getByRole('tab', { name: /9 de julio/i }).click();
     await page.getByRole('button', { name: /Reformer a las/i }).click();
-    await page.getByRole('dialog').getByRole('button', { name: /^reservar/i }).click();
+    await page.getByRole('button', { name: /^reservar/i }).click();
   }
 
   test('reserva (socia autenticada con contrato): slot → reservar → confirmada', async ({ page }) => {

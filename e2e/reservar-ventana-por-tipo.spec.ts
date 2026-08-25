@@ -82,9 +82,11 @@ test.describe('La ventana de cancelación que se enseña es la de la clase, no s
     await page.getByRole('tab', { name: /9 de julio/i }).click();
     await page.getByRole('button', { name: /Reformer a las/i }).click();
 
-    const hoja = page.getByRole('dialog');
-    await expect(hoja.getByText(/Cancela con al menos 24h de antelación/)).toBeVisible();
-    await expect(hoja.getByText(/Cancela con al menos 12h de antelación/)).toHaveCount(0);
+    // ⚠️ Rediseño "sin popup": la ficha ya no es `role="dialog"` — sustituye
+    // el listado en el sitio de siempre, así que no hace falta acotar contra
+    // ninguna otra cosa visible detrás.
+    await expect(page.getByText(/Cancela con al menos 24h de antelación/)).toBeVisible();
+    await expect(page.getByText(/Cancela con al menos 12h de antelación/)).toHaveCount(0);
   });
 
   test('Mat (sin override) hereda las 12h del estudio', async ({ page }) => {
@@ -95,9 +97,8 @@ test.describe('La ventana de cancelación que se enseña es la de la clase, no s
     await page.getByRole('tab', { name: /9 de julio/i }).click();
     await page.getByRole('button', { name: /Mat a las/i }).click();
 
-    const hoja = page.getByRole('dialog');
-    await expect(hoja.getByText(/Cancela con al menos 12h de antelación/)).toBeVisible();
-    await expect(hoja.getByText(/Cancela con al menos 24h de antelación/)).toHaveCount(0);
+    await expect(page.getByText(/Cancela con al menos 12h de antelación/)).toBeVisible();
+    await expect(page.getByText(/Cancela con al menos 24h de antelación/)).toHaveCount(0);
   });
 
   // ⚠️ El mismo estudio, mirado SIN abrir ninguna clase. La caja «Cómo
