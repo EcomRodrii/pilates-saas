@@ -42,6 +42,9 @@ async function getTarifas(
   admin: ReturnType<typeof getSupabaseAdmin>,
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
 ) {
+  // BACKWARD COMPAT: si no hay admin, devolver items vacío (no error)
+  if (!admin) return { items: [] };
+
   if (!puedeGestionarEquipo(sesion.rol)) {
     if (sesion.rol !== 'INSTRUCTOR') {
       throw new Error('No tienes permiso para ver tarifas');

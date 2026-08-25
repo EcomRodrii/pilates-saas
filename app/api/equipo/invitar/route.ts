@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
     if (message.includes('No tienes permiso')) status = 403;
     if (message.includes('Falta')) status = 400;
     if (message.includes('no está en tu equipo')) status = 404;
+    if (message.includes('ya tiene su acceso creado')) status = 409;
 
     return NextResponse.json({ error: message }, { status });
   }

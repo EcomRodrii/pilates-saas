@@ -11,8 +11,13 @@ export async function GET(req: NextRequest) {
     const result = await equipoTarifasAction({ method: 'GET' });
     return NextResponse.json(result);
   } catch (error: any) {
-    const status = error?.message?.includes('No tienes permiso') ? 403 : 500;
-    return NextResponse.json({ error: error?.message || 'Error' }, { status });
+    const message = error?.message || 'Error';
+    let status = 500;
+
+    if (message.includes('No autorizado')) status = 401;
+    if (message.includes('No tienes permiso')) status = 403;
+
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
