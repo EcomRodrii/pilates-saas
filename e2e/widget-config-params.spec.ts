@@ -206,7 +206,10 @@ test('⚠️ Modo B (bundle real): data-fuente/data-fuente-display pintan el sha
   // por defecto, o el bloque de color — ninguna de las tres es un "titular"),
   // el nombre de la clase siempre se pinta con la tipografía de titulares.
   await page.getByRole('button', { name: '10:00 Reformer' }).first().click();
-  const hoja = page.getByRole('dialog').first();
+  // ⚠️ Ya no va scopeada a `getByRole('dialog')`: Modo B monta la ficha con
+  // `estiloFicha="inline"` (quitó el popup, ver e2e/reservar-pagar-sin-cuenta.spec.ts) —
+  // es `.paso-anim`, no un `role="dialog"`.
+  const hoja = page.locator('.paso-anim').first();
   await expect(hoja.locator('.reserva-cta-btn')).toBeVisible();
   const famTitular = await hoja.locator('[style*="var(--portal-heading-font"]').first()
     .evaluate(el => getComputedStyle(el).fontFamily);
