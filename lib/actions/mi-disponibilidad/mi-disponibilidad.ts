@@ -1,0 +1,24 @@
+'use server';
+
+import { requireAuthInServerAction } from '@/lib/auth-server-action';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+
+/**
+ * mi-disponibilidad
+ *
+ * Migrated from: app/api/mi-disponibilidad/route.ts
+ * Domain: mi-disponibilidad
+ *
+ * TODO: Extract and implement logic from the original API route
+ */
+export async function mi-disponibilidad(input: Record<string, unknown>) {
+  const sesion = await requireAuthInServerAction();
+  const admin = getSupabaseAdmin();
+
+  if (!admin) {
+    throw new Error('Servidor no configurado');
+  }
+
+  // TODO: Extract handler logic from mi-disponibilidad route
+  throw new Error('Not yet implemented - extract from app/api/mi-disponibilidad/route.ts');
+}
