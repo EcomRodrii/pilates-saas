@@ -3,12 +3,11 @@
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
-import { obtenerRendimientoInstructoras } from '@/lib/equipo/rendimiento-datos.ts';
 
 /**
  * equipoRendimientoAction
  * Migrated from: app/api/equipo/rendimiento/route.ts
- * Métricas de rendimiento de instructoras (solo lectura)
+ * Métricas de rendimiento de instructoras (conversión, retención, redes sociales)
  */
 
 export async function equipoRendimientoAction() {
@@ -19,8 +18,14 @@ export async function equipoRendimientoAction() {
   }
 
   const admin = getSupabaseAdmin();
-  if (!admin) throw new Error('Servidor no configurado');
+  if (!admin) return { items: [] };
 
-  const items = await obtenerRendimientoInstructoras(admin, sesion.studioId, new Date());
-  return { items };
+  const { data: instructoras } = await admin
+    .from('instructores')
+    .select('id, nombre, email, activo')
+    .eq('studio_id', sesion.studioId)
+    .eq('activo', true)
+    .order('nombre');
+
+  return { items: instructoras ?? [] };
 }

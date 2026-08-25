@@ -6,14 +6,18 @@ import { equipoTarifasAction } from '@/lib/actions/equipo/equipoTarifasAction';
  * @see lib/actions/equipo/equipoTarifasAction
  */
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     const result = await equipoTarifasAction({ method: 'GET' });
     return NextResponse.json(result);
-  } catch (error) {
-    const mensaje = error instanceof Error ? error.message : 'Error procesando la solicitud';
-    const status = mensaje.includes('No tienes permiso') ? 403 : 500;
-    return NextResponse.json({ error: mensaje }, { status });
+  } catch (error: any) {
+    const message = error?.message || 'Error';
+    let status = 500;
+
+    if (message.includes('No autorizado')) status = 401;
+    if (message.includes('No tienes permiso')) status = 403;
+
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
@@ -22,12 +26,11 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const result = await equipoTarifasAction({ ...body, method: 'PATCH' });
     return NextResponse.json(result);
-  } catch (error) {
-    const mensaje = error instanceof Error ? error.message : 'Error procesando la solicitud';
+  } catch (error: any) {
     let status = 500;
-    if (mensaje.includes('No tienes permiso')) status = 403;
-    if (mensaje.includes('Falta')) status = 400;
-    if (mensaje.includes('no encontrada')) status = 404;
-    return NextResponse.json({ error: mensaje }, { status });
+    if (error?.message?.includes('No tienes permiso')) status = 403;
+    if (error?.message?.includes('Falta')) status = 400;
+    if (error?.message?.includes('no encontrada')) status = 404;
+    return NextResponse.json({ error: error?.message || 'Error' }, { status });
   }
 }
