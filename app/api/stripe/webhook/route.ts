@@ -494,6 +494,7 @@ async function procesarEvento(
           return NextResponse.json({ error: 'Metadata incompleta' }, { status: 400 });
         }
         const { entregarPlanComprado } = await import('@/lib/billing/entregar-plan-comprado');
+        const esInvitada = !socioId;
         const entrega = await entregarPlanComprado(admin, {
           sessionId: session.id,
           studioId,
@@ -511,6 +512,8 @@ async function procesarEvento(
           // buscarlo a mano en Stripe.
           paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
           origenLead: origenLead ?? null,
+          // I-8: si es invitada, crear ficha nueva siempre (no reutilizar)
+          esInvitada,
         });
         if (!entrega.ok) {
           Sentry.captureMessage('[stripe webhook] cobrado pero NO entregado', {
@@ -717,6 +720,7 @@ async function procesarEvento(
       // está cobrado, así que no entregarlo no puede quedarse en un log.
       // Mismo criterio que la rama planId de checkout.session.completed.
       const { entregarPlanComprado } = await import('@/lib/billing/entregar-plan-comprado');
+      const esInvitada = !pi.metadata.socioId;
       const entrega = await entregarPlanComprado(admin, {
         sessionId: pi.id,
         studioId,
@@ -733,6 +737,8 @@ async function procesarEvento(
         // buscarlo a mano en Stripe.
         paymentIntentId: pi.id,
         origenLead: pi.metadata.origenLead ?? null,
+        // I-8: si es invitada, crear ficha nueva siempre (no reutilizar)
+        esInvitada,
       });
       if (!entrega.ok) {
         Sentry.captureMessage('[stripe webhook] checkout embebido: cobrado pero NO entregado', {
