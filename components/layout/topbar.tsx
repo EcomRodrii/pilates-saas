@@ -9,7 +9,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { usePanelPrivacy } from '@/lib/panel-privacy';
-import { useAtajoBuscar } from '@/lib/utils';
+import { useAtajoBuscar } from '@/lib/use-atajo-buscar';
 
 export function Topbar() {
   const { oculto, setOculto } = usePanelPrivacy();
