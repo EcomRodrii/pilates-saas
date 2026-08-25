@@ -30,7 +30,7 @@ export function TabGamificacion({ showToast, sub: subInicial, studio }: { showTo
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-[16px] font-semibold text-foreground">Gamificación</h2>
+        <h2 className="text-[16px] font-semibold text-foreground">Logros y motivación</h2>
         <p className="text-[13px] text-muted-foreground mt-0.5">
           Recompensas, logros, niveles y retos que ven tus socias en su portal.
         </p>
