@@ -25,6 +25,7 @@ import { useAuth } from '@/lib/auth-context';
 import { fetchPuenteAlumnaNetwork, fetchFavoritosAlumnaNetwork, type EstudioPuenteAlumna, type FavoritosAlumnaNetwork } from '@/lib/api-client';
 import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { HeaderAlumna } from '@/components/network-v2/HeaderAlumna';
+import { BottomNavAlumna } from '@/components/network-v2/BottomNavAlumna';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAGE, NW_PRODUCTO, NW_RADIO } from '@/components/network-v2/tokens';
 
 export default function InicioAlumnaNetworkPage() {
@@ -66,7 +67,7 @@ export default function InicioAlumnaNetworkPage() {
   return (
     <div className="min-h-dvh" style={{ background: NW_FONDO }}>
       <HeaderAlumna />
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-5">
+      <main className="max-w-2xl mx-auto px-4 py-8 pb-24 space-y-5">
         <h1 className="text-[22px] font-extrabold" style={{ color: NW_TINTA }}>
           {nombrePila ? `Hola, ${nombrePila}` : 'Hola'}
         </h1>
@@ -134,7 +135,7 @@ export default function InicioAlumnaNetworkPage() {
             bloque reemplaza el aviso "muy pronto" que había aquí: la
             funcionalidad que prometía ya existe. Sin tocar los dos bloques
             de descubrimiento de arriba. */}
-        <div className="p-5" style={{ borderRadius: NW_RADIO.tarjeta, border: `1px solid ${NW_BORDE}` }}>
+        <div id="mis-favoritos" className="p-5 scroll-mt-20" style={{ borderRadius: NW_RADIO.tarjeta, border: `1px solid ${NW_BORDE}` }}>
           <div className="flex items-center gap-2 mb-3">
             <Heart size={16} style={{ color: NW_MUTED }} />
             <p className="text-[13px] font-semibold" style={{ color: NW_TINTA }}>Mis favoritos</p>
@@ -179,6 +180,7 @@ export default function InicioAlumnaNetworkPage() {
           )}
         </div>
       </main>
+      <BottomNavAlumna />
     </div>
   );
 }

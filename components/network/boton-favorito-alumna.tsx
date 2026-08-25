@@ -20,6 +20,7 @@ import { Heart, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { fetchFavoritosAlumnaNetwork, toggleFavoritoAlumnaNetwork } from '@/lib/api-client';
 import { NW_BORDE, NW_MUTED } from '@/components/network-v2/tokens';
+import { Toast, useToast } from '@/components/ui/toast';
 
 interface BotonFavoritoAlumnaProps {
   tipo: 'estudio' | 'instructora';
@@ -33,6 +34,7 @@ export function BotonFavoritoAlumna({ tipo, id, compacto = false }: BotonFavorit
   const [favorito, setFavorito] = useState(false);
   const [cargandoEstado, setCargandoEstado] = useState(true);
   const [actualizando, setActualizando] = useState(false);
+  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
 
   useEffect(() => {
     // Sin sesión el componente no pinta nada (return null más abajo) — el
@@ -56,39 +58,46 @@ export function BotonFavoritoAlumna({ tipo, id, compacto = false }: BotonFavorit
     const res = await toggleFavoritoAlumnaNetwork(tipo, id);
     setActualizando(false);
     if (res.ok) setFavorito(res.favorito);
+    else showToast(res.error || 'No se ha podido actualizar favoritos');
   }
 
   const ocupado = cargandoEstado || actualizando;
 
   if (compacto) {
     return (
-      <button
-        onClick={alternar}
-        disabled={ocupado}
-        aria-label={favorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}
-        aria-pressed={favorito}
-        className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-60"
-        style={{ border: `1px solid ${NW_BORDE}`, background: '#fff' }}
-      >
-        {ocupado ? (
-          <Loader2 size={16} className="animate-spin" style={{ color: NW_MUTED }} />
-        ) : (
-          <Heart size={16} fill={favorito ? 'currentColor' : 'none'} style={{ color: favorito ? '#C4536B' : NW_MUTED }} />
-        )}
-      </button>
+      <>
+        <button
+          onClick={alternar}
+          disabled={ocupado}
+          aria-label={favorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+          aria-pressed={favorito}
+          className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-60"
+          style={{ border: `1px solid ${NW_BORDE}`, background: '#fff' }}
+        >
+          {ocupado ? (
+            <Loader2 size={16} className="animate-spin" style={{ color: NW_MUTED }} />
+          ) : (
+            <Heart size={16} fill={favorito ? 'currentColor' : 'none'} style={{ color: favorito ? '#C4536B' : NW_MUTED }} />
+          )}
+        </button>
+        {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+      </>
     );
   }
 
   return (
-    <button
-      onClick={alternar}
-      disabled={ocupado}
-      aria-pressed={favorito}
-      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[13.5px] font-semibold disabled:opacity-60 transition-colors"
-      style={{ border: `1px solid ${NW_BORDE}`, background: '#fff', color: favorito ? '#C4536B' : NW_MUTED }}
-    >
-      {ocupado ? <Loader2 size={14} className="animate-spin" /> : <Heart size={14} fill={favorito ? 'currentColor' : 'none'} />}
-      {favorito ? 'Guardado en favoritos' : 'Guardar en favoritos'}
-    </button>
+    <>
+      <button
+        onClick={alternar}
+        disabled={ocupado}
+        aria-pressed={favorito}
+        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[13.5px] font-semibold disabled:opacity-60 transition-colors"
+        style={{ border: `1px solid ${NW_BORDE}`, background: '#fff', color: favorito ? '#C4536B' : NW_MUTED }}
+      >
+        {ocupado ? <Loader2 size={14} className="animate-spin" /> : <Heart size={14} fill={favorito ? 'currentColor' : 'none'} />}
+        {favorito ? 'Guardado en favoritos' : 'Guardar en favoritos'}
+      </button>
+      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+    </>
   );
 }

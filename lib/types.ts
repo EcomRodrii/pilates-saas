@@ -104,6 +104,12 @@ export interface Studio {
   imagenBienvenidaUrl: string | null;
   ownerAuthUserId: string | null;
   slug: string | null;
+  // Opt-in al directorio público de Tentare Network (migr
+  // 20260824230506). false (default) = el estudio solo lo encuentra quien
+  // ya tiene su enlace directo (/reservar/[slug]); true = también aparece
+  // en /network/estudios, donde puede encontrarlo alguien que no lo conocía
+  // todavía. Sin RLS propia: hereda las políticas ya existentes de studios.
+  visibleEnNetwork: boolean;
   creadoEn: string;
   stripeAccountId: string | null;
   googleCalendarEmail: string | null;

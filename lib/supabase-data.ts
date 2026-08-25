@@ -3951,6 +3951,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('reembolsoPlazoDias' in changes) db.reembolso_plazo_dias = changes.reembolsoPlazoDias;
   if ('reembolsoSoloSinUsar' in changes) db.reembolso_solo_sin_usar = changes.reembolsoSoloSinUsar;
   if ('requiereCheckinQr' in changes) db.requiere_checkin_qr = changes.requiereCheckinQr;
+  if ('visibleEnNetwork' in changes) db.visible_en_network = changes.visibleEnNetwork;
   // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
   // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
@@ -4289,6 +4290,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     imagenBienvenidaUrl: r.imagen_bienvenida_url ?? null,
     ownerAuthUserId: r.owner_auth_user_id ?? null,
     slug: r.slug ?? null,
+    visibleEnNetwork: r.visible_en_network ?? false,
     creadoEn: r.creado_en,
     stripeAccountId: r.stripe_account_id ?? null,
     googleCalendarEmail: r.google_calendar_email ?? null,
