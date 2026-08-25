@@ -36,6 +36,11 @@ export const MENSAJE_TEMA_PREVIEW = 'tentare-theme-preview';
 export interface TemaJs {
   variantes: VariantesResueltas;
   barraClasica: boolean;
+  // Independiente de `barraClasica` — ver el comentario de `barraFlotanteSchema`
+  // en theme-schema.ts. Aquí, sobre el kit, decide `features.tab_bar_style`
+  // igual que `barraClasica` (ver portal-tema-marco.tsx/vista-previa-kit.tsx):
+  // los dos pueden convivir en el `ThemeConfig`, pero solo uno pinta a la vez.
+  barraFlotante: boolean;
   tabBarStyle: TabBarStyleId;
   // Solo afecta a temas del kit — ver ESTILOS_ACCESOS_RAPIDOS en
   // theme-schema.ts. `null` = hereda el look de fábrica del tema (Noir
@@ -82,6 +87,7 @@ export function resolveTemaJs(raw: unknown): TemaJs | null {
   return {
     variantes: resolveVariantes(o.variantes),
     barraClasica: o.barraClasica === true,
+    barraFlotante: o.barraFlotante === true,
     tabBarStyle: o.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica',
     // Entrada no confiable, mismo criterio que el resto: solo 'cards'/'bare'
     // pasan, cualquier otra cosa (incluido un mensaje viejo sin el campo) cae

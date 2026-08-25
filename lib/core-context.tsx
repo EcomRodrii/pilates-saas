@@ -40,6 +40,8 @@ export interface CoreContextValue {
   // no el estado interno crudo — mismo dato que useStudio() expone hoy.
   navPortal: NavConfigShape;
   barraClasica: boolean;
+  // Independiente de barraClasica (Bloom) — mismo motivo de estar aquí.
+  barraFlotante: boolean;
   tabBarStyle: TabBarStyleId;
   // Solo lo consumen las pantallas del kit (vista-previa-kit.tsx,
   // portal-tema-marco.tsx) — mismo motivo de estar aquí que barraClasica.
@@ -63,6 +65,7 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
     deleteInstructor: core.deleteInstructor,
     navPortal: core.navPortal,
     barraClasica: core.barraClasica,
+    barraFlotante: core.barraFlotante,
     tabBarStyle: core.tabBarStyle,
     quickLinksStyle: core.quickLinksStyle,
     variantes: core.variantes,
@@ -74,7 +77,7 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     core.studio, core.instructores, core.dataLoaded,
-    core.navPortal, core.barraClasica, core.tabBarStyle, core.quickLinksStyle, core.variantes, core.themeIdPublicado, core.portalReact,
+    core.navPortal, core.barraClasica, core.barraFlotante, core.tabBarStyle, core.quickLinksStyle, core.variantes, core.themeIdPublicado, core.portalReact,
   ]);
 
   return <CoreContext.Provider value={value}>{children}</CoreContext.Provider>;

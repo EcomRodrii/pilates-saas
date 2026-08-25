@@ -35,6 +35,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { TabBar } from '@/components/portal-tema/components/layout/chrome';
+import type { TabBarStyle } from '@/components/portal-tema/tipos-tema';
 import { Hojas } from '@/components/portal-tema/components/ui/hojas';
 import { Toast } from '@/components/portal-tema/components/ui/overlays';
 import { useDatosPortal } from './usar-datos-portal';
@@ -211,7 +212,7 @@ export function PortalTemaMarco({ alEntrar }: {
     // Lo que hace falta para PINTAR lo arma `useDatosPortal`; aquí solo queda
     // lo que este marco usa por su cuenta: el tema, las escrituras y el
     // refresco.
-    studio, themeIdPublicado, quickLinksStyle,
+    studio, themeIdPublicado, quickLinksStyle, barraClasica, barraFlotante,
     cancelarReserva, addReserva, updateSocio, recargarPublico, toggleFavorito,
   } = useStudio();
 
@@ -256,8 +257,22 @@ export function PortalTemaMarco({ alEntrar }: {
   // los accesos rápidos del Inicio son la primera pieza del "de siempre"
   // que pisa una FEATURE del kit, no solo una CSS var. `null` = sin tocar,
   // se queda el `quick_links_style` de fábrica del tema.
-  const tema = quickLinksStyle
-    ? { ...temaBase, features: { ...temaBase.features, quick_links_style: quickLinksStyle } }
+  // Mismo criterio que quickLinksStyle, para el otro eje "de siempre" que
+  // pisa una FEATURE del kit: `barraFlotante`/`barraClasica` deciden qué
+  // clase de barra monta `TabBar` (`chrome.tsx`) — nunca las dos a la vez, y
+  // `barraFlotante` gana si ambas están activas (el mismo criterio que ya usa
+  // theme-preview-vars.test.ts al listar los ejes de forma). `null` = sin
+  // tocar, se queda el `tab_bar_style` de fábrica del tema.
+  const tabBarOverride: TabBarStyle | null = barraFlotante ? 'floating' : barraClasica ? 'classic' : null;
+  const tema = quickLinksStyle || tabBarOverride
+    ? {
+        ...temaBase,
+        features: {
+          ...temaBase.features,
+          ...(quickLinksStyle ? { quick_links_style: quickLinksStyle } : {}),
+          ...(tabBarOverride ? { tab_bar_style: tabBarOverride } : {}),
+        },
+      }
     : temaBase;
 
   // El día de HOY en la zona del estudio. Sin esto sale el 4 de la demo, que

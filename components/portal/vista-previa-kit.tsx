@@ -5,6 +5,7 @@ import { useCore } from '@/lib/core-context';
 import { useDatosPortal } from './usar-datos-portal';
 import { PortalApp } from '@/components/portal-tema/PortalApp';
 import type { ScreenId } from '@/components/portal-tema/store/PortalStore';
+import type { TabBarStyle } from '@/components/portal-tema/tipos-tema';
 import { TEMAS_PORTAL, esTemaPortal } from '@/themes/registro';
 import '@/components/portal-tema/portal-tema.css';
 
@@ -42,7 +43,7 @@ import '@/components/portal-tema/portal-tema.css';
  */
 export function useVistaPreviaKit(pantalla: ScreenId): React.ReactElement | null {
   // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
-  const { themeIdPublicado, quickLinksStyle } = useCore();
+  const { themeIdPublicado, quickLinksStyle, barraClasica, barraFlotante } = useCore();
   // `null` = sin socia identificada. La vista previa corre a propósito sin
   // sesión: comparte origen con el portal real, así que un token suyo guardado
   // en este navegador enseñaría avisos de verdad dentro del editor.
@@ -55,8 +56,20 @@ export function useVistaPreviaKit(pantalla: ScreenId): React.ReactElement | null
   // qué CLASE se pinta, no un valor de propiedad. `null` = sin tocar: se
   // queda el `quick_links_style` de fábrica del tema (Noir 'bare', el resto
   // 'cards').
-  const tema = quickLinksStyle
-    ? { ...base, features: { ...base.features, quick_links_style: quickLinksStyle } }
+  // Mismo criterio que quickLinksStyle, para `barraFlotante`/`barraClasica`
+  // sobre la barra del kit (`TabBar`, chrome.tsx) — `barraFlotante` gana si
+  // ambos están activos. `null` = sin tocar, se queda el `tab_bar_style` de
+  // fábrica del tema.
+  const tabBarOverride: TabBarStyle | null = barraFlotante ? 'floating' : barraClasica ? 'classic' : null;
+  const tema = quickLinksStyle || tabBarOverride
+    ? {
+        ...base,
+        features: {
+          ...base.features,
+          ...(quickLinksStyle ? { quick_links_style: quickLinksStyle } : {}),
+          ...(tabBarOverride ? { tab_bar_style: tabBarOverride } : {}),
+        },
+      }
     : base;
   // `bare`: el marco de teléfono lo pone el editor alrededor del iframe. Dos
   // marcos anidados dejarían el portal dentro de un teléfono dentro de otro.
