@@ -6,7 +6,7 @@ import { ArrowLeft, Loader2, Check } from 'lucide-react';
 import { fetchVacanteNetwork, aplicarVacanteNetwork, fetchMisCandidaturasNetwork } from '@/lib/api-client';
 import { TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, ESPECIALIDAD_LABEL, HORARIO_LABEL } from '@/lib/network/catalogo';
 import type { VacanteNetwork } from '@/lib/network/tipos';
-import { cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls, inputCls } from '@/components/network/campo-estilos';
 
 export default function OportunidadDetalleNetworkPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);

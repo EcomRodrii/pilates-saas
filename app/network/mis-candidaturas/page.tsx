@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { fetchMisCandidaturasNetwork, retirarCandidaturaNetwork } from '@/lib/api-client';
 import type { CandidaturaNetwork, EstadoCandidatura } from '@/lib/network/tipos';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/network/campo-estilos';
 import { cn } from '@/lib/utils';
 
 const ESTADO_LABEL: Record<EstadoCandidatura, string> = {
