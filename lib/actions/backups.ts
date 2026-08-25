@@ -1,5 +1,6 @@
 'use server';
 
+import { accionSinImplementar } from '@/lib/actions/errores';
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 
 /**
@@ -8,7 +9,7 @@ import { requireAuthInServerAction } from '@/lib/auth-server-action';
 export async function crearBackupAction() {
   await requireAuthInServerAction();
   // Lógica de backup
-  return { ok: true, backupId: 'bak_' + Date.now() };
+  accionSinImplementar('crearBackupAction');
 }
 
 /**
@@ -18,5 +19,5 @@ export async function restaurarBackupAction(backupId: string) {
   await requireAuthInServerAction();
   if (!backupId) throw new Error('Falta backupId');
   // Lógica de restauración
-  return { ok: true };
+  accionSinImplementar('restaurarBackupAction');
 }

@@ -1,5 +1,6 @@
 'use server';
 
+import { accionSinImplementar } from '@/lib/actions/errores';
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 
 export async function enviarEmailAction(data: {
@@ -11,5 +12,5 @@ export async function enviarEmailAction(data: {
 }) {
   await requireAuthInServerAction();
   if (!data.to) throw new Error('Falta destinatario');
-  return { ok: true, messageId: 'msg_' + Date.now() };
+  accionSinImplementar('enviarEmailAction');
 }

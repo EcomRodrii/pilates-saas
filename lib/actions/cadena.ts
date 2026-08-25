@@ -1,5 +1,6 @@
 'use server';
 
+import { accionSinImplementar } from '@/lib/actions/errores';
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 
 /**
@@ -8,5 +9,5 @@ import { requireAuthInServerAction } from '@/lib/auth-server-action';
 export async function aplicarTiposClaseAction(_data: Record<string, unknown>) {
   const sesion = await requireAuthInServerAction();
   if (sesion.rol !== 'PROPIETARIO') throw new Error('Solo propietario');
-  return { ok: true };
+  accionSinImplementar('aplicarTiposClaseAction');
 }

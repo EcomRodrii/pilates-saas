@@ -12,6 +12,7 @@ import { BotonFavoritoAlumna } from '@/components/network/boton-favorito-alumna'
 import { FormularioResenaAlumna } from '@/components/network/formulario-resena-alumna';
 import { LEGAL } from '@/lib/legal-info';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAND, NW_BORDE } from '@/components/network-v2/tokens';
+import { hrefCanal } from '@/lib/canales-estudio';
 
 // Ficha pública de ESTUDIO (quinta pieza de F3) — hermana de
 // app/network/instructoras/[slug]/page.tsx, mismo patrón de estructura
@@ -107,9 +108,9 @@ export default async function FichaEstudioPage({ params }: { params: Promise<{ s
               {estudio.ciudad && (
                 <span className="flex items-center gap-1"><MapPin size={14} />{estudio.ciudad}</span>
               )}
-              {estudio.sitioWeb && (
+              {hrefCanal('web', estudio.sitioWeb) && (
                 <a
-                  href={estudio.sitioWeb}
+                  href={hrefCanal('web', estudio.sitioWeb)!}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
                   className="flex items-center gap-1 font-semibold hover:opacity-70"
