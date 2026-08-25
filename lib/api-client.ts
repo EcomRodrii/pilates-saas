@@ -2105,6 +2105,28 @@ export async function cambiarEstadoPerfilNetwork(
   }
 }
 
+// F3 de Network — "el puente": estudios de los que la cuenta que ha
+// iniciado sesión ya es socia (independiente de tener perfil de alumna en
+// red_perfiles_alumna o no — la consulta cruza por auth_user_id contra
+// `socios`, ver app/api/network/alumna/puente/route.ts). Solo nombre/slug
+// del estudio, nunca datos de contacto.
+export interface EstudioPuenteAlumna {
+  studioId: string;
+  nombre: string;
+  slug: string;
+}
+
+export async function fetchPuenteAlumnaNetwork(): Promise<EstudioPuenteAlumna[]> {
+  try {
+    const res = await fetch('/api/network/alumna/puente', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { estudios?: EstudioPuenteAlumna[] };
+    return data.estudios ?? [];
+  } catch {
+    return [];
+  }
+}
+
 // Fase 4: buscador. `especialidades`/`disponibilidad`/`horarios`/`tipoTrabajo`
 // viajan como lista separada por comas — la API los valida contra el
 // catálogo y descarta cualquier valor que no reconozca.
