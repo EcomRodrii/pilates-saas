@@ -91,6 +91,11 @@ test('ninguna var del KIT que emita el motor se queda fuera de su whitelist', ()
       // factor; con un paso desviado ya emite la escala entera del tema.
       { escalaTexto: { seccion: 30 } }, { escalaTexto: { tituloHero: 60, saludo: 20 } },
       { background: '#101820' },
+      // `buttonStyle` sobre un tema del KIT (`varsBotonSobreTema`): faltaba en
+      // esta lista, y por eso `--btn-primary-bg/fg/border` estuvo meses fuera
+      // de `CLAVES_KIT_PERMITIDAS` sin que este test lo viera — reproducido en
+      // vivo 2026-08-25 (P0 de la auditoría del Theme Builder).
+      { buttonStyle: 'outline' }, { buttonStyle: 'soft' },
     ]) {
       const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
       for (const clave of Object.keys(varsKitMap(tema))) {
@@ -110,6 +115,7 @@ test('la whitelist del kit no tiene claves que ningún tema emita', () => {
       { radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 } },
       { escalaTexto: { seccion: 30 } },
       { background: '#101820' },
+      { buttonStyle: 'outline' }, { buttonStyle: 'soft' },
     ]) {
       const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
       for (const c of Object.keys(varsKitMap(tema))) emitidas.add(c);
