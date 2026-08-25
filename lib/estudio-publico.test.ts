@@ -37,7 +37,8 @@ test('una clase cancelada no ensancha el horario', () => {
 test('los días seguidos con el mismo horario se agrupan', () => {
   const sesiones = [LUN, MAR, '2026-07-29', '2026-07-30', '2026-07-31']
     .flatMap(d => [ses(d, '07:00', '08:00'), ses(d, '20:00', '21:00')]);
-  const franjas = horarioPublico([...sesiones, ses(SAB, '09:00', '10:00'), ses(SAB, '13:00', '14:00')]);
+  const { franjas, confiable } = horarioPublico([...sesiones, ses(SAB, '09:00', '10:00'), ses(SAB, '13:00', '14:00')]);
+  assert.equal(confiable, true, '6 días con clase ya son base suficiente para declarar el domingo cerrado');
   assert.deepEqual(franjas, [
     { dias: 'Lunes a viernes', horas: '07:00 – 21:00' },
     { dias: 'Sábado', horas: '09:00 – 14:00' },
@@ -47,13 +48,28 @@ test('los días seguidos con el mismo horario se agrupan', () => {
 
 // «Lunes a martes» suena a error de redacción; «Lunes y martes», no.
 test('dos días seguidos se unen con «y», tres o más con «a»', () => {
-  const dos = horarioPublico([ses(LUN, '09:00', '10:00'), ses(MAR, '09:00', '10:00')]);
+  const { franjas: dos } = horarioPublico([ses(LUN, '09:00', '10:00'), ses(MAR, '09:00', '10:00')]);
   assert.equal(dos[0].dias, 'Lunes y martes');
 });
 
 test('sin clases no hay horario que enseñar', () => {
-  assert.deepEqual(horarioPublico([]), []);
-  assert.deepEqual(horarioPublico([ses(DOM, '10:00', '11:00', true)]), []);
+  assert.deepEqual(horarioPublico([]), { franjas: [], confiable: true });
+  assert.deepEqual(horarioPublico([ses(DOM, '10:00', '11:00', true)]), { franjas: [], confiable: true });
+});
+
+// El hallazgo real: un estudio con una sola clase recurrente (viernes) en las
+// próximas 8 semanas no debe anunciar "Lunes a jueves: Cerrado" — le falta
+// cargar el resto del calendario, no es que abra 50 minutos a la semana.
+test('con muy pocos días distintos con clase, no se declara cerrado el resto', () => {
+  const { franjas, confiable } = horarioPublico([ses(LUN, '18:00', '18:50'), ses(MAR, '18:00', '18:50')]);
+  assert.equal(confiable, false);
+  assert.deepEqual(franjas, [{ dias: 'Lunes y martes', horas: '18:00 – 18:50' }]);
+});
+
+test('con 3+ días distintos ya se confía y se declara cerrado el resto', () => {
+  const { franjas, confiable } = horarioPublico([ses(LUN, '18:00', '18:50'), ses(MAR, '18:00', '18:50'), ses(SAB, '10:00', '11:00')]);
+  assert.equal(confiable, true);
+  assert.ok(franjas.some(f => f.horas === 'Cerrado'));
 });
 
 // ── El bono más elegido ──────────────────────────────────────────────────────
