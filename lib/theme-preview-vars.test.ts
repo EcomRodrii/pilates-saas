@@ -67,7 +67,12 @@ test('la whitelist no tiene claves que el motor ya no emita', () => {
     // Estilos que declaran vars propias frente a los que heredan el fallback.
     { buttonStyle: 'outline' }, { buttonStyle: 'ghost' },
     { cardStyle: 'elevated' }, { cardStyle: 'bordered' },
+    // Las 5 no-default de ESTILOS_TITULAR_PORTAL — 'instrumentSerif' (default)
+    // ya sale en {}. Todas emiten las mismas 2 claves hoy, pero probarlas
+    // todas es el mismo hábito que hubiera cazado antes el hueco de buttonStyle.
     { portalHeadingFontId: 'instrumentSansBold' },
+    { portalHeadingFontId: 'outfit' }, { portalHeadingFontId: 'poppins' },
+    { portalHeadingFontId: 'cormorant' }, { portalHeadingFontId: 'libreCaslon' },
   ];
   for (const tema of temas) for (const c of Object.keys(themeToCssVars(tema))) emitidas.add(c);
 
@@ -96,6 +101,11 @@ test('ninguna var del KIT que emita el motor se queda fuera de su whitelist', ()
       // de `CLAVES_KIT_PERMITIDAS` sin que este test lo viera — reproducido en
       // vivo 2026-08-25 (P0 de la auditoría del Theme Builder).
       { buttonStyle: 'outline' }, { buttonStyle: 'soft' },
+      // P1 de la misma auditoría: el preset de `radius` (`varsRadioPresetSobreTema`)
+      // nunca se ejercitaba aquí — solo el ajuste fino (`radioTema` de arriba).
+      // Emite las mismas 4 claves hoy, pero es el mismo tipo de punto ciego que
+      // dejó pasar buttonStyle: un valor real del eje, nunca probado.
+      { radius: 'sharp' }, { radius: 'rounded' }, { radius: 'pill' },
     ]) {
       const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
       for (const clave of Object.keys(varsKitMap(tema))) {
@@ -112,10 +122,13 @@ test('la whitelist del kit no tiene claves que ningún tema emita', () => {
     for (const ejes of [
       {}, { cardStyle: 'elevated' }, { cardStyle: 'bordered' },
       { portalHeadingFontId: 'instrumentSansBold' },
+      { portalHeadingFontId: 'outfit' }, { portalHeadingFontId: 'poppins' },
+      { portalHeadingFontId: 'cormorant' }, { portalHeadingFontId: 'libreCaslon' },
       { radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 } },
       { escalaTexto: { seccion: 30 } },
       { background: '#101820' },
       { buttonStyle: 'outline' }, { buttonStyle: 'soft' },
+      { radius: 'sharp' }, { radius: 'rounded' }, { radius: 'pill' },
     ]) {
       const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
       for (const c of Object.keys(varsKitMap(tema))) emitidas.add(c);
