@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useMemo, useRef, type R
 import { usePathname } from 'next/navigation';
 import { fijarEtiqueta, capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { CoreProvider } from '@/lib/core-context';
+import { Toast, useToast } from '@/components/ui/toast';
 import { supabase } from '@/lib/db/supabase';
 import type { RowInstructores } from '@/lib/db-types';
 import {
@@ -30,7 +31,6 @@ import {
   dbInsertVentaPOS,
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
-  dbMarcarNotificacionLeida, dbMarcarNotificacionesLeidas,
   dbInsertRewardRule, dbUpdateRewardRule,
   dbInsertRewardHistory, dbInsertCreditTransaction, dbAjustarCreditos,
   dbOtorgarCreditoDisparador,
@@ -152,7 +152,6 @@ import type {
   ChallengeHistory,
   DashboardChart,
   BackupMeta,
-  Notificacion,
   VideoOnDemand,
   PostComunidad,
   AutomationRule,
@@ -489,10 +488,6 @@ interface StudioContextValue {
   actividadReciente: ActividadReciente[];
   addActividadReciente: (tipo: TipoActividad, texto: string, socioId?: string, enlace?: string) => void;
 
-  // Notificaciones
-  notificaciones: Notificacion[];
-  marcarNotificacionLeida: (notiId: string) => void;
-
   // Videos on demand
   videosOnDemand: VideoOnDemand[];
   addVideo: (fields: Omit<VideoOnDemand, 'id' | 'studioId' | 'vistas' | 'likes' | 'creadoEn'>) => void;
@@ -544,7 +539,6 @@ interface StudioContextValue {
   addDashboardChart: (fields: Omit<DashboardChart, 'id' | 'studioId' | 'creadoEn'>) => void;
   deleteDashboardChart: (id: string) => void;
   backups: BackupMeta[];
-  marcarTodasLeidas: () => void;
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updatePlan: (id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
@@ -775,7 +769,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const integrationsStore = useIntegrationsStore();
   const { integraciones } = integrationsStore;
   const [actividadReciente, setActividadReciente] = useState<ActividadReciente[]>([]);
-  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
+  // Avisos puntuales de fondo (bono agotado, plan caducado, cobro sin
+  // renovar…) que antes se acumulaban en un array sin ningún consumidor real
+  // (la tabla legacy `notificaciones`, sin escritor server-side). Un toast
+  // basta: son casos raros, no una bandeja que revisar.
+  const toastAviso = useToast();
   // Dominio Contenido y Comunidad extraído a su propio store (Fase B).
   const content = useContentStore();
   const { videosOnDemand, postsComunidad, likedPostIds } = content;
@@ -1188,7 +1186,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setAutomatizaciones(data.automatizaciones);
       discountCodes.setCodigosDescuento(data.codigosDescuento);
       setActividadReciente(data.actividadReciente);
-      setNotificaciones(data.notificaciones);
       content.setVideosOnDemand(data.videosOnDemand);
       content.setPostsComunidad(data.postsComunidad);
       dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
@@ -2744,18 +2741,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // SIEMPRE, para que no pierda de vista una renovación pendiente solo
       // porque el recibo automático falló — antes, ese fallo también se comía
       // el aviso entero y nadie se enteraba de que había que renovar.
-      setNotificaciones(prev => [{
-        id: `notif-bono-${uid()}`,
-        studioId: getCurrentStudioId(),
-        titulo: 'Bono agotado',
-        texto: reciboGuardado
-          ? `${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`
-          : `${nombreSocio} ha consumido su último bono de ${plan.nombre}. No se ha podido generar el recibo de renovación automático — créalo a mano.`,
-        leida: false,
-        tipo: 'AVISO' as const,
-        enlace: `/socios/${socioId}`,
-        creadaEn: new Date().toISOString(),
-      }, ...prev]);
+      toastAviso.show(
+        reciboGuardado
+          ? `Bono agotado: ${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`
+          : `Bono agotado: ${nombreSocio} ha consumido su último bono de ${plan.nombre}. No se ha podido generar el recibo de renovación automático — créalo a mano.`,
+      );
       addActividadReciente(
         'PAGO_PENDIENTE',
         `Bono agotado — ${nombreSocio} necesita renovar ${plan.nombre}`,
@@ -3043,16 +3033,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         bonoConsumido: true,
       });
     }
-    setNotificaciones(prev => [{
-      id: `notif-promo-${uid()}`,
-      studioId: getCurrentStudioId(),
-      tipo: 'EXITO' as const,
-      titulo: 'Lista de espera promovida',
-      texto: `${nombre} ha pasado de lista de espera a confirmada en ${clase}.`,
-      leida: false,
-      creadaEn: new Date().toISOString(),
-      enlace: `/socios/${promovidaSocioId}`,
-    }, ...prev]);
+    toastAviso.show(`Lista de espera promovida: ${nombre} ha pasado de lista de espera a confirmada en ${clase}.`);
     addActividadReciente('NUEVA_RESERVA', `${nombre} promovida de lista de espera → ${clase}`, promovidaSocioId, `/socios/${promovidaSocioId}`);
     return { ok: true };
   }
@@ -3238,16 +3219,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           return;
         }
         setRecibos(prev => prev.some(r => r.id === reciboVencido.id) ? prev : [reciboVencido, ...prev]);
-        setNotificaciones(prev => [{
-          id: `notif-venc-${uid()}`,
-          studioId: getCurrentStudioId(),
-          titulo: 'Plan mensual caducado',
-          texto: `${nombreSocio} — ${plan.nombre} venció el ${sus.fechaFin}. Se ha generado recibo de renovación.`,
-          leida: false,
-          tipo: 'AVISO' as const,
-          enlace: `/socios/${sus.socioId}`,
-          creadaEn: new Date().toISOString(),
-        }, ...prev]);
+        toastAviso.show(`Plan mensual caducado: ${nombreSocio} — ${plan.nombre} venció el ${sus.fechaFin}. Se ha generado recibo de renovación.`);
       })();
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3387,16 +3359,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       capturarMensaje('[aplicarRenovacionSuscripcion] cobro confirmado pero la suscripción no se pudo renovar', 'error', {
         extra: { socioId: sus.socioId, suscripcionId: sus.id, reciboId: recibo.id, error },
       });
-      setNotificaciones(prev => [{
-        id: `notif-renov-fallo-${uid()}`,
-        studioId: getCurrentStudioId(),
-        titulo: 'Cobrado, pero sin renovar',
-        texto: `Se cobró la renovación de ${nombreSocio} (${plan.nombre}), pero no se ha podido actualizar su bono/plan. Revísalo a mano.`,
-        leida: false,
-        tipo: 'AVISO' as const,
-        enlace: sus.socioId ? `/socios/${sus.socioId}` : null,
-        creadaEn: new Date().toISOString(),
-      }, ...prev]);
+      toastAviso.show(`Cobrado, pero sin renovar: se cobró la renovación de ${nombreSocio} (${plan.nombre}), pero no se ha podido actualizar su bono/plan. Revísalo a mano.`);
     };
     // Se guarda QUÉ entregó este cobro (ver `dbGuardarEntrega` y la migración
     // 20260806160000). Sin esto, si el dinero se devuelve no hay forma de saber
@@ -4390,20 +4353,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Gráficos del dashboard: extraídos a useDashboardChartsStore (Fase B).
 
-  // ── Notificaciones ────────────────────────────────────────────────────────────
-
-  function marcarNotificacionLeida(notiId: string) {
-    setNotificaciones(prev => prev.map(n =>
-      n.id === notiId ? { ...n, leida: true } : n
-    ));
-    dbMarcarNotificacionLeida(notiId); // persistir (antes solo era estado local)
-  }
-
-  function marcarTodasLeidas() {
-    setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
-    dbMarcarNotificacionesLeidas(getCurrentStudioId());
-  }
-
   // ── Videos on demand ──────────────────────────────────────────────────────────
 
   // Vídeos on-demand y Comunidad: extraídos a useContentStore (Fase B).
@@ -4698,9 +4647,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     registrarUsoCodigo: discountCodes.registrarUsoCodigo,
     actividadReciente,
     addActividadReciente,
-    notificaciones,
-    marcarNotificacionLeida,
-    marcarTodasLeidas,
     videosOnDemand,
     addVideo: content.addVideo,
     toggleVideo: content.toggleVideo,
@@ -4791,7 +4737,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     plantillasCuestionarioSalud, respuestasCuestionarioSalud,
     citas, citasServicios, citasDisponibilidad, productosPOS, ventasPOS, campanas, automatizaciones,
     discountCodes.codigosDescuento,
-    actividadReciente, notificaciones,
+    actividadReciente,
     content.videosOnDemand, content.postsComunidad, content.likedPostIds,
     integrationsStore.integraciones,
     rewardRules, rewardActions, rewardHistory, creditTransactions, memberCredits,
@@ -4838,7 +4784,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setAutomatizaciones(data.automatizaciones);
       discountCodes.setCodigosDescuento(data.codigosDescuento);
       setActividadReciente(data.actividadReciente);
-      setNotificaciones(data.notificaciones);
       content.setVideosOnDemand(data.videosOnDemand);
       content.setPostsComunidad(data.postsComunidad);
       dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
@@ -4871,15 +4816,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     <CoreProvider
       studio={studio}
       instructores={instructores}
-      notificaciones={notificaciones}
       dataLoaded={dataLoaded}
       updateStudio={updateStudio}
       updateAvatarAdmin={updateAvatarAdmin}
       addInstructor={addInstructor}
       updateInstructor={updateInstructor}
       deleteInstructor={deleteInstructor}
-      marcarNotificacionLeida={marcarNotificacionLeida}
-      marcarTodasLeidas={marcarTodasLeidas}
       navPortal={navPortal}
       barraClasica={barraClasicaEfectiva}
       tabBarStyle={tabBarStyleEfectivo}
@@ -4890,6 +4832,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     >
     <StudioContext.Provider value={value}>
       {children}
+      {toastAviso.message && <Toast message={toastAviso.message} onDismiss={toastAviso.dismiss} action={toastAviso.action} />}
       {dbError && (
         <div
           role="alert"

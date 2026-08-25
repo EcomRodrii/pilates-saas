@@ -1301,17 +1301,6 @@ export interface MensajeEquipo {
   creadoEn: string;
 }
 
-export interface Notificacion {
-  id: string;
-  studioId: string;
-  titulo: string;
-  texto: string;
-  leida: boolean;
-  tipo: 'INFO' | 'AVISO' | 'ERROR' | 'EXITO';
-  enlace: string | null;
-  creadaEn: string;
-}
-
 // Buzón de soporte: dudas/mejoras/bugs que un estudio deja desde el widget
 // de ayuda del dashboard, dirigidos al equipo de Tentare (no visibles para
 // otros estudios).
