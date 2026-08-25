@@ -19,7 +19,7 @@
 import type { CSSProperties } from 'react';
 import { resolveTheme, FUENTES, RADIOS, RADIO_PRESET_PX, DEFAULT_THEME, type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
 // El vocabulario del kit de temas vive con los temas, no aquí.
-import { TEMAS_PORTAL, varsColorSobreTema, varsEscalaSobreTema, varsRadioSobreTema, varsRadioPresetSobreTema, varsSombraSobreTema, varsBotonSobreTema, type TemaPortalId } from '../themes/registro.ts';
+import { TEMAS_PORTAL, varsColorSobreTema, varsEscalaSobreTema, varsRadioSobreTema, varsRadioPresetSobreTema, varsSombraSobreTema, varsBotonSobreTema, varsBarraOscuraSobreTema, type TemaPortalId } from '../themes/registro.ts';
 import { getPreset } from './theme-presets.ts';
 import { cumpleContraste, foregroundParaFondo, hexARgb } from './wcag-contrast.ts';
 import { colorLegibleSobreClaro } from './color-utils.ts';
@@ -368,6 +368,7 @@ export function varsKitMap(raw: unknown): Record<string, string> {
       fontStack: FUENTES.find((f) => f.id === t.fontId)?.stack,
       headingStack: varsTitularPortal(t)['--portal-heading-font'],
       headingWeight: varsTitularPortal(t)['--portal-heading-weight'],
+      accent: t.destacado ?? undefined,
     }),
     // El preset (Recto/Redondeado/Píldora) siembra el default; `radioTema`
     // (ajuste fino) pisa por pieza — por eso va DESPUÉS, no antes.
@@ -376,6 +377,7 @@ export function varsKitMap(raw: unknown): Record<string, string> {
     ...varsEscalaSobreTema(t.escalaTexto as Record<string, number | undefined> | undefined, tema),
     ...varsSombraSobreTema(t.cardStyle, t.text),
     ...varsBotonSobreTema(t.buttonStyle, t.primary),
+    ...varsBarraOscuraSobreTema(t.barraOscura),
   };
 }
 

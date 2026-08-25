@@ -106,6 +106,10 @@ test('ninguna var del KIT que emita el motor se queda fuera de su whitelist', ()
       // Emite las mismas 4 claves hoy, pero es el mismo tipo de punto ciego que
       // dejó pasar buttonStyle: un valor real del eje, nunca probado.
       { radius: 'sharp' }, { radius: 'rounded' }, { radius: 'pill' },
+      // `destacado`/`barraOscura` sobre un tema del KIT (`varsColorSobreTema`
+      // con `accent`, `varsBarraOscuraSobreTema`): mismo tipo de hueco que
+      // buttonStyle — P1 de la auditoría, cableando el kit de verdad.
+      { destacado: '#D9B166' }, { barraOscura: true },
     ]) {
       const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
       for (const clave of Object.keys(varsKitMap(tema))) {
@@ -129,6 +133,7 @@ test('la whitelist del kit no tiene claves que ningún tema emita', () => {
       { background: '#101820' },
       { buttonStyle: 'outline' }, { buttonStyle: 'soft' },
       { radius: 'sharp' }, { radius: 'rounded' }, { radius: 'pill' },
+      { destacado: '#D9B166' }, { barraOscura: true },
     ]) {
       const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
       for (const c of Object.keys(varsKitMap(tema))) emitidas.add(c);

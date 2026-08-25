@@ -117,6 +117,10 @@ export function varsColorSobreTema(c: {
   primary?: string; onPrimary?: string; secondary?: string;
   background?: string | null; text?: string;
   fontStack?: string; headingStack?: string; headingWeight?: string;
+  // `destacado` ("Acento") sobre el kit: TINTA (el dorado de Noir, el rosa de
+  // Bloom), nunca el fondo pálido del vocabulario viejo — ver el comentario de
+  // arriba. Ausente = hereda el acento propio del tema, no se fuerza nada.
+  accent?: string;
 }): Record<string, string> {
   const v: Record<string, string> = {};
   if (c.primary) v['--brand'] = c.primary;
@@ -127,6 +131,7 @@ export function varsColorSobreTema(c: {
   if (c.fontStack) v['--font-body'] = c.fontStack;
   if (c.headingStack) v['--font-display'] = c.headingStack;
   if (c.headingWeight) v['--weight-display'] = c.headingWeight;
+  if (c.accent) v['--accent'] = c.accent;
   return v;
 }
 
@@ -225,6 +230,28 @@ export function varsSombraSobreTema(cardStyle: string | undefined, ink: string |
     return { '--shadow-card': 'none', '--shadow-card-hover': 'none' };
   }
   return {};
+}
+
+/**
+ * `barraOscura` ("de siempre") → el fondo de la barra de navegación del kit
+ * (`TabBar`, `components/portal-tema/components/layout/chrome.tsx`, que lee
+ * `--tab-bar-bg` en `05-navigation.css`). Mismo criterio que el resto de este
+ * fichero: ausente/`false` no declara nada — la barra conserva el fondo
+ * propio del tema (`--surface`, o el translúcido con blur de Sereno), que es
+ * su identidad visual, no un valor por defecto que valga pisar en el `false`.
+ *
+ * Solo Noir nace con este campo a `true` en `THEME_DEFINITIONS`, y su propio
+ * `tokens.css` YA fija `--tab-bar-bg: var(--brand)` — conectar este campo es
+ * un no-op para esa instalación de fábrica, no un cambio de aspecto.
+ *
+ * Límite conocido y aceptable (mismo que ya tiene `varsBarra()`, el
+ * vocabulario viejo, para este mismo campo): un estudio en Noir no puede
+ * "apagar" la barra oscura solo con `barraOscura:false`, porque `tokens.css`
+ * ya trae ese fondo fijo por debajo. No hay caso de uso real hoy que lo pida.
+ */
+export function varsBarraOscuraSobreTema(barraOscura: boolean | undefined): Record<string, string> {
+  if (!barraOscura) return {};
+  return { '--tab-bar-bg': 'var(--brand)' };
 }
 
 /**
