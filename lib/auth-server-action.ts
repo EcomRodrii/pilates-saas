@@ -10,7 +10,7 @@ import type { SesionStaff } from '@/lib/auth-server';
  * para reutilizar verificarSesionStaff sin cambios.
  */
 export async function getAuthInServerAction(): Promise<SesionStaff | null> {
-  const cookieStore = await cookies();
+  const _cookieStore = await cookies();
   const headerStore = await headers();
 
   // Construir headers incluyendo el authorization si existe

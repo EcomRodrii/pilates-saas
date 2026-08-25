@@ -24,6 +24,7 @@ import type {
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
 import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
+import type { EstudioListadoPublico } from '@/lib/network/publico-estudios.ts';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -2105,6 +2106,28 @@ export async function cambiarEstadoPerfilNetwork(
   }
 }
 
+// F3 de Network — "el puente": estudios de los que la cuenta que ha
+// iniciado sesión ya es socia (independiente de tener perfil de alumna en
+// red_perfiles_alumna o no — la consulta cruza por auth_user_id contra
+// `socios`, ver app/api/network/alumna/puente/route.ts). Solo nombre/slug
+// del estudio, nunca datos de contacto.
+export interface EstudioPuenteAlumna {
+  studioId: string;
+  nombre: string;
+  slug: string;
+}
+
+export async function fetchPuenteAlumnaNetwork(): Promise<EstudioPuenteAlumna[]> {
+  try {
+    const res = await fetch('/api/network/alumna/puente', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { estudios?: EstudioPuenteAlumna[] };
+    return data.estudios ?? [];
+  } catch {
+    return [];
+  }
+}
+
 // Fase 4: buscador. `especialidades`/`disponibilidad`/`horarios`/`tipoTrabajo`
 // viajan como lista separada por comas — la API los valida contra el
 // catálogo y descarta cualquier valor que no reconozca.
@@ -2543,6 +2566,43 @@ export async function toggleFavoritoNetwork(
   }
 }
 
+// Favoritos de la ALUMNA (estudio o instructora) — F3 pieza 2. Endpoint y
+// tabla distintos de fetchFavoritosNetwork/toggleFavoritoNetwork de arriba
+// (ese lado es estudio→instructora); mismo patrón de toggle, misma cabecera
+// de sesión que fetchPuenteAlumnaNetwork (JWT de alumna, no de staff).
+export interface FavoritosAlumnaNetwork {
+  estudios: EstudioListadoPublico[];
+  perfiles: PerfilNetworkPublico[];
+}
+
+export async function fetchFavoritosAlumnaNetwork(): Promise<FavoritosAlumnaNetwork> {
+  try {
+    const res = await fetch('/api/network/alumna/favoritos', { headers: await authHeader() });
+    if (!res.ok) return { estudios: [], perfiles: [] };
+    const data = (await res.json()) as { estudios?: EstudioListadoPublico[]; perfiles?: PerfilNetworkPublico[] };
+    return { estudios: data.estudios ?? [], perfiles: data.perfiles ?? [] };
+  } catch {
+    return { estudios: [], perfiles: [] };
+  }
+}
+
+export async function toggleFavoritoAlumnaNetwork(
+  tipo: 'estudio' | 'instructora', id: string,
+): Promise<{ ok: true; favorito: boolean } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/alumna/favoritos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ tipo, id }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { favorito?: boolean; error?: string };
+    if (!res.ok || data.favorito === undefined) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, favorito: data.favorito };
+  } catch {
+    return { ok: false, error: 'No se pudo actualizar tus favoritos' };
+  }
+}
+
 // Fase 10: reportar un perfil.
 export async function reportarPerfilNetwork(
   perfilId: string, motivo: string, detalle: string | null,
@@ -2598,6 +2658,50 @@ export async function enviarResenaNetwork(
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ perfilId, puntuacion, comentario }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar la reseña' };
+  }
+}
+
+// Reseñas de ALUMNA → estudio/instructora — última pieza de F3, gate
+// estricto (app/api/network/alumna/resenas/route.ts). Ambos tipos guardan
+// (migr 20260825004019 hizo red_resenas.perfil_id nullable exactamente
+// para el caso de reseña de solo-estudio, sin perfil natural que rellenar).
+export interface ElegibilidadResenaAlumna {
+  elegible: boolean;
+  disponible: boolean;
+  yaResenado: boolean;
+  faltaClaseCompletada: boolean;
+}
+
+const ELEGIBILIDAD_RESENA_ALUMNA_VACIA: ElegibilidadResenaAlumna = {
+  elegible: false, disponible: false, yaResenado: false, faltaClaseCompletada: false,
+};
+
+export async function elegibilidadResenaAlumnaNetwork(
+  tipo: 'estudio' | 'instructora', id: string,
+): Promise<ElegibilidadResenaAlumna> {
+  try {
+    const parametro = tipo === 'estudio' ? 'studioId' : 'perfilId';
+    const res = await fetch(`/api/network/alumna/resenas?tipo=${tipo}&${parametro}=${encodeURIComponent(id)}`, { headers: await authHeader() });
+    if (!res.ok) return ELEGIBILIDAD_RESENA_ALUMNA_VACIA;
+    return (await res.json()) as ElegibilidadResenaAlumna;
+  } catch {
+    return ELEGIBILIDAD_RESENA_ALUMNA_VACIA;
+  }
+}
+
+export async function enviarResenaAlumnaNetwork(
+  tipo: 'estudio' | 'instructora', id: string, puntuacion: number, comentario: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/alumna/resenas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(tipo === 'estudio' ? { tipo, studioId: id, puntuacion, comentario } : { tipo, perfilId: id, puntuacion, comentario }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };

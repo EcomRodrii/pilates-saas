@@ -1231,6 +1231,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         setChallengeHistory(def.challengeHistory);
         progressNotesStore.setNotasProgreso(def.notasProgreso);
         setBackups(def.backups);
+        // Esta sí la lee lógica de negocio real (ficha clínica, semáforo,
+        // "Preparar clase con IA") — a diferencia de las de arriba, que el
+        // comentario original de fetchDeferredStudioData ya documentaba como
+        // sin ningún consumidor.
+        setCondicionesSalud(def.condicionesSalud);
       }).catch(err => console.error('Error cargando datos diferidos:', err));
     }).catch(err => {
       console.error('Error fetching Supabase data:', err);

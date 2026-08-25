@@ -864,6 +864,8 @@ export interface RowStudios {
   lat: number | null;
   // migr 20260824191258.
   lng: number | null;
+  // migr 20260824230506.
+  visible_en_network: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -1954,7 +1956,12 @@ export interface RowRedFavoritos {
 
 export interface RowRedResenas {
   id: string;
-  perfil_id: string;
+  // NULL en una reseña de alumna sobre un ESTUDIO (sin instructora
+  // concreta) — red_perfiles solo tiene instructoras, no hay fila de
+  // "perfil del estudio". Obligatorio si solicitud_id está relleno
+  // (constraint red_resenas_perfil_obligatorio_si_solicitud, migr
+  // 20260825004019).
+  perfil_id: string | null;
   studio_id: string;
   // NULL cuando la reseña viene de una alumna vía reserva_id en vez de una
   // solicitud de contacto aceptada — ver constraint red_resenas_gate_unico
@@ -2261,5 +2268,14 @@ export interface RowRedPerfilMedia {
   tipo: string;
   path: string;
   orden: number;
+  creado_en: string;
+}
+
+export interface RowRedFavoritosAlumna {
+  id: string;
+  auth_user_id: string;
+  tipo: string;
+  studio_id: string | null;
+  perfil_id: string | null;
   creado_en: string;
 }
