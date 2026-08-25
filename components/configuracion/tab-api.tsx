@@ -1067,6 +1067,10 @@ function PreviewWidgetScript({ slug, config }: { slug: string; config: ConfigBui
         ocultarSustituta={config.ocultarSustituta}
         loading={cargando}
         error={error ? { onReintentar: recargar, titulo: 'No hemos podido cargar el horario' } : undefined}
+        // Mismo motivo que app/widget-bundle/main.tsx: esta vista previa es
+        // literalmente el mismo componente que monta el bundle real, así que
+        // tiene que llevar la misma prop o dejaría de ser fiel.
+        estiloFicha="inline"
       />
     </div>
   );

@@ -262,15 +262,17 @@ export interface ReservaCalendarioProps {
    * Rediseño "sin popup" (petición explícita del fundador: eliminar el modal
    * de reserva, sustituirlo por una vista que ocupa el sitio del listado
    * dentro del propio widget — nunca `window.open()` ni una pestaña nueva).
-   * `'modal'` (por defecto) es el comportamiento de SIEMPRE — Modo B (bundle
-   * sin iframe) y cualquier otro caller no pasan esta prop y no ven ningún
-   * cambio. `'vista'` (solo Modo A, `app/reservar/[slug]/page.tsx`): con una
-   * ficha abierta, este componente pinta SOLO la ficha —el listado no se
-   * monta a la vez— y `<BookingSheet>` deja de ser un diálogo flotante para
-   * ser un bloque normal en el flujo de la página (sin backdrop, sin
-   * `position: fixed`, con scroll natural).
+   * 'modal': diálogo flotante con backdrop (comportamiento de siempre, y lo
+   * que ven Modo B y cualquier otro caller que no pase esta prop).
+   * 'vista': rediseño "sin popup" de Modo A (`/reservar/[slug]`) — la ficha
+   * toma la PÁGINA entera (`window.scrollTo(0,0)` incluido), pensado para un
+   * iframe/página propia que Tentare controla de punta a punta.
+   * 'inline': mismo "sin popup" pero para Modo B (bundle Shadow DOM
+   * embebido a mitad de la web del estudio) — sin backdrop y sin invadir el
+   * resto de la página anfitriona: nunca hace scroll de `window`, solo lleva
+   * su propio contenedor a la vista si hace falta.
    */
-  estiloFicha?: 'modal' | 'vista';
+  estiloFicha?: 'modal' | 'vista' | 'inline';
 }
 
 // Neutros FIJOS del formato 06 — nunca `t`. Ver comentario de `estiloDias` arriba.
@@ -442,12 +444,6 @@ export function ReservaCalendario({
   // motivo (sin esto, un fotograma real pintaría la ficha vieja o cerrada
   // antes de corregirse).
   const [nonceSlotVisto, setNonceSlotVisto] = useState<number | null>(null);
-  if (abrirSlotExterno && abrirSlotExterno.nonce !== nonceSlotVisto) {
-    setNonceSlotVisto(abrirSlotExterno.nonce);
-    setOpenSlotId(abrirSlotExterno.slotId);
-    setSelectedSpot(null);
-    setResultado(null);
-  }
   // El servidor rechaza legítimamente en varios sitios (sin bono, clase ya
   // empezada, tope de reservas...). Antes ese "no" no llegaba nunca a la hoja y
   // se pintaba «¡Reserva confirmada!» encima de una reserva que no existía.
@@ -459,6 +455,18 @@ export function ReservaCalendario({
   // privado (components/portal/hoja-reserva.tsx): botón deshabilitado + spinner
   // mientras se envía.
   const [enviando, setEnviando] = useState(false);
+  if (abrirSlotExterno && abrirSlotExterno.nonce !== nonceSlotVisto) {
+    setNonceSlotVisto(abrirSlotExterno.nonce);
+    setOpenSlotId(abrirSlotExterno.slotId);
+    setSelectedSpot(null);
+    setResultado(null);
+    // Sin esto, saltar de una ficha a otra (botón Atrás real / deep-link
+    // ?sesion=) sin pasar por cerrarHoja() dejaba la ficha nueva con el
+    // `enviando`/`errorReserva` de una petición huérfana de la ficha
+    // anterior — el botón "Reservar" parecía no responder al toque.
+    setErrorReserva(null);
+    setEnviando(false);
+  }
 
   const semana = useMemo(() => diasSemana(weekAnchor), [weekAnchor]);
   // 'dias' (Fase 1 del rediseño): 10 días fijos desde hoy, scroll horizontal —
@@ -518,6 +526,11 @@ export function ReservaCalendario({
     setOpenSlotId(slot.id);
     setSelectedSpot(null);
     setResultado(null);
+    // Mismo motivo que en abrirSlotExterno: un clic normal en otra tarjeta
+    // mientras hay una petición en vuelo de la ficha anterior no debe heredar
+    // su `enviando`/`errorReserva`.
+    setErrorReserva(null);
+    setEnviando(false);
   }
   function cerrarHoja() {
     setOpenSlotId(null);
@@ -560,7 +573,7 @@ export function ReservaCalendario({
   // Por defecto ('modal', sin tocar) es el comportamiento de SIEMPRE — Modo B
   // (bundle sin iframe) y cualquier otro caller (Mis reservas, vista Mes) no
   // pasan esta prop y no ven ningún cambio.
-  const soloFicha = estiloFicha === 'vista' && !!openSlot;
+  const soloFicha = (estiloFicha === 'vista' || estiloFicha === 'inline') && !!openSlot;
 
   return (
     <div style={{ fontFamily }}>
@@ -1274,7 +1287,7 @@ function BookingSheet({
   t: ModoTokens;
   slot: ReservaSlot;
   /** Ver el docblock de `estiloFicha` en `ReservaCalendarioProps`. */
-  variantePresentacion?: 'modal' | 'vista';
+  variantePresentacion?: 'modal' | 'vista' | 'inline';
   selectedSpot: string | null;
   onSelectSpot: (id: string | null) => void;
   resultado: EstadoReserva | 'CANCELADA' | null;
@@ -1294,7 +1307,7 @@ function BookingSheet({
   onCancelar: () => void;
   onAceptarOferta?: () => void;
 }) {
-  const esVista = variantePresentacion === 'vista';
+  const sinBackdrop = variantePresentacion !== 'modal';
   const titleId = useId();
   // P2-8: el tipo de esta clase puede tener su propia ventana; sin override,
   // se hereda la del estudio (comportamiento de siempre).
@@ -1325,17 +1338,27 @@ function BookingSheet({
   // (es un bloque normal en el flujo de la página), así que sin esto el foco
   // se quedaba en el botón "Reservar" de la fila que se acaba de ocultar.
   const tituloRef = useRef<HTMLHeadingElement>(null);
+  // Modo B ('inline'): la raíz del bloque, para llevarla a la vista SIN tocar
+  // el scroll de la página anfitriona (ver el porqué en el efecto de abajo).
+  const raizRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!esVista) return;
-    // La página vuelve arriba del todo (nunca queda a media altura donde se
-    // pulsó "Reservar"): quien entra en la vista debe ver la cabecera "‹
-    // Volver a las clases" y la foto desde el principio, no aterrizar a
-    // media ficha. `{ preventScroll: true }` en el foco de abajo: sin él, el
-    // navegador centra la ventana en el `<h2>` (por debajo de la cabecera) y
-    // pisaría este scroll.
-    window.scrollTo(0, 0);
+    if (!sinBackdrop) return;
+    if (variantePresentacion === 'vista') {
+      // Modo A ('vista'): la página ENTERA es de Tentare (iframe propio), así
+      // que llevarla arriba del todo es seguro y es lo que se pidió — nunca
+      // queda a media altura donde se pulsó "Reservar". `{ preventScroll:
+      // true }` en el foco de abajo: sin él, el navegador centra la ventana en
+      // el `<h2>` (por debajo de la cabecera) y pisaría este scroll.
+      window.scrollTo(0, 0);
+    } else {
+      // Modo B ('inline'): el widget vive a mitad de la web del estudio —
+      // `window.scrollTo` saltaría TODA esa página al origen, no solo el
+      // widget. `scrollIntoView` mueve lo justo para que la ficha entre en
+      // pantalla, sin invadir el resto del sitio anfitrión.
+      raizRef.current?.scrollIntoView({ block: 'start' });
+    }
     tituloRef.current?.focus({ preventScroll: true });
-  }, [esVista, slot.id]);
+  }, [sinBackdrop, variantePresentacion, slot.id]);
 
   const label = tieneReserva
     ? (enEspera ? 'Salir de la lista de espera' : 'Cancelar reserva')
@@ -1381,16 +1404,17 @@ function BookingSheet({
   // el gesto se encadenaba al fondo al llegar al final de la hoja. En modo
   // 'vista' no hace falta: el listado ni siquiera está montado (soloFicha en
   // el padre), así que no hay ningún fondo que se pueda mover.
-  useBloquearScrollFondo(!esVista);
+  useBloquearScrollFondo(!sinBackdrop);
 
   return (
     <div
-      role={esVista ? undefined : 'dialog'}
-      aria-modal={esVista ? undefined : true}
+      ref={raizRef}
+      role={sinBackdrop ? undefined : 'dialog'}
+      aria-modal={sinBackdrop ? undefined : true}
       aria-labelledby={titleId}
-      onClick={esVista ? undefined : onClose}
-      className={esVista ? 'paso-anim' : `animate-sheet-backdrop-in ${enIframe ? '' : 'reserva-sheet-overlay-desktop'}`}
-      style={esVista
+      onClick={sinBackdrop ? undefined : onClose}
+      className={sinBackdrop ? 'paso-anim' : `animate-sheet-backdrop-in ${enIframe ? '' : 'reserva-sheet-overlay-desktop'}`}
+      style={sinBackdrop
         // Rediseño "sin popup": ni backdrop ni `position: fixed` — un bloque
         // normal que ocupa el sitio que el padre (page.tsx) le da (mismo
         // patrón `100dvh`/franja de iframe que ya resuelve PublicSheet para
@@ -1406,8 +1430,8 @@ function BookingSheet({
         }}
     >
       <div
-        onClick={esVista ? undefined : e => e.stopPropagation()}
-        className={esVista ? undefined : 'reserva-sheet-in'}
+        onClick={sinBackdrop ? undefined : e => e.stopPropagation()}
+        className={sinBackdrop ? undefined : 'reserva-sheet-in'}
         // Medido en el navegador a 1280px: esto era una banda a TODO el ancho
         // pegada al borde inferior, con ~1000px de vacío entre cada etiqueta y
         // su valor («HORARIO ......... 10:00 – 10:50») y un botón «RESERVAR» de
@@ -1430,7 +1454,7 @@ function BookingSheet({
         // footer sticky DENTRO del scroller (ver abajo), así que el padding
         // inferior gigante de antes (`sheetBottomPadding`) sobra: el footer
         // lleva el suyo propio con `env(safe-area-inset-bottom)`.
-        style={esVista
+        style={sinBackdrop
           // Rediseño "sin popup": scroll natural de la PÁGINA, no un
           // contenedor interno con su propio `overflow` — el iframe ya se
           // redimensiona solo a la altura real del documento (postMessage
@@ -1456,7 +1480,7 @@ function BookingSheet({
             desliza) — un único "‹ Volver" arriba del todo, mismo patrón que
             <PantallaReserva>: un solo punto de salida, nunca una X flotante
             además de un "atrás". */}
-        {esVista ? (
+        {sinBackdrop ? (
           <div style={{ display: 'flex', alignItems: 'center', padding: '16px 0 2px', flexShrink: 0 }}>
             <button type="button" onClick={onClose} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
@@ -1475,7 +1499,7 @@ function BookingSheet({
             acción). Con fallback a la foto de catálogo de Tentare por familia
             de clase (mismo criterio que ya usa el portal de la socia), y solo
             si tampoco hay ninguna al color del tipo (ver FotoClase). */}
-        <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho="100%" alto={esVista ? 220 : 150} radio={16} conFotoPorDefecto origenTentare={origenTentare} />
+        <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho="100%" alto={sinBackdrop ? 220 : 150} radio={16} conFotoPorDefecto origenTentare={origenTentare} />
 
         {/* Cabecera */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
@@ -1491,7 +1515,7 @@ function BookingSheet({
               {slot.claseNombre}
             </h2>
           </div>
-          {!esVista && (
+          {!sinBackdrop && (
             <button type="button" onClick={onClose} aria-label="Cerrar" style={{ ...navBtn(t), flexShrink: 0 }}>
               <X size={18} style={{ color: t.ink }} />
             </button>

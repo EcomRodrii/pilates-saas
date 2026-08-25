@@ -309,6 +309,28 @@ export default function ReservarPage() {
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
 
+  // BUG del calendario que no se enteraba de una clase nueva: el único
+  // refresco que ya existía en studio-context.tsx (visibilitychange/focus,
+  // studio-context.tsx:1096) solo se dispara al CAMBIAR de pestaña — una
+  // visitante mirando el widget incrustado sin moverse de ahí nunca lo
+  // disparaba, por mucho que el estudio creara la clase mientras tanto. Un
+  // tic mucho más espaciado que `REFRESCO_ACTIVO_MS` (ese es para aforo, 5s,
+  // demasiado caro para el catálogo entero): aquí lo que cambia es "existe
+  // una clase nueva", que no necesita el mismo tiempo real que "¿queda
+  // plaza?". `recargarPublico` (=`cargarPublico`) trae el catálogo completo,
+  // así que el intervalo va deliberadamente largo. Se salta el tic con la
+  // pestaña oculta (nadie mira) — al volver a primer plano ya resincroniza el
+  // listener de foco de studio-context.tsx.
+  const recargarPublicoRef = useRef(recargarPublico);
+  useEffect(() => { recargarPublicoRef.current = recargarPublico; });
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      recargarPublicoRef.current();
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   // Fase 7 "Widget Experience Builder": qué pestañas y si se ofrece el
   // Discovery Quiz, configurable por estudio en el bloque `reservarHorario`
   // del mismo Theme Builder que ya decide orden/visibilidad de secciones
