@@ -16,7 +16,7 @@ export async function obtenerRendimientoInstructoras(
   const desde = new Date(now.getTime() - VENTANA_DIAS * MS_DIA).toISOString();
 
   const [{ data: instructoresRow }, { data: sesionesRow }, { data: primerasSesionesRow }] = await Promise.all([
-    admin.from('instructores').select('id, nombre').eq('studio_id', studioId).eq('activo', true),
+    admin.from('instructores').select('id, nombre').eq('studio_id', studioId).eq('activo', true).eq('rol', 'INSTRUCTOR'),
     admin.from('sesiones').select('id, instructor_id, inicio').eq('studio_id', studioId).gte('inicio', desde),
     // Fecha de la sesión más antigua de cada instructor (histórico completo,
     // no acotado a la ventana) — para el filtro "lleva ≥60 días en el equipo".

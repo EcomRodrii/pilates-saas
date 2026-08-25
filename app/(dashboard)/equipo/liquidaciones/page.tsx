@@ -36,7 +36,7 @@ export default function LiquidacionesPage() {
   const [cargando, setCargando] = useState(true);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
 
-  const activos = useMemo(() => instructores.filter(i => i.activo), [instructores]);
+  const activos = useMemo(() => instructores.filter(i => i.activo && i.rol === 'INSTRUCTOR'), [instructores]);
 
   useEffect(() => {
     let vivo = true;

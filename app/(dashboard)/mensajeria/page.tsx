@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useId } from 'react';
+import { useState, useMemo, useId, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
@@ -12,6 +12,14 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import type { LeadStage } from '@/lib/types';
+import { fetchNotificaciones, accionNotificacion, type NotifItem, type AmbitoNotif } from '@/lib/notifications/client';
+
+// Misma fuente que la campana del topbar (components/notifications/notification-bell.tsx):
+// tabla `notification` vía /api/notifications, ámbito `staff`. Antes esta
+// pestaña leía `useStudio().notificaciones` (tabla legacy `notificaciones`,
+// sin consumidor real del motor de avisos actual) y por eso nunca coincidía
+// con lo que la campana mostraba de verdad.
+const AMBITO_STAFF: AmbitoNotif = { ambito: 'staff' };
 
 // P2 (auditoría "Veredicto de Marta"): mismas etiquetas de etapa que
 // /clientas (app/(dashboard)/clientas/page.tsx) — un texto por rol en cada
@@ -41,11 +49,12 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
 }
 
-const TIPO_ICON = {
-  INFO: { Icon: Info, color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))' },
-  AVISO: { Icon: AlertTriangle, color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))' },
-  ERROR: { Icon: XCircle, color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
-  EXITO: { Icon: CheckCircle2, color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
+const PRIORIDAD_ICON = {
+  CRITICA: { Icon: XCircle, color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
+  ALTA: { Icon: AlertTriangle, color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))' },
+  MEDIA: { Icon: Info, color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))' },
+  BAJA: { Icon: CheckCircle2, color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
+  SILENCIOSA: { Icon: CheckCircle2, color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
 } as const;
 
 // ── Message composer ──────────────────────────────────────────────────────────
@@ -234,19 +243,42 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Mensajeria() {
-  const { notificaciones, postsComunidad, socios } = useStudio();
+  const { postsComunidad, socios } = useStudio();
   const [tab, setTab] = useState<Tab>('notificaciones');
   const [busqueda, setBusqueda] = useState('');
 
-  const noLeidas = notificaciones.filter(n => !n.leida).length;
-  const [leidas, setLeidas] = useState<Set<string>>(new Set());
+  const [notifItems, setNotifItems] = useState<NotifItem[]>([]);
+  const [noLeidas, setNoLeidas] = useState(0);
+
+  const cargarNotif = useCallback(async () => {
+    const { items, unread } = await fetchNotificaciones(authHeader, AMBITO_STAFF);
+    setNotifItems(items); setNoLeidas(unread);
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void cargarNotif();
+  }, [cargarNotif]);
+
+  async function marcarLeida(n: NotifItem) {
+    if (n.readAt != null) return;
+    setNotifItems(prev => prev.map(x => x.id === n.id ? { ...x, readAt: new Date().toISOString() } : x));
+    setNoLeidas(u => Math.max(0, u - 1));
+    await accionNotificacion(authHeader, AMBITO_STAFF, 'read', n.id);
+  }
+
+  async function marcarTodasLeidas() {
+    setNotifItems(prev => prev.map(x => ({ ...x, readAt: x.readAt ?? new Date().toISOString() })));
+    setNoLeidas(0);
+    await accionNotificacion(authHeader, AMBITO_STAFF, 'read-all');
+  }
 
   const notifFiltradas = useMemo(() => {
     const q = busqueda.toLowerCase();
-    return notificaciones
-      .filter(n => !q || n.titulo.toLowerCase().includes(q) || n.texto.toLowerCase().includes(q))
-      .sort((a, b) => b.creadaEn.localeCompare(a.creadaEn));
-  }, [notificaciones, busqueda]);
+    return notifItems
+      .filter(n => !q || n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [notifItems, busqueda]);
 
   const postsFiltrados = useMemo(() => {
     const q = busqueda.toLowerCase();
@@ -305,7 +337,7 @@ export default function Mensajeria() {
                 className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1" />
             </div>
             {noLeidas > 0 && (
-              <button onClick={() => setLeidas(new Set(notificaciones.map(n => n.id)))}
+              <button onClick={marcarTodasLeidas}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted border border-border transition-colors shrink-0">
                 <Check size={12} />
                 Marcar todas leídas
@@ -317,11 +349,11 @@ export default function Mensajeria() {
           ) : (
             <ul className="divide-y divide-muted">
               {notifFiltradas.map(n => {
-                const isRead = n.leida || leidas.has(n.id);
-                const { Icon, color, bg } = TIPO_ICON[n.tipo] ?? TIPO_ICON.INFO;
+                const isRead = n.readAt != null;
+                const { Icon, color, bg } = PRIORIDAD_ICON[n.priority] ?? PRIORIDAD_ICON.MEDIA;
                 return (
                   <li key={n.id}
-                    onClick={() => setLeidas(prev => new Set([...prev, n.id]))}
+                    onClick={() => marcarLeida(n)}
                     className="flex items-start gap-4 px-5 py-4 hover:bg-muted transition-colors cursor-pointer"
                     style={{ backgroundColor: isRead ? undefined : '#FAFBFF' }}>
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: bg }}>
@@ -331,13 +363,13 @@ export default function Mensajeria() {
                       <div className="flex items-center gap-2">
                         {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-brand shrink-0" />}
                         <p className={`text-sm leading-tight ${isRead ? 'font-medium text-foreground' : 'font-bold text-foreground'}`}>
-                          {n.titulo}
+                          {n.title}
                         </p>
-                        <span className="ml-auto text-[11px] text-muted-foreground shrink-0">{timeAgo(n.creadaEn)}</span>
+                        <span className="ml-auto text-[11px] text-muted-foreground shrink-0">{timeAgo(n.createdAt)}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.texto}</p>
-                      {n.enlace && (
-                        <Link href={n.enlace} className="inline-flex items-center gap-1 text-xs text-brand-medio mt-1.5 hover:underline">
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.body}</p>
+                      {n.deepLink && (
+                        <Link href={n.deepLink} className="inline-flex items-center gap-1 text-xs text-brand-medio mt-1.5 hover:underline">
                           Ver más <ChevronRight size={10} />
                         </Link>
                       )}
