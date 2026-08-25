@@ -9,9 +9,11 @@ import { IconButton } from '@/components/ui/icon-button';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { usePanelPrivacy } from '@/lib/panel-privacy';
+import { useAtajoBuscar } from '@/lib/utils';
 
 export function Topbar() {
   const { oculto, setOculto } = usePanelPrivacy();
+  const atajo = useAtajoBuscar();
   // Un solo disparador para las dos cosas (antes había dos pills contiguos que
   // abrían el mismo modal: éste y el propio botón "Buscar" de GlobalSearch).
   // El buscador ya sabe resolver tareas; este botón solo lo abre. Existe porque
@@ -35,7 +37,7 @@ export function Topbar() {
           <Zap size={14} aria-hidden="true" className="shrink-0" />
           <Search size={14} aria-hidden="true" className="shrink-0 opacity-70" />
           <span className="flex-1 text-left">¿Qué quieres hacer o buscar?</span>
-          <kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono leading-none bg-white/15 text-white/70">⌘K</kbd>
+          <kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono leading-none bg-white/15 text-white/70">{atajo}</kbd>
         </button>
         <GlobalSearch
           variant="light"

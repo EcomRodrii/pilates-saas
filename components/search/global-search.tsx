@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { Search, ArrowRight, Calendar, CreditCard, X, Zap, Users } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, useAtajoBuscar } from '@/lib/utils';
 import { usePermisos } from '@/lib/permisos';
 import { buscarTareas, normalizar, rutaBase } from '@/lib/tareas';
 import { MODULOS } from '@/lib/nav-config';
@@ -28,6 +28,7 @@ export function GlobalSearch({
 } = {}) {
   const [openInterno, setOpenInterno] = useState(false);
   const open = abierto ?? openInterno;
+  const atajo = useAtajoBuscar();
   const setOpen = (v: boolean) => { setOpenInterno(v); onAbiertoChange?.(v); };
   const [query, setQuery] = useState('');
   const router = useRouter();
@@ -155,7 +156,7 @@ export function GlobalSearch({
       {renderTrigger && (
         <button
           onClick={() => setOpen(true)}
-          title="Buscar (⌘K)"
+          title={`Buscar (${atajo})`}
           className={collapsed
             ? cn('flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'hover:bg-muted')
             : cn('flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all', variant === 'dark' ? 'hover:bg-card/10' : 'bg-muted hover:bg-background w-full max-w-xs')}
@@ -169,7 +170,7 @@ export function GlobalSearch({
               style={variant === 'dark'
                 ? { backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }
                 : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
-            >⌘K</kbd>
+            >{atajo}</kbd>
           )}
         </button>
       )}

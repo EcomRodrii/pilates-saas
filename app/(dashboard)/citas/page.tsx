@@ -399,13 +399,13 @@ export default function CitasPage() {
     return conteo;
   }, [citas]);
 
-  const metricas = [
+  const metricas: { label: string; value: string; accent: string; title?: string }[] = [
     ...(verPrecio
       ? [{ label: 'Ingresos este mes', value: formatEuro(ingresosMes), accent: 'text-success' }]
       : []),
     { label: 'Citas este mes', value: String(thisMonth.length), accent: 'text-foreground' },
-    { label: 'Asistencia', value: tasaAsistencia != null ? `${tasaAsistencia}%` : '—', accent: 'text-success' },
-    { label: 'No-shows', value: String(noShowsMes), accent: noShowsMes > 0 ? 'text-destructive' : 'text-foreground' },
+    { label: 'Asistencia', value: tasaAsistencia != null ? `${tasaAsistencia}%` : '—', accent: 'text-success', title: tasaAsistencia == null ? 'Todavía no hay citas resueltas este mes para calcularlo' : undefined },
+    { label: 'No presentadas', value: String(noShowsMes), accent: noShowsMes > 0 ? 'text-destructive' : 'text-foreground' },
   ];
 
   // Tab filter
@@ -599,7 +599,7 @@ export default function CitasPage() {
         {metricas.map((m) => (
           <div key={m.label} className="bg-card border border-border rounded-xl px-4 py-3">
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{m.label}</p>
-            <p className={cn('text-xl font-bold mt-0.5 tabular-nums', m.accent)}>{m.value}</p>
+            <p className={cn('text-xl font-bold mt-0.5 tabular-nums', m.accent)} title={m.title}>{m.value}</p>
           </div>
         ))}
       </div>
