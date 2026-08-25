@@ -101,11 +101,14 @@ async function seedAuth(page: Page, uid: string, email: string) {
 
 async function mockBackendEquipo(
   page: Page,
-  { rol = 'PROPIETARIO', instructoras = [INSTRUCTORA_ACTIVA] } = {},
+  { rol = 'PROPIETARIO', instructoras: _instructoras = [INSTRUCTORA_ACTIVA] } = {},
 ) {
   await page.clock.setFixedTime(new Date(AHORA));
 
-  const allInstructoras = [PROPIETARIA];
+  // Tipado explícito: PROPIETARIA/MANAGER/RECEPCION llevan telefono: null y
+  // INSTRUCTORA_ACTIVA un literal string — sin ensanchar aquí, TS infiere el
+  // tipo del array del primer elemento y el resto de `.push()` no compila.
+  const allInstructoras: (typeof INSTRUCTORA_ACTIVA | typeof PROPIETARIA)[] = [PROPIETARIA];
   if (rol === 'MANAGER') allInstructoras.push(MANAGER, INSTRUCTORA_ACTIVA);
   else if (rol === 'RECEPCION') allInstructoras.push(RECEPCION, INSTRUCTORA_ACTIVA);
   else if (rol === 'INSTRUCTOR') allInstructoras.push(INSTRUCTORA_ACTIVA);

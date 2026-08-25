@@ -14,7 +14,7 @@ import type { Rol } from '@/lib/types';
 const TARIFA_MAX = 999.99;
 
 async function resolverPropioInstructorId(
-  admin: ReturnType<typeof getSupabaseAdmin>,
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   userId: string,
   studioId: string,
 ): Promise<string | null> {
@@ -39,7 +39,7 @@ function mapTarifaRow(r: {
 }
 
 async function getTarifas(
-  admin: ReturnType<typeof getSupabaseAdmin>,
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
 ) {
   // BACKWARD COMPAT: si no hay admin, devolver items vacío (no error)
@@ -67,7 +67,7 @@ async function getTarifas(
 }
 
 async function patchTarifa(
-  admin: ReturnType<typeof getSupabaseAdmin>,
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
   body: Record<string, unknown>,
 ) {
@@ -145,6 +145,7 @@ export async function equipoTarifasAction(input: {
 }) {
   const sesion = await requireAuthInServerAction();
   const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Servidor no configurado');
 
   const method = (input.method || 'GET').toUpperCase();
 
@@ -153,7 +154,6 @@ export async function equipoTarifasAction(input: {
   }
 
   if (method === 'PATCH') {
-    if (!admin) throw new Error('Servidor no configurado');
     return await patchTarifa(admin, sesion, input);
   }
 
