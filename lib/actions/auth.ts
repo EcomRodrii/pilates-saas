@@ -1,8 +1,6 @@
 'use server';
 
-import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { enforceRateLimit } from '@/lib/rate-limit';
 
 /**
  * Server Action: Resetear intentos de verificación OTP tras reenvío exitoso.
