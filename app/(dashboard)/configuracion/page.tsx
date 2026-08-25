@@ -227,6 +227,8 @@ const TAB_ALIASES = new Map<string, TabId>([
   ['emails', 'plantillas'],
   ['copias-de-seguridad', 'backups'],
   ['mi-perfil', 'perfil'],
+  ['salud', 'cuestionario-salud'],
+  ['cuestionario', 'cuestionario-salud'],
 ]);
 
 // ─── Main page ────────────────────────────────────────────────────────────────
