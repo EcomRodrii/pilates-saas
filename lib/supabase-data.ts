@@ -4668,6 +4668,7 @@ export async function fetchDeferredStudioData(studioId?: string) {
     challengeHistoryRes,
     notasProgresoRes,
     backupsRes,
+    condicionesSaludRes,
   ] = await enTandas([
     // I5: estos tres historiales son append-only y crecen sin fin, pero ninguna
     // vista de STAFF los consume (el portal usa la versión member-scoped de otro
@@ -4682,6 +4683,14 @@ export async function fetchDeferredStudioData(studioId?: string) {
     db.from('challenge_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('notas_progreso').select('*').eq('studio_id', sid),
     db.from('backups').select('id, studio_id, tipo, creado_en').eq('studio_id', sid).order('creado_en', { ascending: false }),
+    // Sprint 1 (auditoría #4) quitó esto de fetchCriticalStudioData para no
+    // bloquear el primer pintado — pero nunca se le dio ningún sitio nuevo
+    // (el comentario decía "on-demand from their respective pages", pero
+    // ninguna página lo pide). Sin esto, `condicionesSalud` queda `[]` SIEMPRE
+    // — ficha clínica, semáforo y "Preparar clase con IA" se quedan ciegos en
+    // silencio (ver e2e/preparar-clase-ia.spec.ts). De vuelta aquí, en la 2ª
+    // ola — sigue sin bloquear el primer pintado, que era el objetivo real.
+    db.from('condiciones_salud').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -4693,6 +4702,7 @@ export async function fetchDeferredStudioData(studioId?: string) {
     // La query de backups usa un select estrecho (excluye la columna 'datos'
     // pesada); afirmamos la fila para el mapper.
     backups: (backupsRes.data ?? []).map(r => mapBackupMeta(r as RowBackups)),
+    condicionesSalud: (condicionesSaludRes.data ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud)),
   };
 }
 
