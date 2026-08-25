@@ -68,8 +68,10 @@ test.describe('Clientas: la tarjeta y la tabla cuentan lo mismo', () => {
     await expect(page.getByText('Total clientas')).toBeVisible();
     // La tarjeta dice 1 (excluye a la LEAD) — la tabla, por defecto, debe
     // mostrar exactamente esa misma clienta, no las 2 filas que existen.
+    // .first(): la fila de escritorio y la tarjeta móvil conviven en el DOM
+    // (solo una se oculta por CSS), igual que ya documenta vocabulario-clientas.spec.ts.
     await expect(page.getByText('Mostrando 1 de 1')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Ana Ruiz')).toBeVisible();
+    await expect(page.getByText('Ana Ruiz').first()).toBeVisible();
     await expect(page.getByText('Bea Soto')).toHaveCount(0);
   });
 
@@ -79,7 +81,7 @@ test.describe('Clientas: la tarjeta y la tabla cuentan lo mismo', () => {
 
     await page.getByLabel('Filtrar por etapa del embudo').selectOption('LEAD');
 
-    await expect(page.getByText('Bea Soto')).toBeVisible();
+    await expect(page.getByText('Bea Soto').first()).toBeVisible();
     await expect(page.getByText('Ana Ruiz')).toHaveCount(0);
   });
 });
