@@ -947,7 +947,7 @@ export default function ReservarPage() {
   // (sin límite de fecha), y el docstring de `horarioPublico` avisa de que una
   // clase suelta de hace un año a las 6:30 ensancharía el horario para siempre.
   // Se mira de hoy en adelante, que es lo que la clienta puede reservar.
-  const franjasHorario = useMemo(() => {
+  const { franjas: franjasHorario, confiable: horarioConfiable } = useMemo(() => {
     const desde = new Date(); desde.setHours(0, 0, 0, 0);
     const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 8 * 7);
     return horarioPublico(sesiones.filter(s => {
@@ -2454,6 +2454,14 @@ export default function ReservarPage() {
                       <span style={{ fontWeight: 600, color: 'var(--portal-ink)', fontVariantNumeric: 'tabular-nums' }}>{f.horas}</span>
                     </div>
                   ))}
+                  {/* Pocos días con clase todavía: se enseñan los que hay sin
+                      dar por cerrado el resto — un calendario a medio cargar
+                      no es lo mismo que un horario reducido de verdad. */}
+                  {!horarioConfiable && (
+                    <p style={{ fontSize: 11.5, color: 'var(--portal-muted)', marginTop: 12, lineHeight: 1.5 }}>
+                      Puede haber más clases por confirmar — consulta el horario completo con el estudio.
+                    </p>
+                  )}
                 </div>
               )}
               <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', padding: '20px 22px' }}>
