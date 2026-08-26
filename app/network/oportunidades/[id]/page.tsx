@@ -2,8 +2,9 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Check } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, SearchX } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { fetchVacanteNetwork, aplicarVacanteNetwork, fetchMisCandidaturasNetwork } from '@/lib/api-client';
 import { TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, ESPECIALIDAD_LABEL, HORARIO_LABEL } from '@/lib/network/catalogo';
 import type { VacanteNetwork } from '@/lib/network/tipos';
@@ -52,9 +53,7 @@ export default function OportunidadDetalleNetworkPage({ params }: { params: Prom
         <Link href="/network/oportunidades" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
           <ArrowLeft size={14} /> Volver a oportunidades
         </Link>
-        <div className={`${cardCls} p-8 text-center`}>
-          <p className="text-[13px] text-muted-foreground">Esta vacante ya no está disponible.</p>
-        </div>
+        <EmptyState icono={SearchX} titulo="Esta vacante ya no está disponible." />
       </div>
     );
   }

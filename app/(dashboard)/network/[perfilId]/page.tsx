@@ -24,9 +24,10 @@ import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, MapPin, Loader2, Send, Check, Flag, Heart, Star, MessageCircle,
-  BadgeCheck, GraduationCap, Building2,
+  BadgeCheck, GraduationCap, Building2, SearchX,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { HiloMensajes } from '@/components/network/hilo-mensajes';
 import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
@@ -135,11 +136,10 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
         <Link href="/network/buscar" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
           <ArrowLeft size={14} /> Volver al buscador
         </Link>
-        <div className="rounded-2xl border border-border bg-card p-8 text-center">
-          <p className="text-[13px] text-muted-foreground">
-            Este perfil ya no está disponible — puede que la profesional lo haya ocultado.
-          </p>
-        </div>
+        <EmptyState
+          icono={SearchX}
+          titulo="Este perfil ya no está disponible — puede que la profesional lo haya ocultado."
+        />
       </div>
     );
   }
