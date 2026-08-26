@@ -152,16 +152,12 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
 
   // El portal en React (el kit de diseño), detrás de `studios.portal_react`.
   //
-  // Se exige ADEMÁS que el tema instalado sea uno de los tres del kit: con
-  // `classic` no hay juego de tokens que montar, y servirle a esa socia un
-  // portal a medio tintar sería peor que dejarle el de siempre. Así, encender
-  // la bandera en un estudio sin tema del kit no rompe nada: no pasa nada.
-  //
-  // ⚠️ TEMPORAL, y con fecha: esta rama y el portal viejo se van juntos el
-  // `FECHA_SALIDA_PORTAL_REACT` de `lib/portal-tema/caducidad.ts`. Ese día la
-  // suite se pone roja sola — «no dejar que eche raíces» era una buena
-  // intención mientras nada la comprobara, que es como un flag temporal se
-  // queda para siempre.
+  // ⚠️ RETIRADO (decisión del fundador, 2026-08-27): `esTemaPortal()`
+  // (`themes/registro.ts`) devuelve SIEMPRE `false` ahora, así que esta rama
+  // ya no se alcanza nunca — se deja el `if` tal cual (en vez de borrarlo ya)
+  // porque el borrado completo del árbol del kit (`components/portal-tema/`,
+  // los 5 `THEME_DEFINITIONS` no-`classic`, `studios.portal_react`) es un PR
+  // aparte, más grande. Esto es solo el interruptor.
   //
   // Y solo en las rutas que el kit cubre: `/progreso`, `/compras`,
   // `/preferencias`, `/invitar`, `/instructores` y `/videos` no tienen
