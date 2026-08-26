@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { fetchVacantesPublicadasNetwork } from '@/lib/api-client';
 import { TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL } from '@/lib/network/catalogo';
 import type { VacanteNetwork } from '@/lib/network/tipos';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/network/campo-estilos';
 
 // Oportunidades (Fase 2, "instructora → busca oportunidades") — el
 // marketplace de vacantes 'published' de cualquier estudio. Sin filtros

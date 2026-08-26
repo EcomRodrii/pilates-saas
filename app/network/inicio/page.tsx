@@ -9,7 +9,7 @@ import {
 } from '@/lib/api-client';
 import { calcularCompletitudPerfil } from '@/lib/network/completitud';
 import type { PerfilNetwork } from '@/lib/network/tipos';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/network/campo-estilos';
 
 // Home del panel de la instructora (Fase 2, "punto 15" del brief: "no solo
 // Mi perfil, sino Network con un Inicio"). Solo pinta datos que YA existen

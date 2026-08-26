@@ -6,7 +6,7 @@ import { fetchHilosMensajesNetwork, type HiloNetwork } from '@/lib/api-client';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { HiloMensajes } from '@/components/network/hilo-mensajes';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/network/campo-estilos';
 
 const cuando = (iso: string) => new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
