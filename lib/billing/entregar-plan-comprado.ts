@@ -18,6 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // Relativo y con `.ts` explícita: el alias `@/` no lo resuelve el runner de
 // `node --test`, y este módulo sí tiene test unitario propio.
 import { hoyEnEstudio } from '../utils.ts';
+import { escaparLike } from '../escapar-like.ts';
 
 export interface CompraPlan {
   /**
@@ -169,21 +170,31 @@ export async function entregarPlanComprado(
     // peor que no crearla: quedaría un bono que nadie puede reclamar.
     if (!compra.email) return { ok: false, motivo: 'sin-socia' };
 
-    // I-8: si es invitada, SIEMPRE crear ficha nueva — no reutilizar aunque
+    // I-8: si es invitada, se INTENTA crear ficha nueva — no reutilizar aunque
     // el email ya exista. Motivo: quien paga sin login (invitada) puede meter
-    // un email por error / copia-pega. Si reutilizamos, el bono va a la ficha
-    // existente y la invitada no recibe lo que pagó. Crear ficha nueva garantiza
-    // que cada compra de invitada es autónoma — sin riesgo de suplantar bonos.
+    // un email por error / copia-pega, y si reutilizamos sin más, su bono va a
+    // la ficha de otra persona.
+    //
+    // «Se intenta», no «siempre»: el índice único `uq_socios_studio_email`
+    // manda por encima de esta preferencia. Cuando el email ya existe, la
+    // alternativa a reutilizar esa ficha NO es "crear otra" —Postgres no deja—,
+    // es no entregar nada sobre un cobro ya hecho. Entre las dos, se entrega:
+    // ver la rama del 23505 más abajo, y el comentario de
+    // `app/api/stripe/webhook/route.ts` sobre por qué eso no compromete nada
+    // (`identidadDemostradaEnCompra` sigue impidiendo tocar credenciales de
+    // pago ajenas, que era el daño grave).
     const debeCrearFichaNueva = compra.esInvitada;
 
     if (!debeCrearFichaNueva) {
       // ¿Ya existe alguien con ese email en el estudio? (compró dos veces
       // autenticada, o se registró entre medias). Se reutiliza en vez de duplicar.
+      // `escaparLike` también aquí, no solo en la rama nueva de abajo: es el
+      // mismo `ilike` sobre el mismo email y llevaba desde siempre sin escapar.
       const { data: existente } = await admin
         .from('socios')
         .select('id')
         .eq('studio_id', compra.studioId)
-        .ilike('email', compra.email)
+        .ilike('email', escaparLike(compra.email))
         .maybeSingle();
 
       if (existente) {
@@ -211,8 +222,56 @@ export async function entregarPlanComprado(
       if (error && error.code !== YA_EXISTIA) {
         return { ok: false, motivo: 'error', detalle: error.message };
       }
-      socioId = ids.socioId;
-      fichaCreada = !error;
+      if (error) {
+        // 23505 aquí NO es siempre "el reintento de Stripe". Hay DOS índices
+        // únicos sobre `socios` y este código daba por hecho que solo había uno:
+        //
+        //   socios_pkey             (id)                      → reintento real
+        //   uq_socios_studio_email  (studio_id, lower(email))  → email ya usado
+        //
+        // Desde I-8 (`debeCrearFichaNueva = compra.esInvitada`) el segundo es el
+        // caso NORMAL, no el raro: la compra pública sin login manda email y no
+        // manda `socioId`, así que toda socia ya dada de alta que compre sin
+        // loguearse —y toda invitada que compre por segunda vez— choca aquí.
+        // Al tratarlo como reintento, `socioId` quedaba apuntando a una ficha
+        // que no existe y el insert de `suscripciones` moría después con 23503
+        // (FK): cobrado, y ni bono, ni recibo, ni la plaza que acababa de pagar.
+        // Sin rescate posible, además: el 200 ya se envió y el conciliador
+        // reintenta cada hora contra el mismo choque.
+        const { data: porId } = await admin
+          .from('socios').select('id').eq('id', ids.socioId).maybeSingle();
+
+        if (porId) {
+          socioId = ids.socioId; // reintento idempotente: la ficha ya es nuestra
+        } else {
+          // `borrado_en is null` para casar con el índice parcial: la fila que
+          // provocó el choque es por fuerza una no borrada.
+          // `escaparLike` y `limit(1)`, no `ilike` crudo + `maybeSingle()`:
+          // `_` es un comodín de LIKE y a la vez un carácter corriente en un
+          // email, así que `maria_lopez@…` casaría también con `maria.lopez@…`.
+          // Con dos filas casadas, `maybeSingle()` devuelve error y aquí se
+          // volvería a caer en "cobrado y sin entregar", que es justo lo que
+          // esta rama existe para impedir. Y `checkout/route.ts` no valida el
+          // `socioEmail` que recibe, así que el comodín puede venir de fuera.
+          const { data: porEmail } = await admin
+            .from('socios')
+            .select('id')
+            .eq('studio_id', compra.studioId)
+            .ilike('email', escaparLike(compra.email))
+            .is('borrado_en', null)
+            .limit(1);
+          const idExistente = porEmail?.[0]?.id as string | undefined;
+          if (!idExistente) return { ok: false, motivo: 'error', detalle: error.message };
+          // Entregar a la ficha que YA tiene ese email no suplanta a nadie: le da
+          // su bono a quien es dueña de ese correo. Lo que I-8 vino a impedir era
+          // otra cosa —guardar el método de pago sobre ficha ajena— y eso lo
+          // cierra `identidadDemostradaEnCompra` en el webhook, no esta rama.
+          socioId = idExistente;
+        }
+      } else {
+        socioId = ids.socioId;
+        fichaCreada = true;
+      }
     }
   }
 
