@@ -136,45 +136,28 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   const walkInSinFicha = autenticado && !socia;
   const mostrarFormulario = walkInSinFicha || accesoAbierto;
 
-  // Modo A (page.tsx) recuerda la clase que se intentaba reservar cuando no
-  // hay sesión (`bookingSesionId`) y la retoma sola tras el login. Modo B no
-  // tenía equivalente: `onReservar` del hook devolvía "Inicia sesión para
-  // reservar." como un aviso sin salida — cerraba la hoja y ahí se quedaba,
-  // sin abrir el acceso ni recordar la clase (auditoría de esta sesión).
-  // `pendienteReserva` es ese mismo recuerdo, solo que aquí no hay una hoja
-  // reabrible desde fuera (el slot abierto es estado INTERNO de
-  // <ReservaCalendario>) — en vez de reabrirla, la reserva se completa sola
-  // en cuanto `socia` pasa a tener valor, y el resultado se avisa con un
-  // banner (mismo patrón que `avisoPago` más abajo).
-  const [pendienteReserva, setPendienteReserva] = useState<{ slot: ReservaSlot; spotId: string | null } | null>(null);
-  const [avisoReservaPendiente, setAvisoReservaPendiente] = useState<'CONFIRMADA' | 'LISTA_ESPERA' | string | null>(null);
-  // ⚠️ NUNCA `async`: <ReservaCalendario> (línea ~880 de reserva-calendario.tsx)
-  // solo cierra esta hoja EN EL MISMO BATCH si `onReservar` devuelve `undefined`
-  // de forma SÍNCRONA — así nunca conviven la ficha de la clase y el formulario
-  // de acceso un fotograma real. Una función `async` envuelve SIEMPRE el
-  // resultado en una Promise, incluso cuando el cuerpo no hace ningún `await`,
-  // así que esa detección nunca disparaba aquí: la ficha se quedaba abierta
-  // por debajo del formulario de acceso (visible a ojo, no en los e2e por ser
-  // síncronos). Mismo contrato que `handleReservarCalendario` de Modo A
-  // (`app/reservar/[slug]/page.tsx`), que tampoco es `async` por este motivo.
+  // Petición explícita del fundador (2026-08-26, tras una queja real sobre
+  // un estudio en producción): sin sesión, "Reservar" en Modo B NO completa
+  // el flujo de acceso dentro del propio widget — navega la página ENTERA
+  // (nunca popup/pestaña nueva, `window.location.href` normal) a la ficha
+  // real en Modo A (`/reservar/[slug]?sesion=`), que ya trae de fábrica el
+  // flujo "pagar y reservar sin login previo" para clases de pago suelto
+  // (`docs/reserva-sin-login-diseno.md` §2/§3, `openBooking()` en
+  // `app/reservar/[slug]/page.tsx`) — reconstruir ese motor entero (guest
+  // checkout, contrato, alta walk-in) DENTRO del bundle embebido habría
+  // duplicado una lógica ya madura y probada. Solo se abre el formulario de
+  // acceso interno de Modo B para el resto de casos que no reservan una
+  // clase concreta (botón "Iniciar sesión" de la cabecera, "Mi cuenta").
   const manejarReservar = useCallback((slot: ReservaSlot, spotId: string | null) => {
     if (!socia?.socioId) {
-      setPendienteReserva({ slot, spotId });
-      setAccesoAbierto(true);
-      return; // Sin resultado → <ReservaCalendario> cierra la hoja (mismo contrato que Modo A).
+      // Solo `sesion`: Modo A no tiene deep-link para el sitio elegido, se
+      // vuelve a preguntar allí si la sala tiene reformers (mismo criterio
+      // que si se llega desde cualquier otro enlace externo).
+      window.location.href = `${ORIGEN_TENTARE}/reservar/${slug}?sesion=${encodeURIComponent(slot.id)}`;
+      return; // Sin resultado → <ReservaCalendario> cierra la hoja mientras navega (mismo contrato que Modo A).
     }
     return onReservar(slot, spotId);
-  }, [socia, onReservar]);
-  useEffect(() => {
-    if (!socia?.socioId || !pendienteReserva) return;
-    const { slot, spotId } = pendienteReserva;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda contra doble envío: limpia el pendiente ANTES del await, no un dato derivado de un render anterior.
-    setPendienteReserva(null);
-    void onReservar(slot, spotId).then(r => {
-      if (!r) return;
-      setAvisoReservaPendiente(r.ok ? r.estado : r.error);
-    });
-  }, [socia, pendienteReserva, onReservar]);
+  }, [socia, onReservar, slug]);
 
   // 3DS forzado a salir (poco común, ver checkout-embebido.tsx): vuelve a la
   // MISMA página del estudio con este marcador — se lee una vez al montar y
@@ -217,16 +200,6 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
         <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: tema.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span>Si has confirmado el pago con tu banco, en unos segundos verás el plan activo en Mi cuenta.</span>
           <button type="button" onClick={() => setAvisoPago(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: tema.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
-        </div>
-      )}
-      {avisoReservaPendiente && (
-        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: tema.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <span>
-            {avisoReservaPendiente === 'CONFIRMADA' ? 'Reserva confirmada.'
-              : avisoReservaPendiente === 'LISTA_ESPERA' ? 'Te hemos apuntado a la lista de espera.'
-                : avisoReservaPendiente}
-          </span>
-          <button type="button" onClick={() => setAvisoReservaPendiente(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: tema.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14, marginBottom: 10 }}>
