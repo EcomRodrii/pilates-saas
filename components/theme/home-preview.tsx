@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MarcoDispositivo } from './marco-dispositivo';
 import type { DispositivoId } from '@/lib/theme/dispositivos';
-import { fetchHomePreviewToken } from '@/lib/api-client';
+import { fetchHomePreviewToken, esSesionCaducada } from '@/lib/api-client';
 import { varsKitMap, themeToCssVars } from '@/lib/theme-runtime';
 import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
 import type { ThemeConfig } from '@/lib/theme-schema';
@@ -95,6 +95,7 @@ export function HomePreview({
   const [medidas, setMedidas] = useState<BloqueMedido[]>([]);
   const [caja, setCaja] = useState<{ iframe: Caja; escala: number } | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [sesionCaducada, setSesionCaducada] = useState(false);
   const [vista, setVista] = useState<VistaId>(pantalla);
   // Ajuste de estado derivado DURANTE el render (no en un efecto — patrón
   // recomendado por React para "resetear estado cuando cambia una prop", ver
@@ -141,7 +142,7 @@ export function HomePreview({
     let vivo = true;
     fetchHomePreviewToken()
       .then(({ token: t, slug: s }) => { if (vivo) { setToken(t); setSlugToken(s); tokenObtenidoEn.current = Date.now(); } })
-      .catch(() => {});
+      .catch((e) => { if (vivo && esSesionCaducada(e)) setSesionCaducada(true); });
     return () => { vivo = false; };
   }, []);
   // La renovación de verdad: si han pasado más de 10 min desde el último
@@ -156,7 +157,7 @@ export function HomePreview({
     let vivo = true;
     fetchHomePreviewToken()
       .then(({ token: t, slug: s }) => { if (vivo) { setToken(t); setSlugToken(s); tokenObtenidoEn.current = Date.now(); } })
-      .catch(() => {});
+      .catch((e) => { if (vivo && esSesionCaducada(e)) setSesionCaducada(true); });
     return () => { vivo = false; };
     // Se dispara con CADA cambio de vista a propósito (es la señal de "va a
     // haber un `src` nuevo igualmente"); el guard de arriba decide si hace
@@ -259,6 +260,28 @@ export function HomePreview({
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, [onInsertar]);
+
+  if (sesionCaducada) {
+    return (
+      <MarcoDispositivo
+        dispositivo={dispositivo}
+        zoom={zoom}
+        // Mismo aviso y mismo enlace que ya usa la barra superior del editor
+        // (theme-editor-fullscreen.tsx) cuando el autoguardado detecta un 401:
+        // abre /login en otra pestaña, sin parámetro de destino (`/login` solo
+        // acepta rutas `/interno`), para no perder lo que sigue en pantalla.
+        vacio={
+          <>
+            Tu sesión ha caducado.{' '}
+            <a href="/login" target="_blank" rel="noopener" className="underline font-semibold">
+              Vuelve a entrar
+            </a>
+            .
+          </>
+        }
+      />
+    );
+  }
 
   if (!slugEfectivo || !token) {
     return <MarcoDispositivo dispositivo={dispositivo} zoom={zoom} vacio="La vista previa aparecerá en un momento." />;

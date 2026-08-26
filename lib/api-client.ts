@@ -260,7 +260,10 @@ export async function publicarBloquesApi(pantalla: PantallaId): Promise<BloqueHo
 export async function fetchHomePreviewToken(): Promise<{ token: string; slug: string | null }> {
   return unaVez('home-preview-token', async () => {
     const res = await fetch('/api/theme/home-preview-token', { method: 'POST', headers: await authHeader() });
-    if (!res.ok) throw new Error('No se pudo preparar la vista previa');
+    if (!res.ok) {
+      if (res.status === 401) throw new ErrorSesionCaducada();
+      throw new Error('No se pudo preparar la vista previa');
+    }
     const b = (await res.json()) as { token: string; slug?: string | null };
     return { token: b.token, slug: b.slug ?? null };
   });
