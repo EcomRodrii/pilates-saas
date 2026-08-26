@@ -40,6 +40,28 @@ export interface ValoracionEnPantalla {
  * El respaldo NO es opcional: una nota sin el número de valoraciones detrás es
  * exactamente el número sin dato que este repo ya ha pagado una vez.
  */
+/**
+ * La nota del ESTUDIO, agregando la de todas sus instructoras — no una query
+ * nueva: reconstruye `puntos` desde `media * total` de cada una (ya sin
+ * redondear, `lib/db/supabase-data-admin.ts` guarda la media cruda), así que
+ * no hace falta releer `valoraciones` fila a fila para sumar el estudio
+ * entero. Mismo criterio de "por debajo del mínimo no se enseña nada" — se
+ * evalúa con `valoracionParaPantalla` como cualquier otra, no con un umbral
+ * propio.
+ */
+export function valoracionEstudio(
+  instructores: { valoracion?: ValoracionInstructora | null }[],
+): ValoracionInstructora | null {
+  let puntos = 0;
+  let total = 0;
+  for (const i of instructores) {
+    if (!i.valoracion || i.valoracion.total <= 0) continue;
+    puntos += i.valoracion.media * i.valoracion.total;
+    total += i.valoracion.total;
+  }
+  return total > 0 ? { media: puntos / total, total } : null;
+}
+
 export function valoracionParaPantalla(
   v: ValoracionInstructora | null | undefined,
   minimo: number = MINIMO_VALORACIONES,

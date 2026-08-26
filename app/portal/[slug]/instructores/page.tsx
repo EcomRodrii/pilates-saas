@@ -76,13 +76,22 @@ export default function InstructoresPage() {
                   </div>
                 )}
 
-                <Link
-                  href={`/portal/${slug}/clases`}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 14, border: `1px solid ${t.heroAccent}4d`, color: t.heroAccent, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
-                >
-                  <span>Ver clases</span>
-                  <ChevronRight size={15} />
-                </Link>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Link
+                    href={`/portal/${slug}/instructores/${instructor.id}`}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 14, border: `1px solid ${t.line}`, color: t.ink, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+                  >
+                    <span>Su perfil</span>
+                    <ChevronRight size={15} />
+                  </Link>
+                  <Link
+                    href={`/portal/${slug}/clases`}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 14, border: `1px solid ${t.heroAccent}4d`, color: t.heroAccent, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+                  >
+                    <span>Ver clases</span>
+                    <ChevronRight size={15} />
+                  </Link>
+                </div>
               </div>
             );
           })}
