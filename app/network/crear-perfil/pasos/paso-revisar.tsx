@@ -52,7 +52,11 @@ export function PasoRevisar({
         </p>
       </div>
 
-      <button type="button" onClick={() => onEditar(0)} className="text-[13px] font-semibold underline" style={{ color: NW_TINTA }}>Editar algo</button>
+      {/* Paso 1 (Identidad), no 0 (Cuenta) — con sesión ya iniciada, paso 0
+          no tiene ningún bloque que lo renderice (PasoCuenta va gateado
+          por `!user` más arriba en page.tsx) y dejaba una pantalla en
+          blanco bajo "Paso 00 de 12". */}
+      <button type="button" onClick={() => onEditar(1)} className="text-[13px] font-semibold underline" style={{ color: NW_TINTA }}>Editar algo</button>
     </div>
   );
 }
