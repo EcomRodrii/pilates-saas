@@ -28,7 +28,7 @@ import {
   TARIFAS_RANGO_NETWORK, TARIFA_RANGO_LABEL,
   DISPONIBILIDAD_ESTADOS_NETWORK, DISPONIBILIDAD_ESTADO_LABEL,
 } from '@/lib/network/catalogo';
-import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, labelCls, cardCls } from '@/components/network/campo-estilos';
 import { cn } from '@/lib/utils';
 
 // Onboarding de instructora EN PASOS (brief §16) — antes era un único

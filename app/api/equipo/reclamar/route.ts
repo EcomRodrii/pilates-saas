@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const result = await equipoReclamarAction({ ...body, jwt });
     return NextResponse.json(result);
-  } catch (error: any) {
-    const message = error?.message || 'Error';
+  } catch (error) {
+    const message = (error as Error)?.message || 'Error';
     let status = 500;
 
     if (message.includes('no vale')) status = 400;

@@ -283,6 +283,12 @@ interface StudioContextValue {
   // Barra clásica, no flotante (Oliva/Noir) — mismo motivo JS que tabBarStyle:
   // decide el `position` de <PortalNav>, algo que una CSS var no puede hacer.
   barraClasica: boolean;
+  // Barra flotante (Bloom) — eje INDEPENDIENTE de barraClasica (ver
+  // barraFlotanteSchema en theme-schema.ts). El portal "de siempre" solo la usa
+  // por CSS var; SOLO los temas del kit la leen aquí como valor JS, para
+  // decidir `features.tab_bar_style` (portal-tema-marco.tsx/vista-previa-kit.tsx)
+  // — mismo motivo que barraClasica está en este Context y no solo en CSS.
+  barraFlotante: boolean;
   // Estilo de los accesos rápidos del Inicio — SOLO temas del kit, ver
   // ESTILOS_ACCESOS_RAPIDOS en theme-schema.ts. `null` = hereda del tema.
   quickLinksStyle: QuickLinksStyleId | null;
@@ -699,6 +705,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [bloquesReservar, setBloquesReservar] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.reservar.publicado);
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
   const [barraClasica, setBarraClasica] = useState(false);
+  const [barraFlotante, setBarraFlotante] = useState(false);
   const [quickLinksStyle, setQuickLinksStyle] = useState<QuickLinksStyleId | null>(null);
   const [variantes, setVariantes] = useState<VariantesResueltas>(DEFAULT_VARIANTES);
   // Tema en BORRADOR dentro del iframe del editor (/portal-preview, /reservar).
@@ -969,6 +976,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setBloquesReservar(pub.bloquesReservar ?? DEFAULT_LAYOUT.bloques.reservar.publicado);
       setTabBarStyle(pub.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica');
       setBarraClasica(pub.barraClasica === true);
+      setBarraFlotante(pub.barraFlotante === true);
       setQuickLinksStyle(pub.quickLinksStyle === 'cards' || pub.quickLinksStyle === 'bare' ? pub.quickLinksStyle : null);
       // resolveVariantes valida clave a clave y siempre devuelve el objeto
       // completo — un valor corrupto en un eje no arrastra a los demás.
@@ -4462,6 +4470,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // lo publicado. Fuera del preview es `null` y esto es exactamente lo de antes.
   const tabBarStyleEfectivo = temaJsPreview?.tabBarStyle ?? tabBarStyle;
   const barraClasicaEfectiva = temaJsPreview?.barraClasica ?? barraClasica;
+  const barraFlotanteEfectiva = temaJsPreview?.barraFlotante ?? barraFlotante;
   // ⚠️ NO `??`: `quickLinksStyle` es un campo NULLABLE de verdad (`null` =
   // "hereda del tema", no "sin valor todavía"). Con `temaJsPreview?.x ?? y`,
   // un borrador que quiere heredar (`quickLinksStyle: null` dentro del
@@ -4490,6 +4499,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bloquesReservar,
     tabBarStyle: tabBarStyleEfectivo,
     barraClasica: barraClasicaEfectiva,
+    barraFlotante: barraFlotanteEfectiva,
     quickLinksStyle: quickLinksStyleEfectivo,
     variantes: variantesEfectivas,
     navPortal,
@@ -4729,7 +4739,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // notara.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
@@ -4824,6 +4834,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       deleteInstructor={deleteInstructor}
       navPortal={navPortal}
       barraClasica={barraClasicaEfectiva}
+      barraFlotante={barraFlotanteEfectiva}
       tabBarStyle={tabBarStyleEfectivo}
       quickLinksStyle={quickLinksStyleEfectivo}
       variantes={variantesEfectivas}

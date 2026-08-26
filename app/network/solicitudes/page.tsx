@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth-context';
 import {
   fetchSolicitudesContactoNetwork, resolverSolicitudContactoNetwork, type SolicitudContactoRecibida,
 } from '@/lib/api-client';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/network/campo-estilos';
 import { cn } from '@/lib/utils';
 
 const ESTADO_INFO: Record<SolicitudContactoRecibida['estado'], { texto: string; cls: string }> = {

@@ -11,8 +11,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const result = await equipoInvitarAction(body);
     return NextResponse.json(result);
-  } catch (error: any) {
-    const message = error?.message || 'Error procesando la solicitud';
+  } catch (error) {
+    const message = (error as Error)?.message || 'Error procesando la solicitud';
     let status = 500;
 
     if (message.includes('No autorizado')) status = 401;
