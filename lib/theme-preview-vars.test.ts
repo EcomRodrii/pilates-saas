@@ -7,7 +7,7 @@ import { CLAVES_PREVIEW_PERMITIDAS, CLAVES_KIT_PERMITIDAS, varsDePreview, varsKi
 import { themeToCssVars, varsKitMap } from './theme-runtime.ts';
 import { THEME_DEFINITIONS } from './theme-definitions.ts';
 import { TEMAS_PORTAL_IDS } from '../themes/registro.ts';
-import { DEFAULT_THEME } from './theme-schema.ts';
+import { DEFAULT_THEME, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, ESTILOS_TITULAR_PORTAL } from './theme-schema.ts';
 
 // Ejes de FORMA del tema: son los que hacen que un tema declare vars que otro
 // no declara, y por tanto los que pueden dejar la whitelist corta.
@@ -22,6 +22,36 @@ function combinaciones(): Record<string, unknown>[] {
   }
   return salida;
 }
+
+// P2 de la auditoría del Theme Builder: antes, cada eje de enum (buttonStyle,
+// cardStyle, portalHeadingFontId, radius) se probaba con una lista de valores
+// escrita a mano — y ESE fue el punto ciego real detrás de los huecos P0/P1
+// de esta misma auditoría (`--btn-primary-*`, el preset de `radius`): un
+// valor real del eje que nadie se acordó de añadir a la lista. Peor, la lista
+// de `buttonStyle` llevaba tiempo probando `'ghost'`, que no es un
+// `ButtonStyleId` real — `'soft'` nunca se probó ahí pese a estar en la
+// lista de al lado.
+//
+// `ejesDeEnum` deriva las combinaciones DIRECTAMENTE del catálogo de
+// theme-schema.ts (`ESTILOS_BOTON`, `ESTILOS_TARJETA`, `RADIOS`,
+// `ESTILOS_TITULAR_PORTAL`): un valor nuevo en cualquiera de esos catálogos
+// entra solo en la cobertura de estos 4 tests, sin que nadie tenga que
+// acordarse de escribir una línea más aquí.
+function ejesDeEnum(campo: string, catalogo: readonly { id: string }[]): Record<string, unknown>[] {
+  return catalogo.map((v) => ({ [campo]: v.id }));
+}
+
+// Comunes a los dos vocabularios (de siempre y kit): los 4 ejes de enum que
+// ambos emisores traducen a CSS vars propias según el valor.
+const EJES_ENUM = [
+  ...ejesDeEnum('buttonStyle', ESTILOS_BOTON),
+  ...ejesDeEnum('cardStyle', ESTILOS_TARJETA),
+  ...ejesDeEnum('portalHeadingFontId', ESTILOS_TITULAR_PORTAL),
+];
+
+// Solo el kit traduce el preset de `radius` (Recto/Redondeado/Píldora) a sus
+// propios tokens — `themeToCssVars` (de siempre) no lo usa como tal.
+const EJES_ENUM_KIT = [...EJES_ENUM, ...ejesDeEnum('radius', RADIOS)];
 
 // ⚠️ El test que de verdad importa: una var que el motor emite y la whitelist
 // no conoce se descarta EN SILENCIO en el preview y en las miniaturas. Así se
@@ -41,6 +71,7 @@ test('ninguna var que emita el motor se queda fuera de la whitelist del preview'
       destacado: '#D9B166',
       background: '#101820',
     })),
+    ...EJES_ENUM,
   ];
 
   for (const tema of temas) {
@@ -64,15 +95,7 @@ test('la whitelist no tiene claves que el motor ya no emita', () => {
       destacado: '#D9B166',
       background: '#101820',
     })),
-    // Estilos que declaran vars propias frente a los que heredan el fallback.
-    { buttonStyle: 'outline' }, { buttonStyle: 'ghost' },
-    { cardStyle: 'elevated' }, { cardStyle: 'bordered' },
-    // Las 5 no-default de ESTILOS_TITULAR_PORTAL — 'instrumentSerif' (default)
-    // ya sale en {}. Todas emiten las mismas 2 claves hoy, pero probarlas
-    // todas es el mismo hábito que hubiera cazado antes el hueco de buttonStyle.
-    { portalHeadingFontId: 'instrumentSansBold' },
-    { portalHeadingFontId: 'outfit' }, { portalHeadingFontId: 'poppins' },
-    { portalHeadingFontId: 'cormorant' }, { portalHeadingFontId: 'libreCaslon' },
+    ...EJES_ENUM,
   ];
   for (const tema of temas) for (const c of Object.keys(themeToCssVars(tema))) emitidas.add(c);
 
@@ -89,27 +112,17 @@ test('ninguna var del KIT que emita el motor se queda fuera de su whitelist', ()
   const fuera = new Set<string>();
   for (const id of TEMAS_PORTAL_IDS) {
     for (const ejes of [
-      {}, { cardStyle: 'elevated' }, { cardStyle: 'bordered' }, { cardStyle: 'flat' },
-      { portalHeadingFontId: 'instrumentSansBold' },
+      {},
       { radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 } },
       // La escala se pide por PASOS (`escalaTexto`), y el motor deriva un
       // factor; con un paso desviado ya emite la escala entera del tema.
       { escalaTexto: { seccion: 30 } }, { escalaTexto: { tituloHero: 60, saludo: 20 } },
       { background: '#101820' },
-      // `buttonStyle` sobre un tema del KIT (`varsBotonSobreTema`): faltaba en
-      // esta lista, y por eso `--btn-primary-bg/fg/border` estuvo meses fuera
-      // de `CLAVES_KIT_PERMITIDAS` sin que este test lo viera — reproducido en
-      // vivo 2026-08-25 (P0 de la auditoría del Theme Builder).
-      { buttonStyle: 'outline' }, { buttonStyle: 'soft' },
-      // P1 de la misma auditoría: el preset de `radius` (`varsRadioPresetSobreTema`)
-      // nunca se ejercitaba aquí — solo el ajuste fino (`radioTema` de arriba).
-      // Emite las mismas 4 claves hoy, pero es el mismo tipo de punto ciego que
-      // dejó pasar buttonStyle: un valor real del eje, nunca probado.
-      { radius: 'sharp' }, { radius: 'rounded' }, { radius: 'pill' },
       // `destacado`/`barraOscura` sobre un tema del KIT (`varsColorSobreTema`
       // con `accent`, `varsBarraOscuraSobreTema`): mismo tipo de hueco que
       // buttonStyle — P1 de la auditoría, cableando el kit de verdad.
       { destacado: '#D9B166' }, { barraOscura: true },
+      ...EJES_ENUM_KIT,
     ]) {
       const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
       for (const clave of Object.keys(varsKitMap(tema))) {
@@ -124,16 +137,12 @@ test('la whitelist del kit no tiene claves que ningún tema emita', () => {
   const emitidas = new Set<string>();
   for (const id of TEMAS_PORTAL_IDS) {
     for (const ejes of [
-      {}, { cardStyle: 'elevated' }, { cardStyle: 'bordered' },
-      { portalHeadingFontId: 'instrumentSansBold' },
-      { portalHeadingFontId: 'outfit' }, { portalHeadingFontId: 'poppins' },
-      { portalHeadingFontId: 'cormorant' }, { portalHeadingFontId: 'libreCaslon' },
+      {},
       { radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 } },
       { escalaTexto: { seccion: 30 } },
       { background: '#101820' },
-      { buttonStyle: 'outline' }, { buttonStyle: 'soft' },
-      { radius: 'sharp' }, { radius: 'rounded' }, { radius: 'pill' },
       { destacado: '#D9B166' }, { barraOscura: true },
+      ...EJES_ENUM_KIT,
     ]) {
       const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
       for (const c of Object.keys(varsKitMap(tema))) emitidas.add(c);
