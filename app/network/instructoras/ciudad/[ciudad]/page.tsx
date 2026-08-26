@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { MarketplaceLayout } from '@/components/network-v2/MarketplaceLayout';
+import { ciudadDesdeParam } from '@/lib/network/ciudad-param';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { buscarPerfilesPublico } from '@/lib/network/publico';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
@@ -11,9 +13,9 @@ import { LEGAL } from '@/lib/legal-info';
 // /network/instructoras/[slug] (perfil público) — Next.js no admite dos
 // nombres de segmento dinámico distintos al mismo nivel de ruta. El prefijo
 // estático desambigua sin perder legibilidad ni indexabilidad.
-function ciudadDesdeParam(param: string): string {
-  return decodeURIComponent(param).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
+// `ciudadDesdeParam` vive ahora en lib/network/ciudad-param.ts: estaba
+// duplicado literal aquí y en la variante ×especialidad, y ninguna de las dos
+// copias validaba nada.
 
 const FILTRO_BASE: Omit<FiltroBusquedaNetwork, 'ciudad'> = {
   especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
@@ -36,6 +38,8 @@ async function hayResultadosReales(nombreCiudad: string): Promise<boolean> {
 export async function generateMetadata({ params }: { params: Promise<{ ciudad: string }> }): Promise<Metadata> {
   const { ciudad } = await params;
   const nombre = ciudadDesdeParam(ciudad);
+  // Una URL fabricada no describe ninguna página: ni título ni indexación.
+  if (!nombre) return { title: 'Instructoras de Pilates y Yoga', robots: { index: false, follow: false } };
   const indexable = await hayResultadosReales(nombre);
   return {
     title: `Instructoras de Pilates y Yoga en ${nombre}`,
@@ -47,6 +51,7 @@ export async function generateMetadata({ params }: { params: Promise<{ ciudad: s
 export default async function MarketplacePorCiudadPage({ params }: { params: Promise<{ ciudad: string }> }) {
   const { ciudad } = await params;
   const nombre = ciudadDesdeParam(ciudad);
+  if (!nombre) notFound(); // mismo criterio que `esEspecialidadValida` en la ruta hermana
   return (
     <MarketplaceLayout
       filtro={{ ...FILTRO_BASE, ciudad: nombre }}

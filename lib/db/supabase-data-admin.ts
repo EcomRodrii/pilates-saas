@@ -692,6 +692,15 @@ export async function fetchPublicStudioData(
     // Barra clásica (Oliva/Noir): decisión de LAYOUT que portal-shell.tsx toma
     // con JS (position flotante o no), no algo que una CSS var pueda decidir.
     barraClasica: temaPublicado?.barraClasica ?? null,
+    // Su gemela, que se quedó fuera de este payload: `studio-context` hace
+    // `setBarraFlotante(pub.barraFlotante === true)` y `pub.barraFlotante` era
+    // SIEMPRE undefined, así que la rama 'floating' de portal-tema-marco.tsx era
+    // código muerto en producción. El interruptor «Barra flotante» sí cambiaba
+    // el PREVIEW, porque ahí el valor llega por el otro carril
+    // (lib/theme-preview-puente.ts) — o sea que el editor enseñaba una cosa y el
+    // portal de las socias hacía otra, en los tres temas cuyo tab_bar_style de
+    // fábrica es 'classic' (Tentada, Oliva, Noir).
+    barraFlotante: temaPublicado?.barraFlotante ?? null,
     // Accesos rápidos del Inicio — solo temas del kit. `null` real (hereda
     // del tema) es un valor válido, no "sin dato": por eso NO se colapsa a
     // `?? null` sobre `null` como si fuera ausencia (sería un no-op, pero

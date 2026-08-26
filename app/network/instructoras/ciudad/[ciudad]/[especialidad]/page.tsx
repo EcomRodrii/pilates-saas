@@ -5,11 +5,11 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { buscarPerfilesPublico } from '@/lib/network/publico';
 import { esEspecialidadValida, ESPECIALIDAD_LABEL, DISCIPLINA_DE_ESPECIALIDAD, DISCIPLINA_LABEL, type EspecialidadNetwork } from '@/lib/network/catalogo';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
+import { ciudadDesdeParam } from '@/lib/network/ciudad-param';
 import { LEGAL } from '@/lib/legal-info';
 
-function ciudadDesdeParam(param: string): string {
-  return decodeURIComponent(param).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
+// `ciudadDesdeParam` compartido con la variante solo-ciudad (antes duplicado
+// literal en los dos ficheros, y sin validar en ninguno de los dos).
 
 const FILTRO_BASE: Omit<FiltroBusquedaNetwork, 'ciudad' | 'especialidades'> = {
   disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
@@ -29,7 +29,7 @@ async function hayResultadosReales(nombreCiudad: string, especialidad: Especiali
 export async function generateMetadata({ params }: { params: Promise<{ ciudad: string; especialidad: string }> }): Promise<Metadata> {
   const { ciudad, especialidad } = await params;
   const nombreCiudad = ciudadDesdeParam(ciudad);
-  if (!esEspecialidadValida(especialidad)) return { title: 'Instructoras de Pilates y Yoga', robots: { index: false, follow: false } };
+  if (!nombreCiudad || !esEspecialidadValida(especialidad)) return { title: 'Instructoras de Pilates y Yoga', robots: { index: false, follow: false } };
   const nombreEspecialidad = ESPECIALIDAD_LABEL[especialidad];
   const disciplina = DISCIPLINA_DE_ESPECIALIDAD[especialidad];
   const nombreDisciplina = disciplina ? DISCIPLINA_LABEL[disciplina] : 'Pilates y Yoga';
@@ -49,6 +49,7 @@ export default async function MarketplacePorCiudadYEspecialidadPage({
   const { ciudad, especialidad } = await params;
   if (!esEspecialidadValida(especialidad)) notFound();
   const nombreCiudad = ciudadDesdeParam(ciudad);
+  if (!nombreCiudad) notFound();
   const nombreEspecialidad = ESPECIALIDAD_LABEL[especialidad];
   return (
     <MarketplaceLayout

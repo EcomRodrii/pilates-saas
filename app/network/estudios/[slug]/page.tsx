@@ -11,6 +11,7 @@ import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { BotonFavoritoAlumna } from '@/components/network/boton-favorito-alumna';
 import { FormularioResenaAlumna } from '@/components/network/formulario-resena-alumna';
 import { LEGAL } from '@/lib/legal-info';
+import { hrefCanal } from '@/lib/canales-estudio';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_PRODUCTO } from '@/components/network-v2/tokens';
 
 // Ficha pública de ESTUDIO (quinta pieza de F3) — hermana de
@@ -112,9 +113,14 @@ export default async function FichaEstudioPage({ params }: { params: Promise<{ s
               {estudio.ciudad && (
                 <span className="flex items-center gap-1"><MapPin size={14} />{estudio.ciudad}</span>
               )}
-              {estudio.sitioWeb && (
+              {/* `hrefCanal` y no el valor crudo: `studios.sitio_web` lo teclea
+                  el estudio y aquí se pinta como href. Los otros dos
+                  consumidores de este mismo dato ya pasaban por el helper —
+                  este se quedó fuera. Devuelve null (y no se pinta el enlace)
+                  para todo lo que no sea http/https. */}
+              {hrefCanal('web', estudio.sitioWeb) && (
                 <a
-                  href={estudio.sitioWeb}
+                  href={hrefCanal('web', estudio.sitioWeb)!}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
                   className="flex items-center gap-1 font-semibold hover:opacity-70"

@@ -79,6 +79,16 @@ export async function cobrarReciboOffSession(params: {
   if (reciboError || !recibo) {
     return { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' };
   }
+  // El filtro de arriba comprueba que el recibo es del estudio y que la socia es
+  // del estudio — pero NO que el recibo sea DE ESA SOCIA. Dos de los tres
+  // llamantes (`/api/stripe/charge-off-session` y `/api/cobros/cobrar-online`)
+  // toman `socioId` del body sin cruzarlo con nada, así que el recibo de A se
+  // cobraba a la tarjeta guardada de B: un cargo real a una tarjeta ajena, y el
+  // `metadata.socioId` del PaymentIntent apuntando a quien no lo debía. No cruza
+  // estudios, pero un typo en la UI basta para provocarlo.
+  if (recibo.socio_id !== params.socioId) {
+    return { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' };
+  }
   // Se puede cobrar un recibo PENDIENTE o uno FALLIDO (recuperación manual tras
   // agotar el dunning: si la socia paga más adelante, se vuelve a intentar). El
   // barrido automático solo reintenta los PENDIENTE.
