@@ -53,6 +53,7 @@ import {
   dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
   dbUpsertContenidoPortal, dbInsertBannerPortal, dbUpdateBannerPortal, dbDeleteBannerPortal,
+  dbInsertNovedadEstudio, dbUpdateNovedadEstudio, dbDeleteNovedadEstudio,
   dbInsertSala, dbUpdateSala, dbDeleteSala,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
   dbUpdateStudio, dbUpdateHorarioEstudio, dbUpdateStudioConfig, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
@@ -116,6 +117,7 @@ import type {
   TipoClase,
   ContenidoPortal,
   BannerPortal,
+  NovedadEstudio,
   FavoritoClase,
   Instructor,
   Spot,
@@ -247,6 +249,7 @@ interface StudioContextValue {
   // del catálogo público (cargarPublico), no con un fetch aparte.
   contenidoPortal: ContenidoPortal | null;
   bannersPortal: BannerPortal[];
+  novedadesEstudio: NovedadEstudio[];
   favoritos: FavoritoClase[];
   toggleFavorito: (tipoClaseId: string, accion: 'marcar' | 'desmarcar') => Promise<ResultadoEscritura>;
   // Retos del carrusel de Inicio (tema Bloom) — retosApuntados es SOLO los de
@@ -263,6 +266,9 @@ interface StudioContextValue {
   addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateBannerPortal: (id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteBannerPortal: (id: string) => Promise<ResultadoEscritura>;
+  addNovedadEstudio: (fields: Omit<NovedadEstudio, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  updateNovedadEstudio: (id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deleteNovedadEstudio: (id: string) => Promise<ResultadoEscritura>;
   // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del editor
   // de temas). Solo lectura aquí — se edita desde el dashboard
   // (components/theme/portal-bloques-editor.tsx), que llama a fetchLayout()/
@@ -702,6 +708,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [tiposClase, setTiposClase] = useState<TipoClase[]>([]);
   const [contenidoPortal, setContenidoPortal] = useState<ContenidoPortal | null>(null);
   const [bannersPortal, setBannersPortal] = useState<BannerPortal[]>([]);
+  const [novedadesEstudio, setNovedadesEstudio] = useState<NovedadEstudio[]>([]);
   const [portalHome, setPortalHome] = useState<OrdenVisibilidad>(DEFAULT_LAYOUT.portalHome);
   const [homeBloques, setHomeBloques] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.home.publicado);
   const [bloquesClases, setBloquesClases] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.clases.publicado);
@@ -974,6 +981,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setCitasDisponibilidad(pub.citasDisponibilidad ?? []);
       setContenidoPortal(pub.contenidoPortal ?? null);
       setBannersPortal(pub.bannersPortal ?? []);
+      setNovedadesEstudio((pub as { novedadesEstudio?: NovedadEstudio[] }).novedadesEstudio ?? []);
       setPortalHome(pub.portalHome ?? DEFAULT_LAYOUT.portalHome);
       setHomeBloques(pub.homeBloques ?? DEFAULT_LAYOUT.bloques.home.publicado);
       setBloquesClases(pub.bloquesClases ?? DEFAULT_LAYOUT.bloques.clases.publicado);
@@ -1175,6 +1183,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setTiposClase(data.tiposClase);
       setContenidoPortal(data.contenidoPortal);
       setBannersPortal(data.bannersPortal);
+      setNovedadesEstudio(data.novedadesEstudio);
       setInstructores(data.instructores);
       setSpots(data.spots);
       setBloqueosMaquina(data.bloqueosMaquina);
@@ -1704,6 +1713,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbDeleteBannerPortal(id);
     if (!res.ok) return res;
     setBannersPortal(prev => prev.filter(b => b.id !== id));
+    return res;
+  }
+
+  // ── Tablón (novedades_estudio) ──────────────────────────────────────────────
+  async function addNovedadEstudio(fields: Omit<NovedadEstudio, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+    const nuevo: NovedadEstudio = { ...fields, id: uuidV4(), studioId: getCurrentStudioId() };
+    const res = await dbInsertNovedadEstudio(nuevo);
+    if (!res.ok) return res;
+    setNovedadesEstudio(prev => [nuevo, ...prev]);
+    return res;
+  }
+  async function updateNovedadEstudio(id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateNovedadEstudio(id, changes);
+    if (!res.ok) return res;
+    setNovedadesEstudio(prev => prev.map(n => n.id === id ? { ...n, ...changes } : n));
+    return res;
+  }
+  async function deleteNovedadEstudio(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteNovedadEstudio(id);
+    if (!res.ok) return res;
+    setNovedadesEstudio(prev => prev.filter(n => n.id !== id));
     return res;
   }
 
@@ -4525,6 +4555,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addBannerPortal,
     updateBannerPortal,
     deleteBannerPortal,
+    novedadesEstudio,
+    addNovedadEstudio,
+    updateNovedadEstudio,
+    deleteNovedadEstudio,
     instructores,
     spots,
     bloqueosMaquina,
@@ -4746,7 +4780,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // notara.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,

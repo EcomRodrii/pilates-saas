@@ -52,7 +52,6 @@ import { bonoActivo } from '@/lib/bonos-portal';
 import { usePortalHref } from '@/components/portal/portal-preview-bridge';
 import {
   dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque, escala } from '@/lib/portal-design';
-import type { BannerPortal } from '@/lib/types';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
@@ -77,13 +76,14 @@ const ICONOS_ACCESO: Record<string, LucideIcon> = { CalendarDays, Sparkles, Bell
 // montado, no con esta constante.
 const FECHA_PLACEHOLDER_SSR = new Date('2026-06-29T00:00:00Z');
 
-// Un banner "de home" está listo para mostrarse si sigue activo y, si tiene
-// ventana de fechas, "hoy" cae dentro. El filtro de ubicación/activo ya lo
-// hizo la query del servidor (fetchPublicStudioData) — esto solo resuelve la
-// fecha, que depende del momento de carga, no de cuándo se rellenó el caché.
-function bannerVigente(b: BannerPortal, hoyISO: string): boolean {
-  if (b.fechaInicio && hoyISO < b.fechaInicio) return false;
-  if (b.fechaFin && hoyISO > b.fechaFin) return false;
+// Un banner o una novedad del Tablón "de home" están listos para mostrarse si
+// siguen activos y, si tienen ventana de fechas, "hoy" cae dentro. El filtro
+// de activo/ubicación ya lo hizo la query del servidor (fetchPublicStudioData)
+// — esto solo resuelve la fecha, que depende del momento de carga, no de
+// cuándo se rellenó el caché.
+function dentroDeVentana(x: { fechaInicio: string | null; fechaFin: string | null }, hoyISO: string): boolean {
+  if (x.fechaInicio && hoyISO < x.fechaInicio) return false;
+  if (x.fechaFin && hoyISO > x.fechaFin) return false;
   return true;
 }
 
@@ -124,7 +124,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   const portalHref = usePortalHref();
   const {
     socios, suscripciones, planesTarifa, sesiones, reservas,
-    tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal,
+    tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal, novedadesEstudio,
     homeBloques: homeBloquesPublicado,
     retosApuntados, retoConteos, toggleReto, variantes, valoracionEstudio,
   } = useStudio();
@@ -160,8 +160,13 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     // banner con fecha de inicio/fin de hoy aparecía/desaparecía con 1-2 h de
     // desfase.
     const hoyISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    return bannersPortal.filter(b => bannerVigente(b, hoyISO)).sort((a, b) => a.orden - b.orden);
+    return bannersPortal.filter(b => dentroDeVentana(b, hoyISO)).sort((a, b) => a.orden - b.orden);
   }, [bannersPortal, now]);
+
+  const novedadesVigentes = useMemo(() => {
+    const hoyISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return novedadesEstudio.filter(n => dentroDeVentana(n, hoyISO));
+  }, [novedadesEstudio, now]);
 
   // Orden/visibilidad del Inicio (Fase 3 del editor de temas — constructor de
   // bloques): los 4 módulos de siempre (`sistema`) se ordenan por CSS `order`
@@ -1410,6 +1415,38 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   </Link>
                 );
               })}
+            </div>
+          </>
+        )}
+
+        {/* "Tablón" (rediseño Tentare Studio App): avisos de texto libre que
+            PROPIETARIO/MANAGER escriben (componente Novedades del editor de
+            temas). Elemento persistente, no un bloque reordenable — mismo
+            criterio que "Tu ritmo"/"Tu estudio": aquí lo que decide qué se ve
+            es la ventana de fechas resuelta en cada carga, no un orden que
+            tenga sentido reordenar a mano. Vacío si no hay ningún aviso
+            vigente — nunca un "Tablón" con la sección en blanco debajo. */}
+        {novedadesVigentes.length > 0 && (
+          <>
+            <div style={{ padding: '30px 24px 8px' }}>
+              <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>Tablón</p>
+              <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Novedades del estudio</h2>
+            </div>
+            <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {novedadesVigentes.map((n) => (
+                <div
+                  key={n.id}
+                  style={{ display: 'flex', gap: 10, background: t.surface, border: `1px solid ${t.line}`, borderRadius: 14, padding: '11px 13px' }}
+                >
+                  <span style={{ fontSize: 14, flexShrink: 0 }}>{n.emoji || '📣'}</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 12, fontWeight: 800, color: t.ink }}>{n.titulo}</span>
+                    {n.texto && (
+                      <span style={{ display: 'block', fontSize: 10.5, color: t.muted, marginTop: 1 }}>{n.texto}</span>
+                    )}
+                  </span>
+                </div>
+              ))}
             </div>
           </>
         )}

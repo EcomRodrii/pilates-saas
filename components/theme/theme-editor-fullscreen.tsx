@@ -154,7 +154,7 @@ const GRUPOS_RAIL: { titulo: string; ayuda: string; filas: FilaRail[] }[] = [
     // reagrupado viene a quitar. Aquí se ESCRIBEN; allí se decide dónde caen.
     titulo: 'Avisos y banners',
     ayuda: 'Lo que anuncias a tus clientas. Se ve dentro del portal, pero no es una pantalla. Cada campo se guarda solo al escribirlo.',
-    filas: [{ id: 'contenido-portal', label: 'Mensaje y banners', desplegable: true }],
+    filas: [{ id: 'contenido-portal', label: 'Mensaje, banners y tablón', desplegable: true }],
   },
   {
     // Cuarto grupo, y el único que ve gente que NO ha entrado en ninguna app:
@@ -764,7 +764,7 @@ export function ThemeEditorFullscreen() {
               </div>
             ) : (nodo.tipo === 'pantalla' && nodo.id === 'contenido-portal') || (nodo.tipo === 'item' && nodo.grupo === 'contenido-portal') ? (
               <div className="w-[320px] aspect-[9/16] rounded-2xl border border-dashed border-border bg-background flex items-center justify-center text-center px-6">
-                <p className="text-[12px] text-muted-foreground">Los banners se ven en Inicio del portal — sin vista previa en directo todavía.</p>
+                <p className="text-[12px] text-muted-foreground">Los banners y el tablón se ven en Inicio del portal — sin vista previa en directo todavía.</p>
               </div>
             ) : (
               <HomePreview

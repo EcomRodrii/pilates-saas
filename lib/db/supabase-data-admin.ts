@@ -41,6 +41,7 @@ import type {
   RowRetoParticipaciones,
   RowContenidoPortal,
   RowContenidoPortalBanners,
+  RowNovedadesEstudio,
   RowFacturas,
   RowInstructores,
   RowMemberCredits,
@@ -100,6 +101,7 @@ import {
   mapRetoParticipacion,
   mapContenidoPortal,
   mapBannerPortal,
+  mapNovedadEstudio,
   mapServicioCita,
   mapSpot,
   mapTipoClase,
@@ -506,9 +508,9 @@ export async function fetchPublicStudioData(
     // su propio Promise.all de tamaño fijo en vez de mezclarse con el de arriba.
     const [
       videosRes, rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
-      contenidoPortalRes, bannersPortalRes, retoParticipRes, horarioRes,
+      contenidoPortalRes, bannersPortalRes, novedadesRes, retoParticipRes, horarioRes,
     ] = liviano
-      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
+      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
       : await Promise.all([
         admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
         admin.from('reward_rules').select('*').eq('studio_id', studioId),
@@ -524,6 +526,12 @@ export async function fetchPublicStudioData(
         admin.from('contenido_portal_banners').select('*')
           .eq('studio_id', studioId).eq('activo', true).contains('ubicacion', ['home'])
           .order('orden', { ascending: true }),
+        // Mismo criterio que los banners de arriba: `activo` se filtra en SQL,
+        // la ventana fecha_inicio/fecha_fin en el cliente (mismo motivo — "hoy"
+        // depende del momento de carga, no de cuándo se llenó este caché).
+        admin.from('novedades_estudio').select('*')
+          .eq('studio_id', studioId).eq('activo', true)
+          .order('created_at', { ascending: false }),
         // `getLayout` YA NO va aquí — ver el comentario junto a `temaPublicado`
         // más abajo, donde se pide FUERA de este caché de 60s.
         // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
@@ -599,6 +607,7 @@ export async function fetchPublicStudioData(
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
       contenidoPortal: contenidoPortalRes?.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
       bannersPortal: (bannersPortalRes?.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
+      novedadesEstudio: (novedadesRes?.data ?? []).map((r) => mapNovedadEstudio(r as RowNovedadesEstudio)),
       // `portalHome`/`reservar`/`homeBloques`/`bloquesClases`/`bloquesBonos`/
       // `bloquesReservar` YA NO viven aquí — ver `camposLayout` más abajo,
       // construido con un `getLayout` pedido FUERA de este caché de 60s.
