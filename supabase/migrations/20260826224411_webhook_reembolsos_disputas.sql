@@ -11,7 +11,7 @@ create table if not exists webhook_reembolsos (
   id uuid primary key default gen_random_uuid(),
   pi_stripe_id text not null,
   charge_stripe_id text not null,
-  recibo_id uuid,
+  recibo_id text,
   amount_refunded_cents integer not null,
   total_charge_cents integer not null,
   es_reembolso_total boolean not null,
@@ -26,7 +26,7 @@ create table if not exists webhook_disputas (
   id uuid primary key default gen_random_uuid(),
   pi_stripe_id text not null,
   dispute_stripe_id text not null,
-  recibo_id uuid,
+  recibo_id text,
   dispute_status text not null,
   procesado_en timestamptz not null default now(),
   unique(pi_stripe_id, dispute_stripe_id)
