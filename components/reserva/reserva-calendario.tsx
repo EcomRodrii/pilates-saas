@@ -251,6 +251,20 @@ export interface ReservaCalendarioProps {
    */
   abrirSlotExterno?: { slotId: string | null; nonce: number };
   /**
+   * Intercepta el CLIC EN LA TARJETA de una clase, antes de abrir la ficha
+   * interna — pensado para Modo B sin sesión (`app/widget-bundle/main.tsx`),
+   * que redirige a la página real de Tentare en vez de mostrar la ficha
+   * embebida: sin esto, la visitante sin sesión tenía que dar DOS toques
+   * (abrir la ficha, y solo LUEGO "Reservar" dentro de ella dispara la
+   * navegación) para llegar al mismo sitio — un paso intermedio que no
+   * aporta nada si de todas formas va a salir del widget.
+   * Devolver `true` significa "ya me he hecho cargo" (p. ej. ya navegó): la
+   * ficha NO se abre. Cualquier otro valor (o la prop ausente) deja el
+   * comportamiento de siempre. El resto de callers (Modo A, "Mis reservas",
+   * vista Mes) no la pasan y no ven ningún cambio.
+   */
+  onAntesDeAbrir?: (slot: ReservaSlot) => boolean;
+  /**
    * Origen absoluto de la app (`ORIGEN_TENTARE` en `app/widget-bundle/main.tsx`)
    * para prefijar la foto de clase POR DEFECTO de la hoja de detalle cuando la
    * propietaria no ha subido la suya — solo hace falta en Modo B (Shadow DOM en
@@ -408,7 +422,7 @@ export function ReservaCalendario({
   irADia, estiloDias = 'semana', finalizadasHoy, loading = false,
   ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, vistaInicial = 'todo',
   enIframe = false, franjaVisible = null, alCambiarFicha, origenTentare = '',
-  estiloFicha = 'modal', abrirSlotExterno,
+  estiloFicha = 'modal', abrirSlotExterno, onAntesDeAbrir,
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
@@ -523,6 +537,7 @@ export function ReservaCalendario({
   }
 
   function abrirSlot(slot: ReservaSlot) {
+    if (onAntesDeAbrir?.(slot)) return;
     setOpenSlotId(slot.id);
     setSelectedSpot(null);
     setResultado(null);
