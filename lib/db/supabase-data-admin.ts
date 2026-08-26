@@ -13,6 +13,7 @@ import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, t
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
+import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { LEGAL } from '@/lib/legal-info';
 import { decidirCierreDeEspera, suscripcionDeReservaWeb, PREFIJO_RESERVA_WEB } from '@/lib/lista-espera/esperas-sin-plaza';
@@ -552,28 +553,33 @@ export async function fetchPublicStudioData(
     // Mismo motivo que en el panel: el portal decide con esto si una clase
     // está incluida en el bono o hay que enseñar precio de suelta.
     const planesConTiposPub = await hidratarTiposDePlanes(admin as never, studioId, (planesRes.data ?? []).map(mapPlanTarifa));
+
+    // La media por instructora, agregada AQUÍ y no en la pantalla: al kit le
+    // llega la nota ya hecha con su número de valoraciones, y quien la pinta
+    // solo decide si la enseña (ver `valoracionParaPantalla`). Se calcula una
+    // vez y se reutiliza para la nota del ESTUDIO (`valoracionEstudio`, "Tu
+    // estudio" en Inicio): sumarla en el otro sentido (media × total de cada
+    // instructora) da los mismos puntos sin releer `valoraciones` fila a fila.
+    const sumaValoraciones = new Map<string, { total: number; puntos: number }>();
+    for (const v of (valoracionesRes.data ?? []) as { instructor_id: string; puntuacion: number }[]) {
+      if (!v.instructor_id || typeof v.puntuacion !== 'number') continue;
+      const a = sumaValoraciones.get(v.instructor_id) ?? { total: 0, puntos: 0 };
+      a.total += 1; a.puntos += v.puntuacion;
+      sumaValoraciones.set(v.instructor_id, a);
+    }
+    const instructoresPub = (instructoresRes.data ?? []).map((r) => {
+      const base = mapInstructorPublico(r as RowInstructores);
+      const a = sumaValoraciones.get(base.id);
+      return a && a.total > 0
+        ? { ...base, valoracion: { media: a.puntos / a.total, total: a.total } }
+        : base;
+    });
+
     return {
       tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
       salas: (salasRes.data ?? []).map(mapSala),
-      instructores: (() => {
-        // La media por instructora, agregada AQUÍ y no en la pantalla: al kit le
-        // llega la nota ya hecha con su número de valoraciones, y quien la pinta
-        // solo decide si la enseña (ver `valoracionParaPantalla`).
-        const suma = new Map<string, { total: number; puntos: number }>();
-        for (const v of (valoracionesRes.data ?? []) as { instructor_id: string; puntuacion: number }[]) {
-          if (!v.instructor_id || typeof v.puntuacion !== 'number') continue;
-          const a = suma.get(v.instructor_id) ?? { total: 0, puntos: 0 };
-          a.total += 1; a.puntos += v.puntuacion;
-          suma.set(v.instructor_id, a);
-        }
-        return (instructoresRes.data ?? []).map((r) => {
-          const base = mapInstructorPublico(r as RowInstructores);
-          const a = suma.get(base.id);
-          return a && a.total > 0
-            ? { ...base, valoracion: { media: a.puntos / a.total, total: a.total } }
-            : base;
-        });
-      })(),
+      instructores: instructoresPub,
+      valoracionEstudio: valoracionEstudio(instructoresPub),
       spots: (spotsRes.data ?? []).map(mapSpot),
       // El horario de apertura, para «Información del centro». Vacío en el
       // modo `liviano` (el widget no lo pide) — misma forma del objeto, como

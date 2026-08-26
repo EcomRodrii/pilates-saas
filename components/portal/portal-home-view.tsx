@@ -55,6 +55,9 @@ import type { BannerPortal } from '@/lib/types';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
+import { hoyEnEstudio } from '@/lib/utils';
+import { queImparten } from '@/lib/equipo';
+import { valoracionParaPantalla } from '@/lib/portal-tema/valoracion';
 
 // Iconos de los accesos rápidos en sus variantes rejilla/círculos (la de filas
 // no lleva icono). Mismo criterio que portal-nav.tsx: el dato es un NOMBRE, el
@@ -122,7 +125,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     socios, suscripciones, planesTarifa, sesiones, reservas,
     tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal,
     homeBloques: homeBloquesPublicado,
-    retosApuntados, retoConteos, toggleReto, variantes,
+    retosApuntados, retoConteos, toggleReto, variantes, valoracionEstudio,
   } = useStudio();
   const homeBloques = homeBloquesOverride ?? homeBloquesPublicado;
   // Las dos cabeceras del prototipo llevan avatar y campana de icono; solo
@@ -356,6 +359,51 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   const diaCorto = (iso: string) =>
     new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).replace('.', '').toUpperCase();
+
+  // "Tu estudio" (rediseño Tentare Studio App): la próxima sesión de HOY con
+  // aforo, para el badge "hoy HH:MM · N plazas" — fecha en LOCAL del estudio
+  // (hoyEnEstudio), no UTC, mismo gotcha ya documentado en Decision OS. Sin
+  // clase hoy, el badge simplemente no se pinta (nunca un hueco vacío con
+  // aspecto de dato).
+  const sesionHoy = useMemo(() => {
+    const hoyStr = hoyEnEstudio(now);
+    const libres = (sesionId: string, aforo: number) =>
+      aforo - reservas.filter(r => r.sesionId === sesionId && r.estado === 'CONFIRMADA').length;
+    const candidatas = sesiones
+      .filter(s => !s.cancelada && new Date(s.inicio) > now && hoyEnEstudio(new Date(s.inicio)) === hoyStr)
+      .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime());
+    if (candidatas.length === 0) return null;
+    const s = candidatas[0];
+    return { sesion: s, libres: libres(s.id, s.aforoMaximo) };
+  }, [now, sesiones, reservas]);
+
+  // La instructora de esa misma clase de hoy si hay una, si no la primera que
+  // imparte de verdad (recepción queda fuera, `queImparten`) — nunca ninguna
+  // si el estudio no tiene instructoras activas.
+  const instructoraDestacada = useMemo(() => {
+    const activas = queImparten(instructores);
+    if (activas.length === 0) return null;
+    const deHoy = sesionHoy ? activas.find(i => i.id === sesionHoy.sesion.instructorId) : null;
+    return deHoy ?? activas[0];
+  }, [instructores, sesionHoy]);
+
+  const especialidadesDestacada = useMemo(() => {
+    if (!instructoraDestacada) return [];
+    const idsImpartidos = new Set(
+      sesiones.filter(s => s.instructorId === instructoraDestacada.id && !s.cancelada).map(s => s.tipoClaseId),
+    );
+    return tiposClase.filter(tc => idsImpartidos.has(tc.id));
+  }, [instructoraDestacada, sesiones, tiposClase]);
+
+  // Precio real de clase suelta (el plan PUNTUAL activo) — mismo campo que ya
+  // usa /reservar para decidir qué precio enseñar sin bono (lib/reservar/construir-slots.ts).
+  const precioClaseSuelta = useMemo(
+    () => planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null,
+    [planesTarifa],
+  );
+
+  const valoracionEstudioPantalla = valoracionParaPantalla(valoracionEstudio);
+  const valoracionInstructoraPantalla = valoracionParaPantalla(instructoraDestacada?.valoracion ?? null);
 
   const fechaHoy = ahora
     ? new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(ahora).toUpperCase()
@@ -1154,6 +1202,117 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               <BloqueHomeRender bloque={b} slug={slug} />
             </div>
           ))}
+        </div>
+
+        {/* "Tu estudio" (rediseño Tentare Studio App): carrusel con el
+            estudio y una instructora del equipo — elemento persistente, no
+            un bloque reordenable (misma razón que "Tu ritmo": depende de
+            datos calculados en cada carga — sesión de hoy, plan puntual
+            activo — que no tendría sentido reordenar en el editor). */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '30px 24px 8px' }}>
+          <div>
+            <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>El espacio</p>
+            <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Tu estudio</h2>
+          </div>
+          <Link href={portalHref(`/${slug}/clases`)} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
+            Ver horario →
+          </Link>
+        </div>
+        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '8px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
+          <Link
+            href={portalHref(`/${slug}/clases`)}
+            style={{
+              position: 'relative', minWidth: 236, flex: '0 0 236px', height: 280, borderRadius: 20,
+              overflow: 'hidden', textDecoration: 'none', boxShadow: sombra.cardSemana,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imagenDeEstudio('vertical', studio?.imagenBienvenidaUrl)}
+              alt={studio?.nombre ?? 'Tu estudio'}
+              onError={alFallarImagen(IMAGENES_POR_DEFECTO.vertical[0])}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(15,15,15,.64))' }} aria-hidden />
+            {sesionHoy && (
+              <span style={{
+                position: 'absolute', top: 11, left: 11, background: 'rgba(250,249,245,.92)', borderRadius: 999,
+                padding: '4px 10px', ...micro(10.5, 0, 700), color: '#2E5A3A',
+              }}>
+                hoy {hora(sesionHoy.sesion.inicio)} · {sesionHoy.libres} {sesionHoy.libres === 1 ? 'plaza' : 'plazas'}
+              </span>
+            )}
+            <div style={{ position: 'absolute', left: 13, right: 13, bottom: 11, color: '#fff' }}>
+              <p style={{ margin: 0, fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em' }}>{studio?.nombre}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'rgba(255,255,255,.85)' }}>
+                {[
+                  valoracionEstudioPantalla ? `★ ${valoracionEstudioPantalla.nota}` : null,
+                  [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || null,
+                ].filter(Boolean).join(' · ')}
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                {precioClaseSuelta != null && (
+                  <span style={{ fontSize: 13.5, fontWeight: 800 }}>{precioClaseSuelta} €</span>
+                )}
+                <span style={{ marginLeft: 'auto', background: '#FAF9F5', color: '#1A1A1A', borderRadius: 999, padding: '7px 14px', fontSize: 11.5, fontWeight: 800 }}>
+                  Ver clases
+                </span>
+              </div>
+            </div>
+          </Link>
+
+          {instructoraDestacada && (
+            <Link
+              href={`/portal/${slug}/instructores/${instructoraDestacada.id}`}
+              style={{
+                position: 'relative', minWidth: 236, flex: '0 0 236px', height: 280, borderRadius: 20,
+                overflow: 'hidden', textDecoration: 'none', boxShadow: sombra.cardSemana,
+                backgroundColor: instructoraDestacada.color,
+              }}
+            >
+              {/* Sin foto propia, NUNCA una foto de archivo haciéndose pasar
+                  por ella (lib/imagenes-por-defecto.ts) — se queda con su
+                  color e iniciales, igual que en el listado de equipo. */}
+              {instructoraDestacada.fotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={instructoraDestacada.fotoUrl}
+                  alt={instructoraDestacada.nombre}
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <span style={{
+                  position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 48, fontWeight: 800,
+                }}>
+                  {instructoraDestacada.nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
+                </span>
+              )}
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(15,15,15,.64))' }} aria-hidden />
+              <span style={{
+                position: 'absolute', top: 11, left: 11, background: 'rgba(250,249,245,.92)', borderRadius: 999,
+                padding: '4px 10px', ...micro(10.5, 0, 700), color: '#2E5A3A',
+              }}>
+                Tu equipo
+              </span>
+              <div style={{ position: 'absolute', left: 13, right: 13, bottom: 11, color: '#fff' }}>
+                <p style={{ margin: 0, fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                  Conoce a {instructoraDestacada.nombre.split(' ')[0]}
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'rgba(255,255,255,.85)' }}>
+                  {[
+                    valoracionInstructoraPantalla ? `★ ${valoracionInstructoraPantalla.nota}` : null,
+                    especialidadesDestacada.slice(0, 2).map(tc => tc.nombre).join(', ') || null,
+                  ].filter(Boolean).join(' · ')}
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <span style={{ background: 'rgba(250,249,245,.26)', border: '1px solid rgba(255,255,255,.5)', borderRadius: 999, padding: '7px 14px', fontSize: 11.5, fontWeight: 800 }}>
+                    Su perfil
+                  </span>
+                </div>
+              </div>
+            </Link>
+          )}
         </div>
       </div>
 

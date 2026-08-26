@@ -255,6 +255,10 @@ interface StudioContextValue {
   retosApuntados: string[];
   retoConteos: Record<string, number>;
   toggleReto: (retoKey: string, accion: 'marcar' | 'desmarcar') => Promise<ResultadoEscritura>;
+  // Nota agregada del ESTUDIO entero (todas sus instructoras), para "Tu
+  // estudio" en Inicio — `null` bajo el mínimo de valoraciones para enseñar
+  // algo, mismo criterio que `Instructor.valoracion` (lib/portal-tema/valoracion.ts).
+  valoracionEstudio: { media: number; total: number } | null;
   updateMensajeDestacado: (mensaje: string | null) => Promise<ResultadoEscritura>;
   addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateBannerPortal: (id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
@@ -734,6 +738,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
   const [retoConteos, setRetoConteos] = useState<Record<string, number>>({});
+  const [valoracionEstudio, setValoracionEstudio] = useState<{ media: number; total: number } | null>(null);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [segmentosClientes, setSegmentosClientes] = useState<SegmentoCliente[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
@@ -1031,6 +1036,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const ordRes = (pub as { reservar?: { orden?: unknown; ocultos?: unknown } | null }).reservar;
       setOrdenReservar({ orden: listaStr(ordRes?.orden), ocultos: listaStr(ordRes?.ocultos) });
       setRetoConteos(pub.retoConteos ?? {});
+      setValoracionEstudio((pub as { valoracionEstudio?: { media: number; total: number } | null }).valoracionEstudio ?? null);
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
         estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
@@ -4513,6 +4519,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     toggleFavorito,
     retosApuntados,
     retoConteos,
+    valoracionEstudio,
     toggleReto,
     updateMensajeDestacado,
     addBannerPortal,
@@ -4739,7 +4746,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // notara.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
