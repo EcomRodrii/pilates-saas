@@ -48,6 +48,7 @@ import { useModo } from '@/lib/portal-modo';
 import { HojaPase } from '@/components/portal/hoja-pase';
 import { AforoIndicator } from '@/components/portal/ui';
 import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
+import { bonoActivo } from '@/lib/bonos-portal';
 import { usePortalHref } from '@/components/portal/portal-preview-bridge';
 import {
   dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque, escala } from '@/lib/portal-design';
@@ -351,6 +352,15 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   // mismo criterio que getHomeCardContext arriba.
   const tiraSemana = useMemo(() => calcularTiraSemana(now, misReservas, sesiones), [now, misReservas, sesiones]);
   const progresoSemanal = useMemo(() => calcularProgresoSemanal(now, misReservas, sesiones), [now, misReservas, sesiones]);
+
+  // "Tu ritmo" (rediseño Tentare Studio App): el saldo de bono, siempre a la
+  // vista en Inicio en vez de solo en /bonos. `bonoActivo` ya calcula
+  // restantes/total/progreso — null con mensual ilimitado (nada que barrear)
+  // o sin ninguna suscripción activa, y ahí no se pinta nada.
+  const bono = useMemo(
+    () => bonoActivo(suscripciones, planesTarifa, tiposClase, session?.socioId ?? null),
+    [suscripciones, planesTarifa, tiposClase, session?.socioId],
+  );
 
   const nombre = socio?.nombre ?? session?.nombre?.split(' ')[0] ?? '';
   const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -724,6 +734,38 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         </>
         )}
 
+        {/* "Tu ritmo" — saldo de bono, siempre a la vista (rediseño Tentare
+            Studio App). Elemento persistente, no un bloque reordenable: igual
+            que la tarjeta de arriba, depende de datos de sesión (bono real de
+            ESTA socia) que no tendría sentido que una socia sin sesión (staff
+            en /portal-preview) reordenara. Oculto sin bono con sesiones que
+            contar — un mensual ilimitado no tiene fracción que barrear, y
+            mostrar un 0/0 mentiría sobre un bono que no existe. */}
+        {bono && bono.totalSesiones != null && bono.totalSesiones > 0 && (
+          <>
+            <div style={{ height: 44 }} />
+            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
+              Tu ritmo
+            </h2>
+            <div style={{
+              marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
+              padding: '14px 16px', boxShadow: sombra.cardSemana,
+            }}>
+              <span style={{ ...texto.metaFuerte, color: t.ink }}>{bono.nombre}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 66, height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${Math.round((bono.progresoTotal ?? 0) * 100)}%`, height: '100%',
+                    background: 'var(--portal-brand)', borderRadius: 999,
+                  }} />
+                </div>
+                <span style={{ ...micro(11, 0, 500), color: t.heroAccent }}>quedan {bono.totalRestantes}</span>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Zona de Inicio construida con bloques (Fase 3 del editor de temas):
             cada módulo de siempre se ordena por CSS `order` sin mover el DOM,
             así que ningún efecto de scroll/parallax de arriba (que solo
@@ -1012,30 +1054,35 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             </div>
           </div>
 
-          {/* Anillo de progreso semanal (tema "Noir") — reservas CONFIRMADA de
-              esta semana sobre META_PROGRESO_SEMANAL (un número de
-              referencia, no una meta configurable). Oculto por defecto. */}
+          {/* Progreso semanal — reservas CONFIRMADA de esta semana sobre
+              META_PROGRESO_SEMANAL (un número de referencia, no una meta
+              configurable). Oculto por defecto. Barra compacta (rediseño
+              Tentare Studio App, 2026-08-26): sustituye el anillo anterior,
+              que no tenía variante propia por tema (a diferencia de
+              `retos.variantes` de abajo) — no era la seña de ningún tema en
+              concreto, así que restylearlo no quita identidad a ninguno. */}
           <div {...wrap('progresoSemanal')}>
             <div style={{ height: 34 }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div style={{
-                width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
-                background: `conic-gradient(var(--portal-brand) ${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 360}deg, ${t.line} 0deg)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: transicion(['background'], dur.card),
-              }}>
-                <div style={{
-                  width: 50, height: 50, borderRadius: '50%', background: t.bg,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <span style={{ ...display(20), color: t.ink }}>{progresoSemanal}</span>
-                </div>
+            <div style={{
+              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
+              padding: '14px 16px', boxShadow: sombra.cardSemana,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ ...texto.metaFuerte, color: t.ink }}>{txt('progresoSemanal', 'titulo', 'Tu semana')}</span>
+                <span style={{ ...micro(9.5, 0, 500), color: t.muted2 } as React.CSSProperties}>meta {META_PROGRESO_SEMANAL}/sem</span>
               </div>
-              <div>
-                <div style={{ ...display(22), color: t.ink }}>{txt('progresoSemanal', 'titulo', 'Tu semana')}</div>
-                <div style={{ ...texto.meta, color: t.muted2, marginTop: 4 }}>
-                  {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'} reservada{progresoSemanal === 1 ? '' : 's'} esta semana
-                </div>
+              <div style={{ ...texto.meta, color: t.muted2, margin: '6px 0 8px' }}>
+                <span style={{ ...texto.metaFuerte, color: t.ink }}>
+                  {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'}
+                </span>{' '}
+                esta semana
+              </div>
+              <div style={{ height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 100}%`,
+                  height: '100%', background: 'var(--portal-brand)', borderRadius: 999,
+                  transition: transicion(['width'], dur.card),
+                }} />
               </div>
             </div>
           </div>
