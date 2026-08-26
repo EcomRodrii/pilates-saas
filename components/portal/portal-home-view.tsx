@@ -39,7 +39,7 @@ import { useParams } from 'next/navigation';
 import type { PortalSession } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora } from '@/lib/portal-home-logic';
+import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora, huecosHoy } from '@/lib/portal-home-logic';
 import { sugerirClase, cuandoSugerencia } from '@/lib/portal-sugerencias';
 import { CalendarDays, Sparkles, Bell, User, type LucideIcon } from 'lucide-react';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
@@ -363,6 +363,13 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   const bono = useMemo(
     () => bonoActivo(suscripciones, planesTarifa, tiposClase, session?.socioId ?? null),
     [suscripciones, planesTarifa, tiposClase, session?.socioId],
+  );
+
+  // "Huecos de hoy" (rediseño Tentare Studio App): clases de HOY con plaza
+  // libre que su plan/bono cubre de verdad — no toda la agenda del día.
+  const huecos = useMemo(
+    () => huecosHoy({ now, socioId: session?.socioId ?? null, sesiones, reservas, suscripciones, planesTarifa }),
+    [now, session?.socioId, sesiones, reservas, suscripciones, planesTarifa],
   );
 
   const nombre = socio?.nombre ?? session?.nombre?.split(' ')[0] ?? '';
@@ -1361,6 +1368,51 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             </Link>
           )}
         </div>
+
+        {/* "Huecos de hoy" (rediseño Tentare Studio App): SOLO las clases de
+            hoy que su plan/bono cubre y que aún tienen plaza — no toda la
+            agenda del día (eso ya está en "Esta semana"/Explorar). Elemento
+            persistente, no un bloque reordenable: depende de `session` y de
+            la hora exacta de carga, igual que "Tu ritmo"/"Tu estudio". Sin
+            huecos, la sección entera desaparece — un titular sin filas
+            debajo se lee como un error, no como "hoy no hay nada que
+            ofrecerte". */}
+        {huecos.length > 0 && (
+          <>
+            <div style={{ padding: '30px 24px 8px' }}>
+              <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>Últimas plazas</p>
+              <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Huecos de hoy</h2>
+            </div>
+            <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {huecos.map(({ sesion: s, libres }) => {
+                const tipo = tiposClase.find(tc => tc.id === s.tipoClaseId);
+                const inst = instructores.find(i => i.id === s.instructorId);
+                return (
+                  <Link
+                    key={s.id}
+                    href={portalHref(`/${slug}/clases/${s.id}`)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 11, background: t.surface, border: `1px solid ${t.line}`,
+                      borderRadius: 15, padding: '10px 13px', textDecoration: 'none', transition: transicion(['box-shadow'], dur.card),
+                    }}
+                  >
+                    <span style={{ ...micro(13, 0, 500), color: t.ink, minWidth: 40 } as React.CSSProperties}>{hora(s.inicio)}</span>
+                    <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, backgroundColor: tipo?.color ?? t.muted }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {tipo?.nombre ?? 'Clase'}
+                      </p>
+                      {inst && (
+                        <p style={{ margin: '1px 0 0', fontSize: 11, color: t.muted }}>{inst.nombre}</p>
+                      )}
+                    </div>
+                    <AforoIndicator libres={libres} />
+                  </Link>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       <HojaPase
