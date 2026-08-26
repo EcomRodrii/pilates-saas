@@ -134,7 +134,15 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const [planesAbiertos, setPlanesAbiertos] = useState(false);
   const walkInSinFicha = autenticado && !socia;
-  const mostrarFormulario = walkInSinFicha || accesoAbierto;
+  // `&& !socia`: `accesoAbierto` solo se baja en tres sitios, y `onListo` solo
+  // lo llama el REGISTRO — `onLoginPassword` no, confiando en un comentario que
+  // dice que "el padre deja de mostrar este formulario solo". No lo hacía: al
+  // entrar con contraseña, `socia` pasa a truthy y la cabecera cambia a la rama
+  // "Mi cuenta", así que el botón «Ver clases sin iniciar sesión» —el único que
+  // bajaba `accesoAbierto`— desaparecía y el formulario de acceso se quedaba
+  // pintado para siempre encima del calendario, con la socia ya dentro. Es la
+  // otra mitad de #1408 (la ficha y el login abiertos a la vez), en Modo B.
+  const mostrarFormulario = walkInSinFicha || (accesoAbierto && !socia);
 
   // Petición explícita del fundador (2026-08-26, tras una queja real sobre
   // un estudio en producción): sin sesión, Modo B NO completa el flujo de
@@ -252,13 +260,18 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
           />
         </HojaCuentaWidget>
       )}
+      {/* `onComprado` con `{silencioso:true}`: <ListaPlanes> hace
+          `setEstado({fase:'exito'})` y acto seguido llama a esto. Con la recarga
+          ruidosa, el esqueleto sustituye el árbol entero y la socia NO llega a
+          ver la confirmación de una compra que ya está cobrada. Mismo fallo que
+          en onReservar, en el camino donde además hay dinero. */}
       {planesAbiertos && (
         <HojaCuentaWidget t={tema} onClose={() => setPlanesAbiertos(false)}>
           <ListaPlanes
             t={tema} planes={planesTarifa} socioId={socia?.socioId ?? null}
             publishableKey={STRIPE_PUBLISHABLE_KEY ?? ''} stripeAccountId={stripeAccountId}
             onCrearIntento={crearCheckoutEmbebido} onBizum={comprarConBizum}
-            onCerrar={() => setPlanesAbiertos(false)} onComprado={recargar}
+            onCerrar={() => setPlanesAbiertos(false)} onComprado={() => recargar({ silencioso: true })}
             onIniciarSesion={() => { setPlanesAbiertos(false); setAccesoAbierto(true); }}
           />
         </HojaCuentaWidget>

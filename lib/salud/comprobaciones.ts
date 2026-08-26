@@ -123,7 +123,8 @@ export const DEFINICIONES: Definicion[] = [
     que: 'Eventos de Stripe reclamados hace más de 1 hora y nunca marcados como procesados.',
     impacto:
       'Cada uno es un pago que el webhook empezó a procesar y no terminó: la socia pagó y puede no haber recibido ' +
-      'su bono. Lo rescata el conciliador, pero esto es la señal de que el camino principal está roto.',
+      'su bono. Si era una ENTREGA de plan o recibo, lo rescata el conciliador. Si era un reembolso, una disputa, ' +
+      'un cobro SEPA o un fallo de pago, NO lo rescata nadie: reenvía el evento a mano desde el Dashboard de Stripe.',
     // ⚠️ Nace en AVISO a propósito, no en verde: al escribir esto había 2 filas
     // reales, ambas del ámbito `connect:` (el que entrega el bono), atascadas
     // desde el 9-ago. Sus gemelas `billing:` sí completaron. La causa está

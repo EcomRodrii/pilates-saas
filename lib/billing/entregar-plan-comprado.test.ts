@@ -248,3 +248,103 @@ test('sin teléfono (Modo A / conciliador): la ficha se crea igual, con null', a
   assert.equal(r.ok, true);
   assert.equal(insertado.socios[0].telefono, null);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I-8 y el segundo índice único (auditoría 26-ago)
+//
+// Los tests de arriba usan `fakeAdmin`, cuyo `insert` nunca choca: NO modela
+// los índices únicos reales de `socios`, que son DOS —`socios_pkey (id)` y
+// `uq_socios_studio_email (studio_id, lower(email)) where borrado_en is null`—.
+// Por eso la regresión de I-8 pasó typecheck, lint y 3.358 tests: el camino
+// `esInvitada: true` chocando por email no lo recorría ningún test.
+//
+// Este fake sí distingue los dos choques y por qué filtro se pregunta.
+// ─────────────────────────────────────────────────────────────────────────────
+function fakeAdminConIndiceUnico(opts: { fichaConEseEmail: Fila | null; fichaConEseId: Fila | null }) {
+  const insertado: Record<string, Fila[]> = { socios: [], suscripciones: [], recibos: [] };
+  const api = {
+    from(tabla: string) {
+      const filtros: Record<string, unknown> = {};
+      const q: Record<string, unknown> = {
+        select() { return q; },
+        eq(col: string, val: unknown) { filtros[col] = val; return q; },
+        ilike(col: string, val: unknown) { filtros[col] = val; return q; },
+        is(col: string, val: unknown) { filtros[col] = val; return q; },
+        // `.limit(n)` es TERMINAL en supabase-js (el builder es thenable) y
+        // devuelve un array, no una fila. El fake lo modela así a propósito:
+        // la búsqueda por email usa `.limit(1)` y no `.maybeSingle()` porque
+        // con dos filas casadas maybeSingle devuelve error y volveríamos a
+        // "cobrado sin entregar".
+        limit() {
+          if (tabla === 'socios' && filtros.email !== undefined) {
+            return Promise.resolve({ data: opts.fichaConEseEmail ? [opts.fichaConEseEmail] : [], error: null });
+          }
+          return Promise.resolve({ data: [], error: null });
+        },
+        maybeSingle() {
+          if (tabla === 'planes_tarifa') return Promise.resolve({ data: PLAN, error: null });
+          if (tabla === 'socios') {
+            // Se consulta por id (¿es el reintento?) o por email (¿de quién es
+            // el email que provocó el choque?). El fake responde a cada una.
+            if (filtros.id !== undefined) return Promise.resolve({ data: opts.fichaConEseId, error: null });
+            if (filtros.email !== undefined) return Promise.resolve({ data: opts.fichaConEseEmail, error: null });
+          }
+          return Promise.resolve({ data: null, error: null });
+        },
+        insert(fila: Fila) {
+          if (tabla === 'socios') {
+            if (opts.fichaConEseId) return Promise.resolve({ error: { code: '23505', message: 'socios_pkey' } });
+            if (opts.fichaConEseEmail) return Promise.resolve({ error: { code: '23505', message: 'uq_socios_studio_email' } });
+          }
+          // FK dura suscripciones.socio_id → socios.id: si la ficha a la que
+          // apuntamos no existe, Postgres responde 23503. Es el fallo real que
+          // dejaba el cobro sin entregar.
+          if (tabla === 'suscripciones') {
+            const existe = (fila.socio_id === opts.fichaConEseEmail?.id) || (fila.socio_id === opts.fichaConEseId?.id)
+              || insertado.socios.some(s => s.id === fila.socio_id);
+            if (!existe) return Promise.resolve({ error: { code: '23503', message: 'suscripciones_socio_id_fkey' } });
+          }
+          insertado[tabla]?.push(fila);
+          return Promise.resolve({ error: null });
+        },
+        update() { return q; },
+      };
+      return q;
+    },
+  };
+  return { admin: api as never, insertado };
+}
+
+test('invitada cuyo email YA tiene ficha: se entrega a esa ficha, no se cobra sin entregar', async () => {
+  // El flujo estrella "pagar y reservar sin login" nunca manda socioId, así que
+  // `esInvitada` es true SIEMPRE. Con I-8 tal cual, toda socia ya dada de alta
+  // que comprara sin loguearse —y toda invitada que comprara por segunda vez—
+  // chocaba con el índice de email, el 23505 se tomaba por "reintento de
+  // Stripe", `socioId` quedaba apuntando a una ficha inexistente y la
+  // suscripción moría con 23503: pagado, y sin bono, sin recibo y sin plaza.
+  const { admin, insertado } = fakeAdminConIndiceUnico({
+    fichaConEseEmail: { id: 'soc-de-siempre' }, fichaConEseId: null,
+  });
+
+  const r = await entregarPlanComprado(admin, { ...COMPRA, esInvitada: true });
+
+  assert.equal(r.ok, true, 'no puede quedarse en cobrado-sin-entregar');
+  assert.equal(r.ok && r.socioId, 'soc-de-siempre');
+  assert.equal(insertado.suscripciones[0].socio_id, 'soc-de-siempre', 'el bono va a la ficha dueña de ese email');
+  assert.equal(insertado.recibos.length, 1, 'y queda su recibo');
+});
+
+test('reintento real de Stripe (choque por clave primaria): sigue siendo idempotente', async () => {
+  // El control positivo del test anterior: el 23505 que SÍ es un reintento no
+  // debe caer en la rama de email ni duplicar nada.
+  const { admin, insertado } = fakeAdminConIndiceUnico({
+    fichaConEseEmail: null, fichaConEseId: { id: idsDe(COMPRA.sessionId).socioId },
+  });
+
+  const r = await entregarPlanComprado(admin, { ...COMPRA, esInvitada: true });
+
+  assert.equal(r.ok, true);
+  assert.equal(r.ok && r.socioId, idsDe(COMPRA.sessionId).socioId, 'la ficha del reintento es la nuestra');
+  assert.equal(r.ok && r.fichaCreada, false, 'no se creó ficha: ya existía');
+  assert.equal(insertado.socios.length, 0);
+});

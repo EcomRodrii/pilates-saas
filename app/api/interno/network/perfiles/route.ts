@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
 import { slugBase, slugConSufijo } from '@/lib/network/slug';
+import { escaparLike } from '@/lib/escapar-like';
 
 export const runtime = 'nodejs';
 
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     .select('id, nombre, ciudad, estado, destacado, creado_en, actualizado_en, ultimo_acceso_en')
     .order('creado_en', { ascending: false })
     .limit(500);
-  if (q) query = query.ilike('nombre', `%${q}%`);
+  if (q) query = query.ilike('nombre', `%${escaparLike(q)}%`);
   if (estado) query = query.eq('estado', estado);
 
   const { data, error } = await query;

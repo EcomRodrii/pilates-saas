@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { mapFilaAVacante, type FilaRedVacante } from '@/lib/network/mapeo';
 import { esEspecialidadValida, esTipoTrabajoValido } from '@/lib/network/catalogo';
+import { escaparLike } from '@/lib/escapar-like';
 
 // Marketplace de oportunidades (Fase 2, "instructora → busca oportunidades")
 // — vacantes 'published' de cualquier estudio. Requiere sesión (mismo
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   if (especialidad && esEspecialidadValida(especialidad)) query = query.contains('especialidades', [especialidad]);
   if (tipoTrabajo && esTipoTrabajoValido(tipoTrabajo)) query = query.eq('tipo_trabajo', tipoTrabajo);
-  if (ciudad) query = query.ilike('studios.ciudad', `%${ciudad}%`);
+  if (ciudad) query = query.ilike('studios.ciudad', `%${escaparLike(ciudad)}%`);
 
   const { data, error } = await query;
   if (error) return errorInterno('network:vacantes:publicadas:GET', error, 'No se han podido cargar las oportunidades.');
