@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { NW_TINTA, NW_MUTED_2, NW_PRODUCTO } from '@/components/network-v2/tokens';
+import { NW_TINTA, NW_MUTED_2, NW_ARENA } from '@/components/network-v2/tokens';
 
 // `FilaStat`/`Seccion` de la ficha de instructora, compartidos entre la
 // pública (app/network/instructoras/[slug]/page.tsx, siempre fuera de
@@ -24,14 +24,20 @@ export function FilaStat({
   tokensNetworkV2?: boolean;
 }) {
   if (tokensNetworkV2) {
+    if (destacado) {
+      return (
+        <div
+          className="px-3 py-2 rounded-2xl"
+          style={{ background: `color-mix(in srgb, ${NW_ARENA} 28%, white)` }}
+        >
+          <p className="text-[19px] font-extrabold leading-tight" style={{ color: NW_TINTA }}>{valor}</p>
+          <p className="text-[12px]" style={{ color: '#6B6146' }}>{etiqueta}</p>
+        </div>
+      );
+    }
     return (
       <div>
-        <p
-          className={destacado ? 'text-[22px] font-extrabold' : 'text-[18px] font-bold'}
-          style={{ color: destacado ? NW_PRODUCTO : NW_TINTA }}
-        >
-          {valor}
-        </p>
+        <p className="text-[18px] font-bold" style={{ color: NW_TINTA }}>{valor}</p>
         <p className="text-[12.5px]" style={{ color: NW_MUTED_2 }}>{etiqueta}</p>
       </div>
     );

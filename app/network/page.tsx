@@ -11,7 +11,35 @@ import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { FormularioInteresEstudio } from '@/components/network-v2/FormularioInteresEstudio';
 import { Reveal } from '@/components/network-v2/Reveal';
 import { EnlaceRastreo } from '@/components/network-v2/EnlaceRastreo';
-import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_SAND, NW_BORDE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_ESTADO, NW_PROBLEMA } from '@/components/network-v2/tokens';
+import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_SAND, NW_BORDE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_ARENA, NW_ESTADO, NW_PROBLEMA } from '@/components/network-v2/tokens';
+
+// Fuente display del kit (app/layout.tsx: `--font-display`, Instrument
+// Serif) reutilizada aquí en su peso ROMANO únicamente — nunca cursiva.
+// Rediseño 2026-08-26: la página entera iba en una sola familia (Jakarta
+// Sans) para titulares, cuerpo y cifras a la vez, que es justo el "un solo
+// tipo por defecto" que se pidió corregir. La cursiva se queda fuera a
+// propósito (comentario de PROBLEMA_ITEMS más abajo: "sin cursiva, paleta
+// oliva" ya fue una decisión explícita de este mismo rediseño en su día) —
+// esto es un PAR editorial (serif redonda + sans extrabold), no la vuelta a
+// la voz-en-cursiva de la landing antigua.
+const FUENTE_DISPLAY = { fontFamily: 'var(--font-display), Georgia, serif', fontStyle: 'normal' as const };
+
+// "Kicker" de sección — antes texto suelto oliva sobre crema, casi sin
+// distinguirse del resto de la tipografía en tono (auditoría 2026-08-26:
+// color/identidad se sentía plano porque el ÚNICO acento de página era el
+// mismo oliva del texto normal). Ahora es una píldora real con el segundo
+// acento de marca (arena) de fondo — mismo patrón que ya usan los estados
+// (EstadoPill) y los badges "Verificada", no un componente nuevo de la nada.
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-bold uppercase tracking-[.14em]"
+      style={{ background: `color-mix(in srgb, ${NW_ARENA} 38%, white)`, color: NW_VERDE_OSCURO }}
+    >
+      {children}
+    </p>
+  );
+}
 
 // Landing pública de Tentare Network (1a del rediseño) — Server Component:
 // "sin esto Google ve un div vacío", mismo criterio que ya usa
@@ -147,12 +175,12 @@ export default async function NetworkLandingPage() {
 
       <section className="max-w-[1240px] mx-auto px-6 pt-16 pb-20 grid lg:grid-cols-2 gap-14 items-center">
         <div>
-          <p className="nw-fade-up text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
-            Red profesional de instructoras de Pilates y Yoga
-          </p>
-          <h1 className="nw-fade-up mt-5 text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight text-balance" style={{ animationDelay: '60ms' }}>
+          <span className="nw-fade-up inline-block">
+            <Eyebrow>Red profesional de instructoras de Pilates y Yoga</Eyebrow>
+          </span>
+          <h1 className="nw-fade-up mt-5 text-[44px] sm:text-[58px] font-extrabold leading-[0.96] tracking-tight text-balance" style={{ animationDelay: '60ms' }}>
             Encuentra la{' '}
-            <span style={{ color: NW_PRODUCTO }}>instructora de Pilates y Yoga</span>{' '}
+            <span style={{ ...FUENTE_DISPLAY, color: NW_PRODUCTO, fontWeight: 400 }}>instructora de Pilates y Yoga</span>{' '}
             que necesitas.
           </h1>
           <p className="nw-fade-up mt-5 text-[17.5px]" style={{ color: NW_MUTED, animationDelay: '120ms' }}>
@@ -227,9 +255,7 @@ export default async function NetworkLandingPage() {
 
       <section id="problema" className="max-w-[920px] mx-auto px-6 pb-20 scroll-mt-6">
         <Reveal>
-          <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
-            Buscar trabajo como instructora
-          </p>
+          <Eyebrow>Buscar trabajo como instructora</Eyebrow>
           <h2 className="mt-4 text-[28px] sm:text-[38px] font-extrabold leading-[1.02] tracking-tight max-w-[16ch] text-balance">
             Esto es lo que hay hoy.
           </h2>
@@ -252,9 +278,7 @@ export default async function NetworkLandingPage() {
 
       <section id="problema-estudio" className="max-w-[920px] mx-auto px-6 pb-20 scroll-mt-6">
         <Reveal>
-          <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
-            Buscar instructoras para tu estudio
-          </p>
+          <Eyebrow>Buscar instructoras para tu estudio</Eyebrow>
           <h2 className="mt-4 text-[28px] sm:text-[38px] font-extrabold leading-[1.02] tracking-tight max-w-[18ch] text-balance">
             Encontrar a la persona adecuada no debería ser un caos.
           </h2>
@@ -285,7 +309,7 @@ export default async function NetworkLandingPage() {
             <div className="flex flex-col gap-6">
               {PASOS_INSTRUCTORA.map(paso => (
                 <div key={paso.n}>
-                  <span className="text-[24px] font-extrabold" style={{ color: NW_PRODUCTO }}>{paso.n}</span>
+                  <span className="text-[34px] leading-none" style={{ ...FUENTE_DISPLAY, color: NW_PRODUCTO }}>{paso.n}</span>
                   <h3 className="mt-1 text-[16px] font-extrabold">{paso.titulo}</h3>
                   <p className="mt-1 text-[13.5px]" style={{ color: NW_MUTED }}>{paso.desc}</p>
                 </div>
@@ -297,7 +321,7 @@ export default async function NetworkLandingPage() {
             <div className="flex flex-col gap-6">
               {PASOS_ESTUDIO.map(paso => (
                 <div key={paso.n}>
-                  <span className="text-[24px] font-extrabold" style={{ color: NW_PRODUCTO }}>{paso.n}</span>
+                  <span className="text-[34px] leading-none" style={{ ...FUENTE_DISPLAY, color: NW_PRODUCTO }}>{paso.n}</span>
                   <h3 className="mt-1 text-[16px] font-extrabold">{paso.titulo}</h3>
                   <p className="mt-1 text-[13.5px]" style={{ color: NW_MUTED }}>{paso.desc}</p>
                 </div>
@@ -307,7 +331,25 @@ export default async function NetworkLandingPage() {
         </div>
       </section>
 
-      <section className="max-w-[1240px] mx-auto px-6 pb-24 grid sm:grid-cols-2 gap-6">
+      {/* Banda de cita a sangre completa — rompe el patrón "caja tras caja"
+          (auditoría de composición 2026-08-26: hasta aquí la página son 6
+          secciones seguidas de tarjetas del mismo ancho/radio). Sin cifra
+          inventada: es una promesa de producto ya verificable en el propio
+          texto legal (LEGAL, "sin comisión"), no una estadística fabricada
+          — mismo criterio que ya evita `resumenResenas`/tiempos de
+          respuesta ficticios en el perfil público. */}
+      <section className="py-20" style={{ background: NW_VERDE_OSCURO }}>
+        <div className="max-w-[760px] mx-auto px-6 text-center">
+          <Reveal>
+            <p className="text-[36px] sm:text-[46px] leading-[1.12] text-white text-balance" style={FUENTE_DISPLAY}>
+              Sin comisiones. Sin intermediarios.{' '}
+              <span style={{ color: NW_ARENA }}>Solo el trabajo, visible.</span>
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      <section className="max-w-[1240px] mx-auto px-6 pb-24 pt-20 grid sm:grid-cols-2 gap-6">
         {/* Reencuadrado 2026-08-20 (tentare-producto): "espera a que te
             encuentren" es un beneficio pasivo y débil con 2 perfiles reales
             en toda la red — nadie va a "encontrarte" todavía. El perfil
@@ -366,9 +408,7 @@ export default async function NetworkLandingPage() {
 
       <section id="estudios" className="max-w-[820px] mx-auto px-6 pb-24 scroll-mt-6">
         <Reveal className="rounded-[24px] p-10 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
-          <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
-            Para estudios
-          </p>
+          <Eyebrow>Para estudios</Eyebrow>
           <h2 className="mt-3 text-[24px] font-extrabold tracking-tight">
             ¿Eres un estudio y estás buscando instructoras?
           </h2>
@@ -384,21 +424,30 @@ export default async function NetworkLandingPage() {
         </Reveal>
       </section>
 
-      <section id="confianza" className="max-w-[1240px] mx-auto px-6 pb-24 scroll-mt-6">
-        <Reveal>
-          <h2 className="text-[26px] font-extrabold tracking-tight">Por qué puedes fiarte de un perfil</h2>
-        </Reveal>
-        <div className="mt-8 grid sm:grid-cols-3 gap-6">
-          {CONFIANZA_ITEMS.map((item, i) => (
-            <Reveal
-              key={item.titulo} delayMs={i * 80}
-              className="rounded-2xl p-6 bg-white transition-transform duration-300 hover:-translate-y-1"
-              style={{ border: `1px solid ${NW_BORDE}` }}
-            >
-              <h3 className="text-[16px] font-extrabold">{item.titulo}</h3>
-              <p className="mt-2 text-[14px]" style={{ color: NW_MUTED }}>{item.texto}</p>
-            </Reveal>
-          ))}
+      {/* Banda sage a sangre completa — la página hasta aquí alternaba solo
+          entre "sin fondo" (NW_FONDO) y el negro de la cita; esta sección
+          recupera el sage que ya usaba "Cómo funciona" para dar un tercer
+          punto de referencia visual antes del pie, en vez de que todo el
+          tramo final vuelva a leerse como una única superficie continua. */}
+      <section id="confianza" className="py-24 scroll-mt-6" style={{ background: NW_SAGE }}>
+        <div className="max-w-[1240px] mx-auto px-6">
+          <Reveal>
+            <Eyebrow>Confianza</Eyebrow>
+            <h2 className="mt-4 text-[26px] sm:text-[32px] font-extrabold tracking-tight">Por qué puedes fiarte de un perfil</h2>
+          </Reveal>
+          <div className="mt-10 grid sm:grid-cols-3 gap-6">
+            {CONFIANZA_ITEMS.map((item, i) => (
+              <Reveal
+                key={item.titulo} delayMs={i * 80}
+                className="rounded-2xl p-6 bg-white transition-transform duration-300 hover:-translate-y-1"
+                style={{ border: `1px solid ${NW_BORDE}` }}
+              >
+                <span className="block text-[26px] leading-none" style={{ ...FUENTE_DISPLAY, color: NW_PRODUCTO }}>0{i + 1}</span>
+                <h3 className="mt-1 text-[16px] font-extrabold">{item.titulo}</h3>
+                <p className="mt-2 text-[14px]" style={{ color: NW_MUTED }}>{item.texto}</p>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
