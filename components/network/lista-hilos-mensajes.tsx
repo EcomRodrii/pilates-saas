@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MessageCircle } from 'lucide-react';
 import { fetchHilosMensajesNetwork, type HiloNetwork } from '@/lib/api-client';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
+import { EmptyState } from '@/components/ui/empty-state';
 import { HiloMensajes } from '@/components/network/hilo-mensajes';
 import { cardCls } from '@/components/network/campo-estilos';
 
@@ -49,11 +50,7 @@ export function ListaHilosMensajes({
   }
 
   if (hilos.length === 0) {
-    return (
-      <div className={`${cardCls} p-8 text-center`}>
-        <p className="text-[13px] text-muted-foreground">{vacioTexto}</p>
-      </div>
-    );
+    return <EmptyState icono={MessageCircle} titulo={vacioTexto} />;
   }
 
   return (

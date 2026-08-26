@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Check } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 import { fetchVacanteNetwork, aplicarVacanteNetwork, fetchMisCandidaturasNetwork } from '@/lib/api-client';
 import { TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, ESPECIALIDAD_LABEL, HORARIO_LABEL } from '@/lib/network/catalogo';
 import type { VacanteNetwork } from '@/lib/network/tipos';
@@ -64,12 +65,10 @@ export default function OportunidadDetalleNetworkPage({ params }: { params: Prom
         <ArrowLeft size={14} /> Volver a oportunidades
       </Link>
 
-      <div>
-        <h1 className="text-[20px] font-bold text-foreground">{vacante.titulo}</h1>
-        <p className="text-[13px] text-muted-foreground">
-          {vacante.estudioNombre}{vacante.estudioCiudad ? ` · ${vacante.estudioCiudad}` : ''}
-        </p>
-      </div>
+      <PageHeader
+        title={vacante.titulo}
+        description={`${vacante.estudioNombre}${vacante.estudioCiudad ? ` · ${vacante.estudioCiudad}` : ''}`}
+      />
 
       <div className={`${cardCls} p-6 space-y-3`}>
         <p className="text-[13px] text-foreground whitespace-pre-line">{vacante.descripcion}</p>

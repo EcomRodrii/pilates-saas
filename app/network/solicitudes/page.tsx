@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Check, X, Loader2, MessageCircle } from 'lucide-react';
+import { Check, X, Loader2, MessageCircle, Inbox } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Toast, useToast } from '@/components/ui/toast';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { HiloMensajes } from '@/components/network/hilo-mensajes';
@@ -84,12 +85,11 @@ export default function SolicitudesNetworkPage() {
           <Loader2 size={18} className="animate-spin text-muted-foreground" />
         </div>
       ) : solicitudes.length === 0 ? (
-        <div className={`${cardCls} p-8 text-center`}>
-          <p className="text-[13px] text-muted-foreground">Todavía no has recibido ninguna solicitud.</p>
-          <Link href="/network/mi-perfil" className="text-[12px] text-brand font-medium mt-2 inline-block">
-            Revisa tu perfil
-          </Link>
-        </div>
+        <EmptyState
+          icono={Inbox}
+          titulo="Todavía no has recibido ninguna solicitud."
+          cta={{ label: 'Revisa tu perfil', href: '/network/mi-perfil' }}
+        />
       ) : (
         <div className="space-y-3">
           {[...pendientes, ...resueltas].map(s => (
