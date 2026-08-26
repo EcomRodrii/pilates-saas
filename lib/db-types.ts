@@ -2280,6 +2280,20 @@ export interface RowRedFavoritosAlumna {
   creado_en: string;
 }
 
+export interface RowNovedadesEstudio {
+  id: string;
+  studio_id: string;
+  titulo: string;
+  texto: string | null;
+  emoji: string | null;
+  activo: boolean;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RowWebhookReembolsos {
   id: string;
   pi_stripe_id: string;
@@ -2298,18 +2312,4 @@ export interface RowWebhookDisputas {
   recibo_id: string | null;
   dispute_status: string;
   procesado_en: string;
-}
-
-export interface RowNovedadesEstudio {
-  id: string;
-  studio_id: string;
-  titulo: string;
-  texto: string | null;
-  emoji: string | null;
-  activo: boolean;
-  fecha_inicio: string | null;
-  fecha_fin: string | null;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
 }
