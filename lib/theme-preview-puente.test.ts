@@ -19,6 +19,7 @@ test('resolveTemaJs: objeto vacío → el aspecto de hoy, completo', () => {
   assert.deepEqual(resolveTemaJs({}), {
     variantes: DEFAULT_VARIANTES,
     barraClasica: false,
+    barraFlotante: false,
     tabBarStyle: 'clasica',
     // Solo temas del kit; sin objeto que resolver, se queda en null (hereda).
     quickLinksStyle: null,
@@ -70,6 +71,14 @@ test('resolveTemaJs: `barraClasica`/`tabBarStyle` reales sí pasan', () => {
   const r = resolveTemaJs({ barraClasica: true, tabBarStyle: 'pestanaActiva' })!;
   assert.equal(r.barraClasica, true);
   assert.equal(r.tabBarStyle, 'pestanaActiva');
+});
+
+// P1 de la auditoría del Theme Builder: `barraFlotante` viaja igual que
+// `barraClasica` (eje independiente, mismo criterio defensivo) para que el
+// override de `features.tab_bar_style` sobre el kit vea el borrador en vivo.
+test('resolveTemaJs: `barraFlotante` real sí pasa, uno corrupto cae a false', () => {
+  assert.equal(resolveTemaJs({ barraFlotante: true })?.barraFlotante, true);
+  assert.equal(resolveTemaJs({ barraFlotante: 'sí' })?.barraFlotante, false);
 });
 
 test('resolveTemaJs: `quickLinksStyle` inventado cae a null (hereda), los dos válidos pasan', () => {
