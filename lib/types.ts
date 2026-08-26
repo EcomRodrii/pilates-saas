@@ -763,6 +763,23 @@ export interface BannerPortal {
   fechaFin: string | null;
 }
 
+/**
+ * Un aviso del "Tablón" del portal — texto libre que PROPIETARIO/MANAGER
+ * escriben para las alumnas (horario de verano, un taller, cierre puntual).
+ * A diferencia de `BannerPortal`, no exige imagen ni enlace: es contenido de
+ * texto, no promocional (`supabase/migrations/*_novedades_estudio.sql`).
+ */
+export interface NovedadEstudio {
+  id: string;
+  studioId: string;
+  titulo: string;
+  texto: string | null;
+  emoji: string | null;
+  activo: boolean;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+}
+
 export interface Instructor {
   id: string;
   studioId: string;

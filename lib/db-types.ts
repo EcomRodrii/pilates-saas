@@ -2299,3 +2299,17 @@ export interface RowWebhookDisputas {
   dispute_status: string;
   procesado_en: string;
 }
+
+export interface RowNovedadesEstudio {
+  id: string;
+  studio_id: string;
+  titulo: string;
+  texto: string | null;
+  emoji: string | null;
+  activo: boolean;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
