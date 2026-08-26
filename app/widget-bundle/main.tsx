@@ -108,7 +108,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   slug: string; tema?: ModoTokens; config?: ConfigWidget; filtros?: FiltrosSlots;
 }) {
   const {
-    slots, cargando, error, studioId, socia, autenticado, refrescarSesion,
+    slots, cargando, error, studioId, socia, autenticado, sesionCargando, refrescarSesion,
     politicaPrivacidad, terminosServicio, onReservar, onCancelar, onAceptarOferta,
     sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
     stripeAccountId, onActualizarPerfil, logout, crearCheckoutEmbebido, comprarConBizum, recargar,
@@ -137,27 +137,43 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   const mostrarFormulario = walkInSinFicha || accesoAbierto;
 
   // Petición explícita del fundador (2026-08-26, tras una queja real sobre
-  // un estudio en producción): sin sesión, "Reservar" en Modo B NO completa
-  // el flujo de acceso dentro del propio widget — navega la página ENTERA
-  // (nunca popup/pestaña nueva, `window.location.href` normal) a la ficha
-  // real en Modo A (`/reservar/[slug]?sesion=`), que ya trae de fábrica el
-  // flujo "pagar y reservar sin login previo" para clases de pago suelto
+  // un estudio en producción): sin sesión, Modo B NO completa el flujo de
+  // acceso dentro del propio widget — navega la página ENTERA (nunca
+  // popup/pestaña nueva, `window.location.href` normal) a la ficha real en
+  // Modo A (`/reservar/[slug]?sesion=`), que ya trae de fábrica el flujo
+  // "pagar y reservar sin login previo" para clases de pago suelto
   // (`docs/reserva-sin-login-diseno.md` §2/§3, `openBooking()` en
   // `app/reservar/[slug]/page.tsx`) — reconstruir ese motor entero (guest
   // checkout, contrato, alta walk-in) DENTRO del bundle embebido habría
   // duplicado una lógica ya madura y probada. Solo se abre el formulario de
   // acceso interno de Modo B para el resto de casos que no reservan una
   // clase concreta (botón "Iniciar sesión" de la cabecera, "Mi cuenta").
-  const manejarReservar = useCallback((slot: ReservaSlot, spotId: string | null) => {
-    if (!socia?.socioId) {
-      // Solo `sesion`: Modo A no tiene deep-link para el sitio elegido, se
-      // vuelve a preguntar allí si la sala tiene reformers (mismo criterio
-      // que si se llega desde cualquier otro enlace externo).
-      window.location.href = `${ORIGEN_TENTARE}/reservar/${slug}?sesion=${encodeURIComponent(slot.id)}`;
-      return; // Sin resultado → <ReservaCalendario> cierra la hoja mientras navega (mismo contrato que Modo A).
-    }
-    return onReservar(slot, spotId);
-  }, [socia, onReservar, slug]);
+  //
+  // ⚠️ Va en `onAntesDeAbrir` (primer toque, la TARJETA de la clase), no en
+  // `onReservar` (el botón DENTRO de la ficha): con el primer intento se
+  // navegaba en el SEGUNDO toque — abrir la ficha embebida primero y solo
+  // luego, al pulsar "Reservar" ahí dentro, disparar la redirección — un
+  // paso intermedio inútil si de todas formas se va a salir del widget
+  // (encontrado probando en el estudio real, no en un test). Con la
+  // redirección en el primer toque, la ficha nunca llega a abrirse sin
+  // sesión, así que `onReservar` solo se invoca ya autenticada — pasa
+  // directo, sin envoltorio.
+  const irAPaginaDeTentare = useCallback((slot: ReservaSlot) => {
+    // `sesionCargando`: el bootstrap de sesión (localStorage → JWT →
+    // /api/public/session) es asíncrono y corre en paralelo a la carga de
+    // clases — nada garantiza que ya haya resuelto cuando la visitante toca
+    // la PRIMERA tarjeta que carga. Sin esta comprobación, una socia YA
+    // logueada que toca rápido vería `socia` todavía en `null` y la
+    // sacaríamos del widget por error. Mientras no lo sabemos con certeza,
+    // se deja abrir la ficha de siempre (fallback seguro) en vez de asumir
+    // que no hay sesión.
+    if (sesionCargando || socia?.socioId) return false;
+    // Solo `sesion`: Modo A no tiene deep-link para el sitio elegido, se
+    // vuelve a preguntar allí si la sala tiene reformers (mismo criterio
+    // que si se llega desde cualquier otro enlace externo).
+    window.location.href = `${ORIGEN_TENTARE}/reservar/${slug}?sesion=${encodeURIComponent(slot.id)}`;
+    return true;
+  }, [socia, sesionCargando, slug]);
 
   // 3DS forzado a salir (poco común, ver checkout-embebido.tsx): vuelve a la
   // MISMA página del estudio con este marcador — se lee una vez al montar y
@@ -264,7 +280,8 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
       <ReservaCalendario
         t={tema}
         slots={slots}
-        onReservar={manejarReservar}
+        onReservar={onReservar}
+        onAntesDeAbrir={irAPaginaDeTentare}
         onCancelar={onCancelar}
         onAceptarOferta={onAceptarOferta}
         vacio={{ titulo: 'No hay clases disponibles', cuerpo: 'Vuelve a mirar más tarde.' }}

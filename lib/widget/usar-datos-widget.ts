@@ -59,7 +59,7 @@ const VACIO: DatosCrudos = {
 // origen si no se les da explícitamente el de Tentare. Ver
 // app/widget-bundle/main.tsx, que lo resuelve del propio <script src="...">.
 export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosSlots) {
-  const { socia, usuarioEmail, autenticado, refrescar: refrescarSesion } = useSesionWidget(slug, baseUrl);
+  const { socia, usuarioEmail, autenticado, isLoading: sesionCargando, refrescar: refrescarSesion } = useSesionWidget(slug, baseUrl);
   const [datos, setDatos] = useState<DatosCrudos>(VACIO);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -220,7 +220,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
   }, [socia, datos.studioId, baseUrl]);
 
   return {
-    slots, cargando, error, socia, usuarioEmail, autenticado, refrescarSesion,
+    slots, cargando, error, socia, usuarioEmail, autenticado, sesionCargando, refrescarSesion,
     studioId: datos.studioId || null,
     politicaPrivacidad: datos.politicaPrivacidad, terminosServicio: datos.terminosServicio,
     sesiones: datos.sesiones, tiposClase: datos.tiposClase, salas: datos.salas, instructores: datos.instructores,
