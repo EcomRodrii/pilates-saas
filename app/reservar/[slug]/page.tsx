@@ -30,14 +30,12 @@ import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
 import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe } from '@/lib/reservar/apariencia-widget';
 import { resolverConfigWidget } from '@/lib/reservar/config-widget';
-import { varsPaletaModo } from '@/lib/portal-paleta';
-import { MODO_TOKENS } from '@/lib/portal-modo';
 import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
-import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
+import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, RESERVAR_PALETA, varsReservarModo } from '@/lib/reservar-publico-tokens';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
@@ -196,15 +194,17 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
 }) {
   const filas = [...new Set(spots.map(s => s.fila))].sort((a, b) => a - b);
   const columnas = [...new Set(spots.map(s => s.columna))].sort((a, b) => a - b);
+  // Forma "cama" del diseño "Tentare Portal Reservas" (2026-08-26) — mismo
+  // tratamiento que components/reserva/spot-picker.tsx (el SpotPicker del
+  // calendario compartido): celda rectangular con una barra interior ("eje")
+  // y el número fuera, debajo, más leyenda libre/ocupada/tuya.
   return (
     <div>
-      <div className="rounded-lg py-1.5 text-center text-[9px] font-bold uppercase tracking-widest bg-[var(--portal-surface-2)] text-[var(--portal-muted)] mb-2">
+      <div className="h-[7px] rounded-full" style={{ background: `linear-gradient(90deg, var(--portal-line), var(--portal-surface-2) 30%, var(--portal-surface-2) 70%, var(--portal-line))` }} aria-hidden="true" />
+      <p className="mt-[3px] mb-2.5 text-center text-[8px] font-bold uppercase tracking-[.3em] text-[var(--portal-muted)]">
         Parte frontal · Instructora
-      </div>
-      {/* Celdas compactas de tamaño fijo acotado y centradas (feedback del
-          fundador: «los sitios son muy grandes»), mismo criterio que el
-          SpotPicker del calendario compartido. */}
-      <div className="grid gap-1.5 justify-center" style={{ gridTemplateColumns: `repeat(${columnas.length}, minmax(30px, 48px))` }}>
+      </p>
+      <div className="grid gap-1 justify-center" style={{ gridTemplateColumns: `repeat(${columnas.length}, minmax(30px, 50px))` }}>
         {filas.map(f => columnas.map(c => {
           const spot = spots.find(s => s.fila === f && s.columna === c);
           if (!spot) return <div key={`${f}-${c}`} />;
@@ -214,16 +214,35 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
             <button key={spot.id} type="button" disabled={taken}
               onClick={() => onSelect(isSel ? null : spot.id)}
               title={taken ? 'Ocupado' : spot.nombre}
-              className="aspect-square rounded-[10px] border text-[10px] font-bold flex items-center justify-center transition-all disabled:cursor-not-allowed"
-              style={taken
-                ? { backgroundColor: 'var(--portal-surface-2)', borderColor: 'var(--portal-line)', color: 'var(--portal-micro)' }
-                : isSel
-                ? { backgroundColor: primary, borderColor: primary, color: 'var(--portal-surface)' }
-                : { backgroundColor: 'var(--portal-surface)', borderColor: 'var(--portal-line)', color: 'var(--portal-ink)' }}>
-              {spot.nombre}
+              className="border-none bg-transparent pt-0.5 flex flex-col items-center gap-[3px] disabled:cursor-not-allowed"
+            >
+              <span aria-hidden="true" className="block w-full max-w-[46px] h-7 rounded-[9px] relative transition-all"
+                style={taken
+                  ? { background: 'var(--portal-line)', opacity: 0.55 }
+                  : isSel
+                  ? { background: primary, boxShadow: '0 8px 16px -6px rgba(15,15,15,.45)' }
+                  : { background: 'var(--portal-surface)', boxShadow: 'inset 0 0 0 1.5px var(--portal-line)' }}>
+                <span aria-hidden="true" className="absolute left-[5px] top-1.5 bottom-1.5 w-[5px] rounded-sm"
+                  style={{ background: isSel ? 'rgba(255,255,255,.55)' : taken ? 'rgba(15,15,15,.12)' : 'var(--portal-surface-2)' }} />
+              </span>
+              <span className="text-[9.5px]" style={{ color: isSel ? 'var(--portal-ink)' : 'var(--portal-muted)', fontWeight: isSel ? 800 : 500 }}>{spot.nombre}</span>
             </button>
           );
         }))}
+      </div>
+      <div className="flex justify-center gap-3 mt-[11px]">
+        <span className="flex items-center gap-1 text-[9.5px] text-[var(--portal-muted)]">
+          <span className="w-[9px] h-[9px] rounded-sm" style={{ boxShadow: 'inset 0 0 0 1.5px var(--portal-line)', background: 'var(--portal-surface)' }} />
+          libre
+        </span>
+        <span className="flex items-center gap-1 text-[9.5px] text-[var(--portal-muted)]">
+          <span className="w-[9px] h-[9px] rounded-sm" style={{ background: 'var(--portal-line)' }} />
+          ocupada
+        </span>
+        <span className="flex items-center gap-1 text-[9.5px] text-[var(--portal-muted)]">
+          <span className="w-[9px] h-[9px] rounded-sm" style={{ background: primary }} />
+          la tuya
+        </span>
       </div>
     </div>
   );
@@ -282,10 +301,11 @@ function claveDeVista(paso: VistaPaso | null, claseId: string): string {
 const OCUPA_PLAZA: Reserva['estado'][] = ['CONFIRMADA', 'ASISTIDA'];
 const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 
-// Tema del calendario compartido para el widget PÚBLICO: reutiliza el tema claro
-// del portal (MODO_TOKENS.dia), que ya casa con el lenguaje visual de /reservar
-// (fondo hueso, tarjetas blancas, marca --portal-brand). Fuera del componente
-// para no recrearlo en cada render.
+// Tema del calendario PÚBLICO: la paleta propia del rediseño de /reservar
+// (RESERVAR_PALETA, lib/reservar-publico-tokens.ts) — YA NO `MODO_TOKENS.dia`
+// (esa es la del portal privado de la clienta, un contexto de marca distinto
+// a propósito, ver .claude/tentare-os.md "Arquitectura de marca"). Fuera del
+// componente para no recrearlo en cada render.
 //
 // ⚠️ **Solo queda `RT.hero` aquí, y a propósito.** El resto de tokens de esta
 // página se leen por variable CSS (`var(--portal-…)`) y no por este objeto: al
@@ -293,7 +313,7 @@ const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 // línea, y un token de JS fijado a `dia` a nivel de módulo NO se entera — las
 // tarjetas se quedaban blancas con letra clara encima. El degradado del hero es
 // la excepción legítima: solo se pinta fuera del modo incrustado.
-const RESERVAR_TOKENS = MODO_TOKENS.dia;
+const RESERVAR_TOKENS = RESERVAR_PALETA.dia;
 const RT = RESERVAR_TOKENS;
 
 // Mínimo razonable de dígitos para un teléfono real (España: 9). No se valida
@@ -414,7 +434,7 @@ export default function ReservarPage() {
   // el widget con la paleta en línea aunque nadie la haya tocado, y a partir de
   // ahí un cambio del tema del portal ya no llegaría aquí.
   const varsTexto = useMemo(
-    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? varsPaletaModo('noche') : null),
+    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? varsReservarModo('noche') : null),
     [embedMode, apariencia],
   );
   // ⚠️ El calendario NO se pinta por variables CSS: recibe los tokens por prop
@@ -428,7 +448,7 @@ export default function ReservarPage() {
   // Fuera del modo incrustado es el MISMO objeto de siempre, así que ningún
   // estudio ve un cambio.
   const tokensCalendario = useMemo(
-    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? MODO_TOKENS.noche : RESERVAR_TOKENS),
+    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? RESERVAR_PALETA.noche : RESERVAR_TOKENS),
     [embedMode, apariencia],
   );
   // Widget incrustado sobre una web oscura. Se saca a su propia constante
