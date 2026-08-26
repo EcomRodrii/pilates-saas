@@ -147,7 +147,16 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   // banner (mismo patrón que `avisoPago` más abajo).
   const [pendienteReserva, setPendienteReserva] = useState<{ slot: ReservaSlot; spotId: string | null } | null>(null);
   const [avisoReservaPendiente, setAvisoReservaPendiente] = useState<'CONFIRMADA' | 'LISTA_ESPERA' | string | null>(null);
-  const manejarReservar = useCallback(async (slot: ReservaSlot, spotId: string | null) => {
+  // ⚠️ NUNCA `async`: <ReservaCalendario> (línea ~880 de reserva-calendario.tsx)
+  // solo cierra esta hoja EN EL MISMO BATCH si `onReservar` devuelve `undefined`
+  // de forma SÍNCRONA — así nunca conviven la ficha de la clase y el formulario
+  // de acceso un fotograma real. Una función `async` envuelve SIEMPRE el
+  // resultado en una Promise, incluso cuando el cuerpo no hace ningún `await`,
+  // así que esa detección nunca disparaba aquí: la ficha se quedaba abierta
+  // por debajo del formulario de acceso (visible a ojo, no en los e2e por ser
+  // síncronos). Mismo contrato que `handleReservarCalendario` de Modo A
+  // (`app/reservar/[slug]/page.tsx`), que tampoco es `async` por este motivo.
+  const manejarReservar = useCallback((slot: ReservaSlot, spotId: string | null) => {
     if (!socia?.socioId) {
       setPendienteReserva({ slot, spotId });
       setAccesoAbierto(true);
