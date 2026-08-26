@@ -26,6 +26,7 @@ import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
 import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
 import type { EstudioListadoPublico } from '@/lib/network/publico-estudios.ts';
+import type { RowDocumentosSocio } from '@/lib/db-types';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -1389,6 +1390,54 @@ export async function obtenerPagosHistoricosSocio(socioId: string): Promise<Arra
     return await res.json();
   } catch {
     return null;
+  }
+}
+
+// Buzón de documentos (Community & Messaging OS, P2) — lado STAFF. Mismo
+// criterio de `null` en fallo que las dos funciones de arriba: un array
+// vacío significa "sin documentos", no "no se pudo comprobar".
+export async function listarDocumentosSocio(socioId: string): Promise<RowDocumentosSocio[] | null> {
+  try {
+    const res = await fetch(`/api/documentos-socio?socioId=${encodeURIComponent(socioId)}`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = await res.json() as { documentos: RowDocumentosSocio[] };
+    return data.documentos;
+  } catch {
+    return null;
+  }
+}
+
+export async function crearDocumentoSocio(payload: {
+  socioId: string; categoria: RowDocumentosSocio['categoria']; titulo: string; path: string; caducaEn: string | null;
+}): Promise<{ documento: RowDocumentosSocio } | { error: string }> {
+  try {
+    const res = await fetch('/api/documentos-socio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null) as { documento?: RowDocumentosSocio; error?: string } | null;
+    if (!res.ok || !data?.documento) return { error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+    return { documento: data.documento };
+  } catch {
+    return { error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
+  }
+}
+
+export async function borrarDocumentoSocio(id: string): Promise<ResultadoEscritura> {
+  try {
+    const res = await fetch('/api/documentos-socio', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
   }
 }
 

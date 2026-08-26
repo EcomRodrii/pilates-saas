@@ -188,7 +188,7 @@ import {
   decidirPremioReferido,
 } from '@/lib/booking-logic';
 import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion, generaRenovacionAlAgotarse } from '@/lib/bono-logic';
-import { useContentStore } from '@/lib/stores/use-content-store';
+import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
 import { useDashboardChartsStore } from '@/lib/stores/use-dashboard-charts-store';
@@ -496,7 +496,7 @@ interface StudioContextValue {
   // Comunidad
   postsComunidad: PostComunidad[];
   likedPostIds: Set<string>;
-  addPost: (texto: string) => void;
+  addPost: (texto: string, opts?: OpcionesAddPost) => void;
   toggleLikePost: (postId: string) => void;
   integraciones: Integracion[];
   upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => void;

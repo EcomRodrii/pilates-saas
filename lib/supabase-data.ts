@@ -411,7 +411,7 @@ export function mapUsuario(r: RowUsuarios): Usuario {
 // textoConsentimientoMarketing), idéntico para todas las socias del estudio,
 // y solo lo necesita el envío real (comparación exacta de vigencia) — no el
 // panel. El panel solo trae fecha+registradoPor (bool-ish, aproximado).
-export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto'>;
+export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'visible_en_clase'>;
 export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancelada_motivo'>;
 // El arranque del panel NO trae ni `proximo_reintento` ni el snapshot de la
 // entrega: son columnas que solo lee el dunning (servidor) y la card de
@@ -1251,10 +1251,16 @@ export function mapPostComunidad(r: RowPostsComunidad): PostComunidad {
     autorNombre: r.autor_nombre,
     autorInicial: r.autor_inicial,
     texto: r.texto,
+    audiencia: (r.audiencia as PostComunidad['audiencia'] | null) ?? 'TODAS',
+    imagenUrl: r.imagen_url ?? null,
     likes: r.likes,
     comentariosCount: r.comentarios_count,
     fijado: r.fijado,
     creadoEn: r.creado_en,
+    tipo: (r.tipo as PostComunidad['tipo'] | null) ?? 'TEXTO',
+    eventoFecha: r.evento_fecha ?? null,
+    eventoAforo: r.evento_aforo ?? null,
+    eventoLugar: r.evento_lugar ?? null,
   } as PostComunidad;
 }
 
@@ -1659,6 +1665,8 @@ function postComunidadToDb(p: PostComunidad) {
     autor_nombre: p.autorNombre,
     autor_inicial: p.autorInicial,
     texto: p.texto,
+    audiencia: p.audiencia ?? 'TODAS',
+    imagen_url: p.imagenUrl ?? null,
     likes: p.likes,
     comentarios_count: p.comentariosCount,
     fijado: p.fijado,
@@ -3489,6 +3497,30 @@ export async function dbDeleteVideoOnDemand(id: string) {
 export async function dbInsertPostComunidad(p: PostComunidad) {
   const { error } = await supabase.from('posts_comunidad').insert(postComunidadToDb(p));
   if (error) reportDbError('[dbInsertPostComunidad]', error);
+}
+
+// P1 Community & Messaging OS: crea el post vía /api/comunidad/posts
+// (server-authoritative) en vez del insert directo de arriba — es la única
+// vía que dispara el fan-out de notificación a la audiencia del post
+// (after() dentro de esa route, ver app/api/comunidad/posts/route.ts —
+// ya no Inngest). El `id` lo sigue generando el cliente (mismo
+// criterio que `dbInsertPostComunidad`/el resto de esta store), así el
+// estado optimista de useContentStore no diverge del guardado en servidor.
+// Best-effort: si falla, el post ya se pintó optimista y solo se reporta.
+export async function dbCrearPostComunidad(p: PostComunidad): Promise<void> {
+  try {
+    const res = await fetch('/api/comunidad/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({
+        id: p.id, texto: p.texto, audiencia: p.audiencia, imagenUrl: p.imagenUrl ?? null,
+        tipo: p.tipo, eventoFecha: p.eventoFecha ?? null, eventoAforo: p.eventoAforo ?? null, eventoLugar: p.eventoLugar ?? null,
+      }),
+    });
+    if (!res.ok) reportDbError('[dbCrearPostComunidad]', await res.json().catch(() => ({ status: res.status })));
+  } catch (e) {
+    reportDbError('[dbCrearPostComunidad]', e);
+  }
 }
 
 export async function dbUpdatePostComunidad(id: string, changes: Partial<PostComunidad>) {
