@@ -35,8 +35,25 @@ export { EASE };
 // titulares") para no encadenar un rename de gran alcance — pero ya no es
 // una serif: es la misma familia que `sans`, diferenciada por peso en cada
 // sitio de uso, tal como pide el diseño.
-export const sans = "var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif";
-export const serif = sans;
+//
+// ⚠️ **`var(--font-ui, …)`/`var(--portal-heading-font, …)` NO son decorativos
+// — son el mecanismo real de personalización tipográfica por estudio**
+// (`apariencia-widget.ts`, campos `fuente`/`fuenteDisplay`). Modo B
+// (`app/widget-bundle/main.tsx`) fija esas dos custom properties SIEMPRE en
+// la raíz del Shadow DOM (con su propio fallback, Instrument Sans/Serif —
+// Modo B queda fuera de este rediseño a propósito) y depende de que `sans`/
+// `serif` las LEAN; quitar el `var(...)` de en medio (como hizo un intento
+// anterior de este cambio) deja "personalizar la tipografía del widget" sin
+// efecto, sin que ningún tipo lo avise — encontrado por el e2e
+// `reservar-acoplar-widget.spec.ts` ("widgetFuenteDisplay resucitado"), no a
+// simple vista. El *fallback* (lo que se ve sin personalizar) es lo único
+// que cambia aquí, de Instrument a Jakarta — vía `--font-ui`/
+// `--portal-heading-font` redefinidas a `var(--font-jakarta)` en el `:root`
+// que emite `paletaReservarCssText` (usado solo por Modo A,
+// `/reservar/[slug]/layout.tsx`) — no aquí, y no globalmente en `<html>`
+// (eso cambiaría también el portal privado).
+export const sans = "var(--font-ui, var(--font-jakarta)), 'Plus Jakarta Sans', system-ui, sans-serif";
+export const serif = "var(--portal-heading-font, var(--font-jakarta)), 'Plus Jakarta Sans', system-ui, sans-serif";
 /** IBM Plex Mono — las etiquetas en versalitas (fecha, franja, "plazas libres", precios pequeños). */
 export const mono = "var(--font-plex-mono), 'IBM Plex Mono', ui-monospace, monospace";
 
@@ -149,7 +166,17 @@ export const easeBtn = `background .35s ease, transform .45s ${EASE}`;
  */
 export function paletaReservarCssText(selector = ':root'): string {
   const vars = varsReservarModo('dia');
-  return `${selector} { ${Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ')} }`;
+  // `--font-ui`/`--portal-heading-font` a Jakarta AQUÍ, no en `<html>`
+  // (app/layout.tsx): esas dos vars están definidas GLOBALMENTE ahí, con
+  // Instrument Sans/Serif, para el portal privado — un `var(--font-ui,
+  // fallback)` nunca ve su fallback si la propiedad ya está heredada de un
+  // ancestro. Redefinirla aquí, en el `:root` que solo pinta esta pantalla,
+  // es lo que hace que `sans`/`serif` (arriba) resuelvan a Jakarta por
+  // defecto — y `apariencia-widget.ts` (`fuente`/`fuenteDisplay`) sigue
+  // ganando: su override vive más abajo en el árbol (inline en el propio
+  // widget), y ese nivel de especificidad siempre gana a este `:root`.
+  const varsFuente = `--font-ui: var(--font-jakarta); --portal-heading-font: var(--font-jakarta);`;
+  return `${selector} { ${Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ')} ${varsFuente} }`;
 }
 
 /**
