@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, ArrowRight, Mail, Heart } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/lib/auth-context';
 import {
   fetchResumenInicioNetwork, fetchSolicitudesContactoNetwork, fetchMisExperienciasNetwork,
@@ -75,7 +76,7 @@ export default function InicioNetworkPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-[22px] font-bold text-foreground">Hola, {nombrePila}</h1>
+      <PageHeader title={`Hola, ${nombrePila}`} />
 
       <div className={`${cardCls} p-5`}>
         <div className="flex items-center justify-between mb-2">
