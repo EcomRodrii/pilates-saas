@@ -48,24 +48,7 @@ import type {
   ResenaNetwork, MediaNetwork, EstudioActualNetwork,
 } from '@/lib/network/tipos';
 import type { CertificacionNetworkPublica } from '@/lib/network/publico';
-
-function FilaStat({ valor, etiqueta, destacado = false }: { valor: string; etiqueta: string; destacado?: boolean }) {
-  return (
-    <div>
-      <p className={cn('font-extrabold', destacado ? 'text-[20px] text-brand' : 'text-[16px] text-foreground')}>{valor}</p>
-      <p className="text-[11.5px] text-muted-foreground">{etiqueta}</p>
-    </div>
-  );
-}
-
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <section className="border-t border-border pt-5">
-      <h2 className="text-[13px] font-bold uppercase tracking-wide text-muted-foreground">{titulo}</h2>
-      <div className="mt-3">{children}</div>
-    </section>
-  );
-}
+import { FilaStat, Seccion } from '@/components/network/ficha-layout';
 
 export default function PerfilNetworkPage({ params }: { params: Promise<{ perfilId: string }> }) {
   const { perfilId } = use(params);

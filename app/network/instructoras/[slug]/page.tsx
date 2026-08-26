@@ -11,6 +11,7 @@ import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { BotonContactar, BotonReportar } from '@/components/network-publico/boton-contactar';
 import { BotonFavoritoAlumna } from '@/components/network/boton-favorito-alumna';
 import { FormularioResenaAlumna } from '@/components/network/formulario-resena-alumna';
+import { FilaStat, Seccion } from '@/components/network/ficha-layout';
 import { rangoAnios } from '@/lib/network/formato';
 import {
   ESPECIALIDAD_LABEL, HORARIO_LABEL, TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL,
@@ -71,32 +72,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-// `destacado`: tarifa y estado de disponibilidad son los dos datos que de
-// verdad deciden un "me interesa" rápido — antes pesaban exactamente igual
-// que "nº de estudios" o "disponible para", cuatro stats idénticos en fila
-// sin ninguna jerarquía entre ellos (auditoría UX, 2026-08-18). El resto se
-// queda con el peso discreto de siempre.
-function FilaStat({ valor, etiqueta, destacado = false }: { valor: string; etiqueta: string; destacado?: boolean }) {
-  return (
-    <div>
-      <p className={destacado ? 'text-[22px] font-extrabold' : 'text-[18px] font-bold'} style={{ color: destacado ? NW_PRODUCTO : NW_TINTA }}>{valor}</p>
-      <p className="text-[12.5px]" style={{ color: NW_MUTED_2 }}>{etiqueta}</p>
-    </div>
-  );
-}
-
-// `compacta`: "Formación" es la única sección que no ayuda a decidir rápido
-// (certificaciones ya verificadas, información de refuerzo, no de
-// diagnóstico) — antes tenía el mismo H2 de 22px que "Sobre mí"/"Experiencia"/
-// "Opiniones", pesando igual que datos con más peso real para la decisión.
-function Seccion({ titulo, children, compacta = false }: { titulo: string; children: React.ReactNode; compacta?: boolean }) {
-  return (
-    <section>
-      <h2 className={compacta ? 'text-[15px] font-bold uppercase tracking-wide' : 'text-[22px] font-extrabold'} style={{ color: compacta ? NW_MUTED_2 : NW_TINTA }}>{titulo}</h2>
-      <div className="mt-3">{children}</div>
-    </section>
-  );
-}
+// `FilaStat`/`Seccion` (con `destacado`/`compacta`, ver sus comentarios en
+// components/network/ficha-layout.ts) viven ahora en un componente
+// compartido con la ficha del panel — antes eran dos copias idénticas por
+// diseño con dos paletas distintas.
 
 export default async function PerfilInstructoraPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -177,16 +156,16 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
             </div>
 
             <div className="mt-6 pt-6 grid grid-cols-2 sm:grid-cols-4 gap-4" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
-              {perfil.aniosExperiencia != null && <FilaStat valor={`${perfil.aniosExperiencia}`} etiqueta="años de experiencia" />}
+              {perfil.aniosExperiencia != null && <FilaStat tokensNetworkV2 valor={`${perfil.aniosExperiencia}`} etiqueta="años de experiencia" />}
               {experiencias.length > 0 && (
-                <FilaStat
+                <FilaStat tokensNetworkV2
                   valor={`${new Set(experiencias.map(e => e.studioId ?? e.nombreEstudio)).size}`}
                   etiqueta="estudios"
                 />
               )}
-              <FilaStat valor={perfil.tipoTrabajo.length > 0 ? perfil.tipoTrabajo.map(t => TIPO_TRABAJO_LABEL[t]).slice(0, 2).join(' · ') : '—'} etiqueta="disponible para" />
-              <FilaStat valor={perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'} etiqueta="tarifa orientativa" destacado />
-              <FilaStat valor={DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]} etiqueta="estado" destacado />
+              <FilaStat tokensNetworkV2 valor={perfil.tipoTrabajo.length > 0 ? perfil.tipoTrabajo.map(t => TIPO_TRABAJO_LABEL[t]).slice(0, 2).join(' · ') : '—'} etiqueta="disponible para" />
+              <FilaStat tokensNetworkV2 valor={perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'} etiqueta="tarifa orientativa" destacado />
+              <FilaStat tokensNetworkV2 valor={DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]} etiqueta="estado" destacado />
             </div>
           </div>
         </div>
@@ -194,13 +173,13 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
         <div className="mt-14 grid lg:grid-cols-[1fr_340px] gap-14">
           <div className="space-y-10">
             {perfil.descripcion && (
-              <Seccion titulo="Sobre mí">
+              <Seccion tokensNetworkV2 titulo="Sobre mí">
                 <p className="text-[15px] leading-[1.7] max-w-[640px]" style={{ color: '#4A5347' }}>{perfil.descripcion}</p>
               </Seccion>
             )}
 
             {perfil.especialidades.length > 0 && (
-              <Seccion titulo="Especialidades">
+              <Seccion tokensNetworkV2 titulo="Especialidades">
                 <div className="flex flex-wrap gap-2">
                   {perfil.especialidades.map(e => (
                     <span key={e} className="px-[18px] py-[9px] rounded-full text-[13.5px] font-bold" style={{ background: NW_SAGE, color: NW_TINTA }}>
@@ -216,13 +195,13 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                 bloque de body (visible en mobile), no solo en el aside, que
                 está oculto ahí. */}
             {perfil.idiomas.length > 0 && (
-              <Seccion titulo="Idiomas" compacta>
+              <Seccion tokensNetworkV2 titulo="Idiomas" compacta>
                 <p className="text-[14px]" style={{ color: NW_TINTA }}>{perfil.idiomas.join(', ')}</p>
               </Seccion>
             )}
 
             {experiencias.length > 0 && (
-              <Seccion titulo="Experiencia">
+              <Seccion tokensNetworkV2 titulo="Experiencia">
                 <div>
                   {experiencias.map((exp, i) => (
                     <div key={exp.id} className="flex gap-3.5 py-4" style={{ borderTop: i > 0 ? `1px solid ${NW_BORDE}` : undefined }}>
@@ -247,7 +226,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
             )}
 
             {estudiosActuales.length > 0 && (
-              <Seccion titulo="Actualmente en" compacta>
+              <Seccion tokensNetworkV2 titulo="Actualmente en" compacta>
                 <div className="space-y-3">
                   {estudiosActuales.map((e, i) => (
                     <div key={`${e.nombre}-${i}`} className="flex items-start gap-3">
@@ -263,7 +242,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
             )}
 
             {certificaciones.length > 0 && (
-              <Seccion titulo="Formación" compacta>
+              <Seccion tokensNetworkV2 titulo="Formación" compacta>
                 <div className="space-y-3">
                   {certificaciones.map((c, i) => (
                     <div key={`${c.nombre}-${i}`} className="flex items-start gap-3">
@@ -279,7 +258,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
             )}
 
             {mediaFotos.length > 0 && (
-              <Seccion titulo="Portfolio" compacta>
+              <Seccion tokensNetworkV2 titulo="Portfolio" compacta>
                 <div className="grid grid-cols-3 gap-2">
                   {mediaFotos.map(m => (
                     <div key={m.id} className="aspect-square rounded-lg overflow-hidden" style={{ background: NW_SAND }}>
@@ -296,7 +275,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                 nuevo cuando hay franjas horarias (auditoría UX, 2026-08-18:
                 antes repetía el mismo estado dos veces en la misma pantalla). */}
             {perfil.disponibilidadHorarios.length > 0 && (
-              <Seccion titulo="Horarios">
+              <Seccion tokensNetworkV2 titulo="Horarios">
                 <div className="flex flex-wrap gap-2">
                   {perfil.disponibilidadHorarios.map(h => (
                     <span key={h} className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold" style={{ background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}>
@@ -308,7 +287,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
             )}
 
             {resenas.length > 0 && (
-              <Seccion titulo={`Opiniones · ${perfil.resumenResenas.promedio ?? '—'} de ${resenas.length}`}>
+              <Seccion tokensNetworkV2 titulo={`Opiniones · ${perfil.resumenResenas.promedio ?? '—'} de ${resenas.length}`}>
                 <div className="space-y-4">
                   {resenas.map((r, i) => (
                     <div key={r.id} style={{ borderTop: i > 0 ? `1px solid ${NW_BORDE}` : undefined, paddingTop: i > 0 ? 16 : 0 }}>
