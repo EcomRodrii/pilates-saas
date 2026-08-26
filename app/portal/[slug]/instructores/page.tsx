@@ -18,7 +18,7 @@ function getInitials(nombre: string) {
 
 export default function InstructoresPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { instructores, tiposClase } = useStudio();
+  const { instructores, sesiones, tiposClase } = useStudio();
   const { t } = useModo();
 
   const instructoresActivos = queImparten(instructores);
@@ -43,7 +43,10 @@ export default function InstructoresPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
           {instructoresActivos.map(instructor => {
-            const clasesInstructor = tiposClase.filter(tc => tc.studioId === instructor.studioId);
+            const idsImpartidos = new Set(
+              sesiones.filter(s => s.instructorId === instructor.id && !s.cancelada).map(s => s.tipoClaseId),
+            );
+            const clasesInstructor = tiposClase.filter(tc => idsImpartidos.has(tc.id));
             return (
               <div
                 key={instructor.id}
