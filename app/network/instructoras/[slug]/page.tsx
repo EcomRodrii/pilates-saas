@@ -20,6 +20,10 @@ import {
 import { LEGAL } from '@/lib/legal-info';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, NW_PRODUCTO, NW_ESTRELLA, NW_ESTADO } from '@/components/network-v2/tokens';
 
+// Mismo par editorial que /network y el wizard — serif ROMANA (nunca
+// cursiva) solo para el nombre, que es el titular real de esta pantalla.
+const FUENTE_DISPLAY = { fontFamily: 'var(--font-display), Georgia, serif', fontStyle: 'normal' as const };
+
 // Perfil público indexable (1c del rediseño) — Server Component puro, sin
 // 'use client': generateMetadata solo funciona así. Misma capa de datos que
 // antes (obtenerPerfilPublicoPorSlug, sin tocar); esto es un rediseño
@@ -134,7 +138,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
               </span>
             )}
             <div className="flex items-start justify-between gap-3">
-              <h1 className="text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight">{perfil.nombre}</h1>
+              <h1 className="text-[46px] sm:text-[60px] leading-[0.98] tracking-tight" style={FUENTE_DISPLAY}>{perfil.nombre}</h1>
               <div className="shrink-0 mt-2">
                 <BotonFavoritoAlumna tipo="instructora" id={perfil.id} compacto />
               </div>
