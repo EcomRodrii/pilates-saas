@@ -23,6 +23,7 @@ import { StrictMode, useCallback, useEffect, useRef, useState } from 'react';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { MODO_TOKENS, type ModoTokens } from '@/lib/portal-modo';
 import { resolverConfigWidget, fuenteDeDataset, familiaCssDe, urlFuenteGoogle, CONFIG_WIDGET_POR_DEFECTO, type ConfigWidget } from '@/lib/reservar/config-widget';
+import { luminancia } from '@/lib/reservar/apariencia-widget';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
@@ -339,8 +340,17 @@ function montarUno(host: HTMLElement) {
   style.textContent = widgetCss;
   shadow.appendChild(style);
   const raiz = document.createElement('div');
-  raiz.style.setProperty('--portal-brand', color || '#343825');
-  raiz.style.setProperty('--portal-brand-foreground', '#D9C29E');
+  const marcaFinal = color || '#343825';
+  raiz.style.setProperty('--portal-brand', marcaFinal);
+  // Bug real en producción (2026-08-26): un estudio con data-marca="#ffffff"
+  // (blanco) tenía este valor SIEMPRE fijo a un beige claro, sin mirar la
+  // marca real — resultado, botón blanco con texto beige sobre página
+  // blanca, invisible. Modo A (app/reservar/[slug]/page.tsx) ya calculaba
+  // esto por luminancia; Modo B nunca lo hizo — dos implementaciones del
+  // mismo dato que divergieron. Mismo criterio aquí: oscuro sobre marca
+  // clara, claro sobre marca oscura.
+  const l = luminancia(marcaFinal);
+  raiz.style.setProperty('--portal-brand-foreground', l != null && l < 0.45 ? '#FFFFFF' : '#22261F');
   raiz.style.setProperty('--success', '#2F6B4F');
   raiz.style.setProperty('--warning', '#8F6215');
   raiz.style.setProperty('--destructive', '#A8442A');
