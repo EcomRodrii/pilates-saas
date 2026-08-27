@@ -34,7 +34,6 @@ import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { EASE, dur, display, micro, texto } from '@/lib/portal-design';
 import { BienvenidaPortal } from '@/components/portal/bienvenida-portal';
 import { yaVioBienvenida, marcarBienvenidaVista } from '@/lib/portal-bienvenida';
-import { esTemaPortal } from '@/themes/registro';
 import { GoogleIcon } from '@/components/icons/brand-icons';
 import { altaAlEntrar } from '@/lib/api-client';
 import {
@@ -51,7 +50,7 @@ export function PuertaPortal() {
   const router = useRouter();
   const params = useSearchParams();
   // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
-  const { studio, dataLoaded, tabBarStyle, variantes, portalReact, themeIdPublicado } = useCore();
+  const { studio, dataLoaded, tabBarStyle, variantes } = useCore();
   const { t } = useModo();
   const { loginConPassword, enviarEnlace, entrarConGoogle, session } = usePortalAuth();
 
@@ -145,16 +144,15 @@ export function PuertaPortal() {
   }, [vueltaDeGoogle, session, slug, router]);
 
   // ── La bienvenida, una vez por dispositivo ───────────────────────────────
-  // ⚠️ Con un tema del KIT no se pinta: la bienvenida de ese tema ya la enseña
-  // la raíz del portal, y salían DOS seguidas.
+  // ⚠️ RETIRADO (decisión del fundador, 2026-08-27): la exclusión "con un tema
+  // del KIT no se pinta" ya no aplica — el kit se borró en el PR 2 de "borrar
+  // temas del kit" y `esTemaPortal()` devolvía siempre `false` desde el PR 1.
   //
   // ⚠️ El OR con `tabBarStyle` NO es redundante: los estudios que YA instalaron
   // Editorial tienen `tabBarStyle: 'pestanaActiva'` guardado y ningún
   // `variantes` (`defaults` no es retroactivo). Sin él perderían la bienvenida
   // en silencio.
-  const hayTemaDelKit = portalReact && esTemaPortal(themeIdPublicado);
-  const quiereBienvenida = !hayTemaDelKit
-    && (variantes.bienvenida !== 'ninguna' || tabBarStyle === 'pestanaActiva');
+  const quiereBienvenida = variantes.bienvenida !== 'ninguna' || tabBarStyle === 'pestanaActiva';
   // Empieza en `true` —se ve la puerta— a propósito: bloquear la pantalla
   // entera hasta resolver tema y localStorage la dejaba a merced de la latencia
   // de red, y eso ya rompió CI una vez.

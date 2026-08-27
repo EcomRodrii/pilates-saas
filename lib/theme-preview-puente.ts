@@ -24,9 +24,6 @@
 
 import { resolveVariantes, type VariantesResueltas } from './theme-variantes.ts';
 import type { TabBarStyleId, QuickLinksStyleId } from './theme-schema.ts';
-// `esTemaPortal` es una guarda pura sobre un objeto literal — no arrastra React
-// ni zod, así que puede entrar en este módulo.
-import { esTemaPortal, type TemaPortalId } from '../themes/registro.ts';
 
 /** Tipo de mensaje del puente. Lo emiten ThemePreview y HomePreview; lo escuchan
  *  ThemePreviewListener (CSS vars) y StudioProvider (esto). */
@@ -37,30 +34,14 @@ export interface TemaJs {
   variantes: VariantesResueltas;
   barraClasica: boolean;
   // Independiente de `barraClasica` — ver el comentario de `barraFlotanteSchema`
-  // en theme-schema.ts. Aquí, sobre el kit, decide `features.tab_bar_style`
-  // igual que `barraClasica` (ver portal-tema-marco.tsx/vista-previa-kit.tsx):
-  // los dos pueden convivir en el `ThemeConfig`, pero solo uno pinta a la vez.
+  // en theme-schema.ts. Los dos pueden convivir en el `ThemeConfig`, pero solo
+  // uno pinta a la vez.
   barraFlotante: boolean;
   tabBarStyle: TabBarStyleId;
-  // Solo afecta a temas del kit — ver ESTILOS_ACCESOS_RAPIDOS en
-  // theme-schema.ts. `null` = hereda el look de fábrica del tema (Noir
-  // 'bare', los otros 'cards'), igual en emisor y receptor: mismo nombre de
-  // campo en los dos extremos, sin la asimetría que tiene `temaKit` más
-  // abajo.
+  // Ver ESTILOS_ACCESOS_RAPIDOS en theme-schema.ts. `null` = hereda el look de
+  // fábrica del tema, igual en emisor y receptor: mismo nombre de campo en los
+  // dos extremos.
   quickLinksStyle: QuickLinksStyleId | null;
-  /**
-   * Qué tema del kit en React es el borrador, si es que lo es.
-   *
-   * ⚠️ Es el eje MÁS grande de todos, y llegó el último: decide qué portal se
-   * pinta entero, no un elemento suelto. Sin él, la vista previa del editor
-   * montaba SIEMPRE el portal de siempre — así que la propietaria elegía un
-   * tema del kit, veía cómo quedaba en el portal que sus socias ya no usan, y
-   * lo que publicaba no se parecía a lo que había mirado.
-   *
-   * `null` = no es del kit (o el mensaje es viejo y no lo trae): se pinta el
-   * portal de siempre, que es lo que hacía antes.
-   */
-  temaKit: TemaPortalId | null;
 }
 
 /**
@@ -76,11 +57,6 @@ export interface TemaJs {
  * distinto de "pisa con los valores por defecto" — un mensaje viejo sin el
  * campo no debe borrar la forma del tema publicado.
  */
-/** Un id del kit, o `null`. Acepta cualquiera de los dos nombres del puente. */
-function idDeTema(valor: unknown): TemaPortalId | null {
-  return typeof valor === 'string' && esTemaPortal(valor) ? valor : null;
-}
-
 export function resolveTemaJs(raw: unknown): TemaJs | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
@@ -93,21 +69,5 @@ export function resolveTemaJs(raw: unknown): TemaJs | null {
     // pasan, cualquier otra cosa (incluido un mensaje viejo sin el campo) cae
     // a `null` — "no pises nada", no un valor por defecto inventado.
     quickLinksStyle: o.quickLinksStyle === 'cards' || o.quickLinksStyle === 'bare' ? o.quickLinksStyle : null,
-    // ⚠️ Se aceptan LOS DOS nombres, y no es por comodidad: esta función corre
-    // en los dos extremos del puente (lo dice la cabecera). El emisor se la
-    // aplica al `ThemeConfig`, donde el campo se llama `themeId`, y devuelve
-    // ya un `TemaJs`, donde se llama `temaKit`. El receptor se la aplica a ESE
-    // resultado. O sea que tiene que ser IDEMPOTENTE — leer solo uno de los
-    // dos rompe el viaje de vuelta.
-    //
-    // Las dos versiones anteriores fallaron justo por ahí: la primera pedía
-    // `temaKit` y dos de los tres emisores mandaban el `ThemeConfig` crudo
-    // (sin él); la segunda pasó a leer `themeId` y entonces se rompió el lado
-    // receptor, que recibe lo ya normalizado. Ninguna se vio en local: los
-    // tests probaban un extremo cada vez, nunca la ida y la vuelta.
-    //
-    // Entrada NO confiable, igual que el resto: solo pasa un id que exista de
-    // verdad en el registro de temas.
-    temaKit: idDeTema(o.themeId) ?? idDeTema(o.temaKit),
   };
 }

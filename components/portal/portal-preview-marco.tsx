@@ -22,11 +22,10 @@ import { useCore } from '@/lib/core-context';
 import { altura } from '@/lib/portal-design';
 import { NAV_DISPONIBLES, navItemsVisibles } from '@/lib/portal-nav';
 import { PortalNav } from './portal-nav';
-import { esTemaPortal } from '@/themes/registro';
 
 export function PortalPreviewMarco({ slug, children }: { slug: string; children: React.ReactNode }) {
   // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
-  const { navPortal, barraClasica, variantes, themeIdPublicado } = useCore();
+  const { navPortal, barraClasica, variantes } = useCore();
   const pathname = usePathname() ?? '';
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   // La bienvenida es ANTERIOR al acceso: ahí todavía no hay menú, igual que en
@@ -55,15 +54,11 @@ export function PortalPreviewMarco({ slug, children }: { slug: string; children:
     return <div style={{ height: '100dvh', overflow: 'hidden' }}>{children}</div>;
   }
 
-  // ⚠️ Un tema del kit YA monta su propia barra —la píldora que flota de
-  // Bloom, la oscura de Noir, las cinco pestañas de Tentada— con sus propios
-  // ejes de forma. Envolverlo con `PortalNav`, la barra del portal de siempre,
-  // pintaba las DOS apiladas. Medido en `/portal-preview/tentare`: dos `nav`
-  // en el DOM, uno encima de otro, en las seis pantallas. Mismo criterio que
-  // `useVistaPreviaKit`: aquí se enseña el TEMA, no se decide el despliegue.
-  if (esTemaPortal(themeIdPublicado)) {
-    return <div style={{ height: '100dvh', overflow: 'hidden' }}>{children}</div>;
-  }
+  // ⚠️ RETIRADO (decisión del fundador, 2026-08-27): el árbol del kit
+  // (`themes/registro.ts`) se borró en el PR 2 de "borrar temas del kit" —
+  // `esTemaPortal()` ya devolvía siempre `false` desde el PR 1, así que esta
+  // rama nunca se alcanzaba. Aquí solo se evita el import roto; la limpieza
+  // completa de este comentario/rama es PR 3.
 
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: '100dvh', position: 'relative' }}>

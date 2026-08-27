@@ -73,7 +73,7 @@ import {
 } from '@/lib/theme/editor-navegacion';
 import { MenuMas, MenuGrupo } from './menu-mas';
 import { ThemePreview } from './theme-preview';
-import { contarCambios } from './theme-library';
+import { contarCambios } from '@/lib/theme-runtime';
 import { pilaADeshacer, pilaARehacer } from '@/lib/theme/editor-historial';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,

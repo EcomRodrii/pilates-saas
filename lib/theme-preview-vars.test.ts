@@ -1,13 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CLAVES_PREVIEW_PERMITIDAS, CLAVES_KIT_PERMITIDAS, varsDePreview, varsKitDePreview } from './theme-preview-vars.ts';
+import { CLAVES_PREVIEW_PERMITIDAS, varsDePreview, varsKitDePreview } from './theme-preview-vars.ts';
 // `themeToCssVars` es literalmente lo que HomePreview/ThemeThumbVivo mandan
 // por postMessage — mejor oráculo que la interna que lo alimenta.
-import { themeToCssVars, varsKitMap } from './theme-runtime.ts';
+import { themeToCssVars } from './theme-runtime.ts';
 import { THEME_DEFINITIONS } from './theme-definitions.ts';
-import { TEMAS_PORTAL_IDS } from '../themes/registro.ts';
-import { DEFAULT_THEME, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, ESTILOS_TITULAR_PORTAL } from './theme-schema.ts';
+import { ESTILOS_BOTON, ESTILOS_TARJETA, ESTILOS_TITULAR_PORTAL } from './theme-schema.ts';
 
 // Ejes de FORMA del tema: son los que hacen que un tema declare vars que otro
 // no declara, y por tanto los que pueden dejar la whitelist corta.
@@ -41,17 +40,13 @@ function ejesDeEnum(campo: string, catalogo: readonly { id: string }[]): Record<
   return catalogo.map((v) => ({ [campo]: v.id }));
 }
 
-// Comunes a los dos vocabularios (de siempre y kit): los 4 ejes de enum que
-// ambos emisores traducen a CSS vars propias según el valor.
+// Los 3 ejes de enum que `themeToCssVars` traduce a CSS vars propias según el
+// valor.
 const EJES_ENUM = [
   ...ejesDeEnum('buttonStyle', ESTILOS_BOTON),
   ...ejesDeEnum('cardStyle', ESTILOS_TARJETA),
   ...ejesDeEnum('portalHeadingFontId', ESTILOS_TITULAR_PORTAL),
 ];
-
-// Solo el kit traduce el preset de `radius` (Recto/Redondeado/Píldora) a sus
-// propios tokens — `themeToCssVars` (de siempre) no lo usa como tal.
-const EJES_ENUM_KIT = [...EJES_ENUM, ...ejesDeEnum('radius', RADIOS)];
 
 // ⚠️ El test que de verdad importa: una var que el motor emite y la whitelist
 // no conoce se descarta EN SILENCIO en el preview y en las miniaturas. Así se
@@ -68,6 +63,12 @@ test('ninguna var que emita el motor se queda fuera de la whitelist del preview'
     ...combinaciones().map((ejes) => ({
       ...ejes,
       radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 },
+      // Un estudio "de siempre" puede fijar la escala de texto directamente
+      // desde el editor (`lib/theme/campos-forma.ts`, `CAMPOS_ESCALA_TEXTO`)
+      // sin instalar ningún tema de la galería — antes esto lo cubrían de
+      // rebote los `defaults` de Tentada/Oliva/Bloom/Noir/Sereno, retirados
+      // en el PR 2 de "borrar temas del kit".
+      escalaTexto: { seccion: 20, tituloPantalla: 26, saludo: 30, tituloHero: 25, bienvenida: 25, numeroBono: 60 },
       destacado: '#D9B166',
       background: '#101820',
     })),
@@ -92,6 +93,12 @@ test('la whitelist no tiene claves que el motor ya no emita', () => {
     ...combinaciones().map((ejes) => ({
       ...ejes,
       radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 },
+      // Un estudio "de siempre" puede fijar la escala de texto directamente
+      // desde el editor (`lib/theme/campos-forma.ts`, `CAMPOS_ESCALA_TEXTO`)
+      // sin instalar ningún tema de la galería — antes esto lo cubrían de
+      // rebote los `defaults` de Tentada/Oliva/Bloom/Noir/Sereno, retirados
+      // en el PR 2 de "borrar temas del kit".
+      escalaTexto: { seccion: 20, tituloPantalla: 26, saludo: 30, tituloHero: 25, bienvenida: 25, numeroBono: 60 },
       destacado: '#D9B166',
       background: '#101820',
     })),
@@ -103,54 +110,11 @@ test('la whitelist no tiene claves que el motor ya no emita', () => {
   assert.deepEqual(sobran, []);
 });
 
-// ⚠️ El MISMO test, para el vocabulario del KIT. No existía, y por eso las 6
-// claves `--size-*` que `varsEscalaSobreTema` emite de verdad llevaban meses
-// fuera de la whitelist sin que nada avisara (auditoría 21-ago): la escala
-// tipográfica cambiaba en producción y no en la vista previa. Las de arriba
-// cubren `themeToCssVars`; estas dos cubren `varsKitMap`, que es el otro emisor.
-test('ninguna var del KIT que emita el motor se queda fuera de su whitelist', () => {
-  const fuera = new Set<string>();
-  for (const id of TEMAS_PORTAL_IDS) {
-    for (const ejes of [
-      {},
-      { radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 } },
-      // La escala se pide por PASOS (`escalaTexto`), y el motor deriva un
-      // factor; con un paso desviado ya emite la escala entera del tema.
-      { escalaTexto: { seccion: 30 } }, { escalaTexto: { tituloHero: 60, saludo: 20 } },
-      { background: '#101820' },
-      // `destacado`/`barraOscura` sobre un tema del KIT (`varsColorSobreTema`
-      // con `accent`, `varsBarraOscuraSobreTema`): mismo tipo de hueco que
-      // buttonStyle — P1 de la auditoría, cableando el kit de verdad.
-      { destacado: '#D9B166' }, { barraOscura: true },
-      ...EJES_ENUM_KIT,
-    ]) {
-      const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
-      for (const clave of Object.keys(varsKitMap(tema))) {
-        if (!CLAVES_KIT_PERMITIDAS.has(clave)) fuera.add(clave);
-      }
-    }
-  }
-  assert.deepEqual([...fuera].sort(), [], 'vars del kit que el preview descartaría');
-});
-
-test('la whitelist del kit no tiene claves que ningún tema emita', () => {
-  const emitidas = new Set<string>();
-  for (const id of TEMAS_PORTAL_IDS) {
-    for (const ejes of [
-      {},
-      { radioTema: { card: 20, boton: 12, chip: 999, acceso: 16 } },
-      { escalaTexto: { seccion: 30 } },
-      { background: '#101820' },
-      { destacado: '#D9B166' }, { barraOscura: true },
-      ...EJES_ENUM_KIT,
-    ]) {
-      const tema = { ...DEFAULT_THEME, themeId: id, ...ejes } as never;
-      for (const c of Object.keys(varsKitMap(tema))) emitidas.add(c);
-    }
-  }
-  const sobran = [...CLAVES_KIT_PERMITIDAS].filter((c) => !emitidas.has(c)).sort();
-  assert.deepEqual(sobran, []);
-});
+// ⚠️ RETIRADO (decisión del fundador, 2026-08-27): aquí vivían los dos
+// mismos tests de arriba para el vocabulario del KIT (`varsKitMap`). El kit
+// de temas se borró entero en el PR 2 de "borrar temas del kit"
+// (`themes/registro.ts`) y `varsKitMap` ya devuelve siempre `{}` (ver
+// `lib/theme-runtime.test.ts`), así que no hay nada que recorrer aquí.
 
 // ── Lo que se escribe en el preview ─────────────────────────────────────────
 //
