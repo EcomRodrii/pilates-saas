@@ -6,8 +6,6 @@ import {
   themeToCssText,
   validarContrasteTheme,
   presetAThemeConfig,
-  varsKitDelTema,
-  varsKitMap,
 } from './theme-runtime.ts';
 import { DEFAULT_THEME, themeConfigSchema } from './theme-schema.ts';
 import { cumpleContraste } from './wcag-contrast.ts';
@@ -218,27 +216,4 @@ test('themeToCssVars: --portal-foto-pos sale del encuadre elegido', () => {
   const sinToken = { ...DEFAULT_THEME } as Record<string, unknown>;
   delete sinToken.fotoEncuadre;
   assert.equal(pos(sinToken), 'center center');
-});
-
-
-// ── El puente al kit de temas en React (RETIRADO) ───────────────────────────
-//
-// Decisión del fundador (2026-08-27): el sistema de temas del kit se retira
-// por completo (PR 2 de "borrar temas del kit"). `themes/registro.ts` —de
-// donde salían `varsRadioSobreTema`/`varsSombraSobreTema` y el resto del
-// vocabulario del kit— se borró entero, así que los tests que comparaban su
-// CSS token a token (nombres de variable, colores derivados, escala…) ya no
-// tienen nada que probar. Quedan estos dos, que documentan que
-// `varsKitDelTema`/`varsKitMap` siguen existiendo (los siguen llamando
-// `components/theme-style.tsx` y `components/theme/home-preview.tsx`, PR 3)
-// pero ya no emiten nada, para cualquier `themeId`.
-
-test('varsKitDelTema: ya no emite nada para ningún themeId — el kit se retiró', () => {
-  assert.equal(varsKitDelTema({ ...DEFAULT_THEME, themeId: 'classic' }), null);
-  assert.equal(varsKitDelTema({ ...DEFAULT_THEME, themeId: 'tentada' }), null);
-  assert.equal(varsKitDelTema({ ...DEFAULT_THEME, themeId: 'no-existe' }), null);
-});
-
-test('varsKitMap: siempre vacío, mismo motivo', () => {
-  assert.deepEqual(varsKitMap({ ...DEFAULT_THEME, themeId: 'sereno' }), {});
 });

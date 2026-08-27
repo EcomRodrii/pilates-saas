@@ -327,32 +327,6 @@ function themeToVarMap(raw: unknown): Record<string, string> {
   };
 }
 
-/**
- * Los ajustes guardados, con los nombres de token del kit de temas en React.
- *
- * ⚠️ RETIRADO (decisión del fundador, 2026-08-27): el kit de temas
- * (`themes/registro.ts`) se borró en el PR 2 de "borrar temas del kit" — ya
- * no hay ningún `themeId` que pueda resolver un tema del kit, así que esto
- * devuelve `null` siempre. Se mantiene la función (en vez de borrarla) porque
- * sigue teniendo consumidores reales fuera de este PR (`components/theme-
- * style.tsx`, `components/theme/home-preview.tsx`), que son cirugía de PR 3.
- */
-export function varsKitDelTema(raw: unknown): string | null {
-  const vars = varsKitMap(raw);
-  const cuerpo = Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ');
-  return cuerpo ? `:root:root { ${cuerpo} }` : null;
-}
-
-/**
- * Lo mismo, como mapa.
- *
- * ⚠️ RETIRADO (decisión del fundador, 2026-08-27): siempre vacío, mismo
- * motivo que `varsKitDelTema` de arriba.
- */
-export function varsKitMap(_raw: unknown): Record<string, string> {
-  return {};
-}
-
 /** CSS variables como objeto para inline `style` (cliente / preview en vivo). */
 export function themeToCssVars(raw: unknown): CSSProperties {
   const vars = themeToVarMap(raw);

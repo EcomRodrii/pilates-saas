@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CLAVES_PREVIEW_PERMITIDAS, varsDePreview, varsKitDePreview } from './theme-preview-vars.ts';
+import { CLAVES_PREVIEW_PERMITIDAS, varsDePreview } from './theme-preview-vars.ts';
 // `themeToCssVars` es literalmente lo que HomePreview/ThemeThumbVivo mandan
 // por postMessage — mejor oráculo que la interna que lo alimenta.
 import { themeToCssVars } from './theme-runtime.ts';
@@ -110,12 +110,6 @@ test('la whitelist no tiene claves que el motor ya no emita', () => {
   assert.deepEqual(sobran, []);
 });
 
-// ⚠️ RETIRADO (decisión del fundador, 2026-08-27): aquí vivían los dos
-// mismos tests de arriba para el vocabulario del KIT (`varsKitMap`). El kit
-// de temas se borró entero en el PR 2 de "borrar temas del kit"
-// (`themes/registro.ts`) y `varsKitMap` ya devuelve siempre `{}` (ver
-// `lib/theme-runtime.test.ts`), así que no hay nada que recorrer aquí.
-
 // ── Lo que se escribe en el preview ─────────────────────────────────────────
 //
 // ⚠️ Regresión del fallo que reportó el fundador: "el editor de temas no
@@ -149,30 +143,4 @@ test('varsDePreview: un valor que no es texto no se cuela', () => {
   // en `setProperty`.
   const r = varsDePreview({ '--portal-brand': 42 }, new Set(['--portal-brand']));
   assert.equal(r['--portal-brand'], 'initial');
-});
-
-
-// ── Los tokens del kit: la regla de limpieza es la CONTRARIA ────────────────
-
-test('varsKitDePreview: lo que viene se aplica', () => {
-  const { aplicar } = varsKitDePreview({ '--brand': '#B03060', '--bg': '#FFF5F8' });
-  assert.equal(aplicar['--brand'], '#B03060');
-  assert.equal(aplicar['--bg'], '#FFF5F8');
-});
-
-test('⚠️ varsKitDePreview: lo que NO viene se BORRA, no se pone a `initial`', () => {
-  // Debajo de la propiedad en línea está el fichero del propio tema, que es
-  // justo el valor al que se quiere volver. Con `initial`,
-  // `border-radius: var(--radius-card)` —que no lleva respaldo— dejaría las
-  // tarjetas cuadradas. Es la diferencia con `varsDePreview`, donde debajo
-  // está el tema PUBLICADO y por eso allí sí se escribe `initial`.
-  const { aplicar, borrar } = varsKitDePreview({ '--brand': '#B03060' });
-  assert.equal(aplicar['--radius-card'], undefined);
-  assert.ok(borrar.includes('--radius-card'));
-  assert.ok(!Object.values(aplicar).includes('initial'));
-});
-
-test('varsKitDePreview: una clave fuera de la lista no entra', () => {
-  const { aplicar } = varsKitDePreview({ '--brand': '#000', '--lo-que-sea': 'x' });
-  assert.equal(aplicar['--lo-que-sea'], undefined);
 });
