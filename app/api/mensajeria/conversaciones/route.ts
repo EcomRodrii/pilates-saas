@@ -5,6 +5,10 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
+import {
+  instantesUltimoMensaje, resumirConversaciones,
+  type FilaLectura, type FilaUltimoMensaje,
+} from '@/lib/mensajeria/resumen';
 import type { RowConversacionesConParticipantes } from '@/lib/mensajeria/tipos';
 
 const TIPOS_ABRIBLES = ['ALUMNA_INSTRUCTORA', 'ALUMNA_MOSTRADOR'] as const;
@@ -122,6 +126,17 @@ export async function POST(req: NextRequest) {
 // EQUIPO/ALUMNA_MOSTRADOR si tiene puede_gestionar_calendario(), más las
 // propias como participante si es INSTRUCTOR) — reimplementarla en TS
 // duplicaría una lógica que ya vive, correcta y probada, en la política.
+//
+// ⚠️ CAMBIO DE FORMA DE RESPUESTA (rediseño de la mensajería, solo aditivo):
+// cada fila lleva ahora `ultimo_cuerpo`/`ultimo_remitente_auth_user_id` y
+// `leido_hasta`/`leido_hasta_otros`. Ni tabla ni columna nuevas: la
+// previsualización sale de `mensajes` con UNA consulta más (ver
+// lib/mensajeria/resumen.ts) y el estado de lectura ya venía en el embed de
+// participantes, solo faltaba pedir la columna. Sin esos cuatro campos la
+// bandeja no puede enseñar de qué va cada conversación ni cuál tiene algo sin
+// leer — que es justo lo que la hacía sentirse un CRUD. Ninguna de las dos
+// consultas amplía lo que este usuario ya podía leer: las dos van con su
+// propio JWT, bajo la misma RLS.
 export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -138,11 +153,30 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await sesionCliente
     .from('conversaciones')
-    .select('id, studio_id, tipo, titulo, ancla_sesion_id, ancla_reserva_id, creado_en, ultimo_mensaje_en, conversacion_participantes(socio_id, rol_en_conversacion, auth_user_id)')
+    .select('id, studio_id, tipo, titulo, ancla_sesion_id, ancla_reserva_id, creado_en, ultimo_mensaje_en, conversacion_participantes(socio_id, rol_en_conversacion, auth_user_id, leido_hasta)')
     .eq('studio_id', sesion.studioId)
     .order('ultimo_mensaje_en', { ascending: false })
     .limit(100);
 
   if (error) return errorInterno('mensajeria:conversaciones:GET', error, 'No se han podido cargar las conversaciones.');
-  return NextResponse.json({ conversaciones: (data ?? []) as unknown as RowConversacionesConParticipantes[] });
+
+  const filas = (data ?? []) as unknown as RowConversacionesConParticipantes[];
+  if (filas.length === 0) return NextResponse.json({ conversaciones: [] });
+
+  const { data: ultimos } = await sesionCliente
+    .from('mensajes')
+    .select('conversacion_id, cuerpo, remitente_auth_user_id, creado_en')
+    .in('conversacion_id', filas.map(c => c.id))
+    .in('creado_en', instantesUltimoMensaje(filas));
+
+  const lecturas: FilaLectura[] = filas.flatMap(c =>
+    c.conversacion_participantes.map(p => ({
+      conversacion_id: c.id, auth_user_id: p.auth_user_id, leido_hasta: p.leido_hasta,
+    })));
+
+  return NextResponse.json({
+    conversaciones: resumirConversaciones(
+      filas, (ultimos ?? []) as FilaUltimoMensaje[], lecturas, sesion.userId,
+    ),
+  });
 }

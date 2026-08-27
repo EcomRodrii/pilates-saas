@@ -6,7 +6,8 @@
 // pura de esta pantalla: qué instructoras tiene sentido ofrecer.
 
 import type { Instructor, Reserva, Sesion } from './types.ts';
-import type { RowConversaciones, RowMensajes } from './db-types.ts';
+import type { RowMensajes } from './db-types.ts';
+import type { ConversacionConResumen } from './mensajeria/presentacion.ts';
 import { mensajeSeguro } from './errores.ts';
 
 export type TipoConversacionAbrible = 'ALUMNA_INSTRUCTORA' | 'ALUMNA_MOSTRADOR';
@@ -41,11 +42,11 @@ async function leerError(res: Response, respaldo: string): Promise<string> {
 
 export async function fetchConversaciones(
   headers: Record<string, string>, studioId: string,
-): Promise<{ conversaciones: RowConversaciones[] } | { error: string }> {
+): Promise<{ conversaciones: ConversacionConResumen[] } | { error: string }> {
   try {
     const res = await fetch(`/api/public/mensajeria/conversaciones?studioId=${encodeURIComponent(studioId)}`, { headers });
     if (!res.ok) return { error: await leerError(res, 'No se han podido cargar tus conversaciones.') };
-    return await res.json() as { conversaciones: RowConversaciones[] };
+    return await res.json() as { conversaciones: ConversacionConResumen[] };
   } catch {
     return { error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
   }

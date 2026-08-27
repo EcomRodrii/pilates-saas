@@ -4,6 +4,10 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
+import {
+  instantesUltimoMensaje, resumirConversaciones,
+  type FilaLectura, type FilaUltimoMensaje,
+} from '@/lib/mensajeria/resumen';
 import type { RowConversaciones, RowConversacionParticipantes } from '@/lib/db-types';
 
 const TIPOS_ABRIBLES = ['ALUMNA_INSTRUCTORA', 'ALUMNA_MOSTRADOR'] as const;
@@ -104,5 +108,29 @@ export async function GET(req: NextRequest) {
     .limit(100);
   if (error) return errorInterno('public/mensajeria/conversaciones:GET', error, 'No se han podido cargar tus conversaciones.');
 
-  return NextResponse.json({ conversaciones: (data ?? []) as RowConversaciones[] });
+  const filas = (data ?? []) as RowConversaciones[];
+  if (filas.length === 0) return NextResponse.json({ conversaciones: [] });
+
+  // Dos consultas más, acotadas a las conversaciones que ya sabemos suyas
+  // (`filas`, derivadas de su propio `socio_id`): el último mensaje de cada una
+  // y hasta dónde ha leído cada participante. No se devuelve NINGÚN dato nuevo
+  // de la otra persona más allá de un instante de lectura — ni su identidad ni
+  // su nombre, que ya se resuelven en el cliente contra el equipo público del
+  // estudio.
+  const { data: ultimos } = await admin
+    .from('mensajes')
+    .select('conversacion_id, cuerpo, remitente_auth_user_id, creado_en')
+    .in('conversacion_id', filas.map(c => c.id))
+    .in('creado_en', instantesUltimoMensaje(filas));
+
+  const { data: lecturas } = await admin
+    .from('conversacion_participantes')
+    .select('conversacion_id, auth_user_id, leido_hasta')
+    .in('conversacion_id', filas.map(c => c.id));
+
+  return NextResponse.json({
+    conversaciones: resumirConversaciones(
+      filas, (ultimos ?? []) as FilaUltimoMensaje[], (lecturas ?? []) as FilaLectura[], user.userId,
+    ),
+  });
 }

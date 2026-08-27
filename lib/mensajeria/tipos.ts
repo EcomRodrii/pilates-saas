@@ -1,4 +1,5 @@
 import type { RowConversaciones } from '@/lib/db-types';
+import type { ResumenConversacion } from './presentacion.ts';
 
 // La UI (pestaña "Conversaciones" de /mensajeria) necesita un nombre legible
 // por fila y la RPC/tabla no lo trae — en vez de un endpoint aparte,
@@ -13,5 +14,11 @@ export type RowConversacionesConParticipantes = RowConversaciones & {
     socio_id: string | null;
     rol_en_conversacion: string;
     auth_user_id: string;
+    /** Rediseño de la mensajería: alimenta el "sin leer" de la bandeja y el
+     *  doble check del hilo. Ver lib/mensajeria/presentacion.ts. */
+    leido_hasta: string;
   }[];
 };
+
+/** Lo que devuelve de verdad GET /api/mensajeria/conversaciones. */
+export type ConversacionStaff = RowConversacionesConParticipantes & ResumenConversacion;

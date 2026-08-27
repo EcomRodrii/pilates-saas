@@ -1,9 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import {
-  ArrowLeft, GraduationCap, Loader2, MessageSquarePlus, RefreshCw, Send, Store, Users,
-} from 'lucide-react';
+// CONVERSACIONES — bandeja del panel (Community & Messaging OS).
+//
+// Este fichero es el CONTENEDOR: estado, fetch, Realtime y permisos. Todo lo
+// que se ve vive en `./piezas.tsx`, que no sabe de red y por eso se puede
+// mirar en un navegador sin sesión de staff (ver la cabecera de ese fichero).
+//
+// El rediseño toca presentación y la forma de PEDIR datos que ya existían
+// (previsualización del último mensaje y estado de lectura, ver
+// lib/mensajeria/resumen.ts). El transporte —Realtime Broadcast, canal
+// `conversacion:{id}`— y las rutas de escritura no se tocan.
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { MessageSquarePlus, RefreshCw, Search } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
 import { useRol } from '@/lib/permisos';
@@ -11,40 +20,15 @@ import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
 import { authHeader } from '@/lib/api-client';
 import { supabase } from '@/lib/db/supabase';
 import { EmptyState } from '@/components/ui/empty-state';
-import type { Socio, Instructor } from '@/lib/types';
+import { tieneSinLeer } from '@/lib/mensajeria/presentacion';
+import {
+  BandejaVacia, FilaConversacion, HiloVista, NuevaConversacion, SinHiloElegido, SkeletonLista,
+  identidadDe, type ContextoAncla,
+} from './piezas';
 import type { RowMensajes } from '@/lib/db-types';
-import type { RowConversacionesConParticipantes } from '@/lib/mensajeria/tipos';
+import type { ConversacionStaff } from '@/lib/mensajeria/tipos';
 
-type Conversacion = RowConversacionesConParticipantes;
-
-const TIPO_INFO: Record<string, { label: string; Icon: typeof Users }> = {
-  EQUIPO: { label: 'Equipo', Icon: Users },
-  ALUMNA_INSTRUCTORA: { label: 'Con instructora', Icon: GraduationCap },
-  ALUMNA_MOSTRADOR: { label: 'Mostrador', Icon: Store },
-};
-
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'ahora';
-  if (mins < 60) return `hace ${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `hace ${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `hace ${days}d`;
-  return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-}
-
-function nombreConversacion(row: Conversacion, socios: Socio[], instructores: Instructor[]): string {
-  if (row.tipo === 'EQUIPO') return row.titulo || 'Equipo';
-  const socioId = row.conversacion_participantes.find(p => p.rol_en_conversacion === 'SOCIO')?.socio_id;
-  const socio = socioId ? socios.find(s => s.id === socioId) : undefined;
-  const nombreSocia = socio ? `${socio.nombre} ${socio.apellidos}`.trim() : 'Socia';
-  if (row.tipo === 'ALUMNA_MOSTRADOR') return nombreSocia;
-  const staffAuthId = row.conversacion_participantes.find(p => p.rol_en_conversacion === 'STAFF')?.auth_user_id;
-  const instructor = staffAuthId ? instructores.find(i => i.authUserId === staffAuthId) : undefined;
-  return instructor ? `${nombreSocia} · ${instructor.nombre}` : nombreSocia;
-}
+type Conversacion = ConversacionStaff;
 
 async function api<T>(url: string, init?: RequestInit): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
   try {
@@ -61,114 +45,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: true; data
   }
 }
 
-// ── Nueva conversación ─────────────────────────────────────────────────────
-
-function NuevaConversacion({
-  socios, instructores, puedeMostrador, onCreada, onCerrar,
-}: {
-  socios: Socio[];
-  instructores: Instructor[];
-  puedeMostrador: boolean;
-  onCreada: (id: string) => void;
-  onCerrar: () => void;
-}) {
-  const uid = useId();
-  const [tipo, setTipo] = useState<'ALUMNA_INSTRUCTORA' | 'ALUMNA_MOSTRADOR'>('ALUMNA_INSTRUCTORA');
-  const [socioId, setSocioId] = useState('');
-  const [instructorId, setInstructorId] = useState('');
-  const [enviando, setEnviando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const instructoresActivos = instructores.filter(i => i.activo);
-
-  async function abrir() {
-    if (!socioId) return;
-    if (tipo === 'ALUMNA_INSTRUCTORA' && puedeMostrador && !instructorId) return;
-    setEnviando(true);
-    setError(null);
-    const resultado = await api<{ id: string; creada: boolean }>('/api/mensajeria/conversaciones', {
-      method: 'POST',
-      body: JSON.stringify({ tipo, socioId, instructorId: instructorId || undefined }),
-    });
-    setEnviando(false);
-    if (!resultado.ok) { setError(resultado.error); return; }
-    onCreada(resultado.data.id);
-  }
-
-  return (
-    <div className="p-4 border-b border-border space-y-3 bg-muted/40">
-      <div>
-        <label htmlFor={`${uid}-tipo`} className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1 block">Tipo</label>
-        <select id={`${uid}-tipo`}
-          value={tipo}
-          onChange={e => { setTipo(e.target.value as typeof tipo); setInstructorId(''); }}
-          className="w-full border border-border rounded-lg px-2.5 py-2 text-sm text-foreground bg-card outline-none focus:border-brand"
-        >
-          <option value="ALUMNA_INSTRUCTORA">Con una instructora</option>
-          {puedeMostrador && <option value="ALUMNA_MOSTRADOR">Con el mostrador</option>}
-        </select>
-      </div>
-      <div>
-        <label htmlFor={`${uid}-socio`} className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1 block">Socia</label>
-        <select id={`${uid}-socio`}
-          value={socioId}
-          onChange={e => setSocioId(e.target.value)}
-          className="w-full border border-border rounded-lg px-2.5 py-2 text-sm text-foreground bg-card outline-none focus:border-brand"
-        >
-          <option value="">Elige una socia</option>
-          {socios.map(s => <option key={s.id} value={s.id}>{s.nombre} {s.apellidos}</option>)}
-        </select>
-      </div>
-      {tipo === 'ALUMNA_INSTRUCTORA' && puedeMostrador && (
-        <div>
-          <label htmlFor={`${uid}-instr`} className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1 block">Instructora</label>
-          <select id={`${uid}-instr`}
-            value={instructorId}
-            onChange={e => setInstructorId(e.target.value)}
-            className="w-full border border-border rounded-lg px-2.5 py-2 text-sm text-foreground bg-card outline-none focus:border-brand"
-          >
-            <option value="">Elige una instructora</option>
-            {instructoresActivos.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
-          </select>
-        </div>
-      )}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={abrir}
-          disabled={enviando || !socioId || (tipo === 'ALUMNA_INSTRUCTORA' && puedeMostrador && !instructorId)}
-          className="px-3.5 py-2 rounded-lg text-white text-xs font-bold disabled:opacity-40 transition-opacity"
-          style={{ backgroundColor: 'var(--brand)' }}
-        >
-          {enviando ? 'Abriendo…' : 'Abrir conversación'}
-        </button>
-        <button onClick={onCerrar} className="px-3 py-2 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted">
-          Cancelar
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Skeleton ────────────────────────────────────────────────────────────────
-
-function SkeletonLista() {
-  return (
-    <div className="divide-y divide-muted">
-      {[0, 1, 2, 3, 4].map(i => (
-        <div key={i} className="flex items-center gap-3 px-4 py-3.5">
-          <div className="w-9 h-9 rounded-full bg-muted animate-pulse shrink-0" />
-          <div className="flex-1 space-y-2">
-            <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
-            <div className="h-2.5 w-1/3 rounded bg-muted animate-pulse" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Hilo ────────────────────────────────────────────────────────────────────
+// ── Hilo (datos + Realtime) ─────────────────────────────────────────────────
 
 function Hilo({
   conversacion, authUserId, onVolver, onEnviado,
@@ -178,12 +55,11 @@ function Hilo({
   onVolver: () => void;
   onEnviado: () => void;
 }) {
-  const { socios, instructores } = useStudio();
+  const { socios, instructores, sesiones, tiposClase } = useStudio();
   const [mensajes, setMensajes] = useState<RowMensajes[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cuerpo, setCuerpo] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const conversacionId = conversacion.id;
 
   const cargar = useCallback(async () => {
@@ -241,100 +117,52 @@ function Hilo({
     };
   }, [conversacionId, cargar]);
 
-  useEffect(() => {
-    if (!mensajes) return;
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [mensajes]);
-
   async function enviar() {
     const texto = cuerpo.trim();
     if (!texto || enviando) return;
     setEnviando(true);
-    const resultado = await api<{ mensaje: RowMensajes }>(`/api/mensajeria/conversaciones/${conversacion.id}/mensajes`, {
+    const resultado = await api<{ mensaje: RowMensajes }>(`/api/mensajeria/conversaciones/${conversacionId}/mensajes`, {
       method: 'POST',
       body: JSON.stringify({ cuerpo: texto }),
     });
     setEnviando(false);
     if (!resultado.ok) { setError(resultado.error); return; }
     setCuerpo('');
+    setError(null);
     setMensajes(prev => [...(prev ?? []), resultado.data.mensaje]);
     onEnviado();
   }
 
-  const titulo = nombreConversacion(conversacion, socios, instructores);
-  const { label, Icon } = TIPO_INFO[conversacion.tipo] ?? TIPO_INFO.EQUIPO;
+  const identidad = identidadDe(conversacion, socios, instructores);
+
+  // Fase 7 — el contexto real de la conversación, si lo hay. Sin ancla no se
+  // inventa ninguno.
+  const sesionAncla = conversacion.ancla_sesion_id
+    ? sesiones.find(s => s.id === conversacion.ancla_sesion_id)
+    : undefined;
+  const tipoAncla = sesionAncla ? tiposClase.find(tc => tc.id === sesionAncla.tipoClaseId) : undefined;
+  const ancla: ContextoAncla | null = sesionAncla
+    ? {
+      titulo: tipoAncla?.nombre ?? 'reservada',
+      detalle: new Date(sesionAncla.inicio).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }),
+    }
+    : null;
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border shrink-0">
-        <button onClick={onVolver} aria-label="Volver a la lista de conversaciones" className="md:hidden p-1.5 -ml-1.5 rounded-lg hover:bg-muted text-muted-foreground">
-          <ArrowLeft size={18} />
-        </button>
-        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 12%, var(--card))' }}>
-          <Icon size={14} style={{ color: 'var(--brand)' }} aria-hidden="true" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-foreground truncate">{titulo}</p>
-          <p className="text-[11px] text-muted-foreground">{label}</p>
-        </div>
-      </div>
-
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-2.5">
-        {mensajes === null ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 size={18} className="animate-spin text-muted-foreground" />
-          </div>
-        ) : mensajes.length === 0 ? (
-          <EmptyState compacto icono={Icon} titulo="Todavía no hay mensajes" descripcion="Escribe el primero." />
-        ) : (
-          mensajes.map(m => {
-            const mio = m.remitente_auth_user_id === authUserId;
-            return (
-              <div key={m.id} className={`flex ${mio ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className="max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap break-words"
-                  style={mio
-                    ? { backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)', borderBottomRightRadius: 4 }
-                    : { backgroundColor: 'var(--muted)', color: 'var(--foreground)', borderBottomLeftRadius: 4 }}
-                >
-                  {m.cuerpo}
-                  <div className={`text-[10px] mt-1 ${mio ? 'opacity-70' : 'text-muted-foreground'}`}>{timeAgo(m.creado_en)}</div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {error && (
-        <div className="px-4 py-2 text-xs text-destructive border-t border-border shrink-0">{error}</div>
-      )}
-
-      <div className="flex items-end gap-2 px-3 py-3 border-t border-border shrink-0">
-        <textarea
-          value={cuerpo}
-          onChange={e => setCuerpo(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); }
-          }}
-          rows={1}
-          maxLength={4000}
-          placeholder="Escribe un mensaje…"
-          aria-label="Mensaje"
-          className="flex-1 resize-none border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand bg-card max-h-32"
-        />
-        <button
-          onClick={enviar}
-          disabled={enviando || !cuerpo.trim()}
-          aria-label="Enviar mensaje"
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 disabled:opacity-40 transition-opacity"
-          style={{ backgroundColor: 'var(--brand)' }}
-        >
-          {enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-        </button>
-      </div>
-    </div>
+    <HiloVista
+      conversacion={conversacion}
+      identidad={identidad}
+      mensajes={mensajes}
+      authUserId={authUserId}
+      error={error}
+      ancla={ancla}
+      cuerpo={cuerpo}
+      enviando={enviando}
+      onCuerpo={setCuerpo}
+      onEnviar={() => void enviar()}
+      onVolver={onVolver}
+      onReintentar={() => void cargar()}
+    />
   );
 }
 
@@ -351,6 +179,8 @@ export function ConversacionesTab() {
   const [error, setError] = useState<string | null>(null);
   const [abiertaId, setAbiertaId] = useState<string | null>(null);
   const [mostrarNueva, setMostrarNueva] = useState(false);
+  const [errorNueva, setErrorNueva] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState('');
 
   const cargarLista = useCallback(async () => {
     const resultado = await api<{ conversaciones: Conversacion[] }>('/api/mensajeria/conversaciones');
@@ -362,6 +192,30 @@ export function ConversacionesTab() {
   useEffect(() => { void cargarLista(); }, [cargarLista]);
 
   const abierta = conversaciones?.find(c => c.id === abiertaId) ?? null;
+
+  const filas = useMemo(() => {
+    const q = filtro.trim().toLowerCase();
+    return (conversaciones ?? []).map(c => ({ c, identidad: identidadDe(c, socios, instructores) }))
+      .filter(({ c, identidad }) => !q
+        || identidad.nombre.toLowerCase().includes(q)
+        || (c.ultimo_cuerpo ?? '').toLowerCase().includes(q));
+  }, [conversaciones, socios, instructores, filtro]);
+
+  const sinLeerTotal = (conversaciones ?? []).filter(c => tieneSinLeer(c, authUserId)).length;
+
+  async function abrirConversacion(
+    tipo: 'ALUMNA_INSTRUCTORA' | 'ALUMNA_MOSTRADOR', socioId: string, instructorId?: string,
+  ) {
+    setErrorNueva(null);
+    const resultado = await api<{ id: string; creada: boolean }>('/api/mensajeria/conversaciones', {
+      method: 'POST',
+      body: JSON.stringify({ tipo, socioId, instructorId }),
+    });
+    if (!resultado.ok) { setErrorNueva(resultado.error); return; }
+    setMostrarNueva(false);
+    void cargarLista();
+    setAbiertaId(resultado.data.id);
+  }
 
   if (error && !conversaciones) {
     return (
@@ -376,16 +230,26 @@ export function ConversacionesTab() {
 
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden">
-      <div className="flex h-[70vh] min-h-[420px] max-h-[720px]">
+      <div className="flex h-[70vh] min-h-[440px] max-h-[720px]">
         {/* Lista */}
-        <div className={`${abiertaId ? 'hidden md:flex' : 'flex'} w-full md:w-80 md:border-r md:border-border flex-col shrink-0`}>
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-            <p className="text-sm font-bold text-foreground">Conversaciones</p>
+        <div className={`${abiertaId ? 'hidden md:flex' : 'flex'} w-full md:w-[340px] md:border-r md:border-border flex-col shrink-0`}>
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="text-sm font-bold text-foreground">Conversaciones</p>
+              {sinLeerTotal > 0 && (
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                  style={{ backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)' }}
+                >
+                  {sinLeerTotal}
+                </span>
+              )}
+            </div>
             <button
               onClick={() => setMostrarNueva(v => !v)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-brand-medio hover:bg-muted transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-brand-medio hover:bg-muted transition-colors shrink-0"
             >
-              <MessageSquarePlus size={14} /> Nueva
+              <MessageSquarePlus size={14} aria-hidden="true" /> Nueva
             </button>
           </div>
 
@@ -394,43 +258,49 @@ export function ConversacionesTab() {
               socios={socios}
               instructores={instructores}
               puedeMostrador={puedeMostrador}
-              onCerrar={() => setMostrarNueva(false)}
-              onCreada={id => { setMostrarNueva(false); void cargarLista(); setAbiertaId(id); }}
+              error={errorNueva}
+              onCerrar={() => { setMostrarNueva(false); setErrorNueva(null); }}
+              onAbrir={abrirConversacion}
             />
+          )}
+
+          {(conversaciones?.length ?? 0) > 6 && (
+            <div className="px-3 py-2 border-b border-border shrink-0">
+              <div className="flex items-center gap-2 bg-muted border border-border rounded-xl px-2.5 py-1.5 focus-within:border-brand transition-colors">
+                <Search size={13} className="text-muted-foreground shrink-0" aria-hidden="true" />
+                <input
+                  value={filtro}
+                  onChange={e => setFiltro(e.target.value)}
+                  placeholder="Filtrar conversaciones…"
+                  aria-label="Filtrar conversaciones"
+                  className="bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground outline-none flex-1 min-w-0"
+                />
+              </div>
+            </div>
           )}
 
           <div className="flex-1 min-h-0 overflow-y-auto">
             {conversaciones === null ? (
               <SkeletonLista />
             ) : conversaciones.length === 0 ? (
-              <EmptyState compacto icono={Users} titulo="No hay conversaciones" descripcion="Abre una nueva para empezar a hablar con una socia." />
+              <BandejaVacia onNueva={() => setMostrarNueva(true)} />
+            ) : filas.length === 0 ? (
+              <EmptyState compacto icono={Search} titulo="Ninguna coincide" descripcion={`Nada con «${filtro.trim()}».`} />
             ) : (
-              <ul className="divide-y divide-muted">
-                {conversaciones.map(c => {
-                  const { label, Icon } = TIPO_INFO[c.tipo] ?? TIPO_INFO.EQUIPO;
-                  const titulo = nombreConversacion(c, socios, instructores);
-                  const activa = c.id === abiertaId;
-                  return (
-                    <li key={c.id}>
-                      <button
-                        onClick={() => setAbiertaId(c.id)}
-                        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted transition-colors"
-                        style={activa ? { backgroundColor: 'color-mix(in srgb, var(--brand) 8%, var(--card))' } : undefined}
-                      >
-                        <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 12%, var(--card))' }}>
-                          <Icon size={15} style={{ color: 'var(--brand)' }} aria-hidden="true" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-[13px] font-semibold text-foreground truncate">{titulo}</p>
-                            <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo(c.ultimo_mensaje_en)}</span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground truncate">{label}</p>
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
+              <ul>
+                {filas.map(({ c, identidad }, i) => (
+                  <li key={c.id} className="border-b border-muted last:border-b-0">
+                    <FilaConversacion
+                      row={c}
+                      identidad={identidad}
+                      indice={i}
+                      activa={c.id === abiertaId}
+                      sinLeer={tieneSinLeer(c, authUserId)}
+                      esMio={Boolean(c.ultimo_remitente_auth_user_id && c.ultimo_remitente_auth_user_id === authUserId)}
+                      onClick={() => setAbiertaId(c.id)}
+                    />
+                  </li>
+                ))}
               </ul>
             )}
           </div>
@@ -440,15 +310,14 @@ export function ConversacionesTab() {
         <div className={`${abiertaId ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0`}>
           {abierta ? (
             <Hilo
+              key={abierta.id}
               conversacion={abierta}
               authUserId={authUserId}
               onVolver={() => setAbiertaId(null)}
               onEnviado={() => void cargarLista()}
             />
           ) : (
-            <div className="flex-1 flex items-center justify-center p-8">
-              <EmptyState compacto icono={MessageSquarePlus} titulo="Selecciona una conversación" descripcion="Elige un hilo de la lista o abre uno nuevo." />
-            </div>
+            <SinHiloElegido />
           )}
         </div>
       </div>

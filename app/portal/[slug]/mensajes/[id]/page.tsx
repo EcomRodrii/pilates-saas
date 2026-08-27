@@ -1,21 +1,26 @@
 'use client';
 
 // HILO de una conversación (Community & Messaging OS). Realtime Broadcast-
-// from-DB (diseño validado por tentare-arquitecto) sustituye el polling que
-// tenía esta pantalla — canal `conversacion:{id}` (`private: true`, broadcast
-// con la fila `mensajes` completa en el evento `INSERT`), vía
-// `supabasePortalRealtime` (reutiliza la sesión de `supabasePortal.auth` sin
-// duplicar login). Sin fallback a polling si el WebSocket falla (decisión ya
-// tomada): degradación aceptable, se ve al reabrir/refrescar el hilo.
+// from-DB (diseño validado por tentare-arquitecto) — canal `conversacion:{id}`
+// (`private: true`, broadcast con la fila `mensajes` completa en el evento
+// `INSERT`), vía `supabasePortalRealtime` (reutiliza la sesión de
+// `supabasePortal.auth` sin duplicar login). Sin fallback a polling si el
+// WebSocket falla (decisión ya tomada): degradación aceptable, se ve al
+// reabrir/refrescar el hilo. NADA de eso cambia en este rediseño.
+//
+// Lo que sí cambia es cómo se LEE el hilo: mensajes seguidos de la misma
+// persona agrupados en un bloque (una hora y una cola por turno, no por
+// burbuja), separadores de día, cabecera con el contexto de la relación y un
+// compositor que crece con lo que escribes.
 //
 // `cuerpo` se pinta SIEMPRE como texto plano (React escapa por defecto; nunca
 // se usa dangerouslySetInnerHTML aquí) — mismo criterio que ya aplica el lado
 // staff para este mismo campo.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { AlertCircle, ArrowLeft, ArrowUp, MessageCircle, Store } from 'lucide-react';
+import { AlertCircle, ArrowLeft, MessageCircle, Store } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useCore } from '@/lib/core-context';
 import { useModo } from '@/lib/portal-modo';
@@ -23,35 +28,16 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import { supabasePortalRealtime } from '@/lib/db/supabase-portal-realtime';
 import { portalAuthHeader } from '@/lib/api-client';
 import { semantic } from '@/lib/portal-tokens';
-import { sans, EASE, dur } from '@/lib/portal-design';
+import { sans, micro, EASE, dur } from '@/lib/portal-design';
 import { EmptyState } from '@/components/portal/ui';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
+import { CompositorPortal, HiloMensajes } from '@/components/portal/mensajeria-piezas';
 import {
   fetchConversaciones, fetchMensajes, enviarMensaje, marcarConversacionLeida,
   instructorRecordadoDe, recordarInstructorDeConversacion,
 } from '@/lib/mensajeria-portal.ts';
-import type { RowMensajes, RowConversaciones } from '@/lib/db-types';
-
-const LIMITE_CUERPO = 4000;
-
-function formatoHora(iso: string): string {
-  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-}
-
-function mismoDia(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
-const MESES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-
-function etiquetaDia(iso: string, ahora: Date): string {
-  const d = new Date(iso);
-  if (mismoDia(d, ahora)) return 'Hoy';
-  const ayer = new Date(ahora);
-  ayer.setDate(ayer.getDate() - 1);
-  if (mismoDia(d, ayer)) return 'Ayer';
-  return `${d.getDate()} de ${MESES_CORTO[d.getMonth()]}${d.getFullYear() !== ahora.getFullYear() ? ` de ${d.getFullYear()}` : ''}`;
-}
+import type { RowMensajes } from '@/lib/db-types';
+import type { ConversacionConResumen } from '@/lib/mensajeria/presentacion';
 
 export default function HiloMensajePage() {
   const { slug, id } = useParams<{ slug: string; id: string }>();
@@ -61,10 +47,10 @@ export default function HiloMensajePage() {
   const studioId = studio?.id ?? null;
 
   const [authUserId, setAuthUserId] = useState<string | null>(null);
-  const [conversacion, setConversacion] = useState<RowConversaciones | null | undefined>(undefined); // undefined = aún no se sabe
+  const [conversacion, setConversacion] = useState<ConversacionConResumen | null | undefined>(undefined); // undefined = aún no se sabe
   const [mensajes, setMensajes] = useState<RowMensajes[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [texto1, setTexto1] = useState('');
+  const [borrador, setBorrador] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [teclado, setTeclado] = useState(0);
@@ -109,12 +95,10 @@ export default function HiloMensajePage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial.
   useEffect(() => { void cargarConversacion(); void cargarMensajes(); }, [cargarConversacion, cargarMensajes]);
 
-  // Realtime — canal `conversacion:{id}` (`private: true`, broadcast con la
-  // fila `mensajes` completa en el evento `INSERT`). Mismo patrón `setAuth`
-  // antes de suscribir + reenvío en `TOKEN_REFRESHED` que ya usan las
-  // suscripciones del lado staff (studio-context.tsx/notification-bell.tsx),
-  // pero contra `supabasePortalRealtime` — el JWT es el de la socia, no el de
-  // staff. Sin fallback a polling si el WebSocket falla (decisión ya tomada).
+  // Realtime — mismo patrón `setAuth` antes de suscribir + reenvío en
+  // `TOKEN_REFRESHED` que ya usan las suscripciones del lado staff
+  // (studio-context.tsx/notification-bell.tsx), pero contra
+  // `supabasePortalRealtime`: el JWT es el de la socia, no el de staff.
   useEffect(() => {
     let vivo = true;
     let canal: ReturnType<typeof supabasePortalRealtime.channel> | null = null;
@@ -174,7 +158,15 @@ export default function HiloMensajePage() {
   const instructoraId = conversacion?.tipo === 'ALUMNA_INSTRUCTORA' ? instructorRecordadoDe(id) : null;
   const instructora = instructoraId ? instructores.find(i => i.id === instructoraId) : null;
   const esMostrador = conversacion?.tipo === 'ALUMNA_MOSTRADOR';
-  const nombreCabecera = esMostrador ? 'El estudio' : (instructora?.nombre ?? 'Tu instructora');
+  const nombreCabecera = esMostrador
+    ? (studio?.nombre ?? 'El estudio')
+    : (instructora?.nombre ?? 'Tu instructora');
+  // Fase 7 — de qué va esta conversación, no solo con quién es.
+  const contextoCabecera = conversacion === undefined
+    ? ' '
+    : esMostrador
+      ? 'Mostrador · dudas y horarios'
+      : 'Tu instructora';
 
   // Autoscroll: solo si ya estábamos cerca del final (no interrumpe a quien
   // ha subido a leer un mensaje antiguo).
@@ -208,7 +200,7 @@ export default function HiloMensajePage() {
   }, []);
 
   async function enviar() {
-    const cuerpo = texto1.trim();
+    const cuerpo = borrador.trim();
     if (!cuerpo || !studioId || enviando) return;
     setEnviando(true);
     setErrorEnvio(null);
@@ -216,23 +208,10 @@ export default function HiloMensajePage() {
     const r = await enviarMensaje(headers, id, studioId, cuerpo);
     setEnviando(false);
     if ('error' in r) { setErrorEnvio(r.error); return; }
-    setTexto1('');
+    setBorrador('');
     cercaDelFinalRef.current = true;
     setMensajes(prev => [...(prev ?? []), r.mensaje]);
   }
-
-  const grupos = useMemo(() => {
-    if (!mensajes) return [];
-    const ahora = new Date();
-    const out: { etiqueta: string; items: RowMensajes[] }[] = [];
-    for (const m of mensajes) {
-      const etiqueta = etiquetaDia(m.creado_en, ahora);
-      const grupo = out[out.length - 1];
-      if (grupo && grupo.etiqueta === etiqueta) grupo.items.push(m);
-      else out.push({ etiqueta, items: [m] });
-    }
-    return out;
-  }, [mensajes]);
 
   // Este hilo pinta a pantalla completa (cabecera + composer propios), a
   // diferencia del resto de pantallas del portal que fluyen dentro de `main`.
@@ -247,7 +226,7 @@ export default function HiloMensajePage() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: t.bg, color: t.ink, paddingBottom: huecoBarraFlotante }}>
-      {/* ── Cabecera ─────────────────────────────────────────────────────── */}
+      {/* ── Cabecera con contexto ────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '58px 16px 14px', borderBottom: `1px solid ${t.line}`, flexShrink: 0 }}>
         <Link
           href={`/portal/${slug}/mensajes`}
@@ -261,19 +240,17 @@ export default function HiloMensajePage() {
           <ArrowLeft size={16} aria-hidden />
         </Link>
         {esMostrador ? (
-          <div style={{ width: 36, height: 36, borderRadius: 999, background: 'var(--portal-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Store size={15} style={{ color: 'var(--portal-brand-foreground)' }} aria-hidden />
+          <div style={{ width: 40, height: 40, borderRadius: 999, background: 'var(--portal-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Store size={17} style={{ color: 'var(--portal-brand-foreground)' }} aria-hidden />
           </div>
         ) : (
-          <ProfileAvatar nombre={instructora?.nombre ?? '?'} color={instructora?.color} avatarId={instructora?.avatar} fotoUrl={instructora?.fotoUrl} size="sm" />
+          <ProfileAvatar nombre={instructora?.nombre ?? '?'} color={instructora?.color} avatarId={instructora?.avatar} fotoUrl={instructora?.fotoUrl} size="md" />
         )}
         <div style={{ minWidth: 0 }}>
-          <p style={{ fontFamily: sans, fontSize: 15, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p style={{ fontFamily: sans, fontSize: 15.5, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {conversacion === undefined ? 'Cargando…' : nombreCabecera}
           </p>
-          {!esMostrador && conversacion?.tipo === 'ALUMNA_INSTRUCTORA' && (
-            <p style={{ fontFamily: sans, fontSize: 11.5, color: t.muted }}>Instructora</p>
-          )}
+          <p style={{ ...micro(8.5, 0.2, 700), color: t.micro, marginTop: 2 }}>{contextoCabecera}</p>
         </div>
       </div>
 
@@ -295,8 +272,8 @@ export default function HiloMensajePage() {
 
         {!error && mensajes === null && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} aria-hidden>
-            <div className="animate-pulse" style={{ height: 40, width: '60%', borderRadius: 16, background: t.surface2, alignSelf: 'flex-start' }} />
-            <div className="animate-pulse" style={{ height: 40, width: '45%', borderRadius: 16, background: t.surface2, alignSelf: 'flex-end' }} />
+            <div className="animate-pulse" style={{ height: 40, width: '60%', borderRadius: 20, background: t.surface2, alignSelf: 'flex-start' }} />
+            <div className="animate-pulse" style={{ height: 40, width: '45%', borderRadius: 20, background: t.surface2, alignSelf: 'flex-end' }} />
           </div>
         )}
 
@@ -304,84 +281,29 @@ export default function HiloMensajePage() {
           <EmptyState
             icon={esMostrador ? <Store size={18} /> : <MessageCircle size={18} />}
             title="Todavía no hay mensajes"
-            body={`Escribe el primer mensaje a ${esMostrador ? 'el estudio' : (instructora?.nombre ?? 'tu instructora')}.`}
+            body={`Escribe el primero a ${nombreCabecera}. Lo verá en cuanto lo envíes.`}
           />
         )}
 
-        {!error && grupos.map(grupo => (
-          <div key={grupo.etiqueta}>
-            <p style={{ textAlign: 'center', fontFamily: sans, fontSize: 11, fontWeight: 700, color: t.muted, margin: '14px 0 10px', textTransform: 'uppercase', letterSpacing: '.04em' }}>
-              {grupo.etiqueta}
-            </p>
-            {grupo.items.map(m => {
-              const mio = m.remitente_auth_user_id === authUserId;
-              return (
-                <div key={m.id} style={{ display: 'flex', justifyContent: mio ? 'flex-end' : 'flex-start', marginBottom: 8 }}>
-                  <div
-                    style={{
-                      maxWidth: '78%', padding: '10px 14px', borderRadius: 18,
-                      borderBottomRightRadius: mio ? 4 : 18, borderBottomLeftRadius: mio ? 18 : 4,
-                      background: mio ? 'var(--portal-brand)' : t.surface2,
-                      color: mio ? 'var(--portal-brand-foreground)' : t.ink,
-                    }}
-                  >
-                    <p style={{ fontFamily: sans, fontSize: 14.5, lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                      {m.cuerpo}
-                    </p>
-                    <p style={{ fontFamily: sans, fontSize: 10, marginTop: 4, opacity: 0.7, textAlign: 'right' }}>
-                      {formatoHora(m.creado_en)}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ))}
+        {!error && mensajes !== null && mensajes.length > 0 && (
+          <HiloMensajes
+            mensajes={mensajes}
+            authUserId={authUserId}
+            leidoHastaOtros={conversacion?.leido_hasta_otros}
+          />
+        )}
       </div>
 
       {/* ── Compositor ───────────────────────────────────────────────────── */}
-      <div
-        style={{
-          flexShrink: 0, display: 'flex', alignItems: 'flex-end', gap: 8,
-          padding: `10px 12px calc(10px + env(safe-area-inset-bottom))`,
-          borderTop: `1px solid ${t.line}`, background: t.bg,
-          transform: teclado > 0 ? `translateY(-${teclado}px)` : undefined,
-        }}
-      >
-        <textarea
-          value={texto1}
-          onChange={e => setTexto1(e.target.value.slice(0, LIMITE_CUERPO))}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); }
-          }}
-          placeholder="Escribe un mensaje…"
-          aria-label="Escribe un mensaje"
-          rows={1}
-          disabled={conversacion === undefined || enviando}
-          style={{
-            flex: 1, resize: 'none', maxHeight: 120, minHeight: 44,
-            borderRadius: 20, border: `1.5px solid ${t.line}`, background: t.surface, color: t.ink,
-            padding: '11px 16px', fontFamily: sans, fontSize: 16,
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => void enviar()}
-          disabled={!texto1.trim() || enviando || conversacion === undefined}
-          aria-label="Enviar mensaje"
-          style={{
-            width: 44, height: 44, borderRadius: '50%', border: 'none', flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-            opacity: !texto1.trim() || enviando ? 0.45 : 1,
-            cursor: !texto1.trim() || enviando ? 'default' : 'pointer',
-          }}
-        >
-          {enviando
-            ? <span aria-hidden className="animate-spin" style={{ width: 16, height: 16, borderRadius: 999, border: '2px solid currentColor', borderTopColor: 'transparent' }} />
-            : <ArrowUp size={18} aria-hidden />}
-        </button>
-      </div>
+      <CompositorPortal
+        valor={borrador}
+        onValor={setBorrador}
+        onEnviar={() => void enviar()}
+        enviando={enviando}
+        deshabilitado={conversacion === undefined}
+        nombre={nombreCabecera}
+        desplazamientoTeclado={teclado}
+      />
       {errorEnvio && (
         <p role="alert" style={{ fontFamily: sans, fontSize: 12, color: semantic.danger.text, padding: '0 16px 10px', background: t.bg }}>
           {errorEnvio}
