@@ -47,11 +47,6 @@ export const BLOQUES_SISTEMA_IDS = [
   // esos temas: se añaden al FINAL de BLOQUES_SISTEMA_POR_PANTALLA.home, así
   // que no cambian el orden por defecto de nadie que ya tenga bloques guardados.
   'tiraSemana', 'progresoSemanal', 'retos',
-  // Solo del KIT (`components/portal-tema/`): el tema Tentada los pinta y hasta
-  // ahora el rail no los listaba, así que eran secciones visibles para la socia
-  // e inmovibles para la propietaria. Van OCULTOS por defecto como los tres de
-  // arriba — un estudio sin el kit no los ve.
-  'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
   // /reservar (Fase 1 de su generalización a bloques, ver comentario de
   // `resolveBloquesPantalla`): las 6 secciones de siempre
   // (lib/reservar/secciones.ts), con el prefijo `reservar` para que no se
@@ -87,7 +82,7 @@ export function seccionReservarDeSistemaId(sistemaId: BloqueSistemaId): string {
 // abajo) — un estudio que no instale Oliva/Noir/Bloom ni los active a mano
 // no los ve.
 export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
-  home: ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos', 'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio'],
+  home: ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos'],
   clases: ['listadoClases'],
   bonos: ['listadoBonos'],
   reservar: SECCIONES_RESERVAR.map((s) => sistemaIdDeSeccionReservar(s.id)),
@@ -868,40 +863,6 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
     id: 'sistema', sistemaId: 'invitarAmiga', nombre: 'Invita a una amiga',
     icono: 'UserPlus', origen: 'sistema', estilizable: false, campos: CAMPOS_INVITAR_AMIGA,
   },
-  // ── Solo del kit ─────────────────────────────────────────────────────────
-  // Cinco secciones que `components/portal-tema/` pinta y el editor no
-  // conocía. Sin ficha aquí no salían en el rail: la socia las veía y la
-  // propietaria no podía ni moverlas ni apagarlas.
-  //
-  // ⚠️ `campos: []` a propósito. Su contenido no lo escribe ella —son datos
-  // suyos: su racha, su bono, sus reservas— así que un panel de edición aquí
-  // prometería algo que no hay. Se listan para ORDENAR y OCULTAR, que es lo
-  // que sí se puede hacer con ellas.
-  racha: {
-    id: 'sistema', sistemaId: 'racha', nombre: 'Tu racha',
-    descripcion: 'Las semanas seguidas que lleva viniendo.',
-    icono: 'Flame', origen: 'sistema', estilizable: false, campos: [],
-  },
-  tarjetaBono: {
-    id: 'sistema', sistemaId: 'tarjetaBono', nombre: 'Tu bono',
-    descripcion: 'Las clases que le quedan y cuándo caduca.',
-    icono: 'Ticket', origen: 'sistema', estilizable: false, campos: [],
-  },
-  misReservas: {
-    id: 'sistema', sistemaId: 'misReservas', nombre: 'Tus próximas reservas',
-    descripcion: 'La lista de lo que tiene reservado.',
-    icono: 'ListChecks', origen: 'sistema', estilizable: false, campos: [],
-  },
-  videosEnCasa: {
-    id: 'sistema', sistemaId: 'videosEnCasa', nombre: 'Pilates en casa',
-    descripcion: 'Invitación a las sesiones en vídeo.',
-    icono: 'Play', origen: 'sistema', estilizable: false, campos: [],
-  },
-  citaEstudio: {
-    id: 'sistema', sistemaId: 'citaEstudio', nombre: 'Cierre del Inicio',
-    descripcion: 'La frase del tema, firmada por el estudio.',
-    icono: 'Quote', origen: 'sistema', estilizable: false, campos: [],
-  },
   contenidoEstudio: {
     id: 'sistema', sistemaId: 'contenidoEstudio',
     nombre: 'Contenido del estudio',
@@ -1049,23 +1010,12 @@ export function getBlockCatalogEntry(kind: string): BlockCatalogEntry | undefine
 // Oliva/Noir/Bloom (theme-definitions.ts) no cambian: siguen siendo su
 // selección curada, ahora simplemente ya no dependen de este flag para
 // que las tres piezas existan también fuera de esos tres temas.
-const SISTEMA_OCULTO_POR_DEFECTO = new Set<BloqueSistemaId>([
-  // Los cinco del kit siguen ocultos: son exclusivos de los temas del kit
-  // (`components/portal-tema/`), el portal "de siempre" no tiene quien los
-  // pinte — listarlos encendidos prometería secciones que su socia no va a
-  // ver. Sin relación con el cambio de arriba.
-  'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
-]);
-
 function bloqueSistema(sistemaId: BloqueSistemaId): BloqueHome {
-  return SISTEMA_OCULTO_POR_DEFECTO.has(sistemaId)
-    ? { id: `sistema-${sistemaId}`, kind: 'sistema', sistemaId, oculto: true }
-    : { id: `sistema-${sistemaId}`, kind: 'sistema', sistemaId };
+  return { id: `sistema-${sistemaId}`, kind: 'sistema', sistemaId };
 }
 
 // Por defecto (ningún estudio ha tocado esto todavía): los bloques `sistema`
-// de cada pantalla, en su orden por defecto, visibles salvo los que se
-// activan por tema (ver SISTEMA_OCULTO_POR_DEFECTO arriba).
+// de cada pantalla, en su orden por defecto, todos visibles.
 // ⚠️ Pasan por `resolverBloque`, no por `bloqueSistema` a secas: desde que los
 // bloques de sistema tienen campos, resolverlos les rellena su `config` con los
 // textos de fábrica. Sin esto, el default y lo que devuelve

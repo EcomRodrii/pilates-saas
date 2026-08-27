@@ -354,10 +354,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
       .map(s => ({ s, libres: libres(s.id, s.aforoMaximo) }));
   }, [sesiones, reservas, now]);
 
-  // Bloques de sistema "tiraSemana"/"progresoSemanal" (temas Oliva/Noir,
-  // ocultos por defecto — ver SISTEMA_OCULTO_POR_DEFECTO en
-  // lib/portal-home-bloques.ts). Lógica pura en lib/portal-home-logic.ts,
-  // mismo criterio que getHomeCardContext arriba.
+  // Bloques de sistema "tiraSemana"/"progresoSemanal", visibles por defecto
+  // en el Inicio (rediseño "Tentare Studio App"). Lógica pura en
+  // lib/portal-home-logic.ts, mismo criterio que getHomeCardContext arriba.
   const tiraSemana = useMemo(() => calcularTiraSemana(now, misReservas, sesiones), [now, misReservas, sesiones]);
   const progresoSemanal = useMemo(() => calcularProgresoSemanal(now, misReservas, sesiones), [now, misReservas, sesiones]);
 

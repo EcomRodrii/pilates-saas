@@ -54,12 +54,6 @@ export function PortalPreviewMarco({ slug, children }: { slug: string; children:
     return <div style={{ height: '100dvh', overflow: 'hidden' }}>{children}</div>;
   }
 
-  // ⚠️ RETIRADO (decisión del fundador, 2026-08-27): el árbol del kit
-  // (`themes/registro.ts`) se borró en el PR 2 de "borrar temas del kit" —
-  // `esTemaPortal()` ya devolvía siempre `false` desde el PR 1, así que esta
-  // rama nunca se alcanzaba. Aquí solo se evita el import roto; la limpieza
-  // completa de este comentario/rama es PR 3.
-
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: '100dvh', position: 'relative' }}>
       <main className="flex-1 overflow-y-auto relative">

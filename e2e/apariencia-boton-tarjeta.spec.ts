@@ -117,17 +117,4 @@ test.describe('Editor a pantalla completa — estilo de botón y tarjetas', () =
     expect(body.cardStyle).toBe('elevated');
   });
 
-  // Fase 2 de "unificar los 3 sistemas de temas": primer control que pisa una
-  // FEATURE del kit (qué CLASE se pinta), no solo un color/radio. Solo tiene
-  // efecto en un tema del kit — ver el comentario de ESTILOS_ACCESOS_RAPIDOS
-  // en theme-schema.ts.
-  test('sin un tema del kit instalado, "Accesos rápidos" explica por qué no aplica', async ({ page }) => {
-    await montar(page);
-
-    await abrirCategoriaTema(page, 'Tarjetas');
-    await expect(page.getByRole('button', { name: 'Plana' })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/solo se pueden personalizar en un tema de la biblioteca/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Círculo sin tarjeta' })).toHaveCount(0);
-  });
-
 });

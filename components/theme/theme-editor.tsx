@@ -24,7 +24,7 @@ import {
   type RedSocialId,
 } from '@/lib/canales-estudio';
 import {
-  DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, ESTILOS_ACCESOS_RAPIDOS,
+  DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA,
   type ThemeConfig, POSICION_FOTO,
   SEO_TITULO_MAX, SEO_DESCRIPCION_MAX,
   RESERVAR_TITULAR_MAX, RESERVAR_SUBTITULO_MAX, RESERVAR_CTA_MAX,
@@ -1036,48 +1036,18 @@ export function AjustesCategoriaPanel({
 
   if (categoriaId === 'tarjetas') {
     return (
-      <div className="space-y-5">
-        <div className="flex gap-2">
-          {ESTILOS_TARJETA.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setCampo('cardStyle', c.id)}
-              className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
-                draft.cardStyle === c.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-        {/* ⚠️ RETIRADO (decisión del fundador, 2026-08-27): el kit de temas
-            se borró en el PR 2 de "borrar temas del kit" — `esTemaPortal()`
-            ya devolvía siempre `false` desde el PR 1, así que esta rama
-            nunca se alcanzaba. Se deja en `false` explícito (en vez de
-            quitar ya el condicional entero) porque simplificar este bloque
-            es PR 3, aquí solo se evita el import roto. */}
-        {false ? (
-          <div>
-            <p className="text-[13px] font-semibold text-foreground mb-2">Accesos rápidos del Inicio</p>
-            <div className="flex gap-2">
-              {ESTILOS_ACCESOS_RAPIDOS.map((q) => (
-                <button
-                  key={q.id}
-                  onClick={() => setCampo('quickLinksStyle', q.id)}
-                  className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
-                    draft.quickLinksStyle === q.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
-                  }`}
-                >
-                  {q.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <p className="text-[11.5px] text-muted-foreground">
-            Los accesos rápidos del Inicio solo se pueden personalizar en un tema de la biblioteca — el que tienes instalado no los usa.
-          </p>
-        )}
+      <div className="flex gap-2">
+        {ESTILOS_TARJETA.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setCampo('cardStyle', c.id)}
+            className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
+              draft.cardStyle === c.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
       </div>
     );
   }

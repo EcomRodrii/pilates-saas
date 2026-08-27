@@ -170,10 +170,6 @@ export async function montarPortal(page: Page, opciones: {
   /** Comportamiento de la barra inferior del tema (galería de temas,
    *  "Editorial"). Sin esto, `'clasica'` — el de siempre. */
   tabBarStyle?: 'clasica' | 'pestanaActiva';
-  /** Accesos rápidos del Inicio — SOLO temas del kit (`tema`/`kit`). Sin
-   *  esto, `null` — el tema se ve con SU look de fábrica (Noir 'bare', el
-   *  resto 'cards'), que es lo de siempre. */
-  quickLinksStyle?: 'cards' | 'bare';
   /** Variantes de FORMA por bloque (lib/theme-variantes.ts). Sin esto,
    *  ausentes — el portal se ve con la forma de siempre en todos los ejes. */
   variantes?: Partial<VariantesPortal>;
@@ -221,7 +217,7 @@ export async function montarPortal(page: Page, opciones: {
 }) {
   const { conSesion, fotoUrl = null, imagenBienvenidaUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, sinProximaReserva = false, variosBonos = false, planMasElegidoId = null, entraTrasPeticiones,
-          portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', quickLinksStyle = null, variantes,
+          portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
           retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema, kit, sinSocia = false, favoritos = [], conTarjeta = false,
           historialConCancelada = false, instructoresValoracion = false } = opciones;
 
@@ -375,7 +371,6 @@ export async function montarPortal(page: Page, opciones: {
     homeBloques: bloquesResueltos,
     tabBarStyle,
     barraClasica: temaConfig?.barraClasica ?? false,
-    quickLinksStyle,
     variantes: variantes ?? temaConfig?.variantes ?? null,
     retoConteos: retoConteosVivos,
     // OJO: studio-context cruza `socia.reservas` con `aforoReservas` POR ID

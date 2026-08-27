@@ -23,7 +23,7 @@
 // de TIPO y su validación se escribe a mano abajo.
 
 import { resolveVariantes, type VariantesResueltas } from './theme-variantes.ts';
-import type { TabBarStyleId, QuickLinksStyleId } from './theme-schema.ts';
+import type { TabBarStyleId } from './theme-schema.ts';
 
 /** Tipo de mensaje del puente. Lo emiten ThemePreview y HomePreview; lo escuchan
  *  ThemePreviewListener (CSS vars) y StudioProvider (esto). */
@@ -38,10 +38,6 @@ export interface TemaJs {
   // uno pinta a la vez.
   barraFlotante: boolean;
   tabBarStyle: TabBarStyleId;
-  // Ver ESTILOS_ACCESOS_RAPIDOS en theme-schema.ts. `null` = hereda el look de
-  // fábrica del tema, igual en emisor y receptor: mismo nombre de campo en los
-  // dos extremos.
-  quickLinksStyle: QuickLinksStyleId | null;
 }
 
 /**
@@ -65,9 +61,5 @@ export function resolveTemaJs(raw: unknown): TemaJs | null {
     barraClasica: o.barraClasica === true,
     barraFlotante: o.barraFlotante === true,
     tabBarStyle: o.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica',
-    // Entrada no confiable, mismo criterio que el resto: solo 'cards'/'bare'
-    // pasan, cualquier otra cosa (incluido un mensaje viejo sin el campo) cae
-    // a `null` — "no pises nada", no un valor por defecto inventado.
-    quickLinksStyle: o.quickLinksStyle === 'cards' || o.quickLinksStyle === 'bare' ? o.quickLinksStyle : null,
   };
 }

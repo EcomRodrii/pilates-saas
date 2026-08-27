@@ -25,14 +25,11 @@ test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los de siempre detr
   assert.deepEqual(idsVisibles, ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos']);
 });
 
-test('DEFAULT_BLOQUES_POR_PANTALLA.home: los cinco del kit siguen OCULTOS (solo los temas del kit los pintan)', () => {
+test('DEFAULT_BLOQUES_POR_PANTALLA.home: ningún bloque de sistema llega oculto por defecto', () => {
   const ocultos = DEFAULT_BLOQUES_POR_PANTALLA.home
     .filter((b) => b.oculto)
     .map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  // Los cinco del kit (2026-08-14): un estudio con el portal de siempre no
-  // tiene quien los pinte — sin relación con tiraSemana/progresoSemanal/retos,
-  // que ya no están ocultos (ver test de arriba).
-  assert.deepEqual(ocultos, ['racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio']);
+  assert.deepEqual(ocultos, []);
 });
 
 test('DEFAULT_BLOQUES_POR_PANTALLA: Clases y Bonos tienen un único bloque sistema', () => {
@@ -47,10 +44,10 @@ test('resolveBloquesPantalla: Home sin nada guardado y sin legacy → default de
   assert.deepEqual(r.draft, r.publicado);
 });
 
-test('resolveBloquesPantalla: Home, solo los cinco del kit llegan OCULTOS incluso sin legacy', () => {
+test('resolveBloquesPantalla: Home, ningún bloque de sistema llega OCULTO sin legacy', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: [], ocultos: [] });
   const ocultos = r.publicado.filter((b) => b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(ocultos, ['racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio']);
+  assert.deepEqual(ocultos, []);
 });
 
 test('resolveBloquesPantalla: Home sintetiza desde portalHome legacy (Fase 2) — mismo orden/ocultos, sin migrar datos', () => {
@@ -354,13 +351,6 @@ test('BLOQUE_SISTEMA_LABEL derivado no cambia ni una coma — hay e2e que buscan
     tiraSemana: 'Tira de la semana',
     progresoSemanal: 'Progreso semanal',
     retos: 'Retos',
-    // ⚠️ Los cinco del kit se AÑADEN; ninguna etiqueta de las de arriba cambia,
-    // que es lo que este oráculo protege (hay e2e buscando esos textos).
-    racha: 'Tu racha',
-    tarjetaBono: 'Tu bono',
-    misReservas: 'Tus próximas reservas',
-    videosEnCasa: 'Pilates en casa',
-    citaEstudio: 'Cierre del Inicio',
     // /reservar (Fase 1 de su generalización a bloques): mismos nombres que
     // ya usa lib/reservar/secciones.ts, literales — no derivados de ahí, para
     // que este oráculo detecte una divergencia futura entre los dos sitios.
