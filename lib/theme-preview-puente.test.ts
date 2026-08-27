@@ -20,8 +20,6 @@ test('resolveTemaJs: objeto vacío → el aspecto de hoy, completo', () => {
     barraClasica: false,
     barraFlotante: false,
     tabBarStyle: 'clasica',
-    // Sin objeto que resolver, se queda en null (hereda).
-    quickLinksStyle: null,
   });
 });
 
@@ -79,10 +77,4 @@ test('resolveTemaJs: `barraClasica`/`tabBarStyle` reales sí pasan', () => {
 test('resolveTemaJs: `barraFlotante` real sí pasa, uno corrupto cae a false', () => {
   assert.equal(resolveTemaJs({ barraFlotante: true })?.barraFlotante, true);
   assert.equal(resolveTemaJs({ barraFlotante: 'sí' })?.barraFlotante, false);
-});
-
-test('resolveTemaJs: `quickLinksStyle` inventado cae a null (hereda), los dos válidos pasan', () => {
-  assert.equal(resolveTemaJs({ quickLinksStyle: 'circulo-mágico' })?.quickLinksStyle, null);
-  assert.equal(resolveTemaJs({ quickLinksStyle: 'cards' })?.quickLinksStyle, 'cards');
-  assert.equal(resolveTemaJs({ quickLinksStyle: 'bare' })?.quickLinksStyle, 'bare');
 });
