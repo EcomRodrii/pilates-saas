@@ -28,7 +28,7 @@ import type { ResultadoEscritura } from '@/lib/errores';
 import { semantic } from '@/lib/portal-tokens';
 import { colorOcupacion, ratioOcupacion, etiquetaOcupacion } from '@/lib/ocupacion';
 import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
-import { serif, sans, cq, radius, shadow, EASE } from '@/lib/reservar-publico-tokens';
+import { serif, sans, cq, radius, shadow, EASE, densidadCss } from '@/lib/reservar-publico-tokens';
 import {
   localDayKey, addDays, diasSemana, contarSlotsPorDia, slotsDelDia,
   agruparPorDia, etiquetaDia,
@@ -155,6 +155,24 @@ export interface ReservaCalendarioProps {
    */
   error?: { onReintentar: () => void; titulo?: string };
   fontFamily?: string;
+  /**
+   * Fase 3 del rediseño (`AparienciaWidget.densidad`, `escalaDensidad()`):
+   * 0.75 aprieta el conjunto acotado de medidas que leen `densidadCss()`
+   * (lib/reservar-publico-tokens.ts) — por defecto 1, cero cambio visual.
+   * Se fija como custom property en la raíz para que cualquier hijo la lea
+   * sin prop-drilling adicional.
+   */
+  densidadEsc?: number;
+  /**
+   * Fase 3 del rediseño (`AparienciaWidget.forma`, `radiosDe()`): los 3
+   * radios YA resueltos (con el preset de `forma` y cualquier override
+   * explícito de `radio`/`radioBoton`/`radioInput` aplicados). Por defecto,
+   * los del tema (`radius.card`/`radius.pill`/`radius.spot`) — cero cambio
+   * para quien no la pase. Solo se retroalimenta a la tarjeta de clase y su
+   * CTA (el elemento de mayor visibilidad del listado): igual que
+   * `densidadEsc`, no es un retrofit de cada radio del código.
+   */
+  radiosEsc?: { tarjeta: number; boton: number; input: number };
   /**
    * Fase 1 del rediseño (docs/widget-reservas-theme-builder-diseno.md): la
    * tira de 10 días con scroll horizontal de las pantallas 01/02 del handoff,
@@ -414,7 +432,8 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
 
 export function ReservaCalendario({
   t, slots, onReservar, onCancelar, onAceptarOferta,
-  variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE,
+  variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE, densidadEsc = 1,
+  radiosEsc = { tarjeta: radius.card, boton: radius.pill, input: radius.spot },
   irADia, estiloDias = 'semana', finalizadasHoy, loading = false,
   ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, vistaInicial = 'todo',
   enIframe = false, franjaVisible = null, alCambiarFicha, origenTentare = '',
@@ -602,7 +621,12 @@ export function ReservaCalendario({
   const soloFicha = (estiloFicha === 'vista' || estiloFicha === 'inline') && !!openSlot;
 
   return (
-    <div style={{ fontFamily }}>
+    <div style={{
+      fontFamily,
+      '--reservar-densidad-esc': densidadEsc,
+      '--reservar-radio-tarjeta': `${radiosEsc.tarjeta}px`,
+      '--reservar-radio-boton': `${radiosEsc.boton}px`,
+    } as CSSProperties}>
       {/* Rediseño "sin popup": con la ficha en modo vista, todo el listado/
           calendario de aquí abajo deja de montarse — la ficha ocupa su sitio
           entero, no encima. Un solo `{!soloFicha && (...)}` envolviendo todo
@@ -796,8 +820,8 @@ export function ReservaCalendario({
                 )}
                 {gruposFranja.map(g => (
                   <div key={g.label}>
-                    <p style={{ margin: '10px 0 8px', fontSize: 13, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>{g.label}</p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <p style={{ margin: `${densidadCss(10)} 0 8px`, fontSize: 13, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>{g.label}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: densidadCss(10) }}>
                       {g.items.map(slot => (
                         <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => abrirSlot(slot)} ocultarPrecio={ocultarPrecio} />
                       ))}
@@ -1206,12 +1230,12 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio }: {
       style={{
         display: 'flex', textAlign: 'left', cursor: 'pointer', minHeight: 116,
         background: t.surface, border: yaMia ? `1.5px solid var(--portal-brand)` : `1px solid ${t.line}`,
-        borderRadius: radius.card, overflow: 'hidden',
+        borderRadius: 'var(--reservar-radio-tarjeta, ' + radius.card + 'px)', overflow: 'hidden',
         WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
       }}
     >
       <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho={104} alto="100%" radio={0} />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: '13px 15px 13px 16px' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: `${densidadCss(13)} ${densidadCss(15)} ${densidadCss(13)} ${densidadCss(16)}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>
             {fmtHora(slot.inicio)} <span style={{ fontSize: 12, fontWeight: 500, color: t.muted }}>— {duracionMin} min</span>
@@ -1232,7 +1256,7 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio }: {
             <span style={{ fontSize: 13.5, fontWeight: 800, color: t.ink }}>{slot.precio} €</span>
           ) : <span />}
           <span aria-hidden="true" className="reserva-cta-btn" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: radius.pill,
+            display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 'var(--reservar-radio-boton, ' + radius.pill + 'px)',
             padding: '8px 16px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
             background: yaMia ? 'color-mix(in oklab, var(--portal-brand) 10%, var(--portal-surface))'
               : lleno ? t.surface2 : 'var(--portal-brand)',
