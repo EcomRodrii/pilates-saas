@@ -2045,17 +2045,15 @@ export default function ReservarPage() {
 
   const tabsTodas = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio'], ['cuenta', 'Mi cuenta']] as const;
   const tabs = tabsTodas.filter(([t]) => tabHabilitada(t));
-  // Diseño "Tentare Portal Reservas": la barra de pestañas se oculta en la
-  // pantalla de Clases (elegido explícitamente frente a mantenerla como
-  // navegación real de producto) — mismo mecanismo que `embedMode`/
-  // `soloPestana`, filtrando a la pestaña activa en vez de un flag nuevo.
-  // En la pantalla de Clases (fuera de embed) no se pinta NI SIQUIERA la
-  // píldora única que `embedMode`/`soloPestana` sí dejan (esos casos son
-  // "un widget = un propósito, con su nombre visible"; aquí el diseño no
-  // lleva ningún rótulo de navegación sobre el calendario).
-  const tabsVisibles = tab === 'clases' && !embedMode && !apariencia.soloPestana
-    ? []
-    : (embedMode || apariencia.soloPestana) ? tabs.filter(([t]) => t === tab) : tabs;
+  // ⚠️ Se probó ocultar la barra también en la pantalla de Clases de la
+  // página SUELTA (sin `embed=1`), para acercarse más al diseño "Tentare
+  // Portal Reservas" — revertido: rompía en CI la navegación real a "El
+  // estudio"/"Mi cuenta"/"Citas" para cualquier visitante de la página
+  // completa (`booking.spec.ts`, `reservar-p6-callejones-y-doble-alta.spec.ts`
+  // y otras, todas clicando esas pestañas desde la carga por defecto). El
+  // parche de reponer solo "Mis reservas" en la cabecera no bastaba — no
+  // reabrir sin resolver también esas otras dos salidas primero.
+  const tabsVisibles = (embedMode || apariencia.soloPestana) ? tabs.filter(([t]) => t === tab) : tabs;
 
   // ── Orden y visibilidad de las secciones ───────────────────────────────────
   // Lo decide el estudio desde el editor de Apariencia (Theme Builder
@@ -2253,22 +2251,6 @@ export default function ReservarPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: cq(14, 2, 26) }}>
             <span style={{ fontSize: 12, color: 'var(--portal-accent)', whiteSpace: 'nowrap' }}>{estudioTelefono}</span>
-            {/* Con la barra de pestañas oculta en Clases (`tabsVisibles`
-                vacío), este es el ÚNICO camino que queda hacia "Mis
-                reservas" — sin él, una socia logueada no tendría forma de
-                llegar ahí nunca. Mismo hueco que dejaría el diseño si se
-                copiara literal sin reponer esta salida. */}
-            {tabsVisibles.length === 0 && tabHabilitada('misreservas') && (
-              <button
-                onClick={() => setTab('misreservas')}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                  fontSize: 13, fontWeight: 500, color: 'var(--portal-ink)', whiteSpace: 'nowrap',
-                }}
-              >
-                Mis reservas
-              </button>
-            )}
             {socia ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 46, padding: '0 8px 0 8px', borderRadius: 23, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)' }}>
                 <div style={{ width: 24, height: 24, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, background: PRIMARY, color: PRIMARY_FG }}>
@@ -2404,12 +2386,8 @@ export default function ReservarPage() {
         {/* ── TABS ───────────────────────────────────────────────────────────
             ⚠️ El `div#horario` se pinta SIEMPRE, con pestañas o sin ellas: es el
             ancla a la que salta el botón de la portada y el que usan los tests.
-            Lo que desaparece con `soloPestana` son los botones de dentro.
-            ⚠️ Con `tabsVisibles` vacío (Clases, página suelta) no queda NINGÚN
-            hijo dentro — sin `minHeight` el div mide 0×0 y Playwright lo trata
-            como oculto (`toBeVisible`/`waitFor` fallan), rompiendo el ancla de
-            arriba. `minHeight: 1` lo mantiene con tamaño real sin pintar nada. */}
-        <div id="horario" className={`reserva-tabs-scroll ${embedMode ? '' : 'reserva-tabs'}`} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: tabsVisibles.length > 1 ? '1px solid rgba(34,38,31,.12)' : 'none', marginTop: embedMode ? cq(16, 1.6, 20) : (tabsVisibles.length > 1 ? cq(28, 3.6, 46) : 0), overflowX: 'auto', padding: tabsVisibles.length > 1 ? `0 ${cq(20, 3.8, 48)}` : 0, minHeight: tabsVisibles.length === 0 ? 1 : undefined }}>
+            Lo que desaparece con `soloPestana` son los botones de dentro. */}
+        <div id="horario" className={`reserva-tabs-scroll ${embedMode ? '' : 'reserva-tabs'}`} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
           {/* Un widget embebido es 1 propósito, no un portal en miniatura:
               en `embedMode` se enseña SIEMPRE únicamente la pestaña que pidió
               `?tab=`, sin barra — quien incrusta «Horario y reserva de
