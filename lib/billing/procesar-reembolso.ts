@@ -41,6 +41,13 @@ import { registrarDevolucion, referenciaDevolucion, origenDeReembolso } from './
 // cambio decía cerrar. Al añadir un origen nuevo, añadirlo también aquí.
 export const ORIGENES_CON_RECIBO = new Set(['sepa_recibo', 'tarjeta_recibo', 'plan_web', 'plan_web_embebido']);
 
+// Cobros de datáfono/Bizum presencial (P-2, 17ª auditoría). Un origen aparte,
+// no sumado a ORIGENES_CON_RECIBO: estas ventas NO tienen `recibos` —
+// `ventas_pos` es su propia tabla, sin la máquina de entrega/bono/suscripción
+// que sí necesita `registrarDevolucion`. Mismo motivo por el que el informe
+// pedía "una rama propia, no dos strings más a la lista".
+export const ORIGENES_POS = new Set(['pos_terminal', 'pos_bizum']);
+
 export interface ChargeReembolsado {
   id: string;
   refunded: boolean;
@@ -219,4 +226,64 @@ export async function procesarDisputeClosed(
     }
   }
   return { ok: true, huboEfecto };
+}
+
+/**
+ * Reembolso de una venta de POS (datáfono `pos_terminal` / Bizum presencial
+ * `pos_bizum`) — P-2, 17ª auditoría. Sin `registrarDevolucion`: una venta POS
+ * no tiene entrega/bono/suscripción que revisar (es venta al contado de
+ * productos/servicios sueltos), así que no hay nada que "revertir" más allá
+ * de dejar constancia del reembolso para que el cierre de caja no quede
+ * inflado. La venta se localiza por `stripe_payment_intent_id` — `ventas_pos`
+ * ya lo guarda al cobrar (no hace falta metadata nueva en el PaymentIntent).
+ */
+export async function procesarReembolsoVentaPos(
+  admin: SupabaseClient,
+  p: {
+    studioId: string;
+    paymentIntentId: string;
+    charge: ChargeReembolsado;
+    fuente: Fuente;
+  },
+): Promise<ResultadoProcesado> {
+  const acumuladoDevuelto = (p.charge.amountRefunded ?? 0) / 100;
+
+  // Guard `.is('devuelta_en', null)`, mismo patrón que `.neq('estado',
+  // 'DEVUELTO')` en recibos: un reintento del mismo evento (webhook reenviado,
+  // o el cron llegando después) no debe reescribir `devuelta_en` con la fecha
+  // de hoy ni perder el importe acumulado real si hubo un segundo parcial.
+  const { data: venta, error } = await admin.from('ventas_pos')
+    .update({ devuelta_en: new Date().toISOString(), importe_devuelto: acumuladoDevuelto })
+    .eq('studio_id', p.studioId).eq('stripe_payment_intent_id', p.paymentIntentId).is('devuelta_en', null)
+    .select('id, socio_id, total')
+    .maybeSingle();
+
+  if (error) {
+    console.error(`[${p.fuente}] no se pudo marcar la venta POS devuelta`, p.paymentIntentId, error);
+    return { ok: false, huboEfecto: false, error: error.message };
+  }
+
+  if (!venta) {
+    // Dos motivos legítimos de 0 filas, indistinguibles sin otra consulta: (a)
+    // reintento de un reembolso ya anotado, o (b) la venta nunca se registró
+    // en `ventas_pos` (el POS está congelado — lib/frozen-features.ts — así
+    // que un cobro de datáfono sin su venta asociada no puede completarse
+    // desde el panel). Se avisa en ambos casos: si es (b), es la única señal
+    // de que hay dinero devuelto sin ninguna fila que lo refleje.
+    Sentry.captureMessage(`[${p.fuente}] reembolso de venta POS sin efecto (ya devuelta, o venta nunca registrada)`, {
+      level: 'warning', extra: { paymentIntentId: p.paymentIntentId, studioId: p.studioId },
+    });
+    return { ok: true, huboEfecto: false };
+  }
+
+  try {
+    const { emitirVentaPosDevuelta } = await import('../notifications/emit.ts');
+    await emitirVentaPosDevuelta(admin, {
+      studioId: p.studioId, socioId: (venta.socio_id as string | null) ?? null,
+      ventaPosId: venta.id as string, importe: acumuladoDevuelto,
+    });
+  } catch (e) {
+    console.error(`[${p.fuente}] venta POS marcada devuelta pero sin notificar`, venta.id, e instanceof Error ? e.message : e);
+  }
+  return { ok: true, huboEfecto: true };
 }

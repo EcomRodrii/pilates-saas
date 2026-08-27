@@ -954,6 +954,10 @@ export interface RowVentasPos {
   realizada_en: string | null;
   // migr 0036.
   stripe_payment_intent_id: string | null;
+  // migr 20260827093640.
+  devuelta_en: string | null;
+  // migr 20260827093640.
+  importe_devuelto: number | null;
 }
 
 export interface RowVideosOnDemand {
