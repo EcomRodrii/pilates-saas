@@ -3,7 +3,6 @@
 import { PortalHomeView } from './portal-home-view';
 import { SESION_MUESTRA } from '@/lib/theme/preview-sesion-muestra';
 import { usePreviewBloques, usePreviewClickToSelect, usePreviewResaltado, usePreviewMedidas } from './portal-preview-bridge';
-import { useVistaPreviaKit } from './vista-previa-kit';
 
 // Sesión de muestra: esta ruta nunca tiene una socia real (ver
 // app/portal-preview/[slug]/layout.tsx, sin PortalAuthProvider). Sin
@@ -17,14 +16,10 @@ import { useVistaPreviaKit } from './vista-previa-kit';
 
 export function PortalPreviewHomeClient() {
   const { bloques, seleccionId, modo } = usePreviewBloques('home');
-  // Con un tema del kit se enseña el kit, no el portal de siempre.
-  const kit = useVistaPreviaKit('inicio');
   usePreviewClickToSelect(modo);
   // Solo en modo edición: navegando, el overlay del padre no se pinta.
   usePreviewMedidas(modo === 'editar');
   usePreviewResaltado(seleccionId);
-
-  if (kit) return kit;
 
   // `escribible={false}`: el preview corre en un iframe del MISMO origen, así
   // que comparte localStorage con /portal/[slug]. Si la propietaria entró

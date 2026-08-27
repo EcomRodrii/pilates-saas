@@ -4,6 +4,7 @@ import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import { obtenerRendimientoInstructoras } from '@/lib/equipo/rendimiento-datos';
+import { ErrorAccion } from '@/lib/actions/errores';
 
 /**
  * equipoRendimientoAction
@@ -15,7 +16,7 @@ export async function equipoRendimientoAction() {
   const sesion = await requireAuthInServerAction();
 
   if (!puedeGestionarEquipo(sesion.rol)) {
-    throw new Error('No tienes permiso para ver rendimiento del equipo');
+    throw new ErrorAccion('No tienes permiso para ver rendimiento del equipo', 403);
   }
 
   const admin = getSupabaseAdmin();

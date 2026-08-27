@@ -4,60 +4,42 @@ import { montarPortal, SLUG } from './portal-mock';
 // ─────────────────────────────────────────────────────────────────────────────
 // De toda pantalla se puede volver.
 //
-// ⚠️ CALLEJÓN SIN SALIDA en toda la app, y lo encontró el fundador usándola.
+// El bug original (CALLEJÓN SIN SALIDA, encontrado por el fundador usándola)
+// vivía en el router propio del KIT: `ir()`/`navegar()`
+// (`components/portal-tema/`) mantenían su propia pila de pantallas por
+// encima de Next.js, y una pantalla sin ruta URL propia (Favoritas,
+// Historial) podía dejar la flecha «Atrás» sin hacer nada porque la URL ya
+// era la misma. Ese router es exclusivo del kit — el portal de siempre
+// navega con `<Link>`/`router.back()` de Next.js de verdad, así que esa
+// clase de bug (URL igual, pantalla distinta, "atrás" no navega) no puede
+// pasar aquí: no hay una pila propia que desincronizar de la URL.
 //
-// `back()` hace `ir({ screen: tab })`. Favoritas e Historial NO tienen ruta
-// propia: se abren desde Inicio, así que su destino al volver (`/home`) YA era
-// la URL actual. `navegar` no navegaba —correcto, apilaría historial idéntico—
-// pero devolvía `true`, y `ir()` solo aplica la pantalla al store cuando le
-// dicen que NO se ha navegado. Resultado: la flecha no hacía nada y la socia se
-// quedaba encerrada.
-//
-// Yo tenía la hipótesis en la fase 2 y monté mal el test: la busqué en el
-// detalle de clase (que no lleva barra) y en la confirmación (a la que no supe
-// llegar con los datos de muestra). El camino real es este.
+// Lo que SÍ es una pregunta real y equivalente en el portal de siempre es si
+// una pantalla que NO está en la barra de abajo (detalle de clase, alcanzado
+// desde el carrusel «Esta semana» de Inicio) tiene una vuelta real y no deja
+// a la socia atascada. Este fichero migra esa pregunta a `router.back()`,
+// que es el mecanismo real que usa `app/portal/[slug]/clases/[sesionId]/page.tsx`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.setTimeout(180_000);
 
-const SIN_RUTA_PROPIA = [
-  { nombre: 'Favoritas', abrir: /^Favoritas$/ },
-  { nombre: 'Historial', abrir: /Historial de clases/ },
-];
-
-for (const { nombre, abrir } of SIN_RUTA_PROPIA) {
-  test(`se puede volver desde ${nombre}`, async ({ page }) => {
-    await montarPortal(page, { conSesion: true, kit: 'sereno' });
-    await page.goto(`/portal/${SLUG}/perfil`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-    await page.getByRole('button', { name: abrir }).click({ timeout: 60_000 });
-
-    // Estamos dentro: la pantalla tiene su flecha.
-    const atras = page.getByRole('button', { name: 'Atrás' });
-    await expect(atras).toBeVisible();
-
-    await atras.click();
-
-    // ⚠️ Lo que fallaba: esto no pasaba nunca. La flecha desaparece porque ya
-    // no estamos en esa pantalla, y vuelve la barra de la sección.
-    await expect(atras).toHaveCount(0);
-    await expect(page.locator('.tab-bar')).toBeVisible();
-  });
-}
-
-test('volver desde Favoritas abierta desde el Inicio, que es donde se veía', async ({ page }) => {
-  // El camino exacto del reporte: acceso rápido del Inicio → Favoritas →
-  // atrás. Aquí el destino de vuelta (`/home`) ES la URL actual, que es
-  // justo la condición que rompía.
-  await montarPortal(page, { conSesion: true, kit: 'sereno' });
+test('desde el detalle de una clase (llegando por Inicio) se puede volver', async ({ page }) => {
+  await montarPortal(page, { conSesion: true });
   await page.goto(`/portal/${SLUG}/home`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await expect(page.locator('.tab-bar')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('navigation', { name: 'Secciones' })).toBeVisible({ timeout: 60_000 });
 
-  await page.getByRole('button', { name: 'Favoritas' }).click();
-  const atras = page.getByRole('button', { name: 'Atrás' });
-  await expect(atras).toBeVisible();
+  // La tarjeta de "Esta semana" de ses-1 (Reformer Flow, dentro de ~3h) es un
+  // <Link> real de Next — no un botón del router propio del kit. (ses-1
+  // también puede aparecer en "Huecos de hoy"; cualquiera de los dos enlaces
+  // reales sirve para esta comprobación, así que basta con el primero.)
+  await page.locator(`a[href="/portal/${SLUG}/clases/ses-1"]`).first().click();
+  await expect(page.getByRole('heading', { name: 'Reformer Flow' })).toBeVisible({ timeout: 30_000 });
 
-  await atras.click();
+  // El botón de volver de esta pantalla no lleva `aria-label` (solo un icono):
+  // es el primer botón del documento, antes de cualquier otro control de la
+  // ficha (favorita, gráfica...).
+  await page.locator('button').first().click();
 
-  await expect(atras).toHaveCount(0);
-  await expect(page.getByText(/accesos rápidos/i)).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/home$`));
+  await expect(page.getByRole('navigation', { name: 'Secciones' })).toBeVisible();
 });

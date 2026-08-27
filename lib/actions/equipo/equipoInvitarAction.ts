@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
 import { enviarEmailInvitacionEquipo } from '@/lib/emails/invitacion-equipo-server';
 import { firmarTokenInstructora } from '@/lib/sustituciones/token';
+import { ErrorAccion } from '@/lib/actions/errores';
 
 /**
  * equipoInvitarAction
@@ -15,17 +16,17 @@ import { firmarTokenInstructora } from '@/lib/sustituciones/token';
 export async function equipoInvitarAction(input: Record<string, unknown>) {
   const sesion = await requireAuthInServerAction();
   if (!puedeGestionarEquipo(sesion.rol)) {
-    throw new Error('No tienes permiso para invitar al equipo');
+    throw new ErrorAccion('No tienes permiso para invitar al equipo', 403);
   }
 
   const instructorId = typeof input?.instructorId === 'string' ? input.instructorId : null;
   if (!instructorId) {
-    throw new Error('Falta a quién invitar');
+    throw new ErrorAccion('Falta a quién invitar', 400);
   }
 
   const admin = getSupabaseAdmin();
   if (!admin) {
-    throw new Error('Servidor no configurado');
+    throw new ErrorAccion('Servidor no configurado', 503);
   }
 
   const { data: instructor } = await admin
@@ -36,20 +37,20 @@ export async function equipoInvitarAction(input: Record<string, unknown>) {
     .maybeSingle();
 
   if (!instructor) {
-    throw new Error('Esa persona ya no está en tu equipo.');
+    throw new ErrorAccion('Esa persona ya no está en tu equipo.', 404);
   }
 
   if (sesion.rol !== 'PROPIETARIO'
       && !rolesQuePuedeAsignar(sesion.rol).includes(instructor.rol as never)) {
-    throw new Error('No puedes invitar a esta persona. Pídeselo a la propietaria.');
+    throw new ErrorAccion('No puedes invitar a esta persona. Pídeselo a la propietaria.', 403);
   }
 
   if (!instructor.email) {
-    throw new Error('Esa persona no tiene email en su ficha. Añádeselo y vuelve a intentarlo.');
+    throw new ErrorAccion('Esa persona no tiene email en su ficha. Añádeselo y vuelve a intentarlo.', 400);
   }
 
   if (instructor.auth_user_id) {
-    throw new Error('Esa persona ya tiene su acceso creado, no necesita invitación.');
+    throw new ErrorAccion('Esa persona ya tiene su acceso creado, no necesita invitación.', 409);
   }
 
   const { data: studio } = await admin

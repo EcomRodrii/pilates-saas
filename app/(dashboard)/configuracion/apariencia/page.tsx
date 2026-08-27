@@ -1,22 +1,15 @@
-import { ThemeLibrary } from '@/components/theme/theme-library';
-import { PageHeader } from '@/components/ui/page-header';
-import { Badge } from '@/components/ui/badge';
+import { redirect } from 'next/navigation';
 
-// La pantalla de llegada de Apariencia es la BIBLIOTECA de temas: se elige un
-// punto de partida mirándolo, y el ajuste fino (colores, tipografía, bloques
-// de cada pantalla del portal) vive en /configuracion/apariencia/editor.
-export const metadata = { title: 'Apariencia' };
-
+// ─────────────────────────────────────────────────────────────────────────────
+// RETIRADO (decisión del fundador, 2026-08-27): esta pantalla era la BIBLIOTECA
+// de temas (`ThemeLibrary`, componente ahora borrado) — se elegía un tema del
+// kit mirándolo, y "Personalizar" llevaba al ajuste fino en
+// `/configuracion/apariencia/editor`. Con el sistema de temas del kit
+// retirado por completo (PR 2 de "borrar temas del kit": árbol de
+// `components/portal-tema/`, los 5 `themes/*`, la galería), ya no hay nada
+// que elegir de un vistazo — solo queda el editor. Este stub manda
+// directamente ahí en vez de dejar una pantalla vacía.
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AparienciaPage() {
-  return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-      <PageHeader
-        back={{ href: '/configuracion', label: 'Volver a Configuración' }}
-        title="Apariencia"
-        description="Elige el tema de la app de tus socias y de tu página pública de reservas."
-        badge={<Badge variant="outline" className="uppercase tracking-wide">Beta</Badge>}
-      />
-      <ThemeLibrary />
-    </div>
-  );
+  redirect('/configuracion/apariencia/editor');
 }

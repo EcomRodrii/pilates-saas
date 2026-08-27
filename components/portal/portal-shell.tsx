@@ -26,8 +26,6 @@ import { sans, altura, radio } from '@/lib/portal-design';
 import { NAV_DISPONIBLES, navItemsVisibles } from '@/lib/portal-nav';
 import { PushPrompt } from './push-prompt';
 import { PortalNav } from './portal-nav';
-import { PortalTemaMarco, pantallaDeRuta } from './portal-tema-marco';
-import { esTemaPortal } from '@/themes/registro';
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
@@ -35,7 +33,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   // useStudio() — este marco se monta en TODAS las pantallas del portal, y
   // solo necesita estos 6 campos de tema/nav publicados, no los ~85 del
   // context gigante (ver lib/core-context.tsx).
-  const { dataLoaded, navPortal, barraClasica, variantes, portalReact, themeIdPublicado } = useCore();
+  const { dataLoaded, navPortal, barraClasica, variantes } = useCore();
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   const pathname = usePathname();
   const router = useRouter();
@@ -150,50 +148,16 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const activeIndex = NAV.findIndex(({ seg }) =>
     seg === segActual || pathname.startsWith(`/portal/${slug}/${seg}`));
 
-  // El portal en React (el kit de diseño), detrás de `studios.portal_react`.
-  //
-  // Se exige ADEMÁS que el tema instalado sea uno de los tres del kit: con
-  // `classic` no hay juego de tokens que montar, y servirle a esa socia un
-  // portal a medio tintar sería peor que dejarle el de siempre. Así, encender
-  // la bandera en un estudio sin tema del kit no rompe nada: no pasa nada.
-  //
-  // ⚠️ TEMPORAL, y con fecha: esta rama y el portal viejo se van juntos el
-  // `FECHA_SALIDA_PORTAL_REACT` de `lib/portal-tema/caducidad.ts`. Ese día la
-  // suite se pone roja sola — «no dejar que eche raíces» era una buena
-  // intención mientras nada la comprobara, que es como un flag temporal se
-  // queda para siempre.
-  //
-  // Y solo en las rutas que el kit cubre: `/progreso`, `/compras`,
-  // `/preferencias`, `/invitar`, `/instructores` y `/videos` no tienen
-  // pantalla equivalente y se quedan con el portal de siempre. Encender la
-  // bandera no puede dejar a nadie sin esas pantallas.
-  //
-  // ⚠️ `/notificaciones` SÍ la cubre ya (`Avisos`, con los mismos datos de
-  // `fetchNotificaciones`), así que ha salido de esa lista. Lo que sigue fuera
-  // es `/preferencias`, que es otra cosa: allí viven el control por canal y la
-  // activación de push, y el kit todavía no los tiene.
-  // ⚠️ Clases estuvo fuera para los estudios con plaza fija hasta que el kit
-  // tuvo selector de sitio: el detalle reservaba con `spotId: null` y dejaba a
-  // la socia de un reformer sin máquina, que es justo lo que la hoja de
-  // reserva de siempre le deja elegir. Ya lo tiene (`ClassDetail`, rejilla
-  // `.plazas`), así que la excepción se retira y `spots` deja de mirarse aquí.
-  const pantallaKit = pantallaDeRuta(pathname, slug);
-
-  if (portalReact && esTemaPortal(themeIdPublicado) && pantallaKit) {
-    return (
-      <div className="fixed inset-0" style={{ background: t.bg }}>
-        <div className="flex flex-col overflow-hidden" style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)' }}>
-          <PortalTemaMarco />
-          {/* ⚠️ El mismo componente que la rama de siempre, no una copia: es lo
-              que avisa de "añade a pantalla de inicio para recibir avisos", y
-              al montar el kit desapareció sin que nadie lo decidiera. Va aquí
-              fuera del marco porque se posiciona contra la pantalla completa
-              (`fixed`), no contra el lienzo de la pantalla activa. */}
-          <PushPrompt />
-        </div>
-      </div>
-    );
-  }
+  // ⚠️ RETIRADO (decisión del fundador, 2026-08-27): el portal en React (el
+  // kit de diseño) se borró en el PR 2 de "borrar temas del kit"
+  // (`components/portal-tema/`, `components/portal/portal-tema-marco.tsx`,
+  // `themes/registro.ts`). Esta rama ya montaba SIEMPRE el portal de siempre
+  // desde el PR 1 (`esTemaPortal()` devolvía ya siempre `false`), así que no
+  // se pierde ningún comportamiento real al retirarla — pero ahora, con el
+  // propio `PortalTemaMarco` borrado, ya no puede ni compilar tal cual, así
+  // que aquí se quita el bloque entero (no solo la condición), a diferencia
+  // del resto de "solo evitar el import roto" de este PR. `PushPrompt` no se
+  // pierde: sigue montado en la rama de siempre, más abajo.
 
   return (
     <div className="fixed inset-0" style={{ background: t.bg }}>

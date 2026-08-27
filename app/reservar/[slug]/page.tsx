@@ -28,7 +28,7 @@ import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
-import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe } from '@/lib/reservar/apariencia-widget';
+import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe, escalaDensidad } from '@/lib/reservar/apariencia-widget';
 import { resolverConfigWidget } from '@/lib/reservar/config-widget';
 import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
@@ -584,6 +584,15 @@ export default function ReservarPage() {
   // antes de que el primer render se confirme.
   const [confirmando, setConfirmando] = useState(false);
   const confirmandoRef = useRef(false);
+  // Mismo cerrojo doble que `confirmando`/`confirmandoRef`, para
+  // `handleSignContract`: sin él, dos pulsaciones rápidas de "Aceptar y
+  // continuar" en el paso 'contrato' de una walk-in en acceso genérico
+  // corrían dos veces `crearAltaWalkIn` con dos `soc-${Date.now()}`
+  // distintos, y `socios` no tiene ningún UNIQUE que lo impida a nivel de
+  // servidor — dos fichas de socia reales para la misma persona (17ª
+  // auditoría, P-6).
+  const [firmando, setFirmando] = useState(false);
+  const firmandoRef = useRef(false);
   const [loginForm, setLoginForm] = useState({ nombre: '', apellidos: '', email: '', telefono: '' });
   const [loginStep, setLoginStep] = useState<Step>('login');
   // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §3/§4).
@@ -680,6 +689,14 @@ export default function ReservarPage() {
   // La hoja de confirmar cita vive dentro de <CitasPublica>; nos avisa por
   // `onOverlayAbierto` para poder anclarla igual que las demás.
   const [citaConfirmandoAbierta, setCitaConfirmandoAbierta] = useState(false);
+  // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
+  // 05 "Reserva esta clase"): un enlace directo a `?sesion=` ya no salta
+  // recto a la hoja de reserva — aterriza primero en una ficha-resumen de ESA
+  // clase (fecha/hora/instructora/plazas + precio), sin selector para
+  // cambiarla (respuesta 4 del brief). "Reservar mi plaza" es lo que abre la
+  // hoja de siempre. Declarado aquí (antes de `overlayEmbebidoAbierto`/
+  // `enVistaReserva`, que lo usan) para no depender del orden de ejecución.
+  const [fichaSesionId, setFichaSesionId] = useState<string | null>(null);
   const overlayEmbebidoAbiertoRef = useRef(false);
   // Botón Atrás real: qué slot tiene abierta su ficha, no solo si "hay una
   // ficha abierta" — el id hace falta para reflejarlo en la URL (`?clase=`) y
@@ -721,7 +738,7 @@ export default function ReservarPage() {
   // el seguimiento del scroll EN SILENCIO: se pinta una vez con la franja
   // congelada y luego se despega. Le pasaba a la de «Citas», que ni
   // siquiera exponía su estado hacia fuera.
-  const overlayEmbebidoAbierto = embedMode && (fichaCalendarioAbierta || bookingSesionId !== null || legalDoc !== null || citaConfirmandoAbierta);
+  const overlayEmbebidoAbierto = embedMode && (fichaCalendarioAbierta || bookingSesionId !== null || fichaSesionId !== null || legalDoc !== null || citaConfirmandoAbierta);
   // Rediseño "sin popup": el listado (título "Clases", filtros, calendario,
   // caja "cómo funciona") se oculta mientras se ve la ficha de una clase O
   // el flujo de login/datos/pago que viene después — las DOS mitades de la
@@ -732,7 +749,15 @@ export default function ReservarPage() {
   // este OR, el listado reaparecía DEBAJO del flujo en el mismo instante en
   // que se pulsaba el botón (encontrado con la propia captura de
   // verificación de esta fase, no antes de escribirlo).
-  const enVistaReserva = fichaCalendarioAbierta || bookingSesionId !== null;
+  //
+  // ⚠️ Mismo aviso que el de `overlayEmbebidoAbierto` unas líneas más arriba:
+  // toda hoja/ficha nueva que tape el listado tiene que sumarse AQUÍ o se
+  // pinta encima/debajo del listado genérico en vez de sola. Le pasó a
+  // `fichaSesionId` (la ficha-resumen del deep-link `?sesion=`, Fase 4 CRO):
+  // se añadió sin sumarla a este `||`, y una visitante que llegaba por ese
+  // enlace veía la ficha Y los tabs/filtros/bonos/pie alrededor (17ª
+  // auditoría, P-6).
+  const enVistaReserva = fichaCalendarioAbierta || bookingSesionId !== null || fichaSesionId !== null;
   useEffect(() => {
     overlayEmbebidoAbiertoRef.current = overlayEmbebidoAbierto;
     if (!overlayEmbebidoAbierto || typeof window === 'undefined' || window.parent === window) return;
@@ -862,13 +887,6 @@ export default function ReservarPage() {
   // Esta rama SÍ depende del magic link, así que sigue exigiendo `autenticado`.
   const deepLinkHecho = useRef(false);
   const leadCompletedRef = useRef(false);
-  // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
-  // 05 "Reserva esta clase"): un enlace directo a `?sesion=` ya no salta
-  // recto a la hoja de reserva — aterriza primero en una ficha-resumen de ESA
-  // clase (fecha/hora/instructora/plazas + precio), sin selector para
-  // cambiarla (respuesta 4 del brief). "Reservar mi plaza" es lo que abre la
-  // hoja de siempre.
-  const [fichaSesionId, setFichaSesionId] = useState<string | null>(null);
   useEffect(() => {
     // Fase 8 (CRO): volver aquí con `wsid` en la URL Y ya autenticada es
     // justo el momento que lead_started no podía medir por sí solo — se
@@ -1740,42 +1758,53 @@ export default function ReservarPage() {
   const referenciaPago = piDeClientSecret(datosClientSecret ?? '');
 
   async function handleSignContract() {
-    if (socia?.socioId) {
-      const res = await updateSocio(socia.socioId, {
-        aceptacionContrato: {
-          fecha: new Date().toISOString(),
-          firma: socia.nombre,
-          // El texto completo que se aceptó, igual que hace el panel. Antes se
-          // guardaba 'v1.1' fijo, que no correspondía a ningún versionado real:
-          // si el estudio editaba sus textos, no había forma de saber qué había
-          // aceptado cada clienta.
-          versionTexto: textoLegalCompleto(studioConfig),
-          origen: 'PORTAL',
-        },
-      });
-      // Sin consentimiento guardado no se sigue: avanzar dejaría al estudio
-      // creyendo que lo tiene.
-      if (!res.ok) { setGateError(res.error); return; }
-    } else if (!bookingSesionId) {
-      // Walk-in en acceso genérico (sin clase elegida): no hay un paso
-      // "confirmar" al que enganchar la alta — con clase (bookingSesionId
-      // truthy) se pospone a handleConfirm a propósito, para no crear la
-      // ficha si el gate de derechos o el aforo la rechazan después; aquí no
-      // hay nada más que pueda rechazarla, así que se crea ya.
-      const nuevoId = `soc-${Date.now()}`;
-      const altaRes = await crearAltaWalkIn(nuevoId);
-      if (!altaRes.ok) { setGateError(altaRes.error); return; }
-      await refrescar();
-      closeBooking();
-      return;
-    }
-    // Con clase pendiente hay algo que confirmar; en acceso genérico ya
-    // está todo hecho (ficha existente + contrato recién firmado arriba).
-    if (bookingSesionId) {
-      setLoginStep('confirm');
-      trackEventoWidget(studio?.id, 'class_detail_viewed', { sesionClaseId: bookingSesionId });
-    } else {
-      closeBooking();
+    // Mismo cerrojo doble que `handleConfirm` (ver comentario en la
+    // declaración de `firmando`/`firmandoRef`): sin él, dos pulsaciones
+    // rápidas de "Aceptar y continuar" daban de alta dos fichas de socia.
+    if (firmando || firmandoRef.current) return;
+    firmandoRef.current = true;
+    setFirmando(true);
+    try {
+      if (socia?.socioId) {
+        const res = await updateSocio(socia.socioId, {
+          aceptacionContrato: {
+            fecha: new Date().toISOString(),
+            firma: socia.nombre,
+            // El texto completo que se aceptó, igual que hace el panel. Antes se
+            // guardaba 'v1.1' fijo, que no correspondía a ningún versionado real:
+            // si el estudio editaba sus textos, no había forma de saber qué había
+            // aceptado cada clienta.
+            versionTexto: textoLegalCompleto(studioConfig),
+            origen: 'PORTAL',
+          },
+        });
+        // Sin consentimiento guardado no se sigue: avanzar dejaría al estudio
+        // creyendo que lo tiene.
+        if (!res.ok) { setGateError(res.error); return; }
+      } else if (!bookingSesionId) {
+        // Walk-in en acceso genérico (sin clase elegida): no hay un paso
+        // "confirmar" al que enganchar la alta — con clase (bookingSesionId
+        // truthy) se pospone a handleConfirm a propósito, para no crear la
+        // ficha si el gate de derechos o el aforo la rechazan después; aquí no
+        // hay nada más que pueda rechazarla, así que se crea ya.
+        const nuevoId = `soc-${Date.now()}`;
+        const altaRes = await crearAltaWalkIn(nuevoId);
+        if (!altaRes.ok) { setGateError(altaRes.error); return; }
+        await refrescar();
+        closeBooking();
+        return;
+      }
+      // Con clase pendiente hay algo que confirmar; en acceso genérico ya
+      // está todo hecho (ficha existente + contrato recién firmado arriba).
+      if (bookingSesionId) {
+        setLoginStep('confirm');
+        trackEventoWidget(studio?.id, 'class_detail_viewed', { sesionClaseId: bookingSesionId });
+      } else {
+        closeBooking();
+      }
+    } finally {
+      firmandoRef.current = false;
+      setFirmando(false);
     }
   }
 
@@ -2202,7 +2231,7 @@ export default function ReservarPage() {
               </div>
             ) : (
               <button
-                onClick={() => { setBookingSesionId(''); setLoginStep('login'); openBooking(''); }}
+                onClick={() => openBooking('')}
                 style={{
                   height: 46, padding: `0 ${cq(18, 2, 26)}`, borderRadius: 23, background: PRIMARY, color: PRIMARY_FG,
                   display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
@@ -2517,6 +2546,11 @@ export default function ReservarPage() {
                 slots={slots}
                 variant="calendario"
                 estiloFicha="vista"
+                // Fase 3 del rediseño: `?densidad=`/`?forma=` (solo
+                // `embed=1`, como el resto de `apariencia` — la página
+                // SUELTA no honra parámetros del snippet).
+                densidadEsc={escalaDensidad(apariencia)}
+                radiosEsc={radiosDe(apariencia, { tarjeta: R.card, boton: R.pill, input: R.spot })}
                 // `?diseno=ligero` (snippet, solo llega con embed=1) cambia a
                 // la rejilla compacta del bundle; el default sigue siendo la
                 // tira de 10 días.
@@ -2605,7 +2639,7 @@ export default function ReservarPage() {
               disponibilidad={citasDisponibilidad}
               misCitas={misCitas}
               autenticada={!!socia}
-              onNeedLogin={() => { setBookingSesionId(''); setLoginStep('login'); }}
+              onNeedLogin={() => openBooking('')}
               onReservar={(servicioId, instructorId, inicioISO) => reservarCitaPublica({ servicioId, instructorId, inicioISO })}
               onCancelar={cancelarCita}
               primary={PRIMARY}
@@ -2645,7 +2679,7 @@ export default function ReservarPage() {
                     <h3 style={{ fontFamily: serif, fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tus reservas</h3>
                     <p style={{ fontSize: 12.5, color: 'var(--portal-muted-2)', marginTop: 6 }}>Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
                   </div>
-                  <button onClick={() => { setBookingSesionId(''); setLoginStep('login'); }}
+                  <button onClick={() => openBooking('')}
                     style={{ height: 48, padding: '0 26px', borderRadius: R.pillBtnSm, background: PRIMARY, color: PRIMARY_FG, border: 'none', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
                     Acceder
                   </button>
@@ -2889,7 +2923,7 @@ export default function ReservarPage() {
                   <h3 style={{ fontFamily: serif, fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tu cuenta</h3>
                   <p style={{ fontSize: 12.5, color: 'var(--portal-muted-2)', marginTop: 6 }}>Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
                 </div>
-                <button onClick={() => { setBookingSesionId(''); setLoginStep('login'); }}
+                <button onClick={() => openBooking('')}
                   style={{ height: 48, padding: '0 26px', borderRadius: R.pillBtnSm, background: PRIMARY, color: PRIMARY_FG, border: 'none', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
                   Acceder
                 </button>
@@ -3655,10 +3689,10 @@ export default function ReservarPage() {
                     className={`${BOTON_SECUNDARIO} flex-1`}>
                     Volver
                   </button>
-                  <button onClick={handleSignContract} disabled={!terminosAceptados}
+                  <button onClick={handleSignContract} disabled={!terminosAceptados || firmando}
                     className={`${BOTON_PRIMARIO} flex-[2]`}
                     style={{ backgroundColor: PRIMARY }}>
-                    Aceptar y continuar →
+                    {firmando ? 'Guardando…' : 'Aceptar y continuar →'}
                   </button>
                 </div>
               </div>

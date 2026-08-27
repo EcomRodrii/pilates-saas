@@ -735,8 +735,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   });
   // `radio`/`radioInput`(el legacy de radio de tarjeta) no viajan aquí a
   // propósito: hoy solo existen como parámetro de URL (`?radio=`), sin campo
-  // persistido — mismo estado que tenía antes de esta fase.
-  const [aparienciaWidget, setAparienciaWidget] = useState<Omit<AparienciaWidget, 'radio'>>({
+  // persistido — mismo estado que tenía antes de esta fase. `forma`/
+  // `densidad` (Fase 3) siguen el mismo criterio: solo `?forma=`/`?densidad=`
+  // por ahora, sin editor propio en el Theme Builder todavía.
+  const [aparienciaWidget, setAparienciaWidget] = useState<Omit<AparienciaWidget, 'radio' | 'forma' | 'densidad'>>({
     fondo: null, fuente: null, ocultarPie: false, soloPestana: false, texto: 'auto',
     fuenteDisplay: null, radioBoton: null, radioInput: null,
     superficie: null, tinta: null, textoSecundario: null, linea: null, relleno: null,
@@ -4510,17 +4512,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // ⚠️ NO `??`: `quickLinksStyle` es un campo NULLABLE de verdad (`null` =
   // "hereda del tema", no "sin valor todavía"). Con `temaJsPreview?.x ?? y`,
   // un borrador que quiere heredar (`quickLinksStyle: null` dentro del
-  // preview) caería a lo YA PUBLICADO en vez de quedarse en `null` — el
-  // mismo bug de categoría que ya evita el ternario de `themeIdEfectivo` de
-  // abajo. El ternario distingue "sin preview activo" (`temaJsPreview` es
-  // `null`) de "preview activo, y su valor es `null`".
+  // preview) caería a lo YA PUBLICADO en vez de quedarse en `null`. El
+  // ternario distingue "sin preview activo" (`temaJsPreview` es `null`) de
+  // "preview activo, y su valor es `null`".
   const quickLinksStyleEfectivo = temaJsPreview ? temaJsPreview.quickLinksStyle : quickLinksStyle;
   const variantesEfectivas = temaJsPreview?.variantes ?? variantes;
-  // ⚠️ El borrador manda también aquí, y este eje pesa más que los otros tres:
-  // decide qué portal se pinta ENTERO. Sin él, la vista previa del editor
-  // enseñaba siempre el portal de siempre — la propietaria elegía un tema del
-  // kit y lo miraba montado sobre el portal que sus socias ya no usan.
-  const themeIdEfectivo = temaJsPreview ? temaJsPreview.temaKit : themeIdPublicado;
+  // ⚠️ RETIRADO (decisión del fundador, 2026-08-27): `TemaJs.temaKit` decidía
+  // qué portal se pintaba ENTERO (de siempre, o el kit) — se borró junto con
+  // el kit de temas en el PR 2 de "borrar temas del kit"
+  // (`lib/theme-preview-puente.ts`). `themeIdPublicado` ya no cambia según
+  // haya o no preview activo: nada lo consume salvo lo publicado de verdad.
 
   const value: StudioContextValue = useMemo(() => ({
     planesTarifa,
@@ -4539,7 +4540,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     quickLinksStyle: quickLinksStyleEfectivo,
     variantes: variantesEfectivas,
     navPortal,
-    themeIdPublicado: themeIdEfectivo,
+    themeIdPublicado,
     portalReact,
     redesSociales,
     textosReservar,
@@ -4780,7 +4781,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // notara.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdPublicado, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
@@ -4879,7 +4880,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       tabBarStyle={tabBarStyleEfectivo}
       quickLinksStyle={quickLinksStyleEfectivo}
       variantes={variantesEfectivas}
-      themeIdPublicado={themeIdEfectivo}
+      themeIdPublicado={themeIdPublicado}
       portalReact={portalReact}
     >
     <StudioContext.Provider value={value}>

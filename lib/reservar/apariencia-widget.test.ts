@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   resolverApariencia, fondoCss, familiaCss, urlFuente, fuenteValida,
   modoTextoDe, luminancia, radiosDe, coloresDe, familiaDisplayCss, urlFuenteDisplay,
-  APARIENCIA_POR_DEFECTO, type AparienciaWidget,
+  escalaDensidad, APARIENCIA_POR_DEFECTO, type AparienciaWidget,
 } from './apariencia-widget.ts';
 
 const params = (q: string) => new URLSearchParams(q);
@@ -186,4 +186,38 @@ test('coloresDe: solo se pisa lo que se toca', () => {
   const d = { superficie: '#FFFFFF', tinta: '#221C19', textoSecundario: '#82766E', linea: '#E9E1D9', relleno: '#F3EDE7' };
   const a = resolverApariencia({ tinta: '#000000' });
   assert.deepEqual(coloresDe(a, d), { ...d, tinta: '#000000' });
+});
+
+// ── forma/densidad (Fase 3) ─────────────────────────────────────────────────
+
+test('forma/densidad: sin tocar nada, quedan en null y sin efecto', () => {
+  assert.equal(APARIENCIA_POR_DEFECTO.forma, null);
+  assert.equal(APARIENCIA_POR_DEFECTO.densidad, null);
+  assert.equal(escalaDensidad(APARIENCIA_POR_DEFECTO), 1);
+});
+
+test('`?forma=` y `?densidad=` de la URL pisan lo guardado, con la misma validación de basura que el resto', () => {
+  const r = resolverApariencia(null, params('forma=recto&densidad=compacta'));
+  assert.equal(r.forma, 'recto');
+  assert.equal(r.densidad, 'compacta');
+  const basura = resolverApariencia({ forma: 'pill', densidad: 'comoda' }, params('forma=diamante&densidad=ultra'));
+  assert.equal(basura.forma, 'pill');
+  assert.equal(basura.densidad, 'comoda');
+});
+
+test('escalaDensidad: solo "compacta" aprieta (0.75); cualquier otro valor es 1', () => {
+  assert.equal(escalaDensidad(resolverApariencia({ densidad: 'compacta' })), 0.75);
+  assert.equal(escalaDensidad(resolverApariencia({ densidad: 'comoda' })), 1);
+  assert.equal(escalaDensidad(resolverApariencia(null)), 1);
+});
+
+test('radiosDe: `forma` fija los 3 radios a la vez, pero un radio/radioBoton/radioInput explícito sigue ganando campo por campo', () => {
+  const d = { tarjeta: 26, boton: 999, input: 12 };
+  assert.deepEqual(radiosDe(resolverApariencia({ forma: 'recto' }), d), { tarjeta: 10, boton: 6, input: 10 });
+  assert.deepEqual(radiosDe(resolverApariencia({ forma: 'pill' }), d), { tarjeta: 20, boton: 999, input: 20 });
+  // `forma` puesta Y un campo explícito a la vez: el campo explícito manda.
+  assert.deepEqual(
+    radiosDe(resolverApariencia({ forma: 'redondeado', radioBoton: 4 }), d),
+    { tarjeta: 16, boton: 4, input: 16 },
+  );
 });

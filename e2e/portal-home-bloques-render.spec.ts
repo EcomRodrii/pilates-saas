@@ -194,9 +194,14 @@ test('con fondo CLARO el bloque conserva el color del tema, no salta a negro', a
   // perdería el carácter del tema.
   // ⚠️ Comparativo y no absoluto: `t.ink` es la tinta del PORTAL, no el
   // `text` del tema (asumirlo me dio un falso rojo). Lo que hay que sostener
-  // es que un fondo claro NO cambia el color respecto a no tener fondo.
+  // es que un fondo claro NO cambia el color respecto a no tener fondo. No
+  // hace falta un `tema` con paleta propia para esto — el `text` de
+  // `DEFAULT_THEME` (`#1A1A1A`) ya es distinguible de un negro puro, que es
+  // justo lo que haría saltar la regresión. (Antes usaba `tema: 'oliva'`,
+  // retirado con el resto del kit de temas en el PR 2 de "borrar temas del
+  // kit" — `getThemeDefinition('oliva')` ya no existe.)
   await montarPortal(page, {
-    conSesion: true, tema: 'oliva',
+    conSesion: true,
     homeBloques: [
       { id: 't2', kind: 'texto', config: { titulo: 'Sobre claro', texto: '' }, estilo: { fondo: '#F5F3ED' } },
       { id: 't3', kind: 'texto', config: { titulo: 'Sin fondo', texto: '' } },

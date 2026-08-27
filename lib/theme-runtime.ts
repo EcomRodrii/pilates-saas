@@ -18,8 +18,6 @@
 
 import type { CSSProperties } from 'react';
 import { resolveTheme, FUENTES, RADIOS, RADIO_PRESET_PX, DEFAULT_THEME, type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
-// El vocabulario del kit de temas vive con los temas, no aquí.
-import { TEMAS_PORTAL, varsColorSobreTema, varsEscalaSobreTema, varsRadioSobreTema, varsRadioPresetSobreTema, varsSombraSobreTema, varsBotonSobreTema, varsBarraOscuraSobreTema, type TemaPortalId } from '../themes/registro.ts';
 import { getPreset } from './theme-presets.ts';
 import { cumpleContraste, foregroundParaFondo, hexARgb } from './wcag-contrast.ts';
 import { colorLegibleSobreClaro } from './color-utils.ts';
@@ -332,13 +330,12 @@ function themeToVarMap(raw: unknown): Record<string, string> {
 /**
  * Los ajustes guardados, con los nombres de token del kit de temas en React.
  *
- * Devuelve `null` cuando el tema publicado NO es uno del kit (`classic`, o
- * ninguno): ahí no hay tokens que pisar y emitir un bloque vacío sería ruido
- * en el HTML de todas las socias.
- *
- * La traducción vive en `themes/registro.ts`, junto a los temas, y no aquí: es
- * el vocabulario del kit, no el del portal de siempre. Ver el comentario de
- * `ThemeStyle` para el porqué del selector.
+ * ⚠️ RETIRADO (decisión del fundador, 2026-08-27): el kit de temas
+ * (`themes/registro.ts`) se borró en el PR 2 de "borrar temas del kit" — ya
+ * no hay ningún `themeId` que pueda resolver un tema del kit, así que esto
+ * devuelve `null` siempre. Se mantiene la función (en vez de borrarla) porque
+ * sigue teniendo consumidores reales fuera de este PR (`components/theme-
+ * style.tsx`, `components/theme/home-preview.tsx`), que son cirugía de PR 3.
  */
 export function varsKitDelTema(raw: unknown): string | null {
   const vars = varsKitMap(raw);
@@ -349,36 +346,11 @@ export function varsKitDelTema(raw: unknown): string | null {
 /**
  * Lo mismo, como mapa.
  *
- * Lo usa el puente del preview en vivo, que las aplica EN LÍNEA sobre
- * `documentElement` — y una propiedad en línea gana a cualquier selector, así
- * que ahí no hace falta el truco de especificidad. Sin esto, tocar un color en
- * el editor no movía nada dentro del iframe cuando el tema es del kit.
+ * ⚠️ RETIRADO (decisión del fundador, 2026-08-27): siempre vacío, mismo
+ * motivo que `varsKitDelTema` de arriba.
  */
-export function varsKitMap(raw: unknown): Record<string, string> {
-  const t = resolveTheme(raw);
-  const tema = TEMAS_PORTAL[t.themeId as TemaPortalId];
-  if (!tema) return {};
-  return {
-    ...varsColorSobreTema({
-      primary: t.primary,
-      onPrimary: foregroundParaFondo(t.primary),
-      secondary: t.secondary,
-      background: t.background,
-      text: t.text,
-      fontStack: FUENTES.find((f) => f.id === t.fontId)?.stack,
-      headingStack: varsTitularPortal(t)['--portal-heading-font'],
-      headingWeight: varsTitularPortal(t)['--portal-heading-weight'],
-      accent: t.destacado ?? undefined,
-    }),
-    // El preset (Recto/Redondeado/Píldora) siembra el default; `radioTema`
-    // (ajuste fino) pisa por pieza — por eso va DESPUÉS, no antes.
-    ...varsRadioPresetSobreTema(t.radius),
-    ...varsRadioSobreTema(t.radioTema),
-    ...varsEscalaSobreTema(t.escalaTexto as Record<string, number | undefined> | undefined, tema),
-    ...varsSombraSobreTema(t.cardStyle, t.text),
-    ...varsBotonSobreTema(t.buttonStyle, t.primary),
-    ...varsBarraOscuraSobreTema(t.barraOscura),
-  };
+export function varsKitMap(_raw: unknown): Record<string, string> {
+  return {};
 }
 
 /** CSS variables como objeto para inline `style` (cliente / preview en vivo). */
@@ -462,4 +434,36 @@ export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   // aplica esa variable (`aplicarMarca` en panel-theme.tsx / themeToVarMap
   // aquí abajo), no en este gate compartido — ver `colorLegibleSobreClaro`.
   return { ok: errores.length === 0, errores };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Cuántos cambios sin publicar
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Reubicado desde `components/theme/theme-library.tsx` (la galería de temas
+// instalables, borrada en el PR 2 de "borrar temas del kit") — esta función
+// no tiene nada que ver con la galería: compara el borrador contra lo
+// publicado para el contador de "N cambios sin publicar" del editor a
+// pantalla completa (`theme-editor-fullscreen.tsx`), que sigue vivo.
+
+/** Los campos del tema que de verdad cambian lo que ve una socia. */
+const CAMPOS_VISIBLES = [
+  'primary', 'secondary', 'accent', 'background', 'text',
+  'fontId', 'portalHeadingFontId', 'radius', 'buttonStyle', 'cardStyle',
+  'tabBarStyle', 'barraOscura', 'barraFlotante', 'destacado', 'faviconUrl',
+  // `radioTema` y `variantes` (objetos) quedan fuera a propósito, mismo
+  // criterio que `navPortal`/`redesSociales`: comparar por referencia daría
+  // falsos positivos (el fetch siempre crea un objeto nuevo), y el contador
+  // se quedaría clavado en "1 cambio sin publicar" para siempre.
+] as const satisfies readonly (keyof ThemeConfig)[];
+
+/**
+ * Cuántos de esos campos difieren entre el borrador y lo publicado. Se compara
+ * campo a campo y no con un igual profundo del objeto entero para poder decir
+ * "3 cambios sin publicar" en vez de un "hay cambios" sin cuerpo — y porque
+ * metadatos como `themeCustomized` cambian sin que la socia note nada.
+ */
+export function contarCambios(borrador: ThemeConfig, publicado: ThemeConfig | null): number {
+  if (!publicado) return 0;
+  return CAMPOS_VISIBLES.filter((k) => borrador[k] !== publicado[k]).length;
 }

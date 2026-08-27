@@ -11,8 +11,21 @@ import { featureDeEstudio } from '@/lib/billing/feature-estudio';
 import { errorInterno } from '@/lib/errores-servidor';
 import { guardarBorradorTheme, getThemeBorrador } from '@/lib/theme-data';
 import { instalarTema } from '@/lib/theme-schema';
-import { themeIdSeguro } from '@/themes/registro';
 import type { ImportedThemeManifest } from '@/lib/theme-import/manifest';
+
+/**
+ * ⚠️ Ajuste mínimo de import (PR 2 de "borrar temas del kit", 2026-08-27):
+ * `themeIdSeguro`/`esTemaPortal` vivían en `themes/registro.ts`, borrado con
+ * el resto del árbol del kit. Este endpoint (el importador de ZIP) está
+ * explícitamente FUERA de ese esfuerzo — no se toca su lógica, solo se
+ * preserva aquí, en línea, el mismo contrato que ya tenía: conservar el
+ * `themeId` NATIVO que el estudio ya tuviera y nunca inventar uno del kit
+ * (que ya no existe), en vez de forzar 'tentada' como hacía el `porDefecto`
+ * original.
+ */
+function themeIdSeguro(pedido: string | null | undefined, porDefecto = 'classic'): string {
+  return pedido && pedido.trim() ? pedido : porDefecto;
+}
 
 /** Límite de tamaño de un fichero editado a mano — el importador de ZIP
  *  tampoco tenía uno explícito hasta ahora; este es el primero, no un hueco

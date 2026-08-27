@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { equipoAction } from '@/lib/actions/equipo/equipoAction';
+import { respuestaDeErrorAccion } from '@/lib/actions/errores';
 
 /**
  * DEPRECATED: Use the Server Action instead
@@ -15,16 +16,7 @@ async function handleRequest(req: NextRequest, method: string) {
     const result = await equipoAction({ ...body, method });
     return NextResponse.json(result);
   } catch (error) {
-    const message = (error as Error)?.message || 'Error procesando la solicitud';
-    let status = 500;
-
-    if (message.includes('No autorizado')) status = 401;
-    if (message.includes('No tienes permiso')) status = 403;
-    if (message.includes('Faltan datos') || message.includes('Falta')) status = 400;
-    if (message.includes('no encontrada')) status = 404;
-    if (message.includes('Ya hay alguien')) status = 409;
-
-    return NextResponse.json({ error: message }, { status });
+    return respuestaDeErrorAccion('equipo:route', error);
   }
 }
 
