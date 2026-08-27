@@ -36,6 +36,7 @@ export default function CompanerasPage() {
   const { t } = useModo();
 
   void session; // el id de la socia lo resuelve el servidor (socioAutenticado), no hace falta aquí.
+  const studioId = studio?.id ?? null;
 
   const [lista, setLista] = useState<ListaCompaneras | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,13 +46,13 @@ export default function CompanerasPage() {
   const [aBloquear, setABloquear] = useState<RowSocioCompanerasConNombre | null>(null);
 
   const cargar = useCallback(async () => {
-    if (!studio?.id) return;
+    if (!studioId) return;
     setError(null);
     const headers = await portalAuthHeader();
-    const r = await fetchListaCompaneras(headers, studio.id);
+    const r = await fetchListaCompaneras(headers, studioId);
     if ('error' in r) { setError(r.error); return; }
     setLista(r);
-  }, [studio?.id]);
+  }, [studioId]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial, misma forma que Mensajes/Comunidad.
   useEffect(() => { void cargar(); }, [cargar]);

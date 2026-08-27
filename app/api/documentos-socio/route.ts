@@ -24,7 +24,6 @@ import type { RowDocumentosSocio } from '@/lib/db-types';
 // defensa en profundidad: la fila la crea un body que controla el cliente,
 // nunca fiarse de que el path que dice haber subido es el que la RLS de
 // verdad le dejó escribir.
-const BUCKET = 'documentos-socio';
 const CATEGORIAS = ['PLAN', 'FACTURA', 'CONTRATO', 'OTRO'] as const;
 type Categoria = (typeof CATEGORIAS)[number];
 

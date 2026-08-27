@@ -43,18 +43,20 @@ export default function DocumentosPage() {
   const { studio } = useStudio();
   const { t } = useModo();
 
+  const studioId = studio?.id ?? null;
+
   const [documentos, setDocumentos] = useState<DocumentoSociaPortal[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [abriendoId, setAbriendoId] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
-    if (!studio?.id) return;
+    if (!studioId) return;
     setError(null);
     const headers = await portalAuthHeader();
-    const r = await fetchDocumentosSocia(headers, studio.id);
+    const r = await fetchDocumentosSocia(headers, studioId);
     if ('error' in r) { setError(r.error); return; }
     setDocumentos(r.documentos);
-  }, [studio?.id]);
+  }, [studioId]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial, misma forma que Mensajes/Comunidad.
   useEffect(() => { void cargar(); }, [cargar]);

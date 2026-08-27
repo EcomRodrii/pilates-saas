@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Heart, MessageCircle, X, Pin, Image, Video, CalendarDays, MapPin, Users } from 'lucide-react';
+import { Heart, MessageCircle, X, Pin, Image as ImageIcon, Video, CalendarDays, MapPin, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { dbListComentariosComunidad, dbAddComentarioComunidad } from '@/lib/supabase-data';
@@ -461,7 +461,7 @@ function NewPostModal({
                 disabled
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] text-muted-foreground cursor-not-allowed select-none"
               >
-                <Image size={13} />
+                <ImageIcon size={13} />
                 Foto
               </button>
               {mediaTooltip === 'foto' && (

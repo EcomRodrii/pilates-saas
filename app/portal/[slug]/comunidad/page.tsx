@@ -57,15 +57,17 @@ export default function ComunidadPage() {
 
   const cargando = useRef(false);
 
+  const studioId = studio?.id ?? null;
+
   const cargarPrimeraPagina = useCallback(async () => {
-    if (!studio?.id) return;
+    if (!studioId) return;
     setError(null);
     const headers = await portalAuthHeader();
-    const r = await fetchFeedComunidad(headers, studio.id);
+    const r = await fetchFeedComunidad(headers, studioId);
     if ('error' in r) { setError(r.error); return; }
     setPosts(r.posts);
     setHayMas(r.posts.length > 0);
-  }, [studio?.id]);
+  }, [studioId]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial, misma forma que Mensajes.
   useEffect(() => { void cargarPrimeraPagina(); }, [cargarPrimeraPagina]);

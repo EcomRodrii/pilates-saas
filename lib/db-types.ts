@@ -2294,40 +2294,6 @@ export interface RowRedFavoritosAlumna {
   creado_en: string;
 }
 
-export interface RowNovedadesEstudio {
-  id: string;
-  studio_id: string;
-  titulo: string;
-  texto: string | null;
-  emoji: string | null;
-  activo: boolean;
-  fecha_inicio: string | null;
-  fecha_fin: string | null;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface RowWebhookReembolsos {
-  id: string;
-  pi_stripe_id: string;
-  charge_stripe_id: string;
-  recibo_id: string | null;
-  amount_refunded_cents: number;
-  total_charge_cents: number;
-  es_reembolso_total: boolean;
-  procesado_en: string;
-}
-
-export interface RowWebhookDisputas {
-  id: string;
-  pi_stripe_id: string;
-  dispute_stripe_id: string;
-  recibo_id: string | null;
-  dispute_status: string;
-  procesado_en: string;
-}
-
 export interface RowConversaciones {
   id: string;
   studio_id: string;
@@ -2385,4 +2351,38 @@ export interface RowSocioCompaneras {
   bloqueada_por: string | null;
   creado_en: string;
   resuelto_en: string | null;
+}
+
+export interface RowNovedadesEstudio {
+  id: string;
+  studio_id: string;
+  titulo: string;
+  texto: string | null;
+  emoji: string | null;
+  activo: boolean;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RowWebhookReembolsos {
+  id: string;
+  pi_stripe_id: string;
+  charge_stripe_id: string;
+  recibo_id: string | null;
+  amount_refunded_cents: number;
+  total_charge_cents: number;
+  es_reembolso_total: boolean;
+  procesado_en: string;
+}
+
+export interface RowWebhookDisputas {
+  id: string;
+  pi_stripe_id: string;
+  dispute_stripe_id: string;
+  recibo_id: string | null;
+  dispute_status: string;
+  procesado_en: string;
 }
