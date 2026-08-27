@@ -33,10 +33,12 @@ import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { Calendar, Clock, MapPin, QrCode, User as UserIcon } from 'lucide-react';
 import type { Reserva, Sesion } from '@/lib/types';
+import type { ResultadoEscritura } from '@/lib/errores';
 import { formatFechaCorta as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
 import { Toast, type AvisoToast } from '@/components/portal/ui';
 import { semantic } from '@/lib/portal-tokens';
 import { HojaPase, type DatosPase } from '@/components/portal/hoja-pase';
+import { HojaOfertaEspera, type OfertaEspera } from '@/components/portal/hoja-oferta-espera';
 import { BotonesCalendario } from '@/components/portal/botones-calendario';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
 import type { PortalSession } from '@/lib/portal-auth';
@@ -166,8 +168,13 @@ export function PortalReservasView({
   const { t, noche } = useModo();
   const [tab, setTab] = useState<Tab>('PROXIMAS');
   const [cancelando, setCancelando] = useState<Reserva | null>(null);
-  const [aceptandoId, setAceptandoId] = useState<string | null>(null);
   const [paseAbierto, setPaseAbierto] = useState(false);
+  // Id de la reserva cuya oferta la socia ya cerró tocando el fondo (sin
+  // decidir) — para que el sheet no vuelva a abrirse solo en cada render
+  // mientras la MISMA oferta siga viva. Si aparece una oferta distinta
+  // (nueva reservaId), esto ya no la tapa: vuelve a abrirse sola, que es lo
+  // urgente que tiene que ser.
+  const [ofertaOcultaId, setOfertaOcultaId] = useState<string | null>(null);
   // Cancelar también puede fallar en el servidor. Cerrar la hoja sin mirar dejaba
   // a la socia creyendo que había cancelado, con la plaza todavía suya.
   const [aviso, setAviso] = useState<AvisoToast | null>(null);
@@ -210,12 +217,50 @@ export function PortalReservasView({
   const lista = porTab[tab];
   const proximaClase = porTab.PROXIMAS[0] ?? null;
 
-  async function aceptarOferta(reservaId: string) {
-    if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); return; }
-    setAceptandoId(reservaId);
-    const r = await aceptarOfertaEspera(reservaId);
-    setAceptandoId(null);
-    if (!r.ok) setAviso({ texto: r.error, error: true });
+  // Oferta de plaza liberada (Fase 2b) con plazo vivo — sea cual sea la
+  // pestaña abierta, es urgente y se enseña en un sheet global (más abajo),
+  // no solo dentro de la pestaña ESPERA. `now` es el mismo reloj fijado al
+  // montar que usa `porTab` (no tickea): si la oferta caduca mientras la
+  // pantalla lleva rato abierta sin recargarse, el propio sheet ya lo refleja
+  // con su cuenta atrás en vivo — esto solo decide si hay algo que abrir.
+  const ofertaActiva: OfertaEspera | null = useMemo(() => {
+    const activa = misReservas.find(
+      x => x.r.estado === 'LISTA_ESPERA' && !!x.r.ofertaExpiraEn && new Date(x.r.ofertaExpiraEn) > now,
+    );
+    if (!activa) return null;
+    return {
+      reservaId: activa.r.id,
+      ofertaExpiraEn: activa.r.ofertaExpiraEn as string,
+      sesion: activa.s,
+      tipo: tiposClase.find(tc => tc.id === activa.s.tipoClaseId) ?? null,
+      sala: salas.find(sl => sl.id === activa.s.salaId) ?? null,
+      instr: instructores.find(i => i.id === activa.s.instructorId) ?? null,
+    };
+  }, [misReservas, now, tiposClase, salas, instructores]);
+
+  // Cerrar el sheet tocando el fondo NO cuenta como "rechazar" — solo lo
+  // oculta hasta que aparezca una oferta DISTINTA (otra reservaId). Mientras
+  // tanto, la reserva sigue viéndose en la pestaña ESPERA con su pastilla de
+  // estado — esa es la red de seguridad si se cierra sin decidir.
+  const mostrarSheetOferta = ofertaActiva != null && ofertaActiva.reservaId !== ofertaOcultaId;
+
+  async function onAceptarOferta(reservaId: string): Promise<ResultadoEscritura> {
+    if (!escribible) {
+      setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false });
+      return { ok: true };
+    }
+    return aceptarOfertaEspera(reservaId);
+  }
+
+  // "Dejarla pasar" es `cancelarReserva` de siempre — cancelar una reserva en
+  // LISTA_ESPERA libera el hueco y promueve a la siguiente en el backend, sin
+  // necesitar ningún endpoint nuevo de "rechazar oferta".
+  async function onDejarPasarOferta(reservaId: string): Promise<ResultadoEscritura> {
+    if (!escribible) {
+      setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false });
+      return { ok: true };
+    }
+    return cancelarReserva(reservaId);
   }
 
   return (
@@ -352,29 +397,27 @@ export function PortalReservasView({
                     </div>
                   </div>
 
+                  {/* La interacción real (aceptar/dejar pasar, con cuenta
+                      atrás en vivo) vive ahora en el sheet global
+                      `HojaOfertaEspera`, que se abre solo en cuanto hay una
+                      oferta viva — sea cual sea la pestaña abierta. Esto es
+                      la red de seguridad si esa socia cerró el sheet sin
+                      decidir: sigue viendo aquí que hay una oferta y puede
+                      reabrirlo, sin duplicar la cuenta atrás en dos sitios a
+                      la vez. */}
                   {r.estado === 'LISTA_ESPERA' && r.ofertaExpiraEn && (
-                    <div style={{
-                      marginTop: 14, padding: '13px 15px', borderRadius: 16,
-                      background: noche ? 'rgba(224,148,43,.10)' : semantic.warning.soft,
-                    }}>
-                      <p style={{ ...texto.metaFuerte, fontSize: 12.5, color: t.ink, marginBottom: 10, lineHeight: 1.4 }}>
-                        ¡Se ha liberado una plaza! Tienes hasta las {formatHora(r.ofertaExpiraEn)} para aceptarla.
-                      </p>
-                      <button
-                        type="button"
-                        disabled={aceptandoId === r.id}
-                        onClick={() => aceptarOferta(r.id)}
-                        style={{
-                          width: '100%', height: 44, borderRadius: 22, border: 'none',
-                          background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-                          ...texto.botonCta, fontSize: 13.5, cursor: aceptandoId === r.id ? 'default' : 'pointer',
-                          opacity: aceptandoId === r.id ? 0.6 : 1,
-                          transition: transicion(['opacity']),
-                        }}
-                      >
-                        {aceptandoId === r.id ? 'Aceptando…' : 'Aceptar plaza'}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOfertaOcultaId(null)}
+                      style={{
+                        width: '100%', height: 42, marginTop: 14, borderRadius: 21, border: 'none',
+                        background: noche ? 'rgba(224,148,43,.14)' : semantic.warning.soft,
+                        color: noche ? semantic.warning.textNoche : semantic.warning.text,
+                        ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
+                      }}
+                    >
+                      Se ha liberado una plaza — ver oferta
+                    </button>
                   )}
 
                   {/* §6 — Añadir ESTA reserva al calendario de la alumna. Nada
@@ -507,6 +550,19 @@ export function PortalReservasView({
           pedirPase={escribible ? pedirPaseDeAcceso : pedirPaseDeMuestra}
         />
       )}
+
+      {/* Sheet global de oferta de plaza (Fase 2b) — se abre solo, sin
+          depender de qué pestaña esté mirando la socia: es urgente por
+          diseño. Cerrarlo tocando el fondo (`onClose`) NO es "rechazar", solo
+          lo oculta hasta la siguiente oferta distinta (ver `ofertaOcultaId`
+          arriba); la reserva sigue reflejada en la pestaña ESPERA. */}
+      <HojaOfertaEspera
+        oferta={mostrarSheetOferta ? ofertaActiva : null}
+        onClose={() => setOfertaOcultaId(ofertaActiva?.reservaId ?? null)}
+        onAceptar={onAceptarOferta}
+        onDejarPasar={onDejarPasarOferta}
+        onError={mensaje => setAviso({ texto: mensaje, error: true })}
+      />
 
       <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
     </div>
