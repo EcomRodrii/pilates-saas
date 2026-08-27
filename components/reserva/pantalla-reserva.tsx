@@ -34,7 +34,7 @@
 // cambia es que esta vez el "cajón" ocupa la pantalla entera y no se ve como
 // una tarjeta flotante con fondo oscurecido.
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
-import { ChevronLeft, Calendar, Clock, MapPin, Tag, Lock, ShieldCheck, RotateCcw, Check, X, Loader2 } from 'lucide-react';
+import { ChevronLeft, Tag, Lock, ShieldCheck, RotateCcw, Check, X, Loader2 } from 'lucide-react';
 import type { PlanTarifa } from '@/lib/types';
 import type { ModoTokens } from '@/lib/portal-modo';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, EASE } from '@/lib/reservar-publico-tokens';
@@ -60,6 +60,10 @@ export interface ClaseParaPantallaReserva {
   instructorNombre: string | null;
   salaNombre: string | null;
   nivel: string | null;
+  /** Plazas libres — badge sobre la foto y "N libres" en la tarjeta de sala,
+   *  igual que el diseño "Tentare Portal Reservas". `null` si el aforo no
+   *  aplica (p. ej. citas 1:1), nunca un número inventado. */
+  plazasLibres: number | null;
 }
 
 export function PantallaReserva({
@@ -245,6 +249,15 @@ export function PantallaReserva({
                 position: 'absolute', inset: 0,
                 background: 'linear-gradient(to top, rgba(20,22,15,.82) 0%, rgba(20,22,15,.38) 42%, rgba(20,22,15,0) 68%)',
               }} />
+              {clase.plazasLibres !== null && (
+                <span style={{
+                  position: 'absolute', top: cq(12, 1.4, 16), right: cq(12, 1.4, 16),
+                  background: 'rgba(20,22,15,.55)', backdropFilter: 'blur(6px)', color: '#fff',
+                  borderRadius: 999, padding: '5px 11px', fontSize: 11, fontWeight: 700,
+                }}>
+                  {clase.plazasLibres} {clase.plazasLibres === 1 ? 'plaza' : 'plazas'}
+                </span>
+              )}
               <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: cq(18, 2.4, 28) }}>
                 {clase.nivel && (
                   <div style={{ ...eyebrow(9), color: 'rgba(255,255,255,.82)', marginBottom: 8 }}>{clase.nivel}</div>
@@ -256,13 +269,37 @@ export function PantallaReserva({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: `0 ${cq(2, 0.4, 4)}` }}>
-              <FilaResumen icon={<Calendar size={15} />}>{tituloFecha(clase.inicio)}</FilaResumen>
-              <FilaResumen icon={<Clock size={15} />}>
-                {fmtTime(clase.inicio)} – {fmtTime(clase.fin)}
-                {clase.duracionMinutos ? ` · ${clase.duracionMinutos} min` : ''}
-              </FilaResumen>
+              {/* Chips mono en línea (día/hora/duración) — diseño "Tentare
+                  Portal Reservas": una fila de píldoras, no filas icono+texto
+                  apiladas. */}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <ChipResumen>{tituloFecha(clase.inicio)}</ChipResumen>
+                <ChipResumen>
+                  {fmtTime(clase.inicio)} – {fmtTime(clase.fin)}
+                </ChipResumen>
+                {clase.duracionMinutos != null && <ChipResumen>{clase.duracionMinutos} min</ChipResumen>}
+              </div>
               {clase.salaNombre && (
-                <FilaResumen icon={<MapPin size={15} />}>{clase.salaNombre} · {estudioDireccion || estudioNombre}</FilaResumen>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--portal-line)',
+                  borderRadius: 'var(--reservar-radio-tarjeta, ' + R.card + 'px)', padding: '11px 14px', marginTop: 2,
+                }}>
+                  {/* `nw-pulse-dot`: keyframe ya existente en globals.css
+                      (Network landing) — se reutiliza en vez de declarar uno
+                      nuevo, mismo efecto que pide el diseño. */}
+                  <span aria-hidden="true" style={{
+                    width: 8, height: 8, borderRadius: 999, background: 'var(--portal-brand)', flexShrink: 0,
+                    animation: 'nw-pulse-dot 2.4s infinite',
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 800, color: 'var(--portal-ink)' }}>
+                      {estudioNombre} · {clase.salaNombre}
+                    </p>
+                    <p style={{ margin: '1px 0 0', fontSize: 10.5, color: 'var(--portal-muted-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {estudioDireccion || estudioNombre}
+                    </p>
+                  </div>
+                </div>
               )}
               {clase.instructorNombre && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
@@ -498,12 +535,17 @@ function tituloFecha(inicio: string) {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
-function FilaResumen({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+/** Píldora mono — diseño "Tentare Portal Reservas": fecha/hora/duración van
+ *  en una fila de chips, no en filas icono+texto apiladas. */
+function ChipResumen({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: 'var(--portal-muted-2)' }}>
-      <span style={{ color: 'var(--portal-muted)', flexShrink: 0, display: 'inline-flex' }}>{icon}</span>
+    <span style={{
+      background: 'var(--portal-surface-2)', borderRadius: 999, padding: '7px 12px',
+      fontFamily: 'var(--font-plex-mono), ui-monospace, monospace', fontSize: 10.5,
+      color: 'var(--portal-muted-2)', whiteSpace: 'nowrap',
+    }}>
       {children}
-    </div>
+    </span>
   );
 }
 
