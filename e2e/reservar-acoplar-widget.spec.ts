@@ -118,9 +118,18 @@ test('sin pie y con una sola pestaña', async ({ page }) => {
 test('⚠️ la página SUELTA no cambia, aunque le pases los parámetros', async ({ page }) => {
   // Sin `embed=1` no se aplica nada: `/reservar/<slug>` es la página de Tentare
   // y ahí es el único sitio donde viven los legales.
+  // ⚠️ `&tab=estudio`, no el `clases` por defecto: el diseño "Tentare Portal
+  // Reservas" (fase 4) oculta la barra de pestañas A PROPÓSITO en la
+  // pantalla de Clases de la página suelta (elegido explícitamente, con
+  // "Mis reservas" repuesto en la cabecera como única salida) — eso ya NO es
+  // el parámetro `solo-pestana=1` haciendo efecto, es el diseño por defecto
+  // de esa pantalla. Esta prueba sigue comprobando lo que de verdad le
+  // importa: que los parámetros del snippet (pensados para `embed=1`) no
+  // cambian nada en la página suelta, en una pestaña donde la barra completa
+  // SÍ se pinta.
   await page.setViewportSize({ width: 1100, height: 760 });
   await mocks(page);
-  await page.goto(`/reservar/${SLUG}?fondo=transparente&pie=0&solo-pestana=1`);
+  await page.goto(`/reservar/${SLUG}?tab=estudio&fondo=transparente&pie=0&solo-pestana=1`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await expect(page.locator('footer')).toBeVisible();
   await expect(page.locator('#horario button')).toHaveCount(5);

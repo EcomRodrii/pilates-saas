@@ -39,7 +39,7 @@ export interface TokensTiraDias {
 }
 
 export function TiraDias({
-  dias, seleccionado, conteos, onSeleccionar, tokens,
+  dias, seleccionado, conteos, onSeleccionar, tokens, hoyKey, mananaKey,
 }: {
   /** Los N días a mostrar, ya calculados (medianoche local, orden cronológico). */
   dias: Date[];
@@ -49,6 +49,10 @@ export function TiraDias({
   conteos: Map<string, number>;
   onSeleccionar: (dayKey: string) => void;
   tokens: TokensTiraDias;
+  /** `localDayKey` de HOY, ya calculado por el llamador — nunca `new Date()` aquí dentro. */
+  hoyKey: string;
+  /** `localDayKey` de MAÑANA — mismo motivo, calculado fuera. */
+  mananaKey: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -81,6 +85,10 @@ export function TiraDias({
           const activo = key === seleccionado;
           const n = conteos.get(key) ?? 0;
           const hayClases = n > 0;
+          // Diseño "Tentare Portal Reservas": HOY y MAÑANA llevan etiqueta
+          // literal, no su abreviatura de día de la semana — las dos únicas
+          // excepciones de la tira, el resto sigue en DOW_CORTO.
+          const etiqueta = key === hoyKey ? 'HOY' : key === mananaKey ? 'MAÑ' : DOW_CORTO[d.getDay()];
           return (
             <button
               key={key}
@@ -113,7 +121,7 @@ export function TiraDias({
                 opacity: activo ? 0.85 : 0.72,
                 color: activo ? tokens.acentoTexto : tokens.mutedText,
               }}>
-                {DOW_CORTO[d.getDay()]}
+                {etiqueta}
               </span>
               <span style={{
                 fontFamily: tokens.fuenteDisplay, fontSize: 18, lineHeight: 1,

@@ -284,7 +284,7 @@ export function CitasPublica({
           {/* Día — misma tira de 10 días que Horario */}
           <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.12em', color: 'var(--portal-muted)', marginTop: 20 }}>DÍA</p>
           <div style={{ marginTop: 10 }}>
-            <TiraDias dias={dias10} seleccionado={selectedDay} conteos={conteosDia} onSeleccionar={elegirDia} tokens={tokensTira} />
+            <TiraDias dias={dias10} seleccionado={selectedDay} conteos={conteosDia} onSeleccionar={elegirDia} tokens={tokensTira} hoyKey={localDayKey(hoy)} mananaKey={localDayKey(addDays(hoy, 1))} />
           </div>
 
           {/* Hora */}
