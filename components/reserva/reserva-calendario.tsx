@@ -28,7 +28,7 @@ import type { ResultadoEscritura } from '@/lib/errores';
 import { semantic } from '@/lib/portal-tokens';
 import { colorOcupacion, ratioOcupacion, etiquetaOcupacion } from '@/lib/ocupacion';
 import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
-import { serif, sans, cq, radius, shadow, EASE, densidadCss } from '@/lib/reservar-publico-tokens';
+import { serif, sans, mono, cq, radius, shadow, EASE, densidadCss } from '@/lib/reservar-publico-tokens';
 import {
   localDayKey, addDays, diasSemana, contarSlotsPorDia, slotsDelDia,
   agruparPorDia, etiquetaDia,
@@ -193,6 +193,16 @@ export interface ReservaCalendarioProps {
    * lo fija en la raíz del shadow root.
    */
   estiloDias?: 'semana' | 'dias' | 'grid';
+  /**
+   * Chips de filtro (tipo de clase + instructora), pintados DEBAJO de la tira
+   * de días dentro del mismo bloque sticky — diseño "Tentare Portal
+   * Reservas". El ESTADO del filtro (qué está activo, a qué tabla afecta)
+   * sigue viviendo en el llamador (Modo A, `app/reservar/[slug]/page.tsx`):
+   * este componente solo pinta la fila, nunca decide qué filtra. Solo
+   * `estiloDias='dias'`; el resto de variantes (Modo B rejilla, "Mis
+   * reservas") no la pasan y no ven ningún cambio.
+   */
+  filtrosChips?: { id: string; label: string; activo: boolean; onClick: () => void }[];
   /**
    * Fase 4 del rediseño: las clases de HOY que ya empezaron/terminaron, para
    * pintarlas en gris con "FINALIZADA" en la tarjeta del día — `slots`
@@ -434,13 +444,14 @@ export function ReservaCalendario({
   t, slots, onReservar, onCancelar, onAceptarOferta,
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE, densidadEsc = 1,
   radiosEsc = { tarjeta: radius.card, boton: radius.pill, input: radius.spot },
-  irADia, estiloDias = 'semana', finalizadasHoy, loading = false,
+  irADia, estiloDias = 'semana', finalizadasHoy, loading = false, filtrosChips,
   ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, vistaInicial = 'todo',
   enIframe = false, franjaVisible = null, alCambiarFicha, origenTentare = '',
   estiloFicha = 'modal', abrirSlotExterno, onAntesDeAbrir,
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
+  const mananaKey = useMemo(() => localDayKey(addDays(hoy, 1)), [hoy]);
 
   const [weekAnchor, setWeekAnchor] = useState<Date>(hoy);
   const [selectedDayKey, setSelectedDayKey] = useState<string>(hoyKey);
@@ -508,6 +519,14 @@ export function ReservaCalendario({
     () => Array.from({ length: vistaInicial === 'hoy' ? 1 : 10 }, (_, i) => addDays(hoy, i)),
     [hoy, vistaInicial],
   );
+  // "AGOSTO — SEPTIEMBRE": el eyebrow del diseño para el rango que cubre la
+  // tira de 10 días, no un mes fijo — un mes de por medio (26 ago → 4 sep,
+  // p.ej.) sigue siendo real casi la mitad del año.
+  const rangoMesesDiez = useMemo(() => {
+    const mesA = diez[0].toLocaleDateString('es-ES', { month: 'long' }).toUpperCase();
+    const mesB = diez[diez.length - 1].toLocaleDateString('es-ES', { month: 'long' }).toUpperCase();
+    return mesA === mesB ? mesA : `${mesA} — ${mesB}`;
+  }, [diez]);
   // `estiloDias === 'grid'`: 7 días rodantes desde hoy (no semana natural
   // lunes-domingo) — mismo criterio de ventana rodante que `diez`, solo que
   // más corta porque aquí los 7 caben a la vez en pantalla.
@@ -525,6 +544,11 @@ export function ReservaCalendario({
   }, [estiloDias, siete, slots]);
   const conteoPorDia = useMemo(() => contarSlotsPorDia(slots), [slots]);
   const slotsDia = useMemo(() => slotsDelDia(slots, selectedDayKey), [slots, selectedDayKey]);
+  // Total del día elegido — el "N clases" del eyebrow sticky Y de la cabecera
+  // del feed más abajo (una sola cuenta, no dos que puedan desincronizarse).
+  // Las de hoy que ya pasaron (`finalizadasHoy`) solo cuentan si el día
+  // elegido es HOY — el mismo criterio que ya usaba la cabecera del feed.
+  const totalDiaSel = slotsDia.length + (selectedDayKey === hoyKey ? (finalizadasHoy?.length ?? 0) : 0);
   // Agrupación Mañana/Tarde/Noche del rediseño (diseño "Tentare Portal
   // Reservas", 2026-08-26) — en hora LOCAL del estudio (`franjaLocalDe`,
   // lib/utils.ts), no la del navegador de quien reserva: el mismo motivo por
@@ -639,18 +663,65 @@ export function ReservaCalendario({
       )}
 
       {variant === 'calendario' && estiloDias === 'dias' && !loading && (
-        <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${t.line}` }}>
+        // Bloque sticky único — eyebrow (rango de meses + "N clases") encima
+        // de la tira de días, y los chips de filtro DEBAJO, todo pegado al
+        // borde superior al hacer scroll. Diseño "Tentare Portal Reservas":
+        // las tres filas viven juntas, no como bloques sueltos.
+        <div
+          style={{
+            position: 'sticky', top: 0, zIndex: 5,
+            background: t.surface, marginBottom: 20, paddingBottom: 16,
+            borderBottom: `1px solid ${t.line}`,
+          }}
+        >
+          <div style={{
+            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+            gap: 10, marginBottom: 10, fontFamily: mono,
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: t.muted }}>
+              {rangoMesesDiez}
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.04em', color: t.muted }}>
+              {totalDiaSel} {totalDiaSel === 1 ? 'clase' : 'clases'}
+            </span>
+          </div>
           <TiraDias
             dias={diez}
             seleccionado={selectedDayKey}
             conteos={conteoPorDia}
             onSeleccionar={setSelectedDayKey}
+            hoyKey={hoyKey}
+            mananaKey={mananaKey}
             tokens={{
               surface: t.surface, line: t.line, ink: t.ink, mutedText: t.muted,
               acento: 'var(--portal-brand)', acentoTexto: 'var(--portal-brand-foreground)',
               fuenteDisplay: serif, fuenteUI: fontFamily, radioChip: 12,
             }}
           />
+          {filtrosChips && filtrosChips.length > 0 && (
+            <div
+              role="group"
+              aria-label="Filtrar por tipo de clase"
+              style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}
+            >
+              {filtrosChips.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={chip.onClick}
+                  style={{
+                    padding: '6px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 600,
+                    fontFamily, cursor: 'pointer', whiteSpace: 'nowrap',
+                    border: `1px solid ${chip.activo ? 'var(--portal-brand)' : t.line}`,
+                    background: chip.activo ? 'var(--portal-brand)' : t.surface,
+                    color: chip.activo ? 'var(--portal-brand-foreground)' : t.ink,
+                  }}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -785,7 +856,9 @@ export function ReservaCalendario({
         const diaSel = new Date(`${selectedDayKey}T12:00:00`);
         const esHoy = selectedDayKey === hoyKey;
         const finalizadas = esHoy ? (finalizadasHoy ?? []) : [];
-        const totalDia = slotsDia.length + finalizadas.length;
+        // Misma cuenta que el eyebrow sticky de arriba — una sola fuente de
+        // verdad (`totalDiaSel`), no dos cálculos que puedan desincronizarse.
+        const totalDia = totalDiaSel;
         const dayLabel = `${capitaliza(diaSel.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}${esHoy ? ' — hoy' : ''}`;
         const countLabel = error ? '—' : (totalDia ? `${totalDia} ${totalDia === 1 ? 'clase' : 'clases'}` : 'Sin clases');
         return (
@@ -795,9 +868,13 @@ export function ReservaCalendario({
           // `estiloDias='dias'`); `SlotRow` sigue intacto para el portal
           // privado ('semana') y «Mis reservas» ('lista').
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '12px 18px', borderRadius: radius.card, border: `1px solid ${t.line}`, background: t.surface2, marginBottom: 14 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.02em', color: t.ink }}>{dayLabel}</span>
-              <span style={{ fontSize: 11.5, color: t.muted }}>{countLabel}</span>
+            {/* Fila plana, sin caja — el diseño pinta `diaCabecera`/
+                `diaEtiqueta` como texto suelto dentro del feed, no como
+                tarjeta con borde (esa caja era una lectura mía anterior,
+                no lo que trae el .dc.html). */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 9 }}>
+              <span style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>{dayLabel}</span>
+              <span style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--portal-brand)' }}>{countLabel}</span>
             </div>
             {error ? (
               <div style={{ borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}` }}>

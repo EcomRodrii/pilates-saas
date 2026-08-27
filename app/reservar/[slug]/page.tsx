@@ -512,8 +512,29 @@ export default function ReservarPage() {
   const [filtroNivel] = useState('');
   const [filtroHorario] = useState<'' | 'manana' | 'mediodia' | 'tarde'>('');
   const [filtroDias] = useState<number[]>([]);
-  const [filtroInstructor] = useState('');
+  const [filtroInstructor, setFiltroInstructor] = useState('');
   const [filtroSala] = useState('');
+  // Chips de instructora — mismo criterio que "El equipo" (`queImparten`):
+  // solo quien de verdad da clases (quita recepción/gerencia y bajas), para
+  // no ofrecer un filtro que siempre da cero resultados.
+  const instructoresVisibles = useMemo(() => queImparten(instructores), [instructores]);
+  // Chips combinados tipo+instructora del bloque sticky (diseño "Tentare
+  // Portal Reservas"): "Todas" + un chip por tipo + un chip por instructora,
+  // en una sola fila — dos filtros independientes (`filtroTipo`/
+  // `filtroInstructor`) que conviven porque `slots` ya los aplica los dos a
+  // la vez (líneas 1114/1123 y 1340/1347).
+  const filtrosChipsClases = useMemo(() => {
+    const chips: { id: string; label: string; activo: boolean; onClick: () => void }[] = [
+      { id: '__todas', label: 'Todas', activo: filtroTipo === '' && filtroInstructor === '', onClick: () => { setFiltroTipo(''); setFiltroInstructor(''); } },
+    ];
+    for (const t of tiposClaseVisibles) {
+      chips.push({ id: `tipo:${t.id}`, label: t.nombre, activo: filtroTipo === t.id, onClick: () => setFiltroTipo(filtroTipo === t.id ? '' : t.id) });
+    }
+    for (const i of instructoresVisibles) {
+      chips.push({ id: `instructor:${i.id}`, label: i.nombre, activo: filtroInstructor === i.nombre, onClick: () => setFiltroInstructor(filtroInstructor === i.nombre ? '' : i.nombre) });
+    }
+    return chips;
+  }, [tiposClaseVisibles, instructoresVisibles, filtroTipo, filtroInstructor]);
   // Buscar por texto libre — nombre de clase o de instructora, sobre los
   // mismos slots ya cargados. Sin UI propia hoy (el handoff
   // design_handoff_widget_reservas no trae buscador), pero `slots` sigue
@@ -2024,6 +2045,15 @@ export default function ReservarPage() {
 
   const tabsTodas = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio'], ['cuenta', 'Mi cuenta']] as const;
   const tabs = tabsTodas.filter(([t]) => tabHabilitada(t));
+  // ⚠️ Se probó ocultar la barra también en la pantalla de Clases de la
+  // página SUELTA (sin `embed=1`), para acercarse más al diseño "Tentare
+  // Portal Reservas" — revertido: rompía en CI la navegación real a "El
+  // estudio"/"Mi cuenta"/"Citas" para cualquier visitante de la página
+  // completa (`booking.spec.ts`, `reservar-p6-callejones-y-doble-alta.spec.ts`
+  // y otras, todas clicando esas pestañas desde la carga por defecto). El
+  // parche de reponer solo "Mis reservas" en la cabecera no bastaba — no
+  // reabrir sin resolver también esas otras dos salidas primero.
+  const tabsVisibles = (embedMode || apariencia.soloPestana) ? tabs.filter(([t]) => t === tab) : tabs;
 
   // ── Orden y visibilidad de las secciones ───────────────────────────────────
   // Lo decide el estudio desde el editor de Apariencia (Theme Builder
@@ -2371,7 +2401,13 @@ export default function ReservarPage() {
               página con pestañas debajo. El `div#horario` en sí NO se oculta
               (comentario de arriba: es el ancla de scroll/tests), solo sus
               botones. */}
-          {!enVistaReserva && ((embedMode || apariencia.soloPestana) ? tabs.filter(([t]) => t === tab) : tabs).map(([t, label]) => (
+          {/* Diseño "Tentare Portal Reservas": la pantalla de Clases es la
+              pantalla de reservas, sin cabecera de navegación por encima —
+              "Mis reservas"/"El estudio"/"Mi cuenta" quedan accesibles desde
+              el propio header (botones "Mis reservas"/"Acceder"), no de una
+              barra de pestañas aquí. Se ocultan igual que en `embedMode`:
+              mismo mecanismo (`tabsVisibles`), sin duplicar lógica. */}
+          {!enVistaReserva && tabsVisibles.map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               style={{
                 flex: '0 0 auto', padding: '0 2px 16px', marginBottom: -1, background: 'none', border: 'none', cursor: 'pointer',
@@ -2456,69 +2492,6 @@ export default function ReservarPage() {
         {tab === 'clases' && !fichaSesionId && (
           <div style={{ maxWidth: 760, marginInline: 'auto', width: '100%', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
 
-            {/* Rediseño "sin popup": con la ficha de una clase abierta (click
-                en "Reservar" de una fila), el título/mes y los filtros se
-                ocultan — `<ReservaCalendario estiloFicha="vista">` ya deja de
-                montar su propio calendario y pinta SOLO la ficha, así que
-                nada de esto debe seguir a la vista por encima. */}
-            {!enVistaReserva && (<>
-            {/* Título + mes — formato 01 del handoff
-                (design_handoff_widget_reservas/Tentare Widget.dc.html). */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
-              <h2 style={{ fontFamily: serif, fontSize: cq(30, 7, 38), lineHeight: 1 }}>Clases</h2>
-              <span style={{ fontSize: 12, color: 'var(--portal-muted)', paddingBottom: 4 }}>
-                {/* Primera letra a mano, no `textTransform:capitalize`:
-                    ese pone mayúscula en CADA palabra ("Agosto De 2026"),
-                    y en español solo el mes va en mayúscula al empezar
-                    frase — "de" se queda en minúscula. */}
-                {(() => {
-                  const s = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-                  return s.charAt(0).toUpperCase() + s.slice(1);
-                })()}
-              </span>
-            </div>
-
-            {/* Chips de filtro por tipo de clase, en línea — mismo patrón que
-                el handoff: `PRIMARY`/`transparent`, nunca `--portal-surface`
-                como relleno del no-seleccionado (ese token es blanco en modo
-                día, y un fondo claro fijo pintado sobre una web oscura es
-                justo lo que reservar-acoplar-widget.spec.ts vigila). */}
-            {tiposClaseVisibles.length > 0 && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 18 }} role="group" aria-label="Filtrar por tipo de clase">
-                <button type="button" onClick={() => setFiltroTipo('')} aria-pressed={filtroTipo === ''} style={{
-                  padding: '8px 14px', minHeight: 44, borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
-                  // Mismo blindaje táctil que ya lleva la tira de días: sin
-                  // `user-select`/`touch-action`, un toque real puede leerse como
-                  // inicio de selección de texto y el `onClick` no llega nunca
-                  // (el bug de #1257, que aquí seguía abierto). Y 44px de alto
-                  // mínimo, que es el destino táctil por debajo del cual se falla.
-                  WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation',
-                  background: filtroTipo === '' ? PRIMARY : 'transparent',
-                  color: filtroTipo === '' ? PRIMARY_FG : 'var(--portal-muted)',
-                  borderColor: filtroTipo === '' ? 'transparent' : 'var(--portal-line)',
-                }}>
-                  Todas
-                </button>
-                {tiposClaseVisibles.map(t => (
-                  <button key={t.id} type="button" onClick={() => setFiltroTipo(t.id)} aria-pressed={filtroTipo === t.id} style={{
-                    padding: '8px 14px', minHeight: 44, borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
-                  // Mismo blindaje táctil que ya lleva la tira de días: sin
-                  // `user-select`/`touch-action`, un toque real puede leerse como
-                  // inicio de selección de texto y el `onClick` no llega nunca
-                  // (el bug de #1257, que aquí seguía abierto). Y 44px de alto
-                  // mínimo, que es el destino táctil por debajo del cual se falla.
-                  WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation',
-                    background: filtroTipo === t.id ? PRIMARY : 'transparent',
-                    color: filtroTipo === t.id ? PRIMARY_FG : 'var(--portal-muted)',
-                    borderColor: filtroTipo === t.id ? 'transparent' : 'var(--portal-line)',
-                  }}>
-                    {t.nombre}
-                  </button>
-                ))}
-              </div>
-            )}
-            </>)}
-
             {/* Calendario de reservas — componente compartido (estilo Acuity), el
                 mismo que usa el portal de socias, re-vestido con el lenguaje
                 visual de esta pantalla (ver reserva-calendario.tsx). La reserva
@@ -2555,6 +2528,7 @@ export default function ReservarPage() {
                 // la rejilla compacta del bundle; el default sigue siendo la
                 // tira de 10 días.
                 estiloDias={configWidget?.diseno === 'ligero' ? 'grid' : 'dias'}
+                filtrosChips={filtrosChipsClases}
                 vistaInicial={configWidget?.vistaInicial ?? 'todo'}
                 ocultarPrecio={configWidget?.ocultarPrecio ?? false}
                 ocultarNivel={configWidget?.ocultarNivel ?? false}
