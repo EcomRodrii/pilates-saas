@@ -212,6 +212,52 @@ export function HiloMensajes({ mensajes, authUserId, leidoHastaOtros }: {
   );
 }
 
+// ── Indicador de "escribiendo…" ─────────────────────────────────────────────
+//
+// Efímero, sobre el mismo canal Realtime del hilo (broadcast `typing`, sin
+// tabla ni persistencia — se pierde si nadie está conectado, y eso es
+// correcto). Misma burbuja RECIBIDA que `HiloMensajes` (t.surface2, alineada
+// a la izquierda, mismo radio/cola), con tres puntos que pulsan con la ÚNICA
+// curva del portal y una duración con nombre — nada de timings sueltos.
+export function IndicadorEscribiendo() {
+  const { t } = useModo();
+  return (
+    <div
+      style={{
+        display: 'flex', justifyContent: 'flex-start', marginBottom: 12,
+        animation: `portal-rise-soft ${dur.control}ms ${EASE} both`,
+      }}
+    >
+      <div style={{ position: 'relative', maxWidth: '80%' }}>
+        <span className="sr-only">Escribiendo…</span>
+        <div
+          aria-hidden
+          style={{
+            padding: '14px 16px', borderRadius: 20, borderBottomLeftRadius: 6,
+            background: t.surface2, border: `1px solid ${t.line}`,
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}
+        >
+          {[0, 1, 2].map(i => (
+            <span
+              key={i}
+              style={{
+                width: 6, height: 6, borderRadius: 999, background: t.muted,
+                animation: `portal-breathe ${dur.washInner}ms ${EASE} ${(i * dur.washInner) / 6}ms infinite`,
+              }}
+            />
+          ))}
+        </div>
+        {/* Cola con `border`, no `clip-path`: mismo criterio que las burbujas de `HiloMensajes`. */}
+        <span
+          aria-hidden
+          style={{ position: 'absolute', bottom: 0, left: -5, width: 0, height: 0, borderRight: `7px solid ${t.surface2}`, borderBottom: '7px solid transparent' }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Compositor ──────────────────────────────────────────────────────────────
 
 export function CompositorPortal({
