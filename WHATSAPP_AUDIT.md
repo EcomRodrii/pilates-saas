@@ -292,14 +292,15 @@ corrección, ver más abajo). Los 7 CONFIRMED, corregidos:
    que no cubre este campo en concreto, en vez de fabricar una llamada extra a la Graph API
    para validar un dato que nadie consume.
 
-**Sin corregir a propósito (PLAUSIBLE, no CONFIRMED)**: `lib/hooks/use-whatsapp-embedded-signup.tsx`
-inicializa el SDK de Meta solo dentro de `<Script onLoad>`, sin el *polling* de respaldo que
-`components/auth/turnstile-widget.tsx` (hook hermano) documenta haber necesitado tras un bug
-real de producción. El verificador confirmó el mecanismo pero acotó el disparador real a una
-ventana más estrecha de lo que parecía (a diferencia del widget de Turnstile, que se
-desmonta y remonta en cada apertura de modal, `window.FB` es un objeto global e idempotente
-que persiste durante toda la sesión) — queda documentado como riesgo de bajo disparo, no
-corregido en esta pasada.
+8. **Race en la carga del SDK de Meta (PLAUSIBLE, cerrado)** — `lib/hooks/use-whatsapp-embedded-signup.tsx`
+   inicializaba el SDK solo dentro de `<Script onLoad>`, sin el *polling* de respaldo que
+   `components/auth/turnstile-widget.tsx` (hook hermano) ya documenta haber necesitado tras
+   un bug real de producción (mismo síntoma: con el script ya cargado/cacheado, `onLoad`
+   puede no volver a dispararse). Corregido con el mismo patrón: un `useEffect` con
+   `setInterval` que llama a `FB.init()` en cuanto `window.FB` aparece, independiente de si
+   `onLoad` llegó a dispararse — y `conectar()` ahora comprueba `sdkListo.current` (init
+   realmente ejecutado), no solo `window.FB` (el objeto existe antes de que `init()` se
+   llame, así que su sola presencia no bastaba como señal).
 
 `npx tsc --noEmit`, `eslint` y `node --test` (14/14) en verde tras las correcciones (mismos
 2 errores preexistentes y no relacionados de siempre en `components/network/mapa-resultados.tsx`).

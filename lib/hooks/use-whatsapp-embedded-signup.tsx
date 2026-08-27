@@ -13,7 +13,7 @@
 // manual existente (ver tab-integraciones.tsx).
 
 import Script from 'next/script';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { authHeader } from '@/lib/api-client';
 
 declare global {
@@ -58,18 +58,45 @@ interface DatosPostMessage {
 
 export function useWhatsappEmbeddedSignup() {
   const [conectando, setConectando] = useState(false);
+  // Verdadero solo cuando `FB.init()` YA se llamó — no cuando `window.FB`
+  // existe (el objeto lo crea el script antes de que nadie llame a `init`,
+  // así que su sola presencia no basta como señal).
   const sdkListo = useRef(false);
 
-  const onScriptLoad = useCallback(() => {
-    window.fbAsyncInit = () => {
-      if (!APP_ID) return;
-      window.FB?.init({ appId: APP_ID, autoLogAppEvents: true, xfbml: true, version: API_VERSION });
-      sdkListo.current = true;
-    };
-    // El SDK llama a `fbAsyncInit` él solo al cargar; si ya estaba cargado
-    // (script cacheado, segunda apertura del modal) puede que no lo repita.
-    if (window.FB) window.fbAsyncInit();
+  // Llama a `FB.init()` una sola vez. Se invoca desde tres sitios distintos
+  // (ver más abajo) porque ninguno por separado es fiable.
+  const inicializar = useCallback(() => {
+    if (sdkListo.current || !APP_ID || !window.FB) return;
+    window.FB.init({ appId: APP_ID, autoLogAppEvents: true, xfbml: true, version: API_VERSION });
+    sdkListo.current = true;
   }, []);
+
+  const onScriptLoad = useCallback(() => {
+    window.fbAsyncInit = inicializar;
+    // El SDK llama a `fbAsyncInit` él solo al cargar — pero si el script ya
+    // estaba cargado/cacheado, `onLoad` de next/script puede no volver a
+    // dispararse (documentado como bug real de producción en el hook
+    // hermano, components/auth/turnstile-widget.tsx, con el mismo síntoma:
+    // el estado que desbloqueaba el render se quedaba `false` para siempre).
+    // Este fallback cubre el caso en que SÍ se dispara `onLoad` pero el SDK
+    // no repite su propia llamada a `fbAsyncInit`.
+    inicializar();
+  }, [inicializar]);
+
+  // Red de seguridad independiente de `onLoad`: si ni el SDK ni `onLoad`
+  // llegan a llamar a `inicializar`, este sondeo lo hace en cuanto
+  // `window.FB` aparece — mismo patrón que `useCaptcha` en
+  // turnstile-widget.tsx (sondear el objeto es la única señal que no
+  // depende de un evento que quizá ya ocurrió antes de montar el hook).
+  useEffect(() => {
+    if (!APP_ID) return;
+    if (sdkListo.current) return;
+    const sondeo = setInterval(() => {
+      inicializar();
+      if (sdkListo.current) clearInterval(sondeo);
+    }, 150);
+    return () => clearInterval(sondeo);
+  }, [inicializar]);
 
   /**
    * Abre el popup de Meta, captura el `code` + los IDs informativos del
@@ -82,7 +109,10 @@ export function useWhatsappEmbeddedSignup() {
         resolve({ ok: false, error: 'Meta no está configurado en este entorno' });
         return;
       }
-      if (!window.FB) {
+      // `sdkListo`, no `window.FB`: el objeto lo crea el script ANTES de que
+      // `init()` se llame, así que su sola presencia no garantiza que
+      // `FB.login` vaya a funcionar.
+      if (!sdkListo.current || !window.FB) {
         resolve({ ok: false, error: 'Meta todavía se está cargando. Vuelve a intentarlo en unos segundos.' });
         return;
       }
