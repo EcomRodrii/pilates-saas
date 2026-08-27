@@ -2,38 +2,34 @@ import { test, expect } from '@playwright/test';
 import { montarPortal, SLUG } from './portal-mock';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// La bienvenida del tema, en la raíz del portal.
+// La raíz del portal, `/portal/<slug>` a secas.
 //
-// ⚠️ El kit la trae desde el principio y el portal real NO la montaba nunca:
-// `/portal/<slug>` redirigía en el SERVIDOR a `/acceso`, así que la primera
-// impresión que diseñó el tema no la veía nadie. Lo reportó el fundador: «el
-// inicio no es el mismo que el del zip».
+// Esto llegó a montar la bienvenida del KIT (un tema instalable de
+// `components/portal-tema/`) — con `esTemaPortal()` cerrado para siempre
+// (fix(portal): cierra el acceso a los temas del kit), esa pantalla ya no se
+// alcanza NUNCA: `PortalRaiz` (components/portal/portal-raiz.tsx) resuelve
+// `sinKit` a `true` siempre que hay datos cargados y no hay sesión, y salta
+// directa a `/acceso` sin pasar por ningún paso intermedio.
 //
-// Se sigue acabando en `/acceso` — es lo que hace el botón. Esa parte no se
-// toca: es lo que hace que un enlace pelado compartido por WhatsApp funcione
-// igual para quien tiene contraseña y para quien no.
+// Lo que SÍ sigue siendo del portal de siempre, y es lo que protege este
+// fichero: la raíz acaba en `/acceso` para quien no tiene sesión —el enlace
+// pelado que comparte el estudio por WhatsApp funciona igual con o sin
+// contraseña—, y quien SÍ tiene sesión no ve absolutamente nada de la raíz:
+// `PortalShell` la manda directa a `/home`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.setTimeout(180_000);
 
-test('la raíz enseña la bienvenida del tema y su botón lleva a /acceso', async ({ page }) => {
-  await montarPortal(page, { conSesion: false, kit: 'sereno' });
+test('sin sesión, la raíz acaba en /acceso', async ({ page }) => {
+  await montarPortal(page, { conSesion: false });
   await page.goto(`/portal/${SLUG}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
 
-  const cta = page.locator('.welcome__cta');
-  await expect(cta).toBeVisible({ timeout: 60_000 });
-  await expect(page.locator('.welcome__title')).toBeVisible();
-
-  await cta.click();
   await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/acceso`), { timeout: 30_000 });
 });
 
-test('quien ya tiene sesión NO la ve', async ({ page }) => {
-  // ⚠️ Añadir un paso al acceso de quien entra todos los días sería empeorarlo.
-  // `PortalShell` la salta directa a /home; esto lo fija.
-  await montarPortal(page, { conSesion: true, kit: 'sereno' });
+test('quien ya tiene sesión no pasa por la raíz: va directa a /home', async ({ page }) => {
+  await montarPortal(page, { conSesion: true });
   await page.goto(`/portal/${SLUG}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
 
   await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/home`), { timeout: 60_000 });
-  await expect(page.locator('.welcome__cta')).toHaveCount(0);
 });

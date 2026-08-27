@@ -2,37 +2,40 @@ import { test, expect } from '@playwright/test';
 import { montarPortal, SLUG } from './portal-mock';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Favoritas, de punta a punta.
+// Favoritas, de punta a punta — en el portal de siempre (`components/portal/`),
+// que es donde vive de verdad: `PortalClasesView` marca/filtra favoritas desde
+// antes de que existiera el kit de temas. Esto se escribió montando el estudio
+// con `kit: 'sereno'` como atajo y describiendo una pantalla dedicada
+// («Favoritas», acceso rápido de Inicio) que es EXCLUSIVA del kit — el Inicio
+// de siempre nunca tuvo ese acceso rápido (los cuatro reales son Mis
+// reservas/Mi progreso/Notificaciones/El equipo, ver
+// `accesosRapidosDe` en lib/portal-home-logic.ts, con el comentario explícito
+// de que cambiar cuáles son es decisión de producto). Lo que SÍ es núcleo y
+// se preserva aquí es el filtro «Favoritas» dentro de Clases.
 //
-// ⚠️ Antes esto NO EXISTÍA de dos maneras a la vez:
-//
-//   1. El corazón escribía el id de la SESIÓN en `localStorage` y no llamaba a
-//      nadie. El backend (`/api/public/favoritos`) siempre guardó
-//      `tipo_clase_id`: la socia marcaba «el Reformer del martes», el corazón
-//      se apagaba solo al cambiar de semana —porque la sesión ya era otra— y
-//      el servidor no se enteraba nunca.
-//   2. El acceso rápido «Favoritas» lanzaba un AVISO («3 clases guardadas») y
-//      se apagaba a los dos segundos. No había pantalla ninguna.
-//
-// Por eso el test más importante de aquí es el CONTADOR de peticiones: sin él,
-// «el corazón se puso» sale verde con el servidor sin enterarse de nada — que
-// es exactamente el estado del que se viene.
+// ⚠️ El bug real que esto vigila: el corazón escribía el id de la SESIÓN en
+// `localStorage` y no llamaba a nadie. El backend (`/api/public/favoritos`)
+// siempre guardó `tipo_clase_id`: la socia marcaba «el Reformer del martes»,
+// el corazón se apagaba solo al cambiar de semana —porque la sesión ya era
+// otra— y el servidor no se enteraba nunca. Por eso el test más importante de
+// aquí es el CONTADOR de peticiones: sin él, «el corazón se puso» sale verde
+// con el servidor sin enterarse de nada.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.setTimeout(180_000);
 
 test('el corazón escribe en el servidor, y manda el TIPO de clase', async ({ page }) => {
   const enviados: { tipoClaseId?: string; accion?: string }[] = [];
-  await montarPortal(page, { conSesion: true, kit: 'sereno' });
+  await montarPortal(page, { conSesion: true });
   await page.route('**/api/public/favoritos', async (route) => {
     enviados.push(route.request().postDataJSON());
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
   });
 
-  await page.goto(`/portal/${SLUG}/home`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await expect(page.locator('.tab-bar')).toBeVisible({ timeout: 60_000 });
-  await page.getByRole('button', { name: /ver clase/i }).first().click();
-  await page.getByRole('button', { name: 'Favorita' }).click();
+  await page.goto(`/portal/${SLUG}/clases`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+  const corazon = page.getByRole('button', { name: 'Marcar Reformer Flow como favorita' });
+  await expect(corazon).toBeVisible({ timeout: 30_000 });
+  await corazon.click();
 
   // ⚠️ Sin esto, el test pasaría con el servidor sin enterarse — el bug exacto.
   await expect.poll(() => enviados.length, { timeout: 10_000 }).toBeGreaterThan(0);
@@ -41,28 +44,25 @@ test('el corazón escribe en el servidor, y manda el TIPO de clase', async ({ pa
   expect(enviados[0].accion).toBe('marcar');
 });
 
-test('el acceso rápido lleva a una PANTALLA, no a un aviso', async ({ page }) => {
-  await montarPortal(page, { conSesion: true, kit: 'sereno', favoritos: ['tc-1'] });
-  await page.goto(`/portal/${SLUG}/home`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await expect(page.locator('.tab-bar')).toBeVisible({ timeout: 60_000 });
+test('con una favorita marcada, el filtro "Favoritas" aparece de verdad y funciona', async ({ page }) => {
+  await montarPortal(page, { conSesion: true, favoritos: ['tc-1'] });
+  await page.goto(`/portal/${SLUG}/clases`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
 
-  await page.getByRole('button', { name: 'Favoritas' }).click();
+  const chip = page.getByRole('button', { name: /^Favoritas$/ });
+  await expect(chip).toBeVisible({ timeout: 30_000 });
+  await chip.click();
 
-  await expect(page.getByText('Favoritas', { exact: true })).toBeVisible();
-  // Y su clase está ahí de verdad, no solo el título.
+  // No es un aviso que se apaga solo: es un filtro real de la lista, y la
+  // clase favorita sigue ahí después de aplicarlo.
   await expect(page.getByText('Reformer Flow').first()).toBeVisible();
 });
 
-test('sin ninguna favorita, el vacío dice qué hacer y lleva ahí', async ({ page }) => {
-  // ⚠️ «No tienes favoritas» a secas deja a la socia sin saber ni qué es esto
-  // ni cómo se usa. El vacío tiene que enseñar el gesto y dar la salida.
-  await montarPortal(page, { conSesion: true, kit: 'sereno', favoritos: [] });
-  await page.goto(`/portal/${SLUG}/home`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await expect(page.locator('.tab-bar')).toBeVisible({ timeout: 60_000 });
+test('sin ninguna favorita, no aparece un filtro roto', async ({ page }) => {
+  await montarPortal(page, { conSesion: true, favoritos: [] });
+  await page.goto(`/portal/${SLUG}/clases`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
 
-  await page.getByRole('button', { name: 'Favoritas' }).click();
-
-  await expect(page.getByText(/toca el corazón/i)).toBeVisible();
-  await page.getByText(/ver el horario/i).click();
-  await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/clases`));
+  await expect(page.getByRole('button', { name: 'Marcar Reformer Flow como favorita' })).toBeVisible({ timeout: 30_000 });
+  // El chip solo se pinta si hay al menos una favorita (idsFavoritos.size > 0)
+  // — sin ninguna, no hay un control muerto ofreciendo un filtro vacío.
+  await expect(page.getByRole('button', { name: /^Favoritas$/ })).toHaveCount(0);
 });

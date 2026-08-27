@@ -50,8 +50,25 @@ export const TEMA_PORTAL_POR_DEFECTO: TemaPortalId = 'tentada';
 
 export const TEMAS_PORTAL_IDS = Object.keys(TEMAS_PORTAL) as TemaPortalId[];
 
-export function esTemaPortal(id: string | null | undefined): id is TemaPortalId {
-  return !!id && id in TEMAS_PORTAL;
+/**
+ * ⚠️ Decisión del fundador (2026-08-27): se retira el sistema de temas del
+ * kit por completo — "borrar solo los temas. como si no existiera ninguno.
+ * borra todo el diseño." Esto es lo CONTRARIO del plan que documentaba
+ * `lib/portal-tema/caducidad.ts` (retirar las vistas "de siempre" y quedarse
+ * con el kit) — ese fichero y `themes/RETOMAR.md` se borran en este mismo
+ * cambio por describir el sentido equivocado.
+ *
+ * Este es el interruptor real: SIEMPRE `false`, así que
+ * `components/portal/portal-shell.tsx` nunca vuelve a montar
+ * `PortalTemaMarco` sin importar qué `themeId` tenga guardado un estudio
+ * (ninguno real lo tiene ya — verificado en producción antes de este
+ * cambio). El resto del sistema (los 5 `THEME_DEFINITIONS` no-`classic`,
+ * `components/portal-tema/`, `themes/{tentada,oliva,bloom,noir,sereno}/`)
+ * se retira en un PR aparte — este cambio es la red de seguridad primero,
+ * sin borrar nada todavía.
+ */
+export function esTemaPortal(_id: string | null | undefined): _id is TemaPortalId {
+  return false;
 }
 
 /**

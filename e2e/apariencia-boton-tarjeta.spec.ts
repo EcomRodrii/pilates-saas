@@ -130,21 +130,4 @@ test.describe('Editor a pantalla completa — estilo de botón y tarjetas', () =
     await expect(page.getByRole('button', { name: 'Círculo sin tarjeta' })).toHaveCount(0);
   });
 
-  test('con Noir instalado, elegir el estilo de accesos rápidos y publicar manda el patch correcto', async ({ page }) => {
-    const { puts } = await montar(page, { themeId: 'noir' });
-
-    await abrirCategoriaTema(page, 'Tarjetas');
-    await expect(page.getByRole('button', { name: 'Plana' })).toBeVisible({ timeout: 30_000 });
-    const tarjeta = page.getByRole('button', { name: 'Tarjeta con icono' });
-    await expect(tarjeta).toBeVisible();
-    await tarjeta.click();
-    await expect(tarjeta).toHaveClass(/bg-brand/);
-
-    await Promise.all([
-      page.waitForRequest(r => r.url().includes('/api/theme') && !r.url().includes('/publish') && r.method() === 'PUT'),
-      publicar(page),
-    ]);
-    const body = puts.at(-1)!;
-    expect(body.quickLinksStyle).toBe('cards');
-  });
 });

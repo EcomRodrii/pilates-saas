@@ -210,11 +210,20 @@ export async function montarPortal(page: Page, opciones: {
    *  se monta el portal de siempre — que es lo que hacía SIEMPRE, y por eso
    *  ninguna pantalla del kit tenía cobertura e2e en su ruta real. */
   kit?: string;
+  /** La última clase del historial de muestra (`hist-11`) llega CANCELADA en
+   *  vez de ASISTIDA. Sin esto, las 12 son ASISTIDA — que es lo que necesitan
+   *  la mayoría de tests, y por eso no es el default. */
+  historialConCancelada?: boolean;
+  /** Da valoración a las instructoras de muestra: Ana Ferrer con 12 (se
+   *  enseña) y una segunda, Emma López, con 2 (por debajo del mínimo, no se
+   *  enseña nada). Sin esto ninguna instructora tiene valoración. */
+  instructoresValoracion?: boolean;
 }) {
   const { conSesion, fotoUrl = null, imagenBienvenidaUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, sinProximaReserva = false, variosBonos = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', quickLinksStyle = null, variantes,
-          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema, kit, sinSocia = false, favoritos = [], conTarjeta = false } = opciones;
+          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema, kit, sinSocia = false, favoritos = [], conTarjeta = false,
+          historialConCancelada = false, instructoresValoracion = false } = opciones;
 
   // Un tema de la galería decide DOS cosas por caminos distintos: los ejes JS
   // (studio-data, más abajo) y las CSS vars (aquí). Hay que montar los dos o
@@ -253,7 +262,15 @@ export async function montarPortal(page: Page, opciones: {
   }
 
   // Comodines primero: Playwright resuelve las rutas en orden inverso.
-  const HISTORIAL = sinHistorial ? [] : HISTORIAL_BASE;
+  // `historialConCancelada`: clona (no muta) el último elemento de
+  // HISTORIAL_BASE con estado CANCELADA — HISTORIAL_BASE es un const de
+  // módulo compartido por todos los tests, así que mutarlo en sitio filtraría
+  // estado entre ellos.
+  const HISTORIAL = sinHistorial ? [] : (historialConCancelada
+    ? HISTORIAL_BASE.map((h, i) => i === HISTORIAL_BASE.length - 1
+      ? { ses: h.ses, res: { ...h.res, estado: 'CANCELADA' as const } }
+      : h)
+    : HISTORIAL_BASE);
 
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/rest/v1/**', route => json(route, []));
@@ -346,7 +363,10 @@ export async function montarPortal(page: Page, opciones: {
     sesiones: [...SESIONES, ...HISTORIAL.map(h => h.ses)],
     tiposClase: TIPOS,
     salas: [{ id: 'sala-1', studioId: STUDIO_ID, nombre: 'Sala Norte', capacidad: 12 }],
-    instructores: [{ id: 'ins-1', studioId: STUDIO_ID, nombre: 'Ana Ferrer', rol: 'INSTRUCTOR', activo: true, color: '#2C352C' }],
+    instructores: instructoresValoracion ? [
+      { id: 'ins-1', studioId: STUDIO_ID, nombre: 'Ana Ferrer', rol: 'INSTRUCTOR', activo: true, color: '#2C352C', valoracion: { media: 4.6, total: 12 } },
+      { id: 'ins-2', studioId: STUDIO_ID, nombre: 'Emma López', rol: 'INSTRUCTOR', activo: true, color: '#6B7A64', valoracion: { media: 5, total: 2 } },
+    ] : [{ id: 'ins-1', studioId: STUDIO_ID, nombre: 'Ana Ferrer', rol: 'INSTRUCTOR', activo: true, color: '#2C352C' }],
     spots: sinPlazas ? [] : Array.from({ length: 14 }, (_, i) => ({ id: `sp-${i + 1}`, salaId: 'sala-1', studioId: STUDIO_ID, numero: i + 1, nombre: String(i + 1), fila: Math.floor(i / 7), columna: i % 7, tipo: 'REFORMER', activo: true })), planesTarifa: PLANES, videosOnDemand: [], rewardRules: [], rewardCatalog: [],
     levelDefinitions: [], achievementDefinitions: [], challengeDefinitions: [],
     citasServicios: [], citasDisponibilidad: [],
