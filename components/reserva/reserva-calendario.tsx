@@ -702,7 +702,13 @@ export function ReservaCalendario({
             <div
               role="group"
               aria-label="Filtrar por tipo de clase"
-              style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}
+              // Fila única con scroll horizontal, no envuelve — igual que el
+              // diseño ("Tentare Portal Reservas": `overflow-x:auto`, sin
+              // wrap) y que la propia tira de días de al lado. Con
+              // `flexWrap:'wrap'` un estudio con muchos tipos+instructoras
+              // (caso real: 5 tipos + 5 instructoras) empujaba el feed varias
+              // líneas hacia abajo dentro del bloque sticky.
+              style={{ display: 'flex', gap: 6, overflowX: 'auto', marginTop: 12 }}
             >
               {filtrosChips.map((chip) => (
                 <button
@@ -711,7 +717,7 @@ export function ReservaCalendario({
                   onClick={chip.onClick}
                   style={{
                     padding: '6px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 600,
-                    fontFamily, cursor: 'pointer', whiteSpace: 'nowrap',
+                    fontFamily, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
                     border: `1px solid ${chip.activo ? 'var(--portal-brand)' : t.line}`,
                     background: chip.activo ? 'var(--portal-brand)' : t.surface,
                     color: chip.activo ? 'var(--portal-brand-foreground)' : t.ink,
