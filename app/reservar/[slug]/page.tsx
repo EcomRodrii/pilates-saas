@@ -3561,6 +3561,7 @@ export default function ReservarPage() {
                   instructorNombre: bookingSesion.instructor?.nombre ?? null,
                   salaNombre: bookingSesion.sala?.nombre ?? null,
                   nivel: bookingSesion.tipo?.nivel ? NIVEL_LABEL[bookingSesion.tipo.nivel] : null,
+                  plazasLibres: Math.max(0, bookingSesion.aforoMaximo - bookingSesion.ocupadas),
                 }}
                 precio={datosPlan.precio}
                 fase={loginStep === 'pago' ? 'pago' : 'datos'}
