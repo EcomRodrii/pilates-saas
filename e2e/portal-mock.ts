@@ -202,9 +202,9 @@ export async function montarPortal(page: Page, opciones: {
    *  token de la socia ya no vale, mientras el navegador todavía cree que hay
    *  sesión. La app se monta entera y el perfil llega vacío. */
   sinSocia?: boolean;
-  /** Monta el portal del KIT (`portalReact`) con este tema publicado. Sin esto
-   *  se monta el portal de siempre — que es lo que hacía SIEMPRE, y por eso
-   *  ninguna pantalla del kit tenía cobertura e2e en su ruta real. */
+  /** Id de tema publicado (`themeIdPublicado`). El sistema de temas del kit
+   *  que esto montaba en su día ya no existe — queda como el id crudo que
+   *  llega al cliente, sin efecto en qué portal se monta. */
   kit?: string;
   /** La última clase del historial de muestra (`hist-11`) llega CANCELADA en
    *  vez de ASISTIDA. Sin esto, las 12 son ASISTIDA — que es lo que necesitan
@@ -351,9 +351,6 @@ export async function montarPortal(page: Page, opciones: {
     studio: {
       id: STUDIO_ID, nombre: 'Estudio Alma', ciudad: 'Marbella', slug: SLUG,
       colorPrimario: '#2C352C', temaPortal: 'oliva', logoUrl: null, fotoUrl, imagenBienvenidaUrl,
-      // `PortalShell` exige las DOS para montar el kit: sin `portalReact` cae
-      // al portal de siempre sin decir nada.
-      portalReact: !!kit,
     },
     themeIdPublicado: kit ?? null,
     sesiones: [...SESIONES, ...HISTORIAL.map(h => h.ses)],

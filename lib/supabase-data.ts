@@ -4329,7 +4329,6 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     telefono: r.telefono,
     colorPrimario: r.color_primario,
     temaPortal: r.tema_portal ?? 'original',
-    portalReact: r.portal_react ?? false,
     widgetDominiosAutorizados: r.widget_dominios_autorizados ?? [],
     widgetBuilder: r.widget_builder ?? {},
     logoUrl: r.logo_url ?? null,

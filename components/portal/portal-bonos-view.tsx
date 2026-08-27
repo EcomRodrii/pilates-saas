@@ -35,10 +35,9 @@ export function PortalBonosView({
   const socioId = session?.socioId ?? null;
 
   // La vuelta de Stripe tras comprar un bono (`lib/billing/origen-pago.ts`).
-  // Esta pantalla la sirve el portal de siempre cuando el estudio todavía no
-  // tiene `portal_react`, así que el aviso hace falta también aquí — si no, la
-  // socia paga y aterriza en una lista sin una palabra sobre su pago, que es
-  // exactamente el bug que hizo mover este destino la vez anterior.
+  // El aviso hace falta aquí — si no, la socia paga y aterriza en una lista
+  // sin una palabra sobre su pago, que es exactamente el bug que hizo mover
+  // este destino la vez anterior.
   //
   // ⚠️ `compra=ok` es lo que dice STRIPE, no lo que dice nuestra base de datos:
   // el bono lo entrega el webhook y puede tardar. Por eso el texto no dice

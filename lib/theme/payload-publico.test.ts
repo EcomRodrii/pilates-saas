@@ -35,8 +35,9 @@ const url = (p: string) => new URL(p, import.meta.url);
 function ejesDelCore(): string[] {
   const fuente = readFileSync(url('../core-context.tsx'), 'utf8');
   const i = fuente.indexOf('  navPortal: NavConfigShape;');
-  const j = fuente.indexOf('  portalReact: boolean;');
-  assert.ok(i !== -1 && j > i, 'no se localiza el bloque de tema/nav de CoreContextValue — actualiza este guardián');
+  assert.notEqual(i, -1, 'no se localiza el bloque de tema/nav de CoreContextValue — actualiza este guardián');
+  const j = fuente.indexOf('\n}', i);
+  assert.notEqual(j, -1, 'no se encuentra el cierre de CoreContextValue');
   return [...fuente.slice(i, j).matchAll(/^\s{2}(\w+):/gm)].map(m => m[1]);
 }
 
@@ -76,12 +77,4 @@ test('control positivo: el guardián detecta de verdad un eje ausente', () => {
   const bloqueFalso = 'const camposTema = {\n    barraClasica: x,\n';
   assert.ok(!emite(bloqueFalso, 'barraFlotante'), 'tiene que ver la ausencia');
   assert.ok(emite(bloqueFalso, 'barraClasica'), 'y no marcar ausente el que sí está');
-});
-
-test('portalReact queda fuera a propósito, y consta por qué', () => {
-  // No es un eje de tema: viaja dentro de `pub.studio`, no de `camposTema`. Se
-  // documenta para que la próxima persona no lo "arregle" añadiéndolo.
-  const fuente = readFileSync(url('../core-context.tsx'), 'utf8');
-  assert.ok(fuente.includes('  portalReact: boolean;'), 'si desaparece, revisar ejesDelCore()');
-  assert.ok(!ejesDelCore().includes('portalReact'));
 });

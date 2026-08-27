@@ -45,7 +45,6 @@ export interface CoreContextValue {
   tabBarStyle: TabBarStyleId;
   variantes: VariantesResueltas;
   themeIdPublicado: string | null;
-  portalReact: boolean;
 }
 
 const CoreContext = createContext<CoreContextValue | null>(null);
@@ -66,14 +65,13 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
     tabBarStyle: core.tabBarStyle,
     variantes: core.variantes,
     themeIdPublicado: core.themeIdPublicado,
-    portalReact: core.portalReact,
     // Las funciones se recrean cada render en StudioProvider (no están
     // envueltas en useCallback) — mismo patrón/limitación ya existente en el
     // useMemo de useStudio(). Solo el ESTADO decide cuándo recalcular.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     core.studio, core.instructores, core.dataLoaded,
-    core.navPortal, core.barraClasica, core.barraFlotante, core.tabBarStyle, core.variantes, core.themeIdPublicado, core.portalReact,
+    core.navPortal, core.barraClasica, core.barraFlotante, core.tabBarStyle, core.variantes, core.themeIdPublicado,
   ]);
 
   return <CoreContext.Provider value={value}>{children}</CoreContext.Provider>;

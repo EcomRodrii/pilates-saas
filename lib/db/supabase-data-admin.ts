@@ -288,10 +288,6 @@ function studioPublico(r: RowStudios) {
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     slug: r.slug ?? null,
-    // ⚠️ Esta lista es explícita, no un `select *`: un campo nuevo que no se
-    // añada aquí NO llega al portal aunque exista en la tabla, y el flag se
-    // quedaría siempre en `false` sin que nada fallara.
-    portalReact: (r as { portal_react?: boolean | null }).portal_react ?? false,
     // Política/términos del estudio: el portal se los muestra a la clienta y quedan
     // registrados con su aceptación. null = el cliente usa el texto por defecto.
     politicaPrivacidad: (r as { politica_privacidad?: string | null }).politica_privacidad ?? null,
