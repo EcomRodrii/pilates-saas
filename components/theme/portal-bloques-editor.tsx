@@ -163,17 +163,10 @@ function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 
 }
 
 function Fila({
-  bloque, activa, onSeleccionar, onToggle, onDelete, onDuplicar, fueraDelTema,
+  bloque, activa, onSeleccionar, onToggle, onDelete, onDuplicar,
 }: {
   bloque: BloqueHome; activa: boolean; onSeleccionar: () => void; onToggle: () => void;
   onDelete?: () => void; onDuplicar?: () => void;
-  /**
-   * `true` si el estudio tiene el kit encendido y su tema NO compone esta
-   * sección. Se avisa en vez de esconderla: la propietaria tiene que poder ver
-   * que existe y por qué no aparece, no descubrir que su previsualización y su
-   * lista no coinciden.
-   */
-  fueraDelTema?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: bloque.id });
   return (
@@ -200,14 +193,7 @@ function Fila({
         {/* Se corta con puntos suspensivos en vez de envolver: una fila de
             altura fija hace que la lista se pueda recorrer con la vista. El
             texto entero sigue disponible en el `title`. */}
-        {fueraDelTema ? (
-          <span
-            className="block text-[11px] text-muted-foreground truncate"
-            title="Tu tema no incluye esta sección, así que no aparece en el portal. Se ve al cambiar a un tema que la componga."
-          >
-            No la incluye tu tema
-          </span>
-        ) : descripcionDe(bloque) && !bloque.oculto && (
+        {descripcionDe(bloque) && !bloque.oculto && (
           <span className="block text-[11px] text-muted-foreground truncate" title={descripcionDe(bloque)}>
             {descripcionDe(bloque)}
           </span>
@@ -583,14 +569,6 @@ export function BloquesSeccionesList({
   seleccionId: string | null;
   onSeleccionar: (id: string) => void;
 }) {
-  // ⚠️ RETIRADO (decisión del fundador, 2026-08-27): el árbol del kit
-  // (`themes/registro.ts`, `lib/portal-tema/equivalencias.ts`) se borró en el
-  // PR 2 de "borrar temas del kit" — `esTemaPortal()` ya devolvía siempre
-  // `false` desde el PR 1, así que esta rama nunca se alcanzaba. `fueraDelTema`
-  // se deja en `false` explícito más abajo (en vez de borrar la fila entera de
-  // "fuera del tema") porque esa cirugía es del PR 3, sobre un fichero que
-  // ese PR ya trata aparte — aquí solo se evita el import roto.
-
   const todos = hook.bloquesDe(pantalla);
   // Los FIJOS van aparte y arriba: son el saludo y la tarjeta grande, que se
   // editan pero no se mueven ni se ocultan. Meterlos en la lista arrastrable
@@ -659,11 +637,6 @@ export function BloquesSeccionesList({
                 // Un bloque de SISTEMA no se duplica: es un módulo de producto,
                 // no contenido. Dos "Esta semana" no significan nada.
                 onDuplicar={b.kind === 'sistema' ? undefined : () => { const id = hook.duplicar(pantalla, b.id); if (id) onSeleccionar(id); }}
-                // ⚠️ Solo con el kit encendido: su Inicio lo compone el TEMA
-                // (`home_blocks`), no el estudio, así que hay secciones de esta
-                // lista que sencillamente no salen. Decirlo aquí es lo único
-                // que hace que la lista y la previsualización cuadren.
-                fueraDelTema={false}
               />
               {/* Los hijos cuelgan del padre, sangrados. Solo aparecen si el
                   bloque admite hijos — para los demás no cambia nada. */}
