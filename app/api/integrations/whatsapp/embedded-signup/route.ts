@@ -1,15 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { intercambiarCodigoWhatsApp, validarConexionEmbeddedSignup, suscribirWabaAWebhook } from '@/lib/whatsapp';
 import { dbGuardarConexionWhatsappEmbeddedSignup } from '@/lib/db/supabase-data-admin';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
+import * as Sentry from '@sentry/nextjs';
 
 // Callback de Meta WhatsApp Embedded Signup v4 (ver WHATSAPP_AUDIT.md,
 // Fase B/D, y META_SETUP.md). El navegador solo manda lo que Meta le dio en
 // el popup — `code` (de un solo uso, 30s) y los IDs informativos del
 // postMessage `WA_EMBEDDED_SIGNUP` — pero NADA de eso se persiste sin
-// validarlo aquí contra la Graph API real con el App Secret.
+// validarlo aquí contra la Graph API real con el App Secret, salvo
+// `businessId`: es puramente informativo (no se lee en ningún otro sitio del
+// repo, ni gatea ningún permiso — RLS sigue siendo la cerradura real), así
+// que se guarda tal cual llega sin una llamada extra a Meta para verificarlo.
 //
 // `studioId` SIEMPRE de la sesión, igual que el resto de endpoints de
 // integraciones (`/api/integrations/config`, `/probar`) — nunca del payload
@@ -55,7 +59,13 @@ export async function POST(req: NextRequest) {
     displayPhoneNumber: validacion.displayPhoneNumber,
     verifiedName: validacion.verifiedName,
   });
-  if (!guardado.ok) return NextResponse.json({ ok: false, error: guardado.error }, { status: 409 });
+  if (!guardado.ok) {
+    // 409 solo para el conflicto real (número ya conectado a otro estudio);
+    // cualquier otro fallo (service role ausente, error de Postgres) es
+    // nuestro, no de la propietaria — 500, para que se distinga en cualquier
+    // monitorización que branchee por status code.
+    return NextResponse.json({ ok: false, error: guardado.error }, { status: guardado.conflict ? 409 : 500 });
+  }
 
   // Nada se guarda a medias: si llegamos aquí, la conexión ya está validada
   // contra Meta y persistida — aterriza directo en FUNCIONA (ver
@@ -63,11 +73,23 @@ export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (admin) await registrarSaludIntegracion(admin, sesion.studioId, 'WHATSAPP', { ok: true });
 
-  // Best-effort: sin esto el webhook (app/api/webhooks/whatsapp) nunca
-  // recibiría eventos de ESTE WABA, pero el número ya funciona para enviar
-  // recordatorios sin depender de que esta llamada tenga éxito — no bloquea
-  // la respuesta ni deshace lo ya guardado.
-  await suscribirWabaAWebhook(cambio.token, wabaId);
+  // Best-effort de verdad: dentro de `after()`, con la respuesta ya enviada
+  // (un Graph API lento no puede alargar el "Conectando…" de la propietaria
+  // por algo que no ve — mismo patrón que app/api/stripe/webhook/route.ts),
+  // pero SÍ registrando el fallo — antes se descartaba en silencio y el
+  // webhook se quedaba sordo para ese WABA sin que nadie se enterara. Un
+  // `.then()` normal no basta aquí: en un entorno serverless la función
+  // puede congelarse en cuanto se manda la respuesta, y `after()` es lo que
+  // garantiza que esto se ejecuta de verdad.
+  after(async () => {
+    const r = await suscribirWabaAWebhook(cambio.token, wabaId);
+    if (!r.ok) {
+      Sentry.captureMessage('[whatsapp embedded-signup] no se pudo suscribir el WABA al webhook', {
+        level: 'warning',
+        extra: { studioId: sesion.studioId, wabaId, error: r.error },
+      });
+    }
+  });
 
   return NextResponse.json({
     ok: true,

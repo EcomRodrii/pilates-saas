@@ -328,12 +328,26 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       if (r.error) showToast(r.error);
       return;
     }
-    showToast(`WhatsApp conectado${r.verifiedName ? ` — ${r.verifiedName}` : ''}`);
-    // Recarga completa: la conexión se guardó en el servidor (no en el store
-    // local de este componente), y el resto de la pantalla —badge de salud,
-    // panel entero— la lee de `useStudio()`, cargada una vez al arrancar.
-    window.location.reload();
+    // El toast viaja en la URL (mismo patrón que stripe_connected/
+    // google_calendar_connected más abajo), NO se pinta aquí antes de
+    // recargar: showToast() es un setState de React, y window.location.reload()
+    // tira la página abajo antes de que React llegue a pintarlo — la
+    // propietaria solo vería la recarga, nunca la confirmación. El resto de
+    // la pantalla (badge de salud, panel entero) lee de `useStudio()`,
+    // cargada una vez al arrancar, así que hace falta recargar de todos
+    // modos — a diferencia de Stripe/Google/Zoom esto no es la vuelta de un
+    // redirect, así que el query param se añade aquí en vez de venir de un
+    // callback de servidor.
+    window.location.href = `${window.location.pathname}?whatsapp_connected=1`;
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('whatsapp_connected')) {
+      showToast('WhatsApp conectado');
+      window.history.replaceState({}, '', '/configuracion');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stripe no usa el modal genérico de API keys: se conecta vía OAuth (Stripe
   // Connect) para que cada estudio cobre en su propia cuenta, sin tocar
@@ -952,26 +966,36 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                     <NoDisponibleTodavia variable="NEXT_PUBLIC_KLAVIYO_CLIENT_ID" />
                   )
                 ) : cat.tipo === 'WHATSAPP' ? (
-                  conectado ? (
-                    <>
-                      <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(btnSecondary, abriendo === cat.tipo && 'opacity-60')}>
-                        Gestionar
-                      </button>
-                      {cat.probarUrl && (
-                        <button onClick={() => probarCampos(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
-                          {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
+                  <>
+                    {conectado ? (
+                      <>
+                        <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(btnSecondary, abriendo === cat.tipo && 'opacity-60')}>
+                          Gestionar
                         </button>
-                      )}
-                    </>
-                  ) : whatsappSignup.disponible ? (
-                    <button type="button" onClick={conectarWhatsappMeta} disabled={whatsappSignup.conectando} className={cn(btnPrimary, whatsappSignup.conectando && 'opacity-50')}>
-                      {whatsappSignup.conectando ? 'Conectando…' : 'Conectar WhatsApp'}
-                    </button>
-                  ) : (
-                    <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(btnPrimary, abriendo === cat.tipo && 'opacity-60')}>
-                      Conectar
-                    </button>
-                  )
+                        {cat.probarUrl && (
+                          <button onClick={() => probarCampos(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
+                            {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
+                          </button>
+                        )}
+                      </>
+                    ) : whatsappSignup.disponible ? (
+                      <button type="button" onClick={conectarWhatsappMeta} disabled={whatsappSignup.conectando} className={cn(btnPrimary, whatsappSignup.conectando && 'opacity-50')}>
+                        {whatsappSignup.conectando ? 'Conectando…' : 'Conectar WhatsApp'}
+                      </button>
+                    ) : (
+                      <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(btnPrimary, abriendo === cat.tipo && 'opacity-60')}>
+                        Conectar
+                      </button>
+                    )}
+                    {/* Mismo enlace que ya tenía WhatsApp antes de esta rama dedicada
+                        (heredado de la rama genérica de abajo) — se perdía sin este. */}
+                    {cat.docsUrl && (
+                      <a href={cat.docsUrl} target="_blank" rel="noopener noreferrer"
+                        className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                        Docs <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </>
                 ) : cat.tipo === 'MAILCHIMP' ? (
                   // Modal genérico de campos (Conectar/Gestionar) + Probar
                   // conexión, igual que Kisi/WhatsApp — solo se añade el

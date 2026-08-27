@@ -1,6 +1,6 @@
 # Auditoría — Migración a Meta WhatsApp Embedded Signup v4
 
-Fecha: 2026-08-27. Estado: **Fases A, B, C completas. Fases D (callback/onboarding), H (UX), E (webhook) e I (tests) implementadas.**
+Fecha: 2026-08-27. Estado: **Fases A-I implementadas. Revisión de código (`/code-review`) hecha y sus 7 hallazgos confirmados corregidos.**
 
 ## 0. Hallazgo que reencuadra todo lo demás
 
@@ -249,6 +249,60 @@ columna `origen` nueva — es deducible: `config.wabaId` presente = vino de Embe
 - Cambiar el `select`/mapeo del cron para leer la columna `phone_number_id` en vez de
   `config.phoneId` — cambio de una línea, se hace en la misma Fase D que escribe la columna
   nueva, no antes (evita una ventana con columna vacía y cron ya buscándola ahí).
+
+---
+
+## Revisión de código (`/code-review`) — 7 hallazgos confirmados, corregidos
+
+Pasada de 8 ángulos independientes (3 de correctness, 3 de limpieza, altitud, convenciones)
++ verificación de 1 voto por candidato. 7 CONFIRMED + 1 PLAUSIBLE (fuera de alcance de esta
+corrección, ver más abajo). Los 7 CONFIRMED, corregidos:
+
+1. **Un solo fallo de entrega tumbaba la salud de TODO el estudio** — el webhook escribía
+   `registrarSaludIntegracion` por cada `status` individual, saltándose el patrón
+   `acumuladorSalud()` que el cron ya usa para exactamente este caso (un `failed` de un
+   número mal escrito no puede pintar en rojo un token perfectamente sano). Corregido:
+   `app/api/webhooks/whatsapp/route.ts` acumula por `studio_id` durante todo el payload y
+   escribe una sola vez al final.
+2. **"Desconectar" dejaba `phone_number_id` huérfano** — `dbUpsertIntegracion`
+   (`lib/supabase-data.ts`) no incluía esa columna en su upsert, así que una fila
+   "desconectada" seguía siendo resoluble por el webhook (resucitando su salud) y bloqueaba
+   la reconexión del mismo número vía el índice único. Corregido en dos sitios: la columna
+   ahora se sincroniza con `config.phoneId` en cualquier escritura de `dbUpsertIntegracion`
+   (null en Desconectar), y el `SELECT` del webhook filtra `activo = true` como defensa
+   adicional.
+3. **La suscripción al webhook bloqueaba la respuesta y tragaba errores en silencio** —
+   `suscribirWabaAWebhook` se esperaba (`await`) antes de responder pese a que el comentario
+   decía lo contrario, y su fallo no se registraba en ningún sitio. Corregido con `after()`
+   (mismo patrón ya usado en `app/api/stripe/webhook/route.ts`): corre tras enviar la
+   respuesta, y si falla, se registra con `Sentry.captureMessage`.
+4. **HTTP 409 para cualquier fallo, no solo el conflicto real** — `dbGuardarConexionWhatsappEmbeddedSignup`
+   gana un flag `conflict: true` solo en el caso 23505; la ruta responde 409 únicamente ahí
+   y 500 para el resto (service role ausente, cualquier otro error de Postgres).
+5. **El toast de éxito nunca se veía** — `showToast` seguido de `window.location.reload()`
+   síncrono no dejaba a React pintar nada. Corregido con el mismo patrón que usan
+   Stripe/Google/Zoom en el mismo archivo: el query param `whatsapp_connected=1` sobrevive
+   a la recarga y un `useEffect` nuevo lo lee para mostrar el toast.
+6. **Se perdía el enlace "Docs" de WhatsApp** — la rama nueva específica de WHATSAPP no lo
+   renderizaba, a diferencia de la rama genérica de la que dependía antes. Corregido
+   añadiéndolo dentro de la propia rama.
+7. **`businessId` nunca se revalida contra Meta** — cierto, pero el campo no se lee en
+   ningún sitio del repo (solo display, nunca gatea nada) — impacto cosmético, no de
+   seguridad. Corregido el comentario de cabecera de la ruta para no reclamar una garantía
+   que no cubre este campo en concreto, en vez de fabricar una llamada extra a la Graph API
+   para validar un dato que nadie consume.
+
+**Sin corregir a propósito (PLAUSIBLE, no CONFIRMED)**: `lib/hooks/use-whatsapp-embedded-signup.tsx`
+inicializa el SDK de Meta solo dentro de `<Script onLoad>`, sin el *polling* de respaldo que
+`components/auth/turnstile-widget.tsx` (hook hermano) documenta haber necesitado tras un bug
+real de producción. El verificador confirmó el mecanismo pero acotó el disparador real a una
+ventana más estrecha de lo que parecía (a diferencia del widget de Turnstile, que se
+desmonta y remonta en cada apertura de modal, `window.FB` es un objeto global e idempotente
+que persiste durante toda la sesión) — queda documentado como riesgo de bajo disparo, no
+corregido en esta pasada.
+
+`npx tsc --noEmit`, `eslint` y `node --test` (14/14) en verde tras las correcciones (mismos
+2 errores preexistentes y no relacionados de siempre en `components/network/mapa-resultados.tsx`).
 
 ---
 

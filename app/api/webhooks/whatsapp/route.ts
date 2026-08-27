@@ -15,6 +15,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { firmaMetaValida } from '@/lib/meta-firma';
 import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/lib/webhook-idempotencia';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
+import { acumuladorSalud } from '@/lib/integraciones/salud';
 import * as Sentry from '@sentry/nextjs';
 
 interface CambioWhatsapp {
@@ -76,6 +77,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 503 });
   }
 
+  // Un acierto GANA a los fallos de la MISMA tanda, por estudio — mismo
+  // criterio que ya usa el cron de recordatorios (acumuladorSalud, ver
+  // lib/db/supabase-data-admin.ts::enviarRecordatoriosClasesProximas). Sin
+  // esto, un solo número mal escrito entre 20 recordatorios pintaría el
+  // estudio ENTERO como "Con problemas" aunque el token/WABA estén sanos:
+  // se acumula por studio_id y se escribe UNA vez al final, no por status.
+  const saludPorStudio = new Map<string, ReturnType<typeof acumuladorSalud>>();
+  const acumuladorDe = (studioId: string) => {
+    let acc = saludPorStudio.get(studioId);
+    if (!acc) { acc = acumuladorSalud(); saludPorStudio.set(studioId, acc); }
+    return acc;
+  };
+
   for (const entry of payload.entry ?? []) {
     for (const cambio of entry.changes ?? []) {
       const value = cambio.value ?? {};
@@ -87,16 +101,20 @@ export async function POST(req: NextRequest) {
       // `studio_id` SIEMPRE resuelto contra la columna phone_number_id (Fase
       // D), nunca contra nada que traiga el payload aparte de este ID —
       // mismo principio de no confiar en datos externos sin cruzar contra lo
-      // que Tentare ya tiene guardado.
+      // que Tentare ya tiene guardado. `activo` filtrado aquí: una fila
+      // desconectada (Desconectar no borra phone_number_id, solo apaga
+      // `activo`) no debe resucitar en la UI ni bloquear una reconexión.
       const { data: fila } = await admin
         .from('integraciones')
         .select('studio_id')
         .eq('tipo', 'WHATSAPP')
         .eq('phone_number_id', phoneNumberId)
+        .eq('activo', true)
         .maybeSingle();
       // Número que no reconocemos (desconectado, o de otra plataforma que
       // comparte el mismo App): se ignora, no es un error.
       if (!fila) continue;
+      const studioId = fila.studio_id as string;
 
       for (const status of value.statuses ?? []) {
         if (!status.id || !status.status) continue;
@@ -110,21 +128,28 @@ export async function POST(req: NextRequest) {
         // `failed` es la única señal que de verdad importa para la salud: es
         // exactamente el caso que la tarjeta de Integraciones existe para
         // enseñar (token revocado, plantilla rechazada, número inválido) sin
-        // esperar al próximo recordatorio fallido del cron.
-        if (status.status === 'failed') {
-          await registrarSaludIntegracion(admin, fila.studio_id as string, 'WHATSAPP', {
-            ok: false,
-            error: `Meta marcó un mensaje como no entregado (${status.id})`,
-          });
-        } else {
-          await registrarSaludIntegracion(admin, fila.studio_id as string, 'WHATSAPP', { ok: true });
-        }
+        // esperar al próximo recordatorio fallido del cron. Se acumula, no
+        // se escribe aquí — un `failed` de UN destinatario no puede pintar
+        // el estudio entero en rojo si otros del mismo lote sí entregaron.
+        acumuladorDe(studioId).anota(
+          status.status === 'failed'
+            ? { ok: false, error: `Meta marcó un mensaje como no entregado (${status.id})` }
+            : { ok: true },
+        );
         await marcarWebhookProcesado(admin, clave);
       }
 
       // Mensajes entrantes: reconocidos, no procesados (ver cabecera). No
       // hace falta idempotencia aquí porque no se escribe nada.
     }
+  }
+
+  // Una escritura de salud por estudio implicado en esta tanda, no una por
+  // status — mismo principio que `registrarSaludIntegracion` ya documenta
+  // para el cron: acumular durante el bucle y guardar el resultado final.
+  for (const [studioId, acc] of saludPorStudio) {
+    const resultado = acc.resultado();
+    if (resultado) await registrarSaludIntegracion(admin, studioId, 'WHATSAPP', resultado);
   }
 
   return NextResponse.json({ ok: true });

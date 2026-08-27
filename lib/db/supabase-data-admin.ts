@@ -3969,7 +3969,7 @@ export async function dbGuardarConexionWhatsappEmbeddedSignup(
     displayPhoneNumber: string | null;
     verifiedName: string | null;
   },
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | { ok: false; error: string; conflict?: boolean }> {
   const admin = getSupabaseAdmin();
   if (!admin) return { ok: false, error: 'Service role no configurada' };
 
@@ -4014,8 +4014,11 @@ export async function dbGuardarConexionWhatsappEmbeddedSignup(
     // 23505 = violación del índice único parcial de phone_number_id: el
     // número ya está conectado a OTRA fila (otro estudio, o basura de una
     // reconexión anterior mal cerrada) — nunca un error técnico crudo aquí.
+    // `conflict: true` distingue este caso (409, la propietaria puede
+    // actuar) de un fallo de infraestructura (500, no es su culpa) para
+    // quien llama — antes ambos volvían indistinguibles como `{ok:false}`.
     if (error.code === '23505') {
-      return { ok: false, error: 'Ese número de WhatsApp ya está conectado a otro estudio en Tentare.' };
+      return { ok: false, conflict: true, error: 'Ese número de WhatsApp ya está conectado a otro estudio en Tentare.' };
     }
     reportDbError('[dbGuardarConexionWhatsappEmbeddedSignup]', error);
     return { ok: false, error: 'No se pudo guardar la conexión de WhatsApp.' };
