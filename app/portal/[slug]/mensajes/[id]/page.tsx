@@ -31,13 +31,21 @@ import { semantic } from '@/lib/portal-tokens';
 import { sans, micro, EASE, dur } from '@/lib/portal-design';
 import { EmptyState } from '@/components/portal/ui';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { CompositorPortal, HiloMensajes } from '@/components/portal/mensajeria-piezas';
+import { CompositorPortal, HiloMensajes, IndicadorEscribiendo } from '@/components/portal/mensajeria-piezas';
 import {
   fetchConversaciones, fetchMensajes, enviarMensaje, marcarConversacionLeida,
   instructorRecordadoDe, recordarInstructorDeConversacion,
 } from '@/lib/mensajeria-portal.ts';
 import type { RowMensajes } from '@/lib/db-types';
 import type { ConversacionConResumen } from '@/lib/mensajeria/presentacion';
+
+// Indicador de "escribiendo…" — broadcast EFÍMERO sobre el MISMO canal
+// Realtime del hilo (`conversacion:{id}`), sin tabla ni persistencia: se
+// pierde si nadie está conectado, y eso es correcto (no es una función
+// crítica). No se emite en cada tecla — con throttle de 2s mientras se sigue
+// escribiendo — y el receptor lo apaga solo si no llega otro evento en 3s.
+const TYPING_THROTTLE_MS = 2000;
+const TYPING_TIMEOUT_MS = 3000;
 
 export default function HiloMensajePage() {
   const { slug, id } = useParams<{ slug: string; id: string }>();
@@ -54,10 +62,22 @@ export default function HiloMensajePage() {
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [teclado, setTeclado] = useState(0);
+  const [escribiendoOtros, setEscribiendoOtros] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const ultimoIdRef = useRef<string | null>(null);
   const cercaDelFinalRef = useRef(true);
+  // El canal Realtime del hilo, para poder emitir el broadcast `typing` desde
+  // el compositor sin recrear la suscripción — se rellena en el efecto de
+  // Realtime de más abajo.
+  const canalRef = useRef<ReturnType<typeof supabasePortalRealtime.channel> | null>(null);
+  // `authUserId` en un ref: el listener de `typing` vive dentro de un efecto
+  // con dependencia `[id]` (no se quiere recrear el canal cada vez que
+  // resuelve la sesión), así que necesita el valor VIVO sin que el efecto se
+  // vuelva a ejecutar cuando cambie.
+  const authUserIdRef = useRef<string | null>(null);
+  const ultimoTypingEnviadoRef = useRef(0);
+  const escribiendoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // El JWT no llega a través de PortalSession — se lee directo de la sesión de
   // Supabase, igual que `portalAuthHeader()`. Es lo único que permite decidir
@@ -69,6 +89,8 @@ export default function HiloMensajePage() {
     });
     return () => { vivo = false; };
   }, []);
+
+  useEffect(() => { authUserIdRef.current = authUserId; }, [authUserId]);
 
   const cargarConversacion = useCallback(async () => {
     if (!studioId) return;
@@ -112,8 +134,23 @@ export default function HiloMensajePage() {
         .on('broadcast', { event: 'INSERT' }, ({ payload }) => {
           const fila = payload.record as RowMensajes;
           setMensajes(prev => (prev?.some(m => m.id === fila.id) ? prev : [...(prev ?? []), fila]));
+          // Un mensaje real que llega es señal más fuerte que el "escribiendo…"
+          // que lo precedió — apaga el indicador en vez de dejarlo hasta que
+          // expire solo por los 3s del timeout.
+          if (fila.remitente_auth_user_id !== authUserIdRef.current) {
+            if (escribiendoTimeoutRef.current) clearTimeout(escribiendoTimeoutRef.current);
+            setEscribiendoOtros(false);
+          }
+        })
+        .on('broadcast', { event: 'typing' }, ({ payload }) => {
+          const de = (payload as { authUserId?: string | null })?.authUserId ?? null;
+          if (!de || de === authUserIdRef.current) return; // el propio eco, o sin identificar: se ignora
+          setEscribiendoOtros(true);
+          if (escribiendoTimeoutRef.current) clearTimeout(escribiendoTimeoutRef.current);
+          escribiendoTimeoutRef.current = setTimeout(() => setEscribiendoOtros(false), TYPING_TIMEOUT_MS);
         })
         .subscribe();
+      canalRef.current = canal;
     })();
 
     const { data: authSub } = supabasePortal.auth.onAuthStateChange((event, session) => {
@@ -126,8 +163,30 @@ export default function HiloMensajePage() {
       vivo = false;
       authSub.subscription.unsubscribe();
       if (canal) supabasePortalRealtime.removeChannel(canal);
+      canalRef.current = null;
+      if (escribiendoTimeoutRef.current) clearTimeout(escribiendoTimeoutRef.current);
+      setEscribiendoOtros(false);
     };
   }, [id]);
+
+  // Emite el broadcast `typing`, con throttle: como mucho uno cada
+  // `TYPING_THROTTLE_MS` mientras la socia sigue escribiendo — nunca en cada
+  // tecla. Efímero a propósito: si `send` falla (canal aún no suscrito, sin
+  // red) no pasa nada, no hay reintento ni cola.
+  const notificarEscribiendo = useCallback(() => {
+    const canal = canalRef.current;
+    const authUserId = authUserIdRef.current;
+    if (!canal || !authUserId) return;
+    const ahora = Date.now();
+    if (ahora - ultimoTypingEnviadoRef.current < TYPING_THROTTLE_MS) return;
+    ultimoTypingEnviadoRef.current = ahora;
+    void canal.send({ type: 'broadcast', event: 'typing', payload: { authUserId } });
+  }, []);
+
+  const alCambiarBorrador = useCallback((v: string) => {
+    setBorrador(v);
+    if (v.trim()) notificarEscribiendo();
+  }, [notificarEscribiendo]);
 
   // Marca leído al abrir y cada vez que llega un mensaje nuevo que no es mío
   // mientras el hilo sigue abierto.
@@ -169,12 +228,14 @@ export default function HiloMensajePage() {
       : 'Tu instructora';
 
   // Autoscroll: solo si ya estábamos cerca del final (no interrumpe a quien
-  // ha subido a leer un mensaje antiguo).
+  // ha subido a leer un mensaje antiguo). También cuando aparece/desaparece
+  // el indicador de "escribiendo…": si no, la burbuja de puntos puede quedar
+  // fuera de la vista justo debajo del último mensaje.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !mensajes) return;
     if (cercaDelFinalRef.current) el.scrollTop = el.scrollHeight;
-  }, [mensajes]);
+  }, [mensajes, escribiendoOtros]);
 
   function alHacerScroll() {
     const el = scrollRef.current;
@@ -292,12 +353,14 @@ export default function HiloMensajePage() {
             leidoHastaOtros={conversacion?.leido_hasta_otros}
           />
         )}
+
+        {!error && escribiendoOtros && <IndicadorEscribiendo />}
       </div>
 
       {/* ── Compositor ───────────────────────────────────────────────────── */}
       <CompositorPortal
         valor={borrador}
-        onValor={setBorrador}
+        onValor={alCambiarBorrador}
         onEnviar={() => void enviar()}
         enviando={enviando}
         deshabilitado={conversacion === undefined}

@@ -25,6 +25,7 @@ import { subirFotoPerfil, eliminarFotoPerfil, validarFotoPerfil } from '@/lib/po
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { BottomSheet, Input, Button, Card, Toast, type AvisoToast } from '@/components/portal/ui';
 import { bonoActivo } from '@/lib/bonos-portal';
+import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
 import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
 import type { PortalSession } from '@/lib/portal-auth';
 import type { Socio } from '@/lib/types';
@@ -74,6 +75,9 @@ export function PortalPerfilView({
     () => reservas.filter(r => r.socioId === socioId && r.estado === 'ASISTIDA').length,
     [reservas, socioId],
   );
+  // Badge de Mensajes sin leer (Community & Messaging OS) — datos reales, sin
+  // Realtime (se recalcula al volver a entrar en Perfil, no en vivo).
+  const mensajesSinLeer = useMensajesSinLeer(studio?.id ?? null);
 
   const [hoja, setHoja] = useState<null | 'datos' | 'avatar'>(null);
   const [form, setForm] = useState({
@@ -286,7 +290,7 @@ export function PortalPerfilView({
             cerrado que se persiste en la config del tema de cada estudio;
             añadir una pestaña ahí es un cambio de esquema, no de esta
             pantalla). */}
-        {fila('Mensajes', null, () => navegar(`/portal/${slug}/mensajes`))}
+        {fila('Mensajes', mensajesSinLeer > 0 ? String(mensajesSinLeer) : null, () => navegar(`/portal/${slug}/mensajes`))}
         {fila('Comunidad', null, () => navegar(`/portal/${slug}/comunidad`))}
         {fila('Documentos', null, () => navegar(`/portal/${slug}/documentos`))}
         {fila('Mis compañeras', null, () => navegar(`/portal/${slug}/companeras`))}
