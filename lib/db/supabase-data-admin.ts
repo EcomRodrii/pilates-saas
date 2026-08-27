@@ -3199,6 +3199,18 @@ export async function registrarSociaPublica(params: {
     referido_por: referido,
     origen_lead: params.origenLead ?? null,
   });
+  // Carrera de doble clic en handleSignContract (17ª auditoría, P-6): el
+  // cerrojo de cliente cierra el caso normal, pero dos peticiones que
+  // arrancan casi a la vez pasan las dos el check de idempotencia de arriba
+  // (SELECT "¿ya existe?" sin candado) antes de que cualquiera haga INSERT.
+  // La que pierde la carrera choca aquí contra `socios_auth_studio_unique`
+  // (migr 20260827005014) — en vez de propagar el 23505 crudo, se resuelve
+  // igual que el camino feliz de arriba: la ficha que SÍ se creó es la buena,
+  // se devuelve esa.
+  if (error?.code === '23505' && error.message.includes('socios_auth_studio_unique') && params.authUserId) {
+    const yaSocia = await socioAutenticado(params.authUserId, params.studioId);
+    if (yaSocia) return { ok: true as const, socioId: yaSocia };
+  }
   if (error) return { error: error.message };
   return { ok: true as const };
 }
