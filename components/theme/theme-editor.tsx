@@ -37,7 +37,6 @@ import { metadatosPublicos, tituloAutomatico, descripcionAutomatica, IMAGEN_COMP
 import { PanelVisibilidad } from './panel-visibilidad';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
 import { resolveVariantes } from '@/lib/theme-variantes';
-import { esTemaPortal } from '@/themes/registro';
 import { crearHistorial, registrar, deshacer as deshacerHist, rehacer as rehacerHist } from '@/lib/theme/editor-historial';
 import { CamposForm, FilaOpciones } from './inspector/campos-form';
 import type { CampoSchema } from '@/lib/theme/campos';
@@ -1051,11 +1050,13 @@ export function AjustesCategoriaPanel({
             </button>
           ))}
         </div>
-        {/* Solo tiene efecto en un tema del kit — el portal "de siempre" no
-            usa este eje. Explicado, no ocultado sin más: un control que no
-            hace nada y desaparece sin decir por qué es peor que uno inerte
-            con la razón puesta al lado. */}
-        {esTemaPortal(draft.themeId) ? (
+        {/* ⚠️ RETIRADO (decisión del fundador, 2026-08-27): el kit de temas
+            se borró en el PR 2 de "borrar temas del kit" — `esTemaPortal()`
+            ya devolvía siempre `false` desde el PR 1, así que esta rama
+            nunca se alcanzaba. Se deja en `false` explícito (en vez de
+            quitar ya el condicional entero) porque simplificar este bloque
+            es PR 3, aquí solo se evita el import roto. */}
+        {false ? (
           <div>
             <p className="text-[13px] font-semibold text-foreground mb-2">Accesos rápidos del Inicio</p>
             <div className="flex gap-2">

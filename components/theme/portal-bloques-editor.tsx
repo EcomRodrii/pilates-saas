@@ -1,8 +1,5 @@
 'use client';
 
-import { elTemaIncluye } from '@/lib/portal-tema/equivalencias';
-import { useStudio } from '@/lib/studio-context';
-import { TEMAS_PORTAL, esTemaPortal } from '@/themes/registro';
 import { useEffect, useState } from 'react';
 import {
   GripVertical, Eye, EyeOff, Plus, Trash2,
@@ -586,14 +583,13 @@ export function BloquesSeccionesList({
   seleccionId: string | null;
   onSeleccionar: (id: string) => void;
 }) {
-  // ⚠️ Con el kit encendido, el Inicio lo compone el TEMA (`home_blocks`), no
-  // el estudio: hay secciones de esta lista que no salen, y arrastrarlas u
-  // ocultarlas no mueve nada. No se importa `useKitActivo` del marco del portal
-  // para no arrastrar el kit entero al bundle del panel — la comprobación es
-  // la misma, dos líneas.
-  const { portalReact, themeIdPublicado } = useStudio();
-  const kitActivo = portalReact && esTemaPortal(themeIdPublicado);
-  const homeBlocks = kitActivo ? TEMAS_PORTAL[themeIdPublicado].home_blocks : [];
+  // ⚠️ RETIRADO (decisión del fundador, 2026-08-27): el árbol del kit
+  // (`themes/registro.ts`, `lib/portal-tema/equivalencias.ts`) se borró en el
+  // PR 2 de "borrar temas del kit" — `esTemaPortal()` ya devolvía siempre
+  // `false` desde el PR 1, así que esta rama nunca se alcanzaba. `fueraDelTema`
+  // se deja en `false` explícito más abajo (en vez de borrar la fila entera de
+  // "fuera del tema") porque esa cirugía es del PR 3, sobre un fichero que
+  // ese PR ya trata aparte — aquí solo se evita el import roto.
 
   const todos = hook.bloquesDe(pantalla);
   // Los FIJOS van aparte y arriba: son el saludo y la tarjeta grande, que se
@@ -667,7 +663,7 @@ export function BloquesSeccionesList({
                 // (`home_blocks`), no el estudio, así que hay secciones de esta
                 // lista que sencillamente no salen. Decirlo aquí es lo único
                 // que hace que la lista y la previsualización cuadren.
-                fueraDelTema={kitActivo && b.kind === 'sistema' && !elTemaIncluye(b.sistemaId, homeBlocks)}
+                fueraDelTema={false}
               />
               {/* Los hijos cuelgan del padre, sangrados. Solo aparecen si el
                   bloque admite hijos — para los demás no cambia nada. */}

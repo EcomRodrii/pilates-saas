@@ -1,5 +1,3 @@
-// Relativo con .ts explícito: este módulo lo cargan tests bajo `node --test`.
-import { TEMAS_PORTAL, TEMAS_PORTAL_IDS } from '../themes/registro.ts';
 // Claves de CSS var que el preview en vivo puede sobreescribir por
 // postMessage. Es una whitelist de SEGURIDAD: el mensaje llega de otra ventana
 // y no se acepta cualquier propiedad, solo estas.
@@ -131,11 +129,10 @@ export function varsDePreview(
 // metadatos y el número del bono en PRODUCCIÓN y no en la vista previa — el
 // mismo bug histórico que este fichero dice prevenir.
 //
-// Ahora se derivan del registro de temas, así que un tema nuevo con un token
-// nuevo entra solo. El test guardián de theme-preview-vars.test.ts lo comprueba.
-const CLAVES_SIZE_DE_LOS_TEMAS: string[] = TEMAS_PORTAL_IDS.flatMap(
-  id => TEMAS_PORTAL[id].designSystem.type.map(t => `--size-${t.token}`),
-);
+// ⚠️ RETIRADO (decisión del fundador, 2026-08-27): se derivaban del registro
+// de temas del kit (`themes/registro.ts`), borrado en el PR 2 de "borrar
+// temas del kit". Sin temas del kit no hay tokens `--size-*` que declarar.
+const CLAVES_SIZE_DE_LOS_TEMAS: string[] = [];
 
 export const CLAVES_KIT_PERMITIDAS: ReadonlySet<string> = new Set([
   // `--accent` SALIÓ de aquí por higiene (auditoría previa: ningún emisor del

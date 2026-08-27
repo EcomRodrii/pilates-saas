@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveTemaJs } from './theme-preview-puente.ts';
 import { DEFAULT_VARIANTES } from './theme-variantes.ts';
-import { getThemeDefinition } from './theme-definitions.ts';
 
 // `null` = "no pises nada", que NO es lo mismo que "pisa con los valores por
 // defecto". Es la diferencia entre un portal fuera del editor (o un mensaje de
@@ -21,34 +20,35 @@ test('resolveTemaJs: objeto vacío → el aspecto de hoy, completo', () => {
     barraClasica: false,
     barraFlotante: false,
     tabBarStyle: 'clasica',
-    // Solo temas del kit; sin objeto que resolver, se queda en null (hereda).
+    // Sin objeto que resolver, se queda en null (hereda).
     quickLinksStyle: null,
-    // Sin tema del kit: se pinta el portal de siempre, que es lo de antes.
-    temaKit: null,
   });
 });
 
-// El caso real del bug: el preview grande pintaba la paleta de Bloom con la
-// cabecera y los retos del tema PUBLICADO.
-test('resolveTemaJs: un ThemeConfig de la galería llega con SU forma, no con la de hoy', () => {
-  const bloom = getThemeDefinition('bloom')!.defaults;
-  const r = resolveTemaJs(bloom)!;
+// El caso real del bug: el preview grande pintaba la paleta del tema
+// publicado en vez de la del borrador. Objetos inline en vez de un
+// `ThemeDefinition` de la galería (retirada con el kit de temas, PR 2 de
+// "borrar temas del kit") — lo que se prueba es que `resolveTemaJs` respeta
+// la forma que le llega, no la forma de un tema concreto.
+test('resolveTemaJs: un `ThemeConfig` en borrador llega con SU forma, no con la de hoy', () => {
+  const r = resolveTemaJs({ variantes: { cabeceraInicio: 'titular', retos: 'color', accesosRapidos: 'rejilla' } })!;
   assert.equal(r.variantes.cabeceraInicio, 'titular');
   assert.equal(r.variantes.retos, 'color');
   assert.equal(r.variantes.accesosRapidos, 'rejilla');
-  // Bloom no declara `barra`: ese eje se queda en el aspecto de hoy sin que el
-  // resto se contagie.
+  // Un eje no declarado se queda en el aspecto de hoy sin que el resto se
+  // contagie.
   assert.equal(r.variantes.barra, DEFAULT_VARIANTES.barra);
 });
 
-test('resolveTemaJs: los tres temas de la galería se distinguen por su forma', () => {
-  const forma = (id: string) => resolveTemaJs(getThemeDefinition(id)!.defaults)!.variantes;
-  assert.equal(forma('oliva').accesosRapidos, 'rejilla');
-  assert.equal(forma('oliva').barra, 'todasRelleno');
-  assert.equal(forma('noir').accesosRapidos, 'circulos');
-  assert.equal(forma('noir').barra, 'todas');
-  assert.notDeepEqual(forma('oliva'), forma('bloom'));
-  assert.notDeepEqual(forma('bloom'), forma('noir'));
+test('resolveTemaJs: dos formas distintas no se confunden entre sí', () => {
+  const forma = (variantes: Record<string, string>) => resolveTemaJs({ variantes })!.variantes;
+  const a = forma({ accesosRapidos: 'rejilla', barra: 'todasRelleno' });
+  const b = forma({ accesosRapidos: 'circulos', barra: 'todas' });
+  assert.equal(a.accesosRapidos, 'rejilla');
+  assert.equal(a.barra, 'todasRelleno');
+  assert.equal(b.accesosRapidos, 'circulos');
+  assert.equal(b.barra, 'todas');
+  assert.notDeepEqual(a, b);
 });
 
 // Entrada no confiable: esto llega por postMessage. Mismo criterio defensivo
@@ -85,45 +85,4 @@ test('resolveTemaJs: `quickLinksStyle` inventado cae a null (hereda), los dos v�
   assert.equal(resolveTemaJs({ quickLinksStyle: 'circulo-mágico' })?.quickLinksStyle, null);
   assert.equal(resolveTemaJs({ quickLinksStyle: 'cards' })?.quickLinksStyle, 'cards');
   assert.equal(resolveTemaJs({ quickLinksStyle: 'bare' })?.quickLinksStyle, 'bare');
-});
-
-
-// ── El tema del kit por el puente ───────────────────────────────────────────
-
-test('resolveTemaJs: `temaKit` es SIEMPRE null — el kit se retiró (esTemaPortal() ahora es `false` a secas)', () => {
-  // Antes esto llevaba el tema del kit que se estaba editando. Decisión del
-  // fundador (2026-08-27): el sistema de temas del kit se retira por
-  // completo — `esTemaPortal()` (themes/registro.ts) devuelve `false` para
-  // cualquier id, así que ningún `themeId` (por válido que fuera en el
-  // vocabulario viejo) puede volver a resolver un `temaKit`. La vista previa
-  // del editor ya no puede montar el portal del kit, ni aunque el mensaje lo
-  // pida.
-  assert.equal(resolveTemaJs({ themeId: 'tentada' })?.temaKit, null);
-});
-
-test('⚠️ IDA Y VUELTA: `resolveTemaJs` sigue siendo idempotente sin el kit', () => {
-  // El test que cazaba la ida-y-vuelta rota entre emisor y receptor sigue
-  // vigente en espíritu — solo que ahora los DOS extremos tienen que
-  // coincidir en "null", no en un id del kit.
-  const config = { themeId: 'tentada', variantes: {}, barraClasica: false };
-  const emitido = resolveTemaJs(config);
-  const recibido = resolveTemaJs(emitido);
-  assert.equal(emitido?.temaKit, null);
-  assert.equal(recibido?.temaKit, null);
-  assert.deepEqual(recibido, emitido, 'aplicarla dos veces tiene que dar lo mismo');
-});
-
-test('resolveTemaJs: un `themeId` de la galería del kit tampoco pasa ya, aunque sea un id que existió', () => {
-  const config = { themeId: 'bloom', variantes: {}, barraClasica: false };
-  assert.equal(resolveTemaJs(config)?.temaKit, null);
-});
-
-test('⚠️ resolveTemaJs: un id que no existe NO pasa — es entrada de postMessage', () => {
-  assert.equal(resolveTemaJs({ themeId: 'no-existe' })?.temaKit, null);
-  assert.equal(resolveTemaJs({ themeId: 42 })?.temaKit, null);
-  assert.equal(resolveTemaJs({ themeId: { id: 'tentada' } })?.temaKit, null);
-});
-
-test('resolveTemaJs: un mensaje sin el campo deja el portal de siempre, no revienta', () => {
-  assert.equal(resolveTemaJs({ variantes: {} })?.temaKit, null);
 });
