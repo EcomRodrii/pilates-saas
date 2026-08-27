@@ -3,7 +3,11 @@
 // COMUNIDAD — feed de posts del estudio para la ALUMNA (Community & Messaging
 // OS, P1). Puro consumo: el backend (esquema/RLS/`/api/public/comunidad/posts`,
 // ya filtrado por audiencia real vía `resolverDestinatariasCampana`) está en
-// producción. Mismo lenguaje visual que Mensajes/Avisos/Perfil.
+// producción.
+//
+// Esta pantalla solo tiene los DATOS; la pintura vive en
+// `components/comunidad/post-card-portal.tsx` (mismo criterio que
+// `components/portal/ui`), sobre el lenguaje visual de `lib/portal-design.ts`.
 //
 // SOLO LECTURA a propósito (decisión ya cerrada del diseño): sin dar like ni
 // comentar. Los contadores de likes/comentarios se pintan como texto
@@ -21,15 +25,15 @@
 // ya aplica el hilo de mensajería para `cuerpo`.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, CalendarDays, MapPin, Users, Megaphone } from 'lucide-react';
+import { AlertCircle, Megaphone } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { portalAuthHeader } from '@/lib/api-client';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { supabasePortalRealtime } from '@/lib/db/supabase-portal-realtime';
-import { display, micro, sans, texto } from '@/lib/portal-design';
-import { Badge, Button, Card, EmptyState, Toast, type AvisoToast } from '@/components/portal/ui';
-import { selloTemporal } from '@/lib/avisos-portal';
+import { EASE, display, dur, micro, sans } from '@/lib/portal-design';
+import { EmptyState, Toast, type AvisoToast } from '@/components/portal/ui';
+import { PostCardPortal, SkeletonPostPortal } from '@/components/comunidad/post-card-portal';
 import {
   fetchFeedComunidad, fetchEstadoAsistenciaEvento, apuntarseEvento, desapuntarseEvento,
   type PostFeedPortal, type EstadoAsistenciaEvento,
@@ -56,6 +60,7 @@ export default function ComunidadPage() {
   const [accionEnCurso, setAccionEnCurso] = useState<string | null>(null);
 
   const cargando = useRef(false);
+  const centinela = useRef<HTMLDivElement | null>(null);
 
   const studioId = studio?.id ?? null;
 
@@ -72,19 +77,35 @@ export default function ComunidadPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial, misma forma que Mensajes.
   useEffect(() => { void cargarPrimeraPagina(); }, [cargarPrimeraPagina]);
 
-  async function cargarMas() {
-    if (!studio?.id || !posts || posts.length === 0 || cargando.current) return;
+  const cargarMas = useCallback(async () => {
+    if (!studioId || !posts || posts.length === 0 || cargando.current) return;
     cargando.current = true;
     setCargandoMas(true);
     const headers = await portalAuthHeader();
     const ultimo = posts[posts.length - 1];
-    const r = await fetchFeedComunidad(headers, studio.id, ultimo.creadoEn);
+    const r = await fetchFeedComunidad(headers, studioId, ultimo.creadoEn);
     setCargandoMas(false);
     cargando.current = false;
     if ('error' in r) { setError(r.error); return; }
     if (r.posts.length === 0) { setHayMas(false); return; }
     setPosts(prev => [...(prev ?? []), ...r.posts]);
-  }
+  }, [studioId, posts]);
+
+  // Scroll infinito: la siguiente página se pide cuando el centinela se acerca
+  // al borde inferior (`rootMargin`), no cuando ya se ve — así el esqueleto
+  // aparece antes de que la socia llegue al final y el feed no da tirones.
+  // `cargando.current` (y no un estado) es lo que impide que dos intersecciones
+  // seguidas pidan la misma página dos veces.
+  useEffect(() => {
+    const nodo = centinela.current;
+    if (!nodo || !hayMas || error) return;
+    const io = new IntersectionObserver(
+      entradas => { if (entradas.some(e => e.isIntersecting)) void cargarMas(); },
+      { rootMargin: '400px 0px' },
+    );
+    io.observe(nodo);
+    return () => io.disconnect();
+  }, [hayMas, error, cargarMas]);
 
   // Realtime — canal `feed:{studio_id}`, evento `post_nuevo`. El payload
   // (`{ postId }`) es solo el disparador; se refetch la primera página en vez
@@ -120,9 +141,9 @@ export default function ComunidadPage() {
     };
   }, [studio?.id, cargarPrimeraPagina]);
 
-  // Al llegar posts nuevos (primera carga, "Ver más" o refetch por realtime),
-  // pide "¿estoy apuntada?" solo para los eventos que todavía no tengan
-  // estado conocido en este render — evita sobre-pedir en cada refetch.
+  // Al llegar posts nuevos (primera carga, scroll infinito o refetch por
+  // realtime), pide "¿estoy apuntada?" solo para los eventos que todavía no
+  // tengan estado conocido en este render — evita sobre-pedir en cada refetch.
   useEffect(() => {
     if (!studio?.id || !posts) return;
     const studioId = studio.id;
@@ -171,16 +192,17 @@ export default function ComunidadPage() {
     setAviso({ texto: 'Te has dado de baja del evento.' });
   }
 
-  const microLabel: React.CSSProperties = { ...micro(9.5, 0.28, 600), color: t.muted };
-
   return (
     <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
-      <div style={{ padding: '62px 20px 32px' }}>
-        <p style={microLabel}>{studio?.nombre ?? 'Tu estudio'}</p>
-        <h1 style={{ ...display(34), color: t.ink, marginTop: 6 }}>Comunidad</h1>
+      <div style={{ padding: '62px 20px 40px' }}>
+        {/* Misma cabecera editorial que Progreso: rótulo en versalitas, título
+            en serif grande y una frase en cursiva que da el tono. */}
+        <p style={{ ...micro(9.5, 0.28, 600), color: t.muted }}>{studio?.nombre ?? 'Tu estudio'}</p>
+        <h1 style={{ ...display(46), color: t.ink, marginTop: 8 }}>Comunidad</h1>
+        <p style={{ ...display(18, true), color: t.muted, marginTop: 10 }}>Lo que pasa en el estudio.</p>
 
         {error && (
-          <div style={{ marginTop: 24 }}>
+          <div style={{ marginTop: 28 }}>
             <EmptyState
               icon={<AlertCircle size={20} />}
               title="No se ha podido cargar el tablón"
@@ -192,30 +214,23 @@ export default function ComunidadPage() {
         )}
 
         {!error && posts === null && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 24 }} aria-hidden>
-            {[0, 1, 2].map(i => (
-              <div key={i} className="animate-pulse" style={{ height: 128, borderRadius: 20, background: t.surface2 }} />
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 28 }}>
+            <SkeletonPostPortal conImagen />
+            <SkeletonPostPortal />
+            <SkeletonPostPortal />
           </div>
         )}
 
-        {!error && posts !== null && posts.length === 0 && (
-          <div style={{ marginTop: 24 }}>
-            <EmptyState
-              icon={<Megaphone size={20} />}
-              title="Todavía no hay publicaciones"
-              body="Aquí verás las novedades y avisos que comparta el equipo del estudio."
-            />
-          </div>
-        )}
+        {!error && posts !== null && posts.length === 0 && <TablonVacio />}
 
         {!error && posts !== null && posts.length > 0 && (
           <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 24 }}>
-              {posts.map(post => (
-                <PostCard
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 28 }}>
+              {posts.map((post, i) => (
+                <PostCardPortal
                   key={post.id}
                   post={post}
+                  indice={i}
                   estado={asistencia[post.id]}
                   procesando={accionEnCurso === post.id}
                   onApuntarse={() => void handleApuntarse(post.id)}
@@ -224,15 +239,17 @@ export default function ComunidadPage() {
               ))}
             </div>
 
-            {hayMas && (
-              <Button
-                variant="secondary"
-                onClick={() => void cargarMas()}
-                loading={cargandoMas}
-                style={{ width: '100%', marginTop: 16 }}
-              >
-                Ver más
-              </Button>
+            {/* Centinela del scroll infinito. Mientras carga, un esqueleto con
+                la forma de la tarjeta que viene; cuando ya no hay más, un
+                cierre discreto en vez de un botón muerto. */}
+            {hayMas ? (
+              <div ref={centinela} style={{ marginTop: 14 }} aria-live="polite">
+                {cargandoMas && <SkeletonPostPortal />}
+              </div>
+            ) : (
+              <p style={{ ...micro(9, 0.24, 500), color: t.micro, textAlign: 'center', marginTop: 28 }}>
+                Has llegado al principio
+              </p>
             )}
           </>
         )}
@@ -243,197 +260,36 @@ export default function ComunidadPage() {
   );
 }
 
-function PostCard({
-  post,
-  estado,
-  procesando,
-  onApuntarse,
-  onDesapuntarse,
-}: {
-  post: PostFeedPortal;
-  estado: EstadoAsistenciaEvento | undefined;
-  procesando: boolean;
-  onApuntarse: () => void;
-  onDesapuntarse: () => void;
-}) {
+// ─── Vacío ──────────────────────────────────────────────────────────────────
+//
+// No es una lista vacía dentro de una pantalla: ES la pantalla. Por eso no usa
+// el `EmptyState` compacto (que está pensado para un hueco dentro de otra cosa)
+// y se permite un icono grande y una frase con la voz del portal.
+
+function TablonVacio() {
   const { t } = useModo();
-  const esEvento = post.tipo === 'EVENTO';
-  return (
-    <Card style={{ padding: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div
-          aria-hidden
-          style={{
-            width: 36, height: 36, borderRadius: 999, flexShrink: 0,
-            background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: sans, fontSize: 13, fontWeight: 800,
-          }}
-        >
-          {post.autorInicial}
-        </div>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <p style={{ fontFamily: sans, fontSize: 13.5, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {post.autorNombre}
-          </p>
-          <p style={{ ...texto.nota, color: t.muted, marginTop: 1 }}>{selloTemporal(post.creadoEn)}</p>
-        </div>
-        <Badge variant="neutral">El estudio</Badge>
-      </div>
-
-      {esEvento && <EventoBloque post={post} estado={estado} />}
-
-      {/* Texto plano SIEMPRE: React escapa por defecto, sin dangerouslySetInnerHTML. */}
-      <p style={{ fontFamily: sans, fontSize: 14.5, lineHeight: 1.5, color: t.ink, marginTop: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-        {post.texto}
-      </p>
-
-      {post.imagenUrl && (
-        // eslint-disable-next-line @next/next/no-img-element -- mismo criterio que el resto del portal (portal-clases-view.tsx, hoja-reserva.tsx): URL pública de Storage, sin optimización de next/image.
-        <img
-          src={post.imagenUrl}
-          alt=""
-          style={{ width: '100%', maxHeight: 320, objectFit: 'cover', borderRadius: 14, marginTop: 12, display: 'block' }}
-        />
-      )}
-
-      {esEvento && (
-        <EventoAccion
-          post={post}
-          estado={estado}
-          procesando={procesando}
-          onApuntarse={onApuntarse}
-          onDesapuntarse={onDesapuntarse}
-        />
-      )}
-
-      {/* Contadores INFORMATIVOS, no acciones — P1 es solo lectura para la
-          socia (sin dar like ni comentar, decisión ya cerrada). Nunca un
-          <button>: prometería una interacción que no existe. */}
-      {(post.likes > 0 || post.comentariosCount > 0) && (
-        <div style={{ display: 'flex', gap: 16, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${t.line}` }}>
-          {post.likes > 0 && (
-            <span style={{ ...texto.nota, color: t.muted }}>
-              {post.likes} me gusta
-            </span>
-          )}
-          {post.comentariosCount > 0 && (
-            <span style={{ ...texto.nota, color: t.muted }}>
-              {post.comentariosCount} {post.comentariosCount === 1 ? 'comentario' : 'comentarios'}
-            </span>
-          )}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-// ─── Evento: badge + fecha/lugar/aforo ──────────────────────────────────────
-
-function formatoFechaEvento(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-ES', {
-    weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
-  });
-}
-
-function EventoBloque({ post, estado }: { post: PostFeedPortal; estado: EstadoAsistenciaEvento | undefined }) {
-  const { t } = useModo();
-  // El total viene del listado (`totalAsistentes`) hasta que la socia
-  // apunta/desapunta — a partir de ahí, `estado.totalAsistentes` (más fresco)
-  // manda; nunca se pisan entre sí de forma inconsistente porque ambos
-  // arrancan del mismo dato del servidor.
-  const total = estado?.totalAsistentes ?? post.totalAsistentes ?? 0;
-  const aforo = post.eventoAforo ?? null;
   return (
     <div
       style={{
-        marginTop: 12, padding: 12, borderRadius: 14,
-        background: 'color-mix(in srgb, var(--portal-brand) 8%, transparent)',
-        border: '1px solid color-mix(in srgb, var(--portal-brand) 22%, transparent)',
-        display: 'flex', flexDirection: 'column', gap: 6,
+        marginTop: 40, display: 'flex', flexDirection: 'column', alignItems: 'center',
+        textAlign: 'center', padding: '8px 12px 24px',
+        animation: `portal-rise-soft ${dur.card}ms ${EASE} both`,
       }}
     >
-      <span
+      <div
+        aria-hidden
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
-          fontFamily: sans, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em',
-          padding: '4px 10px', borderRadius: 999,
-          background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+          width: 92, height: 92, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'color-mix(in srgb, var(--portal-brand) 10%, transparent)',
+          color: 'var(--portal-brand)',
         }}
       >
-        <CalendarDays size={11} aria-hidden /> Evento
-      </span>
-      {post.eventoFecha && (
-        <p style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: sans, fontSize: 13, fontWeight: 700, color: t.ink, textTransform: 'capitalize' }}>
-          <CalendarDays size={14} style={{ color: t.muted, flexShrink: 0 }} aria-hidden />
-          {formatoFechaEvento(post.eventoFecha)}
-        </p>
-      )}
-      {post.eventoLugar && (
-        <p style={{ display: 'flex', alignItems: 'center', gap: 7, ...texto.nota, color: t.ink }}>
-          <MapPin size={13} style={{ color: t.muted, flexShrink: 0 }} aria-hidden />
-          {post.eventoLugar}
-        </p>
-      )}
-      <p style={{ display: 'flex', alignItems: 'center', gap: 7, ...texto.nota, color: t.muted }}>
-        <Users size={13} style={{ flexShrink: 0 }} aria-hidden />
-        {aforo ? `${total}/${aforo} apuntadas` : `${total} apuntada${total === 1 ? '' : 's'}`}
+        <Megaphone size={36} strokeWidth={1.4} />
+      </div>
+      <p style={{ ...display(26, true), color: t.ink, marginTop: 22 }}>Aún no hay nada por aquí</p>
+      <p style={{ fontFamily: sans, fontSize: 14, lineHeight: 1.55, color: t.muted, marginTop: 10, maxWidth: 280 }}>
+        Cuando el equipo del estudio comparta novedades, avisos o un evento al que apuntarte, aparecerán aquí.
       </p>
-    </div>
-  );
-}
-
-function EventoAccion({
-  post,
-  estado,
-  procesando,
-  onApuntarse,
-  onDesapuntarse,
-}: {
-  post: PostFeedPortal;
-  estado: EstadoAsistenciaEvento | undefined;
-  procesando: boolean;
-  onApuntarse: () => void;
-  onDesapuntarse: () => void;
-}) {
-  const total = estado?.totalAsistentes ?? post.totalAsistentes ?? 0;
-  const aforo = post.eventoAforo ?? null;
-  const cargandoEstado = estado === undefined;
-  const apuntada = estado?.apuntada ?? false;
-  const completo = !apuntada && aforo !== null && total >= aforo;
-
-  return (
-    <div style={{ marginTop: 12 }}>
-      {apuntada ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <Badge variant="success">Ya estás apuntada</Badge>
-          <button
-            type="button"
-            onClick={onDesapuntarse}
-            disabled={procesando}
-            aria-busy={procesando}
-            style={{
-              background: 'none', border: 'none', cursor: procesando ? 'default' : 'pointer',
-              fontFamily: sans, fontSize: 12.5, fontWeight: 700, textDecoration: 'underline',
-              color: 'var(--portal-brand)', padding: '8px 4px', minHeight: 44,
-              opacity: procesando ? 0.6 : 1,
-            }}
-          >
-            {procesando ? 'Procesando…' : 'Darme de baja'}
-          </button>
-        </div>
-      ) : (
-        <Button
-          variant="primary"
-          size="small"
-          onClick={onApuntarse}
-          disabled={cargandoEstado || completo}
-          loading={procesando}
-          style={{ width: '100%' }}
-        >
-          {completo ? 'Evento completo' : 'Apuntarme'}
-        </Button>
-      )}
     </div>
   );
 }

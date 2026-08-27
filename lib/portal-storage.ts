@@ -62,6 +62,38 @@ export async function eliminarFotoPerfil(socioId: string): Promise<{ ok: true } 
   return { ok: true };
 }
 
+// ─── Imagen de un post del Feed de Comunidad ────────────────────────────────
+//
+// Bucket PROPIO (`comunidad-media`, migr 20260826015930), no `avatars`: la RLS
+// de ese bucket exige que la primera carpeta del path sea `current_studio_id()`
+// y `/api/comunidad/posts` solo acepta una `imagenUrl` que contenga
+// `/comunidad-media/` — una subida a `avatars` se descartaría en silencio al
+// crear el post.
+//
+// ⚠️ El bucket declara `allowed_mime_types` = png/jpeg/webp. Se valida ANTES de
+// redimensionar porque `redimensionarImagen` devuelve el fichero original tal
+// cual cuando no sabe recodificarlo (HEIC de iPhone, GIF…), y entonces el
+// rechazo llegaría del servidor con un mensaje que no dice nada.
+const POST_TIPOS = ['image/png', 'image/jpeg', 'image/webp'];
+export const POST_IMAGEN_MAX_BYTES = 5 * 1024 * 1024; // 5 MB, el límite del bucket
+
+export async function subirImagenPostComunidad(
+  studioId: string, postId: string, file: File,
+): Promise<{ url: string } | { error: string }> {
+  if (!POST_TIPOS.includes(file.type)) return { error: 'Formato no admitido. Usa PNG, JPG o WEBP.' };
+  if (file.size > POST_IMAGEN_MAX_BYTES) return { error: 'La imagen no puede superar 5 MB.' };
+  const limpia = claveDeImagenPortal(postId);
+  if (!limpia) return { error: 'No se ha podido guardar la imagen. Vuelve a intentarlo.' };
+  const img = await redimensionarImagen(file, LADO_BANNER);
+  const path = `${studioId}/${limpia}`;
+  const { error: uploadError } = await supabase.storage
+    .from('comunidad-media')
+    .upload(path, img, { upsert: true, contentType: img.type });
+  if (uploadError) return { error: uploadError.message };
+  const { data } = supabase.storage.from('comunidad-media').getPublicUrl(path);
+  return { url: data.publicUrl };
+}
+
 // Fotos de tipos de clase (ej. la sala de Reformer) — mismo bucket público,
 // path con prefijo distinto para no colisionar con IDs de socias.
 export async function subirFotoClase(tipoClaseId: string, file: File): Promise<{ url: string } | { error: string }> {
