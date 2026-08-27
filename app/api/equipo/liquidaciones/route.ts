@@ -56,6 +56,16 @@ export async function GET(req: NextRequest) {
 
   const instructorIdQuery = req.nextUrl.searchParams.get('instructorId');
   if (instructorIdQuery) {
+    // Mismo guard que POST/PATCH (`puedeGestionarFichaDe`): un manager no ve
+    // la liquidación de la propietaria ni de otro manager, aunque adivine su
+    // instructorId por el query string.
+    if (sesion.rol === 'MANAGER') {
+      const { data: ficha } = await admin
+        .from('instructores').select('rol').eq('id', instructorIdQuery).eq('studio_id', sesion.studioId).maybeSingle();
+      if (!ficha || !puedeGestionarFichaDe(sesion.rol, ficha.rol as Rol)) {
+        return NextResponse.json({ error: 'No puedes ver la liquidación de esta persona.' }, { status: 403 });
+      }
+    }
     const row = await obtenerLiquidacion(admin, sesion.studioId, instructorIdQuery, periodo.anio, periodo.mes);
     return NextResponse.json({ items: row ? [row] : [] });
   }

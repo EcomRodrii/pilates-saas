@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { equipoTarifasAction } from '@/lib/actions/equipo/equipoTarifasAction';
+import { respuestaDeErrorAccion } from '@/lib/actions/errores';
 
 /**
  * DEPRECATED: Use Server Action instead
@@ -11,13 +12,7 @@ export async function GET(_req: NextRequest) {
     const result = await equipoTarifasAction({ method: 'GET' });
     return NextResponse.json(result);
   } catch (error) {
-    const message = (error as Error)?.message || 'Error';
-    let status = 500;
-
-    if (message.includes('No autorizado')) status = 401;
-    if (message.includes('No tienes permiso')) status = 403;
-
-    return NextResponse.json({ error: message }, { status });
+    return respuestaDeErrorAccion('equipo:tarifas:GET', error);
   }
 }
 
@@ -27,11 +22,6 @@ export async function PATCH(req: NextRequest) {
     const result = await equipoTarifasAction({ ...body, method: 'PATCH' });
     return NextResponse.json(result);
   } catch (error) {
-    const message = (error as Error)?.message;
-    let status = 500;
-    if (message?.includes('No tienes permiso')) status = 403;
-    if (message?.includes('Falta')) status = 400;
-    if (message?.includes('no encontrada')) status = 404;
-    return NextResponse.json({ error: message || 'Error' }, { status });
+    return respuestaDeErrorAccion('equipo:tarifas:PATCH', error);
   }
 }
