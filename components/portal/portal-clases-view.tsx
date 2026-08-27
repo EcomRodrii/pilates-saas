@@ -33,13 +33,14 @@ import { useParams, useRouter } from 'next/navigation';
 import { Star } from 'lucide-react';
 import { useStudio, REFRESCO_ACTIVO_MS } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
-import { esCancelacionTardia } from '@/lib/booking-logic';
+import { esCancelacionTardia, heredaOverride } from '@/lib/booking-logic';
 import { alternativasTras, cuandoSugerencia, type SugerenciaClase } from '@/lib/portal-sugerencias';
 import { useModo } from '@/lib/portal-modo';
 import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/components/portal/hoja-reserva';
 import { HojaPase } from '@/components/portal/hoja-pase';
 import { BottomSheet, Button, Toast, AforoIndicator, type AvisoToast } from '@/components/portal/ui';
-import { pedirPaseDeAcceso } from '@/lib/api-client';
+import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
+import { fetchQuienVaAEstaClase, type QuienVaAEstaClase } from '@/lib/social-companeras-portal.ts';
 import { EASE, dur, transicion, display, micro, texto, radio, sombra, escala } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
@@ -166,6 +167,10 @@ export function PortalClasesView({
   // con un efecto que llama a setTipoElegido) evita un render en cascada.
   const tipoEfectivo = tipoElegido === FAVORITAS && idsFavoritos.size === 0 ? null : tipoElegido;
   const [reservandoId, setReservandoId] = useState<string | null>(null);
+  // "Quién más va" (Community & Messaging OS, mismo patrón que
+  // app/portal/[slug]/clases/[sesionId]/page.tsx) — se pide SOLO mientras hay
+  // una clase abierta en la hoja, nunca para las 7+ de la lista a la vez.
+  const [quienVa, setQuienVa] = useState<QuienVaAEstaClase | null>(null);
   const [cancelando, setCancelando] = useState<{ sesion: { inicio: string; tipoClaseId: string }; mia: Reserva | null } | null>(null);
   const [paseAbierto, setPaseAbierto] = useState<{ nombre: string; sub: string } | null>(null);
   const [aviso, setAviso] = useState<AvisoToast | null>(null);
@@ -286,6 +291,16 @@ export function PortalClasesView({
     const tipo = tiposClase.find(tc => tc.id === s.tipoClaseId);
     const sala = salas.find(sl => sl.id === s.salaId);
     const instr = instructores.find(i => i.id === s.instructorId);
+    // Fase 1 de reglas por tipo de clase: la ventana de cancelación real de
+    // ESTA clase, nunca un "12h" fijo — mismo cálculo que ya usa `tardiaDe()`
+    // más abajo, pasado por `heredaOverride()` (lib/booking-logic.ts) en vez
+    // de reescribir el `??` a mano una segunda vez.
+    const ventanaCancelacionHoras = heredaOverride(tipo?.ventanaCancelacionHoras ?? null, studio?.cancelacionVentanaHoras ?? 0);
+    // Cuenta REAL de quién ya espera turno para esta sesión (estado
+    // LISTA_ESPERA en `reservas`, que en el portal ya trae los recuentos
+    // públicos de TODAS las socias — ver studio-context.tsx). Nunca una
+    // posición inventada.
+    const enEspera = reservas.filter(r => r.sesionId === s.id && r.estado === 'LISTA_ESPERA').length;
     return {
       id: s.id, inicio: s.inicio, fin: s.fin,
       nombre: tipo?.nombre ?? 'Clase',
@@ -293,6 +308,7 @@ export function PortalClasesView({
       salaNombre: sala?.nombre ?? null,
       instructorNombre: instr?.nombre ?? null,
       instructorFotoUrl: instr?.fotoUrl ?? null,
+      instructorId: instr?.id ?? null,
       aforoMaximo: s.aforoMaximo,
       ocupadas: ocupadasPorSesion.get(s.id) ?? 0,
       spots: spotsPorSala.get(s.salaId) ?? [],
@@ -301,11 +317,35 @@ export function PortalClasesView({
       sesionesTrasReservar: cubierta && activeSus?.sesionesRestantes != null
         ? Math.max(0, activeSus.sesionesRestantes - 1)
         : null,
+      ventanaCancelacionHoras,
+      enEspera,
     };
   }, [
     reservandoId, sesiones, tiposClase, salas, instructores, ocupadasPorSesion,
     spotsPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta, activeSus,
+    studio?.cancelacionVentanaHoras, reservas,
   ]);
+
+  // "Quién más va" — el mismo fetch/patrón que la página de detalle de clase
+  // (app/portal/[slug]/clases/[sesionId]/page.tsx), disparado cuando se abre
+  // una clase concreta en la hoja. En preview (`escribible=false`) no hay
+  // sesión real ni socioId real que consultar, así que ni se intenta.
+  useEffect(() => {
+    if (!reservandoId || !studio?.id || !socioId || !escribible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia la compañera de la clase ANTERIOR al cerrar la hoja o cambiar de clase; sincroniza con la identidad de `reservandoId`, no con el propio render.
+      setQuienVa(null);
+      return;
+    }
+    let vivo = true;
+    (async () => {
+      const headers = await portalAuthHeader();
+      const r = await fetchQuienVaAEstaClase(headers, studio.id, reservandoId);
+      if (!vivo) return;
+      if ('error' in r) return; // silencioso: es un extra, no un dato crítico de la clase.
+      setQuienVa(r);
+    })();
+    return () => { vivo = false; };
+  }, [reservandoId, studio?.id, socioId, escribible]);
 
   // Devuelve el resultado a `HojaReserva`, que posee el morph del botón y el
   // cierre de la hoja (~1.2s tras el éxito) — este sitio ya no cierra
@@ -668,6 +708,7 @@ export function PortalClasesView({
         clase={reservando}
         onClose={() => setReservandoId(null)}
         onConfirmar={confirmar}
+        quienVa={quienVa}
         // En la vista previa del editor no se ofrece: `/compras` no existe bajo
         // /portal-preview y el botón llevaría a un 404 (mismo criterio que
         // `navegar` en el resto de vistas del portal).
