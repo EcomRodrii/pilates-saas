@@ -6,7 +6,7 @@
 // `lib/mensajeria-portal.ts`/`lib/comunidad-portal.ts`.
 
 import type { RowSocioCompaneras } from './db-types.ts';
-import { mensajeHttp, mensajeSeguro } from './errores.ts';
+import { mensajeSeguro } from './errores.ts';
 
 export interface CompaneraDeClase {
   socioId: string;
@@ -33,7 +33,7 @@ export interface ListaCompaneras {
 
 async function leerError(res: Response, respaldo: string): Promise<string> {
   const body = await res.json().catch(() => null) as { error?: string } | null;
-  return body?.error ? mensajeSeguro(body.error, mensajeHttp(res.status)) : mensajeHttp(res.status);
+  return body?.error ? mensajeSeguro(body.error, respaldo) : respaldo;
 }
 
 export async function fetchQuienVaAEstaClase(
@@ -45,7 +45,14 @@ export async function fetchQuienVaAEstaClase(
       { headers },
     );
     if (!res.ok) return { error: await leerError(res, 'No se ha podido cargar quién más va a esta clase.') };
-    return await res.json() as QuienVaAEstaClase;
+    const data = await res.json().catch(() => null) as Partial<QuienVaAEstaClase> | null;
+    // Nunca confiar ciegamente en un 200: un proxy/mock intermedio (o una
+    // versión de API distinta) puede devolver un cuerpo con otro shape.
+    // Sin esto, `quienVa.companeras` indefinido rompía el render con un
+    // TypeError — encontrado en los e2e existentes, que no conocían esta
+    // ruta nueva y caían en su mock catch-all `{}` de `e2e/portal-mock.ts`.
+    if (!data || !Array.isArray(data.companeras)) return { error: 'No se ha podido cargar quién más va a esta clase.' };
+    return { companeras: data.companeras, otrasSinNombre: data.otrasSinNombre ?? 0 };
   } catch {
     return { error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
   }

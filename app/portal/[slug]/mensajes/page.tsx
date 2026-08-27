@@ -35,6 +35,7 @@ export default function MensajesPage() {
   const { t } = useModo();
 
   const socioId = session?.socioId ?? null;
+  const studioId = studio?.id ?? null;
 
   const [conversaciones, setConversaciones] = useState<RowConversaciones[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,13 +44,13 @@ export default function MensajesPage() {
   const [errorNueva, setErrorNueva] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
-    if (!studio?.id) return;
+    if (!studioId) return;
     setError(null);
     const headers = await portalAuthHeader();
-    const r = await fetchConversaciones(headers, studio.id);
+    const r = await fetchConversaciones(headers, studioId);
     if ('error' in r) { setError(r.error); return; }
     setConversaciones(r.conversaciones);
-  }, [studio?.id]);
+  }, [studioId]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial, misma forma que Avisos.
   useEffect(() => { void cargar(); }, [cargar]);

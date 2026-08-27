@@ -1,9 +1,9 @@
 // Community & Messaging OS (P1) — cliente del PORTAL de la clienta para el
 // Feed de Comunidad. Mismo criterio que `mensajeria-portal.ts`: el backend
 // (esquema/RLS/RPC/`/api/public/comunidad/posts`) ya está en producción, este
-// módulo solo envuelve el fetch con `mensajeSeguro`/`mensajeHttp`.
+// módulo solo envuelve el fetch con `mensajeSeguro`.
 
-import { mensajeHttp, mensajeSeguro } from './errores.ts';
+import { mensajeSeguro } from './errores.ts';
 
 // Shape EXACTO de lo que devuelve `GET /api/public/comunidad/posts` — no es
 // `PostComunidad` completo (ese tipo lleva `audiencia`/`fijado`/`autorId`,
@@ -32,7 +32,7 @@ export interface PostFeedPortal {
 
 async function leerError(res: Response, respaldo: string): Promise<string> {
   const body = await res.json().catch(() => null) as { error?: string } | null;
-  return body?.error ? mensajeSeguro(body.error, mensajeHttp(res.status)) : mensajeHttp(res.status);
+  return body?.error ? mensajeSeguro(body.error, respaldo) : respaldo;
 }
 
 export async function fetchFeedComunidad(

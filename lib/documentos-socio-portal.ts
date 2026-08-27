@@ -3,7 +3,7 @@
 // firmada de 60s) ya está en producción; este módulo solo envuelve el fetch,
 // mismo criterio que `lib/mensajeria-portal.ts`.
 
-import { mensajeHttp, mensajeSeguro } from './errores.ts';
+import { mensajeSeguro } from './errores.ts';
 
 export interface DocumentoSociaPortal {
   id: string;
@@ -15,7 +15,7 @@ export interface DocumentoSociaPortal {
 
 async function leerError(res: Response, respaldo: string): Promise<string> {
   const body = await res.json().catch(() => null) as { error?: string } | null;
-  return body?.error ? mensajeSeguro(body.error, mensajeHttp(res.status)) : mensajeHttp(res.status);
+  return body?.error ? mensajeSeguro(body.error, respaldo) : respaldo;
 }
 
 export async function fetchDocumentosSocia(

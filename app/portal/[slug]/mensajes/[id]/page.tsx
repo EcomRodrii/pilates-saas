@@ -58,6 +58,7 @@ export default function HiloMensajePage() {
   const { studio, instructores } = useStudio();
   const { barraClasica } = useCore();
   const { t } = useModo();
+  const studioId = studio?.id ?? null;
 
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [conversacion, setConversacion] = useState<RowConversaciones | null | undefined>(undefined); // undefined = aún no se sabe
@@ -84,18 +85,18 @@ export default function HiloMensajePage() {
   }, []);
 
   const cargarConversacion = useCallback(async () => {
-    if (!studio?.id) return;
+    if (!studioId) return;
     const headers = await portalAuthHeader();
-    const r = await fetchConversaciones(headers, studio.id);
+    const r = await fetchConversaciones(headers, studioId);
     if ('error' in r) { setConversacion(null); return; }
     setConversacion(r.conversaciones.find(c => c.id === id) ?? null);
-  }, [studio?.id, id]);
+  }, [studioId, id]);
 
   const cargarMensajes = useCallback(async (silencioso = false) => {
-    if (!studio?.id) return;
+    if (!studioId) return;
     if (!silencioso) setError(null);
     const headers = await portalAuthHeader();
-    const r = await fetchMensajes(headers, id, studio.id);
+    const r = await fetchMensajes(headers, id, studioId);
     if ('error' in r) { if (!silencioso) setError(r.error); return; }
     setMensajes(prev => {
       const cambiaron = !prev || prev.length !== r.mensajes.length
@@ -103,7 +104,7 @@ export default function HiloMensajePage() {
       return cambiaron ? r.mensajes : prev;
     });
     return r.mensajes;
-  }, [studio?.id, id]);
+  }, [studioId, id]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial.
   useEffect(() => { void cargarConversacion(); void cargarMensajes(); }, [cargarConversacion, cargarMensajes]);
@@ -147,16 +148,15 @@ export default function HiloMensajePage() {
   // Marca leído al abrir y cada vez que llega un mensaje nuevo que no es mío
   // mientras el hilo sigue abierto.
   useEffect(() => {
-    if (!studio?.id || !mensajes || mensajes.length === 0) return;
+    if (!studioId || !mensajes || mensajes.length === 0) return;
     const ultimo = mensajes[mensajes.length - 1];
     if (ultimo.id === ultimoIdRef.current) return;
     ultimoIdRef.current = ultimo.id;
-    const studioId = studio.id;
     void (async () => {
       const headers = await portalAuthHeader();
       await marcarConversacionLeida(headers, id, studioId);
     })();
-  }, [mensajes, studio?.id, id]);
+  }, [mensajes, studioId, id]);
 
   // Si aún no sabemos qué instructora es (deep link desde otro dispositivo,
   // o conversación abierta antes de este cambio), en cuanto llega el primer
@@ -209,11 +209,11 @@ export default function HiloMensajePage() {
 
   async function enviar() {
     const cuerpo = texto1.trim();
-    if (!cuerpo || !studio?.id || enviando) return;
+    if (!cuerpo || !studioId || enviando) return;
     setEnviando(true);
     setErrorEnvio(null);
     const headers = await portalAuthHeader();
-    const r = await enviarMensaje(headers, id, studio.id, cuerpo);
+    const r = await enviarMensaje(headers, id, studioId, cuerpo);
     setEnviando(false);
     if ('error' in r) { setErrorEnvio(r.error); return; }
     setTexto1('');

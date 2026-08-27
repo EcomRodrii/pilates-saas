@@ -184,19 +184,18 @@ function Hilo({
   const [cuerpo, setCuerpo] = useState('');
   const [enviando, setEnviando] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const idRef = useRef(conversacion.id);
-  idRef.current = conversacion.id;
+  const conversacionId = conversacion.id;
 
   const cargar = useCallback(async () => {
-    const resultado = await api<{ mensajes: RowMensajes[] }>(`/api/mensajeria/conversaciones/${idRef.current}/mensajes?limite=50`);
+    const resultado = await api<{ mensajes: RowMensajes[] }>(`/api/mensajeria/conversaciones/${conversacionId}/mensajes?limite=50`);
     if (resultado.ok) {
       setMensajes(resultado.data.mensajes);
       setError(null);
-      void api(`/api/mensajeria/conversaciones/${idRef.current}/leido`, { method: 'PATCH' });
+      void api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
     } else {
       setError(resultado.error);
     }
-  }, []);
+  }, [conversacionId]);
 
   // Carga inicial vía fetch tal cual; el refresco continuo pasa de polling a
   // Realtime Broadcast-from-DB (diseño validado por tentare-arquitecto,
@@ -207,6 +206,7 @@ function Hilo({
   // Sin fallback a polling si el WebSocket falla (decisión ya tomada):
   // degradación aceptable, se ve al reabrir/refrescar el hilo.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- cambio de conversación: limpia el hilo anterior antes de cargar el nuevo.
     setMensajes(null);
     setError(null);
     void cargar();
@@ -219,11 +219,11 @@ function Hilo({
       await supabase.realtime.setAuth(data.session?.access_token ?? null);
       if (!vivo) return;
       canal = supabase
-        .channel(`conversacion:${idRef.current}`, { config: { private: true } })
+        .channel(`conversacion:${conversacionId}`, { config: { private: true } })
         .on('broadcast', { event: 'INSERT' }, ({ payload }) => {
           const fila = payload.record as RowMensajes;
           setMensajes(prev => (prev?.some(m => m.id === fila.id) ? prev : [...(prev ?? []), fila]));
-          void api(`/api/mensajeria/conversaciones/${idRef.current}/leido`, { method: 'PATCH' });
+          void api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
         })
         .subscribe();
     })();
@@ -239,7 +239,7 @@ function Hilo({
       authSub.subscription.unsubscribe();
       if (canal) supabase.removeChannel(canal);
     };
-  }, [conversacion.id, cargar]);
+  }, [conversacionId, cargar]);
 
   useEffect(() => {
     if (!mensajes) return;
@@ -358,6 +358,7 @@ export function ConversacionesTab() {
     else setError(resultado.error);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la bandeja.
   useEffect(() => { void cargarLista(); }, [cargarLista]);
 
   const abierta = conversaciones?.find(c => c.id === abiertaId) ?? null;

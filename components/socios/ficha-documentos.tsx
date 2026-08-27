@@ -58,6 +58,15 @@ export function FichaDocumentos({ socioId }: { socioId: string }) {
   const [documentos, setDocumentos] = useState<RowDocumentosSocio[] | null>(null);
   const [error, setError] = useState(false);
 
+  // `Date.now()` es impuro (regla de pureza de React Compiler) — no se puede
+  // llamar en render. Mismo patrón que `mis-reservas-lista.tsx`: placeholder
+  // fijo al render inicial, valor real fijado en un efecto tras montar.
+  const [nowMs, setNowMs] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: Date.now() no puede llamarse en render.
+    setNowMs(Date.now());
+  }, []);
+
   const cargar = useCallback(async () => {
     setError(false);
     const data = await listarDocumentosSocio(socioId);
@@ -66,6 +75,7 @@ export function FichaDocumentos({ socioId }: { socioId: string }) {
   }, [socioId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial, misma forma que FichaPlazaFija/FichaRecuperaciones.
     setDocumentos(null);
     setError(false);
     void cargar();
@@ -153,7 +163,7 @@ export function FichaDocumentos({ socioId }: { socioId: string }) {
         <div className="space-y-2">
           {documentos.map(d => {
             const estilo = CATEGORIA_ESTILO[d.categoria];
-            const caducado = d.caduca_en ? new Date(d.caduca_en).getTime() < Date.now() : false;
+            const caducado = d.caduca_en ? new Date(d.caduca_en).getTime() < nowMs : false;
             return (
               <div key={d.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
                 <div className="min-w-0 flex items-start gap-2.5">

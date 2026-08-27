@@ -2,12 +2,12 @@
 //
 // El backend (esquema/RLS/RPC/rutas) ya está en producción; este módulo solo
 // envuelve las llamadas fetch con el mismo criterio que el resto del portal
-// (`portalAuthHeader`, `mensajeSeguro`/`mensajeHttp`) y aporta la única pieza
-// de lógica pura de esta pantalla: qué instructoras tiene sentido ofrecer.
+// (`portalAuthHeader`, `mensajeSeguro`) y aporta la única pieza de lógica
+// pura de esta pantalla: qué instructoras tiene sentido ofrecer.
 
 import type { Instructor, Reserva, Sesion } from './types.ts';
 import type { RowConversaciones, RowMensajes } from './db-types.ts';
-import { mensajeHttp, mensajeSeguro } from './errores.ts';
+import { mensajeSeguro } from './errores.ts';
 
 export type TipoConversacionAbrible = 'ALUMNA_INSTRUCTORA' | 'ALUMNA_MOSTRADOR';
 
@@ -36,7 +36,7 @@ export function instructorasConRelacion(
 
 async function leerError(res: Response, respaldo: string): Promise<string> {
   const body = await res.json().catch(() => null) as { error?: string } | null;
-  return body?.error ? mensajeSeguro(body.error, mensajeHttp(res.status)) : mensajeHttp(res.status);
+  return body?.error ? mensajeSeguro(body.error, respaldo) : respaldo;
 }
 
 export async function fetchConversaciones(
