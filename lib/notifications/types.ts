@@ -6,7 +6,11 @@
 export type NotificationRole = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION' | 'MANAGER' | 'SOCIA';
 
 export type NotificationCategory =
-  | 'reservas' | 'clases' | 'sustituciones' | 'pagos' | 'marketing' | 'sistema' | 'decisiones' | 'red';
+  | 'reservas' | 'clases' | 'sustituciones' | 'pagos' | 'marketing' | 'sistema' | 'decisiones' | 'red'
+  // Community & Messaging OS (P0): mensajes 1:1 (alumna↔instructora,
+  // alumna↔mostrador). El chat de equipo legacy (mensajes_equipo) no cuelga
+  // de esta categoría — sigue congelado, sin RLS ni notificaciones nuevas.
+  | 'mensajeria';
 
 export type NotificationPriority =
   | 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA' | 'SILENCIOSA';

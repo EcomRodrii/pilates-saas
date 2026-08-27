@@ -423,6 +423,18 @@ export interface RowPostsComunidad {
   comentarios_count: number | null;
   fijado: boolean | null;
   creado_en: string | null;
+  // migr 20260826015923.
+  audiencia: string | null;
+  // migr 20260826015923.
+  imagen_url: string | null;
+  // migr 20260826095321.
+  tipo: string | null;
+  // migr 20260826095321.
+  evento_fecha: string | null;
+  // migr 20260826095321.
+  evento_aforo: number | null;
+  // migr 20260826095321.
+  evento_lugar: string | null;
 }
 
 export interface RowPreferenciasSocio {
@@ -648,6 +660,8 @@ export interface RowSocios {
   consentimiento_marketing_texto: string | null;
   // migr 20260813122718.
   consentimiento_marketing_por: string | null;
+  // migr 20260826202949.
+  visible_en_clase: boolean | null;
 }
 
 export interface RowSoporteSolicitudes {
@@ -2278,6 +2292,65 @@ export interface RowRedFavoritosAlumna {
   studio_id: string | null;
   perfil_id: string | null;
   creado_en: string;
+}
+
+export interface RowConversaciones {
+  id: string;
+  studio_id: string;
+  tipo: string;
+  titulo: string | null;
+  ancla_sesion_id: string | null;
+  ancla_reserva_id: string | null;
+  creado_en: string;
+  ultimo_mensaje_en: string;
+}
+
+export interface RowConversacionParticipantes {
+  conversacion_id: string;
+  auth_user_id: string;
+  rol_en_conversacion: string;
+  socio_id: string | null;
+  leido_hasta: string;
+  unido_en: string;
+}
+
+export interface RowMensajes {
+  id: string;
+  conversacion_id: string;
+  studio_id: string;
+  remitente_auth_user_id: string;
+  cuerpo: string;
+  creado_en: string;
+}
+
+export interface RowDocumentosSocio {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  categoria: string;
+  titulo: string;
+  storage_path: string;
+  subido_por: string;
+  caduca_en: string | null;
+  creado_en: string;
+  borrado_en: string | null;
+}
+
+export interface RowPostEventoAsistentes {
+  post_id: string;
+  socio_id: string;
+  creado_en: string;
+}
+
+export interface RowSocioCompaneras {
+  id: string;
+  studio_id: string;
+  solicitante_id: string;
+  destinataria_id: string;
+  estado: string;
+  bloqueada_por: string | null;
+  creado_en: string;
+  resuelto_en: string | null;
 }
 
 export interface RowNovedadesEstudio {

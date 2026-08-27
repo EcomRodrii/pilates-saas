@@ -15,14 +15,23 @@
 
 import { useState } from 'react';
 import { uid } from '@/lib/utils';
-import type { VideoOnDemand, PostComunidad } from '@/lib/types';
+import type { VideoOnDemand, PostComunidad, DestinatariosCampana } from '@/lib/types';
 import {
   getCurrentStudioId,
   dbInsertVideoOnDemand,
   dbUpdateVideoOnDemand,
-  dbInsertPostComunidad,
+  dbCrearPostComunidad,
   dbToggleLikePost,
 } from '@/lib/supabase-data';
+
+// Exportado para que `lib/studio-context.tsx` tipe `addPost` con la firma
+// real (no solo `(texto: string) => void`) — sin esto, cualquier caller que
+// pase el segundo argumento (audiencia/imagenUrl/evento) falla en tsc contra
+// el tipo del contexto aunque la implementación lo acepte perfectamente.
+export type OpcionesAddPost = {
+  audiencia?: DestinatariosCampana; imagenUrl?: string | null;
+  tipo?: 'TEXTO' | 'EVENTO'; eventoFecha?: string | null; eventoAforo?: number | null; eventoLugar?: string | null;
+};
 
 export function useContentStore() {
   const [videosOnDemand, setVideosOnDemand] = useState<VideoOnDemand[]>([]);
@@ -54,7 +63,11 @@ export function useContentStore() {
   }
 
   // ── Comunidad ─────────────────────────────────────────────────────────────
-  function addPost(texto: string) {
+  // P1: `audiencia`/`imagenUrl` opcionales — 'TODAS' y null mantienen el
+  // comportamiento previo intacto para quien siga llamando a addPost(texto).
+  // La persistencia real (y el fan-out de notificación) vive detrás de
+  // dbCrearPostComunidad (/api/comunidad/posts), no de un insert directo.
+  function addPost(texto: string, opts?: OpcionesAddPost) {
     const nuevo: PostComunidad = {
       id: `post-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -62,13 +75,19 @@ export function useContentStore() {
       autorNombre: 'Tentare',
       autorInicial: 'TE',
       texto,
+      audiencia: opts?.audiencia ?? 'TODAS',
+      imagenUrl: opts?.imagenUrl ?? null,
+      tipo: opts?.tipo ?? 'TEXTO',
+      eventoFecha: opts?.eventoFecha ?? null,
+      eventoAforo: opts?.eventoAforo ?? null,
+      eventoLugar: opts?.eventoLugar ?? null,
       likes: 0,
       comentariosCount: 0,
       fijado: false,
       creadoEn: new Date().toISOString(),
     };
     setPostsComunidad(prev => [nuevo, ...prev]);
-    dbInsertPostComunidad(nuevo);
+    dbCrearPostComunidad(nuevo);
   }
 
   function toggleLikePost(postId: string) {

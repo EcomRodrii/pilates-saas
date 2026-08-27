@@ -43,7 +43,26 @@ export type Audiencia =
   // 'red-profesional', que resuelve una sola por `data.authUserId`. Sin
   // relación con el `studioId` del evento (el estudio que publicó, no uno al
   // que pertenezcan).
-  | 'red-instructoras-lista';
+  | 'red-instructoras-lista'
+  // Community & Messaging OS (P0): destinatarios de un mensaje/digest,
+  // resueltos por `data.authUserIds` — igual mecanismo que
+  // 'red-instructoras-lista' (N personas por id), pero DENTRO del
+  // `studioId` del evento y sin asumir un rol fijo: cada participante puede
+  // ser SOCIA o cualquier rol de staff (recipients.ts resuelve consultando
+  // `socios`/`instructores`/`studios.owner_auth_user_id` en ese orden). El
+  // caller siempre calcula la lista de antemano (todos los participantes de
+  // la conversación menos el remitente, o la lista dinámica de staff para
+  // EQUIPO/ALUMNA_MOSTRADOR vía `puede_gestionar_calendario()`/
+  // `instructores`) — este audiencia solo traduce ids a Recipients.
+  | 'participantes-conversacion'
+  // Community & Messaging OS (P1, feed segmentado): N socias resueltas por
+  // `data.socioIds` — a diferencia de 'participantes-conversacion'/
+  // 'red-instructoras-lista' (que resuelven por `authUserIds`), aquí el
+  // caller ya tiene ids de `socios` (salen de `resolverDestinatariasCampana`,
+  // que devuelve `Socio[]`, no auth_user_ids) y no todas las socias tienen
+  // cuenta vinculada — se resuelven igual que 'socia-del-evento'
+  // (`sociaPorId`), solo que en lote.
+  | 'socias-de-lista';
 
 export interface ReglaEvento {
   category: NotificationCategory;
@@ -195,6 +214,21 @@ export const EVENTOS = {
   // Única audiencia "no solicitada" de todo Network — ver la regla en
   // REGLAS más abajo (solo PUSH, sin EMAIL).
   RED_VACANTE_ENCAJA: 'red.vacante_encaja',
+  // Community & Messaging OS (P0): mensaje nuevo en una conversación.
+  MENSAJE_RECIBIDO: 'mensaje.recibido',
+  // Digest de baja frecuencia de mensajes sin leer (cron, nunca uno por
+  // mensaje) — ver comentario de la regla más abajo.
+  MENSAJE_DIGEST_NO_LEIDO: 'mensaje.digest_no_leido',
+  // Community & Messaging OS (P1): post nuevo en el tablón, a la audiencia
+  // segmentada del post (ver 'socias-de-lista' arriba). Un evento único para
+  // cualquier `audiencia` (incluida 'TODAS') — la propietaria decide con
+  // quién compartir el post, no si merece un aviso.
+  POST_COMUNIDAD_NUEVO: 'comunidad.post_nuevo',
+  // Community & Messaging OS (P2, buzón de documentos): el estudio le sube un
+  // documento (plan firmado, factura, contrato, "otro"). Audiencia única
+  // dirigida (`data.socioId`), NO una lista — reusa 'socia-del-evento', mismo
+  // criterio que RESERVA_CONFIRMADA.
+  DOCUMENTO_SOCIO_NUEVO: 'documento_socio.nuevo',
 } as const;
 
 // Reglas por evento. La 1ª tanda cableada de la Fase 1 cubre los 3 roles.
@@ -316,6 +350,22 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // un canal más (sobre todo EMAIL) sería spam de bandeja para alguien que
   // nunca pidió que le avisaran de esta vacante concreta.
   [EVENTOS.RED_VACANTE_ENCAJA]: { category: 'red', priority: 'BAJA', canales: ['PUSH'], audiencia: 'red-instructoras-lista' },
+  // Community & Messaging OS (P0): mensaje nuevo → a los demás participantes,
+  // solo PUSH. Nunca EMAIL aquí — es justo la restricción de coste de esta
+  // fase (cero email por mensaje); el correo va SOLO por el digest de abajo.
+  [EVENTOS.MENSAJE_RECIBIDO]: { category: 'mensajeria', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'participantes-conversacion' },
+  // Digest de baja frecuencia (cron cada 3h, dedup por día): el ÚNICO canal
+  // EMAIL de toda la mensajería, para no saturar Resend con un correo por
+  // mensaje. BAJA prioridad — es un recordatorio, no algo urgente.
+  [EVENTOS.MENSAJE_DIGEST_NO_LEIDO]: { category: 'mensajeria', priority: 'BAJA', canales: ['EMAIL'], audiencia: 'participantes-conversacion' },
+  // Community & Messaging OS (P1): solo PUSH, nunca EMAIL — mismo criterio de
+  // coste que mensaje.recibido (cero canal nuevo de pago por esta pieza).
+  [EVENTOS.POST_COMUNIDAD_NUEVO]: { category: 'mensajeria', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socias-de-lista' },
+  // Community & Messaging OS (P2): a diferencia de mensaje.recibido/
+  // post_nuevo (solo PUSH, evento frecuente), un documento nuevo es discreto
+  // y de valor alto — SÍ merece EMAIL (no se repite constantemente como un
+  // mensaje de chat, así que no hay riesgo de saturar Resend).
+  [EVENTOS.DOCUMENTO_SOCIO_NUEVO]: { category: 'mensajeria', priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'socia-del-evento' },
 };
 
 // Qué roles recibe cada audiencia. Se deriva de recipients.ts, pero declarado
@@ -342,6 +392,14 @@ export const ROLES_POR_AUDIENCIA: Record<Audiencia, NotificationRole[]> = {
   'red-solicitante-contacto': ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'],
   // Mismo criterio que 'red-profesional': no es un rol dentro de un estudio.
   'red-instructoras-lista': ['INSTRUCTOR'],
+  // Cada participante puede tener cualquier rol dentro del estudio (o SOCIA)
+  // — se resuelve dinámicamente en recipients.ts, esto solo declara el
+  // universo posible para que canalesDisponibles() no oculte el interruptor
+  // a nadie que pueda de verdad recibir un mensaje.
+  'participantes-conversacion': ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR', 'SOCIA'],
+  // Solo socias: el post lo publica el estudio, la audiencia segmentada
+  // (`resolverDestinatariasCampana`) siempre resuelve sobre `socios`.
+  'socias-de-lista': ['SOCIA'],
 };
 
 // Canales que este rol puede llegar a recibir en esta categoría, según lo que
@@ -387,6 +445,81 @@ function plantillasPagadaSinPlaza(): Record<string, Plantilla> {
       rol => [`${EVENTOS.RESERVA_PAGADA_SIN_PLAZA}#${rol}`, plantilla],
     ),
   );
+}
+
+// Community & Messaging OS (P0): mismo criterio que plantillasPagadaSinPlaza
+// — genera las plantillas por rol en vez de copiarlas, así el copy no puede
+// divergir entre PROPIETARIO/MANAGER/RECEPCION/INSTRUCTOR al editarlo. La
+// socia lleva plantilla propia porque su deepLink vive en el portal, no en
+// el panel.
+function plantillasMensajeRecibido(): Record<string, Plantilla> {
+  const staff: Plantilla = {
+    title: 'Nuevo mensaje',
+    body: '{remitente} te ha escrito{previsualizacion}.',
+    deepLink: (d: Datos) => `/mensajeria?conversacion=${s(d.conversacionId)}`,
+  };
+  const socia: Plantilla = {
+    title: 'Nuevo mensaje',
+    body: '{remitente} te ha escrito{previsualizacion}.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/notificaciones`,
+  };
+  return {
+    ...Object.fromEntries(
+      (['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const).map(
+        rol => [`${EVENTOS.MENSAJE_RECIBIDO}#${rol}`, staff],
+      ),
+    ),
+    [`${EVENTOS.MENSAJE_RECIBIDO}#SOCIA`]: socia,
+  };
+}
+
+// Digest de baja frecuencia: mismo reparto de deepLink por lado que arriba.
+function plantillasMensajeDigest(): Record<string, Plantilla> {
+  const staff: Plantilla = {
+    title: 'Tienes mensajes sin leer',
+    body: 'Tienes {conversaciones} conversación(es) con mensajes nuevos por leer.',
+    deepLink: () => `/mensajeria`,
+  };
+  const socia: Plantilla = {
+    title: 'Tienes mensajes sin leer',
+    body: 'Tienes {conversaciones} conversación(es) con mensajes nuevos por leer.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/notificaciones`,
+  };
+  return {
+    ...Object.fromEntries(
+      (['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const).map(
+        rol => [`${EVENTOS.MENSAJE_DIGEST_NO_LEIDO}#${rol}`, staff],
+      ),
+    ),
+    [`${EVENTOS.MENSAJE_DIGEST_NO_LEIDO}#SOCIA`]: socia,
+  };
+}
+
+// Community & Messaging OS (P1): solo SOCIA en la audiencia (ver
+// ROLES_POR_AUDIENCIA['socias-de-lista']), así que una única plantilla basta
+// — no hay reparto staff/socia como en plantillasMensajeRecibido.
+function plantillaPostComunidadNuevo(): Record<string, Plantilla> {
+  return {
+    [`${EVENTOS.POST_COMUNIDAD_NUEVO}#SOCIA`]: {
+      title: 'Nuevo en el tablón',
+      body: '{autor} ha publicado algo nuevo{previsualizacion}.',
+      deepLink: (d: Datos) => `/portal/${s(d.slug)}/comunidad`,
+    },
+  };
+}
+
+// Community & Messaging OS (P2): solo SOCIA (audiencia 'socia-del-evento'),
+// igual que post_nuevo. Sin pantalla dedicada de "mis documentos" todavía —
+// enlaza a lo más cercano que ya existe (notificaciones), mismo criterio que
+// plantillasMensajeRecibido cuando aún no había pantalla de chat.
+function plantillaDocumentoSocioNuevo(): Record<string, Plantilla> {
+  return {
+    [`${EVENTOS.DOCUMENTO_SOCIO_NUEVO}#SOCIA`]: {
+      title: 'Nuevo documento',
+      body: 'El estudio te ha añadido un documento nuevo: "{titulo}".',
+      deepLink: (d: Datos) => `/portal/${s(d.slug)}/notificaciones`,
+    },
+  };
 }
 
 export const PLANTILLAS: Record<string, Plantilla> = {
@@ -772,6 +905,16 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: '"{titulo}" encaja con tu perfil en Tentare Network.',
     deepLink: () => `/network/oportunidades`,
   },
+  // ── Community & Messaging OS (P0) ──
+  // {previsualizacion} viene ya formateado (': "primeras palabras…"' o vacío)
+  // desde emitirMensajeRecibido — mismo patrón que {motivoTexto}. Deeplink
+  // distinto por lado: staff cae en la pestaña de mensajería del panel,
+  // la socia en su bandeja del portal (todavía no hay una pantalla de chat
+  // dedicada — se enlaza a lo más cercano que ya existe hasta que la haya).
+  ...plantillasMensajeRecibido(),
+  ...plantillasMensajeDigest(),
+  ...plantillaPostComunidadNuevo(),
+  ...plantillaDocumentoSocioNuevo(),
 };
 
 // Interpola {clave} desde los datos del evento.
@@ -793,18 +936,19 @@ export const CATEGORIA_ETIQUETA: Record<NotificationCategory, string> = {
   sistema: 'Sistema',
   decisiones: 'Centro de Control',
   red: 'Tentare Network',
+  mensajeria: 'Mensajes',
 };
 
 // Categorías que cada rol puede configurar en sus preferencias.
 export const CATEGORIAS_POR_ROL: Record<NotificationRole, NotificationCategory[]> = {
-  PROPIETARIO: ['reservas', 'clases', 'sustituciones', 'pagos', 'sistema', 'decisiones', 'red'],
-  INSTRUCTOR: ['clases', 'sustituciones', 'red'],
+  PROPIETARIO: ['reservas', 'clases', 'sustituciones', 'pagos', 'sistema', 'decisiones', 'red', 'mensajeria'],
+  INSTRUCTOR: ['clases', 'sustituciones', 'red', 'mensajeria'],
   // Recepción = mostrador: lo operativo que gestiona (reservas nuevas, cobros
   // fallidos). No configura marketing/informes/sistema (fuera de su rol) — ni
   // Network: verificar experiencias es decisión de gerencia, no de mostrador.
-  RECEPCION: ['reservas', 'pagos'],
+  RECEPCION: ['reservas', 'pagos', 'mensajeria'],
   // El manager lleva la sede pero no el dinero: lo operativo y las sustituciones
   // (es quien las resuelve), sin la categoría de pagos.
-  MANAGER: ['reservas', 'clases', 'sustituciones', 'red'],
-  SOCIA: ['reservas', 'clases', 'pagos', 'marketing'],
+  MANAGER: ['reservas', 'clases', 'sustituciones', 'red', 'mensajeria'],
+  SOCIA: ['reservas', 'clases', 'pagos', 'marketing', 'mensajeria'],
 };

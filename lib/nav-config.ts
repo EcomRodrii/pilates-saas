@@ -126,7 +126,7 @@ const conMarketing: NavSection[] = MARKETING_MODULE_ENABLED
   : allSections
       .map((s) => ({ ...s, items: s.items.filter((i) => !OCULTOS_MARKETING.includes(i.href)) }));
 
-// Feature-freeze PMF: saca los módulos congelados (/pos, /comunidad, /ondemand)
+// Feature-freeze PMF: saca los módulos congelados (/pos, /ondemand, /chat)
 // del menú y de TODO lo que deriva de él —editor de menú, buscador ⌘K, MODULOS—,
 // con independencia del flag de marketing, y elimina las secciones que quedan
 // vacías. Reactivar = quitar la ruta de RUTAS_CONGELADAS en lib/frozen-features.ts.

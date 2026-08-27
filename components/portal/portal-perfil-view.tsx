@@ -280,6 +280,16 @@ export function PortalPerfilView({
 
         {/* ── Filas ────────────────────────────────────────────────────────── */}
         <div style={{ height: 34 }} />
+        {/* Community & Messaging OS (P1): único punto de entrada a /mensajes
+            y /comunidad desde este portal — a propósito NO se añaden como
+            pestañas nuevas del menú inferior (NAV_SEG_IDS es un catálogo
+            cerrado que se persiste en la config del tema de cada estudio;
+            añadir una pestaña ahí es un cambio de esquema, no de esta
+            pantalla). */}
+        {fila('Mensajes', null, () => navegar(`/portal/${slug}/mensajes`))}
+        {fila('Comunidad', null, () => navegar(`/portal/${slug}/comunidad`))}
+        {fila('Documentos', null, () => navegar(`/portal/${slug}/documentos`))}
+        {fila('Mis compañeras', null, () => navegar(`/portal/${slug}/companeras`))}
         {fila('Mis datos', null, () => setHoja('datos'))}
         {fila(
           'Métodos de pago',
