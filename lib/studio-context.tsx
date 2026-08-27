@@ -735,8 +735,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   });
   // `radio`/`radioInput`(el legacy de radio de tarjeta) no viajan aquí a
   // propósito: hoy solo existen como parámetro de URL (`?radio=`), sin campo
-  // persistido — mismo estado que tenía antes de esta fase.
-  const [aparienciaWidget, setAparienciaWidget] = useState<Omit<AparienciaWidget, 'radio'>>({
+  // persistido — mismo estado que tenía antes de esta fase. `forma`/
+  // `densidad` (Fase 3) siguen el mismo criterio: solo `?forma=`/`?densidad=`
+  // por ahora, sin editor propio en el Theme Builder todavía.
+  const [aparienciaWidget, setAparienciaWidget] = useState<Omit<AparienciaWidget, 'radio' | 'forma' | 'densidad'>>({
     fondo: null, fuente: null, ocultarPie: false, soloPestana: false, texto: 'auto',
     fuenteDisplay: null, radioBoton: null, radioInput: null,
     superficie: null, tinta: null, textoSecundario: null, linea: null, relleno: null,

@@ -28,7 +28,7 @@ import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
-import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe } from '@/lib/reservar/apariencia-widget';
+import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe, escalaDensidad } from '@/lib/reservar/apariencia-widget';
 import { resolverConfigWidget } from '@/lib/reservar/config-widget';
 import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
@@ -2546,6 +2546,11 @@ export default function ReservarPage() {
                 slots={slots}
                 variant="calendario"
                 estiloFicha="vista"
+                // Fase 3 del rediseño: `?densidad=`/`?forma=` (solo
+                // `embed=1`, como el resto de `apariencia` — la página
+                // SUELTA no honra parámetros del snippet).
+                densidadEsc={escalaDensidad(apariencia)}
+                radiosEsc={radiosDe(apariencia, { tarjeta: R.card, boton: R.pill, input: R.spot })}
                 // `?diseno=ligero` (snippet, solo llega con embed=1) cambia a
                 // la rejilla compacta del bundle; el default sigue siendo la
                 // tira de 10 días.

@@ -94,6 +94,22 @@ export function cq(min: number, vw: number, max: number): string {
   return `clamp(${min}px, ${vw}cqw, ${max}px)`;
 }
 
+// ── Densidad (AparienciaWidget.densidad, Fase 3) ────────────────────────────
+// `--reservar-densidad-esc` lo fija `ReservaCalendario` en su raíz (prop
+// `densidadEsc`, `escalaDensidad()` de apariencia-widget.ts) — 1 (comoda) o
+// 0.75 (compacta). `densidadCss(px)` es el único punto de este fichero que la
+// lee: se aplica a un conjunto ACOTADO de medidas (padding de tarjeta,
+// separación entre filas del listado) — las MÁS VISIBLES al comparar
+// "cómoda" vs "compacta", no un retrofit de cada padding/margin del código
+// (esa sí sería la reescritura estructural de miles de líneas que
+// docs/widget-reservas-theme-builder-diseno.md §3 ya marcó como fuera de
+// alcance de un cambio de tokens). Con la escala en 1 (sin personalizar),
+// `calc(Npx * 1)` es exactamente Npx — cero cambio visual para quien no toca
+// densidad.
+export function densidadCss(px: number): string {
+  return `calc(${px}px * var(--reservar-densidad-esc, 1))`;
+}
+
 // ── Radios (diseño nuevo: dos radios, no una docena) ────────────────────────
 // El diseño solo distingue `--rCard` (20, tarjetas/paneles) y `--rBtn` (999,
 // TODO botón es píldora) — se mantienen los nombres de siempre (usados en
