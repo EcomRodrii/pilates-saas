@@ -824,8 +824,6 @@ export interface RowStudios {
   instructor_reparto_penalizacion_pct: number | null;
   // migr 20260805120000.
   tour_visto_en: string | null;
-  // migr 20260807120000.
-  portal_react: boolean | null;
   // migr 20260807134223.
   gestoria_envio_automatico: string | null;
   // migr 20260807134223.

@@ -50,20 +50,6 @@ export interface Studio {
   colorPrimario: string;
   temaPortal: string;
   /**
-   * TEMPORAL (migr 20260807120000). `true` = las socias de este estudio ven el
-   * portal en React (`components/portal-tema`), el kit de diseño, en vez del
-   * portal actual.
-   *
-   * ⚠️ Tiene fecha de caducidad por decisión explícita: piloto en un estudio,
-   * y si pasa una semana sin incidencias se enciende en el resto y se retira
-   * el portal viejo EN EL MISMO PR que borra esta bandera. Un flag sin fecha
-   * se queda para siempre y acabamos manteniendo dos portales.
-   *
-   * Opcional en el tipo porque hay decenas de fixtures que construyen `Studio`
-   * a mano y ninguno tiene por qué saber de esto.
-   */
-  portalReact?: boolean;
-  /**
    * Lista blanca de orígenes (https://ejemplo.com, sin ruta) autorizados a
    * incrustar el bundle embebible (Modo B, script+div sin iframe) — ver
    * lib/cors-widget.ts. `[]`/undefined = el bundle no funcionará en ningún

@@ -310,8 +310,6 @@ interface StudioContextValue {
   /** Tema instalado (`oliva`/`bloom`/`noir`/`classic`…). El portal en React
    *  elige con esto cuál de los tres juegos de tokens monta. */
   themeIdPublicado: string | null;
-  /** TEMPORAL: `true` = este estudio ve el portal en React. Ver `Studio.portalReact`. */
-  portalReact: boolean;
   // Redes sociales del pie de página público (Fase 3) — ver lib/theme-schema.ts.
   redesSociales: Record<RedSocialId, string>;
   /** Textos de la portada de /reservar escritos por el estudio. Vacío = el
@@ -723,7 +721,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [temaJsPreview, setTemaJsPreview] = useState<TemaJs | null>(null);
   const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
   const [themeIdPublicado, setThemeIdPublicado] = useState<string | null>(null);
-  const [portalReact, setPortalReact] = useState(false);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>(() => redesSocialesCompletas(null));
   const [textosReservar, setTextosReservar] = useState({
     titular: '', subtitulo: '', cta: '', sobreTitulo: '', sobreTexto: '',
@@ -993,7 +990,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setVariantes(resolveVariantes(pub.variantes));
       setNavPortal(resolveNavConfig(pub.navPortal));
       setThemeIdPublicado((pub as { themeIdPublicado?: string | null }).themeIdPublicado ?? null);
-      setPortalReact((pub.studio as { portalReact?: boolean } | null)?.portalReact === true);
       // Las cuatro claves siempre presentes, cada una saneada a string: un
       // tema publicado antes de que existiera TikTok trae solo tres.
       setRedesSociales(redesSocialesCompletas(pub.redesSociales));
@@ -4528,7 +4524,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     variantes: variantesEfectivas,
     navPortal,
     themeIdPublicado,
-    portalReact,
     redesSociales,
     textosReservar,
     aparienciaWidget,
@@ -4768,7 +4763,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // notara.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, variantesEfectivas, navPortal, themeIdPublicado, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, variantesEfectivas, navPortal, themeIdPublicado, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
@@ -4867,7 +4862,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       tabBarStyle={tabBarStyleEfectivo}
       variantes={variantesEfectivas}
       themeIdPublicado={themeIdPublicado}
-      portalReact={portalReact}
     >
     <StudioContext.Provider value={value}>
       {children}
