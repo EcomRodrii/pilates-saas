@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 
 /**
  * Error de una Server Action con un mensaje pensado PARA la persona y un
@@ -32,6 +33,7 @@ export function respuestaDeErrorAccion(contexto: string, e: unknown): NextRespon
     return NextResponse.json({ error: e.message }, { status: e.status });
   }
   console.error(`[${contexto}]`, e);
+  Sentry.captureException(e, { tags: { contexto } });
   return NextResponse.json(
     { error: 'No se ha podido completar la operación. Vuelve a intentarlo.' },
     { status: 500 },
