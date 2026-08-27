@@ -269,6 +269,18 @@ export function PantallaReserva({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: `0 ${cq(2, 0.4, 4)}` }}>
+              {/* Orden del diseño "Tentare Portal Reservas": instructora
+                  justo debajo de la foto, LUEGO los chips de fecha/hora/
+                  duración, luego la tarjeta de sala, luego la descripción —
+                  no al revés. */}
+              {clase.instructorNombre && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <AvatarIniciales nombre={clase.instructorNombre} />
+                  <span style={{ fontSize: 13.5, color: 'var(--portal-muted-2)' }}>
+                    Con <strong style={{ color: 'var(--portal-ink)', fontWeight: 600 }}>{clase.instructorNombre}</strong>
+                  </span>
+                </div>
+              )}
               {/* Chips mono en línea (día/hora/duración) — diseño "Tentare
                   Portal Reservas": una fila de píldoras, no filas icono+texto
                   apiladas. */}
@@ -301,18 +313,13 @@ export function PantallaReserva({
                   </div>
                 </div>
               )}
-              {clase.instructorNombre && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                  <AvatarIniciales nombre={clase.instructorNombre} />
-                  <span style={{ fontSize: 13.5, color: 'var(--portal-muted-2)' }}>
-                    Con <strong style={{ color: 'var(--portal-ink)', fontWeight: 600 }}>{clase.instructorNombre}</strong>
-                  </span>
-                </div>
-              )}
               {clase.descripcion && (
-                <p style={{ color: 'var(--portal-muted-2)', fontSize: 13.5, lineHeight: 1.6, marginTop: 8 }}>
-                  {clase.descripcion}
-                </p>
+                <div style={{ marginTop: 4 }}>
+                  <p style={{ ...eyebrow(9), color: 'var(--portal-muted)', marginBottom: 6 }}>Descripción</p>
+                  <p style={{ margin: 0, color: 'var(--portal-muted-2)', fontSize: 13.5, lineHeight: 1.6 }}>
+                    {clase.descripcion}
+                  </p>
+                </div>
               )}
             </div>
           </div>
