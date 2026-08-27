@@ -11,7 +11,7 @@ import { PaginaOculta } from '@/components/publico/pagina-oculta';
 import { ThemeStyle } from '@/components/theme-style';
 import { ThemePreviewListener } from '@/components/theme/theme-preview-listener';
 import { urlMonograma } from '@/lib/monograma-estudio';
-import { paletaReservarCssText } from '@/lib/reservar-publico-tokens';
+import { paletaReservarCssText, fuenteReservarCssText } from '@/lib/reservar-publico-tokens';
 
 // Metadata server-rendered (I-9): título/descripción/Open Graph con el nombre y
 // la ciudad del estudio. Sirve para lo que la socia comparte por WhatsApp y
@@ -147,6 +147,14 @@ export default async function ReservarSlugLayout({ children, params }: { childre
         />
       )}
       <ThemeStyle slug={slug} paletaCssText={paletaReservarCssText} />
+      {/* Bug real en producción (2026-08-27): el `<style>` de ThemeStyle pinta
+          el tema PUBLICADO del estudio DESPUÉS de `paletaReservarCssText` —
+          y todo tema con titular propio fija `--portal-heading-font`, que con
+          la misma especificidad (`:root`) gana por venir después. Este bloque,
+          en su PROPIO `<style>` posterior, vuelve a fijar Jakarta por encima
+          — ver el comentario de `fuenteReservarCssVars` en
+          reservar-publico-tokens.ts. */}
+      <style id="reservar-fuente" dangerouslySetInnerHTML={{ __html: fuenteReservarCssText() }} />
       <ThemePreviewListener />
       {children}
     </StudioSlugGate>

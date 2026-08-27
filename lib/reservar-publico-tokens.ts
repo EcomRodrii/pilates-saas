@@ -182,17 +182,42 @@ export const easeBtn = `background .35s ease, transform .45s ${EASE}`;
  */
 export function paletaReservarCssText(selector = ':root'): string {
   const vars = varsReservarModo('dia');
-  // `--font-ui`/`--portal-heading-font` a Jakarta AQUÍ, no en `<html>`
-  // (app/layout.tsx): esas dos vars están definidas GLOBALMENTE ahí, con
-  // Instrument Sans/Serif, para el portal privado — un `var(--font-ui,
-  // fallback)` nunca ve su fallback si la propiedad ya está heredada de un
-  // ancestro. Redefinirla aquí, en el `:root` que solo pinta esta pantalla,
-  // es lo que hace que `sans`/`serif` (arriba) resuelvan a Jakarta por
-  // defecto — y `apariencia-widget.ts` (`fuente`/`fuenteDisplay`) sigue
-  // ganando: su override vive más abajo en el árbol (inline en el propio
-  // widget), y ese nivel de especificidad siempre gana a este `:root`.
-  const varsFuente = `--font-ui: var(--font-jakarta); --portal-heading-font: var(--font-jakarta);`;
-  return `${selector} { ${Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ')} ${varsFuente} }`;
+  return `${selector} { ${Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ')} ${fuenteReservarCssVars()} }`;
+}
+
+/**
+ * `--font-ui`/`--portal-heading-font` a Jakarta. Separada de
+ * `paletaReservarCssText` (y expuesta como su propio `<style>`,
+ * `fuenteReservarCssText`, emitido DESPUÉS del tema del estudio en
+ * `/reservar/[slug]/layout.tsx`) por un bug real encontrado en producción
+ * (2026-08-27, estudio con el tema "Sereno"): `ThemeStyle` pinta
+ * `paletaCssText()` y LUEGO `themeToCssText(theme, ':root')` en el MISMO
+ * `<style>` — y todo tema con titular propio (`lib/theme-runtime.ts`, los
+ * 5: Geométrico/Instrument/Tentada/Sereno/Bloom) fija `--portal-heading-font`
+ * ahí. Con la misma especificidad (`:root` en ambos casos), la regla que
+ * viene DESPUÉS en el documento gana — así que el titular del tema del
+ * PORTAL PRIVADO de la clienta ganaba siempre al valor por defecto de esta
+ * pantalla, que es un contexto de marca deliberadamente distinto (ver
+ * cabecera de este fichero). `--font-ui` no lo toca ningún tema hoy, pero se
+ * re-fija igual por simetría y para no depender de que eso siga siendo así.
+ *
+ * ⚠️ No basta con no tocar `<html>` (app/layout.tsx) — ahí SIGUE
+ * `--font-ui`/`--font-display` con Instrument Sans/Serif, GLOBALMENTE, para
+ * el portal privado. Un `var(--font-ui, fallback)` nunca ve su fallback si
+ * la propiedad ya está heredada de un ancestro — de ahí que haga falta
+ * REDEFINIRLA en esta pantalla, no solo evitar tocarla. Y
+ * `apariencia-widget.ts` (`fuente`/`fuenteDisplay`) sigue ganando sobre
+ * TODO esto: su override vive más abajo en el árbol (inline en el propio
+ * widget), y la especificidad de un `style` inline siempre gana a cualquier
+ * `:root` de un `<style>`, sea cual sea el orden.
+ */
+export function fuenteReservarCssVars(): string {
+  return `--font-ui: var(--font-jakarta); --portal-heading-font: var(--font-jakarta);`;
+}
+
+/** `fuenteReservarCssVars()` como bloque `<style>` — ver su comentario. */
+export function fuenteReservarCssText(selector = ':root'): string {
+  return `${selector} { ${fuenteReservarCssVars()} }`;
 }
 
 /**
