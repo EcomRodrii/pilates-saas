@@ -25,7 +25,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { iniciarDomiciliacionSepa, sepaDisponibleParaEstudio, crearCheckoutStripe, crearCheckoutPlan, crearCheckoutEmbebidoPlan, prepararRenovacionPlan } from '@/lib/api-client';
+import { iniciarDomiciliacionSepa, sepaDisponibleParaEstudio, crearCheckoutStripe, crearCheckoutPlan, crearCheckoutEmbebidoPlan, prepararRenovacionPlan, urlParaGuardarTarjeta, borrarTarjetaPublica } from '@/lib/api-client';
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
 import { precioPorClase } from '@/lib/estudio-publico';
 import { fechaLarga } from '@/lib/bonos-portal';
@@ -40,6 +40,15 @@ import type { PlanTarifa } from '@/lib/types';
 // «Camino A» en `.claude/tentare-os.md`.
 const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
+// Stripe manda la marca en minúscula (`visa`, `mastercard`) — no se importa
+// del kit apagado (`lib/portal-tema/datos.ts`), mismo principio que separa
+// `franjaLocalDe` entre motor y portal.
+function nombreDeMarca(marca: string): string {
+  if (!marca) return 'Tarjeta';
+  if (marca.toLowerCase() === 'visa') return 'Visa';
+  return marca.charAt(0).toUpperCase() + marca.slice(1);
+}
+
 export default function ComprasPage() {
   const { slug } = useParams<{ slug: string }>();
   const searchParams = useSearchParams();
@@ -51,10 +60,29 @@ export default function ComprasPage() {
   const socia = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
   const sepaActiva = socia?.metodoPagoPreferido === 'SEPA' && !!socia?.sepaMandateId;
 
+  // Sin `tarjetaUltimos4` no hay tarjeta que enseñar — `null` en
+  // `tarjeta_exp_*` significa "todavía no se le ha preguntado a Stripe", NO
+  // "no caduca" (`lib/billing/caducidad-tarjeta.ts`), de ahí que `caduca` sea
+  // opcional y nunca motivo para esconder la tarjeta entera.
+  const tarjeta = useMemo(() => {
+    const ultimos4 = socia?.tarjetaUltimos4 ?? '';
+    if (!ultimos4) return null;
+    const mes = socia?.tarjetaExpMes;
+    const anio = socia?.tarjetaExpAnio;
+    return {
+      marca: nombreDeMarca(socia?.tarjetaMarca ?? ''),
+      ultimos4,
+      caduca: mes && anio ? `${String(mes).padStart(2, '0')}/${String(anio).slice(-2)}` : '',
+    };
+  }, [socia?.tarjetaUltimos4, socia?.tarjetaMarca, socia?.tarjetaExpMes, socia?.tarjetaExpAnio]);
+
   const [comprando, setComprando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sepaLoading, setSepaLoading] = useState(false);
   const [sepaDisponible, setSepaDisponible] = useState<boolean | null>(null);
+  const [tarjetaLoading, setTarjetaLoading] = useState(false);
+  const [quitandoTarjeta, setQuitandoTarjeta] = useState(false);
+  const [confirmandoQuitarTarjeta, setConfirmandoQuitarTarjeta] = useState(false);
   // Checkout embebido en curso — nunca a la vez que `comprando` (uno abre un
   // PaymentIntent, el otro un redirect hosted; ver `contratar`).
   const [pago, setPago] = useState<{ plan: PlanTarifa; clientSecret: string } | null>(null);
@@ -83,6 +111,13 @@ export default function ComprasPage() {
     const v = searchParams.get('pago');
     if (v === 'ok') return 'Pago completado. Tu factura aparecerá aquí abajo en cuanto se registre.';
     if (v === 'cancelado') return 'Has salido sin completar el pago. No se te ha cobrado nada.';
+    // `setup-tarjeta` redirige aquí con `?tarjeta=ok|cancel`. El guardado real
+    // lo confirma el WEBHOOK (`app/api/stripe/webhook/route.ts`), pero esta
+    // vuelta es una navegación completa: `useStudio()` ya reconsulta al
+    // montar, así que no hace falta forzar una recarga aquí.
+    const t = searchParams.get('tarjeta');
+    if (t === 'ok') return 'Tarjeta guardada.';
+    if (t === 'cancel') return 'No se ha guardado ninguna tarjeta.';
     return null;
   }, [searchParams]);
 
@@ -166,6 +201,32 @@ export default function ComprasPage() {
     if ('url' in r && r.url) { window.location.assign(r.url); return; }
     setError(('error' in r && r.error) || 'No se ha podido iniciar la domiciliación.');
     setSepaLoading(false);
+  }
+
+  // La UI de tarjeta la aloja STRIPE: aquí no se pide nunca un número ni un
+  // CVC en nuestro propio DOM — mismo comentario que ya lleva
+  // `urlParaGuardarTarjeta` en `lib/api-client.ts`.
+  async function anadirTarjeta() {
+    if (!studio?.id || !socioId || tarjetaLoading) return;
+    setTarjetaLoading(true);
+    setError(null);
+    const r = await urlParaGuardarTarjeta(studio.id, socioId, slug);
+    if ('url' in r) { window.location.assign(r.url); return; }
+    setError(r.error);
+    setTarjetaLoading(false);
+  }
+
+  async function quitarTarjeta() {
+    if (!studio?.id || quitandoTarjeta) return;
+    setQuitandoTarjeta(true);
+    setError(null);
+    const err = await borrarTarjetaPublica(studio.id);
+    setQuitandoTarjeta(false);
+    if (err) { setError(err); return; }
+    setConfirmandoQuitarTarjeta(false);
+    // Se re-sincroniza para que la pantalla deje de enseñar unos dígitos que
+    // ya no existen: el catálogo (`socios`) es quien trae la tarjeta.
+    recargarPublico();
   }
 
   /** El renglón bajo el nombre del plan. Dice lo más útil que se sepa de él. */
@@ -295,39 +356,138 @@ export default function ComprasPage() {
         )}
 
         {/* ── Método de pago ───────────────────────────────────────────────── */}
-        {(sepaActiva || sepaDisponible !== false) && (
-          <>
-            <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 36 }}>Método de pago</div>
-            <div style={{
-              marginTop: 12, borderRadius: radio.card, background: t.surface, padding: '20px 24px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-              boxShadow: '0 14px 32px -26px rgba(34,42,30,.5)',
-            }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ ...display(21), color: t.ink }}>
-                  {sepaActiva ? 'Domiciliación activa' : 'Domiciliar el pago'}
-                </div>
-                <div style={{ fontFamily: sans, fontSize: 11, color: t.muted, marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
-                  {sepaActiva
-                    ? 'Tus recibos se cobran solos de tu cuenta.'
-                    : 'Autoriza el adeudo y no vuelvas a pagar a mano.'}
-                </div>
+        <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 36 }}>Método de pago</div>
+
+        {/* Tarjeta guardada. Independiente de si el estudio ofrece SEPA: es el
+            método que usa siempre Stripe para bonos/cuotas/renovaciones
+            automáticas. Antes esto SOLO existía en el kit apagado
+            (`components/portal-tema/`, hoja "pago") — reutiliza aquí las
+            mismas funciones ya cableadas para el portal clásico en
+            `components/portal/portal-tema-marco.tsx`
+            (`urlParaGuardarTarjeta`/`borrarTarjetaPublica`). */}
+        <div style={{
+          marginTop: 12, borderRadius: radio.card, background: t.surface, padding: '20px 24px',
+          boxShadow: '0 14px 32px -26px rgba(34,42,30,.5)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ ...display(21), color: t.ink }}>
+                {tarjeta ? `${tarjeta.marca} ···· ${tarjeta.ultimos4}` : 'Añadir tarjeta'}
               </div>
+              <div style={{ fontFamily: sans, fontSize: 11, color: t.muted, marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
+                {tarjeta
+                  ? (tarjeta.caduca ? `Caduca ${tarjeta.caduca}` : 'Se usa para tus bonos, cuotas y renovaciones.')
+                  : 'Guárdala para pagar bonos y cuotas sin hacerlo a mano cada vez.'}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void anadirTarjeta()}
+              disabled={tarjetaLoading}
+              style={{
+                height: 44, padding: '0 18px', borderRadius: 22, flexShrink: 0,
+                border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
+                background: 'none', color: t.ink, ...texto.nota, fontSize: 12.5, fontWeight: 500,
+                cursor: 'pointer', transition: transicion(['background'], dur.color),
+              }}
+            >
+              {tarjetaLoading ? 'Abriendo…' : tarjeta ? 'Cambiar' : 'Añadir'}
+            </button>
+          </div>
+
+          {/* Se dice PARA QUÉ se usa la tarjeta — mismo texto que llevaba la
+              hoja del kit (`hojas.tsx:222-224`), sin inventar comportamiento:
+              son los cobros que este repo hace de verdad. */}
+          {tarjeta && (
+            <p style={{ fontFamily: sans, fontSize: 11, color: t.muted, marginTop: 14, textWrap: 'pretty' } as React.CSSProperties}>
+              Tu tarjeta se usa para cobrar los bonos y las cuotas que contrates
+              con el estudio, y las renovaciones automáticas si tu plan las
+              tiene. Nunca guardamos el número de tu tarjeta: lo custodia Stripe.
+            </p>
+          )}
+
+          {tarjeta && (
+            confirmandoQuitarTarjeta ? (
+              <>
+                {/* Dos toques para quitarla, no uno: es irreversible y tiene
+                    consecuencias que la socia no tiene por qué anticipar. */}
+                <p style={{ fontFamily: sans, fontSize: 11.5, color: t.ink, marginTop: 14, textWrap: 'pretty' } as React.CSSProperties}>
+                  Si la quitas, tendrás que pagar a mano cada bono o cuota, y las
+                  renovaciones automáticas dejarán de cobrarse.
+                </p>
+                <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => void quitarTarjeta()}
+                    disabled={quitandoTarjeta}
+                    style={{
+                      height: 40, padding: '0 16px', borderRadius: 20, border: 'none',
+                      background: 'var(--portal-brand)', color: t.accentInk,
+                      ...texto.nota, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                    }}
+                  >
+                    {quitandoTarjeta ? 'Quitando…' : 'Sí, quitar la tarjeta'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoQuitarTarjeta(false)}
+                    disabled={quitandoTarjeta}
+                    style={{
+                      height: 40, padding: '0 16px', borderRadius: 20,
+                      border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
+                      background: 'none', color: t.ink, ...texto.nota, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                    }}
+                  >
+                    Mejor no
+                  </button>
+                </div>
+              </>
+            ) : (
               <button
                 type="button"
-                onClick={() => void domiciliar()}
-                disabled={sepaLoading}
+                onClick={() => setConfirmandoQuitarTarjeta(true)}
                 style={{
-                  height: 44, padding: '0 18px', borderRadius: 22, flexShrink: 0,
-                  border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
-                  background: 'none', color: t.ink, ...texto.nota, fontSize: 12.5, fontWeight: 500,
-                  cursor: 'pointer', transition: transicion(['background'], dur.color),
+                  marginTop: 14, background: 'none', border: 'none', padding: 0,
+                  fontFamily: sans, fontSize: 11.5, color: t.muted, cursor: 'pointer',
+                  textDecoration: 'underline',
                 }}
               >
-                {sepaLoading ? 'Abriendo…' : sepaActiva ? 'Cambiar' : 'Domiciliar'}
+                Quitar esta tarjeta
               </button>
+            )
+          )}
+        </div>
+
+        {(sepaActiva || sepaDisponible !== false) && (
+          <div style={{
+            marginTop: 12, borderRadius: radio.card, background: t.surface, padding: '20px 24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+            boxShadow: '0 14px 32px -26px rgba(34,42,30,.5)',
+          }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ ...display(21), color: t.ink }}>
+                {sepaActiva ? 'Domiciliación activa' : 'Domiciliar el pago'}
+              </div>
+              <div style={{ fontFamily: sans, fontSize: 11, color: t.muted, marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
+                {sepaActiva
+                  ? 'Tus recibos se cobran solos de tu cuenta.'
+                  : 'Autoriza el adeudo y no vuelvas a pagar a mano.'}
+              </div>
             </div>
-          </>
+            <button
+              type="button"
+              onClick={() => void domiciliar()}
+              disabled={sepaLoading}
+              style={{
+                height: 44, padding: '0 18px', borderRadius: 22, flexShrink: 0,
+                border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
+                background: 'none', color: t.ink, ...texto.nota, fontSize: 12.5, fontWeight: 500,
+                cursor: 'pointer', transition: transicion(['background'], dur.color),
+              }}
+            >
+              {sepaLoading ? 'Abriendo…' : sepaActiva ? 'Cambiar' : 'Domiciliar'}
+            </button>
+          </div>
         )}
 
         {/* ── Facturas ─────────────────────────────────────────────────────── */}
