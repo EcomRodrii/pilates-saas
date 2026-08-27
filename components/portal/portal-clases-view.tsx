@@ -29,8 +29,9 @@
 // `useStudio()` y en `lib/booking-logic`; lo que se separa es la presentación.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { Star } from 'lucide-react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Star, Search } from 'lucide-react';
+import { BuscarOverlay } from '@/components/portal/buscar-overlay';
 import { useStudio, REFRESCO_ACTIVO_MS } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { esCancelacionTardia, heredaOverride } from '@/lib/booking-logic';
@@ -81,6 +82,7 @@ export function PortalClasesView({
 }: { session: PortalSession | null; escribible?: boolean; bloquesOverride?: BloqueHome[] }) {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     sesiones, reservas, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studio, addReserva, cancelarReserva,
@@ -154,7 +156,19 @@ export function PortalClasesView({
   const [vista, setVista] = useState<Vista>('todas');
   const [semana, setSemana] = useState(0);
   const [diaElegido, setDiaElegido] = useState<number | null>(null);
-  const [tipoElegido, setTipoElegido] = useState<string | null>(null);
+  // Estado inicial desde `?tipo=` (BuscarOverlay navega aquí con ese query al
+  // tocar un resultado de tipo de clase) — se lee UNA vez al montar, como
+  // `diaElegido`; el efecto de abajo cubre el caso en que esta pantalla YA
+  // está montada y el overlay navega a la MISMA ruta con otro `?tipo=`
+  // (mismo pathname, portal-shell.tsx no la remonta).
+  const [tipoElegido, setTipoElegido] = useState<string | null>(() => searchParams?.get('tipo') ?? null);
+  useEffect(() => {
+    const q = searchParams?.get('tipo') ?? null;
+    if (!q) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza con la URL (sistema externo): BuscarOverlay puede navegar aquí con OTRO `?tipo=` mientras esta pantalla ya está montada.
+    setTipoElegido(q);
+    setVista('todas');
+  }, [searchParams]);
   // 'favoritas' es un valor especial de `tipoElegido`: reutiliza el mismo
   // estado que ya filtra por tipo de clase, en vez de un segundo booleano que
   // tendría que sincronizarse con él.
@@ -173,6 +187,7 @@ export function PortalClasesView({
   const [quienVa, setQuienVa] = useState<QuienVaAEstaClase | null>(null);
   const [cancelando, setCancelando] = useState<{ sesion: { inicio: string; tipoClaseId: string }; mia: Reserva | null } | null>(null);
   const [paseAbierto, setPaseAbierto] = useState<{ nombre: string; sub: string } | null>(null);
+  const [buscarAbierto, setBuscarAbierto] = useState(false);
   const [aviso, setAviso] = useState<AvisoToast | null>(null);
   // Tras cancelar, las clases con las que puede recuperar esa sesión. Antes,
   // cancelar terminaba en un toast ("Reserva cancelada.") y un callejón: la
@@ -422,6 +437,12 @@ export function PortalClasesView({
             <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 12 }}>{txt('listadoClases', 'titulo', 'Clases')}</h1>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
+            {/* Punto de entrada al overlay BUSCAR (Tentare Studio App.dc.html),
+                mismo círculo que las flechas de semana — nunca un push de
+                ruta, solo abre el overlay encima de esta pantalla. */}
+            <button type="button" aria-label="Buscar" onClick={() => setBuscarAbierto(true)} style={circulo}>
+              <Search size={15} strokeWidth={2} />
+            </button>
             <button type="button" aria-label="Semana anterior" onClick={() => { setSemana(s => s - 1); setDiaElegido(0); }} style={circulo}>←</button>
             <button type="button" aria-label="Semana siguiente" onClick={() => { setSemana(s => s + 1); setDiaElegido(0); }} style={circulo}>→</button>
           </div>
@@ -824,6 +845,8 @@ export function PortalClasesView({
         subtitulo={paseAbierto?.sub ?? ''}
         pedirPase={escribible ? pedirPaseDeAcceso : pedirPaseDeMuestra}
       />
+
+      <BuscarOverlay open={buscarAbierto} onClose={() => setBuscarAbierto(false)} />
     </div>
   );
 }

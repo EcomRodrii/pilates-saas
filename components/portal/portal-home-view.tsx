@@ -41,7 +41,8 @@ import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora, huecosHoy } from '@/lib/portal-home-logic';
 import { sugerirClase, cuandoSugerencia } from '@/lib/portal-sugerencias';
-import { CalendarDays, Sparkles, Bell, User, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Sparkles, Bell, User, Search, type LucideIcon } from 'lucide-react';
+import { BuscarOverlay } from '@/components/portal/buscar-overlay';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
 import { useNotificacionesSinLeer } from '@/lib/notifications/use-unread';
 import { useModo } from '@/lib/portal-modo';
@@ -136,6 +137,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   const tarjetaRotulada = variantes.tarjetaPrincipal === 'rotulada';
   const { t, noche } = useModo();
   const [paseAbierto, setPaseAbierto] = useState(false);
+  const [buscarAbierto, setBuscarAbierto] = useState(false);
 
   // El reloj vive en estado y arranca en null: el servidor y el navegador no
   // pueden coincidir en "ahora", y una cuenta atrás pintada en el HTML del
@@ -602,29 +604,48 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             </p>
           </div>
           )}
-          <Link
-            href={portalHref(`/${slug}/notificaciones`)}
-            aria-label={sinLeer !== null && sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
-            style={{
-              position: 'relative', width: 40, height: 40, flex: '0 0 40px', marginTop: 22,
-              borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
-              background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: sombra.circulo, textDecoration: 'none',
-              transition: transicion(['transform']),
-            }}
-          >
-            {/* Con avatar en la cabecera, la campana es un ICONO con punto
-                (prototipo); sin él sigue siendo el contador numérico de
-                siempre — el número necesita más peso cuando está solo.
-                El numeral queda en blanco mientras carga: el "0" del diseño es
-                una afirmación ("estás al día"), y todavía no se sabe. */}
-            {cabeceraConAvatar
-              ? <Bell size={18} strokeWidth={1.9} style={{ color: t.ink }} />
-              : <span style={{ ...display(17), color: t.ink }}>{sinLeer ?? ''}</span>}
-            {sinLeer !== null && sinLeer > 0 && (
-              <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--portal-brand)' }} />
-            )}
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginTop: 22 }}>
+            {/* Punto de entrada al overlay BUSCAR (Tentare Studio App.dc.html):
+                mismo círculo de cristal que la campana, un icono más a su
+                izquierda — nunca un push de ruta, solo abre el overlay. */}
+            <button
+              type="button"
+              onClick={() => setBuscarAbierto(true)}
+              aria-label="Buscar"
+              style={{
+                position: 'relative', width: 40, height: 40, flex: '0 0 40px',
+                borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
+                background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: sombra.circulo, cursor: 'pointer',
+                transition: transicion(['transform']),
+              }}
+            >
+              <Search size={18} strokeWidth={1.9} style={{ color: t.ink }} />
+            </button>
+            <Link
+              href={portalHref(`/${slug}/notificaciones`)}
+              aria-label={sinLeer !== null && sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
+              style={{
+                position: 'relative', width: 40, height: 40, flex: '0 0 40px',
+                borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
+                background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: sombra.circulo, textDecoration: 'none',
+                transition: transicion(['transform']),
+              }}
+            >
+              {/* Con avatar en la cabecera, la campana es un ICONO con punto
+                  (prototipo); sin él sigue siendo el contador numérico de
+                  siempre — el número necesita más peso cuando está solo.
+                  El numeral queda en blanco mientras carga: el "0" del diseño es
+                  una afirmación ("estás al día"), y todavía no se sabe. */}
+              {cabeceraConAvatar
+                ? <Bell size={18} strokeWidth={1.9} style={{ color: t.ink }} />
+                : <span style={{ ...display(17), color: t.ink }}>{sinLeer ?? ''}</span>}
+              {sinLeer !== null && sinLeer > 0 && (
+                <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--portal-brand)' }} />
+              )}
+            </Link>
+          </div>
         </div>
 
         {/* El titular grande que en el prototipo va aparte del saludo. Lleva el
@@ -1460,6 +1481,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         subtitulo={tarjeta.meta.join(' · ')}
         pedirPase={pedirPaseDeAcceso}
       />
+
+      <BuscarOverlay open={buscarAbierto} onClose={() => setBuscarAbierto(false)} />
 
       {/* El avatar vive en el menú de abajo (pestaña Perfil), como en el diseño.
           Se deja este bloque fuera de la vista para que los lectores de pantalla
