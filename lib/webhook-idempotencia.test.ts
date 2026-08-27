@@ -137,3 +137,28 @@ test('la clave lleva el ámbito por delante del id del evento', () => {
   assert.equal(claveWebhook('billing', 'evt_1'), 'billing:evt_1');
   assert.notEqual(claveWebhook('connect', 'evt_1'), claveWebhook('billing', 'evt_1'));
 });
+
+// Fase E (WhatsApp Embedded Signup, ver WHATSAPP_AUDIT.md): el webhook de
+// Meta reutiliza esta MISMA infraestructura de dedup con un ámbito propio —
+// mismo motivo que separa 'connect'/'billing': el id de un evento de
+// WhatsApp (wamid) vive en un espacio de nombres distinto al de Stripe, y
+// aislar por ámbito evita cualquier colisión teórica entre los dos.
+test('ámbito "whatsapp": aislado del resto igual que connect/billing', async () => {
+  const admin = crearAdminFake(() => 6_000_000);
+  const clave = claveWebhook('whatsapp', 'wamid.ABC123:delivered');
+
+  assert.equal(claveWebhook('whatsapp', 'evt_1'), 'whatsapp:evt_1');
+  assert.notEqual(claveWebhook('whatsapp', 'evt_1'), claveWebhook('connect', 'evt_1'));
+
+  assert.equal(await reclamarWebhookEvent(admin as any, clave, 'whatsapp_status_delivered', 120), true);
+  await marcarWebhookProcesado(admin as any, clave);
+  assert.equal(
+    await reclamarWebhookEvent(admin as any, clave, 'whatsapp_status_delivered', 120), false,
+    'un status ya procesado (mismo wamid, mismo estado) debe reconocerse como duplicado',
+  );
+
+  // Mismo wamid, estado DISTINTO (sent → delivered) es un evento real
+  // diferente, no un duplicado — la clave incluye el estado a propósito.
+  const claveSiguienteEstado = claveWebhook('whatsapp', 'wamid.ABC123:read');
+  assert.equal(await reclamarWebhookEvent(admin as any, claveSiguienteEstado, 'whatsapp_status_read', 120), true);
+});

@@ -3952,4 +3952,75 @@ export async function dbGetIntegracionConfig(studioId: string, tipo: TipoIntegra
   return { activo: !!data.activo, config: (data.config as Record<string, string>) ?? {} };
 }
 
+// WhatsApp Embedded Signup v4 (ver WHATSAPP_AUDIT.md / META_SETUP.md): guarda
+// la conexión ya VALIDADA contra la Graph API por la ruta que llama a esto —
+// esta función no valida nada, solo persiste. Con service role (la ruta ya
+// resolvió `studioId` de la sesión, nunca de un payload de cliente) porque el
+// callback de Embedded Signup no tiene sesión de navegador con la que la RLS
+// pudiera operar, a diferencia del guardado manual (`dbUpsertIntegracion`,
+// que sí corre con el cliente autenticado del usuario).
+export async function dbGuardarConexionWhatsappEmbeddedSignup(
+  studioId: string,
+  datos: {
+    token: string;
+    phoneNumberId: string;
+    wabaId: string;
+    businessId: string | null;
+    displayPhoneNumber: string | null;
+    verifiedName: string | null;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return { ok: false, error: 'Service role no configurada' };
+
+  const { data: existente } = await admin
+    .from('integraciones')
+    .select('id, config')
+    .eq('studio_id', studioId)
+    .eq('tipo', 'WHATSAPP')
+    .maybeSingle();
+  const configAnterior = (existente?.config as Record<string, string>) ?? {};
+
+  const row = {
+    id: existente?.id ?? `intg-whatsapp-${uid()}`,
+    studio_id: studioId,
+    tipo: 'WHATSAPP',
+    activo: true,
+    phone_number_id: datos.phoneNumberId,
+    config: {
+      ...configAnterior,
+      token: datos.token,
+      phoneId: datos.phoneNumberId,
+      wabaId: datos.wabaId,
+      businessId: datos.businessId ?? '',
+      displayPhoneNumber: datos.displayPhoneNumber ?? '',
+      verifiedName: datos.verifiedName ?? '',
+      // Conservada tal cual si ya existía (una reconexión no cambia si la
+      // plantilla está aprobada en Meta); por defecto 'false' para una
+      // conexión nueva, igual que hoy hace el formulario manual.
+      plantillaAprobada: configAnterior.plantillaAprobada ?? 'false',
+    },
+    actualizado_en: new Date().toISOString(),
+    // Credenciales nuevas: la salud del token anterior ya no vale (ver mismo
+    // criterio en dbUpsertIntegracion). Quien llama marca el éxito real con
+    // registrarSaludIntegracion justo después de guardar.
+    ultimo_ok_en: null,
+    ultimo_error: null,
+    ultimo_error_en: null,
+  };
+
+  const { error } = await admin.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
+  if (error) {
+    // 23505 = violación del índice único parcial de phone_number_id: el
+    // número ya está conectado a OTRA fila (otro estudio, o basura de una
+    // reconexión anterior mal cerrada) — nunca un error técnico crudo aquí.
+    if (error.code === '23505') {
+      return { ok: false, error: 'Ese número de WhatsApp ya está conectado a otro estudio en Tentare.' };
+    }
+    reportDbError('[dbGuardarConexionWhatsappEmbeddedSignup]', error);
+    return { ok: false, error: 'No se pudo guardar la conexión de WhatsApp.' };
+  }
+  return { ok: true };
+}
+
 
