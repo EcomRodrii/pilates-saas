@@ -1084,7 +1084,11 @@ export function mapVentaPOS(r: RowVentasPos): VentaPOS {
 // `Omit<..., 'config'>` a propósito: la consulta del panel ya no pide `config`,
 // y declararlo así hace que el compilador cace cualquier intento de volver a
 // leer las credenciales desde aquí.
-export function mapIntegracion(r: Omit<RowIntegraciones, 'config'>): Integracion {
+// `phone_number_id` (como `config`) se excluye a propósito: el arranque del
+// panel no selecciona esa columna (solo WhatsApp la usa, y solo el webhook y
+// el callback de Embedded Signup la leen, nunca el bootstrap del cliente) —
+// exigirla aquí rompería la query real, que sigue sin pedirla.
+export function mapIntegracion(r: Omit<RowIntegraciones, 'config' | 'phone_number_id'>): Integracion {
   return {
     id: r.id,
     studioId: r.studio_id,
