@@ -5,19 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCore } from '@/lib/core-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 
-/**
- * La raíz del portal: siempre a `/acceso`.
- *
- * ⚠️ RETIRADO (decisión del fundador, 2026-08-27): esto montaba la bienvenida
- * del kit de temas (`components/portal/portal-tema-marco.tsx`), borrado en el
- * PR 2 de "borrar temas del kit". Esa rama ya era inalcanzable desde el PR 1
- * (`esTemaPortal()` devolvía siempre `false`, así que `sinKit` era siempre
- * `true`) — este componente YA redirigía siempre a `/acceso` en la práctica.
- * Con `PortalTemaMarco` borrado, la última línea (`return <PortalTemaMarco
- * .../>`) tampoco podía compilar, así que se retira aquí junto con el resto
- * de la rama muerta. La versión "de siempre" (sin bienvenida propia, directo
- * a `/acceso`) es PR 3 si se quiere simplificar más a fondo.
- */
+/** La raíz del portal: siempre a `/acceso`. */
 export function PortalRaiz({ slug }: { slug: string }) {
   const router = useRouter();
   // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.

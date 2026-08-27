@@ -148,17 +148,6 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const activeIndex = NAV.findIndex(({ seg }) =>
     seg === segActual || pathname.startsWith(`/portal/${slug}/${seg}`));
 
-  // ⚠️ RETIRADO (decisión del fundador, 2026-08-27): el portal en React (el
-  // kit de diseño) se borró en el PR 2 de "borrar temas del kit"
-  // (`components/portal-tema/`, `components/portal/portal-tema-marco.tsx`,
-  // `themes/registro.ts`). Esta rama ya montaba SIEMPRE el portal de siempre
-  // desde el PR 1 (`esTemaPortal()` devolvía ya siempre `false`), así que no
-  // se pierde ningún comportamiento real al retirarla — pero ahora, con el
-  // propio `PortalTemaMarco` borrado, ya no puede ni compilar tal cual, así
-  // que aquí se quita el bloque entero (no solo la condición), a diferencia
-  // del resto de "solo evitar el import roto" de este PR. `PushPrompt` no se
-  // pierde: sigue montado en la rama de siempre, más abajo.
-
   return (
     <div className="fixed inset-0" style={{ background: t.bg }}>
       <div

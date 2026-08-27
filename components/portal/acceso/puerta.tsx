@@ -144,10 +144,6 @@ export function PuertaPortal() {
   }, [vueltaDeGoogle, session, slug, router]);
 
   // ── La bienvenida, una vez por dispositivo ───────────────────────────────
-  // ⚠️ RETIRADO (decisión del fundador, 2026-08-27): la exclusión "con un tema
-  // del KIT no se pinta" ya no aplica — el kit se borró en el PR 2 de "borrar
-  // temas del kit" y `esTemaPortal()` devolvía siempre `false` desde el PR 1.
-  //
   // ⚠️ El OR con `tabBarStyle` NO es redundante: los estudios que YA instalaron
   // Editorial tienen `tabBarStyle: 'pestanaActiva'` guardado y ningún
   // `variantes` (`defaults` no es retroactivo). Sin él perderían la bienvenida

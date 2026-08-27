@@ -100,11 +100,10 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
     // Dos cargas completas de la ruta (la de arriba y la del iframe) más la
     // compilación de `next dev` no caben en el presupuesto por defecto.
     test.slow();
-    // `retos` va OCULTO por defecto (SISTEMA_OCULTO_POR_DEFECTO en
-    // lib/portal-home-bloques.ts) y es el bloque donde se ve el eje `retos`,
-    // así que se publica desde el mock en vez de encenderlo por el canal de
-    // bloques: lo que se prueba aquí es el canal del TEMA, y mezclar los dos
-    // haría que un fallo en el otro se leyera como un fallo de este.
+    // `retos` es el bloque donde se ve el eje `retos`, así que se publica
+    // desde el mock en vez de depender de que el rail lo tenga visible: lo
+    // que se prueba aquí es el canal del TEMA, y mezclar los dos haría que un
+    // fallo en el otro se leyera como un fallo de este.
     await montarPortal(page, {
       conSesion: false,
       homeBloques: [
