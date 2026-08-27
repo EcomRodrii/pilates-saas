@@ -11,7 +11,14 @@ import { paletaPortalCssText } from '@/lib/portal-paleta';
 //
 // Va primero la paleta neutra del portal y DESPUÉS el tema del estudio, para
 // que el color de marca gane si algún día ambos declararan la misma variable.
-export async function ThemeStyle({ slug }: { slug: string }) {
+//
+// `paletaCssText`: qué neutros (`--portal-bg`/`-surface`/`-ink`...) usar de
+// base. Por defecto `paletaPortalCssText` (la del portal PRIVADO de la
+// clienta) — cero cambio para `/portal/[slug]` y `/portal-preview/[slug]`.
+// `/reservar/[slug]/layout.tsx` pasa `paletaReservarCssText`: es un contexto
+// de marca distinto a propósito (`.claude/tentare-os.md` "Arquitectura de
+// marca"), con su propia paleta desde el rediseño de 2026-08-26.
+export async function ThemeStyle({ slug, paletaCssText = paletaPortalCssText }: { slug: string; paletaCssText?: () => string }) {
   const studio = await getStudioSeo(slug);
   if (!studio) return null;
   const theme = await getThemePublicado(studio.id);
@@ -35,7 +42,7 @@ export async function ThemeStyle({ slug }: { slug: string }) {
 
   return (
     <>
-      <style id="studio-theme" dangerouslySetInnerHTML={{ __html: `${paletaPortalCssText()}\n${themeToCssText(theme, ':root')}` }} />
+      <style id="studio-theme" dangerouslySetInnerHTML={{ __html: `${paletaCssText()}\n${themeToCssText(theme, ':root')}` }} />
       {kit ? <style id="studio-theme-kit" dangerouslySetInnerHTML={{ __html: kit }} /> : null}
     </>
   );

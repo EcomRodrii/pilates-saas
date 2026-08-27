@@ -1,6 +1,7 @@
 import type { Reserva, Sesion, Suscripcion, PlanTarifa, TipoClase, Sala, Instructor } from './types.ts';
 import type { RachaInfo } from './engines/streak-engine.ts';
-import { planCubreTipoClase } from './bono-logic.ts';
+import { planCubreTipoClase, tieneEntitlementActivo } from './bono-logic.ts';
+import { hoyEnEstudio } from './utils.ts';
 
 // ¿Esta socia puede reservar sin pagar por clase suelta ahora mismo? — true si
 // tiene una suscripción activa que cubre la sesión: mensual ilimitado, o bono
@@ -196,6 +197,60 @@ export interface AccesoRapido {
  * cambiar CUÁLES son es una decisión de producto, no del tema, así que aquí se
  * mantienen los de la app y solo cambia la FORMA.
  */
+export interface HuecoHoy {
+  sesion: Sesion;
+  libres: number;
+}
+
+/**
+ * Las clases de HOY con plazas libres que la socia podría reservar de
+ * verdad, según lo que cubre su plan/bono — "Huecos de hoy" en Inicio.
+ *
+ * Mismo criterio de ocupación que la RPC `reservar_plaza` y `sugirirClase`
+ * (lib/portal-sugerencias.ts): CONFIRMADA/ASISTIDA/NO_ASISTIO ocupan plaza,
+ * lista de espera y pendientes de aprobación no. La fecha se compara en
+ * hora LOCAL del estudio (`hoyEnEstudio`), no en UTC — una clase de las
+ * 23:30 en Madrid sigue siendo "hoy" en Madrid mucho después de que UTC
+ * haya cruzado la medianoche (mismo gotcha ya documentado en Decision OS,
+ * `franjaLocalDe`/`claveFranjaDe`).
+ *
+ * `socioId` nulo (sin sesión real — p.ej. /portal-preview de staff) da
+ * siempre vacío: no hay "su plan" que consultar, y ofrecer huecos sin saber
+ * si los cubre sería peor que no ofrecer nada (mismo principio que
+ * `sugirirClase`).
+ */
+export function huecosHoy({
+  now, socioId, sesiones, reservas, suscripciones, planesTarifa,
+}: {
+  now: Date;
+  socioId: string | null;
+  sesiones: Sesion[];
+  reservas: Reserva[];
+  suscripciones: Suscripcion[];
+  planesTarifa: PlanTarifa[];
+}): HuecoHoy[] {
+  if (!socioId) return [];
+  const hoyStr = hoyEnEstudio(now);
+
+  const ocupadas = new Map<string, number>();
+  for (const r of reservas) {
+    if (r.estado !== 'CONFIRMADA' && r.estado !== 'ASISTIDA' && r.estado !== 'NO_ASISTIO') continue;
+    ocupadas.set(r.sesionId, (ocupadas.get(r.sesionId) ?? 0) + 1);
+  }
+  const libresDe = (s: Sesion) => s.aforoMaximo - (ocupadas.get(s.id) ?? 0);
+
+  return sesiones
+    .filter(s => {
+      if (s.cancelada) return false;
+      const inicio = new Date(s.inicio);
+      if (inicio <= now || hoyEnEstudio(inicio) !== hoyStr) return false;
+      if (libresDe(s) <= 0) return false;
+      return tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyStr, s.tipoClaseId);
+    })
+    .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime())
+    .map(s => ({ sesion: s, libres: libresDe(s) }));
+}
+
 export function accesosRapidosDe({ slug, portalHref, proximas, totalAsistidas, sinLeer, nInstructoras }: {
   slug: string;
   /**

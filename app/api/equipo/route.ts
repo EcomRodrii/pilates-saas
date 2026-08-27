@@ -15,7 +15,7 @@ async function handleRequest(req: NextRequest, method: string) {
     const result = await equipoAction({ ...body, method });
     return NextResponse.json(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Error procesando la solicitud';
+    const message = (error as Error)?.message || 'Error procesando la solicitud';
     let status = 500;
 
     if (message.includes('No autorizado')) status = 401;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cargarDatosPublicos } from '@/lib/api-client';
 import { postPublicoWidget } from '@/lib/reservar/api-publica';
 import { construirSlots, type FiltrosSlots } from '@/lib/reservar/construir-slots';
@@ -59,13 +59,18 @@ const VACIO: DatosCrudos = {
 // origen si no se les da explícitamente el de Tentare. Ver
 // app/widget-bundle/main.tsx, que lo resuelve del propio <script src="...">.
 export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosSlots) {
-  const { socia, usuarioEmail, autenticado, refrescar: refrescarSesion } = useSesionWidget(slug, baseUrl);
+  const { socia, usuarioEmail, autenticado, isLoading: sesionCargando, refrescar: refrescarSesion } = useSesionWidget(slug, baseUrl);
   const [datos, setDatos] = useState<DatosCrudos>(VACIO);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const recargar = useCallback(() => {
-    setCargando(true);
+  // `silencioso`: el tic de refresco periódico (más abajo) no debe tapar el
+  // calendario con el estado de carga en cada pasada — eso convertiría "una
+  // clase nueva aparece sola" en "el widget parpadea cada minuto". Los
+  // callers de siempre (montaje, tras reservar/cancelar/etc.) siguen
+  // pidiendo el loading visible, que sí tiene sentido ahí.
+  const recargar = useCallback((opts?: { silencioso?: boolean }) => {
+    if (!opts?.silencioso) setCargando(true);
     cargarDatosPublicos(slug, { liviano: true, baseUrl }).then(pub => {
       if (!pub || pub.error) { setError('No se ha podido cargar el estudio.'); setCargando(false); return; }
       const aforo: Reserva[] = (pub.aforoReservas ?? []).map(
@@ -102,17 +107,44 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     recargar();
   }, [recargar]);
 
+  // BUG del calendario que no se enteraba de una clase nueva: Modo B (este
+  // hook) solo cargaba una vez al montar y tras acciones de la propia
+  // socia — sin listener de `visibilitychange`/foco como Modo A (ese vive en
+  // studio-context.tsx, que este bundle no usa a propósito, ver el
+  // comentario "liviano" arriba). Sin ningún tic, un widget embebido que
+  // alguien deja mirando en la web del estudio nunca ve una clase nueva.
+  // Silencioso (no toca `cargando`) y se salta el tic con la pestaña oculta.
+  const recargarRef = useRef(recargar);
+  useEffect(() => { recargarRef.current = recargar; });
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      recargarRef.current({ silencioso: true });
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   // `Date.now()` es impuro — no puede llamarse dentro del cuerpo de un
   // `useMemo` (regla de pureza de React Compiler) ni siquiera en un
   // inicializador perezoso de `useState` (también se ejecuta durante el
   // render). Mismo patrón que `now`/`FECHA_PLACEHOLDER_SSR` en
   // app/reservar/[slug]/page.tsx: placeholder fijo al render inicial, valor
-  // real fijado en un efecto tras montar. A diferencia de esa página no hace
-  // falta que se actualice sola (sin reloj en pantalla) — un valor por carga basta.
+  // real fijado en un efecto tras montar.
   const [nowMs, setNowMs] = useState(0);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: Date.now() no puede llamarse en render. El segundo render es el objetivo.
     setNowMs(Date.now());
+    // Y con reloj de un minuto, igual que el Modo A. Aquí ponía que "un valor
+    // por carga basta, no hay reloj en pantalla", y era falso por el motivo
+    // equivocado: de `nowMs` sale `slots`, que filtra
+    // `inicio > nowMs` (lib/reservar/construir-slots.ts). Justo encima, este
+    // mismo hook recarga los datos cada 60 s — o sea que un widget embebido en
+    // la web de un estudio y dejado abierto traía clases frescas y las medía
+    // contra la hora del montaje, ofreciendo clases ya empezadas que el
+    // servidor luego rechaza (MENSAJE_CLASE_YA_EMPEZADA). Es el bug que el
+    // Modo A arregló y que a este lado no llegó.
+    const id = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(id);
   }, []);
 
   const slots = useMemo<ReservaSlot[]>(() => construirSlots({
@@ -127,7 +159,16 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     const r = await postPublicoWidget(`${baseUrl}/api/public/reserva`, {
       accion: 'crear', studioId: datos.studioId, sesionId: slot.id, socioId: socia.socioId, email: socia.email, spotId,
     }, { studioId: datos.studioId });
-    recargar();
+    // `{silencioso:true}` NO es cosmético: sin él, `recargar()` pone `cargando`
+    // a true y app/widget-bundle/main.tsx sustituye el árbol entero por el
+    // esqueleto, DESMONTANDO <ReservaCalendario> en el mismo lote de estado en
+    // que la hoja iba a pintar «¡Reserva confirmada!» o el motivo del rechazo.
+    // Resultado: la socia pulsaba Reservar, veía un parpadeo y el calendario
+    // volvía sin ficha, sin confirmación y sin error — un «no» del servidor
+    // (sin bono, tope semanal, clase ya empezada) se perdía en silencio.
+    // `cargando` es SOLO para la carga inicial. Aplica a las CUATRO acciones,
+    // incluida la de perfil: mi-perfil.tsx pinta «Guardado.» tras el await.
+    recargar({ silencioso: true });
     if (!r.ok) return { ok: false, error: r.error };
     const estado = (r.datos as { estado?: string } | null)?.estado;
     return { ok: true, estado: estado === 'LISTA_ESPERA' ? 'LISTA_ESPERA' : 'CONFIRMADA' };
@@ -138,7 +179,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     const r = await postPublicoWidget(`${baseUrl}/api/public/reserva`, {
       accion: 'cancelar', studioId: datos.studioId, reservaId,
     }, { studioId: datos.studioId });
-    recargar();
+    recargar({ silencioso: true }); // mismo motivo que en onReservar
     return r;
   }, [socia, datos.studioId, recargar, baseUrl]);
 
@@ -148,7 +189,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     const r = await postPublicoWidget(`${baseUrl}/api/public/aceptar-oferta-espera`, {
       studioId: datos.studioId, reservaId,
     }, { studioId: datos.studioId });
-    recargar();
+    recargar({ silencioso: true }); // mismo motivo que en onReservar
     return r;
   }, [socia, datos.studioId, recargar, baseUrl]);
 
@@ -160,7 +201,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     const r = await postPublicoWidget(`${baseUrl}/api/public/socio`, {
       accion: 'actualizar', studioId: datos.studioId, cambios,
     }, { studioId: datos.studioId });
-    recargar();
+    recargar({ silencioso: true }); // mismo motivo que en onReservar
     return r;
   }, [socia, datos.studioId, recargar, baseUrl]);
 
@@ -198,7 +239,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
   }, [socia, datos.studioId, baseUrl]);
 
   return {
-    slots, cargando, error, socia, usuarioEmail, autenticado, refrescarSesion,
+    slots, cargando, error, socia, usuarioEmail, autenticado, sesionCargando, refrescarSesion,
     studioId: datos.studioId || null,
     politicaPrivacidad: datos.politicaPrivacidad, terminosServicio: datos.terminosServicio,
     sesiones: datos.sesiones, tiposClase: datos.tiposClase, salas: datos.salas, instructores: datos.instructores,

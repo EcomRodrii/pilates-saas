@@ -48,6 +48,19 @@ export const NW_ESTRELLA = '#C99A3C';
 // hex hoy, ahora también el mismo origen.
 export const NW_PRODUCTO = 'var(--brand)';
 
+// Segundo acento de marca — la arena del kit oliva/arena (docs/marca/), no
+// un tono nuevo. Mismo criterio de cita-por-variable que NW_PRODUCTO/NW_TINTA
+// de arriba: `--brand-foreground` es el "texto sobre oliva" ya definido en
+// app/globals.css (el mismo D9C29E que btnCta usa en la landing principal),
+// así que Network toma su segundo acento del mismo sitio que ya usa el resto
+// de la app en vez de inventar un hex propio. Rediseño 2026-08-26: la página
+// solo usaba oliva/negro/crema — un único tono de acento para TODO (eyebrows,
+// links, puntos, iconos) es justo lo que hacía sentir la marca plana. La
+// arena entra como acento CÁLIDO secundario (badges, cifras destacadas,
+// detalles sobre fondos oscuros) — el oliva (NW_PRODUCTO) sigue siendo el
+// acento principal de acción (CTAs, enlaces).
+export const NW_ARENA = 'var(--brand-foreground)';
+
 // Tarjeta "sin Network" de la sección Problema (/network) — el único sitio
 // que usa este tono neutro apagado, distinto de NW_MUTED (que sí se repite
 // en toda la página). Centralizado aquí tras la auditoría del sistema de

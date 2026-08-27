@@ -84,6 +84,7 @@ import type {
   RowRetoParticipaciones,
   RowContenidoPortal,
   RowContenidoPortalBanners,
+  RowNovedadesEstudio,
   RowUsuarios,
   RowVentasPos,
   RowVideosOnDemand,
@@ -155,6 +156,7 @@ import type {
   RetoParticipacion,
   ContenidoPortal,
   BannerPortal,
+  NovedadEstudio,
   UbicacionBannerPortal,
   Usuario,
   VentaPOS,
@@ -920,6 +922,19 @@ export function mapBannerPortal(r: RowContenidoPortalBanners): BannerPortal {
     ubicacion: (r.ubicacion ?? []) as UbicacionBannerPortal[],
     activo: r.activo,
     orden: r.orden,
+    fechaInicio: r.fecha_inicio ?? null,
+    fechaFin: r.fecha_fin ?? null,
+  };
+}
+
+export function mapNovedadEstudio(r: RowNovedadesEstudio): NovedadEstudio {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    titulo: r.titulo,
+    texto: r.texto ?? null,
+    emoji: r.emoji ?? null,
+    activo: r.activo,
     fechaInicio: r.fecha_inicio ?? null,
     fechaFin: r.fecha_fin ?? null,
   };
@@ -3755,6 +3770,41 @@ export async function dbDeleteBannerPortal(id: string): Promise<ResultadoEscritu
   return error ? falloEscritura('[dbDeleteBannerPortal]', error) : ESCRITURA_OK;
 }
 
+// ─── Tablón (novedades_estudio) ─────────────────────────────────────────────
+// Avisos de texto libre del portal — mismo patrón CRUD que los banners de
+// arriba, pero sin imagen/enlace obligatorios (supabase/migrations/*_novedades_estudio.sql).
+// Solo PROPIETARIO/MANAGER escriben (RLS `admin_novedades_estudio`).
+
+function novedadEstudioToDb(n: Omit<NovedadEstudio, 'id'> & { id?: string }) {
+  return {
+    ...(n.id ? { id: n.id } : {}),
+    studio_id: n.studioId, titulo: n.titulo, texto: n.texto, emoji: n.emoji,
+    activo: n.activo, fecha_inicio: n.fechaInicio, fecha_fin: n.fechaFin,
+  };
+}
+
+export async function dbInsertNovedadEstudio(n: NovedadEstudio): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('novedades_estudio').insert(novedadEstudioToDb(n));
+  return error ? falloEscritura('[dbInsertNovedadEstudio]', error) : ESCRITURA_OK;
+}
+
+export async function dbUpdateNovedadEstudio(id: string, changes: Partial<NovedadEstudio>): Promise<ResultadoEscritura> {
+  const db: Record<string, unknown> = {};
+  if ('titulo' in changes) db.titulo = changes.titulo;
+  if ('texto' in changes) db.texto = changes.texto;
+  if ('emoji' in changes) db.emoji = changes.emoji;
+  if ('activo' in changes) db.activo = changes.activo;
+  if ('fechaInicio' in changes) db.fecha_inicio = changes.fechaInicio;
+  if ('fechaFin' in changes) db.fecha_fin = changes.fechaFin;
+  const { error } = await supabase.from('novedades_estudio').update(db).eq('id', id);
+  return error ? falloEscritura('[dbUpdateNovedadEstudio]', error) : ESCRITURA_OK;
+}
+
+export async function dbDeleteNovedadEstudio(id: string): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('novedades_estudio').delete().eq('id', id);
+  return error ? falloEscritura('[dbDeleteNovedadEstudio]', error) : ESCRITURA_OK;
+}
+
 // ─── Salas ───────────────────────────────────────────────────────────────────
 // Hasta ahora las salas SOLO se leían: `addSala`/`updateSala`/`deleteSala` del
 // contexto mutaban el estado local y no existía ninguna escritura en todo el
@@ -4506,6 +4556,9 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // necesita `sid` — lo que necesita los planes ya cargados es el cruce en
     // memoria, no la consulta.
     planTiposClaseRes,
+    // Añadido AL FINAL del mismo modo que bannersPortalRes de arriba —
+    // desestructurado posicional, así que va después de todo lo existente.
+    novedadesEstudioRes,
   ] = await enTandas([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
@@ -4589,6 +4642,9 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // fetchPublicStudioData.
     db.from('contenido_portal_banners').select('*').eq('studio_id', sid).order('orden', { ascending: true }),
     db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', sid),
+    // Sin filtrar por activo: mismo criterio que contenido_portal_banners —
+    // el editor necesita ver también los inactivos/caducados para gestionarlos.
+    db.from('novedades_estudio').select('*').eq('studio_id', sid).order('created_at', { ascending: false }),
   ]);
 
   // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que
@@ -4615,6 +4671,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
     contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
     bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
+    novedadesEstudio: (novedadesEstudioRes.data ?? []).map((r) => mapNovedadEstudio(r as RowNovedadesEstudio)),
     instructores: (instructoresRes.data ?? []).map(mapInstructor),
     sesiones: (sesionesRes.data ?? []).map(mapSesion),
     reservas: (reservasRes.data ?? []).map(mapReserva),

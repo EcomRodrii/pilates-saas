@@ -13,6 +13,7 @@ import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, t
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
+import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { LEGAL } from '@/lib/legal-info';
 import { decidirCierreDeEspera, suscripcionDeReservaWeb, PREFIJO_RESERVA_WEB } from '@/lib/lista-espera/esperas-sin-plaza';
@@ -40,6 +41,7 @@ import type {
   RowRetoParticipaciones,
   RowContenidoPortal,
   RowContenidoPortalBanners,
+  RowNovedadesEstudio,
   RowFacturas,
   RowInstructores,
   RowMemberCredits,
@@ -99,6 +101,7 @@ import {
   mapRetoParticipacion,
   mapContenidoPortal,
   mapBannerPortal,
+  mapNovedadEstudio,
   mapServicioCita,
   mapSpot,
   mapTipoClase,
@@ -505,9 +508,9 @@ export async function fetchPublicStudioData(
     // su propio Promise.all de tamaño fijo en vez de mezclarse con el de arriba.
     const [
       videosRes, rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
-      contenidoPortalRes, bannersPortalRes, retoParticipRes, horarioRes,
+      contenidoPortalRes, bannersPortalRes, novedadesRes, retoParticipRes, horarioRes,
     ] = liviano
-      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
+      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
       : await Promise.all([
         admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
         admin.from('reward_rules').select('*').eq('studio_id', studioId),
@@ -523,6 +526,12 @@ export async function fetchPublicStudioData(
         admin.from('contenido_portal_banners').select('*')
           .eq('studio_id', studioId).eq('activo', true).contains('ubicacion', ['home'])
           .order('orden', { ascending: true }),
+        // Mismo criterio que los banners de arriba: `activo` se filtra en SQL,
+        // la ventana fecha_inicio/fecha_fin en el cliente (mismo motivo — "hoy"
+        // depende del momento de carga, no de cuándo se llenó este caché).
+        admin.from('novedades_estudio').select('*')
+          .eq('studio_id', studioId).eq('activo', true)
+          .order('created_at', { ascending: false }),
         // `getLayout` YA NO va aquí — ver el comentario junto a `temaPublicado`
         // más abajo, donde se pide FUERA de este caché de 60s.
         // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
@@ -552,28 +561,33 @@ export async function fetchPublicStudioData(
     // Mismo motivo que en el panel: el portal decide con esto si una clase
     // está incluida en el bono o hay que enseñar precio de suelta.
     const planesConTiposPub = await hidratarTiposDePlanes(admin as never, studioId, (planesRes.data ?? []).map(mapPlanTarifa));
+
+    // La media por instructora, agregada AQUÍ y no en la pantalla: al kit le
+    // llega la nota ya hecha con su número de valoraciones, y quien la pinta
+    // solo decide si la enseña (ver `valoracionParaPantalla`). Se calcula una
+    // vez y se reutiliza para la nota del ESTUDIO (`valoracionEstudio`, "Tu
+    // estudio" en Inicio): sumarla en el otro sentido (media × total de cada
+    // instructora) da los mismos puntos sin releer `valoraciones` fila a fila.
+    const sumaValoraciones = new Map<string, { total: number; puntos: number }>();
+    for (const v of (valoracionesRes.data ?? []) as { instructor_id: string; puntuacion: number }[]) {
+      if (!v.instructor_id || typeof v.puntuacion !== 'number') continue;
+      const a = sumaValoraciones.get(v.instructor_id) ?? { total: 0, puntos: 0 };
+      a.total += 1; a.puntos += v.puntuacion;
+      sumaValoraciones.set(v.instructor_id, a);
+    }
+    const instructoresPub = (instructoresRes.data ?? []).map((r) => {
+      const base = mapInstructorPublico(r as RowInstructores);
+      const a = sumaValoraciones.get(base.id);
+      return a && a.total > 0
+        ? { ...base, valoracion: { media: a.puntos / a.total, total: a.total } }
+        : base;
+    });
+
     return {
       tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
       salas: (salasRes.data ?? []).map(mapSala),
-      instructores: (() => {
-        // La media por instructora, agregada AQUÍ y no en la pantalla: al kit le
-        // llega la nota ya hecha con su número de valoraciones, y quien la pinta
-        // solo decide si la enseña (ver `valoracionParaPantalla`).
-        const suma = new Map<string, { total: number; puntos: number }>();
-        for (const v of (valoracionesRes.data ?? []) as { instructor_id: string; puntuacion: number }[]) {
-          if (!v.instructor_id || typeof v.puntuacion !== 'number') continue;
-          const a = suma.get(v.instructor_id) ?? { total: 0, puntos: 0 };
-          a.total += 1; a.puntos += v.puntuacion;
-          suma.set(v.instructor_id, a);
-        }
-        return (instructoresRes.data ?? []).map((r) => {
-          const base = mapInstructorPublico(r as RowInstructores);
-          const a = suma.get(base.id);
-          return a && a.total > 0
-            ? { ...base, valoracion: { media: a.puntos / a.total, total: a.total } }
-            : base;
-        });
-      })(),
+      instructores: instructoresPub,
+      valoracionEstudio: valoracionEstudio(instructoresPub),
       spots: (spotsRes.data ?? []).map(mapSpot),
       // El horario de apertura, para «Información del centro». Vacío en el
       // modo `liviano` (el widget no lo pide) — misma forma del objeto, como
@@ -593,6 +607,7 @@ export async function fetchPublicStudioData(
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
       contenidoPortal: contenidoPortalRes?.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
       bannersPortal: (bannersPortalRes?.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
+      novedadesEstudio: (novedadesRes?.data ?? []).map((r) => mapNovedadEstudio(r as RowNovedadesEstudio)),
       // `portalHome`/`reservar`/`homeBloques`/`bloquesClases`/`bloquesBonos`/
       // `bloquesReservar` YA NO viven aquí — ver `camposLayout` más abajo,
       // construido con un `getLayout` pedido FUERA de este caché de 60s.
@@ -677,6 +692,15 @@ export async function fetchPublicStudioData(
     // Barra clásica (Oliva/Noir): decisión de LAYOUT que portal-shell.tsx toma
     // con JS (position flotante o no), no algo que una CSS var pueda decidir.
     barraClasica: temaPublicado?.barraClasica ?? null,
+    // Su gemela, que se quedó fuera de este payload: `studio-context` hace
+    // `setBarraFlotante(pub.barraFlotante === true)` y `pub.barraFlotante` era
+    // SIEMPRE undefined, así que la rama 'floating' de portal-tema-marco.tsx era
+    // código muerto en producción. El interruptor «Barra flotante» sí cambiaba
+    // el PREVIEW, porque ahí el valor llega por el otro carril
+    // (lib/theme-preview-puente.ts) — o sea que el editor enseñaba una cosa y el
+    // portal de las socias hacía otra, en los tres temas cuyo tab_bar_style de
+    // fábrica es 'classic' (Tentada, Oliva, Noir).
+    barraFlotante: temaPublicado?.barraFlotante ?? null,
     // Accesos rápidos del Inicio — solo temas del kit. `null` real (hereda
     // del tema) es un valor válido, no "sin dato": por eso NO se colapsa a
     // `?? null` sobre `null` como si fuera ausencia (sería un no-op, pero

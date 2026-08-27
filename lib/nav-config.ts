@@ -45,7 +45,6 @@ const allSections: NavSection[] = [
     items: [
       { href: '/calendario', label: 'Calendario', icon: Calendar },
       { href: '/citas', label: 'Citas', icon: Clock },
-      { href: '/sustituciones', label: 'Sustituciones', icon: Replace },
     ],
   },
   {
@@ -73,6 +72,16 @@ const allSections: NavSection[] = [
     label: 'Estudio',
     items: [
       { href: '/equipo', label: 'Equipo', icon: UserCog },
+      // Sustituciones se traslada aquí (P1 de la auditoría 2026-08-25,
+      // "unificar sustituciones"): vivía en la sección "Clases", separada de
+      // Tentare Network, aunque las dos resuelven la misma pregunta —
+      // "necesito a alguien" — solo que una busca dentro (candidatas ya
+      // conocidas del estudio) y la otra fuera (marketplace). Fusión
+      // deliberadamente SOLO visual: la ruta, los permisos y el motor de
+      // sustituciones (que ya distingue candidatas internas de las de
+      // Network sin fusionar sus rankings, ver lib/network/
+      // candidatos-sustitucion.ts) no se tocan.
+      { href: '/sustituciones', label: 'Sustituciones', icon: Replace },
       // Buscador de candidatas de Tentare Network — herramienta de
       // contratación de la propietaria/manager/recepción, NO donde una
       // instructora gestiona su propio perfil (eso se mudó fuera del panel,

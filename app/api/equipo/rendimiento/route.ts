@@ -6,7 +6,6 @@ export async function GET(_req: NextRequest) {
     const result = await equipoRendimientoAction();
     return NextResponse.json(result);
   } catch (error) {
-    const mensaje = error instanceof Error ? error.message : 'Error';
-    return NextResponse.json({ error: mensaje }, { status: 500 });
+    return NextResponse.json({ error: (error as Error)?.message || 'Error' }, { status: 500 });
   }
 }

@@ -18,7 +18,7 @@ function getInitials(nombre: string) {
 
 export default function InstructoresPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { instructores, tiposClase } = useStudio();
+  const { instructores, sesiones, tiposClase } = useStudio();
   const { t } = useModo();
 
   const instructoresActivos = queImparten(instructores);
@@ -43,7 +43,10 @@ export default function InstructoresPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
           {instructoresActivos.map(instructor => {
-            const clasesInstructor = tiposClase.filter(tc => tc.studioId === instructor.studioId);
+            const idsImpartidos = new Set(
+              sesiones.filter(s => s.instructorId === instructor.id && !s.cancelada).map(s => s.tipoClaseId),
+            );
+            const clasesInstructor = tiposClase.filter(tc => idsImpartidos.has(tc.id));
             return (
               <div
                 key={instructor.id}
@@ -76,13 +79,22 @@ export default function InstructoresPage() {
                   </div>
                 )}
 
-                <Link
-                  href={`/portal/${slug}/clases`}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 14, border: `1px solid ${t.heroAccent}4d`, color: t.heroAccent, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
-                >
-                  <span>Ver clases</span>
-                  <ChevronRight size={15} />
-                </Link>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Link
+                    href={`/portal/${slug}/instructores/${instructor.id}`}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 14, border: `1px solid ${t.line}`, color: t.ink, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+                  >
+                    <span>Su perfil</span>
+                    <ChevronRight size={15} />
+                  </Link>
+                  <Link
+                    href={`/portal/${slug}/clases`}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 14, border: `1px solid ${t.heroAccent}4d`, color: t.heroAccent, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+                  >
+                    <span>Ver clases</span>
+                    <ChevronRight size={15} />
+                  </Link>
+                </div>
               </div>
             );
           })}

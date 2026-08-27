@@ -64,7 +64,7 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
       onClick={onVerPendiente}
       className="max-w-sm text-[12.5px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
     >
-      Nada cruza el umbral hoy, pero tienes {totalPendiente} {totalPendiente === 1 ? 'situación' : 'situaciones'} en seguimiento.
+      Nada cruza el umbral hoy. Tienes {totalPendiente} {totalPendiente === 1 ? 'situación' : 'situaciones'} en seguimiento — {totalPendiente === 1 ? 'no necesita' : 'ninguna necesita'}, de momento, tu criterio.
     </button>
   );
 

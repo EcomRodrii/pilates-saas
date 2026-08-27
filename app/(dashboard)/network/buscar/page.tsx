@@ -111,8 +111,8 @@ export default function NetworkBuscadorPage() {
   // (p.ej. "Cerca de mí" activo pero orden por precio elegido a mano).
   const resultadosOrdenados = posicion
     ? ordenarPorEfectivo === 'cercania'
-      ? ordenarPorCercania(resultados, p => distanciaDePerfil(p.ciudad, posicion))
-      : resultados.map(item => ({ item, distanciaKm: distanciaDePerfil(item.ciudad, posicion) }))
+      ? ordenarPorCercania(resultados, p => distanciaDePerfil(p, posicion))
+      : resultados.map(item => ({ item, distanciaKm: distanciaDePerfil(item, posicion) }))
     : resultados.map(item => ({ item, distanciaKm: null as number | null }));
 
   return (

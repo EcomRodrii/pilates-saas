@@ -13,6 +13,9 @@
 //     (app/api/network/buscar, app/api/network/perfil/[id]), que solo
 //     añaden el guard de sesión de staff por encima.
 import type { SupabaseClient } from '@supabase/supabase-js';
+// Relativo y con `.ts` explícita: este módulo tiene test unitario y el runner
+// de `node --test` no resuelve ni el alias `@/` ni las rutas sin extensión.
+import { escaparLike } from '../escapar-like.ts';
 import {
   mapFilaAPerfilPublico, mapFilaAExperienciaPublica,
   type FilaRedPerfilPublica, type FilaRedExperiencia,
@@ -189,7 +192,7 @@ export async function buscarPerfilesPublico(
     .order('actualizado_en', { ascending: false })
     .limit(LIMITE_RESULTADOS);
 
-  if (filtro.ciudad) query = query.ilike('ciudad', `%${filtro.ciudad}%`);
+  if (filtro.ciudad) query = query.ilike('ciudad', `%${escaparLike(filtro.ciudad)}%`);
   if (filtro.especialidades.length > 0) query = query.overlaps('especialidades', filtro.especialidades);
   if (filtro.disponibilidad.length > 0) query = query.in('disponibilidad_estado', filtro.disponibilidad);
   if (filtro.horarios.length > 0) query = query.overlaps('disponibilidad_horarios', filtro.horarios);

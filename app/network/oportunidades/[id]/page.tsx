@@ -2,11 +2,13 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Check } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, SearchX } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { fetchVacanteNetwork, aplicarVacanteNetwork, fetchMisCandidaturasNetwork } from '@/lib/api-client';
 import { TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, ESPECIALIDAD_LABEL, HORARIO_LABEL } from '@/lib/network/catalogo';
 import type { VacanteNetwork } from '@/lib/network/tipos';
-import { cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls, inputCls } from '@/components/network/campo-estilos';
 
 export default function OportunidadDetalleNetworkPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -51,9 +53,7 @@ export default function OportunidadDetalleNetworkPage({ params }: { params: Prom
         <Link href="/network/oportunidades" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
           <ArrowLeft size={14} /> Volver a oportunidades
         </Link>
-        <div className={`${cardCls} p-8 text-center`}>
-          <p className="text-[13px] text-muted-foreground">Esta vacante ya no está disponible.</p>
-        </div>
+        <EmptyState icono={SearchX} titulo="Esta vacante ya no está disponible." />
       </div>
     );
   }
@@ -64,12 +64,10 @@ export default function OportunidadDetalleNetworkPage({ params }: { params: Prom
         <ArrowLeft size={14} /> Volver a oportunidades
       </Link>
 
-      <div>
-        <h1 className="text-[20px] font-bold text-foreground">{vacante.titulo}</h1>
-        <p className="text-[13px] text-muted-foreground">
-          {vacante.estudioNombre}{vacante.estudioCiudad ? ` · ${vacante.estudioCiudad}` : ''}
-        </p>
-      </div>
+      <PageHeader
+        title={vacante.titulo}
+        description={`${vacante.estudioNombre}${vacante.estudioCiudad ? ` · ${vacante.estudioCiudad}` : ''}`}
+      />
 
       <div className={`${cardCls} p-6 space-y-3`}>
         <p className="text-[13px] text-foreground whitespace-pre-line">{vacante.descripcion}</p>

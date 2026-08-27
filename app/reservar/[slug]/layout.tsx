@@ -11,6 +11,7 @@ import { PaginaOculta } from '@/components/publico/pagina-oculta';
 import { ThemeStyle } from '@/components/theme-style';
 import { ThemePreviewListener } from '@/components/theme/theme-preview-listener';
 import { urlMonograma } from '@/lib/monograma-estudio';
+import { paletaReservarCssText } from '@/lib/reservar-publico-tokens';
 
 // Metadata server-rendered (I-9): título/descripción/Open Graph con el nombre y
 // la ciudad del estudio. Sirve para lo que la socia comparte por WhatsApp y
@@ -145,7 +146,7 @@ export default async function ReservarSlugLayout({ children, params }: { childre
           }}
         />
       )}
-      <ThemeStyle slug={slug} />
+      <ThemeStyle slug={slug} paletaCssText={paletaReservarCssText} />
       <ThemePreviewListener />
       {children}
     </StudioSlugGate>

@@ -161,17 +161,23 @@ test.describe('Widget Builder — cada control conectado al snippet y a la vista
 
     // Estado de partida: el calendario REAL montado en la vista previa enseña
     // el precio en la hoja de reserva.
+    //
+    // ⚠️ Ya no va scopeada a `getByRole('dialog')`: la vista previa monta el
+    // mismo bundle real de Modo B (`estiloFicha="inline"`), que quitó el
+    // popup — la ficha es `.paso-anim`, no un `role="dialog"`, y se cierra
+    // con "Volver a las clases" en vez de "Cerrar" (mismo criterio que
+    // e2e/reservar-pagar-sin-cuenta.spec.ts para Modo A).
     await page.getByRole('button', { name: '10:00 Reformer' }).click();
-    const hoja = page.getByRole('dialog');
+    const hoja = page.locator('.paso-anim');
     await expect(hoja.locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
-    await hoja.getByRole('button', { name: 'Cerrar' }).click();
+    await hoja.getByRole('button', { name: 'Volver a las clases' }).click();
     await expect(hoja).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Ocultar precio' }).click();
     await expect(snippet(page)).toContainText('data-ocultar-precio');
 
     await page.getByRole('button', { name: '10:00 Reformer' }).click();
-    const hoja2 = page.getByRole('dialog');
+    const hoja2 = page.locator('.paso-anim');
     await expect(hoja2.locator('.reserva-cta-btn')).toHaveText('Reservar');
     await expect(hoja2).not.toContainText('€');
   });

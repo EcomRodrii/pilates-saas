@@ -8,7 +8,10 @@ import { contarBadgesVerificacion } from '@/lib/network/ranking';
 import type { PerfilNetworkPublico } from '@/lib/network/tipos';
 import type { EncajeBusqueda } from '@/lib/network/encaje-busqueda';
 
-const TOTAL_BADGES_CONFIANZA = 4;
+// P1 de la auditoría 2026-08-25: certificación se sumó a contarBadgesVerificacion
+// (lib/network/ranking.ts) — este total tiene que seguirle el paso, o el
+// contador de la tarjeta ("X de N") mentiría sobre cuántas verificaciones hay.
+const TOTAL_BADGES_CONFIANZA = 5;
 
 const PUNTO_DISPONIBILIDAD: Record<PerfilNetworkPublico['disponibilidadEstado'], string> = {
   disponible: '#2F9E44',

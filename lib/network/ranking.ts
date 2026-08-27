@@ -43,24 +43,30 @@ function distanciaAproximada(ciudad: string | null, filtroCiudad: string | null)
 }
 
 /**
- * Cuenta cuántos de los 4 badges de confianza (identidad, experiencia,
- * referencia profesional, actividad reciente) están activos para este
- * perfil. `identidadVerificadaEn` se escribe desde F1
+ * Cuenta cuántos de los 5 badges de confianza (identidad, experiencia,
+ * certificación, referencia profesional, actividad reciente) están activos
+ * para este perfil. `identidadVerificadaEn` se escribe desde F1
  * (app/api/interno/network/verificaciones-identidad/route.ts, ya NO es
- * "siempre null" como en V1) y `experienciaVerificada`/`referenciaProfesional`
- * llegan calculados en LOTE en `PerfilNetworkPublico` (buscarPerfilesPublico).
- * Usada tanto para ORDENAR (aquí) como para ENSEÑAR el contador "X de 4
- * verificaciones" en la tarjeta del buscador (F2) — una sola fuente de
- * verdad, nunca un porcentaje fabricado (ver Tentare Brain en
+ * "siempre null" como en V1) y `experienciaVerificada`/`certificacionVerificada`/
+ * `referenciaProfesional` llegan calculados en LOTE en `PerfilNetworkPublico`
+ * (buscarPerfilesPublico). Usada tanto para ORDENAR (aquí) como para ENSEÑAR
+ * el contador "X de 5 verificaciones" en la tarjeta del buscador (F2) — una
+ * sola fuente de verdad, nunca un porcentaje fabricado (ver Tentare Brain en
  * .claude/tentare-os.md sobre "Compatibilidad 87%").
+ *
+ * Certificación se añadió aquí en el P1 de la auditoría 2026-08-25: ya se
+ * calculaba en lote y ya se usaba como filtro (`soloCertificacionVerificada`),
+ * pero quedaba fuera del ranking por omisión, no por decisión — el resto de
+ * verificaciones sí contaban.
  */
 export function contarBadgesVerificacion(
-  p: Pick<PerfilNetworkPublico, 'identidadVerificadaEn' | 'experienciaVerificada' | 'referenciaProfesional' | 'ultimoAccesoEn'>,
+  p: Pick<PerfilNetworkPublico, 'identidadVerificadaEn' | 'experienciaVerificada' | 'certificacionVerificada' | 'referenciaProfesional' | 'ultimoAccesoEn'>,
   ahora: Date,
 ): number {
   return (
     (identidadVerificada(p.identidadVerificadaEn) ? 1 : 0) +
     (p.experienciaVerificada ? 1 : 0) +
+    (p.certificacionVerificada ? 1 : 0) +
     (p.referenciaProfesional ? 1 : 0) +
     (activaRecientemente(p.ultimoAccesoEn, ahora) ? 1 : 0)
   );

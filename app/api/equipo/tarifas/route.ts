@@ -11,9 +11,13 @@ export async function GET(_req: NextRequest) {
     const result = await equipoTarifasAction({ method: 'GET' });
     return NextResponse.json(result);
   } catch (error) {
-    const mensaje = error instanceof Error ? error.message : 'Error procesando la solicitud';
-    const status = mensaje.includes('No tienes permiso') ? 403 : 500;
-    return NextResponse.json({ error: mensaje }, { status });
+    const message = (error as Error)?.message || 'Error';
+    let status = 500;
+
+    if (message.includes('No autorizado')) status = 401;
+    if (message.includes('No tienes permiso')) status = 403;
+
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
@@ -23,11 +27,11 @@ export async function PATCH(req: NextRequest) {
     const result = await equipoTarifasAction({ ...body, method: 'PATCH' });
     return NextResponse.json(result);
   } catch (error) {
-    const mensaje = error instanceof Error ? error.message : 'Error procesando la solicitud';
+    const message = (error as Error)?.message;
     let status = 500;
-    if (mensaje.includes('No tienes permiso')) status = 403;
-    if (mensaje.includes('Falta')) status = 400;
-    if (mensaje.includes('no encontrada')) status = 404;
-    return NextResponse.json({ error: mensaje }, { status });
+    if (message?.includes('No tienes permiso')) status = 403;
+    if (message?.includes('Falta')) status = 400;
+    if (message?.includes('no encontrada')) status = 404;
+    return NextResponse.json({ error: message || 'Error' }, { status });
   }
 }

@@ -17,7 +17,7 @@ export function ResultadosInstructoras({ perfiles }: { perfiles: PerfilNetworkPu
   const { estado, posicion, activar } = useCercaDeMi();
 
   const resultados = posicion
-    ? ordenarPorCercania(perfiles, p => distanciaDePerfil(p.ciudad, posicion))
+    ? ordenarPorCercania(perfiles, p => distanciaDePerfil(p, posicion))
     : perfiles.map(item => ({ item, distanciaKm: null as number | null }));
 
   return (
