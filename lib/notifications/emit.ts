@@ -392,6 +392,30 @@ export async function emitirDevolucion(
   }
 }
 
+// P-2 (17ª auditoría): reembolso de una venta de POS (datáfono/Bizum
+// presencial). `socioId` es `null` con normalidad — la mayoría de ventas de
+// mostrador son anónimas, sin ficha ligada.
+export async function emitirVentaPosDevuelta(
+  admin: SupabaseClient,
+  p: { studioId: string; socioId: string | null; ventaPosId: string; importe: number },
+): Promise<void> {
+  try {
+    const { data: socio } = p.socioId
+      ? await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle()
+      : { data: null };
+    const nombre = socio ? `${socio.nombre ?? ''} ${socio.apellidos ?? ''}`.trim() : '';
+    await publish({
+      type: EVENTOS.VENTA_POS_DEVUELTA,
+      studioId: p.studioId,
+      data: { importe: p.importe, deQuien: nombre ? ` a ${nombre}` : '' },
+      resource: { type: 'venta_pos', id: p.ventaPosId },
+      dedupKey: `venta_pos_devuelta:${p.ventaPosId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirVentaPosDevuelta:', e instanceof Error ? e.message : e);
+  }
+}
+
 // D-8: la devolución FALLÓ días después de crearse — la clienta NO recibió el
 // dinero. `dedupKey` por refund.id: los DOS tipos de evento de Stripe
 // (`refund.failed` y `charge.refund.updated`) llegan con event.id distintos y

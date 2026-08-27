@@ -10,7 +10,7 @@ import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 import { metodoReutilizableDe } from '@/lib/billing/metodo-reutilizable';
 import { identidadDemostradaEnCompra } from '@/lib/billing/identidad-compra';
 import { resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
-import { ORIGENES_CON_RECIBO, procesarChargeRefunded, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
+import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReembolsoVentaPos, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 
@@ -1057,6 +1057,32 @@ async function procesarEvento(
           fuente: 'webhook', eventAccount: event.account,
         });
         if (!resultado.ok) return NextResponse.json({ error: 'Fallo al registrar la devolución' }, { status: 500 });
+      }
+
+      // P-2 (17ª auditoría): reembolso de una venta de POS (datáfono/Bizum
+      // presencial). Rama propia, no sumada a ORIGENES_CON_RECIBO: una venta
+      // POS no tiene `recibos` que marcar — vive en `ventas_pos`, sin la
+      // máquina de entrega/bono que sí necesita `procesarChargeRefunded`.
+      const esVentaPos = ORIGENES_POS.has(pi.metadata?.origen ?? '');
+      if (esVentaPos) {
+        const admin = getSupabaseAdmin();
+        if (!admin) {
+          console.error('[stripe webhook] service role no configurada (refund POS)');
+          return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+        }
+        const studioId = await studioDeCuentaConnect(admin, event.account);
+        if (!studioId) {
+          Sentry.captureMessage('[stripe webhook] devolución de venta POS de una cuenta Connect no reconocida', {
+            level: 'error', extra: { paymentIntentId: pi.id, eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+        }
+        const resultado = await procesarReembolsoVentaPos(admin, {
+          studioId, paymentIntentId: pi.id,
+          charge: { id: charge.id, refunded: charge.refunded === true, amount: charge.amount ?? null, amountRefunded: charge.amount_refunded ?? null },
+          fuente: 'webhook',
+        });
+        if (!resultado.ok) return NextResponse.json({ error: 'Fallo al registrar la devolución de la venta POS' }, { status: 500 });
       }
     }
   }

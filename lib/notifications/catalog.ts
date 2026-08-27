@@ -171,6 +171,12 @@ export const EVENTOS = {
   // PAGO_DEVUELTO se tragaría el aviso (su dedupKey es por devolucionId, ya
   // gastado) y su copy/prioridad dicen lo contrario de la verdad aquí.
   PAGO_DEVOLUCION_FALLIDA: 'pago.devolucion_fallida',
+  // P-2 (17ª auditoría): reembolso de un cobro de POS (datáfono/Bizum
+  // presencial). Evento propio, no una variante de PAGO_DEVUELTO: esa copy
+  // habla de "retirarle lo que pagó" (entrega/bono a revertir), que no
+  // aplica a una venta al contado, y su dedupKey/deepLink están atados a
+  // `devoluciones`/`recibos`, tablas que una venta POS no tiene.
+  VENTA_POS_DEVUELTA: 'venta_pos.devuelta',
   SISTEMA_ERROR: 'sistema.error',
   // Automatizaciones (cron → publish)
   RECORDATORIO_24H: 'reserva.recordatorio_24h',
@@ -297,6 +303,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // ALTA + EMAIL: la clienta cree que le devolvieron el dinero y NO es verdad —
   // alguien del mostrador tiene que reintentarlo (o llamarla) hoy.
   [EVENTOS.PAGO_DEVOLUCION_FALLIDA]: { category: 'pagos', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
+  // MEDIA + solo PUSH, mismo criterio que PAGO_DEVUELTO: el dinero ya se movió
+  // en Stripe pase lo que pase, lo accionable es solo que el cierre de caja
+  // no quede inflado — no hay plazo externo corriendo.
+  [EVENTOS.VENTA_POS_DEVUELTA]: { category: 'pagos', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'mostrador' },
   [EVENTOS.PAGO_DISPUTADO]:        { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
   // CRÍTICAS: declaran TODOS sus canales explícitamente. Antes bastaba con ser
   // CRÍTICA para que el motor forzara email/WA/SMS aunque la regla solo pusiera
@@ -718,6 +728,19 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Has devuelto un cobro',
     body: 'Se han devuelto {importe} € a {socia}{tipoTexto}. Revisa si hay que retirarle lo que pagó.',
     deepLink: () => `/dashboard`,
+  },
+  // {deQuien} viene ya formado (" a {nombre}" o "" si la venta era anónima de
+  // mostrador, sin ficha) — así el texto no necesita una segunda variante para
+  // el caso sin socia.
+  [`${EVENTOS.VENTA_POS_DEVUELTA}#PROPIETARIO`]: {
+    title: 'Se ha devuelto una venta de mostrador',
+    body: 'Se han devuelto {importe} € de una venta de mostrador{deQuien}. Ya está reflejado en el cierre de caja.',
+    deepLink: () => `/productos`,
+  },
+  [`${EVENTOS.VENTA_POS_DEVUELTA}#RECEPCION`]: {
+    title: 'Se ha devuelto una venta de mostrador',
+    body: 'Se han devuelto {importe} € de una venta de mostrador{deQuien}. Ya está reflejado en el cierre de caja.',
+    deepLink: () => `/productos`,
   },
   // {sesionesTexto} solo se rellena si la entrega ya se había REVERTIDO: ahí la
   // clienta pagó Y perdió lo entregado, y hay que devolvérselo a mano.
