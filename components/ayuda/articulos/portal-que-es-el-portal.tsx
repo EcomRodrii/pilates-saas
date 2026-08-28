@@ -24,7 +24,11 @@ export default function Contenido() {
         <li>Crear su cuenta y, ya con acceso, ver su plan, sus créditos y su historial.</li>
       </ul>
 
-      <AyudaCaptura alt="Calendario público de reservas de un estudio" pendiente="vista del calendario público" />
+      <AyudaCaptura
+        src="/help/portal/portal-calendario-publico.png"
+        alt="Calendario público de reservas de un estudio, con clases, plazas libres y lista de espera"
+        caption="El portal real de un estudio — clases, plazas libres y lista de espera, sin necesidad de cuenta para verlas."
+      />
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo lo comparte tu estudio</h2>
       <p>

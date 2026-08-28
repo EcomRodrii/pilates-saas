@@ -12,7 +12,11 @@ export default function Contenido() {
 
       <AyudaPaso numero={1} titulo="Ve a Equipo y añade una persona nueva">
         <p>Su nombre, email y el rol que le corresponde: instructora, recepción o manager.</p>
-        <AyudaCaptura alt="Formulario de alta de una persona del equipo" pendiente="alta desde Equipo" />
+        <AyudaCaptura
+          src="/help/instructores/equipo-nuevo-miembro.png"
+          alt="Formulario de alta de una persona del equipo: nombre, avatar, email, teléfono y rol"
+          caption="Alta real desde Equipo &gt; Nuevo miembro."
+        />
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Si ya trabaja en otra sede de tu cadena">

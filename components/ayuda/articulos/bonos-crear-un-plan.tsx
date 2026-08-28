@@ -7,7 +7,11 @@ export default function Contenido() {
     <>
       <AyudaPaso numero={1} titulo="Ve a Configuración > Planes y tarifas">
         <p>Ahí ves todos tus planes activos, y el botón para crear uno nuevo.</p>
-        <AyudaCaptura alt="Listado de planes en Configuración" pendiente="listado de planes" />
+        <AyudaCaptura
+          src="/help/bonos/configuracion-planes.png"
+          alt="Listado de planes en Configuración &gt; Planes y tarifas, con tipo, precio, sesiones y a qué clases sirve cada uno"
+          caption="Configuración &gt; Planes y tarifas — dos planes reales: una cuota mensual y un bono de sesiones."
+        />
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Elige el tipo y complétalo">
