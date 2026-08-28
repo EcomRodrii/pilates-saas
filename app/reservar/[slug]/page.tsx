@@ -204,9 +204,9 @@ function LevelBadge({ nivel }: { nivel?: string }) {
 // `<select>`: necesita pintar cada opción con su propia tipografía/estado
 // activo, que un `<select>` nativo no permite.
 function MenuSecciones({ tabs, tabActual, onIr }: {
-  tabs: readonly (readonly [string, string])[];
+  tabs: readonly (readonly [Tab, string])[];
   tabActual: string;
-  onIr: (t: any) => void;
+  onIr: (t: Tab) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
