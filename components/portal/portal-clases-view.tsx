@@ -73,7 +73,10 @@ const claveDia = (d: Date) =>
 // 404/error garantizado) — devuelve un pase de muestra para que la hoja se
 // vea con contenido real en vez de un error o un hueco en blanco.
 async function pedirPaseDeMuestra(): Promise<DatosPase> {
-  return { hayPase: true, vigente: true, yaAsistida: false, codigo: 'PREVIEW', token: null };
+  return {
+    hayPase: true, vigente: true, yaAsistida: false, codigo: 'PREVIEW', token: null,
+    paseHasta: new Date(Date.now() + 15 * 60_000).toISOString(),
+  };
 }
 
 export function PortalClasesView({

@@ -2084,7 +2084,7 @@ export async function pedirPaseDeAcceso(slug: string) {
       body: JSON.stringify({ slug }),
     });
     if (!res.ok) return null;
-    return await res.json() as { hayPase: boolean; vigente?: boolean; yaAsistida?: boolean; minutosParaActivarse?: number; seActivaA?: string | null; inicio?: string; token?: string | null; codigo?: string | null };
+    return await res.json() as { hayPase: boolean; vigente?: boolean; yaAsistida?: boolean; minutosParaActivarse?: number; seActivaA?: string | null; paseHasta?: string | null; inicio?: string; token?: string | null; codigo?: string | null };
   } catch {
     return null;
   }
