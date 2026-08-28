@@ -29,6 +29,7 @@ import { iniciarDomiciliacionSepa, sepaDisponibleParaEstudio, crearCheckoutStrip
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
 import { precioPorClase } from '@/lib/estudio-publico';
 import { fechaLarga } from '@/lib/bonos-portal';
+import { nombreDeMarca } from '@/lib/billing/caducidad-tarjeta';
 import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
 import { BottomSheet } from '@/components/portal/ui/BottomSheet';
@@ -39,15 +40,6 @@ import type { PlanTarifa } from '@/lib/types';
 // hay socia autenticada y mantiene el redirect hosted para visitantes. Ver
 // «Camino A» en `.claude/tentare-os.md`.
 const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-
-// Stripe manda la marca en minúscula (`visa`, `mastercard`) — no se importa
-// del kit apagado (`lib/portal-tema/datos.ts`), mismo principio que separa
-// `franjaLocalDe` entre motor y portal.
-function nombreDeMarca(marca: string): string {
-  if (!marca) return 'Tarjeta';
-  if (marca.toLowerCase() === 'visa') return 'Visa';
-  return marca.charAt(0).toUpperCase() + marca.slice(1);
-}
 
 export default function ComprasPage() {
   const { slug } = useParams<{ slug: string }>();

@@ -344,6 +344,11 @@ export interface Socio {
   fechaNacimiento?: string | null;
   direccion?: string | null;
   fotoUrl?: string | null;
+  // "Usuario" (@handle) — Ajustes del portal (migr 20260828100000). Solo un
+  // campo de perfil por ahora: no hay página pública que lo resuelva, es
+  // decisión de producto explícita no construirla todavía. Único por
+  // estudio, formato acotado también en servidor (CHECK de la migración).
+  usuario?: string | null;
   referidoPor?: string | null; // id del socio que la invitó (programa de referidos)
   // P1 auditoría Momence-vs-Tentare: valor crudo de `?ref=` del widget
   // público cuando NO coincide con el id de una socia (referidoPor cubre ese
