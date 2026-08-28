@@ -825,11 +825,20 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 <button>, las otras dos son <Link>, siempre HERMANOS: la
                 tarjeta grande dejó de ser un enlace único por esto mismo,
                 ver el comentario de e2e/portal-cliente-v2.spec.ts). */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 18 }}>
               {(() => {
+                // Padding/gaps recortados respecto al botón de ancho completo
+                // de antes: con los 2 círculos nuevos al lado (medido en un
+                // iPhone SE, 375px — el "iPhone normal" de 402px del
+                // comentario de abajo no era el caso más estrecho real), el
+                // texto por defecto de este CTA ("Ver la agenda", editable
+                // hasta 30 caracteres desde el editor) se veía truncado a
+                // "Ver la ag…" — inaceptable en el CTA principal de la
+                // pantalla que más ve una socia. Los círculos se quedan a 40px
+                // (mismo tamaño que la cabecera, ver comentario de abajo).
                 const estilo: React.CSSProperties = {
                   flex: 1, minWidth: 0, height: altura.botonCta, borderRadius: `var(--portal-radius-boton, ${radio.botonCta}px)`, background: 'var(--portal-brand)',
-                  display: 'flex', alignItems: 'center', padding: '0 16px', border: 'none',
+                  display: 'flex', alignItems: 'center', padding: '0 12px', border: 'none',
                   textDecoration: 'none', cursor: 'pointer',
                   boxShadow: sombra.cta, transition: transicion(['transform', 'background']),
                 };
@@ -837,10 +846,10 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   <>
                     <GlifoAcceso color="var(--portal-brand-foreground)" />
                     <span style={{
-                      flex: 1, minWidth: 0, ...texto.botonCta, color: 'var(--portal-brand-foreground)', paddingLeft: 12, textAlign: 'left',
+                      flex: 1, minWidth: 0, ...texto.botonCta, color: 'var(--portal-brand-foreground)', paddingLeft: 8, textAlign: 'left',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>{tarjeta.cta}</span>
-                    <span aria-hidden style={{ flex: '0 0 auto', fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7, paddingLeft: 8 }}>→</span>
+                    <span aria-hidden style={{ flex: '0 0 auto', fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7, paddingLeft: 4 }}>→</span>
                   </>
                 );
                 // Con el check-in QR desactivado (Configuración → Reservas), la
