@@ -270,3 +270,10 @@ export const marcarNovedadMenu = (href: string) =>
 
 export const quitarNovedadMenu = (href: string) =>
   pedir<{ ok: true }>(`/menu-novedades?href=${encodeURIComponent(href)}`, { method: 'DELETE' });
+
+// Feedback del Centro de Ayuda (/ayuda) — ver app/api/interno/ayuda-feedback.
+export interface AyudaFeedbackResumen { total: number; pctMalo: number; pctRegular: number; pctBueno: number }
+export interface AyudaFeedbackArticulo { articulo: string; categoria: string; titulo: string; malo: number; regular: number; bueno: number; total: number }
+export interface AyudaFeedbackFila { id: string; articulo_slug: string; categoria_slug: string; valoracion: 'MALO' | 'REGULAR' | 'BUENO'; url: string; creado_en: string }
+export const fetchAyudaFeedback = () =>
+  pedir<{ resumen: AyudaFeedbackResumen; articulos: AyudaFeedbackArticulo[]; recientes: AyudaFeedbackFila[] }>('/ayuda-feedback');
