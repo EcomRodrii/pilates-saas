@@ -41,12 +41,21 @@ import { serif, sans, cq, radius as R, shadow as SH, eyebrow, EASE } from '@/lib
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
 import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
+import { SpotPickerPublico } from '@/components/reserva/spot-picker-publico';
 
 export interface DatosContacto {
   nombre: string;
   apellidos: string;
   email: string;
   telefono: string;
+}
+
+export interface InfoAdicional {
+  genero: string;
+  comoConociste: string;
+  codigoPostal: string;
+  /** ISO `yyyy-mm-dd` (valor nativo de `<input type="date">`). */
+  fechaNacimiento: string;
 }
 
 export interface ClaseParaPantallaReserva {
@@ -72,6 +81,8 @@ export function PantallaReserva({
   privacidadAceptada, onTogglePrivacidad, onAbrirPrivacidad,
   mostrarCodigo, onMostrarCodigo, codigoDescuento, onChangeCodigo,
   onContinuar, pago,
+  planesOpciones, planSeleccionadoId, onCambiarPlan,
+  spotPicker, infoAdicional, onChangeInfoAdicional,
 }: {
   t: ModoTokens;
   /** "‹ Volver a la clase" — un único punto de salida, no un "atrás" por paso. */
@@ -108,6 +119,22 @@ export function PantallaReserva({
     onExito: () => void;
     onVolverADatos: () => void;
   };
+  /** "Bonos y mensualidades del estudio": solo cuando hay más de un plan
+   *  PUNTUAL que cubre la clase — con uno solo, se auto-elige sin preguntar. */
+  planesOpciones?: PlanTarifa[];
+  planSeleccionadoId?: string;
+  onCambiarPlan?: (plan: PlanTarifa) => void;
+  /** "Elige tu plaza": solo cuando la sala tiene mapa de sitios y la clase no
+   *  está llena (la lista de espera no ocupa sitio, igual que en 'confirm'). */
+  spotPicker?: {
+    spots: { id: string; nombre: string; fila: number; columna: number }[];
+    takenIds: Set<string>;
+    selected: string | null;
+    onSelect: (id: string | null) => void;
+    primary: string;
+  };
+  infoAdicional: InfoAdicional;
+  onChangeInfoAdicional: (patch: Partial<InfoAdicional>) => void;
 }) {
   const [ctaHover, setCtaHover] = useState(false);
   const camposIncompletos = camposFaltantes(loginForm, privacidadAceptada);
@@ -348,20 +375,95 @@ export function PantallaReserva({
                   </p>
                 </div>
 
-                <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-                  <CampoTexto placeholder="Nombre" value={loginForm.nombre}
-                    onChange={v => onChangeLoginForm({ nombre: v })}
-                    autoFocus />
-                  <CampoTexto placeholder="Apellidos" value={loginForm.apellidos}
-                    onChange={v => onChangeLoginForm({ apellidos: v })} />
+                {/* "Tus datos" — diseño "Tentare Portal Reservas": UN solo
+                    campo "Nombre y apellido" (nunca Nombre/Apellidos por
+                    separado — `entregarPlanComprado` ya sabe partir un nombre
+                    compuesto), Email y Móvil en una fila de dos columnas. */}
+                <CampoTexto placeholder="Nombre y apellido" value={loginForm.nombre}
+                  onChange={v => onChangeLoginForm({ nombre: v })}
+                  autoFocus />
+                <div style={{ display: 'grid', gap: 7, gridTemplateColumns: '1fr 1fr' }}>
+                  <CampoTexto type="email" placeholder="Email" value={loginForm.email}
+                    onChange={v => onChangeLoginForm({ email: v })} />
+                  <CampoTexto type="tel" placeholder="Móvil" value={loginForm.telefono}
+                    onChange={v => onChangeLoginForm({ telefono: v })}
+                    onEnter={onContinuar} />
                 </div>
-                <CampoTexto type="email" placeholder="Tu email" value={loginForm.email}
-                  onChange={v => onChangeLoginForm({ email: v })} />
-                <CampoTexto type="tel" placeholder="Tu teléfono (+34 600 000 000)" value={loginForm.telefono}
-                  onChange={v => onChangeLoginForm({ telefono: v })}
-                  onEnter={onContinuar} />
                 {datosError && (
                   <p style={{ color: 'var(--destructive)', fontSize: 13 }}>{datosError}</p>
+                )}
+
+                {/* "Información adicional" — diseño "Tentare Portal Reservas":
+                    SIEMPRE visible (no colapsada), con el copy exacto y las
+                    opciones exactas del .dc.html. Todo opcional. */}
+                <div>
+                  <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600, marginBottom: 8 }}>
+                    Información adicional <span style={{ fontWeight: 400 }}>· solo te lo pedimos la primera vez</span>
+                  </p>
+                  <div style={{ display: 'grid', gap: 7, gridTemplateColumns: '1fr 1fr' }}>
+                    <CampoSelect placeholder="Género" value={infoAdicional.genero}
+                      onChange={v => onChangeInfoAdicional({ genero: v })}
+                      opciones={[['mujer', 'Mujer'], ['hombre', 'Hombre'], ['prefiero-no-decirlo', 'Prefiero no decirlo']]} />
+                    <CampoSelect placeholder="¿Cómo nos has conocido?" value={infoAdicional.comoConociste}
+                      onChange={v => onChangeInfoAdicional({ comoConociste: v })}
+                      opciones={[['instagram', 'Instagram'], ['google', 'Google'], ['amiga', 'Una amiga'], ['paso-por-delante', 'Paso por delante']]} />
+                    <CampoTexto placeholder="Código postal" value={infoAdicional.codigoPostal}
+                      onChange={v => onChangeInfoAdicional({ codigoPostal: v })} />
+                    <CampoTexto placeholder="Cumpleaños · dd/mm/aaaa" value={infoAdicional.fechaNacimiento}
+                      onChange={v => onChangeInfoAdicional({ fechaNacimiento: v })} />
+                  </div>
+                </div>
+
+                {/* "Elige tu plaza" — plomería aprobada ("plomería completa"):
+                    mismo componente que ya usa la pantalla 'confirm' de socia
+                    autenticada, reutilizado tal cual (components/reserva/
+                    spot-picker-publico.tsx). Opcional: sin elegir, el servidor
+                    asigna cualquier sitio libre al confirmar el pago. */}
+                {spotPicker && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                      <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600 }}>Elige tu plaza</p>
+                      <span style={{ fontFamily: 'IBM Plex Mono, ui-monospace, monospace', fontSize: 11, color: 'var(--portal-muted)' }}>
+                        {spotPicker.spots.length - spotPicker.takenIds.size === 0
+                          ? 'clase completa'
+                          : `quedan ${spotPicker.spots.length - spotPicker.takenIds.size} de ${spotPicker.spots.length}`}
+                      </span>
+                    </div>
+                    <SpotPickerPublico {...spotPicker} />
+                  </div>
+                )}
+
+                {/* "Bonos y mensualidades del estudio" — plomería aprobada
+                    ("solo planes PUNTUAL"): SIEMPRE visible como en el diseño
+                    (aunque solo cubra una opción, "clase suelta" a su precio
+                    de catálogo — confirma explícitamente qué se está pagando,
+                    igual que el mockup de referencia). */}
+                {planesOpciones && onCambiarPlan && (
+                  <div>
+                    <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600, marginBottom: 8 }}>
+                      Bonos y mensualidades del estudio
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+                      {planesOpciones.map(p => {
+                        const sel = p.id === planSeleccionadoId;
+                        return (
+                          <button key={p.id} type="button" onClick={() => onCambiarPlan(p)}
+                            style={{
+                              textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                              padding: '10px 12px', borderRadius: 14,
+                              border: sel ? '2px solid var(--portal-ink)' : '1.5px solid var(--portal-line)',
+                              background: sel ? 'var(--portal-surface-2)' : 'var(--portal-surface)',
+                            }}>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--portal-ink)' }}>{p.nombre}</span>
+                            <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 2 }}>
+                              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--portal-ink)' }}>{p.precio} €</span>
+                              {p.descripcion && <span style={{ fontSize: 9.5, color: 'var(--portal-muted)' }}>{p.descripcion}</span>}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
                 {/* Código promocional — colapsado por defecto, un clic lo
@@ -504,7 +606,7 @@ export function PantallaReserva({
                   ventanaCancelacionHoras={pago.ventanaCancelacionHoras}
                   textoBoton={pago.textoBoton}
                   datosPago={{
-                    nombre: `${loginForm.nombre.trim()} ${loginForm.apellidos.trim()}`.trim(),
+                    nombre: loginForm.nombre.trim(),
                     email: loginForm.email.trim(),
                     telefono: loginForm.telefono.trim(),
                   }}
@@ -528,8 +630,9 @@ export function PantallaReserva({
  *  qué falta"). */
 function camposFaltantes(loginForm: DatosContacto, privacidadAceptada: boolean): string[] {
   const faltan: string[] = [];
-  if (!loginForm.nombre.trim()) faltan.push('nombre');
-  if (!loginForm.apellidos.trim()) faltan.push('apellidos');
+  // Diseño "Tentare Portal Reservas": un solo campo "Nombre y apellido" — sin
+  // requisito separado de apellidos.
+  if (!loginForm.nombre.trim()) faltan.push('nombre y apellido');
   if (!loginForm.email.trim()) faltan.push('email');
   if (!telefonoValido(loginForm.telefono)) faltan.push('teléfono');
   if (!privacidadAceptada) faltan.push('aceptar la política de privacidad');
@@ -623,5 +726,29 @@ function CampoTexto({
       className="pantalla-reserva-campo"
       style={estilo}
     />
+  );
+}
+
+/** Mismo tratamiento visual que `CampoTexto` — reutiliza su clase de foco. */
+function CampoSelect({
+  placeholder, value, onChange, opciones,
+}: {
+  placeholder: string; value: string; onChange: (v: string) => void; opciones: [string, string][];
+}) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="pantalla-reserva-campo"
+      style={{
+        width: '100%', padding: '13px 15px', fontSize: 16,
+        color: value ? 'var(--portal-ink)' : 'var(--portal-muted)',
+        background: 'var(--portal-surface-2)', border: '1.5px solid var(--portal-line)',
+        borderRadius: 16, outline: 'none', transition: 'border-color .2s ease, box-shadow .2s ease',
+      }}
+    >
+      <option value="">{placeholder}</option>
+      {opciones.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+    </select>
   );
 }

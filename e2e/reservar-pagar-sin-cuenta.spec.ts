@@ -123,10 +123,11 @@ test('rellenar datos y continuar llama a checkout-embebido con nombre/email/tel�
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientSecret: 'pi_3QeXaMPLe000000000000_secret_ExAmPle0000000000000000' }) });
   });
 
-  await page.getByPlaceholder('Nombre').fill('Marta');
-  await page.getByPlaceholder('Apellidos').fill('Ruiz');
-  await page.getByPlaceholder('Tu email').fill('marta.ruiz@example.com');
-  await page.getByPlaceholder('Tu teléfono (+34 600 000 000)').fill('+34 600 123 456');
+  // Diseño "Tentare Portal Reservas": un solo campo "Nombre y apellido"
+  // (Email/Móvil en dos columnas), no Nombre/Apellidos por separado.
+  await page.getByPlaceholder('Nombre y apellido').fill('Marta Ruiz');
+  await page.getByPlaceholder('Email').fill('marta.ruiz@example.com');
+  await page.getByPlaceholder('Móvil').fill('+34 600 123 456');
   // Casilla explícita de privacidad (rediseño del popup): sin marcarla, el
   // botón de pago queda deshabilitado.
   await expect(page.getByRole('button', { name: /Continuar al pago/ })).toBeDisabled();
@@ -180,10 +181,11 @@ test('⚠️ un 409 de checkout-embebido NO se anuncia como pago iniciado', asyn
     return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Esta clase ya ha empezado' }) });
   });
 
-  await page.getByPlaceholder('Nombre').fill('Marta');
-  await page.getByPlaceholder('Apellidos').fill('Ruiz');
-  await page.getByPlaceholder('Tu email').fill('marta.ruiz@example.com');
-  await page.getByPlaceholder('Tu teléfono (+34 600 000 000)').fill('+34 600 123 456');
+  // Diseño "Tentare Portal Reservas": un solo campo "Nombre y apellido"
+  // (Email/Móvil en dos columnas), no Nombre/Apellidos por separado.
+  await page.getByPlaceholder('Nombre y apellido').fill('Marta Ruiz');
+  await page.getByPlaceholder('Email').fill('marta.ruiz@example.com');
+  await page.getByPlaceholder('Móvil').fill('+34 600 123 456');
   await page.getByRole('checkbox', { name: /política de privacidad/i }).check();
   await page.getByRole('button', { name: /Continuar al pago/ }).click();
   await page.waitForTimeout(1500);
@@ -296,4 +298,3 @@ test('código promocional: válido muestra el descuento, inválido explica por q
   await expect(page.getByText('Código aplicado')).not.toBeVisible();
   await expect(campoCodigo).toHaveValue('');
 });
-

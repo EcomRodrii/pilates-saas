@@ -248,7 +248,10 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await mockBackend(page, { onCheckout: (b) => { checkoutBody = b; } });
 
     await page.goto(`/reservar/${SLUG}`);
-    await page.getByRole('button', { name: /el estudio/i }).click();
+    // Diseño "Tentare Portal Reservas": sin barra de pestañas en Clases —
+    // "El estudio" vive detrás del menú de la cabecera (`MenuSecciones`).
+    await page.getByRole('button', { name: 'Más secciones' }).click();
+    await page.getByRole('menuitem', { name: 'El estudio' }).click();
 
     const reqPromise = page.waitForRequest('**/api/stripe/checkout');
     await page.getByRole('button', { name: /contratar/i }).first().click();

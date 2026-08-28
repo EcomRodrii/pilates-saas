@@ -729,6 +729,14 @@ async function procesarEvento(
         origenLead: pi.metadata.origenLead ?? null,
         // I-8: si es invitada, crear ficha nueva siempre (no reutilizar)
         esInvitada,
+        // "Información adicional" del formulario de pago sin login — solo se
+        // escribe al crear ficha NUEVA (ver comentario en CompraPlan).
+        datosAdicionales: {
+          genero: pi.metadata.genero ?? null,
+          comoConociste: pi.metadata.comoConociste ?? null,
+          codigoPostal: pi.metadata.codigoPostal ?? null,
+          fechaNacimiento: pi.metadata.fechaNacimiento ?? null,
+        },
       });
       if (!entrega.ok) {
         Sentry.captureMessage('[stripe webhook] checkout embebido: cobrado pero NO entregado', {
@@ -865,6 +873,7 @@ async function procesarEvento(
           const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
           const r = await reservarPlazaTrasPagoPublico({
             studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id,
+            spotId: pi.metadata.spotId ?? null,
           });
           if (!r.ok) {
             // `error`, no `warning`: la socia ha PAGADO por una clase concreta
