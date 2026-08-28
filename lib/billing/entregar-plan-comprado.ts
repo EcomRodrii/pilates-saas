@@ -90,6 +90,21 @@ export interface CompraPlan {
    * cada compra de invitada es autónoma — sin riesgo de suplantar bonos ajenos.
    */
   esInvitada: boolean;
+  /**
+   * "Información adicional" del formulario de pago sin login (diseño "Tentare
+   * Portal Reservas"): género, cómo nos ha conocido y código postal van a
+   * `campos_extra` (JSONB ya existente en `socios`, sin migración); cumpleaños
+   * va directo a `fecha_nacimiento` (columna ya existente). Mismo criterio que
+   * `telefono`/`origenLead`: solo se escribe al crear ficha NUEVA — una ficha
+   * ya existente no se pisa con datos de una compra posterior.
+   */
+  datosAdicionales?: {
+    genero?: string | null;
+    comoConociste?: string | null;
+    codigoPostal?: string | null;
+    /** ISO `yyyy-mm-dd`. */
+    fechaNacimiento?: string | null;
+  } | null;
 }
 
 export type ResultadoEntrega =
@@ -205,6 +220,11 @@ export async function entregarPlanComprado(
     if (!socioId) {
       // No existe, o es invitada (debe crear nueva): INSERT nueva ficha
       const partes = (compra.nombre ?? '').trim().split(/\s+/);
+      const datos = compra.datosAdicionales;
+      const camposExtra: Record<string, string> = {};
+      if (datos?.genero) camposExtra.genero = datos.genero;
+      if (datos?.comoConociste) camposExtra.comoConociste = datos.comoConociste;
+      if (datos?.codigoPostal) camposExtra.codigoPostal = datos.codigoPostal;
       const { error } = await admin.from('socios').insert({
         id: ids.socioId,
         studio_id: compra.studioId,
@@ -214,7 +234,8 @@ export async function entregarPlanComprado(
         telefono: compra.telefono ?? null,
         activo: true,
         fecha_alta: ahora,
-        campos_extra: {},
+        campos_extra: camposExtra,
+        fecha_nacimiento: datos?.fechaNacimiento ?? null,
         origen_lead: compra.origenLead ?? null,
         // Sin contrato aceptado a propósito: no lo ha firmado. El portal se lo
         // pedirá la primera vez que entre (reservar/[slug] mira !aceptacionContrato).

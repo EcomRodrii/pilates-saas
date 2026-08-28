@@ -1918,9 +1918,11 @@ export async function crearReservaPublica(params: {
 // solo decide si además hay plaza.
 export async function reservarPlazaTrasPagoPublico(params: {
   studioId: string; sesionId: string; socioId: string; paymentIntentId: string;
+  /** "Elige tu plaza" — sitio concreto que se pagó, si la sala tiene mapa. */
+  spotId?: string | null;
 }): Promise<
   | { ok: true; estado: string; reservaId: string; spotAsignado: string | null }
-  | { ok: false; motivo: 'sesion-no-encontrada' | 'sesion-invalida' | 'error'; detalle?: string }
+  | { ok: false; motivo: 'sesion-no-encontrada' | 'sesion-invalida' | 'spot-ocupado' | 'error'; detalle?: string }
 > {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -1962,6 +1964,7 @@ export async function reservarPlazaTrasPagoPublico(params: {
     p_socio_id: params.socioId, p_reserva_id: reservaId,
     p_permite_lista_espera: permiteListaEsperaResuelto,
     p_requiere_aprobacion: requiereAprobacionResuelto,
+    p_spot_id: params.spotId ?? null,
   });
   if (error) {
     // YA_RESERVADA: mismo p_reserva_id que un reintento anterior del webhook
@@ -1971,14 +1974,23 @@ export async function reservarPlazaTrasPagoPublico(params: {
       return { ok: true, estado: (existente?.estado as string) ?? 'CONFIRMADA', reservaId, spotAsignado: (existente?.spot_id as string | null) ?? null };
     }
     if (error.message.includes('AFORO_LLENO_SIN_ESPERA')) return { ok: false, motivo: 'sesion-invalida', detalle: 'clase completa' };
+    // La visitante pagó por un sitio concreto y otro pago se lo llevó
+    // primero (misma clase que dos payment intents casi simultáneos) — no
+    // se pierde el dinero (el plan/bono ya se entregó antes de llamar aquí),
+    // pero SÍ hay que avisar al mostrador: mismo tratamiento que
+    // 'sesion-invalida' desde el webhook (emitirReservaPagadaSinPlaza).
+    if (error.message.includes('SPOT_OCUPADO') || error.message.includes('SPOT_NO_PERTENECE_A_LA_SALA')) {
+      return { ok: false, motivo: 'spot-ocupado', detalle: error.message };
+    }
     return { ok: false, motivo: 'error', detalle: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;
   const estado: string = row?.estado ?? 'CONFIRMADA';
+  const spotAsignado = estado === 'CONFIRMADA' ? (params.spotId ?? null) : null;
 
   if (estado === 'CONFIRMADA') {
     await consumirBonoServidor(admin, params.studioId, params.socioId, params.sesionId);
-    capturar(params.studioId, { nombre: 'reserva_completada', props: { con_spot_elegido: false } });
+    capturar(params.studioId, { nombre: 'reserva_completada', props: { con_spot_elegido: Boolean(spotAsignado) } });
   }
   await evaluarGamificacionServidor(admin, params.studioId, params.socioId);
 
@@ -1991,7 +2003,7 @@ export async function reservarPlazaTrasPagoPublico(params: {
     await emitirReservaPendienteAprobacion(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId });
   }
 
-  return { ok: true, estado, reservaId, spotAsignado: null };
+  return { ok: true, estado, reservaId, spotAsignado };
 }
 
 // Aprobar/rechazar una reserva PENDIENTE_APROBACION desde el panel (Fase 2a).

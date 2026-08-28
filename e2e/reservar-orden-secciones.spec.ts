@@ -207,7 +207,10 @@ test('⚠️ un plan a 0 € sigue sin ofrecerse en público', async ({ page }) 
 test('la pestaña «El estudio» ya no los lleva: no se duplican', async ({ page }) => {
   await montar(page);
   await expect(page.getByRole('heading', { name: 'Bonos y membresías' })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('button', { name: 'El estudio' }).click();
+  // Diseño "Tentare Portal Reservas": sin barra de pestañas en Clases — "El
+  // estudio" vive detrás del menú de la cabecera.
+  await page.getByRole('button', { name: 'Más secciones' }).click();
+  await page.getByRole('menuitem', { name: 'El estudio' }).click();
   // Uno, y solo uno, esté la pestaña que esté: si el bloque se hubiera copiado
   // en vez de movido, aquí saldrían dos «Contratar» por plan.
   await expect(page.getByRole('button', { name: 'Contratar' })).toHaveCount(2);

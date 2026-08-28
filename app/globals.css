@@ -632,6 +632,24 @@ nextjs-portal { display: none !important; }
 @keyframes pantalla-reserva-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .pantalla-reserva-seccion { animation: pantalla-reserva-entra .32s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
+/* Icono de "Reserva confirmada" (diseño "Tentare Portal Reservas"): anillo que
+   se expande y se disuelve detrás de un check que aparece con un ligero
+   rebote, más un confeti de 4 partículas — solo para el estado de éxito REAL
+   (confirmacionPago === 'confirmada'), nunca para los estados de espera/fallo. */
+@keyframes reserva-check-ring { 0% { transform: scale(.4); opacity: .6; } 100% { transform: scale(2); opacity: 0; } }
+@keyframes reserva-check-pop { 0% { transform: scale(0); } 55% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes reserva-confeti-a { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(-42px, -96px) rotate(300deg); } }
+@keyframes reserva-confeti-b { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(6px, -116px) rotate(-260deg); } }
+@keyframes reserva-confeti-c { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(46px, -88px) rotate(240deg); } }
+.reserva-check-ring { animation: reserva-check-ring .9s ease-out both; }
+.reserva-check-pop { animation: reserva-check-pop .55s cubic-bezier(.34, 1.5, .5, 1) both; }
+.reserva-confeti-a { animation: reserva-confeti-a .9s .1s ease-out both; }
+.reserva-confeti-b1 { animation: reserva-confeti-b .95s .05s ease-out both; }
+.reserva-confeti-c { animation: reserva-confeti-c .9s .14s ease-out both; }
+.reserva-confeti-b2 { animation: reserva-confeti-b .85s .24s ease-out both; }
+/* prefers-reduced-motion ya se respeta globalmente (regla `*` más abajo en
+   este fichero) — nada per-animación que añadir aquí. */
+
 /* Código promocional expandido — mismo criterio visual que el resto de
    campos de la pantalla (línea + fondo sutil), auditado contra Momence. */
 .pantalla-reserva-codigo {

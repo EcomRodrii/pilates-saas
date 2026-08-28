@@ -96,10 +96,23 @@ export async function POST(req: NextRequest) {
     // Nunca decide el importe (siempre viene de plan.precio abajo) — solo
     // marca qué reservar después.
     sesionId?: string;
+    // "Elige tu plaza" (diseño "Tentare Portal Reservas"): el sitio concreto de
+    // la sala que la visitante escogió, si la sala tiene mapa de plazas. Nunca
+    // decide el importe — solo viaja hasta reservar_plaza (p_spot_id) tras el
+    // pago, con el mismo candado FOR UPDATE que ya usa el resto de la RPC.
+    spotId?: string | null;
     // Auditoría vs Momence (#canje-codigos-descuento-checkout): mismo criterio
     // que app/api/stripe/checkout — texto tal cual, el servidor recalcula el
     // importe final.
     codigoDescuento?: string;
+    // "Información adicional" del formulario de pago sin login — solo se
+    // escriben al crear ficha NUEVA (ver CompraPlan.datosAdicionales). Nunca
+    // deciden nada de negocio, son datos de perfil.
+    genero?: string | null;
+    comoConociste?: string | null;
+    codigoPostal?: string | null;
+    /** ISO `yyyy-mm-dd`. */
+    fechaNacimiento?: string | null;
   } | null;
 
   if (!body?.studioId) {
@@ -388,7 +401,14 @@ export async function POST(req: NextRequest) {
   if (body.socioNombre) metadata.socioNombre = body.socioNombre;
   if (socioTelefono) metadata.socioTelefono = socioTelefono;
   if (body.sesionId) metadata.sesionId = body.sesionId;
+  // Solo tiene sentido junto a sesionId (misma clase que reservar_plaza va a
+  // confirmar) — sin sesión no hay reserva a la que asignarle un sitio.
+  if (body.sesionId && body.spotId) metadata.spotId = body.spotId;
   if (codigoDescuentoId) metadata.codigoDescuentoId = codigoDescuentoId;
+  if (body.genero) metadata.genero = body.genero;
+  if (body.comoConociste) metadata.comoConociste = body.comoConociste;
+  if (body.codigoPostal) metadata.codigoPostal = body.codigoPostal;
+  if (body.fechaNacimiento) metadata.fechaNacimiento = body.fechaNacimiento;
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({
