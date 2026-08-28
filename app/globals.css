@@ -753,3 +753,12 @@ nextjs-portal { display: none !important; }
 .nw-fade-up { animation: nw-fade-up .7s cubic-bezier(.16,1,.3,1) both; }
 @keyframes nw-pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(1.35); } }
 .nw-pulse-dot { animation: nw-pulse-dot 2.2s ease-in-out infinite; }
+
+/* Ficha del estudio (/portal/[slug]/estudio) — Ken Burns lento del hero y
+   entrada/cierre del visor de galería a pantalla completa. El bloque de
+   prefers-reduced-motion de arriba ya lo neutraliza, no hace falta guard
+   propio aquí. */
+@keyframes portal-estudio-ken { 0% { transform: scale(1.04) translate(0, 0); } 100% { transform: scale(1.13) translate(-1.2%, -1.6%); } }
+.portal-estudio-hero-img { animation: portal-estudio-ken 16s ease-in-out infinite alternate; }
+@keyframes portal-estudio-visor-in { from { opacity: 0; } to { opacity: 1; } }
+.portal-estudio-visor { animation: portal-estudio-visor-in .2s ease-out both; }

@@ -1299,7 +1299,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         </div>
         <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '8px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
           <Link
-            href={portalHref(`/${slug}/clases`)}
+            href={portalHref(`/${slug}/estudio`)}
             style={{
               position: 'relative', minWidth: 236, flex: '0 0 236px', height: 280, borderRadius: 20,
               overflow: 'hidden', textDecoration: 'none', boxShadow: sombra.cardSemana,
@@ -1334,7 +1334,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   <span style={{ fontSize: 13.5, fontWeight: 800 }}>{precioClaseSuelta} €</span>
                 )}
                 <span style={{ marginLeft: 'auto', background: '#FAF9F5', color: '#1A1A1A', borderRadius: 999, padding: '7px 14px', fontSize: 11.5, fontWeight: 800 }}>
-                  Ver clases
+                  Ver ficha
                 </span>
               </div>
             </div>
