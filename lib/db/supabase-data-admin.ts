@@ -2569,6 +2569,44 @@ export async function cancelarReservaPublica(params: {
   return { ...r, recuperacionCreada, recuperacionCaducaEl };
 }
 
+// Gap 4 (portal Reservas > Pasadas, migr 20260828120000): la socia valora de
+// 1 a 5 su propia experiencia sobre una clase YA ASISTIDA — autoservicio
+// desde su sesión normal del portal (sin token, sin caducidad). Mismo patrón
+// que el resto de escrituras públicas: service-role + validarSociaPublica,
+// nunca RLS directa (ver comentario de la migración). NO confundir con
+// `valoraciones` (migr 0044), que puntúa a la INSTRUCTORA vía token firmado
+// sin login.
+export async function valorarExperienciaReservaPublica(params: {
+  studioId: string; reservaId: string; socioId: string; email: string; valoracion: number;
+}): Promise<{ ok: true } | { error: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+
+  if (!Number.isInteger(params.valoracion) || params.valoracion < 1 || params.valoracion > 5) {
+    return { error: 'La valoración debe ser un número entero de 1 a 5' as const };
+  }
+
+  // Filtro en código, no solo en el CHECK de la BD: propia (socio_id), ya
+  // asistida (nunca sobre una clase que aún no ha pasado) y todavía sin
+  // valorar (idempotente — no se puede pisar una valoración ya dada por este
+  // camino). `.select().maybeSingle()` distingue "no hizo nada" (0 filas) de
+  // un fallo real de red/permiso.
+  const { data, error } = await admin.from('reservas')
+    .update({ valoracion_experiencia: params.valoracion })
+    .eq('id', params.reservaId)
+    .eq('studio_id', params.studioId)
+    .eq('socio_id', params.socioId)
+    .eq('estado', 'ASISTIDA')
+    .is('valoracion_experiencia', null)
+    .select('id')
+    .maybeSingle();
+  if (error) return { error: 'No se pudo guardar la valoración' as const };
+  if (!data) return { error: 'Esta clase no se puede valorar (ya valorada, no asistida, o no es tuya)' as const };
+  return { ok: true as const };
+}
+
 // ─── Feature #2 (ficha Lorari-vs-Tentare) — plaza fija autoservicio ──────────
 // Mismo patrón que el resto de escrituras públicas: service-role + validación
 // de que la socia (id+email) pertenece al estudio, identidad SIEMPRE del JWT.

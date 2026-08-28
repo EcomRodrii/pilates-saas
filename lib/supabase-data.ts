@@ -981,6 +981,7 @@ export function mapReserva(r: RowReservas): Reserva {
     ofertaExpiraEn: r.oferta_expira_en ?? null,
     checkInEn: r.check_in_en ?? null,
     creadoEn: r.creado_en,
+    valoracionExperiencia: r.valoracion_experiencia ?? null,
   } as Reserva;
 }
 
@@ -4576,7 +4577,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('tipos_clase').select('*').eq('studio_id', sid),
     db.from('instructores').select('*').eq('studio_id', sid),
     fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion').eq('studio_id', sid).range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { crearReservaPublica, cancelarReservaPublica, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { crearReservaPublica, cancelarReservaPublica, valorarExperienciaReservaPublica, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -21,11 +21,12 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   const body = await req.json().catch(() => null) as {
-    accion?: 'crear' | 'cancelar';
+    accion?: 'crear' | 'cancelar' | 'valorar';
     studioId?: string;
     sesionId?: string;
     reservaId?: string;
     spotId?: string | null;
+    valoracion?: number;
   } | null;
 
   if (!body?.studioId) {
@@ -50,6 +51,15 @@ export async function POST(req: NextRequest) {
       if (!body.reservaId) return conCorsWidget(req, NextResponse.json({ error: 'Falta la reserva' }, { status: 400 }));
       const r = await cancelarReservaPublica({
         studioId: body.studioId, reservaId: body.reservaId, socioId, email: user.email,
+      });
+      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
+      return conCorsWidget(req, NextResponse.json(r));
+    }
+    if (body.accion === 'valorar') {
+      if (!body.reservaId) return conCorsWidget(req, NextResponse.json({ error: 'Falta la reserva' }, { status: 400 }));
+      if (typeof body.valoracion !== 'number') return conCorsWidget(req, NextResponse.json({ error: 'Falta la valoración' }, { status: 400 }));
+      const r = await valorarExperienciaReservaPublica({
+        studioId: body.studioId, reservaId: body.reservaId, socioId, email: user.email, valoracion: body.valoracion,
       });
       if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
       return conCorsWidget(req, NextResponse.json(r));
