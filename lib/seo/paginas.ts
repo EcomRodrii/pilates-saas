@@ -32,7 +32,7 @@ import { LEGAL } from '../legal-info.ts';
 export const BASE_URL: string = LEGAL.url;
 
 /** Los cuatro grupos de la arquitectura, más el bloque legal. */
-export type GrupoSeo = 'home' | 'software' | 'funcionalidades' | 'soluciones' | 'recursos' | 'legal';
+export type GrupoSeo = 'home' | 'software' | 'funcionalidades' | 'soluciones' | 'recursos' | 'ayuda' | 'legal';
 
 export interface PaginaSeo {
   /** Ruta absoluta sin dominio y SIN barra final ('/' es la única excepción). */
@@ -558,6 +558,35 @@ export const PAGINAS: PaginaSeo[] = [
     changeFrequency: 'monthly',
     actualizado: '2026-08-13',
     relacionadas: ['/funcionalidades/ficha-de-clienta', '/comparativa'],
+  },
+
+  // ── Centro de Ayuda ──────────────────────────────────────────────────────
+  // Solo las dos páginas ESTÁTICAS (home y novedades) van aquí — las categorías
+  // y artículos son rutas dinámicas (app/ayuda/[categoria] y
+  // app/ayuda/[categoria]/[articulo]), que paginas.test.ts excluye del barrido
+  // de app/ por definición, y que app/sitemap.ts añade aparte desde
+  // lib/ayuda/registro.ts (mismo patrón que los perfiles de Network).
+  {
+    path: '/ayuda',
+    titulo: 'Centro de Ayuda — Documentación de Tentare',
+    descripcion: 'La documentación oficial de Tentare: cómo configurar tu estudio, reservas, pagos, bonos, el portal de reservas, el widget y qué hacer cuando algo falla.',
+    grupo: 'ayuda',
+    etiqueta: 'Centro de Ayuda',
+    resumen: 'Documentación oficial de Tentare, paso a paso.',
+    prioridad: 0.8,
+    changeFrequency: 'weekly',
+    actualizado: '2026-08-28',
+  },
+  {
+    path: '/ayuda/novedades',
+    titulo: 'Novedades de Tentare | Centro de Ayuda',
+    descripcion: 'Nuevas funcionalidades, mejoras y correcciones publicadas en Tentare, versión a versión.',
+    grupo: 'ayuda',
+    etiqueta: 'Novedades',
+    prioridad: 0.5,
+    changeFrequency: 'weekly',
+    actualizado: '2026-08-28',
+    relacionadas: ['/ayuda'],
   },
 
   // ── Legales ───────────────────────────────────────────────────────────────

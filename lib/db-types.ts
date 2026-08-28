@@ -2388,3 +2388,12 @@ export interface RowWebhookDisputas {
   dispute_status: string;
   procesado_en: string;
 }
+
+export interface RowAyudaFeedback {
+  id: string;
+  articulo_slug: string;
+  categoria_slug: string;
+  valoracion: string;
+  url: string;
+  creado_en: string;
+}
