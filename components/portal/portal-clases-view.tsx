@@ -48,8 +48,7 @@ import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import type { PortalSession } from '@/lib/portal-auth';
 import type { DatosPase } from '@/components/portal/hoja-pase';
 import type { Reserva, Spot } from '@/lib/types';
-import { BandaFoto } from '@/components/portal/banda-foto';
-import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
+import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 
 type Vista = 'todas' | 'mias';
 
@@ -169,6 +168,11 @@ export function PortalClasesView({
     setTipoElegido(q);
     setVista('todas');
   }, [searchParams]);
+  // Filtro "Con hueco" (Tentare Studio App.dc.html): independiente del tipo
+  // de clase, así que es un booleano propio y no un valor especial de
+  // `tipoElegido` (a diferencia de FAVORITAS, que sí es excluyente con el
+  // tipo — aquí ambos pueden estar activos a la vez).
+  const [soloConHueco, setSoloConHueco] = useState(false);
   // 'favoritas' es un valor especial de `tipoElegido`: reutiliza el mismo
   // estado que ya filtra por tipo de clase, en vez de un segundo booleano que
   // tendría que sincronizarse con él.
@@ -272,8 +276,13 @@ export function PortalClasesView({
       .filter(s => !s.cancelada && s.inicio.slice(0, 10) === clave)
       .filter(s => tipoEfectivo === FAVORITAS ? idsFavoritos.has(s.tipoClaseId) : (!tipoEfectivo || s.tipoClaseId === tipoEfectivo))
       .sort((a, b) => a.inicio.localeCompare(b.inicio))
-      .map(decorar);
-  }, [dias, diaActivo, sesiones, tipoEfectivo, idsFavoritos, decorar]);
+      .map(decorar)
+      // "Con hueco": solo clases con plaza libre AHORA MISMO, mismo aforo en
+      // tiempo real que ya calcula `decorar` (REFRESCO_ACTIVO_MS) y que pinta
+      // `AforoIndicator` en cada tarjeta. Va DESPUÉS de `.map(decorar)`
+      // porque `libres` no existe hasta ese paso.
+      .filter(c => !soloConHueco || c.libres > 0);
+  }, [dias, diaActivo, sesiones, tipoEfectivo, idsFavoritos, decorar, soloConHueco]);
 
   const misClases = useMemo(() =>
     sesiones
@@ -411,13 +420,18 @@ export function PortalClasesView({
     void toggleFavorito(tipoClaseId, accion);
   }
 
+  // Sólido (`t.surface`), no cristal translúcido: estos tres círculos flotan
+  // encima de la foto de cabecera (banner con degradado) y un fondo
+  // semitransparente dependería de la foto de CADA estudio para dar
+  // contraste. Mismo criterio que ya usa el círculo de flecha de "Invita a
+  // una amiga" y de los banners de contenido en Inicio (`sombra.circuloBanner`,
+  // pensada exactamente para un círculo sobre foto — ver portal-home-view.tsx).
   const circulo: React.CSSProperties = {
-    width: 38, height: 38, borderRadius: '50%',
-    border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
-    background: noche ? 'rgba(28,31,23,.7)' : 'rgba(255,255,255,.7)',
+    width: 38, height: 38, borderRadius: '50%', border: 'none',
+    background: t.surface, boxShadow: sombra.circuloBanner,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 13, color: t.muted2, cursor: 'pointer',
-    transition: transicion(['background'], dur.color),
+    fontSize: 13, color: t.ink, cursor: 'pointer',
+    transition: transicion(['transform']),
   };
 
   const rangoSemana = `${dias[0].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} — ${dias[6].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`
@@ -427,16 +441,43 @@ export function PortalClasesView({
     <div style={{ minHeight: '100%', background: t.bg, color: t.ink, paddingTop: 62 }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div {...wrap('listadoClases')}>
-      {/* La foto de ESTA pantalla, o la banda por defecto. Es la única
-          superficie del portal que se ve sin velo ni degradado encima. */}
-      <BandaFoto url={imagenDeEstudio('banda', txt('listadoClases', 'fotoUrl', ''))} />
-      <div style={{ padding: '0 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ ...micro(9.5, 0.28), color: t.micro, whiteSpace: 'nowrap' }}>{rangoSemana}</div>
-            <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 12 }}>{txt('listadoClases', 'titulo', 'Clases')}</h1>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
+      {/* Banner de cabecera (Tentare Studio App.dc.html, Horario): la foto de
+          ESTA pantalla (hueco `banda`, 1600×592 — NO el hueco `banner`, que es
+          otro recorte para "Invita a una amiga"; cambiar el hueco cambiaría
+          qué foto ve la propietaria sin que ella lo haya subido para esto)
+          con degradado inferior y el título superpuesto.
+          Antes esta banda era "la única superficie del portal que se ve sin
+          velo ni degradado encima", a propósito: un velo TRANSLÚCIDO uniforme
+          no da contraste garantizado con un titular cuyo color pone el tema
+          (t.ink cambia con el modo) sobre una foto que puede ser clara u
+          oscura. Ese riesgo es real, pero no aplica a ESTE degradado: no es
+          translúcido parejo, es casi opaco (94 %) justo donde se apoya el
+          texto y se desvanece hacia arriba — el mismo mecanismo, con los
+          mismos valores, que ya usan el banner "Invita a una amiga" y las
+          tarjetas de contenido de Inicio (portal-home-view.tsx). Los tres
+          círculos flotan en la esquina superior con fondo SÓLIDO
+          (`circulo`, más abajo), no cristal, por la misma razón: nada que
+          dependa de un texto/icono legible encima de una foto arbitraria
+          puede fiarse de la transparencia. */}
+      <div style={{ position: 'relative', height: 160, margin: '0 24px 22px', borderRadius: 'var(--portal-radius-card, 26px)', overflow: 'hidden' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imagenDeEstudio('banda', txt('listadoClases', 'fotoUrl', ''))}
+          alt=""
+          onError={alFallarImagen(IMAGENES_POR_DEFECTO.banda[0])}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+            objectPosition: 'var(--portal-foto-pos, center center)', display: 'block',
+          }}
+        />
+        <div aria-hidden style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: noche
+            ? 'linear-gradient(0deg, rgba(18,20,14,.94) 0%, rgba(18,20,14,.58) 48%, rgba(18,20,14,.04) 100%)'
+            : 'linear-gradient(0deg, rgba(246,244,239,.94) 0%, rgba(246,244,239,.58) 48%, rgba(246,244,239,.04) 100%)',
+        }} />
+        <div style={{ position: 'absolute', inset: 0, padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             {/* Punto de entrada al overlay BUSCAR (Tentare Studio App.dc.html),
                 mismo círculo que las flechas de semana — nunca un push de
                 ruta, solo abre el overlay encima de esta pantalla. */}
@@ -446,8 +487,13 @@ export function PortalClasesView({
             <button type="button" aria-label="Semana anterior" onClick={() => { setSemana(s => s - 1); setDiaElegido(0); }} style={circulo}>←</button>
             <button type="button" aria-label="Semana siguiente" onClick={() => { setSemana(s => s + 1); setDiaElegido(0); }} style={circulo}>→</button>
           </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ ...micro(9.5, 0.28), color: t.heroAccent, whiteSpace: 'nowrap' }}>{rangoSemana}</div>
+            <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 10 }}>{txt('listadoClases', 'titulo', 'Clases')}</h1>
+          </div>
         </div>
-
+      </div>
+      <div style={{ padding: '0 24px' }}>
         <div style={{
           position: 'relative', display: 'flex', alignItems: 'center', height: 46, marginTop: 22,
           padding: 5, borderRadius: 23,
@@ -480,9 +526,12 @@ export function PortalClasesView({
 
       {vista === 'todas' && (
         <>
-          {(tiposClase.length > 1 || idsFavoritos.size > 0) && (
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '18px 24px 4px', scrollbarWidth: 'none' } as React.CSSProperties}>
-              {[{ id: null as string | null, nombre: 'Todas', color: null as string | null },
+          {/* Fila siempre visible desde que existe "Con hueco" — antes se
+              omitía entera con un solo tipo de clase y sin favoritas, pero
+              ese filtro es útil también para un estudio con un único tipo. */}
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '18px 24px 4px', scrollbarWidth: 'none' } as React.CSSProperties}>
+            {(tiposClase.length > 1 || idsFavoritos.size > 0) &&
+              [{ id: null as string | null, nombre: 'Todas', color: null as string | null },
                 ...(idsFavoritos.size > 0 ? [{ id: FAVORITAS, nombre: 'Favoritas', color: null as string | null }] : []),
                 ...tiposClase.map(tc => ({ id: tc.id, nombre: tc.nombre, color: tc.color }))].map(chip => {
                 const activo = tipoEfectivo === chip.id;
@@ -509,8 +558,25 @@ export function PortalClasesView({
                   </button>
                 );
               })}
-            </div>
-          )}
+            {/* "Con hueco" (Tentare Studio App.dc.html): independiente del
+                tipo de clase de arriba — no forma parte del grupo excluyente,
+                así que puede ir activo a la vez que un tipo o "Favoritas". */}
+            <button
+              type="button" onClick={() => setSoloConHueco(v => !v)} aria-pressed={soloConHueco}
+              style={{
+                flex: '0 0 auto', height: 36, padding: '0 18px',
+                borderRadius: 'var(--portal-radius-chip, 18px)',
+                background: soloConHueco ? 'var(--portal-brand)' : (noche ? 'rgba(28,31,23,.7)' : 'rgba(255,255,255,.7)'),
+                color: soloConHueco ? 'var(--portal-brand-foreground)' : t.muted2,
+                border: `1px solid ${soloConHueco ? 'transparent' : t.line}`,
+                display: 'flex', alignItems: 'center', gap: 8,
+                fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit', whiteSpace: 'nowrap', cursor: 'pointer',
+                transition: transicion(['background', 'color'], 300),
+              }}
+            >
+              Con hueco
+            </button>
+          </div>
 
           <div style={{ position: 'relative', display: 'flex', margin: '20px 24px 0', paddingBottom: 18, borderBottom: `1px solid ${t.line}` }}>
             <span
