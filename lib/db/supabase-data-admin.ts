@@ -3210,7 +3210,7 @@ export async function registrarSociaPublica(params: {
 
 const CAMPOS_SOCIA_EDITABLES: Record<string, string> = {
   telefono: 'telefono', nif: 'nif', avatar: 'avatar', fotoUrl: 'foto_url',
-  fechaNacimiento: 'fecha_nacimiento', direccion: 'direccion',
+  fechaNacimiento: 'fecha_nacimiento', direccion: 'direccion', usuario: 'usuario',
 };
 
 
@@ -3226,6 +3226,12 @@ export async function actualizarSociaPublica(params: {
   for (const [camel, snake] of Object.entries(CAMPOS_SOCIA_EDITABLES)) {
     if (camel in params.cambios) db[snake] = params.cambios[camel];
   }
+  // Normalizado en minúsculas SIEMPRE, no solo cuando el cliente ya lo manda
+  // así: el CHECK de la migración (20260828100000) exige minúsculas y
+  // rechazaría un valor con mayúscula colado por otra vía, con un error de
+  // Postgres crudo en vez del mensaje de abajo.
+  if (typeof db.usuario === 'string') db.usuario = db.usuario.trim().toLowerCase();
+  if (db.usuario === '') db.usuario = null;
   // Aceptación del contrato (clickwrap): objeto anidado → columnas de registro.
   // Sin esto, la aceptación se perdía y no quedaba evidencia (C-7).
   const ac = params.cambios.aceptacionContrato as
@@ -3237,7 +3243,15 @@ export async function actualizarSociaPublica(params: {
   }
   if (Object.keys(db).length === 0) return { ok: true as const };
   const { error } = await admin.from('socios').update(db).eq('id', params.socioId);
-  if (error) return { error: error.message };
+  if (error) {
+    // 23505 = unique_violation (uq_socios_studio_usuario), 23514 =
+    // check_violation (socios_usuario_formato). Sin esto, la socia veía el
+    // texto crudo de Postgres ("duplicate key value violates unique
+    // constraint...") en vez de un aviso que entienda.
+    if ('usuario' in db && error.code === '23505') return { error: 'Ese usuario ya está en uso.' };
+    if ('usuario' in db && error.code === '23514') return { error: 'El usuario solo puede tener minúsculas, números y guion bajo (3-24 caracteres).' };
+    return { error: error.message };
+  }
   return { ok: true as const };
 }
 

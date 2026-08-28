@@ -510,6 +510,7 @@ export function mapSocio(r: FilaSocioPanel): Socio {
     referidoPor: r.referido_por ?? null,
     origenLead: r.origen_lead ?? null,
     camposExtra: r.campos_extra ?? {},
+    usuario: r.usuario ?? null,
   } as Socio;
 }
 
@@ -1728,6 +1729,7 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
   if ('fechaNacimiento' in changes) db.fecha_nacimiento = changes.fechaNacimiento;
   if ('direccion' in changes) db.direccion = changes.direccion;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  if ('usuario' in changes) db.usuario = changes.usuario;
   if ('referidoPor' in changes) db.referido_por = changes.referidoPor;
   if ('origenLead' in changes) db.origen_lead = changes.origenLead;
   if ('camposExtra' in changes) db.campos_extra = changes.camposExtra ?? {};
@@ -4568,7 +4570,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // 1000 filas — un estudio/cadena grande vería la retención y el ranking de
     // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
-    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),
