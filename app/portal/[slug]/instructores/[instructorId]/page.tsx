@@ -60,16 +60,18 @@ export default function InstructoraPerfilPage() {
   }, [instructor, sesiones, tiposClase]);
 
   // `ahora` aislado en su propio memo con deps vacías (mismo patrón que
-  // portal-clases-view.tsx) — un Date.now()/new Date() suelto dentro de otro
-  // useMemo lo marca el React Compiler como llamada impura durante el render.
-  const ahora = useMemo(() => Date.now(), []);
+  // portal-clases-view.tsx: "Estable durante la vida de la página: con
+  // Date.now() la dependencia sería nueva en cada render y no se
+  // memoizaría nada"). `Date.now()` suelto SÍ lo marca el React Compiler
+  // como llamada impura durante el render; `new Date()` no.
+  const ahora = useMemo(() => new Date(), []);
 
   // Lo único que una socia puede hacer con el horario de su instructora:
   // MIRAR sus próximas clases — nunca gestionarlas.
   const proximasClases = useMemo(() => {
     if (!instructor) return [];
     return sesiones
-      .filter(s => s.instructorId === instructor.id && !s.cancelada && new Date(s.inicio).getTime() > ahora)
+      .filter(s => s.instructorId === instructor.id && !s.cancelada && new Date(s.inicio) > ahora)
       .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime())
       .slice(0, 4)
       .map(s => ({ sesion: s, tipoClase: tiposClase.find(tc => tc.id === s.tipoClaseId) ?? null }));
