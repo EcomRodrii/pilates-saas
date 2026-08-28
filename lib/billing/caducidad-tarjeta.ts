@@ -81,6 +81,16 @@ export async function guardarCaducidadTarjeta(
   }
 }
 
+// Stripe manda la marca en minúscula (`visa`, `mastercard`) — capitaliza para
+// pantalla. Pura y sin dependencias, así que vive junto al resto de este
+// fichero (client-safe: solo tipos de `stripe`, nunca el SDK en runtime) en
+// vez de duplicarse entre /compras y /ajustes.
+export function nombreDeMarca(marca: string | null | undefined): string {
+  if (!marca) return 'Tarjeta';
+  if (marca.toLowerCase() === 'visa') return 'Visa';
+  return marca.charAt(0).toUpperCase() + marca.slice(1);
+}
+
 /**
  * ¿Caduca esta tarjeta en o antes de `fecha`? Una tarjeta con caducidad 09/2026
  * sirve hasta el ÚLTIMO día de septiembre de 2026, no hasta el primero — es el

@@ -301,6 +301,11 @@ export function PortalPerfilView({
           () => navegar(`/portal/${slug}/compras`),
         )}
         {fila('Avisos', null, () => navegar(`/portal/${slug}/preferencias`))}
+        {/* Pantalla unificada (Ajustes): Mis datos + Usuario (@handle) +
+            Contraseña + Avisos + resumen de la tarjeta, en un solo sitio.
+            Las filas de arriba se quedan tal cual — esta es una vía
+            adicional, no las sustituye. */}
+        {fila('Ajustes', null, () => navegar(`/portal/${slug}/ajustes`))}
         {fila('Aspecto', noche ? 'Noche' : 'Día', toggle, false, true)}
         {fila(
           'El estudio',
