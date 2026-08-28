@@ -41,7 +41,7 @@ import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora, huecosHoy } from '@/lib/portal-home-logic';
 import { sugerirClase, cuandoSugerencia } from '@/lib/portal-sugerencias';
-import { CalendarDays, Sparkles, Bell, User, Search, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Sparkles, Bell, User, Search, Ticket, type LucideIcon } from 'lucide-react';
 import { BuscarOverlay } from '@/components/portal/buscar-overlay';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
 import { useNotificacionesSinLeer } from '@/lib/notifications/use-unread';
@@ -52,7 +52,7 @@ import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
 import { bonoActivo } from '@/lib/bonos-portal';
 import { usePortalHref } from '@/components/portal/portal-preview-bridge';
 import {
-  dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque, escala } from '@/lib/portal-design';
+  EASE, dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque, escala } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
@@ -243,6 +243,19 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
       .filter((x): x is { b: Exclude<BloqueHome, { kind: 'sistema' }>; orden: number } => x.b.kind !== 'sistema'),
     [bloquesOrdenados],
   );
+
+  // "Mi progreso"/"Retos" — hoy solo existen como bloques de sistema OCULTOS
+  // por defecto (`tiraSemana`/`progresoSemanal` de Oliva, `retos` de Bloom),
+  // así que un estudio en el tema clásico (la inmensa mayoría — ningún tema
+  // los instala hoy, ver comentario de BLOQUES_SISTEMA_POR_PANTALLA) no ve
+  // nunca su progreso semanal ni los retos del estudio. Las dos tarjetas de
+  // abajo son PERSISTENTES (mismo criterio que "Tu ritmo"/"Tu estudio": leen
+  // datos de sesión, no tiene sentido reordenarlas en el editor) y se pintan
+  // siempre — salvo que ESTE estudio ya haya activado a mano el bloque
+  // equivalente del tema, en cuyo caso se cede el turno a ese para no
+  // duplicar la misma información dos veces en la misma pantalla.
+  const progresoSemanalBloqueActivo = bloquesOrdenados.some((b) => b.kind === 'sistema' && b.sistemaId === 'progresoSemanal');
+  const retosBloqueActivo = bloquesOrdenados.some((b) => b.kind === 'sistema' && b.sistemaId === 'retos');
 
   const raizRef = useRef<HTMLDivElement>(null);
   const topBarRef = useRef<HTMLDivElement>(null);
@@ -519,6 +532,19 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
 
   return (
     <div ref={raizRef} style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+      {/* Ken Burns de la foto del hero: un bucle MUY lento y sutil (scale
+          1↔1.08, dur.heroFoto = 20 s), va en el <img>, nunca en `fotoRef`
+          (el envoltorio que ya escribe `transform` a mano en cada scroll
+          para el paralaje, más arriba) — una animación CSS de `transform` y
+          un `style.transform` escrito por JS sobre el MISMO elemento se
+          pisarían entre sí. `!important` bajo `prefers-reduced-motion` es lo
+          único que puede ganarle a la animación puesta inline por style. */}
+      <style>{`
+        @keyframes portal-hero-kenburns { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        @media (prefers-reduced-motion: reduce) {
+          .portal-hero-kenburns { animation: none !important; }
+        }
+      `}</style>
 
       {/* Barra que aparece al desplazar. `sticky` con margen negativo del mismo
           alto: se queda pegada arriba sin ocupar sitio, así el contenido pasa
@@ -745,7 +771,11 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               src={fotoTarjeta}
               alt=""
               onError={alFallarImagen(IMAGENES_POR_DEFECTO.vertical[0])}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }}
+              className="portal-hero-kenburns"
+              style={{
+                width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block',
+                animation: `portal-hero-kenburns ${dur.heroFoto}ms ${EASE} infinite`,
+              }}
             />
           </div>
 
@@ -787,28 +817,82 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 </span>
               ))}
             </div>
-            {(() => {
-              const estilo: React.CSSProperties = {
-                width: '100%', height: altura.botonCta, borderRadius: `var(--portal-radius-boton, ${radio.botonCta}px)`, background: 'var(--portal-brand)',
-                display: 'flex', alignItems: 'center', padding: '0 24px', marginTop: 18, border: 'none',
-                textDecoration: 'none', cursor: 'pointer',
-                boxShadow: sombra.cta, transition: transicion(['transform', 'background']),
-              };
-              const dentro = (
-                <>
-                  <GlifoAcceso color="var(--portal-brand-foreground)" />
-                  <span style={{ flex: 1, ...texto.botonCta, color: 'var(--portal-brand-foreground)', paddingLeft: 14, textAlign: 'left' }}>{tarjeta.cta}</span>
-                  <span aria-hidden style={{ fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7 }}>→</span>
-                </>
-              );
-              // Con el check-in QR desactivado (Configuración → Reservas), la
-              // reserva se marca asistida sola al terminar la clase: no hay
-              // ningún pase que enseñar, así que el botón lleva directo a la
-              // reserva, como en el resto de estados de esta tarjeta.
-              return 'abrePase' in tarjeta && tarjeta.abrePase && (studio?.requiereCheckinQr ?? true)
-                ? <button type="button" onClick={() => setPaseAbierto(true)} style={estilo}>{dentro}</button>
-                : <Link href={tarjeta.href} style={estilo}>{dentro}</Link>;
-            })()}
+            {/* Fila de 3 píldoras: la principal (case-aware, igual que
+                siempre) más dos accesos directos fijos — horario y mi acceso
+                — a acciones reales que ya existían en el portal pero solo se
+                podían llegar a ellas desde otra pantalla. Ninguna anida un
+                interactivo dentro de otro (una de las píldoras es un
+                <button>, las otras dos son <Link>, siempre HERMANOS: la
+                tarjeta grande dejó de ser un enlace único por esto mismo,
+                ver el comentario de e2e/portal-cliente-v2.spec.ts). */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18 }}>
+              {(() => {
+                const estilo: React.CSSProperties = {
+                  flex: 1, minWidth: 0, height: altura.botonCta, borderRadius: `var(--portal-radius-boton, ${radio.botonCta}px)`, background: 'var(--portal-brand)',
+                  display: 'flex', alignItems: 'center', padding: '0 16px', border: 'none',
+                  textDecoration: 'none', cursor: 'pointer',
+                  boxShadow: sombra.cta, transition: transicion(['transform', 'background']),
+                };
+                const dentro = (
+                  <>
+                    <GlifoAcceso color="var(--portal-brand-foreground)" />
+                    <span style={{
+                      flex: 1, minWidth: 0, ...texto.botonCta, color: 'var(--portal-brand-foreground)', paddingLeft: 12, textAlign: 'left',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>{tarjeta.cta}</span>
+                    <span aria-hidden style={{ flex: '0 0 auto', fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7, paddingLeft: 8 }}>→</span>
+                  </>
+                );
+                // Con el check-in QR desactivado (Configuración → Reservas), la
+                // reserva se marca asistida sola al terminar la clase: no hay
+                // ningún pase que enseñar, así que el botón lleva directo a la
+                // reserva, como en el resto de estados de esta tarjeta.
+                return 'abrePase' in tarjeta && tarjeta.abrePase && (studio?.requiereCheckinQr ?? true)
+                  ? <button type="button" onClick={() => setPaseAbierto(true)} style={estilo}>{dentro}</button>
+                  : <Link href={tarjeta.href} style={estilo}>{dentro}</Link>;
+              })()}
+
+              {/* Horario/Mi acceso — círculos de 40 px, el MISMO tamaño y
+                  tratamiento que la lupa y la campana de la cabecera (arriba
+                  en este mismo fichero): no `altura.botonCta` (62 px, pensado
+                  para un botón ancho a todo lo ancho, no para un icono suelto
+                  al lado de la píldora principal) — con 62 px la principal se
+                  quedaba sin sitio para su texto en un iPhone normal (402 px),
+                  no solo en el SE. Horario — el calendario completo, un atajo
+                  a la misma pantalla a la que ya lleva "Ver la agenda"/"Esta
+                  semana" más abajo, ahora también desde la tarjeta principal. */}
+              <Link
+                href={portalHref(`/${slug}/clases`)}
+                aria-label="Ver el horario"
+                style={{
+                  position: 'relative', width: 40, height: 40, flex: '0 0 40px',
+                  borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
+                  background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: sombra.circulo, textDecoration: 'none',
+                  transition: transicion(['transform']),
+                }}
+              >
+                <CalendarDays size={18} strokeWidth={1.9} style={{ color: t.ink }} />
+              </Link>
+
+              {/* Mi acceso — mismo destino que la fila "Mis reservas" de más
+                  abajo: es ahí (no un pase suelto sin clase que enseñar en
+                  los otros cuatro casos de esta tarjeta) donde vive el pase
+                  QR de verdad cuando el check-in lo requiere. */}
+              <Link
+                href={portalHref(`/${slug}/reservas`)}
+                aria-label="Mi acceso"
+                style={{
+                  position: 'relative', width: 40, height: 40, flex: '0 0 40px',
+                  borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
+                  background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: sombra.circulo, textDecoration: 'none',
+                  transition: transicion(['transform']),
+                }}
+              >
+                <Ticket size={18} strokeWidth={1.9} style={{ color: t.ink }} />
+              </Link>
+            </div>
           </div>
         </div>
         </>
@@ -842,6 +926,104 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 </div>
                 <span style={{ ...micro(11, 0, 500), color: t.heroAccent }}>quedan {bono.totalRestantes}</span>
               </div>
+            </div>
+          </>
+        )}
+
+        {/* "Mi progreso" + "Retos" — dos tarjetas SIEMPRE visibles (rediseño
+            Tentare Studio App). Antes de esto, el progreso semanal y los
+            retos del estudio solo existían como bloques de sistema ocultos
+            por defecto y exclusivos de un tema (Oliva/Bloom) — ningún tema
+            los instala hoy (ver comentario junto a `progresoSemanalBloqueActivo`
+            más arriba), así que casi ninguna socia los veía nunca. Misma
+            lógica de cálculo que esos bloques (`calcularProgresoSemanal`/
+            `RETOS_PORTAL`+`retosApuntados`+`retoConteos`+`toggleReto`), sin
+            reimplementarla — solo se pinta siempre, apilada como "Tu ritmo",
+            en vez de esperar a que un tema la active. Si ESTE estudio ya
+            activó a mano el bloque equivalente (raro, pero posible desde el
+            editor), se cede el turno a ese para no duplicar la misma
+            información dos veces en la misma pantalla. */}
+        {!progresoSemanalBloqueActivo && (
+          <>
+            <div style={{ height: 44 }} />
+            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
+              Mi progreso
+            </h2>
+            <Link
+              href={portalHref(`/${slug}/progreso`)}
+              style={{
+                marginTop: 10, display: 'block', textDecoration: 'none',
+                background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
+                padding: '14px 16px', boxShadow: sombra.cardSemana,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ ...texto.metaFuerte, color: t.ink }}>Tu semana</span>
+                <span style={{ ...micro(9.5, 0, 500), color: t.muted2 } as React.CSSProperties}>meta {META_PROGRESO_SEMANAL}/sem</span>
+              </div>
+              <div style={{ ...texto.meta, color: t.muted2, margin: '6px 0 8px' }}>
+                <span style={{ ...texto.metaFuerte, color: t.ink }}>
+                  {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'}
+                </span>{' '}
+                esta semana
+              </div>
+              <div style={{ height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 100}%`,
+                  height: '100%', background: 'var(--portal-brand)', borderRadius: 999,
+                  transition: transicion(['width'], dur.card),
+                }} />
+              </div>
+            </Link>
+          </>
+        )}
+
+        {!retosBloqueActivo && (
+          <>
+            <div style={{ height: 34 }} />
+            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
+              Retos
+            </h2>
+            <div style={{
+              marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8,
+              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
+              padding: '6px 16px', boxShadow: sombra.cardSemana,
+            }}>
+              {RETOS_PORTAL.map((reto, i) => {
+                const apuntada = retosApuntados.includes(reto.key);
+                const conteo = retoConteos[reto.key] ?? 0;
+                return (
+                  <div
+                    key={reto.key}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0',
+                      borderTop: i > 0 ? `1px solid ${t.line}` : undefined,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ ...texto.metaFuerte, color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {reto.label}
+                      </div>
+                      <div style={{ ...texto.nota, color: t.muted, marginTop: 2 }}>
+                        {reto.dias} · {conteo > 0 ? `${conteo} apuntada${conteo === 1 ? '' : 's'}` : 'Sé la primera'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void toggleReto(reto.key, apuntada ? 'desmarcar' : 'marcar')}
+                      style={{
+                        flex: '0 0 auto', height: 34, padding: '0 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                        background: apuntada ? t.surface2 : 'var(--portal-brand)',
+                        color: apuntada ? t.ink : 'var(--portal-brand-foreground)',
+                        transition: transicion(['background', 'color'], dur.card),
+                        ...texto.metaFuerte,
+                      }}
+                    >
+                      {apuntada ? 'Apuntada ✓' : 'Apuntarme'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </>
         )}
