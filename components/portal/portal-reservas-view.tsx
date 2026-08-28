@@ -31,7 +31,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { Calendar, Clock, MapPin, QrCode, User as UserIcon } from 'lucide-react';
+import { Calendar, Clock, MapPin, MessageCircle, Navigation, QrCode, Star, User as UserIcon } from 'lucide-react';
 import type { Reserva, Sesion } from '@/lib/types';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { formatFechaCorta as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
@@ -42,6 +42,7 @@ import { HojaOfertaEspera, type OfertaEspera } from '@/components/portal/hoja-of
 import { BotonesCalendario } from '@/components/portal/botones-calendario';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
 import type { PortalSession } from '@/lib/portal-auth';
+import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
 import {
   EASE, dur, transicion, display, micro, texto, radio, sombra, cristal, desenfoque,
 } from '@/lib/portal-design';
@@ -164,11 +165,25 @@ export function PortalReservasView({
   session, escribible = true, navegar,
 }: { session: PortalSession | null; escribible?: boolean; navegar: (ruta: string) => void }) {
   const { slug } = useParams<{ slug: string }>();
-  const { reservas, sesiones, tiposClase, salas, instructores, cancelarReserva, aceptarOfertaEspera, studio } = useStudio();
+  const {
+    reservas, sesiones, tiposClase, salas, instructores, cancelarReserva, aceptarOfertaEspera,
+    valorarExperienciaReserva, studio,
+  } = useStudio();
   const { t, noche } = useModo();
   const [tab, setTab] = useState<Tab>('PROXIMAS');
   const [cancelando, setCancelando] = useState<Reserva | null>(null);
+  // "Cambiar hora" (Gap 2): no hay reprogramación real — se reutiliza el
+  // MISMO sheet de cancelación, distinguiendo aquí si al confirmar hay que
+  // además llevar a la socia a elegir otra clase.
+  const [cambiandoHora, setCambiandoHora] = useState(false);
   const [paseAbierto, setPaseAbierto] = useState(false);
+  // Gap 1: mismo hook/criterio que Perfil — cero contador inventado.
+  const mensajesSinLeer = useMensajesSinLeer(studio?.id ?? null);
+  // Gap 4: id de la reserva cuya valoración está en vuelo, para deshabilitar
+  // sus estrellas mientras se confirma con el servidor (sin escritura
+  // optimista: la puntuación en pantalla solo cambia cuando `reservas` se
+  // resincroniza con la respuesta real).
+  const [valorandoId, setValorandoId] = useState<string | null>(null);
   // Id de la reserva cuya oferta la socia ya cerró tocando el fondo (sin
   // decidir) — para que el sheet no vuelva a abrirse solo en cada render
   // mientras la MISMA oferta siga viva. Si aparece una oferta distinta
@@ -263,23 +278,61 @@ export function PortalReservasView({
     return cancelarReserva(reservaId);
   }
 
+  // Gap 4 — valorar una clase ya ASISTIDA. Sin escritura optimista: se espera
+  // la respuesta real (`postPublico` resincroniza `reservas` desde el
+  // servidor) antes de soltar el spinner, así que la estrella que se ve tras
+  // recargar es siempre la misma que la que se ve al momento.
+  async function onValorar(reservaId: string, valoracion: number) {
+    if (!escribible) {
+      setAviso({ texto: 'Vista previa: esta valoración no se guarda de verdad.', error: false });
+      return;
+    }
+    if (valorandoId) return;
+    setValorandoId(reservaId);
+    const r = await valorarExperienciaReserva(reservaId, valoracion);
+    setValorandoId(null);
+    if (!r.ok) setAviso({ texto: r.error, error: true });
+  }
+
   return (
     <div style={{ minHeight: '100%', background: t.bg }}>
       {/* Cabecera — mismo par volanta/titular que el resto de pantallas
           migradas: la micro-etiqueta cuenta el total, el titular serif dice
           qué es esto, con la cursiva como voz, no como énfasis. */}
-      <div style={{ padding: '28px 24px 8px' }}>
-        <div style={{ ...micro(9.5, 0.28), color: t.micro }}>
-          {misReservas.length} {misReservas.length === 1 ? 'reserva en total' : 'reservas en total'}
+      <div style={{ padding: '28px 24px 8px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ ...micro(9.5, 0.28), color: t.micro }}>
+            {misReservas.length} {misReservas.length === 1 ? 'reserva en total' : 'reservas en total'}
+          </div>
+          {/* El texto exacto "Mis reservas" se conserva a propósito — es el
+              ancla de accesibilidad que usan los e2e de esta pantalla
+              (`portal-preview-perfil-reservas.spec.ts`,
+              `getByRole('heading', { name: 'Mis reservas' })`). La cursiva va
+              en el resto del titular, no en las dos palabras que hacen de id. */}
+          <h1 style={{ ...display(38), color: t.ink, marginTop: 10 }}>
+            Mis reservas<em style={{ fontStyle: 'italic' }}>.</em>
+          </h1>
         </div>
-        {/* El texto exacto "Mis reservas" se conserva a propósito — es el
-            ancla de accesibilidad que usan los e2e de esta pantalla
-            (`portal-preview-perfil-reservas.spec.ts`,
-            `getByRole('heading', { name: 'Mis reservas' })`). La cursiva va
-            en el resto del titular, no en las dos palabras que hacen de id. */}
-        <h1 style={{ ...display(38), color: t.ink, marginTop: 10 }}>
-          Mis reservas<em style={{ fontStyle: 'italic' }}>.</em>
-        </h1>
+        {/* Gap 1 — acceso a Mensajes desde Reservas, mismo círculo de cristal
+            y punto de "sin leer" que usa la campana del Inicio (mismo hook,
+            `useMensajesSinLeer`, cero contador inventado). */}
+        <button
+          type="button"
+          onClick={() => navegar(`/portal/${slug}/mensajes`)}
+          aria-label={mensajesSinLeer > 0 ? `Mensajes, ${mensajesSinLeer} sin leer` : 'Mensajes'}
+          style={{
+            position: 'relative', width: 40, height: 40, flex: '0 0 40px', marginTop: 4,
+            borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
+            background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: sombra.circulo, cursor: 'pointer',
+            transition: transicion(['transform']),
+          }}
+        >
+          <MessageCircle size={18} strokeWidth={1.9} style={{ color: t.ink }} />
+          {mensajesSinLeer > 0 && (
+            <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--portal-brand)' }} />
+          )}
+        </button>
       </div>
 
       <div style={{ padding: '20px 24px 24px' }}>
@@ -420,6 +473,113 @@ export function PortalReservasView({
                     </button>
                   )}
 
+                  {/* Gap 3 — posición real en la lista de espera. Dato YA
+                      calculado y mantenido por el servidor (`posicionEspera`,
+                      renumerado por la RPC en cada cancelación/promoción —
+                      migr 0104), nunca una cuenta hecha en el cliente. Se
+                      omite mientras hay una oferta viva: en ese momento ya no
+                      está "en cola", se le está ofreciendo el hueco. */}
+                  {r.estado === 'LISTA_ESPERA' && r.posicionEspera != null && !r.ofertaExpiraEn && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, ...texto.nota, color: t.muted2 }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        minWidth: 20, height: 20, padding: '0 6px', borderRadius: radio.pill,
+                        background: t.surface2, ...micro(9.5, 0.1, 700), color: t.muted,
+                      }}>
+                        #{r.posicionEspera}
+                      </span>
+                      {r.posicionEspera === 1 ? 'La próxima en entrar si se libera un hueco' : `Posición ${r.posicionEspera} en la lista de espera`}
+                    </div>
+                  )}
+
+                  {/* Gap 4 — valorar una clase YA ASISTIDA, autoservicio.
+                      Solo aparece sobre reservas ASISTIDA: el CHECK de la BD
+                      (migr 20260828…) impide guardar sobre cualquier otro
+                      estado, así que ni se ofrece aquí. Una vez valorada
+                      (`r.valoracionExperiencia` ya no es null) se enseña la
+                      puntuación dada, sin permitir tocarla otra vez — mismo
+                      criterio "sin edición" que el resto de valoraciones del
+                      producto (0044). */}
+                  {r.estado === 'ASISTIDA' && (
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${t.line}` }}>
+                      {r.valoracionExperiencia != null ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ display: 'flex', gap: 2 }} aria-hidden>
+                            {[1, 2, 3, 4, 5].map(n => (
+                              <Star
+                                key={n}
+                                size={16}
+                                strokeWidth={1.7}
+                                fill={n <= (r.valoracionExperiencia as number) ? 'var(--portal-brand)' : 'none'}
+                                style={{ color: n <= (r.valoracionExperiencia as number) ? 'var(--portal-brand)' : t.muted2 }}
+                              />
+                            ))}
+                          </div>
+                          <span style={{ ...texto.nota, color: t.muted }}>Ya has valorado esta clase</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <p style={{ ...texto.nota, color: t.muted, marginBottom: 8 }}>¿Qué tal la clase?</p>
+                          <div role="group" aria-label="Valorar esta clase" style={{ display: 'flex', gap: 4 }}>
+                            {[1, 2, 3, 4, 5].map(n => (
+                              <button
+                                key={n}
+                                type="button"
+                                disabled={valorandoId === r.id}
+                                onClick={() => void onValorar(r.id, n)}
+                                aria-label={`${n} de 5 estrellas`}
+                                style={{
+                                  border: 'none', background: 'transparent', padding: 4, cursor: valorandoId === r.id ? 'default' : 'pointer',
+                                  opacity: valorandoId === r.id ? 0.5 : 1,
+                                }}
+                              >
+                                <Star size={22} strokeWidth={1.6} style={{ color: t.muted2 }} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Gap 2 — "Cómo llegar" (dirección real del estudio, sin
+                      SDK nuevo) y "Cambiar hora" (sin reprogramación real:
+                      reutiliza el MISMO sheet de cancelación de abajo y, tras
+                      confirmar, lleva a elegir otra clase). Mismo criterio de
+                      visibilidad que "Cancelar reserva": solo sobre una
+                      reserva CONFIRMADA todavía futura. */}
+                  {puedeCancel && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                      {studio?.direccion && (
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([studio.direccion, studio.ciudad].filter(Boolean).join(', '))}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            flex: 1, height: 42, borderRadius: 21, border: `1px solid ${t.line}`,
+                            background: 'transparent', color: t.ink, textDecoration: 'none',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
+                          }}
+                        >
+                          <Navigation size={13} /> Cómo llegar
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => { setCambiandoHora(true); setCancelando(r); }}
+                        style={{
+                          flex: 1, height: 42, borderRadius: 21, border: `1px solid ${t.line}`,
+                          background: 'transparent', color: t.ink,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
+                        }}
+                      >
+                        <Clock size={13} /> Cambiar hora
+                      </button>
+                    </div>
+                  )}
+
                   {/* §6 — Añadir ESTA reserva al calendario de la alumna. Nada
                       que ver con la integración Google Calendar del ESTUDIO: esa
                       sincroniza la agenda del negocio con la cuenta de la
@@ -452,7 +612,7 @@ export function PortalReservasView({
                   {puedeCancel && (
                     <button
                       type="button"
-                      onClick={() => setCancelando(r)}
+                      onClick={() => { setCambiandoHora(false); setCancelando(r); }}
                       style={{
                         width: '100%', height: 42, marginTop: 14, borderRadius: 21, border: 'none',
                         background: noche ? 'rgba(232,106,95,.12)' : semantic.danger.soft,
@@ -474,7 +634,7 @@ export function PortalReservasView({
           desenfocado real, cápsula de 34 de radio, sombra tirada de verde
           oscuro. Reemplaza el BottomSheet genérico del sistema saliente. */}
       <div
-        onClick={() => setCancelando(null)}
+        onClick={() => { setCancelando(null); setCambiandoHora(false); }}
         aria-hidden
         style={{
           position: 'fixed', inset: 0, zIndex: 40,
@@ -487,7 +647,7 @@ export function PortalReservasView({
       <div
         role="dialog"
         aria-modal={!!cancelando}
-        aria-label="¿Cancelar esta clase?"
+        aria-label={cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
         style={{
           position: 'fixed', left: 12, right: 12, bottom: 12, zIndex: 41,
           maxWidth: 456, margin: '0 auto',
@@ -501,16 +661,20 @@ export function PortalReservasView({
         }}
       >
         <div style={{ width: 40, height: 4, borderRadius: 4, background: noche ? '#3A3F33' : '#D8D4C9', margin: '0 auto 20px' }} />
-        <h2 style={{ ...display(26, true), color: t.ink, textAlign: 'center' }}>¿Cancelar esta clase?</h2>
+        <h2 style={{ ...display(26, true), color: t.ink, textAlign: 'center' }}>
+          {cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
+        </h2>
         <p style={{ ...texto.meta, color: t.muted, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-          {cancelando?.id.startsWith('res-pf-')
-            ? 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.'
-            : 'Perderás tu plaza y liberarás el hueco para otra socia.'}
+          {cambiandoHora
+            ? 'No podemos moverte de hora automáticamente: cancelamos esta y te llevamos a elegir otra que te venga mejor.'
+            : cancelando?.id.startsWith('res-pf-')
+              ? 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.'
+              : 'Perderás tu plaza y liberarás el hueco para otra socia.'}
         </p>
         <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
           <button
             type="button"
-            onClick={() => setCancelando(null)}
+            onClick={() => { setCancelando(null); setCambiandoHora(false); }}
             style={{
               flex: 1, height: 54, borderRadius: 27, border: `1px solid ${t.line}`,
               background: 'transparent', color: t.ink, ...texto.botonCta, fontSize: 14, cursor: 'pointer',
@@ -523,9 +687,20 @@ export function PortalReservasView({
             onClick={() => {
               if (!cancelando) return;
               const id = cancelando.id;
+              const irAElegirOtra = cambiandoHora;
               setCancelando(null);
-              if (!escribible) { setAviso({ texto: 'Vista previa: esta cancelación no se guarda de verdad.', error: false }); return; }
-              void cancelarReserva(id).then(r => { if (!r.ok) setAviso({ texto: r.error, error: true }); });
+              setCambiandoHora(false);
+              if (!escribible) {
+                setAviso({ texto: 'Vista previa: esta cancelación no se guarda de verdad.', error: false });
+                if (irAElegirOtra) navegar(`/portal/${slug}/clases`);
+                return;
+              }
+              void cancelarReserva(id).then(r => {
+                if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
+                // "Cambiar hora": solo se navega si la cancelación real la
+                // confirmó el servidor — nunca por adelantado.
+                if (irAElegirOtra) navegar(`/portal/${slug}/clases`);
+              });
             }}
             style={{
               flex: 1, height: 54, borderRadius: 27, border: 'none',
@@ -534,7 +709,7 @@ export function PortalReservasView({
               ...texto.botonCta, fontSize: 14, cursor: 'pointer',
             }}
           >
-            Sí, cancelar
+            {cambiandoHora ? 'Sí, cancelar y elegir otra' : 'Sí, cancelar'}
           </button>
         </div>
       </div>
