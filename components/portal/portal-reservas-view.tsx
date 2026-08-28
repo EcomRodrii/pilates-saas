@@ -49,7 +49,10 @@ import {
 // Stub de "pedir pase" para preview: NO llama a la API real (socioId
 // ficticio, 404/error garantizado) — mismo criterio que PortalClasesView.
 async function pedirPaseDeMuestra(): Promise<DatosPase> {
-  return { hayPase: true, vigente: true, yaAsistida: false, codigo: 'PREVIEW', token: null };
+  return {
+    hayPase: true, vigente: true, yaAsistida: false, codigo: 'PREVIEW', token: null,
+    paseHasta: new Date(Date.now() + 15 * 60_000).toISOString(),
+  };
 }
 
 type Tab = 'PROXIMAS' | 'PASADAS' | 'CANCELADAS' | 'ESPERA';

@@ -35,6 +35,7 @@ export interface DatosPase {
   yaAsistida?: boolean;
   minutosParaActivarse?: number;
   seActivaA?: string | null;
+  paseHasta?: string | null;
   inicio?: string;
   token?: string | null;
   codigo?: string | null;
@@ -157,11 +158,11 @@ function Contenido({
 }) {
   const caja: React.CSSProperties = {
     position: 'relative', overflow: 'hidden', marginTop: 22,
-    width: 228, height: 228, borderRadius: radio.qr, background: '#FFFFFF',
+    width: 168, height: 168, borderRadius: radio.qr, background: '#FFFFFF',
     boxShadow: sombra.qr, display: 'flex', alignItems: 'center', justifyContent: 'center',
   };
   const aviso = (texto1: string, texto2?: string) => (
-    <div style={{ ...caja, background: noche ? t.surface : t.surface2, flexDirection: 'column', gap: 8, padding: 28 }}>
+    <div style={{ ...caja, background: noche ? t.surface : t.surface2, flexDirection: 'column', gap: 6, padding: 20 }}>
       <span style={{ ...display(22, true), color: t.ink, textAlign: 'center', lineHeight: 1.15 }}>{texto1}</span>
       {texto2 && <span style={{ ...texto.nota, color: t.muted, textAlign: 'center' }}>{texto2}</span>}
     </div>
@@ -185,7 +186,7 @@ function Contenido({
       <div style={{
         ...caja,
         background: 'var(--portal-brand)',
-        flexDirection: 'column', gap: 10, padding: 28,
+        flexDirection: 'column', gap: 8, padding: 20,
       }}>
         <svg width="46" height="46" viewBox="0 0 24 24" fill="none" aria-hidden>
           <path d="M4 12.5l5.2 5.2L20 7" stroke={t.accentInk} strokeWidth="1.6"
@@ -202,9 +203,11 @@ function Contenido({
     <>
       <div style={caja}>
         {/* El QR se pinta como SVG en el cliente con el generador que ya usan las
-            facturas Veri*Factu — cero dependencias nuevas. */}
+            facturas Veri*Factu — cero dependencias nuevas. Tamaño proporcional
+            a la caja (168px, diseño "Tentare Studio App"): misma proporción
+            interior/caja que tenía la versión anterior (182/228 ≈ .8). */}
         <div
-          style={{ width: 182, height: 182 }}
+          style={{ width: 134, height: 134 }}
           dangerouslySetInnerHTML={{ __html: qrSvgMarkup(pase.token ?? '') }}
           aria-hidden
         />
@@ -224,10 +227,20 @@ function Contenido({
       {pase.codigo && (
         <div style={{ marginTop: 16, textAlign: 'center' }}>
           <div style={{ ...micro(8.5, 0.26, 600), color: t.micro }}>o dile este código</div>
-          <div style={{ ...display(26), color: t.ink, letterSpacing: '.14em', paddingLeft: '.14em', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ ...display(22), color: t.ink, letterSpacing: '.34em', paddingLeft: '.34em', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
             {pase.codigo}
           </div>
         </div>
+      )}
+
+      {/* Antes esto solo lo insinuaba el brillo animado de la caja — bonito,
+          pero implícito. El diseño pide el texto explícito, con la hora real
+          en que `paseVigente` deja de dar `true` (misma `ventanaDelPase` que
+          ya decidía el resto de la pantalla), no un aviso genérico. */}
+      {pase.paseHasta && (
+        <span style={{ ...texto.nota, color: t.muted, marginTop: 14, textAlign: 'center' }}>
+          Válido hasta las {new Date(pase.paseHasta).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+        </span>
       )}
     </>
   );
