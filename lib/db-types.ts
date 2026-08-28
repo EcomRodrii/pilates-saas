@@ -21,7 +21,7 @@ export interface RowReservas {
   recordatorio_confirmacion_en: string | null;
   // migr 20260730204404.
   oferta_expira_en: string | null;
-  // migr 20260828120000.
+  // migr 20260828010312.
   valoracion_experiencia: number | null;
 }
 
