@@ -1,10 +1,12 @@
 'use client';
 
 // Fase 4 (Booking Engine — Mi Cuenta): perfil básico, compartido entre Modo
-// A/B. Nombre/apellidos/email en solo lectura (identidad, no editable desde
-// aquí — `actualizarSociaPublica` los excluye a propósito, ver
-// docs/account-widget-diseno.md §0/§6). Solo los 5 campos que esa función SÍ
-// acepta.
+// A/B. Nombre/apellidos/email en solo lectura aquí (no hay formulario para
+// ellos en este componente, ver docs/account-widget-diseno.md §0/§6) — pero
+// eso ya no es porque `actualizarSociaPublica` los excluya a todos: nombre y
+// apellidos SÍ se guardan si se envían, solo el email se rechaza (identidad
+// de sesión pública, ver su comentario). Este formulario solo edita
+// teléfono/dirección.
 import { useState } from 'react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { Socio } from '@/lib/types';
