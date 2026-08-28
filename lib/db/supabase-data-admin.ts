@@ -3207,10 +3207,22 @@ export async function registrarSociaPublica(params: {
 
 // Campos que una socia puede editar de SU propia ficha (whitelist). No puede
 // tocar tags, lead_stage, activo, referido_por ni datos de Stripe.
-
+//
+// `email` queda FUERA a propósito, aunque el formulario de "Mis datos" lo
+// enseña editable: `validarSociaPublica` (y con ella CUALQUIER escritura
+// pública — reservar, cancelar, canjear, editar) autoriza comparando
+// `socios.email` contra el email real de la sesión de Supabase Auth. Si se
+// aceptara aquí sin más, la socia podría dejar su `socios.email` sin
+// corresponder con su email de login — y a partir de ahí ninguna escritura
+// suya volvería a autorizarse nunca más (auto-bloqueo silencioso, sin que
+// nadie pueda arreglarlo desde el propio portal). Cambiar el email de
+// verdad necesita sincronizarlo también en Auth (con su propio flujo de
+// confirmación), que no existe todavía — se rechaza explícitamente más abajo
+// en vez de aceptarlo y tirarlo en silencio.
 const CAMPOS_SOCIA_EDITABLES: Record<string, string> = {
-  telefono: 'telefono', nif: 'nif', avatar: 'avatar', fotoUrl: 'foto_url',
-  fechaNacimiento: 'fecha_nacimiento', direccion: 'direccion',
+  nombre: 'nombre', apellidos: 'apellidos', telefono: 'telefono', nif: 'nif',
+  avatar: 'avatar', fotoUrl: 'foto_url', fechaNacimiento: 'fecha_nacimiento',
+  direccion: 'direccion',
 };
 
 
@@ -3221,6 +3233,17 @@ export async function actualizarSociaPublica(params: {
   if (!admin) throw new Error('Service role no configurada');
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
+
+  // Ver comentario de CAMPOS_SOCIA_EDITABLES: el email no se acepta todavía,
+  // pero se dice explícitamente en vez de guardar el resto y callar el
+  // rechazo (que es justo el bug que se está corrigiendo aquí).
+  if ('email' in params.cambios) {
+    const nuevoEmail = String(params.cambios.email ?? '').trim().toLowerCase();
+    const actual = (socia.email ?? '').trim().toLowerCase();
+    if (nuevoEmail && nuevoEmail !== actual) {
+      return { error: 'El email no se puede cambiar desde aquí todavía. Escribe a tu estudio para actualizarlo.' as const };
+    }
+  }
 
   const db: Record<string, unknown> = {};
   for (const [camel, snake] of Object.entries(CAMPOS_SOCIA_EDITABLES)) {
