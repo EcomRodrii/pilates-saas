@@ -21,7 +21,7 @@
 // El punto de entrada real es "Ver perfil" en hoja-reserva.tsx (y "Su perfil"
 // en la lista de instructores/page.tsx) — no se duplica aquí.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, MessageCircle, Star } from 'lucide-react';
@@ -59,17 +59,21 @@ export default function InstructoraPerfilPage() {
     return tiposClase.filter(tc => idsImpartidos.has(tc.id));
   }, [instructor, sesiones, tiposClase]);
 
+  // `ahora` aislado en su propio memo con deps vacías (mismo patrón que
+  // portal-clases-view.tsx) — un Date.now()/new Date() suelto dentro de otro
+  // useMemo lo marca el React Compiler como llamada impura durante el render.
+  const ahora = useMemo(() => Date.now(), []);
+
   // Lo único que una socia puede hacer con el horario de su instructora:
   // MIRAR sus próximas clases — nunca gestionarlas.
   const proximasClases = useMemo(() => {
     if (!instructor) return [];
-    const ahora = Date.now();
     return sesiones
       .filter(s => s.instructorId === instructor.id && !s.cancelada && new Date(s.inicio).getTime() > ahora)
       .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime())
       .slice(0, 4)
       .map(s => ({ sesion: s, tipoClase: tiposClase.find(tc => tc.id === s.tipoClaseId) ?? null }));
-  }, [instructor, sesiones, tiposClase]);
+  }, [instructor, sesiones, tiposClase, ahora]);
 
   const valoracion = valoracionParaPantalla(instructor?.valoracion ?? null);
 
@@ -79,7 +83,11 @@ export default function InstructoraPerfilPage() {
       .some(i => i.id === instructor.id);
   }, [instructor, instructores, reservas, sesiones, session?.socioId]);
 
-  const escribir = useCallback(async () => {
+  // Función plana, no useCallback — mismo criterio que `abrir()` en
+  // mensajes/page.tsx: el React Compiler la memoiza sola, y una dependencia
+  // manual mal inferida (studio?.id vs. studio) es justo lo que hace saltar
+  // react-hooks/preserve-manual-memoization.
+  async function escribir() {
     if (!instructor || !studio?.id || abriendoMensaje) return;
     setAbriendoMensaje(true);
     setErrorMensaje(null);
@@ -89,7 +97,7 @@ export default function InstructoraPerfilPage() {
     if ('error' in r) { setErrorMensaje(r.error); return; }
     recordarInstructorDeConversacion(r.id, instructor.id);
     router.push(`/portal/${slug}/mensajes/${r.id}`);
-  }, [instructor, studio?.id, abriendoMensaje, slug, router]);
+  }
 
   const microLabel: React.CSSProperties = { ...micro(9.5, 0.28, 600), color: t.muted };
   const backLink: React.CSSProperties = {
