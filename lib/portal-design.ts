@@ -38,6 +38,13 @@ export const dur = {
   // un token que significa otra cosa.
   portada: 900,    // la portada que se retira y el hilo que avanza
   foco: 600,       // la línea de un campo al enfocarlo; el CTA al encenderse
+  // El Ken Burns de la foto del hero (Inicio del portal): un bucle continuo,
+  // no un fundido de una sola vez, así que ninguno de los de arriba encaja —
+  // `washInner` (1400 ms) es lo más largo que había y a esa velocidad un
+  // zoom de foto se ve como un parpadeo, no como movimiento sutil. Mismo
+  // criterio que `portada`/`foco`: nombre propio en vez de forzar un token
+  // que significa otra cosa.
+  heroFoto: 20000,
 } as const;
 
 /** Transición de un control que se pulsa. `props` en orden de importancia. */
