@@ -1424,7 +1424,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <div>
                   <div className="flex items-center justify-between mb-5">
                     <p className="text-xs font-medium text-muted-foreground">
-                      {comunicaciones.length} mensaje(s) enviado(s)
+                      {comunicaciones.length} {comunicaciones.length === 1 ? 'mensaje enviado' : 'mensajes enviados'}
                     </p>
                     <button
                       onClick={() => setShowSendMessage(true)}

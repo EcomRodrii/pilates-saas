@@ -41,7 +41,7 @@ function reglaO1(socio: SnapshotEstudio['socios'][number], idx: IndicesSenal, no
   const partes: string[] = [];
   if (faltaVisitas > 0) partes.push(`le faltan ${faltaVisitas} ${faltaVisitas === 1 ? 'visita' : 'visitas'}`);
   if (faltaConocidas > 0) partes.push(faltaConocidas === 1 ? 'traer a alguien conocido' : `traer a ${faltaConocidas} conocidas`);
-  const motivoMotor = `${socio.nombre} lleva ${dias} días desde el alta y ${partes.join(' y ')} para llegar a las 4 visitas + 2 conocidas que predicen que se quede. Quedan ${diasRestantes} días — un mensaje ahora puede cambiar el rumbo.`;
+  const motivoMotor = `${socio.nombre} lleva ${dias} días desde el alta y ${partes.join(' y ')} — ese es el patrón que predice que una clienta nueva se quede. Quedan ${diasRestantes} días — un mensaje ahora puede cambiar el rumbo.`;
 
   return {
     especialista: 'ONBOARDING',

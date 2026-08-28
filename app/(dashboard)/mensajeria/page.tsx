@@ -225,7 +225,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Info size={12} />
-          <span>Se envía por email a través de Resend</span>
+          <span>Se enviará por email a tus clientas</span>
         </div>
         <button
           onClick={enviar}
