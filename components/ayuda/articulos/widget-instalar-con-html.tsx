@@ -1,36 +1,44 @@
 import Link from 'next/link';
+import { AyudaCaptura } from '@/components/ayuda/AyudaCaptura';
 import { AyudaPaso, AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
-import { urlDe } from '@/lib/seo/paginas';
 
-// Snippet verificado contra app/widget-bundle/main.tsx (comentario del propio
-// archivo: "El estudio lo incrusta así en su propia web"). El origen sale de
-// urlDe(), nunca escrito a mano — lo comprueba lib/seo/paginas.test.ts.
+// Reescrito el 28-ago-2026 tras verificar en vivo Configuración > API >
+// Widgets: el código real es un <iframe> con un pequeño <script> de ajuste de
+// alto (postMessage), generado por el panel — no un snippet fijo que se
+// escribe a mano. La versión anterior de este artículo documentaba solo el
+// modo "integración directa" (script + div, sin iframe) como si fuera el
+// único camino; es en realidad el modo avanzado, no el que usa la mayoría.
 export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        Necesitas poder editar el HTML de la página donde quieres el calendario — la mayoría de constructores web
-        (Wix, Squarespace, WordPress con el bloque adecuado…) tienen un bloque de &ldquo;HTML personalizado&rdquo; para esto.
+        Necesitas poder editar el HTML de la página donde quieres el widget — la mayoría de constructores web
+        (Wix, Squarespace, WordPress con el bloque adecuado…) tienen un bloque de «HTML personalizado» para esto.
       </AyudaAntesDeEmpezar>
 
-      <AyudaPaso numero={1} titulo="Copia tu fragmento de código">
-        <div style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 12, padding: '14px 16px', fontFamily: 'var(--font-plex-mono, monospace)', fontSize: 12.5, lineHeight: 1.7, overflowX: 'auto', margin: '10px 0' }}>
-          <div>&lt;div data-tentare-booking data-studio=&quot;tu-estudio&quot;&gt;&lt;/div&gt;</div>
-          <div>&lt;script src=&quot;{urlDe('/widget.js')}&quot; async&gt;&lt;/script&gt;</div>
-        </div>
-        <p style={{ margin: 0 }}>Cambia <code>tu-estudio</code> por el slug real de tu estudio (el mismo que usa tu portal en <code>tentare.app/reservar/tu-estudio</code>).</p>
+      <AyudaPaso numero={1} titulo="Ve a Configuración > API > Widgets">
+        <p>Elige el widget que quieres (el más habitual es «Horario y reserva de clases») y personalízalo: qué mostrar, colores, tipo de diseño. La vista previa de la derecha se actualiza al momento.</p>
+        <AyudaCaptura
+          src="/help/widget/configuracion-api-widget-full.png"
+          alt="Configuración > API > Widgets: elección de widget, personalización de apariencia y colores, vista previa en directo y código para pegar en la web"
+          caption="Elige, personaliza y copia — todo en la misma pantalla."
+        />
       </AyudaPaso>
 
-      <AyudaPaso numero={2} titulo="Pégalo donde quieras que aparezca el calendario">
-        <p>Puedes tener más de un widget en la misma página si lo necesitas — cada uno con su propio bloque <code>div</code>.</p>
-      </AyudaPaso>
-
-      <AyudaPaso numero={3} titulo="Alternativa: iframe">
-        <p style={{ margin: 0 }}>Si tu web no admite pegar un <code>&lt;script&gt;</code>, tu enlace de portal (<code>tentare.app/reservar/tu-estudio</code>) también funciona dentro de un <code>&lt;iframe&gt;</code> normal, con el ancho y alto que le pongas.</p>
+      <AyudaPaso numero={2} titulo="Copia el código y pégalo en tu web">
+        <p style={{ margin: 0 }}>
+          El botón «Copiar código» te da un <code>&lt;iframe&gt;</code> con un pequeño <code>&lt;script&gt;</code> que
+          ajusta su alto automáticamente al contenido — no tienes que fijar una altura fija a mano. Pégalo donde
+          quieras que aparezca. Si no te aclaras con el código, pásaselo a quien lleve tu web: está pensado para
+          copiar y pegar, no para editarlo.
+        </p>
       </AyudaPaso>
 
       <AyudaResultado>
-        Si no aparece nada después de instalarlo, revisa{' '}
+        Con este modo NO hace falta autorizar tu dominio antes — funciona nada más pegarlo. Solo la variante
+        «Calendario embebido (integración directa)» —sin marco ni recuadro— lo exige, porque en ese caso el
+        contenido se pinta directamente en tu página en vez de dentro de un iframe aislado. Si tras instalarlo no
+        ves nada, revisa{' '}
         <Link href="/ayuda/problemas/el-widget-no-carga" style={{ color: 'inherit', textDecoration: 'underline' }}>el widget no carga</Link>.
       </AyudaResultado>
     </>
