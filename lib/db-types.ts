@@ -662,7 +662,7 @@ export interface RowSocios {
   consentimiento_marketing_por: string | null;
   // migr 20260826202949.
   visible_en_clase: boolean | null;
-  // migr 20260828100000.
+  // migr 20260828005124.
   usuario: string | null;
 }
 
