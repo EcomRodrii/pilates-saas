@@ -10,9 +10,13 @@ export default function Contenido() {
         hay cobro con tarjeta ni tarjeta guardada para renovaciones automáticas.
       </AyudaAntesDeEmpezar>
 
-      <AyudaPaso numero={1} titulo="Ve a Configuración > Pagos">
-        <p>Ahí empieza la conexión con Stripe Connect — el cobro llega directo a tu propia cuenta de Stripe, Tentare nunca retiene el dinero de camino.</p>
-        <AyudaCaptura alt="Pantalla de conexión con Stripe en Configuración" pendiente="conexión Stripe" />
+      <AyudaPaso numero={1} titulo="Ve a Configuración > Integraciones">
+        <p>La tarjeta de Stripe es la primera de la lista — «Cobra suscripciones y bonos con tarjeta o SEPA. El dinero va directo a tu propia cuenta de Stripe».</p>
+        <AyudaCaptura
+          src="/help/pagos/configuracion-integraciones-stripe.png"
+          alt="Tarjeta de Stripe en Configuración > Integraciones, con el botón Conectar con Stripe"
+          caption="Configuración &gt; Integraciones — un clic, sin pegar ninguna clave."
+        />
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Completa la verificación de Stripe">

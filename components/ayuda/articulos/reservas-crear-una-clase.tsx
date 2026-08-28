@@ -2,10 +2,8 @@ import Link from 'next/link';
 import { AyudaCaptura } from '@/components/ayuda/AyudaCaptura';
 import { AyudaPaso, AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
-// Captura pendiente: mismo motivo que el resto de artículos de panel — sin
-// forma de guardar a disco el PNG del navegador de vista previa en esta
-// sesión. El contenido sigue el modelo real (sesiones/salas/tipos de clase),
-// no una suposición.
+// Verificado en vivo el 28-ago-2026 contra el panel real (Calendario > Nueva
+// clase, cuenta de demostración).
 export default function Contenido() {
   return (
     <>
@@ -15,21 +13,25 @@ export default function Contenido() {
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Abre el Calendario y crea una clase nueva">
-        <p>Desde el panel, en Calendario, el botón de nueva clase abre el formulario con la fecha y hora que hayas seleccionado en la vista.</p>
-        <AyudaCaptura alt="Calendario del panel con el formulario de nueva clase abierto" pendiente="vista de Calendario" />
+        <p>Desde el panel, en Calendario, el botón &ldquo;Nueva clase&rdquo; abre este formulario.</p>
+        <AyudaCaptura
+          src="/help/reservas/calendario-nueva-clase.png"
+          alt="Formulario de nueva clase: tipo, sala, instructora, fecha, horario, aforo máximo y repetición semanal"
+          caption="El formulario real de Calendario &gt; Nueva clase."
+        />
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Elige tipo de clase, sala e instructora">
         <p style={{ margin: 0 }}>
-          El aforo lo marca la capacidad de la sala que elijas, no un número que escribas a mano — si una sala tiene
-          menos puestos disponibles ese día (por ejemplo, una máquina averiada), la capacidad de esa clase concreta
-          baja sola.
+          El aforo máximo es un campo que tú fijas —normalmente igual a la capacidad de la sala, pero puedes bajarlo
+          para una clase concreta (por ejemplo, si una máquina está averiada ese día). Al llenarse, las siguientes
+          reservas entran en lista de espera; no se bloquean.
         </p>
       </AyudaPaso>
 
       <AyudaPaso numero={3} titulo="Clase suelta o serie recurrente">
         <p>
-          Puedes crear una única clase o una serie que se repite cada semana en el mismo horario. Editar o cancelar
+          El interruptor &ldquo;Repetir semanalmente&rdquo; convierte la clase en una serie. Editar o cancelar
           después una serie te deja elegir si el cambio afecta solo a esa sesión, a esa y las futuras, o a toda la
           serie — ver <Link href="/ayuda/reservas/editar-o-cancelar-una-clase" style={{ color: 'inherit', textDecoration: 'underline' }}>editar o cancelar una clase</Link>.
         </p>

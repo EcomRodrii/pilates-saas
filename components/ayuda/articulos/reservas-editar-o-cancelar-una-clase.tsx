@@ -11,10 +11,18 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Editar una clase</h2>
       <p>
-        Puedes cambiar hora, sala o instructora. Si la clase forma parte de una serie recurrente, se te pregunta el
-        alcance del cambio: solo esa sesión, esa y las futuras, o toda la serie — igual que al cancelarla.
+        Desde el detalle de la clase (haz clic en ella en el Calendario), &ldquo;Editar&rdquo; abre este formulario:
+        tipo de clase, sala, instructora, fecha, horario y aforo máximo.
       </p>
-      <AyudaCaptura alt="Selector de alcance al editar una clase de una serie" pendiente="modal de alcance de edición" />
+      <AyudaCaptura
+        src="/help/reservas/editar-clase-form.png"
+        alt="Formulario de edición de una clase existente, con los mismos campos que al crearla"
+        caption="Editar clase — los mismos campos que al crearla."
+      />
+      <p>
+        Si la clase forma parte de una serie recurrente, editarla o cancelarla te pregunta el alcance del cambio:
+        solo esa sesión, esa y las futuras, o toda la serie.
+      </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cancelar una clase</h2>
       <p>

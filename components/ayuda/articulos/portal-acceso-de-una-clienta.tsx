@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { AyudaCaptura } from '@/components/ayuda/AyudaCaptura';
-import { AyudaPaso, AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
+import { AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
 // Verificado en vivo el 28-ago-2026 contra el portal real
-// (tentare.app/portal/tentare/login) y contra lib/faqs.ts — ver
+// (tentare.app/portal/estudio-aurora/login) y contra lib/faqs.ts — ver
 // e2e/ayuda-no-miente.spec.ts, que ata esta misma pregunta a la pantalla real
 // para que la respuesta no vuelva a desincronizarse (ya pasó tres veces).
 export default function Contenido() {
@@ -14,18 +14,22 @@ export default function Contenido() {
         portal público, ya existe como clienta tuya y puede crear su acceso ella misma.
       </AyudaAntesDeEmpezar>
 
-      <AyudaPaso numero={1} titulo="Escribe su email">
-        <p>Desde <code>tentare.app/portal/tu-estudio</code>, la primera pantalla solo pide el email. Tentare comprueba si ya es clienta tuya.</p>
-      </AyudaPaso>
+      <p>
+        Es una única pantalla, no un asistente en pasos: email, contraseña, entrar con Google y el enlace de
+        recuperación conviven ahí a la vez — para no obligar a nadie a adivinar por dónde va antes de escribir nada.
+      </p>
 
-      <AyudaPaso numero={2} titulo="Pone su contraseña — o pide un enlace">
-        <p style={{ margin: '0 0 12px' }}>
-          En la misma pantalla escribe su contraseña. Si todavía no ha creado una, o no se acuerda, tiene el control
-          <strong> «No tengo contraseña o la he olvidado — mándame un enlace»</strong>: se la manda por email y la
-          elige ella en ese momento. También puede entrar directamente con su cuenta de Google.
-        </p>
-        <AyudaCaptura alt="Pantalla de acceso del portal, paso de contraseña" pendiente="paso 2 del acceso" />
-      </AyudaPaso>
+      <AyudaCaptura
+        src="/help/portal/portal-pantalla-de-acceso.png"
+        alt="Pantalla única de acceso al portal: email, contraseña, Google y enlace de recuperación"
+        caption="La pantalla de acceso real de un estudio — email y contraseña primero."
+      />
+
+      <p>
+        Escribe su email y su contraseña. Si todavía no ha creado una, o no se acuerda, tiene el control{' '}
+        <strong>&ldquo;No tengo contraseña o la he olvidado — mándame un enlace&rdquo;</strong>: se la manda por
+        email y la elige ella en ese momento. También puede entrar directamente con su cuenta de Google.
+      </p>
 
       <AyudaResultado>
         La clienta entra a su portal sin que tú tengas que enviarle nada a mano ni crearle un usuario. Lo único que

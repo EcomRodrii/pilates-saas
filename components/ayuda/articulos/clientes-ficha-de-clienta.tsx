@@ -11,7 +11,11 @@ export default function Contenido() {
         dejando sobre su progreso.
       </p>
 
-      <AyudaCaptura alt="Ficha de una clienta con su historial y plan activo" pendiente="vista de ficha de clienta" />
+      <AyudaCaptura
+        src="/help/clientes/ficha-de-clienta.png"
+        alt="Ficha de una clienta: plan activo, plaza fija, recuperaciones y excepciones de automatizaciones"
+        caption="La ficha de una clienta real — resumen, plan y las pestañas de reservas, salud, pagos, comunicaciones y documentos."
+      />
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Notas de progreso</h2>
       <p>

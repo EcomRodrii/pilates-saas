@@ -1,6 +1,8 @@
-import { AyudaPaso, AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
 import { AyudaCaptura } from '@/components/ayuda/AyudaCaptura';
+import { AyudaPaso, AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
+// Verificado en vivo el 28-ago-2026 contra Clientas > Importar
+// (cuenta de demostración).
 export default function Contenido() {
   return (
     <>
@@ -10,8 +12,12 @@ export default function Contenido() {
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Sube tu archivo">
-        <p>Desde Clientas &gt; Importar, sube el .csv o .xlsx exportado. Tentare lee la primera fila como cabecera.</p>
-        <AyudaCaptura alt="Pantalla de importación, subida de archivo" pendiente="paso 1 de importación" />
+        <p>Desde Clientas &gt; Importar, arrastra tu CSV o Excel. Las columnas mínimas que necesita son <strong>Nombre</strong> y <strong>Email</strong>; puedes descargar una plantilla de ejemplo si no la tienes clara.</p>
+        <AyudaCaptura
+          src="/help/clientes/importar-clientes.png"
+          alt="Pantalla de importación de clientas: subir archivo CSV o Excel, con enlaces a migración automática, importar bonos e importar plazas fijas"
+          caption="Paso 1 de 3 — subir archivo."
+        />
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Revisa el mapeo de columnas">
@@ -23,9 +29,10 @@ export default function Contenido() {
       </AyudaPaso>
 
       <AyudaResultado>
-        Las clientas importadas quedan como fichas normales, listas para asignarles un plan o bono. Un dato mal
-        exportado desde tu plataforma anterior (fechas, teléfonos con formato distinto) es el motivo más habitual de
-        que algo no se mapee bien — repasa siempre unas cuantas filas al azar después de importar.
+        Esta pantalla importa solo los datos de la clienta. Si además quieres traer sus bonos y membresías activas, o
+        sus plazas fijas semanales, esta misma pantalla enlaza a esos dos importadores aparte — o, si vienes de otra
+        plataforma entera, prueba la migración automática (arrastras tus exports tal cual y Tentare los reconoce
+        solos, con deshacer).
       </AyudaResultado>
     </>
   );

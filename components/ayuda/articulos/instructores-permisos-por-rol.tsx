@@ -8,8 +8,8 @@ export default function Contenido() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, margin: '20px 0' }}>
         {[
           ['Propietaria', 'Control total: puede ver y editar todo, incluida la facturación y los datos del estudio.'],
-          ['Manager', 'Como la propietaria salvo lo más delicado (eliminar el estudio, algunos datos de facturación). Pensado para una segunda persona de confianza.'],
-          ['Recepción', 'Gestiona el día a día — reservas, cobros en mostrador, clientas — pero no puede crear ni editar clases, y en la ficha de salud solo ve el semáforo de color, nunca el detalle clínico.'],
+          ['Responsable de sede', 'Lleva el día a día de la sede: horario, clientas, lista de espera, sustituciones y equipo. No ve facturación ni informes de ingresos, y no puede dar acceso de propietaria a nadie.'],
+          ['Recepción', 'Reservas, clientas, cobros y caja — sin acceso a marketing, informes ni ajustes del negocio. En la ficha de salud solo ve el semáforo de color, nunca el detalle clínico.'],
           ['Instructora', 'Su propio panel (Tentare Core): sus clases, su disponibilidad, sus alumnas. Puede editar sus propias clases, pero no las de otra instructora, ni tocar facturación.'],
         ].map(([rol, texto]) => (
           <div key={rol} style={{ border: '1px solid #E7E7E0', borderRadius: 14, padding: '14px 18px' }}>
