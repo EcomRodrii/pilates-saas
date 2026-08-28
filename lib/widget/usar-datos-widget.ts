@@ -195,7 +195,10 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
 
   // Fase 4 (Booking Engine — Mi Cuenta): edita los campos de la lista blanca
   // de actualizarSociaPublica (teléfono/NIF/fecha de nacimiento/dirección/
-  // avatar) — nunca nombre/apellidos/email, excluidos a propósito ahí.
+  // avatar/nombre/apellidos) — nunca email, el único excluido a propósito
+  // ahí (identidad de sesión pública). El formulario de este widget
+  // (mi-perfil.tsx) solo llega a mandar teléfono/dirección, pero esta
+  // función reenvía tal cual lo que le pase cualquier llamador.
   const onActualizarPerfil = useCallback(async (cambios: Record<string, unknown>) => {
     if (!socia?.socioId) return { ok: false as const, error: 'No autenticada.' };
     const r = await postPublicoWidget(`${baseUrl}/api/public/socio`, {
