@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next';
 import { PAGINAS, urlDe, BASE_URL } from '@/lib/seo/paginas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { ciudadesConPerfilesPublicados, slugCiudadUrl } from '@/lib/network/publico';
+import { ARTICULOS, CATEGORIAS, urlArticulo } from '@/lib/ayuda/registro';
 
 // El sitemap se DERIVA del registro (lib/seo/paginas.ts); aquí no se mantiene
 // ninguna lista.
@@ -114,5 +115,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.5,
   }));
 
-  return [...estaticas, ...perfiles, ...paginasCiudad, ...paginasEstudio];
+  // Categorías y artículos del Centro de Ayuda: rutas dinámicas
+  // (app/ayuda/[categoria], app/ayuda/[categoria]/[articulo]) que no pasa el
+  // barrido estático de lib/seo/paginas.ts — se derivan aquí directamente del
+  // mismo registro que alimenta esas páginas, para no mantener una lista aparte.
+  const paginasCategoriaAyuda: MetadataRoute.Sitemap = CATEGORIAS.map((c) => ({
+    url: `${BASE_URL}/ayuda/${c.slug}`,
+    changeFrequency: 'weekly',
+    priority: 0.6,
+  }));
+  const paginasArticuloAyuda: MetadataRoute.Sitemap = ARTICULOS
+    .filter((a) => a.estado === 'publicado')
+    .map((a) => ({
+      url: `${BASE_URL}${urlArticulo(a)}`,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+      lastModified: new Date(a.actualizado),
+    }));
+
+  return [...estaticas, ...perfiles, ...paginasCiudad, ...paginasEstudio, ...paginasCategoriaAyuda, ...paginasArticuloAyuda];
 }

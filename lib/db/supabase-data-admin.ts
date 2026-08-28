@@ -2569,6 +2569,44 @@ export async function cancelarReservaPublica(params: {
   return { ...r, recuperacionCreada, recuperacionCaducaEl };
 }
 
+// Gap 4 (portal Reservas > Pasadas, migr 20260828120000): la socia valora de
+// 1 a 5 su propia experiencia sobre una clase YA ASISTIDA — autoservicio
+// desde su sesión normal del portal (sin token, sin caducidad). Mismo patrón
+// que el resto de escrituras públicas: service-role + validarSociaPublica,
+// nunca RLS directa (ver comentario de la migración). NO confundir con
+// `valoraciones` (migr 0044), que puntúa a la INSTRUCTORA vía token firmado
+// sin login.
+export async function valorarExperienciaReservaPublica(params: {
+  studioId: string; reservaId: string; socioId: string; email: string; valoracion: number;
+}): Promise<{ ok: true } | { error: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+
+  if (!Number.isInteger(params.valoracion) || params.valoracion < 1 || params.valoracion > 5) {
+    return { error: 'La valoración debe ser un número entero de 1 a 5' as const };
+  }
+
+  // Filtro en código, no solo en el CHECK de la BD: propia (socio_id), ya
+  // asistida (nunca sobre una clase que aún no ha pasado) y todavía sin
+  // valorar (idempotente — no se puede pisar una valoración ya dada por este
+  // camino). `.select().maybeSingle()` distingue "no hizo nada" (0 filas) de
+  // un fallo real de red/permiso.
+  const { data, error } = await admin.from('reservas')
+    .update({ valoracion_experiencia: params.valoracion })
+    .eq('id', params.reservaId)
+    .eq('studio_id', params.studioId)
+    .eq('socio_id', params.socioId)
+    .eq('estado', 'ASISTIDA')
+    .is('valoracion_experiencia', null)
+    .select('id')
+    .maybeSingle();
+  if (error) return { error: 'No se pudo guardar la valoración' as const };
+  if (!data) return { error: 'Esta clase no se puede valorar (ya valorada, no asistida, o no es tuya)' as const };
+  return { ok: true as const };
+}
+
 // ─── Feature #2 (ficha Lorari-vs-Tentare) — plaza fija autoservicio ──────────
 // Mismo patrón que el resto de escrituras públicas: service-role + validación
 // de que la socia (id+email) pertenece al estudio, identidad SIEMPRE del JWT.
@@ -3207,10 +3245,22 @@ export async function registrarSociaPublica(params: {
 
 // Campos que una socia puede editar de SU propia ficha (whitelist). No puede
 // tocar tags, lead_stage, activo, referido_por ni datos de Stripe.
-
+//
+// `email` queda FUERA a propósito, aunque el formulario de "Mis datos" lo
+// enseña editable: `validarSociaPublica` (y con ella CUALQUIER escritura
+// pública — reservar, cancelar, canjear, editar) autoriza comparando
+// `socios.email` contra el email real de la sesión de Supabase Auth. Si se
+// aceptara aquí sin más, la socia podría dejar su `socios.email` sin
+// corresponder con su email de login — y a partir de ahí ninguna escritura
+// suya volvería a autorizarse nunca más (auto-bloqueo silencioso, sin que
+// nadie pueda arreglarlo desde el propio portal). Cambiar el email de
+// verdad necesita sincronizarlo también en Auth (con su propio flujo de
+// confirmación), que no existe todavía — se rechaza explícitamente más abajo
+// en vez de aceptarlo y tirarlo en silencio.
 const CAMPOS_SOCIA_EDITABLES: Record<string, string> = {
-  telefono: 'telefono', nif: 'nif', avatar: 'avatar', fotoUrl: 'foto_url',
-  fechaNacimiento: 'fecha_nacimiento', direccion: 'direccion', usuario: 'usuario',
+  nombre: 'nombre', apellidos: 'apellidos', telefono: 'telefono', nif: 'nif',
+  avatar: 'avatar', fotoUrl: 'foto_url', fechaNacimiento: 'fecha_nacimiento',
+  direccion: 'direccion', usuario: 'usuario',
 };
 
 
@@ -3221,6 +3271,17 @@ export async function actualizarSociaPublica(params: {
   if (!admin) throw new Error('Service role no configurada');
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
+
+  // Ver comentario de CAMPOS_SOCIA_EDITABLES: el email no se acepta todavía,
+  // pero se dice explícitamente en vez de guardar el resto y callar el
+  // rechazo (que es justo el bug que se está corrigiendo aquí).
+  if ('email' in params.cambios) {
+    const nuevoEmail = String(params.cambios.email ?? '').trim().toLowerCase();
+    const actual = (socia.email ?? '').trim().toLowerCase();
+    if (nuevoEmail && nuevoEmail !== actual) {
+      return { error: 'El email no se puede cambiar desde aquí todavía. Escribe a tu estudio para actualizarlo.' as const };
+    }
+  }
 
   const db: Record<string, unknown> = {};
   for (const [camel, snake] of Object.entries(CAMPOS_SOCIA_EDITABLES)) {

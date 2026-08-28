@@ -21,6 +21,8 @@ export interface RowReservas {
   recordatorio_confirmacion_en: string | null;
   // migr 20260730204404.
   oferta_expira_en: string | null;
+  // migr 20260828010312.
+  valoracion_experiencia: number | null;
 }
 
 export interface RowAchievementDefinitions {
@@ -2389,4 +2391,13 @@ export interface RowWebhookDisputas {
   recibo_id: string | null;
   dispute_status: string;
   procesado_en: string;
+}
+
+export interface RowAyudaFeedback {
+  id: string;
+  articulo_slug: string;
+  categoria_slug: string;
+  valoracion: string;
+  url: string;
+  creado_en: string;
 }

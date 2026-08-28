@@ -427,6 +427,10 @@ interface StudioContextValue {
   // Solo tiene sentido desde el portal (socia con sesión iniciada) — ver
   // app/api/reservas/aceptar-oferta-espera/route.ts.
   aceptarOfertaEspera: (reservaId: string) => Promise<ResultadoEscritura>;
+  // Gap 4 (portal Reservas > Pasadas): valora de 1 a 5 una clase YA ASISTIDA,
+  // autoservicio desde la sesión normal de la socia. Solo tiene sentido desde
+  // el portal — ver valorarExperienciaReservaPublica (supabase-data-admin.ts).
+  valorarExperienciaReserva: (reservaId: string, valoracion: number) => Promise<ResultadoEscritura>;
   // F2 (B2.4) dueña-first: da de baja una reserva y concede una recuperación en su
   // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
   bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
@@ -3085,6 +3089,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return r.ok ? { ok: true } : r;
   }
 
+  // Gap 4: sin escritura optimista a propósito — `postPublico` ya resincroniza
+  // `reservas` desde el servidor en su `finally` (cargarPublico()), así que la
+  // estrella pintada en pantalla siempre sale de la respuesta real, nunca de
+  // una suposición local.
+  async function valorarExperienciaReserva(reservaId: string, valoracion: number): Promise<ResultadoEscritura> {
+    const cpub = ctxPublico();
+    if (!cpub) return { ok: false, error: 'No autorizado' };
+    const r = await postPublico('/api/public/reserva', { accion: 'valorar', studioId: cpub.studioId, reservaId, valoracion });
+    return r.ok ? { ok: true } : r;
+  }
+
   // Premia a quien invitó SOLO cuando la referida asiste a su primera clase,
   // con tope mensual configurable (regla REFERIDO_AMIGO). El dedup real es el
   // UNIQUE(studio_id, trigger, ref_id): refId = id de la referida, así una
@@ -4628,6 +4643,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addReserva,
     cancelarReserva,
     aceptarOfertaEspera,
+    valorarExperienciaReserva,
     bajaConRecuperacion,
     checkin,
     deshacerCheckin,

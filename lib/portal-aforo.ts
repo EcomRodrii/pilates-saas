@@ -39,6 +39,7 @@ export function fusionarAforo(
       id: r.id, studioId, sesionId: r.sesion_id, socioId: '',
       estado: r.estado as Reserva['estado'], spotId: null,
       posicionEspera: null, checkInEn: null, creadoEn: '', ofertaExpiraEn: null,
+      valoracionExperiencia: null,
     };
     return { ...base, estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null };
   });

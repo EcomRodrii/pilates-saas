@@ -848,6 +848,13 @@ export interface Reserva {
   ofertaExpiraEn: string | null;
   checkInEn: string | null;
   creadoEn: string;
+  // Gap 4 (portal Reservas > Pasadas, migr 20260828120000): 1-5, solo sobre
+  // una reserva ya ASISTIDA (CHECK en BD). null = todavía sin valorar. NO
+  // confundir con `valoraciones` (migr 0044, tabla aparte que puntúa a la
+  // INSTRUCTORA por token sin login) — esto es un mecanismo distinto,
+  // autoservicio desde la sesión normal del portal, sin relación (todavía)
+  // con esas estadísticas.
+  valoracionExperiencia?: number | null;
 }
 
 export interface Recibo {
