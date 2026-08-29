@@ -22,7 +22,7 @@ test.describe('Vista previa de Clases y Bonos — /portal-preview/[slug]/*', () 
     await montarPortal(page, { conSesion: false });
     const token = firmarTokenPreviewHome(STUDIO_ID);
     await page.goto(`/portal-preview/${SLUG}/clases?t=${token}`);
-    await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
   });
 
   test('Bonos: sin token, placeholder', async ({ page }) => {

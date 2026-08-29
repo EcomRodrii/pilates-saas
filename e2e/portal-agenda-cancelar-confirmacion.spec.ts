@@ -12,7 +12,7 @@ test.describe('Portal — Agenda: cancelar pide confirmación', () => {
   test('pulsar "Cancelar" abre una hoja de confirmación, no cancela directo', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/clases`);
-    await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Cancelar' }).click();
 
@@ -24,7 +24,7 @@ test.describe('Portal — Agenda: cancelar pide confirmación', () => {
   test('"Sí, cancelar" sí cancela la reserva', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/clases`);
-    await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Cancelar' }).click();
     await expect(page.getByRole('button', { name: 'Sí, cancelar' })).toBeVisible({ timeout: 30_000 });

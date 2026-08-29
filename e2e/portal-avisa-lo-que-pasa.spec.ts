@@ -32,7 +32,7 @@ test('un fallo del servidor SE VE, no se traga', async ({ page }) => {
     route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"No se ha podido cancelar la reserva."}' }));
 
   await page.goto(`/portal/${SLUG}/clases`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Cancelar' }).click();
   await page.getByRole('button', { name: 'Sí, cancelar' }).click();
 
@@ -45,7 +45,7 @@ test('una confirmación también se ve', async ({ page }) => {
   await montarPortal(page, { conSesion: true });
 
   await page.goto(`/portal/${SLUG}/clases`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Cancelar' }).click();
   await page.getByRole('button', { name: 'Sí, cancelar' }).click();
 

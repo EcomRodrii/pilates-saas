@@ -731,9 +731,8 @@ test('los módulos de Clases, Bonos, Progreso y Retos también tienen campos', (
 test('⚠️ y sus porDefecto también SON los literales del render', () => {
   const campo = (sis: string, id: string) =>
     getDefinicionBloque(sis)!.campos.find((c) => c.id === id) as { porDefecto: unknown };
-  assert.equal(campo('listadoClases', 'titulo').porDefecto, 'Clases');
-  assert.equal(campo('listadoClases', 'vacioDia').porDefecto, 'No hay clases este día.');
-  assert.equal(campo('listadoClases', 'vacioMias').porDefecto, 'Todavía no tienes ninguna clase reservada.');
+  assert.equal(campo('listadoClases', 'titulo').porDefecto, 'Horario');
+  assert.equal(campo('listadoClases', 'vacioDia').porDefecto, 'No hay clases este día con esos filtros.');
   assert.equal(campo('listadoBonos', 'antetitulo').porDefecto, 'Saldo y planes');
   assert.equal(campo('listadoBonos', 'titulo').porDefecto, 'Bonos');
   assert.equal(campo('progresoSemanal', 'titulo').porDefecto, 'Tu semana');

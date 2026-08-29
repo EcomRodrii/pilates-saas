@@ -42,15 +42,13 @@ import { HojaPase } from '@/components/portal/hoja-pase';
 import { BottomSheet, Button, Toast, AforoIndicator, type AvisoToast } from '@/components/portal/ui';
 import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
 import { fetchQuienVaAEstaClase, type QuienVaAEstaClase } from '@/lib/social-companeras-portal.ts';
-import { EASE, dur, transicion, display, micro, texto, radio, sombra, escala } from '@/lib/portal-design';
+import { EASE, transicion, display, micro, texto, radio, sombra, escala } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import type { PortalSession } from '@/lib/portal-auth';
 import type { DatosPase } from '@/components/portal/hoja-pase';
 import type { Reserva, Spot } from '@/lib/types';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
-
-type Vista = 'todas' | 'mias';
 
 const OCUPA_PLAZA: Reserva['estado'][] = ['CONFIRMADA', 'ASISTIDA'];
 const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
@@ -155,7 +153,6 @@ export function PortalClasesView({
     [bloquesOrdenados],
   );
 
-  const [vista, setVista] = useState<Vista>('todas');
   const [semana, setSemana] = useState(0);
   const [diaElegido, setDiaElegido] = useState<number | null>(null);
   // Estado inicial desde `?tipo=` (BuscarOverlay navega aquí con ese query al
@@ -169,7 +166,6 @@ export function PortalClasesView({
     if (!q) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza con la URL (sistema externo): BuscarOverlay puede navegar aquí con OTRO `?tipo=` mientras esta pantalla ya está montada.
     setTipoElegido(q);
-    setVista('todas');
   }, [searchParams]);
   // Filtro "Con hueco" (Tentare Studio App.dc.html): independiente del tipo
   // de clase, así que es un booleano propio y no un valor especial de
@@ -287,15 +283,11 @@ export function PortalClasesView({
       .filter(c => !soloConHueco || c.libres > 0);
   }, [dias, diaActivo, sesiones, tipoEfectivo, idsFavoritos, decorar, soloConHueco]);
 
-  const misClases = useMemo(() =>
-    sesiones
-      .filter(s => !s.cancelada && miReservaPorSesion.has(s.id) && new Date(s.inicio) >= ahora)
-      .sort((a, b) => a.inicio.localeCompare(b.inicio))
-      .map(decorar),
-  [sesiones, miReservaPorSesion, ahora, decorar]);
-
-  const confirmadas = misClases.filter(c => c.mia?.estado === 'CONFIRMADA').length;
-  const lista = vista === 'todas' ? clases : misClases;
+  // "Mis reservas" dejó de tener pestaña propia aquí (rediseño "Tentare
+  // Studio App", Fase 2): la clase reservada ya se ve inline en el día
+  // (badge "Reservada"/"En lista de espera" en cada fila), y el listado
+  // completo de reservas vive en su propia pestaña de la barra inferior.
+  const lista = clases;
 
   const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   const minutos = (a: string, b: string) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000);
@@ -462,7 +454,7 @@ export function PortalClasesView({
           (`circulo`, más abajo), no cristal, por la misma razón: nada que
           dependa de un texto/icono legible encima de una foto arbitraria
           puede fiarse de la transparencia. */}
-      <div style={{ position: 'relative', height: 160, margin: '0 24px 22px', borderRadius: 'var(--portal-radius-card, 26px)', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', height: 116, margin: '0 24px 22px', borderRadius: 'var(--portal-radius-card, 26px)', overflow: 'hidden' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imagenDeEstudio('banda', txt('listadoClases', 'fotoUrl', ''))}
@@ -492,43 +484,12 @@ export function PortalClasesView({
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ ...micro(9.5, 0.28), color: t.heroAccent, whiteSpace: 'nowrap' }}>{rangoSemana}</div>
-            <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 10 }}>{txt('listadoClases', 'titulo', 'Clases')}</h1>
+            <h1 style={{ ...display(escala('titulo-pantalla', 36)), color: t.ink, marginTop: 8 }}>{txt('listadoClases', 'titulo', 'Horario')}</h1>
           </div>
         </div>
       </div>
-      <div style={{ padding: '0 24px' }}>
-        <div style={{
-          position: 'relative', display: 'flex', alignItems: 'center', height: 46, marginTop: 22,
-          padding: 5, borderRadius: 23,
-          background: noche ? 'rgba(28,31,23,.6)' : 'rgba(255,255,255,.6)',
-          border: `1px solid ${t.line}`,
-        }}>
-          <span
-            aria-hidden
-            style={{
-              position: 'absolute', left: 5, top: 5, bottom: 5, width: 'calc((100% - 10px) / 2)',
-              borderRadius: 18, background: noche ? t.surface2 : '#FFFFFF', boxShadow: sombra.pastilla,
-              transform: `translateX(${vista === 'todas' ? 0 : 100}%)`,
-              transition: `transform ${dur.tab}ms ${EASE}`, pointerEvents: 'none',
-            }}
-          />
-          {([['todas', 'Todas las clases'], ['mias', `Mis reservas · ${confirmadas}`]] as const).map(([id, etiqueta]) => (
-            <button
-              key={id} type="button" onClick={() => setVista(id)} aria-pressed={vista === id}
-              style={{
-                position: 'relative', flex: 1, textAlign: 'center', background: 'none', border: 'none',
-                fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer',
-                color: vista === id ? t.ink : t.muted, transition: 'color 350ms ease',
-              }}
-            >
-              {etiqueta}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      {vista === 'todas' && (
-        <>
+      <>
           {/* Fila siempre visible desde que existe "Con hueco" — antes se
               omitía entera con un solo tipo de clase y sin favoritas, pero
               ese filtro es útil también para un estudio con un único tipo. */}
@@ -619,15 +580,19 @@ export function PortalClasesView({
               );
             })}
           </div>
-        </>
-      )}
+      </>
 
-      <div style={{ padding: '26px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* "{{ nClases }} clases · {{ diaLabel }}" (Tentare Studio App.dc.html,
+          Horario) — mono label real, no decorativo: cuenta lo que hay
+          después de aplicar los filtros de arriba, no el total del día. */}
+      <p style={{ ...micro(9.5, 0.16), color: t.muted2, margin: '20px 24px 0' }}>
+        {lista.length} {lista.length === 1 ? 'clase' : 'clases'} · {dias[diaActivo]?.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })}
+      </p>
+
+      <div style={{ padding: '10px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {lista.length === 0 ? (
           <p style={{ ...display(16, true), color: t.muted2, textAlign: 'center', padding: '22px 0' }}>
-            {vista === 'mias'
-              ? txt('listadoClases', 'vacioMias', 'Todavía no tienes ninguna clase reservada.')
-              : txt('listadoClases', 'vacioDia', 'No hay clases este día.')}
+            {txt('listadoClases', 'vacioDia', 'No hay clases este día con esos filtros.')}
           </p>
         ) : lista.map(c => {
           const reservada = !!c.mia;
@@ -699,11 +664,22 @@ export function PortalClasesView({
                 paddingTop: socioId && c.tipo ? 30 : 0,
               }}>
                 {!reservada && (
-                  <AforoIndicator
-                    libres={c.libres}
-                    umbralUrgencia={3}
-                    style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap' }}
-                  />
+                  <>
+                    <AforoIndicator
+                      libres={c.libres}
+                      umbralUrgencia={3}
+                      style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap' }}
+                    />
+                    {/* Precio de clase suelta (Tentare Studio App.dc.html,
+                        Horario: {{ c.precioTxt }}) — solo si NO la cubre su
+                        bono/plan; cubierta ya lo dice el propio badge de
+                        "Reservar". */}
+                    {!cubierta && precioClaseSuelta != null && (
+                      <span style={{ ...texto.nota, fontSize: 11.5, fontWeight: 800, color: t.muted2, whiteSpace: 'nowrap' }}>
+                        {precioClaseSuelta} €
+                      </span>
+                    )}
+                  </>
                 )}
                 {reservada ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
@@ -770,9 +746,8 @@ export function PortalClasesView({
         })}
 
         {/* El cierre del diseño: después de la última clase se dice que no hay
-            más, en vez de dejar el scroll muriendo en blanco. Solo con lista y
-            solo en la vista del día. */}
-        {vista === 'todas' && lista.length > 0 && (
+            más, en vez de dejar el scroll muriendo en blanco. */}
+        {lista.length > 0 && (
           <p style={{ ...display(16, true), color: t.muted2, textAlign: 'center', padding: '22px 0 0' }}>
             No hay más clases este {dias[diaActivo]?.toLocaleDateString('es-ES', { weekday: 'long' })}.
           </p>

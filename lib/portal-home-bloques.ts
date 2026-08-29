@@ -689,15 +689,10 @@ export const CAMPOS_LISTADO_CLASES = [
     tipo: 'imagen', id: 'fotoUrl', etiqueta: 'Foto de cabecera', porDefecto: '',
     ayuda: 'Sale sobre el título. Vacío = sin foto, como hasta ahora.',
   },
-  { tipo: 'texto', id: 'titulo', etiqueta: 'Título de la pantalla', porDefecto: 'Clases', maxLargo: 40 },
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título de la pantalla', porDefecto: 'Horario', maxLargo: 40 },
   {
     tipo: 'texto', id: 'vacioDia', etiqueta: 'Cuando no hay clases ese día',
-    porDefecto: 'No hay clases este día.', maxLargo: 90,
-  },
-  {
-    tipo: 'texto', id: 'vacioMias', etiqueta: 'Cuando la socia no tiene reservas',
-    porDefecto: 'Todavía no tienes ninguna clase reservada.', maxLargo: 90,
-    ayuda: 'Es la primera frase que lee alguien que acaba de darse de alta.',
+    porDefecto: 'No hay clases este día con esos filtros.', maxLargo: 90,
   },
 ] as const satisfies readonly CampoSchema[];
 

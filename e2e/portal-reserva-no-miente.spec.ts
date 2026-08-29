@@ -18,7 +18,7 @@ const MOTIVO = 'Necesitas un plan o bono activo para reservar';
 
 async function abrirHojaYConfirmar(page: import('@playwright/test').Page) {
   await page.goto(`/portal/${SLUG}/clases`);
-  await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
   await abrirHojaDeReserva(page);
   const hoja = page.getByRole('dialog', { name: /^Reservar / });
   await expect(hoja).toBeVisible();

@@ -16,7 +16,7 @@ test.describe('Portal — Clases', () => {
 
   test('cabecera, semana navegable y los siete días', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/clases`);
-    await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
 
     // Los siete días de la semana, con hoy señalado.
     const dias = page.getByRole('button', { name: /^(lunes|martes|miércoles|jueves|viernes|sábado|domingo)/ });
@@ -25,29 +25,21 @@ test.describe('Portal — Clases', () => {
     await expect(page.getByRole('button', { name: 'Semana siguiente' })).toBeVisible();
   });
 
-  test('el segmentado separa todas las clases de las mías', async ({ page }) => {
-    await page.goto(`/portal/${SLUG}/clases`);
-    await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
-
-    const mias = page.getByRole('button', { name: /Mis reservas · \d/ });
-    await expect(mias).toBeVisible();
-    await mias.click();
-    // En «mis reservas» desaparecen la tira de días y los chips: ahí no filtras
-    // por día, ves lo tuyo.
-    await expect(page.getByRole('button', { name: /^lunes/ })).toHaveCount(0);
-    await expect(page.getByText(/Reservada|En lista de espera/).first()).toBeVisible();
-  });
-
+  // El segmentado "Todas las clases / Mis reservas" desapareció con el
+  // rediseño "Tentare Studio App" (Fase 2): la pestaña "Reservas" de la barra
+  // inferior es ahora la única vía a "lo mío" — repetirlo aquí dentro sería
+  // la misma navegación dos veces. Lo que SÍ sigue viviendo en Horario es
+  // ver el estado de una reserva INLINE en el día (test de abajo).
   test('una clase reservada ofrece su pase y cancelar, no reservar otra vez', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/clases`);
-    await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: 'Ver mi pase' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Cancelar' })).toBeVisible();
   });
 
   test('la hoja de reserva deja elegir plaza en la sala', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/clases`);
-    await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
     await abrirHojaDeReserva(page);
 
     const hoja = page.getByRole('dialog', { name: /^Reservar / });
@@ -66,7 +58,7 @@ test.describe('Portal — Clases', () => {
   test('sin plazas en la sala, la hoja no pide elegir ninguna', async ({ page }) => {
     await montarPortal(page, { conSesion: true, sinPlazas: true });
     await page.goto(`/portal/${SLUG}/clases`);
-    await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
     await abrirHojaDeReserva(page);
 
     const hoja = page.getByRole('dialog', { name: /^Reservar / });

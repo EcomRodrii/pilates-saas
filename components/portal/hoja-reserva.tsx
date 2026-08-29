@@ -165,6 +165,10 @@ export function HojaReserva({
     : `/portal/${slug}/instructores`;
 
   const totalQuienVa = quienVa ? quienVa.companeras.length + quienVa.otrasSinNombre : 0;
+  const lugarEstudio = [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ');
+  const hrefComoLlegar = lugarEstudio
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lugarEstudio)}`
+    : null;
 
   const fecha = clase
     ? new Date(clase.inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })
@@ -305,6 +309,20 @@ export function HojaReserva({
                 />
               </div>
             )}
+            {resultadoExito === 'CONFIRMADA' && hrefComoLlegar && (
+              <a
+                href={hrefComoLlegar} target="_blank" rel="noopener noreferrer"
+                style={{
+                  marginTop: 8, width: '100%', boxSizing: 'border-box', height: 44, borderRadius: 999,
+                  border: `1px solid ${t.line}`, background: t.surface,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  ...texto.metaFuerte, color: t.ink, textDecoration: 'none',
+                }}
+              >
+                <MapPin size={13} />
+                Cómo llegar
+              </a>
+            )}
             <Link
               href={`/portal/${slug}/reservas`}
               style={{
@@ -381,35 +399,56 @@ export function HojaReserva({
                 (lib/social-companeras-portal.ts), pasados por quien monta la
                 hoja. Se omite entero si no hay nada que decir: ni "vas sola"
                 ni un hueco vacío. */}
-            {quienVa && totalQuienVa > 0 && (
+            {((quienVa && totalQuienVa > 0) || hrefComoLlegar) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18 }}>
-                <div style={{ display: 'flex' }}>
-                  {quienVa.companeras.slice(0, 4).map((c, i) => (
-                    <span
-                      key={c.socioId}
-                      style={{
-                        width: 26, height: 26, borderRadius: '50%', background: t.surface2,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 10.5, fontWeight: 700, color: t.ink, flexShrink: 0,
-                        border: `2px solid ${t.bg}`, marginLeft: i === 0 ? 0 : -9,
-                      }}
-                    >
-                      {c.nombre.trim().charAt(0).toUpperCase()}
+                {quienVa && totalQuienVa > 0 && (
+                  <>
+                    <div style={{ display: 'flex', flexShrink: 0 }}>
+                      {quienVa.companeras.slice(0, 4).map((c, i) => (
+                        <span
+                          key={c.socioId}
+                          style={{
+                            width: 26, height: 26, borderRadius: '50%', background: t.surface2,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 10.5, fontWeight: 700, color: t.ink, flexShrink: 0,
+                            border: `2px solid ${t.bg}`, marginLeft: i === 0 ? 0 : -9,
+                          }}
+                        >
+                          {c.nombre.trim().charAt(0).toUpperCase()}
+                        </span>
+                      ))}
+                      {quienVa.otrasSinNombre > 0 && (
+                        <span style={{
+                          width: 26, height: 26, borderRadius: '50%', background: t.surface2, color: t.muted,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700,
+                          flexShrink: 0, border: `2px solid ${t.bg}`, marginLeft: quienVa.companeras.length > 0 ? -9 : 0,
+                        }}>
+                          +{quienVa.otrasSinNombre}
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ ...texto.nota, color: t.muted, flex: 1, minWidth: 0 }}>
+                      {totalQuienVa} compañera{totalQuienVa === 1 ? '' : 's'} ya apuntada{totalQuienVa === 1 ? '' : 's'}
                     </span>
-                  ))}
-                  {quienVa.otrasSinNombre > 0 && (
-                    <span style={{
-                      width: 26, height: 26, borderRadius: '50%', background: t.surface2, color: t.muted,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700,
-                      flexShrink: 0, border: `2px solid ${t.bg}`, marginLeft: quienVa.companeras.length > 0 ? -9 : 0,
-                    }}>
-                      +{quienVa.otrasSinNombre}
-                    </span>
-                  )}
-                </div>
-                <span style={{ ...texto.nota, color: t.muted }}>
-                  {totalQuienVa} compañera{totalQuienVa === 1 ? '' : 's'} ya apuntada{totalQuienVa === 1 ? '' : 's'}
-                </span>
+                  </>
+                )}
+                {/* "📍 a X km" (Tentare Studio App.dc.html, SHEET CLASE) — sin
+                    distancia real a mano aquí, así que el pin lleva directo a
+                    cómo llegar en vez de a un número inventado. */}
+                {hrefComoLlegar && (
+                  <a
+                    href={hrefComoLlegar} target="_blank" rel="noopener noreferrer"
+                    style={{
+                      flexShrink: 0, marginLeft: quienVa && totalQuienVa > 0 ? 0 : 'auto',
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      border: `1px solid ${t.line}`, background: t.surface2, borderRadius: 999,
+                      padding: '6px 11px', ...micro(9.5, 0, 700), color: t.ink, textDecoration: 'none',
+                    }}
+                  >
+                    <MapPin size={11} />
+                    Cómo llegar
+                  </a>
+                )}
               </div>
             )}
 
@@ -435,7 +474,9 @@ export function HojaReserva({
             ) : plazas.length > 0 && (
               <>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 26 }}>
-                  <span style={{ ...display(22), color: t.ink }}>Elige tu plaza</span>
+                  <span style={{ ...display(22), color: t.ink }}>
+                    Elige tu plaza{clase.salaNombre ? <span style={{ ...texto.nota, color: t.muted }}> · {clase.salaNombre}</span> : null}
+                  </span>
                   <AforoIndicator libres={libres} umbralUrgencia={2} style={{ fontSize: 11.5, fontWeight: 500 }} />
                 </div>
                 {/* Grid 2D real: `gridColumn`/`gridRow` salen de fila/columna
@@ -499,6 +540,22 @@ export function HojaReserva({
                   )}
                 </>
               )}
+            </div>
+
+            {/* Aviso rápido (Tentare Studio App.dc.html, SHEET CLASE): la
+                sala es dato real; el resto es norma universal de un estudio
+                de Pilates con reformer, igual de genérica que el propio
+                texto de cancelación de aquí abajo — no un dato inventado
+                por sesión. */}
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center',
+              marginTop: 12, padding: '9px 0', borderTop: `1px dashed ${t.line}`, borderBottom: `1px dashed ${t.line}`,
+            }}>
+              {clase.salaNombre && (
+                <span style={{ ...texto.nota, fontSize: 10.5, fontWeight: 700, color: t.muted2 }}>🚪 {clase.salaNombre}</span>
+              )}
+              <span style={{ ...texto.nota, fontSize: 10.5, fontWeight: 700, color: t.muted2 }}>🧦 Calcetines antideslizantes</span>
+              <span style={{ ...texto.nota, fontSize: 10.5, fontWeight: 700, color: t.muted2 }}>⏰ Llega 10 min antes</span>
             </div>
 
             {/* Ventana de cancelación REAL (heredaOverride tipo→estudio) —

@@ -18,8 +18,10 @@ import { montarPortal, SLUG } from './portal-mock';
 
 async function abrirPase(page: import('@playwright/test').Page) {
   await page.goto(`/portal/${SLUG}/clases`);
-  await expect(page.getByRole('heading', { name: 'Clases' })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('button', { name: /Mis reservas · \d/ }).click();
+  await expect(page.getByRole('heading', { name: 'Horario' })).toBeVisible({ timeout: 30_000 });
+  // ses-1 (la reservada de Marta) es HOY, que es el día activo por defecto —
+  // ya no hace falta el segmentado "Mis reservas" (retirado con el
+  // rediseño "Tentare Studio App") para verla: sale inline en el día.
   await page.getByRole('button', { name: 'Ver mi pase' }).first().click();
   await expect(page.getByRole('dialog', { name: 'Tu pase de acceso' })).toBeVisible();
 }
