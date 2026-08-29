@@ -16,7 +16,7 @@
 
 import { PORTAL_VIDEOS_CONGELADO } from './frozen-features.ts';
 
-export const NAV_SEG_IDS = ['home', 'clases', 'bonos', 'videos', 'perfil'] as const;
+export const NAV_SEG_IDS = ['home', 'clases', 'reservas', 'videos', 'perfil'] as const;
 export type NavSegId = (typeof NAV_SEG_IDS)[number];
 
 export interface NavItemDefault {
@@ -30,10 +30,16 @@ export interface NavItemDefault {
 // `videos` puede no llegar nunca a mostrarse por el feature-freeze
 // (PORTAL_VIDEOS_CONGELADO); eso se filtra en portal-shell.tsx ANTES de
 // aplicar esta config, no aquí.
+//
+// Hoy/Horario/Reservas/Perfil — el menú literal de "Tentare Studio App"
+// (Fase 1 de la sustitución de Oliva/Bloom/Noir por el diseño único). La
+// pestaña `bonos` de antes desaparece del menú (el bono sigue accesible
+// desde "Tu ritmo" en Hoy, que enlaza a /bonos); `reservas` es una pestaña
+// NUEVA — mismo destino que ya usaba el CTA de "Ver mi acceso" en Hoy.
 export const NAV_DEFAULT: NavItemDefault[] = [
-  { seg: 'home', label: 'Inicio', icono: 'Home' },
-  { seg: 'clases', label: 'Clases', icono: 'CalendarDays' },
-  { seg: 'bonos', label: 'Bonos', icono: 'Ticket' },
+  { seg: 'home', label: 'Hoy', icono: 'Home' },
+  { seg: 'clases', label: 'Horario', icono: 'CalendarDays' },
+  { seg: 'reservas', label: 'Reservas', icono: 'Ticket' },
   { seg: 'videos', label: 'Vídeos', icono: 'Video' },
   { seg: 'perfil', label: 'Perfil', icono: 'User' },
 ];

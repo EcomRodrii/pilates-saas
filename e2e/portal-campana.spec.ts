@@ -55,9 +55,12 @@ test.describe('Campana del Inicio del portal', () => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/home`);
 
+    // El "2" ya no se pinta como número visible (rediseño "Tentare Studio
+    // App": la campana es solo icono + punto) — vive en el aria-label, que es
+    // justo lo que localiza `campana` aquí. Encontrarla por ese nombre YA
+    // prueba que el aria-label lleva el "2" correcto.
     const campana = page.getByRole('link', { name: CAMPANA_CON });
     await expect(campana).toBeVisible({ timeout: 30_000 });
-    await expect(campana).toHaveText('2');
 
     // La otra mitad del bug: que ese "2" describa la bandeja de verdad. El
     // subtítulo de Avisos sale de `resumenAvisos(sinLeer)` contando los items
@@ -84,10 +87,9 @@ test.describe('Campana del Inicio del portal', () => {
 
     const campana = page.getByRole('link', { name: CAMPANA_SIN, exact: true });
     await expect(campana).toBeVisible({ timeout: 30_000 });
-    await expect(campana).toHaveText('0');
-    // El punto de 6 px es la única señal de alerta del diseño — el numeral se
-    // queda siempre. Que valga "0" no basta: hay que ver que el punto se fue.
-    await expect(campana.locator('span').nth(1)).toHaveCount(0);
+    // El punto de 8 px es la única señal de alerta del diseño — sin numeral
+    // visible, es lo único que puede quedarse pegado tras marcar como leído.
+    await expect(campana.locator('span')).toHaveCount(0);
   });
 
   test('la vista previa del editor no pregunta por los avisos de nadie', async ({ page }) => {
@@ -103,14 +105,17 @@ test.describe('Campana del Inicio del portal', () => {
 
     const token = firmarTokenPreviewHome(STUDIO_ID);
     await page.goto(`/portal-preview/${SLUG}?t=${token}`);
-    await expect(page.getByRole('heading', { name: /Hola, Vista\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
 
     expect(peticiones).toEqual([]);
-    // Y la campana enseña el valor de muestra, no un círculo vacío: apagar la
-    // petición en el editor no puede significar enseñar ahí un estado de carga
-    // congelado que no existe en el portal real. `toBeVisible()` a secas daba
+    // Y la campana enseña el valor de muestra (sin punto de alerta), no un
+    // círculo en un estado de carga congelado que no existe en el portal
+    // real. Sin numeral visible (rediseño "Tentare Studio App"), lo que hay
+    // que comprobar es que NO lleva el punto — `toBeVisible()` a secas daba
     // por bueno el círculo en blanco.
-    await expect(page.getByRole('link', { name: CAMPANA_SIN, exact: true })).toHaveText('0');
+    const campana = page.getByRole('link', { name: CAMPANA_SIN, exact: true });
+    await expect(campana).toBeVisible();
+    await expect(campana.locator('span')).toHaveCount(0);
   });
 
   test('si los avisos no se pueden cargar, la campana calla — no dice "0"', async ({ page }) => {
@@ -122,14 +127,14 @@ test.describe('Campana del Inicio del portal', () => {
 
     // Se espera al Inicio por otra cosa que sí carga, para no confundir "falló"
     // con "aún no ha pintado".
-    await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
 
-    // Ni número ni punto: no se sabe cuántos hay y decir "0" sería afirmar que
-    // está al día. Mismo criterio en la fila de accesos rápidos — las dos
-    // representaciones del contador tienen que callar A LA VEZ.
+    // Ni numeral ni punto: no se sabe cuántos hay y un punto de alerta
+    // afirmaría que sí. La campana es la ÚNICA representación del contador en
+    // el rediseño (la fila de accesos rápidos que también lo mostraba ya no
+    // existe en Hoy), así que solo hay un sitio donde comprobar el silencio.
     const campana = page.getByRole('link', { name: CAMPANA_SIN, exact: true });
-    await expect(campana).toHaveText('');
-    await expect(page.getByRole('link', { name: /^Notificaciones/ })).toHaveCount(2); // campana + fila
-    await expect(page.getByText('Al día')).toHaveCount(0);
+    await expect(campana).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Notificaciones/ })).toHaveCount(1);
   });
 });

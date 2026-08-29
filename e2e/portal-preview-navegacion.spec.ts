@@ -26,15 +26,15 @@ const STUDIO_ID = 'studio-test';
 test.setTimeout(120_000);
 
 test.describe('La navegación dentro del preview del editor se queda dentro del preview', () => {
-  test('clicar "Clases" en la barra no saca del árbol /portal-preview', async ({ page }) => {
+  test('clicar "Horario" en la barra no saca del árbol /portal-preview', async ({ page }) => {
     await montarPortal(page, { conSesion: false });
     const token = firmarTokenPreviewHome(STUDIO_ID);
     await page.goto(`/portal-preview/${SLUG}?t=${token}`);
-    await expect(page.getByRole('heading', { name: /Hola, Vista\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
 
     const nav = page.getByRole('navigation', { name: 'Secciones' });
     await expect(nav).toBeVisible();
-    await nav.getByRole('link', { name: 'Clases' }).click();
+    await nav.getByRole('link', { name: 'Horario' }).click();
 
     // ⚠️ Lo importante: la URL sigue bajo /portal-preview, NUNCA /portal a
     // secas (que redirigiría a /login sin sesión). Y sigue llevando el token
@@ -43,19 +43,19 @@ test.describe('La navegación dentro del preview del editor se queda dentro del 
     await expect(page.getByText('Recarga la vista previa desde el editor.')).toHaveCount(0);
   });
 
-  test('clicar "Bonos" y luego "Inicio" — ida y vuelta, sin quedarse varado', async ({ page }) => {
+  test('clicar "Reservas" y luego "Hoy" — ida y vuelta, sin quedarse varado', async ({ page }) => {
     await montarPortal(page, { conSesion: false });
     const token = firmarTokenPreviewHome(STUDIO_ID);
     await page.goto(`/portal-preview/${SLUG}?t=${token}`);
-    await expect(page.getByRole('heading', { name: /Hola, Vista\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
 
     const nav = page.getByRole('navigation', { name: 'Secciones' });
-    await nav.getByRole('link', { name: 'Bonos' }).click();
-    await expect(page).toHaveURL(new RegExp(`/portal-preview/${SLUG}/bonos\\?t=`));
+    await nav.getByRole('link', { name: 'Reservas' }).click();
+    await expect(page).toHaveURL(new RegExp(`/portal-preview/${SLUG}/reservas\\?t=`));
 
-    await nav.getByRole('link', { name: 'Inicio' }).click();
+    await nav.getByRole('link', { name: 'Hoy' }).click();
     await expect(page).toHaveURL(new RegExp(`/portal-preview/${SLUG}(\\?t=|$)`));
-    await expect(page.getByRole('heading', { name: /Hola, Vista\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
   });
 
   // ⚠️ Bug encontrado AL VERIFICAR el arreglo de arriba en el navegador, no
@@ -65,20 +65,20 @@ test.describe('La navegación dentro del preview del editor se queda dentro del 
   // `portal-preview-marco.tsx`) nunca casaba ahí. Al volver a Inicio desde
   // cualquier otra pantalla, NINGUNA pestaña quedaba marcada — visible como
   // un pellizco de animación a medio desvanecer en la pestaña anterior.
-  test('al volver a Inicio, la pestaña Inicio queda marcada — ninguna otra', async ({ page }) => {
+  test('al volver a Hoy, la pestaña Hoy queda marcada — ninguna otra', async ({ page }) => {
     await montarPortal(page, { conSesion: false });
     const token = firmarTokenPreviewHome(STUDIO_ID);
     await page.goto(`/portal-preview/${SLUG}?t=${token}`);
-    await expect(page.getByRole('heading', { name: /Hola, Vista\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
 
     const nav = page.getByRole('navigation', { name: 'Secciones' });
     await nav.getByRole('link', { name: 'Perfil' }).click();
     await page.waitForTimeout(500);
-    await nav.getByRole('link', { name: 'Inicio' }).click();
-    await expect(page.getByRole('heading', { name: /Hola, Vista\./ })).toBeVisible({ timeout: 30_000 });
+    await nav.getByRole('link', { name: 'Hoy' }).click();
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
 
-    await expect(nav.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
-    for (const otra of ['Clases', 'Bonos', 'Perfil']) {
+    await expect(nav.getByRole('link', { name: 'Hoy' })).toHaveAttribute('aria-current', 'page');
+    for (const otra of ['Horario', 'Reservas', 'Perfil']) {
       await expect(nav.getByRole('link', { name: otra })).not.toHaveAttribute('aria-current', 'page');
     }
   });

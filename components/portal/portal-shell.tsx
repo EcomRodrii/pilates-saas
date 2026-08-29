@@ -142,11 +142,10 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // `/compras` es hija de Bonos: la píldora se queda en Bonos en vez de
-  // apagarse (o saltar a Inicio, que es lo que hacía el prototipo).
-  const segActual = pathname?.startsWith(`/portal/${slug}/compras`) ? 'bonos' : null;
-  const activeIndex = NAV.findIndex(({ seg }) =>
-    seg === segActual || pathname.startsWith(`/portal/${slug}/${seg}`));
+  // `/compras` y `/bonos` ya no tienen pestaña propia (el bono vive en "Tu
+  // ritmo" dentro de Hoy) — ninguna píldora se enciende ahí, mismo criterio
+  // que cualquier otra pantalla fuera del menú (p.ej. /notificaciones).
+  const activeIndex = NAV.findIndex(({ seg }) => pathname.startsWith(`/portal/${slug}/${seg}`));
 
   return (
     <div className="fixed inset-0" style={{ background: t.bg }}>

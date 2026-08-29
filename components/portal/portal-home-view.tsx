@@ -1,15 +1,25 @@
 'use client';
 
-// 02 — INICIO. Implementación del diseño "Tentare App Cliente v2".
+// 02 — HOY. Implementación LITERAL de "Tentare Studio App" (Claude Design),
+// sección HOY (tentare-studio-app.dc.html) — Fase 1 de la sustitución
+// completa del sistema de temas Oliva/Bloom/Noir por este único diseño.
 //
-// Extraído de app/portal/[slug]/home/page.tsx (Fase 4 del editor de temas):
-// esta es la PRESENTACIÓN pura del Inicio, sin depender de usePortalAuth()
-// internamente — recibe `session` como prop para poder montarse también
-// desde /portal-preview/[slug] (staff, sin sesión de socia real) con una
-// sesión de muestra. `homeBloquesOverride`, si se pasa, sustituye a
-// `homeBloques` del tema PUBLICADO — lo usa el preview en vivo del
-// constructor de bloques (components/theme/home-preview.tsx) para reflejar
-// el BORRADOR que se está editando, no lo ya publicado.
+// A diferencia de la versión anterior de este fichero, NO hay ramas por
+// `variantes.*` (cabeceraInicio/tarjetaPrincipal/accesosRapidos/retos): una
+// sola estructura, la del diseño, para todo estudio. Lo que el diseño no
+// dibuja (cuatro estados de la tarjeta grande que no son "tienes clase hoy";
+// el bono/progreso/retos reales; "Tu estudio"/"Huecos de hoy"/"Tablón") sigue
+// resuelto con datos reales, con la MISMA forma visual que la única pieza que
+// el diseño sí dibuja — nunca una forma inventada.
+//
+// Extraído de app/portal/[slug]/home/page.tsx: esta es la PRESENTACIÓN pura
+// del Inicio, sin depender de usePortalAuth() internamente — recibe
+// `session` como prop para poder montarse también desde /portal-preview/[slug]
+// (staff, sin sesión de socia real) con una sesión de muestra.
+// `homeBloquesOverride`, si se pasa, sustituye a `homeBloques` del tema
+// PUBLICADO — lo usa el preview en vivo del constructor de bloques
+// (components/theme/home-preview.tsx) para reflejar el BORRADOR que se está
+// editando, no lo ya publicado.
 //
 // La capa de datos del resto (estudio/catálogo) sigue viniendo de
 // `useStudio()`: tanto /portal/[slug] como /portal-preview/[slug] montan su
@@ -17,21 +27,25 @@
 //
 // Cómo se ha mapeado cada hueco del diseño a algo que existe de verdad:
 //
-//  · Tarjeta grande con foto → `getHomeCardContext`. El diseño solo dibuja el
-//    caso "tienes clase hoy"; los otros cuatro (bono agotado, racha en riesgo,
-//    llevas tiempo sin venir, sin reservas) reutilizan la MISMA tarjeta con otro
-//    contenido, para no inventar una forma que el diseño no tiene.
-//  · "Esta semana" → las próximas sesiones con hueco. Las tarjetas llevan al
-//    detalle de la clase, que es donde se reserva; el diseño no dibuja botón de
-//    reservar aquí.
-//  · Las cuatro filas → cuatro destinos reales y distintos, ninguno repetido en
-//    el menú de abajo.
-//  · El banner de "TALLER" no tiene detrás ningún concepto de taller en el
-//    producto. Ocupa ese hueco «Invita a una amiga», que es la única pieza
-//    promocional real que hay y encaje con la forma (foto + volanta + titular
-//    en cursiva + círculo de acción).
-//  · El botón "Ver mi acceso" abre hoy la reserva. El pase con QR llega en su
-//    propio PR: es funcionalidad, no interfaz.
+//  · Hero de foto + saludo + buscador → foto del estudio (la suya, o la de
+//    por defecto), `saludoPorHora`, `fechaHoy`, `BuscarOverlay` (PR #1452).
+//  · "Tu próxima clase" (dark card) → `getHomeCardContext`. El diseño solo
+//    dibuja el caso "tienes clase hoy"; los otros cuatro (bono agotado,
+//    racha en riesgo, llevas tiempo sin venir, sin reservas) reutilizan la
+//    MISMA tarjeta con otro contenido, para no inventar una forma que el
+//    diseño no tiene.
+//  · "Tu ritmo"/"Tu semana"/"Mi progreso"+"Reto" → datos reales de bono,
+//    racha y progreso semanal, sin ningún estado de carga fabricado.
+//  · "Tu estudio" → el propio estudio (enlaza a su ficha, PR #1460) + una
+//    instructora real que imparte hoy (o la primera que imparte de verdad).
+//  · "Huecos de hoy"/"Tablón" → clases de hoy con hueco que cubre su plan, y
+//    novedades vigentes del estudio. Ya eran literales al diseño.
+//
+// Lo que el diseño NO dibuja y este fichero SIGUE resolviendo por ser
+// contenido real de cada estudio (no del tema visual): el mensaje destacado
+// y los banners configurables desde el editor, y los bloques de catálogo
+// (banner/texto/cta/faq) que una propietaria haya añadido — ninguno es
+// exclusivo de Oliva/Bloom/Noir, así que no desaparecen con ellos.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -39,9 +53,9 @@ import { useParams } from 'next/navigation';
 import type { PortalSession } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora, huecosHoy } from '@/lib/portal-home-logic';
+import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, saludoPorHora, huecosHoy } from '@/lib/portal-home-logic';
 import { sugerirClase, cuandoSugerencia } from '@/lib/portal-sugerencias';
-import { CalendarDays, Sparkles, Bell, User, Search, Ticket, type LucideIcon } from 'lucide-react';
+import { Bell, Search } from 'lucide-react';
 import { BuscarOverlay } from '@/components/portal/buscar-overlay';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
 import { useNotificacionesSinLeer } from '@/lib/notifications/use-unread';
@@ -59,11 +73,6 @@ import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/ima
 import { hoyEnEstudio } from '@/lib/utils';
 import { queImparten } from '@/lib/equipo';
 import { valoracionParaPantalla } from '@/lib/portal-tema/valoracion';
-
-// Iconos de los accesos rápidos en sus variantes rejilla/círculos (la de filas
-// no lleva icono). Mismo criterio que portal-nav.tsx: el dato es un NOMBRE, el
-// componente se resuelve aquí — así lib/portal-home-logic.ts sigue sin React.
-const ICONOS_ACCESO: Record<string, LucideIcon> = { CalendarDays, Sparkles, Bell, User };
 
 // Valor de `now` mientras el reloj de abajo todavía no ha latido (render del
 // servidor y primer render del cliente, antes del efecto). Constante de MÓDULO
@@ -112,6 +121,39 @@ function GlifoAcceso({ color }: { color: string }) {
   );
 }
 
+/** Dos dígitos, para el formato UTC de un fichero .ics (siempre en punto). */
+function dosDigitos(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/** AAAAMMDDTHHMMSSZ — el formato de fecha que exige el estándar iCalendar. */
+function fechaIcs(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getUTCFullYear()}${dosDigitos(d.getUTCMonth() + 1)}${dosDigitos(d.getUTCDate())}T${dosDigitos(d.getUTCHours())}${dosDigitos(d.getUTCMinutes())}${dosDigitos(d.getUTCSeconds())}Z`;
+}
+
+/**
+ * "+ Calendario" del diseño: un .ics descargable con la clase concreta, sin
+ * backend ni librería nueva — un evento con hora de inicio/fin ya cubre lo
+ * que promete el botón. `download` es una acción del NAVEGADOR sobre datos
+ * que la propia socia pidió, no una descarga que decida este código por
+ * su cuenta.
+ */
+function icsDataUri(titulo: string, inicio: string, fin: string, lugar: string): string {
+  const cuerpo = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Tentare//Portal//ES',
+    'BEGIN:VEVENT',
+    `UID:${inicio}-${titulo.replace(/[^a-zA-Z0-9]/g, '')}@portal`,
+    `DTSTAMP:${fechaIcs(new Date().toISOString())}`,
+    `DTSTART:${fechaIcs(inicio)}`,
+    `DTEND:${fechaIcs(fin)}`,
+    `SUMMARY:${titulo}`,
+    lugar ? `LOCATION:${lugar}` : '',
+    'END:VEVENT', 'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+  return `data:text/calendar;charset=utf-8,${encodeURIComponent(cuerpo)}`;
+}
+
 export function PortalHomeView({ session, homeBloquesOverride, escribible = true }: {
   session: PortalSession | null;
   homeBloquesOverride?: BloqueHome[];
@@ -127,14 +169,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     socios, suscripciones, planesTarifa, sesiones, reservas,
     tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal, novedadesEstudio,
     homeBloques: homeBloquesPublicado,
-    retosApuntados, retoConteos, toggleReto, variantes, valoracionEstudio,
+    retosApuntados, retoConteos, toggleReto, valoracionEstudio,
   } = useStudio();
   const homeBloques = homeBloquesOverride ?? homeBloquesPublicado;
-  // Las dos cabeceras del prototipo llevan avatar y campana de icono; solo
-  // cambia la jerarquía del texto entre ellas. La `clasica` (default, todo
-  // estudio sin tema) se queda exactamente como estaba.
-  const cabeceraConAvatar = variantes.cabeceraInicio !== 'clasica';
-  const tarjetaRotulada = variantes.tarjetaPrincipal === 'rotulada';
   const { t, noche } = useModo();
   const [paseAbierto, setPaseAbierto] = useState(false);
   const [buscarAbierto, setBuscarAbierto] = useState(false);
@@ -170,31 +207,16 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     return novedadesEstudio.filter(n => dentroDeVentana(n, hoyISO));
   }, [novedadesEstudio, now]);
 
-  // Orden/visibilidad del Inicio (Fase 3 del editor de temas — constructor de
-  // bloques): los 4 módulos de siempre (`sistema`) se ordenan por CSS `order`
-  // sin mover el DOM, mismo mecanismo de Fase 2, así que el saludo/tarjeta
-  // grande (fuera de este sistema) y los efectos de scroll que dependen de
-  // ellos no se ven afectados. Los bloques nuevos del catálogo
-  // (banner/texto/cta/faq) se AÑADEN como hermanos más en el mismo
-  // contenedor flex, con su `order` calculado en el mismo espacio de índices
-  // — así se intercalan de verdad con los módulos fijos, no solo se apilan
-  // detrás. `homeBloques` ya viene resuelto del servidor (con fallback a
-  // portalHome legacy si el estudio nunca tocó esto, ver resolveBloquesPantalla).
+  // Orden/visibilidad de los dos bloques que SIGUEN siendo del constructor de
+  // bloques ("Invita a una amiga" y el contenido editable del estudio) más
+  // los bloques de catálogo (banner/texto/cta/faq): mismo mecanismo de
+  // siempre, CSS `order` sin mover el DOM. El resto de la pantalla (hero,
+  // tarjeta grande, ritmo/semana/progreso, Tu estudio, huecos, tablón) ya no
+  // pasa por este sistema — es la estructura FIJA del diseño, no algo que
+  // tenga sentido reordenar por estudio.
   const bloquesOrdenados = useMemo(() => bloquesVisibles(homeBloques), [homeBloques]);
   const wrap = (sistemaId: BloqueSistemaId) => {
     const i = bloquesOrdenados.findIndex((b) => b.kind === 'sistema' && b.sistemaId === sistemaId);
-    // `data-bloque-sistema` marca el bloque igual que `data-bloque-id` marca
-    // los del catálogo: sirve para acotar una aserción a SU bloque (varios de
-    // estos destinos salen también en la barra inferior, así que buscar el
-    // href a secas encuentra dos).
-    //
-    // `data-bloque-id` es lo que hace al bloque SELECCIONABLE desde el
-    // preview del editor (portal-preview-bridge.ts busca ese atributo con
-    // `closest()`). Los dos conviven a propósito: el `sistemaId` es el tipo
-    // de módulo —el mismo en todos los estudios— y el `id` es esta fila
-    // concreta en la lista de esta pantalla, que es lo que el editor
-    // selecciona. Fuera del preview no cambia nada: en el portal de verdad
-    // este atributo no lo lee nadie.
     return {
       'data-bloque-sistema': sistemaId,
       'data-bloque-id': i === -1 ? undefined : bloquesOrdenados[i].id,
@@ -203,13 +225,10 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     };
   };
   /**
-   * La config de un bloque de SISTEMA, ya resuelta.
-   *
-   * Los textos de estos bloques estaban escritos a fuego aquí — el titular de
-   * "Invita a una amiga" era copy de un estudio concreto servido a todos. Ahora
-   * salen del bloque guardado, y `resolverBloques` ya ha rellenado con el texto
-   * de siempre lo que el estudio no haya tocado: sin config guardada esto
-   * devuelve EXACTAMENTE lo que se pintaba antes.
+   * La config de un bloque de SISTEMA, ya resuelta. Los textos de "Invita a
+   * una amiga" y de la tarjeta grande salen del bloque guardado —
+   * `resolverBloques` ya ha rellenado con el texto de siempre lo que el
+   * estudio no haya tocado.
    */
   const cfgSistema = (sistemaId: BloqueSistemaId): Record<string, unknown> => {
     const b = bloquesOrdenados.find((x) => x.kind === 'sistema' && x.sistemaId === sistemaId);
@@ -218,19 +237,16 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   const txt = (sistemaId: BloqueSistemaId, campo: string, siVacio = ''): string => {
     const v = cfgSistema(sistemaId)[campo];
     // ⚠️ La cadena VACÍA cuenta como "no puesto" y cae al literal de quien
-    // llama — el parámetro se llama `siVacio`. Sin esto, un campo cuyo
-    // `porDefecto` es '' (como `fraseConClase`, que va vacío a propósito para
-    // que cada variante de cabecera conserve SU frase) borraba el texto en vez
-    // de heredarlo. Lo cazó el e2e de la cabecera `titular` en CI.
+    // llama — sin esto, un campo cuyo `porDefecto` es '' borraba el texto en
+    // vez de heredarlo.
     return typeof v === 'string' && v !== '' ? v : siVacio;
   };
 
   /**
    * El id de un bloque FIJO, para que el editor pueda seleccionarlo desde la
-   * vista previa. Estos dos no entran en el contenedor que ordena los demás
-   * con CSS `order` —el saludo y la tarjeta se mantienen siempre arriba, y los
-   * efectos de scroll dependen de esa estructura— así que no pasan por
-   * `wrap()` y necesitan su propio enganche.
+   * vista previa. La tarjeta grande no entra en el contenedor que ordena los
+   * demás con CSS `order` — se mantiene siempre arriba — así que no pasa por
+   * `wrap()` y necesita su propio enganche.
    */
   const idFijo = (sistemaId: BloqueSistemaId): string | undefined => {
     const b = homeBloques.find((x) => x.kind === 'sistema' && x.sistemaId === sistemaId);
@@ -244,35 +260,15 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     [bloquesOrdenados],
   );
 
-  // "Mi progreso"/"Retos" — hoy solo existen como bloques de sistema OCULTOS
-  // por defecto (`tiraSemana`/`progresoSemanal` de Oliva, `retos` de Bloom),
-  // así que un estudio en el tema clásico (la inmensa mayoría — ningún tema
-  // los instala hoy, ver comentario de BLOQUES_SISTEMA_POR_PANTALLA) no ve
-  // nunca su progreso semanal ni los retos del estudio. Las dos tarjetas de
-  // abajo son PERSISTENTES (mismo criterio que "Tu ritmo"/"Tu estudio": leen
-  // datos de sesión, no tiene sentido reordenarlas en el editor) y se pintan
-  // siempre — salvo que ESTE estudio ya haya activado a mano el bloque
-  // equivalente del tema, en cuyo caso se cede el turno a ese para no
-  // duplicar la misma información dos veces en la misma pantalla.
-  const progresoSemanalBloqueActivo = bloquesOrdenados.some((b) => b.kind === 'sistema' && b.sistemaId === 'progresoSemanal');
-  const retosBloqueActivo = bloquesOrdenados.some((b) => b.kind === 'sistema' && b.sistemaId === 'retos');
-
   const raizRef = useRef<HTMLDivElement>(null);
-  const topBarRef = useRef<HTMLDivElement>(null);
-  const saludoRef = useRef<HTMLDivElement>(null);
   const fotoRef = useRef<HTMLDivElement>(null);
 
-  // Scroll → opacidad de la barra, desvanecido del saludo y paralaje de la foto.
-  //
-  // Quien hace scroll es el <main> del armazón, no esta pantalla: montar aquí
-  // otro contenedor con scroll propio daría dos barras anidadas y dejaría a las
-  // 14 pantallas sin migrar sin el hueco del menú. Por eso se busca hacia
-  // arriba en vez de crear uno.
-  //
-  // Se escribe directo sobre el estilo en vez de pasar por estado: son tres
-  // propiedades que cambian en cada frame y un `setState` aquí re-renderizaría
-  // la pantalla entera 60 veces por segundo. Solo se tocan `opacity` y
-  // `transform`, que el compositor resuelve sin repintar nada.
+  // Paralaje muy sutil de la foto del hero al desplazar — quien hace scroll es
+  // el <main> del armazón, no esta pantalla (ver portal-shell.tsx), así que se
+  // busca hacia arriba en vez de montar otro contenedor con scroll propio.
+  // Se escribe directo sobre el estilo en vez de pasar por estado: es una
+  // propiedad que cambia en cada frame y un `setState` aquí re-renderizaría
+  // la pantalla entera 60 veces por segundo.
   useEffect(() => {
     const el = raizRef.current?.closest('main');
     if (!el) return;
@@ -280,12 +276,6 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     const aplicar = () => {
       pendiente = false;
       const y = el.scrollTop;
-      if (topBarRef.current) topBarRef.current.style.opacity = String(Math.min(1, Math.max(0, (y - 20) / 60)));
-      if (saludoRef.current) {
-        const p = Math.min(1, y / 150);
-        saludoRef.current.style.opacity = String(1 - p * 0.85);
-        saludoRef.current.style.transform = `translate3d(0,${-p * 12}px,0)`;
-      }
       if (fotoRef.current) {
         fotoRef.current.style.transform = `translate3d(0,${Math.max(-30, Math.min(30, y * 0.075))}px,0)`;
       }
@@ -351,24 +341,6 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   // que verá una socia al día, no con un estado de carga congelado.
   const sinLeer = escribible ? sinLeerReal : 0;
 
-  const totalAsistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
-  const proximas = misReservas.filter(r => {
-    if (r.estado !== 'CONFIRMADA') return false;
-    const s = sesiones.find(x => x.id === r.sesionId);
-    return !!s && new Date(s.inicio) > now;
-  }).length;
-
-  // Las próximas seis sesiones con hueco: el carrusel de "Esta semana".
-  const estaSemana = useMemo(() => {
-    const libres = (sesionId: string, aforo: number) =>
-      aforo - reservas.filter(r => r.sesionId === sesionId && r.estado === 'CONFIRMADA').length;
-    return sesiones
-      .filter(s => !s.cancelada && new Date(s.inicio) > now)
-      .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime())
-      .slice(0, 6)
-      .map(s => ({ s, libres: libres(s.id, s.aforoMaximo) }));
-  }, [sesiones, reservas, now]);
-
   // Bloques de sistema "tiraSemana"/"progresoSemanal", visibles por defecto
   // en el Inicio (rediseño "Tentare Studio App"). Lógica pura en
   // lib/portal-home-logic.ts, mismo criterio que getHomeCardContext arriba.
@@ -376,7 +348,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   const progresoSemanal = useMemo(() => calcularProgresoSemanal(now, misReservas, sesiones), [now, misReservas, sesiones]);
 
   // "Tu ritmo" (rediseño Tentare Studio App): el saldo de bono, siempre a la
-  // vista en Inicio en vez de solo en /bonos. `bonoActivo` ya calcula
+  // vista en Hoy en vez de solo en /bonos. `bonoActivo` ya calcula
   // restantes/total/progreso — null con mensual ilimitado (nada que barrear)
   // o sin ninguna suscripción activa, y ahí no se pinta nada.
   const bono = useMemo(
@@ -449,25 +421,21 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   // Sustituyen al texto genérico del estudio, no a la volanta ni al titular:
   // el tono ("Tu sitio te espera") lo escribe la propietaria y se respeta; lo
   // que cambia es que debajo aparece una clase de verdad y su porqué.
-  //
-  // Sin sugerencia se devuelve el texto genérico de siempre — la tarjeta no
-  // pierde nada por que hoy no haya nada que ofrecer.
   function metaConSugerencia(previas: string[], generico: string): string[] {
     if (!sugerencia) return [...previas, generico].filter(Boolean);
     const cuando = cuandoSugerencia(sugerencia.sesion.inicio, now);
     return [
       ...previas,
       `${sugerencia.tipo?.nombre ?? 'Clase'} · ${cuando}`,
-      // El motivo va SIEMPRE con la propuesta: sin él es una sugerencia
-      // aleatoria, que es justo lo que no queremos.
       sugerencia.motivo,
     ];
   }
 
-  // ── La tarjeta grande ──────────────────────────────────────────────────────
+  // ── La tarjeta "Tu próxima clase" ───────────────────────────────────────────
   //
   // Un solo componente para los cinco estados. El diseño solo dibuja el
-  // primero; los demás cambian volanta, titular y destino, nunca la forma.
+  // primero (PROXIMA_CLASE); los demás cambian volanta, titular y destino,
+  // nunca la forma de la tarjeta.
   const tarjeta = (() => {
     switch (homeCard.caso) {
       case 'PROXIMA_CLASE': {
@@ -487,6 +455,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           cta: txt('proximaClase', 'proximaBoton', 'Ver mi acceso'),
           href: portalHref(`/${slug}/reservas`),
           abrePase: true,
+          sesion: homeCard.sesion,
         };
       }
       case 'ULTIMA_SESION':
@@ -520,25 +489,21 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     }
   })();
 
-  const filas = accesosRapidosDe({ slug, portalHref, proximas, totalAsistidas, sinLeer, nInstructoras: instructores.length });
-
-  // La foto de la tarjeta grande: la SUYA si la propietaria le puso una, si no
-  // la del portal, y si tampoco la de por defecto. La herencia va en este orden
-  // a propósito: quien nunca toque el campo nuevo no nota ningún cambio.
+  // La foto de la tarjeta de "Tu próxima clase": la SUYA si la propietaria le
+  // puso una, si no la del portal, y si tampoco la de por defecto.
   const fotoTarjeta = imagenDeEstudio('vertical', [txt('proximaClase', 'fotoUrl', ''), studio?.imagenBienvenidaUrl]);
-  const cristalClaro = noche ? 'rgba(28,31,23,.72)' : 'rgba(246,244,239,.72)';
-  const bordeCristal = noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.80)';
-  const lineaSuave = noche ? 'rgba(243,241,233,.20)' : 'rgba(34,38,31,.20)';
+  // La foto del hero de arriba (saludo/buscador): la de bienvenida del
+  // estudio, o la de por defecto — nunca la misma variable que la de la
+  // tarjeta (aunque hoy resuelvan al mismo campo), para que un fotoUrl de
+  // sistema en "proximaClase" no cambie el hero sin querer.
+  const fotoHero = imagenDeEstudio('vertical', studio?.imagenBienvenidaUrl);
+  const lugarEstudio = [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ');
 
   return (
     <div ref={raizRef} style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
-      {/* Ken Burns de la foto del hero: un bucle MUY lento y sutil (scale
-          1↔1.08, dur.heroFoto = 20 s), va en el <img>, nunca en `fotoRef`
-          (el envoltorio que ya escribe `transform` a mano en cada scroll
-          para el paralaje, más arriba) — una animación CSS de `transform` y
-          un `style.transform` escrito por JS sobre el MISMO elemento se
-          pisarían entre sí. `!important` bajo `prefers-reduced-motion` es lo
-          único que puede ganarle a la animación puesta inline por style. */}
+      {/* Ken Burns de las fotos: un bucle MUY lento y sutil (scale 1↔1.08,
+          dur.heroFoto = 20 s). `!important` bajo `prefers-reduced-motion` es
+          lo único que puede ganarle a la animación puesta inline por style. */}
       <style>{`
         @keyframes portal-hero-kenburns { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
         @media (prefers-reduced-motion: reduce) {
@@ -546,310 +511,128 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         }
       `}</style>
 
-      {/* Barra que aparece al desplazar. `sticky` con margen negativo del mismo
-          alto: se queda pegada arriba sin ocupar sitio, así el contenido pasa
-          por debajo en vez de empezar 92 px más abajo. */}
+      {/* ── HERO: foto del estudio + saludo + buscador + campana ──────────────
+          Literal de la sección HOY del diseño: foto a sangre, degradado, y el
+          texto flotando encima — nada de cabecera aparte por encima de la
+          foto (eso era la mezcla entre lo viejo y el diseño). */}
       <div
-        ref={topBarRef}
-        aria-hidden
-        style={{
-          position: 'sticky', top: 0, height: altura.topbar, marginBottom: -altura.topbar, zIndex: 12,
-          opacity: 0, pointerEvents: 'none',
-          background: noche ? 'rgba(18,20,14,.78)' : 'rgba(246,244,239,.78)',
-          ...cristal(desenfoque.topbar, 150),
-          borderBottom: `1px solid ${noche ? 'rgba(243,241,233,.07)' : 'rgba(34,38,31,.07)'}`,
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 14,
-          transition: 'opacity 500ms ease',
-        }}
+        data-bloque-sistema="cabecera"
+        data-bloque-id={idFijo('cabecera')}
+        style={{ position: 'relative', height: 314, overflow: 'hidden' }}
       >
-        <span style={{ ...display(19), color: t.ink }}>{studio?.nombre ?? 'Tentare'}</span>
-      </div>
+        <div ref={fotoRef} style={{ position: 'absolute', left: 0, right: 0, top: -34, bottom: -34, willChange: 'transform' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={fotoHero}
+            alt=""
+            onError={alFallarImagen(IMAGENES_POR_DEFECTO.vertical[0])}
+            className="portal-hero-kenburns"
+            style={{
+              width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center 32%)', display: 'block',
+              animation: `portal-hero-kenburns ${dur.heroFoto}ms ${EASE} infinite`,
+            }}
+          />
+        </div>
+        <div aria-hidden style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(185deg, rgba(8,8,8,.58), rgba(8,8,8,.18) 42%, rgba(8,8,8,.06) 58%, transparent 86%)',
+        }} />
+        <div aria-hidden style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0, height: 64,
+          background: `linear-gradient(180deg, transparent, ${t.bg})`,
+        }} />
 
-      {/* 62 px arriba como el diseño. Abajo solo 32: el hueco que deja libre el
-          menú flotante lo pone el armazón, que es quien sabe cuánto mide. */}
-      <div style={{ padding: '62px 24px 32px' }}>
-        {/* Saludo — dos jerarquías según el tema (lib/theme-variantes.ts).
-            ⚠️ `saludoRef` se queda SIEMPRE en este envoltorio exterior: el
-            efecto de scroll le escribe opacity/transform directamente (ver
-            más arriba), y moverlo a una rama rompería el paralaje en silencio. */}
-        <div
-          ref={saludoRef}
-          data-bloque-sistema="cabecera"
-          data-bloque-id={idFijo('cabecera')}
-          style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, willChange: 'transform, opacity' }}
-        >
-          {cabeceraConAvatar ? (
-            <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-              {/* El avatar sube a la cabecera (en la variante clásica vive solo
-                  en la pestaña Perfil, y aquí abajo en un sr-only). */}
-              <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="lg" />
-              <div style={{ minWidth: 0 }}>
-                {/* `saludo` (Oliva) pone el nombre ARRIBA y grande, con la
-                    pregunta debajo; `titular` (Bloom/Noir) lo hace al revés:
-                    saludo por hora pequeño arriba y el nombre como encabezado.
-                    Es la única diferencia entre las dos — ambas llevan avatar. */}
-                {variantes.cabeceraInicio === 'saludo' ? (
-                  <>
-                    <h1 style={{ ...display(escala('saludo', 21)), color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      Hola, {nombre}
-                    </h1>
-                    <p style={{ ...texto.meta, color: t.muted2, marginTop: 2 }}>
-                      {homeCard.caso === 'PROXIMA_CLASE'
-                        ? txt('cabecera', 'fraseConClase', '¿Lista para tu sesión de hoy?')
-                        : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    {/* Con `ahora`, no con `now`: es lo ÚNICO de esta pantalla
-                        que pinta contenido real derivado solo de la hora (lo
-                        demás sale de datos del estudio, vacíos hasta montar).
-                        Con el placeholder saldría "Buenas noches" y cambiaría
-                        de golpe al montar; y leerlo del reloj del servidor
-                        (UTC) tampoco vale, porque la franja horaria de la socia
-                        puede caer en otro saludo y eso es un desajuste de
-                        hidratación. Mismo criterio que `fechaHoy` más abajo. */}
-                    <div style={{ ...texto.meta, color: t.muted2 }}>{ahora ? saludoPorHora(ahora) : ' '}</div>
-                    <h1 style={{ ...display(escala('saludo', 24)), color: t.ink, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {nombre}
-                    </h1>
-                  </>
-                )}
-              </div>
+        <div style={{ position: 'absolute', left: 18, right: 18, top: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ ...micro(9.5, 0.2, 600), color: 'rgba(250,249,245,.75)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {studio?.nombre ?? ''}
+              </p>
+              <p style={{ ...micro(9.5, 0.14, 500), color: 'rgba(250,249,245,.65)', marginTop: 2 }}>{fechaHoy || ' '}</p>
+              <p style={{ ...texto.metaFuerte, fontSize: 13, color: 'rgba(250,249,245,.92)', marginTop: 6 }}>
+                {ahora ? saludoPorHora(ahora) : ' '}, {nombre} 👋
+              </p>
+              <h1 style={{ ...display(32, false, 1.03), color: '#FAF9F5', marginTop: 3 }}>
+                ¿Qué te apetece hoy?
+              </h1>
             </div>
-          ) : (
-          <div style={{ minWidth: 0 }}>
-            <div style={{ ...micro(9.5, 0.28), color: t.micro }}>{fechaHoy || ' '}</div>
-            <h1 style={{ ...display(50), color: t.ink, marginTop: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Hola, {nombre}.
-            </h1>
-            <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>
-              {homeCard.caso === 'PROXIMA_CLASE'
-              ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
-              : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
-            </p>
-          </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginTop: 22 }}>
-            {/* Punto de entrada al overlay BUSCAR (Tentare Studio App.dc.html):
-                mismo círculo de cristal que la campana, un icono más a su
-                izquierda — nunca un push de ruta, solo abre el overlay. */}
-            <button
-              type="button"
-              onClick={() => setBuscarAbierto(true)}
-              aria-label="Buscar"
-              style={{
-                position: 'relative', width: 40, height: 40, flex: '0 0 40px',
-                borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
-                background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: sombra.circulo, cursor: 'pointer',
-                transition: transicion(['transform']),
-              }}
-            >
-              <Search size={18} strokeWidth={1.9} style={{ color: t.ink }} />
-            </button>
             <Link
               href={portalHref(`/${slug}/notificaciones`)}
               aria-label={sinLeer !== null && sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
               style={{
-                position: 'relative', width: 40, height: 40, flex: '0 0 40px',
-                borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
-                background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: sombra.circulo, textDecoration: 'none',
-                transition: transicion(['transform']),
+                position: 'relative', width: 40, height: 40, flex: '0 0 40px', marginTop: 2,
+                borderRadius: '50%', border: '1px solid rgba(255,255,255,.45)',
+                background: 'rgba(250,249,245,.22)', ...cristal(desenfoque.chip),
+                display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none',
               }}
             >
-              {/* Con avatar en la cabecera, la campana es un ICONO con punto
-                  (prototipo); sin él sigue siendo el contador numérico de
-                  siempre — el número necesita más peso cuando está solo.
-                  El numeral queda en blanco mientras carga: el "0" del diseño es
-                  una afirmación ("estás al día"), y todavía no se sabe. */}
-              {cabeceraConAvatar
-                ? <Bell size={18} strokeWidth={1.9} style={{ color: t.ink }} />
-                : <span style={{ ...display(17), color: t.ink }}>{sinLeer ?? ''}</span>}
+              <Bell size={18} strokeWidth={1.9} style={{ color: '#FAF9F5' }} />
               {sinLeer !== null && sinLeer > 0 && (
-                <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--portal-brand)' }} />
+                <span style={{ position: 'absolute', top: 2, right: 2, width: 8, height: 8, borderRadius: '50%', background: '#E8A13C', border: '1.5px solid #fff' }} />
               )}
             </Link>
           </div>
-        </div>
-
-        {/* El titular grande que en el prototipo va aparte del saludo. Lleva el
-            MENSAJE REAL del día (el mismo que en la variante clásica es
-            subtítulo, ascendido), no una frase de marketing de la maqueta. */}
-        {variantes.cabeceraInicio === 'titular' && (
-          <p style={{ ...display(escala('titulo-hero', 30), false, 1.18), color: t.ink, marginTop: 20 }}>
-            {homeCard.caso === 'PROXIMA_CLASE'
-              ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
-              : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
-          </p>
-        )}
-
-        <div style={{ height: 32 }} />
-
-        {/* Rótulo de sección encima de la tarjeta (prototipo): "Tu semana"
-            cuando no hay clase reservada, "Próxima clase" cuando la hay
-            ("Tu próxima clase" en el tema de barra oscura). Sin la variante,
-            no se pinta nada — la tarjeta ya se explica sola con su volanta. */}
-        {tarjetaRotulada && (
-          <h2 style={{ ...display(escala('seccion', 24)), color: t.ink, marginBottom: 12 }}>
-            {/* El prototipo dice "Tu próxima clase" solo en Noir; es una
-                palabra de diferencia que obligaría a exponer otro campo del
-                tema hasta aquí, así que se unifica. */}
-            {homeCard.caso === 'PROXIMA_CLASE' ? 'Próxima clase' : 'Tu semana'}
-          </h2>
-        )}
-
-        {/* Estado VACÍO en la variante rotulada: tarjeta sencilla en vez del
-            bloque grande. Con clase reservada se sigue usando el hero de
-            abajo, igual que hace el prototipo. */}
-        {/* Las DOS ramas de la tarjeta llevan la misma marca: para el editor
-            es el mismo bloque, aunque el tema decida pintarlo de otra forma. */}
-        {tarjetaRotulada && homeCard.caso !== 'PROXIMA_CLASE' ? (
-          <Link
-            href={'href' in tarjeta ? tarjeta.href : portalHref(`/${slug}/clases`)}
-            data-tarjeta="principal"
+          <button
+            type="button"
+            onClick={() => setBuscarAbierto(true)}
             style={{
-              display: 'block', textDecoration: 'none', padding: 22,
-              background: t.surface,
-              border: `var(--portal-card-border, 1px solid ${t.line})`,
-              boxShadow: 'var(--portal-card-shadow, none)',
-              borderRadius: `var(--portal-radius-card, ${radio.card}px)`,
+              width: '100%', marginTop: 16, display: 'flex', alignItems: 'center', gap: 9,
+              background: 'rgba(250,249,245,.94)', ...cristal(10), border: 'none', borderRadius: 999,
+              padding: '13px 16px', boxShadow: '0 10px 26px rgba(8,8,8,.22)', cursor: 'pointer',
             }}
           >
-            {/* Mismos textos que el hero (`tarjeta`), no unos propios: el
-                estado vacío cambia de FORMA, no de mensaje. */}
-            <p style={{ ...display(19, false, 1.2), color: t.ink }}>{tarjeta.titulo}</p>
-            {tarjeta.meta[0] && (
-              <p style={{ ...texto.meta, color: t.muted2, marginTop: 7, lineHeight: 1.5 }}>{tarjeta.meta[0]}</p>
-            )}
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', height: 42, padding: '0 20px', marginTop: 16,
-              borderRadius: `var(--portal-radius-boton, ${radio.pill}px)`,
-              background: 'var(--portal-btn-bg, var(--portal-brand))',
-              color: 'var(--portal-btn-fg, var(--portal-brand-foreground))',
-              border: 'var(--portal-btn-border, none)',
-              ...texto.metaFuerte,
-            }}>
-              {tarjeta.cta}
-            </span>
-          </Link>
-        ) : (
-        <>
-        {/* Tarjeta grande: 476 px de imagen con la tarjeta de cristal flotando
-            abajo, que es exactamente el diseño.
-            Hubo una rama alternativa —tarjeta encogida a su altura natural—
-            porque SIN foto esos 476 px eran un vacío de color crema, el caso de
-            casi todos los estudios el primer día. Con la foto por defecto ese
-            vacío ya no existe, así que la rama se fue: `fotoTarjeta` nunca
-            viene vacía. */}
+            <Search size={16} strokeWidth={2} style={{ color: '#5A5A52', flexShrink: 0 }} />
+            <span style={{ ...texto.meta, color: '#5A5A52' }}>Buscar clases, instructoras…</span>
+          </button>
+        </div>
+      </div>
+
+      <div style={{ padding: '0 24px 32px' }}>
+        {/* ── "Tu próxima clase" ────────────────────────────────────────────── */}
         <div
-          // Ancla estable para las pruebas de geometría: la tarjeta no tiene rol
-          // ni texto propio con el que localizarla (el titular cambia según el
-          // caso), y colgar el test de su estructura lo rompe al primer div.
           data-tarjeta="principal"
-          // Se marca AQUÍ y no en un envoltorio nuevo: la rama grande es un
-          // fragment con varios hijos directos del contenedor con padding, y
-          // meterles un div encima cambiaría el layout de la pieza más visible
-          // del portal. Este ancla ya existía para las pruebas de geometría.
           data-bloque-sistema="proximaClase"
           data-bloque-id={idFijo('proximaClase')}
           style={{
-            position: 'relative',
-            height: altura.heroCard,
-            // var() con el valor de hoy como fallback: sin `radioTema.card` el
-            // tema no declara esta var (varsRadioTema, lib/theme-runtime.ts) y
-            // la tarjeta se ve exactamente igual que antes.
-            borderRadius: `var(--portal-radius-card, ${radio.heroCard}px)`, overflow: 'hidden',
-            background: t.surface2,
-            boxShadow: sombra.heroCard,
+            position: 'relative', margin: '13px -24px 0', borderRadius: 20, overflow: 'hidden',
+            padding: '14px 15px', boxShadow: '0 18px 38px -16px rgba(18,41,26,.5)',
           }}
         >
-          <div ref={fotoRef} style={{ position: 'absolute', left: 0, right: 0, top: -34, bottom: -34, willChange: 'transform' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={fotoTarjeta}
-              alt=""
-              onError={alFallarImagen(IMAGENES_POR_DEFECTO.vertical[0])}
-              className="portal-hero-kenburns"
-              style={{
-                width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block',
-                animation: `portal-hero-kenburns ${dur.heroFoto}ms ${EASE} infinite`,
-              }}
-            />
-          </div>
-
-          <div style={{
-            position: 'absolute', top: 18, left: 18, right: 18,
-            display: 'flex', justifyContent: 'space-between', gap: 10, pointerEvents: 'none',
-          }}>
-            <span style={{
-              padding: '10px 16px', borderRadius: radio.pill, background: noche ? 'rgba(28,31,23,.62)' : 'rgba(255,255,255,.62)',
-              ...cristal(desenfoque.chip), border: `1px solid ${bordeCristal}`,
-              ...micro(8.5, 0.26, 600), color: t.ink, whiteSpace: 'nowrap',
-            }}>{tarjeta.volanta}</span>
-            {tarjeta.contador && (
-              <span style={{
-                padding: '10px 16px', borderRadius: radio.pill,
-                background: noche ? 'rgba(243,241,233,.72)' : 'rgba(34,38,31,.72)',
-                ...cristal(desenfoque.chip, 100),
-                ...micro(8.5, 0.22, 600), color: noche ? '#12140E' : '#F6F4EF', whiteSpace: 'nowrap',
-              }}>{tarjeta.contador}</span>
-            )}
-          </div>
-
-          <div style={{
-            position: 'absolute', left: 14, right: 14, bottom: 14,
-            borderRadius: radio.card,
-            background: cristalClaro, ...cristal(desenfoque.cardHero, 170),
-            border: `1px solid ${bordeCristal}`, boxShadow: sombra.cardInterna, padding: '22px 20px 20px',
-          }}>
-            <Link href={tarjeta.href} style={{ textDecoration: 'none', display: 'block' }}>
-              <div style={{ ...display(escala('titulo-hero', 36), true), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {tarjeta.titulo}
-              </div>
-            </Link>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
-              {tarjeta.meta.map((m, i) => (
-                <span key={m} style={{ display: 'contents' }}>
-                  {i > 0 && <span style={{ width: 1, height: 11, background: lineaSuave }} />}
-                  <span style={{ ...(i === 0 ? texto.metaFuerte : texto.meta), color: i === 0 ? t.ink : t.muted }}>{m}</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={fotoTarjeta}
+            alt=""
+            onError={alFallarImagen(IMAGENES_POR_DEFECTO.vertical[0])}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+          <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(100deg, rgba(18,41,26,.95), rgba(18,41,26,.68))' }} />
+          <div style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p style={{ ...micro(10, 0.16, 600), color: '#A8D0A9' }}>{tarjeta.volanta}</p>
+              {tarjeta.contador && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, ...micro(10.5, 0, 700), color: '#A8D0A9' }}>
+                  <span aria-hidden style={{ width: 6, height: 6, borderRadius: '50%', background: '#7BC488' }} />
+                  {tarjeta.contador}
                 </span>
-              ))}
+              )}
             </div>
-            {/* Fila de 3 píldoras: la principal (case-aware, igual que
-                siempre) más dos accesos directos fijos — horario y mi acceso
-                — a acciones reales que ya existían en el portal pero solo se
-                podían llegar a ellas desde otra pantalla. Ninguna anida un
-                interactivo dentro de otro (una de las píldoras es un
-                <button>, las otras dos son <Link>, siempre HERMANOS: la
-                tarjeta grande dejó de ser un enlace único por esto mismo,
-                ver el comentario de e2e/portal-cliente-v2.spec.ts). */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 18 }}>
+            <p style={{ margin: '5px 0 0', fontSize: 15.5, fontWeight: 800, letterSpacing: '-0.02em', color: '#FAF9F5' }}>
+              {tarjeta.titulo}
+            </p>
+            {tarjeta.meta.length > 0 && (
+              <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'rgba(234,240,231,.75)' }}>{tarjeta.meta.join(' · ')}</p>
+            )}
+            <div style={{ display: 'flex', gap: 7, marginTop: 9, flexWrap: 'wrap' }}>
               {(() => {
-                // Padding/gaps recortados respecto al botón de ancho completo
-                // de antes: con los 2 círculos nuevos al lado (medido en un
-                // iPhone SE, 375px — el "iPhone normal" de 402px del
-                // comentario de abajo no era el caso más estrecho real), el
-                // texto por defecto de este CTA ("Ver la agenda", editable
-                // hasta 30 caracteres desde el editor) se veía truncado a
-                // "Ver la ag…" — inaceptable en el CTA principal de la
-                // pantalla que más ve una socia. Los círculos se quedan a 40px
-                // (mismo tamaño que la cabecera, ver comentario de abajo).
-                const estilo: React.CSSProperties = {
-                  flex: 1, minWidth: 0, height: altura.botonCta, borderRadius: `var(--portal-radius-boton, ${radio.botonCta}px)`, background: 'var(--portal-brand)',
-                  display: 'flex', alignItems: 'center', padding: '0 12px', border: 'none',
-                  textDecoration: 'none', cursor: 'pointer',
-                  boxShadow: sombra.cta, transition: transicion(['transform', 'background']),
+                const primaria: React.CSSProperties = {
+                  display: 'flex', alignItems: 'center', gap: 7, height: 32, padding: '0 14px', borderRadius: 999,
+                  background: '#FAF9F5', color: '#12291A', border: 'none', cursor: 'pointer', textDecoration: 'none',
+                  ...micro(10.5, 0, 700), transition: transicion(['transform']),
                 };
                 const dentro = (
                   <>
-                    <GlifoAcceso color="var(--portal-brand-foreground)" />
-                    <span style={{
-                      flex: 1, minWidth: 0, ...texto.botonCta, color: 'var(--portal-brand-foreground)', paddingLeft: 8, textAlign: 'left',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>{tarjeta.cta}</span>
-                    <span aria-hidden style={{ flex: '0 0 auto', fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7, paddingLeft: 4 }}>→</span>
+                    <GlifoAcceso color="#12291A" />
+                    {tarjeta.cta}
                   </>
                 );
                 // Con el check-in QR desactivado (Configuración → Reservas), la
@@ -857,76 +640,56 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 // ningún pase que enseñar, así que el botón lleva directo a la
                 // reserva, como en el resto de estados de esta tarjeta.
                 return 'abrePase' in tarjeta && tarjeta.abrePase && (studio?.requiereCheckinQr ?? true)
-                  ? <button type="button" onClick={() => setPaseAbierto(true)} style={estilo}>{dentro}</button>
-                  : <Link href={tarjeta.href} style={estilo}>{dentro}</Link>;
+                  ? <button type="button" onClick={() => setPaseAbierto(true)} style={primaria}>{dentro}</button>
+                  : <Link href={tarjeta.href} style={primaria}>{dentro}</Link>;
               })()}
-
-              {/* Horario/Mi acceso — círculos de 40 px, el MISMO tamaño y
-                  tratamiento que la lupa y la campana de la cabecera (arriba
-                  en este mismo fichero): no `altura.botonCta` (62 px, pensado
-                  para un botón ancho a todo lo ancho, no para un icono suelto
-                  al lado de la píldora principal) — con 62 px la principal se
-                  quedaba sin sitio para su texto en un iPhone normal (402 px),
-                  no solo en el SE. Horario — el calendario completo, un atajo
-                  a la misma pantalla a la que ya lleva "Ver la agenda"/"Esta
-                  semana" más abajo, ahora también desde la tarjeta principal. */}
-              <Link
-                href={portalHref(`/${slug}/clases`)}
-                aria-label="Ver el horario"
-                style={{
-                  position: 'relative', width: 40, height: 40, flex: '0 0 40px',
-                  borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
-                  background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: sombra.circulo, textDecoration: 'none',
-                  transition: transicion(['transform']),
-                }}
-              >
-                <CalendarDays size={18} strokeWidth={1.9} style={{ color: t.ink }} />
-              </Link>
-
-              {/* Mi acceso — mismo destino que la fila "Mis reservas" de más
-                  abajo: es ahí (no un pase suelto sin clase que enseñar en
-                  los otros cuatro casos de esta tarjeta) donde vive el pase
-                  QR de verdad cuando el check-in lo requiere. */}
-              <Link
-                href={portalHref(`/${slug}/reservas`)}
-                aria-label="Mi acceso"
-                style={{
-                  position: 'relative', width: 40, height: 40, flex: '0 0 40px',
-                  borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
-                  background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: sombra.circulo, textDecoration: 'none',
-                  transition: transicion(['transform']),
-                }}
-              >
-                <Ticket size={18} strokeWidth={1.9} style={{ color: t.ink }} />
-              </Link>
+              {'sesion' in tarjeta && tarjeta.sesion && (
+                <>
+                  <a
+                    href={lugarEstudio ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lugarEstudio)}` : undefined}
+                    target="_blank" rel="noopener noreferrer"
+                    aria-disabled={!lugarEstudio}
+                    style={{
+                      display: 'flex', alignItems: 'center', height: 32, padding: '0 13px', borderRadius: 999,
+                      border: '1px solid rgba(234,240,231,.35)', background: 'rgba(234,240,231,.12)', color: '#EAF0E7',
+                      textDecoration: 'none', pointerEvents: lugarEstudio ? 'auto' : 'none', opacity: lugarEstudio ? 1 : 0.5,
+                      ...micro(10.5, 0, 700),
+                    }}
+                  >
+                    Cómo llegar
+                  </a>
+                  <a
+                    href={icsDataUri(tarjeta.titulo, tarjeta.sesion.inicio, tarjeta.sesion.fin, lugarEstudio)}
+                    download={`${tarjeta.titulo.replace(/[^a-zA-Z0-9]/g, '-')}.ics`}
+                    style={{
+                      display: 'flex', alignItems: 'center', height: 32, padding: '0 13px', borderRadius: 999,
+                      border: '1px solid rgba(234,240,231,.35)', background: 'rgba(234,240,231,.12)', color: '#EAF0E7',
+                      textDecoration: 'none', ...micro(10.5, 0, 700),
+                    }}
+                  >
+                    + Calendario
+                  </a>
+                </>
+              )}
             </div>
           </div>
         </div>
-        </>
-        )}
 
-        {/* "Tu ritmo" — saldo de bono, siempre a la vista (rediseño Tentare
-            Studio App). Elemento persistente, no un bloque reordenable: igual
-            que la tarjeta de arriba, depende de datos de sesión (bono real de
-            ESTA socia) que no tendría sentido que una socia sin sesión (staff
-            en /portal-preview) reordenara. Oculto sin bono con sesiones que
-            contar — un mensual ilimitado no tiene fracción que barrear, y
-            mostrar un 0/0 mentiría sobre un bono que no existe. */}
+        {/* ── "Tu ritmo" (saldo de bono) ────────────────────────────────────── */}
         {bono && bono.totalSesiones != null && bono.totalSesiones > 0 && (
           <>
-            <div style={{ height: 44 }} />
-            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
-              Tu ritmo
-            </h2>
-            <div style={{
-              marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
-              padding: '14px 16px', boxShadow: sombra.cardSemana,
-            }}>
+            <div style={{ height: 26 }} />
+            <p style={{ ...micro(10, 0.16, 600), color: t.muted2 }}>Tu ritmo</p>
+            <Link
+              href={portalHref(`/${slug}/bonos`)}
+              style={{
+                marginTop: 9, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                background: t.surface, border: `1px solid ${t.line}`, borderRadius: 16,
+                padding: '12px 15px', boxShadow: sombra.cardSemana, textDecoration: 'none',
+              }}
+            >
               <span style={{ ...texto.metaFuerte, color: t.ink }}>{bono.nombre}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 66, height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
                   <div style={{
                     width: `${Math.round((bono.progresoTotal ?? 0) * 100)}%`, height: '100%',
@@ -935,538 +698,217 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 </div>
                 <span style={{ ...micro(11, 0, 500), color: t.heroAccent }}>quedan {bono.totalRestantes}</span>
               </div>
-            </div>
-          </>
-        )}
-
-        {/* "Mi progreso" + "Retos" — dos tarjetas SIEMPRE visibles (rediseño
-            Tentare Studio App). Antes de esto, el progreso semanal y los
-            retos del estudio solo existían como bloques de sistema ocultos
-            por defecto y exclusivos de un tema (Oliva/Bloom) — ningún tema
-            los instala hoy (ver comentario junto a `progresoSemanalBloqueActivo`
-            más arriba), así que casi ninguna socia los veía nunca. Misma
-            lógica de cálculo que esos bloques (`calcularProgresoSemanal`/
-            `RETOS_PORTAL`+`retosApuntados`+`retoConteos`+`toggleReto`), sin
-            reimplementarla — solo se pinta siempre, apilada como "Tu ritmo",
-            en vez de esperar a que un tema la active. Si ESTE estudio ya
-            activó a mano el bloque equivalente (raro, pero posible desde el
-            editor), se cede el turno a ese para no duplicar la misma
-            información dos veces en la misma pantalla. */}
-        {!progresoSemanalBloqueActivo && (
-          <>
-            <div style={{ height: 44 }} />
-            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
-              Mi progreso
-            </h2>
-            <Link
-              href={portalHref(`/${slug}/progreso`)}
-              style={{
-                marginTop: 10, display: 'block', textDecoration: 'none',
-                background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
-                padding: '14px 16px', boxShadow: sombra.cardSemana,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ ...texto.metaFuerte, color: t.ink }}>Tu semana</span>
-                <span style={{ ...micro(9.5, 0, 500), color: t.muted2 } as React.CSSProperties}>meta {META_PROGRESO_SEMANAL}/sem</span>
-              </div>
-              <div style={{ ...texto.meta, color: t.muted2, margin: '6px 0 8px' }}>
-                <span style={{ ...texto.metaFuerte, color: t.ink }}>
-                  {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'}
-                </span>{' '}
-                esta semana
-              </div>
-              <div style={{ height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
-                <div style={{
-                  width: `${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 100}%`,
-                  height: '100%', background: 'var(--portal-brand)', borderRadius: 999,
-                  transition: transicion(['width'], dur.card),
-                }} />
-              </div>
             </Link>
           </>
         )}
 
-        {!retosBloqueActivo && (
-          <>
-            <div style={{ height: 34 }} />
-            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
-              Retos
-            </h2>
-            <div style={{
-              marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8,
-              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
-              padding: '6px 16px', boxShadow: sombra.cardSemana,
-            }}>
-              {RETOS_PORTAL.map((reto, i) => {
-                const apuntada = retosApuntados.includes(reto.key);
-                const conteo = retoConteos[reto.key] ?? 0;
-                return (
-                  <div
-                    key={reto.key}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0',
-                      borderTop: i > 0 ? `1px solid ${t.line}` : undefined,
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ ...texto.metaFuerte, color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {reto.label}
-                      </div>
-                      <div style={{ ...texto.nota, color: t.muted, marginTop: 2 }}>
-                        {reto.dias} · {conteo > 0 ? `${conteo} apuntada${conteo === 1 ? '' : 's'}` : 'Sé la primera'}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void toggleReto(reto.key, apuntada ? 'desmarcar' : 'marcar')}
-                      style={{
-                        flex: '0 0 auto', height: 34, padding: '0 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
-                        background: apuntada ? t.surface2 : 'var(--portal-brand)',
-                        color: apuntada ? t.ink : 'var(--portal-brand-foreground)',
-                        transition: transicion(['background', 'color'], dur.card),
-                        ...texto.metaFuerte,
-                      }}
-                    >
-                      {apuntada ? 'Apuntada ✓' : 'Apuntarme'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {/* Zona de Inicio construida con bloques (Fase 3 del editor de temas):
-            cada módulo de siempre se ordena por CSS `order` sin mover el DOM,
-            así que ningún efecto de scroll/parallax de arriba (que solo
-            dependen del saludo y la tarjeta grande, fuera de este sistema) se
-            ve afectado. Con `homeBloques` vacío (ningún estudio lo ha
-            configurado) el orden es 0/1/2/3 = el orden de siempre, píxel a
-            píxel. Los bloques nuevos del catálogo se añaden como hermanos
-            más abajo, con el `order` que les toque en ese mismo espacio. */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {/* Esta semana */}
-          <div {...wrap('estaSemana')}>
-            {estaSemana.length > 0 && (
-              <>
-                <div style={{ height: 44 }} />
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                  <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>{txt('estaSemana', 'titulo', 'Esta semana')}</h2>
-                  <Link href={portalHref(`/${slug}/clases`)} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
-                    {txt('estaSemana', 'enlaceTexto', 'Agenda →')}
-                  </Link>
-                </div>
-                {/* Sin `scroll-snap`. Lo añadí de más y se comía la sangría: con
-                    `scroll-snap-align: start` en las tarjetas, el navegador ajusta
-                    el carrusel a la primera nada más montarlo (scrollLeft = 24) y
-                    la deja pegada al borde de la pantalla. El diseño no lleva
-                    anclaje, y sin él la sangría de 24 px se respeta. */}
-                <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '22px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
-                  {estaSemana.map(({ s, libres }) => {
-                    const tipo = tiposClase.find(x => x.id === s.tipoClaseId);
-                    return (
-                      <Link
-                        key={s.id}
-                        href={portalHref(`/${slug}/clases/${s.id}`)}
-                        style={{
-                          flex: '0 0 158px', height: 178, borderRadius: radio.card, background: t.surface,
-                          padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                          boxShadow: sombra.cardSemana, textDecoration: 'none',
-                          transition: transicion(['transform', 'box-shadow'], dur.card),
-                        }}
-                      >
-                        <span style={{ ...micro(9, 0.26, 600), color: t.micro }}>{diaCorto(s.inicio)}</span>
-                        <span style={{ ...display(25, false, 1.05), color: t.ink, textWrap: 'pretty' } as React.CSSProperties}>
-                          {tipo?.nombre ?? 'Clase'}
-                        </span>
-                        <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                          <span style={{ ...texto.nota, color: t.muted }}>{hora(s.inicio)} ·</span>
-                          <AforoIndicator libres={libres} />
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </>
+        {/* ── "Tu semana" (racha + 7 días) ──────────────────────────────────── */}
+        <div style={{ height: 10 }} />
+        <Link
+          href={portalHref(`/${slug}/progreso`)}
+          style={{
+            marginTop: 10, display: 'block', textDecoration: 'none',
+            background: t.surface, border: `1px solid ${t.line}`, borderRadius: 16,
+            padding: '11px 15px', boxShadow: sombra.cardSemana,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: t.muted2 }}>Tu semana</span>
+            {racha && racha.semanas > 0 && (
+              <span style={{ ...micro(10.5, 0, 700), color: '#C99A3C' }}>🔥 {racha.semanas} sem.</span>
             )}
           </div>
-
-          {/* Accesos rápidos — tres formas según el tema (lib/theme-variantes.ts).
-              La rama 'filas' es la de SIEMPRE, literal: es lo que ve todo
-              estudio sin tema, y no se refactoriza de paso. */}
-          <div {...wrap('accesosRapidos')}>
-            <div style={{ height: 40 }} />
-            {/* El rótulo del estudio manda sobre el del tema; vacío en los dos
-                = sin rótulo, que es lo que hacen las variantes que no lo llevan. */}
-            {(txt('accesosRapidos', 'titulo') || rotuloAccesos(variantes.accesosRapidos)) && (
-              <h2 style={{ ...display(escala('seccion', 24)), color: t.ink, marginBottom: 14 }}>
-                {txt('accesosRapidos', 'titulo') || rotuloAccesos(variantes.accesosRapidos)}
-              </h2>
-            )}
-            {variantes.accesosRapidos === 'filas' && filas.map((f, i) => (
-              <Link
-                key={f.href}
-                href={f.href}
-                style={{
-                  height: altura.fila, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                  borderTop: `1px solid ${t.line}`,
-                  borderBottom: i === filas.length - 1 ? `1px solid ${t.line}` : undefined,
-                  textDecoration: 'none', transition: transicion(['padding-left'], 400),
-                }}
-              >
-                <span style={{ ...display(24), color: t.ink }}>{f.etiqueta}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  {f.punto && <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--portal-brand)' }} />}
-                  <span style={{ ...texto.valor, color: t.muted2 }}>{f.valor}</span>
-                  <span aria-hidden style={{ fontSize: 13, color: t.heroAccent }}>→</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+            {tiraSemana.map((dia) => (
+              <div key={dia.fecha.toDateString()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                <span style={{ ...micro(8, 0.14, 600), color: t.micro }}>
+                  {['L', 'M', 'X', 'J', 'V', 'S', 'D'][dia.indiceSemana]}
                 </span>
-              </Link>
-            ))}
-
-            {/* Rejilla de baldosas (Oliva/Bloom) y círculos (Noir): misma
-                estructura, distinto envoltorio — separarlas en dos ramas
-                duplicaría el enlace y el punto de aviso sin ganar nada. */}
-            {variantes.accesosRapidos !== 'filas' && (
-              <div style={{
-                display: 'flex', justifyContent: 'space-between',
-                gap: variantes.accesosRapidos === 'circulos' ? 0 : 9,
-              }}>
-                {filas.map((f) => {
-                  const Icono = ICONOS_ACCESO[f.icono] ?? Sparkles;
-                  const enCirculo = variantes.accesosRapidos === 'circulos';
-                  return (
-                    <Link
-                      key={f.href}
-                      href={f.href}
-                      aria-label={`${f.etiqueta}: ${f.valor}`}
-                      style={{
-                        position: 'relative', flex: 1, minWidth: 0, textDecoration: 'none',
-                        textAlign: 'center', color: t.ink,
-                        ...(enCirculo ? {} : {
-                          height: 104, padding: '14px 8px',
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 9,
-                          background: t.surface,
-                          border: `var(--portal-card-border, 1px solid ${t.line})`,
-                          boxShadow: 'var(--portal-card-shadow, none)',
-                          borderRadius: `var(--portal-radius-acceso, ${radio.card}px)`,
-                        }),
-                      }}
-                    >
-                      <span style={enCirculo ? {
-                        width: 58, height: 58, margin: '0 auto', borderRadius: '50%',
-                        background: t.surface, border: `1px solid ${t.line}`,
-                        display: 'grid', placeItems: 'center',
-                      } : { display: 'grid', placeItems: 'center' }}>
-                        <Icono size={enCirculo ? 20 : 18} strokeWidth={1.8} />
-                      </span>
-                      <span style={{ ...texto.valor, color: t.ink, display: 'block', marginTop: enCirculo ? 9 : 0, lineHeight: 1.3 }}>
-                        {f.etiqueta}
-                      </span>
-                      {f.punto && (
-                        <span aria-hidden style={{
-                          position: 'absolute', top: enCirculo ? 0 : 10, right: enCirculo ? 10 : 10,
-                          width: 7, height: 7, borderRadius: '50%', background: 'var(--portal-brand)',
-                        }} />
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Invita a una amiga */}
-          <div {...wrap('invitarAmiga')}>
-            <div style={{ height: 34 }} />
-            <Link
-              href={portalHref(`/${slug}/invitar`)}
-              style={{
-                position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
-                overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
-                transition: transicion(['transform'], dur.card),
-              }}
-            >
-              {/* La foto del estudio, o la de por defecto del banner — que
-                  viene compuesta con el motivo a la DERECHA, justo por el
-                  degradado de aquí abajo, que tapa el 42 % izquierdo para el
-                  texto. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imagenDeEstudio('banner', studio?.imagenBienvenidaUrl)}
-                alt=""
-                onError={alFallarImagen(IMAGENES_POR_DEFECTO.banner[0])}
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }}
-              />
-              <div aria-hidden style={{
-                position: 'absolute', inset: 0, pointerEvents: 'none',
-                background: noche
-                  ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
-                  : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
-              }} />
-              <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                <span style={{ ...micro(8.5, 0.26, 600), color: t.heroAccent }}>
-                  {txt('invitarAmiga', 'antetitulo', 'Trae a quien quieras')}
-                </span>
-                <div>
-                  <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
-                    {txt('invitarAmiga', 'titulo', 'La calma se comparte mejor.')}
-                  </div>
-                  <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>
-                    {txt('invitarAmiga', 'subtitulo', 'Invita a una amiga y ganáis las dos')}
-                  </div>
-                </div>
-              </div>
-              <span aria-hidden style={{
-                position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
-                background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
-              }}>→</span>
-            </Link>
-          </div>
-
-          {/* Contenido editable del estudio (mensaje destacado + banners). Añadido
-              DESPUÉS de "Invita a una amiga" a propósito: no toca ninguna pieza ya
-              cerrada del diseño, y no aparece nada aquí para un estudio que no haya
-              configurado contenido — misma pantalla de siempre. */}
-          <div {...wrap('contenidoEstudio')}>
-            {contenidoPortal?.mensajeDestacado && (
-              <>
-                <div style={{ height: 20 }} />
-                <div style={{
-                  borderRadius: radio.card, padding: '16px 18px',
-                  background: noche ? t.surface2 : '#EEF0EA',
-                  border: `1px solid ${noche ? 'rgba(169,187,160,.22)' : 'rgba(44,53,44,.16)'}`,
+                <span style={{
+                  width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: dia.esHoy ? 'var(--portal-brand)' : 'transparent',
+                  border: dia.esHoy ? 'none' : `1px solid ${t.line}`,
+                  fontSize: 10.5, fontWeight: 600, color: dia.esHoy ? 'var(--portal-brand-foreground)' : t.muted2,
                 }}>
-                  <p style={{ ...texto.nota, color: t.muted2, lineHeight: 1.5 }}>{contenidoPortal.mensajeDestacado}</p>
-                </div>
-              </>
-            )}
-            {bannersVigentes.map(b => {
-              const contenido = (
-                <>
-                  {b.imagenUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={b.imagenUrl} alt=""
-                      // Sin foto por defecto a propósito (ver lib/imagenes-por-defecto.ts):
-                      // es contenido que la propietaria decide subir, no un hueco a
-                      // rellenar. Si la URL no carga, se oculta y queda el degradado +
-                      // texto de abajo — no un icono de imagen rota (C3 de la auditoría
-                      // de uso real, 2026-08-24).
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }}
-                    />
-                  ) : (
-                    <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
-                  )}
-                  <div aria-hidden style={{
-                    position: 'absolute', inset: 0, pointerEvents: 'none',
-                    background: noche
-                      ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
-                      : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
-                  }} />
-                  <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-                    {b.titulo && <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
-                    {b.texto && <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>{b.texto}</div>}
-                  </div>
-                  <span aria-hidden style={{
-                    position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
-                    background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
-                  }}>→</span>
-                </>
-              );
-              const estiloBanner: React.CSSProperties = {
-                position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
-                overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
-                transition: transicion(['transform'], dur.card),
-              };
-              if (b.linkTipo === 'interno' && !b.linkValor.startsWith('/')) return null;
-              const hrefExterno = b.linkTipo === 'externo' ? hrefExternoSeguro(b.linkValor) : null;
-              if (b.linkTipo === 'externo' && !hrefExterno) return null;
-              return (
-                <div key={b.id}>
-                  <div style={{ height: 18 }} />
-                  {b.linkTipo === 'interno'
-                    ? <Link href={portalHref(`/${slug}${b.linkValor}`)} style={estiloBanner}>{contenido}</Link>
-                    : <a href={hrefExterno!} target="_blank" rel="noopener noreferrer" style={estiloBanner}>{contenido}</a>}
-                </div>
-              );
-            })}
+                  {dia.fecha.getDate()}
+                </span>
+                <span aria-hidden style={{ width: 4, height: 4, borderRadius: '50%', background: dia.tieneClaseReservada ? 'var(--portal-brand)' : 'transparent' }} />
+              </div>
+            ))}
           </div>
+        </Link>
 
-          {/* Tira de los 7 días (tema "Oliva") — el día de hoy resaltado, con
-              un punto si esa fecha tiene una clase CONFIRMADA. Oculto por
-              defecto: solo lo ve quien instala Oliva o lo activa a mano. */}
-          <div {...wrap('tiraSemana')}>
-            <div style={{ height: 34 }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-              {tiraSemana.map((dia) => (
-                <div key={dia.fecha.toDateString()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                  <span style={{ ...micro(9, 0.18, 600), color: t.micro }}>
-                    {['L', 'M', 'X', 'J', 'V', 'S', 'D'][dia.indiceSemana]}
-                  </span>
-                  <span style={{
-                    width: 34, height: 34, borderRadius: `var(--portal-radius-chip, ${radio.pill}px)`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: dia.esHoy ? 'var(--portal-brand)' : 'transparent',
-                    border: dia.esHoy ? 'none' : `1px solid ${t.line}`,
-                    ...texto.metaFuerte, color: dia.esHoy ? 'var(--portal-brand-foreground)' : t.ink,
-                  }}>
-                    {dia.fecha.getDate()}
-                  </span>
-                  <span aria-hidden style={{
-                    width: 5, height: 5, borderRadius: '50%',
-                    background: dia.tieneClaseReservada ? 'var(--portal-brand)' : 'transparent',
-                  }} />
-                </div>
-              ))}
+        {/* ── "Mi progreso" + reto destacado, lado a lado ──────────────────── */}
+        <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+          <Link
+            href={portalHref(`/${slug}/progreso`)}
+            style={{
+              flex: 1, minWidth: 0, textDecoration: 'none',
+              background: t.surface, border: `1px solid ${t.line}`, borderRadius: 16,
+              padding: '12px 14px', boxShadow: sombra.cardSemana,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <span style={{ ...texto.metaFuerte, color: t.ink }}>Mi progreso</span>
+              <span style={{ ...micro(8.5, 0, 500), color: t.muted2 }}>meta {META_PROGRESO_SEMANAL}/sem</span>
             </div>
-          </div>
+            <p style={{ margin: '6px 0 8px', ...texto.meta, color: t.muted2 }}>
+              <b style={{ color: t.ink }}>{progresoSemanal}</b> {progresoSemanal === 1 ? 'clase' : 'clases'} esta semana
+            </p>
+            <div style={{ height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+              <div style={{
+                width: `${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 100}%`,
+                height: '100%', background: 'var(--portal-brand)', borderRadius: 999,
+                transition: transicion(['width'], dur.card),
+              }} />
+            </div>
+          </Link>
 
-          {/* Progreso semanal — reservas CONFIRMADA de esta semana sobre
-              META_PROGRESO_SEMANAL (un número de referencia, no una meta
-              configurable). Oculto por defecto. Barra compacta (rediseño
-              Tentare Studio App, 2026-08-26): sustituye el anillo anterior,
-              que no tenía variante propia por tema (a diferencia de
-              `retos.variantes` de abajo) — no era la seña de ningún tema en
-              concreto, así que restylearlo no quita identidad a ninguno. */}
-          <div {...wrap('progresoSemanal')}>
-            <div style={{ height: 34 }} />
-            <div style={{
-              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
-              padding: '14px 16px', boxShadow: sombra.cardSemana,
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ ...texto.metaFuerte, color: t.ink }}>{txt('progresoSemanal', 'titulo', 'Tu semana')}</span>
-                <span style={{ ...micro(9.5, 0, 500), color: t.muted2 } as React.CSSProperties}>meta {META_PROGRESO_SEMANAL}/sem</span>
+          {RETOS_PORTAL[0] && (() => {
+            const reto = RETOS_PORTAL[0];
+            const apuntada = retosApuntados.includes(reto.key);
+            const conteo = retoConteos[reto.key] ?? 0;
+            return (
+              <div style={{
+                flex: 1, minWidth: 0, background: t.surface, border: `1px solid ${t.line}`, borderRadius: 16,
+                padding: '12px 14px', boxShadow: sombra.cardSemana,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ ...texto.metaFuerte, color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{reto.label}</span>
+                  <span style={{ ...micro(8.5, 0, 500), color: t.muted2 }}>🏅</span>
+                </div>
+                <p style={{ margin: '6px 0 8px', ...texto.meta, color: t.muted2 }}>
+                  {reto.dias} · {conteo > 0 ? `${conteo} apuntada${conteo === 1 ? '' : 's'}` : 'sé la primera'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void toggleReto(reto.key, apuntada ? 'desmarcar' : 'marcar')}
+                  style={{
+                    width: '100%', height: 30, borderRadius: 999, border: 'none', cursor: 'pointer',
+                    background: apuntada ? t.surface2 : 'var(--portal-brand)',
+                    color: apuntada ? t.ink : 'var(--portal-brand-foreground)',
+                    ...micro(10, 0, 700),
+                  }}
+                >
+                  {apuntada ? 'Apuntada ✓' : 'Apuntarme'}
+                </button>
               </div>
-              <div style={{ ...texto.meta, color: t.muted2, margin: '6px 0 8px' }}>
-                <span style={{ ...texto.metaFuerte, color: t.ink }}>
-                  {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'}
-                </span>{' '}
-                esta semana
+            );
+          })()}
+        </div>
+
+        {/* ── Invita a una amiga ────────────────────────────────────────────── */}
+        <div {...wrap('invitarAmiga')}>
+          <div style={{ height: 34 }} />
+          <Link
+            href={portalHref(`/${slug}/invitar`)}
+            style={{
+              position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
+              overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
+              transition: transicion(['transform'], dur.card),
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imagenDeEstudio('banner', studio?.imagenBienvenidaUrl)}
+              alt=""
+              onError={alFallarImagen(IMAGENES_POR_DEFECTO.banner[0])}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }}
+            />
+            <div aria-hidden style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none',
+              background: noche
+                ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
+                : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
+            }} />
+            <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
+              <span style={{ ...micro(8.5, 0.26, 600), color: t.heroAccent }}>
+                {txt('invitarAmiga', 'antetitulo', 'Trae a quien quieras')}
+              </span>
+              <div>
+                <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
+                  {txt('invitarAmiga', 'titulo', 'La calma se comparte mejor.')}
+                </div>
+                <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>
+                  {txt('invitarAmiga', 'subtitulo', 'Invita a una amiga y ganáis las dos')}
+                </div>
               </div>
-              <div style={{ height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
-                <div style={{
-                  width: `${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 100}%`,
-                  height: '100%', background: 'var(--portal-brand)', borderRadius: 999,
-                  transition: transicion(['width'], dur.card),
+            </div>
+            <span aria-hidden style={{
+              position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
+              background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
+            }}>→</span>
+          </Link>
+        </div>
+
+        {/* ── Contenido editable del estudio (mensaje destacado + banners) ──── */}
+        <div {...wrap('contenidoEstudio')}>
+          {contenidoPortal?.mensajeDestacado && (
+            <>
+              <div style={{ height: 20 }} />
+              <div style={{
+                borderRadius: radio.card, padding: '16px 18px',
+                background: noche ? t.surface2 : '#EEF0EA',
+                border: `1px solid ${noche ? 'rgba(169,187,160,.22)' : 'rgba(44,53,44,.16)'}`,
+              }}>
+                <p style={{ ...texto.nota, color: t.muted2, lineHeight: 1.5 }}>{contenidoPortal.mensajeDestacado}</p>
+              </div>
+            </>
+          )}
+          {bannersVigentes.map(b => {
+            const contenido = (
+              <>
+                {b.imagenUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={b.imagenUrl} alt=""
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }}
+                  />
+                ) : (
+                  <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
+                )}
+                <div aria-hidden style={{
+                  position: 'absolute', inset: 0, pointerEvents: 'none',
+                  background: noche
+                    ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
+                    : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
                 }} />
+                <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
+                  {b.titulo && <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
+                  {b.texto && <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>{b.texto}</div>}
+                </div>
+                <span aria-hidden style={{
+                  position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
+                  background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
+                }}>→</span>
+              </>
+            );
+            const estiloBanner: React.CSSProperties = {
+              position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
+              overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
+              transition: transicion(['transform'], dur.card),
+            };
+            if (b.linkTipo === 'interno' && !b.linkValor.startsWith('/')) return null;
+            const hrefExterno = b.linkTipo === 'externo' ? hrefExternoSeguro(b.linkValor) : null;
+            if (b.linkTipo === 'externo' && !hrefExterno) return null;
+            return (
+              <div key={b.id}>
+                <div style={{ height: 18 }} />
+                {b.linkTipo === 'interno'
+                  ? <Link href={portalHref(`/${slug}${b.linkValor}`)} style={estiloBanner}>{contenido}</Link>
+                  : <a href={hrefExterno!} target="_blank" rel="noopener noreferrer" style={estiloBanner}>{contenido}</a>}
               </div>
-            </div>
-          </div>
+            );
+          })}
+        </div>
 
-          {/* Retos (tema "Bloom") — carrusel de 2 retos fijos (lib/retos-portal.ts)
-              con conteo REAL de apuntadas de este estudio (nunca una cifra de
-              marketing) y un toggle Apuntarme/Apuntada ✓ persistido por socia.
-              Oculto por defecto. */}
-          <div {...wrap('retos')}>
-            <div style={{ height: 40 }} />
-            <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>{txt('retos', 'titulo', 'Retos')}</h2>
-            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '18px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
-              {RETOS_PORTAL.map((reto) => {
-                const apuntada = retosApuntados.includes(reto.key);
-                const conteo = retoConteos[reto.key] ?? 0;
-                // Variante 'color' (Bloom): fondo propio por reto y tinta fija
-                // oscura — con un fondo claro constante, `t.ink` en modo noche
-                // sería casi blanco encima y quedaría ilegible.
-                const conColor = variantes.retos === 'color';
-                const tinta = conColor ? reto.tinta : t.ink;
-                // `imagenCore`/`imagenCara`: campo del bloque, no del tema —
-                // es contenido del estudio, y cada estudio sube el suyo.
-                const fotoReto = txt('retos', reto.key === 'core' ? 'imagenCore' : 'imagenCara');
-                return (
-                  <div
-                    key={reto.key}
-                    style={{
-                      flex: conColor ? '0 0 218px' : '0 0 200px',
-                      borderRadius: conColor ? 26 : radio.card,
-                      background: conColor ? reto.fondo : t.surface,
-                      padding: 18,
-                      boxShadow: conColor ? 'none' : sombra.cardSemana,
-                    }}
-                  >
-                    {/* La foto que haya subido el estudio para ESTE reto. Sin
-                        foto, la tarjeta se queda con su color — que es como se
-                        ve hoy en todos los estudios. Va arriba, sangrando el
-                        relleno de la tarjeta, y el texto sigue debajo: así el
-                        conteo real de apuntadas no compite con la imagen. */}
-                    {fotoReto !== '' && (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={fotoReto} alt=""
-                        // Sin foto por defecto a propósito (ver comentario de arriba y
-                        // lib/imagenes-por-defecto.ts): si la URL no carga, la tarjeta
-                        // se queda con su color, igual que cuando nunca hubo foto — no
-                        // un icono de imagen rota (C3 de la auditoría de uso real,
-                        // 2026-08-24).
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                        style={{
-                          display: 'block', width: 'calc(100% + 36px)', height: 116,
-                          margin: '-18px -18px 14px', objectFit: 'cover',
-                        }}
-                      />
-                    )}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                      <span style={{ ...display(18, false, 1.2), color: tinta }}>{reto.label}</span>
-                      <span style={{
-                        flex: 'none', height: 24, padding: '0 10px', borderRadius: 999,
-                        background: conColor ? 'rgba(255,255,255,.75)' : t.surface2,
-                        color: conColor ? tinta : t.muted,
-                        display: 'inline-flex', alignItems: 'center',
-                        ...micro(10.5, 0, 600),
-                      }}>
-                        {reto.dias}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
-                      {/* Pila de "caras": decoración de COLOR, nunca fotos
-                          reales de socias (el prototipo también usa colores
-                          planos, y así no se expone a nadie). */}
-                      {conColor && (
-                        <span aria-hidden style={{ display: 'flex', flex: 'none' }}>
-                          {reto.caras.map((c, i) => (
-                            <span key={i} style={{
-                              display: 'block', width: 24, height: 24, borderRadius: '50%',
-                              background: c, border: `2px solid ${reto.fondo}`, marginLeft: i ? -8 : 0,
-                            }} />
-                          ))}
-                        </span>
-                      )}
-                      <p style={{ ...texto.meta, color: conColor ? tinta : t.muted2, opacity: conColor ? 0.75 : 1, margin: 0 }}>
-                        {conteo > 0 ? `${conteo} apuntada${conteo === 1 ? '' : 's'}` : 'Sé la primera en apuntarte'}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void toggleReto(reto.key, apuntada ? 'desmarcar' : 'marcar')}
-                      style={{
-                        marginTop: 16, width: '100%', height: 40, borderRadius: 999, border: 'none', cursor: 'pointer',
-                        background: conColor
-                          ? (apuntada ? 'rgba(255,255,255,.55)' : tinta)
-                          : (apuntada ? t.surface2 : 'var(--portal-brand)'),
-                        color: conColor
-                          ? (apuntada ? tinta : reto.fondo)
-                          : (apuntada ? t.ink : 'var(--portal-brand-foreground)'),
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: transicion(['background', 'color'], dur.card),
-                        ...texto.metaFuerte,
-                      }}
-                    >
-                      {apuntada ? 'Apuntada ✓' : 'Apuntarme'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Bloques del catálogo (banner/texto/cta/faq) — hermanos de los 4
-              módulos de arriba en el mismo contenedor flex, con el `order`
-              que les toque para intercalarse de verdad en la posición
-              elegida en el editor. */}
+        {/* Bloques del catálogo (banner/texto/cta/faq) — hermanos de los dos
+            de arriba en el mismo contenedor de order, para intercalarse de
+            verdad en la posición elegida en el editor. */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           {bloquesPersonalizados.map(({ b, orden }) => (
             <div key={b.id} data-bloque-id={b.id} style={{ order: orden }}>
               <BloqueHomeRender bloque={b} slug={slug} />
@@ -1474,12 +916,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           ))}
         </div>
 
-        {/* "Tu estudio" (rediseño Tentare Studio App): carrusel con el
-            estudio y una instructora del equipo — elemento persistente, no
-            un bloque reordenable (misma razón que "Tu ritmo": depende de
-            datos calculados en cada carga — sesión de hoy, plan puntual
-            activo — que no tendría sentido reordenar en el editor). */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '30px 24px 8px' }}>
+        {/* ── "Tu estudio" ──────────────────────────────────────────────────── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '30px 0 8px' }}>
           <div>
             <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>El espacio</p>
             <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Tu estudio</h2>
@@ -1517,7 +955,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'rgba(255,255,255,.85)' }}>
                 {[
                   valoracionEstudioPantalla ? `★ ${valoracionEstudioPantalla.nota}` : null,
-                  [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || null,
+                  lugarEstudio || null,
                 ].filter(Boolean).join(' · ')}
               </p>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
@@ -1540,9 +978,6 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 backgroundColor: instructoraDestacada.color,
               }}
             >
-              {/* Sin foto propia, NUNCA una foto de archivo haciéndose pasar
-                  por ella (lib/imagenes-por-defecto.ts) — se queda con su
-                  color e iniciales, igual que en el listado de equipo. */}
               {instructoraDestacada.fotoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -1585,21 +1020,14 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           )}
         </div>
 
-        {/* "Huecos de hoy" (rediseño Tentare Studio App): SOLO las clases de
-            hoy que su plan/bono cubre y que aún tienen plaza — no toda la
-            agenda del día (eso ya está en "Esta semana"/Explorar). Elemento
-            persistente, no un bloque reordenable: depende de `session` y de
-            la hora exacta de carga, igual que "Tu ritmo"/"Tu estudio". Sin
-            huecos, la sección entera desaparece — un titular sin filas
-            debajo se lee como un error, no como "hoy no hay nada que
-            ofrecerte". */}
+        {/* ── "Huecos de hoy" ───────────────────────────────────────────────── */}
         {huecos.length > 0 && (
           <>
-            <div style={{ padding: '30px 24px 8px' }}>
+            <div style={{ padding: '30px 0 8px' }}>
               <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>Últimas plazas</p>
               <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Huecos de hoy</h2>
             </div>
-            <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {huecos.map(({ sesion: s, libres }) => {
                 const tipo = tiposClase.find(tc => tc.id === s.tipoClaseId);
                 const inst = instructores.find(i => i.id === s.instructorId);
@@ -1630,20 +1058,14 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           </>
         )}
 
-        {/* "Tablón" (rediseño Tentare Studio App): avisos de texto libre que
-            PROPIETARIO/MANAGER escriben (componente Novedades del editor de
-            temas). Elemento persistente, no un bloque reordenable — mismo
-            criterio que "Tu ritmo"/"Tu estudio": aquí lo que decide qué se ve
-            es la ventana de fechas resuelta en cada carga, no un orden que
-            tenga sentido reordenar a mano. Vacío si no hay ningún aviso
-            vigente — nunca un "Tablón" con la sección en blanco debajo. */}
+        {/* ── "Tablón" ───────────────────────────────────────────────────────── */}
         {novedadesVigentes.length > 0 && (
           <>
-            <div style={{ padding: '30px 24px 8px' }}>
+            <div style={{ padding: '30px 0 8px' }}>
               <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>Tablón</p>
               <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Novedades del estudio</h2>
             </div>
-            <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {novedadesVigentes.map((n) => (
                 <div
                   key={n.id}
@@ -1675,14 +1097,13 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
 
       <BuscarOverlay open={buscarAbierto} onClose={() => setBuscarAbierto(false)} />
 
-      {/* El avatar vive en el menú de abajo (pestaña Perfil), como en el diseño.
-          Se deja este bloque fuera de la vista para que los lectores de pantalla
-          sigan anunciando de quién es la sesión al entrar. */}
-      {!cabeceraConAvatar && (
-        <span className="sr-only">
-          <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
-        </span>
-      )}
+      {/* El avatar vive en el menú de abajo (pestaña Perfil), como en el
+          diseño — nunca en esta cabecera. Se deja este bloque fuera de la
+          vista para que los lectores de pantalla sigan anunciando de quién
+          es la sesión al entrar. */}
+      <span className="sr-only">
+        <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
+      </span>
     </div>
   );
 }

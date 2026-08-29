@@ -17,33 +17,33 @@ test.describe('Barra inferior de pestaña expandible', () => {
   test('con tabBarStyle clásico (o sin configurar), la barra igual lleva iconos — ya es el único look', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
 
     const nav = page.getByRole('navigation', { name: 'Secciones' });
-    const inicio = nav.getByRole('link', { name: 'Inicio' });
-    await expect(inicio).toBeVisible();
+    const hoy = nav.getByRole('link', { name: 'Hoy' });
+    await expect(hoy).toBeVisible();
     // La activa lleva icono (svg) además del texto.
-    await expect(inicio.locator('svg')).toHaveCount(1);
+    await expect(hoy.locator('svg')).toHaveCount(1);
 
-    // Las inactivas (Clases) llevan icono SIN el nombre visible como texto.
-    const clases = nav.locator('a[href$="/clases"]');
-    await expect(clases.locator('svg')).toHaveCount(1);
-    await expect(clases).not.toContainText('Clases');
+    // Las inactivas (Horario) llevan icono SIN el nombre visible como texto.
+    const horario = nav.locator('a[href$="/clases"]');
+    await expect(horario.locator('svg')).toHaveCount(1);
+    await expect(horario).not.toContainText('Horario');
   });
 
-  test('con tabBarStyle pestanaActiva, la pestaña activa (Inicio) muestra icono + nombre', async ({ page }) => {
+  test('con tabBarStyle pestanaActiva, la pestaña activa (Hoy) muestra icono + nombre', async ({ page }) => {
     await montarPortal(page, { conSesion: true, tabBarStyle: 'pestanaActiva' });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
 
     const nav = page.getByRole('navigation', { name: 'Secciones' });
-    const inicio = nav.getByRole('link', { name: 'Inicio' });
-    await expect(inicio).toBeVisible();
-    await expect(inicio.locator('svg')).toHaveCount(1);
+    const hoy = nav.getByRole('link', { name: 'Hoy' });
+    await expect(hoy).toBeVisible();
+    await expect(hoy.locator('svg')).toHaveCount(1);
 
-    const clases = nav.locator('a[href$="/clases"]');
-    await expect(clases.locator('svg')).toHaveCount(1);
-    await expect(clases).not.toContainText('Clases');
+    const horario = nav.locator('a[href$="/clases"]');
+    await expect(horario.locator('svg')).toHaveCount(1);
+    await expect(horario).not.toContainText('Horario');
   });
 });
 

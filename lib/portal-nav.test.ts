@@ -29,12 +29,12 @@ test('resolveNavConfig: "home" nunca puede quedar oculta, aunque venga en el raw
 test('resolveNavConfig: descarta segs desconocidos, iconos fuera del catálogo, y etiquetas vacías', () => {
   const r = resolveNavConfig({
     ocultos: ['no-existe', 'clases'],
-    etiquetas: { clases: '   ', bonos: 'Mis bonos' },
-    iconos: { clases: 'IconoInventado', bonos: 'Star' },
+    etiquetas: { clases: '   ', reservas: 'Mis reservas' },
+    iconos: { clases: 'IconoInventado', reservas: 'Star' },
   });
   assert.deepEqual(r.ocultos, ['clases']);
-  assert.deepEqual(r.etiquetas, { bonos: 'Mis bonos' });
-  assert.deepEqual(r.iconos, { bonos: 'Star' });
+  assert.deepEqual(r.etiquetas, { reservas: 'Mis reservas' });
+  assert.deepEqual(r.iconos, { reservas: 'Star' });
 });
 
 test('navItemsVisibles: sin config, devuelve el catálogo por defecto tal cual', () => {
@@ -43,13 +43,13 @@ test('navItemsVisibles: sin config, devuelve el catálogo por defecto tal cual',
 });
 
 test('navItemsVisibles: filtra ocultas y sustituye etiqueta/icono', () => {
-  const config = { ocultos: ['videos' as const], etiquetas: { clases: 'Agenda' }, iconos: { bonos: 'Star' as const } };
+  const config = { ocultos: ['videos' as const], etiquetas: { clases: 'Agenda' }, iconos: { reservas: 'Star' as const } };
   const r = navItemsVisibles(config);
   assert.deepEqual(r.map((i) => i.seg), NAV_SEG_IDS.filter((s) => s !== 'videos'));
   assert.equal(r.find((i) => i.seg === 'clases')?.label, 'Agenda');
-  assert.equal(r.find((i) => i.seg === 'bonos')?.icono, 'Star');
+  assert.equal(r.find((i) => i.seg === 'reservas')?.icono, 'Star');
   // Sin override, se queda con lo de siempre.
-  assert.equal(r.find((i) => i.seg === 'home')?.label, 'Inicio');
+  assert.equal(r.find((i) => i.seg === 'home')?.label, 'Hoy');
   assert.equal(r.find((i) => i.seg === 'home')?.icono, 'Home');
 });
 

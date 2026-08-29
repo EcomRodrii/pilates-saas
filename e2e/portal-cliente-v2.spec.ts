@@ -1,12 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { montarPortal, SLUG } from './portal-mock';
-import type { Page } from '@playwright/test';
-
-// La tarjeta grande dejó de ser un enlace cuando el botón «Ver mi acceso» pasó
-// a abrir la hoja del pase: un botón dentro de un enlace no es HTML válido ni
-// se puede recorrer con el teclado. No tiene rol ni texto fijo con el que
-// localizarla —el titular cambia con el estado—, así que lleva un ancla.
-const tarjetaGrande = (page: Page) => page.locator('[data-tarjeta="principal"]');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Las dos pantallas del diseño "Tentare App Cliente v2": 01 Acceso y 02 Inicio.
@@ -99,34 +92,19 @@ test.describe('Portal de la clienta — 01 Acceso', () => {
 test.describe('Portal de la clienta — 02 Inicio', () => {
   test.beforeEach(async ({ page }) => { await montarPortal(page, { conSesion: true }); });
 
-  test('saludo, tarjeta con cuenta atrás y carrusel de la semana', async ({ page }) => {
+  test('hero con saludo + buscador, y la tarjeta "Tu próxima clase" con cuenta atrás', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/home`);
 
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
-    // La volanta y la cuenta atrás de la tarjeta grande.
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Buscar clases, instructoras…')).toBeVisible();
+    // La volanta y la cuenta atrás de la tarjeta de "Tu próxima clase".
     await expect(page.getByText('Tu próxima clase')).toBeVisible();
     await expect(page.getByText(/^EN \d+ (H \d+ MIN|MIN)$/)).toBeVisible();
-    // El nombre de la clase, en cursiva serif, dentro de la tarjeta de cristal.
+    // El nombre de la clase, dentro de esa misma tarjeta.
     await expect(page.getByText('Reformer Flow').first()).toBeVisible();
-    // El carrusel.
-    await expect(page.getByRole('heading', { name: 'Esta semana' })).toBeVisible();
   });
 
-  test('las cuatro filas llevan a cuatro sitios distintos', async ({ page }) => {
-    await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
-
-    const destinos = [
-      ['Mis reservas', 'reservas'], ['Mi progreso', 'progreso'],
-      ['Notificaciones', 'notificaciones'], ['El equipo', 'instructores'],
-    ] as const;
-    for (const [etiqueta, seg] of destinos) {
-      await expect(page.getByRole('link', { name: new RegExp(`^${etiqueta}`) }).first())
-        .toHaveAttribute('href', `/portal/${SLUG}/${seg}`);
-    }
-  });
-
-  test('el menú tiene cuatro pestañas y la primera es Inicio', async ({ page }) => {
+  test('el menú tiene cuatro pestañas y la primera es Hoy', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/home`);
     const menu = page.getByRole('navigation', { name: 'Secciones' });
     await expect(menu).toBeVisible({ timeout: 30_000 });
@@ -135,25 +113,24 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
     // icono, ver components/portal/portal-nav.tsx) — el nombre de cada una se
     // comprueba por `aria-label`, no por texto visible en pantalla.
     const etiquetas = await menu.getByRole('link').evaluateAll(els => els.map(el => el.getAttribute('aria-label')));
-    // «Mi plan» pasó a ser «Bonos» al partir esa ruta en /bonos + /compras:
-    // la pestaña lleva a mirar el saldo, no a pasar por caja.
-    expect(etiquetas).toEqual(['Inicio', 'Clases', 'Bonos', 'Perfil']);
+    // Hoy/Horario/Reservas/Perfil — el menú literal de "Tentare Studio App"
+    // (Fase 1 de la sustitución de Oliva/Bloom/Noir). "Bonos" ya no tiene
+    // pestaña propia: el saldo vive en "Tu ritmo", dentro de Hoy.
+    expect(etiquetas).toEqual(['Hoy', 'Horario', 'Reservas', 'Perfil']);
     // La pestaña activa se anuncia, no solo se pinta.
-    await expect(menu.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
+    await expect(menu.getByRole('link', { name: 'Hoy' })).toHaveAttribute('aria-current', 'page');
   });
 
   // Casi ningún estudio sube foto el primer día, y el diseño da la imagen por
-  // hecha. Antes eso obligaba a encoger la tarjeta —reservar los 476 px dejaba
-  // medio metro de crema vacío— y esta prueba defendía justo ese encogimiento.
-  // Con la foto por defecto el hueco no llega a existir, así que la tarjeta se
-  // queda a la altura del diseño y lo que hay que defender es lo contrario.
-  test('sin foto del estudio la tarjeta usa la de por defecto, a su altura completa', async ({ page }) => {
+  // hecha — el hero mide siempre 314 px, con o sin foto propia, y sin foto usa
+  // la de por defecto en vez de dejar un hueco de color.
+  test('sin foto del estudio, el hero usa la de por defecto, a su altura fija', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
-    const caja = await tarjetaGrande(page).boundingBox();
-    expect(caja!.height).toBeGreaterThan(400);
-    // Y que la foto sea la de por defecto, no un hueco con fondo de color.
-    await expect(tarjetaGrande(page).locator('img').first())
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
+    const hero = page.locator('[data-bloque-sistema="cabecera"]');
+    const caja = await hero.boundingBox();
+    expect(Math.round(caja!.height)).toBe(314);
+    await expect(hero.locator('img').first())
       .toHaveAttribute('src', /\/por-defecto\/estudio-vertical/);
   });
 });
@@ -167,7 +144,7 @@ test.describe('Portal de la clienta — se ve bien en cualquier teléfono', () =
       await page.setViewportSize({ width: ancho, height: alto });
       await montarPortal(page, { conSesion: true });
       await page.goto(`/portal/${SLUG}/home`);
-      await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
 
       const desborde = await page.evaluate(() => {
         const main = document.querySelector('main');
@@ -187,11 +164,14 @@ test.describe('Portal de la clienta — con foto del estudio', () => {
   // mezclen (ver migración 20260810140000_studios_imagen_bienvenida).
   const FOTO = 'data:image/gif;base64,R0lGODlhAQABAIAAACwtJQAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==';
 
-  test('con foto, la tarjeta mide los 476 px del diseño', async ({ page }) => {
+  test('con foto propia, el hero la usa en vez de la de por defecto', async ({ page }) => {
     await montarPortal(page, { conSesion: true, imagenBienvenidaUrl: FOTO });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
-    const caja = await tarjetaGrande(page).boundingBox();
-    expect(Math.round(caja!.height)).toBe(476);
+    await expect(page.getByRole('heading', { name: '¿Qué te apetece hoy?' })).toBeVisible({ timeout: 30_000 });
+    const hero = page.locator('[data-bloque-sistema="cabecera"]');
+    await expect(hero.locator('img').first()).toHaveAttribute('src', FOTO);
+    // El hero mide siempre 314 px — con o sin foto propia no cambia de alto.
+    const caja = await hero.boundingBox();
+    expect(Math.round(caja!.height)).toBe(314);
   });
 });

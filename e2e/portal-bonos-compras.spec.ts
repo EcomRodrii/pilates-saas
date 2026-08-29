@@ -118,15 +118,17 @@ test.describe('El corte de /mi-plan', () => {
     await expect(page.getByRole('heading', { name: 'Bonos' })).toBeVisible();
   });
 
-  test('el menú marca Bonos también estando en Compras', async ({ page }) => {
+  // Con el rediseño "Tentare Studio App" (Fase 1), "Bonos" ya no tiene pestaña
+  // propia en el menú — el saldo se mira desde "Tu ritmo" en Hoy, y la pestaña
+  // que antes marcaba (aria-current) al estar en /compras o /bonos ya no
+  // existe. Ninguna pestaña se marca: es mejor no anunciar ninguna que
+  // anunciar la equivocada (el prototipo marcaba Inicio, que era decirle a un
+  // lector de pantalla que está donde no está).
+  test('el menú no marca ninguna pestaña estando en Compras', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/compras`);
-    // `exact`, porque desde que la flecha de volver es un enlace hay DOS que
-    // contienen «Bonos» en su nombre accesible: el del menú y «Volver a Bonos».
-    const bonos = page.getByRole('link', { name: 'Bonos', exact: true });
-    await expect(bonos).toBeVisible({ timeout: 30_000 });
-    // `aria-current` es lo que dice «estás aquí» a un lector de pantalla; el
-    // prototipo marcaba Inicio, que es decirle que está donde no está.
-    await expect(bonos).toHaveAttribute('aria-current', 'page');
+    const menu = page.getByRole('navigation', { name: 'Secciones' });
+    await expect(menu).toBeVisible({ timeout: 30_000 });
+    await expect(menu.locator('a[aria-current="page"]')).toHaveCount(0);
   });
 });

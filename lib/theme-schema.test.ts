@@ -204,7 +204,7 @@ test('themeConfigSchema: navPortal ausente → default sin ocultos/etiquetas/ico
 test('themeConfigSchema acepta navPortal con pestañas ocultas, renombradas y con icono distinto', () => {
   const r = themeConfigSchema.safeParse({
     ...DEFAULT_THEME,
-    navPortal: { ocultos: ['videos'], etiquetas: { clases: 'Agenda' }, iconos: { bonos: 'Star' } },
+    navPortal: { ocultos: ['videos'], etiquetas: { clases: 'Agenda' }, iconos: { reservas: 'Star' } },
   });
   assert.equal(r.success, true);
 });

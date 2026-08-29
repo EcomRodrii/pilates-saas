@@ -65,7 +65,7 @@ test.describe('Portal — Sesión guiada', () => {
     await expect(page.getByText('Ejercicio 1 de 4').last()).toBeVisible({ timeout: 30_000 });
     // La tab bar del portal no debe verse durante la sesión guiada — pantalla
     // completa, mismo criterio que /login (ver isFullscreen en portal-shell.tsx).
-    await expect(page.getByRole('link', { name: 'Inicio' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Hoy' })).toHaveCount(0);
 
     await page.getByLabel('Salir de la sesión guiada').last().click();
     await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/clases/ses-1$`), { timeout: 30_000 });

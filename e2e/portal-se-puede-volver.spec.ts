@@ -16,22 +16,22 @@ import { montarPortal, SLUG } from './portal-mock';
 //
 // Lo que SÍ es una pregunta real y equivalente en el portal de siempre es si
 // una pantalla que NO está en la barra de abajo (detalle de clase, alcanzado
-// desde el carrusel «Esta semana» de Inicio) tiene una vuelta real y no deja
-// a la socia atascada. Este fichero migra esa pregunta a `router.back()`,
-// que es el mecanismo real que usa `app/portal/[slug]/clases/[sesionId]/page.tsx`.
+// desde "Huecos de hoy" en Hoy) tiene una vuelta real y no deja a la socia
+// atascada. Este fichero migra esa pregunta a `router.back()`, que es el
+// mecanismo real que usa `app/portal/[slug]/clases/[sesionId]/page.tsx`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.setTimeout(180_000);
 
-test('desde el detalle de una clase (llegando por Inicio) se puede volver', async ({ page }) => {
+test('desde el detalle de una clase (llegando por Hoy) se puede volver', async ({ page }) => {
   await montarPortal(page, { conSesion: true });
   await page.goto(`/portal/${SLUG}/home`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   await expect(page.getByRole('navigation', { name: 'Secciones' })).toBeVisible({ timeout: 60_000 });
 
-  // La tarjeta de "Esta semana" de ses-1 (Reformer Flow, dentro de ~3h) es un
-  // <Link> real de Next — no un botón del router propio del kit. (ses-1
-  // también puede aparecer en "Huecos de hoy"; cualquiera de los dos enlaces
-  // reales sirve para esta comprobación, así que basta con el primero.)
+  // La fila de "Huecos de hoy" de ses-1 (Reformer Flow, dentro de ~3h) es un
+  // <Link> real de Next — no un botón del router propio del kit. El carrusel
+  // "Esta semana" que antes también podía llevar aquí ya no existe (rediseño
+  // "Tentare Studio App"): "Huecos de hoy" es la única vía real que queda.
   await page.locator(`a[href="/portal/${SLUG}/clases/ses-1"]`).first().click();
   await expect(page.getByRole('heading', { name: 'Reformer Flow' })).toBeVisible({ timeout: 30_000 });
 

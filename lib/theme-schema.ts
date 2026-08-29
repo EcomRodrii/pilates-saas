@@ -167,14 +167,14 @@ const navConfigSchema = z
     etiquetas: z.object({
       home: z.string().optional(),
       clases: z.string().optional(),
-      bonos: z.string().optional(),
+      reservas: z.string().optional(),
       videos: z.string().optional(),
       perfil: z.string().optional(),
     }),
     iconos: z.object({
       home: navIconoSchema.optional(),
       clases: navIconoSchema.optional(),
-      bonos: navIconoSchema.optional(),
+      reservas: navIconoSchema.optional(),
       videos: navIconoSchema.optional(),
       perfil: navIconoSchema.optional(),
     }),
