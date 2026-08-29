@@ -88,19 +88,39 @@ test('⚠️ el botón de continuar es ALCANZABLE con scroll, nunca inexistente'
   await expect(cta).toBeInViewport();
 });
 
-test('con el modal abierto, el fondo no se mueve', async ({ page }) => {
+// ⚠️ Bug real de producción (2026-08-29): este test protegía la premisa
+// CONTRARIA a la de arriba — daba por hecho que "Tus datos" es un modal
+// flotando sobre un fondo que no debe moverse, y por eso bloqueaba
+// `body.overflow`. Pero `PantallaReserva` (`PublicSheet inline`, rediseño
+// "sin popup") NO tiene fondo: el checkout ES la página. El bloqueo de scroll
+// se colaba igual (venía de `useDialogA11y` → `useBloquearScrollFondo`, que
+// no distinguía `inline`), y el resultado en producción era que la propia
+// pantalla de pago quedaba sin poder hacer scroll — ni siquiera se podía
+// llegar al botón "Continuar al pago" que el test de arriba SÍ comprueba que
+// debe alcanzarse con scroll. Las dos aserciones no podían ser ciertas a la
+// vez; esta es la que estaba desactualizada.
+test('en el checkout "sin popup" la página SÍ hace scroll (no hay fondo que proteger)', async ({ page }) => {
   await abrirPasoDatos(page);
 
   const overflow = await page.evaluate(() => getComputedStyle(document.body).overflow);
-  expect(overflow).toBe('hidden');
+  expect(overflow).not.toBe('hidden');
 
-  // Comprobación de verdad, no solo del estilo: el gesto sobre el fondo no
-  // desplaza la página de detrás.
-  const antes = await page.evaluate(() => window.scrollY);
-  await page.mouse.move(195, 60);
-  await page.mouse.wheel(0, 600);
-  await page.waitForTimeout(250);
-  expect(await page.evaluate(() => window.scrollY)).toBe(antes);
+  // No un delta de rueda de ratón (frágil: el autofocus del primer campo ya
+  // puede haber llevado la página cerca del máximo antes de medir «antes») —
+  // la prueba estructural de que SE PUEDE hacer scroll es que hay más
+  // contenido que alto de ventana.
+  const { scrollHeight, clientHeight } = await page.evaluate(() => ({
+    scrollHeight: document.documentElement.scrollHeight,
+    clientHeight: document.documentElement.clientHeight,
+  }));
+  expect(scrollHeight).toBeGreaterThan(clientHeight);
+
+  // Y que se puede LLEGAR al final (el defecto real: `overflow:hidden`
+  // impedía moverse aunque `scrollHeight` fuera mayor).
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await page.waitForTimeout(150);
+  const cerca = await page.evaluate(() => Math.abs(window.scrollY + window.innerHeight - document.documentElement.scrollHeight) < 4);
+  expect(cerca).toBe(true);
 });
 
 test('⚠️ los campos miden 16px: por debajo, iOS amplía la página al enfocarlos', async ({ page }) => {

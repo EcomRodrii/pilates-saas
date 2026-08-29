@@ -13,9 +13,22 @@ const FOCUSABLE =
 export function useDialogA11y({
   open,
   onClose,
+  inline = false,
 }: {
   open: boolean;
   onClose: () => void;
+  /**
+   * Bug real de producción (2026-08-29): `PublicSheet inline` (rediseño "sin
+   * popup" — sin backdrop, sin `position: fixed`, el contenido ocupa el sitio
+   * que le da el padre en vez de flotar encima) seguía bloqueando el scroll
+   * de `html`/`body` vía `useBloquearScrollFondo`, que existe para el caso
+   * CONTRARIO: impedir que el fondo se mueva mientras una hoja FLOTA encima
+   * de él. Sin backdrop no hay "fondo" que proteger — el contenido bloqueado
+   * es el propio checkout, que se queda sin poder hacer scroll hasta el
+   * botón de pagar. `false` por defecto: el resto de callers de
+   * `useDialogA11y` (hojas de verdad, con backdrop) no cambian.
+   */
+  inline?: boolean;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
   // Ref para la versión más reciente de onClose: el efecto de abajo NO puede
@@ -92,7 +105,7 @@ export function useDialogA11y({
     };
   }, [open, disparador]);
 
-  useBloquearScrollFondo(open);
+  useBloquearScrollFondo(open && !inline);
 
   return { sheetRef };
 }

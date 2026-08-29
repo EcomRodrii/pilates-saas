@@ -21,7 +21,7 @@ export function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary
   // `fila`/`columna` reales de cada estudio, no fijas a 4 como en el mockup
   // (ahí no hay datos reales de sala detrás, solo una cuadrícula ilustrativa).
   return (
-    <div className="px-4 pt-3.5 pb-2.5" style={{ background: 'var(--portal-surface-2)', borderRadius: 16 }}>
+    <div className="px-4 pt-[13px] pb-2.5" style={{ background: 'var(--portal-surface-2)', borderRadius: 20 }}>
       <div className="h-[7px] rounded-full" style={{ background: `linear-gradient(90deg, var(--portal-line), var(--portal-surface) 30%, var(--portal-surface) 70%, var(--portal-line))` }} aria-hidden="true" />
       <p className="mt-[3px] mb-2.5 text-center text-[8px] font-bold uppercase tracking-[.34em] text-[var(--portal-muted)]">
         espejo
@@ -44,7 +44,7 @@ export function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary
                   : isSel
                   ? { background: primary, boxShadow: '0 8px 16px -6px rgba(15,15,15,.45)' }
                   : { background: 'var(--portal-surface)', boxShadow: 'inset 0 0 0 1.5px var(--portal-line)' }}>
-                <span aria-hidden="true" className="absolute left-[5px] top-1.5 bottom-1.5 w-[5px] rounded-sm"
+                <span aria-hidden="true" className="absolute left-[5px] top-1.5 bottom-1.5 w-[5px] rounded-[3px]"
                   style={{ background: isSel ? 'rgba(255,255,255,.55)' : taken ? 'rgba(15,15,15,.12)' : 'var(--portal-surface-2)' }} />
               </span>
               <span className="text-[9.5px]" style={{ color: isSel ? 'var(--portal-ink)' : 'var(--portal-muted)', fontWeight: isSel ? 800 : 500 }}>{spot.nombre}</span>

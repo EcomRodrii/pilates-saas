@@ -289,7 +289,7 @@ export function PantallaReserva({
                 {clase.nivel && (
                   <div style={{ ...eyebrow(9), color: 'rgba(255,255,255,.82)', marginBottom: 8 }}>{clase.nivel}</div>
                 )}
-                <h1 style={{ fontFamily: serif, fontWeight: 400, fontSize: cq(26, 3.2, 38), lineHeight: 1.04, color: '#fff', letterSpacing: '-0.01em' }}>
+                <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: cq(26, 3.2, 38), lineHeight: 1.04, color: '#fff', letterSpacing: '-0.01em' }}>
                   {clase.nombre}
                 </h1>
               </div>
@@ -367,7 +367,7 @@ export function PantallaReserva({
               <div key="datos" className="pantalla-reserva-seccion" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <div>
                   <div style={eyebrow(9)}>Paso final</div>
-                  <h2 style={{ fontFamily: serif, fontWeight: 400, fontSize: cq(21, 2.2, 25), color: 'var(--portal-ink)', marginTop: 6, marginBottom: 6 }}>
+                  <h2 style={{ fontFamily: serif, fontWeight: 800, fontSize: cq(21, 2.2, 25), color: 'var(--portal-ink)', marginTop: 6, marginBottom: 6 }}>
                     Tus datos
                   </h2>
                   <p style={{ fontSize: 13, color: 'var(--portal-muted-2)', lineHeight: 1.5 }}>
@@ -546,7 +546,7 @@ export function PantallaReserva({
                     cuenta, no solo que "se aplicará". */}
                 <div style={{
                   display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-                  paddingTop: 14, borderTop: '1px solid var(--portal-line)',
+                  paddingTop: 12, borderTop: '1px dashed var(--portal-line)',
                 }}>
                   <span style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600 }}>Total a pagar</span>
                   <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -706,9 +706,9 @@ function CampoTexto({
     // 16px, no 15: por debajo de 16px iOS Safari amplía la página entera al
     // enfocar el campo y no la devuelve a su sitio (medido, e2e/reservar-
     // modal-movil.spec.ts).
-    width: '100%', padding: '13px 15px', fontSize: 16, color: 'var(--portal-ink)',
-    background: 'var(--portal-surface-2)', border: '1.5px solid var(--portal-line)',
-    borderRadius: 16, outline: 'none',
+    width: '100%', padding: '12px 14px', fontSize: 16, color: 'var(--portal-ink)',
+    background: 'var(--portal-surface)', border: '1.5px solid var(--portal-line)',
+    borderRadius: 14, outline: 'none',
     transition: 'border-color .2s ease, box-shadow .2s ease',
   };
   return (
@@ -741,10 +741,10 @@ function CampoSelect({
       onChange={e => onChange(e.target.value)}
       className="pantalla-reserva-campo"
       style={{
-        width: '100%', padding: '13px 15px', fontSize: 16,
+        width: '100%', padding: '12px 14px', fontSize: 16,
         color: value ? 'var(--portal-ink)' : 'var(--portal-muted)',
-        background: 'var(--portal-surface-2)', border: '1.5px solid var(--portal-line)',
-        borderRadius: 16, outline: 'none', transition: 'border-color .2s ease, box-shadow .2s ease',
+        background: 'var(--portal-surface)', border: '1.5px solid var(--portal-line)',
+        borderRadius: 14, outline: 'none', transition: 'border-color .2s ease, box-shadow .2s ease',
       }}
     >
       <option value="">{placeholder}</option>
