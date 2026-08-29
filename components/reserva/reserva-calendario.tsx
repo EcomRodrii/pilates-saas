@@ -670,7 +670,13 @@ export function ReservaCalendario({
         <div
           style={{
             position: 'sticky', top: 0, zIndex: 5,
-            background: t.surface, marginBottom: 20, paddingBottom: 16,
+            // ⚠️ Auditoría pixel-perfect (2026-08-29): el diseño pinta este
+            // bloque con el MISMO fondo que la página (`var(--fondo)`), no
+            // el blanco de tarjeta — solo lo delimita el hairline de abajo.
+            // Con `t.surface` (blanco) quedaba una caja visiblemente
+            // recortada sobre el fondo crema de la página, justo lo que
+            // reportó el usuario en producción ("se ve como cortado").
+            background: t.bg, marginBottom: 20, paddingBottom: 16,
             borderBottom: `1px solid ${t.line}`,
           }}
         >
@@ -917,7 +923,7 @@ export function ReservaCalendario({
                     <p style={{ margin: `${densidadCss(10)} 0 8px`, fontSize: 13, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>{g.label}</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: densidadCss(10) }}>
                       {g.items.map(slot => (
-                        <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => abrirSlot(slot)} ocultarPrecio={ocultarPrecio} />
+                        <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => abrirSlot(slot)} ocultarPrecio={ocultarPrecio} origenTentare={origenTentare} />
                       ))}
                     </div>
                   </div>
@@ -1283,8 +1289,8 @@ const SlotRow = memo(SlotRowImpl);
 // mantener el patrón anterior. Mantiene el contrato de los e2e existentes:
 // className `reserva-slot-row`, role=button y el mismo aria-label que
 // `SlotRow`.
-function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio }: {
-  t: ModoTokens; slot: ReservaSlot; onOpen: () => void; ocultarPrecio: boolean;
+function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio, origenTentare = '' }: {
+  t: ModoTokens; slot: ReservaSlot; onOpen: () => void; ocultarPrecio: boolean; origenTentare?: string;
 }) {
   const libres = Math.max(0, slot.aforoMaximo - slot.ocupadas);
   const ratio = ratioOcupacion(slot.ocupadas, slot.aforoMaximo);
@@ -1328,7 +1334,13 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio }: {
         WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
       }}
     >
-      <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho={104} alto="100%" radio={0} />
+      {/* ⚠️ Bug real de producción (2026-08-29): sin `conFotoPorDefecto`, una
+          clase sin foto propia caía directa a la letra sobre degradado — la
+          ficha (más abajo, línea ~1610) SÍ pedía la foto de catálogo, esta
+          tarjeta no. El sistema de 10 fotos por defecto
+          (docs/imagenes-por-defecto, `imagenDeClase`) existe justo para
+          evitar ese aspecto de "roto"/"cortado" que reportó el usuario. */}
+      <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho={104} alto="100%" radio={0} conFotoPorDefecto origenTentare={origenTentare} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: `${densidadCss(13)} ${densidadCss(15)} ${densidadCss(13)} ${densidadCss(16)}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>
