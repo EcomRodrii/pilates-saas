@@ -2810,6 +2810,14 @@ export default function ReservarPage() {
                 ocultarPrecio={configWidget?.ocultarPrecio ?? false}
                 ocultarNivel={configWidget?.ocultarNivel ?? false}
                 ocultarSustituta={configWidget?.ocultarSustituta ?? false}
+                // ⚠️ Bug real de producción (2026-08-29): "elegir el sitio se
+                // repite" — sin sesión, `handleReservarCalendario` SIEMPRE
+                // deriva a un segundo paso que vuelve a preguntar el sitio
+                // ('datos' del checkout sin login, o 'confirm' tras iniciar
+                // sesión) — nunca reserva directo desde esta ficha. Pedirlo
+                // aquí TAMBIÉN es redundante; con sesión, en cambio, esta
+                // ficha SÍ es el único paso.
+                ocultarSelectorSitio={!autenticado}
                 loading={!dataLoaded}
                 onReservar={handleReservarCalendario}
                 onCancelar={cancelarReserva}

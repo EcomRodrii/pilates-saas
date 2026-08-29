@@ -234,6 +234,17 @@ export interface ReservaCalendarioProps {
   /** Quita el aviso «Sustituye a X hoy» (queda el rótulo de rol de siempre). */
   ocultarSustituta?: boolean;
   /**
+   * ⚠️ Bug real de producción (2026-08-29): "elegir el sitio se repite" —
+   * quien no tiene sesión ve el selector de plaza AQUÍ, en la ficha, y otra
+   * vez en "Tus datos" (PantallaReserva) al pulsar "Reservar", porque ese
+   * flujo SIEMPRE pasa por un segundo paso que vuelve a preguntar (o bien
+   * 'datos' del checkout sin login, o bien 'confirm' tras iniciar sesión).
+   * La selección se conserva (mismo estado `selectedSpot`), pero mostrar el
+   * mismo control dos veces en el mismo viaje confunde. El llamador (que sí
+   * sabe si hay sesión) lo apaga aquí para quien no la tiene.
+   */
+  ocultarSelectorSitio?: boolean;
+  /**
    * 'hoy' = la ventana de días se reduce al día de hoy (una sola columna en
    * 'grid', un solo chip en 'dias'). 'todo' = la ventana de siempre.
    */
@@ -364,6 +375,20 @@ function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorD
   ancho: number | string; alto: number | string; radio: number;
   conFotoPorDefecto?: boolean; origenTentare?: string;
 }) {
+  // ⚠️ Bug real de producción (2026-08-29): "la imagen sale cortada" — con
+  // `alto="100%"` (la tarjeta horizontal del listado, foto a toda altura de
+  // una fila `display:flex` cuya altura la decide el CONTENIDO, no un valor
+  // fijo), `height:'100%'` es un porcentaje que no puede resolverse contra un
+  // padre de altura intrínseca — el navegador lo descarta en silencio y usa
+  // el ratio natural de la imagen a ese ancho (104×58,5 medido en vivo para
+  // una tarjeta de 139,6px de alto: la foto ocupaba el 42% de la fila,
+  // dejando el resto en blanco). `alignSelf:'stretch'` sí funciona ahí,
+  // porque lo resuelve el propio algoritmo flex, no un cálculo de
+  // porcentaje. Con `alto` numérico (foto de la ficha) no cambia nada.
+  const altoEsPorcentaje = typeof alto === 'string' && alto.endsWith('%');
+  const dimensiones = altoEsPorcentaje
+    ? { height: 'auto' as const, alignSelf: 'stretch' as const }
+    : { height: alto };
   if (fotoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- foto subida por el estudio, no un asset estático conocido en build (mismo criterio que RoundPhoto)
@@ -376,7 +401,7 @@ function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorD
         // vivo con `loading="lazy"`): un blanco puro ahí se lee como hueco
         // roto; con el color de la clase, la foto se siente una mejora
         // progresiva, no una carga que falló.
-        style={{ width: ancho, height: alto, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
+        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
       />
     );
   }
@@ -389,13 +414,13 @@ function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorD
         loading="lazy"
         decoding="async"
         onError={alFallarImagen(`${origenTentare}${IMAGENES_CLASE.generica}`)}
-        style={{ width: ancho, height: alto, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
+        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
       />
     );
   }
   return (
     <div aria-hidden="true" style={{
-      width: ancho, height: alto, borderRadius: radio, flexShrink: 0,
+      width: ancho, ...dimensiones, borderRadius: radio, flexShrink: 0,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: `linear-gradient(135deg, color-mix(in srgb, ${color} 55%, #fff) 0%, ${color} 100%)`,
     }}>
@@ -445,7 +470,7 @@ export function ReservaCalendario({
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE, densidadEsc = 1,
   radiosEsc = { tarjeta: radius.card, boton: radius.pill, input: radius.spot },
   irADia, estiloDias = 'semana', finalizadasHoy, loading = false, filtrosChips,
-  ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, vistaInicial = 'todo',
+  ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false, vistaInicial = 'todo',
   enIframe = false, franjaVisible = null, alCambiarFicha, origenTentare = '',
   estiloFicha = 'modal', abrirSlotExterno, onAntesDeAbrir,
 }: ReservaCalendarioProps) {
@@ -992,6 +1017,7 @@ export function ReservaCalendario({
           ocultarPrecio={ocultarPrecio}
           ocultarNivel={ocultarNivel}
           ocultarSustituta={ocultarSustituta}
+          ocultarSelectorSitio={ocultarSelectorSitio}
           enIframe={enIframe}
           franjaVisible={franjaVisible}
           origenTentare={origenTentare}
@@ -1384,7 +1410,7 @@ const TarjetaClase = memo(TarjetaClaseImpl);
 
 function BookingSheet({
   t, slot, variantePresentacion = 'modal', selectedSpot, onSelectSpot, resultado, errorReserva, enviando, cancelacionVentanaHoras, ventanaPorTipo,
-  fontFamily, ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false,
+  fontFamily, ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false,
   enIframe = false, franjaVisible = null, origenTentare = '',
   onClose, onReservar, onCancelar, onAceptarOferta,
 }: {
@@ -1403,6 +1429,8 @@ function BookingSheet({
   ocultarPrecio?: boolean;
   ocultarNivel?: boolean;
   ocultarSustituta?: boolean;
+  /** Ver el docblock en `ReservaCalendarioProps`. */
+  ocultarSelectorSitio?: boolean;
   enIframe?: boolean;
   franjaVisible?: { top: number; height: number } | null;
   origenTentare?: string;
@@ -1690,7 +1718,7 @@ function BookingSheet({
         {/* Selector de sitio. Con aforo grande (8+ plazas) la rejilla ocupa
             varias pantallas de scroll antes del botón "Reservar" — el atajo
             deja reservar sin bajar hasta el final para quien no quiere elegir. */}
-        {mostrarSpots && (
+        {mostrarSpots && !ocultarSelectorSitio && (
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
               <p style={{ fontSize: 12, fontWeight: 800, color: t.ink }}>
