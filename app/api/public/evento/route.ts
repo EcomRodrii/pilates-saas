@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { registrarEventoWidget } from '@/lib/db/supabase-data-admin';
+import { registrarEventoWidget, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { esTipoEventoValido } from '@/lib/reservar/eventos';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
@@ -12,14 +13,18 @@ import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 //
 // Fase 8 (CRO): 4 de los 13 tipos (booking_started/checkout_started/
 // booking_completed/booking_abandoned) SÍ pueden llevar `socioId` — sigue
-// sin JWT (fire-and-forget, rate limit 120/min) porque `sociaPorId`
-// (lib/notifications/recipients.ts) ya acota la lectura por
-// `studio_id`+`id`, así que un `socioId` ajeno mandado a mano no puede leer
-// ni mover nada de otra socia/estudio — como mucho dispara el email
-// informativo de RESERVA_ABANDONADA, y el `dedupKey` diario de
-// emitirReservaAbandonada limita el efecto a un correo por socia por día
-// pase lo que pase con el rate limit. Riesgo residual documentado y
-// revisado explícitamente en docs/cro-analytics-widget-diseno.md §5.2/§7.3.
+// sin JWT para la ATRIBUCIÓN de analítica (fire-and-forget, rate limit
+// 120/min): un `socioId` ajeno mandado a mano no puede leer ni mover nada de
+// otra socia/estudio, como mucho ensucia `widget_eventos.socio_id`.
+//
+// C-4 (auditoría 29-ago), cerrado: lo que SÍ tenía efecto real sin JWT era
+// disparar el email de RESERVA_ABANDONADA a cualquier socia de la que se
+// conociera el id (`socioId` es público — `fetchPublicStudioData` los
+// expone). Ahora ese disparo exige demostrar con el JWT (si lo hay) que
+// quien llama es de verdad esa socia — `socioAutenticado` resuelve el id
+// real desde `auth.uid()`+`studioId` y se compara contra el `socioId` del
+// body. Riesgo original documentado en docs/cro-analytics-widget-diseno.md
+// §5.2/§7.3.
 //
 // Fire-and-forget desde el cliente (no espera la respuesta, usa `keepalive`):
 // este endpoint SIEMPRE responde 200 salvo un body claramente inválido — un
@@ -52,6 +57,17 @@ export async function POST(req: NextRequest) {
   // dónde escribir — no es un error para quien llama, solo no se registra.
   if (!admin) return conCorsWidget(req, NextResponse.json({ ok: true }));
 
+  // C-4: solo se resuelve si hace falta (booking_abandoned con socioId) — el
+  // resto de tipos ni intenta verificar un JWT que no necesitan.
+  let socioIdVerificado: string | null = null;
+  if (body.tipo === 'booking_abandoned' && body.socioId) {
+    const usuario = await verificarUsuarioSupabase(req);
+    if (usuario) {
+      const idReal = await socioAutenticado(usuario.userId, body.studioId);
+      if (idReal === body.socioId) socioIdVerificado = body.socioId;
+    }
+  }
+
   registrarEventoWidget(admin, {
     studioId: body.studioId,
     sessionId: body.sessionId,
@@ -59,6 +75,7 @@ export async function POST(req: NextRequest) {
     sesionClaseId: body.sesionClaseId ?? null,
     origen: body.origen ?? null,
     socioId: body.socioId ?? null,
+    socioIdVerificado,
   });
 
   return conCorsWidget(req, NextResponse.json({ ok: true }));

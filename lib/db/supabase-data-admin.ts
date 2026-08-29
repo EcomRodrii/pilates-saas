@@ -1071,7 +1071,26 @@ export async function generarRecordatoriosRevision(studioId: string, nowISO: str
   const { data: condsRaw, error } = await admin
     .from('condiciones_salud').select('*').eq('estado', 'ACTIVA').eq('studio_id', studioId);
   if (error) throw new Error(error.message);
-  const condiciones = (condsRaw ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud));
+  let condiciones = (condsRaw ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud));
+
+  // C-3 (auditoría 29-ago): admin usa service-role, se salta la RLS de
+  // `condiciones_salud` igual que `semaforo_salud_estudio` — sin este filtro
+  // el cron seguiría avisando a la propietaria/instructora del contenido de
+  // una condición para la que la socia no ha dado consentimiento de lectura
+  // (art. 9 RGPD). Mismo criterio que la RLS, en batches por el límite de `in`.
+  if (condiciones.length > 0) {
+    const idsParaConsentimiento = [...new Set(condiciones.map(c => c.socioId))];
+    const conConsentimiento = new Set<string>();
+    for (let i = 0; i < idsParaConsentimiento.length; i += 200) {
+      const lote = idsParaConsentimiento.slice(i, i + 200);
+      const { data: socias } = await admin.from('socios')
+        .select('id, consentimiento_salud_fecha, consentimiento_salud_revocado_en').in('id', lote);
+      for (const s of socias ?? []) {
+        if (s.consentimiento_salud_fecha && !s.consentimiento_salud_revocado_en) conConsentimiento.add(s.id as string);
+      }
+    }
+    condiciones = condiciones.filter(c => conConsentimiento.has(c.socioId));
+  }
 
   const recordatorios = recordatoriosRevision(condiciones, hoy, umbralDias);
   if (recordatorios.length === 0) {
@@ -1702,6 +1721,11 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
   // Fase 8 (CRO): solo relevante en los eventos donde la visitante ya está
   // identificada — ver el comentario de la columna en la migración.
   socioId?: string | null;
+  // C-4 (auditoría 29-ago): `socioId` sigue sin JWT para no perder atribución
+  // de analítica de un socioId ajeno mandado a mano — solo dispara el email de
+  // abandono si esto viene relleno, que la ruta solo rellena tras verificar
+  // el JWT contra `socioId`. Nunca se deriva de `socioId` aquí.
+  socioIdVerificado?: string | null;
 }): void {
   void admin.from('widget_eventos').insert({
     id: `evt-${uid()}`,
@@ -1724,12 +1748,14 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
   });
 
   // Fase 8 (CRO): recuperación de un abandono conocido — inline, sin cron
-  // (docs/cro-analytics-widget-diseno.md §5.2). Riesgo de seguridad
-  // documentado ahí: socioId viaja sin JWT en este endpoint fire-and-forget.
-  if (params.tipo === 'booking_abandoned' && params.socioId) {
+  // (docs/cro-analytics-widget-diseno.md §5.2). C-4 (auditoría 29-ago): el
+  // email solo se dispara con `socioIdVerificado` (JWT comprobado en la
+  // ruta) — antes bastaba un `socioId` ajeno en el body, sin sesión, para
+  // hacer sonar el correo de cualquier socia de la que se conociera el id.
+  if (params.tipo === 'booking_abandoned' && params.socioIdVerificado) {
     void import('@/lib/notifications/emit').then(({ emitirReservaAbandonada }) =>
       emitirReservaAbandonada(admin, {
-        studioId: params.studioId, socioId: params.socioId!, sesionId: params.sesionClaseId ?? null,
+        studioId: params.studioId, socioId: params.socioIdVerificado!, sesionId: params.sesionClaseId ?? null,
       }),
     ).catch(() => {});
   }
