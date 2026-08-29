@@ -13,6 +13,7 @@ import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, t
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
+import { escaparLike } from '@/lib/escapar-like';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { LEGAL } from '@/lib/legal-info';
@@ -738,13 +739,22 @@ export async function fetchPublicStudioData(
     // Sin zoom_join_url a propósito: el enlace de Zoom nunca sale de un select
     // genérico del portal (ver comentario de mapSesion). zoom_meeting_id sí,
     // porque un id sin la reunión detrás no sirve de nada.
-    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id').eq('studio_id', studioId).range(from, to)),
+    // Sin `notas` ni `incidencia_texto` por el mismo motivo: son texto que
+    // escribe el personal para el personal («la clienta X viene lesionada»,
+    // «se rompió el reformer 3») y este payload lo sirve `POST
+    // /api/public/studio-data`, que responde también SIN sesión. Ningún
+    // componente del portal, del widget ni de /reservar los lee (verificado
+    // con grep en components/portal, app/portal, app/reservar,
+    // components/reserva, app/widget-bundle y lib/widget); el panel usa su
+    // propio select en lib/supabase-data.ts. Se rellenan a null al mapear
+    // para no cambiar la forma de `Sesion`.
+    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, precio_puntual, google_event_id, serie_id, zoom_meeting_id').eq('studio_id', studioId).range(from, to)),
     fetchAllRows(studioId, 'reservas', (from, to) => admin.from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId).range(from, to)),
   ]);
 
   const base = {
     studio: studioPublico(studioRow as RowStudios),
-    sesiones: (sesionesData ?? []).map(mapSesion),
+    sesiones: (sesionesData ?? []).map(r => mapSesion({ ...r, notas: null, incidencia_texto: null })),
     ...catalogo,
     ...camposTema,
     ...camposLayout,
@@ -1979,7 +1989,12 @@ export async function reservarPlazaTrasPagoPublico(params: {
     // se pierde el dinero (el plan/bono ya se entregó antes de llamar aquí),
     // pero SÍ hay que avisar al mostrador: mismo tratamiento que
     // 'sesion-invalida' desde el webhook (emitirReservaPagadaSinPlaza).
-    if (error.message.includes('SPOT_OCUPADO') || error.message.includes('SPOT_NO_PERTENECE_A_LA_SALA')) {
+    // SPOT_NO_DISPONIBLE = la plaza existe y es de la sala, pero está dada de
+    // baja (migr 20260829120000). Mismo tratamiento: la visitante pagó, no se
+    // pierde el dinero, y el mostrador tiene que enterarse de que hay que
+    // reubicarla.
+    if (error.message.includes('SPOT_OCUPADO') || error.message.includes('SPOT_NO_PERTENECE_A_LA_SALA')
+        || error.message.includes('SPOT_NO_DISPONIBLE')) {
       return { ok: false, motivo: 'spot-ocupado', detalle: error.message };
     }
     return { ok: false, motivo: 'error', detalle: error.message };
@@ -2212,13 +2227,17 @@ export async function aceptarOfertaListaEspera(params: {
       p_origen_reserva_id: params.reservaId,
       p_motivo: resultado === 'AFORO_LLENO'
         ? 'La plaza se ocupó antes de aceptar la oferta'
-        : 'La clase ya había empezado al aceptar la oferta',
+        : resultado === 'CLASE_CANCELADA'
+          ? 'El estudio canceló la clase antes de aceptar la oferta'
+          : 'La clase ya había empezado al aceptar la oferta',
     });
     if (sesionId) {
       const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
       await emitirReservaCancelada(admin, {
         studioId: params.studioId, sesionId, socioId: params.socioId, reservaId: params.reservaId,
-        motivo: resultado === 'AFORO_LLENO' ? 'plaza_ya_ocupada' : 'clase_ya_empezada',
+        motivo: resultado === 'AFORO_LLENO' ? 'plaza_ya_ocupada'
+          : resultado === 'CLASE_CANCELADA' ? 'clase_cancelada'
+            : 'clase_ya_empezada',
       });
     }
     // El mensaje no puede sonar a que llegó tarde: aceptó a tiempo. Y si la
@@ -2226,7 +2245,9 @@ export async function aceptarOfertaListaEspera(params: {
     const compensada = creada === 'CREADA';
     const base = resultado === 'AFORO_LLENO'
       ? 'La plaza se ocupó justo antes de que aceptaras.'
-      : 'La clase ya había empezado cuando aceptaste.';
+      : resultado === 'CLASE_CANCELADA'
+        ? 'El estudio canceló esta clase.'
+        : 'La clase ya había empezado cuando aceptaste.';
     return {
       error: compensada
         ? `${base} Te hemos guardado una recuperación para que la uses en otra clase.`
@@ -2915,7 +2936,11 @@ export async function resolverSociaAutenticada(slug: string, authUserId: string,
   //    email del JWT es de confianza (Supabase lo verificó), así que enlazamos.
   const { data: claimable } = await admin
     .from('socios').select('id, nombre, apellidos, email')
-    .ilike('email', email.trim()).eq('studio_id', studio.id).is('auth_user_id', null).maybeSingle();
+    // Gemelo del `.ilike` de registrarSociaPublica: aquí el email viene del JWT
+    // verificado, pero `%` y `_` son caracteres legales en la parte local de un
+    // email, así que el patrón se escapa igual — la defensa no puede depender
+    // de qué valida el proveedor de identidad.
+    .ilike('email', escaparLike(email.trim())).eq('studio_id', studio.id).is('auth_user_id', null).maybeSingle();
   if (!claimable) return null;
   await admin.from('socios').update({ auth_user_id: authUserId }).eq('id', claimable.id);
   return { socioId: claimable.id, nombre: `${claimable.nombre} ${claimable.apellidos}`.trim(), email: claimable.email };
@@ -3187,7 +3212,11 @@ export async function registrarSociaPublica(params: {
     .from('socios')
     .select('id, origen_lead')
     .eq('studio_id', params.studioId)
-    .ilike('email', params.email)
+    // `escaparLike`: el texto del email ES el patrón de `.ilike`. Sin escapar,
+    // un `email: "%"` (llega sin validar desde /api/oauth/v1/clientas, donde lo
+    // pone un integrador con scope `clientas:escribir`) adopta una ficha
+    // fantasma ARBITRARIA del estudio y le reasigna el bono ya cobrado.
+    .ilike('email', escaparLike(params.email))
     .is('auth_user_id', null)
     .limit(1);
   const fantasma = fantasmas?.[0];

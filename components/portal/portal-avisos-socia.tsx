@@ -49,7 +49,14 @@ export function AvisosSocia({ t, studioId }: { t: ModoTokens; studioId: string }
     const actual = prefs[cat] ?? { inapp: true, push: true };
     const siguiente = { ...actual, [canal]: !actual[canal] };
     setPrefs(p => ({ ...p, [cat]: siguiente }));
-    await guardarPreferencia(portalAuthHeader, studioId, cat, siguiente);
+    // Escribe-primero CON vuelta atrás: sin esto, un fallo del PUT dejaba el
+    // interruptor apagado en pantalla y encendido en la BD. La socia cree que
+    // ha desactivado un aviso y lo sigue recibiendo.
+    const ok = await guardarPreferencia(portalAuthHeader, studioId, cat, siguiente);
+    if (!ok) {
+      setPrefs(p => ({ ...p, [cat]: actual }));
+      alert('No se ha podido guardar la preferencia. Inténtalo otra vez.');
+    }
   }
 
   const chip = (on: boolean): React.CSSProperties => ({

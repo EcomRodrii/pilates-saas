@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
+import { uid } from '@/lib/utils';
 import type { RowSocioCompaneras } from '@/lib/db-types';
 
 // Social graph "compañeras de clase" — Community & Messaging OS, última pieza
@@ -81,6 +82,12 @@ export async function POST(req: NextRequest) {
   const { data: creada, error } = await admin
     .from('socio_companeras')
     .insert({
+      // `socio_companeras.id` es `text primary key` SIN default en la BD (ver
+      // 20260826203011_socio_companeras_esquema_rls.sql): el id lo genera
+      // siempre el servidor, igual que `com-${uid()}` en comunidad/comentarios
+      // o `msg-${...}` en mensajería. Sin esta línea el INSERT muere con 23502
+      // y la pieza entera de compañeras es inalcanzable.
+      id: `comp-${uid()}`,
       studio_id: body.studioId,
       solicitante_id: solicitanteId,
       destinataria_id: body.destinatariaSocioId,

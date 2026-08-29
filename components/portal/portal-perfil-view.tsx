@@ -103,10 +103,12 @@ export function PortalPerfilView({
     if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); setHoja(null); return; }
     setGuardando(true);
     setAviso(null);
+    // Gemelo de portal-ajustes-view.tsx: SIN `email`. El servidor lo rechaza
+    // antes de escribir nada, así que enviarlo hacía perder también nombre,
+    // apellidos, teléfono, fecha de nacimiento y dirección.
     const r = await updateSocio(socio.id, {
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
-      email: form.email.trim(),
       telefono: form.telefono.trim() || null,
       fechaNacimiento: form.fechaNacimiento || null,
       direccion: form.direccion.trim() || null,
@@ -343,8 +345,9 @@ export function PortalPerfilView({
             onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
           <Input label="Apellidos" placeholder="Apellidos" autoComplete="family-name" value={form.apellidos}
             onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
+          {/* Solo lectura: ver guardarDatos. */}
           <Input label="Email" placeholder="Email" type="email" autoComplete="email" value={form.email}
-            onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            readOnly style={{ opacity: 0.65 }} onChange={() => {}} />
           <Input label="Teléfono" placeholder="+34 600 000 000" type="tel" autoComplete="tel" inputMode="tel" value={form.telefono}
             onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
           <Input label="Fecha de nacimiento" type="date" value={form.fechaNacimiento}

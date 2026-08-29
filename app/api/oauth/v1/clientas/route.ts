@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { conOAuth } from '@/lib/oauth-server';
 import { registrarSociaPublica } from '@/lib/db/supabase-data-admin';
 import { uid } from '@/lib/utils';
+import { emailValido } from '@/lib/csv';
 
 // GET /api/oauth/v1/clientas — trigger "Nuevo cliente" de Zapier (polling,
 // más recientes primero para que Zapier deduplique por `id`). Requiere el
@@ -39,6 +40,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null) as { nombre?: string; email?: string; telefono?: string } | null;
     if (!body?.nombre || !body?.email) {
       return { status: 400, body: { error: 'invalid_request', detalle: 'nombre y email son obligatorios' } };
+    }
+    // El email de un integrador externo llega sin validar y acaba en el
+    // `.ilike('email', …)` con el que registrarSociaPublica adopta fichas
+    // fantasma. El escapado de comodines está ya en esa función; esta guarda
+    // es la otra mitad: un valor que no es un email no debería llegar a la
+    // consulta siquiera, y el error es más útil que un 400 genérico después.
+    if (!emailValido(body.email)) {
+      return { status: 400, body: { error: 'invalid_request', detalle: 'email no válido' } };
     }
 
     const id = `soc-${uid()}`;

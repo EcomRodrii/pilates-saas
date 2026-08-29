@@ -271,8 +271,9 @@ export function PortalReservasView({
   }
 
   // "Dejarla pasar" es `cancelarReserva` de siempre — cancelar una reserva en
-  // LISTA_ESPERA libera el hueco y promueve a la siguiente en el backend, sin
-  // necesitar ningún endpoint nuevo de "rechazar oferta".
+  // LISTA_ESPERA con oferta viva libera el hueco y promueve a la siguiente en
+  // el backend, sin necesitar ningún endpoint nuevo de "rechazar oferta".
+  // Cierto SOLO desde la migración 20260829120000 (ver hoja-oferta-espera.tsx).
   async function onDejarPasarOferta(reservaId: string): Promise<ResultadoEscritura> {
     if (!escribible) {
       setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false });

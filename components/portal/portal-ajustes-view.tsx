@@ -104,10 +104,15 @@ export function PortalAjustesView({
     if (!socio || guardando) return;
     setGuardando(true);
     setAviso(null);
+    // SIN `email`: el servidor lo rechaza a propósito (CAMPOS_SOCIA_EDITABLES
+    // en lib/db/supabase-data-admin.ts — cambiarlo aquí desincronizaría
+    // `socios.email` del email de login y auto-bloquearía a la socia), y lo
+    // rechaza ANTES de escribir nada. Enviarlo hacía que tocar el email
+    // tirase en el mismo gesto nombre, apellidos, teléfono y usuario. El
+    // campo se pinta en solo lectura más abajo.
     const r = await updateSocio(socio.id, {
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
-      email: form.email.trim(),
       telefono: form.telefono.trim() || null,
       usuario: form.usuario.trim() || null,
     });
@@ -241,8 +246,11 @@ export function PortalAjustesView({
             onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
           <Input label="Apellidos" placeholder="Apellidos" autoComplete="family-name" value={form.apellidos}
             onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
+          {/* Solo lectura: el email es la identidad de login y todavía no hay
+              flujo para cambiarlo (ver guardarDatos). Editable era una promesa
+              falsa que además hacía fallar el resto del formulario. */}
           <Input label="Email" placeholder="Email" type="email" autoComplete="email" value={form.email}
-            onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            readOnly style={{ opacity: 0.65 }} onChange={() => {}} />
           <Input label="Teléfono" placeholder="+34 600 000 000" type="tel" autoComplete="tel" inputMode="tel" value={form.telefono}
             onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
           {/* @handle — solo el campo (decisión de producto ya tomada, migr

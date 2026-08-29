@@ -50,8 +50,21 @@ export async function POST(req: NextRequest) {
       : 'TODAS';
   // Nunca se confía en un `imagenUrl` fuera de nuestro propio bucket — evita
   // que el post embeba (y el feed cargue) un origen arbitrario.
+  //
+  // La comprobación tiene que anclar en el PREFIJO completo del Storage de
+  // este proyecto: un `includes('/comunidad-media/')` deja pasar
+  // `https://rastreo.ajeno.example/comunidad-media/x.png`, y esa URL acaba en
+  // un `<img src>` que cargan todas las socias del estudio (IP, User-Agent y
+  // hora de lectura al tercero). El prefijo es exactamente el que produce
+  // `getPublicUrl` en lib/portal-storage.ts:93.
   const imagenUrlRaw = typeof body?.imagenUrl === 'string' ? body.imagenUrl : null;
-  const imagenUrl = imagenUrlRaw && imagenUrlRaw.includes('/comunidad-media/') ? imagenUrlRaw : null;
+  const baseStorage = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
+  const prefijoComunidadMedia = baseStorage
+    ? `${baseStorage}/storage/v1/object/public/comunidad-media/`
+    : null;
+  const imagenUrl = imagenUrlRaw && prefijoComunidadMedia && imagenUrlRaw.startsWith(prefijoComunidadMedia)
+    ? imagenUrlRaw
+    : null;
 
   // Eventos como entidad propia dentro del Feed (P2). Mismo camino de
   // creación/notificación que un post de texto — un evento nuevo no dispara

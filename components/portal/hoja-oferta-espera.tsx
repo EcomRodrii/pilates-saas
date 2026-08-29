@@ -19,9 +19,16 @@
 // se deja ni intentarlo desde aquí.
 //
 // "Dejarla pasar" NO es un endpoint nuevo de "rechazar oferta" — es
-// `cancelarReserva` de siempre: cancelar una reserva en LISTA_ESPERA ya
-// libera el hueco y promueve a la siguiente en el backend
+// `cancelarReserva` de siempre: cancelar una reserva en LISTA_ESPERA con una
+// oferta viva libera el hueco y promueve a la siguiente en el backend
 // (`promocionar_siguiente_espera`). No hace falta nada nuevo en el servidor.
+//
+// ⚠️ Esto era FALSO hasta la migración 20260829120000: `cancelar_reserva_plaza`
+// solo promocionaba desde CONFIRMADA/ASISTIDA, así que rechazar la oferta
+// explícitamente dejaba la plaza huérfana y era PEOR que ignorarla (dejarla
+// caducar sí promovía, vía `expirar_oferta_lista_espera`). Si alguien vuelve a
+// tocar esa RPC: la rama `v_estado = 'LISTA_ESPERA' and v_tenia_oferta` es la
+// que sostiene este comentario.
 
 import { useEffect, useState } from 'react';
 import { PartyPopper } from 'lucide-react';
