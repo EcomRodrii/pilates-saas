@@ -11,18 +11,7 @@ import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { FormularioInteresEstudio } from '@/components/network-v2/FormularioInteresEstudio';
 import { Reveal } from '@/components/network-v2/Reveal';
 import { EnlaceRastreo } from '@/components/network-v2/EnlaceRastreo';
-import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_SAND, NW_BORDE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_ARENA, NW_ESTADO, NW_PROBLEMA } from '@/components/network-v2/tokens';
-
-// Fuente display del kit (app/layout.tsx: `--font-display`, Instrument
-// Serif) reutilizada aquí en su peso ROMANO únicamente — nunca cursiva.
-// Rediseño 2026-08-26: la página entera iba en una sola familia (Jakarta
-// Sans) para titulares, cuerpo y cifras a la vez, que es justo el "un solo
-// tipo por defecto" que se pidió corregir. La cursiva se queda fuera a
-// propósito (comentario de PROBLEMA_ITEMS más abajo: "sin cursiva, paleta
-// oliva" ya fue una decisión explícita de este mismo rediseño en su día) —
-// esto es un PAR editorial (serif redonda + sans extrabold), no la vuelta a
-// la voz-en-cursiva de la landing antigua.
-const FUENTE_DISPLAY = { fontFamily: 'var(--font-display), Georgia, serif', fontStyle: 'normal' as const };
+import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_SAND, NW_BORDE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_ARENA, NW_GRIS_VERDOSO, NW_ESTADO, NW_PROBLEMA } from '@/components/network-v2/tokens';
 
 // "Kicker" de sección — antes texto suelto oliva sobre crema, casi sin
 // distinguirse del resto de la tipografía en tono (auditoría 2026-08-26:
@@ -38,6 +27,40 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
     >
       {children}
     </p>
+  );
+}
+
+// Grafismo de sección — mismo recurso que la referencia visual del
+// fundador: no es texto con -webkit-text-stroke (poco fiable entre
+// navegadores a este tamaño), es un <text> SVG con `fill` del color de
+// FONDO de la sección y `stroke` del acento — así el texto se lee "hueco",
+// tintado por lo que hay detrás. Usa NW_PRODUCTO (el acento YA establecido
+// de Network, ligado a --brand) en vez del verde suelto de la referencia
+// (#4F8A5B, el disco del logo) — ver components/network-v2/tokens.ts: ese
+// verde se descartó a propósito como acento de página hace una fase, y
+// reintroducirlo aquí habría vuelto a partir la marca en dos.
+function Hashtag({ texto, fondo = NW_FONDO }: { texto: string; fondo?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 1000 130"
+      className="block w-full max-w-[1100px] mx-auto"
+      style={{ overflow: 'visible' }}
+    >
+      <text
+        x="500" y="104" textAnchor="middle"
+        fontFamily="'Plus Jakarta Sans', system-ui, sans-serif"
+        fontSize="120" fontStyle="italic" fontWeight="800"
+        paintOrder="stroke"
+        fill={fondo}
+        stroke={NW_PRODUCTO}
+        strokeWidth="2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        {texto}
+      </text>
+    </svg>
   );
 }
 
@@ -178,16 +201,20 @@ export default async function NetworkLandingPage() {
           <span className="nw-fade-up inline-block">
             <Eyebrow>Red profesional de instructoras de Pilates y Yoga</Eyebrow>
           </span>
-          {/* 3 líneas explícitas, no un `text-balance` cruzando dedos: la
-              frase serif ("instructora de Pilates y Yoga") cambia de color Y
-              de familia tipográfica a mitad de oración — dejada al wrap
-              natural, el navegador podía partirla en cualquier punto y dejar
-              una palabra suelta (p.ej. "Yoga") pegada al "que necesitas."
-              en negro/negrita en la misma línea, leyéndose como un salto de
-              línea roto en vez de una composición a 3 líneas. */}
-          <h1 className="nw-fade-up mt-5 text-[44px] sm:text-[58px] font-extrabold leading-[0.96] tracking-tight" style={{ animationDelay: '60ms' }}>
+          {/* Titular en itálica: referencia visual aportada por el fundador
+              (2026-08-27, "Tentare Landing standalone.html") — Plus Jakarta
+              Sans en su propio peso 800 + italic + tracking negativo, la
+              MISMA familia que ya carga toda la app (nunca una fuente
+              nueva), solo tratada con más carácter. 3 líneas explícitas, no
+              un `text-balance` cruzando dedos: dejada al wrap natural, el
+              navegador podía partir la frase en cualquier punto y dejar una
+              palabra suelta pegada a "que necesitas." en la misma línea. */}
+          <h1
+            className="nw-fade-up mt-5 text-[46px] sm:text-[62px] font-extrabold italic leading-[0.94] tracking-[-0.02em]"
+            style={{ animationDelay: '60ms' }}
+          >
             Encuentra la<br />
-            <span style={{ ...FUENTE_DISPLAY, color: NW_PRODUCTO, fontWeight: 400 }}>instructora de Pilates y Yoga</span><br />
+            <span style={{ color: NW_PRODUCTO }}>instructora de Pilates y Yoga</span><br />
             que necesitas.
           </h1>
           <p className="nw-fade-up mt-5 text-[17.5px]" style={{ color: NW_MUTED, animationDelay: '120ms' }}>
@@ -207,32 +234,50 @@ export default async function NetworkLandingPage() {
             Beta · empezando en Barcelona y Madrid
           </p>
         </div>
-        {heroPerfil ? (
-          <div className="nw-fade-up relative" style={{ animationDelay: '140ms' }}>
-            <FotoInstructora fotoUrl={heroPerfil.fotoUrl!} nombre={heroPerfil.nombre} aspectRatio="1 / 1.08" radius={26} eager />
-            <div
-              className="absolute top-5 left-5 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold"
-              style={{ background: 'rgba(250,249,245,.88)', backdropFilter: 'blur(8px)', color: NW_TINTA }}
-            >
-              {heroPerfil.experienciaVerificada && (
-                <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-white text-[11px]" style={{ background: NW_PRODUCTO }}>✓</span>
-              )}
-              {heroPerfil.nombre}{heroPerfil.ciudad ? ` · ${heroPerfil.ciudad}` : ''}
+        {/* Franja diagonal — el otro recurso de firma de la referencia,
+            junto al titular en itálica y el grafismo #hashtag. Asoma por la
+            esquina inferior derecha, DETRÁS de la foto en el DOM (no con
+            z-index negativo — un -z-10 dentro de un contenedor `relative`
+            sin stacking context propio se cuela detrás de TODA la página,
+            no solo de la foto) — mismo acento NW_PRODUCTO del resto de la
+            página, no un color nuevo. */}
+        <div className="relative isolate">
+          <div
+            aria-hidden
+            className="hidden lg:block absolute -right-5 -bottom-5 w-40 h-40 -z-10 rounded-[26px]"
+            style={{ background: NW_PRODUCTO, transform: 'rotate(-8deg)' }}
+          />
+          {heroPerfil ? (
+            <div className="nw-fade-up relative" style={{ animationDelay: '140ms' }}>
+              <FotoInstructora fotoUrl={heroPerfil.fotoUrl!} nombre={heroPerfil.nombre} aspectRatio="1 / 1.08" radius={26} eager />
+              <div
+                className="absolute top-5 left-5 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold"
+                style={{ background: 'rgba(250,249,245,.88)', backdropFilter: 'blur(8px)', color: NW_TINTA }}
+              >
+                {heroPerfil.experienciaVerificada && (
+                  <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-white text-[11px]" style={{ background: NW_PRODUCTO }}>✓</span>
+                )}
+                {heroPerfil.nombre}{heroPerfil.ciudad ? ` · ${heroPerfil.ciudad}` : ''}
+              </div>
             </div>
-          </div>
-        ) : (
-          // Sin ninguna instructora con foto todavía (red nueva): foto de
-          // marca del hero con efecto parallax sutil, en vez del placeholder
-          // rayado de FotoInstructora (ese comunica "foto rota" a tamaño de
-          // tarjeta, y aquí ocupa media pantalla). Solo escritorio: en móvil
-          // un genérico de stock no aporta credibilidad, mejor no ocupar la
-          // pantalla con él (auditoría UX) — una foto REAL sí se muestra en
-          // móvil (rama de arriba, sin `hidden`).
-          <div className="nw-fade-up hidden lg:block" style={{ animationDelay: '140ms' }}>
-            <HeroParallax src="/network/hero-reformer.webp" alt="" />
-          </div>
-        )}
+          ) : (
+            // Sin ninguna instructora con foto todavía (red nueva): foto de
+            // marca del hero con efecto parallax sutil, en vez del placeholder
+            // rayado de FotoInstructora (ese comunica "foto rota" a tamaño de
+            // tarjeta, y aquí ocupa media pantalla). Solo escritorio: en móvil
+            // un genérico de stock no aporta credibilidad, mejor no ocupar la
+            // pantalla con él (auditoría UX) — una foto REAL sí se muestra en
+            // móvil (rama de arriba, sin `hidden`).
+            <div className="nw-fade-up hidden lg:block relative" style={{ animationDelay: '140ms' }}>
+              <HeroParallax src="/network/hero-reformer.webp" alt="" />
+            </div>
+          )}
+        </div>
       </section>
+
+      <div className="pb-10 sm:pb-16 px-6">
+        <Hashtag texto="#tentarenetwork" />
+      </div>
 
       {destacadas.length > 0 && (
         <section className="max-w-[1240px] mx-auto px-6 pb-20">
@@ -317,35 +362,43 @@ export default async function NetworkLandingPage() {
         </div>
       </section>
 
-      <section id="como-funciona" className="max-w-[1240px] mx-auto px-6 pb-20 scroll-mt-6">
-        <Reveal className="mb-6">
-          <h2 className="text-[26px] font-extrabold tracking-tight">Cómo funciona</h2>
-        </Reveal>
-        <div className="grid md:grid-cols-2 gap-6">
-          <Reveal className="rounded-[26px] p-10" style={{ background: NW_SAGE }}>
-            <p className="text-[12px] font-bold uppercase tracking-wide mb-6" style={{ color: NW_PRODUCTO }}>Para instructoras</p>
-            <div className="flex flex-col gap-6">
-              {PASOS_INSTRUCTORA.map(paso => (
-                <div key={paso.n}>
-                  <span className="text-[34px] leading-none" style={{ ...FUENTE_DISPLAY, color: NW_PRODUCTO }}>{paso.n}</span>
-                  <h3 className="mt-1 text-[16px] font-extrabold">{paso.titulo}</h3>
-                  <p className="mt-1 text-[13.5px]" style={{ color: NW_MUTED }}>{paso.desc}</p>
-                </div>
-              ))}
-            </div>
+      {/* Banda oscura a sangre completa — segunda pieza del sistema de la
+          referencia (la primera es la cita de más abajo): antes esta
+          sección "Cómo funciona" era clara como todo lo de alrededor, así
+          que la única banda oscura de la página quedaba aislada, sin ritmo
+          real. NW_ARENA (no NW_PRODUCTO) para los números — NW_PRODUCTO es
+          un oliva oscuro, pierde contraste sobre un fondo casi negro. */}
+      <section id="como-funciona" className="py-20 scroll-mt-6" style={{ background: NW_VERDE_OSCURO }}>
+        <div className="max-w-[1240px] mx-auto px-6">
+          <Reveal className="mb-6">
+            <h2 className="text-[26px] font-extrabold tracking-tight text-white">Cómo funciona</h2>
           </Reveal>
-          <Reveal delayMs={80} className="rounded-[26px] p-10 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
-            <p className="text-[12px] font-bold uppercase tracking-wide mb-6" style={{ color: NW_PRODUCTO }}>Para estudios</p>
-            <div className="flex flex-col gap-6">
-              {PASOS_ESTUDIO.map(paso => (
-                <div key={paso.n}>
-                  <span className="text-[34px] leading-none" style={{ ...FUENTE_DISPLAY, color: NW_PRODUCTO }}>{paso.n}</span>
-                  <h3 className="mt-1 text-[16px] font-extrabold">{paso.titulo}</h3>
-                  <p className="mt-1 text-[13.5px]" style={{ color: NW_MUTED }}>{paso.desc}</p>
-                </div>
-              ))}
-            </div>
-          </Reveal>
+          <div className="grid md:grid-cols-2 gap-6">
+            <Reveal className="rounded-[26px] p-10" style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)' }}>
+              <p className="text-[12px] font-bold uppercase tracking-wide mb-6" style={{ color: NW_ARENA }}>Para instructoras</p>
+              <div className="flex flex-col gap-6">
+                {PASOS_INSTRUCTORA.map(paso => (
+                  <div key={paso.n}>
+                    <span className="text-[24px] font-extrabold" style={{ color: NW_ARENA }}>{paso.n}</span>
+                    <h3 className="mt-1 text-[16px] font-extrabold text-white">{paso.titulo}</h3>
+                    <p className="mt-1 text-[13.5px]" style={{ color: NW_GRIS_VERDOSO }}>{paso.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+            <Reveal delayMs={80} className="rounded-[26px] p-10" style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)' }}>
+              <p className="text-[12px] font-bold uppercase tracking-wide mb-6" style={{ color: NW_ARENA }}>Para estudios</p>
+              <div className="flex flex-col gap-6">
+                {PASOS_ESTUDIO.map(paso => (
+                  <div key={paso.n}>
+                    <span className="text-[24px] font-extrabold" style={{ color: NW_ARENA }}>{paso.n}</span>
+                    <h3 className="mt-1 text-[16px] font-extrabold text-white">{paso.titulo}</h3>
+                    <p className="mt-1 text-[13.5px]" style={{ color: NW_GRIS_VERDOSO }}>{paso.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          </div>
         </div>
       </section>
 
@@ -359,7 +412,7 @@ export default async function NetworkLandingPage() {
       <section className="py-20" style={{ background: NW_VERDE_OSCURO }}>
         <div className="max-w-[760px] mx-auto px-6 text-center">
           <Reveal>
-            <p className="text-[36px] sm:text-[46px] leading-[1.12] text-white text-balance" style={FUENTE_DISPLAY}>
+            <p className="text-[30px] sm:text-[38px] font-extrabold leading-[1.15] text-white text-balance">
               Sin comisiones. Sin intermediarios.{' '}
               <span style={{ color: NW_ARENA }}>Solo el trabajo, visible.</span>
             </p>
@@ -472,7 +525,7 @@ export default async function NetworkLandingPage() {
                 className="rounded-2xl p-6 bg-white transition-transform duration-300 hover:-translate-y-1"
                 style={{ border: `1px solid ${NW_BORDE}` }}
               >
-                <span className="block text-[26px] leading-none" style={{ ...FUENTE_DISPLAY, color: NW_PRODUCTO }}>0{i + 1}</span>
+                <span className="block text-[22px] font-extrabold leading-none" style={{ color: NW_PRODUCTO }}>0{i + 1}</span>
                 <h3 className="mt-1 text-[16px] font-extrabold">{item.titulo}</h3>
                 <p className="mt-2 text-[14px]" style={{ color: NW_MUTED }}>{item.texto}</p>
               </Reveal>

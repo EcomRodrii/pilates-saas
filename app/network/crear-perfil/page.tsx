@@ -60,14 +60,6 @@ import { PasoPerfil } from './pasos/paso-perfil';
 import { PasoRevisar } from './pasos/paso-revisar';
 import { PasoPublicar } from './pasos/paso-publicar';
 
-// Mismo par editorial que /network (app/network/page.tsx): serif ROMANA
-// (nunca cursiva, ver el comentario de tokens.ts) para el titular de cada
-// paso, sans para todo lo funcional. Antes el wizard entero — landing,
-// perfil público y este onboarding de 12 pasos, la superficie con MÁS
-// tiempo de permanencia de las tres — solo usaba Jakarta Sans, la marca
-// más plana de las cuatro dimensiones señaladas por el fundador.
-const FUENTE_DISPLAY = { fontFamily: 'var(--font-display), Georgia, serif', fontStyle: 'normal' as const };
-
 export default function CrearPerfilNetworkPage() {
   const { user, loading: cargandoSesion, signUp, signInWithGoogle, verificarOtpSignup, reenviarConfirmacion } = useAuth();
 
@@ -349,7 +341,7 @@ export default function CrearPerfilNetworkPage() {
       {/* Rail izquierdo */}
       <aside className="lg:w-[300px] shrink-0 p-8 lg:min-h-dvh" style={{ background: NW_SAGE }}>
         <Link href="/network" className="inline-flex mb-8"><LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={22} decorativo /></Link>
-        <h2 className="text-[22px]" style={{ ...FUENTE_DISPLAY, color: NW_TINTA }}>Crea tu perfil</h2>
+        <h2 className="text-[19px] font-extrabold" style={{ color: NW_TINTA }}>Crea tu perfil</h2>
         <div className="mt-4 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,.6)' }}>
           <div className="h-full rounded-full transition-all" style={{ width: `${Math.round((paso / (PASOS.length - 1)) * 100)}%`, background: `linear-gradient(90deg, ${NW_PRODUCTO}, ${NW_ARENA})` }} />
         </div>
@@ -403,7 +395,7 @@ export default function CrearPerfilNetworkPage() {
           </p>
           <h1 className="text-[30px] sm:text-[36px] font-extrabold mb-6 leading-[1.05]" style={{ color: NW_TINTA }}>
             {pasoActual.titulo.split(' ').map((palabra, i, arr) => i === arr.length - 1
-              ? <span key={i} style={{ ...FUENTE_DISPLAY, color: NW_PRODUCTO, fontWeight: 400 }}>{palabra}</span>
+              ? <span key={i} style={{ color: NW_PRODUCTO }}>{palabra}</span>
               : `${palabra} `)}
           </h1>
 
