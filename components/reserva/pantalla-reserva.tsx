@@ -400,7 +400,20 @@ export function PantallaReserva({
                   <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600, marginBottom: 8 }}>
                     Información adicional <span style={{ fontWeight: 400 }}>· solo te lo pedimos la primera vez</span>
                   </p>
-                  <div style={{ display: 'grid', gap: 7, gridTemplateColumns: '1fr 1fr' }}>
+                  {/* ⚠️ Bug real de producción (2026-08-29): "¿Cómo nos has
+                      conocido?" y "Cumpleaños · dd/mm/aaaa" salían cortados
+                      SIN puntos suspensivos — un `<select>` nativo no puede
+                      truncar con ellipsis, así que el texto se veía
+                      literalmente amputado. El diseño usa `1fr 1fr` sin
+                      problema porque su único preview es móvil (430px, sin
+                      columna izquierda compitiendo por ancho); la variante de
+                      dos columnas en escritorio (Modo A) es una adaptación
+                      responsive que el .dc.html nunca contempló y que aquí sí
+                      estrecha la columna lo suficiente para cortar el texto.
+                      `auto-fit`/`minmax` mantiene las dos columnas cuando hay
+                      sitio y reduce a una sola si no, en vez de aplastar el
+                      contenido. */}
+                  <div style={{ display: 'grid', gap: 7, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                     <CampoSelect placeholder="Género" value={infoAdicional.genero}
                       onChange={v => onChangeInfoAdicional({ genero: v })}
                       opciones={[['mujer', 'Mujer'], ['hombre', 'Hombre'], ['prefiero-no-decirlo', 'Prefiero no decirlo']]} />
