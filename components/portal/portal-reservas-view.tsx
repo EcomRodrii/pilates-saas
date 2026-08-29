@@ -52,6 +52,7 @@ import { HojaPase, type DatosPase } from '@/components/portal/hoja-pase';
 import { HojaOfertaEspera, type OfertaEspera } from '@/components/portal/hoja-oferta-espera';
 import { BotonesCalendario } from '@/components/portal/botones-calendario';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
+import { esCancelacionTardia } from '@/lib/booking-logic';
 import { bonoActivo, DIAS, fechaLarga } from '@/lib/bonos-portal';
 import type { PortalSession } from '@/lib/portal-auth';
 import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
@@ -341,6 +342,18 @@ export function PortalReservasView({
     const r = await valorarExperienciaReserva(reservaId, valoracion);
     setValorandoId(null);
     if (!r.ok) setAviso({ texto: r.error, error: true });
+  }
+
+  // Fase 5 — misma distinción gratis/tardía que ya usa PortalClasesView
+  // (`tardiaDe()`), aquí faltaba: esta pantalla solo decía "perderás tu
+  // plaza" sin más, sin avisar de si esta cancelación concreta se queda o no
+  // sin la sesión del bono según la ventana real (tipo de clase → estudio).
+  function tardiaDeReserva(r: Reserva): { tardia: boolean; ventana: number } | null {
+    const s = sesiones.find(x => x.id === r.sesionId);
+    if (!s) return null;
+    const ventana = tiposClase.find(tc => tc.id === s.tipoClaseId)?.ventanaCancelacionHoras
+      ?? studio?.cancelacionVentanaHoras ?? 0;
+    return { tardia: esCancelacionTardia(s.inicio, now, ventana), ventana };
   }
 
   // Tarjeta de reserva compartida por Próximas/Lista de espera/Historial —
@@ -849,7 +862,11 @@ export function PortalReservasView({
               ? 'No podemos moverte de hora automáticamente: cancelamos esta y te llevamos a elegir otra que te venga mejor.'
               : cancelando?.id.startsWith('res-pf-')
                 ? 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.'
-                : 'Perderás tu plaza y liberarás el hueco para otra socia.'}
+                : (() => {
+                    const info = cancelando ? tardiaDeReserva(cancelando) : null;
+                    if (!info?.tardia) return 'Perderás tu plaza y liberarás el hueco para otra socia.';
+                    return `Quedan menos de ${info.ventana} h para la clase. Según la política del estudio, puede que no se te devuelva la sesión.`;
+                  })()}
         </p>
         <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
           <button
