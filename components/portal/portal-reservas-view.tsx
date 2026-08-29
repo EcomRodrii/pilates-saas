@@ -26,6 +26,17 @@
 // ⚠️ El guard `studio?.requiereCheckinQr` de la tarjeta del pase es de HOY
 // (mismo día que este rediseño) — se conserva tal cual, sin tocar su
 // condición: sin QR obligatorio no hay nada que enseñar en la puerta.
+//
+// Fase 3 (Tentare Studio App): el diseño literal de "Reservas" es UNA sola
+// pantalla que baja — próxima reserva, lista de espera, plaza fija, bono/
+// plan, pagos e historial — sin pestañas. Se sustituyen las 4 pestañas
+// (Próximas/Pasadas/Canceladas/Espera) por ese scroll único; "Canceladas"
+// deja de tener una vista propia aquí (decisión explícita, no se pierde el
+// dato: sigue existiendo en el backend, solo no se lista en esta pantalla).
+// Plaza fija/bono comparten los mismos hooks reales que PortalBonosView
+// (`bonoActivo`, `plazasFijas`, `pausar/reanudar/darDeBajaPlazaFijaPropia`);
+// "Comprar otro"/"Gestionar mi plan" y la factura en sí se quedan en
+// /compras — no se duplica lógica de cobro aquí, solo el vistazo.
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -41,6 +52,7 @@ import { HojaPase, type DatosPase } from '@/components/portal/hoja-pase';
 import { HojaOfertaEspera, type OfertaEspera } from '@/components/portal/hoja-oferta-espera';
 import { BotonesCalendario } from '@/components/portal/botones-calendario';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
+import { bonoActivo, DIAS, fechaLarga } from '@/lib/bonos-portal';
 import type { PortalSession } from '@/lib/portal-auth';
 import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
 import {
@@ -56,18 +68,16 @@ async function pedirPaseDeMuestra(): Promise<DatosPase> {
   };
 }
 
-type Tab = 'PROXIMAS' | 'PASADAS' | 'CANCELADAS' | 'ESPERA';
-
 // Valor de "ahora" hasta que el efecto de montaje fija el de verdad (render del
 // servidor y primer render del cliente). Es una constante de MÓDULO, no un
 // `new Date()` en el cuerpo del componente: ese daba una referencia nueva en
-// cada render y `porTab` —el reparto Próximas/Pasadas, los cuatro contadores de
-// las pestañas y la tarjeta del pase— se recalculaba entero cada vez, con lo
-// que su useMemo no memoizaba nada. Además servidor y navegador nunca coinciden
-// en "ahora", así que un valor fijo es también lo único que garantiza que los
-// dos pinten el mismo HTML. Qué fecha sea da igual: los datos del estudio
-// (StudioProvider los carga en un efecto) todavía están vacíos en ese instante,
-// así que las cuatro listas salen vacías con cualquier valor.
+// cada render y `porTab` —el reparto Próximas/Historial/Espera y la tarjeta
+// del pase— se recalculaba entero cada vez, con lo que su useMemo no
+// memoizaba nada. Además servidor y navegador nunca coinciden en "ahora", así
+// que un valor fijo es también lo único que garantiza que los dos pinten el
+// mismo HTML. Qué fecha sea da igual: los datos del estudio (StudioProvider
+// los carga en un efecto) todavía están vacíos en ese instante, así que las
+// listas salen vacías con cualquier valor.
 const FECHA_PLACEHOLDER_SSR = new Date('2026-06-29T00:00:00Z');
 
 const ESTADO_LABEL: Record<string, { label: string; tono: 'success' | 'warning' | 'danger' | 'neutral' }> = {
@@ -78,21 +88,10 @@ const ESTADO_LABEL: Record<string, { label: string; tono: 'success' | 'warning' 
   NO_ASISTIO: { label: 'No asistió', tono: 'danger' },
 };
 
-// Copy específico por pestaña — antes las 4 compartían el mismo "Nada por
-// aquí todavía" sin distinguir el motivo real de cada una.
-const EMPTY_COPY: Record<Tab, { title: string; body: string }> = {
-  PROXIMAS: { title: 'Sin clases reservadas', body: 'Mira los horarios de esta semana y reserva tu próxima sesión.' },
-  PASADAS: { title: 'Aún no has asistido a ninguna clase', body: 'Cuando asistas a una clase, aparecerá aquí tu historial.' },
-  CANCELADAS: { title: 'Sin reservas canceladas', body: 'Aquí verás las clases que hayas cancelado.' },
-  ESPERA: { title: 'Sin lista de espera', body: 'Si una clase está completa, podrás apuntarte para el siguiente hueco libre.' },
-};
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'PROXIMAS', label: 'Próximas' },
-  { id: 'PASADAS', label: 'Pasadas' },
-  { id: 'CANCELADAS', label: 'Canceladas' },
-  { id: 'ESPERA', label: 'Lista de espera' },
-];
+// Único estado vacío que queda: sin pestañas, solo "próximas" necesita uno
+// (lista de espera/plaza fija/bono/pagos/historial simplemente no aparecen
+// si no hay nada — sin relleno inventado).
+const VACIO_PROXIMAS = { title: 'Sin clases reservadas', body: 'Mira los horarios de esta semana y reserva tu próxima sesión.' };
 
 /** Pastilla de estado — color semántico calibrado AA, forma de cápsula del sistema nuevo. */
 function EstadoPill({ estado, noche, t }: { estado: string; noche: boolean; t: ReturnType<typeof useModo>['t'] }) {
@@ -170,15 +169,18 @@ export function PortalReservasView({
   const { slug } = useParams<{ slug: string }>();
   const {
     reservas, sesiones, tiposClase, salas, instructores, cancelarReserva, aceptarOfertaEspera,
-    valorarExperienciaReserva, studio,
+    valorarExperienciaReserva, studio, suscripciones, planesTarifa, plazasFijas, recibos,
+    pausarPlazaFijaPropia, reanudarPlazaFijaPropia, darDeBajaPlazaFijaPropia,
   } = useStudio();
   const { t, noche } = useModo();
-  const [tab, setTab] = useState<Tab>('PROXIMAS');
   const [cancelando, setCancelando] = useState<Reserva | null>(null);
   // "Cambiar hora" (Gap 2): no hay reprogramación real — se reutiliza el
   // MISMO sheet de cancelación, distinguiendo aquí si al confirmar hay que
   // además llevar a la socia a elegir otra clase.
   const [cambiandoHora, setCambiandoHora] = useState(false);
+  // "Tu plaza fija" (Fase 3): mismo sheet de cristal, un tercer motivo.
+  const [confirmandoBajaPlaza, setConfirmandoBajaPlaza] = useState(false);
+  const [procesandoPlaza, setProcesandoPlaza] = useState(false);
   const [paseAbierto, setPaseAbierto] = useState(false);
   // Gap 1: mismo hook/criterio que Perfil — cero contador inventado.
   const mensajesSinLeer = useMensajesSinLeer(studio?.id ?? null);
@@ -220,27 +222,71 @@ export function PortalReservasView({
     const proximas = misReservas
       .filter(x => x.r.estado === 'CONFIRMADA' && new Date(x.s.inicio) >= now)
       .sort((a, b) => new Date(a.s.inicio).getTime() - new Date(b.s.inicio).getTime());
-    const pasadas = misReservas
+    const historial = misReservas
       .filter(x => x.r.estado === 'ASISTIDA' || x.r.estado === 'NO_ASISTIO' || (x.r.estado === 'CONFIRMADA' && new Date(x.s.inicio) < now))
-      .sort((a, b) => new Date(b.s.inicio).getTime() - new Date(a.s.inicio).getTime());
-    const canceladas = misReservas
-      .filter(x => x.r.estado === 'CANCELADA')
       .sort((a, b) => new Date(b.s.inicio).getTime() - new Date(a.s.inicio).getTime());
     const espera = misReservas
       .filter(x => x.r.estado === 'LISTA_ESPERA')
       .sort((a, b) => new Date(a.s.inicio).getTime() - new Date(b.s.inicio).getTime());
-    return { PROXIMAS: proximas, PASADAS: pasadas, CANCELADAS: canceladas, ESPERA: espera };
+    return { PROXIMAS: proximas, HISTORIAL: historial, ESPERA: espera };
   }, [misReservas, now]);
 
-  const lista = porTab[tab];
   const proximaClase = porTab.PROXIMAS[0] ?? null;
 
+  // "Tu plaza fija" / bono·plan / pagos (Fase 3): mismos datos y hooks reales
+  // que PortalBonosView — aquí solo el vistazo, la gestión de fondo (comprar,
+  // domiciliar, ver factura) se queda en /compras.
+  const miPlazaFija = useMemo(
+    () => plazasFijas.find(p => p.socioId === socioId && (p.estado === 'ACTIVA' || p.estado === 'PAUSADA')) ?? null,
+    [plazasFijas, socioId],
+  );
+  const plazaFijaDetalle = useMemo(() => {
+    if (!miPlazaFija) return null;
+    const sala = salas.find(x => x.id === miPlazaFija.salaId)?.nombre ?? null;
+    const tipo = miPlazaFija.tipoClaseId ? tiposClase.find(x => x.id === miPlazaFija.tipoClaseId)?.nombre ?? null : null;
+    return [tipo, sala].filter(Boolean).join(' · ') || null;
+  }, [miPlazaFija, salas, tiposClase]);
+  const bono = useMemo(
+    () => bonoActivo(suscripciones, planesTarifa, tiposClase, socioId ?? null),
+    [suscripciones, planesTarifa, tiposClase, socioId],
+  );
+  // Solo lo ya cobrado: los estados PENDIENTE/EN_CURSO/FALLIDO llevan sus
+  // propias acciones (reintentar, cambiar tarjeta) que viven en /compras, no
+  // en este vistazo.
+  const misRecibosPreview = useMemo(
+    () => recibos
+      .filter(r => r.socioId === socioId && r.estado === 'COBRADO')
+      .sort((a, b) => (b.fechaCobro ?? b.fechaVencimiento).localeCompare(a.fechaCobro ?? a.fechaVencimiento))
+      .slice(0, 3),
+    [recibos, socioId],
+  );
+
+  async function pausarOReanudarPlaza() {
+    if (!miPlazaFija || procesandoPlaza) return;
+    if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); return; }
+    setProcesandoPlaza(true);
+    const r = miPlazaFija.estado === 'ACTIVA'
+      ? await pausarPlazaFijaPropia(miPlazaFija.id)
+      : await reanudarPlazaFijaPropia(miPlazaFija.id);
+    setProcesandoPlaza(false);
+    if (!r.ok) setAviso({ texto: r.error, error: true });
+  }
+
+  async function confirmarBajaPlaza() {
+    setConfirmandoBajaPlaza(false);
+    if (!miPlazaFija) return;
+    if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); return; }
+    const r = await darDeBajaPlazaFijaPropia(miPlazaFija.id);
+    setAviso(r.ok ? { texto: 'Plaza fija dada de baja.', error: false } : { texto: r.error, error: true });
+  }
+
   // Oferta de plaza liberada (Fase 2b) con plazo vivo — sea cual sea la
-  // pestaña abierta, es urgente y se enseña en un sheet global (más abajo),
-  // no solo dentro de la pestaña ESPERA. `now` es el mismo reloj fijado al
-  // montar que usa `porTab` (no tickea): si la oferta caduca mientras la
-  // pantalla lleva rato abierta sin recargarse, el propio sheet ya lo refleja
-  // con su cuenta atrás en vivo — esto solo decide si hay algo que abrir.
+  // sección que la socia esté mirando, es urgente y se enseña en un sheet
+  // global (más abajo), no solo dentro de la lista de espera. `now` es el
+  // mismo reloj fijado al montar que usa `porTab` (no tickea): si la oferta
+  // caduca mientras la pantalla lleva rato abierta sin recargarse, el propio
+  // sheet ya lo refleja con su cuenta atrás en vivo — esto solo decide si hay
+  // algo que abrir.
   const ofertaActiva: OfertaEspera | null = useMemo(() => {
     const activa = misReservas.find(
       x => x.r.estado === 'LISTA_ESPERA' && !!x.r.ofertaExpiraEn && new Date(x.r.ofertaExpiraEn) > now,
@@ -258,8 +304,8 @@ export function PortalReservasView({
 
   // Cerrar el sheet tocando el fondo NO cuenta como "rechazar" — solo lo
   // oculta hasta que aparezca una oferta DISTINTA (otra reservaId). Mientras
-  // tanto, la reserva sigue viéndose en la pestaña ESPERA con su pastilla de
-  // estado — esa es la red de seguridad si se cierra sin decidir.
+  // tanto, la reserva sigue viéndose en la sección de lista de espera con su
+  // pastilla de estado — esa es la red de seguridad si se cierra sin decidir.
   const mostrarSheetOferta = ofertaActiva != null && ofertaActiva.reservaId !== ofertaOcultaId;
 
   async function onAceptarOferta(reservaId: string): Promise<ResultadoEscritura> {
@@ -295,6 +341,221 @@ export function PortalReservasView({
     const r = await valorarExperienciaReserva(reservaId, valoracion);
     setValorandoId(null);
     if (!r.ok) setAviso({ texto: r.error, error: true });
+  }
+
+  // Tarjeta de reserva compartida por Próximas/Lista de espera/Historial —
+  // agnóstica de "en qué sección está": decide sus propios botones mirando
+  // `r.estado`/fecha, así que sirve igual en las tres.
+  function tarjetaReserva(r: Reserva, s: Sesion) {
+    const tipo = tiposClase.find(tc => tc.id === s.tipoClaseId);
+    const sala = salas.find(x => x.id === s.salaId);
+    const instr = instructores.find(i => i.id === s.instructorId);
+    const puedeCancel = r.estado === 'CONFIRMADA' && new Date(s.inicio) > now;
+    const apagado = r.estado === 'CANCELADA' || r.estado === 'NO_ASISTIO' || (r.estado !== 'LISTA_ESPERA' && new Date(s.inicio) < now);
+    return (
+      <div
+        key={r.id}
+        style={{
+          borderRadius: radio.card, padding: 18,
+          background: t.surface, boxShadow: sombra.cardInterna,
+          opacity: apagado ? 0.72 : 1,
+        }}
+      >
+        <div style={{ display: 'flex', gap: 16 }}>
+          <BloqueFecha iso={s.inicio} apagado={apagado} />
+          <div style={{ width: 1, background: t.line, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ ...display(20, false, 1.15), color: apagado ? t.muted2 : t.ink, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {tipo?.nombre ?? 'Clase'}
+              </div>
+              <EstadoPill estado={r.estado} noche={noche} t={t} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, ...texto.nota, color: t.muted }}>
+              <Clock size={11} /> {formatHora(s.inicio)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8, ...texto.nota, color: t.muted2 }}>
+              {instr && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><UserIcon size={11} />{instr.nombre}</span>}
+              {sala && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><MapPin size={11} />{sala.nombre}</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* La interacción real (aceptar/dejar pasar, con cuenta
+            atrás en vivo) vive ahora en el sheet global
+            `HojaOfertaEspera`, que se abre solo en cuanto hay una
+            oferta viva — sea cual sea la sección abierta. Esto es
+            la red de seguridad si esa socia cerró el sheet sin
+            decidir: sigue viendo aquí que hay una oferta y puede
+            reabrirlo, sin duplicar la cuenta atrás en dos sitios a
+            la vez. */}
+        {r.estado === 'LISTA_ESPERA' && r.ofertaExpiraEn && (
+          <button
+            type="button"
+            onClick={() => setOfertaOcultaId(null)}
+            style={{
+              width: '100%', height: 42, marginTop: 14, borderRadius: 21, border: 'none',
+              background: noche ? 'rgba(224,148,43,.14)' : semantic.warning.soft,
+              color: noche ? semantic.warning.textNoche : semantic.warning.text,
+              ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
+            }}
+          >
+            Se ha liberado una plaza — ver oferta
+          </button>
+        )}
+
+        {/* Gap 3 — posición real en la lista de espera. Dato YA
+            calculado y mantenido por el servidor (`posicionEspera`,
+            renumerado por la RPC en cada cancelación/promoción —
+            migr 0104), nunca una cuenta hecha en el cliente. Se
+            omite mientras hay una oferta viva: en ese momento ya no
+            está "en cola", se le está ofreciendo el hueco. */}
+        {r.estado === 'LISTA_ESPERA' && r.posicionEspera != null && !r.ofertaExpiraEn && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, ...texto.nota, color: t.muted2 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              minWidth: 20, height: 20, padding: '0 6px', borderRadius: radio.pill,
+              background: t.surface2, ...micro(9.5, 0.1, 700), color: t.muted,
+            }}>
+              #{r.posicionEspera}
+            </span>
+            {r.posicionEspera === 1 ? 'La próxima en entrar si se libera un hueco' : `Posición ${r.posicionEspera} en la lista de espera`}
+          </div>
+        )}
+
+        {/* Gap 4 — valorar una clase YA ASISTIDA, autoservicio.
+            Solo aparece sobre reservas ASISTIDA: el CHECK de la BD
+            (migr 20260828…) impide guardar sobre cualquier otro
+            estado, así que ni se ofrece aquí. Una vez valorada
+            (`r.valoracionExperiencia` ya no es null) se enseña la
+            puntuación dada, sin permitir tocarla otra vez — mismo
+            criterio "sin edición" que el resto de valoraciones del
+            producto (0044). */}
+        {r.estado === 'ASISTIDA' && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${t.line}` }}>
+            {r.valoracionExperiencia != null ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 2 }} aria-hidden>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <Star
+                      key={n}
+                      size={16}
+                      strokeWidth={1.7}
+                      fill={n <= (r.valoracionExperiencia as number) ? 'var(--portal-brand)' : 'none'}
+                      style={{ color: n <= (r.valoracionExperiencia as number) ? 'var(--portal-brand)' : t.muted2 }}
+                    />
+                  ))}
+                </div>
+                <span style={{ ...texto.nota, color: t.muted }}>Ya has valorado esta clase</span>
+              </div>
+            ) : (
+              <div>
+                <p style={{ ...texto.nota, color: t.muted, marginBottom: 8 }}>¿Qué tal la clase?</p>
+                <div role="group" aria-label="Valorar esta clase" style={{ display: 'flex', gap: 4 }}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      disabled={valorandoId === r.id}
+                      onClick={() => void onValorar(r.id, n)}
+                      aria-label={`${n} de 5 estrellas`}
+                      style={{
+                        border: 'none', background: 'transparent', padding: 4, cursor: valorandoId === r.id ? 'default' : 'pointer',
+                        opacity: valorandoId === r.id ? 0.5 : 1,
+                      }}
+                    >
+                      <Star size={22} strokeWidth={1.6} style={{ color: t.muted2 }} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Gap 2 — "Cómo llegar" (dirección real del estudio, sin
+            SDK nuevo) y "Cambiar hora" (sin reprogramación real:
+            reutiliza el MISMO sheet de cancelación de abajo y, tras
+            confirmar, lleva a elegir otra clase). Mismo criterio de
+            visibilidad que "Cancelar reserva": solo sobre una
+            reserva CONFIRMADA todavía futura. */}
+        {puedeCancel && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+            {studio?.direccion && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([studio.direccion, studio.ciudad].filter(Boolean).join(', '))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  flex: 1, height: 42, borderRadius: 21, border: `1px solid ${t.line}`,
+                  background: 'transparent', color: t.ink, textDecoration: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
+                }}
+              >
+                <Navigation size={13} /> Cómo llegar
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => { setCambiandoHora(true); setCancelando(r); }}
+              style={{
+                flex: 1, height: 42, borderRadius: 21, border: `1px solid ${t.line}`,
+                background: 'transparent', color: t.ink,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
+              }}
+            >
+              <Clock size={13} /> Cambiar hora
+            </button>
+          </div>
+        )}
+
+        {/* §6 — Añadir ESTA reserva al calendario de la alumna. Nada
+            que ver con la integración Google Calendar del ESTUDIO: esa
+            sincroniza la agenda del negocio con la cuenta de la
+            propietaria y no pone ni una clase en el calendario de su
+            alumna. Solo en las que aún no han pasado: añadir al
+            calendario una clase de la semana pasada no sirve de nada.
+            El evento se construye con el MISMO helper que el resto del
+            producto (lib/calendario-ics.ts), así que el .ics del portal
+            y el de la página pública no pueden decir cosas distintas. */}
+        {!apagado && r.estado !== 'CANCELADA' && (
+          <div style={{ marginTop: 14 }}>
+            <BotonesCalendario
+              evento={{
+                id: s.id,
+                // El instante real, no la hora de pared: un evento sin
+                // zona se corre de hora en un móvil de otro huso.
+                inicio: s.inicio,
+                fin: s.fin,
+                titulo: tipo?.nombre ?? 'Clase',
+                instructora: instr?.nombre,
+                sala: sala?.nombre,
+                estudioNombre: studio?.nombre ?? 'Tu estudio',
+                estudioDireccion: [studio?.direccion, studio?.ciudad].filter(Boolean).join(', '),
+              }}
+              t={t}
+            />
+          </div>
+        )}
+
+        {puedeCancel && (
+          <button
+            type="button"
+            onClick={() => { setCambiandoHora(false); setCancelando(r); }}
+            style={{
+              width: '100%', height: 42, marginTop: 14, borderRadius: 21, border: 'none',
+              background: noche ? 'rgba(232,106,95,.12)' : semantic.danger.soft,
+              color: noche ? semantic.danger.textNoche : semantic.danger.text,
+              ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
+            }}
+          >
+            Cancelar reserva
+          </button>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -373,275 +634,189 @@ export function PortalReservasView({
           </button>
         )}
 
-        {/* Pestañas — chips de cápsula deslizables, mismo lenguaje que los
-            filtros de tipo de clase de PortalClasesView: nunca el segmented
-            control gris del sistema saliente. */}
-        <div
-          role="tablist"
-          aria-label="Filtrar reservas"
-          style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -24px', padding: '0 24px 4px', scrollbarWidth: 'none' } as React.CSSProperties}
-        >
-          {TABS.map(({ id, label }) => {
-            const activo = id === tab;
-            const n = porTab[id].length;
-            return (
-              <button
-                key={id}
-                role="tab"
-                aria-selected={activo}
-                type="button"
-                onClick={() => setTab(id)}
-                style={{
-                  flex: '0 0 auto', height: 40, padding: '0 16px', borderRadius: radio.pill,
-                  background: activo ? 'var(--portal-brand)' : (noche ? 'rgba(28,31,23,.7)' : 'rgba(255,255,255,.7)'),
-                  color: activo ? 'var(--portal-brand-foreground)' : t.muted2,
-                  border: `1px solid ${activo ? 'transparent' : t.line}`,
-                  ...texto.tab, textTransform: 'none', letterSpacing: 0,
-                  whiteSpace: 'nowrap', cursor: 'pointer',
-                  transition: transicion(['background', 'color'], dur.color),
-                }}
-              >
-                {label}{n > 0 ? ` (${n})` : ''}
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={{ height: 20 }} />
-
-        {lista.length === 0 ? (
+        {/* Próximas — sin pestañas (Fase 3): la pantalla es un solo scroll,
+            como el diseño literal. */}
+        {porTab.PROXIMAS.length === 0 ? (
           <EstadoVacio
-            {...EMPTY_COPY[tab]}
-            cta={tab === 'PROXIMAS' ? 'Ver horarios' : undefined}
-            onCta={tab === 'PROXIMAS' ? () => navegar(`/portal/${slug}/clases`) : undefined}
+            {...VACIO_PROXIMAS}
+            cta="Ver horarios"
+            onCta={() => navegar(`/portal/${slug}/clases`)}
             t={t}
           />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {lista.map(({ r, s }) => {
-              const tipo = tiposClase.find(tc => tc.id === s.tipoClaseId);
-              const sala = salas.find(x => x.id === s.salaId);
-              const instr = instructores.find(i => i.id === s.instructorId);
-              const puedeCancel = r.estado === 'CONFIRMADA' && new Date(s.inicio) > now;
-              const apagado = r.estado === 'CANCELADA' || r.estado === 'NO_ASISTIO' || (r.estado !== 'LISTA_ESPERA' && new Date(s.inicio) < now);
-              return (
+            {porTab.PROXIMAS.map(({ r, s }) => tarjetaReserva(r, s))}
+          </div>
+        )}
+
+        {/* Lista de espera — mismas tarjetas, con su badge de posición y el
+            reabridor de la oferta si hay una viva. */}
+        {porTab.ESPERA.length > 0 && (
+          <>
+            <p style={{ ...micro(9, 0.2), color: t.micro, margin: '20px 2px 8px' }}>Lista de espera</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {porTab.ESPERA.map(({ r, s }) => tarjetaReserva(r, s))}
+            </div>
+          </>
+        )}
+
+        {/* Tu plaza fija — mismos datos y acciones reales que /bonos
+            (pausar/reanudar/dar de baja), solo un vistazo aquí. */}
+        {miPlazaFija && (
+          <div style={{ marginTop: 20, borderRadius: radio.card, padding: 18, background: t.surface, boxShadow: sombra.cardInterna }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <p style={{ ...display(18, true), color: t.ink }}>Tu plaza fija</p>
+              {miPlazaFija.estado === 'PAUSADA' && (
+                <span style={{ ...micro(8.5, 0.2, 700), color: t.muted, background: t.surface2, padding: '4px 10px', borderRadius: radio.pill, flexShrink: 0 }}>
+                  En pausa
+                </span>
+              )}
+            </div>
+            <p style={{ ...texto.nota, color: t.muted, marginTop: 6 }}>
+              Todos los <b style={{ color: t.ink }}>{DIAS[miPlazaFija.diaSemana]?.toLowerCase()} · {miPlazaFija.horaInicio.slice(0, 5)}</b>
+              {plazaFijaDetalle ? ` · ${plazaFijaDetalle}` : ''}
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button
+                type="button"
+                onClick={() => void pausarOReanudarPlaza()}
+                disabled={procesandoPlaza}
+                style={{
+                  flex: 1, height: 38, borderRadius: 19, border: `1px solid ${t.line}`,
+                  background: 'transparent', color: t.ink, ...texto.metaFuerte, fontSize: 11.5,
+                  cursor: procesandoPlaza ? 'default' : 'pointer', opacity: procesandoPlaza ? 0.6 : 1,
+                }}
+              >
+                {miPlazaFija.estado === 'ACTIVA' ? 'Pausar' : 'Reanudar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmandoBajaPlaza(true)}
+                disabled={procesandoPlaza}
+                style={{
+                  flex: 1, height: 38, borderRadius: 19, border: 'none',
+                  background: noche ? 'rgba(232,106,95,.12)' : semantic.danger.soft,
+                  color: noche ? semantic.danger.textNoche : semantic.danger.text,
+                  ...texto.metaFuerte, fontSize: 11.5, cursor: procesandoPlaza ? 'default' : 'pointer', opacity: procesandoPlaza ? 0.6 : 1,
+                }}
+              >
+                Dar de baja
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Bono / plan — mismo `bonoActivo()` que /bonos: un mensual y un
+            bono por sesiones son la MISMA tarjeta aquí (el diseño los separa
+            en dos porque su demo no distingue, pero el dato real ya unifica
+            ambos casos). "Comprar otro"/"Gestionar mi plan" llevan a
+            /compras — el cobro en sí no se duplica en esta pantalla. */}
+        {bono && (
+          <div style={{ marginTop: 12, borderRadius: radio.card, padding: 18, background: t.surface, boxShadow: sombra.cardInterna }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+              <p style={{ ...display(18, true), color: t.ink, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {bono.bonos.length > 1 ? 'Tu saldo' : bono.nombre}
+              </p>
+              <span style={{ ...micro(8.5, 0.2, 600), color: t.heroAccent, flexShrink: 0 }}>Activo</span>
+            </div>
+            {bono.totalSesiones != null && bono.totalRestantes != null ? (
+              <>
+                <div style={{ height: 6, borderRadius: 99, background: t.surface2, marginTop: 10, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 99, width: `${(bono.progresoTotal ?? 0) * 100}%`,
+                    background: 'var(--portal-brand)', transition: `width ${dur.card}ms ${EASE}`,
+                  }} />
+                </div>
+                <p style={{ ...texto.nota, color: t.muted, marginTop: 8 }}>
+                  Te quedan <b style={{ color: t.ink }}>{bono.totalRestantes} {bono.totalRestantes === 1 ? 'sesión' : 'sesiones'}</b>
+                </p>
+              </>
+            ) : (
+              <p style={{ ...texto.nota, color: t.muted, marginTop: 8 }}>Sesiones ilimitadas</p>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, gap: 10 }}>
+              <span style={{
+                ...texto.nota, fontSize: 11, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                color: bono.caducado
+                  ? (noche ? semantic.danger.textNoche : semantic.danger.text)
+                  : bono.urgente
+                  ? (noche ? semantic.warning.textNoche : semantic.warning.text)
+                  : t.muted,
+              }}>
+                {bono.textoCaducidad
+                  ?? (bono.caducaEn ? `${bono.esMensual ? 'Próxima renovación' : 'Caduca'} el ${fechaLarga(bono.caducaEn)}` : bono.esMensual ? 'Activo' : '')}
+              </span>
+              <button
+                type="button"
+                onClick={() => navegar(`/portal/${slug}/compras`)}
+                style={{ border: 'none', background: 'none', padding: 0, flexShrink: 0, ...texto.metaFuerte, fontSize: 12, color: t.heroAccent, cursor: 'pointer' }}
+              >
+                {bono.esMensual ? 'Gestionar mi plan →' : 'Comprar otro →'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Pagos — solo los ya cobrados, de un vistazo; la factura, el
+            reintento o cambiar de tarjeta se hacen en /compras. */}
+        {misRecibosPreview.length > 0 && (
+          <>
+            <p style={{ ...micro(9, 0.2), color: t.micro, margin: '20px 2px 8px' }}>Pagos</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {misRecibosPreview.map(r => (
                 <div
                   key={r.id}
                   style={{
-                    borderRadius: radio.card, padding: 18,
-                    background: t.surface, boxShadow: sombra.cardInterna,
-                    opacity: apagado ? 0.72 : 1,
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+                    background: t.surface, borderRadius: 14, padding: '11px 14px', boxShadow: sombra.cardInterna,
                   }}
                 >
-                  <div style={{ display: 'flex', gap: 16 }}>
-                    <BloqueFecha iso={s.inicio} apagado={apagado} />
-                    <div style={{ width: 1, background: t.line, flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                        <div style={{ ...display(20, false, 1.15), color: apagado ? t.muted2 : t.ink, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {tipo?.nombre ?? 'Clase'}
-                        </div>
-                        <EstadoPill estado={r.estado} noche={noche} t={t} />
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, ...texto.nota, color: t.muted }}>
-                        <Clock size={11} /> {formatHora(s.inicio)}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8, ...texto.nota, color: t.muted2 }}>
-                        {instr && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><UserIcon size={11} />{instr.nombre}</span>}
-                        {sala && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><MapPin size={11} />{sala.nombre}</span>}
-                      </div>
-                    </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ ...texto.metaFuerte, fontSize: 12.5, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {r.concepto}
+                    </p>
+                    <p style={{ ...micro(9, 0.1), color: t.muted, marginTop: 2 }}>
+                      {formatFecha(r.fechaCobro ?? r.fechaVencimiento)} · recibo enviado por email
+                    </p>
                   </div>
-
-                  {/* La interacción real (aceptar/dejar pasar, con cuenta
-                      atrás en vivo) vive ahora en el sheet global
-                      `HojaOfertaEspera`, que se abre solo en cuanto hay una
-                      oferta viva — sea cual sea la pestaña abierta. Esto es
-                      la red de seguridad si esa socia cerró el sheet sin
-                      decidir: sigue viendo aquí que hay una oferta y puede
-                      reabrirlo, sin duplicar la cuenta atrás en dos sitios a
-                      la vez. */}
-                  {r.estado === 'LISTA_ESPERA' && r.ofertaExpiraEn && (
-                    <button
-                      type="button"
-                      onClick={() => setOfertaOcultaId(null)}
-                      style={{
-                        width: '100%', height: 42, marginTop: 14, borderRadius: 21, border: 'none',
-                        background: noche ? 'rgba(224,148,43,.14)' : semantic.warning.soft,
-                        color: noche ? semantic.warning.textNoche : semantic.warning.text,
-                        ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
-                      }}
-                    >
-                      Se ha liberado una plaza — ver oferta
-                    </button>
-                  )}
-
-                  {/* Gap 3 — posición real en la lista de espera. Dato YA
-                      calculado y mantenido por el servidor (`posicionEspera`,
-                      renumerado por la RPC en cada cancelación/promoción —
-                      migr 0104), nunca una cuenta hecha en el cliente. Se
-                      omite mientras hay una oferta viva: en ese momento ya no
-                      está "en cola", se le está ofreciendo el hueco. */}
-                  {r.estado === 'LISTA_ESPERA' && r.posicionEspera != null && !r.ofertaExpiraEn && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, ...texto.nota, color: t.muted2 }}>
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        minWidth: 20, height: 20, padding: '0 6px', borderRadius: radio.pill,
-                        background: t.surface2, ...micro(9.5, 0.1, 700), color: t.muted,
-                      }}>
-                        #{r.posicionEspera}
-                      </span>
-                      {r.posicionEspera === 1 ? 'La próxima en entrar si se libera un hueco' : `Posición ${r.posicionEspera} en la lista de espera`}
-                    </div>
-                  )}
-
-                  {/* Gap 4 — valorar una clase YA ASISTIDA, autoservicio.
-                      Solo aparece sobre reservas ASISTIDA: el CHECK de la BD
-                      (migr 20260828…) impide guardar sobre cualquier otro
-                      estado, así que ni se ofrece aquí. Una vez valorada
-                      (`r.valoracionExperiencia` ya no es null) se enseña la
-                      puntuación dada, sin permitir tocarla otra vez — mismo
-                      criterio "sin edición" que el resto de valoraciones del
-                      producto (0044). */}
-                  {r.estado === 'ASISTIDA' && (
-                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${t.line}` }}>
-                      {r.valoracionExperiencia != null ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ display: 'flex', gap: 2 }} aria-hidden>
-                            {[1, 2, 3, 4, 5].map(n => (
-                              <Star
-                                key={n}
-                                size={16}
-                                strokeWidth={1.7}
-                                fill={n <= (r.valoracionExperiencia as number) ? 'var(--portal-brand)' : 'none'}
-                                style={{ color: n <= (r.valoracionExperiencia as number) ? 'var(--portal-brand)' : t.muted2 }}
-                              />
-                            ))}
-                          </div>
-                          <span style={{ ...texto.nota, color: t.muted }}>Ya has valorado esta clase</span>
-                        </div>
-                      ) : (
-                        <div>
-                          <p style={{ ...texto.nota, color: t.muted, marginBottom: 8 }}>¿Qué tal la clase?</p>
-                          <div role="group" aria-label="Valorar esta clase" style={{ display: 'flex', gap: 4 }}>
-                            {[1, 2, 3, 4, 5].map(n => (
-                              <button
-                                key={n}
-                                type="button"
-                                disabled={valorandoId === r.id}
-                                onClick={() => void onValorar(r.id, n)}
-                                aria-label={`${n} de 5 estrellas`}
-                                style={{
-                                  border: 'none', background: 'transparent', padding: 4, cursor: valorandoId === r.id ? 'default' : 'pointer',
-                                  opacity: valorandoId === r.id ? 0.5 : 1,
-                                }}
-                              >
-                                <Star size={22} strokeWidth={1.6} style={{ color: t.muted2 }} />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Gap 2 — "Cómo llegar" (dirección real del estudio, sin
-                      SDK nuevo) y "Cambiar hora" (sin reprogramación real:
-                      reutiliza el MISMO sheet de cancelación de abajo y, tras
-                      confirmar, lleva a elegir otra clase). Mismo criterio de
-                      visibilidad que "Cancelar reserva": solo sobre una
-                      reserva CONFIRMADA todavía futura. */}
-                  {puedeCancel && (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                      {studio?.direccion && (
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([studio.direccion, studio.ciudad].filter(Boolean).join(', '))}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            flex: 1, height: 42, borderRadius: 21, border: `1px solid ${t.line}`,
-                            background: 'transparent', color: t.ink, textDecoration: 'none',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                            ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
-                          }}
-                        >
-                          <Navigation size={13} /> Cómo llegar
-                        </a>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => { setCambiandoHora(true); setCancelando(r); }}
-                        style={{
-                          flex: 1, height: 42, borderRadius: 21, border: `1px solid ${t.line}`,
-                          background: 'transparent', color: t.ink,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                          ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
-                        }}
-                      >
-                        <Clock size={13} /> Cambiar hora
-                      </button>
-                    </div>
-                  )}
-
-                  {/* §6 — Añadir ESTA reserva al calendario de la alumna. Nada
-                      que ver con la integración Google Calendar del ESTUDIO: esa
-                      sincroniza la agenda del negocio con la cuenta de la
-                      propietaria y no pone ni una clase en el calendario de su
-                      alumna. Solo en las que aún no han pasado: añadir al
-                      calendario una clase de la semana pasada no sirve de nada.
-                      El evento se construye con el MISMO helper que el resto del
-                      producto (lib/calendario-ics.ts), así que el .ics del portal
-                      y el de la página pública no pueden decir cosas distintas. */}
-                  {!apagado && r.estado !== 'CANCELADA' && (
-                    <div style={{ marginTop: 14 }}>
-                      <BotonesCalendario
-                        evento={{
-                          id: s.id,
-                          // El instante real, no la hora de pared: un evento sin
-                          // zona se corre de hora en un móvil de otro huso.
-                          inicio: s.inicio,
-                          fin: s.fin,
-                          titulo: tipo?.nombre ?? 'Clase',
-                          instructora: instr?.nombre,
-                          sala: sala?.nombre,
-                          estudioNombre: studio?.nombre ?? 'Tu estudio',
-                          estudioDireccion: [studio?.direccion, studio?.ciudad].filter(Boolean).join(', '),
-                        }}
-                        t={t}
-                      />
-                    </div>
-                  )}
-
-                  {puedeCancel && (
-                    <button
-                      type="button"
-                      onClick={() => { setCambiandoHora(false); setCancelando(r); }}
-                      style={{
-                        width: '100%', height: 42, marginTop: 14, borderRadius: 21, border: 'none',
-                        background: noche ? 'rgba(232,106,95,.12)' : semantic.danger.soft,
-                        color: noche ? semantic.danger.textNoche : semantic.danger.text,
-                        ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
-                      }}
-                    >
-                      Cancelar reserva
-                    </button>
-                  )}
+                  <span style={{ ...texto.metaFuerte, fontSize: 12.5, color: t.ink, flexShrink: 0 }}>{r.importe} €</span>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => navegar(`/portal/${slug}/compras`)}
+                style={{ alignSelf: 'flex-start', border: 'none', background: 'none', padding: '2px 0 0', ...texto.metaFuerte, fontSize: 12, color: t.heroAccent, cursor: 'pointer' }}
+              >
+                Ver todos los pagos →
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Historial — mismas tarjetas que Próximas (valorar incluido para
+            ASISTIDA): el diseño las simplifica a una fila porque su demo no
+            necesita valorar de verdad, aquí la funcionalidad real ya
+            construida pesa más que el pixel. */}
+        {porTab.HISTORIAL.length > 0 && (
+          <>
+            <p style={{ ...micro(9, 0.2), color: t.micro, margin: '20px 2px 8px' }}>Historial</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {porTab.HISTORIAL.map(({ r, s }) => tarjetaReserva(r, s))}
+            </div>
+          </>
         )}
       </div>
 
       {/* Hoja de cristal de confirmación — mismo lenguaje que HojaPase: fondo
           desenfocado real, cápsula de 34 de radio, sombra tirada de verde
-          oscuro. Reemplaza el BottomSheet genérico del sistema saliente. */}
+          oscuro. Reemplaza el BottomSheet genérico del sistema saliente. Un
+          tercer motivo (Fase 3): confirmar la baja de la plaza fija. */}
       <div
-        onClick={() => { setCancelando(null); setCambiandoHora(false); }}
+        onClick={() => { setCancelando(null); setCambiandoHora(false); setConfirmandoBajaPlaza(false); }}
         aria-hidden
         style={{
           position: 'fixed', inset: 0, zIndex: 40,
-          opacity: cancelando ? 1 : 0, pointerEvents: cancelando ? 'auto' : 'none',
+          opacity: (cancelando || confirmandoBajaPlaza) ? 1 : 0, pointerEvents: (cancelando || confirmandoBajaPlaza) ? 'auto' : 'none',
           background: noche ? 'rgba(8,9,6,.44)' : 'rgba(34,38,31,.24)',
           ...cristal(desenfoque.backdrop, 120),
           transition: `opacity ${dur.tab}ms ${EASE}`,
@@ -649,35 +824,37 @@ export function PortalReservasView({
       />
       <div
         role="dialog"
-        aria-modal={!!cancelando}
-        aria-label={cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
+        aria-modal={!!cancelando || confirmandoBajaPlaza}
+        aria-label={confirmandoBajaPlaza ? '¿Dar de baja tu plaza fija?' : cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
         style={{
           position: 'fixed', left: 12, right: 12, bottom: 12, zIndex: 41,
           maxWidth: 456, margin: '0 auto',
           background: t.bg, borderRadius: radio.hoja,
           border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.8)'}`,
           boxShadow: sombra.sheet, padding: '16px 26px calc(26px + env(safe-area-inset-bottom))',
-          opacity: cancelando ? 1 : 0,
-          pointerEvents: cancelando ? 'auto' : 'none',
-          transform: cancelando ? 'translateY(0) scale(1)' : 'translateY(114%) scale(.98)',
+          opacity: (cancelando || confirmandoBajaPlaza) ? 1 : 0,
+          pointerEvents: (cancelando || confirmandoBajaPlaza) ? 'auto' : 'none',
+          transform: (cancelando || confirmandoBajaPlaza) ? 'translateY(0) scale(1)' : 'translateY(114%) scale(.98)',
           transition: `transform ${dur.sheet}ms ${EASE}, opacity 500ms ease`,
         }}
       >
         <div style={{ width: 40, height: 4, borderRadius: 4, background: noche ? '#3A3F33' : '#D8D4C9', margin: '0 auto 20px' }} />
         <h2 style={{ ...display(26, true), color: t.ink, textAlign: 'center' }}>
-          {cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
+          {confirmandoBajaPlaza ? '¿Dar de baja tu plaza fija?' : cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
         </h2>
         <p style={{ ...texto.meta, color: t.muted, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-          {cambiandoHora
-            ? 'No podemos moverte de hora automáticamente: cancelamos esta y te llevamos a elegir otra que te venga mejor.'
-            : cancelando?.id.startsWith('res-pf-')
-              ? 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.'
-              : 'Perderás tu plaza y liberarás el hueco para otra socia.'}
+          {confirmandoBajaPlaza
+            ? 'Dejará de reservarte el hueco cada semana. Las clases ya reservadas no se tocan.'
+            : cambiandoHora
+              ? 'No podemos moverte de hora automáticamente: cancelamos esta y te llevamos a elegir otra que te venga mejor.'
+              : cancelando?.id.startsWith('res-pf-')
+                ? 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.'
+                : 'Perderás tu plaza y liberarás el hueco para otra socia.'}
         </p>
         <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
           <button
             type="button"
-            onClick={() => { setCancelando(null); setCambiandoHora(false); }}
+            onClick={() => { setCancelando(null); setCambiandoHora(false); setConfirmandoBajaPlaza(false); }}
             style={{
               flex: 1, height: 54, borderRadius: 27, border: `1px solid ${t.line}`,
               background: 'transparent', color: t.ink, ...texto.botonCta, fontSize: 14, cursor: 'pointer',
@@ -688,6 +865,7 @@ export function PortalReservasView({
           <button
             type="button"
             onClick={() => {
+              if (confirmandoBajaPlaza) { void confirmarBajaPlaza(); return; }
               if (!cancelando) return;
               const id = cancelando.id;
               const irAElegirOtra = cambiandoHora;
@@ -712,7 +890,7 @@ export function PortalReservasView({
               ...texto.botonCta, fontSize: 14, cursor: 'pointer',
             }}
           >
-            {cambiandoHora ? 'Sí, cancelar y elegir otra' : 'Sí, cancelar'}
+            {confirmandoBajaPlaza ? 'Sí, dar de baja' : cambiandoHora ? 'Sí, cancelar y elegir otra' : 'Sí, cancelar'}
           </button>
         </div>
       </div>
@@ -730,10 +908,11 @@ export function PortalReservasView({
       )}
 
       {/* Sheet global de oferta de plaza (Fase 2b) — se abre solo, sin
-          depender de qué pestaña esté mirando la socia: es urgente por
+          depender de qué sección esté mirando la socia: es urgente por
           diseño. Cerrarlo tocando el fondo (`onClose`) NO es "rechazar", solo
           lo oculta hasta la siguiente oferta distinta (ver `ofertaOcultaId`
-          arriba); la reserva sigue reflejada en la pestaña ESPERA. */}
+          arriba); la reserva sigue reflejada en la sección de lista de
+          espera. */}
       <HojaOfertaEspera
         oferta={mostrarSheetOferta ? ofertaActiva : null}
         onClose={() => setOfertaOcultaId(ofertaActiva?.reservaId ?? null)}

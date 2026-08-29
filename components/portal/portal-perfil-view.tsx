@@ -290,6 +290,12 @@ export function PortalPerfilView({
             cerrado que se persiste en la config del tema de cada estudio;
             añadir una pestaña ahí es un cambio de esquema, no de esta
             pantalla). */}
+        {/* Fase 3: el diseño le dedica a "Tu actividad" (racha, reto del mes,
+            logros) toda la mitad inferior de Perfil — esa gamificación real
+            (streak-engine/achievement-engine) ya vive completa en /progreso,
+            que ANTES no tenía ningún enlace desde aquí. Un solo acceso
+            directo en vez de duplicar barras/insignias en dos pantallas. */}
+        {fila('Tu progreso', null, () => navegar(`/portal/${slug}/progreso`))}
         {fila('Mensajes', mensajesSinLeer > 0 ? String(mensajesSinLeer) : null, () => navegar(`/portal/${slug}/mensajes`))}
         {fila('Comunidad', null, () => navegar(`/portal/${slug}/comunidad`))}
         {fila('Documentos', null, () => navegar(`/portal/${slug}/documentos`))}
