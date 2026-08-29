@@ -3,6 +3,7 @@ import { aFechaCal, eventoIcs, nombreIcs } from '@/lib/calendario-ics';
 import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
@@ -209,24 +210,43 @@ function MenuSecciones({ tabs, tabActual, onIr }: {
   onIr: (t: Tab) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  // Posición en viewport del botón — el menú se porta a `document.body`
+  // (fixed, calculado desde aquí) en vez de `position: absolute` dentro de
+  // este `<div>`: el ancestro que pinta la barra+portada como una sola caja
+  // de degradado (comentario junto a `orden('horario')`, unas líneas más
+  // arriba) lleva `overflow: hidden` a propósito para esa costura, y
+  // cualquier hijo `absolute` de ahí dentro se recorta en el borde de la
+  // caja pase lo que pase con el z-index — encontrado en producción: el
+  // menú se veía cortado nada más abrirlo.
+  const [rect, setRect] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!abierto) return;
     function fuera(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (menuRef.current && !menuRef.current.contains(t)) setAbierto(false);
     }
     document.addEventListener('mousedown', fuera);
     return () => document.removeEventListener('mousedown', fuera);
   }, [abierto]);
   const otras = tabs.filter(([t]) => t !== 'clases' && t !== 'misreservas');
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div style={{ position: 'relative' }}>
       <button
+        ref={btnRef}
         type="button"
         aria-haspopup="menu"
         aria-expanded={abierto}
         aria-label="Más secciones"
-        onClick={() => setAbierto(v => !v)}
+        onClick={() => {
+          if (!abierto && btnRef.current) {
+            const r = btnRef.current.getBoundingClientRect();
+            setRect({ top: r.bottom + 8, right: window.innerWidth - r.right });
+          }
+          setAbierto(v => !v);
+        }}
         style={{
           width: 46, height: 46, borderRadius: 23, border: '1px solid var(--portal-line)',
           background: 'var(--portal-surface)', color: 'var(--portal-ink)', cursor: 'pointer',
@@ -235,9 +255,9 @@ function MenuSecciones({ tabs, tabActual, onIr }: {
       >
         <Menu size={17} />
       </button>
-      {abierto && (
-        <div role="menu" style={{
-          position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 30, minWidth: 160,
+      {abierto && rect && typeof document !== 'undefined' && createPortal(
+        <div ref={menuRef} role="menu" style={{
+          position: 'fixed', top: rect.top, right: rect.right, zIndex: 100, minWidth: 160,
           background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', borderRadius: 14,
           boxShadow: '0 14px 34px -12px rgba(15,15,15,.28)', padding: 6, display: 'flex', flexDirection: 'column', gap: 2,
         }}>
@@ -256,7 +276,8 @@ function MenuSecciones({ tabs, tabActual, onIr }: {
               {label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -2740,7 +2761,13 @@ export default function ReservarPage() {
         })()}
 
         {tab === 'clases' && !fichaSesionId && (
-          <div style={{ maxWidth: 760, marginInline: 'auto', width: '100%', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
+          // Petición explícita del fundador: la columna de clases usaba
+          // `max-width: 760px` desde #1240 (columna de lectura centrada,
+          // como Momence) — en desktop dejaba un pasillo enorme de fondo
+          // vacío a los lados. Ahora ocupa el mismo ancho que la cabecera/
+          // portada (el contenedor de 1280px de siempre), sin tocar nada del
+          // propio ReservaCalendario.
+          <div style={{ width: '100%', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
 
             {/* Calendario de reservas — componente compartido (estilo Acuity), el
                 mismo que usa el portal de socias, re-vestido con el lenguaje
@@ -3054,11 +3081,21 @@ export default function ReservarPage() {
             El logo se pinta con el componente en línea de siempre
             (components/marca/logo-tentare.tsx), nunca con un asset raster
             aparte, tal y como fija docs/marca/: un solo dibujo, no dos kits
-            de marca conviviendo a un clic de distancia. */}
+            de marca conviviendo a un clic de distancia.
+            ⚠️ Bug real de producción (2026-08-29): a esta insignia le faltaba
+            el guardia `!enVistaReserva` que ya llevan todos sus vecinos
+            (bonos/cifras/sobre-nosotros/footer, unas líneas más abajo) — se
+            colaba DENTRO del checkout, entre la cabecera y la ficha de pago,
+            partiendo la pantalla en dos con un hueco vacío y rompiendo el
+            scroll (el `order` del flex la dejaba fuera de la caja con
+            `overflow:hidden` de la cabecera/portada, así que ni siquiera se
+            comportaba como "pie de página" ahí). */}
+        {!enVistaReserva && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: `${cq(2, 0.6, 8)} 0 16px`, color: 'var(--portal-muted)', fontSize: 11 }}>
           Reservas seguras con
           <LogoTentare formato="horizontal" tinta={esNoche ? 'blanco' : 'tinta'} alto={16} decorativo />
         </div>
+        )}
       </div>
 
       {/* ── FOOTER ──────────────────────────────────────────────────────────────
