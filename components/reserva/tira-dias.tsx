@@ -100,11 +100,21 @@ export function TiraDias({
               className="reserva-day-chip"
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                minWidth: 54, padding: '9px 6px 7px', borderRadius: tokens.radioChip,
-                border: `1px solid ${activo ? tokens.acento : tokens.line}`,
+                minWidth: 54, padding: '7px 4px 9px', borderRadius: tokens.radioChip,
+                border: 'none',
                 background: activo ? tokens.acento : tokens.surface,
+                // ⚠️ Auditoría pixel-perfect (2026-08-29): el diseño no usa
+                // borde en este chip — el día SIN seleccionar lleva un anillo
+                // interior (`inset 0 0 0 1px`, el mismo efecto visual que un
+                // borde de 1px pero sin sumar al box model) y el seleccionado
+                // lleva una sombra elevada de verdad + un ligero aumento de
+                // escala (scale(1.04)). El chip real solo tenía un `border`
+                // plano en los dos estados, sin la sensación de profundidad
+                // del original.
+                boxShadow: activo ? '0 8px 20px -8px rgba(15,15,15,.4)' : `inset 0 0 0 1px ${tokens.line}`,
+                transform: activo ? 'scale(1.04)' : 'scale(1)',
                 cursor: 'pointer', scrollSnapAlign: 'start', flexShrink: 0,
-                transition: 'border-color .4s ease, background .4s ease',
+                transition: 'border-color .4s ease, background .4s ease, box-shadow .25s cubic-bezier(.34,1.3,.5,1), transform .25s cubic-bezier(.34,1.3,.5,1)',
                 // Sin esto, un toque en móvil dentro de esta tira con scroll
                 // horizontal se interpreta a veces como selección de texto en
                 // vez de tap — el día se resalta en azul y `onClick` nunca

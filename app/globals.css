@@ -539,9 +539,19 @@ nextjs-portal { display: none !important; }
    gris fijo: así el feedback táctil respeta el white-label del estudio en
    los dos modos de embebido, incluida la rejilla de neutros fijos (formato
    06) que sigue recibiendo `--portal-brand` aunque ignore el resto de `t`. */
-.reserva-slot-row { transition: background-color .18s ease; }
-.reserva-slot-row:hover { background-color: color-mix(in oklab, var(--portal-brand) 6%, transparent); }
-.reserva-slot-row:active { background-color: color-mix(in oklab, var(--portal-brand) 10%, transparent); }
+/* ⚠️ Auditoría pixel-perfect contra Claude Design (2026-08-29): a la tarjeta
+   de la lista de clases (`TarjetaClaseImpl`) le faltaban DOS cosas del diseño
+   — la entrada con fundido+ascenso (`animation: pUp .35s both` en el
+   original) y el tratamiento de hover/activo por borde+sombra en vez de solo
+   un tinte de fondo. Se mantiene el tinte de fondo (accesible con el
+   white-label: usa `--portal-brand`) y se AÑADE encima border-color+shadow
+   en hover y `scale(.995)` en activo, que es justo el matiz que pedía el
+   diseño y el motivo de la queja "las cards estan como cortadas". */
+.reserva-slot-row { transition: background-color .18s ease, border-color .2s ease, box-shadow .25s ease, transform .15s ease; animation: reserva-card-in .35s ease both; }
+.reserva-slot-row:hover { background-color: color-mix(in oklab, var(--portal-brand) 6%, transparent); border-color: var(--portal-micro, var(--portal-line)); box-shadow: 0 10px 26px -16px rgba(15, 15, 15, .18); }
+.reserva-slot-row:active { background-color: color-mix(in oklab, var(--portal-brand) 10%, transparent); transform: scale(.995); }
+
+@keyframes reserva-card-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 
 .reserva-day-chip:hover { border-color: color-mix(in oklab, var(--portal-brand) 55%, transparent); }
 

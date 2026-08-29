@@ -695,7 +695,7 @@ export function ReservaCalendario({
             tokens={{
               surface: t.surface, line: t.line, ink: t.ink, mutedText: t.muted,
               acento: 'var(--portal-brand)', acentoTexto: 'var(--portal-brand-foreground)',
-              fuenteDisplay: serif, fuenteUI: fontFamily, radioChip: 12,
+              fuenteDisplay: serif, fuenteUI: fontFamily, radioChip: 14,
             }}
           />
           {filtrosChips && filtrosChips.length > 0 && (
@@ -716,11 +716,20 @@ export function ReservaCalendario({
                   type="button"
                   onClick={chip.onClick}
                   style={{
-                    padding: '6px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 600,
+                    // ⚠️ Auditoría pixel-perfect (2026-08-29): el diseño pinta
+                    // el filtro activo como una píldora SUAVE (fondo tintado
+                    // claro + texto del color de marca), no una píldora
+                    // sólida con texto a contraste total — y el inactivo usa
+                    // texto atenuado (`--sec`), no la tinta completa. Sin
+                    // token propio de "marca suave" en este sistema, se
+                    // deriva con `color-mix` (mismo patrón que ya usa esta
+                    // pantalla en la de confirmación) en vez de inventar una
+                    // custom property nueva.
+                    padding: '7px 14px', borderRadius: 999, fontSize: 11.5, fontWeight: 800,
                     fontFamily, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
                     border: `1px solid ${chip.activo ? 'var(--portal-brand)' : t.line}`,
-                    background: chip.activo ? 'var(--portal-brand)' : t.surface,
-                    color: chip.activo ? 'var(--portal-brand-foreground)' : t.ink,
+                    background: chip.activo ? 'color-mix(in oklab, var(--portal-brand) 12%, var(--portal-surface))' : t.surface,
+                    color: chip.activo ? 'var(--portal-brand)' : t.muted,
                   }}
                 >
                   {chip.label}
