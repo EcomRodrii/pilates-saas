@@ -1511,7 +1511,17 @@ function BookingSheet({
         // normal que ocupa el sitio que el padre (page.tsx) le da (mismo
         // patrón `100dvh`/franja de iframe que ya resuelve PublicSheet para
         // <PantallaReserva>, reutilizado aquí en vez de reinventarlo).
-        ? { width: '100%', display: 'flex', flexDirection: 'column', fontFamily }
+        // ⚠️ Auditoría pixel-perfect (2026-08-29): el contenedor de la
+        // pestaña «Clases» (page.tsx) se ensanchó a 100% para quitar el
+        // pasillo de fondo vacío en escritorio — pero esta ficha vivía
+        // DENTRO de ese mismo contenedor con `width:100%` sin tope propio,
+        // así que heredó el ensanchado y pasó de columna legible (760px) a
+        // banda de 1184px (e2e/reservar-escritorio-no-es-movil-estirado.
+        // spec.ts, «no una banda de 1280px»). El tope va SOLO en 'vista'
+        // (Modo A, página completa): 'inline' (Modo B, embebido en la web
+        // del estudio) nunca tuvo este límite — su ancho lo decide el
+        // anfitrión, no esta ficha.
+        ? { width: '100%', maxWidth: variantePresentacion === 'vista' ? 760 : undefined, margin: variantePresentacion === 'vista' ? '0 auto' : undefined, display: 'flex', flexDirection: 'column', fontFamily }
         : {
           position: 'fixed', zIndex: 50, display: 'flex',
           // Abajo en móvil (hoja), centrado en pantallas grandes (diálogo).
