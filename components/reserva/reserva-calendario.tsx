@@ -718,18 +718,20 @@ export function ReservaCalendario({
                   style={{
                     // ⚠️ Auditoría pixel-perfect (2026-08-29): el diseño pinta
                     // el filtro activo como una píldora SUAVE (fondo tintado
-                    // claro + texto del color de marca), no una píldora
-                    // sólida con texto a contraste total — y el inactivo usa
-                    // texto atenuado (`--sec`), no la tinta completa. Sin
-                    // token propio de "marca suave" en este sistema, se
-                    // deriva con `color-mix` (mismo patrón que ya usa esta
-                    // pantalla en la de confirmación) en vez de inventar una
-                    // custom property nueva.
+                    // + texto del color de marca) — se probó ese tratamiento
+                    // aquí y rompió e2e/widget-config-params.spec.ts ("marca=
+                    // pisa el color primario del widget"), que exige que el
+                    // fondo del chip activo sea EXACTAMENTE el color crudo de
+                    // `marca=`, sin mezclar ("rgb(17, 34, 51)" literal, no un
+                    // oklab derivado). Ese contrato de white-label es más
+                    // importante que igualar el matiz del mockup: se mantiene
+                    // sólido, y del diseño solo se toma lo que no choca
+                    // (padding/tamaño/peso, y `--sec` en el texto inactivo).
                     padding: '7px 14px', borderRadius: 999, fontSize: 11.5, fontWeight: 800,
                     fontFamily, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
                     border: `1px solid ${chip.activo ? 'var(--portal-brand)' : t.line}`,
-                    background: chip.activo ? 'color-mix(in oklab, var(--portal-brand) 12%, var(--portal-surface))' : t.surface,
-                    color: chip.activo ? 'var(--portal-brand)' : t.muted,
+                    background: chip.activo ? 'var(--portal-brand)' : t.surface,
+                    color: chip.activo ? 'var(--portal-brand-foreground)' : t.muted,
                   }}
                 >
                   {chip.label}
