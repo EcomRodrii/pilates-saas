@@ -399,20 +399,17 @@ export default async function NetworkLandingPage() {
               </div>
             </Reveal>
           </div>
-        </div>
-      </section>
 
-      {/* Banda de cita a sangre completa — rompe el patrón "caja tras caja"
-          (auditoría de composición 2026-08-26: hasta aquí la página son 6
-          secciones seguidas de tarjetas del mismo ancho/radio). Sin cifra
-          inventada: es una promesa de producto ya verificable en el propio
-          texto legal (LEGAL, "sin comisión"), no una estadística fabricada
-          — mismo criterio que ya evita `resumenResenas`/tiempos de
-          respuesta ficticios en el perfil público. */}
-      <section className="py-20" style={{ background: NW_VERDE_OSCURO }}>
-        <div className="max-w-[760px] mx-auto px-6 text-center">
-          <Reveal>
-            <p className="text-[30px] sm:text-[38px] font-extrabold leading-[1.15] text-white text-balance">
+          {/* La cita vivía en su PROPIA sección oscura justo debajo de
+              esta — dos bandas del mismo tono, una pegada a la otra, sin
+              nada claro entre medias que las separe (la referencia nunca
+              encadena dos bandas iguales seguidas). Cierre de ESTA misma
+              banda en vez de sección aparte: rompe el patrón "caja tras
+              caja" igual que antes, pero sin duplicar el fondo oscuro. Sin
+              cifra inventada — sigue siendo la misma promesa verificable en
+              el texto legal (LEGAL, "sin comisión"). */}
+          <Reveal className="mt-16 pt-16 text-center" style={{ borderTop: '1px solid rgba(255,255,255,.1)' }}>
+            <p className="max-w-[640px] mx-auto text-[26px] sm:text-[32px] font-extrabold leading-[1.15] text-white text-balance">
               Sin comisiones. Sin intermediarios.{' '}
               <span style={{ color: NW_ARENA }}>Solo el trabajo, visible.</span>
             </p>
@@ -534,7 +531,18 @@ export default async function NetworkLandingPage() {
         </div>
       </section>
 
-      <section id="casos-de-uso" className="max-w-[1240px] mx-auto px-6 pb-24 scroll-mt-6">
+      {/* Segunda aparición del grafismo — la referencia lo repite dos
+          veces (uno por cada mitad del producto), no una sola vez cerca
+          del hero. Aquí cierra el tramo "de fiar" antes de entrar en la
+          parte más informativa (casos de uso / por qué / FAQ) — fondo
+          NW_SAGE, el mismo de la sección de la que sale, para que el
+          `fill` del <text> siga leyéndose "hueco" contra lo que hay
+          detrás. */}
+      <div className="py-10 sm:py-16 px-6" style={{ background: NW_SAGE }}>
+        <Hashtag texto="#tentarenetwork" fondo={NW_SAGE} />
+      </div>
+
+      <section id="casos-de-uso" className="max-w-[1240px] mx-auto px-6 pb-24 pt-24 scroll-mt-6">
         <Reveal>
           <h2 className="text-[26px] font-extrabold tracking-tight">Cuándo se usa Tentare Network</h2>
           {/* Etiquetado explícito como escenario, nunca como historia real —
