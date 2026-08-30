@@ -17,7 +17,7 @@
 // ficticio rompería cualquier FK real si se dejara pasar (mismo motivo que
 // ya documenta PortalClasesView para reservar/cancelar).
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
@@ -26,6 +26,7 @@ import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { BottomSheet, Input, Button, Card, Toast, type AvisoToast } from '@/components/portal/ui';
 import { bonoActivo } from '@/lib/bonos-portal';
 import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
+import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
 import type { PortalSession } from '@/lib/portal-auth';
 import type { Socio } from '@/lib/types';
@@ -54,7 +55,16 @@ export function PortalPerfilView({
   onLogout: () => void;
 }) {
   const { slug } = useParams<{ slug: string }>();
-  const { studio, socios, updateSocio, suscripciones, planesTarifa, tiposClase, plazasFijas, reservas } = useStudio();
+  const {
+    studio, socios, updateSocio, suscripciones, planesTarifa, tiposClase, plazasFijas, reservas, sesiones,
+    // Gap — racha/reto/logros EN LÍNEA en Perfil, verificado contra el
+    // diseño real: antes esta pantalla solo enlazaba a /progreso ("Mis
+    // compañeras" ya cubre lo social; esto es lo personal). Mismos motores
+    // que ya usa app/portal/[slug]/progreso/page.tsx — se repite el pintado,
+    // condensado, no la lógica.
+    rachaSocio, achievementDefinitions, achievementProgress, evaluarLogrosSocio,
+    challengeDefinitions, challengeProgress, evaluarRetosSocio,
+  } = useStudio();
   const { t, noche, toggle } = useModo();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +88,36 @@ export function PortalPerfilView({
   // Badge de Mensajes sin leer (Community & Messaging OS) — datos reales, sin
   // Realtime (se recalcula al volver a entrar en Perfil, no en vivo).
   const mensajesSinLeer = useMensajesSinLeer(studio?.id ?? null);
+
+  // ── Racha / reto / logros — resumen en línea (verificado en vivo contra
+  // el diseño real) ──────────────────────────────────────────────────────
+  // Estable durante la vida de la pantalla, mismo criterio que `progreso/page.tsx`.
+  const ahora = useMemo(() => new Date(), []);
+  useEffect(() => {
+    if (!socioId) return;
+    evaluarLogrosSocio(socioId);
+    evaluarRetosSocio(socioId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socioId]);
+  const racha = useMemo(() => (socioId ? rachaSocio(socioId) : null), [socioId, reservas, sesiones]); // eslint-disable-line react-hooks/exhaustive-deps
+  const misReservasTodas = useMemo(() => reservas.filter(r => r.socioId === socioId), [reservas, socioId]);
+  const hayLogros = achievementDefinitions.some(a => a.activo);
+  const logrosResumen = useMemo(() => {
+    if (!hayLogros || !socioId) return null;
+    const activos = achievementDefinitions.filter(a => a.activo);
+    const desbloqueados = activos.filter(a => achievementProgress.find(p => p.socioId === socioId && p.achievementId === a.id)?.completado).length;
+    return { desbloqueados, total: activos.length };
+  }, [hayLogros, socioId, achievementDefinitions, achievementProgress]);
+  // Solo el reto ACTIVO más relevante (el primero), no la lista entera: es un
+  // resumen, no una reimplementación de /progreso.
+  const retoDestacado = useMemo(() => {
+    if (!socioId || !socio) return null;
+    const activo = challengeDefinitions.find(c => c.activo && new Date(c.fechaFin) >= ahora);
+    if (!activo) return null;
+    const progreso = challengeProgress.find(p => p.socioId === socioId && p.challengeId === activo.id);
+    const valor = progreso?.completado ? progreso.progresoActual : calcularProgresoReto(activo, misReservasTodas, sesiones, socio, socios, ahora);
+    return { def: activo, valor, completado: progreso?.completado ?? false };
+  }, [socioId, socio, socios, challengeDefinitions, challengeProgress, misReservasTodas, sesiones, ahora]);
 
   const [hoja, setHoja] = useState<null | 'datos' | 'avatar'>(null);
   const [form, setForm] = useState({
@@ -281,6 +321,70 @@ export function PortalPerfilView({
             })}
           </div>
         )}
+
+        {/* ── Tu progreso: racha/reto/logros EN LÍNEA ─────────────────────────
+            Verificado en vivo contra el diseño real. Mismos motores que la
+            pantalla de progreso completa (rachaSocio, los motores de logros
+            y de retos) — condensado a un resumen, con "Ver todo" a la
+            pantalla completa (barras de 12 semanas, clase favorita,
+            recompensas). Nada se pinta si el estudio no tiene nada de esto
+            configurado: mismo criterio "solo lo que hay de verdad" que ya
+            usa esa pantalla (medido: 24 logros configurados frente a 0
+            retos o recompensas en la mayoría de estudios). */}
+        {(racha && racha.semanas > 0) || logrosResumen || retoDestacado ? (
+          <div style={{ marginTop: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <h2 style={{ ...micro(9.5, 0.28), color: t.micro }}>Tu progreso</h2>
+              <button
+                type="button"
+                onClick={() => navegar(`/portal/${slug}/progreso`)}
+                style={{ ...micro(9.5, 0.18, 600), color: t.heroAccent, background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                Ver todo →
+              </button>
+            </div>
+            <div style={{
+              marginTop: 12, borderRadius: radio.card, background: t.surface, boxShadow: '0 16px 36px -28px rgba(34,42,30,.5)',
+              padding: 20, display: 'flex', flexDirection: 'column', gap: 16,
+            }}>
+              {racha && racha.semanas > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ ...texto.metaFuerte, color: t.ink }}>🔥 {racha.semanas} {racha.semanas === 1 ? 'semana' : 'semanas'} de racha</span>
+                  {racha.enRiesgo && racha.diasParaPerder != null && (
+                    <span style={{ ...micro(9, 0.1, 700), color: '#B0453A' }}>
+                      quedan {racha.diasParaPerder} {racha.diasParaPerder === 1 ? 'día' : 'días'}
+                    </span>
+                  )}
+                </div>
+              )}
+              {retoDestacado && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>{retoDestacado.def.icono}</span>
+                    <span style={{ ...texto.metaFuerte, color: t.ink }}>{retoDestacado.def.nombre}</span>
+                    <span style={{ ...micro(9, 0, 600), color: t.muted, marginLeft: 'auto' }}>
+                      {Math.min(retoDestacado.valor, retoDestacado.def.objetivo)}/{retoDestacado.def.objetivo}
+                    </span>
+                  </div>
+                  <div style={{ height: 5, borderRadius: 999, background: t.line, marginTop: 8, overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${Math.min(100, Math.round((retoDestacado.valor / retoDestacado.def.objetivo) * 100))}%`,
+                      height: '100%', background: retoDestacado.completado ? '#3E9B6C' : 'var(--portal-brand)', borderRadius: 999,
+                    }} />
+                  </div>
+                </div>
+              )}
+              {logrosResumen && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>🏅</span>
+                  <span style={{ ...texto.nota, color: t.muted }}>
+                    {logrosResumen.desbloqueados} de {logrosResumen.total} logros desbloqueados
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         {/* ── Filas ────────────────────────────────────────────────────────── */}
         <div style={{ height: 34 }} />
