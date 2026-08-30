@@ -977,6 +977,26 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
                   ya lo pegaste en tu web, reemplázalo después de cambiar algo
                   aquí — el widget instalado no se actualiza solo.
                 </p>
+                {widget.modo === 'script' && (
+                  // ⚠️ Bug real encontrado en producción (2026-08-30): en un
+                  // estudio con WordPress + un builder de página, el widget no
+                  // aparecía nunca — cero peticiones a widget.js, sin ningún
+                  // error visible. Causa: el bloque se pintaba con
+                  // `elemento.innerHTML = "..."`, y CUALQUIER <script> dentro
+                  // de un HTML insertado así queda inerte (regla del propio
+                  // navegador, no hay forma de arreglarlo desde el código del
+                  // widget). Pegar el <script> en la cabecera/pie GLOBAL del
+                  // tema (fuera de un bloque de contenido de una entrada
+                  // concreta) evita el problema de raíz.
+                  <p className="text-[11px] text-muted-foreground mt-2">
+                    Si usas un editor de bloques (WordPress, builders de
+                    página) y el widget no aparece, prueba a pegar la línea
+                    {' '}<code className="font-mono">{'<script src="…widget.js">'}</code>{' '}
+                    en la cabecera o pie GLOBAL de tu web (no dentro de un
+                    bloque de una entrada concreta) — algunos editores insertan
+                    el bloque de forma que el script nunca llega a ejecutarse.
+                  </p>
+                )}
               </>
             ) : (
               <p className="text-[12px] text-muted-foreground">
