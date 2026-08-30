@@ -12,6 +12,7 @@ import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import type { PlanTarifa, TipoClase } from '@/lib/types';
 import { NOMBRE_TIPO_PLAN } from '@/lib/planes/formulario';
 import { PageHeader } from '@/components/ui/page-header';
+import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 
 // Cada pestaña solo se ve una a la vez (activeTab) pero antes se importaban
 // las 10 de golpe: visitar "Planes" descargaba también el JS de
@@ -307,18 +308,20 @@ export default function ConfiguracionPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'planes'      && <TabPlanes      showToast={showToast} />}
-      {activeTab === 'clases-salas' && <TabClasesSalas showToast={showToast} sub={clasesSalasSub} />}
-      {activeTab === 'citas'       && <TabCitas       showToast={showToast} sub={citasSub} />}
-      {activeTab === 'gamificacion' && <TabGamificacion showToast={showToast} sub={gamificacionSub} studio={studio} />}
-      {activeTab === 'backups'     && <TabBackups      showToast={showToast} />}
-      {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
-      {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} sub={estudioSub} />}
-      {activeTab === 'api'         && <TabApi          showToast={showToast} />}
-      {activeTab === 'campos'      && <TabCamposPersonalizados showToast={showToast} />}
-      {activeTab === 'cuestionario-salud' && <TabCuestionarioSalud showToast={showToast} />}
-      {activeTab === 'plantillas'  && <TabPlantillasEmail showToast={showToast} />}
-      {activeTab === 'perfil'      && <TabPerfil       showToast={showToast} />}
+      <ReanimarAlCambiar clave={activeTab} animClassName="tab-content-in">
+        {activeTab === 'planes'      && <TabPlanes      showToast={showToast} />}
+        {activeTab === 'clases-salas' && <TabClasesSalas showToast={showToast} sub={clasesSalasSub} />}
+        {activeTab === 'citas'       && <TabCitas       showToast={showToast} sub={citasSub} />}
+        {activeTab === 'gamificacion' && <TabGamificacion showToast={showToast} sub={gamificacionSub} studio={studio} />}
+        {activeTab === 'backups'     && <TabBackups      showToast={showToast} />}
+        {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
+        {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} sub={estudioSub} />}
+        {activeTab === 'api'         && <TabApi          showToast={showToast} />}
+        {activeTab === 'campos'      && <TabCamposPersonalizados showToast={showToast} />}
+        {activeTab === 'cuestionario-salud' && <TabCuestionarioSalud showToast={showToast} />}
+        {activeTab === 'plantillas'  && <TabPlantillasEmail showToast={showToast} />}
+        {activeTab === 'perfil'      && <TabPerfil       showToast={showToast} />}
+      </ReanimarAlCambiar>
 
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
