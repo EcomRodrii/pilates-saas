@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useTour } from '@/lib/tour-context';
 import { PASOS_TOUR } from '@/lib/tour-pasos';
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 
 const MARGEN_VIEWPORT = 12;
 
@@ -18,7 +18,13 @@ const MARGEN_VIEWPORT = 12;
 // `fixed inset-0 z-50`, para no inventar una convención nueva.
 export function Spotlight() {
   const { activo, pasoActual, totalPasos, siguientePaso, pasoAnterior, saltarTour } = useTour();
-  const { studio, updateStudio } = useStudio();
+  // useCore() y no useStudio(): este overlay vive montado en TODAS las
+  // páginas del dashboard (DashboardShell) y solo necesita `studio`/
+  // `updateStudio`, ya aislados en CoreContext (mismo criterio que Sidebar,
+  // ver el comentario de lib/core-context.tsx) — con useStudio() se
+  // re-renderizaba con cualquiera de los ~90 campos del context gigante
+  // (marcar una reserva, cobrar un recibo), aunque el tour ni estuviera activo.
+  const { studio, updateStudio } = useCore();
   const router = useRouter();
   const pathname = usePathname();
   const [rect, setRect] = useState<DOMRect | null>(null);

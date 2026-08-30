@@ -72,6 +72,21 @@
   /* Altura de la barra superior de nav cuando menuPosition='superior' (0 en lateral). */
   --topnav-h: 0px;
 
+  /* ── Sistema central de motion ─────────────────────────────────────────
+     Duraciones y easing únicos para toda la app, en vez de valores sueltos
+     repetidos por archivo. El easing coincide con el que ya usaban a mano
+     drawer/sheet/portal/reserva (`cubic-bezier(.16,1,.3,1)`, "ease-out expo"):
+     no se inventa uno nuevo, se nombra el que el repo ya había convergido en
+     usar por instinto. `--motion-fast` es el único pensado para operaciones
+     MUY frecuentes (cambiar de tab, abrir un popover): más corto que el resto
+     a propósito, la velocidad manda ahí por encima de la presencia. */
+  --motion-fast: 120ms;
+  --motion-normal: 180ms;
+  --motion-medium: 240ms;
+  --motion-slow: 320ms;
+  --motion-ease: cubic-bezier(.16, 1, .3, 1);
+  --motion-ease-in: cubic-bezier(.4, 0, 1, 1);
+
   /* Midbox-style palette — soft warm off-white, near-black ink, lime accent */
   --background: #EEEEE8;
   --foreground: #1A1A1A;
@@ -482,6 +497,25 @@ nextjs-portal { display: none !important; }
 @keyframes portal-page-out { from { opacity: 1; } to { opacity: 0; } }
 .portal-page-in { animation: portal-page-in .22s ease both; }
 .portal-page-out { animation: portal-page-out .2s ease both; }
+
+/* Transición entre rutas del PANEL (components/layout/panel-page-transition.tsx).
+   El contenido ya está montado por React antes de que esto corra (la ruta
+   nueva reconcilia primero); esto solo reproduce la entrada sobre ese
+   contenido ya presente — no hay una salida real de la pantalla anterior,
+   ni falta hace: un solo frame de opacidad 0 en el nuevo contenido ya evita
+   el "aparece de golpe". `both` conserva el estado inicial durante el
+   primer paint del frame reiniciado. */
+@keyframes panel-page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.panel-page-in { animation: panel-page-in var(--motion-normal) var(--motion-ease) both; }
+
+/* Toast (components/ui/toast.tsx) — entraba/salía de golpe, sin transición.
+   Entrada con algo más de presencia (sube desde abajo, es una confirmación);
+   salida más corta, mismo criterio que el resto de overlays de este archivo
+   (sheet-pop-out, drawer-*-out): cerrar debe sentirse inmediato. */
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px) scale(.97); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes toast-out { from { opacity: 1; transform: translate(-50%, 0) scale(1); } to { opacity: 0; transform: translate(-50%, 4px) scale(.98); } }
+.toast-in { animation: toast-in var(--motion-medium) var(--motion-ease) both; }
+.toast-out { animation: toast-out var(--motion-fast) var(--motion-ease-in) both; }
 
 /* Skeleton compartido del widget de reservas (Fase 4 del rediseño,
    docs/widget-reservas-fase4-brief-diseno.md) — barrido de brillo horizontal
