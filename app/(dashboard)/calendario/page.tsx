@@ -2180,7 +2180,7 @@ export default function Calendario() {
             {showNuevaMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowNuevaMenu(false)} />
-                <div className="absolute right-0 top-full mt-1.5 z-20 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px]">
+                <div className="absolute right-0 top-full mt-1.5 z-20 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px] menu-pop-in">
                   <button
                     onClick={() => { setShowNuevaMenu(false); openNueva(); }}
                     className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-foreground hover:bg-muted transition-colors text-left"

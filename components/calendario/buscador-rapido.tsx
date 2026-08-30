@@ -46,7 +46,7 @@ export function BuscadorRapido({ candidatas, onSeleccionar }: BuscadorRapidoProp
       {abierto && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setAbierto(false)} />
-          <div className="absolute right-0 top-full mt-1.5 z-20 w-72 rounded-xl border border-border bg-card shadow-lg overflow-hidden">
+          <div className="absolute right-0 top-full mt-1.5 z-20 w-72 rounded-xl border border-border bg-card shadow-lg overflow-hidden menu-pop-in">
             <input
               ref={inputRef}
               value={texto}

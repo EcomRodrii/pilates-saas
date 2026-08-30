@@ -892,7 +892,7 @@ function TarjetaMiembro({
               <MoreVertical size={15} />
             </button>
             {menuAbierto && (
-              <div data-menu-equipo className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-border bg-card shadow-lg py-1">
+              <div data-menu-equipo className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-border bg-card shadow-lg py-1 menu-pop-in">
                 {cif.conValoracion && (
                   <button onClick={onValoraciones} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
                     <Star size={14} className="text-[#F5B301]" fill="#F5B301" /> Ver valoraciones
