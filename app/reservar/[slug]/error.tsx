@@ -41,6 +41,7 @@ export default function ReservarError({ error, reset }: { error: Error & { diges
         <button
           type="button"
           onClick={reset}
+          className="transition-[filter,transform] duration-150 hover:brightness-95 active:scale-[.98]"
           style={{
             marginTop: 14, height: 44, padding: '0 22px', borderRadius: 22, cursor: 'pointer',
             border: '1px solid var(--portal-line, #d9d9d6)', background: 'var(--portal-surface, #ffffff)', color: 'var(--portal-ink, #1a1a1a)',

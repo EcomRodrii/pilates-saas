@@ -40,7 +40,7 @@ export default function PanelError({ error, reset }: { error: Error & { digest?:
         <button
           type="button"
           onClick={reset}
-          className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold"
+          className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold transition-[filter,transform] duration-150 hover:brightness-95 active:scale-[.98]"
         >
           Reintentar
         </button>

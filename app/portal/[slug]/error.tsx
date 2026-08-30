@@ -40,6 +40,7 @@ export default function PortalError({ error, reset }: { error: Error & { digest?
         <button
           type="button"
           onClick={reset}
+          className="transition-[filter,transform] duration-150 hover:brightness-95 active:scale-[.98]"
           style={{
             marginTop: 14, height: 46, padding: '0 22px', borderRadius: 23, border: 'none', cursor: 'pointer',
             background: 'var(--portal-brand, #131313)', color: 'var(--portal-brand-foreground, #ffffff)',
