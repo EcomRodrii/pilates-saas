@@ -1355,8 +1355,12 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio, origenTentare = '' }
   const yaMia = slot.miEstado === 'CONFIRMADA' || slot.miEstado === 'LISTA_ESPERA';
   const mostrarPrecio = slot.precio != null && !ocultarPrecio && !yaMia;
 
+  // ⚠️ Copia exacta del `.dc.html` (2026-08-30): el badge de plazas de una
+  // clase donde ya estás en lista de espera dice «Completa» — NO repite «En
+  // espera», que ya lo dice el CTA de al lado. Antes decía «En espera» aquí
+  // también, redundante.
   const plazasTxt = slot.miEstado === 'CONFIRMADA' ? 'Tu plaza'
-    : slot.miEstado === 'LISTA_ESPERA' ? 'En espera'
+    : slot.miEstado === 'LISTA_ESPERA' ? 'Completa'
     : lleno ? 'Completa'
     : libres <= 2 ? `Quedan ${libres}`
     : `${libres} plazas libres`;
