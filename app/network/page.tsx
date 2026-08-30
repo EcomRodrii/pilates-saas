@@ -191,25 +191,39 @@ export default function NetworkLandingPage() {
           </div>
 
           <div className="nw-fade-up max-w-[660px] mt-[26px]">
-            <div className="flex flex-wrap items-stretch gap-3.5 rounded-[22px] p-3 sm:py-3 sm:pr-3 sm:pl-[26px]" style={{ background: PAPEL, boxShadow: '0 24px 60px -24px rgba(0,0,0,.5)' }}>
-              <div className="flex-1 min-w-[130px] flex flex-col justify-center py-1.5 px-2 sm:px-0">
+            {/* Antes eran <span> estáticos ("Reformer"/"Barcelona" fijos) y
+                el botón enlazaba a /network/instructoras sin ningún filtro —
+                pedido explícito: "que sea funcional". <form method="GET">
+                nativo, sin JS: el navegador arma la querystring él solo y
+                /network/instructoras (filtroDesdeSearchParams) ya sabe
+                leerla — mismo mecanismo que los enlaces de "Populares"
+                de abajo. */}
+            <form action="/network/instructoras" method="GET" className="flex flex-wrap items-stretch gap-3.5 rounded-[22px] p-3 sm:py-3 sm:pr-3 sm:pl-[26px]" style={{ background: PAPEL, boxShadow: '0 24px 60px -24px rgba(0,0,0,.5)' }}>
+              <label className="flex-1 min-w-[130px] flex flex-col justify-center py-1.5 px-2 sm:px-0">
                 <span className="text-[10px] uppercase tracking-[.14em] font-medium" style={{ fontFamily: MONO, color: GRIS_VERDOSO }}>¿Qué buscas?</span>
-                <span className="mt-[3px] text-[17px] font-semibold" style={{ color: MUTED_2 }}>Reformer</span>
-              </div>
+                <select name="especialidades" defaultValue="reformer" className="mt-[3px] text-[17px] font-semibold bg-transparent border-0 outline-none p-0 w-full" style={{ color: MUTED_2 }}>
+                  <option value="reformer">Reformer</option>
+                  <option value="mat">Mat</option>
+                  <option value="maquina">Máquina</option>
+                  <option value="yoga">Yoga</option>
+                  <option value="hiit">HIIT</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </label>
               <span aria-hidden="true" className="w-px my-1 hidden xs:block" style={{ background: BORDE }} />
-              <div className="flex-1 min-w-[130px] flex flex-col justify-center py-1.5 px-2 sm:px-0">
+              <label className="flex-1 min-w-[130px] flex flex-col justify-center py-1.5 px-2 sm:px-0">
                 <span className="text-[10px] uppercase tracking-[.14em] font-medium" style={{ fontFamily: MONO, color: GRIS_VERDOSO }}>¿Dónde?</span>
-                <span className="mt-[3px] text-[17px] font-semibold" style={{ color: MUTED_2 }}>Barcelona</span>
-              </div>
-              <Link href="/network/instructoras" className="w-full sm:w-auto shrink-0 self-center text-center rounded-full px-7 py-[17px] text-[15.5px] font-extrabold whitespace-nowrap" style={{ background: INK, color: PAPEL }}>Buscar instructoras</Link>
-            </div>
+                <input type="text" name="ciudad" defaultValue="Barcelona" placeholder="Ciudad" autoComplete="off" className="mt-[3px] text-[17px] font-semibold bg-transparent border-0 outline-none p-0 w-full" style={{ color: MUTED_2 }} />
+              </label>
+              <button type="submit" className="w-full sm:w-auto shrink-0 self-center text-center rounded-full px-7 py-[17px] text-[15.5px] font-extrabold whitespace-nowrap" style={{ background: INK, color: PAPEL }}>Buscar instructoras</button>
+            </form>
             <p className="mt-3.5 ml-1 text-[14px]" style={{ color: 'rgba(250,249,245,.75)' }}>
               Populares:{' '}
-              <Link href="/network/instructoras?especialidad=reformer" className="font-extrabold" style={{ color: PAPEL }}>Reformer</Link>
+              <Link href="/network/instructoras?especialidades=reformer" className="font-extrabold" style={{ color: PAPEL }}>Reformer</Link>
               <span style={{ color: 'rgba(250,249,245,.4)' }}> · </span>
-              <Link href="/network/instructoras?especialidad=prenatal" className="font-extrabold" style={{ color: PAPEL }}>Prenatal</Link>
+              <Link href="/network/instructoras?especialidades=yoga" className="font-extrabold" style={{ color: PAPEL }}>Yoga</Link>
               <span style={{ color: 'rgba(250,249,245,.4)' }}> · </span>
-              <Link href="/network" className="font-extrabold" style={{ color: PAPEL }}>Sustituciones</Link>
+              <Link href="/network/instructoras?tipoTrabajo=sustituciones" className="font-extrabold" style={{ color: PAPEL }}>Sustituciones</Link>
             </p>
             <p className="flex items-center gap-2 mt-2.5 ml-1 text-[13.5px]" style={{ color: 'rgba(250,249,245,.65)' }}>
               <span aria-hidden="true" className="nw-pulse-dot w-[7px] h-[7px] rounded-full" style={{ background: NW_PRODUCTO }} />
