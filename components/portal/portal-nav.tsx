@@ -26,7 +26,7 @@
 
 import Link from 'next/link';
 import {
-  Home, CalendarDays, Ticket, Video, User, Star, Heart, Bell, MessageCircle, Sparkles, MapPin, Dumbbell,
+  Home, CalendarDays, Ticket, Video, User, Star, Heart, Bell, MessageCircle, Sparkles, MapPin, Dumbbell, Search,
   type LucideIcon,
 } from 'lucide-react';
 import { PilatesIcon } from '@/components/icons/pilates-icon';
@@ -36,7 +36,7 @@ import type { NavItemDefault } from '@/lib/portal-nav';
 import { usePortalHref } from './portal-preview-bridge';
 
 const ICONOS: Record<string, LucideIcon | typeof PilatesIcon> = {
-  Home, CalendarDays, Ticket, Video, User, Star, Heart, Bell, MessageCircle, Sparkles, MapPin, Dumbbell,
+  Home, CalendarDays, Ticket, Video, User, Star, Heart, Bell, MessageCircle, Sparkles, MapPin, Dumbbell, Search,
   Pilates: PilatesIcon,
 };
 
