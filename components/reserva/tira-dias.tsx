@@ -18,7 +18,7 @@
 // (`contarSlotsPorDia`) — no conoce `ReservaSlot` ni fetching.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useRef, type CSSProperties } from 'react';
+import { useRef, useCallback, type CSSProperties } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { localDayKey } from '@/lib/reserva-calendario-logic';
 
@@ -55,18 +55,42 @@ export function TiraDias({
   mananaKey: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  // ⚠️ Bug real de producción (2026-08-29): "al pasar los días la flecha se
+  // queda bugeada" — las flechas ‹ › solo hacían `scrollBy` en el contenedor,
+  // sin tocar `seleccionado`. Tras un par de toques el chip activo salía del
+  // viewport (ningún chip se veía marcado) y el listado de abajo seguía
+  // mostrando el día de antes: la tira se movía, pero no "pasaba de día" de
+  // verdad. Las flechas ahora SELECCIONAN el día siguiente/anterior de la
+  // lista (igual que tocar un chip) y desplazan ESE chip a la vista — el
+  // scroll por arrastre/gesto directo sobre la tira sigue siendo libre, sin
+  // seleccionar nada hasta que se suelta sobre un chip.
+  const chipRefs = useRef(new Map<string, HTMLButtonElement>());
+  const registrarChip = useCallback((key: string) => (el: HTMLButtonElement | null) => {
+    if (el) chipRefs.current.set(key, el);
+    else chipRefs.current.delete(key);
+  }, []);
+  const idxSeleccionado = dias.findIndex(d => localDayKey(d) === seleccionado);
 
-  function desplazar(delta: number) {
-    scrollRef.current?.scrollBy({ left: delta, behavior: 'smooth' });
+  function irA(deltaIdx: number) {
+    // Si `seleccionado` no está en `dias` (fuera de la ventana de 10 días),
+    // no hay "siguiente/anterior" que calcular con sentido — se deja como
+    // no-op en vez de adivinar un índice.
+    if (idxSeleccionado === -1) return;
+    const nuevoIdx = idxSeleccionado + deltaIdx;
+    if (nuevoIdx < 0 || nuevoIdx >= dias.length) return;
+    const key = localDayKey(dias[nuevoIdx]);
+    onSeleccionar(key);
+    chipRefs.current.get(key)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   }
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: tokens.fuenteUI }}>
       <button
         type="button"
-        onClick={() => desplazar(-240)}
-        aria-label="Días anteriores"
-        style={botonFlecha(tokens)}
+        onClick={() => irA(-1)}
+        disabled={idxSeleccionado <= 0}
+        aria-label="Día anterior"
+        style={{ ...botonFlecha(tokens), opacity: idxSeleccionado <= 0 ? 0.4 : 1, cursor: idxSeleccionado <= 0 ? 'default' : 'pointer' }}
       >
         <ChevronLeft size={16} />
       </button>
@@ -92,6 +116,7 @@ export function TiraDias({
           return (
             <button
               key={key}
+              ref={registrarChip(key)}
               type="button"
               role="tab"
               aria-selected={activo}
@@ -150,9 +175,14 @@ export function TiraDias({
 
       <button
         type="button"
-        onClick={() => desplazar(240)}
-        aria-label="Días siguientes"
-        style={botonFlecha(tokens)}
+        onClick={() => irA(1)}
+        disabled={idxSeleccionado !== -1 && idxSeleccionado >= dias.length - 1}
+        aria-label="Día siguiente"
+        style={{
+          ...botonFlecha(tokens),
+          opacity: idxSeleccionado !== -1 && idxSeleccionado >= dias.length - 1 ? 0.4 : 1,
+          cursor: idxSeleccionado !== -1 && idxSeleccionado >= dias.length - 1 ? 'default' : 'pointer',
+        }}
       >
         <ChevronRight size={16} />
       </button>
