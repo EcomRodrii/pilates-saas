@@ -40,6 +40,7 @@ import {
 import { cn, formatEuro } from '@/lib/utils';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { Toast } from '@/components/ui/toast';
+import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -673,7 +674,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <TabBar active={activeTab} onChange={setActiveTab} verFinanzas={verFinanzas} verFichaClinica={verFichaClinica} gestionaClientas={gestionaClientas} />
 
-            <div className="p-5">
+            <ReanimarAlCambiar clave={activeTab} className="p-5" animClassName="tab-content-in">
 
               {/* ═══ TAB: RESUMEN ═══════════════════════════════════════════ */}
               {activeTab === 'resumen' && (
@@ -1489,7 +1490,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <FichaDocumentos socioId={id} />
               )}
 
-            </div>
+            </ReanimarAlCambiar>
           </div>
         </div>
 

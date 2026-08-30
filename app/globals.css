@@ -548,6 +548,13 @@ nextjs-portal { display: none !important; }
 @keyframes menu-pop-in { from { opacity: 0; transform: scale(.98); } to { opacity: 1; transform: scale(1); } }
 .menu-pop-in { animation: menu-pop-in var(--motion-fast) var(--motion-ease) both; }
 
+/* Contenido de pestañas propias (fuera del <Tabs> compartido de base-ui, que
+   ya anima solo): cambiar de pestaña era un corte seco. Crossfade puro, sin
+   transform — sección 12 del brief pide justo esto y nada de "reproducir una
+   animación completa de página" en cada cambio de tab. */
+@keyframes tab-content-in { from { opacity: 0; } to { opacity: 1; } }
+.tab-content-in { animation: tab-content-in var(--motion-fast) var(--motion-ease) both; }
+
 /* Toast (components/ui/toast.tsx) — entraba/salía de golpe, sin transición.
    Entrada con algo más de presencia (sube desde abajo, es una confirmación);
    salida más corta, mismo criterio que el resto de overlays de este archivo
