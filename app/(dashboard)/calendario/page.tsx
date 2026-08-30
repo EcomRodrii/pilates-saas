@@ -2252,7 +2252,7 @@ export default function Calendario() {
       )}
 
       {/* ── Día por salas / Semana 7 columnas / Mes ────────────────────────────── */}
-      <ReanimarAlCambiar clave={claveVista} className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6 calendario-vista-in">
+      <ReanimarAlCambiar clave={claveVista} className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6" animClassName="calendario-vista-in">
         {!datosVista ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando…</div>
         ) : vista === 'dia' ? (
