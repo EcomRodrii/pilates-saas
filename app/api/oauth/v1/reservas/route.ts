@@ -36,10 +36,11 @@ export async function GET(req: NextRequest) {
 // POST /api/oauth/v1/reservas — action "Crear reserva" de Zapier. Reutiliza
 // crearReservaPublica (mismo camino que /reservar, con todas sus reglas:
 // ventana, gate de plan/bono, aforo transaccional). Esa función exige el
-// email de la socia para validarla (pensada para JWT de magic link); aquí no
-// hay JWT de socia, así que se lee su email de la BD, ya acotado por
-// studio_id — el aislamiento lo da el token OAuth, no ese email. Requiere
-// `reservas:escribir`.
+// auth_user_id de la socia para validarla (pensada para JWT de magic link);
+// aquí no hay JWT de socia, así que se lee su auth_user_id de la BD, ya
+// acotado por studio_id — el aislamiento lo da el token OAuth, no ese valor
+// (que puede ser NULL si la socia nunca reclamó su cuenta, y eso no bloquea
+// nada aquí). Requiere `reservas:escribir`.
 export async function POST(req: NextRequest) {
   return conOAuth(req, { scope: 'reservas:escribir', metodo: 'POST', ruta: '/api/oauth/v1/reservas', rateLimitKey: 'oauth-v1-reservas-post', rateLimitMax: 20 }, async (ctx, admin) => {
     const body = await req.json().catch(() => null) as {
@@ -54,13 +55,13 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: socio } = await admin
-      .from('socios').select('email').eq('id', socioId).eq('studio_id', ctx.studioId).is('borrado_en', null).maybeSingle();
+      .from('socios').select('auth_user_id').eq('id', socioId).eq('studio_id', ctx.studioId).is('borrado_en', null).maybeSingle();
     if (!socio) {
       return { status: 404, body: { error: 'Clienta no encontrada' } };
     }
 
     const resultado = await crearReservaPublica({
-      studioId: ctx.studioId, sesionId, socioId, email: socio.email, spotId,
+      studioId: ctx.studioId, sesionId, socioId, authUserId: socio.auth_user_id, spotId,
     });
 
     if ('error' in resultado) return { status: 400, body: { error: resultado.error } };

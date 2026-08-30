@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       }
       const r = await crearCitaPublica({
         studioId: body.studioId, servicioId: body.servicioId, instructorId: body.instructorId,
-        inicioISO: body.inicioISO, socioId, email: user.email,
+        inicioISO: body.inicioISO, socioId, authUserId: user.userId,
       });
       if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
       return NextResponse.json(r);
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     if (body.accion === 'cancelar') {
       if (!body.citaId) return NextResponse.json({ error: 'Falta la cita' }, { status: 400 });
       const r = await cancelarCitaPublica({
-        studioId: body.studioId, citaId: body.citaId, socioId, email: user.email,
+        studioId: body.studioId, citaId: body.citaId, socioId, authUserId: user.userId,
       });
       if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
       return NextResponse.json(r);
