@@ -562,7 +562,7 @@ export type ClaveBloque = BloqueTipoCatalogo | BloqueSistemaId;
 export const CAMPOS_CABECERA = [
   {
     tipo: 'texto', id: 'fraseSinClase', etiqueta: 'Frase cuando no tiene clase hoy',
-    porDefecto: 'Tu sitio sigue aquí.', maxLargo: 60,
+    porDefecto: '¿Qué te apetece hoy?', maxLargo: 60,
   },
   {
     tipo: 'texto', id: 'fraseConClase', etiqueta: 'Frase cuando sí tiene clase hoy',

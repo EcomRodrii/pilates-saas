@@ -170,7 +170,7 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
     await expect(frame.getByRole('heading', { name: 'Vista', exact: true })).toBeVisible();
     // Y con ella el subtítulo ascendido a titular, que en 'clasica' iba dentro
     // del saludo.
-    await expect(frame.getByText('Tu sitio sigue aquí.')).toBeVisible();
+    await expect(frame.getByText('¿Qué te apetece hoy?')).toBeVisible();
     // Retos: el fondo propio del reto (#CFEFD6, lib/retos-portal.ts).
     await expect(reto).toHaveCSS('background-color', 'rgb(207, 239, 214)');
   });

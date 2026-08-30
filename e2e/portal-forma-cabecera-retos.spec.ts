@@ -22,7 +22,7 @@ test.describe('Inicio — cabecera por variante', () => {
     await expect(page.getByRole('heading', { name: /^Hola, / })).toHaveCount(0);
     await expect(page.getByText(/^Buen(os|as) (días|tardes|noches)$/)).toBeVisible();
     // El mensaje real del día, ahora en grande — no una frase de marketing.
-    await expect(page.getByText(/Hoy tienes una cita contigo\.|Tu sitio sigue aquí\./)).toBeVisible();
+    await expect(page.getByText(/Hoy tienes una cita contigo\.|¿Qué te apetece hoy\?/)).toBeVisible();
   });
 });
 
