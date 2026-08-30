@@ -547,6 +547,10 @@ export default function MiPerfilNetworkPage() {
               <p className="text-[16px] font-semibold text-foreground mb-3">
                 {saludoDelMomento()}, {form.nombre.split(' ')[0] || 'de nuevo'} 👋
               </p>
+              {/* De 2 a 4 tarjetas: las dos nuevas usan datos que YA se
+                  cargaban en este componente (experiencias/referencias, para
+                  los badges) pero no se enseñaban en ningún sitio — "se ve
+                  vacío" era literal, había contenido real sin pintar. */}
               <div className="grid grid-cols-2 gap-3">
                 <Link
                   href="/network/solicitudes"
@@ -567,6 +571,67 @@ export default function MiPerfilNetworkPage() {
                   <p className="text-[13px] font-medium text-foreground">{DISPONIBILIDAD_ESTADO_LABEL[form.disponibilidadEstado]}</p>
                   <p className="text-[12px] text-muted-foreground">Actualizar disponibilidad</p>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setPaso(PASOS.findIndex(p => p.id === 'experiencia'))}
+                  className="rounded-xl border border-border p-3.5 text-left hover:bg-muted/50 transition-colors"
+                >
+                  <p className="text-[20px] font-semibold text-foreground">{experiencias.length}</p>
+                  <p className="text-[12px] text-muted-foreground">
+                    {experiencias.length === 1 ? 'estudio en tu experiencia' : 'estudios en tu experiencia'}
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaso(PASOS.findIndex(p => p.id === 'experiencia'))}
+                  className="rounded-xl border border-border p-3.5 text-left hover:bg-muted/50 transition-colors"
+                >
+                  <p className="text-[20px] font-semibold text-foreground">{referencias.filter(r => r.estado === 'confirmada').length}</p>
+                  <p className="text-[12px] text-muted-foreground">
+                    {referencias.filter(r => r.estado === 'confirmada').length === 1 ? 'referencia confirmada' : 'referencias confirmadas'}
+                  </p>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Checklist de lo que falta — solo con datos reales de
+              calcularCompletitudPerfil (nunca un % sin lo que lo sostiene,
+              mismo criterio que el resto del Decision OS). Antes el % de
+              arriba de la barra de progreso era el ÚNICO rastro de que
+              faltaba algo; sin desglose, "70%" no dice qué falta ni cómo
+              llegar ahí. */}
+          {perfil && porcentaje < 100 && (
+            <div className={`${cardCls} p-6`}>
+              <h3 className="text-[14px] font-semibold text-foreground mb-1">Completa tu perfil</h3>
+              <p className="text-[12px] text-muted-foreground mb-3">
+                Un perfil completo se nota — los estudios ven de un vistazo si de verdad encajas.
+              </p>
+              <div className="space-y-1.5">
+                {(
+                  [
+                    { clave: 'datosBasicos' as const, label: 'Nombre y ciudad', paso: 'basicos' },
+                    { clave: 'foto' as const, label: 'Foto de perfil', paso: 'basicos' },
+                    { clave: 'especialidades' as const, label: 'Especialidades', paso: 'especialidades' },
+                    { clave: 'experiencia' as const, label: 'Experiencia', paso: 'experiencia' },
+                    { clave: 'preferencias' as const, label: 'Dónde quieres trabajar', paso: 'trabajo' },
+                    { clave: 'disponibilidad' as const, label: 'Disponibilidad', paso: 'disponibilidad' },
+                    { clave: 'tarifa' as const, label: 'Tarifa orientativa', paso: 'tarifa' },
+                  ] as const
+                ).filter(item => !detalle[item.clave]).map(item => (
+                  <button
+                    key={item.clave}
+                    type="button"
+                    onClick={() => setPaso(PASOS.findIndex(p => p.id === item.paso))}
+                    className="w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="flex items-center gap-2 text-[13px] text-foreground">
+                      <span className="w-4 h-4 rounded-full border border-border shrink-0" aria-hidden="true" />
+                      {item.label}
+                    </span>
+                    <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -655,14 +720,30 @@ export default function MiPerfilNetworkPage() {
                 <p className="text-[12.5px] text-muted-foreground">{form.ciudad || 'Sin ciudad'}{form.zona ? ` · ${form.zona}` : ''}</p>
               </div>
             </div>
+            {/* Antes "Reformer · Yoga · Mat" como texto plano — mismo dato,
+                pero como chips se lee como un perfil rellenado de verdad, no
+                como una fila de un CSV. Mismo componente visual que ya usa
+                el perfil público (instructoras/[slug]). */}
             {form.especialidades.length > 0 && (
-              <p className="text-[12.5px] text-foreground">{form.especialidades.map(e => ESPECIALIDAD_LABEL[e]).join(' · ')}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {form.especialidades.map(e => (
+                  <span key={e} className="px-2.5 py-1 rounded-full text-[11.5px] font-medium bg-muted text-foreground">
+                    {ESPECIALIDAD_LABEL[e]}
+                  </span>
+                ))}
+              </div>
             )}
             <p className="text-[12px] text-muted-foreground">
               {form.tarifaRango ? TARIFA_RANGO_LABEL[form.tarifaRango] : 'Tarifa sin especificar'}
               {' · '}
               {DISPONIBILIDAD_ESTADO_LABEL[form.disponibilidadEstado]}
             </p>
+            {form.mostrarEstudiosActuales && sedesActuales.length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground mb-1">Actualmente en</p>
+                <p className="text-[12.5px] text-foreground">{sedesActuales.map(s => s.nombre).join(' · ')}</p>
+              </div>
+            )}
             {perfil?.slug && perfil.estado === 'published' && (
               <a href={`/network/instructoras/${perfil.slug}`} target="_blank" rel="noreferrer" className="text-[12px] text-brand font-medium inline-block">
                 Ver mi perfil público →
