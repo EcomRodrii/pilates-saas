@@ -352,16 +352,31 @@ export default function NetworkLandingPage() {
       </section>
 
       {/* Footer */}
+      {/* Pie — el mockup solo traía Producto/Network/Precios/Privacidad (las
+          anclas de su propia landing general). Completado con los enlaces
+          reales de Network (pedido explícito tras el clon #1482): el
+          marketplace y sus dos legales propios, más el aviso legal y
+          cookies compartidos con el resto de Tentare. */}
       <footer style={{ background: OSCURO, color: 'rgba(250,249,245,.7)', borderTop: '1px solid rgba(250,249,245,.12)' }} className="px-[clamp(18px,3.5vw,48px)] py-[34px]">
-        <div className="max-w-[1340px] mx-auto flex flex-wrap gap-[18px] items-center justify-between">
-          <LogoTentare formato="horizontal" tinta="blanco" producto="network" titulo="Tentare Network" alto={22} decorativo />
-          <div className="flex gap-5 flex-wrap text-[13px]">
-            <a href="#estudio" style={{ color: 'rgba(250,249,245,.7)' }}>Producto</a>
-            <a href="#network" style={{ color: 'rgba(250,249,245,.7)' }}>Network</a>
-            <Link href="/precios" style={{ color: 'rgba(250,249,245,.7)' }}>Precios</Link>
-            <Link href="/privacidad" style={{ color: 'rgba(250,249,245,.7)' }}>Privacidad</Link>
+        <div className="max-w-[1340px] mx-auto flex flex-col gap-6">
+          <div className="flex flex-wrap gap-[18px] items-center justify-between">
+            <LogoTentare formato="horizontal" tinta="blanco" producto="network" titulo="Tentare Network" alto={22} decorativo />
+            <div className="flex gap-5 flex-wrap text-[13px]">
+              <a href="#estudio" style={{ color: 'rgba(250,249,245,.7)' }}>Producto</a>
+              <Link href="/network/instructoras" style={{ color: 'rgba(250,249,245,.7)' }}>Explorar instructoras</Link>
+              <Link href="/network/acceso" style={{ color: 'rgba(250,249,245,.7)' }}>Acceso</Link>
+              <Link href="/precios" style={{ color: 'rgba(250,249,245,.7)' }}>Precios</Link>
+            </div>
           </div>
-          <p className="m-0 text-[12px]" style={{ color: 'rgba(250,249,245,.45)' }}>© 2026 Tentare · Barcelona</p>
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-5" style={{ borderTop: '1px solid rgba(250,249,245,.12)' }}>
+            <div className="flex gap-5 flex-wrap text-[12.5px]" style={{ color: 'rgba(250,249,245,.55)' }}>
+              <Link href="/network/terminos" style={{ color: 'inherit' }}>Términos de Network</Link>
+              <Link href="/network/privacidad" style={{ color: 'inherit' }}>Privacidad de Network</Link>
+              <Link href="/legal" style={{ color: 'inherit' }}>Aviso legal</Link>
+              <Link href="/cookies" style={{ color: 'inherit' }}>Cookies</Link>
+            </div>
+            <p className="m-0 text-[12px]" style={{ color: 'rgba(250,249,245,.45)' }}>© 2026 Tentare · Barcelona</p>
+          </div>
         </div>
       </footer>
     </div>
