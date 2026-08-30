@@ -18,6 +18,16 @@ import { NW_PRODUCTO } from './tokens';
 //    blur) — la estructura se replica aquí tal cual, en su variante oscura
 //    (el hero de Network es oscuro de fondo, no la foto clara de la landing
 //    general) en vez del cristal claro del original.
+// 3ª (2026-08-30, mismo día): "sigue saliendo eso blanco" — la píldora
+//    tiene `top-3.5` para no pegarse al borde, pero ese offset EMPUJA el
+//    resto de la página hacia abajo en el flujo normal (un `position:
+//    sticky` con `top` se comporta como `relative` hasta que se activa el
+//    scroll): el hueco de 14px+alto-de-la-píldora dejaba ver el fondo
+//    crema de la página (PAPEL) por encima del hero oscuro, en vez de la
+//    píldora flotando SOBRE la foto como en la referencia. `-mb-[70px]`
+//    (offset + alto real de la píldora) tira del <header> siguiente hacia
+//    arriba para que arranque exactamente donde arrancaría sin nav — la
+//    píldora queda flotando encima por el z-index, sin dejar hueco.
 const OSCURO = '#0F0F0C';
 const PAPEL = '#FAF9F5';
 
@@ -31,7 +41,7 @@ export function NavLandingClon() {
   const [abierto, setAbierto] = useState(false);
 
   return (
-    <div id="top" className="sticky top-3.5 z-[60] flex justify-center px-3">
+    <div id="top" className="sticky top-3.5 -mb-[58px] z-[60] flex justify-center px-3">
       <nav
         aria-label="Principal"
         className="relative flex items-center gap-[18px] w-fit max-w-full rounded-full pl-[18px] pr-2 py-2"
