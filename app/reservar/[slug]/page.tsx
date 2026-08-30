@@ -1996,6 +1996,15 @@ export default function ReservarPage() {
     // handleConfirm, así que booking_completed se dispara aquí — sin alterar
     // lo que se devuelve a quien llama (la hoja del calendario lo necesita
     // para pintar confirmación/lista de espera in situ).
+    //
+    // ⚠️ Seguro SOLO porque el único disparador de este handler para una
+    // socia autenticada es el botón "Reservar" DENTRO de la ficha de
+    // detalle (`saltarFichaSiInvitada` en reserva-calendario.tsx la
+    // mantiene abierta para socias, precisamente por esto) — un tap en la
+    // TARJETA nunca llega aquí directo para ella. Si algún día una socia
+    // autenticada también saltara la ficha, este camino habría que
+    // quitarlo primero: sería "un tap reserva sin preguntar", con
+    // bono/dinero de por medio.
     const resultado = addReserva(slot.id, socia.socioId, spotId);
     void resultado.then(r => {
       if (r.ok) trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: slot.id, socioId: socia?.socioId ?? null });
@@ -2818,6 +2827,19 @@ export default function ReservarPage() {
                 // aquí TAMBIÉN es redundante; con sesión, en cambio, esta
                 // ficha SÍ es el único paso.
                 ocultarSelectorSitio={!autenticado}
+                // Petición explícita del fundador (2026-08-30, "no quiero
+                // que se coma 3 pantallas seguidas"): SOLO para invitadas
+                // (sin sesión) la tarjeta salta directa a `onReservar` —
+                // 'login'/'datos' es su único paso siguiente de todos modos,
+                // y "Tus datos" ya trae su propia foto/descripción/
+                // ubicación. Para una socia autenticada la ficha SIGUE
+                // siendo el único paso antes de 'confirm' (que no repite
+                // nada) Y es donde se ve el descuento de bono antes de
+                // confirmar ("Descuenta 1 sesión de tu Bono X · te quedarán
+                // Y") — 'confirm' no muestra ese aviso, así que saltarla ahí
+                // también habría sido una pérdida real de transparencia
+                // sobre qué le va a costar, no solo un paso de menos.
+                saltarFichaSiInvitada={!autenticado}
                 loading={!dataLoaded}
                 onReservar={handleReservarCalendario}
                 onCancelar={cancelarReserva}

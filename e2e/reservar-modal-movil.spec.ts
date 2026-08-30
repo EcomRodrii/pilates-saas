@@ -65,10 +65,10 @@ async function abrirPasoDatos(page: Page) {
     await page.goto(`/reservar/${SLUG}?tab=clases`);
     if (await page.locator('#horario').waitFor({ timeout: 30_000 }).then(() => true).catch(() => false)) break;
   }
+  // Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
+  // pantallas seguidas"): un tap en la tarjeta dispara `onReservar` directo,
+  // sin ficha de detalle intermedia con su propio botón "Reservar".
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
-  const reservar = page.getByRole('button', { name: /^Reservar/ }).last();
-  await expect(reservar).toBeVisible({ timeout: 15_000 });
-  await reservar.click();
   await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible({ timeout: 30_000 });
 }
 

@@ -245,6 +245,18 @@ export interface ReservaCalendarioProps {
    */
   ocultarSelectorSitio?: boolean;
   /**
+   * Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
+   * pantallas seguidas"): para una visitante SIN sesión, un tap en la
+   * tarjeta llama a `onReservar` directo en vez de abrir la ficha de
+   * detalle como paso intermedio — 'login'/'datos' es su único paso
+   * siguiente de todos modos, y "Tus datos" ya trae su propia foto/
+   * descripción/ubicación. El llamador (que sabe si hay sesión) lo activa
+   * solo para invitadas: para una socia autenticada la ficha sigue siendo
+   * necesaria (avisa del descuento de bono antes de confirmar, algo que
+   * 'confirm' no muestra).
+   */
+  saltarFichaSiInvitada?: boolean;
+  /**
    * 'hoy' = la ventana de días se reduce al día de hoy (una sola columna en
    * 'grid', un solo chip en 'dias'). 'todo' = la ventana de siempre.
    */
@@ -475,7 +487,7 @@ export function ReservaCalendario({
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE, densidadEsc = 1,
   radiosEsc = { tarjeta: radius.card, boton: radius.pill, input: radius.spot },
   irADia, estiloDias = 'semana', finalizadasHoy, loading = false, filtrosChips,
-  ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false, vistaInicial = 'todo',
+  ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false, saltarFichaSiInvitada = false, vistaInicial = 'todo',
   enIframe = false, franjaVisible = null, alCambiarFicha, origenTentare = '',
   estiloFicha = 'modal', abrirSlotExterno, onAntesDeAbrir,
 }: ReservaCalendarioProps) {
@@ -952,8 +964,20 @@ export function ReservaCalendario({
                   <div key={g.label}>
                     <p style={{ margin: `${densidadCss(10)} 0 8px`, fontSize: 13, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>{g.label}</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: densidadCss(10) }}>
+                      {/* Petición explícita del fundador (2026-08-30): "no
+                          quiero que se coma 3 pantallas seguidas". SOLO para
+                          invitadas (`saltarFichaSiInvitada`, ver docblock del
+                          prop): un tap llama a `onReservar` DIRECTO en vez de
+                          `abrirSlot` — 'login'/'datos' es su único paso
+                          siguiente de todos modos, y "Tus datos" ya trae su
+                          propia foto/descripción/ubicación. Para una socia
+                          autenticada se mantiene `abrirSlot` (ficha): es
+                          donde ve el descuento de bono ANTES de confirmar,
+                          algo que 'confirm' no muestra — quitarla ahí sería
+                          perder transparencia real sobre el coste, no solo
+                          un paso de menos. */}
                       {g.items.map(slot => (
-                        <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => abrirSlot(slot)} ocultarPrecio={ocultarPrecio} origenTentare={origenTentare} />
+                        <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => { if (saltarFichaSiInvitada) void onReservar(slot, null); else abrirSlot(slot); }} ocultarPrecio={ocultarPrecio} origenTentare={origenTentare} />
                       ))}
                     </div>
                   </div>
