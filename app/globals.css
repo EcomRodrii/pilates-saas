@@ -5,6 +5,11 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Tailwind v4 no trae un breakpoint entre el base (0) y `sm` (640px) —
+     el hero de /network (móviles flotando + buscador) necesita un escalón
+     ahí para caber en un iPhone SE (375px) sin recurrir a un `sm:` que
+     salta de golpe. Solo se usa en esa página. */
+  --breakpoint-xs: 30rem;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-jakarta);
@@ -361,6 +366,11 @@
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Sin esto, cualquier elemento decorativo que se salga un par de px de
+       su contenedor (franjas en diagonal, SVG con overflow:visible) abre
+       scroll horizontal en TODA la página — un "desliza a la derecha y se
+       ve blanco" real, no cosmético. Auditoría /network 2026-08-30. */
+    overflow-x: clip;
   }
   html {
     font-family: var(--font-jakarta), system-ui, sans-serif;
