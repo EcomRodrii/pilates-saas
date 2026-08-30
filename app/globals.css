@@ -543,21 +543,39 @@ nextjs-portal { display: none !important; }
    de la lista de clases (`TarjetaClaseImpl`) le faltaban DOS cosas del diseño
    — la entrada con fundido+ascenso (`animation: pUp .35s both` en el
    original) y el tratamiento de hover/activo por borde+sombra en vez de solo
-   un tinte de fondo. Se mantiene el tinte de fondo (accesible con el
-   white-label: usa `--portal-brand`) y se AÑADE encima border-color+shadow
-   en hover y `scale(.995)` en activo, que es justo el matiz que pedía el
-   diseño y el motivo de la queja "las cards estan como cortadas". */
-.reserva-slot-row { transition: background-color .18s ease, border-color .2s ease, box-shadow .25s ease, transform .15s ease; animation: reserva-card-in .35s ease both; }
-.reserva-slot-row:hover { background-color: color-mix(in oklab, var(--portal-brand) 6%, transparent); border-color: var(--portal-micro, var(--portal-line)); box-shadow: 0 10px 26px -16px rgba(15, 15, 15, .18); }
-.reserva-slot-row:active { background-color: color-mix(in oklab, var(--portal-brand) 10%, transparent); transform: scale(.995); }
+   un tinte de fondo.
+   ⚠️ Corregido (2026-08-30, "copia exacta del artefacto, punto por punto"):
+   el `.dc.html` original NO lleva ningún tinte de `background-color` en
+   hover/activo de la tarjeta — solo `border-color`+`box-shadow` en hover
+   (`style-hover="border-color:var(--ter);box-shadow:0 10px 26px -16px
+   rgba(15,15,15,.18)"`) y `transform:scale(.995)` en activo
+   (`style-active="transform:scale(.995)"`), sin tocar el fondo en ningún
+   caso. El tinte de `--portal-brand` que había aquí antes era un añadido
+   propio, no algo del diseño — quitado para que coincida exacto. */
+.reserva-slot-row { transition: border-color .2s ease, box-shadow .25s ease, transform .15s ease; animation: reserva-card-in .35s ease both; }
+.reserva-slot-row:hover { border-color: var(--portal-micro, var(--portal-line)); box-shadow: 0 10px 26px -16px rgba(15, 15, 15, .18); }
+.reserva-slot-row:active { transform: scale(.995); }
 
 @keyframes reserva-card-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 
-.reserva-day-chip:hover { border-color: color-mix(in oklab, var(--portal-brand) 55%, transparent); }
+/* ⚠️ Corregido (2026-08-30): el chip ya no lleva `border` (pasó a anillo
+   interior por `box-shadow`, auditoría del 2026-08-29) — un `:hover` sobre
+   `border-color` no tiene ningún efecto visible ahí, quedó muerto. El
+   diseño no lleva hover en este control; solo `style-active=
+   "transform:scale(.93)"`, que faltaba del todo. `!important` porque el
+   chip fija su propio `transform` en línea (1.04 si está seleccionado, 1 si
+   no) para la escala de reposo — sin él, una regla de clase normal nunca le
+   gana a un `style` en línea. */
+.reserva-day-chip { transition: transform .1s ease; }
+.reserva-day-chip:active { transform: scale(.93) !important; }
 
-.reserva-cta-btn { transition: filter .18s ease, transform .12s ease; }
-.reserva-cta-btn:hover:not(:disabled) { filter: brightness(.94); }
-.reserva-cta-btn:active:not(:disabled) { transform: scale(.98); }
+/* ⚠️ Corregido (2026-08-30): el diseño no lleva ningún efecto de hover en
+   este botón (ni `filter`, ni cambio de fondo) — solo
+   `style-active="transform:scale(.96)"` sobre una transición base de
+   `transform .15s, background .2s`. El `filter:brightness()` en hover y el
+   `scale(.98)` en activo eran un añadido propio, no del `.dc.html`. */
+.reserva-cta-btn { transition: transform .15s ease, background .2s ease; }
+.reserva-cta-btn:active:not(:disabled) { transform: scale(.96); }
 
 @keyframes reserva-banner-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .reserva-banner-in { animation: reserva-banner-in .3s cubic-bezier(0.16, 1, 0.3, 1) both; }

@@ -370,10 +370,15 @@ function fmtDiaLargo(iso: string): string {
 // resolvería contra el dominio del estudio y daría 404. En Modo A (siempre
 // mismo origen que la app) se deja sin pasar y la ruta relativa de siempre
 // sigue funcionando igual que hoy.
-function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefecto = false, origenTentare = '' }: {
+function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefecto = false, origenTentare = '', desaturar = false }: {
   nombre: string; color: string; fotoUrl?: string | null;
   ancho: number | string; alto: number | string; radio: number;
   conFotoPorDefecto?: boolean; origenTentare?: string;
+  /** Copia exacta del `.dc.html`: la foto de la tarjeta se desatura
+   *  (`filter: grayscale(1)`) cuando la clase está completa — la misma señal
+   *  visual de "no disponible" que ya lleva el CTA en gris. Faltaba del
+   *  todo (2026-08-30). */
+  desaturar?: boolean;
 }) {
   // ⚠️ Bug real de producción (2026-08-29): "la imagen sale cortada" — con
   // `alto="100%"` (la tarjeta horizontal del listado, foto a toda altura de
@@ -401,7 +406,7 @@ function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorD
         // vivo con `loading="lazy"`): un blanco puro ahí se lee como hueco
         // roto; con el color de la clase, la foto se siente una mejora
         // progresiva, no una carga que falló.
-        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
+        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color, filter: desaturar ? 'grayscale(1)' : 'none' }}
       />
     );
   }
@@ -414,7 +419,7 @@ function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorD
         loading="lazy"
         decoding="async"
         onError={alFallarImagen(`${origenTentare}${IMAGENES_CLASE.generica}`)}
-        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
+        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color, filter: desaturar ? 'grayscale(1)' : 'none' }}
       />
     );
   }
@@ -1366,7 +1371,7 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio, origenTentare = '' }
           tarjeta no. El sistema de 10 fotos por defecto
           (docs/imagenes-por-defecto, `imagenDeClase`) existe justo para
           evitar ese aspecto de "roto"/"cortado" que reportó el usuario. */}
-      <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho={104} alto="100%" radio={0} conFotoPorDefecto origenTentare={origenTentare} />
+      <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho={104} alto="100%" radio={0} conFotoPorDefecto origenTentare={origenTentare} desaturar={lleno && !yaMia} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: `${densidadCss(13)} ${densidadCss(15)} ${densidadCss(13)} ${densidadCss(16)}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>
