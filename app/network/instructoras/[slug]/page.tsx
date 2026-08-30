@@ -123,7 +123,15 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
         </Link>
 
         <div className="grid lg:grid-cols-[420px_1fr] gap-10">
-          <div>
+          <div className="relative isolate">
+            {/* Franja diagonal — mismo acento que la foto del hero de
+                /network, aquí reafirma que este perfil vive dentro del
+                mismo sistema visual. */}
+            <div
+              aria-hidden="true"
+              className="hidden lg:block absolute -right-4 -bottom-4 w-32 h-32 -z-10 rounded-[22px]"
+              style={{ background: NW_PRODUCTO, transform: 'rotate(-8deg)' }}
+            />
             <FotoInstructora fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} aspectRatio="4 / 4.8" radius={26} eager />
           </div>
 
@@ -139,7 +147,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                 <BotonFavoritoAlumna tipo="instructora" id={perfil.id} compacto />
               </div>
             </div>
-            <p className="mt-2 text-[16px] font-bold" style={{ color: NW_PRODUCTO }}>
+            <p className="mt-2 text-[16px] font-bold italic" style={{ color: NW_PRODUCTO }}>
               {tituloProfesionalDe(perfil.especialidades)}
               {perfil.especialidades.length > 0 ? ` · ${perfil.especialidades.slice(0, 2).map(e => ESPECIALIDAD_LABEL[e]).join(' & ')}` : ''}
             </p>
