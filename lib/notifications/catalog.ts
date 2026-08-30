@@ -20,6 +20,12 @@ export type Audiencia =
   // quien la imparte. Que la instructora se entere de que su clase se cancela o
   // cambia de hora importa tanto como que se enteren las alumnas.
   | 'socias-e-instructora-de-la-sesion'
+  // Igual que la anterior, pero incluyendo a quien está en LISTA_ESPERA o
+  // PENDIENTE_APROBACION. Solo para clase.cancelada: cancelar la clase cancela
+  // también esas reservas (dbCancelarReservasPorSesiones), así que sin esto se
+  // les borra la reserva en silencio. Para clase.modificada NO aplica: a quien
+  // no tiene plaza no le cambia nada que se mueva la hora.
+  | 'socias-y-espera-e-instructora-de-la-sesion'
   // Staff de mostrador: la dueña + las recepcionistas activas. Si el estudio no
   // tiene recepción, resuelve solo a la dueña (comportamiento previo intacto).
   | 'mostrador'
@@ -268,7 +274,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // clase.*: SIN EMAIL a propósito. El panel ya manda su propio correo a cada
   // alumna con plaza (enviarEmailCancelacionClase / avisarAlumnas) → declararlo
   // aquí les llegaría el mismo aviso dos veces.
-  [EVENTOS.CLASE_CANCELADA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-e-instructora-de-la-sesion' },
+  [EVENTOS.CLASE_CANCELADA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-y-espera-e-instructora-de-la-sesion' },
   [EVENTOS.CLASE_MODIFICADA]:      { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-e-instructora-de-la-sesion' },
   // Solo las alumnas: a quien entra a cubrir ya se le avisa por sustitucion.aceptada.
   [EVENTOS.CLASE_SUSTITUTA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
@@ -385,6 +391,7 @@ export const ROLES_POR_AUDIENCIA: Record<Audiencia, NotificationRole[]> = {
   'socia-del-evento': ['SOCIA'],
   'socias-de-la-sesion': ['SOCIA'],
   'socias-e-instructora-de-la-sesion': ['SOCIA', 'INSTRUCTOR'],
+  'socias-y-espera-e-instructora-de-la-sesion': ['SOCIA', 'INSTRUCTOR'],
   'propietaria': ['PROPIETARIO'],
   'instructora-del-evento': ['INSTRUCTOR'],
   // El manager entra en «mostrador»: lleva la sede, así que un aviso de lo que

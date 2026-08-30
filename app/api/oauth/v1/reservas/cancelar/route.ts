@@ -23,11 +23,11 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: socio } = await admin
-      .from('socios').select('email').eq('id', reserva.socio_id).eq('studio_id', ctx.studioId).maybeSingle();
+      .from('socios').select('auth_user_id').eq('id', reserva.socio_id).eq('studio_id', ctx.studioId).maybeSingle();
     if (!socio) return { status: 404, body: { error: 'Clienta no encontrada' } };
 
     const resultado = await cancelarReservaPublica({
-      studioId: ctx.studioId, reservaId, socioId: reserva.socio_id, email: socio.email,
+      studioId: ctx.studioId, reservaId, socioId: reserva.socio_id, authUserId: socio.auth_user_id,
     });
 
     if ('error' in resultado) return { status: 400, body: { error: resultado.error } };

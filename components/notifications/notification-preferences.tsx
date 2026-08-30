@@ -39,6 +39,7 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
   const [cargando, setCargando] = useState(true);
   const [permiso, setPermiso] = useState<NotificationPermission | 'unsupported'>('default');
   const [activando, setActivando] = useState(false);
+  const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
 
   // Notification.permission solo existe en cliente → se lee tras montar.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -73,13 +74,24 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
     const actual = prefs[cat] ?? DEFECTO;
     const siguiente = { ...actual, [canal]: !actual[canal] };
     setPrefs(p => ({ ...p, [cat]: siguiente }));
-    await guardarPreferencia(getHeaders, studioId, cat, siguiente);
+    setErrorGuardado(null);
+    // Gemelo de components/portal/portal-avisos-socia.tsx: escribe-primero CON
+    // vuelta atrás. Sin esto, el interruptor quedaba apagado en pantalla y
+    // encendido en la BD.
+    const ok = await guardarPreferencia(getHeaders, studioId, cat, siguiente);
+    if (!ok) {
+      setPrefs(p => ({ ...p, [cat]: actual }));
+      setErrorGuardado('No se ha podido guardar la preferencia. Inténtalo otra vez.');
+    }
   }
 
   if (cargando) return <p className="text-[13px] text-muted-foreground">Cargando preferencias…</p>;
 
   return (
    <div className="flex flex-col gap-4">
+    {errorGuardado && (
+      <p role="alert" className="text-[12.5px] font-semibold text-destructive">{errorGuardado}</p>
+    )}
     {/* Activar push en este dispositivo */}
     <div className="rounded-2xl border border-border bg-card px-4 py-3.5 flex items-center gap-3">
       <span className={`w-9 h-9 rounded-full flex items-center justify-center ${permiso === 'granted' ? 'bg-emerald-500/10 text-success' : 'bg-brand/10 text-brand-medio'}`}>

@@ -133,15 +133,17 @@ test('la hoja de reserva no deja ninguna superficie clara', async ({ page }) => 
   // («Reformer a las 10:00, con Ana, 10 plazas»), así que buscar «Reservar» no
   // encuentra nada — y el fallo se lee como si la hoja no existiera.
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
-  // ⚠️ Se comprueba que la hoja ESTÁ ABIERTA antes de contar. Sin esto, un clic
-  // que no abriera nada dejaría el test midiendo la misma pantalla del test de
-  // arriba y dando verde sin haber mirado la hoja jamás — el mismo test hueco
-  // que ya se coló dos veces en esta misma tanda.
-  // Por el ENCABEZADO de la hoja (el nombre de la clase), que es la señal
-  // inequívoca de que se abrió. No por su botón: el de la hoja se llama
-  // «Reservar» igual que el de la tarjeta de detrás, así que un botón con ese
-  // nombre no distingue «hoja abierta» de «hoja cerrada».
-  await expect(page.getByRole('heading', { name: 'Reformer', level: 2 })).toBeVisible({ timeout: 30_000 });
+  // ⚠️ Se comprueba que la pantalla siguiente ESTÁ ABIERTA antes de contar.
+  // Sin esto, un clic que no abriera nada dejaría el test midiendo la misma
+  // pantalla del test de arriba y dando verde sin haber mirado nada jamás —
+  // el mismo test hueco que ya se coló dos veces en esta misma tanda.
+  //
+  // Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
+  // pantallas seguidas"): una invitada sin sesión ya no pasa por la ficha
+  // de detalle — un tap en la tarjeta lleva DIRECTO al flujo de acceso
+  // ("Entra para reservar"), que es ahora la superficie más grande que se
+  // abre encima de todo.
+  await expect(page.getByRole('heading', { name: /entra para reservar/i })).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(900);
   const claras = await clarasEn(page);
   expect(claras, `hoja de reserva:\n${claras.join('\n')}`).toEqual([]);

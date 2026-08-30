@@ -119,9 +119,17 @@ test('sin sesión no se afirma nada sobre el saldo de nadie', async ({ page }) =
   await page.goto(`/reservar/${SLUG}?tab=clases`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
 
+  // Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
+  // pantallas seguidas"): una invitada sin sesión salta la ficha de
+  // detalle — esta fixture no cumple el gate de checkout-sin-login, así
+  // que aterriza en 'login' ("Entra para reservar"), no en "Tus datos". Esa
+  // pantalla no enseña NINGÚN precio ni saldo — más estricto todavía que lo
+  // que este test protegía originalmente (el precio público sí, el saldo
+  // de un bono no): aquí no se afirma nada sobre dinero de nadie hasta que
+  // se identifica.
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
-  // El precio público sí; el saldo de un bono que no sabemos si tiene, no.
-  await expect(page.getByText(/Clase suelta · 15 €/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: /entra para reservar/i })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/te quedarán/)).toHaveCount(0);
   await expect(page.getByText(/tu Bono/)).toHaveCount(0);
+  await expect(page.getByText(/15\s?€/)).toHaveCount(0);
 });

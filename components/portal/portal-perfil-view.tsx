@@ -157,6 +157,9 @@ export function PortalPerfilView({
     if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); setHoja(null); return; }
     setGuardando(true);
     setAviso(null);
+    // Gemelo de portal-ajustes-view.tsx: SIN `email`. El servidor lo rechaza
+    // antes de escribir nada, así que enviarlo hacía perder también nombre,
+    // apellidos, teléfono, fecha de nacimiento y dirección.
     const r = await updateSocio(socio.id, {
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),

@@ -1996,6 +1996,15 @@ export default function ReservarPage() {
     // handleConfirm, así que booking_completed se dispara aquí — sin alterar
     // lo que se devuelve a quien llama (la hoja del calendario lo necesita
     // para pintar confirmación/lista de espera in situ).
+    //
+    // ⚠️ Seguro SOLO porque el único disparador de este handler para una
+    // socia autenticada es el botón "Reservar" DENTRO de la ficha de
+    // detalle (`saltarFichaSiInvitada` en reserva-calendario.tsx la
+    // mantiene abierta para socias, precisamente por esto) — un tap en la
+    // TARJETA nunca llega aquí directo para ella. Si algún día una socia
+    // autenticada también saltara la ficha, este camino habría que
+    // quitarlo primero: sería "un tap reserva sin preguntar", con
+    // bono/dinero de por medio.
     const resultado = addReserva(slot.id, socia.socioId, spotId);
     void resultado.then(r => {
       if (r.ok) trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: slot.id, socioId: socia?.socioId ?? null });
@@ -2582,8 +2591,17 @@ export default function ReservarPage() {
 
         {/* ── PORTADA ───────────────────────────────────────────────────────
             Se OCULTA (lo que pide quien incrusta esto bajo la cabecera que ya
-            tiene su web), pero no se mueve — ver la nota del degradado arriba. */}
-        {!embedMode && seccionVisible('portada') && (
+            tiene su web), pero no se mueve — ver la nota del degradado arriba.
+            ⚠️ Bug real reportado por el fundador (2026-08-30, con vídeo): le
+            faltaba el guardia `!enVistaReserva` que ya llevan TODOS sus
+            vecinos (insignia de confianza, bonos, sobre, cifras, contacto —
+            ver los comentarios de esas secciones más abajo, mismo patrón
+            exacto que ya se corrigió una vez para la insignia el 2026-08-29).
+            Sin él, en la página SUELTA (no embebida) la portada entera —
+            titular, subtítulo, CTA y foto— se colaba DENTRO del flujo de
+            reserva, entre la cabecera y la ficha/confirmación, partiendo la
+            pantalla en dos con un hueco enorme. */}
+        {!embedMode && !enVistaReserva && seccionVisible('portada') && (
         <div
           className="reserva-hero-portada"
           style={{
@@ -2818,6 +2836,19 @@ export default function ReservarPage() {
                 // aquí TAMBIÉN es redundante; con sesión, en cambio, esta
                 // ficha SÍ es el único paso.
                 ocultarSelectorSitio={!autenticado}
+                // Petición explícita del fundador (2026-08-30, "no quiero
+                // que se coma 3 pantallas seguidas"): SOLO para invitadas
+                // (sin sesión) la tarjeta salta directa a `onReservar` —
+                // 'login'/'datos' es su único paso siguiente de todos modos,
+                // y "Tus datos" ya trae su propia foto/descripción/
+                // ubicación. Para una socia autenticada la ficha SIGUE
+                // siendo el único paso antes de 'confirm' (que no repite
+                // nada) Y es donde se ve el descuento de bono antes de
+                // confirmar ("Descuenta 1 sesión de tu Bono X · te quedarán
+                // Y") — 'confirm' no muestra ese aviso, así que saltarla ahí
+                // también habría sido una pérdida real de transparencia
+                // sobre qué le va a costar, no solo un paso de menos.
+                saltarFichaSiInvitada={!autenticado}
                 loading={!dataLoaded}
                 onReservar={handleReservarCalendario}
                 onCancelar={cancelarReserva}
@@ -3126,7 +3157,7 @@ export default function ReservarPage() {
           checkout de Stripe): una banda «Bonos y membresías» vacía en la
           página pública es peor que no tenerla. */}
       {!enVistaReserva && seccionVisible('bonos') && planesContratables.length > 0 && (
-        <div style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
+        <div id="bonos-membresias" style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
             <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
             {/* ⚠️ Sin las clases `text-destructive`/`bg-destructive` del PANEL.
@@ -3953,6 +3984,38 @@ export default function ReservarPage() {
                 {gateError && (
                   <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">
                     {gateError}
+                    {/* ⚠️ Bug real reportado por el fundador (2026-08-30, con
+                        vídeo): el aviso decía "los tienes más abajo, en «Bonos
+                        y membresías»" — pero esa sección va detrás de
+                        `!enVistaReserva`, y este aviso solo se ve CON
+                        `enVistaReserva` en true (dentro del propio flujo de
+                        reserva). "Más abajo" no llevaba a ningún sitio: quien
+                        intentaba desplazarse a buscarla no encontraba nada
+                        que scrollear, y "no puedo hacer scroll" era el síntoma
+                        de un enlace roto, no un fallo de scroll de verdad —
+                        mismo patrón que ya documenta el comentario de
+                        `evaluarGate` sobre la pestaña "El estudio" que
+                        tampoco existía. Este botón SÍ lleva a la sección real:
+                        cierra el flujo (misma limpieza que "Volver a las
+                        clases") y hace scroll hasta ella. */}
+                    {gateError.includes('Bonos y membresías') && (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeBooking();
+                            setFichaSesionId(null);
+                            requestAnimationFrame(() => {
+                              document.getElementById('bonos-membresias')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            });
+                          }}
+                          className="font-semibold underline underline-offset-2"
+                        >
+                          Ver bonos y membresías
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
                 <button onClick={handleConfirm} disabled={confirmando}

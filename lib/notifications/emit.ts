@@ -116,7 +116,7 @@ export async function emitirReservaAbandonada(
 // clase ya ha empezado", esta es "no aceptaste la plaza liberada a tiempo").
 export async function emitirReservaCancelada(
   admin: SupabaseClient,
-  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' },
+  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' | 'clase_cancelada' },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
@@ -135,7 +135,12 @@ export async function emitirReservaCancelada(
             ? ' La plaza se ocupó justo antes de que aceptaras. Te hemos guardado una recuperación para otra clase.'
             : p.motivo === 'clase_ya_empezada'
               ? ' La clase ya había empezado cuando aceptaste. Te hemos guardado una recuperación para otra clase.'
-              : '';
+              // El estudio canceló la clase mientras su oferta seguía viva
+              // (migr 20260829120000: la RPC ya no la deja confirmar sobre una
+              // clase cancelada). Tampoco es culpa suya: misma compensación.
+              : p.motivo === 'clase_cancelada'
+                ? ' El estudio canceló la clase. Te hemos guardado una recuperación para otra clase.'
+                : '';
     await publish({
       type: EVENTOS.RESERVA_CANCELADA, studioId: p.studioId,
       data: { ...ctx, socioId: p.socioId, motivoTexto },

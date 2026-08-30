@@ -75,27 +75,23 @@ async function abrirClaseSinSesion(page: Page) {
     await page.goto(`/reservar/${SLUG}?tab=clases`);
     if (await page.locator('#horario').waitFor({ timeout: 30_000 }).then(() => true).catch(() => false)) break;
   }
-  // La fila solo abre la hoja de DETALLE de la clase (precio, sala, horario) —
-  // el botón "Reservar" de esa hoja es el que de verdad dispara
-  // handleReservarCalendario/openBooking. Mismo patrón en dos pasos que
-  // abrirHojaDeClase/pulsarReservar en socia-lista.ts.
-  await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
-  const botonReservar = page.getByRole('button', { name: /^Reservar/ }).last();
-  await expect(botonReservar).toBeVisible({ timeout: 15_000 });
+  // Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
+  // pantallas seguidas"): la tarjeta de la lista ya no abre una hoja de
+  // DETALLE intermedia con su propio botón "Reservar" — un tap dispara
+  // handleReservarCalendario/openBooking directo. "Tus datos" trae su propia
+  // foto/descripción/ubicación, así que la ficha quedaba redundante para
+  // este camino.
+  //
+  // P1-confianza: la fila de plazas habla en plazas LIBRES («10 plazas
+  // libres»), nunca en el ratio de panel «0/10 · 10 libres» que la auditoría
+  // señaló como confuso («0/10» se leía como «cero plazas»). Se comprueba
+  // AQUÍ, en la propia tarjeta (antes de abrir, ya que ahora no hay hoja de
+  // detalle intermedia donde repetirlo) — misma protección, mismo texto.
+  const tarjeta = page.getByRole('button', { name: /Reformer a las 10:00/ });
+  await expect(tarjeta.getByText('10 plazas libres')).toBeVisible({ timeout: 15_000 });
+  await expect(tarjeta.getByText('0/10')).not.toBeVisible();
 
-  // P1-confianza: la fila de plazas de la hoja habla en plazas LIBRES («10
-  // plazas libres»), nunca en el ratio de panel «0/10 · 10 libres» que la
-  // auditoría señaló como confuso («0/10» se leía como «cero plazas»). Se
-  // comprueba aquí, con la hoja ya abierta, en vez de en un test aparte que
-  // repetiría todo este arranque.
-  // ⚠️ Ya no va scopeado a `getByRole('dialog')`: el rediseño "sin popup"
-  // (docs/rediseno-widget-sin-popup-diseno.md) quitó el modal — la ficha es
-  // una vista normal de la página, no un `role="dialog"`. No hace falta
-  // ninguna otra ficha visible a la vez con la que confundirse.
-  await expect(page.getByText('10 plazas libres')).toBeVisible();
-  await expect(page.getByText('0/10')).not.toBeVisible();
-
-  await botonReservar.click();
+  await tarjeta.click();
 }
 
 test('visitante SIN cuenta: "Reservar clase" abre datos, no login', async ({ page }) => {
@@ -225,9 +221,8 @@ test('⚠️ la hoja de la ficha y el modal de acceso nunca coexisten en pantall
     await page.goto(`/reservar/${SLUG}?tab=clases`);
     if (await page.locator('#horario').waitFor({ timeout: 30_000 }).then(() => true).catch(() => false)) break;
   }
-  await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
-  const botonReservar = page.getByRole('button', { name: /^Reservar/ }).last();
-  await expect(botonReservar).toBeVisible({ timeout: 15_000 });
+  const tarjeta = page.getByRole('button', { name: /Reformer a las 10:00/ });
+  await expect(tarjeta).toBeVisible({ timeout: 15_000 });
 
   // Se instrumenta con un MutationObserver —no con `requestAnimationFrame`—
   // porque el reloj simulado de `page.clock.install()` (arriba) también
@@ -245,7 +240,7 @@ test('⚠️ la hoja de la ficha y el modal de acceso nunca coexisten en pantall
     new MutationObserver(medir).observe(document.body, { childList: true, subtree: true, attributes: true });
   });
 
-  await botonReservar.click();
+  await tarjeta.click();
   await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible({ timeout: 30_000 });
   // Unos fotogramas más tras la transición, por si el pico llega tarde.
   await page.waitForTimeout(300);

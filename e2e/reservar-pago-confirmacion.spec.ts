@@ -123,10 +123,12 @@ async function pulsarPagar(page: Page, modoConfirm: 'succeeded' | 'throw' | 'rej
     await page.goto(`/reservar/${SLUG}?tab=clases`);
     if (await page.locator('#horario').waitFor({ timeout: 30_000 }).then(() => true).catch(() => false)) break;
   }
+  // Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
+  // pantallas seguidas"): una invitada sin sesión salta la ficha de detalle
+  // — un tap en la tarjeta llama a `onReservar` directo, así que este gate
+  // (reservaExigirPlan + plan puntual + stripeAccountId) aterriza
+  // directamente en 'datos', sin el botón "Reservar" intermedio de la ficha.
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
-  const botonReservar = page.getByRole('button', { name: /^Reservar/ }).last();
-  await expect(botonReservar).toBeVisible({ timeout: 15_000 });
-  await botonReservar.click();
 
   await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible({ timeout: 30_000 });
   // Diseño "Tentare Portal Reservas": un solo campo "Nombre y apellido".

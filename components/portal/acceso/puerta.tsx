@@ -115,7 +115,7 @@ export function PuertaPortal() {
   // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
   const { studio, dataLoaded, tabBarStyle, variantes } = useCore();
   const { t } = useModo();
-  const { loginConPassword, enviarEnlace, entrarConGoogle, session } = usePortalAuth();
+  const { loginConPassword, enviarEnlace, entrarConGoogle, session, sesionCaducada } = usePortalAuth();
 
   // /login es un atajo guardado/repartido: entra directa al formulario de
   // siempre, sin pasar por la portada de marketing. /acceso (y cualquier otra
@@ -405,6 +405,20 @@ export function PuertaPortal() {
         ) : (
           <>
             <div>
+              {/* I-12 (auditoría 29-ago): antes la sesión caducaba en
+                  silencio — el estado personal se vaciaba y la socia veía
+                  "no tienes nada" sin ninguna pista de qué había pasado,
+                  con riesgo real de recomprar un bono que ya tenía.
+                  `sesionCaducada` solo es true cuando de verdad había una
+                  sesión y se cayó (nunca en el primer acceso). */}
+              {sesionCaducada && (
+                <p role="status" style={{
+                  ...texto.nota, fontSize: 11.5, color: t.muted, background: t.surface2,
+                  borderRadius: 10, padding: '10px 14px', marginBottom: 16, ...entrada(0),
+                }}>
+                  Tu sesión caducó. Vuelve a entrar para seguir donde lo dejaste.
+                </p>
+              )}
               <h1 style={{ ...display(36, false, 1.1), color: t.ink, ...entrada(0) }}>
                 ¿Entramos?
               </h1>

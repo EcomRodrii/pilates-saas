@@ -80,6 +80,11 @@ export function PortalAjustesView({
   const [errorClave, setErrorClave] = useState('');
   const [guardandoClave, setGuardandoClave] = useState(false);
   const [aviso, setAviso] = useState<AvisoToast | null>(null);
+  // I-13 (auditoría 29-ago): guarda al vuelo, no dentro del formulario de
+  // "Mis datos" — es un interruptor, no un campo que se edita y se confirma.
+  // `updateSocio` ya es optimista con reversión en fallo (I-10, mismo
+  // patrón que los toggles de AvisosSocia).
+  const [guardandoVisible, setGuardandoVisible] = useState(false);
 
   // Sin `tarjetaUltimos4` no hay tarjeta que enseñar — `null` en
   // `tarjeta_exp_*` significa "todavía no se le ha preguntado a Stripe", NO
@@ -112,6 +117,12 @@ export function PortalAjustesView({
     if (!socio || guardando) return;
     setGuardando(true);
     setAviso(null);
+    // SIN `email`: el servidor lo rechaza a propósito (CAMPOS_SOCIA_EDITABLES
+    // en lib/db/supabase-data-admin.ts — cambiarlo aquí desincronizaría
+    // `socios.email` del email de login y auto-bloquearía a la socia), y lo
+    // rechaza ANTES de escribir nada. Enviarlo hacía que tocar el email
+    // tirase en el mismo gesto nombre, apellidos, teléfono y usuario. El
+    // campo se pinta en solo lectura más abajo.
     const r = await updateSocio(socio.id, {
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
@@ -205,6 +216,42 @@ export function PortalAjustesView({
           {fila('Email', socio.email || null, () => setHoja('email'))}
           {fila('Contraseña', null, () => setHoja('clave'))}
         </Card>
+
+        {/* ── Privacidad ───────────────────────────────────────────────────── */}
+        <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 36 }}>Privacidad</div>
+        <div style={{
+          marginTop: 12, borderRadius: radio.card, background: t.surface, padding: '16px 20px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          boxShadow: '0 14px 32px -26px rgba(34,42,30,.5)',
+        }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ ...display(18), color: t.ink }}>Mostrar mi nombre en clase</div>
+            <div style={{ fontFamily: sans, fontSize: 11, color: t.muted, marginTop: 4, textWrap: 'pretty' } as React.CSSProperties}>
+              Otras alumnas verán tu nombre de pila en &quot;quién más va&quot; a una clase.
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!!socio.visibleEnClase}
+            disabled={guardandoVisible}
+            onClick={async () => {
+              setGuardandoVisible(true);
+              const r = await updateSocio(socio.id, { visibleEnClase: !socio.visibleEnClase });
+              setGuardandoVisible(false);
+              if (!r.ok) setAviso({ texto: r.error, error: true });
+            }}
+            style={{
+              width: 46, height: 27, borderRadius: 999, border: 'none', cursor: 'pointer', flexShrink: 0,
+              padding: 3, display: 'flex', justifyContent: socio.visibleEnClase ? 'flex-end' : 'flex-start',
+              background: socio.visibleEnClase ? 'var(--portal-brand)' : t.surface2,
+              opacity: guardandoVisible ? 0.6 : 1,
+              transition: transicion(['background', 'opacity'], dur.color),
+            }}
+          >
+            <span style={{ width: 21, height: 21, borderRadius: '50%', background: '#fff', display: 'block' }} />
+          </button>
+        </div>
 
         {/* ── Notificaciones ───────────────────────────────────────────────── */}
         <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 36 }}>Notificaciones</div>

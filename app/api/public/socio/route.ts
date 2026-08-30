@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     // Acciones sobre una socia ya existente: su id sale del token, no del body.
     const socioId = await socioAutenticado(user.userId, body.studioId);
     if (!socioId) return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 401 }));
-    const common = { studioId: body.studioId, socioId, email: user.email, cambios: body.cambios ?? {} };
+    const common = { studioId: body.studioId, socioId, authUserId: user.userId, cambios: body.cambios ?? {} };
 
     if (body.accion === 'actualizar') {
       const r = await actualizarSociaPublica(common);

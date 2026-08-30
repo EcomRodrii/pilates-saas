@@ -141,15 +141,24 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await expect(page.getByText('Reformer').first()).toBeVisible();
   });
 
-  // Nueva UI de reserva: calendario → día → slot (SlotRow) → ficha de la
-  // clase (BookingSheet) → acción "Reservar". Rediseño "sin popup"
-  // (docs/rediseno-widget-sin-popup-diseno.md): la ficha ya no es un
-  // `role="dialog"`, es una vista normal de la página. Ver
-  // components/reserva/reserva-calendario.tsx.
+  // Nueva UI de reserva: calendario → día → tarjeta de la clase. Petición
+  // explícita del fundador (2026-08-30, "no quiero que se coma 3 pantallas
+  // seguidas"): SOLO para una visitante SIN sesión, un tap en la tarjeta ya
+  // no abre la ficha de detalle como paso intermedio con su propio botón
+  // "Reservar" — dispara `onReservar` directo. Para una socia autenticada
+  // la ficha se mantiene (avisa del descuento de bono antes de confirmar,
+  // algo que 'confirm' no muestra) — el botón "Reservar" DENTRO de ella
+  // sigue haciendo falta. Este helper lo cubre sin necesitar saber cuál de
+  // los dos casos es: si el botón de la ficha aparece, lo pulsa; si no
+  // (invitada, ya se saltó), sigue. Ver
+  // `saltarFichaSiInvitada` en components/reserva/reserva-calendario.tsx.
   async function abrirYReservar(page: Page) {
     await page.getByRole('tab', { name: /9 de julio/i }).click();
     await page.getByRole('button', { name: /Reformer a las/i }).click();
-    await page.getByRole('button', { name: /^reservar/i }).click();
+    const reservarEnFicha = page.getByRole('button', { name: /^Reservar/ }).last();
+    if (await reservarEnFicha.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true).catch(() => false)) {
+      await reservarEnFicha.click();
+    }
   }
 
   test('reserva (socia autenticada con contrato): slot → reservar → confirmada', async ({ page }) => {
@@ -159,7 +168,11 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
 
     await page.goto(`/reservar/${SLUG}`);
     await abrirYReservar(page);
-    // Socia con contrato → la reserva se confirma in situ (sin nombre ni firma).
+    // Socia con contrato → la reserva se confirma in situ (sin nombre ni
+    // firma) — camino rápido seguro porque el único disparador para una
+    // socia autenticada sigue siendo el botón "Reservar" DENTRO de la
+    // ficha (`abrirYReservar` lo pulsa arriba), nunca un tap directo en la
+    // tarjeta.
     await expect(page.getByText(/reserva confirmada|lista de espera/i)).toBeVisible();
   });
 

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const r = await canjearRecompensaPublica({
-      studioId: body.studioId, socioId, email: user.email, catalogItemId: body.catalogItemId,
+      studioId: body.studioId, socioId, authUserId: user.userId, catalogItemId: body.catalogItemId,
     });
     if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
     return NextResponse.json(r);

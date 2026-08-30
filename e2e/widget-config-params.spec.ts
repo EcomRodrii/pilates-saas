@@ -54,17 +54,24 @@ const tabsDia = (page: Page) => page.getByRole('tablist', { name: 'Elegir día' 
 
 test('⚠️ regresión: sin parámetros nuevos, todo sigue exactamente igual', async ({ page }) => {
   await abrir(page, '');
-  // Tira de 10 días, los dos tipos visibles, y la hoja con precio, nivel y
-  // aviso de sustitución — el estado de partida que los toggles apagan.
+  // Tira de 10 días, los dos tipos visibles, y la propia tarjeta con precio —
+  // el estado de partida que los toggles apagan.
   await expect(tabsDia(page)).toHaveCount(10);
+  const fila = page.locator('.reserva-slot-row', { hasText: 'Reformer' });
   await expect(page.locator('.reserva-slot-row')).toHaveCount(2); // Reformer 10:00 + Mat 12:00 (hoy)
-  await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
-  // ⚠️ Rediseño "sin popup": la ficha ya no es `role="dialog"` — sustituye
-  // el listado en el sitio de siempre (oculto mientras está abierta), así
-  // que no hace falta acotar contra nada más visible detrás.
-  await expect(page.locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
-  await expect(page.getByText('Todos los niveles')).toBeVisible();
-  await expect(page.getByText('Sustituye a Bea hoy')).toBeVisible();
+  // El precio ya se ve en la propia tarjeta, sin abrir nada (TarjetaClaseImpl,
+  // reserva-calendario.tsx) — no hace falta la ficha para verificarlo.
+  await expect(fila.locator('.reserva-cta-btn')).toHaveText('Reservar');
+  await expect(fila).toContainText('15 €');
+  // Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
+  // pantallas seguidas"): esta fixture (sin `reservaExigirPlan`/
+  // `stripeAccountId`) no cumple el gate de checkout-sin-login, así que un
+  // tap en la tarjeta salta la ficha DIRECTO a 'login' — nivel/sustituta
+  // (contenido exclusivo de la ficha) quedan fuera del alcance de una
+  // invitada aquí; el toggle que sí los sigue protegiendo está más abajo con
+  // una fixture autenticada.
+  await fila.click();
+  await expect(page.getByRole('heading', { name: 'Entra para reservar' })).toBeVisible({ timeout: 30_000 });
 });
 
 test('un filtro de tipo enseña SOLO ese tipo (listado y chips)', async ({ page }) => {
@@ -88,16 +95,48 @@ test('filtro por instructora, por id', async ({ page }) => {
 
 test('⚠️ ocultar-precio quita el precio DE VERDAD, no solo del botón', async ({ page }) => {
   await abrir(page, '&ocultar-precio=1');
-  await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
-  await expect(page.locator('.reserva-cta-btn')).toHaveText('Reservar');
-  // Ni en la línea de cobertura ni en ningún otro rincón de la página: con
-  // la ficha abierta, el listado/bonos/cifras que también podrían mostrar un
-  // precio están ocultos (`enVistaReserva`, app/reservar/[slug]/page.tsx).
-  await expect(page.locator('body')).not.toContainText('€');
+  // El precio (o su ausencia) ya se ve en la propia tarjeta, sin necesitar
+  // abrir la ficha — ver el docblock del test de regresión de arriba.
+  const fila = page.locator('.reserva-slot-row', { hasText: 'Reformer' });
+  await expect(fila.locator('.reserva-cta-btn')).toHaveText('Reservar');
+  // Acotado a la propia tarjeta: la página SIGUE teniendo su sección de
+  // "Bonos y membresías" con precio (le compete a otra cosa, no a
+  // `ocultar-precio`, que solo tapa el precio de LA CLASE) — antes, con la
+  // ficha abierta, esa sección quedaba oculta detrás y un `body` a secas
+  // colaba. Ahora que la invitada ya no abre la ficha (petición explícita
+  // del fundador, 2026-08-30), esa sección sigue en pantalla y el `body`
+  // entero SÍ lleva un «€» legítimo — acotar a la tarjeta es lo que de
+  // verdad prueba lo que este test protege.
+  await expect(fila).not.toContainText('€');
 });
 
 test('ocultar-nivel y ocultar-sustituta apagan cada uno lo suyo', async ({ page }) => {
-  await abrir(page, '&ocultar-nivel=1&ocultar-sustituta=1');
+  // Nivel y sustituta son contenido EXCLUSIVO de la ficha (BookingSheet) — no
+  // aparecen en la tarjeta del listado. Desde que una invitada sin sesión
+  // salta la ficha (petición explícita del fundador, 2026-08-30: "no quiero
+  // que se coma 3 pantallas seguidas"), verificar estos dos toggles necesita
+  // una socia YA autenticada, que sigue viendo la ficha sin cambios (ver
+  // `saltarFichaSiInvitada` en reserva-calendario.tsx) — mismo patrón de
+  // sesión simulada que el test de Modo B más abajo en este fichero.
+  await page.addInitScript(() => {
+    localStorage.setItem('sb-portal-auth', JSON.stringify({
+      access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
+      expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
+      user: { id: 'auth-e2e', email: 'e2e@test.com', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
+    }));
+  });
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await mocks(page);
+  // ⚠️ DESPUÉS de `mocks()`: Playwright resuelve el `page.route` registrado
+  // MÁS RECIENTE primero — si esta ruta fuera anterior, el 404 genérico de
+  // `mocks()` la taparía y la sesión nunca se reconocería.
+  await page.route('**/api/public/session', r => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Alumna E2E', email: 'e2e@test.com' }),
+  }));
+  await page.goto(`/reservar/${SLUG}?embed=1&tab=clases&ocultar-nivel=1&ocultar-sustituta=1`);
+  await page.locator('#horario').waitFor({ timeout: 150_000 });
+  await page.locator('.reserva-slot-row').first().waitFor({ timeout: 30_000 });
   await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
   await expect(page.getByRole('heading', { name: 'Reformer' })).toBeVisible();
   await expect(page.getByText('Todos los niveles')).toHaveCount(0);
@@ -273,9 +312,12 @@ test('⚠️ la página SUELTA ignora los parámetros del snippet', async ({ pag
   await page.goto(`/reservar/${SLUG}?tipos=tc-m&ocultar-precio=1&vista=hoy&marca=%23112233`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await page.locator('.reserva-slot-row').first().waitFor({ timeout: 30_000 });
-  // Sin embed=1 nada de esto aplica: los dos tipos, la tira completa.
+  // Sin embed=1 nada de esto aplica: los dos tipos, la tira completa, y el
+  // precio visible en la propia tarjeta (ver el docblock del test de
+  // regresión de arriba — no hace falta abrir la ficha para comprobarlo).
   await expect(page.locator('.reserva-slot-row')).toHaveCount(2);
   await expect(tabsDia(page)).toHaveCount(10);
-  await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
-  await expect(page.locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
+  const fila = page.locator('.reserva-slot-row', { hasText: 'Reformer' });
+  await expect(fila.locator('.reserva-cta-btn')).toHaveText('Reservar');
+  await expect(fila).toContainText('15 €');
 });

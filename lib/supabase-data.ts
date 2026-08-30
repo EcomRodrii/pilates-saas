@@ -210,9 +210,17 @@ export async function fetchAllRows<T>(
       // "0 filas" en vez de un error. Se reporta para que el fallo sea visible
       // a quien opera, aunque la UI (código existente) siga usando lo que ya
       // se había podido traer.
-      capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
-        tags: { area: 'supabase-data', tabla }, extra: { studioId, desde, error: error.message },
-      });
+      //
+      // Salvo un blip de red del propio cliente ("Failed to fetch" y
+      // compañía) — mismo filtro que ya usa reportDbError() más abajo. Sin
+      // él, este era el único punto de reporte de la tabla que NO lo tenía:
+      // JAVASCRIPT-NEXTJS-1G llevaba 9 apariciones en 8 días, todas con ese
+      // mismo mensaje, sin ningún fallo de app detrás.
+      if (!esErrorDeRedCliente(error)) {
+        capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
+          tags: { area: 'supabase-data', tabla }, extra: { studioId, desde, error: error.message },
+        });
+      }
       return { data: filas, error };
     }
     if (!data || data.length === 0) break;
@@ -511,6 +519,11 @@ export function mapSocio(r: FilaSocioPanel): Socio {
     origenLead: r.origen_lead ?? null,
     camposExtra: r.campos_extra ?? {},
     usuario: r.usuario ?? null,
+    // I-13 (auditoría 29-ago): `FilaSocioPanel` la excluye a propósito (el
+    // panel de staff no la necesita, es un opt-in solo del portal) — de ahí
+    // el cast: en esa fila `undefined` cae a `false`, en la del portal
+    // (RowSocios completa) se lee el valor real.
+    visibleEnClase: (r as { visible_en_clase?: boolean | null }).visible_en_clase ?? false,
   } as Socio;
 }
 

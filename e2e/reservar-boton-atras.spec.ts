@@ -12,8 +12,23 @@ import { scriptSnippetIframe } from '../lib/reservar/snippet-embed.ts';
 // `nivelDeVista` en app/reservar/[slug]/page.tsx): un Atrás cierra un nivel,
 // no la página; un refresh sobre esa URL intenta reabrir el mismo sitio.
 //
+// ⚠️ Reescrito (2026-08-30, petición explícita del fundador "no quiero que se
+// coma 3 pantallas seguidas"): para una VISITANTE SIN SESIÓN, la ficha ya no
+// se abre — un tap en la tarjeta llama a `openBooking` DIRECTO
+// (`saltarFichaSiInvitada`, reserva-calendario.tsx), así que el salto real es
+// listado(nivel 0) → flujo(nivel 2), sin pasar nunca por ficha(nivel 1). Esto
+// NO es un caso nuevo para `nivelDeVista`: el comentario de ese efecto ya
+// contemplaba "listado → flujo directo, sin pasar por la ficha" como UNA
+// entrada de historial, igual que listado → ficha — confirmado leyendo el
+// código antes de tocar este fichero, no solo suponiéndolo. Los tests que
+// dependían de ver la ficha (`tituloFicha`) para una invitada se han quitado
+// o adaptado; el comportamiento de la ficha para una SOCIA autenticada no
+// cambia con este rediseño (sigue existiendo, sigue siendo su único paso
+// antes de reservar) y no se re-verifica aquí porque este fichero es,
+// deliberadamente, solo para el camino sin sesión.
+//
 // Fixture deliberadamente SIN plan que exigir: una visitante sin sesión que
-// pulsa "Reservar" cae en el paso 'login' de siempre (enlace mágico /
+// pulsa la tarjeta cae en el paso 'login' de siempre (enlace mágico /
 // contraseña), no en 'datos' (esa ruta — "pagar sin login" — ya la cubre
 // reservar-pagar-sin-cuenta.spec.ts, y no hace falta duplicarla aquí: lo que
 // importa en este fichero es el historial, no el paso concreto al que se
@@ -40,7 +55,7 @@ function fixture() {
     salas: [{ id: 'sala-1', studioId: STUDIO_ID, nombre: 'Sala 1', capacidad: 10 }],
     instructores: [{ id: 'ins-1', studioId: STUDIO_ID, nombre: 'Ana', rol: 'INSTRUCTOR' }],
     spots: [],
-    // Sin planes a propósito: sin plan que exigir, "Reservar" en la ficha va
+    // Sin planes a propósito: sin plan que exigir, tocar la tarjeta va
     // siempre a 'login' — mismo criterio que documenta el docblock de arriba.
     planesTarifa: [],
     sesiones: [
@@ -69,70 +84,62 @@ async function abrir(page: Page, query = '') {
 }
 
 const filaReformer = (page: Page) => page.getByRole('button', { name: /Reformer a las 10:00/ });
-// `level: 2` porque la fila de la lista de detrás TAMBIÉN pinta el nombre de
-// la clase como encabezado (`<h3>`, reserva-calendario.tsx) — sin acotar el
-// nivel, este locator es ambiguo en cuanto la lista reaparece detrás.
-const tituloFicha = (page: Page) => page.getByRole('heading', { level: 2, name: 'Reformer' });
+const filaMat = (page: Page) => page.getByRole('button', { name: /Mat a las 12:00/ });
 const tituloLogin = (page: Page) => page.getByRole('heading', { name: 'Entra para reservar' });
-const botonReservarFicha = (page: Page) => page.getByRole('button', { name: /^Reservar/ });
+const botonContinuar = (page: Page) => page.getByRole('button', { name: 'Continuar →' });
 
-test('entrar en ficha → Atrás → vuelve a la lista, no sale de la página', async ({ page }) => {
+test('tocar una clase → Atrás → vuelve a la lista, no sale de la página', async ({ page }) => {
   await abrir(page);
   await filaReformer(page).click();
-  await expect(tituloFicha(page)).toBeVisible({ timeout: 30_000 });
-  await expect.poll(() => new URL(page.url()).searchParams.get('paso'), { timeout: 10_000 }).toBe('ficha');
+  await expect(tituloLogin(page)).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => new URL(page.url()).searchParams.get('paso'), { timeout: 10_000 }).toBe('login');
   expect(new URL(page.url()).searchParams.get('clase')).toBe('ses-r');
 
   await page.goBack();
 
-  // Sigue en /reservar/tentare — el Atrás cerró la ficha, no salió de la página.
+  // Sigue en /reservar/tentare — el Atrás cerró el flujo, no salió de la página.
   expect(new URL(page.url()).pathname).toBe(`/reservar/${SLUG}`);
   await expect.poll(() => new URL(page.url()).searchParams.get('paso'), { timeout: 10_000 }).toBeNull();
-  await expect(tituloFicha(page)).not.toBeVisible();
+  await expect(tituloLogin(page)).not.toBeVisible();
   await expect(filaReformer(page)).toBeVisible();
 });
 
-test('lista → ficha → login → Atrás vuelve a la ficha, otro Atrás vuelve a la lista', async ({ page }) => {
+test('lista → flujo directo (sin ficha) → un solo Atrás vuelve a la lista', async ({ page }) => {
+  // Antes del rediseño, una invitada pasaba por listado(0) → ficha(1) →
+  // flujo(2): DOS Atrás para volver a la lista. Ahora el tap va directo a
+  // listado(0) → flujo(2), saltándose el nivel intermedio — y eso sigue
+  // siendo UNA sola entrada de historial nueva (el propio código ya lo
+  // contemplaba: "listado → flujo directo, sin pasar por la ficha", ver el
+  // comentario de `nivelDeVista`). Este test existe para dejarlo explícito:
+  // un solo Atrás basta, no hace falta pulsarlo dos veces esperando un nivel
+  // fantasma que ya no se abre.
   await abrir(page);
+  const largoInicial = await page.evaluate(() => window.history.length);
+
   await filaReformer(page).click();
-  await expect(tituloFicha(page)).toBeVisible({ timeout: 30_000 });
-
-  await botonReservarFicha(page).click();
   await expect(tituloLogin(page)).toBeVisible({ timeout: 30_000 });
-  expect(new URL(page.url()).searchParams.get('paso')).toBe('login');
-  expect(new URL(page.url()).searchParams.get('clase')).toBe('ses-r');
+  expect(await page.evaluate(() => window.history.length)).toBe(largoInicial + 1);
 
-  // Un Atrás desde el flujo retrocede DENTRO del widget — a la ficha, no
-  // directo a la lista (el criterio explícito del pedido: "retroceder
-  // correctamente dentro del flujo antes de abandonar el widget").
   await page.goBack();
   await expect(tituloLogin(page)).not.toBeVisible();
-  await expect(tituloFicha(page)).toBeVisible({ timeout: 30_000 });
-  expect(new URL(page.url()).searchParams.get('paso')).toBe('ficha');
-
-  // Y un segundo Atrás sí llega a la lista.
-  await page.goBack();
-  await expect(tituloFicha(page)).not.toBeVisible();
   expect(new URL(page.url()).searchParams.get('paso')).toBeNull();
   await expect(filaReformer(page)).toBeVisible();
 });
 
-test('refresh durante la ficha conserva la vista', async ({ page }) => {
+test('refresh durante el paso de acceso conserva la vista', async ({ page }) => {
   await abrir(page);
   await filaReformer(page).click();
-  await expect(tituloFicha(page)).toBeVisible({ timeout: 30_000 });
+  await expect(tituloLogin(page)).toBeVisible({ timeout: 30_000 });
 
   await page.reload();
-  await expect(tituloFicha(page)).toBeVisible({ timeout: 30_000 });
-  // Y el CTA de reservar sigue siendo alcanzable — no una ficha "a medias".
-  await expect(botonReservarFicha(page)).toBeVisible();
+  await expect(tituloLogin(page)).toBeVisible({ timeout: 30_000 });
+  // Y el CTA sigue siendo alcanzable — no una pantalla "a medias".
+  await expect(botonContinuar(page)).toBeVisible();
 });
 
 test('refresh durante el paso de login reabre el flujo (vía openBooking, no un estado a ciegas)', async ({ page }) => {
   await abrir(page);
   await filaReformer(page).click();
-  await expect(tituloFicha(page)).toBeVisible({ timeout: 30_000 });
-  await botonReservarFicha(page).click();
   await expect(tituloLogin(page)).toBeVisible({ timeout: 30_000 });
 
   await page.reload();
@@ -142,52 +149,52 @@ test('refresh durante el paso de login reabre el flujo (vía openBooking, no un 
   await expect(tituloLogin(page)).toBeVisible({ timeout: 30_000 });
 });
 
-test('evitar entradas duplicadas: reabrir la MISMA ficha no apila historial de más', async ({ page }) => {
+test('evitar entradas duplicadas: reabrir el flujo de la MISMA clase no apila historial de más', async ({ page }) => {
   // ⚠️ `window.history.length` NUNCA decrece con `history.go()`/Atrás — solo
   // cuenta el TOTAL de entradas de la sesión, cerrar solo mueve el puntero
   // hacia atrás. Y un `pushState` hecho desde una posición con entradas
   // "hacia adelante" las trunca y pone la nueva en su sitio (mismo índice) —
-  // así que reabrir la MISMA ficha después de cerrarla no hace CRECER
-  // `length`, la longitud vuelve a ser la de abrir la primera vez. Repetir
-  // el ciclo dos veces prueba que no crece sin límite (lo que sí sería un
-  // bucle de verdad).
+  // así que reabrir el flujo de la MISMA clase después de cerrarlo no hace
+  // CRECER `length`, la longitud vuelve a ser la de abrir la primera vez.
+  // Repetir el ciclo dos veces prueba que no crece sin límite (lo que sí
+  // sería un bucle de verdad).
   await abrir(page);
   const largoInicial = await page.evaluate(() => window.history.length);
 
   await filaReformer(page).click();
-  await expect(tituloFicha(page)).toBeVisible({ timeout: 30_000 });
+  await expect(tituloLogin(page)).toBeVisible({ timeout: 30_000 });
   const trasAbrir = await page.evaluate(() => window.history.length);
   expect(trasAbrir).toBe(largoInicial + 1);
 
   for (let ciclo = 0; ciclo < 2; ciclo++) {
-    await page.getByRole('button', { name: 'Volver a las clases' }).click();
-    await expect(tituloFicha(page)).not.toBeVisible();
+    await page.goBack();
+    await expect(tituloLogin(page)).not.toBeVisible();
 
     await filaReformer(page).click();
-    await expect(tituloFicha(page)).toBeVisible({ timeout: 30_000 });
+    await expect(tituloLogin(page)).toBeVisible({ timeout: 30_000 });
     // Ni crece sin límite ni se queda corta: sigue siendo exactamente UNA
     // entrada más que el listado, en cada vuelta del ciclo.
     expect(await page.evaluate(() => window.history.length)).toBe(trasAbrir);
   }
 });
 
-test('no rompe los filtros: el parámetro del snippet sobrevive a abrir/cerrar la ficha', async ({ page }) => {
+test('no rompe los filtros: el parámetro del snippet sobrevive a abrir/cerrar el flujo', async ({ page }) => {
   // `tipos=tc-m` (parámetro del snippet embebido, config-widget.ts): solo
-  // Mat visible en la lista. Abrir/cerrar la ficha de Mat no debe perderlo.
+  // Mat visible en la lista. Abrir/cerrar el flujo de Mat no debe perderlo.
   // ⚠️ `tipos=` solo se lee en `embedMode` (`resolverConfigWidget`,
   // app/reservar/[slug]/page.tsx) — sin `embed=1` el parámetro se ignora y
   // las dos clases se ven igual, sin relación con el botón Atrás.
   await abrir(page, '&embed=1&tipos=tc-m');
-  await expect(page.getByRole('button', { name: /Mat a las 12:00/ })).toBeVisible({ timeout: 30_000 });
+  await expect(filaMat(page)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: /Reformer a las/ })).toHaveCount(0);
 
-  await page.getByRole('button', { name: /Mat a las 12:00/ }).click();
-  await expect(page.getByRole('heading', { level: 2, name: 'Mat' })).toBeVisible({ timeout: 30_000 });
+  await filaMat(page).click();
+  await expect(tituloLogin(page)).toBeVisible({ timeout: 30_000 });
   expect(new URL(page.url()).searchParams.get('tipos')).toBe('tc-m');
 
   await page.goBack();
   expect(new URL(page.url()).searchParams.get('tipos')).toBe('tc-m');
-  await expect(page.getByRole('button', { name: /Mat a las 12:00/ })).toBeVisible();
+  await expect(filaMat(page)).toBeVisible();
   await expect(page.getByRole('button', { name: /Reformer a las/ })).toHaveCount(0);
 });
 
@@ -204,7 +211,7 @@ const APP = process.env.E2E_BASE_URL ?? `http://localhost:${process.env.E2E_PORT
 const HOST = 'http://localhost:4498';
 const IFRAME_ID = 'tentare-widget-tentare-reservas';
 
-test('funciona embebido en un iframe: Atrás cierra la ficha sin salir de la web del estudio', async ({ page }) => {
+test('funciona embebido en un iframe: Atrás cierra el flujo sin salir de la web del estudio', async ({ page }) => {
   await mocks(page);
   const script = scriptSnippetIframe({ origen: APP, slug: SLUG, iframeId: IFRAME_ID });
   const html = `<!doctype html><html><body style="margin:0">
@@ -218,7 +225,7 @@ ${script}
   const frame = page.frameLocator(`#${IFRAME_ID}`);
   await frame.locator('#horario').waitFor({ timeout: 150_000 });
   await frame.getByRole('button', { name: /Reformer a las 10:00/ }).click();
-  await expect(frame.getByRole('heading', { level: 2, name: 'Reformer' })).toBeVisible({ timeout: 30_000 });
+  await expect(frame.getByRole('heading', { name: 'Entra para reservar' })).toBeVisible({ timeout: 30_000 });
 
   // El Atrás lo pulsa la visitante en SU navegador — sobre la página del
   // HOST, no sobre el iframe directamente (así es como se usa de verdad).
@@ -233,9 +240,9 @@ ${script}
   await page.evaluate(() => window.history.back());
   await page.waitForTimeout(500);
 
-  // Sigue en la web del estudio (el host NUNCA navegó) y la ficha del
+  // Sigue en la web del estudio (el host NUNCA navegó) y el flujo del
   // widget, dentro del iframe, se cerró.
   await expect(page.getByText('La web del estudio')).toBeVisible();
-  await expect(frame.getByRole('heading', { level: 2, name: 'Reformer' })).not.toBeVisible();
+  await expect(frame.getByRole('heading', { name: 'Entra para reservar' })).not.toBeVisible();
   await expect(frame.getByRole('button', { name: /Reformer a las 10:00/ })).toBeVisible();
 });

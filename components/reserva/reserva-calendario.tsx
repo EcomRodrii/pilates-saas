@@ -245,6 +245,18 @@ export interface ReservaCalendarioProps {
    */
   ocultarSelectorSitio?: boolean;
   /**
+   * Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
+   * pantallas seguidas"): para una visitante SIN sesión, un tap en la
+   * tarjeta llama a `onReservar` directo en vez de abrir la ficha de
+   * detalle como paso intermedio — 'login'/'datos' es su único paso
+   * siguiente de todos modos, y "Tus datos" ya trae su propia foto/
+   * descripción/ubicación. El llamador (que sabe si hay sesión) lo activa
+   * solo para invitadas: para una socia autenticada la ficha sigue siendo
+   * necesaria (avisa del descuento de bono antes de confirmar, algo que
+   * 'confirm' no muestra).
+   */
+  saltarFichaSiInvitada?: boolean;
+  /**
    * 'hoy' = la ventana de días se reduce al día de hoy (una sola columna en
    * 'grid', un solo chip en 'dias'). 'todo' = la ventana de siempre.
    */
@@ -370,10 +382,15 @@ function fmtDiaLargo(iso: string): string {
 // resolvería contra el dominio del estudio y daría 404. En Modo A (siempre
 // mismo origen que la app) se deja sin pasar y la ruta relativa de siempre
 // sigue funcionando igual que hoy.
-function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefecto = false, origenTentare = '' }: {
+function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefecto = false, origenTentare = '', desaturar = false }: {
   nombre: string; color: string; fotoUrl?: string | null;
   ancho: number | string; alto: number | string; radio: number;
   conFotoPorDefecto?: boolean; origenTentare?: string;
+  /** Copia exacta del `.dc.html`: la foto de la tarjeta se desatura
+   *  (`filter: grayscale(1)`) cuando la clase está completa — la misma señal
+   *  visual de "no disponible" que ya lleva el CTA en gris. Faltaba del
+   *  todo (2026-08-30). */
+  desaturar?: boolean;
 }) {
   // ⚠️ Bug real de producción (2026-08-29): "la imagen sale cortada" — con
   // `alto="100%"` (la tarjeta horizontal del listado, foto a toda altura de
@@ -401,7 +418,7 @@ function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorD
         // vivo con `loading="lazy"`): un blanco puro ahí se lee como hueco
         // roto; con el color de la clase, la foto se siente una mejora
         // progresiva, no una carga que falló.
-        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
+        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color, filter: desaturar ? 'grayscale(1)' : 'none' }}
       />
     );
   }
@@ -414,7 +431,7 @@ function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorD
         loading="lazy"
         decoding="async"
         onError={alFallarImagen(`${origenTentare}${IMAGENES_CLASE.generica}`)}
-        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
+        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color, filter: desaturar ? 'grayscale(1)' : 'none' }}
       />
     );
   }
@@ -470,7 +487,7 @@ export function ReservaCalendario({
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE, densidadEsc = 1,
   radiosEsc = { tarjeta: radius.card, boton: radius.pill, input: radius.spot },
   irADia, estiloDias = 'semana', finalizadasHoy, loading = false, filtrosChips,
-  ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false, vistaInicial = 'todo',
+  ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false, saltarFichaSiInvitada = false, vistaInicial = 'todo',
   enIframe = false, franjaVisible = null, alCambiarFicha, origenTentare = '',
   estiloFicha = 'modal', abrirSlotExterno, onAntesDeAbrir,
 }: ReservaCalendarioProps) {
@@ -947,8 +964,20 @@ export function ReservaCalendario({
                   <div key={g.label}>
                     <p style={{ margin: `${densidadCss(10)} 0 8px`, fontSize: 13, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>{g.label}</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: densidadCss(10) }}>
+                      {/* Petición explícita del fundador (2026-08-30): "no
+                          quiero que se coma 3 pantallas seguidas". SOLO para
+                          invitadas (`saltarFichaSiInvitada`, ver docblock del
+                          prop): un tap llama a `onReservar` DIRECTO en vez de
+                          `abrirSlot` — 'login'/'datos' es su único paso
+                          siguiente de todos modos, y "Tus datos" ya trae su
+                          propia foto/descripción/ubicación. Para una socia
+                          autenticada se mantiene `abrirSlot` (ficha): es
+                          donde ve el descuento de bono ANTES de confirmar,
+                          algo que 'confirm' no muestra — quitarla ahí sería
+                          perder transparencia real sobre el coste, no solo
+                          un paso de menos. */}
                       {g.items.map(slot => (
-                        <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => abrirSlot(slot)} ocultarPrecio={ocultarPrecio} origenTentare={origenTentare} />
+                        <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => { if (saltarFichaSiInvitada) void onReservar(slot, null); else abrirSlot(slot); }} ocultarPrecio={ocultarPrecio} origenTentare={origenTentare} />
                       ))}
                     </div>
                   </div>
@@ -1326,8 +1355,12 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio, origenTentare = '' }
   const yaMia = slot.miEstado === 'CONFIRMADA' || slot.miEstado === 'LISTA_ESPERA';
   const mostrarPrecio = slot.precio != null && !ocultarPrecio && !yaMia;
 
+  // ⚠️ Copia exacta del `.dc.html` (2026-08-30): el badge de plazas de una
+  // clase donde ya estás en lista de espera dice «Completa» — NO repite «En
+  // espera», que ya lo dice el CTA de al lado. Antes decía «En espera» aquí
+  // también, redundante.
   const plazasTxt = slot.miEstado === 'CONFIRMADA' ? 'Tu plaza'
-    : slot.miEstado === 'LISTA_ESPERA' ? 'En espera'
+    : slot.miEstado === 'LISTA_ESPERA' ? 'Completa'
     : lleno ? 'Completa'
     : libres <= 2 ? `Quedan ${libres}`
     : `${libres} plazas libres`;
@@ -1366,7 +1399,7 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio, origenTentare = '' }
           tarjeta no. El sistema de 10 fotos por defecto
           (docs/imagenes-por-defecto, `imagenDeClase`) existe justo para
           evitar ese aspecto de "roto"/"cortado" que reportó el usuario. */}
-      <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho={104} alto="100%" radio={0} conFotoPorDefecto origenTentare={origenTentare} />
+      <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho={104} alto="100%" radio={0} conFotoPorDefecto origenTentare={origenTentare} desaturar={lleno && !yaMia} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: `${densidadCss(13)} ${densidadCss(15)} ${densidadCss(13)} ${densidadCss(16)}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>
