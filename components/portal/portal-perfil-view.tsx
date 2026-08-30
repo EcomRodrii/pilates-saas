@@ -46,13 +46,19 @@ function desdeCuando(fechaAlta: string | null | undefined): string | null {
 }
 
 export function PortalPerfilView({
-  session, socioOverride, escribible = true, navegar, onLogout,
+  session, socioOverride, escribible = true, navegar, onLogout, actualizarEmail,
 }: {
   session: PortalSession | null;
   socioOverride?: Socio;
   escribible?: boolean;
   navegar: (ruta: string) => void;
   onLogout: () => void;
+  // Opcional: la preview de temas (app/portal-preview) monta esta vista SIN
+  // PortalAuthProvider (comentario de ese layout), así que no puede llamarse
+  // usePortalAuth() aquí dentro — mismo motivo por el que `session`/`navegar`/
+  // `onLogout` ya llegan como props en vez de por hook. La página real
+  // (app/portal/[slug]/perfil/page.tsx) la pasa desde usePortalAuth().
+  actualizarEmail?: (nuevoEmail: string) => Promise<{ ok: true; pendiente: boolean } | { error: string }>;
 }) {
   const { slug } = useParams<{ slug: string }>();
   const {
@@ -119,11 +125,10 @@ export function PortalPerfilView({
     return { def: activo, valor, completado: progreso?.completado ?? false };
   }, [socioId, socio, socios, challengeDefinitions, challengeProgress, misReservasTodas, sesiones, ahora]);
 
-  const [hoja, setHoja] = useState<null | 'datos' | 'avatar'>(null);
+  const [hoja, setHoja] = useState<null | 'datos' | 'avatar' | 'email'>(null);
   const [form, setForm] = useState({
     nombre: socio?.nombre ?? '',
     apellidos: socio?.apellidos ?? '',
-    email: socio?.email ?? '',
     telefono: socio?.telefono ?? '',
     fechaNacimiento: socio?.fechaNacimiento ?? '',
     direccion: socio?.direccion ?? '',
@@ -131,6 +136,15 @@ export function PortalPerfilView({
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState<AvisoToast | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+  // Cambio de email de ACCESO — flujo propio, no un campo dentro de "Mis
+  // datos". Antes "Mis datos" escribía `socios.email` sin verificar nada: el
+  // mismo campo que `fetchPublicStudioData` compara contra el email del JWT
+  // como prueba de identidad — un typo ahí bloqueaba a la socia de sus
+  // propios datos en silencio (ver memoria del repo sobre socia.dev). Mismo
+  // patrón ya usado en PortalAjustesView/actualizarEmail (lib/portal-auth.tsx).
+  const [nuevoEmail, setNuevoEmail] = useState('');
+  const [cambiandoEmail, setCambiandoEmail] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<{ error: boolean; texto: string } | null>(null);
 
   if (!socio || !session) return null;
 
@@ -146,7 +160,6 @@ export function PortalPerfilView({
     const r = await updateSocio(socio.id, {
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
-      email: form.email.trim(),
       telefono: form.telefono.trim() || null,
       fechaNacimiento: form.fechaNacimiento || null,
       direccion: form.direccion.trim() || null,
@@ -155,6 +168,27 @@ export function PortalPerfilView({
     if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
     setHoja(null);
     setAviso({ texto: 'Datos guardados.', error: false });
+  }
+
+  async function cambiarEmail(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!nuevoEmail.trim() || cambiandoEmail) return;
+    if (!escribible || !actualizarEmail) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); setHoja(null); return; }
+    setCambiandoEmail(true);
+    setEmailMsg(null);
+    const r = await actualizarEmail(nuevoEmail.trim());
+    setCambiandoEmail(false);
+    if ('error' in r) { setEmailMsg({ error: true, texto: r.error }); return; }
+    setEmailMsg({
+      error: false,
+      // Enlace, no código: es lo que de verdad manda Supabase por defecto al
+      // cambiar el email — decir "código" sería prometer algo que este
+      // proyecto no envía.
+      texto: r.pendiente
+        ? 'Te hemos mandado un enlace de confirmación al email nuevo. El cambio se aplica cuando lo abras.'
+        : 'Email actualizado.',
+    });
+    setNuevoEmail('');
   }
 
   async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -399,6 +433,7 @@ export function PortalPerfilView({
         {fila('Documentos', null, () => navegar(`/portal/${slug}/documentos`))}
         {fila('Mis compañeras', null, () => navegar(`/portal/${slug}/companeras`))}
         {fila('Mis datos', null, () => setHoja('datos'))}
+        {fila('Cambiar email', socio.email || null, () => setHoja('email'))}
         {fila(
           'Métodos de pago',
           socio.metodoPagoPreferido === 'SEPA' && socio.sepaMandateId ? 'Domiciliado' : null,
@@ -447,8 +482,6 @@ export function PortalPerfilView({
             onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
           <Input label="Apellidos" placeholder="Apellidos" autoComplete="family-name" value={form.apellidos}
             onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
-          <Input label="Email" placeholder="Email" type="email" autoComplete="email" value={form.email}
-            onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           <Input label="Teléfono" placeholder="+34 600 000 000" type="tel" autoComplete="tel" inputMode="tel" value={form.telefono}
             onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
           <Input label="Fecha de nacimiento" type="date" value={form.fechaNacimiento}
@@ -457,6 +490,29 @@ export function PortalPerfilView({
             onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
           <Button type="submit" disabled={guardando} style={{ width: '100%', marginTop: 6 }}>
             {guardando ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </form>
+      </BottomSheet>
+
+      {/* ── Hoja: cambiar email ───────────────────────────────────────────────
+          Flujo propio, no un campo dentro de "Mis datos". Cambia el email de
+          ACCESO (auth.updateUser), no `socios.email` directamente — ver
+          comentario de `actualizarEmail` en lib/portal-auth.tsx. */}
+      <BottomSheet open={hoja === 'email'} onClose={() => { setHoja(null); setEmailMsg(null); setNuevoEmail(''); }}>
+        <h2 style={{ ...display(26), color: t.ink, marginBottom: 18 }}>Cambiar email</h2>
+        <p style={{ ...texto.pie, color: t.muted, marginBottom: 18 }}>
+          Ahora: {socio.email || 'sin email'}. Te mandamos un enlace al nuevo para confirmarlo.
+        </p>
+        <form onSubmit={cambiarEmail} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Input label="Nuevo email" placeholder="tu@email.com" type="email" autoComplete="email" value={nuevoEmail}
+            onChange={e => { setNuevoEmail(e.target.value); setEmailMsg(null); }} />
+          {emailMsg && (
+            <p role={emailMsg.error ? 'alert' : undefined} style={{ ...texto.nota, color: emailMsg.error ? '#B0453A' : t.muted }}>
+              {emailMsg.texto}
+            </p>
+          )}
+          <Button type="submit" disabled={cambiandoEmail || !nuevoEmail.trim()} style={{ width: '100%', marginTop: 6 }}>
+            {cambiandoEmail ? 'Enviando…' : 'Enviarme el enlace'}
           </Button>
         </form>
       </BottomSheet>

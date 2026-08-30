@@ -11,11 +11,12 @@ import { PortalPerfilView } from '@/components/portal/portal-perfil-view';
 export default function PerfilPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { session, logout } = usePortalAuth();
+  const { session, logout, actualizarEmail } = usePortalAuth();
 
   return (
     <PortalPerfilView
       session={session}
+      actualizarEmail={actualizarEmail}
       navegar={(ruta) => router.push(ruta)}
       onLogout={() => { logout(); router.replace(`/portal/${slug}/login`); }}
     />
