@@ -25,7 +25,7 @@ interface PortalAuthContextValue {
   // cuando la socia abre el enlace y vuelve al portal (onAuthStateChange).
   // Se usa SOLO para verificar la propiedad del email (primer acceso o
   // recuperación de contraseña) — el día a día se hace con loginConPassword.
-  enviarEnlace: (email: string, captchaToken?: string) => Promise<{ ok: true } | { error: string }>;
+  enviarEnlace: (email: string, captchaToken?: string, nombre?: string) => Promise<{ ok: true } | { error: string }>;
   /** Entrar con Google. Vuelve a `/acceso?oauth=1`, que es lo que dispara el alta. */
   entrarConGoogle: () => Promise<{ ok: true } | { error: string }>;
   // Login del día a día. Requiere que la socia ya haya creado su contraseña
@@ -104,12 +104,20 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
     return () => sub.subscription.unsubscribe();
   }, [resolver]);
 
-  const enviarEnlace = useCallback(async (email: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
+  const enviarEnlace = useCallback(async (email: string, captchaToken?: string, nombre?: string): Promise<{ ok: true } | { error: string }> => {
+    // El nombre viaja en la URL de vuelta, no en el cuerpo de este POST: la
+    // sesión de Supabase no existe todavía (solo se confirma al abrir el
+    // enlace), así que no hay dónde guardarlo salvo pasarlo de largo hasta
+    // /clave-nueva, que es quien de verdad crea la ficha (ver altaAlEntrar).
+    // Solo se usa si hay que dar de alta — a una socia ya existente no le
+    // toca el nombre.
+    const redirectTo = new URL(`${window.location.origin}/portal/${slug}/clave-nueva`);
+    if (nombre?.trim()) redirectTo.searchParams.set('nombre', nombre.trim());
     const { error } = await supabasePortal.auth.signInWithOtp({
       email: email.trim(),
       // Vuelve a la pantalla de crear/restablecer contraseña, NUNCA directo al
       // home: el magic link solo prueba que la socia controla el email.
-      options: { emailRedirectTo: `${window.location.origin}/portal/${slug}/clave-nueva`, captchaToken },
+      options: { emailRedirectTo: redirectTo.toString(), captchaToken },
     });
     if (captchaToken) captchaGastado();
     // Supabase a veces devuelve un `message` que no es texto para una persona
