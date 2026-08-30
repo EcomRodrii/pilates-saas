@@ -400,6 +400,21 @@ export function PantallaReserva({
                   <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600, marginBottom: 8 }}>
                     Información adicional <span style={{ fontWeight: 400 }}>· solo te lo pedimos la primera vez</span>
                   </p>
+                  {/* ⚠️ Intentado y revertido (2026-08-29): cambiar a
+                      `auto-fit`/`minmax` para evitar el corte de "¿Cómo nos
+                      has conocido?"/"Cumpleaños" en el layout de dos columnas
+                      de escritorio colapsaba esta rejilla a una sola columna
+                      también en MÓVIL (375px de viewport ya no deja sitio
+                      para 180px×2 ni para 140px×2 con el padding de la
+                      tarjeta) — reproducido en local:
+                      e2e/reservar-modal-movil.spec.ts "no desplaza el
+                      encabezado" pasaba en `main` y rompía con CUALQUIER
+                      valor de minmax probado (119px de salto, mismo número
+                      con 180 y con 140 — la rejilla colapsaba en los dos
+                      casos). `1fr 1fr` coincide exacto con el .dc.html; no
+                      se toca sin una forma de estrechar SOLO el rango de
+                      anchura intermedio (ficha en dos columnas pero ventana
+                      no muy ancha) sin afectar a móvil. */}
                   <div style={{ display: 'grid', gap: 7, gridTemplateColumns: '1fr 1fr' }}>
                     <CampoSelect placeholder="Género" value={infoAdicional.genero}
                       onChange={v => onChangeInfoAdicional({ genero: v })}
