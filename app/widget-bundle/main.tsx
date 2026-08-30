@@ -179,7 +179,13 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
     // Solo `sesion`: Modo A no tiene deep-link para el sitio elegido, se
     // vuelve a preguntar allí si la sala tiene reformers (mismo criterio
     // que si se llega desde cualquier otro enlace externo).
-    window.location.href = `${ORIGEN_TENTARE}/reservar/${slug}?sesion=${encodeURIComponent(slot.id)}`;
+    // ⚠️ `directo=1` (2026-08-30, bug real con vídeo del fundador): sin él,
+    // Modo A trataba este redirect interno igual que un enlace compartido
+    // de verdad y abría la ficha "Te han invitado a esta clase" — el paso
+    // intermedio que el comentario de arriba dice explícitamente que este
+    // redirect NUNCA quiso tener. Con `directo=1`, Modo A entra derecho al
+    // flujo de pagar-y-reservar-sin-login (`openBooking`).
+    window.location.href = `${ORIGEN_TENTARE}/reservar/${slug}?sesion=${encodeURIComponent(slot.id)}&directo=1`;
     return true;
   }, [socia, sesionCargando, slug]);
 

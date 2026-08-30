@@ -975,7 +975,23 @@ export default function ReservarPage() {
       deepLinkHecho.current = true;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Deep link: lee searchParams para abrir una reserva concreta. Depende de la URL, no de props ni estado.
       setTab('clases');
-      setFichaSesionId(sesionDeepLink);
+      // ⚠️ Bug real reportado por el fundador (2026-08-30, con vídeo): Modo B
+      // (`irAPaginaDeTentare`, app/widget-bundle/main.tsx) redirige aquí con
+      // `?sesion=` cuando una invitada toca "Reservar" en SU PROPIO widget
+      // embebido — el comentario de esa función dice explícitamente que
+      // debía caer "directo" en el flujo de pagar-y-reservar-sin-login, sin
+      // paso intermedio. Pero `?sesion=` es el MISMO parámetro que un enlace
+      // de verdad compartido por otra persona ("te han invitado a esta
+      // clase"), y sin distinguirlos las dos vías mostraban la ficha de
+      // invitación — un paso de más que Modo B nunca quiso tener. `directo=1`
+      // lo pone SOLO ese redirect interno; un enlace compartido de verdad
+      // nunca lo lleva, así que sigue abriendo la ficha de invitación como
+      // siempre.
+      if (searchParams.get('directo') === '1') {
+        openBooking(sesionDeepLink);
+      } else {
+        setFichaSesionId(sesionDeepLink);
+      }
     } else if (autenticado && searchParams.get('acceso') === '1') {
       deepLinkHecho.current = true;
       openBooking('');

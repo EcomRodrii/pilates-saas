@@ -94,6 +94,29 @@ test.describe('A — ?sesion= no tapa la ficha con la página genérica alrededo
     await expect(page.getByRole('button', { name: 'Mis reservas' })).not.toBeVisible();
     await expect(page.getByRole('button', { name: 'El estudio' })).not.toBeVisible();
   });
+
+  // ⚠️ Bug real reportado por el fundador (2026-08-30, con vídeo): Modo B
+  // (`irAPaginaDeTentare`, app/widget-bundle/main.tsx) redirige a esta MISMA
+  // URL de deep-link cuando una invitada toca "Reservar" en SU PROPIO widget
+  // embebido — no porque alguien le haya compartido esta clase. Sin
+  // distinguir los dos casos, el redirect interno mostraba igual la ficha
+  // "Te han invitado a esta clase", un paso de más que ese redirect nunca
+  // quiso tener (su propio comentario lo dice: debía caer "directo" en el
+  // flujo de pagar-y-reservar-sin-login). `directo=1` es la señal que lo
+  // distingue — SOLO la pone ese redirect interno.
+  test('`directo=1` salta la ficha de invitación y entra derecho al flujo de reserva', async ({ page }) => {
+    await mocksBase(page);
+    await page.route('**/api/public/session', r => r.fulfill({ status: 401, contentType: 'application/json', body: '{}' }));
+
+    await page.goto(`/reservar/${SLUG}?tab=clases&sesion=ses-r&directo=1`);
+
+    // Nunca se ve la ficha de invitación...
+    await expect(page.getByRole('button', { name: 'Reservar mi plaza' })).not.toBeVisible();
+    // ...cae derecho en el flujo de acceso (esta fixture no tiene ningún plan
+    // que exigir, así que el paso siguiente es 'login', no 'datos' — mismo
+    // criterio que el resto de fixtures de invitada de este repo).
+    await expect(page.getByRole('heading', { name: 'Entra para reservar' })).toBeVisible({ timeout: 30_000 });
+  });
 });
 
 test.describe('B — "Acceder" ya autenticada no deja a la walk-in en un callejón', () => {
