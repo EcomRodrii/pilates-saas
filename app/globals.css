@@ -518,6 +518,15 @@ nextjs-portal { display: none !important; }
 @keyframes panel-page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .panel-page-in { animation: panel-page-in var(--motion-normal) var(--motion-ease) both; }
 
+/* Calendario — cambiar de día/semana/mes (app/(dashboard)/calendario/page.tsx,
+   vía ReanimarAlCambiar). Solo opacidad, nunca transform: la rejilla tiene
+   bloques posicionados en absoluto y arrastrables (drag & drop de sesiones);
+   animar un transform en el contenedor padre desplazaría las coordenadas que
+   ese drag calcula en cada frame. Nivel C (operación muy frecuente,
+   sección 4): --motion-fast, no --motion-normal. */
+@keyframes calendario-vista-in { from { opacity: 0; } to { opacity: 1; } }
+.calendario-vista-in { animation: calendario-vista-in var(--motion-fast) var(--motion-ease) both; }
+
 /* Toast (components/ui/toast.tsx) — entraba/salía de golpe, sin transición.
    Entrada con algo más de presencia (sube desde abajo, es una confirmación);
    salida más corta, mismo criterio que el resto de overlays de este archivo

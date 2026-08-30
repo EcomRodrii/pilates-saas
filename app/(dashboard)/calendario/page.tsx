@@ -63,6 +63,7 @@ import { rangoDia, rangoSemanaDesde, rangoMes, claveRango, type RangoFechas } fr
 import { historialSustituciones } from '@/lib/calendario-historial';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
+import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -2251,7 +2252,7 @@ export default function Calendario() {
       )}
 
       {/* ── Día por salas / Semana 7 columnas / Mes ────────────────────────────── */}
-      <div className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6">
+      <ReanimarAlCambiar clave={claveVista} className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6" animClassName="calendario-vista-in">
         {!datosVista ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando…</div>
         ) : vista === 'dia' ? (
@@ -2295,7 +2296,7 @@ export default function Calendario() {
             onClickVacio={(gestionaClientas || creaClasesPropias) ? crearDesdeHueco : undefined}
           />
         )}
-      </div>
+      </ReanimarAlCambiar>
     </div>
     </LienzoCalendario>
 
