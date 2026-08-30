@@ -782,6 +782,16 @@ nextjs-portal { display: none !important; }
 @keyframes nw-pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(1.35); } }
 .nw-pulse-dot { animation: nw-pulse-dot 2.2s ease-in-out infinite; }
 
+/* Móviles flotando del hero — clon literal del mockup de Claude Design
+   (2026-08-30, "UI mockups for landing page"). Tres curvas distintas para
+   que no floten en fase (rotación fija por tarjeta, solo la Y respira). */
+@keyframes nw-float-a { 0%, 100% { transform: translateY(0) rotate(-3.5deg); } 50% { transform: translateY(-13px) rotate(-3.5deg); } }
+@keyframes nw-float-b { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-18px); } }
+@keyframes nw-float-c { 0%,100% { transform: translateY(0) rotate(3.5deg); } 50% { transform: translateY(-10px) rotate(3.5deg); } }
+.nw-float-a { animation: nw-float-a 7.5s ease-in-out infinite; }
+.nw-float-b { animation: nw-float-b 9s .6s ease-in-out infinite; }
+.nw-float-c { animation: nw-float-c 8s 1.2s ease-in-out infinite; }
+
 /* Ficha del estudio (/portal/[slug]/estudio) — Ken Burns lento del hero y
    entrada/cierre del visor de galería a pantalla completa. El bloque de
    prefers-reduced-motion de arriba ya lo neutraliza, no hace falta guard
