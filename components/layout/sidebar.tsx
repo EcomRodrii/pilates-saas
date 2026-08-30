@@ -124,19 +124,36 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
 
 // ─── Mobile: "Más" full-screen drawer ────────────────────────────────────────
 
-function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }: {
-  onClose: () => void; userInitials: string; userEmail: string; handleSignOut: () => void;
+function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sections }: {
+  open: boolean; onClose: () => void; userInitials: string; userEmail: string; handleSignOut: () => void;
   sections: typeof navSections;
 }) {
   const pathname = usePathname();
   const conNovedad = useMenuNovedades();
+
+  // Aparecía/desaparecía de golpe (auditoría de motion) — mismo patrón que
+  // DashboardDrawer (components/ui/dashboard-drawer.tsx): se queda montado
+  // un instante más al cerrar para que se vea la salida.
+  const [rendered, setRendered] = useState(open);
+  const [cerrando, setCerrando] = useState(false);
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
+    if (open) { setRendered(true); setCerrando(false); }
+    else if (rendered) setCerrando(true);
+  }
+  if (!rendered) return null;
 
   return (
     // --sidebar (#0F0F0F en los dos modos), no --foreground: este cajón es una
     // superficie SIEMPRE oscura —todo su contenido va en text-white— y
     // --foreground se INVIERTE en modo oscuro, así que el menú entero quedaba
     // en blanco sobre blanco. Mismo criterio que el sidebar de escritorio.
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--sidebar)' }}>
+    <div
+      className={cn('fixed inset-0 z-50 flex flex-col', cerrando ? 'mas-drawer-out' : 'mas-drawer-in')}
+      style={{ backgroundColor: 'var(--sidebar)' }}
+      onAnimationEnd={() => { if (cerrando) setRendered(false); }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-12 pb-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <span className="text-white font-semibold text-[16px]">Menú</span>
@@ -359,7 +376,7 @@ export function Sidebar() {
       </nav>
 
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
-      {masOpen && <MasDrawer onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />}
+      <MasDrawer open={masOpen} onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />
 
       {/* ── Desktop logo (fuera de la píldora del menú) ─────────────────────── */}
       <div
