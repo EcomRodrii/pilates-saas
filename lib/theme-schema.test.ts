@@ -204,7 +204,7 @@ test('themeConfigSchema: navPortal ausente → default sin ocultos/etiquetas/ico
 test('themeConfigSchema acepta navPortal con pestañas ocultas, renombradas y con icono distinto', () => {
   const r = themeConfigSchema.safeParse({
     ...DEFAULT_THEME,
-    navPortal: { ocultos: ['videos'], etiquetas: { clases: 'Agenda' }, iconos: { bonos: 'Star' } },
+    navPortal: { ocultos: ['reservas'], etiquetas: { buscar: 'Explorar' }, iconos: { perfil: 'Star' } },
   });
   assert.equal(r.success, true);
 });
@@ -212,9 +212,17 @@ test('themeConfigSchema acepta navPortal con pestañas ocultas, renombradas y co
 test('themeConfigSchema rechaza un icono de navPortal fuera del catálogo curado', () => {
   const r = themeConfigSchema.safeParse({
     ...DEFAULT_THEME,
-    navPortal: { ocultos: [], etiquetas: {}, iconos: { clases: 'IconoInventado' } },
+    navPortal: { ocultos: [], etiquetas: {}, iconos: { reservas: 'IconoInventado' } },
   });
   assert.equal(r.success, false);
+});
+
+test('resolveTheme: migra navPortal con ids legacy (clases/bonos/videos) sin perder la personalización', () => {
+  const r = resolveTheme({
+    ...DEFAULT_THEME,
+    navPortal: { ocultos: ['videos'], etiquetas: { clases: 'Agenda' }, iconos: { bonos: 'Star' } },
+  });
+  assert.deepEqual(r.navPortal, { ocultos: [], etiquetas: { reservas: 'Agenda' }, iconos: { reservas: 'Star' } });
 });
 
 test('resolveTheme: navPortal corrupto no lanza y cae al default', () => {

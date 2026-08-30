@@ -12,7 +12,7 @@
 // la UI (requisito 3 del brief).
 
 import { z } from 'zod';
-import { NAV_SEG_IDS, NAV_ICONOS_DISPONIBLES, DEFAULT_NAV_CONFIG } from './portal-nav.ts';
+import { NAV_SEG_IDS, NAV_ICONOS_DISPONIBLES, DEFAULT_NAV_CONFIG, migrarNavConfigRaw } from './portal-nav.ts';
 import { VARIANTES_PORTAL, type EjeVariante } from './theme-variantes.ts';
 
 /** Hex de 3 o 6 dígitos. */
@@ -166,16 +166,14 @@ const navConfigSchema = z
     ocultos: z.array(navSegIdSchema),
     etiquetas: z.object({
       home: z.string().optional(),
-      clases: z.string().optional(),
-      bonos: z.string().optional(),
-      videos: z.string().optional(),
+      buscar: z.string().optional(),
+      reservas: z.string().optional(),
       perfil: z.string().optional(),
     }),
     iconos: z.object({
       home: navIconoSchema.optional(),
-      clases: navIconoSchema.optional(),
-      bonos: navIconoSchema.optional(),
-      videos: navIconoSchema.optional(),
+      buscar: navIconoSchema.optional(),
+      reservas: navIconoSchema.optional(),
       perfil: navIconoSchema.optional(),
     }),
   })
@@ -659,7 +657,14 @@ export function instalarTema(
 export function resolveTheme(raw: unknown): ThemeConfig {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const pick = <K extends keyof ThemeConfig>(clave: K, esquema: z.ZodType): ThemeConfig[K] => {
-    const r = esquema.safeParse(obj[clave]);
+    // navPortal pasa primero por la migración de ids legacy (clases/bonos→
+    // reservas, videos→eliminado) — ver migrarNavConfigRaw en portal-nav.ts.
+    // Sin esto, un estudio con `ocultos: ['bonos']` guardado de antes de la
+    // reconstrucción invalidaría el objeto `ocultos` ENTERO contra el enum
+    // nuevo (un id desconocido tumba el array completo en Zod), perdiendo de
+    // golpe toda su personalización de navegación en vez de solo migrarla.
+    const valorCrudo = clave === 'navPortal' ? migrarNavConfigRaw(obj[clave]) : obj[clave];
+    const r = esquema.safeParse(valorCrudo);
     return (r.success ? r.data : DEFAULT_THEME[clave]) as ThemeConfig[K];
   };
   return {

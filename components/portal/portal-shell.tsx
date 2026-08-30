@@ -142,9 +142,10 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // `/compras` es hija de Bonos: la píldora se queda en Bonos en vez de
-  // apagarse (o saltar a Inicio, que es lo que hacía el prototipo).
-  const segActual = pathname?.startsWith(`/portal/${slug}/compras`) ? 'bonos' : null;
+  // `/compras` es hija de Reservas (antes de la reconstrucción, de Bonos —
+  // fusionado en la nueva pestaña única): la píldora se queda en Reservas en
+  // vez de apagarse (o saltar a Inicio, que es lo que hacía el prototipo).
+  const segActual = pathname?.startsWith(`/portal/${slug}/compras`) ? 'reservas' : null;
   const activeIndex = NAV.findIndex(({ seg }) =>
     seg === segActual || pathname.startsWith(`/portal/${slug}/${seg}`));
 
