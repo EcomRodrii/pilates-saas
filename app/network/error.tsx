@@ -45,7 +45,7 @@ export default function NetworkError({ error, reset }: { error: Error & { digest
         </p>
         <button
           onClick={reset}
-          className="mt-6 inline-flex items-center justify-center rounded-full px-5 py-2.5 text-[13.5px] font-bold text-white"
+          className="mt-6 inline-flex items-center justify-center rounded-full px-5 py-2.5 text-[13.5px] font-bold text-white transition-[filter,transform] duration-150 hover:brightness-95 active:scale-[.98]"
           style={{ background: NW_PRODUCTO }}
         >
           Reintentar
