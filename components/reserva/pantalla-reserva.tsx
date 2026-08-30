@@ -400,20 +400,22 @@ export function PantallaReserva({
                   <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600, marginBottom: 8 }}>
                     Información adicional <span style={{ fontWeight: 400 }}>· solo te lo pedimos la primera vez</span>
                   </p>
-                  {/* ⚠️ Bug real de producción (2026-08-29): "¿Cómo nos has
-                      conocido?" y "Cumpleaños · dd/mm/aaaa" salían cortados
-                      SIN puntos suspensivos — un `<select>` nativo no puede
-                      truncar con ellipsis, así que el texto se veía
-                      literalmente amputado. El diseño usa `1fr 1fr` sin
-                      problema porque su único preview es móvil (430px, sin
-                      columna izquierda compitiendo por ancho); la variante de
-                      dos columnas en escritorio (Modo A) es una adaptación
-                      responsive que el .dc.html nunca contempló y que aquí sí
-                      estrecha la columna lo suficiente para cortar el texto.
-                      `auto-fit`/`minmax` mantiene las dos columnas cuando hay
-                      sitio y reduce a una sola si no, en vez de aplastar el
-                      contenido. */}
-                  <div style={{ display: 'grid', gap: 7, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                  {/* ⚠️ Intentado y revertido (2026-08-29): cambiar a
+                      `auto-fit`/`minmax` para evitar el corte de "¿Cómo nos
+                      has conocido?"/"Cumpleaños" en el layout de dos columnas
+                      de escritorio colapsaba esta rejilla a una sola columna
+                      también en MÓVIL (375px de viewport ya no deja sitio
+                      para 180px×2 ni para 140px×2 con el padding de la
+                      tarjeta) — reproducido en local:
+                      e2e/reservar-modal-movil.spec.ts "no desplaza el
+                      encabezado" pasaba en `main` y rompía con CUALQUIER
+                      valor de minmax probado (119px de salto, mismo número
+                      con 180 y con 140 — la rejilla colapsaba en los dos
+                      casos). `1fr 1fr` coincide exacto con el .dc.html; no
+                      se toca sin una forma de estrechar SOLO el rango de
+                      anchura intermedio (ficha en dos columnas pero ventana
+                      no muy ancha) sin afectar a móvil. */}
+                  <div style={{ display: 'grid', gap: 7, gridTemplateColumns: '1fr 1fr' }}>
                     <CampoSelect placeholder="Género" value={infoAdicional.genero}
                       onChange={v => onChangeInfoAdicional({ genero: v })}
                       opciones={[['mujer', 'Mujer'], ['hombre', 'Hombre'], ['prefiero-no-decirlo', 'Prefiero no decirlo']]} />
