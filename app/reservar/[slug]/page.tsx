@@ -2591,8 +2591,17 @@ export default function ReservarPage() {
 
         {/* ── PORTADA ───────────────────────────────────────────────────────
             Se OCULTA (lo que pide quien incrusta esto bajo la cabecera que ya
-            tiene su web), pero no se mueve — ver la nota del degradado arriba. */}
-        {!embedMode && seccionVisible('portada') && (
+            tiene su web), pero no se mueve — ver la nota del degradado arriba.
+            ⚠️ Bug real reportado por el fundador (2026-08-30, con vídeo): le
+            faltaba el guardia `!enVistaReserva` que ya llevan TODOS sus
+            vecinos (insignia de confianza, bonos, sobre, cifras, contacto —
+            ver los comentarios de esas secciones más abajo, mismo patrón
+            exacto que ya se corrigió una vez para la insignia el 2026-08-29).
+            Sin él, en la página SUELTA (no embebida) la portada entera —
+            titular, subtítulo, CTA y foto— se colaba DENTRO del flujo de
+            reserva, entre la cabecera y la ficha/confirmación, partiendo la
+            pantalla en dos con un hueco enorme. */}
+        {!embedMode && !enVistaReserva && seccionVisible('portada') && (
         <div
           className="reserva-hero-portada"
           style={{
@@ -3148,7 +3157,7 @@ export default function ReservarPage() {
           checkout de Stripe): una banda «Bonos y membresías» vacía en la
           página pública es peor que no tenerla. */}
       {!enVistaReserva && seccionVisible('bonos') && planesContratables.length > 0 && (
-        <div style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
+        <div id="bonos-membresias" style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
             <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
             {/* ⚠️ Sin las clases `text-destructive`/`bg-destructive` del PANEL.
@@ -3975,6 +3984,38 @@ export default function ReservarPage() {
                 {gateError && (
                   <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">
                     {gateError}
+                    {/* ⚠️ Bug real reportado por el fundador (2026-08-30, con
+                        vídeo): el aviso decía "los tienes más abajo, en «Bonos
+                        y membresías»" — pero esa sección va detrás de
+                        `!enVistaReserva`, y este aviso solo se ve CON
+                        `enVistaReserva` en true (dentro del propio flujo de
+                        reserva). "Más abajo" no llevaba a ningún sitio: quien
+                        intentaba desplazarse a buscarla no encontraba nada
+                        que scrollear, y "no puedo hacer scroll" era el síntoma
+                        de un enlace roto, no un fallo de scroll de verdad —
+                        mismo patrón que ya documenta el comentario de
+                        `evaluarGate` sobre la pestaña "El estudio" que
+                        tampoco existía. Este botón SÍ lleva a la sección real:
+                        cierra el flujo (misma limpieza que "Volver a las
+                        clases") y hace scroll hasta ella. */}
+                    {gateError.includes('Bonos y membresías') && (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeBooking();
+                            setFichaSesionId(null);
+                            requestAnimationFrame(() => {
+                              document.getElementById('bonos-membresias')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            });
+                          }}
+                          className="font-semibold underline underline-offset-2"
+                        >
+                          Ver bonos y membresías
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
                 <button onClick={handleConfirm} disabled={confirmando}
