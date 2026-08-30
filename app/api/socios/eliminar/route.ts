@@ -7,14 +7,25 @@ import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 // destruía recibos/facturas con obligación de conservación, o fallaba a medias
 // por las FK RESTRICT). En su lugar:
 //   · se ELIMINAN los datos personales sin base de retención: ficha clínica
-//     (dato de salud), respuestas de sesión, notas internas y de progreso,
-//     preferencias;
+//     (dato de salud), respuestas del cuestionario de salud, respuestas de
+//     sesión, notas internas y de progreso, preferencias, documentos subidos
+//     (fila + objeto en Storage);
 //   · se CANCELAN (no se borran) las suscripciones — están referenciadas por
 //     recibos fiscales (FK RESTRICT);
 //   · se ANONIMIZA el PII de la socia y se marca `borrado_en`;
-//   · se CONSERVAN recibos, facturas y ventas_pos (registro fiscal).
+//   · se CONSERVAN recibos, facturas, ventas_pos (registro fiscal) y
+//     `lecturas_ficha_salud` (auditoría de QUIÉN del estudio leyó su ficha
+//     clínica y cuándo — es evidencia sobre el acceso del staff, no un dato
+//     de salud de la socia en sí; borrarla destruiría esa trazabilidad sin
+//     ninguna base de retención que lo exija en sentido contrario).
 // El panel filtra `borrado_en IS NULL`, así la socia desaparece de los listados.
 // Solo PROPIETARIO/RECEPCIÓN del propio estudio.
+//
+// I-14 (auditoría 29-ago): `respuestas_cuestionario_salud` y
+// `documentos_socio` (+ sus objetos en Storage) no se tocaban — dato de
+// salud y documentos personales (posible DNI/contrato con nombre) que
+// sobrevivían al "borrado" RGPD sin ninguna base de retención que lo
+// justificara.
 
 export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
@@ -43,10 +54,32 @@ export async function POST(req: NextRequest) {
 
   // 1) Borrar datos personales SIN base de retención. Idempotente (re-ejecutable).
   //    La ficha clínica es dato de salud sensible: se elimina, no se conserva.
-  //    Las cinco tablas tienen (socio_id, studio_id) → se scopean por ambos.
-  for (const tabla of ['condiciones_salud', 'respuestas_sesion', 'notas_internas', 'notas_progreso', 'preferencias_socio']) {
+  //    Todas las tablas tienen (socio_id, studio_id) → se scopean por ambos.
+  for (const tabla of [
+    'condiciones_salud', 'respuestas_cuestionario_salud', 'respuestas_sesion',
+    'notas_internas', 'notas_progreso', 'preferencias_socio',
+  ]) {
     const { error } = await admin.from(tabla).delete().eq('socio_id', socioId).eq('studio_id', sesion.studioId);
     if (error) return NextResponse.json({ error: `No se pudo limpiar ${tabla}` }, { status: 500 });
+  }
+
+  // 1b) Documentos subidos: primero los objetos en Storage (por su
+  // `storage_path` real), luego las filas. Si el borrado de Storage falla a
+  // medias, la fila se queda para reintentar — nunca al revés (fila borrada
+  // con el objeto todavía colgando y sin ninguna referencia que lo encuentre).
+  const { data: documentos, error: errDocsLeer } = await admin
+    .from('documentos_socio').select('id, storage_path')
+    .eq('socio_id', socioId).eq('studio_id', sesion.studioId);
+  if (errDocsLeer) return NextResponse.json({ error: 'No se pudieron leer los documentos' }, { status: 500 });
+  if (documentos && documentos.length > 0) {
+    const { error: errStorage } = await admin.storage
+      .from('documentos-socio')
+      .remove(documentos.map(d => d.storage_path as string));
+    if (errStorage) return NextResponse.json({ error: 'No se pudieron borrar los documentos del almacenamiento' }, { status: 500 });
+    const { error: errDocsBorrar } = await admin
+      .from('documentos_socio').delete()
+      .eq('socio_id', socioId).eq('studio_id', sesion.studioId);
+    if (errDocsBorrar) return NextResponse.json({ error: 'No se pudo limpiar documentos_socio' }, { status: 500 });
   }
 
   // 2) Cancelar suscripciones (no borrar: las referencian recibos fiscales).

@@ -116,8 +116,13 @@ test('canalesDisponibles: refleja lo que cada rol puede recibir por categoría',
 });
 
 test('cambios de clase: avisan a las alumnas Y a quien la imparte', () => {
+  // clase.cancelada usa la variante que incluye LISTA_ESPERA/PENDIENTE_APROBACION
+  // (auditoría 29-ago: cancelar la clase cancelaba también esas reservas y no se
+  // avisaba a nadie de ellas). clase.modificada NO: a quien no tiene plaza no le
+  // cambia nada que se mueva la hora.
+  assert.equal(REGLAS[EVENTOS.CLASE_CANCELADA].audiencia, 'socias-y-espera-e-instructora-de-la-sesion');
+  assert.equal(REGLAS[EVENTOS.CLASE_MODIFICADA].audiencia, 'socias-e-instructora-de-la-sesion');
   for (const evento of [EVENTOS.CLASE_CANCELADA, EVENTOS.CLASE_MODIFICADA]) {
-    assert.equal(REGLAS[evento].audiencia, 'socias-e-instructora-de-la-sesion');
     // Sin plantilla para el rol, el motor lo descarta EN SILENCIO: los dos roles
     // que devuelve la audiencia tienen que tener la suya.
     for (const rol of ROLES_POR_AUDIENCIA[REGLAS[evento].audiencia]) {

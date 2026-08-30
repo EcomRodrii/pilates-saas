@@ -16,6 +16,20 @@ export function esTipoEventoValido(tipo: string): tipo is TipoEventoWidget {
   return (TIPOS_EVENTO_WIDGET as readonly string[]).includes(tipo);
 }
 
+// Import perezoso: solo los eventos con `socioId` (identificados) necesitan
+// el cliente de auth del portal — el resto (el 90% del funnel, anónimo) no
+// paga ese coste. Mismo patrón que el import perezoso de
+// lib/db/supabase-data-admin.ts para el email de abandono.
+async function tokenDePortal(): Promise<string | null> {
+  try {
+    const { supabasePortal } = await import('@/lib/db/supabase-portal');
+    const { data: { session } } = await supabasePortal.auth.getSession();
+    return session?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const CLAVE_SESSION_ID = 'tentare_widget_session';
 
 /**
@@ -65,19 +79,32 @@ export function trackEventoWidget(
     const url = extra?.baseUrl
       ? `${extra.baseUrl}/api/public/evento?studioId=${encodeURIComponent(studioId)}`
       : '/api/public/evento';
-    void fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      keepalive: true,
-      body: JSON.stringify({
-        studioId,
-        tipo,
-        sessionId: sessionIdWidget(),
-        sesionClaseId: extra?.sesionClaseId ?? null,
-        origen: extra?.origen ?? null,
-        socioId: extra?.socioId ?? null,
-      }),
-    }).catch(() => {});
+    const socioId = extra?.socioId ?? null;
+    const enviar = async () => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      // C-4 (auditoría 29-ago): solo se busca token cuando el evento va
+      // identificado — así el servidor puede comprobar que `socioId` es de
+      // verdad quien llama antes de disparar el email de abandono. El resto
+      // de eventos (anónimos) nunca pasan por aquí.
+      if (socioId) {
+        const token = await tokenDePortal();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      }
+      await fetch(url, {
+        method: 'POST',
+        headers,
+        keepalive: true,
+        body: JSON.stringify({
+          studioId,
+          tipo,
+          sessionId: sessionIdWidget(),
+          sesionClaseId: extra?.sesionClaseId ?? null,
+          origen: extra?.origen ?? null,
+          socioId,
+        }),
+      });
+    };
+    void enviar().catch(() => {});
   } catch {
     // Nunca debe romper el render de la página que lo dispara.
   }

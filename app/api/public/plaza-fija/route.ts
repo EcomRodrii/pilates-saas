@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   try {
     if (body.accion === 'crear') {
       if (!body.sesionId) return NextResponse.json({ error: 'Falta la sesión' }, { status: 400 });
-      const r = await crearPlazaFijaPublica({ studioId: body.studioId, sesionId: body.sesionId, socioId, email: user.email });
+      const r = await crearPlazaFijaPublica({ studioId: body.studioId, sesionId: body.sesionId, socioId, authUserId: user.userId });
       if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
       return NextResponse.json(r);
     }
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       const fn = body.accion === 'pausar' ? pausarPlazaFijaPublica
         : body.accion === 'reanudar' ? reanudarPlazaFijaPublica
         : darDeBajaPlazaFijaPublica;
-      const r = await fn({ studioId: body.studioId, plazaId: body.plazaId, socioId, email: user.email });
+      const r = await fn({ studioId: body.studioId, plazaId: body.plazaId, socioId, authUserId: user.userId });
       if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
       return NextResponse.json(r);
     }

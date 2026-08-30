@@ -357,6 +357,9 @@ export interface Socio {
   origenLead?: string | null;
   // Valores de los campos personalizados del estudio: { [campoId]: valor }.
   camposExtra?: Record<string, string | number | boolean | null>;
+  // Opt-in de la propia socia (migr 20260826202949): ¿su nombre es visible
+  // para otras alumnas en "quién más va" a una clase? Por defecto false.
+  visibleEnClase?: boolean;
 }
 
 // ─── Riesgo de concentración por instructor ─────────────────────────────────

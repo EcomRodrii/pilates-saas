@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     if (body.accion === 'crear') {
       if (!body.sesionId) return conCorsWidget(req, NextResponse.json({ error: 'Falta la sesión' }, { status: 400 }));
       const r = await crearReservaPublica({
-        studioId: body.studioId, sesionId: body.sesionId, socioId, email: user.email, spotId: body.spotId ?? null,
+        studioId: body.studioId, sesionId: body.sesionId, socioId, authUserId: user.userId, spotId: body.spotId ?? null,
       });
       if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
       return conCorsWidget(req, NextResponse.json(r));
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     if (body.accion === 'cancelar') {
       if (!body.reservaId) return conCorsWidget(req, NextResponse.json({ error: 'Falta la reserva' }, { status: 400 }));
       const r = await cancelarReservaPublica({
-        studioId: body.studioId, reservaId: body.reservaId, socioId, email: user.email,
+        studioId: body.studioId, reservaId: body.reservaId, socioId, authUserId: user.userId,
       });
       if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
       return conCorsWidget(req, NextResponse.json(r));
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       if (!body.reservaId) return conCorsWidget(req, NextResponse.json({ error: 'Falta la reserva' }, { status: 400 }));
       if (typeof body.valoracion !== 'number') return conCorsWidget(req, NextResponse.json({ error: 'Falta la valoración' }, { status: 400 }));
       const r = await valorarExperienciaReservaPublica({
-        studioId: body.studioId, reservaId: body.reservaId, socioId, email: user.email, valoracion: body.valoracion,
+        studioId: body.studioId, reservaId: body.reservaId, socioId, authUserId: user.userId, valoracion: body.valoracion,
       });
       if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
       return conCorsWidget(req, NextResponse.json(r));

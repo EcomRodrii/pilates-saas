@@ -13,6 +13,7 @@ import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, t
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
+import { escaparLike } from '@/lib/escapar-like';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { LEGAL } from '@/lib/legal-info';
@@ -738,13 +739,22 @@ export async function fetchPublicStudioData(
     // Sin zoom_join_url a propósito: el enlace de Zoom nunca sale de un select
     // genérico del portal (ver comentario de mapSesion). zoom_meeting_id sí,
     // porque un id sin la reunión detrás no sirve de nada.
-    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id').eq('studio_id', studioId).range(from, to)),
+    // Sin `notas` ni `incidencia_texto` por el mismo motivo: son texto que
+    // escribe el personal para el personal («la clienta X viene lesionada»,
+    // «se rompió el reformer 3») y este payload lo sirve `POST
+    // /api/public/studio-data`, que responde también SIN sesión. Ningún
+    // componente del portal, del widget ni de /reservar los lee (verificado
+    // con grep en components/portal, app/portal, app/reservar,
+    // components/reserva, app/widget-bundle y lib/widget); el panel usa su
+    // propio select en lib/supabase-data.ts. Se rellenan a null al mapear
+    // para no cambiar la forma de `Sesion`.
+    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, precio_puntual, google_event_id, serie_id, zoom_meeting_id').eq('studio_id', studioId).range(from, to)),
     fetchAllRows(studioId, 'reservas', (from, to) => admin.from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId).range(from, to)),
   ]);
 
   const base = {
     studio: studioPublico(studioRow as RowStudios),
-    sesiones: (sesionesData ?? []).map(mapSesion),
+    sesiones: (sesionesData ?? []).map(r => mapSesion({ ...r, notas: null, incidencia_texto: null })),
     ...catalogo,
     ...camposTema,
     ...camposLayout,
@@ -836,14 +846,30 @@ export async function fetchPublicStudioData(
 // Prueba mínima de identidad: el id de socia existe en ese estudio y su email
 // coincide. Devuelve la fila de la socia o null.
 
+// I-15 (auditoría 29-ago): autoriza por `auth_user_id`, NUNCA por email.
+// Antes comparaba `socios.email` contra el email de la sesión — el panel
+// puede escribir `socios.email` libremente (dbUpdateSocio, sin ninguna
+// protección), así que una simple corrección de un typo desde el panel
+// desalineaba ese email del de Auth y bloqueaba EN SILENCIO cualquier
+// escritura pública de esa socia (reservar, cancelar, canjear, editar...)
+// sin que nadie pudiera arreglarlo desde el propio portal. `auth_user_id`
+// es la vinculación estable (se fija una vez en resolverSociaAutenticada,
+// vía claim/magic-link) — inmune a que el estudio edite el email después.
+//
+// `authUserId` acepta `null` por los dos caminos OAuth (Zapier —
+// app/api/oauth/v1/reservas{,/cancelar}/route.ts): ahí no hay JWT de socia,
+// así que leen `auth_user_id` de la propia fila (scopeada por studio_id, que
+// es donde vive su autorización de verdad, vía el token OAuth) y lo pasan de
+// vuelta — comparación consigo mismo, igual de tautológica que antes con el
+// email, y sin debilitar nada: una socia sin cuenta reclamada (auth_user_id
+// NULL) sigue pudiendo reservar por Zapier, como siempre.
 async function validarSociaPublica(
-  admin: SupabaseClient, studioId: string, socioId: string, email: string,
+  admin: SupabaseClient, studioId: string, socioId: string, authUserId: string | null,
 ): Promise<RowSocios | null> {
   const { data } = await admin
     .from('socios').select('*').eq('id', socioId).eq('studio_id', studioId).maybeSingle();
   if (!data) return null;
-  const ok = (data.email ?? '').trim().toLowerCase() === email.trim().toLowerCase();
-  return ok ? (data as RowSocios) : null;
+  return data.auth_user_id === authUserId ? (data as RowSocios) : null;
 }
 
 // Descuenta una sesión del bono activo de la socia (si aplica) usando bono-logic.
@@ -1061,7 +1087,26 @@ export async function generarRecordatoriosRevision(studioId: string, nowISO: str
   const { data: condsRaw, error } = await admin
     .from('condiciones_salud').select('*').eq('estado', 'ACTIVA').eq('studio_id', studioId);
   if (error) throw new Error(error.message);
-  const condiciones = (condsRaw ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud));
+  let condiciones = (condsRaw ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud));
+
+  // C-3 (auditoría 29-ago): admin usa service-role, se salta la RLS de
+  // `condiciones_salud` igual que `semaforo_salud_estudio` — sin este filtro
+  // el cron seguiría avisando a la propietaria/instructora del contenido de
+  // una condición para la que la socia no ha dado consentimiento de lectura
+  // (art. 9 RGPD). Mismo criterio que la RLS, en batches por el límite de `in`.
+  if (condiciones.length > 0) {
+    const idsParaConsentimiento = [...new Set(condiciones.map(c => c.socioId))];
+    const conConsentimiento = new Set<string>();
+    for (let i = 0; i < idsParaConsentimiento.length; i += 200) {
+      const lote = idsParaConsentimiento.slice(i, i + 200);
+      const { data: socias } = await admin.from('socios')
+        .select('id, consentimiento_salud_fecha, consentimiento_salud_revocado_en').in('id', lote);
+      for (const s of socias ?? []) {
+        if (s.consentimiento_salud_fecha && !s.consentimiento_salud_revocado_en) conConsentimiento.add(s.id as string);
+      }
+    }
+    condiciones = condiciones.filter(c => conConsentimiento.has(c.socioId));
+  }
 
   const recordatorios = recordatoriosRevision(condiciones, hoy, umbralDias);
   if (recordatorios.length === 0) {
@@ -1692,6 +1737,11 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
   // Fase 8 (CRO): solo relevante en los eventos donde la visitante ya está
   // identificada — ver el comentario de la columna en la migración.
   socioId?: string | null;
+  // C-4 (auditoría 29-ago): `socioId` sigue sin JWT para no perder atribución
+  // de analítica de un socioId ajeno mandado a mano — solo dispara el email de
+  // abandono si esto viene relleno, que la ruta solo rellena tras verificar
+  // el JWT contra `socioId`. Nunca se deriva de `socioId` aquí.
+  socioIdVerificado?: string | null;
 }): void {
   void admin.from('widget_eventos').insert({
     id: `evt-${uid()}`,
@@ -1714,12 +1764,14 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
   });
 
   // Fase 8 (CRO): recuperación de un abandono conocido — inline, sin cron
-  // (docs/cro-analytics-widget-diseno.md §5.2). Riesgo de seguridad
-  // documentado ahí: socioId viaja sin JWT en este endpoint fire-and-forget.
-  if (params.tipo === 'booking_abandoned' && params.socioId) {
+  // (docs/cro-analytics-widget-diseno.md §5.2). C-4 (auditoría 29-ago): el
+  // email solo se dispara con `socioIdVerificado` (JWT comprobado en la
+  // ruta) — antes bastaba un `socioId` ajeno en el body, sin sesión, para
+  // hacer sonar el correo de cualquier socia de la que se conociera el id.
+  if (params.tipo === 'booking_abandoned' && params.socioIdVerificado) {
     void import('@/lib/notifications/emit').then(({ emitirReservaAbandonada }) =>
       emitirReservaAbandonada(admin, {
-        studioId: params.studioId, socioId: params.socioId!, sesionId: params.sesionClaseId ?? null,
+        studioId: params.studioId, socioId: params.socioIdVerificado!, sesionId: params.sesionClaseId ?? null,
       }),
     ).catch(() => {});
   }
@@ -1730,11 +1782,11 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
 // (C-4: plan/bono activo y tope de reservas simultáneas, si el estudio lo exige).
 
 export async function crearReservaPublica(params: {
-  studioId: string; sesionId: string; socioId: string; email: string; spotId?: string | null;
+  studioId: string; sesionId: string; socioId: string; authUserId: string | null; spotId?: string | null;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
 
   // No se puede reservar una clase ya empezada/pasada (I-17). La UI lo bloquea,
@@ -1979,7 +2031,12 @@ export async function reservarPlazaTrasPagoPublico(params: {
     // se pierde el dinero (el plan/bono ya se entregó antes de llamar aquí),
     // pero SÍ hay que avisar al mostrador: mismo tratamiento que
     // 'sesion-invalida' desde el webhook (emitirReservaPagadaSinPlaza).
-    if (error.message.includes('SPOT_OCUPADO') || error.message.includes('SPOT_NO_PERTENECE_A_LA_SALA')) {
+    // SPOT_NO_DISPONIBLE = la plaza existe y es de la sala, pero está dada de
+    // baja (migr 20260829120000). Mismo tratamiento: la visitante pagó, no se
+    // pierde el dinero, y el mostrador tiene que enterarse de que hay que
+    // reubicarla.
+    if (error.message.includes('SPOT_OCUPADO') || error.message.includes('SPOT_NO_PERTENECE_A_LA_SALA')
+        || error.message.includes('SPOT_NO_DISPONIBLE')) {
       return { ok: false, motivo: 'spot-ocupado', detalle: error.message };
     }
     return { ok: false, motivo: 'error', detalle: error.message };
@@ -2212,13 +2269,17 @@ export async function aceptarOfertaListaEspera(params: {
       p_origen_reserva_id: params.reservaId,
       p_motivo: resultado === 'AFORO_LLENO'
         ? 'La plaza se ocupó antes de aceptar la oferta'
-        : 'La clase ya había empezado al aceptar la oferta',
+        : resultado === 'CLASE_CANCELADA'
+          ? 'El estudio canceló la clase antes de aceptar la oferta'
+          : 'La clase ya había empezado al aceptar la oferta',
     });
     if (sesionId) {
       const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
       await emitirReservaCancelada(admin, {
         studioId: params.studioId, sesionId, socioId: params.socioId, reservaId: params.reservaId,
-        motivo: resultado === 'AFORO_LLENO' ? 'plaza_ya_ocupada' : 'clase_ya_empezada',
+        motivo: resultado === 'AFORO_LLENO' ? 'plaza_ya_ocupada'
+          : resultado === 'CLASE_CANCELADA' ? 'clase_cancelada'
+            : 'clase_ya_empezada',
       });
     }
     // El mensaje no puede sonar a que llegó tarde: aceptó a tiempo. Y si la
@@ -2226,7 +2287,9 @@ export async function aceptarOfertaListaEspera(params: {
     const compensada = creada === 'CREADA';
     const base = resultado === 'AFORO_LLENO'
       ? 'La plaza se ocupó justo antes de que aceptaras.'
-      : 'La clase ya había empezado cuando aceptaste.';
+      : resultado === 'CLASE_CANCELADA'
+        ? 'El estudio canceló esta clase.'
+        : 'La clase ya había empezado cuando aceptaste.';
     return {
       error: compensada
         ? `${base} Te hemos guardado una recuperación para que la uses en otra clase.`
@@ -2515,11 +2578,11 @@ export async function ejecutarCancelacionReserva(
 // Cancela una reserva de la socia, devuelve su bono y promueve la lista de espera.
 
 export async function cancelarReservaPublica(params: {
-  studioId: string; reservaId: string; socioId: string; email: string;
+  studioId: string; reservaId: string; socioId: string; authUserId: string | null;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
 
   // I-7: el camino de CREAR tiene su guardia de "clase ya empezada"
@@ -2589,11 +2652,11 @@ export async function cancelarReservaPublica(params: {
 // `valoraciones` (migr 0044), que puntúa a la INSTRUCTORA vía token firmado
 // sin login.
 export async function valorarExperienciaReservaPublica(params: {
-  studioId: string; reservaId: string; socioId: string; email: string; valoracion: number;
+  studioId: string; reservaId: string; socioId: string; authUserId: string; valoracion: number;
 }): Promise<{ ok: true } | { error: string }> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
 
   if (!Number.isInteger(params.valoracion) || params.valoracion < 1 || params.valoracion > 5) {
@@ -2632,14 +2695,14 @@ export async function valorarExperienciaReservaPublica(params: {
 // motor de decisiones para agrupar franjas recurrentes — así el slot que se
 // guarda es siempre uno que la socia ha visto reservable de verdad.
 export async function crearPlazaFijaPublica(params: {
-  studioId: string; sesionId: string; socioId: string; email: string;
+  studioId: string; sesionId: string; socioId: string; authUserId: string;
 }): Promise<
   | { ok: true; id: string; reservaEstaSemana: { estado: string; reservaId: string } | null }
   | { error: string }
 > {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
 
   const { data: ses } = await admin
@@ -2683,7 +2746,7 @@ export async function crearPlazaFijaPublica(params: {
     .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA']).maybeSingle();
   if (!yaReservada) {
     const r = await crearReservaPublica({
-      studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId, email: params.email,
+      studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId, authUserId: params.authUserId,
     });
     if (!('error' in r)) reservaEstaSemana = { estado: r.estado, reservaId: r.reservaId };
   }
@@ -2691,11 +2754,11 @@ export async function crearPlazaFijaPublica(params: {
 }
 
 async function cambiarEstadoPlazaFijaPublica(params: {
-  studioId: string; socioId: string; email: string; plazaId: string; estado: 'ACTIVA' | 'PAUSADA' | 'BAJA';
+  studioId: string; socioId: string; authUserId: string; plazaId: string; estado: 'ACTIVA' | 'PAUSADA' | 'BAJA';
 }): Promise<{ ok: true } | { error: string }> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
 
   // `.eq('socio_id', ...)` en el UPDATE, no solo en un SELECT previo: así
@@ -2717,11 +2780,11 @@ async function cambiarEstadoPlazaFijaPublica(params: {
   return { ok: true as const };
 }
 
-export const pausarPlazaFijaPublica = (params: { studioId: string; socioId: string; email: string; plazaId: string }) =>
+export const pausarPlazaFijaPublica = (params: { studioId: string; socioId: string; authUserId: string; plazaId: string }) =>
   cambiarEstadoPlazaFijaPublica({ ...params, estado: 'PAUSADA' });
-export const reanudarPlazaFijaPublica = (params: { studioId: string; socioId: string; email: string; plazaId: string }) =>
+export const reanudarPlazaFijaPublica = (params: { studioId: string; socioId: string; authUserId: string; plazaId: string }) =>
   cambiarEstadoPlazaFijaPublica({ ...params, estado: 'ACTIVA' });
-export const darDeBajaPlazaFijaPublica = (params: { studioId: string; socioId: string; email: string; plazaId: string }) =>
+export const darDeBajaPlazaFijaPublica = (params: { studioId: string; socioId: string; authUserId: string; plazaId: string }) =>
   cambiarEstadoPlazaFijaPublica({ ...params, estado: 'BAJA' });
 
 // ─── Citas 1:1 auto-reservables (0046) — escrituras/lecturas públicas ─────────
@@ -2808,11 +2871,11 @@ export async function fetchHuecosCitaPublico(params: {
 
 export async function crearCitaPublica(params: {
   studioId: string; servicioId: string; instructorId: string; inicioISO: string;
-  socioId: string; email: string;
+  socioId: string; authUserId: string;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
 
   const { data: srow } = await admin.from('citas_servicios').select('*')
@@ -2861,11 +2924,11 @@ export async function crearCitaPublica(params: {
 // Cancela una cita self-service: solo si es de la socia y aún no ha pasado.
 
 export async function cancelarCitaPublica(params: {
-  studioId: string; citaId: string; socioId: string; email: string;
+  studioId: string; citaId: string; socioId: string; authUserId: string;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
 
   const { data: cita } = await admin.from('citas').select('id, socio_id, inicio, estado')
@@ -2915,7 +2978,11 @@ export async function resolverSociaAutenticada(slug: string, authUserId: string,
   //    email del JWT es de confianza (Supabase lo verificó), así que enlazamos.
   const { data: claimable } = await admin
     .from('socios').select('id, nombre, apellidos, email')
-    .ilike('email', email.trim()).eq('studio_id', studio.id).is('auth_user_id', null).maybeSingle();
+    // Gemelo del `.ilike` de registrarSociaPublica: aquí el email viene del JWT
+    // verificado, pero `%` y `_` son caracteres legales en la parte local de un
+    // email, así que el patrón se escapa igual — la defensa no puede depender
+    // de qué valida el proveedor de identidad.
+    .ilike('email', escaparLike(email.trim())).eq('studio_id', studio.id).is('auth_user_id', null).maybeSingle();
   if (!claimable) return null;
   await admin.from('socios').update({ auth_user_id: authUserId }).eq('id', claimable.id);
   return { socioId: claimable.id, nombre: `${claimable.nombre} ${claimable.apellidos}`.trim(), email: claimable.email };
@@ -3187,7 +3254,11 @@ export async function registrarSociaPublica(params: {
     .from('socios')
     .select('id, origen_lead')
     .eq('studio_id', params.studioId)
-    .ilike('email', params.email)
+    // `escaparLike`: el texto del email ES el patrón de `.ilike`. Sin escapar,
+    // un `email: "%"` (llega sin validar desde /api/oauth/v1/clientas, donde lo
+    // pone un integrador con scope `clientas:escribir`) adopta una ficha
+    // fantasma ARBITRARIA del estudio y le reasigna el bono ya cobrado.
+    .ilike('email', escaparLike(params.email))
     .is('auth_user_id', null)
     .limit(1);
   const fantasma = fantasmas?.[0];
@@ -3259,29 +3330,29 @@ export async function registrarSociaPublica(params: {
 // tocar tags, lead_stage, activo, referido_por ni datos de Stripe.
 //
 // `email` queda FUERA a propósito, aunque el formulario de "Mis datos" lo
-// enseña editable: `validarSociaPublica` (y con ella CUALQUIER escritura
-// pública — reservar, cancelar, canjear, editar) autoriza comparando
-// `socios.email` contra el email real de la sesión de Supabase Auth. Si se
-// aceptara aquí sin más, la socia podría dejar su `socios.email` sin
-// corresponder con su email de login — y a partir de ahí ninguna escritura
-// suya volvería a autorizarse nunca más (auto-bloqueo silencioso, sin que
-// nadie pueda arreglarlo desde el propio portal). Cambiar el email de
-// verdad necesita sincronizarlo también en Auth (con su propio flujo de
+// enseña editable — no por el riesgo de auto-bloqueo de antes (I-15,
+// auditoría 29-ago: `validarSociaPublica` ya no compara email, autoriza por
+// `auth_user_id`), sino porque cambiar el email de verdad necesita
+// sincronizarlo también en Supabase Auth (con su propio flujo de
 // confirmación), que no existe todavía — se rechaza explícitamente más abajo
 // en vez de aceptarlo y tirarlo en silencio.
 const CAMPOS_SOCIA_EDITABLES: Record<string, string> = {
   nombre: 'nombre', apellidos: 'apellidos', telefono: 'telefono', nif: 'nif',
   avatar: 'avatar', fotoUrl: 'foto_url', fechaNacimiento: 'fecha_nacimiento',
   direccion: 'direccion', usuario: 'usuario',
+  // I-13 (auditoría 29-ago): la migración 20260826202949 ya prometía esta
+  // vía de escritura — no existía ninguna, así que "quién más va a esta
+  // clase" nunca podía enseñar un solo nombre.
+  visibleEnClase: 'visible_en_clase',
 };
 
 
 export async function actualizarSociaPublica(params: {
-  studioId: string; socioId: string; email: string; cambios: Record<string, unknown>;
+  studioId: string; socioId: string; authUserId: string; cambios: Record<string, unknown>;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
 
   // Ver comentario de CAMPOS_SOCIA_EDITABLES: el email no se acepta todavía,
@@ -3333,11 +3404,11 @@ export async function actualizarSociaPublica(params: {
 // identidad, disponibilidad/stock/saldo (reward-engine) y actualiza el saldo.
 
 export async function canjearRecompensaPublica(params: {
-  studioId: string; socioId: string; email: string; catalogItemId: string;
+  studioId: string; socioId: string; authUserId: string; catalogItemId: string;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
 
   const [{ data: itemRow }, { data: credRow }] = await Promise.all([
