@@ -1165,16 +1165,30 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // resolving from the (possibly absent, possibly unrelated) auth session.
       if (studioIdOverride) {
         setCurrentStudioId(studioIdOverride);
-      } else if (authUserId) {
+        return fetchCriticalStudioData();
+      }
+      if (authUserId) {
         const resolved = await resolveStudioId();
         // Resetea a vacío si no resuelve, para no heredar el estudio de una
         // sesión anterior en el mismo cliente.
         setCurrentStudioId(resolved ?? '');
-      } else {
-        setCurrentStudioId('');
+        // Sesión de Supabase Auth real pero SIN estudio detrás — p.ej. una
+        // profesional de Network (`red_perfiles.auth_user_id`, independiente
+        // de `studio_id` por diseño, migr 20260813111206) logueada en
+        // `/network`, que no monta ningún StudioSlugGate propio y hereda este
+        // StudioProvider de la raíz. Sin este corte, `authUserId` truthy
+        // bastaba para disparar la carga completa del panel — incluidos los
+        // fetchers de solo-admin (campos personalizados, plantillas de
+        // email, segmentos, dependencias...) — que RLS rechaza con 42501
+        // para una cuenta sin membership de estudio (visto en Sentry:
+        // JAVASCRIPT-NEXTJS-20/21/22/23/24/C, `studioId: "desconocido"`).
+        if (!resolved) return null;
+        return fetchCriticalStudioData();
       }
-      return fetchCriticalStudioData();
+      setCurrentStudioId('');
+      return null;
     })().then(data => {
+      if (!data) { setDataLoaded(true); return; }
       setPlanesTarifa(data.planesTarifa);
       setSalas(data.salas);
       setTiposClase(data.tiposClase);
