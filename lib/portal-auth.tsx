@@ -34,6 +34,9 @@ interface PortalAuthContextValue {
   // Establece/cambia la contraseña de la sesión YA autenticada (por magic
   // link). Solo tiene efecto si hay una sesión de Supabase activa.
   establecerPassword: (password: string) => Promise<{ ok: true } | { error: string }>;
+  // Cambia el email de acceso (auth.users), no `socios.email` — ver
+  // comentario junto a su implementación.
+  actualizarEmail: (nuevoEmail: string) => Promise<{ ok: true; pendiente: boolean } | { error: string }>;
   logout: () => Promise<void>;
 }
 
@@ -164,7 +167,34 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   // al verificar el enlace, esto solo fija el nuevo valor sobre esa sesión.
   const establecerPassword = useCallback(async (password: string): Promise<{ ok: true } | { error: string }> => {
     const { error } = await supabasePortal.auth.updateUser({ password });
-    return error ? { error: mensajeSeguro(error.message, 'No se ha podido guardar la contraseña. Inténtalo de nuevo en unos segundos.') } : { ok: true };
+    if (error) return { error: mensajeSeguro(error.message, 'No se ha podido guardar la contraseña. Inténtalo de nuevo en unos segundos.') };
+    // Verificado en vivo contra el diseño real: la pantalla dice "Cerraremos
+    // tu sesión en otros dispositivos" — para que sea CIERTO y no una frase
+    // suelta, cierra de verdad las demás sesiones. `scope: 'others'` no
+    // dispara `SIGNED_OUT` (Supabase), así que la sesión ACTUAL —la que
+    // acaba de fijar la contraseña, típicamente recién llegada por enlace
+    // mágico— sigue viva sin parpadeo. Si esto falla, no se avisa como error
+    // de la contraseña: ya se guardó bien, esto es un extra de seguridad.
+    await supabasePortal.auth.signOut({ scope: 'others' });
+    return { ok: true };
+  }, []);
+
+  // Cambiar el email DE ACCESO (con qué entra), no un campo de contacto
+  // suelto — mismo primitivo que ya usa el lado del equipo
+  // (`updateEmail`, lib/auth-context.tsx), Supabase decide si exige
+  // confirmación doble (lo dice `data.user.email`: si sigue siendo el
+  // antiguo, quedó pendiente de que la socia abra el enlace en su bandeja).
+  // ⚠️ A propósito NO toca `socios.email` aquí: ese campo es la "prueba
+  // mínima de identidad" que compara `fetchPublicStudioData` contra el
+  // email del JWT (lib/db/supabase-data-admin.ts) — escribirlo antes de que
+  // el cambio de auth se confirme de verdad dejaría un socios.email que no
+  // coincide con ninguna sesión real, el mismo cruce que ya bloqueó a
+  // socia.dev en local. Sincronizarlo tras la confirmación es trabajo
+  // aparte (necesita seguir el evento de confirmación, no esta llamada).
+  const actualizarEmail = useCallback(async (nuevoEmail: string): Promise<{ ok: true; pendiente: boolean } | { error: string }> => {
+    const { data, error } = await supabasePortal.auth.updateUser({ email: nuevoEmail });
+    if (error) return { error: mensajeSeguro(error.message, 'No se ha podido cambiar el email. Inténtalo de nuevo en unos segundos.') };
+    return { ok: true, pendiente: data.user?.email !== nuevoEmail };
   }, []);
 
   const logout = useCallback(async () => {
@@ -174,7 +204,7 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   }, []);
 
   return (
-    <PortalAuthContext.Provider value={{ session, isLoading, revalidarSesion: resolver, enviarEnlace, entrarConGoogle, loginConPassword, establecerPassword, logout }}>
+    <PortalAuthContext.Provider value={{ session, isLoading, revalidarSesion: resolver, enviarEnlace, entrarConGoogle, loginConPassword, establecerPassword, actualizarEmail, logout }}>
       {children}
     </PortalAuthContext.Provider>
   );
