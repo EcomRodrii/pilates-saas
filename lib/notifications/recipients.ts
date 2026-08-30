@@ -149,9 +149,18 @@ async function instructoraPorId(admin: SupabaseClient, studioId: string, instruc
 // resolución (CONFIRMADA de verdad, no el snapshot de cliente) pero fuera del
 // Notification Engine porque ese canal no lo declara el catálogo (ver comentario
 // en `resolverDestinatarios` sobre 'socias-e-instructora-de-la-sesion').
-export async function sociasDeSesion(admin: SupabaseClient, studioId: string, sesionId: string): Promise<Recipient[]> {
+// `estados` por defecto = solo CONFIRMADA, que es el comportamiento que
+// esperan todos los llamantes previos (clase.modificada, clase.sustituta y el
+// email de cambio de instructora: a quien está en lista de espera no le afecta
+// que cambie la hora de una plaza que todavía no tiene). La cancelación de la
+// clase SÍ le afecta —su reserva de espera se cancela con la clase— y por eso
+// pasa su propia lista; ver 'socias-y-espera-e-instructora-de-la-sesion'.
+export async function sociasDeSesion(
+  admin: SupabaseClient, studioId: string, sesionId: string,
+  estados: string[] = ['CONFIRMADA'],
+): Promise<Recipient[]> {
   const { data: reservas } = await admin.from('reservas')
-    .select('socio_id').eq('studio_id', studioId).eq('sesion_id', sesionId).eq('estado', 'CONFIRMADA');
+    .select('socio_id').eq('studio_id', studioId).eq('sesion_id', sesionId).in('estado', estados);
   const ids = [...new Set((reservas ?? []).map(r => r.socio_id as string).filter(Boolean))];
   const out: Recipient[] = [];
   for (const id of ids) {
@@ -257,6 +266,20 @@ export async function resolverDestinatarios(
       if (!sesionId) return falta('sesionId');
       const [socias, instructora] = await Promise.all([
         sociasDeSesion(admin, event.studioId, sesionId),
+        instructoraDeSesion(admin, event.studioId, sesionId),
+      ]);
+      return [...socias, ...instructora];
+    }
+    case 'socias-y-espera-e-instructora-de-la-sesion': {
+      if (!sesionId) return falta('sesionId');
+      const [socias, instructora] = await Promise.all([
+        // Cancelar la clase cancela TAMBIÉN las reservas en LISTA_ESPERA y
+        // PENDIENTE_APROBACION (lib/supabase-data.ts, dbCancelarReservasPorSesiones),
+        // así que si no se las avisa aquí se les borra la reserva sin que se
+        // enteren de nada — siguen creyendo que pueden subir. El orden ya es
+        // el correcto: quien cancela avisa ANTES de cancelar las reservas
+        // (ver el comentario de `updateSesion` en lib/studio-context.tsx).
+        sociasDeSesion(admin, event.studioId, sesionId, ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']),
         instructoraDeSesion(admin, event.studioId, sesionId),
       ]);
       return [...socias, ...instructora];

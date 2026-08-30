@@ -21,6 +21,14 @@ interface PortalAuthContextValue {
    */
   revalidarSesion: () => Promise<void>;
   isLoading: boolean;
+  // I-12 (auditoría 29-ago): true SOLO cuando `session` tenía valor y
+  // `resolver()` concluye null SIN que haya sido un `logout()` intencional —
+  // es decir, cuando de verdad caducó/se revocó mientras la socia usaba el
+  // portal. `PortalShell` lo lee para avisar antes de mandarla a /login en
+  // silencio (antes: el estado personal se vaciaba y la socia veía "no
+  // tienes nada" sin ninguna pista de qué pasó). Se limpia sola en el
+  // siguiente login válido o al cerrar sesión a propósito.
+  sesionCaducada: boolean;
   // Envía el magic link / OTP al email. La sesión NO se establece aquí, sino
   // cuando la socia abre el enlace y vuelve al portal (onAuthStateChange).
   // Se usa SOLO para verificar la propiedad del email (primer acceso o
@@ -48,6 +56,7 @@ const LEGACY_KEY = 'ps_portal_session';
 export function PortalAuthProvider({ slug, children }: { slug: string; children: React.ReactNode }) {
   const [session, setSession] = useState<PortalSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sesionCaducada, setSesionCaducada] = useState(false);
 
   // recargarPublico cambia de identidad en cada render (el contexto no memoiza);
   // lo guardamos en un ref para llamarlo sin meterlo en dependencias del efecto.
@@ -61,12 +70,25 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   const recargarRef = useRef(recargarPublico);
   useEffect(() => { recargarRef.current = recargarPublico; }, [recargarPublico]);
 
+  // I-12: última sesión conocida, para distinguir "nunca hubo sesión" (carga
+  // inicial, nada que avisar) de "la había y ahora no" (caducidad real). Y un
+  // flag para el único caso en que perder la sesión es intencional (logout),
+  // donde tampoco hay que avisar de "caducó".
+  const sessionRef = useRef<PortalSession | null>(null);
+  useEffect(() => { sessionRef.current = session; }, [session]);
+  const logoutIntencionalRef = useRef(false);
+
   const resolver = useCallback(async () => {
-    const { data: { session: sb } } = await supabasePortal.auth.getSession();
-    if (!sb?.access_token) {
+    const concluirSinSesion = () => {
+      if (sessionRef.current && !logoutIntencionalRef.current) setSesionCaducada(true);
+      logoutIntencionalRef.current = false;
       setSession(null);
       try { localStorage.removeItem(LEGACY_KEY); } catch { /* ignore */ }
       setIsLoading(false);
+    };
+    const { data: { session: sb } } = await supabasePortal.auth.getSession();
+    if (!sb?.access_token) {
+      concluirSinSesion();
       return;
     }
     try {
@@ -77,12 +99,11 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
       });
       if (!res.ok) {
         // Autenticada en Supabase pero su email no es socia de este estudio.
-        setSession(null);
-        try { localStorage.removeItem(LEGACY_KEY); } catch { /* ignore */ }
-        setIsLoading(false);
+        concluirSinSesion();
         return;
       }
       const data = await res.json() as PortalSession;
+      setSesionCaducada(false);
       setSession(data);
       try { localStorage.setItem(LEGACY_KEY, JSON.stringify(data)); } catch { /* ignore */ }
       setIsLoading(false);
@@ -160,13 +181,15 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   }, []);
 
   const logout = useCallback(async () => {
+    logoutIntencionalRef.current = true;
+    setSesionCaducada(false);
     await supabasePortal.auth.signOut();
     try { localStorage.removeItem(LEGACY_KEY); } catch { /* ignore */ }
     setSession(null);
   }, []);
 
   return (
-    <PortalAuthContext.Provider value={{ session, isLoading, revalidarSesion: resolver, enviarEnlace, entrarConGoogle, loginConPassword, establecerPassword, logout }}>
+    <PortalAuthContext.Provider value={{ session, isLoading, sesionCaducada, revalidarSesion: resolver, enviarEnlace, entrarConGoogle, loginConPassword, establecerPassword, logout }}>
       {children}
     </PortalAuthContext.Provider>
   );

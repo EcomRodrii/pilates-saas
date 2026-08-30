@@ -496,8 +496,9 @@ export default function NetworkLandingPage() {
 
       {/* Pie — el mockup solo traía Producto/Network/Precios/Privacidad (las
           anclas de su propia landing general). Completado con los enlaces
-          reales de Network (Explorar instructoras, Acceso) y sus dos
-          legales propios, más aviso legal y cookies compartidos. */}
+          reales de Network (pedido explícito tras el clon #1482): el
+          marketplace y sus dos legales propios, más el aviso legal y
+          cookies compartidos con el resto de Tentare. */}
       <footer style={{ background: OSCURO, color: 'rgba(250,249,245,.7)', borderTop: '1px solid rgba(250,249,245,.12)' }} className="px-[clamp(18px,3.5vw,48px)] py-[34px]">
         <div className="max-w-[1340px] mx-auto flex flex-col gap-6">
           <div className="flex flex-wrap gap-[18px] items-center justify-between">

@@ -511,6 +511,11 @@ export function mapSocio(r: FilaSocioPanel): Socio {
     origenLead: r.origen_lead ?? null,
     camposExtra: r.campos_extra ?? {},
     usuario: r.usuario ?? null,
+    // I-13 (auditoría 29-ago): `FilaSocioPanel` la excluye a propósito (el
+    // panel de staff no la necesita, es un opt-in solo del portal) — de ahí
+    // el cast: en esa fila `undefined` cae a `false`, en la del portal
+    // (RowSocios completa) se lee el valor real.
+    visibleEnClase: (r as { visible_en_clase?: boolean | null }).visible_en_clase ?? false,
   } as Socio;
 }
 

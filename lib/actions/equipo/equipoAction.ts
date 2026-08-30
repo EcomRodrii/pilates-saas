@@ -37,8 +37,22 @@ async function quedariaSinPropietaria(
   return (count ?? 0) === 0;
 }
 
+// `bio` es la bio pública que pinta la ficha de instructora del portal
+// (app/portal/[slug]/instructores/[instructorId]/page.tsx:148). El formulario
+// de Equipo la edita y la envía desde siempre, pero ninguna de las dos listas
+// blancas la copiaba: la pantalla decía "Cambios guardados" y la columna
+// `instructores.bio` nunca se escribía. El límite de 400 es el mismo que
+// muestra el contador del formulario — la validación de cliente no puede ser
+// la única.
+function saneaBio(src: Record<string, unknown>): string | null {
+  const v = src.bio;
+  if (v == null || v === '') return null;
+  return String(v).trim().slice(0, 400) || null;
+}
+
 function saneaFieldsPropietario(src: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  if ('bio' in src) out.bio = saneaBio(src);
   if ('nombre' in src) out.nombre = String(src.nombre ?? '').trim();
   if ('email' in src) out.email = src.email == null || src.email === '' ? null : String(src.email).trim();
   if ('telefono' in src) out.telefono = src.telefono == null || src.telefono === '' ? null : String(src.telefono).trim();
@@ -52,6 +66,7 @@ function saneaFieldsPropietario(src: Record<string, unknown>): Record<string, un
 
 function saneaFieldsPropios(src: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  if ('bio' in src) out.bio = saneaBio(src);
   if ('nombre' in src) out.nombre = String(src.nombre ?? '').trim();
   if ('email' in src) out.email = src.email == null || src.email === '' ? null : String(src.email).trim();
   if ('telefono' in src) out.telefono = src.telefono == null || src.telefono === '' ? null : String(src.telefono).trim();
@@ -111,6 +126,9 @@ async function crearInstructora(
     activo: body?.activo == null ? true : Boolean(body.activo),
     avatar: body?.avatar == null ? null : String(body.avatar),
     foto_url: body?.fotoUrl == null ? null : String(body.fotoUrl),
+    // Mismo motivo que en las dos listas blancas de arriba: el alta también
+    // envía `bio` desde el formulario de Equipo.
+    bio: saneaBio(body),
     rol,
     auth_user_id: authUserIdVinculado,
   };

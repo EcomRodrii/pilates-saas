@@ -68,15 +68,19 @@ test.describe('Mis datos', () => {
     await expect(page.getByLabel('Email')).toHaveValue('marta@example.com', { timeout: 30_000 });
 
     await page.route('**/api/public/socio', (route) =>
-      route.fulfill({ status: 400, contentType: 'application/json', body: '{"error":"Ese email no es válido."}' }));
+      route.fulfill({ status: 400, contentType: 'application/json', body: '{"error":"Ese teléfono no es válido."}' }));
 
-    await page.getByLabel('Email').fill('marta@gmail');
+    // Email ya no vale para este test: I-9 (auditoría 29-ago) lo hizo
+    // readOnly aquí (el cliente ya no lo envía nunca, así que el servidor no
+    // puede rechazarlo por esta vía) — Teléfono sí es editable y prueba lo
+    // mismo que se quería probar: un rechazo del servidor se ve.
+    await page.getByLabel('Teléfono').fill('no-es-un-telefono');
     await page.getByRole('button', { name: 'Guardar' }).click();
 
     // ⚠️ Antes esto era fire-and-forget: la socia leía «Datos guardados» pasara
     // lo que pasara con el servidor.
-    await expect(page.getByText('Ese email no es válido.')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Ese teléfono no es válido.')).toBeVisible({ timeout: 15_000 });
     // Sigue en la hoja: si hubiera guardado, `guardarDatos` la habría cerrado.
-    await expect(page.getByLabel('Email')).toBeVisible();
+    await expect(page.getByLabel('Teléfono')).toBeVisible();
   });
 });
