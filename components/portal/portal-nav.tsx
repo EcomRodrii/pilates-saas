@@ -41,13 +41,21 @@ const ICONOS: Record<string, LucideIcon | typeof PilatesIcon> = {
 };
 
 export function PortalNav({
-  items, activeIndex, slug, interactive = true, flotante = true, etiquetas = 'soloActiva',
+  items, activeIndex, slug, interactive = true, flotante = true, etiquetas = 'soloActiva', onBuscarClick,
 }: {
   items: NavItemDefault[];
   activeIndex: number;
   slug: string;
   /** false = widget de preview del editor: mismo look, sin navegar de verdad. */
   interactive?: boolean;
+  /**
+   * "Buscar" NUNCA es una ruta — no existe `/buscar` (ver BuscarOverlay: "NUNCA
+   * un push de ruta", mismo criterio que ya usan los botones de lupa de
+   * Inicio/Horario). Sin este callback, esa pestaña sería un `<Link>` a un
+   * 404 — pasó de verdad al añadirla a la barra sin darle una acción propia.
+   * Si no se pasa (preview del editor), la pestaña se pinta pero no hace nada.
+   */
+  onBuscarClick?: () => void;
   /** false = barra clásica (Oliva/Noir): pegada abajo, sin flotar, con borde
    *  superior en vez de cápsula de cristal. Ver `barraClasica` del tema. */
   flotante?: boolean;
@@ -179,6 +187,19 @@ export function PortalNav({
             )}
           </span>
         );
+        if (interactive && item.seg === 'buscar') {
+          return (
+            <button
+              key={item.seg}
+              type="button"
+              onClick={onBuscarClick}
+              aria-label={item.label}
+              style={{ ...estilo, border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' }}
+            >
+              {contenido}
+            </button>
+          );
+        }
         return interactive ? (
           <Link
             key={item.seg}
