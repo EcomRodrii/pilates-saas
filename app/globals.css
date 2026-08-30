@@ -527,6 +527,16 @@ nextjs-portal { display: none !important; }
 @keyframes calendario-vista-in { from { opacity: 0; } to { opacity: 1; } }
 .calendario-vista-in { animation: calendario-vista-in var(--motion-fast) var(--motion-ease) both; }
 
+/* Menú "Más" a pantalla completa en móvil (components/layout/sidebar.tsx,
+   MasDrawer) — aparecía/desaparecía de golpe. Sube desde abajo como el resto
+   de hojas móviles del repo (mismo espíritu que drawer-sheet-in, pero
+   vertical: esto es un menú a pantalla completa, no un panel lateral).
+   Cerrar es más corto que abrir, mismo criterio que el resto de overlays. */
+@keyframes mas-drawer-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes mas-drawer-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(12px); } }
+.mas-drawer-in { animation: mas-drawer-in var(--motion-medium) var(--motion-ease) both; }
+.mas-drawer-out { animation: mas-drawer-out var(--motion-fast) var(--motion-ease-in) both; }
+
 /* Toast (components/ui/toast.tsx) — entraba/salía de golpe, sin transición.
    Entrada con algo más de presencia (sube desde abajo, es una confirmación);
    salida más corta, mismo criterio que el resto de overlays de este archivo
