@@ -493,7 +493,7 @@ export function Sidebar() {
           {sizeMenuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setSizeMenuOpen(false)} />
-              <div className="absolute bottom-full left-2 right-2 z-20 mb-1.5 rounded-xl overflow-hidden shadow-lg border" style={{ backgroundColor: '#171717', borderColor: 'rgba(255,255,255,0.08)' }}>
+              <div className="absolute bottom-full left-2 right-2 z-20 mb-1.5 rounded-xl overflow-hidden shadow-lg border menu-pop-in" style={{ backgroundColor: '#171717', borderColor: 'rgba(255,255,255,0.08)' }}>
                 {(Object.keys(SIDEBAR_SIZES) as SidebarSize[]).map(key => (
                   <button
                     key={key}

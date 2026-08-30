@@ -528,7 +528,7 @@ export function CatalogoBloques({
     <>
       <button className="fixed inset-0 z-20 cursor-default" onClick={onCerrar} aria-hidden tabIndex={-1} />
       <div
-        className={`${ancla ? 'fixed' : 'absolute left-0 top-11'} z-30 w-72 rounded-xl border border-border bg-card shadow-lg p-2 grid grid-cols-2 gap-2`}
+        className={`${ancla ? 'fixed' : 'absolute left-0 top-11'} z-30 w-72 rounded-xl border border-border bg-card shadow-lg p-2 grid grid-cols-2 gap-2 menu-pop-in`}
         style={ancla}
         role="dialog"
         aria-label="Elegir una sección"

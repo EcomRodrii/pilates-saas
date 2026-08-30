@@ -90,7 +90,7 @@ export function ProfileMenu() {
         </button>
 
         {open && (
-          <div className="absolute right-0 top-full mt-2 w-64 bg-card rounded-2xl shadow-xl border border-border py-1.5 z-20">
+          <div className="absolute right-0 top-full mt-2 w-64 bg-card rounded-2xl shadow-xl border border-border py-1.5 z-20 menu-pop-in">
             <div className="px-3.5 py-2.5 border-b border-muted">
               {/* Quien tiene ficha propia (instructora/manager/recepción) es una
                   persona distinta del estudio: ver el nombre del negocio en vez
