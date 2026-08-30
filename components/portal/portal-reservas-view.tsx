@@ -44,6 +44,7 @@ import { pedirPaseDeAcceso } from '@/lib/api-client';
 import type { PortalSession } from '@/lib/portal-auth';
 import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
 import { bonoActivo, fechaLarga, DIAS } from '@/lib/bonos-portal';
+import { esCancelacionTardia, heredaOverride } from '@/lib/booking-logic';
 import {
   EASE, dur, transicion, display, micro, texto, radio, sombra, cristal, desenfoque, sans,
 } from '@/lib/portal-design';
@@ -870,11 +871,21 @@ export function PortalReservasView({
           {cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
         </h2>
         <p style={{ ...texto.meta, color: t.muted, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-          {cambiandoHora
-            ? 'No podemos moverte de hora automáticamente: cancelamos esta y te llevamos a elegir otra que te venga mejor.'
-            : cancelando?.id.startsWith('res-pf-')
-              ? 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.'
-              : 'Perderás tu plaza y liberarás el hueco para otra socia.'}
+          {(() => {
+            if (cambiandoHora) return 'No podemos moverte de hora automáticamente: cancelamos esta y te llevamos a elegir otra que te venga mejor.';
+            if (cancelando?.id.startsWith('res-pf-')) return 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.';
+            // Mismo aviso de política que ya usa PortalClasesView
+            // (`tardiaDe()`) — verificado en vivo contra el diseño real, que
+            // sí distingue "pierdes la sesión" de "recuperas el hueco sin
+            // más": aquí solo avisaba de lo segundo, nunca de lo primero.
+            const s = cancelando ? sesiones.find(x => x.id === cancelando.sesionId) : null;
+            if (!s) return 'Perderás tu plaza y liberarás el hueco para otra socia.';
+            const ventana = heredaOverride(tiposClase.find(tc => tc.id === s.tipoClaseId)?.ventanaCancelacionHoras ?? null, studio?.cancelacionVentanaHoras ?? 0);
+            const tardia = esCancelacionTardia(s.inicio, new Date(), ventana);
+            return tardia
+              ? `Quedan menos de ${ventana} h para la clase. Según la política del estudio, puede que no se te devuelva la sesión.`
+              : 'Perderás tu plaza y liberarás el hueco para otra socia.';
+          })()}
         </p>
         <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
           <button
