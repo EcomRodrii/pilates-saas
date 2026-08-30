@@ -186,7 +186,7 @@ export default function NetworkLandingPage() {
           </h1>
           <p className="nw-fade-up mt-[26px] italic font-semibold text-[clamp(16px,1.8vw,24px)]" style={{ color: NW_PRODUCTO }}>Pilates y Yoga · reservas, pagos, equipo y alumnas</p>
           <div className="nw-fade-up flex flex-wrap gap-4 mt-[30px]">
-            <Link href="/crear-estudio" className="px-[30px] py-[15px] rounded-xl text-[15.5px] font-extrabold" style={{ background: NW_PRODUCTO, color: PAPEL }}>Empieza gratis</Link>
+            <Link href="/network/crear-perfil" className="px-[30px] py-[15px] rounded-xl text-[15.5px] font-extrabold" style={{ background: NW_PRODUCTO, color: PAPEL }}>Empieza</Link>
             <a href="#estudio" className="px-[26px] py-[15px] rounded-xl text-[15.5px] font-extrabold" style={{ color: PAPEL, boxShadow: 'inset 0 0 0 2px rgba(250,249,245,.5)' }}>Ver cómo funciona</a>
           </div>
 
@@ -354,16 +354,6 @@ export default function NetworkLandingPage() {
           <div className="flex justify-start sm:justify-end mt-[clamp(30px,5vh,56px)]">
             <Reveal className="max-w-[560px]">
               <p className="m-0 text-[clamp(15px,1.4vw,18px)] leading-[1.7]" style={{ color: 'rgba(250,249,245,.85)' }}>Horario en el bolsillo, plaza y cama elegidas en tres toques, bono siempre a la vista y lista de espera que avisa sola. Y si una clase se llena, la app ofrece la siguiente.</p>
-              <div className="flex gap-3 mt-6 flex-wrap">
-                <span className="inline-flex flex-col justify-center rounded-[10px] px-4 py-1.5" style={{ border: '1.5px solid rgba(250,249,245,.5)' }}>
-                  <span className="text-[8.5px]" style={{ color: 'rgba(250,249,245,.7)' }}>Consíguelo en el</span>
-                  <span className="text-[14px] font-extrabold leading-[1.1]">App Store</span>
-                </span>
-                <span className="inline-flex flex-col justify-center rounded-[10px] px-4 py-1.5" style={{ border: '1.5px solid rgba(250,249,245,.5)' }}>
-                  <span className="text-[8.5px]" style={{ color: 'rgba(250,249,245,.7)' }}>Disponible en</span>
-                  <span className="text-[14px] font-extrabold leading-[1.1]">Google Play</span>
-                </span>
-              </div>
             </Reveal>
           </div>
         </div>
@@ -488,7 +478,7 @@ export default function NetworkLandingPage() {
             <p className="mt-6 italic font-semibold text-[clamp(15px,1.5vw,19px)]" style={{ color: 'rgba(250,249,245,.75)' }}>Descubre, gestiona y crece</p>
           </Reveal>
           <Reveal delayMs={200} className="flex justify-center gap-4 mt-8 flex-wrap">
-            <Link href="/crear-estudio" className="px-[34px] py-4 rounded-xl text-[16px] font-extrabold" style={{ background: NW_PRODUCTO, color: PAPEL }}>Empieza gratis</Link>
+            <Link href="/network/crear-perfil" className="px-[34px] py-4 rounded-xl text-[16px] font-extrabold" style={{ background: NW_PRODUCTO, color: PAPEL }}>Empieza</Link>
             <a href="#top" className="px-7 py-4 rounded-xl text-[16px] font-extrabold" style={{ color: PAPEL, boxShadow: 'inset 0 0 0 2px rgba(250,249,245,.5)' }}>Hablar con nosotros</a>
           </Reveal>
         </div>
