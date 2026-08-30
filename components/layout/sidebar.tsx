@@ -103,7 +103,7 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
       className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[52px]"
     >
       <div className={cn(
-        'w-10 h-7 rounded-full flex items-center justify-center transition-colors',
+        'w-10 h-7 rounded-full flex items-center justify-center transition-[background-color,transform] duration-150 active:scale-90',
         active ? 'bg-brand' : 'bg-transparent'
       )}>
         <Icon
@@ -351,7 +351,7 @@ export function Sidebar() {
           onClick={() => setMasOpen(true)}
           className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[52px]"
         >
-          <div className="w-10 h-7 rounded-full flex items-center justify-center">
+          <div className="w-10 h-7 rounded-full flex items-center justify-center transition-transform duration-150 active:scale-90">
             <Menu size={20} strokeWidth={1.8} className="text-muted-foreground" />
           </div>
           <span className="text-[10px] font-medium text-muted-foreground leading-none">Más</span>
