@@ -395,9 +395,47 @@ function montarUno(host: HTMLElement) {
   createRoot(raiz).render(<StrictMode><WidgetApp slug={slug} tema={tema} config={config} filtros={filtros} /></StrictMode>);
 }
 
+// ⚠️ Bug real en producción (2026-08-30): un estudio con el snippet insertado
+// dentro de un bloque de WordPress (builder de página / plugin de carga
+// diferida) veía el widget completamente ausente — nunca un error, nunca un
+// esqueleto, nada. Causa: cuando el HTML de un bloque se pinta con
+// `elemento.innerHTML = "..."` (patrón habitual de esos plugins, en vez de
+// dejar que el HTML llegue ya parseado con la página), CUALQUIER `<script>`
+// dentro de ese HTML queda inerte — es una regla del propio navegador, sin
+// excepción para `async`/`defer`, y no hay forma de detectarlo desde fuera:
+// si `widget.js` nunca llega a ejecutarse, nada de lo que haga este fichero
+// puede arreglarlo (verificado en vivo: cero peticiones de red al `<script
+// src>` del snippet, aunque el tag estuviera presente en el HTML servido).
+//
+// Lo que SÍ está en nuestra mano es la otra mitad del problema, más común de
+// lo que parece: el contenedor `[data-tentare-booking]` apareciendo en el DOM
+// DESPUÉS de que `widget.js` ya se haya ejecutado una vez (contenido cargado
+// por AJAX, pestañas/acordeones que montan su contenido tarde, sitios
+// React/Vue del propio estudio) — hasta ahora `iniciar()` era un barrido
+// ÚNICO al cargar, así que cualquier contenedor que llegara después se
+// quedaba sin montar para siempre, sin ningún aviso. Un MutationObserver
+// sigue vigilando el DOM mientras la página exista, sea cual sea el motivo
+// por el que el contenedor llega tarde.
+const montados = new WeakSet<HTMLElement>();
+function montarSiNuevo(host: HTMLElement) {
+  if (montados.has(host)) return;
+  montados.add(host);
+  montarUno(host);
+}
+
 function iniciar() {
-  const hosts = document.querySelectorAll<HTMLElement>('[data-tentare-booking]');
-  hosts.forEach(montarUno);
+  document.querySelectorAll<HTMLElement>('[data-tentare-booking]').forEach(montarSiNuevo);
+
+  const observador = new MutationObserver((mutaciones) => {
+    for (const mutacion of mutaciones) {
+      for (const nodo of mutacion.addedNodes) {
+        if (!(nodo instanceof HTMLElement)) continue;
+        if (nodo.hasAttribute('data-tentare-booking')) montarSiNuevo(nodo);
+        nodo.querySelectorAll<HTMLElement>('[data-tentare-booking]').forEach(montarSiNuevo);
+      }
+    }
+  });
+  observador.observe(document.body, { childList: true, subtree: true });
 }
 
 if (document.readyState === 'loading') {
