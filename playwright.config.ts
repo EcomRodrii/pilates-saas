@@ -123,6 +123,7 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'dummy-anon-key-for-ci',
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'dummy-service-role-key-for-ci',
       NEXT_PUBLIC_APP_URL: BASE_URL,
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? 'pk_test_dummy_e2e_key',
       // Fijo (no derivado de nada secreto de verdad): e2e/portal-preview-home.spec.ts
       // firma su propio token con este mismo valor para probar /portal-preview/[slug]
       // sin pasar por sesión de staff real (que no existe en este entorno dummy).
