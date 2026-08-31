@@ -103,6 +103,12 @@ export function CitasPublica({
 
   const conteosDia = useMemo(() => new Map<string, number>(), []); // la tira de días de citas no anuncia recuento: los huecos dependen de a quién se elija.
 
+  // P1-7 (auditoría de producto): "Cualquier instructora" hacía 1 petición
+  // HTTP por instructora (~4 queries cada una) contra un endpoint con
+  // rate-limit de 60/min — con 4-6 instructoras del mismo servicio, una socia
+  // navegando varios días podía agotar la cuota y ver "sin huecos" cuando era
+  // en realidad un 429. Con una instructora concreta elegida, sigue siendo
+  // exactamente la petición de siempre (mismo contrato `{ huecos }`).
   async function cargarHuecos() {
     if (!servicioId) { setHuecos(null); return; }
     setLoadingHuecos(true);
@@ -110,15 +116,25 @@ export function CitasPublica({
     const instructoras = instructorSel === CUALQUIERA
       ? instructorasDisponibles.map(i => i.id)
       : [instructorSel];
+    if (instructoras.length === 0) { setHuecos([]); setLoadingHuecos(false); return; }
     try {
-      const listas = await Promise.all(instructoras.map(async (instructorId) => {
+      if (instructoras.length === 1) {
+        const [instructorId] = instructoras;
         const url = `/api/public/citas?studioId=${encodeURIComponent(studioId)}&servicioId=${encodeURIComponent(servicioId)}&instructorId=${encodeURIComponent(instructorId)}&fecha=${selectedDay}`;
         const r = await fetch(url);
         const d = await r.json();
         const brutos: { inicio: string; fin: string }[] = Array.isArray(d.huecos) ? d.huecos : [];
-        return brutos.map(h => ({ ...h, instructorId }));
-      }));
-      const fusionados = listas.flat().sort((a, b) => a.inicio.localeCompare(b.inicio));
+        setHuecos(brutos.map(h => ({ ...h, instructorId })).sort((a, b) => a.inicio.localeCompare(b.inicio)));
+        return;
+      }
+      const url = `/api/public/citas?studioId=${encodeURIComponent(studioId)}&servicioId=${encodeURIComponent(servicioId)}&instructorId=${encodeURIComponent(instructoras.join(','))}&fecha=${selectedDay}`;
+      const r = await fetch(url);
+      const d = await r.json();
+      const porInstructor: Record<string, { inicio: string; fin: string }[]> =
+        d.porInstructor && typeof d.porInstructor === 'object' ? d.porInstructor : {};
+      const fusionados = Object.entries(porInstructor)
+        .flatMap(([instructorId, brutos]) => (Array.isArray(brutos) ? brutos : []).map(h => ({ ...h, instructorId })))
+        .sort((a, b) => a.inicio.localeCompare(b.inicio));
       setHuecos(fusionados);
     } catch {
       setErrorHuecos(true);
