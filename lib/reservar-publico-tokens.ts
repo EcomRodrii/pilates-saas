@@ -253,3 +253,41 @@ export function resolverTokensReservar(a: AparienciaWidget, modo: 'dia' | 'noche
     fuenteDisplay: familiaDisplayCss(a) ?? familiaCss(a) ?? serif,
   };
 }
+
+/**
+ * Auditoría de UX (2026-08-31, `tentare-ux`): `superficie`/`tinta`/
+ * `textoSecundario`/`linea`/`relleno` de `AparienciaWidget` ("Colores del
+ * widget" en el Theme Builder, `theme-editor.tsx`) se guardaban, se validaban
+ * y hasta se veían en la vista previa del panel — pero NINGÚN consumidor real
+ * los aplicaba: `resolverTokensReservar` (arriba) existe desde el rediseño de
+ * apariencia y solo lo llama su propio test. `ReservaCalendario` no lee
+ * variables CSS ni el objeto de `resolverTokensReservar` — recibe un
+ * `ModoTokens` completo por la prop `t` (bg/surface/surface2/ink/muted/
+ * muted2/micro/accentInk/tabbar/bar/hero.../velo... — ver `lib/portal-paleta.ts`),
+ * así que no basta con enchufar `resolverTokensReservar` tal cual: sus 5
+ * campos usan OTRO nombre (`superficie`≠`surface`, `tinta`≠`ink`...) y no
+ * cubren el resto de `ModoTokens`. Esta función parte de la paleta día/noche
+ * de siempre y solo PISA los 5 campos que el estudio puede tocar — todo lo
+ * demás (fondo, halo del hero, veos) sigue igual que sin personalizar.
+ *
+ * Radios y tipografía NO van aquí — `ReservaCalendario` ya los recibe bien
+ * resueltos por props aparte (`radiosEsc`, `fuenteWidget`/`fuenteDisplayWidget`
+ * en `/reservar/[slug]/page.tsx`); esta función es solo el hueco de color que
+ * faltaba.
+ */
+export function tokensCalendarioDeApariencia(a: AparienciaWidget, modo: Modo): ModoTokens {
+  const base = RESERVAR_PALETA[modo];
+  const colores = coloresDe(a, {
+    superficie: base.surface, tinta: base.ink, textoSecundario: base.muted,
+    linea: base.line, relleno: base.surface2,
+  });
+  return {
+    ...base,
+    surface: colores.superficie,
+    ink: colores.tinta,
+    muted: colores.textoSecundario,
+    muted2: colores.textoSecundario,
+    line: colores.linea,
+    surface2: colores.relleno,
+  };
+}

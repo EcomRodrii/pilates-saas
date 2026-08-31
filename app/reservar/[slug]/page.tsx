@@ -36,7 +36,7 @@ import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
-import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, RESERVAR_PALETA, varsReservarModo } from '@/lib/reservar-publico-tokens';
+import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, RESERVAR_PALETA, varsReservarModo, tokensCalendarioDeApariencia } from '@/lib/reservar-publico-tokens';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
@@ -484,8 +484,16 @@ export default function ReservarPage() {
   //
   // Fuera del modo incrustado es el MISMO objeto de siempre, así que ningún
   // estudio ve un cambio.
+  //
+  // ⚠️ Auditoría de UX (2026-08-31): por el MISMO motivo de arriba (tercer
+  // canal de color, no CSS), los 5 controles de "Colores del widget" del
+  // Theme Builder (superficie/tinta/texto secundario/bordes/relleno) se
+  // guardaban y se veían en la vista previa del panel pero nunca llegaban
+  // aquí — `tokensCalendarioDeApariencia` (lib/reservar-publico-tokens.ts) es
+  // la pieza que faltaba: la paleta de siempre, con esos 5 campos pisados
+  // solo si el estudio los tocó.
   const tokensCalendario = useMemo(
-    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? RESERVAR_PALETA.noche : RESERVAR_TOKENS),
+    () => tokensCalendarioDeApariencia(apariencia, embedMode && modoTextoDe(apariencia) === 'noche' ? 'noche' : 'dia'),
     [embedMode, apariencia],
   );
   // Widget incrustado sobre una web oscura. Se saca a su propia constante

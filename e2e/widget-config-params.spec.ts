@@ -380,3 +380,18 @@ test('⚠️ Modo B (bundle real): "Planes" carga el checkout bajo demanda (widg
   await expect(page.getByRole('heading', { name: 'Planes y bonos' })).toBeVisible({ timeout: 30_000 });
   expect(erroresConsola.join('\n')).not.toContain('createRoot()');
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auditoría de UX (2026-08-31): "Colores del widget" (Theme Builder —
+// superficie/tinta/bordes) se guardaba y se veía en la vista previa del panel,
+// pero NUNCA llegaba a `/reservar/[slug]` — `tokensCalendario` (page.tsx)
+// solo distinguía día/noche, sin pisar los 5 campos que el estudio pudiera
+// tocar (`lib/reservar-publico-tokens.ts`, `tokensCalendarioDeApariencia`).
+// Mismo patrón que el test de `marca=` de arriba: color computado real, no
+// leyendo el prop.
+test('superficie=/linea= pisan de verdad la tarjeta de clase (no solo la vista previa del panel)', async ({ page }) => {
+  await abrir(page, '&superficie=%23112233&linea=%23FF00AA');
+  const fila = page.locator('.reserva-slot-row', { hasText: 'Reformer' });
+  await expect(fila).toHaveCSS('background-color', 'rgb(17, 34, 51)');
+  await expect(fila).toHaveCSS('border-color', 'rgb(255, 0, 170)');
+});

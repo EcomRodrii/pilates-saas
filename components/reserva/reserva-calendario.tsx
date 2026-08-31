@@ -28,7 +28,7 @@ import type { ResultadoEscritura } from '@/lib/errores';
 import { semantic } from '@/lib/portal-tokens';
 import { colorOcupacion, ratioOcupacion, etiquetaOcupacion } from '@/lib/ocupacion';
 import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
-import { serif, sans, mono, cq, radius, shadow, EASE, densidadCss } from '@/lib/reservar-publico-tokens';
+import { serif, sans, mono, cq, radius, EASE, densidadCss } from '@/lib/reservar-publico-tokens';
 import {
   localDayKey, addDays, diasSemana, contarSlotsPorDia, slotsDelDia,
   agruparPorDia, etiquetaDia,
@@ -852,7 +852,14 @@ export function ReservaCalendario({
                     flex: 1, minWidth: 0, height: cq(72, 6.6, 84), display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', border: 'none',
                     borderRadius: cq(24, 2.7, 31), background: isSel ? 'var(--portal-brand)' : 'transparent',
-                    boxShadow: isSel ? shadow.headerBtn : undefined,
+                    // Auditoría de UX (2026-08-31): antes `shadow.headerBtn`, un
+                    // rgba(15,15,15,…) fijo — el chip ya se pinta con el color
+                    // de marca del estudio (`--portal-brand`), pero el halo de
+                    // debajo era siempre gris neutro, nunca ese color. Con
+                    // `color-mix` deriva del mismo acento, mismo criterio que ya
+                    // usa la etiqueta de arriba (`color-mix(in srgb,
+                    // --portal-brand-foreground …)`).
+                    boxShadow: isSel ? '0 14px 28px -16px color-mix(in srgb, var(--portal-brand) 55%, transparent)' : undefined,
                     opacity: vacío && !isSel ? 0.55 : 1,
                     transition: `background .5s ${EASE}, box-shadow .5s ${EASE}`,
                     // Mismo gotcha que tira-dias.tsx: sin esto, un toque en
@@ -951,7 +958,14 @@ export function ReservaCalendario({
           // (2026-08-26). Solo en Modo A (única consumidora de
           // `estiloDias='dias'`); `SlotRow` sigue intacto para el portal
           // privado ('semana') y «Mis reservas» ('lista').
-          <div>
+          //
+          // Auditoría de UX (2026-08-31): `key={selectedDayKey}` fuerza a
+          // React a REMONTAR este bloque al cambiar de día — sin eso, sigue
+          // siendo el mismo nodo DOM y `.reserva-banner-in` (ya usada arriba
+          // para el aviso de pago, misma curva `EASE`) no volvería a disparar
+          // en cada cambio. Antes solo el chip de día seleccionado animaba;
+          // la lista de abajo se sustituía de golpe.
+          <div key={selectedDayKey} className="reserva-banner-in">
             {/* Fila plana, sin caja — el diseño pinta `diaCabecera`/
                 `diaEtiqueta` como texto suelto dentro del feed, no como
                 tarjeta con borde (esa caja era una lectura mía anterior,
