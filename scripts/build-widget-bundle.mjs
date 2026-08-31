@@ -54,14 +54,11 @@ if (STRIPE_PUBLISHABLE_KEY && !STRIPE_PUBLISHABLE_KEY.startsWith('pk_')) {
   process.exit(1);
 }
 
-await esbuild.build({
-  entryPoints: [path.join(raiz, 'app/widget-bundle/main.tsx')],
-  outfile: path.join(raiz, 'public/widget.js'),
+const opcionesComunes = {
   bundle: true,
   minify: true,
   sourcemap: false,
   platform: 'browser',
-  format: 'iife',
   target: ['es2020'],
   jsx: 'automatic',
   jsxImportSource: 'react',
@@ -75,6 +72,26 @@ await esbuild.build({
     'process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY': JSON.stringify(STRIPE_PUBLISHABLE_KEY),
   },
   logLevel: 'info',
-});
+};
 
+await esbuild.build({
+  ...opcionesComunes,
+  entryPoints: [path.join(raiz, 'app/widget-bundle/main.tsx')],
+  outfile: path.join(raiz, 'public/widget.js'),
+  format: 'iife',
+});
 console.log('✔ public/widget.js generado');
+
+// ⚠️ Auditoría de rendimiento (2026-08-31, `tentare-performance`): build
+// SEPARADO para `<ListaPlanes>` (Stripe incluido, ~127KB comprimidos) — ver
+// el docblock de components/checkout-widget/checkout-lazy-mount.tsx. `esm`,
+// no `iife`: es lo que permite a `widget.js` pedirlo con `import()` nativo
+// diferido; un `<script>` clásico puede llamar `import()` sin necesitar
+// `type="module"` él mismo.
+await esbuild.build({
+  ...opcionesComunes,
+  entryPoints: [path.join(raiz, 'app/widget-bundle/checkout-entry.tsx')],
+  outfile: path.join(raiz, 'public/widget-checkout.js'),
+  format: 'esm',
+});
+console.log('✔ public/widget-checkout.js generado');
