@@ -868,13 +868,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   </div>
 
                   {/* Plaza fija (F2 · B2.2) */}
-                  <FichaPlazaFija socioId={id} />
+                  <FichaPlazaFija socioId={id} onToast={setToast} />
 
                   {/* Recuperaciones (F2 · B2.3) */}
-                  <FichaRecuperaciones socioId={id} />
+                  <FichaRecuperaciones socioId={id} onToast={setToast} />
 
                   {/* Excepciones (F2 · B2.9) */}
-                  <FichaExcepciones socioId={id} />
+                  <FichaExcepciones socioId={id} onToast={setToast} />
 
                   {/* Domiciliación SEPA (F2 · B2.10). Es el medio de COBRO de la
                       clienta: quien no mueve dinero no lo da de alta ni lo quita. */}
@@ -1201,7 +1201,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
               {/* ═══ TAB: SALUD (ficha clínica) ═════════════════════════════ */}
               {activeTab === 'salud' && verFichaClinica && (
-                <FichaSalud socioId={id} now={now} />
+                <FichaSalud socioId={id} now={now} onToast={setToast} />
               )}
 
               {/* ═══ TAB: PAGOS ═════════════════════════════════════════════ */}
@@ -1487,7 +1487,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
               {/* ═══ TAB: DOCUMENTOS ════════════════════════════════════════ */}
               {activeTab === 'documentos' && gestionaClientas && (
-                <FichaDocumentos socioId={id} />
+                <FichaDocumentos socioId={id} onToast={setToast} />
               )}
 
             </ReanimarAlCambiar>

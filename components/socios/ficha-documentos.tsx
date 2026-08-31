@@ -51,7 +51,7 @@ function formVacio(): FormSubida {
   return { titulo: '', categoria: 'OTRO', caducaEn: '', archivo: null };
 }
 
-export function FichaDocumentos({ socioId }: { socioId: string }) {
+export function FichaDocumentos({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
   const { studio } = useStudio();
   const uid = useId();
 
@@ -120,7 +120,7 @@ export function FichaDocumentos({ socioId }: { socioId: string }) {
     setBorrando(true);
     const res = await borrarDocumentoSocio(aBorrar.id);
     setBorrando(false);
-    if (!res.ok) { window.alert(res.error); return; }
+    if (!res.ok) { onToast(res.error); return; }
     setDocumentos(prev => (prev ?? []).filter(d => d.id !== aBorrar.id));
     setABorrar(null);
   }

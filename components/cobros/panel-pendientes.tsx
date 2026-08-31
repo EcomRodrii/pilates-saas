@@ -152,7 +152,7 @@ const ETIQUETA_ESTADO: Record<EstadoRecibo | 'TODOS' | 'SIN_COBRAR', string> = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobrado' }) {
+export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas' | 'cobrado'; onToast: (mensaje: string) => void }) {
   const uid = useId();
   // ── Context ─────────────────────────────────────────────────────────────────
   const {
@@ -657,7 +657,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     // cerrarlo — antes se cerraba y limpiaba el formulario aunque la escritura
     // hubiera fallado, y la propietaria no tenía forma de saber que el cobro
     // nunca se guardó ni de reintentarlo sin rellenar todo otra vez.
-    if (!res.ok) { window.alert(res.error); return; }
+    if (!res.ok) { onToast(res.error); return; }
     setShowNuevoCobro(false);
     setNuevoForm({
       socioId: socios[0]?.id ?? '',
@@ -1123,7 +1123,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                             <button
                               onClick={async () => {
                                 const res = await reintentar(r.id);
-                                if (!res.ok) window.alert(res.error);
+                                if (!res.ok) onToast(res.error);
                               }}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-info/10 text-brand-medio hover:bg-info/10 transition-colors"
                             >
@@ -1942,7 +1942,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                   if (!confirmEliminar) return;
                   const res = await deleteRecibo(confirmEliminar);
                   setConfirmEliminar(null);
-                  if (!res.ok) window.alert(res.error);
+                  if (!res.ok) onToast(res.error);
                 }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-destructive hover:bg-red-700 transition-colors"
               >
