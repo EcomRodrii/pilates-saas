@@ -297,7 +297,7 @@ export function rotuloAccesos(variante: 'filas' | 'rejilla' | 'circulos'): strin
 
 /**
  * "Buenos días / Buenas tardes / Buenas noches" según la hora LOCAL de quien
- * mira (variante `cabeceraInicio: 'titular'`). Puro y con los cortes
+ * mira — el saludo del hero único del Inicio. Puro y con los cortes
  * explícitos para poder probarlos: un saludo que se equivoca de franja es el
  * tipo de detalle que solo se ve en producción a las 21:00.
  */

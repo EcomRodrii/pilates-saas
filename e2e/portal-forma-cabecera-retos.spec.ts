@@ -6,30 +6,25 @@ import { montarPortal, SLUG } from './portal-mock';
 // comportamiento SIN variante — que es lo que ve todo estudio que no haya
 // instalado Oliva/Bloom/Noir.
 
-test.describe('Inicio — cabecera por variante', () => {
-  test('sin variante: saludo por hora + frase del día como titular, sin avatar', async ({ page }) => {
+// Las 4 variantes de cabecera (clásica/saludo/nombre/titular) quedaron
+// RETIRADAS por decisión explícita (31-ago, verificado contra
+// CHEATSHEET-CSS.md/docs/diseno-referencia-portal/): el diseño vigente tiene
+// un solo hero fotográfico de 314px, igual para todo estudio, sin variante
+// que elegir. `variantes.cabeceraInicio` ya no cambia nada en Home — pasar
+// un valor distinto de 'clasica' (como hacía el test `titular` de antes) no
+// tiene ningún efecto observable, así que ese test se retira en vez de
+// mantenerlo probando una rama muerta.
+test.describe('Inicio — cabecera (hero único)', () => {
+  test('saludo por hora + nombre, y el mensaje del día como H1 sobre la foto', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/home`);
-    // `clasica` (default, `cabeceraConAvatar = variantes.cabeceraInicio !== 'clasica'`
-    // → false): el saludo por hora ya no vive en un "Hola, {nombre}." — pasa a
-    // párrafo con el nombre y emoji, y el encabezado real es el mensaje del
-    // día (mismo texto que `titular` asciende, ver portal-home-view.tsx).
     await expect(page.getByText(/^Buen(os|as) (días|tardes|noches), Marta/)).toBeVisible({ timeout: 30_000 });
     await expect(
       page.getByRole('heading', { name: /Hoy tienes una cita contigo\.|¿Qué te apetece hoy\?/ }),
     ).toBeVisible();
+    // Ya no hay ninguna variante "Hola, {nombre}." — ni con `cabeceraInicio`
+    // en su valor por defecto ni pasando otro: se retiró la rama entera.
     await expect(page.getByRole('heading', { name: /^Hola, /, exact: false })).toHaveCount(0);
-  });
-
-  test('`titular`: saludo por hora + nombre, y el mensaje del día asciende a titular', async ({ page }) => {
-    await montarPortal(page, { conSesion: true, variantes: { cabeceraInicio: 'titular' } });
-    await page.goto(`/portal/${SLUG}/home`);
-    // El nombre pasa a ser el encabezado; "Hola, X." desaparece.
-    await expect(page.getByRole('heading', { name: 'Marta' })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('heading', { name: /^Hola, / })).toHaveCount(0);
-    await expect(page.getByText(/^Buen(os|as) (días|tardes|noches)$/)).toBeVisible();
-    // El mensaje real del día, ahora en grande — no una frase de marketing.
-    await expect(page.getByText(/Hoy tienes una cita contigo\.|¿Qué te apetece hoy\?/)).toBeVisible();
   });
 });
 
