@@ -36,7 +36,13 @@ export function OnboardingChecklist() {
     numSesiones: sesiones.length,
     numSocios: socios.length,
     numSalas: salas.length,
-    numPlanesTarifa: planesTarifa.length,
+    // P1-6 (auditoría de producto): contar CUALQUIER fila marcaba «✓ Configura
+    // tus bonos» tachado aunque fuera el borrador que crea el wizard de
+    // bienvenida (`activo:false, precio:0` a propósito — nadie ha decidido el
+    // precio todavía). Falsa sensación de "ya puedo cobrar": el bono no
+    // aparece en la reserva pública hasta que la propietaria lo activa de
+    // verdad.
+    numPlanesTarifa: planesTarifa.filter(p => p.activo && p.precio > 0).length,
     numSuscripcionesActivas: suscripciones.filter(s => s.estado === 'ACTIVA').length,
     contenidoPortalPersonalizado: !!contenidoPortal?.mensajeDestacado,
     automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),

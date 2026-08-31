@@ -37,6 +37,7 @@ import {
   TIPOS_CLASE_SUGERIDOS, interpretarRespuestasWizard, planificarConfiguracion,
   planVacio,
 } from '@/lib/onboarding/plan-configuracion';
+import { guardarProgresoWizard, leerProgresoWizard, olvidarProgresoWizard } from '@/lib/onboarding/borrador-wizard';
 
 const FRASES = [
   'Tu estudio ya está en marcha.',
@@ -559,6 +560,7 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
       capturarExcepcion(new Error(resSellado.error ?? 'No se pudo sellar bienvenida_vista_en'), { tags: { area: 'onboarding' } });
       return;
     }
+    olvidarProgresoWizard();
 
     // §8 — Lo que de verdad convierte el cuestionario en un estudio montado:
     // crea sus salas con su aforo, sus tipos de clase con su duración y los
@@ -609,6 +611,27 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     if (ans.importar === 'Sí, importadlos') router.push('/migracion');
   }, [updateStudio, router]);
 
+  // P1-5 (auditoría de producto): las 11 preguntas no tenían salida — quien
+  // no quisiera contestar ahora se quedaba atrapado en la pantalla completa.
+  // Sella `bienvenidaVistaEn` sin ninguna respuesta: no monta salas/tipos de
+  // clase (esa parte solo la dispara `finalizar` con el wizard completo), así
+  // que el checklist de primeros pasos sigue pidiendo lo mismo que le pediría
+  // de todas formas — el mismo comportamiento que ya tiene un fallo suave de
+  // /api/onboarding/configurar más arriba.
+  const saltar = useCallback(async () => {
+    if (guardadoRef.current) return;
+    guardadoRef.current = true;
+    setErrorGuardado(false);
+    const res = await updateStudio({ bienvenidaVistaEn: new Date().toISOString() });
+    if (!res.ok) {
+      guardadoRef.current = false;
+      setErrorGuardado(true);
+      capturarExcepcion(new Error(res.error ?? 'No se pudo sellar bienvenida_vista_en (saltar)'), { tags: { area: 'onboarding' } });
+      return;
+    }
+    olvidarProgresoWizard();
+  }, [updateStudio]);
+
   const avanzar = useCallback(() => {
     const e = engineRef.current;
     if (!e) return;
@@ -620,10 +643,11 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     } else {
       e.paso += 1;
       e.qAt = performance.now();
+      guardarProgresoWizard(studio.id, e.paso, e.ans);
     }
     tock(0.78, 1.1);
     refrescar();
-  }, [tock, refrescar]);
+  }, [tock, refrescar, studio.id]);
 
   const elegir = useCallback((paso: Paso, valor: string) => {
     const e = engineRef.current;
@@ -638,14 +662,16 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
       else if (sel.length < paso.multi) sel.push(valor);
       else { sel.shift(); sel.push(valor); }
       e.ans = { ...e.ans, [paso.id]: sel } as Respuestas;
+      guardarProgresoWizard(studio.id, e.paso, e.ans);
       refrescar();
       return;
     }
     e.ans = { ...e.ans, [paso.id]: valor } as Respuestas;
+    guardarProgresoWizard(studio.id, e.paso, e.ans);
     refrescar();
     if (avanceTRef.current) clearTimeout(avanceTRef.current);
     avanceTRef.current = setTimeout(avanzar, 280);
-  }, [tock, refrescar, avanzar]);
+  }, [tock, refrescar, avanzar, studio.id]);
 
   const onTap = useCallback(() => {
     const a = audioRef.current;
@@ -687,6 +713,15 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     const reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     const now = performance.now();
     const e = nuevoEngine(reduced, now);
+    // P1-5 (auditoría de producto): recupera dónde se quedó si cerró la
+    // pestaña o le falló la conexión a mitad del wizard — antes esto vivía
+    // solo en este `Engine`, un `useRef` que se pierde al desmontar.
+    const guardado = leerProgresoWizard(studio.id);
+    if (guardado) {
+      e.paso = Math.min(guardado.paso, PASOS.length - 1);
+      e.ans = guardado.ans as Respuestas;
+      e.qAt = now;
+    }
     engineRef.current = e;
 
     const wake = () => { const a = audioRef.current; if (a && a.ctx.state === 'suspended') a.ctx.resume(); };
@@ -777,7 +812,16 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
           <LogoTentare formato="vertical" className="h-[clamp(58px,8vh,76px)] w-auto" />
         </div>
 
-        <div className="absolute top-[clamp(18px,3.2vh,34px)] right-6 z-10">
+        <div className="absolute top-[clamp(18px,3.2vh,34px)] right-6 z-10 flex items-center gap-3">
+          {vals.fase === 'wizard' && (
+            <button
+              type="button"
+              onClick={(ev) => { ev.stopPropagation(); void saltar(); }}
+              className="text-[12px] font-semibold text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
+            >
+              Ahora no
+            </button>
+          )}
           <IconButton
             label={sonidoActivo ? 'Silenciar sonido de tecleo' : 'Activar sonido de tecleo'}
             icon={sonidoActivo ? Volume2 : VolumeX}
@@ -887,7 +931,7 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
 
         {errorGuardado && (
           <p role="alert" className="absolute left-0 right-0 px-[clamp(28px,6vw,84px)] text-[12.5px] font-semibold text-destructive" style={{ bottom: 'calc(clamp(24px,4vh,40px) + 68px)' }}>
-            No hemos podido guardar tus respuestas. Comprueba tu conexión y vuelve a pulsar «Entrar al panel».
+            No hemos podido guardar. Comprueba tu conexión y vuelve a intentarlo.
           </p>
         )}
 
