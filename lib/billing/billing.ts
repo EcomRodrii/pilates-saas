@@ -4,6 +4,15 @@ import type { Plan } from '@/lib/billing/entitlements';
 // Billing del SaaS (Stripe Billing — la plataforma cobra al estudio).
 // Los price IDs de Stripe viven en env (STRIPE_PRICE_BASE/ESTUDIO/CADENA)
 // porque difieren entre test y live. SOLO servidor (no NEXT_PUBLIC).
+//
+// ⚠️ Cambiar uno de estos valores en Vercel NO basta con "Redeploy": el
+// `ignoreCommand` de vercel.json cancela el build si el diff de código está
+// vacío, y un Redeploy del MISMO commit no genera ningún diff — así que un
+// cambio de env var puro se queda sin desplegar en silencio ("Canceled",
+// sin más explicación). Hace falta un commit real (aunque sea trivial, como
+// este) para forzar el build. Pasó de verdad el 31-ago-2026: un precio de
+// prueba a 1€ en Stripe quedó desplegado varios minutos de más porque el
+// primer intento de Redeploy no hizo nada.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function priceEnv(): Record<Plan, string | undefined> {
