@@ -44,6 +44,15 @@ const TURNSTILE_SITE_KEY = leerEnvLocal('NEXT_PUBLIC_TURNSTILE_SITE_KEY');
 // cae al aviso "compra no disponible ahora mismo" en vez de romper el resto
 // del widget (calendario/reservas siguen funcionando).
 const STRIPE_PUBLISHABLE_KEY = leerEnvLocal('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
+// Guardia de FORMA, no de presencia. El 19-ago esta variable llegó a contener
+// una `sk_live_` y el bundle público la sirvió a webs de terceros (Sentry
+// JAVASCRIPT-NEXTJS-1P: "You should not use your secret key with Stripe.js").
+// Se cerró rotando la clave; nada impedía repetirlo. `public/widget.js` es el
+// destino más expuesto del repo, así que el build para aquí antes de generarlo.
+if (STRIPE_PUBLISHABLE_KEY && !STRIPE_PUBLISHABLE_KEY.startsWith('pk_')) {
+  console.error('✖ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY no empieza por "pk_". Se aborta el build: esa variable acaba en public/widget.js, servido a terceros.');
+  process.exit(1);
+}
 
 await esbuild.build({
   entryPoints: [path.join(raiz, 'app/widget-bundle/main.tsx')],

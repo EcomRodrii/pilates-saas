@@ -745,7 +745,11 @@ export default function Dashboard() {
   const [avisandoSesion, setAvisandoSesion] = useState<string | null>(null);
   async function avisarCandidatas(sesionId: string, nCandidatas: number, nombreClase: string) {
     if (nCandidatas === 0 || avisandoSesion) return;
-    if (!window.confirm(`Se avisará a ${nCandidatas} socia${nCandidatas === 1 ? '' : 's'} por WhatsApp de que hay hueco en ${nombreClase}. ¿Continuar?`)) return;
+    // «hasta N»: el servidor descarta después a quien no tenga consentimiento
+    // de marketing vigente, a quien ya se avisó en 24 h y a las exentas. Decir
+    // un número exacto que luego no se cumple convierte el resultado en un
+    // misterio — y hoy la mayoría de las socias NO tiene consentimiento.
+    if (!window.confirm(`Se avisará por WhatsApp a hasta ${nCandidatas} socia${nCandidatas === 1 ? '' : 's'} de que hay hueco en ${nombreClase}. Solo recibirán el aviso las que hayan dado su consentimiento de marketing. ¿Continuar?`)) return;
     setAvisandoSesion(sesionId);
     try {
       const res = await fetch('/api/marketing/hueco/avisar', {
@@ -755,7 +759,13 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (!res.ok) { showToast(`Error: ${data.error ?? 'no se pudo avisar'}`); return; }
-      showToast(`Aviso enviado a ${data.enviados} socia${data.enviados === 1 ? '' : 's'}${data.sinTelefono ? ` (${data.sinTelefono} sin teléfono)` : ''}`);
+      // Sin el desglose, «Aviso enviado a 0 socias» no tiene explicación y
+      // parece una avería. `sinConsentimiento` es hoy el motivo más frecuente.
+      const motivos = [
+        data.sinConsentimiento ? `${data.sinConsentimiento} sin consentimiento de marketing` : null,
+        data.sinTelefono ? `${data.sinTelefono} sin teléfono` : null,
+      ].filter(Boolean).join(', ');
+      showToast(`Aviso enviado a ${data.enviados} socia${data.enviados === 1 ? '' : 's'}${motivos ? ` (${motivos})` : ''}`);
     } catch {
       showToast('No se pudo conectar con el servidor. El aviso no se ha enviado.');
     } finally {

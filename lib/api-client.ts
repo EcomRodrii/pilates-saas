@@ -108,8 +108,9 @@ export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeCon
     body: JSON.stringify(parche),
   });
   if (!res.ok) {
-    const b = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(mensajeSeguro(b.error, 'No se han podido guardar los cambios de marca. Vuelve a intentarlo.'));
+    if (res.status === 401) throw new ErrorSesionCaducada();
+    if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para editar la marca.'));
+    throw new Error(await mensajeDe(res, 'No se han podido guardar los cambios de marca. Vuelve a intentarlo.'));
   }
   return res.json();
 }
@@ -124,7 +125,15 @@ export async function publicarThemeApi(): Promise<ResultadoPublicar> {
     const b = (await res.json()) as { errores?: ErrorContraste[] };
     return { ok: false, errores: b.errores ?? [{ mensaje: 'Contraste insuficiente', categoriaId: 'color-marca' }] };
   }
-  if (!res.ok) throw new Error('Error al publicar');
+  if (!res.ok) {
+    // Antes se tiraba el motivo: los 403 reales ("Solo el propietario puede
+    // publicar la marca", "incluida a partir del plan Estudio") llegaban a la
+    // pantalla como "Error al publicar". Su gemela guardarThemeBorrador sí lo
+    // leía — misma pantalla, dos comportamientos.
+    if (res.status === 401) throw new ErrorSesionCaducada();
+    if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para publicar la marca.'));
+    throw new Error(await mensajeDe(res, 'No se ha podido publicar la marca. Vuelve a intentarlo.'));
+  }
   return { ok: true, theme: await res.json() };
 }
 
@@ -144,8 +153,9 @@ export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfi
     body: JSON.stringify(parche),
   });
   if (!res.ok) {
-    const b = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(mensajeSeguro(b.error, 'No se ha podido guardar el menú. Vuelve a intentarlo.'));
+    if (res.status === 401) throw new ErrorSesionCaducada();
+    if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para editar el menú.'));
+    throw new Error(await mensajeDe(res, 'No se ha podido guardar el menú. Vuelve a intentarlo.'));
   }
   return res.json();
 }
@@ -225,6 +235,29 @@ export function esSesionCaducada(e: unknown): boolean {
   return e instanceof ErrorSesionCaducada;
 }
 
+/**
+ * El servidor dice 403. Estado APARTE de un error cualquiera por la misma
+ * razón que ErrorSesionCaducada: reintentar no arregla nada.
+ *
+ * El caso real: el editor de apariencia deja entrar a MANAGER
+ * (`puedeGestionarPortalHome`) pero `guardarThemeAction` es solo-PROPIETARIO,
+ * así que el autoguardado del tema reintentaba para siempre bajo «No se ha
+ * podido guardar — se sigue intentando» y al recargar no había nada. Mismo
+ * caso con el plan BASE (entitlement `marca`).
+ */
+export class ErrorSinPermiso extends Error {
+  constructor(mensaje: string) { super(mensaje); this.name = 'ErrorSinPermiso'; }
+}
+
+export function esSinPermiso(e: unknown): boolean {
+  return e instanceof ErrorSinPermiso;
+}
+
+async function mensajeDe(res: Response, porDefecto: string): Promise<string> {
+  const b = (await res.json().catch(() => ({}))) as { error?: string };
+  return mensajeSeguro(b.error, porDefecto);
+}
+
 export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: BloqueHome[]): Promise<BloqueHome[]> {
   const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}`, {
     method: 'PUT',
@@ -233,6 +266,7 @@ export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: B
   });
   if (!res.ok) {
     if (res.status === 401) throw new ErrorSesionCaducada();
+    if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para editar el portal.'));
     const b = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(mensajeSeguro(b.error, 'No se han podido guardar los bloques del portal. Vuelve a intentarlo.'));
   }
@@ -242,8 +276,12 @@ export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: B
 export async function publicarBloquesApi(pantalla: PantallaId): Promise<BloqueHome[]> {
   const res = await fetch(`/api/portal-bloques/publish?pantalla=${pantalla}`, { method: 'POST', headers: await authHeader() });
   if (!res.ok) {
-    const b = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(mensajeSeguro(b.error, 'No se han podido publicar los cambios del portal. Vuelve a intentarlo.'));
+    // Gemela de publicarThemeApi: se llama tres líneas después en el mismo
+    // `publicarTodo` (theme-editor-fullscreen.tsx). Su ruta devuelve 403 con
+    // 'Solo la propietaria o la gerencia pueden publicar los bloques'.
+    if (res.status === 401) throw new ErrorSesionCaducada();
+    if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para publicar el portal.'));
+    throw new Error(await mensajeDe(res, 'No se han podido publicar los cambios del portal. Vuelve a intentarlo.'));
   }
   return res.json();
 }
