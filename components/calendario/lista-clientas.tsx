@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, RefreshCw, Repeat, X } from 'lucide-react';
 import { horaEstudio } from '@/lib/utils';
 import type { Reserva } from '@/lib/types';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 // Rediseño del Calendario — punto 5, pestaña "Clientas" del panel lateral.
 // Estados reales de `EstadoReserva`, incluida la posición en lista de espera
@@ -57,6 +59,11 @@ export function ListaClientas({
   onRepetirSemanaSiguiente, semaforoPorSocio, filaExtra,
 }: ListaClientasProps) {
   const visibles = reservas.filter(r => r.estado !== 'CANCELADA');
+  // P1-4 (auditoría de producto): un clic en la X quitaba la reserva sin
+  // confirmar. Con lista de espera activa, quitar una CONFIRMADA promueve
+  // automáticamente a la siguiente persona — un clic accidental deja de ser
+  // trivialmente reversible.
+  const [pendienteQuitar, setPendienteQuitar] = useState<Reserva | null>(null);
 
   if (visibles.length === 0) {
     return <div className="py-8 text-center"><p className="text-sm text-muted-foreground">Sin clientas apuntadas aún</p></div>;
@@ -155,13 +162,25 @@ export function ListaClientas({
               </button>
             )}
             {onQuitar && (
-              <button onClick={() => onQuitar(r.id)} aria-label="Quitar reserva" className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-red-400 transition-colors opacity-60 group-hover:opacity-100">
+              <button onClick={() => setPendienteQuitar(r)} aria-label="Quitar reserva" className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-red-400 transition-colors opacity-60 group-hover:opacity-100">
                 <X size={12} />
               </button>
             )}
           </div>
         </div>
       ))}
+
+      <ConfirmDialog
+        open={!!pendienteQuitar}
+        onOpenChange={v => { if (!v) setPendienteQuitar(null); }}
+        titulo={pendienteQuitar ? `¿Quitar a ${nombreClienta(pendienteQuitar.socioId)}?` : ''}
+        descripcion={pendienteQuitar?.estado === 'LISTA_ESPERA' || pendienteQuitar?.estado === 'PENDIENTE_APROBACION'
+          ? 'Perderá su sitio en la lista de espera.'
+          : 'Se libera su plaza — si hay lista de espera, se promociona automáticamente a la siguiente persona.'}
+        textoConfirmar="Quitar"
+        destructivo
+        onConfirm={() => { if (pendienteQuitar) onQuitar?.(pendienteQuitar.id); setPendienteQuitar(null); }}
+      />
     </div>
   );
 }
