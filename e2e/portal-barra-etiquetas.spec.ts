@@ -12,8 +12,9 @@ import { montarPortal, SLUG } from './portal-mock';
 
 // Las pestañas REALES del portal (lib/portal-nav.ts, reconstrucción "Tentare
 // Studio App" 2026-08): Clases+Bonos se fusionaron en "Reservas", "Inicio" se
-// renombró a "Hoy" y "Buscar" es pestaña nueva.
-const NOMBRES = ['Hoy', 'Buscar', 'Reservas', 'Perfil'];
+// renombró a "Hoy" y "Explorar" es pestaña nueva (etiqueta verificada contra
+// el mockup real: el seg interno sigue siendo `buscar`, solo cambia el texto).
+const NOMBRES = ['Hoy', 'Explorar', 'Reservas', 'Perfil'];
 
 test.describe('Barra inferior — etiquetas por variante', () => {
   test('sin variante: solo la activa lleva texto, y es más ancha para hacerle sitio', async ({ page }) => {

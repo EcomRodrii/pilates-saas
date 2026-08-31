@@ -36,7 +36,7 @@ export interface NavItemDefault {
 // Catálogo y orden de pestañas del portal — mismas 4 que portal-shell.tsx.
 export const NAV_DEFAULT: NavItemDefault[] = [
   { seg: 'home', label: 'Hoy', icono: 'Home' },
-  { seg: 'buscar', label: 'Buscar', icono: 'Search' },
+  { seg: 'buscar', label: 'Explorar', icono: 'Search' },
   { seg: 'reservas', label: 'Reservas', icono: 'CalendarDays' },
   { seg: 'perfil', label: 'Perfil', icono: 'User' },
 ];
