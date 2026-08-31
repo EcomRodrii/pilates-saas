@@ -4,6 +4,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
 import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
+import { ultimaRespuestaDe, type ContactoFila } from '@/lib/sustituciones/traza';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
 import { escalacionVigente, contactarDesde, alertarPropietaria, modoAutonomiaEfectivo } from '@/lib/sustituciones/contacto';
 import { inngest, EVENTS } from '@/lib/inngest/client';
@@ -25,6 +26,26 @@ export async function POST(req: NextRequest) {
   const sustitucionId = claim.ref;
 
   if (body?.accion === 'aceptar') {
+    // Auditoría de producto (P0-3): `confirmar_sustitucion` autoriza a
+    // CUALQUIER instructor_id que llegue con un token válido para esta
+    // sustitución — no comprueba que sea la candidata a la que el motor le
+    // preguntó por última vez. Esta comprobación existía SOLO en la página
+    // SSR (app/aceptar-sustitucion/[token]/page.tsx, para pintar "ya nos
+    // contestaste" en vez del formulario), nunca en el endpoint que de
+    // verdad muta datos — así que reenviar/reabrir la petición POST tras
+    // haber rechazado explícitamente podía confirmar la clase igual,
+    // arrebatándosela a quien el motor ya movió como candidata actual, sin
+    // ningún error visible. Mismo criterio que ya usa la SSR: `null` = nunca
+    // respondió, sigue siendo legítimo aceptar.
+    const { data: contactos } = await admin
+      .from('sustitucion_contactos')
+      .select('instructor_id, canal, estado, enviado_en, respondido_en')
+      .eq('sustitucion_id', sustitucionId).eq('studio_id', claim.studioId).eq('instructor_id', claim.instructorId);
+    const yaRespondio = ultimaRespuestaDe((contactos ?? []) as ContactoFila[]);
+    if (yaRespondio) {
+      return NextResponse.json({ ok: false, motivo: yaRespondio === 'rechazado' ? 'ya_rechazaste' : 'ya_aceptaste' }, { status: 409 });
+    }
+
     // La RPC `confirmar_sustitucion` NO comprueba si la clase ya empezó (solo
     // revalida el solape de horario), y el token del email dura 3 h — justo la
     // ventana de una baja de última hora. Sin este guardia, aceptar a las 20:10
