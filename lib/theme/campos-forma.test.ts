@@ -8,7 +8,7 @@ function campo(id: string) {
 }
 
 test('el porDefecto de cada eje es el PRIMER valor del catálogo — el aspecto de hoy', () => {
-  for (const eje of ['cabeceraInicio', 'accesosRapidos', 'barra', 'retos', 'tarjetaPrincipal', 'bienvenida'] as const) {
+  for (const eje of ['accesosRapidos', 'barra', 'retos', 'tarjetaPrincipal', 'bienvenida'] as const) {
     const c = campo(eje);
     assert.ok(c, `falta el campo ${eje}`);
     assert.equal(
@@ -20,7 +20,7 @@ test('el porDefecto de cada eje es el PRIMER valor del catálogo — el aspecto 
 });
 
 test('las opciones de cada eje son EXACTAMENTE las del catálogo, sin inventarse ni perder ninguna', () => {
-  for (const eje of ['cabeceraInicio', 'accesosRapidos', 'barra', 'retos', 'tarjetaPrincipal', 'bienvenida'] as const) {
+  for (const eje of ['accesosRapidos', 'barra', 'retos', 'tarjetaPrincipal', 'bienvenida'] as const) {
     const c = campo(eje) as { opciones: readonly { id: string; label: string }[] };
     assert.deepEqual(c.opciones.map((o) => o.id), [...VARIANTES_PORTAL[eje]]);
     // Una etiqueta que se quedara en el id crudo ("todasRelleno") sería una
@@ -33,6 +33,10 @@ test('`tabBarStyle` NO se expone: portal-nav.tsx ya no lo lee y sería un contro
   assert.equal(campo('tabBarStyle'), undefined);
 });
 
+test('`cabeceraInicio` NO se expone: el Inicio tiene un hero único, sin variante que elegir', () => {
+  assert.equal(campo('cabeceraInicio'), undefined);
+});
+
 test('`radioTema` tampoco: su fallback no es un número único, y fijarlo mataría la herencia', () => {
   for (const id of ['radioTema', 'radioCard', 'radioBoton', 'radioChip', 'radioAcceso']) {
     assert.equal(campo(id), undefined, `${id} no debería exponerse todavía`);
@@ -41,7 +45,8 @@ test('`radioTema` tampoco: su fallback no es un número único, y fijarlo matar�
 
 test('un tema vacío se lee con el aspecto de hoy en todos los ejes', () => {
   const v = valoresFormaDesdeTema({});
-  assert.equal(v.cabeceraInicio, 'clasica');
+  // `cabeceraInicio` ya no viaja aquí: valoresFormaDesdeTema solo expone los
+  // ejes de EJES_EXPUESTOS, y ese ya no lo incluye (ver el test de arriba).
   assert.equal(v.accesosRapidos, 'filas');
   assert.equal(v.barra, 'soloActiva');
   assert.equal(v.barraClasica, false);

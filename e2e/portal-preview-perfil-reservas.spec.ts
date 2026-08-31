@@ -59,7 +59,10 @@ test.describe('Vista previa de Perfil y Reservas — /portal-preview/[slug]/*', 
     const token = firmarTokenPreviewHome(STUDIO_ID);
     await page.goto(`/portal-preview/${SLUG}/reservas?t=${token}`);
     await expect(page.getByRole('heading', { name: 'Mis reservas' })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Sin clases reservadas')).toBeVisible();
+    // "No tienes clases próximas" — verificado contra capturas reales de
+    // Claude Design (título nuevo de la tarjeta de borde discontinuo, ver
+    // portal-reservas-view.tsx); antes era "Sin clases reservadas".
+    await expect(page.getByText('No tienes clases próximas')).toBeVisible();
   });
 
   test('Reservas: "Ver horarios" no navega de verdad a /clases', async ({ page }) => {

@@ -20,17 +20,45 @@ test.describe('Portal — Perfil', () => {
     await expect(page.getByRole('button', { name: 'Cambiar tu foto' })).toBeVisible();
   });
 
-  test('las tarjetas de estadística resumen lo contratado', async ({ page }) => {
-    // Antes eran chips de texto ("Plaza fija · miércoles", "Bono 10 activo");
-    // ahora son tarjetas con el número por delante (Fase 2, feedback de 49
-    // propietarias). El mock trae 12 asistencias, un bono de 10 con 8
-    // restantes y plaza fija los miércoles.
-    await expect(page.getByText('Clases asistidas')).toBeVisible();
-    await expect(page.getByText('12', { exact: true })).toBeVisible();
-    await expect(page.getByText('Sesiones', { exact: true })).toBeVisible();
-    await expect(page.getByText('8/10')).toBeVisible();
-    await expect(page.getByText('Plaza fija', { exact: true })).toBeVisible();
-    await expect(page.getByText('miércoles', { exact: true })).toBeVisible();
+  test('las tres tarjetas de estadística son siempre las mismas tres', async ({ page }) => {
+    // Verificado contra capturas reales de Claude Design (31-ago): ya no son
+    // condicionales ("Clases asistidas" histórico, que desaparecía sin bono
+    // ni plaza fija) — son SIEMPRE estas tres, con 0 como valor legítimo:
+    // clases de ESTE MES, sesiones de bono, favoritos.
+    await expect(page.getByText('clases este mes')).toBeVisible();
+    await expect(page.getByText('sesiones de bono')).toBeVisible();
+    await expect(page.getByText('favoritos', { exact: true })).toBeVisible();
+    // "Sesiones de bono" y "favoritos" sí son deterministas contra el mock
+    // (SUSCRIPCION.sesionesRestantes=8 de un Bono 10; favoritos por defecto =
+    // []) — "clases este mes" depende del día en que corra la suite
+    // (HISTORIAL_BASE usa offsets relativos a `Date.now()`, la misma trampa de
+    // fecha fija cruzando de mes que ya documenta este repo en otras specs),
+    // así que no se fija su cifra aquí.
+    //
+    // La fracción es SIEMPRE el saldo total (restantes/total sumando todos los
+    // bonos activos), no la del bono en curso — ver
+    // e2e/portal-bonos-saldo-total.spec.ts. Con un único bono activo coincide
+    // con su propia fracción: 8/10.
+    const stats = page.locator('div').filter({ hasText: /^\d+\/\d+sesiones de bono$/ });
+    await expect(stats).toContainText('8/10');
+    const favs = page.locator('div').filter({ hasText: /^\d+favoritos$/ });
+    await expect(favs).toContainText('0');
+  });
+
+  test('«Tus favoritos» tiene su propia sección, con estado vacío por defecto', async ({ page }) => {
+    await expect(page.getByText('Tus favoritos', { exact: true })).toBeVisible();
+    await expect(page.getByText('Aún no tienes — toca el ♡ de una clase y aparecerá aquí.')).toBeVisible();
+  });
+
+  test('«Tu actividad» reemplaza a «Tu progreso», con el mismo dato de racha', async ({ page }) => {
+    await expect(page.getByText('Tu progreso', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Tu actividad', { exact: true })).toBeVisible();
+  });
+
+  test('la promoción cruzada a Tentare Network usa el logo real, no un emoji', async ({ page }) => {
+    await expect(page.getByText('¿Quieres probar otros estudios?')).toBeVisible();
+    await expect(page.getByText('Descárgate Tentare Network')).toBeVisible();
+    await expect(page.getByText('🩷')).toHaveCount(0);
   });
 
   test('NO hay ficha de salud', async ({ page }) => {

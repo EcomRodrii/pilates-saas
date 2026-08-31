@@ -24,13 +24,15 @@
 //    los mismos cálculos que ya usa el dunning por goteo, no un `LEAST/
 //    GREATEST` inventado (ver nota "porcentaje sin respaldo" del repo).
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { Input, Button, Card, Badge, BottomSheet, Toast, type AvisoToast } from '@/components/portal/ui';
+import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
+import { subirFotoPerfil, eliminarFotoPerfil, validarFotoPerfil } from '@/lib/portal-storage';
 import { AvisosSocia } from '@/components/portal/portal-avisos-socia';
 import { caducaAntesDe, nombreDeMarca } from '@/lib/billing/caducidad-tarjeta';
 import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
@@ -55,18 +57,28 @@ export function PortalAjustesView({
   const { studio, socios, updateSocio } = useStudio();
   const { establecerPassword, actualizarEmail } = usePortalAuth();
   const { t, noche } = useModo();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { slug } = useParams<{ slug: string }>();
   const socio = socios.find(s => s.id === session?.socioId);
 
-  const [hoja, setHoja] = useState<null | 'datos' | 'email' | 'clave'>(null);
+  // "Mis datos" (apellidos/teléfono/fecha/dirección) SIGUE en Perfil, sin
+  // tocar — ver cabecera del fichero. Aquí, verificado contra capturas
+  // reales, solo van nombre y usuario, INLINE en la página (nunca dentro de
+  // una hoja): son los dos únicos campos que el diseño real pone en "Datos y
+  // ajustes" bajo el avatar.
+  const [hoja, setHoja] = useState<null | 'email' | 'clave' | 'foto'>(null);
   const [form, setForm] = useState({
     nombre: socio?.nombre ?? '',
-    apellidos: socio?.apellidos ?? '',
-    telefono: socio?.telefono ?? '',
     usuario: socio?.usuario ?? '',
   });
   const [guardando, setGuardando] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  // Solo cambia lo que de verdad cambió — "TU NOMBRE"/"USUARIO" son dos
+  // campos independientes en el diseño, no un formulario con un único botón
+  // "Guardar" al final.
+  const nombreSucio = form.nombre.trim() !== (socio?.nombre ?? '') && form.nombre.trim() !== '';
+  const usuarioSucio = form.usuario.trim() !== (socio?.usuario ?? '');
   // Cambio de email de ACCESO — verificado en vivo contra el diseño real
   // ("Cambiar email" es un flujo propio, no un campo dentro de "Mis
   // datos"). Antes "Mis datos" escribía `socios.email` sin verificar nada:
@@ -112,27 +124,51 @@ export function PortalAjustesView({
   // portal-mis-datos.spec.ts sobre PortalPerfilView).
   if (!socio || !session) return null;
 
-  async function guardarDatos(e?: React.FormEvent) {
-    e?.preventDefault();
-    if (!socio || guardando) return;
+  async function guardarDatos() {
+    if (!socio || guardando || (!nombreSucio && !usuarioSucio)) return;
     setGuardando(true);
     setAviso(null);
     // SIN `email`: el servidor lo rechaza a propósito (CAMPOS_SOCIA_EDITABLES
     // en lib/db/supabase-data-admin.ts — cambiarlo aquí desincronizaría
-    // `socios.email` del email de login y auto-bloquearía a la socia), y lo
-    // rechaza ANTES de escribir nada. Enviarlo hacía que tocar el email
-    // tirase en el mismo gesto nombre, apellidos, teléfono y usuario. El
-    // campo se pinta en solo lectura más abajo.
+    // `socios.email` del email de login y auto-bloquearía a la socia). El
+    // email tiene su propio flujo, "Cambiar email", más abajo.
     const r = await updateSocio(socio.id, {
       nombre: form.nombre.trim(),
-      apellidos: form.apellidos.trim(),
-      telefono: form.telefono.trim() || null,
       usuario: form.usuario.trim() || null,
     });
     setGuardando(false);
     if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
-    setHoja(null);
     setAviso({ texto: 'Datos guardados.', error: false });
+  }
+
+  async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !socio) return;
+    const invalido = validarFotoPerfil(file);
+    if (invalido) { setAviso({ texto: invalido, error: true }); return; }
+    setAviso(null);
+    setSubiendoFoto(true);
+    const result = await subirFotoPerfil(socio.id, file);
+    setSubiendoFoto(false);
+    if ('error' in result) { setAviso({ texto: result.error, error: true }); return; }
+    void updateSocio(socio.id, { fotoUrl: result.url });
+    setHoja(null);
+  }
+
+  async function quitarFoto() {
+    if (!socio) return;
+    setSubiendoFoto(true);
+    const result = await eliminarFotoPerfil(socio.id);
+    setSubiendoFoto(false);
+    if ('error' in result) { setAviso({ texto: result.error, error: true }); return; }
+    void updateSocio(socio.id, { fotoUrl: null });
+    setHoja(null);
+  }
+
+  function elegirAvatar(id: string | null) {
+    void updateSocio(socio!.id, { avatar: id });
+    setHoja(null);
   }
 
   async function cambiarEmail(e?: React.FormEvent) {
@@ -205,14 +241,62 @@ export function PortalAjustesView({
           ←
         </Link>
 
-        <h1 style={{ ...display(50), color: t.ink, marginTop: 20 }}>Ajustes</h1>
-        <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>Tu cuenta, en un solo sitio.</p>
+        {/* "Datos y ajustes", no "Ajustes" — verificado contra capturas
+            reales. El diseño no lleva subtítulo. */}
+        <h1 style={{ ...display(32), color: t.ink, marginTop: 20 }}>Datos y ajustes</h1>
 
-        {/* ── Perfil ───────────────────────────────────────────────────────── */}
-        <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 36 }}>Perfil</div>
+        {/* ── Avatar + nombre + "Cambiar foto" ─────────────────────────────────
+            Verificado contra capturas reales: faltaba del todo. Mismo flujo
+            de subida/avatar-picker que ya usa Perfil (subirFotoPerfil/
+            eliminarFotoPerfil/AvatarPicker) — no se reimplementa, se repite
+            el pintado porque el diseño lo pone también aquí. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 28 }}>
+          <button
+            type="button"
+            onClick={() => setHoja('foto')}
+            aria-label="Cambiar tu foto"
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'block' }}
+          >
+            <ProfileAvatar avatarId={socio.avatar} fotoUrl={socio.fotoUrl} nombre={socio.nombre} apellidos={socio.apellidos} size="lg" />
+          </button>
+          <div>
+            <div style={{ ...display(20), color: t.ink }}>{socio.nombre}</div>
+            <button
+              type="button"
+              onClick={() => setHoja('foto')}
+              style={{ background: 'none', border: 'none', padding: 0, marginTop: 2, fontFamily: sans, fontSize: 12.5, fontWeight: 700, color: t.heroAccent, cursor: 'pointer' }}
+            >
+              Cambiar foto
+            </button>
+          </div>
+        </div>
+
+        {/* ── Nombre / Usuario — INLINE, no en una hoja ────────────────────── */}
+        <div style={{ marginTop: 28 }}>
+          <label style={{ ...micro(9.5, 0.24), color: t.micro, display: 'block', marginBottom: 8 }}>Tu nombre</label>
+          <Input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Nombre" autoComplete="given-name" />
+          <p style={{ fontFamily: sans, fontSize: 11, color: t.muted, marginTop: 6 }}>Se actualiza en toda la app al guardar.</p>
+        </div>
+        <div style={{ marginTop: 20 }}>
+          <label style={{ ...micro(9.5, 0.24), color: t.micro, display: 'block', marginBottom: 8 }}>Usuario</label>
+          <Input
+            value={form.usuario ? `@${form.usuario}` : ''}
+            onChange={e => setForm(f => ({ ...f, usuario: limpiarUsuario(e.target.value.replace(/^@/, '')) }))}
+            placeholder="@usuario" autoComplete="off"
+          />
+          <p style={{ fontFamily: sans, fontSize: 11, color: t.muted, marginTop: 6 }}>
+            {form.usuario ? `Tu enlace: tentare.app/u/${form.usuario}` : 'Minúsculas, números y guion bajo. 3-24 caracteres.'}
+          </p>
+        </div>
+        {(nombreSucio || usuarioSucio) && (
+          <Button onClick={() => void guardarDatos()} disabled={guardando} style={{ width: '100%', marginTop: 14 }}>
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </Button>
+        )}
+
+        {/* ── Cuenta y seguridad ────────────────────────────────────────────── */}
+        <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 32 }}>Cuenta y seguridad</div>
         <Card style={{ padding: 0, overflow: 'hidden', marginTop: 12 }}>
-          {fila('Mis datos', `${socio.nombre} ${socio.apellidos}`.trim(), () => setHoja('datos'))}
-          {fila('Usuario', socio.usuario ? `@${socio.usuario}` : 'Sin definir', () => setHoja('datos'))}
           {fila('Email', socio.email || null, () => setHoja('email'))}
           {fila('Contraseña', null, () => setHoja('clave'))}
         </Card>
@@ -308,27 +392,22 @@ export function PortalAjustesView({
         </div>
       </div>
 
-      {/* ── Hoja: mis datos ────────────────────────────────────────────────── */}
-      <BottomSheet open={hoja === 'datos'} onClose={() => setHoja(null)}>
-        <h2 style={{ ...display(26), color: t.ink, marginBottom: 18 }}>Mis datos</h2>
-        <form onSubmit={guardarDatos} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Input label="Nombre" placeholder="Nombre" autoComplete="given-name" value={form.nombre}
-            onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
-          <Input label="Apellidos" placeholder="Apellidos" autoComplete="family-name" value={form.apellidos}
-            onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
-          <Input label="Teléfono" placeholder="+34 600 000 000" type="tel" autoComplete="tel" inputMode="tel" value={form.telefono}
-            onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
-          {/* @handle — solo el campo (decisión de producto ya tomada, migr
-              20260828005124): sin página pública que lo resuelva todavía. */}
-          <Input label="Usuario" placeholder="usuario" autoComplete="off" value={form.usuario}
-            onChange={e => setForm(f => ({ ...f, usuario: limpiarUsuario(e.target.value) }))} />
-          <p style={{ ...micro(9, 0.18, 500), color: t.muted, marginTop: -6, paddingLeft: 4, textTransform: 'none', letterSpacing: 0 }}>
-            Minúsculas, números y guion bajo. 3-24 caracteres.
-          </p>
-          <Button type="submit" disabled={guardando} style={{ width: '100%', marginTop: 6 }}>
-            {guardando ? 'Guardando…' : 'Guardar'}
+      {/* ── Hoja: foto ─────────────────────────────────────────────────────── */}
+      <BottomSheet open={hoja === 'foto'} onClose={() => setHoja(null)}>
+        <h2 style={{ ...display(22), color: t.ink, marginBottom: 18 }}>Tu foto</h2>
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={subirFoto} style={{ display: 'none' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Button onClick={() => fileInputRef.current?.click()} disabled={subiendoFoto} style={{ width: '100%' }}>
+            {subiendoFoto ? 'Subiendo…' : 'Subir una foto'}
           </Button>
-        </form>
+          {socio.fotoUrl && (
+            <Button variant="secondary" onClick={() => void quitarFoto()} disabled={subiendoFoto} style={{ width: '100%' }}>
+              Quitar la foto
+            </Button>
+          )}
+          <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 14 }}>O elige un avatar</div>
+          <AvatarPicker value={socio.avatar ?? null} onChange={elegirAvatar} />
+        </div>
       </BottomSheet>
 
       {/* ── Hoja: cambiar email ───────────────────────────────────────────────

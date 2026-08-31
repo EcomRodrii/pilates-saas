@@ -259,9 +259,10 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await montar(page);
     await abrirCategoriaTema(page, 'Forma del portal');
 
-    // Los cinco ejes del panel, con nombre de negocio (no el id del catálogo).
+    // Los ejes del panel, con nombre de negocio (no el id del catálogo).
+    // `cabeceraInicio` quedó FUERA a propósito (31-ago, def1c8ce): el Inicio
+    // tiene un solo hero fotográfico, sin variante que elegir.
     await expect(page.getByText('Accesos rápidos', { exact: true })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Cabecera del Inicio')).toBeVisible();
 
     await page.getByRole('button', { name: 'Círculos', exact: true }).click();
 

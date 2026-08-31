@@ -1,4 +1,10 @@
 import type { Viewport } from 'next';
+// Estilos EXACTOS del diseño "Tentare Studio App" — valores literales, no
+// tokens (pedido explícito tras varias rondas de "no se ve igual": una
+// traducción a tokens siempre deja hueco a que algo se pierda por el
+// camino). Global, pero acotado por la clase `.portal-app` que envuelve el
+// shell más abajo — no toca nada fuera del portal.
+import './portal-app.css';
 import { PortalAuthProvider } from '@/lib/portal-auth';
 import { PortalShell } from '@/components/portal/portal-shell';
 import { StudioSlugGate } from '@/components/studio-slug-gate';

@@ -130,10 +130,6 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     retosApuntados, retoConteos, toggleReto, variantes, valoracionEstudio,
   } = useStudio();
   const homeBloques = homeBloquesOverride ?? homeBloquesPublicado;
-  // Las dos cabeceras del prototipo llevan avatar y campana de icono; solo
-  // cambia la jerarquía del texto entre ellas. La `clasica` (default, todo
-  // estudio sin tema) se queda exactamente como estaba.
-  const cabeceraConAvatar = variantes.cabeceraInicio !== 'clasica';
   const tarjetaRotulada = variantes.tarjetaPrincipal === 'rotulada';
   const { t, noche } = useModo();
   const [paseAbierto, setPaseAbierto] = useState(false);
@@ -527,14 +523,12 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   const lineaSuave = noche ? 'rgba(243,241,233,.20)' : 'rgba(34,38,31,.20)';
 
   return (
-    <div ref={raizRef} style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
-      {/* Ken Burns de la foto del hero: un bucle MUY lento y sutil (scale
-          1↔1.08, dur.heroFoto = 20 s), va en el <img>, nunca en `fotoRef`
-          (el envoltorio que ya escribe `transform` a mano en cada scroll
-          para el paralaje, más arriba) — una animación CSS de `transform` y
-          un `style.transform` escrito por JS sobre el MISMO elemento se
-          pisarían entre sí. `!important` bajo `prefers-reduced-motion` es lo
-          único que puede ganarle a la animación puesta inline por style. */}
+    <div ref={raizRef} className="portal-app" style={{ minHeight: '100%' }}>
+      {/* Ken Burns EXACTO del cheatsheet (apKen: 22 s, scale 1↔1.08) — va en
+          el <img>, nunca en `fotoRef` (el envoltorio que ya escribe
+          `transform` a mano en cada scroll para el paralaje, más abajo): una
+          animación CSS de `transform` y un `style.transform` de JS sobre el
+          MISMO elemento se pisarían entre sí. */}
       <style>{`
         @keyframes portal-hero-kenburns { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
         @media (prefers-reduced-motion: reduce) {
@@ -551,148 +545,120 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         style={{
           position: 'sticky', top: 0, height: altura.topbar, marginBottom: -altura.topbar, zIndex: 12,
           opacity: 0, pointerEvents: 'none',
-          background: noche ? 'rgba(18,20,14,.78)' : 'rgba(246,244,239,.78)',
-          ...cristal(desenfoque.topbar, 150),
-          borderBottom: `1px solid ${noche ? 'rgba(243,241,233,.07)' : 'rgba(34,38,31,.07)'}`,
+          background: 'rgba(250,249,245,.88)', ...cristal(16),
+          borderBottom: '1px solid #EFEDE4',
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 14,
           transition: 'opacity 500ms ease',
         }}
       >
-        <span style={{ ...display(19), color: t.ink }}>{studio?.nombre ?? 'Tentare'}</span>
+        <span style={{ fontSize: 15, fontWeight: 800, color: '#1A1A1A' }}>{studio?.nombre ?? 'Tentare'}</span>
       </div>
 
-      {/* 62 px arriba como el diseño. Abajo solo 32: el hueco que deja libre el
-          menú flotante lo pone el armazón, que es quien sabe cuánto mide. */}
-      <div style={{ padding: '62px 24px 32px' }}>
-        {/* Saludo — dos jerarquías según el tema (lib/theme-variantes.ts).
-            ⚠️ `saludoRef` se queda SIEMPRE en este envoltorio exterior: el
-            efecto de scroll le escribe opacity/transform directamente (ver
-            más arriba), y moverlo a una rama rompería el paralaje en silencio. */}
+      {/* ── Hero fotográfico 314px ──────────────────────────────────────────
+          Verificado contra CHEATSHEET-CSS.md ("Hero (Home, 314px)") y contra
+          capturas reales: sustituye la cabecera de fondo plano de antes (las
+          4 variantes `cabeceraInicio` de lib/theme-variantes.ts —
+          clásica/saludo/nombre/titular — quedan retiradas por decisión
+          explícita: el diseño vigente tiene un solo hero, igual para todo
+          estudio). `saludoRef` se queda en el envoltorio que el efecto de
+          scroll ya usa para el fundido del saludo (más abajo, sin tocar). */}
+      <div style={{ position: 'relative', height: 314, overflow: 'hidden' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imagenDeEstudio('portada', studio?.imagenBienvenidaUrl)}
+          alt=""
+          onError={alFallarImagen(IMAGENES_POR_DEFECTO.portada[0])}
+          className="portal-hero-kenburns"
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', objectPosition: 'center 32%',
+            animation: `portal-hero-kenburns 22000ms ${EASE} infinite`,
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(185deg, rgba(8,8,8,.58), rgba(8,8,8,.18) 42%, rgba(8,8,8,.06) 58%, rgba(250,249,245,.35) 86%, #FAF9F5)',
+          }}
+        />
+
         <div
           ref={saludoRef}
           data-bloque-sistema="cabecera"
           data-bloque-id={idFijo('cabecera')}
-          style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, willChange: 'transform, opacity' }}
+          style={{
+            position: 'absolute', left: 20, right: 20, top: 'calc(env(safe-area-inset-top) + 16px)',
+            willChange: 'transform, opacity',
+          }}
         >
-          {cabeceraConAvatar ? (
-            <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-              {/* El avatar sube a la cabecera (en la variante clásica vive solo
-                  en la pestaña Perfil, y aquí abajo en un sr-only). */}
-              <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="lg" />
-              <div style={{ minWidth: 0 }}>
-                {/* `saludo` (Oliva) pone el nombre ARRIBA y grande, con la
-                    pregunta debajo; `titular` (Bloom/Noir) lo hace al revés:
-                    saludo por hora pequeño arriba y el nombre como encabezado.
-                    Es la única diferencia entre las dos — ambas llevan avatar. */}
-                {variantes.cabeceraInicio === 'saludo' ? (
-                  <>
-                    <h1 style={{ ...display(escala('saludo', 21)), color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      Hola, {nombre}
-                    </h1>
-                    <p style={{ ...texto.meta, color: t.muted2, marginTop: 2 }}>
-                      {homeCard.caso === 'PROXIMA_CLASE'
-                        ? txt('cabecera', 'fraseConClase', '¿Lista para tu sesión de hoy?')
-                        : txt('cabecera', 'fraseSinClase', '¿Qué te apetece hoy?')}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    {/* Con `ahora`, no con `now`: es lo ÚNICO de esta pantalla
-                        que pinta contenido real derivado solo de la hora (lo
-                        demás sale de datos del estudio, vacíos hasta montar).
-                        Con el placeholder saldría "Buenas noches" y cambiaría
-                        de golpe al montar; y leerlo del reloj del servidor
-                        (UTC) tampoco vale, porque la franja horaria de la socia
-                        puede caer en otro saludo y eso es un desajuste de
-                        hidratación. Mismo criterio que el saludo de la
-                        variante `clasica`, más abajo. */}
-                    <div style={{ ...texto.meta, color: t.muted2 }}>{ahora ? saludoPorHora(ahora) : ' '}</div>
-                    <h1 style={{ ...display(escala('saludo', 24)), color: t.ink, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {nombre}
-                    </h1>
-                  </>
-                )}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9.5, letterSpacing: '.2em', textTransform: 'uppercase', color: '#A8D0A9' }}>
+                {studio?.nombre ?? ''}
+              </div>
+              {/* Fecha en mono uppercase, EXACTA del cheatsheet — sale de
+                  `ahora` (nunca de `now`/el placeholder de servidor): es la
+                  única pieza de esta pantalla que depende solo de la hora
+                  real del navegador, mismo motivo que ya documentaba
+                  `saludoPorHora` más abajo. */}
+              <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(250,249,245,.65)', marginTop: 3 }}>
+                {ahora ? ahora.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
               </div>
             </div>
-          ) : (
-          <div style={{ minWidth: 0 }}>
-            {/* Saludo por hora + nombre, verificado en vivo contra el diseño
-                real (Tentare Studio App.dc.html): sustituye la fecha en
-                versalitas + "Hola, {nombre}." de antes. `ahora` y no
-                `fechaHoy`/`now` por el mismo motivo que ya explica el
-                comentario de `saludoPorHora` más abajo — es la única pieza de
-                esta pantalla que depende solo de la hora, y hidratar con el
-                placeholder cambiaría de golpe al montar. */}
-            <p style={{ ...texto.meta, color: t.muted2 }}>
-              {ahora ? saludoPorHora(ahora) : ' '}, {nombre} 👋
-            </p>
-            <h1 style={{ ...display(38, false, 1.12), color: t.ink, marginTop: 8 }}>
-              {homeCard.caso === 'PROXIMA_CLASE'
-              ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
-              : txt('cabecera', 'fraseSinClase', '¿Qué te apetece hoy?')}
-            </h1>
-          </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginTop: 22 }}>
             <Link
               href={portalHref(`/${slug}/notificaciones`)}
               aria-label={sinLeer !== null && sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
               style={{
                 position: 'relative', width: 40, height: 40, flex: '0 0 40px',
-                borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
-                background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: sombra.circulo, textDecoration: 'none',
-                transition: transicion(['transform']),
+                borderRadius: '50%', border: '1px solid rgba(255,255,255,.45)',
+                background: 'rgba(250,249,245,.22)', ...cristal(10),
+                display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none',
               }}
             >
-              {/* Con avatar en la cabecera, la campana es un ICONO con punto
-                  (prototipo); sin él sigue siendo el contador numérico de
-                  siempre — el número necesita más peso cuando está solo.
-                  El numeral queda en blanco mientras carga: el "0" del diseño es
-                  una afirmación ("estás al día"), y todavía no se sabe. */}
-              {cabeceraConAvatar
-                ? <Bell size={18} strokeWidth={1.9} style={{ color: t.ink }} />
-                : <span style={{ ...display(17), color: t.ink }}>{sinLeer ?? ''}</span>}
+              <Bell size={18} strokeWidth={1.9} style={{ color: '#FAF9F5' }} />
               {sinLeer !== null && sinLeer > 0 && (
-                <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--portal-brand)' }} />
+                <span style={{ position: 'absolute', top: 1, right: 1, width: 8, height: 8, borderRadius: '50%', background: '#E8A13C', border: '1.5px solid #fff' }} />
               )}
             </Link>
           </div>
+
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(250,249,245,.9)' }}>
+              {ahora ? saludoPorHora(ahora) : ' '}, {nombre} 👋
+            </div>
+            <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-.035em', lineHeight: 1, color: '#FAF9F5', marginTop: 6 }}>
+              {homeCard.caso === 'PROXIMA_CLASE'
+                ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
+                : txt('cabecera', 'fraseSinClase', '¿Qué te apetece hoy?')}
+            </h1>
+          </div>
         </div>
 
-        {/* Barra de búsqueda embebida, verificada en vivo contra el diseño
-            real: sustituye al círculo-icono que abría el mismo overlay desde
-            la fila del saludo. Sigue sin ser un push de ruta — abre el mismo
-            `<BuscarOverlay>` de siempre, solo cambia la superficie que lo
-            invoca. */}
+        {/* Buscador — pill translúcida EXACTA del cheatsheet, anclada al
+            borde inferior del hero (donde el degradado ya funde a
+            #FAF9F5). Sigue sin ser un push de ruta — abre el mismo
+            `<BuscarOverlay>` de siempre. */}
         <button
           type="button"
           onClick={() => setBuscarAbierto(true)}
           aria-label="Buscar clases, instructoras"
           style={{
-            width: '100%', height: 48, marginTop: 20, padding: '0 18px',
+            position: 'absolute', left: 20, right: 20, bottom: 18,
+            height: 46, padding: '13px 16px',
             display: 'flex', alignItems: 'center', gap: 10,
-            borderRadius: radio.pill,
-            border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
-            background: t.surface, boxShadow: sombra.circulo, cursor: 'pointer',
+            borderRadius: 999, border: 'none',
+            background: 'rgba(250,249,245,.94)', ...cristal(10),
+            boxShadow: '0 10px 26px rgba(8,8,8,.22)', cursor: 'pointer',
           }}
         >
-          <Search size={17} strokeWidth={1.9} style={{ color: t.muted2, flex: '0 0 auto' }} />
-          <span style={{ ...texto.meta, color: t.muted2 }}>Buscar clases, instructoras…</span>
+          <Search size={17} strokeWidth={1.9} style={{ color: '#5A5A52', flex: '0 0 auto' }} />
+          <span style={{ fontSize: 13.5, color: '#5A5A52' }}>Buscar clases, instructoras…</span>
         </button>
+      </div>
 
-        {/* El titular grande que en el prototipo va aparte del saludo. Lleva el
-            MENSAJE REAL del día (el mismo que en la variante clásica es
-            subtítulo, ascendido), no una frase de marketing de la maqueta. */}
-        {variantes.cabeceraInicio === 'titular' && (
-          <p style={{ ...display(escala('titulo-hero', 30), false, 1.18), color: t.ink, marginTop: 20 }}>
-            {homeCard.caso === 'PROXIMA_CLASE'
-              ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
-              : txt('cabecera', 'fraseSinClase', '¿Qué te apetece hoy?')}
-          </p>
-        )}
-
-        <div style={{ height: 32 }} />
+      <div style={{ padding: '0 24px' }}>
+        <div style={{ height: 24 }} />
 
         {/* Rótulo de sección encima de la tarjeta (prototipo): "Tu semana"
             cuando no hay clase reservada, "Próxima clase" cuando la hay
@@ -1679,14 +1645,14 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
 
       <BuscarOverlay open={buscarAbierto} onClose={() => setBuscarAbierto(false)} />
 
-      {/* El avatar vive en el menú de abajo (pestaña Perfil), como en el diseño.
-          Se deja este bloque fuera de la vista para que los lectores de pantalla
-          sigan anunciando de quién es la sesión al entrar. */}
-      {!cabeceraConAvatar && (
-        <span className="sr-only">
-          <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
-        </span>
-      )}
+      {/* El avatar vive en el menú de abajo (pestaña Perfil) y ya no hay
+          variante de hero que lo suba a la cabecera (retirada, ver más
+          arriba) — este bloque se queda SIEMPRE fuera de la vista para que
+          los lectores de pantalla sigan anunciando de quién es la sesión
+          al entrar. */}
+      <span className="sr-only">
+        <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
+      </span>
     </div>
   );
 }

@@ -20,6 +20,16 @@ import { firmarTokenPreviewHome } from '../lib/theme/home-preview-token.ts';
 // que el número del Inicio y lo que dice la pantalla de Avisos cuentan lo
 // mismo ANTES de abrirla. Si alguien vuelve a calcular el número por otro
 // lado, ahí es donde salta.
+//
+// ⚠️ El hero único (31-ago, def1c8ce, contra CHEATSHEET-CSS.md — verificado
+// pixel a pixel contra la captura real del mockup) sustituyó el numeral
+// visible por un simple punto de alerta ("campana translúcida"). La cifra
+// EXACTA sigue viva por el canal accesible (`aria-label`, `CAMPANA_CON`
+// abajo la exige literal) — lo que dejó de poder comprobarse por DOM es la
+// diferencia entre "confirmado 0" y "no se sabe todavía": un punto ausente se
+// ve igual en los dos casos, cosa que el numeral de antes sí distinguía
+// ("0" visible vs. en blanco). Los tests de abajo comprueban ahora presencia/
+// ausencia del punto (`campana.locator('span')`), no el texto.
 
 const STUDIO_ID = 'studio-test';
 
@@ -57,9 +67,13 @@ test.describe('Campana del Inicio del portal', () => {
 
     const campana = page.getByRole('link', { name: CAMPANA_CON });
     await expect(campana).toBeVisible({ timeout: 30_000 });
-    await expect(campana).toHaveText('2');
+    // El `getByRole` de arriba YA exige que el aria-label lleve la cifra
+    // exacta ("2 sin leer") — la comprobación de NÚMERO sigue viva, por el
+    // canal accesible. Lo que se comprueba aquí es la señal visual: el punto
+    // de alerta tiene que estar, no ser decoración fija.
+    await expect(campana.locator('span')).toHaveCount(1);
 
-    // La otra mitad del bug: que ese "2" describa la bandeja de verdad. El
+    // La otra mitad del bug: que ese aria-label describa la bandeja de verdad. El
     // subtítulo de Avisos sale de `resumenAvisos(sinLeer)` contando los items
     // que devuelve el motor — si el Inicio contara por su cuenta, aquí es
     // donde las dos cifras se separarían.
@@ -84,10 +98,10 @@ test.describe('Campana del Inicio del portal', () => {
 
     const campana = page.getByRole('link', { name: CAMPANA_SIN, exact: true });
     await expect(campana).toBeVisible({ timeout: 30_000 });
-    await expect(campana).toHaveText('0');
-    // El punto de 6 px es la única señal de alerta del diseño — el numeral se
-    // queda siempre. Que valga "0" no basta: hay que ver que el punto se fue.
-    await expect(campana.locator('span').nth(1)).toHaveCount(0);
+    // El punto es la ÚNICA señal de alerta del diseño (sin numeral, ver el
+    // primer test) — que el aria-label ya no lleve "sin leer" no basta por sí
+    // solo, hay que ver también que el punto en sí desapareció.
+    await expect(campana.locator('span')).toHaveCount(0);
   });
 
   test('la vista previa del editor no pregunta por los avisos de nadie', async ({ page }) => {
@@ -109,11 +123,13 @@ test.describe('Campana del Inicio del portal', () => {
     await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
     expect(peticiones).toEqual([]);
-    // Y la campana enseña el valor de muestra, no un círculo vacío: apagar la
-    // petición en el editor no puede significar enseñar ahí un estado de carga
-    // congelado que no existe en el portal real. `toBeVisible()` a secas daba
-    // por bueno el círculo en blanco.
-    await expect(page.getByRole('link', { name: CAMPANA_SIN, exact: true })).toHaveText('0');
+    // Y la campana no enseña un punto de alerta que no viene de ningún aviso
+    // real: en preview `sinLeer` se fuerza a 0 (portal-home-view.tsx), así
+    // que no debe haber punto — apagar la petición en el editor no puede
+    // significar enseñar ahí una alerta que no existe en el portal real.
+    const campana = page.getByRole('link', { name: CAMPANA_SIN, exact: true });
+    await expect(campana).toBeVisible();
+    await expect(campana.locator('span')).toHaveCount(0);
   });
 
   test('si los avisos no se pueden cargar, la campana calla — no dice "0"', async ({ page }) => {

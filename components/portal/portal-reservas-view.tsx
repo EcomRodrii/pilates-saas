@@ -45,6 +45,7 @@ import type { PortalSession } from '@/lib/portal-auth';
 import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
 import { bonoActivo, fechaLarga, DIAS } from '@/lib/bonos-portal';
 import { esCancelacionTardia, heredaOverride } from '@/lib/booking-logic';
+import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import {
   EASE, dur, transicion, display, micro, texto, radio, sombra, cristal, desenfoque, sans,
 } from '@/lib/portal-design';
@@ -299,6 +300,25 @@ export function PortalReservasView({
   const lista = porTab[tab];
   const proximaClase = porTab.PROXIMAS[0] ?? null;
 
+  // "Hay N clases hoy cerca de ti que encajan con tu bono" — verificado
+  // contra capturas reales de Claude Design: el estado vacío de PRÓXIMAS no
+  // es genérico, cuenta clases de HOY que la socia puede reservar de verdad
+  // con lo que ya tiene. Reutiliza `tieneEntitlementActivo` (el mismo check
+  // que decide si puede reservar en `crearReservaPublica`), no una
+  // aproximación aparte — sin comprobar aforo en tiempo real (una clase ya
+  // llena cuenta igual), que es justo lo que "Verlas" deja ver de verdad.
+  const clasesHoyConBono = useMemo(() => {
+    if (!socioId) return 0;
+    const hoyISO = now.toISOString().slice(0, 10);
+    const finDia = new Date(now); finDia.setHours(23, 59, 59, 999);
+    return sesiones.filter(s => {
+      if (s.cancelada) return false;
+      const inicio = new Date(s.inicio);
+      if (inicio < now || inicio > finDia) return false;
+      return tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyISO, s.tipoClaseId);
+    }).length;
+  }, [sesiones, socioId, suscripciones, planesTarifa, now]);
+
   // Oferta de plaza liberada (Fase 2b) con plazo vivo — sea cual sea la
   // pestaña abierta, es urgente y se enseña en un sheet global (más abajo),
   // no solo dentro de la pestaña ESPERA. `now` es el mismo reloj fijado al
@@ -500,31 +520,47 @@ export function PortalReservasView({
             marginBottom: 16, borderRadius: 'var(--portal-radius-card, 26px)', background: t.surface, padding: '22px 20px',
             boxShadow: '0 18px 40px -28px rgba(34,42,30,.5)',
           }}>
+            {/* Cabecera: nombre + fecha (nunca "Activo" suelto) — verificado
+                contra capturas reales. La fecha absoluta (caduca 12 oct) va
+                arriba, junto al nombre; el texto de urgencia/caducado
+                (cuando aplica) baja a su propia línea bajo la barra. */}
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
               <div style={{ ...display(23), color: t.ink }}>
                 {bono.bonos.length > 1 ? 'Tu saldo' : bono.nombre}
               </div>
-              <div style={{ ...micro(8.5, 0.22, 600), color: t.heroAccent, whiteSpace: 'nowrap' }}>Activo</div>
+              {bono.caducaEn && (
+                <div style={{ ...micro(8.5, 0.18, 600), color: t.muted, whiteSpace: 'nowrap' }}>
+                  {bono.esMensual ? 'renueva' : 'caduca'} {fechaLarga(bono.caducaEn)}
+                </div>
+              )}
             </div>
             {bono.totalSesiones != null && bono.totalRestantes != null ? (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 12 }}>
-                <span style={{ ...display(34, false, 0.9), color: t.ink }}>{bono.totalRestantes}</span>
-                <span style={{ fontFamily: sans, fontSize: 11.5, color: t.muted }}>de {bono.totalSesiones} sesiones</span>
-              </div>
+              <>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 12 }}>
+                  <span style={{ ...display(34, false, 0.9), color: t.ink }}>{bono.totalRestantes}</span>
+                  <span style={{ fontFamily: sans, fontSize: 11.5, color: t.muted }}>de {bono.totalSesiones} sesiones</span>
+                </div>
+                {/* Barra de progreso — verificado contra capturas reales:
+                    faltaba del todo, el saldo solo se leía como texto. */}
+                <div style={{ height: 6, borderRadius: 999, background: t.surface2, marginTop: 10, overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${Math.max(0, Math.min(100, Math.round((bono.totalRestantes / bono.totalSesiones) * 100)))}%`,
+                    height: '100%', borderRadius: 999,
+                    background: bono.caducado ? semantic.danger.text : bono.urgente ? semantic.warning.text : 'var(--portal-brand)',
+                  }} />
+                </div>
+              </>
             ) : (
               <div style={{ ...display(20, true), color: t.ink, marginTop: 12 }}>Sesiones ilimitadas</div>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
               <span style={{
                 fontFamily: sans, fontSize: 11, fontWeight: bono.urgente || bono.caducado ? 700 : 400,
                 color: bono.caducado
                   ? (noche ? semantic.danger.textNoche : semantic.danger.text)
                   : bono.urgente ? (noche ? semantic.warning.textNoche : semantic.warning.text) : t.muted,
               }}>
-                {bono.textoCaducidad
-                  ? `${bono.textoCaducidad}${bono.caducaEn ? ` · ${fechaLarga(bono.caducaEn)}` : ''}`
-                  : bono.caducaEn ? `${bono.esMensual ? 'Próxima renovación' : 'Caduca'} el ${fechaLarga(bono.caducaEn)}`
-                  : bono.esMensual ? 'Activo' : 'Sin fecha de caducidad'}
+                {bono.textoCaducidad ?? (bono.caducaEn ? '' : bono.esMensual ? 'Activo' : 'Sin fecha de caducidad')}
               </span>
               <button
                 type="button"
@@ -613,13 +649,35 @@ export function PortalReservasView({
 
         <div style={{ height: 20 }} />
 
-        {lista.length === 0 ? (
-          <EstadoVacio
-            {...EMPTY_COPY[tab]}
-            cta={tab === 'PROXIMAS' ? 'Ver horarios' : undefined}
-            onCta={tab === 'PROXIMAS' ? () => navegar(`/portal/${slug}/clases`) : undefined}
-            t={t}
-          />
+        {lista.length === 0 && tab === 'PROXIMAS' ? (
+          // Verificado contra capturas reales de Claude Design: tarjeta de
+          // borde discontinuo con copy DINÁMICO ("Hay N clases hoy cerca de
+          // ti..."), no el estado vacío genérico de las otras tres pestañas
+          // (esas sí conservan `EstadoVacio` — el diseño no las cubre).
+          <div style={{
+            border: `1.5px dashed ${t.line}`, borderRadius: radio.card, padding: '28px 24px',
+            textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+          }}>
+            <p style={{ ...display(19, true), color: t.ink }}>No tienes clases próximas</p>
+            <p style={{ ...texto.meta, color: t.muted, lineHeight: 1.5 }}>
+              {clasesHoyConBono > 0
+                ? `Hay ${clasesHoyConBono} ${clasesHoyConBono === 1 ? 'clase hoy' : 'clases hoy'} cerca de ti que ${clasesHoyConBono === 1 ? 'encaja' : 'encajan'} con tu bono.`
+                : 'Mira los horarios de esta semana y reserva tu próxima sesión.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => navegar(`/portal/${slug}/clases`)}
+              style={{
+                marginTop: 8, height: 44, padding: '0 22px', borderRadius: 22, border: 'none',
+                background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+                ...texto.botonCta, fontSize: 13, boxShadow: sombra.botonClaro, cursor: 'pointer',
+              }}
+            >
+              {clasesHoyConBono > 0 ? 'Verlas' : 'Ver horarios'}
+            </button>
+          </div>
+        ) : lista.length === 0 ? (
+          <EstadoVacio {...EMPTY_COPY[tab]} t={t} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {lista.map(({ r, s }) => {
