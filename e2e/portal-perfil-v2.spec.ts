@@ -29,13 +29,18 @@ test.describe('Portal — Perfil', () => {
     await expect(page.getByText('sesiones de bono')).toBeVisible();
     await expect(page.getByText('favoritos', { exact: true })).toBeVisible();
     // "Sesiones de bono" y "favoritos" sí son deterministas contra el mock
-    // (SUSCRIPCION.sesionesRestantes=8; favoritos por defecto = []) —
-    // "clases este mes" depende del día en que corra la suite (HISTORIAL_BASE
-    // usa offsets relativos a `Date.now()`, la misma trampa de fecha fija
-    // cruzando de mes que ya documenta este repo en otras specs), así que no
-    // se fija su cifra aquí.
-    const stats = page.locator('div').filter({ hasText: /^\d+sesiones de bono$/ });
-    await expect(stats).toContainText('8');
+    // (SUSCRIPCION.sesionesRestantes=8 de un Bono 10; favoritos por defecto =
+    // []) — "clases este mes" depende del día en que corra la suite
+    // (HISTORIAL_BASE usa offsets relativos a `Date.now()`, la misma trampa de
+    // fecha fija cruzando de mes que ya documenta este repo en otras specs),
+    // así que no se fija su cifra aquí.
+    //
+    // La fracción es SIEMPRE el saldo total (restantes/total sumando todos los
+    // bonos activos), no la del bono en curso — ver
+    // e2e/portal-bonos-saldo-total.spec.ts. Con un único bono activo coincide
+    // con su propia fracción: 8/10.
+    const stats = page.locator('div').filter({ hasText: /^\d+\/\d+sesiones de bono$/ });
+    await expect(stats).toContainText('8/10');
     const favs = page.locator('div').filter({ hasText: /^\d+favoritos$/ });
     await expect(favs).toContainText('0');
   });
