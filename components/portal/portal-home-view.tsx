@@ -39,9 +39,9 @@ import { useParams } from 'next/navigation';
 import type { PortalSession } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora, huecosHoy } from '@/lib/portal-home-logic';
+import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, saludoPorHora, huecosHoy } from '@/lib/portal-home-logic';
 import { sugerirClase, cuandoSugerencia } from '@/lib/portal-sugerencias';
-import { CalendarDays, Sparkles, Bell, User, Search, Ticket, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Bell, Search, Ticket } from 'lucide-react';
 import { BuscarOverlay } from '@/components/portal/buscar-overlay';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
 import { useNotificacionesSinLeer } from '@/lib/notifications/use-unread';
@@ -59,11 +59,6 @@ import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/ima
 import { hoyEnEstudio } from '@/lib/utils';
 import { queImparten } from '@/lib/equipo';
 import { valoracionParaPantalla } from '@/lib/portal-tema/valoracion';
-
-// Iconos de los accesos rápidos en sus variantes rejilla/círculos (la de filas
-// no lleva icono). Mismo criterio que portal-nav.tsx: el dato es un NOMBRE, el
-// componente se resuelve aquí — así lib/portal-home-logic.ts sigue sin React.
-const ICONOS_ACCESO: Record<string, LucideIcon> = { CalendarDays, Sparkles, Bell, User };
 
 // Valor de `now` mientras el reloj de abajo todavía no ha latido (render del
 // servidor y primer render del cliente, antes del efecto). Constante de MÓDULO
@@ -347,13 +342,6 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   // que verá una socia al día, no con un estado de carga congelado.
   const sinLeer = escribible ? sinLeerReal : 0;
 
-  const totalAsistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
-  const proximas = misReservas.filter(r => {
-    if (r.estado !== 'CONFIRMADA') return false;
-    const s = sesiones.find(x => x.id === r.sesionId);
-    return !!s && new Date(s.inicio) > now;
-  }).length;
-
   // Las próximas seis sesiones con hueco: el carrusel de "Esta semana".
   const estaSemana = useMemo(() => {
     const libres = (sesionId: string, aforo: number) =>
@@ -511,8 +499,6 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         };
     }
   })();
-
-  const filas = accesosRapidosDe({ slug, portalHref, proximas, totalAsistidas, sinLeer, nInstructoras: instructores.length });
 
   // La foto de la tarjeta grande: la SUYA si la propietaria le puso una, si no
   // la del portal, y si tampoco la de por defecto. La herencia va en este orden
@@ -1098,90 +1084,6 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   })}
                 </div>
               </>
-            )}
-          </div>
-
-          {/* Accesos rápidos — tres formas según el tema (lib/theme-variantes.ts).
-              La rama 'filas' es la de SIEMPRE, literal: es lo que ve todo
-              estudio sin tema, y no se refactoriza de paso. */}
-          <div {...wrap('accesosRapidos')}>
-            <div style={{ height: 40 }} />
-            {/* El rótulo del estudio manda sobre el del tema; vacío en los dos
-                = sin rótulo, que es lo que hacen las variantes que no lo llevan. */}
-            {(txt('accesosRapidos', 'titulo') || rotuloAccesos(variantes.accesosRapidos)) && (
-              <h2 style={{ ...display(escala('seccion', 24)), color: t.ink, marginBottom: 14 }}>
-                {txt('accesosRapidos', 'titulo') || rotuloAccesos(variantes.accesosRapidos)}
-              </h2>
-            )}
-            {variantes.accesosRapidos === 'filas' && filas.map((f, i) => (
-              <Link
-                key={f.href}
-                href={f.href}
-                style={{
-                  height: altura.fila, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                  borderTop: `1px solid ${t.line}`,
-                  borderBottom: i === filas.length - 1 ? `1px solid ${t.line}` : undefined,
-                  textDecoration: 'none', transition: transicion(['padding-left'], 400),
-                }}
-              >
-                <span style={{ ...display(24), color: t.ink }}>{f.etiqueta}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  {f.punto && <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--portal-brand)' }} />}
-                  <span style={{ ...texto.valor, color: t.muted2 }}>{f.valor}</span>
-                  <span aria-hidden style={{ fontSize: 13, color: t.heroAccent }}>→</span>
-                </span>
-              </Link>
-            ))}
-
-            {/* Rejilla de baldosas (Oliva/Bloom) y círculos (Noir): misma
-                estructura, distinto envoltorio — separarlas en dos ramas
-                duplicaría el enlace y el punto de aviso sin ganar nada. */}
-            {variantes.accesosRapidos !== 'filas' && (
-              <div style={{
-                display: 'flex', justifyContent: 'space-between',
-                gap: variantes.accesosRapidos === 'circulos' ? 0 : 9,
-              }}>
-                {filas.map((f) => {
-                  const Icono = ICONOS_ACCESO[f.icono] ?? Sparkles;
-                  const enCirculo = variantes.accesosRapidos === 'circulos';
-                  return (
-                    <Link
-                      key={f.href}
-                      href={f.href}
-                      aria-label={`${f.etiqueta}: ${f.valor}`}
-                      style={{
-                        position: 'relative', flex: 1, minWidth: 0, textDecoration: 'none',
-                        textAlign: 'center', color: t.ink,
-                        ...(enCirculo ? {} : {
-                          height: 104, padding: '14px 8px',
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 9,
-                          background: t.surface,
-                          border: `var(--portal-card-border, 1px solid ${t.line})`,
-                          boxShadow: 'var(--portal-card-shadow, none)',
-                          borderRadius: `var(--portal-radius-acceso, ${radio.card}px)`,
-                        }),
-                      }}
-                    >
-                      <span style={enCirculo ? {
-                        width: 58, height: 58, margin: '0 auto', borderRadius: '50%',
-                        background: t.surface, border: `1px solid ${t.line}`,
-                        display: 'grid', placeItems: 'center',
-                      } : { display: 'grid', placeItems: 'center' }}>
-                        <Icono size={enCirculo ? 20 : 18} strokeWidth={1.8} />
-                      </span>
-                      <span style={{ ...texto.valor, color: t.ink, display: 'block', marginTop: enCirculo ? 9 : 0, lineHeight: 1.3 }}>
-                        {f.etiqueta}
-                      </span>
-                      {f.punto && (
-                        <span aria-hidden style={{
-                          position: 'absolute', top: enCirculo ? 0 : 10, right: enCirculo ? 10 : 10,
-                          width: 7, height: 7, borderRadius: '50%', background: 'var(--portal-brand)',
-                        }} />
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
             )}
           </div>
 

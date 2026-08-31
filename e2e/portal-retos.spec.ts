@@ -11,7 +11,6 @@ import { montarPortal, SLUG } from './portal-mock';
 
 const HOME_CON_RETOS = [
   { id: 'sistema-retos', kind: 'sistema' as const, sistemaId: 'retos' as const },
-  { id: 'sistema-accesosRapidos', kind: 'sistema' as const, sistemaId: 'accesosRapidos' as const },
 ];
 
 test.describe('Portal — Inicio: bloque Retos', () => {

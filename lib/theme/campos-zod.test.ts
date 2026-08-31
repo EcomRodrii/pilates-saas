@@ -23,7 +23,7 @@ const estiloOraculo = z.object({
 }).optional();
 
 const ORACULO = z.discriminatedUnion('kind', [
-  z.object({ id: z.string(), kind: z.literal('sistema'), sistemaId: z.enum(['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos', 'tiraSemana', 'progresoSemanal', 'retos']), oculto: z.boolean().optional() }),
+  z.object({ id: z.string(), kind: z.literal('sistema'), sistemaId: z.enum(['estaSemana', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos', 'tiraSemana', 'progresoSemanal', 'retos']), oculto: z.boolean().optional() }),
   z.object({
     id: z.string(), kind: z.literal('banner'), oculto: z.boolean().optional(), estilo: estiloOraculo,
     config: z.object({ imagenUrl: z.string(), titulo: z.string(), texto: z.string(), href: z.string() }),

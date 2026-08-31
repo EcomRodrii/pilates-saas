@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora, huecosHoy } from './portal-home-logic.ts';
+import { calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, saludoPorHora, huecosHoy } from './portal-home-logic.ts';
 import type { Reserva, Sesion, PlanTarifa, Suscripcion } from './types.ts';
 
 // Miércoles 2026-08-05, 10:00 — un día fijo a media semana para que "lunes de
@@ -83,62 +83,6 @@ test('calcularProgresoSemanal: solo cuenta CONFIRMADA', () => {
 
 test('META_PROGRESO_SEMANAL: número de referencia positivo (no una meta configurable)', () => {
   assert.ok(META_PROGRESO_SEMANAL > 0);
-});
-
-// ── Accesos rápidos ─────────────────────────────────────────────────────────
-
-// Mismo criterio que el portal real: `usePortalHref` en producción, aquí un
-// builder mínimo — la función pura no sabe ni necesita saber de preview.
-const portalHref = (r: string) => `/portal${r}`;
-
-test('accesosRapidosDe: los CUATRO destinos reales de la app, con sus hrefs', () => {
-  const a = accesosRapidosDe({ slug: 'alma', portalHref, proximas: 2, totalAsistidas: 18, sinLeer: 0, nInstructoras: 3 });
-  assert.equal(a.length, 4);
-  assert.deepEqual(a.map((x) => x.href), [
-    '/portal/alma/reservas', '/portal/alma/progreso', '/portal/alma/notificaciones', '/portal/alma/instructores',
-  ]);
-  // Cada uno trae icono: sin él, las variantes rejilla/círculos no se pueden pintar.
-  assert.ok(a.every((x) => x.icono.length > 0));
-});
-
-test('accesosRapidosDe: singular/plural y los estados vacíos', () => {
-  const cero = accesosRapidosDe({ slug: 's', portalHref, proximas: 0, totalAsistidas: 1, sinLeer: 0, nInstructoras: 1 });
-  assert.equal(cero[0].valor, 'Ninguna');
-  assert.equal(cero[1].valor, '1 clase');
-  assert.equal(cero[2].valor, 'Al día');
-  assert.equal(cero[3].valor, '1 instructora');
-  const varios = accesosRapidosDe({ slug: 's', portalHref, proximas: 1, totalAsistidas: 0, sinLeer: 3, nInstructoras: 2 });
-  assert.equal(varios[0].valor, '1 próxima');
-  assert.equal(varios[1].valor, '0 clases');
-  assert.equal(varios[2].valor, '3 nuevas');
-  assert.equal(varios[3].valor, '2 instructoras');
-});
-
-test('accesosRapidosDe: el punto de aviso solo con notificaciones sin leer', () => {
-  assert.equal(accesosRapidosDe({ slug: 's', portalHref, proximas: 0, totalAsistidas: 0, sinLeer: 0, nInstructoras: 0 })[2].punto, false);
-  assert.equal(accesosRapidosDe({ slug: 's', portalHref, proximas: 0, totalAsistidas: 0, sinLeer: 2, nInstructoras: 0 })[2].punto, true);
-});
-
-test('accesosRapidosDe: "no se sabe" (null) no es "Al día"', () => {
-  // Los avisos vienen del servidor: mientras la respuesta no llega —o si falla—
-  // la fila NO puede afirmar que la socia está al día. Colapsar null a 0 hacía
-  // justo eso, y encima en palabras, mientras la campana de al lado se callaba
-  // prudentemente: dos contadores de la misma cosa contradiciéndose en la misma
-  // pantalla, que es el bug que se vino a matar.
-  const sinSaber = accesosRapidosDe({ slug: 's', portalHref, proximas: 0, totalAsistidas: 0, sinLeer: null, nInstructoras: 0 })[2];
-  assert.equal(sinSaber.valor, '—');
-  assert.equal(sinSaber.punto, false);
-
-  const alDia = accesosRapidosDe({ slug: 's', portalHref, proximas: 0, totalAsistidas: 0, sinLeer: 0, nInstructoras: 0 })[2];
-  assert.equal(alDia.valor, 'Al día');
-});
-
-test('rotuloAccesos: la variante de FILAS no lleva encabezado (es la de hoy)', () => {
-  // Si lo llevara, todo estudio sin tema vería un <h2> nuevo de la noche a la
-  // mañana — justo lo que este mecanismo promete que no pasa.
-  assert.equal(rotuloAccesos('filas'), null);
-  assert.equal(rotuloAccesos('rejilla'), 'Mis accesos rápidos');
-  assert.equal(rotuloAccesos('circulos'), 'Accesos rápidos');
 });
 
 test('saludoPorHora: los cortes de franja, que solo se ven en producción a deshora', () => {

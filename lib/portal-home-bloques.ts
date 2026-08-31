@@ -41,7 +41,13 @@ export const BLOQUES_SISTEMA_IDS = [
   // arrastran ni se ocultan — ver `fijo` en el registro y el comentario de
   // BLOQUES_FIJOS_POR_PANTALLA.
   'cabecera', 'proximaClase',
-  'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos',
+  // ⚠️ `accesosRapidos` ("Mis reservas"/"Mi progreso"/"Notificaciones"/
+  // "El equipo") se retiró de este catálogo (31-ago, decisión explícita): no
+  // existe en el diseño real de referencia ("Tentare Studio App") — nunca fue
+  // decorativo, era contenido funcional del Inicio, así que su retirada SÍ
+  // rompe a propósito el "no se pueden eliminar" de más abajo, que sigue
+  // siendo la regla para el resto de bloques `sistema`.
+  'estaSemana', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos',
   // Tema "Oliva"/"Noir"/"Bloom" — ver lib/theme-definitions.ts (bloquesHome).
   // Ninguno aparece en un estudio que no los active a mano o instale uno de
   // esos temas: se añaden al FINAL de BLOQUES_SISTEMA_POR_PANTALLA.home, así
@@ -82,7 +88,7 @@ export function seccionReservarDeSistemaId(sistemaId: BloqueSistemaId): string {
 // abajo) — un estudio que no instale Oliva/Noir/Bloom ni los active a mano
 // no los ve.
 export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
-  home: ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos'],
+  home: ['cabecera', 'proximaClase', 'estaSemana', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos'],
   clases: ['listadoClases'],
   bonos: ['listadoBonos'],
   reservar: SECCIONES_RESERVAR.map((s) => sistemaIdDeSeccionReservar(s.id)),
@@ -637,13 +643,6 @@ export const CAMPOS_ESTA_SEMANA = [
   },
 ] as const satisfies readonly CampoSchema[];
 
-export const CAMPOS_ACCESOS_RAPIDOS = [
-  {
-    tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: '', maxLargo: 40,
-    ayuda: 'Déjalo vacío para que la sección no lleve rótulo.',
-  },
-] as const satisfies readonly CampoSchema[];
-
 export const CAMPOS_INVITAR_AMIGA = [
   { tipo: 'texto', id: 'antetitulo', etiqueta: 'Texto pequeño de arriba', porDefecto: 'Trae a quien quieras', maxLargo: 40 },
   { tipo: 'texto', id: 'titulo', etiqueta: 'Titular', porDefecto: 'La calma se comparte mejor.', maxLargo: 70 },
@@ -852,12 +851,6 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   estaSemana: {
     id: 'sistema', sistemaId: 'estaSemana', nombre: 'Esta semana',
     icono: 'CalendarDays', origen: 'sistema', estilizable: false, campos: CAMPOS_ESTA_SEMANA,
-  },
-  accesosRapidos: {
-    id: 'sistema', sistemaId: 'accesosRapidos',
-    nombre: 'Accesos rápidos',
-    descripcion: 'Reservas, progreso, notificaciones y equipo.',
-    icono: 'LayoutGrid', origen: 'sistema', estilizable: false, campos: CAMPOS_ACCESOS_RAPIDOS,
   },
   invitarAmiga: {
     id: 'sistema', sistemaId: 'invitarAmiga', nombre: 'Invita a una amiga',

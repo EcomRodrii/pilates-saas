@@ -1,100 +1,32 @@
 import { test, expect } from '@playwright/test';
 import { montarPortal, SLUG } from './portal-mock';
 
-// Accesos rápidos del Inicio — la diferencia más visible entre los 3 temas de
-// la galería (lib/theme-variantes.ts). Se comprueba la GEOMETRÍA real con
-// boundingBox(), no clases CSS: lo que rompería a un estudio existente es que
-// la variante por defecto dejara de medir lo que mide hoy, y eso una clase no
-// lo dice.
+// El bloque "Accesos rápidos" (filas/rejilla/círculos, lib/theme-variantes.ts)
+// quedó RETIRADO del Inicio por decisión explícita (31-ago, verificado contra
+// CHEATSHEET-CSS.md/docs/diseno-referencia-portal/): no existe en el diseño
+// real de referencia ("Tentare Studio App") — los cuatro atajos "Mis
+// reservas"/"Mi progreso"/"Notificaciones"/"El equipo" no aparecen en ninguna
+// de las 20 capturas. Se retiró del catálogo de bloques (ya no se puede
+// añadir/reordenar desde el editor) y del render de portal-home-view.tsx —
+// `variantes.accesosRapidos` sigue vivo en el esquema por compatibilidad con
+// temas ya guardados, pero no tiene ningún efecto observable.
 //
-// El primer test es la RED DE SEGURIDAD de todos los demás: sin `variantes`,
-// esto tiene que seguir siendo exactamente lo de siempre.
-
-test.describe('Inicio — accesos rápidos por variante', () => {
-  test('sin variantes (todo estudio sin tema): 4 filas de 68 px y ningún encabezado', async ({ page }) => {
-    await montarPortal(page, { conSesion: true });
-    await page.goto(`/portal/${SLUG}/home`);
-    // El saludo de Inicio ya no es un texto fijo ("Hola, {nombre}"): depende
-    // de la hora y de la variante de cabecera. Se espera un elemento estable,
-    // siempre presente, para saber que Inicio cargó — lo que este test
-    // comprueba de verdad son los accesos rápidos de más abajo.
-    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
-
-    const enlaces = page.getByRole('link', { name: 'Mis reservas' });
-    await expect(enlaces).toHaveCount(1);
-    const caja = await enlaces.first().boundingBox();
-    expect(caja!.height).toBeCloseTo(68, 0);
-    // El encabezado solo existe en rejilla/círculos.
-    await expect(page.getByRole('heading', { name: 'Mis accesos rápidos' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Accesos rápidos' })).toHaveCount(0);
-  });
-
-  test('rejilla (Oliva/Bloom): los 4 en la misma fila, con su encabezado en primera persona', async ({ page }) => {
+// Los tests por variante de antes (filas/rejilla/círculos, geometría de cada
+// una) probaban una rama muerta y se retiran en vez de mantenerse. Lo que
+// queda es la red de seguridad: que el bloque no reaparezca por accidente.
+test.describe('Inicio — sin "Accesos rápidos" (retirado)', () => {
+  test('ninguno de los cuatro atajos de antes aparece, con o sin variantes guardadas', async ({ page }) => {
     await montarPortal(page, { conSesion: true, variantes: { accesosRapidos: 'rejilla' } });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: 'Mis accesos rápidos' })).toBeVisible({ timeout: 30_000 });
-
-    const cajas = await Promise.all(
-      ['Mis reservas', 'Mi progreso', 'Notificaciones', 'El equipo'].map(async (n) => {
-        const l = page.getByRole('link', { name: new RegExp(`^${n}:`) });
-        await expect(l).toHaveCount(1);
-        return (await l.boundingBox())!;
-      }),
-    );
-    // Misma `y` = de verdad están en rejilla, no apilados.
-    for (const c of cajas) expect(c.y).toBeCloseTo(cajas[0].y, 0);
-    for (const c of cajas) expect(c.height).toBeCloseTo(104, 0);
-  });
-
-  test('círculos (Noir): círculo de 58 px y el texto FUERA del círculo', async ({ page }) => {
-    await montarPortal(page, { conSesion: true, variantes: { accesosRapidos: 'circulos' } });
-    await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: 'Accesos rápidos' })).toBeVisible({ timeout: 30_000 });
-
-    const enlace = page.getByRole('link', { name: /^Mis reservas:/ });
-    const circulo = enlace.locator('span').first();
-    const c = (await circulo.boundingBox())!;
-    expect(c.width).toBeCloseTo(58, 0);
-    expect(c.height).toBeCloseTo(58, 0);
-    // El texto va debajo, no dentro: su `y` empieza pasado el círculo.
-    const texto = (await enlace.getByText('Mis reservas').boundingBox())!;
-    expect(texto.y).toBeGreaterThan(c.y + c.height - 1);
-  });
-
-  // Un test por variante, con página limpia: `montarPortal` registra rutas con
-  // page.route, así que llamarlo tres veces sobre la MISMA página las apila y
-  // la tercera navegación acaba en ERR_ABORTED.
-  for (const variante of ['filas', 'rejilla', 'circulos'] as const) {
-    test(`los 4 destinos no cambian con la variante "${variante}" — cambia la forma, no a dónde llevan`, async ({ page }) => {
-      await montarPortal(page, { conSesion: true, variantes: { accesosRapidos: variante } });
-      await page.goto(`/portal/${SLUG}/home`);
-      await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
-      // Acotado al bloque: varios de estos destinos salen también en la barra
-      // inferior, así que buscar el href a secas encontraría dos.
-      const bloque = page.locator('[data-bloque-sistema="accesosRapidos"]');
-      for (const seg of ['reservas', 'progreso', 'notificaciones', 'instructores']) {
-        await expect(bloque.locator(`a[href="/portal/${SLUG}/${seg}"]`)).toHaveCount(1);
-      }
-    });
-  }
-
-  // El editor selecciona bloques buscando `data-bloque-id` con `closest()`
-  // (portal-preview-bridge.ts). Los módulos fijos solo llevaban
-  // `data-bloque-sistema` —que es el TIPO de módulo, igual en todos los
-  // estudios— así que no se podían seleccionar desde la vista previa. Se
-  // comprueba aquí, en el portal de verdad, porque el arnés del editor no
-  // llega a montar el iframe (sin token sirve un hueco, no el portal).
-  test('un módulo fijo lleva también `data-bloque-id`, que es lo que el editor selecciona', async ({ page }) => {
-    await montarPortal(page, { conSesion: true });
-    await page.goto(`/portal/${SLUG}/home`);
     await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
-    const bloque = page.locator('[data-bloque-sistema="accesosRapidos"]');
-    // No vale con que exista el atributo: tiene que ser el id de ESA fila, no
-    // el `sistemaId`. Si fueran lo mismo, dos estudios distintos compartirían
-    // identificador de bloque.
-    const id = await bloque.getAttribute('data-bloque-id');
-    expect(id).toBeTruthy();
-    expect(id).not.toBe('accesosRapidos');
+    await expect(page.getByRole('heading', { name: 'Mis accesos rápidos' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Accesos rápidos' })).toHaveCount(0);
+    // "Mis reservas"/"El equipo" son únicos del bloque retirado — a
+    // diferencia de "Notificaciones", que sigue existiendo como nombre
+    // accesible de la campana del hero (sin relación con este bloque).
+    await expect(page.getByRole('link', { name: /^Mis reservas/ })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /^El equipo/ })).toHaveCount(0);
+    await expect(page.locator('[data-bloque-sistema="accesosRapidos"]')).toHaveCount(0);
   });
 });

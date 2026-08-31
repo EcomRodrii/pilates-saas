@@ -174,29 +174,6 @@ export function calcularProgresoSemanal(now: Date, misReservas: Reserva[], sesio
   }).length;
 }
 
-// ── Accesos rápidos ─────────────────────────────────────────────────────────
-// Extraído del JSX (portal-home-view.tsx) al pasar de UNA forma a tres: los
-// datos son los mismos en las tres, solo cambia cómo se pintan, así que
-// calcularlos en un sitio y probarlos aparte evita que las variantes se
-// desincronicen entre sí. Mismo criterio que getHomeCardContext/tiraSemana.
-
-/** Un acceso rápido del Inicio. `icono` solo lo usan rejilla/círculos. */
-export interface AccesoRapido {
-  etiqueta: string;
-  valor: string;
-  href: string;
-  /** Nombre de icono de lucide — el mismo catálogo que usa portal-nav.tsx. */
-  icono: string;
-  /** Punto de aviso (hay notificaciones sin leer). */
-  punto?: boolean;
-}
-
-/**
- * Los CUATRO destinos reales del portal. Ojo: el prototipo de diseño usa otros
- * cuatro (Reservar/Mis reservas/Favoritas/Mi bono) porque es una maqueta —
- * cambiar CUÁLES son es una decisión de producto, no del tema, así que aquí se
- * mantienen los de la app y solo cambia la FORMA.
- */
 export interface HuecoHoy {
   sesion: Sesion;
   libres: number;
@@ -249,50 +226,6 @@ export function huecosHoy({
     })
     .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime())
     .map(s => ({ sesion: s, libres: libresDe(s) }));
-}
-
-export function accesosRapidosDe({ slug, portalHref, proximas, totalAsistidas, sinLeer, nInstructoras }: {
-  slug: string;
-  /**
-   * Construye el enlace completo (base `/portal` o `/portal-preview`, y el
-   * token si aplica) — ver `usePortalHref` en `portal-preview-bridge.ts`. Se
-   * pasa desde fuera porque este módulo es puro (sin hooks de React) y no
-   * puede saber por sí solo si está montado dentro del editor de temas.
-   */
-  portalHref: (ruta: string) => string;
-  proximas: number;
-  totalAsistidas: number;
-  /**
-   * `null` = todavía no se sabe (los avisos vienen del servidor y la respuesta
-   * no ha llegado, o falló). NO es lo mismo que 0: colapsarlo a 0 hacía que la
-   * fila afirmara «Al día» —en palabras, más rotundo que el numeral de la
-   * campana— sobre algo que aún no se ha comprobado.
-   */
-  sinLeer: number | null;
-  nInstructoras: number;
-}): AccesoRapido[] {
-  const plural = (n: number, sing: string, pl = `${sing}s`) => `${n} ${n === 1 ? sing : pl}`;
-  const hayNuevos = sinLeer !== null && sinLeer > 0;
-  return [
-    { etiqueta: 'Mis reservas', icono: 'CalendarDays', href: portalHref(`/${slug}/reservas`),
-      valor: proximas > 0 ? plural(proximas, 'próxima') : 'Ninguna' },
-    { etiqueta: 'Mi progreso', icono: 'Sparkles', href: portalHref(`/${slug}/progreso`),
-      valor: plural(totalAsistidas, 'clase') },
-    { etiqueta: 'Notificaciones', icono: 'Bell', href: portalHref(`/${slug}/notificaciones`),
-      valor: hayNuevos ? plural(sinLeer, 'nueva') : sinLeer === null ? '—' : 'Al día', punto: hayNuevos },
-    { etiqueta: 'El equipo', icono: 'User', href: portalHref(`/${slug}/instructores`),
-      valor: plural(nInstructoras, 'instructora') },
-  ];
-}
-
-/**
- * El rótulo de la sección. La variante de filas no lleva ninguno (hoy no hay
- * encabezado ahí); rejilla/círculos sí, y Oliva lo dice en primera persona,
- * como el prototipo ("Mis accesos rápidos" vs "Accesos rápidos").
- */
-export function rotuloAccesos(variante: 'filas' | 'rejilla' | 'circulos'): string | null {
-  if (variante === 'filas') return null;
-  return variante === 'rejilla' ? 'Mis accesos rápidos' : 'Accesos rápidos';
 }
 
 /**
