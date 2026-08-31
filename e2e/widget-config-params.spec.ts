@@ -321,3 +321,62 @@ test('⚠️ la página SUELTA ignora los parámetros del snippet', async ({ pag
   await expect(fila.locator('.reserva-cta-btn')).toHaveText('Reservar');
   await expect(fila).toContainText('15 €');
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auditoría de rendimiento (2026-08-31): `<ListaPlanes>` (Stripe incluido) ya
+// no viaja en `widget.js` — se carga bajo demanda desde `widget-checkout.js`
+// (`import()` nativo, ver components/checkout-widget/checkout-lazy-mount.tsx)
+// SOLO al abrir "Planes". Verificado con los DOS bundles reales compilados
+// (igual que el test de arriba), no con una fixture aislada: si el `import()`
+// resolviera contra el origen equivocado, o si las dos raíces de React
+// chocaran entre sí, esto es lo que lo destaparía.
+test('⚠️ Modo B (bundle real): "Planes" carga el checkout bajo demanda (widget-checkout.js)', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await mocks(page);
+  await page.route('**/api/public/studio-data**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx()) }));
+  await page.addInitScript(() => {
+    localStorage.setItem('sb-portal-auth', JSON.stringify({
+      access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
+      expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
+      user: { id: 'auth-e2e', email: 'e2e@test.com', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
+    }));
+  });
+  await page.route('**/api/public/session', r => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Alumna E2E', email: 'e2e@test.com' }),
+  }));
+  await page.route('**/host-widget-e2e', r => r.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body>
+      <div data-tentare-booking data-studio="${SLUG}"></div>
+      <script src="/widget.js" async></script>
+    </body></html>`,
+  }));
+
+  // `widget-checkout.js` NO se pide hasta pulsar "Planes" — comprobado
+  // observando las peticiones de red antes y después del clic, no solo que
+  // el contenido aparezca (eso solo probaría el resultado, no el "bajo
+  // demanda" que es justo lo que cambió).
+  const peticionesCheckoutJs: string[] = [];
+  page.on('request', req => { if (req.url().includes('widget-checkout.js')) peticionesCheckoutJs.push(req.url()); });
+
+  await page.goto('/host-widget-e2e');
+  const boton = page.getByRole('button', { name: 'Planes' });
+  await boton.waitFor({ timeout: 30_000 });
+  expect(peticionesCheckoutJs, 'widget-checkout.js no debe pedirse antes de abrir "Planes"').toHaveLength(0);
+
+  await boton.click();
+  await expect(page.getByRole('heading', { name: 'Planes y bonos' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Clase suelta')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Comprar' })).toBeVisible();
+  expect(peticionesCheckoutJs.length).toBeGreaterThan(0);
+
+  // Cerrar y reabrir: la raíz de React ya creada se reutiliza (no un segundo
+  // fetch, no un aviso de "createRoot() on a container that already has...").
+  const erroresConsola: string[] = [];
+  page.on('console', msg => { if (msg.type() === 'error') erroresConsola.push(msg.text()); });
+  await page.getByRole('button', { name: 'Cerrar' }).first().click();
+  await boton.click();
+  await expect(page.getByRole('heading', { name: 'Planes y bonos' })).toBeVisible({ timeout: 30_000 });
+  expect(erroresConsola.join('\n')).not.toContain('createRoot()');
+});

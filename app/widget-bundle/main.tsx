@@ -29,7 +29,7 @@ import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
 import { FormularioAccesoWidget } from '@/components/widget/formulario-acceso';
 import { MiCuenta, HojaCuentaWidget } from '@/components/cuenta-widget/mi-cuenta';
-import { ListaPlanes } from '@/components/checkout-widget/lista-planes';
+import type { PropsListaPlanesLazy } from '@/components/checkout-widget/checkout-lazy-mount';
 import widgetCss from './widget.css';
 import { canonicalizarOrigen } from '@/lib/legal-info';
 
@@ -133,6 +133,16 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   const [accesoAbierto, setAccesoAbierto] = useState(false);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const [planesAbiertos, setPlanesAbiertos] = useState(false);
+  // Auditoría de rendimiento (2026-08-31): `<ListaPlanes>` (Stripe incluido)
+  // ya no va en ESTE bundle — ver components/checkout-widget/
+  // checkout-lazy-mount.tsx. `checkoutMod` guarda el módulo una vez pedido
+  // (nunca se vuelve a pedir en la misma carga de página, ni al cerrar y
+  // reabrir "Planes"); `checkoutEstado` es solo para el spinner/aviso de
+  // error de ESTE fetch, nunca de la compra en sí (`<ListaPlanes>` ya
+  // maneja sus propios errores de pago).
+  const [checkoutEstado, setCheckoutEstado] = useState<'idle' | 'cargando' | 'listo' | 'error'>('idle');
+  const checkoutModRef = useRef<typeof import('./checkout-entry') | null>(null);
+  const checkoutContainerRef = useRef<HTMLDivElement | null>(null);
   const walkInSinFicha = autenticado && !socia;
   // `&& !socia`: `accesoAbierto` solo se baja en tres sitios, y `onListo` solo
   // lo llama el REGISTRO — `onLoginPassword` no, confiando en un comentario que
@@ -188,6 +198,66 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
     window.location.href = `${ORIGEN_TENTARE}/reservar/${slug}?sesion=${encodeURIComponent(slot.id)}&directo=1`;
     return true;
   }, [socia, sesionCargando, slug]);
+
+  // Auditoría de rendimiento (2026-08-31): pide `widget-checkout.js` SOLO al
+  // abrir "Planes" — nunca antes. `import()` con URL ABSOLUTA
+  // (`ORIGEN_TENTARE`, no relativa): este script corre incrustado en la web
+  // de un estudio, y una ruta relativa resolvería contra SU origen, no
+  // contra tentare.app (mismo motivo que ya documenta `ORIGEN_TENTARE`
+  // arriba para las llamadas a `/api/public/...`).
+  // ⚠️ Depende SOLO de `planesAbiertos`, nunca de `checkoutEstado`: el
+  // `setCheckoutEstado('cargando')` de aquí abajo es un cambio de estado
+  // DENTRO del propio efecto — si `checkoutEstado` estuviera en las deps,
+  // ese cambio dispara una segunda pasada del efecto, cuya limpieza pone
+  // `cancelado = true` sobre la promesa de la PRIMERA pasada (la que de
+  // verdad está en vuelo). Cuando esa promesa resuelve, `if (cancelado)
+  // return` la descarta en silencio y la hoja se queda en "Cargando…" para
+  // siempre — lo destapó el propio e2e de abajo (nunca llegaba a
+  // "Planes y bonos"), no una lectura del código.
+  const pidiendoCheckoutRef = useRef(false);
+  useEffect(() => {
+    if (!planesAbiertos || checkoutModRef.current || pidiendoCheckoutRef.current) return;
+    pidiendoCheckoutRef.current = true;
+    setCheckoutEstado('cargando');
+    let cancelado = false;
+    import(/* webpackIgnore: true */ `${ORIGEN_TENTARE}/widget-checkout.js`)
+      .then((mod) => {
+        if (cancelado) return;
+        checkoutModRef.current = mod;
+        setCheckoutEstado('listo');
+      })
+      .catch((e) => {
+        if (cancelado) return;
+        console.error('[widget] no se pudo cargar widget-checkout.js', e);
+        setCheckoutEstado('error');
+      })
+      .finally(() => { pidiendoCheckoutRef.current = false; });
+    return () => { cancelado = true; };
+  }, [planesAbiertos]);
+
+  // Monta/actualiza `<ListaPlanes>` en su propia raíz de React (independiente
+  // de la de este bundle — ver el docblock de checkout-lazy-mount.tsx) cada
+  // vez que cambian sus props, y la desmonta al cerrar "Planes" — nunca deja
+  // el checkout de Stripe montado con la hoja cerrada.
+  useEffect(() => {
+    const mod = checkoutModRef.current;
+    const contenedor = checkoutContainerRef.current;
+    if (!planesAbiertos || checkoutEstado !== 'listo' || !mod || !contenedor) return;
+    const props: PropsListaPlanesLazy = {
+      t: tema, planes: planesTarifa, socioId: socia?.socioId ?? null,
+      publishableKey: STRIPE_PUBLISHABLE_KEY ?? '', stripeAccountId,
+      onCrearIntento: crearCheckoutEmbebido, onBizum: comprarConBizum,
+      onCerrar: () => setPlanesAbiertos(false), onComprado: () => recargar({ silencioso: true }),
+      onIniciarSesion: () => { setPlanesAbiertos(false); setAccesoAbierto(true); },
+    };
+    mod.mountListaPlanes(contenedor, props);
+  });
+  useEffect(() => {
+    if (planesAbiertos) return;
+    const mod = checkoutModRef.current;
+    const contenedor = checkoutContainerRef.current;
+    if (mod && contenedor) mod.unmountListaPlanes(contenedor);
+  }, [planesAbiertos]);
 
   // 3DS forzado a salir (poco común, ver checkout-embebido.tsx): vuelve a la
   // MISMA página del estudio con este marcador — se lee una vez al montar y
@@ -273,13 +343,21 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
           en onReservar, en el camino donde además hay dinero. */}
       {planesAbiertos && (
         <HojaCuentaWidget t={tema} onClose={() => setPlanesAbiertos(false)}>
-          <ListaPlanes
-            t={tema} planes={planesTarifa} socioId={socia?.socioId ?? null}
-            publishableKey={STRIPE_PUBLISHABLE_KEY ?? ''} stripeAccountId={stripeAccountId}
-            onCrearIntento={crearCheckoutEmbebido} onBizum={comprarConBizum}
-            onCerrar={() => setPlanesAbiertos(false)} onComprado={() => recargar({ silencioso: true })}
-            onIniciarSesion={() => { setPlanesAbiertos(false); setAccesoAbierto(true); }}
-          />
+          {/* Auditoría de rendimiento (2026-08-31): `<ListaPlanes>` (Stripe
+              incluido) se monta en su PROPIA raíz de React dentro de este
+              `<div>`, cargada bajo demanda — ver checkout-lazy-mount.tsx.
+              Este `<div>` SIEMPRE está en el árbol mientras `planesAbiertos`
+              (nunca condicionado a `checkoutEstado`): el efecto de arriba
+              necesita el nodo montado ANTES de poder pintar dentro de él. */}
+          <div ref={checkoutContainerRef} />
+          {checkoutEstado === 'cargando' && (
+            <p style={{ textAlign: 'center', fontSize: 12.5, color: tema.muted, padding: '24px 0' }}>Cargando…</p>
+          )}
+          {checkoutEstado === 'error' && (
+            <p style={{ textAlign: 'center', fontSize: 12.5, color: tema.muted, padding: '24px 0' }}>
+              No hemos podido cargar la compra online. Comprueba tu conexión e inténtalo de nuevo.
+            </p>
+          )}
         </HojaCuentaWidget>
       )}
       {mostrarFormulario && (
