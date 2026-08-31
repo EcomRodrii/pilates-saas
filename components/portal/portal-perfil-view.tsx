@@ -23,6 +23,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { subirFotoPerfil, eliminarFotoPerfil, validarFotoPerfil } from '@/lib/portal-storage';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
+import { LogoTentare } from '@/components/marca/logo-tentare';
 import { BottomSheet, Input, Button, Card, Toast, type AvisoToast } from '@/components/portal/ui';
 import { bonoActivo } from '@/lib/bonos-portal';
 import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
@@ -62,12 +63,12 @@ export function PortalPerfilView({
 }) {
   const { slug } = useParams<{ slug: string }>();
   const {
-    studio, socios, updateSocio, suscripciones, planesTarifa, tiposClase, plazasFijas, reservas, sesiones,
-    // Gap — racha/reto/logros EN LÍNEA en Perfil, verificado contra el
-    // diseño real: antes esta pantalla solo enlazaba a /progreso ("Mis
-    // compañeras" ya cubre lo social; esto es lo personal). Mismos motores
-    // que ya usa app/portal/[slug]/progreso/page.tsx — se repite el pintado,
-    // condensado, no la lógica.
+    studio, socios, updateSocio, suscripciones, planesTarifa, tiposClase, plazasFijas, reservas, sesiones, favoritos,
+    // Gap — racha/reto/logros EN LÍNEA en Perfil, verificado contra
+    // capturas reales de Claude Design: antes esta pantalla solo enlazaba a
+    // /progreso ("Mis compañeras" ya cubre lo social; esto es lo personal).
+    // Mismos motores que ya usa app/portal/[slug]/progreso/page.tsx — se
+    // repite el pintado, condensado, no la lógica.
     rachaSocio, achievementDefinitions, achievementProgress, evaluarLogrosSocio,
     challengeDefinitions, challengeProgress, evaluarRetosSocio,
   } = useStudio();
@@ -91,6 +92,23 @@ export function PortalPerfilView({
     () => reservas.filter(r => r.socioId === socioId && r.estado === 'ASISTIDA').length,
     [reservas, socioId],
   );
+  // "Clases este mes" — verificado contra capturas reales: es el mes en
+  // curso, no el histórico ("Clases asistidas" de antes). Se cruza contra
+  // `sesiones` porque `reservas` no lleva su propia fecha.
+  const ahoraStats = useMemo(() => new Date(), []);
+  const clasesEsteMes = useMemo(() => {
+    if (!socioId) return 0;
+    const inicioMes = new Date(ahoraStats.getFullYear(), ahoraStats.getMonth(), 1);
+    return reservas.filter(r => {
+      if (r.socioId !== socioId || r.estado !== 'ASISTIDA') return false;
+      const sesion = sesiones.find(s => s.id === r.sesionId);
+      return sesion ? new Date(sesion.inicio) >= inicioMes : false;
+    }).length;
+  }, [reservas, sesiones, socioId, ahoraStats]);
+  const favoritosSocia = useMemo(
+    () => favoritos.filter(f => f.socioId === socioId),
+    [favoritos, socioId],
+  );
   // Badge de Mensajes sin leer (Community & Messaging OS) — datos reales, sin
   // Realtime (se recalcula al volver a entrar en Perfil, no en vivo).
   const mensajesSinLeer = useMensajesSinLeer(studio?.id ?? null);
@@ -108,11 +126,22 @@ export function PortalPerfilView({
   const racha = useMemo(() => (socioId ? rachaSocio(socioId) : null), [socioId, reservas, sesiones]); // eslint-disable-line react-hooks/exhaustive-deps
   const misReservasTodas = useMemo(() => reservas.filter(r => r.socioId === socioId), [reservas, socioId]);
   const hayLogros = achievementDefinitions.some(a => a.activo);
-  const logrosResumen = useMemo(() => {
-    if (!hayLogros || !socioId) return null;
-    const activos = achievementDefinitions.filter(a => a.activo);
-    const desbloqueados = activos.filter(a => achievementProgress.find(p => p.socioId === socioId && p.achievementId === a.id)?.completado).length;
-    return { desbloqueados, total: activos.length };
+  // Top 4 para el grid 2x2 de Perfil — mismo orden que `LogrosTab`
+  // (app/portal/[slug]/progreso/page.tsx): conseguidos primero, luego por
+  // cercanía a completarse. Esta pantalla no reimplementa esa lógica de cero,
+  // solo la acota a 4 con "Ver todo" llevando a la versión completa.
+  const logrosTop4 = useMemo(() => {
+    if (!hayLogros || !socioId) return [];
+    return achievementDefinitions
+      .filter(a => a.activo)
+      .map(def => ({ def, progreso: achievementProgress.find(p => p.socioId === socioId && p.achievementId === def.id) ?? null }))
+      .sort((a, b) => {
+        const aDone = a.progreso?.completado ? 1 : 0;
+        const bDone = b.progreso?.completado ? 1 : 0;
+        if (aDone !== bDone) return bDone - aDone;
+        return (a.progreso?.progresoActual ?? 0) / a.def.umbral < (b.progreso?.progresoActual ?? 0) / b.def.umbral ? 1 : -1;
+      })
+      .slice(0, 4);
   }, [hayLogros, socioId, achievementDefinitions, achievementProgress]);
   // Solo el reto ACTIVO más relevante (el primero), no la lista entera: es un
   // resumen, no una reimplementación de /progreso.
@@ -227,33 +256,17 @@ export function PortalPerfilView({
     setHoja(null);
   }
 
-  // Antes eran chips sueltos ("Plaza fija · lunes", "Bono 10 activo") — se
-  // leían como etiquetas, no como algo que la socia hubiera GANADO. Tres
-  // tarjetas de estadística (Fase 2, feedback de 49 propietarias) dicen lo
-  // mismo con un número grande delante, mismo lenguaje que el resto del
-  // portal usa para "esto importa" (la tarjeta hero de Inicio, el contador
-  // de Clases). Solo se muestran las que tienen dato real detrás.
-  const stats: { etiqueta: string; valor: string; nota?: string }[] = [];
-  if (asistidas > 0) stats.push({ etiqueta: 'Clases asistidas', valor: String(asistidas) });
-  if (bono) {
-    // ⚠️ La fracción es el saldo TOTAL, no el del bono en curso.
-    //
-    // Antes salía `restantes/total` del bono elegido, así que una socia con 24
-    // sesiones repartidas en 6 bonos leía «2/4» en su perfil: el número del
-    // bono que está gastando ahora. No era falso, pero no respondía a lo que
-    // había ido a mirar —cuántas clases le quedan— y daba la sensación de haber
-    // perdido sesiones ya pagadas. El desglose por bono vive en /bonos.
-    const nBonos = bono.bonos.length;
-    stats.push({
-      etiqueta: bono.esMensual ? 'Tu bono' : 'Sesiones',
-      valor: bono.esMensual
-        ? 'Ilimitado'
-        : `${bono.totalRestantes ?? '–'}/${bono.totalSesiones ?? '–'}`,
-      // Con un solo bono, «en 1 bono» es ruido: la fracción ya es la suya.
-      nota: !bono.esMensual && nBonos > 1 ? `en ${nBonos} bonos` : undefined,
-    });
-  }
-  if (plaza) stats.push({ etiqueta: 'Plaza fija', valor: plaza });
+  // Tres tarjetas SIEMPRE visibles (verificado contra capturas reales de
+  // Claude Design) — a diferencia de la versión anterior, que solo pintaba
+  // las que tenían dato ("Clases asistidas" histórico, bono, plaza fija) y
+  // podía desaparecer entera si la socia no tenía bono activo. El diseño
+  // real pinta clases-de-ESTE-MES (no el histórico), sesiones de bono y
+  // favoritos, con 0 como valor legítimo — no como ausencia de tarjeta.
+  const stats: { etiqueta: string; valor: string }[] = [
+    { etiqueta: 'clases este mes', valor: String(clasesEsteMes) },
+    { etiqueta: 'sesiones de bono', valor: bono && !bono.esMensual ? String(bono.totalRestantes ?? 0) : '0' },
+    { etiqueta: 'favoritos', valor: String(favoritosSocia.length) },
+  ];
 
   const fila = (
     titulo: string,
@@ -322,56 +335,58 @@ export function PortalPerfilView({
           <p style={{ ...display(17, true), color: t.muted, marginTop: 8 }}>{desdeCuando(socio.fechaAlta)}</p>
         )}
 
-        {stats.length > 0 && (
-          <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-            {stats.map(s => {
-              // "Ilimitado" (9 caracteres) al mismo tamaño que un número de 1-2
-              // dígitos, en una tarjeta que puede rondar ~100px de ancho en un
-              // móvil estrecho a tres columnas, es la combinación que primero
-              // trunca — baja un escalón cuando el valor no es puramente
-              // numérico. Con una sola tarjeta (socia sin bono ni plaza fija,
-              // solo asistencias), `flex:1` la estiraba al 100% del ancho con
-              // mucho hueco vacío alrededor de un número pequeño — se limita
-              // el ancho en ese caso en vez de forzarla a llenar la fila.
-              const numerico = /^[\d/]+$/.test(s.valor);
-              return (
-                <Card
-                  key={s.etiqueta}
-                  style={{
-                    flex: stats.length === 1 ? '0 1 auto' : 1,
-                    minWidth: stats.length === 1 ? 140 : 0,
-                    padding: '14px 14px 12px',
-                  }}
-                >
-                  <div style={{ ...display(numerico ? 24 : 18), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.valor}</div>
-                  <div style={{ ...micro(8, 0.2, 600), color: t.muted, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.etiqueta}</div>
-                  {/* Tercera línea opcional («en 6 bonos»): el contexto que
-                      convierte la fracción en una respuesta y no en un dato
-                      suelto. Sin `nota` la tarjeta queda exactamente como antes. */}
-                  {s.nota && (
-                    <div style={{ fontFamily: sans, fontSize: 9.5, color: t.muted, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {s.nota}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+          {stats.map(s => (
+            <Card key={s.etiqueta} style={{ flex: 1, minWidth: 0, padding: '14px 14px 12px' }}>
+              <div style={{ ...display(24), color: t.ink }}>{s.valor}</div>
+              <div style={{ ...micro(8, 0.2, 600), color: t.muted, marginTop: 6, lineHeight: 1.3 }}>{s.etiqueta}</div>
+            </Card>
+          ))}
+        </div>
 
-        {/* ── Tu progreso: racha/reto/logros EN LÍNEA ─────────────────────────
-            Verificado en vivo contra el diseño real. Mismos motores que la
-            pantalla de progreso completa (rachaSocio, los motores de logros
-            y de retos) — condensado a un resumen, con "Ver todo" a la
-            pantalla completa (barras de 12 semanas, clase favorita,
-            recompensas). Nada se pinta si el estudio no tiene nada de esto
-            configurado: mismo criterio "solo lo que hay de verdad" que ya
-            usa esa pantalla (medido: 24 logros configurados frente a 0
-            retos o recompensas en la mayoría de estudios). */}
-        {(racha && racha.semanas > 0) || logrosResumen || retoDestacado ? (
+        {/* ── Tus favoritos ────────────────────────────────────────────────────
+            Verificado contra capturas reales de Claude Design: sección propia,
+            SIEMPRE presente (con estado vacío), no escondida hasta que haya
+            datos — a diferencia de "Tu actividad"/Logros de más abajo, que sí
+            desaparecen si el estudio no tiene nada configurado (ahí no hay
+            gesto que la socia pueda hacer para que aparezcan; aquí sí: tocar
+            el ♡ de un tipo de clase). Mismo dato que ya usa
+            portal-clases-view.tsx (`favoritos`/`toggleFavorito`), solo
+            resumido — no se reimplementa el toggle aquí. */}
+        <div style={{ marginTop: 28 }}>
+          <h2 style={{ ...micro(9.5, 0.28), color: t.micro }}>Tus favoritos</h2>
+          {favoritosSocia.length === 0 ? (
+            <p style={{ ...texto.nota, color: t.muted, marginTop: 10 }}>
+              Aún no tienes — toca el ♡ de una clase y aparecerá aquí.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+              {favoritosSocia.map(f => {
+                const tc = tiposClase.find(x => x.id === f.tipoClaseId);
+                if (!tc) return null;
+                return (
+                  <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, height: 44 }}>
+                    <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: tc.color, flexShrink: 0 }} />
+                    <span style={{ ...texto.metaFuerte, color: t.ink }}>{tc.nombre}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Tu actividad: racha/reto EN LÍNEA ────────────────────────────────
+            Verificado contra capturas reales de Claude Design (antes "Tu
+            progreso"). Mismos motores que la pantalla de progreso completa
+            (rachaSocio, los motores de logros y de retos) — condensado a un
+            resumen, con "Ver todo" a la pantalla completa (barras de 12
+            semanas, clase favorita, recompensas). Nada se pinta si el estudio
+            no tiene nada de esto configurado: mismo criterio "solo lo que hay
+            de verdad" que ya usa esa pantalla. */}
+        {(racha && racha.semanas > 0) || retoDestacado ? (
           <div style={{ marginTop: 28 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-              <h2 style={{ ...micro(9.5, 0.28), color: t.micro }}>Tu progreso</h2>
+              <h2 style={{ ...micro(9.5, 0.28), color: t.micro }}>Tu actividad</h2>
               <button
                 type="button"
                 onClick={() => navegar(`/portal/${slug}/progreso`)}
@@ -386,12 +401,16 @@ export function PortalPerfilView({
             }}>
               {racha && racha.semanas > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ ...texto.metaFuerte, color: t.ink }}>🔥 {racha.semanas} {racha.semanas === 1 ? 'semana' : 'semanas'} de racha</span>
-                  {racha.enRiesgo && racha.diasParaPerder != null && (
-                    <span style={{ ...micro(9, 0.1, 700), color: '#B0453A' }}>
-                      quedan {racha.diasParaPerder} {racha.diasParaPerder === 1 ? 'día' : 'días'}
-                    </span>
-                  )}
+                  <span style={{ ...texto.metaFuerte, color: t.ink }}>🔥 Racha actual</span>
+                  <span style={{ ...micro(9, 0.1, 700), color: racha.enRiesgo ? '#B0453A' : t.muted }}>
+                    {racha.enRiesgo && racha.diasParaPerder != null
+                      ? `quedan ${racha.diasParaPerder} ${racha.diasParaPerder === 1 ? 'día' : 'días'}`
+                      /* "· mejor: N" del diseño exige un máximo histórico que el
+                         motor no calcula (RachaInfo solo da `esMejor: boolean`,
+                         ver streak-engine.ts) — se muestra "tu mejor racha" SOLO
+                         cuando es cierto, nunca un número inventado. */
+                      : `${racha.semanas} ${racha.semanas === 1 ? 'semana' : 'semanas'}${racha.esMejor ? ' · tu mejor racha' : ''}`}
+                  </span>
                 </div>
               )}
               {retoDestacado && (
@@ -411,17 +430,70 @@ export function PortalPerfilView({
                   </div>
                 </div>
               )}
-              {logrosResumen && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>🏅</span>
-                  <span style={{ ...texto.nota, color: t.muted }}>
-                    {logrosResumen.desbloqueados} de {logrosResumen.total} logros desbloqueados
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         ) : null}
+
+        {/* ── Logros ────────────────────────────────────────────────────────────
+            Verificado contra capturas reales: grid 2x2 en Perfil (no solo el
+            resumen "N de M desbloqueados" de antes). Mismo patrón visual que
+            `LogrosTab` en app/portal/[slug]/progreso/page.tsx — top 4, no
+            reimplementa esa pantalla completa. */}
+        {hayLogros && (
+          <div style={{ marginTop: 28 }}>
+            <h2 style={{ ...micro(9.5, 0.28), color: t.micro }}>Logros</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
+              {logrosTop4.map(({ def, progreso }) => {
+                const completado = progreso?.completado ?? false;
+                const actual = progreso?.progresoActual ?? 0;
+                const porcentaje = Math.min(100, Math.round((actual / def.umbral) * 100));
+                return (
+                  <div
+                    key={def.id}
+                    style={{
+                      background: t.surface, borderRadius: radio.card, padding: 14,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 6,
+                      boxShadow: '0 14px 32px -26px rgba(34,42,30,.5)',
+                    }}
+                  >
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                      backgroundColor: completado ? 'color-mix(in srgb, var(--portal-brand) 12%, transparent)' : t.surface2,
+                      filter: completado ? 'none' : 'grayscale(0.6)',
+                    }}>
+                      {def.icono}
+                    </div>
+                    <p style={{ ...texto.metaFuerte, color: t.ink, lineHeight: 1.15 }}>{def.nombre}</p>
+                    {!completado && (
+                      <p style={{ ...micro(8, 0, 600), color: t.muted }}>{actual}/{def.umbral}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Promoción cruzada a Tentare Network ──────────────────────────────
+            Verificado contra capturas reales — vive fuera de Ajustes/Cuenta a
+            propósito, como su propia tarjeta. Sin enlace real: Network es una
+            app aparte (App 2 de 2), no una ruta de este portal — mismo motivo
+            por el que el logo colapsado y /login se quedan con la marca
+            paraguas (ver tentare-os.md, "Arquitectura de marca"). */}
+        <div style={{
+          marginTop: 24, borderRadius: radio.card, background: 'color-mix(in srgb, var(--portal-brand) 10%, transparent)',
+          padding: '18px 20px', display: 'flex', gap: 14, alignItems: 'flex-start',
+        }}>
+          {/* El logo NUNCA es una imagen/emoji suelto — siempre el componente
+              en línea (ver tentare-os.md, "El logotipo"). */}
+          <LogoTentare formato="isotipo" tinta="color" alto={20} decorativo />
+          <div>
+            <p style={{ ...texto.metaFuerte, color: t.ink }}>¿Quieres probar otros estudios?</p>
+            <p style={{ ...texto.nota, color: t.muted, marginTop: 4 }}>
+              Descárgate Tentare Network — el marketplace de estudios e instructoras.
+            </p>
+          </div>
+        </div>
 
         {/* ── Filas ────────────────────────────────────────────────────────── */}
         <div style={{ height: 34 }} />
@@ -442,7 +514,8 @@ export function PortalPerfilView({
           socio.metodoPagoPreferido === 'SEPA' && socio.sepaMandateId ? 'Domiciliado' : null,
           () => navegar(`/portal/${slug}/compras`),
         )}
-        {fila('Avisos', null, () => navegar(`/portal/${slug}/preferencias`))}
+        {/* "Notificaciones", no "Avisos" — verificado contra capturas reales. */}
+        {fila('Notificaciones', null, () => navegar(`/portal/${slug}/preferencias`))}
         {/* Pantalla unificada (Ajustes): Mis datos + Usuario (@handle) +
             Contraseña + Avisos + resumen de la tarjeta, en un solo sitio.
             Las filas de arriba se quedan tal cual — esta es una vía

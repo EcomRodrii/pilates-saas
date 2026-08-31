@@ -160,10 +160,10 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
     // Solo la pestaña activa muestra el texto visible (las demás van solo con
     // icono, ver components/portal/portal-nav.tsx) — el nombre de cada una se
     // comprueba por `aria-label`, no por texto visible en pantalla.
-    // ⚠️ "Explorar" abre un overlay (no navega a una ruta), así que es un
+    // ⚠️ "Horario" abre un overlay (no navega a una ruta), así que es un
     // `<button>`, no un `<Link>` — hay que buscar ambos para ver las 4.
     const etiquetas = await menu.locator('a, button').evaluateAll(els => els.map(el => el.getAttribute('aria-label')));
-    expect(etiquetas).toEqual(['Hoy', 'Explorar', 'Reservas', 'Perfil']);
+    expect(etiquetas).toEqual(['Hoy', 'Horario', 'Reservas', 'Perfil']);
     // La pestaña activa se anuncia, no solo se pinta.
     await expect(menu.getByRole('link', { name: 'Hoy' })).toHaveAttribute('aria-current', 'page');
   });
