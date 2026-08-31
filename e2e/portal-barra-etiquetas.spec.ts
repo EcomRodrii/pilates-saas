@@ -10,19 +10,19 @@ import { montarPortal, SLUG } from './portal-mock';
 // SIN variante (solo la activa) y son la red de seguridad de esto — no se
 // tocan.
 
-// Las pestañas REALES del portal (lib/portal-nav.ts) — el prototipo dibuja
-// "Reservas" pero aquí esa pestaña es "Bonos"; cambiar el inventario del menú
-// sería decisión de producto, no del tema.
-const NOMBRES = ['Inicio', 'Clases', 'Bonos', 'Perfil'];
+// Las pestañas REALES del portal (lib/portal-nav.ts, reconstrucción "Tentare
+// Studio App" 2026-08): Clases+Bonos se fusionaron en "Reservas", "Inicio" se
+// renombró a "Hoy" y "Buscar" es pestaña nueva.
+const NOMBRES = ['Hoy', 'Buscar', 'Reservas', 'Perfil'];
 
 test.describe('Barra inferior — etiquetas por variante', () => {
   test('sin variante: solo la activa lleva texto, y es más ancha para hacerle sitio', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
     const nav = page.getByRole('navigation', { name: 'Secciones' });
-    await expect(nav.getByText('Inicio', { exact: true })).toBeVisible();
+    await expect(nav.getByText('Hoy', { exact: true })).toBeVisible();
     for (const n of NOMBRES.slice(1)) {
       await expect(nav.getByText(n, { exact: true })).toHaveCount(0);
     }
@@ -34,7 +34,7 @@ test.describe('Barra inferior — etiquetas por variante', () => {
   test('`todas` (Oliva/Noir): las cuatro con su nombre y todas del mismo ancho', async ({ page }) => {
     await montarPortal(page, { conSesion: true, variantes: { barra: 'todas' } });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
     const nav = page.getByRole('navigation', { name: 'Secciones' });
     for (const n of NOMBRES) {
@@ -42,14 +42,16 @@ test.describe('Barra inferior — etiquetas por variante', () => {
     }
     // Con las cuatro etiquetadas, ensanchar la activa dejaría a las otras
     // apretadas y sin motivo: reparto a partes iguales.
-    const cajas = await nav.locator('a').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().width));
+    // "Buscar" se pinta como <button>, no <a> (no es una ruta real — abre un
+    // overlay), así que hace falta el selector combinado para no perderla.
+    const cajas = await nav.locator('a, button').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().width));
     for (const w of cajas) expect(Math.abs(w - cajas[0])).toBeLessThan(1.5);
   });
 
   test('`todasRelleno` (Oliva): además, el icono activo va macizo', async ({ page }) => {
     await montarPortal(page, { conSesion: true, variantes: { barra: 'todasRelleno' } });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
     const nav = page.getByRole('navigation', { name: 'Secciones' });
     const rellenos = await nav.locator('svg').evaluateAll((els) =>
@@ -62,7 +64,7 @@ test.describe('Barra inferior — etiquetas por variante', () => {
   test('sin variante, NINGÚN icono va relleno (el look de siempre)', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
     const nav = page.getByRole('navigation', { name: 'Secciones' });
     const rellenos = await nav.locator('svg').evaluateAll((els) =>

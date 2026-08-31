@@ -19,7 +19,7 @@ test.describe('Inicio del portal — bloques del catálogo (banner/texto/cta/faq
     });
     await page.goto(`/portal/${SLUG}/home`);
 
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Horario de verano')).toBeVisible();
     await expect(page.getByText('Cerramos los sábados de julio y agosto.')).toBeVisible();
   });
@@ -34,7 +34,7 @@ test.describe('Inicio del portal — bloques del catálogo (banner/texto/cta/faq
     });
     await page.goto(`/portal/${SLUG}/home`);
 
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     // El título del CTA es el marcador fiable de que el bloque se pintó — "Ir"
     // (el texto del botón) es demasiado genérico, ya aparece en otro sitio de
     // la pantalla sin relación con este bloque.
@@ -51,7 +51,7 @@ test.describe('Inicio del portal — bloques del catálogo (banner/texto/cta/faq
     });
     await page.goto(`/portal/${SLUG}/home`);
 
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     const boton = page.getByRole('link', { name: 'Invitar' });
     await expect(boton).toBeVisible();
     await expect(boton).toHaveAttribute('href', `/portal/${SLUG}/invitar`);
@@ -67,7 +67,7 @@ test.describe('Inicio del portal — bloques del catálogo (banner/texto/cta/faq
     });
     await page.goto(`/portal/${SLUG}/home`);
 
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('¿Hay parking?')).toBeVisible();
     await expect(page.getByText('Sí, gratuito.')).not.toBeVisible();
     await page.getByText('¿Hay parking?').click();
@@ -84,7 +84,7 @@ test.describe('Inicio del portal — bloques del catálogo (banner/texto/cta/faq
     });
     await page.goto(`/portal/${SLUG}/home`);
 
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('No debería verse')).toHaveCount(0);
   });
 
@@ -116,7 +116,7 @@ test.describe('Inicio del portal — bloques del catálogo (banner/texto/cta/faq
 
     // El saludo (bloque sistema) y el bloque bueno que va DESPUÉS del raro
     // siguen ahí: el desconocido se descarta él solo.
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Esto sí se ve')).toBeVisible();
     expect(errores).toEqual([]);
   });

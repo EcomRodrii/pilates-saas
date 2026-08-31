@@ -12,7 +12,7 @@ test.describe('Inicio del portal — módulos reordenables/ocultables', () => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/home`);
 
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('heading', { name: 'Esta semana' })).toBeVisible();
     await expect(page.getByText('Trae a quien quieras')).toBeVisible();
   });
@@ -21,7 +21,7 @@ test.describe('Inicio del portal — módulos reordenables/ocultables', () => {
     await montarPortal(page, { conSesion: true, portalHome: { orden: [], ocultos: ['invitarAmiga'] } });
     await page.goto(`/portal/${SLUG}/home`);
 
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     // El resto de módulos sigue ahí — solo se oculta el elegido.
     await expect(page.getByRole('heading', { name: 'Esta semana' })).toBeVisible();
     // `hidden` deja el nodo en el DOM (display:none), así que toHaveCount(0)
@@ -34,7 +34,7 @@ test.describe('Inicio del portal — módulos reordenables/ocultables', () => {
     await montarPortal(page, { conSesion: true, portalHome: { orden: [], ocultos: ['estaSemana'] } });
     await page.goto(`/portal/${SLUG}/home`);
 
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Tu próxima clase')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Esta semana' })).toHaveCount(0);
     await expect(page.getByText('Trae a quien quieras')).toBeVisible();
@@ -44,7 +44,7 @@ test.describe('Inicio del portal — módulos reordenables/ocultables', () => {
     await montarPortal(page, { conSesion: true, portalHome: { orden: ['invitarAmiga', 'estaSemana'], ocultos: [] } });
     await page.goto(`/portal/${SLUG}/home`);
 
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     const invitar = page.getByText('Trae a quien quieras');
     const semana = page.getByRole('heading', { name: 'Esta semana' });
     await expect(invitar).toBeVisible();

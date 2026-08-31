@@ -25,7 +25,11 @@ test.describe('Portal — Sesión guiada', () => {
     // es el último en el DOM (la pantalla saliente se pinta primero).
     await expect(page.getByText('Ejercicio 1 de 4').last()).toBeVisible();
     await expect(page.getByText('Flexión lateral sentada').last()).toBeVisible();
-    await expect(page.getByText('00:50').last()).toBeVisible();
+    // El cronómetro arranca en 50 y cuenta atrás cada segundo desde el montaje
+    // (setInterval real, sin mock) — para cuando llega esta comprobación ya
+    // puede haber bajado de "00:50", así que se verifica el FORMATO, no el
+    // valor exacto de un instante que ya pasó.
+    await expect(page.getByText(/^00:\d{2}$/).last()).toBeVisible();
   });
 
   test('sin plaza reservada (lista de espera), no hay botón de sesión guiada', async ({ page }) => {
