@@ -35,6 +35,13 @@ for (const movil of MOVILES) {
     await montarPortal(page, { conSesion: false, kit: 'sereno' });
     await page.setViewportSize({ width: movil.w, height: movil.h });
     await page.goto(`/portal/${SLUG}/acceso`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+    // La puerta reconstruida (816f4971) aterriza primero en el paso `intro`
+    // ("Muévete. Lo demás, ya está.") — el formulario con las tres salidas
+    // que este test mide vive en el paso `login`, al que se llega pulsando
+    // "Ya tengo cuenta". El recorte que este test protege es del paso
+    // `login` en sí, no de la portada.
+    await expect(page.getByText('Muévete. Lo demás, ya está.')).toBeVisible({ timeout: 60_000 });
+    await page.getByRole('button', { name: 'Ya tengo cuenta' }).click();
     await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 60_000 });
 
     // Las tres formas de entrar. Ninguna puede quedar fuera de alcance: la que

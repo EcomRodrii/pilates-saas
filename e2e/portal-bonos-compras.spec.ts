@@ -118,15 +118,19 @@ test.describe('El corte de /mi-plan', () => {
     await expect(page.getByRole('heading', { name: 'Bonos' })).toBeVisible();
   });
 
-  test('el menú marca Bonos también estando en Compras', async ({ page }) => {
+  // «Bonos» ya no es una pestaña del menú (reconstrucción "Tentare Studio
+  // App", lib/portal-nav.ts): Clases+Bonos se fusionaron en «Reservas», que
+  // es la pestaña que sigue viva en /compras — ver el comentario "es hija de
+  // Reservas" en portal-shell.tsx (segActual). /bonos sigue existiendo como
+  // pantalla satélite (el deep link de /mi-plan, "Renovar bono"…) pero ya no
+  // tiene una pestaña propia que marcar.
+  test('el menú marca Reservas también estando en Compras', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/compras`);
-    // `exact`, porque desde que la flecha de volver es un enlace hay DOS que
-    // contienen «Bonos» en su nombre accesible: el del menú y «Volver a Bonos».
-    const bonos = page.getByRole('link', { name: 'Bonos', exact: true });
-    await expect(bonos).toBeVisible({ timeout: 30_000 });
+    const reservas = page.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'Reservas', exact: true });
+    await expect(reservas).toBeVisible({ timeout: 30_000 });
     // `aria-current` es lo que dice «estás aquí» a un lector de pantalla; el
     // prototipo marcaba Inicio, que es decirle que está donde no está.
-    await expect(bonos).toHaveAttribute('aria-current', 'page');
+    await expect(reservas).toHaveAttribute('aria-current', 'page');
   });
 });
