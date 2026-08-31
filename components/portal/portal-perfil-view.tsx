@@ -251,9 +251,20 @@ export function PortalPerfilView({
   // podía desaparecer entera si la socia no tenía bono activo. El diseño
   // real pinta clases-de-ESTE-MES (no el histórico), sesiones de bono y
   // favoritos, con 0 como valor legítimo — no como ausencia de tarjeta.
-  const stats: { etiqueta: string; valor: string }[] = [
+  const stats: { etiqueta: string; valor: string; nota?: string }[] = [
     { etiqueta: 'clases este mes', valor: String(clasesEsteMes) },
-    { etiqueta: 'sesiones de bono', valor: bono && !bono.esMensual ? String(bono.totalRestantes ?? 0) : '0' },
+    {
+      etiqueta: 'sesiones de bono',
+      // Saldo TOTAL sumando todos los bonos activos (`totalRestantes`/
+      // `totalSesiones`, lib/bonos-portal.ts), no la fracción del bono en
+      // curso — mismo criterio ya resuelto en /bonos.
+      valor: bono && !bono.esMensual && bono.totalSesiones != null
+        ? `${bono.totalRestantes ?? 0}/${bono.totalSesiones}`
+        : '0',
+      // Solo cuando hay más de un bono activo a la vez: con uno solo, la
+      // fracción ya lo dice todo.
+      nota: bono && bono.otrosActivos.length > 0 ? `en ${bono.otrosActivos.length + 1} bonos` : undefined,
+    },
     { etiqueta: 'favoritos', valor: String(favoritosSocia.length) },
   ];
 
@@ -329,6 +340,9 @@ export function PortalPerfilView({
             <Card key={s.etiqueta} style={{ flex: 1, minWidth: 0, padding: '14px 14px 12px' }}>
               <div style={{ ...display(24), color: t.ink }}>{s.valor}</div>
               <div style={{ ...micro(8, 0.2, 600), color: t.muted, marginTop: 6, lineHeight: 1.3 }}>{s.etiqueta}</div>
+              {s.nota && (
+                <div style={{ ...micro(8, 0, 600), color: t.muted, marginTop: 2 }}>{s.nota}</div>
+              )}
             </Card>
           ))}
         </div>
