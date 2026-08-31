@@ -1407,26 +1407,45 @@ export default function Calendario() {
     : rangoSemanaDesde(semana);
   const claveVista = claveRango(rango);
 
+  // P1-2 (auditoría de producto): un fallo de red/500 en la PRIMERA carga
+  // dejaba `datosVista` en null para siempre — la pantalla más usada del
+  // panel se quedaba en "Cargando…" indistinguible de un cuelgue real, sin
+  // botón de reintentar (a diferencia de /centro-de-control, que ya tiene
+  // este patrón). Solo se marca error cuando no hay NADA que enseñar
+  // todavía: si ya había una vista cargada, una recarga fallida la deja tal
+  // cual (silencioso a propósito, mismo criterio de antes) en vez de tapar
+  // una rejilla que sigue siendo útil con un error de refresco.
+  const [errorCargaVista, setErrorCargaVista] = useState<string | null>(null);
+
   const cargarDatosVista = useCallback(async (r: RangoFechas) => {
     const clave = claveRango(r);
     ultimaClaveSolicitadaRef.current = clave;
     const cacheado = cacheVistaRef.current.get(clave);
-    if (cacheado) { setDatosVista(cacheado); return; }
+    if (cacheado) { setDatosVista(cacheado); setErrorCargaVista(null); return; }
+    setErrorCargaVista(null); // reintento: vuelve a "Cargando…" en vez de dejar el error puesto
     try {
       const res = await fetch(`/api/calendario?desde=${encodeURIComponent(r.desde)}&hasta=${encodeURIComponent(r.hasta)}`, {
         headers: await authHeader(),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setDatosVista(prev => { if (!prev) setErrorCargaVista('El servidor no ha podido cargar el calendario.'); return prev; });
+        return;
+      }
       const data = (await res.json()) as DatosVista;
       // Defensa ante un payload incompleto (mock de test a medio configurar, o
       // una respuesta real inesperada): sin `sesiones`/`horaApertura` la rejilla
       // reventaría al leer `horaApertura.slice(...)`. Mejor seguir "Cargando…".
-      if (!Array.isArray(data?.sesiones) || typeof data?.horaApertura !== 'string') return;
+      if (!Array.isArray(data?.sesiones) || typeof data?.horaApertura !== 'string') {
+        setDatosVista(prev => { if (!prev) setErrorCargaVista('El servidor no ha podido cargar el calendario.'); return prev; });
+        return;
+      }
       cacheVistaRef.current.set(clave, data);
       if (ultimaClaveSolicitadaRef.current !== clave) return; // respuesta obsoleta, se descarta
       setDatosVista(data);
+      setErrorCargaVista(null);
     } catch {
-      // Silencioso: la rejilla se queda con lo último cargado en vez de romper la pantalla.
+      // Sin red: mismo criterio — solo bloquea la pantalla si no hay nada aún.
+      setDatosVista(prev => { if (!prev) setErrorCargaVista('No se ha podido conectar. Comprueba tu conexión.'); return prev; });
     }
   }, []);
 
@@ -2253,7 +2272,18 @@ export default function Calendario() {
 
       {/* ── Día por salas / Semana 7 columnas / Mes ────────────────────────────── */}
       <ReanimarAlCambiar clave={claveVista} className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6" animClassName="calendario-vista-in">
-        {!datosVista ? (
+        {!datosVista && errorCargaVista ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-4">
+            <p className="text-[13px] font-medium text-foreground">No hemos podido cargar el calendario</p>
+            <p className="text-[12px] text-muted-foreground">{errorCargaVista}</p>
+            <button
+              onClick={() => void cargarDatosVista(rango)}
+              className="text-[12px] font-bold px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors"
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : !datosVista ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando…</div>
         ) : vista === 'dia' ? (
           <VistaDiaSalas
