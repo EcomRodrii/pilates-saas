@@ -100,6 +100,9 @@ export interface ReservaSlot {
    * qué se le iba a descontar.
    */
   coberturaTexto?: string | null;
+  /** Misma cobertura, en futuro condicional — solo para cuando `lleno` (lista
+   *  de espera): ver el docblock de `textoCoberturaListaEspera`. */
+  coberturaTextoListaEspera?: string | null;
 }
 
 export interface ReservaCalendarioProps {
@@ -358,6 +361,22 @@ function fmtHora(iso: string): string {
 }
 function fmtDiaLargo(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+/**
+ * Hora de una oferta de lista de espera, con el día SOLO si no es hoy.
+ *
+ * ⚠️ Auditoría de conversión (2026-08-31): "Tienes hasta las 01:40" sin más
+ * contexto se lee como "hoy de madrugada" — si la oferta se abrió tarde y el
+ * plazo cruza medianoche, en realidad es mañana. Puramente de presentación
+ * (la ventana real la cierra el servidor/cron, esto no decide nada), así que
+ * comparar contra `new Date()` aquí no es el patrón "regla de negocio, no de
+ * reloj" que se evita en el resto del repo — no hay ninguna regla que fijar.
+ */
+function fmtHoraOferta(iso: string): string {
+  const expira = new Date(iso);
+  const hoy = new Date();
+  const mismoDia = expira.getFullYear() === hoy.getFullYear() && expira.getMonth() === hoy.getMonth() && expira.getDate() === hoy.getDate();
+  return mismoDia ? `las ${fmtHora(iso)}` : `${fmtDiaLargo(iso)} a las ${fmtHora(iso)}`;
 }
 
 // Foto de la clase (tarjeta rica y cabecera de la hoja). Sin foto subida, cae a
@@ -1531,7 +1550,10 @@ function BookingSheet({
       ? 'Apuntarme a la lista de espera'
       // "por", nunca un interpunto pegado al importe: "· 1 €" se lee como un
       // signo raro delante del precio (mismo criterio que el CTA de pago).
-      : (slot.precio != null && !ocultarPrecio ? `Reservar por ${slot.precio} €` : 'Reservar');
+      // ⚠️ Auditoría de conversión (2026-08-31): `!= null` trataba un
+      // `precio: 0` explícito como un importe real — "Reservar por 0 €" en
+      // vez de "Reservar" (o "Gratis", más honesto con lo que va a pasar).
+      : (slot.precio && !ocultarPrecio ? `Reservar por ${slot.precio} €` : 'Reservar');
 
   const esCancelar = tieneReserva;
 
@@ -1770,6 +1792,21 @@ function BookingSheet({
                 Reservar sin elegir →
               </button>
             </div>
+            {/* ⚠️ Auditoría de conversión (2026-08-31): "Reservar sin elegir"
+                dispara `onReservar()` en el sitio, saltándose la caja de
+                cobertura (§3, más abajo) — quien lo usa nunca llegaba a ver
+                "Descuenta 1 sesión de tu Bono X · te quedarán N" antes de
+                confirmar. Repetirla aquí, compacta, en vez de mover la caja
+                grande: esa sigue "justo encima del botón" para quien SÍ elige
+                sitio (decisión ya tomada y documentada ahí), y aquí solo hace
+                falta que el atajo no sea el único camino sin esa información. */}
+            {!tieneReserva && !ocultarPrecio && (
+              (!lleno && slot.coberturaTexto) || (lleno && slot.coberturaTextoListaEspera)
+            ) && (
+              <p style={{ fontSize: 11, color: t.muted, marginBottom: 8 }}>
+                {lleno ? slot.coberturaTextoListaEspera : slot.coberturaTexto}
+              </p>
+            )}
             <SpotPicker t={t} spots={slot.spots} ocupados={ocupados} selected={selectedSpot} onSelect={onSelectSpot} />
           </div>
         )}
@@ -1785,7 +1822,7 @@ function BookingSheet({
         {!resultado && hayOferta && (
           <div style={{ padding: '13px 15px', borderRadius: radius.card, background: semantic.warning.soft }}>
             <p style={{ fontSize: 12.5, fontWeight: 700, color: t.ink, marginBottom: 10, lineHeight: 1.4 }}>
-              ¡Se ha liberado una plaza! Tienes hasta las {fmtHora(slot.miOfertaExpiraEn!)} para aceptarla.
+              ¡Se ha liberado una plaza! Tienes hasta {fmtHoraOferta(slot.miOfertaExpiraEn!)} para aceptarla.
             </p>
             <button
               type="button"
@@ -1810,7 +1847,9 @@ function BookingSheet({
         {/* `ocultarPrecio` también apaga esta caja: la cobertura habla de
             importes («15 € como clase suelta») — dejarla con el CTA mudo
             filtraría el precio por la puerta de atrás. */}
-        {!tieneReserva && !lleno && slot.coberturaTexto && !ocultarPrecio && (
+        {!tieneReserva && !ocultarPrecio && (
+          (!lleno && slot.coberturaTexto) || (lleno && slot.coberturaTextoListaEspera)
+        ) && (
           <div
             style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
@@ -1819,7 +1858,7 @@ function BookingSheet({
           >
             <Ticket size={15} style={{ color: t.muted, flexShrink: 0 }} aria-hidden />
             <p style={{ fontSize: 12.5, fontWeight: 700, color: t.ink, lineHeight: 1.35 }}>
-              {slot.coberturaTexto}
+              {lleno ? slot.coberturaTextoListaEspera : slot.coberturaTexto}
             </p>
           </div>
         )}

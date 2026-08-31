@@ -12,7 +12,7 @@ import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
-import { resolutorCobertura, precioDeCobertura, textoCobertura } from '@/lib/reservar/cobertura';
+import { resolutorCobertura, precioDeCobertura, textoCobertura, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
@@ -1277,6 +1277,7 @@ export default function ReservarPage() {
           miOfertaExpiraEn: mia?.ofertaExpiraEn ?? null,
           precio: precioDeCobertura(cobertura(s.tipoClaseId)),
           coberturaTexto: textoCobertura(cobertura(s.tipoClaseId)),
+          coberturaTextoListaEspera: textoCoberturaListaEspera(cobertura(s.tipoClaseId)),
         } satisfies ReservaSlot;
       });
   }, [sesionesRich, nowMs, configWidget, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
