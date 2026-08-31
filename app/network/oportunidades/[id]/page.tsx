@@ -49,7 +49,7 @@ export default function OportunidadDetalleNetworkPage({ params }: { params: Prom
 
   if (!vacante) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-2xl mx-auto">
         <Link href="/network/oportunidades" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
           <ArrowLeft size={14} /> Volver a oportunidades
         </Link>
@@ -59,7 +59,7 @@ export default function OportunidadDetalleNetworkPage({ params }: { params: Prom
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 max-w-2xl mx-auto">
       <Link href="/network/oportunidades" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
         <ArrowLeft size={14} /> Volver a oportunidades
       </Link>

@@ -66,7 +66,7 @@ export default function SolicitudesNetworkPage() {
   const resueltas = solicitudes.filter(s => s.estado !== 'pendiente');
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-2xl mx-auto">
       <div className="flex items-start justify-between gap-3">
         <PageHeader
           title="Solicitudes de contacto"
