@@ -890,25 +890,57 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         {bono && bono.totalSesiones != null && bono.totalSesiones > 0 && (
           <>
             <div style={{ height: 44 }} />
-            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
-              Tu ritmo
-            </h2>
-            <div style={{
+            <h2 className="ap-label">Tu ritmo</h2>
+            {/* Card bono (CHEATSHEET-CSS.md, literal): ap-card, padding
+                12px 15px, barra 66×5px #EFEDE4/#4F8A5B, "quedan N" en mono
+                verde — ya no el token de tema. */}
+            <div className="ap-card" style={{
               marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
-              padding: '14px 16px', boxShadow: sombra.cardSemana,
+              padding: '12px 15px',
             }}>
-              <span style={{ ...texto.metaFuerte, color: t.ink }}>{bono.nombre}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#1A1A1A' }}>{bono.nombre}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 66, height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+                <div style={{ width: 66, height: 5, borderRadius: 999, background: '#EFEDE4', overflow: 'hidden' }}>
                   <div style={{
                     width: `${Math.round((bono.progresoTotal ?? 0) * 100)}%`, height: '100%',
-                    background: 'var(--portal-brand)', borderRadius: 999,
+                    background: '#4F8A5B', borderRadius: 999, transition: 'width .6s',
                   }} />
                 </div>
-                <span style={{ ...micro(11, 0, 500), color: t.heroAccent }}>quedan {bono.totalRestantes}</span>
+                <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, color: '#3E6B4A' }}>quedan {bono.totalRestantes}</span>
               </div>
             </div>
+
+            {/* Semana (CHEATSHEET-CSS.md, "Semana (7 dots)"): "Tu semana" +
+                7 columnas letra+dot, más la racha en ámbar a la derecha.
+                Reutiliza `tiraSemana` (ya calculado arriba, mismo dato que el
+                tema Oliva) y `racha.semanas` — nada nuevo que calcular. Se
+                omite sin racha real Y sin ninguna clase esta semana: un dot
+                vacío en las 7 columnas con "🔥 0 sem." sería ruido. */}
+            {(tiraSemana.some(d => d.tieneClaseReservada) || (racha && racha.semanas > 0)) && (
+              <div className="ap-card" style={{ marginTop: 10, padding: '14px 15px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: '#5A5A52' }}>Tu semana</span>
+                  {racha && racha.semanas > 0 && (
+                    <span style={{ fontSize: 10.5, fontWeight: 800, color: '#C99A3C' }}>🔥 {racha.semanas} sem.</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+                  {tiraSemana.map((dia) => (
+                    <div key={dia.fecha.toDateString()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 8.5, fontWeight: 700, color: '#98A093' }}>
+                        {['L', 'M', 'X', 'J', 'V', 'S', 'D'][dia.indiceSemana]}
+                      </span>
+                      <span aria-hidden style={{
+                        width: 16, height: 16, borderRadius: '50%',
+                        background: dia.tieneClaseReservada ? '#4F8A5B' : '#EFEDE4',
+                        border: dia.esHoy ? '2px solid #4F8A5B' : 'none',
+                        boxSizing: 'border-box',
+                      }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
 
