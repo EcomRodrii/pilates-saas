@@ -2383,6 +2383,20 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
     .from('reservas').select('id, socio_id, estado')
     .eq('sesion_id', params.sesionId)
     .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']);
+  // ORDEN CRÍTICO: el aviso va ANTES del UPDATE, nunca después.
+  // `clase.cancelada` resuelve destinatarias en servidor filtrando
+  // estado IN ('CONFIRMADA','LISTA_ESPERA','PENDIENTE_APROBACION')
+  // (lib/notifications/recipients.ts, sociasDeSesion). Cancelarlas primero
+  // dejaba ese filtro en 0 filas y el aviso se mandaba a NADIE — verificado en
+  // producción sobre la única sesión que este cron llegó a cancelar (20-ago):
+  // 0 notificaciones `clase.cancelada` para esa sesión.
+  // Mismo invariante que app/api/sustituciones/route.ts y deleteSesion.
+  const { emitirClaseCancelada } = await import('@/lib/notifications/emit');
+  await emitirClaseCancelada(admin, { studioId: params.studioId, sesionId: params.sesionId });
+
+  // Y por encima del corte por "no hay reservas": la audiencia incluye a la
+  // INSTRUCTORA de la sesión, que también se queda sin clase aunque no se
+  // hubiera apuntado nadie.
   if (!afectadas?.length) return { ok: true };
 
   await admin.from('reservas')
@@ -2396,9 +2410,6 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
   // socia recibe su propio correo, así que el dato es por persona, no global.
   const devueltoPorSocia = await devolverBonosPorCancelacionClase(admin, params.studioId,
     confirmadas.map(r => ({ socioId: r.socio_id as string, tipoClaseId })));
-
-  const { emitirClaseCancelada } = await import('@/lib/notifications/emit');
-  await emitirClaseCancelada(admin, { studioId: params.studioId, sesionId: params.sesionId });
 
   // CLASE_CANCELADA no manda email a propósito (catalog.ts) — aquí SÍ hay
   // dinero de por medio, así que se manda explícito. CancelacionClaseEmail ya

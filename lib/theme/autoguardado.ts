@@ -29,7 +29,17 @@ export type EstadoGuardado =
    * propietaria editando media hora bajo un «se sigue intentando» que era
    * mentira.
    */
-  | { tipo: 'sesion' };
+  | { tipo: 'sesion' }
+  /**
+   * El servidor dice 403. Terminal por la misma razón que `sesion`, pero con
+   * otra salida: aquí volver a entrar tampoco sirve —esta cuenta no puede
+   * guardar esto y punto—, así que lo único honesto es decirlo y dejar de
+   * reintentar. El caso real: el editor de apariencia deja entrar a MANAGER
+   * (`puedeGestionarPortalHome`) mientras `guardarThemeAction` es
+   * solo-PROPIETARIO; el autoguardado del tema reintentaba indefinidamente
+   * bajo «se sigue intentando» y al recargar no había nada guardado.
+   */
+  | { tipo: 'permiso'; mensaje: string };
 
 export type PorPantalla = Record<PantallaId, BloqueHome[]>;
 
@@ -71,6 +81,7 @@ export function textoEstado(estado: EstadoGuardado, ahora: number): string {
     case 'guardando': return 'Guardando…';
     case 'error': return 'No se ha podido guardar — se sigue intentando';
     case 'sesion': return 'Tu sesión ha caducado — vuelve a entrar para guardar';
+    case 'permiso': return estado.mensaje;
     case 'guardado': {
       const segundos = Math.round((ahora - estado.en) / 1000);
       if (segundos < 5) return 'Guardado';
@@ -91,8 +102,11 @@ export function textoEstado(estado: EstadoGuardado, ahora: number): string {
 export function avisarAlSalir(estado: EstadoGuardado): boolean {
   // `sesion` incluida: es justo cuando MÁS hay que perder — nada de lo
   // editado ha llegado al servidor y cerrar la pestaña lo tira todo.
+  // `permiso` incluida: lo editado tampoco ha llegado al servidor y, además,
+  // no va a llegar nunca — cerrar la pestaña lo tira todo igual que en
+  // `sesion`. Que no haya arreglo posible no lo hace menos perdible.
   return estado.tipo === 'pendiente' || estado.tipo === 'guardando'
-    || estado.tipo === 'error' || estado.tipo === 'sesion';
+    || estado.tipo === 'error' || estado.tipo === 'sesion' || estado.tipo === 'permiso';
 }
 
 /**
@@ -109,8 +123,11 @@ export function avisarAlSalir(estado: EstadoGuardado): boolean {
  * ante cualquier cosa en curso porque decir «Guardado» mientras algo vuela es
  * exactamente la mentira que hace cerrar la pestaña.
  */
+// `permiso` por encima de `sesion`: las dos son terminales, pero «vuelve a
+// entrar» es un consejo INÚTIL —y por tanto una mentira más— cuando el
+// problema es que esta cuenta no puede guardar esto.
 const URGENCIA: Record<EstadoGuardado['tipo'], number> = {
-  sesion: 5, error: 4, guardando: 3, pendiente: 2, guardado: 1, limpio: 0,
+  permiso: 6, sesion: 5, error: 4, guardando: 3, pendiente: 2, guardado: 1, limpio: 0,
 };
 
 export function peorEstado(a: EstadoGuardado, b: EstadoGuardado): EstadoGuardado {

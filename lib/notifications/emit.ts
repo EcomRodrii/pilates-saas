@@ -858,12 +858,16 @@ export async function emitirRedContactoSolicitado(
 // emitirRedVerificacionSolicitada).
 export async function emitirRedCandidaturaRecibida(
   admin: SupabaseClient,
-  p: { studioId: string; candidaturaId: string; vacanteTitulo: string; profesional: string },
+  p: { studioId: string; candidaturaId: string; vacanteId: string; vacanteTitulo: string; profesional: string },
 ): Promise<void> {
   try {
     await publish({
       type: EVENTOS.RED_CANDIDATURA_RECIBIDA, studioId: p.studioId,
-      data: { vacanteTitulo: p.vacanteTitulo, profesional: p.profesional },
+      // `vacanteId` es obligatorio: el deepLink del catálogo es
+      // `/network/vacantes/{vacanteId}` y sin él quedaba en
+      // `/network/vacantes/` — confirmado en producción (fila del 18-ago).
+      // El gemelo emitirRedVacanteEncaja sí lo pasaba.
+      data: { vacanteId: p.vacanteId, vacanteTitulo: p.vacanteTitulo, profesional: p.profesional },
       resource: { type: 'red_candidatura', id: p.candidaturaId },
       dedupKey: `red-candidatura-recibida:${p.candidaturaId}`,
     });

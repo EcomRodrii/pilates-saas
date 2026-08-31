@@ -442,7 +442,7 @@ export function ThemeEditorFullscreen() {
               En rojo cuando falla, porque un aviso gris de "no se ha podido
               guardar" se lee como decoración. */}
           <span
-            className={`text-[11.5px] mr-1 tabular-nums ${estadoGuardado.tipo === 'error' || estadoGuardado.tipo === 'sesion' ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}
+            className={`text-[11.5px] mr-1 tabular-nums ${estadoGuardado.tipo === 'error' || estadoGuardado.tipo === 'sesion' || estadoGuardado.tipo === 'permiso' ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}
             role="status"
             aria-live="polite"
             data-estado-guardado

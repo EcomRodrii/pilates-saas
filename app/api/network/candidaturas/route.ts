@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
 
   await emitirRedCandidaturaRecibida(admin, {
-    studioId: vacante.studio_id, candidaturaId, vacanteTitulo: vacante.titulo, profesional: perfil.nombre,
+    studioId: vacante.studio_id, candidaturaId, vacanteId, vacanteTitulo: vacante.titulo, profesional: perfil.nombre,
   });
 
   return NextResponse.json({ ok: true });

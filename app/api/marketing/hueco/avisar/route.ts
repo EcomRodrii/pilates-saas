@@ -8,6 +8,8 @@ import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic
 import { mapSesion, mapReserva, mapSocio, mapSuscripcion, mapPlanTarifa } from '@/lib/supabase-data';
 import type { RowSesiones, RowReservas, RowSocios, RowSuscripciones, RowPlanesTarifa } from '@/lib/db-types';
 import { LEGAL } from '@/lib/legal-info';
+import { filtrarPorConsentimientoMarketing } from '@/lib/marketing/consentimiento';
+import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 // Radar de ocupación → "Avisar a candidatas" (Configuración → Dashboard).
@@ -100,6 +102,32 @@ export async function POST(req: NextRequest) {
     const exentasSet = new Set((exentasRows ?? []).map(r => r.socio_id as string));
     candidatas = candidatas.filter(s => !exentasSet.has(s.id));
 
+    // Consentimiento de marketing (RGPD art. 7 / LSSI art. 21). Esto es un
+    // mensaje COMERCIAL por WhatsApp, no un aviso de servicio: invita a
+    // reservar. Era la única vía de marketing del producto que no pasaba por
+    // este guard — las otras cinco sí (lib/inngest/campanas.ts,
+    // marketing-automation-engine, automation-engine, mailchimp, klaviyo).
+    // `socio_excepciones/SIN_AVISO_HUECO` NO lo sustituye: es una exclusión que
+    // decide la dueña, no un consentimiento que da la socia.
+    // El texto completo no viaja en mapSocio (mismo ahorro de payload que
+    // aceptacionContrato.versionTexto), así que se trae con un select propio.
+    let sinConsentimiento = 0;
+    if (candidatas.length) {
+      const textoVigente = textoConsentimientoMarketing({ nombre: studioRow?.nombre ?? undefined });
+      const { data: consentRows } = await admin
+        .from('socios').select('id, consentimiento_marketing_texto')
+        .eq('studio_id', sesion.studioId)
+        .in('id', candidatas.map(s => s.id));
+      const consentimientos = new Map<string, string>();
+      for (const row of consentRows ?? []) {
+        const texto = row.consentimiento_marketing_texto as string | null;
+        if (texto) consentimientos.set(row.id as string, texto);
+      }
+      const antes = candidatas.length;
+      candidatas = filtrarPorConsentimientoMarketing(candidatas, consentimientos, textoVigente);
+      sinConsentimiento = antes - candidatas.length;
+    }
+
     const nombreClase = tipoRow?.nombre ?? 'pilates';
     const hora = horaEstudio(sesionObj.inicio);
     const fecha = fechaLargaEstudio(sesionObj.inicio);
@@ -125,7 +153,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ enviados, sinTelefono, errores, saltadasPorDedup: avisadasSet.size });
+    return NextResponse.json({ enviados, sinTelefono, errores, sinConsentimiento, saltadasPorDedup: avisadasSet.size });
   } catch (err) {
     return errorInterno('marketing/hueco/avisar:POST', err, 'No se pudo avisar a las candidatas. Inténtalo de nuevo más tarde.');
   }
