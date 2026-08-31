@@ -262,10 +262,16 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // ya cobrado y una clienta que cree tener plaza sin tenerla — el mostrador
   // tiene que resolverlo hoy, no cuando alguien mire el panel por casualidad.
   [EVENTOS.RESERVA_PAGADA_SIN_PLAZA]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH'], audiencia: 'mostrador' },
-  // ALTA + PUSH: la socia tiene un plazo real para aceptar antes de que se
-  // ofrezca a la siguiente — mismo criterio que RESERVA_PLAZA_LIBERADA, pero
-  // aquí SÍ hace falta que actúe (no basta con enterarse).
-  [EVENTOS.RESERVA_OFERTA_LISTA_ESPERA]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  // ALTA + PUSH + EMAIL: la socia tiene un plazo real para aceptar antes de
+  // que se ofrezca a la siguiente — mismo criterio que RESERVA_PLAZA_LIBERADA,
+  // pero aquí SÍ hace falta que actúe (no basta con enterarse). Auditoría de
+  // producto (P1-8): era solo PUSH — sin push activado, la socia podía perder
+  // la plaza sin enterarse a tiempo, a diferencia de otros eventos con
+  // refuerzo por más de un canal. EMAIL sigue respetando la preferencia de la
+  // destinataria (canalesExtraDe): esto añade una vía más, no fuerza el
+  // envío — la prioridad se queda en ALTA, no CRITICA, porque no es un fallo
+  // del sistema.
+  [EVENTOS.RESERVA_OFERTA_LISTA_ESPERA]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'socia-del-evento' },
   // Solo EMAIL a propósito (§5.2 del diseño): un push sería más intrusivo de
   // lo que merece un recordatorio informativo, y el canal in-app no llega a
   // quien todavía no ha vuelto a abrir la app. BAJA prioridad — informativo,
