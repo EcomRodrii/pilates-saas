@@ -2589,6 +2589,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const sesion = sesiones.find(s => s.id === id);
     if (sesion) notificarCancelacionSesiones([sesion]);
     await avisarClaseCancelada(id);
+    // Auditoría de producto (P0-1): "Eliminar" no devolvía el bono consumido
+    // aunque "Cancelar" sí — dos botones casi idénticos con consecuencia de
+    // dinero opuesta. Para la alumna, perder su plaza es lo mismo con
+    // cualquiera de los dos botones; captura ANTES del DELETE (el cascade se
+    // lleva las reservas, no queda nada que consultar después).
+    const confirmadas = reservas.filter(r => r.sesionId === id && r.estado === 'CONFIRMADA');
     // El DELETE en sí también se espera ahora — antes era fire-and-forget: el
     // calendario ya la quitaba de pantalla aunque el borrado real en BD
     // hubiera fallado, así que recargar la traía de vuelta.
@@ -2596,6 +2602,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (!res.ok) return res;
     setSesiones(prev => prev.filter(s => s.id !== id));
     setReservas(prev => prev.filter(r => r.sesionId !== id));
+    if ((studio?.cancelacionClaseDevuelveBono ?? true) && confirmadas.length > 0) {
+      confirmadas.forEach(r => void devolverSesionBono(r.socioId, r.sesionId));
+    }
     return res;
   }
 
