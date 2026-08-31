@@ -270,7 +270,15 @@ async function bajaInstructora(
     ? await leerSnapshotParaBaja(admin, sesion.studioId, id).catch(() => null)
     : null;
 
-  const { error } = await admin.from('instructores').delete().eq('id', id).eq('studio_id', sesion.studioId);
+  // Auditoría de producto (P0-5): esto era un DELETE duro, pero el modal de
+  // confirmación (app/(dashboard)/equipo/page.tsx) promete "las clases y citas
+  // ya asignadas no se borran". `sesiones_instructor_id_fkey` es NO ACTION (no
+  // SET NULL) — el DELETE fallaba con 23503 en cuanto la instructora tenía una
+  // sola clase asignada, contradiciendo esa promesa. `activo` ya es el flag de
+  // baja que usa el resto del producto (PATCH lo reactiva, los listados de
+  // equipo/candidatas ya filtran por él) — dar de baja es solo desactivar.
+  const { error } = await admin.from('instructores')
+    .update({ activo: false }).eq('id', id).eq('studio_id', sesion.studioId);
   if (error) {
     Sentry.captureException(error, { tags: { area: 'equipo', accion: 'baja' } });
     throw new ErrorAccion('No se ha podido dar de baja.', 500);

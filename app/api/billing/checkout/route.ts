@@ -120,9 +120,18 @@ export async function POST(req: NextRequest) {
 
       // Si el estudio venía de ESTUDIO/BASE con una suscripción individual viva,
       // hay que cancelarla — si no, queda cobrando en paralelo con la de cadena.
+      //
+      // Auditoría de producto (P0-4): el `.catch(() => {})` tragaba CUALQUIER
+      // fallo de Stripe, no solo "ya estaba cancelada" — un timeout, un
+      // rate-limit o una clave inválida dejaban seguir el alta de CADENA con la
+      // suscripción individual todavía viva: doble cobro real, sin log ni
+      // aviso. Solo `resource_missing` (ya cancelada/inexistente en Stripe) es
+      // seguro de ignorar; cualquier otro código relanza para que el `catch`
+      // exterior lo registre (errorInterno → Sentry) y bloquee el alta.
       if (studio.subscription_id && studio.subscription_status && studio.subscription_status !== 'canceled') {
-        await stripe.subscriptions.cancel(studio.subscription_id).catch(() => {
-          // Ya cancelada en Stripe (o inexistente) — no bloquea el alta de cadena.
+        await stripe.subscriptions.cancel(studio.subscription_id).catch((err: unknown) => {
+          const code = err instanceof Stripe.errors.StripeError ? err.code : undefined;
+          if (code !== 'resource_missing') throw err;
         });
       }
 
