@@ -42,7 +42,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { CheckCircle2, AlertCircle, AlertTriangle, MapPin, Star } from 'lucide-react';
+import { CheckCircle2, AlertCircle, AlertTriangle, MapPin, Navigation, Star } from 'lucide-react';
 import { useModo } from '@/lib/portal-modo';
 import { useStudio } from '@/lib/studio-context';
 import {
@@ -281,8 +281,18 @@ export function HojaReserva({
             <h2 style={{ ...display(24), color: t.ink }}>
               {resultadoExito ? (ETIQUETA_ESTADO[resultadoExito] ?? 'Reserva confirmada') : 'Reserva confirmada'}
             </h2>
+            {/* Detalle en dos líneas — verificado contra capturas reales:
+                antes solo decía clase+hora; el diseño real también nombra la
+                plaza elegida, el estudio y la instructora, todo dato ya
+                disponible aquí (nunca uno nuevo). */}
             <p style={{ ...texto.meta, color: t.muted, marginTop: 8 }}>
-              {clase.nombre} · {diaCorto} {hora(clase.inicio)}
+              {clase.nombre}
+              {spotElegido && plazas.find(p => p.id === spotElegido) && ` · plaza ${plazas.find(p => p.id === spotElegido)!.numero}`}
+            </p>
+            <p style={{ ...texto.meta, color: t.muted, marginTop: 2 }}>
+              {diaCorto} {hora(clase.inicio)}
+              {studio?.nombre && ` · ${studio.nombre}`}
+              {clase.instructorNombre && ` · ${clase.instructorNombre}`}
             </p>
             {/* El bono solo se consume de verdad si queda CONFIRMADA — en
                 lista de espera/pendiente de aprobación todavía no se ha
@@ -293,16 +303,36 @@ export function HojaReserva({
               </p>
             )}
             {resultadoExito === 'CONFIRMADA' && (
-              <div style={{ marginTop: 20, width: '100%' }}>
-                <BotonesCalendario
-                  evento={{
-                    id: clase.id, inicio: clase.inicio, fin: clase.fin, titulo: clase.nombre,
-                    instructora: clase.instructorNombre ?? undefined, sala: clase.salaNombre ?? undefined,
-                    estudioNombre: studio?.nombre ?? 'Tu estudio',
-                    estudioDireccion: [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || undefined,
-                  }}
-                  t={t}
-                />
+              <div style={{ marginTop: 20, width: '100%', display: 'flex', gap: 8 }}>
+                {/* "Cómo llegar" — verificado contra capturas reales, mismo
+                    enlace de Google Maps que ya usa portal-reservas-view.tsx,
+                    no un SDK nuevo. */}
+                {studio?.direccion && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([studio.direccion, studio.ciudad].filter(Boolean).join(', '))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      flex: 1, height: 42, borderRadius: 21, border: `1px solid ${t.line}`,
+                      background: 'transparent', color: t.ink, textDecoration: 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      ...texto.metaFuerte, fontSize: 12.5,
+                    }}
+                  >
+                    <Navigation size={13} /> Cómo llegar
+                  </a>
+                )}
+                <div style={{ flex: 1 }}>
+                  <BotonesCalendario
+                    evento={{
+                      id: clase.id, inicio: clase.inicio, fin: clase.fin, titulo: clase.nombre,
+                      instructora: clase.instructorNombre ?? undefined, sala: clase.salaNombre ?? undefined,
+                      estudioNombre: studio?.nombre ?? 'Tu estudio',
+                      estudioDireccion: [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || undefined,
+                    }}
+                    t={t}
+                  />
+                </div>
               </div>
             )}
             <Link
