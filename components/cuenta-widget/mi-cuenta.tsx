@@ -80,14 +80,21 @@ export function MiCuenta({
   );
 }
 
-/** Hoja modal (Modo B, sin router). Mismo patrón visual que el BookingSheet de <ReservaCalendario>. */
+/**
+ * Hoja modal (Modo B, sin router). Mismo patrón visual que el BookingSheet de
+ * <ReservaCalendario> — y, desde la auditoría de UX (2026-08-31), las MISMAS
+ * dos clases de animación (`animate-sheet-backdrop-in`/`reserva-sheet-in`,
+ * ya en `widget.css`/`globals.css`, ninguna nueva): antes aparecía/
+ * desaparecía de golpe, la única hoja del widget sin transición.
+ */
 export function HojaCuentaWidget({ t, onClose, children }: { t: ModoTokens; onClose: () => void; children: React.ReactNode }) {
   return (
     <div
       role="dialog" aria-modal="true" onClick={onClose}
+      className="animate-sheet-backdrop-in"
       style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.5)' }}
     >
-      <div onClick={e => e.stopPropagation()} style={{
+      <div onClick={e => e.stopPropagation()} className="reserva-sheet-in" style={{
         width: '100%', background: t.bg, borderRadius: '24px 24px 0 0', padding: '10px 20px 24px',
         display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '88vh', overflowY: 'auto',
       }}>
