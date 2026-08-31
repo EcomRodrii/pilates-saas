@@ -1166,7 +1166,11 @@ export default function Dashboard() {
                           {r.importe} €
                         </CifraPrivada>
                         <button
-                          onClick={() => marcarCobrado(r.id)}
+                          onClick={() => {
+                            void marcarCobrado(r.id).then(res => {
+                              if (!res.ok) showToast(res.error);
+                            });
+                          }}
                           className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors"
                         >
                           Cobrar
