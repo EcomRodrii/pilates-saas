@@ -16,6 +16,7 @@ import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } fr
 import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Toast, useToast } from '@/components/ui/toast';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -489,6 +490,7 @@ export default function AutomatizacionesPage() {
   // Regla pendiente de confirmar antes de ENCENDERLA. Apagar nunca pregunta:
   // dejar de mandar mensajes no necesita permiso de nadie.
   const [confirmarEncender, setConfirmarEncender] = useState<AutomationRule | null>(null);
+  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
 
   const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
   // A cuánta gente puede llegar de verdad una regla que manda mensajes.
@@ -504,7 +506,7 @@ export default function AutomatizacionesPage() {
       setConfirmarEncender(rule);
       return;
     }
-    toggleAutomationRule(rule.id).then(res => { if (!res.ok) window.alert(res.error); });
+    toggleAutomationRule(rule.id).then(res => { if (!res.ok) showToast(res.error); });
   }
 
   const filteredLogs = useMemo(() => {
@@ -764,7 +766,7 @@ export default function AutomatizacionesPage() {
             <button
               className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
               onClick={() => {
-                if (confirmarEncender) toggleAutomationRule(confirmarEncender.id).then(res => { if (!res.ok) window.alert(res.error); });
+                if (confirmarEncender) toggleAutomationRule(confirmarEncender.id).then(res => { if (!res.ok) showToast(res.error); });
                 setConfirmarEncender(null);
               }}
             >
@@ -773,6 +775,7 @@ export default function AutomatizacionesPage() {
           </div>
         </DialogContent>
       </Dialog>
+      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
   );
 }

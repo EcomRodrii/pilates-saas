@@ -408,7 +408,7 @@ function PreguntaCuestionario({
 
 // ─── Pestaña completa ────────────────────────────────────────────────────────
 
-export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
+export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Date; onToast: (mensaje: string) => void }) {
   const {
     socios, condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion, updateSocio, instructores,
     plantillasCuestionarioSalud, respuestasCuestionarioSalud, guardarRespuestaCuestionarioSalud,
@@ -543,7 +543,7 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
     const res = editando
       ? await updateCondicion(editando.id, { ...payload, estado: editando.estado, fin: editando.fin })
       : await addCondicion(payload);
-    if (!res.ok) { window.alert(res.error); return; }
+    if (!res.ok) { onToast(res.error); return; }
     setDialogOpen(false);
     setEditando(null);
   }
@@ -686,7 +686,7 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
           {condiciones.map(c => (
             <CondicionCard key={c.id} c={c} now={now}
               onEdit={() => abrirEditar(c)}
-              onAlta={async () => { const res = await updateCondicion(c.id, { estado: 'RESUELTA', fin: isoHoy(now) }); if (!res.ok) window.alert(res.error); }}
+              onAlta={async () => { const res = await updateCondicion(c.id, { estado: 'RESUELTA', fin: isoHoy(now) }); if (!res.ok) onToast(res.error); }}
               onDelete={() => setABorrar(c)}
             />
           ))}
@@ -713,7 +713,7 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
         onConfirm={async () => {
           if (aBorrar) {
             const res = await deleteCondicion(aBorrar.id);
-            if (!res.ok) { window.alert(res.error); return; }
+            if (!res.ok) { onToast(res.error); return; }
           }
           setABorrar(null);
         }}

@@ -44,7 +44,7 @@ function formVacio(salaId: string): Form {
   return { diaSemana: 1, horaInicio: '', salaId, tipoClaseId: '', spotId: '', vigenciaDesde: isoHoy(), vigenciaHasta: '' };
 }
 
-export function FichaPlazaFija({ socioId }: { socioId: string }) {
+export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
   const { plazasFijas, asignarPlazaFija, quitarPlazaFija, salas, tiposClase, spots } = useStudio();
   const uid = useId();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -220,7 +220,7 @@ export function FichaPlazaFija({ socioId }: { socioId: string }) {
         onConfirm={async () => {
           if (aBorrar) {
             const res = await quitarPlazaFija(aBorrar.id);
-            if (!res.ok) { window.alert(res.error); return; }
+            if (!res.ok) { onToast(res.error); return; }
           }
           setABorrar(null);
         }}
