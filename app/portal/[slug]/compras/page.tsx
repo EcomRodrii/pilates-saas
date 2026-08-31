@@ -19,6 +19,19 @@ import Link from 'next/link';
 //     «Renovar bono», volver te dejaba lejos de donde estabas. Aquí vuelve a
 //     Bonos, que es su sección padre; y el menú de abajo mantiene Bonos marcado
 //     mientras estás aquí, en vez de saltar a Inicio como hacía el lienzo.
+//
+// Valores literales del kit real (CHEATSHEET-CSS.md + captura "Bonos de Studio
+// Alma", docs/diseno-referencia-portal/), mismo idioma que ya usan
+// portal-bonos-view.tsx y hoja-reserva.tsx: `--ap-*`/hex en vez de
+// `t.*`/`display()`/`micro()`/`texto.*`/`var(--portal-brand)`. Dos cosas que la
+// captura muestra y que aquí NO se copian, a propósito:
+//  - El badge "-12%" junto a un plan: `PlanTarifa` no tiene ningún campo de
+//    descuento — sería un número inventado, y "cero dinero sin comprobar" se
+//    extiende también a mostrar cifras de ahorro que nadie ha calculado.
+//  - La píldora "Pay" (Apple/Google Pay) junto a la tarjeta: este flujo real
+//    solo tiene tarjeta guardada + SEPA, sin un método de pago exprés aparte
+//    — pintar un botón que no hace nada sería el mismo error que ya se evitó
+//    con los de Apple/Google en `/acceso`.
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -30,7 +43,7 @@ import { abrirFacturaPDF } from '@/lib/factura-pdf';
 import { precioPorClase } from '@/lib/estudio-publico';
 import { fechaLarga } from '@/lib/bonos-portal';
 import { nombreDeMarca } from '@/lib/billing/caducidad-tarjeta';
-import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
+import { sans, transicion, dur } from '@/lib/portal-design';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
 import { BottomSheet } from '@/components/portal/ui/BottomSheet';
 import type { PlanTarifa } from '@/lib/types';
@@ -46,7 +59,10 @@ export default function ComprasPage() {
   const searchParams = useSearchParams();
   const { session } = usePortalAuth();
   const { studio, socios, planesTarifa, recibos, facturas, planMasElegidoId, recargarPublico } = useStudio();
-  const { t, noche } = useModo();
+  // Solo para `<CheckoutEmbebido t={t} …>`, que sigue viviendo en el sistema de
+  // tokens día/noche (es un widget compartido con `/reservar/[slug]`, fuera de
+  // alcance aquí). El resto de esta pantalla ya no lee `t`.
+  const { t } = useModo();
   const socioId = session?.socioId ?? null;
 
   const socia = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
@@ -231,7 +247,7 @@ export default function ComprasPage() {
   }
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+    <div style={{ minHeight: '100%', background: 'var(--ap-fondo, #FAF9F5)', color: 'var(--ap-tinta, #1A1A1A)' }}>
       <div style={{ padding: '62px 24px 24px' }}>
         {/* ⚠️ `<Link>` y no un `<button onClick={router.push}>`, que es lo que
             había: un botón que navega con JavaScript NO HACE NADA hasta que la
@@ -248,18 +264,19 @@ export default function ComprasPage() {
           href={`/portal/${slug}/bonos`}
           aria-label="Volver a Bonos"
           style={{
-            width: 38, height: 38, borderRadius: '50%', border: `1px solid ${t.line}`,
-            background: noche ? 'rgba(36,40,32,.7)' : 'rgba(255,255,255,.7)',
+            width: 38, height: 38, borderRadius: '50%', border: '1px solid #E5E3DA',
+            background: 'rgba(255,255,255,.7)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: sans, fontSize: 13, color: t.ink, cursor: 'pointer',
+            fontFamily: sans, fontSize: 13, color: '#1A1A1A', cursor: 'pointer',
             transition: transicion(['background'], dur.color),
           }}
         >
           ←
         </Link>
 
-        <h1 style={{ ...display(50), color: t.ink, marginTop: 20 }}>Compras</h1>
-        <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>Bonos, planes y facturas.</p>
+        <div className="ap-label" style={{ marginTop: 20 }}>Bonos y pagos</div>
+        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.025em', color: '#1A1A1A', marginTop: 10 }}>Compras</h1>
+        <p style={{ fontFamily: sans, fontSize: 12, color: '#5A5A52', marginTop: 8 }}>Bonos, planes y facturas.</p>
 
         {/* La vuelta de Stripe. El cobro lo confirma el WEBHOOK, no este
             parámetro, así que el texto no afirma que el dinero haya entrado:
@@ -267,9 +284,9 @@ export default function ComprasPage() {
             cuando el estudio la registre. Prometer más sería el mismo error de
             anunciar éxito sin haberlo comprobado. */}
         {avisoPago && (
-          <p role="status" style={{
-            fontFamily: sans, fontSize: 12.5, color: t.ink, background: t.surface2,
-            borderRadius: 14, padding: '11px 14px', marginTop: 20,
+          <p role="status" className="ap-card" style={{
+            fontFamily: sans, fontSize: 12, color: '#5A5A52', lineHeight: 1.55,
+            padding: '12px 14px', marginTop: 20,
           }}>
             {avisoPago}
           </p>
@@ -277,8 +294,8 @@ export default function ComprasPage() {
 
         {error && (
           <p role="alert" style={{
-            fontFamily: sans, fontSize: 12.5, color: t.ink, background: t.surface2,
-            borderRadius: 14, padding: '11px 14px', marginTop: 20,
+            fontFamily: sans, fontSize: 12, color: '#8A2E22', background: '#F4E9E5', lineHeight: 1.55,
+            borderRadius: 16, padding: '12px 14px', marginTop: 20,
           }}>
             {error}
           </p>
@@ -292,6 +309,10 @@ export default function ComprasPage() {
               // del estudio entero. Calcularlo aquí con las que hay en el
               // navegador —solo las de esta socia— le enseñaría su propia compra
               // repetida como si fuera lo que elige el resto.
+              //
+              // Tratamiento (captura "Bonos de Studio Alma"): las cards son
+              // tarjetas tipo radio — borde fino sin elegir, borde tinta en la
+              // destacada — no el bloque oscuro sólido de antes.
               const destacado = planMasElegidoId === p.id;
               const ocupado = comprando === p.id;
               return (
@@ -300,41 +321,28 @@ export default function ComprasPage() {
                   type="button"
                   onClick={() => void contratar(p)}
                   disabled={comprando != null || pago != null}
+                  className="ap-card"
                   style={{
-                    borderRadius: radio.card, border: 'none', textAlign: 'left',
-                    background: destacado ? '#2C352C' : t.surface,
-                    padding: '22px 24px', display: 'flex', alignItems: 'center',
+                    border: destacado ? '1.5px solid #1A1A1A' : '1px solid #E5E3DA',
+                    background: '#FFFFFF', textAlign: 'left',
+                    padding: '18px 20px', display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', gap: 16,
                     cursor: comprando != null ? 'default' : 'pointer',
                     opacity: comprando != null && !ocupado ? 0.6 : 1,
-                    boxShadow: destacado
-                      ? '0 20px 40px -22px rgba(34,42,30,.6)'
-                      : '0 14px 32px -26px rgba(34,42,30,.5)',
-                    transition: `transform ${dur.card}ms ${EASE}, opacity ${dur.color}ms ${EASE}`,
                   }}
                 >
-                  <span style={{ display: 'block' }}>
-                    {destacado && (
-                      <span style={{ ...micro(8.5, 0.24, 600), color: 'rgba(246,244,239,.7)', display: 'block' }}>
-                        El más elegido
-                      </span>
-                    )}
-                    <span style={{
-                      ...display(25), color: destacado ? '#F6F4EF' : t.ink,
-                      display: 'block', marginTop: destacado ? 10 : 0,
-                    }}>
-                      {p.nombre}
+                  <span style={{ display: 'block', minWidth: 0 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 15.5, fontWeight: 800, color: '#1A1A1A' }}>{p.nombre}</span>
+                      {destacado && <span className="ap-badge ap-badge--ok">El más elegido</span>}
                     </span>
-                    <span style={{
-                      fontFamily: sans, fontSize: 11, display: 'block', marginTop: 8,
-                      color: destacado ? 'rgba(246,244,239,.6)' : t.muted,
-                    }}>
+                    <span style={{ fontFamily: sans, fontSize: 11, display: 'block', marginTop: 6, color: '#5A5A52' }}>
                       {ocupado ? 'Abriendo el pago…' : subtitulo(p)}
                     </span>
                   </span>
-                  <span style={{ ...display(25), color: destacado ? '#F6F4EF' : t.ink, whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 20, fontWeight: 800, color: '#1A1A1A', whiteSpace: 'nowrap' }}>
                     {p.precio} €{p.tipo === 'MENSUAL' && (
-                      <span style={{ fontFamily: sans, fontSize: 12 }}>/mes</span>
+                      <span style={{ fontFamily: sans, fontSize: 11, fontWeight: 500 }}>/mes</span>
                     )}
                   </span>
                 </button>
@@ -342,13 +350,13 @@ export default function ComprasPage() {
             })}
           </div>
         ) : (
-          <p style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, marginTop: 32, textWrap: 'pretty' } as React.CSSProperties}>
+          <p style={{ fontFamily: sans, fontSize: 11.5, color: '#5A5A52', marginTop: 32, textWrap: 'pretty' } as React.CSSProperties}>
             Tu estudio todavía no vende bonos por aquí. Pregunta en recepción y te lo activan.
           </p>
         )}
 
         {/* ── Método de pago ───────────────────────────────────────────────── */}
-        <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 36 }}>Método de pago</div>
+        <div className="ap-label" style={{ marginTop: 36 }}>Método de pago</div>
 
         {/* Tarjeta guardada. Independiente de si el estudio ofrece SEPA: es el
             método que usa siempre Stripe para bonos/cuotas/renovaciones
@@ -356,17 +364,24 @@ export default function ComprasPage() {
             (`components/portal-tema/`, hoja "pago") — reutiliza aquí las
             mismas funciones ya cableadas para el portal clásico en
             `components/portal/portal-tema-marco.tsx`
-            (`urlParaGuardarTarjeta`/`borrarTarjetaPublica`). */}
-        <div style={{
-          marginTop: 12, borderRadius: radio.card, background: t.surface, padding: '20px 24px',
-          boxShadow: '0 14px 32px -26px rgba(34,42,30,.5)',
-        }}>
+            (`urlParaGuardarTarjeta`/`borrarTarjetaPublica`).
+            Píldora tinta con la marca+dígitos (captura "PAGO"), en vez de un
+            texto suelto: es la forma exacta en que el diseño distingue "hay
+            un método guardado" de "añade uno". */}
+        <div className="ap-card" style={{ marginTop: 12, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ ...display(21), color: t.ink }}>
-                {tarjeta ? `${tarjeta.marca} ···· ${tarjeta.ultimos4}` : 'Añadir tarjeta'}
-              </div>
-              <div style={{ fontFamily: sans, fontSize: 11, color: t.muted, marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
+              {tarjeta ? (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', height: 32, padding: '0 14px', borderRadius: 999,
+                  background: '#1A1A1A', color: '#F1ECE1', fontSize: 12.5, fontWeight: 800,
+                }}>
+                  {tarjeta.marca} ···· {tarjeta.ultimos4}
+                </span>
+              ) : (
+                <div style={{ fontSize: 15.5, fontWeight: 800, color: '#1A1A1A' }}>Añadir tarjeta</div>
+              )}
+              <div style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', marginTop: 10, textWrap: 'pretty' } as React.CSSProperties}>
                 {tarjeta
                   ? (tarjeta.caduca ? `Caduca ${tarjeta.caduca}` : 'Se usa para tus bonos, cuotas y renovaciones.')
                   : 'Guárdala para pagar bonos y cuotas sin hacerlo a mano cada vez.'}
@@ -377,9 +392,9 @@ export default function ComprasPage() {
               onClick={() => void anadirTarjeta()}
               disabled={tarjetaLoading}
               style={{
-                height: 44, padding: '0 18px', borderRadius: 22, flexShrink: 0,
-                border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
-                background: 'none', color: t.ink, ...texto.nota, fontSize: 12.5, fontWeight: 500,
+                height: 40, padding: '0 16px', borderRadius: 20, flexShrink: 0,
+                border: '1px solid #E5E3DA', background: 'none', color: '#1A1A1A',
+                fontFamily: sans, fontSize: 12, fontWeight: 700,
                 cursor: 'pointer', transition: transicion(['background'], dur.color),
               }}
             >
@@ -391,7 +406,7 @@ export default function ComprasPage() {
               hoja del kit (`hojas.tsx:222-224`), sin inventar comportamiento:
               son los cobros que este repo hace de verdad. */}
           {tarjeta && (
-            <p style={{ fontFamily: sans, fontSize: 11, color: t.muted, marginTop: 14, textWrap: 'pretty' } as React.CSSProperties}>
+            <p style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', marginTop: 14, textWrap: 'pretty' } as React.CSSProperties}>
               Tu tarjeta se usa para cobrar los bonos y las cuotas que contrates
               con el estudio, y las renovaciones automáticas si tu plan las
               tiene. Nunca guardamos el número de tu tarjeta: lo custodia Stripe.
@@ -403,7 +418,7 @@ export default function ComprasPage() {
               <>
                 {/* Dos toques para quitarla, no uno: es irreversible y tiene
                     consecuencias que la socia no tiene por qué anticipar. */}
-                <p style={{ fontFamily: sans, fontSize: 11.5, color: t.ink, marginTop: 14, textWrap: 'pretty' } as React.CSSProperties}>
+                <p style={{ fontFamily: sans, fontSize: 11.5, color: '#1A1A1A', marginTop: 14, textWrap: 'pretty' } as React.CSSProperties}>
                   Si la quitas, tendrás que pagar a mano cada bono o cuota, y las
                   renovaciones automáticas dejarán de cobrarse.
                 </p>
@@ -414,8 +429,8 @@ export default function ComprasPage() {
                     disabled={quitandoTarjeta}
                     style={{
                       height: 40, padding: '0 16px', borderRadius: 20, border: 'none',
-                      background: 'var(--portal-brand)', color: t.accentInk,
-                      ...texto.nota, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                      background: '#C2503A', color: '#FFFFFF',
+                      fontFamily: sans, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                     }}
                   >
                     {quitandoTarjeta ? 'Quitando…' : 'Sí, quitar la tarjeta'}
@@ -426,8 +441,8 @@ export default function ComprasPage() {
                     disabled={quitandoTarjeta}
                     style={{
                       height: 40, padding: '0 16px', borderRadius: 20,
-                      border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
-                      background: 'none', color: t.ink, ...texto.nota, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                      border: '1px solid #E5E3DA',
+                      background: 'none', color: '#1A1A1A', fontFamily: sans, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                     }}
                   >
                     Mejor no
@@ -440,7 +455,7 @@ export default function ComprasPage() {
                 onClick={() => setConfirmandoQuitarTarjeta(true)}
                 style={{
                   marginTop: 14, background: 'none', border: 'none', padding: 0,
-                  fontFamily: sans, fontSize: 11.5, color: t.muted, cursor: 'pointer',
+                  fontFamily: sans, fontSize: 11.5, color: '#5A5A52', cursor: 'pointer',
                   textDecoration: 'underline',
                 }}
               >
@@ -451,16 +466,15 @@ export default function ComprasPage() {
         </div>
 
         {(sepaActiva || sepaDisponible !== false) && (
-          <div style={{
-            marginTop: 12, borderRadius: radio.card, background: t.surface, padding: '20px 24px',
+          <div className="ap-card" style={{
+            marginTop: 12, padding: '18px 20px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-            boxShadow: '0 14px 32px -26px rgba(34,42,30,.5)',
           }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ ...display(21), color: t.ink }}>
+              <div style={{ fontSize: 15.5, fontWeight: 800, color: '#1A1A1A' }}>
                 {sepaActiva ? 'Domiciliación activa' : 'Domiciliar el pago'}
               </div>
-              <div style={{ fontFamily: sans, fontSize: 11, color: t.muted, marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
+              <div style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
                 {sepaActiva
                   ? 'Tus recibos se cobran solos de tu cuenta.'
                   : 'Autoriza el adeudo y no vuelvas a pagar a mano.'}
@@ -471,9 +485,9 @@ export default function ComprasPage() {
               onClick={() => void domiciliar()}
               disabled={sepaLoading}
               style={{
-                height: 44, padding: '0 18px', borderRadius: 22, flexShrink: 0,
-                border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
-                background: 'none', color: t.ink, ...texto.nota, fontSize: 12.5, fontWeight: 500,
+                height: 40, padding: '0 16px', borderRadius: 20, flexShrink: 0,
+                border: '1px solid #E5E3DA', background: 'none', color: '#1A1A1A',
+                fontFamily: sans, fontSize: 12, fontWeight: 700,
                 cursor: 'pointer', transition: transicion(['background'], dur.color),
               }}
             >
@@ -483,10 +497,10 @@ export default function ComprasPage() {
         )}
 
         {/* ── Facturas ─────────────────────────────────────────────────────── */}
-        <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 36 }}>Facturas</div>
+        <div className="ap-label" style={{ marginTop: 36 }}>Facturas</div>
         {misRecibos.length === 0 ? (
-          <div style={{ padding: '22px 0', borderTop: `1px solid ${t.line}`, borderBottom: `1px solid ${t.line}`, marginTop: 12 }}>
-            <p style={{ fontFamily: sans, fontSize: 11.5, color: t.muted }}>
+          <div style={{ padding: '22px 0', borderTop: '1px solid #E5E3DA', borderBottom: '1px solid #E5E3DA', marginTop: 12 }}>
+            <p style={{ fontFamily: sans, fontSize: 11.5, color: '#5A5A52' }}>
               Aquí aparecerán tus recibos y facturas cuando haya movimientos.
             </p>
           </div>
@@ -513,30 +527,35 @@ export default function ComprasPage() {
                 : fallido ? 'Sin pagar'
                 : enCurso ? 'En proceso'
                 : 'Pendiente';
+              // Color de la etiqueta: rojo (paleta ap-rojo) para lo que de
+              // verdad requiere acción — sin pagar/devuelto —, ámbar
+              // (ap-ambar) para lo que solo está en curso, mismo vocabulario
+              // que ya usan los `ap-badge` de plazas del CHEATSHEET.
+              const colorEtiqueta = fallido || devuelto ? '#C2503A' : '#C99A3C';
               return (
                 <div
                   key={rec.id}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
                     minHeight: 62, padding: '12px 0',
-                    borderTop: `1px solid ${t.line}`,
-                    borderBottom: i === misRecibos.length - 1 ? `1px solid ${t.line}` : undefined,
+                    borderTop: '1px solid #E5E3DA',
+                    borderBottom: i === misRecibos.length - 1 ? '1px solid #E5E3DA' : undefined,
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontFamily: sans, fontSize: 12.5, color: t.ink }}>
+                    <div style={{ fontFamily: sans, fontSize: 12.5, color: '#1A1A1A' }}>
                       {fechaLarga(rec.fechaCobro ?? rec.fechaVencimiento)}
                     </div>
                     {/* El estado solo se nombra cuando NO es «pagado»: en una lista
                         de facturas, lo normal no necesita etiqueta. */}
                     {(pendiente || devuelto) && (
-                      <div style={{ ...micro(8.5, 0.2, 600), color: t.heroAccent, marginTop: 6 }}>
+                      <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '.2em', fontWeight: 600, textTransform: 'uppercase', color: colorEtiqueta, marginTop: 6 }}>
                         {etiqueta}
                       </div>
                     )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-                    <span style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 500, color: t.ink }}>
+                    <span style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 700, color: '#1A1A1A' }}>
                       {rec.importe} €
                     </span>
                     {pagable ? (
@@ -545,9 +564,9 @@ export default function ComprasPage() {
                         onClick={() => void pagarRecibo(rec.id)}
                         disabled={comprando != null || pago != null}
                         style={{
-                          height: 38, padding: '0 14px', borderRadius: 19, border: 'none',
-                          background: 'var(--portal-brand)', color: t.accentInk,
-                          ...texto.nota, fontSize: 11.5, fontWeight: 500, cursor: 'pointer',
+                          height: 36, padding: '0 14px', borderRadius: 18, border: 'none',
+                          background: '#1A1A1A', color: '#F1ECE1',
+                          fontFamily: sans, fontSize: 11.5, fontWeight: 800, cursor: 'pointer',
                         }}
                       >
                         {comprando === rec.id ? 'Abriendo…' : 'Pagar'}
@@ -566,7 +585,8 @@ export default function ComprasPage() {
                         )}
                         aria-label={`Descargar la factura de ${fechaLarga(rec.fechaCobro ?? rec.fechaVencimiento)}`}
                         style={{
-                          ...micro(9, 0.18, 600), color: t.heroAccent, background: 'none',
+                          fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '.18em', fontWeight: 600, textTransform: 'uppercase',
+                          color: '#3E6B4A', background: 'none',
                           border: 'none', cursor: 'pointer', minHeight: 38, padding: '0 2px',
                         }}
                       >
@@ -587,10 +607,10 @@ export default function ComprasPage() {
           onClick={() => void renovar()}
           disabled={comprando != null || pago != null}
           style={{
-            height: 54, width: '100%', borderRadius: radio.botonAlto - 6, marginTop: 24,
-            border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
-            background: 'none', color: t.ink, ...texto.boton, fontSize: 13.5, cursor: 'pointer',
-            transition: transicion(['background'], dur.color),
+            height: 54, width: '100%', borderRadius: 27, marginTop: 24,
+            border: '1px solid #E5E3DA',
+            background: 'none', color: '#1A1A1A', fontFamily: sans, fontSize: 13.5, fontWeight: 700,
+            cursor: 'pointer', transition: transicion(['background'], dur.color),
           }}
         >
           {comprando === 'renovar' ? 'Un momento…' : 'Renovar lo que ya tenía'}
@@ -604,9 +624,9 @@ export default function ComprasPage() {
       {comprando != null && (
         <div
           className="fixed inset-0 flex items-center justify-center"
-          style={{ background: noche ? 'rgba(18,20,14,0.7)' : 'rgba(246,244,239,0.7)', zIndex: 50 }}
+          style={{ background: 'rgba(250,249,245,0.85)', zIndex: 50 }}
         >
-          <div className="w-8 h-8 rounded-full animate-spin" style={{ border: `3px solid ${t.line}`, borderTopColor: t.ink }} />
+          <div className="w-8 h-8 rounded-full animate-spin" style={{ border: '3px solid #E5E3DA', borderTopColor: '#1A1A1A' }} />
         </div>
       )}
 
@@ -637,12 +657,9 @@ export default function ComprasPage() {
       <BottomSheet open={pagoExito != null} onClose={() => setPagoExito(null)}>
         {pagoExito && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: sans, textAlign: 'center', padding: '12px 0 4px' }}>
-            <p style={{ fontSize: 16, fontWeight: 800, color: t.ink }}>¡Pago confirmado!</p>
-            <p style={{ fontSize: 13, color: t.muted }}>{pagoExito.nombre} ya está activo en tu cuenta.</p>
-            <button type="button" onClick={() => setPagoExito(null)} style={{
-              width: '100%', height: 44, borderRadius: radio.botonAlto - 6, border: 'none', fontSize: 13.5, fontWeight: 800,
-              background: 'var(--portal-brand)', color: t.accentInk, cursor: 'pointer',
-            }}>
+            <p style={{ fontSize: 16, fontWeight: 800, color: '#1A1A1A' }}>¡Pago confirmado!</p>
+            <p style={{ fontSize: 13, color: '#5A5A52' }}>{pagoExito.nombre} ya está activo en tu cuenta.</p>
+            <button type="button" onClick={() => setPagoExito(null)} className="ap-btn ap-btn--primario" style={{ width: '100%', height: 44, fontSize: 13.5 }}>
               Cerrar
             </button>
           </div>
