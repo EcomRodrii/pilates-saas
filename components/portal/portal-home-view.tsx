@@ -915,8 +915,15 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 Reutiliza `tiraSemana` (ya calculado arriba, mismo dato que el
                 tema Oliva) y `racha.semanas` — nada nuevo que calcular. Se
                 omite sin racha real Y sin ninguna clase esta semana: un dot
-                vacío en las 7 columnas con "🔥 0 sem." sería ruido. */}
-            {(tiraSemana.some(d => d.tieneClaseReservada) || (racha && racha.semanas > 0)) && (
+                vacío en las 7 columnas con "🔥 0 sem." sería ruido.
+                ⚠️ Gateado por `!progresoSemanalBloqueActivo`, igual que "Mi
+                progreso" más abajo: el bloque de sistema `progresoSemanal`
+                (visible por defecto desde 2026-08-26, wrap('progresoSemanal')
+                más abajo en este mismo fichero) YA pinta su propia tarjeta
+                "Tu semana" — sin este gate, un estudio con ese bloque activo Y
+                un bono con saldo veía LAS DOS a la vez, mismo rótulo,
+                duplicado real (encontrado en vivo con sesión inyectada). */}
+            {!progresoSemanalBloqueActivo && (tiraSemana.some(d => d.tieneClaseReservada) || (racha && racha.semanas > 0)) && (
               <div className="ap-card" style={{ marginTop: 10, padding: '14px 15px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color: '#5A5A52' }}>Tu semana</span>
@@ -1483,10 +1490,10 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             activo — que no tendría sentido reordenar en el editor). */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '30px 24px 8px' }}>
           <div>
-            <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>El espacio</p>
-            <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Tu estudio</h2>
+            <p className="ap-label">El espacio</p>
+            <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-.025em', color: '#1A1A1A', marginTop: 4 }}>Tu estudio</h2>
           </div>
-          <Link href={portalHref(`/${slug}/clases`)} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
+          <Link href={portalHref(`/${slug}/clases`)} style={{ fontSize: 11, fontWeight: 700, color: '#3E6B4A', textDecoration: 'none' }}>
             Ver horario →
           </Link>
         </div>
