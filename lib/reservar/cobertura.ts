@@ -167,6 +167,33 @@ export function textoCobertura(c: Cobertura): string | null {
   }
 }
 
+/**
+ * ⚠️ Auditoría de conversión (2026-08-31): la caja de cobertura (§3, "qué
+ * consume la reserva") se ocultaba entera cuando la clase está llena — quien
+ * se apuntaba a lista de espera no veía qué bono se descontaría SI se libera
+ * un hueco. No es solo un hueco de copy: reutilizar `textoCobertura` tal
+ * cual sería activamente engañoso ahí ("Descuenta 1 sesión... te quedarán N"
+ * suena a que ya se ha descontado), así que hace falta una frase distinta,
+ * en futuro condicional — la sesión solo se consume de verdad si acepta la
+ * oferta (`aceptar_oferta_lista_espera`, Fase 2b), nunca al apuntarse.
+ */
+export function textoCoberturaListaEspera(c: Cobertura): string | null {
+  switch (c.estado) {
+    case 'MENSUAL':
+      return `Incluida en tu ${c.planNombre} si se libera un hueco`;
+    case 'BONO':
+      return `Si se libera un hueco, se descontará de tu ${c.planNombre}`;
+    case 'NO_CUBRE_ESTA_CLASE':
+      return c.precio != null
+        ? 'Tu bono no cubre esta clase · si se libera un hueco, se cobra como clase suelta'
+        : null;
+    case 'SIN_PLAN':
+      return c.precio != null ? `Si se libera un hueco, se cobra · ${c.precio} €` : null;
+    case 'ANONIMA':
+      return c.precio != null ? `Si se libera un hueco, se cobra · ${c.precio} €` : null;
+  }
+}
+
 /** Precio a mostrar en el CTA: `null` cuando no hay nada que pagar. */
 export function precioDeCobertura(c: Cobertura): number | null {
   return estaCubierta(c) ? null : c.precio;
