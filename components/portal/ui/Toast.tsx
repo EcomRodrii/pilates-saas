@@ -2,22 +2,20 @@
 
 // Aviso flotante temporal — sustituye al patrón de siempre en el portal (un
 // párrafo gris fijo debajo de la lista, sin animación ni auto-desaparecer,
-// ver portal-clases-view.tsx antes de esta fase). Sube desde abajo, se queda
-// unos segundos y se retira sola — mismo lenguaje de feedback que el resto
-// de la app (los estados de HojaPase también sustituyen contenido en el
-// sitio en vez de apilar mensajes).
+// ver portal-clases-view.tsx antes de esta fase). Entra desde arriba con
+// `apToast` (CHEATSHEET-CSS.md "Toast"), se queda unos segundos y se retira
+// sola — mismo lenguaje de feedback que el resto de la app (los estados de
+// HojaPase también sustituyen contenido en el sitio en vez de apilar
+// mensajes).
 //
 // `position: fixed` centrado por viewport (no `absolute` dentro de la
 // pantalla, que es un contenedor con scroll propio): así queda anclado al
 // fondo real de la ventana, alineado con el ancho del FRAME del portal
-// (`components/portal/portal-shell.tsx`, `maxWidth:480` centrado), por
-// encima de la tab bar flotante.
+// (`components/portal/portal-shell.tsx`, `maxWidth:480` centrado).
 
 import { useEffect, useRef } from 'react';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
-import { useModo } from '@/lib/portal-modo';
-import { semantic } from '@/lib/portal-tokens';
-import { EASE, dur } from '@/lib/portal-design';
+import { sans } from '@/lib/portal-design';
 
 export interface AvisoToast {
   texto: string;
@@ -33,8 +31,6 @@ export interface AvisoToast {
 const DURACION_MS = { ok: 3000, error: 5000, accion: 7000 };
 
 export function Toast({ aviso, onDismiss }: { aviso: AvisoToast | null; onDismiss: () => void }) {
-  const { t } = useModo();
-
   // `onDismiss` casi siempre llega como una arrow function nueva en cada
   // render del padre (`() => setAviso(null)`) — con ella en las dependencias,
   // cualquier re-render del padre reinicia la cuenta atrás desde cero. Con el
@@ -51,18 +47,14 @@ export function Toast({ aviso, onDismiss }: { aviso: AvisoToast | null; onDismis
     return () => clearTimeout(id);
   }, [aviso]);
 
-  const activo = !!aviso;
-
   return (
     <div
-      aria-hidden={!activo}
+      aria-hidden={!aviso}
       style={{
-        position: 'fixed', left: '50%', bottom: 'calc(22px + env(safe-area-inset-bottom) + 76px)',
+        position: 'fixed', left: '50%', top: 58,
         width: 'min(calc(100% - 36px), 444px)', zIndex: 30,
         display: 'flex', justifyContent: 'center', pointerEvents: 'none',
-        transform: `translateX(-50%) translateY(${activo ? 0 : 12}px)`,
-        opacity: activo ? 1 : 0,
-        transition: `opacity ${dur.card}ms ${EASE}, transform ${dur.card}ms ${EASE}`,
+        transform: 'translateX(-50%)',
       }}
     >
       {aviso && (
@@ -71,12 +63,13 @@ export function Toast({ aviso, onDismiss }: { aviso: AvisoToast | null; onDismis
           aria-live={aviso.error ? 'assertive' : 'polite'}
           style={{
             display: 'flex', alignItems: 'center', gap: 10, minWidth: 0,
-            padding: '13px 16px', borderRadius: 16,
-            background: aviso.error ? semantic.danger.text : t.ink,
-            color: aviso.error ? '#FFFFFF' : t.bg,
-            boxShadow: '0 14px 32px -12px rgba(0,0,0,.4)',
-            fontSize: 13, fontWeight: 600, lineHeight: 1.3,
+            padding: '10px 18px', borderRadius: 999,
+            background: aviso.error ? '#C2503A' : '#1A1A1A',
+            color: aviso.error ? '#FFFFFF' : '#F1ECE1',
+            boxShadow: '0 14px 34px rgba(15,15,15,.35)',
+            fontFamily: sans, fontSize: 12.5, fontWeight: 700, lineHeight: 1.3,
             pointerEvents: 'auto',
+            animation: 'apToast .35s cubic-bezier(.34,1.4,.5,1) both',
           }}
         >
           {aviso.error
@@ -89,7 +82,7 @@ export function Toast({ aviso, onDismiss }: { aviso: AvisoToast | null; onDismis
               onClick={() => { onDismissRef.current(); aviso.accion?.onClick(); }}
               style={{
                 flexShrink: 0, border: 'none', background: 'transparent', cursor: 'pointer',
-                color: 'inherit', fontSize: 13, fontWeight: 800, textDecoration: 'underline',
+                color: 'inherit', fontFamily: sans, fontSize: 12.5, fontWeight: 800, textDecoration: 'underline',
                 // Mínimo táctil de 44px (mismo criterio que Button.tsx/Pill.tsx/
                 // Tabs.tsx en este mismo directorio) — el texto solo no llega ni
                 // de lejos; el contenedor centra verticalmente (`alignItems:
