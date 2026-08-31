@@ -55,6 +55,10 @@ export default function HiloMensajePage() {
   const studioId = studio?.id ?? null;
 
   const [authUserId, setAuthUserId] = useState<string | null>(null);
+  // Distingue "todavía no se sabe" de "no hay sesión": el efecto de Realtime
+  // espera a que esto sea true antes de crear el canal, para no arrancar con
+  // un token que aún no ha llegado del único getSession() del componente.
+  const [authResuelto, setAuthResuelto] = useState(false);
   const [conversacion, setConversacion] = useState<ConversacionConResumen | null | undefined>(undefined); // undefined = aún no se sabe
   const [mensajes, setMensajes] = useState<RowMensajes[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +82,15 @@ export default function HiloMensajePage() {
   const authUserIdRef = useRef<string | null>(null);
   const ultimoTypingEnviadoRef = useRef(0);
   const escribiendoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Token de acceso cacheado del ÚNICO `getSession()` de este componente — el
+  // efecto de Realtime de más abajo lo reutiliza en vez de pedir su propia
+  // sesión. `supabasePortal`/`supabasePortalRealtime` comparten cliente
+  // (mismo storageKey), y `getSession()` serializa contra un lock interno de
+  // supabase-js: encontrado en producción que un segundo `getSession()`
+  // concurrente se quedaba colgado para siempre sin lanzar ningún error, así
+  // que el canal de Realtime nunca llegaba a crearse (cero WebSocket, cero
+  // error en consola). Un solo `getSession()` por montaje quita el riesgo.
+  const accessTokenRef = useRef<string | null>(null);
 
   // El JWT no llega a través de PortalSession — se lee directo de la sesión de
   // Supabase, igual que `portalAuthHeader()`. Es lo único que permite decidir
@@ -85,7 +98,10 @@ export default function HiloMensajePage() {
   useEffect(() => {
     let vivo = true;
     void supabasePortal.auth.getSession().then(({ data }) => {
-      if (vivo) setAuthUserId(data.session?.user.id ?? null);
+      if (!vivo) return;
+      setAuthUserId(data.session?.user.id ?? null);
+      accessTokenRef.current = data.session?.access_token ?? null;
+      setAuthResuelto(true);
     });
     return () => { vivo = false; };
   }, []);
@@ -122,12 +138,11 @@ export default function HiloMensajePage() {
   // (studio-context.tsx/notification-bell.tsx), pero contra
   // `supabasePortalRealtime`: el JWT es el de la socia, no el de staff.
   useEffect(() => {
+    if (!authResuelto) return; // token aún no cacheado — este efecto se repite en cuanto lo esté.
     let vivo = true;
     let canal: ReturnType<typeof supabasePortalRealtime.channel> | null = null;
     (async () => {
-      const { data } = await supabasePortal.auth.getSession();
-      if (!vivo) return;
-      await supabasePortalRealtime.realtime.setAuth(data.session?.access_token ?? null);
+      await supabasePortalRealtime.realtime.setAuth(accessTokenRef.current);
       if (!vivo) return;
       canal = supabasePortalRealtime
         .channel(`conversacion:${id}`, { config: { private: true } })
@@ -167,7 +182,7 @@ export default function HiloMensajePage() {
       if (escribiendoTimeoutRef.current) clearTimeout(escribiendoTimeoutRef.current);
       setEscribiendoOtros(false);
     };
-  }, [id]);
+  }, [id, authResuelto]);
 
   // Emite el broadcast `typing`, con throttle: como mucho uno cada
   // `TYPING_THROTTLE_MS` mientras la socia sigue escribiendo — nunca en cada
