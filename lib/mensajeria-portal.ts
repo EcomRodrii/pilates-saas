@@ -46,7 +46,9 @@ export async function fetchConversaciones(
   try {
     const res = await fetch(`/api/public/mensajeria/conversaciones?studioId=${encodeURIComponent(studioId)}`, { headers });
     if (!res.ok) return { error: await leerError(res, 'No se han podido cargar tus conversaciones.') };
-    return await res.json() as { conversaciones: ConversacionConResumen[] };
+    const body = await res.json().catch(() => null) as { conversaciones?: unknown } | null;
+    if (!body || !Array.isArray(body.conversaciones)) return { error: 'No se han podido cargar tus conversaciones.' };
+    return { conversaciones: body.conversaciones as ConversacionConResumen[] };
   } catch {
     return { error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
   }

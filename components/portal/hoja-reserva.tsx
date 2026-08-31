@@ -42,11 +42,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { CheckCircle2, AlertCircle, AlertTriangle, MapPin, Star } from 'lucide-react';
+import { CheckCircle2, AlertCircle, AlertTriangle, MapPin, Navigation, Star } from 'lucide-react';
 import { useModo } from '@/lib/portal-modo';
 import { useStudio } from '@/lib/studio-context';
 import {
-  EASE, dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
+  dur, transicion, display, micro, texto, radio, altura, sombra,
 } from '@/lib/portal-design';
 import { AforoIndicator } from '@/components/portal/ui';
 import { BotonesCalendario } from '@/components/portal/botones-calendario';
@@ -200,9 +200,9 @@ export function HojaReserva({
 
   // `semantic.danger.text` no pasa AA en modo noche (ver comentario en
   // portal-tokens.ts) — usa la variante calibrada para ese modo. Mismo
-  // criterio para success/warning.
+  // criterio para warning. (El verde de éxito/bono ya no sale de aquí: son
+  // los literales de CHEATSHEET-CSS.md, #4F8A5B/#2E5A3A.)
   const dangerColor = noche ? semantic.danger.textNoche : semantic.danger.text;
-  const successColor = noche ? semantic.success.textNoche : semantic.success.text;
   const warningColor = noche ? semantic.warning.textNoche : semantic.warning.text;
 
   const etiquetaBoton = estado === 'enviando'
@@ -211,46 +211,43 @@ export function HojaReserva({
 
   return (
     <>
+      {/* Velo (CHEATSHEET-CSS.md, Bottom sheet): rgba(15,15,15,.42), fade .3s
+          — literal, ya no depende del modo noche/cristal del tema. */}
       <div
         onClick={cerrar}
         aria-hidden
         style={{
           position: 'fixed', inset: 0, zIndex: 40,
           opacity: abierta ? 1 : 0, pointerEvents: abierta ? 'auto' : 'none',
-          background: noche ? 'rgba(8,9,6,.44)' : 'rgba(34,38,31,.24)',
-          ...cristal(desenfoque.backdrop, 120),
-          transition: `opacity ${dur.tab}ms ${EASE}`,
+          background: 'rgba(15,15,15,.42)',
+          transition: 'opacity .3s ease',
         }}
       />
 
+      {/* Hoja (CHEATSHEET-CSS.md, Bottom sheet): a sangre con el borde
+          inferior real (cubre la barra de navegación, como en el diseño),
+          radius 24px 24px 0 0, handle 34×4px centrado a 9px, entrada
+          translateY(110%→0) .38s con el spring exacto. */}
       <div
         role="dialog"
         aria-modal={abierta}
         aria-label={clase ? `Reservar ${clase.nombre}` : 'Reservar'}
         style={{
-          position: 'fixed', left: 12, right: 12, zIndex: 41,
-          // ⚠️ Por encima de la barra de abajo, no detrás. Con `bottom: 12` la
-          // hoja llegaba hasta el borde de la pantalla y sus últimos ~70px
-          // quedaban debajo del menú — en una sala con plazas numeradas la
-          // lista crece y el botón de CONFIRMAR es justo lo último: la socia
-          // elegía su plaza y no veía el botón. Sale de la altura real de la
-          // barra (la fija el tema, `--portal-tabbar-height`) más su hueco,
-          // así que vale igual para la barra flotante y para la clásica.
-          bottom: 'calc(12px + var(--portal-tabbar-height, 64px) + 22px + env(safe-area-inset-bottom))',
-          maxWidth: 456, margin: '0 auto',
-          background: t.bg, borderRadius: radio.hoja,
-          border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.8)'}`,
-          boxShadow: sombra.sheet, padding: '16px 24px 24px',
-          maxHeight: 'calc(100dvh - var(--portal-tabbar-height, 64px) - 56px)', overflowY: 'auto',
+          position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
+          maxWidth: 480, margin: '0 auto',
+          background: '#FAF9F5', borderRadius: '24px 24px 0 0',
+          boxShadow: '0 -18px 50px rgba(15,15,15,.25)',
+          padding: '9px 20px calc(20px + env(safe-area-inset-bottom))',
+          maxHeight: '92dvh', overflowY: 'auto',
           opacity: abierta ? 1 : 0,
           pointerEvents: abierta ? 'auto' : 'none',
-          transform: abierta ? 'translateY(0) scale(1)' : 'translateY(114%) scale(.98)',
-          transition: `transform ${dur.sheet}ms ${EASE}, opacity 500ms ease`,
+          transform: abierta ? 'translateY(0)' : 'translateY(110%)',
+          transition: 'transform .38s cubic-bezier(.34,1.3,.5,1), opacity .38s ease',
         }}
       >
         <button
           type="button" onClick={cerrar} aria-label="Cerrar" disabled={estado === 'enviando'}
-          style={{ display: 'block', width: 40, height: 4, borderRadius: 4, margin: '0 auto', background: noche ? '#3A3F33' : '#D8D4C9', border: 'none', padding: 0 }}
+          style={{ display: 'block', width: 34, height: 4, borderRadius: 4, margin: '0 auto', background: '#D9D6C9', border: 'none', padding: 0 }}
         />
 
         {clase && estado === 'exito' ? (
@@ -258,31 +255,52 @@ export function HojaReserva({
           // Sustituye el cierre automático a 1.2s: ahora la socia decide
           // cuándo cerrar, pulsando "Ver mis reservas".
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '30px 4px 4px' }}>
-            <div style={{ position: 'relative', width: 60, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-              {/* Anillo de ping — reutiliza @keyframes wa-fab-ring (ya en
-                  app/globals.css, hoy solo la usa el FAB de WhatsApp) en vez
-                  de duplicar una animación de anillo nueva para el mismo
-                  efecto. */}
-              <span
-                aria-hidden
-                style={{
-                  position: 'absolute', inset: 0, borderRadius: '50%',
-                  border: `2px solid ${successColor}`,
-                  animation: 'wa-fab-ring 1.8s ease-out infinite',
-                }}
-              />
+            {/* Confirmación (CHEATSHEET-CSS.md, Bottom sheet): check 64px
+                #4F8A5B + anillo apRing .9s + 6 partículas de confeti que
+                salen del centro en distintas direcciones (apConf .9s,
+                portal-app.css). */}
+            <div style={{ position: 'relative', width: 76, height: 76, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+              <span aria-hidden style={{ position: 'absolute', inset: 6, borderRadius: '50%', border: '2px solid #4F8A5B', animation: 'apRing .9s ease-out' }} />
+              {[
+                { tx: -34, ty: -30, rot: -40, color: '#4F8A5B' },
+                { tx: 32, ty: -32, rot: 35, color: '#C99A3C' },
+                { tx: -40, ty: 12, rot: -60, color: '#C2503A' },
+                { tx: 40, ty: 14, rot: 60, color: '#1A1A1A' },
+                { tx: -14, ty: -42, rot: -15, color: '#C99A3C' },
+                { tx: 16, ty: -44, rot: 20, color: '#4F8A5B' },
+              ].map((p, i) => (
+                <span
+                  key={i} aria-hidden
+                  style={{
+                    position: 'absolute', top: '50%', left: '50%', width: 7, height: 11, marginTop: -5.5, marginLeft: -3.5,
+                    background: p.color, borderRadius: 2,
+                    animation: 'apConf .9s ease-out',
+                    ['--tx' as string]: `${p.tx}px`, ['--ty' as string]: `${p.ty}px`, ['--rot' as string]: `${p.rot}deg`,
+                  } as React.CSSProperties}
+                />
+              ))}
               <span style={{
-                position: 'relative', width: 52, height: 52, borderRadius: '50%',
-                background: semantic.success.soft, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                position: 'relative', width: 64, height: 64, borderRadius: '50%',
+                background: '#4F8A5B', display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <CheckCircle2 size={26} style={{ color: successColor }} />
+                <CheckCircle2 size={30} style={{ color: '#FFFFFF' }} />
               </span>
             </div>
             <h2 style={{ ...display(24), color: t.ink }}>
               {resultadoExito ? (ETIQUETA_ESTADO[resultadoExito] ?? 'Reserva confirmada') : 'Reserva confirmada'}
             </h2>
+            {/* Detalle en dos líneas — verificado contra capturas reales:
+                antes solo decía clase+hora; el diseño real también nombra la
+                plaza elegida, el estudio y la instructora, todo dato ya
+                disponible aquí (nunca uno nuevo). */}
             <p style={{ ...texto.meta, color: t.muted, marginTop: 8 }}>
-              {clase.nombre} · {diaCorto} {hora(clase.inicio)}
+              {clase.nombre}
+              {spotElegido && plazas.find(p => p.id === spotElegido) && ` · plaza ${plazas.find(p => p.id === spotElegido)!.numero}`}
+            </p>
+            <p style={{ ...texto.meta, color: t.muted, marginTop: 2 }}>
+              {diaCorto} {hora(clase.inicio)}
+              {studio?.nombre && ` · ${studio.nombre}`}
+              {clase.instructorNombre && ` · ${clase.instructorNombre}`}
             </p>
             {/* El bono solo se consume de verdad si queda CONFIRMADA — en
                 lista de espera/pendiente de aprobación todavía no se ha
@@ -293,16 +311,36 @@ export function HojaReserva({
               </p>
             )}
             {resultadoExito === 'CONFIRMADA' && (
-              <div style={{ marginTop: 20, width: '100%' }}>
-                <BotonesCalendario
-                  evento={{
-                    id: clase.id, inicio: clase.inicio, fin: clase.fin, titulo: clase.nombre,
-                    instructora: clase.instructorNombre ?? undefined, sala: clase.salaNombre ?? undefined,
-                    estudioNombre: studio?.nombre ?? 'Tu estudio',
-                    estudioDireccion: [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || undefined,
-                  }}
-                  t={t}
-                />
+              <div style={{ marginTop: 20, width: '100%', display: 'flex', gap: 8 }}>
+                {/* "Cómo llegar" — verificado contra capturas reales, mismo
+                    enlace de Google Maps que ya usa portal-reservas-view.tsx,
+                    no un SDK nuevo. */}
+                {studio?.direccion && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([studio.direccion, studio.ciudad].filter(Boolean).join(', '))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      flex: 1, height: 42, borderRadius: 21, border: `1px solid ${t.line}`,
+                      background: 'transparent', color: t.ink, textDecoration: 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      ...texto.metaFuerte, fontSize: 12.5,
+                    }}
+                  >
+                    <Navigation size={13} /> Cómo llegar
+                  </a>
+                )}
+                <div style={{ flex: 1 }}>
+                  <BotonesCalendario
+                    evento={{
+                      id: clase.id, inicio: clase.inicio, fin: clase.fin, titulo: clase.nombre,
+                      instructora: clase.instructorNombre ?? undefined, sala: clase.salaNombre ?? undefined,
+                      estudioNombre: studio?.nombre ?? 'Tu estudio',
+                      estudioDireccion: [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || undefined,
+                    }}
+                    t={t}
+                  />
+                </div>
               </div>
             )}
             <Link
@@ -477,10 +515,16 @@ export function HojaReserva({
               </>
             )}
 
+            {/* Aviso bono (CHEATSHEET-CSS.md, Bottom sheet): bg #EAF0E7
+                radius 14px, check circular 22px #4F8A5B, texto 12px/700
+                #2E5A3A. La clase suelta (sin bono que la cubra) no está en el
+                diseño de referencia — mantiene un tratamiento neutro propio. */}
             <div style={{
-              marginTop: 24, textAlign: 'center', borderRadius: 18, padding: '14px 16px',
-              background: clase.precio != null ? 'transparent' : semantic.success.soft,
-              border: clase.precio != null ? `1.5px solid ${t.ink}` : 'none',
+              marginTop: 24, borderRadius: clase.precio != null ? 18 : 14, padding: clase.precio != null ? '14px 16px' : '12px 14px',
+              textAlign: clase.precio != null ? 'center' : 'left',
+              display: clase.precio != null ? 'block' : 'flex', alignItems: 'center', gap: 10,
+              background: clase.precio != null ? 'transparent' : '#EAF0E7',
+              border: clase.precio != null ? '1.5px solid #1A1A1A' : 'none',
             }}>
               {clase.precio != null ? (
                 <>
@@ -489,14 +533,19 @@ export function HojaReserva({
                 </>
               ) : (
                 <>
-                  <div style={{ ...texto.metaFuerte, color: successColor }}>Incluida en tu bono</div>
-                  {clase.sesionesTrasReservar != null && (
-                    <div style={{ ...texto.nota, color: t.muted, marginTop: 4 }}>
-                      {clase.sesionesTrasReservar === 0
-                        ? 'Será la última sesión de tu bono'
-                        : `Quedarán ${clase.sesionesTrasReservar} sesion${clase.sesionesTrasReservar === 1 ? '' : 'es'}`}
-                    </div>
-                  )}
+                  <span style={{ width: 22, height: 22, borderRadius: '50%', flex: '0 0 22px', background: '#4F8A5B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CheckCircle2 size={13} style={{ color: '#FFFFFF' }} />
+                  </span>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#2E5A3A' }}>Incluida en tu bono</div>
+                    {clase.sesionesTrasReservar != null && (
+                      <div style={{ fontSize: 11, color: '#3E6B4A', marginTop: 2 }}>
+                        {clase.sesionesTrasReservar === 0
+                          ? 'Será la última sesión de tu bono'
+                          : `Quedarán ${clase.sesionesTrasReservar} sesion${clase.sesionesTrasReservar === 1 ? '' : 'es'}`}
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
             </div>
@@ -540,19 +589,19 @@ export function HojaReserva({
               </div>
             )}
 
+            {/* CHEATSHEET-CSS.md, Bottom sheet: ap-btn--primario height 50px. */}
             <button
               type="button"
+              className="ap-btn ap-btn--primario"
               disabled={estado === 'enviando'}
               aria-busy={estado === 'enviando'}
               aria-live="polite"
               onClick={confirmarClick}
               style={{
-                width: '100%', height: altura.botonCta, borderRadius: radio.botonCta, marginTop: 18,
-                background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-                ...texto.botonCta, border: 'none', cursor: estado === 'reposo' || estado === 'error' ? 'pointer' : 'default',
-                boxShadow: sombra.cta, opacity: estado === 'enviando' ? 0.6 : 1,
+                width: '100%', height: 50, marginTop: 18,
+                cursor: estado === 'reposo' || estado === 'error' ? 'pointer' : 'default',
+                opacity: estado === 'enviando' ? 0.6 : 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                transition: transicion(['transform', 'opacity', 'background']),
               }}
             >
               {estado === 'enviando' && (

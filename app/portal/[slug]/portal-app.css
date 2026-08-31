@@ -1,0 +1,83 @@
+/* ESTILOS EXACTOS del diseño "Tentare Studio App" — valores literales, no tokens.
+   Importar en el layout del portal (o pegar en globals.css bajo un scope .portal-app).
+   Con esto + las clases del CHEATSHEET el resultado es pixel-perfect. */
+
+.portal-app {
+  /* Paleta EXACTA del prototipo */
+  --ap-fondo: #FAF9F5;        /* fondo de pantalla */
+  --ap-card: #FFFFFF;         /* superficie card */
+  --ap-tinta: #1A1A1A;        /* texto principal */
+  --ap-sec: #5A5A52;          /* texto secundario */
+  --ap-ter: #98A093;          /* texto terciario / etiquetas mono */
+  --ap-borde: #E5E3DA;        /* borde card (1px sólido) */
+  --ap-pill: #EFEDE4;         /* pills neutras, fondo de barras */
+  --ap-verde: #3E6B4A;        /* acento (links, CTA secundarios) */
+  --ap-verde-tinta: #2E5A3A;  /* texto sobre verde suave */
+  --ap-verde-suave: #EAF0E7;  /* fondo badges éxito */
+  --ap-verde-noche: #12291A;  /* card "Tu próxima clase" */
+  --ap-verde-claro: #A8D0A9;  /* etiquetas sobre oscuro */
+  --ap-verde-dot: #7BC488;    /* dot pulsante sobre oscuro */
+  --ap-ambar: #C99A3C;        /* racha, "1 plaza" */
+  --ap-ambar-suave: #F6EEDD;  /* fondo badge ámbar */
+  --ap-ambar-tinta: #8A6A25;
+  --ap-rojo: #C2503A;         /* cancelar */
+  --ap-rojo-suave: #F4E9E5;
+
+  background: var(--ap-fondo);
+  color: var(--ap-tinta);
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tipos exactos */
+.portal-app .ap-h1 { font-size: 32px; font-weight: 800; letter-spacing: -.035em; line-height: 1; }
+.portal-app .ap-h2 { font-size: 18px; font-weight: 800; letter-spacing: -.025em; }
+.portal-app .ap-label { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ap-ter); }
+.portal-app .ap-card-title { font-size: 13px; font-weight: 800; }
+.portal-app .ap-meta { font-size: 11px; color: var(--ap-sec); }
+
+/* Card base exacta */
+.portal-app .ap-card {
+  background: var(--ap-card);
+  border: 1px solid var(--ap-borde);
+  border-radius: 16px;
+  transition: box-shadow .25s;
+}
+.portal-app .ap-card:hover { box-shadow: 0 10px 24px -10px rgba(26,26,26,.14); }
+
+/* Badges de plazas — los 3 estados exactos */
+.portal-app .ap-badge { font-size: 10px; font-weight: 800; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
+.portal-app .ap-badge--ok    { background: var(--ap-verde-suave); color: var(--ap-verde-tinta); }
+.portal-app .ap-badge--pocas { background: var(--ap-ambar-suave); color: var(--ap-ambar-tinta); }
+.portal-app .ap-badge--llena { background: var(--ap-rojo-suave);  color: #A04A3C; }
+.portal-app .ap-badge--res   { background: #4F8A5B; color: #fff; }
+
+/* Botones */
+.portal-app .ap-btn { border: none; border-radius: 999px; font-weight: 800; cursor: pointer; transition: transform .15s; font-family: inherit; }
+.portal-app .ap-btn:active { transform: scale(.97); }
+.portal-app .ap-btn--primario { background: var(--ap-tinta); color: #F1ECE1; height: 52px; font-size: 14.5px; }
+.portal-app .ap-btn--claro { background: var(--ap-fondo); color: var(--ap-tinta); }
+
+/* Keyframes EXACTOS del prototipo */
+@keyframes apUp { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+@keyframes apFade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes apPop { from { opacity: 0; transform: scale(.55) } 62% { transform: scale(1.07) } to { opacity: 1; transform: scale(1) } }
+@keyframes apCheck { 0% { transform: scale(0) } 55% { transform: scale(1.18) } 100% { transform: scale(1) } }
+@keyframes apRing { 0% { transform: scale(.4); opacity: .6 } 100% { transform: scale(2); opacity: 0 } }
+@keyframes apPulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+@keyframes apToast { from { opacity: 0; transform: translateY(-18px) scale(.94) } to { opacity: 1; transform: none } }
+@keyframes apKen { 0%,100% { transform: scale(1) } 50% { transform: scale(1.08) } }
+@keyframes apDot { 0% { transform: scale(0) } 60% { transform: scale(1.4) } 100% { transform: scale(1) } }
+/* Confeti de confirmación (Bottom sheet, CHEATSHEET-CSS.md): 6 partículas
+   7×11px que salen del check y se apagan — la dirección de cada una viene de
+   --tx/--ty/--rot en el elemento, no de un keyframe por partícula. */
+@keyframes apConf { 0% { transform: translate(0,0) rotate(0deg); opacity: 1 } 100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)); opacity: 0 } }
+
+.portal-app .ap-anim-up { animation: apUp .45s both; }
+.portal-app .ap-anim-pop { animation: apPop .5s both; }
+.portal-app .ap-ken { animation: apKen 18s ease-in-out infinite; }
+.portal-app .ap-dot-pulse { animation: apPulse 2.2s infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-app * { animation: none !important; transition: none !important; }
+}

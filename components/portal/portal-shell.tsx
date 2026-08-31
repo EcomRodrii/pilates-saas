@@ -105,9 +105,17 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     WebkitOverflowScrolling: 'touch',
   } as React.CSSProperties;
 
+  // `.portal-app`: activa app/portal/[slug]/portal-app.css — los valores
+  // EXACTOS del diseño "Tentare Studio App" (--ap-*), literales, no
+  // traducidos al sistema de temas. Pedido explícito tras varias rondas de
+  // "no se ve igual": la traducción a tokens era donde se perdía la
+  // fidelidad. En el raíz del shell para que cubra TODA pantalla del portal.
+  // Sin `background: t.bg` inline en ningún div de aquí abajo: un style en
+  // línea gana SIEMPRE a una clase de CSS externo, así que pisaría el
+  // --ap-fondo literal sin que se notara por qué.
   if (isClaveNueva) {
     return (
-      <div className="fixed inset-0" style={{ background: t.bg }}>
+      <div className="fixed inset-0 portal-app">
         <div style={MARCO_PUERTA}>{children}</div>
       </div>
     );
@@ -121,7 +129,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   // datos del estudio) en vez de en cada página, para no repetirlo.
   if (isLoading || (session && !isLoginPage && !isClaveNueva && !dataLoaded)) {
     return (
-      <div className="fixed inset-0" style={{ background: t.bg }}>
+      <div className="fixed inset-0 portal-app">
         <div style={{ ...FRAME, padding: '28px 20px 0' }}>
           {/* Esqueleto genérico (no sabe qué pantalla se está cargando): un
               spinner solo, varios segundos, se lee como que la app se ha
@@ -143,7 +151,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   if (session && isLoginPage) return null;
   if (isLoginPage) {
     return (
-      <div className="fixed inset-0" style={{ background: t.bg }}>
+      <div className="fixed inset-0 portal-app">
         <div style={MARCO_PUERTA}>{children}</div>
       </div>
     );
@@ -157,14 +165,14 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     seg === segActual || pathname.startsWith(`/portal/${slug}/${seg}`));
 
   return (
-    <div className="fixed inset-0" style={{ background: t.bg }}>
+    <div className="fixed inset-0 portal-app">
       <div
         className="flex flex-col overflow-hidden"
-        style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)', background: t.bg }}
+        style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)' }}
       >
         <main className="flex-1 overflow-y-auto relative" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
           {leaving && (
-            <div key={leaving.path} className="absolute inset-0 portal-page-out" style={{ pointerEvents: 'none', background: t.bg }} aria-hidden>
+            <div key={leaving.path} className="absolute inset-0 portal-page-out" style={{ pointerEvents: 'none' }} aria-hidden>
               {leaving.node}
             </div>
           )}

@@ -158,19 +158,22 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
         type: 'tentare-theme-preview',
         vars: {},
         temaJs: {
-          variantes: { cabeceraInicio: 'titular', accesosRapidos: 'rejilla', retos: 'color' },
+          // `cabeceraInicio` quedó retirada (31-ago, hero único): ya no viaja
+          // en el mensaje porque no tiene ningún efecto que comprobar aquí.
+          variantes: { accesosRapidos: 'rejilla', retos: 'color' },
           barraClasica: false,
           tabBarStyle: 'clasica',
         },
       }, window.location.origin);
     });
 
-    // Cabecera: de "Hola, X." grande al titular con avatar y el nombre solo.
-    await expect(frame.getByRole('heading', { name: /Hola, Vista\./ })).toHaveCount(0);
-    await expect(frame.getByRole('heading', { name: 'Vista', exact: true })).toBeVisible();
-    // Y con ella el subtítulo ascendido a titular, que en 'clasica' iba dentro
-    // del saludo.
-    await expect(frame.getByText('¿Qué te apetece hoy?')).toBeVisible();
+    // Cabecera: el hero único no tiene variante que cambie con `temaJs` — el
+    // nombre solo aparece dentro del saludo, nunca como heading propio.
+    await expect(frame.getByText(/^Buen(os|as) (días|tardes|noches), Vista/)).toBeVisible();
+    await expect(frame.getByRole('heading', { name: 'Vista', exact: true })).toHaveCount(0);
+    await expect(
+      frame.getByRole('heading', { name: /Hoy tienes una cita contigo\.|¿Qué te apetece hoy\?/ }),
+    ).toBeVisible();
     // Retos: el fondo propio del reto (#CFEFD6, lib/retos-portal.ts).
     await expect(reto).toHaveCSS('background-color', 'rgb(207, 239, 214)');
   });
