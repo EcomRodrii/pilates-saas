@@ -1766,10 +1766,10 @@ export default function Calendario() {
     const r = reservasActuales.find(x => x.id === reservaId);
     if (!r || !sesionActual) return;
     const destino = buscarSesionSemanaSiguiente(sesiones, sesionActual);
-    if (!destino) { window.alert('No hay clase programada la semana que viene en este mismo horario y sala.'); return; }
+    if (!destino) { showToast('No hay clase programada la semana que viene en este mismo horario y sala.'); return; }
     const res = await addReserva(destino.id, r.socioId);
-    if (!res.ok) { window.alert(res.error); return; }
-    window.alert(res.estado === 'CONFIRMADA' ? 'Añadida a la clase de la semana que viene.' : 'La clase de la semana que viene está llena — añadida a lista de espera.');
+    if (!res.ok) { showToast(res.error); return; }
+    showToast(res.estado === 'CONFIRMADA' ? 'Añadida a la clase de la semana que viene.' : 'La clase de la semana que viene está llena — añadida a lista de espera.');
   }
 
   function abrirIncidencia(sesionId: string) {
@@ -2419,7 +2419,7 @@ export default function Calendario() {
                       key={resp}
                       onClick={async () => {
                         const res = await registrarRespuestaSesion({ socioId: r.socioId, sesionId: sesionActual?.id ?? null, respuesta: resp });
-                        if (!res.ok) window.alert(res.error);
+                        if (!res.ok) showToast(res.error);
                       }}
                       title={rm.label}
                       aria-label={rm.label}
