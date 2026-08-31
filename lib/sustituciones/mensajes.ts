@@ -12,7 +12,7 @@ export function cuerpoNudgeCandidata(params: {
   return `Hola ${primerNombre(nombre)}, ¿puedes cubrir ${claseNombre} (${cuando})? Responde en un toque: ${url}`;
 }
 
-export type TipoAlertaPropietaria = 'agotada' | 'sin_respuesta' | 'baja';
+export type TipoAlertaPropietaria = 'agotada' | 'sin_respuesta' | 'baja' | 'sin_sustituta';
 
 // Alerta a la propietaria: se ha dado una baja, nadie responde, o se agotó el
 // ranking. La variante 'baja' es la que sostiene la regla dura del módulo (ella
@@ -36,6 +36,9 @@ export function cuerpoAlertaPropietaria(params: {
   }
   if (tipo === 'agotada') {
     return `⚠️ Nadie ha podido cubrir ${claseNombre} (${cuando}). Necesita tu decisión: ${urlPanel}`;
+  }
+  if (tipo === 'sin_sustituta') {
+    return `⚠️ ${claseNombre} (${cuando}) se ha quedado sin cubrir y ya ha llegado la hora. Revisa qué ha pasado: ${urlPanel}`;
   }
   return `${candidataNombre ?? 'La candidata'} aún no responde para ${claseNombre} (${cuando}). Avisa a otra o cancela: ${urlPanel}`;
 }

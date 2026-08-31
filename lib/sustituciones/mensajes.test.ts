@@ -43,6 +43,12 @@ test('alerta de baja (autónomo): tranquiliza, no pide acción', () => {
   assert.doesNotMatch(s, /visto bueno/);
 });
 
+test('alerta sin_sustituta: urgente + enlace al panel', () => {
+  const s = cuerpoAlertaPropietaria({ claseNombre: 'Reformer', cuando: 'lun 20 · 18:00', tipo: 'sin_sustituta', urlPanel: 'https://x.app/sustituciones' });
+  assert.match(s, /Reformer/);
+  assert.match(s, /https:\/\/x\.app\/sustituciones/);
+});
+
 test('alerta de baja sin nombre: no imprime "undefined"', () => {
   const s = cuerpoAlertaPropietaria({
     claseNombre: 'Mat', cuando: 'vie · 09:00', tipo: 'baja', urlPanel: 'https://x.app/s',

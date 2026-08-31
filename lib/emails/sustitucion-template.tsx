@@ -42,7 +42,7 @@ interface AlertaProps {
   colorPrimario?: string | null;
   claseNombre: string;
   cuando: string;
-  tipo: 'baja' | 'sin_respuesta' | 'agotada';
+  tipo: 'baja' | 'sin_respuesta' | 'agotada' | 'sin_sustituta';
   candidataNombre?: string;
   urlPanel: string;
   yaContactando?: boolean;
@@ -53,22 +53,30 @@ interface AlertaProps {
 export function AlertaPropietariaEmail({ estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando }: AlertaProps) {
   const agotada = tipo === 'agotada';
   const baja = tipo === 'baja';
+  const sinSustituta = tipo === 'sin_sustituta';
   const titulo = baja
     ? `${candidataNombre ?? 'Una instructora'} no puede dar esta clase`
     : agotada
       ? 'Nadie ha podido cubrir esta clase'
-      : `${candidataNombre ?? 'La candidata'} aún no responde`;
+      : sinSustituta
+        ? 'Esta clase se ha quedado sin cubrir'
+        : `${candidataNombre ?? 'La candidata'} aún no responde`;
   // Una baja recién avisada NO es una alarma: es "nos hemos enterado y ya
   // estamos en ello". Rojo/ámbar se reservan para cuando algo requiere que la
   // propietaria actúe ya — si todo pinta urgente, nada lo parece.
-  const color = baja ? (colorPrimario || '#343825') : agotada ? '#B91C1C' : '#92400E';
+  const color = baja ? (colorPrimario || '#343825') : (agotada || sinSustituta) ? '#B91C1C' : '#92400E';
   const cuerpo = baja
     ? (yaContactando
         ? `Nos lo ha dicho desde su móvil y ya estamos avisando a las candidatas por ti. Te escribimos en cuanto alguna confirme — no tienes que hacer nada ahora mismo.`
         : `Nos lo ha dicho desde su móvil. Ya tenemos las candidatas ordenadas y listas: solo falta tu visto bueno en el panel para que empecemos a avisarlas.`)
     : agotada
       ? `Hemos avisado a todas las candidatas disponibles y ninguna ha confirmado. La clase sigue sin sustituta y necesita tu decisión: avisar a alguien por tu cuenta o cancelarla (avisamos a las alumnas por ti).`
-      : `Avisamos a ${candidataNombre ?? 'la candidata'} y aún no ha respondido. Puedes esperar, avisar a otra candidata o cancelar la clase desde el panel.`;
+      : sinSustituta
+        // Este es el cierre por barrido (hora de clase ya pasada): a diferencia
+        // de 'agotada', aquí ya no hay nada que decidir a tiempo — es un aviso
+        // de qué ha pasado, no una llamada a la acción antes de que sea tarde.
+        ? `Esta clase ya ha llegado a su hora sin que nadie confirmara cubrirla — puede que nunca llegara a avisarse a ninguna candidata. Revisa el panel para ver qué pasó y avisar a las alumnas si hace falta.`
+        : `Avisamos a ${candidataNombre ?? 'la candidata'} y aún no ha respondido. Puedes esperar, avisar a otra candidata o cancelar la clase desde el panel.`;
   return (
     <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} headerColor={color} titulo={titulo} preview={cuerpo.slice(0, 90)}>
       <Section style={{ backgroundColor: '#FAFAF7', borderRadius: 10, padding: '16px 18px', marginBottom: 20 }}>
