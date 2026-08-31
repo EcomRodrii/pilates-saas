@@ -32,7 +32,6 @@ import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib
 import type { PortalSession } from '@/lib/portal-auth';
 import type { Socio } from '@/lib/types';
 
-const DIAS_CORTO = ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'];
 const MESES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
@@ -63,7 +62,7 @@ export function PortalPerfilView({
 }) {
   const { slug } = useParams<{ slug: string }>();
   const {
-    studio, socios, updateSocio, suscripciones, planesTarifa, tiposClase, plazasFijas, reservas, sesiones, favoritos,
+    studio, socios, updateSocio, suscripciones, planesTarifa, tiposClase, reservas, sesiones, favoritos,
     // Gap — racha/reto/logros EN LÍNEA en Perfil, verificado contra
     // capturas reales de Claude Design: antes esta pantalla solo enlazaba a
     // /progreso ("Mis compañeras" ya cubre lo social; esto es lo personal).
@@ -81,16 +80,6 @@ export function PortalPerfilView({
   const bono = useMemo(
     () => bonoActivo(suscripciones, planesTarifa, tiposClase, socioId),
     [suscripciones, planesTarifa, tiposClase, socioId],
-  );
-  const plaza = useMemo(() => {
-    const p = plazasFijas.find(x => x.socioId === socioId && x.estado === 'ACTIVA');
-    return p ? DIAS_CORTO[p.diaSemana] ?? null : null;
-  }, [plazasFijas, socioId]);
-  // Mismo cálculo que ya usa Inicio para "Mi progreso": clases con estado
-  // ASISTIDA, sin acotar por fecha (es el histórico completo de la socia).
-  const asistidas = useMemo(
-    () => reservas.filter(r => r.socioId === socioId && r.estado === 'ASISTIDA').length,
-    [reservas, socioId],
   );
   // "Clases este mes" — verificado contra capturas reales: es el mes en
   // curso, no el histórico ("Clases asistidas" de antes). Se cruza contra
@@ -446,7 +435,6 @@ export function PortalPerfilView({
               {logrosTop4.map(({ def, progreso }) => {
                 const completado = progreso?.completado ?? false;
                 const actual = progreso?.progresoActual ?? 0;
-                const porcentaje = Math.min(100, Math.round((actual / def.umbral) * 100));
                 return (
                   <div
                     key={def.id}
