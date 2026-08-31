@@ -4744,6 +4744,7 @@ export async function fetchDeferredStudioData(studioId?: string) {
     notasProgresoRes,
     backupsRes,
     condicionesSaludRes,
+    postsComunidadRes,
   ] = await enTandas([
     // I5: estos tres historiales son append-only y crecen sin fin, pero ninguna
     // vista de STAFF los consume (el portal usa la versión member-scoped de otro
@@ -4766,6 +4767,17 @@ export async function fetchDeferredStudioData(studioId?: string) {
     // silencio (ver e2e/preparar-clase-ia.spec.ts). De vuelta aquí, en la 2ª
     // ola — sigue sin bloquear el primer pintado, que era el objetivo real.
     db.from('condiciones_salud').select('*').eq('studio_id', sid),
+    // Mismo bug que `condicionesSalud` de arriba, encontrado al verificar el
+    // rediseño visual de Comunidad antes de abrir Tentare a 20 estudios
+    // nuevos: `postsComunidad` quedaba `[]` en cada sesión nueva (staff), así
+    // que ni /comunidad ni la pestaña "Comunidad" de /mensajeria mostraban
+    // NUNCA el historial de posts — solo lo publicado en la propia pestaña
+    // del navegador, o lo que llegara después por Realtime. El fan-out de
+    // notificación y `addPost` (alta) seguían funcionando; solo faltaba la
+    // lectura de vuelta. Recientes primero — mismo límite que el resto de
+    // feeds de esta función, un estudio activo no necesita años de historial
+    // en memoria para pintar el tablón.
+    db.from('posts_comunidad').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
   ]);
 
   return {
@@ -4778,6 +4790,7 @@ export async function fetchDeferredStudioData(studioId?: string) {
     // pesada); afirmamos la fila para el mapper.
     backups: (backupsRes.data ?? []).map(r => mapBackupMeta(r as RowBackups)),
     condicionesSalud: (condicionesSaludRes.data ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud)),
+    postsComunidad: (postsComunidadRes.data ?? []).map(r => mapPostComunidad(r as RowPostsComunidad)),
   };
 }
 

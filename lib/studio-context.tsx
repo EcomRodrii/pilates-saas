@@ -1267,6 +1267,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // comentario original de fetchDeferredStudioData ya documentaba como
         // sin ningún consumidor.
         setCondicionesSalud(def.condicionesSalud);
+        // Mismo bug, mismo arreglo: sin esto, Comunidad (panel y la pestaña
+        // dentro de Mensajería) nunca mostraba el historial de posts en una
+        // sesión nueva.
+        content.setPostsComunidad(def.postsComunidad);
       }).catch(err => console.error('Error cargando datos diferidos:', err));
     }).catch(err => {
       console.error('Error fetching Supabase data:', err);
