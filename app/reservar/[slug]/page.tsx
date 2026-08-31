@@ -651,7 +651,41 @@ export default function ReservarPage() {
   // auditoría, P-6).
   const [firmando, setFirmando] = useState(false);
   const firmandoRef = useRef(false);
-  const [loginForm, setLoginForm] = useState({ nombre: '', apellidos: '', email: '', telefono: '' });
+  // ⚠️ Auditoría de conversión (2026-08-31): una invitada que rellena "Tus
+  // datos", retrocede (por error, o para mirar otro día) y vuelve a entrar
+  // en el flujo se encontraba el formulario en blanco — sin ningún
+  // `sessionStorage`/`localStorage` que lo recordara. Nombre/email/móvil son
+  // datos que ella misma escribió, no sensibles (nunca tarjeta/pago), así
+  // que se cachean por PESTAÑA — se pierden al cerrarla, como cualquier
+  // autorrelleno razonable — y solo se leen una vez al montar (lazy
+  // initializer, no en cada render).
+  const [loginForm, setLoginForm] = useState<{ nombre: string; apellidos: string; email: string; telefono: string }>(() => {
+    const vacio = { nombre: '', apellidos: '', email: '', telefono: '' };
+    if (typeof window === 'undefined') return vacio;
+    try {
+      const guardado = JSON.parse(sessionStorage.getItem('reservar-datos-invitada') ?? 'null');
+      if (guardado && typeof guardado === 'object') {
+        return {
+          nombre: typeof guardado.nombre === 'string' ? guardado.nombre : '',
+          apellidos: '',
+          email: typeof guardado.email === 'string' ? guardado.email : '',
+          telefono: typeof guardado.telefono === 'string' ? guardado.telefono : '',
+        };
+      }
+    } catch { /* sessionStorage inaccesible (privado/bloqueado) o JSON corrupto: se ignora, formulario vacío */ }
+    return vacio;
+  });
+  // Persiste nombre/email/móvil mientras escribe, SOLO para invitadas (una
+  // socia autenticada ya trae sus datos de `socia`, no necesita este caché).
+  useEffect(() => {
+    if (autenticado) return;
+    if (!loginForm.nombre && !loginForm.email && !loginForm.telefono) return;
+    try {
+      sessionStorage.setItem('reservar-datos-invitada', JSON.stringify({
+        nombre: loginForm.nombre, email: loginForm.email, telefono: loginForm.telefono,
+      }));
+    } catch { /* sessionStorage inaccesible: el formulario sigue funcionando, solo sin recordar */ }
+  }, [autenticado, loginForm.nombre, loginForm.email, loginForm.telefono]);
   const [loginStep, setLoginStep] = useState<Step>('login');
   // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §3/§4).
   const [datosPlan, setDatosPlan] = useState<PlanTarifa | null>(null);

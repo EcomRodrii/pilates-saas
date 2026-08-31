@@ -140,13 +140,17 @@ test('⚠️ "Tus datos"/"pago" ya NO dicen "Paso X de Y" — es un scroll conti
   // funde en un único scroll continuo A PROPÓSITO — un indicador numerado
   // reintroduciría justo la sensación de wizard que ese rediseño pidió
   // evitar (mismo criterio que confirma lib/reservar/pasos-flujo.test.ts:
-  // `recorridoDe('datos'|'pago')` vuelve a `null`). La orientación la da
-  // ahora el propio encabezado de la tarjeta ("Paso final" + "Tus datos"),
-  // no un contador.
+  // `recorridoDe('datos'|'pago')` vuelve a `null`).
+  //
+  // ⚠️ Auditoría de conversión (2026-08-31): el eyebrow "Paso final" que
+  // llevaba el encabezado se quitó — prometía ser el último paso justo antes
+  // de una pantalla de pago completa más, el momento de más fricción para
+  // dudar de si algo ha ido mal. La orientación la da el propio encabezado
+  // "Tus datos", sin numerar nada.
   await abrirPasoDatos(page);
   await expect(page.getByText('Paso 1 de 2 · Tus datos')).not.toBeVisible();
+  await expect(page.getByText('Paso final')).not.toBeVisible();
   await expect(page.getByRole('heading', { name: 'Tus datos' })).toBeVisible();
-  await expect(page.getByText('Paso final')).toBeVisible();
 });
 
 // Diseño "Tentare Portal Reservas": un solo campo "Nombre y apellido" a ancho
