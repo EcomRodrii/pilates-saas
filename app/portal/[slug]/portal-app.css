@@ -68,6 +68,10 @@
 @keyframes apToast { from { opacity: 0; transform: translateY(-18px) scale(.94) } to { opacity: 1; transform: none } }
 @keyframes apKen { 0%,100% { transform: scale(1) } 50% { transform: scale(1.08) } }
 @keyframes apDot { 0% { transform: scale(0) } 60% { transform: scale(1.4) } 100% { transform: scale(1) } }
+/* Confeti de confirmación (Bottom sheet, CHEATSHEET-CSS.md): 6 partículas
+   7×11px que salen del check y se apagan — la dirección de cada una viene de
+   --tx/--ty/--rot en el elemento, no de un keyframe por partícula. */
+@keyframes apConf { 0% { transform: translate(0,0) rotate(0deg); opacity: 1 } 100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)); opacity: 0 } }
 
 .portal-app .ap-anim-up { animation: apUp .45s both; }
 .portal-app .ap-anim-pop { animation: apPop .5s both; }

@@ -39,10 +39,10 @@ import { alternativasTras, cuandoSugerencia, type SugerenciaClase } from '@/lib/
 import { useModo } from '@/lib/portal-modo';
 import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/components/portal/hoja-reserva';
 import { HojaPase } from '@/components/portal/hoja-pase';
-import { BottomSheet, Button, Toast, AforoIndicator, type AvisoToast } from '@/components/portal/ui';
+import { BottomSheet, Button, Toast, type AvisoToast } from '@/components/portal/ui';
 import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
 import { fetchQuienVaAEstaClase, type QuienVaAEstaClase } from '@/lib/social-companeras-portal.ts';
-import { EASE, dur, transicion, display, micro, texto, radio, sombra, escala } from '@/lib/portal-design';
+import { EASE, dur, transicion, display, texto } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import type { PortalSession } from '@/lib/portal-auth';
@@ -54,7 +54,6 @@ type Vista = 'todas' | 'mias';
 
 const OCUPA_PLAZA: Reserva['estado'][] = ['CONFIRMADA', 'ASISTIDA'];
 const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
-const LETRA_DIA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 
 /** Lunes de la semana de `d`, a las 00:00. */
 function lunesDe(d: Date): Date {
@@ -429,17 +428,15 @@ export function PortalClasesView({
     void toggleFavorito(tipoClaseId, accion);
   }
 
-  // Sólido (`t.surface`), no cristal translúcido: estos tres círculos flotan
-  // encima de la foto de cabecera (banner con degradado) y un fondo
-  // semitransparente dependería de la foto de CADA estudio para dar
-  // contraste. Mismo criterio que ya usa el círculo de flecha de "Invita a
-  // una amiga" y de los banners de contenido en Inicio (`sombra.circuloBanner`,
-  // pensada exactamente para un círculo sobre foto — ver portal-home-view.tsx).
+  // Cristal translúcido sobre la foto de cabecera, mismo tratamiento que la
+  // campana del hero del Inicio (CHEATSHEET-CSS.md): borde 1px blanco tenue +
+  // fondo blanco translúcido con blur, en vez del círculo sólido de antes.
   const circulo: React.CSSProperties = {
-    width: 38, height: 38, borderRadius: '50%', border: 'none',
-    background: t.surface, boxShadow: sombra.circuloBanner,
+    width: 32, height: 32, borderRadius: '50%',
+    border: '1px solid rgba(255,255,255,.45)',
+    background: 'rgba(250,249,245,.22)', backdropFilter: 'blur(8px)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 13, color: t.ink, cursor: 'pointer',
+    fontSize: 13, color: '#FAF9F5', cursor: 'pointer',
     transition: transicion(['transform']),
   };
 
@@ -447,28 +444,32 @@ export function PortalClasesView({
     .replace(/\./g, '').toUpperCase();
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, color: t.ink, paddingTop: 62 }}>
+    <div style={{ minHeight: '100%', background: 'var(--ap-fondo, #FAF9F5)', color: 'var(--ap-tinta, #1A1A1A)', paddingTop: 18 }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div {...wrap('listadoClases')}>
-      {/* Banner de cabecera (Tentare Studio App.dc.html, Horario): la foto de
-          ESTA pantalla (hueco `banda`, 1600×592 — NO el hueco `banner`, que es
-          otro recorte para "Invita a una amiga"; cambiar el hueco cambiaría
-          qué foto ve la propietaria sin que ella lo haya subido para esto)
-          con degradado inferior y el título superpuesto.
-          Antes esta banda era "la única superficie del portal que se ve sin
-          velo ni degradado encima", a propósito: un velo TRANSLÚCIDO uniforme
-          no da contraste garantizado con un titular cuyo color pone el tema
-          (t.ink cambia con el modo) sobre una foto que puede ser clara u
-          oscura. Ese riesgo es real, pero no aplica a ESTE degradado: no es
-          translúcido parejo, es casi opaco (94 %) justo donde se apoya el
-          texto y se desvanece hacia arriba — el mismo mecanismo, con los
-          mismos valores, que ya usan el banner "Invita a una amiga" y las
-          tarjetas de contenido de Inicio (portal-home-view.tsx). Los tres
-          círculos flotan en la esquina superior con fondo SÓLIDO
-          (`circulo`, más abajo), no cristal, por la misma razón: nada que
-          dependa de un texto/icono legible encima de una foto arbitraria
-          puede fiarse de la transparencia. */}
-      <div style={{ position: 'relative', height: 160, margin: '0 24px 22px', borderRadius: 'var(--portal-radius-card, 26px)', overflow: 'hidden' }}>
+      {/* Buscador (CHEATSHEET-CSS.md, hero): mismo pill que la cabecera del
+          Inicio, aquí sobre fondo plano y sin blur (no hay foto detrás que
+          justifique el cristal). Único punto de entrada al overlay BUSCAR. */}
+      <div style={{ padding: '0 20px 14px' }}>
+        <button
+          type="button" onClick={() => setBuscarAbierto(true)}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+            padding: '13px 16px', borderRadius: 999, border: 'none', cursor: 'pointer',
+            background: '#FFFFFF', boxShadow: '0 10px 26px -14px rgba(8,8,8,.22)',
+            fontFamily: 'inherit', textAlign: 'left',
+          }}
+        >
+          <Search size={15} strokeWidth={2} color="#98A093" />
+          <span style={{ fontSize: 13.5, color: '#98A093' }}>Buscar clases, instructoras…</span>
+        </button>
+      </div>
+      {/* Banner de cabecera (CHEATSHEET-CSS.md / Horario): la foto de ESTA
+          pantalla (hueco `banda`, 1600×592) con degradado inferior y el
+          título superpuesto — mismo hueco que antes, tratamiento más bajo
+          (130px, no 160) y con los valores LITERALES del diseño en vez de
+          los tokens de tema. */}
+      <div style={{ position: 'relative', height: 130, margin: '0 20px 18px', borderRadius: 20, overflow: 'hidden' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imagenDeEstudio('banda', txt('listadoClases', 'fotoUrl', ''))}
@@ -481,39 +482,29 @@ export function PortalClasesView({
         />
         <div aria-hidden style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: noche
-            ? 'linear-gradient(0deg, rgba(18,20,14,.94) 0%, rgba(18,20,14,.58) 48%, rgba(18,20,14,.04) 100%)'
-            : 'linear-gradient(0deg, rgba(246,244,239,.94) 0%, rgba(246,244,239,.58) 48%, rgba(246,244,239,.04) 100%)',
+          background: 'linear-gradient(0deg, rgba(8,8,8,.72) 0%, rgba(8,8,8,.3) 55%, rgba(8,8,8,.04) 100%)',
         }} />
-        <div style={{ position: 'absolute', inset: 0, padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div style={{ position: 'absolute', inset: 0, padding: '14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            {/* Punto de entrada al overlay BUSCAR (Tentare Studio App.dc.html),
-                mismo círculo que las flechas de semana — nunca un push de
-                ruta, solo abre el overlay encima de esta pantalla. */}
-            <button type="button" aria-label="Buscar" onClick={() => setBuscarAbierto(true)} style={circulo}>
-              <Search size={15} strokeWidth={2} />
-            </button>
             <button type="button" aria-label="Semana anterior" onClick={() => { setSemana(s => s - 1); setDiaElegido(0); }} style={circulo}>←</button>
             <button type="button" aria-label="Semana siguiente" onClick={() => { setSemana(s => s + 1); setDiaElegido(0); }} style={circulo}>→</button>
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ ...micro(9.5, 0.28), color: t.heroAccent, whiteSpace: 'nowrap' }}>{rangoSemana}</div>
-            <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 10 }}>{txt('listadoClases', 'titulo', 'Clases')}</h1>
+            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9.5, letterSpacing: '.2em', textTransform: 'uppercase', color: '#A8D0A9', whiteSpace: 'nowrap' } as React.CSSProperties}>{rangoSemana}</div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', color: '#FAF9F5', marginTop: 6 }}>{txt('listadoClases', 'titulo', 'Clases')}</h1>
           </div>
         </div>
       </div>
-      <div style={{ padding: '0 24px' }}>
+      <div style={{ padding: '0 20px' }}>
         <div style={{
-          position: 'relative', display: 'flex', alignItems: 'center', height: 46, marginTop: 22,
-          padding: 5, borderRadius: 23,
-          background: noche ? 'rgba(28,31,23,.6)' : 'rgba(255,255,255,.6)',
-          border: `1px solid ${t.line}`,
+          position: 'relative', display: 'flex', alignItems: 'center', height: 42, marginTop: 4,
+          padding: 4, borderRadius: 21, background: '#FFFFFF', border: '1px solid #E5E3DA',
         }}>
           <span
             aria-hidden
             style={{
-              position: 'absolute', left: 5, top: 5, bottom: 5, width: 'calc((100% - 10px) / 2)',
-              borderRadius: 18, background: noche ? t.surface2 : '#FFFFFF', boxShadow: sombra.pastilla,
+              position: 'absolute', left: 4, top: 4, bottom: 4, width: 'calc((100% - 8px) / 2)',
+              borderRadius: 17, background: '#F1ECE1',
               transform: `translateX(${vista === 'todas' ? 0 : 100}%)`,
               transition: `transform ${dur.tab}ms ${EASE}`, pointerEvents: 'none',
             }}
@@ -523,8 +514,8 @@ export function PortalClasesView({
               key={id} type="button" onClick={() => setVista(id)} aria-pressed={vista === id}
               style={{
                 position: 'relative', flex: 1, textAlign: 'center', background: 'none', border: 'none',
-                fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer',
-                color: vista === id ? t.ink : t.muted, transition: 'color 350ms ease',
+                fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+                color: vista === id ? '#1A1A1A' : '#98A093', transition: 'color 350ms ease',
               }}
             >
               {etiqueta}
@@ -535,10 +526,44 @@ export function PortalClasesView({
 
       {vista === 'todas' && (
         <>
-          {/* Fila siempre visible desde que existe "Con hueco" — antes se
-              omitía entera con un solo tipo de clase y sin favoritas, pero
-              ese filtro es útil también para un estudio con un único tipo. */}
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '18px 24px 4px', scrollbarWidth: 'none' } as React.CSSProperties}>
+          {/* Tabs de día (CHEATSHEET-CSS.md, "Tabs día / filtros"): fila
+              horizontal de píldoras, no la cuadrícula de 7 con indicador
+              deslizante de antes. El paginado de semana sigue siendo el de
+              siempre (flechas en el banner) — solo cambia cómo se pinta cada
+              día. "Hoy"/"Mañana" arriba en negrita cuando aplica; el resto,
+              la fecha en negrita arriba y el día abreviado + fecha debajo. */}
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '16px 0 4px', margin: '0 20px', scrollbarWidth: 'none' } as React.CSSProperties}>
+            {dias.map((d, i) => {
+              const activo = i === diaActivo;
+              const abrevMes = d.toLocaleDateString('es-ES', { weekday: 'short' }).replace(/\.$/, '');
+              const fechaCorta = `${abrevMes} ${d.getDate()}`;
+              const etiquetaArriba = i === indiceHoy ? 'Hoy' : i === indiceHoy + 1 ? 'Mañana' : fechaCorta;
+              return (
+                <button
+                  key={d.toISOString()} type="button" onClick={() => setDiaElegido(i)} aria-pressed={activo}
+                  aria-label={d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  style={{
+                    flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
+                    padding: '6px 14px', borderRadius: 13, fontFamily: 'inherit', cursor: 'pointer',
+                    background: activo ? '#1A1A1A' : '#FFFFFF',
+                    border: `1.5px solid ${activo ? '#1A1A1A' : '#E5E3DA'}`,
+                  }}
+                >
+                  <span style={{ fontSize: 12.5, fontWeight: 800, color: activo ? '#F1ECE1' : '#1A1A1A', whiteSpace: 'nowrap' }}>
+                    {etiquetaArriba}
+                  </span>
+                  <span style={{ fontSize: 10, color: activo ? 'rgba(241,236,225,.7)' : '#98A093', whiteSpace: 'nowrap' }}>
+                    {fechaCorta}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Filtros (CHEATSHEET-CSS.md, "Tabs día / filtros"): pill borde
+              1px #D9D6C9, activo borde/fondo verde. Mismo grupo excluyente
+              de tipo de clase + "Con hueco" independiente que ya había. */}
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '14px 0 4px', margin: '0 20px 4px', scrollbarWidth: 'none' } as React.CSSProperties}>
             {(tiposClase.length > 1 || idsFavoritos.size > 0) &&
               [{ id: null as string | null, nombre: 'Todo', color: null as string | null },
                 ...(idsFavoritos.size > 0 ? [{ id: FAVORITAS, nombre: 'Favoritas', color: null as string | null }] : []),
@@ -548,17 +573,13 @@ export function PortalClasesView({
                   <button
                     key={chip.id ?? 'todas'} type="button" onClick={() => setTipoElegido(chip.id)} aria-pressed={activo}
                     style={{
-                      // `radioTema.chip` del tema (varsRadioTema, lib/theme-runtime.ts).
-                      // Sin ese campo —hoy, ningún tema lo declara— cae al 18 de
-                      // siempre, así que el cambio es no-op hasta que un tema lo pida.
-                      flex: '0 0 auto', height: 36, padding: chip.color ? '0 16px' : '0 18px',
-                      borderRadius: 'var(--portal-radius-chip, 18px)',
-                      background: activo ? 'var(--portal-brand)' : (noche ? 'rgba(28,31,23,.7)' : 'rgba(255,255,255,.7)'),
-                      color: activo ? 'var(--portal-brand-foreground)' : t.muted2,
-                      border: `1px solid ${activo ? 'transparent' : t.line}`,
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit', whiteSpace: 'nowrap', cursor: 'pointer',
-                      transition: transicion(['background', 'color'], 300),
+                      flex: '0 0 auto', padding: '7px 14px', borderRadius: 999,
+                      background: activo ? '#EAF0E7' : '#FFFFFF',
+                      color: activo ? '#2E5A3A' : '#5A5A52',
+                      border: `1px solid ${activo ? '#4F8A5B' : '#D9D6C9'}`,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      fontSize: 12, fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap', cursor: 'pointer',
+                      transition: transicion(['background', 'color', 'border-color'], 300),
                     }}
                   >
                     {chip.id === FAVORITAS && <Star size={12} fill={activo ? 'currentColor' : 'none'} />}
@@ -573,178 +594,108 @@ export function PortalClasesView({
             <button
               type="button" onClick={() => setSoloConHueco(v => !v)} aria-pressed={soloConHueco}
               style={{
-                flex: '0 0 auto', height: 36, padding: '0 18px',
-                borderRadius: 'var(--portal-radius-chip, 18px)',
-                background: soloConHueco ? 'var(--portal-brand)' : (noche ? 'rgba(28,31,23,.7)' : 'rgba(255,255,255,.7)'),
-                color: soloConHueco ? 'var(--portal-brand-foreground)' : t.muted2,
-                border: `1px solid ${soloConHueco ? 'transparent' : t.line}`,
-                display: 'flex', alignItems: 'center', gap: 8,
-                fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit', whiteSpace: 'nowrap', cursor: 'pointer',
-                transition: transicion(['background', 'color'], 300),
+                flex: '0 0 auto', padding: '7px 14px', borderRadius: 999,
+                background: soloConHueco ? '#EAF0E7' : '#FFFFFF',
+                color: soloConHueco ? '#2E5A3A' : '#5A5A52',
+                border: `1px solid ${soloConHueco ? '#4F8A5B' : '#D9D6C9'}`,
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 12, fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap', cursor: 'pointer',
+                transition: transicion(['background', 'color', 'border-color'], 300),
               }}
             >
               Con hueco
             </button>
           </div>
-
-          <div style={{ position: 'relative', display: 'flex', margin: '20px 24px 0', paddingBottom: 18, borderBottom: `1px solid ${t.line}` }}>
-            <span
-              aria-hidden
-              style={{
-                position: 'absolute', left: 0, top: 0, width: 'calc(100% / 7)', height: 72,
-                display: 'flex', justifyContent: 'center', pointerEvents: 'none',
-                transform: `translateX(${diaActivo * 100}%)`,
-                transition: `transform 550ms ${EASE}`,
-              }}
-            >
-              {/* Mismo criterio que los chips de arriba: con `radioTema.chip`
-                  la píldora del día pasa a cápsula (999) como en el prototipo;
-                  sin él, el 22 de siempre. */}
-              <span style={{ width: 44, height: 72, borderRadius: 'var(--portal-radius-chip, 22px)', background: 'var(--portal-brand)', boxShadow: '0 12px 24px -14px rgba(34,42,30,.6)' }} />
-            </span>
-            {dias.map((d, i) => {
-              const activo = i === diaActivo;
-              const pasado = claveDia(d) < claveDia(ahora);
-              return (
-                <button
-                  key={d.toISOString()} type="button" onClick={() => setDiaElegido(i)} aria-pressed={activo}
-                  aria-label={d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-                  style={{
-                    position: 'relative', flex: 1, height: 72, display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', justifyContent: 'center', gap: 7,
-                    background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
-                  <span style={{ fontSize: 9, fontWeight: 500, letterSpacing: '.16em', color: activo ? 'color-mix(in srgb, var(--portal-brand-foreground) 65%, transparent)' : t.micro }}>
-                    {/* "Hoy"/"Mañana" en vez de la letra, verificado en vivo
-                        contra el diseño real — solo cuando la semana visible
-                        es la de hoy (`indiceHoy` es -1 en cualquier otra). */}
-                    {i === indiceHoy ? 'HOY' : i === indiceHoy + 1 ? 'MAÑ.' : LETRA_DIA[d.getDay()]}
-                  </span>
-                  <span style={{ ...display(21), color: activo ? 'var(--portal-brand-foreground)' : (pasado ? t.micro : t.ink) }}>
-                    {d.getDate()}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
         </>
       )}
 
-      <div style={{ padding: '26px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {/* "N CLASES · HOY", verificado en vivo contra el diseño real — solo
-            en la vista de un día concreto (en "Mis reservas" no hay un solo
-            día del que contar). */}
+      <div style={{ padding: '10px 20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* "N CLASES · HOY" (CHEATSHEET-CSS.md, mono uppercase) — solo en la
+            vista de un día concreto (en "Mis reservas" no hay un solo día del
+            que contar). */}
         {vista === 'todas' && lista.length > 0 && (
-          <span style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
+          <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 10, letterSpacing: '.16em', fontWeight: 600, color: '#98A093', textTransform: 'uppercase' } as React.CSSProperties}>
             {lista.length} {lista.length === 1 ? 'clase' : 'clases'} · {diaActivo === indiceHoy ? 'hoy' : diaActivo === indiceHoy + 1 ? 'mañana' : dias[diaActivo]?.toLocaleDateString('es-ES', { weekday: 'long' })}
           </span>
         )}
         {lista.length === 0 ? (
-          <p style={{ ...display(16, true), color: t.muted2, textAlign: 'center', padding: '22px 0' }}>
+          <p style={{ fontSize: 14, color: '#98A093', textAlign: 'center', padding: '22px 0' }}>
             {vista === 'mias'
               ? txt('listadoClases', 'vacioMias', 'Todavía no tienes ninguna clase reservada.')
               : txt('listadoClases', 'vacioDia', 'No hay clases este día.')}
           </p>
-        ) : lista.map(c => {
+        ) : lista.map((c, i) => {
           const reservada = !!c.mia;
           const completa = c.libres <= 0 && !reservada;
-          const spotMio = c.mia?.spotId ? spots.find(sp => sp.id === c.mia!.spotId) : null;
           const esFavorita = idsFavoritos.has(c.sesion.tipoClaseId);
+          // Badge de plazas (CHEATSHEET-CSS.md, "Fila de clase"): 3 estados
+          // literales, ap-badge--ok/pocas/llena. "Reservada" no está en el
+          // diseño de referencia (ninguna de sus filas de ejemplo lo está) —
+          // usa el 4º estado ya definido en portal-app.css (`--res`, sólido)
+          // en vez de inventar un color nuevo.
+          const badge = reservada
+            ? { clase: 'ap-badge--res', texto: c.mia!.estado === 'LISTA_ESPERA' ? 'En lista de espera' : 'Reservada' }
+            : completa
+              ? { clase: 'ap-badge--llena', texto: 'Llena · lista' }
+              : c.libres === 1
+                ? { clase: 'ap-badge--pocas', texto: '1 plaza' }
+                : { clase: 'ap-badge--ok', texto: `${c.libres} plazas` };
 
           return (
             <div
               key={c.sesion.id}
+              className="ap-card ap-anim-up"
               style={{
-                position: 'relative',
-                borderRadius: `var(--portal-radius-card, ${radio.card}px)`, padding: 20, display: 'flex', gap: 18,
-                background: reservada
-                  ? (noche ? t.surface2 : '#EEF0EA')
-                  : (completa || c.pasada ? (noche ? 'rgba(28,31,23,.5)' : 'rgba(255,255,255,.5)') : t.surface),
-                border: `1px solid ${reservada ? (noche ? 'rgba(169,187,160,.22)' : 'rgba(44,53,44,.16)') : 'transparent'}`,
-                boxShadow: reservada || completa || c.pasada ? undefined : '0 14px 32px -24px rgba(34,42,30,.5)',
-                opacity: c.pasada ? 0.6 : 1,
+                position: 'relative', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12,
+                opacity: c.pasada ? 0.55 : 1,
+                animationDelay: `${i * 55}ms`,
               }}
             >
-              <div style={{ flex: '0 0 52px' }}>
-                <div style={{ ...display(26), color: completa || c.pasada ? t.muted2 : t.ink }}>{hora(c.sesion.inicio)}</div>
-                <div style={{ ...texto.nota, fontSize: 10, color: t.muted2, marginTop: 6 }}>{minutos(c.sesion.inicio, c.sesion.fin)} min</div>
+              <div style={{ flex: '0 0 46px' }}>
+                <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 14, fontWeight: 700, color: '#1A1A1A' }}>{hora(c.sesion.inicio)}</div>
+                <div style={{ fontSize: 9.5, color: '#98A093', marginTop: 3 }}>{minutos(c.sesion.inicio, c.sesion.fin)} min</div>
               </div>
-              <div style={{ width: 1, background: t.line }} />
+              <div style={{ width: 1, alignSelf: 'stretch', background: '#EFEDE4' }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                {reservada && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--portal-brand)' }} />
-                    <span style={{ ...micro(8.5, 0.24, 600), color: t.ink }}>
-                      {c.mia!.estado === 'LISTA_ESPERA'
-                        ? 'En lista de espera'
-                        : spotMio ? `Reservada · plaza ${spotMio.numero}` : 'Reservada'}
-                    </span>
-                  </div>
-                )}
-                <div style={{ ...display(23, reservada, 1.05), color: completa || c.pasada ? t.muted2 : t.ink, textWrap: 'pretty' } as React.CSSProperties}>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {c.tipo?.nombre ?? 'Clase'}
                 </div>
-                <div style={{ ...texto.nota, color: t.muted, marginTop: 6 }}>
-                  {[c.tipo?.nivel === 'TODOS' ? 'Todos los niveles' : c.tipo?.nivel, c.sala?.nombre, reservada ? c.instr?.nombre : null].filter(Boolean).join(' · ')}
-                </div>
-                {!reservada && c.instr && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 14 }}>
-                    <span style={{ width: 26, height: 26, borderRadius: '50%', flex: '0 0 26px', background: c.instr.color ?? t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#FFFFFF' }}>
+                {c.instr && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
+                    <span style={{ width: 20, height: 20, borderRadius: '50%', flex: '0 0 20px', background: c.instr.color ?? '#EFEDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#FFFFFF' }}>
                       {c.instr.nombre.trim()[0]?.toUpperCase()}
                     </span>
-                    <span style={{ ...texto.metaFuerte, fontSize: 11.5, color: t.muted2 }}>{c.instr.nombre}</span>
+                    <span style={{ fontSize: 11, color: '#5A5A52', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {[c.instr.nombre, studio?.nombre].filter(Boolean).join(' · ')}
+                    </span>
                   </div>
                 )}
               </div>
-              {c.tipo?.fotoUrl && (
-                <div style={{ flex: '0 0 52px', width: 52, height: 52, borderRadius: 14, overflow: 'hidden', alignSelf: 'center' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={c.tipo.fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: completa || c.pasada ? 0.6 : 1 }} />
-                </div>
-              )}
-              {/* ⚠️ El hueco de arriba es para el icono de favorita, que va en
-                  `position: absolute` en la esquina (top 10, alto 26). Antes
-                  se apartaba el texto de plazas hacia la IZQUIERDA con un
-                  relleno, y eso depende de lo largo que sea el texto: con
-                  "8 plazas libres" el icono seguía cayéndole encima. Apartarlo
-                  hacia ABAJO no depende de nada — el icono acaba en el píxel
-                  36 y esta columna empieza después, mida lo que mida. */}
-              <div style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
-                justifyContent: 'space-between', gap: 8,
-                paddingTop: socioId && c.tipo ? 30 : 0,
-              }}>
-                {!reservada && (
-                  <AforoIndicator
-                    libres={c.libres}
-                    umbralUrgencia={3}
-                    style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap' }}
-                  />
-                )}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flex: '0 0 auto' }}>
+                <span className={`ap-badge ${badge.clase}`}>{badge.texto}</span>
                 {/* Precio de tarifa, verificado en vivo contra el diseño real
                     (en TODAS las tarjetas, llena incluida) — es informativo,
                     no lo que le toca pagar a ESTA socia si su plan ya lo
                     cubre (eso lo decide la hoja de reserva). */}
                 {!reservada && precioClaseSuelta != null && (
-                  <span style={{ ...texto.nota, fontSize: 10.5, color: t.muted2, whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: '#5A5A52', whiteSpace: 'nowrap' }}>
                     {precioClaseSuelta} € {hayBonoActivo ? '· bono' : ''}
                   </span>
                 )}
                 {reservada ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
                     {(studio?.requiereCheckinQr ?? true) && (
                       <button
                         type="button"
                         onClick={() => setPaseAbierto({ nombre: c.tipo?.nombre ?? 'Clase', sub: `${hora(c.sesion.inicio)} · ${c.sala?.nombre ?? ''}` })}
-                        style={{ ...texto.nota, fontSize: 10.5, fontWeight: 500, color: t.ink, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                        style={{ fontSize: 10.5, fontWeight: 700, color: '#1A1A1A', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
                       >
                         Ver mi pase
                       </button>
                     )}
                     <button
                       type="button" onClick={() => cancelar(c)}
-                      style={{ ...texto.nota, fontSize: 10.5, color: t.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                      style={{ fontSize: 10.5, fontWeight: 700, color: '#C2503A', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
                     >
                       Cancelar
                     </button>
@@ -753,20 +704,20 @@ export function PortalClasesView({
                   <button
                     type="button" onClick={() => abrirReserva(c)}
                     style={{
-                      height: 34, padding: '0 16px', borderRadius: 'var(--portal-radius-boton, 17px)', border: `1px solid ${t.line}`,
-                      background: 'none', fontSize: 10.5, fontWeight: 500, color: t.muted2,
+                      height: 28, padding: '0 12px', borderRadius: 999, border: '1px solid #D9D6C9',
+                      background: 'none', fontSize: 10.5, fontWeight: 700, color: '#5A5A52',
                       whiteSpace: 'nowrap', cursor: 'pointer', fontFamily: 'inherit',
                     }}
                   >
-                    Lista de espera
+                    Unirme
                   </button>
                 ) : (
                   <button
                     type="button" onClick={() => abrirReserva(c)}
                     aria-label={`Reservar ${c.tipo?.nombre ?? 'clase'} a las ${hora(c.sesion.inicio)}`}
                     style={{
-                      width: 38, height: 38, borderRadius: '50%', background: 'var(--portal-brand)',
-                      color: 'var(--portal-brand-foreground)', fontSize: 15, border: 'none', cursor: 'pointer',
+                      width: 30, height: 30, borderRadius: '50%', background: '#1A1A1A',
+                      color: '#F1ECE1', fontSize: 13, border: 'none', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: transicion(['transform']),
                     }}
@@ -782,13 +733,13 @@ export function PortalClasesView({
                   aria-pressed={esFavorita}
                   onClick={() => marcarFavorita(c.sesion.tipoClaseId, esFavorita ? 'desmarcar' : 'marcar')}
                   style={{
-                    position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: '50%',
+                    position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: '50%',
                     background: 'none', border: 'none', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: esFavorita ? t.heroAccent : t.muted2,
+                    color: esFavorita ? '#C99A3C' : '#98A093',
                   }}
                 >
-                  <Star size={15} fill={esFavorita ? 'currentColor' : 'none'} />
+                  <Star size={13} fill={esFavorita ? 'currentColor' : 'none'} />
                 </button>
               )}
             </div>
@@ -799,7 +750,7 @@ export function PortalClasesView({
             más, en vez de dejar el scroll muriendo en blanco. Solo con lista y
             solo en la vista del día. */}
         {vista === 'todas' && lista.length > 0 && (
-          <p style={{ ...display(16, true), color: t.muted2, textAlign: 'center', padding: '22px 0 0' }}>
+          <p style={{ fontSize: 14, color: '#98A093', textAlign: 'center', padding: '22px 0 0' }}>
             No hay más clases este {dias[diaActivo]?.toLocaleDateString('es-ES', { weekday: 'long' })}.
           </p>
         )}
@@ -811,7 +762,7 @@ export function PortalClasesView({
           calendario en el mismo contenedor flex, con el `order` que les
           toque para intercalarse antes o después de él. */}
       {bloquesPersonalizados.map(({ b, orden }) => (
-        <div key={b.id} data-bloque-id={b.id} style={{ order: orden, padding: '0 24px' }}>
+        <div key={b.id} data-bloque-id={b.id} style={{ order: orden, padding: '0 20px' }}>
           <BloqueHomeRender bloque={b} slug={slug} />
         </div>
       ))}
