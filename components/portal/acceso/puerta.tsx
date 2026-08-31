@@ -250,10 +250,6 @@ export function PuertaPortal() {
     );
   }
 
-  // Un nombre largo no se parte en dos líneas: se encoge. Partir un display
-  // serif rompe el bloque, y la portada tiene un alto fijo.
-  const tamNombre = nombre.length > 22 ? 26 : nombre.length > 15 ? 30 : 36;
-
   const fundidoBienvenida = (
     // Fundido de bienvenida: cubre el hueco entre que Supabase responde y
     // PortalShell redirige, que si no es un salto en seco.
@@ -292,7 +288,6 @@ export function PuertaPortal() {
           nombre={nombre}
           ciudad={studio?.ciudad}
           progreso={25}
-          tamNombre={tamNombre}
         />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '28px 30px calc(32px + env(safe-area-inset-bottom))' }}>
           <div>
@@ -333,7 +328,6 @@ export function PuertaPortal() {
         nombre={nombre}
         ciudad={studio?.ciudad}
         progreso={enviado ? 82 : 40}
-        tamNombre={enviado ? 26 : tamNombre}
       />
 
       <div
