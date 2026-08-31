@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -101,25 +101,36 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return errorInterno('mensajeria:mensajes:POST', error, 'No se ha podido enviar el mensaje.');
   }
 
-  // Notificar es best-effort (emitirMensajeRecibido ya envuelve en try/catch):
-  // un fallo aquí nunca debe deshacer un mensaje que ya se guardó.
-  const admin = getSupabaseAdmin();
-  if (admin) {
-    const { data: conv } = await admin.from('conversaciones')
-      .select('tipo, studio_id').eq('id', id).maybeSingle();
-    if (conv) {
+  // Notificar es best-effort (emitirMensajeRecibido ya envuelve en try/catch),
+  // y sobre todo NUNCA debe retrasar la respuesta a quien envía: quien
+  // escribe ya tiene su mensaje guardado en este punto — todo lo de abajo es
+  // trabajo de avisar a los demás, no de confirmarle nada a quien envía.
+  // `after()` (mismo patrón que app/api/comunidad/posts/route.ts) corre esto
+  // DESPUÉS de que el POST ya respondió, así que un mensaje nunca paga la
+  // latencia de resolver destinatarios + insertar notificación + hasta 10s
+  // de intento de entrega externa (push/email/WhatsApp) del Notification
+  // Engine — encontrado en producción como el "delay al enviar" reportado.
+  const mensajeId = (data as RowMensajes).id;
+  after(async () => {
+    try {
+      const admin = getSupabaseAdmin();
+      if (!admin) return;
+      const { data: conv } = await admin.from('conversaciones')
+        .select('tipo, studio_id').eq('id', id).maybeSingle();
+      if (!conv) return;
       const authUserIds = await authUserIdsParaNotificar(
         admin, { id, tipo: conv.tipo as string, studio_id: conv.studio_id as string }, sesion.userId,
       );
-      if (authUserIds.length > 0) {
-        const remitente = (await resolverNombreRemitente(admin, sesion.userId, conv.studio_id as string)) ?? 'Alguien';
-        await emitirMensajeRecibido(admin, {
-          studioId: conv.studio_id as string, conversacionId: id, mensajeId: (data as RowMensajes).id,
-          remitente, previsualizacion: cuerpo.slice(0, 80), authUserIds,
-        });
-      }
+      if (authUserIds.length === 0) return;
+      const remitente = (await resolverNombreRemitente(admin, sesion.userId, conv.studio_id as string)) ?? 'Alguien';
+      await emitirMensajeRecibido(admin, {
+        studioId: conv.studio_id as string, conversacionId: id, mensajeId,
+        remitente, previsualizacion: cuerpo.slice(0, 80), authUserIds,
+      });
+    } catch (e) {
+      console.error('[mensajeria:mensajes:POST] fan-out tras respuesta falló', e instanceof Error ? e.message : e);
     }
-  }
+  });
 
   return NextResponse.json({ mensaje: data as RowMensajes });
 }

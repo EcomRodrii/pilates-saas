@@ -222,6 +222,33 @@ export function BandejaVacia({ onNueva }: { onNueva: () => void }) {
   );
 }
 
+// ── Escribiendo… ─────────────────────────────────────────────────────────────
+// Misma burbuja de puntos que ya existe en el portal (IndicadorEscribiendo,
+// components/portal/mensajeria-piezas.tsx) — construida aquí porque este
+// lado usa tokens de Tailwind/CSS vars propios del panel, no los de
+// lib/portal-design.ts.
+
+function BurbujaEscribiendo() {
+  return (
+    <div className="flex justify-start paso-anim">
+      <div
+        className="flex items-center gap-1 rounded-2xl px-4 py-3"
+        style={{ backgroundColor: 'var(--muted)', borderBottomLeftRadius: 5 }}
+      >
+        <span className="sr-only">Escribiendo…</span>
+        {[0, 1, 2].map(i => (
+          <span
+            key={i}
+            aria-hidden
+            className="size-1.5 rounded-full animate-bounce"
+            style={{ backgroundColor: 'var(--muted-foreground)', animationDelay: `${i * 120}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Burbuja ─────────────────────────────────────────────────────────────────
 
 function Burbuja({ texto, mio, ultimaDelBloque, pie }: {
@@ -272,7 +299,7 @@ export interface ContextoAncla { titulo: string; detalle: string }
 
 export function HiloVista({
   conversacion, identidad, mensajes, authUserId, error, ancla,
-  cuerpo, enviando, onCuerpo, onEnviar, onVolver, onReintentar,
+  cuerpo, enviando, onCuerpo, onEnviar, onVolver, onReintentar, escribiendoOtros,
 }: {
   conversacion: ConversacionStaff;
   identidad: Identidad;
@@ -286,6 +313,7 @@ export function HiloVista({
   onEnviar: () => void;
   onVolver: () => void;
   onReintentar: () => void;
+  escribiendoOtros?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
@@ -296,7 +324,7 @@ export function HiloVista({
     if (!mensajes) return;
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [mensajes]);
+  }, [mensajes, escribiendoOtros]);
 
   // El compositor crece con el texto en vez de dejar un renglón con scroll
   // interno: escribir tres frases sin ver lo que llevas escrito es de las
@@ -410,6 +438,7 @@ export function HiloVista({
             </div>
           ))
         )}
+        {!error && escribiendoOtros && <BurbujaEscribiendo />}
       </div>
 
       {error && (

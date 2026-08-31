@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
@@ -105,21 +105,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (error) return errorInterno('public/mensajeria/mensajes:POST', error, 'No se ha podido enviar el mensaje.');
 
-  // Best-effort, igual que en el lado staff: nunca deshace un mensaje ya guardado.
-  const { data: conv } = await admin.from('conversaciones')
-    .select('tipo, studio_id').eq('id', id).maybeSingle();
-  if (conv) {
-    const authUserIds = await authUserIdsParaNotificar(
-      admin, { id, tipo: conv.tipo as string, studio_id: conv.studio_id as string }, user.userId,
-    );
-    if (authUserIds.length > 0) {
+  // Best-effort, igual que en el lado staff, y por el mismo motivo movido a
+  // `after()`: la socia ya tiene su mensaje guardado en este punto, no debe
+  // esperar a que se resuelvan destinatarios + notificación + entrega externa.
+  const mensajeId = (data as RowMensajes).id;
+  after(async () => {
+    try {
+      const { data: conv } = await admin.from('conversaciones')
+        .select('tipo, studio_id').eq('id', id).maybeSingle();
+      if (!conv) return;
+      const authUserIds = await authUserIdsParaNotificar(
+        admin, { id, tipo: conv.tipo as string, studio_id: conv.studio_id as string }, user.userId,
+      );
+      if (authUserIds.length === 0) return;
       const remitente = (await resolverNombreRemitente(admin, user.userId, conv.studio_id as string)) ?? 'Alguien';
       await emitirMensajeRecibido(admin, {
-        studioId: conv.studio_id as string, conversacionId: id, mensajeId: (data as RowMensajes).id,
+        studioId: conv.studio_id as string, conversacionId: id, mensajeId,
         remitente, previsualizacion: cuerpo.slice(0, 80), authUserIds,
       });
+    } catch (e) {
+      console.error('[public/mensajeria/mensajes:POST] fan-out tras respuesta falló', e instanceof Error ? e.message : e);
     }
-  }
+  });
 
   return NextResponse.json({ mensaje: data as RowMensajes });
 }
