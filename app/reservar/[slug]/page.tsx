@@ -2829,7 +2829,26 @@ export default function ReservarPage() {
           );
         })()}
 
-        {tab === 'clases' && !fichaSesionId && (
+        {tab === 'clases' && !fichaSesionId && bookingSesionId === null && (
+          // ⚠️ Bug real reportado por el fundador (2026-08-31, con captura):
+          // faltaba una condición de flujo aquí — mismo patrón que ya se
+          // corrigió para la portada/bonos/sobre/cifras/contacto
+          // (2026-08-30), pero esta condición solo miraba `fichaSesionId`
+          // (la ficha-resumen del deep-link `?sesion=`), no el checkout
+          // ('datos'/'pago', `bookingSesionId`). Con la ficha-resumen
+          // cerrada pero el checkout abierto, este bloque seguía montado —
+          // `ReservaCalendario` no pinta su lista en ese estado, pero el
+          // `padding` de este `<div>` (`cq(28,3.4,44)` arriba + `cq(50,7,90)`
+          // abajo, ~134px medido en producción) seguía ahí, partiendo la
+          // pantalla en dos con un hueco vacío entre la cabecera y "Volver a
+          // la clase".
+          // ⚠️ A propósito `bookingSesionId === null`, NO `!enVistaReserva`:
+          // `enVistaReserva` también es `true` con `fichaCalendarioAbierta`
+          // (la ficha de detalle de una socia autenticada, que vive DENTRO de
+          // `<ReservaCalendario>` — más abajo). Usar `enVistaReserva` aquí
+          // desmontaba `<ReservaCalendario>` en cuanto se abría su propia
+          // ficha, y con ella la ficha misma — probado con la suite
+          // completa, no solo con el caso de invitada que motivó el arreglo.
           // Petición explícita del fundador: la columna de clases usaba
           // `max-width: 760px` desde #1240 (columna de lectura centrada,
           // como Momence) — en desktop dejaba un pasillo enorme de fondo
