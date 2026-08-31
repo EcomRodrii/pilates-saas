@@ -137,6 +137,16 @@ export function PantallaReserva({
   onChangeInfoAdicional: (patch: Partial<InfoAdicional>) => void;
 }) {
   const [ctaHover, setCtaHover] = useState(false);
+  // ⚠️ Auditoría de conversión (2026-08-31): "Información adicional" (4
+  // campos opcionales) se pintaba SIEMPRE expandida, entre los datos
+  // obligatorios y el resto del checkout — alargaba justo la pantalla de
+  // mayor fricción (primera reserva de pago) sin aportar nada a la decisión
+  // de reservar. Cerrada por defecto, tras un disclosure; se abre sola si ya
+  // hay algo escrito (p. ej. al volver de "pago" a "datos" con
+  // `onVolverADatos`, que no desmonta este componente).
+  const [infoAdicionalAbierta, setInfoAdicionalAbierta] = useState(
+    () => !!(infoAdicional.genero || infoAdicional.comoConociste || infoAdicional.codigoPostal || infoAdicional.fechaNacimiento)
+  );
   const camposIncompletos = camposFaltantes(loginForm, privacidadAceptada);
   const formValido = camposIncompletos.length === 0;
   const ctaActivo = formValido && !datosCargando;
@@ -366,8 +376,15 @@ export function PantallaReserva({
             {fase === 'datos' && (
               <div key="datos" className="pantalla-reserva-seccion" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <div>
-                  <div style={eyebrow(9)}>Paso final</div>
-                  <h2 style={{ fontFamily: serif, fontWeight: 800, fontSize: cq(21, 2.2, 25), color: 'var(--portal-ink)', marginTop: 6, marginBottom: 6 }}>
+                  {/* ⚠️ Auditoría de conversión (2026-08-31): decía "Paso
+                      final" aquí, pero tras "Continuar al pago" viene la
+                      pantalla de pago completa — quien ya se creía en el
+                      último paso y ve otra pantalla más justo al llegar a la
+                      tarjeta (el momento de más fricción) puede dudar de si
+                      algo ha ido mal. `fase === 'pago'` (más abajo) no lleva
+                      ningún eyebrow de paso — quitado aquí también para no
+                      prometer un conteo que el propio flujo no sostiene. */}
+                  <h2 style={{ fontFamily: serif, fontWeight: 800, fontSize: cq(21, 2.2, 25), color: 'var(--portal-ink)', marginBottom: 6 }}>
                     Tus datos
                   </h2>
                   <p style={{ fontSize: 13, color: 'var(--portal-muted-2)', lineHeight: 1.5 }}>
@@ -393,13 +410,25 @@ export function PantallaReserva({
                   <p style={{ color: 'var(--destructive)', fontSize: 13 }}>{datosError}</p>
                 )}
 
-                {/* "Información adicional" — diseño "Tentare Portal Reservas":
-                    SIEMPRE visible (no colapsada), con el copy exacto y las
-                    opciones exactas del .dc.html. Todo opcional. */}
+                {/* "Información adicional" — copy/opciones exactas del
+                    .dc.html, pero YA NO siempre visible (ver auditoría de
+                    conversión arriba, 2026-08-31): un disclosure cerrado por
+                    defecto la saca del camino directo hacia el CTA sin
+                    perder el dato para quien sí quiera rellenarlo. */}
                 <div>
-                  <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600, marginBottom: 8 }}>
-                    Información adicional <span style={{ fontWeight: 400 }}>· solo te lo pedimos la primera vez</span>
-                  </p>
+                  {infoAdicionalAbierta ? (
+                    <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600, marginBottom: 8 }}>
+                      Información adicional <span style={{ fontWeight: 400 }}>· solo te lo pedimos la primera vez</span>
+                    </p>
+                  ) : (
+                    <button type="button" onClick={() => setInfoAdicionalAbierta(true)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5, border: 'none', background: 'none',
+                        padding: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--portal-muted)', cursor: 'pointer',
+                      }}>
+                      + Cuéntanos un poco más <span style={{ fontWeight: 400 }}>(opcional)</span>
+                    </button>
+                  )}
                   {/* ⚠️ Intentado y revertido (2026-08-29): cambiar a
                       `auto-fit`/`minmax` para evitar el corte de "¿Cómo nos
                       has conocido?"/"Cumpleaños" en el layout de dos columnas
@@ -415,18 +444,20 @@ export function PantallaReserva({
                       se toca sin una forma de estrechar SOLO el rango de
                       anchura intermedio (ficha en dos columnas pero ventana
                       no muy ancha) sin afectar a móvil. */}
-                  <div style={{ display: 'grid', gap: 7, gridTemplateColumns: '1fr 1fr' }}>
-                    <CampoSelect placeholder="Género" value={infoAdicional.genero}
-                      onChange={v => onChangeInfoAdicional({ genero: v })}
-                      opciones={[['mujer', 'Mujer'], ['hombre', 'Hombre'], ['prefiero-no-decirlo', 'Prefiero no decirlo']]} />
-                    <CampoSelect placeholder="¿Cómo nos has conocido?" value={infoAdicional.comoConociste}
-                      onChange={v => onChangeInfoAdicional({ comoConociste: v })}
-                      opciones={[['instagram', 'Instagram'], ['google', 'Google'], ['amiga', 'Una amiga'], ['paso-por-delante', 'Paso por delante']]} />
-                    <CampoTexto placeholder="Código postal" value={infoAdicional.codigoPostal}
-                      onChange={v => onChangeInfoAdicional({ codigoPostal: v })} />
-                    <CampoTexto placeholder="Cumpleaños · dd/mm/aaaa" value={infoAdicional.fechaNacimiento}
-                      onChange={v => onChangeInfoAdicional({ fechaNacimiento: v })} />
-                  </div>
+                  {infoAdicionalAbierta && (
+                    <div style={{ display: 'grid', gap: 7, gridTemplateColumns: '1fr 1fr' }}>
+                      <CampoSelect placeholder="Género" value={infoAdicional.genero}
+                        onChange={v => onChangeInfoAdicional({ genero: v })}
+                        opciones={[['mujer', 'Mujer'], ['hombre', 'Hombre'], ['prefiero-no-decirlo', 'Prefiero no decirlo']]} />
+                      <CampoSelect placeholder="¿Cómo nos has conocido?" value={infoAdicional.comoConociste}
+                        onChange={v => onChangeInfoAdicional({ comoConociste: v })}
+                        opciones={[['instagram', 'Instagram'], ['google', 'Google'], ['amiga', 'Una amiga'], ['paso-por-delante', 'Paso por delante']]} />
+                      <CampoTexto placeholder="Código postal" value={infoAdicional.codigoPostal}
+                        onChange={v => onChangeInfoAdicional({ codigoPostal: v })} />
+                      <CampoTexto placeholder="Cumpleaños · dd/mm/aaaa" value={infoAdicional.fechaNacimiento}
+                        onChange={v => onChangeInfoAdicional({ fechaNacimiento: v })} />
+                    </div>
+                  )}
                 </div>
 
                 {/* "Elige tu plaza" — plomería aprobada ("plomería completa"):
@@ -554,50 +585,66 @@ export function PantallaReserva({
                   </span>
                 </label>
 
-                {/* Total justo encima del CTA — misma proximidad que Stripe
-                    Checkout/Bsport: el precio se recuerda justo donde se paga,
-                    no solo arriba del todo, lejos del botón. Con código
-                    válido, el precio tachado deja claro que el descuento ya
-                    cuenta, no solo que "se aplicará". */}
-                <div style={{
-                  display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-                  paddingTop: 12, borderTop: '1px dashed var(--portal-line)',
-                }}>
-                  <span style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600 }}>Total a pagar</span>
-                  <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    {precioConDescuento !== null && (
-                      <span style={{ fontSize: 14, color: 'var(--portal-muted)', textDecoration: 'line-through' }}>{precio} €</span>
-                    )}
-                    <span style={{ fontFamily: serif, fontSize: cq(22, 2.2, 26), color: 'var(--portal-ink)' }}>
-                      {precioConDescuento ?? precio} €
+                {/* ⚠️ Auditoría de conversión (2026-08-31): total+CTA
+                    pegados al fondo del VIEWPORT en móvil (`.pantalla-reserva-cta-pegada`,
+                    solo por debajo de 760px — @container en globals.css, el
+                    mismo breakpoint que ya decide una vs. dos columnas aquí
+                    mismo). Esta es la pantalla más larga del checkout (foto +
+                    ficha + formulario + sitio + bonos + código + casilla), y
+                    antes había que bajar por todo eso para encontrar el botón
+                    cada vez que se volvía a ella. `position: sticky` funciona
+                    aquí porque Modo A es una página real con scroll de
+                    ventana; en Modo B (`inline`, sin scroll propio del propio
+                    iframe — crece con el contenido, ver comentario en el
+                    `<PublicSheet>` que monta esto en page.tsx) sticky
+                    simplemente no encuentra un contenedor que hacer scroll y
+                    se comporta como estático — no rompe nada, solo no pega. */}
+                <div className="pantalla-reserva-cta-pegada">
+                  {/* Total justo encima del CTA — misma proximidad que Stripe
+                      Checkout/Bsport: el precio se recuerda justo donde se
+                      paga, no solo arriba del todo, lejos del botón. Con
+                      código válido, el precio tachado deja claro que el
+                      descuento ya cuenta, no solo que "se aplicará". */}
+                  <div style={{
+                    display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+                    paddingTop: 12, borderTop: '1px dashed var(--portal-line)',
+                  }}>
+                    <span style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600 }}>Total a pagar</span>
+                    <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      {precioConDescuento !== null && (
+                        <span style={{ fontSize: 14, color: 'var(--portal-muted)', textDecoration: 'line-through' }}>{precio} €</span>
+                      )}
+                      <span style={{ fontFamily: serif, fontSize: cq(22, 2.2, 26), color: 'var(--portal-ink)' }}>
+                        {precioConDescuento ?? precio} €
+                      </span>
                     </span>
-                  </span>
-                </div>
+                  </div>
 
-                <div>
-                  <button type="button" onClick={onContinuar} disabled={!ctaActivo}
-                    onMouseEnter={() => setCtaHover(true)} onMouseLeave={() => setCtaHover(false)}
-                    style={{
-                      width: '100%', height: cq(50, 4, 58), borderRadius: R.pillBtnCta, border: 'none', cursor: ctaActivo ? 'pointer' : 'not-allowed',
-                      fontFamily: sans, fontSize: 14.5, fontWeight: 600, letterSpacing: '.01em',
-                      color: 'var(--portal-brand-foreground)',
-                      background: 'var(--portal-brand)',
-                      opacity: ctaActivo ? 1 : 0.45,
-                      boxShadow: ctaActivo ? SH.ctaOscuroFuerte : 'none',
-                      transform: ctaActivo && ctaHover ? 'translateY(-1px)' : 'none',
-                      transition: `box-shadow .35s ${EASE}, transform .35s ${EASE}, opacity .25s ease`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    }}>
-                    {datosCargando && <Loader2 size={16} className="animate-spin" />}
-                    {datosCargando ? 'Un momento…' : 'Continuar al pago'}
-                  </button>
-                  {/* Explica exactamente qué falta, sin esperar a que se
-                      pulse el botón deshabilitado — nunca un botón "mudo". */}
-                  {!formValido && !datosCargando && (
-                    <p style={{ fontSize: 11.5, color: 'var(--portal-muted)', textAlign: 'center', marginTop: 8 }}>
-                      Falta: {camposIncompletos.join(', ')}
-                    </p>
-                  )}
+                  <div style={{ marginTop: 14 }}>
+                    <button type="button" onClick={onContinuar} disabled={!ctaActivo}
+                      onMouseEnter={() => setCtaHover(true)} onMouseLeave={() => setCtaHover(false)}
+                      style={{
+                        width: '100%', height: cq(50, 4, 58), borderRadius: R.pillBtnCta, border: 'none', cursor: ctaActivo ? 'pointer' : 'not-allowed',
+                        fontFamily: sans, fontSize: 14.5, fontWeight: 600, letterSpacing: '.01em',
+                        color: 'var(--portal-brand-foreground)',
+                        background: 'var(--portal-brand)',
+                        opacity: ctaActivo ? 1 : 0.45,
+                        boxShadow: ctaActivo ? SH.ctaOscuroFuerte : 'none',
+                        transform: ctaActivo && ctaHover ? 'translateY(-1px)' : 'none',
+                        transition: `box-shadow .35s ${EASE}, transform .35s ${EASE}, opacity .25s ease`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      }}>
+                      {datosCargando && <Loader2 size={16} className="animate-spin" />}
+                      {datosCargando ? 'Un momento…' : 'Continuar al pago'}
+                    </button>
+                    {/* Explica exactamente qué falta, sin esperar a que se
+                        pulse el botón deshabilitado — nunca un botón "mudo". */}
+                    {!formValido && !datosCargando && (
+                      <p style={{ fontSize: 11.5, color: 'var(--portal-muted)', textAlign: 'center', marginTop: 8 }}>
+                        Falta: {camposIncompletos.join(', ')}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <FilaConfianza />

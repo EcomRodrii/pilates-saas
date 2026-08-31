@@ -736,6 +736,22 @@ nextjs-portal { display: none !important; }
   .pantalla-reserva-grid { grid-template-columns: 1fr 1fr !important; align-items: start; }
 }
 
+/* Auditoría de conversión (2026-08-31): total+CTA de "Tus datos" pegados al
+   fondo del viewport SOLO por debajo de 760px — el mismo corte que decide
+   una columna vs. dos aquí arriba. En escritorio la tarjeta de pago ya es
+   una columna corta y visible sin scroll; en móvil es la pantalla más larga
+   del checkout (foto+ficha+formulario+sitio+bonos+código+casilla) y el botón
+   se perdía al fondo. `position: sticky` no rompe Modo B (embebido `inline`,
+   crece con el contenido, sin scroll propio) — sin un contenedor con scroll
+   que "pegar", simplemente no hace nada ahí, nunca peor que antes. */
+@container (max-width: 759px) {
+  .pantalla-reserva-cta-pegada {
+    position: sticky; bottom: 0; z-index: 5;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--portal-surface);
+  }
+}
+
 /* Transición entre "Tus datos" y "Pago" — nunca un salto seco de página a
    página (eso es justo la sensación de "wizard" que se pidió evitar). */
 @keyframes pantalla-reserva-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
