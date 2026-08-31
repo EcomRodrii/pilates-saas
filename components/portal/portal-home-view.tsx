@@ -625,7 +625,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
 
           <div style={{ marginTop: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(250,249,245,.9)' }}>
-              {ahora ? saludoPorHora(ahora) : ' '}, {nombre}
+              {ahora ? saludoPorHora(ahora) : ' '}, {nombre} 👋
             </div>
             <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-.035em', lineHeight: 1, color: '#FAF9F5', marginTop: 6 }}>
               {homeCard.caso === 'PROXIMA_CLASE'
