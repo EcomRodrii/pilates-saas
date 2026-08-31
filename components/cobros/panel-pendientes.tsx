@@ -1045,7 +1045,18 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                           className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                           onClick={e => e.stopPropagation()}
                         >
-                          {r.estado === 'PENDIENTE' && (
+                          {/* FALLIDO se cobra exactamente igual que PENDIENTE — no es un
+                              estado ciego. El dunning ya agotó sus 3 reintentos
+                              automáticos (lib/billing/dunning.ts), pero
+                              cobrarReciboOffSession (lib/billing/stripe-cobros.ts)
+                              acepta explícitamente 'PENDIENTE' o 'FALLIDO' como
+                              "recuperación manual tras agotar el dunning": el backend
+                              siempre soportó reintentar un FALLIDO a mano, solo que
+                              esta fila nunca ofrecía ningún botón para hacerlo — con
+                              el estado en rojo "No se pudo cobrar" y ni un solo botón
+                              visible, "Cobrar online" pulsado aquí no hacía nada
+                              porque el botón, sencillamente, no existía. */}
+                          {(r.estado === 'PENDIENTE' || r.estado === 'FALLIDO') && (
                             <>
                               <button
                                 onClick={() => setCobrandoRecibo(r.id)}
