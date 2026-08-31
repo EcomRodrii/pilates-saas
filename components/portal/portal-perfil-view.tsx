@@ -24,11 +24,11 @@ import { useModo } from '@/lib/portal-modo';
 import { subirFotoPerfil, eliminarFotoPerfil, validarFotoPerfil } from '@/lib/portal-storage';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { LogoTentare } from '@/components/marca/logo-tentare';
-import { BottomSheet, Input, Button, Card, Toast, type AvisoToast } from '@/components/portal/ui';
+import { BottomSheet, Input, Button, Toast, type AvisoToast } from '@/components/portal/ui';
 import { bonoActivo } from '@/lib/bonos-portal';
 import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
-import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
+import { display, micro, sans, texto, transicion, dur, EASE } from '@/lib/portal-design';
 import type { PortalSession } from '@/lib/portal-auth';
 import type { Socio } from '@/lib/types';
 
@@ -268,6 +268,9 @@ export function PortalPerfilView({
     { etiqueta: 'favoritos', valor: String(favoritosSocia.length) },
   ];
 
+  // Filas de "Cuenta" (CHEATSHEET-CSS.md / capturas reales): título 14px/700
+  // negro, valor 13px muted, chevron "›" gris fino — nunca la flecha de color
+  // de marca (esa es para CTAs, no para "aquí hay más").
   const fila = (
     titulo: string,
     valor: string | null,
@@ -277,21 +280,21 @@ export function PortalPerfilView({
   ) => {
     const contenido = (
       <>
-        <span style={{ ...display(23), color: t.ink }}>{titulo}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          {valor && <span style={{ fontFamily: sans, fontSize: 11.5, color: t.muted }}>{valor}</span>}
+        <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1A1A' }}>{titulo}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {valor && <span style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52' }}>{valor}</span>}
           {/* Sin destino no hay flecha: prometería un sitio al que no se va.
               Vale igual para el interruptor, que no lleva a ninguna parte —
               cambia algo aquí mismo, y lo que hay que ver es su estado. */}
-          {onClick && !interruptor && <span style={{ fontFamily: sans, fontSize: 13, color: t.heroAccent }}>→</span>}
+          {onClick && !interruptor && <span style={{ fontFamily: sans, fontSize: 15, color: '#98A093' }}>›</span>}
         </span>
       </>
     );
     const estilo: React.CSSProperties = {
-      height: 66, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      height: 54, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       gap: 12, background: 'none', border: 'none', textAlign: 'left',
-      borderTop: `1px solid ${t.line}`,
-      borderBottom: ultima ? `1px solid ${t.line}` : undefined,
+      borderTop: '1px solid #EFEDE4',
+      borderBottom: ultima ? '1px solid #EFEDE4' : undefined,
       transition: `padding-left ${dur.control}ms ${EASE}`,
     };
     return onClick
@@ -311,8 +314,8 @@ export function PortalPerfilView({
   };
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
-      <div style={{ padding: '62px 24px 24px' }}>
+    <div style={{ minHeight: '100%', background: 'var(--ap-fondo, #FAF9F5)', color: 'var(--ap-tinta, #1A1A1A)' }}>
+      <div style={{ padding: '54px 20px 24px' }}>
         {/* ── Identidad ────────────────────────────────────────────────────── */}
         <button
           type="button"
@@ -328,22 +331,22 @@ export function PortalPerfilView({
             size="xl"
           />
         </button>
-        <h1 style={{ ...display(34), color: t.ink, marginTop: 18 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.025em', color: '#1A1A1A', marginTop: 16 }}>
           {socio.nombre} {socio.apellidos}
         </h1>
         {desdeCuando(socio.fechaAlta) && (
-          <p style={{ ...display(17, true), color: t.muted, marginTop: 8 }}>{desdeCuando(socio.fechaAlta)}</p>
+          <p style={{ fontSize: 13.5, color: '#5A5A52', marginTop: 4 }}>{desdeCuando(socio.fechaAlta)}</p>
         )}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
           {stats.map(s => (
-            <Card key={s.etiqueta} style={{ flex: 1, minWidth: 0, padding: '14px 14px 12px' }}>
-              <div style={{ ...display(24), color: t.ink }}>{s.valor}</div>
-              <div style={{ ...micro(8, 0.2, 600), color: t.muted, marginTop: 6, lineHeight: 1.3 }}>{s.etiqueta}</div>
+            <div key={s.etiqueta} className="ap-card" style={{ flex: 1, minWidth: 0, padding: '14px 14px 12px' }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#1A1A1A' }}>{s.valor}</div>
+              <div style={{ fontSize: 10.5, color: '#5A5A52', marginTop: 6, lineHeight: 1.3 }}>{s.etiqueta}</div>
               {s.nota && (
-                <div style={{ ...micro(8, 0, 600), color: t.muted, marginTop: 2 }}>{s.nota}</div>
+                <div style={{ fontSize: 9.5, color: '#98A093', marginTop: 2 }}>{s.nota}</div>
               )}
-            </Card>
+            </div>
           ))}
         </div>
 
@@ -357,9 +360,9 @@ export function PortalPerfilView({
             portal-clases-view.tsx (`favoritos`/`toggleFavorito`), solo
             resumido — no se reimplementa el toggle aquí. */}
         <div style={{ marginTop: 28 }}>
-          <h2 style={{ ...micro(9.5, 0.28), color: t.micro }}>Tus favoritos</h2>
+          <h2 className="ap-label">Tus favoritos</h2>
           {favoritosSocia.length === 0 ? (
-            <p style={{ ...texto.nota, color: t.muted, marginTop: 10 }}>
+            <p style={{ fontSize: 13, color: '#5A5A52', marginTop: 10 }}>
               Aún no tienes — toca el ♡ de una clase y aparecerá aquí.
             </p>
           ) : (
@@ -370,7 +373,7 @@ export function PortalPerfilView({
                 return (
                   <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, height: 44 }}>
                     <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: tc.color, flexShrink: 0 }} />
-                    <span style={{ ...texto.metaFuerte, color: t.ink }}>{tc.nombre}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1A1A' }}>{tc.nombre}</span>
                   </div>
                 );
               })}
@@ -389,23 +392,24 @@ export function PortalPerfilView({
         {(racha && racha.semanas > 0) || retoDestacado ? (
           <div style={{ marginTop: 28 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-              <h2 style={{ ...micro(9.5, 0.28), color: t.micro }}>Tu actividad</h2>
+              <h2 className="ap-label">Tu actividad</h2>
               <button
                 type="button"
                 onClick={() => navegar(`/portal/${slug}/progreso`)}
-                style={{ ...micro(9.5, 0.18, 600), color: t.heroAccent, background: 'none', border: 'none', cursor: 'pointer' }}
+                style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9.5, letterSpacing: '.18em', fontWeight: 600, color: '#3E6B4A', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 Ver todo →
               </button>
             </div>
-            <div style={{
-              marginTop: 12, borderRadius: radio.card, background: t.surface, boxShadow: '0 16px 36px -28px rgba(34,42,30,.5)',
-              padding: 20, display: 'flex', flexDirection: 'column', gap: 16,
-            }}>
+            {/* CHEATSHEET-CSS.md, ap-card: el mismo tratamiento de tarjeta que
+                el resto del portal, con la racha en ámbar (mismo color que
+                "🔥 N sem." de la Semana del Inicio) y el reto también en
+                ámbar — es la medalla 🏅, no el verde de marca. */}
+            <div className="ap-card" style={{ marginTop: 12, padding: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
               {racha && racha.semanas > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ ...texto.metaFuerte, color: t.ink }}>🔥 Racha actual</span>
-                  <span style={{ ...micro(9, 0.1, 700), color: racha.enRiesgo ? '#B0453A' : t.muted }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1A1A' }}>🔥 Racha actual</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 800, color: racha.enRiesgo ? '#C2503A' : '#C99A3C' }}>
                     {racha.enRiesgo && racha.diasParaPerder != null
                       ? `quedan ${racha.diasParaPerder} ${racha.diasParaPerder === 1 ? 'día' : 'días'}`
                       /* "· mejor: N" del diseño exige un máximo histórico que el
@@ -420,15 +424,16 @@ export function PortalPerfilView({
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 18 }}>{retoDestacado.def.icono}</span>
-                    <span style={{ ...texto.metaFuerte, color: t.ink }}>{retoDestacado.def.nombre}</span>
-                    <span style={{ ...micro(9, 0, 600), color: t.muted, marginLeft: 'auto' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1A1A' }}>{retoDestacado.def.nombre}</span>
+                    <span style={{ fontSize: 11, color: '#5A5A52', marginLeft: 'auto' }}>
                       {Math.min(retoDestacado.valor, retoDestacado.def.objetivo)}/{retoDestacado.def.objetivo}
                     </span>
                   </div>
-                  <div style={{ height: 5, borderRadius: 999, background: t.line, marginTop: 8, overflow: 'hidden' }}>
+                  <div style={{ height: 5, borderRadius: 999, background: '#EFEDE4', marginTop: 8, overflow: 'hidden' }}>
                     <div style={{
                       width: `${Math.min(100, Math.round((retoDestacado.valor / retoDestacado.def.objetivo) * 100))}%`,
-                      height: '100%', background: retoDestacado.completado ? '#3E9B6C' : 'var(--portal-brand)', borderRadius: 999,
+                      height: '100%', background: retoDestacado.completado ? '#4F8A5B' : '#C99A3C', borderRadius: 999,
+                      transition: 'width .6s',
                     }} />
                   </div>
                 </div>
@@ -444,7 +449,7 @@ export function PortalPerfilView({
             reimplementa esa pantalla completa. */}
         {hayLogros && (
           <div style={{ marginTop: 28 }}>
-            <h2 style={{ ...micro(9.5, 0.28), color: t.micro }}>Logros</h2>
+            <h2 className="ap-label">Logros</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
               {logrosTop4.map(({ def, progreso }) => {
                 const completado = progreso?.completado ?? false;
@@ -452,22 +457,22 @@ export function PortalPerfilView({
                 return (
                   <div
                     key={def.id}
+                    className="ap-card"
                     style={{
-                      background: t.surface, borderRadius: radio.card, padding: 14,
+                      padding: 14,
                       display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 6,
-                      boxShadow: '0 14px 32px -26px rgba(34,42,30,.5)',
                     }}
                   >
                     <div style={{
                       width: 44, height: 44, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-                      backgroundColor: completado ? 'color-mix(in srgb, var(--portal-brand) 12%, transparent)' : t.surface2,
+                      backgroundColor: completado ? '#EAF0E7' : '#EFEDE4',
                       filter: completado ? 'none' : 'grayscale(0.6)',
                     }}>
                       {def.icono}
                     </div>
-                    <p style={{ ...texto.metaFuerte, color: t.ink, lineHeight: 1.15 }}>{def.nombre}</p>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: '#1A1A1A', lineHeight: 1.15 }}>{def.nombre}</p>
                     {!completado && (
-                      <p style={{ ...micro(8, 0, 600), color: t.muted }}>{actual}/{def.umbral}</p>
+                      <p style={{ fontSize: 10, color: '#98A093' }}>{actual}/{def.umbral}</p>
                     )}
                   </div>
                 );
@@ -483,15 +488,15 @@ export function PortalPerfilView({
             por el que el logo colapsado y /login se quedan con la marca
             paraguas (ver tentare-os.md, "Arquitectura de marca"). */}
         <div style={{
-          marginTop: 24, borderRadius: radio.card, background: 'color-mix(in srgb, var(--portal-brand) 10%, transparent)',
+          marginTop: 24, borderRadius: 14, background: '#EAF0E7',
           padding: '18px 20px', display: 'flex', gap: 14, alignItems: 'flex-start',
         }}>
           {/* El logo NUNCA es una imagen/emoji suelto — siempre el componente
               en línea (ver tentare-os.md, "El logotipo"). */}
           <LogoTentare formato="isotipo" tinta="color" alto={20} decorativo />
           <div>
-            <p style={{ ...texto.metaFuerte, color: t.ink }}>¿Quieres probar otros estudios?</p>
-            <p style={{ ...texto.nota, color: t.muted, marginTop: 4 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#2E5A3A' }}>¿Quieres probar otros estudios?</p>
+            <p style={{ fontSize: 12, color: '#3E6B4A', marginTop: 4 }}>
               Descárgate Tentare Network — el marketplace de estudios e instructoras.
             </p>
           </div>
@@ -535,9 +540,9 @@ export function PortalPerfilView({
           type="button"
           onClick={onLogout}
           style={{
-            height: 54, width: '100%', marginTop: 26, borderRadius: radio.botonAlto - 6,
-            border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
-            background: 'none', color: t.muted, ...texto.boton, fontSize: 13.5, cursor: 'pointer',
+            height: 50, width: '100%', marginTop: 26, borderRadius: 25,
+            border: '1px solid #D9D6C9',
+            background: 'none', color: '#5A5A52', fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
             transition: transicion(['background', 'color'], dur.color),
           }}
         >
@@ -545,7 +550,7 @@ export function PortalPerfilView({
         </button>
 
         {/* Marca blanca: el pie es del estudio, no nuestro. */}
-        <div style={{ ...micro(9, 0.34), color: t.micro, textAlign: 'center', marginTop: 40 }}>
+        <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '.24em', color: '#98A093', textAlign: 'center', marginTop: 40 }}>
           {studio?.nombre ?? ''}
         </div>
       </div>
