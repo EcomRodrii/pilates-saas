@@ -14,7 +14,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import {
   Cake, CalendarDays, Check, Clock, CreditCard, Globe, Heart, Image as ImageIcon,
-  MapPin, Megaphone, MessageCircle, Pin, Sparkles, Ticket, UserCheck, UserMinus,
+  MapPin, Megaphone, MessageCircle, Pencil, Pin, Sparkles, Ticket, Trash2, UserCheck, UserMinus,
   Users, Wallet, X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -463,6 +463,8 @@ export function PostCardPanel({
   indice,
   onLike,
   onToggleComentarios,
+  onEditar,
+  onBorrar,
   children,
 }: {
   post: PostComunidad;
@@ -473,11 +475,23 @@ export function PostCardPanel({
   indice: number;
   onLike: (id: string) => void;
   onToggleComentarios: (id: string) => void;
+  /** Ausentes → sin acciones de editar/borrar (p.ej. una vista de solo lectura). */
+  onEditar?: (id: string, texto: string) => void;
+  onBorrar?: (id: string) => void;
   /** El hilo de comentarios, que lo monta la página (tiene el estado). */
   children?: React.ReactNode;
 }) {
   const esEstudio = post.autorId === null;
   const esEvento = post.tipo === 'EVENTO';
+  const [editando, setEditando] = useState(false);
+  const [borradorEdicion, setBorradorEdicion] = useState(post.texto);
+
+  function guardarEdicion() {
+    const texto = borradorEdicion.trim();
+    if (!texto || texto === post.texto) { setEditando(false); setBorradorEdicion(post.texto); return; }
+    onEditar?.(post.id, texto);
+    setEditando(false);
+  }
 
   return (
     <article
@@ -510,13 +524,70 @@ export function PostCardPanel({
             <Users size={11} aria-hidden />
             {etiquetaSegmento(post.audiencia)}
           </span>
+          {!editando && (onEditar || onBorrar) && (
+            <div className="flex shrink-0 items-center gap-0.5">
+              {onEditar && (
+                <button
+                  type="button"
+                  onClick={() => { setBorradorEdicion(post.texto); setEditando(true); }}
+                  aria-label="Editar publicación"
+                  className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
+              {onBorrar && (
+                <button
+                  type="button"
+                  onClick={() => onBorrar(post.id)}
+                  aria-label="Borrar publicación"
+                  className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          )}
         </header>
 
         {esEvento && <TicketEventoPanel post={post} />}
 
-        <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground">
-          {post.texto}
-        </p>
+        {editando ? (
+          <div className="mt-4 space-y-2">
+            <textarea
+              autoFocus
+              value={borradorEdicion}
+              onChange={e => setBorradorEdicion(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Escape') { setEditando(false); setBorradorEdicion(post.texto); }
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); guardarEdicion(); }
+              }}
+              rows={3}
+              className="w-full resize-none rounded-xl border border-border bg-card px-3.5 py-2.5 text-[15px] leading-relaxed text-foreground outline-none focus:border-brand"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => { setEditando(false); setBorradorEdicion(post.texto); }}
+                className="rounded-xl px-3.5 py-2 text-[12.5px] font-bold text-muted-foreground transition-colors hover:bg-muted"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={guardarEdicion}
+                disabled={!borradorEdicion.trim()}
+                className="rounded-xl bg-brand px-3.5 py-2 text-[12.5px] font-bold text-brand-foreground transition-opacity disabled:opacity-40"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground">
+            {post.texto}
+          </p>
+        )}
 
         {post.imagenUrl && (
           <div className="mt-4 overflow-hidden rounded-xl border border-border" style={{ aspectRatio: '4 / 3' }}>

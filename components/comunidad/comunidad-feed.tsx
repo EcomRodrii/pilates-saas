@@ -24,6 +24,7 @@ import { resolverDestinatariasCampana, SEGMENTOS_AUDIENCIA } from '@/lib/marketi
 import { subirImagenPostComunidad } from '@/lib/portal-storage';
 import type { DestinatariosCampana } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   AVATAR_COLORS, Avatar, CompositorPost, FeedVacio, PostCardPanel, SkeletonPostPanel,
   getInitials, timeAgo, type OpcionesPublicar,
@@ -39,9 +40,10 @@ const PAGINA = 8;
 
 export function ComunidadFeed() {
   const {
-    postsComunidad: posts, addPost, toggleLikePost, likedPostIds,
+    postsComunidad: posts, addPost, toggleLikePost, updatePost, deletePost, likedPostIds,
     socios, suscripciones, recibos, sesiones, reservas, tiposClase, dataLoaded, studio,
   } = useStudio();
+  const [borrarId, setBorrarId] = useState<string | null>(null);
 
   const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>({});
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
@@ -193,6 +195,7 @@ export function ComunidadFeed() {
   const aPintar = sortedPosts.slice(0, visibles);
 
   return (
+    <>
     <div className="flex flex-col gap-5 lg:flex-row">
       {/* ── Feed ──────────────────────────────────────────────────────────── */}
       <div className="space-y-4 lg:w-[65%]">
@@ -244,6 +247,8 @@ export function ComunidadFeed() {
               expandido={expandedPosts.has(post.id)}
               onLike={toggleLikePost}
               onToggleComentarios={handleToggleComments}
+              onEditar={updatePost}
+              onBorrar={setBorrarId}
             >
               <HiloComentarios
                 postId={post.id}
@@ -341,6 +346,16 @@ export function ComunidadFeed() {
         </TarjetaLateral>
       </div>
     </div>
+    <ConfirmDialog
+      open={borrarId !== null}
+      onOpenChange={v => { if (!v) setBorrarId(null); }}
+      titulo="¿Borrar esta publicación?"
+      descripcion="Desaparece del tablón y del portal de tus clientas. No se puede deshacer."
+      textoConfirmar="Borrar"
+      destructivo
+      onConfirm={() => { if (borrarId) deletePost(borrarId); setBorrarId(null); }}
+    />
+    </>
   );
 }
 

@@ -22,6 +22,8 @@ import {
   dbUpdateVideoOnDemand,
   dbCrearPostComunidad,
   dbToggleLikePost,
+  dbUpdatePostComunidad,
+  dbDeletePostComunidad,
 } from '@/lib/supabase-data';
 
 // Exportado para que `lib/studio-context.tsx` tipe `addPost` con la firma
@@ -127,6 +129,21 @@ export function useContentStore() {
     });
   }
 
+  // Editar el texto de un post ya publicado. Optimista, mismo criterio que
+  // addPost: sin rollback si falla el guardado — `dbUpdatePostComunidad` ya
+  // reporta el error, y revertir un texto que la propietaria ya ha vuelto a
+  // leer y dado por bueno en pantalla generaría más confusión que dejarlo
+  // como está hasta el próximo refresco real.
+  function updatePost(postId: string, texto: string) {
+    setPostsComunidad(prev => prev.map(p => p.id === postId ? { ...p, texto } : p));
+    void dbUpdatePostComunidad(postId, { texto });
+  }
+
+  function deletePost(postId: string) {
+    setPostsComunidad(prev => prev.filter(p => p.id !== postId));
+    void dbDeletePostComunidad(postId);
+  }
+
   return {
     // estado
     videosOnDemand,
@@ -141,5 +158,7 @@ export function useContentStore() {
     toggleVideo,
     addPost,
     toggleLikePost,
+    updatePost,
+    deletePost,
   };
 }

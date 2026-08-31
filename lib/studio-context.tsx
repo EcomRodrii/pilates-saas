@@ -513,6 +513,8 @@ interface StudioContextValue {
   likedPostIds: Set<string>;
   addPost: (texto: string, opts?: OpcionesAddPost) => void;
   toggleLikePost: (postId: string) => void;
+  updatePost: (postId: string, texto: string) => void;
+  deletePost: (postId: string) => void;
   integraciones: Integracion[];
   upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => void;
   rewardRules: RewardRule[];
@@ -4722,6 +4724,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     likedPostIds,
     addPost: content.addPost,
     toggleLikePost: content.toggleLikePost,
+    updatePost: content.updatePost,
+    deletePost: content.deletePost,
     integraciones,
     upsertIntegracion: integrationsStore.upsertIntegracion,
     rewardRules,
