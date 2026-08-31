@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { PilatesIcon } from '@/components/icons/pilates-icon';
 import { useModo } from '@/lib/portal-modo';
-import { EASE, dur, texto, radio, altura, sombra, cristal, desenfoque } from '@/lib/portal-design';
+import { EASE, dur, radio, altura, cristal } from '@/lib/portal-design';
 import type { NavItemDefault } from '@/lib/portal-nav';
 import { usePortalHref } from './portal-preview-bridge';
 
@@ -105,21 +105,21 @@ export function PortalNav({
           : `calc(var(--portal-tabbar-height, ${altura.tabbar}px) + env(safe-area-inset-bottom))`,
         zIndex: interactive ? 14 : undefined,
         borderRadius: flotante ? `var(--portal-tabbar-radius, ${radio.tabbar}px)` : 0,
-        background: `var(--portal-tabbar-bg, ${t.tabbar})`,
-        ...(flotante ? cristal(desenfoque.tabbar, 170) : {}),
+        background: `var(--portal-tabbar-bg, ${noche ? t.tabbar : 'rgba(250,249,245,.88)'})`,
+        ...(flotante ? cristal(16, 170) : {}),
         border: flotante
           ? `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.85)'}`
           // `--portal-tabbar-border` es la LÍNEA entera, no solo su color: la
           // barra oscura la quita del todo (ver varsBarra) y con un color
           // transparente seguiría reservando su píxel de alto.
-          : `var(--portal-tabbar-border, 1px solid ${t.line})`,
+          : `var(--portal-tabbar-border, 1px solid ${noche ? t.line : '#EFEDE4'})`,
         // Con `--portal-tabbar-border: none` el estilo del borde ya es `none`,
         // así que este ancho no pinta nada — solo acota la línea al lado de
         // arriba cuando SÍ hay borde.
         borderWidth: flotante ? '1px' : '1px 0 0 0',
-        boxShadow: flotante ? `var(--portal-tabbar-shadow, ${sombra.tabbar})` : 'none',
-        display: 'flex', alignItems: 'center', padding: 6,
-        paddingBottom: flotante && interactive ? 6 : 'calc(6px + env(safe-area-inset-bottom))',
+        boxShadow: flotante ? 'var(--portal-tabbar-shadow, 0 22px 44px -22px rgba(34,42,30,.32))' : 'none',
+        display: 'flex', alignItems: 'center', padding: '9px 8px',
+        paddingBottom: flotante && interactive ? 9 : 'calc(24px + env(safe-area-inset-bottom))',
       }}
     >
       {items.map((item, i) => {
@@ -152,9 +152,14 @@ export function PortalNav({
           height: `calc(var(--portal-tabbar-height, ${altura.tabbar}px) - 12px)`,
           maxHeight: '100%',
           borderRadius: radio.pastilla,
-          background: active ? `var(--portal-tabbar-active-bg, ${noche ? t.surface2 : '#FFFFFF'})` : 'transparent',
-          boxShadow: active ? `var(--portal-tabbar-active-shadow, ${sombra.pastilla})` : 'none',
-          color: active ? `var(--portal-tabbar-active-fg, ${t.ink})` : `var(--portal-tabbar-idle-fg, ${t.muted})`,
+          // El prototipo distingue la pestaña activa SOLO por color — sin
+          // píldora de fondo (ver CHEATSHEET-CSS.md "Nav inferior": no
+          // menciona ningún fondo para el estado activo, a diferencia de
+          // otros bloques que sí lo detallan). `--portal-tabbar-active-bg`
+          // se queda por si algún tema (Oliva/Noir) lo quiere pintar.
+          background: active ? 'var(--portal-tabbar-active-bg, transparent)' : 'transparent',
+          boxShadow: active ? 'var(--portal-tabbar-active-shadow, none)' : 'none',
+          color: active ? 'var(--portal-tabbar-active-fg, #1A1A1A)' : 'var(--portal-tabbar-idle-fg, #98A093)',
           textDecoration: 'none',
           transition: `flex-grow ${dur.tab}ms ${EASE}, background ${dur.tab}ms ${EASE}, color 350ms ease`,
           outlineOffset: 2,
@@ -167,8 +172,8 @@ export function PortalNav({
             ...(todasConTexto ? { flexDirection: 'column', gap: 5 } : {}),
           }}>
             <Icon
-              size={18}
-              strokeWidth={active ? 2.25 : 2}
+              size={21}
+              strokeWidth={2}
               style={{
                 flexShrink: 0,
                 // Prop, no CSS var: la var la emitiría ThemeStyle, un
@@ -181,7 +186,10 @@ export function PortalNav({
               }}
             />
             {(active || todasConTexto) && (
-              <span style={{ ...texto.tab, whiteSpace: 'nowrap', ...(todasConTexto ? { fontSize: 10.5 } : {}) }}>
+              <span style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9.5, fontWeight: 800, letterSpacing: '.01em',
+                whiteSpace: 'nowrap', ...(todasConTexto ? { fontSize: 9.5 } : {}),
+              }}>
                 {item.label}
               </span>
             )}
