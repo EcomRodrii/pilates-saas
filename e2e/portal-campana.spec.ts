@@ -103,7 +103,10 @@ test.describe('Campana del Inicio del portal', () => {
 
     const token = firmarTokenPreviewHome(STUDIO_ID);
     await page.goto(`/portal-preview/${SLUG}?t=${token}`);
-    await expect(page.getByRole('heading', { name: /Hola, Vista\./ })).toBeVisible({ timeout: 30_000 });
+    // El saludo ya no es "Hola, {nombre}" (ver portal-home-view.tsx) — se
+    // espera un elemento siempre presente en Inicio, sin importar el caso de
+    // la tarjeta grande.
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
     expect(peticiones).toEqual([]);
     // Y la campana enseña el valor de muestra, no un círculo vacío: apagar la
@@ -121,8 +124,9 @@ test.describe('Campana del Inicio del portal', () => {
     await page.goto(`/portal/${SLUG}/home`);
 
     // Se espera al Inicio por otra cosa que sí carga, para no confundir "falló"
-    // con "aún no ha pintado".
-    await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({ timeout: 30_000 });
+    // con "aún no ha pintado". El saludo ya no vale para esto (deja de ser un
+    // texto fijo), así que se usa el botón de búsqueda, siempre presente.
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
     // Ni número ni punto: no se sabe cuántos hay y decir "0" sería afirmar que
     // está al día. Mismo criterio en la fila de accesos rápidos — las dos

@@ -38,11 +38,18 @@ test.describe('Portal — Perfil', () => {
     await expect(page.getByText(/[Ff]icha de salud/)).toHaveCount(0);
   });
 
+  // ⚠️ El Email SALIÓ de esta hoja: ahora vive en una hoja separada, "Cambiar
+  // email" (botón propio en Perfil, formulario con label "Nuevo email"), que
+  // pasa por `actualizarEmail()` (auth.updateUser) en vez de escribir
+  // `socios.email` directo — ver e2e/portal-mis-datos.spec.ts, que ya cubre
+  // ese flujo entero (no se duplica aquí). Lo que queda por comprobar es que
+  // "Mis datos" sigue trayendo el resto del formulario completo.
   test('«Mis datos» abre la hoja con el formulario entero', async ({ page }) => {
     await page.getByRole('button', { name: 'Mis datos' }).click();
-    for (const campo of ['Nombre', 'Apellidos', 'Email', 'Calle, número, ciudad']) {
-      await expect(page.getByPlaceholder(campo)).toBeVisible();
+    for (const campo of ['Nombre', 'Apellidos', 'Teléfono', 'Fecha de nacimiento', 'Dirección']) {
+      await expect(page.getByLabel(campo)).toBeVisible();
     }
+    await expect(page.getByPlaceholder('Email')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Guardar' })).toBeVisible();
   });
 
