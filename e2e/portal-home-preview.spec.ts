@@ -47,7 +47,7 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
     await montarPortal(page, { conSesion: false });
     const token = firmarTokenPreviewHome(STUDIO_ID);
     await page.goto(`/portal-preview/${SLUG}?t=${token}`);
-    await expect(page.getByRole('heading', { name: /Hola, Vista\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('heading', { name: 'Esta semana' })).toBeVisible();
   });
 
@@ -66,7 +66,7 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
     await page.setContent(`<iframe id="prev" src="${url}" style="width:400px;height:800px;border:0"></iframe>`);
 
     const frame = page.frameLocator('#prev');
-    await expect(frame.getByRole('heading', { name: /Hola, Vista\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(frame.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     await expect(frame.getByRole('heading', { name: 'Esta semana' })).toBeVisible();
 
     await page.evaluate(() => {
@@ -130,7 +130,7 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
     // Alma" es el nombre que devuelve el mock de /api/public/studio-data: hasta
     // que aparece, el catálogo (bloques incluidos) todavía no ha llegado y
     // cualquier aserción sobre la forma miraría un portal a medio cargar.
-    await expect(frame.getByRole('heading', { name: /Hola, Vista\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(frame.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
     await expect(frame.getByText('Estudio Alma').first()).toBeVisible({ timeout: 30_000 });
 
     const reto = frame.getByText('Core Pilates').locator('xpath=ancestor::div[1]/parent::div');
@@ -170,7 +170,7 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
     await expect(frame.getByRole('heading', { name: 'Vista', exact: true })).toBeVisible();
     // Y con ella el subtítulo ascendido a titular, que en 'clasica' iba dentro
     // del saludo.
-    await expect(frame.getByText('Tu sitio sigue aquí.')).toBeVisible();
+    await expect(frame.getByText('¿Qué te apetece hoy?')).toBeVisible();
     // Retos: el fondo propio del reto (#CFEFD6, lib/retos-portal.ts).
     await expect(reto).toHaveCSS('background-color', 'rgb(207, 239, 214)');
   });

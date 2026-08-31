@@ -29,8 +29,15 @@ test.describe('Portal de la clienta — 01 Acceso', () => {
   // sigue pareciendo dos accesos—. Lo que estos tests protegen no ha cambiado en
   // ninguna de las tres formas: que los métodos ofrecidos existen de verdad, y
   // que hay salida para quien todavía no es clienta.
+  //
+  // ⚠️ Van a /login, no a /acceso: desde la reconstrucción de la puerta
+  // (816f4971) /acceso empieza en el paso `intro` ("Muévete. Lo demás, ya
+  // está.") y hay que pulsar "Ya tengo cuenta" para llegar aquí — ese paso ya
+  // lo cubre e2e/portal-tema-editorial.spec.ts. Lo que este test verifica es
+  // el CONTRATO del formulario de login en sí (los dos campos a la vez, sin
+  // partirlo en pasos), y /login es el atajo que entra directo a él.
   test('la puerta pide email y contraseña a la vez, y deja salida a quien no es clienta', async ({ page }) => {
-    await page.goto(`/portal/${SLUG}/acceso`);
+    await page.goto(`/portal/${SLUG}/login`);
 
     // ⚠️ Los DOS campos en la MISMA pantalla. Este es el contrato del cambio:
     // si alguien vuelve a partirlo en dos pasos, aquí salta.
@@ -56,8 +63,11 @@ test.describe('Portal de la clienta — 01 Acceso', () => {
   // alta—, así que las DOS salidas están a la vista desde el primer momento.
   // Con una sola pantalla esto sale gratis: no hay ni siquiera un instante en
   // el que se pudiera preguntar.
+  // También va a /login por el mismo motivo que el test anterior: el
+  // contrato que se protege es el del formulario de login, no el paso previo
+  // de la puerta.
   test('contraseña Y enlace conviven, sin preguntar cuál toca', async ({ page }) => {
-    await page.goto(`/portal/${SLUG}/acceso`);
+    await page.goto(`/portal/${SLUG}/login`);
 
     await expect(page.getByPlaceholder('Tu contraseña')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: /mándame un enlace/i })).toBeVisible();
@@ -84,8 +94,10 @@ test.describe('Portal de la clienta — 01 Acceso', () => {
   // declara como regla, no como medida— es que el radio de un botón es la
   // mitad exacta de su altura: 62 → 31. Redondear a 32 deja un plano recto de
   // 2 px en el centro del lado, y se ve.
+  // /login: el botón "Entrar" solo vive en el paso de login, y este test es
+  // sobre la geometría de esa cápsula, no sobre el recorrido de la puerta.
   test('el CTA es una cápsula perfecta: radio la mitad exacta del alto', async ({ page }) => {
-    await page.goto(`/portal/${SLUG}/acceso`);
+    await page.goto(`/portal/${SLUG}/login`);
     const boton = page.getByRole('button', { name: 'Entrar' });
     await expect(boton).toBeVisible({ timeout: 30_000 });
 
@@ -102,7 +114,14 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
   test('saludo, tarjeta con cuenta atrás y carrusel de la semana', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/home`);
 
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    // El saludo pasó de "Hola, {nombre}" a saludo-por-hora + titular
+    // (components/portal/portal-home-view.tsx, ~línea 620): el prefijo
+    // ("Buenas noches"/"Buenos días"...) depende de la hora a la que corra la
+    // suite, así que solo se ancla el sufijo estable. El titular grande, sin
+    // avatar/variantes en el mock (el caso por defecto), es el texto fijo por
+    // defecto de `PROXIMA_CLASE` — no depende de la hora.
+    await expect(page.getByText(/, Marta 👋/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Hoy tienes una cita contigo.' })).toBeVisible();
     // La volanta y la cuenta atrás de la tarjeta grande.
     await expect(page.getByText('Tu próxima clase')).toBeVisible();
     await expect(page.getByText(/^EN \d+ (H \d+ MIN|MIN)$/)).toBeVisible();
@@ -114,7 +133,10 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
 
   test('las cuatro filas llevan a cuatro sitios distintos', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    // Locator estable para esperar a que Inicio haya cargado — el saludo ya
+    // no es un texto fijo (depende de la hora), y este test no comprueba el
+    // saludo, comprueba las filas de abajo.
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
     const destinos = [
       ['Mis reservas', 'reservas'], ['Mi progreso', 'progreso'],
@@ -126,7 +148,11 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
     }
   });
 
-  test('el menú tiene cuatro pestañas y la primera es Inicio', async ({ page }) => {
+  // Catálogo real hoy (lib/portal-nav.ts, NAV_DEFAULT): Hoy/Buscar/Reservas/
+  // Perfil — Clases y Bonos se fusionaron en una sola pantalla "Reservas", y
+  // "Buscar" es una pestaña nueva de verdad (antes un overlay sin sitio en la
+  // barra). "Inicio" pasó a llamarse "Hoy".
+  test('el menú tiene cuatro pestañas y la primera es Hoy', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/home`);
     const menu = page.getByRole('navigation', { name: 'Secciones' });
     await expect(menu).toBeVisible({ timeout: 30_000 });
@@ -134,12 +160,12 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
     // Solo la pestaña activa muestra el texto visible (las demás van solo con
     // icono, ver components/portal/portal-nav.tsx) — el nombre de cada una se
     // comprueba por `aria-label`, no por texto visible en pantalla.
-    const etiquetas = await menu.getByRole('link').evaluateAll(els => els.map(el => el.getAttribute('aria-label')));
-    // «Mi plan» pasó a ser «Bonos» al partir esa ruta en /bonos + /compras:
-    // la pestaña lleva a mirar el saldo, no a pasar por caja.
-    expect(etiquetas).toEqual(['Inicio', 'Clases', 'Bonos', 'Perfil']);
+    // ⚠️ "Buscar" abre un overlay (no navega a una ruta), así que es un
+    // `<button>`, no un `<Link>` — hay que buscar ambos para ver las 4.
+    const etiquetas = await menu.locator('a, button').evaluateAll(els => els.map(el => el.getAttribute('aria-label')));
+    expect(etiquetas).toEqual(['Hoy', 'Buscar', 'Reservas', 'Perfil']);
     // La pestaña activa se anuncia, no solo se pinta.
-    await expect(menu.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
+    await expect(menu.getByRole('link', { name: 'Hoy' })).toHaveAttribute('aria-current', 'page');
   });
 
   // Casi ningún estudio sube foto el primer día, y el diseño da la imagen por
@@ -149,7 +175,7 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
   // queda a la altura del diseño y lo que hay que defender es lo contrario.
   test('sin foto del estudio la tarjeta usa la de por defecto, a su altura completa', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(tarjetaGrande(page)).toBeVisible({ timeout: 30_000 });
     const caja = await tarjetaGrande(page).boundingBox();
     expect(caja!.height).toBeGreaterThan(400);
     // Y que la foto sea la de por defecto, no un hueco con fondo de color.
@@ -167,7 +193,7 @@ test.describe('Portal de la clienta — se ve bien en cualquier teléfono', () =
       await page.setViewportSize({ width: ancho, height: alto });
       await montarPortal(page, { conSesion: true });
       await page.goto(`/portal/${SLUG}/home`);
-      await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
       const desborde = await page.evaluate(() => {
         const main = document.querySelector('main');
@@ -190,7 +216,7 @@ test.describe('Portal de la clienta — con foto del estudio', () => {
   test('con foto, la tarjeta mide los 476 px del diseño', async ({ page }) => {
     await montarPortal(page, { conSesion: true, imagenBienvenidaUrl: FOTO });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(tarjetaGrande(page)).toBeVisible({ timeout: 30_000 });
     const caja = await tarjetaGrande(page).boundingBox();
     expect(Math.round(caja!.height)).toBe(476);
   });

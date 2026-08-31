@@ -849,7 +849,7 @@ test('⚠️ un campo con porDefecto VACÍO no debe borrar el texto del render',
   assert.equal(c.porDefecto, '', 'vacío = "la frase que traiga tu tema", no una frase impuesta a todos');
   // Y la que sí tiene texto propio lo conserva.
   const sin = getDefinicionBloque('cabecera')!.campos.find((x) => x.id === 'fraseSinClase') as { porDefecto: unknown };
-  assert.equal(sin.porDefecto, 'Tu sitio sigue aquí.');
+  assert.equal(sin.porDefecto, '¿Qué te apetece hoy?');
 });
 
 // ── Etapa 1: condiciones y grupos en el estilo ──────────────────────────────

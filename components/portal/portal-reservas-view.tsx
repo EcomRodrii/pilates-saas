@@ -35,7 +35,7 @@ import { Calendar, Clock, MapPin, MessageCircle, Navigation, QrCode, Star, User 
 import type { Reserva, Sesion } from '@/lib/types';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { formatFechaCorta as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
-import { Toast, type AvisoToast } from '@/components/portal/ui';
+import { Toast, BottomSheet, Button, type AvisoToast } from '@/components/portal/ui';
 import { semantic } from '@/lib/portal-tokens';
 import { HojaPase, type DatosPase } from '@/components/portal/hoja-pase';
 import { HojaOfertaEspera, type OfertaEspera } from '@/components/portal/hoja-oferta-espera';
@@ -43,8 +43,10 @@ import { BotonesCalendario } from '@/components/portal/botones-calendario';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
 import type { PortalSession } from '@/lib/portal-auth';
 import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
+import { bonoActivo, fechaLarga, DIAS } from '@/lib/bonos-portal';
+import { esCancelacionTardia, heredaOverride } from '@/lib/booking-logic';
 import {
-  EASE, dur, transicion, display, micro, texto, radio, sombra, cristal, desenfoque,
+  EASE, dur, transicion, display, micro, texto, radio, sombra, cristal, desenfoque, sans,
 } from '@/lib/portal-design';
 
 // Stub de "pedir pase" para preview: NO llama a la API real (socioId
@@ -171,6 +173,16 @@ export function PortalReservasView({
   const {
     reservas, sesiones, tiposClase, salas, instructores, cancelarReserva, aceptarOfertaEspera,
     valorarExperienciaReserva, studio,
+    // Gap 5 — bono/plaza fija/pagos, verificado en vivo contra el diseño
+    // real: viven aquí, no en una pantalla "Bonos" aparte (esa pestaña
+    // desapareció de la barra inferior en el rediseño — ver lib/portal-nav.ts).
+    // Misma fuente de datos y mismos hooks de escritura que ya usa
+    // PortalBonosView (components/portal/portal-bonos-view.tsx, que se deja
+    // intacta: el editor de temas todavía la referencia para personalizar sus
+    // bloques, así que no es código muerto a borrar, solo una pantalla sin
+    // pestaña propia ya).
+    suscripciones, planesTarifa, plazasFijas, recibos,
+    pausarPlazaFijaPropia, reanudarPlazaFijaPropia, darDeBajaPlazaFijaPropia,
   } = useStudio();
   const { t, noche } = useModo();
   const [tab, setTab] = useState<Tab>('PROXIMAS');
@@ -197,6 +209,58 @@ export function PortalReservasView({
   // a la socia creyendo que había cancelado, con la plaza todavía suya.
   const [aviso, setAviso] = useState<AvisoToast | null>(null);
   const socioId = session?.socioId;
+
+  // ── Bono, plaza fija, pagos (Gap 5) ───────────────────────────────────────
+  const bono = useMemo(
+    () => bonoActivo(suscripciones, planesTarifa, tiposClase, socioId ?? null),
+    [suscripciones, planesTarifa, tiposClase, socioId],
+  );
+  // ACTIVA o PAUSADA (para poder reanudarla); una en BAJA ya no cuenta como
+  // "tiene plaza fija" — mismo criterio que PortalBonosView.
+  const miPlazaFija = useMemo(
+    () => plazasFijas.find(p => p.socioId === socioId && (p.estado === 'ACTIVA' || p.estado === 'PAUSADA')) ?? null,
+    [plazasFijas, socioId],
+  );
+  const plaza = useMemo(() => {
+    if (!miPlazaFija) return null;
+    const hora = miPlazaFija.horaInicio.slice(0, 5);
+    const sala = salas.find(s => s.id === miPlazaFija.salaId)?.nombre ?? null;
+    const tipo = miPlazaFija.tipoClaseId ? tiposClase.find(tc => tc.id === miPlazaFija.tipoClaseId)?.nombre ?? null : null;
+    const partes = [tipo, sala].filter(Boolean) as string[];
+    return { cuando: `${DIAS[miPlazaFija.diaSemana] ?? ''} · ${hora}`.trim(), donde: partes.join(' · ') };
+  }, [miPlazaFija, salas, tiposClase]);
+  const [confirmandoBaja, setConfirmandoBaja] = useState(false);
+  const [procesandoPlaza, setProcesandoPlaza] = useState(false);
+
+  async function pausarOReanudar() {
+    if (!miPlazaFija || procesandoPlaza) return;
+    if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); return; }
+    setProcesandoPlaza(true);
+    const r = miPlazaFija.estado === 'ACTIVA'
+      ? await pausarPlazaFijaPropia(miPlazaFija.id)
+      : await reanudarPlazaFijaPropia(miPlazaFija.id);
+    setProcesandoPlaza(false);
+    if (!r.ok) setAviso({ texto: r.error, error: true });
+  }
+
+  async function confirmarBajaPlaza() {
+    setConfirmandoBaja(false);
+    if (!miPlazaFija) return;
+    if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); return; }
+    const r = await darDeBajaPlazaFijaPropia(miPlazaFija.id);
+    setAviso(r.ok ? { texto: 'Plaza fija dada de baja.', error: false } : { texto: r.error, error: true });
+  }
+
+  // Pagos reales de ESTA socia, los últimos primero — nada de "recibo
+  // enviado por email" (el diseño lo dice, pero este repo no rastrea ESO
+  // como hecho verificable por pago; decirlo sin saberlo sería inventar).
+  const pagos = useMemo(
+    () => recibos
+      .filter(r => r.socioId === socioId && r.estado === 'COBRADO' && r.fechaCobro)
+      .sort((a, b) => new Date(b.fechaCobro as string).getTime() - new Date(a.fechaCobro as string).getTime())
+      .slice(0, 5),
+    [recibos, socioId],
+  );
   // Sin `setInterval`, a diferencia del reloj del Inicio: aquí no se pinta
   // ninguna cuenta atrás, "ahora" solo decide de qué lado del corte cae cada
   // reserva. Basta con fijarlo una vez al montar.
@@ -372,6 +436,145 @@ export function PortalReservasView({
             </div>
             <span aria-hidden style={{ fontSize: 15, color: t.heroAccent, flexShrink: 0 }}>→</span>
           </button>
+        )}
+
+        {/* "Tu plaza fija" — verificado en vivo contra el diseño real.
+            Mismos datos y mismas acciones (autoservicio, Feature #2 de la
+            ficha Lorari-vs-Tentare) que ya usa PortalBonosView; no se
+            reimplementa la lógica, solo se repite el pintado aquí porque el
+            diseño lo pone en Reservas, no en una pantalla propia. */}
+        {plaza && miPlazaFija && (
+          <div style={{
+            marginBottom: 16, borderRadius: 'var(--portal-radius-card, 26px)',
+            background: noche ? t.surface2 : '#EEF0EA',
+            border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.14)'}`,
+            padding: 24,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: t.ink }} />
+                <span style={{ ...micro(8.5, 0.24, 600), color: t.ink }}>Plaza fija</span>
+              </div>
+              {miPlazaFija.estado === 'PAUSADA' && (
+                <span style={{ ...micro(8, 0.2, 700), color: t.muted }}>En pausa</span>
+              )}
+            </div>
+            <div style={{ ...display(27, true, 1.05), color: t.ink, marginTop: 10, opacity: miPlazaFija.estado === 'PAUSADA' ? 0.55 : 1 }}>{plaza.cuando}</div>
+            {plaza.donde && (
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, marginTop: 8 }}>{plaza.donde}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => void pausarOReanudar()}
+                disabled={procesandoPlaza}
+                style={{
+                  flex: 1, height: 38, borderRadius: 12, border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.2)'}`,
+                  background: 'none', color: t.ink, fontFamily: sans, fontSize: 11.5, fontWeight: 700,
+                  cursor: procesandoPlaza ? 'default' : 'pointer', opacity: procesandoPlaza ? 0.6 : 1,
+                }}
+              >
+                {miPlazaFija.estado === 'ACTIVA' ? 'Pausar' : 'Reanudar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmandoBaja(true)}
+                disabled={procesandoPlaza}
+                style={{
+                  flex: 1, height: 38, borderRadius: 12, border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.2)'}`,
+                  background: 'none', color: semantic.danger.text, fontFamily: sans, fontSize: 11.5, fontWeight: 700,
+                  cursor: procesandoPlaza ? 'default' : 'pointer', opacity: procesandoPlaza ? 0.6 : 1,
+                }}
+              >
+                Dar de baja
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* "Bono"/"Tu plan" — mismo bloque que PortalBonosView, condensado
+            (sin la lista expandida de bonos en cola: eso sigue siendo trabajo
+            de la pantalla dedicada, /bonos, enlazada desde "Comprar otro"). */}
+        {bono && (
+          <div style={{
+            marginBottom: 16, borderRadius: 'var(--portal-radius-card, 26px)', background: t.surface, padding: '22px 20px',
+            boxShadow: '0 18px 40px -28px rgba(34,42,30,.5)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ ...display(23), color: t.ink }}>
+                {bono.bonos.length > 1 ? 'Tu saldo' : bono.nombre}
+              </div>
+              <div style={{ ...micro(8.5, 0.22, 600), color: t.heroAccent, whiteSpace: 'nowrap' }}>Activo</div>
+            </div>
+            {bono.totalSesiones != null && bono.totalRestantes != null ? (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 12 }}>
+                <span style={{ ...display(34, false, 0.9), color: t.ink }}>{bono.totalRestantes}</span>
+                <span style={{ fontFamily: sans, fontSize: 11.5, color: t.muted }}>de {bono.totalSesiones} sesiones</span>
+              </div>
+            ) : (
+              <div style={{ ...display(20, true), color: t.ink, marginTop: 12 }}>Sesiones ilimitadas</div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+              <span style={{
+                fontFamily: sans, fontSize: 11, fontWeight: bono.urgente || bono.caducado ? 700 : 400,
+                color: bono.caducado
+                  ? (noche ? semantic.danger.textNoche : semantic.danger.text)
+                  : bono.urgente ? (noche ? semantic.warning.textNoche : semantic.warning.text) : t.muted,
+              }}>
+                {bono.textoCaducidad
+                  ? `${bono.textoCaducidad}${bono.caducaEn ? ` · ${fechaLarga(bono.caducaEn)}` : ''}`
+                  : bono.caducaEn ? `${bono.esMensual ? 'Próxima renovación' : 'Caduca'} el ${fechaLarga(bono.caducaEn)}`
+                  : bono.esMensual ? 'Activo' : 'Sin fecha de caducidad'}
+              </span>
+              <button
+                type="button"
+                onClick={() => navegar(`/portal/${slug}/compras`)}
+                style={{
+                  height: 36, padding: '0 16px', borderRadius: 999, border: 'none',
+                  background: 'none', color: t.heroAccent, fontFamily: sans, fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                {bono.esMensual ? 'Gestionar mi plan' : 'Comprar otro →'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* "PAGOS" — recibos reales de esta socia (Recibo.estado === 'COBRADO'),
+            verificado en vivo contra el diseño real. Sin la afirmación
+            "recibo enviado por email" del diseño: este repo no rastrea eso
+            como hecho verificable por pago, y decirlo sin saberlo sería
+            inventar un dato. */}
+        {pagos.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase', marginBottom: 10 } as React.CSSProperties}>
+              Pagos
+            </h2>
+            <div style={{
+              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
+              padding: '4px 16px', boxShadow: sombra.cardSemana,
+            }}>
+              {pagos.map((r, i) => (
+                <div
+                  key={r.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 0',
+                    borderTop: i > 0 ? `1px solid ${t.line}` : undefined,
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ ...texto.metaFuerte, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {r.concepto}
+                    </div>
+                    <div style={{ ...texto.nota, color: t.muted, marginTop: 2 }}>
+                      {fechaLarga(r.fechaCobro as string)}
+                    </div>
+                  </div>
+                  <span style={{ ...texto.metaFuerte, color: t.ink, whiteSpace: 'nowrap' }}>{r.importe} €</span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Pestañas — chips de cápsula deslizables, mismo lenguaje que los
@@ -669,11 +872,21 @@ export function PortalReservasView({
           {cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
         </h2>
         <p style={{ ...texto.meta, color: t.muted, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-          {cambiandoHora
-            ? 'No podemos moverte de hora automáticamente: cancelamos esta y te llevamos a elegir otra que te venga mejor.'
-            : cancelando?.id.startsWith('res-pf-')
-              ? 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.'
-              : 'Perderás tu plaza y liberarás el hueco para otra socia.'}
+          {(() => {
+            if (cambiandoHora) return 'No podemos moverte de hora automáticamente: cancelamos esta y te llevamos a elegir otra que te venga mejor.';
+            if (cancelando?.id.startsWith('res-pf-')) return 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.';
+            // Mismo aviso de política que ya usa PortalClasesView
+            // (`tardiaDe()`) — verificado en vivo contra el diseño real, que
+            // sí distingue "pierdes la sesión" de "recuperas el hueco sin
+            // más": aquí solo avisaba de lo segundo, nunca de lo primero.
+            const s = cancelando ? sesiones.find(x => x.id === cancelando.sesionId) : null;
+            if (!s) return 'Perderás tu plaza y liberarás el hueco para otra socia.';
+            const ventana = heredaOverride(tiposClase.find(tc => tc.id === s.tipoClaseId)?.ventanaCancelacionHoras ?? null, studio?.cancelacionVentanaHoras ?? 0);
+            const tardia = esCancelacionTardia(s.inicio, new Date(), ventana);
+            return tardia
+              ? `Quedan menos de ${ventana} h para la clase. Según la política del estudio, puede que no se te devuelva la sesión.`
+              : 'Perderás tu plaza y liberarás el hueco para otra socia.';
+          })()}
         </p>
         <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
           <button
@@ -742,6 +955,17 @@ export function PortalReservasView({
         onDejarPasar={onDejarPasarOferta}
         onError={mensaje => setAviso({ texto: mensaje, error: true })}
       />
+
+      <BottomSheet open={confirmandoBaja} onClose={() => setConfirmandoBaja(false)}>
+        <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Dar de baja tu plaza fija?</h2>
+        <p style={{ fontSize: 13, color: t.muted }}>
+          Dejará de reservarte el hueco cada semana. Las clases ya reservadas no se tocan.
+        </p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button variant="secondary" onClick={() => setConfirmandoBaja(false)} style={{ flex: 1 }}>Volver</Button>
+          <Button variant="danger" onClick={() => void confirmarBajaPlaza()} style={{ flex: 1 }}>Sí, dar de baja</Button>
+        </div>
+      </BottomSheet>
 
       <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
     </div>

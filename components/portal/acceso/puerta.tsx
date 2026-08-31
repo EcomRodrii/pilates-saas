@@ -1,44 +1,106 @@
 'use client';
 
-// LA PUERTA DEL PORTAL. Una sola pantalla, y ya está.
+// LA PUERTA DEL PORTAL — reconstruida (2026-08-30) para la "Tentare Studio
+// App": antes una sola pantalla de LOGIN con el alta delegada a
+// `/reservar/{slug}`, ahora tres pasos en el mismo componente, en el orden
+// que verifica el diseño real:
 //
-// Durante un tiempo fueron dos pasos —primero el email, después la clave— y
-// antes de eso dos pantallas hermanas entre las que elegir. El fundador entró
-// en la app, vio dos pantallas seguidas pidiéndole entrar y dijo lo evidente:
-// eso sigue pareciendo dos accesos. Así que se colapsa: email y contraseña
-// juntos, Google al lado, y la salida por correo debajo.
+//   intro  → "Muévete. Lo demás, ya está." (Empezar / Ya tengo cuenta)
+//   crear  → "Crea tu cuenta" (Google, o nombre+email por enlace mágico)
+//   login  → "¿Entramos?" (email+contraseña — lo que YA existía, sin tocar)
 //
-// ⚠️ LA REGLA DE SEGURIDAD SIGUE INTACTA, y ahora sale gratis: esta pantalla
-// NO le pregunta al servidor si tal email tiene contraseña. Esa respuesta la
-// daría también para quien NO está dada de alta, y eso es enumeración de
-// cuentas — diría quién es clienta de cada estudio. Antes había que pagar un
-// paso 2 que enseñaba siempre las dos salidas para no filtrarlo; con una sola
-// pantalla no hay ni siquiera un momento en el que preguntarlo. Todo está a la
-// vista desde el principio y decide la socia.
+// ⚠️ El mecanismo de alta NO cambia, solo la portada. `crear` no crea nada al
+// pulsar "Continuar": manda el MISMO enlace mágico de siempre
+// (`enviarEnlace`/`altaAlEntrar('enlace')`, endurecido contra el
+// account-takeover ya arreglado una vez en este flujo) y aterriza en
+// `/clave-nueva`, igual que la recuperación de contraseña. Un botón nuevo que
+// creara sesión antes de verificar el email sería una TERCERA vía de alta sin
+// las mismas protecciones — analizado con `tentare-arquitecto` antes de
+// escribir esto.
 //
-// ⚠️ Y el rótulo del enlace por correo nombra LAS DOS cosas —«no tengo
-// contraseña o la he olvidado»— por lo mismo: es la misma vía para quien nunca
-// tuvo una y para quien no se acuerda, y separarlas obligaría a preguntar cuál
-// es el caso.
+// ⚠️ Sin botón de Apple, aunque el diseño lo pida: no hay proveedor Apple
+// configurado en este proyecto de Supabase Auth, y este mismo archivo ya
+// tenía la regla escrita para Google — "un botón que promete y no entra es
+// una mentira en la pantalla de acceso". Se añade el día que exista de
+// verdad, no antes. Mismo criterio para el permiso de ubicación del diseño:
+// sin ningún "clases cerca de ti" real en el portal de la clienta hoy
+// (existe en Network, para buscar estudios, no aquí), pedirlo aquí sería el
+// mismo patrón que ya documenta este repo como decoración (captcha/honeypot
+// sin caller). El permiso de notificaciones SÍ tiene consumidor real
+// (`PushPrompt`, ya en `portal-shell.tsx`) — se sigue pintando ahí, tras
+// entrar, en vez de duplicarlo aquí como un modal nuevo.
 //
-// Las dos rutas (/acceso y /login) pintan esto mismo. No es duplicación: son
-// direcciones que la gente ya tiene guardadas y que el estudio ha repartido.
+// ⚠️ LA REGLA DE SEGURIDAD DEL LOGIN SIGUE INTACTA: el paso `login` no le
+// pregunta al servidor si tal email tiene contraseña (enumeración de
+// cuentas). El rótulo del enlace por correo sigue nombrando las dos cosas —
+// «no tengo contraseña o la he olvidado»— por el mismo motivo de siempre.
+//
+// Las dos rutas (/acceso y /login) siguen pintando este componente, pero ya
+// NO son idénticas: /login entra directa al paso `login` (un enlace
+// guardado/repartido debe seguir siendo un atajo a "entrar", no un rodeo por
+// la portada de marketing); /acceso empieza en `intro`.
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCore } from '@/lib/core-context';
 import { useModo } from '@/lib/portal-modo';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
-import { EASE, dur, display, micro, texto } from '@/lib/portal-design';
+import { EASE, dur, display, micro, texto, altura, radio, sombra, transicion } from '@/lib/portal-design';
 import { BienvenidaPortal } from '@/components/portal/bienvenida-portal';
 import { yaVioBienvenida, marcarBienvenidaVista } from '@/lib/portal-bienvenida';
 import { GoogleIcon } from '@/components/icons/brand-icons';
 import { altaAlEntrar } from '@/lib/api-client';
 import {
-  PortadaAcceso, CampoLinea, BotonCta, ErrorCampo, entrada, MARCA_FG,
+  PortadaAcceso, CampoLinea, BotonCta, ErrorCampo, entrada, MARCA, MARCA_FG,
 } from '@/components/portal/acceso/piezas';
+
+/** El botón de Google, idéntico en `crear` y en `login` — no se duplica. */
+function BotonGoogle({ onClick, trabajando }: { onClick: () => void; trabajando: boolean }) {
+  const { t } = useModo();
+  return (
+    <button
+      onClick={onClick}
+      disabled={trabajando}
+      style={{
+        width: '100%', height: 52, borderRadius: 26,
+        border: `1px solid ${t.line}`, background: t.surface, color: t.ink,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+        fontSize: 15, fontWeight: 500,
+        cursor: trabajando ? 'default' : 'pointer',
+        opacity: trabajando ? 0.6 : 1,
+      }}
+    >
+      <GoogleIcon size={18} />
+      {trabajando ? 'Abriendo Google…' : 'Continuar con Google'}
+    </button>
+  );
+}
+
+/**
+ * El CTA claro de la portada `intro`: cápsula lisa, sin el círculo-flecha de
+ * `BotonCta` — el diseño la pide como un pill de texto centrado, en tinta
+ * clara sobre el panel oscuro. `BotonCta` no cambia: la usan `crear`/`login`
+ * tal cual, sobre fondo claro, y es la misma pieza en todo el resto del
+ * portal.
+ */
+function BotonClaro({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%', height: altura.botonCta, borderRadius: radio.botonCta,
+        background: MARCA_FG, color: MARCA, border: 'none',
+        ...texto.botonCta,
+        boxShadow: sombra.cta, cursor: 'pointer',
+        transition: transicion(['opacity'], dur.foco),
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 /** El email tiene una arroba. Nada más: validar de más rechaza direcciones reales. */
 function pareceEmail(v: string) {
@@ -48,15 +110,24 @@ function pareceEmail(v: string) {
 export function PuertaPortal() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
   // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
   const { studio, dataLoaded, tabBarStyle, variantes } = useCore();
   const { t } = useModo();
-  const { loginConPassword, enviarEnlace, entrarConGoogle, session, sesionCaducada } = usePortalAuth();
+  const { loginConPassword, enviarEnlace, entrarConGoogle, session } = usePortalAuth();
+
+  // /login es un atajo guardado/repartido: entra directa al formulario de
+  // siempre, sin pasar por la portada de marketing. /acceso (y cualquier otra
+  // vía de llegada) empieza en `intro`. `useState(() => ...)` para no
+  // recalcularlo en cada render — el paso cambia solo por clic, nunca por
+  // navegación de cliente entre estas dos rutas (son componentes distintos).
+  const [paso, setPaso] = useState<'intro' | 'crear' | 'login'>(() => (pathname?.endsWith('/login') ? 'login' : 'intro'));
 
   // El email puede venir en la URL: de un enlace guardado, o de volver atrás.
   const [email, setEmail] = useState(() => params.get('email') ?? '');
   const [password, setPassword] = useState('');
+  const [nombreCuenta, setNombreCuenta] = useState('');
   const [ver, setVer] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -78,6 +149,8 @@ export function PuertaPortal() {
 
   // ── Entrar con contraseña ────────────────────────────────────────────────
   const listo = pareceEmail(email) && password.length > 0;
+  // ── Crear cuenta (nombre + email → enlace mágico) ───────────────────────
+  const listoCrear = pareceEmail(email) && nombreCuenta.trim().length > 0;
 
   async function entrar() {
     if (!listo || loading) return;
@@ -108,7 +181,10 @@ export function PuertaPortal() {
     setLoading(true);
     const token = await pedirToken();
     if (token === null) { setLoading(false); setError(ERROR_CAPTCHA); return; }
-    const r = await enviarEnlace(email.trim(), token || undefined);
+    // `nombreCuenta` solo lleva algo cuando se llega desde "Crea tu cuenta"
+    // (paso `crear`) — en `login` ("no tengo contraseña...") se queda vacío y
+    // enviarEnlace lo ignora.
+    const r = await enviarEnlace(email.trim(), token || undefined, nombreCuenta);
     setLoading(false);
     if ('error' in r) { setError(r.error || 'No se pudo enviar el enlace.'); return; }
     setEnviado(true);
@@ -178,6 +254,77 @@ export function PuertaPortal() {
   // serif rompe el bloque, y la portada tiene un alto fijo.
   const tamNombre = nombre.length > 22 ? 26 : nombre.length > 15 ? 30 : 36;
 
+  const fundidoBienvenida = (
+    // Fundido de bienvenida: cubre el hueco entre que Supabase responde y
+    // PortalShell redirige, que si no es un salto en seco.
+    <div
+      aria-hidden={!entrando}
+      style={{
+        position: 'absolute', inset: 0, zIndex: 9, background: t.bg,
+        opacity: entrando ? 1 : 0, pointerEvents: entrando ? 'auto' : 'none',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: `opacity ${dur.wash}ms ${EASE}`,
+      }}
+    >
+      <div
+        style={{
+          ...display(34, true), color: t.ink, textAlign: 'center', padding: '0 32px',
+          transform: entrando ? 'none' : 'scale(1.06)',
+          transition: `transform ${dur.washInner}ms ${EASE}`,
+        }}
+      >
+        Bienvenida.
+      </div>
+    </div>
+  );
+
+  // ── Paso 1: la portada de marketing ──────────────────────────────────────
+  // Foto+caption reutilizan PortadaAcceso tal cual (misma pieza que `crear`/
+  // `login`, solo más alta) — el panel de abajo usa el MISMO color de marca
+  // que el degradado de la foto, para que se lea como una sola superficie
+  // oscura continua, igual que el diseño verificado en vivo.
+  if (paso === 'intro') {
+    return (
+      <div style={{ minHeight: '100dvh', background: MARCA, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        <PortadaAcceso
+          alto={360}
+          fotoUrl={studio?.imagenBienvenidaUrl?.trim() ? studio.imagenBienvenidaUrl : null}
+          nombre={nombre}
+          ciudad={studio?.ciudad}
+          progreso={25}
+          tamNombre={tamNombre}
+        />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '28px 30px calc(32px + env(safe-area-inset-bottom))' }}>
+          <div>
+            <h1 style={{ ...display(34, false, 1.08), color: MARCA_FG, ...entrada(0) }}>
+              Muévete. Lo demás, ya está.
+            </h1>
+            <p style={{ ...texto.meta, lineHeight: 1.75, color: 'rgba(246,244,239,.66)', maxWidth: 280, marginTop: 12, ...entrada(1) }}>
+              Reserva, bono y acceso a tu estudio en una sola app.
+            </p>
+          </div>
+          <div style={{ ...entrada(2) }}>
+            <BotonClaro onClick={() => setPaso('crear')}>Empezar</BotonClaro>
+            <div style={{ textAlign: 'center', marginTop: 18 }}>
+              <button
+                type="button"
+                onClick={() => setPaso('login')}
+                style={{
+                  ...texto.meta, color: 'rgba(246,244,239,.66)', background: 'none', border: 'none', padding: 0,
+                  textDecoration: 'underline', textUnderlineOffset: 3, textDecorationColor: 'rgba(246,244,239,.3)',
+                }}
+              >
+                Ya tengo cuenta
+              </button>
+            </div>
+          </div>
+        </div>
+        {fundidoBienvenida}
+      </div>
+    );
+  }
+
+  // ── Pasos 2 y 3: crear cuenta / entrar ───────────────────────────────────
   return (
     <div style={{ minHeight: '100dvh', background: t.bg, display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <PortadaAcceso
@@ -197,23 +344,67 @@ export function PuertaPortal() {
       >
         {enviado ? (
           <Enviado email={email} quedan={quedan} onOtro={() => { setEnviado(false); setError(''); }} />
+        ) : paso === 'crear' ? (
+          <>
+            <div>
+              <h1 style={{ ...display(34, false, 1.1), color: t.ink, ...entrada(0) }}>
+                Crea tu cuenta
+              </h1>
+              <p style={{ ...texto.meta, lineHeight: 1.75, color: t.muted, maxWidth: 282, marginTop: 12, ...entrada(1) }}>
+                Treinta segundos y estás dentro.
+              </p>
+
+              <div style={{ marginTop: 24, ...entrada(2) }}>
+                <BotonGoogle onClick={conGoogle} trabajando={googleTrabajando} />
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0' }}>
+                  <span style={{ flex: 1, height: 1, background: t.line }} />
+                  <span style={{ ...micro(10, 0.14, 500), color: t.micro }}>o con tu email</span>
+                  <span style={{ flex: 1, height: 1, background: t.line }} />
+                </div>
+
+                <CampoLinea
+                  etiqueta="Tu nombre"
+                  valor={nombreCuenta}
+                  onChange={setNombreCuenta}
+                  marcador="Tu nombre"
+                  autoComplete="name"
+                />
+                <div style={{ marginTop: 18 }}>
+                  <CampoLinea
+                    etiqueta="Email"
+                    tipo="email"
+                    valor={email}
+                    onChange={setEmail}
+                    marcador="tu@email.com"
+                    autoComplete="email"
+                    onEnter={mandarEnlace}
+                  />
+                </div>
+                <ErrorCampo>{error}</ErrorCampo>
+              </div>
+            </div>
+
+            <div style={{ ...entrada(3) }}>
+              {captcha}
+              <div style={{ marginTop: 18 }}>
+                <BotonCta listo={listoCrear} cargando={loading} onClick={mandarEnlace}>Continuar</BotonCta>
+              </div>
+              <div style={{ textAlign: 'center', marginTop: 20 }}>
+                <button
+                  type="button"
+                  onClick={() => { setPaso('login'); setError(''); }}
+                  style={{ ...texto.pie, color: t.micro, background: 'none', border: 'none', padding: 0 }}
+                >
+                  ¿Ya tienes cuenta?{' '}
+                  <span style={{ color: t.muted2, fontWeight: 500, textDecoration: 'underline' }}>Entra</span>
+                </button>
+              </div>
+            </div>
+          </>
         ) : (
           <>
             <div>
-              {/* I-12 (auditoría 29-ago): antes la sesión caducaba en
-                  silencio — el estado personal se vaciaba y la socia veía
-                  "no tienes nada" sin ninguna pista de qué había pasado,
-                  con riesgo real de recomprar un bono que ya tenía.
-                  `sesionCaducada` solo es true cuando de verdad había una
-                  sesión y se cayó (nunca en el primer acceso). */}
-              {sesionCaducada && (
-                <p role="status" style={{
-                  ...texto.nota, fontSize: 11.5, color: t.muted, background: t.surface2,
-                  borderRadius: 10, padding: '10px 14px', marginBottom: 16, ...entrada(0),
-                }}>
-                  Tu sesión caducó. Vuelve a entrar para seguir donde lo dejaste.
-                </p>
-              )}
               <h1 style={{ ...display(36, false, 1.1), color: t.ink, ...entrada(0) }}>
                 ¿Entramos?
               </h1>
@@ -268,21 +459,7 @@ export function PuertaPortal() {
                 <span style={{ ...micro(10, 0.14, 500), color: t.micro }}>o</span>
                 <span style={{ flex: 1, height: 1, background: t.line }} />
               </div>
-              <button
-                onClick={conGoogle}
-                disabled={googleTrabajando}
-                style={{
-                  width: '100%', height: 52, borderRadius: 26,
-                  border: `1px solid ${t.line}`, background: t.surface, color: t.ink,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                  fontSize: 15, fontWeight: 500,
-                  cursor: googleTrabajando ? 'default' : 'pointer',
-                  opacity: googleTrabajando ? 0.6 : 1,
-                }}
-              >
-                <GoogleIcon size={18} />
-                {googleTrabajando ? 'Abriendo Google…' : 'Continuar con Google'}
-              </button>
+              <BotonGoogle onClick={conGoogle} trabajando={googleTrabajando} />
 
               <div style={{ textAlign: 'center', marginTop: 20 }}>
                 <button
@@ -307,8 +484,16 @@ export function PuertaPortal() {
 
               <p style={{ ...texto.pie, color: t.micro, textAlign: 'center', marginTop: 18 }}>
                 ¿Primera vez en {nombre}?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setPaso('crear'); setError(''); }}
+                  style={{ color: t.muted2, fontWeight: 500, textDecoration: 'underline', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
+                >
+                  Crea tu cuenta
+                </button>
+                {' '}o{' '}
                 <Link href={`/reservar/${slug}`} style={{ color: t.muted2, fontWeight: 500, textDecoration: 'underline' }}>
-                  Reserva tu primera clase
+                  reserva tu primera clase
                 </Link>
               </p>
             </div>
@@ -316,27 +501,7 @@ export function PuertaPortal() {
         )}
       </div>
 
-      {/* Fundido de bienvenida: cubre el hueco entre que Supabase responde y
-          PortalShell redirige, que si no es un salto en seco. */}
-      <div
-        aria-hidden={!entrando}
-        style={{
-          position: 'absolute', inset: 0, zIndex: 9, background: t.bg,
-          opacity: entrando ? 1 : 0, pointerEvents: entrando ? 'auto' : 'none',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: `opacity ${dur.wash}ms ${EASE}`,
-        }}
-      >
-        <div
-          style={{
-            ...display(34, true), color: t.ink, textAlign: 'center', padding: '0 32px',
-            transform: entrando ? 'none' : 'scale(1.06)',
-            transition: `transform ${dur.washInner}ms ${EASE}`,
-          }}
-        >
-          Bienvenida.
-        </div>
-      </div>
+      {fundidoBienvenida}
     </div>
   );
 }

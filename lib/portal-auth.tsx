@@ -33,7 +33,7 @@ interface PortalAuthContextValue {
   // cuando la socia abre el enlace y vuelve al portal (onAuthStateChange).
   // Se usa SOLO para verificar la propiedad del email (primer acceso o
   // recuperación de contraseña) — el día a día se hace con loginConPassword.
-  enviarEnlace: (email: string, captchaToken?: string) => Promise<{ ok: true } | { error: string }>;
+  enviarEnlace: (email: string, captchaToken?: string, nombre?: string) => Promise<{ ok: true } | { error: string }>;
   /** Entrar con Google. Vuelve a `/acceso?oauth=1`, que es lo que dispara el alta. */
   entrarConGoogle: () => Promise<{ ok: true } | { error: string }>;
   // Login del día a día. Requiere que la socia ya haya creado su contraseña
@@ -42,6 +42,9 @@ interface PortalAuthContextValue {
   // Establece/cambia la contraseña de la sesión YA autenticada (por magic
   // link). Solo tiene efecto si hay una sesión de Supabase activa.
   establecerPassword: (password: string) => Promise<{ ok: true } | { error: string }>;
+  // Cambia el email de acceso (auth.users), no `socios.email` — ver
+  // comentario junto a su implementación.
+  actualizarEmail: (nuevoEmail: string) => Promise<{ ok: true; pendiente: boolean } | { error: string }>;
   logout: () => Promise<void>;
 }
 
@@ -125,12 +128,20 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
     return () => sub.subscription.unsubscribe();
   }, [resolver]);
 
-  const enviarEnlace = useCallback(async (email: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
+  const enviarEnlace = useCallback(async (email: string, captchaToken?: string, nombre?: string): Promise<{ ok: true } | { error: string }> => {
+    // El nombre viaja en la URL de vuelta, no en el cuerpo de este POST: la
+    // sesión de Supabase no existe todavía (solo se confirma al abrir el
+    // enlace), así que no hay dónde guardarlo salvo pasarlo de largo hasta
+    // /clave-nueva, que es quien de verdad crea la ficha (ver altaAlEntrar).
+    // Solo se usa si hay que dar de alta — a una socia ya existente no le
+    // toca el nombre.
+    const redirectTo = new URL(`${window.location.origin}/portal/${slug}/clave-nueva`);
+    if (nombre?.trim()) redirectTo.searchParams.set('nombre', nombre.trim());
     const { error } = await supabasePortal.auth.signInWithOtp({
       email: email.trim(),
       // Vuelve a la pantalla de crear/restablecer contraseña, NUNCA directo al
       // home: el magic link solo prueba que la socia controla el email.
-      options: { emailRedirectTo: `${window.location.origin}/portal/${slug}/clave-nueva`, captchaToken },
+      options: { emailRedirectTo: redirectTo.toString(), captchaToken },
     });
     if (captchaToken) captchaGastado();
     // Supabase a veces devuelve un `message` que no es texto para una persona
@@ -177,7 +188,34 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   // al verificar el enlace, esto solo fija el nuevo valor sobre esa sesión.
   const establecerPassword = useCallback(async (password: string): Promise<{ ok: true } | { error: string }> => {
     const { error } = await supabasePortal.auth.updateUser({ password });
-    return error ? { error: mensajeSeguro(error.message, 'No se ha podido guardar la contraseña. Inténtalo de nuevo en unos segundos.') } : { ok: true };
+    if (error) return { error: mensajeSeguro(error.message, 'No se ha podido guardar la contraseña. Inténtalo de nuevo en unos segundos.') };
+    // Verificado en vivo contra el diseño real: la pantalla dice "Cerraremos
+    // tu sesión en otros dispositivos" — para que sea CIERTO y no una frase
+    // suelta, cierra de verdad las demás sesiones. `scope: 'others'` no
+    // dispara `SIGNED_OUT` (Supabase), así que la sesión ACTUAL —la que
+    // acaba de fijar la contraseña, típicamente recién llegada por enlace
+    // mágico— sigue viva sin parpadeo. Si esto falla, no se avisa como error
+    // de la contraseña: ya se guardó bien, esto es un extra de seguridad.
+    await supabasePortal.auth.signOut({ scope: 'others' });
+    return { ok: true };
+  }, []);
+
+  // Cambiar el email DE ACCESO (con qué entra), no un campo de contacto
+  // suelto — mismo primitivo que ya usa el lado del equipo
+  // (`updateEmail`, lib/auth-context.tsx), Supabase decide si exige
+  // confirmación doble (lo dice `data.user.email`: si sigue siendo el
+  // antiguo, quedó pendiente de que la socia abra el enlace en su bandeja).
+  // ⚠️ A propósito NO toca `socios.email` aquí: ese campo es la "prueba
+  // mínima de identidad" que compara `fetchPublicStudioData` contra el
+  // email del JWT (lib/db/supabase-data-admin.ts) — escribirlo antes de que
+  // el cambio de auth se confirme de verdad dejaría un socios.email que no
+  // coincide con ninguna sesión real, el mismo cruce que ya bloqueó a
+  // socia.dev en local. Sincronizarlo tras la confirmación es trabajo
+  // aparte (necesita seguir el evento de confirmación, no esta llamada).
+  const actualizarEmail = useCallback(async (nuevoEmail: string): Promise<{ ok: true; pendiente: boolean } | { error: string }> => {
+    const { data, error } = await supabasePortal.auth.updateUser({ email: nuevoEmail });
+    if (error) return { error: mensajeSeguro(error.message, 'No se ha podido cambiar el email. Inténtalo de nuevo en unos segundos.') };
+    return { ok: true, pendiente: data.user?.email !== nuevoEmail };
   }, []);
 
   const logout = useCallback(async () => {
@@ -189,7 +227,7 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   }, []);
 
   return (
-    <PortalAuthContext.Provider value={{ session, isLoading, sesionCaducada, revalidarSesion: resolver, enviarEnlace, entrarConGoogle, loginConPassword, establecerPassword, logout }}>
+    <PortalAuthContext.Provider value={{ session, isLoading, sesionCaducada, revalidarSesion: resolver, enviarEnlace, entrarConGoogle, loginConPassword, establecerPassword, actualizarEmail, logout }}>
       {children}
     </PortalAuthContext.Provider>
   );

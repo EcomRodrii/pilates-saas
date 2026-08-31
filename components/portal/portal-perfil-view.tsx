@@ -17,7 +17,7 @@
 // ficticio rompería cualquier FK real si se dejara pasar (mismo motivo que
 // ya documenta PortalClasesView para reservar/cancelar).
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
@@ -26,6 +26,7 @@ import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { BottomSheet, Input, Button, Card, Toast, type AvisoToast } from '@/components/portal/ui';
 import { bonoActivo } from '@/lib/bonos-portal';
 import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
+import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
 import type { PortalSession } from '@/lib/portal-auth';
 import type { Socio } from '@/lib/types';
@@ -45,16 +46,31 @@ function desdeCuando(fechaAlta: string | null | undefined): string | null {
 }
 
 export function PortalPerfilView({
-  session, socioOverride, escribible = true, navegar, onLogout,
+  session, socioOverride, escribible = true, navegar, onLogout, actualizarEmail,
 }: {
   session: PortalSession | null;
   socioOverride?: Socio;
   escribible?: boolean;
   navegar: (ruta: string) => void;
   onLogout: () => void;
+  // Opcional: la preview de temas (app/portal-preview) monta esta vista SIN
+  // PortalAuthProvider (comentario de ese layout), así que no puede llamarse
+  // usePortalAuth() aquí dentro — mismo motivo por el que `session`/`navegar`/
+  // `onLogout` ya llegan como props en vez de por hook. La página real
+  // (app/portal/[slug]/perfil/page.tsx) la pasa desde usePortalAuth().
+  actualizarEmail?: (nuevoEmail: string) => Promise<{ ok: true; pendiente: boolean } | { error: string }>;
 }) {
   const { slug } = useParams<{ slug: string }>();
-  const { studio, socios, updateSocio, suscripciones, planesTarifa, tiposClase, plazasFijas, reservas } = useStudio();
+  const {
+    studio, socios, updateSocio, suscripciones, planesTarifa, tiposClase, plazasFijas, reservas, sesiones,
+    // Gap — racha/reto/logros EN LÍNEA en Perfil, verificado contra el
+    // diseño real: antes esta pantalla solo enlazaba a /progreso ("Mis
+    // compañeras" ya cubre lo social; esto es lo personal). Mismos motores
+    // que ya usa app/portal/[slug]/progreso/page.tsx — se repite el pintado,
+    // condensado, no la lógica.
+    rachaSocio, achievementDefinitions, achievementProgress, evaluarLogrosSocio,
+    challengeDefinitions, challengeProgress, evaluarRetosSocio,
+  } = useStudio();
   const { t, noche, toggle } = useModo();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,11 +95,40 @@ export function PortalPerfilView({
   // Realtime (se recalcula al volver a entrar en Perfil, no en vivo).
   const mensajesSinLeer = useMensajesSinLeer(studio?.id ?? null);
 
-  const [hoja, setHoja] = useState<null | 'datos' | 'avatar'>(null);
+  // ── Racha / reto / logros — resumen en línea (verificado en vivo contra
+  // el diseño real) ──────────────────────────────────────────────────────
+  // Estable durante la vida de la pantalla, mismo criterio que `progreso/page.tsx`.
+  const ahora = useMemo(() => new Date(), []);
+  useEffect(() => {
+    if (!socioId) return;
+    evaluarLogrosSocio(socioId);
+    evaluarRetosSocio(socioId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socioId]);
+  const racha = useMemo(() => (socioId ? rachaSocio(socioId) : null), [socioId, reservas, sesiones]); // eslint-disable-line react-hooks/exhaustive-deps
+  const misReservasTodas = useMemo(() => reservas.filter(r => r.socioId === socioId), [reservas, socioId]);
+  const hayLogros = achievementDefinitions.some(a => a.activo);
+  const logrosResumen = useMemo(() => {
+    if (!hayLogros || !socioId) return null;
+    const activos = achievementDefinitions.filter(a => a.activo);
+    const desbloqueados = activos.filter(a => achievementProgress.find(p => p.socioId === socioId && p.achievementId === a.id)?.completado).length;
+    return { desbloqueados, total: activos.length };
+  }, [hayLogros, socioId, achievementDefinitions, achievementProgress]);
+  // Solo el reto ACTIVO más relevante (el primero), no la lista entera: es un
+  // resumen, no una reimplementación de /progreso.
+  const retoDestacado = useMemo(() => {
+    if (!socioId || !socio) return null;
+    const activo = challengeDefinitions.find(c => c.activo && new Date(c.fechaFin) >= ahora);
+    if (!activo) return null;
+    const progreso = challengeProgress.find(p => p.socioId === socioId && p.challengeId === activo.id);
+    const valor = progreso?.completado ? progreso.progresoActual : calcularProgresoReto(activo, misReservasTodas, sesiones, socio, socios, ahora);
+    return { def: activo, valor, completado: progreso?.completado ?? false };
+  }, [socioId, socio, socios, challengeDefinitions, challengeProgress, misReservasTodas, sesiones, ahora]);
+
+  const [hoja, setHoja] = useState<null | 'datos' | 'avatar' | 'email'>(null);
   const [form, setForm] = useState({
     nombre: socio?.nombre ?? '',
     apellidos: socio?.apellidos ?? '',
-    email: socio?.email ?? '',
     telefono: socio?.telefono ?? '',
     fechaNacimiento: socio?.fechaNacimiento ?? '',
     direccion: socio?.direccion ?? '',
@@ -91,6 +136,15 @@ export function PortalPerfilView({
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState<AvisoToast | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+  // Cambio de email de ACCESO — flujo propio, no un campo dentro de "Mis
+  // datos". Antes "Mis datos" escribía `socios.email` sin verificar nada: el
+  // mismo campo que `fetchPublicStudioData` compara contra el email del JWT
+  // como prueba de identidad — un typo ahí bloqueaba a la socia de sus
+  // propios datos en silencio (ver memoria del repo sobre socia.dev). Mismo
+  // patrón ya usado en PortalAjustesView/actualizarEmail (lib/portal-auth.tsx).
+  const [nuevoEmail, setNuevoEmail] = useState('');
+  const [cambiandoEmail, setCambiandoEmail] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<{ error: boolean; texto: string } | null>(null);
 
   if (!socio || !session) return null;
 
@@ -117,6 +171,27 @@ export function PortalPerfilView({
     if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
     setHoja(null);
     setAviso({ texto: 'Datos guardados.', error: false });
+  }
+
+  async function cambiarEmail(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!nuevoEmail.trim() || cambiandoEmail) return;
+    if (!escribible || !actualizarEmail) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); setHoja(null); return; }
+    setCambiandoEmail(true);
+    setEmailMsg(null);
+    const r = await actualizarEmail(nuevoEmail.trim());
+    setCambiandoEmail(false);
+    if ('error' in r) { setEmailMsg({ error: true, texto: r.error }); return; }
+    setEmailMsg({
+      error: false,
+      // Enlace, no código: es lo que de verdad manda Supabase por defecto al
+      // cambiar el email — decir "código" sería prometer algo que este
+      // proyecto no envía.
+      texto: r.pendiente
+        ? 'Te hemos mandado un enlace de confirmación al email nuevo. El cambio se aplica cuando lo abras.'
+        : 'Email actualizado.',
+    });
+    setNuevoEmail('');
   }
 
   async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -284,6 +359,70 @@ export function PortalPerfilView({
           </div>
         )}
 
+        {/* ── Tu progreso: racha/reto/logros EN LÍNEA ─────────────────────────
+            Verificado en vivo contra el diseño real. Mismos motores que la
+            pantalla de progreso completa (rachaSocio, los motores de logros
+            y de retos) — condensado a un resumen, con "Ver todo" a la
+            pantalla completa (barras de 12 semanas, clase favorita,
+            recompensas). Nada se pinta si el estudio no tiene nada de esto
+            configurado: mismo criterio "solo lo que hay de verdad" que ya
+            usa esa pantalla (medido: 24 logros configurados frente a 0
+            retos o recompensas en la mayoría de estudios). */}
+        {(racha && racha.semanas > 0) || logrosResumen || retoDestacado ? (
+          <div style={{ marginTop: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <h2 style={{ ...micro(9.5, 0.28), color: t.micro }}>Tu progreso</h2>
+              <button
+                type="button"
+                onClick={() => navegar(`/portal/${slug}/progreso`)}
+                style={{ ...micro(9.5, 0.18, 600), color: t.heroAccent, background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                Ver todo →
+              </button>
+            </div>
+            <div style={{
+              marginTop: 12, borderRadius: radio.card, background: t.surface, boxShadow: '0 16px 36px -28px rgba(34,42,30,.5)',
+              padding: 20, display: 'flex', flexDirection: 'column', gap: 16,
+            }}>
+              {racha && racha.semanas > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ ...texto.metaFuerte, color: t.ink }}>🔥 {racha.semanas} {racha.semanas === 1 ? 'semana' : 'semanas'} de racha</span>
+                  {racha.enRiesgo && racha.diasParaPerder != null && (
+                    <span style={{ ...micro(9, 0.1, 700), color: '#B0453A' }}>
+                      quedan {racha.diasParaPerder} {racha.diasParaPerder === 1 ? 'día' : 'días'}
+                    </span>
+                  )}
+                </div>
+              )}
+              {retoDestacado && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>{retoDestacado.def.icono}</span>
+                    <span style={{ ...texto.metaFuerte, color: t.ink }}>{retoDestacado.def.nombre}</span>
+                    <span style={{ ...micro(9, 0, 600), color: t.muted, marginLeft: 'auto' }}>
+                      {Math.min(retoDestacado.valor, retoDestacado.def.objetivo)}/{retoDestacado.def.objetivo}
+                    </span>
+                  </div>
+                  <div style={{ height: 5, borderRadius: 999, background: t.line, marginTop: 8, overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${Math.min(100, Math.round((retoDestacado.valor / retoDestacado.def.objetivo) * 100))}%`,
+                      height: '100%', background: retoDestacado.completado ? '#3E9B6C' : 'var(--portal-brand)', borderRadius: 999,
+                    }} />
+                  </div>
+                </div>
+              )}
+              {logrosResumen && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>🏅</span>
+                  <span style={{ ...texto.nota, color: t.muted }}>
+                    {logrosResumen.desbloqueados} de {logrosResumen.total} logros desbloqueados
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+
         {/* ── Filas ────────────────────────────────────────────────────────── */}
         <div style={{ height: 34 }} />
         {/* Community & Messaging OS (P1): único punto de entrada a /mensajes
@@ -297,6 +436,7 @@ export function PortalPerfilView({
         {fila('Documentos', null, () => navegar(`/portal/${slug}/documentos`))}
         {fila('Mis compañeras', null, () => navegar(`/portal/${slug}/companeras`))}
         {fila('Mis datos', null, () => setHoja('datos'))}
+        {fila('Cambiar email', socio.email || null, () => setHoja('email'))}
         {fila(
           'Métodos de pago',
           socio.metodoPagoPreferido === 'SEPA' && socio.sepaMandateId ? 'Domiciliado' : null,
@@ -345,9 +485,6 @@ export function PortalPerfilView({
             onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
           <Input label="Apellidos" placeholder="Apellidos" autoComplete="family-name" value={form.apellidos}
             onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
-          {/* Solo lectura: ver guardarDatos. */}
-          <Input label="Email" placeholder="Email" type="email" autoComplete="email" value={form.email}
-            readOnly style={{ opacity: 0.65 }} onChange={() => {}} />
           <Input label="Teléfono" placeholder="+34 600 000 000" type="tel" autoComplete="tel" inputMode="tel" value={form.telefono}
             onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
           <Input label="Fecha de nacimiento" type="date" value={form.fechaNacimiento}
@@ -356,6 +493,29 @@ export function PortalPerfilView({
             onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
           <Button type="submit" disabled={guardando} style={{ width: '100%', marginTop: 6 }}>
             {guardando ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </form>
+      </BottomSheet>
+
+      {/* ── Hoja: cambiar email ───────────────────────────────────────────────
+          Flujo propio, no un campo dentro de "Mis datos". Cambia el email de
+          ACCESO (auth.updateUser), no `socios.email` directamente — ver
+          comentario de `actualizarEmail` en lib/portal-auth.tsx. */}
+      <BottomSheet open={hoja === 'email'} onClose={() => { setHoja(null); setEmailMsg(null); setNuevoEmail(''); }}>
+        <h2 style={{ ...display(26), color: t.ink, marginBottom: 18 }}>Cambiar email</h2>
+        <p style={{ ...texto.pie, color: t.muted, marginBottom: 18 }}>
+          Ahora: {socio.email || 'sin email'}. Te mandamos un enlace al nuevo para confirmarlo.
+        </p>
+        <form onSubmit={cambiarEmail} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Input label="Nuevo email" placeholder="tu@email.com" type="email" autoComplete="email" value={nuevoEmail}
+            onChange={e => { setNuevoEmail(e.target.value); setEmailMsg(null); }} />
+          {emailMsg && (
+            <p role={emailMsg.error ? 'alert' : undefined} style={{ ...texto.nota, color: emailMsg.error ? '#B0453A' : t.muted }}>
+              {emailMsg.texto}
+            </p>
+          )}
+          <Button type="submit" disabled={cambiandoEmail || !nuevoEmail.trim()} style={{ width: '100%', marginTop: 6 }}>
+            {cambiandoEmail ? 'Enviando…' : 'Enviarme el enlace'}
           </Button>
         </form>
       </BottomSheet>

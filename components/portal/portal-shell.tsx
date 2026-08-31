@@ -26,6 +26,7 @@ import { sans, altura, radio } from '@/lib/portal-design';
 import { NAV_DISPONIBLES, navItemsVisibles } from '@/lib/portal-nav';
 import { PushPrompt } from './push-prompt';
 import { PortalNav } from './portal-nav';
+import { BuscarOverlay } from './buscar-overlay';
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
@@ -65,6 +66,12 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   // del shell.
   const [screen, setScreen] = useState<{ path: string; node: React.ReactNode }>({ path: pathname, node: children });
   const [leaving, setLeaving] = useState<{ path: string; node: React.ReactNode } | null>(null);
+  // Overlay de Buscar desde la pestaña inferior — verificado en vivo contra
+  // el diseño real: NO hay ninguna ruta `/buscar` (BuscarOverlay ya lo dice
+  // en su propia cabecera, "NUNCA un push de ruta"). Vive aquí, no en cada
+  // pantalla, porque la pestaña es del armazón, no de Inicio/Horario en
+  // particular — antes de este estado esa pestaña era un `<Link>` a un 404.
+  const [buscarAbierto, setBuscarAbierto] = useState(false);
   if (screen.path !== pathname) {
     setLeaving(screen);
     setScreen({ path: pathname, node: children });
@@ -142,9 +149,10 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // `/compras` es hija de Bonos: la píldora se queda en Bonos en vez de
-  // apagarse (o saltar a Inicio, que es lo que hacía el prototipo).
-  const segActual = pathname?.startsWith(`/portal/${slug}/compras`) ? 'bonos' : null;
+  // `/compras` es hija de Reservas (antes de la reconstrucción, de Bonos —
+  // fusionado en la nueva pestaña única): la píldora se queda en Reservas en
+  // vez de apagarse (o saltar a Inicio, que es lo que hacía el prototipo).
+  const segActual = pathname?.startsWith(`/portal/${slug}/compras`) ? 'reservas' : null;
   const activeIndex = NAV.findIndex(({ seg }) =>
     seg === segActual || pathname.startsWith(`/portal/${slug}/${seg}`));
 
@@ -192,10 +200,14 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
             {/* Aviso de un toque para activar notificaciones al entrar. Se
                 pinta solo si procede. */}
             <PushPrompt />
-            <PortalNav items={NAV} activeIndex={activeIndex} slug={slug} flotante={!barraClasica} etiquetas={variantes.barra} />
+            <PortalNav
+              items={NAV} activeIndex={activeIndex} slug={slug} flotante={!barraClasica} etiquetas={variantes.barra}
+              onBuscarClick={() => setBuscarAbierto(true)}
+            />
           </>
         )}
       </div>
+      <BuscarOverlay open={buscarAbierto} onClose={() => setBuscarAbierto(false)} />
     </div>
   );
 }

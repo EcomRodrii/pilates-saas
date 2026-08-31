@@ -26,7 +26,7 @@
 // puertas de entrada, y son los dos únicos sitios donde se llama.
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { altaAlEntrar } from '@/lib/api-client';
 import { supabasePortal } from '@/lib/db/supabase-portal';
@@ -42,6 +42,12 @@ const MIN_LEN = 8;
 export default function PortalClaveNueva() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
+  // Viene de la URL de vuelta del enlace mágico (ver enviarEnlace en
+  // portal-auth.tsx) — solo lo puso ahí el paso "Crea tu cuenta" del
+  // onboarding nuevo. Quien recupera contraseña por esta misma vía no manda
+  // nombre, y altaAlEntrar lo trata como ausente (usa el de antes de la
+  // arroba del email).
+  const nombreOnboarding = useSearchParams().get('nombre');
   const { session, isLoading, establecerPassword, revalidarSesion } = usePortalAuth();
   // Una sola vez por carga: si el alta no la deja entrar, reintentarla en bucle
   // no la va a dejar entrar tampoco. Es estado y no un `ref` porque el render
@@ -79,12 +85,12 @@ export default function PortalClaveNueva() {
       // caducado no deja token ninguno, y ahí no hay a quién dar de alta.
       const { data: { session: sb } } = await supabasePortal.auth.getSession();
       if (sb?.access_token) {
-        await altaAlEntrar(slug, 'enlace');
+        await altaAlEntrar(slug, 'enlace', nombreOnboarding ?? undefined);
         await revalidarSesion();
       }
       setAlta('resuelta');
     })();
-  }, [isLoading, session, alta, slug, revalidarSesion]);
+  }, [isLoading, session, alta, slug, revalidarSesion, nombreOnboarding]);
 
   const nombre = studio?.nombre?.trim() || 'Tentare';
   // Solo se declara caducado cuando ya se ha intentado el alta y sigue sin

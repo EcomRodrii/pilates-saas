@@ -25,7 +25,11 @@ test.describe('Portal — Sesión guiada', () => {
     // es el último en el DOM (la pantalla saliente se pinta primero).
     await expect(page.getByText('Ejercicio 1 de 4').last()).toBeVisible();
     await expect(page.getByText('Flexión lateral sentada').last()).toBeVisible();
-    await expect(page.getByText('00:50').last()).toBeVisible();
+    // El cronómetro arranca en 50 y cuenta atrás cada segundo desde el montaje
+    // (setInterval real, sin mock) — para cuando llega esta comprobación ya
+    // puede haber bajado de "00:50", así que se verifica el FORMATO, no el
+    // valor exacto de un instante que ya pasó.
+    await expect(page.getByText(/^00:\d{2}$/).last()).toBeVisible();
   });
 
   test('sin plaza reservada (lista de espera), no hay botón de sesión guiada', async ({ page }) => {
@@ -65,7 +69,10 @@ test.describe('Portal — Sesión guiada', () => {
     await expect(page.getByText('Ejercicio 1 de 4').last()).toBeVisible({ timeout: 30_000 });
     // La tab bar del portal no debe verse durante la sesión guiada — pantalla
     // completa, mismo criterio que /login (ver isFullscreen en portal-shell.tsx).
-    await expect(page.getByRole('link', { name: 'Inicio' })).toHaveCount(0);
+    // «Inicio» se renombró a «Hoy» (lib/portal-nav.ts) — con el nombre viejo
+    // esta comprobación pasaba siempre, dijera lo que dijera la tab bar, porque
+    // ese texto ya no existe en ningún sitio.
+    await expect(page.getByRole('link', { name: 'Hoy' })).toHaveCount(0);
 
     await page.getByLabel('Salir de la sesión guiada').last().click();
     await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/clases/ses-1$`), { timeout: 30_000 });

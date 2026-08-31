@@ -7,11 +7,18 @@ import { montarPortal, SLUG } from './portal-mock';
 // instalado Oliva/Bloom/Noir.
 
 test.describe('Inicio — cabecera por variante', () => {
-  test('sin variante: "Hola, {nombre}." grande y sin avatar a la vista', async ({ page }) => {
+  test('sin variante: saludo por hora + frase del día como titular, sin avatar', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /^Hola, .+\./ })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/^Buen(os|as)/)).toHaveCount(0);
+    // `clasica` (default, `cabeceraConAvatar = variantes.cabeceraInicio !== 'clasica'`
+    // → false): el saludo por hora ya no vive en un "Hola, {nombre}." — pasa a
+    // párrafo con el nombre y emoji, y el encabezado real es el mensaje del
+    // día (mismo texto que `titular` asciende, ver portal-home-view.tsx).
+    await expect(page.getByText(/^Buen(os|as) (días|tardes|noches), Marta/)).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByRole('heading', { name: /Hoy tienes una cita contigo\.|¿Qué te apetece hoy\?/ }),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Hola, /, exact: false })).toHaveCount(0);
   });
 
   test('`titular`: saludo por hora + nombre, y el mensaje del día asciende a titular', async ({ page }) => {
@@ -22,7 +29,7 @@ test.describe('Inicio — cabecera por variante', () => {
     await expect(page.getByRole('heading', { name: /^Hola, / })).toHaveCount(0);
     await expect(page.getByText(/^Buen(os|as) (días|tardes|noches)$/)).toBeVisible();
     // El mensaje real del día, ahora en grande — no una frase de marketing.
-    await expect(page.getByText(/Hoy tienes una cita contigo\.|Tu sitio sigue aquí\./)).toBeVisible();
+    await expect(page.getByText(/Hoy tienes una cita contigo\.|¿Qué te apetece hoy\?/)).toBeVisible();
   });
 });
 

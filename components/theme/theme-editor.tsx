@@ -254,9 +254,12 @@ export function useThemeEditor() {
   // Navegación del portal (Fase 2 del Theme Builder): ocultar/renombrar/
   // cambiar icono de una pestaña. `home` nunca se puede ocultar — es el
   // destino de login del portal (ver resolveNavConfig en lib/portal-nav.ts,
-  // que también lo protege server-side si algo se cuela por aquí).
+  // que también lo protege server-side si algo se cuela por aquí). `buscar`
+  // tampoco: en la reconstrucción "Tentare Studio App" es función core de la
+  // barra (búsqueda global de clases/instructoras), no una sección de
+  // contenido de negocio como Reservas/Perfil.
   function toggleNavOculto(seg: NavSegId) {
-    if (seg === 'home') return;
+    if (seg === 'home' || seg === 'buscar') return;
     setDraft((d) => {
       const actual = resolveNavConfig(d.navPortal);
       const ocultos = actual.ocultos.includes(seg)
@@ -1078,9 +1081,9 @@ export function AjustesCategoriaPanel({
                 <button
                   type="button"
                   onClick={() => hook.toggleNavOculto(item.seg)}
-                  disabled={item.seg === 'home'}
-                  title={item.seg === 'home' ? 'Inicio no se puede ocultar' : oculta ? 'Mostrar' : 'Ocultar'}
-                  aria-label={item.seg === 'home' ? 'Inicio no se puede ocultar' : oculta ? `Mostrar ${item.label}` : `Ocultar ${item.label}`}
+                  disabled={item.seg === 'home' || item.seg === 'buscar'}
+                  title={item.seg === 'home' ? 'Inicio no se puede ocultar' : item.seg === 'buscar' ? 'Buscar no se puede ocultar' : oculta ? 'Mostrar' : 'Ocultar'}
+                  aria-label={item.seg === 'home' ? 'Inicio no se puede ocultar' : item.seg === 'buscar' ? 'Buscar no se puede ocultar' : oculta ? `Mostrar ${item.label}` : `Ocultar ${item.label}`}
                   className="shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-25 disabled:hover:text-muted-foreground"
                 >
                   {oculta ? <EyeOff size={16} /> : <Eye size={16} />}

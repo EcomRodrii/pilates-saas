@@ -53,21 +53,29 @@ export function PortalAjustesView({
   navegar: (ruta: string) => void;
 }) {
   const { studio, socios, updateSocio } = useStudio();
-  const { establecerPassword } = usePortalAuth();
+  const { establecerPassword, actualizarEmail } = usePortalAuth();
   const { t, noche } = useModo();
 
   const { slug } = useParams<{ slug: string }>();
   const socio = socios.find(s => s.id === session?.socioId);
 
-  const [hoja, setHoja] = useState<null | 'datos' | 'clave'>(null);
+  const [hoja, setHoja] = useState<null | 'datos' | 'email' | 'clave'>(null);
   const [form, setForm] = useState({
     nombre: socio?.nombre ?? '',
     apellidos: socio?.apellidos ?? '',
-    email: socio?.email ?? '',
     telefono: socio?.telefono ?? '',
     usuario: socio?.usuario ?? '',
   });
   const [guardando, setGuardando] = useState(false);
+  // Cambio de email de ACCESO — verificado en vivo contra el diseño real
+  // ("Cambiar email" es un flujo propio, no un campo dentro de "Mis
+  // datos"). Antes "Mis datos" escribía `socios.email` sin verificar nada:
+  // el mismo campo que `fetchPublicStudioData` compara contra el email del
+  // JWT como prueba de identidad — un typo ahí bloqueaba a la socia de sus
+  // propios datos en silencio (ver memoria del repo sobre socia.dev).
+  const [nuevoEmail, setNuevoEmail] = useState('');
+  const [cambiandoEmail, setCambiandoEmail] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<{ error: boolean; texto: string } | null>(null);
   const [clave, setClave] = useState({ nueva: '', repetir: '' });
   const [errorClave, setErrorClave] = useState('');
   const [guardandoClave, setGuardandoClave] = useState(false);
@@ -125,6 +133,26 @@ export function PortalAjustesView({
     if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
     setHoja(null);
     setAviso({ texto: 'Datos guardados.', error: false });
+  }
+
+  async function cambiarEmail(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!nuevoEmail.trim() || cambiandoEmail) return;
+    setCambiandoEmail(true);
+    setEmailMsg(null);
+    const r = await actualizarEmail(nuevoEmail.trim());
+    setCambiandoEmail(false);
+    if ('error' in r) { setEmailMsg({ error: true, texto: r.error }); return; }
+    setEmailMsg({
+      error: false,
+      // Enlace, no código: es lo que de verdad manda Supabase por defecto
+      // al cambiar el email — decir "código" sería prometer algo que este
+      // proyecto no envía.
+      texto: r.pendiente
+        ? 'Te hemos mandado un enlace de confirmación al email nuevo. El cambio se aplica cuando lo abras.'
+        : 'Email actualizado.',
+    });
+    setNuevoEmail('');
   }
 
   async function guardarClave(e?: React.FormEvent) {
@@ -185,6 +213,7 @@ export function PortalAjustesView({
         <Card style={{ padding: 0, overflow: 'hidden', marginTop: 12 }}>
           {fila('Mis datos', `${socio.nombre} ${socio.apellidos}`.trim(), () => setHoja('datos'))}
           {fila('Usuario', socio.usuario ? `@${socio.usuario}` : 'Sin definir', () => setHoja('datos'))}
+          {fila('Email', socio.email || null, () => setHoja('email'))}
           {fila('Contraseña', null, () => setHoja('clave'))}
         </Card>
 
@@ -287,11 +316,6 @@ export function PortalAjustesView({
             onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
           <Input label="Apellidos" placeholder="Apellidos" autoComplete="family-name" value={form.apellidos}
             onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
-          {/* Solo lectura: el email es la identidad de login y todavía no hay
-              flujo para cambiarlo (ver guardarDatos). Editable era una promesa
-              falsa que además hacía fallar el resto del formulario. */}
-          <Input label="Email" placeholder="Email" type="email" autoComplete="email" value={form.email}
-            readOnly style={{ opacity: 0.65 }} onChange={() => {}} />
           <Input label="Teléfono" placeholder="+34 600 000 000" type="tel" autoComplete="tel" inputMode="tel" value={form.telefono}
             onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
           {/* @handle — solo el campo (decisión de producto ya tomada, migr
@@ -303,6 +327,30 @@ export function PortalAjustesView({
           </p>
           <Button type="submit" disabled={guardando} style={{ width: '100%', marginTop: 6 }}>
             {guardando ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </form>
+      </BottomSheet>
+
+      {/* ── Hoja: cambiar email ───────────────────────────────────────────────
+          Verificado en vivo contra el diseño real: flujo propio, no un
+          campo dentro de "Mis datos". Cambia el email de ACCESO
+          (auth.updateUser), no `socios.email` directamente — ver comentario
+          de `actualizarEmail` en lib/portal-auth.tsx. */}
+      <BottomSheet open={hoja === 'email'} onClose={() => { setHoja(null); setEmailMsg(null); setNuevoEmail(''); }}>
+        <h2 style={{ ...display(26), color: t.ink, marginBottom: 18 }}>Cambiar email</h2>
+        <p style={{ ...texto.pie, color: t.muted, marginBottom: 18 }}>
+          Ahora: {socio.email || 'sin email'}. Te mandamos un enlace al nuevo para confirmarlo.
+        </p>
+        <form onSubmit={cambiarEmail} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Input label="Nuevo email" placeholder="tu@email.com" type="email" autoComplete="email" value={nuevoEmail}
+            onChange={e => { setNuevoEmail(e.target.value); setEmailMsg(null); }} />
+          {emailMsg && (
+            <p role={emailMsg.error ? 'alert' : undefined} style={{ ...texto.nota, color: emailMsg.error ? '#B0453A' : t.muted }}>
+              {emailMsg.texto}
+            </p>
+          )}
+          <Button type="submit" disabled={cambiandoEmail || !nuevoEmail.trim()} style={{ width: '100%', marginTop: 6 }}>
+            {cambiandoEmail ? 'Enviando…' : 'Enviarme el enlace'}
           </Button>
         </form>
       </BottomSheet>
@@ -319,6 +367,9 @@ export function PortalAjustesView({
             <p role="alert" style={{ fontFamily: sans, fontSize: 12, color: '#B85436' }}>{errorClave}</p>
           )}
           <p style={{ ...texto.nota, color: t.micro }}>Mínimo {MIN_LEN} caracteres.</p>
+          {/* Cierto de verdad, no solo un aviso: establecerPassword cierra
+              las demás sesiones al confirmar (ver lib/portal-auth.tsx). */}
+          <p style={{ ...texto.nota, color: t.micro }}>Cerraremos tu sesión en otros dispositivos.</p>
           <Button type="submit" disabled={guardandoClave} style={{ width: '100%', marginTop: 6 }}>
             {guardandoClave ? 'Guardando…' : 'Guardar contraseña'}
           </Button>

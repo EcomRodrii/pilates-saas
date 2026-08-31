@@ -202,6 +202,12 @@ export function PortalClasesView({
   const [recuperacion, setRecuperacion] = useState<{ sesionId: string; opciones: SugerenciaClase[] } | null>(null);
 
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
+  // Para el precio informativo de cada tarjeta (verificado en vivo contra el
+  // diseño real: "18 € · bono" en TODAS las tarjetas, reservada o llena
+  // incluida) — no es el precio que le toca pagar a ESTA socia (eso ya lo
+  // decide `cubierta` más abajo, dentro de la hoja de reserva), es el precio
+  // de tarifa del estudio, con el aviso de que un bono también sirve.
+  const hayBonoActivo = planesTarifa.some(p => p.tipo === 'BONO' && p.activo);
 
   const activeSus = useMemo(() =>
     suscripciones.find(s => s.socioId === socioId && s.estado === 'ACTIVA') ?? null,
@@ -534,7 +540,7 @@ export function PortalClasesView({
               ese filtro es útil también para un estudio con un único tipo. */}
           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '18px 24px 4px', scrollbarWidth: 'none' } as React.CSSProperties}>
             {(tiposClase.length > 1 || idsFavoritos.size > 0) &&
-              [{ id: null as string | null, nombre: 'Todas', color: null as string | null },
+              [{ id: null as string | null, nombre: 'Todo', color: null as string | null },
                 ...(idsFavoritos.size > 0 ? [{ id: FAVORITAS, nombre: 'Favoritas', color: null as string | null }] : []),
                 ...tiposClase.map(tc => ({ id: tc.id, nombre: tc.nombre, color: tc.color }))].map(chip => {
                 const activo = tipoEfectivo === chip.id;
@@ -610,7 +616,10 @@ export function PortalClasesView({
                   }}
                 >
                   <span style={{ fontSize: 9, fontWeight: 500, letterSpacing: '.16em', color: activo ? 'color-mix(in srgb, var(--portal-brand-foreground) 65%, transparent)' : t.micro }}>
-                    {LETRA_DIA[d.getDay()]}
+                    {/* "Hoy"/"Mañana" en vez de la letra, verificado en vivo
+                        contra el diseño real — solo cuando la semana visible
+                        es la de hoy (`indiceHoy` es -1 en cualquier otra). */}
+                    {i === indiceHoy ? 'HOY' : i === indiceHoy + 1 ? 'MAÑ.' : LETRA_DIA[d.getDay()]}
                   </span>
                   <span style={{ ...display(21), color: activo ? 'var(--portal-brand-foreground)' : (pasado ? t.micro : t.ink) }}>
                     {d.getDate()}
@@ -623,6 +632,14 @@ export function PortalClasesView({
       )}
 
       <div style={{ padding: '26px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* "N CLASES · HOY", verificado en vivo contra el diseño real — solo
+            en la vista de un día concreto (en "Mis reservas" no hay un solo
+            día del que contar). */}
+        {vista === 'todas' && lista.length > 0 && (
+          <span style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
+            {lista.length} {lista.length === 1 ? 'clase' : 'clases'} · {diaActivo === indiceHoy ? 'hoy' : diaActivo === indiceHoy + 1 ? 'mañana' : dias[diaActivo]?.toLocaleDateString('es-ES', { weekday: 'long' })}
+          </span>
+        )}
         {lista.length === 0 ? (
           <p style={{ ...display(16, true), color: t.muted2, textAlign: 'center', padding: '22px 0' }}>
             {vista === 'mias'
@@ -704,6 +721,15 @@ export function PortalClasesView({
                     umbralUrgencia={3}
                     style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap' }}
                   />
+                )}
+                {/* Precio de tarifa, verificado en vivo contra el diseño real
+                    (en TODAS las tarjetas, llena incluida) — es informativo,
+                    no lo que le toca pagar a ESTA socia si su plan ya lo
+                    cubre (eso lo decide la hoja de reserva). */}
+                {!reservada && precioClaseSuelta != null && (
+                  <span style={{ ...texto.nota, fontSize: 10.5, color: t.muted2, whiteSpace: 'nowrap' }}>
+                    {precioClaseSuelta} € {hayBonoActivo ? '· bono' : ''}
+                  </span>
                 )}
                 {reservada ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>

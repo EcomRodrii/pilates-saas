@@ -103,6 +103,22 @@ export default function EstudioFichaPage() {
 
   const equipo = useMemo(() => queImparten(instructores), [instructores]);
 
+  // CTA final del diseño real: "Reservar la próxima · hoy 19:30", no un
+  // genérico "Ver horario completo" — verificado en vivo contra el export
+  // standalone. La próxima clase de TODO el estudio, no solo del día
+  // seleccionado en el mini-horario de arriba (son dos cosas distintas: el
+  // mini-horario explora, el CTA de abajo siempre apunta a lo más inmediato).
+  const proximaClaseCta = useMemo(() => {
+    const ahora = new Date();
+    const siguiente = sesiones
+      .filter(s => !s.cancelada && new Date(s.inicio) > ahora)
+      .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime())[0];
+    if (!siguiente) return null;
+    const clave = hoyEnEstudio(new Date(siguiente.inicio));
+    const cuando = clave === hoyEnEstudio(ahora) ? 'hoy' : etiquetaDia(new Date(siguiente.inicio), false).toLowerCase();
+    return { id: siguiente.id, texto: `Reservar la próxima · ${cuando} ${horaEstudio(siguiente.inicio)}` };
+  }, [sesiones]);
+
   const galeria = useMemo(() => {
     const vistas = new Set<string>();
     const fotos: { src: string; alt: string }[] = [];
@@ -358,14 +374,14 @@ export default function EstudioFichaPage() {
           )}
 
           <Link
-            href={`/portal/${slug}/clases`}
+            href={proximaClaseCta ? `/portal/${slug}/clases/${proximaClaseCta.id}` : `/portal/${slug}/clases`}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', height: 52, borderRadius: 999,
               background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontSize: 14.5, fontWeight: 800,
               textDecoration: 'none', marginTop: 26,
             }}
           >
-            Ver horario completo
+            {proximaClaseCta?.texto ?? 'Ver horario completo'}
           </Link>
         </div>
       </div>

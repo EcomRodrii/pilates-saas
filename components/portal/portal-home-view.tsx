@@ -441,10 +441,6 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   const valoracionEstudioPantalla = valoracionParaPantalla(valoracionEstudio);
   const valoracionInstructoraPantalla = valoracionParaPantalla(instructoraDestacada?.valoracion ?? null);
 
-  const fechaHoy = ahora
-    ? new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(ahora).toUpperCase()
-    : '';
-
   // Las líneas de la tarjeta cuando SÍ hay una clase concreta que proponer.
   // Sustituyen al texto genérico del estudio, no a la volanta ni al titular:
   // el tono ("Tu sitio te espera") lo escribe la propietaria y se respeta; lo
@@ -596,7 +592,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     <p style={{ ...texto.meta, color: t.muted2, marginTop: 2 }}>
                       {homeCard.caso === 'PROXIMA_CLASE'
                         ? txt('cabecera', 'fraseConClase', '¿Lista para tu sesión de hoy?')
-                        : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
+                        : txt('cabecera', 'fraseSinClase', '¿Qué te apetece hoy?')}
                     </p>
                   </>
                 ) : (
@@ -608,7 +604,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                         de golpe al montar; y leerlo del reloj del servidor
                         (UTC) tampoco vale, porque la franja horaria de la socia
                         puede caer en otro saludo y eso es un desajuste de
-                        hidratación. Mismo criterio que `fechaHoy` más abajo. */}
+                        hidratación. Mismo criterio que el saludo de la
+                        variante `clasica`, más abajo. */}
                     <div style={{ ...texto.meta, color: t.muted2 }}>{ahora ? saludoPorHora(ahora) : ' '}</div>
                     <h1 style={{ ...display(escala('saludo', 24)), color: t.ink, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {nombre}
@@ -619,35 +616,24 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             </div>
           ) : (
           <div style={{ minWidth: 0 }}>
-            <div style={{ ...micro(9.5, 0.28), color: t.micro }}>{fechaHoy || ' '}</div>
-            <h1 style={{ ...display(50), color: t.ink, marginTop: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Hola, {nombre}.
-            </h1>
-            <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>
+            {/* Saludo por hora + nombre, verificado en vivo contra el diseño
+                real (Tentare Studio App.dc.html): sustituye la fecha en
+                versalitas + "Hola, {nombre}." de antes. `ahora` y no
+                `fechaHoy`/`now` por el mismo motivo que ya explica el
+                comentario de `saludoPorHora` más abajo — es la única pieza de
+                esta pantalla que depende solo de la hora, y hidratar con el
+                placeholder cambiaría de golpe al montar. */}
+            <p style={{ ...texto.meta, color: t.muted2 }}>
+              {ahora ? saludoPorHora(ahora) : ' '}, {nombre} 👋
+            </p>
+            <h1 style={{ ...display(38, false, 1.12), color: t.ink, marginTop: 8 }}>
               {homeCard.caso === 'PROXIMA_CLASE'
               ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
-              : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
-            </p>
+              : txt('cabecera', 'fraseSinClase', '¿Qué te apetece hoy?')}
+            </h1>
           </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginTop: 22 }}>
-            {/* Punto de entrada al overlay BUSCAR (Tentare Studio App.dc.html):
-                mismo círculo de cristal que la campana, un icono más a su
-                izquierda — nunca un push de ruta, solo abre el overlay. */}
-            <button
-              type="button"
-              onClick={() => setBuscarAbierto(true)}
-              aria-label="Buscar"
-              style={{
-                position: 'relative', width: 40, height: 40, flex: '0 0 40px',
-                borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
-                background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: sombra.circulo, cursor: 'pointer',
-                transition: transicion(['transform']),
-              }}
-            >
-              <Search size={18} strokeWidth={1.9} style={{ color: t.ink }} />
-            </button>
             <Link
               href={portalHref(`/${slug}/notificaciones`)}
               aria-label={sinLeer !== null && sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
@@ -674,6 +660,27 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           </div>
         </div>
 
+        {/* Barra de búsqueda embebida, verificada en vivo contra el diseño
+            real: sustituye al círculo-icono que abría el mismo overlay desde
+            la fila del saludo. Sigue sin ser un push de ruta — abre el mismo
+            `<BuscarOverlay>` de siempre, solo cambia la superficie que lo
+            invoca. */}
+        <button
+          type="button"
+          onClick={() => setBuscarAbierto(true)}
+          aria-label="Buscar clases, instructoras"
+          style={{
+            width: '100%', height: 48, marginTop: 20, padding: '0 18px',
+            display: 'flex', alignItems: 'center', gap: 10,
+            borderRadius: radio.pill,
+            border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
+            background: t.surface, boxShadow: sombra.circulo, cursor: 'pointer',
+          }}
+        >
+          <Search size={17} strokeWidth={1.9} style={{ color: t.muted2, flex: '0 0 auto' }} />
+          <span style={{ ...texto.meta, color: t.muted2 }}>Buscar clases, instructoras…</span>
+        </button>
+
         {/* El titular grande que en el prototipo va aparte del saludo. Lleva el
             MENSAJE REAL del día (el mismo que en la variante clásica es
             subtítulo, ascendido), no una frase de marketing de la maqueta. */}
@@ -681,7 +688,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           <p style={{ ...display(escala('titulo-hero', 30), false, 1.18), color: t.ink, marginTop: 20 }}>
             {homeCard.caso === 'PROXIMA_CLASE'
               ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
-              : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
+              : txt('cabecera', 'fraseSinClase', '¿Qué te apetece hoy?')}
           </p>
         )}
 
@@ -940,18 +947,15 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         )}
 
         {/* "Mi progreso" + "Retos" — dos tarjetas SIEMPRE visibles (rediseño
-            Tentare Studio App). Antes de esto, el progreso semanal y los
-            retos del estudio solo existían como bloques de sistema ocultos
-            por defecto y exclusivos de un tema (Oliva/Bloom) — ningún tema
-            los instala hoy (ver comentario junto a `progresoSemanalBloqueActivo`
-            más arriba), así que casi ninguna socia los veía nunca. Misma
-            lógica de cálculo que esos bloques (`calcularProgresoSemanal`/
-            `RETOS_PORTAL`+`retosApuntados`+`retoConteos`+`toggleReto`), sin
-            reimplementarla — solo se pinta siempre, apilada como "Tu ritmo",
-            en vez de esperar a que un tema la active. Si ESTE estudio ya
-            activó a mano el bloque equivalente (raro, pero posible desde el
-            editor), se cede el turno a ese para no duplicar la misma
-            información dos veces en la misma pantalla. */}
+            Tentare Studio App). El progreso semanal y los retos del estudio
+            ya existían como bloques de sistema — visibles POR DEFECTO desde
+            2026-08-26 (ver comentario junto a `progresoSemanalBloqueActivo`
+            más abajo) —, así que hoy casi toda socia ya los ve ahí, más
+            abajo, dentro del contenedor ordenable. Misma lógica de cálculo
+            que esos bloques (`calcularProgresoSemanal`/`RETOS_PORTAL`+
+            `retosApuntados`+`retoConteos`+`toggleReto`), sin reimplementarla
+            — solo se pinta aquí, apilada como "Tu ritmo", para el estudio
+            RARO que los haya desactivado a mano desde el editor. */}
         {!progresoSemanalBloqueActivo && (
           <>
             <div style={{ height: 44 }} />

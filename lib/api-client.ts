@@ -3068,12 +3068,16 @@ export interface ClaseAsistidaCliente {
  * cualquiera con una sesión de Supabase por el mero hecho de VISITAR el portal
  * de un estudio.
  */
-export async function altaAlEntrar(slug: string, via: 'google' | 'enlace'): Promise<{ error?: string; creada?: boolean }> {
+export async function altaAlEntrar(slug: string, via: 'google' | 'enlace', nombre?: string): Promise<{ error?: string; creada?: boolean }> {
   try {
     const res = await fetch('/api/public/alta-al-entrar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
-      body: JSON.stringify({ slug, via }),
+      // El endpoint ya acepta `nombre` opcional (solo lo usa si hay que CREAR
+      // la ficha) — ver su propio comentario "Su nombre, si el proveedor lo
+      // da". La vía 'enlace' del onboarding nuevo ("Crea tu cuenta") es la
+      // primera en darlo de verdad.
+      body: JSON.stringify(nombre?.trim() ? { slug, via, nombre: nombre.trim() } : { slug, via }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string; creada?: boolean };
     if (res.ok) return { creada: data.creada };

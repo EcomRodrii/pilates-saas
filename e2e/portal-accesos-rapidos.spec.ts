@@ -14,7 +14,11 @@ test.describe('Inicio — accesos rápidos por variante', () => {
   test('sin variantes (todo estudio sin tema): 4 filas de 68 px y ningún encabezado', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({ timeout: 30_000 });
+    // El saludo de Inicio ya no es un texto fijo ("Hola, {nombre}"): depende
+    // de la hora y de la variante de cabecera. Se espera un elemento estable,
+    // siempre presente, para saber que Inicio cargó — lo que este test
+    // comprueba de verdad son los accesos rápidos de más abajo.
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
     const enlaces = page.getByRole('link', { name: 'Mis reservas' });
     await expect(enlaces).toHaveCount(1);
@@ -64,7 +68,7 @@ test.describe('Inicio — accesos rápidos por variante', () => {
     test(`los 4 destinos no cambian con la variante "${variante}" — cambia la forma, no a dónde llevan`, async ({ page }) => {
       await montarPortal(page, { conSesion: true, variantes: { accesosRapidos: variante } });
       await page.goto(`/portal/${SLUG}/home`);
-      await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
       // Acotado al bloque: varios de estos destinos salen también en la barra
       // inferior, así que buscar el href a secas encontraría dos.
       const bloque = page.locator('[data-bloque-sistema="accesosRapidos"]');
@@ -83,7 +87,7 @@ test.describe('Inicio — accesos rápidos por variante', () => {
   test('un módulo fijo lleva también `data-bloque-id`, que es lo que el editor selecciona', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/home`);
-    await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
     const bloque = page.locator('[data-bloque-sistema="accesosRapidos"]');
     // No vale con que exista el atributo: tiene que ser el id de ESA fila, no
