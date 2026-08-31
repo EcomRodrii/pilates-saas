@@ -12,6 +12,7 @@ import { semaforo, alertaPreClase, resumenSaludClase, RESPUESTAS_ORDEN, RESPUEST
 import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida, Sesion } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   CalendarDays, ChevronDown,
@@ -1216,6 +1217,16 @@ export default function Calendario() {
     }
   }
 
+  // P1-3 (auditoría de producto): "Cancelar"/"Eliminar" clase ejecutaban
+  // directo — el número de alumnas afectadas solo aparecía en el toast
+  // POSTERIOR. Combinado con P0-1 (ya cerrado: "Eliminar" ahora sí devuelve
+  // el bono), un clic accidental en la papelera de una clase llena tenía
+  // impacto real y solo se descubría después. Confirmación previa con el
+  // conteo, mismo componente que ya usa el resto del panel.
+  const [confirmCancelar, setConfirmCancelar] = useState(false);
+  const [confirmEliminar, setConfirmEliminar] = useState(false);
+  const apuntadasSesionActual = reservasActuales.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
+
   async function cancelarSesion() {
     if (!sesionId) return;
     const guardado = await updateSesion(sesionId, { cancelada: true });
@@ -2355,11 +2366,11 @@ export default function Calendario() {
               >
                 <AlertTriangle size={12} />Incidencia de sala
               </button>
-              <button onClick={cancelarSesion} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">
+              <button onClick={() => setConfirmCancelar(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">
                 <X size={12} />Cancelar
               </button>
               {!esInstructor && (
-                <button onClick={eliminarSesion} aria-label="Eliminar sesión" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors ml-auto">
+                <button onClick={() => setConfirmEliminar(true)} aria-label="Eliminar sesión" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors ml-auto">
                   <Trash2 size={12} />
                 </button>
               )}
@@ -2553,6 +2564,30 @@ export default function Calendario() {
         open={showNoPuedoAsistir}
         onOpenChange={setShowNoPuedoAsistir}
         sesion={sesionActual}
+      />
+
+      <ConfirmDialog
+        open={confirmCancelar}
+        onOpenChange={setConfirmCancelar}
+        titulo="¿Cancelar esta clase?"
+        descripcion={apuntadasSesionActual > 0
+          ? `${apuntadasSesionActual} alumna${apuntadasSesionActual !== 1 ? 's' : ''} apuntada${apuntadasSesionActual !== 1 ? 's' : ''} se quedará${apuntadasSesionActual !== 1 ? 'n' : ''} sin plaza y recibirá${apuntadasSesionActual !== 1 ? 'n' : ''} un aviso.`
+          : 'La clase no tiene alumnas apuntadas.'}
+        textoConfirmar="Cancelar clase"
+        destructivo
+        onConfirm={() => void cancelarSesion()}
+      />
+
+      <ConfirmDialog
+        open={confirmEliminar}
+        onOpenChange={setConfirmEliminar}
+        titulo="¿Eliminar esta clase?"
+        descripcion={apuntadasSesionActual > 0
+          ? `${apuntadasSesionActual} alumna${apuntadasSesionActual !== 1 ? 's' : ''} apuntada${apuntadasSesionActual !== 1 ? 's' : ''} se quedará${apuntadasSesionActual !== 1 ? 'n' : ''} sin plaza${apuntadasSesionActual !== 1 ? 's' : ''}${(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — su bono se devuelve' : ''} y recibirá${apuntadasSesionActual !== 1 ? 'n' : ''} un aviso.`
+          : 'La clase no tiene alumnas apuntadas.'}
+        textoConfirmar="Eliminar clase"
+        destructivo
+        onConfirm={() => void eliminarSesion()}
       />
 
       {/* ── Panel lateral crear / editar ────────────────────────────────────────── */}

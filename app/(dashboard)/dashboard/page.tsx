@@ -16,6 +16,7 @@ import { cn, inicioDeSemana, finDeSemana } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { AvisoIntegracionesCaidas } from '@/components/dashboard/aviso-integraciones-caidas';
 import { ActionCenter } from '@/components/decision/action-center';
@@ -270,6 +271,8 @@ function ClaseHoyCard({
   const { reservas, socios, checkin, cancelarReserva } = useStudio();
   const [expanded, setExpanded] = useState(isNow);
   const [showNoPuedoAsistir, setShowNoPuedoAsistir] = useState(false);
+  // P1-4 (auditoría de producto): la X quitaba la reserva sin confirmar.
+  const [reservaAQuitar, setReservaAQuitar] = useState<{ id: string; nombre: string } | null>(null);
 
   // P0-27: Map por id en vez de socios.find() por cada reserva de la sesión.
   const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
@@ -387,7 +390,7 @@ function ClaseHoyCard({
                           Check-in
                         </button>
                         <button
-                          onClick={() => { void cancelarReserva(r.id); }}
+                          onClick={() => setReservaAQuitar({ id: r.id, nombre: `${r.socio!.nombre} ${r.socio!.apellidos}` })}
                           className="text-[10px] font-medium px-2 py-1 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                         >
                           ✕
@@ -422,6 +425,16 @@ function ClaseHoyCard({
         open={showNoPuedoAsistir}
         onOpenChange={setShowNoPuedoAsistir}
         sesion={{ id: sesion.id, inicio: sesion.inicio, tipoClase: { nombre: sesion.tipoNombre } }}
+      />
+
+      <ConfirmDialog
+        open={!!reservaAQuitar}
+        onOpenChange={v => { if (!v) setReservaAQuitar(null); }}
+        titulo={reservaAQuitar ? `¿Quitar a ${reservaAQuitar.nombre}?` : ''}
+        descripcion="Se libera su plaza — si hay lista de espera, se promociona automáticamente a la siguiente persona."
+        textoConfirmar="Quitar"
+        destructivo
+        onConfirm={() => { if (reservaAQuitar) void cancelarReserva(reservaAQuitar.id); setReservaAQuitar(null); }}
       />
     </div>
   );
