@@ -65,7 +65,8 @@ export default function PrimerosPasosPage() {
     numSesiones: sesiones.length,
     numSocios: socios.length,
     numSalas: salas.length,
-    numPlanesTarifa: planesTarifa.length,
+    // P1-6 (auditoría de producto): ver components/dashboard/onboarding-checklist.tsx.
+    numPlanesTarifa: planesTarifa.filter(p => p.activo && p.precio > 0).length,
     numSuscripcionesActivas: suscripciones.filter(s => s.estado === 'ACTIVA').length,
     contenidoPortalPersonalizado: !!contenidoPortal?.mensajeDestacado,
     automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),
