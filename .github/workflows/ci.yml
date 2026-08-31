@@ -200,8 +200,12 @@ jobs:
       # shards no lo tiene — y sin él, cualquier e2e que monte el bundle real
       # (`<script src="/widget.js">`) muere en 404 con un timeout que se lee
       # como flake. Pasó con los primeros e2e de Modo B (tipografía, PR #1307).
+      # public/widget-checkout.js (2026-08-31, checkout diferido — ver
+      # checkout-lazy-mount.tsx) es el mismo caso: sin él en el artefacto, el
+      # `import()` que hace widget.js al abrir "Planes" muere en 404 y la hoja
+      # se queda en "Cargando…" para siempre — mismo síntoma de "flake".
       - name: Empaquetar salida del build
-        run: tar -cf build.tar --exclude=.next/cache .next public/widget.js
+        run: tar -cf build.tar --exclude=.next/cache .next public/widget.js public/widget-checkout.js
 
       - name: Subir salida del build
         uses: actions/upload-artifact@v4
