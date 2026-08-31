@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  fetchHuecosCitaPublico, crearCitaPublica, cancelarCitaPublica, socioAutenticado,
+  fetchHuecosCitaPublico, fetchHuecosCitaPublicoMulti, crearCitaPublica, cancelarCitaPublica, socioAutenticado,
 } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
@@ -26,6 +26,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // P1-7 (auditoría de producto): `instructorId` puede llegar como lista
+    // separada por comas — "Cualquier instructora" en el widget hacía 1
+    // petición por instructora. Con una sola no cambia nada: sigue devolviendo
+    // `{ huecos }` tal cual (mismo contrato que ya cubre el e2e de citas).
+    if (instructorId.includes(',')) {
+      const instructorIds = instructorId.split(',').map(s => s.trim()).filter(Boolean);
+      const r = await fetchHuecosCitaPublicoMulti({ studioId, servicioId, instructorIds, fechaLocal: fecha });
+      if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 });
+      return NextResponse.json(r);
+    }
     const r = await fetchHuecosCitaPublico({ studioId, servicioId, instructorId, fechaLocal: fecha });
     if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 });
     return NextResponse.json(r);

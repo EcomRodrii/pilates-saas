@@ -2876,6 +2876,79 @@ export async function fetchHuecosCitaPublico(params: {
   return { ok: true, huecos };
 }
 
+// P1-7 (auditoría de producto): "Cualquier instructora" en el widget público
+// disparaba 1 petición HTTP (~4 queries cada una) por instructora contra un
+// endpoint con rate-limit de 60/min — con 4-6 instructoras del mismo
+// servicio, una socia navegando varios días podía agotar la cuota y ver "sin
+// huecos" cuando era en realidad un 429. Misma lógica que
+// `fetchHuecosCitaPublico`, pero con `citas_disponibilidad`/`citas`/`sesiones`
+// en UNA consulta por tabla (`.in('instructor_id', ids)`) en vez de una por
+// instructora, y `citas_servicios` leído una sola vez (es el mismo servicio
+// para todas). El caso de UNA instructora concreta sigue usando la función de
+// arriba tal cual — no se toca su contrato para no arrastrar cambios al
+// e2e que ya la cubre.
+export async function fetchHuecosCitaPublicoMulti(params: {
+  studioId: string; servicioId: string; instructorIds: string[]; fechaLocal: string; ahora?: Date;
+}): Promise<{ error: string } | { ok: true; porInstructor: Record<string, HuecoCita[]> }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const ids = Array.from(new Set(params.instructorIds)).filter(Boolean);
+  if (ids.length === 0) return { ok: true, porInstructor: {} };
+
+  const { data: srow } = await admin.from('citas_servicios').select('*')
+    .eq('id', params.servicioId).eq('studio_id', params.studioId).maybeSingle();
+  if (!srow || !srow.activo || !srow.auto_reservable) return { error: 'Servicio no disponible' };
+  const servicio = mapServicioCita(srow as RowCitasServicios);
+
+  const desde = horaParedAInstante(params.fechaLocal, '00:00');
+  const hasta = new Date(desde.getTime() + 36 * 3600 * 1000);
+
+  const [{ data: disp }, { data: citas }, { data: sesiones }] = await Promise.all([
+    admin.from('citas_disponibilidad').select('*')
+      .eq('studio_id', params.studioId).in('instructor_id', ids),
+    admin.from('citas').select('inicio, fin, estado, instructor_id')
+      .eq('studio_id', params.studioId).in('instructor_id', ids)
+      .in('estado', ['PENDIENTE', 'CONFIRMADA'])
+      .lt('inicio', hasta.toISOString()).gte('fin', desde.toISOString()),
+    admin.from('sesiones').select('inicio, fin, cancelada, instructor_id')
+      .eq('studio_id', params.studioId).in('instructor_id', ids)
+      .lt('inicio', hasta.toISOString()).gte('fin', desde.toISOString()),
+  ]);
+
+  const franjasPorInstructor = new Map<string, { diaSemana: number; horaInicio: string; horaFin: string }[]>();
+  for (const r of disp ?? []) {
+    const f = mapDisponibilidadCita(r as RowCitasDisponibilidad);
+    const lista = franjasPorInstructor.get(f.instructorId) ?? [];
+    lista.push({ diaSemana: f.diaSemana, horaInicio: f.horaInicio, horaFin: f.horaFin });
+    franjasPorInstructor.set(f.instructorId, lista);
+  }
+
+  const ocupadosPorInstructor = new Map<string, IntervaloOcupado[]>();
+  for (const c of citas ?? []) {
+    const lista = ocupadosPorInstructor.get(c.instructor_id as string) ?? [];
+    lista.push({ inicio: c.inicio as string, fin: c.fin as string });
+    ocupadosPorInstructor.set(c.instructor_id as string, lista);
+  }
+  for (const s of sesiones ?? []) {
+    if (s.cancelada) continue;
+    const lista = ocupadosPorInstructor.get(s.instructor_id as string) ?? [];
+    lista.push({ inicio: s.inicio as string, fin: s.fin as string });
+    ocupadosPorInstructor.set(s.instructor_id as string, lista);
+  }
+
+  const porInstructor: Record<string, HuecoCita[]> = {};
+  for (const instructorId of ids) {
+    porInstructor[instructorId] = generarHuecosDia({
+      fechaLocal: params.fechaLocal,
+      franjas: franjasPorInstructor.get(instructorId) ?? [],
+      duracionMin: servicio.duracionMin,
+      ocupados: ocupadosPorInstructor.get(instructorId) ?? [],
+      ahora: params.ahora ?? new Date(),
+    });
+  }
+  return { ok: true, porInstructor };
+}
+
 // Reserva self-service de una cita 1:1. Valida socia + servicio auto-reservable +
 // que el hueco cae dentro del horario fino de la instructora, y crea la cita de
 // forma ATÓMICA (rpc reservar_cita serializa concurrencia y rechaza solapes).
