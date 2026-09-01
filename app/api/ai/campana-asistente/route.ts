@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     try {
       parsed = parseJsonIA(raw);
     } catch {
-      return NextResponse.json({ error: 'Respuesta IA inválida', raw }, { status: 500 });
+      return NextResponse.json({ error: 'No se ha podido generar la campaña automáticamente', raw }, { status: 500 });
     }
 
     const segmentoValido = segmentos.some(s => s.value === parsed.destinatariosSugeridos);
@@ -86,6 +86,6 @@ export async function POST(req: NextRequest) {
       contenido: parsed.contenido,
     });
   } catch (err: unknown) {
-    return errorInterno('ai/campana-asistente:POST', err, 'No se ha podido generar la campaña con IA.');
+    return errorInterno('ai/campana-asistente:POST', err, 'No se ha podido generar la campaña automáticamente.');
   }
 }

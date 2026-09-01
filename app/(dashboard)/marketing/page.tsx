@@ -65,7 +65,7 @@ const triggerDesc: Record<string, string> = {
   SUSCRIPCION_EXPIRA_1D: 'El día antes de que caduque la suscripción',
   CUMPLEANOS: 'El día del cumpleaños de la clienta',
   NUEVA_ALTA: 'Cuando se registra una nueva clienta',
-  INACTIVIDAD_30D: 'Si no hay actividad en los últimos 45 días — si ya usas "Automatizaciones IA" con la regla de Ausencia, esta se solapa con su secuencia (días 7/14/25); actívala solo si no usas aquella',
+  INACTIVIDAD_30D: 'Si no hay actividad en los últimos 45 días — si ya usas "Automatizaciones" con la regla de Ausencia, esta se solapa con su secuencia (días 7/14/25); actívala solo si no usas aquella',
   BONO_AGOTADO: 'Cuando se agota el bono de sesiones',
   BONO_QUEDA_1: 'Cuando solo queda 1 sesión en el bono',
   CITA_RECORDATORIO: 'Recordatorio antes de una clase reservada',
@@ -762,7 +762,7 @@ export default function MarketingPage() {
       setSelectedTemplate(null)
       setShowPreview(false)
     } catch {
-      setErrorIA('Error de conexión con el asistente IA')
+      setErrorIA('Error de conexión con el asistente automático')
     } finally {
       setGenerandoIA(false)
     }
@@ -1451,7 +1451,7 @@ export default function MarketingPage() {
             <div className="rounded-xl border border-[#F0D5E3] bg-[#FFF7FB] p-3.5 space-y-2.5">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-brand-secondary" />
-                <span className="text-[12px] font-bold text-foreground">Escribe la campaña con IA</span>
+                <span className="text-[12px] font-bold text-foreground">Escribe la campaña automáticamente</span>
               </div>
               <div className="flex items-center gap-2">
                 <input

@@ -27,7 +27,7 @@ export const FAQS: FaqItem[] = [
   { categoria: 'Gamificación', pregunta: '¿Cómo funcionan los logros?', respuesta: 'Se desbloquean automáticamente al alcanzar un umbral (ej. 10 clases asistidas). Los defines en Configuración > Logros, con su icono y créditos de regalo.' },
   { categoria: 'Gamificación', pregunta: '¿Y los niveles (Bronce, Plata...)?', respuesta: 'Se calculan sobre el total histórico de créditos ganados por la clienta. Configúralos en Configuración > Niveles — nombres, colores y umbrales son totalmente tuyos.' },
   { categoria: 'Gamificación', pregunta: '¿Qué es la racha?', respuesta: 'Cuenta las semanas consecutivas en las que la clienta ha asistido a al menos una clase. Se muestra en su Home y le avisa si está en riesgo de perderla.' },
-  { categoria: 'Automatización', pregunta: '¿Qué hace el sistema autónomo / Automatizaciones IA?', respuesta: 'Detecta situaciones (clientas inactivas, bonos a punto de acabar, pagos pendientes...) y sugiere o ejecuta acciones automáticas como recordatorios.' },
+  { categoria: 'Automatización', pregunta: '¿Qué hace el sistema autónomo / Automatizaciones?', respuesta: 'Detecta situaciones (clientas inactivas, bonos a punto de acabar, pagos pendientes...) y sugiere o ejecuta acciones automáticas como recordatorios.' },
   { categoria: 'Equipo', pregunta: '¿Puedo dar acceso a mi equipo?', respuesta: 'Sí, en Equipo puedes invitar instructoras o recepción con permisos distintos a los tuyos como propietaria.' },
   { categoria: 'Cuenta', pregunta: '¿Cómo cambio los datos de mi estudio?', respuesta: 'En Configuración > Estudio: nombre, NIF, dirección, color de marca y logo.' },
 ];

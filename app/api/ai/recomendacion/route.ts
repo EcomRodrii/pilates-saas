@@ -35,11 +35,11 @@ export async function POST(req: NextRequest) {
     try {
       parsed = parseJsonIA(raw);
     } catch {
-      return NextResponse.json({ error: 'Respuesta IA inválida', raw }, { status: 500 });
+      return NextResponse.json({ error: 'No se ha podido generar la recomendación automáticamente', raw }, { status: 500 });
     }
 
     return NextResponse.json({ asunto: parsed.asunto ?? '', mensaje: parsed.mensaje ?? '' });
   } catch (err: unknown) {
-    return errorInterno('ai/recomendacion:POST', err, 'No se ha podido generar la recomendación con IA.');
+    return errorInterno('ai/recomendacion:POST', err, 'No se ha podido generar la recomendación automáticamente.');
   }
 }
