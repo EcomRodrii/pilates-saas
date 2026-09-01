@@ -131,22 +131,13 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
     await expect(page.getByRole('heading', { name: 'Esta semana' })).toBeVisible();
   });
 
-  test('las cuatro filas llevan a cuatro sitios distintos', async ({ page }) => {
-    await page.goto(`/portal/${SLUG}/home`);
-    // Locator estable para esperar a que Inicio haya cargado — el saludo ya
-    // no es un texto fijo (depende de la hora), y este test no comprueba el
-    // saludo, comprueba las filas de abajo.
-    await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
-
-    const destinos = [
-      ['Mis reservas', 'reservas'], ['Mi progreso', 'progreso'],
-      ['Notificaciones', 'notificaciones'], ['El equipo', 'instructores'],
-    ] as const;
-    for (const [etiqueta, seg] of destinos) {
-      await expect(page.getByRole('link', { name: new RegExp(`^${etiqueta}`) }).first())
-        .toHaveAttribute('href', `/portal/${SLUG}/${seg}`);
-    }
-  });
+  // ⚠️ RETIRADO: "las cuatro filas llevan a cuatro sitios distintos" probaba
+  // el bloque "Accesos rápidos" (Mis reservas/Mi progreso/Notificaciones/El
+  // equipo), retirado del Inicio el 31-ago por no existir en el diseño real
+  // de "Tentare Studio App" (ver e2e/portal-accesos-rapidos.spec.ts, que es
+  // la red de seguridad de esa retirada). Este test quedó apuntando a filas
+  // que ya no se pintan — no se actualiza, se borra, igual que se hizo con
+  // los demás tests de esa rama muerta.
 
   // Catálogo real hoy (lib/portal-nav.ts, NAV_DEFAULT): Hoy/Buscar/Reservas/
   // Perfil — Clases y Bonos se fusionaron en una sola pantalla "Reservas", y
