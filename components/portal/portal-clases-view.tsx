@@ -89,7 +89,7 @@ export function PortalClasesView({
     planesTarifa, suscripciones, studio, addReserva, cancelarReserva,
     favoritos, toggleFavorito, bloquesClases: bloquesClasesPublicado, refrescarAforo,
   } = useStudio();
-  const { t, noche } = useModo();
+  const { t } = useModo();
   const socioId = session?.socioId ?? null;
 
   // El aforo que se ve aquí es el del último `cargarPublico()` (al montar, o
@@ -861,7 +861,7 @@ export function PortalClasesView({
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
                     padding: '12px 14px', borderRadius: 14, textAlign: 'left', width: '100%',
-                    border: `1px solid ${t.line}`, background: noche ? t.surface2 : '#FFFFFF', color: t.ink,
+                    border: `1px solid ${t.line}`, background: '#FFFFFF', color: t.ink,
                   }}
                 >
                   <span style={{ fontWeight: 700, fontSize: 14 }}>

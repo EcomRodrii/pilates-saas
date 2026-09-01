@@ -30,7 +30,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { PilatesIcon } from '@/components/icons/pilates-icon';
-import { useModo } from '@/lib/portal-modo';
 import { EASE, dur, radio, altura, cristal } from '@/lib/portal-design';
 import type { NavItemDefault } from '@/lib/portal-nav';
 import { usePortalHref } from './portal-preview-bridge';
@@ -70,7 +69,6 @@ export function PortalNav({
    */
   etiquetas?: 'soloActiva' | 'todas' | 'todasRelleno';
 }) {
-  const { t, noche } = useModo();
   const portalHref = usePortalHref();
   // `interactive` decide la MECÁNICA de posición (absolute con desplazamiento
   // propio vs relative — el widget de preview ya vive dentro de un contenedor
@@ -105,14 +103,14 @@ export function PortalNav({
           : `calc(var(--portal-tabbar-height, ${altura.tabbar}px) + env(safe-area-inset-bottom))`,
         zIndex: interactive ? 14 : undefined,
         borderRadius: flotante ? `var(--portal-tabbar-radius, ${radio.tabbar}px)` : 0,
-        background: `var(--portal-tabbar-bg, ${noche ? t.tabbar : 'rgba(250,249,245,.88)'})`,
+        background: 'var(--portal-tabbar-bg, rgba(250,249,245,.88))',
         ...(flotante ? cristal(16, 170) : {}),
         border: flotante
-          ? `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.85)'}`
+          ? '1px solid rgba(255,255,255,.85)'
           // `--portal-tabbar-border` es la LÍNEA entera, no solo su color: la
           // barra oscura la quita del todo (ver varsBarra) y con un color
           // transparente seguiría reservando su píxel de alto.
-          : `var(--portal-tabbar-border, 1px solid ${noche ? t.line : '#EFEDE4'})`,
+          : 'var(--portal-tabbar-border, 1px solid #EFEDE4)',
         // Con `--portal-tabbar-border: none` el estilo del borde ya es `none`,
         // así que este ancho no pinta nada — solo acota la línea al lado de
         // arriba cuando SÍ hay borde.

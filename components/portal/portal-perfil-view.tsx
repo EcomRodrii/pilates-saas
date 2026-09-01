@@ -71,7 +71,7 @@ export function PortalPerfilView({
     rachaSocio, achievementDefinitions, achievementProgress, evaluarLogrosSocio,
     challengeDefinitions, challengeProgress, evaluarRetosSocio,
   } = useStudio();
-  const { t, noche, toggle } = useModo();
+  const { t } = useModo();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const socio = socioOverride ?? socios.find(s => s.id === session?.socioId);
@@ -276,17 +276,14 @@ export function PortalPerfilView({
     valor: string | null,
     onClick: (() => void) | null,
     ultima = false,
-    interruptor?: boolean,
   ) => {
     const contenido = (
       <>
         <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1A1A' }}>{titulo}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {valor && <span style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52' }}>{valor}</span>}
-          {/* Sin destino no hay flecha: prometería un sitio al que no se va.
-              Vale igual para el interruptor, que no lleva a ninguna parte —
-              cambia algo aquí mismo, y lo que hay que ver es su estado. */}
-          {onClick && !interruptor && <span style={{ fontFamily: sans, fontSize: 15, color: '#98A093' }}>›</span>}
+          {/* Sin destino no hay flecha: prometería un sitio al que no se va. */}
+          {onClick && <span style={{ fontFamily: sans, fontSize: 15, color: '#98A093' }}>›</span>}
         </span>
       </>
     );
@@ -303,8 +300,6 @@ export function PortalPerfilView({
           key={titulo}
           type="button"
           onClick={onClick}
-          role={interruptor ? 'switch' : undefined}
-          aria-checked={interruptor ? noche : undefined}
           style={{ ...estilo, cursor: 'pointer' }}
         >
           {contenido}
@@ -528,7 +523,6 @@ export function PortalPerfilView({
             Las filas de arriba se quedan tal cual — esta es una vía
             adicional, no las sustituye. */}
         {fila('Ajustes', null, () => navegar(`/portal/${slug}/ajustes`))}
-        {fila('Aspecto', noche ? 'Noche' : 'Día', toggle, false, true)}
         {fila(
           'El estudio',
           [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || null,

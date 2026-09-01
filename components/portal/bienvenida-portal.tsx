@@ -30,7 +30,7 @@ export function BienvenidaPortal({
   /** `foto` (default) = el look de siempre. Ver comentario de arriba. */
   variante?: 'foto' | 'marca';
 }) {
-  const { t, noche } = useModo();
+  const { t } = useModo();
   const enMarca = variante === 'marca';
 
   if (enMarca) {
@@ -106,7 +106,7 @@ export function BienvenidaPortal({
         aria-hidden
         style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: `linear-gradient(180deg, transparent 34%, ${noche ? 'rgba(18,20,14,.9)' : 'rgba(246,244,239,.96)'} 78%, ${noche ? 'rgba(18,20,14,1)' : 'rgba(246,244,239,1)'} 100%)`,
+          background: 'linear-gradient(180deg, transparent 34%, rgba(246,244,239,.96) 78%, rgba(246,244,239,1) 100%)',
         }}
       />
 
@@ -127,7 +127,7 @@ export function BienvenidaPortal({
           onClick={onSiguiente}
           style={{
             width: '100%', height: altura.botonAcceso, borderRadius: radio.hoja,
-            background: noche ? t.surface2 : '#FFFFFF', boxShadow: sombra.hojaAcceso,
+            background: '#FFFFFF', boxShadow: sombra.hojaAcceso,
             border: 'none', cursor: 'pointer', padding: '0 8px 0 26px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             transition: transicion(['transform']),

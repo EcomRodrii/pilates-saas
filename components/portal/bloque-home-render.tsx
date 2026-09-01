@@ -70,7 +70,7 @@ function contenedorDe(estilo: EstiloBloque | undefined): React.CSSProperties {
 }
 
 function BannerBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'banner' }>; slug: string }) {
-  const { t, noche } = useModo();
+  const { t } = useModo();
   const portalHref = usePortalHref();
   const { imagenUrl, titulo, texto: cuerpo, href } = bloque.config;
   const { estilo } = bloque;
@@ -95,9 +95,7 @@ function BannerBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'b
       )}
       <div aria-hidden style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: noche
-          ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
-          : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
+        background: 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
       }} />
       <div style={{
         position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column',

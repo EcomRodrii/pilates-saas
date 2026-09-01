@@ -74,7 +74,7 @@ export function HojaOfertaEspera({
    */
   onError: (mensaje: string) => void;
 }) {
-  const { t, noche } = useModo();
+  const { t } = useModo();
   const [restanteMs, setRestanteMs] = useState<number | null>(null);
   const [accionEnCurso, setAccionEnCurso] = useState<'aceptar' | 'dejar' | null>(null);
 
@@ -120,7 +120,7 @@ export function HojaOfertaEspera({
     // el próximo render del padre.
   }
 
-  const successColor = noche ? semantic.success.textNoche : semantic.success.text;
+  const successColor = semantic.success.text;
 
   const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' });
@@ -133,7 +133,7 @@ export function HojaOfertaEspera({
         style={{
           position: 'fixed', inset: 0, zIndex: 60,
           opacity: abierta ? 1 : 0, pointerEvents: abierta ? 'auto' : 'none',
-          background: noche ? 'rgba(8,9,6,.5)' : 'rgba(34,38,31,.3)',
+          background: 'rgba(34,38,31,.3)',
           ...cristal(desenfoque.backdrop, 120),
           transition: `opacity ${dur.tab}ms ${EASE}`,
         }}
@@ -149,7 +149,7 @@ export function HojaOfertaEspera({
           bottom: 'calc(12px + var(--portal-tabbar-height, 64px) + 22px + env(safe-area-inset-bottom))',
           maxWidth: 456, margin: '0 auto',
           background: t.bg, borderRadius: radio.hoja,
-          border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.8)'}`,
+          border: '1px solid rgba(255,255,255,.8)',
           boxShadow: sombra.sheet, padding: '16px 24px 24px',
           maxHeight: 'calc(100dvh - var(--portal-tabbar-height, 64px) - 56px)', overflowY: 'auto',
           opacity: abierta ? 1 : 0,
@@ -160,7 +160,7 @@ export function HojaOfertaEspera({
       >
         <button
           type="button" onClick={onClose} aria-label="Cerrar"
-          style={{ display: 'block', width: 40, height: 4, borderRadius: 4, margin: '0 auto', background: noche ? '#3A3F33' : '#D8D4C9', border: 'none', padding: 0 }}
+          style={{ display: 'block', width: 40, height: 4, borderRadius: 4, margin: '0 auto', background: '#D8D4C9', border: 'none', padding: 0 }}
         />
 
         {oferta && (

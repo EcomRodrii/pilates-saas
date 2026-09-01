@@ -126,7 +126,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   } = useStudio();
   const homeBloques = homeBloquesOverride ?? homeBloquesPublicado;
   const tarjetaRotulada = variantes.tarjetaPrincipal === 'rotulada';
-  const { t, noche } = useModo();
+  const { t } = useModo();
   const [paseAbierto, setPaseAbierto] = useState(false);
   const [buscarAbierto, setBuscarAbierto] = useState(false);
 
@@ -504,9 +504,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   // la del portal, y si tampoco la de por defecto. La herencia va en este orden
   // a propósito: quien nunca toque el campo nuevo no nota ningún cambio.
   const fotoTarjeta = imagenDeEstudio('vertical', [txt('proximaClase', 'fotoUrl', ''), studio?.imagenBienvenidaUrl]);
-  const cristalClaro = noche ? 'rgba(28,31,23,.72)' : 'rgba(246,244,239,.72)';
-  const bordeCristal = noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.80)';
-  const lineaSuave = noche ? 'rgba(243,241,233,.20)' : 'rgba(34,38,31,.20)';
+  const cristalClaro = 'rgba(246,244,239,.72)';
+  const bordeCristal = 'rgba(255,255,255,.80)';
+  const lineaSuave = 'rgba(34,38,31,.20)';
 
   return (
     <div ref={raizRef} className="portal-app" style={{ minHeight: '100%' }}>
@@ -743,16 +743,16 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             display: 'flex', justifyContent: 'space-between', gap: 10, pointerEvents: 'none',
           }}>
             <span style={{
-              padding: '10px 16px', borderRadius: radio.pill, background: noche ? 'rgba(28,31,23,.62)' : 'rgba(255,255,255,.62)',
+              padding: '10px 16px', borderRadius: radio.pill, background: 'rgba(255,255,255,.62)',
               ...cristal(desenfoque.chip), border: `1px solid ${bordeCristal}`,
               ...micro(8.5, 0.26, 600), color: t.ink, whiteSpace: 'nowrap',
             }}>{tarjeta.volanta}</span>
             {tarjeta.contador && (
               <span style={{
                 padding: '10px 16px', borderRadius: radio.pill,
-                background: noche ? 'rgba(243,241,233,.72)' : 'rgba(34,38,31,.72)',
+                background: 'rgba(34,38,31,.72)',
                 ...cristal(desenfoque.chip, 100),
-                ...micro(8.5, 0.22, 600), color: noche ? '#12140E' : '#F6F4EF', whiteSpace: 'nowrap',
+                ...micro(8.5, 0.22, 600), color: '#F6F4EF', whiteSpace: 'nowrap',
               }}>{tarjeta.contador}</span>
             )}
           </div>
@@ -834,7 +834,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 aria-label="Ver el horario"
                 style={{
                   position: 'relative', width: 40, height: 40, flex: '0 0 40px',
-                  borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
+                  borderRadius: '50%', border: '1px solid rgba(34,38,31,.14)',
                   background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: sombra.circulo, textDecoration: 'none',
                   transition: transicion(['transform']),
@@ -852,7 +852,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 aria-label="Mi acceso"
                 style={{
                   position: 'relative', width: 40, height: 40, flex: '0 0 40px',
-                  borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
+                  borderRadius: '50%', border: '1px solid rgba(34,38,31,.14)',
                   background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: sombra.circulo, textDecoration: 'none',
                   transition: transicion(['transform']),
@@ -1111,9 +1111,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               />
               <div aria-hidden style={{
                 position: 'absolute', inset: 0, pointerEvents: 'none',
-                background: noche
-                  ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
-                  : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
+                background: 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
               }} />
               <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
                 <span style={{ ...micro(8.5, 0.26, 600), color: t.heroAccent }}>
@@ -1146,8 +1144,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 <div style={{ height: 20 }} />
                 <div style={{
                   borderRadius: radio.card, padding: '16px 18px',
-                  background: noche ? t.surface2 : '#EEF0EA',
-                  border: `1px solid ${noche ? 'rgba(169,187,160,.22)' : 'rgba(44,53,44,.16)'}`,
+                  background: '#EEF0EA',
+                  border: '1px solid rgba(44,53,44,.16)',
                 }}>
                   <p style={{ ...texto.nota, color: t.muted2, lineHeight: 1.5 }}>{contenidoPortal.mensajeDestacado}</p>
                 </div>
@@ -1173,9 +1171,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   )}
                   <div aria-hidden style={{
                     position: 'absolute', inset: 0, pointerEvents: 'none',
-                    background: noche
-                      ? 'linear-gradient(94deg, rgba(18,20,14,.97) 6%, rgba(18,20,14,.88) 42%, rgba(18,20,14,.35) 72%, rgba(18,20,14,.06) 100%)'
-                      : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
+                    background: 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
                   }} />
                   <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
                     {b.titulo && <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
@@ -1281,8 +1277,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 const apuntada = retosApuntados.includes(reto.key);
                 const conteo = retoConteos[reto.key] ?? 0;
                 // Variante 'color' (Bloom): fondo propio por reto y tinta fija
-                // oscura — con un fondo claro constante, `t.ink` en modo noche
-                // sería casi blanco encima y quedaría ilegible.
+                // oscura — con un fondo claro constante, `t.ink` quedaría casi
+                // blanco encima y sería ilegible.
                 const conColor = variantes.retos === 'color';
                 const tinta = conColor ? reto.tinta : t.ink;
                 // `imagenCore`/`imagenCara`: campo del bloque, no del tema —
