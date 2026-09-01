@@ -278,12 +278,17 @@ export function PuertaPortal() {
   // Foto+caption reutilizan PortadaAcceso tal cual (misma pieza que `crear`/
   // `login`, solo más alta) — el panel de abajo usa el MISMO color de marca
   // que el degradado de la foto, para que se lea como una sola superficie
-  // oscura continua, igual que el diseño verificado en vivo.
+  // oscura continua.
+  // ⚠️ `alto` medido a pixel contra la captura real (no a ojo): en el diseño
+  // la foto+degradado cubre ~79% del alto del marco, con el panel plano solo
+  // en el último ~20%. Los 360px de una pasada anterior (44% de un viewport
+  // de ~812px) se habían quedado cortos pese a decir "verificado en vivo" —
+  // 520px acerca esa proporción sin dejar el panel de texto/CTA sin sitio.
   if (paso === 'intro') {
     return (
       <div style={{ minHeight: '100dvh', background: MARCA, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         <PortadaAcceso
-          alto={360}
+          alto={520}
           fotoUrl={studio?.imagenBienvenidaUrl?.trim() ? studio.imagenBienvenidaUrl : null}
           nombre={nombre}
           ciudad={studio?.ciudad}
