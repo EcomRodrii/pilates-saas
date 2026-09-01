@@ -12,6 +12,9 @@ import { LEGAL } from '@/lib/legal-info';
 export const metadata: Metadata = {
   title: 'Instructoras de Pilates y Yoga | Tentare Network',
   description: 'Encuentra instructoras de Pilates y Yoga disponibles cerca de ti. Filtra por especialidad, ubicación y disponibilidad.',
+  // Canonical fijo a la ruta sin querystring: los filtros (?ciudad=/?especialidades=)
+  // no deben indexarse como páginas propias — mismo contenido, mismo destino.
+  alternates: { canonical: `${LEGAL.url}/network/instructoras` },
 };
 
 export default async function MarketplaceInstructorasPage({
