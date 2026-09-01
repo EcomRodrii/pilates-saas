@@ -88,7 +88,7 @@ export function seccionReservarDeSistemaId(sistemaId: BloqueSistemaId): string {
 // abajo) — un estudio que no instale Oliva/Noir/Bloom ni los active a mano
 // no los ve.
 export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
-  home: ['cabecera', 'proximaClase', 'estaSemana', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos'],
+  home: ['cabecera', 'proximaClase', 'tiraSemana', 'progresoSemanal', 'retos', 'estaSemana', 'invitarAmiga', 'contenidoEstudio'],
   clases: ['listadoClases'],
   bonos: ['listadoBonos'],
   reservar: SECCIONES_RESERVAR.map((s) => sistemaIdDeSeccionReservar(s.id)),

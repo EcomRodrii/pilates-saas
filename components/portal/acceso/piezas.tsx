@@ -159,15 +159,18 @@ function HiloProgreso({ progreso }: { progreso: number }) {
 }
 
 /**
- * Campo de LÍNEA DE BASE, no cápsula.
+ * Campo en cápsula — mismo tratamiento que el resto del portal
+ * (`components/portal/ui/Input.tsx`) y que el diseño real ("Crea tu cuenta").
  *
- * Es la diferencia visual más grande respecto a la pantalla anterior, y no es
- * estética: una cápsula con fondo es una caja que compite con el CTA, y en una
- * pantalla cuyo único trabajo es que escribas una cosa, la caja sobra. La
- * línea deja el texto a 19 px flotando sobre el fondo del portal.
+ * Antes era una línea de base sin caja, a propósito ("una cápsula con fondo
+ * compite con el CTA") — decisión revertida: la puerta es la única pantalla
+ * del portal con ese tratamiento distinto, y de las cinco marcadas por el
+ * fundador como no fieles al diseño real, esta era una de las dos con
+ * hueco genuino (la otra, el botón de Apple, se queda fuera — no hay
+ * proveedor configurado, y un botón que no entra es peor que no tenerlo).
  */
 export function CampoLinea({
-  etiqueta, tipo = 'text', valor, onChange, marcador, autoComplete, autoFocus, onEnter, sufijo, alto = 56, tamano = 19,
+  etiqueta, tipo = 'text', valor, onChange, marcador, autoComplete, autoFocus, onEnter, sufijo, alto = 56, tamano = 17,
 }: {
   etiqueta: string;
   tipo?: 'text' | 'email' | 'password';
@@ -177,7 +180,7 @@ export function CampoLinea({
   autoComplete?: string;
   autoFocus?: boolean;
   onEnter?: () => void;
-  /** El botón «ver» de la contraseña, anclado abajo a la derecha. */
+  /** El botón «ver» de la contraseña, anclado a la derecha, centrado en vertical. */
   sufijo?: React.ReactNode;
   alto?: number;
   tamano?: number;
@@ -197,18 +200,18 @@ export function CampoLinea({
         autoComplete={autoComplete}
         autoFocus={autoFocus}
         style={{
-          width: '100%', height: alto, background: 'transparent',
-          border: 'none', borderBottom: `1px solid ${t.line}`, borderRadius: 0,
+          width: '100%', height: alto, background: t.surface,
+          border: `1.5px solid ${t.line}`, borderRadius: radio.card,
           color: t.ink, fontFamily: texto.meta.fontFamily, fontSize: tamano,
-          paddingRight: sufijo ? 56 : 0,
+          padding: `0 ${sufijo ? 56 : 20}px 0 20px`,
           outline: 'none',
           transition: transicion(['border-color'], dur.foco),
         }}
-        onFocus={(e) => { e.currentTarget.style.borderBottomColor = MARCA; }}
-        onBlur={(e) => { e.currentTarget.style.borderBottomColor = t.line; }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = MARCA; }}
+        onBlur={(e) => { e.currentTarget.style.borderColor = t.line; }}
       />
       {sufijo && (
-        <div style={{ position: 'absolute', right: 0, bottom: 12 }}>{sufijo}</div>
+        <div style={{ position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)' }}>{sufijo}</div>
       )}
     </div>
   );

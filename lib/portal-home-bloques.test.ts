@@ -17,12 +17,17 @@ test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los de siempre detr
     .map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
   // ⚠️ `cabecera` y `proximaClase` son nuevos, y NO cambian nada de lo que se
   // pinta: ya se pintaban, escritos a fuego encima del contenedor de bloques.
-  // Lo que cambia es que ahora EXISTEN para el editor. Los de siempre siguen
-  // en su orden, detrás.
+  // Lo que cambia es que ahora EXISTEN para el editor.
   // `tiraSemana`/`progresoSemanal`/`retos` se sumaron aquí en la auditoría del
   // Theme Builder / rediseño "Tentare Studio App" (2026-08-26): nacían solo
   // para Oliva/Noir/Bloom, ahora son parte del Inicio de siempre.
-  assert.deepEqual(idsVisibles, ['cabecera', 'proximaClase', 'estaSemana', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos']);
+  // Van INMEDIATAMENTE detrás de los fijos (no al final): en el diseño real
+  // "Tu ritmo" (bono, arriba, escrito a fuego) y "Mi progreso"/"Retos" son un
+  // solo grupo visual continuo — con "Esta semana"/"Invita a una amiga" antes,
+  // un estudio sin capa guardada veía "Tu ritmo" seguido de contenido no
+  // relacionado, y los bloques que sí completan ese grupo varias pantallas
+  // más abajo.
+  assert.deepEqual(idsVisibles, ['cabecera', 'proximaClase', 'tiraSemana', 'progresoSemanal', 'retos', 'estaSemana', 'invitarAmiga', 'contenidoEstudio']);
 });
 
 test('DEFAULT_BLOQUES_POR_PANTALLA.home: ningún bloque de sistema llega oculto por defecto', () => {
@@ -40,7 +45,7 @@ test('DEFAULT_BLOQUES_POR_PANTALLA: Clases y Bonos tienen un único bloque siste
 test('resolveBloquesPantalla: Home sin nada guardado y sin legacy → default de siempre', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: [], ocultos: [] });
   const visibles = r.publicado.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'estaSemana', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos']);
+  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'tiraSemana', 'progresoSemanal', 'retos', 'estaSemana', 'invitarAmiga', 'contenidoEstudio']);
   assert.deepEqual(r.draft, r.publicado);
 });
 
