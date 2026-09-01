@@ -48,7 +48,7 @@ test.describe('Portal — Bonos: autoservicio de plaza fija', () => {
     await expect(page.getByText('¿Dar de baja tu plaza fija?')).toBeVisible();
     expect(peticiones).toBe(0);
 
-    await page.getByRole('button', { name: 'Volver' }).click();
+    await page.getByRole('button', { name: 'Conservarla' }).click();
     await expect(page.getByText('¿Dar de baja tu plaza fija?')).toHaveCount(0);
     expect(peticiones).toBe(0);
   });
@@ -60,8 +60,8 @@ test.describe('Portal — Bonos: autoservicio de plaza fija', () => {
     await page.goto(`/portal/${SLUG}/bonos`);
 
     await page.getByRole('button', { name: 'Dar de baja' }).click();
-    await expect(page.getByRole('button', { name: 'Sí, dar de baja' })).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Sí, dar de baja' }).click();
+    await expect(page.getByRole('button', { name: 'Sí, darla de baja' })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Sí, darla de baja' }).click();
 
     await expect(page.getByText('Plaza fija dada de baja.')).toBeVisible({ timeout: 30_000 });
   });

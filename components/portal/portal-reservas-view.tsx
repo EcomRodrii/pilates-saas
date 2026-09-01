@@ -1071,7 +1071,7 @@ export function PortalReservasView({
                   background: 'transparent', color: '#1A1A1A', fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
                 }}
               >
-                Volver
+                Conservarla
               </button>
               <button
                 type="button"
@@ -1082,7 +1082,80 @@ export function PortalReservasView({
                   fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
                 }}
               >
-                Sí, dar de baja
+                Sí, darla de baja
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Gap 4 (fidelidad Tentare Studio App) — sheet de confirmación al
+          valorar, mismo patrón "montado solo mientras la condición es
+          cierta, sin transición" que confirmandoBaja arriba. */}
+      {valorandoSheet && (
+        <>
+          <div
+            onClick={() => { setValorandoSheet(null); setPuntuacionElegida(null); }}
+            aria-hidden
+            style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(15,15,15,.42)', ...cristal(18, 120) }}
+          />
+          <div
+            role="dialog"
+            aria-modal
+            aria-label={`¿Qué tal la clase del ${valorandoSheet.fecha}?`}
+            style={{
+              position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
+              background: '#FAF9F5', borderRadius: '24px 24px 0 0',
+              boxShadow: '0 -18px 50px rgba(15,15,15,.25)', padding: '16px 26px calc(26px + env(safe-area-inset-bottom))',
+            }}
+          >
+            <div style={{ width: 34, height: 4, borderRadius: 4, background: '#D9D6C9', margin: '0 auto 20px' }} />
+            <h2 style={{ fontFamily: sans, fontSize: 20, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', textAlign: 'center' }}>
+              ¿Qué tal {valorandoSheet.tituloClase} del {valorandoSheet.fecha}?
+            </h2>
+            <div role="group" aria-label="Elegir puntuación" style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 18 }}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPuntuacionElegida(n)}
+                  aria-label={`${n} de 5 estrellas`}
+                  aria-pressed={puntuacionElegida === n}
+                  style={{ border: 'none', background: 'transparent', padding: 4, cursor: 'pointer' }}
+                >
+                  <Star
+                    size={30}
+                    strokeWidth={1.6}
+                    fill={puntuacionElegida != null && n <= puntuacionElegida ? '#4F8A5B' : 'none'}
+                    style={{ color: puntuacionElegida != null && n <= puntuacionElegida ? '#4F8A5B' : '#98A093' }}
+                  />
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+              <button
+                type="button"
+                onClick={() => { setValorandoSheet(null); setPuntuacionElegida(null); }}
+                style={{
+                  flex: 1, height: 54, borderRadius: 27, border: '1px solid #E5E3DA',
+                  background: 'transparent', color: '#1A1A1A', fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={puntuacionElegida == null || valorandoId === valorandoSheet.reservaId}
+                onClick={() => { if (puntuacionElegida != null) void onValorar(valorandoSheet.reservaId, puntuacionElegida); }}
+                style={{
+                  flex: 1, height: 54, borderRadius: 27, border: 'none',
+                  background: '#1A1A1A', color: '#F1ECE1',
+                  fontFamily: sans, fontSize: 14, fontWeight: 500,
+                  cursor: puntuacionElegida == null ? 'default' : 'pointer',
+                  opacity: puntuacionElegida == null || valorandoId === valorandoSheet.reservaId ? 0.5 : 1,
+                }}
+              >
+                Enviar valoración
               </button>
             </div>
           </div>
