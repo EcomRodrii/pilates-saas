@@ -21,8 +21,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useCore } from '@/lib/core-context';
-import { useModo } from '@/lib/portal-modo';
-import { sans, altura, radio } from '@/lib/portal-design';
+import { sans, altura } from '@/lib/portal-design';
 import { NAV_DISPONIBLES, navItemsVisibles } from '@/lib/portal-nav';
 import { PushPrompt } from './push-prompt';
 import { PortalNav } from './portal-nav';
@@ -40,7 +39,6 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
-  const { t } = useModo();
 
   const isLoginPage = pathname === `/portal/${slug}` || pathname === `/portal/${slug}/login` || pathname === `/portal/${slug}/acceso`;
   // /clave-nueva llega recién autenticada por magic link (o sin sesión válida
@@ -134,13 +132,13 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           {/* Esqueleto genérico (no sabe qué pantalla se está cargando): un
               spinner solo, varios segundos, se lee como que la app se ha
               colgado — esto da la sensación de que ya hay algo ahí debajo. */}
-          <div className="animate-pulse" style={{ height: 15, width: '55%', borderRadius: 7, background: t.surface2 }} />
-          <div className="animate-pulse" style={{ height: 26, width: '75%', borderRadius: 8, background: t.surface2, marginTop: 10 }} />
-          <div className="animate-pulse" style={{ height: 150, borderRadius: radio.card, background: t.surface2, marginTop: 22 }} />
+          <div className="animate-pulse" style={{ height: 15, width: '55%', borderRadius: 7, background: '#EFEDE4' }} />
+          <div className="animate-pulse" style={{ height: 26, width: '75%', borderRadius: 8, background: '#EFEDE4', marginTop: 10 }} />
+          <div className="animate-pulse" style={{ height: 150, borderRadius: 16, background: '#EFEDE4', marginTop: 22 }} />
           <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: radio.card, background: t.surface2 }} />
-            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: radio.card, background: t.surface2 }} />
-            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: radio.card, background: t.surface2 }} />
+            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: 16, background: '#EFEDE4' }} />
+            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: 16, background: '#EFEDE4' }} />
+            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: 16, background: '#EFEDE4' }} />
           </div>
         </div>
       </div>
