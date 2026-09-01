@@ -32,10 +32,11 @@ export function SeccionApp() {
           <Image
             src="/landing/app-mockup.png"
             alt="Pantalla de inicio de la app de alumnas de Tentare, con saludo, buscador, bono de sesiones, racha semanal y horario del estudio"
-            width={1600}
-            height={1200}
+            width={452}
+            height={1111}
             className="v5-telefono-img"
-            sizes="(max-width: 860px) 90vw, 480px"
+            sizes="(max-width: 860px) 55vw, 280px"
+            priority
           />
         </div>
       </div>
@@ -57,11 +58,12 @@ export function SeccionApp() {
         .v5-salida:hover { text-decoration: underline; text-underline-offset: 4px; }
 
         .v5-telefono-zona { display: flex; justify-content: center; }
-        .v5-telefono-img { width: 100%; max-width: 420px; height: auto; }
+        .v5-telefono-img { width: 100%; max-width: 280px; height: auto; }
 
         @media (max-width: 860px) {
           .v5-app-wrap { grid-template-columns: 1fr; }
           .v5-telefono-zona { order: -1; margin-bottom: 8px; }
+          .v5-telefono-img { max-width: 220px; }
         }
       `}</style>
     </section>
