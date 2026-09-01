@@ -153,9 +153,19 @@ export async function transicionarLiquidacion(
   admin: SupabaseClient, id: string, studioId: string,
   accion: 'confirmar' | 'marcar_pagada', actorUserId: string, referenciaPago?: string | null,
 ): Promise<{ row?: LiquidacionRow; error?: string }> {
-  const { data: actual } = await admin.from('liquidaciones_instructoras').select('id, estado')
+  const { data: actual } = await admin.from('liquidaciones_instructoras').select('id, estado, n_clases_sin_tarifa')
     .eq('id', id).eq('studio_id', studioId).maybeSingle();
   if (!actual) return { error: 'Liquidación no encontrada' };
+
+  // Ninguna liquidación con clases sin valorar puede avanzar de estado: el
+  // total en ese caso no es "0€ elegido" (tarifaHora===null es "no fijada",
+  // no un cero intencionado — ver calcularLiquidacion), así que confirmar o
+  // pagar sin tarifa fijada esconde que la instructora no ha cobrado nada
+  // por esas clases detrás de un badge "Pagada" en verde.
+  const nClasesSinTarifa = (actual.n_clases_sin_tarifa as number | null) ?? 0;
+  if (nClasesSinTarifa > 0) {
+    return { error: `Hay ${nClasesSinTarifa} clase${nClasesSinTarifa === 1 ? '' : 's'} sin tarifa fijada — fija la tarifa antes de continuar` };
+  }
 
   if (accion === 'confirmar') {
     if (actual.estado !== 'BORRADOR') return { error: 'Solo se puede confirmar un borrador' };
