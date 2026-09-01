@@ -885,6 +885,7 @@ export function PortalReservasView({
       <div
         role="dialog"
         aria-modal={!!cancelando}
+        aria-hidden={!cancelando}
         aria-label={cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
         style={{
           position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
@@ -986,63 +987,68 @@ export function PortalReservasView({
 
       {/* Confirmar baja de plaza fija — mismo lenguaje literal que la hoja de
           cancelación de arriba, en vez del `BottomSheet` genérico del
-          sistema saliente. */}
-      <div
-        onClick={() => setConfirmandoBaja(false)}
-        aria-hidden
-        style={{
-          position: 'fixed', inset: 0, zIndex: 40,
-          opacity: confirmandoBaja ? 1 : 0, pointerEvents: confirmandoBaja ? 'auto' : 'none',
-          background: 'rgba(15,15,15,.42)',
-          ...cristal(18, 120),
-          transition: `opacity ${dur.tab}ms ${EASE}`,
-        }}
-      />
-      <div
-        role="dialog"
-        aria-modal={confirmandoBaja}
-        aria-label="¿Dar de baja tu plaza fija?"
-        style={{
-          position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
-          background: '#FAF9F5', borderRadius: '24px 24px 0 0',
-          boxShadow: '0 -18px 50px rgba(15,15,15,.25)', padding: '16px 26px calc(26px + env(safe-area-inset-bottom))',
-          opacity: confirmandoBaja ? 1 : 0,
-          pointerEvents: confirmandoBaja ? 'auto' : 'none',
-          transform: confirmandoBaja ? 'translateY(0) scale(1)' : 'translateY(114%) scale(.98)',
-          transition: `transform ${dur.sheet}ms ${EASE}, opacity 500ms ease`,
-        }}
-      >
-        <div style={{ width: 34, height: 4, borderRadius: 4, background: '#D9D6C9', margin: '0 auto 20px' }} />
-        <h2 style={{ fontFamily: sans, fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', textAlign: 'center' }}>
-          ¿Dar de baja tu plaza fija?
-        </h2>
-        <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-          Dejará de reservarte el hueco cada semana. Las clases ya reservadas no se tocan.
-        </p>
-        <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-          <button
-            type="button"
+          sistema saliente.
+          ⚠️ A diferencia de cancelando/cambiandoHora (entrada/salida animada,
+          patrón ya establecido en HojaPase), este se monta/desmonta con la
+          propia condición — SIN transición — igual que el BottomSheet
+          original al que sustituye (`if (!open) return null`): un sheet
+          siempre montado con solo opacidad/pointer-events rompe
+          `getByText(...).toHaveCount(0)`, que es justo lo que comprueba el
+          test que ya cubre este flujo. */}
+      {confirmandoBaja && (
+        <>
+          <div
             onClick={() => setConfirmandoBaja(false)}
+            aria-hidden
             style={{
-              flex: 1, height: 54, borderRadius: 27, border: '1px solid #E5E3DA',
-              background: 'transparent', color: '#1A1A1A', fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+              position: 'fixed', inset: 0, zIndex: 40,
+              background: 'rgba(15,15,15,.42)',
+              ...cristal(18, 120),
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal
+            aria-label="¿Dar de baja tu plaza fija?"
+            style={{
+              position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
+              background: '#FAF9F5', borderRadius: '24px 24px 0 0',
+              boxShadow: '0 -18px 50px rgba(15,15,15,.25)', padding: '16px 26px calc(26px + env(safe-area-inset-bottom))',
             }}
           >
-            Volver
-          </button>
-          <button
-            type="button"
-            onClick={() => void confirmarBajaPlaza()}
-            style={{
-              flex: 1, height: 54, borderRadius: 27, border: 'none',
-              background: '#F4E9E5', color: '#A04A3C',
-              fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
-            }}
-          >
-            Sí, dar de baja
-          </button>
-        </div>
-      </div>
+            <div style={{ width: 34, height: 4, borderRadius: 4, background: '#D9D6C9', margin: '0 auto 20px' }} />
+            <h2 style={{ fontFamily: sans, fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', textAlign: 'center' }}>
+              ¿Dar de baja tu plaza fija?
+            </h2>
+            <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+              Dejará de reservarte el hueco cada semana. Las clases ya reservadas no se tocan.
+            </p>
+            <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+              <button
+                type="button"
+                onClick={() => setConfirmandoBaja(false)}
+                style={{
+                  flex: 1, height: 54, borderRadius: 27, border: '1px solid #E5E3DA',
+                  background: 'transparent', color: '#1A1A1A', fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmarBajaPlaza()}
+                style={{
+                  flex: 1, height: 54, borderRadius: 27, border: 'none',
+                  background: '#F4E9E5', color: '#A04A3C',
+                  fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Sí, dar de baja
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
     </div>

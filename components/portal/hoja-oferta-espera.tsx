@@ -142,6 +142,7 @@ export function HojaOfertaEspera({
       <div
         role="dialog"
         aria-modal={abierta}
+        aria-hidden={!abierta}
         aria-label={oferta?.tipo ? `Plaza liberada — ${oferta.tipo.nombre}` : 'Plaza liberada'}
         style={{
           position: 'fixed', left: 12, right: 12, zIndex: 61,

@@ -101,7 +101,7 @@ export function HojaPase({
         }}
       />
 
-      <div role="dialog" aria-modal={abierta} aria-label="Tu pase de acceso" style={hoja}>
+      <div role="dialog" aria-modal={abierta} aria-hidden={!abierta} aria-label="Tu pase de acceso" style={hoja}>
         <button
           type="button" onClick={onClose} aria-label="Cerrar"
           style={{ width: 34, height: 4, borderRadius: 4, background: 'rgba(241,236,225,.3)', border: 'none', padding: 0 }}

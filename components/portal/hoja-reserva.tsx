@@ -234,6 +234,7 @@ export function HojaReserva({
       <div
         role="dialog"
         aria-modal={abierta}
+        aria-hidden={!abierta}
         aria-label={clase ? `Reservar ${clase.nombre}` : 'Reservar'}
         style={{
           position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
