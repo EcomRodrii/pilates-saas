@@ -43,7 +43,7 @@ export default function MisCandidaturasNetworkPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 max-w-2xl mx-auto">
       <PageHeader title="Mis candidaturas" />
 
       {!candidaturas ? (

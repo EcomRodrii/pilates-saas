@@ -282,7 +282,7 @@ export default function MiPerfilNetworkPage() {
   const esUltimoPaso = paso === PASOS.length - 1;
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="space-y-5 max-w-2xl mx-auto">
       <PageHeader
         title="Mi perfil en Network"
         description="Cómo te ven los estudios que buscan profesionales de Pilates y Yoga en Tentare Network."

@@ -23,7 +23,7 @@ export default function OportunidadesNetworkPage() {
   }, []);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 max-w-2xl mx-auto">
       <PageHeader title="Oportunidades" description="Vacantes publicadas por estudios que usan Tentare." />
 
       {!vacantes ? (
