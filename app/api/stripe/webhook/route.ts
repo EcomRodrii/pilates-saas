@@ -263,6 +263,16 @@ async function procesarEvento(
     const admin = getSupabaseAdmin();
     if (!admin) {
       console.error('[stripe webhook] service role no configurada');
+      // Auditoría 20ª pasada · F-12: desde que el webhook responde 200 antes
+      // de procesar (`after(...)` más arriba), este 5xx no lo recibe nadie —
+      // Stripe ya se fue con un 200. Un `console.error` a secas no llega a
+      // Sentry, así que sin esta línea el fallo no lo ve nadie hasta que una
+      // socia se queje. No se rediseña la señal al conciliador en esta
+      // pasada (decisión arquitectónica, ver informe); esto solo asegura que
+      // el fallo de HOY sea observable.
+      Sentry.captureMessage('[stripe webhook] service role no configurada', {
+        level: 'error', tags: { area: 'cobros' }, extra: { eventId: event.id, eventType: event.type },
+      });
       return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
     }
 
@@ -317,6 +327,9 @@ async function procesarEvento(
             .update(update).eq('id', socioId).eq('studio_id', studioId);
           if (error) {
             console.error('[stripe webhook] no se pudo guardar la tarjeta autorizada', socioId, error);
+            Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta autorizada', {
+              level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle: error.message },
+            });
             return NextResponse.json({ error: 'Fallo al guardar la tarjeta' }, { status: 500 });
           }
           // Caducidad para los avisos de Fase 3 del Brain. Best-effort: lo que
@@ -357,6 +370,9 @@ async function procesarEvento(
             .update(update).eq('id', socioId).eq('studio_id', studioId);
           if (error) {
             console.error('[stripe webhook] no se pudo guardar el mandato SEPA', socioId, error);
+            Sentry.captureMessage('[stripe webhook] no se pudo guardar el mandato SEPA', {
+              level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle: error.message },
+            });
             return NextResponse.json({ error: 'Fallo al guardar el mandato SEPA' }, { status: 500 });
           }
         }
@@ -441,6 +457,9 @@ async function procesarEvento(
           .select('id').maybeSingle();
         if (error) {
           console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
+          Sentry.captureMessage('[stripe webhook] no se pudo marcar el recibo como COBRADO', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, sessionId: session.id, detalle: error.message },
+          });
           return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
         }
         // 0 filas tiene DOS causas muy distintas y hasta ahora se trataban igual
@@ -632,6 +651,9 @@ async function procesarEvento(
               .eq('id', socioId).eq('studio_id', studioId);
             if (error) {
               console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
+              Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta de la socia', {
+                level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle: error.message },
+              });
               return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
             }
             // Y CUÁNDO caduca, para poder avisar antes de que falle el cobro
@@ -672,11 +694,17 @@ async function procesarEvento(
       const studioId = pi.metadata.studioId;
       if (!studioId) {
         console.error('[stripe webhook] PI de terminal sin studioId en metadata', pi.id);
+        Sentry.captureMessage('[stripe webhook] PI de terminal sin studioId en metadata', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, origenPos },
+        });
         return NextResponse.json({ received: true });
       }
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (reconciliación POS)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (reconciliación POS)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, studioId },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
       // Insert idempotente: si el POS ya registró la venta y marcó el marcador
@@ -691,6 +719,9 @@ async function procesarEvento(
       });
       if (error && error.code !== '23505') {
         console.error('[stripe webhook] no se pudo registrar la reconciliación POS', pi.id, error);
+        Sentry.captureMessage('[stripe webhook] no se pudo registrar la reconciliación POS', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, studioId, detalle: error.message },
+        });
         return NextResponse.json({ error: 'Fallo al registrar la reconciliación' }, { status: 500 });
       }
 
@@ -707,6 +738,9 @@ async function procesarEvento(
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (checkout embebido)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (checkout embebido)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
       // El tenant se resuelve desde la CUENTA que firma, no desde la metadata
@@ -844,6 +878,9 @@ async function procesarEvento(
             .eq('id', entrega.socioId).eq('studio_id', studioId);
           if (error) {
             console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia (checkout embebido)', entrega.socioId, error);
+            Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta de la socia (checkout embebido)', {
+              level: 'error', tags: { area: 'cobros' }, extra: { socioId: entrega.socioId, studioId, paymentIntentId: pi.id, detalle: error.message },
+            });
             return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
           }
           // Y CUÁNDO caduca (Fase 3 del Brain). Best-effort a propósito, igual
@@ -945,6 +982,9 @@ async function procesarEvento(
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (SEPA succeeded)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (SEPA succeeded)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, reciboId },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
       const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -966,6 +1006,9 @@ async function procesarEvento(
           return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
         }
         console.error('[stripe webhook] no se pudo marcar el recibo SEPA COBRADO', reciboId, confirmado.error);
+        Sentry.captureMessage('[stripe webhook] no se pudo marcar el recibo SEPA COBRADO', {
+          level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, paymentIntentId: pi.id, detalle: confirmado.error },
+        });
         return NextResponse.json({ error: 'Fallo al confirmar el cobro SEPA' }, { status: 500 });
       }
       capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'sepa' } });
@@ -994,6 +1037,9 @@ async function procesarEvento(
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (tarjeta succeeded)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (tarjeta succeeded)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, reciboId },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
       const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1014,6 +1060,9 @@ async function procesarEvento(
           return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
         }
         console.error('[stripe webhook] no se pudo confirmar el cobro con tarjeta', reciboId, confirmado.error);
+        Sentry.captureMessage('[stripe webhook] no se pudo confirmar el cobro con tarjeta', {
+          level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, paymentIntentId: pi.id, detalle: confirmado.error },
+        });
         return NextResponse.json({ error: 'Fallo al confirmar el cobro con tarjeta' }, { status: 500 });
       }
       // Sin `capturar` de GMV aquí a propósito: la vía síncrona ya lo captura
@@ -1032,6 +1081,9 @@ async function procesarEvento(
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (SEPA failed)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (SEPA failed)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, reciboId },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
       const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1048,6 +1100,9 @@ async function procesarEvento(
         await registrarFalloCobro({ admin, reciboId, studioId, esSepa: true, ahoraISO: new Date().toISOString() });
       } catch (e) {
         console.error('[stripe webhook] no se pudo registrar el adeudo SEPA fallido (dunning)', reciboId, e);
+        Sentry.captureMessage('[stripe webhook] no se pudo registrar el adeudo SEPA fallido (dunning)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, paymentIntentId: pi.id, detalle: e instanceof Error ? e.message : String(e) },
+        });
         return NextResponse.json({ error: 'Fallo al registrar el adeudo SEPA fallido' }, { status: 500 });
       }
     }
@@ -1073,6 +1128,9 @@ async function procesarEvento(
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (refund)');
+          Sentry.captureMessage('[stripe webhook] service role no configurada (refund)', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId },
+          });
           return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
         }
         const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1099,6 +1157,9 @@ async function procesarEvento(
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (refund POS)');
+          Sentry.captureMessage('[stripe webhook] service role no configurada (refund POS)', {
+            level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id },
+          });
           return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
         }
         const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1135,6 +1196,9 @@ async function procesarEvento(
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (dispute created)');
+          Sentry.captureMessage('[stripe webhook] service role no configurada (dispute created)', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId },
+          });
           return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
         }
         const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1168,6 +1232,9 @@ async function procesarEvento(
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (dispute closed)');
+          Sentry.captureMessage('[stripe webhook] service role no configurada (dispute closed)', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId },
+          });
           return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
         }
         const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1219,6 +1286,9 @@ async function procesarEvento(
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (refund failed)');
+          Sentry.captureMessage('[stripe webhook] service role no configurada (refund failed)', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId },
+          });
           return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
         }
         const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1282,6 +1352,9 @@ async function procesarEvento(
             .eq('id', reciboId).eq('studio_id', studioId).eq('estado', 'DEVUELTO');
           if (error) {
             console.error('[stripe webhook] refund fallido: no se pudo restaurar el recibo', reciboId, error);
+            Sentry.captureMessage('[stripe webhook] refund fallido: no se pudo restaurar el recibo', {
+              level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, chargeId, detalle: error.message },
+            });
             return NextResponse.json({ error: 'Fallo al restaurar el recibo' }, { status: 500 });
           }
         }
@@ -1299,6 +1372,9 @@ async function procesarEvento(
           .eq('id', reciboId).eq('studio_id', studioId);
         if (errMarca) {
           console.error('[stripe webhook] refund fallido: sin marcar en el recibo', reciboId, errMarca);
+          Sentry.captureMessage('[stripe webhook] refund fallido: sin marcar en el recibo', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, chargeId, detalle: errMarca.message },
+          });
           return NextResponse.json({ error: 'Fallo al marcar el reembolso fallido' }, { status: 500 });
         }
 
@@ -1422,6 +1498,9 @@ async function procesarEvento(
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (deauthorized)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (deauthorized)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { accountId },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
       // Qué estudios pierden el cobro (antes de limpiar el binding).
@@ -1429,6 +1508,9 @@ async function procesarEvento(
       const { error } = await admin.from('studios').update({ stripe_account_id: null }).eq('stripe_account_id', accountId);
       if (error) {
         console.error('[stripe webhook] no se pudo desvincular la cuenta desconectada', accountId, error);
+        Sentry.captureMessage('[stripe webhook] no se pudo desvincular la cuenta desconectada', {
+          level: 'error', tags: { area: 'cobros' }, extra: { accountId, detalle: error.message },
+        });
         return NextResponse.json({ error: 'Fallo al desvincular la cuenta' }, { status: 500 });
       }
       // Notification Engine: aviso CRÍTICO a la dueña — se han parado los cobros.
