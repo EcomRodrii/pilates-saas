@@ -456,7 +456,7 @@ export function PortalBonosView({
                   background: 'transparent', color: '#1A1A1A', fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
                 }}
               >
-                Volver
+                Conservarla
               </button>
               <button
                 type="button"
@@ -467,7 +467,7 @@ export function PortalBonosView({
                   fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
                 }}
               >
-                Sí, dar de baja
+                Sí, darla de baja
               </button>
             </div>
           </div>
