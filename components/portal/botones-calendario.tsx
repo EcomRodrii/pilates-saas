@@ -1,8 +1,7 @@
 'use client';
 
 import { CalendarPlus, Download } from 'lucide-react';
-import type { ModoTokens } from '@/lib/portal-modo';
-import { texto } from '@/lib/portal-design';
+import { sans } from '@/lib/portal-design';
 import { eventoIcs, nombreIcs, urlGoogleCalendar, type EventoCalendario } from '@/lib/calendario-ics';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,7 +24,7 @@ import { eventoIcs, nombreIcs, urlGoogleCalendar, type EventoCalendario } from '
 // solo queda lo que es de navegador: el blob y la descarga.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function BotonesCalendario({ evento, t }: { evento: EventoCalendario; t: ModoTokens }) {
+export function BotonesCalendario({ evento }: { evento: EventoCalendario }) {
   const descargarIcs = () => {
     const url = URL.createObjectURL(
       new Blob([eventoIcs(evento, new Date())], { type: 'text/calendar;charset=utf-8' }),
@@ -38,10 +37,10 @@ export function BotonesCalendario({ evento, t }: { evento: EventoCalendario; t: 
   };
 
   const estilo = {
-    flex: 1, minWidth: 0, height: 40, borderRadius: 20, border: `1px solid ${t.line}`,
-    background: 'transparent', color: t.ink, cursor: 'pointer',
+    flex: 1, minWidth: 0, height: 40, borderRadius: 20, border: '1px solid #E5E3DA',
+    background: 'transparent', color: '#1A1A1A', cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-    textDecoration: 'none', ...texto.nota, fontWeight: 600,
+    textDecoration: 'none', fontFamily: sans, fontSize: 11, fontWeight: 600,
   } as const;
 
   return (
