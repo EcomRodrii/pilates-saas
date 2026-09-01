@@ -68,6 +68,7 @@ export function NavLandingClon() {
             </a>
           ))}
         </div>
+        <Link href="/network/acceso" className="hidden sm:inline-flex shrink-0 text-[13.5px] font-bold whitespace-nowrap" style={{ color: 'rgba(250,249,245,.65)' }}>Iniciar sesión</Link>
         <Link href="/network/crear-perfil" className="hidden sm:inline-flex shrink-0 px-[18px] py-2.5 rounded-full text-[13.5px] font-extrabold whitespace-nowrap" style={{ background: NW_PRODUCTO, color: PAPEL }}>Empieza</Link>
         <button
           type="button"
@@ -96,8 +97,16 @@ export function NavLandingClon() {
               </a>
             ))}
             <Link
+              href="/network/acceso"
+              className="mt-2 text-center py-2.5 text-[14px] font-bold"
+              style={{ color: 'rgba(250,249,245,.75)' }}
+              onClick={() => setAbierto(false)}
+            >
+              Iniciar sesión
+            </Link>
+            <Link
               href="/network/crear-perfil"
-              className="mt-3 text-center px-5 py-3 rounded-full text-[14px] font-extrabold"
+              className="mt-1 text-center px-5 py-3 rounded-full text-[14px] font-extrabold"
               style={{ background: NW_PRODUCTO, color: PAPEL }}
               onClick={() => setAbierto(false)}
             >

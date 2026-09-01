@@ -4,6 +4,7 @@ import { LogoTentare } from '@/components/marca/logo-tentare';
 import { NavLandingClon } from '@/components/network-v2/NavLandingClon';
 import { Reveal } from '@/components/network-v2/Reveal';
 import { NW_PRODUCTO, NW_PRODUCTO_OSCURO, NW_PRODUCTO_CLARO } from '@/components/network-v2/tokens';
+import { LEGAL } from '@/lib/legal-info';
 
 // Clon literal del mockup de Claude Design "UI mockups for landing page"
 // (2026-08-30) — pedido explícito del fundador: "EXACTAMENTE EL MISMO
@@ -53,6 +54,7 @@ const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 export const metadata: Metadata = {
   title: 'Tentare Network — Encuentra tu instructora de Pilates y Yoga',
   description: 'La red profesional de instructoras de Pilates y Yoga. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
+  alternates: { canonical: `${LEGAL.url}/network` },
   openGraph: {
     type: 'website',
     title: 'Tentare Network — Red de instructoras de Pilates y Yoga',
@@ -198,10 +200,10 @@ export default function NetworkLandingPage() {
                 /network/instructoras (filtroDesdeSearchParams) ya sabe
                 leerla — mismo mecanismo que los enlaces de "Populares"
                 de abajo. */}
-            <form action="/network/instructoras" method="GET" className="flex flex-wrap items-stretch gap-3.5 rounded-[22px] p-3 sm:py-3 sm:pr-3 sm:pl-[26px]" style={{ background: PAPEL, boxShadow: '0 24px 60px -24px rgba(0,0,0,.5)' }}>
-              <label className="flex-1 min-w-[130px] flex flex-col justify-center py-1.5 px-2 sm:px-0">
+            <form action="/network/instructoras" method="GET" className="flex flex-wrap items-stretch gap-3.5 rounded-[22px] p-3 sm:py-3 sm:pr-3 sm:pl-[26px] transition-shadow duration-300 focus-within:shadow-[0_28px_68px_-20px_rgba(0,0,0,.6)]" style={{ background: PAPEL, boxShadow: '0 24px 60px -24px rgba(0,0,0,.5)' }}>
+              <label className="flex-1 min-w-[130px] flex flex-col justify-center py-1.5 px-2 sm:px-2.5 rounded-2xl transition-colors duration-150 hover:bg-black/[.03] has-[:focus]:bg-black/[.05]">
                 <span className="text-[10px] uppercase tracking-[.14em] font-medium" style={{ fontFamily: MONO, color: GRIS_VERDOSO }}>¿Qué buscas?</span>
-                <select name="especialidades" defaultValue="reformer" className="mt-[3px] text-[17px] font-semibold bg-transparent border-0 outline-none p-0 w-full" style={{ color: MUTED_2 }}>
+                <select name="especialidades" defaultValue="reformer" className="mt-[3px] text-[17px] font-semibold bg-transparent border-0 outline-none p-0 w-full cursor-pointer" style={{ color: MUTED_2 }}>
                   <option value="reformer">Reformer</option>
                   <option value="mat">Mat</option>
                   <option value="maquina">Máquina</option>
@@ -211,11 +213,11 @@ export default function NetworkLandingPage() {
                 </select>
               </label>
               <span aria-hidden="true" className="w-px my-1 hidden xs:block" style={{ background: BORDE }} />
-              <label className="flex-1 min-w-[130px] flex flex-col justify-center py-1.5 px-2 sm:px-0">
+              <label className="flex-1 min-w-[130px] flex flex-col justify-center py-1.5 px-2 sm:px-2.5 rounded-2xl transition-colors duration-150 hover:bg-black/[.03] has-[:focus]:bg-black/[.05]">
                 <span className="text-[10px] uppercase tracking-[.14em] font-medium" style={{ fontFamily: MONO, color: GRIS_VERDOSO }}>¿Dónde?</span>
                 <input type="text" name="ciudad" defaultValue="Barcelona" placeholder="Ciudad" autoComplete="off" className="mt-[3px] text-[17px] font-semibold bg-transparent border-0 outline-none p-0 w-full" style={{ color: MUTED_2 }} />
               </label>
-              <button type="submit" className="w-full sm:w-auto shrink-0 self-center text-center rounded-full px-7 py-[17px] text-[15.5px] font-extrabold whitespace-nowrap" style={{ background: INK, color: PAPEL }}>Buscar instructoras</button>
+              <button type="submit" className="w-full sm:w-auto shrink-0 self-center text-center rounded-full px-7 py-[17px] text-[15.5px] font-extrabold whitespace-nowrap transition-all duration-150 hover:brightness-125 hover:shadow-lg active:scale-[.97]" style={{ background: INK, color: PAPEL }}>Buscar instructoras</button>
             </form>
             <p className="mt-3.5 ml-1 text-[14px]" style={{ color: 'rgba(250,249,245,.75)' }}>
               Populares:{' '}

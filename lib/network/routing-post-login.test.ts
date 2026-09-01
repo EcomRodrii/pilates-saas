@@ -10,15 +10,18 @@ test('con estudio real, siempre al dashboard — nunca al panel equivocado', () 
   assert.equal(resolverDestinoPostLogin(true, 'draft'), '/dashboard');
 });
 
-test('sin estudio, perfil de Network publicado o en revisión → inicio (el panel)', () => {
+test('sin estudio, perfil publicado/en revisión/oculto → inicio (el panel), nunca el wizard', () => {
+  // 'hidden' es un perfil que YA estuvo completo (solo se llega ahí ocultando
+  // uno published) — mandarlo al wizard de reanudar es el bug real de
+  // "aunque ya tengas el perfil hecho te vuelve a pedir rellenar todo".
   assert.equal(resolverDestinoPostLogin(false, 'published'), '/network/inicio');
   assert.equal(resolverDestinoPostLogin(false, 'en_revision'), '/network/inicio');
+  assert.equal(resolverDestinoPostLogin(false, 'hidden'), '/network/inicio');
 });
 
-test('sin estudio, sin perfil o con el onboarding a medias → reanudar, nunca el dashboard', () => {
+test('sin estudio, sin perfil, con el onboarding a medias o suspendido → reanudar, nunca el dashboard', () => {
   assert.equal(resolverDestinoPostLogin(false, null), '/network/reanudar');
   assert.equal(resolverDestinoPostLogin(false, 'draft'), '/network/reanudar');
-  assert.equal(resolverDestinoPostLogin(false, 'hidden'), '/network/reanudar');
   assert.equal(resolverDestinoPostLogin(false, 'suspended'), '/network/reanudar');
 });
 

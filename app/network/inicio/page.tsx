@@ -361,7 +361,7 @@ export default function InicioNetworkPage() {
                     className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold"
                     style={perfil.estado === 'published' ? { background: NW_ESTADO.verificada.fondo, color: NW_ESTADO.verificada.color } : { background: 'rgba(255,255,255,.14)', color: 'rgba(255,255,255,.7)' }}
                   >
-                    {perfil.estado === 'published' ? 'Publicado' : perfil.estado === 'en_revision' ? 'En revisión' : 'Borrador'}
+                    {perfil.estado === 'published' ? 'Publicado' : perfil.estado === 'en_revision' ? 'En revisión' : perfil.estado === 'hidden' ? 'Oculto' : 'Borrador'}
                   </span>
                 </div>
                 <p className="text-[12px] truncate" style={{ color: 'rgba(255,255,255,.6)' }}>
