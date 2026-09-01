@@ -145,11 +145,16 @@ test.describe('Campana del Inicio del portal', () => {
     await expect(page.getByRole('button', { name: 'Buscar clases, instructoras' })).toBeVisible({ timeout: 30_000 });
 
     // Ni número ni punto: no se sabe cuántos hay y decir "0" sería afirmar que
-    // está al día. Mismo criterio en la fila de accesos rápidos — las dos
-    // representaciones del contador tienen que callar A LA VEZ.
+    // está al día.
+    //
+    // ⚠️ Antes esto comprobaba TAMBIÉN la fila de "Accesos rápidos" (dos
+    // representaciones del contador, que tenían que callar a la vez) — ese
+    // bloque se retiró del Inicio (no está en el diseño real de "Tentare
+    // Studio App", ver e2e/portal-accesos-rapidos.spec.ts), así que ahora
+    // solo queda la campana.
     const campana = page.getByRole('link', { name: CAMPANA_SIN, exact: true });
     await expect(campana).toHaveText('');
-    await expect(page.getByRole('link', { name: /^Notificaciones/ })).toHaveCount(2); // campana + fila
+    await expect(page.getByRole('link', { name: /^Notificaciones/ })).toHaveCount(1); // solo la campana
     await expect(page.getByText('Al día')).toHaveCount(0);
   });
 });
