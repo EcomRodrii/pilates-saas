@@ -45,7 +45,6 @@ import { CalendarDays, Bell, Search, Ticket } from 'lucide-react';
 import { BuscarOverlay } from '@/components/portal/buscar-overlay';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
 import { useNotificacionesSinLeer } from '@/lib/notifications/use-unread';
-import { useModo } from '@/lib/portal-modo';
 import { HojaPase } from '@/components/portal/hoja-pase';
 import { AforoIndicator } from '@/components/portal/ui';
 import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
@@ -126,7 +125,6 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   } = useStudio();
   const homeBloques = homeBloquesOverride ?? homeBloquesPublicado;
   const tarjetaRotulada = variantes.tarjetaPrincipal === 'rotulada';
-  const { t } = useModo();
   const [paseAbierto, setPaseAbierto] = useState(false);
   const [buscarAbierto, setBuscarAbierto] = useState(false);
 
@@ -651,7 +649,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             ("Tu próxima clase" en el tema de barra oscura). Sin la variante,
             no se pinta nada — la tarjeta ya se explica sola con su volanta. */}
         {tarjetaRotulada && (
-          <h2 style={{ ...display(escala('seccion', 24)), color: t.ink, marginBottom: 12 }}>
+          <h2 style={{ ...display(escala('seccion', 24)), color: '#1A1A1A', marginBottom: 12 }}>
             {/* El prototipo dice "Tu próxima clase" solo en Noir; es una
                 palabra de diferencia que obligaría a exponer otro campo del
                 tema hasta aquí, así que se unifica. */}
@@ -670,17 +668,17 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             data-tarjeta="principal"
             style={{
               display: 'block', textDecoration: 'none', padding: 22,
-              background: t.surface,
-              border: `var(--portal-card-border, 1px solid ${t.line})`,
+              background: '#FFFFFF',
+              border: `var(--portal-card-border, 1px solid #E5E3DA)`,
               boxShadow: 'var(--portal-card-shadow, none)',
               borderRadius: `var(--portal-radius-card, ${radio.card}px)`,
             }}
           >
             {/* Mismos textos que el hero (`tarjeta`), no unos propios: el
                 estado vacío cambia de FORMA, no de mensaje. */}
-            <p style={{ ...display(19, false, 1.2), color: t.ink }}>{tarjeta.titulo}</p>
+            <p style={{ ...display(19, false, 1.2), color: '#1A1A1A' }}>{tarjeta.titulo}</p>
             {tarjeta.meta[0] && (
-              <p style={{ ...texto.meta, color: t.muted2, marginTop: 7, lineHeight: 1.5 }}>{tarjeta.meta[0]}</p>
+              <p style={{ ...texto.meta, color: '#5A5A52', marginTop: 7, lineHeight: 1.5 }}>{tarjeta.meta[0]}</p>
             )}
             <span style={{
               display: 'inline-flex', alignItems: 'center', height: 42, padding: '0 20px', marginTop: 16,
@@ -720,7 +718,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             // tema no declara esta var (varsRadioTema, lib/theme-runtime.ts) y
             // la tarjeta se ve exactamente igual que antes.
             borderRadius: `var(--portal-radius-card, ${radio.heroCard}px)`, overflow: 'hidden',
-            background: t.surface2,
+            background: '#EFEDE4',
             boxShadow: sombra.heroCard,
           }}
         >
@@ -745,7 +743,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             <span style={{
               padding: '10px 16px', borderRadius: radio.pill, background: 'rgba(255,255,255,.62)',
               ...cristal(desenfoque.chip), border: `1px solid ${bordeCristal}`,
-              ...micro(8.5, 0.26, 600), color: t.ink, whiteSpace: 'nowrap',
+              ...micro(8.5, 0.26, 600), color: '#1A1A1A', whiteSpace: 'nowrap',
             }}>{tarjeta.volanta}</span>
             {tarjeta.contador && (
               <span style={{
@@ -764,7 +762,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             border: `1px solid ${bordeCristal}`, boxShadow: sombra.cardInterna, padding: '22px 20px 20px',
           }}>
             <Link href={tarjeta.href} style={{ textDecoration: 'none', display: 'block' }}>
-              <div style={{ ...display(escala('titulo-hero', 36), true), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ ...display(escala('titulo-hero', 36), true), color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {tarjeta.titulo}
               </div>
             </Link>
@@ -772,7 +770,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               {tarjeta.meta.map((m, i) => (
                 <span key={m} style={{ display: 'contents' }}>
                   {i > 0 && <span style={{ width: 1, height: 11, background: lineaSuave }} />}
-                  <span style={{ ...(i === 0 ? texto.metaFuerte : texto.meta), color: i === 0 ? t.ink : t.muted }}>{m}</span>
+                  <span style={{ ...(i === 0 ? texto.metaFuerte : texto.meta), color: i === 0 ? '#1A1A1A' : '#5A5A52' }}>{m}</span>
                 </span>
               ))}
             </div>
@@ -835,12 +833,12 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 style={{
                   position: 'relative', width: 40, height: 40, flex: '0 0 40px',
                   borderRadius: '50%', border: '1px solid rgba(34,38,31,.14)',
-                  background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: sombra.circulo, textDecoration: 'none',
                   transition: transicion(['transform']),
                 }}
               >
-                <CalendarDays size={18} strokeWidth={1.9} style={{ color: t.ink }} />
+                <CalendarDays size={18} strokeWidth={1.9} style={{ color: '#1A1A1A' }} />
               </Link>
 
               {/* Mi acceso — mismo destino que la fila "Mis reservas" de más
@@ -853,12 +851,12 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 style={{
                   position: 'relative', width: 40, height: 40, flex: '0 0 40px',
                   borderRadius: '50%', border: '1px solid rgba(34,38,31,.14)',
-                  background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: sombra.circulo, textDecoration: 'none',
                   transition: transicion(['transform']),
                 }}
               >
-                <Ticket size={18} strokeWidth={1.9} style={{ color: t.ink }} />
+                <Ticket size={18} strokeWidth={1.9} style={{ color: '#1A1A1A' }} />
               </Link>
             </div>
           </div>
@@ -950,28 +948,28 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         {!progresoSemanalBloqueActivo && (
           <>
             <div style={{ height: 44 }} />
-            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
+            <h2 style={{ ...micro(10, 0.16, 600), color: '#5A5A52', textTransform: 'uppercase' } as React.CSSProperties}>
               Mi progreso
             </h2>
             <Link
               href={portalHref(`/${slug}/progreso`)}
               style={{
                 marginTop: 10, display: 'block', textDecoration: 'none',
-                background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
+                background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: radio.card,
                 padding: '14px 16px', boxShadow: sombra.cardSemana,
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ ...texto.metaFuerte, color: t.ink }}>Tu semana</span>
-                <span style={{ ...micro(9.5, 0, 500), color: t.muted2 } as React.CSSProperties}>meta {META_PROGRESO_SEMANAL}/sem</span>
+                <span style={{ ...texto.metaFuerte, color: '#1A1A1A' }}>Tu semana</span>
+                <span style={{ ...micro(9.5, 0, 500), color: '#5A5A52' } as React.CSSProperties}>meta {META_PROGRESO_SEMANAL}/sem</span>
               </div>
-              <div style={{ ...texto.meta, color: t.muted2, margin: '6px 0 8px' }}>
-                <span style={{ ...texto.metaFuerte, color: t.ink }}>
+              <div style={{ ...texto.meta, color: '#5A5A52', margin: '6px 0 8px' }}>
+                <span style={{ ...texto.metaFuerte, color: '#1A1A1A' }}>
                   {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'}
                 </span>{' '}
                 esta semana
               </div>
-              <div style={{ height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+              <div style={{ height: 5, borderRadius: 999, background: '#E5E3DA', overflow: 'hidden' }}>
                 <div style={{
                   width: `${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 100}%`,
                   height: '100%', background: 'var(--portal-brand)', borderRadius: 999,
@@ -985,12 +983,12 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         {!retosBloqueActivo && (
           <>
             <div style={{ height: 34 }} />
-            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
+            <h2 style={{ ...micro(10, 0.16, 600), color: '#5A5A52', textTransform: 'uppercase' } as React.CSSProperties}>
               Retos
             </h2>
             <div style={{
               marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8,
-              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
+              background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: radio.card,
               padding: '6px 16px', boxShadow: sombra.cardSemana,
             }}>
               {RETOS_PORTAL.map((reto, i) => {
@@ -1001,14 +999,14 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     key={reto.key}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0',
-                      borderTop: i > 0 ? `1px solid ${t.line}` : undefined,
+                      borderTop: i > 0 ? `1px solid #E5E3DA` : undefined,
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ ...texto.metaFuerte, color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ ...texto.metaFuerte, color: '#1A1A1A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {reto.label}
                       </div>
-                      <div style={{ ...texto.nota, color: t.muted, marginTop: 2 }}>
+                      <div style={{ ...texto.nota, color: '#5A5A52', marginTop: 2 }}>
                         {reto.dias} · {conteo > 0 ? `${conteo} apuntada${conteo === 1 ? '' : 's'}` : 'Sé la primera'}
                       </div>
                     </div>
@@ -1017,8 +1015,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                       onClick={() => void toggleReto(reto.key, apuntada ? 'desmarcar' : 'marcar')}
                       style={{
                         flex: '0 0 auto', height: 34, padding: '0 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
-                        background: apuntada ? t.surface2 : 'var(--portal-brand)',
-                        color: apuntada ? t.ink : 'var(--portal-brand-foreground)',
+                        background: apuntada ? '#EFEDE4' : 'var(--portal-brand)',
+                        color: apuntada ? '#1A1A1A' : 'var(--portal-brand-foreground)',
                         transition: transicion(['background', 'color'], dur.card),
                         ...texto.metaFuerte,
                       }}
@@ -1047,8 +1045,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               <>
                 <div style={{ height: 44 }} />
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                  <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>{txt('estaSemana', 'titulo', 'Esta semana')}</h2>
-                  <Link href={portalHref(`/${slug}/clases`)} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
+                  <h2 style={{ ...display(escala('seccion', 30)), color: '#1A1A1A' }}>{txt('estaSemana', 'titulo', 'Esta semana')}</h2>
+                  <Link href={portalHref(`/${slug}/clases`)} style={{ ...micro(9.5, 0.2, 600), color: '#3E6B4A', textDecoration: 'none' }}>
                     {txt('estaSemana', 'enlaceTexto', 'Agenda →')}
                   </Link>
                 </div>
@@ -1065,18 +1063,18 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                         key={s.id}
                         href={portalHref(`/${slug}/clases/${s.id}`)}
                         style={{
-                          flex: '0 0 158px', height: 178, borderRadius: radio.card, background: t.surface,
+                          flex: '0 0 158px', height: 178, borderRadius: radio.card, background: '#FFFFFF',
                           padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                           boxShadow: sombra.cardSemana, textDecoration: 'none',
                           transition: transicion(['transform', 'box-shadow'], dur.card),
                         }}
                       >
-                        <span style={{ ...micro(9, 0.26, 600), color: t.micro }}>{diaCorto(s.inicio)}</span>
-                        <span style={{ ...display(25, false, 1.05), color: t.ink, textWrap: 'pretty' } as React.CSSProperties}>
+                        <span style={{ ...micro(9, 0.26, 600), color: '#98A093' }}>{diaCorto(s.inicio)}</span>
+                        <span style={{ ...display(25, false, 1.05), color: '#1A1A1A', textWrap: 'pretty' } as React.CSSProperties}>
                           {tipo?.nombre ?? 'Clase'}
                         </span>
                         <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                          <span style={{ ...texto.nota, color: t.muted }}>{hora(s.inicio)} ·</span>
+                          <span style={{ ...texto.nota, color: '#5A5A52' }}>{hora(s.inicio)} ·</span>
                           <AforoIndicator libres={libres} />
                         </span>
                       </Link>
@@ -1094,7 +1092,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               href={portalHref(`/${slug}/invitar`)}
               style={{
                 position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
-                overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
+                overflow: 'hidden', background: '#EFEDE4', boxShadow: sombra.banner, textDecoration: 'none',
                 transition: transicion(['transform'], dur.card),
               }}
             >
@@ -1114,22 +1112,22 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 background: 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
               }} />
               <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                <span style={{ ...micro(8.5, 0.26, 600), color: t.heroAccent }}>
+                <span style={{ ...micro(8.5, 0.26, 600), color: '#3E6B4A' }}>
                   {txt('invitarAmiga', 'antetitulo', 'Trae a quien quieras')}
                 </span>
                 <div>
-                  <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
+                  <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: '#1A1A1A', maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
                     {txt('invitarAmiga', 'titulo', 'La calma se comparte mejor.')}
                   </div>
-                  <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>
+                  <div style={{ ...texto.nota, color: '#5A5A52', marginTop: 12 }}>
                     {txt('invitarAmiga', 'subtitulo', 'Invita a una amiga y ganáis las dos')}
                   </div>
                 </div>
               </div>
               <span aria-hidden style={{
                 position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
-                background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
+                background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 15, color: '#1A1A1A', boxShadow: sombra.circuloBanner,
               }}>→</span>
             </Link>
           </div>
@@ -1147,7 +1145,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   background: '#EEF0EA',
                   border: '1px solid rgba(44,53,44,.16)',
                 }}>
-                  <p style={{ ...texto.nota, color: t.muted2, lineHeight: 1.5 }}>{contenidoPortal.mensajeDestacado}</p>
+                  <p style={{ ...texto.nota, color: '#5A5A52', lineHeight: 1.5 }}>{contenidoPortal.mensajeDestacado}</p>
                 </div>
               </>
             )}
@@ -1167,26 +1165,26 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }}
                     />
                   ) : (
-                    <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(175deg,#F2F0EA 0%,#ECE9E2 58%,#E4E1D8 100%)' }} />
                   )}
                   <div aria-hidden style={{
                     position: 'absolute', inset: 0, pointerEvents: 'none',
                     background: 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
                   }} />
                   <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-                    {b.titulo && <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
-                    {b.texto && <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>{b.texto}</div>}
+                    {b.titulo && <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: '#1A1A1A', maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
+                    {b.texto && <div style={{ ...texto.nota, color: '#5A5A52', marginTop: 12 }}>{b.texto}</div>}
                   </div>
                   <span aria-hidden style={{
                     position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
-                    background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 15, color: t.ink, boxShadow: sombra.circuloBanner,
+                    background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 15, color: '#1A1A1A', boxShadow: sombra.circuloBanner,
                   }}>→</span>
                 </>
               );
               const estiloBanner: React.CSSProperties = {
                 position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
-                overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
+                overflow: 'hidden', background: '#EFEDE4', boxShadow: sombra.banner, textDecoration: 'none',
                 transition: transicion(['transform'], dur.card),
               };
               if (b.linkTipo === 'interno' && !b.linkValor.startsWith('/')) return null;
@@ -1211,15 +1209,15 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
               {tiraSemana.map((dia) => (
                 <div key={dia.fecha.toDateString()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                  <span style={{ ...micro(9, 0.18, 600), color: t.micro }}>
+                  <span style={{ ...micro(9, 0.18, 600), color: '#98A093' }}>
                     {['L', 'M', 'X', 'J', 'V', 'S', 'D'][dia.indiceSemana]}
                   </span>
                   <span style={{
                     width: 34, height: 34, borderRadius: `var(--portal-radius-chip, ${radio.pill}px)`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     background: dia.esHoy ? 'var(--portal-brand)' : 'transparent',
-                    border: dia.esHoy ? 'none' : `1px solid ${t.line}`,
-                    ...texto.metaFuerte, color: dia.esHoy ? 'var(--portal-brand-foreground)' : t.ink,
+                    border: dia.esHoy ? 'none' : `1px solid #E5E3DA`,
+                    ...texto.metaFuerte, color: dia.esHoy ? 'var(--portal-brand-foreground)' : '#1A1A1A',
                   }}>
                     {dia.fecha.getDate()}
                   </span>
@@ -1242,20 +1240,20 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           <div {...wrap('progresoSemanal')}>
             <div style={{ height: 34 }} />
             <div style={{
-              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
+              background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: radio.card,
               padding: '14px 16px', boxShadow: sombra.cardSemana,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ ...texto.metaFuerte, color: t.ink }}>{txt('progresoSemanal', 'titulo', 'Tu semana')}</span>
-                <span style={{ ...micro(9.5, 0, 500), color: t.muted2 } as React.CSSProperties}>meta {META_PROGRESO_SEMANAL}/sem</span>
+                <span style={{ ...texto.metaFuerte, color: '#1A1A1A' }}>{txt('progresoSemanal', 'titulo', 'Tu semana')}</span>
+                <span style={{ ...micro(9.5, 0, 500), color: '#5A5A52' } as React.CSSProperties}>meta {META_PROGRESO_SEMANAL}/sem</span>
               </div>
-              <div style={{ ...texto.meta, color: t.muted2, margin: '6px 0 8px' }}>
-                <span style={{ ...texto.metaFuerte, color: t.ink }}>
+              <div style={{ ...texto.meta, color: '#5A5A52', margin: '6px 0 8px' }}>
+                <span style={{ ...texto.metaFuerte, color: '#1A1A1A' }}>
                   {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'}
                 </span>{' '}
                 esta semana
               </div>
-              <div style={{ height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+              <div style={{ height: 5, borderRadius: 999, background: '#E5E3DA', overflow: 'hidden' }}>
                 <div style={{
                   width: `${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 100}%`,
                   height: '100%', background: 'var(--portal-brand)', borderRadius: 999,
@@ -1271,16 +1269,16 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               Oculto por defecto. */}
           <div {...wrap('retos')}>
             <div style={{ height: 40 }} />
-            <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>{txt('retos', 'titulo', 'Retos')}</h2>
+            <h2 style={{ ...display(escala('seccion', 30)), color: '#1A1A1A' }}>{txt('retos', 'titulo', 'Retos')}</h2>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '18px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
               {RETOS_PORTAL.map((reto) => {
                 const apuntada = retosApuntados.includes(reto.key);
                 const conteo = retoConteos[reto.key] ?? 0;
                 // Variante 'color' (Bloom): fondo propio por reto y tinta fija
-                // oscura — con un fondo claro constante, `t.ink` quedaría casi
+                // oscura — con un fondo claro constante, `'#1A1A1A'` quedaría casi
                 // blanco encima y sería ilegible.
                 const conColor = variantes.retos === 'color';
-                const tinta = conColor ? reto.tinta : t.ink;
+                const tinta = conColor ? reto.tinta : '#1A1A1A';
                 // `imagenCore`/`imagenCara`: campo del bloque, no del tema —
                 // es contenido del estudio, y cada estudio sube el suyo.
                 const fotoReto = txt('retos', reto.key === 'core' ? 'imagenCore' : 'imagenCara');
@@ -1290,7 +1288,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     style={{
                       flex: conColor ? '0 0 218px' : '0 0 200px',
                       borderRadius: conColor ? 26 : radio.card,
-                      background: conColor ? reto.fondo : t.surface,
+                      background: conColor ? reto.fondo : '#FFFFFF',
                       padding: 18,
                       boxShadow: conColor ? 'none' : sombra.cardSemana,
                     }}
@@ -1320,8 +1318,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                       <span style={{ ...display(18, false, 1.2), color: tinta }}>{reto.label}</span>
                       <span style={{
                         flex: 'none', height: 24, padding: '0 10px', borderRadius: 999,
-                        background: conColor ? 'rgba(255,255,255,.75)' : t.surface2,
-                        color: conColor ? tinta : t.muted,
+                        background: conColor ? 'rgba(255,255,255,.75)' : '#EFEDE4',
+                        color: conColor ? tinta : '#5A5A52',
                         display: 'inline-flex', alignItems: 'center',
                         ...micro(10.5, 0, 600),
                       }}>
@@ -1342,7 +1340,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                           ))}
                         </span>
                       )}
-                      <p style={{ ...texto.meta, color: conColor ? tinta : t.muted2, opacity: conColor ? 0.75 : 1, margin: 0 }}>
+                      <p style={{ ...texto.meta, color: conColor ? tinta : '#5A5A52', opacity: conColor ? 0.75 : 1, margin: 0 }}>
                         {conteo > 0 ? `${conteo} apuntada${conteo === 1 ? '' : 's'}` : 'Sé la primera en apuntarte'}
                       </p>
                     </div>
@@ -1353,10 +1351,10 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                         marginTop: 16, width: '100%', height: 40, borderRadius: 999, border: 'none', cursor: 'pointer',
                         background: conColor
                           ? (apuntada ? 'rgba(255,255,255,.55)' : tinta)
-                          : (apuntada ? t.surface2 : 'var(--portal-brand)'),
+                          : (apuntada ? '#EFEDE4' : 'var(--portal-brand)'),
                         color: conColor
                           ? (apuntada ? tinta : reto.fondo)
-                          : (apuntada ? t.ink : 'var(--portal-brand-foreground)'),
+                          : (apuntada ? '#1A1A1A' : 'var(--portal-brand-foreground)'),
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         transition: transicion(['background', 'color'], dur.card),
                         ...texto.metaFuerte,
@@ -1503,8 +1501,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         {huecos.length > 0 && (
           <>
             <div style={{ padding: '30px 24px 8px' }}>
-              <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>Últimas plazas</p>
-              <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Huecos de hoy</h2>
+              <p style={{ ...micro(10, 0.16, 600), color: '#5A5A52', textTransform: 'uppercase' } as React.CSSProperties}>Últimas plazas</p>
+              <h2 style={{ ...display(escala('seccion', 30)), color: '#1A1A1A' }}>Huecos de hoy</h2>
             </div>
             <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {huecos.map(({ sesion: s, libres }) => {
@@ -1515,18 +1513,18 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     key={s.id}
                     href={portalHref(`/${slug}/clases/${s.id}`)}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 11, background: t.surface, border: `1px solid ${t.line}`,
+                      display: 'flex', alignItems: 'center', gap: 11, background: '#FFFFFF', border: `1px solid #E5E3DA`,
                       borderRadius: 15, padding: '10px 13px', textDecoration: 'none', transition: transicion(['box-shadow'], dur.card),
                     }}
                   >
-                    <span style={{ ...micro(13, 0, 500), color: t.ink, minWidth: 40 } as React.CSSProperties}>{hora(s.inicio)}</span>
-                    <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, backgroundColor: tipo?.color ?? t.muted }} />
+                    <span style={{ ...micro(13, 0, 500), color: '#1A1A1A', minWidth: 40 } as React.CSSProperties}>{hora(s.inicio)}</span>
+                    <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, backgroundColor: tipo?.color ?? '#5A5A52' }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#1A1A1A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {tipo?.nombre ?? 'Clase'}
                       </p>
                       {inst && (
-                        <p style={{ margin: '1px 0 0', fontSize: 11, color: t.muted }}>{inst.nombre}</p>
+                        <p style={{ margin: '1px 0 0', fontSize: 11, color: '#5A5A52' }}>{inst.nombre}</p>
                       )}
                     </div>
                     <AforoIndicator libres={libres} />
@@ -1547,20 +1545,20 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         {novedadesVigentes.length > 0 && (
           <>
             <div style={{ padding: '30px 24px 8px' }}>
-              <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>Tablón</p>
-              <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Novedades del estudio</h2>
+              <p style={{ ...micro(10, 0.16, 600), color: '#5A5A52', textTransform: 'uppercase' } as React.CSSProperties}>Tablón</p>
+              <h2 style={{ ...display(escala('seccion', 30)), color: '#1A1A1A' }}>Novedades del estudio</h2>
             </div>
             <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {novedadesVigentes.map((n) => (
                 <div
                   key={n.id}
-                  style={{ display: 'flex', gap: 10, background: t.surface, border: `1px solid ${t.line}`, borderRadius: 14, padding: '11px 13px' }}
+                  style={{ display: 'flex', gap: 10, background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: 14, padding: '11px 13px' }}
                 >
                   <span style={{ fontSize: 14, flexShrink: 0 }}>{n.emoji || '📣'}</span>
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 12, fontWeight: 800, color: t.ink }}>{n.titulo}</span>
+                    <span style={{ display: 'block', fontSize: 12, fontWeight: 800, color: '#1A1A1A' }}>{n.titulo}</span>
                     {n.texto && (
-                      <span style={{ display: 'block', fontSize: 10.5, color: t.muted, marginTop: 1 }}>{n.texto}</span>
+                      <span style={{ display: 'block', fontSize: 10.5, color: '#5A5A52', marginTop: 1 }}>{n.texto}</span>
                     )}
                   </span>
                 </div>

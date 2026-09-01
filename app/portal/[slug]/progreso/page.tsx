@@ -7,7 +7,6 @@ import { useStudio } from '@/lib/studio-context';
 import { estadoReto, calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
 import type { EstadoReto, RewardCatalogItem } from '@/lib/types';
-import { useModo } from '@/lib/portal-modo';
 import { resumenProgreso, barrasPorSemana, claseFavorita } from '@/lib/progreso-socia';
 import { sans } from '@/lib/portal-design';
 import { Coins, Lock, Check, Trophy, Target, Gift } from 'lucide-react';
@@ -30,10 +29,10 @@ import { EmptyState, BottomSheet, Button } from '@/components/portal/ui';
 // portal-perfil-view.tsx, badges de 3 estados de portal-app.css) y se
 // reutilizan tal cual.
 //
-// BottomSheet de "¿Canjear X?" (RecompensasTab) se queda en `useModo()`/`t.*`
-// a propósito: mismo criterio que portal-bonos-view.tsx, cuyas hojas de
-// confirmación tampoco se convirtieron en esta fase — son diálogos
-// transitorios, no la pantalla principal.
+// BottomSheet de "¿Canjear X?" (RecompensasTab): también literal, como el
+// resto de hojas de confirmación del portal (ver components/portal/ui/
+// BottomSheet.tsx y el sheet de "dar de baja plaza fija" de
+// portal-bonos-view.tsx).
 
 export default function ProgresoPage() {
   const searchParams = useSearchParams();
@@ -415,10 +414,6 @@ function RecompensasTab({ socioId, rewardCatalog, rewardRedemptions, rewardHisto
   saldoCreditos: (socioId: string) => number;
   canjearRecompensa: (socioId: string, catalogItemId: string) => Promise<{ ok: true } | { error: string }>;
 }) {
-  // La hoja de confirmación de canje se queda en `useModo()`/`t.*` a
-  // propósito — mismo criterio que las hojas de confirmación de
-  // portal-bonos-view.tsx, no convertidas en esta fase.
-  const { t } = useModo();
   const saldo = saldoCreditos(socioId);
   const [canjeando, setCanjeando] = useState<RewardCatalogItem | null>(null);
   const [error, setError] = useState('');
@@ -541,11 +536,11 @@ function RecompensasTab({ socioId, rewardCatalog, rewardRedemptions, rewardHisto
         {canjeando && (
           <>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-              <div style={{ width: 56, height: 56, borderRadius: 18, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, marginBottom: 12 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 18, background: '#EFEDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, marginBottom: 12 }}>
                 {canjeando.icono}
               </div>
-              <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Canjear {canjeando.nombre}?</h2>
-              <p style={{ fontSize: 13, color: t.muted, marginTop: 4 }}>Se descontarán {canjeando.costeCreditos} créditos de tu saldo.</p>
+              <h2 style={{ fontSize: 17, fontWeight: 800, color: '#1A1A1A' }}>¿Canjear {canjeando.nombre}?</h2>
+              <p style={{ fontSize: 13, color: '#5A5A52', marginTop: 4 }}>Se descontarán {canjeando.costeCreditos} créditos de tu saldo.</p>
             </div>
             {error && <p style={{ fontSize: 13, color: '#B85436', background: 'rgba(239,68,68,0.1)', borderRadius: 14, padding: '8px 12px' }}>{error}</p>}
             <div style={{ display: 'flex', gap: 8 }}>

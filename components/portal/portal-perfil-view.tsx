@@ -20,7 +20,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useModo } from '@/lib/portal-modo';
 import { subirFotoPerfil, eliminarFotoPerfil, validarFotoPerfil } from '@/lib/portal-storage';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { LogoTentare } from '@/components/marca/logo-tentare';
@@ -71,7 +70,6 @@ export function PortalPerfilView({
     rachaSocio, achievementDefinitions, achievementProgress, evaluarLogrosSocio,
     challengeDefinitions, challengeProgress, evaluarRetosSocio,
   } = useStudio();
-  const { t } = useModo();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const socio = socioOverride ?? socios.find(s => s.id === session?.socioId);
@@ -551,7 +549,7 @@ export function PortalPerfilView({
 
       {/* ── Hoja: mis datos ────────────────────────────────────────────────── */}
       <BottomSheet open={hoja === 'datos'} onClose={() => setHoja(null)}>
-        <h2 style={{ ...display(26), color: t.ink, marginBottom: 18 }}>Mis datos</h2>
+        <h2 style={{ ...display(26), color: '#1A1A1A', marginBottom: 18 }}>Mis datos</h2>
         <form onSubmit={guardarDatos} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Cada campo con su ROTULO visible: el placeholder se va al escribir
               y dejaba una columna de cajas sin saber cuál era cuál. */}
@@ -576,15 +574,15 @@ export function PortalPerfilView({
           ACCESO (auth.updateUser), no `socios.email` directamente — ver
           comentario de `actualizarEmail` en lib/portal-auth.tsx. */}
       <BottomSheet open={hoja === 'email'} onClose={() => { setHoja(null); setEmailMsg(null); setNuevoEmail(''); }}>
-        <h2 style={{ ...display(26), color: t.ink, marginBottom: 18 }}>Cambiar email</h2>
-        <p style={{ ...texto.pie, color: t.muted, marginBottom: 18 }}>
+        <h2 style={{ ...display(26), color: '#1A1A1A', marginBottom: 18 }}>Cambiar email</h2>
+        <p style={{ ...texto.pie, color: '#5A5A52', marginBottom: 18 }}>
           Ahora: {socio.email || 'sin email'}. Te mandamos un enlace al nuevo para confirmarlo.
         </p>
         <form onSubmit={cambiarEmail} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Input label="Nuevo email" placeholder="tu@email.com" type="email" autoComplete="email" value={nuevoEmail}
             onChange={e => { setNuevoEmail(e.target.value); setEmailMsg(null); }} />
           {emailMsg && (
-            <p role={emailMsg.error ? 'alert' : undefined} style={{ ...texto.nota, color: emailMsg.error ? '#B0453A' : t.muted }}>
+            <p role={emailMsg.error ? 'alert' : undefined} style={{ ...texto.nota, color: emailMsg.error ? '#B0453A' : '#5A5A52' }}>
               {emailMsg.texto}
             </p>
           )}
@@ -596,7 +594,7 @@ export function PortalPerfilView({
 
       {/* ── Hoja: foto ─────────────────────────────────────────────────────── */}
       <BottomSheet open={hoja === 'avatar'} onClose={() => setHoja(null)}>
-        <h2 style={{ ...display(26), color: t.ink, marginBottom: 18 }}>Tu foto</h2>
+        <h2 style={{ ...display(26), color: '#1A1A1A', marginBottom: 18 }}>Tu foto</h2>
         <input ref={fileInputRef} type="file" accept="image/*" onChange={subirFoto} style={{ display: 'none' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <Button onClick={() => fileInputRef.current?.click()} disabled={subiendoFoto} style={{ width: '100%' }}>
@@ -607,7 +605,7 @@ export function PortalPerfilView({
               Quitar la foto
             </Button>
           )}
-          <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 14 }}>O elige un avatar</div>
+          <div style={{ ...micro(9.5, 0.24), color: '#98A093', marginTop: 14 }}>O elige un avatar</div>
           <AvatarPicker value={socio.avatar ?? null} onChange={elegirAvatar} />
         </div>
       </BottomSheet>
