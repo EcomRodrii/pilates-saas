@@ -111,6 +111,12 @@ export default function SustitucionesPage() {
     try {
       const r = await cancelarClase(s.id);
       if ('error' in r) { setErrorAccion(r.error); return; }
+      // 19ª auditoría · F-10: si el servidor no pudo liberar las reservas ni
+      // devolver los bonos, se dice — antes ese caso salía como "Clase
+      // cancelada. N alumnas avisadas", indistinguible del éxito completo.
+      // Se muestra como error (rojo y sin autocierre a los 6 s): es trabajo
+      // pendiente para la propietaria, no una confirmación.
+      if (r.aviso) { setErrorAccion(r.aviso); await recargar(); return; }
       const a = r.alumnas;
       setAviso(a && !a.desactivado ? `Clase cancelada. ${a.avisadas} de ${a.total} alumnas avisadas por email.` : 'Clase cancelada.');
       await recargar();

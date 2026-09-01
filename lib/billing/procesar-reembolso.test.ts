@@ -28,10 +28,11 @@ function fakeAdmin(opts: { venta?: Fila | null } = {}) {
       const c = {
         update(fila: Fila) { updates.push(fila); return c; },
         eq() { return c; },
-        // `.is('devuelta_en', null)` — si el fake dice que la venta YA está
-        // devuelta, el guard real de Postgres la habría excluido: se simula
-        // aquí devolviendo null directamente.
+        // Guards de reentrada (`.is(...)` en recibos, `.or(importe_devuelto...)`
+        // en ventas POS): si el fake dice que la venta ya no casa, el guard real
+        // de Postgres la habría excluido — se simula devolviendo null.
         is() { return c; },
+        or() { return c; },
         select() { return c; },
         maybeSingle() {
           if (tabla === 'ventas_pos') return Promise.resolve({ data: venta, error: null });
@@ -80,4 +81,41 @@ test('un reembolso parcial anota el acumulado real, no un delta', async () => {
     fuente: 'webhook',
   });
   assert.equal(updates[0].importe_devuelto, 10);
+});
+
+// ── 19ª auditoría · F-3 y F-6 ───────────────────────────────────────────────
+//
+// Dos fallos que convivieron con esta suite en verde, porque `fakeAdmin`
+// devuelve siempre una fila y por tanto no evalúa NINGÚN predicado. Ambos se
+// prueban sobre el código fuente, que es donde vive el error.
+
+test('F-3: el mapper de ventas POS escribe stripe_payment_intent_id', () => {
+  // La columna existe en la BD desde la migración 0036 y es por la que busca
+  // `procesarReembolsoVentaPos`. `ventaPOSToDb` no la incluía, así que se
+  // quedaba a NULL en todas las ventas (prod: 19 filas, 0 informadas) y el
+  // predicado del UPDATE de abajo no casaba jamás: procesador entero muerto.
+  const datos = readFileSync(new URL('../supabase-data.ts', import.meta.url), 'utf8');
+  const mapper = datos.slice(datos.indexOf('function ventaPOSToDb'));
+  const cuerpo = mapper.slice(0, mapper.indexOf('\n}'));
+  assert.ok(
+    cuerpo.includes('stripe_payment_intent_id'),
+    'ventaPOSToDb debe escribir stripe_payment_intent_id, o el reembolso de POS no encuentra nunca la venta',
+  );
+});
+
+test('F-6: el guard de reentrada no descarta un segundo reembolso parcial', () => {
+  // `.is('devuelta_en', null)` frenaba el reintento pero también el incremento
+  // real: tras el primer parcial la fila dejaba de casar y el acumulado de
+  // Stripe no volvía a escribirse nunca.
+  const fuente = readFileSync(new URL('./procesar-reembolso.ts', import.meta.url), 'utf8');
+  const cuerpo = fuente.slice(fuente.indexOf('export async function procesarReembolsoVentaPos'));
+  const update = cuerpo.slice(cuerpo.indexOf("from('ventas_pos')"), cuerpo.indexOf('maybeSingle'));
+  assert.ok(
+    !update.includes("is('devuelta_en', null)"),
+    'el guard no puede ser devuelta_en IS NULL: descartaría el segundo parcial',
+  );
+  assert.ok(
+    update.includes('importe_devuelto'),
+    'el guard debe apoyarse en el acumulado importe_devuelto, que es monótono',
+  );
 });

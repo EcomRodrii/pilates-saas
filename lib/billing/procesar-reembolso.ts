@@ -234,8 +234,16 @@ export async function procesarDisputeClosed(
  * no tiene entrega/bono/suscripción que revisar (es venta al contado de
  * productos/servicios sueltos), así que no hay nada que "revertir" más allá
  * de dejar constancia del reembolso para que el cierre de caja no quede
- * inflado. La venta se localiza por `stripe_payment_intent_id` — `ventas_pos`
- * ya lo guarda al cobrar (no hace falta metadata nueva en el PaymentIntent).
+ * inflado. La venta se localiza por `stripe_payment_intent_id`.
+ *
+ * 19ª auditoría · F-3: esa última frase decía "`ventas_pos` ya lo guarda al
+ * cobrar" y era FALSA. La columna existe desde `0036_pagos_espana_sepa_bizum`,
+ * pero ni `VentaPOS` ni `ventaPOSToDb` la incluían, así que se quedaba a NULL en
+ * todas las ventas (verificado en producción: 19 filas, 0 con PaymentIntent).
+ * El predicado de abajo no casaba NUNCA y este procesador era un no-op integral
+ * — con su test en verde, porque el `fakeAdmin` devuelve siempre una fila y no
+ * evalúa el predicado. El mapper ya la escribe; falta que los cobros POS con
+ * Stripe informen el campo al registrar la venta (ver F-3 en el informe).
  */
 export async function procesarReembolsoVentaPos(
   admin: SupabaseClient,
@@ -248,13 +256,21 @@ export async function procesarReembolsoVentaPos(
 ): Promise<ResultadoProcesado> {
   const acumuladoDevuelto = (p.charge.amountRefunded ?? 0) / 100;
 
-  // Guard `.is('devuelta_en', null)`, mismo patrón que `.neq('estado',
-  // 'DEVUELTO')` en recibos: un reintento del mismo evento (webhook reenviado,
-  // o el cron llegando después) no debe reescribir `devuelta_en` con la fecha
-  // de hoy ni perder el importe acumulado real si hubo un segundo parcial.
+  // Guard de reentrada: un reintento del mismo evento (webhook reenviado, o el
+  // cron llegando después) no debe reescribir `devuelta_en` con la fecha de hoy.
+  //
+  // 19ª auditoría · F-6: el guard era `.is('devuelta_en', null)`, que además de
+  // frenar el reintento hacía lo contrario de lo que su propio comentario
+  // prometía — tras el primer parcial la fila ya no casaba, así que un SEGUNDO
+  // reembolso parcial (o el paso de parcial a total) se perdía y el acumulado
+  // real de Stripe no llegaba nunca a la BD. Se cambia por un guard sobre el
+  // importe: `importe_devuelto` es un acumulado monótono (Stripe manda siempre
+  // `amount_refunded` total, no el delta), así que "menor que el nuevo" frena el
+  // reintento exacto y deja pasar todo incremento real.
   const { data: venta, error } = await admin.from('ventas_pos')
     .update({ devuelta_en: new Date().toISOString(), importe_devuelto: acumuladoDevuelto })
-    .eq('studio_id', p.studioId).eq('stripe_payment_intent_id', p.paymentIntentId).is('devuelta_en', null)
+    .eq('studio_id', p.studioId).eq('stripe_payment_intent_id', p.paymentIntentId)
+    .or(`importe_devuelto.is.null,importe_devuelto.lt.${acumuladoDevuelto}`)
     .select('id, socio_id, total')
     .maybeSingle();
 

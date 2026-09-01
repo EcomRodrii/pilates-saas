@@ -118,6 +118,21 @@ export async function POST(req: NextRequest) {
       }
       if (!cadena) throw new Error('No se pudo resolver la cadena');
 
+      // 19ª auditoría · F-4: el guard anti-doble-suscripción vivía SOLO después
+      // del `return` de esta rama, así que protegía a BASE/ESTUDIO y no a
+      // CADENA — su gemela. `cadena.subscription_status` se leía dos veces y no
+      // se usaba nunca. Una propietaria con CADENA ya activa que volviera a
+      // pulsar "Contratar" (doble clic, caché desincronizada, replay) abría un
+      // segundo Checkout de suscripción sobre el mismo customer: dos
+      // suscripciones CADENA cobrando en paralelo. Mismo criterio que abajo,
+      // incluido 'past_due' vía `suscripcionActiva()`.
+      if (suscripcionActiva(cadena.subscription_status)) {
+        return NextResponse.json(
+          { error: 'Ya tienes una suscripción activa. Gestiónala desde Configuración → Facturación.' },
+          { status: 409 },
+        );
+      }
+
       // Si el estudio venía de ESTUDIO/BASE con una suscripción individual viva,
       // hay que cancelarla — si no, queda cobrando en paralelo con la de cadena.
       //

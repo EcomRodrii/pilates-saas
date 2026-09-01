@@ -266,6 +266,29 @@ async function procesarEvento(
       return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
     }
 
+    // El tenant se resuelve desde la CUENTA que firma, no desde la metadata:
+    // `metadata.studioId` lo elige quien crea la sesión. El porqué completo, y
+    // el ataque que esto cierra, en `lib/billing/webhook-tenant.ts`.
+    //
+    // 19ª auditoría · F-1: esta comprobación vivía DENTRO del `else` (la rama de
+    // pago), así que las dos ramas `mode:'setup'` de abajo retornaban antes de
+    // llegar a ella y escribían credenciales de cobro guiándose solo por la
+    // metadata. Es el mismo fallo que webhook-tenant.ts documenta haber cerrado
+    // para la compra de plan: se cerró un camino y se dejó abierto su gemelo.
+    // Ahora protege a las TRES ramas, que es lo que siempre debió hacer.
+    const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
+    if (!tenantAutorizado(studioDeCuenta, studioId)) {
+      Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata', {
+        level: 'error',
+        extra: {
+          sessionId: session.id, eventAccount: event.account,
+          studioIdMetadata: studioId, studioDeCuenta, mode: session.mode,
+          purpose: session.metadata?.purpose ?? null,
+        },
+      });
+      return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
+    }
+
     if (session.mode === 'setup' && session.metadata?.purpose === 'tarjeta') {
       // La socia autorizó una tarjeta sin pagar nada (/api/stripe/setup-tarjeta).
       // Es el único camino por el que una socia que paga en mostrador, por
@@ -316,14 +339,22 @@ async function procesarEvento(
         );
         const pmId = typeof si.payment_method === 'string' ? si.payment_method : si.payment_method?.id;
         const mandateId = typeof si.mandate === 'string' ? si.mandate : (si.mandate?.id ?? null);
-        if (pmId) {
+        if (!studioId) {
+          // 19ª auditoría · F-1: mismo criterio que la rama de tarjeta y que el
+          // guardado tras pago. Sin studioId el UPDATE no se puede acotar al
+          // estudio dueño de la socia, y no se escribe.
+          Sentry.captureMessage('[stripe webhook] alta de mandato SEPA sin studioId: no se guarda', {
+            level: 'warning', extra: { socioId, sessionId: session.id },
+          });
+        } else if (pmId) {
           const update: Record<string, string | null> = {
             sepa_payment_method_id: pmId,
             sepa_mandate_id: mandateId,
             metodo_pago_preferido: 'SEPA',
           };
           if (typeof session.customer === 'string') update.stripe_customer_id = session.customer;
-          const { error } = await admin.from('socios').update(update).eq('id', socioId);
+          const { error } = await admin.from('socios')
+            .update(update).eq('id', socioId).eq('studio_id', studioId);
           if (error) {
             console.error('[stripe webhook] no se pudo guardar el mandato SEPA', socioId, error);
             return NextResponse.json({ error: 'Fallo al guardar el mandato SEPA' }, { status: 500 });
@@ -341,17 +372,8 @@ async function procesarEvento(
         return NextResponse.json({ received: true, ignorado: 'pago_no_completado' });
       }
 
-      // El tenant se resuelve desde la CUENTA que firma, no desde la metadata:
-      // `metadata.studioId` lo elige quien crea la sesión. El porqué completo, y
-      // el ataque que esto cierra, en `lib/billing/webhook-tenant.ts`.
-      const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
-      if (!tenantAutorizado(studioDeCuenta, studioId)) {
-        Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata', {
-          level: 'error',
-          extra: { sessionId: session.id, eventAccount: event.account, studioIdMetadata: studioId, studioDeCuenta },
-        });
-        return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
-      }
+      // (La comprobación de tenant se hace ahora arriba, antes de repartir por
+      // ramas, para que cubra también los dos `mode:'setup'`. Ver F-1.)
 
       // El recibo es lo crítico (confirma el cobro). Registramos el método real
       // del cobro (tarjeta/bizum) para la conciliación con el gestor.

@@ -2576,7 +2576,11 @@ export default function Calendario() {
           socios={socios}
           onCheckinSpot={sesionYaEmpezada(sesionActual.inicio) ? checkin : undefined}
           onLiberarSpot={liberarSpot}
-          onAsignarSpot={(spotId, socioId) => sesionActual && asignarSpot(sesionActual.id, socioId, spotId)}
+          onAsignarSpot={async (spotId, socioId) => {
+            if (!sesionActual) return;
+            const res = await asignarSpot(sesionActual.id, socioId, spotId);
+            if (!res.ok) showToast(res.error ?? 'No hemos podido asignar el sitio. Inténtalo de nuevo.');
+          }}
         />
       )}
 

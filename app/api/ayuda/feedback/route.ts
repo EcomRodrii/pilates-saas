@@ -32,7 +32,11 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getSupabaseAdmin();
-  if (!db) return NextResponse.json({ ok: true, skipped: true });
+  // 19ª auditoría · F-11: devolvía `{ok:true, skipped:true}` — un éxito falso.
+  // El cliente no distingue ese 200 de un guardado real, así que una service
+  // role mal configurada se traga TODOS los votos en silencio y para siempre.
+  // El resto del repo trata este caso como 503 ('Servidor no configurado').
+  if (!db) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   const { error } = await db.from('ayuda_feedback').insert({
     categoria_slug: categoria, articulo_slug: articulo, valoracion, url,

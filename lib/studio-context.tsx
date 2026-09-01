@@ -3343,10 +3343,33 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   async function asignarSpot(sesionId: string, socioId: string, spotId: string): Promise<ResultadoEscritura> {
+    // 19ª auditoría · F-7: el filtro era `estado !== 'CANCELADA'`, que deja
+    // pasar LISTA_ESPERA y PENDIENTE_APROBACION. El índice único que impide dos
+    // socias en el mismo reformer es PARCIAL —`uq_reserva_spot_activo ... where
+    // spot_id is not null and estado in ('CONFIRMADA','ASISTIDA')`— así que
+    // escribir el spot en una fila en espera pasaba sin conflicto y la UI ni lo
+    // pintaba (el mapa solo indexa confirmadas): el sitio seguía "Libre".
+    // Al promocionarla después, la fila entra en el predicado del índice, choca
+    // con la confirmada que ya ocupa el spot y el 23505 aborta la transacción
+    // ENTERA de `cancelar_reserva_plaza`: la socia que cancelaba no podía
+    // cancelar y la cola de esa clase quedaba bloqueada. Se asigna sitio solo a
+    // quien el índice protege.
     const reserva = reservas.find(r =>
-      r.sesionId === sesionId && r.socioId === socioId && r.estado !== 'CANCELADA'
+      r.sesionId === sesionId && r.socioId === socioId
+      && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')
     );
-    if (!reserva) return { ok: false, error: 'No hemos encontrado la reserva de esa clienta en esta clase.' };
+    if (!reserva) {
+      const enEspera = reservas.some(r =>
+        r.sesionId === sesionId && r.socioId === socioId
+        && (r.estado === 'LISTA_ESPERA' || r.estado === 'PENDIENTE_APROBACION')
+      );
+      return {
+        ok: false,
+        error: enEspera
+          ? 'Esa clienta todavía no tiene la plaza confirmada. Confírmala primero y luego asígnale el sitio.'
+          : 'No hemos encontrado la reserva de esa clienta en esta clase.',
+      };
+    }
     const anterior = reserva;
     setReservas(prev => prev.map(r => r.id === reserva.id ? { ...r, spotId } : r));
     const res = await dbUpdateReserva(reserva.id, { spotId });

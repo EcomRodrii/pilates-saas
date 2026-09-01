@@ -1093,6 +1093,7 @@ export function mapVentaPOS(r: RowVentasPos): VentaPOS {
     metodoPago: r.metodo_pago,
     notas: r.notas ?? null,
     realizadaEn: r.realizada_en,
+    stripePaymentIntentId: r.stripe_payment_intent_id ?? null,
   } as VentaPOS;
 }
 
@@ -1509,6 +1510,9 @@ function ventaPOSToDb(venta: VentaPOS) {
     metodo_pago: venta.metodoPago,
     notas: venta.notas ?? null,
     realizada_en: venta.realizadaEn,
+    // 19ª auditoría · F-3: sin esta línea la columna se quedaba a NULL siempre y
+    // `procesarReembolsoVentaPos` no encontraba nunca la venta que devolver.
+    stripe_payment_intent_id: venta.stripePaymentIntentId ?? null,
   };
 }
 
@@ -3517,8 +3521,11 @@ export async function dbInsertPostComunidad(p: PostComunidad) {
 // ya no Inngest). El `id` lo sigue generando el cliente (mismo
 // criterio que `dbInsertPostComunidad`/el resto de esta store), así el
 // estado optimista de useContentStore no diverge del guardado en servidor.
-// Best-effort: si falla, el post ya se pintó optimista y solo se reporta.
-export async function dbCrearPostComunidad(p: PostComunidad): Promise<void> {
+// 19ª auditoría · F-2: ya no es best-effort mudo. Devuelve si el post llegó a
+// la BD para que la store pueda retirar el optimista — un aviso que la
+// propietaria ve "publicado" en el panel y que no existe (ni se ha notificado a
+// nadie) es peor que un error visible.
+export async function dbCrearPostComunidad(p: PostComunidad): Promise<boolean> {
   try {
     const res = await fetch('/api/comunidad/posts', {
       method: 'POST',
@@ -3528,9 +3535,14 @@ export async function dbCrearPostComunidad(p: PostComunidad): Promise<void> {
         tipo: p.tipo, eventoFecha: p.eventoFecha ?? null, eventoAforo: p.eventoAforo ?? null, eventoLugar: p.eventoLugar ?? null,
       }),
     });
-    if (!res.ok) reportDbError('[dbCrearPostComunidad]', await res.json().catch(() => ({ status: res.status })));
+    if (!res.ok) {
+      reportDbError('[dbCrearPostComunidad]', await res.json().catch(() => ({ status: res.status })));
+      return false;
+    }
+    return true;
   } catch (e) {
     reportDbError('[dbCrearPostComunidad]', e);
+    return false;
   }
 }
 
@@ -3571,9 +3583,18 @@ export async function dbMisLikesComunidad(): Promise<string[]> {
   return (data as string[] | null) ?? [];
 }
 
-export async function dbDeletePostComunidad(id: string) {
+// 19ª auditoría · F-2: devuelve si el borrado ocurrió de verdad. Antes no
+// devolvía nada y el llamante lo quitaba de la lista pase lo que pase: la
+// propietaria borraba un aviso del tablón, desaparecía de su pantalla y, si el
+// DELETE había fallado, el post SEGUÍA sirviéndose a todas las socias (el feed
+// público lee la tabla con service-role, no el estado local del panel).
+export async function dbDeletePostComunidad(id: string): Promise<boolean> {
   const { error } = await supabase.from('posts_comunidad').delete().eq('id', id);
-  if (error) reportDbError('[dbDeletePostComunidad]', error);
+  if (error) {
+    reportDbError('[dbDeletePostComunidad]', error);
+    return false;
+  }
+  return true;
 }
 
 export async function dbUpsertIntegracion(

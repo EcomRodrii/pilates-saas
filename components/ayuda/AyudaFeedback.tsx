@@ -23,13 +23,29 @@ export function AyudaFeedback({ categoria, articulo }: { categoria: string; arti
     setEnviando(true);
     setEnviado(valor); // optimista: es una valoración, no una escritura de dinero — no hace falta esperar para dar la sensación de "hecho".
     try {
-      await fetch('/api/ayuda/feedback', {
+      const res = await fetch('/api/ayuda/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ categoria, articulo, valoracion: valor, url: window.location.pathname }),
       });
-    } catch {
-      // Best-effort: si falla la red, no se molesta a quien solo quería dar su opinión.
+      // 19ª auditoría · F-11: se sigue sin molestar a quien solo quería opinar
+      // (el "Gracias" optimista se queda), pero el fallo deja de ser invisible
+      // PARA NOSOTROS. `ayuda_feedback` lleva 0 filas en producción desde que se
+      // publicó el centro de ayuda, y con el `catch {}` vacío no había forma de
+      // saber si es que nadie vota o es que ningún voto llega.
+      if (!res.ok) {
+        const { captureMessage } = await import('@sentry/nextjs');
+        captureMessage('[ayuda/feedback] el voto no se ha guardado', {
+          level: 'warning',
+          extra: { categoria, articulo, valoracion: valor, status: res.status },
+        });
+      }
+    } catch (e) {
+      const { captureMessage } = await import('@sentry/nextjs');
+      captureMessage('[ayuda/feedback] el voto no ha llegado al servidor', {
+        level: 'warning',
+        extra: { categoria, articulo, valoracion: valor, detalle: e instanceof Error ? e.message : String(e) },
+      });
     } finally {
       setEnviando(false);
     }

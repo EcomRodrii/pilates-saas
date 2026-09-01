@@ -89,7 +89,13 @@ export function useContentStore() {
       creadoEn: new Date().toISOString(),
     };
     setPostsComunidad(prev => [nuevo, ...prev]);
-    dbCrearPostComunidad(nuevo);
+    // 19ª auditoría · F-2: mismo criterio que `toggleLikePost` — si el servidor
+    // rechaza, se retira el optimista. Dejarlo pintado hacía creer que el aviso
+    // estaba publicado (y notificado a la audiencia) cuando no había llegado ni
+    // a la BD ni al fan-out.
+    void dbCrearPostComunidad(nuevo).then(ok => {
+      if (!ok) setPostsComunidad(prev => prev.filter(p => p.id !== nuevo.id));
+    });
   }
 
   function toggleLikePost(postId: string) {
@@ -139,9 +145,27 @@ export function useContentStore() {
     void dbUpdatePostComunidad(postId, { texto });
   }
 
+  // 19ª auditoría · F-2: el borrado NO puede ser optimista-sin-vuelta como el
+  // texto. Un post que sigue en la BD sigue sirviéndose a todas las socias
+  // desde el feed público, así que "desaparece del panel" sin haberse borrado
+  // es exactamente el caso que hay que evitar: la propietaria cree retirado un
+  // precio mal puesto o un dato personal que en realidad sigue publicado.
   function deletePost(postId: string) {
+    // Se guardan fila y posición para reponerlo EXACTAMENTE donde estaba: el
+    // tablón mezcla fijados y no fijados, así que reordenar por fecha al
+    // reponer movería el post de sitio.
+    const posicion = postsComunidad.findIndex(p => p.id === postId);
+    const anterior = posicion >= 0 ? postsComunidad[posicion] : undefined;
     setPostsComunidad(prev => prev.filter(p => p.id !== postId));
-    void dbDeletePostComunidad(postId);
+    void dbDeletePostComunidad(postId).then(ok => {
+      if (ok || !anterior) return;
+      setPostsComunidad(prev => {
+        if (prev.some(p => p.id === postId)) return prev;
+        const n = [...prev];
+        n.splice(Math.min(Math.max(posicion, 0), n.length), 0, anterior);
+        return n;
+      });
+    });
   }
 
   return {
