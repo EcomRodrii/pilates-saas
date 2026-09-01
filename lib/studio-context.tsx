@@ -2821,13 +2821,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // Mismo motivo que en consumirSesionBono: hay que devolver la sesión AL BONO
   // QUE LA PAGÓ. Sin el tipo de clase se le devolvía al que caducara antes, que
   // con dos bonos vivos regala saldo en uno y lo deja perdido en el otro.
-  async function devolverSesionBono(socioId: string, sesionId?: string | null) {
+  // P2 (auditoría de producto): devuelve `false` si de verdad hacía falta
+  // devolver una sesión y no se pudo — antes era `void` en las tres llamadas
+  // y un fallo aquí solo llegaba a Sentry, nadie del estudio se enteraba de
+  // que una socia se quedó sin su sesión de bono. `true` cubre también "no
+  // había nada que devolver" (sin bono devolvible, o ya al tope): no es un
+  // fallo, así que no debe avisar como si lo fuera.
+  async function devolverSesionBono(socioId: string, sesionId?: string | null): Promise<boolean> {
     const tipoClaseId = sesionId ? sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null : null;
     // I-5: `bonoDevolvible`, no `bonoConsumible`. Para devolver hace falta HUECO,
     // no saldo: usando el de consumir, cancelar la clase que gastó la ÚLTIMA
     // sesión no devolvía nada, porque un bono a 0 ya no es "consumible".
     const devolvible = bonoDevolvible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
-    if (!devolvible) return;
+    if (!devolvible) return true;
     const { suscripcion: sus } = devolvible;
 
     // I-10: incremento ATÓMICO en la BD con el tope dentro del WHERE, en vez de
@@ -2842,15 +2848,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       capturarMensaje('[devolverSesionBono] no se pudo devolver la sesión al bono', 'error', {
         extra: { socioId, sesionId, suscripcionId: sus.id, error: res.error },
       });
-      return;
+      return false;
     }
     // `saldo` null = no había hueco (bono ya al tope): no es un fallo, pero
     // tampoco hay nada que reflejar en pantalla.
-    if (res.saldo == null) return;
+    if (res.saldo == null) return true;
     const saldo = res.saldo;
     setSuscripciones(prev => prev.map(s =>
       s.id === sus.id ? { ...s, sesionesRestantes: saldo } : s
     ));
+    return true;
   }
 
   async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean }): Promise<ResultadoReserva> {
@@ -2973,7 +2980,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return postPublico('/api/public/retos', { studioId: cpub.studioId, retoKey, accion });
   }
 
-  async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null }> {
+  async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; avisoBono?: string }> {
     const cpub = ctxPublico();
     if (cpub) {
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r)); // optimista
@@ -3045,8 +3052,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // por el portal no se regalaba. Es la misma asimetría panel↔portal que ya
     // causó el bug de la ventana de cancelación; se cierra copiando el guard.
     const esPlazaFija = reservaId.startsWith('res-pf-');
+    // P2 (auditoría de producto): antes era `void` — un fallo solo llegaba a
+    // Sentry y nadie del estudio se enteraba de que la socia se quedó sin su
+    // sesión de bono. Se espera y se convierte en un aviso que el llamante
+    // pueda enseñar (la cancelación en sí YA se confirmó en servidor, así que
+    // sigue siendo `ok: true` — esto es un aviso, no un fallo de la acción).
+    let avisoBono: string | undefined;
     if (eraConfirmada && cancelada && devolverBono && !esPlazaFija) {
-      void devolverSesionBono(cancelada.socioId, sesionId);
+      const bonoOk = await devolverSesionBono(cancelada.socioId, sesionId);
+      if (!bonoOk) avisoBono = 'Reserva cancelada, pero no hemos podido devolver la sesión al bono. Revísalo a mano.';
     }
 
     // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
@@ -3060,10 +3074,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setReservas(prev => prev.map(r =>
         (r.sesionId === sesionId && r.socioId === ofertaSocioId && r.estado === 'LISTA_ESPERA')
           ? { ...r, ofertaExpiraEn: ofertaExpiraEn ?? null } : r));
-      return { ok: true };
+      return { ok: true, avisoBono };
     }
 
-    if (!promovidaSocioId || !sesionId) return { ok: true };
+    if (!promovidaSocioId || !sesionId) return { ok: true, avisoBono };
 
     // Refleja en el estado local la promoción REAL decidida por la BD.
     setReservas(prev => prev.map(r =>
@@ -3096,7 +3110,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
     toastAviso.show(`Lista de espera promovida: ${nombre} ha pasado de lista de espera a confirmada en ${clase}.`);
     addActividadReciente('NUEVA_RESERVA', `${nombre} promovida de lista de espera → ${clase}`, promovidaSocioId, `/socios/${promovidaSocioId}`);
-    return { ok: true };
+    return { ok: true, avisoBono };
   }
 
   // Fase 2b: acepta una oferta de plaza de lista de espera. Solo tiene sentido

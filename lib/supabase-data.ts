@@ -1431,21 +1431,6 @@ function sesionToDb(ses: Sesion) {
   };
 }
 
-function reservaToDb(res: Reserva) {
-  return {
-    id: res.id,
-    studio_id: res.studioId ?? STUDIO_ID,
-    sesion_id: res.sesionId,
-    socio_id: res.socioId,
-    estado: res.estado,
-    spot_id: res.spotId ?? null,
-    posicion_espera: res.posicionEspera ?? null,
-    oferta_expira_en: res.ofertaExpiraEn ?? null,
-    check_in_en: res.checkInEn ?? null,
-    creado_en: res.creadoEn,
-  };
-}
-
 function reciboToDb(rec: Recibo) {
   return {
     id: rec.id,
@@ -2512,11 +2497,6 @@ export async function dbUpdateSerieDesde(
 export async function dbDeleteSesion(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('sesiones').delete().eq('id', id);
   return error ? falloEscritura('[dbDeleteSesion]', error) : ESCRITURA_OK;
-}
-
-export async function dbInsertReserva(res: Reserva) {
-  const { error } = await supabase.from('reservas').insert(reservaToDb(res));
-  if (error) reportDbError('[dbInsertReserva]', error);
 }
 
 // Reserva ATÓMICA desde el panel (sesión autenticada de staff): la RPC decide
