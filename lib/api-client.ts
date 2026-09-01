@@ -1470,6 +1470,20 @@ export async function crearDocumentoSocio(payload: {
   }
 }
 
+// Auditoría 20ª pasada (F-14): URL firmada de un documento para el STAFF (mismo
+// gate `puedeGestionarClientas` que listar/subir/borrar). 60s de validez, igual
+// que el equivalente de la socia — se pide justo antes de abrir, no se guarda.
+export async function abrirDocumentoSocio(id: string): Promise<{ url: string } | { error: string }> {
+  try {
+    const res = await fetch(`/api/documentos-socio/${encodeURIComponent(id)}`, { headers: await authHeader() });
+    const data = await res.json().catch(() => null) as { url?: string; error?: string } | null;
+    if (!res.ok || !data?.url) return { error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+    return { url: data.url };
+  } catch {
+    return { error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
+  }
+}
+
 export async function borrarDocumentoSocio(id: string): Promise<ResultadoEscritura> {
   try {
     const res = await fetch('/api/documentos-socio', {

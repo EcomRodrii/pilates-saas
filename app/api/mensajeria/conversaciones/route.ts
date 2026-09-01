@@ -153,7 +153,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await sesionCliente
     .from('conversaciones')
-    .select('id, studio_id, tipo, titulo, ancla_sesion_id, ancla_reserva_id, creado_en, ultimo_mensaje_en, conversacion_participantes(socio_id, rol_en_conversacion, auth_user_id, leido_hasta)')
+    .select('id, studio_id, tipo, titulo, ancla_sesion_id, ancla_reserva_id, creado_en, ultimo_mensaje_en, mostrador_leido_hasta, conversacion_participantes(socio_id, rol_en_conversacion, auth_user_id, leido_hasta)')
     .eq('studio_id', sesion.studioId)
     .order('ultimo_mensaje_en', { ascending: false })
     .limit(100);
