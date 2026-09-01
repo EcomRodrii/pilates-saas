@@ -34,6 +34,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { entregarPlanComprado, idsDe } from '@/lib/billing/entregar-plan-comprado';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
+import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '@/lib/billing/conciliar-sesiones';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -335,15 +336,41 @@ async function entregar(
   });
 
   if (p.tipo === 'recibo') {
+    // Auditoría 20ª pasada · F-13: el webhook, para el mismo hecho, además
+    // guarda `stripe_payment_intent_id` y sella la factura
+    // (sellarFacturaDeRecibo) — el conciliador no hacía ninguna de las dos.
+    // Como este barrido es AHORA la única red cuando el webhook falla
+    // (F-12), todo cobro que recuperaba quedaba sin PaymentIntent guardado
+    // (así que "Devolver" desde el panel dependía de `paymentIntents.search`,
+    // que tarda ~1 min en indexar) y sin factura sellada y sin aviso — el
+    // webhook al menos avisa por Sentry cuando el sellado falla; aquí ni se
+    // intentaba. Mismo criterio: best-effort e idempotente, un fallo aquí no
+    // debe deshacer el cobro ya persistido.
+    const piId = typeof sesion?.payment_intent === 'string'
+      ? sesion.payment_intent
+      : sesion?.payment_intent?.id ?? null;
     const { error } = await admin
       .from('recibos')
-      .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: 'TARJETA' })
+      .update({
+        estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: 'TARJETA',
+        ...(piId ? { stripe_payment_intent_id: piId } : {}),
+        checkout_session_id: null,
+      })
       .eq('id', p.reciboId).eq('studio_id', p.studioId)
       // Mismos estados cobrables que el webhook: nunca se resucita un DEVUELTO
       // ni se reescribe la fecha de uno ya COBRADO.
       .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO']);
     if (error) throw new Error(`conciliador/recibo ${p.reciboId}: ${error.message}`);
     await aplicarRenovacionServidor(admin, { studioId: p.studioId, reciboId: p.reciboId });
+    const selladoFactura = await sellarFacturaDeRecibo(admin, {
+      studioId: p.studioId, reciboId: p.reciboId, facturaId: `fac-checkout-${p.reciboId}`,
+    });
+    if (!selladoFactura.ok) {
+      Sentry.captureMessage('[conciliador] cobro recuperado pero factura sin sellar', {
+        level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
+        extra: { reciboId: p.reciboId, studioId: p.studioId, error: selladoFactura.error },
+      });
+    }
     const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
     await emitirPagoRealizado(admin, { studioId: p.studioId, reciboId: p.reciboId });
     const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
