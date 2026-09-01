@@ -28,7 +28,11 @@ export interface NavSection {
 const allSections: NavSection[] = [
   { items: [{ href: '/centro-de-control', label: 'Centro de Control', icon: Compass }] },
   { items: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] },
-  { items: [{ href: '/automatizaciones', label: 'Automatizaciones IA', icon: Bot }] },
+  // P2 (auditoría de producto): decía "Automatizaciones IA" — contradice la
+  // decisión de marca de usar "automático", ya aplicada al copy de
+  // marketing/landing pero no propagada al panel. Es el ítem más visible de
+  // la navegación (sidebar permanente).
+  { items: [{ href: '/automatizaciones', label: 'Automatizaciones', icon: Bot }] },
   {
     // Contenido (redes) y Marketing (campañas/automatizaciones/Klaviyo) eran
     // dos promesas de producto separadas en el menú. Ya no es una sección con
