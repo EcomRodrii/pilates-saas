@@ -1,7 +1,6 @@
 'use client';
 
 import { forwardRef, useId, type InputHTMLAttributes } from 'react';
-import { useModo } from '@/lib/portal-modo';
 import { semantic } from '@/lib/portal-tokens';
 import { micro } from '@/lib/portal-design';
 
@@ -22,10 +21,11 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 // fontSize fijo en 16px — por debajo de eso iOS hace zoom automático al
 // enfocar el campo. Antes el 100% de los inputs del portal usaban 14px.
+// Valores literales del sistema "Tentare Studio App" — antes venían de
+// `useModo()`, la paleta del diseño anterior ya sustituido.
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { error, label, style, id, ...props }, ref,
 ) {
-  const { t } = useModo();
   const auto = useId();
   const inputId = id ?? auto;
 
@@ -40,8 +40,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         // salía por la derecha de la hoja. `min-width: 0` le quita el suelo y
         // `max-width` pone el techo.
         minWidth: 0, maxWidth: '100%',
-        border: `1.5px solid ${error ? semantic.danger.text : t.line}`,
-        background: t.surface, color: t.ink, outline: 'none',
+        border: `1.5px solid ${error ? semantic.danger.text : '#E5E3DA'}`,
+        background: '#FFFFFF', color: '#1A1A1A', outline: 'none',
         ...style,
       }}
       {...props}
@@ -52,7 +52,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-      <label htmlFor={inputId} style={{ ...micro(9.5, 0.24, 600), color: t.micro, paddingLeft: 4 }}>
+      <label htmlFor={inputId} style={{ ...micro(9.5, 0.24, 600), color: '#98A093', paddingLeft: 4 }}>
         {label}
       </label>
       {campo}
