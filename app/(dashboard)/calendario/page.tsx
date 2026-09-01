@@ -397,7 +397,12 @@ function ModalClasesRecurrentes({
               {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
             </select>
           </FormField>
-          <div className="grid grid-cols-2 gap-4">
+          {/* P2 (auditoría de producto): las 4 rejillas de 2 columnas de este
+              fichero eran `grid-cols-2` fijo sin `sm:` — este modal es
+              `max-w-lg` y el panel lateral de crear/editar clase es `w-full`
+              por debajo de `lg` (components/ui/dashboard-drawer.tsx), así que
+              a 375px cramaba dos campos de formulario en ~170px cada uno. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Hora inicio">
               <input type="time" className={f2} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
             </FormField>
@@ -428,7 +433,7 @@ function ModalClasesRecurrentes({
             </div>
             {form.diasSemana.length === 0 && <p className="text-xs text-destructive">Selecciona al menos un día</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Fecha inicio">
               <input type="date" className={f2} value={form.fechaInicio} onChange={e => setForm(f => ({ ...f, fechaInicio: e.target.value }))} />
             </FormField>
@@ -2640,7 +2645,7 @@ export default function Calendario() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField label="Tipo de clase">
                   <select
                     className={selectCls}
@@ -2695,7 +2700,7 @@ export default function Calendario() {
               <FormField label="Fecha">
                 <input type="date" className={inputCls} value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} />
               </FormField>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField label="Hora inicio">
                   <input
                     type="time"
