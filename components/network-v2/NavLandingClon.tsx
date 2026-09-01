@@ -28,6 +28,13 @@ import { NW_PRODUCTO } from './tokens';
 //    (offset + alto real de la píldora) tira del <header> siguiente hacia
 //    arriba para que arranque exactamente donde arrancaría sin nav — la
 //    píldora queda flotando encima por el z-index, sin dejar hueco.
+// 4ª (cohesión de navegación, pedido del fundador): "Network" es un ancla a
+//    la sección #network de esta MISMA landing, no al marketplace real —
+//    correcto para esa sección, pero deja la nav sin ningún enlace directo
+//    a "buscar una instructora" (el buscador del hero cubre esa intención
+//    más abajo, pero solo si el usuario llega hasta ahí). Se añade un
+//    enlace explícito "Buscar instructoras" → /network/instructoras, igual
+//    que ya tiene NavPublico en el listado/perfil.
 const OSCURO = '#0F0F0C';
 const PAPEL = '#FAF9F5';
 
@@ -68,6 +75,7 @@ export function NavLandingClon() {
             </a>
           ))}
         </div>
+        <Link href="/network/instructoras" className="hidden sm:inline-flex shrink-0 text-[13.5px] font-bold whitespace-nowrap" style={{ color: 'rgba(250,249,245,.65)' }}>Buscar instructoras</Link>
         <Link href="/network/acceso" className="hidden sm:inline-flex shrink-0 text-[13.5px] font-bold whitespace-nowrap" style={{ color: 'rgba(250,249,245,.65)' }}>Iniciar sesión</Link>
         <Link href="/network/crear-perfil" className="hidden sm:inline-flex shrink-0 px-[18px] py-2.5 rounded-full text-[13.5px] font-extrabold whitespace-nowrap" style={{ background: NW_PRODUCTO, color: PAPEL }}>Empieza</Link>
         <button
@@ -97,8 +105,16 @@ export function NavLandingClon() {
               </a>
             ))}
             <Link
-              href="/network/acceso"
+              href="/network/instructoras"
               className="mt-2 text-center py-2.5 text-[14px] font-bold"
+              style={{ color: 'rgba(250,249,245,.75)' }}
+              onClick={() => setAbierto(false)}
+            >
+              Buscar instructoras
+            </Link>
+            <Link
+              href="/network/acceso"
+              className="text-center py-2.5 text-[14px] font-bold"
               style={{ color: 'rgba(250,249,245,.75)' }}
               onClick={() => setAbierto(false)}
             >
