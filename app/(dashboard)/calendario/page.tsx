@@ -2414,7 +2414,15 @@ export default function Calendario() {
             onNoShow: marcarNoShow,
             onDeshacerCheckin: deshacerCheckin, onRevertirNoShow: revertirNoShow,
             onAprobar: id => resolverPendiente(id, true), onRechazar: id => resolverPendiente(id, false),
-            onQuitar: gestionaClientas ? cancelarReserva : undefined,
+            onQuitar: gestionaClientas ? (id: string) => {
+              // P2 (auditoría de producto): mostrar el aviso si la reserva se
+              // canceló pero no se pudo devolver el bono — antes se perdía en
+              // silencio (fire-and-forget, solo Sentry se enteraba).
+              void cancelarReserva(id).then(res => {
+                if (!res.ok) showToast(res.error);
+                else if (res.avisoBono) showToast(res.avisoBono);
+              });
+            } : undefined,
             onRepetirSemanaSiguiente: gestionaClientas ? repetirSemanaSiguiente : undefined,
             semaforoPorSocio: verSemaforo ? (socioId => {
               const nivel = semaforoParaMostrar.get(socioId);

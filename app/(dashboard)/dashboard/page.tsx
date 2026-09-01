@@ -254,6 +254,7 @@ function ClaseHoyCard({
   sesion,
   isNow,
   esPropia,
+  onToast,
 }: {
   sesion: ReturnType<typeof useStudio>['sesiones'][0] & {
     tipoNombre: string;
@@ -267,6 +268,9 @@ function ClaseHoyCard({
   // lo mismo que ya hace app/(dashboard)/calendario, aquí desde la tarjeta que
   // ve nada más entrar, sin tener que navegar al calendario.
   esPropia: boolean;
+  // P2 (auditoría de producto): aviso si se canceló la reserva pero no se
+  // pudo devolver el bono — antes se perdía en silencio.
+  onToast: (msg: string) => void;
 }) {
   const { reservas, socios, checkin, cancelarReserva } = useStudio();
   const [expanded, setExpanded] = useState(isNow);
@@ -434,7 +438,15 @@ function ClaseHoyCard({
         descripcion="Se libera su plaza — si hay lista de espera, se promociona automáticamente a la siguiente persona."
         textoConfirmar="Quitar"
         destructivo
-        onConfirm={() => { if (reservaAQuitar) void cancelarReserva(reservaAQuitar.id); setReservaAQuitar(null); }}
+        onConfirm={() => {
+          if (reservaAQuitar) {
+            void cancelarReserva(reservaAQuitar.id).then(res => {
+              if (!res.ok) onToast(res.error);
+              else if (res.avisoBono) onToast(res.avisoBono);
+            });
+          }
+          setReservaAQuitar(null);
+        }}
       />
     </div>
   );
@@ -1125,7 +1137,7 @@ export default function Dashboard() {
               ) : (
                 <div className="p-4 space-y-2">
                   {clasesHoy.map(s => (
-                    <ClaseHoyCard key={s.id} sesion={s} isNow={isNowFn(s)} esPropia={!!yo && s.instructorId === yo.id} />
+                    <ClaseHoyCard key={s.id} sesion={s} isNow={isNowFn(s)} esPropia={!!yo && s.instructorId === yo.id} onToast={showToast} />
                   ))}
                 </div>
               )}

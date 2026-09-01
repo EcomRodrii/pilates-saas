@@ -422,7 +422,7 @@ interface StudioContextValue {
   // recuperacionCreada/recuperacionCaducaEl: solo la vía pública los rellena
   // (al cancelar una ocurrencia de plaza fija, ver cancelarReservaPublica) —
   // el panel de staff los deja undefined, no aplica ahí.
-  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null }>;
+  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; avisoBono?: string }>;
   // Fase 2b: acepta una oferta de plaza de lista de espera dentro de su plazo.
   // Solo tiene sentido desde el portal (socia con sesión iniciada) — ver
   // app/api/reservas/aceptar-oferta-espera/route.ts.
