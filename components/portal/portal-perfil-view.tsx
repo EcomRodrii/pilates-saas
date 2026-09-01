@@ -112,6 +112,13 @@ export function PortalPerfilView({
   }, [socioId]);
   const racha = useMemo(() => (socioId ? rachaSocio(socioId) : null), [socioId, reservas, sesiones]); // eslint-disable-line react-hooks/exhaustive-deps
   const misReservasTodas = useMemo(() => reservas.filter(r => r.socioId === socioId), [reservas, socioId]);
+  // Total histórico de clases asistidas — junto a "Socia desde…" en la
+  // cabecera (verificado contra el diseño real: "Socia desde marzo de 2024 ·
+  // 27 clases"). Distinto de `clasesEsteMes`, que es solo el mes en curso.
+  const clasesTotales = useMemo(
+    () => misReservasTodas.filter(r => r.estado === 'ASISTIDA').length,
+    [misReservasTodas],
+  );
   const hayLogros = achievementDefinitions.some(a => a.activo);
   // Top 4 para el grid 2x2 de Perfil — mismo orden que `LogrosTab`
   // (app/portal/[slug]/progreso/page.tsx): conseguidos primero, luego por
@@ -255,8 +262,13 @@ export function PortalPerfilView({
       etiqueta: 'sesiones de bono',
       // Saldo TOTAL sumando todos los bonos activos (`totalRestantes`/
       // `totalSesiones`, lib/bonos-portal.ts), no la fracción del bono en
-      // curso — mismo criterio ya resuelto en /bonos.
-      valor: bono && !bono.esMensual && bono.totalSesiones != null
+      // curso — mismo criterio ya resuelto en /bonos. `totalSesiones` ya es
+      // `null` cuando NINGUNA suscripción activa cuenta sesiones (solo
+      // mensuales) — comprobarlo basta; añadir `!bono.esMensual` aquí
+      // encima escondía el saldo real cuando el TITULAR (el que caduca
+      // antes) resultaba ser el plan mensual y había además un bono de
+      // sesiones activo en cola: "0" con sesiones pagadas de verdad.
+      valor: bono && bono.totalSesiones != null
         ? `${bono.totalRestantes ?? 0}/${bono.totalSesiones}`
         : '0',
       // Solo cuando hay más de un bono activo a la vez: con uno solo, la
@@ -328,7 +340,9 @@ export function PortalPerfilView({
           {socio.nombre} {socio.apellidos}
         </h1>
         {desdeCuando(socio.fechaAlta) && (
-          <p style={{ fontSize: 13.5, color: '#5A5A52', marginTop: 4 }}>{desdeCuando(socio.fechaAlta)}</p>
+          <p style={{ fontSize: 13.5, color: '#5A5A52', marginTop: 4 }}>
+            {desdeCuando(socio.fechaAlta)}{clasesTotales > 0 ? ` · ${clasesTotales} clases` : ''}
+          </p>
         )}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>

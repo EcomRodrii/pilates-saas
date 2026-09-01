@@ -178,6 +178,16 @@ export function PortalReservasView({
   // además llevar a la socia a elegir otra clase.
   const [cambiandoHora, setCambiandoHora] = useState(false);
   const [paseAbierto, setPaseAbierto] = useState(false);
+  // Si cancelar AHORA hace perder la sesión de verdad (fuera de ventana,
+  // sin ser plaza fija ni "cambiar hora") — conduce el copy de los botones
+  // del sheet de cancelación, verificado contra el diseño real.
+  const cancelandoEsTardia = useMemo(() => {
+    if (!cancelando || cambiandoHora || cancelando.id.startsWith('res-pf-')) return false;
+    const s = sesiones.find(x => x.id === cancelando.sesionId);
+    if (!s) return false;
+    const ventana = heredaOverride(tiposClase.find(tc => tc.id === s.tipoClaseId)?.ventanaCancelacionHoras ?? null, studio?.cancelacionVentanaHoras ?? 0);
+    return esCancelacionTardia(s.inicio, new Date(), ventana);
+  }, [cancelando, cambiandoHora, sesiones, tiposClase, studio]);
   // Gap 1: mismo hook/criterio que Perfil — cero contador inventado.
   const mensajesSinLeer = useMensajesSinLeer(studio?.id ?? null);
   // Gap 4: id de la reserva cuya valoración está en vuelo, para deshabilitar
@@ -185,6 +195,13 @@ export function PortalReservasView({
   // optimista: la puntuación en pantalla solo cambia cuando `reservas` se
   // resincroniza con la respuesta real).
   const [valorandoId, setValorandoId] = useState<string | null>(null);
+  // Gap 4 (fidelidad Tentare Studio App) — valorar abre un sheet de
+  // confirmación en vez de guardar al primer toque de estrella: verificado
+  // contra el diseño real ("¿Qué tal la clase del sábado?" + botón "Enviar
+  // valoración" deshabilitado hasta elegir). `puntuacion` es la selección
+  // EN CURSO dentro del sheet, no la valoración ya guardada.
+  const [valorandoSheet, setValorandoSheet] = useState<{ reservaId: string; tituloClase: string; fecha: string } | null>(null);
+  const [puntuacionElegida, setPuntuacionElegida] = useState<number | null>(null);
   // Id de la reserva cuya oferta la socia ya cerró tocando el fondo (sin
   // decidir) — para que el sheet no vuelva a abrirse solo en cada render
   // mientras la MISMA oferta siga viva. Si aparece una oferta distinta
@@ -358,13 +375,17 @@ export function PortalReservasView({
   async function onValorar(reservaId: string, valoracion: number) {
     if (!escribible) {
       setAviso({ texto: 'Vista previa: esta valoración no se guarda de verdad.', error: false });
+      setValorandoSheet(null);
+      setPuntuacionElegida(null);
       return;
     }
     if (valorandoId) return;
     setValorandoId(reservaId);
     const r = await valorarExperienciaReserva(reservaId, valoracion);
     setValorandoId(null);
-    if (!r.ok) setAviso({ texto: r.error, error: true });
+    if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
+    setValorandoSheet(null);
+    setPuntuacionElegida(null);
   }
 
   return (
@@ -765,13 +786,12 @@ export function PortalReservasView({
                               <button
                                 key={n}
                                 type="button"
-                                disabled={valorandoId === r.id}
-                                onClick={() => void onValorar(r.id, n)}
-                                aria-label={`${n} de 5 estrellas`}
-                                style={{
-                                  border: 'none', background: 'transparent', padding: 4, cursor: valorandoId === r.id ? 'default' : 'pointer',
-                                  opacity: valorandoId === r.id ? 0.5 : 1,
+                                onClick={() => {
+                                  setPuntuacionElegida(n);
+                                  setValorandoSheet({ reservaId: r.id, tituloClase: tipo?.nombre ?? 'la clase', fecha: formatFecha(s.inicio) });
                                 }}
+                                aria-label={`${n} de 5 estrellas`}
+                                style={{ border: 'none', background: 'transparent', padding: 4, cursor: 'pointer' }}
                               >
                                 <Star size={22} strokeWidth={1.6} style={{ color: '#98A093' }} />
                               </button>
@@ -901,23 +921,42 @@ export function PortalReservasView({
         <h2 style={{ fontFamily: sans, fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', textAlign: 'center' }}>
           {cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
         </h2>
-        <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-          {(() => {
-            if (cambiandoHora) return 'No podemos moverte de hora automáticamente: cancelamos esta y te llevamos a elegir otra que te venga mejor.';
-            if (cancelando?.id.startsWith('res-pf-')) return 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.';
-            // Mismo aviso de política que ya usa PortalClasesView
-            // (`tardiaDe()`) — verificado en vivo contra el diseño real, que
-            // sí distingue "pierdes la sesión" de "recuperas el hueco sin
-            // más": aquí solo avisaba de lo segundo, nunca de lo primero.
-            const s = cancelando ? sesiones.find(x => x.id === cancelando.sesionId) : null;
-            if (!s) return 'Perderás tu plaza y liberarás el hueco para otra socia.';
-            const ventana = heredaOverride(tiposClase.find(tc => tc.id === s.tipoClaseId)?.ventanaCancelacionHoras ?? null, studio?.cancelacionVentanaHoras ?? 0);
-            const tardia = esCancelacionTardia(s.inicio, new Date(), ventana);
-            return tardia
-              ? `Quedan menos de ${ventana} h para la clase. Según la política del estudio, puede que no se te devuelva la sesión.`
-              : 'Perderás tu plaza y liberarás el hueco para otra socia.';
-          })()}
-        </p>
+        {(() => {
+          if (cambiandoHora) return (
+            <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+              No podemos moverte de hora automáticamente: cancelamos esta y te llevamos a elegir otra que te venga mejor.
+            </p>
+          );
+          if (cancelando?.id.startsWith('res-pf-')) return (
+            <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+              Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.
+            </p>
+          );
+          const s = cancelando ? sesiones.find(x => x.id === cancelando.sesionId) : null;
+          if (!s) return (
+            <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+              Perderás tu plaza y liberarás el hueco para otra socia.
+            </p>
+          );
+          const ventana = heredaOverride(tiposClase.find(tc => tc.id === s.tipoClaseId)?.ventanaCancelacionHoras ?? null, studio?.cancelacionVentanaHoras ?? 0);
+          const tardia = esCancelacionTardia(s.inicio, new Date(), ventana);
+          // Cuando la socia va a PERDER la sesión de verdad (no solo liberar
+          // el hueco), el aviso se destaca en caja ámbar — verificado contra
+          // el diseño real, que distingue visualmente "pierdes la sesión" de
+          // "recuperas el hueco sin más" en vez de un párrafo gris igual.
+          if (!tardia) return (
+            <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+              Perderás tu plaza y liberarás el hueco para otra socia.
+            </p>
+          );
+          return (
+            <div style={{ background: '#F6EEDD', borderRadius: 14, padding: '12px 16px', marginTop: 14 }}>
+              <p style={{ fontFamily: sans, fontSize: 12.5, color: '#8A6A25', textAlign: 'center', lineHeight: 1.5, fontWeight: 700 }}>
+                Quedan menos de {ventana} h para la clase. Según la política del estudio, puede que no se te devuelva la sesión.
+              </p>
+            </div>
+          );
+        })()}
         <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
           <button
             type="button"
@@ -927,7 +966,7 @@ export function PortalReservasView({
               background: 'transparent', color: '#1A1A1A', fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
             }}
           >
-            Volver
+            {cancelandoEsTardia ? 'Mantener mi reserva' : 'Volver'}
           </button>
           <button
             type="button"
@@ -955,7 +994,7 @@ export function PortalReservasView({
               fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
             }}
           >
-            {cambiandoHora ? 'Sí, cancelar y elegir otra' : 'Sí, cancelar'}
+            {cambiandoHora ? 'Sí, cancelar y elegir otra' : cancelandoEsTardia ? 'Cancelar igualmente (pierdo la sesión)' : 'Sí, cancelar'}
           </button>
         </div>
       </div>
@@ -1044,6 +1083,79 @@ export function PortalReservasView({
                 }}
               >
                 Sí, dar de baja
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Gap 4 (fidelidad Tentare Studio App) — sheet de confirmación al
+          valorar, mismo patrón "montado solo mientras la condición es
+          cierta, sin transición" que confirmandoBaja arriba. */}
+      {valorandoSheet && (
+        <>
+          <div
+            onClick={() => { setValorandoSheet(null); setPuntuacionElegida(null); }}
+            aria-hidden
+            style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(15,15,15,.42)', ...cristal(18, 120) }}
+          />
+          <div
+            role="dialog"
+            aria-modal
+            aria-label={`¿Qué tal la clase del ${valorandoSheet.fecha}?`}
+            style={{
+              position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
+              background: '#FAF9F5', borderRadius: '24px 24px 0 0',
+              boxShadow: '0 -18px 50px rgba(15,15,15,.25)', padding: '16px 26px calc(26px + env(safe-area-inset-bottom))',
+            }}
+          >
+            <div style={{ width: 34, height: 4, borderRadius: 4, background: '#D9D6C9', margin: '0 auto 20px' }} />
+            <h2 style={{ fontFamily: sans, fontSize: 20, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', textAlign: 'center' }}>
+              ¿Qué tal {valorandoSheet.tituloClase} del {valorandoSheet.fecha}?
+            </h2>
+            <div role="group" aria-label="Elegir puntuación" style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 18 }}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPuntuacionElegida(n)}
+                  aria-label={`${n} de 5 estrellas`}
+                  aria-pressed={puntuacionElegida === n}
+                  style={{ border: 'none', background: 'transparent', padding: 4, cursor: 'pointer' }}
+                >
+                  <Star
+                    size={30}
+                    strokeWidth={1.6}
+                    fill={puntuacionElegida != null && n <= puntuacionElegida ? '#4F8A5B' : 'none'}
+                    style={{ color: puntuacionElegida != null && n <= puntuacionElegida ? '#4F8A5B' : '#98A093' }}
+                  />
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+              <button
+                type="button"
+                onClick={() => { setValorandoSheet(null); setPuntuacionElegida(null); }}
+                style={{
+                  flex: 1, height: 54, borderRadius: 27, border: '1px solid #E5E3DA',
+                  background: 'transparent', color: '#1A1A1A', fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={puntuacionElegida == null || valorandoId === valorandoSheet.reservaId}
+                onClick={() => { if (puntuacionElegida != null) void onValorar(valorandoSheet.reservaId, puntuacionElegida); }}
+                style={{
+                  flex: 1, height: 54, borderRadius: 27, border: 'none',
+                  background: '#1A1A1A', color: '#F1ECE1',
+                  fontFamily: sans, fontSize: 14, fontWeight: 500,
+                  cursor: puntuacionElegida == null ? 'default' : 'pointer',
+                  opacity: puntuacionElegida == null || valorandoId === valorandoSheet.reservaId ? 0.5 : 1,
+                }}
+              >
+                Enviar valoración
               </button>
             </div>
           </div>

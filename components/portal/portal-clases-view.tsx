@@ -660,9 +660,14 @@ export function PortalClasesView({
                 </div>
                 {c.instr && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
-                    <span style={{ width: 20, height: 20, borderRadius: '50%', flex: '0 0 20px', background: c.instr.color ?? '#EFEDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#FFFFFF' }}>
-                      {c.instr.nombre.trim()[0]?.toUpperCase()}
-                    </span>
+                    {c.instr.fotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.instr.fotoUrl} alt="" style={{ width: 20, height: 20, borderRadius: '50%', flex: '0 0 20px', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ width: 20, height: 20, borderRadius: '50%', flex: '0 0 20px', background: c.instr.color ?? '#EFEDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#FFFFFF' }}>
+                        {c.instr.nombre.trim()[0]?.toUpperCase()}
+                      </span>
+                    )}
                     <span style={{ fontSize: 11, color: '#5A5A52', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {[c.instr.nombre, studio?.nombre].filter(Boolean).join(' · ')}
                     </span>
