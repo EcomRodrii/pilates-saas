@@ -7,9 +7,24 @@
 // se puede montar en aislamiento para revisarla (mismo criterio que
 // `components/portal/ui`).
 //
-// Lenguaje visual: `lib/portal-design.ts` — UNA curva (`EASE`), duraciones con
-// nombre (`dur`), serif para la VOZ y sans para los METADATOS. No se inventa
-// ningún token nuevo aquí.
+// Valores literales del kit real ("Tentare Studio App",
+// docs/diseno-referencia-portal/): `--ap-*`/hex en vez de
+// `useModo()`/`display()`/`micro()`/`texto.*`, mismo idioma que ya usa
+// `components/portal/mensajeria-piezas.tsx` tras su conversión. ⚠️ SIN
+// captura de referencia directa para este componente (el paquete de capturas
+// no cubre Comunidad) — el tratamiento de abajo es EXTRAPOLADO por
+// consistencia con el resto del portal ya convertido, no un calco 1:1 de un
+// diseño visto. `<Card>` (components/portal/ui) se sustituye por
+// className="ap-card" directo, mismo patrón que portal-clases-view.tsx tras
+// su conversión.
+//
+// `var(--portal-brand)` se mantiene SOLO donde ya vivía y es identidad real
+// del estudio (el avatar del autor —todo post es "el estudio"— y el botón
+// primario "Apuntarme", que ya vive dentro de <Button> sin tocar aquí): el
+// portal sigue siendo white-label. El resto de acentos decorativos (tira de
+// evento, ticket, confirmación de apuntada) pasan al verde literal del kit
+// (`#3E6B4A`/`#4F8A5B`/`#EAF0E7`), mismo criterio que ya aplicó
+// `mensajeria-piezas.tsx` al acento de "sin leer".
 //
 // ⚠️ SOLO LECTURA para la socia (decisión de alcance ya cerrada): los
 // contadores de likes/comentarios NUNCA son <button>. Lo único accionable es
@@ -23,20 +38,16 @@
 
 import { useState } from 'react';
 import { CalendarDays, Clock, Heart, MapPin, MessageCircle, Check, Users } from 'lucide-react';
-import { useModo } from '@/lib/portal-modo';
-import { EASE, display, dur, micro, sans, texto, transicion } from '@/lib/portal-design';
-import { AforoIndicator, Badge, Button, Card } from '@/components/portal/ui';
+import { dur, sans, transicion } from '@/lib/portal-design';
+import { AforoIndicator, Badge, Button } from '@/components/portal/ui';
 import { selloTemporal } from '@/lib/avisos-portal';
 import type { PostFeedPortal, EstadoAsistenciaEvento } from '@/lib/comunidad-portal.ts';
 
 // Por encima de este número de caracteres el texto deja de ser una frase y pasa
-// a ser un párrafo: la serif del portal es VOZ (titula, saluda, nombra), y un
-// bloque largo en serif se lee peor que en sans. El corte es el que hace que un
-// "mañana cerramos a las 14 h" se vea como lo que es —un mensaje del estudio— y
-// no como una línea de texto administrativo más.
+// a ser un párrafo: por debajo, se destaca (sans grande/negrita) como un mensaje
+// del estudio; por encima, se lee como texto informativo normal. El corte es el
+// que hace que un "mañana cerramos a las 14 h" se distinga de un párrafo largo.
 const LIMITE_VOZ = 120;
-
-const marcaSuave = (pct: number) => `color-mix(in srgb, var(--portal-brand) ${pct}%, transparent)`;
 
 type PartesFecha = { dia: string; mes: string; diaSemana: string; hora: string };
 
@@ -73,23 +84,22 @@ export function PostCardPortal({
   onApuntarse: () => void;
   onDesapuntarse: () => void;
 }) {
-  const { t } = useModo();
   const esEvento = post.tipo === 'EVENTO';
   const voz = post.texto.trim().length <= LIMITE_VOZ;
 
   return (
-    <Card
+    <div
+      className="ap-card ap-anim-up"
       style={{
         padding: 0,
         overflow: 'hidden',
-        animation: `portal-rise-soft ${dur.card}ms ${EASE} both`,
         animationDelay: `${Math.min(indice, 6) * 55}ms`,
       }}
     >
-      {/* Un evento se distingue ANTES de leer nada: una tira de marca en el
+      {/* Un evento se distingue ANTES de leer nada: una tira de acento en el
           canto superior de la tarjeta. Es la señal más barata posible y no
           desplaza ningún contenido. */}
-      {esEvento && <div aria-hidden style={{ height: 4, background: 'var(--portal-brand)' }} />}
+      {esEvento && <div aria-hidden style={{ height: 4, background: '#3E6B4A' }} />}
 
       <div style={{ padding: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -99,17 +109,17 @@ export function PostCardPortal({
               width: 44, height: 44, borderRadius: 999, flexShrink: 0,
               background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              ...display(18),
+              fontFamily: sans, fontSize: 17, fontWeight: 800,
               boxShadow: '0 8px 18px -12px rgba(34,42,30,.55)',
             }}
           >
             {post.autorInicial}
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ fontFamily: sans, fontSize: 14, fontWeight: 600, letterSpacing: '-.01em', color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <p style={{ fontFamily: sans, fontSize: 14, fontWeight: 600, letterSpacing: '-.01em', color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {post.autorNombre}
             </p>
-            <p style={{ ...texto.nota, color: t.muted, marginTop: 2 }}>{selloTemporal(post.creadoEn)}</p>
+            <p style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', marginTop: 2 }}>{selloTemporal(post.creadoEn)}</p>
           </div>
           <Badge variant="neutral">El estudio</Badge>
         </div>
@@ -123,9 +133,9 @@ export function PostCardPortal({
               marginTop: 16,
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
-              color: t.ink,
+              color: '#1A1A1A',
               ...(voz
-                ? { ...display(21), lineHeight: 1.32, textWrap: 'pretty' }
+                ? { fontFamily: sans, fontSize: 19, fontWeight: 700, letterSpacing: '-.015em', lineHeight: 1.32 }
                 : { fontFamily: sans, fontSize: 14.5, lineHeight: 1.58 }),
             } as React.CSSProperties}
           >
@@ -146,15 +156,15 @@ export function PostCardPortal({
         )}
 
         {(post.likes > 0 || post.comentariosCount > 0) && (
-          <div style={{ display: 'flex', gap: 18, marginTop: 16, paddingTop: 14, borderTop: `1px solid ${t.line}` }}>
+          <div style={{ display: 'flex', gap: 18, marginTop: 16, paddingTop: 14, borderTop: '1px solid #E5E3DA' }}>
             {post.likes > 0 && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...texto.meta, color: t.muted }}>
-                <Heart size={14} aria-hidden style={{ color: 'var(--portal-brand)' }} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: sans, fontSize: 12.5, color: '#5A5A52' }}>
+                <Heart size={14} aria-hidden style={{ color: '#3E6B4A' }} />
                 {post.likes} me gusta
               </span>
             )}
             {post.comentariosCount > 0 && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...texto.meta, color: t.muted }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: sans, fontSize: 12.5, color: '#5A5A52' }}>
                 <MessageCircle size={14} aria-hidden />
                 {post.comentariosCount} {post.comentariosCount === 1 ? 'comentario' : 'comentarios'}
               </span>
@@ -162,7 +172,7 @@ export function PostCardPortal({
           </div>
         )}
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -173,13 +183,12 @@ export function PostCardPortal({
 // pantalla. Entra con un fundido en vez de aparecer de golpe.
 
 function ImagenPost({ src }: { src: string }) {
-  const { t } = useModo();
   const [cargada, setCargada] = useState(false);
   return (
     <div
       style={{
         marginTop: 16, borderRadius: 18, overflow: 'hidden',
-        aspectRatio: '4 / 3', background: t.surface2,
+        aspectRatio: '4 / 3', background: '#EFEDE4',
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- mismo criterio que el resto del portal (portal-clases-view.tsx, hoja-reserva.tsx): URL pública de Storage, sin optimización de next/image. */}
@@ -208,7 +217,6 @@ function ImagenPost({ src }: { src: string }) {
 // "otro aviso del tablón".
 
 function TicketEvento({ post, estado }: { post: PostFeedPortal; estado: EstadoAsistenciaEvento | undefined }) {
-  const { t } = useModo();
   // El total sale del listado hasta que la socia apunta/desapunta; a partir de
   // ahí manda `estado.totalAsistentes`, que es más fresco. Ambos vienen del
   // mismo dato de servidor, así que nunca se contradicen.
@@ -223,8 +231,8 @@ function TicketEvento({ post, estado }: { post: PostFeedPortal; estado: EstadoAs
     <div
       style={{
         marginTop: 16, display: 'flex', alignItems: 'stretch', borderRadius: 18, overflow: 'hidden',
-        background: marcaSuave(7),
-        border: `1px solid ${marcaSuave(20)}`,
+        background: '#EAF0E7',
+        border: '1px solid #CFE0D2',
       }}
     >
       {f && (
@@ -233,54 +241,48 @@ function TicketEvento({ post, estado }: { post: PostFeedPortal; estado: EstadoAs
             aria-hidden
             style={{
               width: 78, flexShrink: 0, padding: '14px 0',
-              background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+              background: '#3E6B4A', color: '#F1ECE1',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
             }}
           >
-            <span style={{ ...micro(8.5, 0.24, 600), opacity: 0.85 }}>{f.mes}</span>
-            <span style={{ ...display(32), lineHeight: 1 }}>{f.dia}</span>
-            <span style={{ ...micro(8, 0.2, 500), opacity: 0.75 }}>{f.diaSemana}</span>
+            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '.24em', paddingLeft: '.24em', textTransform: 'uppercase', fontWeight: 600, opacity: 0.85 }}>{f.mes}</span>
+            <span style={{ fontFamily: sans, fontSize: 32, fontWeight: 800, lineHeight: 1 }}>{f.dia}</span>
+            <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8, letterSpacing: '.2em', paddingLeft: '.2em', textTransform: 'uppercase', fontWeight: 500, opacity: 0.75 }}>{f.diaSemana}</span>
           </div>
           {/* La perforación del ticket. Decorativa, 1 px, sin ocupar caja. */}
-          <div aria-hidden style={{ width: 1, borderLeft: `1px dashed ${marcaSuave(38)}` }} />
+          <div aria-hidden style={{ width: 1, borderLeft: '1px dashed rgba(62,107,74,.35)' }} />
         </>
       )}
 
       <div style={{ flex: 1, minWidth: 0, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {/* ⚠️ Los acentos que son TEXTO van en `t.heroAccent` (calibrado AA en
-            día y noche), NUNCA en `var(--portal-brand)`: el oliva de marca es
-            un color de RELLENO, y como tinta sobre la superficie oscura del
-            modo noche desaparece. La marca sigue mandando donde toca —el talón
-            de la fecha, el avatar, el CTA—, que es donde va emparejada con
-            `--portal-brand-foreground`. Verificado en el navegador en los dos
-            modos. */}
         <span
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
-            ...micro(8.5, 0.2, 600), color: t.heroAccent,
+            fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '.2em', paddingLeft: '.2em', textTransform: 'uppercase', fontWeight: 600,
+            color: '#3E6B4A',
           }}
         >
           <CalendarDays size={11} aria-hidden /> Evento
         </span>
 
         {f ? (
-          <p style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: sans, fontSize: 13.5, fontWeight: 600, color: t.ink }}>
-            <Clock size={13} style={{ color: t.muted, flexShrink: 0 }} aria-hidden />
+          <p style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: sans, fontSize: 13.5, fontWeight: 600, color: '#1A1A1A' }}>
+            <Clock size={13} style={{ color: '#5A5A52', flexShrink: 0 }} aria-hidden />
             {f.hora}
           </p>
         ) : (
-          <p style={{ ...texto.meta, color: t.muted }}>Fecha por confirmar</p>
+          <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52' }}>Fecha por confirmar</p>
         )}
 
         {post.eventoLugar && (
-          <p style={{ display: 'flex', alignItems: 'center', gap: 7, ...texto.meta, color: t.ink, minWidth: 0 }}>
-            <MapPin size={13} style={{ color: t.muted, flexShrink: 0 }} aria-hidden />
+          <p style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: sans, fontSize: 12.5, color: '#1A1A1A', minWidth: 0 }}>
+            <MapPin size={13} style={{ color: '#5A5A52', flexShrink: 0 }} aria-hidden />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.eventoLugar}</span>
           </p>
         )}
 
         {aforo === null ? (
-          <p style={{ display: 'flex', alignItems: 'center', gap: 7, ...texto.nota, color: t.muted }}>
+          <p style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: sans, fontSize: 11, color: '#5A5A52' }}>
             <Users size={13} style={{ flexShrink: 0 }} aria-hidden />
             {total} apuntada{total === 1 ? '' : 's'}
           </p>
@@ -290,10 +292,11 @@ function TicketEvento({ post, estado }: { post: PostFeedPortal; estado: EstadoAs
                 ~225 px y "9 de 12 plazas" + "3 plazas libres" se partía en
                 cuatro líneas. Medido en el navegador, no supuesto. */}
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 5, whiteSpace: 'nowrap' }}>
-              <span style={{ ...texto.nota, color: t.muted }}>{total}/{aforo}</span>
+              <span style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52' }}>{total}/{aforo}</span>
               {/* El "quedan N / completa" NO se reescribe aquí: `AforoIndicator`
-                  ya es la pieza del portal que decide cuándo eso es urgente y
-                  con qué ámbar (calibrado AA también en noche). */}
+                  ya es la pieza compartida del portal que decide cuándo eso es
+                  urgente. Fuera de alcance de esta conversión (sigue viviendo
+                  en `useModo()` por dentro). */}
               <AforoIndicator libres={libres ?? 0} />
             </div>
             <div
@@ -302,12 +305,12 @@ function TicketEvento({ post, estado }: { post: PostFeedPortal; estado: EstadoAs
               aria-valuemin={0}
               aria-valuemax={aforo}
               aria-label={`Aforo del evento: ${total} de ${aforo} plazas`}
-              style={{ height: 5, borderRadius: 999, background: t.bar, overflow: 'hidden' }}
+              style={{ height: 5, borderRadius: 999, background: '#EFEDE4', overflow: 'hidden' }}
             >
               <div
                 style={{
                   height: '100%', borderRadius: 999, width: `${pct}%`,
-                  background: lleno ? t.muted : t.heroAccent,
+                  background: lleno ? '#5A5A52' : '#4F8A5B',
                   transition: transicion(['width'], dur.card),
                 }}
               />
@@ -334,7 +337,6 @@ function AccionEvento({
   onApuntarse: () => void;
   onDesapuntarse: () => void;
 }) {
-  const { t } = useModo();
   const total = estado?.totalAsistentes ?? post.totalAsistentes ?? 0;
   const aforo = post.eventoAforo ?? null;
   const cargandoEstado = estado === undefined;
@@ -346,26 +348,26 @@ function AccionEvento({
       <div
         // La confirmación no es el mismo botón en otro color: es otra cosa, y
         // entra con su propia animación para que se note que algo pasó.
+        className="ap-anim-up"
         style={{
           marginTop: 16, display: 'flex', alignItems: 'center', gap: 12,
           padding: '12px 14px', borderRadius: 16,
-          background: marcaSuave(10), border: `1px solid ${marcaSuave(24)}`,
-          animation: `portal-rise-soft ${dur.control}ms ${EASE} both`,
+          background: '#EAF0E7', border: '1px solid #CFE0D2',
         }}
       >
         <span
           aria-hidden
           style={{
             width: 30, height: 30, borderRadius: 999, flexShrink: 0,
-            background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+            background: '#4F8A5B', color: '#FFFFFF',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
           <Check size={16} strokeWidth={3} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontFamily: sans, fontSize: 13.5, fontWeight: 600, color: t.ink }}>Ya estás apuntada</p>
-          <p style={{ ...texto.nota, color: t.muted, marginTop: 1 }}>Te esperamos.</p>
+          <p style={{ fontFamily: sans, fontSize: 13.5, fontWeight: 600, color: '#1A1A1A' }}>Ya estás apuntada</p>
+          <p style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', marginTop: 1 }}>Te esperamos.</p>
         </div>
         <button
           type="button"
@@ -374,8 +376,8 @@ function AccionEvento({
           aria-busy={procesando}
           style={{
             background: 'none', border: 'none', cursor: procesando ? 'default' : 'pointer',
-            ...texto.nota, fontWeight: 500, textDecoration: 'underline', textUnderlineOffset: 3,
-            color: t.muted, padding: '8px 4px', minHeight: 44, flexShrink: 0,
+            fontFamily: sans, fontSize: 11, fontWeight: 500, textDecoration: 'underline', textUnderlineOffset: 3,
+            color: '#5A5A52', padding: '8px 4px', minHeight: 44, flexShrink: 0,
             opacity: procesando ? 0.5 : 1,
             transition: transicion(['opacity', 'color'], dur.color),
           }}
@@ -406,14 +408,13 @@ function AccionEvento({
 // llegar, el salto al cargar se ve igual.
 
 export function SkeletonPostPortal({ conImagen = false }: { conImagen?: boolean }) {
-  const { t } = useModo();
   const bloque = (w: string | number, h: number, r = 8): React.CSSProperties => ({
     width: w, height: h, borderRadius: r,
-    background: `linear-gradient(100deg, ${t.surface2} 40%, ${t.line} 50%, ${t.surface2} 60%)`,
+    background: 'linear-gradient(100deg, #EFEDE4 40%, #E5E3DA 50%, #EFEDE4 60%)',
     backgroundSize: '200% 100%', animation: 'widget-skeleton-shimmer 1.1s linear infinite',
   });
   return (
-    <Card style={{ padding: 18 }} aria-hidden aria-busy="true">
+    <div className="ap-card" style={{ padding: 18 }} aria-hidden aria-busy="true">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={bloque(44, 44, 999)} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -426,6 +427,6 @@ export function SkeletonPostPortal({ conImagen = false }: { conImagen?: boolean 
         <div style={bloque('82%', 12)} />
       </div>
       {conImagen && <div style={{ ...bloque('100%', 0, 18), aspectRatio: '4 / 3', marginTop: 16 }} />}
-    </Card>
+    </div>
   );
 }
