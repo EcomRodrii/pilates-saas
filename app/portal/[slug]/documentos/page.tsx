@@ -12,13 +12,26 @@
 // que la socia pulse), se pide una URL FRESCA justo al pulsar "Ver documento"
 // y se abre de inmediato — la pestaña se abre síncrona con about:blank para
 // no chocar con el bloqueo de pop-ups de Safari mientras llega la respuesta.
+//
+// ESTILOS: convertidos a valores literales del sistema "Tentare Studio App"
+// (portal-app.css, `--ap-*`) en vez de `useModo()`/`display()`/`micro()`/
+// `texto.*`, mismo criterio ya aplicado en compras/mensajes/estudio.
+// `Badge`/`Card`/`EmptyState` (`@/components/portal/ui`) se mantienen tal
+// cual — siguen leyendo el tema por dentro, igual que ya hace
+// mensajes/page.tsx con `EmptyState`/`Button`/`BottomSheet`: son
+// infraestructura compartida, fuera de alcance de esta conversión pantalla a
+// pantalla.
+//
+// ⚠️ Sin captura de referencia directa para esta pantalla (ninguna de las 20
+// capturas de docs/diseno-referencia-portal/ cubre "Documentos") —
+// tratamiento EXTRAPOLADO por consistencia con Mensajes (fila de lista con
+// icono + título + meta), no un calco 1:1 de un diseño visto.
 
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, FileText, ExternalLink } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { useModo } from '@/lib/portal-modo';
 import { portalAuthHeader } from '@/lib/api-client';
-import { display, micro, sans, texto } from '@/lib/portal-design';
+import { sans } from '@/lib/portal-design';
 import { Badge, Card, EmptyState } from '@/components/portal/ui';
 import { fetchDocumentosSocia, type DocumentoSociaPortal } from '@/lib/documentos-socio-portal.ts';
 
@@ -41,7 +54,6 @@ function fechaCorta(iso: string): string {
 
 export default function DocumentosPage() {
   const { studio } = useStudio();
-  const { t } = useModo();
 
   const studioId = studio?.id ?? null;
 
@@ -78,13 +90,11 @@ export default function DocumentosPage() {
     else window.open(doc.url, '_blank');
   }
 
-  const microLabel: React.CSSProperties = { ...micro(9.5, 0.28, 600), color: t.muted };
-
   return (
-    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+    <div style={{ minHeight: '100%', background: '#FAF9F5', color: '#1A1A1A' }}>
       <div style={{ padding: '62px 20px 32px' }}>
-        <p style={microLabel}>{studio?.nombre ?? 'Tu estudio'}</p>
-        <h1 style={{ ...display(34), color: t.ink, marginTop: 6 }}>Documentos</h1>
+        <p className="ap-label">{studio?.nombre ?? 'Tu estudio'}</p>
+        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.025em', color: '#1A1A1A', marginTop: 10 }}>Documentos</h1>
 
         {error && (
           <div style={{ marginTop: 24 }}>
@@ -101,7 +111,7 @@ export default function DocumentosPage() {
         {!error && documentos === null && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 24 }} aria-hidden>
             {[0, 1].map(i => (
-              <div key={i} className="animate-pulse" style={{ height: 72, borderRadius: 20, background: t.surface2 }} />
+              <div key={i} className="animate-pulse" style={{ height: 72, borderRadius: 16, background: '#EFEDE4' }} />
             ))}
           </div>
         )}
@@ -132,24 +142,24 @@ export default function DocumentosPage() {
                 aria-label={`Ver documento: ${d.titulo}`}
               >
                 <Card style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <FileText size={17} style={{ color: t.ink }} aria-hidden />
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: '#EFEDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <FileText size={17} style={{ color: '#1A1A1A' }} aria-hidden />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <Badge variant={CATEGORIA_VARIANTE[d.categoria]}>{CATEGORIA_LABEL[d.categoria]}</Badge>
-                    <p style={{ fontFamily: sans, fontSize: 14.5, fontWeight: 800, marginTop: 6, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <p style={{ fontFamily: sans, fontSize: 14.5, fontWeight: 800, marginTop: 6, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {d.titulo}
                     </p>
-                    <p style={{ ...texto.meta, color: t.muted, marginTop: 2 }}>{fechaCorta(d.creadoEn)}</p>
+                    <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', marginTop: 2 }}>{fechaCorta(d.creadoEn)}</p>
                   </div>
                   {abriendoId === d.id ? (
                     <span
                       aria-hidden
                       className="animate-spin"
-                      style={{ width: 15, height: 15, borderRadius: 999, flexShrink: 0, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.6, color: t.muted }}
+                      style={{ width: 15, height: 15, borderRadius: 999, flexShrink: 0, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.6, color: '#5A5A52' }}
                     />
                   ) : (
-                    <ExternalLink size={16} style={{ color: t.muted, flexShrink: 0 }} aria-hidden />
+                    <ExternalLink size={16} style={{ color: '#5A5A52', flexShrink: 0 }} aria-hidden />
                   )}
                 </Card>
               </button>
