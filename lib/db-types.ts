@@ -328,6 +328,8 @@ export interface RowIntegraciones {
   ultimo_error: string | null;
   // migr 20260818142206.
   ultimo_error_en: string | null;
+  // migr 20260827150000.
+  phone_number_id: string | null;
 }
 
 export interface RowLevelDefinitions {

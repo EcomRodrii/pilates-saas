@@ -1100,7 +1100,11 @@ export function mapVentaPOS(r: RowVentasPos): VentaPOS {
 // `Omit<..., 'config'>` a propósito: la consulta del panel ya no pide `config`,
 // y declararlo así hace que el compilador cace cualquier intento de volver a
 // leer las credenciales desde aquí.
-export function mapIntegracion(r: Omit<RowIntegraciones, 'config'>): Integracion {
+// `phone_number_id` (como `config`) se excluye a propósito: el arranque del
+// panel no selecciona esa columna (solo WhatsApp la usa, y solo el webhook y
+// el callback de Embedded Signup la leen, nunca el bootstrap del cliente) —
+// exigirla aquí rompería la query real, que sigue sin pedirla.
+export function mapIntegracion(r: Omit<RowIntegraciones, 'config' | 'phone_number_id'>): Integracion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -3611,6 +3615,14 @@ export async function dbUpsertIntegracion(
     activo: intg.activo,
     config: config ?? {},
     actualizado_en: intg.actualizadoEn,
+    // Solo WhatsApp tiene esta columna (Fase D, ver WHATSAPP_AUDIT.md): se
+    // mantiene en sync con `config.phoneId` en CUALQUIER escritura de este
+    // camino (manual o "Desconectar", que llama aquí con `config: {}`) — sin
+    // esto, "Desconectar" apagaba `activo` pero dejaba el `phone_number_id`
+    // de una conexión de Embedded Signup huérfano: el webhook seguía
+    // resolviendo eventos a un estudio "desconectado", y el índice único
+    // parcial de esa columna bloqueaba reconectar el mismo número después.
+    ...(intg.tipo === 'WHATSAPP' ? { phone_number_id: config?.phoneId || null } : {}),
     // Las columnas de salud NO se listan salvo que haya que reiniciarlas: en un
     // upsert, lo que no se nombra no se toca, y así una tanda del cron que haya
     // escrito la salud entre que se cargó la pantalla y se pulsó Guardar no se
