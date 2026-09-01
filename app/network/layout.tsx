@@ -35,9 +35,10 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Bell, ChevronDown, LogOut } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, UserCog } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { InsigniaBeta } from '@/components/network-v2/InsigniaBeta';
+import { ModalCuenta } from '@/components/network-v2/ModalCuenta';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_PRODUCTO } from '@/components/network-v2/tokens';
 import { DISPONIBILIDAD_ESTADOS_NETWORK, DISPONIBILIDAD_ESTADO_LABEL } from '@/lib/network/catalogo.ts';
 import { useAuth } from '@/lib/auth-context';
@@ -152,6 +153,7 @@ function SelectorDisponibilidad() {
 function MenuAvatar({ nombre, fotoUrl }: { nombre: string; fotoUrl: string | null }) {
   const { signOut } = useAuth();
   const [abierto, setAbierto] = useState(false);
+  const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -170,9 +172,17 @@ function MenuAvatar({ nombre, fotoUrl }: { nombre: string; fotoUrl: string | nul
       </button>
       {abierto && (
         <div
-          className="absolute right-0 top-[calc(100%+8px)] z-20 w-48 rounded-2xl p-1.5 bg-white"
+          className="absolute right-0 top-[calc(100%+8px)] z-20 w-52 rounded-2xl p-1.5 bg-white"
           style={{ border: `1px solid ${NW_BORDE}`, boxShadow: '0 12px 32px rgba(20,20,15,.12)' }}
         >
+          <button
+            type="button"
+            onClick={() => { setAbierto(false); setCuentaAbierta(true); }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[13px] font-semibold hover:opacity-70 transition-opacity"
+            style={{ color: NW_TINTA }}
+          >
+            <UserCog size={14} /> Mi cuenta
+          </button>
           <button
             type="button"
             onClick={() => signOut()}
@@ -183,6 +193,7 @@ function MenuAvatar({ nombre, fotoUrl }: { nombre: string; fotoUrl: string | nul
           </button>
         </div>
       )}
+      {cuentaAbierta && <ModalCuenta onClose={() => setCuentaAbierta(false)} />}
     </div>
   );
 }
