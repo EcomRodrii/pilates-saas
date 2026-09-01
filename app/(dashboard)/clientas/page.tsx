@@ -14,6 +14,7 @@ import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
 import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, LeadStage } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   Search, Plus, Users, UserCheck, AlertCircle, Clock,
   ChevronUp, ChevronDown, ChevronsUpDown, Mail, Pencil,
@@ -921,39 +922,21 @@ export default function Socios() {
       {/* ── Table ──────────────────────────────────────────────────────────── */}
       <div className="bg-card rounded-xl border border-border overflow-x-auto shadow-sm">
         {lista.length === 0 ? (
-          /* Empty state */
-          <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-              <Users size={28} className="text-muted-foreground" />
-            </div>
-            <h3 className="text-[15px] font-semibold text-foreground mb-1">
-              {hayFiltrosActivos
-                ? 'No hay resultados'
-                : 'Aún no hay clientas'}
-            </h3>
-            <p className="text-[13px] text-muted-foreground mb-5 max-w-xs">
-              {hayFiltrosActivos
-                ? 'Prueba con otros filtros o términos de búsqueda.'
-                : 'Añade tu primera clienta para empezar a gestionar el estudio.'}
-            </p>
-            {!hayFiltrosActivos && (
-              <button
-                onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
-              >
-                <Plus size={14} />
-                Añadir primera clienta
-              </button>
-            )}
-            {hayFiltrosActivos && (
-              <button
-                onClick={() => { setBusqueda(''); setSmartFilter('todas'); setFiltroEtapa(''); setFiltroEtiqueta(''); setSegmentoAplicado(null); }}
-                className="text-[12px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
-              >
-                Limpiar filtros
-              </button>
-            )}
-          </div>
+          // P2 (auditoría de producto): migrado a `EmptyState`, la primitiva
+          // extraída en la auditoría del 20-ago (~90 estados vacíos con 6
+          // implementaciones distintas) — esta pantalla se había quedado con
+          // su propia copia hecha a mano, cero veces usada en calendario ni
+          // aquí.
+          <EmptyState
+            icono={Users}
+            titulo={hayFiltrosActivos ? 'No hay resultados' : 'Aún no hay clientas'}
+            descripcion={hayFiltrosActivos
+              ? 'Prueba con otros filtros o términos de búsqueda.'
+              : 'Añade tu primera clienta para empezar a gestionar el estudio.'}
+            cta={hayFiltrosActivos
+              ? { label: 'Limpiar filtros', onClick: () => { setBusqueda(''); setSmartFilter('todas'); setFiltroEtapa(''); setFiltroEtiqueta(''); setSegmentoAplicado(null); } }
+              : { label: 'Añadir primera clienta', icono: Plus, onClick: () => { setForm(emptyForm()); setShowForm('nueva'); } }}
+          />
         ) : (
           <>
           <table className="w-full hidden sm:table">
@@ -1288,7 +1271,12 @@ export default function Socios() {
           {/* ── Step 1: Datos de la clienta ─── */}
           {(showForm === 'editar' || formStep === 1) && (
             <div className="space-y-3.5 mt-2">
-              <div className="grid grid-cols-2 gap-3">
+              {/* P2 (auditoría de producto): el panel es `w-full` por debajo de
+                  `lg` (components/ui/dashboard-drawer.tsx) — a 375px de ancho
+                  esto cramaba dos campos en ~170px cada uno. Mismo patrón
+                  `sm:` que ya usa el grid de campos personalizados, dos pasos
+                  más abajo en este mismo formulario. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FF label="Nombre" required>
                   <input
                     className={inputCls}
@@ -1315,7 +1303,7 @@ export default function Socios() {
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 />
               </FF>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FF label="Teléfono" description="Para avisos por WhatsApp, si el estudio los tiene activados.">
                   <input
                     className={inputCls}
