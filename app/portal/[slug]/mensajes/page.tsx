@@ -5,9 +5,20 @@
 // Rediseño completo: la primera versión pintaba un `Badge` con el tipo técnico,
 // el nombre y un sello temporal — ni previsualización, ni marca de no leído, ni
 // un motivo para volver. Ahora usa el lenguaje visual del portal con el mismo
-// cuidado que Progreso o Instructores: `lib/portal-design` (UNA curva de
-// easing, duraciones con nombre, serif para decir QUÉ es y sans para decir qué
-// HACER), `useModo` para día/noche y los primitivos de `components/portal/ui`.
+// cuidado que Progreso o Instructores.
+//
+// Valores literales del kit real ("Tentare Studio App", docs/diseno-
+// referencia-portal/): mismo `--ap-*`/hex que ya usa
+// `app/portal/[slug]/compras/page.tsx` y `portal-clases-view.tsx`/
+// `portal-perfil-view.tsx`, en vez de `useModo()`/`display()`/`micro()`/
+// `texto.*`. `var(--portal-brand)` se mantiene donde ya vivía (avatar de
+// mostrador) — el portal sigue siendo white-label, y ese es el único
+// elemento realmente "de marca" de esta pantalla.
+//
+// ⚠️ Sin captura de referencia directa para esta pantalla (la única del
+// paquete "Mensajes" es el HILO de conversación, no la bandeja) — el
+// tratamiento de las filas/etiquetas de aquí es EXTRAPOLADO por consistencia
+// con el resto del portal ya convertido, no un calco 1:1 de un diseño visto.
 //
 // Sin Realtime a propósito en la LISTA (decisión ya cerrada): no hace polling —
 // se recarga al entrar y al volver del hilo, que es cuando puede haber
@@ -18,11 +29,9 @@ import { useRouter, useParams } from 'next/navigation';
 import { AlertCircle, MessageCircle, Store, Plus, Search } from 'lucide-react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { useModo } from '@/lib/portal-modo';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { portalAuthHeader } from '@/lib/api-client';
-import { semantic } from '@/lib/portal-tokens';
-import { display, micro, sans, texto, EASE, dur } from '@/lib/portal-design';
+import { sans, EASE, dur } from '@/lib/portal-design';
 import { BottomSheet, Button, EmptyState } from '@/components/portal/ui';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { FilaConversacionPortal } from '@/components/portal/mensajeria-piezas';
@@ -38,7 +47,6 @@ export default function MensajesPage() {
   const { slug } = useParams<{ slug: string }>();
   const { session } = usePortalAuth();
   const { studio, instructores, reservas, sesiones } = useStudio();
-  const { t } = useModo();
 
   const socioId = session?.socioId ?? null;
   const studioId = studio?.id ?? null;
@@ -91,11 +99,12 @@ export default function MensajesPage() {
     router.push(`/portal/${slug}/mensajes/${r.id}`);
   }
 
-  const microLabel: React.CSSProperties = { ...micro(9.5, 0.28, 600), color: t.muted };
+  // Fila del sheet "¿A quién escribes?" — mismo tratamiento `ap-card` que
+  // cualquier fila del kit (CHEATSHEET-CSS.md, "Fila de clase"): tarjeta
+  // blanca, borde fino, radio 16px (los da la clase).
   const fila: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
-    padding: '12px 14px', borderRadius: 18, border: `1.5px solid ${t.line}`,
-    background: t.surface, cursor: 'pointer',
+    padding: '12px 14px', border: '1px solid #E5E3DA', background: '#FFFFFF', cursor: 'pointer',
     transition: `border-color ${dur.color}ms ${EASE}, opacity ${dur.color}ms ${EASE}`,
   };
 
@@ -105,10 +114,10 @@ export default function MensajesPage() {
   }, [instructorasValidas, busqueda]);
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+    <div style={{ minHeight: '100%', background: '#FAF9F5', color: '#1A1A1A' }}>
       <div style={{ padding: '62px 20px 24px' }}>
-        <p style={microLabel}>{studio?.nombre ?? 'Tu estudio'}</p>
-        <h1 style={{ ...display(34), color: t.ink, marginTop: 6 }}>Mensajes</h1>
+        <div className="ap-label">{studio?.nombre ?? 'Tu estudio'}</div>
+        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.025em', color: '#1A1A1A', marginTop: 10 }}>Mensajes</h1>
 
         {error && (
           <div style={{ marginTop: 24 }}>
@@ -125,7 +134,7 @@ export default function MensajesPage() {
         {!error && conversaciones === null && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 24 }} aria-hidden>
             {[0, 1].map(i => (
-              <div key={i} className="animate-pulse" style={{ height: 84, borderRadius: 20, background: t.surface2 }} />
+              <div key={i} className="animate-pulse" style={{ height: 84, borderRadius: 16, background: '#EFEDE4' }} />
             ))}
           </div>
         )}
@@ -134,28 +143,24 @@ export default function MensajesPage() {
             frase que invita, en vez del icono gris de 20 px de siempre. */}
         {!error && conversaciones !== null && conversaciones.length === 0 && (
           <div
+            className="ap-anim-up"
             style={{
               marginTop: 28, display: 'flex', flexDirection: 'column', alignItems: 'center',
               textAlign: 'center', padding: '18px 8px 8px',
-              animation: `portal-rise-soft ${dur.card}ms ${EASE} both`,
             }}
           >
             <div
               style={{
                 width: 96, height: 96, borderRadius: 999, display: 'flex',
                 alignItems: 'center', justifyContent: 'center', marginBottom: 18,
-                // `heroAccent` y no `--portal-brand`: el color de marca no
-                // gira con el modo, y un oliva oscuro sobre el fondo de noche
-                // deja este círculo invisible (comprobado en el navegador).
-                background: `color-mix(in srgb, ${t.heroAccent} 14%, transparent)`,
-                color: t.heroAccent,
+                background: '#EAF0E7', color: '#3E6B4A',
               }}
               aria-hidden
             >
               <MessageCircle size={40} strokeWidth={1.4} />
             </div>
-            <h2 style={{ ...display(24), color: t.ink }}>Aquí empieza la conversación</h2>
-            <p style={{ ...texto.meta, color: t.muted, marginTop: 8, maxWidth: 260, lineHeight: 1.5 }}>
+            <h2 style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A' }}>Aquí empieza la conversación</h2>
+            <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', marginTop: 8, maxWidth: 260, lineHeight: 1.5 }}>
               Escribe al estudio o a tu instructora cuando lo necesites — una duda, un cambio de hora,
               una molestia. Te responden aquí mismo.
             </p>
@@ -227,8 +232,8 @@ export default function MensajesPage() {
           Nada de <select>: caras y nombres, con buscador en cuanto la lista
           deja de caber de un vistazo. */}
       <BottomSheet open={nueva} onClose={() => { setNueva(false); setErrorNueva(null); setBusqueda(''); }}>
-        <h2 style={{ ...display(26), color: t.ink }}>¿A quién escribes?</h2>
-        <p style={{ ...texto.meta, color: t.muted, marginTop: -6 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A' }}>¿A quién escribes?</h2>
+        <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', marginTop: -6 }}>
           Te responden desde el estudio, sin salir de aquí.
         </p>
 
@@ -236,36 +241,37 @@ export default function MensajesPage() {
           type="button"
           onClick={() => void abrir('ALUMNA_MOSTRADOR')}
           disabled={abriendo !== null}
+          className="ap-card"
           style={{ ...fila, cursor: abriendo !== null ? 'default' : 'pointer', opacity: abriendo !== null && abriendo !== 'mostrador' ? 0.45 : 1 }}
         >
           <div style={{ width: 44, height: 44, borderRadius: 999, background: 'var(--portal-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Store size={18} style={{ color: 'var(--portal-brand-foreground)' }} aria-hidden />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontFamily: sans, fontSize: 14.5, fontWeight: 700, color: t.ink }}>
+            <p style={{ fontFamily: sans, fontSize: 14.5, fontWeight: 700, color: '#1A1A1A' }}>
               {studio?.nombre ?? 'El estudio'}
             </p>
-            <p style={{ ...texto.nota, color: t.muted, marginTop: 1 }}>Mostrador · dudas generales, horarios</p>
+            <p style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', marginTop: 1 }}>Mostrador · dudas generales, horarios</p>
           </div>
           {abriendo === 'mostrador' && <SpinnerChip />}
         </button>
 
         {instructorasValidas.length === 0 ? (
-          <p style={{ ...texto.nota, color: t.muted, lineHeight: 1.5 }}>
+          <p style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', lineHeight: 1.5 }}>
             Todavía no has tenido clase con ninguna instructora — en cuanto asistas a una, podrás escribirle directamente.
           </p>
         ) : (
           <>
-            <p style={{ ...micro(9.5, 0.24, 600), color: t.muted }}>Tus instructoras</p>
+            <p className="ap-label">Tus instructoras</p>
 
             {instructorasValidas.length > 5 && (
               <div
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
-                  borderRadius: 999, border: `1.5px solid ${t.line}`, background: t.surface,
+                  borderRadius: 999, border: '1.5px solid #E5E3DA', background: '#FFFFFF',
                 }}
               >
-                <Search size={15} style={{ color: t.muted, flexShrink: 0 }} aria-hidden />
+                <Search size={15} style={{ color: '#5A5A52', flexShrink: 0 }} aria-hidden />
                 <input
                   value={busqueda}
                   onChange={e => setBusqueda(e.target.value)}
@@ -273,31 +279,32 @@ export default function MensajesPage() {
                   aria-label="Buscar instructora"
                   style={{
                     flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
-                    fontFamily: sans, fontSize: 15, color: t.ink,
+                    fontFamily: sans, fontSize: 15, color: '#1A1A1A',
                   }}
                 />
               </div>
             )}
 
             {instructorasFiltradas.length === 0 ? (
-              <p style={{ ...texto.nota, color: t.muted }}>Ninguna instructora se llama así.</p>
+              <p style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52' }}>Ninguna instructora se llama así.</p>
             ) : instructorasFiltradas.map((ins, i) => (
               <button
                 key={ins.id}
                 type="button"
                 onClick={() => void abrir('ALUMNA_INSTRUCTORA', ins.id)}
                 disabled={abriendo !== null}
+                className="ap-card ap-anim-up"
                 style={{
                   ...fila, padding: '10px 14px',
                   cursor: abriendo !== null ? 'default' : 'pointer',
                   opacity: abriendo !== null && abriendo !== ins.id ? 0.45 : 1,
-                  animation: `portal-rise-soft ${dur.control}ms ${EASE} ${Math.min(i, 6) * 40}ms both`,
+                  animationDelay: `${Math.min(i, 6) * 40}ms`,
                 }}
               >
                 <ProfileAvatar nombre={ins.nombre} color={ins.color} avatarId={ins.avatar} fotoUrl={ins.fotoUrl} size="md" />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontFamily: sans, fontSize: 14.5, fontWeight: 700, color: t.ink }}>{ins.nombre}</p>
-                  <p style={{ ...texto.nota, color: t.muted, marginTop: 1 }}>Instructora de tus clases</p>
+                  <p style={{ fontFamily: sans, fontSize: 14.5, fontWeight: 700, color: '#1A1A1A' }}>{ins.nombre}</p>
+                  <p style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', marginTop: 1 }}>Instructora de tus clases</p>
                 </div>
                 {abriendo === ins.id && <SpinnerChip />}
               </button>
@@ -306,7 +313,7 @@ export default function MensajesPage() {
         )}
 
         {errorNueva && (
-          <p role="alert" style={{ fontFamily: sans, fontSize: 12.5, color: semantic.danger.text }}>{errorNueva}</p>
+          <p role="alert" style={{ fontFamily: sans, fontSize: 12.5, color: '#C2503A' }}>{errorNueva}</p>
         )}
       </BottomSheet>
     </div>
