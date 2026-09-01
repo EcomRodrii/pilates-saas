@@ -7,7 +7,7 @@ import { IconoDesenlace } from '@/components/publico/icono-desenlace';
 // Un tap: ACEPTO / No puedo. La confirmación de verdad (compare-and-set +
 // re-check de solape de horario, 0048) ocurre en el servidor; aquí solo se
 // dispara con el token del deep link.
-type Resultado = 'idle' | 'enviando' | 'aceptada' | 'rechazada' | 'ya_cubierta' | 'conflicto_horario' | 'error';
+type Resultado = 'idle' | 'enviando' | 'aceptada' | 'rechazada' | 'ya_cubierta' | 'conflicto_horario' | 'ya_rechazaste' | 'ya_aceptaste' | 'error';
 
 export function AceptarForm({
   token, instructorNombre, estudioNombre, claseNombre, cuando,
@@ -30,7 +30,12 @@ export function AceptarForm({
       });
       if (res.status === 409) {
         const data = (await res.json().catch(() => ({}))) as { motivo?: string };
-        setEstado(data.motivo === 'conflicto_horario' ? 'conflicto_horario' : 'ya_cubierta');
+        setEstado(
+          data.motivo === 'conflicto_horario' ? 'conflicto_horario'
+          : data.motivo === 'ya_rechazaste' ? 'ya_rechazaste'
+          : data.motivo === 'ya_aceptaste' ? 'ya_aceptaste'
+          : 'ya_cubierta',
+        );
         return;
       }
       if (!res.ok) { setEstado('error'); return; }
@@ -40,12 +45,17 @@ export function AceptarForm({
     }
   }
 
-  if (estado === 'aceptada' || estado === 'rechazada' || estado === 'ya_cubierta' || estado === 'conflicto_horario') {
+  if (estado === 'aceptada' || estado === 'rechazada' || estado === 'ya_cubierta' || estado === 'conflicto_horario' || estado === 'ya_rechazaste' || estado === 'ya_aceptaste') {
     const conf = {
       aceptada: { icono: PartyPopper, tono: 'exito' as const, titulo: '¡Confirmado!', texto: `Gracias, ${instructorNombre}. Ya estás asignada a ${claseNombre}. ${estudioNombre} lo sabe.` },
       rechazada: { icono: ThumbsUp, tono: 'neutro' as const, titulo: 'Entendido', texto: 'Buscaremos a otra persona. ¡Gracias por responder tan rápido!' },
       ya_cubierta: { icono: CheckCircle2, tono: 'neutro' as const, titulo: 'Ya está cubierta', texto: 'Otra persona la cogió antes. ¡Gracias igualmente!' },
       conflicto_horario: { icono: CalendarX, tono: 'neutro' as const, titulo: 'No puede ser', texto: 'Parece que ya tienes otra clase asignada justo en ese horario, así que no podemos confirmarte esta. Avisamos al estudio para que lo resuelva.' },
+      // Reabrir/reenviar la petición tras haber contestado ya (dos pestañas,
+      // doble tap): el servidor manda la última respuesta REAL, no lo que
+      // este formulario cree que acaba de pasar.
+      ya_rechazaste: { icono: ThumbsUp, tono: 'neutro' as const, titulo: 'Ya nos contestaste', texto: 'Nos dijiste que esta no podías cubrirla. Estamos buscando a otra persona — no tienes que hacer nada más.' },
+      ya_aceptaste: { icono: PartyPopper, tono: 'exito' as const, titulo: 'Esta clase ya es tuya', texto: 'Confirmaste que la cubres. La tienes en tu calendario.' },
     }[estado];
     return (
       <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
