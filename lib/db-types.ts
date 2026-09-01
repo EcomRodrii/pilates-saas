@@ -2311,6 +2311,8 @@ export interface RowConversaciones {
   ancla_reserva_id: string | null;
   creado_en: string;
   ultimo_mensaje_en: string;
+  // migr 20260901232656.
+  mostrador_leido_hasta: string | null;
 }
 
 export interface RowConversacionParticipantes {

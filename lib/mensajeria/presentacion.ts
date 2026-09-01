@@ -164,14 +164,20 @@ export function agruparHilo<T extends MensajeAgrupable>(
  * lo escribí yo. Lo segundo importa: sin ello, tu propio mensaje te marca la
  * conversación como no leída en cuanto lo envías desde otro dispositivo.
  *
- * `leido_hasta === null` (no soy participante con fila propia — el mostrador,
- * donde el staff que atiende es dinámico) devuelve `false` a propósito: mejor
- * ninguna marca que una marca permanentemente encendida para todo el equipo.
+ * F-15 (auditoría 20ª pasada): `ALUMNA_MOSTRADOR` no tiene fila STAFF
+ * individual (decisión de diseño ya cerrada — el mostrador se resuelve
+ * dinámicamente, no por una foto fija de quién atendía al abrirlo), así que
+ * `leido_hasta` (personal) es SIEMPRE `null` ahí. Antes eso devolvía `false`
+ * sin más: el badge del mostrador no se encendía JAMÁS, para nadie, aunque
+ * fuera el canal principal socia→estudio. Se usa `mostrador_leido_hasta`
+ * (compartido, en la propia conversación) solo para ese tipo; el resto sigue
+ * con la marca personal de siempre.
  */
 export function tieneSinLeer(c: ConversacionConResumen, miAuthUserId: string | null): boolean {
-  if (!c.leido_hasta) return false;
   if (c.ultimo_remitente_auth_user_id && c.ultimo_remitente_auth_user_id === miAuthUserId) return false;
-  return new Date(c.leido_hasta).getTime() < new Date(c.ultimo_mensaje_en).getTime();
+  const leidoHasta = c.tipo === 'ALUMNA_MOSTRADOR' ? c.mostrador_leido_hasta : c.leido_hasta;
+  if (!leidoHasta) return c.tipo === 'ALUMNA_MOSTRADOR' ? true : false;
+  return new Date(leidoHasta).getTime() < new Date(c.ultimo_mensaje_en).getTime();
 }
 
 /** ✓ enviado / ✓✓ leído para el ÚLTIMO mensaje propio del hilo. */

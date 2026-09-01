@@ -14,8 +14,8 @@ import { useCallback, useEffect, useId, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { FileText, Plus, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
-import { listarDocumentosSocio, crearDocumentoSocio, borrarDocumentoSocio } from '@/lib/api-client';
+import { FileText, Plus, Trash2, AlertTriangle, RotateCcw, ExternalLink, Loader2 } from 'lucide-react';
+import { listarDocumentosSocio, crearDocumentoSocio, borrarDocumentoSocio, abrirDocumentoSocio } from '@/lib/api-client';
 import { subirDocumentoSocioArchivo } from '@/lib/documentos-socio-storage';
 import type { RowDocumentosSocio } from '@/lib/db-types';
 
@@ -87,6 +87,18 @@ export function FichaDocumentos({ socioId, onToast }: { socioId: string; onToast
   const [errorSubida, setErrorSubida] = useState<string | null>(null);
   const [aBorrar, setABorrar] = useState<RowDocumentosSocio | null>(null);
   const [borrando, setBorrando] = useState(false);
+  // F-14 (auditoría 20ª pasada): el estudio subía documentos y no podía
+  // volver a abrirlos. Se pide la URL firmada justo al pulsar "Ver" (60s de
+  // validez, nunca se guarda) — mismo criterio que el lado de la socia.
+  const [abriendoId, setAbriendoId] = useState<string | null>(null);
+
+  async function ver(d: RowDocumentosSocio) {
+    setAbriendoId(d.id);
+    const res = await abrirDocumentoSocio(d.id);
+    setAbriendoId(null);
+    if ('error' in res) { onToast(res.error); return; }
+    window.open(res.url, '_blank', 'noopener,noreferrer');
+  }
 
   function abrir() {
     setF(formVacio());
@@ -184,6 +196,14 @@ export function FichaDocumentos({ socioId, onToast }: { socioId: string; onToast
                   <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: estilo.bg, color: estilo.text }}>
                     {CATEGORIA_LABEL.get(d.categoria)}
                   </span>
+                  <button
+                    onClick={() => void ver(d)}
+                    disabled={abriendoId === d.id}
+                    title="Ver documento"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50"
+                  >
+                    {abriendoId === d.id ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                  </button>
                   <button
                     onClick={() => setABorrar(d)}
                     title="Borrar documento"
