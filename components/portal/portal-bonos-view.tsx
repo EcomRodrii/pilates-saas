@@ -12,14 +12,13 @@
 import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useModo } from '@/lib/portal-modo';
 import { bonoActivo, fechaLarga, DIAS } from '@/lib/bonos-portal';
-import { sans, transicion, dur, EASE } from '@/lib/portal-design';
+import { sans, transicion, dur, EASE, cristal } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import { BandaFoto } from '@/components/portal/banda-foto';
 import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
-import { BottomSheet, Toast, Button, type AvisoToast } from '@/components/portal/ui';
+import { Toast, type AvisoToast } from '@/components/portal/ui';
 import type { PortalSession } from '@/lib/portal-auth';
 
 export function PortalBonosView({
@@ -30,7 +29,6 @@ export function PortalBonosView({
     suscripciones, planesTarifa, tiposClase, salas, plazasFijas, reservas, bloquesBonos: bloquesBonosPublicado,
     pausarPlazaFijaPropia, reanudarPlazaFijaPropia, darDeBajaPlazaFijaPropia,
   } = useStudio();
-  const { t } = useModo();
   const socioId = session?.socioId ?? null;
 
   // La vuelta de Stripe tras comprar un bono (`lib/billing/origen-pago.ts`).
@@ -411,16 +409,65 @@ export function PortalBonosView({
       ))}
       </div>
 
-      <BottomSheet open={confirmandoBaja} onClose={() => setConfirmandoBaja(false)}>
-        <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Dar de baja tu plaza fija?</h2>
-        <p style={{ fontSize: 13, color: t.muted }}>
+      {/* Confirmar baja de plaza fija — mismo sheet literal ya usado en
+          portal-reservas-view.tsx, en vez del BottomSheet/Button genéricos
+          del sistema saliente. */}
+      <div
+        onClick={() => setConfirmandoBaja(false)}
+        aria-hidden
+        style={{
+          position: 'fixed', inset: 0, zIndex: 40,
+          opacity: confirmandoBaja ? 1 : 0, pointerEvents: confirmandoBaja ? 'auto' : 'none',
+          background: 'rgba(15,15,15,.42)',
+          ...cristal(18, 120),
+          transition: `opacity ${dur.tab}ms ${EASE}`,
+        }}
+      />
+      <div
+        role="dialog"
+        aria-modal={confirmandoBaja}
+        aria-label="¿Dar de baja tu plaza fija?"
+        style={{
+          position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
+          background: '#FAF9F5', borderRadius: '24px 24px 0 0',
+          boxShadow: '0 -18px 50px rgba(15,15,15,.25)', padding: '16px 26px calc(26px + env(safe-area-inset-bottom))',
+          opacity: confirmandoBaja ? 1 : 0,
+          pointerEvents: confirmandoBaja ? 'auto' : 'none',
+          transform: confirmandoBaja ? 'translateY(0) scale(1)' : 'translateY(114%) scale(.98)',
+          transition: `transform ${dur.sheet}ms ${EASE}, opacity 500ms ease`,
+        }}
+      >
+        <div style={{ width: 34, height: 4, borderRadius: 4, background: '#D9D6C9', margin: '0 auto 20px' }} />
+        <h2 style={{ fontFamily: sans, fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', textAlign: 'center' }}>
+          ¿Dar de baja tu plaza fija?
+        </h2>
+        <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
           Dejará de reservarte el hueco cada semana. Las clases ya reservadas no se tocan.
         </p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="secondary" onClick={() => setConfirmandoBaja(false)} style={{ flex: 1 }}>Volver</Button>
-          <Button variant="danger" onClick={() => void confirmarBaja()} style={{ flex: 1 }}>Sí, dar de baja</Button>
+        <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+          <button
+            type="button"
+            onClick={() => setConfirmandoBaja(false)}
+            style={{
+              flex: 1, height: 54, borderRadius: 27, border: '1px solid #E5E3DA',
+              background: 'transparent', color: '#1A1A1A', fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+            }}
+          >
+            Volver
+          </button>
+          <button
+            type="button"
+            onClick={() => void confirmarBaja()}
+            style={{
+              flex: 1, height: 54, borderRadius: 27, border: 'none',
+              background: '#F4E9E5', color: '#A04A3C',
+              fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+            }}
+          >
+            Sí, dar de baja
+          </button>
         </div>
-      </BottomSheet>
+      </div>
 
       <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
     </div>
