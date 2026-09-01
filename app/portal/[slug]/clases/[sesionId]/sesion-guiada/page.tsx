@@ -14,7 +14,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useModo } from '@/lib/portal-modo';
 import { ChevronLeft, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 import { EJERCICIOS_SESION_GUIADA, esUltimoEjercicio, saltarEjercicio, progresoEjercicio } from '@/lib/sesion-guiada';
 import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
@@ -23,7 +22,6 @@ export default function SesionGuiadaPage() {
   const router = useRouter();
   const { sesionId } = useParams<{ slug: string; sesionId: string }>();
   const { sesiones, tiposClase } = useStudio();
-  const { t } = useModo();
 
   const ses = sesiones.find(s => s.id === sesionId);
   const tipo = ses ? tiposClase.find(x => x.id === ses.tipoClaseId) : undefined;
@@ -50,8 +48,8 @@ export default function SesionGuiadaPage() {
   const esUltimo = esUltimoEjercicio(ejercicio);
 
   return (
-    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', background: t.bg }}>
-      <div style={{ position: 'relative', height: 260, flexShrink: 0, overflow: 'hidden', background: t.surface2 }}>
+    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', background: '#FAF9F5' }}>
+      <div style={{ position: 'relative', height: 260, flexShrink: 0, overflow: 'hidden', background: '#EFEDE4' }}>
         {/* Misma foto que la cabecera del detalle: la del tipo de clase, o la
             de su familia si la propietaria no ha subido ninguna. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -77,14 +75,14 @@ export default function SesionGuiadaPage() {
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 24px', textAlign: 'center' }}>
-        <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: t.muted }}>
+        <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#98A093' }}>
           Ejercicio {ejercicio + 1} de {EJERCICIOS_SESION_GUIADA.length}
         </p>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: t.ink, marginTop: 8 }}>{actual.nombre}</h1>
-        <p style={{ fontSize: 40, fontWeight: 800, color: t.ink, marginTop: 18, letterSpacing: '-0.03em' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1A1A1A', marginTop: 8 }}>{actual.nombre}</h1>
+        <p style={{ fontSize: 40, fontWeight: 800, color: '#1A1A1A', marginTop: 18, letterSpacing: '-0.03em' }}>
           00:{String(seg).padStart(2, '0')}
         </p>
-        <div style={{ marginTop: 14, height: 6, width: '100%', maxWidth: 280, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+        <div style={{ marginTop: 14, height: 6, width: '100%', maxWidth: 280, borderRadius: 999, background: '#E5E3DA', overflow: 'hidden' }}>
           <span
             aria-hidden
             style={{ display: 'block', width: `${progresoEjercicio(ejercicio, seg)}%`, height: '100%', borderRadius: 999, background: 'var(--portal-brand)', transition: 'width 1s linear' }}
@@ -97,7 +95,7 @@ export default function SesionGuiadaPage() {
             onClick={() => saltar(-1)}
             disabled={ejercicio === 0}
             aria-label="Ejercicio anterior"
-            style={{ width: 48, height: 48, borderRadius: 999, background: t.surface2, color: t.ink, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: ejercicio === 0 ? 0.4 : 1 }}
+            style={{ width: 48, height: 48, borderRadius: 999, background: '#EFEDE4', color: '#1A1A1A', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: ejercicio === 0 ? 0.4 : 1 }}
           >
             <SkipBack size={20} fill="currentColor" />
           </button>
@@ -113,7 +111,7 @@ export default function SesionGuiadaPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              style={{ height: 48, padding: '0 20px', borderRadius: 999, background: t.surface2, color: t.ink, border: 'none', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+              style={{ height: 48, padding: '0 20px', borderRadius: 999, background: '#EFEDE4', color: '#1A1A1A', border: 'none', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
             >
               Terminar
             </button>
@@ -122,7 +120,7 @@ export default function SesionGuiadaPage() {
               type="button"
               onClick={() => saltar(1)}
               aria-label="Siguiente ejercicio"
-              style={{ width: 48, height: 48, borderRadius: 999, background: t.surface2, color: t.ink, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ width: 48, height: 48, borderRadius: 999, background: '#EFEDE4', color: '#1A1A1A', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
               <SkipForward size={20} fill="currentColor" />
             </button>

@@ -14,10 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { qrSvgMarkup } from '@/lib/qr-svg';
-import { useModo } from '@/lib/portal-modo';
-import {
-  EASE, dur, display, micro, texto, radio, sombra, cristal, desenfoque,
-} from '@/lib/portal-design';
+import { EASE, dur, sans, cristal } from '@/lib/portal-design';
 
 const RENUEVA_MS = 75_000;
 
@@ -52,7 +49,6 @@ export function HojaPase({
   subtitulo: string;
   pedirPase: (slug: string) => Promise<DatosPase | null>;
 }) {
-  const { t, noche } = useModo();
   const [pase, setPase] = useState<DatosPase | null>(null);
   const [fallo, setFallo] = useState(false);
   const vivo = useRef(false);
@@ -81,10 +77,9 @@ export function HojaPase({
   }, [abierta, cargar, yaDentro]);
 
   const hoja: React.CSSProperties = {
-    position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 21,
-    background: t.bg, borderRadius: radio.hoja,
-    border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.8)'}`,
-    boxShadow: sombra.sheet, padding: '16px 26px 28px',
+    position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 21,
+    background: '#12291A', borderRadius: '24px 24px 0 0',
+    boxShadow: '0 -18px 50px rgba(15,15,15,.25)', padding: '16px 26px 28px',
     display: 'flex', flexDirection: 'column', alignItems: 'center',
     opacity: abierta ? 1 : 0,
     pointerEvents: abierta ? 'auto' : 'none',
@@ -100,45 +95,55 @@ export function HojaPase({
         style={{
           position: 'absolute', inset: 0, zIndex: 20,
           opacity: abierta ? 1 : 0, pointerEvents: abierta ? 'auto' : 'none',
-          background: noche ? 'rgba(8,9,6,.44)' : 'rgba(34,38,31,.24)',
-          ...cristal(desenfoque.backdrop, 120),
+          background: 'rgba(15,15,15,.42)',
+          ...cristal(18, 120),
           transition: `opacity ${dur.tab}ms ${EASE}`,
         }}
       />
 
-      <div role="dialog" aria-modal={abierta} aria-label="Tu pase de acceso" style={hoja}>
+      <div role="dialog" aria-modal={abierta} aria-hidden={!abierta} aria-label="Tu pase de acceso" style={hoja}>
         <button
           type="button" onClick={onClose} aria-label="Cerrar"
-          style={{ width: 40, height: 4, borderRadius: 4, background: noche ? '#3A3F33' : '#D8D4C9', border: 'none', padding: 0 }}
+          style={{ width: 34, height: 4, borderRadius: 4, background: 'rgba(241,236,225,.3)', border: 'none', padding: 0 }}
         />
 
-        <span style={{ ...micro(8.5, 0.3, 600), color: t.heroAccent, marginTop: 24, textAlign: 'center' }}>
+        <span style={{
+          fontFamily: 'ui-monospace, monospace', fontSize: 8.5, fontWeight: 600, letterSpacing: '.24em',
+          paddingLeft: '.24em', textTransform: 'uppercase', color: '#A8D0A9', marginTop: 24, textAlign: 'center',
+        }}>
           Acceso · {nombreEstudio}
         </span>
 
-        <Contenido pase={pase} fallo={fallo} t={t} noche={noche} />
+        <Contenido pase={pase} fallo={fallo} />
 
-        <div style={{ ...display(30, true), color: t.ink, marginTop: 24, textAlign: 'center' }}>{tituloClase}</div>
-        <div style={{ ...texto.meta, color: t.muted, marginTop: 8, textAlign: 'center' }}>{subtitulo}</div>
+        <div style={{ fontFamily: sans, fontSize: 22, fontWeight: 800, letterSpacing: '-.025em', color: '#F1ECE1', marginTop: 24, textAlign: 'center' }}>
+          {tituloClase}
+        </div>
+        <div style={{ fontFamily: sans, fontSize: 12.5, color: 'rgba(241,236,225,.65)', marginTop: 8, textAlign: 'center' }}>
+          {subtitulo}
+        </div>
 
-        <span style={{ width: 24, height: 1, background: t.line, margin: '20px 0' }} />
+        <span style={{ width: 24, height: 1, background: 'rgba(241,236,225,.18)', margin: '20px 0' }} />
 
         {/* Entrar es un CAMBIO DE ESTADO, no un matiz: antes esto era un
             renglón de gris pequeño en el mismo hueco donde ponía «enséñaselo»,
             con el QR intacto al lado. Nadie se enteraba. */}
         {yaDentro ? (
-          <p style={{ ...display(21, true), color: t.heroAccent, textAlign: 'center', marginTop: 4 }}>
+          <p style={{ fontFamily: sans, fontSize: 18, fontWeight: 800, letterSpacing: '-.02em', color: '#A8D0A9', textAlign: 'center', marginTop: 4 }}>
             Que vaya muy bien.
           </p>
         ) : (
-          <p style={{ ...texto.pie, color: t.muted2, textAlign: 'center', lineHeight: 1.5 }}>
+          <p style={{ fontFamily: sans, fontSize: 11.5, color: 'rgba(241,236,225,.55)', textAlign: 'center', lineHeight: 1.5 }}>
             Enséñaselo a tu instructora al entrar.
           </p>
         )}
 
         <button
           type="button" onClick={onClose}
-          style={{ ...micro(10, 0.26, 600), color: t.micro, marginTop: 24, background: 'none', border: 'none', cursor: 'pointer' }}
+          style={{
+            fontFamily: 'ui-monospace, monospace', fontSize: 10, fontWeight: 600, letterSpacing: '.26em', paddingLeft: '.26em',
+            textTransform: 'uppercase', color: 'rgba(241,236,225,.55)', marginTop: 24, background: 'none', border: 'none', cursor: 'pointer',
+          }}
         >
           Cerrar
         </button>
@@ -148,28 +153,25 @@ export function HojaPase({
 }
 
 /** El cuadro central: el QR, o lo que toque cuando no hay QR que enseñar. */
-function Contenido({
-  pase, fallo, t, noche,
-}: {
-  pase: DatosPase | null;
-  fallo: boolean;
-  t: ReturnType<typeof useModo>['t'];
-  noche: boolean;
-}) {
+function Contenido({ pase, fallo }: { pase: DatosPase | null; fallo: boolean }) {
   const caja: React.CSSProperties = {
     position: 'relative', overflow: 'hidden', marginTop: 22,
-    width: 168, height: 168, borderRadius: radio.qr, background: '#FFFFFF',
-    boxShadow: sombra.qr, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: 168, height: 168, borderRadius: 24, background: '#FFFFFF',
+    boxShadow: '0 20px 44px -18px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
   };
   const aviso = (texto1: string, texto2?: string) => (
-    <div style={{ ...caja, background: noche ? t.surface : t.surface2, flexDirection: 'column', gap: 6, padding: 20 }}>
-      <span style={{ ...display(22, true), color: t.ink, textAlign: 'center', lineHeight: 1.15 }}>{texto1}</span>
-      {texto2 && <span style={{ ...texto.nota, color: t.muted, textAlign: 'center' }}>{texto2}</span>}
+    <div style={{ ...caja, background: '#0E2216', flexDirection: 'column', gap: 6, padding: 20 }}>
+      <span style={{ fontFamily: sans, fontSize: 18, fontWeight: 800, letterSpacing: '-.02em', color: '#F1ECE1', textAlign: 'center', lineHeight: 1.15 }}>
+        {texto1}
+      </span>
+      {texto2 && (
+        <span style={{ fontFamily: sans, fontSize: 11, color: 'rgba(241,236,225,.6)', textAlign: 'center' }}>{texto2}</span>
+      )}
     </div>
   );
 
   if (fallo) return aviso('No hemos podido abrir tu pase', 'Inténtalo en unos segundos');
-  if (!pase) return <div style={{ ...caja, background: noche ? t.surface : t.surface2 }} aria-busy />;
+  if (!pase) return <div style={{ ...caja, background: '#0E2216' }} aria-busy />;
   if (!pase.hayPase) return aviso('No tienes ninguna clase cerca', 'El pase aparece una hora antes');
   if (!pase.vigente) {
     const hora = pase.seActivaA
@@ -185,14 +187,15 @@ function Contenido({
     return (
       <div style={{
         ...caja,
-        background: 'var(--portal-brand)',
+        background: '#4F8A5B',
         flexDirection: 'column', gap: 8, padding: 20,
+        animation: 'apPop .5s both',
       }}>
-        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path d="M4 12.5l5.2 5.2L20 7" stroke={t.accentInk} strokeWidth="1.6"
+        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" aria-hidden style={{ animation: 'apCheck .5s both' }}>
+          <path d="M4 12.5l5.2 5.2L20 7" stroke="#FFFFFF" strokeWidth="1.6"
             strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        <span style={{ ...display(26, true), color: t.accentInk, textAlign: 'center', lineHeight: 1.15 }}>
+        <span style={{ fontFamily: sans, fontSize: 20, fontWeight: 800, letterSpacing: '-.02em', color: '#FFFFFF', textAlign: 'center', lineHeight: 1.15 }}>
           Ya estás dentro
         </span>
       </div>
@@ -226,8 +229,16 @@ function Contenido({
 
       {pase.codigo && (
         <div style={{ marginTop: 16, textAlign: 'center' }}>
-          <div style={{ ...micro(8.5, 0.26, 600), color: t.micro }}>o dile este código</div>
-          <div style={{ ...display(22), color: t.ink, letterSpacing: '.34em', paddingLeft: '.34em', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{
+            fontFamily: 'ui-monospace, monospace', fontSize: 8.5, fontWeight: 600, letterSpacing: '.26em',
+            paddingLeft: '.26em', textTransform: 'uppercase', color: 'rgba(241,236,225,.55)',
+          }}>
+            o dile este código
+          </div>
+          <div style={{
+            fontFamily: sans, fontSize: 22, fontWeight: 800, color: '#F1ECE1', letterSpacing: '.34em',
+            paddingLeft: '.34em', marginTop: 4, fontVariantNumeric: 'tabular-nums',
+          }}>
             {pase.codigo}
           </div>
         </div>
@@ -238,7 +249,7 @@ function Contenido({
           en que `paseVigente` deja de dar `true` (misma `ventanaDelPase` que
           ya decidía el resto de la pantalla), no un aviso genérico. */}
       {pase.paseHasta && (
-        <span style={{ ...texto.nota, color: t.muted, marginTop: 14, textAlign: 'center' }}>
+        <span style={{ fontFamily: sans, fontSize: 11, color: 'rgba(241,236,225,.6)', marginTop: 14, textAlign: 'center' }}>
           Válido hasta las {new Date(pase.paseHasta).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
         </span>
       )}

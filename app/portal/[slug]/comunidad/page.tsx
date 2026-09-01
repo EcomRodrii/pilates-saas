@@ -7,7 +7,15 @@
 //
 // Esta pantalla solo tiene los DATOS; la pintura vive en
 // `components/comunidad/post-card-portal.tsx` (mismo criterio que
-// `components/portal/ui`), sobre el lenguaje visual de `lib/portal-design.ts`.
+// `components/portal/ui`).
+//
+// Valores literales del kit real ("Tentare Studio App",
+// docs/diseno-referencia-portal/): `--ap-*`/hex en vez de
+// `useModo()`/`display()`/`micro()`, mismo idioma que ya usa
+// `app/portal/[slug]/mensajes/page.tsx` tras su conversión. ⚠️ SIN captura de
+// referencia directa para esta pantalla (el paquete de capturas no cubre
+// Comunidad) — el tratamiento de abajo es EXTRAPOLADO por consistencia con el
+// resto del portal ya convertido, no un calco 1:1 de un diseño visto.
 //
 // SOLO LECTURA a propósito (decisión ya cerrada del diseño): sin dar like ni
 // comentar. Los contadores de likes/comentarios se pintan como texto
@@ -27,11 +35,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, Megaphone } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { useModo } from '@/lib/portal-modo';
 import { portalAuthHeader } from '@/lib/api-client';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { supabasePortalRealtime } from '@/lib/db/supabase-portal-realtime';
-import { EASE, display, dur, micro, sans } from '@/lib/portal-design';
+import { sans } from '@/lib/portal-design';
 import { EmptyState, Toast, type AvisoToast } from '@/components/portal/ui';
 import { PostCardPortal, SkeletonPostPortal } from '@/components/comunidad/post-card-portal';
 import {
@@ -41,7 +48,6 @@ import {
 
 export default function ComunidadPage() {
   const { studio } = useStudio();
-  const { t } = useModo();
 
   const [posts, setPosts] = useState<PostFeedPortal[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -193,13 +199,11 @@ export default function ComunidadPage() {
   }
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+    <div style={{ minHeight: '100%', background: '#FAF9F5', color: '#1A1A1A' }}>
       <div style={{ padding: '62px 20px 40px' }}>
-        {/* Misma cabecera editorial que Progreso: rótulo en versalitas, título
-            en serif grande y una frase en cursiva que da el tono. */}
-        <p style={{ ...micro(9.5, 0.28, 600), color: t.muted }}>{studio?.nombre ?? 'Tu estudio'}</p>
-        <h1 style={{ ...display(46), color: t.ink, marginTop: 8 }}>Comunidad</h1>
-        <p style={{ ...display(18, true), color: t.muted, marginTop: 10 }}>Lo que pasa en el estudio.</p>
+        <div className="ap-label">{studio?.nombre ?? 'Tu estudio'}</div>
+        <h1 className="ap-h1" style={{ color: '#1A1A1A', marginTop: 10 }}>Comunidad</h1>
+        <p style={{ fontFamily: sans, fontSize: 13.5, color: '#5A5A52', marginTop: 8 }}>Lo que pasa en el estudio.</p>
 
         {error && (
           <div style={{ marginTop: 28 }}>
@@ -247,7 +251,7 @@ export default function ComunidadPage() {
                 {cargandoMas && <SkeletonPostPortal />}
               </div>
             ) : (
-              <p style={{ ...micro(9, 0.24, 500), color: t.micro, textAlign: 'center', marginTop: 28 }}>
+              <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '.24em', paddingLeft: '.24em', textTransform: 'uppercase', fontWeight: 500, color: '#98A093', textAlign: 'center', marginTop: 28 }}>
                 Has llegado al principio
               </p>
             )}
@@ -267,27 +271,25 @@ export default function ComunidadPage() {
 // y se permite un icono grande y una frase con la voz del portal.
 
 function TablonVacio() {
-  const { t } = useModo();
   return (
     <div
+      className="ap-anim-up"
       style={{
         marginTop: 40, display: 'flex', flexDirection: 'column', alignItems: 'center',
         textAlign: 'center', padding: '8px 12px 24px',
-        animation: `portal-rise-soft ${dur.card}ms ${EASE} both`,
       }}
     >
       <div
         aria-hidden
         style={{
           width: 92, height: 92, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'color-mix(in srgb, var(--portal-brand) 10%, transparent)',
-          color: 'var(--portal-brand)',
+          background: '#EAF0E7', color: '#3E6B4A',
         }}
       >
         <Megaphone size={36} strokeWidth={1.4} />
       </div>
-      <p style={{ ...display(26, true), color: t.ink, marginTop: 22 }}>Aún no hay nada por aquí</p>
-      <p style={{ fontFamily: sans, fontSize: 14, lineHeight: 1.55, color: t.muted, marginTop: 10, maxWidth: 280 }}>
+      <p style={{ fontFamily: sans, fontSize: 21, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', marginTop: 22 }}>Aún no hay nada por aquí</p>
+      <p style={{ fontFamily: sans, fontSize: 12.5, lineHeight: 1.55, color: '#5A5A52', marginTop: 10, maxWidth: 280 }}>
         Cuando el equipo del estudio comparta novedades, avisos o un evento al que apuntarte, aparecerán aquí.
       </p>
     </div>

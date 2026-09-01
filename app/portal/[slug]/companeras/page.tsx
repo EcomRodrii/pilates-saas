@@ -5,6 +5,17 @@
 // `/api/public/social/companeras`) ya está en producción; esta pantalla es
 // puro consumo, mismo lenguaje visual que Mensajes/Comunidad/Documentos.
 //
+// Valores literales del kit real ("Tentare Studio App",
+// docs/diseno-referencia-portal/): `--ap-*`/hex en vez de
+// `useModo()`/`display()`/`micro()`/`texto.*`, mismo idioma que ya usa
+// `app/portal/[slug]/mensajes/page.tsx` tras su conversión. ⚠️ SIN captura de
+// referencia directa para esta pantalla (el paquete de capturas no cubre
+// Compañeras) — el tratamiento de abajo es EXTRAPOLADO por consistencia con
+// el resto del portal ya convertido, no un calco 1:1 de un diseño visto.
+// `<Card>` (components/portal/ui) se sustituye por className="ap-card"
+// directo, mismo patrón que portal-clases-view.tsx/mensajeria-piezas.tsx tras
+// su conversión.
+//
 // Sin polling/Realtime a propósito (mismo criterio que Mensajes/Documentos):
 // una solicitud nueva se resuelve con la notificación normal, no con un canal
 // en vivo.
@@ -18,10 +29,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Users2, Check, Ban, Clock3 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
-import { useModo } from '@/lib/portal-modo';
 import { portalAuthHeader } from '@/lib/api-client';
-import { display, micro, sans, texto } from '@/lib/portal-design';
-import { Badge, BottomSheet, Button, Card, EmptyState, Tabs, Toast, type AvisoToast } from '@/components/portal/ui';
+import { sans } from '@/lib/portal-design';
+import { Badge, BottomSheet, Button, EmptyState, Tabs, Toast, type AvisoToast } from '@/components/portal/ui';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
   fetchListaCompaneras, aceptarSolicitudCompanera, bloquearCompanera,
@@ -33,7 +43,6 @@ type Pestana = 'recibidas' | 'enviadas' | 'aceptadas';
 export default function CompanerasPage() {
   const { studio } = useStudio();
   const { session } = usePortalAuth();
-  const { t } = useModo();
 
   void session; // el id de la socia lo resuelve el servidor (socioAutenticado), no hace falta aquí.
   const studioId = studio?.id ?? null;
@@ -80,7 +89,10 @@ export default function CompanerasPage() {
     void cargar();
   }
 
-  const microLabel: React.CSSProperties = { ...micro(9.5, 0.28, 600), color: t.muted };
+  const nombreFila: React.CSSProperties = {
+    flex: 1, minWidth: 0, fontFamily: sans, fontSize: 14.5, fontWeight: 800, color: '#1A1A1A',
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  };
 
   const items = useMemo(() => ([
     { id: 'recibidas' as const, label: 'Recibidas', count: lista?.pendientesRecibidas.length ?? 0 },
@@ -89,10 +101,10 @@ export default function CompanerasPage() {
   ]), [lista]);
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+    <div style={{ minHeight: '100%', background: '#FAF9F5', color: '#1A1A1A' }}>
       <div style={{ padding: '62px 20px 32px' }}>
-        <p style={microLabel}>{studio?.nombre ?? 'Tu estudio'}</p>
-        <h1 style={{ ...display(34), color: t.ink, marginTop: 6 }}>Mis compañeras</h1>
+        <div className="ap-label">{studio?.nombre ?? 'Tu estudio'}</div>
+        <h1 className="ap-h1" style={{ color: '#1A1A1A', marginTop: 6 }}>Mis compañeras</h1>
 
         {error && (
           <div style={{ marginTop: 24 }}>
@@ -109,7 +121,7 @@ export default function CompanerasPage() {
         {!error && lista === null && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 24 }} aria-hidden>
             {[0, 1].map(i => (
-              <div key={i} className="animate-pulse" style={{ height: 72, borderRadius: 20, background: t.surface2 }} />
+              <div key={i} className="animate-pulse" style={{ height: 72, borderRadius: 16, background: '#EFEDE4' }} />
             ))}
           </div>
         )}
@@ -129,11 +141,9 @@ export default function CompanerasPage() {
                     body="Cuando alguien quiera ser tu compañera de clase, la solicitud aparecerá aquí."
                   />
                 ) : lista.pendientesRecibidas.map(fila => (
-                  <Card key={fila.id} style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div key={fila.id} className="ap-card" style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
                     <ProfileAvatar nombre={fila.otraParteNombre} size="md" />
-                    <p style={{ flex: 1, minWidth: 0, fontFamily: sans, fontSize: 14.5, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {fila.otraParteNombre}
-                    </p>
+                    <p style={nombreFila}>{fila.otraParteNombre}</p>
                     <Button
                       size="small"
                       onClick={() => void aceptar(fila)}
@@ -149,14 +159,14 @@ export default function CompanerasPage() {
                       disabled={enCurso !== null}
                       aria-label={`Bloquear a ${fila.otraParteNombre}`}
                       style={{
-                        width: 40, height: 40, borderRadius: 999, border: `1px solid ${t.line}`, background: 'none',
+                        width: 40, height: 40, borderRadius: 999, border: '1px solid #E5E3DA', background: 'none',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                        color: t.muted, cursor: enCurso !== null ? 'default' : 'pointer',
+                        color: '#5A5A52', cursor: enCurso !== null ? 'default' : 'pointer',
                       }}
                     >
                       <Ban size={15} aria-hidden />
                     </button>
-                  </Card>
+                  </div>
                 ))
               )}
 
@@ -168,13 +178,11 @@ export default function CompanerasPage() {
                     body="Las solicitudes que envíes desde el detalle de una clase aparecerán aquí mientras esperan respuesta."
                   />
                 ) : lista.pendientesEnviadas.map(fila => (
-                  <Card key={fila.id} style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div key={fila.id} className="ap-card" style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
                     <ProfileAvatar nombre={fila.otraParteNombre} size="md" />
-                    <p style={{ flex: 1, minWidth: 0, fontFamily: sans, fontSize: 14.5, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {fila.otraParteNombre}
-                    </p>
+                    <p style={nombreFila}>{fila.otraParteNombre}</p>
                     <Badge variant="neutral">Pendiente</Badge>
-                  </Card>
+                  </div>
                 ))
               )}
 
@@ -186,25 +194,23 @@ export default function CompanerasPage() {
                     body="Cuando reserves clase con alguien y aceptéis conoceros, aparecerá aquí."
                   />
                 ) : lista.aceptadas.map(fila => (
-                  <Card key={fila.id} style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div key={fila.id} className="ap-card" style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
                     <ProfileAvatar nombre={fila.otraParteNombre} size="md" />
-                    <p style={{ flex: 1, minWidth: 0, fontFamily: sans, fontSize: 14.5, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {fila.otraParteNombre}
-                    </p>
+                    <p style={nombreFila}>{fila.otraParteNombre}</p>
                     <button
                       type="button"
                       onClick={() => setABloquear(fila)}
                       disabled={enCurso !== null}
                       aria-label={`Bloquear a ${fila.otraParteNombre}`}
                       style={{
-                        width: 40, height: 40, borderRadius: 999, border: `1px solid ${t.line}`, background: 'none',
+                        width: 40, height: 40, borderRadius: 999, border: '1px solid #E5E3DA', background: 'none',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                        color: t.muted, cursor: enCurso !== null ? 'default' : 'pointer',
+                        color: '#5A5A52', cursor: enCurso !== null ? 'default' : 'pointer',
                       }}
                     >
                       <Ban size={15} aria-hidden />
                     </button>
-                  </Card>
+                  </div>
                 ))
               )}
             </div>
@@ -216,8 +222,10 @@ export default function CompanerasPage() {
           NUNCA dice "dejará de verte"/"no lo sabrá": eso ya lo garantiza el
           servidor, no hace falta prometerlo aquí también. */}
       <BottomSheet open={aBloquear !== null} onClose={() => setABloquear(null)}>
-        <h2 style={{ ...display(24), color: t.ink }}>¿Bloquear a {aBloquear ? aBloquear.otraParteNombre : ''}?</h2>
-        <p style={{ ...texto.meta, color: t.muted }}>
+        <h2 style={{ fontFamily: sans, fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A' }}>
+          ¿Bloquear a {aBloquear ? aBloquear.otraParteNombre : ''}?
+        </h2>
+        <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52' }}>
           No podrá enviarte más solicitudes ni contactarte como compañera de clase.
         </p>
         <div style={{ display: 'flex', gap: 8 }}>

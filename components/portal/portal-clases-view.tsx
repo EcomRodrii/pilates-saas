@@ -36,7 +36,6 @@ import { useStudio, REFRESCO_ACTIVO_MS } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { esCancelacionTardia, heredaOverride } from '@/lib/booking-logic';
 import { alternativasTras, cuandoSugerencia, type SugerenciaClase } from '@/lib/portal-sugerencias';
-import { useModo } from '@/lib/portal-modo';
 import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/components/portal/hoja-reserva';
 import { HojaPase } from '@/components/portal/hoja-pase';
 import { BottomSheet, Button, Toast, type AvisoToast } from '@/components/portal/ui';
@@ -89,7 +88,6 @@ export function PortalClasesView({
     planesTarifa, suscripciones, studio, addReserva, cancelarReserva,
     favoritos, toggleFavorito, bloquesClases: bloquesClasesPublicado, refrescarAforo,
   } = useStudio();
-  const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
 
   // El aforo que se ve aquí es el del último `cargarPublico()` (al montar, o
@@ -787,8 +785,8 @@ export function PortalClasesView({
           const { tardia, ventana } = tardiaDe(cancelando);
           return (
             <>
-              <h2 style={{ ...display(18), color: t.ink }}>¿Cancelar esta clase?</h2>
-              <p style={{ ...texto.pie, color: t.muted }}>
+              <h2 style={{ ...display(18), color: '#1A1A1A' }}>¿Cancelar esta clase?</h2>
+              <p style={{ ...texto.pie, color: '#5A5A52' }}>
                 {tardia
                   ? `Quedan menos de ${ventana} h para la clase. Según la política del estudio, puede que no se te devuelva la sesión.`
                   : 'Perderás tu plaza y liberarás el hueco para otra socia.'}
@@ -840,8 +838,8 @@ export function PortalClasesView({
       <BottomSheet open={!!recuperacion} onClose={() => setRecuperacion(null)}>
         {recuperacion && (
           <>
-            <h2 style={{ ...display(18), color: t.ink }}>¿Quieres recuperar tu clase?</h2>
-            <p style={{ ...texto.pie, color: t.muted }}>
+            <h2 style={{ ...display(18), color: '#1A1A1A' }}>¿Quieres recuperar tu clase?</h2>
+            <p style={{ ...texto.pie, color: '#5A5A52' }}>
               {recuperacion.opciones.length === 1
                 ? 'He encontrado una opción que te encaja.'
                 : `He encontrado ${recuperacion.opciones.length} opciones que te encajan.`}
@@ -861,7 +859,7 @@ export function PortalClasesView({
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
                     padding: '12px 14px', borderRadius: 14, textAlign: 'left', width: '100%',
-                    border: `1px solid ${t.line}`, background: noche ? t.surface2 : '#FFFFFF', color: t.ink,
+                    border: '1px solid #E5E3DA', background: '#FFFFFF', color: '#1A1A1A',
                   }}
                 >
                   <span style={{ fontWeight: 700, fontSize: 14 }}>
@@ -869,7 +867,7 @@ export function PortalClasesView({
                   </span>
                   {/* El porqué va SIEMPRE con la opción: sin él sería una lista
                       de clases cualquiera, no una recuperación pensada. */}
-                  <span style={{ ...texto.pie, color: t.muted }}>
+                  <span style={{ ...texto.pie, color: '#5A5A52' }}>
                     {o.motivo} · {o.plazasLibres === 1 ? 'queda 1 plaza' : `quedan ${o.plazasLibres} plazas`}
                   </span>
                 </button>

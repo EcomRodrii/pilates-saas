@@ -38,19 +38,21 @@
 //   6. `modoEspera`: si la clase ya está llena AL ABRIR la hoja, en vez del
 //      grid de plazas se explica la lista de espera — el botón sigue siendo
 //      el mismo `onConfirmar` de siempre (el servidor decide LISTA_ESPERA).
+//
+// Fidelidad visual a "Tentare Studio App" (docs/diseno-referencia-portal,
+// capturas 2026-08-31): valores LITERALES de `portal-app.css`/CHEATSHEET-CSS.md
+// en vez de `useModo()`/`lib/portal-design.ts` — esta hoja es SIEMPRE clara
+// (fondo #FAF9F5 fijo, sin variante noche), así que los tokens día/noche no
+// aplican aquí. `<BotonesCalendario>` tampoco los necesita ya: sus propios
+// estilos son literales.
 
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { CheckCircle2, AlertCircle, AlertTriangle, MapPin, Navigation, Star } from 'lucide-react';
-import { useModo } from '@/lib/portal-modo';
 import { useStudio } from '@/lib/studio-context';
-import {
-  dur, transicion, display, micro, texto, radio, altura, sombra,
-} from '@/lib/portal-design';
-import { AforoIndicator } from '@/components/portal/ui';
+import { dur, transicion, sans } from '@/lib/portal-design';
 import { BotonesCalendario } from '@/components/portal/botones-calendario';
-import { semantic } from '@/lib/portal-tokens';
 import { seArreglaComprando } from '@/lib/bono-logic';
 import { valoracionParaPantalla } from '@/lib/portal-tema/valoracion';
 import type { EstadoReserva, Spot } from '@/lib/types';
@@ -126,7 +128,6 @@ export function HojaReserva({
    */
   quienVa?: QuienVaAEstaClase | null;
 }) {
-  const { t, noche } = useModo();
   const { slug } = useParams<{ slug: string }>();
   const { instructores, studio } = useStudio();
   const [spotElegido, setSpotElegido] = useState<string | null>(null);
@@ -154,6 +155,15 @@ export function HojaReserva({
   // ordenando el DOM para que el foco de teclado recorra la sala en orden.
   const plazas = [...(clase?.spots ?? [])].sort((a, b) => a.fila - b.fila || a.columna - b.columna || a.numero - b.numero);
   const columnasSala = plazas.length > 0 ? Math.max(...plazas.map(p => p.columna)) + 1 : 0;
+
+  // Badge de plazas (mismo patrón de 3 estados que portal-clases-view.tsx,
+  // clases `.ap-badge--*` de portal-app.css) — aquí nunca hay estado
+  // "reservada" (esta hoja solo se abre para una clase SIN reservar).
+  const badgePlazas = libres <= 0
+    ? { clase: 'ap-badge--llena', texto: 'Llena · lista' }
+    : libres === 1
+      ? { clase: 'ap-badge--pocas', texto: '1 plaza' }
+      : { clase: 'ap-badge--ok', texto: `${libres} plazas` };
 
   // Instructora completa (para valoración agregada) — solo si quien montó la
   // hoja pasó su id real. Nunca se busca por nombre: dos instructoras podrían
@@ -198,13 +208,6 @@ export function HojaReserva({
     onClose();
   }
 
-  // `semantic.danger.text` no pasa AA en modo noche (ver comentario en
-  // portal-tokens.ts) — usa la variante calibrada para ese modo. Mismo
-  // criterio para warning. (El verde de éxito/bono ya no sale de aquí: son
-  // los literales de CHEATSHEET-CSS.md, #4F8A5B/#2E5A3A.)
-  const dangerColor = noche ? semantic.danger.textNoche : semantic.danger.text;
-  const warningColor = noche ? semantic.warning.textNoche : semantic.warning.text;
-
   const etiquetaBoton = estado === 'enviando'
     ? 'Un momento…'
     : (modoEspera ? 'Unirme a la lista de espera' : 'Confirmar reserva');
@@ -231,6 +234,7 @@ export function HojaReserva({
       <div
         role="dialog"
         aria-modal={abierta}
+        aria-hidden={!abierta}
         aria-label={clase ? `Reservar ${clase.nombre}` : 'Reservar'}
         style={{
           position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
@@ -286,27 +290,28 @@ export function HojaReserva({
                 <CheckCircle2 size={30} style={{ color: '#FFFFFF' }} />
               </span>
             </div>
-            <h2 style={{ ...display(24), color: t.ink }}>
+            <h2 style={{ fontFamily: sans, fontSize: 24, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1.1, color: '#1A1A1A' }}>
               {resultadoExito ? (ETIQUETA_ESTADO[resultadoExito] ?? 'Reserva confirmada') : 'Reserva confirmada'}
             </h2>
             {/* Detalle en dos líneas — verificado contra capturas reales:
                 antes solo decía clase+hora; el diseño real también nombra la
                 plaza elegida, el estudio y la instructora, todo dato ya
                 disponible aquí (nunca uno nuevo). */}
-            <p style={{ ...texto.meta, color: t.muted, marginTop: 8 }}>
+            <p style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52', marginTop: 8 }}>
               {clase.nombre}
-              {spotElegido && plazas.find(p => p.id === spotElegido) && ` · plaza ${plazas.find(p => p.id === spotElegido)!.numero}`}
+              {spotElegido && plazas.find(p => p.id === spotElegido) && ` · plaza ${plazas.find(p => p.id === spotElegido)!.nombre}`}
             </p>
-            <p style={{ ...texto.meta, color: t.muted, marginTop: 2 }}>
+            <p style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52', marginTop: 2 }}>
               {diaCorto} {hora(clase.inicio)}
               {studio?.nombre && ` · ${studio.nombre}`}
               {clase.instructorNombre && ` · ${clase.instructorNombre}`}
             </p>
             {/* El bono solo se consume de verdad si queda CONFIRMADA — en
                 lista de espera/pendiente de aprobación todavía no se ha
-                gastado ninguna sesión. */}
+                gastado ninguna sesión. Verde (no gris): es una noticia
+                buena, mismo tono que el resto de avisos de bono. */}
             {resultadoExito === 'CONFIRMADA' && clase.sesionesTrasReservar != null && (
-              <p style={{ ...texto.nota, color: t.muted, marginTop: 10 }}>
+              <p style={{ fontFamily: sans, fontSize: 12, fontWeight: 700, color: '#3E6B4A', marginTop: 10 }}>
                 Bono: te quedan {clase.sesionesTrasReservar} sesion{clase.sesionesTrasReservar === 1 ? '' : 'es'}
               </p>
             )}
@@ -321,10 +326,10 @@ export function HojaReserva({
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      flex: 1, height: 42, borderRadius: 21, border: `1px solid ${t.line}`,
-                      background: 'transparent', color: t.ink, textDecoration: 'none',
+                      flex: 1, height: 42, borderRadius: 21, border: '1px solid #E5E3DA',
+                      background: 'transparent', color: '#1A1A1A', textDecoration: 'none',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      ...texto.metaFuerte, fontSize: 12.5,
+                      fontFamily: sans, fontSize: 12.5, fontWeight: 700,
                     }}
                   >
                     <Navigation size={13} /> Cómo llegar
@@ -338,18 +343,17 @@ export function HojaReserva({
                       estudioNombre: studio?.nombre ?? 'Tu estudio',
                       estudioDireccion: [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || undefined,
                     }}
-                    t={t}
                   />
                 </div>
               </div>
             )}
             <Link
               href={`/portal/${slug}/reservas`}
+              className="ap-btn ap-btn--primario"
               style={{
-                marginTop: 22, width: '100%', height: altura.botonCta, borderRadius: radio.botonCta,
-                background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-                ...texto.botonCta, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                textDecoration: 'none', boxShadow: sombra.cta,
+                marginTop: 22, width: '100%', height: 50,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                textDecoration: 'none',
               }}
             >
               Ver mis reservas
@@ -357,15 +361,21 @@ export function HojaReserva({
           </div>
         ) : clase && (
           <>
-            <div style={{ ...micro(9, 0.26, 600), color: t.micro, marginTop: 22 }}>
+            {/* Título + badge de plazas en la misma fila (capturas reales:
+                "5 plazas" va junto al nombre de la clase, no junto a "Elige
+                tu plaza"), y la línea de fecha/hora debajo del título. */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginTop: 22 }}>
+              <h2 style={{ fontFamily: sans, fontSize: 24, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1.15, color: '#1A1A1A', textWrap: 'pretty', minWidth: 0 } as React.CSSProperties}>
+                {clase.nombre}
+              </h2>
+              <span className={`ap-badge ${badgePlazas.clase}`} style={{ flexShrink: 0, marginTop: 3 }}>{badgePlazas.texto}</span>
+            </div>
+            <div style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52', marginTop: 6 }}>
               {fecha} · {hora(clase.inicio)} – {hora(clase.fin)}
             </div>
-            <h2 style={{ ...display(32, false, 1.05), color: t.ink, marginTop: 10, textWrap: 'pretty' } as React.CSSProperties}>
-              {clase.nombre}
-            </h2>
 
             {clase.instructorNombre && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
+              <div className="ap-card" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, padding: '12px 14px' }}>
                 {clase.instructorFotoUrl ? (
                   <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -373,29 +383,29 @@ export function HojaReserva({
                   </div>
                 ) : (
                   <span style={{
-                    width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: t.surface2,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: t.ink,
+                    width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: '#EFEDE4',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#1A1A1A',
                   }}>
                     {clase.instructorNombre.trim()[0]?.toUpperCase()}
                   </span>
                 )}
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ ...texto.metaFuerte, color: t.ink }}>{clase.instructorNombre}</span>
+                    <span style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 700, color: '#1A1A1A' }}>{clase.instructorNombre}</span>
                     {/* Valoración REAL (Instructor.valoracion) — nunca se
                         pinta si no llega al mínimo de reseñas para enseñarse
                         (valoracionParaPantalla), así que hoy no se ve casi
                         nunca: es correcto, no un hueco. */}
                     {valoracionInstructora && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: t.muted }}>
-                        <Star size={10} fill={t.heroAccent} color={t.heroAccent} />
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: sans, fontSize: 11, fontWeight: 700, color: '#5A5A52' }}>
+                        <Star size={10} fill="#C99A3C" color="#C99A3C" />
                         {valoracionInstructora.nota}
                       </span>
                     )}
                   </div>
                   <Link
                     href={hrefPerfilInstructor}
-                    style={{ ...texto.nota, color: t.heroAccent, textDecoration: 'none' }}
+                    style={{ fontFamily: sans, fontSize: 11, fontWeight: 700, color: '#3E6B4A', textDecoration: 'none' }}
                   >
                     Ver perfil
                   </Link>
@@ -405,9 +415,9 @@ export function HojaReserva({
 
             {(clase.nivel || clase.salaNombre) && (
               <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginTop: 12 }}>
-                {clase.nivel && <span style={{ ...texto.meta, color: t.muted }}>{clase.nivel}</span>}
+                {clase.nivel && <span style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52' }}>{clase.nivel}</span>}
                 {clase.salaNombre && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, ...texto.meta, color: t.muted }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52' }}>
                     <MapPin size={12} style={{ flexShrink: 0 }} />
                     {clase.salaNombre}
                   </span>
@@ -420,16 +430,16 @@ export function HojaReserva({
                 hoja. Se omite entero si no hay nada que decir: ni "vas sola"
                 ni un hueco vacío. */}
             {quienVa && totalQuienVa > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18 }}>
+              <div className="ap-card" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '12px 14px' }}>
                 <div style={{ display: 'flex' }}>
                   {quienVa.companeras.slice(0, 4).map((c, i) => (
                     <span
                       key={c.socioId}
                       style={{
-                        width: 26, height: 26, borderRadius: '50%', background: t.surface2,
+                        width: 26, height: 26, borderRadius: '50%', background: '#EFEDE4',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 10.5, fontWeight: 700, color: t.ink, flexShrink: 0,
-                        border: `2px solid ${t.bg}`, marginLeft: i === 0 ? 0 : -9,
+                        fontSize: 10.5, fontWeight: 700, color: '#1A1A1A', flexShrink: 0,
+                        border: '2px solid #FAF9F5', marginLeft: i === 0 ? 0 : -9,
                       }}
                     >
                       {c.nombre.trim().charAt(0).toUpperCase()}
@@ -437,15 +447,15 @@ export function HojaReserva({
                   ))}
                   {quienVa.otrasSinNombre > 0 && (
                     <span style={{
-                      width: 26, height: 26, borderRadius: '50%', background: t.surface2, color: t.muted,
+                      width: 26, height: 26, borderRadius: '50%', background: '#EFEDE4', color: '#5A5A52',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700,
-                      flexShrink: 0, border: `2px solid ${t.bg}`, marginLeft: quienVa.companeras.length > 0 ? -9 : 0,
+                      flexShrink: 0, border: '2px solid #FAF9F5', marginLeft: quienVa.companeras.length > 0 ? -9 : 0,
                     }}>
                       +{quienVa.otrasSinNombre}
                     </span>
                   )}
                 </div>
-                <span style={{ ...texto.nota, color: t.muted }}>
+                <span style={{ fontFamily: sans, fontSize: 11, fontWeight: 400, color: '#5A5A52' }}>
                   {totalQuienVa} compañera{totalQuienVa === 1 ? '' : 's'} ya apuntada{totalQuienVa === 1 ? '' : 's'}
                 </span>
               </div>
@@ -458,13 +468,13 @@ export function HojaReserva({
               <div style={{ marginTop: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 999,
-                  background: semantic.warning.soft, color: warningColor,
-                  ...micro(9, 0.18, 700),
+                  background: '#F6EEDD', color: '#8A6A25',
+                  fontFamily: sans, fontSize: 9, fontWeight: 700, letterSpacing: '.18em', paddingLeft: '.18em', textTransform: 'uppercase',
                 }}>
                   <AlertTriangle size={12} />
                   Clase llena
                 </span>
-                <p style={{ ...texto.meta, color: t.muted, marginTop: 14, lineHeight: 1.5, maxWidth: 320 }}>
+                <p style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52', marginTop: 14, lineHeight: 1.5, maxWidth: 320 }}>
                   {clase.enEspera != null && clase.enEspera > 0
                     ? `Ya hay ${clase.enEspera} persona${clase.enEspera === 1 ? '' : 's'} en la lista de espera. Puedes unirte: te avisaremos si se libera un hueco.`
                     : 'Puedes unirte a la lista de espera. Te avisaremos si se libera un hueco.'}
@@ -472,9 +482,15 @@ export function HojaReserva({
               </div>
             ) : plazas.length > 0 && (
               <>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 26 }}>
-                  <span style={{ ...display(22), color: t.ink }}>Elige tu plaza</span>
-                  <AforoIndicator libres={libres} umbralUrgencia={2} style={{ fontSize: 11.5, fontWeight: 500 }} />
+                {/* Etiqueta mono (CHEATSHEET-CSS.md, `.ap-label`): "ELIGE TU
+                    PLAZA · SALA 2" — antes un h2 grande a juego con "Elige tu
+                    plaza" y el badge de plazas al lado; en las capturas
+                    reales ese badge vive junto al título de arriba y aquí
+                    solo hay una etiqueta pequeña. */}
+                <div style={{ marginTop: 26 }}>
+                  <span className="ap-label">
+                    Elige tu plaza{clase.salaNombre ? ` · ${clase.salaNombre}` : ''}
+                  </span>
                 </div>
                 {/* Grid 2D real: `gridColumn`/`gridRow` salen de fila/columna
                     reales de cada plaza (`Spot`, lib/types.ts), no de un
@@ -482,7 +498,7 @@ export function HojaReserva({
                     arbitrario. Una sala de 1 sola fila o 1 sola columna
                     simplemente ocupa 1 fila/columna de grid — sigue
                     funcionando sin ningún caso especial. */}
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columnasSala}, 1fr)`, gap: 8, marginTop: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columnasSala}, 1fr)`, gap: 8, marginTop: 10 }}>
                   {plazas.map(sp => {
                     const libre = !ocupados.has(sp.id);
                     const elegida = spotElegido === sp.id;
@@ -492,22 +508,26 @@ export function HojaReserva({
                         type="button"
                         disabled={!libre}
                         aria-pressed={elegida}
-                        aria-label={`Plaza ${sp.numero}${libre ? '' : ' (ocupada)'}`}
+                        aria-label={`Plaza ${sp.nombre}${libre ? '' : ' (ocupada)'}`}
                         onClick={() => setSpotElegido(elegida ? null : sp.id)}
                         style={{
                           gridColumn: sp.columna + 1,
                           gridRow: sp.fila + 1,
-                          height: 42, borderRadius: 14,
-                          border: elegida ? '1.5px solid var(--portal-brand)' : `1px solid ${t.line}`,
-                          background: libre ? t.surface : 'transparent',
-                          color: libre ? t.ink : t.micro,
-                          ...texto.nota, fontWeight: 500,
+                          height: 58, borderRadius: 14,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+                          border: elegida ? '1.5px solid #1A1A1A' : '1px solid #E5E3DA',
+                          background: elegida ? '#1A1A1A' : libre ? '#FFFFFF' : '#EFEDE4',
                           cursor: libre ? 'pointer' : 'default',
-                          opacity: libre ? 1 : 0.45,
+                          opacity: libre ? 1 : 0.75,
                           transition: transicion(['border-color', 'background'], dur.color),
                         }}
                       >
-                        {sp.numero}
+                        <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 800, color: elegida ? '#F1ECE1' : libre ? '#1A1A1A' : '#98A093' }}>
+                          {sp.nombre}
+                        </span>
+                        <span style={{ fontFamily: sans, fontSize: 9, fontWeight: 500, color: elegida ? 'rgba(241,236,225,.75)' : '#98A093' }}>
+                          {elegida ? 'tuyo' : libre ? 'libre' : 'ocupado'}
+                        </span>
                       </button>
                     );
                   })}
@@ -528,8 +548,8 @@ export function HojaReserva({
             }}>
               {clase.precio != null ? (
                 <>
-                  <div style={{ ...texto.metaFuerte, color: t.ink }}>Clase suelta · {clase.precio} €</div>
-                  <div style={{ ...texto.nota, color: t.muted, marginTop: 4 }}>Tu bono no cubre esta clase</div>
+                  <div style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 500, color: '#1A1A1A' }}>Clase suelta · {clase.precio} €</div>
+                  <div style={{ fontFamily: sans, fontSize: 11, fontWeight: 400, color: '#5A5A52', marginTop: 4 }}>Tu bono no cubre esta clase</div>
                 </>
               ) : (
                 <>
@@ -554,7 +574,7 @@ export function HojaReserva({
                 nunca un "12h" fijo. undefined = quien montó la hoja no la
                 calculó, y entonces no se dice nada en vez de inventar una. */}
             {clase.ventanaCancelacionHoras != null && (
-              <p style={{ ...texto.nota, color: t.muted, textAlign: 'center', marginTop: 10 }}>
+              <p style={{ fontFamily: sans, fontSize: 11, fontWeight: 400, color: '#5A5A52', textAlign: 'center', marginTop: 10 }}>
                 {clase.ventanaCancelacionHoras > 0
                   ? `Cancelación gratuita hasta ${clase.ventanaCancelacionHoras} h antes`
                   : 'Cancelación gratuita en cualquier momento'}
@@ -564,11 +584,11 @@ export function HojaReserva({
             {estado === 'error' && mensajeError && (
               <div role="alert" style={{
                 display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 16,
-                borderRadius: 14, padding: '11px 14px', background: semantic.danger.soft,
+                borderRadius: 14, padding: '11px 14px', background: '#F4E9E5',
               }}>
-                <AlertCircle size={15} style={{ color: dangerColor, flexShrink: 0, marginTop: 1 }} />
+                <AlertCircle size={15} style={{ color: '#C2503A', flexShrink: 0, marginTop: 1 }} />
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: dangerColor }}>{mensajeError}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#C2503A' }}>{mensajeError}</p>
                   {/* Si el fallo se arregla comprando, la salida va AQUÍ, en el
                       momento en que quiere reservar — no en otra pestaña que
                       tenga que encontrar sola. */}
@@ -578,7 +598,7 @@ export function HojaReserva({
                       onClick={onComprar}
                       style={{
                         marginTop: 8, background: 'none', border: 'none', padding: 0,
-                        fontSize: 13, fontWeight: 700, color: dangerColor,
+                        fontSize: 13, fontWeight: 700, color: '#C2503A',
                         textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer',
                       }}
                     >
@@ -611,7 +631,7 @@ export function HojaReserva({
             </button>
 
             {modoEspera && (
-              <p style={{ ...texto.nota, color: t.muted, textAlign: 'center', marginTop: 10 }}>
+              <p style={{ fontFamily: sans, fontSize: 11, fontWeight: 400, color: '#5A5A52', textAlign: 'center', marginTop: 10 }}>
                 Sin coste — solo reservas si se libera y tú confirmas.
               </p>
             )}

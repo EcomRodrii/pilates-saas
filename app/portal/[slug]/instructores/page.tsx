@@ -4,7 +4,6 @@ import { queImparten } from '@/lib/equipo';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useModo } from '@/lib/portal-modo';
 import { Users, ChevronRight } from 'lucide-react';
 
 function getInitials(nombre: string) {
@@ -19,26 +18,23 @@ function getInitials(nombre: string) {
 export default function InstructoresPage() {
   const { slug } = useParams<{ slug: string }>();
   const { instructores, sesiones, tiposClase } = useStudio();
-  const { t } = useModo();
 
   const instructoresActivos = queImparten(instructores);
-  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
-  const card: React.CSSProperties = { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 20 };
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ minHeight: '100%', background: 'var(--ap-fondo, #FAF9F5)', padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
-        <p style={microLabel}>Equipo</p>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: t.ink, marginTop: 4, textTransform: 'uppercase', letterSpacing: '-0.01em' }}>Nuestros instructores</h1>
+        <p className="ap-label">Equipo</p>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1A1A1A', marginTop: 4, textTransform: 'uppercase', letterSpacing: '-0.01em' }}>Nuestros instructores</h1>
       </div>
 
       {instructoresActivos.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 0', textAlign: 'center' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 18, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-            <Users size={24} style={{ color: t.muted }} />
+          <div style={{ width: 56, height: 56, borderRadius: 18, background: '#EFEDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+            <Users size={24} style={{ color: '#98A093' }} />
           </div>
-          <p style={{ fontWeight: 800, color: t.ink }}>Sin instructores disponibles</p>
-          <p style={{ fontSize: 14, color: t.muted, marginTop: 4 }}>El equipo se publicará próximamente</p>
+          <p style={{ fontWeight: 800, color: '#1A1A1A' }}>Sin instructores disponibles</p>
+          <p style={{ fontSize: 14, color: '#98A093', marginTop: 4 }}>El equipo se publicará próximamente</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
@@ -50,7 +46,8 @@ export default function InstructoresPage() {
             return (
               <div
                 key={instructor.id}
-                style={{ ...card, padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}
+                className="ap-card"
+                style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div
@@ -59,9 +56,9 @@ export default function InstructoresPage() {
                     {getInitials(instructor.nombre)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontWeight: 800, color: t.ink, fontSize: 15, lineHeight: 1.2 }}>{instructor.nombre}</p>
+                    <p style={{ fontWeight: 800, color: '#1A1A1A', fontSize: 15, lineHeight: 1.2 }}>{instructor.nombre}</p>
                     {instructor.email && (
-                      <p style={{ fontSize: 12, color: t.muted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{instructor.email}</p>
+                      <p style={{ fontSize: 12, color: '#98A093', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{instructor.email}</p>
                     )}
                   </div>
                 </div>
@@ -82,14 +79,14 @@ export default function InstructoresPage() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Link
                     href={`/portal/${slug}/instructores/${instructor.id}`}
-                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 14, border: `1px solid ${t.line}`, color: t.ink, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 14, border: '1px solid #E5E3DA', color: '#1A1A1A', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
                   >
                     <span>Su perfil</span>
                     <ChevronRight size={15} />
                   </Link>
                   <Link
                     href={`/portal/${slug}/clases`}
-                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 14, border: `1px solid ${t.heroAccent}4d`, color: t.heroAccent, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 14, border: '1px solid rgba(62,107,74,.3)', color: '#3E6B4A', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
                   >
                     <span>Ver clases</span>
                     <ChevronRight size={15} />

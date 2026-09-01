@@ -107,7 +107,6 @@ export default function PortalClaveNueva() {
         // 88 y no 100: la socia todavía tiene que elegir la clave. El hilo
         // llega al final cuando el trámite acaba, no cuando queda poco.
         progreso={guardada ? 100 : 88}
-        tamNombre={26}
       />
 
       <div

@@ -18,14 +18,16 @@
 //    portal es de un único estudio) — son datos reales de ESTE estudio.
 //  · El vacío sin resultados pierde el CTA "ampliar zona en 3km" del
 //    original (pensado para reserva pública multi-estudio, no aplica aquí).
+//
+// Estilo: valores LITERALES del kit "Tentare Studio App"
+// (app/portal/[slug]/portal-app.css), no los tokens de useModo()/portal-design
+// que usaba antes — mismo paso que ya se hizo en otras pantallas del portal.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Search, X, ChevronRight } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { useModo } from '@/lib/portal-modo';
-import type { ModoTokens } from '@/lib/portal-paleta';
-import { EASE, dur, sans, micro, texto, radio, altura } from '@/lib/portal-design';
+import { EASE, dur, sans } from '@/lib/portal-design';
 import {
   resultadosBusqueda, resultadosPopulares, inicialesDeResultado, type ResultadoBusqueda,
 } from '@/lib/portal-busqueda.ts';
@@ -39,7 +41,6 @@ interface BuscarOverlayProps {
 export function BuscarOverlay({ open, onClose }: BuscarOverlayProps) {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { t } = useModo();
   const { tiposClase, instructores, sesiones, reservas } = useStudio();
 
   // Mismo mecanismo que la transición de pantallas de portal-shell.tsx: se
@@ -115,7 +116,8 @@ export function BuscarOverlay({ open, onClose }: BuscarOverlayProps) {
       aria-modal="true"
       aria-label="Buscar"
       style={{
-        position: 'fixed', inset: 0, zIndex: 70, background: t.bg, color: t.ink,
+        position: 'fixed', inset: 0, zIndex: 70,
+        background: 'var(--ap-fondo, #FAF9F5)', color: 'var(--ap-tinta, #1A1A1A)',
         display: 'flex', flexDirection: 'column', fontFamily: sans,
         paddingTop: 'env(safe-area-inset-top)',
         opacity: visible ? 1 : 0,
@@ -124,14 +126,14 @@ export function BuscarOverlay({ open, onClose }: BuscarOverlayProps) {
         pointerEvents: visible ? 'auto' : 'none',
       }}
     >
-      {/* Cabecera: input + Cerrar, igual que el resto del portal (Input.tsx:
-          border 1.5px, 16px de fuente para que iOS no haga zoom al enfocar). */}
+      {/* Cabecera: input + Cerrar. El input lleva 16px de fuente para que iOS
+          no haga zoom al enfocar — no se toca, es funcional, no estético. */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0,
-        padding: '18px 20px 16px', borderBottom: `1px solid ${t.line}`,
+        padding: '18px 20px 16px',
       }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
-          <Search size={17} strokeWidth={1.9} style={{ position: 'absolute', left: 15, color: t.muted2, pointerEvents: 'none' }} aria-hidden />
+          <Search size={17} strokeWidth={1.9} style={{ position: 'absolute', left: 15, color: 'var(--ap-sec, #5A5A52)', pointerEvents: 'none' }} aria-hidden />
           <input
             ref={inputRef}
             value={query}
@@ -142,9 +144,9 @@ export function BuscarOverlay({ open, onClose }: BuscarOverlayProps) {
             enterKeyHint="search"
             aria-label="Buscar en el estudio"
             style={{
-              width: '100%', height: 48, borderRadius: 24, padding: '0 40px 0 40px', fontSize: 16,
-              minWidth: 0, border: `1.5px solid ${t.line}`, background: t.surface, color: t.ink,
-              outline: 'none', fontFamily: sans,
+              width: '100%', height: 48, borderRadius: 999, padding: '0 40px 0 40px', fontSize: 16,
+              minWidth: 0, border: '1.5px solid var(--ap-tinta, #1A1A1A)', background: 'var(--ap-card, #FFFFFF)',
+              color: 'var(--ap-tinta, #1A1A1A)', outline: 'none', fontFamily: sans,
             }}
           />
           {query && (
@@ -153,7 +155,8 @@ export function BuscarOverlay({ open, onClose }: BuscarOverlayProps) {
               onClick={() => { setQuery(''); inputRef.current?.focus(); }}
               style={{
                 position: 'absolute', right: 8, width: 26, height: 26, borderRadius: '50%', border: 'none',
-                background: t.surface2, color: t.muted, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'var(--ap-pill, #EFEDE4)', color: 'var(--ap-sec, #5A5A52)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', flexShrink: 0,
               }}
             >
@@ -163,7 +166,10 @@ export function BuscarOverlay({ open, onClose }: BuscarOverlayProps) {
         </div>
         <button
           type="button" onClick={onClose}
-          style={{ ...texto.botonCta, color: t.ink, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: '6px 2px' }}
+          style={{
+            fontFamily: sans, fontSize: 14.5, fontWeight: 700, color: 'var(--ap-tinta, #1A1A1A)',
+            background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: '6px 2px',
+          }}
         >
           Cerrar
         </button>
@@ -176,14 +182,15 @@ export function BuscarOverlay({ open, onClose }: BuscarOverlayProps) {
           <>
             {recientes.length > 0 && (
               <section style={{ marginBottom: 30 }}>
-                <p style={{ ...micro(9.5, 0.28), color: t.micro, marginBottom: 14 }}>Búsquedas recientes</p>
+                <p className="ap-label" style={{ marginBottom: 14 }}>Búsquedas recientes</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {recientes.map(q => (
                     <button
                       key={q} type="button" onClick={() => setQuery(q)}
                       style={{
-                        ...texto.metaFuerte, padding: '9px 15px', borderRadius: radio.pill,
-                        border: `1px solid ${t.line}`, background: t.surface, color: t.ink, cursor: 'pointer',
+                        fontFamily: sans, fontSize: 13, fontWeight: 700, padding: '9px 15px', borderRadius: 999,
+                        border: '1px solid var(--ap-borde, #E5E3DA)', background: 'var(--ap-card, #FFFFFF)',
+                        color: 'var(--ap-tinta, #1A1A1A)', cursor: 'pointer',
                       }}
                     >
                       {q}
@@ -195,40 +202,42 @@ export function BuscarOverlay({ open, onClose }: BuscarOverlayProps) {
 
             {populares.length > 0 && (
               <section>
-                <p style={{ ...micro(9.5, 0.28), color: t.micro, marginBottom: 6 }}>Popular en tu estudio</p>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <p className="ap-label" style={{ marginBottom: 8 }}>Popular en tu estudio</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {populares.map(r => (
-                    <FilaResultado key={`${r.tipo}-${r.id}`} r={r} onClick={() => irA(r)} t={t} tamIcono={42} />
+                    <FilaResultado key={`${r.tipo}-${r.id}`} r={r} onClick={() => irA(r)} tamIcono={60} />
                   ))}
                 </div>
               </section>
             )}
 
             {recientes.length === 0 && populares.length === 0 && (
-              <p style={{ ...texto.meta, color: t.muted, textAlign: 'center', marginTop: 40 }}>
+              <p style={{ fontFamily: sans, fontSize: 13, color: 'var(--ap-sec, #5A5A52)', textAlign: 'center', marginTop: 40 }}>
                 Busca una clase o una instructora por su nombre.
               </p>
             )}
           </>
         ) : (
           <>
-            <p style={{ ...micro(9.5, 0.28), color: t.micro, marginBottom: 6 }}>
+            <p className="ap-label" style={{ marginBottom: 8 }}>
               {resultados.length} {resultados.length === 1 ? 'resultado' : 'resultados'}
             </p>
             {resultados.length === 0 ? (
               <div style={{
-                border: `1.5px dashed ${t.line}`, borderRadius: radio.card, padding: '34px 22px',
+                border: '1.5px dashed var(--ap-borde, #E5E3DA)', borderRadius: 16, padding: '34px 22px',
                 textAlign: 'center', marginTop: 12,
               }}>
-                <p style={{ ...texto.metaFuerte, color: t.ink }}>Nada con «{qLimpia}» en este estudio</p>
-                <p style={{ ...texto.meta, color: t.muted, marginTop: 6 }}>
+                <p style={{ fontFamily: sans, fontSize: 13, fontWeight: 700, color: 'var(--ap-tinta, #1A1A1A)' }}>
+                  Nada con «{qLimpia}» en este estudio
+                </p>
+                <p style={{ fontFamily: sans, fontSize: 12, color: 'var(--ap-sec, #5A5A52)', marginTop: 6 }}>
                   Prueba con el nombre de una clase o de tu instructora.
                 </p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {resultados.map(r => (
-                  <FilaResultado key={`${r.tipo}-${r.id}`} r={r} onClick={() => irA(r)} t={t} tamIcono={38} />
+                  <FilaResultado key={`${r.tipo}-${r.id}`} r={r} onClick={() => irA(r)} tamIcono={52} />
                 ))}
               </div>
             )}
@@ -239,41 +248,46 @@ export function BuscarOverlay({ open, onClose }: BuscarOverlayProps) {
   );
 }
 
-function FilaResultado({ r, onClick, t, tamIcono }: {
-  r: ResultadoBusqueda; onClick: () => void; t: ModoTokens; tamIcono: number;
+function FilaResultado({ r, onClick, tamIcono }: {
+  r: ResultadoBusqueda; onClick: () => void; tamIcono: number;
 }) {
   return (
     <button
-      type="button" onClick={onClick}
+      type="button" onClick={onClick} className="ap-card"
       style={{
-        display: 'flex', alignItems: 'center', gap: 12, width: '100%', height: altura.fila,
-        background: 'none', border: 'none', borderBottom: `1px solid ${t.line}`,
-        cursor: 'pointer', textAlign: 'left', padding: '0 2px', fontFamily: sans,
+        display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+        padding: '12px 14px', cursor: 'pointer', textAlign: 'left', fontFamily: sans,
       }}
     >
       {r.fotoUrl ? (
-        <div style={{ width: tamIcono, height: tamIcono, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+        <div style={{ width: tamIcono, height: tamIcono, borderRadius: 14, overflow: 'hidden', flexShrink: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={r.fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         </div>
       ) : (
         <span style={{
-          width: tamIcono, height: tamIcono, borderRadius: '50%', flexShrink: 0,
-          background: r.color ? `${r.color}20` : t.surface2, color: r.color ?? t.ink,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
+          width: tamIcono, height: tamIcono, borderRadius: 14, flexShrink: 0,
+          background: r.color ? `${r.color}20` : 'var(--ap-pill, #EFEDE4)', color: r.color ?? 'var(--ap-tinta, #1A1A1A)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700,
         }}>
           {inicialesDeResultado(r.nombre)}
         </span>
       )}
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ ...texto.metaFuerte, color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{
+          fontSize: 15, fontWeight: 700, color: 'var(--ap-tinta, #1A1A1A)',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
           {r.nombre}
         </div>
-        <div style={{ ...texto.meta, color: t.muted, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{
+          fontSize: 12.5, color: 'var(--ap-sec, #5A5A52)', marginTop: 2,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
           {r.meta}
         </div>
       </div>
-      <ChevronRight size={16} style={{ color: t.muted2, flexShrink: 0 }} aria-hidden />
+      <ChevronRight size={16} style={{ color: 'var(--ap-ter, #98A093)', flexShrink: 0 }} aria-hidden />
     </button>
   );
 }

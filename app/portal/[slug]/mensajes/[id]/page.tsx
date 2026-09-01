@@ -16,19 +16,30 @@
 // `cuerpo` se pinta SIEMPRE como texto plano (React escapa por defecto; nunca
 // se usa dangerouslySetInnerHTML aquí) — mismo criterio que ya aplica el lado
 // staff para este mismo campo.
-
+//
+// Valores literales del kit real ("Tentare Studio App", docs/diseno-
+// referencia-portal/ — captura del hilo con Studio Alma): mismo `--ap-*`/hex
+// que ya usa `app/portal/[slug]/compras/page.tsx`, en vez de `useModo()`/
+// `lib/portal-tokens.ts`/`micro()`. `var(--portal-brand)` se conserva SOLO en
+// el avatar de mostrador (identidad del estudio, ver mensajeria-piezas.tsx).
+//
+// "suele responder en minutos" + punto verde bajo el nombre: la captura de
+// referencia lo muestra para el mostrador — es copy estático (mismo género
+// que "Mostrador · dudas y horarios", que ya era texto fijo, no un dato
+// calculado) y no una métrica de verdad, así que solo se pinta para el
+// mostrador. Para una instructora no hay ninguna captura de referencia ni
+// dato de tiempo de respuesta real: se deja su etiqueta tal cual, sin el
+// punto — inventarle "responde en minutos" sería un número sin respaldo.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { AlertCircle, ArrowLeft, MessageCircle, Store } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useCore } from '@/lib/core-context';
-import { useModo } from '@/lib/portal-modo';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { supabasePortalRealtime } from '@/lib/db/supabase-portal-realtime';
 import { portalAuthHeader } from '@/lib/api-client';
-import { semantic } from '@/lib/portal-tokens';
-import { sans, micro, EASE, dur } from '@/lib/portal-design';
+import { sans } from '@/lib/portal-design';
 import { EmptyState } from '@/components/portal/ui';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CompositorPortal, HiloMensajes, IndicadorEscribiendo } from '@/components/portal/mensajeria-piezas';
@@ -51,7 +62,6 @@ export default function HiloMensajePage() {
   const { slug, id } = useParams<{ slug: string; id: string }>();
   const { studio, instructores } = useStudio();
   const { barraClasica } = useCore();
-  const { t } = useModo();
   const studioId = studio?.id ?? null;
 
   const [authUserId, setAuthUserId] = useState<string | null>(null);
@@ -236,10 +246,16 @@ export default function HiloMensajePage() {
     ? (studio?.nombre ?? 'El estudio')
     : (instructora?.nombre ?? 'Tu instructora');
   // Fase 7 — de qué va esta conversación, no solo con quién es.
+  //
+  // El mostrador lleva el punto verde de la captura de referencia ("suele
+  // responder en minutos") — copy estático, no una métrica calculada (ver
+  // comentario de cabecera). Con instructora no hay captura ni dato real de
+  // tiempo de respuesta, así que se queda en la etiqueta de siempre, sin
+  // inventar una promesa que nadie mide.
   const contextoCabecera = conversacion === undefined
     ? ' '
     : esMostrador
-      ? 'Mostrador · dudas y horarios'
+      ? 'suele responder en minutos'
       : 'Tu instructora';
 
   // Autoscroll: solo si ya estábamos cerca del final (no interrumpe a quien
@@ -301,16 +317,16 @@ export default function HiloMensajePage() {
     : 0;
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: t.bg, color: t.ink, paddingBottom: huecoBarraFlotante }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#FAF9F5', color: '#1A1A1A', paddingBottom: huecoBarraFlotante }}>
       {/* ── Cabecera con contexto ────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '58px 16px 14px', borderBottom: `1px solid ${t.line}`, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '58px 16px 14px', borderBottom: '1px solid #E5E3DA', flexShrink: 0 }}>
         <Link
           href={`/portal/${slug}/mensajes`}
           aria-label="Volver a Mensajes"
           style={{
-            width: 38, height: 38, borderRadius: '50%', border: `1px solid ${t.line}`,
-            background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: t.ink, flexShrink: 0, transition: `background ${dur.color}ms ${EASE}`,
+            width: 38, height: 38, borderRadius: '50%', border: '1px solid #E5E3DA',
+            background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#1A1A1A', flexShrink: 0,
           }}
         >
           <ArrowLeft size={16} aria-hidden />
@@ -323,10 +339,20 @@ export default function HiloMensajePage() {
           <ProfileAvatar nombre={instructora?.nombre ?? '?'} color={instructora?.color} avatarId={instructora?.avatar} fotoUrl={instructora?.fotoUrl} size="md" />
         )}
         <div style={{ minWidth: 0 }}>
-          <p style={{ fontFamily: sans, fontSize: 15.5, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p style={{ fontFamily: sans, fontSize: 15.5, fontWeight: 800, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {conversacion === undefined ? 'Cargando…' : nombreCabecera}
           </p>
-          <p style={{ ...micro(8.5, 0.2, 700), color: t.micro, marginTop: 2 }}>{contextoCabecera}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+            {esMostrador && conversacion !== undefined && (
+              <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: '#3E6B4A', flexShrink: 0 }} />
+            )}
+            <p style={{
+              fontFamily: sans, fontSize: 11.5, fontWeight: 500,
+              color: esMostrador && conversacion !== undefined ? '#3E6B4A' : '#5A5A52',
+            }}>
+              {contextoCabecera}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -348,8 +374,8 @@ export default function HiloMensajePage() {
 
         {!error && mensajes === null && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} aria-hidden>
-            <div className="animate-pulse" style={{ height: 40, width: '60%', borderRadius: 20, background: t.surface2, alignSelf: 'flex-start' }} />
-            <div className="animate-pulse" style={{ height: 40, width: '45%', borderRadius: 20, background: t.surface2, alignSelf: 'flex-end' }} />
+            <div className="animate-pulse" style={{ height: 40, width: '60%', borderRadius: 20, background: '#EFEDE4', alignSelf: 'flex-start' }} />
+            <div className="animate-pulse" style={{ height: 40, width: '45%', borderRadius: 20, background: '#EFEDE4', alignSelf: 'flex-end' }} />
           </div>
         )}
 
@@ -383,7 +409,7 @@ export default function HiloMensajePage() {
         desplazamientoTeclado={teclado}
       />
       {errorEnvio && (
-        <p role="alert" style={{ fontFamily: sans, fontSize: 12, color: semantic.danger.text, padding: '0 16px 10px', background: t.bg }}>
+        <p role="alert" style={{ fontFamily: sans, fontSize: 12, color: '#C2503A', padding: '0 16px 10px', background: '#FAF9F5' }}>
           {errorEnvio}
         </p>
       )}

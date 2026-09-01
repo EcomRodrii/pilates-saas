@@ -7,11 +7,10 @@ import { montarPortal, SLUG } from './portal-mock';
 // antes de que existiera el kit de temas. Esto se escribió montando el estudio
 // con `kit: 'sereno'` como atajo y describiendo una pantalla dedicada
 // («Favoritas», acceso rápido de Inicio) que es EXCLUSIVA del kit — el Inicio
-// de siempre nunca tuvo ese acceso rápido (los cuatro reales son Mis
-// reservas/Mi progreso/Notificaciones/El equipo, ver
-// `accesosRapidosDe` en lib/portal-home-logic.ts, con el comentario explícito
-// de que cambiar cuáles son es decisión de producto). Lo que SÍ es núcleo y
-// se preserva aquí es el filtro «Favoritas» dentro de Clases.
+// de siempre nunca tuvo ese acceso rápido (el bloque "Accesos rápidos" con
+// Mis reservas/Mi progreso/Notificaciones/El equipo se retiró del todo del
+// Inicio el 31-ago, no está en el diseño real). Lo que SÍ es núcleo y se
+// preserva aquí es el filtro «Favoritas» dentro de Clases.
 //
 // ⚠️ El bug real que esto vigila: el corazón escribía el id de la SESIÓN en
 // `localStorage` y no llamaba a nadie. El backend (`/api/public/favoritos`)

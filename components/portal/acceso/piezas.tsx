@@ -16,7 +16,7 @@
 // los hex del tema Original como REFERENCIA, no como valores a escribir.
 
 import { useId } from 'react';
-import { EASE, dur, transicion, display, micro, texto, radio, altura, sombra } from '@/lib/portal-design';
+import { EASE, dur, transicion, micro, texto, radio, altura, sombra } from '@/lib/portal-design';
 import { useModo } from '@/lib/portal-modo';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 
@@ -53,9 +53,16 @@ export function entrada(orden: number): React.CSSProperties {
  *
  * `alto` cambia entre los dos pasos (300 → 212): la portada se retira para
  * dejar sitio, y esa retirada es la que cuenta que se ha avanzado.
+ *
+ * ⚠️ Una sola línea de identidad (nombre · ciudad), no dos — verificado contra
+ * las capturas reales: el prototipo nunca repite el nombre del estudio en
+ * grande encima de la foto (esa fue la lectura errónea de un handoff previo,
+ * que hardcodeaba la palabra "Pilates" en la línea mono y el nombre real
+ * debajo, en grande — con un estudio como "Studio Alma" se leía "Pilates ·
+ * Barcelona" / "Studio Alma", duplicando la identidad en dos tamaños).
  */
 export function PortadaAcceso({
-  alto, fotoUrl, nombre, ciudad, progreso, tamNombre,
+  alto, fotoUrl, nombre, ciudad, progreso,
 }: {
   alto: number;
   fotoUrl: string | null;
@@ -63,7 +70,6 @@ export function PortadaAcceso({
   ciudad?: string | null;
   /** 0–100. El hilo de arena del borde inferior. */
   progreso: number;
-  tamNombre: number;
 }) {
   const foto = imagenDeEstudio('portada', fotoUrl);
   return (
@@ -117,16 +123,7 @@ export function PortadaAcceso({
       />
       <div style={{ position: 'absolute', left: 30, right: 30, bottom: 26 }}>
         <p style={{ ...micro(9.5, 0.34), color: MARCA_FG }}>
-          Pilates{ciudad ? ` · ${ciudad}` : ''}
-        </p>
-        <p
-          style={{
-            ...display(tamNombre, false, 1.02),
-            color: '#F6F4EF', marginTop: 6,
-            transition: transicion(['font-size'], dur.portada),
-          }}
-        >
-          {nombre}
+          {nombre}{ciudad ? ` · ${ciudad}` : ''}
         </p>
       </div>
       <HiloProgreso progreso={progreso} />

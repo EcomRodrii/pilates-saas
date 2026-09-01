@@ -4,19 +4,34 @@
 //
 // Separadas de las dos pantallas (`app/portal/[slug]/mensajes/…`) por el mismo
 // motivo que en el panel: aquellas solo viven dentro de StudioProvider +
-// PortalAuthProvider + sesión de socia, y así el aspecto —modo día/noche, 375
-// a 430 px— se puede mirar en un navegador de verdad en vez de darlo por bueno
-// leyendo el JSX. `useModo` no necesita provider (es un hook con localStorage),
-// y el color del estudio entra por `--portal-brand`, que cascadea.
+// PortalAuthProvider + sesión de socia, y así el aspecto se puede mirar en un
+// navegador de verdad en vez de darlo por bueno leyendo el JSX. Todo el
+// movimiento usa la ÚNICA curva del portal (`EASE`) y las duraciones con
+// nombre de `lib/portal-design`. `cuerpo` va siempre como texto plano.
 //
-// Todo el movimiento usa la ÚNICA curva del portal (`EASE`) y las duraciones
-// con nombre de `lib/portal-design`. `cuerpo` va siempre como texto plano.
+// Valores literales del kit real ("Tentare Studio App", docs/diseno-
+// referencia-portal/ — hilo de conversación con Studio Alma), mismo idioma que
+// ya usa `app/portal/[slug]/compras/page.tsx`: `--ap-*`/hex en vez de
+// `useModo()`/`display()`/`micro()`/`texto.*`. `var(--portal-brand)` se
+// mantiene SOLO donde ya vivía — burbuja propia y botón de enviar activo—,
+// porque el portal sigue siendo white-label (`.claude/tentare-os.md`) y esos
+// dos son los únicos elementos realmente "de marca" de esta pantalla; el
+// resto (fondo, bordes, texto, burbuja recibida) es el mismo cream/tinta para
+// cualquier estudio, así que va literal. El acento de "sin leer"/leído usa el
+// verde literal del kit (`--ap-verde`), no la marca: mismo criterio que ya
+// documentaba la versión anterior sobre `t.heroAccent` — un oliva oscuro de
+// marca sobre un fondo oscuro se volvía casi invisible, y aquí no hace falta
+// ese cálculo porque el verde del kit ya está medido para AA sobre crema.
+//
+// `<Card>` (components/portal/ui) se sustituye por `className="ap-card"`
+// directo — mismo patrón que ya usan portal-clases-view.tsx/portal-perfil-
+// view.tsx tras su conversión: `<Card>` sigue viviendo en `useModo()` por
+// dentro (es un componente compartido, fuera de alcance aquí) y arrastraría
+// el sistema antiguo si se mantuviera.
 
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { ArrowUp, Check, CheckCheck } from 'lucide-react';
-import { useModo } from '@/lib/portal-modo';
-import { sans, texto, micro, EASE, dur } from '@/lib/portal-design';
-import { Card } from '@/components/portal/ui';
+import { sans, EASE, dur } from '@/lib/portal-design';
 import { agruparHilo, estadoEntrega, horaCorta, selloLista, unaLinea } from '@/lib/mensajeria/presentacion';
 import type { RowMensajes } from '@/lib/db-types';
 
@@ -37,66 +52,62 @@ export function FilaConversacionPortal({
   indice: number;
   onClick: () => void;
 }) {
-  const { t } = useModo();
   const preview = unaLinea(ultimoCuerpo, 74);
   return (
     <button
       type="button"
       onClick={onClick}
+      className="ap-card ap-anim-up"
       style={{
-        display: 'block', width: '100%', textAlign: 'left', background: 'none',
-        border: 'none', padding: 0, cursor: 'pointer',
-        // Entrada escalonada, con la ÚNICA curva del portal.
-        animation: `portal-rise-soft ${dur.card}ms ${EASE} ${Math.min(indice, 8) * 55}ms both`,
+        display: 'flex', width: '100%', textAlign: 'left', alignItems: 'center', gap: 13,
+        border: '1px solid #E5E3DA', background: '#FFFFFF', padding: 14, cursor: 'pointer',
+        // Entrada escalonada, mismo delay (55ms/fila) que ya usa la lista de
+        // clases de Horario (portal-clases-view.tsx) tras su conversión.
+        animationDelay: `${Math.min(indice, 8) * 55}ms`,
       }}
       aria-label={`Abrir conversación con ${nombre}${sinLeer ? ', con mensajes sin leer' : ''}`}
     >
-      <Card style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 13 }}>
-        {avatar}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-            <p style={{
-              fontFamily: sans, fontSize: 15, fontWeight: sinLeer ? 800 : 700, color: t.ink,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {nombre}
-            </p>
-            {/* ⚠️ El acento de "sin leer" va en `t.heroAccent`, NO en
-                `--portal-brand`. El color de marca del estudio es FIJO: no
-                cambia entre día y noche, así que un oliva oscuro (el de
-                Tentare, #343825) sobre el fondo de noche (#12140E) se queda
-                casi invisible — visto en el navegador con el modo noche
-                puesto. `heroAccent` es el acento del portal que sí gira con el
-                modo y está medido para AA sobre `bg`/`surface`
-                (lib/portal-paleta.ts). La marca sigue siendo la marca donde
-                ya lo era: burbuja propia, avatar del estudio y botones. */}
-            <span style={{
-              ...texto.nota, flexShrink: 0,
-              color: sinLeer ? t.heroAccent : t.muted,
-              fontWeight: sinLeer ? 700 : 400,
-            }}>
-              {selloLista(ultimoMensajeEn)}
-            </span>
-          </div>
-          <p style={{ ...micro(8.5, 0.2, 700), color: t.micro, marginTop: 3 }}>{contexto}</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-            <p style={{
-              ...texto.meta, flex: 1, minWidth: 0,
-              color: sinLeer ? t.ink : t.muted,
-              fontWeight: sinLeer ? 500 : 400,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {preview ? (mio ? `Tú: ${preview}` : preview) : 'Sin mensajes todavía'}
-            </p>
-            {sinLeer && (
-              <span
-                aria-hidden
-                style={{ width: 9, height: 9, borderRadius: 999, background: t.heroAccent, flexShrink: 0 }}
-              />
-            )}
-          </div>
+      {avatar}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+          <p style={{
+            fontFamily: sans, fontSize: 15, fontWeight: sinLeer ? 800 : 700, color: '#1A1A1A',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {nombre}
+          </p>
+          <span style={{
+            fontFamily: sans, fontSize: 11, flexShrink: 0,
+            color: sinLeer ? '#3E6B4A' : '#5A5A52',
+            fontWeight: sinLeer ? 700 : 400,
+          }}>
+            {selloLista(ultimoMensajeEn)}
+          </span>
         </div>
-      </Card>
+        <p style={{
+          fontFamily: 'ui-monospace, monospace', fontSize: 8.5, fontWeight: 700,
+          letterSpacing: '.2em', paddingLeft: '.2em', textTransform: 'uppercase',
+          color: '#98A093', marginTop: 3,
+        } as React.CSSProperties}>
+          {contexto}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <p style={{
+            fontFamily: sans, fontSize: 12.5, flex: 1, minWidth: 0,
+            color: sinLeer ? '#1A1A1A' : '#5A5A52',
+            fontWeight: sinLeer ? 500 : 400,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {preview ? (mio ? `Tú: ${preview}` : preview) : 'Sin mensajes todavía'}
+          </p>
+          {sinLeer && (
+            <span
+              aria-hidden
+              style={{ width: 9, height: 9, borderRadius: 999, background: '#3E6B4A', flexShrink: 0 }}
+            />
+          )}
+        </div>
+      </div>
     </button>
   );
 }
@@ -108,7 +119,6 @@ export function HiloMensajes({ mensajes, authUserId, leidoHastaOtros }: {
   authUserId: string | null;
   leidoHastaOtros: string | null | undefined;
 }) {
-  const { t } = useModo();
   const dias = useMemo(() => agruparHilo(mensajes), [mensajes]);
 
   // El ✓/✓✓ va SOLO en el último mensaje propio: en todos, el hilo se
@@ -124,9 +134,11 @@ export function HiloMensajes({ mensajes, authUserId, leidoHastaOtros }: {
           <div style={{ display: 'flex', justifyContent: 'center', margin: '14px 0 12px' }}>
             <span
               style={{
-                ...micro(9, 0.16, 700), color: t.muted, background: t.velo,
-                padding: '5px 12px', borderRadius: 999, border: `1px solid ${t.line}`,
-              }}
+                fontFamily: 'ui-monospace, monospace', fontSize: 9, fontWeight: 700,
+                letterSpacing: '.16em', paddingLeft: '.16em', textTransform: 'uppercase',
+                color: '#5A5A52', background: '#EFEDE4',
+                padding: '5px 12px', borderRadius: 999, border: '1px solid #E5E3DA',
+              } as React.CSSProperties}
             >
               {dia.etiqueta}
             </span>
@@ -135,7 +147,11 @@ export function HiloMensajes({ mensajes, authUserId, leidoHastaOtros }: {
           {dia.bloques.map(bloque => {
             const mio = bloque.remitenteAuthUserId === authUserId;
             const ultimo = bloque.items[bloque.items.length - 1];
-            const fondo = mio ? 'var(--portal-brand)' : t.surface2;
+            // La burbuja propia lleva el color de marca del estudio (portal
+            // white-label); la recibida es blanca con borde fino — el
+            // tratamiento exacto de la captura de referencia (burbujas del
+            // estudio, blancas y redondeadas, con un borde sutil).
+            const fondo = mio ? 'var(--portal-brand)' : '#FFFFFF';
             return (
               <div key={bloque.items[0].id} style={{ marginBottom: 12 }}>
                 {bloque.items.map(m => {
@@ -143,10 +159,10 @@ export function HiloMensajes({ mensajes, authUserId, leidoHastaOtros }: {
                   return (
                     <div
                       key={m.id}
+                      className="ap-anim-up"
                       style={{
                         display: 'flex', justifyContent: mio ? 'flex-end' : 'flex-start',
                         marginBottom: cola ? 0 : 3,
-                        animation: `portal-rise-soft ${dur.control}ms ${EASE} both`,
                       }}
                     >
                       <div style={{ position: 'relative', maxWidth: '80%' }}>
@@ -156,15 +172,8 @@ export function HiloMensajes({ mensajes, authUserId, leidoHastaOtros }: {
                             borderBottomRightRadius: mio && cola ? 6 : 20,
                             borderBottomLeftRadius: !mio && cola ? 6 : 20,
                             background: fondo,
-                            color: mio ? 'var(--portal-brand-foreground)' : t.ink,
-                            // ⚠️ La burbuja RECIBIDA lleva contorno. El color de
-                            // marca del estudio es libre, y con el oliva de
-                            // Tentare en modo noche (#343825) quedaba casi
-                            // idéntico a `surface2` (#242820): los dos lados de
-                            // la conversación se distinguían solo por la
-                            // alineación. Visto en el navegador; el contorno lo
-                            // separa sin depender de qué color elija el estudio.
-                            border: mio ? '1px solid transparent' : `1px solid ${t.line}`,
+                            color: mio ? 'var(--portal-brand-foreground)' : '#1A1A1A',
+                            border: mio ? '1px solid transparent' : '1px solid #E5E3DA',
                           }}
                         >
                           <p style={{ fontFamily: sans, fontSize: 15, lineHeight: 1.42, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
@@ -190,16 +199,13 @@ export function HiloMensajes({ mensajes, authUserId, leidoHastaOtros }: {
                 <div
                   style={{
                     display: 'flex', alignItems: 'center', gap: 4, marginTop: 5,
-                    justifyContent: mio ? 'flex-end' : 'flex-start', color: t.muted,
+                    justifyContent: mio ? 'flex-end' : 'flex-start', color: '#5A5A52',
                   }}
                 >
-                  <span style={{ ...texto.nota, color: t.muted }}>{horaCorta(ultimo.creado_en)}</span>
+                  <span style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52' }}>{horaCorta(ultimo.creado_en)}</span>
                   {ultimo.id === idUltimoMio && (
                     estadoEntrega(ultimo.creado_en, leidoHastaOtros) === 'leido'
-                      // Mismo motivo que el acento de "sin leer": este check
-                      // va sobre el FONDO de la pantalla, no sobre la burbuja,
-                      // así que necesita un color que gire con el modo.
-                      ? <CheckCheck size={13} style={{ color: t.heroAccent }} aria-label="Leído" />
+                      ? <CheckCheck size={13} style={{ color: '#3E6B4A' }} aria-label="Leído" />
                       : <Check size={13} aria-label="Enviado" />
                   )}
                 </div>
@@ -216,17 +222,15 @@ export function HiloMensajes({ mensajes, authUserId, leidoHastaOtros }: {
 //
 // Efímero, sobre el mismo canal Realtime del hilo (broadcast `typing`, sin
 // tabla ni persistencia — se pierde si nadie está conectado, y eso es
-// correcto). Misma burbuja RECIBIDA que `HiloMensajes` (t.surface2, alineada
-// a la izquierda, mismo radio/cola), con tres puntos que pulsan con la ÚNICA
-// curva del portal y una duración con nombre — nada de timings sueltos.
+// correcto). Misma burbuja RECIBIDA que `HiloMensajes` (blanca, borde fino,
+// alineada a la izquierda, mismo radio/cola), con tres puntos que pulsan con
+// `apPulse` (portal-app.css) — el mismo keyframe que ya usa el kit para "N
+// plazas" — en vez del `portal-breathe` a medida de antes.
 export function IndicadorEscribiendo() {
-  const { t } = useModo();
   return (
     <div
-      style={{
-        display: 'flex', justifyContent: 'flex-start', marginBottom: 12,
-        animation: `portal-rise-soft ${dur.control}ms ${EASE} both`,
-      }}
+      className="ap-anim-up"
+      style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}
     >
       <div style={{ position: 'relative', maxWidth: '80%' }}>
         <span className="sr-only">Escribiendo…</span>
@@ -234,16 +238,17 @@ export function IndicadorEscribiendo() {
           aria-hidden
           style={{
             padding: '14px 16px', borderRadius: 20, borderBottomLeftRadius: 6,
-            background: t.surface2, border: `1px solid ${t.line}`,
+            background: '#FFFFFF', border: '1px solid #E5E3DA',
             display: 'flex', alignItems: 'center', gap: 4,
           }}
         >
           {[0, 1, 2].map(i => (
             <span
               key={i}
+              className="ap-dot-pulse"
               style={{
-                width: 6, height: 6, borderRadius: 999, background: t.muted,
-                animation: `portal-breathe ${dur.washInner}ms ${EASE} ${(i * dur.washInner) / 6}ms infinite`,
+                width: 6, height: 6, borderRadius: 999, background: '#98A093',
+                animationDelay: `${i * 220}ms`,
               }}
             />
           ))}
@@ -251,7 +256,7 @@ export function IndicadorEscribiendo() {
         {/* Cola con `border`, no `clip-path`: mismo criterio que las burbujas de `HiloMensajes`. */}
         <span
           aria-hidden
-          style={{ position: 'absolute', bottom: 0, left: -5, width: 0, height: 0, borderRight: `7px solid ${t.surface2}`, borderBottom: '7px solid transparent' }}
+          style={{ position: 'absolute', bottom: 0, left: -5, width: 0, height: 0, borderRight: '7px solid #FFFFFF', borderBottom: '7px solid transparent' }}
         />
       </div>
     </div>
@@ -271,7 +276,6 @@ export function CompositorPortal({
   nombre: string;
   desplazamientoTeclado?: number;
 }) {
-  const { t } = useModo();
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const puedeEnviar = Boolean(valor.trim()) && !enviando && !deshabilitado;
 
@@ -296,7 +300,7 @@ export function CompositorPortal({
       style={{
         flexShrink: 0, display: 'flex', alignItems: 'flex-end', gap: 8,
         padding: '10px 12px calc(10px + env(safe-area-inset-bottom))',
-        borderTop: `1px solid ${t.line}`, background: t.bg,
+        borderTop: '1px solid #E5E3DA', background: '#FAF9F5',
         transform: desplazamientoTeclado > 0 ? `translateY(-${desplazamientoTeclado}px)` : undefined,
       }}
     >
@@ -313,7 +317,7 @@ export function CompositorPortal({
         disabled={deshabilitado || enviando}
         style={{
           flex: 1, resize: 'none', maxHeight: 132, minHeight: 46, overflowY: 'auto',
-          borderRadius: 23, border: `1.5px solid ${t.line}`, background: t.surface, color: t.ink,
+          borderRadius: 23, border: '1.5px solid #E5E3DA', background: '#FFFFFF', color: '#1A1A1A',
           padding: '12px 16px', fontFamily: sans, fontSize: 16, lineHeight: 1.3,
           opacity: enviando ? 0.6 : 1,
           transition: `border-color ${dur.foco}ms ${EASE}, opacity ${dur.color}ms ${EASE}`,
@@ -327,8 +331,8 @@ export function CompositorPortal({
         style={{
           width: 46, height: 46, borderRadius: '50%', border: 'none', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: puedeEnviar ? 'var(--portal-brand)' : t.surface2,
-          color: puedeEnviar ? 'var(--portal-brand-foreground)' : t.muted,
+          background: puedeEnviar ? 'var(--portal-brand)' : '#EFEDE4',
+          color: puedeEnviar ? 'var(--portal-brand-foreground)' : '#98A093',
           transform: puedeEnviar ? 'scale(1)' : 'scale(.9)',
           cursor: puedeEnviar ? 'pointer' : 'default',
           transition: `background ${dur.color}ms ${EASE}, transform ${dur.control}ms ${EASE}, color ${dur.color}ms ${EASE}`,

@@ -9,19 +9,14 @@
 // mostrando los estados vacíos reales de cada pestaña), pero se guarda igual
 // por si el estudio prueba con una sesión real desde otra pestaña del navegador.
 //
-// Rediseño (2026-08): esta pantalla vivía todavía en el sistema VIEJO
-// (`components/portal/ui/*`, `lib/portal-tokens.ts`) — tarjetas blancas
-// planas, pestañas grises genéricas, cero identidad de marca — mientras
-// /login y /acceso ya hablaban el lenguaje nuevo de `lib/portal-design.ts`
-// (serif display + cursiva como voz, cápsulas exactas, sombra siempre verde,
-// cristal con blur real). Aquí se migra a ese mismo lenguaje, tomando como
-// referencia directa los patrones YA en producción en PortalHomeView/
-// PortalClasesView (tarjeta de "Esta semana", chips de pestaña, tarjeta de
-// clase con bloque de fecha) en vez de inventar uno nuevo. `BottomSheet`/
-// `Card`/`Badge`/`Tabs`/`EmptyState` de `components/portal/ui` se dejan de
-// usar aquí — son el sistema saliente; `Toast` se conserva porque YA está
-// escrito sobre los tokens de `portal-design.ts` (EASE/dur), no sobre el
-// viejo.
+// Valores literales (2026-09): esta pantalla pasa del sistema de tokens
+// (`lib/portal-design.ts`, `useModo()`) al mismo sistema `--ap-*`/`.ap-*` de
+// `app/portal/[slug]/portal-app.css` que ya usan Inicio/Horario/Bonos/Perfil,
+// contra las capturas reales de "Tentare Studio App" — tarjeta de bono
+// literal calcada de `PortalBonosView` (mismo número 48px/800, misma barra
+// #EFEDE4/#4F8A5B), y el sheet de cancelación reemplaza al `BottomSheet`
+// genérico de `components/portal/ui` para no tener dos hojas con dos
+// lenguajes visuales distintos en la misma pantalla.
 //
 // ⚠️ El guard `studio?.requiereCheckinQr` de la tarjeta del pase es de HOY
 // (mismo día que este rediseño) — se conserva tal cual, sin tocar su
@@ -30,13 +25,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useModo } from '@/lib/portal-modo';
 import { Calendar, Clock, MapPin, MessageCircle, Navigation, QrCode, Star, User as UserIcon } from 'lucide-react';
 import type { Reserva, Sesion } from '@/lib/types';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { formatFechaCorta as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
-import { Toast, BottomSheet, Button, type AvisoToast } from '@/components/portal/ui';
-import { semantic } from '@/lib/portal-tokens';
+import { Toast, type AvisoToast } from '@/components/portal/ui';
 import { HojaPase, type DatosPase } from '@/components/portal/hoja-pase';
 import { HojaOfertaEspera, type OfertaEspera } from '@/components/portal/hoja-oferta-espera';
 import { BotonesCalendario } from '@/components/portal/botones-calendario';
@@ -46,9 +39,7 @@ import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
 import { bonoActivo, fechaLarga, DIAS } from '@/lib/bonos-portal';
 import { esCancelacionTardia, heredaOverride } from '@/lib/booking-logic';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
-import {
-  EASE, dur, transicion, display, micro, texto, radio, sombra, cristal, desenfoque, sans,
-} from '@/lib/portal-design';
+import { EASE, dur, sans, cristal } from '@/lib/portal-design';
 
 // Stub de "pedir pase" para preview: NO llama a la API real (socioId
 // ficticio, 404/error garantizado) — mismo criterio que PortalClasesView.
@@ -97,23 +88,22 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'ESPERA', label: 'Lista de espera' },
 ];
 
-/** Pastilla de estado — color semántico calibrado AA, forma de cápsula del sistema nuevo. */
-function EstadoPill({ estado, noche, t }: { estado: string; noche: boolean; t: ReturnType<typeof useModo>['t'] }) {
+/** Pastilla de estado — colores del bloque "Fila de clase"/badges del CHEATSHEET. */
+function EstadoPill({ estado }: { estado: string }) {
   const info = ESTADO_LABEL[estado] ?? ESTADO_LABEL.CANCELADA;
   const colores = {
-    success: { fg: noche ? semantic.success.textNoche : semantic.success.text, bg: semantic.success.soft },
-    warning: { fg: noche ? semantic.warning.textNoche : semantic.warning.text, bg: semantic.warning.soft },
-    danger: { fg: noche ? semantic.danger.textNoche : semantic.danger.text, bg: semantic.danger.soft },
-    neutral: { fg: t.muted, bg: t.surface2 },
+    success: { fg: '#2E5A3A', bg: '#EAF0E7' },
+    warning: { fg: '#8A6A25', bg: '#F6EEDD' },
+    danger: { fg: '#A04A3C', bg: '#F4E9E5' },
+    neutral: { fg: '#5A5A52', bg: '#EFEDE4' },
   }[info.tono];
   return (
     <span
       style={{
         display: 'inline-flex', alignItems: 'center', flexShrink: 0, whiteSpace: 'nowrap',
-        padding: '5px 11px', borderRadius: radio.pill,
-        ...micro(8.5, 0.2, 600),
-        color: colores.fg,
-        background: colores.bg,
+        padding: '5px 11px', borderRadius: 999,
+        fontFamily: 'ui-monospace, monospace', fontSize: 8.5, fontWeight: 600, letterSpacing: '.2em', paddingLeft: '.2em',
+        textTransform: 'uppercase', color: colores.fg, background: colores.bg,
       }}
     >
       {info.label}
@@ -123,43 +113,39 @@ function EstadoPill({ estado, noche, t }: { estado: string; noche: boolean; t: R
 
 /** Bloque de fecha a la izquierda de cada tarjeta: día de la semana + número, mismo lenguaje que las tarjetas de "Esta semana" del Inicio. */
 function BloqueFecha({ iso, apagado }: { iso: string; apagado: boolean }) {
-  const { t } = useModo();
   const d = new Date(iso);
   const diaSemana = d.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '').toUpperCase();
   return (
     <div style={{ flex: '0 0 44px', textAlign: 'center' }}>
-      <div style={{ ...micro(8.5, 0.2, 600), color: apagado ? t.micro : t.heroAccent, textAlign: 'center', paddingLeft: 0 }}>{diaSemana}</div>
-      <div style={{ ...display(28, false, 1), color: apagado ? t.muted2 : t.ink, marginTop: 4 }}>{d.getDate()}</div>
+      <div style={{
+        fontFamily: 'ui-monospace, monospace', fontSize: 8.5, fontWeight: 600, letterSpacing: '.2em', paddingLeft: '.2em',
+        textTransform: 'uppercase', color: apagado ? '#98A093' : '#3E6B4A', textAlign: 'center',
+      }}>
+        {diaSemana}
+      </div>
+      <div style={{ fontFamily: sans, fontSize: 22, fontWeight: 800, color: apagado ? '#98A093' : '#1A1A1A', marginTop: 4 }}>
+        {d.getDate()}
+      </div>
     </div>
   );
 }
 
-/** Estado vacío por pestaña, en el lenguaje nuevo: icono en círculo suave, titular serif, cuerpo sans, CTA cápsula si aplica. */
-function EstadoVacio({ title, body, cta, onCta, t }: {
+/** Estado vacío por pestaña: icono en círculo suave, titular bold, cuerpo sans, CTA cápsula si aplica. */
+function EstadoVacio({ title, body, cta, onCta }: {
   title: string; body: string; cta?: string; onCta?: () => void;
-  t: ReturnType<typeof useModo>['t'];
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '40px 24px', gap: 8 }}>
       <div style={{
         width: 52, height: 52, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: t.surface2, color: t.muted, marginBottom: 6,
+        background: '#EFEDE4', color: '#5A5A52', marginBottom: 6,
       }}>
         <Calendar size={20} strokeWidth={1.7} />
       </div>
-      <p style={{ ...display(21, true), color: t.ink }}>{title}</p>
-      <p style={{ ...texto.meta, color: t.muted, maxWidth: 240, lineHeight: 1.5 }}>{body}</p>
+      <p style={{ fontFamily: sans, fontSize: 18, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A' }}>{title}</p>
+      <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', maxWidth: 240, lineHeight: 1.5 }}>{body}</p>
       {cta && onCta && (
-        <button
-          type="button"
-          onClick={onCta}
-          style={{
-            marginTop: 14, height: 46, padding: '0 22px', borderRadius: 23, border: 'none',
-            background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-            ...texto.botonCta, boxShadow: sombra.botonClaro, cursor: 'pointer',
-            transition: transicion(['transform', 'box-shadow']),
-          }}
-        >
+        <button type="button" onClick={onCta} className="ap-btn ap-btn--primario" style={{ marginTop: 14, padding: '0 22px' }}>
           {cta}
         </button>
       )}
@@ -185,7 +171,6 @@ export function PortalReservasView({
     suscripciones, planesTarifa, plazasFijas, recibos,
     pausarPlazaFijaPropia, reanudarPlazaFijaPropia, darDeBajaPlazaFijaPropia,
   } = useStudio();
-  const { t, noche } = useModo();
   const [tab, setTab] = useState<Tab>('PROXIMAS');
   const [cancelando, setCancelando] = useState<Reserva | null>(null);
   // "Cambiar hora" (Gap 2): no hay reprogramación real — se reutiliza el
@@ -383,26 +368,25 @@ export function PortalReservasView({
   }
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg }}>
+    <div style={{ minHeight: '100%', background: 'var(--ap-fondo, #FAF9F5)' }}>
       {/* Cabecera — mismo par volanta/titular que el resto de pantallas
-          migradas: la micro-etiqueta cuenta el total, el titular serif dice
-          qué es esto, con la cursiva como voz, no como énfasis. */}
+          migradas: la micro-etiqueta cuenta el total, el titular dice qué es
+          esto. */}
       <div style={{ padding: '28px 24px 8px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ ...micro(9.5, 0.28), color: t.micro }}>
+          <div className="ap-label">
             {misReservas.length} {misReservas.length === 1 ? 'reserva en total' : 'reservas en total'}
           </div>
           {/* El texto exacto "Mis reservas" se conserva a propósito — es el
               ancla de accesibilidad que usan los e2e de esta pantalla
               (`portal-preview-perfil-reservas.spec.ts`,
-              `getByRole('heading', { name: 'Mis reservas' })`). La cursiva va
-              en el resto del titular, no en las dos palabras que hacen de id. */}
-          <h1 style={{ ...display(38), color: t.ink, marginTop: 10 }}>
-            Mis reservas<em style={{ fontStyle: 'italic' }}>.</em>
+              `getByRole('heading', { name: 'Mis reservas' })`). */}
+          <h1 style={{ fontFamily: sans, fontSize: 32, fontWeight: 800, letterSpacing: '-.035em', color: '#1A1A1A', marginTop: 10 }}>
+            Mis reservas
           </h1>
         </div>
-        {/* Gap 1 — acceso a Mensajes desde Reservas, mismo círculo de cristal
-            y punto de "sin leer" que usa la campana del Inicio (mismo hook,
+        {/* Gap 1 — acceso a Mensajes desde Reservas, mismo círculo con punto de
+            "sin leer" que usa la campana del Inicio (mismo hook,
             `useMensajesSinLeer`, cero contador inventado). */}
         <button
           type="button"
@@ -410,15 +394,14 @@ export function PortalReservasView({
           aria-label={mensajesSinLeer > 0 ? `Mensajes, ${mensajesSinLeer} sin leer` : 'Mensajes'}
           style={{
             position: 'relative', width: 40, height: 40, flex: '0 0 40px', marginTop: 4,
-            borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
-            background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: sombra.circulo, cursor: 'pointer',
-            transition: transicion(['transform']),
+            borderRadius: '50%', border: '1px solid #E5E3DA',
+            background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 6px 16px -8px rgba(26,26,26,.25)', cursor: 'pointer',
           }}
         >
-          <MessageCircle size={18} strokeWidth={1.9} style={{ color: t.ink }} />
+          <MessageCircle size={18} strokeWidth={1.9} style={{ color: '#1A1A1A' }} />
           {mensajesSinLeer > 0 && (
-            <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--portal-brand)' }} />
+            <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: '#4F8A5B' }} />
           )}
         </button>
       </div>
@@ -434,27 +417,26 @@ export function PortalReservasView({
           <button
             type="button"
             onClick={() => setPaseAbierto(true)}
+            className="ap-card"
             style={{
-              width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              marginBottom: 16, padding: '16px 16px 16px 14px', borderRadius: radio.card,
-              background: t.surface, boxShadow: sombra.cardInterna,
+              width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+              marginBottom: 16, padding: '16px 16px 16px 14px',
               display: 'flex', alignItems: 'center', gap: 12,
-              transition: transicion(['transform', 'box-shadow'], dur.card),
             }}
           >
             <div style={{
               width: 44, height: 44, borderRadius: 15, flexShrink: 0,
-              background: 'var(--portal-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <QrCode size={19} color="var(--portal-brand-foreground)" />
+              <QrCode size={19} color="#F1ECE1" />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ ...display(18, true), color: t.ink }}>Tu pase de acceso</p>
-              <p style={{ ...texto.nota, color: t.muted, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <p style={{ fontFamily: sans, fontSize: 15, fontWeight: 800, color: '#1A1A1A' }}>Tu pase de acceso</p>
+              <p style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {tiposClase.find(tc => tc.id === proximaClase.s.tipoClaseId)?.nombre ?? 'Clase'} · {formatFecha(proximaClase.s.inicio)} {formatHora(proximaClase.s.inicio)}
               </p>
             </div>
-            <span aria-hidden style={{ fontSize: 15, color: t.heroAccent, flexShrink: 0 }}>→</span>
+            <span aria-hidden style={{ fontSize: 15, color: '#3E6B4A', flexShrink: 0 }}>→</span>
           </button>
         )}
 
@@ -465,23 +447,34 @@ export function PortalReservasView({
             diseño lo pone en Reservas, no en una pantalla propia. */}
         {plaza && miPlazaFija && (
           <div style={{
-            marginBottom: 16, borderRadius: 'var(--portal-radius-card, 26px)',
-            background: noche ? t.surface2 : '#EEF0EA',
-            border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.14)'}`,
+            marginBottom: 16, borderRadius: 20,
+            background: '#EEF0EA', border: '1px solid rgba(44,53,44,.14)',
             padding: 24,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: t.ink }} />
-                <span style={{ ...micro(8.5, 0.24, 600), color: t.ink }}>Plaza fija</span>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#1A1A1A' }} />
+                <span style={{
+                  fontFamily: 'ui-monospace, monospace', fontSize: 8.5, fontWeight: 600, letterSpacing: '.24em',
+                  paddingLeft: '.24em', textTransform: 'uppercase', color: '#1A1A1A',
+                }}>
+                  Plaza fija
+                </span>
               </div>
               {miPlazaFija.estado === 'PAUSADA' && (
-                <span style={{ ...micro(8, 0.2, 700), color: t.muted }}>En pausa</span>
+                <span style={{
+                  fontFamily: 'ui-monospace, monospace', fontSize: 8, fontWeight: 700, letterSpacing: '.2em',
+                  paddingLeft: '.2em', textTransform: 'uppercase', color: '#5A5A52',
+                }}>
+                  En pausa
+                </span>
               )}
             </div>
-            <div style={{ ...display(27, true, 1.05), color: t.ink, marginTop: 10, opacity: miPlazaFija.estado === 'PAUSADA' ? 0.55 : 1 }}>{plaza.cuando}</div>
+            <div style={{ fontFamily: sans, fontSize: 26, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1.05, color: '#1A1A1A', marginTop: 10, opacity: miPlazaFija.estado === 'PAUSADA' ? 0.55 : 1 }}>
+              {plaza.cuando}
+            </div>
             {plaza.donde && (
-              <div style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, marginTop: 8 }}>{plaza.donde}</div>
+              <div style={{ fontFamily: sans, fontSize: 11.5, color: '#5A5A52', marginTop: 8 }}>{plaza.donde}</div>
             )}
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button
@@ -489,8 +482,8 @@ export function PortalReservasView({
                 onClick={() => void pausarOReanudar()}
                 disabled={procesandoPlaza}
                 style={{
-                  flex: 1, height: 38, borderRadius: 12, border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.2)'}`,
-                  background: 'none', color: t.ink, fontFamily: sans, fontSize: 11.5, fontWeight: 700,
+                  flex: 1, height: 38, borderRadius: 12, border: '1px solid rgba(44,53,44,.2)',
+                  background: 'none', color: '#1A1A1A', fontFamily: sans, fontSize: 11.5, fontWeight: 700,
                   cursor: procesandoPlaza ? 'default' : 'pointer', opacity: procesandoPlaza ? 0.6 : 1,
                 }}
               >
@@ -501,8 +494,8 @@ export function PortalReservasView({
                 onClick={() => setConfirmandoBaja(true)}
                 disabled={procesandoPlaza}
                 style={{
-                  flex: 1, height: 38, borderRadius: 12, border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.2)'}`,
-                  background: 'none', color: semantic.danger.text, fontFamily: sans, fontSize: 11.5, fontWeight: 700,
+                  flex: 1, height: 38, borderRadius: 12, border: '1px solid rgba(44,53,44,.2)',
+                  background: 'none', color: '#C2503A', fontFamily: sans, fontSize: 11.5, fontWeight: 700,
                   cursor: procesandoPlaza ? 'default' : 'pointer', opacity: procesandoPlaza ? 0.6 : 1,
                 }}
               >
@@ -512,53 +505,54 @@ export function PortalReservasView({
           </div>
         )}
 
-        {/* "Bono"/"Tu plan" — mismo bloque que PortalBonosView, condensado
-            (sin la lista expandida de bonos en cola: eso sigue siendo trabajo
-            de la pantalla dedicada, /bonos, enlazada desde "Comprar otro"). */}
+        {/* "Bono"/"Tu plan" — mismo bloque literal que PortalBonosView,
+            condensado (sin la lista expandida de bonos en cola: eso sigue
+            siendo trabajo de la pantalla dedicada, /bonos, enlazada desde
+            "Comprar otro"). */}
         {bono && (
-          <div style={{
-            marginBottom: 16, borderRadius: 'var(--portal-radius-card, 26px)', background: t.surface, padding: '22px 20px',
-            boxShadow: '0 18px 40px -28px rgba(34,42,30,.5)',
-          }}>
+          <div className="ap-card" style={{ marginBottom: 16, padding: '22px 20px' }}>
             {/* Cabecera: nombre + fecha (nunca "Activo" suelto) — verificado
                 contra capturas reales. La fecha absoluta (caduca 12 oct) va
                 arriba, junto al nombre; el texto de urgencia/caducado
                 (cuando aplica) baja a su propia línea bajo la barra. */}
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-              <div style={{ ...display(23), color: t.ink }}>
+              <div style={{ fontFamily: sans, fontSize: 15.5, fontWeight: 800, color: '#1A1A1A' }}>
                 {bono.bonos.length > 1 ? 'Tu saldo' : bono.nombre}
               </div>
               {bono.caducaEn && (
-                <div style={{ ...micro(8.5, 0.18, 600), color: t.muted, whiteSpace: 'nowrap' }}>
+                <div style={{
+                  fontFamily: 'ui-monospace, monospace', fontSize: 8.5, fontWeight: 600, letterSpacing: '.18em',
+                  paddingLeft: '.18em', textTransform: 'uppercase', color: '#5A5A52', whiteSpace: 'nowrap',
+                }}>
                   {bono.esMensual ? 'renueva' : 'caduca'} {fechaLarga(bono.caducaEn)}
                 </div>
               )}
             </div>
             {bono.totalSesiones != null && bono.totalRestantes != null ? (
               <>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 12 }}>
-                  <span style={{ ...display(34, false, 0.9), color: t.ink }}>{bono.totalRestantes}</span>
-                  <span style={{ fontFamily: sans, fontSize: 11.5, color: t.muted }}>de {bono.totalSesiones} sesiones</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 20 }}>
+                  <span style={{ fontFamily: sans, fontSize: 48, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', lineHeight: 0.9 }}>
+                    {bono.totalRestantes}
+                  </span>
+                  <span style={{ fontFamily: sans, fontSize: 12, color: '#5A5A52' }}>de {bono.totalSesiones} sesiones</span>
                 </div>
-                {/* Barra de progreso — verificado contra capturas reales:
-                    faltaba del todo, el saldo solo se leía como texto. */}
-                <div style={{ height: 6, borderRadius: 999, background: t.surface2, marginTop: 10, overflow: 'hidden' }}>
+                {/* CHEATSHEET-CSS.md, "Card bono": fondo #EFEDE4, relleno #4F8A5B. */}
+                <div style={{ height: 5, borderRadius: 999, background: '#EFEDE4', marginTop: 18, overflow: 'hidden' }}>
                   <div style={{
                     width: `${Math.max(0, Math.min(100, Math.round((bono.totalRestantes / bono.totalSesiones) * 100)))}%`,
                     height: '100%', borderRadius: 999,
-                    background: bono.caducado ? semantic.danger.text : bono.urgente ? semantic.warning.text : 'var(--portal-brand)',
+                    background: bono.caducado ? '#C2503A' : bono.urgente ? '#C99A3C' : '#4F8A5B',
+                    transition: 'width .6s',
                   }} />
                 </div>
               </>
             ) : (
-              <div style={{ ...display(20, true), color: t.ink, marginTop: 12 }}>Sesiones ilimitadas</div>
+              <div style={{ fontFamily: sans, fontSize: 20, fontWeight: 800, color: '#1A1A1A', marginTop: 20 }}>Sesiones ilimitadas</div>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
               <span style={{
                 fontFamily: sans, fontSize: 11, fontWeight: bono.urgente || bono.caducado ? 700 : 400,
-                color: bono.caducado
-                  ? (noche ? semantic.danger.textNoche : semantic.danger.text)
-                  : bono.urgente ? (noche ? semantic.warning.textNoche : semantic.warning.text) : t.muted,
+                color: bono.caducado ? '#C2503A' : bono.urgente ? '#C99A3C' : '#5A5A52',
               }}>
                 {bono.textoCaducidad ?? (bono.caducaEn ? '' : bono.esMensual ? 'Activo' : 'Sin fecha de caducidad')}
               </span>
@@ -567,7 +561,7 @@ export function PortalReservasView({
                 onClick={() => navegar(`/portal/${slug}/compras`)}
                 style={{
                   height: 36, padding: '0 16px', borderRadius: 999, border: 'none',
-                  background: 'none', color: t.heroAccent, fontFamily: sans, fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+                  background: 'none', color: '#3E6B4A', fontFamily: sans, fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
                 }}
               >
                 {bono.esMensual ? 'Gestionar mi plan' : 'Comprar otro →'}
@@ -583,30 +577,25 @@ export function PortalReservasView({
             inventar un dato. */}
         {pagos.length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase', marginBottom: 10 } as React.CSSProperties}>
-              Pagos
-            </h2>
-            <div style={{
-              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
-              padding: '4px 16px', boxShadow: sombra.cardSemana,
-            }}>
+            <div className="ap-label" style={{ marginBottom: 10 }}>Pagos</div>
+            <div className="ap-card" style={{ padding: '4px 16px' }}>
               {pagos.map((r, i) => (
                 <div
                   key={r.id}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 0',
-                    borderTop: i > 0 ? `1px solid ${t.line}` : undefined,
+                    borderTop: i > 0 ? '1px solid #E5E3DA' : undefined,
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ ...texto.metaFuerte, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 700, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {r.concepto}
                     </div>
-                    <div style={{ ...texto.nota, color: t.muted, marginTop: 2 }}>
+                    <div style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', marginTop: 2 }}>
                       {fechaLarga(r.fechaCobro as string)}
                     </div>
                   </div>
-                  <span style={{ ...texto.metaFuerte, color: t.ink, whiteSpace: 'nowrap' }}>{r.importe} €</span>
+                  <span style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 700, color: '#1A1A1A', whiteSpace: 'nowrap' }}>{r.importe} €</span>
                 </div>
               ))}
             </div>
@@ -632,13 +621,12 @@ export function PortalReservasView({
                 type="button"
                 onClick={() => setTab(id)}
                 style={{
-                  flex: '0 0 auto', height: 40, padding: '0 16px', borderRadius: radio.pill,
-                  background: activo ? 'var(--portal-brand)' : (noche ? 'rgba(28,31,23,.7)' : 'rgba(255,255,255,.7)'),
-                  color: activo ? 'var(--portal-brand-foreground)' : t.muted2,
-                  border: `1px solid ${activo ? 'transparent' : t.line}`,
-                  ...texto.tab, textTransform: 'none', letterSpacing: 0,
+                  flex: '0 0 auto', height: 40, padding: '0 16px', borderRadius: 999,
+                  background: activo ? '#1A1A1A' : '#FFFFFF',
+                  color: activo ? '#F1ECE1' : '#5A5A52',
+                  border: `1px solid ${activo ? 'transparent' : '#E5E3DA'}`,
+                  fontFamily: sans, fontSize: 12.5, fontWeight: 600,
                   whiteSpace: 'nowrap', cursor: 'pointer',
-                  transition: transicion(['background', 'color'], dur.color),
                 }}
               >
                 {label}{n > 0 ? ` (${n})` : ''}
@@ -655,29 +643,21 @@ export function PortalReservasView({
           // ti..."), no el estado vacío genérico de las otras tres pestañas
           // (esas sí conservan `EstadoVacio` — el diseño no las cubre).
           <div style={{
-            border: `1.5px dashed ${t.line}`, borderRadius: radio.card, padding: '28px 24px',
+            border: '1.5px dashed #E5E3DA', borderRadius: 16, padding: '28px 24px',
             textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
           }}>
-            <p style={{ ...display(19, true), color: t.ink }}>No tienes clases próximas</p>
-            <p style={{ ...texto.meta, color: t.muted, lineHeight: 1.5 }}>
+            <p style={{ fontFamily: sans, fontSize: 17, fontWeight: 800, color: '#1A1A1A' }}>No tienes clases próximas</p>
+            <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', lineHeight: 1.5 }}>
               {clasesHoyConBono > 0
                 ? `Hay ${clasesHoyConBono} ${clasesHoyConBono === 1 ? 'clase hoy' : 'clases hoy'} cerca de ti que ${clasesHoyConBono === 1 ? 'encaja' : 'encajan'} con tu bono.`
                 : 'Mira los horarios de esta semana y reserva tu próxima sesión.'}
             </p>
-            <button
-              type="button"
-              onClick={() => navegar(`/portal/${slug}/clases`)}
-              style={{
-                marginTop: 8, height: 44, padding: '0 22px', borderRadius: 22, border: 'none',
-                background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-                ...texto.botonCta, fontSize: 13, boxShadow: sombra.botonClaro, cursor: 'pointer',
-              }}
-            >
+            <button type="button" onClick={() => navegar(`/portal/${slug}/clases`)} className="ap-btn ap-btn--primario" style={{ marginTop: 8, height: 44, padding: '0 22px', fontSize: 13 }}>
               {clasesHoyConBono > 0 ? 'Verlas' : 'Ver horarios'}
             </button>
           </div>
         ) : lista.length === 0 ? (
-          <EstadoVacio {...EMPTY_COPY[tab]} t={t} />
+          <EstadoVacio {...EMPTY_COPY[tab]} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {lista.map(({ r, s }) => {
@@ -687,28 +667,24 @@ export function PortalReservasView({
               const puedeCancel = r.estado === 'CONFIRMADA' && new Date(s.inicio) > now;
               const apagado = r.estado === 'CANCELADA' || r.estado === 'NO_ASISTIO' || (r.estado !== 'LISTA_ESPERA' && new Date(s.inicio) < now);
               return (
-                <div
-                  key={r.id}
-                  style={{
-                    borderRadius: radio.card, padding: 18,
-                    background: t.surface, boxShadow: sombra.cardInterna,
-                    opacity: apagado ? 0.72 : 1,
-                  }}
-                >
+                <div key={r.id} className="ap-card" style={{ padding: 18, opacity: apagado ? 0.72 : 1 }}>
                   <div style={{ display: 'flex', gap: 16 }}>
                     <BloqueFecha iso={s.inicio} apagado={apagado} />
-                    <div style={{ width: 1, background: t.line, flexShrink: 0 }} />
+                    <div style={{ width: 1, background: '#E5E3DA', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                        <div style={{ ...display(20, false, 1.15), color: apagado ? t.muted2 : t.ink, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{
+                          fontFamily: sans, fontSize: 15, fontWeight: 800, letterSpacing: '-.01em', lineHeight: 1.15,
+                          color: apagado ? '#98A093' : '#1A1A1A', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
                           {tipo?.nombre ?? 'Clase'}
                         </div>
-                        <EstadoPill estado={r.estado} noche={noche} t={t} />
+                        <EstadoPill estado={r.estado} />
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, ...texto.nota, color: t.muted }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontFamily: sans, fontSize: 11, color: '#5A5A52' }}>
                         <Clock size={11} /> {formatHora(s.inicio)}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8, ...texto.nota, color: t.muted2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8, fontFamily: sans, fontSize: 11, color: '#98A093' }}>
                         {instr && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><UserIcon size={11} />{instr.nombre}</span>}
                         {sala && <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><MapPin size={11} />{sala.nombre}</span>}
                       </div>
@@ -729,9 +705,8 @@ export function PortalReservasView({
                       onClick={() => setOfertaOcultaId(null)}
                       style={{
                         width: '100%', height: 42, marginTop: 14, borderRadius: 21, border: 'none',
-                        background: noche ? 'rgba(224,148,43,.14)' : semantic.warning.soft,
-                        color: noche ? semantic.warning.textNoche : semantic.warning.text,
-                        ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
+                        background: '#F6EEDD', color: '#8A6A25',
+                        fontFamily: sans, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                       }}
                     >
                       Se ha liberado una plaza — ver oferta
@@ -745,11 +720,11 @@ export function PortalReservasView({
                       omite mientras hay una oferta viva: en ese momento ya no
                       está "en cola", se le está ofreciendo el hueco. */}
                   {r.estado === 'LISTA_ESPERA' && r.posicionEspera != null && !r.ofertaExpiraEn && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, ...texto.nota, color: t.muted2 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontFamily: sans, fontSize: 11, color: '#98A093' }}>
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        minWidth: 20, height: 20, padding: '0 6px', borderRadius: radio.pill,
-                        background: t.surface2, ...micro(9.5, 0.1, 700), color: t.muted,
+                        minWidth: 20, height: 20, padding: '0 6px', borderRadius: 999,
+                        background: '#EFEDE4', fontSize: 9.5, fontWeight: 700, color: '#5A5A52',
                       }}>
                         #{r.posicionEspera}
                       </span>
@@ -766,7 +741,7 @@ export function PortalReservasView({
                       criterio "sin edición" que el resto de valoraciones del
                       producto (0044). */}
                   {r.estado === 'ASISTIDA' && (
-                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${t.line}` }}>
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #E5E3DA' }}>
                       {r.valoracionExperiencia != null ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ display: 'flex', gap: 2 }} aria-hidden>
@@ -775,16 +750,16 @@ export function PortalReservasView({
                                 key={n}
                                 size={16}
                                 strokeWidth={1.7}
-                                fill={n <= (r.valoracionExperiencia as number) ? 'var(--portal-brand)' : 'none'}
-                                style={{ color: n <= (r.valoracionExperiencia as number) ? 'var(--portal-brand)' : t.muted2 }}
+                                fill={n <= (r.valoracionExperiencia as number) ? '#4F8A5B' : 'none'}
+                                style={{ color: n <= (r.valoracionExperiencia as number) ? '#4F8A5B' : '#98A093' }}
                               />
                             ))}
                           </div>
-                          <span style={{ ...texto.nota, color: t.muted }}>Ya has valorado esta clase</span>
+                          <span style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52' }}>Ya has valorado esta clase</span>
                         </div>
                       ) : (
                         <div>
-                          <p style={{ ...texto.nota, color: t.muted, marginBottom: 8 }}>¿Qué tal la clase?</p>
+                          <p style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', marginBottom: 8 }}>¿Qué tal la clase?</p>
                           <div role="group" aria-label="Valorar esta clase" style={{ display: 'flex', gap: 4 }}>
                             {[1, 2, 3, 4, 5].map(n => (
                               <button
@@ -798,7 +773,7 @@ export function PortalReservasView({
                                   opacity: valorandoId === r.id ? 0.5 : 1,
                                 }}
                               >
-                                <Star size={22} strokeWidth={1.6} style={{ color: t.muted2 }} />
+                                <Star size={22} strokeWidth={1.6} style={{ color: '#98A093' }} />
                               </button>
                             ))}
                           </div>
@@ -821,10 +796,10 @@ export function PortalReservasView({
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{
-                            flex: 1, height: 42, borderRadius: 21, border: `1px solid ${t.line}`,
-                            background: 'transparent', color: t.ink, textDecoration: 'none',
+                            flex: 1, height: 42, borderRadius: 21, border: '1px solid #E5E3DA',
+                            background: 'transparent', color: '#1A1A1A', textDecoration: 'none',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                            ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
+                            fontFamily: sans, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                           }}
                         >
                           <Navigation size={13} /> Cómo llegar
@@ -834,10 +809,10 @@ export function PortalReservasView({
                         type="button"
                         onClick={() => { setCambiandoHora(true); setCancelando(r); }}
                         style={{
-                          flex: 1, height: 42, borderRadius: 21, border: `1px solid ${t.line}`,
-                          background: 'transparent', color: t.ink,
+                          flex: 1, height: 42, borderRadius: 21, border: '1px solid #E5E3DA',
+                          background: 'transparent', color: '#1A1A1A',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                          ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
+                          fontFamily: sans, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                         }}
                       >
                         <Clock size={13} /> Cambiar hora
@@ -869,7 +844,6 @@ export function PortalReservasView({
                           estudioNombre: studio?.nombre ?? 'Tu estudio',
                           estudioDireccion: [studio?.direccion, studio?.ciudad].filter(Boolean).join(', '),
                         }}
-                        t={t}
                       />
                     </div>
                   )}
@@ -880,9 +854,8 @@ export function PortalReservasView({
                       onClick={() => { setCambiandoHora(false); setCancelando(r); }}
                       style={{
                         width: '100%', height: 42, marginTop: 14, borderRadius: 21, border: 'none',
-                        background: noche ? 'rgba(232,106,95,.12)' : semantic.danger.soft,
-                        color: noche ? semantic.danger.textNoche : semantic.danger.text,
-                        ...texto.metaFuerte, fontSize: 12.5, cursor: 'pointer',
+                        background: '#F4E9E5', color: '#A04A3C',
+                        fontFamily: sans, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                       }}
                     >
                       Cancelar reserva
@@ -896,40 +869,39 @@ export function PortalReservasView({
       </div>
 
       {/* Hoja de cristal de confirmación — mismo lenguaje que HojaPase: fondo
-          desenfocado real, cápsula de 34 de radio, sombra tirada de verde
-          oscuro. Reemplaza el BottomSheet genérico del sistema saliente. */}
+          desenfocado real, radio 24px arriba, sombra del bloque "Bottom
+          sheet" del CHEATSHEET. */}
       <div
         onClick={() => { setCancelando(null); setCambiandoHora(false); }}
         aria-hidden
         style={{
           position: 'fixed', inset: 0, zIndex: 40,
           opacity: cancelando ? 1 : 0, pointerEvents: cancelando ? 'auto' : 'none',
-          background: noche ? 'rgba(8,9,6,.44)' : 'rgba(34,38,31,.24)',
-          ...cristal(desenfoque.backdrop, 120),
+          background: 'rgba(15,15,15,.42)',
+          ...cristal(18, 120),
           transition: `opacity ${dur.tab}ms ${EASE}`,
         }}
       />
       <div
         role="dialog"
         aria-modal={!!cancelando}
+        aria-hidden={!cancelando}
         aria-label={cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
         style={{
-          position: 'fixed', left: 12, right: 12, bottom: 12, zIndex: 41,
-          maxWidth: 456, margin: '0 auto',
-          background: t.bg, borderRadius: radio.hoja,
-          border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.8)'}`,
-          boxShadow: sombra.sheet, padding: '16px 26px calc(26px + env(safe-area-inset-bottom))',
+          position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
+          background: '#FAF9F5', borderRadius: '24px 24px 0 0',
+          boxShadow: '0 -18px 50px rgba(15,15,15,.25)', padding: '16px 26px calc(26px + env(safe-area-inset-bottom))',
           opacity: cancelando ? 1 : 0,
           pointerEvents: cancelando ? 'auto' : 'none',
           transform: cancelando ? 'translateY(0) scale(1)' : 'translateY(114%) scale(.98)',
           transition: `transform ${dur.sheet}ms ${EASE}, opacity 500ms ease`,
         }}
       >
-        <div style={{ width: 40, height: 4, borderRadius: 4, background: noche ? '#3A3F33' : '#D8D4C9', margin: '0 auto 20px' }} />
-        <h2 style={{ ...display(26, true), color: t.ink, textAlign: 'center' }}>
+        <div style={{ width: 34, height: 4, borderRadius: 4, background: '#D9D6C9', margin: '0 auto 20px' }} />
+        <h2 style={{ fontFamily: sans, fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', textAlign: 'center' }}>
           {cambiandoHora ? '¿Cambiar de hora?' : '¿Cancelar esta clase?'}
         </h2>
-        <p style={{ ...texto.meta, color: t.muted, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+        <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
           {(() => {
             if (cambiandoHora) return 'No podemos moverte de hora automáticamente: cancelamos esta y te llevamos a elegir otra que te venga mejor.';
             if (cancelando?.id.startsWith('res-pf-')) return 'Es tu plaza fija: te guardaremos una recuperación para que la uses otro día. Liberas el hueco para otra socia.';
@@ -951,8 +923,8 @@ export function PortalReservasView({
             type="button"
             onClick={() => { setCancelando(null); setCambiandoHora(false); }}
             style={{
-              flex: 1, height: 54, borderRadius: 27, border: `1px solid ${t.line}`,
-              background: 'transparent', color: t.ink, ...texto.botonCta, fontSize: 14, cursor: 'pointer',
+              flex: 1, height: 54, borderRadius: 27, border: '1px solid #E5E3DA',
+              background: 'transparent', color: '#1A1A1A', fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
             }}
           >
             Volver
@@ -979,9 +951,8 @@ export function PortalReservasView({
             }}
             style={{
               flex: 1, height: 54, borderRadius: 27, border: 'none',
-              background: noche ? 'rgba(232,106,95,.14)' : semantic.danger.soft,
-              color: noche ? semantic.danger.textNoche : semantic.danger.text,
-              ...texto.botonCta, fontSize: 14, cursor: 'pointer',
+              background: '#F4E9E5', color: '#A04A3C',
+              fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
             }}
           >
             {cambiandoHora ? 'Sí, cancelar y elegir otra' : 'Sí, cancelar'}
@@ -1014,16 +985,70 @@ export function PortalReservasView({
         onError={mensaje => setAviso({ texto: mensaje, error: true })}
       />
 
-      <BottomSheet open={confirmandoBaja} onClose={() => setConfirmandoBaja(false)}>
-        <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Dar de baja tu plaza fija?</h2>
-        <p style={{ fontSize: 13, color: t.muted }}>
-          Dejará de reservarte el hueco cada semana. Las clases ya reservadas no se tocan.
-        </p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="secondary" onClick={() => setConfirmandoBaja(false)} style={{ flex: 1 }}>Volver</Button>
-          <Button variant="danger" onClick={() => void confirmarBajaPlaza()} style={{ flex: 1 }}>Sí, dar de baja</Button>
-        </div>
-      </BottomSheet>
+      {/* Confirmar baja de plaza fija — mismo lenguaje literal que la hoja de
+          cancelación de arriba, en vez del `BottomSheet` genérico del
+          sistema saliente.
+          ⚠️ A diferencia de cancelando/cambiandoHora (entrada/salida animada,
+          patrón ya establecido en HojaPase), este se monta/desmonta con la
+          propia condición — SIN transición — igual que el BottomSheet
+          original al que sustituye (`if (!open) return null`): un sheet
+          siempre montado con solo opacidad/pointer-events rompe
+          `getByText(...).toHaveCount(0)`, que es justo lo que comprueba el
+          test que ya cubre este flujo. */}
+      {confirmandoBaja && (
+        <>
+          <div
+            onClick={() => setConfirmandoBaja(false)}
+            aria-hidden
+            style={{
+              position: 'fixed', inset: 0, zIndex: 40,
+              background: 'rgba(15,15,15,.42)',
+              ...cristal(18, 120),
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal
+            aria-label="¿Dar de baja tu plaza fija?"
+            style={{
+              position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
+              background: '#FAF9F5', borderRadius: '24px 24px 0 0',
+              boxShadow: '0 -18px 50px rgba(15,15,15,.25)', padding: '16px 26px calc(26px + env(safe-area-inset-bottom))',
+            }}
+          >
+            <div style={{ width: 34, height: 4, borderRadius: 4, background: '#D9D6C9', margin: '0 auto 20px' }} />
+            <h2 style={{ fontFamily: sans, fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', textAlign: 'center' }}>
+              ¿Dar de baja tu plaza fija?
+            </h2>
+            <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+              Dejará de reservarte el hueco cada semana. Las clases ya reservadas no se tocan.
+            </p>
+            <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+              <button
+                type="button"
+                onClick={() => setConfirmandoBaja(false)}
+                style={{
+                  flex: 1, height: 54, borderRadius: 27, border: '1px solid #E5E3DA',
+                  background: 'transparent', color: '#1A1A1A', fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmarBajaPlaza()}
+                style={{
+                  flex: 1, height: 54, borderRadius: 27, border: 'none',
+                  background: '#F4E9E5', color: '#A04A3C',
+                  fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Sí, dar de baja
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
     </div>

@@ -81,16 +81,14 @@ test.describe('Portal — Perfil', () => {
     await expect(page.getByRole('button', { name: 'Guardar' })).toBeVisible();
   });
 
-  test('el interruptor día/noche sigue estando, aunque el lienzo no lo dibuje', async ({ page }) => {
-    // Es un switch, no una fila que navega: se declara como tal y enseña su
-    // estado en vez de una flecha que no lleva a ningún sitio.
-    const modo = page.getByRole('switch', { name: /Aspecto/ });
-    await expect(modo).toBeVisible();
-    await expect(modo).toHaveAttribute('aria-checked', 'false');
-    await expect(modo).toContainText('Día');
-    await modo.click();
-    await expect(modo).toHaveAttribute('aria-checked', 'true');
-    await expect(modo).toContainText('Noche');
+  test('el modo noche está retirado — sin interruptor "Aspecto"', async ({ page }) => {
+    // Retirado 2026-09: el toggle había quedado a medias (solo Nav/Inicio/
+    // Horario/Perfil/oferta-de-espera respondían al cambio, el resto de la
+    // app se quedaba clara igual) — un interruptor que solo cambia una parte
+    // de la app es peor que no tenerlo. Reemplaza al test anterior, que
+    // fijaba justo el switch ahora retirado.
+    await expect(page.getByRole('switch', { name: /Aspecto/ })).toHaveCount(0);
+    await expect(page.getByText('Aspecto', { exact: true })).toHaveCount(0);
   });
 
   test('«El estudio» informa, y no promete una flecha que no lleva a nada', async ({ page }) => {

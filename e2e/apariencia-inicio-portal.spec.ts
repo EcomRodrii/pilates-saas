@@ -27,7 +27,6 @@ function json(route: Route, body: unknown, status = 200) {
 
 const BLOQUES_HOME_DEFAULT = [
   { id: 'sistema-estaSemana', kind: 'sistema', sistemaId: 'estaSemana' },
-  { id: 'sistema-accesosRapidos', kind: 'sistema', sistemaId: 'accesosRapidos' },
   { id: 'sistema-invitarAmiga', kind: 'sistema', sistemaId: 'invitarAmiga' },
   { id: 'sistema-contenidoEstudio', kind: 'sistema', sistemaId: 'contenidoEstudio' },
 ];
@@ -112,10 +111,9 @@ async function publicar(page: Page) {
 }
 
 test.describe('Editor a pantalla completa — constructor de bloques del portal', () => {
-  test('Inicio llega desplegado, con los 4 módulos de siempre listados', async ({ page }) => {
+  test('Inicio llega desplegado, con los 3 módulos de siempre listados', async ({ page }) => {
     await montar(page);
     await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/Accesos rápidos/)).toBeVisible();
     await expect(page.getByText('Invita a una amiga')).toBeVisible();
     await expect(page.getByText(/Contenido del estudio/)).toBeVisible();
   });
@@ -260,15 +258,16 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await abrirCategoriaTema(page, 'Forma del portal');
 
     // Los ejes del panel, con nombre de negocio (no el id del catálogo).
-    // `cabeceraInicio` quedó FUERA a propósito (31-ago, def1c8ce): el Inicio
-    // tiene un solo hero fotográfico, sin variante que elegir.
-    await expect(page.getByText('Accesos rápidos', { exact: true })).toBeVisible({ timeout: 30_000 });
+    // `cabeceraInicio`/`accesosRapidos` quedaron FUERA a propósito (31-ago,
+    // def1c8ce): el Inicio tiene un solo hero fotográfico, sin variante que
+    // elegir, y el bloque "Accesos rápidos" ni siquiera existe en el diseño.
+    await expect(page.getByText('Tarjeta principal', { exact: true })).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('button', { name: 'Círculos', exact: true }).click();
+    await page.getByRole('button', { name: 'Con rótulo encima', exact: true }).click();
 
     // El tema se guarda al publicar; aquí basta con que el borrador lo haya
     // recogido — se comprueba en el control, que refleja el estado real.
-    await expect(page.getByRole('button', { name: 'Círculos', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Con rótulo encima', exact: true })).toHaveAttribute('aria-pressed', 'true');
     // Y el eje que NO se tocó sigue en su valor, que es el fallo clásico de
     // escribir `{ [eje]: valor }` en vez del objeto entero.
     await expect(page.getByRole('button', { name: 'Neutra', exact: true })).toHaveAttribute('aria-pressed', 'true');

@@ -12,15 +12,13 @@
 import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { useModo } from '@/lib/portal-modo';
 import { bonoActivo, fechaLarga, DIAS } from '@/lib/bonos-portal';
-import { display, micro, sans, texto, radio, transicion, dur, EASE, escala } from '@/lib/portal-design';
+import { sans, transicion, dur, EASE, cristal } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
-import { semantic } from '@/lib/portal-tokens';
 import { BandaFoto } from '@/components/portal/banda-foto';
 import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
-import { BottomSheet, Toast, Button, type AvisoToast } from '@/components/portal/ui';
+import { Toast, type AvisoToast } from '@/components/portal/ui';
 import type { PortalSession } from '@/lib/portal-auth';
 
 export function PortalBonosView({
@@ -31,7 +29,6 @@ export function PortalBonosView({
     suscripciones, planesTarifa, tiposClase, salas, plazasFijas, reservas, bloquesBonos: bloquesBonosPublicado,
     pausarPlazaFijaPropia, reanudarPlazaFijaPropia, darDeBajaPlazaFijaPropia,
   } = useStudio();
-  const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
 
   // La vuelta de Stripe tras comprar un bono (`lib/billing/origen-pago.ts`).
@@ -130,62 +127,60 @@ export function PortalBonosView({
     [reservas, socioId],
   );
 
+  // Mismo tratamiento literal que las filas de "Cuenta" en Perfil
+  // (CHEATSHEET-CSS.md / capturas reales): título 14px/700, chevron "›" gris.
   const fila = (titulo: string, valor: string | null, onClick: () => void, ultima = false) => (
     <button
       type="button"
       onClick={onClick}
       style={{
-        height: 66, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        height: 54, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer',
-        borderTop: `1px solid ${t.line}`,
-        borderBottom: ultima ? `1px solid ${t.line}` : undefined,
+        borderTop: '1px solid #EFEDE4',
+        borderBottom: ultima ? '1px solid #EFEDE4' : undefined,
         transition: `padding-left ${dur.control}ms ${EASE}`,
       }}
     >
-      <span style={{ ...display(23), color: t.ink }}>{titulo}</span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        {valor && <span style={{ fontFamily: sans, fontSize: 11.5, color: t.muted }}>{valor}</span>}
-        <span style={{ fontFamily: sans, fontSize: 13, color: t.heroAccent }}>→</span>
+      <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1A1A' }}>{titulo}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {valor && <span style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52' }}>{valor}</span>}
+        <span style={{ fontFamily: sans, fontSize: 15, color: '#98A093' }}>›</span>
       </span>
     </button>
   );
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+    <div style={{ minHeight: '100%', background: 'var(--ap-fondo, #FAF9F5)', color: 'var(--ap-tinta, #1A1A1A)' }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div {...wrap('listadoBonos')}>
       {/* La foto de ESTA pantalla, o la banda por defecto. El padding de arriba
-          se lo queda la banda: si no, la imagen aparecería flotando 62 px por
+          se lo queda la banda: si no, la imagen aparecería flotando 54 px por
           debajo del borde, con un hueco vacío encima que no pinta nada. */}
-      <div style={{ paddingTop: 62 }}>
+      <div style={{ paddingTop: 54 }}>
         <BandaFoto url={imagenDeEstudio('banda', txt('listadoBonos', 'fotoUrl', ''))} />
       </div>
-      <div style={{ padding: '0 24px 24px' }}>
-        <div style={{ ...micro(9.5, 0.28), color: t.micro }}>{txt('listadoBonos', 'antetitulo', 'Saldo y planes')}</div>
-        <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 12 }}>{txt('listadoBonos', 'titulo', 'Bonos')}</h1>
+      <div style={{ padding: '0 20px 24px' }}>
+        <div className="ap-label">{txt('listadoBonos', 'antetitulo', 'Saldo y planes')}</div>
+        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.025em', color: '#1A1A1A', marginTop: 10 }}>{txt('listadoBonos', 'titulo', 'Bonos')}</h1>
 
         {avisoCompra ? (
-          <p style={{
-            marginTop: 18, padding: '12px 14px', borderRadius: 14,
-            background: t.surface, border: `1px solid ${t.line}`,
-            ...texto.nota, color: t.muted, lineHeight: 1.55,
+          <p className="ap-card" style={{
+            marginTop: 18, padding: '12px 14px',
+            fontSize: 12, color: '#5A5A52', lineHeight: 1.55,
           }}>{avisoCompra}</p>
         ) : null}
 
         {bono ? (
-          <div style={{
-            marginTop: 28, borderRadius: 'var(--portal-radius-card, 26px)', background: t.surface, padding: '26px 24px',
-            boxShadow: '0 18px 40px -28px rgba(34,42,30,.5)',
-          }}>
+          <div className="ap-card" style={{ marginTop: 28, padding: '22px 20px' }}>
             {/* ⚠️ Con VARIOS bonos el título no puede ser el nombre de uno: el
                 número de debajo ya es la suma de todos, y «Bono 10 · Reformer»
                 encima de «17 de 25» se lee como que ese bono tiene 25 sesiones.
                 Con uno solo se mantiene su nombre, que es más concreto. */}
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-              <div style={{ ...display(26), color: t.ink }}>
+              <div style={{ fontSize: 15.5, fontWeight: 800, color: '#1A1A1A' }}>
                 {bono.bonos.length > 1 ? 'Tu saldo' : bono.nombre}
               </div>
-              <div style={{ ...micro(8.5, 0.22, 600), color: t.heroAccent, whiteSpace: 'nowrap' }}>Activo</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#3E6B4A', whiteSpace: 'nowrap' }}>Activo</div>
             </div>
 
             {/* Un mensual ilimitado no tiene fracción que contar: enseñar «0 de 0»
@@ -196,34 +191,31 @@ export function PortalBonosView({
                     Con varios bonos, «4 de 4» era el del que se está gastando
                     ahora y obligaba a sumar la cola a mano para saber lo que de
                     verdad le queda — que es justo lo que vino a mirar. */}
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 22 }}>
-                  <span style={{ ...display(escala('numero-bono', 62), false, 0.9), color: t.ink }}>{bono.totalRestantes}</span>
-                  <span style={{ fontFamily: sans, fontSize: 12, color: t.muted }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 20 }}>
+                  <span style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', lineHeight: 0.9 }}>{bono.totalRestantes}</span>
+                  <span style={{ fontFamily: sans, fontSize: 12, color: '#5A5A52' }}>
                     de {bono.totalSesiones} sesiones disponibles
                   </span>
                 </div>
-                <div style={{ height: 5, borderRadius: 3, background: t.line, marginTop: 20, overflow: 'hidden' }}>
+                {/* CHEATSHEET-CSS.md, "Card bono": fondo #EFEDE4, relleno #4F8A5B. */}
+                <div style={{ height: 5, borderRadius: 999, background: '#EFEDE4', marginTop: 18, overflow: 'hidden' }}>
                   <div style={{
                     // Sobre el saldo total, coherente con el número de arriba.
-                    width: `${(bono.progresoTotal ?? 0) * 100}%`, height: 5, borderRadius: 3,
-                    background: 'var(--portal-brand)',
-                    transition: `width ${dur.card}ms ${EASE}`,
+                    width: `${(bono.progresoTotal ?? 0) * 100}%`, height: 5, borderRadius: 999,
+                    background: '#4F8A5B',
+                    transition: 'width .6s',
                   }} />
                 </div>
               </>
             ) : (
-              <div style={{ ...display(30, true), color: t.ink, marginTop: 22 }}>Sesiones ilimitadas</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#1A1A1A', marginTop: 20 }}>Sesiones ilimitadas</div>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
               <span
                 style={{
                   fontFamily: sans, fontSize: 11, fontWeight: bono.urgente || bono.caducado ? 700 : 400,
-                  color: bono.caducado
-                    ? (noche ? semantic.danger.textNoche : semantic.danger.text)
-                    : bono.urgente
-                    ? (noche ? semantic.warning.textNoche : semantic.warning.text)
-                    : t.muted,
+                  color: bono.caducado ? '#C2503A' : bono.urgente ? '#C99A3C' : '#5A5A52',
                 }}
               >
                 {/* Con varios bonos esta fecha es la del PRIMERO que caduca,
@@ -245,7 +237,7 @@ export function PortalBonosView({
                   se leería como el valor de todo, así que con varios se calla
                   (cada uno tiene el suyo, y el detalle vive en la lista). */}
               {bono.precio != null && bono.bonos.length === 1 && (
-                <span style={{ fontFamily: sans, fontSize: 11, color: t.muted, whiteSpace: 'nowrap' }}>
+                <span style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', whiteSpace: 'nowrap' }}>
                   {bono.precio} €{bono.esMensual ? '/mes' : ''}
                 </span>
               )}
@@ -255,10 +247,10 @@ export function PortalBonosView({
               type="button"
               onClick={() => navegar(`/portal/${slug}/compras`)}
               style={{
-                height: 54, width: '100%', borderRadius: `var(--portal-radius-boton, ${radio.botonAlto - 6}px)`,
-                border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
-                background: 'none', color: t.ink, ...texto.boton, fontSize: 13.5,
-                marginTop: 22, cursor: 'pointer',
+                height: 46, width: '100%', borderRadius: 23,
+                border: '1.5px solid #1A1A1A',
+                background: 'none', color: '#1A1A1A', fontSize: 13.5, fontWeight: 700,
+                marginTop: 20, cursor: 'pointer',
                 transition: transicion(['background'], dur.color),
               }}
             >
@@ -276,15 +268,8 @@ export function PortalBonosView({
           // para sacar algo que es, literalmente, una tabla. Y el total iba al
           // final, escondido, cuando es lo primero que se busca — por eso ahora
           // manda en el titular de arriba.
-          <div
-            style={{
-              marginTop: 14, borderRadius: 'var(--portal-radius-card, 26px)',
-              background: noche ? t.surface2 : '#EEF0EA',
-              border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.14)'}`,
-              padding: '18px 20px',
-            }}
-          >
-            <div style={{ ...micro(9, 0.24, 600), color: t.muted }}>
+          <div className="ap-card" style={{ marginTop: 14, background: '#EAF0E7', border: 'none', padding: '18px 20px' }}>
+            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '.2em', fontWeight: 600, textTransform: 'uppercase', color: '#3E6B4A' }}>
               Tus bonos ({bono.bonos.length})
             </div>
 
@@ -295,7 +280,7 @@ export function PortalBonosView({
                   style={{
                     display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10,
                     padding: '9px 0',
-                    borderTop: i === 0 ? 'none' : `1px solid ${noche ? t.line : 'rgba(44,53,44,.10)'}`,
+                    borderTop: i === 0 ? 'none' : '1px solid rgba(62,107,74,.16)',
                     // Un bono gastado se apaga, pero NO se esconde: lo pagó, y
                     // verlo desaparecer de la lista se lee como que se lo han
                     // quitado.
@@ -304,17 +289,17 @@ export function PortalBonosView({
                 >
                   <div style={{ minWidth: 0 }}>
                     <div style={{
-                      fontFamily: sans, fontSize: 12.5, fontWeight: 600, color: t.ink,
+                      fontFamily: sans, fontSize: 12.5, fontWeight: 700, color: '#2E5A3A',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
                       {b.nombre}
                       {/* Solo el primero: es el que se está gastando ahora, y
                           saberlo explica por qué caduca antes que los demás. */}
                       {i === 0 && !b.agotado && (
-                        <span style={{ fontWeight: 400, color: t.muted }}> · en curso</span>
+                        <span style={{ fontWeight: 400, color: '#3E6B4A' }}> · en curso</span>
                       )}
                     </div>
-                    <div style={{ fontFamily: sans, fontSize: 10.5, color: t.muted, marginTop: 2 }}>
+                    <div style={{ fontFamily: sans, fontSize: 10.5, color: '#3E6B4A', marginTop: 2 }}>
                       {b.agotado
                         ? 'Sin sesiones'
                         : b.textoCaducidad
@@ -324,7 +309,7 @@ export function PortalBonosView({
                     </div>
                   </div>
                   <span style={{
-                    fontFamily: sans, fontSize: 12.5, fontWeight: 600, color: t.ink,
+                    fontFamily: sans, fontSize: 12.5, fontWeight: 700, color: '#2E5A3A',
                     whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
                   }}>
                     {b.restantes ?? '–'}/{b.total ?? '–'}
@@ -333,7 +318,7 @@ export function PortalBonosView({
               ))}
             </div>
 
-            <div style={{ fontFamily: sans, fontSize: 10.5, color: t.muted, marginTop: 10 }}>
+            <div style={{ fontFamily: sans, fontSize: 10.5, color: '#3E6B4A', marginTop: 10 }}>
               Se gastan por orden: primero el que caduca antes.
             </div>
           </div>
@@ -341,22 +326,16 @@ export function PortalBonosView({
 
         {!bono && (
           // Sin bono la pantalla no se queda muda: lo que toca es comprar uno.
-          <div style={{
-            marginTop: 28, borderRadius: 'var(--portal-radius-card, 26px)', background: t.surface, padding: '26px 24px',
-            boxShadow: '0 18px 40px -28px rgba(34,42,30,.5)',
-          }}>
-            <div style={{ ...display(26), color: t.ink }}>Todavía no tienes bono</div>
-            <p style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, marginTop: 10, textWrap: 'pretty' } as React.CSSProperties}>
+          <div className="ap-card" style={{ marginTop: 28, padding: '22px 20px' }}>
+            <div style={{ fontSize: 15.5, fontWeight: 800, color: '#1A1A1A' }}>Todavía no tienes bono</div>
+            <p style={{ fontFamily: sans, fontSize: 12, color: '#5A5A52', marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
               Con un bono activo reservas desde aquí sin pasar por recepción.
             </p>
             <button
               type="button"
               onClick={() => navegar(`/portal/${slug}/compras`)}
-              style={{
-                height: 54, width: '100%', borderRadius: `var(--portal-radius-boton, ${radio.botonAlto - 6}px)`, border: 'none',
-                background: 'var(--portal-brand)', color: t.accentInk, ...texto.boton, fontSize: 13.5,
-                marginTop: 22, cursor: 'pointer',
-              }}
+              className="ap-btn ap-btn--primario"
+              style={{ width: '100%', height: 46, marginTop: 18 }}
             >
               Ver los bonos
             </button>
@@ -364,24 +343,19 @@ export function PortalBonosView({
         )}
 
         {plaza && miPlazaFija && (
-          <div style={{
-            marginTop: 14, borderRadius: 'var(--portal-radius-card, 26px)',
-            background: noche ? t.surface2 : '#EEF0EA',
-            border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.14)'}`,
-            padding: 24,
-          }}>
+          <div className="ap-card" style={{ marginTop: 14, background: '#EAF0E7', border: 'none', padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: t.ink }} />
-                <span style={{ ...micro(8.5, 0.24, 600), color: t.ink }}>Plaza fija</span>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#4F8A5B' }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#2E5A3A' }}>Plaza fija</span>
               </div>
               {miPlazaFija.estado === 'PAUSADA' && (
-                <span style={{ ...micro(8, 0.2, 700), color: t.muted }}>En pausa</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#3E6B4A' }}>En pausa</span>
               )}
             </div>
-            <div style={{ ...display(27, true, 1.05), color: t.ink, marginTop: 10, opacity: miPlazaFija.estado === 'PAUSADA' ? 0.55 : 1 }}>{plaza.cuando}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#2E5A3A', marginTop: 10, opacity: miPlazaFija.estado === 'PAUSADA' ? 0.55 : 1 }}>{plaza.cuando}</div>
             {plaza.donde && (
-              <div style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, marginTop: 8 }}>{plaza.donde}</div>
+              <div style={{ fontFamily: sans, fontSize: 12, color: '#3E6B4A', marginTop: 6 }}>{plaza.donde}</div>
             )}
             {/* Feature #2: autoservicio — antes esto solo lo tocaba staff desde
                 la ficha de la socia. */}
@@ -391,8 +365,8 @@ export function PortalBonosView({
                 onClick={() => void pausarOReanudar()}
                 disabled={procesando}
                 style={{
-                  flex: 1, height: 38, borderRadius: 12, border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.2)'}`,
-                  background: 'none', color: t.ink, fontFamily: sans, fontSize: 11.5, fontWeight: 700,
+                  flex: 1, height: 36, borderRadius: 12, border: '1px solid rgba(62,107,74,.3)',
+                  background: 'none', color: '#2E5A3A', fontFamily: sans, fontSize: 11.5, fontWeight: 700,
                   cursor: procesando ? 'default' : 'pointer', opacity: procesando ? 0.6 : 1,
                 }}
               >
@@ -403,8 +377,8 @@ export function PortalBonosView({
                 onClick={() => setConfirmandoBaja(true)}
                 disabled={procesando}
                 style={{
-                  flex: 1, height: 38, borderRadius: 12, border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.2)'}`,
-                  background: 'none', color: semantic.danger.text, fontFamily: sans, fontSize: 11.5, fontWeight: 700,
+                  flex: 1, height: 36, borderRadius: 12, border: '1px solid rgba(62,107,74,.3)',
+                  background: 'none', color: '#C2503A', fontFamily: sans, fontSize: 11.5, fontWeight: 700,
                   cursor: procesando ? 'default' : 'pointer', opacity: procesando ? 0.6 : 1,
                 }}
               >
@@ -429,22 +403,76 @@ export function PortalBonosView({
           saldo/plan en el mismo contenedor flex, con el `order` que les toque
           para intercalarse antes o después de él. */}
       {bloquesPersonalizados.map(({ b, orden }) => (
-        <div key={b.id} data-bloque-id={b.id} style={{ order: orden, padding: '0 24px' }}>
+        <div key={b.id} data-bloque-id={b.id} style={{ order: orden, padding: '0 20px' }}>
           <BloqueHomeRender bloque={b} slug={slug} />
         </div>
       ))}
       </div>
 
-      <BottomSheet open={confirmandoBaja} onClose={() => setConfirmandoBaja(false)}>
-        <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Dar de baja tu plaza fija?</h2>
-        <p style={{ fontSize: 13, color: t.muted }}>
-          Dejará de reservarte el hueco cada semana. Las clases ya reservadas no se tocan.
-        </p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="secondary" onClick={() => setConfirmandoBaja(false)} style={{ flex: 1 }}>Volver</Button>
-          <Button variant="danger" onClick={() => void confirmarBaja()} style={{ flex: 1 }}>Sí, dar de baja</Button>
-        </div>
-      </BottomSheet>
+      {/* Confirmar baja de plaza fija — mismo sheet literal ya usado en
+          portal-reservas-view.tsx, en vez del BottomSheet/Button genéricos
+          del sistema saliente.
+          ⚠️ A diferencia de cancelando/cambiandoHora (que sí tienen entrada/
+          salida animada, patrón ya establecido en HojaPase antes de esta
+          sesión), este se monta/desmonta con la propia condición — SIN
+          transición — igual que el BottomSheet original al que sustituye
+          (`if (!open) return null`): un sheet siempre montado con solo
+          opacidad/pointer-events rompe `getByText(...).toHaveCount(0)`, que
+          es justo lo que comprueba el mismo test que ya cubre este flujo. */}
+      {confirmandoBaja && (
+        <>
+          <div
+            onClick={() => setConfirmandoBaja(false)}
+            aria-hidden
+            style={{
+              position: 'fixed', inset: 0, zIndex: 40,
+              background: 'rgba(15,15,15,.42)',
+              ...cristal(18, 120),
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal
+            aria-label="¿Dar de baja tu plaza fija?"
+            style={{
+              position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 41,
+              background: '#FAF9F5', borderRadius: '24px 24px 0 0',
+              boxShadow: '0 -18px 50px rgba(15,15,15,.25)', padding: '16px 26px calc(26px + env(safe-area-inset-bottom))',
+            }}
+          >
+            <div style={{ width: 34, height: 4, borderRadius: 4, background: '#D9D6C9', margin: '0 auto 20px' }} />
+            <h2 style={{ fontFamily: sans, fontSize: 22, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', textAlign: 'center' }}>
+              ¿Dar de baja tu plaza fija?
+            </h2>
+            <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+              Dejará de reservarte el hueco cada semana. Las clases ya reservadas no se tocan.
+            </p>
+            <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+              <button
+                type="button"
+                onClick={() => setConfirmandoBaja(false)}
+                style={{
+                  flex: 1, height: 54, borderRadius: 27, border: '1px solid #E5E3DA',
+                  background: 'transparent', color: '#1A1A1A', fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmarBaja()}
+                style={{
+                  flex: 1, height: 54, borderRadius: 27, border: 'none',
+                  background: '#F4E9E5', color: '#A04A3C',
+                  fontFamily: sans, fontSize: 14, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Sí, dar de baja
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
     </div>

@@ -1,7 +1,6 @@
 'use client';
 
 import type { ButtonHTMLAttributes } from 'react';
-import { useModo } from '@/lib/portal-modo';
 import { radius, semantic } from '@/lib/portal-tokens';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -21,8 +20,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 // Altura mínima 48px (por debajo de eso, ~44px cumple el mínimo táctil de
 // Apple HIG con algo de margen). `small` (40px) es la única variante que baja
 // de 48, y solo para contextos ya espaciosos — nunca el CTA principal.
+// Valores literales del sistema "Tentare Studio App" (portal-app.css) para
+// `secondary`/`ghost` — antes venían de `useModo()`, la paleta del diseño
+// anterior ya sustituido. `primary` no cambia: ya vive detrás de
+// `--portal-btn-*` (marca del estudio, eje aparte).
 export function Button({ variant = 'primary', size = 'default', style, disabled, loading, children, ...props }: ButtonProps) {
-  const { t } = useModo();
   const small = size === 'small';
   const inactivo = disabled || loading;
 
@@ -35,8 +37,8 @@ export function Button({ variant = 'primary', size = 'default', style, disabled,
       color: 'var(--portal-btn-fg, var(--portal-brand-foreground))',
       border: 'var(--portal-btn-border, none)',
     },
-    secondary: { background: t.surface2, color: t.ink, border: `1px solid ${t.line}` },
-    ghost: { background: 'transparent', color: t.muted },
+    secondary: { background: '#EFEDE4', color: '#1A1A1A', border: '1px solid #E5E3DA' },
+    ghost: { background: 'transparent', color: '#5A5A52' },
     danger: { background: semantic.danger.soft, color: semantic.danger.text },
   };
 

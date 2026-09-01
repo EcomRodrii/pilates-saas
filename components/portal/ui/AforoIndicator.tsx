@@ -12,11 +12,8 @@ import { semantic, typography } from '@/lib/portal-tokens';
 export function AforoIndicator({
   libres, umbralUrgencia = 2, style,
 }: { libres: number; umbralUrgencia?: number; style?: React.CSSProperties }) {
-  const { t, noche } = useModo();
-  // `semantic.warning.text` no pasa AA en modo noche (ver comentario en
-  // portal-tokens.ts) — con este componente ese ámbar aparece en casi toda
-  // tarjeta de clase, así que usa la variante ya calibrada para noche.
-  const urgente = noche ? semantic.warning.textNoche : semantic.warning.text;
+  const { t } = useModo();
+  const urgente = semantic.warning.text;
 
   if (libres <= 0) {
     return <span style={{ ...typography.caption, fontWeight: 700, color: urgente, ...style }}>Completa</span>;

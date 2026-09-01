@@ -79,7 +79,6 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
         type: 'tentare-bloques-preview',
         pantalla: 'home',
         bloques: [
-          { id: 'sistema-accesosRapidos', kind: 'sistema', sistemaId: 'accesosRapidos' },
           { id: 'sistema-invitarAmiga', kind: 'sistema', sistemaId: 'invitarAmiga' },
           { id: 'sistema-contenidoEstudio', kind: 'sistema', sistemaId: 'contenidoEstudio' },
         ],
@@ -107,7 +106,6 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
     await montarPortal(page, {
       conSesion: false,
       homeBloques: [
-        { id: 'sistema-accesosRapidos', kind: 'sistema', sistemaId: 'accesosRapidos' },
         { id: 'sistema-retos', kind: 'sistema', sistemaId: 'retos' },
       ],
     });
@@ -158,9 +156,11 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
         type: 'tentare-theme-preview',
         vars: {},
         temaJs: {
-          // `cabeceraInicio` quedó retirada (31-ago, hero único): ya no viaja
-          // en el mensaje porque no tiene ningún efecto que comprobar aquí.
-          variantes: { accesosRapidos: 'rejilla', retos: 'color' },
+          // `cabeceraInicio`/`accesosRapidos` quedaron retiradas (31-ago, hero
+          // único + bloque "Accesos rápidos" fuera del diseño real): ya no
+          // viajan en el mensaje porque no tienen ningún efecto que comprobar
+          // aquí.
+          variantes: { retos: 'color' },
           barraClasica: false,
           tabBarStyle: 'clasica',
         },

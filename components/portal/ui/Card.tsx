@@ -1,26 +1,25 @@
 'use client';
 
 import type { HTMLAttributes } from 'react';
-import { useModo } from '@/lib/portal-modo';
-import { radius } from '@/lib/portal-tokens';
 
-// Radio único de 20px — sustituye los 5 radios distintos (18/20/22/24/26px)
-// que el mismo concepto de tarjeta usaba en 9 archivos distintos.
+// Valores literales del sistema "Tentare Studio App" (portal-app.css,
+// `.ap-card`) — antes venían de `useModo()`, la paleta del diseño anterior ya
+// sustituido ("Tentare App Cliente v2"). El radio pasa de los 20px de aquel
+// sistema a los 16px exactos de `.ap-card`.
 export function Card({ style, children, ...props }: HTMLAttributes<HTMLDivElement>) {
-  const { t } = useModo();
   return (
     <div
       style={{
-        background: t.surface,
+        background: '#FFFFFF',
         // --portal-card-border/-shadow los calcula lib/theme-runtime.ts según
         // cardStyle (flat/elevated/bordered). El estilo 'flat' no declara
-        // estas vars a propósito, así que el fallback (el borde de siempre,
-        // que depende del modo claro/oscuro) es el que se aplica.
-        border: `var(--portal-card-border, 1px solid ${t.line})`,
+        // estas vars a propósito, así que el fallback (el borde exacto del
+        // diseño) es el que se aplica.
+        border: 'var(--portal-card-border, 1px solid #E5E3DA)',
         boxShadow: 'var(--portal-card-shadow, none)',
         // `radioTema.card` del tema del estudio (lib/theme-runtime.ts) — sin
-        // ese campo, cae al radio de siempre.
-        borderRadius: `var(--portal-radius-card, ${radius.card}px)`,
+        // ese campo, cae al radio exacto de `.ap-card`.
+        borderRadius: 'var(--portal-radius-card, 16px)',
         ...style,
       }}
       {...props}

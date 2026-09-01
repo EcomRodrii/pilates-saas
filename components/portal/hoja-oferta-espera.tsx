@@ -32,7 +32,6 @@
 
 import { useEffect, useState } from 'react';
 import { PartyPopper } from 'lucide-react';
-import { useModo } from '@/lib/portal-modo';
 import {
   EASE, dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
 } from '@/lib/portal-design';
@@ -74,7 +73,6 @@ export function HojaOfertaEspera({
    */
   onError: (mensaje: string) => void;
 }) {
-  const { t, noche } = useModo();
   const [restanteMs, setRestanteMs] = useState<number | null>(null);
   const [accionEnCurso, setAccionEnCurso] = useState<'aceptar' | 'dejar' | null>(null);
 
@@ -120,7 +118,7 @@ export function HojaOfertaEspera({
     // el próximo render del padre.
   }
 
-  const successColor = noche ? semantic.success.textNoche : semantic.success.text;
+  const successColor = semantic.success.text;
 
   const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' });
@@ -133,7 +131,7 @@ export function HojaOfertaEspera({
         style={{
           position: 'fixed', inset: 0, zIndex: 60,
           opacity: abierta ? 1 : 0, pointerEvents: abierta ? 'auto' : 'none',
-          background: noche ? 'rgba(8,9,6,.5)' : 'rgba(34,38,31,.3)',
+          background: 'rgba(34,38,31,.3)',
           ...cristal(desenfoque.backdrop, 120),
           transition: `opacity ${dur.tab}ms ${EASE}`,
         }}
@@ -142,13 +140,14 @@ export function HojaOfertaEspera({
       <div
         role="dialog"
         aria-modal={abierta}
+        aria-hidden={!abierta}
         aria-label={oferta?.tipo ? `Plaza liberada — ${oferta.tipo.nombre}` : 'Plaza liberada'}
         style={{
           position: 'fixed', left: 12, right: 12, zIndex: 61,
           bottom: 'calc(12px + var(--portal-tabbar-height, 64px) + 22px + env(safe-area-inset-bottom))',
           maxWidth: 456, margin: '0 auto',
-          background: t.bg, borderRadius: radio.hoja,
-          border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.8)'}`,
+          background: '#FAF9F5', borderRadius: radio.hoja,
+          border: '1px solid rgba(255,255,255,.8)',
           boxShadow: sombra.sheet, padding: '16px 24px 24px',
           maxHeight: 'calc(100dvh - var(--portal-tabbar-height, 64px) - 56px)', overflowY: 'auto',
           opacity: abierta ? 1 : 0,
@@ -159,7 +158,7 @@ export function HojaOfertaEspera({
       >
         <button
           type="button" onClick={onClose} aria-label="Cerrar"
-          style={{ display: 'block', width: 40, height: 4, borderRadius: 4, margin: '0 auto', background: noche ? '#3A3F33' : '#D8D4C9', border: 'none', padding: 0 }}
+          style={{ display: 'block', width: 40, height: 4, borderRadius: 4, margin: '0 auto', background: '#D8D4C9', border: 'none', padding: 0 }}
         />
 
         {oferta && (
@@ -175,27 +174,27 @@ export function HojaOfertaEspera({
               </span>
             </div>
 
-            <h2 style={{ ...display(28, false, 1.05), color: t.ink, marginTop: 16, textAlign: 'center', textWrap: 'pretty' } as React.CSSProperties}>
+            <h2 style={{ ...display(28, false, 1.05), color: '#1A1A1A', marginTop: 16, textAlign: 'center', textWrap: 'pretty' } as React.CSSProperties}>
               {oferta.tipo?.nombre ?? 'Clase'}
             </h2>
-            <p style={{ ...texto.meta, color: t.muted, textAlign: 'center', marginTop: 6, textTransform: 'capitalize' }}>
+            <p style={{ ...texto.meta, color: '#5A5A52', textAlign: 'center', marginTop: 6, textTransform: 'capitalize' }}>
               {fecha(oferta.sesion.inicio)} · {hora(oferta.sesion.inicio)}
               {oferta.sala ? ` · ${oferta.sala.nombre}` : ''}
             </p>
             {oferta.instr && (
-              <p style={{ ...texto.nota, color: t.muted, textAlign: 'center', marginTop: 2 }}>
+              <p style={{ ...texto.nota, color: '#5A5A52', textAlign: 'center', marginTop: 2 }}>
                 {oferta.instr.nombre}
               </p>
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 24 }}>
-              <span style={{ ...micro(9, 0.2, 600), color: t.micro }}>
+              <span style={{ ...micro(9, 0.2, 600), color: '#98A093' }}>
                 {caducada ? 'Oferta caducada' : 'Tiempo para aceptar'}
               </span>
               <span style={{
                 fontFamily: 'ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace',
                 fontSize: 42, fontWeight: 700, lineHeight: 1, marginTop: 6,
-                color: caducada ? t.muted2 : t.ink,
+                color: caducada ? '#5A5A52' : '#1A1A1A',
                 fontVariantNumeric: 'tabular-nums',
               }}>
                 {restanteMs != null ? formatoCuentaAtras(restanteMs) : '--:--'}
@@ -203,7 +202,7 @@ export function HojaOfertaEspera({
             </div>
 
             {caducada && (
-              <p style={{ ...texto.meta, color: t.muted, textAlign: 'center', marginTop: 10 }}>
+              <p style={{ ...texto.meta, color: '#5A5A52', textAlign: 'center', marginTop: 10 }}>
                 Esta oferta ha caducado. Si vuelve a haber hueco, te avisaremos otra vez.
               </p>
             )}
@@ -235,7 +234,7 @@ export function HojaOfertaEspera({
               onClick={() => void ejecutar('dejar')}
               style={{
                 width: '100%', height: 48, borderRadius: radio.botonCta, marginTop: 8,
-                background: 'transparent', color: t.muted, border: 'none',
+                background: 'transparent', color: '#5A5A52', border: 'none',
                 ...texto.botonCta, fontWeight: 500, cursor: accionEnCurso != null ? 'default' : 'pointer',
                 opacity: accionEnCurso === 'aceptar' ? 0.5 : 1,
               }}
