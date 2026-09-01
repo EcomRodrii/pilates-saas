@@ -1071,6 +1071,13 @@ export interface VentaPOS {
   metodoPago: MetodoPago;
   notas: string | null;
   realizadaEn: string;
+  // 19ª auditoría · F-3: la columna existe en la BD desde `0036_pagos_espana_sepa_bizum`
+  // y es POR LA QUE BUSCA `procesarReembolsoVentaPos` para marcar la venta al
+  // recibir `charge.refunded`. Faltaba en el tipo y en los dos mappers, así que
+  // nadie la escribía nunca: las 19 ventas de producción la tienen a NULL y el
+  // reembolso de POS no casaba jamás. Solo la informan los cobros con Stripe
+  // (Bizum/datáfono); en efectivo es null.
+  stripePaymentIntentId?: string | null;
 }
 
 export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIANDO' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';

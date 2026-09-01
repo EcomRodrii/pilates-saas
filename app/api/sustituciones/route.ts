@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { imparteClases } from '@/lib/equipo';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -381,8 +382,32 @@ export async function PATCH(req: NextRequest) {
     if (cancRes.error) {
       // No se corta el flujo: la clase YA está cancelada y las alumnas YA
       // están avisadas. Se registra para poder repararlo a mano.
-      console.error('[sustituciones:cancelar_clase:cancelar-reservas]',
-        cancRes.error.message, `sesion=${sust.sesion_id}`, `studio=${sesion.studioId}`);
+      //
+      // 19ª auditoría · F-10: pero antes solo se registraba con `console.error`
+      // —que no llega a Sentry— y la respuesta seguía siendo `{ok:true}`, con
+      // la UI diciendo "clase cancelada · N avisadas". Tres cosas quedaban mal a
+      // la vez y ninguna se veía: (a) reservas fantasma CONFIRMADA sobre una
+      // clase que no existe, consumiendo cupo semanal y maxSimultaneas —
+      // exactamente lo que el comentario de arriba dice ir a evitar; (b) NINGÚN
+      // bono devuelto, porque la devolución cuelga del `else`; (c) cero rastro.
+      // El gemelo del panel (lib/studio-context.tsx, cancelarClase) sí devuelve
+      // "La clase se ha cancelado, pero no hemos podido cancelar sus reservas".
+      // Se iguala: la propietaria tiene que saber que le queda trabajo a mano.
+      Sentry.captureMessage('[sustituciones:cancelar_clase] clase cancelada pero sus reservas siguen activas', {
+        level: 'error',
+        tags: { area: 'reservas' },
+        extra: {
+          sesionId: sust.sesion_id, studioId: sesion.studioId,
+          detalle: cancRes.error.message,
+          confirmadas: confirmadasAntes?.length ?? 0,
+          queHacer: 'Las reservas de esa sesión siguen CONFIRMADA/LISTA_ESPERA y NO se han devuelto bonos. Cancelarlas a mano y revisar los bonos afectados.',
+        },
+      });
+      return NextResponse.json({
+        ok: true,
+        alumnas,
+        aviso: 'La clase se ha cancelado y hemos avisado a las alumnas, pero no hemos podido liberar sus reservas ni devolver los bonos. Revísalo en el calendario.',
+      });
     } else if (confirmadasAntes?.length) {
       const { data: sesionInfo } = await admin.from('sesiones').select('tipo_clase_id')
         .eq('id', sust.sesion_id).maybeSingle();

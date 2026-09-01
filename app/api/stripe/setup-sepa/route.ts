@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { autorizarSobreSocia } from '@/lib/billing/socia-autorizada';
+import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 
 // Fase 1 · PR-2 — Alta de mandato SEPA (domiciliación de la mensualidad).
 //
@@ -28,6 +29,14 @@ export async function POST(req: NextRequest) {
   if (!key || key.startsWith('sk_test_XXXX')) {
     return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
   }
+  // 19ª auditoría · F-5: su gemelo `/api/stripe/setup-tarjeta` sí traía esta
+  // guarda, con el comentario "misma guarda de modo que las dos puertas por las
+  // que entra dinero"; aquí faltaba. Un mandato SEPA dado de alta con las claves
+  // en el modo equivocado queda inservible y solo se descubre al fallar el
+  // primer cobro de la mensualidad. Ver lib/billing/modo-stripe.ts.
+  const modo = comprobarModoStripe();
+  if (!modo.puedeCobrar) return NextResponse.json({ error: modo.motivo }, { status: 503 });
+
   const admin = getSupabaseAdmin();
   if (!admin) {
     return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });

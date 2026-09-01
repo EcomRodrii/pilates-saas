@@ -527,16 +527,20 @@ export async function reprogramarClase(sustitucionId: string, inicio: string): P
   }
 }
 
-export async function cancelarClase(sustitucionId: string): Promise<{ ok: true; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } } | { error: string }> {
+// 19ª auditoría · F-10: `aviso` es un éxito PARCIAL — la clase se canceló y se
+// avisó, pero las reservas siguen activas y no se han devuelto bonos. No es un
+// `error` (la acción principal sí ocurrió) y no puede ser silencio: a la
+// propietaria le queda trabajo a mano y tiene que enterarse.
+export async function cancelarClase(sustitucionId: string): Promise<{ ok: true; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean }; aviso?: string } | { error: string }> {
   try {
     const res = await fetch('/api/sustituciones', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ sustitucionId, action: 'cancelar_clase' }),
     });
-    const data = (await res.json().catch(() => ({}))) as { error?: string; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } };
+    const data = (await res.json().catch(() => ({}))) as { error?: string; aviso?: string; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } };
     if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
-    return { ok: true, alumnas: data.alumnas };
+    return { ok: true, alumnas: data.alumnas, aviso: data.aviso };
   } catch {
     return { error: 'No se pudo cancelar' };
   }
