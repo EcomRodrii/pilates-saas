@@ -60,17 +60,17 @@ test.describe('Solicitudes de contacto (instructora)', () => {
     await expect(page.getByText('Pilates Sur · Sevilla')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Pendiente')).toBeVisible();
 
-    await page.getByRole('button', { name: /^Aceptar$/ }).click();
+    await page.getByRole('button', { name: /^Aceptar y compartir contacto$/ }).click();
 
     await expect(page.getByText('Aceptada', { exact: true })).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole('button', { name: /^Aceptar$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Aceptar y compartir contacto$/ })).toHaveCount(0);
   });
 
   test('si el servidor rechaza la aceptación, la solicitud sigue pendiente de verdad', async ({ page }) => {
     const { intentosResolver } = await montarSolicitudes(page, { resolverStatus: 500 });
     await page.goto('/network/solicitudes');
 
-    await page.getByRole('button', { name: /^Aceptar$/ }).click();
+    await page.getByRole('button', { name: /^Aceptar y compartir contacto$/ }).click();
 
     // Sigue pendiente — nunca "Aceptada" con un 500 real detrás.
     await expect(page.getByText('Aceptada')).toHaveCount(0);
