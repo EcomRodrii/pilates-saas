@@ -1591,9 +1591,9 @@ export interface RowPlataformaLead {
   responsable: string | null;
   creado_en: string;
   actualizado_en: string;
-  // migr 20260902101500.
+  // migr 20260902162926.
   web: string | null;
-  // migr 20260902101500.
+  // migr 20260902162926.
   instagram: string | null;
 }
 
