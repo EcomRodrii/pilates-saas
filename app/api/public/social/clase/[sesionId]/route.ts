@@ -40,15 +40,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sesi
 
   const { sesionId } = await params;
 
-  // La sesión tiene que ser de ESTE estudio — sin esto, `sesionId` de otro
-  // estudio filtraría quién reservó una clase ajena.
+  // F-23 (auditoría 20ª pasada): la sesión tiene que ser de ESTE estudio —
+  // sin esto, `sesionId` de otro estudio filtraría quién reservó una clase
+  // ajena. Y tiene que seguir en pie (`fin` en el futuro): `sesiones.id` es
+  // correlativo (`ses-1`, `ses-2`...), así que sin este corte cualquier socia
+  // podía recorrer el histórico ENTERO del estudio, clase a clase, y
+  // acumular con quién coincidió con `visible_en_clase` cada compañera a lo
+  // largo de meses — un perfil de asistencia que nadie consintió al activar
+  // "visible en clase" (pensado para "¿quién más va a ESTA clase", no un
+  // registro histórico). Se trata igual que "no existe" (mismo 404), para no
+  // dar una señal distinta entre "sesión ajena" y "sesión ya pasada".
   const { data: sesion } = await admin
     .from('sesiones')
-    .select('id')
+    .select('id, fin')
     .eq('id', sesionId)
     .eq('studio_id', studioId)
     .maybeSingle();
-  if (!sesion) return errorPeticion('Esa clase no existe en este estudio.', 404);
+  if (!sesion || new Date(sesion.fin).getTime() < Date.now()) {
+    return errorPeticion('Esa clase no existe en este estudio.', 404);
+  }
 
   const { data: reservasData, error: errorReservas } = await admin
     .from('reservas')
