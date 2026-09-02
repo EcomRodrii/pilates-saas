@@ -1,19 +1,18 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { X, Check, ArrowRight } from 'lucide-react';
-import { useAuth } from '@/lib/auth-context';
-import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { useCuenta } from '@/components/auth/use-cuenta';
 import { GoogleIcon } from '@/components/icons/brand-icons';
 import { NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAND, NW_PRODUCTO } from './tokens';
 
 // "Mi cuenta" del autoservicio — pedido explícito del fundador tras ver el
 // menú del avatar con SOLO "Cerrar sesión" (2026-09). Reutiliza los mismos
 // métodos de auth.updateEmail/updatePassword/linkGoogle/unlinkGoogle que ya
-// usa components/configuracion/tab-perfil.tsx (lado Studio) — es la misma
-// cuenta de Supabase Auth, el flujo no cambia por venir de Network, solo el
-// envoltorio visual (tokens NW_*, modal en vez de sección de página).
+// usa components/configuracion/tab-perfil.tsx (lado Studio) vía useCuenta()
+// (P-10, auditoría 21ª pasada) — es la misma cuenta de Supabase Auth, el
+// flujo no cambia por venir de Network, solo el envoltorio visual (tokens
+// NW_*, modal en vez de sección de página).
 //
 // El "número de teléfono" que pedía el fundador NO es un teléfono de
 // acceso/login (eso no existe en ningún sitio del repo — ni aquí ni en el
@@ -23,75 +22,13 @@ import { NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAND, NW_PRODUCTO } from '
 // Mi perfil → Contacto privado — aquí solo hay un atajo directo, no un
 // formulario duplicado que pudiera desincronizarse del real.
 export function ModalCuenta({ onClose }: { onClose: () => void }) {
-  const { user, updateEmail, updatePassword, linkGoogle, unlinkGoogle } = useAuth();
-  const { widget: captcha, pedirToken } = useCaptcha();
-
-  const [nuevoEmail, setNuevoEmail] = useState('');
-  const [cambiandoEmail, setCambiandoEmail] = useState(false);
-  const [emailMsg, setEmailMsg] = useState<{ error: boolean; texto: string } | null>(null);
-
-  const [passwordForm, setPasswordForm] = useState({ actual: '', nueva: '', confirmar: '' });
-  const [cambiandoPassword, setCambiandoPassword] = useState(false);
-  const [passwordMsg, setPasswordMsg] = useState<{ error: boolean; texto: string } | null>(null);
-
-  const identidades = user?.identities ?? [];
-  const tieneGoogle = identidades.some(i => i.provider === 'google');
-  const tieneEmail = identidades.some(i => i.provider === 'email');
-  const puedeDesconectarGoogle = tieneGoogle && identidades.length > 1;
-  const [conectandoAcceso, setConectandoAcceso] = useState(false);
-  const [accesoMsg, setAccesoMsg] = useState<{ error: boolean; texto: string } | null>(null);
-
-  async function cambiarEmail() {
-    if (!nuevoEmail.trim()) return;
-    setCambiandoEmail(true);
-    setEmailMsg(null);
-    const { error, pendiente } = await updateEmail(nuevoEmail.trim());
-    setCambiandoEmail(false);
-    if (error) { setEmailMsg({ error: true, texto: error }); return; }
-    setEmailMsg({
-      error: false,
-      texto: pendiente
-        ? 'Te hemos enviado un email de confirmación. El cambio se aplicará cuando lo confirmes.'
-        : 'Email actualizado.',
-    });
-    setNuevoEmail('');
-  }
-
-  async function cambiarPassword() {
-    if (passwordForm.nueva !== passwordForm.confirmar) {
-      setPasswordMsg({ error: true, texto: 'Las contraseñas nuevas no coinciden.' });
-      return;
-    }
-    if (passwordForm.nueva.length < 8) {
-      setPasswordMsg({ error: true, texto: 'La contraseña nueva debe tener al menos 8 caracteres.' });
-      return;
-    }
-    setCambiandoPassword(true);
-    setPasswordMsg(null);
-    const token = await pedirToken();
-    if (token === null) { setPasswordMsg({ error: true, texto: ERROR_CAPTCHA }); setCambiandoPassword(false); return; }
-    const { error } = await updatePassword(passwordForm.actual, passwordForm.nueva, token || undefined);
-    setCambiandoPassword(false);
-    if (error) { setPasswordMsg({ error: true, texto: error }); return; }
-    setPasswordMsg({ error: false, texto: 'Contraseña actualizada.' });
-    setPasswordForm({ actual: '', nueva: '', confirmar: '' });
-  }
-
-  async function conectarGoogle() {
-    setAccesoMsg(null);
-    setConectandoAcceso(true);
-    const { error } = await linkGoogle();
-    if (error) { setAccesoMsg({ error: true, texto: error }); setConectandoAcceso(false); }
-  }
-
-  async function desconectarGoogle() {
-    setAccesoMsg(null);
-    setConectandoAcceso(true);
-    const { error } = await unlinkGoogle();
-    setConectandoAcceso(false);
-    if (error) { setAccesoMsg({ error: true, texto: error }); return; }
-    setAccesoMsg({ error: false, texto: 'Google desconectado.' });
-  }
+  const {
+    user, captcha,
+    nuevoEmail, setNuevoEmail, cambiandoEmail, emailMsg, cambiarEmail,
+    passwordForm, setPasswordForm, cambiandoPassword, passwordMsg, cambiarPassword,
+    tieneGoogle, tieneEmail, puedeDesconectarGoogle, conectandoAcceso, accesoMsg,
+    conectarGoogle, desconectarGoogle,
+  } = useCuenta();
 
   const campoLabel = 'text-[11px] font-bold uppercase tracking-wide mb-1.5 block';
   const campoCls = 'w-full px-3.5 py-2.5 rounded-xl text-[13.5px] outline-none';
