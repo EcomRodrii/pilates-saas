@@ -469,7 +469,7 @@ export function PortalReservasView({
         {plaza && miPlazaFija && (
           <div style={{
             marginBottom: 16, borderRadius: 20,
-            background: '#EEF0EA', border: '1px solid rgba(44,53,44,.14)',
+            background: '#EAF0E7', border: '1px solid rgba(44,53,44,.14)',
             padding: 24,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -484,7 +484,7 @@ export function PortalReservasView({
               </div>
               {miPlazaFija.estado === 'PAUSADA' && (
                 <span style={{
-                  fontFamily: 'ui-monospace, monospace', fontSize: 8, fontWeight: 700, letterSpacing: '.2em',
+                  fontFamily: 'ui-monospace, monospace', fontSize: 8.5, fontWeight: 700, letterSpacing: '.2em',
                   paddingLeft: '.2em', textTransform: 'uppercase', color: '#5A5A52',
                 }}>
                   En pausa
@@ -552,7 +552,7 @@ export function PortalReservasView({
             {bono.totalSesiones != null && bono.totalRestantes != null ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 20 }}>
-                  <span style={{ fontFamily: sans, fontSize: 48, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', lineHeight: 0.9 }}>
+                  <span style={{ fontFamily: sans, fontSize: 46, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', lineHeight: 0.9 }}>
                     {bono.totalRestantes}
                   </span>
                   <span style={{ fontFamily: sans, fontSize: 12, color: '#5A5A52' }}>de {bono.totalSesiones} sesiones</span>
