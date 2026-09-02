@@ -62,6 +62,22 @@ export function normalizarHex(h) {
   return s.length === 4 ? '#' + [...s.slice(1)].map((c) => c + c).join('') : s
 }
 
+/**
+ * Deja un color en una forma comparable venga de donde venga.
+ *
+ * Hace falta porque el código escribe `#FFF` o `rgba(250,249,245,.88)` y el
+ * navegador computa `rgb(255, 255, 255)` o `rgba(250, 249, 245, 0.88)`: sin
+ * canonizar, el mismo color parecía dos distintos.
+ */
+export function canonizarColor(v) {
+  const s = String(v).trim().toLowerCase().replace(/\s+/g, '')
+  let m = s.match(/^rgb\((\d+),(\d+),(\d+)\)$/)
+  if (m) return '#' + [1, 2, 3].map((i) => Number(m[i]).toString(16).padStart(2, '0')).join('')
+  m = s.match(/^rgba\(([\d.]+),([\d.]+),([\d.]+),([\d.]+)\)$/)
+  if (m) return `rgba(${Number(m[1])},${Number(m[2])},${Number(m[3])},${Number(m[4])})`
+  return s.startsWith('#') ? normalizarHex(s) : s
+}
+
 /** El vocabulario del prototipo, leído del propio componente. */
 export function contratoDesde(fuenteCruda) {
   const fuente = sinComentarios(fuenteCruda)
@@ -69,6 +85,17 @@ export function contratoDesde(fuenteCruda) {
   for (const h of fuente.match(/#[0-9A-Fa-f]{3}\b|#[0-9A-Fa-f]{6}\b/g) ?? []) {
     colores.add(normalizarHex(h))
   }
+  // `rgba(...)` también es vocabulario del prototipo (velos y degradados). No lo
+  // usa este check —solo mira hex en el código— pero sí lo necesita
+  // comparar-portal-prototipo.mjs, que lee lo que el navegador computa y ahí
+  // todo llega como rgb()/rgba(). Se guarda ya canonizado para poder comparar.
+  for (const c of fuente.match(/rgba?\([^)]*\)/g) ?? []) colores.add(canonizarColor(c))
+  // Los radios no los vigila este check (el código del portal los escribe de mil
+  // formas), pero son parte del vocabulario y la comparación visual sí los mide.
+  const radios = new Set()
+  for (const m of fuente.matchAll(/border-radius:\s*([^;"'`]+)/g)) radios.add(m[1].trim())
+  for (const m of fuente.matchAll(/borderRadius:\s*'([^']+)'/g)) radios.add(m[1].trim())
+  for (const m of fuente.matchAll(/borderRadius:\s*(\d+)\b/g)) radios.add(m[1] + 'px')
   const tamanos = new Set()
   // Los dos dialectos que convive el prototipo: CSS literal y objeto de React.
   for (const m of fuente.matchAll(/font-size:\s*([0-9.]+)px/g)) tamanos.add(m[1])
@@ -76,7 +103,7 @@ export function contratoDesde(fuenteCruda) {
   const pesos = new Set()
   for (const m of fuente.matchAll(/font-weight:\s*([0-9]{3})/g)) pesos.add(m[1])
   for (const m of fuente.matchAll(/fontWeight:\s*([0-9]{3})/g)) pesos.add(m[1])
-  return { colores, tamanos, pesos }
+  return { colores, tamanos, pesos, radios }
 }
 
 /** Lo que de verdad usa el portal, con dónde, para poder ir a arreglarlo. */
@@ -235,6 +262,13 @@ function autocomprobacion() {
   if (usosDe('// se arregló en el bug #500\n').length !== 0) throw new Error('lee hex dentro de comentarios')
   if (usosDe('/* ver #610 */\n').length !== 0) throw new Error('lee hex en comentario de bloque')
   if (usosDe("const c = '#5A5A52'\n").length !== 1) throw new Error('deja de ver colores reales')
+  // El canonizador: el mismo color escrito de tres formas tiene que coincidir.
+  if (canonizarColor('#FFF') !== '#ffffff') throw new Error('canoniza mal el hex corto')
+  if (canonizarColor('rgb(255, 255, 255)') !== '#ffffff') throw new Error('canoniza mal rgb()')
+  if (canonizarColor('rgba(250,249,245,.88)') !== canonizarColor('rgba(250, 249, 245, 0.88)')) {
+    throw new Error('canoniza mal rgba()')
+  }
+  if (!contratoDesde('border-radius:999px').radios.has('999px')) throw new Error('no lee radios')
   console.log('autocomprobación OK')
 }
 
