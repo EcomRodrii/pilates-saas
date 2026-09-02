@@ -26,7 +26,7 @@
 // específico.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Users2, Check, Ban, Clock3 } from 'lucide-react';
+import { AlertCircle, Users2, Check, Ban, Clock3, ShieldOff } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { portalAuthHeader } from '@/lib/api-client';
@@ -34,11 +34,11 @@ import { sans } from '@/lib/portal-design';
 import { Badge, BottomSheet, Button, EmptyState, Tabs, Toast, type AvisoToast } from '@/components/portal/ui';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
-  fetchListaCompaneras, aceptarSolicitudCompanera, bloquearCompanera,
+  fetchListaCompaneras, aceptarSolicitudCompanera, bloquearCompanera, desbloquearCompanera,
   type ListaCompaneras, type RowSocioCompanerasConNombre,
 } from '@/lib/social-companeras-portal.ts';
 
-type Pestana = 'recibidas' | 'enviadas' | 'aceptadas';
+type Pestana = 'recibidas' | 'enviadas' | 'aceptadas' | 'bloqueadas';
 
 export default function CompanerasPage() {
   const { studio } = useStudio();
@@ -66,6 +66,14 @@ export default function CompanerasPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial, misma forma que Mensajes/Comunidad.
   useEffect(() => { void cargar(); }, [cargar]);
 
+  // La pestaña "Bloqueadas" desaparece cuando se vacía (ver `items`): si era
+  // la activa (se acaba de desbloquear a la última), vuelve a "Compañeras"
+  // en vez de dejar la pantalla en una pestaña que ya no existe.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza la pestaña activa con una lista que cambia por red (desbloquear a la última), no con el propio render.
+    if (pestana === 'bloqueadas' && lista && lista.bloqueadasPorMi.length === 0) setPestana('aceptadas');
+  }, [pestana, lista]);
+
   async function aceptar(fila: RowSocioCompanerasConNombre) {
     if (!studio?.id || enCurso) return;
     setEnCurso(fila.id);
@@ -89,6 +97,20 @@ export default function CompanerasPage() {
     void cargar();
   }
 
+  // F-25: bloquear ya no es un callejón sin salida. Desbloquear no restaura
+  // la relación anterior (ver comentario del endpoint) — si alguna de las
+  // dos quiere volver a conectar, se envía una solicitud nueva.
+  async function desbloquear(fila: RowSocioCompanerasConNombre) {
+    if (!studio?.id || enCurso) return;
+    setEnCurso(fila.id);
+    const headers = await portalAuthHeader();
+    const r = await desbloquearCompanera(headers, studio.id, fila.id);
+    setEnCurso(null);
+    if ('error' in r) { setAviso({ texto: r.error, error: true }); return; }
+    setAviso({ texto: `${fila.otraParteNombre} ya no está bloqueada.` });
+    void cargar();
+  }
+
   const nombreFila: React.CSSProperties = {
     flex: 1, minWidth: 0, fontFamily: sans, fontSize: 14.5, fontWeight: 800, color: '#1A1A1A',
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -98,6 +120,12 @@ export default function CompanerasPage() {
     { id: 'recibidas' as const, label: 'Recibidas', count: lista?.pendientesRecibidas.length ?? 0 },
     { id: 'enviadas' as const, label: 'Enviadas', count: lista?.pendientesEnviadas.length ?? 0 },
     { id: 'aceptadas' as const, label: 'Compañeras', count: lista?.aceptadas.length ?? 0 },
+    // F-25: solo se enseña si hay algo que ver — con la lista vacía, una
+    // pestaña "Bloqueadas" permanente sería ruido para la inmensa mayoría
+    // de socias, que nunca bloquean a nadie.
+    ...(lista && lista.bloqueadasPorMi.length > 0
+      ? [{ id: 'bloqueadas' as const, label: 'Bloqueadas', count: lista.bloqueadasPorMi.length }]
+      : []),
   ]), [lista]);
 
   return (
@@ -210,6 +238,31 @@ export default function CompanerasPage() {
                     >
                       <Ban size={15} aria-hidden />
                     </button>
+                  </div>
+                ))
+              )}
+
+              {pestana === 'bloqueadas' && (
+                lista.bloqueadasPorMi.length === 0 ? (
+                  <EmptyState
+                    icon={<ShieldOff size={20} />}
+                    title="No hay nadie bloqueada"
+                    body="Cuando bloquees a alguien, podrás deshacerlo desde aquí."
+                  />
+                ) : lista.bloqueadasPorMi.map(fila => (
+                  <div key={fila.id} className="ap-card" style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <ProfileAvatar nombre={fila.otraParteNombre} size="md" />
+                    <p style={nombreFila}>{fila.otraParteNombre}</p>
+                    <Button
+                      size="small"
+                      variant="secondary"
+                      onClick={() => void desbloquear(fila)}
+                      disabled={enCurso !== null}
+                      loading={enCurso === fila.id}
+                      aria-label={`Desbloquear a ${fila.otraParteNombre}`}
+                    >
+                      Desbloquear
+                    </Button>
                   </div>
                 ))
               )}
