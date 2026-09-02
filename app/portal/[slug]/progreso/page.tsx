@@ -7,11 +7,33 @@ import { useStudio } from '@/lib/studio-context';
 import { estadoReto, calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
 import type { EstadoReto, RewardCatalogItem } from '@/lib/types';
-import { useModo, type ModoTokens } from '@/lib/portal-modo';
+import { useModo } from '@/lib/portal-modo';
 import { resumenProgreso, barrasPorSemana, claseFavorita } from '@/lib/progreso-socia';
-import { display, micro, texto } from '@/lib/portal-design';
+import { sans } from '@/lib/portal-design';
 import { Coins, Lock, Check, Trophy, Target, Gift } from 'lucide-react';
 import { EmptyState, BottomSheet, Button } from '@/components/portal/ui';
+
+// ESTILOS: valores literales del sistema "Tentare Studio App" (portal-app.css,
+// `.ap-*`), mismo criterio ya aplicado en portal-clases-view.tsx/portal-bonos-
+// view.tsx/portal-perfil-view.tsx — en vez de los tokens de tema (`useModo()`,
+// `display()`/`micro()`/`texto.*`).
+//
+// ⚠️ Sin captura de referencia directa para esta pantalla (las 20 capturas de
+// docs/diseno-referencia-portal/ cubren Home/Horario/Reservas/Bonos/Perfil/
+// Acceso/Mensajes/Estudio, ninguna es este detalle de "Progreso"). El
+// tratamiento de aquí es EXTRAPOLADO por consistencia con el resto del portal
+// ya convertido (mismo criterio que ya usa app/portal/[slug]/mensajes/page.tsx
+// para su bandeja, que tampoco tiene captura propia) — no es un calco 1:1 de
+// un diseño visto. Las 3 cifras, el gráfico de 12 semanas y la tarjeta de
+// clase favorita no tienen precedente literal exacto en otra pantalla; Logros/
+// Retos/Recompensas sí lo tienen (grid 2×2 de logros y barra de reto de
+// portal-perfil-view.tsx, badges de 3 estados de portal-app.css) y se
+// reutilizan tal cual.
+//
+// BottomSheet de "¿Canjear X?" (RecompensasTab) se queda en `useModo()`/`t.*`
+// a propósito: mismo criterio que portal-bonos-view.tsx, cuyas hojas de
+// confirmación tampoco se convirtieron en esta fase — son diálogos
+// transitorios, no la pantalla principal.
 
 export default function ProgresoPage() {
   const searchParams = useSearchParams();
@@ -22,7 +44,6 @@ export default function ProgresoPage() {
     challengeDefinitions, challengeProgress, evaluarRetosSocio,
     rewardCatalog, rewardRedemptions, rewardHistory, saldoCreditos, canjearRecompensa,
   } = useStudio();
-  const { t, noche } = useModo();
   const socioId = session?.socioId;
 
   // Estable durante la vida de la página: con `new Date()` suelto, cada render
@@ -68,34 +89,36 @@ export default function ProgresoPage() {
 
   const cifra = (valor: string, etiqueta: string, primera: boolean) => (
     <div key={etiqueta} style={{ flex: 1, padding: primera ? '22px 0' : '22px 0 22px 20px' }}>
-      <div style={{ ...display(38), color: t.ink }}>{valor}</div>
-      <div style={{ ...micro(9, 0.2), color: t.micro, marginTop: 8 }}>{etiqueta}</div>
+      <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', lineHeight: 1 }}>{valor}</div>
+      <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', color: '#98A093', marginTop: 8 }}>
+        {etiqueta}
+      </div>
     </div>
   );
 
   const encabezado = (id: string, texto1: string) => (
-    <div id={id} style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 40, marginBottom: 18, scrollMarginTop: 70 }}>
+    <div id={id} className="ap-label" style={{ marginTop: 40, marginBottom: 18, scrollMarginTop: 70 }}>
       {texto1}
     </div>
   );
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+    <div style={{ minHeight: '100%', background: 'var(--ap-fondo, #FAF9F5)', color: 'var(--ap-tinta, #1A1A1A)' }}>
       <div style={{ padding: '62px 24px 24px' }}>
-        <h1 style={{ ...display(50), color: t.ink }}>Progreso</h1>
-        <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>Tu constancia, en silencio.</p>
+        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.025em', color: '#1A1A1A' }}>Progreso</h1>
+        <p style={{ fontFamily: sans, fontSize: 12, color: '#5A5A52', marginTop: 8 }}>Tu constancia, en silencio.</p>
 
         {/* Las tres cifras */}
-        <div style={{ display: 'flex', marginTop: 34, borderTop: `1px solid ${t.line}`, borderBottom: `1px solid ${t.line}` }}>
+        <div style={{ display: 'flex', marginTop: 34, borderTop: '1px solid #E5E3DA', borderBottom: '1px solid #E5E3DA' }}>
           {cifra(String(resumen.clases), 'CLASES', true)}
-          <span style={{ width: 1, background: t.line }} />
+          <span style={{ width: 1, background: '#EFEDE4' }} />
           {cifra(String(racha?.semanas ?? 0), 'SEMANAS', false)}
-          <span style={{ width: 1, background: t.line }} />
+          <span style={{ width: 1, background: '#EFEDE4' }} />
           {cifra(`${resumen.horas} h`, 'EN LA SALA', false)}
         </div>
 
         {/* Doce semanas */}
-        <div style={{ ...micro(9.5, 0.24), color: t.micro, marginTop: 34 }}>Últimas 12 semanas</div>
+        <div className="ap-label" style={{ marginTop: 34 }}>Últimas 12 semanas</div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 9, height: 132, marginTop: 20 }}>
           {barras.map(b => (
             <div
@@ -106,14 +129,20 @@ export default function ProgresoPage() {
                 // Una semana sin ir deja un hilo, no un hueco: si la barra
                 // desaparece del todo, el gráfico parece que le falta un dato.
                 height: `${Math.max(3, b.altura * 100)}%`,
-                background: b.esteMes ? 'var(--portal-brand)' : (noche ? 'rgba(243,241,233,.18)' : 'rgba(44,53,44,.22)'),
+                background: b.esteMes ? '#4F8A5B' : '#EFEDE4',
               }}
             />
           ))}
         </div>
         <div style={{ display: 'flex', marginTop: 12 }}>
           {barras.map(b => (
-            <span key={b.semana} style={{ flex: 1, ...micro(9, 0.16), color: t.micro, textAlign: 'left' }}>
+            <span
+              key={b.semana}
+              style={{
+                flex: 1, fontFamily: 'ui-monospace, monospace', fontSize: 9, letterSpacing: '.16em',
+                textTransform: 'uppercase', color: '#98A093', textAlign: 'left',
+              }}
+            >
               {b.mes ?? ''}
             </span>
           ))}
@@ -121,12 +150,14 @@ export default function ProgresoPage() {
 
         {/* La clase favorita */}
         {favorita && (
-          <div style={{ marginTop: 34, borderRadius: 26, background: t.surface, padding: 24, boxShadow: '0 16px 36px -28px rgba(34,42,30,.5)' }}>
-            <div style={{ ...micro(8.5, 0.24, 600), color: t.heroAccent }}>Tu clase favorita</div>
-            <div style={{ ...display(30, true), color: t.ink, marginTop: 12, textWrap: 'pretty' } as React.CSSProperties}>
+          <div className="ap-card" style={{ marginTop: 34, padding: 24 }}>
+            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '.2em', fontWeight: 600, textTransform: 'uppercase', color: '#3E6B4A' }}>
+              Tu clase favorita
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, fontStyle: 'italic', letterSpacing: '-.02em', color: '#1A1A1A', marginTop: 12, textWrap: 'pretty' } as React.CSSProperties}>
               {favorita.nombre}
             </div>
-            <div style={{ ...texto.valor, fontSize: 11.5, color: t.muted, marginTop: 10 }}>
+            <div style={{ fontFamily: sans, fontSize: 11.5, color: '#5A5A52', marginTop: 10 }}>
               {favorita.veces} de tus {favorita.total} clases
               {favorita.instructoraFija ? ` · siempre con ${favorita.instructoraFija}` : ''}
             </div>
@@ -138,7 +169,6 @@ export default function ProgresoPage() {
           <>
             {encabezado('seccion-logros', 'Logros')}
             <LogrosTab
-              t={t}
               socioId={socioId}
               achievementDefinitions={achievementDefinitions}
               achievementProgress={achievementProgress}
@@ -151,7 +181,6 @@ export default function ProgresoPage() {
           <>
             {encabezado('seccion-retos', 'Retos')}
             <RetosTab
-              t={t}
               socioId={socioId}
               socio={socio}
               socios={socios}
@@ -168,7 +197,6 @@ export default function ProgresoPage() {
           <>
             {encabezado('seccion-recompensas', 'Recompensas')}
             <RecompensasTab
-              t={t}
               socioId={socioId}
               rewardCatalog={rewardCatalog}
               rewardRedemptions={rewardRedemptions}
@@ -185,14 +213,12 @@ export default function ProgresoPage() {
 
 // ─── Logros ─────────────────────────────────────────────────────────────────
 
-function LogrosTab({ t, socioId, achievementDefinitions, achievementProgress, achievementHistory }: {
-  t: ModoTokens;
+function LogrosTab({ socioId, achievementDefinitions, achievementProgress, achievementHistory }: {
   socioId: string;
   achievementDefinitions: import('@/lib/types').AchievementDefinition[];
   achievementProgress: import('@/lib/types').AchievementProgress[];
   achievementHistory: import('@/lib/types').AchievementHistory[];
 }) {
-  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
   const misLogros = useMemo(() => {
     return achievementDefinitions
       .filter(a => a.activo)
@@ -217,7 +243,7 @@ function LogrosTab({ t, socioId, achievementDefinitions, achievementProgress, ac
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <p style={{ fontSize: 12, fontWeight: 800, color: t.heroAccent }}>{desbloqueados} de {misLogros.length} desbloqueados</p>
+      <p style={{ fontSize: 12, fontWeight: 800, color: '#3E6B4A' }}>{desbloqueados} de {misLogros.length} desbloqueados</p>
 
       {misLogros.length === 0 ? (
         <EmptyState icon={<Trophy size={18} />} title="Sin logros todavía" body="Tu estudio todavía no ha configurado logros." />
@@ -230,23 +256,30 @@ function LogrosTab({ t, socioId, achievementDefinitions, achievementProgress, ac
             return (
               <div
                 key={def.id}
-                style={{ background: t.surface, border: `1px solid ${t.line}`, borderRadius: 20, padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 8, opacity: completado ? 1 : 0.7 }}
+                className="ap-card"
+                style={{ padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 8, opacity: completado ? 1 : 0.7 }}
               >
                 <div
-                  style={{ width: 56, height: 56, borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, backgroundColor: completado ? 'color-mix(in srgb, var(--portal-brand) 12%, transparent)' : t.surface2, filter: completado ? 'none' : 'grayscale(0.6)' }}
+                  style={{
+                    width: 56, height: 56, borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
+                    backgroundColor: completado ? '#EAF0E7' : '#EFEDE4',
+                    filter: completado ? 'none' : 'grayscale(0.6)',
+                  }}
                 >
                   {def.icono}
                 </div>
-                <p style={{ fontSize: 13, fontWeight: 800, color: t.ink, lineHeight: 1.1 }}>{def.nombre}</p>
+                <p style={{ fontSize: 13, fontWeight: 800, color: '#1A1A1A', lineHeight: 1.1 }}>{def.nombre}</p>
                 {!completado && (
                   <div style={{ width: '100%' }}>
-                    <div style={{ height: 6, background: t.bar, borderRadius: 999, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', borderRadius: 999, background: 'var(--portal-brand)', width: `${porcentaje}%` }} />
+                    <div style={{ height: 6, background: '#EFEDE4', borderRadius: 999, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', borderRadius: 999, background: '#4F8A5B', width: `${porcentaje}%` }} />
                     </div>
-                    <p style={{ fontSize: 10, color: t.muted, marginTop: 4 }}>{actual}/{def.umbral}</p>
+                    <p style={{ fontSize: 10, color: '#98A093', marginTop: 4 }}>{actual}/{def.umbral}</p>
                   </div>
                 )}
-                {completado && <p style={{ fontSize: 10, fontWeight: 800, color: '#3E9B6C', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Conseguido</p>}
+                {completado && (
+                  <p style={{ fontSize: 10, fontWeight: 800, color: '#3E6B4A', textTransform: 'uppercase', letterSpacing: '.05em' }}>Conseguido</p>
+                )}
               </div>
             );
           })}
@@ -255,17 +288,17 @@ function LogrosTab({ t, socioId, achievementDefinitions, achievementProgress, ac
 
       {historial.length > 0 && (
         <div>
-          <p style={{ ...microLabel, marginBottom: 12 }}>Historial</p>
+          <p className="ap-label" style={{ marginBottom: 12 }}>Historial</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {historial.map(h => (
-              <div key={h.id} style={{ background: t.surface, border: `1px solid ${t.line}`, borderRadius: 18, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 14, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+              <div key={h.id} className="ap-card" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 14, background: '#EFEDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
                   {h.icono}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.nombre}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.nombre}</p>
                 </div>
-                <p style={{ fontSize: 11, color: t.muted, flexShrink: 0 }}>{formatFecha(h.creadoEn)}</p>
+                <p style={{ fontSize: 11, color: '#5A5A52', flexShrink: 0 }}>{formatFecha(h.creadoEn)}</p>
               </div>
             ))}
           </div>
@@ -277,14 +310,18 @@ function LogrosTab({ t, socioId, achievementDefinitions, achievementProgress, ac
 
 // ─── Retos ──────────────────────────────────────────────────────────────────
 
+// Mismo patrón de 3 estados que `.ap-badge--ok/pocas/llena` (portal-app.css):
+// EN CURSO reutiliza el verde suave de "plazas disponibles", COMPLETADO el
+// verde sólido de "reservada" (`--res`) y CADUCADO la píldora neutra que ya
+// usa el resto del portal para estados inactivos — en vez de inventar un azul
+// y un gris nuevos que no existen en ningún otro sitio del kit.
 const ESTADO_STYLE: Record<EstadoReto, { label: string; bg: string; text: string }> = {
-  ACTIVO: { label: 'En curso', bg: 'rgba(29,78,216,0.14)', text: '#3B82F6' },
-  COMPLETADO: { label: 'Completado', bg: 'rgba(5,150,105,0.14)', text: '#3E9B6C' },
-  CADUCADO: { label: 'Caducado', bg: 'rgba(142,142,147,0.14)', text: '#8E8E93' },
+  ACTIVO: { label: 'En curso', bg: 'var(--ap-verde-suave, #EAF0E7)', text: 'var(--ap-verde-tinta, #2E5A3A)' },
+  COMPLETADO: { label: 'Completado', bg: '#4F8A5B', text: '#FFFFFF' },
+  CADUCADO: { label: 'Caducado', bg: 'var(--ap-pill, #EFEDE4)', text: 'var(--ap-ter, #98A093)' },
 };
 
-function RetosTab({ t, socioId, socio, socios, sesiones, misReservas, challengeDefinitions, challengeProgress, now }: {
-  t: ModoTokens;
+function RetosTab({ socioId, socio, socios, sesiones, misReservas, challengeDefinitions, challengeProgress, now }: {
   socioId: string;
   socio: import('@/lib/types').Socio;
   socios: import('@/lib/types').Socio[];
@@ -325,21 +362,22 @@ function RetosTab({ t, socioId, socio, socios, sesiones, misReservas, challengeD
         return (
           <div
             key={def.id}
-            style={{ background: t.surface, border: `1px solid ${t.line}`, borderRadius: 20, padding: 16, opacity: estado === 'CADUCADO' ? 0.6 : 1 }}
+            className="ap-card"
+            style={{ padding: 16, opacity: estado === 'CADUCADO' ? 0.6 : 1 }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 16, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 16, background: '#EFEDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
                 {def.icono}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>{def.nombre}</p>
-                  <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 800, flexShrink: 0, backgroundColor: style.bg, color: style.text }}>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: '#1A1A1A' }}>{def.nombre}</p>
+                  <span className="ap-badge" style={{ flexShrink: 0, backgroundColor: style.bg, color: style.text }}>
                     {style.label}
                   </span>
                 </div>
-                {def.descripcion && <p style={{ fontSize: 12, color: t.muted, marginTop: 2 }}>{def.descripcion}</p>}
-                <p style={{ fontSize: 11, color: t.muted, marginTop: 4 }}>
+                {def.descripcion && <p style={{ fontSize: 12, color: '#5A5A52', marginTop: 2 }}>{def.descripcion}</p>}
+                <p style={{ fontSize: 11, color: '#5A5A52', marginTop: 4 }}>
                   {metricLabel(def.metric)} · hasta el {new Date(def.fechaFin).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                   {def.creditosRecompensa > 0 ? ` · +${def.creditosRecompensa} créditos` : ''}
                 </p>
@@ -347,12 +385,14 @@ function RetosTab({ t, socioId, socio, socios, sesiones, misReservas, challengeD
             </div>
             <div style={{ marginTop: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: t.muted2 }}>{Math.min(valor, def.objetivo)} / {def.objetivo}</span>
-                <span style={{ fontSize: 11, fontWeight: 800, color: t.heroAccent }}>{pct}%</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#5A5A52' }}>{Math.min(valor, def.objetivo)} / {def.objetivo}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#3E6B4A' }}>{pct}%</span>
               </div>
-              <div style={{ width: '100%', height: 8, borderRadius: 999, background: t.bar, overflow: 'hidden' }}>
+              {/* Mismo par ámbar (en curso) / verde (completado) que ya usa el
+                  reto destacado de "Tu actividad" en portal-perfil-view.tsx. */}
+              <div style={{ width: '100%', height: 8, borderRadius: 999, background: '#EFEDE4', overflow: 'hidden' }}>
                 <div
-                  style={{ height: '100%', borderRadius: 999, width: `${pct}%`, backgroundColor: estado === 'COMPLETADO' ? '#3E9B6C' : 'var(--portal-brand)' }}
+                  style={{ height: '100%', borderRadius: 999, width: `${pct}%`, backgroundColor: estado === 'COMPLETADO' ? '#4F8A5B' : '#C99A3C' }}
                 />
               </div>
             </div>
@@ -367,8 +407,7 @@ function RetosTab({ t, socioId, socio, socios, sesiones, misReservas, challengeD
 
 type EstadoTarjeta = 'DISPONIBLE' | 'BLOQUEADA' | 'CANJEADA';
 
-function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHistory, saldoCreditos, canjearRecompensa }: {
-  t: ModoTokens;
+function RecompensasTab({ socioId, rewardCatalog, rewardRedemptions, rewardHistory, saldoCreditos, canjearRecompensa }: {
   socioId: string;
   rewardCatalog: import('@/lib/types').RewardCatalogItem[];
   rewardRedemptions: import('@/lib/types').RewardRedemption[];
@@ -376,7 +415,10 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
   saldoCreditos: (socioId: string) => number;
   canjearRecompensa: (socioId: string, catalogItemId: string) => Promise<{ ok: true } | { error: string }>;
 }) {
-  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
+  // La hoja de confirmación de canje se queda en `useModo()`/`t.*` a
+  // propósito — mismo criterio que las hojas de confirmación de
+  // portal-bonos-view.tsx, no convertidas en esta fase.
+  const { t } = useModo();
   const saldo = saldoCreditos(socioId);
   const [canjeando, setCanjeando] = useState<RewardCatalogItem | null>(null);
   const [error, setError] = useState('');
@@ -411,26 +453,34 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Toast (CHEATSHEET-CSS.md): pill #1A1A1A texto #F1ECE1, top 58px. */}
       {exito && (
-        <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 50, background: t.ink, color: t.bg, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div
+          style={{
+            position: 'fixed', top: 58, left: '50%', transform: 'translateX(-50%)', zIndex: 50,
+            background: '#1A1A1A', color: '#F1ECE1', fontSize: 12.5, fontWeight: 700, padding: '10px 18px',
+            borderRadius: 999, display: 'flex', alignItems: 'center', gap: 6,
+            boxShadow: '0 14px 34px -14px rgba(15,15,15,.35)',
+          }}
+        >
           <Check size={14} />Has canjeado {exito}
         </div>
       )}
 
       {/* Wallet */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 20, padding: 16, background: 'rgba(217,119,6,0.1)' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: t.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Coins size={18} style={{ color: '#B45309' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 14, padding: 16, background: '#F6EEDD' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 14, background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Coins size={18} style={{ color: '#C99A3C' }} />
         </div>
         <div>
-          <p style={{ fontSize: 20, fontWeight: 800, color: t.ink, lineHeight: 1 }}>{saldo}</p>
-          <p style={{ fontSize: 12, color: t.muted, marginTop: 4 }}>créditos disponibles</p>
+          <p style={{ fontSize: 20, fontWeight: 800, color: '#1A1A1A', lineHeight: 1 }}>{saldo}</p>
+          <p style={{ fontSize: 12, color: '#5A5A52', marginTop: 4 }}>créditos disponibles</p>
         </div>
       </div>
 
       {/* Catálogo */}
       <div>
-        <p style={{ ...microLabel, marginBottom: 12 }}>Catálogo</p>
+        <p className="ap-label" style={{ marginBottom: 12 }}>Catálogo</p>
         {activos.length === 0 ? (
           <EmptyState icon={<Gift size={18} />} title="Sin recompensas todavía" body="Todavía no hay recompensas disponibles." />
         ) : (
@@ -444,20 +494,21 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
                   key={item.id}
                   disabled={bloqueada || canjeada}
                   onClick={() => { setError(''); setCanjeando(item); }}
-                  style={{ background: t.surface, border: `1px solid ${t.line}`, borderRadius: 20, padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8, textAlign: 'left', opacity: bloqueada ? 0.55 : 1 }}
+                  className="ap-card"
+                  style={{ padding: 16, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8, textAlign: 'left', opacity: bloqueada ? 0.55 : 1 }}
                 >
-                  <div style={{ width: 44, height: 44, borderRadius: 16, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 16, background: '#EFEDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
                     {item.icono}
                   </div>
-                  <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, lineHeight: 1.1 }}>{item.nombre}</p>
-                  {item.descripcion && <p style={{ fontSize: 11, color: t.muted, lineHeight: 1.4 }}>{item.descripcion}</p>}
+                  <p style={{ fontSize: 14, fontWeight: 800, color: '#1A1A1A', lineHeight: 1.1 }}>{item.nombre}</p>
+                  {item.descripcion && <p style={{ fontSize: 11, color: '#5A5A52', lineHeight: 1.4 }}>{item.descripcion}</p>}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
                     {canjeada ? (
-                      <span style={{ fontSize: 11, fontWeight: 800, color: '#3E9B6C', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} />Canjeada</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: '#3E6B4A', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} />Canjeada</span>
                     ) : bloqueada ? (
-                      <span style={{ fontSize: 11, fontWeight: 800, color: t.muted, display: 'flex', alignItems: 'center', gap: 4 }}><Lock size={11} />{item.costeCreditos} créditos</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: '#98A093', display: 'flex', alignItems: 'center', gap: 4 }}><Lock size={11} />{item.costeCreditos} créditos</span>
                     ) : (
-                      <span style={{ fontSize: 11, fontWeight: 800, color: t.heroAccent, display: 'flex', alignItems: 'center', gap: 4 }}><Coins size={11} />{item.costeCreditos} créditos</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: '#3E6B4A', display: 'flex', alignItems: 'center', gap: 4 }}><Coins size={11} />{item.costeCreditos} créditos</span>
                     )}
                   </div>
                 </button>
@@ -470,15 +521,15 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
       {/* Historial */}
       {miHistorial.length > 0 && (
         <div>
-          <p style={{ ...microLabel, marginBottom: 12 }}>Historial de créditos</p>
+          <p className="ap-label" style={{ marginBottom: 12 }}>Historial de créditos</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {miHistorial.map(h => (
-              <div key={h.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: 16, padding: '12px 16px', background: t.surface2 }}>
+              <div key={h.id} className="ap-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.descripcion}</p>
-                  <p style={{ fontSize: 11, color: t.muted }}>{new Date(h.creadoEn).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.descripcion}</p>
+                  <p style={{ fontSize: 11, color: '#5A5A52' }}>{new Date(h.creadoEn).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</p>
                 </div>
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#3E9B6C', flexShrink: 0 }}>+{h.creditos}</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#3E6B4A', flexShrink: 0 }}>+{h.creditos}</span>
               </div>
             ))}
           </div>
