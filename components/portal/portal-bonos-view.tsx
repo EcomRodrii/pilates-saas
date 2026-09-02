@@ -296,7 +296,11 @@ export function PortalBonosView({
                       {/* Solo el primero: es el que se está gastando ahora, y
                           saberlo explica por qué caduca antes que los demás. */}
                       {i === 0 && !b.agotado && (
-                        <span style={{ fontWeight: 400, color: '#3E6B4A' }}> · en curso</span>
+                        // 500 y no 400: aquí el peso SÍ es portante —tiene que
+                        // leerse por debajo del 700 del nombre— y 500 es el más
+                        // ligero que el kit declara. En hoja-reserva el 400 era
+                        // otra cosa: el peso ambiente del cuerpo de texto.
+                        <span style={{ fontWeight: 500, color: '#3E6B4A' }}> · en curso</span>
                       )}
                     </div>
                     <div style={{ fontFamily: sans, fontSize: 10.5, color: '#3E6B4A', marginTop: 2 }}>
