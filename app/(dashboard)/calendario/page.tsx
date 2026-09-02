@@ -1281,11 +1281,15 @@ export default function Calendario() {
     // UPDATE reintroducía las reservas fantasma sin que nadie se enterara.
     const resReservas = await cancelarReservasDeSesiones([sesionId], 'cancelarSesion');
     setSesionId(null);
-    showToast(!resReservas.ok
+    // F-32: si alguna socia no recuperó su sesión de bono, el toast base
+    // ("clientas avisadas") ya no puede quedarse tan tranquilo — se añade el
+    // mismo aviso que ya usa cancelarReserva (una sola reserva).
+    const base = !resReservas.ok
       ? 'Clase cancelada · no hemos podido cancelar sus reservas, recarga la página'
       : sinAvisar > 0
         ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
-        : 'Clase cancelada · clientas avisadas');
+        : 'Clase cancelada · clientas avisadas';
+    showToast(resReservas.avisoBono ? `${base} · ${resReservas.avisoBono}` : base);
     void refrescarVista();
   }
 

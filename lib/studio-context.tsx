@@ -408,10 +408,10 @@ interface StudioContextValue {
   // Series de clases recurrentes (I-3)
   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
-  cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura>;
+  cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
   /** Marca CANCELADA las reservas activas de estas sesiones. Llamar SIEMPRE
    *  después de haber avisado a las socias (ver updateSesion). */
-  cancelarReservasDeSesiones: (ids: string[], op: string) => Promise<ResultadoEscritura>;
+  cancelarReservasDeSesiones: (ids: string[], op: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
 
   // Reservas
   // opciones.checkInInmediato: walk-in (I-alta pilar 6) — se añade y se marca
@@ -2530,7 +2530,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // que este mismo código fue a arreglar, y en silencio. Ahora devuelve el
   // resultado para que el toast pueda decir la verdad — en los DOS llamantes
   // (clase suelta y serie); el reporte a Sentry se conserva tal cual.
-  async function cancelarReservasDeSesiones(ids: string[], op: string): Promise<ResultadoEscritura> {
+  //
+  // F-32 (auditoría 20ª pasada): la devolución de bono en SÍ seguía siendo
+  // `forEach(r => void devolverSesionBono(...))` — el camino de UNA reserva
+  // (`cancelarReserva`, más abajo) sí espera y produce `avisoBono` si falla;
+  // este, el de cancelar una clase/serie entera, no. `devolverSesionBono` ya
+  // reporta a Sentry cuando falla, pero quien pulsó "Cancelar clase" veía
+  // "clientas avisadas" sin enterarse de que alguna socia se quedó sin su
+  // sesión de vuelta. Ahora se esperan todas (Promise.all) y, si alguna
+  // falla, se añade el mismo `avisoBono` que ya usa el camino individual.
+  async function cancelarReservasDeSesiones(ids: string[], op: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
     if (ids.length === 0) return { ok: true };
     const sesionIdsSet = new Set(ids);
     const confirmadasAntes = reservas.filter(r => sesionIdsSet.has(r.sesionId) && r.estado === 'CONFIRMADA');
@@ -2544,15 +2553,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         return { ok: false, error: 'La clase se ha cancelado, pero no hemos podido cancelar sus reservas. Recarga la página.' };
       }
       const idsSet = new Set(res.ids);
+      let avisoBono: string | undefined;
       if (idsSet.size > 0) {
         setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
         if (studio?.cancelacionClaseDevuelveBono ?? true) {
-          confirmadasAntes
-            .filter(r => idsSet.has(r.id))
-            .forEach(r => void devolverSesionBono(r.socioId, r.sesionId));
+          const aDevolver = confirmadasAntes.filter(r => idsSet.has(r.id));
+          const resultados = await Promise.all(aDevolver.map(r => devolverSesionBono(r.socioId, r.sesionId)));
+          const fallos = resultados.filter(ok => !ok).length;
+          if (fallos > 0) {
+            avisoBono = fallos === 1
+              ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
+              : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`;
+          }
         }
       }
-      return { ok: true };
+      return { ok: true, avisoBono };
     } catch (e) {
       console.error(`[${op}:dbCancelarReservasPorSesiones]`, e);
       capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'calendario', op } });
@@ -2672,7 +2687,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Cancela "esta y las siguientes" de una serie (p. ej. "cancelar la serie del
   // verano") y avisa por email a las socias con plaza en cada sesión afectada.
-  async function cancelarSerieDesde(sesionId: string): Promise<ResultadoEscritura> {
+  async function cancelarSerieDesde(sesionId: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
     const objetivo = sesionesDeSerieDesde(sesionId).filter(s => !s.cancelada);
     if (objetivo.length === 0) return { ok: true };
     const ids = objetivo.map(s => s.id);
