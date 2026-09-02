@@ -4,6 +4,7 @@ import {
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
   puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCentroNotificaciones,
+  puedeModerarComunidad,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -224,6 +225,10 @@ test('los helpers de UI reparten igual que las funciones de la RLS', () => {
     { tabla: 'suscripciones', helper: puedeMoverDinero, rls: ['PROPIETARIO', 'RECEPCION'] },
     // mandatos_sepa.* → puede_mover_dinero()
     { tabla: 'mandatos_sepa', helper: puedeMoverDinero, rls: ['PROPIETARIO', 'RECEPCION'] },
+    // posts_comunidad_editar/borrar → F-18, migr 20260902104439
+    { tabla: 'posts_comunidad (ajeno)', helper: puedeModerarComunidad, rls: ['PROPIETARIO', 'MANAGER', 'RECEPCION'] },
+    // comentarios_comunidad_editar/borrar → mismo criterio
+    { tabla: 'comentarios_comunidad (ajeno)', helper: puedeModerarComunidad, rls: ['PROPIETARIO', 'MANAGER', 'RECEPCION'] },
   ];
 
   for (const { tabla, helper, rls } of ESPEJO) {
