@@ -35,11 +35,14 @@
 
 import { chromium } from '@playwright/test'
 import { createHash } from 'node:crypto'
+import { contratoDesde, canonizarColor } from './comprobar-fidelidad-portal.mjs'
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..')
+// El propio prototipo es la fuente del vocabulario contra el que se compara.
+const PROTOTIPO = 'components/prototipo/StudioApp.jsx'
 const SALIDA = join(RAIZ, '.comparacion-visual')
 
 const arg = (n, def) => {
@@ -345,11 +348,32 @@ async function main() {
   await nav.close()
 
   // ── informe ──────────────────────────────────────────────────────────────
+  // Un valor solo cuenta como deriva si NO está en ninguno de los dos sitios:
+  //
+  //   1. lo que se ha medido en estas cuatro pantallas del prototipo, y
+  //   2. el vocabulario COMPLETO del prototipo, leído de su código fuente.
+  //
+  // ⚠️ Con solo (1) el informe señalaba cosas que el prototipo sí usa, pero en
+  // otra pantalla: peso 600 (7 elementos) y #C2503A salieron marcados y son
+  // suyos de toda la vida. Perseguir esos fantasmas cuesta más que el informe.
+  const vocab = contratoDesde(readFileSync(join(RAIZ, PROTOTIPO), 'utf8'))
+  const estatico = {
+    color: vocab.colores, fondo: vocab.colores,
+    tamaño: vocab.tamanos, peso: vocab.pesos, radio: vocab.radios,
+  }
+  // El navegador computa `rgb(...)`/`12.5px`; el código escribe `#fff`/`12.5`.
+  const comparable = (clase, v) =>
+    clase === 'color' || clase === 'fondo' ? canonizarColor(v) : String(v).replace(/px$/, '')
+
   const fuera = {}
   for (const clase of ['color', 'fondo', 'tamaño', 'peso', 'radio']) {
-    const permitido = new Set(Object.keys(censoProto[clase] ?? {}))
+    const enPantallas = new Set(Object.keys(censoProto[clase] ?? {}))
     fuera[clase] = Object.entries(censoPortal[clase] ?? {})
-      .filter(([v]) => !permitido.has(v))
+      .filter(([v]) => {
+        if (enPantallas.has(v)) return false
+        const c = comparable(clase, v)
+        return !estatico[clase].has(c) && !estatico[clase].has(String(v))
+      })
       .sort((a, b) => b[1] - a[1])
   }
 
@@ -364,11 +388,8 @@ async function main() {
     if (lista.length > 8) console.log(`   …y ${lista.length - 8} más`)
   }
 
-  // ⚠️ El censo del prototipo solo cubre las pantallas capturadas, así que un
-  // valor puede salir «fuera» y estar usado en otra pantalla suya. Decirlo evita
-  // que alguien persiga un falso positivo.
-  console.log('\nEl censo del prototipo cubre solo estas cuatro pantallas: un valor')
-  console.log('marcado aquí puede estar usado en otra pantalla suya. Contrástalo.')
+  console.log('\nLo señalado ya está cruzado contra el vocabulario COMPLETO del')
+  console.log('prototipo, no solo contra estas cuatro pantallas.')
 
   const filas = PANTALLAS.map((p) => `
     <section>
