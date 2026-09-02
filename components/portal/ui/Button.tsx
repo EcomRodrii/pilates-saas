@@ -24,7 +24,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 // las cuatro variantes. `primary` vivía detrás de `--portal-btn-*` (la marca
 // del estudio, como eje aparte); deja de hacerlo por la misma decisión que el
 // resto de la paleta: dentro del portal manda el kit y la marca queda para
-// acentos. La FORMA sí sigue siendo del tema (`--portal-radius-boton`).
+// acentos. La FORMA también: `.ap-btn` del kit es `border-radius: 999px`, así
+// que el botón deja de leer `--portal-radius-boton` (el radio que el tema
+// calcula para el estudio) igual que dejó de leer `--portal-btn-bg`.
 export function Button({ variant = 'primary', size = 'default', style, disabled, loading, children, ...props }: ButtonProps) {
   const small = size === 'small';
   const inactivo = disabled || loading;
@@ -46,11 +48,10 @@ export function Button({ variant = 'primary', size = 'default', style, disabled,
       style={{
         height: small ? 40 : 48,
         padding: small ? '0 16px' : '0 20px',
-        // `radioTema.boton` del tema del estudio (lib/theme-runtime.ts) — sin
-        // ese campo, cae al 14px de siempre. Solo el tamaño normal lo lee:
-        // `small` es un contexto ya compacto (chips/acciones secundarias),
-        // no la forma que distingue un tema de otro.
-        borderRadius: small ? radius.control : 'var(--portal-radius-boton, 14px)',
+        // `.ap-btn`: píldora, los dos tamaños. En el prototipo NINGÚN botón
+        // tiene esquina cuadrada — los 12 `borderRadius: 999` y los 10 `: 99`
+        // de StudioApp.jsx son todos controles.
+        borderRadius: radius.pill,
         fontWeight: 800,
         fontSize: small ? 12.5 : 14,
         // Sin versalitas: `.ap-btn` del kit no las lleva. En el prototipo las

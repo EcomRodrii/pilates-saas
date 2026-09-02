@@ -705,7 +705,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             )}
             <span style={{
               display: 'inline-flex', alignItems: 'center', height: 42, padding: '0 20px', marginTop: 16,
-              borderRadius: `var(--portal-radius-boton, ${radio.pill}px)`,
+              borderRadius: radio.pill,
               // Fallback del KIT, no de la marca: `.ap-btn--primario` es tinta
               // con texto crema. El tema puede seguir pisándolo con
               // `--portal-btn-*` si el estudio lo declara.

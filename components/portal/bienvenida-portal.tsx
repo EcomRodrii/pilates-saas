@@ -66,7 +66,7 @@ export function BienvenidaPortal({
             onClick={onSiguiente}
             style={{
               width: '100%', height: altura.botonAcceso,
-              borderRadius: `var(--portal-radius-boton, ${radio.hoja}px)`,
+              borderRadius: radio.pill,
               background: MARCA_FG, color: MARCA,
               border: 'none', cursor: 'pointer', padding: '0 8px 0 26px',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
