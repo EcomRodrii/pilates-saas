@@ -2343,6 +2343,22 @@ export async function expirarOfertaListaEspera(params: {
       studioId: params.studioId, sesionId: params.sesionId,
       socioId: row.oferta_socio_id as string, expiraEn: row.oferta_expira_en as string
     });
+  } else if (row?.promovida_socio_id) {
+    // Auditoría 21ª pasada, P-5: con `lista_espera_plazo_aceptacion_minutos`
+    // en 0 (los 10 estudios hoy — la lista con oferta está inerte),
+    // `promocionar_siguiente_espera` confirma directo en vez de ofrecer. La
+    // RPC ya devolvía `promovida_socio_id` a `expirar_oferta_lista_espera`
+    // internamente pero su `RETURNS TABLE` no lo exponía — se perdía en
+    // silencio: la socia quedaba CONFIRMADA sin consumir bono (el consumo
+    // vive aquí, no en la RPC — mismo criterio que
+    // `aceptarOfertaListaEspera`/`resolverReservaPendiente`) y sin ninguna
+    // notificación.
+    await consumirBonoServidor(admin, params.studioId, row.promovida_socio_id as string, params.sesionId);
+    const { emitirReserva } = await import('@/lib/notifications/emit');
+    await emitirReserva(admin, {
+      studioId: params.studioId, sesionId: params.sesionId,
+      socioId: row.promovida_socio_id as string, estado: 'CONFIRMADA',
+    });
   }
   return true;
 }
