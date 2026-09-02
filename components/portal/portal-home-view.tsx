@@ -51,13 +51,29 @@ import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
 import { bonoActivo } from '@/lib/bonos-portal';
 import { usePortalHref } from '@/components/portal/portal-preview-bridge';
 import {
-  EASE, dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque, escala } from '@/lib/portal-design';
+  EASE, dur, transicion, display, micro, texto, radio, altura, sombra, cristal } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { hoyEnEstudio } from '@/lib/utils';
 import { queImparten } from '@/lib/equipo';
 import { valoracionParaPantalla } from '@/lib/portal-tema/valoracion';
+
+/**
+ * El radio de una tarjeta interna, del kit (`.ap-card` = 16 px,
+ * app/portal/[slug]/portal-app.css).
+ *
+ * ⚠️ Antes era `radio.card` de `lib/portal-design.ts`, que vale **24**. En la
+ * misma pantalla convivían tarjetas de 24 (bono en su variante rotulada,
+ * semana, retos, contenido del estudio) con tarjetas de 16 (las que ya usaban
+ * la clase `.ap-card`), y dos radios distintos en cards hermanas se ven. El
+ * kit solo tiene tres radios de tarjeta —16 normal, 18 el banner y 20 las
+ * grandes con foto— y 24 no es ninguno.
+ *
+ * No se toca `radio.card` en `lib/portal-design.ts`: lo comparte `/reservar`,
+ * que va por otro diseño.
+ */
+const RADIO_TARJETA = 16;
 
 // Valor de `now` mientras el reloj de abajo todavía no ha latido (render del
 // servidor y primer render del cliente, antes del efecto). Constante de MÓDULO
@@ -502,9 +518,6 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   // la del portal, y si tampoco la de por defecto. La herencia va en este orden
   // a propósito: quien nunca toque el campo nuevo no nota ningún cambio.
   const fotoTarjeta = imagenDeEstudio('vertical', [txt('proximaClase', 'fotoUrl', ''), studio?.imagenBienvenidaUrl]);
-  const cristalClaro = 'rgba(246,244,239,.72)';
-  const bordeCristal = 'rgba(255,255,255,.80)';
-  const lineaSuave = 'rgba(34,38,31,.20)';
 
   return (
     <div ref={raizRef} className="portal-app" style={{ minHeight: '100%' }}>
@@ -648,8 +661,18 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             cuando no hay clase reservada, "Próxima clase" cuando la hay
             ("Tu próxima clase" en el tema de barra oscura). Sin la variante,
             no se pinta nada — la tarjeta ya se explica sola con su volanta. */}
+        {/* ⚠️ TITULARES DE SECCIÓN: `.ap-h2` (18px/800/-.025em, portal-app.css),
+            no `display(escala('seccion', …))`. Los cinco titulares de esta
+            pantalla usaban la escala del tema y habían vuelto a derivar —
+            24 px este y 30 px los otros cuatro ("Esta semana", "Retos",
+            "Huecos de hoy", "Novedades del estudio")—, que es exactamente la
+            incoherencia que `escala()` se creó para impedir. El kit fija un
+            solo tamaño de titular de sección, así que la clase es la fuente
+            de verdad y ya no hay número suelto que se pueda mover.
+            La fuente SÍ sigue saliendo del tema (`--portal-heading-font`):
+            `.ap-h2` solo fija tamaño, peso y tracking. */}
         {tarjetaRotulada && (
-          <h2 style={{ ...display(escala('seccion', 24)), color: '#1A1A1A', marginBottom: 12 }}>
+          <h2 style={{ fontFamily: 'var(--portal-heading-font, inherit)', color: '#1A1A1A', marginBottom: 12 }} className="ap-h2">
             {/* El prototipo dice "Tu próxima clase" solo en Noir; es una
                 palabra de diferencia que obligaría a exponer otro campo del
                 tema hasta aquí, así que se unifica. */}
@@ -671,7 +694,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               background: '#FFFFFF',
               border: `var(--portal-card-border, 1px solid #E5E3DA)`,
               boxShadow: 'var(--portal-card-shadow, none)',
-              borderRadius: `var(--portal-radius-card, ${radio.card}px)`,
+              borderRadius: `var(--portal-radius-card, ${RADIO_TARJETA}px)`,
             }}
           >
             {/* Mismos textos que el hero (`tarjeta`), no unos propios: el
@@ -693,33 +716,44 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           </Link>
         ) : (
         <>
-        {/* Tarjeta grande: 476 px de imagen con la tarjeta de cristal flotando
-            abajo, que es exactamente el diseño.
-            Hubo una rama alternativa —tarjeta encogida a su altura natural—
-            porque SIN foto esos 476 px eran un vacío de color crema, el caso de
-            casi todos los estudios el primer día. Con la foto por defecto ese
-            vacío ya no existe, así que la rama se fue: `fotoTarjeta` nunca
-            viene vacía. */}
+        {/* `fotoTarjeta` nunca viene vacía: si el estudio no ha subido nada,
+            `imagenDeEstudio` devuelve la de por defecto. Por eso aquí no hay
+            rama "sin foto" — la hubo mientras la tarjeta medía 476 px y sin
+            imagen dejaba medio metro de crema, pero con la foto por defecto
+            ese vacío no llega a existir. */}
+        {/* Tarjeta "Tu próxima clase" — kit "Tentare Studio App"
+            (docs/diseno-referencia-portal/CHEATSHEET-CSS.md, literal):
+            radio 20, padding 14px 15px, foto de fondo bajo un velo verde
+            noche, sombra 0 18px 38px -16px rgba(18,41,26,.5).
+
+            ⚠️ ANTES ERA OTRO DISEÑO. Esto medía 476 px de alto (foto a
+            sangre + tarjeta de cristal flotando abajo, titular de 36 px en
+            cursiva): la composición de "Tentare App Cliente v2", el diseño
+            ANTERIOR. Con el kit vigente la tarjeta es compacta y el titular
+            va a 15.5px/800 sobre el velo, no en una tarjeta clara aparte.
+            Los dos e2e que fijaban los 476 px defendían aquel diseño y se
+            han actualizado a esta geometría, no se han borrado.
+
+            Y arregla un recorte real, medido en local a 390 px: el titular
+            ("Tu sitio te espera", 18 caracteres) pedía 291 px en una caja de
+            272 y salía como "Tu sitio te esp…", con el CTA igual
+            ("Volver a reser…"). La causa era `whiteSpace: nowrap` sobre un
+            texto de 36 px que el editor deja escribir hasta 50 caracteres.
+            A 15.5 px y con dos líneas de margen, el texto por defecto cabe
+            entero y el editable tiene sitio de verdad. */}
         <div
           // Ancla estable para las pruebas de geometría: la tarjeta no tiene rol
           // ni texto propio con el que localizarla (el titular cambia según el
           // caso), y colgar el test de su estructura lo rompe al primer div.
           data-tarjeta="principal"
-          // Se marca AQUÍ y no en un envoltorio nuevo: la rama grande es un
-          // fragment con varios hijos directos del contenedor con padding, y
-          // meterles un div encima cambiaría el layout de la pieza más visible
-          // del portal. Este ancla ya existía para las pruebas de geometría.
           data-bloque-sistema="proximaClase"
           data-bloque-id={idFijo('proximaClase')}
           style={{
-            position: 'relative',
-            height: altura.heroCard,
-            // var() con el valor de hoy como fallback: sin `radioTema.card` el
-            // tema no declara esta var (varsRadioTema, lib/theme-runtime.ts) y
-            // la tarjeta se ve exactamente igual que antes.
-            borderRadius: `var(--portal-radius-card, ${radio.heroCard}px)`, overflow: 'hidden',
-            background: '#EFEDE4',
-            boxShadow: sombra.heroCard,
+            position: 'relative', overflow: 'hidden',
+            borderRadius: `var(--portal-radius-card, 20px)`,
+            padding: '14px 15px',
+            background: '#12291A',
+            boxShadow: '0 18px 38px -16px rgba(18,41,26,.5)',
           }}
         >
           <div ref={fotoRef} style={{ position: 'absolute', left: 0, right: 0, top: -34, bottom: -34, willChange: 'transform' }}>
@@ -736,77 +770,77 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             />
           </div>
 
-          <div style={{
-            position: 'absolute', top: 18, left: 18, right: 18,
-            display: 'flex', justifyContent: 'space-between', gap: 10, pointerEvents: 'none',
-          }}>
-            <span style={{
-              padding: '10px 16px', borderRadius: radio.pill, background: 'rgba(255,255,255,.62)',
-              ...cristal(desenfoque.chip), border: `1px solid ${bordeCristal}`,
-              ...micro(8.5, 0.26, 600), color: '#1A1A1A', whiteSpace: 'nowrap',
-            }}>{tarjeta.volanta}</span>
-            {tarjeta.contador && (
-              <span style={{
-                padding: '10px 16px', borderRadius: radio.pill,
-                background: 'rgba(34,38,31,.72)',
-                ...cristal(desenfoque.chip, 100),
-                ...micro(8.5, 0.22, 600), color: '#F6F4EF', whiteSpace: 'nowrap',
-              }}>{tarjeta.contador}</span>
-            )}
-          </div>
+          {/* Velo del kit. Va SOBRE la foto y BAJO el texto: es lo que
+              garantiza que el titular claro se lea con cualquier foto que
+              suba el estudio, incluida una muy clara. */}
+          <div aria-hidden style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(100deg, rgba(18,41,26,.95), rgba(18,41,26,.68))',
+          }} />
 
-          <div style={{
-            position: 'absolute', left: 14, right: 14, bottom: 14,
-            borderRadius: radio.card,
-            background: cristalClaro, ...cristal(desenfoque.cardHero, 170),
-            border: `1px solid ${bordeCristal}`, boxShadow: sombra.cardInterna, padding: '22px 20px 20px',
-          }}>
-            <Link href={tarjeta.href} style={{ textDecoration: 'none', display: 'block' }}>
-              <div style={{ ...display(escala('titulo-hero', 36), true), color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                {/* Dot 6px #7BC488 pulsante, del cheatsheet. `ap-dot-pulse`
+                    ya existe en portal-app.css y respeta prefers-reduced-motion. */}
+                <span aria-hidden className="ap-dot-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: '#7BC488', flex: '0 0 6px' }} />
+                <span style={{
+                  fontFamily: 'ui-monospace, monospace', fontSize: 10, letterSpacing: '.16em',
+                  textTransform: 'uppercase', color: '#A8D0A9',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{tarjeta.volanta}</span>
+              </span>
+              {tarjeta.contador && (
+                <span style={{
+                  fontFamily: 'ui-monospace, monospace', fontSize: 10, letterSpacing: '.14em',
+                  textTransform: 'uppercase', color: 'rgba(234,240,231,.72)', whiteSpace: 'nowrap', flex: '0 0 auto',
+                }}>{tarjeta.contador}</span>
+              )}
+            </div>
+
+            <Link href={tarjeta.href} style={{ textDecoration: 'none', display: 'block', marginTop: 9 }}>
+              {/* Dos líneas, no `nowrap`: el titular es editable por la
+                  propietaria hasta 50 caracteres (lib/portal-home-bloques.ts). */}
+              <div style={{
+                fontSize: 15.5, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1.25, color: '#FAF9F5',
+                display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden',
+              }}>
                 {tarjeta.titulo}
               </div>
             </Link>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
               {tarjeta.meta.map((m, i) => (
                 <span key={m} style={{ display: 'contents' }}>
-                  {i > 0 && <span style={{ width: 1, height: 11, background: lineaSuave }} />}
-                  <span style={{ ...(i === 0 ? texto.metaFuerte : texto.meta), color: i === 0 ? '#1A1A1A' : '#5A5A52' }}>{m}</span>
+                  {i > 0 && <span aria-hidden style={{ width: 1, height: 10, background: 'rgba(234,240,231,.35)' }} />}
+                  <span style={{ fontSize: 11, color: i === 0 ? 'rgba(250,249,245,.92)' : 'rgba(234,240,231,.72)' }}>{m}</span>
                 </span>
               ))}
             </div>
-            {/* Fila de 3 píldoras: la principal (case-aware, igual que
-                siempre) más dos accesos directos fijos — horario y mi acceso
-                — a acciones reales que ya existían en el portal pero solo se
-                podían llegar a ellas desde otra pantalla. Ninguna anida un
-                interactivo dentro de otro (una de las píldoras es un
-                <button>, las otras dos son <Link>, siempre HERMANOS: la
-                tarjeta grande dejó de ser un enlace único por esto mismo,
+
+            {/* Fila de 3 acciones. Ninguna anida un interactivo dentro de
+                otro (una es <button>, las otras dos <Link>, siempre
+                HERMANOS: la tarjeta dejó de ser un enlace único por esto,
                 ver el comentario de e2e/portal-cliente-v2.spec.ts). */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 13 }}>
               {(() => {
-                // Padding/gaps recortados respecto al botón de ancho completo
-                // de antes: con los 2 círculos nuevos al lado (medido en un
-                // iPhone SE, 375px — el "iPhone normal" de 402px del
-                // comentario de abajo no era el caso más estrecho real), el
-                // texto por defecto de este CTA ("Ver la agenda", editable
-                // hasta 30 caracteres desde el editor) se veía truncado a
-                // "Ver la ag…" — inaceptable en el CTA principal de la
-                // pantalla que más ve una socia. Los círculos se quedan a 40px
-                // (mismo tamaño que la cabecera, ver comentario de abajo).
+                // Píldora clara sobre el verde noche: #FAF9F5 con texto
+                // #12291A a 11.5px/800, tal cual el cheatsheet.
                 const estilo: React.CSSProperties = {
-                  flex: 1, minWidth: 0, height: altura.botonCta, borderRadius: `var(--portal-radius-boton, ${radio.botonCta}px)`, background: 'var(--portal-brand)',
-                  display: 'flex', alignItems: 'center', padding: '0 12px', border: 'none',
+                  flex: 1, minWidth: 0, height: 38, borderRadius: 999, background: '#FAF9F5',
+                  display: 'flex', alignItems: 'center', padding: '0 14px', border: 'none',
                   textDecoration: 'none', cursor: 'pointer',
-                  boxShadow: sombra.cta, transition: transicion(['transform', 'background']),
+                  transition: transicion(['transform', 'background']),
                 };
                 const dentro = (
                   <>
-                    <GlifoAcceso color="var(--portal-brand-foreground)" />
+                    <GlifoAcceso color="#12291A" />
                     <span style={{
-                      flex: 1, minWidth: 0, ...texto.botonCta, color: 'var(--portal-brand-foreground)', paddingLeft: 8, textAlign: 'left',
+                      flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 800, color: '#12291A',
+                      paddingLeft: 8, textAlign: 'left',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>{tarjeta.cta}</span>
-                    <span aria-hidden style={{ flex: '0 0 auto', fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7, paddingLeft: 4 }}>→</span>
+                    <span aria-hidden style={{ flex: '0 0 auto', fontSize: 14, color: '#12291A', opacity: 0.55, paddingLeft: 4 }}>→</span>
                   </>
                 );
                 // Con el check-in QR desactivado (Configuración → Reservas), la
@@ -818,27 +852,21 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   : <Link href={tarjeta.href} style={estilo}>{dentro}</Link>;
               })()}
 
-              {/* Horario/Mi acceso — círculos de 40 px, el MISMO tamaño y
-                  tratamiento que la lupa y la campana de la cabecera (arriba
-                  en este mismo fichero): no `altura.botonCta` (62 px, pensado
-                  para un botón ancho a todo lo ancho, no para un icono suelto
-                  al lado de la píldora principal) — con 62 px la principal se
-                  quedaba sin sitio para su texto en un iPhone normal (402 px),
-                  no solo en el SE. Horario — el calendario completo, un atajo
-                  a la misma pantalla a la que ya lleva "Ver la agenda"/"Esta
-                  semana" más abajo, ahora también desde la tarjeta principal. */}
+              {/* Secundarios del cheatsheet: borde rgba(234,240,231,.35),
+                  fondo rgba(234,240,231,.12), icono #EAF0E7 — translúcidos
+                  sobre el velo, no círculos blancos (que sobre verde noche
+                  pesaban más que el CTA principal). */}
               <Link
                 href={portalHref(`/${slug}/clases`)}
                 aria-label="Ver el horario"
                 style={{
-                  position: 'relative', width: 40, height: 40, flex: '0 0 40px',
-                  borderRadius: '50%', border: '1px solid rgba(34,38,31,.14)',
-                  background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: sombra.circulo, textDecoration: 'none',
-                  transition: transicion(['transform']),
+                  position: 'relative', width: 38, height: 38, flex: '0 0 38px',
+                  borderRadius: '50%', border: '1px solid rgba(234,240,231,.35)',
+                  background: 'rgba(234,240,231,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  textDecoration: 'none', transition: transicion(['transform']),
                 }}
               >
-                <CalendarDays size={18} strokeWidth={1.9} style={{ color: '#1A1A1A' }} />
+                <CalendarDays size={17} strokeWidth={1.9} style={{ color: '#EAF0E7' }} />
               </Link>
 
               {/* Mi acceso — mismo destino que la fila "Mis reservas" de más
@@ -849,14 +877,13 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 href={portalHref(`/${slug}/reservas`)}
                 aria-label="Mi acceso"
                 style={{
-                  position: 'relative', width: 40, height: 40, flex: '0 0 40px',
-                  borderRadius: '50%', border: '1px solid rgba(34,38,31,.14)',
-                  background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: sombra.circulo, textDecoration: 'none',
-                  transition: transicion(['transform']),
+                  position: 'relative', width: 38, height: 38, flex: '0 0 38px',
+                  borderRadius: '50%', border: '1px solid rgba(234,240,231,.35)',
+                  background: 'rgba(234,240,231,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  textDecoration: 'none', transition: transicion(['transform']),
                 }}
               >
-                <Ticket size={18} strokeWidth={1.9} style={{ color: '#1A1A1A' }} />
+                <Ticket size={17} strokeWidth={1.9} style={{ color: '#EAF0E7' }} />
               </Link>
             </div>
           </div>
@@ -955,7 +982,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               href={portalHref(`/${slug}/progreso`)}
               style={{
                 marginTop: 10, display: 'block', textDecoration: 'none',
-                background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: radio.card,
+                background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: RADIO_TARJETA,
                 padding: '14px 16px', boxShadow: sombra.cardSemana,
               }}
             >
@@ -988,7 +1015,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             </h2>
             <div style={{
               marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8,
-              background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: radio.card,
+              background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: RADIO_TARJETA,
               padding: '6px 16px', boxShadow: sombra.cardSemana,
             }}>
               {RETOS_PORTAL.map((reto, i) => {
@@ -1045,7 +1072,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               <>
                 <div style={{ height: 44 }} />
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                  <h2 style={{ ...display(escala('seccion', 30)), color: '#1A1A1A' }}>{txt('estaSemana', 'titulo', 'Esta semana')}</h2>
+                  <h2 style={{ fontFamily: 'var(--portal-heading-font, inherit)', color: '#1A1A1A' }} className="ap-h2">{txt('estaSemana', 'titulo', 'Esta semana')}</h2>
                   <Link href={portalHref(`/${slug}/clases`)} style={{ ...micro(9.5, 0.2, 600), color: '#3E6B4A', textDecoration: 'none' }}>
                     {txt('estaSemana', 'enlaceTexto', 'Agenda →')}
                   </Link>
@@ -1063,7 +1090,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                         key={s.id}
                         href={portalHref(`/${slug}/clases/${s.id}`)}
                         style={{
-                          flex: '0 0 158px', height: 178, borderRadius: radio.card, background: '#FFFFFF',
+                          flex: '0 0 158px', height: 178, borderRadius: RADIO_TARJETA, background: '#FFFFFF',
                           padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                           boxShadow: sombra.cardSemana, textDecoration: 'none',
                           transition: transicion(['transform', 'box-shadow'], dur.card),
@@ -1091,8 +1118,13 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             <Link
               href={portalHref(`/${slug}/invitar`)}
               style={{
-                position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
-                overflow: 'hidden', background: '#EFEDE4', boxShadow: sombra.banner, textDecoration: 'none',
+                // Banner del kit (CHEATSHEET-CSS.md, "Invita a una amiga"):
+                // 112 px de alto y radio 18, no los 208/26 de antes — que
+                // eran del diseño anterior y hacían del banner la pieza más
+                // alta del Inicio por detrás de la tarjeta principal.
+                position: 'relative', display: 'block', height: 112, borderRadius: 18,
+                overflow: 'hidden', background: '#EFEDE4',
+                boxShadow: '0 14px 30px -14px rgba(15,15,15,.35)', textDecoration: 'none',
                 transition: transicion(['transform'], dur.card),
               }}
             >
@@ -1107,27 +1139,38 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 onError={alFallarImagen(IMAGENES_POR_DEFECTO.banner[0])}
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }}
               />
+              {/* Velo OSCURO del kit, no el crema de antes. Mantiene la misma
+                  dirección (denso a la izquierda, transparente a la derecha),
+                  así que la foto por defecto —compuesta con el motivo a la
+                  DERECHA justo por esto— sigue encajando; lo que cambia es que
+                  el texto pasa a ir en claro sobre la foto. */}
               <div aria-hidden style={{
                 position: 'absolute', inset: 0, pointerEvents: 'none',
-                background: 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
+                background: 'linear-gradient(90deg, rgba(15,15,15,.68), rgba(15,15,15,.12))',
               }} />
-              <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                <span style={{ ...micro(8.5, 0.26, 600), color: '#3E6B4A' }}>
+              <div style={{ position: 'absolute', inset: 0, padding: '14px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
+                <span style={{ ...micro(8.5, 0.26, 600), color: 'rgba(250,249,245,.82)' }}>
                   {txt('invitarAmiga', 'antetitulo', 'Trae a quien quieras')}
                 </span>
                 <div>
-                  <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: '#1A1A1A', maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
+                  {/* 16px/800 en cursiva, del cheatsheet — no los 29 px de la
+                      escala del tema: en 112 px de alto no caben. */}
+                  <div style={{
+                    fontFamily: 'var(--portal-heading-font, inherit)',
+                    fontSize: 16, fontWeight: 800, fontStyle: 'italic', letterSpacing: '-.02em', lineHeight: 1.15,
+                    color: '#FFFFFF', maxWidth: 210, textWrap: 'pretty',
+                  } as React.CSSProperties}>
                     {txt('invitarAmiga', 'titulo', 'La calma se comparte mejor.')}
                   </div>
-                  <div style={{ ...texto.nota, color: '#5A5A52', marginTop: 12 }}>
+                  <div style={{ fontSize: 11, color: 'rgba(250,249,245,.78)', marginTop: 5, maxWidth: 210 }}>
                     {txt('invitarAmiga', 'subtitulo', 'Invita a una amiga y ganáis las dos')}
                   </div>
                 </div>
               </div>
               <span aria-hidden style={{
-                position: 'absolute', right: 22, bottom: 22, width: 44, height: 44, borderRadius: '50%',
-                background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 15, color: '#1A1A1A', boxShadow: sombra.circuloBanner,
+                position: 'absolute', right: 16, bottom: 16, width: 38, height: 38, borderRadius: '50%',
+                background: '#FAF9F5', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14, color: '#1A1A1A', boxShadow: sombra.circuloBanner,
               }}>→</span>
             </Link>
           </div>
@@ -1141,7 +1184,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               <>
                 <div style={{ height: 20 }} />
                 <div style={{
-                  borderRadius: radio.card, padding: '16px 18px',
+                  borderRadius: RADIO_TARJETA, padding: '16px 18px',
                   background: '#EEF0EA',
                   border: '1px solid rgba(44,53,44,.16)',
                 }}>
@@ -1172,7 +1215,13 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     background: 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
                   }} />
                   <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-                    {b.titulo && <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: '#1A1A1A', maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
+                    {b.titulo && <div style={{
+                    // 16px/800 en cursiva, del cheatsheet — a 29 px no cabe en
+                    // los 112 de alto del banner.
+                    fontFamily: 'var(--portal-heading-font, inherit)',
+                    fontSize: 16, fontWeight: 800, fontStyle: 'italic', letterSpacing: '-.02em', lineHeight: 1.15,
+                    color: '#FFFFFF', maxWidth: 210, textWrap: 'pretty',
+                  } as React.CSSProperties}>{b.titulo}</div>}
                     {b.texto && <div style={{ ...texto.nota, color: '#5A5A52', marginTop: 12 }}>{b.texto}</div>}
                   </div>
                   <span aria-hidden style={{
@@ -1182,9 +1231,16 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   }}>→</span>
                 </>
               );
+              // Misma geometría que el banner de "Invita a una amiga": son
+              // hermanos visuales (foto a todo lo ancho, titular y flecha) y
+              // el kit solo define un banner, 112 px de alto y radio 18
+              // (CHEATSHEET-CSS.md). Antes iba a 208/26, que no es ningún
+              // radio del kit y hacía de estos banners la pieza más alta del
+              // Inicio.
               const estiloBanner: React.CSSProperties = {
-                position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
-                overflow: 'hidden', background: '#EFEDE4', boxShadow: sombra.banner, textDecoration: 'none',
+                position: 'relative', display: 'block', height: 112, borderRadius: 18,
+                overflow: 'hidden', background: '#EFEDE4',
+                boxShadow: '0 14px 30px -14px rgba(15,15,15,.35)', textDecoration: 'none',
                 transition: transicion(['transform'], dur.card),
               };
               if (b.linkTipo === 'interno' && !b.linkValor.startsWith('/')) return null;
@@ -1240,7 +1296,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           <div {...wrap('progresoSemanal')}>
             <div style={{ height: 34 }} />
             <div style={{
-              background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: radio.card,
+              background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: RADIO_TARJETA,
               padding: '14px 16px', boxShadow: sombra.cardSemana,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -1269,7 +1325,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               Oculto por defecto. */}
           <div {...wrap('retos')}>
             <div style={{ height: 40 }} />
-            <h2 style={{ ...display(escala('seccion', 30)), color: '#1A1A1A' }}>{txt('retos', 'titulo', 'Retos')}</h2>
+            <h2 style={{ fontFamily: 'var(--portal-heading-font, inherit)', color: '#1A1A1A' }} className="ap-h2">{txt('retos', 'titulo', 'Retos')}</h2>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '18px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
               {RETOS_PORTAL.map((reto) => {
                 const apuntada = retosApuntados.includes(reto.key);
@@ -1287,7 +1343,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     key={reto.key}
                     style={{
                       flex: conColor ? '0 0 218px' : '0 0 200px',
-                      borderRadius: conColor ? 26 : radio.card,
+                      borderRadius: conColor ? 26 : RADIO_TARJETA,
                       background: conColor ? reto.fondo : '#FFFFFF',
                       padding: 18,
                       boxShadow: conColor ? 'none' : sombra.cardSemana,
@@ -1502,7 +1558,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           <>
             <div style={{ padding: '30px 24px 8px' }}>
               <p style={{ ...micro(10, 0.16, 600), color: '#5A5A52', textTransform: 'uppercase' } as React.CSSProperties}>Últimas plazas</p>
-              <h2 style={{ ...display(escala('seccion', 30)), color: '#1A1A1A' }}>Huecos de hoy</h2>
+              <h2 style={{ fontFamily: 'var(--portal-heading-font, inherit)', color: '#1A1A1A' }} className="ap-h2">Huecos de hoy</h2>
             </div>
             <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {huecos.map(({ sesion: s, libres }) => {
@@ -1514,7 +1570,11 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     href={portalHref(`/${slug}/clases/${s.id}`)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 11, background: '#FFFFFF', border: `1px solid #E5E3DA`,
-                      borderRadius: 15, padding: '10px 13px', textDecoration: 'none', transition: transicion(['box-shadow'], dur.card),
+                      // 16, no 15: es una fila de clase, misma pieza que las
+                      // de Horario, y el kit las da a `.ap-card` (16 px). Un
+                      // píxel de diferencia no se ve solo, pero era el único
+                      // radio de Inicio que no salía del kit.
+                      borderRadius: RADIO_TARJETA, padding: '10px 13px', textDecoration: 'none', transition: transicion(['box-shadow'], dur.card),
                     }}
                   >
                     <span style={{ ...micro(13, 0, 500), color: '#1A1A1A', minWidth: 40 } as React.CSSProperties}>{hora(s.inicio)}</span>
@@ -1546,7 +1606,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           <>
             <div style={{ padding: '30px 24px 8px' }}>
               <p style={{ ...micro(10, 0.16, 600), color: '#5A5A52', textTransform: 'uppercase' } as React.CSSProperties}>Tablón</p>
-              <h2 style={{ ...display(escala('seccion', 30)), color: '#1A1A1A' }}>Novedades del estudio</h2>
+              <h2 style={{ fontFamily: 'var(--portal-heading-font, inherit)', color: '#1A1A1A' }} className="ap-h2">Novedades del estudio</h2>
             </div>
             <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {novedadesVigentes.map((n) => (

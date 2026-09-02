@@ -31,11 +31,26 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { altaAlEntrar } from '@/lib/api-client';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { useStudio } from '@/lib/studio-context';
-import { useModo } from '@/lib/portal-modo';
 import { dur, display, micro, texto } from '@/lib/portal-design';
 import {
   PortadaAcceso, CampoLinea, BotonCta, ErrorCampo, entrada, MARCA,
 } from '@/components/portal/acceso/piezas';
+
+/**
+ * Los neutros de esta pantalla, del kit (`--ap-*`) y no de `useModo()`.
+ * Mismos nombres que los del tema a propósito, igual que en
+ * `components/portal/acceso/puerta.tsx`: el diff es el cambio de ORIGEN del
+ * color, no una reescritura de cada `style`.
+ */
+const T = {
+  bg: 'var(--ap-fondo, #FAF9F5)',
+  surface: 'var(--ap-card, #FFFFFF)',
+  ink: 'var(--ap-tinta, #1A1A1A)',
+  muted: 'var(--ap-sec, #5A5A52)',
+  muted2: 'var(--ap-verde, #3E6B4A)',
+  micro: 'var(--ap-ter, #98A093)',
+  line: 'var(--ap-borde, #E5E3DA)',
+} as const;
 
 const MIN_LEN = 8;
 
@@ -55,7 +70,6 @@ export default function PortalClaveNueva() {
   // «comprobando».
   const [alta, setAlta] = useState<'sin-mirar' | 'en-curso' | 'resuelta'>('sin-mirar');
   const { studio } = useStudio();
-  const { t } = useModo();
   const [password, setPassword] = useState('');
   const [confirmar, setConfirmar] = useState('');
   const [error, setError] = useState('');
@@ -98,7 +112,7 @@ export default function PortalClaveNueva() {
   const caducado = !isLoading && !session && alta === 'resuelta';
 
   return (
-    <div style={{ minHeight: '100dvh', background: t.bg, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100dvh', background: T.bg, display: 'flex', flexDirection: 'column' }}>
       <PortadaAcceso
         alto={212}
         fotoUrl={studio?.imagenBienvenidaUrl?.trim() ? studio.imagenBienvenidaUrl : null}
@@ -121,11 +135,11 @@ export default function PortalClaveNueva() {
               : (
                 <>
                   <div>
-                    <p style={{ ...micro(9.5, 0.28), color: t.micro, ...entrada(0) }}>Email verificado</p>
-                    <h1 style={{ ...display(36, false, 1.1), color: t.ink, marginTop: 10, ...entrada(1) }}>
+                    <p style={{ ...micro(9.5, 0.28), color: T.micro, ...entrada(0) }}>Email verificado</p>
+                    <h1 style={{ ...display(36, false, 1.1), color: T.ink, marginTop: 10, ...entrada(1) }}>
                       Elige tu <em style={{ fontStyle: 'italic' }}>contraseña.</em>
                     </h1>
-                    <p style={{ ...texto.meta, lineHeight: 1.75, color: t.muted, marginTop: 10, ...entrada(2) }}>
+                    <p style={{ ...texto.meta, lineHeight: 1.75, color: T.muted, marginTop: 10, ...entrada(2) }}>
                       Hola {session?.nombre}. A partir de ahora entras con ella.
                     </p>
 
@@ -159,7 +173,7 @@ export default function PortalClaveNueva() {
                   </div>
 
                   <div style={{ ...entrada(3) }}>
-                    <p style={{ ...texto.nota, color: t.micro, textAlign: 'center', marginBottom: 12 }}>
+                    <p style={{ ...texto.nota, color: T.micro, textAlign: 'center', marginBottom: 12 }}>
                       Mínimo {MIN_LEN} caracteres.
                     </p>
                     <BotonCta
@@ -178,11 +192,10 @@ export default function PortalClaveNueva() {
 }
 
 function Comprobando() {
-  const { t } = useModo();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 16 }}>
       <Spinner />
-      <p style={{ ...texto.meta, color: t.muted }}>Comprobando tu enlace…</p>
+      <p style={{ ...texto.meta, color: T.muted }}>Comprobando tu enlace…</p>
     </div>
   );
 }
@@ -197,7 +210,6 @@ function Comprobando() {
  * mensaje para los tres casos, y salida a pedir otro enlace.
  */
 function Caducado({ onPedir }: { onPedir: () => void }) {
-  const { t } = useModo();
   return (
     <>
       <div>
@@ -211,10 +223,10 @@ function Caducado({ onPedir }: { onPedir: () => void }) {
         >
           !
         </div>
-        <h1 style={{ ...display(36, false, 1.1), color: t.ink, marginTop: 18, ...entrada(1) }}>
+        <h1 style={{ ...display(36, false, 1.1), color: T.ink, marginTop: 18, ...entrada(1) }}>
           Ese enlace <em style={{ fontStyle: 'italic' }}>ya no vale.</em>
         </h1>
-        <p style={{ ...texto.meta, lineHeight: 1.75, color: t.muted, maxWidth: 290, marginTop: 12, ...entrada(2) }}>
+        <p style={{ ...texto.meta, lineHeight: 1.75, color: T.muted, maxWidth: 290, marginTop: 12, ...entrada(2) }}>
           Ha caducado o ya se usó una vez. Te mandamos otro y sigues por donde ibas.
         </p>
       </div>
@@ -226,7 +238,6 @@ function Caducado({ onPedir }: { onPedir: () => void }) {
 }
 
 function Guardada() {
-  const { t } = useModo();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', flex: 1 }}>
       <div
@@ -239,12 +250,12 @@ function Guardada() {
       >
         ✓
       </div>
-      <h1 style={{ ...display(36, false, 1.1), color: t.ink, marginTop: 18, ...entrada(1) }}>
+      <h1 style={{ ...display(36, false, 1.1), color: T.ink, marginTop: 18, ...entrada(1) }}>
         Contraseña <em style={{ fontStyle: 'italic' }}>guardada.</em>
       </h1>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16, ...entrada(2) }}>
         <Spinner />
-        <p style={{ ...texto.meta, color: t.muted }}>Te llevamos a tu portal…</p>
+        <p style={{ ...texto.meta, color: T.muted }}>Te llevamos a tu portal…</p>
       </div>
     </div>
   );
@@ -252,14 +263,13 @@ function Guardada() {
 
 /** 26 px, 900 ms y lineal: es el único sitio del portal donde `linear` es correcto — una rueda que acelera se lee como un tirón. */
 function Spinner() {
-  const { t } = useModo();
   return (
     <span
       aria-hidden
       className="animate-spin"
       style={{
         width: 26, height: 26, borderRadius: 13, display: 'inline-block',
-        border: `2px solid ${t.line}`, borderTopColor: MARCA,
+        border: `2px solid ${T.line}`, borderTopColor: MARCA,
         animationDuration: '900ms', animationTimingFunction: 'linear',
       }}
     />

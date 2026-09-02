@@ -160,18 +160,42 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
   });
 
   // Casi ningún estudio sube foto el primer día, y el diseño da la imagen por
-  // hecha. Antes eso obligaba a encoger la tarjeta —reservar los 476 px dejaba
-  // medio metro de crema vacío— y esta prueba defendía justo ese encogimiento.
-  // Con la foto por defecto el hueco no llega a existir, así que la tarjeta se
-  // queda a la altura del diseño y lo que hay que defender es lo contrario.
-  test('sin foto del estudio la tarjeta usa la de por defecto, a su altura completa', async ({ page }) => {
+  // hecha. Lo que hay que defender es que, sin foto propia, la tarjeta use la
+  // de por defecto y no un hueco de color.
+  //
+  // ⚠️ Esta prueba exigía `height > 400`. Eso defendía la tarjeta de 476 px de
+  // "Tentare App Cliente v2" (foto a sangre + tarjeta de cristal flotando),
+  // un diseño ANTERIOR. El kit vigente ("Tentare Studio App",
+  // docs/diseno-referencia-portal/CHEATSHEET-CSS.md) la dibuja compacta:
+  // padding 14px 15px y alto según contenido. Se comprueba esa forma nueva —
+  // no se borra la comprobación, se traslada.
+  test('sin foto del estudio la tarjeta usa la de por defecto', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/home`);
     await expect(tarjetaGrande(page)).toBeVisible({ timeout: 30_000 });
     const caja = await tarjetaGrande(page).boundingBox();
-    expect(caja!.height).toBeGreaterThan(400);
+    // Compacta: ni la banda de 476 px de antes, ni una tira sin contenido.
+    expect(caja!.height).toBeGreaterThan(110);
+    expect(caja!.height).toBeLessThan(300);
     // Y que la foto sea la de por defecto, no un hueco con fondo de color.
     await expect(tarjetaGrande(page).locator('img').first())
       .toHaveAttribute('src', /\/por-defecto\/estudio-vertical/);
+  });
+
+  // El recorte que motivó el rediseño: a 390 px el titular por defecto
+  // ("Tu sitio te espera") pedía 291 px en una caja de 272 y se veía
+  // "Tu sitio te esp…", con el CTA igual. Ninguno de los dos puede volver a
+  // salir cortado — son el mensaje y la acción principal de la pantalla que
+  // más ve una socia.
+  test('ni el titular ni el CTA de la tarjeta salen recortados', async ({ page }) => {
+    await page.goto(`/portal/${SLUG}/home`);
+    await expect(tarjetaGrande(page)).toBeVisible({ timeout: 30_000 });
+    const recortados = await tarjetaGrande(page).evaluate((card) =>
+      [...card.querySelectorAll<HTMLElement>('*')]
+        .filter((el) => el.children.length === 0 && (el.textContent ?? '').trim().length > 3)
+        .filter((el) => el.scrollWidth > el.clientWidth + 1)
+        .map((el) => (el.textContent ?? '').trim()),
+    );
+    expect(recortados).toEqual([]);
   });
 });
 
@@ -204,11 +228,18 @@ test.describe('Portal de la clienta — con foto del estudio', () => {
   // mezclen (ver migración 20260810140000_studios_imagen_bienvenida).
   const FOTO = 'data:image/gif;base64,R0lGODlhAQABAIAAACwtJQAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==';
 
-  test('con foto, la tarjeta mide los 476 px del diseño', async ({ page }) => {
+  // ⚠️ Antes esto fijaba 476 px exactos. Eran los del diseño ANTERIOR
+  // ("Tentare App Cliente v2"); el kit vigente hace la tarjeta compacta y de
+  // alto variable según el caso (los cinco estados cambian volanta, titular y
+  // metadatos, ver portal-home-view.tsx). Lo que sigue importando es que con
+  // foto propia la tarjeta la USE y mantenga la forma compacta.
+  test('con foto propia, la tarjeta la usa y mantiene la forma compacta', async ({ page }) => {
     await montarPortal(page, { conSesion: true, imagenBienvenidaUrl: FOTO });
     await page.goto(`/portal/${SLUG}/home`);
     await expect(tarjetaGrande(page)).toBeVisible({ timeout: 30_000 });
     const caja = await tarjetaGrande(page).boundingBox();
-    expect(Math.round(caja!.height)).toBe(476);
+    expect(caja!.height).toBeGreaterThan(110);
+    expect(caja!.height).toBeLessThan(300);
+    await expect(tarjetaGrande(page).locator('img').first()).toHaveAttribute('src', FOTO);
   });
 });

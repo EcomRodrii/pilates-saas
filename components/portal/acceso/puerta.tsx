@@ -44,7 +44,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCore } from '@/lib/core-context';
-import { useModo } from '@/lib/portal-modo';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { EASE, dur, display, micro, texto, altura, radio, sombra, transicion } from '@/lib/portal-design';
@@ -56,16 +55,38 @@ import {
   PortadaAcceso, CampoLinea, BotonCta, ErrorCampo, entrada, MARCA, MARCA_FG,
 } from '@/components/portal/acceso/piezas';
 
+/**
+ * Los neutros de la puerta, del kit (`--ap-*`) y no de `useModo()`.
+ *
+ * Se declaran aquí como un objeto con los mismos nombres que tenían los del
+ * tema (`bg`, `ink`, `muted`…) a propósito: así el diff de la conversión es
+ * el cambio de ORIGEN del color, no una reescritura de cada `style` de las
+ * 558 líneas de esta pantalla — que es donde se cuelan las regresiones que
+ * nadie ve hasta producción.
+ *
+ * `muted2` era el neutro de los enlaces y los énfasis; en el kit eso es el
+ * verde (`--ap-verde`), que es lo que el prototipo usa para todo lo pulsable
+ * que no es el CTA principal.
+ */
+const T = {
+  bg: 'var(--ap-fondo, #FAF9F5)',
+  surface: 'var(--ap-card, #FFFFFF)',
+  ink: 'var(--ap-tinta, #1A1A1A)',
+  muted: 'var(--ap-sec, #5A5A52)',
+  muted2: 'var(--ap-verde, #3E6B4A)',
+  micro: 'var(--ap-ter, #98A093)',
+  line: 'var(--ap-borde, #E5E3DA)',
+} as const;
+
 /** El botón de Google, idéntico en `crear` y en `login` — no se duplica. */
 function BotonGoogle({ onClick, trabajando }: { onClick: () => void; trabajando: boolean }) {
-  const { t } = useModo();
   return (
     <button
       onClick={onClick}
       disabled={trabajando}
       style={{
         width: '100%', height: 52, borderRadius: 26,
-        border: `1px solid ${t.line}`, background: t.surface, color: t.ink,
+        border: `1px solid ${T.line}`, background: T.surface, color: T.ink,
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
         fontSize: 15, fontWeight: 500,
         cursor: trabajando ? 'default' : 'pointer',
@@ -114,7 +135,6 @@ export function PuertaPortal() {
   const params = useSearchParams();
   // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
   const { studio, dataLoaded, tabBarStyle, variantes } = useCore();
-  const { t } = useModo();
   const { loginConPassword, enviarEnlace, entrarConGoogle, session } = usePortalAuth();
 
   // /login es un atajo guardado/repartido: entra directa al formulario de
@@ -256,7 +276,7 @@ export function PuertaPortal() {
     <div
       aria-hidden={!entrando}
       style={{
-        position: 'absolute', inset: 0, zIndex: 9, background: t.bg,
+        position: 'absolute', inset: 0, zIndex: 9, background: T.bg,
         opacity: entrando ? 1 : 0, pointerEvents: entrando ? 'auto' : 'none',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: `opacity ${dur.wash}ms ${EASE}`,
@@ -264,7 +284,7 @@ export function PuertaPortal() {
     >
       <div
         style={{
-          ...display(34, true), color: t.ink, textAlign: 'center', padding: '0 32px',
+          ...display(34, true), color: T.ink, textAlign: 'center', padding: '0 32px',
           transform: entrando ? 'none' : 'scale(1.06)',
           transition: `transform ${dur.washInner}ms ${EASE}`,
         }}
@@ -326,7 +346,7 @@ export function PuertaPortal() {
 
   // ── Pasos 2 y 3: crear cuenta / entrar ───────────────────────────────────
   return (
-    <div style={{ minHeight: '100dvh', background: t.bg, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div style={{ minHeight: '100dvh', background: T.bg, display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <PortadaAcceso
         alto={enviado ? 212 : 260}
         fotoUrl={studio?.imagenBienvenidaUrl?.trim() ? studio.imagenBienvenidaUrl : null}
@@ -346,10 +366,10 @@ export function PuertaPortal() {
         ) : paso === 'crear' ? (
           <>
             <div>
-              <h1 style={{ ...display(34, false, 1.1), color: t.ink, ...entrada(0) }}>
+              <h1 style={{ ...display(34, false, 1.1), color: T.ink, ...entrada(0) }}>
                 Crea tu cuenta
               </h1>
-              <p style={{ ...texto.meta, lineHeight: 1.75, color: t.muted, maxWidth: 282, marginTop: 12, ...entrada(1) }}>
+              <p style={{ ...texto.meta, lineHeight: 1.75, color: T.muted, maxWidth: 282, marginTop: 12, ...entrada(1) }}>
                 Treinta segundos y estás dentro.
               </p>
 
@@ -357,9 +377,9 @@ export function PuertaPortal() {
                 <BotonGoogle onClick={conGoogle} trabajando={googleTrabajando} />
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0' }}>
-                  <span style={{ flex: 1, height: 1, background: t.line }} />
-                  <span style={{ ...micro(10, 0.14, 500), color: t.micro }}>o con tu email</span>
-                  <span style={{ flex: 1, height: 1, background: t.line }} />
+                  <span style={{ flex: 1, height: 1, background: T.line }} />
+                  <span style={{ ...micro(10, 0.14, 500), color: T.micro }}>o con tu email</span>
+                  <span style={{ flex: 1, height: 1, background: T.line }} />
                 </div>
 
                 <CampoLinea
@@ -393,10 +413,10 @@ export function PuertaPortal() {
                 <button
                   type="button"
                   onClick={() => { setPaso('login'); setError(''); }}
-                  style={{ ...texto.pie, color: t.micro, background: 'none', border: 'none', padding: 0 }}
+                  style={{ ...texto.pie, color: T.micro, background: 'none', border: 'none', padding: 0 }}
                 >
                   ¿Ya tienes cuenta?{' '}
-                  <span style={{ color: t.muted2, fontWeight: 500, textDecoration: 'underline' }}>Entra</span>
+                  <span style={{ color: T.muted2, fontWeight: 500, textDecoration: 'underline' }}>Entra</span>
                 </button>
               </div>
             </div>
@@ -404,10 +424,10 @@ export function PuertaPortal() {
         ) : (
           <>
             <div>
-              <h1 style={{ ...display(36, false, 1.1), color: t.ink, ...entrada(0) }}>
+              <h1 style={{ ...display(36, false, 1.1), color: T.ink, ...entrada(0) }}>
                 ¿Entramos?
               </h1>
-              <p style={{ ...texto.meta, lineHeight: 1.75, color: t.muted, maxWidth: 282, marginTop: 12, ...entrada(1) }}>
+              <p style={{ ...texto.meta, lineHeight: 1.75, color: T.muted, maxWidth: 282, marginTop: 12, ...entrada(1) }}>
                 Con el email que le diste a tu instructora. Si no tienes contraseña —o no te acuerdas— te mandamos un enlace.
               </p>
 
@@ -433,7 +453,7 @@ export function PuertaPortal() {
                       <button
                         type="button"
                         onClick={() => setVer((v) => !v)}
-                        style={{ ...micro(9.5, 0.16), color: t.muted2, background: 'none', border: 'none', padding: 0 }}
+                        style={{ ...micro(9.5, 0.16), color: T.muted2, background: 'none', border: 'none', padding: 0 }}
                       >
                         {ver ? 'ocultar' : 'ver'}
                       </button>
@@ -454,9 +474,9 @@ export function PuertaPortal() {
                   Google está activo de verdad en el proyecto. Uno que promete
                   Google y no entra es una mentira en la pantalla de acceso. */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0 14px' }}>
-                <span style={{ flex: 1, height: 1, background: t.line }} />
-                <span style={{ ...micro(10, 0.14, 500), color: t.micro }}>o</span>
-                <span style={{ flex: 1, height: 1, background: t.line }} />
+                <span style={{ flex: 1, height: 1, background: T.line }} />
+                <span style={{ ...micro(10, 0.14, 500), color: T.micro }}>o</span>
+                <span style={{ flex: 1, height: 1, background: T.line }} />
               </div>
               <BotonGoogle onClick={conGoogle} trabajando={googleTrabajando} />
 
@@ -466,7 +486,7 @@ export function PuertaPortal() {
                   onClick={mandarEnlace}
                   disabled={loading}
                   style={{
-                    ...texto.meta, color: t.muted2, background: 'none', border: 'none', padding: 0,
+                    ...texto.meta, color: T.muted2, background: 'none', border: 'none', padding: 0,
                     // ⚠️ Subrayado de texto y NO `border-bottom`: el rótulo
                     // envuelve a dos líneas en pantallas estrechas, y un borde
                     // se dibuja bajo la CAJA entera —una raya de lado a lado
@@ -474,24 +494,24 @@ export function PuertaPortal() {
                     // móvil: 315 px de ancho y 2 líneas.
                     textDecoration: 'underline',
                     textUnderlineOffset: 3,
-                    textDecorationColor: t.line,
+                    textDecorationColor: T.line,
                   }}
                 >
                   No tengo contraseña o la he olvidado — mándame un enlace
                 </button>
               </div>
 
-              <p style={{ ...texto.pie, color: t.micro, textAlign: 'center', marginTop: 18 }}>
+              <p style={{ ...texto.pie, color: T.micro, textAlign: 'center', marginTop: 18 }}>
                 ¿Primera vez en {nombre}?{' '}
                 <button
                   type="button"
                   onClick={() => { setPaso('crear'); setError(''); }}
-                  style={{ color: t.muted2, fontWeight: 500, textDecoration: 'underline', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
+                  style={{ color: T.muted2, fontWeight: 500, textDecoration: 'underline', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
                 >
                   Crea tu cuenta
                 </button>
                 {' '}o{' '}
-                <Link href={`/reservar/${slug}`} style={{ color: t.muted2, fontWeight: 500, textDecoration: 'underline' }}>
+                <Link href={`/reservar/${slug}`} style={{ color: T.muted2, fontWeight: 500, textDecoration: 'underline' }}>
                   reserva tu primera clase
                 </Link>
               </p>
@@ -507,7 +527,6 @@ export function PuertaPortal() {
 
 /** «Te hemos escrito»: qué ha pasado, dónde mirar y cuánto dura. */
 function Enviado({ email, quedan, onOtro }: { email: string; quedan: number; onOtro: () => void }) {
-  const { t } = useModo();
   const reloj = `${Math.floor(quedan / 60)}:${String(quedan % 60).padStart(2, '0')}`;
   return (
     <>
@@ -522,11 +541,11 @@ function Enviado({ email, quedan, onOtro }: { email: string; quedan: number; onO
         >
           ✓
         </div>
-        <h1 style={{ ...display(36, false, 1.1), color: t.ink, marginTop: 18, ...entrada(1) }}>
+        <h1 style={{ ...display(36, false, 1.1), color: T.ink, marginTop: 18, ...entrada(1) }}>
           Te hemos <em style={{ fontStyle: 'italic' }}>escrito.</em>
         </h1>
-        <p style={{ ...texto.meta, lineHeight: 1.75, color: t.muted, maxWidth: 290, marginTop: 12, ...entrada(2) }}>
-          El enlace va a <strong style={{ color: t.ink, fontWeight: 600 }}>{email}</strong>. Ábrelo en este
+        <p style={{ ...texto.meta, lineHeight: 1.75, color: T.muted, maxWidth: 290, marginTop: 12, ...entrada(2) }}>
+          El enlace va a <strong style={{ color: T.ink, fontWeight: 600 }}>{email}</strong>. Ábrelo en este
           mismo móvil y eliges tu contraseña. No hay prisa: dura una hora.
         </p>
       </div>
@@ -541,14 +560,14 @@ function Enviado({ email, quedan, onOtro }: { email: string; quedan: number; onO
         />
         {/* La cuenta atrás no bloquea nada: es información. Quien de verdad se
             equivocó de dirección puede cambiarla ya, sin esperar. */}
-        <span style={{ ...micro(10.5, 0.12, 400), color: t.micro, textTransform: 'none' }}>
+        <span style={{ ...micro(10.5, 0.12, 400), color: T.micro, textTransform: 'none' }}>
           {quedan > 0 ? `reenviar en ${reloj}` : 'ya puedes reenviar'}
         </span>
-        <span aria-hidden style={{ width: 1, height: 12, background: t.line }} />
+        <span aria-hidden style={{ width: 1, height: 12, background: T.line }} />
         <button
           type="button"
           onClick={onOtro}
-          style={{ ...texto.pie, color: t.muted2, background: 'none', border: 'none', textDecoration: 'underline', padding: 0 }}
+          style={{ ...texto.pie, color: T.muted2, background: 'none', border: 'none', textDecoration: 'underline', padding: 0 }}
         >
           Otro email
         </button>
