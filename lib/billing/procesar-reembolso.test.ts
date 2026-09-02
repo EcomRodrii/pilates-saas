@@ -20,34 +20,41 @@ test('ORIGENES_POS y ORIGENES_CON_RECIBO no se solapan', () => {
 
 type Fila = Record<string, unknown>;
 
-function fakeAdmin(opts: { venta?: Fila | null } = {}) {
-  const updates: Fila[] = [];
+// F-12/F-13: `procesarReembolsoVentaPos` ya no hace su propio UPDATE con
+// guard — localiza la venta y delega en `registrarDevolucion` (mismo
+// mecanismo que un recibo). El fake tiene que servir las DOS tablas que ese
+// camino toca de verdad: `ventas_pos` (select + el update-espejo que hace
+// `registrarDevolucion`) y `devoluciones` (insert, con su UNIQUE simulado
+// vía `opts.yaExistia`).
+function fakeAdmin(opts: { venta?: Fila | null; yaExistia?: boolean } = {}) {
+  const updates: { tabla: string; fila: Fila }[] = [];
+  const inserts: { tabla: string; fila: Fila }[] = [];
   const venta = opts.venta === undefined ? { id: 'venta-1', socio_id: null, total: 42 } : opts.venta;
   const admin = {
     from(tabla: string) {
       const c = {
-        update(fila: Fila) { updates.push(fila); return c; },
+        update(fila: Fila) { updates.push({ tabla, fila }); return c; },
+        insert(fila: Fila) { inserts.push({ tabla, fila }); return c; },
         eq() { return c; },
-        // Guards de reentrada (`.is(...)` en recibos, `.or(importe_devuelto...)`
-        // en ventas POS): si el fake dice que la venta ya no casa, el guard real
-        // de Postgres la habría excluido — se simula devolviendo null.
-        is() { return c; },
-        or() { return c; },
         select() { return c; },
         maybeSingle() {
           if (tabla === 'ventas_pos') return Promise.resolve({ data: venta, error: null });
-          if (tabla === 'socios') return Promise.resolve({ data: null, error: null });
+          if (tabla === 'devoluciones') {
+            if (opts.yaExistia) return Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate' } });
+            return Promise.resolve({ data: { id: 'dev-1' }, error: null });
+          }
           return Promise.resolve({ data: null, error: null });
         },
+        then(res: (v: { error: null }) => unknown) { return Promise.resolve({ error: null }).then(res); },
       };
       return c;
     },
   };
-  return { admin: admin as never, updates };
+  return { admin: admin as never, updates, inserts };
 }
 
 test('marca la venta con la fecha y el importe devuelto (efecto real, no solo "ya lo vi")', async () => {
-  const { admin, updates } = fakeAdmin();
+  const { admin, updates, inserts } = fakeAdmin();
   const r = await procesarReembolsoVentaPos(admin, {
     studioId: 'studio-1', paymentIntentId: 'pi_1',
     charge: { id: 'ch_1', refunded: true, amount: 4200, amountRefunded: 4200 },
@@ -55,9 +62,13 @@ test('marca la venta con la fecha y el importe devuelto (efecto real, no solo "y
   });
   assert.equal(r.ok, true);
   assert.equal(r.huboEfecto, true);
-  assert.equal(updates.length, 1);
-  assert.equal(updates[0].importe_devuelto, 42);
-  assert.ok(typeof updates[0].devuelta_en === 'string');
+  assert.equal(inserts.length, 1, 'F-12/F-13: además del espejo, deja una fila de auditoría en devoluciones');
+  assert.equal(inserts[0].tabla, 'devoluciones');
+  assert.equal(inserts[0].fila.venta_pos_id, 'venta-1');
+  const espejo = updates.find((u) => u.tabla === 'ventas_pos');
+  assert.ok(espejo, 'el espejo de lectura rápida sigue actualizándose');
+  assert.equal(espejo.fila.importe_devuelto, 42);
+  assert.ok(typeof espejo.fila.devuelta_en === 'string');
 });
 
 // La rama "venta no encontrada" (reintento, o venta nunca registrada porque
@@ -73,6 +84,18 @@ test('la rama "no encontrada" avisa por Sentry (0 filas ≠ error) en vez de fal
   assert.ok(cuerpo.includes('huboEfecto: false'), 'no debe reportarse como un hecho nuevo');
 });
 
+test('un reintento del mismo evento no vuelve a avisar (UNIQUE de devoluciones.referencia)', async () => {
+  const { admin, updates } = fakeAdmin({ yaExistia: true });
+  const r = await procesarReembolsoVentaPos(admin, {
+    studioId: 'studio-1', paymentIntentId: 'pi_1',
+    charge: { id: 'ch_1', refunded: true, amount: 4200, amountRefunded: 4200 },
+    fuente: 'webhook',
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.huboEfecto, false, 'un reintento no debe reportarse como un hecho nuevo');
+  assert.equal(updates.find((u) => u.tabla === 'ventas_pos'), undefined, 'y no debe tocar el espejo otra vez');
+});
+
 test('un reembolso parcial anota el acumulado real, no un delta', async () => {
   const { admin, updates } = fakeAdmin();
   await procesarReembolsoVentaPos(admin, {
@@ -80,14 +103,11 @@ test('un reembolso parcial anota el acumulado real, no un delta', async () => {
     charge: { id: 'ch_1', refunded: false, amount: 4200, amountRefunded: 1000 },
     fuente: 'webhook',
   });
-  assert.equal(updates[0].importe_devuelto, 10);
+  const espejo = updates.find((u) => u.tabla === 'ventas_pos');
+  assert.equal(espejo?.fila.importe_devuelto, 10);
 });
 
-// ── 19ª auditoría · F-3 y F-6 ───────────────────────────────────────────────
-//
-// Dos fallos que convivieron con esta suite en verde, porque `fakeAdmin`
-// devuelve siempre una fila y por tanto no evalúa NINGÚN predicado. Ambos se
-// prueban sobre el código fuente, que es donde vive el error.
+// ── 19ª auditoría · F-3 (sigue vigente tras F-12/F-13) ──────────────────────
 
 test('F-3: el mapper de ventas POS escribe stripe_payment_intent_id', () => {
   // La columna existe en la BD desde la migración 0036 y es por la que busca
@@ -103,19 +123,8 @@ test('F-3: el mapper de ventas POS escribe stripe_payment_intent_id', () => {
   );
 });
 
-test('F-6: el guard de reentrada no descarta un segundo reembolso parcial', () => {
-  // `.is('devuelta_en', null)` frenaba el reintento pero también el incremento
-  // real: tras el primer parcial la fila dejaba de casar y el acumulado de
-  // Stripe no volvía a escribirse nunca.
-  const fuente = readFileSync(new URL('./procesar-reembolso.ts', import.meta.url), 'utf8');
-  const cuerpo = fuente.slice(fuente.indexOf('export async function procesarReembolsoVentaPos'));
-  const update = cuerpo.slice(cuerpo.indexOf("from('ventas_pos')"), cuerpo.indexOf('maybeSingle'));
-  assert.ok(
-    !update.includes("is('devuelta_en', null)"),
-    'el guard no puede ser devuelta_en IS NULL: descartaría el segundo parcial',
-  );
-  assert.ok(
-    update.includes('importe_devuelto'),
-    'el guard debe apoyarse en el acumulado importe_devuelto, que es monótono',
-  );
-});
+// F-6 (guard de reentrada por `importe_devuelto` monótono) ahora vive dentro
+// de `registrarDevolucion` (UNIQUE de `devoluciones.referencia`, que ya
+// incluye el acumulado — ver registrar-devolucion.test.ts), no en un UPDATE
+// propio de `procesarReembolsoVentaPos`. La regresión ya no aplica a este
+// fichero.

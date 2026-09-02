@@ -84,9 +84,9 @@ test('cobro anterior al snapshot: "no lo sé" NO es "no entregó"', () => {
 
 type Fila = Record<string, unknown>;
 
-function fakeAdmin(opts: { recibo?: Fila | null; yaExistia?: boolean } = {}) {
+function fakeAdmin(opts: { recibo?: Fila | null; ventaPos?: Fila | null; yaExistia?: boolean } = {}) {
   const insertado: Fila[] = [];
-  const actualizado: Fila[] = [];
+  const actualizado: { tabla: string; fila: Fila }[] = [];
   const api = {
     from(tabla: string) {
       return {
@@ -96,12 +96,15 @@ function fakeAdmin(opts: { recibo?: Fila | null; yaExistia?: boolean } = {}) {
           if (tabla === 'recibos') {
             return Promise.resolve({ data: opts.recibo === undefined ? RECIBO : opts.recibo, error: null });
           }
+          if (tabla === 'ventas_pos') {
+            return Promise.resolve({ data: opts.ventaPos === undefined ? VENTA_POS : opts.ventaPos, error: null });
+          }
           // Retorno del insert de devoluciones.
           if (opts.yaExistia) return Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate' } });
           return Promise.resolve({ data: { id: 'dev-1' }, error: null });
         },
         insert(fila: Fila) { insertado.push(fila); return this; },
-        update(fila: Fila) { actualizado.push(fila); return this; },
+        update(fila: Fila) { actualizado.push({ tabla, fila }); return this; },
         // supabase-js encadena `.update().eq().eq()` y se espera al final: el
         // fake tiene que ser thenable, no devolver una promesa a media cadena.
         then(res: (v: { error: null }) => unknown) { return Promise.resolve({ error: null }).then(res); },
@@ -114,6 +117,8 @@ function fakeAdmin(opts: { recibo?: Fila | null; yaExistia?: boolean } = {}) {
 const RECIBO = {
   id: 'rec-1', socio_id: 'soc-1', suscripcion_id: 'sus-1', importe: 165, entrega_aplicada: true,
 };
+
+const VENTA_POS = { id: 'pos-1', socio_id: 'soc-2', total: 40 };
 
 const BASE = {
   studioId: 'studio-1', reciboId: 'rec-1', origen: 'REEMBOLSO_PARCIAL' as const,
@@ -130,7 +135,8 @@ test('una devolución nueva se anota y pone al día el acumulado del recibo', as
   assert.equal(insertado[0].origen, 'REEMBOLSO_PARCIAL');
   assert.equal(insertado[0].importe_cobrado, 165, 'foto del recibo al detectar');
   // Valor ABSOLUTO, no incremento: así un reintento lo deja igual.
-  assert.equal(actualizado[0].importe_devuelto, 49.5);
+  assert.equal(actualizado[0].tabla, 'recibos');
+  assert.equal(actualizado[0].fila.importe_devuelto, 49.5);
 });
 
 test('un reintento de Stripe no vuelve a avisar', async () => {
@@ -139,6 +145,35 @@ test('un reintento de Stripe no vuelve a avisar', async () => {
 
   assert.equal(r, null, 'null = ya estaba, no hay nada nuevo que contar');
   assert.equal(actualizado.length, 0, 'y no se toca el recibo otra vez');
+});
+
+// ── F-12/F-13: generalización a venta POS ───────────────────────────────────
+
+const BASE_POS = {
+  studioId: 'studio-1', ventaPosId: 'pos-1', origen: 'REEMBOLSO_TOTAL' as const,
+  devueltoCentimos: 4000, referencia: 'ch_pos:4000', stripeChargeId: 'ch_pos',
+} as const;
+
+test('una devolución de venta POS se anota con venta_pos_id, sin recibo_id, y sin pedir revisión', async () => {
+  const { admin, insertado, actualizado } = fakeAdmin();
+  const r = await registrarDevolucion(admin, BASE_POS);
+
+  assert.ok(r, 'tiene que devolver la fila para que el llamante avise');
+  // Una venta POS nunca tiene entrega instrumentada que revisar.
+  assert.equal(r.estado, 'OMITIDA_SIN_ENTREGA');
+  assert.equal(r.importeDevuelto, 40);
+  assert.equal(insertado[0].venta_pos_id, 'pos-1');
+  assert.equal(insertado[0].recibo_id, null);
+  assert.equal(insertado[0].socio_id, 'soc-2', 'sale de ventas_pos, no de recibos');
+  assert.equal(actualizado[0].tabla, 'ventas_pos', 'el espejo de lectura rápida se actualiza en su propia tabla');
+  assert.equal(actualizado[0].fila.importe_devuelto, 40);
+  assert.ok(actualizado[0].fila.devuelta_en, 'ventas_pos SÍ lleva devuelta_en, a diferencia de recibos');
+});
+
+test('una devolución de venta POS que no existe en este estudio no se anota', async () => {
+  const { admin, insertado } = fakeAdmin({ ventaPos: null });
+  assert.equal(await registrarDevolucion(admin, BASE_POS), null);
+  assert.equal(insertado.length, 0);
 });
 
 test('una devolución de un recibo que no es de este estudio no se anota', async () => {

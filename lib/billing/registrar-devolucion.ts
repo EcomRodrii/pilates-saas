@@ -140,42 +140,70 @@ export interface DevolucionRegistrada {
 }
 
 /**
- * Anota la devolución y pone al día el acumulado del recibo. Devuelve `null` si
- * ya estaba registrada (reintento de Stripe), para que el llamante NO vuelva a
- * notificar.
+ * Anota la devolución y pone al día el acumulado de su origen (recibo O venta
+ * POS — exactamente uno de los dos, igual que el CHECK de `devoluciones`).
+ * Devuelve `null` si ya estaba registrada (reintento de Stripe), para que el
+ * llamante NO vuelva a notificar.
  *
  * Nunca lanza: una devolución que no se puede anotar no debe tumbar el webhook
  * —el dinero ya se ha movido en Stripe pase lo que pase aquí—, pero sí devuelve
  * `null` para que quede claro que no hay nada nuevo que contar.
+ *
+ * F-12/F-13: generalizado para admitir venta POS, antes `procesarReembolsoVentaPos`
+ * escribía directo en `ventas_pos` sin dejar fila de auditoría ni distinguir
+ * parcial de total. Un POS nunca "entrega" nada instrumentado (no hay
+ * suscripción/bono detrás), así que su estado inicial es siempre
+ * `OMITIDA_SIN_ENTREGA` — no tiene sentido preguntar si hay que deshacer algo.
  */
 export async function registrarDevolucion(admin: SupabaseClient, p: {
   studioId: string;
-  reciboId: string;
   origen: OrigenDevolucion;
   /** Acumulado devuelto en CÉNTIMOS, tal cual lo da Stripe. */
   devueltoCentimos: number;
   referencia: string;
   stripeChargeId?: string | null;
-}): Promise<DevolucionRegistrada | null> {
-  const { data: rec } = await admin
-    .from('recibos')
-    .select('id, socio_id, suscripcion_id, importe, entrega_aplicada')
-    .eq('id', p.reciboId)
-    .eq('studio_id', p.studioId)
-    .maybeSingle();
-  if (!rec) return null;
-
+} & ({ reciboId: string; ventaPosId?: undefined } | { reciboId?: undefined; ventaPosId: string })): Promise<DevolucionRegistrada | null> {
   const importeDevuelto = p.devueltoCentimos / 100;
-  const estado = estadoInicialDevolucion(rec as { entrega_aplicada: boolean | null; suscripcion_id: string | null });
+
+  let socioId: string | null = null;
+  let suscripcionId: string | null = null;
+  let importeCobrado: number;
+  let estado: EstadoDevolucion;
+
+  if (p.ventaPosId) {
+    const { data: venta } = await admin
+      .from('ventas_pos')
+      .select('id, socio_id, total')
+      .eq('id', p.ventaPosId)
+      .eq('studio_id', p.studioId)
+      .maybeSingle();
+    if (!venta) return null;
+    socioId = (venta.socio_id as string | null) ?? null;
+    importeCobrado = venta.total as number;
+    estado = 'OMITIDA_SIN_ENTREGA';
+  } else {
+    const { data: rec } = await admin
+      .from('recibos')
+      .select('id, socio_id, suscripcion_id, importe, entrega_aplicada')
+      .eq('id', p.reciboId)
+      .eq('studio_id', p.studioId)
+      .maybeSingle();
+    if (!rec) return null;
+    socioId = (rec.socio_id as string | null) ?? null;
+    suscripcionId = (rec.suscripcion_id as string | null) ?? null;
+    importeCobrado = rec.importe as number;
+    estado = estadoInicialDevolucion(rec as { entrega_aplicada: boolean | null; suscripcion_id: string | null });
+  }
 
   const { data, error } = await admin.from('devoluciones').insert({
     id: `dev-${crypto.randomUUID()}`,
     studio_id: p.studioId,
-    recibo_id: p.reciboId,
-    socio_id: rec.socio_id ?? null,
-    suscripcion_id: rec.suscripcion_id ?? null,
+    recibo_id: p.reciboId ?? null,
+    venta_pos_id: p.ventaPosId ?? null,
+    socio_id: socioId,
+    suscripcion_id: suscripcionId,
     origen: p.origen,
-    importe_cobrado: rec.importe,
+    importe_cobrado: importeCobrado,
     importe_devuelto: importeDevuelto,
     stripe_charge_id: p.stripeChargeId ?? null,
     referencia: p.referencia,
@@ -192,13 +220,18 @@ export async function registrarDevolucion(admin: SupabaseClient, p: {
   }
   if (!data) return null;
 
-  // El acumulado del recibo se escribe con el valor ABSOLUTO que da Stripe, no
+  // El acumulado se escribe con el valor ABSOLUTO que da Stripe, no
   // incrementando: así un reintento lo deja igual en vez de sumar dos veces.
-  const { error: errImporte } = await admin.from('recibos')
-    .update({ importe_devuelto: importeDevuelto })
-    .eq('id', p.reciboId).eq('studio_id', p.studioId);
+  const tabla = p.ventaPosId ? 'ventas_pos' : 'recibos';
+  const id = p.ventaPosId ?? p.reciboId!;
+  const camposActualizados = p.ventaPosId
+    ? { importe_devuelto: importeDevuelto, devuelta_en: new Date().toISOString() }
+    : { importe_devuelto: importeDevuelto };
+  const { error: errImporte } = await admin.from(tabla)
+    .update(camposActualizados)
+    .eq('id', id).eq('studio_id', p.studioId);
   if (errImporte) {
-    console.error('[devoluciones] devolución anotada pero sin actualizar el acumulado del recibo', p.reciboId, errImporte.message);
+    console.error('[devoluciones] devolución anotada pero sin actualizar el acumulado', id, errImporte.message);
   }
 
   return { id: data.id as string, estado, origen: p.origen, importeDevuelto };

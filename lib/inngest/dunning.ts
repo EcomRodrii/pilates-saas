@@ -153,7 +153,7 @@ export const procesarDunningEstudio = inngest.createFunction(
           extra: { reciboId: rec.id, studioId, paymentIntentId: pi.id, status: pi.status },
         });
         if (pi.status === 'succeeded') {
-          const out = await confirmarCobroExitoso({ admin, reciboId: rec.id, studioId, metodo: 'SEPA' });
+          const out = await confirmarCobroExitoso({ admin, reciboId: rec.id, studioId, metodo: 'SEPA', fuente: 'conciliador' });
           return { tipo: 'reconciliado' as const, ok: out.ok };
         }
         // requires_payment_method / canceled / cualquier estado terminal no exitoso.

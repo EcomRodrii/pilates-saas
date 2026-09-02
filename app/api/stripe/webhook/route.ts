@@ -4,7 +4,6 @@ import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/lib/webhook-idempotencia';
-import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
 import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 import { metodoReutilizableDe } from '@/lib/billing/metodo-reutilizable';
@@ -12,7 +11,7 @@ import { identidadDemostradaEnCompra } from '@/lib/billing/identidad-compra';
 import { resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
 import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReembolsoVentaPos, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
-import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
+import { confirmarCobroRecibo } from '@/lib/billing/confirmar-cobro';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -433,85 +432,24 @@ async function procesarEvento(
           } catch { /* si falla la lectura, dejamos TARJETA por defecto */ }
         }
         const piId = typeof session.payment_intent === 'string' ? session.payment_intent : null;
-        const { data: marcado, error } = await admin.from('recibos')
-          .update({
-            estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodoCobro,
-            // Un cobro por checkout no dejaba el PaymentIntent en NINGUNA parte
-            // de Tentare (solo lo escribían el cobro off-session y la compra de
-            // plan). Por eso /api/reembolsos tenía que buscarlo en Stripe por
-            // metadata['reciboId'], y con dos cargos descartaba el resultado y
-            // respondía "no encontramos el cobro de este recibo".
-            ...(piId ? { stripe_payment_intent_id: piId } : {}),
-            // Pagada: deja de haber una sesión abierta que reutilizar.
-            checkout_session_id: null,
-          })
-          // Acotado al tenant y a los estados realmente cobrables, que según el
-          // CHECK de `recibos` son PENDIENTE, FALLIDO (recuperación tras dunning)
-          // y EN_CURSO (adeudo SEPA en vuelo: el portal se lo muestra a la socia
-          // como pendiente, así que un pago con tarjeta sobre él es legítimo y
-          // debe marcarlo cobrado). Quedan fuera COBRADO —para no reescribir la
-          // fecha_cobro con un evento tardío o duplicado— y DEVUELTO, para no
-          // resucitar un recibo ya devuelto.
-          .eq('id', reciboId).eq('studio_id', studioId)
-          .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO'])
-          .select('id').maybeSingle();
-        if (error) {
-          console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
+        // F-12/F-13 (rediseño de fondo): marcar cobrado + renovar + sellar
+        // factura + notificar + email viven ahora en UN SOLO SITIO
+        // (lib/billing/confirmar-cobro.ts), compartido con el conciliador —
+        // antes esto estaba duplicado casi carácter por carácter en los dos
+        // sitios, y cada vez que uno ganaba una pieza el otro se quedaba
+        // atrás. Lo que sigue siendo propio de aquí (verificar importe,
+        // detectar Bizum vs tarjeta) es lo que de verdad necesita el objeto
+        // vivo de Stripe.
+        const resConfirmar = await confirmarCobroRecibo(admin, {
+          studioId, reciboId, metodoCobro, paymentIntentId: piId, fuente: 'webhook',
+        });
+        if (!resConfirmar.ok) {
+          console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, resConfirmar.error);
           Sentry.captureMessage('[stripe webhook] no se pudo marcar el recibo como COBRADO', {
-            level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, sessionId: session.id, detalle: error.message },
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, sessionId: session.id, detalle: resConfirmar.error },
           });
           return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
         }
-        // 0 filas tiene DOS causas muy distintas y hasta ahora se trataban igual
-        // (ni siquiera se miraba: el update iba sin `.select()`):
-        //   · Stripe reentrega el MISMO evento — normal, no hay nada que hacer.
-        //   · Un SEGUNDO cobro real del mismo recibo — dinero cobrado dos veces.
-        // Se distinguen por el PaymentIntent: si el recibo ya guarda uno y llega
-        // otro distinto, no es un reintento. Es el aviso que faltaba para que
-        // esto deje de ser invisible; devolver el cargo sigue siendo manual.
-        if (!marcado && piId) {
-          const { data: previo } = await admin.from('recibos')
-            .select('stripe_payment_intent_id')
-            .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
-          const anterior = (previo?.stripe_payment_intent_id as string | null) ?? null;
-          if (anterior && anterior !== piId) {
-            Sentry.captureMessage('[stripe webhook] SEGUNDO cobro del mismo recibo: hay que devolver uno', {
-              level: 'error',
-              extra: {
-                reciboId, studioId, sessionId: session.id,
-                paymentIntentCobrado: anterior, paymentIntentDuplicado: piId,
-              },
-            });
-          }
-        }
-        // Renovación en servidor (refill de bono / extensión del mensual):
-        // antes solo la aplicaba el panel al "marcar cobrado" a mano, así que
-        // un pago por enlace dejaba la suscripción sin renovar hasta que
-        // alguien abría el panel. Best-effort e idempotente.
-        await aplicarRenovacionServidor(admin, { studioId, reciboId });
-        // Sellado de factura: mismo criterio que cobrarReciboOffSession
-        // (lib/billing/stripe-cobros.ts) y confirmarCobroExitoso — este
-        // era el ÚNICO de los tres caminos de dinero real que no la sellaba.
-        // Un pago desde el portal (la socia paga su recibo pendiente vía
-        // Checkout hospedado) confirmaba el cobro y nunca generaba factura;
-        // best-effort e idempotente: el cobro ya está persistido, un fallo
-        // aquí no puede tumbar el evento.
-        const selladoFactura = await sellarFacturaDeRecibo(admin, {
-          studioId, reciboId, facturaId: `fac-checkout-${reciboId}`,
-        });
-        if (!selladoFactura.ok) {
-          Sentry.captureMessage('[stripe webhook] cobro OK pero factura sin sellar', {
-            level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
-            extra: { reciboId, studioId, error: selladoFactura.error },
-          });
-        }
-        // Notification Engine: confirmación de pago a la socia.
-        const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
-        await emitirPagoRealizado(admin, { studioId, reciboId });
-        // Email de confirmación con enlace a su factura — best-effort, ver
-        // enviarEmailReciboWebhook (nunca lanza, no puede tumbar el webhook).
-        const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
-        await enviarEmailReciboWebhook(admin, { studioId, reciboId });
       }
 
       // Compra de un plan desde el enlace público: crear el bono que se acaba de
@@ -994,7 +932,7 @@ async function procesarEvento(
         });
         return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
       }
-      const confirmado = await confirmarCobroExitoso({ admin, reciboId, studioId, metodo: 'SEPA' });
+      const confirmado = await confirmarCobroExitoso({ admin, reciboId, studioId, metodo: 'SEPA', fuente: 'webhook' });
       if (!confirmado.ok) {
         // "Recibo no encontrado" es o bien el recibo ya no existe o es de otro
         // estudio (intento de confirmar un cobro ajeno) — se registra y se
@@ -1050,7 +988,7 @@ async function procesarEvento(
         return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
       }
       const confirmado = await confirmarCobroExitoso({
-        admin, reciboId, studioId, metodo: 'TARJETA', paymentIntentId: pi.id,
+        admin, reciboId, studioId, metodo: 'TARJETA', paymentIntentId: pi.id, fuente: 'webhook',
       });
       if (!confirmado.ok) {
         if (confirmado.error === 'Recibo no encontrado') {

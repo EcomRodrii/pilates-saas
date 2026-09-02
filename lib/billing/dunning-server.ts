@@ -126,14 +126,18 @@ export async function confirmarCobroExitoso(params: {
   metodo: 'SEPA' | 'TARJETA';
   /** El cargo real, para poder devolverlo desde el panel. Solo se escribe si viene. */
   paymentIntentId?: string | null;
+  /** F-12/F-13: quién lo confirma, para `recibos.conciliado_por`. */
+  fuente: 'webhook' | 'conciliador';
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { admin, reciboId, studioId, metodo } = params;
+  const { admin, reciboId, studioId, metodo, fuente } = params;
   const esSepa = metodo === 'SEPA';
+  const ahoraISO = new Date().toISOString();
   const { data: rec, error: updErr } = await admin.from('recibos')
     .update({
-      estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodo,
+      estado: 'COBRADO', fecha_cobro: ahoraISO, metodo_cobro: metodo,
       ...(esSepa ? { sepa_estado: 'succeeded' } : {}),
       ...(params.paymentIntentId ? { stripe_payment_intent_id: params.paymentIntentId } : {}),
+      conciliado_en: ahoraISO, conciliado_por: fuente,
     })
     // Mismo guardia de estados que el camino de checkout (webhook/route.ts) y
     // el conciliador: quedan fuera COBRADO —para no reescribir fecha_cobro con
