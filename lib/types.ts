@@ -147,8 +147,9 @@ export interface Studio {
   // sobrescribirlo con NULL = hereda, mismo patrón que el resto de arriba —
   // pero OJO, este override se resuelve en SQL directo dentro de
   // cancelar_reserva_plaza, no con heredaOverride() en TS (ver comentario en
-  // esa migración: la RPC es ejecutable directo por `authenticated` desde el
-  // cliente, sin pasar por cargarPoliticaEstudio).
+  // esa migración: la RPC es la única fuente que resuelve esta regla, la
+  // llame quien la llame — panel o portal —, sin pasar por
+  // cargarPoliticaEstudio).
   listaEsperaPlazoAceptacionMinutos: number;
   // Fase 2c (migr 20260731140000): nº mínimo de reservas CONFIRMADA para que
   // la clase se mantenga. Si a 2h del inicio no se alcanza, se cancela
@@ -160,8 +161,7 @@ export interface Studio {
   // Fase 3 (migr 20260730225253): importe fijo en € a cobrar por cancelación
   // tardía o no-show. NULL/0 = regla desactivada. tipos_clase puede
   // sobrescribirlo con NULL = hereda — resuelto en SQL directo dentro de
-  // `cancelar_reserva_plaza` (esa RPC es ejecutable directo por
-  // `authenticated` desde el cliente, mismo criterio que Fase 2b).
+  // `cancelar_reserva_plaza`, mismo criterio que Fase 2b.
   penalizacionImporteEur: number | null;
   penalizacionAplicaCancelacionTardia: boolean;
   penalizacionAplicaNoShow: boolean;

@@ -2512,43 +2512,6 @@ export async function dbReservarPlaza(
   return { estado: row?.estado ?? 'CONFIRMADA', posicionEspera: row?.posicion_espera ?? null };
 }
 
-// Cancelación + promoción de lista de espera ATÓMICAS desde el panel.
-export async function dbCancelarReservaPlaza(
-  studioId: string, reservaId: string,
-): Promise<{
-  eraConfirmada: boolean; promovidaSocioId: string | null; devolverBono: boolean;
-  // Fase 2b (migr 20260731130500): mutuamente excluyente con promovidaSocioId
-  // — solo relleno si el estudio/tipo de clase exige plazo de aceptación
-  // (lista_espera_plazo_aceptacion_minutos > 0), en cuyo caso NO se confirmó
-  // sola, se le abrió una oferta con ese plazo.
-  ofertaSocioId: string | null; ofertaExpiraEn: string | null;
-  // Fase 3 (migr 20260730225253): id de la fila en `penalizaciones` si la
-  // cancelación fue tardía y el estudio/tipo de clase exige penalización —
-  // null si no aplica. El cobro real lo recoge lib/inngest/penalizaciones.ts,
-  // no este caller (aquí solo se traza).
-  penalizacionId: string | null;
-} | { error: string }> {
-  const { data, error } = await supabase.rpc('cancelar_reserva_plaza', {
-    p_studio_id: studioId, p_reserva_id: reservaId, p_socio_id: null,
-  });
-  if (error) { reportDbError('[dbCancelarReservaPlaza]', error); return { error: error.message }; }
-  const row = Array.isArray(data) ? data[0] : data;
-  return {
-    eraConfirmada: !!row?.era_confirmada,
-    promovidaSocioId: row?.promovida_socio_id ?? null,
-    // Quién decide si se devuelve la sesión del bono: la BD (migr 0129), que
-    // resuelve la ventana de cancelación del TIPO de clase y cae a la del
-    // estudio si no la tiene. El cliente lo recalculaba, y el panel usaba
-    // siempre la global: la misma cancelación salía tardía por el portal y a
-    // tiempo por recepción. `?? true` conserva el comportamiento de siempre
-    // (devolver) si la RPC aún no trae la columna a medio despliegue.
-    devolverBono: row?.devolver_bono ?? true,
-    ofertaSocioId: row?.oferta_socio_id ?? null,
-    ofertaExpiraEn: row?.oferta_expira_en ?? null,
-    penalizacionId: row?.penalizacion_id ?? null,
-  };
-}
-
 // Cancela (marca CANCELADA) todas las reservas activas de un lote de sesiones.
 // Cancelar una serie completa marcaba `sesiones.cancelada=true` pero dejaba las
 // reservas en CONFIRMADA/LISTA_ESPERA apuntando a una sesión cancelada — la
