@@ -219,3 +219,25 @@ export async function copiarAlPortapapeles(texto: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * "María Soler" → "María S." — la forma en que el kit "Tentare Studio App"
+ * nombra a la instructora en las filas del horario ("Marta G. · Studio Alma",
+ * CHEATSHEET-CSS.md, "Fila de clase").
+ *
+ * No es cosmética: esa línea va junto al nombre del estudio en una columna que
+ * a 390 px no da para el nombre completo, y salía recortada a mitad de palabra
+ * en las filas de Horario. Abreviar es lo que hace el propio diseño, así que
+ * se abrevia en vez de dejar que la elipsis corte por donde caiga.
+ *
+ * Un solo nombre se devuelve tal cual (no hay apellido que abreviar), y los
+ * nombres compuestos ("Ana María Ruiz") conservan solo el PRIMER token más la
+ * inicial del ÚLTIMO — que es lo que identifica a una persona en una lista
+ * corta, no el segundo nombre.
+ */
+export function nombreCortoInstructora(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/).filter(Boolean);
+  if (partes.length < 2) return partes[0] ?? '';
+  const apellido = partes[partes.length - 1];
+  return `${partes[0]} ${apellido[0]!.toUpperCase()}.`;
+}

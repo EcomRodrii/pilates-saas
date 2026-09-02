@@ -12,7 +12,7 @@
 // que un formateo que ignorase la zona fallaría en al menos uno de los dos.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana, compararVersiones, copiarAlPortapapeles } from './utils.ts';
+import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana, compararVersiones, copiarAlPortapapeles, nombreCortoInstructora } from './utils.ts';
 
 test('compararVersiones: doble cifra no se ordena como texto', () => {
   assert.ok(compararVersiones('0.10', '0.9') > 0, '0.10 es mayor que 0.9 numéricamente');
@@ -205,4 +205,31 @@ test('⚠️ un rechazo del navegador NO se propaga: se devuelve false', async (
   } finally {
     Object.defineProperty(globalThis, 'navigator', { value: previo, configurable: true, writable: true });
   }
+});
+
+// ── nombreCortoInstructora ───────────────────────────────────────────────────
+//
+// Existe por un recorte real: en las filas de Horario la línea de la
+// instructora va con el nombre del estudio al lado ("María Soler · Pilates
+// Boutique") en una columna que a 390 px no da, y se veía cortada a mitad de
+// palabra. El kit de diseño ya abrevia ahí ("Marta G."), así que se abrevia.
+test('nombreCortoInstructora abrevia el apellido, como el kit', () => {
+  assert.equal(nombreCortoInstructora('María Soler'), 'María S.');
+  assert.equal(nombreCortoInstructora('Marta García'), 'Marta G.');
+});
+
+test('nombreCortoInstructora deja en paz un nombre suelto', () => {
+  // No hay apellido que abreviar: devolver "María M." sería inventarse uno.
+  assert.equal(nombreCortoInstructora('María'), 'María');
+});
+
+test('nombreCortoInstructora usa el ÚLTIMO token como apellido', () => {
+  // En un nombre compuesto lo que identifica es nombre + apellido, no el
+  // segundo nombre: "Ana María Ruiz" es "Ana R.", nunca "Ana M.".
+  assert.equal(nombreCortoInstructora('Ana María Ruiz'), 'Ana R.');
+});
+
+test('nombreCortoInstructora aguanta espacios de sobra y cadena vacía', () => {
+  assert.equal(nombreCortoInstructora('  Lucía   Ramos  '), 'Lucía R.');
+  assert.equal(nombreCortoInstructora('   '), '');
 });

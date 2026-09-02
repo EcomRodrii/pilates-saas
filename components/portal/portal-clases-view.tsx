@@ -42,6 +42,7 @@ import { BottomSheet, Button, Toast, type AvisoToast } from '@/components/portal
 import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
 import { fetchQuienVaAEstaClase, type QuienVaAEstaClase } from '@/lib/social-companeras-portal.ts';
 import { EASE, dur, transicion, display, texto } from '@/lib/portal-design';
+import { nombreCortoInstructora } from '@/lib/utils';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import type { PortalSession } from '@/lib/portal-auth';
@@ -668,14 +669,52 @@ export function PortalClasesView({
                         {c.instr.nombre.trim()[0]?.toUpperCase()}
                       </span>
                     )}
+                    {/* Apellido abreviado, como el kit ("Marta G.",
+                        CHEATSHEET-CSS.md, "Fila de clase"). Con el nombre
+                        completo esta línea NO cabía a 390 px: se recortaba a
+                        mitad de palabra en 3 de las 4 filas.
+                        ⚠️ Y SIN el nombre del estudio, que el kit sí pone
+                        ("Marta G. · Studio Alma"). Allí distingue, porque el
+                        prototipo enseña clases de VARIOS estudios en una lista;
+                        aquí `useStudio()` está acotado a uno solo, así que era
+                        la misma cadena repetida en todas las filas —
+                        información cero— comiéndose el sitio del único dato
+                        que cambia, el nombre de la instructora. */}
                     <span style={{ fontSize: 11, color: '#5A5A52', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {[c.instr.nombre, studio?.nombre].filter(Boolean).join(' · ')}
+                      {nombreCortoInstructora(c.instr.nombre)}
                     </span>
                   </div>
                 )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flex: '0 0 auto' }}>
-                <span className={`ap-badge ${badge.clase}`}>{badge.texto}</span>
+                {/* Favorito EN LÍNEA con el badge, no flotando sobre la
+                    tarjeta. Estaba en `position:absolute; top:8; right:8` y se
+                    montaba encima del badge —medido: la estrella ocupaba
+                    x 339-361 y el badge llegaba hasta 355—, así que "10 plazas"
+                    salía con una estrella pegada a la última letra. De paso
+                    gana área táctil: 22 px de botón se quedaban muy por debajo
+                    de los 44 que pide el handoff. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {socioId && c.tipo && (
+                    <button
+                      type="button"
+                      aria-label={esFavorita ? `Quitar ${c.tipo.nombre} de favoritas` : `Marcar ${c.tipo.nombre} como favorita`}
+                      aria-pressed={esFavorita}
+                      onClick={() => marcarFavorita(c.sesion.tipoClaseId, esFavorita ? 'desmarcar' : 'marcar')}
+                      style={{
+                        // 44×44 de zona sensible con margen negativo: el dedo
+                        // tiene su objetivo entero sin que la fila crezca.
+                        width: 44, height: 44, margin: '-11px -11px -11px -6px',
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: esFavorita ? '#C99A3C' : '#98A093',
+                      }}
+                    >
+                      <Star size={13} fill={esFavorita ? 'currentColor' : 'none'} />
+                    </button>
+                  )}
+                  <span className={`ap-badge ${badge.clase}`}>{badge.texto}</span>
+                </div>
                 {/* Precio de tarifa, verificado en vivo contra el diseño real
                     (en TODAS las tarjetas, llena incluida) — es informativo,
                     no lo que le toca pagar a ESTA socia si su plan ya lo
@@ -686,7 +725,13 @@ export function PortalClasesView({
                   </span>
                 )}
                 {reservada ? (
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  // Apiladas, no en línea. Con las dos en horizontal esta
+                  // columna medía 112 px y dejaba 125 para el centro, donde la
+                  // línea de la instructora pide 132: la fila reservada era la
+                  // ÚNICA que seguía recortando ese texto después de abreviar
+                  // el apellido. Apiladas la columna baja a lo que mida el
+                  // botón más ancho y el centro recupera el sitio.
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                     {(studio?.requiereCheckinQr ?? true) && (
                       <button
                         type="button"
@@ -729,22 +774,6 @@ export function PortalClasesView({
                   </button>
                 )}
               </div>
-              {socioId && c.tipo && (
-                <button
-                  type="button"
-                  aria-label={esFavorita ? `Quitar ${c.tipo.nombre} de favoritas` : `Marcar ${c.tipo.nombre} como favorita`}
-                  aria-pressed={esFavorita}
-                  onClick={() => marcarFavorita(c.sesion.tipoClaseId, esFavorita ? 'desmarcar' : 'marcar')}
-                  style={{
-                    position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: '50%',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: esFavorita ? '#C99A3C' : '#98A093',
-                  }}
-                >
-                  <Star size={13} fill={esFavorita ? 'currentColor' : 'none'} />
-                </button>
-              )}
             </div>
           );
         })}
