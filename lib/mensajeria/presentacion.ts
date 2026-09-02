@@ -174,6 +174,18 @@ export function tieneSinLeer(c: ConversacionConResumen, miAuthUserId: string | n
   return new Date(c.leido_hasta).getTime() < new Date(c.ultimo_mensaje_en).getTime();
 }
 
+/**
+ * Cuántas conversaciones tienen algo sin leer. `conversaciones` viene siempre
+ * de una respuesta de red que, aunque el tipo lo prometa, puede llegar sin esa
+ * clave (una respuesta malformada, o un mock de test que no respeta el
+ * contrato) — de ahí el `?? []` en vez de asumirla presente.
+ */
+export function contarSinLeer(
+  conversaciones: ConversacionConResumen[] | undefined, miAuthUserId: string | null,
+): number {
+  return (conversaciones ?? []).filter(c => tieneSinLeer(c, miAuthUserId)).length;
+}
+
 /** ✓ enviado / ✓✓ leído para el ÚLTIMO mensaje propio del hilo. */
 export function estadoEntrega(
   creadoEn: string, leidoHastaOtros: string | null | undefined,

@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { portalAuthHeader } from '@/lib/api-client';
 import { fetchConversaciones } from '@/lib/mensajeria-portal.ts';
-import { tieneSinLeer } from '@/lib/mensajeria/presentacion.ts';
+import { contarSinLeer } from '@/lib/mensajeria/presentacion.ts';
 
 export function useMensajesSinLeer(studioId: string | null): number {
   const [n, setN] = useState(0);
@@ -31,7 +31,7 @@ export function useMensajesSinLeer(studioId: string | null): number {
       const headers = await portalAuthHeader();
       const r = await fetchConversaciones(headers, studioId);
       if (!vivo || 'error' in r) return;
-      setN(r.conversaciones.filter(c => tieneSinLeer(c, authUserId)).length);
+      setN(contarSinLeer(r.conversaciones, authUserId));
     })();
     return () => { vivo = false; };
   }, [studioId]);
