@@ -20,12 +20,14 @@ import type {
   PerfilIdentidadNetwork, CambiosPerfilIdentidadNetwork, VerificacionIdentidadNetwork,
   CertificacionNetwork, NuevaCertificacionNetwork,
   VacanteNetwork, NuevaVacanteNetwork, CambiosVacanteNetwork, CandidaturaNetwork,
-  ReferenciaNetwork, NuevaReferenciaNetwork, MediaNetwork,
+  ReferenciaNetwork, NuevaReferenciaNetwork, MediaNetwork, ResenaNetwork, EstudioActualNetwork,
 } from '@/lib/network/tipos';
+import type { CertificacionNetworkPublica } from '@/lib/network/publico';
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
 import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
 import type { EstudioListadoPublico } from '@/lib/network/publico-estudios.ts';
+import type { RowDocumentosSocio } from '@/lib/db-types';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -259,7 +261,10 @@ export async function publicarBloquesApi(pantalla: PantallaId): Promise<BloqueHo
 export async function fetchHomePreviewToken(): Promise<{ token: string; slug: string | null }> {
   return unaVez('home-preview-token', async () => {
     const res = await fetch('/api/theme/home-preview-token', { method: 'POST', headers: await authHeader() });
-    if (!res.ok) throw new Error('No se pudo preparar la vista previa');
+    if (!res.ok) {
+      if (res.status === 401) throw new ErrorSesionCaducada();
+      throw new Error('No se pudo preparar la vista previa');
+    }
     const b = (await res.json()) as { token: string; slug?: string | null };
     return { token: b.token, slug: b.slug ?? null };
   });
@@ -1392,6 +1397,54 @@ export async function obtenerPagosHistoricosSocio(socioId: string): Promise<Arra
   }
 }
 
+// Buzón de documentos (Community & Messaging OS, P2) — lado STAFF. Mismo
+// criterio de `null` en fallo que las dos funciones de arriba: un array
+// vacío significa "sin documentos", no "no se pudo comprobar".
+export async function listarDocumentosSocio(socioId: string): Promise<RowDocumentosSocio[] | null> {
+  try {
+    const res = await fetch(`/api/documentos-socio?socioId=${encodeURIComponent(socioId)}`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = await res.json() as { documentos: RowDocumentosSocio[] };
+    return data.documentos;
+  } catch {
+    return null;
+  }
+}
+
+export async function crearDocumentoSocio(payload: {
+  socioId: string; categoria: RowDocumentosSocio['categoria']; titulo: string; path: string; caducaEn: string | null;
+}): Promise<{ documento: RowDocumentosSocio } | { error: string }> {
+  try {
+    const res = await fetch('/api/documentos-socio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null) as { documento?: RowDocumentosSocio; error?: string } | null;
+    if (!res.ok || !data?.documento) return { error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+    return { documento: data.documento };
+  } catch {
+    return { error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
+  }
+}
+
+export async function borrarDocumentoSocio(id: string): Promise<ResultadoEscritura> {
+  try {
+    const res = await fetch('/api/documentos-socio', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
+  }
+}
+
 // Encola el envío real de una campaña en servidor (Inngest,
 // lib/inngest/campanas.ts) — el envío ya no se orquesta destinataria a
 // destinataria desde el navegador. Ver docs/marketing-integrations-arquitectura.md
@@ -2157,15 +2210,29 @@ export async function buscarPerfilesNetwork(filtro: FiltroBusquedaNetwork): Prom
 
 export async function fetchPerfilNetworkPublico(
   id: string,
-): Promise<{ perfil: PerfilNetworkPublico; experiencias: ExperienciaNetworkPublica[]; badges: BadgesNetwork } | null> {
+): Promise<{
+  perfil: PerfilNetworkPublico; experiencias: ExperienciaNetworkPublica[]; badges: BadgesNetwork;
+  certificaciones: CertificacionNetworkPublica[]; resenas: ResenaNetwork[]; mediaFotos: MediaNetwork[];
+  estudiosActuales: EstudioActualNetwork[];
+} | null> {
   try {
     const res = await fetch(`/api/network/perfil/${encodeURIComponent(id)}`, { headers: await authHeader() });
     if (!res.ok) return null;
     const data = (await res.json()) as {
       perfil?: PerfilNetworkPublico; experiencias?: ExperienciaNetworkPublica[]; badges?: BadgesNetwork;
+      certificaciones?: CertificacionNetworkPublica[]; resenas?: ResenaNetwork[]; mediaFotos?: MediaNetwork[];
+      estudiosActuales?: EstudioActualNetwork[];
     };
     if (!data.perfil || !data.badges) return null;
-    return { perfil: data.perfil, experiencias: data.experiencias ?? [], badges: data.badges };
+    return {
+      perfil: data.perfil, experiencias: data.experiencias ?? [], badges: data.badges,
+      // Mismo endpoint que ya devolvía estos campos (app/api/network/perfil/[id]/route.ts,
+      // obtenerPerfilPublicoPorId) — solo se descartaban aquí. La ficha del
+      // panel (app/(dashboard)/network/[perfilId]/page.tsx) los necesita
+      // para dejar de ser una versión empobrecida del perfil público.
+      certificaciones: data.certificaciones ?? [], resenas: data.resenas ?? [],
+      mediaFotos: data.mediaFotos ?? [], estudiosActuales: data.estudiosActuales ?? [],
+    };
   } catch {
     return null;
   }

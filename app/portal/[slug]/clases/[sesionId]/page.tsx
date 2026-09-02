@@ -8,12 +8,16 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio, REFRESCO_ACTIVO_MS } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { useModo } from '@/lib/portal-modo';
-import { ChevronLeft, Clock, Users, MapPin, BarChart3, Star, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, Clock, Users, MapPin, BarChart3, Star, CheckCircle2, AlertTriangle, UserPlus, Check } from 'lucide-react';
 import { Button, BottomSheet, Toast, AforoIndicator, type AvisoToast } from '@/components/portal/ui';
 import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/components/portal/hoja-reserva';
 import { formatFechaLarga } from '@/lib/utils';
 import { esSlotRecurrente, yaTienePlazaFijaEnSlot } from '@/lib/plaza-fija-portal';
 import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
+import { portalAuthHeader } from '@/lib/api-client';
+import {
+  fetchQuienVaAEstaClase, enviarSolicitudCompanera, type QuienVaAEstaClase,
+} from '@/lib/social-companeras-portal.ts';
 
 // Reservar desde aquí (llegando por el carrusel de Inicio) no dejaba elegir
 // plaza numerada, mientras que reservar desde la Agenda (HojaReserva) sí —
@@ -30,7 +34,7 @@ export default function ClaseDetallePage() {
   const router = useRouter();
   const { slug, sesionId } = useParams<{ slug: string; sesionId: string }>();
   const { session } = usePortalAuth();
-  const { sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, plazasFijas, addReserva, cancelarReserva, crearPlazaFijaPropia, favoritos, toggleFavorito, refrescarAforo } = useStudio();
+  const { studio, sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, plazasFijas, addReserva, cancelarReserva, crearPlazaFijaPropia, favoritos, toggleFavorito, refrescarAforo } = useStudio();
   const { t } = useModo();
 
   // Mismo parche de Fase 1/3 que PortalClasesView (ver REFRESCO_ACTIVO_MS en
@@ -99,6 +103,40 @@ export default function ClaseDetallePage() {
     [ses, socioId, plazasFijas],
   );
   const [creandoPlazaFija, setCreandoPlazaFija] = useState(false);
+
+  // "Quién más va a esta clase" (social graph, última pieza de Community &
+  // Messaging OS). Se omite la sección entera si no hay nada que enseñar —
+  // ni "vas sola" ni un hueco vacío: podría ser información no deseada
+  // también, así que por defecto no se dice nada.
+  const [quienVa, setQuienVa] = useState<QuienVaAEstaClase | null>(null);
+  const [solicitudEnCurso, setSolicitudEnCurso] = useState<string | null>(null);
+  const [solicitudesEnviadas, setSolicitudesEnviadas] = useState<Set<string>>(new Set());
+
+  const sesionIdActual = ses?.id;
+  const studioIdActual = studio?.id;
+  useEffect(() => {
+    if (!sesionIdActual || !studioIdActual || !socioId) return;
+    let vivo = true;
+    (async () => {
+      const headers = await portalAuthHeader();
+      const r = await fetchQuienVaAEstaClase(headers, studioIdActual, sesionIdActual);
+      if (!vivo) return;
+      if ('error' in r) return; // silencioso: es un extra, no un dato crítico de la clase.
+      setQuienVa(r);
+    })();
+    return () => { vivo = false; };
+  }, [sesionIdActual, studioIdActual, socioId]);
+
+  async function pedirSerCompanera(destinatariaSocioId: string) {
+    if (!studio?.id || solicitudEnCurso) return;
+    setSolicitudEnCurso(destinatariaSocioId);
+    const headers = await portalAuthHeader();
+    const r = await enviarSolicitudCompanera(headers, studio.id, destinatariaSocioId);
+    setSolicitudEnCurso(null);
+    if ('error' in r) { setAviso({ texto: r.error, error: true }); return; }
+    setSolicitudesEnviadas(prev => new Set(prev).add(destinatariaSocioId));
+    setAviso({ texto: r.yaExistia ? 'Ya hay una solicitud con esta persona.' : 'Solicitud enviada.' });
+  }
 
   async function hacerPlazaFija() {
     if (!ses || creandoPlazaFija) return;
@@ -282,6 +320,59 @@ export default function ClaseDetallePage() {
             <div style={{ paddingTop: 16 }}>
               <p style={{ ...microLabel, marginBottom: 8 }}>Sobre la clase</p>
               <p style={{ fontSize: 14, color: t.muted2, lineHeight: 1.5 }}>{tipo.descripcion}</p>
+            </div>
+          )}
+
+          {/* Quién más va — omitido por completo si no hay nada que decir
+              (ni nombres visibles ni "y N más" agregado), decisión de
+              privacidad explícita. */}
+          {quienVa && (quienVa.companeras.length > 0 || quienVa.otrasSinNombre > 0) && (
+            <div style={{ paddingTop: 16 }}>
+              <p style={{ ...microLabel, marginBottom: 10 }}>Quién más va</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {quienVa.companeras.map(c => (
+                  <div key={c.socioId} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 999, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: t.ink, fontSize: 12, flexShrink: 0 }}>
+                      {c.nombre.charAt(0).toUpperCase()}
+                    </div>
+                    <p style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.nombre}
+                    </p>
+                    {/* Ya `nombreCompleto` significa que ya es compañera aceptada —
+                        no necesita el botón. Solo se ofrece para las visibles por
+                        `visible_en_clase` con las que todavía no hay relación. */}
+                    {!c.nombreCompleto && (
+                      solicitudesEnviadas.has(c.socioId) ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: t.muted }}>
+                          <Check size={13} aria-hidden /> Enviada
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void pedirSerCompanera(c.socioId)}
+                          disabled={solicitudEnCurso !== null}
+                          aria-label={`Agregar a ${c.nombre} como compañera`}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 5, background: 'none',
+                            border: `1px solid ${t.line}`, borderRadius: 999, padding: '6px 12px',
+                            fontSize: 12, fontWeight: 700, color: t.ink,
+                            cursor: solicitudEnCurso !== null ? 'default' : 'pointer',
+                            opacity: solicitudEnCurso !== null && solicitudEnCurso !== c.socioId ? 0.5 : 1,
+                          }}
+                        >
+                          <UserPlus size={13} aria-hidden />
+                          {solicitudEnCurso === c.socioId ? 'Enviando…' : 'Agregar'}
+                        </button>
+                      )
+                    )}
+                  </div>
+                ))}
+                {quienVa.otrasSinNombre > 0 && (
+                  <p style={{ fontSize: 12.5, color: t.muted }}>
+                    Y {quienVa.otrasSinNombre} persona{quienVa.otrasSinNombre === 1 ? '' : 's'} más.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 

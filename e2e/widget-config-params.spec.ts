@@ -167,6 +167,24 @@ test('⚠️ Modo B (bundle real): data-fuente/data-fuente-display pintan el sha
   await page.setViewportSize({ width: 1100, height: 760 });
   await mocks(page);
   await page.route('**/api/public/studio-data**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx()) }));
+  // ⚠️ Este test comprueba TIPOGRAFÍA dentro de la ficha, no el flujo de
+  // acceso — pero desde que Modo B redirige a la página real de Tentare
+  // cuando NO hay sesión (petición del fundador: nunca dos toques para
+  // llegar a "Reservar"), sin sesión la ficha ya no llega a abrirse aquí.
+  // Se simula una socia YA autenticada (mismo patrón que
+  // e2e/booking.spec.ts para loginConPassword) para poder seguir mirando el
+  // h2 de la ficha, que es lo que este test necesita de verdad.
+  await page.addInitScript(() => {
+    localStorage.setItem('sb-portal-auth', JSON.stringify({
+      access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
+      expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
+      user: { id: 'auth-e2e', email: 'e2e@test.com', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
+    }));
+  });
+  await page.route('**/api/public/session', r => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Alumna E2E', email: 'e2e@test.com' }),
+  }));
   await page.route('**/host-widget-e2e', r => r.fulfill({
     contentType: 'text/html',
     body: `<!doctype html><html><body>

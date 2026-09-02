@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ClipboardList } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { fetchMisCandidaturasNetwork, retirarCandidaturaNetwork } from '@/lib/api-client';
 import type { CandidaturaNetwork, EstadoCandidatura } from '@/lib/network/tipos';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/network/campo-estilos';
 import { cn } from '@/lib/utils';
 
 const ESTADO_LABEL: Record<EstadoCandidatura, string> = {
@@ -42,17 +44,18 @@ export default function MisCandidaturasNetworkPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-[22px] font-bold text-foreground">Mis candidaturas</h1>
+      <PageHeader title="Mis candidaturas" />
 
       {!candidaturas ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 size={18} className="animate-spin text-muted-foreground" />
         </div>
       ) : candidaturas.length === 0 ? (
-        <div className={`${cardCls} p-8 text-center`}>
-          <p className="text-[13px] text-muted-foreground mb-2">Todavía no has aplicado a ninguna vacante.</p>
-          <Link href="/network/oportunidades" className="text-[12px] text-brand font-medium">Ver oportunidades</Link>
-        </div>
+        <EmptyState
+          icono={ClipboardList}
+          titulo="Todavía no has aplicado a ninguna vacante."
+          cta={{ label: 'Ver oportunidades', href: '/network/oportunidades' }}
+        />
       ) : (
         <div className="space-y-2.5">
           {candidaturas.map(c => (

@@ -19,6 +19,7 @@ test('resolveTemaJs: objeto vacío → el aspecto de hoy, completo', () => {
   assert.deepEqual(resolveTemaJs({}), {
     variantes: DEFAULT_VARIANTES,
     barraClasica: false,
+    barraFlotante: false,
     tabBarStyle: 'clasica',
     // Solo temas del kit; sin objeto que resolver, se queda en null (hereda).
     quickLinksStyle: null,
@@ -72,6 +73,14 @@ test('resolveTemaJs: `barraClasica`/`tabBarStyle` reales sí pasan', () => {
   assert.equal(r.tabBarStyle, 'pestanaActiva');
 });
 
+// P1 de la auditoría del Theme Builder: `barraFlotante` viaja igual que
+// `barraClasica` (eje independiente, mismo criterio defensivo) para que el
+// override de `features.tab_bar_style` sobre el kit vea el borrador en vivo.
+test('resolveTemaJs: `barraFlotante` real sí pasa, uno corrupto cae a false', () => {
+  assert.equal(resolveTemaJs({ barraFlotante: true })?.barraFlotante, true);
+  assert.equal(resolveTemaJs({ barraFlotante: 'sí' })?.barraFlotante, false);
+});
+
 test('resolveTemaJs: `quickLinksStyle` inventado cae a null (hereda), los dos válidos pasan', () => {
   assert.equal(resolveTemaJs({ quickLinksStyle: 'circulo-mágico' })?.quickLinksStyle, null);
   assert.equal(resolveTemaJs({ quickLinksStyle: 'cards' })?.quickLinksStyle, 'cards');
@@ -81,31 +90,32 @@ test('resolveTemaJs: `quickLinksStyle` inventado cae a null (hereda), los dos v�
 
 // ── El tema del kit por el puente ───────────────────────────────────────────
 
-test('resolveTemaJs: lleva el tema del kit que se está editando', () => {
-  assert.equal(resolveTemaJs({ themeId: 'tentada' })?.temaKit, 'tentada');
+test('resolveTemaJs: `temaKit` es SIEMPRE null — el kit se retiró (esTemaPortal() ahora es `false` a secas)', () => {
+  // Antes esto llevaba el tema del kit que se estaba editando. Decisión del
+  // fundador (2026-08-27): el sistema de temas del kit se retira por
+  // completo — `esTemaPortal()` (themes/registro.ts) devuelve `false` para
+  // cualquier id, así que ningún `themeId` (por válido que fuera en el
+  // vocabulario viejo) puede volver a resolver un `temaKit`. La vista previa
+  // del editor ya no puede montar el portal del kit, ni aunque el mensaje lo
+  // pida.
+  assert.equal(resolveTemaJs({ themeId: 'tentada' })?.temaKit, null);
 });
 
-test('⚠️ IDA Y VUELTA: `resolveTemaJs` corre en los DOS extremos, así que tiene que ser idempotente', () => {
-  // El test que faltaba, y que habría cazado los dos intentos anteriores. El
-  // emisor aplica la función al `ThemeConfig` (campo `themeId`) y manda el
-  // resultado; el receptor se la aplica a ESO (campo `temaKit`). Leer un solo
-  // nombre rompe siempre uno de los dos lados — y cada arreglo rompía el otro.
+test('⚠️ IDA Y VUELTA: `resolveTemaJs` sigue siendo idempotente sin el kit', () => {
+  // El test que cazaba la ida-y-vuelta rota entre emisor y receptor sigue
+  // vigente en espíritu — solo que ahora los DOS extremos tienen que
+  // coincidir en "null", no en un id del kit.
   const config = { themeId: 'tentada', variantes: {}, barraClasica: false };
   const emitido = resolveTemaJs(config);
   const recibido = resolveTemaJs(emitido);
-  assert.equal(emitido?.temaKit, 'tentada');
-  assert.equal(recibido?.temaKit, 'tentada', 'la vuelta perdió el tema');
+  assert.equal(emitido?.temaKit, null);
+  assert.equal(recibido?.temaKit, null);
   assert.deepEqual(recibido, emitido, 'aplicarla dos veces tiene que dar lo mismo');
 });
 
-test('⚠️ se lee `themeId` del propio ThemeConfig, no un campo que el emisor tenga que rellenar', () => {
-  // Así se rompió en producción: el campo se llamaba `temaKit` y dos de los
-  // tres emisores mandaban el `ThemeConfig` tal cual, sin renombrarlo. El
-  // receptor leía la ausencia como «no es del kit» y la vista previa de la
-  // biblioteca se quedaba montando el portal viejo — apagando justo lo que
-  // este campo venía a encender.
+test('resolveTemaJs: un `themeId` de la galería del kit tampoco pasa ya, aunque sea un id que existió', () => {
   const config = { themeId: 'bloom', variantes: {}, barraClasica: false };
-  assert.equal(resolveTemaJs(config)?.temaKit, 'bloom');
+  assert.equal(resolveTemaJs(config)?.temaKit, null);
 });
 
 test('⚠️ resolveTemaJs: un id que no existe NO pasa — es entrada de postMessage', () => {

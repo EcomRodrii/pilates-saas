@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import type { LeadStage } from '@/lib/types';
 import { fetchNotificaciones, accionNotificacion, type NotifItem, type AmbitoNotif } from '@/lib/notifications/client';
+import { ConversacionesTab } from '@/components/mensajeria/conversaciones-tab';
 
 // Misma fuente que la campana del topbar (components/notifications/notification-bell.tsx):
 // tabla `notification` vía /api/notifications, ámbito `staff`. Antes esta
@@ -36,7 +37,7 @@ const ETAPA_OPTIONS: { id: LeadStage; label: string }[] = [
 type SocioParaBroadcast = { id: string; nombre: string; apellidos: string; email: string; leadStage?: LeadStage; tags?: string[] };
 type ModoDestinatario = 'todos' | 'etapa' | 'etiqueta' | 'persona';
 
-type Tab = 'notificaciones' | 'comunidad' | 'enviar';
+type Tab = 'notificaciones' | 'comunidad' | 'conversaciones' | 'enviar';
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -290,6 +291,7 @@ export default function Mensajeria() {
   const TABS = [
     { id: 'notificaciones' as Tab, label: 'Notificaciones', icon: Bell, count: noLeidas },
     { id: 'comunidad' as Tab, label: 'Comunidad', icon: MessageCircle, count: 0 },
+    { id: 'conversaciones' as Tab, label: 'Conversaciones', icon: Inbox, count: 0 },
     { id: 'enviar' as Tab, label: 'Enviar mensaje', icon: Send, count: 0 },
   ];
 
@@ -433,6 +435,9 @@ export default function Mensajeria() {
           )}
         </div>
       )}
+
+      {/* ── CONVERSACIONES ── */}
+      {tab === 'conversaciones' && <ConversacionesTab />}
 
       {/* ── ENVIAR MENSAJE ── */}
       {tab === 'enviar' && (

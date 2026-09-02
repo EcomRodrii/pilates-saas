@@ -5,7 +5,7 @@ import { ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import { fetchMiPortfolioNetwork, crearFotoPortfolioNetwork, eliminarFotoPortfolioNetwork } from '@/lib/api-client';
 import { subirFotoPortfolioNetwork } from '@/lib/network/portfolio-storage';
 import { PORTFOLIO_MAX_FOTOS, type MediaNetwork } from '@/lib/network/tipos';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/network/campo-estilos';
 
 // Portfolio de fotos (F1, red_perfil_media) — mismo patrón autocontenido que
 // SeccionExperienciaNetwork/SeccionReferenciasNetwork: carga su propia lista

@@ -763,6 +763,23 @@ export interface BannerPortal {
   fechaFin: string | null;
 }
 
+/**
+ * Un aviso del "Tablón" del portal — texto libre que PROPIETARIO/MANAGER
+ * escriben para las alumnas (horario de verano, un taller, cierre puntual).
+ * A diferencia de `BannerPortal`, no exige imagen ni enlace: es contenido de
+ * texto, no promocional (`supabase/migrations/*_novedades_estudio.sql`).
+ */
+export interface NovedadEstudio {
+  id: string;
+  studioId: string;
+  titulo: string;
+  texto: string | null;
+  emoji: string | null;
+  activo: boolean;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+}
+
 export interface Instructor {
   id: string;
   studioId: string;
@@ -1342,10 +1359,26 @@ export interface PostComunidad {
   autorNombre: string;
   autorInicial: string;
   texto: string;
+  // P1 Community & Messaging OS: quién ve este post en el feed de la socia
+  // (portal), reutilizando el mismo segmento que ya resuelve una campaña de
+  // marketing (`resolverDestinatariasCampana`) — sin motor de audiencias
+  // paralelo. 'TODAS' si no se especifica (comportamiento previo intacto).
+  audiencia: DestinatariosCampana;
+  // URL pública de Storage (bucket `comunidad-media`), o null si el post es
+  // solo texto.
+  imagenUrl: string | null;
   likes: number;
   comentariosCount: number;
   fijado: boolean;
   creadoEn: string;
+  // Eventos como entidad propia dentro del Feed (P2 Community & Messaging
+  // OS). 'TEXTO' (default) o 'EVENTO'; los campos evento* solo tienen
+  // sentido cuando tipo === 'EVENTO'. SUPUESTO sobre el esquema de BD: a
+  // confirmar contra la migración real del otro agente.
+  tipo: 'TEXTO' | 'EVENTO';
+  eventoFecha?: string | null;
+  eventoAforo?: number | null;
+  eventoLugar?: string | null;
 }
 
 export interface ComentarioComunidad {

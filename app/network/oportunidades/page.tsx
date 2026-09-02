@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Briefcase } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { fetchVacantesPublicadasNetwork } from '@/lib/api-client';
 import { TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL } from '@/lib/network/catalogo';
 import type { VacanteNetwork } from '@/lib/network/tipos';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/network/campo-estilos';
 
 // Oportunidades (Fase 2, "instructora → busca oportunidades") — el
 // marketplace de vacantes 'published' de cualquier estudio. Sin filtros
@@ -22,17 +24,14 @@ export default function OportunidadesNetworkPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-[22px] font-bold text-foreground">Oportunidades</h1>
-      <p className="text-[13px] text-muted-foreground -mt-3">Vacantes publicadas por estudios que usan Tentare.</p>
+      <PageHeader title="Oportunidades" description="Vacantes publicadas por estudios que usan Tentare." />
 
       {!vacantes ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 size={18} className="animate-spin text-muted-foreground" />
         </div>
       ) : vacantes.length === 0 ? (
-        <div className={`${cardCls} p-8 text-center`}>
-          <p className="text-[13px] text-muted-foreground">No hay ninguna vacante publicada ahora mismo.</p>
-        </div>
+        <EmptyState icono={Briefcase} titulo="No hay ninguna vacante publicada ahora mismo." />
       ) : (
         <div className="space-y-2.5">
           {vacantes.map(v => (

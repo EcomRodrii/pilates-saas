@@ -11,7 +11,7 @@ import {
 import { ESPECIALIDADES_NETWORK, ESPECIALIDAD_LABEL } from '@/lib/network/catalogo';
 import { rangoAnios } from '@/lib/network/formato';
 import type { ExperienciaNetwork, NuevaExperienciaNetwork } from '@/lib/network/tipos';
-import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, labelCls, cardCls } from '@/components/network/campo-estilos';
 import { NW_TINTA, NW_MUTED_2, NW_BORDE, NW_PRODUCTO } from '@/components/network-v2/tokens';
 
 const FORM_VACIO: NuevaExperienciaNetwork = {

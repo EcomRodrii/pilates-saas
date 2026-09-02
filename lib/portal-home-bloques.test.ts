@@ -11,27 +11,28 @@ import {
   type BloqueHome, type BloqueHijo, type FaqConfig, CAMPOS_ESTILO, CAMPOS_ESTILO_BANNER, CAMPOS_CONTENEDOR, conFijos, esBloqueFijo, esBloqueOcultable } from './portal-home-bloques.ts';
 import { defaultsDe, resolverConfig, type CampoSchema } from './theme/campos.ts';
 
-test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los 4 de siempre detrás, en orden', () => {
+test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los de siempre detrás, en orden', () => {
   const idsVisibles = DEFAULT_BLOQUES_POR_PANTALLA.home
     .filter((b) => !b.oculto)
     .map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
   // ⚠️ `cabecera` y `proximaClase` son nuevos, y NO cambian nada de lo que se
   // pinta: ya se pintaban, escritos a fuego encima del contenedor de bloques.
-  // Lo que cambia es que ahora EXISTEN para el editor. Los 4 de siempre siguen
+  // Lo que cambia es que ahora EXISTEN para el editor. Los de siempre siguen
   // en su orden, detrás.
-  assert.deepEqual(idsVisibles, ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
+  // `tiraSemana`/`progresoSemanal`/`retos` se sumaron aquí en la auditoría del
+  // Theme Builder / rediseño "Tentare Studio App" (2026-08-26): nacían solo
+  // para Oliva/Noir/Bloom, ahora son parte del Inicio de siempre.
+  assert.deepEqual(idsVisibles, ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos']);
 });
 
-test('DEFAULT_BLOQUES_POR_PANTALLA.home: tiraSemana/progresoSemanal/retos existen pero OCULTOS (solo Oliva/Noir/Bloom los activan)', () => {
+test('DEFAULT_BLOQUES_POR_PANTALLA.home: los cinco del kit siguen OCULTOS (solo los temas del kit los pintan)', () => {
   const ocultos = DEFAULT_BLOQUES_POR_PANTALLA.home
     .filter((b) => b.oculto)
     .map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  // Los cinco del kit (2026-08-14) se suman a la lista de ocultos por el mismo
-  // motivo: un estudio con el portal de siempre no tiene quien los pinte.
-  assert.deepEqual(ocultos, [
-    'tiraSemana', 'progresoSemanal', 'retos',
-    'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
-  ]);
+  // Los cinco del kit (2026-08-14): un estudio con el portal de siempre no
+  // tiene quien los pinte — sin relación con tiraSemana/progresoSemanal/retos,
+  // que ya no están ocultos (ver test de arriba).
+  assert.deepEqual(ocultos, ['racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio']);
 });
 
 test('DEFAULT_BLOQUES_POR_PANTALLA: Clases y Bonos tienen un único bloque sistema', () => {
@@ -42,33 +43,32 @@ test('DEFAULT_BLOQUES_POR_PANTALLA: Clases y Bonos tienen un único bloque siste
 test('resolveBloquesPantalla: Home sin nada guardado y sin legacy → default de siempre', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: [], ocultos: [] });
   const visibles = r.publicado.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
+  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos']);
   assert.deepEqual(r.draft, r.publicado);
 });
 
-test('resolveBloquesPantalla: Home, tiraSemana/progresoSemanal/retos llegan OCULTOS incluso sin legacy', () => {
+test('resolveBloquesPantalla: Home, solo los cinco del kit llegan OCULTOS incluso sin legacy', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: [], ocultos: [] });
   const ocultos = r.publicado.filter((b) => b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(ocultos, [
-    'tiraSemana', 'progresoSemanal', 'retos',
-    'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
-  ]);
+  assert.deepEqual(ocultos, ['racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio']);
 });
 
 test('resolveBloquesPantalla: Home sintetiza desde portalHome legacy (Fase 2) — mismo orden/ocultos, sin migrar datos', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: ['contenidoEstudio', 'estaSemana'], ocultos: ['invitarAmiga'] });
   const visibles = r.publicado.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
   // Los fijos van DELANTE, no en el orden legacy: el saludo y la tarjeta se
-  // mantienen arriba pase lo que pase. El resto conserva su orden guardado.
-  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'contenidoEstudio', 'estaSemana', 'accesosRapidos']);
+  // mantienen arriba pase lo que pase. El resto conserva su orden guardado, y
+  // lo que no estaba en el legacy (accesosRapidos, y ahora también
+  // tiraSemana/progresoSemanal/retos) se añade visible al final.
+  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'contenidoEstudio', 'estaSemana', 'accesosRapidos', 'tiraSemana', 'progresoSemanal', 'retos']);
   const invitar = r.publicado.find((b) => b.kind === 'sistema' && b.sistemaId === 'invitarAmiga');
   assert.equal(invitar?.oculto, true);
   // tiraSemana/progresoSemanal/retos no estaban en el legacy (no existían) →
-  // se añaden al final por el segundo spread de resolveBloquesPantalla, y
-  // bloqueSistema() ya los marca ocultos por defecto.
+  // se añaden al final por el segundo spread de resolveBloquesPantalla; ya no
+  // están ocultos por defecto (ver test de arriba), así que llegan visibles.
   const nuevos = r.publicado.filter((b) => b.kind === 'sistema' && (b.sistemaId === 'tiraSemana' || b.sistemaId === 'progresoSemanal' || b.sistemaId === 'retos'));
   assert.equal(nuevos.length, 3);
-  assert.ok(nuevos.every((b) => b.oculto));
+  assert.ok(nuevos.every((b) => !b.oculto));
 });
 
 test('resolveBloquesPantalla: Home, una vez hay bloques guardado, YA NO mira portalHome (es la fuente de verdad)', () => {

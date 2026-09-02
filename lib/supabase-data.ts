@@ -84,6 +84,7 @@ import type {
   RowRetoParticipaciones,
   RowContenidoPortal,
   RowContenidoPortalBanners,
+  RowNovedadesEstudio,
   RowUsuarios,
   RowVentasPos,
   RowVideosOnDemand,
@@ -155,6 +156,7 @@ import type {
   RetoParticipacion,
   ContenidoPortal,
   BannerPortal,
+  NovedadEstudio,
   UbicacionBannerPortal,
   Usuario,
   VentaPOS,
@@ -411,7 +413,7 @@ export function mapUsuario(r: RowUsuarios): Usuario {
 // textoConsentimientoMarketing), idéntico para todas las socias del estudio,
 // y solo lo necesita el envío real (comparación exacta de vigencia) — no el
 // panel. El panel solo trae fecha+registradoPor (bool-ish, aproximado).
-export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto'>;
+export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'visible_en_clase'>;
 export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancelada_motivo'>;
 // El arranque del panel NO trae ni `proximo_reintento` ni el snapshot de la
 // entrega: son columnas que solo lee el dunning (servidor) y la card de
@@ -925,6 +927,19 @@ export function mapBannerPortal(r: RowContenidoPortalBanners): BannerPortal {
   };
 }
 
+export function mapNovedadEstudio(r: RowNovedadesEstudio): NovedadEstudio {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    titulo: r.titulo,
+    texto: r.texto ?? null,
+    emoji: r.emoji ?? null,
+    activo: r.activo,
+    fechaInicio: r.fecha_inicio ?? null,
+    fechaFin: r.fecha_fin ?? null,
+  };
+}
+
 
 // zoom_join_url va aparte y OPCIONAL a propósito: es el único campo de
 // `sesiones` que no debe salir de un select genérico (portal de la socia) —
@@ -1251,10 +1266,16 @@ export function mapPostComunidad(r: RowPostsComunidad): PostComunidad {
     autorNombre: r.autor_nombre,
     autorInicial: r.autor_inicial,
     texto: r.texto,
+    audiencia: (r.audiencia as PostComunidad['audiencia'] | null) ?? 'TODAS',
+    imagenUrl: r.imagen_url ?? null,
     likes: r.likes,
     comentariosCount: r.comentarios_count,
     fijado: r.fijado,
     creadoEn: r.creado_en,
+    tipo: (r.tipo as PostComunidad['tipo'] | null) ?? 'TEXTO',
+    eventoFecha: r.evento_fecha ?? null,
+    eventoAforo: r.evento_aforo ?? null,
+    eventoLugar: r.evento_lugar ?? null,
   } as PostComunidad;
 }
 
@@ -1659,6 +1680,8 @@ function postComunidadToDb(p: PostComunidad) {
     autor_nombre: p.autorNombre,
     autor_inicial: p.autorInicial,
     texto: p.texto,
+    audiencia: p.audiencia ?? 'TODAS',
+    imagen_url: p.imagenUrl ?? null,
     likes: p.likes,
     comentarios_count: p.comentariosCount,
     fijado: p.fijado,
@@ -3491,6 +3514,30 @@ export async function dbInsertPostComunidad(p: PostComunidad) {
   if (error) reportDbError('[dbInsertPostComunidad]', error);
 }
 
+// P1 Community & Messaging OS: crea el post vía /api/comunidad/posts
+// (server-authoritative) en vez del insert directo de arriba — es la única
+// vía que dispara el fan-out de notificación a la audiencia del post
+// (after() dentro de esa route, ver app/api/comunidad/posts/route.ts —
+// ya no Inngest). El `id` lo sigue generando el cliente (mismo
+// criterio que `dbInsertPostComunidad`/el resto de esta store), así el
+// estado optimista de useContentStore no diverge del guardado en servidor.
+// Best-effort: si falla, el post ya se pintó optimista y solo se reporta.
+export async function dbCrearPostComunidad(p: PostComunidad): Promise<void> {
+  try {
+    const res = await fetch('/api/comunidad/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({
+        id: p.id, texto: p.texto, audiencia: p.audiencia, imagenUrl: p.imagenUrl ?? null,
+        tipo: p.tipo, eventoFecha: p.eventoFecha ?? null, eventoAforo: p.eventoAforo ?? null, eventoLugar: p.eventoLugar ?? null,
+      }),
+    });
+    if (!res.ok) reportDbError('[dbCrearPostComunidad]', await res.json().catch(() => ({ status: res.status })));
+  } catch (e) {
+    reportDbError('[dbCrearPostComunidad]', e);
+  }
+}
+
 export async function dbUpdatePostComunidad(id: string, changes: Partial<PostComunidad>) {
   const db: Record<string, unknown> = {};
   if ('texto' in changes) db.texto = changes.texto;
@@ -3721,6 +3768,41 @@ export async function dbUpdateBannerPortal(id: string, changes: Partial<BannerPo
 export async function dbDeleteBannerPortal(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('contenido_portal_banners').delete().eq('id', id);
   return error ? falloEscritura('[dbDeleteBannerPortal]', error) : ESCRITURA_OK;
+}
+
+// ─── Tablón (novedades_estudio) ─────────────────────────────────────────────
+// Avisos de texto libre del portal — mismo patrón CRUD que los banners de
+// arriba, pero sin imagen/enlace obligatorios (supabase/migrations/*_novedades_estudio.sql).
+// Solo PROPIETARIO/MANAGER escriben (RLS `admin_novedades_estudio`).
+
+function novedadEstudioToDb(n: Omit<NovedadEstudio, 'id'> & { id?: string }) {
+  return {
+    ...(n.id ? { id: n.id } : {}),
+    studio_id: n.studioId, titulo: n.titulo, texto: n.texto, emoji: n.emoji,
+    activo: n.activo, fecha_inicio: n.fechaInicio, fecha_fin: n.fechaFin,
+  };
+}
+
+export async function dbInsertNovedadEstudio(n: NovedadEstudio): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('novedades_estudio').insert(novedadEstudioToDb(n));
+  return error ? falloEscritura('[dbInsertNovedadEstudio]', error) : ESCRITURA_OK;
+}
+
+export async function dbUpdateNovedadEstudio(id: string, changes: Partial<NovedadEstudio>): Promise<ResultadoEscritura> {
+  const db: Record<string, unknown> = {};
+  if ('titulo' in changes) db.titulo = changes.titulo;
+  if ('texto' in changes) db.texto = changes.texto;
+  if ('emoji' in changes) db.emoji = changes.emoji;
+  if ('activo' in changes) db.activo = changes.activo;
+  if ('fechaInicio' in changes) db.fecha_inicio = changes.fechaInicio;
+  if ('fechaFin' in changes) db.fecha_fin = changes.fechaFin;
+  const { error } = await supabase.from('novedades_estudio').update(db).eq('id', id);
+  return error ? falloEscritura('[dbUpdateNovedadEstudio]', error) : ESCRITURA_OK;
+}
+
+export async function dbDeleteNovedadEstudio(id: string): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('novedades_estudio').delete().eq('id', id);
+  return error ? falloEscritura('[dbDeleteNovedadEstudio]', error) : ESCRITURA_OK;
 }
 
 // ─── Salas ───────────────────────────────────────────────────────────────────
@@ -4474,6 +4556,9 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // necesita `sid` — lo que necesita los planes ya cargados es el cruce en
     // memoria, no la consulta.
     planTiposClaseRes,
+    // Añadido AL FINAL del mismo modo que bannersPortalRes de arriba —
+    // desestructurado posicional, así que va después de todo lo existente.
+    novedadesEstudioRes,
   ] = await enTandas([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
@@ -4557,6 +4642,9 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // fetchPublicStudioData.
     db.from('contenido_portal_banners').select('*').eq('studio_id', sid).order('orden', { ascending: true }),
     db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', sid),
+    // Sin filtrar por activo: mismo criterio que contenido_portal_banners —
+    // el editor necesita ver también los inactivos/caducados para gestionarlos.
+    db.from('novedades_estudio').select('*').eq('studio_id', sid).order('created_at', { ascending: false }),
   ]);
 
   // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que
@@ -4583,6 +4671,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
     contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
     bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
+    novedadesEstudio: (novedadesEstudioRes.data ?? []).map((r) => mapNovedadEstudio(r as RowNovedadesEstudio)),
     instructores: (instructoresRes.data ?? []).map(mapInstructor),
     sesiones: (sesionesRes.data ?? []).map(mapSesion),
     reservas: (reservasRes.data ?? []).map(mapReserva),

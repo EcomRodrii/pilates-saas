@@ -864,6 +864,104 @@ export async function emitirRedVacanteEncaja(
   }
 }
 
+// Community & Messaging OS (P0): mensaje nuevo → a los demás participantes.
+// `data.authUserIds` los calcula SIEMPRE el caller (todos los participantes
+// de la conversación menos quien escribió; para EQUIPO/ALUMNA_MOSTRADOR, la
+// lista dinámica de staff resuelta vía `puede_gestionar_calendario()`/
+// `instructores` — ver recipients.ts). Solo PUSH: el email vive aparte, en
+// el digest de baja frecuencia (emitirMensajeDigestNoLeido), a propósito de
+// no mandar un correo por cada mensaje.
+export async function emitirMensajeRecibido(
+  admin: SupabaseClient,
+  p: {
+    studioId: string; conversacionId: string; mensajeId: string;
+    remitente: string; previsualizacion?: string | null;
+    authUserIds: string[]; slug?: string | null;
+  },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.MENSAJE_RECIBIDO, studioId: p.studioId,
+      data: {
+        conversacionId: p.conversacionId, remitente: p.remitente,
+        previsualizacion: p.previsualizacion ? `: "${p.previsualizacion}"` : '',
+        authUserIds: p.authUserIds, slug: p.slug ?? null,
+      },
+      resource: { type: 'mensaje', id: p.mensajeId },
+      dedupKey: `mensaje-recibido:${p.mensajeId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirMensajeRecibido:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Digest de baja frecuencia de mensajes sin leer (cron, lib/mensajeria/
+// digest.ts) — el ÚNICO email de toda la mensajería. dedupKey por
+// authUserId+fecha, mismo criterio que emitirDecisionMensajeDia (ahí es
+// studioId+fecha): como mucho un digest al día por persona, aunque el cron
+// corra varias veces dentro de esa ventana.
+export async function emitirMensajeDigestNoLeido(
+  admin: SupabaseClient,
+  p: { studioId: string; authUserId: string; conversaciones: number; fecha: string; slug?: string | null },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.MENSAJE_DIGEST_NO_LEIDO, studioId: p.studioId,
+      data: { conversaciones: p.conversaciones, authUserIds: [p.authUserId], slug: p.slug ?? null },
+      dedupKey: `mensaje-digest:${p.authUserId}:${p.fecha}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirMensajeDigestNoLeido:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Community & Messaging OS: post nuevo en el tablón → a la audiencia ya
+// resuelta del post (app/api/comunidad/posts/route.ts calcula `socioIds` con
+// `resolverDestinatariasCampana` dentro de un `after()`, la misma función
+// pura que usan las campañas de marketing — ya no un worker de Inngest). Una
+// sola llamada a `publish()` con la lista completa — nunca una por socia,
+// mismo criterio que emitirRedVacanteEncaja. dedupKey por post: como mucho
+// un aviso por post, sea cual sea el nº de veces que se reintente `after()`.
+export async function emitirPostComunidadNuevo(
+  admin: SupabaseClient,
+  p: { studioId: string; postId: string; autorNombre: string; previsualizacion?: string | null; socioIds: string[]; slug?: string | null },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.POST_COMUNIDAD_NUEVO, studioId: p.studioId,
+      data: {
+        autor: p.autorNombre,
+        previsualizacion: p.previsualizacion ? `: "${p.previsualizacion}"` : '',
+        socioIds: p.socioIds, slug: p.slug ?? null,
+      },
+      resource: { type: 'post_comunidad', id: p.postId },
+      dedupKey: `post-comunidad-nuevo:${p.postId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPostComunidadNuevo:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Community & Messaging OS (P2, buzón de documentos): el estudio le sube un
+// documento nuevo a una socia concreta. dedupKey por documentoId — un solo
+// aviso por documento, sea cual sea el nº de reintentos del caller.
+export async function emitirDocumentoSocioNuevo(
+  admin: SupabaseClient,
+  p: { studioId: string; documentoId: string; socioId: string; titulo: string },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.DOCUMENTO_SOCIO_NUEVO, studioId: p.studioId,
+      data: { socioId: p.socioId, titulo: p.titulo, slug: (studio?.slug as string | null) ?? '' },
+      resource: { type: 'documento_socio', id: p.documentoId },
+      dedupKey: `documento-socio-nuevo:${p.documentoId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirDocumentoSocioNuevo:', e instanceof Error ? e.message : e);
+  }
+}
+
 export async function emitirRedContactoAceptado(
   admin: SupabaseClient,
   p: {

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { escaparLike } from '../escapar-like.ts';
 
 // ¿La compra la hace una clienta NUEVA? Es lo que gobierna `soloNuevas` de los
 // códigos de descuento (lib/billing/descuento-checkout.ts).
@@ -28,7 +29,13 @@ export async function esSociaNueva(
   // barra invertida que lo escape: un email con `*` casaría con cualquier ficha
   // del estudio. Como tampoco es un email válido, se corta aquí.
   if (email.includes('*')) return false;
-  const patron = email.replace(/([%_\\])/g, '\\$1');
+  // El escapado en sí es ahora `lib/escapar-like.ts`, compartido con el
+  // buscador del marketplace y con `entregarPlanComprado`: era la misma lógica
+  // escrita tres veces, y la que faltaba (la de entregar) costaba dinero.
+  // La guarda de `*` se queda AQUÍ y antes de escapar a propósito: aquí un `*`
+  // tiene que hacer fail-closed («no es nueva», no se regala el código), no
+  // limpiarse y seguir.
+  const patron = escaparLike(email);
   const { data, error } = await admin
     .from('socios')
     .select('id')

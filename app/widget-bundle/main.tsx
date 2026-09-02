@@ -23,6 +23,7 @@ import { StrictMode, useCallback, useEffect, useRef, useState } from 'react';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { MODO_TOKENS, type ModoTokens } from '@/lib/portal-modo';
 import { resolverConfigWidget, fuenteDeDataset, familiaCssDe, urlFuenteGoogle, CONFIG_WIDGET_POR_DEFECTO, type ConfigWidget } from '@/lib/reservar/config-widget';
+import { luminancia } from '@/lib/reservar/apariencia-widget';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
@@ -107,7 +108,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   slug: string; tema?: ModoTokens; config?: ConfigWidget; filtros?: FiltrosSlots;
 }) {
   const {
-    slots, cargando, error, studioId, socia, autenticado, refrescarSesion,
+    slots, cargando, error, studioId, socia, autenticado, sesionCargando, refrescarSesion,
     politicaPrivacidad, terminosServicio, onReservar, onCancelar, onAceptarOferta,
     sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
     stripeAccountId, onActualizarPerfil, logout, crearCheckoutEmbebido, comprarConBizum, recargar,
@@ -133,38 +134,54 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const [planesAbiertos, setPlanesAbiertos] = useState(false);
   const walkInSinFicha = autenticado && !socia;
-  const mostrarFormulario = walkInSinFicha || accesoAbierto;
+  // `&& !socia`: `accesoAbierto` solo se baja en tres sitios, y `onListo` solo
+  // lo llama el REGISTRO — `onLoginPassword` no, confiando en un comentario que
+  // dice que "el padre deja de mostrar este formulario solo". No lo hacía: al
+  // entrar con contraseña, `socia` pasa a truthy y la cabecera cambia a la rama
+  // "Mi cuenta", así que el botón «Ver clases sin iniciar sesión» —el único que
+  // bajaba `accesoAbierto`— desaparecía y el formulario de acceso se quedaba
+  // pintado para siempre encima del calendario, con la socia ya dentro. Es la
+  // otra mitad de #1408 (la ficha y el login abiertos a la vez), en Modo B.
+  const mostrarFormulario = walkInSinFicha || (accesoAbierto && !socia);
 
-  // Modo A (page.tsx) recuerda la clase que se intentaba reservar cuando no
-  // hay sesión (`bookingSesionId`) y la retoma sola tras el login. Modo B no
-  // tenía equivalente: `onReservar` del hook devolvía "Inicia sesión para
-  // reservar." como un aviso sin salida — cerraba la hoja y ahí se quedaba,
-  // sin abrir el acceso ni recordar la clase (auditoría de esta sesión).
-  // `pendienteReserva` es ese mismo recuerdo, solo que aquí no hay una hoja
-  // reabrible desde fuera (el slot abierto es estado INTERNO de
-  // <ReservaCalendario>) — en vez de reabrirla, la reserva se completa sola
-  // en cuanto `socia` pasa a tener valor, y el resultado se avisa con un
-  // banner (mismo patrón que `avisoPago` más abajo).
-  const [pendienteReserva, setPendienteReserva] = useState<{ slot: ReservaSlot; spotId: string | null } | null>(null);
-  const [avisoReservaPendiente, setAvisoReservaPendiente] = useState<'CONFIRMADA' | 'LISTA_ESPERA' | string | null>(null);
-  const manejarReservar = useCallback(async (slot: ReservaSlot, spotId: string | null) => {
-    if (!socia?.socioId) {
-      setPendienteReserva({ slot, spotId });
-      setAccesoAbierto(true);
-      return; // Sin resultado → <ReservaCalendario> cierra la hoja (mismo contrato que Modo A).
-    }
-    return onReservar(slot, spotId);
-  }, [socia, onReservar]);
-  useEffect(() => {
-    if (!socia?.socioId || !pendienteReserva) return;
-    const { slot, spotId } = pendienteReserva;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda contra doble envío: limpia el pendiente ANTES del await, no un dato derivado de un render anterior.
-    setPendienteReserva(null);
-    void onReservar(slot, spotId).then(r => {
-      if (!r) return;
-      setAvisoReservaPendiente(r.ok ? r.estado : r.error);
-    });
-  }, [socia, pendienteReserva, onReservar]);
+  // Petición explícita del fundador (2026-08-26, tras una queja real sobre
+  // un estudio en producción): sin sesión, Modo B NO completa el flujo de
+  // acceso dentro del propio widget — navega la página ENTERA (nunca
+  // popup/pestaña nueva, `window.location.href` normal) a la ficha real en
+  // Modo A (`/reservar/[slug]?sesion=`), que ya trae de fábrica el flujo
+  // "pagar y reservar sin login previo" para clases de pago suelto
+  // (`docs/reserva-sin-login-diseno.md` §2/§3, `openBooking()` en
+  // `app/reservar/[slug]/page.tsx`) — reconstruir ese motor entero (guest
+  // checkout, contrato, alta walk-in) DENTRO del bundle embebido habría
+  // duplicado una lógica ya madura y probada. Solo se abre el formulario de
+  // acceso interno de Modo B para el resto de casos que no reservan una
+  // clase concreta (botón "Iniciar sesión" de la cabecera, "Mi cuenta").
+  //
+  // ⚠️ Va en `onAntesDeAbrir` (primer toque, la TARJETA de la clase), no en
+  // `onReservar` (el botón DENTRO de la ficha): con el primer intento se
+  // navegaba en el SEGUNDO toque — abrir la ficha embebida primero y solo
+  // luego, al pulsar "Reservar" ahí dentro, disparar la redirección — un
+  // paso intermedio inútil si de todas formas se va a salir del widget
+  // (encontrado probando en el estudio real, no en un test). Con la
+  // redirección en el primer toque, la ficha nunca llega a abrirse sin
+  // sesión, así que `onReservar` solo se invoca ya autenticada — pasa
+  // directo, sin envoltorio.
+  const irAPaginaDeTentare = useCallback((slot: ReservaSlot) => {
+    // `sesionCargando`: el bootstrap de sesión (localStorage → JWT →
+    // /api/public/session) es asíncrono y corre en paralelo a la carga de
+    // clases — nada garantiza que ya haya resuelto cuando la visitante toca
+    // la PRIMERA tarjeta que carga. Sin esta comprobación, una socia YA
+    // logueada que toca rápido vería `socia` todavía en `null` y la
+    // sacaríamos del widget por error. Mientras no lo sabemos con certeza,
+    // se deja abrir la ficha de siempre (fallback seguro) en vez de asumir
+    // que no hay sesión.
+    if (sesionCargando || socia?.socioId) return false;
+    // Solo `sesion`: Modo A no tiene deep-link para el sitio elegido, se
+    // vuelve a preguntar allí si la sala tiene reformers (mismo criterio
+    // que si se llega desde cualquier otro enlace externo).
+    window.location.href = `${ORIGEN_TENTARE}/reservar/${slug}?sesion=${encodeURIComponent(slot.id)}`;
+    return true;
+  }, [socia, sesionCargando, slug]);
 
   // 3DS forzado a salir (poco común, ver checkout-embebido.tsx): vuelve a la
   // MISMA página del estudio con este marcador — se lee una vez al montar y
@@ -209,16 +226,6 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
           <button type="button" onClick={() => setAvisoPago(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: tema.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
         </div>
       )}
-      {avisoReservaPendiente && (
-        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: tema.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <span>
-            {avisoReservaPendiente === 'CONFIRMADA' ? 'Reserva confirmada.'
-              : avisoReservaPendiente === 'LISTA_ESPERA' ? 'Te hemos apuntado a la lista de espera.'
-                : avisoReservaPendiente}
-          </span>
-          <button type="button" onClick={() => setAvisoReservaPendiente(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: tema.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
-        </div>
-      )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14, marginBottom: 10 }}>
         {hayPlanesActivos && (
           <button type="button" onClick={() => setPlanesAbiertos(true)} style={{ background: 'none', border: 'none', color: 'var(--portal-brand)', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
@@ -253,13 +260,18 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
           />
         </HojaCuentaWidget>
       )}
+      {/* `onComprado` con `{silencioso:true}`: <ListaPlanes> hace
+          `setEstado({fase:'exito'})` y acto seguido llama a esto. Con la recarga
+          ruidosa, el esqueleto sustituye el árbol entero y la socia NO llega a
+          ver la confirmación de una compra que ya está cobrada. Mismo fallo que
+          en onReservar, en el camino donde además hay dinero. */}
       {planesAbiertos && (
         <HojaCuentaWidget t={tema} onClose={() => setPlanesAbiertos(false)}>
           <ListaPlanes
             t={tema} planes={planesTarifa} socioId={socia?.socioId ?? null}
             publishableKey={STRIPE_PUBLISHABLE_KEY ?? ''} stripeAccountId={stripeAccountId}
             onCrearIntento={crearCheckoutEmbebido} onBizum={comprarConBizum}
-            onCerrar={() => setPlanesAbiertos(false)} onComprado={recargar}
+            onCerrar={() => setPlanesAbiertos(false)} onComprado={() => recargar({ silencioso: true })}
             onIniciarSesion={() => { setPlanesAbiertos(false); setAccesoAbierto(true); }}
           />
         </HojaCuentaWidget>
@@ -281,7 +293,8 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
       <ReservaCalendario
         t={tema}
         slots={slots}
-        onReservar={manejarReservar}
+        onReservar={onReservar}
+        onAntesDeAbrir={irAPaginaDeTentare}
         onCancelar={onCancelar}
         onAceptarOferta={onAceptarOferta}
         vacio={{ titulo: 'No hay clases disponibles', cuerpo: 'Vuelve a mirar más tarde.' }}
@@ -330,8 +343,17 @@ function montarUno(host: HTMLElement) {
   style.textContent = widgetCss;
   shadow.appendChild(style);
   const raiz = document.createElement('div');
-  raiz.style.setProperty('--portal-brand', color || '#343825');
-  raiz.style.setProperty('--portal-brand-foreground', '#D9C29E');
+  const marcaFinal = color || '#343825';
+  raiz.style.setProperty('--portal-brand', marcaFinal);
+  // Bug real en producción (2026-08-26): un estudio con data-marca="#ffffff"
+  // (blanco) tenía este valor SIEMPRE fijo a un beige claro, sin mirar la
+  // marca real — resultado, botón blanco con texto beige sobre página
+  // blanca, invisible. Modo A (app/reservar/[slug]/page.tsx) ya calculaba
+  // esto por luminancia; Modo B nunca lo hizo — dos implementaciones del
+  // mismo dato que divergieron. Mismo criterio aquí: oscuro sobre marca
+  // clara, claro sobre marca oscura.
+  const l = luminancia(marcaFinal);
+  raiz.style.setProperty('--portal-brand-foreground', l != null && l < 0.45 ? '#FFFFFF' : '#22261F');
   raiz.style.setProperty('--success', '#2F6B4F');
   raiz.style.setProperty('--warning', '#8F6215');
   raiz.style.setProperty('--destructive', '#A8442A');

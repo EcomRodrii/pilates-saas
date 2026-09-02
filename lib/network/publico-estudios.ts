@@ -14,6 +14,7 @@
 // (mismo principio que ya aplica lib/network/publico.ts a la ficha de
 // instructora, que tampoco expone email_contacto/telefono_contacto ahí).
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { escaparLike } from '../escapar-like.ts'; // `.ts` explícita: ver nota en publico.ts
 
 const SELECT_COLUMNAS_PUBLICAS_ESTUDIO = 'id, nombre, ciudad, slug, descripcion, logo_url, foto_url, sitio_web, lat, lng';
 
@@ -135,8 +136,11 @@ export async function buscarEstudiosPublicos(
     .order('nombre', { ascending: true })
     .limit(LIMITE_RESULTADOS_ESTUDIOS);
 
-  if (filtro.ciudad) query = query.ilike('ciudad', `%${filtro.ciudad}%`);
-  if (filtro.q) query = query.ilike('nombre', `%${filtro.q}%`);
+  // El gemelo de lib/network/publico.ts:192. Se arreglan los dos a la vez a
+  // propósito: el fallo recurrente de este repo es cerrar un camino y dejar
+  // abierto el idéntico de al lado.
+  if (filtro.ciudad) query = query.ilike('ciudad', `%${escaparLike(filtro.ciudad)}%`);
+  if (filtro.q) query = query.ilike('nombre', `%${escaparLike(filtro.q)}%`);
 
   const { data, error } = await query;
   if (error) return { error };

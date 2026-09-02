@@ -33,7 +33,7 @@ const PERFIL = {
   especialidades: ['reformer'], aniosExperiencia: 5, tarifaRango: '25_35',
   experienciaVerificada: true,
   disponibilidadEstado: 'disponible', disponibilidadHorarios: ['manana'], tipoTrabajo: ['fijo'],
-  estado: 'published', identidadVerificadaEn: null,
+  estado: 'published', identidadVerificadaEn: null, idiomas: [],
   creadoEn: '2026-01-01T00:00:00Z', actualizadoEn: '2026-01-01T00:00:00Z', ultimoAccesoEn: null,
 };
 

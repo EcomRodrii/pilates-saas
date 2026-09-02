@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { valoracionParaPantalla, MINIMO_VALORACIONES } from './valoracion.ts';
+import { valoracionParaPantalla, valoracionEstudio, MINIMO_VALORACIONES } from './valoracion.ts';
 
 // ⚠️ El caso que motivó la regla: en producción hay DOS valoraciones en toda la
 // base de datos, las dos de 5. Un «5,0 ★» ahí dice que esa instructora es
@@ -38,4 +38,25 @@ test('el mínimo se puede subir, pero no bajar por descuido', () => {
   // El parámetro existe para poder endurecerlo por pantalla si hace falta.
   assert.equal(valoracionParaPantalla({ media: 5, total: 6 }, 10), null);
   assert.ok(valoracionParaPantalla({ media: 5, total: 12 }, 10));
+});
+
+test('valoracionEstudio: pondera por total, no promedia las medias a secas', () => {
+  // Una con 4,0/2 y otra con 5,0/8: la media simple de medias daría 4,5, pero
+  // el estudio tiene 2·4 + 8·5 = 48 puntos entre 10 valoraciones = 4,8.
+  const v = valoracionEstudio([
+    { valoracion: { media: 4, total: 2 } },
+    { valoracion: { media: 5, total: 8 } },
+  ]);
+  assert.equal(v?.total, 10);
+  assert.ok(v && Math.abs(v.media - 4.8) < 1e-9);
+});
+
+test('valoracionEstudio: sin ninguna instructora valorada, null', () => {
+  assert.equal(valoracionEstudio([]), null);
+  assert.equal(valoracionEstudio([{ valoracion: undefined }, { valoracion: null }]), null);
+});
+
+test('valoracionEstudio: ignora una entrada con total 0 en vez de contarla como voto', () => {
+  const v = valoracionEstudio([{ valoracion: { media: 0, total: 0 } }, { valoracion: { media: 5, total: 5 } }]);
+  assert.equal(v?.total, 5);
 });

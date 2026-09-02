@@ -53,6 +53,7 @@ import {
   dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
   dbUpsertContenidoPortal, dbInsertBannerPortal, dbUpdateBannerPortal, dbDeleteBannerPortal,
+  dbInsertNovedadEstudio, dbUpdateNovedadEstudio, dbDeleteNovedadEstudio,
   dbInsertSala, dbUpdateSala, dbDeleteSala,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
   dbUpdateStudio, dbUpdateHorarioEstudio, dbUpdateStudioConfig, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
@@ -116,6 +117,7 @@ import type {
   TipoClase,
   ContenidoPortal,
   BannerPortal,
+  NovedadEstudio,
   FavoritoClase,
   Instructor,
   Spot,
@@ -188,7 +190,7 @@ import {
   decidirPremioReferido,
 } from '@/lib/booking-logic';
 import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion, generaRenovacionAlAgotarse } from '@/lib/bono-logic';
-import { useContentStore } from '@/lib/stores/use-content-store';
+import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
 import { useDashboardChartsStore } from '@/lib/stores/use-dashboard-charts-store';
@@ -247,6 +249,7 @@ interface StudioContextValue {
   // del catálogo público (cargarPublico), no con un fetch aparte.
   contenidoPortal: ContenidoPortal | null;
   bannersPortal: BannerPortal[];
+  novedadesEstudio: NovedadEstudio[];
   favoritos: FavoritoClase[];
   toggleFavorito: (tipoClaseId: string, accion: 'marcar' | 'desmarcar') => Promise<ResultadoEscritura>;
   // Retos del carrusel de Inicio (tema Bloom) — retosApuntados es SOLO los de
@@ -255,10 +258,17 @@ interface StudioContextValue {
   retosApuntados: string[];
   retoConteos: Record<string, number>;
   toggleReto: (retoKey: string, accion: 'marcar' | 'desmarcar') => Promise<ResultadoEscritura>;
+  // Nota agregada del ESTUDIO entero (todas sus instructoras), para "Tu
+  // estudio" en Inicio — `null` bajo el mínimo de valoraciones para enseñar
+  // algo, mismo criterio que `Instructor.valoracion` (lib/portal-tema/valoracion.ts).
+  valoracionEstudio: { media: number; total: number } | null;
   updateMensajeDestacado: (mensaje: string | null) => Promise<ResultadoEscritura>;
   addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateBannerPortal: (id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteBannerPortal: (id: string) => Promise<ResultadoEscritura>;
+  addNovedadEstudio: (fields: Omit<NovedadEstudio, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  updateNovedadEstudio: (id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deleteNovedadEstudio: (id: string) => Promise<ResultadoEscritura>;
   // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del editor
   // de temas). Solo lectura aquí — se edita desde el dashboard
   // (components/theme/portal-bloques-editor.tsx), que llama a fetchLayout()/
@@ -283,6 +293,12 @@ interface StudioContextValue {
   // Barra clásica, no flotante (Oliva/Noir) — mismo motivo JS que tabBarStyle:
   // decide el `position` de <PortalNav>, algo que una CSS var no puede hacer.
   barraClasica: boolean;
+  // Barra flotante (Bloom) — eje INDEPENDIENTE de barraClasica (ver
+  // barraFlotanteSchema en theme-schema.ts). El portal "de siempre" solo la usa
+  // por CSS var; SOLO los temas del kit la leen aquí como valor JS, para
+  // decidir `features.tab_bar_style` (portal-tema-marco.tsx/vista-previa-kit.tsx)
+  // — mismo motivo que barraClasica está en este Context y no solo en CSS.
+  barraFlotante: boolean;
   // Estilo de los accesos rápidos del Inicio — SOLO temas del kit, ver
   // ESTILOS_ACCESOS_RAPIDOS en theme-schema.ts. `null` = hereda del tema.
   quickLinksStyle: QuickLinksStyleId | null;
@@ -496,7 +512,7 @@ interface StudioContextValue {
   // Comunidad
   postsComunidad: PostComunidad[];
   likedPostIds: Set<string>;
-  addPost: (texto: string) => void;
+  addPost: (texto: string, opts?: OpcionesAddPost) => void;
   toggleLikePost: (postId: string) => void;
   integraciones: Integracion[];
   upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => void;
@@ -692,6 +708,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [tiposClase, setTiposClase] = useState<TipoClase[]>([]);
   const [contenidoPortal, setContenidoPortal] = useState<ContenidoPortal | null>(null);
   const [bannersPortal, setBannersPortal] = useState<BannerPortal[]>([]);
+  const [novedadesEstudio, setNovedadesEstudio] = useState<NovedadEstudio[]>([]);
   const [portalHome, setPortalHome] = useState<OrdenVisibilidad>(DEFAULT_LAYOUT.portalHome);
   const [homeBloques, setHomeBloques] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.home.publicado);
   const [bloquesClases, setBloquesClases] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.clases.publicado);
@@ -699,6 +716,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [bloquesReservar, setBloquesReservar] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.reservar.publicado);
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
   const [barraClasica, setBarraClasica] = useState(false);
+  const [barraFlotante, setBarraFlotante] = useState(false);
   const [quickLinksStyle, setQuickLinksStyle] = useState<QuickLinksStyleId | null>(null);
   const [variantes, setVariantes] = useState<VariantesResueltas>(DEFAULT_VARIANTES);
   // Tema en BORRADOR dentro del iframe del editor (/portal-preview, /reservar).
@@ -727,6 +745,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
   const [retoConteos, setRetoConteos] = useState<Record<string, number>>({});
+  const [valoracionEstudio, setValoracionEstudio] = useState<{ media: number; total: number } | null>(null);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [segmentosClientes, setSegmentosClientes] = useState<SegmentoCliente[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
@@ -962,6 +981,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setCitasDisponibilidad(pub.citasDisponibilidad ?? []);
       setContenidoPortal(pub.contenidoPortal ?? null);
       setBannersPortal(pub.bannersPortal ?? []);
+      setNovedadesEstudio((pub as { novedadesEstudio?: NovedadEstudio[] }).novedadesEstudio ?? []);
       setPortalHome(pub.portalHome ?? DEFAULT_LAYOUT.portalHome);
       setHomeBloques(pub.homeBloques ?? DEFAULT_LAYOUT.bloques.home.publicado);
       setBloquesClases(pub.bloquesClases ?? DEFAULT_LAYOUT.bloques.clases.publicado);
@@ -969,6 +989,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setBloquesReservar(pub.bloquesReservar ?? DEFAULT_LAYOUT.bloques.reservar.publicado);
       setTabBarStyle(pub.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica');
       setBarraClasica(pub.barraClasica === true);
+      setBarraFlotante(pub.barraFlotante === true);
       setQuickLinksStyle(pub.quickLinksStyle === 'cards' || pub.quickLinksStyle === 'bare' ? pub.quickLinksStyle : null);
       // resolveVariantes valida clave a clave y siempre devuelve el objeto
       // completo — un valor corrupto en un eje no arrastra a los demás.
@@ -1023,6 +1044,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const ordRes = (pub as { reservar?: { orden?: unknown; ocultos?: unknown } | null }).reservar;
       setOrdenReservar({ orden: listaStr(ordRes?.orden), ocultos: listaStr(ordRes?.ocultos) });
       setRetoConteos(pub.retoConteos ?? {});
+      setValoracionEstudio((pub as { valoracionEstudio?: { media: number; total: number } | null }).valoracionEstudio ?? null);
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
         estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
@@ -1161,6 +1183,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setTiposClase(data.tiposClase);
       setContenidoPortal(data.contenidoPortal);
       setBannersPortal(data.bannersPortal);
+      setNovedadesEstudio(data.novedadesEstudio);
       setInstructores(data.instructores);
       setSpots(data.spots);
       setBloqueosMaquina(data.bloqueosMaquina);
@@ -1690,6 +1713,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbDeleteBannerPortal(id);
     if (!res.ok) return res;
     setBannersPortal(prev => prev.filter(b => b.id !== id));
+    return res;
+  }
+
+  // ── Tablón (novedades_estudio) ──────────────────────────────────────────────
+  async function addNovedadEstudio(fields: Omit<NovedadEstudio, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+    const nuevo: NovedadEstudio = { ...fields, id: uuidV4(), studioId: getCurrentStudioId() };
+    const res = await dbInsertNovedadEstudio(nuevo);
+    if (!res.ok) return res;
+    setNovedadesEstudio(prev => [nuevo, ...prev]);
+    return res;
+  }
+  async function updateNovedadEstudio(id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateNovedadEstudio(id, changes);
+    if (!res.ok) return res;
+    setNovedadesEstudio(prev => prev.map(n => n.id === id ? { ...n, ...changes } : n));
+    return res;
+  }
+  async function deleteNovedadEstudio(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteNovedadEstudio(id);
+    if (!res.ok) return res;
+    setNovedadesEstudio(prev => prev.filter(n => n.id !== id));
     return res;
   }
 
@@ -4462,6 +4506,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // lo publicado. Fuera del preview es `null` y esto es exactamente lo de antes.
   const tabBarStyleEfectivo = temaJsPreview?.tabBarStyle ?? tabBarStyle;
   const barraClasicaEfectiva = temaJsPreview?.barraClasica ?? barraClasica;
+  const barraFlotanteEfectiva = temaJsPreview?.barraFlotante ?? barraFlotante;
   // ⚠️ NO `??`: `quickLinksStyle` es un campo NULLABLE de verdad (`null` =
   // "hereda del tema", no "sin valor todavía"). Con `temaJsPreview?.x ?? y`,
   // un borrador que quiere heredar (`quickLinksStyle: null` dentro del
@@ -4490,6 +4535,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bloquesReservar,
     tabBarStyle: tabBarStyleEfectivo,
     barraClasica: barraClasicaEfectiva,
+    barraFlotante: barraFlotanteEfectiva,
     quickLinksStyle: quickLinksStyleEfectivo,
     variantes: variantesEfectivas,
     navPortal,
@@ -4503,11 +4549,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     toggleFavorito,
     retosApuntados,
     retoConteos,
+    valoracionEstudio,
     toggleReto,
     updateMensajeDestacado,
     addBannerPortal,
     updateBannerPortal,
     deleteBannerPortal,
+    novedadesEstudio,
+    addNovedadEstudio,
+    updateNovedadEstudio,
+    deleteNovedadEstudio,
     instructores,
     spots,
     bloqueosMaquina,
@@ -4729,7 +4780,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // notara.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
@@ -4824,6 +4875,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       deleteInstructor={deleteInstructor}
       navPortal={navPortal}
       barraClasica={barraClasicaEfectiva}
+      barraFlotante={barraFlotanteEfectiva}
       tabBarStyle={tabBarStyleEfectivo}
       quickLinksStyle={quickLinksStyleEfectivo}
       variantes={variantesEfectivas}

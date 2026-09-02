@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, ArrowRight, Mail, Heart } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/lib/auth-context';
 import {
   fetchResumenInicioNetwork, fetchSolicitudesContactoNetwork, fetchMisExperienciasNetwork,
 } from '@/lib/api-client';
 import { calcularCompletitudPerfil } from '@/lib/network/completitud';
 import type { PerfilNetwork } from '@/lib/network/tipos';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { cardCls } from '@/components/network/campo-estilos';
 
 // Home del panel de la instructora (Fase 2, "punto 15" del brief: "no solo
 // Mi perfil, sino Network con un Inicio"). Solo pinta datos que YA existen
@@ -75,7 +76,7 @@ export default function InicioNetworkPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-[22px] font-bold text-foreground">Hola, {nombrePila}</h1>
+      <PageHeader title={`Hola, ${nombrePila}`} />
 
       <div className={`${cardCls} p-5`}>
         <div className="flex items-center justify-between mb-2">

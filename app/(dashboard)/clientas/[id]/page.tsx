@@ -19,6 +19,7 @@ import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
 import { FichaExcepciones } from '@/components/socios/ficha-excepciones';
 import { FichaMandatoSepa } from '@/components/socios/ficha-mandato-sepa';
+import { FichaDocumentos } from '@/components/socios/ficha-documentos';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { BotonDevolverRecibo } from '@/components/socios/boton-devolver-recibo';
 import { BotonRectificarFactura } from '@/components/socios/boton-rectificar-factura';
@@ -161,15 +162,19 @@ function AttendanceSparkline({ weeks }: { weeks: boolean[] }) {
 
 // ─── Tab bar ──────────────────────────────────────────────────────────────────
 
-type Tab = 'resumen' | 'reservas' | 'salud' | 'pagos' | 'comunicaciones';
+type Tab = 'resumen' | 'reservas' | 'salud' | 'pagos' | 'comunicaciones' | 'documentos';
 
-function TabBar({ active, onChange, verFinanzas, verFichaClinica }: { active: Tab; onChange: (t: Tab) => void; verFinanzas: boolean; verFichaClinica: boolean }) {
+function TabBar({ active, onChange, verFinanzas, verFichaClinica, gestionaClientas }: { active: Tab; onChange: (t: Tab) => void; verFinanzas: boolean; verFichaClinica: boolean; gestionaClientas: boolean }) {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'resumen', label: 'Resumen' },
     { id: 'reservas', label: 'Reservas' },
     ...(verFichaClinica ? [{ id: 'salud' as Tab, label: 'Salud' }] : []),
     ...(verFinanzas ? [{ id: 'pagos' as Tab, label: 'Pagos' }] : []),
     { id: 'comunicaciones', label: 'Comunicaciones' },
+    // Mismo rol que puede subir/borrar (puedeGestionarClientas, espejo de la
+    // RLS de `documentos_socio`) — sin esto la pestaña se enseñaría a quien
+    // luego recibiría un 403 al abrirla.
+    ...(gestionaClientas ? [{ id: 'documentos' as Tab, label: 'Documentos' }] : []),
   ];
   return (
     <div className="flex border-b border-border bg-card rounded-t-xl overflow-x-auto min-w-0">
@@ -666,7 +671,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
           {/* Tab bar + panels */}
           <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <TabBar active={activeTab} onChange={setActiveTab} verFinanzas={verFinanzas} verFichaClinica={verFichaClinica} />
+            <TabBar active={activeTab} onChange={setActiveTab} verFinanzas={verFinanzas} verFichaClinica={verFichaClinica} gestionaClientas={gestionaClientas} />
 
             <div className="p-5">
 
@@ -1477,6 +1482,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* ═══ TAB: DOCUMENTOS ════════════════════════════════════════ */}
+              {activeTab === 'documentos' && gestionaClientas && (
+                <FichaDocumentos socioId={id} />
               )}
 
             </div>

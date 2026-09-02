@@ -39,7 +39,7 @@ import { useParams } from 'next/navigation';
 import type { PortalSession } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora } from '@/lib/portal-home-logic';
+import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora, huecosHoy } from '@/lib/portal-home-logic';
 import { sugerirClase, cuandoSugerencia } from '@/lib/portal-sugerencias';
 import { CalendarDays, Sparkles, Bell, User, type LucideIcon } from 'lucide-react';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
@@ -48,13 +48,16 @@ import { useModo } from '@/lib/portal-modo';
 import { HojaPase } from '@/components/portal/hoja-pase';
 import { AforoIndicator } from '@/components/portal/ui';
 import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
+import { bonoActivo } from '@/lib/bonos-portal';
 import { usePortalHref } from '@/components/portal/portal-preview-bridge';
 import {
   dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque, escala } from '@/lib/portal-design';
-import type { BannerPortal } from '@/lib/types';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
+import { hoyEnEstudio } from '@/lib/utils';
+import { queImparten } from '@/lib/equipo';
+import { valoracionParaPantalla } from '@/lib/portal-tema/valoracion';
 
 // Iconos de los accesos rápidos en sus variantes rejilla/círculos (la de filas
 // no lleva icono). Mismo criterio que portal-nav.tsx: el dato es un NOMBRE, el
@@ -73,13 +76,14 @@ const ICONOS_ACCESO: Record<string, LucideIcon> = { CalendarDays, Sparkles, Bell
 // montado, no con esta constante.
 const FECHA_PLACEHOLDER_SSR = new Date('2026-06-29T00:00:00Z');
 
-// Un banner "de home" está listo para mostrarse si sigue activo y, si tiene
-// ventana de fechas, "hoy" cae dentro. El filtro de ubicación/activo ya lo
-// hizo la query del servidor (fetchPublicStudioData) — esto solo resuelve la
-// fecha, que depende del momento de carga, no de cuándo se rellenó el caché.
-function bannerVigente(b: BannerPortal, hoyISO: string): boolean {
-  if (b.fechaInicio && hoyISO < b.fechaInicio) return false;
-  if (b.fechaFin && hoyISO > b.fechaFin) return false;
+// Un banner o una novedad del Tablón "de home" están listos para mostrarse si
+// siguen activos y, si tienen ventana de fechas, "hoy" cae dentro. El filtro
+// de activo/ubicación ya lo hizo la query del servidor (fetchPublicStudioData)
+// — esto solo resuelve la fecha, que depende del momento de carga, no de
+// cuándo se rellenó el caché.
+function dentroDeVentana(x: { fechaInicio: string | null; fechaFin: string | null }, hoyISO: string): boolean {
+  if (x.fechaInicio && hoyISO < x.fechaInicio) return false;
+  if (x.fechaFin && hoyISO > x.fechaFin) return false;
   return true;
 }
 
@@ -120,9 +124,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   const portalHref = usePortalHref();
   const {
     socios, suscripciones, planesTarifa, sesiones, reservas,
-    tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal,
+    tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal, novedadesEstudio,
     homeBloques: homeBloquesPublicado,
-    retosApuntados, retoConteos, toggleReto, variantes,
+    retosApuntados, retoConteos, toggleReto, variantes, valoracionEstudio,
   } = useStudio();
   const homeBloques = homeBloquesOverride ?? homeBloquesPublicado;
   // Las dos cabeceras del prototipo llevan avatar y campana de icono; solo
@@ -156,8 +160,13 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     // banner con fecha de inicio/fin de hoy aparecía/desaparecía con 1-2 h de
     // desfase.
     const hoyISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    return bannersPortal.filter(b => bannerVigente(b, hoyISO)).sort((a, b) => a.orden - b.orden);
+    return bannersPortal.filter(b => dentroDeVentana(b, hoyISO)).sort((a, b) => a.orden - b.orden);
   }, [bannersPortal, now]);
+
+  const novedadesVigentes = useMemo(() => {
+    const hoyISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return novedadesEstudio.filter(n => dentroDeVentana(n, hoyISO));
+  }, [novedadesEstudio, now]);
 
   // Orden/visibilidad del Inicio (Fase 3 del editor de temas — constructor de
   // bloques): los 4 módulos de siempre (`sistema`) se ordenan por CSS `order`
@@ -352,10 +361,71 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   const tiraSemana = useMemo(() => calcularTiraSemana(now, misReservas, sesiones), [now, misReservas, sesiones]);
   const progresoSemanal = useMemo(() => calcularProgresoSemanal(now, misReservas, sesiones), [now, misReservas, sesiones]);
 
+  // "Tu ritmo" (rediseño Tentare Studio App): el saldo de bono, siempre a la
+  // vista en Inicio en vez de solo en /bonos. `bonoActivo` ya calcula
+  // restantes/total/progreso — null con mensual ilimitado (nada que barrear)
+  // o sin ninguna suscripción activa, y ahí no se pinta nada.
+  const bono = useMemo(
+    () => bonoActivo(suscripciones, planesTarifa, tiposClase, session?.socioId ?? null),
+    [suscripciones, planesTarifa, tiposClase, session?.socioId],
+  );
+
+  // "Huecos de hoy" (rediseño Tentare Studio App): clases de HOY con plaza
+  // libre que su plan/bono cubre de verdad — no toda la agenda del día.
+  const huecos = useMemo(
+    () => huecosHoy({ now, socioId: session?.socioId ?? null, sesiones, reservas, suscripciones, planesTarifa }),
+    [now, session?.socioId, sesiones, reservas, suscripciones, planesTarifa],
+  );
+
   const nombre = socio?.nombre ?? session?.nombre?.split(' ')[0] ?? '';
   const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   const diaCorto = (iso: string) =>
     new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).replace('.', '').toUpperCase();
+
+  // "Tu estudio" (rediseño Tentare Studio App): la próxima sesión de HOY con
+  // aforo, para el badge "hoy HH:MM · N plazas" — fecha en LOCAL del estudio
+  // (hoyEnEstudio), no UTC, mismo gotcha ya documentado en Decision OS. Sin
+  // clase hoy, el badge simplemente no se pinta (nunca un hueco vacío con
+  // aspecto de dato).
+  const sesionHoy = useMemo(() => {
+    const hoyStr = hoyEnEstudio(now);
+    const libres = (sesionId: string, aforo: number) =>
+      aforo - reservas.filter(r => r.sesionId === sesionId && r.estado === 'CONFIRMADA').length;
+    const candidatas = sesiones
+      .filter(s => !s.cancelada && new Date(s.inicio) > now && hoyEnEstudio(new Date(s.inicio)) === hoyStr)
+      .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime());
+    if (candidatas.length === 0) return null;
+    const s = candidatas[0];
+    return { sesion: s, libres: libres(s.id, s.aforoMaximo) };
+  }, [now, sesiones, reservas]);
+
+  // La instructora de esa misma clase de hoy si hay una, si no la primera que
+  // imparte de verdad (recepción queda fuera, `queImparten`) — nunca ninguna
+  // si el estudio no tiene instructoras activas.
+  const instructoraDestacada = useMemo(() => {
+    const activas = queImparten(instructores);
+    if (activas.length === 0) return null;
+    const deHoy = sesionHoy ? activas.find(i => i.id === sesionHoy.sesion.instructorId) : null;
+    return deHoy ?? activas[0];
+  }, [instructores, sesionHoy]);
+
+  const especialidadesDestacada = useMemo(() => {
+    if (!instructoraDestacada) return [];
+    const idsImpartidos = new Set(
+      sesiones.filter(s => s.instructorId === instructoraDestacada.id && !s.cancelada).map(s => s.tipoClaseId),
+    );
+    return tiposClase.filter(tc => idsImpartidos.has(tc.id));
+  }, [instructoraDestacada, sesiones, tiposClase]);
+
+  // Precio real de clase suelta (el plan PUNTUAL activo) — mismo campo que ya
+  // usa /reservar para decidir qué precio enseñar sin bono (lib/reservar/construir-slots.ts).
+  const precioClaseSuelta = useMemo(
+    () => planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null,
+    [planesTarifa],
+  );
+
+  const valoracionEstudioPantalla = valoracionParaPantalla(valoracionEstudio);
+  const valoracionInstructoraPantalla = valoracionParaPantalla(instructoraDestacada?.valoracion ?? null);
 
   const fechaHoy = ahora
     ? new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(ahora).toUpperCase()
@@ -724,6 +794,38 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         </>
         )}
 
+        {/* "Tu ritmo" — saldo de bono, siempre a la vista (rediseño Tentare
+            Studio App). Elemento persistente, no un bloque reordenable: igual
+            que la tarjeta de arriba, depende de datos de sesión (bono real de
+            ESTA socia) que no tendría sentido que una socia sin sesión (staff
+            en /portal-preview) reordenara. Oculto sin bono con sesiones que
+            contar — un mensual ilimitado no tiene fracción que barrear, y
+            mostrar un 0/0 mentiría sobre un bono que no existe. */}
+        {bono && bono.totalSesiones != null && bono.totalSesiones > 0 && (
+          <>
+            <div style={{ height: 44 }} />
+            <h2 style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>
+              Tu ritmo
+            </h2>
+            <div style={{
+              marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
+              padding: '14px 16px', boxShadow: sombra.cardSemana,
+            }}>
+              <span style={{ ...texto.metaFuerte, color: t.ink }}>{bono.nombre}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 66, height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${Math.round((bono.progresoTotal ?? 0) * 100)}%`, height: '100%',
+                    background: 'var(--portal-brand)', borderRadius: 999,
+                  }} />
+                </div>
+                <span style={{ ...micro(11, 0, 500), color: t.heroAccent }}>quedan {bono.totalRestantes}</span>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Zona de Inicio construida con bloques (Fase 3 del editor de temas):
             cada módulo de siempre se ordena por CSS `order` sin mover el DOM,
             así que ningún efecto de scroll/parallax de arriba (que solo
@@ -1012,30 +1114,35 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             </div>
           </div>
 
-          {/* Anillo de progreso semanal (tema "Noir") — reservas CONFIRMADA de
-              esta semana sobre META_PROGRESO_SEMANAL (un número de
-              referencia, no una meta configurable). Oculto por defecto. */}
+          {/* Progreso semanal — reservas CONFIRMADA de esta semana sobre
+              META_PROGRESO_SEMANAL (un número de referencia, no una meta
+              configurable). Oculto por defecto. Barra compacta (rediseño
+              Tentare Studio App, 2026-08-26): sustituye el anillo anterior,
+              que no tenía variante propia por tema (a diferencia de
+              `retos.variantes` de abajo) — no era la seña de ningún tema en
+              concreto, así que restylearlo no quita identidad a ninguno. */}
           <div {...wrap('progresoSemanal')}>
             <div style={{ height: 34 }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div style={{
-                width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
-                background: `conic-gradient(var(--portal-brand) ${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 360}deg, ${t.line} 0deg)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: transicion(['background'], dur.card),
-              }}>
-                <div style={{
-                  width: 50, height: 50, borderRadius: '50%', background: t.bg,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <span style={{ ...display(20), color: t.ink }}>{progresoSemanal}</span>
-                </div>
+            <div style={{
+              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radio.card,
+              padding: '14px 16px', boxShadow: sombra.cardSemana,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ ...texto.metaFuerte, color: t.ink }}>{txt('progresoSemanal', 'titulo', 'Tu semana')}</span>
+                <span style={{ ...micro(9.5, 0, 500), color: t.muted2 } as React.CSSProperties}>meta {META_PROGRESO_SEMANAL}/sem</span>
               </div>
-              <div>
-                <div style={{ ...display(22), color: t.ink }}>{txt('progresoSemanal', 'titulo', 'Tu semana')}</div>
-                <div style={{ ...texto.meta, color: t.muted2, marginTop: 4 }}>
-                  {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'} reservada{progresoSemanal === 1 ? '' : 's'} esta semana
-                </div>
+              <div style={{ ...texto.meta, color: t.muted2, margin: '6px 0 8px' }}>
+                <span style={{ ...texto.metaFuerte, color: t.ink }}>
+                  {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'}
+                </span>{' '}
+                esta semana
+              </div>
+              <div style={{ height: 5, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 100}%`,
+                  height: '100%', background: 'var(--portal-brand)', borderRadius: 999,
+                  transition: transicion(['width'], dur.card),
+                }} />
               </div>
             </div>
           </div>
@@ -1155,6 +1262,194 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             </div>
           ))}
         </div>
+
+        {/* "Tu estudio" (rediseño Tentare Studio App): carrusel con el
+            estudio y una instructora del equipo — elemento persistente, no
+            un bloque reordenable (misma razón que "Tu ritmo": depende de
+            datos calculados en cada carga — sesión de hoy, plan puntual
+            activo — que no tendría sentido reordenar en el editor). */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '30px 24px 8px' }}>
+          <div>
+            <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>El espacio</p>
+            <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Tu estudio</h2>
+          </div>
+          <Link href={portalHref(`/${slug}/clases`)} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
+            Ver horario →
+          </Link>
+        </div>
+        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '8px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
+          <Link
+            href={portalHref(`/${slug}/clases`)}
+            style={{
+              position: 'relative', minWidth: 236, flex: '0 0 236px', height: 280, borderRadius: 20,
+              overflow: 'hidden', textDecoration: 'none', boxShadow: sombra.cardSemana,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imagenDeEstudio('vertical', studio?.imagenBienvenidaUrl)}
+              alt={studio?.nombre ?? 'Tu estudio'}
+              onError={alFallarImagen(IMAGENES_POR_DEFECTO.vertical[0])}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(15,15,15,.64))' }} aria-hidden />
+            {sesionHoy && (
+              <span style={{
+                position: 'absolute', top: 11, left: 11, background: 'rgba(250,249,245,.92)', borderRadius: 999,
+                padding: '4px 10px', ...micro(10.5, 0, 700), color: '#2E5A3A',
+              }}>
+                hoy {hora(sesionHoy.sesion.inicio)} · {sesionHoy.libres} {sesionHoy.libres === 1 ? 'plaza' : 'plazas'}
+              </span>
+            )}
+            <div style={{ position: 'absolute', left: 13, right: 13, bottom: 11, color: '#fff' }}>
+              <p style={{ margin: 0, fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em' }}>{studio?.nombre}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'rgba(255,255,255,.85)' }}>
+                {[
+                  valoracionEstudioPantalla ? `★ ${valoracionEstudioPantalla.nota}` : null,
+                  [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || null,
+                ].filter(Boolean).join(' · ')}
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                {precioClaseSuelta != null && (
+                  <span style={{ fontSize: 13.5, fontWeight: 800 }}>{precioClaseSuelta} €</span>
+                )}
+                <span style={{ marginLeft: 'auto', background: '#FAF9F5', color: '#1A1A1A', borderRadius: 999, padding: '7px 14px', fontSize: 11.5, fontWeight: 800 }}>
+                  Ver clases
+                </span>
+              </div>
+            </div>
+          </Link>
+
+          {instructoraDestacada && (
+            <Link
+              href={`/portal/${slug}/instructores/${instructoraDestacada.id}`}
+              style={{
+                position: 'relative', minWidth: 236, flex: '0 0 236px', height: 280, borderRadius: 20,
+                overflow: 'hidden', textDecoration: 'none', boxShadow: sombra.cardSemana,
+                backgroundColor: instructoraDestacada.color,
+              }}
+            >
+              {/* Sin foto propia, NUNCA una foto de archivo haciéndose pasar
+                  por ella (lib/imagenes-por-defecto.ts) — se queda con su
+                  color e iniciales, igual que en el listado de equipo. */}
+              {instructoraDestacada.fotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={instructoraDestacada.fotoUrl}
+                  alt={instructoraDestacada.nombre}
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <span style={{
+                  position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 48, fontWeight: 800,
+                }}>
+                  {instructoraDestacada.nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
+                </span>
+              )}
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(15,15,15,.64))' }} aria-hidden />
+              <span style={{
+                position: 'absolute', top: 11, left: 11, background: 'rgba(250,249,245,.92)', borderRadius: 999,
+                padding: '4px 10px', ...micro(10.5, 0, 700), color: '#2E5A3A',
+              }}>
+                Tu equipo
+              </span>
+              <div style={{ position: 'absolute', left: 13, right: 13, bottom: 11, color: '#fff' }}>
+                <p style={{ margin: 0, fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                  Conoce a {instructoraDestacada.nombre.split(' ')[0]}
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'rgba(255,255,255,.85)' }}>
+                  {[
+                    valoracionInstructoraPantalla ? `★ ${valoracionInstructoraPantalla.nota}` : null,
+                    especialidadesDestacada.slice(0, 2).map(tc => tc.nombre).join(', ') || null,
+                  ].filter(Boolean).join(' · ')}
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <span style={{ background: 'rgba(250,249,245,.26)', border: '1px solid rgba(255,255,255,.5)', borderRadius: 999, padding: '7px 14px', fontSize: 11.5, fontWeight: 800 }}>
+                    Su perfil
+                  </span>
+                </div>
+              </div>
+            </Link>
+          )}
+        </div>
+
+        {/* "Huecos de hoy" (rediseño Tentare Studio App): SOLO las clases de
+            hoy que su plan/bono cubre y que aún tienen plaza — no toda la
+            agenda del día (eso ya está en "Esta semana"/Explorar). Elemento
+            persistente, no un bloque reordenable: depende de `session` y de
+            la hora exacta de carga, igual que "Tu ritmo"/"Tu estudio". Sin
+            huecos, la sección entera desaparece — un titular sin filas
+            debajo se lee como un error, no como "hoy no hay nada que
+            ofrecerte". */}
+        {huecos.length > 0 && (
+          <>
+            <div style={{ padding: '30px 24px 8px' }}>
+              <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>Últimas plazas</p>
+              <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Huecos de hoy</h2>
+            </div>
+            <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {huecos.map(({ sesion: s, libres }) => {
+                const tipo = tiposClase.find(tc => tc.id === s.tipoClaseId);
+                const inst = instructores.find(i => i.id === s.instructorId);
+                return (
+                  <Link
+                    key={s.id}
+                    href={portalHref(`/${slug}/clases/${s.id}`)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 11, background: t.surface, border: `1px solid ${t.line}`,
+                      borderRadius: 15, padding: '10px 13px', textDecoration: 'none', transition: transicion(['box-shadow'], dur.card),
+                    }}
+                  >
+                    <span style={{ ...micro(13, 0, 500), color: t.ink, minWidth: 40 } as React.CSSProperties}>{hora(s.inicio)}</span>
+                    <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, backgroundColor: tipo?.color ?? t.muted }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {tipo?.nombre ?? 'Clase'}
+                      </p>
+                      {inst && (
+                        <p style={{ margin: '1px 0 0', fontSize: 11, color: t.muted }}>{inst.nombre}</p>
+                      )}
+                    </div>
+                    <AforoIndicator libres={libres} />
+                  </Link>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* "Tablón" (rediseño Tentare Studio App): avisos de texto libre que
+            PROPIETARIO/MANAGER escriben (componente Novedades del editor de
+            temas). Elemento persistente, no un bloque reordenable — mismo
+            criterio que "Tu ritmo"/"Tu estudio": aquí lo que decide qué se ve
+            es la ventana de fechas resuelta en cada carga, no un orden que
+            tenga sentido reordenar a mano. Vacío si no hay ningún aviso
+            vigente — nunca un "Tablón" con la sección en blanco debajo. */}
+        {novedadesVigentes.length > 0 && (
+          <>
+            <div style={{ padding: '30px 24px 8px' }}>
+              <p style={{ ...micro(10, 0.16, 600), color: t.muted2, textTransform: 'uppercase' } as React.CSSProperties}>Tablón</p>
+              <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>Novedades del estudio</h2>
+            </div>
+            <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {novedadesVigentes.map((n) => (
+                <div
+                  key={n.id}
+                  style={{ display: 'flex', gap: 10, background: t.surface, border: `1px solid ${t.line}`, borderRadius: 14, padding: '11px 13px' }}
+                >
+                  <span style={{ fontSize: 14, flexShrink: 0 }}>{n.emoji || '📣'}</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 12, fontWeight: 800, color: t.ink }}>{n.titulo}</span>
+                    {n.texto && (
+                      <span style={{ display: 'block', fontSize: 10.5, color: t.muted, marginTop: 1 }}>{n.texto}</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <HojaPase

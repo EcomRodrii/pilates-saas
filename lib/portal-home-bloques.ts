@@ -1038,12 +1038,22 @@ export function getBlockCatalogEntry(kind: string): BlockCatalogEntry | undefine
 
 // Ocultos por defecto: los que ningún estudio ve hasta que instala el tema
 // que los pide (lib/theme-definitions.ts, bloquesHome) o los activa a mano.
+//
+// ⚠️ `tiraSemana`/`progresoSemanal`/`retos` YA NO están aquí (auditoría del
+// Theme Builder / rediseño "Tentare Studio App", 2026-08-26): nacían ocultos
+// porque cada uno era exclusivo de UN tema (Oliva/Noir/Bloom), pero el nuevo
+// diseño los quiere siempre visibles en el Inicio — decisión de producto
+// explícita, no un restyle. `portal-home-view.tsx` YA sabía pintar los tres
+// (los pintaba para ese tema en concreto); esto solo cambia el DEFAULT para
+// quien no ha instalado ninguno de esos tres temas. Los `bloquesHome` de
+// Oliva/Noir/Bloom (theme-definitions.ts) no cambian: siguen siendo su
+// selección curada, ahora simplemente ya no dependen de este flag para
+// que las tres piezas existan también fuera de esos tres temas.
 const SISTEMA_OCULTO_POR_DEFECTO = new Set<BloqueSistemaId>([
-  'tiraSemana', 'progresoSemanal', 'retos',
-  // ⚠️ Los cinco del kit, ocultos por el MISMO motivo: un estudio con el
-  // portal de siempre no tiene quien los pinte, y listarlos encendidos
-  // prometería secciones que su socia no va a ver. El tema que los compone
-  // manda igual (`ordenDelInicio` respeta lo que él trae si ella no ordenó).
+  // Los cinco del kit siguen ocultos: son exclusivos de los temas del kit
+  // (`components/portal-tema/`), el portal "de siempre" no tiene quien los
+  // pinte — listarlos encendidos prometería secciones que su socia no va a
+  // ver. Sin relación con el cambio de arriba.
   'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
 ]);
 
