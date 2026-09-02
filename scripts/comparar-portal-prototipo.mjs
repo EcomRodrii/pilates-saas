@@ -34,6 +34,7 @@
 // sesión con `--sesion "<lo que va detrás del # en la barra de direcciones>"`.
 
 import { chromium } from '@playwright/test'
+import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -135,78 +136,230 @@ const fusionar = (a, b) => {
   return a
 }
 
+/**
+ * Lo que se ve, entero: sirve para saber si una pantalla cambió de verdad.
+ *
+ * ⚠️ Antes miraba solo los primeros 120 caracteres y eso daba falsos «no ha
+ * cambiado» entre pestañas que comparten cabecera. El texto completo es la
+ * única comparación que distingue de verdad una pantalla de otra.
+ */
+const firma = (pag) => pag.evaluate(() => document.body.innerText.trim())
+
+/**
+ * Espera a que la pantalla deje de ser `antes`.
+ *
+ * ⚠️ Todo el guiado se apoyaba antes en esperas fijas (700ms, 1000ms). Con la
+ * máquina cargada eso se rompe EN SILENCIO: el clic no llega a tiempo, la
+ * pantalla no cambia y se captura dos veces la misma — pasó, y el informe salió
+ * comparando Reservas contra Inicio sin avisar. Una comparación que miente es
+ * peor que ninguna, así que ahora se espera al cambio y, si no llega, se para.
+ */
+/**
+ * Huella de lo que se VE, no de lo que hay en el DOM.
+ *
+ * ⚠️ Para las pestañas no vale comparar texto: el prototipo tiene las cuatro
+ * pantallas montadas a la vez y al cambiar de pestaña cambia lo visible, no el
+ * innerText. Comparando texto, «Horario» parecía no abrirse nunca. La imagen es
+ * la única señal que distingue de verdad una pestaña de otra.
+ */
+const firmaVisual = async (pag) =>
+  createHash('sha1').update(await pag.screenshot()).digest('hex')
+
+/** Como esperarCambio, pero mirando la imagen. */
+async function esperarCambioVisual(pag, antes, ms = 12_000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < ms) {
+    await pag.waitForTimeout(300)
+    if ((await firmaVisual(pag)) !== antes) return true
+  }
+  return false
+}
+
+async function esperarCambio(pag, antes, ms = 12_000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < ms) {
+    const ahora = await firma(pag)
+    if (ahora !== antes) return ahora
+    await pag.waitForTimeout(150)
+  }
+  return null
+}
+
+/**
+ * Espera a que el portal traiga DATOS, no su esqueleto de carga.
+ *
+ * ⚠️ Con una espera fija (4s) se capturaban las cajas grises del esqueleto y el
+ * censo salía medido sobre ellas — pantallas enteras comparadas contra nada.
+ * Tampoco vale adivinar por longitud de texto: daba falsos positivos en
+ * pantallas ya cargadas. La señal exacta es `.animate-pulse`, que es con lo que
+ * portal-shell.tsx pinta el esqueleto: mientras quede uno, no ha terminado.
+ */
+async function esperarContenido(pag, ms = 45_000) {
+  try {
+    await pag.waitForFunction(
+      () => document.querySelectorAll('.animate-pulse').length === 0 && document.body.innerText.trim().length > 80,
+      undefined,
+      { timeout: ms, polling: 300 },
+    )
+    // Un respiro para que acabe de pintar lo que entró con el último dato.
+    await pag.waitForTimeout(900)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * El botón cuyo texto es EXACTAMENTE `txt`, y que además se ve.
+ *
+ * Las dos condiciones costaron un informe falso cada una:
+ *
+ *  - `:visible` — el prototipo monta TODAS sus pantallas a la vez en el DOM,
+ *    solo ocultas. Sin filtrar, el selector casaba con el botón de otra
+ *    pantalla escondida, `.first()` lo pulsaba, no pasaba nada visible y se
+ *    capturaba dos veces Inicio creyendo que era Reservas.
+ *  - el regex anclado — `:text-is()` NO atraviesa elementos anidados, y estos
+ *    botones llevan la etiqueta dentro de un <span> junto al icono: casaba
+ *    CERO. Su alternativa, `:has-text()`, es subcadena e insensible a
+ *    mayúsculas, así que «Horario» casaba también con «Ver horario →». Con
+ *    `filter({hasText: /^…$/})` se mira el texto completo del botón, exacto.
+ */
+const botonExacto = (pag, txt) =>
+  pag.locator('button:visible').filter({ hasText: new RegExp(`^${txt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).first()
+
 async function main() {
   mkdirSync(SALIDA, { recursive: true })
   // `--sesion` evita gotrue del todo. No es un capricho: el auth local se cae
-  // con cierta facilidad (pierde la conexión con Postgres dentro de Docker y
-  // devuelve 504 en todo), y sin esta salida la comparación se queda bloqueada
-  // por un problema de entorno que no tiene nada que ver con el diseño.
-  // Se saca de la barra de direcciones tras entrar al portal a mano.
+  // con cierta facilidad (se queda sin memoria y pierde la conexión con
+  // Postgres dentro de Docker, devolviendo 504 en todo), y sin esta salida la
+  // comparación se queda bloqueada por un problema de entorno que no tiene nada
+  // que ver con el diseño. Se saca de la barra de direcciones tras entrar a mano.
   const frag = arg('--sesion', null) ?? (await fragmentoDeSesion(entorno()))
   const nav = await chromium.launch()
   const ctx = await nav.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })
   const pag = await ctx.newPage()
+  const avisos = []
+  const boton = (txt) => botonExacto(pag, txt)
 
   // ── prototipo ────────────────────────────────────────────────────────────
   const censoProto = {}
+  // La sesión se inyecta SIEMPRE, sin mirar antes si hace falta.
+  //
+  // ⚠️ Antes se comprobaba primero si estaba la puerta de acceso, y esa
+  // comprobación corría mientras la página aún pintaba: veía cero avisos, se
+  // saltaba la inyección, la puerta aparecía después y la comparación moría
+  // mucho más tarde con un error que no señalaba a esto. Inyectarla de más no
+  // cuesta nada; inyectarla de menos cuesta la ejecución entera.
+  //
+  // Va en localStorage porque el cliente del panel guarda ahí, nunca en cookie
+  // (lo documenta lib/auth-server-action.ts).
+  const q = Object.fromEntries(new URLSearchParams(frag))
+  const jwt = JSON.parse(Buffer.from(q.access_token.split('.')[1], 'base64').toString())
   await pag.goto(`${BASE}/portal-prototipo`, { waitUntil: 'domcontentloaded' })
-  await pag.waitForTimeout(1500)
-  // Si la ruta ya pide sesión (PR de la guardia), dársela: el cliente del panel
-  // guarda en localStorage, no en cookie.
-  if (await pag.locator('.prototipo-aviso').count()) {
-    const p = Object.fromEntries(new URLSearchParams(frag))
-    const jwt = JSON.parse(Buffer.from(p.access_token.split('.')[1], 'base64').toString())
-    await pag.evaluate(([tok, cuerpo]) => {
-      localStorage.setItem('sb-127-auth-token', JSON.stringify({
-        access_token: tok.access_token, refresh_token: tok.refresh_token, token_type: 'bearer',
-        expires_in: 3600, expires_at: cuerpo.exp,
-        user: { id: cuerpo.sub, aud: 'authenticated', role: 'authenticated', email: cuerpo.email,
-                app_metadata: cuerpo.app_metadata, user_metadata: cuerpo.user_metadata,
-                created_at: new Date().toISOString() },
-      }))
-    }, [p, jwt])
-    await pag.goto(`${BASE}/portal-prototipo`, { waitUntil: 'domcontentloaded' })
-  await pag.waitForTimeout(1500)
+  await pag.evaluate(([tok, cuerpo]) => {
+    localStorage.setItem('sb-127-auth-token', JSON.stringify({
+      access_token: tok.access_token, refresh_token: tok.refresh_token, token_type: 'bearer',
+      expires_in: 3600, expires_at: cuerpo.exp,
+      user: { id: cuerpo.sub, aud: 'authenticated', role: 'authenticated', email: cuerpo.email,
+              app_metadata: cuerpo.app_metadata, user_metadata: cuerpo.user_metadata,
+              created_at: new Date().toISOString() },
+    }))
+  }, [q, jwt])
+  await pag.goto(`${BASE}/portal-prototipo`, { waitUntil: 'domcontentloaded' })
+  try {
+    await pag.locator('.prototipo-aviso').waitFor({ state: 'detached', timeout: 20_000 })
+  } catch {
+    throw new Error('la sesión inyectada no abrió /portal-prototipo: la puerta de acceso sigue puesta')
   }
 
-  // Saltar el onboarding hasta la Home del prototipo.
   const pulsar = async (txt) => {
-    const b = pag.locator(`button:text-is("${txt}")`).first()
-    if (await b.count()) { await b.click().catch(() => {}); return true }
-    return false
+    const b = boton(txt)
+    if (!(await b.count())) return false
+    await b.click().catch(() => {})
+    return true
   }
-  await pulsar('Empezar'); await pag.waitForTimeout(700)
-  await pag.locator('input[placeholder="Tu nombre"]').fill('Laura').catch(() => {})
-  await pag.locator('input[placeholder="tu@email.com"]').fill('laura@email.com').catch(() => {})
-  await pulsar('Continuar'); await pag.waitForTimeout(1000)
-  for (let i = 0; i < 6; i++) { if (!(await pulsar('Ahora no'))) break; await pag.waitForTimeout(800) }
-  await pag.waitForTimeout(1500)
+
+  // Onboarding, esperando a cada pantalla en vez de dormir a ciegas.
+  //
+  // ⚠️ Cada paso es OPCIONAL a propósito: el prototipo no siempre arranca en la
+  // bienvenida (recuerda por dónde iba), y dar por hecho que «Empezar» está ahí
+  // hacía fallar la comparación entera sin que hubiera nada roto.
+  if (await boton('Empezar').count()) {
+    await boton('Empezar').click({ timeout: 15_000 })
+    const nombre = pag.locator('input[placeholder="Tu nombre"]:visible').first()
+    try {
+      await nombre.waitFor({ timeout: 15_000 })
+      await nombre.fill('Laura')
+      await pag.locator('input[placeholder="tu@email.com"]:visible').first().fill('laura@email.com')
+      await pulsar('Continuar')
+    } catch { /* el alta no salió: se sigue, y si no se llega a la barra ya avisa abajo */ }
+  }
+  // Los permisos opcionales (ubicación, avisos) se saltan uno a uno.
+  //
+  // ⚠️ Se ESPERA a que aparezca cada botón en vez de mirar si ya está: entre
+  // pantalla y pantalla hay una transición, y preguntar durante ella devolvía
+  // «no hay botón», el bucle se cortaba a la primera y nunca se llegaba a la
+  // Home — con el fallo apareciendo mucho después, al buscar la barra inferior.
+  for (let i = 0; i < 8; i++) {
+    const salto = boton('Ahora no')
+    try {
+      await salto.waitFor({ timeout: 6000 })
+    } catch {
+      break // ya no quedan pasos opcionales
+    }
+    await salto.click().catch(() => {})
+  }
+  // Si no se llega a la barra inferior, el prototipo se quedó en algún paso del
+  // onboarding. Se deja una captura y el texto de la pantalla: sin eso el fallo
+  // es un timeout mudo y hay que reproducirlo a mano para saber dónde paró.
+  try {
+    await boton('Horario').waitFor({ timeout: 20_000 })
+  } catch {
+    const donde = join(SALIDA, 'fallo-onboarding.png')
+    await pag.screenshot({ path: donde })
+    throw new Error(
+      'el prototipo no llegó a su barra inferior. Se quedó en:\n  «' +
+        (await firma(pag)).replace(/\n/g, ' ') + '»\nCaptura: ' + donde,
+    )
+  }
 
   for (const p of PANTALLAS) {
-    await pulsar(p.pestana); await pag.waitForTimeout(1200)
+    const antes = await firmaVisual(pag)
+    if (!(await pulsar(p.pestana))) throw new Error(`no existe la pestaña «${p.pestana}» en el prototipo`)
+    const cambio = await esperarCambioVisual(pag, antes)
+    // Inicio ya está abierta al llegar: ahí no cambiar es lo correcto.
+    if (!cambio && p.id !== 'inicio') {
+      throw new Error(`la pestaña «${p.pestana}» no cambió de pantalla — se habría capturado otra cosa`)
+    }
+    await pag.waitForTimeout(900)
     await pag.screenshot({ path: join(SALIDA, `prototipo-${p.id}.png`) })
     fusionar(censoProto, await pag.evaluate(CENSO))
   }
 
   // ── portal real ──────────────────────────────────────────────────────────
   const censoPortal = {}
-  const porPantalla = {}
+
+  // El fragmento con los tokens se usa UNA sola vez, para abrir sesión.
+  //
+  // ⚠️ Pasárselo a cada ruta dejaba las tres primeras pantallas EN BLANCO y solo
+  // funcionaba la última: el fragmento se consume al entrar (`detectSessionInUrl`)
+  // y reusarlo compite con la sesión que ya se está estableciendo. Se entra una
+  // vez, se espera a que la sesión cuaje, y a partir de ahí se navega limpio —
+  // la sesión ya vive en localStorage.
+  await pag.goto(`${BASE}/portal/${SLUG}/${PANTALLAS[0].ruta}#${frag}`, { waitUntil: 'domcontentloaded', timeout: 90_000 })
+  if (!(await esperarContenido(pag))) {
+    throw new Error('no se pudo abrir sesión en el portal: la primera pantalla no llegó a cargar')
+  }
+
   for (const p of PANTALLAS) {
-    // El fragmento con los tokens solo hace falta la primera vez; después la
-    // sesión ya está guardada.
-    // ⚠️ `networkidle` NO sirve contra el portal: mantiene abierto el websocket
-    // de Realtime, así que la red nunca queda quieta y la espera agota el
-    // tiempo. Se espera a que pinte y luego un margen fijo para los datos.
-    // 90s y no los 30 de serie: el portal consulta a Supabase en servidor y
-    // con la base local cargada tarda ~17s solo en devolver el HTML. Con el
-    // límite por defecto la comparación fallaba por lentitud del entorno, no
-    // por nada del diseño.
-    await pag.goto(`${BASE}/portal/${SLUG}/${p.ruta}#${frag}`, { waitUntil: 'domcontentloaded', timeout: 90_000 })
-    await pag.waitForTimeout(4000)
+    // ⚠️ `networkidle` NO sirve aquí: el portal mantiene abierto el websocket de
+    // Realtime, la red nunca queda quieta y la espera agota el tiempo siempre.
+    await pag.goto(`${BASE}/portal/${SLUG}/${p.ruta}`, { waitUntil: 'domcontentloaded', timeout: 90_000 })
+    if (!(await esperarContenido(pag))) {
+      avisos.push(`«${p.pestana}» del portal seguía cargando al capturar: su medida no vale.`)
+    }
     await pag.screenshot({ path: join(SALIDA, `portal-${p.id}.png`) })
-    const c = await pag.evaluate(CENSO)
-    porPantalla[p.id] = c
-    fusionar(censoPortal, c)
+    fusionar(censoPortal, await pag.evaluate(CENSO))
   }
   await nav.close()
 
@@ -229,6 +382,12 @@ async function main() {
     for (const [v, n] of lista.slice(0, 8)) console.log(`   ${v}  (${n} elementos)`)
     if (lista.length > 8) console.log(`   …y ${lista.length - 8} más`)
   }
+
+  // ⚠️ El censo del prototipo solo cubre las pantallas capturadas, así que un
+  // valor puede salir «fuera» y estar usado en otra pantalla suya. Decirlo evita
+  // que alguien persiga un falso positivo.
+  console.log('\nEl censo del prototipo cubre solo estas cuatro pantallas: un valor')
+  console.log('marcado aquí puede estar usado en otra pantalla suya. Contrástalo.')
 
   const filas = PANTALLAS.map((p) => `
     <section>
@@ -255,7 +414,13 @@ bloque, cuánto respira y qué pesa más. El informe de la consola cubre los val
 ${filas}`)
 
   console.log(`\nCapturas y contacto: ${join(SALIDA, 'indice.html')}`)
-  if (total === 0) console.log('El portal no usa ningún valor fuera del prototipo.')
+  if (avisos.length) {
+    console.error('\nAVISOS — hay medidas que no son de fiar:')
+    for (const a of avisos) console.error('  ' + a)
+    process.exitCode = 1
+  } else if (total === 0) {
+    console.log('El portal no usa ningún valor fuera del prototipo.')
+  }
 }
 
 await main()
