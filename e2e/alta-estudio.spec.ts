@@ -34,10 +34,40 @@ const EMAIL_YA_REGISTRADO = {
   session: null,
 };
 
+/**
+ * Paso 1 → 2.
+ *
+ * ⚠️ Reintenta a propósito, y no es pereza: es la PRIMERA interacción tras
+ * `goto`, la única expuesta a escribir antes de que React hidrate.
+ *
+ * `/crear-estudio` es un componente de cliente que Next renderiza también en
+ * servidor, así que el input existe —y `fill()` funciona— antes de que React
+ * tome el control. Cuando hidrata, el input es CONTROLADO: React lo devuelve a
+ * su estado, que está vacío, y se lleva por delante lo escrito. El clic sí
+ * llega, pero valida contra un nombre vacío.
+ *
+ * No es teoría: la captura del fallo en CI (run 33672459700, webkit-publico)
+ * enseña el paso 1 con el campo VACÍO y el aviso «Escribe el nombre de tu
+ * estudio» — el clic había funcionado, lo que se perdió fue el texto. Se cayó
+ * tres veces en un día (#1546, #1567, #1581) y siempre en WebKit, que hidrata
+ * más lento; el ruido de `ENOTFOUND example.supabase.co` del servidor ensancha
+ * esa ventana bajo carga.
+ *
+ * Por eso no vale con esperar al botón (existe y está habilitado desde el HTML
+ * del servidor) ni con comprobar el valor justo tras escribir (sobrevive hasta
+ * que hidrata, y entonces se borra). Lo único que demuestra que la app RECIBIÓ
+ * el nombre es que la pantalla avance — así que se reintenta hasta eso.
+ */
 async function rellenarPaso1(page: Page, nombre = 'Estudio Aurora') {
-  await page.getByRole('textbox', { name: 'Nombre de tu estudio' }).fill(nombre);
-  await page.getByRole('button', { name: 'Continuar' }).click();
-  await expect(page.getByRole('heading', { name: 'Tu plan' })).toBeVisible();
+  const plan = page.getByRole('heading', { name: 'Tu plan' });
+  await expect(async () => {
+    // Si un intento anterior ya pasó de paso, no se vuelve a escribir: el campo
+    // ya no está en pantalla y el reintento fallaría para siempre.
+    if (await plan.isVisible()) return;
+    await page.getByRole('textbox', { name: 'Nombre de tu estudio' }).fill(nombre);
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(plan).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 30_000 });
 }
 
 /** Paso 2 → 3. El plan ya viene elegido, así que solo hay que continuar. */
