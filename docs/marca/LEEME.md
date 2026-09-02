@@ -14,7 +14,11 @@ favicon/         1 · una sola tinta, para 16–24 px
 productos/       30 · Core, Manager, Studio, Network e Interno (6 cada uno)
 aplicaciones/    4 · avatar, sello, firma de correo y marca de agua
 animaciones/     tentare-motion.css · las diez animaciones
+redes/           PNG listos para subir a un perfil (ver redes/LEEME.md)
 ```
+
+`redes/` es lo único que no se edita a mano: sale de este mismo kit con
+`node scripts/exportar-redes.mjs`.
 
 ## Los colores
 
