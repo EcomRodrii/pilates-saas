@@ -33,6 +33,8 @@ function aLead(f: Record<string, unknown>): Lead {
     telefono: (f.telefono as string | null) ?? null,
     ciudad: (f.ciudad as string | null) ?? null,
     softwareActual: (f.software_actual as string | null) ?? null,
+    web: (f.web as string | null) ?? null,
+    instagram: (f.instagram as string | null) ?? null,
     mensaje: (f.mensaje as string | null) ?? null,
     origen: (f.origen as string) ?? 'MANUAL',
     estado: (f.estado as string) ?? 'NUEVO',
@@ -100,7 +102,7 @@ export async function GET(req: NextRequest) {
 
 const CAMPOS_TEXTO = [
   'nombre', 'estudio', 'telefono', 'ciudad', 'mensaje', 'notas',
-  'proximo_paso', 'motivo_perdida', 'software_actual',
+  'proximo_paso', 'motivo_perdida', 'software_actual', 'web', 'instagram',
 ] as const;
 
 interface CuerpoLead extends Partial<Record<(typeof CAMPOS_TEXTO)[number], string | null>> {

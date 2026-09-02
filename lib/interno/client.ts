@@ -126,6 +126,46 @@ export const fetchReviewBoost = () => pedir<import('./review-boost.ts').ResumenR
 export const guardarLead = (cuerpo: Record<string, unknown>) =>
   pedir<{ ok: true; id: string }>('/crecimiento', { method: 'POST', body: JSON.stringify(cuerpo) });
 
+// ─── Prospección en frío ─────────────────────────────────────────────────────
+
+export interface Prospecto {
+  id: string; email: string; estudio: string | null; ciudad: string | null;
+  web: string | null; instagram: string | null; softwareActual: string | null;
+  estado: string; creadoEn: string;
+}
+
+export interface Prospeccion {
+  prospectos: Prospecto[];
+  borradores: import('./prospeccion.ts').BorradorProspeccion[];
+  buzonConfigurado: boolean;
+}
+
+export const fetchProspeccion = () => pedir<Prospeccion>('/prospeccion');
+
+export interface ResultadoImportacion {
+  ok: true; nuevos: number; actualizados: number;
+  rechazadas: Array<{ fila: number; motivo: string }>;
+}
+
+export const importarProspectos = (csv: string) =>
+  pedir<ResultadoImportacion>('/prospeccion', { method: 'POST', body: JSON.stringify({ csv }) });
+
+export const generarBorradorProspeccion = (leadId: string) =>
+  pedir<{ ok: true; borrador: import('./prospeccion.ts').BorradorProspeccion | null }>(
+    '/prospeccion/generar', { method: 'POST', body: JSON.stringify({ leadId }) },
+  );
+
+export const cambiarBorradorProspeccion = (cuerpo: {
+  id: string; asunto?: string; cuerpo?: string; accion?: 'aprobar' | 'descartar' | 'guardar';
+}) => pedir<{ ok: true; borrador: import('./prospeccion.ts').BorradorProspeccion | null }>(
+  '/prospeccion/borrador', { method: 'PATCH', body: JSON.stringify(cuerpo) },
+);
+
+export const enviarLoteProspeccion = () =>
+  pedir<{ ok: true; encolados: number; quedan: number; tamanoLote: number }>(
+    '/prospeccion/enviar', { method: 'POST', body: JSON.stringify({}) },
+  );
+
 export interface EntradaAuditoria {
   id: number; ocurrido_en: string; actor_nombre: string; accion: string;
   objetivo_tipo: string | null; objetivo_id: string | null; resumen: string;
