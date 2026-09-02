@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import globals from "globals";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -26,6 +27,23 @@ const eslintConfig = defineConfig([
     // pero para el bundle embebible.
     "public/widget.js",
   ]),
+  {
+    // Los scripts de `scripts/*.mjs` son el ÚNICO código del repo que nadie
+    // type-chequea (no son TypeScript) y que ningún test ejecuta: solo corren
+    // cuando alguien los lanza a mano o desde CI. Sin `no-undef`, una variable
+    // que no existe pasa el lint y `node --check` —que solo mira sintaxis— y
+    // revienta en ejecución.
+    //
+    // Pasó de verdad: `PROTOTIPO` se coló sin definir en
+    // comparar-portal-prototipo.mjs al copiar una línea del otro script, con
+    // lint y `node --check` en verde, y solo se vio al ejecutarlo.
+    //
+    // `no-undef` viene apagado de eslint-config-next porque para TypeScript lo
+    // cubre el compilador; aquí no hay compilador que lo cubra.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+    rules: { "no-undef": "error" },
+  },
   {
     // `no-unused-vars` sin opciones marca como deuda dos idiomas que este repo
     // usa a propósito para decir "esto sobra AQUÍ", que es justo lo contrario:
