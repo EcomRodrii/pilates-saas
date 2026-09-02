@@ -51,7 +51,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { CheckCircle2, AlertCircle, AlertTriangle, MapPin, Navigation, Star } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { dur, transicion, sans } from '@/lib/portal-design';
+import { dur, transicion, sans, texto } from '@/lib/portal-design';
 import { BotonesCalendario } from '@/components/portal/botones-calendario';
 import { seArreglaComprando } from '@/lib/bono-logic';
 import { valoracionParaPantalla } from '@/lib/portal-tema/valoracion';
@@ -297,11 +297,11 @@ export function HojaReserva({
                 antes solo decía clase+hora; el diseño real también nombra la
                 plaza elegida, el estudio y la instructora, todo dato ya
                 disponible aquí (nunca uno nuevo). */}
-            <p style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52', marginTop: 8 }}>
+            <p style={{ ...texto.meta, color: '#5A5A52', marginTop: 8 }}>
               {clase.nombre}
               {spotElegido && plazas.find(p => p.id === spotElegido) && ` · plaza ${plazas.find(p => p.id === spotElegido)!.nombre}`}
             </p>
-            <p style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52', marginTop: 2 }}>
+            <p style={{ ...texto.meta, color: '#5A5A52', marginTop: 2 }}>
               {diaCorto} {hora(clase.inicio)}
               {studio?.nombre && ` · ${studio.nombre}`}
               {clase.instructorNombre && ` · ${clase.instructorNombre}`}
@@ -370,7 +370,7 @@ export function HojaReserva({
               </h2>
               <span className={`ap-badge ${badgePlazas.clase}`} style={{ flexShrink: 0, marginTop: 3 }}>{badgePlazas.texto}</span>
             </div>
-            <div style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52', marginTop: 6 }}>
+            <div style={{ ...texto.meta, color: '#5A5A52', marginTop: 6 }}>
               {fecha} · {hora(clase.inicio)} – {hora(clase.fin)}
             </div>
 
@@ -415,9 +415,9 @@ export function HojaReserva({
 
             {(clase.nivel || clase.salaNombre) && (
               <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginTop: 12 }}>
-                {clase.nivel && <span style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52' }}>{clase.nivel}</span>}
+                {clase.nivel && <span style={{ ...texto.meta, color: '#5A5A52' }}>{clase.nivel}</span>}
                 {clase.salaNombre && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, ...texto.meta, color: '#5A5A52' }}>
                     <MapPin size={12} style={{ flexShrink: 0 }} />
                     {clase.salaNombre}
                   </span>
@@ -455,7 +455,7 @@ export function HojaReserva({
                     </span>
                   )}
                 </div>
-                <span style={{ fontFamily: sans, fontSize: 11, fontWeight: 400, color: '#5A5A52' }}>
+                <span style={{ ...texto.nota, color: '#5A5A52' }}>
                   {totalQuienVa} compañera{totalQuienVa === 1 ? '' : 's'} ya apuntada{totalQuienVa === 1 ? '' : 's'}
                 </span>
               </div>
@@ -474,7 +474,7 @@ export function HojaReserva({
                   <AlertTriangle size={12} />
                   Clase llena
                 </span>
-                <p style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 400, color: '#5A5A52', marginTop: 14, lineHeight: 1.5, maxWidth: 320 }}>
+                <p style={{ ...texto.meta, color: '#5A5A52', marginTop: 14, lineHeight: 1.5, maxWidth: 320 }}>
                   {clase.enEspera != null && clase.enEspera > 0
                     ? `Ya hay ${clase.enEspera} persona${clase.enEspera === 1 ? '' : 's'} en la lista de espera. Puedes unirte: te avisaremos si se libera un hueco.`
                     : 'Puedes unirte a la lista de espera. Te avisaremos si se libera un hueco.'}
@@ -549,7 +549,7 @@ export function HojaReserva({
               {clase.precio != null ? (
                 <>
                   <div style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 500, color: '#1A1A1A' }}>Clase suelta · {clase.precio} €</div>
-                  <div style={{ fontFamily: sans, fontSize: 11, fontWeight: 400, color: '#5A5A52', marginTop: 4 }}>Tu bono no cubre esta clase</div>
+                  <div style={{ ...texto.nota, color: '#5A5A52', marginTop: 4 }}>Tu bono no cubre esta clase</div>
                 </>
               ) : (
                 <>
@@ -574,7 +574,7 @@ export function HojaReserva({
                 nunca un "12h" fijo. undefined = quien montó la hoja no la
                 calculó, y entonces no se dice nada en vez de inventar una. */}
             {clase.ventanaCancelacionHoras != null && (
-              <p style={{ fontFamily: sans, fontSize: 11, fontWeight: 400, color: '#5A5A52', textAlign: 'center', marginTop: 10 }}>
+              <p style={{ ...texto.nota, color: '#5A5A52', textAlign: 'center', marginTop: 10 }}>
                 {clase.ventanaCancelacionHoras > 0
                   ? `Cancelación gratuita hasta ${clase.ventanaCancelacionHoras} h antes`
                   : 'Cancelación gratuita en cualquier momento'}
@@ -631,7 +631,7 @@ export function HojaReserva({
             </button>
 
             {modoEspera && (
-              <p style={{ fontFamily: sans, fontSize: 11, fontWeight: 400, color: '#5A5A52', textAlign: 'center', marginTop: 10 }}>
+              <p style={{ ...texto.nota, color: '#5A5A52', textAlign: 'center', marginTop: 10 }}>
                 Sin coste — solo reservas si se libera y tú confirmas.
               </p>
             )}
