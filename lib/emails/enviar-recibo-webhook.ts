@@ -88,7 +88,7 @@ export async function enviarEmailReciboWebhook(
       error: error?.message ?? null,
       resendId: data?.id ?? null,
       creadoPor: null,
-      creadoPorNombre: 'Stripe (automático)',
+      creadoPorNombre: null,
     });
   } catch (e) {
     console.error('[emails] enviarEmailReciboWebhook:', e instanceof Error ? e.message : e);

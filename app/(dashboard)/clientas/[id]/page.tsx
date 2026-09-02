@@ -1461,6 +1461,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                   <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--destructive)' }}>{c.error}</p>
                                 ) : c.creadoPorNombre ? (
                                   <p className="text-xs text-muted-foreground mt-0.5">Enviado por {c.creadoPorNombre}</p>
+                                ) : c.tipo === 'recibo' ? (
+                                  <p className="text-xs text-muted-foreground mt-0.5">Enviado automáticamente al confirmar el pago</p>
                                 ) : null}
                               </div>
                             </div>
