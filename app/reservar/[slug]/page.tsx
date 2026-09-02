@@ -1,5 +1,6 @@
 'use client';
 import { aFechaCal, eventoIcs, nombreIcs } from '@/lib/calendario-ics';
+import { esClavePublicable } from '@/lib/billing/modo-stripe';
 import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -56,7 +57,13 @@ import {
 // mismo patrón que app/widget-bundle/main.tsx — Modo A (esta página) nunca
 // había necesitado la clave publicable de Stripe en el cliente hasta ahora
 // (la compra de plan existente redirige a Checkout Session, todo en servidor).
-const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+// Saneada, no cruda: una clave con forma equivocada (una `sk_` por una env
+// var mal puesta) pasa la validación de `loadStripe()` y revienta después de
+// forma asíncrona, tumbando la pantalla entera. Con `undefined` se cae al
+// camino ya existente de "pago no disponible".
+const STRIPE_PUBLISHABLE_KEY = esClavePublicable(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  ? process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  : undefined;
 
 // Code-splitting (audit de rendimiento de los widgets embebibles): cada tab
 // de este widget (clases / citas 1:1 / mis reservas / planes) es

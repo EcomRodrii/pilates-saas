@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { modoDeClave, entornoDespliegue, comprobarModoStripe } from './modo-stripe.ts';
+import { modoDeClave, entornoDespliegue, comprobarModoStripe, esClavePublicable } from './modo-stripe.ts';
 
 const env = (o: Record<string, string | undefined>) => o as NodeJS.ProcessEnv;
 
@@ -83,4 +83,35 @@ test('el veredicto siempre dice modo y entorno, para que el error sea diagnostic
   const r = comprobarModoStripe(env({ STRIPE_SECRET_KEY: 'sk_live_1' }));
   assert.equal(r.modo, 'live');
   assert.equal(r.entorno, 'local');
+});
+
+// ── Qué clave puede llegar al navegador ─────────────────────────────────────
+//
+// El bundle del cliente lo descarga cualquier visitante, así que aquí no se
+// prueba una preferencia de estilo: se prueba que una credencial secreta no
+// pueda colarse en él por una variable de entorno mal puesta.
+
+test('esClavePublicable: acepta las que SÍ pueden ir al navegador', () => {
+  assert.equal(esClavePublicable('pk_live_51abc'), true);
+  assert.equal(esClavePublicable('pk_test_51abc'), true);
+  // Restringida: pensada precisamente para exponerse con permisos acotados.
+  assert.equal(esClavePublicable('rk_live_51abc'), true);
+});
+
+test('esClavePublicable: rechaza una clave SECRETA', () => {
+  assert.equal(esClavePublicable('sk_live_51abc'), false);
+  assert.equal(esClavePublicable('sk_test_51abc'), false);
+});
+
+test('esClavePublicable: rechaza vacío, nulo y forma desconocida', () => {
+  assert.equal(esClavePublicable(''), false);
+  assert.equal(esClavePublicable(undefined), false);
+  assert.equal(esClavePublicable(null), false);
+  assert.equal(esClavePublicable('51abc'), false);
+});
+
+test('esClavePublicable: no confunde el centinela de "sin configurar"', () => {
+  // `sk_test_XXXX` significa "sin configurar" (ver cabecera de este módulo), y
+  // sigue siendo secreta: al navegador no va.
+  assert.equal(esClavePublicable('sk_test_XXXX'), false);
 });
