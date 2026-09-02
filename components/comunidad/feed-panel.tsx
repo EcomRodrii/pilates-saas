@@ -200,6 +200,24 @@ export function eventoDraftAOpts(draft: BorradorEvento): Omit<OpcionesPublicar, 
   };
 }
 
+// F-26 (auditoría 20ª pasada): editar un post solo tocaba `texto` — corregir
+// fecha/aforo/lugar/audiencia mal puestos obligaba a borrar y republicar
+// (con el fan-out de notificación otra vez). `Partial<OpcionesPublicar>`
+// porque al editar nunca se cambia `imagenUrl` desde este formulario, y el
+// `tipo` (TEXTO/EVENTO) tampoco se puede volcar — cambiarlo a mitad de vida
+// del post es una decisión de producto propia, no parte de este fix.
+export type OpcionesEditarPost = Partial<OpcionesPublicar>;
+
+// Inverso de `new Date(draft.fecha).toISOString()` de `eventoDraftAOpts`: un
+// `<input type="datetime-local">` necesita hora LOCAL del navegador, no UTC
+// — `toISOString().slice(0,16)` desplazaría la hora mostrada según el huso.
+function isoADatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // A partir de aquí un post deja de ser un aviso y pasa a ser un texto largo. No
 // es un límite (no se bloquea nada): es un aviso amable, porque el servidor no
 // impone ninguna longitud y fingir un tope sería mentir.
@@ -461,6 +479,7 @@ export function PostCardPanel({
   comentarios,
   expandido,
   indice,
+  recuentoAudiencia,
   onLike,
   onToggleComentarios,
   onEditar,
@@ -473,10 +492,12 @@ export function PostCardPanel({
   comentarios: number;
   expandido: boolean;
   indice: number;
+  /** Solo hace falta si `onEditar` está presente (audiencia editable). */
+  recuentoAudiencia?: Partial<Record<DestinatariosCampana, number>>;
   onLike: (id: string) => void;
   onToggleComentarios: (id: string) => void;
   /** Ausentes → sin acciones de editar/borrar (p.ej. una vista de solo lectura). */
-  onEditar?: (id: string, texto: string) => void;
+  onEditar?: (id: string, texto: string, opts?: OpcionesEditarPost) => void;
   onBorrar?: (id: string) => void;
   /** El hilo de comentarios, que lo monta la página (tiene el estado). */
   children?: React.ReactNode;
@@ -485,11 +506,55 @@ export function PostCardPanel({
   const esEvento = post.tipo === 'EVENTO';
   const [editando, setEditando] = useState(false);
   const [borradorEdicion, setBorradorEdicion] = useState(post.texto);
+  const [borradorAudiencia, setBorradorAudiencia] = useState<DestinatariosCampana>(post.audiencia);
+  const [borradorEvento, setBorradorEvento] = useState<BorradorEvento>({
+    activo: esEvento,
+    fecha: post.eventoFecha ? isoADatetimeLocal(post.eventoFecha) : '',
+    lugar: post.eventoLugar ?? '',
+    aforo: post.eventoAforo != null ? String(post.eventoAforo) : '',
+  });
+  const [intentoEdicion, setIntentoEdicion] = useState(false);
+  const faltaFechaEdicion = esEvento && !borradorEvento.fecha;
+  const idFechaEdicion = useId();
+  const idLugarEdicion = useId();
+  const idAforoEdicion = useId();
+
+  function empezarEdicion() {
+    setBorradorEdicion(post.texto);
+    setBorradorAudiencia(post.audiencia);
+    setBorradorEvento({
+      activo: esEvento,
+      fecha: post.eventoFecha ? isoADatetimeLocal(post.eventoFecha) : '',
+      lugar: post.eventoLugar ?? '',
+      aforo: post.eventoAforo != null ? String(post.eventoAforo) : '',
+    });
+    setIntentoEdicion(false);
+    setEditando(true);
+  }
+
+  function cancelarEdicion() {
+    setEditando(false);
+    setBorradorEdicion(post.texto);
+    setIntentoEdicion(false);
+  }
 
   function guardarEdicion() {
     const texto = borradorEdicion.trim();
-    if (!texto || texto === post.texto) { setEditando(false); setBorradorEdicion(post.texto); return; }
-    onEditar?.(post.id, texto);
+    if (!texto) { cancelarEdicion(); return; }
+    if (faltaFechaEdicion) { setIntentoEdicion(true); return; }
+    const opts: OpcionesEditarPost = {
+      audiencia: borradorAudiencia,
+      ...(esEvento ? eventoDraftAOpts({ ...borradorEvento, activo: true }) : {}),
+    };
+    const sinCambios = texto === post.texto
+      && borradorAudiencia === post.audiencia
+      && (!esEvento || (
+        opts.eventoFecha === post.eventoFecha
+        && (opts.eventoAforo ?? null) === (post.eventoAforo ?? null)
+        && (opts.eventoLugar ?? null) === (post.eventoLugar ?? null)
+      ));
+    if (sinCambios) { setEditando(false); return; }
+    onEditar?.(post.id, texto, opts);
     setEditando(false);
   }
 
@@ -529,7 +594,7 @@ export function PostCardPanel({
               {onEditar && (
                 <button
                   type="button"
-                  onClick={() => { setBorradorEdicion(post.texto); setEditando(true); }}
+                  onClick={empezarEdicion}
                   aria-label="Editar publicación"
                   className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
@@ -550,25 +615,77 @@ export function PostCardPanel({
           )}
         </header>
 
-        {esEvento && <TicketEventoPanel post={post} />}
+        {esEvento && !editando && <TicketEventoPanel post={post} />}
 
         {editando ? (
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 space-y-3">
             <textarea
               autoFocus
               value={borradorEdicion}
               onChange={e => setBorradorEdicion(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Escape') { setEditando(false); setBorradorEdicion(post.texto); }
+                if (e.key === 'Escape') cancelarEdicion();
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); guardarEdicion(); }
               }}
               rows={3}
               className="w-full resize-none rounded-xl border border-border bg-card px-3.5 py-2.5 text-[15px] leading-relaxed text-foreground outline-none focus:border-brand"
             />
+
+            {/* F-26: fecha/lugar/aforo de un EVENTO ya se podían corregir aquí
+                mismo — antes solo el texto, y cambiar cualquier otro dato
+                obligaba a borrar y republicar (con el fan-out otra vez). */}
+            {esEvento && (
+              <div className="grid grid-cols-1 gap-3 rounded-xl border border-brand/25 bg-brand/[0.06] p-3 sm:grid-cols-3">
+                <div>
+                  <Label htmlFor={idFechaEdicion} className="mb-1 text-[11.5px] font-semibold text-muted-foreground">Fecha y hora *</Label>
+                  <Input
+                    id={idFechaEdicion}
+                    type="datetime-local"
+                    value={borradorEvento.fecha}
+                    onChange={e => setBorradorEvento(p => ({ ...p, fecha: e.target.value }))}
+                    className="rounded-lg bg-card text-[13px]"
+                    aria-invalid={intentoEdicion && faltaFechaEdicion}
+                    aria-describedby={intentoEdicion && faltaFechaEdicion ? `${idFechaEdicion}-error` : undefined}
+                  />
+                  {intentoEdicion && faltaFechaEdicion && (
+                    <p id={`${idFechaEdicion}-error`} className="mt-1 text-[11px] text-destructive">La fecha del evento es obligatoria.</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor={idLugarEdicion} className="mb-1 text-[11.5px] font-semibold text-muted-foreground">Lugar</Label>
+                  <Input
+                    id={idLugarEdicion}
+                    type="text"
+                    placeholder="Opcional"
+                    value={borradorEvento.lugar}
+                    onChange={e => setBorradorEvento(p => ({ ...p, lugar: e.target.value }))}
+                    className="rounded-lg bg-card text-[13px]"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor={idAforoEdicion} className="mb-1 text-[11.5px] font-semibold text-muted-foreground">Aforo</Label>
+                  <Input
+                    id={idAforoEdicion}
+                    type="number"
+                    min={1}
+                    placeholder="Sin límite"
+                    value={borradorEvento.aforo}
+                    onChange={e => setBorradorEvento(p => ({ ...p, aforo: e.target.value }))}
+                    className="rounded-lg bg-card text-[13px]"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Quién lo verá</p>
+              <SelectorAudiencia valor={borradorAudiencia} onChange={setBorradorAudiencia} recuento={recuentoAudiencia ?? {}} />
+            </div>
+
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => { setEditando(false); setBorradorEdicion(post.texto); }}
+                onClick={cancelarEdicion}
                 className="rounded-xl px-3.5 py-2 text-[12.5px] font-bold text-muted-foreground transition-colors hover:bg-muted"
               >
                 Cancelar

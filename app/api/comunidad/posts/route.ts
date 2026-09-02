@@ -9,10 +9,13 @@ import type { DestinatariosCampana, Socio, Suscripcion, Recibo } from '@/lib/typ
 import type { RowPostsComunidad } from '@/lib/db-types';
 
 // Server-authoritative: el estudio y el autor salen del JWT, nunca del body
-// (mismo criterio que app/api/comunidad/comentarios/route.ts). Es la única
-// vía de creación que sabe disparar el fan-out de notificación — el insert
-// directo de dbInsertPostComunidad se queda para lo que ya la usaba, pero
-// useContentStore.addPost ahora pasa por aquí (dbCrearPostComunidad).
+// (mismo criterio que app/api/comunidad/comentarios/route.ts). Es la ÚNICA
+// vía de creación de un post — dispara el fan-out de notificación, y
+// useContentStore.addPost pasa siempre por aquí (dbCrearPostComunidad).
+// F-27 (auditoría 20ª pasada): existía un insert directo (dbInsertPostComunidad
+// + postComunidadToDb) sin caller real y sin mapear tipo/evento_* — código
+// muerto que, si algún día se recableaba, habría guardado un EVENTO como
+// TEXTO en silencio. Borrado en vez de arreglado.
 //
 // El fan-out YA NO pasa por Inngest (lib/inngest/comunidad.ts, eliminado):
 // vivía como UN evento por post en una cola que factura por invocación sin

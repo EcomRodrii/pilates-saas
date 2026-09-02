@@ -1684,23 +1684,6 @@ function videoOnDemandToDb(v: VideoOnDemand) {
   };
 }
 
-function postComunidadToDb(p: PostComunidad) {
-  return {
-    id: p.id,
-    studio_id: p.studioId ?? STUDIO_ID,
-    autor_id: p.autorId ?? null,
-    autor_nombre: p.autorNombre,
-    autor_inicial: p.autorInicial,
-    texto: p.texto,
-    audiencia: p.audiencia ?? 'TODAS',
-    imagen_url: p.imagenUrl ?? null,
-    likes: p.likes,
-    comentarios_count: p.comentariosCount,
-    fijado: p.fijado,
-    creado_en: p.creadoEn,
-  };
-}
-
 // ─── Write functions (fire-and-forget, errors logged to console) ──────────────
 
 export async function dbInsertSocio(socio: Socio): Promise<ResultadoEscritura> {
@@ -3517,11 +3500,6 @@ export async function dbDeleteVideoOnDemand(id: string) {
   if (error) reportDbError('[dbDeleteVideoOnDemand]', error);
 }
 
-export async function dbInsertPostComunidad(p: PostComunidad) {
-  const { error } = await supabase.from('posts_comunidad').insert(postComunidadToDb(p));
-  if (error) reportDbError('[dbInsertPostComunidad]', error);
-}
-
 // P1 Community & Messaging OS: crea el post vía /api/comunidad/posts
 // (server-authoritative) en vez del insert directo de arriba — es la única
 // vía que dispara el fan-out de notificación a la audiencia del post
@@ -3563,12 +3541,20 @@ export async function dbCrearPostComunidad(p: PostComunidad): Promise<PostComuni
   }
 }
 
+// F-26 (auditoría 20ª pasada): solo mapeaba texto/likes/comentariosCount/
+// fijado — audiencia/tipo/evento_* mal puestos no se podían corregir aquí,
+// obligando a borrar y republicar el post entero (con el fan-out otra vez).
 export async function dbUpdatePostComunidad(id: string, changes: Partial<PostComunidad>) {
   const db: Record<string, unknown> = {};
   if ('texto' in changes) db.texto = changes.texto;
   if ('likes' in changes) db.likes = changes.likes;
   if ('comentariosCount' in changes) db.comentarios_count = changes.comentariosCount;
   if ('fijado' in changes) db.fijado = changes.fijado;
+  if ('audiencia' in changes) db.audiencia = changes.audiencia;
+  if ('tipo' in changes) db.tipo = changes.tipo;
+  if ('eventoFecha' in changes) db.evento_fecha = changes.eventoFecha;
+  if ('eventoAforo' in changes) db.evento_aforo = changes.eventoAforo;
+  if ('eventoLugar' in changes) db.evento_lugar = changes.eventoLugar;
   const { error } = await supabase.from('posts_comunidad').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdatePostComunidad]', error);
 }
