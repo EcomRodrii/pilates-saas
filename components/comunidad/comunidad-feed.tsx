@@ -258,6 +258,7 @@ export function ComunidadFeed() {
               liked={likedPostIds.has(post.id)}
               comentarios={total}
               expandido={expandedPosts.has(post.id)}
+              recuentoAudiencia={recuentoAudiencia}
               onLike={toggleLikePost}
               onToggleComentarios={handleToggleComments}
               onEditar={puedeTocarEstePost ? updatePost : undefined}

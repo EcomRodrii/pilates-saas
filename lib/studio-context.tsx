@@ -513,7 +513,7 @@ interface StudioContextValue {
   likedPostIds: Set<string>;
   addPost: (texto: string, opts?: OpcionesAddPost) => void;
   toggleLikePost: (postId: string) => void;
-  updatePost: (postId: string, texto: string) => void;
+  updatePost: (postId: string, texto: string, opts?: OpcionesAddPost) => void;
   deletePost: (postId: string) => void;
   integraciones: Integracion[];
   upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => void;

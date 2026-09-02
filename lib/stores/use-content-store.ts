@@ -142,14 +142,18 @@ export function useContentStore() {
     });
   }
 
-  // Editar el texto de un post ya publicado. Optimista, mismo criterio que
-  // addPost: sin rollback si falla el guardado — `dbUpdatePostComunidad` ya
-  // reporta el error, y revertir un texto que la propietaria ya ha vuelto a
-  // leer y dado por bueno en pantalla generaría más confusión que dejarlo
-  // como está hasta el próximo refresco real.
-  function updatePost(postId: string, texto: string) {
-    setPostsComunidad(prev => prev.map(p => p.id === postId ? { ...p, texto } : p));
-    void dbUpdatePostComunidad(postId, { texto });
+  // Editar un post ya publicado. Optimista, mismo criterio que addPost: sin
+  // rollback si falla el guardado — `dbUpdatePostComunidad` ya reporta el
+  // error, y revertir un texto/audiencia/evento que la propietaria ya ha
+  // vuelto a leer y dado por bueno en pantalla generaría más confusión que
+  // dejarlo como está hasta el próximo refresco real.
+  //
+  // F-26: `opts` cubre audiencia/tipo/evento, no solo texto — antes de esto
+  // no había forma de corregir la fecha/aforo/lugar de un EVENTO mal puesto
+  // sin borrar y republicar el post entero (con el fan-out otra vez).
+  function updatePost(postId: string, texto: string, opts?: OpcionesAddPost) {
+    setPostsComunidad(prev => prev.map(p => p.id === postId ? { ...p, texto, ...opts } : p));
+    void dbUpdatePostComunidad(postId, { texto, ...opts });
   }
 
   // 19ª auditoría · F-2: el borrado NO puede ser optimista-sin-vuelta como el
