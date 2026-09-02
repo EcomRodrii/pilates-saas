@@ -7,7 +7,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio, REFRESCO_ACTIVO_MS } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
-import { useModo } from '@/lib/portal-modo';
 import { ChevronLeft, Clock, Users, MapPin, BarChart3, Star, CheckCircle2, AlertTriangle, UserPlus, Check } from 'lucide-react';
 import { Button, BottomSheet, Toast, AforoIndicator, type AvisoToast } from '@/components/portal/ui';
 import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/components/portal/hoja-reserva';
@@ -35,7 +34,6 @@ export default function ClaseDetallePage() {
   const { slug, sesionId } = useParams<{ slug: string; sesionId: string }>();
   const { session } = usePortalAuth();
   const { studio, sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, plazasFijas, addReserva, cancelarReserva, crearPlazaFijaPropia, favoritos, toggleFavorito, refrescarAforo } = useStudio();
-  const { t } = useModo();
 
   // Mismo parche de Fase 1/3 que PortalClasesView (ver REFRESCO_ACTIVO_MS en
   // studio-context.tsx): esta pantalla también deja reservar, así que
@@ -202,8 +200,8 @@ export default function ClaseDetallePage() {
 
   if (!ses) {
     return (
-      <div style={{ background: t.bg, minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
-        <p style={{ fontWeight: 800, color: t.ink, fontSize: 16 }}>Esta clase ya no está disponible</p>
+      <div style={{ background: '#FAF9F5', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+        <p style={{ fontWeight: 800, color: '#1A1A1A', fontSize: 16 }}>Esta clase ya no está disponible</p>
         {/* ⚠️ `<Link>` y no un `<button onClick={router.push}>`, que es lo que
             había: un botón que navega con JavaScript NO HACE NADA hasta que la
             página hidrata. En un móvil lento la socia toca la flecha de volver
@@ -217,7 +215,7 @@ export default function ClaseDetallePage() {
             test. */}
         <Link
           href={`/portal/${slug}/clases`}
-          style={{ marginTop: 16, fontSize: 13, fontWeight: 800, color: t.heroAccent, background: 'none', border: 'none' }}
+          style={{ marginTop: 16, fontSize: 13, fontWeight: 800, color: '#3E6B4A', background: 'none', border: 'none' }}
         >
           Volver a Clases
         </Link>
@@ -225,10 +223,10 @@ export default function ClaseDetallePage() {
     );
   }
 
-  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
+  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#98A093' };
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg }}>
+    <div style={{ minHeight: '100%', background: '#FAF9F5' }}>
       {/* Header */}
       {/* La foto es del TIPO de clase, no de esta sesión: todas las sesiones de
           «Reformer» la comparten. Sin foto propia entra la de su familia
@@ -275,33 +273,33 @@ export default function ClaseDetallePage() {
       </div>
 
       <div style={{ padding: '0 16px 32px', marginTop: -20 }}>
-        <div style={{ background: t.surface, borderRadius: 26, padding: 20, border: `1px solid ${t.line}`, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+        <div style={{ background: '#FFFFFF', borderRadius: 20, padding: 20, border: '1px solid #E5E3DA', boxShadow: '0 16px 40px -20px rgba(26,26,26,.18)' }}>
           {/* Instructor */}
           {instr && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 16, borderBottom: `1px solid ${t.line}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 16, borderBottom: '1px solid #E5E3DA' }}>
               <div style={{ width: 44, height: 44, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: 15, flexShrink: 0, backgroundColor: instr.color }}>
                 {instr.nombre.charAt(0).toUpperCase()}
               </div>
               <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <p style={{ fontSize: 14, fontWeight: 800, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {instr.nombre}{sala ? ` · ${sala.nombre}` : ''}
                 </p>
-                <p style={{ fontSize: 12, color: t.muted }}>{instr.rol === 'PROPIETARIO' ? 'Directora' : 'Instructora'}</p>
+                <p style={{ fontSize: 12, color: '#5A5A52' }}>{instr.rol === 'PROPIETARIO' ? 'Directora' : 'Instructora'}</p>
               </div>
             </div>
           )}
 
           {/* Info row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '16px 0', borderBottom: `1px solid ${t.line}` }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '16px 0', borderBottom: '1px solid #E5E3DA' }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: t.muted, marginBottom: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#98A093', marginBottom: 4 }}>
                 <Clock size={14} />
                 <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Horario</span>
               </div>
-              <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>{formatTime(ses.inicio)}–{formatTime(ses.fin)}</p>
+              <p style={{ fontSize: 14, fontWeight: 800, color: '#1A1A1A' }}>{formatTime(ses.inicio)}–{formatTime(ses.fin)}</p>
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: t.muted, marginBottom: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#98A093', marginBottom: 4 }}>
                 <Users size={14} />
                 <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plazas</span>
               </div>
@@ -309,8 +307,8 @@ export default function ClaseDetallePage() {
             </div>
           </div>
 
-          <div style={{ padding: '16px 0', borderBottom: `1px solid ${t.line}`, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: t.muted2 }}>
-            <MapPin size={14} style={{ color: t.muted, flexShrink: 0 }} />
+          <div style={{ padding: '16px 0', borderBottom: '1px solid #E5E3DA', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#5A5A52' }}>
+            <MapPin size={14} style={{ color: '#98A093', flexShrink: 0 }} />
             <span style={{ textTransform: 'capitalize' }}>{formatDayFull(ses.inicio)}</span>
             {sala && <span>· {sala.nombre}</span>}
           </div>
@@ -319,7 +317,7 @@ export default function ClaseDetallePage() {
           {tipo?.descripcion && (
             <div style={{ paddingTop: 16 }}>
               <p style={{ ...microLabel, marginBottom: 8 }}>Sobre la clase</p>
-              <p style={{ fontSize: 14, color: t.muted2, lineHeight: 1.5 }}>{tipo.descripcion}</p>
+              <p style={{ fontSize: 14, color: '#5A5A52', lineHeight: 1.5 }}>{tipo.descripcion}</p>
             </div>
           )}
 
@@ -332,10 +330,10 @@ export default function ClaseDetallePage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {quienVa.companeras.map(c => (
                   <div key={c.socioId} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 999, background: t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: t.ink, fontSize: 12, flexShrink: 0 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 999, background: '#EFEDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#1A1A1A', fontSize: 12, flexShrink: 0 }}>
                       {c.nombre.charAt(0).toUpperCase()}
                     </div>
-                    <p style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <p style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.nombre}
                     </p>
                     {/* Ya `nombreCompleto` significa que ya es compañera aceptada —
@@ -343,7 +341,7 @@ export default function ClaseDetallePage() {
                         `visible_en_clase` con las que todavía no hay relación. */}
                     {!c.nombreCompleto && (
                       solicitudesEnviadas.has(c.socioId) ? (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: t.muted }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#5A5A52' }}>
                           <Check size={13} aria-hidden /> Enviada
                         </span>
                       ) : (
@@ -354,8 +352,8 @@ export default function ClaseDetallePage() {
                           aria-label={`Agregar a ${c.nombre} como compañera`}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 5, background: 'none',
-                            border: `1px solid ${t.line}`, borderRadius: 999, padding: '6px 12px',
-                            fontSize: 12, fontWeight: 700, color: t.ink,
+                            border: '1px solid #E5E3DA', borderRadius: 999, padding: '6px 12px',
+                            fontSize: 12, fontWeight: 700, color: '#1A1A1A',
                             cursor: solicitudEnCurso !== null ? 'default' : 'pointer',
                             opacity: solicitudEnCurso !== null && solicitudEnCurso !== c.socioId ? 0.5 : 1,
                           }}
@@ -368,7 +366,7 @@ export default function ClaseDetallePage() {
                   </div>
                 ))}
                 {quienVa.otrasSinNombre > 0 && (
-                  <p style={{ fontSize: 12.5, color: t.muted }}>
+                  <p style={{ fontSize: 12.5, color: '#98A093' }}>
                     Y {quienVa.otrasSinNombre} persona{quienVa.otrasSinNombre === 1 ? '' : 's'} más.
                   </p>
                 )}
@@ -376,13 +374,15 @@ export default function ClaseDetallePage() {
             </div>
           )}
 
-          {/* Reservada badge */}
+          {/* Reservada badge — mismos tokens de éxito/aviso que ap-badge--ok /
+              ap-badge--pocas (portal-app.css), en formato de banda con icono
+              en vez de píldora pequeña. */}
           {miReserva && (
-            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8, borderRadius: 18, padding: '12px 16px', backgroundColor: miReserva.estado === 'CONFIRMADA' ? 'rgba(62,155,108,0.12)' : 'rgba(217,119,6,0.12)' }}>
+            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8, borderRadius: 18, padding: '12px 16px', backgroundColor: miReserva.estado === 'CONFIRMADA' ? '#EAF0E7' : '#F6EEDD' }}>
               {miReserva.estado === 'CONFIRMADA'
-                ? <CheckCircle2 size={15} style={{ color: '#3E9B6C', flexShrink: 0 }} />
-                : <AlertTriangle size={15} style={{ color: '#8F6215', flexShrink: 0 }} />}
-              <p style={{ fontSize: 13, fontWeight: 700, color: miReserva.estado === 'CONFIRMADA' ? '#3E9B6C' : '#8F6215' }}>
+                ? <CheckCircle2 size={15} style={{ color: '#2E5A3A', flexShrink: 0 }} />
+                : <AlertTriangle size={15} style={{ color: '#8A6A25', flexShrink: 0 }} />}
+              <p style={{ fontSize: 13, fontWeight: 700, color: miReserva.estado === 'CONFIRMADA' ? '#2E5A3A' : '#8A6A25' }}>
                 {miReserva.estado === 'CONFIRMADA' ? 'Ya tienes esta clase reservada' : 'Estás en lista de espera'}
               </p>
             </div>
@@ -393,8 +393,9 @@ export default function ClaseDetallePage() {
           {miReserva?.estado === 'CONFIRMADA' && (
             <button
               type="button"
+              className="ap-btn"
               onClick={() => router.push(`/portal/${slug}/clases/${sesionId}/sesion-guiada`)}
-              style={{ marginTop: 12, width: '100%', height: 44, borderRadius: 16, border: `1px solid ${t.line}`, background: 'none', color: t.ink, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+              style={{ marginTop: 12, width: '100%', height: 44, borderRadius: 16, border: '1px solid #E5E3DA', background: 'transparent', color: '#1A1A1A', fontSize: 13, fontWeight: 800 }}
             >
               Empezar la sesión guiada
             </button>
@@ -431,9 +432,10 @@ export default function ClaseDetallePage() {
           {socioId && esRecurrente && !yaTienePlazaFijaAqui && (
             <button
               type="button"
+              className="ap-btn"
               onClick={() => void hacerPlazaFija()}
               disabled={creandoPlazaFija}
-              style={{ marginTop: 12, width: '100%', height: 44, borderRadius: 16, border: `1px solid ${t.line}`, background: 'none', color: t.ink, fontSize: 13, fontWeight: 800, cursor: creandoPlazaFija ? 'default' : 'pointer', opacity: creandoPlazaFija ? 0.6 : 1 }}
+              style={{ marginTop: 12, width: '100%', height: 44, borderRadius: 16, border: '1px solid #E5E3DA', background: 'transparent', color: '#1A1A1A', fontSize: 13, fontWeight: 800, cursor: creandoPlazaFija ? 'default' : 'pointer', opacity: creandoPlazaFija ? 0.6 : 1 }}
             >
               {creandoPlazaFija ? 'Creando…' : 'Hacer mi plaza fija'}
             </button>
@@ -442,8 +444,8 @@ export default function ClaseDetallePage() {
       </div>
 
       <BottomSheet open={confirmandoCancelar} onClose={() => setConfirmandoCancelar(false)}>
-        <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Cancelar esta clase?</h2>
-        <p style={{ fontSize: 13, color: t.muted }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.025em', color: '#1A1A1A' }}>¿Cancelar esta clase?</h2>
+        <p style={{ fontSize: 13, color: '#5A5A52' }}>
           Perderás tu plaza y liberarás el hueco para otra socia.
         </p>
         <div style={{ display: 'flex', gap: 8 }}>
