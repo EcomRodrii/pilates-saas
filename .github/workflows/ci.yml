@@ -144,6 +144,14 @@ jobs:
       - name: Tests unitarios (dinero · reservas · aforo · fiscal)
         run: npm test
 
+      # Que el portal de la socia no se aleje del prototipo sin que nadie se
+      # entere. Solo falla con deriva NUEVA: lo que ya estaba vive en el
+      # baseline del propio script. `--todo` (en local) enseña lo que falta.
+      - name: Fidelidad del portal con el prototipo
+        run: |
+          node scripts/comprobar-fidelidad-portal.mjs --autocomprobacion
+          node scripts/comprobar-fidelidad-portal.mjs
+
   # ---------------------------------------------------------------------------
   # Build de producción, UNA sola vez. El artefacto lo consumen los shards de
   # E2E, que antes recompilaban la app entera bajo demanda con `next dev`.
