@@ -137,23 +137,14 @@ const fusionar = (a, b) => {
 }
 
 /**
- * Lo que se ve, entero: sirve para saber si una pantalla cambió de verdad.
+ * El texto de la pantalla actual, para poder DECIR dónde se quedó al fallar.
  *
- * ⚠️ Antes miraba solo los primeros 120 caracteres y eso daba falsos «no ha
- * cambiado» entre pestañas que comparten cabecera. El texto completo es la
- * única comparación que distingue de verdad una pantalla de otra.
+ * Ya no sirve para detectar cambios de pestaña: las cuatro pantallas del
+ * prototipo están montadas a la vez, así que al cambiar de pestaña cambia lo
+ * que se ve pero no el innerText. Eso lo resuelve `esperarCambioVisual`.
  */
 const firma = (pag) => pag.evaluate(() => document.body.innerText.trim())
 
-/**
- * Espera a que la pantalla deje de ser `antes`.
- *
- * ⚠️ Todo el guiado se apoyaba antes en esperas fijas (700ms, 1000ms). Con la
- * máquina cargada eso se rompe EN SILENCIO: el clic no llega a tiempo, la
- * pantalla no cambia y se captura dos veces la misma — pasó, y el informe salió
- * comparando Reservas contra Inicio sin avisar. Una comparación que miente es
- * peor que ninguna, así que ahora se espera al cambio y, si no llega, se para.
- */
 /**
  * Huella de lo que se VE, no de lo que hay en el DOM.
  *
@@ -165,7 +156,7 @@ const firma = (pag) => pag.evaluate(() => document.body.innerText.trim())
 const firmaVisual = async (pag) =>
   createHash('sha1').update(await pag.screenshot()).digest('hex')
 
-/** Como esperarCambio, pero mirando la imagen. */
+/** Espera a que lo que se ve deje de ser `antes`. */
 async function esperarCambioVisual(pag, antes, ms = 12_000) {
   const t0 = Date.now()
   while (Date.now() - t0 < ms) {
@@ -173,16 +164,6 @@ async function esperarCambioVisual(pag, antes, ms = 12_000) {
     if ((await firmaVisual(pag)) !== antes) return true
   }
   return false
-}
-
-async function esperarCambio(pag, antes, ms = 12_000) {
-  const t0 = Date.now()
-  while (Date.now() - t0 < ms) {
-    const ahora = await firma(pag)
-    if (ahora !== antes) return ahora
-    await pag.waitForTimeout(150)
-  }
-  return null
 }
 
 /**
