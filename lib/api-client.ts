@@ -1597,26 +1597,6 @@ export interface DatosClaseEmailCliente {
   instructor: string;
 }
 
-// Aviso a una socia ascendida de la lista de espera (disparo desde el panel al
-// cancelar el admin una reserva y promocionarse la siguiente).
-export async function enviarEmailPromocion(params: DatosClaseEmailCliente & {
-  to: string; toName: string; bonoConsumido?: boolean;
-}) {
-  await fetch('/api/emails/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({
-      tipo: 'promocion',
-      to: params.to,
-      toName: params.toName,
-      data: {
-        claseNombre: params.claseNombre, fecha: params.fecha, hora: params.hora,
-        sala: params.sala, instructor: params.instructor, bonoConsumido: params.bonoConsumido ?? false,
-      },
-    }),
-  });
-}
-
 // Aviso a una socia de que su clase reservada ha sido cancelada por el estudio.
 // ── Ausencias de instructoras (vacaciones / baja médica) ─────────────────────
 export interface AusenciaInstructora {

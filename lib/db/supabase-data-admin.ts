@@ -2499,7 +2499,15 @@ export async function ejecutarCancelacionReserva(
     // dejan esto en false (default): siguen aplicando la regla si toca.
     omitirPenalizacion?: boolean;
   },
-): Promise<{ ok: true; tardia: boolean; bonoDevuelto: boolean; eraConfirmada: boolean } | { error: string }> {
+): Promise<{
+  ok: true; tardia: boolean; bonoDevuelto: boolean; eraConfirmada: boolean;
+  // P-1 (auditoría 21ª pasada): expuestos para que un llamador de servidor
+  // (el endpoint de cancelación del panel) pueda reflejar en el cliente la
+  // promoción/oferta REAL sin otra ida y vuelta — la notificación de verdad
+  // (Notification Engine) ya la disparó esta misma función más abajo, esto
+  // es solo para que la UI no tenga que esperar al próximo refresco.
+  promovidaSocioId: string | null; ofertaSocioId: string | null; ofertaExpiraEn: string | null;
+} | { error: string }> {
   const { data, error } = await admin.rpc('cancelar_reserva_plaza', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
     p_omitir_penalizacion: params.omitirPenalizacion ?? false
@@ -2599,7 +2607,12 @@ export async function ejecutarCancelacionReserva(
   if (cancelada?.socio_id) {
     await evaluarGamificacionServidor(admin, params.studioId, cancelada.socio_id as string);
   }
-  return { ok: true as const, tardia, bonoDevuelto, eraConfirmada: row?.era_confirmada === true };
+  return {
+    ok: true as const, tardia, bonoDevuelto, eraConfirmada: row?.era_confirmada === true,
+    promovidaSocioId: (row?.promovida_socio_id as string | null) ?? null,
+    ofertaSocioId: (row?.oferta_socio_id as string | null) ?? null,
+    ofertaExpiraEn: (row?.oferta_expira_en as string | null) ?? null,
+  };
 }
 
 // Cancela una reserva de la socia, devuelve su bono y promueve la lista de espera.

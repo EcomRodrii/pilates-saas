@@ -1,0 +1,21 @@
+-- Auditoría 21ª pasada (2-sep-2026), P-1: las dos funciones del panel que
+-- cancelaban una reserva (`cancelarReserva`/`bajaConRecuperacion`,
+-- lib/studio-context.tsx) llamaban a `cancelar_reserva_plaza` DIRECTO desde el
+-- navegador (con el JWT `authenticated` de la propietaria/instructora) en vez
+-- de pasar por `ejecutarCancelacionReserva` (el mismo camino que ya usa el
+-- portal, vía service-role) — así que ninguna de las 3 notificaciones del
+-- Notification Engine se disparaba nunca desde el panel.
+--
+-- Con las dos rutas ya movidas a `POST /api/reservas/cancelar` (que llama a
+-- `ejecutarCancelacionReserva` con service-role), no queda NINGÚN llamador de
+-- `cancelar_reserva_plaza` fuera de `admin.rpc(...)` — verificado por grep
+-- exhaustivo sobre lib/app/components. Se revoca `authenticated` para que el
+-- camino cliente-directo no pueda reaparecer sin que tsc/lint lo note (una
+-- llamada nueva fallaría en runtime con un 42501, no en silencio) — mismo
+-- criterio de "cerrar la puerta, no solo dejar de usarla" que F-28 (borrar
+-- `crear_reserva_atomica`) de esta misma sesión.
+--
+-- `anon`/`service_role` no cambian (`anon` ya no tenía; `service_role` sigue
+-- siendo el único camino real, vía `ejecutarCancelacionReserva`).
+
+revoke execute on function public.cancelar_reserva_plaza(text, text, text, boolean) from authenticated;
