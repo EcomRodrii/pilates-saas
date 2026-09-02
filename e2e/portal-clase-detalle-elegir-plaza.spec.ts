@@ -29,7 +29,14 @@ test.describe('Portal — detalle de clase: reservar deja elegir plaza', () => {
     await montarPortal(page, { conSesion: true });
     await page.route('**/api/public/reserva', async route => {
       posteado = route.request().postDataJSON();
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ estado: 'CONFIRMADA', reservaId: 'res-nueva' }) });
+      // El servidor real siempre devuelve `spotAsignado` cuando confirma con
+      // el sitio pedido (lib/db/supabase-data-admin.ts) — un mock que lo
+      // omitiera simularía el caso "se lo dieron a otra persona antes"
+      // (mensajeConfirmarReserva, F-16), no una confirmación normal.
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ estado: 'CONFIRMADA', reservaId: 'res-nueva', spotAsignado: posteado?.spotId ?? null }),
+      });
     });
     await page.goto(`/portal/${SLUG}/clases/ses-2`);
 

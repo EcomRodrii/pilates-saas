@@ -14,6 +14,7 @@ import { formatFechaLarga } from '@/lib/utils';
 import { esSlotRecurrente, yaTienePlazaFijaEnSlot } from '@/lib/plaza-fija-portal';
 import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
 import { portalAuthHeader } from '@/lib/api-client';
+import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import {
   fetchQuienVaAEstaClase, enviarSolicitudCompanera, type QuienVaAEstaClase,
 } from '@/lib/social-companeras-portal.ts';
@@ -188,10 +189,11 @@ export default function ClaseDetallePage() {
     if (!ses || !session?.socioId) return { ok: false, error: 'No se ha podido confirmar la reserva.' };
     const r = await addReserva(ses.id, session.socioId, spotId);
     if (!r.ok) return { ok: false, error: r.error };
-    setAviso({
-      texto: r.estado === 'LISTA_ESPERA' ? 'Estás en la lista de espera. Te avisaremos si se libera una plaza.' : 'Reservada. Te esperamos.',
-      error: false,
-    });
+    // F-16 (auditoría 20ª pasada): mensaje canónico compartido con las otras
+    // dos pantallas que llaman a addReserva con un sitio elegido — esta no
+    // distinguía PENDIENTE_APROBACION de CONFIRMADA, y nunca avisaba si el
+    // sitio elegido se lo daban a otra persona antes.
+    setAviso({ texto: mensajeConfirmarReserva(r, spotId), error: false });
     return { ok: true, estado: r.estado };
   }
 
