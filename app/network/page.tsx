@@ -76,7 +76,7 @@ const PASOS_ESTUDIO = [
 ] as const;
 
 const CONFIANZA_ITEMS = [
-  { titulo: 'Sin intermediarios', texto: 'Instructora y estudio habláis directamente — Tentare no se queda en medio ni cobra comisión.' },
+  { titulo: 'Sin agencia. Sin comisión.', texto: 'Instructora y estudio habláis directamente — Tentare no se queda en medio ni cobra nada sobre lo que acordéis.' },
   { titulo: 'Email verificado', texto: 'Todo perfil confirma su email antes de publicarse.' },
   { titulo: 'Experiencia confirmada', texto: 'Puedes pedir que un estudio que ya usa Tentare confirme que trabajaste ahí — se marca como verificada en tu perfil.' },
   { titulo: 'Actividad reciente', texto: 'Se nota si sigues buscando o si tu perfil lleva meses parado.' },
@@ -380,10 +380,10 @@ export default function NetworkLandingPage() {
         <div className="max-w-[1340px] mx-auto">
           <div className="flex flex-wrap gap-[clamp(26px,4vw,70px)] items-start">
             <Reveal className="flex-1 min-w-[280px]">
-              <h2 className="m-0 font-extrabold leading-[1.04] tracking-[-.035em] text-[clamp(30px,4.4vw,62px)]">Encuentra el talento que tu estudio necesita.</h2>
+              <h2 className="m-0 font-extrabold leading-[1.04] tracking-[-.035em] text-[clamp(30px,4.4vw,62px)]">Encuentra la instructora que necesitas.<br />O la oportunidad que buscas.</h2>
             </Reveal>
             <Reveal delayMs={120} className="flex-1 min-w-[280px] max-w-[560px]">
-              <p className="mt-1.5 text-[clamp(15px,1.4vw,18px)] leading-[1.65]" style={{ color: MUTED }}>Tentare Network conecta estudios con instructoras de Pilates y Yoga: perfiles verificados, disponibilidad real y sustituciones resueltas en minutos, no en cadenas de mensajes.</p>
+              <p className="mt-1.5 text-[clamp(15px,1.4vw,18px)] leading-[1.65]" style={{ color: MUTED }}>La red profesional de Pilates y Yoga donde los estudios encuentran instructoras y las instructoras encuentran sustituciones, vacantes y colaboraciones — perfiles verificados, disponibilidad real, contacto directo. <strong>Sin agencia. Sin comisión.</strong></p>
               <div className="flex gap-2.5 mt-[22px] flex-wrap">
                 <span className="inline-flex items-center gap-2 rounded-full pr-3.5 pl-[7px] py-[7px] text-[12px] font-extrabold" style={{ background: '#fff', border: `1px solid ${BORDE}` }}>
                   <span aria-hidden="true" className="w-[26px] h-[26px] rounded-full" style={{ backgroundImage: 'url(/por-defecto/clase-reformer.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
@@ -393,7 +393,16 @@ export default function NetworkLandingPage() {
                   <span aria-hidden="true" className="w-[26px] h-[26px] rounded-full" style={{ backgroundImage: 'url(/por-defecto/clase-yoga.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
                   Carmen V. · Yoga
                 </span>
-                <span className="inline-flex items-center rounded-full px-3.5 py-[7px] text-[12px] font-extrabold" style={{ background: '#fff', border: `1px solid ${BORDE}`, color: NW_PRODUCTO_OSCURO }}>+120 perfiles</span>
+                {/* Antes decía "+120 perfiles" fijo en el JSX — ninguna cifra
+                    real detrás (el propio comentario de app/sitemap.ts admite
+                    que hoy no hay volumen real de perfiles por ciudad). Un
+                    número inventado en marketing es justo lo que este repo
+                    evita en todas partes; se sustituye por el mismo "Beta"
+                    honesto que ya usa el hero de arriba. */}
+                <span className="inline-flex items-center gap-2 rounded-full px-3.5 py-[7px] text-[12px] font-extrabold" style={{ background: '#fff', border: `1px solid ${BORDE}`, color: NW_PRODUCTO_OSCURO }}>
+                  <span aria-hidden="true" className="nw-pulse-dot w-[7px] h-[7px] rounded-full" style={{ background: NW_PRODUCTO }} />
+                  Beta · Barcelona y Madrid
+                </span>
               </div>
               <Link href="/network/instructoras" className="inline-block mt-5 text-[14.5px] font-extrabold pb-[3px] whitespace-nowrap" style={{ color: INK, borderBottom: `2.5px solid ${INK}` }}>Explorar Network →</Link>
             </Reveal>
