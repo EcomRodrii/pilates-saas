@@ -169,20 +169,34 @@ const LEGITIMAS = {
 }
 
 const PENDIENTES = {
-  // Vacío desde el 2026-09-02: los 11 colores y los 5 tamaños que había aquí
+  // Vacío desde el 2026-09-02. Los 11 colores y los 5 tamaños que había aquí
   // eran deriva de verdad —se veían— y cada uno se cambió por el valor que el
   // prototipo usa para ESE mismo elemento (el tirador de la hoja, la caja del
-  // QR del pase, la cuenta atrás de la oferta...). No se añadió ninguno nuevo.
+  // QR del pase, la cuenta atrás de la oferta...).
+  //
+  // El peso `400` era el caso raro: NO se veía. El prototipo tampoco declara
+  // peso en su texto secundario (`S("font-size:12.5px;color:#5A5A52")`) y
+  // `.apx-root` no fija ninguno, así que el navegador computaba 400 en los dos
+  // lados — lo confirmó comparar-portal-prototipo.mjs («peso: todo dentro del
+  // prototipo»). Lo que hoja-reserva.tsx hacía mal era escribirse a mano lo que
+  // `texto.meta`/`texto.nota` (lib/portal-design.ts) ya son; se arregló usando
+  // el token. Subirlo a 500 habría sido alejarse del diseño, no acercarse.
   color: new Set([]),
   tamaño: new Set([]),
-  // ⚠️ Lo que queda es el único caso que NO se ve. El prototipo tampoco declara
-  // peso en su texto secundario (`S("font-size:12.5px;color:#5A5A52")`) y
-  // `.apx-root` no fija ninguno: el navegador computa 400 en los dos lados. Lo
-  // que hoja-reserva.tsx hace mal no es el peso, es escribirse a mano lo que
-  // `texto.meta`/`texto.nota` (lib/portal-design.ts) ya son. Se arregla usando
-  // el token, no cambiando la cifra — cambiarla a 500 sí sería alejarse.
-  peso: new Set(['400']),
+  peso: new Set([]),
 }
+
+// PENDIENTES quedó VACÍA el 2026-09-02: en vocabulario (color, tamaño y peso),
+// el portal ya es el prototipo. Lo que sigue en LEGITIMAS no es trabajo
+// pendiente — son pantallas que el diseño no dibuja y paletas categóricas.
+//
+// ⚠️ Que esté vacía NO significa que el portal se VEA idéntico. Este check mide
+// tres cosas, y hay una cuarta que ni mira: la COMPOSICIÓN. Para eso está
+// comparar-portal-prototipo.mjs y, sobre todo, mirar las capturas. El caso que
+// lo demuestra salió al vaciar esta lista: cambiar la caja del pase al verde de
+// la hoja dejaba el vocabulario perfecto y la caja INVISIBLE, porque el fondo
+// ya era ese mismo verde (ver el comentario en hoja-pase.tsx). Un valor puede
+// estar en la paleta y aun así ser el equivocado AHÍ.
 
 const ACEPTADAS = {
   color: new Set([...LEGITIMAS.color, ...PENDIENTES.color]),
