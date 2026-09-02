@@ -158,7 +158,7 @@ export function HojaOfertaEspera({
       >
         <button
           type="button" onClick={onClose} aria-label="Cerrar"
-          style={{ display: 'block', width: 40, height: 4, borderRadius: 4, margin: '0 auto', background: '#D8D4C9', border: 'none', padding: 0 }}
+          style={{ display: 'block', width: 40, height: 4, borderRadius: 4, margin: '0 auto', background: '#D9D6C9', border: 'none', padding: 0 }}
         />
 
         {oferta && (
@@ -193,7 +193,7 @@ export function HojaOfertaEspera({
               </span>
               <span style={{
                 fontFamily: 'ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace',
-                fontSize: 42, fontWeight: 700, lineHeight: 1, marginTop: 6,
+                fontSize: 34, fontWeight: 500, letterSpacing: '.06em', lineHeight: 1, marginTop: 6,
                 color: caducada ? '#5A5A52' : '#1A1A1A',
                 fontVariantNumeric: 'tabular-nums',
               }}>

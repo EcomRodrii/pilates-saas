@@ -192,7 +192,7 @@ export function PortalBonosView({
                     ahora y obligaba a sumar la cola a mano para saber lo que de
                     verdad le queda — que es justo lo que vino a mirar. */}
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 20 }}>
-                  <span style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', lineHeight: 0.9 }}>{bono.totalRestantes}</span>
+                  <span style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', lineHeight: 0.9 }}>{bono.totalRestantes}</span>
                   <span style={{ fontFamily: sans, fontSize: 12, color: '#5A5A52' }}>
                     de {bono.totalSesiones} sesiones disponibles
                   </span>

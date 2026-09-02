@@ -596,7 +596,7 @@ export function PortalPerfilView({
           <Input label="Nuevo email" placeholder="tu@email.com" type="email" autoComplete="email" value={nuevoEmail}
             onChange={e => { setNuevoEmail(e.target.value); setEmailMsg(null); }} />
           {emailMsg && (
-            <p role={emailMsg.error ? 'alert' : undefined} style={{ ...texto.nota, color: emailMsg.error ? '#B0453A' : '#5A5A52' }}>
+            <p role={emailMsg.error ? 'alert' : undefined} style={{ ...texto.nota, color: emailMsg.error ? '#A04A3C' : '#5A5A52' }}>
               {emailMsg.texto}
             </p>
           )}
