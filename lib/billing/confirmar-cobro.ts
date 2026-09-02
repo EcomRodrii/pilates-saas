@@ -34,6 +34,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import { aplicarRenovacionServidor } from './renovacion-server.ts';
 import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
+import { hoyEnEstudio } from '../utils.ts';
 
 export type FuenteConfirmacion = 'webhook' | 'conciliador';
 
@@ -70,11 +71,15 @@ export async function confirmarCobroRecibo(
 ): Promise<ResultadoConfirmarCobroRecibo> {
   const { studioId, reciboId, metodoCobro, paymentIntentId, fuente } = params;
   const ahoraISO = new Date().toISOString();
+  // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date`, no `timestamptz` como
+  // `conciliado_en` — con `ahoraISO` un cobro a la 01:30 de Madrid se fechaba
+  // el día anterior (mismo bug que ya documenta `hoyEnEstudio`).
+  const hoy = hoyEnEstudio(new Date(ahoraISO));
 
   const { data: marcado, error } = await admin
     .from('recibos')
     .update({
-      estado: 'COBRADO', fecha_cobro: ahoraISO, metodo_cobro: metodoCobro,
+      estado: 'COBRADO', fecha_cobro: hoy, metodo_cobro: metodoCobro,
       ...(paymentIntentId ? { stripe_payment_intent_id: paymentIntentId } : {}),
       // Pagado: deja de haber una sesión abierta que reutilizar.
       checkout_session_id: null,

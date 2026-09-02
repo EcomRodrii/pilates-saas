@@ -223,6 +223,14 @@ test('calcularFechaFinBono: acepta timestamp ISO y usa solo la fecha', () => {
   assert.equal(calcularFechaFinBono('2026-07-01T18:30:00.000Z', 30), '2026-07-31');
 });
 
+// P-9 (auditoría 21ª pasada): un cobro de madrugada en Madrid cae en un día
+// UTC distinto — la fecha de inicio de la validez tiene que ser la del
+// estudio, no la de UTC. 23:30 UTC del 1 de enero son las 00:30 del 2 de
+// enero en Madrid (CET, UTC+1 en invierno).
+test('calcularFechaFinBono: un cobro de madrugada en Madrid usa el día de Madrid, no el de UTC', () => {
+  assert.equal(calcularFechaFinBono('2026-01-01T23:30:00.000Z', 30), '2026-02-01');
+});
+
 // ── superaLimiteSemanal ───────────────────────────────────────────────────────
 test('superaLimiteSemanal: sin tope (null) nunca supera', () => {
   assert.equal(superaLimiteSemanal(10, null), false);
@@ -365,6 +373,13 @@ test('calcularReactivacion: MENSUAL → próximo ciclo a un mes vista, sin sesio
   const r = calcularReactivacion(plan({ id: 'p1', tipo: 'MENSUAL', sesiones: null, validezDias: null }), '2026-01-15');
   assert.equal(r.fechaFin, '2026-02-15');
   assert.equal(r.sesionesRestantes, null);
+});
+
+// P-9 (auditoría 21ª pasada): misma clase de bug que calcularFechaFinBono —
+// una reactivación de madrugada en Madrid usaba el día de UTC.
+test('calcularReactivacion: MENSUAL de madrugada en Madrid usa el día de Madrid, no el de UTC', () => {
+  const r = calcularReactivacion(plan({ id: 'p1', tipo: 'MENSUAL', sesiones: null, validezDias: null }), '2026-01-01T23:30:00.000Z');
+  assert.equal(r.fechaFin, '2026-02-02'); // 2 ene (Madrid) + 1 mes
 });
 
 test('calcularReactivacion: BONO → recalcula fecha_fin desde HOY (nunca la vieja) y rellena sesiones', () => {
