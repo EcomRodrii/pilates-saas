@@ -25,7 +25,12 @@ export default function InstructoresPage() {
     <div style={{ minHeight: '100%', background: 'var(--ap-fondo, #FAF9F5)', padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
         <p className="ap-label">Equipo</p>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1A1A1A', marginTop: 4, textTransform: 'uppercase', letterSpacing: '-0.01em' }}>Nuestros instructores</h1>
+        {/* `.ap-h1` como el resto de pantallas del portal (Comunidad, Mis
+            compañeras, Documentos). Iba a 22 px con `textTransform:
+            uppercase`, así que se leía "NUESTROS INSTRUCTORES" — el único
+            titular en versalitas de todo el portal, y el tercer tamaño
+            distinto para el mismo rol (32 / 26 / 22). */}
+        <h1 className="ap-h1" style={{ color: '#1A1A1A', marginTop: 6 }}>Nuestros instructores</h1>
       </div>
 
       {instructoresActivos.length === 0 ? (

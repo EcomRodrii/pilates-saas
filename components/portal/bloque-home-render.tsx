@@ -184,7 +184,11 @@ function CtaBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'cta'
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   const estiloBoton: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: altura.botonCta,
-    padding: '0 22px', borderRadius: radio.botonCta, background: 'var(--portal-brand)', color: T.surface,
+    // Primario del kit. `coloresDe` mide el fondo QUE ELIGE la propietaria:
+    // sobre bloque claro sale la tinta (#1A1A1A + #F1ECE1, ap-btn--primario);
+    // sobre bloque oscuro se invierte para no desaparecer.
+    padding: '0 22px', borderRadius: radio.botonCta,
+    background: coloresDe(estilo, T_CALC).ink, color: T.surface,
     boxShadow: sombra.cta, textDecoration: 'none', ...texto.botonCta,
   };
   return (

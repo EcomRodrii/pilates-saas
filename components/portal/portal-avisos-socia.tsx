@@ -61,7 +61,7 @@ export function AvisosSocia({ t, studioId }: { t: ModoTokens; studioId: string }
 
   const chip = (on: boolean): React.CSSProperties => ({
     fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 999, border: 'none', cursor: 'pointer',
-    background: on ? 'var(--portal-brand)' : t.surface2, color: on ? 'var(--portal-brand-foreground)' : t.muted,
+    background: on ? '#4F8A5B' : t.surface2, color: on ? '#F1ECE1' : t.muted,
   });
 
   return (
@@ -73,7 +73,7 @@ export function AvisosSocia({ t, studioId }: { t: ModoTokens; studioId: string }
           {/* Botón SIEMPRE presente: aunque el permiso ya esté concedido puede no
               haber suscripción (falló antes) → hay que poder (re)activar. */}
           <button type="button" onClick={habilitarPush} disabled={activando || permiso === 'denied'}
-            style={{ fontSize: 12, fontWeight: 800, padding: '6px 12px', borderRadius: 999, border: 'none', cursor: 'pointer', background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', opacity: (activando || permiso === 'denied') ? 0.5 : 1 }}>
+            style={{ fontSize: 12, fontWeight: 800, padding: '6px 12px', borderRadius: 999, border: 'none', cursor: 'pointer', background: 'var(--ap-tinta, #1A1A1A)', color: '#F1ECE1', opacity: (activando || permiso === 'denied') ? 0.5 : 1 }}>
             {activando ? '…' : permiso === 'denied' ? 'Bloqueado' : permiso === 'granted' ? 'Reactivar' : 'Activar'}
           </button>
         </div>

@@ -706,8 +706,11 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             <span style={{
               display: 'inline-flex', alignItems: 'center', height: 42, padding: '0 20px', marginTop: 16,
               borderRadius: `var(--portal-radius-boton, ${radio.pill}px)`,
-              background: 'var(--portal-btn-bg, var(--portal-brand))',
-              color: 'var(--portal-btn-fg, var(--portal-brand-foreground))',
+              // Fallback del KIT, no de la marca: `.ap-btn--primario` es tinta
+              // con texto crema. El tema puede seguir pisándolo con
+              // `--portal-btn-*` si el estudio lo declara.
+              background: 'var(--portal-btn-bg, var(--ap-tinta, #1A1A1A))',
+              color: 'var(--portal-btn-fg, #F1ECE1)',
               border: 'var(--portal-btn-border, none)',
               ...texto.metaFuerte,
             }}>
@@ -975,7 +978,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         {!progresoSemanalBloqueActivo && (
           <>
             <div style={{ height: 44 }} />
-            <h2 style={{ ...micro(10, 0.16, 600), color: '#5A5A52', textTransform: 'uppercase' } as React.CSSProperties}>
+            <h2 className="ap-label">
               Mi progreso
             </h2>
             <Link
@@ -999,7 +1002,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               <div style={{ height: 5, borderRadius: 999, background: '#E5E3DA', overflow: 'hidden' }}>
                 <div style={{
                   width: `${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 100}%`,
-                  height: '100%', background: 'var(--portal-brand)', borderRadius: 999,
+                  // Mismo verde que la barra del bono de "Tu ritmo"
+                  // (#4F8A5B, CHEATSHEET-CSS.md), no el color de marca.
+                  height: '100%', background: '#4F8A5B', borderRadius: 999,
                   transition: transicion(['width'], dur.card),
                 }} />
               </div>
@@ -1010,7 +1015,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         {!retosBloqueActivo && (
           <>
             <div style={{ height: 34 }} />
-            <h2 style={{ ...micro(10, 0.16, 600), color: '#5A5A52', textTransform: 'uppercase' } as React.CSSProperties}>
+            <h2 className="ap-label">
               Retos
             </h2>
             <div style={{
@@ -1042,8 +1047,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                       onClick={() => void toggleReto(reto.key, apuntada ? 'desmarcar' : 'marcar')}
                       style={{
                         flex: '0 0 auto', height: 34, padding: '0 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
-                        background: apuntada ? '#EFEDE4' : 'var(--portal-brand)',
-                        color: apuntada ? '#1A1A1A' : 'var(--portal-brand-foreground)',
+                        background: apuntada ? '#EFEDE4' : 'var(--ap-tinta, #1A1A1A)',
+                        color: apuntada ? '#1A1A1A' : '#F1ECE1',
                         transition: transicion(['background', 'color'], dur.card),
                         ...texto.metaFuerte,
                       }}
@@ -1185,7 +1190,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 <div style={{ height: 20 }} />
                 <div style={{
                   borderRadius: RADIO_TARJETA, padding: '16px 18px',
-                  background: '#EEF0EA',
+                  background: 'var(--ap-verde-suave, #EAF0E7)',
                   border: '1px solid rgba(44,53,44,.16)',
                 }}>
                   <p style={{ ...texto.nota, color: '#5A5A52', lineHeight: 1.5 }}>{contenidoPortal.mensajeDestacado}</p>
@@ -1208,7 +1213,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }}
                     />
                   ) : (
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(175deg,#F2F0EA 0%,#ECE9E2 58%,#E4E1D8 100%)' }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'var(--ap-pill, #EFEDE4)' }} />
                   )}
                   <div aria-hidden style={{
                     position: 'absolute', inset: 0, pointerEvents: 'none',
@@ -1271,15 +1276,19 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   <span style={{
                     width: 34, height: 34, borderRadius: `var(--portal-radius-chip, ${radio.pill}px)`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: dia.esHoy ? 'var(--portal-brand)' : 'transparent',
+                    // Día activo del kit: "borde/bg #1A1A1A, texto #F1ECE1"
+                    // (CHEATSHEET-CSS.md, "Tabs día / filtros").
+                    background: dia.esHoy ? 'var(--ap-tinta, #1A1A1A)' : 'transparent',
                     border: dia.esHoy ? 'none' : `1px solid #E5E3DA`,
-                    ...texto.metaFuerte, color: dia.esHoy ? 'var(--portal-brand-foreground)' : '#1A1A1A',
+                    ...texto.metaFuerte, color: dia.esHoy ? '#F1ECE1' : '#1A1A1A',
                   }}>
                     {dia.fecha.getDate()}
                   </span>
                   <span aria-hidden style={{
                     width: 5, height: 5, borderRadius: '50%',
-                    background: dia.tieneClaseReservada ? 'var(--portal-brand)' : 'transparent',
+                    // Dot de la semana del kit (#4F8A5B, CHEATSHEET-CSS.md,
+                    // "Semana (7 dots)"), no el color de marca.
+                    background: dia.tieneClaseReservada ? '#4F8A5B' : 'transparent',
                   }} />
                 </div>
               ))}
@@ -1312,7 +1321,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               <div style={{ height: 5, borderRadius: 999, background: '#E5E3DA', overflow: 'hidden' }}>
                 <div style={{
                   width: `${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 100}%`,
-                  height: '100%', background: 'var(--portal-brand)', borderRadius: 999,
+                  // Mismo verde que la barra del bono de "Tu ritmo"
+                  // (#4F8A5B, CHEATSHEET-CSS.md), no el color de marca.
+                  height: '100%', background: '#4F8A5B', borderRadius: 999,
                   transition: transicion(['width'], dur.card),
                 }} />
               </div>
@@ -1407,10 +1418,10 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                         marginTop: 16, width: '100%', height: 40, borderRadius: 999, border: 'none', cursor: 'pointer',
                         background: conColor
                           ? (apuntada ? 'rgba(255,255,255,.55)' : tinta)
-                          : (apuntada ? '#EFEDE4' : 'var(--portal-brand)'),
+                          : (apuntada ? '#EFEDE4' : 'var(--ap-tinta, #1A1A1A)'),
                         color: conColor
                           ? (apuntada ? tinta : reto.fondo)
-                          : (apuntada ? '#1A1A1A' : 'var(--portal-brand-foreground)'),
+                          : (apuntada ? '#1A1A1A' : '#F1ECE1'),
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         transition: transicion(['background', 'color'], dur.card),
                         ...texto.metaFuerte,
@@ -1557,7 +1568,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         {huecos.length > 0 && (
           <>
             <div style={{ padding: '30px 24px 8px' }}>
-              <p style={{ ...micro(10, 0.16, 600), color: '#5A5A52', textTransform: 'uppercase' } as React.CSSProperties}>Últimas plazas</p>
+              <p className="ap-label">Últimas plazas</p>
               <h2 style={{ fontFamily: 'var(--portal-heading-font, inherit)', color: '#1A1A1A' }} className="ap-h2">Huecos de hoy</h2>
             </div>
             <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1605,7 +1616,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         {novedadesVigentes.length > 0 && (
           <>
             <div style={{ padding: '30px 24px 8px' }}>
-              <p style={{ ...micro(10, 0.16, 600), color: '#5A5A52', textTransform: 'uppercase' } as React.CSSProperties}>Tablón</p>
+              <p className="ap-label">Tablón</p>
               <h2 style={{ fontFamily: 'var(--portal-heading-font, inherit)', color: '#1A1A1A' }} className="ap-h2">Novedades del estudio</h2>
             </div>
             <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>

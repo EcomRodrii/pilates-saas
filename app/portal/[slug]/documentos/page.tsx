@@ -94,7 +94,7 @@ export default function DocumentosPage() {
     <div style={{ minHeight: '100%', background: '#FAF9F5', color: '#1A1A1A' }}>
       <div style={{ padding: '62px 20px 32px' }}>
         <p className="ap-label">{studio?.nombre ?? 'Tu estudio'}</p>
-        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.025em', color: '#1A1A1A', marginTop: 10 }}>Documentos</h1>
+        <h1 className="ap-h1" style={{ color: '#1A1A1A', marginTop: 10 }}>Documentos</h1>
 
         {error && (
           <div style={{ marginTop: 24 }}>
