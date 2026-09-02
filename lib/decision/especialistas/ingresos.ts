@@ -145,7 +145,9 @@ function reglaI2(s: SnapshotEstudio, idx: IndicesSenal, now: Date): Candidata | 
     especialista: 'INGRESOS',
     tipo: 'RECUPERAR_PAGOS',
     dedupeKey: `INGRESOS:RECUPERAR_PAGOS:${s.studioId}`,
-    tituloMotor: `Se quedaron ${conTarjeta.length} pagos sin completar`,
+    tituloMotor: conTarjeta.length === 1
+      ? `Se quedó 1 pago sin completar`
+      : `Se quedaron ${conTarjeta.length} pagos sin completar`,
     motivoMotor,
     datosUsados: { n: conTarjeta.length, total, diasMedioVencido: redondear1(diasMedioVencido) },
     riesgo: 'PERDIDA',
