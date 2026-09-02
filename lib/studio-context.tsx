@@ -1967,6 +1967,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
     const { planId, aceptacionContrato, ...socioFields } = fields;
     const ahora = new Date().toISOString();
+    // P-9 (auditoría 21ª pasada): `recibos.fecha_vencimiento`/`fecha_cobro` son
+    // `date`, no `timestamptz` como `socios.fecha_alta` — con `ahora` (ISO en
+    // UTC) un alta cobrada a la 01:30 de Madrid quedaba fechada el día
+    // anterior al que la vivió la clienta (mismo bug que ya documenta
+    // `hoyEnEstudio`).
+    const hoy = hoyEnEstudio(new Date(ahora));
     // Si la firma se recogió en el mostrador, se deja constancia de QUIÉN la
     // introdujo: es lo que distingue una firma de la socia de una tecleada por
     // el estudio en su nombre (RGPD art. 7.1, prueba del consentimiento).
@@ -2005,7 +2011,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           socioId: nuevaSocia.id,
           planId,
           estado: 'ACTIVA',
-          fechaInicio: ahora,
+          fechaInicio: hoy,
           fechaFin: calcularFechaFinBono(ahora, plan.validezDias ?? null),
           sesionesRestantes: plan.sesiones,
           stripeSubscriptionId: null,
@@ -2019,8 +2025,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           concepto: `Alta — ${plan.nombre}`,
           importe: plan.precio,
           estado: 'COBRADO',
-          fechaVencimiento: ahora,
-          fechaCobro: ahora,
+          fechaVencimiento: hoy,
+          fechaCobro: hoy,
           fechaDevolucion: null,
           intentosReintento: 0,
         };
@@ -2352,7 +2358,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       socioId,
       planId: plan.id,
       estado: 'ACTIVA',
-      fechaInicio: new Date().toISOString(),
+      // P-9 (auditoría 21ª pasada): `fecha_inicio` es `date`, no `timestamptz`.
+      fechaInicio: hoyEnEstudio(),
       fechaFin: calcularFechaFinBono(new Date().toISOString(), plan.validezDias ?? null),
       sesionesRestantes: plan.sesiones,
       stripeSubscriptionId: null,
@@ -3545,7 +3552,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (cobrosEnCursoRef.current.has(reciboId)) return { ok: true };
     cobrosEnCursoRef.current.add(reciboId);
     try {
-    const fechaCobro = new Date().toISOString();
+    // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date`, no `timestamptz` —
+    // con un ISO en UTC un cobro manual a la 01:30 de Madrid se fechaba el día
+    // anterior al que lo vivió la clienta (mismo bug que ya documenta
+    // `hoyEnEstudio`).
+    const fechaCobro = hoyEnEstudio();
     // F2 (B2.6): cobro sin pasarela de primera clase. La dueña marca cómo cobró de
     // verdad (Bizum/efectivo/transferencia…), no solo "cobrado". La suscripción vive
     // por fechas: el cobro manual es tan válido como el de Stripe.
@@ -3584,7 +3595,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     {
       const recibo = recibos.find(r => r.id === reciboId) ??
         { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
-      const updatedRecibo = { ...recibo, estado: 'COBRADO' as const, fechaCobro: new Date().toISOString() };
+      const updatedRecibo = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
       const fac = construirFacturaCobro(updatedRecibo, facturas);
       if (fac) {
         setFacturas(prev => [...prev, fac]);

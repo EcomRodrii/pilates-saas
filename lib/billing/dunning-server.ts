@@ -4,6 +4,7 @@ import { planificarTrasFallo, debeAutoCancelarSuscripcion, type PlanReintento } 
 import { enviarEmailImpago } from '../emails/impago-server.ts';
 import { aplicarRenovacionServidor } from './renovacion-server.ts';
 import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
+import { hoyEnEstudio } from '../utils.ts';
 
 // Registra un intento de cobro FALLIDO de un recibo y avanza su ciclo de dunning:
 // cuenta el intento, reprograma el siguiente reintento (+3 / +7 días) o marca el
@@ -132,9 +133,13 @@ export async function confirmarCobroExitoso(params: {
   const { admin, reciboId, studioId, metodo, fuente } = params;
   const esSepa = metodo === 'SEPA';
   const ahoraISO = new Date().toISOString();
+  // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date`, no `timestamptz` como
+  // `conciliado_en` — con `ahoraISO` un cobro a la 01:30 de Madrid se fechaba
+  // el día anterior (mismo bug que ya documenta `hoyEnEstudio`).
+  const hoy = hoyEnEstudio(new Date(ahoraISO));
   const { data: rec, error: updErr } = await admin.from('recibos')
     .update({
-      estado: 'COBRADO', fecha_cobro: ahoraISO, metodo_cobro: metodo,
+      estado: 'COBRADO', fecha_cobro: hoy, metodo_cobro: metodo,
       ...(esSepa ? { sepa_estado: 'succeeded' } : {}),
       ...(params.paymentIntentId ? { stripe_payment_intent_id: params.paymentIntentId } : {}),
       conciliado_en: ahoraISO, conciliado_por: fuente,

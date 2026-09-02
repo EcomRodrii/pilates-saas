@@ -7,6 +7,7 @@ import { elegirMetodoCobro } from '@/lib/billing/metodo-cobro';
 import { clasificarErrorCobro } from '@/lib/billing/clasificar-error-cobro';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
+import { hoyEnEstudio } from '@/lib/utils';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
@@ -193,7 +194,9 @@ export async function cobrarReciboOffSession(params: {
       // en Sentry con el reciboId/paymentIntent para reconciliación manual.
       const { error: updErr } = await admin
         .from('recibos').update({
-          estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodo.metodo,
+          // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date` — un ISO en
+          // UTC fechaba el día anterior un cobro a la 01:30 de Madrid.
+          estado: 'COBRADO', fecha_cobro: hoyEnEstudio(), metodo_cobro: metodo.metodo,
           // El hilo de vuelta a Stripe. Antes solo se guardaba en la rama SEPA
           // `processing`, así que un cobro con tarjeta que salía BIEN no dejaba
           // ninguna forma de llegar a su cargo — y sin eso no se puede devolver

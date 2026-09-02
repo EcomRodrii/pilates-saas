@@ -331,7 +331,10 @@ export async function entregarPlanComprado(
     importe: importeReal,
     estado: 'COBRADO',
     fecha_vencimiento: hoy,
-    fecha_cobro: ahora,
+    // P-9 (auditoría 21ª pasada): iba con `ahora` (ISO en UTC) pese a que el
+    // comentario de `hoy` ya explicaba el mismo bug dos líneas arriba —
+    // `fecha_cobro` es `date`, igual que `fecha_vencimiento`.
+    fecha_cobro: hoy,
     fecha_devolucion: null,
     intentos_reintento: 0,
     metodo_cobro: 'TARJETA',
