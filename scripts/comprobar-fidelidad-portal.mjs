@@ -169,20 +169,18 @@ const LEGITIMAS = {
 }
 
 const PENDIENTES = {
-  color: new Set([
-    // Neutros y grises propios en pantallas que el prototipo SÍ cubre: la
-    // hoja de reserva, el pase, la oferta de lista de espera, Home, Reservas.
-    // El prototipo resuelve estos casos con #EFEDE4 / #E5E3DA / #98A093.
-    '#d8d4c9', '#eef0ea', '#f6f4ef', '#f2f0ea', '#ece9e2', '#e4e1d8',
-    '#0e2216', '#b0453a', '#8a2e22',
-  ]),
-  // 48px y 42px son cifras grandes de saldo; el prototipo llega a 46px como
-  // mucho. 8px es más pequeño que su tamaño mínimo (8.5px).
-  tamaño: new Set(['48', '42', '8']),
-  // ⚠️ El caso más claro de todos: el prototipo NUNCA usa peso 400, y
-  // hoja-reserva.tsx lo usa 11 veces. Es una pantalla que el diseño dibuja
-  // entera, y una auditoría a ojo la dio por fiel — esto es exactamente lo
-  // que este check existe para no volver a dejar pasar.
+  // Vacío desde el 2026-09-02: los 11 colores y los 5 tamaños que había aquí
+  // eran deriva de verdad —se veían— y cada uno se cambió por el valor que el
+  // prototipo usa para ESE mismo elemento (el tirador de la hoja, la caja del
+  // QR del pase, la cuenta atrás de la oferta...). No se añadió ninguno nuevo.
+  color: new Set([]),
+  tamaño: new Set([]),
+  // ⚠️ Lo que queda es el único caso que NO se ve. El prototipo tampoco declara
+  // peso en su texto secundario (`S("font-size:12.5px;color:#5A5A52")`) y
+  // `.apx-root` no fija ninguno: el navegador computa 400 en los dos lados. Lo
+  // que hoja-reserva.tsx hace mal no es el peso, es escribirse a mano lo que
+  // `texto.meta`/`texto.nota` (lib/portal-design.ts) ya son. Se arregla usando
+  // el token, no cambiando la cifra — cambiarla a 500 sí sería alejarse.
   peso: new Set(['400']),
 }
 

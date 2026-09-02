@@ -1185,7 +1185,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 <div style={{ height: 20 }} />
                 <div style={{
                   borderRadius: RADIO_TARJETA, padding: '16px 18px',
-                  background: '#EEF0EA',
+                  background: '#EAF0E7',
                   border: '1px solid rgba(44,53,44,.16)',
                 }}>
                   <p style={{ ...texto.nota, color: '#5A5A52', lineHeight: 1.5 }}>{contenidoPortal.mensajeDestacado}</p>
@@ -1208,7 +1208,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }}
                     />
                   ) : (
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(175deg,#F2F0EA 0%,#ECE9E2 58%,#E4E1D8 100%)' }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(175deg,#F1F2EA 0%,#EDEBE1 58%,#E5E3DA 100%)' }} />
                   )}
                   <div aria-hidden style={{
                     position: 'absolute', inset: 0, pointerEvents: 'none',
@@ -1514,7 +1514,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               ) : (
                 <span style={{
                   position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontSize: 48, fontWeight: 800,
+                  color: '#fff', fontSize: 46, fontWeight: 800,
                 }}>
                   {instructoraDestacada.nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
                 </span>

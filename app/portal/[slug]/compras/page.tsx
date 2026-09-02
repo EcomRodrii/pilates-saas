@@ -294,7 +294,7 @@ export default function ComprasPage() {
 
         {error && (
           <p role="alert" style={{
-            fontFamily: sans, fontSize: 12, color: '#8A2E22', background: '#F4E9E5', lineHeight: 1.55,
+            fontFamily: sans, fontSize: 12, color: '#A04A3C', background: '#F4E9E5', lineHeight: 1.55,
             borderRadius: 16, padding: '12px 14px', marginTop: 20,
           }}>
             {error}
