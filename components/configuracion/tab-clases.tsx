@@ -535,7 +535,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
             </Field>
             <Field
               label="Plazo para aceptar una plaza liberada (minutos)"
-              description="Con un plazo, la socia debe aceptar antes de que caduque o se ofrece a la siguiente. Vacío = usa el ajuste general del estudio."
+              description="Da tiempo a confirmar que sigue queriendo la plaza antes de dársela, en vez de asignarla al instante y arriesgarte a que no aparezca. Vacío = usa el ajuste general del estudio."
             >
               <input
                 className={inputCls}

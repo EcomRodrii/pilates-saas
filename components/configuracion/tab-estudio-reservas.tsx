@@ -222,12 +222,12 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             <p className={labelCls}>Plazo para aceptar una plaza liberada (minutos)</p>
             <input
               type="number" min={0} className={inputCls}
-              placeholder="Confirmación instantánea"
+              placeholder="Sin plazo (confirmación instantánea)"
               value={pol.listaEsperaPlazoAceptacionMinutos || ''}
               onChange={e => setPol(p => ({ ...p, listaEsperaPlazoAceptacionMinutos: Math.max(0, Number(e.target.value) || 0) }))}
             />
             <p className="text-[11px] text-muted-foreground mt-1">
-              Con un plazo, la socia debe aceptar antes de que caduque o se ofrece a la siguiente. Vacío o 0 = se confirma sola, como hasta ahora.
+              Al liberarse una plaza, hoy se confirma sola a la primera de la lista aunque no esté mirando el móvil en ese momento — y si no aparece, la plaza se pierde. Con un plazo (p.ej. 15 min), le das tiempo a confirmar que la quiere antes de dársela; si no contesta, pasa a la siguiente. Vacío o 0 = como hasta ahora, sin plazo.
             </p>
           </div>
           <label className="flex items-center justify-between gap-4 cursor-pointer">
