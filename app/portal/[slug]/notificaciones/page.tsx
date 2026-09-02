@@ -19,15 +19,22 @@ import Link from 'next/link';
 //     cada aviso, la cabecera de grupo repite la misma información dos veces.
 //  3. Las tarjetas. Aquí la lista son filas separadas por hilos, que es lo que
 //     permite bajar el ritmo vertical a 22 px sin que se vea apretado.
+//
+// ESTILOS: convertidos a valores literales del sistema "Tentare Studio App"
+// (portal-app.css, `--ap-*`) en vez de `useModo()`/`display()`/`micro()` de
+// `lib/portal-design.ts`, mismo criterio ya aplicado en compras/mensajes/
+// estudio. Estructura y copy SIN CAMBIOS — este fichero ya estaba rediseñado
+// contra el diseño de referencia (ver comentario original de arriba); solo se
+// sustituye cómo se pinta, no qué se pinta. `sans`/`dur`/`transicion` se
+// mantienen: son forma y movimiento, no colores ni tokens de tema.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useModo } from '@/lib/portal-modo';
 import { useStudio } from '@/lib/studio-context';
 import { portalAuthHeader } from '@/lib/api-client';
 import { fetchNotificaciones, accionNotificacion, type NotifItem } from '@/lib/notifications/client';
 import { resumenAvisos, selloTemporal } from '@/lib/avisos-portal';
-import { display, micro, sans, transicion, dur } from '@/lib/portal-design';
+import { sans, transicion, dur } from '@/lib/portal-design';
 
 // El diseño apaga los avisos ya leídos bajando título y detalle a la vez. Sale
 // más fiel con una opacidad que con dos colores nuevos: 0,81 sobre el crema deja
@@ -38,7 +45,6 @@ const APAGADO_LEIDO = 0.81;
 export default function AvisosPage() {
   const router = useRouter();
   const { slug } = useParams<{ slug: string }>();
-  const { t, noche } = useModo();
   const { studio } = useStudio();
   const [items, setItems] = useState<NotifItem[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -81,7 +87,7 @@ export default function AvisosPage() {
   }
 
   return (
-    <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+    <div style={{ minHeight: '100%', background: '#FAF9F5', color: '#1A1A1A' }}>
       <div style={{ padding: '62px 24px 24px' }}>
         {/* ⚠️ `<Link>` y no un `<button onClick={router.push}>`, que es lo que
             había: un botón que navega con JavaScript NO HACE NADA hasta que la
@@ -99,28 +105,26 @@ export default function AvisosPage() {
           aria-label="Volver a Inicio"
           style={{
             width: 38, height: 38, borderRadius: '50%',
-            border: `1px solid ${t.line}`,
-            background: noche ? 'rgba(36,40,32,.7)' : 'rgba(255,255,255,.7)',
+            border: '1px solid #E5E3DA',
+            background: 'rgba(255,255,255,.7)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: sans, fontSize: 13, color: t.ink, cursor: 'pointer',
+            fontFamily: sans, fontSize: 13, color: '#1A1A1A', cursor: 'pointer',
             transition: transicion(['background'], dur.color),
           }}
         >
           ←
         </Link>
 
-        <h1 style={{ ...display(50), color: t.ink, marginTop: 20 }}>Avisos</h1>
-        <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.025em', color: '#1A1A1A', marginTop: 20 }}>Avisos</h1>
+        <p style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', marginTop: 10 }}>
           {cargando ? 'Un momento…' : resumenAvisos(sinLeer)}
         </p>
 
         {/* La bandeja vacía usa los mismos hilos que la llena: una fila sola,
-            no un cartel centrado. Y habla en la voz del detalle (sans), no en
-            la de la portada — dos frases seguidas en serif cursiva compiten
-            entre ellas. */}
+            no un cartel centrado. */}
         {!cargando && items.length === 0 ? (
-          <div style={{ marginTop: 32, padding: '22px 0', borderTop: `1px solid ${t.line}`, borderBottom: `1px solid ${t.line}` }}>
-            <p style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, textWrap: 'pretty' } as React.CSSProperties}>
+          <div style={{ marginTop: 32, padding: '22px 0', borderTop: '1px solid #E5E3DA', borderBottom: '1px solid #E5E3DA' }}>
+            <p style={{ fontFamily: sans, fontSize: 11.5, color: '#5A5A52', textWrap: 'pretty' } as React.CSSProperties}>
               Aquí aparecerán tus reservas, los cambios de clase y los pagos.
             </p>
           </div>
@@ -132,7 +136,6 @@ export default function AvisosPage() {
                 item={it}
                 ultimo={i === items.length - 1}
                 onAbrir={() => void abrir(it)}
-                t={t}
               />
             ))}
           </div>
@@ -142,10 +145,8 @@ export default function AvisosPage() {
   );
 }
 
-type Tokens = ReturnType<typeof useModo>['t'];
-
-function Aviso({ item, ultimo, onAbrir, t }: {
-  item: NotifItem; ultimo: boolean; onAbrir: () => void; t: Tokens;
+function Aviso({ item, ultimo, onAbrir }: {
+  item: NotifItem; ultimo: boolean; onAbrir: () => void;
 }) {
   const leido = item.readAt != null;
   const pulsable = item.deepLink != null;
@@ -158,8 +159,8 @@ function Aviso({ item, ultimo, onAbrir, t }: {
       onKeyDown={pulsable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(); } } : undefined}
       style={{
         display: 'flex', gap: 14, padding: '22px 0',
-        borderTop: `1px solid ${t.line}`,
-        borderBottom: ultimo ? `1px solid ${t.line}` : undefined,
+        borderTop: '1px solid #E5E3DA',
+        borderBottom: ultimo ? '1px solid #E5E3DA' : undefined,
         cursor: pulsable ? 'pointer' : 'default',
       }}
     >
@@ -167,14 +168,16 @@ function Aviso({ item, ultimo, onAbrir, t }: {
           colapsa en los leídos, el texto de esas filas se desalinea con el de
           las demás y la lista pierde el borde izquierdo común. */}
       <div style={{ flex: '0 0 6px', paddingTop: leido ? undefined : 8 }}>
-        {!leido && <div style={{ width: 6, height: 6, borderRadius: '50%', background: t.ink }} />}
+        {!leido && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#1A1A1A' }} />}
       </div>
       <div style={{ flex: 1, minWidth: 0, opacity: leido ? APAGADO_LEIDO : 1 }}>
-        <div style={{ ...micro(9, 0.2), color: t.micro }}>{selloTemporal(item.createdAt)}</div>
-        <div style={{ ...display(22, false, 1.1), color: t.ink, marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
+        <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9, fontWeight: 600, letterSpacing: '.18em', textTransform: 'uppercase', color: '#98A093' }}>
+          {selloTemporal(item.createdAt)}
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: '#1A1A1A', lineHeight: 1.1, marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
           {item.title}
         </div>
-        <div style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
+        <div style={{ fontFamily: sans, fontSize: 11.5, color: '#5A5A52', marginTop: 8, textWrap: 'pretty' } as React.CSSProperties}>
           {item.body}
         </div>
       </div>
