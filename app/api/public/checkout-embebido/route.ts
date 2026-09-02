@@ -17,6 +17,7 @@ import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
+import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 
 // Fase 3 del "Booking Experience Engine" — checkout embebido dentro del widget
 // (Modo B): sustituye `stripe.checkout.sessions.create()` (redirect de página
@@ -121,6 +122,15 @@ export async function POST(req: NextRequest) {
   if (!body.planId) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el plan a comprar' }, { status: 400 }));
   }
+
+  // F-30 (auditoría 20ª pasada): la sexta puerta por la que entra dinero —
+  // mismo guardia que ya protege charge-off-session, pos-bizum,
+  // terminal/cobrar y reembolsos, que aquí faltaba (y en su gemela
+  // /api/stripe/checkout). Sin él, un estudio con la suscripción a Tentare
+  // caducada seguía cobrando a sus socias por el widget embebido.
+  const bloqueo = await bloqueoPorSuscripcion(body.studioId);
+  if (bloqueo) return conCorsWidget(req, bloqueo);
+
   // El email se valida AQUÍ, antes de que llegue a ningún sitio: sin socioId,
   // `entregarPlanComprado` busca la ficha con `.ilike('email', compra.email)`,
   // y en PostgREST `%` y `_` de `ilike` son COMODINES. Un `socioEmail` con
