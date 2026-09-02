@@ -51,13 +51,29 @@ import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
 import { bonoActivo } from '@/lib/bonos-portal';
 import { usePortalHref } from '@/components/portal/portal-preview-bridge';
 import {
-  EASE, dur, transicion, display, micro, texto, radio, altura, sombra, cristal, escala } from '@/lib/portal-design';
+  EASE, dur, transicion, display, micro, texto, radio, altura, sombra, cristal } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { hoyEnEstudio } from '@/lib/utils';
 import { queImparten } from '@/lib/equipo';
 import { valoracionParaPantalla } from '@/lib/portal-tema/valoracion';
+
+/**
+ * El radio de una tarjeta interna, del kit (`.ap-card` = 16 px,
+ * app/portal/[slug]/portal-app.css).
+ *
+ * ⚠️ Antes era `radio.card` de `lib/portal-design.ts`, que vale **24**. En la
+ * misma pantalla convivían tarjetas de 24 (bono en su variante rotulada,
+ * semana, retos, contenido del estudio) con tarjetas de 16 (las que ya usaban
+ * la clase `.ap-card`), y dos radios distintos en cards hermanas se ven. El
+ * kit solo tiene tres radios de tarjeta —16 normal, 18 el banner y 20 las
+ * grandes con foto— y 24 no es ninguno.
+ *
+ * No se toca `radio.card` en `lib/portal-design.ts`: lo comparte `/reservar`,
+ * que va por otro diseño.
+ */
+const RADIO_TARJETA = 16;
 
 // Valor de `now` mientras el reloj de abajo todavía no ha latido (render del
 // servidor y primer render del cliente, antes del efecto). Constante de MÓDULO
@@ -678,7 +694,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               background: '#FFFFFF',
               border: `var(--portal-card-border, 1px solid #E5E3DA)`,
               boxShadow: 'var(--portal-card-shadow, none)',
-              borderRadius: `var(--portal-radius-card, ${radio.card}px)`,
+              borderRadius: `var(--portal-radius-card, ${RADIO_TARJETA}px)`,
             }}
           >
             {/* Mismos textos que el hero (`tarjeta`), no unos propios: el
@@ -966,7 +982,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               href={portalHref(`/${slug}/progreso`)}
               style={{
                 marginTop: 10, display: 'block', textDecoration: 'none',
-                background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: radio.card,
+                background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: RADIO_TARJETA,
                 padding: '14px 16px', boxShadow: sombra.cardSemana,
               }}
             >
@@ -999,7 +1015,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             </h2>
             <div style={{
               marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8,
-              background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: radio.card,
+              background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: RADIO_TARJETA,
               padding: '6px 16px', boxShadow: sombra.cardSemana,
             }}>
               {RETOS_PORTAL.map((reto, i) => {
@@ -1074,7 +1090,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                         key={s.id}
                         href={portalHref(`/${slug}/clases/${s.id}`)}
                         style={{
-                          flex: '0 0 158px', height: 178, borderRadius: radio.card, background: '#FFFFFF',
+                          flex: '0 0 158px', height: 178, borderRadius: RADIO_TARJETA, background: '#FFFFFF',
                           padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                           boxShadow: sombra.cardSemana, textDecoration: 'none',
                           transition: transicion(['transform', 'box-shadow'], dur.card),
@@ -1168,7 +1184,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               <>
                 <div style={{ height: 20 }} />
                 <div style={{
-                  borderRadius: radio.card, padding: '16px 18px',
+                  borderRadius: RADIO_TARJETA, padding: '16px 18px',
                   background: '#EEF0EA',
                   border: '1px solid rgba(44,53,44,.16)',
                 }}>
@@ -1199,7 +1215,13 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     background: 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
                   }} />
                   <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-                    {b.titulo && <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: '#1A1A1A', maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
+                    {b.titulo && <div style={{
+                    // 16px/800 en cursiva, del cheatsheet — a 29 px no cabe en
+                    // los 112 de alto del banner.
+                    fontFamily: 'var(--portal-heading-font, inherit)',
+                    fontSize: 16, fontWeight: 800, fontStyle: 'italic', letterSpacing: '-.02em', lineHeight: 1.15,
+                    color: '#FFFFFF', maxWidth: 210, textWrap: 'pretty',
+                  } as React.CSSProperties}>{b.titulo}</div>}
                     {b.texto && <div style={{ ...texto.nota, color: '#5A5A52', marginTop: 12 }}>{b.texto}</div>}
                   </div>
                   <span aria-hidden style={{
@@ -1209,9 +1231,16 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   }}>→</span>
                 </>
               );
+              // Misma geometría que el banner de "Invita a una amiga": son
+              // hermanos visuales (foto a todo lo ancho, titular y flecha) y
+              // el kit solo define un banner, 112 px de alto y radio 18
+              // (CHEATSHEET-CSS.md). Antes iba a 208/26, que no es ningún
+              // radio del kit y hacía de estos banners la pieza más alta del
+              // Inicio.
               const estiloBanner: React.CSSProperties = {
-                position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
-                overflow: 'hidden', background: '#EFEDE4', boxShadow: sombra.banner, textDecoration: 'none',
+                position: 'relative', display: 'block', height: 112, borderRadius: 18,
+                overflow: 'hidden', background: '#EFEDE4',
+                boxShadow: '0 14px 30px -14px rgba(15,15,15,.35)', textDecoration: 'none',
                 transition: transicion(['transform'], dur.card),
               };
               if (b.linkTipo === 'interno' && !b.linkValor.startsWith('/')) return null;
@@ -1267,7 +1296,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           <div {...wrap('progresoSemanal')}>
             <div style={{ height: 34 }} />
             <div style={{
-              background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: radio.card,
+              background: '#FFFFFF', border: `1px solid #E5E3DA`, borderRadius: RADIO_TARJETA,
               padding: '14px 16px', boxShadow: sombra.cardSemana,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -1314,7 +1343,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     key={reto.key}
                     style={{
                       flex: conColor ? '0 0 218px' : '0 0 200px',
-                      borderRadius: conColor ? 26 : radio.card,
+                      borderRadius: conColor ? 26 : RADIO_TARJETA,
                       background: conColor ? reto.fondo : '#FFFFFF',
                       padding: 18,
                       boxShadow: conColor ? 'none' : sombra.cardSemana,
@@ -1541,7 +1570,11 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     href={portalHref(`/${slug}/clases/${s.id}`)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 11, background: '#FFFFFF', border: `1px solid #E5E3DA`,
-                      borderRadius: 15, padding: '10px 13px', textDecoration: 'none', transition: transicion(['box-shadow'], dur.card),
+                      // 16, no 15: es una fila de clase, misma pieza que las
+                      // de Horario, y el kit las da a `.ap-card` (16 px). Un
+                      // píxel de diferencia no se ve solo, pero era el único
+                      // radio de Inicio que no salía del kit.
+                      borderRadius: RADIO_TARJETA, padding: '10px 13px', textDecoration: 'none', transition: transicion(['box-shadow'], dur.card),
                     }}
                   >
                     <span style={{ ...micro(13, 0, 500), color: '#1A1A1A', minWidth: 40 } as React.CSSProperties}>{hora(s.inicio)}</span>

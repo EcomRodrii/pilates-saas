@@ -10,19 +10,39 @@
 // /login (dos pantallas de acceso con dos maquetaciones distintas, que es de
 // donde viene este rediseño).
 //
-// ⚠️ Nada de valores nuevos: forma, tipografía, sombra y curva salen de
-// `lib/portal-design.ts`; los neutros de `useModo()`; el color de marca de las
-// variables `--portal-brand*` que publica el tema del estudio. El handoff da
-// los hex del tema Original como REFERENCIA, no como valores a escribir.
+// ⚠️ COLOR DEL KIT (`--ap-*`, app/portal/[slug]/portal-app.css), no del tema
+// del estudio. Esta pantalla se pintaba con `--portal-brand*` y los neutros de
+// `useModo()`; al convertir el portal al kit "Tentare Studio App" pasa a la
+// paleta fija, como el resto. Forma, curva y tipografía siguen saliendo de
+// `lib/portal-design.ts` mientras esa parte no esté migrada.
 
 import { useId } from 'react';
 import { EASE, dur, transicion, micro, texto, radio, altura, sombra } from '@/lib/portal-design';
-import { useModo } from '@/lib/portal-modo';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 
-/** El color de marca y su contraste, siempre a través del tema publicado. */
-export const MARCA = 'var(--portal-brand, #343825)';
-export const MARCA_FG = 'var(--portal-brand-foreground, #D9C29E)';
+/**
+ * El fondo oscuro de la puerta y la tinta clara que va encima.
+ *
+ * ⚠️ SALEN DEL KIT (`--ap-*`), no del tema del estudio. Antes eran
+ * `--portal-brand` / `--portal-brand-foreground`, es decir la puerta se
+ * pintaba del color de CADA estudio. Decisión explícita del fundador al
+ * convertir el portal: el portal se ve idéntico al prototipo, y eso incluye
+ * la primera pantalla.
+ *
+ * Consecuencia asumida: la puerta de todos los estudios es la misma. Lo que
+ * NO se pierde es el contraste garantizado — el duotono de la foto (ver
+ * `PortadaAcceso`) se mantiene, solo que ahora tiñe hacia el verde noche del
+ * kit en vez de hacia la marca. Sin ese tinte, el texto claro dependería de
+ * qué foto suba cada propietaria.
+ */
+export const MARCA = 'var(--ap-verde-noche, #12291A)';
+export const MARCA_FG = 'var(--ap-fondo, #FAF9F5)';
+/**
+ * La tinta de las micro-etiquetas sobre el fondo oscuro. El kit las pinta en
+ * verde claro (`--ap-verde-claro`), no en el mismo crema del titular: es lo
+ * que las separa de la jerarquía principal sin bajarles el contraste.
+ */
+export const MARCA_ETIQUETA = 'var(--ap-verde-claro, #A8D0A9)';
 
 /**
  * Entrada escalonada de cada bloque.
@@ -39,17 +59,19 @@ export function entrada(orden: number): React.CSSProperties {
 }
 
 /**
- * La foto del estudio teñida de marca. Sin foto propia, la de por defecto —
- * antes aquí quedaba el color plano, que es lo que veía toda propietaria que
- * acababa de darse de alta.
+ * La foto del estudio teñida del verde noche del kit. Sin foto propia, la de
+ * por defecto — antes aquí quedaba el color plano, que es lo que veía toda
+ * propietaria que acababa de darse de alta.
  *
- * El tinte (`multiply` al 72 % sobre el color de marca) es lo que hace que la
- * portada sea del ESTUDIO y no de la foto: cualquier imagen —una sala con luz
- * fría, un retrato, una captura del móvil— acaba en la misma familia de color
- * que el resto del portal. Es también lo que garantiza el contraste del texto
- * blanco encima sin depender de qué suba la propietaria. Y es lo que hace que
- * la foto por defecto no se note como foto de archivo: sale en la marca de
- * cada estudio, no en la suya.
+ * El tinte (`multiply` al 72 %) es lo que hace que la portada sea del PORTAL y
+ * no de la foto: cualquier imagen —una sala con luz fría, un retrato, una
+ * captura del móvil— acaba en la misma familia de color. Y es lo que garantiza
+ * el contraste del texto claro encima sin depender de qué suba la propietaria.
+ *
+ * ⚠️ Hasta la conversión al kit este tinte era el color de MARCA del estudio,
+ * y ahí cumplía además una tercera función: que la portada se viera de cada
+ * estudio. Esa función se ha perdido a propósito (ver `MARCA` arriba); las
+ * otras dos se conservan intactas.
  *
  * `alto` cambia entre los dos pasos (300 → 212): la portada se retira para
  * dejar sitio, y esa retirada es la que cuenta que se ha avanzado.
@@ -92,37 +114,43 @@ export function PortadaAcceso({
             // El encuadre que eligió el estudio (theme.fotoEncuadre). Sin
             // token, centrado — que es lo que hacía antes.
             objectPosition: 'var(--portal-foto-pos, center center)',
-            // ⚠️ `grayscale` ANTES del multiply, y esto no estaba en el
-            // handoff: es la corrección tras verlo en producción.
+            // ⚠️ SIN duotono por multiply, a diferencia de antes. Medido: con
+            // el verde noche del kit (#12291A) el multiply al 72 % dejaba la
+            // foto en luminancia media 18/255 — prácticamente negra. Con el
+            // oliva de marca de antes (#343825) daba 28, que ya era oscuro
+            // pero dejaba leer la sala. El kit es más oscuro que cualquier
+            // marca, así que la receta que servía con el tema ya no sirve.
             //
-            // El handoff da como referencia el tema Original (oliva #343825),
-            // un color oscuro y apagado: multiplicar por él ya deja un
-            // duotono. Pero el diseño tiene que funcionar con CUALQUIER
-            // preset, y con una marca clara y saturada —la lila de Pilates
-            // Boutique— los tonos de piel sobrevivían al tinte y salían
-            // verdosos: se leía como un filtro de Instagram mal puesto, no
-            // como identidad.
+            // El kit no usa duotono para foto bajo texto: usa DEGRADADO
+            // (`rgba(18,41,26,.95) → .68`, CHEATSHEET-CSS.md, tarjeta "Tu
+            // próxima clase"), que es lo que deja ver la foto y a la vez
+            // garantiza el texto. Aquí el único texto sobre la imagen es la
+            // etiqueta mono de abajo, y justo ahí el degradado de más abajo ya
+            // llega al 100 % de opacidad — o sea que su contraste no depende
+            // de la foto, igual que antes no dependía.
             //
-            // Quitar el color de la foto primero es la receta de duotono de
-            // toda la vida: el resultado es del color de la marca, sea cual
-            // sea, y no depende de qué haya en la imagen. El `contrast` de más
-            // compensa lo que aplana el gris.
-            filter: 'grayscale(1) contrast(1.08)',
-            opacity: 0.72, mixBlendMode: 'multiply',
+            // Se conserva algo de `grayscale` para que la portada siga siendo
+            // de la familia del portal y no de los colores de la foto.
+            filter: 'grayscale(.55) contrast(1.05)',
+            opacity: 0.9,
           }}
         />
       }
-      {/* Degradado hacia el color de marca: ancla el bloque de texto de abajo
-          sin necesitar una caja ni una sombra debajo de cada letra. */}
+      {/* Degradado hacia el verde noche: ancla el bloque de texto de abajo sin
+          necesitar una caja ni una sombra debajo de cada letra.
+          Con el duotono fuera (ver el filtro de arriba) este degradado pasa a
+          ser lo ÚNICO que garantiza el contraste de la etiqueta, así que se
+          refuerza: empieza antes (18 % en vez de 30 %) y pasa por un tramo
+          intermedio al 72 %, en vez de saltar de transparente a opaco. */}
       <div
         aria-hidden
         style={{
           position: 'absolute', inset: 0,
-          background: `linear-gradient(180deg, transparent 30%, ${MARCA} 100%)`,
+          background: `linear-gradient(180deg, transparent 18%, rgba(18,41,26,.72) 62%, ${MARCA} 100%)`,
         }}
       />
       <div style={{ position: 'absolute', left: 30, right: 30, bottom: 26 }}>
-        <p style={{ ...micro(9.5, 0.34), color: MARCA_FG }}>
+        <p style={{ ...micro(9.5, 0.34), color: MARCA_ETIQUETA }}>
           {nombre}{ciudad ? ` · ${ciudad}` : ''}
         </p>
       </div>
@@ -186,7 +214,6 @@ export function CampoLinea({
   tamano?: number;
 }) {
   const uid = useId();
-  const { t } = useModo();
   return (
     <div style={{ position: 'relative' }}>
       <label htmlFor={uid} className="sr-only">{etiqueta}</label>
@@ -199,16 +226,19 @@ export function CampoLinea({
         placeholder={marcador ?? etiqueta}
         autoComplete={autoComplete}
         autoFocus={autoFocus}
+        // Superficie, borde y tinta del kit (`--ap-*`), no de `useModo()`:
+        // el campo vive sobre la hoja clara de la puerta, que ya es
+        // `--ap-fondo`, y con los neutros del tema no cuadraban.
         style={{
-          width: '100%', height: alto, background: t.surface,
-          border: `1.5px solid ${t.line}`, borderRadius: radio.card,
-          color: t.ink, fontFamily: texto.meta.fontFamily, fontSize: tamano,
+          width: '100%', height: alto, background: 'var(--ap-card, #FFFFFF)',
+          border: `1.5px solid var(--ap-borde, #E5E3DA)`, borderRadius: radio.card,
+          color: 'var(--ap-tinta, #1A1A1A)', fontFamily: texto.meta.fontFamily, fontSize: tamano,
           padding: `0 ${sufijo ? 56 : 20}px 0 20px`,
           outline: 'none',
           transition: transicion(['border-color'], dur.foco),
         }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = MARCA; }}
-        onBlur={(e) => { e.currentTarget.style.borderColor = t.line; }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = '#4F8A5B'; }}
+        onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--ap-borde, #E5E3DA)'; }}
       />
       {sufijo && (
         <div style={{ position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)' }}>{sufijo}</div>
