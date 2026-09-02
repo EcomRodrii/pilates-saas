@@ -19,6 +19,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
+import { useAuth } from '@/lib/auth-context';
+import { useRol } from '@/lib/permisos';
+import { puedeModerarComunidad } from '@/lib/permisos-reglas';
 import { dbListComentariosComunidad, dbAddComentarioComunidad } from '@/lib/supabase-data';
 import { resolverDestinatariasCampana, SEGMENTOS_AUDIENCIA } from '@/lib/marketing/segmentos';
 import { subirImagenPostComunidad } from '@/lib/portal-storage';
@@ -43,6 +46,13 @@ export function ComunidadFeed() {
     postsComunidad: posts, addPost, toggleLikePost, updatePost, deletePost, likedPostIds,
     socios, suscripciones, recibos, sesiones, reservas, tiposClase, dataLoaded, studio,
   } = useStudio();
+  const { user } = useAuth();
+  const authUserId = user?.id ?? null;
+  const rol = useRol();
+  // F-18: editar/borrar es solo del autor o de quien modera — la RLS
+  // (migr 20260902104439) ya lo exige de verdad; esto es solo no ENSEÑAR un
+  // botón que la base de datos va a rechazar.
+  const puedeModerar = puedeModerarComunidad(rol);
   const [borrarId, setBorrarId] = useState<string | null>(null);
 
   const [commentsMap, setCommentsMap] = useState<Record<string, Comment[]>>({});
@@ -236,6 +246,9 @@ export function ComunidadFeed() {
           // se respeta el contador sembrado (posts de demo antiguos). Sumar
           // ambos duplicaría al recargar.
           const total = comentarios.length > 0 ? comentarios.length : (post.comentariosCount ?? 0);
+          // F-18: el post lo puede editar/borrar su autor, o quien modera —
+          // nadie más, aunque antes el panel enseñaba el botón a cualquiera.
+          const puedeTocarEstePost = puedeModerar || post.autorId === authUserId;
           return (
             <PostCardPanel
               key={post.id}
@@ -247,8 +260,8 @@ export function ComunidadFeed() {
               expandido={expandedPosts.has(post.id)}
               onLike={toggleLikePost}
               onToggleComentarios={handleToggleComments}
-              onEditar={updatePost}
-              onBorrar={setBorrarId}
+              onEditar={puedeTocarEstePost ? updatePost : undefined}
+              onBorrar={puedeTocarEstePost ? setBorrarId : undefined}
             >
               <HiloComentarios
                 postId={post.id}

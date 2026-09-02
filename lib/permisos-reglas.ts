@@ -123,6 +123,17 @@ export function puedeGestionarCalendario(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'MANAGER' || rol === 'RECEPCION';
 }
 
+// Moderar Comunidad: editar/fijar/borrar el post o comentario de OTRA
+// persona. Espejo TS de `posts_comunidad_editar`/`comentarios_comunidad_editar`
+// (migr 20260902104439, F-18) — INSTRUCTOR queda fuera aquí, no porque no
+// pueda participar en el tablón (sí puede: publicar, comentar, editar/borrar
+// lo suyo), sino porque antes de esta migración cualquier staff podía tocar
+// el post ajeno con solo la RLS de `studio_id` de por medio. Barrera de UI;
+// la cerradura real es esa RLS.
+export function puedeModerarComunidad(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER' || rol === 'RECEPCION';
+}
+
 // Dar de alta, importar, editar y dar de baja CLIENTAS. Es el trabajo de
 // mostrador, y el manager lo hace.
 export function puedeGestionarClientas(rol: Rol): boolean {
