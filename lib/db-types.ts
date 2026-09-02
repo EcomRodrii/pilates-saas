@@ -1579,6 +1579,10 @@ export interface RowPlataformaLead {
   responsable: string | null;
   creado_en: string;
   actualizado_en: string;
+  // migr 20260902101500.
+  web: string | null;
+  // migr 20260902101500.
+  instagram: string | null;
 }
 
 export interface RowLecturasFichaSalud {
@@ -2403,5 +2407,19 @@ export interface RowAyudaFeedback {
   categoria_slug: string;
   valoracion: string;
   url: string;
+  creado_en: string;
+}
+
+export interface RowPlataformaProspeccionEmail {
+  id: string;
+  lead_id: string;
+  asunto: string;
+  cuerpo: string;
+  estado: string;
+  aprobado_por: string | null;
+  aprobado_en: string | null;
+  enviado_en: string | null;
+  error: string | null;
+  generado_en: string;
   creado_en: string;
 }
