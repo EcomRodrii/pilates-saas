@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
 import { emitirPostComunidadNuevo } from '@/lib/notifications/emit';
 import { mapPostComunidad } from '@/lib/supabase-data';
-import { uid } from '@/lib/utils';
+import { uuidV4 } from '@/lib/utils';
 import type { DestinatariosCampana, Socio, Suscripcion, Recibo } from '@/lib/types';
 import type { RowPostsComunidad } from '@/lib/db-types';
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   const body = (await req.json().catch(() => null)) as {
-    id?: unknown; texto?: unknown; audiencia?: unknown; imagenUrl?: unknown;
+    texto?: unknown; audiencia?: unknown; imagenUrl?: unknown;
     tipo?: unknown; eventoFecha?: unknown; eventoAforo?: unknown; eventoLugar?: unknown;
   } | null;
   const texto = typeof body?.texto === 'string' ? body.texto.trim() : '';
@@ -83,8 +83,15 @@ export async function POST(req: NextRequest) {
   const eventoLugar = typeof body?.eventoLugar === 'string' && body.eventoLugar.trim() ? body.eventoLugar.trim() : null;
 
   const inicial = sesion.nombre.trim().split(/\s+/).slice(0, 2).map(w => w[0] ?? '').join('').toUpperCase() || 'EQ';
+  // F-19 (auditoría 20ª pasada): `posts_comunidad.id` es PRIMARY KEY GLOBAL,
+  // no compuesta con studio_id. Aceptar el id que manda el cliente convertía
+  // el 23505 de una colisión en un oráculo de existencia CROSS-TENANT (500 =
+  // "ese id ya existe en algún estudio", 200 = "no existía") — y encima el id
+  // del cliente (`uid()`, timestamp+contador+azar débil) es adivinable. El
+  // servidor genera SIEMPRE el suyo, con entropía real (crypto.randomUUID),
+  // así que la respuesta ya no dice nada sobre lo que había antes.
   const fila = {
-    id: typeof body?.id === 'string' && body.id ? body.id : `post-${uid()}`,
+    id: `post-${uuidV4()}`,
     studio_id: sesion.studioId,
     autor_id: sesion.userId,
     autor_nombre: sesion.nombre,

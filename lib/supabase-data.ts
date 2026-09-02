@@ -3526,14 +3526,22 @@ export async function dbInsertPostComunidad(p: PostComunidad) {
 // (server-authoritative) en vez del insert directo de arriba — es la única
 // vía que dispara el fan-out de notificación a la audiencia del post
 // (after() dentro de esa route, ver app/api/comunidad/posts/route.ts —
-// ya no Inngest). El `id` lo sigue generando el cliente (mismo
-// criterio que `dbInsertPostComunidad`/el resto de esta store), así el
-// estado optimista de useContentStore no diverge del guardado en servidor.
-// 19ª auditoría · F-2: ya no es best-effort mudo. Devuelve si el post llegó a
-// la BD para que la store pueda retirar el optimista — un aviso que la
-// propietaria ve "publicado" en el panel y que no existe (ni se ha notificado a
-// nadie) es peor que un error visible.
-export async function dbCrearPostComunidad(p: PostComunidad): Promise<boolean> {
+// ya no Inngest).
+//
+// F-19 (auditoría 20ª pasada): el `id` YA NO lo decide el cliente — el
+// servidor lo genera siempre (ver la route: `posts_comunidad.id` es PRIMARY
+// KEY global, y aceptar el id del cliente convertía un 23505 en un oráculo de
+// existencia cross-tenant). Se sigue mandando `p.id` en el body por
+// compatibilidad silenciosa (la route ya no lo lee), y se devuelve el post
+// REAL para que la store reconcilie el id optimista con el que quedó
+// guardado — si no, un like/editar/borrar sobre ese post antes de refrescar
+// apuntaría a un id que nunca existió en la BD.
+//
+// 19ª auditoría · F-2: ya no es best-effort mudo. Devuelve `null` si el post
+// NO llegó a la BD para que la store pueda retirar el optimista — un aviso
+// que la propietaria ve "publicado" en el panel y que no existe (ni se ha
+// notificado a nadie) es peor que un error visible.
+export async function dbCrearPostComunidad(p: PostComunidad): Promise<PostComunidad | null> {
   try {
     const res = await fetch('/api/comunidad/posts', {
       method: 'POST',
@@ -3545,12 +3553,13 @@ export async function dbCrearPostComunidad(p: PostComunidad): Promise<boolean> {
     });
     if (!res.ok) {
       reportDbError('[dbCrearPostComunidad]', await res.json().catch(() => ({ status: res.status })));
-      return false;
+      return null;
     }
-    return true;
+    const data = (await res.json()) as { post?: PostComunidad };
+    return data.post ?? null;
   } catch (e) {
     reportDbError('[dbCrearPostComunidad]', e);
-    return false;
+    return null;
   }
 }
 
