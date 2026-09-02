@@ -23,6 +23,18 @@ const CLAVE_RECARGA_JWT = 'tentare-recarga-jwt';
 // A-3 arregla convertido en logout forzado.
 let recuperacionJwtEnCurso = false;
 
+// Ampliación 28-ago: el abanico de lecturas del arranque falla casi a la vez
+// con el mismo token roto, y cada una llama al listener con SU PROPIO
+// `recargable` (solo resolveStudioId lo manda a `true`). Antes, quien ganaba
+// el candado de arriba decidía en solitario: si una lectura secundaria
+// (`recargable: false`) llegaba una fracción antes que resolveStudioId, la
+// recarga real se perdía sin más — el candado se quedaba echado 15s y el
+// panel seguía con studio_id vacío. Este acumulador recoge el `recargable` de
+// TODAS las llamadas que lleguen mientras la recuperación está en curso
+// (tanto la que abre el candado como las que lo encuentran ya cerrado), y la
+// decisión final se toma sobre él, no sobre el de quien llegó primero.
+let recargablePendienteEnCurso = false;
+
 // B0.6: identifica al usuario en Sentry para poder medir el impacto real de cada
 // error (antes los issues llegaban sin usuario). Solo el id (un UUID), nunca
 // email ni nombre — respeta sendDefaultPii:false de la config de Sentry.
@@ -103,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setJwtCaducadoListener(({ recargable }) => {
       // El candado es de módulo (ver su comentario): sobrevive al re-registro
       // que el propio refreshSession provoca vía TOKEN_REFRESHED → [session].
+      if (recargable) recargablePendienteEnCurso = true;
       if (recuperacionJwtEnCurso) return;
       recuperacionJwtEnCurso = true;
       void (async () => {
@@ -125,13 +138,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (decision === 'recargar') {
-          // Sin `recargable` (todo salvo la lectura crítica del arranque): la
-          // sesión ya está renovada y con eso basta — el siguiente clic o
-          // sondeo funciona; recargar borraría lo que la usuaria tenía a
-          // medias. Se libera el candado tras un margen para absorber la
-          // ráfaga de fallos hermanos del mismo token viejo.
-          if (!recargable) {
-            setTimeout(() => { recuperacionJwtEnCurso = false; }, 15_000);
+          // Se decide sobre el ACUMULADOR, no sobre el `recargable` de quien
+          // abrió el candado: cualquier hermano que haya llegado mientras
+          // tanto (incluido durante el await de arriba) con `recargable:
+          // true` ya lo marcó a `true`, y su recuperación no se puede perder
+          // solo porque otra lectura ganó la carrera para abrir el candado.
+          if (!recargablePendienteEnCurso) {
+            // Sin ningún `recargable` en la ráfaga: la sesión ya está
+            // renovada y con eso basta — el siguiente clic o sondeo
+            // funciona; recargar borraría lo que la usuaria tenía a medias.
+            // Se libera el candado tras un margen para absorber el resto de
+            // la ráfaga de fallos hermanos del mismo token viejo.
+            setTimeout(() => {
+              recuperacionJwtEnCurso = false;
+              recargablePendienteEnCurso = false;
+            }, 15_000);
             return;
           }
           try { sessionStorage.setItem(CLAVE_RECARGA_JWT, String(Date.now())); } catch { /* íd. */ }
@@ -139,7 +160,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Si la recarga no llega a ocurrir (un beforeunload con cambios sin
           // guardar puede cancelarla), el candado no puede quedarse echado
           // para siempre.
-          setTimeout(() => { recuperacionJwtEnCurso = false; }, 15_000);
+          setTimeout(() => {
+            recuperacionJwtEnCurso = false;
+            recargablePendienteEnCurso = false;
+          }, 15_000);
           return;
         }
         if (decision === 'login') {
@@ -154,10 +178,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
           try { await supabase.auth.signOut(); } catch { /* la sesión ya no vale */ }
           window.location.assign('/login?motivo=sesion-caducada');
-          setTimeout(() => { recuperacionJwtEnCurso = false; }, 15_000);
+          setTimeout(() => {
+            recuperacionJwtEnCurso = false;
+            recargablePendienteEnCurso = false;
+          }, 15_000);
           return;
         }
         recuperacionJwtEnCurso = false;
+        recargablePendienteEnCurso = false;
       })();
     });
     return () => setJwtCaducadoListener(null);
