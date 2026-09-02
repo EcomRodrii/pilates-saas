@@ -15,7 +15,7 @@
 export const ESTADOS = ['NUEVO', 'CONTACTADO', 'DEMO', 'PRUEBA', 'CLIENTE', 'PERDIDO'] as const;
 export type EstadoLead = (typeof ESTADOS)[number];
 
-export const ORIGENES = ['CONCIERGE', 'ALTA', 'SOPORTE', 'MANUAL', 'REFERIDO'] as const;
+export const ORIGENES = ['CONCIERGE', 'ALTA', 'SOPORTE', 'MANUAL', 'REFERIDO', 'IMPORT_PROSPECTOS'] as const;
 export type OrigenLead = (typeof ORIGENES)[number];
 
 export const ESTADO_ETIQUETA: Record<EstadoLead, string> = {
@@ -33,6 +33,10 @@ export const ORIGEN_ETIQUETA: Record<OrigenLead, string> = {
   SOPORTE: 'Escribió a soporte',
   MANUAL: 'Apuntado a mano',
   REFERIDO: 'Recomendación',
+  // Lista fría importada por CSV. Separado de MANUAL a propósito: un frío
+  // convierte mucho peor que quien entra solo, y mezclarlos haría que el % de
+  // conversión del embudo siguiera saliendo pero dejara de significar nada.
+  IMPORT_PROSPECTOS: 'Prospección en frío',
 };
 
 /** Los estados en los que el lead sigue vivo: ni ganado ni perdido. */
@@ -46,6 +50,11 @@ export interface Lead {
   telefono: string | null;
   ciudad: string | null;
   softwareActual: string | null;
+  // Contexto para redactar el outreach en frío (migr 20260902101500). Solo se
+  // rellenan en los leads importados; los que entran por el concierge no los
+  // traen y siguen siendo null.
+  web: string | null;
+  instagram: string | null;
   mensaje: string | null;
   origen: string;
   estado: string;

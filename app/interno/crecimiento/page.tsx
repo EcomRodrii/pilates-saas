@@ -22,6 +22,7 @@ import {
   type EstadoLead, type Lead, type OrigenLead, type RepartoRespuesta,
 } from '@/lib/interno/crecimiento';
 import type { ResumenReviewBoost } from '@/lib/interno/review-boost';
+import { Prospeccion } from './prospeccion';
 
 const fecha = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
@@ -143,6 +144,7 @@ export default function CrecimientoInterno() {
   const [error, setError] = useState<string | null>(null);
   const [editando, setEditando] = useState<Partial<Lead> | null>(null);
   const [reviewBoost, setReviewBoost] = useState<ResumenReviewBoost | null>(null);
+  const [pestana, setPestana] = useState<'bandeja' | 'prospeccion'>('bandeja');
 
   const cargar = useCallback(async () => {
     try { setD(await fetchCrecimiento()); setAhora(Date.now()); setError(null); }
@@ -176,17 +178,44 @@ export default function CrecimientoInterno() {
         <div>
           <h1 className="text-[17px] font-bold text-foreground">Crecimiento</h1>
           <p className="text-[12.5px] text-muted-foreground">
-            De dónde vienen los clientes y qué piden.
+            {pestana === 'bandeja'
+              ? 'De dónde vienen los clientes y qué piden.'
+              : 'Estudios que todavía no nos conocen. Nadie sale sin que lo leas.'}
           </p>
         </div>
-        <button
-          type="button" onClick={() => setEditando({})}
-          className="flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-2 text-[13px] font-bold text-brand-foreground"
-        >
-          <Plus className="size-4" /> Nuevo lead
-        </button>
+        {pestana === 'bandeja' && (
+          <button
+            type="button" onClick={() => setEditando({})}
+            className="flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-2 text-[13px] font-bold text-brand-foreground"
+          >
+            <Plus className="size-4" /> Nuevo lead
+          </button>
+        )}
       </div>
 
+      {/* Dos trabajos distintos sobre el mismo dato: atender a quien ya ha
+          levantado la mano, y escribir a quien no sabe que existimos. Comparten
+          tabla (`plataforma_lead`) pero mezclarlos en una sola lista convertiría
+          la bandeja diaria en una lista de 100 desconocidos. */}
+      <div className="flex gap-5 border-b border-border">
+        {([['bandeja', 'Bandeja'], ['prospeccion', 'Prospección']] as const).map(([id, etiqueta]) => (
+          <button
+            key={id} type="button" onClick={() => setPestana(id)}
+            aria-current={pestana === id ? 'page' : undefined}
+            className={`-mb-px border-b-2 pb-2 text-[13px] font-bold transition-colors ${
+              pestana === id
+                ? 'border-brand text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {etiqueta}
+          </button>
+        ))}
+      </div>
+
+      {pestana === 'prospeccion' && <Prospeccion />}
+
+      {pestana === 'bandeja' && (<>
       {editando && (
         <Ficha lead={editando} onCerrar={() => setEditando(null)} onGuardado={() => void cargar()} />
       )}
@@ -421,6 +450,7 @@ export default function CrecimientoInterno() {
           </p>
         )}
       </section>
+      </>)}
     </div>
   );
 }

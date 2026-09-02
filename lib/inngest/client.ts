@@ -92,4 +92,10 @@ export const EVENTS = {
   // /api/marketing/campanas/[id]/enviar) al pulsar "Enviar", un evento por
   // campaña. Reemplaza el mapLimit(8) que orquestaba el envío en el navegador.
   CAMPANA_ENVIAR: 'campanas/campana.enviar',
+  // Outreach en frío de Tentare-empresa a estudios que aún no son clientes
+  // (/interno/crecimiento). Como CAMPANA_ENVIAR, lo dispara una persona al
+  // pulsar "Enviar lote", no un dispatcher cron. Un evento por lote de ~10:
+  // el tamaño es de reputación de dominio, no de rendimiento — ver
+  // TAMANO_LOTE en lib/interno/prospeccion.ts.
+  PROSPECCION_ENVIAR_LOTE: 'prospeccion/lote.enviar',
 } as const;
