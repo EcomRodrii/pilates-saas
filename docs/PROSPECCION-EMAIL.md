@@ -32,6 +32,65 @@ que producción recoja estas variables hace falta un cambio que toque código.
 Datos de Spacemail (SMTP estándar, no tiene API propia): `mail.spacemail.com`,
 puerto `465` con SSL, usuario = dirección completa.
 
+### Cómo se ponen en Vercel
+
+Las pone Marcos, nunca Claude: una contraseña que pasa por un chat o por un log
+es una contraseña que hay que cambiar.
+
+1. [vercel.com](https://vercel.com) → proyecto **pilates-saas** → **Settings** →
+   **Environment Variables**.
+2. Añadir las dos (y `SPACEMAIL_FROM` si se quiere el nombre en el remitente),
+   marcando el entorno **Production**. Marcar también Preview solo si se va a
+   probar desde un deploy de rama — cuidado, ahí el correo sale de verdad.
+3. **Redesplegar.** Una variable nueva no entra en un despliegue ya hecho:
+   Deployments → el último → `···` → Redeploy. O mergear cualquier PR que toque
+   código (⚠️ uno de solo `docs/**` NO construye: `ignoreCommand` de
+   `vercel.json` lo cancela y el check sale verde igualmente).
+
+La contraseña es la **del buzón** (Spacemail Manager → el buzón → contraseña),
+no la de la cuenta de Spaceship. Es el fallo más común y da un `535
+authentication failed` idéntico al de una contraseña mal escrita.
+
+### Antes del primer envío real: `npm run spacemail:check`
+
+Entre "las variables están puestas" y "el correo llega" hay cuatro cosas que
+fallan por separado y ninguna avisa sola: credenciales mal, el puerto 465
+bloqueado por la red, el buzón sin SMTP saliente habilitado, y el correo que sale
+pero aterriza en spam. Descubrirlo con el primer lote de 10 estudios reales
+delante significa quemar diez direcciones que no se pueden volver a usar.
+
+Con `SPACEMAIL_USER` y `SPACEMAIL_PASSWORD` en `.env.local`:
+
+```bash
+npm run spacemail:check
+```
+
+Comprueba las credenciales y la conexión contra `mail.spacemail.com:465`. No
+envía nada. Nunca imprime la contraseña, solo cuánto mide.
+
+```bash
+npm run spacemail:check -- --enviar
+```
+
+Manda **un** correo de prueba **a tu propio buzón** — el script no acepta
+destinatario, así que no puede escribir a un estudio real ni por accidente. Usa
+el módulo de envío de verdad (`enviarProspeccion`), no una copia, así que prueba
+el pie de baja y las cabeceras que van a salir.
+
+⚠️ **Que salga sin error no significa que llegue a la bandeja de entrada.** Al
+recibirlo, mirar tres cosas:
+
+- **¿Está en spam?** Si sí, no enviar el primer lote todavía. Con un dominio que
+  nunca ha mandado correo comercial es lo más probable, y se arregla antes de
+  escribir a nadie (SPF, DKIM y DMARC del dominio en Spaceship, y empezar por
+  volúmenes bajos).
+- **El remitente**, que tiene que leerse como una persona y coincidir con quien
+  firma el correo.
+- **El pie**: identidad completa y la vía de baja.
+
+Y responder `BAJA` al propio correo de prueba, para comprobar que esa respuesta
+llega de verdad al buzón donde se va a leer.
+
 ## Por qué NO va por Resend
 
 Resend manda el correo transaccional de los estudios a sus socias: recibos,
