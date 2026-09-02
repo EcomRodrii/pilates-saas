@@ -152,7 +152,14 @@ export function HojaPase({
   );
 }
 
-/** El cuadro central: el QR, o lo que toque cuando no hay QR que enseñar. */
+/**
+ * El cuadro central: el QR, o lo que toque cuando no hay QR que enseñar.
+ *
+ * ⚠️ Cuando no hay QR, el cuadro va en `#14160F` y NO en el `#12291A` de la
+ * hoja: es el mismo negro-oliva del kit, pero un escalón por debajo del fondo.
+ * Con el mismo verde que la hoja el cuadro desaparecía —solo lo dibujaba su
+ * sombra— y se perdía el hueco donde la socia está buscando el código.
+ */
 function Contenido({ pase, fallo }: { pase: DatosPase | null; fallo: boolean }) {
   const caja: React.CSSProperties = {
     position: 'relative', overflow: 'hidden', marginTop: 22,
@@ -160,7 +167,7 @@ function Contenido({ pase, fallo }: { pase: DatosPase | null; fallo: boolean }) 
     boxShadow: '0 20px 44px -18px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
   };
   const aviso = (texto1: string, texto2?: string) => (
-    <div style={{ ...caja, background: '#0E2216', flexDirection: 'column', gap: 6, padding: 20 }}>
+    <div style={{ ...caja, background: '#14160F', flexDirection: 'column', gap: 6, padding: 20 }}>
       <span style={{ fontFamily: sans, fontSize: 18, fontWeight: 800, letterSpacing: '-.02em', color: '#F1ECE1', textAlign: 'center', lineHeight: 1.15 }}>
         {texto1}
       </span>
@@ -171,7 +178,7 @@ function Contenido({ pase, fallo }: { pase: DatosPase | null; fallo: boolean }) 
   );
 
   if (fallo) return aviso('No hemos podido abrir tu pase', 'Inténtalo en unos segundos');
-  if (!pase) return <div style={{ ...caja, background: '#0E2216' }} aria-busy />;
+  if (!pase) return <div style={{ ...caja, background: '#14160F' }} aria-busy />;
   if (!pase.hayPase) return aviso('No tienes ninguna clase cerca', 'El pase aparece una hora antes');
   if (!pase.vigente) {
     const hora = pase.seActivaA

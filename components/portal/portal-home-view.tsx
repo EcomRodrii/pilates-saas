@@ -1525,7 +1525,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               ) : (
                 <span style={{
                   position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontSize: 48, fontWeight: 800,
+                  color: '#fff', fontSize: 46, fontWeight: 800,
                 }}>
                   {instructoraDestacada.nombre.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
                 </span>

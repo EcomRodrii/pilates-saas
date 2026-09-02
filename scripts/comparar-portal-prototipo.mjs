@@ -126,7 +126,24 @@ const CENSO = () => {
     // cada div contenedor y el censo se llena de valores que nadie ve.
     const propio = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
     if (propio) { anota('tamaño', cs.fontSize); anota('peso', cs.fontWeight) }
-    if (cs.borderRadius !== '0px') anota('radio', cs.borderRadius)
+    // Un radio que redondea la caja ENTERA se ve igual venga escrito como venga:
+    // `50%` sobre un cuadrado, `23px` sobre un botón de 46 de alto y el `999px`
+    // del kit dibujan exactamente el mismo círculo o la misma píldora. Contarlos
+    // como valores distintos llenaba el informe de deriva inexistente —los 19
+    // elementos en `50%` y los 16 en `23px` que marcó la pasada del 2026-09-02—
+    // y perseguirla son ~60 ediciones en el portal que no mueven un píxel. Se
+    // canoniza SOLO cuando de verdad redondea del todo:
+    // sobre una caja no cuadrada `50%` es una elipse, y eso sí difiere.
+    if (cs.borderRadius !== '0px') {
+      const br = cs.borderRadius.trim()
+      const uniforme = !br.includes('/') && !br.includes(' ')
+      const px = uniforme && br.endsWith('px') ? parseFloat(br) : null
+      const redondoDelTodo =
+        uniforme &&
+        ((br === '50%' && Math.abs(r.width - r.height) < 1) ||
+          (px != null && px >= Math.min(r.width, r.height) / 2 - 0.5))
+      anota('radio', redondoDelTodo ? '999px' : br)
+    }
   }
   return props
 }
