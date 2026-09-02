@@ -93,8 +93,15 @@ export function useContentStore() {
     // rechaza, se retira el optimista. Dejarlo pintado hacía creer que el aviso
     // estaba publicado (y notificado a la audiencia) cuando no había llegado ni
     // a la BD ni al fan-out.
-    void dbCrearPostComunidad(nuevo).then(ok => {
-      if (!ok) setPostsComunidad(prev => prev.filter(p => p.id !== nuevo.id));
+    //
+    // F-19: el servidor ya no respeta `nuevo.id` (lo genera él, ver
+    // dbCrearPostComunidad) — hay que reconciliar el id optimista con el real
+    // o un like/editar/borrar sobre este post antes del próximo refresco
+    // apuntaría a un id que nunca se guardó.
+    void dbCrearPostComunidad(nuevo).then(guardado => {
+      if (!guardado) { setPostsComunidad(prev => prev.filter(p => p.id !== nuevo.id)); return; }
+      if (guardado.id === nuevo.id) return;
+      setPostsComunidad(prev => prev.map(p => p.id === nuevo.id ? { ...p, id: guardado.id } : p));
     });
   }
 
