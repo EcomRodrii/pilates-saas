@@ -28,7 +28,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
-import { registrarDevolucion, referenciaDevolucion, origenDeReembolso } from './registrar-devolucion.ts';
+import { registrarDevolucion, referenciaDevolucion, origenDeReembolso, type OrigenDevolucion } from './registrar-devolucion.ts';
 
 // Orígenes cuyo PaymentIntent apunta a un recibo real de Tentare, y que por
 // tanto hay que marcar DEVUELTO/disputado cuando se devuelve o se impugna.
@@ -230,20 +230,25 @@ export async function procesarDisputeClosed(
 
 /**
  * Reembolso de una venta de POS (datáfono `pos_terminal` / Bizum presencial
- * `pos_bizum`) — P-2, 17ª auditoría. Sin `registrarDevolucion`: una venta POS
- * no tiene entrega/bono/suscripción que revisar (es venta al contado de
- * productos/servicios sueltos), así que no hay nada que "revertir" más allá
- * de dejar constancia del reembolso para que el cierre de caja no quede
- * inflado. La venta se localiza por `stripe_payment_intent_id`.
+ * `pos_bizum`) — P-2, 17ª auditoría. La venta se localiza por
+ * `stripe_payment_intent_id`.
  *
- * 19ª auditoría · F-3: esa última frase decía "`ventas_pos` ya lo guarda al
- * cobrar" y era FALSA. La columna existe desde `0036_pagos_espana_sepa_bizum`,
- * pero ni `VentaPOS` ni `ventaPOSToDb` la incluían, así que se quedaba a NULL en
- * todas las ventas (verificado en producción: 19 filas, 0 con PaymentIntent).
- * El predicado de abajo no casaba NUNCA y este procesador era un no-op integral
- * — con su test en verde, porque el `fakeAdmin` devuelve siempre una fila y no
- * evalúa el predicado. El mapper ya la escribe; falta que los cobros POS con
- * Stripe informen el campo al registrar la venta (ver F-3 en el informe).
+ * F-12/F-13 (rediseño de fondo): antes escribía directo en `ventas_pos` con un
+ * guard `.or()` a mano, sin dejar ninguna fila en `devoluciones` — invisible
+ * para cualquier vista/exportación que mire esa tabla, y sin distinguir
+ * parcial de total como sí hace `registrarDevolucion`. Ahora pasa por el mismo
+ * mecanismo único que un reembolso de recibo: la fila de `devoluciones` (con
+ * `venta_pos_id`, `recibo_id` a NULL) es lo que dedupea por su UNIQUE de
+ * `referencia` (chargeId+acumulado) — el guard `.or()` ya no hace falta.
+ * `ventas_pos.devuelta_en/importe_devuelto` se siguen actualizando como espejo
+ * de lectura rápida, mismo patrón que `recibos.importe_devuelto`.
+ *
+ * 19ª auditoría · F-3: la columna `stripe_payment_intent_id` existe desde
+ * `0036_pagos_espana_sepa_bizum`, pero durante un tiempo ningún mapper la
+ * escribía y esta consulta no casaba NUNCA (19 filas, 0 con PaymentIntent en
+ * producción). El mapper ya la escribe hoy; sigue documentado aquí porque el
+ * predicado silencioso es el mismo tipo de riesgo si algún día deja de
+ * escribirse.
  */
 export async function procesarReembolsoVentaPos(
   admin: SupabaseClient,
@@ -254,41 +259,39 @@ export async function procesarReembolsoVentaPos(
     fuente: Fuente;
   },
 ): Promise<ResultadoProcesado> {
-  const acumuladoDevuelto = (p.charge.amountRefunded ?? 0) / 100;
+  const acumuladoDevuelto = p.charge.amountRefunded ?? 0; // céntimos
 
-  // Guard de reentrada: un reintento del mismo evento (webhook reenviado, o el
-  // cron llegando después) no debe reescribir `devuelta_en` con la fecha de hoy.
-  //
-  // 19ª auditoría · F-6: el guard era `.is('devuelta_en', null)`, que además de
-  // frenar el reintento hacía lo contrario de lo que su propio comentario
-  // prometía — tras el primer parcial la fila ya no casaba, así que un SEGUNDO
-  // reembolso parcial (o el paso de parcial a total) se perdía y el acumulado
-  // real de Stripe no llegaba nunca a la BD. Se cambia por un guard sobre el
-  // importe: `importe_devuelto` es un acumulado monótono (Stripe manda siempre
-  // `amount_refunded` total, no el delta), así que "menor que el nuevo" frena el
-  // reintento exacto y deja pasar todo incremento real.
   const { data: venta, error } = await admin.from('ventas_pos')
-    .update({ devuelta_en: new Date().toISOString(), importe_devuelto: acumuladoDevuelto })
-    .eq('studio_id', p.studioId).eq('stripe_payment_intent_id', p.paymentIntentId)
-    .or(`importe_devuelto.is.null,importe_devuelto.lt.${acumuladoDevuelto}`)
     .select('id, socio_id, total')
+    .eq('studio_id', p.studioId).eq('stripe_payment_intent_id', p.paymentIntentId)
     .maybeSingle();
-
   if (error) {
-    console.error(`[${p.fuente}] no se pudo marcar la venta POS devuelta`, p.paymentIntentId, error);
+    console.error(`[${p.fuente}] no se pudo localizar la venta POS`, p.paymentIntentId, error);
     return { ok: false, huboEfecto: false, error: error.message };
   }
-
   if (!venta) {
-    // Dos motivos legítimos de 0 filas, indistinguibles sin otra consulta: (a)
-    // reintento de un reembolso ya anotado, o (b) la venta nunca se registró
-    // en `ventas_pos` (el POS está congelado — lib/frozen-features.ts — así
-    // que un cobro de datáfono sin su venta asociada no puede completarse
-    // desde el panel). Se avisa en ambos casos: si es (b), es la única señal
-    // de que hay dinero devuelto sin ninguna fila que lo refleje.
-    Sentry.captureMessage(`[${p.fuente}] reembolso de venta POS sin efecto (ya devuelta, o venta nunca registrada)`, {
+    // La venta nunca se registró en `ventas_pos` (el POS está congelado —
+    // lib/frozen-features.ts — así que un cobro de datáfono sin su venta
+    // asociada no puede completarse desde el panel). Única señal de que hay
+    // dinero devuelto en Stripe sin ninguna fila que lo refleje.
+    Sentry.captureMessage(`[${p.fuente}] reembolso de venta POS sin venta asociada`, {
       level: 'warning', extra: { paymentIntentId: p.paymentIntentId, studioId: p.studioId },
     });
+    return { ok: true, huboEfecto: false };
+  }
+
+  const origen: OrigenDevolucion = origenDeReembolso({
+    refunded: p.charge.refunded === true, acumulado: acumuladoDevuelto, total: p.charge.amount ?? 0,
+  });
+
+  const dev = await registrarDevolucion(admin, {
+    studioId: p.studioId, ventaPosId: venta.id as string, origen, devueltoCentimos: acumuladoDevuelto,
+    referencia: referenciaDevolucion({ tipo: 'reembolso', chargeId: p.charge.id, acumuladoDevueltoCentimos: acumuladoDevuelto }),
+    stripeChargeId: p.charge.id,
+  });
+  if (!dev) {
+    // Reintento del mismo evento (el UNIQUE de `devoluciones.referencia` ya
+    // frenó el INSERT) — no hay nada nuevo que anotar ni que avisar.
     return { ok: true, huboEfecto: false };
   }
 
@@ -296,7 +299,7 @@ export async function procesarReembolsoVentaPos(
     const { emitirVentaPosDevuelta } = await import('../notifications/emit.ts');
     await emitirVentaPosDevuelta(admin, {
       studioId: p.studioId, socioId: (venta.socio_id as string | null) ?? null,
-      ventaPosId: venta.id as string, importe: acumuladoDevuelto,
+      ventaPosId: venta.id as string, importe: dev.importeDevuelto,
     });
   } catch (e) {
     console.error(`[${p.fuente}] venta POS marcada devuelta pero sin notificar`, venta.id, e instanceof Error ? e.message : e);

@@ -282,6 +282,8 @@ export interface RowFacturas {
   tipo_rectificativa: string | null;
   // migr 20260812121955.
   importe_rectificacion: number | null;
+  // migr 20260902001721.
+  venta_pos_id: string | null;
 }
 
 export interface RowInstructores {
@@ -515,6 +517,12 @@ export interface RowRecibos {
   reembolso_fallido_en: string | null;
   // migr 20260820182934.
   reembolso_fallo_motivo: string | null;
+  // migr 20260902001650.
+  conciliado_en: string | null;
+  // migr 20260902001650.
+  conciliado_por: string | null;
+  // migr 20260902001650.
+  factura_pendiente_sellar: boolean | null;
 }
 
 export interface RowRewardActions {
@@ -962,6 +970,10 @@ export interface RowVentasPos {
   devuelta_en: string | null;
   // migr 20260827093640.
   importe_devuelto: number | null;
+  // migr 20260902001659.
+  conciliado_en: string | null;
+  // migr 20260902001659.
+  conciliado_por: string | null;
 }
 
 export interface RowVideosOnDemand {
@@ -1812,6 +1824,8 @@ export interface RowDevoluciones {
   fallo_en: string | null;
   // migr 20260820182934.
   fallo_motivo: string | null;
+  // migr 20260902001713.
+  venta_pos_id: string | null;
 }
 
 export interface RowCadenaTiposClase {

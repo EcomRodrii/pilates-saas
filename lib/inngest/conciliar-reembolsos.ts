@@ -44,7 +44,7 @@ import * as Sentry from '@sentry/nextjs';
 import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
-import { ORIGENES_CON_RECIBO, procesarChargeRefunded, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
+import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReembolsoVentaPos, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
 import { origenDeReembolso } from '@/lib/billing/registrar-devolucion';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -92,6 +92,17 @@ export const conciliarReembolsos = inngest.createFunction(
       } catch (e) {
         Sentry.captureException(e instanceof Error ? e : new Error('conciliar-reembolsos'), {
           level: 'error', tags: { area: 'cobros', tipo: 'conciliar-reembolsos' }, extra: { studioId: studio.id },
+        });
+      }
+      try {
+        // F-12/F-13: mismo barrido de refunds, rama POS — ventas de datáfono/
+        // Bizum presencial no tienen `reciboId`, así que necesitan su propio
+        // filtro y llamador (procesarReembolsoVentaPos), pero comparten la
+        // misma lista de refunds de Stripe.
+        reembolsos += await conciliarRefundsPosEstudio(admin, stripe, studio);
+      } catch (e) {
+        Sentry.captureException(e instanceof Error ? e : new Error('conciliar-reembolsos-pos'), {
+          level: 'error', tags: { area: 'cobros', tipo: 'conciliar-reembolsos-pos' }, extra: { studioId: studio.id },
         });
       }
       try {
@@ -196,6 +207,82 @@ async function conciliarRefundsEstudio(
       Sentry.captureMessage('[conciliar-reembolsos] refund recuperado (el webhook no lo entregó)', {
         level: 'warning', tags: { area: 'cobros', tipo: 'conciliado' },
         extra: { studioId: studio.id, reciboId, paymentIntentId: piId, chargeId: charge.id },
+      });
+    }
+  }
+  return aplicados;
+}
+
+/**
+ * F-12/F-13: red de seguridad de reembolsos POS, mismo patrón que
+ * `conciliarRefundsEstudio` pero para `pos_terminal`/`pos_bizum` — esas
+ * ventas no tienen `reciboId` (`ventas_pos` no lleva la máquina de
+ * entrega/bono que sí necesita `registrarDevolucion` con un recibo), así que
+ * la venta se localiza por PaymentIntent dentro de `procesarReembolsoVentaPos`
+ * en vez de leerse aquí.
+ */
+async function conciliarRefundsPosEstudio(
+  admin: SupabaseClient,
+  stripe: Stripe,
+  studio: { id: string; stripe_account_id: string },
+): Promise<number> {
+  const desde = Math.floor(Date.now() / 1000) - VENTANA_HORAS * 3600;
+  let aplicados = 0;
+  let vistos = 0;
+
+  for await (const refund of stripe.refunds.list(
+    { created: { gte: desde }, limit: 100, expand: ['data.charge'] },
+    { stripeAccount: studio.stripe_account_id },
+  )) {
+    vistos++;
+    if (vistos > TECHO) {
+      Sentry.captureMessage('[conciliar-reembolsos] techo de paginado de refunds POS alcanzado', {
+        level: 'error', tags: { area: 'cobros', tipo: 'techo-paginado' },
+        extra: { studioId: studio.id, techo: TECHO },
+      });
+      break;
+    }
+    if (refund.status !== 'succeeded') continue;
+
+    const charge = typeof refund.charge === 'string' ? null : refund.charge;
+    if (!charge) continue;
+    const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+    if (!piId) continue;
+
+    let pi: Stripe.PaymentIntent;
+    try {
+      pi = await stripe.paymentIntents.retrieve(piId, {}, { stripeAccount: studio.stripe_account_id });
+    } catch (e) {
+      Sentry.captureException(e instanceof Error ? e : new Error('conciliar-reembolsos-pos retrieve PI'), {
+        level: 'error', tags: { area: 'cobros', tipo: 'conciliar-reembolsos-pos' },
+        extra: { studioId: studio.id, paymentIntentId: piId },
+      });
+      continue;
+    }
+
+    if (!ORIGENES_POS.has(pi.metadata?.origen ?? '')) continue;
+
+    const resultado = await procesarReembolsoVentaPos(admin, {
+      studioId: studio.id, paymentIntentId: piId,
+      charge: {
+        id: charge.id, refunded: charge.refunded === true,
+        amount: charge.amount ?? null, amountRefunded: charge.amount_refunded ?? null,
+      },
+      fuente: 'conciliador',
+    });
+
+    if (!resultado.ok) {
+      Sentry.captureMessage('[conciliar-reembolsos] refund POS recuperado pero no se pudo aplicar', {
+        level: 'error', tags: { area: 'cobros', tipo: 'conciliar-reembolsos-pos-fallo' },
+        extra: { studioId: studio.id, paymentIntentId: piId, error: resultado.error },
+      });
+      continue;
+    }
+    if (resultado.huboEfecto) {
+      aplicados++;
+      Sentry.captureMessage('[conciliar-reembolsos] refund POS recuperado (el webhook no lo entregó)', {
+        level: 'warning', tags: { area: 'cobros', tipo: 'conciliado' },
+        extra: { studioId: studio.id, paymentIntentId: piId, chargeId: charge.id },
       });
     }
   }

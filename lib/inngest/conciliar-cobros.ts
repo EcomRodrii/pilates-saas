@@ -33,8 +33,7 @@ import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { entregarPlanComprado, idsDe } from '@/lib/billing/entregar-plan-comprado';
-import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
-import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
+import { confirmarCobroRecibo, reintentarFacturasPendientesDeSellar } from '@/lib/billing/confirmar-cobro';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '@/lib/billing/conciliar-sesiones';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -336,45 +335,20 @@ async function entregar(
   });
 
   if (p.tipo === 'recibo') {
-    // Auditoría 20ª pasada · F-13: el webhook, para el mismo hecho, además
-    // guarda `stripe_payment_intent_id` y sella la factura
-    // (sellarFacturaDeRecibo) — el conciliador no hacía ninguna de las dos.
-    // Como este barrido es AHORA la única red cuando el webhook falla
-    // (F-12), todo cobro que recuperaba quedaba sin PaymentIntent guardado
-    // (así que "Devolver" desde el panel dependía de `paymentIntents.search`,
-    // que tarda ~1 min en indexar) y sin factura sellada y sin aviso — el
-    // webhook al menos avisa por Sentry cuando el sellado falla; aquí ni se
-    // intentaba. Mismo criterio: best-effort e idempotente, un fallo aquí no
-    // debe deshacer el cobro ya persistido.
+    // F-12/F-13 (rediseño de fondo): mismo punto único que usa el webhook —
+    // marcar cobrado + renovar + sellar factura + notificar + email en un
+    // solo sitio, ver lib/billing/confirmar-cobro.ts. Antes esto era una
+    // copia casi literal del webhook que se quedaba atrás cada vez que el
+    // webhook ganaba una pieza nueva (guardar el PaymentIntent, sellar
+    // factura — las dos llegaron aquí tarde, F-13).
     const piId = typeof sesion?.payment_intent === 'string'
       ? sesion.payment_intent
       : sesion?.payment_intent?.id ?? null;
-    const { error } = await admin
-      .from('recibos')
-      .update({
-        estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: 'TARJETA',
-        ...(piId ? { stripe_payment_intent_id: piId } : {}),
-        checkout_session_id: null,
-      })
-      .eq('id', p.reciboId).eq('studio_id', p.studioId)
-      // Mismos estados cobrables que el webhook: nunca se resucita un DEVUELTO
-      // ni se reescribe la fecha de uno ya COBRADO.
-      .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO']);
-    if (error) throw new Error(`conciliador/recibo ${p.reciboId}: ${error.message}`);
-    await aplicarRenovacionServidor(admin, { studioId: p.studioId, reciboId: p.reciboId });
-    const selladoFactura = await sellarFacturaDeRecibo(admin, {
-      studioId: p.studioId, reciboId: p.reciboId, facturaId: `fac-checkout-${p.reciboId}`,
+    const res = await confirmarCobroRecibo(admin, {
+      studioId: p.studioId, reciboId: p.reciboId, metodoCobro: 'TARJETA',
+      paymentIntentId: piId, fuente: 'conciliador',
     });
-    if (!selladoFactura.ok) {
-      Sentry.captureMessage('[conciliador] cobro recuperado pero factura sin sellar', {
-        level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
-        extra: { reciboId: p.reciboId, studioId: p.studioId, error: selladoFactura.error },
-      });
-    }
-    const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
-    await emitirPagoRealizado(admin, { studioId: p.studioId, reciboId: p.reciboId });
-    const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
-    await enviarEmailReciboWebhook(admin, { studioId: p.studioId, reciboId: p.reciboId });
+    if (!res.ok) throw new Error(`conciliador/recibo ${p.reciboId}: ${res.error}`);
     return;
   }
 
@@ -522,7 +496,20 @@ export const conciliarCobrosDispatcher = inngest.createFunction(
           });
         }
       }
-      return { estudios: studios.length, entregados };
+
+      // F-12/F-13: remate del eslabón "factura" del ciclo cobro → factura →
+      // devolución → conciliación. Acotado a las últimas 72h (ver cabecera de
+      // confirmar-cobro.ts) — nunca sellado retroactivo sin límite.
+      let facturasSelladas = 0;
+      try {
+        facturasSelladas = await reintentarFacturasPendientesDeSellar(admin, 72);
+      } catch (e) {
+        Sentry.captureException(e instanceof Error ? e : new Error('reintentarFacturasPendientesDeSellar'), {
+          level: 'error', tags: { area: 'cobros', tipo: 'facturacion' },
+        });
+      }
+
+      return { estudios: studios.length, entregados, facturasSelladas };
     });
   },
 );

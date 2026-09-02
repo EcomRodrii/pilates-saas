@@ -443,7 +443,11 @@ export type FilaReciboPanel = Omit<RowRecibos,
   | 'entrega_estado_antes' | 'importe_devuelto'
   // Solo la usa /api/stripe/checkout en servidor, para reutilizar la sesión ya
   // abierta de un recibo (20260817214500). El panel no la pinta ni la decide.
-  | 'checkout_session_id'>;
+  | 'checkout_session_id'
+  // F-12/F-13: metadata de conciliación, solo la escriben/leen el webhook, el
+  // conciliador y sus reintentos de facturación en servidor. El panel no la
+  // pinta ni la decide.
+  | 'conciliado_en' | 'conciliado_por' | 'factura_pendiente_sellar'>;
 
 export function mapSocio(r: FilaSocioPanel): Socio {
   // ⚠️ `versionTexto` llega VACÍO desde el arranque del panel, y es a propósito.
@@ -4607,7 +4611,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion').eq('studio_id', sid).range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus
     // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a
     // 1000 filas para un estudio con muchas citas 1:1 (auditoría 2026-07-29 §2.3).
