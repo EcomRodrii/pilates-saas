@@ -168,8 +168,15 @@ export async function cobrarReciboOffSession(params: {
     // (payment_intent.succeeded / .payment_failed) lo resolverá — PR-4. Solo se
     // marca COBRADO cuando Stripe confirma 'succeeded'.
     if (esSepa && paymentIntent.status === 'processing') {
+      // F-31 (auditoría 20ª pasada): regla de la casa incumplida — su gemelo
+      // de abajo (rama 'succeeded') ya acota por studio_id, este no. No
+      // explotable hoy (`params.reciboId` ya viene validado contra
+      // `studio_id` por el SELECT del arranque de la función), pero un
+      // UPDATE de dinero nunca debe depender de que esa validación previa
+      // se mantenga si el código de alrededor cambia.
       const { error: updErr } = await admin
-        .from('recibos').update({ estado: 'EN_CURSO', metodo_cobro: 'SEPA', sepa_estado: 'processing', stripe_payment_intent_id: paymentIntent.id }).eq('id', params.reciboId);
+        .from('recibos').update({ estado: 'EN_CURSO', metodo_cobro: 'SEPA', sepa_estado: 'processing', stripe_payment_intent_id: paymentIntent.id })
+        .eq('id', params.reciboId).eq('studio_id', params.studioId);
       if (updErr) {
         Sentry.captureException(new Error(`Adeudo SEPA enviado pero no se pudo marcar el recibo EN_CURSO: ${updErr.message}`), {
           level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },

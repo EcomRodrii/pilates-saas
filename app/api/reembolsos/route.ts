@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
   const cuenta = studio.stripe_account_id as string;
 
-  const { id: piId, duplicados } = await resolverPaymentIntent(stripe, cuenta, recibo.stripe_payment_intent_id as string | null, recibo.id as string);
+  const { id: piId, duplicados } = await resolverPaymentIntent(stripe, cuenta, recibo.stripe_payment_intent_id as string | null, recibo.id as string, sesion.studioId);
   if (duplicados.length > 1) {
     // Este recibo se cobró MÁS DE UNA VEZ. Elegir cuál devolver no puede hacerlo
     // el servidor a ciegas (importes iguales, cuentas iguales), pero decir "no
@@ -223,6 +223,7 @@ async function resolverPaymentIntent(
   cuenta: string,
   guardado: string | null,
   reciboId: string,
+  studioId: string,
 ): Promise<{ id: string | null; duplicados: string[] }> {
   if (guardado) return { id: guardado, duplicados: [] };
   try {
@@ -241,7 +242,11 @@ async function resolverPaymentIntent(
     if (pi.status !== 'succeeded') return { id: null, duplicados: [] };
     const admin = getSupabaseAdmin();
     if (admin) {
-      await admin.from('recibos').update({ stripe_payment_intent_id: pi.id }).eq('id', reciboId);
+      // F-31 (auditoría 20ª pasada): regla de la casa incumplida — no
+      // explotable hoy (`reciboId` ya viene validado contra `studio_id` por
+      // el SELECT del arranque del handler), pero un UPDATE de dinero nunca
+      // debe depender de que esa validación previa se mantenga.
+      await admin.from('recibos').update({ stripe_payment_intent_id: pi.id }).eq('id', reciboId).eq('studio_id', studioId);
     }
     return { id: pi.id, duplicados: [] };
   } catch {
