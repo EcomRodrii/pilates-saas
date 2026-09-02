@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { esClavePublicable } from '@/lib/billing/modo-stripe';
 
 // COMPRAS — pantalla del prototipo navegable de Claude Design.
 //
@@ -52,7 +53,13 @@ import type { PlanTarifa } from '@/lib/types';
 // del widget público (`/reservar/[slug]`), que solo migra a embebido cuando
 // hay socia autenticada y mantiene el redirect hosted para visitantes. Ver
 // «Camino A» en `.claude/tentare-os.md`.
-const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+// Saneada, no cruda: una clave con forma equivocada (una `sk_` por una env
+// var mal puesta) pasa la validación de `loadStripe()` y revienta después de
+// forma asíncrona, tumbando la pantalla entera. Con `undefined` se cae al
+// camino ya existente de "pago no disponible".
+const STRIPE_PUBLISHABLE_KEY = esClavePublicable(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  ? process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  : undefined;
 
 export default function ComprasPage() {
   const { slug } = useParams<{ slug: string }>();

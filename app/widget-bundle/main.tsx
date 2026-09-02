@@ -19,6 +19,7 @@
 // esa hoja se inyecta como <style> DENTRO del shadow root, nunca en el
 // <head> del documento anfitrión.
 import { createRoot } from 'react-dom/client';
+import { esClavePublicable } from '@/lib/billing/modo-stripe';
 import { StrictMode, useCallback, useEffect, useRef, useState } from 'react';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { MODO_TOKENS, type ModoTokens } from '@/lib/portal-modo';
@@ -76,7 +77,13 @@ const FUENTE_DISPLAY_BASE = "'Instrument Serif', Georgia, serif";
 // criterio que TURNSTILE_SITE_KEY en formulario-acceso.tsx — sin ella,
 // <ListaPlanes> se queda sin renderizar el paso de pago (el resto del
 // widget sigue funcionando).
-const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+// Saneada, no cruda: una clave con forma equivocada (una `sk_` por una env
+// var mal puesta) pasa la validación de `loadStripe()` y revienta después de
+// forma asíncrona, tumbando la pantalla entera. Con `undefined` se cae al
+// camino ya existente de "pago no disponible".
+const STRIPE_PUBLISHABLE_KEY = esClavePublicable(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  ? process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  : undefined;
 
 // Origen de Tentare, capturado del propio <script src="https://.../widget.js">
 // que está ejecutando este módulo — SÍNCRONO, a nivel de módulo: `document.

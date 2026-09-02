@@ -46,6 +46,29 @@ export function modoDeClave(clave: string | undefined | null): ModoStripe {
   return 'sin-configurar';
 }
 
+/**
+ * ¿Es una clave que PUEDE llegar al navegador? Solo la publicable (`pk_`) o la
+ * restringida (`rk_`). Una secreta (`sk_`) nunca: el bundle del cliente lo
+ * descarga cualquier visitante del widget que el estudio incrusta en su web,
+ * así que una `sk_` ahí es una credencial filtrada, no un fallo de pantalla.
+ *
+ * Va aquí y no en cada pantalla porque este módulo YA es el que decide qué
+ * clave puede estar dónde — es la misma pregunta, en la otra dirección:
+ * `comprobarModoStripe` mira el MODO (live/test) de la clave de servidor, y
+ * esto mira la FORMA de la que se manda al cliente.
+ *
+ * ⚠️ Por qué no basta con comprobar que la variable no esté vacía, que es lo
+ * único que se hacía: `loadStripe()` acepta una `sk_` en su validación de
+ * forma y revienta DESPUÉS, ya dentro de stripe.js, de forma asíncrona. El
+ * `try/catch` síncrono no la ve, `<Elements>` relanza, y se lleva por delante
+ * la PÁGINA ENTERA en vez de dejar el aviso de "pago no disponible" — que es
+ * el peor final posible en `/reservar`, donde quien lo sufre es una visitante
+ * en la web del estudio que simplemente se va.
+ */
+export function esClavePublicable(clave: string | undefined | null): clave is string {
+  return typeof clave === 'string' && (clave.startsWith('pk_') || clave.startsWith('rk_'));
+}
+
 export type EntornoDespliegue = 'produccion' | 'preview' | 'local';
 
 /**
