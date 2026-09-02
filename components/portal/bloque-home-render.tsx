@@ -23,6 +23,28 @@ import { usePortalHref } from '@/components/portal/portal-preview-bridge';
  *  components/portal/portal-home-view.tsx. */
 const RADIO_TARJETA = 16;
 
+/**
+ * Los MISMOS colores que `T`, pero en hex literal.
+ *
+ * ⚠️ `coloresDe()` (lib/theme/superficie.ts) NO pasa estos valores a CSS:
+ * CALCULA con ellos. Mide el contraste del fondo del bloque contra la tinta
+ * para decidir si el texto tiene que saltar a claro. Una cadena
+ * `var(--ap-tinta, #1A1A1A)` no se puede parsear como color, así que ese
+ * cálculo se rompe EN SILENCIO — un bloque con fondo claro dejaba de conservar
+ * el color del tema. Lo cazó `e2e/portal-home-bloques-render.spec.ts:192`
+ * ("con fondo CLARO el bloque conserva el color del tema, no salta a negro"),
+ * que existe exactamente para esto.
+ *
+ * **Regla general al migrar tokens a `--ap-*`**: `var()` para lo que va
+ * DIRECTO a una propiedad CSS; hex literal para lo que entra en una función
+ * que hace cuentas con el color.
+ */
+const T_CALC = {
+  ink: '#1A1A1A',
+  muted: '#5A5A52',
+  muted2: '#3E6B4A',
+} as const;
+
 const T = {
   surface: 'var(--ap-card, #FFFFFF)',
   surface2: 'var(--ap-pill, #EFEDE4)',
@@ -123,8 +145,8 @@ function BannerBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'b
         justifyContent: 'flex-end', alignItems: alineacion === 'center' ? 'center' : alineacion === 'right' ? 'flex-end' : undefined,
         textAlign: alineacion, pointerEvents: 'none',
       }}>
-        {titulo && <div style={{ ...escalar(estilo, display(29, true, 1.12)), color: coloresDe(estilo, T).ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{titulo}</div>}
-        {cuerpo && <div style={{ ...escalar(estilo, texto.nota), color: coloresDe(estilo, { ink: T.ink, muted: T.muted }).muted, marginTop: 12 }}><TextoRico texto={cuerpo} /></div>}
+        {titulo && <div style={{ ...escalar(estilo, display(29, true, 1.12)), color: coloresDe(estilo, T_CALC).ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{titulo}</div>}
+        {cuerpo && <div style={{ ...escalar(estilo, texto.nota), color: coloresDe(estilo, { ink: T_CALC.ink, muted: T_CALC.muted }).muted, marginTop: 12 }}><TextoRico texto={cuerpo} /></div>}
       </div>
     </>
   );
@@ -148,8 +170,8 @@ function TextoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'texto' }
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
-      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, T).ink, marginBottom: 8 }}>{titulo}</div>}
-      {cuerpo && <p style={{ ...escalar(estilo, texto.meta), color: coloresDe(estilo, { ink: T.ink, muted: T.muted2 }).muted, lineHeight: 1.55 }}><TextoRico texto={cuerpo} /></p>}
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, T_CALC).ink, marginBottom: 8 }}>{titulo}</div>}
+      {cuerpo && <p style={{ ...escalar(estilo, texto.meta), color: coloresDe(estilo, { ink: T_CALC.ink, muted: T_CALC.muted2 }).muted, lineHeight: 1.55 }}><TextoRico texto={cuerpo} /></p>}
     </div>
   );
 }
@@ -172,7 +194,7 @@ function CtaBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'cta'
       alignItems: alineacion === 'center' ? 'center' : alineacion === 'right' ? 'flex-end' : 'flex-start',
       textAlign: alineacion, gap: 12,
     }}>
-      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, T).ink }}>{titulo}</div>}
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, T_CALC).ink }}>{titulo}</div>}
       {resuelto.interno ? (
         <Link href={portalHref(`/${slug}${resuelto.valor}`)} style={estiloBoton}>{textoBoton}</Link>
       ) : (
@@ -204,7 +226,7 @@ function FaqBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'faq' }> })
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
-      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, T).ink, marginBottom: 4 }}>{titulo}</div>}
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, T_CALC).ink, marginBottom: 4 }}>{titulo}</div>}
       {preguntas.map((p, i) => <FilaFaq key={i} pregunta={p.pregunta} respuesta={p.respuesta} color={estilo?.color} />)}
     </div>
   );
@@ -238,7 +260,7 @@ function VideoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'video' }
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
-      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, T).ink, marginBottom: 12 }}>{titulo}</div>}
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, T_CALC).ink, marginBottom: 12 }}>{titulo}</div>}
       <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: estilo?.esquinas ? ESQUINAS_RADIO[estilo.esquinas] : RADIO_TARJETA, overflow: 'hidden' }}>
         <iframe
           src={embed} title={titulo || 'Vídeo'} allowFullScreen
@@ -255,12 +277,12 @@ function TestimoniosBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'te
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
-      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, T).ink, marginBottom: 12 }}>{titulo}</div>}
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, T_CALC).ink, marginBottom: 12 }}>{titulo}</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {testimonios.map((te, i) => (
           <div key={i} style={{ borderTop: i > 0 ? `1px solid ${T.line}` : undefined, paddingTop: i > 0 ? 18 : 0 }}>
-            <p style={{ ...escalar(estilo, display(19, true, 1.2)), color: coloresDe(estilo, T).ink, textWrap: 'pretty' } as React.CSSProperties}>“{te.cita}”</p>
-            <p style={{ ...escalar(estilo, texto.nota), color: coloresDe(estilo, { ink: T.ink, muted: T.muted }).muted, marginTop: 8 }}>
+            <p style={{ ...escalar(estilo, display(19, true, 1.2)), color: coloresDe(estilo, T_CALC).ink, textWrap: 'pretty' } as React.CSSProperties}>“{te.cita}”</p>
+            <p style={{ ...escalar(estilo, texto.nota), color: coloresDe(estilo, { ink: T_CALC.ink, muted: T_CALC.muted }).muted, marginTop: 8 }}>
               {te.autor}{te.rol ? ` · ${te.rol}` : ''}
             </p>
           </div>
@@ -315,7 +337,7 @@ function ContenedorBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind
   return (
     <div style={contenedorDe(bloque.estilo)}>
       {titulo && (
-        <h2 style={{ ...display(escala('seccion', 24)), color: coloresDe(bloque.estilo, T).ink, marginBottom: 12 }}>
+        <h2 style={{ ...display(escala('seccion', 24)), color: coloresDe(bloque.estilo, T_CALC).ink, marginBottom: 12 }}>
           {titulo}
         </h2>
       )}
