@@ -8,6 +8,7 @@ import dynamic from 'next/dynamic';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { portalAuthHeader } from '@/lib/api-client';
+import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva } from '@/lib/types';
@@ -961,6 +962,13 @@ export default function ReservarPage() {
 
   // Posición estimada en lista de espera al reservar una clase llena (I-11).
   const [esperaPos, setEsperaPos] = useState<number | null>(null);
+
+  // F-16 (auditoría 20ª pasada): confirmada, pero el sitio elegido se lo
+  // dieron a otra persona antes — LISTA_ESPERA/PENDIENTE_APROBACION ya tienen
+  // su propio paso ('espera'/'pendiente'), así que este widget solo le
+  // faltaba este caso dentro de 'done'. Mismo mensaje canónico que las otras
+  // dos pantallas de reserva.
+  const [spotNoConseguido, setSpotNoConseguido] = useState(false);
 
   // Confirmación de cancelación de plaza (modal estilizado, sustituye al
   // confirm() nativo — que rompía el diseño y no era traducible).
@@ -2019,6 +2027,7 @@ export default function ReservarPage() {
         const enEspera = reservas.filter(x => x.sesionId === bookingSesionId && x.estado === 'LISTA_ESPERA').length;
         setEsperaPos(enEspera + 1);
       }
+      setSpotNoConseguido(!!selectedSpot && !r.spotAsignado);
       setLoginStep(r.estado === 'LISTA_ESPERA' ? 'espera' : r.estado === 'PENDIENTE_APROBACION' ? 'pendiente' : 'done');
     } finally {
       confirmandoRef.current = false;
@@ -3584,6 +3593,15 @@ export default function ReservarPage() {
                   {!pagoWebSinLogin && (
                     <p className="text-[var(--portal-muted-2)] mt-1" style={{ fontSize: 13, lineHeight: 1.55 }}>
                       {bookingSesion.tipo?.nombre} · {fmtLong(new Date(bookingSesion.inicio))} a las {fmtTime(bookingSesion.inicio)}
+                    </p>
+                  )}
+                  {/* F-16 (auditoría 20ª pasada): mismo aviso que ya dan las
+                      otras dos pantallas de reserva cuando el sitio elegido
+                      se lo dieron a otra persona antes — la reserva es
+                      buena, la plaza elegida no, y son dos cosas distintas. */}
+                  {spotNoConseguido && (
+                    <p className="mt-1.5" style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--warning)' }}>
+                      {mensajeConfirmarReserva({ estado: 'CONFIRMADA', spotAsignado: null }, selectedSpot)}
                     </p>
                   )}
                 </div>

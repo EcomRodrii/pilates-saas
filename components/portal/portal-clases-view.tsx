@@ -47,6 +47,7 @@ import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import type { PortalSession } from '@/lib/portal-auth';
 import type { DatosPase } from '@/components/portal/hoja-pase';
 import type { Reserva, Spot } from '@/lib/types';
+import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 
 type Vista = 'todas' | 'mias';
@@ -389,19 +390,11 @@ export function PortalClasesView({
     }
     const r = await addReserva(reservando.id, socioId, spotId);
     if (!r.ok) return { ok: false, error: r.error };
-    setAviso({
-      // ⚠️ Si eligió sitio y el servidor no pudo dárselo, se DICE. La reserva
-      // es buena; la plaza no, y son dos cosas distintas — sin esto se
-      // presentaba esperando el reformer que había elegido y era de otra.
-      texto: r.estado === 'LISTA_ESPERA'
-        ? 'La clase estaba completa: te hemos puesto en la lista de espera.'
-        : r.estado === 'PENDIENTE_APROBACION'
-          ? 'Reserva enviada: queda pendiente de aprobación.'
-          : spotId && !r.spotAsignado
-            ? 'Reservada, pero el sitio que elegiste lo cogieron antes. Te lo asignamos al llegar.'
-            : 'Reservada. Te esperamos.',
-      error: false,
-    });
+    // F-16 (auditoría 20ª pasada): mensaje canónico compartido con las otras
+    // dos pantallas que llaman a addReserva con un sitio elegido — antes cada
+    // una lo decidía por su cuenta y solo esta distinguía "reservada, pero el
+    // sitio elegido lo cogieron antes" de una confirmación normal.
+    setAviso({ texto: mensajeConfirmarReserva(r, spotId), error: false });
     return { ok: true, estado: r.estado };
   }
 
