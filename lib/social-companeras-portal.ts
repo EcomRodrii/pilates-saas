@@ -122,3 +122,22 @@ export async function bloquearCompanera(
     return { error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
   }
 }
+
+// F-25: solo lo puede llamar quien bloqueó (el servidor lo comprueba a
+// mano contra `bloqueada_por`) — borra la relación, no la restaura a
+// 'aceptada'/'pendiente'. Ver el comentario de la ruta para el porqué.
+export async function desbloquearCompanera(
+  headers: Record<string, string>, studioId: string, id: string,
+): Promise<{ id: string } | { error: string }> {
+  try {
+    const res = await fetch(`/api/public/social/companeras/${encodeURIComponent(id)}/desbloquear`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ studioId }),
+    });
+    if (!res.ok) return { error: await leerError(res, 'No se ha podido desbloquear.') };
+    return await res.json() as { id: string };
+  } catch {
+    return { error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
+  }
+}
