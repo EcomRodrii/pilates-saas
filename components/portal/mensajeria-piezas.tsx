@@ -151,7 +151,7 @@ export function HiloMensajes({ mensajes, authUserId, leidoHastaOtros }: {
             // white-label); la recibida es blanca con borde fino — el
             // tratamiento exacto de la captura de referencia (burbujas del
             // estudio, blancas y redondeadas, con un borde sutil).
-            const fondo = mio ? 'var(--portal-brand)' : '#FFFFFF';
+            const fondo = mio ? 'var(--ap-tinta, #1A1A1A)' : '#FFFFFF';
             return (
               <div key={bloque.items[0].id} style={{ marginBottom: 12 }}>
                 {bloque.items.map(m => {
@@ -172,7 +172,7 @@ export function HiloMensajes({ mensajes, authUserId, leidoHastaOtros }: {
                             borderBottomRightRadius: mio && cola ? 6 : 20,
                             borderBottomLeftRadius: !mio && cola ? 6 : 20,
                             background: fondo,
-                            color: mio ? 'var(--portal-brand-foreground)' : '#1A1A1A',
+                            color: mio ? '#F1ECE1' : '#1A1A1A',
                             border: mio ? '1px solid transparent' : '1px solid #E5E3DA',
                           }}
                         >
@@ -331,8 +331,8 @@ export function CompositorPortal({
         style={{
           width: 46, height: 46, borderRadius: '50%', border: 'none', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: puedeEnviar ? 'var(--portal-brand)' : '#EFEDE4',
-          color: puedeEnviar ? 'var(--portal-brand-foreground)' : '#98A093',
+          background: puedeEnviar ? 'var(--ap-tinta, #1A1A1A)' : '#EFEDE4',
+          color: puedeEnviar ? '#F1ECE1' : '#98A093',
           transform: puedeEnviar ? 'scale(1)' : 'scale(.9)',
           cursor: puedeEnviar ? 'pointer' : 'default',
           transition: `background ${dur.color}ms ${EASE}, transform ${dur.control}ms ${EASE}, color ${dur.color}ms ${EASE}`,

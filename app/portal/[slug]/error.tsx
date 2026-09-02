@@ -43,7 +43,7 @@ export default function PortalError({ error, reset }: { error: Error & { digest?
           className="transition-[filter,transform] duration-150 hover:brightness-95 active:scale-[.98]"
           style={{
             marginTop: 14, height: 46, padding: '0 22px', borderRadius: 23, border: 'none', cursor: 'pointer',
-            background: 'var(--portal-brand, #131313)', color: 'var(--portal-brand-foreground, #ffffff)',
+            background: 'var(--ap-tinta, #1A1A1A)', color: '#F1ECE1',
             fontSize: 13.5, fontWeight: 700,
           }}
         >

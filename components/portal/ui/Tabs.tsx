@@ -41,9 +41,9 @@ export function Tabs<T extends string>({ items, active, onChange, scroll = false
             style={{
               flex: scroll ? undefined : 1, flexShrink: scroll ? 0 : undefined,
               minHeight: 44, padding: scroll ? '0 14px' : 0, borderRadius: 14,
-              fontSize: 12.5, fontWeight: 800, border: scroll ? `1px solid ${isActive ? 'var(--portal-brand)' : '#E5E3DA'}` : 'none',
-              background: scroll ? (isActive ? 'var(--portal-brand)' : '#EFEDE4') : (isActive ? '#FFFFFF' : 'transparent'),
-              color: scroll ? (isActive ? 'var(--portal-brand-foreground)' : '#5A5A52') : (isActive ? '#1A1A1A' : '#5A5A52'),
+              fontSize: 12.5, fontWeight: 800, border: scroll ? `1px solid ${isActive ? 'var(--ap-tinta, #1A1A1A)' : '#E5E3DA'}` : 'none',
+              background: scroll ? (isActive ? 'var(--ap-tinta, #1A1A1A)' : '#EFEDE4') : (isActive ? '#FFFFFF' : 'transparent'),
+              color: scroll ? (isActive ? '#F1ECE1' : '#5A5A52') : (isActive ? '#1A1A1A' : '#5A5A52'),
               whiteSpace: 'nowrap',
             }}
           >

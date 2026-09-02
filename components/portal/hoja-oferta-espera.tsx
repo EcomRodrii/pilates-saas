@@ -214,7 +214,7 @@ export function HojaOfertaEspera({
               onClick={() => void ejecutar('aceptar')}
               style={{
                 width: '100%', height: altura.botonCta, borderRadius: radio.botonCta, marginTop: 22,
-                background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+                background: 'var(--ap-tinta, #1A1A1A)', color: '#F1ECE1',
                 ...texto.botonCta, border: 'none',
                 cursor: accionEnCurso != null || caducada ? 'default' : 'pointer',
                 boxShadow: sombra.cta, opacity: caducada ? 0.5 : (accionEnCurso === 'dejar' ? 0.6 : 1),

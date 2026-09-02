@@ -21,22 +21,21 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 // Apple HIG con algo de margen). `small` (40px) es la única variante que baja
 // de 48, y solo para contextos ya espaciosos — nunca el CTA principal.
 // Valores literales del sistema "Tentare Studio App" (portal-app.css) para
-// `secondary`/`ghost` — antes venían de `useModo()`, la paleta del diseño
-// anterior ya sustituido. `primary` no cambia: ya vive detrás de
-// `--portal-btn-*` (marca del estudio, eje aparte).
+// las cuatro variantes. `primary` vivía detrás de `--portal-btn-*` (la marca
+// del estudio, como eje aparte); deja de hacerlo por la misma decisión que el
+// resto de la paleta: dentro del portal manda el kit y la marca queda para
+// acentos. La FORMA también: `.ap-btn` del kit es `border-radius: 999px`, así
+// que el botón deja de leer `--portal-radius-boton` (el radio que el tema
+// calcula para el estudio) igual que dejó de leer `--portal-btn-bg`.
 export function Button({ variant = 'primary', size = 'default', style, disabled, loading, children, ...props }: ButtonProps) {
   const small = size === 'small';
   const inactivo = disabled || loading;
 
   const variants: Record<ButtonVariant, React.CSSProperties> = {
-    // Las 3 vars --portal-btn-* las calcula lib/theme-runtime.ts según
-    // buttonStyle (solid/outline/soft) del tema del estudio; el fallback
-    // reproduce el look de siempre si el tema no las declara.
-    primary: {
-      background: 'var(--portal-btn-bg, var(--portal-brand))',
-      color: 'var(--portal-btn-fg, var(--portal-brand-foreground))',
-      border: 'var(--portal-btn-border, none)',
-    },
+    // `.ap-btn--primario` de portal-app.css, literal: si estas vars siguieran
+    // leyéndose (`--portal-btn-bg` la calcula lib/theme-runtime.ts a partir
+    // del color del estudio) el CTA principal seguiría saliendo de marca.
+    primary: { background: 'var(--ap-tinta, #1A1A1A)', color: '#F1ECE1', border: 'none' },
     secondary: { background: '#EFEDE4', color: '#1A1A1A', border: '1px solid #E5E3DA' },
     ghost: { background: 'transparent', color: '#5A5A52' },
     danger: { background: semantic.danger.soft, color: semantic.danger.text },
@@ -49,15 +48,15 @@ export function Button({ variant = 'primary', size = 'default', style, disabled,
       style={{
         height: small ? 40 : 48,
         padding: small ? '0 16px' : '0 20px',
-        // `radioTema.boton` del tema del estudio (lib/theme-runtime.ts) — sin
-        // ese campo, cae al 14px de siempre. Solo el tamaño normal lo lee:
-        // `small` es un contexto ya compacto (chips/acciones secundarias),
-        // no la forma que distingue un tema de otro.
-        borderRadius: small ? radius.control : 'var(--portal-radius-boton, 14px)',
+        // `.ap-btn`: píldora, los dos tamaños. En el prototipo NINGÚN botón
+        // tiene esquina cuadrada — los 12 `borderRadius: 999` y los 10 `: 99`
+        // de StudioApp.jsx son todos controles.
+        borderRadius: radius.pill,
         fontWeight: 800,
         fontSize: small ? 12.5 : 14,
-        textTransform: 'uppercase',
-        letterSpacing: '0.02em',
+        // Sin versalitas: `.ap-btn` del kit no las lleva. En el prototipo las
+        // mayúsculas son de las micro-etiquetas (`.ap-label`), no de los CTA.
+        letterSpacing: '0.01em',
         border: 'none',
         display: 'inline-flex',
         alignItems: 'center',

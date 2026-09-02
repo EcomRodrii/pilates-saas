@@ -48,8 +48,8 @@ export default function SesionGuiadaPage() {
   const esUltimo = esUltimoEjercicio(ejercicio);
 
   return (
-    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', background: '#FAF9F5' }}>
-      <div style={{ position: 'relative', height: 260, flexShrink: 0, overflow: 'hidden', background: '#EFEDE4' }}>
+    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', background: 'var(--ap-fondo, #FAF9F5)' }}>
+      <div style={{ position: 'relative', height: 260, flexShrink: 0, overflow: 'hidden', background: 'var(--ap-pill, #EFEDE4)' }}>
         {/* Misma foto que la cabecera del detalle: la del tipo de clase, o la
             de su familia si la propietaria no ha subido ninguna. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -75,17 +75,19 @@ export default function SesionGuiadaPage() {
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 24px', textAlign: 'center' }}>
-        <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#98A093' }}>
+        {/* `.ap-label` del kit (mono 10px, .16em): era un rótulo a mano con
+            tamaño y tracking propios, los únicos de esta pantalla. */}
+        <p className="ap-label">
           Ejercicio {ejercicio + 1} de {EJERCICIOS_SESION_GUIADA.length}
         </p>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1A1A1A', marginTop: 8 }}>{actual.nombre}</h1>
-        <p style={{ fontSize: 40, fontWeight: 800, color: '#1A1A1A', marginTop: 18, letterSpacing: '-0.03em' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ap-tinta, #1A1A1A)', marginTop: 8 }}>{actual.nombre}</h1>
+        <p style={{ fontSize: 40, fontWeight: 800, color: 'var(--ap-tinta, #1A1A1A)', marginTop: 18, letterSpacing: '-0.03em' }}>
           00:{String(seg).padStart(2, '0')}
         </p>
-        <div style={{ marginTop: 14, height: 6, width: '100%', maxWidth: 280, borderRadius: 999, background: '#E5E3DA', overflow: 'hidden' }}>
+        <div style={{ marginTop: 14, height: 6, width: '100%', maxWidth: 280, borderRadius: 999, background: 'var(--ap-borde, #E5E3DA)', overflow: 'hidden' }}>
           <span
             aria-hidden
-            style={{ display: 'block', width: `${progresoEjercicio(ejercicio, seg)}%`, height: '100%', borderRadius: 999, background: 'var(--portal-brand)', transition: 'width 1s linear' }}
+            style={{ display: 'block', width: `${progresoEjercicio(ejercicio, seg)}%`, height: '100%', borderRadius: 999, background: '#4F8A5B', transition: 'width 1s linear' }}
           />
         </div>
 
@@ -95,7 +97,7 @@ export default function SesionGuiadaPage() {
             onClick={() => saltar(-1)}
             disabled={ejercicio === 0}
             aria-label="Ejercicio anterior"
-            style={{ width: 48, height: 48, borderRadius: 999, background: '#EFEDE4', color: '#1A1A1A', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: ejercicio === 0 ? 0.4 : 1 }}
+            style={{ width: 48, height: 48, borderRadius: 999, background: 'var(--ap-pill, #EFEDE4)', color: 'var(--ap-tinta, #1A1A1A)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: ejercicio === 0 ? 0.4 : 1 }}
           >
             <SkipBack size={20} fill="currentColor" />
           </button>
@@ -103,7 +105,7 @@ export default function SesionGuiadaPage() {
             type="button"
             onClick={() => setCorriendo(c => !c)}
             aria-label={corriendo ? 'Pausar' : 'Reanudar'}
-            style={{ width: 64, height: 64, borderRadius: 999, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            style={{ width: 64, height: 64, borderRadius: 999, background: 'var(--ap-tinta, #1A1A1A)', color: '#F1ECE1', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           >
             {corriendo ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
           </button>
@@ -111,7 +113,7 @@ export default function SesionGuiadaPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              style={{ height: 48, padding: '0 20px', borderRadius: 999, background: '#EFEDE4', color: '#1A1A1A', border: 'none', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+              style={{ height: 48, padding: '0 20px', borderRadius: 999, background: 'var(--ap-pill, #EFEDE4)', color: 'var(--ap-tinta, #1A1A1A)', border: 'none', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
             >
               Terminar
             </button>
@@ -120,7 +122,7 @@ export default function SesionGuiadaPage() {
               type="button"
               onClick={() => saltar(1)}
               aria-label="Siguiente ejercicio"
-              style={{ width: 48, height: 48, borderRadius: 999, background: '#EFEDE4', color: '#1A1A1A', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ width: 48, height: 48, borderRadius: 999, background: 'var(--ap-pill, #EFEDE4)', color: 'var(--ap-tinta, #1A1A1A)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
               <SkipForward size={20} fill="currentColor" />
             </button>

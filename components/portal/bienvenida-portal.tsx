@@ -22,6 +22,7 @@
 import { useModo } from '@/lib/portal-modo';
 import { display, texto, altura, radio, sombra, transicion, dur, escala } from '@/lib/portal-design';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
+import { MARCA, MARCA_FG, MARCA_ETIQUETA } from '@/components/portal/acceso/piezas';
 
 export function BienvenidaPortal({
   nombreEstudio, fotoUrl, onSiguiente, variante = 'foto',
@@ -37,7 +38,7 @@ export function BienvenidaPortal({
     return (
       <div style={{
         height: '100%', position: 'relative', overflow: 'hidden',
-        background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+        background: MARCA, color: MARCA_FG,
       }}>
         <div
           aria-hidden
@@ -52,11 +53,11 @@ export function BienvenidaPortal({
         }}>
           {/* Dos líneas, la segunda en el acento — la forma del prototipo
               (el dorado de Noir, el contraste de Bloom). El acento cae a
-              `--portal-brand-secondary`, que ya está validado contra la marca
-              por el gate de contraste del tema. */}
+              `--ap-verde-claro`, la etiqueta sobre oscuro del kit (mismo
+              token que usa la portada de acceso). */}
           <h1 style={{ ...display(escala('bienvenida', 38), false, 1.08), marginBottom: 12 }}>
             Bienvenida a<br />
-            <span style={{ color: 'var(--portal-brand-secondary)' }}>{nombreEstudio}</span>
+            <span style={{ color: MARCA_ETIQUETA }}>{nombreEstudio}</span>
           </h1>
           <p style={{ ...texto.meta, opacity: 0.86, marginBottom: 26 }}>
             Reserva tu clase, lleva tu bono y entra con el pase.
@@ -65,8 +66,8 @@ export function BienvenidaPortal({
             onClick={onSiguiente}
             style={{
               width: '100%', height: altura.botonAcceso,
-              borderRadius: `var(--portal-radius-boton, ${radio.hoja}px)`,
-              background: 'var(--portal-brand-foreground)', color: 'var(--portal-brand)',
+              borderRadius: radio.pill,
+              background: MARCA_FG, color: MARCA,
               border: 'none', cursor: 'pointer', padding: '0 8px 0 26px',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               transition: transicion(['transform']),
@@ -74,8 +75,8 @@ export function BienvenidaPortal({
           >
             <span style={{ ...texto.boton }}>Siguiente</span>
             <span aria-hidden style={{
-              width: 50, height: 50, borderRadius: '50%', background: 'var(--portal-brand)',
-              color: 'var(--portal-brand-foreground)', display: 'flex', alignItems: 'center',
+              width: 50, height: 50, borderRadius: '50%', background: MARCA,
+              color: MARCA_FG, display: 'flex', alignItems: 'center',
               justifyContent: 'center', fontSize: 17, transition: transicion(['transform'], dur.color),
             }}>
               →
@@ -137,8 +138,8 @@ export function BienvenidaPortal({
           <span
             aria-hidden
             style={{
-              width: 50, height: 50, borderRadius: '50%', background: 'var(--portal-brand)',
-              color: 'var(--portal-brand-foreground)', display: 'flex', alignItems: 'center',
+              width: 50, height: 50, borderRadius: '50%', background: MARCA,
+              color: MARCA_FG, display: 'flex', alignItems: 'center',
               justifyContent: 'center', fontSize: 17, transition: transicion(['transform'], dur.color),
             }}
           >

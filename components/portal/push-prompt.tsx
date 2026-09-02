@@ -65,8 +65,8 @@ export function PushPrompt() {
   return (
     <div style={{ position: 'absolute', top: 'calc(env(safe-area-inset-top) + 10px)', left: 16, right: 16, zIndex: 45 }}>
       <div style={{ background: t.surface, border: `1px solid ${t.line}`, borderRadius: 16, padding: 14, boxShadow: '0 10px 30px rgba(0,0,0,0.20)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--portal-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Bell size={18} style={{ color: 'var(--portal-brand-foreground)' }} />
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--ap-tinta, #1A1A1A)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Bell size={18} style={{ color: '#F1ECE1' }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           {vista === 'cta' ? (
@@ -74,7 +74,7 @@ export function PushPrompt() {
               <p style={{ fontSize: 14, fontWeight: 600, color: t.ink, margin: 0 }}>¿Te avisamos de tus clases?</p>
               <p style={{ fontSize: 12.5, color: t.muted, margin: '2px 0 10px' }}>Recordatorios, cambios de horario y huecos libres, directo al móvil.</p>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={activar} disabled={procesando} style={{ background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', border: 'none', borderRadius: 999, padding: '7px 14px', fontSize: 13, fontWeight: 600, opacity: procesando ? 0.6 : 1, cursor: 'pointer' }}>
+                <button onClick={activar} disabled={procesando} style={{ background: 'var(--ap-tinta, #1A1A1A)', color: '#F1ECE1', border: 'none', borderRadius: 999, padding: '7px 14px', fontSize: 13, fontWeight: 600, opacity: procesando ? 0.6 : 1, cursor: 'pointer' }}>
                   {procesando ? 'Activando…' : 'Sí, avísame'}
                 </button>
                 <button onClick={descartar} style={{ background: 'transparent', color: t.muted, border: 'none', borderRadius: 999, padding: '7px 12px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>Ahora no</button>
