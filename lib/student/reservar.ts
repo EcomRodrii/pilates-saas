@@ -22,6 +22,7 @@
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { desenlaceDeRespuesta, type DesenlaceReserva, type RespuestaReserva } from '@/lib/student/reserva-codigos';
 import { portalAuthHeader } from '@/lib/api-client';
+import * as Sentry from '@sentry/nextjs';
 
 export interface OpcionesReserva {
   /** El sitio (reformer) que ha elegido, si la sala los tiene. */
@@ -75,6 +76,24 @@ export async function confirmarReserva(
   }
 
   const desenlace = desenlaceDeRespuesta(respuesta);
+
+  // Los desenlaces de NEGOCIO (lleno, duplicada, conflicto) son normales y no
+  // se reportan: son parte del producto, no averías. Lo que sí se reporta es
+  // `error`, que significa que el servidor dijo algo que no sabemos traducir —
+  // y sin contexto es indepurable, porque no deja rastro en ninguna pantalla.
+  if (desenlace.state === 'error') {
+    Sentry.captureMessage('student-pwa: reserva sin desenlace conocido', {
+      level: 'error',
+      tags: { area: 'student-pwa', operacion: 'confirmar-reserva', estudio: slug },
+      extra: {
+        // El código del backend, que es el dato que permite arreglarlo. Sin
+        // PII: ni socia, ni email, ni token.
+        codigo: respuesta && 'codigo' in respuesta ? respuesta.codigo : undefined,
+        mensaje: desenlace.mensaje,
+        claseId,
+      },
+    });
+  }
 
   // Si algo cambió de verdad, el catálogo en memoria ya no vale: la clase tiene
   // una plaza menos y la alumna una reserva más. Sin esto, volver al horario

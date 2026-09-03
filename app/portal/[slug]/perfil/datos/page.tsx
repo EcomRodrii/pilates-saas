@@ -56,10 +56,8 @@ export default function DatosPage() {
     if (!f.nombre.trim()) e.nombre = 'Escribe tu nombre';
     setErr(e);
     if (Object.keys(e).length) return;
-    if (!socia?.id) { toast('No hemos podido identificarte. Vuelve a entrar.'); return; }
-
     setGuardando(true);
-    const r = await guardarDatos(estudio.id, socia.id, estudio.slug, {
+    const r = await guardarDatos(estudio.id, estudio.slug, {
       nombre: f.nombre.trim(),
       apellidos: f.apellidos.trim(),
       telefono: f.telefono.trim(),

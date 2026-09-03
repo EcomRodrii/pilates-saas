@@ -17,20 +17,28 @@
 // para que esta pantalla siga siendo legible aunque el tema no se haya inyectado.
 
 import { useEffect } from 'react';
+import { useParams, usePathname } from 'next/navigation';
 import * as Sentry from '@sentry/nextjs';
 
 export default function ErrorPortalStudent({
   error, reset,
 }: { error: Error & { digest?: string }; reset: () => void }) {
+  const ruta = usePathname();
+  const { slug } = useParams<{ slug: string }>();
+
   useEffect(() => {
     // El contexto que hace depurable esto: qué operación y qué estudio, sin
     // PII de la alumna. `digest` es el identificador que Next enseña en
     // producción, y sin él un informe de Sentry no se puede cruzar con el log.
     Sentry.captureException(error, {
-      tags: { area: 'student-pwa', operacion: 'cargar-estudio' },
-      extra: { digest: error.digest },
+      // ⚠️ Nada de PII. El slug es PÚBLICO (va en la URL que cualquiera puede
+      // ver) y es lo que permite saber a QUÉ estudio le está pasando; el email
+      // o el id de la socia no añadirían nada que no se pueda cruzar por el
+      // `digest`, y sí serían datos personales en un servicio de terceros.
+      tags: { area: 'student-pwa', operacion: 'cargar-estudio', estudio: slug },
+      extra: { digest: error.digest, ruta },
     });
-  }, [error]);
+  }, [error, ruta, slug]);
 
   const noDisponible = error.message === 'STUDENT_ESTUDIO_NO_DISPONIBLE';
 

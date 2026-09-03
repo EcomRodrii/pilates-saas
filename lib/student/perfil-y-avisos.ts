@@ -139,7 +139,7 @@ export type ResultadoGuardar = { ok: true } | { ok: false; error: string };
  * en vez de aceptarlo y tirarlo en silencio.
  */
 export async function guardarDatos(
-  studioId: string, socioId: string, slug: string,
+  studioId: string, slug: string,
   cambios: { nombre?: string; apellidos?: string; telefono?: string; direccion?: string },
 ): Promise<ResultadoGuardar> {
   try {
@@ -147,7 +147,13 @@ export async function guardarDatos(
     const res = await fetch('/api/public/socio', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...auth },
-      body: JSON.stringify({ accion: 'actualizar', studioId, id: socioId, cambios }),
+      // ⚠️ SIN `id`. El servidor resuelve de quién es la ficha con
+      // `socioAutenticado(user.userId, studioId)` e IGNORA el `id` del cuerpo —
+      // comprobado atacándolo: mandar el id de otra socia devuelve 200 y edita
+      // la propia, no la ajena. Mandarlo igualmente sería dejar en el código un
+      // parámetro que parece que decide algo, y es una invitación a que alguien
+      // "arregle" el servidor para hacerle caso.
+      body: JSON.stringify({ accion: 'actualizar', studioId, cambios }),
     });
     const cuerpo = (await res.json().catch(() => null)) as { error?: string } | null;
     if (!res.ok) return { ok: false, error: cuerpo?.error ?? 'No hemos podido guardar tus datos.' };
