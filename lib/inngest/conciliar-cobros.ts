@@ -379,6 +379,7 @@ async function entregar(
     // Mismo criterio que el webhook (app/api/stripe/webhook/route.ts): sin
     // socioId conocido, es una compra de invitada.
     esInvitada: !p.socioId,
+    fuente: 'conciliador',
   });
 
   if (!entrega.ok) {

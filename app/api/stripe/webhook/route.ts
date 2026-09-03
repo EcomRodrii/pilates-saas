@@ -483,6 +483,7 @@ async function procesarEvento(
           origenLead: origenLead ?? null,
           // I-8: si es invitada, crear ficha nueva siempre (no reutilizar)
           esInvitada,
+          fuente: 'webhook',
         });
         if (!entrega.ok) {
           Sentry.captureMessage('[stripe webhook] cobrado pero NO entregado', {
@@ -731,6 +732,7 @@ async function procesarEvento(
           codigoPostal: pi.metadata.codigoPostal ?? null,
           fechaNacimiento: pi.metadata.fechaNacimiento ?? null,
         },
+        fuente: 'webhook',
       });
       if (!entrega.ok) {
         Sentry.captureMessage('[stripe webhook] checkout embebido: cobrado pero NO entregado', {
