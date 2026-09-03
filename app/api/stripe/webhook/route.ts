@@ -1396,6 +1396,70 @@ async function procesarEvento(
           studioId, socioId: (rec.socio_id as string | null) ?? null, reciboId,
           refundId: refund.id, importe: Number(refund.amount ?? 0) / 100, sesionesTexto,
         });
+      } else if (piId && chargeId && ORIGENES_POS.has(pi.metadata?.origen ?? '')) {
+        // P-8 (auditoría 21ª pasada): F-13 ya cubría `charge.refunded` para
+        // venta POS (`procesarReembolsoVentaPos`), pero `refund.failed` — el
+        // caso "el reembolso se acepta y falla DÍAS después" — solo tocaba
+        // `recibos`. Sin esto, `ventas_pos.devuelta_en` seguía diciendo que
+        // el dinero se había devuelto aunque el reembolso hubiera fallado de
+        // verdad. Alcance deliberadamente menor que la rama de `recibos`:
+        // POS no tiene entrega que revertir ni estado SEPA propio
+        // (`ORIGENES_POS` es datáfono/Bizum presencial), así que el arreglo
+        // es solo el flip de `devuelta_en` — sin la máquina de
+        // `devoluciones`/aviso al mostrador que sí necesita `recibos`. POS
+        // está CONGELADO (`lib/frozen-features.ts`): no hay pantalla que
+        // enseñe ese aviso, así que construirlo sería invertir en una
+        // superficie inalcanzable.
+        const admin = getSupabaseAdmin();
+        if (!admin) {
+          console.error('[stripe webhook] service role no configurada (refund failed, POS)');
+          return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+        }
+        const studioId = await studioDeCuentaConnect(admin, event.account);
+        if (!studioId) {
+          Sentry.captureMessage('[stripe webhook] refund fallido de venta POS de una cuenta Connect no reconocida', {
+            level: 'error', extra: { eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+        }
+        let chargePos = typeof pi.latest_charge === 'object' && pi.latest_charge && pi.latest_charge.id === chargeId
+          ? pi.latest_charge as Stripe.Charge
+          : null;
+        if (!chargePos) {
+          try {
+            chargePos = await stripe.charges.retrieve(chargeId, {}, event.account ? { stripeAccount: event.account } : undefined);
+          } catch (e) {
+            Sentry.captureMessage('[stripe webhook] refund fallido de venta POS: no se pudo leer el charge fresco', {
+              level: 'error', tags: { area: 'cobros', tipo: 'reembolso-perdido-pos' },
+              extra: { eventId: event.id, chargeId, detalle: e instanceof Error ? e.message : String(e) },
+            });
+            return NextResponse.json({ error: 'No se pudo leer el charge' }, { status: 500 });
+          }
+        }
+        const { data: venta } = await admin.from('ventas_pos')
+          .select('id, devuelta_en').eq('studio_id', studioId).eq('stripe_payment_intent_id', piId).maybeSingle();
+        if (!venta) {
+          Sentry.captureMessage('[stripe webhook] refund fallido de venta POS sin venta asociada', {
+            level: 'warning', extra: { paymentIntentId: piId, studioId },
+          });
+          return NextResponse.json({ received: true });
+        }
+        const acumuladoCentimosPos = chargePos.amount_refunded ?? 0;
+        const totalCentimosPos = chargePos.amount ?? 0;
+        const sigueTotalmenteDevueltoPos = chargePos.refunded === true
+          || (totalCentimosPos > 0 && acumuladoCentimosPos >= totalCentimosPos);
+        if (venta.devuelta_en && !sigueTotalmenteDevueltoPos) {
+          const { error } = await admin.from('ventas_pos')
+            .update({ devuelta_en: null, importe_devuelto: acumuladoCentimosPos / 100 })
+            .eq('id', venta.id).eq('studio_id', studioId);
+          if (error) {
+            console.error('[stripe webhook] refund fallido: no se pudo restaurar la venta POS', venta.id, error);
+            Sentry.captureMessage('[stripe webhook] refund fallido: no se pudo restaurar la venta POS', {
+              level: 'error', tags: { area: 'cobros' }, extra: { ventaPosId: venta.id, studioId, chargeId, detalle: error.message },
+            });
+            return NextResponse.json({ error: 'Fallo al restaurar la venta POS' }, { status: 500 });
+          }
+        }
       }
     }
   }
