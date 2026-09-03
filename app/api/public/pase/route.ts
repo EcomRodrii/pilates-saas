@@ -77,6 +77,11 @@ export async function POST(req: NextRequest) {
     // hueco vacío que no explica nada.
     return NextResponse.json({
       hayPase: true as const,
+      // De QUÉ reserva es este pase. Aditivo: sin él, una pantalla de detalle
+      // no puede saber si el pase que le devuelve el endpoint —que siempre es
+      // el de la PRÓXIMA clase— corresponde a la reserva que está enseñando, y
+      // acabaría pintando el pase de otra clase bajo el título de esta.
+      reservaId: fila.id,
       vigente,
       yaAsistida: fila.estado === 'ASISTIDA',
       minutosParaActivarse: minutosParaActivarse(inicio, ahora),

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { cargarEstudio } from '@/lib/student/estudio';
 import { acentoCssText } from '@/lib/student/tema';
 import { StudentProvider } from '@/components/student/contexto';
+import { ToastProvider } from '@/components/student/ui/Toast';
 import { RegistroSW } from '@/components/student/RegistroSW';
 import { urlMonograma } from '@/lib/monograma-estudio';
 import './student.css';
@@ -83,7 +84,11 @@ export default async function StudentLayout({
           estudio; los otros 35 son estáticos y viven en student.css. */}
       <style dangerouslySetInnerHTML={{ __html: acentoCssText(estudio.colorPrimario) }} />
       <RegistroSW slug={estudio.slug} />
-      <StudentProvider estudio={estudio}>{children}</StudentProvider>
+      {/* El toast vive aquí y no en cada pantalla: es un aviso global y así
+          sobrevive a las navegaciones dentro del portal. */}
+      <StudentProvider estudio={estudio}>
+        <ToastProvider>{children}</ToastProvider>
+      </StudentProvider>
     </div>
   );
 }
