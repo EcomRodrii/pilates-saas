@@ -1,0 +1,159 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Input } from '@/components/student/ui/Input';
+import { Button } from '@/components/student/ui/Button';
+import { useOnline } from '@/lib/student/useOnline';
+import { useAuthStudent } from '@/lib/student/auth';
+import { usePortalHref, useEstudio } from '@/components/student/contexto';
+import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+
+/**
+ * Entrar. Literal del paquete (`app/(auth)/login/page.tsx`) con el backend real
+ * enchufado donde el paquete tenía un `setTimeout` de demostración.
+ *
+ * Dos caminos, como el diseño: contraseña y —para quien nunca se puso una—
+ * enlace por correo. El segundo no estaba en el paquete pero SÍ en el producto,
+ * y sin él una alumna que llegue de un magic link antiguo no tiene entrada.
+ */
+export default function LoginPage() {
+  const r = useRouter();
+  const params = useSearchParams();
+  const { online } = useOnline();
+  const { slug } = useEstudio();
+  const href = usePortalHref();
+  const { loginConPassword, enviarEnlace, entrarConGoogle } = useAuthStudent(slug);
+  const { widget: captcha, pedirToken } = useCaptcha();
+
+  const [f, setF] = useState({ email: '', pass: '' });
+  const [err, setErr] = useState<Record<string, string>>({});
+  const [global, setGlobal] = useState('');
+  const [cargando, setCargando] = useState(false);
+  const [enlaceEnviado, setEnlaceEnviado] = useState(false);
+
+  // `?next=` conserva a dónde iba la alumna antes de que le pidieran entrar.
+  // Se valida que sea una ruta de ESTE estudio: sin eso, un `?next=` externo
+  // convierte la pantalla de acceso en un redirector abierto.
+  const destino = (() => {
+    const n = params.get('next');
+    return n && n.startsWith(href() + '/') ? n : href();
+  })();
+
+  const entrar = async () => {
+    const e: Record<string, string> = {};
+    if (!/.+@.+\..+/.test(f.email)) e.email = 'Escribe un email válido';
+    if (!f.pass) e.pass = 'Escribe tu contraseña';
+    setErr(e); setGlobal('');
+    if (Object.keys(e).length) return;
+
+    setCargando(true);
+    // El token se pide AL ENVIAR, no al montar: Turnstile tarda ~3,5 s y su
+    // contrato está invertido (components/auth/turnstile-widget.tsx).
+    const token = await pedirToken();
+    if (token === null) { setCargando(false); setGlobal(ERROR_CAPTCHA); return; }
+
+    const res = await loginConPassword(f.email, f.pass, token || undefined);
+    setCargando(false);
+    if ('error' in res) { setGlobal(res.error); return; }
+    r.push(destino);
+  };
+
+  const pedirEnlace = async () => {
+    if (!/.+@.+\..+/.test(f.email)) { setErr({ email: 'Escribe tu email y te mandamos el enlace' }); return; }
+    setErr({}); setGlobal(''); setCargando(true);
+    const token = await pedirToken();
+    if (token === null) { setCargando(false); setGlobal(ERROR_CAPTCHA); return; }
+    const res = await enviarEnlace(f.email, token || undefined);
+    setCargando(false);
+    if ('error' in res) { setGlobal(res.error); return; }
+    setEnlaceEnviado(true);
+  };
+
+  if (enlaceEnviado) {
+    return (
+      <div className="a-pop" style={{ textAlign: 'center' }}>
+        <span aria-hidden style={{ width: 64, height: 64, margin: '0 auto', borderRadius: 999, background: '#4F8A5B', color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>✓</span>
+        <h2 className="t-h1" style={{ fontSize: 22, marginTop: 16 }}>Revisa tu correo</h2>
+        <p className="t-meta" style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5 }}>
+          Si <b>{f.email}</b> está registrado, te hemos enviado un enlace para entrar. Ábrelo en este mismo móvil.
+        </p>
+        <button type="button" onClick={() => setEnlaceEnviado(false)} className="btn btn--secondary" style={{ marginTop: 18 }}>
+          Volver
+        </button>
+        {captcha}
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); void entrar(); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} noValidate>
+      <div>
+        <h2 className="t-h1" style={{ fontSize: 22 }}>Hola de nuevo</h2>
+        <p className="t-meta" style={{ marginTop: 4, fontSize: 12.5 }}>Entra para reservar tu próxima clase.</p>
+      </div>
+
+      {global && (
+        <p role="alert" style={{ margin: 0, background: 'var(--destructive-soft)', color: 'var(--destructive-foreground)', borderRadius: 12, padding: '10px 13px', fontSize: 12.5, fontWeight: 700 }}>
+          {global}
+        </p>
+      )}
+
+      <Input label="Email" type="email" autoComplete="email" inputMode="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} error={err.email} />
+      <Input label="Contraseña" type="password" autoComplete="current-password" value={f.pass} onChange={(e) => setF({ ...f, pass: e.target.value })} error={err.pass} />
+
+      <Link href={href('/acceso/recuperar')} style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', alignSelf: 'flex-end', marginTop: -4 }}>
+        ¿Has olvidado la contraseña?
+      </Link>
+
+      <Button type="submit" full loading={cargando} disabled={!online} style={{ marginTop: 4 }}>
+        {online ? 'Entrar' : 'Sin conexión'}
+      </Button>
+
+      {/* La segunda puerta: quien entró alguna vez por enlace y nunca eligió
+          contraseña no tiene ninguna que escribir arriba. */}
+      <button
+        type="button"
+        onClick={() => void pedirEnlace()}
+        disabled={cargando || !online}
+        style={{ border: 'none', background: 'none', fontSize: 12.5, fontWeight: 800, color: 'var(--accent)', padding: '4px 0' }}
+      >
+        No tengo contraseña — mándame un enlace
+      </button>
+
+      {/* Separador antes de la vía de tercero. El diseño la pone en el
+          registro; también aquí, porque quien se dio de alta con Google no
+          tiene contraseña que escribir y su única puerta es esta. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '2px 0' }}>
+        <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        <span className="t-meta" style={{ fontSize: 11 }}>o</span>
+        <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+      </div>
+
+      <button
+        type="button"
+        onClick={() => { setGlobal(''); void entrarConGoogle().then((r) => { if ('error' in r) setGlobal(r.error); }); }}
+        disabled={cargando || !online}
+        className="btn btn--secondary"
+        style={{ width: '100%', gap: 8 }}
+      >
+        {/* Marca de Google en SVG en línea: el CSP del proyecto no admite
+            imágenes de terceros y un PNG local se ve mal en pantallas densas. */}
+        <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden focusable="false">
+          <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.8-6.8C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.6 17.7 9.5 24 9.5z" />
+          <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v8.3h12.6c-.3 2.1-1.6 5.2-4.6 7.3l7.7 6c4.5-4.2 6.4-10.1 6.4-17.5z" />
+          <path fill="#FBBC05" d="M10.5 28.6A14.6 14.6 0 0 1 9.7 24c0-1.6.3-3.2.8-4.6l-7.9-6.2A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.2z" />
+          <path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.7-5.9l-7.7-6c-2.1 1.4-4.8 2.4-8 2.4-6.3 0-11.6-4.1-13.5-9.9l-7.9 6.2C6.5 42.6 14.6 48 24 48z" />
+        </svg>
+        Continuar con Google
+      </button>
+
+      <p className="t-meta" style={{ textAlign: 'center', fontSize: 12.5 }}>
+        ¿Primera vez? <Link href={href('/acceso/registro')} style={{ fontWeight: 800, color: 'var(--foreground)' }}>Crear cuenta</Link>
+      </p>
+
+      {captcha}
+    </form>
+  );
+}

@@ -1710,7 +1710,10 @@ async function resolverVentanaCancelacion(
 type MotivoIntentoFallido =
   | 'AFORO_LLENO_SIN_ESPERA' | 'SIN_PLAN' | 'PLAN_NO_INCLUYE_TIPO'
   | 'FUERA_VENTANA_MINIMA' | 'FUERA_VENTANA_MAXIMA'
-  | 'LIMITE_SEMANAL' | 'MAX_SIMULTANEAS';
+  | 'LIMITE_SEMANAL' | 'MAX_SIMULTANEAS'
+  // El CHECK de la columna lo amplía 20260903150000: sin eso, esta fila se
+  // pierde en silencio (el insert va sin `await` a propósito).
+  | 'CONFLICTO_HORARIO';
 
 function registrarIntentoFallido(admin: SupabaseClient, params: {
   studioId: string; socioId: string; sesionId?: string | null; tipoClaseId?: string | null; motivo: MotivoIntentoFallido;
@@ -1901,19 +1904,45 @@ export async function crearReservaPublica(params: {
     p_socio_id: params.socioId, p_reserva_id: reservaId,
     p_permite_lista_espera: permiteListaEsperaResuelto,
     p_requiere_aprobacion: requiereAprobacionResuelto,
+    // ⚠️ El sitio va DENTRO de la transacción, no después.
+    //
+    // Esta llamada mandaba 6 argumentos y el sitio se asignaba luego con un
+    // read-then-update (`asignarSpotReserva`), que no es atómico: dos socias
+    // podían quedarse con el mismo reformer. Peor: al mandar 6 argumentos,
+    // PostgREST resolvía a una SOBRECAMA de `reservar_plaza` de 6 parámetros
+    // que había quedado viva desde 20260827193314 — o sea que este camino, el
+    // de la propia alumna, entraba por una función distinta a la del camino de
+    // pago. La migración 20260903150000 borra esa sobrecarga y deja una sola
+    // puerta; mandar `p_spot_id` es lo que garantiza que se entra por ella.
+    //
+    // La RPC ya sabía hacerlo: bloquea la fila del spot `for update`, valida
+    // sala y `activo`, y comprueba ocupación antes de decidir el estado.
+    p_spot_id: params.spotId ?? null,
   });
   if (error) {
-    if (error.message.includes('YA_RESERVADA')) return { error: 'Ya tienes una reserva en esta clase' as const };
-    if (error.message.includes('SESION_NO_ENCONTRADA')) return { error: 'Sesión no encontrada' as const };
+    // ⚠️ El `codigo` es lo que consume el cliente; el `error` es solo para
+    // enseñar. Antes solo viajaba la frase en castellano, así que la app tenía
+    // que comparar cadenas traducibles para saber qué había pasado — y
+    // cualquier retoque de copy rompía la máquina de estados de la reserva.
+    // El código sale del nombre que lanza la RPC y no se traduce nunca.
+    if (error.message.includes('YA_RESERVADA')) return { error: 'Ya tienes una reserva en esta clase' as const, codigo: 'ya-reservada' as const };
+    if (error.message.includes('SESION_NO_ENCONTRADA')) return { error: 'Sesión no encontrada' as const, codigo: 'sesion-no-encontrada' as const };
+    if (error.message.includes('CONFLICTO_HORARIO')) {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'CONFLICTO_HORARIO' });
+      return { error: 'Ya tienes otra clase a esa hora' as const, codigo: 'conflicto-horario' as const };
+    }
+    if (error.message.includes('SPOT_OCUPADO')) return { error: 'Ese sitio lo acaba de coger otra persona' as const, codigo: 'spot-ocupado' as const };
+    if (error.message.includes('SPOT_NO_DISPONIBLE')) return { error: 'Ese sitio no está disponible' as const, codigo: 'spot-no-disponible' as const };
+    if (error.message.includes('SPOT_NO_PERTENECE_A_LA_SALA')) return { error: 'Ese sitio no es de esta sala' as const, codigo: 'spot-no-disponible' as const };
     if (error.message.includes('LIMITE_SEMANAL')) {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'LIMITE_SEMANAL' });
-      return { error: 'Has alcanzado el máximo de clases por semana de tu plan' as const };
+      return { error: 'Has alcanzado el máximo de clases por semana de tu plan' as const, codigo: 'limite-semanal' as const };
     }
     if (error.message.includes('AFORO_LLENO_SIN_ESPERA')) {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'AFORO_LLENO_SIN_ESPERA' });
-      return { error: 'Esta clase está completa' as const };
+      return { error: 'Esta clase está completa' as const, codigo: 'aforo-lleno' as const };
     }
-    return { error: error.message };
+    return { error: error.message, codigo: 'error' as const };
   }
   const row = Array.isArray(data) ? data[0] : data;
   const estado: string = row?.estado ?? 'CONFIRMADA';
@@ -1923,11 +1952,15 @@ export async function crearReservaPublica(params: {
     // La clase decide de QUÉ bono se descuenta (0111): con un "Bono Reformer" y
     // un "Bono Mat" a la vez, sin esto se quitaría del equivocado.
     await consumirBonoServidor(admin, params.studioId, params.socioId, params.sesionId);
-    // Sitio elegido por la socia (I-12): solo para reservas confirmadas (la
-    // lista de espera no ocupa sitio). Se valida y asigna con guard atómico.
-    if (params.spotId) {
-      spotAsignado = await asignarSpotReserva(admin, params.studioId, params.sesionId, reservaId, params.spotId);
-    }
+    // El sitio ya viene asignado por la RPC, dentro de la misma transacción
+    // (ver `p_spot_id` arriba). Ya NO se llama a `asignarSpotReserva`: hacerlo
+    // era un read-then-update posterior que podía perder la carrera y devolver
+    // `null` tanto por eso como porque el spot estuviera inactivo — dos causas
+    // distintas colapsadas en el mismo valor. Ahora, si el sitio no se puede
+    // dar, la RPC lanza SPOT_OCUPADO / SPOT_NO_DISPONIBLE y la reserva entera
+    // no se crea, que es lo honesto: la socia eligió un sitio y se le dice que
+    // no lo tiene, en vez de confirmarle la clase en otro sin avisar.
+    spotAsignado = params.spotId ?? null;
     capturar(params.studioId, { nombre: 'reserva_completada', props: { con_spot_elegido: Boolean(spotAsignado) } });
   }
   // S-1: la reserva mueve RESERVAS_TOTALES (y la racha, si la sesión ya pasó),
@@ -2449,29 +2482,17 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
   return { ok: true };
 }
 
-// Asigna un spot a una reserva confirmada validando que el sitio pertenece a la
-// sala de la sesión, está activo y libre. El índice único uq_reserva_spot_activo
-// es el backstop atómico ante reservas concurrentes del mismo sitio: si dos van
-// a por el mismo, una gana y la otra queda sin sitio (no rompe la reserva).
-// Devuelve el spotId asignado o null si no se pudo.
-
-async function asignarSpotReserva(
-  admin: SupabaseClient, studioId: string, sesionId: string, reservaId: string, spotId: string,
-): Promise<string | null> {
-  const [{ data: ses }, { data: spot }] = await Promise.all([
-    admin.from('sesiones').select('sala_id').eq('id', sesionId).eq('studio_id', studioId).maybeSingle(),
-    admin.from('spots').select('id, activo, sala_id').eq('id', spotId).eq('studio_id', studioId).maybeSingle(),
-  ]);
-  if (!ses || !spot || !spot.activo || spot.sala_id !== ses.sala_id) return null;
-  const { data: ocupada } = await admin
-    .from('reservas').select('id')
-    .eq('sesion_id', sesionId).eq('spot_id', spotId)
-    .in('estado', ['CONFIRMADA', 'ASISTIDA']).maybeSingle();
-  if (ocupada) return null;
-  const { error } = await admin.from('reservas').update({ spot_id: spotId }).eq('id', reservaId);
-  if (error) return null; // violación del índice único en carrera → sin sitio
-  return spotId;
-}
+// `asignarSpotReserva` vivía aquí y se ha borrado: era el read-then-update que
+// asignaba el sitio DESPUÉS de crear la reserva. Ya no hace falta —`reservar_plaza`
+// lo hace dentro de su propia transacción, con `for update` sobre la fila del
+// spot (ver `p_spot_id` en `crearReservaPublica`)— y dejarlo aquí sin llamantes
+// era una invitación a volver al patrón inseguro.
+//
+// Lo que hacía y por qué no valía: leía sesión y spot, comprobaba sala/activo/
+// libre y luego hacía UPDATE. Entre la lectura y la escritura cabía otra
+// reserva, así que devolvía `null` tanto por perder la carrera como por spot
+// inactivo o de otra sala: tres causas distintas en el mismo valor, y la socia
+// se quedaba con la clase confirmada en un sitio que no era el que eligió.
 
 /**
  * Núcleo de "liberar una plaza": cancela la reserva vía RPC (atómico, promociona
@@ -3326,7 +3347,13 @@ export async function registrarSociaPublica(params: {
   studioId: string; id: string; nombre: string; email: string;
   telefono?: string;
   authUserId?: string;
-  aceptacion?: { fecha: string; firma: string; versionTexto: string };
+  // ⚠️ `origen` es obligatorio dentro de la aceptación, y no opcional como el
+  // resto: `socios.aceptacion_origen` existe con un CHECK ('PORTAL','MOSTRADOR')
+  // desde la migración 0109, que lo justifica con el art. 7.1 del RGPD — hay
+  // que poder demostrar QUIÉN consintió y por qué vía. Esta función escribía
+  // fecha, firma y versión pero NO el origen, así que toda alta pública dejaba
+  // la columna a NULL: exactamente el estado que la migración quería eliminar.
+  aceptacion?: { fecha: string; firma: string; versionTexto: string; origen: 'PORTAL' | 'MOSTRADOR' };
   referidoPor?: string | null;
   origenLead?: string | null;
 }) {
@@ -3389,6 +3416,7 @@ export async function registrarSociaPublica(params: {
       aceptacion_fecha: params.aceptacion?.fecha ?? null,
       aceptacion_firma: params.aceptacion?.firma ?? null,
       aceptacion_version: params.aceptacion?.versionTexto ?? null,
+      aceptacion_origen: params.aceptacion?.origen ?? null,
       // Sin esto, revisión de auditoría: la ficha fantasma no traía
       // referido_por (entregarPlanComprado no acepta código de referido), así
       // que adoptarla sin escribirlo aquí perdía el premio de quien invitó.
@@ -3420,6 +3448,7 @@ export async function registrarSociaPublica(params: {
     aceptacion_fecha: params.aceptacion?.fecha ?? null,
     aceptacion_firma: params.aceptacion?.firma ?? null,
     aceptacion_version: params.aceptacion?.versionTexto ?? null,
+    aceptacion_origen: params.aceptacion?.origen ?? null,
     referido_por: referido,
     origen_lead: params.origenLead ?? null,
   });

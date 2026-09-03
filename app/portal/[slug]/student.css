@@ -1,0 +1,182 @@
+/* ────────────────────────────────────────────────────────────────────────────
+   Sistema visual de la Student PWA — `tentare-student-pwa-design.zip`.
+   `styles/tokens.css` + `styles/globals.css` del paquete, con UN solo cambio.
+
+   ⚠️ TODO va acotado bajo `.student-app` y no en :root. El paquete asume que es
+   la única app del proyecto y escribe en `:root`, `body`, `.card`, `.btn`,
+   `.badge`, `.input`… Aquí convive con el panel, que es Tailwind v4 CSS-first
+   sobre un `app/globals.css` de 898 líneas: sin acotar, `.card` y `.btn` se
+   pisarían con las suyas. Acotar NO cambia un solo pixel del diseño — es la
+   misma técnica que usaba el kit anterior (`portal-app.css`, `.portal-app`).
+
+   Los valores son LITERALES del paquete. Lo único que se inyecta en runtime es
+   la familia de acento del estudio (lib/student/tema.ts), que es justo lo que
+   `config/studio.ts` documenta como sobrescribible.
+   ──────────────────────────────────────────────────────────────────────────── */
+.student-app {
+  /* `body { background; color; font-family; -webkit-font-smoothing }` del
+     paquete: aquí lo lleva el propio contenedor, porque `body` es compartido
+     con el panel. `overscroll-behavior-y: none` va en el mismo sitio. */
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+
+  /* Marca del estudio */
+  --primary: #1A1A1A;             /* CTA principal, tabs activos */
+  --primary-foreground: #F1ECE1;
+  --accent: #3E6B4A;              /* enlaces, éxito, confirmaciones */
+  --accent-foreground: #FFFFFF;
+  --accent-soft: #EAF0E7;         /* fondos de badge/aviso positivo */
+  --accent-soft-foreground: #2E5A3A;
+  --accent-deep: #12291A;         /* card "próxima clase", pase QR */
+  --accent-deep-foreground: #EAF0E7;
+  --accent-deep-muted: #A8D0A9;
+
+  /* Neutros */
+  --background: #FAF9F5;
+  --foreground: #1A1A1A;
+  --card: #FFFFFF;
+  --muted: #EFEDE4;
+  --muted-foreground: #5A5A52;
+  --subtle-foreground: #98A093;
+  --border: #E5E3DA;
+  --border-strong: #D9D6C9;
+
+  /* Semánticos */
+  --warning: #C99A3C;
+  --warning-soft: #F6EEDD;
+  --warning-foreground: #8A6A25;
+  --destructive: #C2503A;
+  --destructive-soft: #F4E9E5;
+  --destructive-foreground: #A04A3C;
+
+  /* Tipografía (el estudio puede sustituir --font-sans si se soporta) */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Forma */
+  --radius-card: 16px;
+  --radius-hero: 20px;
+  --radius-sheet: 24px;
+  --radius-pill: 999px;
+
+  /* Sombra (tinta neutra — nunca de color) */
+  --shadow-card: 0 10px 24px -10px rgba(26,26,26,.14);
+  --shadow-hero: 0 14px 30px -12px rgba(26,26,26,.3);
+  --shadow-cta: 0 14px 30px -10px rgba(26,26,26,.45);
+  --shadow-sheet: 0 -18px 50px rgba(15,15,15,.25);
+  --shadow-toast: 0 14px 34px rgba(15,15,15,.35);
+
+  /* Movimiento */
+  --ease: cubic-bezier(.2,.7,0,1);
+  --ease-spring: cubic-bezier(.34,1.3,.5,1);
+  --dur-fast: .2s; --dur-card: .4s; --dur-sheet: .38s;
+
+  /* Layout */
+  --nav-height: 74px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Reset del paquete, acotado ── */
+.student-app *, .student-app *::before, .student-app *::after { box-sizing: border-box; }
+.student-app a { color: inherit; text-decoration: none; }
+.student-app button, .student-app input, .student-app textarea { font-family: inherit; }
+.student-app button { cursor: pointer; }
+.student-app input { outline: none; }
+.student-app :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.student-app .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.student-app .no-scrollbar { scrollbar-width: none; }
+.student-app .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ── Tipos del kit ── */
+.student-app .t-h1 { font-size: 25px; font-weight: 800; letter-spacing: -.03em; line-height: 1.06; margin: 0; }
+.student-app .t-h2 { font-size: 16px; font-weight: 800; letter-spacing: -.02em; margin: 0; }
+.student-app .t-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--subtle-foreground); margin: 0; }
+.student-app .t-meta { font-size: 11px; color: var(--muted-foreground); margin: 0; }
+.student-app .t-mono { font-family: var(--font-mono); }
+
+/* ── Superficies ── */
+.student-app .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.student-app .card--tap { cursor: pointer; transition: transform var(--dur-fast) var(--ease), box-shadow .25s; }
+.student-app .card--tap:active { transform: scale(.98); }
+@media (hover:hover) { .student-app .card--tap:hover { box-shadow: var(--shadow-card); } }
+
+/* ── Botones ── */
+.student-app .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; border-radius: var(--radius-pill); font-weight: 800; white-space: nowrap; transition: transform .15s var(--ease), background .2s, opacity .2s; }
+.student-app .btn:active:not(:disabled) { transform: scale(.97); }
+.student-app .btn:disabled { opacity: .45; cursor: default; }
+.student-app .btn--primary { background: var(--primary); color: var(--primary-foreground); height: 52px; font-size: 14.5px; padding: 0 22px; box-shadow: var(--shadow-cta); }
+.student-app .btn--secondary { background: var(--card); color: var(--foreground); border: 1px solid var(--border-strong); height: 44px; font-size: 12.5px; padding: 0 16px; }
+.student-app .btn--ghost { background: var(--muted); color: var(--foreground); height: 44px; font-size: 12.5px; padding: 0 16px; }
+.student-app .btn--danger { background: var(--destructive-soft); color: var(--destructive-foreground); height: 40px; font-size: 11.5px; padding: 0 14px; }
+.student-app .btn--sm { height: 36px; font-size: 11.5px; padding: 0 13px; }
+.student-app .btn--light { background: var(--background); color: var(--foreground); height: 40px; font-size: 11.5px; padding: 0 14px; }
+.student-app .btn--full { width: 100%; }
+
+/* ── Badges de plazas ── */
+.student-app .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; padding: 5px 10px; border-radius: var(--radius-pill); white-space: nowrap; }
+.student-app .badge--ok { background: var(--accent-soft); color: var(--accent-soft-foreground); }
+.student-app .badge--few { background: var(--warning-soft); color: var(--warning-foreground); }
+.student-app .badge--full { background: var(--destructive-soft); color: var(--destructive-foreground); }
+.student-app .badge--booked { background: #4F8A5B; color: #fff; }
+.student-app .badge--wait { background: var(--warning-soft); color: var(--warning-foreground); }
+.student-app .badge--neutral { background: var(--muted); color: var(--muted-foreground); }
+
+/* ── Pills (filtros / días) ── */
+.student-app .pill { border: 1px solid var(--border-strong); background: var(--card); color: var(--muted-foreground); border-radius: var(--radius-pill); padding: 7px 14px; font-size: 12px; font-weight: 700; transition: all .2s; }
+.student-app .pill[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-soft-foreground); }
+.student-app .day { flex-shrink: 0; min-width: 64px; height: 44px; border: 1.5px solid var(--border); background: var(--card); color: var(--foreground); border-radius: 13px; padding: 0 12px; font-size: 12.5px; font-weight: 800; transition: all .22s; }
+.student-app .day[aria-pressed="true"] { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
+.student-app .day small { display: block; font-size: 9.5px; font-weight: 600; opacity: .72; }
+
+/* ── Inputs ── */
+.student-app .input { width: 100%; height: 50px; background: var(--card); border: 1.5px solid var(--border); border-radius: 14px; padding: 0 16px; font-size: 14.5px; font-weight: 600; color: var(--foreground); transition: border-color .2s; }
+.student-app .input:focus { border-color: var(--primary); }
+.student-app .input[aria-invalid="true"] { border-color: var(--destructive); }
+.student-app .field-error { font-size: 11.5px; font-weight: 600; color: var(--destructive); margin: 6px 0 0; }
+
+/* ── Skeleton ── */
+.student-app .skel { background: linear-gradient(90deg, var(--muted) 25%, #F6F4EC 45%, var(--muted) 65%); background-size: 400px 100%; animation: apSkel 1.1s linear infinite; border-radius: 10px; }
+
+/* ── Keyframes del diseño (nombres originales conservados) ── */
+@keyframes apUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes apFade{from{opacity:0}to{opacity:1}}
+@keyframes apPop{from{opacity:0;transform:scale(.55)}62%{transform:scale(1.07)}to{opacity:1;transform:scale(1)}}
+@keyframes apCheck{0%{transform:scale(0)}55%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes apRing{0%{transform:scale(.4);opacity:.6}100%{transform:scale(2);opacity:0}}
+@keyframes apSkel{from{background-position:-200px 0}to{background-position:200px 0}}
+@keyframes apPulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes apHeart{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
+@keyframes apToast{from{opacity:0;transform:translateY(-18px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes apKen{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes apDot{0%{transform:scale(0)}60%{transform:scale(1.4)}100%{transform:scale(1)}}
+@keyframes apConfA{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(-46px,-110px) rotate(320deg)}}
+@keyframes apConfB{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(8px,-130px) rotate(-280deg)}}
+@keyframes apConfC{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(52px,-100px) rotate(260deg)}}
+@keyframes apSpin{to{transform:rotate(360deg)}}
+@keyframes apSlideDown{from{opacity:0;transform:translateY(-70px) scale(.95)}to{opacity:1;transform:none}}
+.student-app .a-up { animation: apUp var(--dur-card) both; }
+.student-app .a-fade { animation: apFade .25s both; }
+.student-app .a-pop { animation: apPop .5s both; }
+
+/* ── Layout responsive del shell ── */
+.student-app .shell { min-height: 100dvh; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; position: relative; }
+.student-app .page { flex: 1; padding: calc(56px + var(--safe-top)) 0 calc(var(--nav-height) + 18px + var(--safe-bottom)); }
+.student-app .px { padding-left: 18px; padding-right: 18px; }
+@media (min-width: 768px) {
+  .student-app .shell { max-width: 640px; }
+  .student-app .px { padding-left: 24px; padding-right: 24px; }
+}
+@media (min-width: 1024px) {
+  .student-app .shell { max-width: 1040px; }
+  .student-app .page { padding-bottom: 40px; }
+  .student-app .grid-lg-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .student-app, .student-app *, .student-app *::before, .student-app *::after {
+    animation: none !important; transition: none !important;
+  }
+}

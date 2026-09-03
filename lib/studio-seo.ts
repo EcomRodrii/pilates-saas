@@ -38,7 +38,26 @@ export interface StudioSeo {
   fotoUrl: string | null;
 }
 
-export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null> => {
+/**
+ * Resultado con la causa distinguida.
+ *
+ * ⚠️ Existe porque `getStudioSeo` colapsa dos cosas MUY distintas en el mismo
+ * `null`: «este slug no es de nadie» y «no he podido preguntarlo». Para las
+ * páginas de siempre da igual —pintan «estudio no encontrado» en los dos
+ * casos—, pero la app de la alumna se renderiza en servidor y convertía el
+ * segundo en un 404: un parpadeo de la base de datos le decía a la clienta que
+ * su estudio no existe. Y un 404 no se reintenta: se comparte, se indexa y se
+ * cree.
+ *
+ * `getStudioSeo` sigue devolviendo `StudioSeo | null` y no cambia para sus
+ * llamantes; quien necesite la causa usa esta.
+ */
+export type ResultadoStudioSeo =
+  | { estudio: StudioSeo }
+  | { estudio: null; causa: 'no-existe' }
+  | { estudio: null; causa: 'no-disponible' };
+
+export const getStudioSeoResultado = cache(async (slug: string): Promise<ResultadoStudioSeo> => {
   // Semilla E2E (B0.3): esta resolución ocurre en el SERVIDOR, así que el mock de
   // red de Playwright (nivel navegador) no la intercepta; con el env dummy de CI
   // devolvería null y la página pública mostraría "estudio no encontrado", lo que
@@ -46,7 +65,7 @@ export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null
   // el estudio de prueba en el servidor. NUNCA se activa en producción (la env no
   // existe allí); coincide con el fixture de e2e/booking.spec.ts.
   if (process.env.E2E_TEST === '1') {
-    return {
+    return { estudio: {
       id: 'studio-test', nombre: 'Tentare', ciudad: 'Málaga', direccion: 'Calle Test 1',
       colorPrimario: '#1A1A1A', logoUrl: null, slug,
       telefono: '+34 600 000 000', email: 'hola@studio-test.es',
@@ -57,10 +76,12 @@ export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null
       // es alcanzable por ningún test. Ausente = visible, como siempre.
       paginaOculta: process.env.E2E_PAGINA_OCULTA === '1' || process.env.E2E_PAGINA_OCULTA === 'con-clave',
       paginaTieneClave: process.env.E2E_PAGINA_OCULTA === 'con-clave',
-    };
+    } };
   }
   const admin = getSupabaseAdmin();
-  if (!admin) return null;
+  // Sin cliente de administración no es que el estudio no exista: es que no
+  // podemos preguntarlo (falta la service-role key en el entorno).
+  if (!admin) return { estudio: null, causa: 'no-disponible' };
 
   // ⚠️ **Las columnas nuevas se piden aparte, y su fallo no tumba la página.**
   //
@@ -94,8 +115,12 @@ export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null
     ),
   ]);
   const data = base.data;
-  if (!data) return null;
-  return {
+  // Un `error` de PostgREST NO es un estudio inexistente: es red caída, esquema
+  // desincronizado o permiso denegado. `maybeSingle()` deja `data` en null en
+  // los dos casos, así que hay que mirar el error para separarlos.
+  if (base.error) return { estudio: null, causa: 'no-disponible' };
+  if (!data) return { estudio: null, causa: 'no-existe' };
+  return { estudio: {
     id: data.id,
     nombre: data.nombre ?? 'Estudio de Pilates',
     ciudad: data.ciudad ?? '',
@@ -115,5 +140,17 @@ export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null
     // único que la página necesita saber para decidir si enseña el formulario.
     paginaTieneClave: typeof visibilidad?.pagina_publica_clave_hash === 'string'
       && visibilidad.pagina_publica_clave_hash.length > 0,
-  };
+  } };
 });
+
+/**
+ * El contrato de siempre: el estudio o `null`, sin distinguir la causa.
+ *
+ * Se conserva porque lo llaman las páginas públicas, los sitemaps y los
+ * manifests, y para ellos «no existe» y «no he podido leerlo» acaban en la
+ * misma pantalla. Quien necesite reaccionar distinto —la app de la alumna, que
+ * se pinta en servidor y no puede convertir un fallo de red en un 404— usa
+ * `getStudioSeoResultado`.
+ */
+export const getStudioSeo = async (slug: string): Promise<StudioSeo | null> =>
+  (await getStudioSeoResultado(slug)).estudio;
