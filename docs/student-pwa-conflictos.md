@@ -120,3 +120,58 @@ en la acción de `PageHeader`.
 **Estado** · Se respetan las medidas del paquete. El conflicto está DENTRO del
 paquete, así que resolverlo por mi cuenta sería elegir cuál de sus dos reglas
 gana.
+
+---
+
+## DC-9 · «Descargar recibo» · ABIERTO — decisión de producto y cumplimiento
+
+**Diseño** · La pantalla de recibo (§A.15) tiene un botón «Descargar recibo».
+
+**Backend** · NO existe ninguna ruta que sirva a una alumna su recibo o su
+factura. Las dos de `app/api/facturas/*` son `verificarSesionStaff` (rectificar
+y sellar), y la factura es un documento fiscal sellado con Veri*Factu.
+
+**Estado** · El botón NO se ha puesto. Ponerlo con un toast de «pendiente» sería
+prometer algo que no va a pasar. En su lugar, la pantalla dice a quién pedir la
+factura, con el contacto del estudio.
+
+**Para hacerlo** · Hace falta una ruta pública que valide `socioAutenticado`,
+compruebe que el recibo es SUYO y entregue el PDF (`lib/factura-pdf.ts` ya
+existe). Es un endpoint que entrega documentos fiscales: merece su propia
+revisión, no colarlo en una fase de pantallas.
+
+---
+
+## DC-10 · «Intentar el pago de nuevo» · ABIERTO
+
+**Diseño** · Un pago fallido ofrece reintentarlo desde la app.
+
+**Backend** · El reintento con la tarjeta guardada existe —
+`POST /api/stripe/charge-off-session`— pero es de PERSONAL:
+`verificarSesionStaff` + `puedeMoverDinero(sesion.rol)`. No hay puerta de
+alumna para cobrar con el método guardado sin redirect.
+
+**Estado** · El botón NO se ha puesto. La pantalla explica el estado real («no
+se ha hecho ningún cargo») y remite al estudio. Abrir un camino de cobro nuevo
+para la alumna es trabajo de backend con su propia revisión de dinero.
+
+---
+
+## DC-11 · Retornos de Stripe · RESUELTO
+
+**Problema** · `setup-tarjeta`, `setup-sepa` y la rama `'portal'` de
+`origen-pago` devolvían a `/portal/<slug>/compras`, que no existe en el árbol
+nuevo — y el catch-all de compatibilidad redirige TIRANDO la query. O sea: la
+clienta guardaba su tarjeta y aterrizaba en una página que no le decía nada.
+
+**Solución** · Los tres apuntan a `/portal/<slug>/pagos`, que sí existe. La rama
+de compra de bono ya apuntaba a `/bonos`, que también existe ahora.
+
+Y las pantallas ACUSAN el retorno, que es la otra mitad: `?tarjeta=ok`,
+`?sepa=ok`, `?pago=ok|cancelado` y `?compra=cancelada` enseñan su aviso.
+
+**⚠️ `?compra=ok` se COMPRUEBA, no se celebra.** El propio backend lo avisa por
+escrito: significa «Stripe cobró», no «el bono está» — lo entrega el webhook y
+puede tardar. La pantalla de bonos reintenta hasta ~12 s buscando la suscripción
+del plan comprado y solo entonces dice que está; si no llega, dice que está
+tardando, que no es lo mismo que un fallo.

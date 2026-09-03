@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
     const base = body.slug
-      ? `${appUrl}/portal/${encodeURIComponent(body.slug)}/compras`
+      ? `${appUrl}/portal/${encodeURIComponent(body.slug)}/pagos`
       : `${appUrl}/pagos`;
 
     const session = await stripe.checkout.sessions.create(
