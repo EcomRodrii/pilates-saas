@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio } from '@/components/student/contexto';
@@ -54,6 +55,23 @@ export default function AyudaPage() {
             ))}
           </div>
         </section>
+
+        {/* ⚠️ Faltaba. El paquete cierra esta pantalla con un pie legal, y no
+            es cosmético: es el ÚNICO sitio de la app de la alumna desde el que
+            se llega a estos textos.
+
+            Las URLs van SIN prefijo —`/terminos`, `/privacidad`, `/cookies`—
+            porque en el repo viven bajo `app/(legal)/`, que es un GRUPO de
+            rutas y los grupos no aparecen en la URL. Comprobado contra el
+            servidor: las tres dan 200, y `/legal/privacidad` —lo que enlazaba
+            la pantalla de registro— daba 404. */}
+        <p className="t-meta" style={{ fontSize: 10.5, color: 'var(--subtle-foreground)', textAlign: 'center', marginTop: 4 }}>
+          <Link href="/terminos" target="_blank" style={{ color: 'inherit' }}>Aviso legal</Link>
+          {' \u00b7 '}
+          <Link href="/privacidad" target="_blank" style={{ color: 'inherit' }}>Privacidad</Link>
+          {' \u00b7 '}
+          <Link href="/cookies" target="_blank" style={{ color: 'inherit' }}>Cookies</Link>
+        </p>
       </div>
     </StudentShell>
   );

@@ -5,6 +5,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
+import { useEstudio } from '@/components/student/contexto';
 import { useToast } from '@/components/student/ui/Toast';
 import { getPreferencias, guardarPreferencia, type PreferenciaCategoria } from '@/lib/student/perfil-y-avisos';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
@@ -53,6 +54,7 @@ function Toggle({ on, onChange, label, sub, disabled }: {
 }
 
 export default function PreferenciasPage() {
+  const { estudio } = useEstudio();
   const { online } = useOnline();
   const { toast } = useToast();
   const [local, setLocal] = useState<Record<string, { push: boolean; email: boolean }>>({});
@@ -77,7 +79,7 @@ export default function PreferenciasPage() {
     // se REVIERTE si el servidor dice que no. Dejarlo cambiado sería enseñarle
     // una preferencia que el motor no tiene.
     setLocal((s) => ({ ...s, [categoria]: { ...s[categoria], [campo]: valor } }));
-    const ok = await guardarPreferencia({ category: categoria, [campo]: valor });
+    const ok = await guardarPreferencia({ studioId: estudio.id, category: categoria, [campo]: valor });
     if (!ok) {
       setLocal((s) => ({ ...s, [categoria]: antes }));
       toast('No hemos podido guardar ese cambio.');

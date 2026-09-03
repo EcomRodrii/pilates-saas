@@ -12,12 +12,32 @@ import { traducirEnlace } from '@/lib/student/deep-links';
 
 // ── Notificaciones ──────────────────────────────────────────────────────────
 
-/** Fila cruda del motor de notificaciones. */
+/**
+ * Fila cruda del motor de notificaciones.
+ *
+ * ⚠️ La ruta serializa en camelCase (`readAt`, `createdAt`, `deepLink`), no en
+ * el snake_case de la tabla. Este adaptador leía las columnas y no las claves,
+ * y como en TypeScript leer un campo ausente es `undefined` —no un error—
+ * fallaba en silencio y en tres sitios a la vez:
+ *
+ *   · `read_at`     → toda notificación salía SIN LEER, y el contador de la
+ *                     cabecera decía 5 donde el servidor decía 4.
+ *   · `created_at`  → caía en el `new Date()` de reserva, así que TODAS ponían
+ *                     «hace 1 min», incluida una de hace cuatro días.
+ *   · `deep_link`   → ningún aviso llevaba a ninguna parte: la razón de ser de
+ *                     una notificación, perdida.
+ *
+ * Se aceptan las dos formas: la camelCase real y el snake_case por si algún día
+ * la ruta devuelve la fila en crudo.
+ */
 interface FilaNotificacion {
   id: string;
   title?: string | null;
   body?: string | null;
   category?: string | null;
+  deepLink?: string | null;
+  readAt?: string | null;
+  createdAt?: string | null;
   deep_link?: string | null;
   read_at?: string | null;
   created_at?: string | null;
@@ -52,16 +72,24 @@ export async function getNotificaciones(slug: string, studioId: string): Promise
     const url = `/api/notifications?ambito=socia&studioId=${encodeURIComponent(studioId)}`;
     const res = await fetch(url, { headers: auth });
     if (!res.ok) return [];
-    const cuerpo = (await res.json()) as { notifications?: FilaNotificacion[] } | FilaNotificacion[];
-    const filas = Array.isArray(cuerpo) ? cuerpo : (cuerpo.notifications ?? []);
+    // ⚠️ La clave es `items`, NO `notifications`.
+    //
+    // Se leía `cuerpo.notifications`, que esta ruta no devuelve nunca: responde
+    // `{ items, unread }`. El resultado era `undefined ?? []`, así que la
+    // pantalla enseñaba «Todo al día» SIEMPRE, con avisos sin leer en la base.
+    // No fallaba ni avisaba: mentía. Se vio comparando el render contra el
+    // paquete —que ahí sí lista avisos—; en el código no se ve, porque leer una
+    // clave que no existe es un `undefined` perfectamente legal.
+    const cuerpo = (await res.json()) as { items?: FilaNotificacion[]; notifications?: FilaNotificacion[] } | FilaNotificacion[];
+    const filas = Array.isArray(cuerpo) ? cuerpo : (cuerpo.items ?? cuerpo.notifications ?? []);
     return filas.map((n) => ({
       id: n.id,
       tipo: tipoDeCategoria(n.category),
       titulo: n.title ?? '',
       cuerpo: n.body ?? '',
-      fecha: n.created_at ?? new Date().toISOString(),
-      leida: Boolean(n.read_at),
-      enlace: traducirEnlace(n.deep_link, slug),
+      fecha: n.createdAt ?? n.created_at ?? new Date().toISOString(),
+      leida: Boolean(n.readAt ?? n.read_at),
+      enlace: traducirEnlace(n.deepLink ?? n.deep_link, slug),
     }));
   } catch {
     return [];
@@ -99,20 +127,42 @@ export interface PreferenciaCategoria {
   email: boolean;
 }
 
-/** Ausencia de fila = valores por defecto (in-app + push encendidos). */
+/**
+ * Ausencia de fila = valores por defecto (in-app + push encendidos).
+ *
+ * ⚠️ La ruta devuelve `{ prefs: { [categoria]: {inapp, push, email, …} } }` —
+ * un OBJETO indexado por categoría, no una lista, y bajo la clave `prefs`, no
+ * `preferences`. Se leía `cuerpo.preferences` como array: siempre `[]`, así que
+ * la pantalla de preferencias pintaba los valores por defecto aunque la alumna
+ * hubiera apagado algo. Mismo patrón que el de `items` de arriba: dos contratos
+ * escritos por separado que nadie llegó a cruzar.
+ */
 export async function getPreferencias(): Promise<PreferenciaCategoria[]> {
   try {
     const auth = await portalAuthHeader();
     const res = await fetch('/api/notifications/preferences', { headers: auth });
     if (!res.ok) return [];
-    const cuerpo = (await res.json()) as { preferences?: PreferenciaCategoria[] } | PreferenciaCategoria[];
-    return Array.isArray(cuerpo) ? cuerpo : (cuerpo.preferences ?? []);
+    const cuerpo = (await res.json()) as
+      | { prefs?: Record<string, { inapp?: boolean; push?: boolean; email?: boolean }> }
+      | PreferenciaCategoria[];
+    if (Array.isArray(cuerpo)) return cuerpo;
+    return Object.entries(cuerpo.prefs ?? {}).map(([category, v]) => ({
+      category,
+      inapp: v?.inapp ?? true,
+      push: v?.push ?? true,
+      email: v?.email ?? false,
+    }));
   } catch {
     return [];
   }
 }
 
-export async function guardarPreferencia(p: { category: string; inapp?: boolean; push?: boolean; email?: boolean }): Promise<boolean> {
+/**
+ * ⚠️ `studioId` es OBLIGATORIO: la ruta responde 400 «faltan datos» sin él, y
+ * se estaba mandando sin. Guardar una preferencia fallaba en silencio —
+ * `res.ok` era false y la pantalla revertía el interruptor sin decir por qué.
+ */
+export async function guardarPreferencia(p: { studioId: string; category: string; inapp?: boolean; push?: boolean; email?: boolean }): Promise<boolean> {
   try {
     const auth = await portalAuthHeader();
     const res = await fetch('/api/notifications/preferences', {
