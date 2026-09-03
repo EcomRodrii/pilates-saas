@@ -36,6 +36,10 @@ export const viewport: Viewport = {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const estudio = await cargarEstudio(slug);
+  // Si no se ha podido leer, un título neutro: decir «no encontrado» sería
+  // afirmar algo que no sabemos, y este título acaba en la pestaña y en el
+  // enlace que se comparte.
+  if (estudio === 'no-disponible') return { title: 'Portal del estudio' };
   if (!estudio) return { title: 'Estudio no encontrado' };
 
   const base = `/portal/${encodeURIComponent(slug)}`;
@@ -66,6 +70,11 @@ export default async function StudentLayout({
 }) {
   const { slug } = await params;
   const estudio = await cargarEstudio(slug);
+  // Un fallo al LEER no es un estudio inexistente. Se lanza para que lo recoja
+  // el error boundary del segmento (error.tsx), que ofrece reintentar; con
+  // `notFound()` la clienta veía «esta página no existe» por un parpadeo de la
+  // base de datos, y ese 404 se comparte y se indexa.
+  if (estudio === 'no-disponible') throw new Error('STUDENT_ESTUDIO_NO_DISPONIBLE');
   if (!estudio) notFound();
 
   return (

@@ -4,6 +4,7 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
+import { firmaCompleta } from '@/lib/student/consentimiento-regla';
 
 // Operaciones de la propia socia desde el portal/reserva. SEGURIDAD: todas
 // exigen sesión real de socia (JWT de Supabase Auth); la identidad se deriva del
@@ -25,6 +26,9 @@ export async function POST(req: NextRequest) {
     id?: string;
     nombre?: string;
     telefono?: string;
+    // `origen` NO se acepta del cliente: lo decide el servidor según por dónde
+    // entró el alta (ver más abajo). Que el cliente pudiera declararse
+    // 'MOSTRADOR' vaciaría de sentido la traza legal.
     aceptacion?: { fecha: string; firma: string; versionTexto: string };
     referidoPor?: string | null;
     origenLead?: string | null;
@@ -44,13 +48,37 @@ export async function POST(req: NextRequest) {
         return conCorsWidget(req, NextResponse.json({ error: 'Faltan datos de la socia' }, { status: 400 }));
       }
 
+      // ⚠️ TRAZA LEGAL. `socios.aceptacion_origen` tiene un CHECK
+      // ('PORTAL','MOSTRADOR') puesto por la migración 0109 citando el art. 7.1
+      // del RGPD: hay que poder demostrar quién consintió y por qué vía. Esta
+      // ruta escribía fecha, firma y versión pero dejaba el origen a NULL.
+      //
+      // El origen lo fija el SERVIDOR, nunca el cliente: un alta que llega por
+      // aquí es autoservicio de la propia alumna, así que es 'PORTAL'. El otro
+      // valor, 'MOSTRADOR', solo lo escribe el panel, donde además se anota
+      // `aceptacion_por` (quién del estudio la introdujo). Si el cliente
+      // pudiera elegirlo, una firma remota sería indistinguible de una
+      // presencial y la traza no probaría nada.
+      // Y si no viene la firma, el alta NO se hace. Sin fecha, firma y versión
+      // la fila nace con `aceptacion_origen` a NULL — exactamente el estado que
+      // la migración 0109 existe para eliminar—, y una traza a medias no prueba
+      // nada. Es fail-closed a propósito: los tres llamantes vivos (el portal,
+      // /reservar y el widget) ya la mandan, así que esto no cierra ningún
+      // camino real; lo que impide es crear socias sin consentimiento probable.
+      const ac = body.aceptacion;
+      if (!firmaCompleta(ac)) {
+        return conCorsWidget(req, NextResponse.json(
+          { error: 'Falta la aceptación del contrato (fecha, firma y versión)' }, { status: 400 }));
+      }
+      const aceptacion = { ...ac, origen: 'PORTAL' as const };
+
       // El tope de socias del plan lo comprueba `registrarSociaPublica`, pegado
       // al insert y DESPUÉS de su salida temprana por idempotencia. Aquí corría
       // antes, así que un reintento de una socia que ya existía se llevaba el
       // bloqueo sin ir a crear nada.
       const r = await registrarSociaPublica({
         studioId: body.studioId, id: body.id, nombre: body.nombre, email: user.email,
-        telefono: body.telefono, authUserId: user.userId, aceptacion: body.aceptacion, referidoPor: body.referidoPor ?? null,
+        telefono: body.telefono, authUserId: user.userId, aceptacion, referidoPor: body.referidoPor ?? null,
         origenLead: body.origenLead ?? null,
       });
       if ('error' in r) {

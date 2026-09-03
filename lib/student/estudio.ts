@@ -1,6 +1,7 @@
 import 'server-only';
-import { getStudioSeo } from '@/lib/studio-seo';
+import { getStudioSeoResultado } from '@/lib/studio-seo';
 import { urlMonograma } from '@/lib/monograma-estudio';
+import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
 import type { StudioConfig } from '@/lib/student/tipos';
 
 // Carga del estudio para la Student PWA, EN SERVIDOR y sin god-context.
@@ -39,9 +40,18 @@ export interface EstudioStudent extends StudioConfig {
  * `colorPrimario` alimenta la familia de acento (lib/student/tema.ts). El resto
  * de tokens del diseño son fijos y viven en `student.css`.
  */
-export async function cargarEstudio(slug: string): Promise<EstudioStudent | null> {
-  const s = await getStudioSeo(slug);
-  if (!s) return null;
+/**
+ * `null` = este slug no es de ningún estudio → 404 legítimo.
+ * `'no-disponible'` = no hemos podido preguntarlo → error, NUNCA 404.
+ *
+ * La diferencia importa: un 404 le dice a la clienta que su estudio no existe,
+ * se comparte y se indexa. Un parpadeo de la base de datos no puede producir
+ * eso. Ver `getStudioSeoResultado`.
+ */
+export async function cargarEstudio(slug: string): Promise<EstudioStudent | null | 'no-disponible'> {
+  const r = await getStudioSeoResultado(slug);
+  if (!r.estudio) return r.causa === 'no-disponible' ? 'no-disponible' : null;
+  const s = r.estudio;
 
   return {
     id: s.id,
@@ -53,7 +63,13 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     // las iniciales (`StudioHeader`). No se rellena con un placeholder.
     logoUrl: s.logoUrl,
     iconoUrl: urlMonograma(s.nombre, s.colorPrimario, 192),
-    fotoPortada: s.fotoUrl ?? '',
+    // Foto de portada del estudio o, si no ha subido ninguna, una de las diez
+    // del repo (`lib/imagenes-por-defecto.ts`). Sin esto, el héroe de la
+    // pantalla de acceso sale en negro para todo estudio recién dado de alta —
+    // que es justo el primer contacto de su primera clienta. La `semilla` es
+    // el slug: así cada estudio recibe SIEMPRE la misma, y no una distinta en
+    // cada carga.
+    fotoPortada: imagenDeEstudio('portada', s.fotoUrl, s.slug),
     telefono: s.telefono ?? '',
     email: s.email ?? '',
     // El backend no clasifica el estudio por disciplina: `tipos_clase` es libre

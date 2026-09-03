@@ -14,6 +14,12 @@ import { urlMonograma } from '@/lib/monograma-estudio';
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const estudio = await cargarEstudio(slug);
+  // 503 y no 404 cuando el fallo es de lectura: un 404 aquí hace que el
+  // navegador CACHEE la ausencia de manifest y el estudio deje de ser
+  // instalable hasta que se limpie la caché.
+  if (estudio === 'no-disponible') {
+    return new NextResponse('No disponible', { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
   if (!estudio) return new NextResponse('No encontrado', { status: 404 });
 
   const base = `/portal/${encodeURIComponent(slug)}`;

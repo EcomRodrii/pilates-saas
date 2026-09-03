@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { GuardiaSesion } from '@/components/student/GuardiaSesion';
 import { StudioHeader } from './StudioHeader';
 import { BottomNavigation } from './BottomNavigation';
 import { OfflineBanner } from './OfflineBanner';
@@ -19,6 +20,10 @@ import { OfflineBanner } from './OfflineBanner';
  *    contexto global. En el paquete son constantes de demostración; aquí cada
  *    pantalla pasa lo que ya ha cargado, y si no tiene el dato pasa 0 en vez
  *    de disparar una consulta propia solo para pintar un punto.
+ *
+ * Envuelve en `GuardiaSesion`: toda pantalla que use este marco exige sesión.
+ * Las de acceso no lo usan — tienen su propio layout, precisamente porque son
+ * las únicas a las que se llega sin haber entrado.
  */
 export function StudentShell({
   children,
@@ -32,13 +37,15 @@ export function StudentShell({
   headerTransparente?: boolean;
 }) {
   return (
-    <div className="shell">
-      <StudioHeader noLeidas={noLeidas} transparente={headerTransparente} />
-      <main className="page" style={headerTransparente ? { paddingTop: 0 } : undefined}>
-        <OfflineBanner />
-        {children}
-      </main>
-      <BottomNavigation badgeReservas={badgeReservas} />
-    </div>
+    <GuardiaSesion>
+      <div className="shell">
+        <StudioHeader noLeidas={noLeidas} transparente={headerTransparente} />
+        <main className="page" style={headerTransparente ? { paddingTop: 0 } : undefined}>
+          <OfflineBanner />
+          {children}
+        </main>
+        <BottomNavigation badgeReservas={badgeReservas} />
+      </div>
+    </GuardiaSesion>
   );
 }

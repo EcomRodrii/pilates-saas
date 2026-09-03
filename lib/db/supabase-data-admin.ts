@@ -3326,7 +3326,13 @@ export async function registrarSociaPublica(params: {
   studioId: string; id: string; nombre: string; email: string;
   telefono?: string;
   authUserId?: string;
-  aceptacion?: { fecha: string; firma: string; versionTexto: string };
+  // ⚠️ `origen` es obligatorio dentro de la aceptación, y no opcional como el
+  // resto: `socios.aceptacion_origen` existe con un CHECK ('PORTAL','MOSTRADOR')
+  // desde la migración 0109, que lo justifica con el art. 7.1 del RGPD — hay
+  // que poder demostrar QUIÉN consintió y por qué vía. Esta función escribía
+  // fecha, firma y versión pero NO el origen, así que toda alta pública dejaba
+  // la columna a NULL: exactamente el estado que la migración quería eliminar.
+  aceptacion?: { fecha: string; firma: string; versionTexto: string; origen: 'PORTAL' | 'MOSTRADOR' };
   referidoPor?: string | null;
   origenLead?: string | null;
 }) {
@@ -3389,6 +3395,7 @@ export async function registrarSociaPublica(params: {
       aceptacion_fecha: params.aceptacion?.fecha ?? null,
       aceptacion_firma: params.aceptacion?.firma ?? null,
       aceptacion_version: params.aceptacion?.versionTexto ?? null,
+      aceptacion_origen: params.aceptacion?.origen ?? null,
       // Sin esto, revisión de auditoría: la ficha fantasma no traía
       // referido_por (entregarPlanComprado no acepta código de referido), así
       // que adoptarla sin escribirlo aquí perdía el premio de quien invitó.
@@ -3420,6 +3427,7 @@ export async function registrarSociaPublica(params: {
     aceptacion_fecha: params.aceptacion?.fecha ?? null,
     aceptacion_firma: params.aceptacion?.firma ?? null,
     aceptacion_version: params.aceptacion?.versionTexto ?? null,
+    aceptacion_origen: params.aceptacion?.origen ?? null,
     referido_por: referido,
     origen_lead: params.origenLead ?? null,
   });

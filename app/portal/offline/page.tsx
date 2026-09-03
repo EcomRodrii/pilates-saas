@@ -1,4 +1,11 @@
 import type { Metadata } from 'next';
+// ⚠️ La hoja se importa AQUÍ y no se hereda del layout de `[slug]`: esta ruta
+// vive fuera de ese segmento a propósito (no tiene slug), así que ese layout
+// nunca corre. Sin este import la pantalla salía con la paleta del PANEL
+// —fondo #EEEEE8 en vez del #FAF9F5 del kit— y sin ninguna de las clases
+// `.t-h1`/`.t-meta` que usa abajo. Es justo la pantalla que se ve sin red, o
+// sea la que no puede depender de nada que no venga con ella.
+import '../[slug]/student.css';
 
 export const metadata: Metadata = { title: 'Sin conexión', robots: { index: false, follow: false } };
 
