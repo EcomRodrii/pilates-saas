@@ -16,9 +16,16 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 // Relativo y con `.ts` explícita: el alias `@/` no lo resuelve el runner de
-// `node --test`, y este módulo sí tiene test unitario propio.
+// `node --test`, y este módulo sí tiene test unitario propio. Por el mismo
+// motivo NO se importa `@sentry/nextjs` aquí (el SDK no se inicializa fuera
+// del runtime de Next, ver el comentario de
+// `lib/billing/procesar-reembolso.test.ts`): los fallos best-effort de este
+// fichero avisan con `console.error`, como ya hacía el snapshot de entrega.
 import { hoyEnEstudio } from '../utils.ts';
 import { escaparLike } from '../escapar-like.ts';
+import { calcularFechaFinBono } from '../bono-logic.ts';
+import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
+import type { FuenteConfirmacion } from './confirmar-cobro.ts';
 
 export interface CompraPlan {
   /**
@@ -105,6 +112,13 @@ export interface CompraPlan {
     /** ISO `yyyy-mm-dd`. */
     fechaNacimiento?: string | null;
   } | null;
+  /**
+   * P-6 (auditoría 21ª pasada): quién confirma esta entrega — igual que
+   * `FuenteConfirmacion` en `confirmar-cobro.ts`, para `recibos.conciliado_por`.
+   * La compra web nacía fuera del ciclo que F-12/F-13 unificó para el resto
+   * de caminos de cobro (nunca sellaba factura ni marcaba `conciliado_en`).
+   */
+  fuente: FuenteConfirmacion;
 }
 
 export type ResultadoEntrega =
@@ -298,9 +312,11 @@ export async function entregarPlanComprado(
 
   // ── 2. La suscripción (el bono en sí) ──────────────────────────────────────
   const validez = plan.validez_dias as number | null;
-  const fechaFin = validez && validez > 0
-    ? new Date(Date.now() + validez * 86400000).toISOString().slice(0, 10)
-    : null;
+  // P-9 (auditoría 21ª pasada, residual): este cálculo duplicaba a mano lo que
+  // ya hace `calcularFechaFinBono` (con el mismo bug de UTC-en-vez-de-Madrid
+  // que esa función ya corrige) en vez de reutilizarla — se encontró al volver
+  // a este fichero para P-6, no en la pasada de P-9 original.
+  const fechaFin = calcularFechaFinBono(hoy, validez);
 
   const { error: errSus } = await admin.from('suscripciones').insert({
     id: ids.suscripcionId,
@@ -368,6 +384,28 @@ export async function entregarPlanComprado(
   }).eq('id', ids.reciboId).eq('studio_id', compra.studioId);
   if (errEntrega) {
     console.error('[entregarPlanComprado] sin snapshot de entrega:', errEntrega.message);
+  }
+
+  // P-6 (auditoría 21ª pasada): la compra web nacía fuera del ciclo de
+  // conciliación que F-12/F-13 unificó para el resto de caminos de cobro
+  // (`confirmarCobroRecibo`) — nunca sellaba factura ni marcaba
+  // `conciliado_en`. Mismo orden fijo, mismo criterio de "best-effort, NUNCA
+  // deshace el cobro si falla": el dinero ya entró, no sellar es un problema
+  // de facturación, no de caja. Un fallo deja `factura_pendiente_sellar` a
+  // `true` para que `reintentarFacturasPendientesDeSellar` (el conciliador
+  // horario) lo recoja, igual que cualquier otro camino de cobro.
+  const selladoFactura = await sellarFacturaDeRecibo(admin, {
+    studioId: compra.studioId, reciboId: ids.reciboId, facturaId: `fac-checkout-${ids.reciboId}`,
+  });
+  const { error: errConciliado } = await admin.from('recibos').update({
+    conciliado_en: ahora, conciliado_por: compra.fuente,
+    ...(selladoFactura.ok ? {} : { factura_pendiente_sellar: true }),
+  }).eq('id', ids.reciboId).eq('studio_id', compra.studioId);
+  if (errConciliado) {
+    console.error('[entregarPlanComprado] sin marca de conciliación:', errConciliado.message);
+  }
+  if (!selladoFactura.ok) {
+    console.error('[entregarPlanComprado] cobro OK pero factura sin sellar:', selladoFactura.error);
   }
 
   return { ok: true, socioId, suscripcionId: ids.suscripcionId, reciboId: ids.reciboId, fichaCreada };

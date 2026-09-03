@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { calcularHuellaAlta, type RegistroAltaVerifactu } from '@/lib/verifactu';
-import { fechaExpedicionDesdeISO, fechaHoraHusoMadrid, urlQrVerifactu } from '@/lib/verifactu-qr';
-import { nifEmisorValido } from '@/lib/nif';
-import { fiskalyConfigurado, asegurarEmisor, firmarFactura } from '@/lib/billing/fiskaly';
+// Relativos y con `.ts` explícita, no `@/lib/...`: este módulo ahora lo
+// importa `entregar-plan-comprado.ts` (P-6, auditoría 21ª pasada), que sí
+// tiene test unitario — el alias no lo resuelve el runner de `node --test`.
+import { calcularHuellaAlta, type RegistroAltaVerifactu } from '../verifactu.ts';
+import { fechaExpedicionDesdeISO, fechaHoraHusoMadrid, urlQrVerifactu } from '../verifactu-qr.ts';
+import { nifEmisorValido } from '../nif.ts';
+import { fiskalyConfigurado, asegurarEmisor, firmarFactura } from './fiskaly.ts';
 
 // Núcleo del sellado Veri*Factu, extraído de app/api/facturas/sellar para que lo
 // puedan invocar TANTO la ruta (staff autenticado) COMO el webhook de Stripe

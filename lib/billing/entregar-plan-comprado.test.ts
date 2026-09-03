@@ -24,6 +24,15 @@ function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fal
         select() { return this; },
         eq() { return this; },
         ilike() { return this; },
+        // P-6 (auditoría 21ª pasada): entregarPlanComprado ahora también
+        // llama a sellarFacturaDeRecibo (sella la factura y marca
+        // conciliado_en) — necesita `.limit()` en la cadena para su
+        // comprobación de idempotencia (`cargarExistente`). Sin `studios`/
+        // `facturas` mockeadas, `maybeSingle()` cae al `default` (null) y
+        // sellarFacturaDeRecibo devuelve ok:false por NIF no configurado —
+        // comportamiento real y correcto para un estudio de prueba sin NIF,
+        // no un hueco del mock.
+        limit() { return this; },
         maybeSingle() {
           if (tabla === 'planes_tarifa') return Promise.resolve({ data: opts.plan === undefined ? PLAN : opts.plan, error: null });
           if (tabla === 'socios') return Promise.resolve({ data: opts.socioExistente ?? null, error: null });
@@ -56,6 +65,7 @@ const COMPRA: CompraPlan = {
   // email si ya existe ficha) — ver el test "si ya existe alguien con ese
   // email, se reutiliza en vez de duplicar" más abajo.
   esInvitada: false,
+  fuente: 'webhook',
 };
 
 // Fase 3 — checkout embebido: idsDe() amplió su regex para aceptar también
@@ -140,6 +150,25 @@ test('una compra entrega bono Y recibo cobrado, no solo cobra', async () => {
   assert.equal(rec.estado, 'COBRADO', 'Stripe ya cobró: el recibo nace cobrado');
   assert.equal(rec.importe, 130);
   assert.ok(rec.fecha_cobro);
+});
+
+// P-6 (auditoría 21ª pasada): la compra web nacía fuera del ciclo de
+// conciliación que F-12/F-13 unificó para el resto de caminos de cobro —
+// nunca marcaba `conciliado_en` ni intentaba sellar factura. El estudio de
+// prueba de `fakeAdmin()` no tiene NIF configurado (mismo motivo que ya
+// bloquea el sellado real en producción para un estudio sin configurar), así
+// que el sellado falla — el test comprueba el camino de fallo: la entrega NO
+// se tumba, y queda `factura_pendiente_sellar` para que el conciliador
+// horario (`reintentarFacturasPendientesDeSellar`) lo reintente.
+test('marca conciliado_en aunque el sellado de factura falle (sin NIF configurado)', async () => {
+  const { admin, actualizado } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-existente' });
+
+  assert.equal(r.ok, true, 'un fallo de sellado NUNCA tumba la entrega — el dinero ya entró');
+  const conciliado = actualizado.recibos.find(f => 'conciliado_en' in f);
+  assert.ok(conciliado, 'debe marcar conciliado_en/conciliado_por, igual que confirmarCobroRecibo');
+  assert.equal(conciliado?.conciliado_por, 'webhook');
+  assert.equal(conciliado?.factura_pendiente_sellar, true, 'sin NIF, el sellado falla y queda pendiente de reintento');
 });
 
 test('los ids se derivan de la sesión: un reintento de Stripe no duplica', async () => {
@@ -275,11 +304,17 @@ function fakeAdminConIndiceUnico(opts: { fichaConEseEmail: Fila | null; fichaCon
         // la búsqueda por email usa `.limit(1)` y no `.maybeSingle()` porque
         // con dos filas casadas maybeSingle devuelve error y volveríamos a
         // "cobrado sin entregar".
+        //
+        // P-6 (auditoría 21ª pasada): `sellarFacturaDeRecibo` encadena
+        // `.limit(1).maybeSingle()` — el builder real de supabase-js es
+        // thenable Y chainable a la vez, así que el fake añade `.maybeSingle`
+        // sobre la MISMA promesa en vez de sustituirla por un objeto nuevo:
+        // el resto del fichero sigue pudiendo `await .limit()` directo.
         limit() {
-          if (tabla === 'socios' && filtros.email !== undefined) {
-            return Promise.resolve({ data: opts.fichaConEseEmail ? [opts.fichaConEseEmail] : [], error: null });
-          }
-          return Promise.resolve({ data: [], error: null });
+          const p = tabla === 'socios' && filtros.email !== undefined
+            ? Promise.resolve({ data: opts.fichaConEseEmail ? [opts.fichaConEseEmail] : [], error: null })
+            : Promise.resolve({ data: [], error: null });
+          return Object.assign(p, { maybeSingle: () => Promise.resolve({ data: null, error: null }) });
         },
         maybeSingle() {
           if (tabla === 'planes_tarifa') return Promise.resolve({ data: PLAN, error: null });
