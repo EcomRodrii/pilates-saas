@@ -192,7 +192,7 @@ export function PortalBonosView({
                     ahora y obligaba a sumar la cola a mano para saber lo que de
                     verdad le queda — que es justo lo que vino a mirar. */}
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 20 }}>
-                  <span style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', lineHeight: 0.9 }}>{bono.totalRestantes}</span>
+                  <span style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', lineHeight: 0.9 }}>{bono.totalRestantes}</span>
                   <span style={{ fontFamily: sans, fontSize: 12, color: '#5A5A52' }}>
                     de {bono.totalSesiones} sesiones disponibles
                   </span>
@@ -296,7 +296,11 @@ export function PortalBonosView({
                       {/* Solo el primero: es el que se está gastando ahora, y
                           saberlo explica por qué caduca antes que los demás. */}
                       {i === 0 && !b.agotado && (
-                        <span style={{ fontWeight: 400, color: '#3E6B4A' }}> · en curso</span>
+                        // 500 y no 400: aquí el peso SÍ es portante —tiene que
+                        // leerse por debajo del 700 del nombre— y 500 es el más
+                        // ligero que el kit declara. En hoja-reserva el 400 era
+                        // otra cosa: el peso ambiente del cuerpo de texto.
+                        <span style={{ fontWeight: 500, color: '#3E6B4A' }}> · en curso</span>
                       )}
                     </div>
                     <div style={{ fontFamily: sans, fontSize: 10.5, color: '#3E6B4A', marginTop: 2 }}>

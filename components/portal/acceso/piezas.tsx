@@ -305,7 +305,7 @@ export function BotonCta({
 export function ErrorCampo({ children }: { children: React.ReactNode }) {
   if (!children) return null;
   return (
-    <p role="alert" style={{ ...texto.nota, fontSize: 11.5, color: '#B0453A', marginTop: 14 }}>
+    <p role="alert" style={{ ...texto.nota, fontSize: 11.5, color: '#A04A3C', marginTop: 14 }}>
       {children}
     </p>
   );
