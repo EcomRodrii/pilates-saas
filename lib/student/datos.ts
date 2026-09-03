@@ -2,9 +2,9 @@
 
 import { catalogo } from '@/lib/student/catalogo';
 import {
-  proyectarBonos, proyectarClases, proyectarInstructoras, proyectarPagos, proyectarReservas,
+  proyectarAlumna, proyectarBonos, proyectarClases, proyectarInstructoras, proyectarPagos, proyectarReservas,
 } from '@/lib/student/mapeo';
-import type { Bono, Clase, Instructora, Pago, Reserva } from '@/lib/student/tipos';
+import type { Alumna, Bono, Clase, Instructora, Pago, Reserva } from '@/lib/student/tipos';
 
 // ────────────────────────────────────────────────────────────────────────────
 // ADAPTADOR: las nueve funciones del contrato del paquete de diseño
@@ -60,3 +60,9 @@ export async function getPagos(slug: string): Promise<Pago[]> {
 // `confirmarReserva` y `cancelarReserva` NO viven aquí: son escrituras contra
 // `POST /api/public/reserva` y su traducción de errores es la máquina de
 // estados del diseño. Entran en F4, con su propio fichero y sus propios tests.
+
+/** La ficha de la alumna: nombre, apellidos, email, teléfono. */
+export async function getAlumna(slug: string): Promise<Alumna | null> {
+  const d = await catalogo(slug);
+  return d ? proyectarAlumna(d) : null;
+}

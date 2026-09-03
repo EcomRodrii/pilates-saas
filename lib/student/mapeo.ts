@@ -1,4 +1,4 @@
-import type { Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, Instructora, NivelClase, Pago, Reserva } from './tipos.ts';
+import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, Instructora, NivelClase, Pago, Reserva } from './tipos.ts';
 
 // Traducción PURA entre el vocabulario del backend y el del paquete de diseño.
 //
@@ -176,6 +176,14 @@ export interface PayloadMin {
   planesTarifa?: PlanMin[];
   aforoReservas?: { sesion_id: string; estado: string }[];
   socia?: {
+    // La ficha entera de `socios` (lib/db/supabase-data-admin.ts:768 hace
+    // `select('*')`). `SociaSesion` solo trae socioId/nombre/email, que no
+    // basta para la pantalla de datos personales.
+    socio?: {
+      id?: string; nombre?: string | null; apellidos?: string | null;
+      email?: string | null; telefono?: string | null; direccion?: string | null;
+      fotoUrl?: string | null;
+    } | null;
     suscripciones?: SuscripcionMin[];
     reservas?: { id: string; sesionId: string; socioId: string; estado: string; creadoEn: string; posicionEspera: number | null }[];
     recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null }[];
@@ -308,4 +316,24 @@ export function proyectarPagos(d: PayloadMin): Pago[] {
     }))
     // Más reciente primero: es como los lee cualquiera.
     .sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+
+/**
+ * La ficha de la alumna, para la pantalla de datos personales.
+ *
+ * ⚠️ NO sale de `SociaSesion` (el hook de sesión), que solo lleva socioId,
+ * nombre y email — con eso, «Datos personales» habría salido con apellidos,
+ * teléfono y dirección en blanco y los habría GUARDADO vacíos al primer envío.
+ */
+export function proyectarAlumna(d: PayloadMin): Alumna | null {
+  const s = d.socia?.socio;
+  if (!s?.id) return null;
+  return {
+    id: s.id,
+    nombre: s.nombre ?? '',
+    apellidos: s.apellidos ?? '',
+    email: s.email ?? '',
+    telefono: s.telefono ?? undefined,
+    fotoUrl: s.fotoUrl ?? null,
+  };
 }

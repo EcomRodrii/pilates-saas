@@ -175,3 +175,50 @@ escrito: significa «Stripe cobró», no «el bono está» — lo entrega el web
 puede tardar. La pantalla de bonos reintenta hasta ~12 s buscando la suscripción
 del plan comprado y solo entonces dice que está; si no llega, dice que está
 tardando, que no es lo mismo que un fallo.
+
+---
+
+## DC-12 · Los cuatro interruptores de preferencias · RESUELTO
+
+**Diseño** · «Recordatorio de clase», «Plaza liberada», «Novedades del estudio»
+y «Recibos por email»: cuatro interruptores inventados.
+
+**Backend** · El modelo es CATEGORÍA × CANAL. Las categorías de una socia son
+`reservas`, `clases`, `pagos` y `marketing` (`CATEGORIAS_POR_ROL.SOCIA`), y los
+canales in-app, push, email, WhatsApp y SMS. Ausencia de fila = encendido.
+
+**Solución** · Se respetan los NOMBRES del diseño —son mejores para una alumna
+que «categoría reservas»— pero cada uno gobierna su categoría REAL. Inventarlos
+habría producido una pantalla que guarda preferencias que el motor no lee.
+
+---
+
+## DC-13 · Cambiar el email · RESUELTO
+
+**Diseño** · El email es editable, con el hint «te enviaremos un código de
+verificación».
+
+**Backend** · `actualizarSociaPublica` lo RECHAZA por escrito: cambiarlo
+exigiría sincronizarlo con Supabase Auth y su flujo de confirmación, que no
+existe.
+
+**Solución** · El campo se enseña bloqueado y dice a quién pedirlo. El hint del
+paquete promete un flujo que no está construido.
+
+---
+
+## DC-14 · Los tipos de notificación · RESUELTO
+
+**Diseño** · Cinco tipos con icono: 'plaza-liberada', 'recordatorio', 'bono',
+'estudio', 'valorar'.
+
+**Backend** · No existen: hay categorías por rol. Se mapean por lo que
+significan y lo que no encaja cae en 'estudio', que es el icono neutro (📣).
+
+⚠️ Y los ENLACES de las filas ya emitidas apuntan al portal borrado — el deep
+link se calcula al insertar y se persiste, así que reescribir el catálogo solo
+arregla las nuevas. Se traducen al LEER (`lib/student/deep-links.ts`, 6 tests),
+que es lo único que alcanza a lo ya emitido. Lo que no se sabe traducir se deja
+SIN enlace: una notificación que no lleva a ninguna parte es mejor que una que
+lleva al sitio equivocado. Y las 52 rutas de STAFF del catálogo se descartan
+explícitamente.
