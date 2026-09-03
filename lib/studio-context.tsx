@@ -75,15 +75,18 @@ export type ResultadoReserva =
       ok: true;
       estado: EstadoReserva;
       /**
-       * El sitio que el servidor pudo darle, o `null`.
+       * El sitio confirmado por el servidor, o `null` si no se eligió ninguno.
        *
-       * ⚠️ `null` habiendo elegido uno NO es un detalle: significa que la
-       * reserva salió bien y la plaza NO. `asignarSpotReserva` devuelve `null`
-       * en tres casos legítimos —el sitio se ocupó en la carrera, está
-       * desactivado, o no es de esa sala— y hasta ahora ese dato llegaba al
-       * navegador y se tiraba: la socia leía «Reservada. Te esperamos», se
-       * presentaba esperando el reformer 3 y era de otra. Es el bug #500 otra
-       * vez, en pequeño.
+       * Desde que `reservar_plaza` recibe `p_spot_id`, «reserva sí y sitio no»
+       * ya NO puede pasar: el sitio se valida y se ocupa dentro de la misma
+       * transacción, así que o se crea la reserva CON el sitio elegido, o no
+       * se crea nada y llega un código —`spot-ocupado` o `spot-no-disponible`—
+       * que dice cuál de las dos cosas ha fallado.
+       *
+       * Antes esto lo resolvía `asignarSpotReserva` con un read-then-update
+       * posterior, que devolvía `null` por tres causas distintas y dejaba a la
+       * socia con la clase confirmada y el reformer de otra. Esa función se ha
+       * borrado; si aparece de nuevo, es un retroceso.
        */
       spotAsignado?: string | null;
     }
