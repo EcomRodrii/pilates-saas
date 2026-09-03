@@ -331,7 +331,7 @@ const CAPTURAS = [
   {
     // Lo que ve la ALUMNA, no la propietaria: la página pública del estudio,
     // con su marca. En móvil, que es como se usa de verdad.
-    nombre: 'portal-alumna',
+    nombre: 'pagina-publica-estudio',
     ancho: 460,
     alto: 1000,
     async abrir(page) {
