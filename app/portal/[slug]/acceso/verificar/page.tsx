@@ -88,11 +88,22 @@ function Verificar() {
 
   // Si el enlace ya dejó sesión Y la alumna ya es socia y no viene a cambiar
   // contraseña, no hay nada que hacer aquí: adentro.
+  //
+  // Esta pantalla es también donde ATERRIZA el retorno de Google, que es lo que
+  // cierra el callejón: `signInWithOAuth` vuelve aquí y no a `/acceso/login`,
+  // porque login no mira la sesión y dejaba a la alumna mirando el formulario
+  // de entrada con la sesión ya guardada.
   useEffect(() => {
     if (isLoading || !autenticado || forzarPassword) return;
     if (socia) { r.replace(href()); return; }
     // Autenticada pero sin ficha en este estudio: se intenta firmar el alta.
-    void firmarAlta().then((res) => { if (res.ok) r.replace(href()); });
+    void firmarAlta().then((res) => {
+      if (res.ok) { r.replace(href()); return; }
+      // Sesión válida, sin ficha y sin firma: un alta a medias. Antes caía en
+      // la pantalla de elegir contraseña, que no dice nada de lo que falta y
+      // termina mandándola dentro sin ficha. Se le pide lo único que falta.
+      if (res.motivo === 'sin-firma') r.replace(`${href('/acceso/registro')}?firma=1`);
+    });
     // `firmarAlta` se recrea en cada render y meterlo en las dependencias
     // volvería a lanzarlo en bucle; lo que decide es el estado de sesión.
     // eslint-disable-next-line react-hooks/exhaustive-deps

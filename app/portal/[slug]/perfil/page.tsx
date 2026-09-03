@@ -40,7 +40,7 @@ export default function PerfilPage() {
   return (
     <StudentShell>
       <PageHeader titulo="Perfil" />
-      <div className="px grid-lg-2" style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 14 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '16px', marginTop: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
           <span
             aria-hidden

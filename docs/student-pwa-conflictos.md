@@ -92,22 +92,30 @@ depender de la foto y del color de marca.
 
 ---
 
-## DC-7 · Contraste de las micro-etiquetas · ABIERTO — decisión de producto
+## DC-7 · Contraste de las micro-etiquetas · **CERRADO**
 
 **Diseño** · `.t-label` (10px, versalitas) usa `--subtle-foreground: #98A093`
 sobre el crema `#FAF9F5`.
 
-**Medido** · **2,56:1**. El mínimo de WCAG AA para texto normal es 4,5:1 (3:1
-para texto grande, y 10px no lo es).
+**Medido** · **2,56:1** sobre `--background` y 2,70:1 sobre `--card`. El mínimo
+de WCAG AA para texto normal es 4,5:1 (3:1 para texto grande, y 10px no lo es).
 
-**Por qué no se ha tocado** · El handoff marca los tokens como «no cambiar»
-(§L), y `--subtle-foreground` alimenta las micro-etiquetas de las 21 pantallas:
-cambiarlo es una decisión visual del producto, no un arreglo técnico. Afecta a
-«4 clases · Hoy», a los contadores de sección y a los pies de las tarjetas.
+**Resuelto** · Se toma la opción (a): oscurecer el token conservando el tono.
+`#98A093` → **`#6C7567`**. Mismo H (97) y misma S (6); solo baja la L de 60 a
+43. Queda en **4,55:1** sobre `--background` y **4,80:1** sobre `--card`, y es
+el valor más CLARO que cumple — el que menos se aleja del paquete.
 
-**Opciones** · (a) oscurecer el token a ~`#6E7A6B` (4,6:1) manteniendo el tono;
-(b) subir esas etiquetas a 12px y peso 600, que las llevaría al umbral de texto
-grande; (c) asumirlo como decisión consciente.
+**⚠️ Corrección sobre la nota anterior de este mismo apartado** · proponía
+`#6E7A6B` diciendo «4,6:1». Ese número estaba medido contra `--card` (blanco):
+sobre el crema real se queda en **4,28:1** y NO cumple. El fondo que manda es
+el crema, porque `#FAF9F5` tiene menos luminancia que `#FFFFFF` y por tanto
+exige un texto más oscuro, no menos.
+
+**Alcance** · Es el único token cuyo valor se aparta del paquete. Todos sus usos
+—micro-etiquetas, pestañas inactivas del nav, días pasados del calendario, pies
+de tarjeta— son texto oscuro sobre superficie clara, así que oscurecerlo mejora
+en todos y no empeora en ninguno. No se deriva de la marca del estudio, así que
+un solo valor cubre a todos.
 
 ---
 

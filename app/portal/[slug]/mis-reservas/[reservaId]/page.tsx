@@ -99,7 +99,7 @@ export default function DetalleReservaPage() {
     <StudentShell>
       <PageHeader titulo="Tu reserva" back />
 
-      <div className="px grid-lg-2" style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 14 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '13px', marginTop: 14 }}>
         {activa ? (
           <section
             aria-label="Pase de acceso"

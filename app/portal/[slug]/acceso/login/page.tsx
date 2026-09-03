@@ -9,6 +9,7 @@ import { useOnline } from '@/lib/student/useOnline';
 import { useAuthStudent } from '@/lib/student/auth';
 import { usePortalHref, useEstudio } from '@/components/student/contexto';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { leerFirma } from '@/lib/student/consentimiento';
 
 /**
  * Entrar. Literal del paquete (`app/(auth)/login/page.tsx`) con el backend real
@@ -69,6 +70,30 @@ export default function LoginPage() {
     setCargando(false);
     if ('error' in res) { setGlobal(res.error); return; }
     setEnlaceEnviado(true);
+  };
+
+  /**
+   * Entrar con Google, pero NO antes de tener la firma.
+   *
+   * Google es a la vez «entrar» y «crear cuenta», y desde aquí no hay forma de
+   * saber cuál de las dos será: no sabemos su email hasta que vuelve. Si vuelve
+   * siendo alguien sin ficha en este estudio, hace falta consentimiento para
+   * crearla — `socios.aceptacion_origen` tiene un CHECK citando el art. 7.1 del
+   * RGPD— y pedirlo DESPUÉS significa pedírselo a alguien que ya tiene sesión y
+   * ninguna ficha, que es el peor sitio donde dejar a nadie.
+   *
+   * Así que se recoge antes de salir, y en la pantalla que ya sabe recogerla:
+   * `/acceso/registro?firma=1`. Si ya hay firma en esta pestaña —porque viene
+   * de ahí, o porque ya lo intentó— se va derecha a Google sin repetirla.
+   *
+   * Para una socia que ya existe la firma sobra: `verificar` ve que es socia y
+   * entra sin llegar a usarla. Es el precio de no poder distinguir los dos casos
+   * hasta después, y se paga una vez por pestaña, no en cada entrada.
+   */
+  const irAGoogle = () => {
+    setGlobal('');
+    if (!leerFirma(slug)) { r.push(`${href('/acceso/registro')}?firma=1`); return; }
+    void entrarConGoogle().then((res) => { if ('error' in res) setGlobal(res.error); });
   };
 
   if (enlaceEnviado) {
@@ -133,7 +158,7 @@ export default function LoginPage() {
 
       <button
         type="button"
-        onClick={() => { setGlobal(''); void entrarConGoogle().then((r) => { if ('error' in r) setGlobal(r.error); }); }}
+        onClick={irAGoogle}
         disabled={cargando || !online}
         className="btn btn--secondary"
         style={{ width: '100%', gap: 8 }}

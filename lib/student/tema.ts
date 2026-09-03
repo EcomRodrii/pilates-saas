@@ -53,9 +53,22 @@ const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(mi
  *
  * Las luminosidades salen de los valores del propio paquete medidos en HSL, no
  * de números redondos: el verde de referencia `#3E6B4A` es L=33, su `soft`
- * L=93, el `soft-foreground` L=27 y el `deep` L=12. Se conservan esas
- * distancias para que un estudio terracota o azul mantenga la MISMA relación
- * visual entre los cuatro, que es lo que hace que el diseño siga leyéndose.
+ * L=93, el `soft-foreground` L=27 y el `deep` L=12.
+ *
+ * ⚠️ Y la SATURACIÓN cuenta tanto como la luminosidad. Esta función conservaba
+ * la segunda y no la primera: dejaba pasar `s` hasta 70 cuando toda la familia
+ * del paquete vive entre 23 y 39 (`accent` S=27, `accent-soft` S=23,
+ * `accent-deep` S=39). Con la marca de un estudio real —indigo `#6366f1`,
+ * S=84— salía `#2023B6`: **2,6 veces la saturación del diseño**. El resultado
+ * era literalmente el mismo marcado con otro carácter: enlaces, badges y
+ * monogramas en azul eléctrico sobre crema, donde el paquete pone un verde
+ * apagado. Nadie que viera las dos pantallas diría que son la misma app, y no
+ * porque cambiara un pixel de posición.
+ *
+ * Los topes de abajo son los del PROPIO paquete medidos en HSL, no una
+ * preferencia: cualquier marca conserva su TONO y entra en el rango de
+ * saturación del diseño. Un estudio con marca gris (S baja) sigue saliendo
+ * gris; uno con marca fluorescente sale apagado, que es justo el contrato.
  *
  * `accent-soft-foreground` no se calcula por fórmula sino con
  * `colorLegibleSobreClaro`, que es la función que este repo ya usa para
@@ -65,16 +78,18 @@ export function acentoDeEstudio(colorPrimario: string | null | undefined): Acent
   const hsl = colorPrimario ? hexToHsl(colorPrimario) : null;
   if (!hsl) return ACENTO_POR_DEFECTO;
 
-  const accent = hslToHex({ h: hsl.h, s: clamp(hsl.s, 18, 70), l: clamp(hsl.l, 26, 42) });
+  // S máx 38 ≈ el `accent-deep` del paquete (39), que es el más saturado de la
+  // familia. Mín 16: por debajo el acento deja de leerse como color de marca.
+  const accent = hslToHex({ h: hsl.h, s: clamp(hsl.s, 16, 38), l: clamp(hsl.l, 26, 42) });
   return {
     accent,
     // El acento es siempre oscuro (L≤42), así que el texto encima es claro.
     accentForeground: '#FFFFFF',
-    accentSoft: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.45, 10, 34), l: 93 }),
+    accentSoft: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.45, 10, 26), l: 93 }),
     accentSoftForeground: colorLegibleSobreClaro(accent),
-    accentDeep: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.9, 20, 60), l: 12 }),
-    accentDeepForeground: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.35, 8, 26), l: 93 }),
-    accentDeepMuted: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.5, 12, 42), l: 74 }),
+    accentDeep: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.9, 20, 42), l: 12 }),
+    accentDeepForeground: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.35, 8, 24), l: 93 }),
+    accentDeepMuted: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.5, 12, 32), l: 74 }),
   };
 }
 

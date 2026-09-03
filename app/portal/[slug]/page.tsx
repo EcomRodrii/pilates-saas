@@ -60,7 +60,10 @@ export default function InicioPage() {
     <StudentShell headerTransparente>
       {/* Héroe fotográfico. `marginTop: -56` mete la foto DEBAJO de la cabecera
           transparente: es lo que hace que no parezca una web con barra encima. */}
-      <section style={{ position: 'relative', height: 250, marginTop: -56, overflow: 'hidden' }}>
+      {/* `background`: mismo motivo que en la ficha de clase — un estudio puede
+          no haber subido portada, y sin tinta detrás el héroe degrada a crema y
+          se lleva por delante saludo, titular y cabecera transparente. */}
+      <section style={{ position: 'relative', height: 250, marginTop: -56, overflow: 'hidden', background: '#0F0F0C' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={estudio.fotoPortada}
@@ -74,7 +77,22 @@ export default function InicioPage() {
           aria-hidden
           style={{
             position: 'absolute', inset: 0,
-            background: 'linear-gradient(185deg, rgba(8,8,8,.58), rgba(8,8,8,.18) 42%, rgba(8,8,8,.06) 58%, rgba(250,249,245,.35) 86%, var(--background))',
+            // ⚠️ DESIGN CONFLICT · la rampa INTERMEDIA no es la del paquete.
+            //
+            // El paquete aclara a `rgba(8,8,8,.06)` en el 58% y empieza a virar
+            // a crema en el 86%. Medido en el navegador con datos reales: el
+            // ojal cae en el 64% y el titular ocupa del 82% al 94% — es decir,
+            // TODO el bloque de texto vive en la zona donde ya casi no hay
+            // velo, y el titular termina sobre crema al 72%. Con la foto que
+            // sube un estudio real —una sala luminosa, no la foto oscura del
+            // mock— el texto blanco desaparece.
+            //
+            // Se conservan los dos extremos del paquete (arranque .58 y la
+            // disolución final a `--background`, que es lo que cose el héroe
+            // con la página) y solo se sostiene el velo entre el 62% y el 88%,
+            // donde está el texto. La composición no se toca: mismo alto, misma
+            // posición, mismos tamaños.
+            background: 'linear-gradient(185deg, rgba(8,8,8,.58), rgba(8,8,8,.18) 42%, rgba(8,8,8,.30) 62%, rgba(8,8,8,.34) 78%, rgba(8,8,8,.22) 88%, rgba(250,249,245,.35) 95%, var(--background))',
           }}
         />
         <div className="px" style={{ position: 'absolute', left: 0, right: 0, bottom: 14, color: '#FAF9F5' }}>
@@ -102,7 +120,7 @@ export default function InicioPage() {
         </div>
       </section>
 
-      <div className="px grid-lg-2" style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 4 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '13px', marginTop: 4 }}>
         {estado === 'loading' && (
           <>
             <Skeleton h={118} r={20} />

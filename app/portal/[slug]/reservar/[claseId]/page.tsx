@@ -119,7 +119,14 @@ export default function FichaClasePage() {
 
   return (
     <StudentShell headerTransparente>
-      <section style={{ position: 'relative', height: 290, marginTop: -56, overflow: 'hidden' }}>
+      {/* ⚠️ `background` no está en el paquete: allí `clase.fotoUrl` SIEMPRE
+          existe (es un mock). Aquí puede no haberla, y sin tinta detrás el
+          héroe degradaba a crema: el degradado del paquete arranca en
+          `rgba(15,15,15,.36)`, que sobre crema deja el título y la cabecera
+          transparente en blanco sobre claro — ilegibles. `#0F0F0C` es la misma
+          tinta que el propio paquete pone bajo la foto del layout de acceso
+          (`.st-auth-hero`), así que sin foto se ve como el diseño espera. */}
+      <section style={{ position: 'relative', height: 290, marginTop: -56, overflow: 'hidden', background: '#0F0F0C' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={clase.fotoUrl}
@@ -149,7 +156,7 @@ export default function FichaClasePage() {
         </div>
       </section>
 
-      <div className="px grid-lg-2" style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 14, paddingBottom: 90 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: 90 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <AvailabilityBadge estado={disp} plazas={clase.plazasLibres} />
           <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--muted-foreground)' }}>
