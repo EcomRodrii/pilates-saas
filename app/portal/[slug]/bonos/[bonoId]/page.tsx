@@ -71,7 +71,7 @@ export default function DetalleBonoPage() {
     <StudentShell>
       <PageHeader titulo={b.nombre} back />
 
-      <div className="px grid-lg-2" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '12px', marginTop: 14 }}>
         <CreditCard bono={b} />
 
         <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>

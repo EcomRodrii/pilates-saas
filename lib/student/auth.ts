@@ -121,17 +121,31 @@ export function useAuthStudent(slug: string) {
    * lo exige en este flujo — el humano lo verifica Google en su pantalla de
    * consentimiento. Mismo criterio que el personal.
    *
+   * ⚠️ VUELVE A `/acceso/verificar`, NO a `/acceso/login`.
+   *
+   * Volvía a `/acceso/login`, y ahí se moría: el flujo por defecto de auth-js
+   * es `implicit`, así que el retorno llega en el fragmento (`#access_token=…`),
+   * `detectSessionInUrl` lo consume y guarda la sesión — y la pantalla de login
+   * no tiene un solo `useEffect` que mire la sesión. La alumna se autenticaba
+   * con Google y volvía al mismo formulario, con toda la pinta de que Google no
+   * funciona. Estaba dentro; nada la llevaba adentro.
+   *
+   * `/acceso/verificar` es la ÚNICA pantalla con lógica de aterrizaje, y ya
+   * resuelve los dos casos: si ya es socia, entra; si no lo es, firma el alta
+   * con la firma que se recogió ANTES de salir hacia Google.
+   *
    * ⚠️ RIESGO CONOCIDO (HIGH, config de proyecto, no de código): la URL de
    * retorno tiene que estar en la lista de Redirect URLs de Supabase Auth.
-   * Hoy están las de personal; `/portal/<slug>/acceso/login` es nueva y hay un
-   * slug variable de por medio, así que hace falta un patrón con comodín
-   * (comodín en el segmento del slug). Si falta, gotrue rechaza ANTES de redirigir
-   * y ese error sí llega aquí — por eso se devuelve traducido en vez de
-   * tragarse el fallo.
+   * Hoy están las de personal; `/portal/<slug>/acceso/verificar` es nueva y hay
+   * un slug variable de por medio, así que hace falta un comodín en ese
+   * segmento. `*` sirve: los separadores del emparejador de Supabase son `.` y
+   * `/`, y un slug se normaliza a `[a-z0-9-]+` (lib/slug.ts), así que nunca
+   * contiene ninguno de los dos. Si falta, gotrue no honra la URL y la alumna
+   * no llega a su estudio.
    */
   const entrarConGoogle = useCallback(async (): Promise<ResultadoAuth> => {
     const redirectTo = typeof window !== 'undefined'
-      ? `${window.location.origin}${base}/acceso/login`
+      ? `${window.location.origin}${base}/acceso/verificar`
       : undefined;
     const { error } = await supabasePortal.auth.signInWithOAuth({
       provider: 'google',

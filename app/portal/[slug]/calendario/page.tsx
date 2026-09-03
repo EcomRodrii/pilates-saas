@@ -40,7 +40,7 @@ export default function CalendarioPage() {
   return (
     <StudentShell>
       <PageHeader titulo="Calendario" back />
-      <div className="px grid-lg-2" style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', marginTop: 14 }}>
         {estado === 'loading'
           ? <Skeleton h={330} r={16} />
           : <Calendar value={dia} onChange={setDia} marcados={reservadas} />}
