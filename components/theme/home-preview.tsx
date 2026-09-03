@@ -8,7 +8,7 @@ import { themeToCssVars } from '@/lib/theme-runtime';
 import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
 import type { ThemeConfig } from '@/lib/theme-schema';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
-import type { ModoPreview } from '@/components/portal/portal-preview-bridge';
+import type { ModoPreview } from '@/components/theme/modo-preview';
 import { escalaMedida, huecosDeInsercion, type BloqueMedido, type Caja } from '@/lib/theme/overlay-preview';
 
 const PANTALLAS: { id: PantallaId; ruta: string; etiqueta: string }[] = [
