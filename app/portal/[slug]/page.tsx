@@ -13,6 +13,7 @@ import { NextClassCard } from '@/components/student/domain/NextClassCard';
 import { ClassCard } from '@/components/student/domain/ClassCard';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
+import { urlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
 
 // Inicio (§A.5 del handoff): héroe fotográfico, próxima clase, bono y huecos de
 // hoy. Estructura y medidas literales del paquete.
@@ -57,7 +58,7 @@ export default function InicioPage() {
     .slice(0, 3);
 
   return (
-    <StudentShell headerTransparente>
+    <StudentShell>
       {/* Héroe fotográfico. `marginTop: -56` mete la foto DEBAJO de la cabecera
           transparente: es lo que hace que no parezca una web con barra encima. */}
       {/* `background`: mismo motivo que en la ficha de clase — un estudio puede
@@ -92,7 +93,7 @@ export default function InicioPage() {
             // con la página) y solo se sostiene el velo entre el 62% y el 88%,
             // donde está el texto. La composición no se toca: mismo alto, misma
             // posición, mismos tamaños.
-            background: 'linear-gradient(185deg, rgba(8,8,8,.58), rgba(8,8,8,.18) 42%, rgba(8,8,8,.30) 62%, rgba(8,8,8,.34) 78%, rgba(8,8,8,.22) 88%, rgba(250,249,245,.35) 95%, var(--background))',
+            background: 'linear-gradient(185deg, rgba(8,8,8,.58), rgba(8,8,8,.18) 42%, rgba(8,8,8,.06) 58%, rgba(250,249,245,.35) 86%, var(--background))',
           }}
         />
         <div className="px" style={{ position: 'absolute', left: 0, right: 0, bottom: 14, color: '#FAF9F5' }}>
@@ -139,6 +140,11 @@ export default function InicioPage() {
                 reserva={proxima.r}
                 clase={proxima.c}
                 instructora={data.instructoras.find((i) => i.id === proxima.c.instructoraId)}
+                // ⚠️ Sin estos dos manejadores la tarjeta pintaba «+ Calendario»
+                // y «Cómo llegar» MUERTOS: el paquete los resuelve con un toast
+                // de maqueta y al copiarlo se quedaron sin nada detrás.
+                onCalendario={() => window.open(urlCalendario(proxima.c, estudio.nombre, estudio.direccion), '_blank', 'noopener')}
+                onComoLlegar={() => window.open(urlComoLlegar(estudio.direccion, estudio.nombre), '_blank', 'noopener')}
               />
             ) : (
               <EmptyState

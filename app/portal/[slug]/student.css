@@ -140,7 +140,18 @@
 .student-app .pill { border: 1px solid var(--border-strong); background: var(--card); color: var(--muted-foreground); border-radius: var(--radius-pill); padding: 7px 14px; font-size: 12px; font-weight: 700; transition: all .2s; }
 .student-app .pill[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-soft-foreground); }
 .student-app .day { flex-shrink: 0; min-width: 64px; height: 44px; border: 1.5px solid var(--border); background: var(--card); color: var(--foreground); border-radius: 13px; padding: 0 12px; font-size: 12.5px; font-weight: 800; transition: all .22s; }
-.student-app .day[aria-pressed="true"] { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
+/* ⚠️ `aria-selected` además de `aria-pressed`, y esto SÍ era un fallo visible.
+   El paquete pinta el día activo con `.day[aria-pressed="true"]`, pero su
+   `DateSelector` pone `aria-pressed` sobre un `role="tab"`, donde ese atributo
+   no es válido (un lector de pantalla anuncia dos estados). Al corregir el
+   ARIA se dejó `aria-selected` en el componente… y el CSS siguió enganchado
+   solo a `aria-pressed`, así que **el día activo dejó de pintarse**: en el
+   horario, «Hoy» salía con borde como los demás en vez de en tinta invertida.
+   Mismos valores del paquete; solo se añade el selector que el componente
+   emite de verdad. `.pill` no lo necesita: son `button` sin rol, y ahí
+   `aria-pressed` sí es correcto. */
+.student-app .day[aria-pressed="true"],
+.student-app .day[aria-selected="true"] { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
 .student-app .day small { display: block; font-size: 9.5px; font-weight: 600; opacity: .72; }
 
 /* ── Inputs ── */

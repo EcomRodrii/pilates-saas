@@ -207,7 +207,7 @@ export default function RegistroPage() {
         </button>
         <span style={{ fontSize: 12, color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
           Al inscribirme, acepto la{' '}
-          <Link href="/legal/privacidad" target="_blank" style={{ color: 'var(--foreground)', fontWeight: 700, textDecoration: 'underline' }}>
+          <Link href="/privacidad" target="_blank" style={{ color: 'var(--foreground)', fontWeight: 700, textDecoration: 'underline' }}>
             política de privacidad
           </Link>{' '}
           de {estudio.nombre}.

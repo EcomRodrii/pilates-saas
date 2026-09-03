@@ -88,7 +88,7 @@ export default function FichaClasePage() {
 
   if (estado === 'loading') {
     return (
-      <StudentShell headerTransparente>
+      <StudentShell>
         <div className="px" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Skeleton h={280} r={20} style={{ marginTop: -56 }} />
           <Skeleton h={22} w="60%" />
@@ -118,7 +118,7 @@ export default function FichaClasePage() {
   const esFinal = enSheet && bk !== 'reviewing' && bk !== 'submitting';
 
   return (
-    <StudentShell headerTransparente>
+    <StudentShell>
       {/* ⚠️ `background` no está en el paquete: allí `clase.fotoUrl` SIEMPRE
           existe (es un mock). Aquí puede no haberla, y sin tinta detrás el
           héroe degradaba a crema: el degradado del paquete arranca en

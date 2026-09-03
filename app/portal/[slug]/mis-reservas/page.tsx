@@ -13,6 +13,7 @@ import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { cancelarReserva } from '@/lib/student/reservas-acciones';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, fechaCorta, hoyISO } from '@/lib/student/formato';
+import { urlCalendario } from '@/lib/student/enlaces-clase';
 import { Badge } from '@/components/student/ui/Badge';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
@@ -183,6 +184,22 @@ export default function MisReservasPage() {
                       <Link href={href(`/mis-reservas/${r.id}`)} className="btn btn--light btn--sm" style={{ height: 34 }}>
                         Detalle
                       </Link>
+                      {/* ⚠️ Faltaba. El paquete pone TRES acciones en esta
+                          tarjeta —Detalle, + Calendario, Cancelar— y aquí solo
+                          había dos: comparando el render del paquete contra el
+                          nuestro se vio el hueco. En el paquete es un toast de
+                          maqueta; aquí abre el calendario de verdad, con los
+                          datos que ya trae la clase. */}
+                      {!espera && (
+                        <button
+                          type="button"
+                          className="btn btn--light btn--sm"
+                          style={{ height: 34 }}
+                          onClick={() => window.open(urlCalendario(c, estudio.nombre, estudio.direccion), '_blank', 'noopener')}
+                        >
+                          + Calendario
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn btn--danger btn--sm"
