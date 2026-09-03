@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { montarPortal, SLUG } from './portal-mock';
+import { altura, radio } from '../lib/portal-design.ts';
 import type { Page } from '@playwright/test';
 
 // La tarjeta grande dejó de ser un enlace cuando el botón «Ver mi acceso» pasó
@@ -89,22 +90,37 @@ test.describe('Portal de la clienta — 01 Acceso', () => {
     await expect(page.getByPlaceholder('tu@email.com')).toHaveValue('quien.sea@ejemplo.com', { timeout: 30_000 });
   });
 
-  // El ritmo de 66 px era el de la hoja de cápsulas de v2, que la puerta única
-  // sustituye. El invariante de forma que SÍ sigue vivo —y que el handoff
-  // declara como regla, no como medida— es que el radio de un botón es la
-  // mitad exacta de su altura: 62 → 31. Redondear a 32 deja un plano recto de
-  // 2 px en el centro del lado, y se ve.
+  // Lo que se comprueba es el INVARIANTE DE FORMA —el CTA es una cápsula, sin
+  // plano recto en el centro del lado—, no una medida concreta.
+  //
+  // ⚠️ Antes se escribía como igualdad exacta (`radio * 2 === alto`, 62 → 31)
+  // porque el diseño de entonces fijaba el radio a la mitad justa. El kit
+  // "Tentare Studio App" cambia las dos cifras a la vez (`altura.botonCta`
+  // 62 → 50, `radio.botonCta` 31 → 999): sobre 50 px un radio de 999 se
+  // pinta como cápsula perfecta igual —el navegador lo recorta a 25 al
+  // dibujar— pero `getComputedStyle` devuelve el valor DECLARADO, 999px, así
+  // que la igualdad dejó de describir la forma y solo describía una
+  // implementación. Se comprueba `radio >= alto / 2`, que es la regla de
+  // verdad y aguanta las dos formas de escribirla.
+  //
+  // El alto se compara contra el TOKEN, no contra un número copiado: así el
+  // test sigue detectando que algo (CSS de fuera, un tema) pise la altura,
+  // sin volver a romperse la próxima vez que el kit la remida.
+  //
   // /login: el botón "Entrar" solo vive en el paso de login, y este test es
   // sobre la geometría de esa cápsula, no sobre el recorrido de la puerta.
-  test('el CTA es una cápsula perfecta: radio la mitad exacta del alto', async ({ page }) => {
+  test('el CTA es una cápsula perfecta: sin plano recto en el lado', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/login`);
     const boton = page.getByRole('button', { name: 'Entrar' });
     await expect(boton).toBeVisible({ timeout: 30_000 });
 
     const caja = await boton.boundingBox();
-    expect(Math.round(caja!.height)).toBe(62);
-    const radio = await boton.evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
-    expect(Math.round(parseFloat(radio) * 2)).toBe(Math.round(caja!.height));
+    expect(Math.round(caja!.height)).toBe(altura.botonCta);
+
+    const radioPintado = await boton.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
+    expect(radioPintado).toBeGreaterThanOrEqual(caja!.height / 2);
+    // Y que el token no se haya quedado por debajo de la mitad del alto.
+    expect(radio.botonCta).toBeGreaterThanOrEqual(altura.botonCta / 2);
   });
 });
 

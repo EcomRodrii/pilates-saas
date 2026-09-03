@@ -289,7 +289,7 @@ export function PortalPerfilView({
   ) => {
     const contenido = (
       <>
-        <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1A1A' }}>{titulo}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1A1A' }}>{titulo}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {valor && <span style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52' }}>{valor}</span>}
           {/* Sin destino no hay flecha: prometería un sitio al que no se va. */}
@@ -298,10 +298,9 @@ export function PortalPerfilView({
       </>
     );
     const estilo: React.CSSProperties = {
-      height: 54, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      gap: 12, background: 'none', border: 'none', textAlign: 'left',
-      borderTop: '1px solid #EFEDE4',
-      borderBottom: ultima ? '1px solid #EFEDE4' : undefined,
+      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      gap: 12, padding: '12px 15px', background: 'none', border: 'none', textAlign: 'left',
+      borderBottom: ultima ? undefined : '1px solid #EFEDE4',
       transition: `padding-left ${dur.control}ms ${EASE}`,
     };
     return onClick
@@ -320,36 +319,46 @@ export function PortalPerfilView({
 
   return (
     <div style={{ minHeight: '100%', background: 'var(--ap-fondo, #FAF9F5)', color: 'var(--ap-tinta, #1A1A1A)' }}>
-      <div style={{ padding: '54px 20px 24px' }}>
+      <div style={{ padding: '56px 18px 24px' }}>
         {/* ── Identidad ────────────────────────────────────────────────────── */}
-        <button
-          type="button"
-          onClick={() => setHoja('avatar')}
-          aria-label="Cambiar tu foto"
-          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'block' }}
-        >
-          <ProfileAvatar
-            avatarId={socio.avatar}
-            fotoUrl={socio.fotoUrl}
-            nombre={socio.nombre}
-            apellidos={socio.apellidos}
-            size="xl"
-          />
-        </button>
-        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-.025em', color: '#1A1A1A', marginTop: 16 }}>
-          {socio.nombre} {socio.apellidos}
-        </h1>
-        {desdeCuando(socio.fechaAlta) && (
-          <p style={{ fontSize: 13.5, color: '#5A5A52', marginTop: 4 }}>
-            {desdeCuando(socio.fechaAlta)}{clasesTotales > 0 ? ` · ${clasesTotales} clases` : ''}
-          </p>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginTop: 10 }}>
+          <button
+            type="button"
+            onClick={() => setHoja('avatar')}
+            aria-label="Cambiar tu foto"
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'block', flex: '0 0 auto' }}
+          >
+            {/* 56px y tinta verde, como el prototipo. `size` se queda en `lg`
+                como base y las clases lo pisan (cn usa twMerge). */}
+            <ProfileAvatar
+              avatarId={socio.avatar}
+              fotoUrl={socio.fotoUrl}
+              nombre={socio.nombre}
+              apellidos={socio.apellidos}
+              size="lg"
+              color="#2E5A3A"
+              className="w-14 h-14 text-[19px]"
+            />
+          </button>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A' }}>
+              {socio.nombre} {socio.apellidos}
+            </h1>
+            {desdeCuando(socio.fechaAlta) && (
+              <p style={{ fontSize: 12, color: '#5A5A52', marginTop: 1 }}>
+                {desdeCuando(socio.fechaAlta)}{clasesTotales > 0 ? ` · ${clasesTotales} clases` : ''}
+              </p>
+            )}
+          </div>
+        </div>
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+        {/* Tarjetas de cifra: centradas, 19/800 sobre 10px, radio 15 y gap 9
+            (StudioApp.jsx L994-996). Estaban alineadas a la izquierda. */}
+        <div style={{ display: 'flex', gap: 9, marginTop: 14 }}>
           {stats.map(s => (
-            <div key={s.etiqueta} className="ap-card" style={{ flex: 1, minWidth: 0, padding: '14px 14px 12px' }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#1A1A1A' }}>{s.valor}</div>
-              <div style={{ fontSize: 10.5, color: '#5A5A52', marginTop: 6, lineHeight: 1.3 }}>{s.etiqueta}</div>
+            <div key={s.etiqueta} className="ap-card" style={{ flex: 1, minWidth: 0, padding: 11, borderRadius: 15, textAlign: 'center' }}>
+              <div style={{ fontSize: 19, fontWeight: 800, color: '#1A1A1A' }}>{s.valor}</div>
+              <div style={{ fontSize: 10, color: '#5A5A52', marginTop: 1, lineHeight: 1.3 }}>{s.etiqueta}</div>
               {s.nota && (
                 <div style={{ fontSize: 9.5, color: '#98A093', marginTop: 2 }}>{s.nota}</div>
               )}
@@ -403,7 +412,7 @@ export function PortalPerfilView({
               <button
                 type="button"
                 onClick={() => navegar(`/portal/${slug}/progreso`)}
-                style={{ fontFamily: 'ui-monospace, monospace', fontSize: 9.5, letterSpacing: '.18em', fontWeight: 600, color: '#3E6B4A', background: 'none', border: 'none', cursor: 'pointer' }}
+                style={{ fontFamily: sans, fontSize: 12, fontWeight: 800, color: '#3E6B4A', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
               >
                 Ver todo →
               </button>
@@ -510,7 +519,12 @@ export function PortalPerfilView({
         </div>
 
         {/* ── Filas ────────────────────────────────────────────────────────── */}
-        <div style={{ height: 34 }} />
+        <div style={{ height: 17 }} />
+        <h2 className="ap-label" style={{ marginBottom: 7 }}>Cuenta</h2>
+        {/* Tarjeta contenedora: el prototipo agrupa TODAS estas filas en una
+            sola card blanca con `overflow:hidden` (StudioApp.jsx L1043), no
+            como filas sueltas a sangre. */}
+        <div style={{ background: '#fff', border: '1px solid #E5E3DA', borderRadius: 16, overflow: 'hidden' }}>
         {/* Community & Messaging OS (P1): único punto de entrada a /mensajes
             y /comunidad desde este portal — a propósito NO se añaden como
             pestañas nuevas del menú inferior (NAV_SEG_IDS es un catálogo
@@ -541,6 +555,7 @@ export function PortalPerfilView({
           null,
           true,
         )}
+        </div>
 
         <button
           type="button"

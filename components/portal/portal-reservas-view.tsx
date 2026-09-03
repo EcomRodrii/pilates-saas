@@ -39,7 +39,7 @@ import { useMensajesSinLeer } from '@/lib/use-mensajes-sin-leer.ts';
 import { bonoActivo, fechaLarga, DIAS } from '@/lib/bonos-portal';
 import { esCancelacionTardia, heredaOverride } from '@/lib/booking-logic';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
-import { EASE, dur, sans, cristal } from '@/lib/portal-design';
+import { EASE, dur, sans, mono, cristal } from '@/lib/portal-design';
 
 // Stub de "pedir pase" para preview: NO llama a la API real (socioId
 // ficticio, 404/error garantizado) — mismo criterio que PortalClasesView.
@@ -393,16 +393,17 @@ export function PortalReservasView({
       {/* Cabecera — mismo par volanta/titular que el resto de pantallas
           migradas: la micro-etiqueta cuenta el total, el titular dice qué es
           esto. */}
-      <div style={{ padding: '28px 24px 8px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+      <div style={{ padding: '56px 18px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 8 }}>
         <div style={{ minWidth: 0 }}>
-          <div className="ap-label">
-            {misReservas.length} {misReservas.length === 1 ? 'reserva en total' : 'reservas en total'}
-          </div>
+          {/* ⚠️ Sin volanta: el prototipo titula "Reservas" a secas
+              (StudioApp.jsx L896), sin la micro-etiqueta que sí llevan Clases
+              ("GRÀCIA · SALA 1 Y 2") y Bonos. Es una inconsistencia DE LA
+              MAQUETA, no del portal; se sigue porque es la referencia. */}
           {/* El texto exacto "Mis reservas" se conserva a propósito — es el
               ancla de accesibilidad que usan los e2e de esta pantalla
               (`portal-preview-perfil-reservas.spec.ts`,
               `getByRole('heading', { name: 'Mis reservas' })`). */}
-          <h1 style={{ fontFamily: sans, fontSize: 32, fontWeight: 800, letterSpacing: '-.035em', color: '#1A1A1A', marginTop: 10 }}>
+          <h1 style={{ fontFamily: sans, fontSize: 23, fontWeight: 800, letterSpacing: '-.03em', color: '#1A1A1A' }}>
             Mis reservas
           </h1>
         </div>
@@ -414,20 +415,20 @@ export function PortalReservasView({
           onClick={() => navegar(`/portal/${slug}/mensajes`)}
           aria-label={mensajesSinLeer > 0 ? `Mensajes, ${mensajesSinLeer} sin leer` : 'Mensajes'}
           style={{
-            position: 'relative', width: 40, height: 40, flex: '0 0 40px', marginTop: 4,
-            borderRadius: '50%', border: '1px solid #E5E3DA',
-            background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 6px 16px -8px rgba(26,26,26,.25)', cursor: 'pointer',
+            position: 'relative', width: 38, height: 38, flex: '0 0 38px',
+            borderRadius: 999, border: '1px solid #E5E3DA',
+            background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
           }}
         >
           <MessageCircle size={18} strokeWidth={1.9} style={{ color: '#1A1A1A' }} />
           {mensajesSinLeer > 0 && (
-            <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: '#4F8A5B' }} />
+            <span style={{ position: 'absolute', top: 7, right: 8, width: 7, height: 7, borderRadius: 99, background: '#4F8A5B', border: '1.5px solid #fff' }} />
           )}
         </button>
       </div>
 
-      <div style={{ padding: '20px 24px 24px' }}>
+      <div style={{ padding: '12px 18px 24px' }}>
         {/* El pase vivía enterrado dentro de cada tarjeta de Clases — aquí, la
             pantalla dedicada a "mis reservas", no había ningún acceso a él en
             absoluto. Una tarjeta fija arriba (Fase 2, feedback de 49
@@ -468,43 +469,43 @@ export function PortalReservasView({
             diseño lo pone en Reservas, no en una pantalla propia. */}
         {plaza && miPlazaFija && (
           <div style={{
-            marginBottom: 16, borderRadius: 20,
-            background: '#EEF0EA', border: '1px solid rgba(44,53,44,.14)',
-            padding: 24,
+            marginBottom: 12, borderRadius: 17,
+            background: '#fff', border: '1px solid #E5E3DA',
+            padding: '13px 15px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#1A1A1A' }} />
-                <span style={{
-                  fontFamily: 'ui-monospace, monospace', fontSize: 8.5, fontWeight: 600, letterSpacing: '.24em',
-                  paddingLeft: '.24em', textTransform: 'uppercase', color: '#1A1A1A',
-                }}>
+                {/* El prototipo titula en Jakarta 13/800, sin volanta mono ni
+                    punto: "Tu plaza fija" (StudioApp.jsx L936). Se conserva el
+                    texto exacto "Plaza fija" — es el ancla de
+                    portal-bonos-plaza-fija-autoservicio.spec.ts. */}
+                <span style={{ fontFamily: sans, fontSize: 13, fontWeight: 800, color: '#1A1A1A' }}>
                   Plaza fija
                 </span>
               </div>
               {miPlazaFija.estado === 'PAUSADA' && (
                 <span style={{
-                  fontFamily: 'ui-monospace, monospace', fontSize: 8, fontWeight: 700, letterSpacing: '.2em',
-                  paddingLeft: '.2em', textTransform: 'uppercase', color: '#5A5A52',
+                  fontFamily: sans, fontSize: 10, fontWeight: 800, padding: '4px 10px',
+                  borderRadius: 999, background: '#EAF0E7', color: '#2E5A3A',
                 }}>
                   En pausa
                 </span>
               )}
             </div>
-            <div style={{ fontFamily: sans, fontSize: 26, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1.05, color: '#1A1A1A', marginTop: 10, opacity: miPlazaFija.estado === 'PAUSADA' ? 0.55 : 1 }}>
+            <div style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 700, color: '#1A1A1A', marginTop: 4, opacity: miPlazaFija.estado === 'PAUSADA' ? 0.55 : 1 }}>
               {plaza.cuando}
             </div>
             {plaza.donde && (
-              <div style={{ fontFamily: sans, fontSize: 11.5, color: '#5A5A52', marginTop: 8 }}>{plaza.donde}</div>
+              <div style={{ fontFamily: sans, fontSize: 12.5, color: '#5A5A52', marginTop: 2 }}>{plaza.donde}</div>
             )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <div style={{ display: 'flex', gap: 7, marginTop: 10 }}>
               <button
                 type="button"
                 onClick={() => void pausarOReanudar()}
                 disabled={procesandoPlaza}
                 style={{
-                  flex: 1, height: 38, borderRadius: 12, border: '1px solid rgba(44,53,44,.2)',
-                  background: 'none', color: '#1A1A1A', fontFamily: sans, fontSize: 11.5, fontWeight: 700,
+                  borderRadius: 999, border: '1px solid #E5E3DA', padding: '7px 13px',
+                  background: '#F6F4EC', color: '#1A1A1A', fontFamily: sans, fontSize: 11, fontWeight: 800,
                   cursor: procesandoPlaza ? 'default' : 'pointer', opacity: procesandoPlaza ? 0.6 : 1,
                 }}
               >
@@ -515,8 +516,8 @@ export function PortalReservasView({
                 onClick={() => setConfirmandoBaja(true)}
                 disabled={procesandoPlaza}
                 style={{
-                  flex: 1, height: 38, borderRadius: 12, border: '1px solid rgba(44,53,44,.2)',
-                  background: 'none', color: '#C2503A', fontFamily: sans, fontSize: 11.5, fontWeight: 700,
+                  borderRadius: 999, border: 'none', padding: '7px 13px',
+                  background: 'rgba(194,80,58,.1)', color: '#A04A3C', fontFamily: sans, fontSize: 11, fontWeight: 800,
                   cursor: procesandoPlaza ? 'default' : 'pointer', opacity: procesandoPlaza ? 0.6 : 1,
                 }}
               >
@@ -531,19 +532,18 @@ export function PortalReservasView({
             siendo trabajo de la pantalla dedicada, /bonos, enlazada desde
             "Comprar otro"). */}
         {bono && (
-          <div className="ap-card" style={{ marginBottom: 16, padding: '22px 20px' }}>
+          <div className="ap-card" style={{ marginBottom: 12, padding: '13px 15px', borderRadius: 17 }}>
             {/* Cabecera: nombre + fecha (nunca "Activo" suelto) — verificado
                 contra capturas reales. La fecha absoluta (caduca 12 oct) va
                 arriba, junto al nombre; el texto de urgencia/caducado
                 (cuando aplica) baja a su propia línea bajo la barra. */}
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-              <div style={{ fontFamily: sans, fontSize: 15.5, fontWeight: 800, color: '#1A1A1A' }}>
+              <div style={{ fontFamily: sans, fontSize: 13, fontWeight: 800, color: '#1A1A1A' }}>
                 {bono.bonos.length > 1 ? 'Tu saldo' : bono.nombre}
               </div>
               {bono.caducaEn && (
                 <div style={{
-                  fontFamily: 'ui-monospace, monospace', fontSize: 8.5, fontWeight: 600, letterSpacing: '.18em',
-                  paddingLeft: '.18em', textTransform: 'uppercase', color: '#5A5A52', whiteSpace: 'nowrap',
+                  fontFamily: mono, fontSize: 10.5, color: '#5A5A52', whiteSpace: 'nowrap',
                 }}>
                   {bono.esMensual ? 'renueva' : 'caduca'} {fechaLarga(bono.caducaEn)}
                 </div>
@@ -551,14 +551,8 @@ export function PortalReservasView({
             </div>
             {bono.totalSesiones != null && bono.totalRestantes != null ? (
               <>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 20 }}>
-                  <span style={{ fontFamily: sans, fontSize: 48, fontWeight: 800, letterSpacing: '-.02em', color: '#1A1A1A', lineHeight: 0.9 }}>
-                    {bono.totalRestantes}
-                  </span>
-                  <span style={{ fontFamily: sans, fontSize: 12, color: '#5A5A52' }}>de {bono.totalSesiones} sesiones</span>
-                </div>
-                {/* CHEATSHEET-CSS.md, "Card bono": fondo #EFEDE4, relleno #4F8A5B. */}
-                <div style={{ height: 5, borderRadius: 999, background: '#EFEDE4', marginTop: 18, overflow: 'hidden' }}>
+                {/* Barra: 6px, radio 99, fondo #EFEDE4, a 9px del título. */}
+                <div style={{ height: 6, borderRadius: 99, background: '#EFEDE4', marginTop: 9, overflow: 'hidden' }}>
                   <div style={{
                     width: `${Math.max(0, Math.min(100, Math.round((bono.totalRestantes / bono.totalSesiones) * 100)))}%`,
                     height: '100%', borderRadius: 999,
@@ -570,24 +564,34 @@ export function PortalReservasView({
             ) : (
               <div style={{ fontFamily: sans, fontSize: 20, fontWeight: 800, color: '#1A1A1A', marginTop: 20 }}>Sesiones ilimitadas</div>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
-              <span style={{
-                fontFamily: sans, fontSize: 11, fontWeight: bono.urgente || bono.caducado ? 700 : 400,
-                color: bono.caducado ? '#C2503A' : bono.urgente ? '#C99A3C' : '#5A5A52',
-              }}>
-                {bono.textoCaducidad ?? (bono.caducaEn ? '' : bono.esMensual ? 'Activo' : 'Sin fecha de caducidad')}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 7 }}>
+              <span style={{ fontFamily: sans, fontSize: 11.5, color: '#5A5A52' }}>
+                {bono.totalSesiones != null && bono.totalRestantes != null && (
+                  <>Te quedan <b style={{ color: '#2E5A3A' }}>{bono.totalRestantes}</b> de {bono.totalSesiones} sesiones</>
+                )}
               </span>
               <button
                 type="button"
                 onClick={() => navegar(`/portal/${slug}/compras`)}
                 style={{
-                  height: 36, padding: '0 16px', borderRadius: 999, border: 'none',
-                  background: 'none', color: '#3E6B4A', fontFamily: sans, fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+                  padding: 0, border: 'none', background: 'none',
+                  color: '#3E6B4A', fontFamily: sans, fontSize: 11.5, fontWeight: 800, cursor: 'pointer',
                 }}
               >
                 {bono.esMensual ? 'Gestionar mi plan' : 'Comprar otro →'}
               </button>
             </div>
+            {/* La urgencia/caducado baja a su propia línea: el prototipo no la
+                tiene, pero perderla sería tirar información real de negocio. */}
+            {bono.textoCaducidad && (
+              <div style={{
+                fontFamily: sans, fontSize: 10.5, marginTop: 4,
+                fontWeight: bono.urgente || bono.caducado ? 700 : 400,
+                color: bono.caducado ? '#C2503A' : bono.urgente ? '#C99A3C' : '#98A093',
+              }}>
+                {bono.textoCaducidad}
+              </div>
+            )}
           </div>
         )}
 
@@ -598,25 +602,26 @@ export function PortalReservasView({
             inventar un dato. */}
         {pagos.length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div className="ap-label" style={{ marginBottom: 10 }}>Pagos</div>
-            <div className="ap-card" style={{ padding: '4px 16px' }}>
-              {pagos.map((r, i) => (
+            <div className="ap-label" style={{ marginBottom: 7 }}>Pagos</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {pagos.map((r) => (
                 <div
                   key={r.id}
+                  className="ap-anim-up"
                   style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 0',
-                    borderTop: i > 0 ? '1px solid #E5E3DA' : undefined,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                    background: '#fff', border: '1px solid #E5E3DA', borderRadius: 14, padding: '11px 14px',
                   }}
                 >
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 700, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {r.concepto}
                     </div>
-                    <div style={{ fontFamily: sans, fontSize: 11, color: '#5A5A52', marginTop: 2 }}>
+                    <div style={{ fontFamily: sans, fontSize: 10.5, color: '#98A093', marginTop: 1 }}>
                       {fechaLarga(r.fechaCobro as string)}
                     </div>
                   </div>
-                  <span style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 700, color: '#1A1A1A', whiteSpace: 'nowrap' }}>{r.importe} €</span>
+                  <span style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 800, color: '#1A1A1A', whiteSpace: 'nowrap' }}>{r.importe} €</span>
                 </div>
               ))}
             </div>
@@ -629,7 +634,7 @@ export function PortalReservasView({
         <div
           role="tablist"
           aria-label="Filtrar reservas"
-          style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -24px', padding: '0 24px 4px', scrollbarWidth: 'none' } as React.CSSProperties}
+          style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -18px', padding: '0 18px 4px', scrollbarWidth: 'none' } as React.CSSProperties}
         >
           {TABS.map(({ id, label }) => {
             const activo = id === tab;

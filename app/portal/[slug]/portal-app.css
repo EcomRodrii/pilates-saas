@@ -70,7 +70,9 @@
 @keyframes apDot { 0% { transform: scale(0) } 60% { transform: scale(1.4) } 100% { transform: scale(1) } }
 /* Confeti de confirmación (Bottom sheet, CHEATSHEET-CSS.md): 6 partículas
    7×11px que salen del check y se apagan — la dirección de cada una viene de
-   --tx/--ty/--rot en el elemento, no de un keyframe por partícula. */
+   --tx/--ty/--rot en el elemento, no de un keyframe por partícula.
+   ⚠️ NO viene en el zip del kit, pero components/portal/hoja-reserva.tsx lo
+   consume: sin él la confirmación de reserva se queda sin confeti. */
 @keyframes apConf { 0% { transform: translate(0,0) rotate(0deg); opacity: 1 } 100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)); opacity: 0 } }
 
 .portal-app .ap-anim-up { animation: apUp .45s both; }

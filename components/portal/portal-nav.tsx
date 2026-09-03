@@ -84,8 +84,8 @@ export function PortalNav({
       aria-label="Secciones"
       style={{
         position: posicionaSola ? 'absolute' : 'relative',
-        left: posicionaSola ? 18 : undefined, right: posicionaSola ? 18 : undefined,
-        bottom: posicionaSola ? 'calc(22px + env(safe-area-inset-bottom))' : undefined,
+        left: posicionaSola ? 14 : undefined, right: posicionaSola ? 14 : undefined,
+        bottom: posicionaSola ? 'calc(16px + env(safe-area-inset-bottom))' : undefined,
         // var() con el valor de hoy como fallback en las 3: sin `barraOscura`/
         // `barraFlotante` el tema no declara estas vars (ver varsBarra/
         // varsBarraFlotante en lib/theme-runtime.ts) y la barra se ve
@@ -99,14 +99,14 @@ export function PortalNav({
         // y el contenido, recortado. La barra flotante no lo sufre porque no
         // lleva ese relleno (flota por encima del hueco, no dentro de él).
         height: flotante && interactive
-          ? `var(--portal-tabbar-height, ${altura.tabbar}px)`
+          ? 'var(--portal-tabbar-height, 55px)'
           : `calc(var(--portal-tabbar-height, ${altura.tabbar}px) + env(safe-area-inset-bottom))`,
         zIndex: interactive ? 14 : undefined,
         borderRadius: flotante ? `var(--portal-tabbar-radius, ${radio.tabbar}px)` : 0,
-        background: 'var(--portal-tabbar-bg, rgba(250,249,245,.88))',
-        ...(flotante ? cristal(16, 170) : {}),
+        background: 'var(--portal-tabbar-bg, rgba(250,249,245,.85))',
+        ...(flotante ? cristal(18, 150) : {}),
         border: flotante
-          ? '1px solid rgba(255,255,255,.85)'
+          ? '1px solid rgba(255,255,255,.75)'
           // `--portal-tabbar-border` es la LÍNEA entera, no solo su color: la
           // barra oscura la quita del todo (ver varsBarra) y con un color
           // transparente seguiría reservando su píxel de alto.
@@ -115,9 +115,9 @@ export function PortalNav({
         // así que este ancho no pinta nada — solo acota la línea al lado de
         // arriba cuando SÍ hay borde.
         borderWidth: flotante ? '1px' : '1px 0 0 0',
-        boxShadow: flotante ? 'var(--portal-tabbar-shadow, 0 22px 44px -22px rgba(34,42,30,.32))' : 'none',
-        display: 'flex', alignItems: 'center', padding: '9px 8px',
-        paddingBottom: flotante && interactive ? 9 : 'calc(24px + env(safe-area-inset-bottom))',
+        boxShadow: flotante ? 'var(--portal-tabbar-shadow, 0 16px 44px rgba(8,8,8,.25))' : 'none',
+        display: 'flex', alignItems: 'center', padding: flotante ? '6px' : '9px 8px',
+        paddingBottom: flotante && interactive ? 6 : 'calc(24px + env(safe-area-inset-bottom))',
       }}
     >
       {items.map((item, i) => {
@@ -147,17 +147,18 @@ export function PortalNav({
           // `barraClasica` Y `barraFlotante` a la vez (residuo de instalar un
           // tema encima de otro, arreglado ya en `instalarTema`). El dato
           // guardado sigue ahí, así que la barra tiene que aguantarlo.
-          height: `calc(var(--portal-tabbar-height, ${altura.tabbar}px) - 12px)`,
+          height: 'calc(var(--portal-tabbar-height, 55px) - 12px)',
           maxHeight: '100%',
           borderRadius: radio.pastilla,
-          // El prototipo distingue la pestaña activa SOLO por color — sin
-          // píldora de fondo (ver CHEATSHEET-CSS.md "Nav inferior": no
-          // menciona ningún fondo para el estado activo, a diferencia de
-          // otros bloques que sí lo detallan). `--portal-tabbar-active-bg`
-          // se queda por si algún tema (Oliva/Noir) lo quiere pintar.
-          background: active ? 'var(--portal-tabbar-active-bg, transparent)' : 'transparent',
+          // La pastilla activa lleva fondo de tinta: `tabOn` en
+          // components/prototipo/StudioApp.jsx (background '#1A1A1A',
+          // color '#F1ECE1'). El texto anterior aquí decía lo contrario
+          // citando CHEATSHEET-CSS.md, pero describía el prototipo ANTERIOR;
+          // la referencia vigente es StudioApp.jsx. La var se conserva para
+          // que un tema pueda seguir pintándola a su manera.
+          background: active ? 'var(--portal-tabbar-active-bg, #1A1A1A)' : 'transparent',
           boxShadow: active ? 'var(--portal-tabbar-active-shadow, none)' : 'none',
-          color: active ? 'var(--portal-tabbar-active-fg, #1A1A1A)' : 'var(--portal-tabbar-idle-fg, #98A093)',
+          color: active ? 'var(--portal-tabbar-active-fg, #F1ECE1)' : 'var(--portal-tabbar-idle-fg, #8A8A80)',
           textDecoration: 'none',
           transition: `flex-grow ${dur.tab}ms ${EASE}, background ${dur.tab}ms ${EASE}, color 350ms ease`,
           outlineOffset: 2,
@@ -185,7 +186,7 @@ export function PortalNav({
             />
             {(active || todasConTexto) && (
               <span style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9.5, fontWeight: 800, letterSpacing: '.01em',
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: '.01em',
                 whiteSpace: 'nowrap', ...(todasConTexto ? { fontSize: 9.5 } : {}),
               }}>
                 {item.label}

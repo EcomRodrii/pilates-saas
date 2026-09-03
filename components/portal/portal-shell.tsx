@@ -155,10 +155,20 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // `/compras` es hija de Reservas (antes de la reconstrucción, de Bonos —
-  // fusionado en la nueva pestaña única): la píldora se queda en Reservas en
-  // vez de apagarse (o saltar a Inicio, que es lo que hacía el prototipo).
-  const segActual = pathname?.startsWith(`/portal/${slug}/compras`) ? 'reservas' : null;
+  // Rutas que NO son una pestaña pero cuelgan de una: sin esto la barra se
+  // queda con las cuatro apagadas (activeIndex -1) y la socia pierde de vista
+  // dónde está. La maqueta nunca enseña la barra sin pestaña marcada.
+  //
+  // `/clases` es la pantalla de horario -> "Horario" (seg `buscar`).
+  // `/bonos` y `/compras` cuelgan de la pestaña única de Reservas (la
+  // reconstrucción fusionó Clases/Bonos ahí).
+  const rutaAdoptada: Array<[string, string]> = [
+    ['clases', 'buscar'],
+    ['bonos', 'reservas'],
+    ['compras', 'reservas'],
+  ];
+  const segActual = rutaAdoptada.find(([ruta]) =>
+    pathname?.startsWith(`/portal/${slug}/${ruta}`))?.[1] ?? null;
   const activeIndex = NAV.findIndex(({ seg }) =>
     seg === segActual || pathname.startsWith(`/portal/${slug}/${seg}`));
 

@@ -62,36 +62,40 @@ test.describe('Barra inferior de pestaña expandible', () => {
 // sin email redirige al paso 1, así que acabaría comprobando /acceso de todas
 // formas, pero por accidente y con una navegación de más.
 test.describe('Tema Editorial — bienvenida antes de la puerta', () => {
-  test('primera vez en el dispositivo: se ve la bienvenida, no el formulario de login', async ({ page }) => {
+  // ⚠️ Antes había DOS pantallas encadenadas: una bienvenida "una vez por
+  // dispositivo" ("Empieza donde estás." + "Siguiente") y detrás el paso
+  // `intro` de la puerta. Al adoptar el kit "Studio App" las dos pasaron a
+  // decir lo mismo palabra por palabra, así que se fusionaron en una sola
+  // (components/portal/acceso/puerta.tsx): `intro` pinta `BienvenidaPortal`
+  // con sus dos botones cableados a `crear` y `login`. Estos tests comprueban
+  // esa pantalla única — y, sobre todo, que NO se repite.
+  test('la portada del kit sale ya en /acceso, sin formulario de login todavía', async ({ page }) => {
     await montarPortal(page, { conSesion: false, tabBarStyle: 'pestanaActiva' });
     await page.goto(`/portal/${SLUG}/acceso`);
 
-    await expect(page.getByText('Empieza donde estás.')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('button', { name: /Siguiente/ })).toBeVisible();
+    await expect(page.getByText('Muévete.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Empezar' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ya tengo cuenta' })).toBeVisible();
     // El formulario de login todavía no está.
     await expect(page.getByPlaceholder('tu@email.com')).toHaveCount(0);
+    // Y la pantalla que se retiró no reaparece por ningún lado.
+    await expect(page.getByText('Empieza donde estás.')).toHaveCount(0);
   });
 
-  test('pulsar "Siguiente" pasa a la puerta (paso intro) y no vuelve a enseñar la bienvenida', async ({ page }) => {
+  test('"Ya tengo cuenta" va al login sin pasar por una segunda portada igual', async ({ page }) => {
     await montarPortal(page, { conSesion: false, tabBarStyle: 'pestanaActiva' });
     await page.goto(`/portal/${SLUG}/acceso`);
 
-    // Tras la bienvenida, /acceso aterriza en el paso `intro` de la puerta
-    // reconstruida (816f4971) — no directo al login. Desde ahí, "Ya tengo
-    // cuenta" sigue llevando al formulario de siempre.
-    await page.getByRole('button', { name: /Siguiente/ }).click({ timeout: 30_000 });
-    await expect(page.getByText('Muévete. Lo demás, ya está.')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Empieza donde estás.')).toHaveCount(0);
-
-    await page.getByRole('button', { name: 'Ya tengo cuenta' }).click();
+    await page.getByRole('button', { name: 'Ya tengo cuenta' }).click({ timeout: 30_000 });
     await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
 
-    // Tras recargar, la bienvenida ya no vuelve (localStorage) — aterriza otra
-    // vez en `intro`, no se queda en el paso `login` (cada carga recalcula el
-    // paso desde la ruta).
+    // Tras recargar se vuelve a la portada (cada carga recalcula el paso desde
+    // la ruta), y sigue habiendo UNA sola: pulsar "Empezar" lleva a crear
+    // cuenta, no a otra pantalla con el mismo titular.
     await page.reload();
-    await expect(page.getByText('Muévete. Lo demás, ya está.')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Empieza donde estás.')).toHaveCount(0);
+    await expect(page.getByText('Muévete.')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Empezar' }).click();
+    await expect(page.getByText('Muévete.')).toHaveCount(0);
   });
 
   test('con tema clásico, nunca se ve la bienvenida — va directa a la puerta y desde ahí al login', async ({ page }) => {

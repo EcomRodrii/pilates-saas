@@ -48,7 +48,6 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { EASE, dur, display, micro, texto, altura, radio, sombra, transicion } from '@/lib/portal-design';
 import { BienvenidaPortal } from '@/components/portal/bienvenida-portal';
-import { yaVioBienvenida, marcarBienvenidaVista } from '@/lib/portal-bienvenida';
 import { GoogleIcon } from '@/components/icons/brand-icons';
 import { altaAlEntrar } from '@/lib/api-client';
 import {
@@ -134,7 +133,10 @@ export function PuertaPortal() {
   const pathname = usePathname();
   const params = useSearchParams();
   // Auditoría integral 2026-08-21 (rendimiento, P0-2): useCore(), no useStudio() — solo campos de tema/nav ya publicados.
-  const { studio, dataLoaded, tabBarStyle, variantes } = useCore();
+  // `dataLoaded` ya no se desestructura: su único consumidor era el efecto que
+  // decidía la bienvenida "una vez por dispositivo", retirado al fusionarla con
+  // el paso `intro`.
+  const { studio, tabBarStyle, variantes } = useCore();
   const { loginConPassword, enviarEnlace, entrarConGoogle, session } = usePortalAuth();
 
   // /login es un atajo guardado/repartido: entra directa al formulario de
@@ -239,36 +241,22 @@ export function PuertaPortal() {
     return () => { vivo = false; };
   }, [vueltaDeGoogle, session, slug, router]);
 
-  // ── La bienvenida, una vez por dispositivo ───────────────────────────────
+  // ── La bienvenida ES el paso `intro` ─────────────────────────────────────
+  // Antes había DOS pantallas seguidas: una bienvenida "una vez por
+  // dispositivo" y, detrás, el paso `intro` de la puerta. Al adoptar el kit
+  // "Studio App" las dos pasaron a decir exactamente lo mismo —mismo titular,
+  // mismo subtítulo y el mismo par Empezar / Ya tengo cuenta—, porque
+  // `BienvenidaPortal` del kit ES esa pantalla, no un paso previo a ella
+  // (de ahí que traiga la prop `onYaTengoCuenta`). Se fusionan: `intro` la
+  // pinta, con sus dos botones cableados a los pasos de verdad.
+  //
   // ⚠️ El OR con `tabBarStyle` NO es redundante: los estudios que YA instalaron
   // Editorial tienen `tabBarStyle: 'pestanaActiva'` guardado y ningún
-  // `variantes` (`defaults` no es retroactivo). Sin él perderían la bienvenida
-  // en silencio.
+  // `variantes` (`defaults` no es retroactivo). Sin él perderían la portada
+  // del kit en silencio.
   const quiereBienvenida = variantes.bienvenida !== 'ninguna' || tabBarStyle === 'pestanaActiva';
-  // Empieza en `true` —se ve la puerta— a propósito: bloquear la pantalla
-  // entera hasta resolver tema y localStorage la dejaba a merced de la latencia
-  // de red, y eso ya rompió CI una vez.
-  const [bienvenidaVista, setBienvenidaVista] = useState(true);
-  useEffect(() => {
-    if (!dataLoaded || !quiereBienvenida) return;
-    if (yaVioBienvenida(slug)) return;
-    // localStorage no existe en el servidor: solo puede resolverse tras montar.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBienvenidaVista(false);
-  }, [dataLoaded, quiereBienvenida, slug]);
 
   const nombre = studio?.nombre?.trim() || 'Tentare';
-
-  if (!bienvenidaVista) {
-    return (
-      <BienvenidaPortal
-        nombreEstudio={nombre}
-        fotoUrl={studio?.imagenBienvenidaUrl ?? null}
-        variante={variantes.bienvenida === 'marca' ? 'marca' : 'foto'}
-        onSiguiente={() => { marcarBienvenidaVista(slug); setBienvenidaVista(true); }}
-      />
-    );
-  }
 
   const fundidoBienvenida = (
     // Fundido de bienvenida: cubre el hueco entre que Supabase responde y
@@ -305,6 +293,21 @@ export function PuertaPortal() {
   // de ~812px) se habían quedado cortos pese a decir "verificado en vivo" —
   // 520px acerca esa proporción sin dejar el panel de texto/CTA sin sitio.
   if (paso === 'intro') {
+    // El eje `bienvenida` del tema sigue mandando: 'foto'/'marca' eligen el
+    // fondo de la portada del kit; 'ninguna' se queda con la de siempre (la de
+    // abajo). Sin esto, ese ajuste del editor no haría nada.
+    if (quiereBienvenida) {
+      return (
+        <BienvenidaPortal
+          nombreEstudio={nombre}
+          fotoUrl={studio?.imagenBienvenidaUrl ?? null}
+          variante={variantes.bienvenida === 'marca' ? 'marca' : 'foto'}
+          onSiguiente={() => setPaso('crear')}
+          onYaTengoCuenta={() => setPaso('login')}
+          ciudad={studio?.ciudad}
+        />
+      );
+    }
     return (
       <div style={{ minHeight: '100dvh', background: MARCA, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         <PortadaAcceso
