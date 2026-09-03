@@ -39,7 +39,7 @@
 import { useState } from 'react';
 import { CalendarDays, Clock, Heart, MapPin, MessageCircle, Check, Users } from 'lucide-react';
 import { dur, sans, transicion } from '@/lib/portal-design';
-import { AforoIndicator, Badge, Button } from '@/components/portal/ui';
+import { AforoIndicator, Badge, Button } from '@/components/comunidad/ui';
 import { selloTemporal } from '@/lib/avisos-portal';
 import type { PostFeedPortal, EstadoAsistenciaEvento } from '@/lib/comunidad-portal.ts';
 

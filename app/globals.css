@@ -572,14 +572,6 @@ nextjs-portal { display: none !important; }
   100% { background-position: -130% 0; }
 }
 
-/* El brillo que cruza el pase de acceso (components/portal/hoja-pase.tsx).
-   Solo `transform`: lo resuelve el compositor y no repinta el QR en cada
-   fotograma, que es un SVG de varios cientos de rectángulos. */
-@keyframes paseBrillo {
-  0%   { transform: translateX(-150%) rotate(10deg); }
-  100% { transform: translateX(240%) rotate(10deg); }
-}
-
 /* DashboardDrawer (components/ui/dashboard-drawer.tsx) — entra/sale
    deslizándose desde el borde en vez de aparecer/desaparecer de golpe.
    Reutilizado por paneles de todo el dashboard (calendario, equipo,
@@ -874,17 +866,6 @@ nextjs-portal { display: none !important; }
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-/* Editor de Apariencia — click directo sobre el preview (Fase C): resalta el
-   bloque del catálogo cuya fila está seleccionada en el panel izquierdo. Solo
-   se aplica dentro de /portal-preview (ver components/portal/portal-preview-bridge.ts,
-   usePreviewResaltado), pero vive en globals.css porque es una clase, no un
-   selector de ruta. */
-[data-bloque-id].tentare-preview-seleccionado {
-  outline: 2px solid var(--portal-brand, #6D28D9);
-  outline-offset: 2px;
-  border-radius: 8px;
 }
 
 /* Network landing (/network) — entrada del hero al cargar y respiración del

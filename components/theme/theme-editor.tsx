@@ -35,8 +35,7 @@ import {
 } from '@/lib/theme-schema';
 import { metadatosPublicos, tituloAutomatico, descripcionAutomatica, IMAGEN_COMPARTIR_POR_DEFECTO } from '@/lib/theme/seo-publico';
 import { PanelVisibilidad } from './panel-visibilidad';
-import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
-import { resolveVariantes } from '@/lib/theme-variantes';
+import { validarContrasteTheme } from '@/lib/theme-runtime';
 import { crearHistorial, registrar, deshacer as deshacerHist, rehacer as rehacerHist } from '@/lib/theme/editor-historial';
 import { CamposForm, FilaOpciones } from './inspector/campos-form';
 import type { CampoSchema } from '@/lib/theme/campos';
@@ -46,9 +45,7 @@ import {
 } from '@/lib/theme/campos-forma';
 import { type ThemeDefinition } from '@/lib/theme-definitions';
 import { derivarPaleta } from '@/lib/color-utils';
-import { NAV_DISPONIBLES, NAV_ICONOS_DISPONIBLES, navItemsVisibles, resolveNavConfig, type NavSegId, type NavIconoId } from '@/lib/portal-nav';
-import { PortalNav } from '@/components/portal/portal-nav';
-import { altura } from '@/lib/portal-design';
+import { NAV_DISPONIBLES, NAV_ICONOS_DISPONIBLES, resolveNavConfig, type NavSegId, type NavIconoId } from '@/lib/portal-nav';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import { IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { CampoImagen } from '@/components/ui/campo-imagen';
@@ -1118,26 +1115,10 @@ export function AjustesCategoriaPanel({
           <CamposDelTema campos={CAMPOS_BARRA_PORTAL} hook={hook} />
         </div>
 
-        {/* Preview en vivo (sin iframe: el widget de verdad, con las CSS
-            vars del borrador aplicadas directamente — mismo componente que
-            usa portal-shell.tsx, así que lo que se ve aquí es exacto). */}
-        <div style={themeToCssVars(draft)} className="rounded-2xl border border-border bg-muted/40 p-4">
-          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Así se ve</p>
-          {/* Alto de la MISMA variable que la barra: con la altura fija de
-              antes, un tema que la sube (Bloom, 66px) se salía de su caja en
-              esta previsualización — y esta caja es justo donde la propietaria
-              comprueba cómo queda. */}
-          <div style={{ position: 'relative', height: `var(--portal-tabbar-height, ${altura.tabbar}px)` }}>
-            <PortalNav
-              items={navItemsVisibles(navPortalResuelto, NAV_DISPONIBLES)}
-              activeIndex={0}
-              slug={studio?.slug ?? ''}
-              interactive={false}
-              flotante={!draft.barraClasica}
-              etiquetas={resolveVariantes(draft.variantes).barra}
-            />
-          </div>
-        </div>
+        {/* La previsualización "Así se ve" montaba `PortalNav`, la barra
+            inferior del portal de la alumna. Se retira con él: no queda nada
+            que previsualizar. Los campos de arriba siguen editando el tema,
+            que es lo que consume el resto del producto. */}
       </div>
     );
   }

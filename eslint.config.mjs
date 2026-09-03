@@ -35,7 +35,7 @@ const eslintConfig = defineConfig([
     // revienta en ejecución.
     //
     // Pasó de verdad: `PROTOTIPO` se coló sin definir en
-    // comparar-portal-prototipo.mjs al copiar una línea del otro script, con
+    // otro script de comparación al copiar una línea, con
     // lint y `node --check` en verde, y solo se vio al ejecutarlo.
     //
     // `no-undef` viene apagado de eslint-config-next porque para TypeScript lo

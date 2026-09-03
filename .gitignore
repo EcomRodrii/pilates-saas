@@ -65,5 +65,5 @@ next-env.d.ts
 /.claude/skills/*
 !/.claude/skills/context7/
 
-# Capturas de scripts/comparar-portal-prototipo.mjs (se regeneran)
+# Capturas de scripts de comparación visual (se regeneran)
 .comparacion-visual/

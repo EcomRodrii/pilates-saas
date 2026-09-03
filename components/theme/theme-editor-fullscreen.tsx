@@ -66,7 +66,7 @@ import { SelectorPagina, type OpcionPagina } from './selector-pagina';
 import { DISPOSITIVOS, DISPOSITIVO_IDS, type DispositivoId } from '@/lib/theme/dispositivos';
 import { useAutoguardado, useAutoguardadoTema } from './use-autoguardado';
 import { textoEstado, peorEstado } from '@/lib/theme/autoguardado';
-import type { ModoPreview } from '@/components/portal/portal-preview-bridge';
+import type { ModoPreview } from '@/components/theme/modo-preview';
 import {
   ESTADO_INICIAL, elegirPagina, elegirBloque, elegirItemContenido, elegirCategoria,
   cerrarCategoria, pantallaOperativa, type EstadoEditor,
