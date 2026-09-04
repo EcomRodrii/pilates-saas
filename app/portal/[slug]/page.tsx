@@ -14,6 +14,7 @@ import { ClassCard } from '@/components/student/domain/ClassCard';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { urlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
 import { BonoRitmo, TuSemana, MiProgreso } from '@/components/student/domain/TuRitmo';
+import { DelEstudio } from '@/components/student/domain/DelEstudio';
 import { semanaDe, hechasEstaSemana, rachaSemanas, lunesDe, cuentaComoHecha } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
 
@@ -231,6 +232,11 @@ export default function InicioPage() {
                 )}
             </div>
 
+
+            {/* ── DEL ESTUDIO ──────────────────────────────────────────────
+                Lo último que ha publicado el estudio en su tablón. Una sola
+                petición (`limite=1`); si no hay nada o falla, no se pinta. */}
+            <DelEstudio studioId={estudio.id} href={href('/comunidad')} />
 
             <section>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>

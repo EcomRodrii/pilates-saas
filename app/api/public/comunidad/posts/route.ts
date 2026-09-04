@@ -87,13 +87,18 @@ export async function GET(req: NextRequest) {
   // (el caso común, un feed de solo texto).
   const idsEventos = visibles.filter(row => row.tipo === 'EVENTO').map(row => row.id);
   const totalPorPost = new Map<string, number>();
+  // Si ESTA socia ya está apuntada: sin esto la app no sabe si pintar «Me
+  // apunto» o «Ya no voy». Se resuelve de la misma consulta (trae socio_id),
+  // sin una segunda ida.
+  const misEventos = new Set<string>();
   if (idsEventos.length > 0) {
     const { data: asistentesRaw } = await admin
       .from('post_evento_asistentes')
-      .select('post_id')
+      .select('post_id, socio_id')
       .in('post_id', idsEventos);
-    for (const row of (asistentesRaw ?? []) as { post_id: string }[]) {
+    for (const row of (asistentesRaw ?? []) as { post_id: string; socio_id: string }[]) {
       totalPorPost.set(row.post_id, (totalPorPost.get(row.post_id) ?? 0) + 1);
+      if (row.socio_id === socioId) misEventos.add(row.post_id);
     }
   }
 
@@ -114,6 +119,7 @@ export async function GET(req: NextRequest) {
       // undefined (omitido en el JSON) para un post que no es evento, nunca
       // 0 — distingue "no es evento" de "evento con cero asistentes".
       totalAsistentes: row.tipo === 'EVENTO' ? (totalPorPost.get(row.id) ?? 0) : undefined,
+      apuntada: row.tipo === 'EVENTO' ? misEventos.has(row.id) : undefined,
     })),
   });
 }
