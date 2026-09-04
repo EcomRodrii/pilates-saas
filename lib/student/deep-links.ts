@@ -39,7 +39,9 @@ export function traducirEnlace(enlace: string | null | undefined, slug: string):
   if (resto.startsWith('compras')) return `${base}/pagos`;
   if (resto.startsWith('notificaciones')) return `${base}/notificaciones`;
   if (resto.startsWith('bonos')) return `${base}/bonos`;
-  // `comunidad`, `mensajes`, `instructores`… no tienen pantalla todavía.
+  // El tablón: un hilo concreto no tiene pantalla propia, así que al tablón entero.
+  if (resto.startsWith('comunidad')) return `${base}/comunidad`;
+  // `mensajes`, `instructores`… no tienen pantalla todavía.
   return undefined;
 }
 
@@ -62,9 +64,10 @@ const MAPA_PORTAL_VIEJO: Record<string, string> = {
   login: '/acceso/login',
   acceso: '/acceso/login',
   'clave-nueva': '/acceso/verificar',
+  // El tablón del estudio.
+  comunidad: '/comunidad',
   // Sin equivalente todavía: se manda al inicio, que es un destino honesto.
   instructores: '',
-  comunidad: '',
   mensajes: '',
 };
 
