@@ -17,6 +17,7 @@ import { escaparLike } from '@/lib/escapar-like';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { LEGAL } from '@/lib/legal-info';
+import type { ResultadoEscritura } from '@/lib/errores';
 import { decidirCierreDeEspera, suscripcionDeReservaWeb, PREFIJO_RESERVA_WEB } from '@/lib/lista-espera/esperas-sin-plaza';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
@@ -4031,15 +4032,31 @@ export async function dbUpdateAutomationLog(id: string, studioId: string, change
 }
 
 
-export async function dbSetStripeAccountId(studioId: string, stripeAccountId: string | null) {
+// Auditoría 22ª pasada (3-sep-2026), D-7. Antes esta función no devolvía
+// nada: un `uq_studios_stripe_account` (una cuenta de Stripe Connect ya
+// vinculada a OTRO estudio — el caso natural de una cadena con varias sedes
+// que reconecta sin querer la misma cuenta) se registraba con
+// `reportDbError` y el callback seguía adelante como si nada, redirigiendo a
+// `?stripe_connected=1`. La propietaria creía que ya cobraba y no era así.
+export async function dbSetStripeAccountId(studioId: string, stripeAccountId: string | null): Promise<ResultadoEscritura> {
   // A-1: se ejecuta en el callback OAuth de Stripe Connect (servidor, sin sesión
   // de usuario). Con el cliente anónimo, la política owner_studios (que exige
   // current_studio_id()) no casa ninguna fila → el binding NO se guardaba y el
   // onboarding de Stripe quedaba roto en silencio. Con service-role sí persiste.
   const admin = getSupabaseAdmin();
-  if (!admin) { reportDbError('[dbSetStripeAccountId]', new Error('service role no configurada')); return; }
+  if (!admin) {
+    reportDbError('[dbSetStripeAccountId]', new Error('service role no configurada'));
+    return { ok: false, error: 'Servidor no configurado.' };
+  }
   const { error } = await admin.from('studios').update({ stripe_account_id: stripeAccountId }).eq('id', studioId);
-  if (error) reportDbError('[dbSetStripeAccountId]', error);
+  if (error) {
+    if (error.code === '23505' && error.message.includes('uq_studios_stripe_account')) {
+      return { ok: false, error: 'Esta cuenta de Stripe ya está conectada a otro estudio de Tentare.' };
+    }
+    reportDbError('[dbSetStripeAccountId]', error);
+    return { ok: false, error: 'No se pudo guardar la conexión con Stripe.' };
+  }
+  return { ok: true };
 }
 
 // Igual que el callback de Stripe: sin sesión de usuario, así que hace falta
