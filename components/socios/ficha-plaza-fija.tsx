@@ -7,7 +7,7 @@ import { useMemo, useState, useId } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Plus, Trash2, CalendarClock } from 'lucide-react';
+import { Plus, Trash2, Pencil, CalendarClock } from 'lucide-react';
 import type { PlazaFija } from '@/lib/types';
 
 // Lunes primero (UX); los valores son los de extract(dow) de Postgres (0=domingo).
@@ -45,9 +45,11 @@ function formVacio(salaId: string): Form {
 }
 
 export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
-  const { plazasFijas, asignarPlazaFija, quitarPlazaFija, salas, tiposClase, spots } = useStudio();
+  const { plazasFijas, asignarPlazaFija, editarPlazaFija, quitarPlazaFija, salas, tiposClase, spots } = useStudio();
   const uid = useId();
   const [dialogOpen, setDialogOpen] = useState(false);
+  // null = el diálogo está creando; una plaza = está editando esa.
+  const [editando, setEditando] = useState<PlazaFija | null>(null);
   const [aBorrar, setABorrar] = useState<PlazaFija | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -68,7 +70,23 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
   const puedeGuardar = !!f.salaId && !!f.horaInicio && !!f.vigenciaDesde && !rangoInvertido && !guardando;
 
   function abrir() {
+    setEditando(null);
     setF(formVacio(salas[0]?.id ?? ''));
+    setError(null);
+    setDialogOpen(true);
+  }
+
+  function abrirEditar(p: PlazaFija) {
+    setEditando(p);
+    setF({
+      diaSemana: p.diaSemana,
+      horaInicio: p.horaInicio.slice(0, 5),
+      salaId: p.salaId,
+      tipoClaseId: p.tipoClaseId ?? '',
+      spotId: p.spotId ?? '',
+      vigenciaDesde: p.vigenciaDesde,
+      vigenciaHasta: p.vigenciaHasta ?? '',
+    });
     setError(null);
     setDialogOpen(true);
   }
@@ -77,8 +95,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
     if (!puedeGuardar) return;
     setGuardando(true);
     setError(null);
-    const res = await asignarPlazaFija({
-      socioId,
+    const campos = {
       diaSemana: f.diaSemana,
       horaInicio: f.horaInicio.length === 5 ? `${f.horaInicio}:00` : f.horaInicio,
       salaId: f.salaId,
@@ -86,11 +103,16 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
       spotId: f.spotId || null,
       vigenciaDesde: f.vigenciaDesde,
       vigenciaHasta: f.vigenciaHasta || null,
-      estado: 'ACTIVA',
-    });
+    };
+    // Editar conserva la fila (y su histórico); antes había que quitarla y
+    // volver a crearla para moverla de hora.
+    const res = editando
+      ? await editarPlazaFija(editando.id, campos)
+      : await asignarPlazaFija({ ...campos, socioId, estado: 'ACTIVA' });
     setGuardando(false);
     if ('error' in res) { setError(res.error); return; }
     setDialogOpen(false);
+    setEditando(null);
   }
 
   return (
@@ -129,13 +151,23 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                     {' · desde '}{fechaCorta(p.vigenciaDesde)}{p.vigenciaHasta ? ` hasta ${fechaCorta(p.vigenciaHasta)}` : ''}
                   </p>
                 </div>
-                <button
-                  onClick={() => setABorrar(p)}
-                  title="Quitar plaza fija"
-                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted shrink-0"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <button
+                    onClick={() => abrirEditar(p)}
+                    title="Cambiar día, hora, sala o vigencia"
+                    aria-label={`Editar la plaza fija del ${diaLabel(p.diaSemana)} ${p.horaInicio.slice(0, 5)}`}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => setABorrar(p)}
+                    title="Quitar plaza fija"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -144,7 +176,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
 
       <Dialog open={dialogOpen} onOpenChange={o => !o && setDialogOpen(false)}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Añadir plaza fija</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editando ? 'Editar plaza fija' : 'Añadir plaza fija'}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -190,6 +222,15 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                 <input id={`${uid}-hasta`} type="date" className={inputCls} value={f.vigenciaHasta} onChange={e => setF(p => ({ ...p, vigenciaHasta: e.target.value }))} />
               </div>
             </div>
+            {/* Mismo criterio que quitar una plaza fija ("las reservas ya
+                creadas no se tocan"): el cron materializa el hueco nuevo pero
+                no retira lo ya generado del viejo, y sin decirlo la socia
+                aparece apuntada en los dos sitios. */}
+            {editando && (
+              <p className="text-[11px] text-muted-foreground">
+                Las reservas ya generadas en el hueco anterior no se tocan: cancélalas desde el calendario si hace falta.
+              </p>
+            )}
             {rangoInvertido && (
               <p role="alert" className="text-xs font-medium text-destructive">
                 “Hasta” no puede ser anterior a “Desde” — ese rango nunca estaría activo.
@@ -204,7 +245,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
               onClick={guardar}
               className="text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {guardando ? 'Guardando…' : 'Añadir plaza fija'}
+              {guardando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Añadir plaza fija'}
             </button>
           </div>
         </DialogContent>

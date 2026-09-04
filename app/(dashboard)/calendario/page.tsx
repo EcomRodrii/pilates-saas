@@ -522,7 +522,7 @@ export default function Calendario() {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
     suscripciones, planesTarifa, studio,
     addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
-    cancelarReservasDeSesiones,
+    cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
     addActividadReciente, addRecibo, resetDatosPilates,
@@ -1249,7 +1249,20 @@ export default function Calendario() {
   // conteo, mismo componente que ya usa el resto del panel.
   const [confirmCancelar, setConfirmCancelar] = useState(false);
   const [confirmEliminar, setConfirmEliminar] = useState(false);
+  const [confirmCancelarSerie, setConfirmCancelarSerie] = useState(false);
   const apuntadasSesionActual = reservasActuales.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
+
+  // Lo que se llevaría por delante "Cancelar serie": exactamente el mismo
+  // tramo que cancela `cancelarSerieDesde` (esta clase y las siguientes de su
+  // serie, sin contar las ya canceladas). Se calcula aquí para poder decirlo
+  // ANTES en la confirmación, igual que "Cancelar"/"Eliminar" de una suelta.
+  const sesionesSerieRestantes = sesionActual?.serieId
+    ? sesionesEnriquecidas.filter(s => s.serieId === sesionActual.serieId && s.inicio >= sesionActual.inicio && !s.cancelada)
+    : [];
+  const idsSerieRestantes = new Set(sesionesSerieRestantes.map(s => s.id));
+  const apuntadasSerieRestante = reservas.filter(
+    r => idsSerieRestantes.has(r.sesionId) && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'),
+  ).length;
 
   async function cancelarSesion() {
     if (!sesionId) return;
@@ -1312,12 +1325,23 @@ export default function Calendario() {
     void refrescarVista();
   }
 
-  // OJO si vienes a reponer "cancelar la serie entera": la capacidad NO se ha
-  // borrado. `cancelarSerieDesde` sigue entera en studio-context (con aviso a
-  // las socias incluido); lo que había aquí era un envoltorio que ningún botón
-  // llamaba — editar serie sí tiene el suyo, cancelar serie no. Se quitó por
-  // estar muerto, no por estar de más: si se decide reponer el botón, llama
-  // directamente a `cancelarSerieDesde` desde el panel.
+  // Cancelar la serie entera desde esta clase. `cancelarSerieDesde` ya existía
+  // en studio-context (batch atómico + aviso a las socias + cancelación de sus
+  // reservas con devolución de bono según la política del estudio) pero no
+  // tenía botón: editar serie sí, cancelar serie no, y la única salida era
+  // cancelar clase por clase.
+  async function cancelarSerie() {
+    if (!sesionId) return;
+    // El conteo se captura ANTES de escribir: al cerrar el panel el tramo
+    // deja de calcularse y el toast se quedaría sin cifra.
+    const n = sesionesSerieRestantes.length;
+    const res = await cancelarSerieDesde(sesionId);
+    setSesionId(null);
+    if (!res.ok) { showToast(res.error); return; }
+    const base = `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''} · clientas avisadas`;
+    showToast(res.avisoBono ? `${base} · ${res.avisoBono}` : base);
+    void refrescarVista();
+  }
 
   async function eliminarSesion() {
     if (!sesionId) return;
@@ -2429,6 +2453,20 @@ export default function Calendario() {
               <button onClick={() => setConfirmCancelar(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">
                 <X size={12} />Cancelar
               </button>
+              {/* Con 1 sola clase viva por delante haría lo mismo que
+                  "Cancelar", así que no se ofrece. Fuera del rol INSTRUCTOR:
+                  la RLS le deja tocar únicamente sus propias clases, así que
+                  un batch sobre la serie podría cancelar media y decir que
+                  fue bien. */}
+              {sesionesSerieRestantes.length > 1 && !esInstructor && (
+                <button
+                  onClick={() => setConfirmCancelarSerie(true)}
+                  title="Cancela esta clase y todas las siguientes de la serie"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  <X size={12} />Cancelar serie
+                </button>
+              )}
               {!esInstructor && (
                 <button onClick={() => setConfirmEliminar(true)} aria-label="Eliminar sesión" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors ml-auto">
                   <Trash2 size={12} />
@@ -2648,6 +2686,18 @@ export default function Calendario() {
         textoConfirmar="Cancelar clase"
         destructivo
         onConfirm={() => void cancelarSesion()}
+      />
+
+      <ConfirmDialog
+        open={confirmCancelarSerie}
+        onOpenChange={setConfirmCancelarSerie}
+        titulo={`¿Cancelar ${sesionesSerieRestantes.length} clases de esta serie?`}
+        descripcion={apuntadasSerieRestante > 0
+          ? `Desde esta clase en adelante. ${apuntadasSerieRestante} reserva${apuntadasSerieRestante !== 1 ? 's' : ''} se cancelará${apuntadasSerieRestante !== 1 ? 'n' : ''}${(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — se les devuelve la sesión del bono' : ''} y las alumnas recibirán un aviso. Las clases anteriores de la serie no se tocan.`
+          : 'Desde esta clase en adelante. Ninguna tiene alumnas apuntadas, y las clases anteriores de la serie no se tocan.'}
+        textoConfirmar="Cancelar serie"
+        destructivo
+        onConfirm={() => void cancelarSerie()}
       />
 
       <ConfirmDialog
