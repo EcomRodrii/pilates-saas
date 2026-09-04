@@ -49,12 +49,20 @@ export async function GET(req: NextRequest) {
     return pagina('No disponible ahora mismo', 'No hemos podido procesar tu baja en este momento. Inténtalo de nuevo más tarde o contacta con el estudio.');
   }
 
-  // No filtra si la socia existe o no en la respuesta (mismo trato para
-  // ambos casos): un token válido siempre confirma la baja, evitando que el
-  // endpoint sirva para comprobar si un id de socia existe.
-  await admin.from('socios')
+  // Auditoría 23ª pasada (4-sep-2026): el UPDATE no comprobaba `error` — el
+  // único mecanismo de baja del producto podía decir «Baja confirmada» sin
+  // haber escrito nada si la conexión fallaba a mitad. Sí se comprueba el
+  // ERROR de la escritura (un fallo real de BD); NO se distingue "0 filas
+  // porque la socia ya no existe" de "sí las había" — eso sigue siendo a
+  // propósito, mismo trato para ambos casos, evitando que el endpoint sirva
+  // para comprobar si un id de socia existe.
+  const { error } = await admin.from('socios')
     .update({ consentimiento_marketing_en: null, consentimiento_marketing_texto: null, consentimiento_marketing_por: null })
     .eq('id', claim.socioId).eq('studio_id', claim.studioId);
+  if (error) {
+    console.error('[marketing/baja] no se pudo escribir la baja', claim.socioId, error.message);
+    return pagina('No disponible ahora mismo', 'No hemos podido procesar tu baja en este momento. Inténtalo de nuevo más tarde o contacta con el estudio.');
+  }
 
   return pagina('Baja confirmada', 'Ya no recibirás más emails de marketing de este estudio. Seguirás recibiendo los avisos necesarios para tus reservas y pagos.');
 }
