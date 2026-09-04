@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
+import { ejecutarCancelacionReserva } from '@/lib/db/supabase-data-admin';
 
 // A-3/A-4: baja de una socia con RETENCIÓN FISCAL. No se borra la fila (eso
 // destruía recibos/facturas con obligación de conservación, o fallaba a medias
@@ -26,6 +27,20 @@ import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 // salud y documentos personales (posible DNI/contrato con nombre) que
 // sobrevivían al "borrado" RGPD sin ninguna base de retención que lo
 // justificara.
+//
+// F-3 (auditoría 22ª pasada, 3-sep-2026): esta ruta nunca mencionaba
+// `reservas` — sus reservas futuras (CONFIRMADA/LISTA_ESPERA/
+// PENDIENTE_APROBACION) se quedaban ocupando aforo para siempre, la lista de
+// espera nunca se promocionaba al liberarse el hueco, y nadie del estudio ni
+// de la cola se enteraba. Se cancelan ANTES de anonimizar (paso 1c, antes del
+// paso 3): `ejecutarCancelacionReserva` dispara notificaciones reales a otras
+// socias (promoción de lista de espera, ofertas) que tienen que salir con el
+// nombre de quien libera la plaza, no con "Socia eliminada". Reutiliza el
+// mismo núcleo que ya usan `/api/reservas/cancelar` y las sustituciones —
+// nunca un UPDATE directo sobre `reservas`, que se saltaría la promoción de
+// espera y la devolución de bono. `omitirPenalizacion: true`: la socia no
+// pulsó "cancelar", así que no se le puede aplicar cancelación tardía —
+// mismo criterio que ya usa el corte automático por riesgo de plantón.
 
 export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
@@ -90,6 +105,33 @@ export async function POST(req: NextRequest) {
     .eq('studio_id', sesion.studioId)
     .neq('estado', 'CANCELADA');
   if (errSus) return NextResponse.json({ error: 'No se pudieron cancelar las suscripciones' }, { status: 500 });
+
+  // 1c) Cancelar sus reservas FUTURAS antes de anonimizar (ver cabecera, F-3).
+  //     Solo clases que no han empezado — una reserva de una clase ya pasada
+  //     no ocupa nada que liberar. Secuencial a propósito, igual que el resto
+  //     de cancelaciones en lote de este repo: cada llamada libera un hueco y
+  //     puede promocionar a la siguiente de la lista de espera, y dos
+  //     promociones concurrentes de la misma cola competirían entre sí.
+  const { data: reservasFuturas, error: errReservasLeer } = await admin
+    .from('reservas')
+    .select('id, sesiones!inner(inicio)')
+    .eq('socio_id', socioId)
+    .eq('studio_id', sesion.studioId)
+    .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION'])
+    .gt('sesiones.inicio', new Date().toISOString());
+  if (errReservasLeer) return NextResponse.json({ error: 'No se pudieron leer sus reservas' }, { status: 500 });
+  for (const r of reservasFuturas ?? []) {
+    const res = await ejecutarCancelacionReserva(admin, {
+      studioId: sesion.studioId, reservaId: r.id as string, socioId, omitirPenalizacion: true,
+    });
+    // Best-effort a propósito: una reserva que no se pudo cancelar (carrera
+    // rarísima, o ya la canceló otra vía justo antes) no debe bloquear la
+    // baja RGPD de la socia — quedaría visible en logs, no en un 500 al
+    // staff que solo está intentando borrar una ficha.
+    if ('error' in res) {
+      console.error('[socios/eliminar] no se pudo cancelar una reserva futura', socioId, r.id, res.error);
+    }
+  }
 
   // 3) Anonimizar el PII y marcar el borrado lógico. Se conservan recibos,
   //    facturas y ventas_pos (fiscal). El email lleva el id para no colisionar.
