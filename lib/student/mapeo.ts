@@ -176,7 +176,7 @@ export interface PayloadMin {
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; nivel?: string | null; fotoUrl?: string | null; descripcion?: string | null }[];
+  tiposClase?: { id: string; nombre: string; nivel?: string | null; fotoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null }[];
   salas?: { id: string; nombre: string; fotoUrl?: string | null }[];
   instructores?: {
     id: string; nombre: string; activo?: boolean; fotoUrl?: string | null;
@@ -234,6 +234,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
     salida.push({
       id: s.id,
       tipoClaseId: s.tipoClaseId,
+      ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null,
       fecha: f,
       hora: horaLocal(s.inicio),
       duracionMin: Math.max(1, Math.round((new Date(s.fin).getTime() - new Date(s.inicio).getTime()) / 60000)),
@@ -300,7 +301,6 @@ export function proyectarFavoritos(d: PayloadMin): Set<string> {
 export function proyectarReservas(d: PayloadMin): Reserva[] {
   const socia = d.socia;
   if (!socia) return [];
-  const tieneBonoActivo = (socia.suscripciones ?? []).some((s) => s.estado === 'ACTIVA');
 
   return (socia.reservas ?? []).map((r) => ({
     id: r.id,
@@ -308,10 +308,11 @@ export function proyectarReservas(d: PayloadMin): Reserva[] {
     alumnaId: r.socioId,
     estado: estadoReservaDe(r.estado),
     creadaEn: r.creadoEn,
-    // El backend no guarda CON QUÉ se pagó una reserva: el consumo de bono es
-    // un paso aparte (`consumir_sesion_bono`) y no deja columna en `reservas`.
-    // Sirve para el texto de la pantalla, nunca para decidir un cobro.
-    pagadaCon: tieneBonoActivo ? 'bono' : 'suelto',
+    // NO hay `pagadaCon`: `reservas` no guarda con qué se pagó (el consumo de
+    // bono es un paso aparte, `consumir_sesion_bono`, y no deja columna). Lo
+    // que había era una suposición —«¿tiene bono activo HOY?»— que etiquetaba
+    // como pagadas con bono reservas de hace meses. Lo único cierto sobre el
+    // dinero es el recibo (`Pago`), y se enseña en Pagos.
     posicionEspera: r.posicionEspera ?? undefined,
     ofertaExpiraEn: r.ofertaExpiraEn ?? undefined,
   }));

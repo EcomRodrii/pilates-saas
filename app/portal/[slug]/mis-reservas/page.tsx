@@ -214,7 +214,6 @@ export default function MisReservasPage() {
                     <p style={{ margin: '3px 0 0', fontSize: 13.5, fontWeight: 700 }}>{c.nombre}</p>
                     <p className="t-meta" style={{ marginTop: 2 }}>
                       con {i?.nombre ?? '—'} · {c.sala}
-                      {r.pagadaCon === 'bono' ? ' · con tu bono' : ''}
                     </p>
                     <div style={{ display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap' }}>
                       <Link href={href(`/mis-reservas/${r.id}`)} className="btn btn--light btn--sm" style={{ height: 34 }}>
