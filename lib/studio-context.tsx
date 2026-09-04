@@ -333,6 +333,7 @@ interface StudioContextValue {
   // F2 (B2.2): asignar devuelve el resultado para que la UI muestre el choque de
   // sitio (violación de la exclusión GiST). quitar = baja lógica (estado BAJA).
   asignarPlazaFija: (fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>) => Promise<{ ok: true } | { error: string }>;
+  editarPlazaFija: (id: string, cambios: Partial<Omit<PlazaFija, 'id' | 'studioId' | 'socioId' | 'creadaEn'>>) => Promise<ResultadoEscritura>;
   quitarPlazaFija: (id: string) => Promise<ResultadoEscritura>;
   // Feature #2 (ficha Lorari-vs-Tentare): autoservicio desde el portal — solo
   // tiene efecto con sesión de socia (ctxPublico presente); nunca desde staff,
@@ -1480,6 +1481,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     };
     const res = await dbInsertPlazaFija(nueva);
     if ('ok' in res) setPlazasFijas(prev => [...prev, nueva]);
+    return res;
+  }
+
+  // Cambiar el hueco de una plaza fija ya asignada (día, hora, sala, sitio o
+  // vigencia). Antes solo había asignar/quitar, así que mover a una socia de
+  // hora obligaba a darla de baja y crearla otra vez — perdiendo la fila y su
+  // histórico. NO optimista por lo mismo que `asignarPlazaFija`: el slot nuevo
+  // puede chocar con la exclusión GiST.
+  async function editarPlazaFija(
+    id: string,
+    cambios: Partial<Omit<PlazaFija, 'id' | 'studioId' | 'socioId' | 'creadaEn'>>,
+  ): Promise<ResultadoEscritura> {
+    const res = await dbUpdatePlazaFija(id, cambios);
+    if (!res.ok) return res;
+    setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, ...cambios } : p));
     return res;
   }
 
@@ -4706,6 +4722,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     marcarAveria,
     quitarAveria,
     asignarPlazaFija,
+    editarPlazaFija,
     quitarPlazaFija,
     crearPlazaFijaPropia,
     pausarPlazaFijaPropia,

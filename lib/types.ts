@@ -122,6 +122,14 @@ export interface Studio {
   /** Cuando el ESTUDIO cancela una clase completa (no una reserva suelta):
    *  true = devuelve la sesión a cada socia con plaza confirmada. */
   cancelacionClaseDevuelveBono: boolean;
+  /** Caducidad de las recuperaciones que concede el estudio (migr 0086). La
+   *  resuelve `calcular_caduca_recuperacion` dentro de `crear_recuperacion`:
+   *  DIAS suma `recuperacionCaducidadDias`; FIN_MES y FIN_MES_SIGUIENTE la
+   *  calculan solos. Las columnas existían desde 0086 pero no llegaban al
+   *  panel: solo se podían cambiar por SQL. */
+  recuperacionCaducidadTipo: 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE';
+  /** Solo se usa con tipo DIAS. null = 30 (el default de la propia RPC). */
+  recuperacionCaducidadDias: number | null;
   reservaExigirPlan: boolean;
   /** Compra desde el enlace público sin ficha previa (migr 0110).
    *  EXIGIR_REGISTRO = se registra antes de pagar. CREAR_FICHA = se cobra y

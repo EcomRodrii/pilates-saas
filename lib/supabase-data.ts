@@ -2342,6 +2342,13 @@ export async function dbUpdatePlazaFija(id: string, changes: Partial<PlazaFija>)
   if ('vigenciaHasta' in changes) db.vigencia_hasta = changes.vigenciaHasta;
   if ('estado' in changes) db.estado = changes.estado;
   const { error } = await supabase.from('plazas_fijas').update(db).eq('id', id);
+  // Cambiar día/hora/sitio choca con la misma exclusión GiST que el alta, así
+  // que necesita el mismo mensaje: el genérico de Postgres no dice a quién
+  // pertenece el sitio ni qué hacer.
+  if (error?.message.includes('plazas_fijas_spot_sin_solape')) {
+    reportDbError('[dbUpdatePlazaFija]', error);
+    return { ok: false, error: 'Ese sitio ya está asignado a otra socia en ese día y hora' };
+  }
   return error ? falloEscritura('[dbUpdatePlazaFija]', error) : ESCRITURA_OK;
 }
 
@@ -4009,6 +4016,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('anioFundacion' in changes) db.anio_fundacion = changes.anioFundacion;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
+  if ('recuperacionCaducidadTipo' in changes) db.recuperacion_caducidad_tipo = changes.recuperacionCaducidadTipo;
+  if ('recuperacionCaducidadDias' in changes) db.recuperacion_caducidad_dias = changes.recuperacionCaducidadDias;
   if ('cancelacionClaseDevuelveBono' in changes) db.cancelacion_clase_devuelve_bono = changes.cancelacionClaseDevuelveBono;
   if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;
   if ('compraPublicaModo' in changes) db.compra_publica_modo = changes.compraPublicaModo;
@@ -4385,6 +4394,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     cancelacionClaseDevuelveBono: r.cancelacion_clase_devuelve_bono ?? true,
+    recuperacionCaducidadTipo: (r.recuperacion_caducidad_tipo as 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE') ?? 'FIN_MES_SIGUIENTE',
+    recuperacionCaducidadDias: r.recuperacion_caducidad_dias ?? null,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,

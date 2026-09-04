@@ -16,6 +16,10 @@ type PoliticaForm = {
   cancelacionVentanaHoras: number;
   cancelacionDevolverBonoTardia: boolean;
   cancelacionClaseDevuelveBono: boolean;
+  // Migr 0086: caducidad de las recuperaciones que concede el estudio. Las
+  // columnas existían desde entonces pero no había forma de tocarlas sin SQL.
+  recuperacionCaducidadTipo: 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE';
+  recuperacionCaducidadDias: number | null;
   reservaExigirPlan: boolean;
   reservaMaxSimultaneas: number | null;
   compraPublicaModo: 'EXIGIR_REGISTRO' | 'CREAR_FICHA';
@@ -48,6 +52,8 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
     cancelacionVentanaHoras: s?.cancelacionVentanaHoras ?? 12,
     cancelacionDevolverBonoTardia: s?.cancelacionDevolverBonoTardia ?? false,
     cancelacionClaseDevuelveBono: s?.cancelacionClaseDevuelveBono ?? true,
+    recuperacionCaducidadTipo: s?.recuperacionCaducidadTipo ?? 'FIN_MES_SIGUIENTE',
+    recuperacionCaducidadDias: s?.recuperacionCaducidadDias ?? null,
     reservaExigirPlan: s?.reservaExigirPlan ?? true,
     reservaMaxSimultaneas: s?.reservaMaxSimultaneas ?? null,
     compraPublicaModo: s?.compraPublicaModo ?? 'EXIGIR_REGISTRO',
@@ -177,6 +183,39 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               Reservas activas en clases futuras. Vacío = sin límite.
             </p>
           </div>
+          {/* Migr 0086: la política ya existía en la BD y la aplica
+              `calcular_caduca_recuperacion` dentro de `crear_recuperacion`,
+              pero no había forma de cambiarla sin entrar a SQL. */}
+          <p className={grupoCls}>Recuperaciones</p>
+          <div>
+            <p className={labelCls}>Cuándo caduca una recuperación</p>
+            <select
+              className={inputCls}
+              value={pol.recuperacionCaducidadTipo}
+              onChange={e => setPol(p => ({ ...p, recuperacionCaducidadTipo: e.target.value as PoliticaForm['recuperacionCaducidadTipo'] }))}
+            >
+              <option value="FIN_MES_SIGUIENTE">Al final del mes siguiente</option>
+              <option value="FIN_MES">Al final del mes en curso</option>
+              <option value="DIAS">Pasados unos días</option>
+            </select>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Se calcula al conceder la recuperación, no desde la clase perdida.
+            </p>
+          </div>
+          {pol.recuperacionCaducidadTipo === 'DIAS' && (
+            <div>
+              <p className={labelCls}>Días de validez</p>
+              <input
+                type="number" min={1} max={365} className={inputCls}
+                placeholder="30"
+                value={pol.recuperacionCaducidadDias ?? ''}
+                onChange={e => setPol(p => ({ ...p, recuperacionCaducidadDias: e.target.value === '' ? null : Math.max(1, Number(e.target.value)) }))}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Vacío = 30 días.
+              </p>
+            </div>
+          )}
           {/* Fase 1 de reglas por tipo de clase (migr 20260730152516): estos son
               los defaults del estudio; cada tipo de clase los puede sobrescribir
               desde Clases → editar tipo de clase. */}
