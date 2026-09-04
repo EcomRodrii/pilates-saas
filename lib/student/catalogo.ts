@@ -5,7 +5,7 @@ import { aplicarAforo } from '@/lib/student/aforo-fresco';
 import { borrarPorSlug, claveCatalogo } from '@/lib/student/catalogo-clave';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import type {
-  FavoritoClase, Instructor, PlanTarifa, Recibo, Reserva, Sala, Sesion, Suscripcion, TipoClase,
+  FavoritoClase, Instructor, PlanTarifa, PlazaFija, Recibo, Recuperacion, Reserva, Sala, Sesion, Suscripcion, TipoClase,
 } from '@/lib/types';
 
 // El cargador del que beben todos los adaptadores.
@@ -60,6 +60,8 @@ export interface PayloadPublico {
     reservas: Reserva[];
     recibos: Recibo[];
     favoritos?: FavoritoClase[];
+    plazasFijas?: PlazaFija[];
+    recuperaciones?: Recuperacion[];
   } | null;
 }
 

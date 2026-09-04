@@ -2,7 +2,8 @@
 // resuelve ese alias, y ponerlo aquí tumbó `datos-mapeo.test.ts` y
 // `proyeccion-payload.test.ts` — que importan este módulo por ruta relativa.
 import { precioDeSesion } from './precio-suelta.ts';
-import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, Instructora, NivelClase, Pago, Reserva } from './tipos.ts';
+import { proyectarPlazaFija as plazaFijaDe, proyectarRecuperaciones as recuperacionesDe, type PlazaFijaMin, type RecuperacionMin } from './plaza-fija.ts';
+import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from './tipos.ts';
 
 // Traducción PURA entre el vocabulario del backend y el del paquete de diseño.
 //
@@ -198,6 +199,8 @@ export interface PayloadMin {
     recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null }[];
     /** Tipos de clase marcados como favoritos (`favoritos_clase`). */
     favoritos?: { tipoClaseId: string }[];
+    plazasFijas?: PlazaFijaMin[];
+    recuperaciones?: RecuperacionMin[];
   } | null;
 }
 
@@ -291,6 +294,20 @@ export function proyectarInstructoras(d: PayloadMin): Instructora[] {
       valoraciones: i.valoracion && i.valoracion.total >= 5 ? i.valoracion.total : undefined,
       bio: i.bio ?? undefined,
     }));
+}
+
+/** La plaza fija vigente, con nombres de sala y tipo. `null` sin plaza (o sin sesión). */
+export function proyectarPlazaFija(d: PayloadMin, hoyISO: string, horaAhora = '00:00'): PlazaFijaVista | null {
+  const p = plazaFijaDe(d.socia?.plazasFijas ?? [], hoyISO, horaAhora);
+  if (!p) return null;
+  const sala = (d.salas ?? []).find((s) => s.id === p.salaId)?.nombre ?? 'Sala';
+  const tipo = p.tipoClaseId ? ((d.tiposClase ?? []).find((t) => t.id === p.tipoClaseId)?.nombre ?? null) : null;
+  return { diaSemana: p.diaSemana, hora: p.hora, sala, tipo, estado: p.estado, proximaFecha: p.proximaFecha, vigenciaHasta: p.vigenciaHasta };
+}
+
+/** Recuperaciones que aún puede usar. */
+export function proyectarRecuperaciones(d: PayloadMin, hoyISO: string): RecuperacionesVista {
+  return recuperacionesDe(d.socia?.recuperaciones ?? [], hoyISO);
 }
 
 /** Tipos de clase favoritos de la socia. Vacío sin sesión. */
