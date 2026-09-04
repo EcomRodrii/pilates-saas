@@ -1,3 +1,7 @@
+-- Aplicada en producción el 2026-09-04 (23:02 UTC) con apply_migration y sellada
+-- como 20260904230204: el fichero lleva esa versión, no la del borrador
+-- (20260904153000), para que un `db push` desde limpio no la reaplique.
+--
 -- ─────────────────────────────────────────────────────────────────────────────
 -- `plazas_fijas` se ancla por SLOT (sala + día de la semana + hora local +
 -- tipo opcional, 0083) y `materializar_plazas_fijas` empareja sesiones futuras

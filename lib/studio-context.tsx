@@ -2816,7 +2816,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return res;
     }
     // La RPC mueve también las plazas fijas ancladas al slot viejo (migr
-    // 20260904153000) — qué filas, y si alguna se partió en dos, lo decide la
+    // 20260904230204) — qué filas, y si alguna se partió en dos, lo decide la
     // BD. Sin recargar, la ficha seguiría enseñando el horario viejo y la
     // bandeja marcaría como huérfana una plaza que se acaba de arreglar sola.
     // Se relee entera (una consulta pequeña, y editar una serie es raro) en

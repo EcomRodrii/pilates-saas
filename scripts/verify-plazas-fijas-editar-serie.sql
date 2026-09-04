@@ -1,4 +1,4 @@
--- Drill de `editar_serie_desde` moviendo plazas fijas (migr 20260904153000).
+-- Drill de `editar_serie_desde` moviendo plazas fijas (migr 20260904230204).
 -- TODO dentro de una transacción que termina en ROLLBACK: no deja nada. Los ids
 -- del fixture llevan el prefijo `zzdrill-` para no chocar con datos reales
 -- (en producción existe `spot-1`, `soc-1`…).
@@ -24,7 +24,7 @@
 \set ON_ERROR_STOP on
 begin;
 
-\i supabase/migrations/20260904153000_editar_serie_desde_mueve_plazas_fijas.sql
+\i supabase/migrations/20260904230204_editar_serie_desde_mueve_plazas_fijas.sql
 
 
 -- ── Fixture ──────────────────────────────────────────────────────────────────
