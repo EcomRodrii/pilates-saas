@@ -4799,6 +4799,8 @@ export async function fetchDeferredStudioData(studioId?: string) {
     bloqueosMaquinaRes,
     socioExcepcionesRes,
     mandatosSepaRes,
+    plazasFijasRes,
+    recuperacionesRes,
   ] = await enTandas([
     // I5: estos tres historiales son append-only y crecen sin fin, pero ninguna
     // vista de STAFF los consume (el portal usa la versión member-scoped de otro
@@ -4854,6 +4856,17 @@ export async function fetchDeferredStudioData(studioId?: string) {
     // quien ve finanzas (PROPIETARIO/RECEPCION); INSTRUCTOR/MANAGER reciben
     // [] sin error, igual que con recibos — no hace falta mirar el rol aquí.
     db.from('mandatos_sepa').select('*').eq('studio_id', sid),
+    // Y las dos que faltaban del mismo bug (#1375), encontradas al investigar
+    // por qué una plaza fija deja de materializar cuando el estudio mueve la
+    // clase: `plazasFijas` quedaba `[]` SIEMPRE en el panel, así que la ficha
+    // decía "Sin plaza fija" aunque hubiera una, /libreta no las listaba y la
+    // bandeja "Para hoy" no podía avisar de ninguna. Una fila por socia con
+    // plaza — no pesa.
+    db.from('plazas_fijas').select('*').eq('studio_id', sid),
+    // `recuperaciones`, el mismo agujero: solo se releía tras conceder una o
+    // tras una baja con recuperación, así que en una sesión nueva la ficha,
+    // /libreta y la primera fuente de la bandeja arrancaban vacías.
+    db.from('recuperaciones').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -4870,6 +4883,8 @@ export async function fetchDeferredStudioData(studioId?: string) {
     bloqueosMaquina: (bloqueosMaquinaRes.data ?? []).map(r => mapBloqueoMaquina(r as RowBloqueosMaquina)),
     socioExcepciones: (socioExcepcionesRes.data ?? []).map(r => mapSocioExcepcion(r as RowSocioExcepciones)),
     mandatosSepa: (mandatosSepaRes.data ?? []).map(r => mapMandatoSepa(r as RowMandatosSepa)),
+    plazasFijas: (plazasFijasRes.data ?? []).map(r => mapPlazaFija(r as RowPlazasFijas)),
+    recuperaciones: (recuperacionesRes.data ?? []).map(r => mapRecuperacion(r as RowRecuperaciones)),
   };
 }
 
