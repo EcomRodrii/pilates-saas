@@ -35,6 +35,28 @@ test('I-5: conciliarReembolsos está importado en inngest/route.ts', () => {
   assert.ok(route.includes('conciliarReembolsos,'), 'debe estar en el array de functions');
 });
 
+// P-1 (auditoría 23ª pasada, 4-sep-2026): `conciliarDisputesEstudio` lista
+// disputas por `dispute.created` en una ventana de 24h — una disputa se
+// resuelve 30-75 días después de crearse, así que un cierre tardío nunca
+// caía en esa ventana y el backstop no llegaba a verlo nunca. El fix invierte
+// la consulta: iterar RECIBOS con disputa abierta y preguntar a Stripe por
+// cada uno, sin ventana de tiempo.
+test('P-1: hay un backstop del CIERRE de una disputa, sin ventana de 24h', () => {
+  const fuente = leer('lib/inngest/conciliar-reembolsos.ts');
+  assert.ok(fuente.includes('async function conciliarDisputasAbiertasEstudio'), 'debe existir la función');
+  assert.ok(fuente.includes('disputas += await conciliarDisputasAbiertasEstudio'), 'debe llamarse desde el bucle principal');
+  // La consulta tiene que salir de NUESTROS recibos con disputa abierta, no
+  // de un listado de Stripe acotado por fecha de creación (eso es justo lo
+  // que no ve un cierre tardío).
+  assert.ok(fuente.includes("not('disputa_stripe_id', 'is', null)"), 'debe partir de recibos con disputa conocida');
+  assert.ok(fuente.includes('stripe.disputes.retrieve'), 'debe preguntar a Stripe el estado actual, no fiarse de un listado por fecha');
+  assert.ok(fuente.includes('stripeAccount: studio.stripe_account_id'), 'debe usar la cuenta CONECTADA del estudio, no la de plataforma');
+  // Reutiliza la lógica compartida — no la reimplementa (mismo criterio que
+  // ya exige el test de arriba para el resto del cron).
+  const cuerpoNuevaFuncion = fuente.slice(fuente.indexOf('async function conciliarDisputasAbiertasEstudio'));
+  assert.ok(cuerpoNuevaFuncion.includes('procesarDisputeClosed'), 'debe aplicar el efecto real vía la función compartida');
+});
+
 // ── Efecto real de un reembolso ──────────────────────────────────────────────
 
 type Fila = Record<string, unknown>;
