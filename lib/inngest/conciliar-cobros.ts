@@ -29,12 +29,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
-import { inngest } from './client';
-import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { fetchAllRows } from '@/lib/supabase-data';
-import { entregarPlanComprado, idsDe } from '@/lib/billing/entregar-plan-comprado';
-import { confirmarCobroRecibo, reintentarFacturasPendientesDeSellar } from '@/lib/billing/confirmar-cobro';
-import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '@/lib/billing/conciliar-sesiones';
+import { inngest } from './client.ts';
+import { getSupabaseAdmin } from '../db/supabase-admin.ts';
+import { fetchAllRows } from '../supabase-data.ts';
+import { entregarPlanComprado, idsDe } from '../billing/entregar-plan-comprado.ts';
+import { confirmarCobroRecibo, reintentarFacturasPendientesDeSellar } from '../billing/confirmar-cobro.ts';
+import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
+import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Cuánto atrás se mira. Generoso a propósito: con el barrido cada 5 minutos
@@ -272,13 +273,52 @@ async function vigilarEstudio(
   return escapados.length;
 }
 
+// Auditoría 22ª pasada (3-sep-2026), P-3. `reservar_numero_factura` reserva
+// numero_completo/verifactu_seq/verifactu_prev_hash bajo un advisory lock POR
+// ESTUDIO (lib/billing/sellar-factura-server.ts), así que la secuencia y su
+// cadena de huellas son por studio_id, no globales — de ahí agrupar así, no
+// con un solo LAG() sobre toda la tabla (mezclaría estudios distintos).
+//
+// Bifurcación real encontrada en producción durante la auditoría: dos sellados
+// CONCURRENTES de la misma acción del panel escribieron dos facturas con el
+// mismo verifactu_prev_hash (la misma "anterior"), y una de las dos rompe la
+// cadena para siempre — una factura emitida no se reescribe. El bug de
+// concurrencia parece cerrado (nada roto desde el 10-jul; D-2 cerró además el
+// caso adyacente de las facturas legacy sin seq), pero hasta ahora NADA
+// comprobaba si volvía a pasar: se encontró con una consulta SQL manual, no
+// con ninguna alerta.
+export async function vigilarCadenaVerifactu(admin: SupabaseClient): Promise<number> {
+  const { data: filas } = await fetchAllRows<FilaCadenaVerifactu>(
+    '(global)', 'facturas',
+    (from, to) => admin
+      .from('facturas')
+      .select('studio_id, verifactu_seq, numero_completo, verifactu_hash, verifactu_prev_hash')
+      .not('verifactu_seq', 'is', null)
+      .order('studio_id', { ascending: true })
+      .order('verifactu_seq', { ascending: true })
+      .range(from, to),
+  );
+  const roturas = detectarCadenaRotaVerifactu(filas);
+  for (const r of roturas) {
+    Sentry.captureMessage('[verifactu] cadena de facturación bifurcada', {
+      level: 'error',
+      tags: { area: 'facturacion', tipo: 'cadena-rota' },
+      extra: {
+        ...r,
+        queHacer: 'Una factura emitida no se reescribe: documentar la incidencia para el asesor fiscal antes de VERIFACTU_ENTORNO=produccion.',
+      },
+    });
+  }
+  return roturas.length;
+}
+
 export const conciliarCobrosVigilancia = inngest.createFunction(
   // Una vez al día: no es un barrido de recuperación, es una red por debajo de
   // la red. Un tic diario no mueve la aguja del consumo (O-1) y cierra el
   // agujero de que un cobro perdido no deje rastro en ninguna parte.
   { id: 'conciliar-cobros-vigilancia', triggers: [{ cron: '20 7 * * *' }] },
   async ({ step }) => {
-    return step.run('vigilar', async () => {
+    const cobros = await step.run('vigilar', async () => {
       const key = process.env.STRIPE_SECRET_KEY;
       if (!key || key.startsWith('sk_test_XXXX')) return { skipped: 'stripe no configurado' };
       const admin = getSupabaseAdmin();
@@ -308,6 +348,21 @@ export const conciliarCobrosVigilancia = inngest.createFunction(
       }
       return { estudios: studios.length, escapados };
     });
+
+    // Auditoría 22ª pasada (3-sep-2026), P-3. La cadena Veri*Factu de un
+    // estudio se descubrió bifurcada por una consulta SQL manual durante la
+    // auditoría — nada la comprobaba antes. Paso aparte (no dentro de
+    // `vigilar`): no depende de Stripe, así que no debe caer si falta la
+    // clave, y un fallo aquí no debe tumbar la vigilancia de cobros de arriba
+    // ni al revés. Mismo cron diario en vez de uno nuevo (Inngest cerca del
+    // límite del plan free, ver cabecera del fichero).
+    const facturacion = await step.run('vigilar-cadena-verifactu', async () => {
+      const admin = getSupabaseAdmin();
+      if (!admin) return { skipped: 'sin service-role' };
+      return { rotas: await vigilarCadenaVerifactu(admin) };
+    });
+
+    return { cobros, facturacion };
   },
 );
 
