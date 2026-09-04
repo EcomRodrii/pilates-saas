@@ -5,6 +5,7 @@
 // punto donde apareció un bug real (el dedup no contaba PAUSADA).
 
 import { franjaLocalDe } from './utils.ts';
+import { horaInicioLocalDe, normalizarHoraInicio } from './plazas-fijas-slot.ts';
 import type { PlazaFija, Sesion } from './types.ts';
 
 /**
@@ -32,8 +33,10 @@ export function esSlotRecurrente(ses: Sesion, sesiones: Sesion[], ahora: Date): 
  */
 export function yaTienePlazaFijaEnSlot(ses: Sesion, socioId: string, plazasFijas: PlazaFija[]): boolean {
   const franja = franjaLocalDe(ses.inicio);
-  const horaInicio = `${String(franja.hora).padStart(2, '0')}:${String(franja.minuto).padStart(2, '0')}:00`;
+  // El formato 'HH:MM:SS' sale del mismo helper que el resto del espejo TS del
+  // slot (lib/plazas-fijas-slot.ts), para que el criterio viva en un sitio.
+  const horaInicio = horaInicioLocalDe(ses.inicio);
   return plazasFijas.some(p =>
     p.socioId === socioId && (p.estado === 'ACTIVA' || p.estado === 'PAUSADA') &&
-    p.salaId === ses.salaId && p.diaSemana === franja.dow && p.horaInicio === horaInicio);
+    p.salaId === ses.salaId && p.diaSemana === franja.dow && normalizarHoraInicio(p.horaInicio) === horaInicio);
 }

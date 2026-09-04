@@ -18,7 +18,7 @@ import {
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
   dbGuardarEntrega,
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
-  dbInsertPlazaFija, dbUpdatePlazaFija,
+  dbInsertPlazaFija, dbUpdatePlazaFija, dbListPlazasFijas,
   dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion, dbAmpliarCaducidades,
   dbPonerExcepcion, dbQuitarExcepcion,
   dbUpsertMandatoSepa, dbCancelarMandatoSepa,
@@ -1286,6 +1286,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         setBloqueosMaquina(def.bloqueosMaquina);
         setSocioExcepciones(def.socioExcepciones);
         setMandatosSepa(def.mandatosSepa);
+        // Y las dos que faltaban: sin esto la ficha, /libreta y la bandeja no
+        // veían NINGUNA plaza fija ni recuperación (ver el comentario en
+        // fetchDeferredStudioData).
+        setPlazasFijas(def.plazasFijas);
+        setRecuperaciones(def.recuperaciones);
       }).catch(err => console.error('Error cargando datos diferidos:', err));
     }).catch(err => {
       console.error('Error fetching Supabase data:', err);
@@ -1496,8 +1501,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // Cambiar el hueco de una plaza fija ya asignada (día, hora, sala, sitio o
   // vigencia). Antes solo había asignar/quitar, así que mover a una socia de
   // hora obligaba a darla de baja y crearla otra vez — perdiendo la fila y su
-  // histórico. NO optimista por lo mismo que `asignarPlazaFija`: el slot nuevo
-  // puede chocar con la exclusión GiST.
+  // histórico (y su antigüedad, que es lo que decide el turno cuando falta
+  // aforo en la materialización). NO optimista por lo mismo que
+  // `asignarPlazaFija`: el slot nuevo puede chocar con la exclusión GiST.
   async function editarPlazaFija(
     id: string,
     cambios: Partial<Omit<PlazaFija, 'id' | 'studioId' | 'socioId' | 'creadaEn'>>,
@@ -2809,6 +2815,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setSesiones(prev => prev.map(s => antes.get(s.id) ?? s));
       return res;
     }
+    // La RPC mueve también las plazas fijas ancladas al slot viejo (migr
+    // 20260904153000) — qué filas, y si alguna se partió en dos, lo decide la
+    // BD. Sin recargar, la ficha seguiría enseñando el horario viejo y la
+    // bandeja marcaría como huérfana una plaza que se acaba de arreglar sola.
+    // Se relee entera (una consulta pequeña, y editar una serie es raro) en
+    // vez de pedirle ids a la RPC: cambiar su firma reabre el gotcha de grants.
+    // `dbListPlazasFijas` devuelve [] también si la lectura falla; la RPC
+    // nunca borra plazas, así que un [] con plazas en memoria es un fallo de
+    // red, no un estado nuevo — se conserva lo que había.
+    const plazas = await dbListPlazasFijas(getCurrentStudioId());
+    setPlazasFijas(prev => (plazas.length > 0 || prev.length === 0) ? plazas : prev);
     return { ok: true, count: res.count };
   }
 

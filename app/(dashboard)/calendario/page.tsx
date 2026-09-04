@@ -26,6 +26,7 @@ import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
+import { sesionEncajaEnPlaza, type SesionSlot } from '@/lib/plazas-fijas-slot';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
 import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
@@ -520,7 +521,7 @@ interface DatosVista {
 export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
-    suscripciones, planesTarifa, studio,
+    suscripciones, planesTarifa, studio, plazasFijas,
     addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
@@ -1040,6 +1041,21 @@ export default function Calendario() {
 
   function cuantasApuntadas(id: string): number {
     return reservas.filter(r => r.sesionId === id && r.estado === 'CONFIRMADA').length;
+  }
+
+  // Plazas fijas ancladas al slot de esta clase (día/hora/sala, mismo criterio
+  // que el cron). Por el SLOT y no por las reservas 'res-pf-' de la sesión:
+  // si la ocurrencia de esta semana no se materializó (sin aforo, cancelada
+  // por la socia, plaza de hace menos de una noche) no habría reserva y el
+  // aviso se callaría con plaza. Mover UNA clase no mueve la plaza fija —es
+  // una excepción puntual, la plaza sigue anclada a su día/hora— y eso
+  // conviene decirlo antes de que la propietaria suelte el bloque.
+  function cuantasPlazasFijasEnSlot(sesion: SesionSlot): number {
+    return plazasFijas.filter(pf => (pf.estado === 'ACTIVA' || pf.estado === 'PAUSADA') && sesionEncajaEnPlaza(pf, sesion)).length;
+  }
+
+  function avisoPlazaFijaNoSeMueve(n: number): string {
+    return `${n === 1 ? 'Una socia tiene plaza fija' : `${n} socias tienen plaza fija`} a esta hora. Solo se mueve esta clase: la plaza fija sigue anclada a su día y hora de siempre. Para cambiar el horario fijo, edita la serie o la plaza fija desde la ficha de la socia.`;
   }
 
   async function avisarCambioInstructora(aviso: NonNullable<typeof avisoInstructora>) {
@@ -1913,7 +1929,7 @@ export default function Calendario() {
   // ── Arrastrar y soltar (Fase 2) ──────────────────────────────────────────────
   const [confirmarArrastre, setConfirmarArrastre] = useState<{
     sesionId: string; nuevoSalaId: string; nuevoInicio: string; nuevoFin: string;
-    apuntadas: number; horaTexto: string;
+    apuntadas: number; plazasFijas: number; horaTexto: string;
   } | null>(null);
 
   const arrastrableSesion = useCallback((d: DatoSesion) =>
@@ -1987,13 +2003,20 @@ export default function Calendario() {
     }
 
     const apuntadas = cuantasApuntadas(sesionId);
+    const enPlazaFija = cuantasPlazasFijasEnSlot(sesion);
     if (apuntadas > 0) {
       // Un desliz en un iPad no debe reprogramar una clase con gente apuntada
       // y avisarla por email sin confirmación previa — a diferencia del
       // formulario de editar (que ya tiene su propia pausa: el botón Guardar).
-      setConfirmarArrastre({ sesionId, nuevoSalaId, nuevoInicio, nuevoFin, apuntadas, horaTexto: mmA(inicioMin) });
+      setConfirmarArrastre({
+        sesionId, nuevoSalaId, nuevoInicio, nuevoFin, apuntadas,
+        plazasFijas: enPlazaFija, horaTexto: mmA(inicioMin),
+      });
       return;
     }
+    // Sin nadie apuntada no hay diálogo — pero con plaza fija en este slot el
+    // aviso tiene que llegar igual, así que va en el toast.
+    if (enPlazaFija > 0) showToast(avisoPlazaFijaNoSeMueve(enPlazaFija));
     void ejecutarMoverSesion(sesionId, nuevoSalaId, nuevoInicio, nuevoFin);
   }
 
@@ -3092,6 +3115,11 @@ export default function Calendario() {
           <p className="text-[13px] text-muted-foreground mt-2">
             Hay reservas confirmadas en esta clase — al moverla les avisamos por email del nuevo horario.
           </p>
+          {(confirmarArrastre?.plazasFijas ?? 0) > 0 && (
+            <p className="text-[13px] text-muted-foreground mt-2">
+              {avisoPlazaFijaNoSeMueve(confirmarArrastre?.plazasFijas ?? 0)}
+            </p>
+          )}
           <div className="flex gap-2 mt-4">
             <button
               className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors"
