@@ -146,6 +146,15 @@ export default function PreciosPage() {
                 <div style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-.035em', color: destacado ? '#fff' : undefined, lineHeight: 1 }}>
                   {PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: '#8E8E86' }}>/mes</span>
                 </div>
+                {/* «IVA incluido» pegado a la cifra, no en una nota al pie de la
+                    página: el precio de un SaaS español se lee para compararlo
+                    con otro, y "29 €" sin decir nada admite dos lecturas que se
+                    llevan un 21%. Misma frase que ya se ve en /suscripcion, que
+                    la pidió una clienta con estas palabras (P2-20) — no una
+                    redacción nueva para decir lo mismo. */}
+                <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#8E8E86', marginTop: 7 }}>
+                  IVA incluido
+                </div>
                 <p style={{ fontSize: 14.5, lineHeight: 1.5, color: destacado ? '#A6A69E' : MUTED, margin: '10px 0 6px' }}>{RESUMEN[p].para}</p>
                 <p className="lp-mono" style={{ fontSize: 11.5, color: destacado ? '#D9C29E' : '#5A6142', margin: '0 0 20px' }}>{tope(p)}</p>
                 <Link

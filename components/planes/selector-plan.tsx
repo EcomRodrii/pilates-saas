@@ -103,11 +103,16 @@ export function SelectorPlan({
               </span>
             </div>
 
+            {/* «IVA incluido» junto a la cifra: aquí es donde se elige plan y
+                se va a pagar, así que es el sitio donde más caro sale la duda.
+                /suscripcion ya lo decía con estas mismas palabras (P2-20) y
+                /precios también — las tres pantallas que enseñan un precio
+                dicen lo mismo, en vez de dos que lo dicen y una que se calla. */}
             <div className="mt-3 flex items-baseline gap-1">
               <span className="text-[28px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
                 {info.precioMes}€
               </span>
-              <span className="text-[12px] font-medium text-muted-foreground">/mes</span>
+              <span className="text-[12px] font-medium text-muted-foreground">/mes, IVA incluido</span>
             </div>
             {enPrueba && (
               <div className="mt-1 text-[11.5px] font-medium text-brand-medio">
