@@ -4664,11 +4664,10 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // db.from('dashboard_charts').select('*').eq('studio_id', sid),
     // db.from('citas_servicios').select('*').eq('studio_id', sid),
     // db.from('citas_disponibilidad').select('*').eq('studio_id', sid),
-    // db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
     // db.from('plazas_fijas').select('*').eq('studio_id', sid),
     // db.from('recuperaciones').select('*').eq('studio_id', sid),
-    // db.from('socio_excepciones').select('*').eq('studio_id', sid),
-    // db.from('mandatos_sepa').select('*').eq('studio_id', sid),
+    // bloqueos_maquina / socio_excepciones / mandatos_sepa: en la 2ª ola
+    // (fetchDeferredStudioData), ver el comentario allí.
     db.from('contenido_portal').select('*').eq('studio_id', sid).maybeSingle(),
     // Sin filtrar por activo/ubicación: el editor del dashboard necesita ver
     // TODOS los banners (incluidos inactivos/de otras pantallas) para poder
@@ -4740,11 +4739,11 @@ export async function fetchCriticalStudioData(studioId?: string) {
     dashboardCharts: [], // Sprint 1: lazy-load
     citasServicios: [], // Sprint 1: lazy-load
     citasDisponibilidad: [], // Sprint 1: lazy-load
-    bloqueosMaquina: [], // Sprint 1: lazy-load
+    bloqueosMaquina: [], // 2ª ola: fetchDeferredStudioData
     plazasFijas: [], // Sprint 1: lazy-load
     recuperaciones: [], // Sprint 1: lazy-load
-    socioExcepciones: [], // Sprint 1: lazy-load
-    mandatosSepa: [], // Sprint 1: lazy-load
+    socioExcepciones: [], // 2ª ola: fetchDeferredStudioData
+    mandatosSepa: [], // 2ª ola: fetchDeferredStudioData
   };
 }
 
@@ -4764,6 +4763,9 @@ export async function fetchDeferredStudioData(studioId?: string) {
     backupsRes,
     condicionesSaludRes,
     postsComunidadRes,
+    bloqueosMaquinaRes,
+    socioExcepcionesRes,
+    mandatosSepaRes,
   ] = await enTandas([
     // I5: estos tres historiales son append-only y crecen sin fin, pero ninguna
     // vista de STAFF los consume (el portal usa la versión member-scoped de otro
@@ -4797,6 +4799,28 @@ export async function fetchDeferredStudioData(studioId?: string) {
     // feeds de esta función, un estudio activo no necesita años de historial
     // en memoria para pintar el tablón.
     db.from('posts_comunidad').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
+    // Mismo bug de Sprint 1 (#1375), tres tablas más. Se quitaron del
+    // arranque con la promesa de cargarlas «desde su página», y ninguna
+    // página lo hizo nunca — `dbListBloqueosMaquina` se quedó sin un solo
+    // caller. Efecto en el panel, en cada sesión nueva:
+    //   · Configuración → Salas decía «No hay averías activas» con averías
+    //     abiertas en BD, y `aforoEfectivoSesion` (bandeja «Para hoy») las
+    //     ignoraba: el aforo real de la sala averiada no bajaba.
+    //   · Las «Excepciones» de la ficha arrancaban TODAS apagadas aunque
+    //     estuvieran activas — y el toggle, al creerlas apagadas, hacía un
+    //     upsert de la que ya existía en vez de quitarla.
+    //   · La ficha no veía el mandato SEPA vigente («Sin mandato») y la
+    //     remesa 19.14 de Cobros se construía sin ningún mandato: todos los
+    //     recibos pendientes quedaban «sin domiciliar».
+    // Tablas pequeñas (una fila por avería/excepción/mandato), sin acotar —
+    // mismas consultas que estaban comentadas en fetchCriticalStudioData,
+    // aquí en la 2ª ola para seguir sin bloquear el primer pintado.
+    db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
+    db.from('socio_excepciones').select('*').eq('studio_id', sid),
+    // La RLS (`mandatos_sepa_lectura`, migr 20260731090000) solo deja leer a
+    // quien ve finanzas (PROPIETARIO/RECEPCION); INSTRUCTOR/MANAGER reciben
+    // [] sin error, igual que con recibos — no hace falta mirar el rol aquí.
+    db.from('mandatos_sepa').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -4810,6 +4834,9 @@ export async function fetchDeferredStudioData(studioId?: string) {
     backups: (backupsRes.data ?? []).map(r => mapBackupMeta(r as RowBackups)),
     condicionesSalud: (condicionesSaludRes.data ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud)),
     postsComunidad: (postsComunidadRes.data ?? []).map(r => mapPostComunidad(r as RowPostsComunidad)),
+    bloqueosMaquina: (bloqueosMaquinaRes.data ?? []).map(r => mapBloqueoMaquina(r as RowBloqueosMaquina)),
+    socioExcepciones: (socioExcepcionesRes.data ?? []).map(r => mapSocioExcepcion(r as RowSocioExcepciones)),
+    mandatosSepa: (mandatosSepaRes.data ?? []).map(r => mapMandatoSepa(r as RowMandatosSepa)),
   };
 }
 

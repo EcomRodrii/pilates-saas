@@ -1277,6 +1277,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // dentro de Mensajería) nunca mostraba el historial de posts en una
         // sesión nueva.
         content.setPostsComunidad(def.postsComunidad);
+        // Ídem para averías, excepciones y mandatos SEPA: sin esto, Salas,
+        // la ficha de la socia y la remesa de Cobros arrancaban ciegas en
+        // cada sesión nueva (ver el comentario en fetchDeferredStudioData).
+        setBloqueosMaquina(def.bloqueosMaquina);
+        setSocioExcepciones(def.socioExcepciones);
+        setMandatosSepa(def.mandatosSepa);
       }).catch(err => console.error('Error cargando datos diferidos:', err));
     }).catch(err => {
       console.error('Error fetching Supabase data:', err);
