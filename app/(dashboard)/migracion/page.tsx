@@ -22,6 +22,7 @@ import {
 import {
   parseCsv,
   validarFilas, validarFilasMembresia, validarFilasClase, validarFilasReserva, validarFilasCita, validarFilasPago,
+  validarFilasRecuperacion,
   type FilaSocia, type FilaMembresia, type FilaClase, type FilaReserva, type FilaCita, type FilaPago,
   type FilaRecuperacion,
 } from '@/lib/csv';
@@ -55,7 +56,7 @@ interface ResultadoEntidad {
 const ETIQUETA_ENTIDAD_BATCH: Record<string, string> = {
   socios: 'clientas', suscripciones: 'bonos', tipos_clase: 'tipos de clase',
   sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'plazas fijas',
-  pagos_historicos: 'pagos históricos',
+  pagos_historicos: 'pagos históricos', recuperaciones: 'recuperaciones',
 };
 
 function resumenBatch(conteos: Record<string, number>): string {
@@ -197,6 +198,7 @@ export default function MigracionPage() {
     const validar = {
       socias: validarFilas, membresias: validarFilasMembresia, clases: validarFilasClase,
       reservas: validarFilasReserva, citas: validarFilasCita, pagos: validarFilasPago,
+      recuperaciones: validarFilasRecuperacion,
     }[a.entidad] as (r: string[][], m: Record<string, number>) => { estado: string; datos: unknown }[];
     const filas = validar(rows, a.mapeo).filter(v => v.estado === 'ok').map(v => v.datos);
     // Las membresías pasan por el mapeo de planes que haya decidido la dueña
