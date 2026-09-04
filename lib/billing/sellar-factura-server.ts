@@ -131,6 +131,17 @@ export async function sellarFacturaDeRecibo(
   let seq: number;
 
   if (existente) {
+    // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-2. Esta rama asume que la fila
+    // viene de `reservar_numero_factura`. En prod hay 4 facturas ANTERIORES a
+    // Veri*Factu (`fac-1`…`fac-4`) con `verifactu_seq` NULL: por aquí,
+    // `Number(null)` da 0 y `?? ''` da huella anterior vacía — o sea, "soy el
+    // primer registro de la cadena". Sellarlas escribiría una segunda cabecera
+    // de cadena por delante del seq 1, y una cadena Veri*Factu bifurcada no se
+    // arregla reescribiéndola. No es alcanzable desde el panel (siempre manda
+    // un id nuevo), pero el endpoint acepta el `id` del cuerpo.
+    if (existente.verifactu_seq == null || !existente.numero_completo) {
+      return { ok: false, error: 'Esta factura es anterior a Veri*Factu y no tiene número reservado: sellarla rompería la cadena.' };
+    }
     // Retoma la reserva incompleta: numeroCompleto/seq/prev_hash YA están en
     // la fila (los puso reservar_numero_factura); solo falta la huella/Fiskaly.
     numeroCompleto = existente.numero_completo;

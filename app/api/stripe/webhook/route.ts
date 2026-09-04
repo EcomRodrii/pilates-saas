@@ -275,6 +275,18 @@ async function procesarEvento(
       return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
     }
 
+    // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-9. Las suscripciones al PROPIO
+    // SaaS (`app/api/billing/checkout`, `mode:'subscription'`, cuenta de la
+    // plataforma) no se crean nunca sobre una cuenta Connect, así que no tienen
+    // `event.account` ni estudio que resolver: caían en el 403 de abajo con
+    // `level:'error'`, dejaban el evento clavado en `procesando` y hacían sonar
+    // la alarma del canal del dinero de las socias por un alta de plan nuestra
+    // (confirmado en Sentry: JAVASCRIPT-NEXTJS-15, 4 eventos). Quien las procesa
+    // es `app/api/billing/webhook`, no esta ruta.
+    if (session.mode === 'subscription') {
+      return NextResponse.json({ received: true, ignorado: 'suscripcion_saas' });
+    }
+
     // El tenant se resuelve desde la CUENTA que firma, no desde la metadata:
     // `metadata.studioId` lo elige quien crea la sesión. El porqué completo, y
     // el ataque que esto cierra, en `lib/billing/webhook-tenant.ts`.
@@ -630,8 +642,8 @@ async function procesarEvento(
     // registrar la venta, el cobro aparece en "cobros sin registrar".
     const origenPos = pi.metadata?.origen;
     if (origenPos === 'pos_terminal' || origenPos === 'pos_bizum') {
-      const studioId = pi.metadata.studioId;
-      if (!studioId) {
+      const studioIdMetadata = pi.metadata.studioId;
+      if (!studioIdMetadata) {
         console.error('[stripe webhook] PI de terminal sin studioId en metadata', pi.id);
         Sentry.captureMessage('[stripe webhook] PI de terminal sin studioId en metadata', {
           level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, origenPos },
@@ -642,10 +654,27 @@ async function procesarEvento(
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (reconciliación POS)');
         Sentry.captureMessage('[stripe webhook] service role no configurada (reconciliación POS)', {
-          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, studioId },
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, studioId: studioIdMetadata },
         });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
+      // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-3: esta era la ÚNICA rama del
+      // switch que se fiaba de `metadata.studioId` para decidir el tenant. Las
+      // otras nueve (`checkout.session.completed`, plan embebido, SEPA, tarjeta,
+      // reembolsos, disputas…) resuelven el estudio desde `event.account`. Un
+      // estudio con su propia cuenta Connect podía crear un PI de un céntimo con
+      // `metadata:{origen:'pos_terminal', studioId:'<otro estudio>'}` y meter una
+      // fila fantasma en la caja de un tenant ajeno. Mismo patrón de gemelo
+      // divergente que webhook-tenant.ts documenta.
+      const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
+      if (!tenantAutorizado(studioDeCuenta, studioIdMetadata)) {
+        Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata (POS)', {
+          level: 'error', tags: { area: 'cobros' },
+          extra: { paymentIntentId: pi.id, eventAccount: event.account, studioIdMetadata, studioDeCuenta, origenPos },
+        });
+        return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
+      }
+      const studioId = studioDeCuenta as string;
       // Insert idempotente: si el POS ya registró la venta y marcó el marcador
       // RECONCILIADO, la PK del PaymentIntent hace que este INSERT choque (23505)
       // y no pisamos ese estado. Cualquier otro error → 5xx para que Stripe
@@ -1152,7 +1181,19 @@ async function procesarEvento(
           studioId, reciboId, disputeStatus: dispute.status, disputeId: dispute.id,
           dueByUnix: dispute.evidence_details?.due_by ?? null, fuente: 'webhook',
         });
-        if (!resultado.ok) return NextResponse.json({ error: 'Fallo al registrar la disputa' }, { status: 500 });
+        if (!resultado.ok) {
+          // ⚠️ Este 500 NO lo ve nadie: `procesarEvento` corre dentro de
+          // `after(...)` y la respuesta ya se envió (ver la cabecera de este
+          // fichero). Sin este `captureMessage`, el fix de D-10 cambiaba un
+          // éxito falso por un silencio total: `console.error` no llega a
+          // Sentry en este proyecto. La red de recuperación sigue siendo el
+          // conciliador de reembolsos, cada 2 h.
+          Sentry.captureMessage('[stripe webhook] no se pudo registrar la disputa', {
+            level: 'error', tags: { area: 'cobros', tipo: 'disputa' },
+            extra: { reciboId, studioId, disputeId: dispute.id, detalle: resultado.error },
+          });
+          return NextResponse.json({ error: 'Fallo al registrar la disputa' }, { status: 500 });
+        }
       }
     }
   }

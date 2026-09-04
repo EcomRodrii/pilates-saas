@@ -240,8 +240,30 @@ export async function dbListPagosHistoricosSocio(studioId: string, socioId: stri
 }
 
 
+// ⚠️ LISTA BLANCA, igual que `studioPublico` de aquí abajo (auditoría 22ª
+// pasada, S-5). Antes era lista NEGRA —`{...mapInstructor(r), email: null,
+// telefono: null, authUserId: null}`— alimentada por un `.select('*')`: lo que
+// no se nombraba, viajaba. Que `tipo_contrato` no saliera al público era suerte
+// (nadie la mapeaba en `mapInstructor`), no diseño; la siguiente columna que se
+// mapee sí habría salido. Aquí lo que no se nombra NO llega a la página pública.
 function mapInstructorPublico(r: RowInstructores): Instructor {
-  return { ...mapInstructor(r), email: null, telefono: null, authUserId: null };
+  const i = mapInstructor(r);
+  return {
+    id: i.id,
+    studioId: i.studioId,
+    nombre: i.nombre,
+    color: i.color,
+    activo: i.activo,
+    rol: i.rol,
+    avatar: i.avatar,
+    fotoUrl: i.fotoUrl,
+    bio: i.bio,
+    valoracion: i.valoracion,
+    // Nunca al público, y por eso van explícitos y a null:
+    email: null,
+    telefono: null,
+    authUserId: null,
+  };
 }
 
 
@@ -963,12 +985,24 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
 }
 
 
-// Devuelve `true` solo si de verdad se devolvió una sesión. Antes no devolvía
-// nada y el llamador daba la devolución por hecha (I-5): ver el comentario en
-// `bonoDevolvible`.
-async function devolverBonoServidor(
+/**
+ * Resultado de intentar devolver una sesión al bono. Los tres casos son
+ * distintos y confundirlos cuesta caro (auditoría 22ª pasada, F-1):
+ *  · `DEVUELTA`  — se sumó una sesión.
+ *  · `SIN_BONO`  — no había nada que devolver (clase suelta, o bono ya al tope).
+ *                  NO es un fallo: avisar de esto como si lo fuera manda a la
+ *                  propietaria a "revisarlo a mano" en la mitad de las
+ *                  cancelaciones normales.
+ *  · `FALLO`     — había que devolverla y la escritura no salió.
+ */
+export type ResultadoDevolucionBono = 'DEVUELTA' | 'SIN_BONO' | 'FALLO';
+
+// Devuelve `DEVUELTA` solo si de verdad se devolvió una sesión. Antes no
+// devolvía nada y el llamador daba la devolución por hecha (I-5): ver el
+// comentario en `bonoDevolvible`.
+export async function devolverBonoServidor(
   admin: SupabaseClient, studioId: string, socioId: string, tipoClaseId?: string | null,
-): Promise<boolean> {
+): Promise<ResultadoDevolucionBono> {
   const [{ data: susRows }, { data: planRows }] = await Promise.all([
     admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
     admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
@@ -978,7 +1012,7 @@ async function devolverBonoServidor(
   // no saldo — y el bono al que hay que devolverle la sesión es justo el que se
   // quedó a 0 al gastarla, que `bonoConsumible` descarta.
   const devolvible = bonoDevolvible(socioId, (susRows ?? []).map(mapSuscripcion), planesConTipos, undefined, tipoClaseId);
-  if (!devolvible) return false;
+  if (!devolvible) return 'SIN_BONO';
   // I-10: incremento ATÓMICO con el tope aplicado en el propio WHERE. Antes era
   // read-modify-write sobre el snapshot de arriba, así que dos cancelaciones
   // concurrentes escribían el mismo número y una devolución se perdía en
@@ -986,8 +1020,10 @@ async function devolverBonoServidor(
   const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono', {
     p_suscripcion_id: devolvible.suscripcion.id, p_studio_id: studioId,
   });
-  if (error) { reportDbError('[devolverBonoServidor]', error); return false; }
-  return nuevoSaldo != null;
+  if (error) { reportDbError('[devolverBonoServidor]', error); return 'FALLO'; }
+  // `nuevoSaldo` null = el bono ya estaba al tope (el WHERE de la RPC no casó):
+  // no había hueco, así que no hay nada que devolver ni nada que reparar.
+  return nuevoSaldo != null ? 'DEVUELTA' : 'SIN_BONO';
 }
 
 // P-1 (auditoría 21-ago): política única, compartida por los caminos
@@ -1016,7 +1052,7 @@ export async function devolverBonosPorCancelacionClase(
     return devueltoPorSocia;
   }
   for (const c of confirmadas) {
-    devueltoPorSocia.set(c.socioId, await devolverBonoServidor(admin, studioId, c.socioId, c.tipoClaseId));
+    devueltoPorSocia.set(c.socioId, (await devolverBonoServidor(admin, studioId, c.socioId, c.tipoClaseId)) === 'DEVUELTA');
   }
   return devueltoPorSocia;
 }
@@ -2162,9 +2198,19 @@ export async function resolverReservaPendiente(params: {
 }
 
 // Rediseño del Calendario — punto 4, acción "Ofrecer plaza" de la franja de
-// decisiones. `promocionar_siguiente_espera` (usada hoy solo dentro de
-// cancelar_reserva_plaza/expirar_oferta_lista_espera) NO comprueba aforo por
-// su cuenta — asume que quien la llama ya sabe que hay un hueco libre. Esta
+// decisiones.
+//
+// ⚠️ Corregido el 3-sep-2026 (auditoría 22ª pasada, F-8): este comentario decía
+// que `promocionar_siguiente_espera` NO comprueba aforo. Desde el 2-sep
+// (migración 20260902185203) SÍ lo comprueba... pero solo en la rama de
+// promoción DIRECTA (`p_plazo_minutos <= 0`). En la rama de OFERTA con plazo
+// —viva en producción: hay 2 tipos de clase con `lista_espera_plazo_
+// aceptacion_minutos > 0`— sigue abriendo la oferta sin mirar el aforo. No
+// produce overbooking (`aceptar_oferta_lista_espera` re-comprueba y devuelve
+// AFORO_LLENO), pero sí el desenlace caro: la socia acepta a tiempo, se queda
+// sin plaza y gasta una recuperación por un hueco que no existía.
+// Dejar de fiarse de este comentario y mirar `pg_proc` antes de diseñar sobre
+// la garantía. Esta
 // función es la que añade esa comprobación real contra la BD (nunca confiar
 // en un recuento de cliente) antes de invocarla, para un disparo MANUAL desde
 // el panel (a diferencia de los otros dos callers, que solo llegan aquí justo
@@ -2574,7 +2620,7 @@ export async function ejecutarCancelacionReserva(
       // Antes se ponía a true a pelo, así que el email de cancelación le decía a
       // la socia que le habíamos devuelto la sesión aunque no se hubiera
       // devuelto nada.
-      bonoDevuelto = await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null);
+      bonoDevuelto = (await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null)) === 'DEVUELTA';
     }
   }
 

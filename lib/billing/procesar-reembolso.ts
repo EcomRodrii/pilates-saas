@@ -144,12 +144,17 @@ export async function procesarDisputeCreated(
   admin: SupabaseClient,
   p: { studioId: string; reciboId: string; disputeStatus: string; disputeId: string; dueByUnix: number | null; fuente: Fuente },
 ): Promise<ResultadoProcesado> {
-  const { error } = await admin.from('recibos')
+  // `.select('id')`: sin él, un `reciboId` que no existe (o de otro estudio) no
+  // da error y esta función devolvía `huboEfecto: true` y notificaba al estudio
+  // una disputa que no quedó registrada en ninguna parte (auditoría 22ª pasada,
+  // D-10).
+  const { data: filas, error } = await admin.from('recibos')
     .update({ disputa_estado: p.disputeStatus, disputa_stripe_id: p.disputeId })
-    .eq('id', p.reciboId).eq('studio_id', p.studioId);
-  if (error) {
-    console.error(`[${p.fuente}] no se pudo registrar la disputa`, p.reciboId, error);
-    return { ok: false, huboEfecto: false, error: error.message };
+    .eq('id', p.reciboId).eq('studio_id', p.studioId).select('id');
+  if (error || !filas?.length) {
+    const motivo = error ?? new Error(`recibo ${p.reciboId} no encontrado en ${p.studioId}`);
+    console.error(`[${p.fuente}] no se pudo registrar la disputa`, p.reciboId, motivo);
+    return { ok: false, huboEfecto: false, error: error?.message ?? 'recibo no encontrado' };
   }
   try {
     const { emitirPagoDisputado } = await import('../notifications/emit.ts');
@@ -179,9 +184,17 @@ export async function procesarDisputeClosed(
   // fecha_devolucion original con la de hoy. Con una sola sentencia había que
   // elegir: o se perdía el guardia, o el guardia descartaba la fila entera y
   // `disputa_estado` no se guardaba nunca.
-  const { error } = await admin.from('recibos')
+  // `.select('id')` igual que en `procesarDisputeCreated` (auditoría 22ª pasada,
+  // D-10): un `reciboId` inexistente o de otro estudio no da error en Supabase,
+  // y esta es la rama en la que el dinero SE VA de verdad (`lost` → DEVUELTO +
+  // `registrarDevolucion` + aviso). Sin esto, se notificaba un chargeback que no
+  // quedó escrito en ningún recibo. El gemelo de esta función ya lo llevaba: se
+  // arregló uno y no el otro, que es el fallo dominante de este repo cometido
+  // dentro del propio fix.
+  const { data: filas, error: errUpdate } = await admin.from('recibos')
     .update({ disputa_estado: p.disputeStatus })
-    .eq('id', p.reciboId).eq('studio_id', p.studioId);
+    .eq('id', p.reciboId).eq('studio_id', p.studioId).select('id');
+  const error = errUpdate ?? (filas?.length ? null : new Error(`recibo ${p.reciboId} no encontrado en ${p.studioId}`));
   let errDevuelto = null;
   if (!error && p.disputeStatus === 'lost') {
     const r = await admin.from('recibos')
