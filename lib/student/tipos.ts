@@ -36,6 +36,8 @@ export interface Clase {
   id: string;
   /** Tipo de clase (Reformer, Mat…): es la unidad de «favorita». */
   tipoClaseId: string;
+  /** Ventana de cancelación propia de este tipo de clase; `null` = la del estudio. */
+  ventanaCancelacionHoras: number | null;
   fecha: string;            // ISO date YYYY-MM-DD
   hora: string;             // HH:mm
   duracionMin: number;
@@ -61,7 +63,7 @@ export type EstadoReserva = 'confirmada' | 'cancelada' | 'asistida' | 'no-asisti
 
 export interface Reserva {
   id: string; claseId: string; alumnaId: string; estado: EstadoReserva;
-  creadaEn: string; pagadaCon: 'bono' | 'suelto' | 'plan';
+  creadaEn: string;
   bonoId?: string; posicionEspera?: number;
   /**
    * P-5 (auditoría 23ª pasada): si no es `undefined` y `estado === 'en-espera'`,

@@ -49,11 +49,15 @@ export interface AvisoCancelacion {
  * paquete trae de serie.
  */
 export function avisoCancelacion(c: Clase, horasPolitica: number, ahora: Date = new Date()): AvisoCancelacion {
+  // La cascada del servidor: la ventana del TIPO de clase manda sobre la del
+  // estudio (`tipos_clase.ventana_cancelacion_horas ?? studios.cancelacion_ventana_horas`).
+  // Sin esto, una clase con política propia se anunciaba con la del estudio.
+  const horas = c.ventanaCancelacionHoras ?? horasPolitica;
   const inicio = new Date(c.fecha + 'T' + c.hora + ':00').getTime();
   const restan = (inicio - ahora.getTime()) / 36e5;
   return {
     puede: restan > 0,
-    devolveriaCredito: restan >= horasPolitica,
+    devolveriaCredito: restan >= horas,
     horasRestantes: Math.max(0, Math.floor(restan)),
   };
 }
