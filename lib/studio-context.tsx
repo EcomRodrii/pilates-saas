@@ -19,7 +19,7 @@ import {
   dbGuardarEntrega,
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
   dbInsertPlazaFija, dbUpdatePlazaFija,
-  dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion,
+  dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion, dbAmpliarCaducidades,
   dbPonerExcepcion, dbQuitarExcepcion,
   dbUpsertMandatoSepa, dbCancelarMandatoSepa,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
@@ -357,6 +357,9 @@ interface StudioContextValue {
   // F2 (B2.3): dueña concede una recuperación. Devuelve TOPE si ya tiene 4 vivas.
   darRecuperacion: (socioId: string, motivo: string | null) => Promise<'CREADA' | 'TOPE' | 'ERROR'>;
   anularRecuperacion: (id: string) => Promise<ResultadoEscritura>;
+  ampliarCaducidades: (
+    socioIds: string[], dias: number,
+  ) => Promise<{ ok: true; bonos: number; recuperaciones: number } | { ok: false; error: string }>;
 
   // Mutable state
   socios: Socio[];
@@ -1555,6 +1558,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbAnularRecuperacion(id);
     if (!res.ok) return res;
     setRecuperaciones(prev => prev.map(r => r.id === id ? { ...r, estado: 'ANULADA' as const } : r));
+    return res;
+  }
+
+  // Ampliar en lote la caducidad de bonos y recuperaciones (cierre del centro,
+  // festivos, vacaciones). Toda la decisión de QUÉ filas se mueven vive en la
+  // RPC; aquí no se replica el criterio (plan BONO/PUNTUAL, activa, aún viva)
+  // porque tenerlo en dos sitios es cómo se acaba enseñando en pantalla algo
+  // distinto de lo que hay en la base. Por eso, al terminar, se recarga en vez
+  // de tocar el estado a mano: es una acción rara y deliberada, no un camino
+  // caliente.
+  async function ampliarCaducidades(
+    socioIds: string[], dias: number,
+  ): Promise<{ ok: true; bonos: number; recuperaciones: number } | { ok: false; error: string }> {
+    const res = await dbAmpliarCaducidades(getCurrentStudioId(), socioIds, dias);
+    if (res.ok) resetDatosPilates();
     return res;
   }
 
@@ -4736,6 +4754,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     darDeBajaPlazaFijaPropia,
     darRecuperacion,
     anularRecuperacion,
+    ampliarCaducidades,
     addTipoClase,
     updateTipoClase,
     deleteTipoClase,

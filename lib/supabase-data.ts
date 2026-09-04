@@ -2380,6 +2380,33 @@ export async function dbAnularRecuperacion(id: string): Promise<ResultadoEscritu
   return error ? falloEscritura('[dbAnularRecuperacion]', error) : ESCRITURA_OK;
 }
 
+/**
+ * Suma días a la caducidad de los bonos vivos y las recuperaciones DISPONIBLE
+ * de esas socias, en UNA transacción (migr 20260904182127). No toca las cuotas
+ * mensuales ni resucita lo ya caducado — el porqué está en la migración.
+ * Devuelve cuántas filas ha movido de cada tipo para poder decirlo en el toast:
+ * "he ampliado" sin cifra no distingue el caso de no haber ampliado nada.
+ */
+export async function dbAmpliarCaducidades(
+  studioId: string, socioIds: string[], dias: number,
+): Promise<{ ok: true; bonos: number; recuperaciones: number } | { ok: false; error: string }> {
+  const { data, error } = await supabase.rpc('ampliar_caducidades', {
+    p_studio_id: studioId,
+    p_socio_ids: socioIds,
+    p_dias: dias,
+  });
+  if (error) {
+    reportDbError('[dbAmpliarCaducidades]', error);
+    if (error.message.includes('NO_AUTORIZADO')) return { ok: false, error: 'No tienes permiso para ampliar caducidades' };
+    if (error.message.includes('DIAS_INVALIDOS')) return { ok: false, error: 'Los días tienen que estar entre 1 y 365' };
+    return { ok: false, error: mensajeDeFalloAlGuardar(error) };
+  }
+  // `returns table` llega como array de una fila.
+  const fila = (Array.isArray(data) ? data[0] : data) as
+    { bonos_ampliados?: number; recuperaciones_ampliadas?: number } | null | undefined;
+  return { ok: true, bonos: fila?.bonos_ampliados ?? 0, recuperaciones: fila?.recuperaciones_ampliadas ?? 0 };
+}
+
 // F2 (B2.9): excepciones por socia. El toggle = poner (upsert) / quitar (delete).
 export function mapSocioExcepcion(r: RowSocioExcepciones): SocioExcepcion {
   return {
