@@ -94,13 +94,17 @@ test('el veredicto siempre dice modo y entorno, para que el error sea diagnostic
 test('esClavePublicable: acepta las que SÍ pueden ir al navegador', () => {
   assert.equal(esClavePublicable('pk_live_51abc'), true);
   assert.equal(esClavePublicable('pk_test_51abc'), true);
-  // Restringida: pensada precisamente para exponerse con permisos acotados.
-  assert.equal(esClavePublicable('rk_live_51abc'), true);
+  // Una `rk_` NO va aquí: es una clave secreta restringida, de servidor
+  // (auditoría 22ª pasada, S-2). Se comprueba en el test de rechazo de abajo.
 });
 
 test('esClavePublicable: rechaza una clave SECRETA', () => {
   assert.equal(esClavePublicable('sk_live_51abc'), false);
   assert.equal(esClavePublicable('sk_test_51abc'), false);
+  // Restringida = secreta con permisos recortados. Tampoco puede ir al
+  // navegador, y `modoDeClave` ya la trata como clave de servidor.
+  assert.equal(esClavePublicable('rk_live_51abc'), false);
+  assert.equal(esClavePublicable('rk_test_51abc'), false);
 });
 
 test('esClavePublicable: rechaza vacío, nulo y forma desconocida', () => {

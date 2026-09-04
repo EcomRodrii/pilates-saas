@@ -47,7 +47,10 @@ const RECIBO = { id: 'rec-1', socio_id: 'soc-1', suscripcion_id: 'sus-1', import
 // el que le pasamos aquí) — en este entorno de test devuelve null y la
 // notificación se ignora en silencio (console.error, no lanza), así que no
 // hace falta mockearla para probar el EFECTO en `recibos`/`devoluciones`.
-function fakeAdmin(opts: { reciboYaDevuelto?: boolean; devolucionYaExistia?: boolean } = {}) {
+// `reciboInexistente`: el UPDATE no casa ninguna fila (recibo de otro estudio,
+// o id que ya no existe). Supabase NO devuelve error en ese caso — devuelve
+// `data: []` — y modelarlo aquí es lo que permite probar el guard de D-2/D-10.
+function fakeAdmin(opts: { reciboYaDevuelto?: boolean; devolucionYaExistia?: boolean; reciboInexistente?: boolean } = {}) {
   const updates: { tabla: string; fila: Fila }[] = [];
   const inserts: { tabla: string; fila: Fila }[] = [];
 
@@ -81,7 +84,18 @@ function fakeAdmin(opts: { reciboYaDevuelto?: boolean; devolucionYaExistia?: boo
           if (tabla === 'socios') return Promise.resolve({ data: null, error: null });
           return Promise.resolve({ data: null, error: null });
         },
-        then(res: (v: { error: null }) => unknown) { return Promise.resolve({ error: null }).then(res); },
+        // `await` sobre el constructor sin `maybeSingle()`. Con `.select()`
+        // encadenado tras un UPDATE, PostgREST devuelve las FILAS AFECTADAS —
+        // array vacío si no casó ninguna, y sin error. Modelarlo es lo que hace
+        // que un test pueda distinguir "escribió" de "no escribió nada"
+        // (auditoría 22ª pasada; antes el fake devolvía siempre `{error:null}`
+        // y cualquier éxito falso pasaba en verde).
+        then(res: (v: { data: Fila[] | null; error: null }) => unknown) {
+          const data = selectedAfterUpdate
+            ? (opts.reciboInexistente ? [] : [{ id: RECIBO.id }])
+            : null;
+          return Promise.resolve({ data, error: null }).then(res);
+        },
       };
       return c;
     },
@@ -147,6 +161,21 @@ test('disputa creada: marca disputa_estado + disputa_stripe_id', async () => {
   const u = updates.find(x => x.tabla === 'recibos');
   assert.equal(u!.fila.disputa_estado, 'needs_response');
   assert.equal(u!.fila.disputa_stripe_id, 'du_1');
+});
+
+test('disputa creada sobre un recibo que no existe: NO dice que la registró', async () => {
+  // D-10 (auditoría 22ª pasada): sin `.select('id')`, un `reciboId` inexistente
+  // —o de otro estudio— no da error en Supabase, así que esto devolvía
+  // `huboEfecto: true` y llegaba a notificar al estudio una disputa que no
+  // quedó registrada en ninguna parte. Guardián por mutación: quitando el
+  // `.select('id')` de procesarDisputeCreated, este test vuelve a fallar.
+  const { admin } = fakeAdmin({ reciboInexistente: true });
+  const r = await procesarDisputeCreated(admin, {
+    studioId: 'studio-1', reciboId: 'rec-de-otro-estudio', disputeStatus: 'needs_response', disputeId: 'du_1',
+    dueByUnix: null, fuente: 'conciliador',
+  });
+  assert.equal(r.ok, false, 'no puede decir que fue bien: no escribió nada');
+  assert.equal(r.huboEfecto, false);
 });
 
 test('disputa PERDIDA: chargeback real — marca DEVUELTO y registra la devolución', async () => {

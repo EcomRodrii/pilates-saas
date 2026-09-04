@@ -254,6 +254,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-11. El `importe > 0` de arriba se
+  // comprueba ANTES del descuento, así que un código del 100 % dejaba llegar un
+  // importe de 0 € a `paymentIntents.create` y Stripe lo rechazaba: la socia
+  // veía un error interno genérico y el estudio no se enteraba de nada. Su
+  // gemelo `app/api/stripe/checkout` ya lo valida DESPUÉS (línea 221); aquí
+  // faltaba. Entregar gratis es otro camino (no pasa por Stripe) y no se
+  // improvisa en un endpoint de cobro: se dice claro que ese código no sirve
+  // para esta compra.
+  if (!(importe > 0)) {
+    return conCorsWidget(req, NextResponse.json(
+      { error: 'Ese código deja la compra en 0 €. Pide a tu estudio que te dé el bono directamente.' },
+      { status: 409 },
+    ));
+  }
+
   // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
   // si viene sesionId, comprobar que la clase sigue viva y que el plan la
   // cubre ANTES de generar una intención de cobro — pagar por una clase que

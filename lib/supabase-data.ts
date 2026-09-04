@@ -2544,8 +2544,23 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>): Pr
   if ('spotId' in changes) db.spot_id = changes.spotId;
   if ('posicionEspera' in changes) db.posicion_espera = changes.posicionEspera;
   if ('checkInEn' in changes) db.check_in_en = changes.checkInEn;
-  const { error } = await supabase.from('reservas').update(db).eq('id', id);
-  return error ? falloEscritura('[dbUpdateReserva]', error) : ESCRITURA_OK;
+  // ⚠️ `.select('id')`: un UPDATE que no casa ninguna fila —porque la RLS lo
+  // filtró, o porque la reserva ya no existe— NO devuelve error en Supabase
+  // (auditoría 22ª pasada, F-5). Este es el único escritor de SEIS acciones del
+  // panel (check-in, no-show y sus dos deshacer, asignar y liberar sitio), y en
+  // el check-in el éxito falso es caro: se pinta ASISTIDA, se abre la puerta y
+  // se disparan créditos, logros y racha sobre una asistencia que la base de
+  // datos nunca registró — `otorgar_credito_disparador` exige la fila ya en
+  // ASISTIDA, así que el crédito se pierde en silencio.
+  const { data, error } = await supabase.from('reservas').update(db).eq('id', id).select('id');
+  if (error) return falloEscritura('[dbUpdateReserva]', error);
+  if (!data?.length) {
+    // `code: '42501'` para que `mensajeDeFalloAlGuardar` diga "no tienes
+    // permiso" en vez de un genérico: la causa abrumadoramente más probable de
+    // 0 filas aquí es la RLS (una instructora sobre una clase que no es suya).
+    return falloEscritura('[dbUpdateReserva]', { code: '42501', message: `la reserva ${id} no se ha podido actualizar (0 filas)` });
+  }
+  return ESCRITURA_OK;
 }
 
 export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {

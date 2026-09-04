@@ -1310,7 +1310,9 @@ export default function Calendario() {
     const res = await deleteSesion(sesionId);
     if (!res.ok) { showToast(res.error); return; }
     setSesionId(null);
-    showToast('Clase eliminada');
+    // F-9 (auditoría 22ª pasada): mismo trato que "Cancelar" — si alguna socia
+    // no recuperó su sesión de bono, el toast no puede decir solo "eliminada".
+    showToast(res.avisoBono ? `Clase eliminada · ${res.avisoBono}` : 'Clase eliminada');
     void refrescarVista();
   }
 

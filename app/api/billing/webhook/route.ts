@@ -164,15 +164,44 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
     // `cadenas` es la única fuente de verdad para el billing de una cadena —
     // el trigger propagar_plan_cadena (migración 0066) hace el fan-out a
     // TODAS sus sedes en la misma transacción. No tocar `studios` aquí.
-    const { error } = await admin.from('cadenas').update(update).eq('id', cadenaId);
+    // `.select('id')` por el mismo motivo que la rama sin metadata de más abajo
+    // (auditoría 22ª pasada, D-8): un `cadenaId` que ya no existe —cadena
+    // borrada, id de una suscripción vieja— no da error, así que el webhook
+    // respondía 200, marcaba el evento procesado y el estado de la suscripción
+    // no se sincronizaba nunca. El comentario de abajo ya lo explicaba; la
+    // defensa no estaba en esta capa.
+    const { data: filas, error } = await admin.from('cadenas').update(update).eq('id', cadenaId).select('id');
     if (error) throw new Error(`update cadenas: ${error.message}`);
+    // Fila inexistente ≠ fallo transitorio: lanzar aquí haría que Stripe
+    // reintentara ~3 días un evento que NUNCA va a poder aplicarse (cadena
+    // borrada, o metadata con un id viejo), y una tasa de fallo sostenida puede
+    // acabar desactivando el destino del webhook para TODOS los demás. Se avisa
+    // a Sentry, que es lo que faltaba —antes esto era silencio absoluto— y se
+    // sigue: quien lo arregla es una persona corrigiendo la metadata en Stripe.
+    if (!filas?.length) {
+      Sentry.captureMessage('[billing webhook] cadena de la metadata no encontrada', {
+        level: 'error', tags: { area: 'billing' }, extra: { cadenaId, estado: sub.status },
+      });
+      return;
+    }
     capturar(cadenaId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
     return;
   }
 
   if (studioId) {
-    const { error } = await admin.from('studios').update(update).eq('id', studioId);
+    // Mismo `.select('id')` que la rama de `cadenas` de arriba: sin él, un
+    // `studioId` inexistente en la metadata deja la suscripción sin sincronizar
+    // y el webhook lo celebra con un 200.
+    const { data: filas, error } = await admin.from('studios').update(update).eq('id', studioId).select('id');
     if (error) throw new Error(`update studios: ${error.message}`);
+    // Mismo criterio que la rama de `cadenas`: Sentry y seguir, no reintentar
+    // para siempre algo que ningún reintento arregla.
+    if (!filas?.length) {
+      Sentry.captureMessage('[billing webhook] estudio de la metadata no encontrado', {
+        level: 'error', tags: { area: 'billing' }, extra: { studioId, estado: sub.status },
+      });
+      return;
+    }
     // R4: señal de ciclo de vida de la suscripción (alta/renovación/impago/baja).
     capturar(studioId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
     // Review Boost: señal directa "vino de Review Boost y pagó", sin tener que
@@ -198,8 +227,17 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
   if (studiosError) throw new Error(`update studios: ${studiosError.message}`);
   if (enStudios && enStudios.length > 0) return;
 
-  const { error: cadenasError } = await admin.from('cadenas').update(update).eq('stripe_customer_id', customerId);
+  const { data: enCadenas, error: cadenasError } = await admin
+    .from('cadenas').update(update).eq('stripe_customer_id', customerId).select('id');
   if (cadenasError) throw new Error(`update cadenas (fallback sin metadata): ${cadenasError.message}`);
+  // El `.select('id')` que el comentario de arriba pedía y esta rama —la última
+  // del intento -- no tenía: si no casa ni aquí, el cliente de Stripe no
+  // corresponde a ningún estudio ni cadena conocidos y hay que enterarse.
+  if (!enCadenas?.length) {
+    Sentry.captureMessage('[billing webhook] stripe_customer_id sin estudio ni cadena', {
+      level: 'error', tags: { area: 'billing' }, extra: { customerId, estado: sub.status },
+    });
+  }
 }
 
 async function avisarFalloPagoSaas(admin: SupabaseClient, invoice: Stripe.Invoice): Promise<void> {
