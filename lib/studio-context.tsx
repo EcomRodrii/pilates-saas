@@ -355,7 +355,7 @@ interface StudioContextValue {
   ponerExcepcion: (socioId: string, tipo: string, motivo: string | null) => Promise<ResultadoEscritura>;
   quitarExcepcion: (socioId: string, tipo: string) => Promise<ResultadoEscritura>;
   // F2 (B2.3): dueña concede una recuperación. Devuelve TOPE si ya tiene 4 vivas.
-  darRecuperacion: (socioId: string, motivo: string | null) => Promise<'CREADA' | 'TOPE' | 'ERROR'>;
+  darRecuperacion: (socioId: string, motivo: string | null, caducaEl?: string | null) => Promise<'CREADA' | 'TOPE' | 'ERROR'>;
   anularRecuperacion: (id: string) => Promise<ResultadoEscritura>;
   ampliarCaducidades: (
     socioIds: string[], dias: number,
@@ -1548,8 +1548,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // F2 (B2.3): concede una recuperación (dueña-first). La caducidad y el tope (4)
   // los resuelve la RPC; al crearla, recargamos la lista para reflejar caduca_el.
-  async function darRecuperacion(socioId: string, motivo: string | null): Promise<'CREADA' | 'TOPE' | 'ERROR'> {
-    const r = await dbCrearRecuperacion(getCurrentStudioId(), socioId, null, motivo);
+  async function darRecuperacion(
+    socioId: string, motivo: string | null, caducaEl: string | null = null,
+  ): Promise<'CREADA' | 'TOPE' | 'ERROR'> {
+    const r = await dbCrearRecuperacion(getCurrentStudioId(), socioId, null, motivo, caducaEl);
     if (r === 'CREADA') setRecuperaciones(await dbListRecuperaciones(getCurrentStudioId()));
     return r;
   }
