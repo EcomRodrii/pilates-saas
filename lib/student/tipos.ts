@@ -39,6 +39,8 @@ export interface Clase {
   capacidad: number;
   plazasLibres: number;
   precioSuelto: number;     // € si no hay bono
+  /** `true` si el estudio NO vende clases sueltas — distinto de «cuesta 0 €». */
+  sinPrecioSuelto?: boolean;
   fotoUrl: string;
   descripcion?: string;
 }

@@ -585,6 +585,8 @@ export interface RowSalas {
   nombre: string;
   capacidad: number;
   color: string | null;
+  // migr 20260904020000.
+  foto_url: string | null;
 }
 
 export interface RowSesiones {

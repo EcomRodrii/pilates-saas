@@ -1,3 +1,7 @@
+// ⚠️ Import RELATIVO, no `@/`: `node --test --experimental-strip-types` no
+// resuelve ese alias, y ponerlo aquí tumbó `datos-mapeo.test.ts` y
+// `proyeccion-payload.test.ts` — que importan este módulo por ruta relativa.
+import { precioDeSesion } from './precio-suelta.ts';
 import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, Instructora, NivelClase, Pago, Reserva } from './tipos.ts';
 
 // Traducción PURA entre el vocabulario del backend y el del paquete de diseño.
@@ -94,6 +98,11 @@ export interface PlanMin {
   nombre: string;
   sesiones: number | null;
   precio: number;
+  /** `PUNTUAL` es el plan de clase suelta — el que fija su precio. */
+  tipo?: string | null;
+  /** El checkout exige `activo`; enseñar el precio de un plan apagado
+      llevaría a un cobro que la ruta rechaza. */
+  activo?: boolean | null;
 }
 
 /**
@@ -168,7 +177,7 @@ export interface PayloadMin {
     cancelada: boolean; precioPuntual: number | null;
   }[];
   tiposClase?: { id: string; nombre: string; nivel?: string | null; fotoUrl?: string | null; descripcion?: string | null }[];
-  salas?: { id: string; nombre: string }[];
+  salas?: { id: string; nombre: string; fotoUrl?: string | null }[];
   instructores?: {
     id: string; nombre: string; activo?: boolean; fotoUrl?: string | null;
     bio?: string | null; valoracion?: { media: number; total: number };
@@ -235,8 +244,23 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       sala: sala?.nombre ?? '',
       capacidad: s.aforoMaximo,
       plazasLibres: Math.max(0, s.aforoMaximo - (ocupadas.get(s.id) ?? 0)),
-      precioSuelto: s.precioPuntual ?? 0,
-      fotoUrl: tipo?.fotoUrl ?? d.studio?.fotoUrl ?? '',
+      // ⚠️ Antes: `s.precioPuntual ?? 0`. `sesiones.precio_puntual` es un
+      // OVERRIDE por sesión y está a NULL en la inmensa mayoría, así que la
+      // app enseñaba «0 €» a quien no tiene bono. La clase no es gratis: el
+      // precio vive en el plan `PUNTUAL` del estudio, que es EXACTAMENTE de
+      // donde `checkout-embebido` saca el importe que cobra.
+      // `null` (el estudio no vende sueltas) se pinta como 0 aquí solo
+      // porque `Clase.precioSuelto` es `number`; quien decide qué enseñar es
+      // `etiquetaPrecio()`, que distingue los dos casos.
+      precioSuelto: precioDeSesion(s.precioPuntual, d.planesTarifa) ?? 0,
+      /** `true` si el estudio NO vende clases sueltas: no es «gratis». */
+      sinPrecioSuelto: precioDeSesion(s.precioPuntual, d.planesTarifa) === null,
+      // ⚠️ La SALA manda. Antes era `tipo ?? studio`, y como ningún tipo de
+      // clase suele tener foto, TODAS las clases acababan enseñando la MISMA
+      // imagen del estudio — que en un estudio real es a menudo la foto de la
+      // propietaria. La sala es el nivel correcto: una clase ocurre en una
+      // sala, y la sala tiene un aspecto reconocible.
+      fotoUrl: sala?.fotoUrl ?? tipo?.fotoUrl ?? d.studio?.fotoUrl ?? '',
       descripcion: tipo?.descripcion ?? undefined,
     });
   }

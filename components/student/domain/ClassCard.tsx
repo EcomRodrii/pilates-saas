@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePortalHref } from '@/components/student/contexto';
 import type { Clase, Disponibilidad, Instructora } from '@/lib/student/tipos';
 import { AvailabilityBadge } from '@/components/student/ui/Badge';
-import { euros } from '@/lib/student/formato';
+import { precioClaseTexto } from '@/lib/student/formato';
 // ⚠️ Los enlaces del paquete son absolutos ('/reservar/…') porque allí la app
 // es la única del proyecto. Aquí cuelgan del slug del estudio, así que pasan
 // por `usePortalHref()`: dejarlos absolutos mandaría a la alumna a la landing
@@ -27,7 +27,7 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         <AvailabilityBadge estado={estado} plazas={clase.plazasLibres} />
-        <p style={{ margin: '5px 0 0', fontSize: 11.5, fontWeight: 800, color: 'var(--muted-foreground)' }}>{conBono ? '1 sesión' : euros(clase.precioSuelto)}</p>
+        <p style={{ margin: '5px 0 0', fontSize: 11.5, fontWeight: 800, color: 'var(--muted-foreground)' }}>{conBono ? '1 sesión' : precioClaseTexto(clase)}</p>
       </div>
     </Link>
   );

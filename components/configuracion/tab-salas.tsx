@@ -13,6 +13,7 @@ type SalaForm = {
   nombre: string;
   capacidad: string;
   color: string;
+  fotoUrl: string;
 };
 
 // El calendario colorea las clases POR SALA. Con un único color por defecto,
@@ -30,6 +31,7 @@ const emptySalaForm = (color: string): SalaForm => ({
   nombre: '',
   capacidad: '10',
   color,
+  fotoUrl: '',
 });
 
 function salaToForm(s: Sala): SalaForm {
@@ -37,6 +39,7 @@ function salaToForm(s: Sala): SalaForm {
     nombre: s.nombre,
     capacidad: String(s.capacidad),
     color: s.color,
+    fotoUrl: s.fotoUrl ?? '',
   };
 }
 
@@ -111,6 +114,9 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       nombre: form.nombre.trim(),
       capacidad: capacidadNum,
       color: form.color,
+      // La app de la alumna usa esta imagen como foto de las clases que
+      // ocurren en la sala. Vacío = se cae al tipo de clase y luego al estudio.
+      fotoUrl: form.fotoUrl.trim() || null,
     };
     const afectadas = modal === 'editar' && editId ? clasesQueSePasan(editId, fields.capacidad) : [];
     // Al BAJAR la capacidad, avisar antes de dejar clases sobrevendidas.
@@ -400,6 +406,31 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
               description="Sirve para distinguirla de un vistazo en la agenda."
             >
               <ColorInput value={form.color} onChange={v => setForm(f => ({ ...f, color: v }))} />
+            </Field>
+            <Field
+              label="Imagen de la sala"
+              description="La app de tus alumnas la usa como foto de todas las clases que ocurren aquí. Si la dejas vacía se usa la del tipo de clase y, si tampoco tiene, la del estudio."
+            >
+              <input
+                className={inputCls}
+                type="url"
+                inputMode="url"
+                placeholder="https://… o /por-defecto/clase-reformer.webp"
+                value={form.fotoUrl}
+                onChange={e => setForm(f => ({ ...f, fotoUrl: e.target.value }))}
+              />
+              {form.fotoUrl.trim() !== '' && (
+                // Vista previa: una URL mal escrita se ve aquí y no en el móvil
+                // de una alumna.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={form.fotoUrl.trim()}
+                  alt=""
+                  className="mt-2 h-24 w-full rounded-lg object-cover border border-border"
+                  onError={e => { e.currentTarget.style.opacity = '0'; }}
+                  onLoad={e => { e.currentTarget.style.opacity = '1'; }}
+                />
+              )}
             </Field>
           </div>
           {errorGuardar && (

@@ -1,4 +1,5 @@
 import { AuthClient } from '@supabase/auth-js';
+import { almacenSesionPortal } from '@/lib/db/portal-almacen-sesion';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -29,6 +30,14 @@ export const supabasePortal = {
       apikey: anon,
     },
     storageKey: 'sb-portal-auth',
+    // ⚠️ `storage` explícito. Sin él, auth-js usa `globalThis.localStorage`
+    // SIEMPRE (su GoTrueClient lo elige cuando `persistSession` es true y no se
+    // pasa nada), y la sesión sobrevivía al cierre del navegador sin que la
+    // alumna pudiera decidirlo. Este adaptador enruta a localStorage o a
+    // sessionStorage según «Recordar inicio de sesión», y por defecto recuerda
+    // — así nada cambia para `/reservar`, el widget ni la mensajería, que
+    // comparten este mismo cliente.
+    storage: almacenSesionPortal,
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,

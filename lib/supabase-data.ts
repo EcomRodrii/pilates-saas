@@ -787,6 +787,7 @@ export function mapSala(r: RowSalas): Sala {
     nombre: r.nombre,
     capacidad: r.capacidad,
     color: r.color,
+    fotoUrl: (r as { foto_url?: string | null }).foto_url ?? null,
   } as Sala;
 }
 

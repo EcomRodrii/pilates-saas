@@ -11,9 +11,11 @@ import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { fechaLarga, hoyISO, saludo } from '@/lib/student/formato';
 import { NextClassCard } from '@/components/student/domain/NextClassCard';
 import { ClassCard } from '@/components/student/domain/ClassCard';
-import { CreditCard } from '@/components/student/domain/CreditCard';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { urlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
+import { BonoRitmo, TuSemana, MiProgreso } from '@/components/student/domain/TuRitmo';
+import { semanaDe, hechasEstaSemana, rachaSemanas, lunesDe, cuentaComoHecha } from '@/lib/student/ritmo';
+import { useRouter } from 'next/navigation';
 
 // Inicio (§A.5 del handoff): héroe fotográfico, próxima clase, bono y huecos de
 // hoy. Estructura y medidas literales del paquete.
@@ -26,6 +28,7 @@ import { urlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
 export default function InicioPage() {
   const { estudio } = useEstudio();
   const href = usePortalHref();
+  const router = useRouter();
   const { socia } = useSesionStudent(estudio.slug);
   const hoy = hoyISO();
 
@@ -50,6 +53,28 @@ export default function InicioPage() {
     .filter((x): x is { r: (typeof x)['r']; c: NonNullable<(typeof x)['c']> } => Boolean(x.c))
     .filter((x) => x.c.fecha >= hoy)
     .sort((a, b) => (a.c.fecha + a.c.hora).localeCompare(b.c.fecha + b.c.hora))[0];
+
+  // ── Tu ritmo ──────────────────────────────────────────────────────────────
+  // Sus clases con fecha, que es lo único que necesita `lib/student/ritmo.ts`.
+  const clasesHechas = (data?.reservas ?? [])
+    .map((r) => ({ r, c: data?.clases.find((c) => c.id === r.claseId) }))
+    .filter((x): x is { r: (typeof x)['r']; c: NonNullable<(typeof x)['c']> } => Boolean(x.c))
+    .map((x) => ({ fecha: x.c.fecha, estado: x.r.estado }));
+
+  const semana = semanaDe(clasesHechas, hoy);
+  const estaSemana = hechasEstaSemana(clasesHechas, hoy);
+  const racha = rachaSemanas(clasesHechas, hoy);
+  // Referencia de la barra: su MEJOR semana, no una meta inventada. Se agrupa
+  // por el lunes de cada clase — agrupar por mes+día, como hacía la primera
+  // versión de esto, no agrupa por semana en absoluto.
+  const porSemana = clasesHechas
+    .filter((c) => cuentaComoHecha(c, hoy))
+    .reduce<Record<string, number>>((acc, c) => {
+      const k = lunesDe(c.fecha);
+      acc[k] = (acc[k] ?? 0) + 1;
+      return acc;
+    }, {});
+  const mejorSemana = Math.max(1, ...Object.values(porSemana), estaSemana);
 
   const huecos = (data?.clases ?? [])
     .filter((c) => c.fecha === hoy)
@@ -121,7 +146,33 @@ export default function InicioPage() {
         </div>
       </section>
 
-      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '13px', marginTop: 4 }}>
+      {/* Buscador. No decora: lleva a `/reservar?q=`, que busca en TODO el
+          horario por nombre de clase, tipo o instructora, ignorando acentos. */}
+      <form
+        className="px a-up"
+        style={{ marginTop: 12 }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          const q = new FormData(e.currentTarget).get('q');
+          const texto = typeof q === 'string' ? q.trim() : '';
+          router.push(texto ? `${href('/reservar')}?q=${encodeURIComponent(texto)}` : href('/reservar'));
+        }}
+      >
+        <div style={{ position: 'relative' }}>
+          <span aria-hidden style={{ position: 'absolute', left: 15, top: '50%', transform: 'translateY(-50%)', color: 'var(--subtle-foreground)', display: 'flex' }}>
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM16.5 16.5 21 21" /></svg>
+          </span>
+          <input
+            name="q"
+            type="search"
+            placeholder="Buscar clases, instructoras…"
+            aria-label="Buscar clases o instructoras"
+            style={{ width: '100%', height: 48, paddingLeft: 43, paddingRight: 15, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', boxShadow: 'var(--shadow-card)', fontSize: 13.5, fontFamily: 'inherit', color: 'var(--foreground)' }}
+          />
+        </div>
+      </form>
+
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '13px', marginTop: 14 }}>
         {estado === 'loading' && (
           <>
             <Skeleton h={118} r={20} />
@@ -158,18 +209,28 @@ export default function InicioPage() {
               />
             )}
 
-            {bonoActivo ? (
-              <CreditCard bono={bonoActivo} compacta />
-            ) : (
-              <Link
-                href={href('/bonos')}
-                className="card card--tap"
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 15px' }}
-              >
-                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700 }}>Sin bono activo</p>
-                <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--accent)' }}>Ver bonos →</span>
-              </Link>
-            )}
+            {/* ── TU RITMO ─────────────────────────────────────────────────
+                Bloque nuevo. Todo lo que enseña sale de sus reservas reales
+                (`lib/student/ritmo.ts`, 16 tests): los días de la semana, la
+                racha y lo que lleva hecho. Lo que el backend no tiene —una meta
+                semanal configurable, retos— no se rellena con cifras a dedo. */}
+            <p className="t-label" style={{ marginTop: 4 }}>Tu ritmo</p>
+
+            <TuSemana dias={semana} racha={racha} />
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <MiProgreso estaSemana={estaSemana} referencia={mejorSemana} />
+              {bonoActivo
+                ? <BonoRitmo bono={bonoActivo} href={href(`/bonos/${bonoActivo.id}`)} />
+                : (
+                  <Link href={href('/bonos')} className="card card--tap" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '13px 15px' }}>
+                    <p className="t-label">Bonos</p>
+                    <p style={{ margin: '7px 0 0', fontSize: 13.5, fontWeight: 800 }}>Sin bono activo</p>
+                    <p className="t-meta" style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--accent)' }}>Ver bonos →</p>
+                  </Link>
+                )}
+            </div>
+
 
             <section>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>
