@@ -2355,13 +2355,19 @@ export async function dbUpdatePlazaFija(id: string, changes: Partial<PlazaFija>)
 // F2 (B2.3): recuperaciones. La caducidad + el tope (4) los resuelve la RPC.
 export async function dbCrearRecuperacion(
   studioId: string, socioId: string, origenReservaId: string | null, motivo: string | null,
+  /** 'YYYY-MM-DD'. null = la caducidad la pone la política del estudio. */
+  caducaEl: string | null = null,
 ): Promise<'CREADA' | 'TOPE' | 'ERROR'> {
+  // Siempre la firma de 6 argumentos (migr 20260904215616). La de 5 sigue viva
+  // como envoltorio para las pestañas que aún tengan el bundle anterior, pero
+  // desde aquí no se usa: un solo camino.
   const { data, error } = await supabase.rpc('crear_recuperacion', {
     p_id: `recup-${uid()}`,
     p_studio_id: studioId,
     p_socio_id: socioId,
     p_origen_reserva_id: origenReservaId,
     p_motivo: motivo,
+    p_caduca_el: caducaEl,
   });
   if (error) { reportDbError('[dbCrearRecuperacion]', error); return 'ERROR'; }
   return (data as 'CREADA' | 'TOPE') ?? 'ERROR';
