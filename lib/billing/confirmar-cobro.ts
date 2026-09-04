@@ -179,3 +179,46 @@ export async function reintentarFacturasPendientesDeSellar(
   }
   return selladas;
 }
+
+// Auditoría 23ª pasada (4-sep-2026), P-3. Tercer gemelo del mismo bloque:
+// las dos ramas de app/api/stripe/webhook/route.ts (checkout.session.completed
+// y el checkout embebido/Modo B) ya consumían el código de descuento al
+// entregar el plan; lib/inngest/conciliar-cobros.ts —la red de recuperación,
+// el camino REAL en 4 de cada 6 cobros según su propia cabecera— no lo
+// mencionaba en ninguna línea. Un código de un solo uso quedaba reutilizable
+// indefinidamente cada vez que era el conciliador quien rescataba el cobro.
+//
+// Best-effort a propósito, igual que sus dos hermanas: el pago ya está
+// cobrado y el plan ya entregado, así que un fallo aquí no puede tumbar el
+// evento — pero sí queda en Sentry, porque un código que no se descuenta de
+// su límite es un uso gratis que nadie contó.
+//
+// `consumir_codigo_descuento` no es idempotente por sí sola (solo protege
+// contra concurrencia del POS, no contra un reintento del MISMO evento). El
+// INSERT en `codigos_descuento_consumos` es el compare-and-set real: gana el
+// primer intento, un reintento choca por PK (23505) y se salta el consumo
+// sin sumar un uso de más — mismo criterio que `entregarPlanComprado`.
+export async function consumirCodigoDescuentoSiAplica(
+  admin: SupabaseClient,
+  params: { codigoDescuentoId: string | null | undefined; reciboId: string; studioId: string; fuente: string },
+): Promise<void> {
+  const { codigoDescuentoId, reciboId, studioId, fuente } = params;
+  if (!codigoDescuentoId) return;
+  const { error: errMarcarConsumo } = await admin
+    .from('codigos_descuento_consumos')
+    .insert({ recibo_id: reciboId, codigo_id: codigoDescuentoId });
+  if (!errMarcarConsumo) {
+    const { error: errConsumo } = await admin.rpc('consumir_codigo_descuento', { p_codigo_id: codigoDescuentoId });
+    if (errConsumo) {
+      Sentry.captureMessage(`[${fuente}] plan entregado pero el código de descuento no se consumió`, {
+        level: 'warning', tags: { area: 'cobros' },
+        extra: { codigoDescuentoId, studioId, reciboId, detalle: String(errConsumo) },
+      });
+    }
+  } else if (errMarcarConsumo.code !== '23505') {
+    Sentry.captureMessage(`[${fuente}] no se pudo registrar el consumo del código de descuento`, {
+      level: 'warning', tags: { area: 'cobros' },
+      extra: { codigoDescuentoId, studioId, reciboId, detalle: String(errMarcarConsumo) },
+    });
+  }
+}

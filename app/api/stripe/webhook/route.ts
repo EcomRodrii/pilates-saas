@@ -11,7 +11,7 @@ import { identidadDemostradaEnCompra } from '@/lib/billing/identidad-compra';
 import { resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
 import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReembolsoVentaPos, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
-import { confirmarCobroRecibo } from '@/lib/billing/confirmar-cobro';
+import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/billing/confirmar-cobro';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -541,37 +541,15 @@ async function procesarEvento(
             });
           }
         }
-        // Consumo del código de descuento (best-effort, igual que la
-        // actualización de metadata de arriba): el pago ya está cobrado y el
-        // plan ya entregado, así que un fallo aquí no puede tumbar el evento
-        // — pero sí queda en Sentry, porque un código que no se descuenta de
-        // su límite es un uso gratis que nadie contó.
-        //
-        // tentare-stripe: consumir_codigo_descuento no es idempotente por sí
-        // sola (solo protege contra concurrencia del POS, no contra que este
-        // webhook reprocese el MISMO evento). El INSERT en
-        // codigos_descuento_consumos es el compare-and-set: gana el primer
-        // intento, un reintento choca por PK (23505) y se salta el consumo
-        // sin sumar un uso de más — mismo criterio que entregarPlanComprado.
-        if (codigoDescuentoId) {
-          const { error: errMarcarConsumo } = await admin
-            .from('codigos_descuento_consumos')
-            .insert({ recibo_id: entrega.reciboId, codigo_id: codigoDescuentoId });
-          if (!errMarcarConsumo) {
-            const { error: errConsumo } = await admin.rpc('consumir_codigo_descuento', { p_codigo_id: codigoDescuentoId });
-            if (errConsumo) {
-              Sentry.captureMessage('[stripe webhook] plan entregado pero el código de descuento no se consumió', {
-                level: 'warning',
-                extra: { codigoDescuentoId, studioId, sessionId: session.id, detalle: String(errConsumo) },
-              });
-            }
-          } else if (errMarcarConsumo.code !== '23505') {
-            Sentry.captureMessage('[stripe webhook] no se pudo registrar el consumo del código de descuento', {
-              level: 'warning',
-              extra: { codigoDescuentoId, studioId, sessionId: session.id, detalle: String(errMarcarConsumo) },
-            });
-          }
-        }
+        // Auditoría 23ª pasada, P-3: extraído a consumirCodigoDescuentoSiAplica
+        // (lib/billing/confirmar-cobro.ts) — el conciliador (la red de
+        // recuperación) necesitaba el MISMO bloque y se le había quedado
+        // atrás, gemelo divergente clásico. Best-effort a propósito: el pago
+        // ya está cobrado y el plan ya entregado, así que un fallo aquí no
+        // puede tumbar el evento, pero sí queda en Sentry.
+        await consumirCodigoDescuentoSiAplica(admin, {
+          codigoDescuentoId, reciboId: entrega.reciboId, studioId, fuente: 'stripe webhook',
+        });
         const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
         await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
         const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
@@ -871,29 +849,12 @@ async function procesarEvento(
         }
       }
 
-      // Consumo del código de descuento — mismo criterio que
-      // checkout.session.completed: best-effort, tras confirmar el pago, no
-      // al crear el PaymentIntent, y con el mismo compare-and-set contra
-      // reprocesamiento del evento (ver comentario largo en la otra rama).
-      if (pi.metadata.codigoDescuentoId) {
-        const { error: errMarcarConsumo } = await admin
-          .from('codigos_descuento_consumos')
-          .insert({ recibo_id: entrega.reciboId, codigo_id: pi.metadata.codigoDescuentoId });
-        if (!errMarcarConsumo) {
-          const { error: errConsumo } = await admin.rpc('consumir_codigo_descuento', { p_codigo_id: pi.metadata.codigoDescuentoId });
-          if (errConsumo) {
-            Sentry.captureMessage('[stripe webhook] checkout embebido: plan entregado pero el código de descuento no se consumió', {
-              level: 'warning',
-              extra: { codigoDescuentoId: pi.metadata.codigoDescuentoId, studioId, paymentIntentId: pi.id, detalle: String(errConsumo) },
-            });
-          }
-        } else if (errMarcarConsumo.code !== '23505') {
-          Sentry.captureMessage('[stripe webhook] checkout embebido: no se pudo registrar el consumo del código de descuento', {
-            level: 'warning',
-            extra: { codigoDescuentoId: pi.metadata.codigoDescuentoId, studioId, paymentIntentId: pi.id, detalle: String(errMarcarConsumo) },
-          });
-        }
-      }
+      // Auditoría 23ª pasada, P-3: mismo helper compartido que la rama de
+      // checkout.session.completed — ver consumirCodigoDescuentoSiAplica.
+      await consumirCodigoDescuentoSiAplica(admin, {
+        codigoDescuentoId: pi.metadata.codigoDescuentoId, reciboId: entrega.reciboId, studioId,
+        fuente: 'stripe webhook: checkout embebido',
+      });
 
       const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
       await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });

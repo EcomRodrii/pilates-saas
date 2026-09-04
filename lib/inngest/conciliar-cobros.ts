@@ -33,7 +33,7 @@ import { inngest } from './client.ts';
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { fetchAllRows } from '../supabase-data.ts';
 import { entregarPlanComprado, idsDe } from '../billing/entregar-plan-comprado.ts';
-import { confirmarCobroRecibo, reintentarFacturasPendientesDeSellar } from '../billing/confirmar-cobro.ts';
+import { confirmarCobroRecibo, reintentarFacturasPendientesDeSellar, consumirCodigoDescuentoSiAplica } from '../billing/confirmar-cobro.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
 import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -481,6 +481,17 @@ async function entregar(
     });
     return;
   }
+
+  // Auditoría 23ª pasada, P-3: mismo helper que las dos ramas del webhook
+  // (app/api/stripe/webhook/route.ts) — este era el gemelo que faltaba. El
+  // conciliador es la red de recuperación (F-12: el camino REAL en 4 de cada
+  // 6 cobros, según la cabecera de este fichero), así que un código de
+  // descuento de un solo uso quedaba reutilizable indefinidamente cada vez
+  // que era este barrido quien entregaba, no el webhook.
+  await consumirCodigoDescuentoSiAplica(admin, {
+    codigoDescuentoId: sesion?.metadata?.codigoDescuentoId ?? pi?.metadata?.codigoDescuentoId,
+    reciboId: entrega.reciboId, studioId: p.studioId, fuente: 'conciliador',
+  });
 
   if (pi) {
     // Mismo remate que el webhook del checkout embebido: sin `reciboId` en la
