@@ -1,14 +1,7 @@
 'use server';
 
-<<<<<<< HEAD
-import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { supabase } from '@/lib/db/supabase';
-import { enforceRateLimit } from '@/lib/rate-limit';
-=======
-import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { supabase } from '@/lib/db/supabase';
->>>>>>> origin/main
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
 import { enviarEmailAccesoActivado } from '@/lib/emails/acceso-activado-server';
 import { MENSAJE_RECHAZO, motivoNoReclamable } from '@/lib/equipo/reclamar-reglas';
@@ -26,11 +19,7 @@ const ROLES: readonly string[] = ['PROPIETARIO', 'INSTRUCTOR', 'RECEPCION', 'MAN
 const ERROR_SISTEMA = 'No hemos podido activar tu acceso. Inténtalo de nuevo en unos segundos.';
 const ENLACE_NO_VALIDO = 'Este enlace ya no vale. Pídele a tu estudio que te lo envíe de nuevo.';
 
-<<<<<<< HEAD
-async function avisarAlEstudio(admin: ReturnType<typeof getSupabaseAdmin>, studioId: string, nombreFicha: string, emailCuenta: string | null) {
-=======
 async function avisarAlEstudio(admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>, studioId: string, nombreFicha: string, emailCuenta: string | null) {
->>>>>>> origin/main
   try {
     const { data: studio } = await admin
       .from('studios')
