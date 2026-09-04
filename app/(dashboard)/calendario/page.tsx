@@ -25,6 +25,7 @@ import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarClaseCanc
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
+import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
 import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
@@ -268,7 +269,7 @@ function ModalClasesRecurrentes({
 }: {
   open: boolean;
   onClose: () => void;
-  tiposClase: { id: string; nombre: string }[];
+  tiposClase: { id: string; nombre: string; aforoPorDefecto?: number | null }[];
   instructores: { id: string; nombre: string }[];
   ausencias?: AusenciaInstructora[];
   salas: { id: string; nombre: string; capacidad: number }[];
@@ -295,7 +296,7 @@ function ModalClasesRecurrentes({
     diasSemana: [1, 3],
     fechaInicio: new Date().toISOString().slice(0, 10),
     fechaFin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-    aforoMaximo: salas[0]?.capacidad ?? 8,
+    aforoMaximo: aforoPorDefectoDeSesion(tiposClase[0]?.aforoPorDefecto, salas[0]?.capacidad),
   };
 
   const [form, setForm] = useState<RecurringFormData>(emptyForm);
@@ -375,7 +376,19 @@ function ModalClasesRecurrentes({
         </DialogHeader>
         <div className="space-y-4 mt-3">
           <FormField label="Tipo de clase">
-            <select className={s2} value={form.tipoClaseId} onChange={e => setForm(f => ({ ...f, tipoClaseId: e.target.value }))}>
+            <select className={s2} value={form.tipoClaseId} onChange={e => {
+              const tipoClaseId = e.target.value;
+              const tc = tiposClase.find(x => x.id === tipoClaseId);
+              setForm(f => ({
+                ...f,
+                tipoClaseId,
+                // Mismo criterio que el cambio de sala de abajo: si ya tocó el
+                // aforo a mano, se respeta.
+                aforoMaximo: f.aforoTocado
+                  ? f.aforoMaximo
+                  : aforoPorDefectoDeSesion(tc?.aforoPorDefecto, salas.find(x => x.id === f.salaId)?.capacidad, f.aforoMaximo),
+              }));
+            }}>
               {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
             </select>
           </FormField>
@@ -391,7 +404,9 @@ function ModalClasesRecurrentes({
               setForm(f => ({
                 ...f,
                 salaId,
-                aforoMaximo: f.aforoTocado || cap == null ? f.aforoMaximo : cap,
+                aforoMaximo: f.aforoTocado
+                  ? f.aforoMaximo
+                  : aforoPorDefectoDeSesion(tiposClase.find(x => x.id === f.tipoClaseId)?.aforoPorDefecto, cap, f.aforoMaximo),
               }));
             }}>
               {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
@@ -645,7 +660,7 @@ export default function Calendario() {
     horaFin: tiposClase[0]?.duracionMinutos
       ? `${String(9 + Math.floor(tiposClase[0].duracionMinutos / 60)).padStart(2, '0')}:${String(tiposClase[0].duracionMinutos % 60).padStart(2, '0')}`
       : '10:00',
-    aforoMaximo: salas[0]?.capacidad ?? 8,
+    aforoMaximo: aforoPorDefectoDeSesion(tiposClase[0]?.aforoPorDefecto, salas[0]?.capacidad),
     notas: '',
     repetir: false,
     repetirSemanas: 4,
@@ -855,7 +870,11 @@ export default function Calendario() {
       // Una instructora crea SU clase: fijada a sí misma, no se le ofrece
       // elegir (la RLS de la 20260731100000 la rechazaría igual si lo hiciera).
       instructorId: esInstructorTop && yoTop ? yoTop.id : elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot, ausencias),
-      aforoMaximo: salas.find(s => s.id === salaId)?.capacidad ?? base.aforoMaximo,
+      aforoMaximo: aforoPorDefectoDeSesion(
+        tiposClase.find(t => t.id === base.tipoClaseId)?.aforoPorDefecto,
+        salas.find(s => s.id === salaId)?.capacidad,
+        base.aforoMaximo,
+      ),
     });
     setErrorSesion(null);
     setShowForm('nueva');
@@ -2658,11 +2677,18 @@ export default function Calendario() {
                   <select
                     className={selectCls}
                     value={form.tipoClaseId}
-                    onChange={e => setForm(f => ({
-                      ...f,
-                      tipoClaseId: e.target.value,
-                      horaFin: finSegunDuracion(f.horaInicio, e.target.value),
-                    }))}
+                    onChange={e => {
+                      const tipoClaseId = e.target.value;
+                      const tc = tiposClase.find(x => x.id === tipoClaseId);
+                      setForm(f => ({
+                        ...f,
+                        tipoClaseId,
+                        horaFin: finSegunDuracion(f.horaInicio, tipoClaseId),
+                        aforoMaximo: f.aforoTocado
+                          ? f.aforoMaximo
+                          : aforoPorDefectoDeSesion(tc?.aforoPorDefecto, salas.find(x => x.id === f.salaId)?.capacidad, f.aforoMaximo),
+                      }));
+                    }}
                   >
                     {!form.tipoClaseId && (
                       <option value="">{tiposClase.length ? 'Elige un tipo de clase' : 'Todavía no tienes tipos de clase'}</option>
@@ -2677,7 +2703,9 @@ export default function Calendario() {
                     setForm(f => ({
                       ...f,
                       salaId,
-                      aforoMaximo: f.aforoTocado || cap == null ? f.aforoMaximo : cap,
+                      aforoMaximo: f.aforoTocado
+                        ? f.aforoMaximo
+                        : aforoPorDefectoDeSesion(tiposClase.find(x => x.id === f.tipoClaseId)?.aforoPorDefecto, cap, f.aforoMaximo),
                     }));
                   }}>
                     {!form.salaId && (

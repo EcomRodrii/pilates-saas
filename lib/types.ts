@@ -711,6 +711,12 @@ export interface TipoClase {
   // tipo de clase. Sin override en Sesion: híbridas puntuales quedan fuera
   // de esta primera entrega a propósito.
   esOnline: boolean;
+  // Plazas por defecto al programar una sesión de este tipo (migr
+  // 20260903233651). null = hereda la capacidad de la SALA, que es de donde
+  // salía el aforo antes de existir esta columna — mismo patrón "null =
+  // hereda" que el resto de reglas de arriba, solo que aquí lo que se hereda
+  // no es un ajuste del estudio sino la sala donde se programe.
+  aforoPorDefecto: number | null;
 }
 
 export interface FavoritoClase {

@@ -941,6 +941,8 @@ export interface RowTiposClase {
   especialidad_network: string | null;
   // migr 20260820193428.
   es_online: boolean | null;
+  // migr 20260903233651. NULL = usa la capacidad de la sala.
+  aforo_por_defecto: number | null;
 }
 
 export interface RowUsuarios {

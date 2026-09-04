@@ -41,3 +41,25 @@ export function aforoEfectivoSesion(
 ): number {
   return aforoEfectivo(aforoMaximo, averiasActivasEnRango(bloqueos, salaId, inicioISO, finISO));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Aforo POR DEFECTO al programar una sesión (migr 20260903233651).
+//
+// Antes salía siempre de la capacidad de la SALA, así que un Reformer de 8
+// plazas en una sala de 12 había que corregirlo a mano en cada sesión. Ahora
+// el tipo de clase puede fijar el suyo; `null` sigue significando "la sala
+// manda", que es el comportamiento de siempre.
+//
+// El orden importa y no es negociable: el tipo de clase gana a la sala porque
+// es una regla del NEGOCIO ("esta clase se da con 8"), mientras que la sala es
+// solo dónde cabe. El tope duro de la sala no se aplica aquí a propósito —
+// `AvisoAforoSala` ya avisa de un sobreaforo sin impedirlo, y hay estudios que
+// venden por encima a sabiendas (colchonetas extra).
+// ─────────────────────────────────────────────────────────────────────────────
+export function aforoPorDefectoDeSesion(
+  aforoTipoClase: number | null | undefined,
+  capacidadSala: number | null | undefined,
+  respaldo = 8,
+): number {
+  return aforoTipoClase ?? capacidadSala ?? respaldo;
+}
