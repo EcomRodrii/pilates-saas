@@ -85,6 +85,13 @@ export interface Pago { id: string; concepto: string; importe: number; fecha: st
 
 export interface Notificacion { id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string; }
 
+/** Plaza fija vigente de la alumna, ya con nombres (F2). */
+export interface PlazaFijaVista {
+  diaSemana: number; hora: string; sala: string; tipo: string | null; estado: 'ACTIVA' | 'PAUSADA';
+  proximaFecha: string | null; vigenciaHasta: string | null;
+}
+export interface RecuperacionesVista { disponibles: number; proximaCaducidad: string | null }
+
 /** Máquina de estados de reserva (ver lib/booking-machine.ts). */
 export type BookingState =
   | 'idle' | 'reviewing' | 'submitting'

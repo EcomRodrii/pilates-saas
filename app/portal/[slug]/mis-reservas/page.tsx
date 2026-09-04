@@ -96,9 +96,11 @@ export default function MisReservasPage() {
     // previo: la ventana real puede diferir (tipo de clase con la suya propia).
     toast(!res.eraConfirmada
       ? 'Has salido de la lista de espera'
-      : res.bonoDevuelto
-        ? 'Cancelada · sesión devuelta a tu bono ✓'
-        : 'Cancelada — la sesión no se devuelve');
+      : res.recuperacionCreada
+        ? `Cancelada · tienes una clase para recuperar${res.recuperacionCaducaEl ? ` hasta el ${fechaCorta(res.recuperacionCaducaEl)}` : ''} ✓`
+        : res.bonoDevuelto
+          ? 'Cancelada · sesión devuelta a tu bono ✓'
+          : 'Cancelada — la sesión no se devuelve');
     // Y se recarga: la plaza vuelve al aforo y puede haber promocionado a
     // alguien de la cola. Tachar la fila a mano enseñaría un estado inventado.
     reintentar();
