@@ -892,6 +892,10 @@ export interface RowStudios {
   lng: number | null;
   // migr 20260824230506.
   visible_en_network: boolean | null;
+  // migr 20260904015605.
+  stripe_account_id_anterior: string | null;
+  // migr 20260904015605.
+  stripe_account_desconectado_en: string | null;
 }
 
 export interface RowSuscripciones {

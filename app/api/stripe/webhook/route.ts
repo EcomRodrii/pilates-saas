@@ -80,7 +80,17 @@ async function studioDeCuentaConnect(
   const cuenta = cuentaFirmante(accountId, accountId ? null : await cuentaDePlataforma());
   if (!cuenta) return null;
   const { data } = await admin.from('studios').select('id').eq('stripe_account_id', cuenta).maybeSingle();
-  return (data as { id: string } | null)?.id ?? null;
+  if (data) return (data as { id: string }).id;
+  // Auditoría 22ª pasada (3-sep-2026), D-4: si la cuenta ya no está VINCULADA
+  // (se desconectó), sigue habiendo estudio al que atribuir un webhook TARDÍO
+  // sobre algo que ocurrió antes de la desconexión (cobro/reembolso/disputa
+  // real). `stripe_account_id_anterior` no lleva índice único —una cuenta
+  // podría haberse desvinculado de más de un estudio a lo largo del tiempo,
+  // caso raro pero posible—, así que se toma la desconexión MÁS RECIENTE.
+  const { data: anterior } = await admin.from('studios')
+    .select('id').eq('stripe_account_id_anterior', cuenta)
+    .order('stripe_account_desconectado_en', { ascending: false }).limit(1).maybeSingle();
+  return (anterior as { id: string } | null)?.id ?? null;
 }
 
 export async function POST(req: NextRequest) {
@@ -1550,7 +1560,18 @@ async function procesarEvento(
       }
       // Qué estudios pierden el cobro (antes de limpiar el binding).
       const { data: afectados } = await admin.from('studios').select('id').eq('stripe_account_id', accountId);
-      const { error } = await admin.from('studios').update({ stripe_account_id: null }).eq('stripe_account_id', accountId);
+      // Auditoría 22ª pasada (3-sep-2026), D-4: el id se conserva en
+      // `stripe_account_id_anterior` en vez de perderse. Un webhook legítimo
+      // que llegue TARDE (reintento de Stripe) sobre un cobro/reembolso/
+      // disputa que sí ocurrió antes de esta desconexión podría, si no,
+      // resolver a NINGÚN estudio (`studioDeCuentaConnect` busca por
+      // `stripe_account_id` en vivo) y perderse en un 403. Esto NO reabre el
+      // cobro — Stripe ya ha revocado el acceso de la plataforma a esta
+      // cuenta, así que ninguna llamada NUEVA a su API puede funcionar—, solo
+      // permite atribuir correctamente algo que YA pasó.
+      const { error } = await admin.from('studios')
+        .update({ stripe_account_id: null, stripe_account_id_anterior: accountId, stripe_account_desconectado_en: new Date().toISOString() })
+        .eq('stripe_account_id', accountId);
       if (error) {
         console.error('[stripe webhook] no se pudo desvincular la cuenta desconectada', accountId, error);
         Sentry.captureMessage('[stripe webhook] no se pudo desvincular la cuenta desconectada', {
