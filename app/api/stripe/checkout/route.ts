@@ -15,6 +15,7 @@ import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -90,6 +91,15 @@ export async function POST(req: NextRequest) {
   if (!body?.studioId) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el estudio' }, { status: 400 }));
   }
+
+  // F-30 (auditoría 20ª pasada): esta es la OTRA puerta por la que entra
+  // dinero (la socia paga desde el portal o un enlace público, sin sesión de
+  // staff) — el guardia de suscripción ya protegía charge-off-session,
+  // pos-bizum, terminal/cobrar y reembolsos, pero no esta ni
+  // /api/public/checkout-embebido: un estudio con la suscripción a Tentare
+  // caducada seguía cobrando a sus socias por enlace público y widget.
+  const bloqueo = await bloqueoPorSuscripcion(body.studioId);
+  if (bloqueo) return conCorsWidget(req, bloqueo);
 
   // El importe y el concepto se resuelven contra la BD, validando pertenencia
   // al estudio. metadata.socioId lo lee el webhook para guardar la tarjeta;

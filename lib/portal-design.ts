@@ -38,6 +38,13 @@ export const dur = {
   // un token que significa otra cosa.
   portada: 900,    // la portada que se retira y el hilo que avanza
   foco: 600,       // la línea de un campo al enfocarlo; el CTA al encenderse
+  // El Ken Burns de la foto del hero (Inicio del portal): un bucle continuo,
+  // no un fundido de una sola vez, así que ninguno de los de arriba encaja —
+  // `washInner` (1400 ms) es lo más largo que había y a esa velocidad un
+  // zoom de foto se ve como un parpadeo, no como movimiento sutil. Mismo
+  // criterio que `portada`/`foco`: nombre propio en vez de forzar un token
+  // que significa otra cosa.
+  heroFoto: 20000,
 } as const;
 
 /** Transición de un control que se pulsa. `props` en orden de importancia. */
@@ -47,19 +54,30 @@ export function transicion(props: string[], ms: number = dur.control): string {
 
 // ── Tipografía ───────────────────────────────────────────────────────────────
 //
-// Dos familias con papeles que no se solapan: la serif dice QUÉ es esto
-// (nombres de clase, saludos, títulos), la sans dice qué HACER con ello
-// (botones, metadatos, etiquetas). En cuanto la sans se mete a titular, el
-// diseño se cae — es la mitad de su carácter.
-// --portal-heading-font la declara lib/theme-runtime.ts SOLO cuando el
-// estudio elige un tema de la galería con titular distinto (hoy, "Geométrico"
-// → Outfit); si no, la var no existe y gana el fallback de siempre.
-export const serif = "var(--portal-heading-font, var(--font-display)), 'Instrument Serif', Georgia, serif";
-export const sans = "var(--font-ui), 'Instrument Sans', system-ui, sans-serif";
+// ⚠️ CORREGIDO (31-ago) tras verificar contra capturas REALES de Claude
+// Design ("Tentare Studio App") y contra el <link> de Google Fonts del
+// propio .dc.html exportado: una sola familia, Plus Jakarta Sans, en dos
+// pesos — bold para titulares, regular/medium para el resto. NINGUNA
+// pantalla de las 20 capturas reales lleva serif ni cursiva.
+//
+// El "serif dice QUÉ es esto, la sans dice qué HACER" de antes describía
+// "Tentare App Cliente v2" — un diseño ANTERIOR y ya sustituido, no el
+// vigente. Se mantiene el nombre `serif` (evita tocar cada call-site que lo
+// importa) pero ya no es una serif: es Jakarta a peso alto.
+// --portal-heading-font la sigue declarando lib/theme-runtime.ts cuando el
+// estudio elige un tema de la galería con titular distinto (p.ej.
+// "Geométrico" → Outfit); si no, la var no existe y gana Jakarta.
+export const serif = "var(--portal-heading-font, var(--font-jakarta)), 'Plus Jakarta Sans', system-ui, sans-serif";
+export const sans = "var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif";
 
-/** Display serif. `it` = cursiva, que en este diseño no es énfasis: es voz. */
+/**
+ * Titular. `it` se conserva por compatibilidad con las pantallas que ya lo
+ * pasaban (Jakarta no tiene cursiva real cargada — el navegador inclina la
+ * redonda; a este peso y en una sans humanista no se nota como se notaría en
+ * una Didone, así que no es la Instrument Serif del proyecto anterior).
+ */
 export function display(size: number | string, it = false, lh = 1): CSSProperties {
-  return { fontFamily: serif, fontSize: size, fontStyle: it ? 'italic' : 'normal', lineHeight: lh, fontWeight: 'var(--portal-heading-weight, 400)' };
+  return { fontFamily: serif, fontSize: size, fontStyle: it ? 'italic' : 'normal', lineHeight: lh, fontWeight: 'var(--portal-heading-weight, 700)' };
 }
 
 /**

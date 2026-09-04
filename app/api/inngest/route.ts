@@ -39,6 +39,7 @@ import { conciliarCobrosDispatcher, conciliarCobrosVigilancia } from '@/lib/inng
 import { conciliarReembolsos } from '@/lib/inngest/conciliar-reembolsos';
 import { cierreGestoriaAutomaticoDispatcher } from '@/lib/inngest/cierre-gestoria-automatico';
 import { procesarEnvioCampana } from '@/lib/inngest/campanas';
+import { enviarLoteProspeccion } from '@/lib/inngest/prospeccion';
 import { reviewBoostDispatcher } from '@/lib/inngest/review-boost';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
@@ -73,6 +74,7 @@ export const { GET, POST, PUT } = serve({
     conciliarReembolsos,
     cierreGestoriaAutomaticoDispatcher,
     procesarEnvioCampana,
+    enviarLoteProspeccion,
     reviewBoostDispatcher,
   ],
 });

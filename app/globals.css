@@ -5,6 +5,11 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Tailwind v4 no trae un breakpoint entre el base (0) y `sm` (640px) —
+     el hero de /network (móviles flotando + buscador) necesita un escalón
+     ahí para caber en un iPhone SE (375px) sin recurrir a un `sm:` que
+     salta de golpe. Solo se usa en esa página. */
+  --breakpoint-xs: 30rem;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-jakarta);
@@ -71,6 +76,21 @@
   --sidebar-w: 256px;
   /* Altura de la barra superior de nav cuando menuPosition='superior' (0 en lateral). */
   --topnav-h: 0px;
+
+  /* ── Sistema central de motion ─────────────────────────────────────────
+     Duraciones y easing únicos para toda la app, en vez de valores sueltos
+     repetidos por archivo. El easing coincide con el que ya usaban a mano
+     drawer/sheet/portal/reserva (`cubic-bezier(.16,1,.3,1)`, "ease-out expo"):
+     no se inventa uno nuevo, se nombra el que el repo ya había convergido en
+     usar por instinto. `--motion-fast` es el único pensado para operaciones
+     MUY frecuentes (cambiar de tab, abrir un popover): más corto que el resto
+     a propósito, la velocidad manda ahí por encima de la presencia. */
+  --motion-fast: 120ms;
+  --motion-normal: 180ms;
+  --motion-medium: 240ms;
+  --motion-slow: 320ms;
+  --motion-ease: cubic-bezier(.16, 1, .3, 1);
+  --motion-ease-in: cubic-bezier(.4, 0, 1, 1);
 
   /* Midbox-style palette — soft warm off-white, near-black ink, lime accent */
   --background: #EEEEE8;
@@ -361,6 +381,11 @@
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Sin esto, cualquier elemento decorativo que se salga un par de px de
+       su contenedor (franjas en diagonal, SVG con overflow:visible) abre
+       scroll horizontal en TODA la página — un "desliza a la derecha y se
+       ve blanco" real, no cosmético. Auditoría /network 2026-08-30. */
+    overflow-x: clip;
   }
   html {
     font-family: var(--font-jakarta), system-ui, sans-serif;
@@ -483,20 +508,68 @@ nextjs-portal { display: none !important; }
 .portal-page-in { animation: portal-page-in .22s ease both; }
 .portal-page-out { animation: portal-page-out .2s ease both; }
 
+/* Transición entre rutas del PANEL (components/layout/panel-page-transition.tsx).
+   El contenido ya está montado por React antes de que esto corra (la ruta
+   nueva reconcilia primero); esto solo reproduce la entrada sobre ese
+   contenido ya presente — no hay una salida real de la pantalla anterior,
+   ni falta hace: un solo frame de opacidad 0 en el nuevo contenido ya evita
+   el "aparece de golpe". `both` conserva el estado inicial durante el
+   primer paint del frame reiniciado. */
+@keyframes panel-page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.panel-page-in { animation: panel-page-in var(--motion-normal) var(--motion-ease) both; }
+
+/* Calendario — cambiar de día/semana/mes (app/(dashboard)/calendario/page.tsx,
+   vía ReanimarAlCambiar). Solo opacidad, nunca transform: la rejilla tiene
+   bloques posicionados en absoluto y arrastrables (drag & drop de sesiones);
+   animar un transform en el contenedor padre desplazaría las coordenadas que
+   ese drag calcula en cada frame. Nivel C (operación muy frecuente,
+   sección 4): --motion-fast, no --motion-normal. */
+@keyframes calendario-vista-in { from { opacity: 0; } to { opacity: 1; } }
+.calendario-vista-in { animation: calendario-vista-in var(--motion-fast) var(--motion-ease) both; }
+
+/* Menú "Más" a pantalla completa en móvil (components/layout/sidebar.tsx,
+   MasDrawer) — aparecía/desaparecía de golpe. Sube desde abajo como el resto
+   de hojas móviles del repo (mismo espíritu que drawer-sheet-in, pero
+   vertical: esto es un menú a pantalla completa, no un panel lateral).
+   Cerrar es más corto que abrir, mismo criterio que el resto de overlays. */
+@keyframes mas-drawer-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes mas-drawer-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(12px); } }
+.mas-drawer-in { animation: mas-drawer-in var(--motion-medium) var(--motion-ease) both; }
+.mas-drawer-out { animation: mas-drawer-out var(--motion-fast) var(--motion-ease-in) both; }
+
+/* Menús contextuales sueltos (equipo, calendario, sidebar, editor de temas...):
+   `{abierto && <div>…}` sin transición, aparecían de golpe. Sin
+   transform-origin fijo a propósito — se abren desde esquinas distintas
+   (arriba/abajo, izquierda/derecha) según cada sitio, y un origin fijo
+   quedaría mal en la mitad de ellos; escalar desde el centro es correcto en
+   cualquier dirección. Solo entrada: son menús que se cierran con un click
+   fuera o al elegir una opción, no con un botón "cerrar" que merezca una
+   salida animada aparte. */
+@keyframes menu-pop-in { from { opacity: 0; transform: scale(.98); } to { opacity: 1; transform: scale(1); } }
+.menu-pop-in { animation: menu-pop-in var(--motion-fast) var(--motion-ease) both; }
+
+/* Contenido de pestañas propias (fuera del <Tabs> compartido de base-ui, que
+   ya anima solo): cambiar de pestaña era un corte seco. Crossfade puro, sin
+   transform — sección 12 del brief pide justo esto y nada de "reproducir una
+   animación completa de página" en cada cambio de tab. */
+@keyframes tab-content-in { from { opacity: 0; } to { opacity: 1; } }
+.tab-content-in { animation: tab-content-in var(--motion-fast) var(--motion-ease) both; }
+
+/* Toast (components/ui/toast.tsx) — entraba/salía de golpe, sin transición.
+   Entrada con algo más de presencia (sube desde abajo, es una confirmación);
+   salida más corta, mismo criterio que el resto de overlays de este archivo
+   (sheet-pop-out, drawer-*-out): cerrar debe sentirse inmediato. */
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px) scale(.97); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes toast-out { from { opacity: 1; transform: translate(-50%, 0) scale(1); } to { opacity: 0; transform: translate(-50%, 4px) scale(.98); } }
+.toast-in { animation: toast-in var(--motion-medium) var(--motion-ease) both; }
+.toast-out { animation: toast-out var(--motion-fast) var(--motion-ease-in) both; }
+
 /* Skeleton compartido del widget de reservas (Fase 4 del rediseño,
    docs/widget-reservas-fase4-brief-diseno.md) — barrido de brillo horizontal
    sobre un bloque, no un `animate-pulse` de opacidad. */
 @keyframes widget-skeleton-shimmer {
   0%   { background-position: 130% 0; }
   100% { background-position: -130% 0; }
-}
-
-/* El brillo que cruza el pase de acceso (components/portal/hoja-pase.tsx).
-   Solo `transform`: lo resuelve el compositor y no repinta el QR en cada
-   fotograma, que es un SVG de varios cientos de rectángulos. */
-@keyframes paseBrillo {
-  0%   { transform: translateX(-150%) rotate(10deg); }
-  100% { transform: translateX(240%) rotate(10deg); }
 }
 
 /* DashboardDrawer (components/ui/dashboard-drawer.tsx) — entra/sale
@@ -539,15 +612,43 @@ nextjs-portal { display: none !important; }
    gris fijo: así el feedback táctil respeta el white-label del estudio en
    los dos modos de embebido, incluida la rejilla de neutros fijos (formato
    06) que sigue recibiendo `--portal-brand` aunque ignore el resto de `t`. */
-.reserva-slot-row { transition: background-color .18s ease; }
-.reserva-slot-row:hover { background-color: color-mix(in oklab, var(--portal-brand) 6%, transparent); }
-.reserva-slot-row:active { background-color: color-mix(in oklab, var(--portal-brand) 10%, transparent); }
+/* ⚠️ Auditoría pixel-perfect contra Claude Design (2026-08-29): a la tarjeta
+   de la lista de clases (`TarjetaClaseImpl`) le faltaban DOS cosas del diseño
+   — la entrada con fundido+ascenso (`animation: pUp .35s both` en el
+   original) y el tratamiento de hover/activo por borde+sombra en vez de solo
+   un tinte de fondo.
+   ⚠️ Corregido (2026-08-30, "copia exacta del artefacto, punto por punto"):
+   el `.dc.html` original NO lleva ningún tinte de `background-color` en
+   hover/activo de la tarjeta — solo `border-color`+`box-shadow` en hover
+   (`style-hover="border-color:var(--ter);box-shadow:0 10px 26px -16px
+   rgba(15,15,15,.18)"`) y `transform:scale(.995)` en activo
+   (`style-active="transform:scale(.995)"`), sin tocar el fondo en ningún
+   caso. El tinte de `--portal-brand` que había aquí antes era un añadido
+   propio, no algo del diseño — quitado para que coincida exacto. */
+.reserva-slot-row { transition: border-color .2s ease, box-shadow .25s ease, transform .15s ease; animation: reserva-card-in .35s ease both; }
+.reserva-slot-row:hover { border-color: var(--portal-micro, var(--portal-line)); box-shadow: 0 10px 26px -16px rgba(15, 15, 15, .18); }
+.reserva-slot-row:active { transform: scale(.995); }
 
-.reserva-day-chip:hover { border-color: color-mix(in oklab, var(--portal-brand) 55%, transparent); }
+@keyframes reserva-card-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 
-.reserva-cta-btn { transition: filter .18s ease, transform .12s ease; }
-.reserva-cta-btn:hover:not(:disabled) { filter: brightness(.94); }
-.reserva-cta-btn:active:not(:disabled) { transform: scale(.98); }
+/* ⚠️ Corregido (2026-08-30): el chip ya no lleva `border` (pasó a anillo
+   interior por `box-shadow`, auditoría del 2026-08-29) — un `:hover` sobre
+   `border-color` no tiene ningún efecto visible ahí, quedó muerto. El
+   diseño no lleva hover en este control; solo `style-active=
+   "transform:scale(.93)"`, que faltaba del todo. `!important` porque el
+   chip fija su propio `transform` en línea (1.04 si está seleccionado, 1 si
+   no) para la escala de reposo — sin él, una regla de clase normal nunca le
+   gana a un `style` en línea. */
+.reserva-day-chip { transition: transform .1s ease; }
+.reserva-day-chip:active { transform: scale(.93) !important; }
+
+/* ⚠️ Corregido (2026-08-30): el diseño no lleva ningún efecto de hover en
+   este botón (ni `filter`, ni cambio de fondo) — solo
+   `style-active="transform:scale(.96)"` sobre una transición base de
+   `transform .15s, background .2s`. El `filter:brightness()` en hover y el
+   `scale(.98)` en activo eran un añadido propio, no del `.dc.html`. */
+.reserva-cta-btn { transition: transform .15s ease, background .2s ease; }
+.reserva-cta-btn:active:not(:disabled) { transform: scale(.96); }
 
 @keyframes reserva-banner-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .reserva-banner-in { animation: reserva-banner-in .3s cubic-bezier(0.16, 1, 0.3, 1) both; }
@@ -627,10 +728,44 @@ nextjs-portal { display: none !important; }
   .pantalla-reserva-grid { grid-template-columns: 1fr 1fr !important; align-items: start; }
 }
 
+/* Auditoría de conversión (2026-08-31): total+CTA de "Tus datos" pegados al
+   fondo del viewport SOLO por debajo de 760px — el mismo corte que decide
+   una columna vs. dos aquí arriba. En escritorio la tarjeta de pago ya es
+   una columna corta y visible sin scroll; en móvil es la pantalla más larga
+   del checkout (foto+ficha+formulario+sitio+bonos+código+casilla) y el botón
+   se perdía al fondo. `position: sticky` no rompe Modo B (embebido `inline`,
+   crece con el contenido, sin scroll propio) — sin un contenedor con scroll
+   que "pegar", simplemente no hace nada ahí, nunca peor que antes. */
+@container (max-width: 759px) {
+  .pantalla-reserva-cta-pegada {
+    position: sticky; bottom: 0; z-index: 5;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--portal-surface);
+  }
+}
+
 /* Transición entre "Tus datos" y "Pago" — nunca un salto seco de página a
    página (eso es justo la sensación de "wizard" que se pidió evitar). */
 @keyframes pantalla-reserva-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .pantalla-reserva-seccion { animation: pantalla-reserva-entra .32s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Icono de "Reserva confirmada" (diseño "Tentare Portal Reservas"): anillo que
+   se expande y se disuelve detrás de un check que aparece con un ligero
+   rebote, más un confeti de 4 partículas — solo para el estado de éxito REAL
+   (confirmacionPago === 'confirmada'), nunca para los estados de espera/fallo. */
+@keyframes reserva-check-ring { 0% { transform: scale(.4); opacity: .6; } 100% { transform: scale(2); opacity: 0; } }
+@keyframes reserva-check-pop { 0% { transform: scale(0); } 55% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes reserva-confeti-a { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(-42px, -96px) rotate(300deg); } }
+@keyframes reserva-confeti-b { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(6px, -116px) rotate(-260deg); } }
+@keyframes reserva-confeti-c { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(46px, -88px) rotate(240deg); } }
+.reserva-check-ring { animation: reserva-check-ring .9s ease-out both; }
+.reserva-check-pop { animation: reserva-check-pop .55s cubic-bezier(.34, 1.5, .5, 1) both; }
+.reserva-confeti-a { animation: reserva-confeti-a .9s .1s ease-out both; }
+.reserva-confeti-b1 { animation: reserva-confeti-b .95s .05s ease-out both; }
+.reserva-confeti-c { animation: reserva-confeti-c .9s .14s ease-out both; }
+.reserva-confeti-b2 { animation: reserva-confeti-b .85s .24s ease-out both; }
+/* prefers-reduced-motion ya se respeta globalmente (regla `*` más abajo en
+   este fichero) — nada per-animación que añadir aquí. */
 
 /* Código promocional expandido — mismo criterio visual que el resto de
    campos de la pantalla (línea + fondo sutil), auditado contra Momence. */
@@ -733,17 +868,6 @@ nextjs-portal { display: none !important; }
   }
 }
 
-/* Editor de Apariencia — click directo sobre el preview (Fase C): resalta el
-   bloque del catálogo cuya fila está seleccionada en el panel izquierdo. Solo
-   se aplica dentro de /portal-preview (ver components/portal/portal-preview-bridge.ts,
-   usePreviewResaltado), pero vive en globals.css porque es una clase, no un
-   selector de ruta. */
-[data-bloque-id].tentare-preview-seleccionado {
-  outline: 2px solid var(--portal-brand, #6D28D9);
-  outline-offset: 2px;
-  border-radius: 8px;
-}
-
 /* Network landing (/network) — entrada del hero al cargar y respiración del
    punto del badge de beta. El bloque global de prefers-reduced-motion de
    arriba ya neutraliza las dos: no hace falta un guard aparte aquí. El
@@ -753,3 +877,22 @@ nextjs-portal { display: none !important; }
 .nw-fade-up { animation: nw-fade-up .7s cubic-bezier(.16,1,.3,1) both; }
 @keyframes nw-pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(1.35); } }
 .nw-pulse-dot { animation: nw-pulse-dot 2.2s ease-in-out infinite; }
+
+/* Móviles flotando del hero — clon literal del mockup de Claude Design
+   (2026-08-30, "UI mockups for landing page"). Tres curvas distintas para
+   que no floten en fase (rotación fija por tarjeta, solo la Y respira). */
+@keyframes nw-float-a { 0%, 100% { transform: translateY(0) rotate(-3.5deg); } 50% { transform: translateY(-13px) rotate(-3.5deg); } }
+@keyframes nw-float-b { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-18px); } }
+@keyframes nw-float-c { 0%,100% { transform: translateY(0) rotate(3.5deg); } 50% { transform: translateY(-10px) rotate(3.5deg); } }
+.nw-float-a { animation: nw-float-a 7.5s ease-in-out infinite; }
+.nw-float-b { animation: nw-float-b 9s .6s ease-in-out infinite; }
+.nw-float-c { animation: nw-float-c 8s 1.2s ease-in-out infinite; }
+
+/* Ficha del estudio (/portal/[slug]/estudio) — Ken Burns lento del hero y
+   entrada/cierre del visor de galería a pantalla completa. El bloque de
+   prefers-reduced-motion de arriba ya lo neutraliza, no hace falta guard
+   propio aquí. */
+@keyframes portal-estudio-ken { 0% { transform: scale(1.04) translate(0, 0); } 100% { transform: scale(1.13) translate(-1.2%, -1.6%); } }
+.portal-estudio-hero-img { animation: portal-estudio-ken 16s ease-in-out infinite alternate; }
+@keyframes portal-estudio-visor-in { from { opacity: 0; } to { opacity: 1; } }
+.portal-estudio-visor { animation: portal-estudio-visor-in .2s ease-out both; }

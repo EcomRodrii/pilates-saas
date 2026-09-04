@@ -2,16 +2,20 @@
 // FEATURE FREEZE — fase Product-Market Fit (2026-07-23)
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Cuatro módulos se CONGELAN para centrar el producto en el flujo principal de
-// un estudio de Pilates. Congelar ≠ borrar: el código, las páginas, los hooks,
-// las APIs, las tablas, las migraciones y los datos SIGUEN INTACTOS. Solo se
-// desconectan del flujo principal para que el usuario no sepa que existen.
+// Tres módulos siguen CONGELADOS para centrar el producto en el flujo
+// principal de un estudio de Pilates. Congelar ≠ borrar: el código, las
+// páginas, los hooks, las APIs, las tablas, las migraciones y los datos
+// SIGUEN INTACTOS. Solo se desconectan del flujo principal para que el
+// usuario no sepa que existen.
 //
 //   · Kiosko    → /kiosk/*            (pantalla de check-in en tablet)
 //   · POS/Caja  → /pos                (punto de venta / TPV / datáfono)
 //   · VOD       → /ondemand  +  el "Vídeos" del portal de socias
-//   · Comunidad → /comunidad          (posts, likes, comentarios)
 //   · Chat      → /chat               (chat de equipo — RLS roto D2 + no es la cuña)
+//
+// Comunidad se REACTIVÓ (P1, Community & Messaging OS, ver
+// docs/community-os-diseno-p0.md/community-messaging-os-freeze-levantado):
+// decisión explícita del usuario, no una reversión de este documento.
 //
 // Fuente única de verdad del freeze. Un solo interruptor gobierna: menú lateral,
 // barra inferior, cajón "Más", editor de menú, buscador/paleta ⌘K y el guardia
@@ -44,7 +48,6 @@ export const RUTAS_CONGELADAS = [
   '/kiosk',
   '/pos',
   '/ondemand',
-  '/comunidad',
   '/chat',
 ] as const;
 

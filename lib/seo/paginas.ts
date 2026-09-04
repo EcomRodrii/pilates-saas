@@ -32,7 +32,7 @@ import { LEGAL } from '../legal-info.ts';
 export const BASE_URL: string = LEGAL.url;
 
 /** Los cuatro grupos de la arquitectura, más el bloque legal. */
-export type GrupoSeo = 'home' | 'software' | 'funcionalidades' | 'soluciones' | 'recursos' | 'legal';
+export type GrupoSeo = 'home' | 'software' | 'funcionalidades' | 'soluciones' | 'recursos' | 'ayuda' | 'legal';
 
 export interface PaginaSeo {
   /** Ruta absoluta sin dominio y SIN barra final ('/' es la única excepción). */
@@ -378,6 +378,33 @@ export const PAGINAS: PaginaSeo[] = [
     changeFrequency: 'monthly',
     relacionadas: ['/network', '/network/instructoras'],
   },
+  // Términos y privacidad propios de Network (2026-08-30, tras el clon
+  // literal de la landing #1482): la relación es de tres partes
+  // (instructora↔estudio↔Tentare), distinta de una suscripción SaaS — los
+  // /terminos y /privacidad generales no la cubren. `grupo: 'legal'` como
+  // el resto de páginas legales, aunque viven bajo /network (route group
+  // `(legal)`, no aporta segmento de URL — mismo mecanismo que
+  // app/(legal)/).
+  {
+    path: '/network/terminos',
+    titulo: 'Términos y condiciones — Tentare Network',
+    descripcion: 'Condiciones de uso de Tentare Network: cómo funciona el contacto entre instructoras y estudios, verificación de perfiles y moderación.',
+    grupo: 'legal',
+    etiqueta: 'Términos de Network',
+    prioridad: 0.3,
+    changeFrequency: 'yearly',
+    relacionadas: ['/network', '/network/privacidad'],
+  },
+  {
+    path: '/network/privacidad',
+    titulo: 'Política de privacidad — Tentare Network',
+    descripcion: 'Cómo trata Tentare Network los datos de instructoras y estudios: qué se publica, qué queda privado y cómo se verifica un perfil.',
+    grupo: 'legal',
+    etiqueta: 'Privacidad de Network',
+    prioridad: 0.3,
+    changeFrequency: 'yearly',
+    relacionadas: ['/network', '/network/terminos'],
+  },
 
   // ── Ya existían antes de este registro ────────────────────────────────────
   {
@@ -560,6 +587,35 @@ export const PAGINAS: PaginaSeo[] = [
     relacionadas: ['/funcionalidades/ficha-de-clienta', '/comparativa'],
   },
 
+  // ── Centro de Ayuda ──────────────────────────────────────────────────────
+  // Solo las dos páginas ESTÁTICAS (home y novedades) van aquí — las categorías
+  // y artículos son rutas dinámicas (app/ayuda/[categoria] y
+  // app/ayuda/[categoria]/[articulo]), que paginas.test.ts excluye del barrido
+  // de app/ por definición, y que app/sitemap.ts añade aparte desde
+  // lib/ayuda/registro.ts (mismo patrón que los perfiles de Network).
+  {
+    path: '/ayuda',
+    titulo: 'Centro de Ayuda — Documentación de Tentare',
+    descripcion: 'La documentación oficial de Tentare: cómo configurar tu estudio, reservas, pagos, bonos, el portal de reservas, el widget y qué hacer cuando algo falla.',
+    grupo: 'ayuda',
+    etiqueta: 'Centro de Ayuda',
+    resumen: 'Documentación oficial de Tentare, paso a paso.',
+    prioridad: 0.8,
+    changeFrequency: 'weekly',
+    actualizado: '2026-08-28',
+  },
+  {
+    path: '/ayuda/novedades',
+    titulo: 'Novedades de Tentare | Centro de Ayuda',
+    descripcion: 'Nuevas funcionalidades, mejoras y correcciones publicadas en Tentare, versión a versión.',
+    grupo: 'ayuda',
+    etiqueta: 'Novedades',
+    prioridad: 0.5,
+    changeFrequency: 'weekly',
+    actualizado: '2026-08-28',
+    relacionadas: ['/ayuda'],
+  },
+
   // ── Legales ───────────────────────────────────────────────────────────────
   // `titulo`/`descripcion` van ya con el texto real de cada page.tsx (más
   // descriptivo que el `${etiqueta} — Tentare` genérico de antes) — solo se
@@ -702,7 +758,10 @@ export const PREFIJOS_NO_INDEXABLES = [
 // piezas. Solo el paso 1 (cuenta) es alcanzable sin sesión; los pasos
 // siguientes exigen auth, así que un rastreador sin sesión no ve nada
 // privado.
-export const EXCEPCIONES_INDEXABLES: readonly string[] = ['/network/instructoras', '/network/crear-perfil'];
+// /network/terminos y /network/privacidad (2026-08-30): páginas legales
+// propias del marketplace — indexables por la misma razón que las legales
+// generales (/legal, /privacidad, /terminos, /cookies) lo son.
+export const EXCEPCIONES_INDEXABLES: readonly string[] = ['/network/instructoras', '/network/crear-perfil', '/network/terminos', '/network/privacidad'];
 
 /**
  * Rutas que son un `redirect()` y no una página.

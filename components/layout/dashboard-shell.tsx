@@ -14,6 +14,7 @@ import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { TourProvider } from '@/lib/tour-context';
 import { Spotlight } from '@/components/tour/spotlight';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
+import { PanelPageTransition } from '@/components/layout/panel-page-transition';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida';
 import { ReviewBoostModal } from '@/components/growth/review-boost-modal';
@@ -237,7 +238,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <main className="lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200">
             <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <Topbar />
-              {cargandoDatos ? <PanelSkeleton /> : children}
+              <PanelPageTransition>
+                {cargandoDatos ? <PanelSkeleton /> : children}
+              </PanelPageTransition>
             </div>
           </main>
           <WhatsAppFab />

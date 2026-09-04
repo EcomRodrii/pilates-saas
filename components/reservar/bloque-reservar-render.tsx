@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { serif, sans, cq, radius, shadow } from '@/lib/reservar-publico-tokens';
 import { resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto, type BloqueHome, type BloqueTipoCatalogo, type EstiloBloque, type ContenedorConfig } from '@/lib/portal-home-bloques';
-import { paraKind, type PropsBloqueRender } from '@/components/portal/bloques/registro-render';
-import { TextoRico } from '@/components/portal/texto-rico';
+import { paraKind, type PropsBloqueRender } from '@/components/reservar/comun/registro-render';
+import { TextoRico } from '@/components/reservar/comun/texto-rico';
 
 // Presentación de los bloques del catálogo (banner/texto/cta/faq/galería/
 // vídeo/testimonios/contenedor) para /reservar — la generalización del

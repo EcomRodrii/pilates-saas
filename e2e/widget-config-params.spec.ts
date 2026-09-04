@@ -54,17 +54,24 @@ const tabsDia = (page: Page) => page.getByRole('tablist', { name: 'Elegir día' 
 
 test('⚠️ regresión: sin parámetros nuevos, todo sigue exactamente igual', async ({ page }) => {
   await abrir(page, '');
-  // Tira de 10 días, los dos tipos visibles, y la hoja con precio, nivel y
-  // aviso de sustitución — el estado de partida que los toggles apagan.
+  // Tira de 10 días, los dos tipos visibles, y la propia tarjeta con precio —
+  // el estado de partida que los toggles apagan.
   await expect(tabsDia(page)).toHaveCount(10);
+  const fila = page.locator('.reserva-slot-row', { hasText: 'Reformer' });
   await expect(page.locator('.reserva-slot-row')).toHaveCount(2); // Reformer 10:00 + Mat 12:00 (hoy)
-  await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
-  // ⚠️ Rediseño "sin popup": la ficha ya no es `role="dialog"` — sustituye
-  // el listado en el sitio de siempre (oculto mientras está abierta), así
-  // que no hace falta acotar contra nada más visible detrás.
-  await expect(page.locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
-  await expect(page.getByText('Todos los niveles')).toBeVisible();
-  await expect(page.getByText('Sustituye a Bea hoy')).toBeVisible();
+  // El precio ya se ve en la propia tarjeta, sin abrir nada (TarjetaClaseImpl,
+  // reserva-calendario.tsx) — no hace falta la ficha para verificarlo.
+  await expect(fila.locator('.reserva-cta-btn')).toHaveText('Reservar');
+  await expect(fila).toContainText('15 €');
+  // Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
+  // pantallas seguidas"): esta fixture (sin `reservaExigirPlan`/
+  // `stripeAccountId`) no cumple el gate de checkout-sin-login, así que un
+  // tap en la tarjeta salta la ficha DIRECTO a 'login' — nivel/sustituta
+  // (contenido exclusivo de la ficha) quedan fuera del alcance de una
+  // invitada aquí; el toggle que sí los sigue protegiendo está más abajo con
+  // una fixture autenticada.
+  await fila.click();
+  await expect(page.getByRole('heading', { name: 'Entra para reservar' })).toBeVisible({ timeout: 30_000 });
 });
 
 test('un filtro de tipo enseña SOLO ese tipo (listado y chips)', async ({ page }) => {
@@ -88,16 +95,48 @@ test('filtro por instructora, por id', async ({ page }) => {
 
 test('⚠️ ocultar-precio quita el precio DE VERDAD, no solo del botón', async ({ page }) => {
   await abrir(page, '&ocultar-precio=1');
-  await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
-  await expect(page.locator('.reserva-cta-btn')).toHaveText('Reservar');
-  // Ni en la línea de cobertura ni en ningún otro rincón de la página: con
-  // la ficha abierta, el listado/bonos/cifras que también podrían mostrar un
-  // precio están ocultos (`enVistaReserva`, app/reservar/[slug]/page.tsx).
-  await expect(page.locator('body')).not.toContainText('€');
+  // El precio (o su ausencia) ya se ve en la propia tarjeta, sin necesitar
+  // abrir la ficha — ver el docblock del test de regresión de arriba.
+  const fila = page.locator('.reserva-slot-row', { hasText: 'Reformer' });
+  await expect(fila.locator('.reserva-cta-btn')).toHaveText('Reservar');
+  // Acotado a la propia tarjeta: la página SIGUE teniendo su sección de
+  // "Bonos y membresías" con precio (le compete a otra cosa, no a
+  // `ocultar-precio`, que solo tapa el precio de LA CLASE) — antes, con la
+  // ficha abierta, esa sección quedaba oculta detrás y un `body` a secas
+  // colaba. Ahora que la invitada ya no abre la ficha (petición explícita
+  // del fundador, 2026-08-30), esa sección sigue en pantalla y el `body`
+  // entero SÍ lleva un «€» legítimo — acotar a la tarjeta es lo que de
+  // verdad prueba lo que este test protege.
+  await expect(fila).not.toContainText('€');
 });
 
 test('ocultar-nivel y ocultar-sustituta apagan cada uno lo suyo', async ({ page }) => {
-  await abrir(page, '&ocultar-nivel=1&ocultar-sustituta=1');
+  // Nivel y sustituta son contenido EXCLUSIVO de la ficha (BookingSheet) — no
+  // aparecen en la tarjeta del listado. Desde que una invitada sin sesión
+  // salta la ficha (petición explícita del fundador, 2026-08-30: "no quiero
+  // que se coma 3 pantallas seguidas"), verificar estos dos toggles necesita
+  // una socia YA autenticada, que sigue viendo la ficha sin cambios (ver
+  // `saltarFichaSiInvitada` en reserva-calendario.tsx) — mismo patrón de
+  // sesión simulada que el test de Modo B más abajo en este fichero.
+  await page.addInitScript(() => {
+    localStorage.setItem('sb-portal-auth', JSON.stringify({
+      access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
+      expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
+      user: { id: 'auth-e2e', email: 'e2e@test.com', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
+    }));
+  });
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await mocks(page);
+  // ⚠️ DESPUÉS de `mocks()`: Playwright resuelve el `page.route` registrado
+  // MÁS RECIENTE primero — si esta ruta fuera anterior, el 404 genérico de
+  // `mocks()` la taparía y la sesión nunca se reconocería.
+  await page.route('**/api/public/session', r => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Alumna E2E', email: 'e2e@test.com' }),
+  }));
+  await page.goto(`/reservar/${SLUG}?embed=1&tab=clases&ocultar-nivel=1&ocultar-sustituta=1`);
+  await page.locator('#horario').waitFor({ timeout: 150_000 });
+  await page.locator('.reserva-slot-row').first().waitFor({ timeout: 30_000 });
   await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
   await expect(page.getByRole('heading', { name: 'Reformer' })).toBeVisible();
   await expect(page.getByText('Todos los niveles')).toHaveCount(0);
@@ -167,6 +206,24 @@ test('⚠️ Modo B (bundle real): data-fuente/data-fuente-display pintan el sha
   await page.setViewportSize({ width: 1100, height: 760 });
   await mocks(page);
   await page.route('**/api/public/studio-data**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx()) }));
+  // ⚠️ Este test comprueba TIPOGRAFÍA dentro de la ficha, no el flujo de
+  // acceso — pero desde que Modo B redirige a la página real de Tentare
+  // cuando NO hay sesión (petición del fundador: nunca dos toques para
+  // llegar a "Reservar"), sin sesión la ficha ya no llega a abrirse aquí.
+  // Se simula una socia YA autenticada (mismo patrón que
+  // e2e/booking.spec.ts para loginConPassword) para poder seguir mirando el
+  // h2 de la ficha, que es lo que este test necesita de verdad.
+  await page.addInitScript(() => {
+    localStorage.setItem('sb-portal-auth', JSON.stringify({
+      access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
+      expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
+      user: { id: 'auth-e2e', email: 'e2e@test.com', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
+    }));
+  });
+  await page.route('**/api/public/session', r => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Alumna E2E', email: 'e2e@test.com' }),
+  }));
   await page.route('**/host-widget-e2e', r => r.fulfill({
     contentType: 'text/html',
     body: `<!doctype html><html><body>
@@ -255,9 +312,86 @@ test('⚠️ la página SUELTA ignora los parámetros del snippet', async ({ pag
   await page.goto(`/reservar/${SLUG}?tipos=tc-m&ocultar-precio=1&vista=hoy&marca=%23112233`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await page.locator('.reserva-slot-row').first().waitFor({ timeout: 30_000 });
-  // Sin embed=1 nada de esto aplica: los dos tipos, la tira completa.
+  // Sin embed=1 nada de esto aplica: los dos tipos, la tira completa, y el
+  // precio visible en la propia tarjeta (ver el docblock del test de
+  // regresión de arriba — no hace falta abrir la ficha para comprobarlo).
   await expect(page.locator('.reserva-slot-row')).toHaveCount(2);
   await expect(tabsDia(page)).toHaveCount(10);
-  await page.locator('.reserva-slot-row', { hasText: 'Reformer' }).click();
-  await expect(page.locator('.reserva-cta-btn')).toHaveText(/Reservar por 15 €/);
+  const fila = page.locator('.reserva-slot-row', { hasText: 'Reformer' });
+  await expect(fila.locator('.reserva-cta-btn')).toHaveText('Reservar');
+  await expect(fila).toContainText('15 €');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auditoría de rendimiento (2026-08-31): `<ListaPlanes>` (Stripe incluido) ya
+// no viaja en `widget.js` — se carga bajo demanda desde `widget-checkout.js`
+// (`import()` nativo, ver components/checkout-widget/checkout-lazy-mount.tsx)
+// SOLO al abrir "Planes". Verificado con los DOS bundles reales compilados
+// (igual que el test de arriba), no con una fixture aislada: si el `import()`
+// resolviera contra el origen equivocado, o si las dos raíces de React
+// chocaran entre sí, esto es lo que lo destaparía.
+test('⚠️ Modo B (bundle real): "Planes" carga el checkout bajo demanda (widget-checkout.js)', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await mocks(page);
+  await page.route('**/api/public/studio-data**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx()) }));
+  await page.addInitScript(() => {
+    localStorage.setItem('sb-portal-auth', JSON.stringify({
+      access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
+      expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
+      user: { id: 'auth-e2e', email: 'e2e@test.com', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
+    }));
+  });
+  await page.route('**/api/public/session', r => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Alumna E2E', email: 'e2e@test.com' }),
+  }));
+  await page.route('**/host-widget-e2e', r => r.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body>
+      <div data-tentare-booking data-studio="${SLUG}"></div>
+      <script src="/widget.js" async></script>
+    </body></html>`,
+  }));
+
+  // `widget-checkout.js` NO se pide hasta pulsar "Planes" — comprobado
+  // observando las peticiones de red antes y después del clic, no solo que
+  // el contenido aparezca (eso solo probaría el resultado, no el "bajo
+  // demanda" que es justo lo que cambió).
+  const peticionesCheckoutJs: string[] = [];
+  page.on('request', req => { if (req.url().includes('widget-checkout.js')) peticionesCheckoutJs.push(req.url()); });
+
+  await page.goto('/host-widget-e2e');
+  const boton = page.getByRole('button', { name: 'Planes' });
+  await boton.waitFor({ timeout: 30_000 });
+  expect(peticionesCheckoutJs, 'widget-checkout.js no debe pedirse antes de abrir "Planes"').toHaveLength(0);
+
+  await boton.click();
+  await expect(page.getByRole('heading', { name: 'Planes y bonos' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Clase suelta')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Comprar' })).toBeVisible();
+  expect(peticionesCheckoutJs.length).toBeGreaterThan(0);
+
+  // Cerrar y reabrir: la raíz de React ya creada se reutiliza (no un segundo
+  // fetch, no un aviso de "createRoot() on a container that already has...").
+  const erroresConsola: string[] = [];
+  page.on('console', msg => { if (msg.type() === 'error') erroresConsola.push(msg.text()); });
+  await page.getByRole('button', { name: 'Cerrar' }).first().click();
+  await boton.click();
+  await expect(page.getByRole('heading', { name: 'Planes y bonos' })).toBeVisible({ timeout: 30_000 });
+  expect(erroresConsola.join('\n')).not.toContain('createRoot()');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auditoría de UX (2026-08-31): "Colores del widget" (Theme Builder —
+// superficie/tinta/bordes) se guardaba y se veía en la vista previa del panel,
+// pero NUNCA llegaba a `/reservar/[slug]` — `tokensCalendario` (page.tsx)
+// solo distinguía día/noche, sin pisar los 5 campos que el estudio pudiera
+// tocar (`lib/reservar-publico-tokens.ts`, `tokensCalendarioDeApariencia`).
+// Mismo patrón que el test de `marca=` de arriba: color computado real, no
+// leyendo el prop.
+test('superficie=/linea= pisan de verdad la tarjeta de clase (no solo la vista previa del panel)', async ({ page }) => {
+  await abrir(page, '&superficie=%23112233&linea=%23FF00AA');
+  const fila = page.locator('.reserva-slot-row', { hasText: 'Reformer' });
+  await expect(fila).toHaveCSS('background-color', 'rgb(17, 34, 51)');
+  await expect(fila).toHaveCSS('border-color', 'rgb(255, 0, 170)');
 });

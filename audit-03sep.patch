@@ -1,0 +1,2106 @@
+From 58f10f4a5de179970cd0d478b49df05516cff890 Mon Sep 17 00:00:00 2001
+From: Claude Opus 5 <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 17:10:58 +0200
+Subject: [PATCH 1/2] =?UTF-8?q?fix(auditoria):=2022=C2=AA=20pasada=20?=
+ =?UTF-8?q?=E2=80=94=20los=20retornos=20de=20dinero=20del=20portal=20borra?=
+ =?UTF-8?q?do,=20F-1=20y=2012=20fixes=20m=C3=A1s?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ app/(dashboard)/calendario/page.tsx           |   4 +-
+ app/api/billing/webhook/route.ts              |  15 +-
+ app/api/devoluciones/revertir/route.ts        |  14 +-
+ app/api/public/checkout-embebido/route.ts     |  15 ++
+ app/api/reservas/devolver-bonos/route.ts      | 101 ++++++++++++++
+ app/api/stripe/setup-sepa/route.ts            |   5 +-
+ app/api/stripe/setup-tarjeta/route.ts         |   8 +-
+ app/api/stripe/webhook/route.ts               |  35 ++++-
+ app/network/alumna/inicio/page.tsx            |   6 +-
+ app/network/alumna/reanudar/page.tsx          |   6 +-
+ app/portal/[slug]/[[...resto]]/route.ts       |  24 +++-
+ app/reservar/[slug]/page.tsx                  | 131 +++++++++++-------
+ .../configuracion/tab-estudio-enlaces.tsx     |  22 ++-
+ components/layout/sidebar.tsx                 |   7 +-
+ components/theme/home-preview.tsx             |   7 +
+ components/theme/theme-editor-fullscreen.tsx  |  32 +++--
+ lib/billing/modo-stripe.test.ts               |   8 +-
+ lib/billing/modo-stripe.ts                    |  12 +-
+ lib/billing/origen-pago.test.ts               |  42 +++---
+ lib/billing/origen-pago.ts                    |  19 ++-
+ lib/billing/procesar-reembolso.ts             |  15 +-
+ lib/billing/sellar-factura-server.ts          |  11 ++
+ lib/calendario-estado.ts                      |   5 +-
+ lib/db/supabase-data-admin.ts                 |  74 ++++++++--
+ lib/emails/enviar-recibo-webhook.ts           |  18 ++-
+ lib/emails/plantillas-server.ts               |  13 +-
+ lib/inngest/automatizaciones.ts               |  16 ++-
+ lib/inngest/conciliar-cobros.ts               |  32 +++--
+ lib/inngest/conciliar-reembolsos.test.ts      |  33 ++++-
+ lib/notifications/catalog.ts                  |  47 ++++---
+ lib/notifications/engine.test.ts              |  29 +++-
+ lib/studio-context.tsx                        |  80 +++++++++--
+ lib/supabase-data.ts                          |  16 ++-
+ ...32056_aceptar_oferta_solo_service_role.sql |  23 +++
+ ...ar_policies_anon_true_contenido_portal.sql |  20 +++
+ 35 files changed, 754 insertions(+), 191 deletions(-)
+ create mode 100644 app/api/reservas/devolver-bonos/route.ts
+ create mode 100644 supabase/migrations/20260903132056_aceptar_oferta_solo_service_role.sql
+ create mode 100644 supabase/migrations/20260903132246_quitar_policies_anon_true_contenido_portal.sql
+
+diff --git a/app/(dashboard)/calendario/page.tsx b/app/(dashboard)/calendario/page.tsx
+index 9f10b852..d69e6098 100644
+--- a/app/(dashboard)/calendario/page.tsx
++++ b/app/(dashboard)/calendario/page.tsx
+@@ -1310,7 +1310,9 @@ export default function Calendario() {
+     const res = await deleteSesion(sesionId);
+     if (!res.ok) { showToast(res.error); return; }
+     setSesionId(null);
+-    showToast('Clase eliminada');
++    // F-9 (auditoría 22ª pasada): mismo trato que "Cancelar" — si alguna socia
++    // no recuperó su sesión de bono, el toast no puede decir solo "eliminada".
++    showToast(res.avisoBono ? `Clase eliminada · ${res.avisoBono}` : 'Clase eliminada');
+     void refrescarVista();
+   }
+ 
+diff --git a/app/api/billing/webhook/route.ts b/app/api/billing/webhook/route.ts
+index 159a2a93..05101873 100644
+--- a/app/api/billing/webhook/route.ts
++++ b/app/api/billing/webhook/route.ts
+@@ -164,15 +164,26 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
+     // `cadenas` es la única fuente de verdad para el billing de una cadena —
+     // el trigger propagar_plan_cadena (migración 0066) hace el fan-out a
+     // TODAS sus sedes en la misma transacción. No tocar `studios` aquí.
+-    const { error } = await admin.from('cadenas').update(update).eq('id', cadenaId);
++    // `.select('id')` por el mismo motivo que la rama sin metadata de más abajo
++    // (auditoría 22ª pasada, D-8): un `cadenaId` que ya no existe —cadena
++    // borrada, id de una suscripción vieja— no da error, así que el webhook
++    // respondía 200, marcaba el evento procesado y el estado de la suscripción
++    // no se sincronizaba nunca. El comentario de abajo ya lo explicaba; la
++    // defensa no estaba en esta capa.
++    const { data: filas, error } = await admin.from('cadenas').update(update).eq('id', cadenaId).select('id');
+     if (error) throw new Error(`update cadenas: ${error.message}`);
++    if (!filas?.length) throw new Error(`update cadenas: cadena ${cadenaId} no encontrada`);
+     capturar(cadenaId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+     return;
+   }
+ 
+   if (studioId) {
+-    const { error } = await admin.from('studios').update(update).eq('id', studioId);
++    // Mismo `.select('id')` que la rama de `cadenas` de arriba: sin él, un
++    // `studioId` inexistente en la metadata deja la suscripción sin sincronizar
++    // y el webhook lo celebra con un 200.
++    const { data: filas, error } = await admin.from('studios').update(update).eq('id', studioId).select('id');
+     if (error) throw new Error(`update studios: ${error.message}`);
++    if (!filas?.length) throw new Error(`update studios: estudio ${studioId} no encontrado`);
+     // R4: señal de ciclo de vida de la suscripción (alta/renovación/impago/baja).
+     capturar(studioId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+     // Review Boost: señal directa "vino de Review Boost y pagó", sin tener que
+diff --git a/app/api/devoluciones/revertir/route.ts b/app/api/devoluciones/revertir/route.ts
+index 1e6c687b..872fb14d 100644
+--- a/app/api/devoluciones/revertir/route.ts
++++ b/app/api/devoluciones/revertir/route.ts
+@@ -115,10 +115,16 @@ export async function POST(req: NextRequest) {
+   if (reversion.objetivo.fechaFin !== undefined) cambio.fecha_fin = reversion.objetivo.fechaFin;
+   if (reversion.objetivo.estado !== undefined) cambio.estado = reversion.objetivo.estado;
+ 
+-  const { error } = await admin.from('suscripciones').update(cambio)
+-    .eq('id', dev.suscripcion_id).eq('studio_id', sesion.studioId);
+-  if (error) {
+-    console.error('[devoluciones] no se pudo revertir la entrega', dev.id, error.message);
++  // ⚠️ `.select('id')` obligatorio: un UPDATE que no casa NINGUNA fila no da
++  // error en Supabase (auditoría 22ª pasada, D-6). Sin esto, si la suscripción
++  // desapareció entre la lectura de arriba y esta escritura, la devolución
++  // quedaba marcada REVERTIDA con un `aplicado` que describe algo que nunca se
++  // escribió: el panel decía que se retiraron las sesiones, la socia las
++  // conservaba, y nada lo señalaba.
++  const { data: revertidas, error } = await admin.from('suscripciones').update(cambio)
++    .eq('id', dev.suscripcion_id).eq('studio_id', sesion.studioId).select('id');
++  if (error || !revertidas?.length) {
++    console.error('[devoluciones] no se pudo revertir la entrega', dev.id, error?.message ?? 'sin filas afectadas');
+     return NextResponse.json({ error: 'No se ha podido revertir. Inténtalo de nuevo.' }, { status: 500 });
+   }
+ 
+diff --git a/app/api/public/checkout-embebido/route.ts b/app/api/public/checkout-embebido/route.ts
+index d95408d0..5d8057ad 100644
+--- a/app/api/public/checkout-embebido/route.ts
++++ b/app/api/public/checkout-embebido/route.ts
+@@ -254,6 +254,21 @@ export async function POST(req: NextRequest) {
+     }
+   }
+ 
++  // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-11. El `importe > 0` de arriba se
++  // comprueba ANTES del descuento, así que un código del 100 % dejaba llegar un
++  // importe de 0 € a `paymentIntents.create` y Stripe lo rechazaba: la socia
++  // veía un error interno genérico y el estudio no se enteraba de nada. Su
++  // gemelo `app/api/stripe/checkout` ya lo valida DESPUÉS (línea 221); aquí
++  // faltaba. Entregar gratis es otro camino (no pasa por Stripe) y no se
++  // improvisa en un endpoint de cobro: se dice claro que ese código no sirve
++  // para esta compra.
++  if (!(importe > 0)) {
++    return conCorsWidget(req, NextResponse.json(
++      { error: 'Ese código deja la compra en 0 €. Pide a tu estudio que te dé el bono directamente.' },
++      { status: 409 },
++    ));
++  }
++
+   // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
+   // si viene sesionId, comprobar que la clase sigue viva y que el plan la
+   // cubre ANTES de generar una intención de cobro — pagar por una clase que
+diff --git a/app/api/reservas/devolver-bonos/route.ts b/app/api/reservas/devolver-bonos/route.ts
+new file mode 100644
+index 00000000..77a5d41f
+--- /dev/null
++++ b/app/api/reservas/devolver-bonos/route.ts
+@@ -0,0 +1,101 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { verificarSesionStaff } from '@/lib/auth-server';
++import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
++import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
++import { devolverBonoServidor } from '@/lib/db/supabase-data-admin';
++
++export const dynamic = 'force-dynamic';
++
++// Auditoría 22ª pasada (3-sep-2026), F-1. Cancelar una clase devolvía la sesión
++// al bono de cada socia llamando a `devolver_sesion_bono` DIRECTO desde el
++// navegador (`dbDevolverSesionBono`). Esa RPC exige `puede_gestionar_calendario()`
++// desde el 2-sep (P-3), y ese predicado deja fuera a INSTRUCTOR — pero el botón
++// "Cancelar" del panel de sesión SÍ se le ofrece a la instructora en su propia
++// clase (`esPropiaClase`, app/(dashboard)/calendario/page.tsx), y la RLS de
++// `sesiones`/`reservas` se lo permite. Resultado: la instructora cancelaba, las
++// socias perdían su plaza, y CADA devolución de bono reventaba con
++// NO_AUTORIZADO. El único aviso lo veía ella, que es justo quien no puede
++// arreglarlo (tocar `suscripciones` exige `puede_mover_dinero()`).
++//
++// El arreglo es el mismo que cerró P-1 el 2-sep: la escritura sale del
++// navegador. El estudio se resuelve SIEMPRE de la sesión de staff, nunca del
++// cuerpo, y quien devuelve es `devolverBonoServidor` — la misma función que ya
++// usan los caminos de servidor (cancelación individual, sustituciones y el cron
++// de mínimo de asistentes), en vez de una copia paralela en el navegador.
++//
++// La política del estudio (`cancelacion_clase_devuelve_bono`) la sigue
++// decidiendo quien llama, igual que antes: este endpoint es el brazo, no la
++// cabeza. Se documenta porque es la parte que NO se ha movido de sitio.
++export async function POST(req: NextRequest) {
++  const sesion = await verificarSesionStaff(req);
++  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
++
++  const body = await req.json().catch(() => null) as { reservaIds?: unknown } | null;
++  const reservaIds = Array.isArray(body?.reservaIds)
++    ? [...new Set(body.reservaIds.filter((x): x is string => typeof x === 'string' && x.length > 0))]
++    : [];
++  if (reservaIds.length === 0) return NextResponse.json({ error: 'Falta reservaIds' }, { status: 400 });
++
++  const admin = getSupabaseAdmin();
++  if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
++
++  // Solo reservas de ESTE estudio y ya canceladas: la devolución es el remate de
++  // una cancelación, no una vía para regalar sesiones sobre reservas vivas.
++  const { data: reservas } = await admin
++    .from('reservas').select('id, socio_id, sesion_id, estado')
++    .in('id', reservaIds).eq('studio_id', sesion.studioId);
++  const canceladas = (reservas ?? []).filter(r => r.estado === 'CANCELADA');
++  if (canceladas.length === 0) return NextResponse.json({ devueltas: 0, fallos: 0, saldos: [] });
++
++  const sesionIds = [...new Set(canceladas.map(r => r.sesion_id as string))];
++  const { data: sesiones } = await admin
++    .from('sesiones').select('id, instructor_id, tipo_clase_id')
++    .in('id', sesionIds).eq('studio_id', sesion.studioId);
++
++  if (!puedeGestionarCalendario(sesion.rol)) {
++    if (sesion.rol !== 'INSTRUCTOR') return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
++    // Misma comprobación que `/api/reservas/cancelar`: con service-role
++    // `auth.uid()` es NULL, así que la guardia de la RPC quedaría bypaseada en
++    // silencio y hay que replicarla aquí. `limit(1)` en vez de `maybeSingle()`
++    // porque no hay UNIQUE(auth_user_id, studio_id) en `instructores`.
++    const { data: instructorRows } = await admin
++      .from('instructores').select('id')
++      .eq('auth_user_id', sesion.userId).eq('studio_id', sesion.studioId)
++      .neq('activo', false).order('id', { ascending: true }).limit(1);
++    const instructorId = (instructorRows?.[0]?.id as string | undefined) ?? null;
++    const todasSuyas = (sesiones ?? []).length === sesionIds.length
++      && (sesiones ?? []).every(s => s.instructor_id === instructorId);
++    if (!instructorId || !todasSuyas) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
++  }
++
++  // Una devolución POR RESERVA cancelada, no por socia: quien tenía dos plazas
++  // en la serie que se cancela recupera dos sesiones. Secuencial a propósito —
++  // `devolver_sesion_bono` es un incremento atómico con tope en el WHERE, y en
++  // paralelo dos incrementos de la misma socia compiten por la misma fila.
++  const tipoPorSesion = new Map((sesiones ?? []).map(s => [s.id as string, (s.tipo_clase_id as string | null) ?? null]));
++  let devueltas = 0;
++  let fallos = 0;
++  for (const r of canceladas) {
++    const res = await devolverBonoServidor(
++      admin, sesion.studioId, r.socio_id as string, tipoPorSesion.get(r.sesion_id as string) ?? null,
++    );
++    if (res === 'DEVUELTA') devueltas++;
++    // `SIN_BONO` no cuenta como fallo: la socia pagó suelta o su bono ya está al
++    // tope. Contarlo mandaría a la propietaria a "revisarlo a mano" en la mitad
++    // de las cancelaciones normales.
++    else if (res === 'FALLO') fallos++;
++  }
++
++  // Saldos frescos para que el panel los pinte sin recargar: el navegador ya no
++  // hace la escritura, así que no puede calcularlos por su cuenta.
++  const socioIds = [...new Set(canceladas.map(r => r.socio_id as string))];
++  const { data: sus } = await admin
++    .from('suscripciones').select('id, sesiones_restantes')
++    .eq('studio_id', sesion.studioId).in('socio_id', socioIds);
++
++  return NextResponse.json({
++    devueltas,
++    fallos,
++    saldos: (sus ?? []).map(s => ({ suscripcionId: s.id as string, sesionesRestantes: s.sesiones_restantes as number })),
++  });
++}
+diff --git a/app/api/stripe/setup-sepa/route.ts b/app/api/stripe/setup-sepa/route.ts
+index 63b86402..fd32e9d8 100644
+--- a/app/api/stripe/setup-sepa/route.ts
++++ b/app/api/stripe/setup-sepa/route.ts
+@@ -109,7 +109,10 @@ export async function POST(req: NextRequest) {
+     }
+ 
+     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
+-    const base = body.slug ? `${appUrl}/portal/${encodeURIComponent(body.slug)}/compras` : `${appUrl}/pagos`;
++    // ⚠️ Mismo arreglo que su gemelo `setup-tarjeta` (auditoría 22ª pasada): el
++    // retorno apuntaba al portal borrado y la socia firmaba el mandato sin
++    // recibir ninguna confirmación. `/reservar/<slug>` lee `?sepa=ok|cancel`.
++    const base = body.slug ? `${appUrl}/reservar/${encodeURIComponent(body.slug)}` : `${appUrl}/pagos`;
+ 
+     const session = await stripe.checkout.sessions.create(
+       {
+diff --git a/app/api/stripe/setup-tarjeta/route.ts b/app/api/stripe/setup-tarjeta/route.ts
+index 0848b87d..572e408e 100644
+--- a/app/api/stripe/setup-tarjeta/route.ts
++++ b/app/api/stripe/setup-tarjeta/route.ts
+@@ -124,8 +124,14 @@ export async function POST(req: NextRequest) {
+     }
+ 
+     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
++    // ⚠️ Auditoría 22ª pasada (3-sep-2026): esto volvía a
++    // `/portal/<slug>/compras`, borrado con el portal de la alumna (#1591). El
++    // camino está VIVO: la propietaria pulsa "Pedir tarjeta" en Cobros
++    // (components/cobros/panel-pendientes.tsx) y le manda el enlace a la socia.
++    // La socia metía su tarjeta en Stripe y volvía a una pantalla que no le
++    // decía nada. `/reservar/<slug>` sí lee `?tarjeta=ok|cancel`.
+     const base = body.slug
+-      ? `${appUrl}/portal/${encodeURIComponent(body.slug)}/compras`
++      ? `${appUrl}/reservar/${encodeURIComponent(body.slug)}`
+       : `${appUrl}/pagos`;
+ 
+     const session = await stripe.checkout.sessions.create(
+diff --git a/app/api/stripe/webhook/route.ts b/app/api/stripe/webhook/route.ts
+index 3dfe4868..6027dddd 100644
+--- a/app/api/stripe/webhook/route.ts
++++ b/app/api/stripe/webhook/route.ts
+@@ -275,6 +275,18 @@ async function procesarEvento(
+       return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+     }
+ 
++    // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-9. Las suscripciones al PROPIO
++    // SaaS (`app/api/billing/checkout`, `mode:'subscription'`, cuenta de la
++    // plataforma) no se crean nunca sobre una cuenta Connect, así que no tienen
++    // `event.account` ni estudio que resolver: caían en el 403 de abajo con
++    // `level:'error'`, dejaban el evento clavado en `procesando` y hacían sonar
++    // la alarma del canal del dinero de las socias por un alta de plan nuestra
++    // (confirmado en Sentry: JAVASCRIPT-NEXTJS-15, 4 eventos). Quien las procesa
++    // es `app/api/billing/webhook`, no esta ruta.
++    if (session.mode === 'subscription') {
++      return NextResponse.json({ received: true, ignorado: 'suscripcion_saas' });
++    }
++
+     // El tenant se resuelve desde la CUENTA que firma, no desde la metadata:
+     // `metadata.studioId` lo elige quien crea la sesión. El porqué completo, y
+     // el ataque que esto cierra, en `lib/billing/webhook-tenant.ts`.
+@@ -630,8 +642,8 @@ async function procesarEvento(
+     // registrar la venta, el cobro aparece en "cobros sin registrar".
+     const origenPos = pi.metadata?.origen;
+     if (origenPos === 'pos_terminal' || origenPos === 'pos_bizum') {
+-      const studioId = pi.metadata.studioId;
+-      if (!studioId) {
++      const studioIdMetadata = pi.metadata.studioId;
++      if (!studioIdMetadata) {
+         console.error('[stripe webhook] PI de terminal sin studioId en metadata', pi.id);
+         Sentry.captureMessage('[stripe webhook] PI de terminal sin studioId en metadata', {
+           level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, origenPos },
+@@ -642,10 +654,27 @@ async function procesarEvento(
+       if (!admin) {
+         console.error('[stripe webhook] service role no configurada (reconciliación POS)');
+         Sentry.captureMessage('[stripe webhook] service role no configurada (reconciliación POS)', {
+-          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, studioId },
++          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, studioId: studioIdMetadata },
+         });
+         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+       }
++      // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-3: esta era la ÚNICA rama del
++      // switch que se fiaba de `metadata.studioId` para decidir el tenant. Las
++      // otras nueve (`checkout.session.completed`, plan embebido, SEPA, tarjeta,
++      // reembolsos, disputas…) resuelven el estudio desde `event.account`. Un
++      // estudio con su propia cuenta Connect podía crear un PI de un céntimo con
++      // `metadata:{origen:'pos_terminal', studioId:'<otro estudio>'}` y meter una
++      // fila fantasma en la caja de un tenant ajeno. Mismo patrón de gemelo
++      // divergente que webhook-tenant.ts documenta.
++      const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
++      if (!tenantAutorizado(studioDeCuenta, studioIdMetadata)) {
++        Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata (POS)', {
++          level: 'error', tags: { area: 'cobros' },
++          extra: { paymentIntentId: pi.id, eventAccount: event.account, studioIdMetadata, studioDeCuenta, origenPos },
++        });
++        return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
++      }
++      const studioId = studioDeCuenta as string;
+       // Insert idempotente: si el POS ya registró la venta y marcó el marcador
+       // RECONCILIADO, la PK del PaymentIntent hace que este INSERT choque (23505)
+       // y no pisamos ese estado. Cualquier otro error → 5xx para que Stripe
+diff --git a/app/network/alumna/inicio/page.tsx b/app/network/alumna/inicio/page.tsx
+index 81da4b5c..f8f72fe0 100644
+--- a/app/network/alumna/inicio/page.tsx
++++ b/app/network/alumna/inicio/page.tsx
+@@ -85,15 +85,15 @@ export default function InicioAlumnaNetworkPage() {
+                     Ya eres socia de {e.nombre}
+                   </p>
+                   <p className="text-[12.5px] mt-0.5" style={{ color: NW_MUTED }}>
+-                    Tus reservas, bonos y datos viven en tu portal de este estudio, no aquí.
++                    Tus reservas, bonos y datos viven en la página de ese estudio, no aquí.
+                   </p>
+                 </div>
+                 <Link
+-                  href={`/portal/${e.slug}`}
++                  href={`/reservar/${e.slug}`}
+                   className="inline-flex items-center gap-1 shrink-0 px-4 py-2 rounded-full text-[12.5px] font-bold text-white"
+                   style={{ background: NW_PRODUCTO }}
+                 >
+-                  Ir a tu portal <ArrowRight size={13} />
++                  Ir a su página <ArrowRight size={13} />
+                 </Link>
+               </div>
+             ))}
+diff --git a/app/network/alumna/reanudar/page.tsx b/app/network/alumna/reanudar/page.tsx
+index fadb4451..73b6074f 100644
+--- a/app/network/alumna/reanudar/page.tsx
++++ b/app/network/alumna/reanudar/page.tsx
+@@ -49,7 +49,7 @@ export default function ReanudarAlumnaNetworkPage() {
+           Hola{nombrePila ? `, ${nombrePila}` : ''}
+         </p>
+         <p className="mt-3 text-[14px]" style={{ color: NW_MUTED }}>
+-          Todavía no tienes un perfil de alumna completo en Tentare Network — de momento puedes explorar la network de instructoras y, si ya eres socia de algún estudio, seguir directamente a tu portal.
++          Todavía no tienes un perfil de alumna completo en Tentare Network — de momento puedes explorar la network de instructoras y, si ya eres socia de algún estudio, ir directamente a su página.
+         </p>
+ 
+         {estudios.length > 0 && (
+@@ -64,11 +64,11 @@ export default function ReanudarAlumnaNetworkPage() {
+                   Ya eres socia de {e.nombre}
+                 </p>
+                 <Link
+-                  href={`/portal/${e.slug}`}
++                  href={`/reservar/${e.slug}`}
+                   className="inline-flex items-center gap-1 shrink-0 px-4 py-2 rounded-full text-[12.5px] font-bold text-white"
+                   style={{ background: NW_PRODUCTO }}
+                 >
+-                  Ir a tu portal <ArrowRight size={13} />
++                  Ir a su página <ArrowRight size={13} />
+                 </Link>
+               </div>
+             ))}
+diff --git a/app/portal/[slug]/[[...resto]]/route.ts b/app/portal/[slug]/[[...resto]]/route.ts
+index a9b00aab..13d49ddb 100644
+--- a/app/portal/[slug]/[[...resto]]/route.ts
++++ b/app/portal/[slug]/[[...resto]]/route.ts
+@@ -18,7 +18,27 @@ import type { NextRequest } from 'next/server';
+ // Se manda a `/reservar/<slug>`, que sigue vivo y es donde puede reservar y
+ // comprar. Es una parada provisional, no un destino: cuando haya app nueva,
+ // esto se sustituye por sus rutas o se borra si los 47 enlaces se reescriben.
+-export async function GET(_req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
++//
++// ⚠️ Auditoría 22ª pasada (3-sep): la redirección TIRABA EL QUERY STRING, y ahí
++// es donde viaja la única prueba de que el pago salió bien. `?compra=ok`,
++// `?pago=ok`, `?tarjeta=ok` y `?sepa=ok` se perdían antes de llegar a
++// `/reservar/<slug>` — que SÍ sabe leerlos (`page.tsx`, efectos de retorno de
++// Stripe). Resultado: la socia acababa de pagar y aterrizaba en la pantalla de
++// COMPRAR, sin una palabra sobre su pago, que es justo el bug que
++// `lib/billing/origen-pago.ts` documenta haber arreglado en su día.
++//
++// Los enlaces sueltos (emails ya enviados, push ya entregados, PWA instaladas
++// con el bundle viejo) no se pueden reescribir: conservar la query aquí es lo
++// único que los cubre, además de arreglar cada origen — que también se ha hecho.
++//
++// El destino es una ruta interna fija; lo que se conserva es solo la query, así
++// que no hay redirect abierto posible.
++export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+   const { slug } = await params;
+-  redirect(`/reservar/${encodeURIComponent(slug)}`);
++  redirect(`/reservar/${encodeURIComponent(slug)}${req.nextUrl.search}`);
+ }
++
++// Los previsualizadores de enlaces (WhatsApp, iMessage, Slack) piden HEAD antes
++// que GET. Sin esto, el enlace del email de recibo se ve como "405" en la
++// tarjeta de previsualización aunque al pulsarlo funcione.
++export const HEAD = GET;
+diff --git a/app/reservar/[slug]/page.tsx b/app/reservar/[slug]/page.tsx
+index 157711fb..e43ebc83 100644
+--- a/app/reservar/[slug]/page.tsx
++++ b/app/reservar/[slug]/page.tsx
+@@ -734,16 +734,12 @@ export default function ReservarPage() {
+   // vez más), así que esto es lo que hace viable volver sin salir del widget.
+   const [loginPassword, setLoginPassword] = useState('');
+   const [enviandoLoginPassword, setEnviandoLoginPassword] = useState(false);
+-  // Si ya tiene contraseña propia (entró con loginConPassword, o la fijó
+-  // alguna vez desde /acceso), la pantalla de confirmación no debe seguir
+-  // ofreciendo "crea tu contraseña" — ya no es cierto. El paso 'registro' YA
+-  // NO pide contraseña (P0 "reservar sin cuenta": el enlace mágico ya
+-  // verifica el email, pedir además una contraseña aquí era un paso de más
+-  // que Momence, el competidor auditado, ni siquiera exige) — este flag solo
+-  // puede llegar a `true` por loginConPassword. No se resetea en
+-  // openBooking()/closeBooking(): sigue siendo verdad para el resto de la
+-  // visita aunque se abra otra reserva.
+-  const [tienePasswordPropia, setTienePasswordPropia] = useState(false);
++  // (Auditoría 22ª pasada) `tienePasswordPropia` vivía aquí para decidir si la
++  // confirmación de reserva ofrecía "Entra con tu contraseña" o "Crea tu
++  // contraseña". Las dos pantallas a las que llevaba (`/portal/<slug>/login` y
++  // `/portal/<slug>/acceso`) se borraron con el portal (#1591), así que el
++  // estado se quedó sin lector. Se retira con su UI en vez de dejarlo
++  // acumulando polvo.
+   const [enviandoEnlace, setEnviandoEnlace] = useState(false);
+   const [loginError, setLoginError] = useState('');
+   const [gateError, setGateError] = useState('');
+@@ -1118,6 +1114,38 @@ export default function ReservarPage() {
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, []);
+ 
++  // Retornos que ANTES aterrizaban en el portal de la alumna y hoy caen aquí
++  // (auditoría 22ª pasada, 3-sep-2026). Tres caminos distintos, todos de dinero:
++  //   · `?pago=ok|cancelado`   — pagar un recibo (lib/billing/origen-pago.ts).
++  //   · `?tarjeta=ok|cancel`   — guardar tarjeta (app/api/stripe/setup-tarjeta).
++  //   · `?sepa=ok|cancel`      — domiciliar (app/api/stripe/setup-sepa).
++  // Los tres los inicia el estudio o la socia desde fuera de esta pantalla, y
++  // hasta ahora volvían a `/portal/<slug>/compras`, que se borró: la socia
++  // acababa el trámite y no recibía ninguna señal de si había funcionado.
++  // Igual que `?compra=`, el mensaje de éxito no promete el desenlace final
++  // (el cobro real y el mandato SEPA los confirma Stripe después), solo dice
++  // la verdad de lo que se sabe en este instante.
++  const [avisoRetorno, setAvisoRetorno] = useState<{ ok: boolean; texto: string } | null>(null);
++  useEffect(() => {
++    const AVISOS: Record<string, { ok: string; no: string }> = {
++      pago: { ok: '¡Pago recibido! En unos segundos lo verás reflejado.', no: 'Pago cancelado — puedes intentarlo de nuevo cuando quieras.' },
++      tarjeta: { ok: 'Tarjeta guardada. Tu estudio ya puede cobrarte con ella.', no: 'No se ha guardado la tarjeta — puedes intentarlo de nuevo.' },
++      sepa: { ok: 'Domiciliación firmada. Los próximos cobros irán a tu cuenta.', no: 'No se ha firmado la domiciliación — puedes intentarlo de nuevo.' },
++    };
++    for (const clave of Object.keys(AVISOS)) {
++      const v = searchParams.get(clave);
++      if (v !== 'ok' && v !== 'cancel' && v !== 'cancelado') continue;
++      const ok = v === 'ok';
++      // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee el parámetro de retorno una sola vez y limpia la URL a continuación; depende de la URL, no de props ni estado.
++      setAvisoRetorno({ ok, texto: ok ? AVISOS[clave].ok : AVISOS[clave].no });
++      const limpio = new URLSearchParams(searchParams.toString());
++      limpio.delete(clave);
++      router.replace(`/reservar/${slug}${limpio.toString() ? `?${limpio.toString()}` : ''}`, { scroll: false });
++      break;
++    }
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, []);
++
+   // P0-30: se agregan las plazas ocupadas por sesión en UNA pasada y se
+   // resuelven tipo/sala/instructora por Map — antes era O(sesiones × reservas)
+   // en cada visita (tráfico anónimo, la ruta de mayor impacto en conversión).
+@@ -1760,7 +1788,6 @@ export default function ReservarPage() {
+       if (token === null) { setLoginError(ERROR_CAPTCHA); return; }
+       const r = await loginConPassword(loginForm.email, loginPassword, token || undefined);
+       if ('error' in r) { setLoginError(r.error); return; }
+-      setTienePasswordPropia(true);
+       // La sesión de Supabase ya está activa (onAuthStateChange en
+       // use-socia-session.ts la resuelve); un useEffect propio (ver más abajo,
+       // junto al deep-link del magic link) reevalúa el paso del modal en
+@@ -2825,6 +2852,21 @@ export default function ReservarPage() {
+         </div>
+       )}
+ 
++      {/* Retorno de pagar un recibo, guardar tarjeta o firmar SEPA — antes
++          aterrizaban en el portal borrado. Mismo sitio y mismo aspecto que los
++          dos avisos de arriba. */}
++      {avisoRetorno && (
++        <div style={{ order: orden('horario'), padding: `12px ${cq(20, 3.8, 48)} 0`, maxWidth: 1280, marginInline: 'auto' }}>
++          <div
++            className={avisoRetorno.ok ? 'text-success bg-success/10 border-success/30' : 'text-muted-foreground bg-muted/50 border-[var(--portal-line)]'}
++            style={{ border: '1px solid', borderRadius: 14, padding: '10px 16px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
++          >
++            <span>{avisoRetorno.texto}</span>
++            <button onClick={() => setAvisoRetorno(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16, lineHeight: 1 }} aria-label="Cerrar aviso">×</button>
++          </div>
++        </div>
++      )}
++
+       {/* ── CONTENT ───────────────────────────────────────────────────────────
+           El tercero de los hermanos de «Horario y reservas» — ver el comentario
+           del aviso de pago. */}
+@@ -3727,45 +3769,34 @@ export default function ReservarPage() {
+                   </button>
+                 </div>
+                 )}
+-                {/* Quien reserva aquí ya es socia, pero nadie se lo dice: tiene
+-                    portal propio (sus bonos, su historial, sus próximas clases).
+-                    Si ya fijó contraseña en 'registro' (o entró con
+-                    loginConPassword), el enlace va directo a /login — mandarla
+-                    a /acceso otra vez le pediría elegir una contraseña que ya
+-                    tiene. Si no (p. ej. socia ya existente que solo firmó el
+-                    contrato, sin pasar por 'registro'), sigue sin tenerla y el
+-                    enlace va a /acceso, que se la deja poner. */}
+-                <div className="w-full pt-3 mt-1 border-t border-[var(--portal-line)]">
+-                  <p className="text-[var(--portal-muted)] text-xs leading-relaxed text-center">
+-                    Tus clases y tus bonos están en tu portal.{' '}
+-                    {/* ⚠️ En el widget, ABRIR EN OTRA PESTAÑA no es un detalle:
+-                        es lo que impide que el widget deje de ser un widget.
+-                        Sin `target`, este enlace navegaba el propio iframe a
+-                        `/portal/<slug>/acceso`, que es una pantalla de portal a
+-                        pantalla completa (`minHeight: 100dvh`, portada de
+-                        260px y `justify-content: space-between`). Metida en el
+-                        marco del widget, ese `space-between` reparte el
+-                        contenido entre el borde de arriba y el de abajo: de ahí
+-                        el hueco enorme entre el texto y los botones, y la
+-                        sensación de popup larguísimo. Y en Modo B (el bundle
+-                        corre en el DOM del estudio) era peor todavía: se
+-                        llevaba por delante la página entera de su web.
+-                        Fuera del embebido se queda como estaba — ahí navegar
+-                        es lo correcto. */}
+-                    {tienePasswordPropia ? (
+-                      <a href={`/portal/${slug}/login`} className="font-bold underline" style={{ color: PRIMARY }}
+-                        {...(embedMode ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+-                        Entra con tu contraseña
+-                      </a>
+-                    ) : (
+-                      <a href={`/portal/${slug}/acceso`} className="font-bold underline" style={{ color: PRIMARY }}
+-                        {...(embedMode ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+-                        Crea tu contraseña
+-                      </a>
+-                    )}{' '}
+-                    y entra cuando quieras.
+-                  </p>
+-                </div>
++                {/* ⚠️ Auditoría 22ª pasada (3-sep-2026). Aquí ponía "Tus clases
++                    y tus bonos están en tu portal" con dos enlaces a
++                    `/portal/<slug>/login` y `/portal/<slug>/acceso`. El portal
++                    se borró (#1591): los dos enlaces redirigían a
++                    `/reservar/<slug>`, o sea A ESTA MISMA PÁGINA — un bucle, en
++                    la pantalla de más tráfico del producto y justo después de
++                    reservar. Y "Crea tu contraseña" prometía algo imposible: la
++                    pantalla que fijaba la contraseña ya no existe.
++                    Ahora se manda a la pestaña "Mi cuenta" de esta misma
++                    página, que es donde de verdad están sus reservas y sus
++                    bonos. Si el estudio la tiene desactivada, no se enseña
++                    nada: mejor callar que mandar a una pestaña que no está. */}
++                {tabHabilitada('cuenta') && !embedMode && (
++                  <div className="w-full pt-3 mt-1 border-t border-[var(--portal-line)]">
++                    <p className="text-[var(--portal-muted)] text-xs leading-relaxed text-center">
++                      Tus clases y tus bonos están en{' '}
++                      <button
++                        type="button"
++                        onClick={() => { closeBooking(); setTab('cuenta'); }}
++                        className="font-bold underline"
++                        style={{ color: PRIMARY, background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' }}
++                      >
++                        Mi cuenta
++                      </button>
++                      .
++                    </p>
++                  </div>
++                )}
+                 <button onClick={closeBooking} className={`${BOTON_TERCIARIO} mt-1`}>
+                   Cerrar
+                 </button>
+diff --git a/components/configuracion/tab-estudio-enlaces.tsx b/components/configuracion/tab-estudio-enlaces.tsx
+index 9369633f..efa8711d 100644
+--- a/components/configuracion/tab-estudio-enlaces.tsx
++++ b/components/configuracion/tab-estudio-enlaces.tsx
+@@ -49,10 +49,12 @@ export function TabEstudioEnlaces({ showToast }: { showToast: (m: string) => voi
+             <ExternalLink size={14} className="text-muted-foreground shrink-0" />
+           </a>
+           )}
+-          {/* La app de socias (app/portal/[slug]) es OTRA cosa: instalable, con
+-              su bono/plan, vídeos y progreso. No tiene botón de "abrir" aquí
+-              porque sin sesión de socia no lleva a ningún sitio útil — lo que
+-              hace falta es copiar el enlace para pasárselo. */}
++          {/* El enlace que se le pasa a una clienta ya dada de alta. Es la
++              MISMA página que la de arriba: la diferencia es el uso (a la de
++              arriba se llega de la calle; esta se manda por WhatsApp a quien ya
++              es socia, que al entrar con su email ve sus reservas y su bono).
++              No tiene botón de "abrir" aquí porque lo que hace falta es copiar
++              el enlace para pasárselo. */}
+           {studio?.slug && <EnlacePortalSocias slug={studio.slug} showToast={showToast} />}
+           {/* CONGELADO (feature-freeze PMF): se quitó el enlace "Modo quiosco" →
+               /kiosk/[slug]. Ver lib/frozen-features.ts. */}
+@@ -112,7 +114,10 @@ function EnlacePortalSocias({ slug, showToast }: { slug: string; showToast: (m:
+   const [copiado, setCopiado] = useState(false);
+ 
+   async function copiar() {
+-    const link = `${window.location.origin}/portal/${slug}`;
++    // Auditoría 22ª pasada (3-sep-2026): copiaba `/portal/<slug>`, borrado con
++    // el portal de la alumna (#1591). La propietaria pegaba ese enlace en
++    // WhatsApp o Instagram y llevaba a una redirección.
++    const link = `${window.location.origin}/reservar/${slug}`;
+     if (!(await copiarAlPortapapeles(link))) {
+       showToast('No se pudo copiar. Selecciona el enlace y cópialo a mano.');
+       return;
+@@ -126,8 +131,11 @@ function EnlacePortalSocias({ slug, showToast }: { slug: string; showToast: (m:
+     <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-border">
+       <Smartphone size={15} className="text-muted-foreground shrink-0" />
+       <div className="flex-1 min-w-0">
+-        <p className="text-[13px] font-semibold text-foreground">App de tus alumnas</p>
+-        <p className="text-[11px] text-muted-foreground">Para clientas ya dadas de alta: reservan, ven su bono, vídeos y progreso. Se instala en el móvil.</p>
++        {/* El texto prometía una app instalable con vídeos y progreso: eso era
++            el portal, que ya no existe (#1591). Lo que sí hay hoy es la página
++            desde la que reservan y ven su bono. */}
++        <p className="text-[13px] font-semibold text-foreground">Página de tus alumnas</p>
++        <p className="text-[11px] text-muted-foreground">Reservan sus clases, ven su bono y gestionan sus datos. Compártela por WhatsApp o Instagram.</p>
+       </div>
+       <button
+         onClick={copiar}
+diff --git a/components/layout/sidebar.tsx b/components/layout/sidebar.tsx
+index 87408031..a9350a3e 100644
+--- a/components/layout/sidebar.tsx
++++ b/components/layout/sidebar.tsx
+@@ -482,16 +482,19 @@ export function Sidebar() {
+         </nav>
+ 
+         {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
++        {/* Auditoría 22ª pasada (3-sep-2026): apuntaba a `/portal/<slug>/login`,
++            borrado con el portal de la alumna (#1591). La página pública de la
++            clienta es hoy `/reservar/<slug>`. */}
+         {studioSlug && (collapsed ? (
+           <div className="px-2 pb-2 flex flex-col items-center gap-0.5">
+-            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal clientes" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-brand-medio">
++            <Link href={`/reservar/${studioSlug}`} target="_blank" title="Portal clientes" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-brand-medio">
+               <ExternalLink size={15} />
+             </Link>
+           </div>
+         ) : (
+           <div className="px-3 pb-2 space-y-0.5">
+             <Link
+-              href={`/portal/${studioSlug}/login`}
++              href={`/reservar/${studioSlug}`}
+               target="_blank"
+               className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-brand-medio"
+             >
+diff --git a/components/theme/home-preview.tsx b/components/theme/home-preview.tsx
+index 13359771..0d763b3d 100644
+--- a/components/theme/home-preview.tsx
++++ b/components/theme/home-preview.tsx
+@@ -36,6 +36,13 @@ const TODAS_LAS_VISTAS: { id: VistaId; ruta: string; etiqueta: string }[] = [...
+ // Preview en vivo REAL de la app de socias (Fase 4 del editor de temas, su
+ // ampliación de Fase 5, y la generalización a un constructor de bloques por
+ // pantalla de la Fase 1 del Theme Builder): un solo marco de móvil con un
++// ⚠️ SIN LLAMANTES desde el 3-sep-2026 (auditoría 22ª pasada). El iframe de
++// abajo apunta a `/portal-preview/<slug>`, ruta borrada con el portal de la
++// alumna (#1591): montaba un 404 dentro del marco de móvil. Se conserva el
++// fichero entero a propósito —es la pieza que habrá que REAPUNTAR cuando exista
++// app nueva, no rehacer—, pero hoy no lo usa nadie: ver la rama de "sin vista
++// previa" en theme-editor-fullscreen.tsx.
++//
+ // iframe apuntando a /portal-preview/[slug][/pantalla] (sin sesión, token
+ // firmado) que sincroniza el borrador de BLOQUES de LAS TRES pantallas por
+ // postMessage — así, sea cual sea la pantalla que se esté mirando, se ve el
+diff --git a/components/theme/theme-editor-fullscreen.tsx b/components/theme/theme-editor-fullscreen.tsx
+index 8bf732eb..5152c89a 100644
+--- a/components/theme/theme-editor-fullscreen.tsx
++++ b/components/theme/theme-editor-fullscreen.tsx
+@@ -61,7 +61,7 @@ const AJUSTES_EN_EL_PORTAL = new Set<AjustesCategoriaId>([
+   'paleta', 'color-marca', 'tipografia', 'esquinas', 'boton', 'tarjetas',
+   'forma-portal', 'navegacion-portal', 'logo-favicon',
+ ]);
+-import { HomePreview, PANTALLAS_SOLO_NAVEGABLES, type VistaId } from './home-preview';
++import { PANTALLAS_SOLO_NAVEGABLES, type VistaId } from './home-preview';
+ import { SelectorPagina, type OpcionPagina } from './selector-pagina';
+ import { DISPOSITIVOS, DISPOSITIVO_IDS, type DispositivoId } from '@/lib/theme/dispositivos';
+ import { useAutoguardado, useAutoguardadoTema } from './use-autoguardado';
+@@ -767,20 +767,22 @@ export function ThemeEditorFullscreen() {
+                 <p className="text-[12px] text-muted-foreground">Los banners y el tablón se ven en Inicio del portal — sin vista previa en directo todavía.</p>
+               </div>
+             ) : (
+-              <HomePreview
+-                bloquesPorPantalla={bloquesHook.bloquesPorPantalla}
+-                pantalla={pantallaActiva}
+-                onPantallaChange={(p) => seleccionar({ tipo: 'pantalla', id: p })}
+-                slug={ajustesHook.studio?.slug}
+-                seleccionId={modoPreview === 'editar' && nodo.tipo === 'item' ? nodo.itemId : null}
+-                modo={modoPreview}
+-                onInsertar={modoPreview === 'editar' ? setInsercionEn : undefined}
+-                onBloqueSeleccionado={(id) => seleccionar({ tipo: 'item', grupo: pantallaActiva, itemId: id })}
+-                temaBorrador={ajustesHook.draft}
+-                irA={comandoVista}
+-                dispositivo={dispositivo}
+-                zoom={zoom}
+-              />
++              // ⚠️ Auditoría 22ª pasada (3-sep-2026). Aquí iba `<HomePreview>`,
++              // que monta un iframe a `/portal-preview/<slug>`. Esa ruta se
++              // borró con el portal de la alumna (#1591) — el commit dice que
++              // el editor "pierde" la previsualización, pero lo que hacía era
++              // pintar un 404 DENTRO del marco de móvil. Ni `tsc` ni `eslint`
++              // lo cazan (es una string) y el e2e no mira el iframe, por eso la
++              // CI iba en verde.
++              // Se dice la verdad hasta que haya app nueva que previsualizar.
++              // Los campos del tema siguen editándose igual; lo que no hay es
++              // "así se ve". `home-preview.tsx` se conserva sin llamantes: es
++              // la pieza que habrá que reapuntar, no rehacer.
++              <div className="w-[320px] aspect-[9/16] rounded-2xl border border-dashed border-border bg-background flex items-center justify-center text-center px-6">
++                <p className="text-[12px] text-muted-foreground">
++                  La vista previa de la app de socias no está disponible: esa app se ha retirado. Los cambios de tema se siguen guardando y aplicándose a tu página de reservas.
++                </p>
++              </div>
+             )}
+           </div>
+         </div>
+diff --git a/lib/billing/modo-stripe.test.ts b/lib/billing/modo-stripe.test.ts
+index 936ac941..12453a15 100644
+--- a/lib/billing/modo-stripe.test.ts
++++ b/lib/billing/modo-stripe.test.ts
+@@ -94,13 +94,17 @@ test('el veredicto siempre dice modo y entorno, para que el error sea diagnostic
+ test('esClavePublicable: acepta las que SÍ pueden ir al navegador', () => {
+   assert.equal(esClavePublicable('pk_live_51abc'), true);
+   assert.equal(esClavePublicable('pk_test_51abc'), true);
+-  // Restringida: pensada precisamente para exponerse con permisos acotados.
+-  assert.equal(esClavePublicable('rk_live_51abc'), true);
++  // Una `rk_` NO va aquí: es una clave secreta restringida, de servidor
++  // (auditoría 22ª pasada, S-2). Se comprueba en el test de rechazo de abajo.
+ });
+ 
+ test('esClavePublicable: rechaza una clave SECRETA', () => {
+   assert.equal(esClavePublicable('sk_live_51abc'), false);
+   assert.equal(esClavePublicable('sk_test_51abc'), false);
++  // Restringida = secreta con permisos recortados. Tampoco puede ir al
++  // navegador, y `modoDeClave` ya la trata como clave de servidor.
++  assert.equal(esClavePublicable('rk_live_51abc'), false);
++  assert.equal(esClavePublicable('rk_test_51abc'), false);
+ });
+ 
+ test('esClavePublicable: rechaza vacío, nulo y forma desconocida', () => {
+diff --git a/lib/billing/modo-stripe.ts b/lib/billing/modo-stripe.ts
+index 6a5bc6e3..56f77ad8 100644
+--- a/lib/billing/modo-stripe.ts
++++ b/lib/billing/modo-stripe.ts
+@@ -47,8 +47,14 @@ export function modoDeClave(clave: string | undefined | null): ModoStripe {
+ }
+ 
+ /**
+- * ¿Es una clave que PUEDE llegar al navegador? Solo la publicable (`pk_`) o la
+- * restringida (`rk_`). Una secreta (`sk_`) nunca: el bundle del cliente lo
++ * ¿Es una clave que PUEDE llegar al navegador? SOLO la publicable (`pk_`).
++ *
++ * ⚠️ Auditoría 22ª pasada (3-sep-2026), S-2: esto aceptaba también `rk_`. Una
++ * clave restringida de Stripe NO es publicable: es una clave SECRETA con
++ * permisos recortados, de servidor, y Stripe.js la rechaza. Este mismo fichero
++ * ya lo sabía —`modoDeClave` la trata igual que una `sk_` para decidir
++ * live/test (línea 42)— así que la función se contradecía con su vecina.
++ * Ni una `rk_` ni una `sk_`: el bundle del cliente lo
+  * descarga cualquier visitante del widget que el estudio incrusta en su web,
+  * así que una `sk_` ahí es una credencial filtrada, no un fallo de pantalla.
+  *
+@@ -66,7 +72,7 @@ export function modoDeClave(clave: string | undefined | null): ModoStripe {
+  * en la web del estudio que simplemente se va.
+  */
+ export function esClavePublicable(clave: string | undefined | null): clave is string {
+-  return typeof clave === 'string' && (clave.startsWith('pk_') || clave.startsWith('rk_'));
++  return typeof clave === 'string' && clave.startsWith('pk_');
+ }
+ 
+ export type EntornoDespliegue = 'produccion' | 'preview' | 'local';
+diff --git a/lib/billing/origen-pago.test.ts b/lib/billing/origen-pago.test.ts
+index 16f37beb..36b982c7 100644
+--- a/lib/billing/origen-pago.test.ts
++++ b/lib/billing/origen-pago.test.ts
+@@ -4,33 +4,44 @@ import { parsearOrigenPago, urlsDeRetorno } from './origen-pago.ts';
+ 
+ const APP = 'https://app.example.com';
+ 
+-test('la socia que paga desde su portal vuelve a su portal, no al panel', () => {
+-  // El bug: pagaba 175 € y aterrizaba en /login del panel de staff, con un
+-  // "¿Eres del equipo?" y sin confirmación de su pago.
++test('la socia que paga desde su portal NO acaba en el panel de staff', () => {
++  // El bug original: pagaba 175 € y aterrizaba en /login del panel de staff, con
++  // un "¿Eres del equipo?" y sin confirmación de su pago.
+   const u = urlsDeRetorno({ origen: 'portal', appUrl: APP, slug: 'mar', esCompraDePlan: false, reciboId: 'rec-1' });
+-  assert.equal(u.successUrl, `${APP}/portal/mar/compras?pago=ok`);
+-  assert.equal(u.cancelUrl, `${APP}/portal/mar/compras?pago=cancelado`);
++  assert.equal(u.successUrl, `${APP}/reservar/mar?pago=ok`);
++  assert.equal(u.cancelUrl, `${APP}/reservar/mar?pago=cancelado`);
+   assert.doesNotMatch(u.successUrl, /\/cobros/);
+ });
+ 
+-test('comprar un bono desde el portal termina en «Mis bonos», con el plan que se compró', () => {
++test('el retorno NO apunta a /portal: esas rutas se borraron y hoy son un redirect', () => {
++  // Auditoría 22ª pasada: `/portal/<slug>/...` existe solo como redirección a
++  // `/reservar/<slug>`. Mandar ahí a quien acaba de pagar le enseña la pantalla
++  // de COMPRAR. Este test ata el contrato para que no vuelva a colarse.
++  for (const esCompraDePlan of [true, false]) {
++    const u = urlsDeRetorno({ origen: 'portal', appUrl: APP, slug: 'mar', esCompraDePlan, reciboId: 'rec-1' });
++    assert.doesNotMatch(u.successUrl, /\/portal\//);
++    assert.doesNotMatch(u.cancelUrl, /\/portal\//);
++  }
++});
++
++test('comprar un bono desde el portal vuelve a /reservar con el plan que se compró', () => {
+   const r = urlsDeRetorno({
+     origen: 'portal', appUrl: 'https://x.app', slug: 'estudio', esCompraDePlan: true, planId: 'p1',
+   });
+-  assert.equal(r.successUrl, 'https://x.app/portal/estudio/bonos?compra=ok&plan=p1');
+-  assert.equal(r.cancelUrl, 'https://x.app/portal/estudio/bonos?compra=cancelada');
++  assert.equal(r.successUrl, 'https://x.app/reservar/estudio?compra=ok&plan=p1');
++  assert.equal(r.cancelUrl, 'https://x.app/reservar/estudio?compra=cancelada');
+ });
+ 
+-test('pagar un RECIBO desde el portal sigue yendo al historial: una factura no es un bono', () => {
++test('pagar un RECIBO desde el portal se distingue de comprar un bono (?pago= vs ?compra=)', () => {
+   const r = urlsDeRetorno({
+     origen: 'portal', appUrl: 'https://x.app', slug: 'estudio', esCompraDePlan: false, reciboId: 'r1',
+   });
+-  assert.equal(r.successUrl, 'https://x.app/portal/estudio/compras?pago=ok');
++  assert.equal(r.successUrl, 'https://x.app/reservar/estudio?pago=ok');
+ });
+ 
+ test('sin planId no se compone un `&plan=` vacío que la pantalla tendría que descartar', () => {
+   const r = urlsDeRetorno({ origen: 'portal', appUrl: 'https://x.app', slug: 'estudio', esCompraDePlan: true });
+-  assert.equal(r.successUrl, 'https://x.app/portal/estudio/bonos?compra=ok');
++  assert.equal(r.successUrl, 'https://x.app/reservar/estudio?compra=ok');
+ });
+ 
+ test('el planId va escapado: es un id de la BD, pero nadie compone URLs a pelo aquí', () => {
+@@ -40,13 +51,9 @@ test('el planId va escapado: es un id de la BD, pero nadie compone URLs a pelo a
+   assert.ok(r.successUrl.endsWith('&plan=a%20b%26c'));
+ });
+ 
+-test('el origen portal manda aunque sea una compra de plan: nunca al enlace público', () => {
++test('el origen portal lleva a la página del ESTUDIO que se pagó, no a otra', () => {
+   const u = urlsDeRetorno({ origen: 'portal', appUrl: APP, slug: 'mar', esCompraDePlan: true });
+-  // Lo que este test defiende es que `origen: 'portal'` gana a la regla del
+-  // enlace público (`/reservar`). El destino dentro del portal cambió —era
+-  // `/compras`, ahora «Mis bonos»— y esa parte la cubre su propio test.
+-  assert.match(u.successUrl, /\/portal\/mar\//);
+-  assert.doesNotMatch(u.successUrl, /\/reservar\//);
++  assert.match(u.successUrl, /\/reservar\/mar\?/);
+ });
+ 
+ test('sin origen, un cobro de recibo sigue volviendo al panel (comportamiento de siempre)', () => {
+@@ -65,6 +72,7 @@ test('sin slug no se compone un portal roto: se cae al panel', () => {
+   const u = urlsDeRetorno({ origen: 'portal', appUrl: APP, slug: null, esCompraDePlan: false, reciboId: 'rec-1' });
+   assert.match(u.successUrl, /\/cobros/);
+   assert.doesNotMatch(u.successUrl, /\/portal\//);
++  assert.doesNotMatch(u.successUrl, /\/reservar\//);
+ });
+ 
+ test('origen es una etiqueta, nunca una URL: nada de redirects abiertos', () => {
+diff --git a/lib/billing/origen-pago.ts b/lib/billing/origen-pago.ts
+index f04dde2b..53cadb99 100644
+--- a/lib/billing/origen-pago.ts
++++ b/lib/billing/origen-pago.ts
+@@ -48,10 +48,18 @@ export function urlsDeRetorno(p: {
+   planId?: string | null;
+ }): UrlsRetorno {
+   if (p.origen === 'portal' && p.slug) {
+-    // Comprar un bono y pagar un recibo terminan en sitios distintos, aunque
+-    // los dos salgan del portal. Un recibo es una factura y su sitio es el
+-    // historial; un bono es algo que la socia acaba de ganar, y su sitio es
+-    // «Mis bonos» — que además es donde puede comprobar que está.
++    // ⚠️ Auditoría 22ª pasada (3-sep-2026). Esto mandaba a
++    // `/portal/<slug>/bonos` y `/portal/<slug>/compras`. El portal de la alumna
++    // se borró entero el 3-sep (#1591) y esas rutas hoy son una redirección a
++    // `/reservar/<slug>` — o sea, la pantalla de COMPRAR. La socia pagaba y
++    // volvía a que le ofrecieran pagar otra vez, sin una palabra sobre su pago:
++    // exactamente el bug que el comentario de cabecera de este fichero dice
++    // haber arreglado, reintroducido por la puerta de al lado.
++    //
++    // Ahora se manda a `/reservar/<slug>`, que es la pantalla que existe y que
++    // YA sabe leer estos parámetros (`app/reservar/[slug]/page.tsx`, efectos de
++    // retorno de Stripe). El nombre `portal` se conserva como etiqueta porque
++    // los bundles/PWA ya instalados lo siguen enviando.
+     //
+     // ⚠️ `?compra=ok` NO significa «el bono ya está». Significa «Stripe dice
+     // que el pago salió». Quien lo entrega es el webhook
+@@ -59,12 +67,11 @@ export function urlsDeRetorno(p: {
+     // reintentarse, así que la pantalla que recibe esto tiene que MIRAR si el
+     // bono está antes de felicitar a nadie. Va el plan para que pueda mirar el
+     // que toca y no uno cualquiera que ya tuviera.
++    const base = `${p.appUrl}/reservar/${p.slug}`;
+     if (p.esCompraDePlan) {
+-      const base = `${p.appUrl}/portal/${p.slug}/bonos`;
+       const plan = p.planId ? `&plan=${encodeURIComponent(p.planId)}` : '';
+       return { successUrl: `${base}?compra=ok${plan}`, cancelUrl: `${base}?compra=cancelada` };
+     }
+-    const base = `${p.appUrl}/portal/${p.slug}/compras`;
+     return { successUrl: `${base}?pago=ok`, cancelUrl: `${base}?pago=cancelado` };
+   }
+   if (p.esCompraDePlan) {
+diff --git a/lib/billing/procesar-reembolso.ts b/lib/billing/procesar-reembolso.ts
+index 06257593..067439e6 100644
+--- a/lib/billing/procesar-reembolso.ts
++++ b/lib/billing/procesar-reembolso.ts
+@@ -144,12 +144,17 @@ export async function procesarDisputeCreated(
+   admin: SupabaseClient,
+   p: { studioId: string; reciboId: string; disputeStatus: string; disputeId: string; dueByUnix: number | null; fuente: Fuente },
+ ): Promise<ResultadoProcesado> {
+-  const { error } = await admin.from('recibos')
++  // `.select('id')`: sin él, un `reciboId` que no existe (o de otro estudio) no
++  // da error y esta función devolvía `huboEfecto: true` y notificaba al estudio
++  // una disputa que no quedó registrada en ninguna parte (auditoría 22ª pasada,
++  // D-10).
++  const { data: filas, error } = await admin.from('recibos')
+     .update({ disputa_estado: p.disputeStatus, disputa_stripe_id: p.disputeId })
+-    .eq('id', p.reciboId).eq('studio_id', p.studioId);
+-  if (error) {
+-    console.error(`[${p.fuente}] no se pudo registrar la disputa`, p.reciboId, error);
+-    return { ok: false, huboEfecto: false, error: error.message };
++    .eq('id', p.reciboId).eq('studio_id', p.studioId).select('id');
++  if (error || !filas?.length) {
++    const motivo = error ?? new Error(`recibo ${p.reciboId} no encontrado en ${p.studioId}`);
++    console.error(`[${p.fuente}] no se pudo registrar la disputa`, p.reciboId, motivo);
++    return { ok: false, huboEfecto: false, error: error?.message ?? 'recibo no encontrado' };
+   }
+   try {
+     const { emitirPagoDisputado } = await import('../notifications/emit.ts');
+diff --git a/lib/billing/sellar-factura-server.ts b/lib/billing/sellar-factura-server.ts
+index 4ac701ae..fb02cc6a 100644
+--- a/lib/billing/sellar-factura-server.ts
++++ b/lib/billing/sellar-factura-server.ts
+@@ -131,6 +131,17 @@ export async function sellarFacturaDeRecibo(
+   let seq: number;
+ 
+   if (existente) {
++    // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-2. Esta rama asume que la fila
++    // viene de `reservar_numero_factura`. En prod hay 4 facturas ANTERIORES a
++    // Veri*Factu (`fac-1`…`fac-4`) con `verifactu_seq` NULL: por aquí,
++    // `Number(null)` da 0 y `?? ''` da huella anterior vacía — o sea, "soy el
++    // primer registro de la cadena". Sellarlas escribiría una segunda cabecera
++    // de cadena por delante del seq 1, y una cadena Veri*Factu bifurcada no se
++    // arregla reescribiéndola. No es alcanzable desde el panel (siempre manda
++    // un id nuevo), pero el endpoint acepta el `id` del cuerpo.
++    if (existente.verifactu_seq == null || !existente.numero_completo) {
++      return { ok: false, error: 'Esta factura es anterior a Veri*Factu y no tiene número reservado: sellarla rompería la cadena.' };
++    }
+     // Retoma la reserva incompleta: numeroCompleto/seq/prev_hash YA están en
+     // la fila (los puso reservar_numero_factura); solo falta la huella/Fiskaly.
+     numeroCompleto = existente.numero_completo;
+diff --git a/lib/calendario-estado.ts b/lib/calendario-estado.ts
+index 2b86f790..6a0d529b 100644
+--- a/lib/calendario-estado.ts
++++ b/lib/calendario-estado.ts
+@@ -128,8 +128,9 @@ export const MENSAJE_CLASE_AUN_NO_EMPEZADA = 'Esta clase todavía no ha empezado
+ //
+ // `huecosLibres` (aforoMaximo - confirmadas, nunca negativo) es a propósito
+ // una señal DISTINTA de `enEspera`: `promocionar_siguiente_espera` (la RPC que
+-// resuelve "Ofrecer plaza") no comprueba aforo por su cuenta — asume que quien
+-// la llama ya sabe que hay un hueco de verdad. Una clase LLENA con lista de
++// resuelve "Ofrecer plaza") solo comprueba aforo en su rama de promoción
++// directa; en la de oferta con plazo, no (corregido el 3-sep-2026, F-8: antes
++// esto decía que no lo comprobaba nunca). Una clase LLENA con lista de
+ // espera es un estado SANO (el sistema ya avisa solo en cuanto alguien
+ // cancela) — no debe pedir decisión ni ofrecer overselling.
+ // `finalizada` = la clase ya terminó (ahora >= sesiones.fin). SIN_INSTRUCTORA
+diff --git a/lib/db/supabase-data-admin.ts b/lib/db/supabase-data-admin.ts
+index ec27f8c6..6ae645d3 100644
+--- a/lib/db/supabase-data-admin.ts
++++ b/lib/db/supabase-data-admin.ts
+@@ -240,8 +240,30 @@ export async function dbListPagosHistoricosSocio(studioId: string, socioId: stri
+ }
+ 
+ 
++// ⚠️ LISTA BLANCA, igual que `studioPublico` de aquí abajo (auditoría 22ª
++// pasada, S-5). Antes era lista NEGRA —`{...mapInstructor(r), email: null,
++// telefono: null, authUserId: null}`— alimentada por un `.select('*')`: lo que
++// no se nombraba, viajaba. Que `tipo_contrato` no saliera al público era suerte
++// (nadie la mapeaba en `mapInstructor`), no diseño; la siguiente columna que se
++// mapee sí habría salido. Aquí lo que no se nombra NO llega a la página pública.
+ function mapInstructorPublico(r: RowInstructores): Instructor {
+-  return { ...mapInstructor(r), email: null, telefono: null, authUserId: null };
++  const i = mapInstructor(r);
++  return {
++    id: i.id,
++    studioId: i.studioId,
++    nombre: i.nombre,
++    color: i.color,
++    activo: i.activo,
++    rol: i.rol,
++    avatar: i.avatar,
++    fotoUrl: i.fotoUrl,
++    bio: i.bio,
++    valoracion: i.valoracion,
++    // Nunca al público, y por eso van explícitos y a null:
++    email: null,
++    telefono: null,
++    authUserId: null,
++  };
+ }
+ 
+ 
+@@ -963,12 +985,24 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
+ }
+ 
+ 
+-// Devuelve `true` solo si de verdad se devolvió una sesión. Antes no devolvía
+-// nada y el llamador daba la devolución por hecha (I-5): ver el comentario en
+-// `bonoDevolvible`.
+-async function devolverBonoServidor(
++/**
++ * Resultado de intentar devolver una sesión al bono. Los tres casos son
++ * distintos y confundirlos cuesta caro (auditoría 22ª pasada, F-1):
++ *  · `DEVUELTA`  — se sumó una sesión.
++ *  · `SIN_BONO`  — no había nada que devolver (clase suelta, o bono ya al tope).
++ *                  NO es un fallo: avisar de esto como si lo fuera manda a la
++ *                  propietaria a "revisarlo a mano" en la mitad de las
++ *                  cancelaciones normales.
++ *  · `FALLO`     — había que devolverla y la escritura no salió.
++ */
++export type ResultadoDevolucionBono = 'DEVUELTA' | 'SIN_BONO' | 'FALLO';
++
++// Devuelve `DEVUELTA` solo si de verdad se devolvió una sesión. Antes no
++// devolvía nada y el llamador daba la devolución por hecha (I-5): ver el
++// comentario en `bonoDevolvible`.
++export async function devolverBonoServidor(
+   admin: SupabaseClient, studioId: string, socioId: string, tipoClaseId?: string | null,
+-): Promise<boolean> {
++): Promise<ResultadoDevolucionBono> {
+   const [{ data: susRows }, { data: planRows }] = await Promise.all([
+     admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
+     admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
+@@ -978,7 +1012,7 @@ async function devolverBonoServidor(
+   // no saldo — y el bono al que hay que devolverle la sesión es justo el que se
+   // quedó a 0 al gastarla, que `bonoConsumible` descarta.
+   const devolvible = bonoDevolvible(socioId, (susRows ?? []).map(mapSuscripcion), planesConTipos, undefined, tipoClaseId);
+-  if (!devolvible) return false;
++  if (!devolvible) return 'SIN_BONO';
+   // I-10: incremento ATÓMICO con el tope aplicado en el propio WHERE. Antes era
+   // read-modify-write sobre el snapshot de arriba, así que dos cancelaciones
+   // concurrentes escribían el mismo número y una devolución se perdía en
+@@ -986,8 +1020,10 @@ async function devolverBonoServidor(
+   const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono', {
+     p_suscripcion_id: devolvible.suscripcion.id, p_studio_id: studioId,
+   });
+-  if (error) { reportDbError('[devolverBonoServidor]', error); return false; }
+-  return nuevoSaldo != null;
++  if (error) { reportDbError('[devolverBonoServidor]', error); return 'FALLO'; }
++  // `nuevoSaldo` null = el bono ya estaba al tope (el WHERE de la RPC no casó):
++  // no había hueco, así que no hay nada que devolver ni nada que reparar.
++  return nuevoSaldo != null ? 'DEVUELTA' : 'SIN_BONO';
+ }
+ 
+ // P-1 (auditoría 21-ago): política única, compartida por los caminos
+@@ -1016,7 +1052,7 @@ export async function devolverBonosPorCancelacionClase(
+     return devueltoPorSocia;
+   }
+   for (const c of confirmadas) {
+-    devueltoPorSocia.set(c.socioId, await devolverBonoServidor(admin, studioId, c.socioId, c.tipoClaseId));
++    devueltoPorSocia.set(c.socioId, (await devolverBonoServidor(admin, studioId, c.socioId, c.tipoClaseId)) === 'DEVUELTA');
+   }
+   return devueltoPorSocia;
+ }
+@@ -2129,9 +2165,19 @@ export async function resolverReservaPendiente(params: {
+ }
+ 
+ // Rediseño del Calendario — punto 4, acción "Ofrecer plaza" de la franja de
+-// decisiones. `promocionar_siguiente_espera` (usada hoy solo dentro de
+-// cancelar_reserva_plaza/expirar_oferta_lista_espera) NO comprueba aforo por
+-// su cuenta — asume que quien la llama ya sabe que hay un hueco libre. Esta
++// decisiones.
++//
++// ⚠️ Corregido el 3-sep-2026 (auditoría 22ª pasada, F-8): este comentario decía
++// que `promocionar_siguiente_espera` NO comprueba aforo. Desde el 2-sep
++// (migración 20260902185203) SÍ lo comprueba... pero solo en la rama de
++// promoción DIRECTA (`p_plazo_minutos <= 0`). En la rama de OFERTA con plazo
++// —viva en producción: hay 2 tipos de clase con `lista_espera_plazo_
++// aceptacion_minutos > 0`— sigue abriendo la oferta sin mirar el aforo. No
++// produce overbooking (`aceptar_oferta_lista_espera` re-comprueba y devuelve
++// AFORO_LLENO), pero sí el desenlace caro: la socia acepta a tiempo, se queda
++// sin plaza y gasta una recuperación por un hueco que no existía.
++// Dejar de fiarse de este comentario y mirar `pg_proc` antes de diseñar sobre
++// la garantía. Esta
+ // función es la que añade esa comprobación real contra la BD (nunca confiar
+ // en un recuento de cliente) antes de invocarla, para un disparo MANUAL desde
+ // el panel (a diferencia de los otros dos callers, que solo llegan aquí justo
+@@ -2553,7 +2599,7 @@ export async function ejecutarCancelacionReserva(
+       // Antes se ponía a true a pelo, así que el email de cancelación le decía a
+       // la socia que le habíamos devuelto la sesión aunque no se hubiera
+       // devuelto nada.
+-      bonoDevuelto = await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null);
++      bonoDevuelto = (await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null)) === 'DEVUELTA';
+     }
+   }
+ 
+diff --git a/lib/emails/enviar-recibo-webhook.ts b/lib/emails/enviar-recibo-webhook.ts
+index ee770db1..0bdb70e0 100644
+--- a/lib/emails/enviar-recibo-webhook.ts
++++ b/lib/emails/enviar-recibo-webhook.ts
+@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
+ import { Resend } from 'resend';
+ import { render } from '@react-email/render';
+ import { ReciboEmail } from '@/lib/emails/recibo-template';
+-import { resolverMarcaEstudio, appUrl } from '@/lib/emails/plantillas-server';
++import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
+ import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+ import { remitentePorMarca } from './remitente.ts';
+ import { registrarComunicacion } from '@/lib/db/supabase-data-admin';
+@@ -59,10 +59,18 @@ export async function enviarEmailReciboWebhook(
+       estudioNombre: marca.estudioNombre ?? 'Tentare',
+       logoUrl: marca.logoUrl,
+       colorPrimario: marca.colorPrimario,
+-      // Enlace a "Mis compras" del portal, donde ya se muestra la factura a la
+-      // socia (badge "· Factura", lib/factura-pdf.ts). Sin slug (estudio raro
+-      // sin portal resuelto), el email sale igual, sin el botón.
+-      url: marca.slug ? `${appUrl()}/portal/${marca.slug}/compras` : undefined,
++      // ⚠️ Auditoría 22ª pasada (3-sep-2026): aquí iba un botón "Ver mi
++      // factura" a `/portal/<slug>/compras`. Esa pantalla se borró (#1591) y
++      // hoy redirige a `/reservar/<slug>`, que NO enseña facturas: la socia
++      // acababa de pagar, pulsaba "Ver mi factura" y aterrizaba en la pantalla
++      // de comprar. `abrirFacturaPDF` (lib/factura-pdf.ts) solo lo usa el panel
++      // de staff — no queda ninguna ruta por la que una socia obtenga su
++      // factura.
++      //
++      // Se quita el botón en vez de reapuntarlo: un email de cobro con un botón
++      // que no lleva a la factura es peor que uno sin botón. El email ya lleva
++      // concepto, importe, fecha y número de factura en el cuerpo. Cuando haya
++      // pantalla donde ver la factura, aquí se vuelve a poner el enlace.
+     }));
+     const subject = `Pago confirmado — ${concepto}`;
+ 
+diff --git a/lib/emails/plantillas-server.ts b/lib/emails/plantillas-server.ts
+index 045ce19d..4e3e25f6 100644
+--- a/lib/emails/plantillas-server.ts
++++ b/lib/emails/plantillas-server.ts
+@@ -168,7 +168,18 @@ export async function generarEnlaceAccesoSocia(slug: string, email: string): Pro
+   const { data, error } = await admin.auth.admin.generateLink({
+     type: 'magiclink',
+     email,
+-    options: { redirectTo: `${appUrl()}/portal/${slug}/clave-nueva` },
++    // ⚠️ Auditoría 22ª pasada (3-sep-2026): esto llevaba a
++    // `/portal/<slug>/clave-nueva`, borrada con el portal (#1591). El fragmento
++    // `#access_token=…` sobrevive a la redirección y la sesión SÍ se canjea en
++    // `/reservar/<slug>` (`detectSessionInUrl: true`), pero se apunta ya al
++    // destino real para no depender de un salto extra.
++    //
++    // ⏳ PENDIENTE (producto): ya no existe ninguna pantalla donde una socia
++    // fije su contraseña — `app/clave-nueva` es del staff. El botón del email
++    // dice "Activar mi acceso" y lo que hace es entrar con enlace mágico; el
++    // texto habría que ajustarlo cuando se decida si la socia vuelve a tener
++    // contraseña propia.
++    options: { redirectTo: `${appUrl()}/reservar/${slug}` },
+   });
+   if (error || !data?.properties?.action_link) return null;
+   return data.properties.action_link;
+diff --git a/lib/inngest/automatizaciones.ts b/lib/inngest/automatizaciones.ts
+index 8bed9e6b..17522b27 100644
+--- a/lib/inngest/automatizaciones.ts
++++ b/lib/inngest/automatizaciones.ts
+@@ -306,7 +306,21 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts:
+     if (!twilioConfigurado('WHATSAPP')) {
+       log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no configurado (faltan credenciales Twilio)' };
+     } else {
+-      const r = await twilioSmsProvider.enviar({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: `${c.asunto}\n\n${c.mensaje}` });
++      // ⚠️ Auditoría 22ª pasada (3-sep-2026). Este camino es el del motor de
++      // MARKETING: todo lo que sale por aquí es comunicación comercial. El
++      // gemelo de email lleva `unsubscribeUrl` en las dos ramas por LSSI art.
++      // 21; este no llevaba NADA — ni enlace, ni "responde BAJA", ni
++      // equivalente. La única vía de baja (`/api/marketing/baja`) viajaba solo
++      // por correo, así que retirar el consentimiento no era tan fácil como
++      // darlo (RGPD art. 7.3). Se añade el mismo enlace firmado al final del
++      // mensaje. Hoy hay 0 automatizaciones activas en producción: esto se
++      // cierra ANTES de que la primera dueña encienda una, no después.
++      const baja = `${appUrl()}/api/marketing/baja?token=${firmarBajaMarketing(opts.studioId, c.socio.id)}`;
++      const r = await twilioSmsProvider.enviar({
++        canal: 'WHATSAPP',
++        to: c.socio.telefono,
++        cuerpo: `${c.asunto}\n\n${c.mensaje}\n\nPara dejar de recibir estos mensajes: ${baja}`,
++      });
+       log = r.ok
+         ? { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `WhatsApp enviado a ${c.socio.telefono}: "${c.asunto}"` }
+         : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Twilio' };
+diff --git a/lib/inngest/conciliar-cobros.ts b/lib/inngest/conciliar-cobros.ts
+index e64703d9..b019f18f 100644
+--- a/lib/inngest/conciliar-cobros.ts
++++ b/lib/inngest/conciliar-cobros.ts
+@@ -462,6 +462,21 @@ async function entregar(
+   await enviarEmailReciboWebhook(admin, { studioId: p.studioId, reciboId: entrega.reciboId });
+ }
+ 
++// Sellado pendiente: acotado a las últimas 72h (ver cabecera de
++// confirmar-cobro.ts) — nunca sellado retroactivo sin límite. Nunca lanza: un
++// fallo de Fiskaly no puede tumbar la conciliación de cobros, que es lo que
++// entrega el dinero.
++async function reintentarSellado(admin: SupabaseClient): Promise<number> {
++  try {
++    return await reintentarFacturasPendientesDeSellar(admin, 72);
++  } catch (e) {
++    Sentry.captureException(e instanceof Error ? e : new Error('reintentarFacturasPendientesDeSellar'), {
++      level: 'error', tags: { area: 'cobros', tipo: 'facturacion' },
++    });
++    return 0;
++  }
++}
++
+ export const conciliarCobrosDispatcher = inngest.createFunction(
+   { id: 'conciliar-cobros', triggers: [{ cron: '0 * * * *' }] },
+   async ({ step }) => {
+@@ -483,7 +498,13 @@ export const conciliarCobrosDispatcher = inngest.createFunction(
+           .is('suspendido_en', null)
+           .range(from, to),
+       );
+-      if (!studios.length) return { entregados: 0 };
++      // ⚠️ El resellado de facturas NO depende de Stripe (ver más abajo): si
++      // ningún estudio tiene cuenta conectada —o todos están suspendidos— este
++      // `return` se lo llevaba por delante y los recibos con
++      // `factura_pendiente_sellar` se quedaban sin sellar indefinidamente
++      // (auditoría 22ª pasada, D-5). Se ejecuta antes de decidir salir.
++      const facturasSelladasSinStripe = studios.length ? 0 : await reintentarSellado(admin);
++      if (!studios.length) return { entregados: 0, facturasSelladas: facturasSelladasSinStripe };
+ 
+       const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
+       let entregados = 0;
+@@ -501,14 +522,7 @@ export const conciliarCobrosDispatcher = inngest.createFunction(
+       // F-12/F-13: remate del eslabón "factura" del ciclo cobro → factura →
+       // devolución → conciliación. Acotado a las últimas 72h (ver cabecera de
+       // confirmar-cobro.ts) — nunca sellado retroactivo sin límite.
+-      let facturasSelladas = 0;
+-      try {
+-        facturasSelladas = await reintentarFacturasPendientesDeSellar(admin, 72);
+-      } catch (e) {
+-        Sentry.captureException(e instanceof Error ? e : new Error('reintentarFacturasPendientesDeSellar'), {
+-          level: 'error', tags: { area: 'cobros', tipo: 'facturacion' },
+-        });
+-      }
++      const facturasSelladas = await reintentarSellado(admin);
+ 
+       return { estudios: studios.length, entregados, facturasSelladas };
+     });
+diff --git a/lib/inngest/conciliar-reembolsos.test.ts b/lib/inngest/conciliar-reembolsos.test.ts
+index ebb8dc85..9b494783 100644
+--- a/lib/inngest/conciliar-reembolsos.test.ts
++++ b/lib/inngest/conciliar-reembolsos.test.ts
+@@ -47,7 +47,10 @@ const RECIBO = { id: 'rec-1', socio_id: 'soc-1', suscripcion_id: 'sus-1', import
+ // el que le pasamos aquí) — en este entorno de test devuelve null y la
+ // notificación se ignora en silencio (console.error, no lanza), así que no
+ // hace falta mockearla para probar el EFECTO en `recibos`/`devoluciones`.
+-function fakeAdmin(opts: { reciboYaDevuelto?: boolean; devolucionYaExistia?: boolean } = {}) {
++// `reciboInexistente`: el UPDATE no casa ninguna fila (recibo de otro estudio,
++// o id que ya no existe). Supabase NO devuelve error en ese caso — devuelve
++// `data: []` — y modelarlo aquí es lo que permite probar el guard de D-2/D-10.
++function fakeAdmin(opts: { reciboYaDevuelto?: boolean; devolucionYaExistia?: boolean; reciboInexistente?: boolean } = {}) {
+   const updates: { tabla: string; fila: Fila }[] = [];
+   const inserts: { tabla: string; fila: Fila }[] = [];
+ 
+@@ -81,7 +84,18 @@ function fakeAdmin(opts: { reciboYaDevuelto?: boolean; devolucionYaExistia?: boo
+           if (tabla === 'socios') return Promise.resolve({ data: null, error: null });
+           return Promise.resolve({ data: null, error: null });
+         },
+-        then(res: (v: { error: null }) => unknown) { return Promise.resolve({ error: null }).then(res); },
++        // `await` sobre el constructor sin `maybeSingle()`. Con `.select()`
++        // encadenado tras un UPDATE, PostgREST devuelve las FILAS AFECTADAS —
++        // array vacío si no casó ninguna, y sin error. Modelarlo es lo que hace
++        // que un test pueda distinguir "escribió" de "no escribió nada"
++        // (auditoría 22ª pasada; antes el fake devolvía siempre `{error:null}`
++        // y cualquier éxito falso pasaba en verde).
++        then(res: (v: { data: Fila[] | null; error: null }) => unknown) {
++          const data = selectedAfterUpdate
++            ? (opts.reciboInexistente ? [] : [{ id: RECIBO.id }])
++            : null;
++          return Promise.resolve({ data, error: null }).then(res);
++        },
+       };
+       return c;
+     },
+@@ -149,6 +163,21 @@ test('disputa creada: marca disputa_estado + disputa_stripe_id', async () => {
+   assert.equal(u!.fila.disputa_stripe_id, 'du_1');
+ });
+ 
++test('disputa creada sobre un recibo que no existe: NO dice que la registró', async () => {
++  // D-10 (auditoría 22ª pasada): sin `.select('id')`, un `reciboId` inexistente
++  // —o de otro estudio— no da error en Supabase, así que esto devolvía
++  // `huboEfecto: true` y llegaba a notificar al estudio una disputa que no
++  // quedó registrada en ninguna parte. Guardián por mutación: quitando el
++  // `.select('id')` de procesarDisputeCreated, este test vuelve a fallar.
++  const { admin } = fakeAdmin({ reciboInexistente: true });
++  const r = await procesarDisputeCreated(admin, {
++    studioId: 'studio-1', reciboId: 'rec-de-otro-estudio', disputeStatus: 'needs_response', disputeId: 'du_1',
++    dueByUnix: null, fuente: 'conciliador',
++  });
++  assert.equal(r.ok, false, 'no puede decir que fue bien: no escribió nada');
++  assert.equal(r.huboEfecto, false);
++});
++
+ test('disputa PERDIDA: chargeback real — marca DEVUELTO y registra la devolución', async () => {
+   const { admin, updates, inserts } = fakeAdmin();
+   const r = await procesarDisputeClosed(admin, {
+diff --git a/lib/notifications/catalog.ts b/lib/notifications/catalog.ts
+index ce08f972..cd2f153e 100644
+--- a/lib/notifications/catalog.ts
++++ b/lib/notifications/catalog.ts
+@@ -442,6 +442,17 @@ export function canalesDisponibles(role: NotificationRole, category: Notificatio
+ // ── Plantillas ────────────────────────────────────────────────────────────────
+ // Clave: `${eventType}#${role}` con fallback a `${eventType}`. Variables `{x}` se
+ // interpolan desde event.data. deepLink construye la ruta a abrir por rol.
++//
++// ⚠️ Auditoría 22ª pasada (3-sep-2026). Los 18 deep links del rol SOCIA
++// apuntaban a `/portal/<slug>/…`, que se borró entero el 3-sep (#1591). Hoy
++// van a `/reservar/<slug>`, que es la pantalla que existe y que sabe leer
++// `?sesion=<id>` (abre la clase) y `?tab=misreservas|cuenta`.
++//
++// Lo que esto NO arregla, y hay que decirlo: `/reservar` no tiene mensajería,
++// ni comunidad, ni documentos, ni historial de compras. Los avisos de esas
++// cuatro cosas llegan a una pantalla real, pero no a SU contenido. Mientras no
++// haya destino, lo correcto es dejar de EMITIRLOS hacia SOCIA — es decisión de
++// producto, no de código, y por eso se documenta aquí en vez de tocarlo.
+ export interface Plantilla {
+   title: string;
+   body: string;
+@@ -484,7 +495,7 @@ function plantillasMensajeRecibido(): Record<string, Plantilla> {
+   const socia: Plantilla = {
+     title: 'Nuevo mensaje',
+     body: '{remitente} te ha escrito{previsualizacion}.',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/notificaciones`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?tab=cuenta`,
+   };
+   return {
+     ...Object.fromEntries(
+@@ -506,7 +517,7 @@ function plantillasMensajeDigest(): Record<string, Plantilla> {
+   const socia: Plantilla = {
+     title: 'Tienes mensajes sin leer',
+     body: 'Tienes {conversaciones} conversación(es) con mensajes nuevos por leer.',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/notificaciones`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?tab=cuenta`,
+   };
+   return {
+     ...Object.fromEntries(
+@@ -526,7 +537,7 @@ function plantillaPostComunidadNuevo(): Record<string, Plantilla> {
+     [`${EVENTOS.POST_COMUNIDAD_NUEVO}#SOCIA`]: {
+       title: 'Nuevo en el tablón',
+       body: '{autor} ha publicado algo nuevo{previsualizacion}.',
+-      deepLink: (d: Datos) => `/portal/${s(d.slug)}/comunidad`,
++      deepLink: (d: Datos) => `/reservar/${s(d.slug)}`,
+     },
+   };
+ }
+@@ -540,7 +551,7 @@ function plantillaDocumentoSocioNuevo(): Record<string, Plantilla> {
+     [`${EVENTOS.DOCUMENTO_SOCIO_NUEVO}#SOCIA`]: {
+       title: 'Nuevo documento',
+       body: 'El estudio te ha añadido un documento nuevo: "{titulo}".',
+-      deepLink: (d: Datos) => `/portal/${s(d.slug)}/notificaciones`,
++      deepLink: (d: Datos) => `/reservar/${s(d.slug)}?tab=cuenta`,
+     },
+   };
+ }
+@@ -561,17 +572,17 @@ export const PLANTILLAS: Record<string, Plantilla> = {
+   [`${EVENTOS.RESERVA_CONFIRMADA}#SOCIA`]: {
+     title: 'Reserva confirmada',
+     body: 'Tu plaza en {clase} del {cuando} está confirmada. ¡Te esperamos!',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?sesion=${s(d.sesionId)}`,
+   },
+   [`${EVENTOS.RESERVA_LISTA_ESPERA}#SOCIA`]: {
+     title: 'Estás en lista de espera',
+     body: '{clase} del {cuando} está completa. Te avisaremos si se libera una plaza.',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?sesion=${s(d.sesionId)}`,
+   },
+   [`${EVENTOS.RESERVA_PLAZA_LIBERADA}#SOCIA`]: {
+     title: '¡Se ha liberado tu plaza!',
+     body: 'Ha quedado sitio en {clase} del {cuando} y ya tienes plaza confirmada.',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?sesion=${s(d.sesionId)}`,
+   },
+   // Fase 2b: a diferencia de RESERVA_PLAZA_LIBERADA (ya confirmada), esta se
+   // dispara cuando el estudio exige plazo de aceptación — la socia tiene que
+@@ -579,7 +590,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
+   [`${EVENTOS.RESERVA_OFERTA_LISTA_ESPERA}#SOCIA`]: {
+     title: 'Se ha liberado una plaza',
+     body: 'Tienes hasta las {hora} para aceptar tu plaza en {clase} ({cuando}).',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservas?tab=ESPERA`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?tab=misreservas`,
+   },
+   // {motivoTexto}: vacío en la cancelación normal (mismo texto de siempre);
+   // rellena cuando la cancela el rechazo/expiración de una aprobación
+@@ -601,7 +612,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
+   [`${EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA}#SOCIA`]: {
+     title: 'Tu plaza fija no se ha reservado esta semana',
+     body: 'No hemos podido confirmar tu plaza fija en {clase} del {cuando}.{motivoTexto}',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?sesion=${s(d.sesionId)}`,
+   },
+   // Reserva pendiente de aprobar → mostrador (propietaria/manager/recepción)
+   [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#PROPIETARIO`]: {
+@@ -639,13 +650,13 @@ export const PLANTILLAS: Record<string, Plantilla> = {
+   [`${EVENTOS.CLASE_CANCELADA}#SOCIA`]: {
+     title: 'Clase cancelada',
+     body: 'La clase de {clase} del {cuando} ha sido cancelada. Disculpa las molestias.',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}`,
+   },
+   // Clase modificada (cambio de horario/sala) → cada socia apuntada
+   [`${EVENTOS.CLASE_MODIFICADA}#SOCIA`]: {
+     title: 'Tu clase ha cambiado',
+     body: 'Tu clase de {clase} pasa a: {cuando} · {sala}{instructora}. Revisa tu reserva.',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?sesion=${s(d.sesionId)}`,
+   },
+   // Clase cubierta por otra instructora → cada socia apuntada. Lo primero que
+   // tiene que quedar claro es que la clase SIGUE: si el aviso empieza hablando
+@@ -653,7 +664,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
+   [`${EVENTOS.CLASE_SUSTITUTA}#SOCIA`]: {
+     title: 'Tu clase sigue en pie',
+     body: 'La clase de {clase} del {cuando} la dará {sustituta}. Tu reserva no cambia.',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?sesion=${s(d.sesionId)}`,
+   },
+   // Los mismos dos eventos, contados desde el lado de quien imparte la clase:
+   // no es "tu reserva", es tu turno de trabajo el que se cae o se mueve.
+@@ -695,7 +706,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
+   [`${EVENTOS.PAGO_FALLIDO}#SOCIA`]: {
+     title: 'Problema con tu pago',
+     body: 'No hemos podido cobrar {concepto} ({importe} €). Revisa tu método de pago.',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?tab=cuenta`,
+   },
+   [`${EVENTOS.PAGO_REALIZADO}#SOCIA`]: {
+     title: 'Pago recibido',
+@@ -721,7 +732,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
+   [`${EVENTOS.PAGO_PENALIZACION}#SOCIA`]: {
+     title: 'Cargo por cancelación tardía',
+     body: 'Se te ha cobrado {importe} € por cancelar dentro de la ventana permitida o no presentarte a la clase.',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?tab=cuenta`,
+   },
+   // audiencia: 'propietaria' resuelve solo a PROPIETARIO (ROLES_POR_AUDIENCIA) —
+   // una única plantilla basta.
+@@ -795,22 +806,22 @@ export const PLANTILLAS: Record<string, Plantilla> = {
+   [`${EVENTOS.RECORDATORIO_24H}#SOCIA`]: {
+     title: 'Mañana tienes clase',
+     body: 'Recuerda: {clase} mañana a las {hora}. ¡Te esperamos!',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?sesion=${s(d.sesionId)}`,
+   },
+   [`${EVENTOS.RECORDATORIO_1H}#SOCIA`]: {
+     title: 'Tu clase es en 1 hora',
+     body: '{clase} a las {hora}. ¡Nos vemos en un rato!',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?sesion=${s(d.sesionId)}`,
+   },
+   [`${EVENTOS.BONO_POR_CADUCAR}#SOCIA`]: {
+     title: 'Tu bono está por caducar',
+     body: 'Te quedan {sesiones} sesiones y tu bono caduca el {fecha}. Renueva para no perderlas.',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?tab=cuenta`,
+   },
+   [`${EVENTOS.BONO_AGOTADO}#SOCIA`]: {
+     title: 'Se te ha agotado el bono',
+     body: 'Has usado la última sesión de tu bono de {plan}. Renueva para seguir reservando.',
+-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
++    deepLink: (d: Datos) => `/reservar/${s(d.slug)}?tab=cuenta`,
+   },
+   [`${EVENTOS.CLASE_CASI_LLENA}#PROPIETARIO`]: {
+     title: 'Clase casi llena',
+diff --git a/lib/notifications/engine.test.ts b/lib/notifications/engine.test.ts
+index 3dbbd376..cadd6dea 100644
+--- a/lib/notifications/engine.test.ts
++++ b/lib/notifications/engine.test.ts
+@@ -4,6 +4,8 @@ import { procesarEvento, canalesExtraDe, type Preferencia } from './process.ts';
+ import { crearInApp } from './inapp.ts';
+ import { EVENTOS, REGLAS, plantillaDe, render, canalesDisponibles, ROLES_POR_AUDIENCIA } from './catalog.ts';
+ import type { NotificationEvent } from './types.ts';
++import { readFileSync } from 'node:fs';
++import { join } from 'node:path';
+ 
+ test('equipo y sistema: reglas + plantillas que renderizan', () => {
+   const casos: [string, Record<string, unknown>, RegExp][] = [
+@@ -279,7 +281,12 @@ test('reserva confirmada: crea in-app para la socia con la plantilla renderizada
+   assert.equal(notifs[0].title, 'Reserva confirmada');
+   assert.match(notifs[0].body as string, /Reformer/);
+   assert.match(notifs[0].body as string, /sábado 25 de julio/);
+-  assert.equal(notifs[0].deep_link, '/portal/mar/clases/ses1');
++  // Auditoría 22ª pasada: el destino de los avisos de SOCIA ya no es
++  // `/portal/<slug>/…` (borrado con el portal, #1591) sino `/reservar/<slug>`,
++  // que sabe abrir la clase con `?sesion=`. Guardián: si alguien vuelve a
++  // apuntar un deep link de socia al portal, esto falla.
++  assert.equal(notifs[0].deep_link, '/reservar/mar?sesion=ses1');
++  assert.doesNotMatch(notifs[0].deep_link as string, /^\/portal\//);
+   assert.equal(notifs[0].priority, 'MEDIA');
+   assert.equal(notifs[0].category, 'reservas');
+   // Deliveries: INAPP enviado + PUSH omitido (sin VAPID en test).
+@@ -433,3 +440,23 @@ test('crearInApp: sin cuenta reclamada la entrega in-app queda SKIPPED', async (
+   });
+   assert.equal(deliveries.find(d => d.channel === 'INAPP')!.status, 'SKIPPED');
+ });
++
++// ── Guardián: ningún destino de socia puede apuntar al portal borrado ────────
++//
++// Auditoría 22ª pasada (3-sep-2026). El commit #1591 borró `app/portal` entero
++// y dejó una redirección que, además, tiraba el query string. Los 18 deep links
++// del rol SOCIA seguían apuntando ahí: cada push llevaba a la pantalla de
++// comprar, y los que llevaban `?tab=`/`?pago=` los perdían por el camino.
++// Reapuntarlos no basta — hay que impedir que vuelvan, porque el siguiente que
++// añada una plantilla de socia copiará la de al lado.
++//
++// A propósito se comprueba el FICHERO y no una plantilla concreta: es la única
++// forma de cubrir las 18 de golpe y las que vengan.
++test('ninguna plantilla del catálogo compone rutas /portal/ (se borraron)', () => {
++  const fuente = readFileSync(join(import.meta.dirname, 'catalog.ts'), 'utf8');
++  const lineasConPortal = fuente
++    .split('\n')
++    .map((l, i) => ({ n: i + 1, l }))
++    .filter(({ l }) => /deepLink[^\n]*`\/portal\//.test(l) || /=> *`\/portal\//.test(l));
++  assert.deepEqual(lineasConPortal, [], 'los deep links de socia van a /reservar/<slug>, no al portal borrado');
++});
+diff --git a/lib/studio-context.tsx b/lib/studio-context.tsx
+index 04f9f857..8f233491 100644
+--- a/lib/studio-context.tsx
++++ b/lib/studio-context.tsx
+@@ -404,7 +404,7 @@ interface StudioContextValue {
+   // Sesiones
+   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+   updateSesion: (id: string, changes: Partial<Sesion>) => Promise<ResultadoEscritura>;
+-  deleteSesion: (id: string) => Promise<ResultadoEscritura>;
++  deleteSesion: (id: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
+   // Series de clases recurrentes (I-3)
+   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
+   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
+@@ -2559,6 +2559,46 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+   // "clientas avisadas" sin enterarse de que alguna socia se quedó sin su
+   // sesión de vuelta. Ahora se esperan todas (Promise.all) y, si alguna
+   // falla, se añade el mismo `avisoBono` que ya usa el camino individual.
++  // ⚠️ Auditoría 22ª pasada (3-sep-2026), F-1. La devolución la hace el SERVIDOR
++  // (`/api/reservas/devolver-bonos`), no el navegador. La RPC
++  // `devolver_sesion_bono` exige `puede_gestionar_calendario()` desde el 2-sep, y
++  // ese predicado deja fuera a INSTRUCTOR — pero el botón "Cancelar" de una
++  // clase SÍ se le ofrece a la instructora en la suya. Llamando desde aquí,
++  // cada devolución reventaba con NO_AUTORIZADO y las socias se quedaban sin su
++  // sesión de vuelta. Devuelve cuántas devoluciones FALLARON de verdad (una
++  // socia sin bono devolvible no es un fallo).
++  async function devolverBonosEnServidor(reservaIds: string[]): Promise<number> {
++    try {
++      const respuesta = await fetch('/api/reservas/devolver-bonos', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
++        body: JSON.stringify({ reservaIds }),
++      });
++      const datos = await respuesta.json().catch(() => null) as {
++        devueltas?: number; fallos?: number; saldos?: { suscripcionId: string; sesionesRestantes: number }[];
++      } | null;
++      if (!respuesta.ok || !datos) {
++        capturarMensaje('[devolverBonosEnServidor] el servidor rechazó la devolución', 'error', {
++          extra: { reservaIds, status: respuesta.status },
++        });
++        return reservaIds.length;
++      }
++      // Saldos autoritativos del servidor: el panel ya no los calcula.
++      if (datos.saldos?.length) {
++        const porId = new Map(datos.saldos.map(s => [s.suscripcionId, s.sesionesRestantes]));
++        setSuscripciones(prev => prev.map(s =>
++          porId.has(s.id) ? { ...s, sesionesRestantes: porId.get(s.id) as number } : s
++        ));
++      }
++      return datos.fallos ?? 0;
++    } catch (e) {
++      capturarMensaje('[devolverBonosEnServidor] no se pudo llamar a la devolución', 'error', {
++        extra: { reservaIds, error: e instanceof Error ? e.message : String(e) },
++      });
++      return reservaIds.length;
++    }
++  }
++
+   async function cancelarReservasDeSesiones(ids: string[], op: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
+     if (ids.length === 0) return { ok: true };
+     const sesionIdsSet = new Set(ids);
+@@ -2578,12 +2618,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+         setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+         if (studio?.cancelacionClaseDevuelveBono ?? true) {
+           const aDevolver = confirmadasAntes.filter(r => idsSet.has(r.id));
+-          const resultados = await Promise.all(aDevolver.map(r => devolverSesionBono(r.socioId, r.sesionId)));
+-          const fallos = resultados.filter(ok => !ok).length;
+-          if (fallos > 0) {
+-            avisoBono = fallos === 1
+-              ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
+-              : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`;
++          if (aDevolver.length > 0) {
++            const fallos = await devolverBonosEnServidor(aDevolver.map(r => r.id));
++            if (fallos > 0) {
++              avisoBono = fallos === 1
++                ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
++                : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`;
++            }
+           }
+         }
+       }
+@@ -2613,7 +2654,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+     return res;
+   }
+ 
+-  async function deleteSesion(id: string): Promise<ResultadoEscritura> {
++  async function deleteSesion(id: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
+     // Borrar la sesión CASCADE-borra sus reservas en BD (FK on delete cascade) —
+     // antes eso pasaba en silencio: ni email ni aviso in-app a las socias con
+     // plaza, a diferencia de "Cancelar" (que sí avisa). Se manda el email Y el
+@@ -2638,7 +2679,28 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+     setSesiones(prev => prev.filter(s => s.id !== id));
+     setReservas(prev => prev.filter(r => r.sesionId !== id));
+     if ((studio?.cancelacionClaseDevuelveBono ?? true) && confirmadas.length > 0) {
+-      confirmadas.forEach(r => void devolverSesionBono(r.socioId, r.sesionId));
++      // ⚠️ Auditoría 22ª pasada (3-sep-2026), F-9. Esto era
++      // `forEach(r => void devolverSesionBono(...))`: fire-and-forget. F-32
++      // (20ª pasada) arregló exactamente este patrón en el gemelo
++      // `cancelarReservasDeSesiones` y dejó este como estaba — la propietaria
++      // veía "Clase eliminada" aunque alguna socia se quedara sin su sesión de
++      // vuelta, y el fallo solo llegaba a Sentry.
++      //
++      // Sigue llamando a la RPC desde el navegador, a diferencia de su gemelo:
++      // "Eliminar" está gateado a `!esInstructor` (calendario/page.tsx), así que
++      // el rol siempre pasa la cerradura de `devolver_sesion_bono`. Y no puede
++      // usar `/api/reservas/devolver-bonos`, que valida contra las reservas: el
++      // DELETE ya se las llevó por cascade.
++      const resultados = await Promise.all(confirmadas.map(r => devolverSesionBono(r.socioId, r.sesionId)));
++      const fallos = resultados.filter(ok => !ok).length;
++      if (fallos > 0) {
++        return {
++          ...res,
++          avisoBono: fallos === 1
++            ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
++            : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`,
++        };
++      }
+     }
+     return res;
+   }
+diff --git a/lib/supabase-data.ts b/lib/supabase-data.ts
+index 06938c4b..36afca27 100644
+--- a/lib/supabase-data.ts
++++ b/lib/supabase-data.ts
+@@ -2544,8 +2544,20 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>): Pr
+   if ('spotId' in changes) db.spot_id = changes.spotId;
+   if ('posicionEspera' in changes) db.posicion_espera = changes.posicionEspera;
+   if ('checkInEn' in changes) db.check_in_en = changes.checkInEn;
+-  const { error } = await supabase.from('reservas').update(db).eq('id', id);
+-  return error ? falloEscritura('[dbUpdateReserva]', error) : ESCRITURA_OK;
++  // ⚠️ `.select('id')`: un UPDATE que no casa ninguna fila —porque la RLS lo
++  // filtró, o porque la reserva ya no existe— NO devuelve error en Supabase
++  // (auditoría 22ª pasada, F-5). Este es el único escritor de SEIS acciones del
++  // panel (check-in, no-show y sus dos deshacer, asignar y liberar sitio), y en
++  // el check-in el éxito falso es caro: se pinta ASISTIDA, se abre la puerta y
++  // se disparan créditos, logros y racha sobre una asistencia que la base de
++  // datos nunca registró — `otorgar_credito_disparador` exige la fila ya en
++  // ASISTIDA, así que el crédito se pierde en silencio.
++  const { data, error } = await supabase.from('reservas').update(db).eq('id', id).select('id');
++  if (error) return falloEscritura('[dbUpdateReserva]', error);
++  if (!data?.length) {
++    return falloEscritura('[dbUpdateReserva]', { message: `la reserva ${id} no se ha podido actualizar (0 filas)` });
++  }
++  return ESCRITURA_OK;
+ }
+ 
+ export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
+diff --git a/supabase/migrations/20260903132056_aceptar_oferta_solo_service_role.sql b/supabase/migrations/20260903132056_aceptar_oferta_solo_service_role.sql
+new file mode 100644
+index 00000000..69ce5eac
+--- /dev/null
++++ b/supabase/migrations/20260903132056_aceptar_oferta_solo_service_role.sql
+@@ -0,0 +1,23 @@
++-- Auditoría 22ª pasada (3-sep-2026), F-4.
++--
++-- `aceptar_oferta_lista_espera` es la última RPC de la familia de reservas que
++-- seguía con EXECUTE para `authenticated` y SIN comprobar rol por dentro. Sus
++-- gemelas ya están cerradas:
++--   · `cancelar_reserva_plaza`  → revocada el 2-sep (P-1/P-3), solo service_role.
++--   · `consumir_sesion_bono`    → guard `puede_gestionar_calendario()` (20260902215304).
++--   · `devolver_sesion_bono`    → mismo guard.
++--   · `resolver_reserva_pendiente` → mismo guard.
++--
++-- Por qué importa: el consumo de bono de ESTA no vive en la RPC, vive en TS
++-- (`aceptarOfertaListaEspera`, lib/db/supabase-data-admin.ts: "el bono se
++-- consume AQUÍ, no en la RPC"). Cualquiera con JWT de staff y
++-- `current_studio_id()` resuelto —incluida una INSTRUCTOR, justo el rol que P-3
++-- fue a cerrar— podía llamarla directa con el `reservaId` de una socia y
++-- dejarla CONFIRMADA **sin consumir sesión de bono**: una clase gratis por
++-- llamada y sin rastro.
++--
++-- No rompe nada: el único llamante en todo el repo es
++-- `/api/reservas/aceptar-oferta-espera`, que va con service-role y resuelve el
++-- `socioId` del JWT, nunca del cuerpo. Verificado con grep sobre app/, lib/ y
++-- components/ antes de escribir esto.
++revoke execute on function public.aceptar_oferta_lista_espera(text, text, text) from authenticated;
+diff --git a/supabase/migrations/20260903132246_quitar_policies_anon_true_contenido_portal.sql b/supabase/migrations/20260903132246_quitar_policies_anon_true_contenido_portal.sql
+new file mode 100644
+index 00000000..41a64661
+--- /dev/null
++++ b/supabase/migrations/20260903132246_quitar_policies_anon_true_contenido_portal.sql
+@@ -0,0 +1,20 @@
++-- Auditoría 22ª pasada (3-sep-2026), S-6.
++--
++-- Dos policies `for select to anon using (true)` SIN filtro por estudio sobre
++-- tablas de tenant (`contenido_portal`, `contenido_portal_banners`).
++--
++-- Hoy eran letra muerta y se comprobó antes de tocarlas: `anon` no tiene el
++-- GRANT de tabla ni de columna (`has_table_privilege`/`has_column_privilege`
++-- false, y `set local role anon; select …` → 42501). Pero una policy
++-- permisiva sin filtro es una trampa armada: basta que alguien pulse "enable
++-- read access" en el panel de Supabase para publicar en internet el contenido
++-- y los banners de TODOS los estudios de golpe.
++--
++-- La lectura pública real va por service-role (`/api/public/studio-data`), que
++-- no pasa por RLS, así que esto no lo usaba nadie. Las policies de staff
++-- (`admin_contenido_portal*`, PROPIETARIO/MANAGER acotados por
++-- `current_studio_id()`) se conservan intactas.
++--
++-- Verificado tras aplicar: en `pg_policies` solo quedan las dos de staff.
++drop policy if exists public_read_contenido_portal on public.contenido_portal;
++drop policy if exists public_read_contenido_portal_banners on public.contenido_portal_banners;
+-- 
+2.34.1
+
+
+From 34dae94cfcad74fd658ff419205f90dd9022f12c Mon Sep 17 00:00:00 2001
+From: Claude Opus 5 <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 17:57:24 +0200
+Subject: [PATCH 2/2] =?UTF-8?q?fix(auditoria):=20correcciones=20de=20la=20?=
+ =?UTF-8?q?revisi=C3=B3n=20independiente=20(gemelo=20de=20disputas,=20limp?=
+ =?UTF-8?q?ieza=20de=20URL,=20guards=20del=20endpoint=20de=20bonos)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ app/api/billing/webhook/route.ts              | 33 +++++++++-
+ app/api/reservas/devolver-bonos/route.ts      | 64 +++++++++++++++----
+ app/api/stripe/webhook/route.ts               | 14 +++-
+ app/portal/[slug]/[[...resto]]/route.ts       |  5 --
+ app/reservar/[slug]/page.tsx                  | 22 +++++--
+ lib/billing/origen-pago.ts                    |  4 +-
+ lib/billing/procesar-reembolso.ts             | 12 +++-
+ lib/supabase-data.ts                          |  5 +-
+ ...32056_aceptar_oferta_solo_service_role.sql | 11 ++--
+ 9 files changed, 137 insertions(+), 33 deletions(-)
+
+diff --git a/app/api/billing/webhook/route.ts b/app/api/billing/webhook/route.ts
+index 05101873..e5b86e7e 100644
+--- a/app/api/billing/webhook/route.ts
++++ b/app/api/billing/webhook/route.ts
+@@ -172,7 +172,18 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
+     // defensa no estaba en esta capa.
+     const { data: filas, error } = await admin.from('cadenas').update(update).eq('id', cadenaId).select('id');
+     if (error) throw new Error(`update cadenas: ${error.message}`);
+-    if (!filas?.length) throw new Error(`update cadenas: cadena ${cadenaId} no encontrada`);
++    // Fila inexistente ≠ fallo transitorio: lanzar aquí haría que Stripe
++    // reintentara ~3 días un evento que NUNCA va a poder aplicarse (cadena
++    // borrada, o metadata con un id viejo), y una tasa de fallo sostenida puede
++    // acabar desactivando el destino del webhook para TODOS los demás. Se avisa
++    // a Sentry, que es lo que faltaba —antes esto era silencio absoluto— y se
++    // sigue: quien lo arregla es una persona corrigiendo la metadata en Stripe.
++    if (!filas?.length) {
++      Sentry.captureMessage('[billing webhook] cadena de la metadata no encontrada', {
++        level: 'error', tags: { area: 'billing' }, extra: { cadenaId, estado: sub.status },
++      });
++      return;
++    }
+     capturar(cadenaId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+     return;
+   }
+@@ -183,7 +194,14 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
+     // y el webhook lo celebra con un 200.
+     const { data: filas, error } = await admin.from('studios').update(update).eq('id', studioId).select('id');
+     if (error) throw new Error(`update studios: ${error.message}`);
+-    if (!filas?.length) throw new Error(`update studios: estudio ${studioId} no encontrado`);
++    // Mismo criterio que la rama de `cadenas`: Sentry y seguir, no reintentar
++    // para siempre algo que ningún reintento arregla.
++    if (!filas?.length) {
++      Sentry.captureMessage('[billing webhook] estudio de la metadata no encontrado', {
++        level: 'error', tags: { area: 'billing' }, extra: { studioId, estado: sub.status },
++      });
++      return;
++    }
+     // R4: señal de ciclo de vida de la suscripción (alta/renovación/impago/baja).
+     capturar(studioId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+     // Review Boost: señal directa "vino de Review Boost y pagó", sin tener que
+@@ -209,8 +227,17 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
+   if (studiosError) throw new Error(`update studios: ${studiosError.message}`);
+   if (enStudios && enStudios.length > 0) return;
+ 
+-  const { error: cadenasError } = await admin.from('cadenas').update(update).eq('stripe_customer_id', customerId);
++  const { data: enCadenas, error: cadenasError } = await admin
++    .from('cadenas').update(update).eq('stripe_customer_id', customerId).select('id');
+   if (cadenasError) throw new Error(`update cadenas (fallback sin metadata): ${cadenasError.message}`);
++  // El `.select('id')` que el comentario de arriba pedía y esta rama —la última
++  // del intento -- no tenía: si no casa ni aquí, el cliente de Stripe no
++  // corresponde a ningún estudio ni cadena conocidos y hay que enterarse.
++  if (!enCadenas?.length) {
++    Sentry.captureMessage('[billing webhook] stripe_customer_id sin estudio ni cadena', {
++      level: 'error', tags: { area: 'billing' }, extra: { customerId, estado: sub.status },
++    });
++  }
+ }
+ 
+ async function avisarFalloPagoSaas(admin: SupabaseClient, invoice: Stripe.Invoice): Promise<void> {
+diff --git a/app/api/reservas/devolver-bonos/route.ts b/app/api/reservas/devolver-bonos/route.ts
+index 77a5d41f..b285d711 100644
+--- a/app/api/reservas/devolver-bonos/route.ts
++++ b/app/api/reservas/devolver-bonos/route.ts
+@@ -23,9 +23,9 @@ export const dynamic = 'force-dynamic';
+ // usan los caminos de servidor (cancelación individual, sustituciones y el cron
+ // de mínimo de asistentes), en vez de una copia paralela en el navegador.
+ //
+-// La política del estudio (`cancelacion_clase_devuelve_bono`) la sigue
+-// decidiendo quien llama, igual que antes: este endpoint es el brazo, no la
+-// cabeza. Se documenta porque es la parte que NO se ha movido de sitio.
++// La política del estudio (`cancelacion_clase_devuelve_bono`) se comprueba
++// también AQUÍ, no solo en el navegador: es una decisión de la propietaria y no
++// puede depender de que quien llame se acuerde de mirarla.
+ export async function POST(req: NextRequest) {
+   const sesion = await verificarSesionStaff(req);
+   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+@@ -39,18 +39,50 @@ export async function POST(req: NextRequest) {
+   const admin = getSupabaseAdmin();
+   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+ 
+-  // Solo reservas de ESTE estudio y ya canceladas: la devolución es el remate de
+-  // una cancelación, no una vía para regalar sesiones sobre reservas vivas.
+-  const { data: reservas } = await admin
++  // ⚠️ Los `error` de estas dos lecturas se COMPRUEBAN. Descartarlos convertía
++  // este endpoint en la misma clase de éxito falso que va a cerrar: una lectura
++  // fallida daba `canceladas = []` → 200 con `fallos: 0` → el panel decía
++  // "clientas avisadas" y ninguna socia recuperaba su sesión.
++  const { data: reservas, error: errReservas } = await admin
+     .from('reservas').select('id, socio_id, sesion_id, estado')
+     .in('id', reservaIds).eq('studio_id', sesion.studioId);
+-  const canceladas = (reservas ?? []).filter(r => r.estado === 'CANCELADA');
+-  if (canceladas.length === 0) return NextResponse.json({ devueltas: 0, fallos: 0, saldos: [] });
++  if (errReservas) {
++    console.error('[devolver-bonos] no se pudieron leer las reservas', errReservas.message);
++    return NextResponse.json({ error: 'No se ha podido devolver el bono. Vuelve a intentarlo.' }, { status: 500 });
++  }
++  // Tres filtros, y los tres importan:
++  //  · `CANCELADA` — la devolución es el remate de una cancelación.
++  //  · NO `res-pf-` — las plazas fijas las inserta `materializar_plazas_fijas`
++  //    ya CONFIRMADAS y SIN consumir bono, así que devolverles una sesión
++  //    inventa saldo. El camino canónico (`ejecutarCancelacionReserva`) ya
++  //    tiene este guard; aquí faltaba, y es justo el sitio donde por fin se
++  //    tienen los `reservaId` en la mano para poder aplicarlo.
++  //  · sesión `cancelada` — ata la devolución a una cancelación de CLASE real,
++  //    que es lo único que este endpoint sirve. Sin esto, un POST con ids de
++  //    reservas canceladas hace meses sube el saldo de una socia hasta el tope
++  //    del plan, tantas veces como se llame.
++  const candidatas = (reservas ?? []).filter(r => r.estado === 'CANCELADA' && !(r.id as string).startsWith('res-pf-'));
++  if (candidatas.length === 0) return NextResponse.json({ devueltas: 0, fallos: 0, saldos: [] });
+ 
+-  const sesionIds = [...new Set(canceladas.map(r => r.sesion_id as string))];
+-  const { data: sesiones } = await admin
+-    .from('sesiones').select('id, instructor_id, tipo_clase_id')
++  const sesionIds = [...new Set(candidatas.map(r => r.sesion_id as string))];
++  const { data: sesiones, error: errSesiones } = await admin
++    .from('sesiones').select('id, instructor_id, tipo_clase_id, cancelada')
+     .in('id', sesionIds).eq('studio_id', sesion.studioId);
++  if (errSesiones) {
++    console.error('[devolver-bonos] no se pudieron leer las sesiones', errSesiones.message);
++    return NextResponse.json({ error: 'No se ha podido devolver el bono. Vuelve a intentarlo.' }, { status: 500 });
++  }
++  // Sin la sesión no se puede resolver el tipo de clase, y sin el tipo
++  // `bonoDevolvible` elige el bono que caduque antes: con dos bonos vivos eso
++  // regala saldo en uno y lo deja perdido en el otro. Así que faltar una sesión
++  // NO es "seguir sin tipo": es un fallo.
++  if ((sesiones ?? []).length !== sesionIds.length) {
++    console.error('[devolver-bonos] faltan sesiones', { sesionIds, encontradas: (sesiones ?? []).length });
++    return NextResponse.json({ error: 'No se ha podido devolver el bono. Vuelve a intentarlo.' }, { status: 500 });
++  }
++  const canceladasEnBD = new Set((sesiones ?? []).filter(s => s.cancelada === true).map(s => s.id as string));
++  const canceladas = candidatas.filter(r => canceladasEnBD.has(r.sesion_id as string));
++  if (canceladas.length === 0) return NextResponse.json({ devueltas: 0, fallos: 0, saldos: [] });
+ 
+   if (!puedeGestionarCalendario(sesion.rol)) {
+     if (sesion.rol !== 'INSTRUCTOR') return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+@@ -68,6 +100,16 @@ export async function POST(req: NextRequest) {
+     if (!instructorId || !todasSuyas) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+   }
+ 
++  // ⚠️ La política del estudio se comprueba AQUÍ, no solo en el navegador. Su
++  // gemelo de servidor (`devolverBonosPorCancelacionClase`) ya la leía en
++  // servidor; dejarla solo en el cliente significaba que un POST directo con
++  // JWT de staff devolvía bonos que la propietaria decidió no devolver.
++  const { data: politica } = await admin
++    .from('studios').select('cancelacion_clase_devuelve_bono').eq('id', sesion.studioId).maybeSingle();
++  if ((politica?.cancelacion_clase_devuelve_bono ?? true) !== true) {
++    return NextResponse.json({ devueltas: 0, fallos: 0, saldos: [], politica: 'no_devuelve' });
++  }
++
+   // Una devolución POR RESERVA cancelada, no por socia: quien tenía dos plazas
+   // en la serie que se cancela recupera dos sesiones. Secuencial a propósito —
+   // `devolver_sesion_bono` es un incremento atómico con tope en el WHERE, y en
+diff --git a/app/api/stripe/webhook/route.ts b/app/api/stripe/webhook/route.ts
+index 6027dddd..ec12ed3b 100644
+--- a/app/api/stripe/webhook/route.ts
++++ b/app/api/stripe/webhook/route.ts
+@@ -1181,7 +1181,19 @@ async function procesarEvento(
+           studioId, reciboId, disputeStatus: dispute.status, disputeId: dispute.id,
+           dueByUnix: dispute.evidence_details?.due_by ?? null, fuente: 'webhook',
+         });
+-        if (!resultado.ok) return NextResponse.json({ error: 'Fallo al registrar la disputa' }, { status: 500 });
++        if (!resultado.ok) {
++          // ⚠️ Este 500 NO lo ve nadie: `procesarEvento` corre dentro de
++          // `after(...)` y la respuesta ya se envió (ver la cabecera de este
++          // fichero). Sin este `captureMessage`, el fix de D-10 cambiaba un
++          // éxito falso por un silencio total: `console.error` no llega a
++          // Sentry en este proyecto. La red de recuperación sigue siendo el
++          // conciliador de reembolsos, cada 2 h.
++          Sentry.captureMessage('[stripe webhook] no se pudo registrar la disputa', {
++            level: 'error', tags: { area: 'cobros', tipo: 'disputa' },
++            extra: { reciboId, studioId, disputeId: dispute.id, detalle: resultado.error },
++          });
++          return NextResponse.json({ error: 'Fallo al registrar la disputa' }, { status: 500 });
++        }
+       }
+     }
+   }
+diff --git a/app/portal/[slug]/[[...resto]]/route.ts b/app/portal/[slug]/[[...resto]]/route.ts
+index 13d49ddb..4dc34fbb 100644
+--- a/app/portal/[slug]/[[...resto]]/route.ts
++++ b/app/portal/[slug]/[[...resto]]/route.ts
+@@ -37,8 +37,3 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
+   const { slug } = await params;
+   redirect(`/reservar/${encodeURIComponent(slug)}${req.nextUrl.search}`);
+ }
+-
+-// Los previsualizadores de enlaces (WhatsApp, iMessage, Slack) piden HEAD antes
+-// que GET. Sin esto, el enlace del email de recibo se ve como "405" en la
+-// tarjeta de previsualización aunque al pulsarlo funcione.
+-export const HEAD = GET;
+diff --git a/app/reservar/[slug]/page.tsx b/app/reservar/[slug]/page.tsx
+index e43ebc83..895d2d05 100644
+--- a/app/reservar/[slug]/page.tsx
++++ b/app/reservar/[slug]/page.tsx
+@@ -6,7 +6,7 @@ import { queImparten } from '@/lib/equipo';
+ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+ import { createPortal } from 'react-dom';
+ import dynamic from 'next/dynamic';
+-import { useSearchParams, useParams, useRouter } from 'next/navigation';
++import { useSearchParams, useParams } from 'next/navigation';
+ import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
+ import { portalAuthHeader } from '@/lib/api-client';
+ import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
+@@ -438,7 +438,9 @@ export default function ReservarPage() {
+   const slug = String(params?.slug ?? '');
+   const { socia, usuarioEmail, autenticado, enviarEnlace, loginConPassword, logout, refrescar } = useSociaSession(slug);
+   const searchParams = useSearchParams();
+-  const router = useRouter();
++  // (Auditoría 22ª pasada) `useRouter` se retira: los tres únicos usos eran
++  // `router.replace` para limpiar la query, y en esta ruta eso está medido como
++  // no-op — ahora se hace con History API, igual que el resto de la página.
+   const refCode = searchParams.get('ref');
+   // Modo embebido (widget en la web del estudio, vía <iframe>): oculta la
+   // cabecera y el hero grandes — ya viven en la web anfitriona — y deja
+@@ -1085,9 +1087,12 @@ export default function ReservarPage() {
+     if (compra === 'cancelada') {
+       trackEventoWidget(studio?.id, 'booking_abandoned', { socioId: socia?.socioId ?? null });
+     }
++    // Mismo cambio que su gemelo de abajo (auditoría 22ª pasada): `router.replace`
++    // no llega a comprometerse en esta ruta para un cambio de sola query string,
++    // así que `?compra=ok` se quedaba pegado en la barra de direcciones.
+     const limpio = new URLSearchParams(searchParams.toString());
+     limpio.delete('compra');
+-    router.replace(`/reservar/${slug}${limpio.toString() ? `?${limpio.toString()}` : ''}`, { scroll: false });
++    window.history.replaceState(null, '', `/reservar/${slug}${limpio.toString() ? `?${limpio.toString()}` : ''}`);
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, []);
+ 
+@@ -1108,9 +1113,10 @@ export default function ReservarPage() {
+     if (searchParams.get('tentare_pago') !== 'retorno') return;
+     // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee el parámetro de retorno una sola vez y limpia la URL a continuación; depende de la URL, no de props ni estado.
+     setAvisoPagoRetorno(true);
++    // Ídem (auditoría 22ª pasada): History API en vez de `router.replace`.
+     const limpio = new URLSearchParams(searchParams.toString());
+     limpio.delete('tentare_pago');
+-    router.replace(`/reservar/${slug}${limpio.toString() ? `?${limpio.toString()}` : ''}`, { scroll: false });
++    window.history.replaceState(null, '', `/reservar/${slug}${limpio.toString() ? `?${limpio.toString()}` : ''}`);
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, []);
+ 
+@@ -1138,9 +1144,15 @@ export default function ReservarPage() {
+       const ok = v === 'ok';
+       // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee el parámetro de retorno una sola vez y limpia la URL a continuación; depende de la URL, no de props ni estado.
+       setAvisoRetorno({ ok, texto: ok ? AVISOS[clave].ok : AVISOS[clave].no });
++      // ⚠️ `window.history.replaceState`, NO `router.replace`. En esta ruta
++      // `router.replace` para un cambio que solo toca la query string está
++      // MEDIDO como no-op (ver el comentario largo del efecto de historial más
++      // abajo): la URL se quedaba con `?tarjeta=ok` pegado para siempre, y como
++      // el efecto de historial reconstruye desde `window.location.search`, el
++      // aviso reaparecía fuera de contexto al compartir o recargar el enlace.
+       const limpio = new URLSearchParams(searchParams.toString());
+       limpio.delete(clave);
+-      router.replace(`/reservar/${slug}${limpio.toString() ? `?${limpio.toString()}` : ''}`, { scroll: false });
++      window.history.replaceState(null, '', `/reservar/${slug}${limpio.toString() ? `?${limpio.toString()}` : ''}`);
+       break;
+     }
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+diff --git a/lib/billing/origen-pago.ts b/lib/billing/origen-pago.ts
+index 53cadb99..d935e111 100644
+--- a/lib/billing/origen-pago.ts
++++ b/lib/billing/origen-pago.ts
+@@ -67,7 +67,9 @@ export function urlsDeRetorno(p: {
+     // reintentarse, así que la pantalla que recibe esto tiene que MIRAR si el
+     // bono está antes de felicitar a nadie. Va el plan para que pueda mirar el
+     // que toca y no uno cualquiera que ya tuviera.
+-    const base = `${p.appUrl}/reservar/${p.slug}`;
++    // `encodeURIComponent` como en `setup-tarjeta`/`setup-sepa`: el slug sale de
++    // la BD, pero nadie compone URLs a pelo en el camino del dinero.
++    const base = `${p.appUrl}/reservar/${encodeURIComponent(p.slug)}`;
+     if (p.esCompraDePlan) {
+       const plan = p.planId ? `&plan=${encodeURIComponent(p.planId)}` : '';
+       return { successUrl: `${base}?compra=ok${plan}`, cancelUrl: `${base}?compra=cancelada` };
+diff --git a/lib/billing/procesar-reembolso.ts b/lib/billing/procesar-reembolso.ts
+index 067439e6..1f246796 100644
+--- a/lib/billing/procesar-reembolso.ts
++++ b/lib/billing/procesar-reembolso.ts
+@@ -184,9 +184,17 @@ export async function procesarDisputeClosed(
+   // fecha_devolucion original con la de hoy. Con una sola sentencia había que
+   // elegir: o se perdía el guardia, o el guardia descartaba la fila entera y
+   // `disputa_estado` no se guardaba nunca.
+-  const { error } = await admin.from('recibos')
++  // `.select('id')` igual que en `procesarDisputeCreated` (auditoría 22ª pasada,
++  // D-10): un `reciboId` inexistente o de otro estudio no da error en Supabase,
++  // y esta es la rama en la que el dinero SE VA de verdad (`lost` → DEVUELTO +
++  // `registrarDevolucion` + aviso). Sin esto, se notificaba un chargeback que no
++  // quedó escrito en ningún recibo. El gemelo de esta función ya lo llevaba: se
++  // arregló uno y no el otro, que es el fallo dominante de este repo cometido
++  // dentro del propio fix.
++  const { data: filas, error: errUpdate } = await admin.from('recibos')
+     .update({ disputa_estado: p.disputeStatus })
+-    .eq('id', p.reciboId).eq('studio_id', p.studioId);
++    .eq('id', p.reciboId).eq('studio_id', p.studioId).select('id');
++  const error = errUpdate ?? (filas?.length ? null : new Error(`recibo ${p.reciboId} no encontrado en ${p.studioId}`));
+   let errDevuelto = null;
+   if (!error && p.disputeStatus === 'lost') {
+     const r = await admin.from('recibos')
+diff --git a/lib/supabase-data.ts b/lib/supabase-data.ts
+index 36afca27..57cc6a26 100644
+--- a/lib/supabase-data.ts
++++ b/lib/supabase-data.ts
+@@ -2555,7 +2555,10 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>): Pr
+   const { data, error } = await supabase.from('reservas').update(db).eq('id', id).select('id');
+   if (error) return falloEscritura('[dbUpdateReserva]', error);
+   if (!data?.length) {
+-    return falloEscritura('[dbUpdateReserva]', { message: `la reserva ${id} no se ha podido actualizar (0 filas)` });
++    // `code: '42501'` para que `mensajeDeFalloAlGuardar` diga "no tienes
++    // permiso" en vez de un genérico: la causa abrumadoramente más probable de
++    // 0 filas aquí es la RLS (una instructora sobre una clase que no es suya).
++    return falloEscritura('[dbUpdateReserva]', { code: '42501', message: `la reserva ${id} no se ha podido actualizar (0 filas)` });
+   }
+   return ESCRITURA_OK;
+ }
+diff --git a/supabase/migrations/20260903132056_aceptar_oferta_solo_service_role.sql b/supabase/migrations/20260903132056_aceptar_oferta_solo_service_role.sql
+index 69ce5eac..470e329a 100644
+--- a/supabase/migrations/20260903132056_aceptar_oferta_solo_service_role.sql
++++ b/supabase/migrations/20260903132056_aceptar_oferta_solo_service_role.sql
+@@ -16,8 +16,11 @@
+ -- dejarla CONFIRMADA **sin consumir sesión de bono**: una clase gratis por
+ -- llamada y sin rastro.
+ --
+--- No rompe nada: el único llamante en todo el repo es
+--- `/api/reservas/aceptar-oferta-espera`, que va con service-role y resuelve el
+--- `socioId` del JWT, nunca del cuerpo. Verificado con grep sobre app/, lib/ y
+--- components/ antes de escribir esto.
++-- No rompe nada: los DOS llamantes del repo
++-- (`/api/reservas/aceptar-oferta-espera` y `/api/public/aceptar-oferta-espera`)
++-- pasan por `aceptarOfertaListaEspera`, que usa `getSupabaseAdmin()`
++-- (service-role) y resuelve el `socioId` del JWT, nunca del cuerpo. Ninguna
++-- llamada sale del cliente autenticado. Verificado con grep sobre app/, lib/ y
++-- components/, y con `has_function_privilege` tras aplicar:
++-- authenticated=false, anon=false, service_role=true (control positivo).
+ revoke execute on function public.aceptar_oferta_lista_espera(text, text, text) from authenticated;
+-- 
+2.34.1
+

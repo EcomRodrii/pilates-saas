@@ -306,7 +306,21 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     if (!twilioConfigurado('WHATSAPP')) {
       log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no configurado (faltan credenciales Twilio)' };
     } else {
-      const r = await twilioSmsProvider.enviar({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: `${c.asunto}\n\n${c.mensaje}` });
+      // ⚠️ Auditoría 22ª pasada (3-sep-2026). Este camino es el del motor de
+      // MARKETING: todo lo que sale por aquí es comunicación comercial. El
+      // gemelo de email lleva `unsubscribeUrl` en las dos ramas por LSSI art.
+      // 21; este no llevaba NADA — ni enlace, ni "responde BAJA", ni
+      // equivalente. La única vía de baja (`/api/marketing/baja`) viajaba solo
+      // por correo, así que retirar el consentimiento no era tan fácil como
+      // darlo (RGPD art. 7.3). Se añade el mismo enlace firmado al final del
+      // mensaje. Hoy hay 0 automatizaciones activas en producción: esto se
+      // cierra ANTES de que la primera dueña encienda una, no después.
+      const baja = `${appUrl()}/api/marketing/baja?token=${firmarBajaMarketing(opts.studioId, c.socio.id)}`;
+      const r = await twilioSmsProvider.enviar({
+        canal: 'WHATSAPP',
+        to: c.socio.telefono,
+        cuerpo: `${c.asunto}\n\n${c.mensaje}\n\nPara dejar de recibir estos mensajes: ${baja}`,
+      });
       log = r.ok
         ? { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `WhatsApp enviado a ${c.socio.telefono}: "${c.asunto}"` }
         : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Twilio' };

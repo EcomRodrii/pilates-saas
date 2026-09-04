@@ -28,7 +28,7 @@ import type { ResultadoEscritura } from '@/lib/errores';
 import { semantic } from '@/lib/portal-tokens';
 import { colorOcupacion, ratioOcupacion, etiquetaOcupacion } from '@/lib/ocupacion';
 import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
-import { serif, sans, cq, radius, shadow, EASE } from '@/lib/reservar-publico-tokens';
+import { serif, sans, mono, cq, radius, EASE, densidadCss } from '@/lib/reservar-publico-tokens';
 import {
   localDayKey, addDays, diasSemana, contarSlotsPorDia, slotsDelDia,
   agruparPorDia, etiquetaDia,
@@ -36,6 +36,7 @@ import {
 import { SpotPicker } from './spot-picker';
 import { TiraDias } from './tira-dias';
 import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
+import { franjaLocalDe } from '@/lib/utils';
 
 // Instrument Sans, la misma familia sans que el resto de /reservar
 // (lib/reservar-publico-tokens.ts, que a su vez reexporta de portal-design.ts
@@ -99,6 +100,9 @@ export interface ReservaSlot {
    * qué se le iba a descontar.
    */
   coberturaTexto?: string | null;
+  /** Misma cobertura, en futuro condicional — solo para cuando `lleno` (lista
+   *  de espera): ver el docblock de `textoCoberturaListaEspera`. */
+  coberturaTextoListaEspera?: string | null;
 }
 
 export interface ReservaCalendarioProps {
@@ -155,6 +159,24 @@ export interface ReservaCalendarioProps {
   error?: { onReintentar: () => void; titulo?: string };
   fontFamily?: string;
   /**
+   * Fase 3 del rediseño (`AparienciaWidget.densidad`, `escalaDensidad()`):
+   * 0.75 aprieta el conjunto acotado de medidas que leen `densidadCss()`
+   * (lib/reservar-publico-tokens.ts) — por defecto 1, cero cambio visual.
+   * Se fija como custom property en la raíz para que cualquier hijo la lea
+   * sin prop-drilling adicional.
+   */
+  densidadEsc?: number;
+  /**
+   * Fase 3 del rediseño (`AparienciaWidget.forma`, `radiosDe()`): los 3
+   * radios YA resueltos (con el preset de `forma` y cualquier override
+   * explícito de `radio`/`radioBoton`/`radioInput` aplicados). Por defecto,
+   * los del tema (`radius.card`/`radius.pill`/`radius.spot`) — cero cambio
+   * para quien no la pase. Solo se retroalimenta a la tarjeta de clase y su
+   * CTA (el elemento de mayor visibilidad del listado): igual que
+   * `densidadEsc`, no es un retrofit de cada radio del código.
+   */
+  radiosEsc?: { tarjeta: number; boton: number; input: number };
+  /**
    * Fase 1 del rediseño (docs/widget-reservas-theme-builder-diseno.md): la
    * tira de 10 días con scroll horizontal de las pantallas 01/02 del handoff,
    * en vez de la tira de SEMANA con paginación ‹ › de siempre. Por defecto
@@ -174,6 +196,16 @@ export interface ReservaCalendarioProps {
    * lo fija en la raíz del shadow root.
    */
   estiloDias?: 'semana' | 'dias' | 'grid';
+  /**
+   * Chips de filtro (tipo de clase + instructora), pintados DEBAJO de la tira
+   * de días dentro del mismo bloque sticky — diseño "Tentare Portal
+   * Reservas". El ESTADO del filtro (qué está activo, a qué tabla afecta)
+   * sigue viviendo en el llamador (Modo A, `app/reservar/[slug]/page.tsx`):
+   * este componente solo pinta la fila, nunca decide qué filtra. Solo
+   * `estiloDias='dias'`; el resto de variantes (Modo B rejilla, "Mis
+   * reservas") no la pasan y no ven ningún cambio.
+   */
+  filtrosChips?: { id: string; label: string; activo: boolean; onClick: () => void }[];
   /**
    * Fase 4 del rediseño: las clases de HOY que ya empezaron/terminaron, para
    * pintarlas en gris con "FINALIZADA" en la tarjeta del día — `slots`
@@ -204,6 +236,29 @@ export interface ReservaCalendarioProps {
   ocultarNivel?: boolean;
   /** Quita el aviso «Sustituye a X hoy» (queda el rótulo de rol de siempre). */
   ocultarSustituta?: boolean;
+  /**
+   * ⚠️ Bug real de producción (2026-08-29): "elegir el sitio se repite" —
+   * quien no tiene sesión ve el selector de plaza AQUÍ, en la ficha, y otra
+   * vez en "Tus datos" (PantallaReserva) al pulsar "Reservar", porque ese
+   * flujo SIEMPRE pasa por un segundo paso que vuelve a preguntar (o bien
+   * 'datos' del checkout sin login, o bien 'confirm' tras iniciar sesión).
+   * La selección se conserva (mismo estado `selectedSpot`), pero mostrar el
+   * mismo control dos veces en el mismo viaje confunde. El llamador (que sí
+   * sabe si hay sesión) lo apaga aquí para quien no la tiene.
+   */
+  ocultarSelectorSitio?: boolean;
+  /**
+   * Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
+   * pantallas seguidas"): para una visitante SIN sesión, un tap en la
+   * tarjeta llama a `onReservar` directo en vez de abrir la ficha de
+   * detalle como paso intermedio — 'login'/'datos' es su único paso
+   * siguiente de todos modos, y "Tus datos" ya trae su propia foto/
+   * descripción/ubicación. El llamador (que sabe si hay sesión) lo activa
+   * solo para invitadas: para una socia autenticada la ficha sigue siendo
+   * necesaria (avisa del descuento de bono antes de confirmar, algo que
+   * 'confirm' no muestra).
+   */
+  saltarFichaSiInvitada?: boolean;
   /**
    * 'hoy' = la ventana de días se reduce al día de hoy (una sola columna en
    * 'grid', un solo chip en 'dias'). 'todo' = la ventana de siempre.
@@ -251,6 +306,20 @@ export interface ReservaCalendarioProps {
    */
   abrirSlotExterno?: { slotId: string | null; nonce: number };
   /**
+   * Intercepta el CLIC EN LA TARJETA de una clase, antes de abrir la ficha
+   * interna — pensado para Modo B sin sesión (`app/widget-bundle/main.tsx`),
+   * que redirige a la página real de Tentare en vez de mostrar la ficha
+   * embebida: sin esto, la visitante sin sesión tenía que dar DOS toques
+   * (abrir la ficha, y solo LUEGO "Reservar" dentro de ella dispara la
+   * navegación) para llegar al mismo sitio — un paso intermedio que no
+   * aporta nada si de todas formas va a salir del widget.
+   * Devolver `true` significa "ya me he hecho cargo" (p. ej. ya navegó): la
+   * ficha NO se abre. Cualquier otro valor (o la prop ausente) deja el
+   * comportamiento de siempre. El resto de callers (Modo A, "Mis reservas",
+   * vista Mes) no la pasan y no ven ningún cambio.
+   */
+  onAntesDeAbrir?: (slot: ReservaSlot) => boolean;
+  /**
    * Origen absoluto de la app (`ORIGEN_TENTARE` en `app/widget-bundle/main.tsx`)
    * para prefijar la foto de clase POR DEFECTO de la hoja de detalle cuando la
    * propietaria no ha subido la suya — solo hace falta en Modo B (Shadow DOM en
@@ -293,10 +362,21 @@ function fmtHora(iso: string): string {
 function fmtDiaLargo(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 }
-// La tarjeta rica del listado enseña el año completo («Jueves, 20 de agosto de
-// 2026») — es el formato de la referencia (Momence móvil) que pidió el fundador.
-function fmtDiaCompleto(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+/**
+ * Hora de una oferta de lista de espera, con el día SOLO si no es hoy.
+ *
+ * ⚠️ Auditoría de conversión (2026-08-31): "Tienes hasta las 01:40" sin más
+ * contexto se lee como "hoy de madrugada" — si la oferta se abrió tarde y el
+ * plazo cruza medianoche, en realidad es mañana. Puramente de presentación
+ * (la ventana real la cierra el servidor/cron, esto no decide nada), así que
+ * comparar contra `new Date()` aquí no es el patrón "regla de negocio, no de
+ * reloj" que se evita en el resto del repo — no hay ninguna regla que fijar.
+ */
+function fmtHoraOferta(iso: string): string {
+  const expira = new Date(iso);
+  const hoy = new Date();
+  const mismoDia = expira.getFullYear() === hoy.getFullYear() && expira.getMonth() === hoy.getMonth() && expira.getDate() === hoy.getDate();
+  return mismoDia ? `las ${fmtHora(iso)}` : `${fmtDiaLargo(iso)} a las ${fmtHora(iso)}`;
 }
 
 // Foto de la clase (tarjeta rica y cabecera de la hoja). Sin foto subida, cae a
@@ -321,11 +401,30 @@ function fmtDiaCompleto(iso: string): string {
 // resolvería contra el dominio del estudio y daría 404. En Modo A (siempre
 // mismo origen que la app) se deja sin pasar y la ruta relativa de siempre
 // sigue funcionando igual que hoy.
-function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefecto = false, origenTentare = '' }: {
+function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorDefecto = false, origenTentare = '', desaturar = false }: {
   nombre: string; color: string; fotoUrl?: string | null;
-  ancho: number | string; alto: number; radio: number;
+  ancho: number | string; alto: number | string; radio: number;
   conFotoPorDefecto?: boolean; origenTentare?: string;
+  /** Copia exacta del `.dc.html`: la foto de la tarjeta se desatura
+   *  (`filter: grayscale(1)`) cuando la clase está completa — la misma señal
+   *  visual de "no disponible" que ya lleva el CTA en gris. Faltaba del
+   *  todo (2026-08-30). */
+  desaturar?: boolean;
 }) {
+  // ⚠️ Bug real de producción (2026-08-29): "la imagen sale cortada" — con
+  // `alto="100%"` (la tarjeta horizontal del listado, foto a toda altura de
+  // una fila `display:flex` cuya altura la decide el CONTENIDO, no un valor
+  // fijo), `height:'100%'` es un porcentaje que no puede resolverse contra un
+  // padre de altura intrínseca — el navegador lo descarta en silencio y usa
+  // el ratio natural de la imagen a ese ancho (104×58,5 medido en vivo para
+  // una tarjeta de 139,6px de alto: la foto ocupaba el 42% de la fila,
+  // dejando el resto en blanco). `alignSelf:'stretch'` sí funciona ahí,
+  // porque lo resuelve el propio algoritmo flex, no un cálculo de
+  // porcentaje. Con `alto` numérico (foto de la ficha) no cambia nada.
+  const altoEsPorcentaje = typeof alto === 'string' && alto.endsWith('%');
+  const dimensiones = altoEsPorcentaje
+    ? { height: 'auto' as const, alignSelf: 'stretch' as const }
+    : { height: alto };
   if (fotoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- foto subida por el estudio, no un asset estático conocido en build (mismo criterio que RoundPhoto)
@@ -338,7 +437,7 @@ function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorD
         // vivo con `loading="lazy"`): un blanco puro ahí se lee como hueco
         // roto; con el color de la clase, la foto se siente una mejora
         // progresiva, no una carga que falló.
-        style={{ width: ancho, height: alto, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
+        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color, filter: desaturar ? 'grayscale(1)' : 'none' }}
       />
     );
   }
@@ -351,17 +450,17 @@ function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorD
         loading="lazy"
         decoding="async"
         onError={alFallarImagen(`${origenTentare}${IMAGENES_CLASE.generica}`)}
-        style={{ width: ancho, height: alto, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color }}
+        style={{ width: ancho, ...dimensiones, borderRadius: radio, objectFit: 'cover', flexShrink: 0, display: 'block', background: color, filter: desaturar ? 'grayscale(1)' : 'none' }}
       />
     );
   }
   return (
     <div aria-hidden="true" style={{
-      width: ancho, height: alto, borderRadius: radio, flexShrink: 0,
+      width: ancho, ...dimensiones, borderRadius: radio, flexShrink: 0,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: `linear-gradient(135deg, color-mix(in srgb, ${color} 55%, #fff) 0%, ${color} 100%)`,
     }}>
-      <span style={{ fontFamily: serif, fontSize: Math.round(alto * 0.4), color: 'rgba(255,255,255,0.92)', lineHeight: 1 }}>
+      <span style={{ fontFamily: serif, fontSize: typeof alto === 'number' ? Math.round(alto * 0.4) : 32, color: 'rgba(255,255,255,0.92)', lineHeight: 1 }}>
         {nombre.charAt(0).toUpperCase()}
       </span>
     </div>
@@ -404,14 +503,16 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
 
 export function ReservaCalendario({
   t, slots, onReservar, onCancelar, onAceptarOferta,
-  variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE,
-  irADia, estiloDias = 'semana', finalizadasHoy, loading = false,
-  ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, vistaInicial = 'todo',
+  variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE, densidadEsc = 1,
+  radiosEsc = { tarjeta: radius.card, boton: radius.pill, input: radius.spot },
+  irADia, estiloDias = 'semana', finalizadasHoy, loading = false, filtrosChips,
+  ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false, saltarFichaSiInvitada = false, vistaInicial = 'todo',
   enIframe = false, franjaVisible = null, alCambiarFicha, origenTentare = '',
-  estiloFicha = 'modal', abrirSlotExterno,
+  estiloFicha = 'modal', abrirSlotExterno, onAntesDeAbrir,
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
+  const mananaKey = useMemo(() => localDayKey(addDays(hoy, 1)), [hoy]);
 
   const [weekAnchor, setWeekAnchor] = useState<Date>(hoy);
   const [selectedDayKey, setSelectedDayKey] = useState<string>(hoyKey);
@@ -479,6 +580,14 @@ export function ReservaCalendario({
     () => Array.from({ length: vistaInicial === 'hoy' ? 1 : 10 }, (_, i) => addDays(hoy, i)),
     [hoy, vistaInicial],
   );
+  // "AGOSTO — SEPTIEMBRE": el eyebrow del diseño para el rango que cubre la
+  // tira de 10 días, no un mes fijo — un mes de por medio (26 ago → 4 sep,
+  // p.ej.) sigue siendo real casi la mitad del año.
+  const rangoMesesDiez = useMemo(() => {
+    const mesA = diez[0].toLocaleDateString('es-ES', { month: 'long' }).toUpperCase();
+    const mesB = diez[diez.length - 1].toLocaleDateString('es-ES', { month: 'long' }).toUpperCase();
+    return mesA === mesB ? mesA : `${mesA} — ${mesB}`;
+  }, [diez]);
   // `estiloDias === 'grid'`: 7 días rodantes desde hoy (no semana natural
   // lunes-domingo) — mismo criterio de ventana rodante que `diez`, solo que
   // más corta porque aquí los 7 caben a la vez en pantalla.
@@ -496,6 +605,26 @@ export function ReservaCalendario({
   }, [estiloDias, siete, slots]);
   const conteoPorDia = useMemo(() => contarSlotsPorDia(slots), [slots]);
   const slotsDia = useMemo(() => slotsDelDia(slots, selectedDayKey), [slots, selectedDayKey]);
+  // Total del día elegido — el "N clases" del eyebrow sticky Y de la cabecera
+  // del feed más abajo (una sola cuenta, no dos que puedan desincronizarse).
+  // Las de hoy que ya pasaron (`finalizadasHoy`) solo cuentan si el día
+  // elegido es HOY — el mismo criterio que ya usaba la cabecera del feed.
+  const totalDiaSel = slotsDia.length + (selectedDayKey === hoyKey ? (finalizadasHoy?.length ?? 0) : 0);
+  // Agrupación Mañana/Tarde/Noche del rediseño (diseño "Tentare Portal
+  // Reservas", 2026-08-26) — en hora LOCAL del estudio (`franjaLocalDe`,
+  // lib/utils.ts), no la del navegador de quien reserva: el mismo motivo por
+  // el que el motor de señales del Decision OS ya usa esta función.
+  const gruposFranja = useMemo(() => {
+    const orden = ['Mañana', 'Tarde', 'Noche'] as const;
+    const porFranja = new Map<typeof orden[number], ReservaSlot[]>();
+    for (const slot of slotsDia) {
+      const hora = franjaLocalDe(slot.inicio).hora;
+      const franja = hora < 13 ? 'Mañana' : hora < 19 ? 'Tarde' : 'Noche';
+      const lista = porFranja.get(franja);
+      if (lista) lista.push(slot); else porFranja.set(franja, [slot]);
+    }
+    return orden.map(label => ({ label, items: porFranja.get(label) ?? [] })).filter(g => g.items.length > 0);
+  }, [slotsDia]);
   const gruposLista = useMemo(() => (variant === 'lista' ? agruparPorDia(slots) : []), [variant, slots]);
 
   // Slot abierto en la hoja — se re-deriva de props en cada render, así refleja
@@ -523,6 +652,7 @@ export function ReservaCalendario({
   }
 
   function abrirSlot(slot: ReservaSlot) {
+    if (onAntesDeAbrir?.(slot)) return;
     setOpenSlotId(slot.id);
     setSelectedSpot(null);
     setResultado(null);
@@ -576,7 +706,12 @@ export function ReservaCalendario({
   const soloFicha = (estiloFicha === 'vista' || estiloFicha === 'inline') && !!openSlot;
 
   return (
-    <div style={{ fontFamily }}>
+    <div style={{
+      fontFamily,
+      '--reservar-densidad-esc': densidadEsc,
+      '--reservar-radio-tarjeta': `${radiosEsc.tarjeta}px`,
+      '--reservar-radio-boton': `${radiosEsc.boton}px`,
+    } as CSSProperties}>
       {/* Rediseño "sin popup": con la ficha en modo vista, todo el listado/
           calendario de aquí abajo deja de montarse — la ficha ocupa su sitio
           entero, no encima. Un solo `{!soloFicha && (...)}` envolviendo todo
@@ -589,18 +724,88 @@ export function ReservaCalendario({
       )}
 
       {variant === 'calendario' && estiloDias === 'dias' && !loading && (
-        <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${t.line}` }}>
+        // Bloque sticky único — eyebrow (rango de meses + "N clases") encima
+        // de la tira de días, y los chips de filtro DEBAJO, todo pegado al
+        // borde superior al hacer scroll. Diseño "Tentare Portal Reservas":
+        // las tres filas viven juntas, no como bloques sueltos.
+        <div
+          style={{
+            position: 'sticky', top: 0, zIndex: 5,
+            // ⚠️ Auditoría pixel-perfect (2026-08-29): el diseño pinta este
+            // bloque con el MISMO fondo que la página (`var(--fondo)`), no
+            // el blanco de tarjeta — solo lo delimita el hairline de abajo.
+            // Con `t.surface` (blanco) quedaba una caja visiblemente
+            // recortada sobre el fondo crema de la página, justo lo que
+            // reportó el usuario en producción ("se ve como cortado").
+            background: t.bg, marginBottom: 20, paddingBottom: 16,
+            borderBottom: `1px solid ${t.line}`,
+          }}
+        >
+          <div style={{
+            display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+            gap: 10, marginBottom: 10, fontFamily: mono,
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: t.muted }}>
+              {rangoMesesDiez}
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.04em', color: t.muted }}>
+              {totalDiaSel} {totalDiaSel === 1 ? 'clase' : 'clases'}
+            </span>
+          </div>
           <TiraDias
             dias={diez}
             seleccionado={selectedDayKey}
             conteos={conteoPorDia}
             onSeleccionar={setSelectedDayKey}
+            hoyKey={hoyKey}
+            mananaKey={mananaKey}
             tokens={{
               surface: t.surface, line: t.line, ink: t.ink, mutedText: t.muted,
               acento: 'var(--portal-brand)', acentoTexto: 'var(--portal-brand-foreground)',
-              fuenteDisplay: serif, fuenteUI: fontFamily, radioChip: 12,
+              fuenteDisplay: serif, fuenteUI: fontFamily, radioChip: 14,
             }}
           />
+          {filtrosChips && filtrosChips.length > 0 && (
+            <div
+              role="group"
+              aria-label="Filtrar por tipo de clase"
+              // Fila única con scroll horizontal, no envuelve — igual que el
+              // diseño ("Tentare Portal Reservas": `overflow-x:auto`, sin
+              // wrap) y que la propia tira de días de al lado. Con
+              // `flexWrap:'wrap'` un estudio con muchos tipos+instructoras
+              // (caso real: 5 tipos + 5 instructoras) empujaba el feed varias
+              // líneas hacia abajo dentro del bloque sticky.
+              style={{ display: 'flex', gap: 6, overflowX: 'auto', marginTop: 12 }}
+            >
+              {filtrosChips.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={chip.onClick}
+                  style={{
+                    // ⚠️ Auditoría pixel-perfect (2026-08-29): el diseño pinta
+                    // el filtro activo como una píldora SUAVE (fondo tintado
+                    // + texto del color de marca) — se probó ese tratamiento
+                    // aquí y rompió e2e/widget-config-params.spec.ts ("marca=
+                    // pisa el color primario del widget"), que exige que el
+                    // fondo del chip activo sea EXACTAMENTE el color crudo de
+                    // `marca=`, sin mezclar ("rgb(17, 34, 51)" literal, no un
+                    // oklab derivado). Ese contrato de white-label es más
+                    // importante que igualar el matiz del mockup: se mantiene
+                    // sólido, y del diseño solo se toma lo que no choca
+                    // (padding/tamaño/peso, y `--sec` en el texto inactivo).
+                    padding: '7px 14px', borderRadius: 999, fontSize: 11.5, fontWeight: 800,
+                    fontFamily, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                    border: `1px solid ${chip.activo ? 'var(--portal-brand)' : t.line}`,
+                    background: chip.activo ? 'var(--portal-brand)' : t.surface,
+                    color: chip.activo ? 'var(--portal-brand-foreground)' : t.muted,
+                  }}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -647,7 +852,14 @@ export function ReservaCalendario({
                     flex: 1, minWidth: 0, height: cq(72, 6.6, 84), display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', border: 'none',
                     borderRadius: cq(24, 2.7, 31), background: isSel ? 'var(--portal-brand)' : 'transparent',
-                    boxShadow: isSel ? shadow.headerBtn : undefined,
+                    // Auditoría de UX (2026-08-31): antes `shadow.headerBtn`, un
+                    // rgba(15,15,15,…) fijo — el chip ya se pinta con el color
+                    // de marca del estudio (`--portal-brand`), pero el halo de
+                    // debajo era siempre gris neutro, nunca ese color. Con
+                    // `color-mix` deriva del mismo acento, mismo criterio que ya
+                    // usa la etiqueta de arriba (`color-mix(in srgb,
+                    // --portal-brand-foreground …)`).
+                    boxShadow: isSel ? '0 14px 28px -16px color-mix(in srgb, var(--portal-brand) 55%, transparent)' : undefined,
                     opacity: vacío && !isSel ? 0.55 : 1,
                     transition: `background .5s ${EASE}, box-shadow .5s ${EASE}`,
                     // Mismo gotcha que tira-dias.tsx: sin esto, un toque en
@@ -735,20 +947,32 @@ export function ReservaCalendario({
         const diaSel = new Date(`${selectedDayKey}T12:00:00`);
         const esHoy = selectedDayKey === hoyKey;
         const finalizadas = esHoy ? (finalizadasHoy ?? []) : [];
-        const totalDia = slotsDia.length + finalizadas.length;
+        // Misma cuenta que el eyebrow sticky de arriba — una sola fuente de
+        // verdad (`totalDiaSel`), no dos cálculos que puedan desincronizarse.
+        const totalDia = totalDiaSel;
         const dayLabel = `${capitaliza(diaSel.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}${esHoy ? ' — hoy' : ''}`;
         const countLabel = error ? '—' : (totalDia ? `${totalDia} ${totalDia === 1 ? 'clase' : 'clases'}` : 'Sin clases');
         return (
-          // Cabecera «día · nº de clases» + tarjetas RICAS por clase (rediseño
-          // pedido por el fundador con Momence móvil de referencia): foto,
-          // rótulo «CLASE», título grande, instructora, descripción con
-          // «Mostrar más», filas con icono y precio + «Reservar ahora». Solo en
-          // Modo A (única consumidora de `estiloDias='dias'`); `SlotRow` sigue
-          // intacto para el portal privado ('semana') y «Mis reservas» ('lista').
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '12px 18px', borderRadius: radius.card, border: `1px solid ${t.line}`, background: t.surface2, marginBottom: 14 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.02em', color: t.ink }}>{dayLabel}</span>
-              <span style={{ fontSize: 11.5, color: t.muted }}>{countLabel}</span>
+          // Cabecera «día · nº de clases» + tarjetas por clase agrupadas por
+          // franja (Mañana/Tarde/Noche), diseño "Tentare Portal Reservas"
+          // (2026-08-26). Solo en Modo A (única consumidora de
+          // `estiloDias='dias'`); `SlotRow` sigue intacto para el portal
+          // privado ('semana') y «Mis reservas» ('lista').
+          //
+          // Auditoría de UX (2026-08-31): `key={selectedDayKey}` fuerza a
+          // React a REMONTAR este bloque al cambiar de día — sin eso, sigue
+          // siendo el mismo nodo DOM y `.reserva-banner-in` (ya usada arriba
+          // para el aviso de pago, misma curva `EASE`) no volvería a disparar
+          // en cada cambio. Antes solo el chip de día seleccionado animaba;
+          // la lista de abajo se sustituía de golpe.
+          <div key={selectedDayKey} className="reserva-banner-in">
+            {/* Fila plana, sin caja — el diseño pinta `diaCabecera`/
+                `diaEtiqueta` como texto suelto dentro del feed, no como
+                tarjeta con borde (esa caja era una lectura mía anterior,
+                no lo que trae el .dc.html). */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 9 }}>
+              <span style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>{dayLabel}</span>
+              <span style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--portal-brand)' }}>{countLabel}</span>
             </div>
             {error ? (
               <div style={{ borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}` }}>
@@ -759,14 +983,37 @@ export function ReservaCalendario({
                 <EstadoVacio t={t} titulo="Sin clases este día" cuerpo="Prueba otro día de la semana" />
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {/* Las de hoy que ya pasaron van PRIMERO — es el orden
                     cronológico del día, y coincide con el handoff. */}
-                {finalizadas.map(f => (
-                  <FilaFinalizada key={f.id} t={t} slot={f} />
-                ))}
-                {slotsDia.map(slot => (
-                  <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => abrirSlot(slot)} ocultarPrecio={ocultarPrecio} />
+                {finalizadas.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {finalizadas.map(f => (
+                      <FilaFinalizada key={f.id} t={t} slot={f} />
+                    ))}
+                  </div>
+                )}
+                {gruposFranja.map(g => (
+                  <div key={g.label}>
+                    <p style={{ margin: `${densidadCss(10)} 0 8px`, fontSize: 13, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>{g.label}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: densidadCss(10) }}>
+                      {/* Petición explícita del fundador (2026-08-30): "no
+                          quiero que se coma 3 pantallas seguidas". SOLO para
+                          invitadas (`saltarFichaSiInvitada`, ver docblock del
+                          prop): un tap llama a `onReservar` DIRECTO en vez de
+                          `abrirSlot` — 'login'/'datos' es su único paso
+                          siguiente de todos modos, y "Tus datos" ya trae su
+                          propia foto/descripción/ubicación. Para una socia
+                          autenticada se mantiene `abrirSlot` (ficha): es
+                          donde ve el descuento de bono ANTES de confirmar,
+                          algo que 'confirm' no muestra — quitarla ahí sería
+                          perder transparencia real sobre el coste, no solo
+                          un paso de menos. */}
+                      {g.items.map(slot => (
+                        <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => { if (saltarFichaSiInvitada) void onReservar(slot, null); else abrirSlot(slot); }} ocultarPrecio={ocultarPrecio} origenTentare={origenTentare} />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -832,6 +1079,7 @@ export function ReservaCalendario({
           ocultarPrecio={ocultarPrecio}
           ocultarNivel={ocultarNivel}
           ocultarSustituta={ocultarSustituta}
+          ocultarSelectorSitio={ocultarSelectorSitio}
           enIframe={enIframe}
           franjaVisible={franjaVisible}
           origenTentare={origenTentare}
@@ -1119,39 +1367,46 @@ function SlotRowImpl({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; on
 // reconciliaba TODAS las filas visibles, no solo la que cambió.
 const SlotRow = memo(SlotRowImpl);
 
-// ── Tarjeta rica de clase (rediseño Momence, solo estiloDias='dias') ─────────
+// ── Tarjeta de clase (diseño "Tentare Portal Reservas", 2026-08-26) ─────────
 //
-// Pedido literal del fundador con capturas de Momence móvil de referencia:
-// foto de la clase, rótulo pequeño «CLASE», título grande, instructora,
-// descripción truncada con «Mostrar más», filas con icono (fecha completa,
-// hora + duración, sala) y abajo PRECIO grande + botón sólido «Reservar
-// ahora». Mantiene el contrato de los e2e existentes: className
-// `reserva-slot-row`, role=button y el mismo aria-label que `SlotRow`.
-//
-// Es un <div role="button"> y no un <button> porque «Mostrar más» necesita ser
-// interactivo DENTRO de la tarjeta, y un botón anidado en otro botón es HTML
-// inválido (el navegador lo re-anida y el click se pierde).
-function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio }: {
-  t: ModoTokens; slot: ReservaSlot; onOpen: () => void; ocultarPrecio: boolean;
+// Horizontal y compacta: foto a la izquierda a toda altura, hora+duración y
+// plazas arriba a la derecha, nombre de la clase, instructora, precio+CTA
+// abajo — sustituye la tarjeta vertical "rica" (foto grande arriba,
+// descripción, filas con icono) del rediseño Momence anterior. Confirmado
+// con el fundador (2026-08-26): fidelidad al diseño nuevo por encima de
+// mantener el patrón anterior. Mantiene el contrato de los e2e existentes:
+// className `reserva-slot-row`, role=button y el mismo aria-label que
+// `SlotRow`.
+function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio, origenTentare = '' }: {
+  t: ModoTokens; slot: ReservaSlot; onOpen: () => void; ocultarPrecio: boolean; origenTentare?: string;
 }) {
-  const [verMas, setVerMas] = useState(false);
   const libres = Math.max(0, slot.aforoMaximo - slot.ocupadas);
   const ratio = ratioOcupacion(slot.ocupadas, slot.aforoMaximo);
   const capColor = colorOcupacion(ratio);
   const lleno = libres <= 0;
   const duracionMin = Math.round((new Date(slot.fin).getTime() - new Date(slot.inicio).getTime()) / 60000);
   const yaMia = slot.miEstado === 'CONFIRMADA' || slot.miEstado === 'LISTA_ESPERA';
-  // Umbral generoso: por debajo, dos líneas de clamp no recortan nada y el
-  // «Mostrar más» sería un botón que no hace nada visible.
-  const descLarga = (slot.descripcion ?? '').length > 120;
   const mostrarPrecio = slot.precio != null && !ocultarPrecio && !yaMia;
 
-  const filaIcono = (icon: React.ReactNode, texto: string) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-      <span style={{ color: t.muted, display: 'inline-flex', flexShrink: 0 }}>{icon}</span>
-      <span style={{ fontSize: 13, color: t.ink, fontWeight: 600 }}>{texto}</span>
-    </div>
-  );
+  // ⚠️ Copia exacta del `.dc.html` (2026-08-30): el badge de plazas de una
+  // clase donde ya estás en lista de espera dice «Completa» — NO repite «En
+  // espera», que ya lo dice el CTA de al lado. Antes decía «En espera» aquí
+  // también, redundante.
+  const plazasTxt = slot.miEstado === 'CONFIRMADA' ? 'Tu plaza'
+    : slot.miEstado === 'LISTA_ESPERA' ? 'Completa'
+    : lleno ? 'Completa'
+    : libres <= 2 ? `Quedan ${libres}`
+    : `${libres} plazas libres`;
+  const plazasColor = slot.miEstado === 'CONFIRMADA' ? 'var(--portal-brand)'
+    : slot.miEstado === 'LISTA_ESPERA' ? semantic.warning.text
+    : lleno ? t.muted
+    : libres <= 2 ? semantic.warning.text
+    : capColor;
+
+  const ctaTxt = slot.miEstado === 'CONFIRMADA' ? 'Reservada'
+    : slot.miEstado === 'LISTA_ESPERA' ? 'En espera'
+    : lleno ? 'Lista de espera'
+    : 'Reservar';
 
   return (
     <div
@@ -1165,122 +1420,63 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio }: {
         : slot.miEstado === 'LISTA_ESPERA' ? 'estás en lista de espera'
         : lleno ? 'completa' : `${libres} plazas`}`}
       style={{
-        display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left', cursor: 'pointer',
-        background: t.surface, border: `1px solid ${t.line}`, borderRadius: radius.card, padding: 16,
+        display: 'flex', textAlign: 'left', cursor: 'pointer', minHeight: 116,
+        background: t.surface, border: yaMia ? `1.5px solid var(--portal-brand)` : `1px solid ${t.line}`,
+        borderRadius: 'var(--reservar-radio-tarjeta, ' + radius.card + 'px)', overflow: 'hidden',
         WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
       }}
     >
-      {/* Foto + rótulo + título */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-        <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho={76} alto={76} radio={14} />
-        <div style={{ minWidth: 0, flex: 1, paddingTop: 2 }}>
-          <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: t.muted }}>Clase</p>
-          <h3 style={{ fontFamily: serif, fontSize: 21, fontWeight: 400, lineHeight: 1.15, color: t.ink, marginTop: 4 }}>
-            {slot.claseNombre}
-          </h3>
-          {!yaMia && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 7 }}>
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: lleno ? t.muted : capColor, flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontWeight: ratio >= 0.85 && !lleno ? 700 : 500, color: lleno ? t.muted : capColor, letterSpacing: '.01em' }}>
-                {lleno ? 'Completa' : ratio >= 0.85 ? `¡${etiquetaOcupacion(ratio).toLowerCase()}!` : `${libres} ${libres === 1 ? 'plaza libre' : 'plazas libres'}`}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div style={{ height: 1, background: t.line }} />
-
-      {/* Instructora */}
-      {slot.instructorNombre && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={26} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {slot.instructorNombre}
-          </span>
-        </div>
-      )}
-
-      {/* Descripción truncada con «Mostrar más» */}
-      {slot.descripcion && (
-        <div>
-          <p style={{
-            fontSize: 13, color: t.muted2, lineHeight: 1.5,
-            ...(descLarga && !verMas
-              ? { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }
-              : {}),
-          }}>
-            {slot.descripcion}
+      {/* ⚠️ Bug real de producción (2026-08-29): sin `conFotoPorDefecto`, una
+          clase sin foto propia caía directa a la letra sobre degradado — la
+          ficha (más abajo, línea ~1610) SÍ pedía la foto de catálogo, esta
+          tarjeta no. El sistema de 10 fotos por defecto
+          (docs/imagenes-por-defecto, `imagenDeClase`) existe justo para
+          evitar ese aspecto de "roto"/"cortado" que reportó el usuario. */}
+      <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho={104} alto="100%" radio={0} conFotoPorDefecto origenTentare={origenTentare} desaturar={lleno && !yaMia} />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', padding: `${densidadCss(13)} ${densidadCss(15)} ${densidadCss(13)} ${densidadCss(16)}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>
+            {fmtHora(slot.inicio)} <span style={{ fontSize: 12, fontWeight: 500, color: t.muted }}>— {duracionMin} min</span>
           </p>
-          {descLarga && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={e => { e.stopPropagation(); setVerMas(v => !v); }}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setVerMas(v => !v); } }}
-              style={{ display: 'inline-block', marginTop: 4, fontSize: 12.5, fontWeight: 700, color: 'var(--portal-brand)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
-            >
-              {verMas ? 'Mostrar menos' : 'Mostrar más'}
-            </span>
-          )}
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: plazasColor, whiteSpace: 'nowrap' }}>{plazasTxt}</span>
         </div>
-      )}
-
-      {/* Filas con icono: fecha completa, hora + duración, sala */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {filaIcono(<CalendarDays size={15} />, capitaliza(fmtDiaCompleto(slot.inicio)))}
-        {filaIcono(<Clock size={15} />, `${fmtHora(slot.inicio)} - ${fmtHora(slot.fin)} · ${duracionMin} min`)}
-        {slot.salaNombre && filaIcono(<MapPin size={15} />, slot.salaNombre)}
-      </div>
-
-      <div style={{ height: 1, background: t.line }} />
-
-      {/* Precio grande + CTA protagonista. El CTA es un span aria-hidden (la
-          tarjeta entera ya es el botón accesible), mismo criterio que SlotRow. */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        {mostrarPrecio ? (
-          <span style={{ fontFamily: serif, fontSize: 24, lineHeight: 1, color: t.ink, fontVariantNumeric: 'tabular-nums' }}>
-            {slot.precio} €
-          </span>
-        ) : <span />}
-        {yaMia ? (
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '12px 18px', borderRadius: radius.pillBtnSm - 2,
-            background: 'color-mix(in oklab, var(--portal-brand) 10%, var(--portal-surface))', color: 'var(--portal-brand)',
-            fontSize: 13, fontWeight: 700,
-          }}>
-            <EstadoIcono estado={slot.miEstado as 'CONFIRMADA' | 'LISTA_ESPERA'} />
-            {slot.miEstado === 'CONFIRMADA' ? 'Reservada' : 'En espera'}
-          </span>
-        ) : lleno ? (
-          <span aria-hidden="true" className="reserva-cta-btn" style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 46, padding: '0 20px',
-            border: '1px solid color-mix(in oklab, var(--portal-brand) 40%, transparent)', borderRadius: radius.pillBtnSm - 2,
-            color: 'var(--portal-brand)', fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap',
-          }}>
-            Lista de espera
-          </span>
-        ) : (
-          <span aria-hidden="true" className="reserva-cta-btn" style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 46, padding: '0 22px',
-            background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', borderRadius: radius.pillBtnSm - 2,
-            fontSize: 14, fontWeight: 800, whiteSpace: 'nowrap',
-          }}>
-            Reservar ahora
-          </span>
+        <p style={{ margin: '4px 0 0', fontSize: 14.5, fontWeight: 700, lineHeight: 1.25, color: t.ink }}>{slot.claseNombre}</p>
+        {slot.instructorNombre && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, minWidth: 0 }}>
+            <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={20} />
+            <p style={{ margin: 0, fontSize: 12, color: t.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              Con {slot.instructorNombre}{slot.salaNombre ? ` · ${slot.salaNombre}` : ''}
+            </p>
+          </div>
         )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 10 }}>
+          {mostrarPrecio ? (
+            <span style={{ fontSize: 13.5, fontWeight: 800, color: t.ink }}>{slot.precio} €</span>
+          ) : <span />}
+          <span aria-hidden="true" className="reserva-cta-btn" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 'var(--reservar-radio-boton, ' + radius.pill + 'px)',
+            padding: '8px 16px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+            background: yaMia ? 'color-mix(in oklab, var(--portal-brand) 10%, var(--portal-surface))'
+              : lleno ? t.surface2 : 'var(--portal-brand)',
+            color: yaMia || lleno ? 'var(--portal-brand)' : 'var(--portal-brand-foreground)',
+            boxShadow: !yaMia && !lleno ? 'none' : 'inset 0 0 0 1px var(--portal-brand)',
+          }}>
+            {yaMia && <EstadoIcono estado={slot.miEstado as 'CONFIRMADA' | 'LISTA_ESPERA'} />}
+            {ctaTxt}
+          </span>
+        </div>
       </div>
     </div>
   );
 }
-// Mismo motivo que SlotRow — cada tarjeta rica de la lista, memoizada.
+// Mismo motivo que SlotRow — cada tarjeta de la lista, memoizada.
 const TarjetaClase = memo(TarjetaClaseImpl);
 
 // ── Hoja inferior (bottom sheet) ─────────────────────────────────────────────
 
 function BookingSheet({
   t, slot, variantePresentacion = 'modal', selectedSpot, onSelectSpot, resultado, errorReserva, enviando, cancelacionVentanaHoras, ventanaPorTipo,
-  fontFamily, ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false,
+  fontFamily, ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false,
   enIframe = false, franjaVisible = null, origenTentare = '',
   onClose, onReservar, onCancelar, onAceptarOferta,
 }: {
@@ -1299,6 +1495,8 @@ function BookingSheet({
   ocultarPrecio?: boolean;
   ocultarNivel?: boolean;
   ocultarSustituta?: boolean;
+  /** Ver el docblock en `ReservaCalendarioProps`. */
+  ocultarSelectorSitio?: boolean;
   enIframe?: boolean;
   franjaVisible?: { top: number; height: number } | null;
   origenTentare?: string;
@@ -1366,7 +1564,10 @@ function BookingSheet({
       ? 'Apuntarme a la lista de espera'
       // "por", nunca un interpunto pegado al importe: "· 1 €" se lee como un
       // signo raro delante del precio (mismo criterio que el CTA de pago).
-      : (slot.precio != null && !ocultarPrecio ? `Reservar por ${slot.precio} €` : 'Reservar');
+      // ⚠️ Auditoría de conversión (2026-08-31): `!= null` trataba un
+      // `precio: 0` explícito como un importe real — "Reservar por 0 €" en
+      // vez de "Reservar" (o "Gratis", más honesto con lo que va a pasar).
+      : (slot.precio && !ocultarPrecio ? `Reservar por ${slot.precio} €` : 'Reservar');
 
   const esCancelar = tieneReserva;
 
@@ -1419,7 +1620,17 @@ function BookingSheet({
         // normal que ocupa el sitio que el padre (page.tsx) le da (mismo
         // patrón `100dvh`/franja de iframe que ya resuelve PublicSheet para
         // <PantallaReserva>, reutilizado aquí en vez de reinventarlo).
-        ? { width: '100%', display: 'flex', flexDirection: 'column', fontFamily }
+        // ⚠️ Auditoría pixel-perfect (2026-08-29): el contenedor de la
+        // pestaña «Clases» (page.tsx) se ensanchó a 100% para quitar el
+        // pasillo de fondo vacío en escritorio — pero esta ficha vivía
+        // DENTRO de ese mismo contenedor con `width:100%` sin tope propio,
+        // así que heredó el ensanchado y pasó de columna legible (760px) a
+        // banda de 1184px (e2e/reservar-escritorio-no-es-movil-estirado.
+        // spec.ts, «no una banda de 1280px»). El tope va SOLO en 'vista'
+        // (Modo A, página completa): 'inline' (Modo B, embebido en la web
+        // del estudio) nunca tuvo este límite — su ancho lo decide el
+        // anfitrión, no esta ficha.
+        ? { width: '100%', maxWidth: variantePresentacion === 'vista' ? 760 : undefined, margin: variantePresentacion === 'vista' ? '0 auto' : undefined, display: 'flex', flexDirection: 'column', fontFamily }
         : {
           position: 'fixed', zIndex: 50, display: 'flex',
           // Abajo en móvil (hoja), centrado en pantallas grandes (diálogo).
@@ -1576,7 +1787,7 @@ function BookingSheet({
         {/* Selector de sitio. Con aforo grande (8+ plazas) la rejilla ocupa
             varias pantallas de scroll antes del botón "Reservar" — el atajo
             deja reservar sin bajar hasta el final para quien no quiere elegir. */}
-        {mostrarSpots && (
+        {mostrarSpots && !ocultarSelectorSitio && (
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
               <p style={{ fontSize: 12, fontWeight: 800, color: t.ink }}>
@@ -1595,6 +1806,21 @@ function BookingSheet({
                 Reservar sin elegir →
               </button>
             </div>
+            {/* ⚠️ Auditoría de conversión (2026-08-31): "Reservar sin elegir"
+                dispara `onReservar()` en el sitio, saltándose la caja de
+                cobertura (§3, más abajo) — quien lo usa nunca llegaba a ver
+                "Descuenta 1 sesión de tu Bono X · te quedarán N" antes de
+                confirmar. Repetirla aquí, compacta, en vez de mover la caja
+                grande: esa sigue "justo encima del botón" para quien SÍ elige
+                sitio (decisión ya tomada y documentada ahí), y aquí solo hace
+                falta que el atajo no sea el único camino sin esa información. */}
+            {!tieneReserva && !ocultarPrecio && (
+              (!lleno && slot.coberturaTexto) || (lleno && slot.coberturaTextoListaEspera)
+            ) && (
+              <p style={{ fontSize: 11, color: t.muted, marginBottom: 8 }}>
+                {lleno ? slot.coberturaTextoListaEspera : slot.coberturaTexto}
+              </p>
+            )}
             <SpotPicker t={t} spots={slot.spots} ocupados={ocupados} selected={selectedSpot} onSelect={onSelectSpot} />
           </div>
         )}
@@ -1610,7 +1836,7 @@ function BookingSheet({
         {!resultado && hayOferta && (
           <div style={{ padding: '13px 15px', borderRadius: radius.card, background: semantic.warning.soft }}>
             <p style={{ fontSize: 12.5, fontWeight: 700, color: t.ink, marginBottom: 10, lineHeight: 1.4 }}>
-              ¡Se ha liberado una plaza! Tienes hasta las {fmtHora(slot.miOfertaExpiraEn!)} para aceptarla.
+              ¡Se ha liberado una plaza! Tienes hasta {fmtHoraOferta(slot.miOfertaExpiraEn!)} para aceptarla.
             </p>
             <button
               type="button"
@@ -1635,7 +1861,9 @@ function BookingSheet({
         {/* `ocultarPrecio` también apaga esta caja: la cobertura habla de
             importes («15 € como clase suelta») — dejarla con el CTA mudo
             filtraría el precio por la puerta de atrás. */}
-        {!tieneReserva && !lleno && slot.coberturaTexto && !ocultarPrecio && (
+        {!tieneReserva && !ocultarPrecio && (
+          (!lleno && slot.coberturaTexto) || (lleno && slot.coberturaTextoListaEspera)
+        ) && (
           <div
             style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
@@ -1644,7 +1872,7 @@ function BookingSheet({
           >
             <Ticket size={15} style={{ color: t.muted, flexShrink: 0 }} aria-hidden />
             <p style={{ fontSize: 12.5, fontWeight: 700, color: t.ink, lineHeight: 1.35 }}>
-              {slot.coberturaTexto}
+              {lleno ? slot.coberturaTextoListaEspera : slot.coberturaTexto}
             </p>
           </div>
         )}

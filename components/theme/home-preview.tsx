@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { MarcoDispositivo } from './marco-dispositivo';
 import type { DispositivoId } from '@/lib/theme/dispositivos';
-import { fetchHomePreviewToken } from '@/lib/api-client';
-import { varsKitMap, themeToCssVars } from '@/lib/theme-runtime';
+import { fetchHomePreviewToken, esSesionCaducada } from '@/lib/api-client';
+import { themeToCssVars } from '@/lib/theme-runtime';
 import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
 import type { ThemeConfig } from '@/lib/theme-schema';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
-import type { ModoPreview } from '@/components/portal/portal-preview-bridge';
+import type { ModoPreview } from '@/components/theme/modo-preview';
 import { escalaMedida, huecosDeInsercion, type BloqueMedido, type Caja } from '@/lib/theme/overlay-preview';
 
 const PANTALLAS: { id: PantallaId; ruta: string; etiqueta: string }[] = [
@@ -95,6 +95,7 @@ export function HomePreview({
   const [medidas, setMedidas] = useState<BloqueMedido[]>([]);
   const [caja, setCaja] = useState<{ iframe: Caja; escala: number } | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [sesionCaducada, setSesionCaducada] = useState(false);
   const [vista, setVista] = useState<VistaId>(pantalla);
   // Ajuste de estado derivado DURANTE el render (no en un efecto — patrón
   // recomendado por React para "resetear estado cuando cambia una prop", ver
@@ -141,7 +142,7 @@ export function HomePreview({
     let vivo = true;
     fetchHomePreviewToken()
       .then(({ token: t, slug: s }) => { if (vivo) { setToken(t); setSlugToken(s); tokenObtenidoEn.current = Date.now(); } })
-      .catch(() => {});
+      .catch((e) => { if (vivo && esSesionCaducada(e)) setSesionCaducada(true); });
     return () => { vivo = false; };
   }, []);
   // La renovación de verdad: si han pasado más de 10 min desde el último
@@ -156,7 +157,7 @@ export function HomePreview({
     let vivo = true;
     fetchHomePreviewToken()
       .then(({ token: t, slug: s }) => { if (vivo) { setToken(t); setSlugToken(s); tokenObtenidoEn.current = Date.now(); } })
-      .catch(() => {});
+      .catch((e) => { if (vivo && esSesionCaducada(e)) setSesionCaducada(true); });
     return () => { vivo = false; };
     // Se dispara con CADA cambio de vista a propósito (es la señal de "va a
     // haber un `src` nuevo igualmente"); el guard de arriba decide si hace
@@ -179,11 +180,7 @@ export function HomePreview({
       ref.current?.contentWindow?.postMessage(
         {
           type: MENSAJE_TEMA_PREVIEW,
-          // Los DOS vocabularios en el mismo mensaje: el portal de siempre lee
-          // `--portal-*` y el kit lee `--brand`/`--radius-card`/`--size-*`. El
-          // listener los aplica en línea, que gana a `html[data-theme="…"]`, así
-          // que tocar un color se ve al momento en los dos.
-          vars: { ...themeToCssVars(temaBorrador), ...varsKitMap(temaBorrador) } as Record<string, string>,
+          vars: themeToCssVars(temaBorrador) as Record<string, string>,
           // La mitad JS del tema (variantes de FORMA, barra) — ver
           // lib/theme-preview-puente.ts. Sin esto, el iframe pintaba la paleta
           // del borrador con la forma del tema PUBLICADO: la cabecera seguía en
@@ -259,6 +256,28 @@ export function HomePreview({
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, [onInsertar]);
+
+  if (sesionCaducada) {
+    return (
+      <MarcoDispositivo
+        dispositivo={dispositivo}
+        zoom={zoom}
+        // Mismo aviso y mismo enlace que ya usa la barra superior del editor
+        // (theme-editor-fullscreen.tsx) cuando el autoguardado detecta un 401:
+        // abre /login en otra pestaña, sin parámetro de destino (`/login` solo
+        // acepta rutas `/interno`), para no perder lo que sigue en pantalla.
+        vacio={
+          <>
+            Tu sesión ha caducado.{' '}
+            <a href="/login" target="_blank" rel="noopener" className="underline font-semibold">
+              Vuelve a entrar
+            </a>
+            .
+          </>
+        }
+      />
+    );
+  }
 
   if (!slugEfectivo || !token) {
     return <MarcoDispositivo dispositivo={dispositivo} zoom={zoom} vacio="La vista previa aparecerá en un momento." />;

@@ -8,7 +8,7 @@ function campo(id: string) {
 }
 
 test('el porDefecto de cada eje es el PRIMER valor del catálogo — el aspecto de hoy', () => {
-  for (const eje of ['cabeceraInicio', 'accesosRapidos', 'barra', 'retos', 'tarjetaPrincipal', 'bienvenida'] as const) {
+  for (const eje of ['barra', 'retos', 'tarjetaPrincipal', 'bienvenida'] as const) {
     const c = campo(eje);
     assert.ok(c, `falta el campo ${eje}`);
     assert.equal(
@@ -20,7 +20,7 @@ test('el porDefecto de cada eje es el PRIMER valor del catálogo — el aspecto 
 });
 
 test('las opciones de cada eje son EXACTAMENTE las del catálogo, sin inventarse ni perder ninguna', () => {
-  for (const eje of ['cabeceraInicio', 'accesosRapidos', 'barra', 'retos', 'tarjetaPrincipal', 'bienvenida'] as const) {
+  for (const eje of ['barra', 'retos', 'tarjetaPrincipal', 'bienvenida'] as const) {
     const c = campo(eje) as { opciones: readonly { id: string; label: string }[] };
     assert.deepEqual(c.opciones.map((o) => o.id), [...VARIANTES_PORTAL[eje]]);
     // Una etiqueta que se quedara en el id crudo ("todasRelleno") sería una
@@ -33,6 +33,14 @@ test('`tabBarStyle` NO se expone: portal-nav.tsx ya no lo lee y sería un contro
   assert.equal(campo('tabBarStyle'), undefined);
 });
 
+test('`cabeceraInicio` NO se expone: el Inicio tiene un hero único, sin variante que elegir', () => {
+  assert.equal(campo('cabeceraInicio'), undefined);
+});
+
+test('`accesosRapidos` NO se expone: el bloque no existe en el diseño real, se retiró del Inicio', () => {
+  assert.equal(campo('accesosRapidos'), undefined);
+});
+
 test('`radioTema` tampoco: su fallback no es un número único, y fijarlo mataría la herencia', () => {
   for (const id of ['radioTema', 'radioCard', 'radioBoton', 'radioChip', 'radioAcceso']) {
     assert.equal(campo(id), undefined, `${id} no debería exponerse todavía`);
@@ -41,8 +49,9 @@ test('`radioTema` tampoco: su fallback no es un número único, y fijarlo matar�
 
 test('un tema vacío se lee con el aspecto de hoy en todos los ejes', () => {
   const v = valoresFormaDesdeTema({});
-  assert.equal(v.cabeceraInicio, 'clasica');
-  assert.equal(v.accesosRapidos, 'filas');
+  // `cabeceraInicio`/`accesosRapidos` ya no viajan aquí: valoresFormaDesdeTema
+  // solo expone los ejes de EJES_EXPUESTOS, y ese ya no los incluye (ver el
+  // test de arriba).
   assert.equal(v.barra, 'soloActiva');
   assert.equal(v.barraClasica, false);
   assert.equal(v.barraFlotante, false);
@@ -52,10 +61,10 @@ test('un tema vacío se lee con el aspecto de hoy en todos los ejes', () => {
 
 test('un tema con variantes reales se lee tal cual, sin pisarlas con el defecto', () => {
   const v = valoresFormaDesdeTema({
-    variantes: { accesosRapidos: 'circulos', barra: 'todasRelleno' },
+    variantes: { tarjetaPrincipal: 'rotulada', barra: 'todasRelleno' },
     barraClasica: true, destacado: '#D4AF37',
   });
-  assert.equal(v.accesosRapidos, 'circulos');
+  assert.equal(v.tarjetaPrincipal, 'rotulada');
   assert.equal(v.barra, 'todasRelleno');
   assert.equal(v.barraClasica, true);
   assert.equal(v.destacado, '#D4AF37');
@@ -64,7 +73,7 @@ test('un tema con variantes reales se lee tal cual, sin pisarlas con el defecto'
 });
 
 test('tocar UN eje reenvía el objeto `variantes` entero, conservando los demás', () => {
-  const tema = { variantes: { accesosRapidos: 'circulos' } };
+  const tema = { variantes: { tarjetaPrincipal: 'rotulada' } };
   const w = escrituraDeCampoForma(tema, 'retos', 'color');
   assert.ok(w);
   assert.equal(w.clave, 'variantes');
@@ -72,7 +81,7 @@ test('tocar UN eje reenvía el objeto `variantes` entero, conservando los demás
   assert.equal(v.retos, 'color');
   // Lo que ya había NO se pierde al tocar otro eje — el fallo clásico de
   // escribir `{ [eje]: valor }` a secas.
-  assert.equal(v.accesosRapidos, 'circulos');
+  assert.equal(v.tarjetaPrincipal, 'rotulada');
   // Y el objeto queda completo, como el que consume el portal.
   assert.deepEqual(Object.keys(v).sort(), Object.keys(resolveVariantes({})).sort());
 });

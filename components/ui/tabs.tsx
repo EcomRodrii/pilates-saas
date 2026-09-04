@@ -23,8 +23,34 @@ function Tabs({
   )
 }
 
+// ⚠️ `w-fit` + `inline-flex` significa "tan ancha como sus pestañas", sin techo:
+// con etiquetas largas la lista se sale del viewport y ensancha la PÁGINA
+// entera. Medido en Configuración → Estudio a 390px de ancho: la lista llegaba
+// a 519px y el documento sacaba 129px de scroll horizontal — el sitio se movía
+// de lado al arrastrar, y la última pestaña seguía sin alcanzarse.
+//
+// El arreglo es `max-w-full` + `overflow-x-auto`: la lista deja de empujar y
+// pasa a desplazarse dentro de su propia caja, que es lo que ya hacía la tira
+// de pestañas de primer nivel (app/(dashboard)/configuracion/page.tsx). Solo en
+// horizontal: en vertical las pestañas se apilan y no hay nada que desbordar.
+//
+// ⚠️ Y va con 5px de relleno abajo para el variante `line`, que pinta el indicador
+// de la pestaña activa en `after:bottom-[-5px]`, es decir FUERA de la caja: un
+// contenedor con scroll lo recortaría (`overflow-x: auto` obliga al eje Y a
+// dejar de ser `visible`). Con `pb-[5px]` —y `h-fit`, porque el alto fijo de
+// 2rem no deja sitio para ese relleno— el indicador cae dentro de la caja. Hoy
+// no lo usa ninguna pantalla —las cuatro montan el variante por defecto, que
+// no dibuja nada fuera—, así que este tramo no cambia nada visible: está para
+// que el fallo no espere a la primera que estrene `line`.
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground group-data-horizontal/tabs:h-8 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none",
+  // `justify-start`, no `justify-center`: con `w-fit` el ancho ya es el del
+  // contenido, así que centrar no hacía nada cuando cabía — pero en cuanto la
+  // lista desborda y pasa a desplazarse, `justify-center` reparte el exceso a
+  // los DOS lados y la primera pestaña queda cortada por la izquierda, fuera
+  // del alcance del scroll. Se vio en Estudio a 390px: "General", que además
+  // era la activa, no aparecía por ninguna parte. Los números decían 0 de
+  // overflow y "la lista scrollea": parecía arreglado.
+  "group/tabs-list inline-flex w-fit items-center justify-start rounded-lg p-[3px] text-muted-foreground group-data-horizontal/tabs:h-8 group-data-horizontal/tabs:max-w-full group-data-horizontal/tabs:overflow-x-auto group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none data-[variant=line]:group-data-horizontal/tabs:h-fit data-[variant=line]:group-data-horizontal/tabs:pb-[5px]",
   {
     variants: {
       variant: {

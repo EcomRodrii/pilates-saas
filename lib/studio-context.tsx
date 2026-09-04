@@ -24,7 +24,7 @@ import {
   dbUpsertMandatoSepa, dbCancelarMandatoSepa,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
   dbCancelarReservasPorSesiones,
-  dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
+  dbUpdateReserva, dbReservarPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbMarcarCobrado, dbUpdateRecibosBatch, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
   dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
@@ -53,6 +53,7 @@ import {
   dbInsertAutomationLog, dbUpdateAutomationRule, dbInsertAutomationRule,
   dbInsertTipoClase, dbUpdateTipoClase, dbDeleteTipoClase,
   dbUpsertContenidoPortal, dbInsertBannerPortal, dbUpdateBannerPortal, dbDeleteBannerPortal,
+  dbInsertNovedadEstudio, dbUpdateNovedadEstudio, dbDeleteNovedadEstudio,
   dbInsertSala, dbUpdateSala, dbDeleteSala,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
   dbUpdateStudio, dbUpdateHorarioEstudio, dbUpdateStudioConfig, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
@@ -74,15 +75,18 @@ export type ResultadoReserva =
       ok: true;
       estado: EstadoReserva;
       /**
-       * El sitio que el servidor pudo darle, o `null`.
+       * El sitio confirmado por el servidor, o `null` si no se eligió ninguno.
        *
-       * ⚠️ `null` habiendo elegido uno NO es un detalle: significa que la
-       * reserva salió bien y la plaza NO. `asignarSpotReserva` devuelve `null`
-       * en tres casos legítimos —el sitio se ocupó en la carrera, está
-       * desactivado, o no es de esa sala— y hasta ahora ese dato llegaba al
-       * navegador y se tiraba: la socia leía «Reservada. Te esperamos», se
-       * presentaba esperando el reformer 3 y era de otra. Es el bug #500 otra
-       * vez, en pequeño.
+       * Desde que `reservar_plaza` recibe `p_spot_id`, «reserva sí y sitio no»
+       * ya NO puede pasar: el sitio se valida y se ocupa dentro de la misma
+       * transacción, así que o se crea la reserva CON el sitio elegido, o no
+       * se crea nada y llega un código —`spot-ocupado` o `spot-no-disponible`—
+       * que dice cuál de las dos cosas ha fallado.
+       *
+       * Antes esto lo resolvía `asignarSpotReserva` con un read-then-update
+       * posterior, que devolvía `null` por tres causas distintas y dejaba a la
+       * socia con la clase confirmada y el reformer de otra. Esa función se ha
+       * borrado; si aparece de nuevo, es un retroceso.
        */
       spotAsignado?: string | null;
     }
@@ -116,6 +120,7 @@ import type {
   TipoClase,
   ContenidoPortal,
   BannerPortal,
+  NovedadEstudio,
   FavoritoClase,
   Instructor,
   Spot,
@@ -161,7 +166,7 @@ import type {
   TipoIntegracion,
   SustitucionConfirmadaPublica,
 } from '@/lib/types';
-import { encolarEnvioCampana, enviarEmailPromocion, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
@@ -175,7 +180,7 @@ import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
-import type { TabBarStyleId, QuickLinksStyleId } from '@/lib/theme-schema';
+import type { TabBarStyleId } from '@/lib/theme-schema';
 import { redesSocialesCompletas, type RedSocialId } from '@/lib/canales-estudio';
 import { DEFAULT_NAV_CONFIG, resolveNavConfig, type NavConfigShape } from '@/lib/portal-nav';
 import { DEFAULT_VARIANTES, resolveVariantes, type VariantesResueltas } from '@/lib/theme-variantes';
@@ -188,7 +193,7 @@ import {
   decidirPremioReferido,
 } from '@/lib/booking-logic';
 import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion, generaRenovacionAlAgotarse } from '@/lib/bono-logic';
-import { useContentStore } from '@/lib/stores/use-content-store';
+import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
 import { useDashboardChartsStore } from '@/lib/stores/use-dashboard-charts-store';
@@ -247,6 +252,7 @@ interface StudioContextValue {
   // del catálogo público (cargarPublico), no con un fetch aparte.
   contenidoPortal: ContenidoPortal | null;
   bannersPortal: BannerPortal[];
+  novedadesEstudio: NovedadEstudio[];
   favoritos: FavoritoClase[];
   toggleFavorito: (tipoClaseId: string, accion: 'marcar' | 'desmarcar') => Promise<ResultadoEscritura>;
   // Retos del carrusel de Inicio (tema Bloom) — retosApuntados es SOLO los de
@@ -255,10 +261,17 @@ interface StudioContextValue {
   retosApuntados: string[];
   retoConteos: Record<string, number>;
   toggleReto: (retoKey: string, accion: 'marcar' | 'desmarcar') => Promise<ResultadoEscritura>;
+  // Nota agregada del ESTUDIO entero (todas sus instructoras), para "Tu
+  // estudio" en Inicio — `null` bajo el mínimo de valoraciones para enseñar
+  // algo, mismo criterio que `Instructor.valoracion` (lib/portal-tema/valoracion.ts).
+  valoracionEstudio: { media: number; total: number } | null;
   updateMensajeDestacado: (mensaje: string | null) => Promise<ResultadoEscritura>;
   addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateBannerPortal: (id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteBannerPortal: (id: string) => Promise<ResultadoEscritura>;
+  addNovedadEstudio: (fields: Omit<NovedadEstudio, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  updateNovedadEstudio: (id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deleteNovedadEstudio: (id: string) => Promise<ResultadoEscritura>;
   // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del editor
   // de temas). Solo lectura aquí — se edita desde el dashboard
   // (components/theme/portal-bloques-editor.tsx), que llama a fetchLayout()/
@@ -283,9 +296,12 @@ interface StudioContextValue {
   // Barra clásica, no flotante (Oliva/Noir) — mismo motivo JS que tabBarStyle:
   // decide el `position` de <PortalNav>, algo que una CSS var no puede hacer.
   barraClasica: boolean;
-  // Estilo de los accesos rápidos del Inicio — SOLO temas del kit, ver
-  // ESTILOS_ACCESOS_RAPIDOS en theme-schema.ts. `null` = hereda del tema.
-  quickLinksStyle: QuickLinksStyleId | null;
+  // Barra flotante (Bloom) — eje INDEPENDIENTE de barraClasica (ver
+  // barraFlotanteSchema en theme-schema.ts). El portal "de siempre" solo la usa
+  // por CSS var; SOLO los temas del kit la leen aquí como valor JS, para
+  // decidir `features.tab_bar_style` (portal-tema-marco.tsx/vista-previa-kit.tsx)
+  // — mismo motivo que barraClasica está en este Context y no solo en CSS.
+  barraFlotante: boolean;
   // Variantes de FORMA por bloque (accesos rápidos en rejilla/círculos,
   // etiquetas de la barra, retos de color...) — ver lib/theme-variantes.ts.
   // Siempre completo: los componentes nunca tienen que poner su propio
@@ -297,8 +313,6 @@ interface StudioContextValue {
   /** Tema instalado (`oliva`/`bloom`/`noir`/`classic`…). El portal en React
    *  elige con esto cuál de los tres juegos de tokens monta. */
   themeIdPublicado: string | null;
-  /** TEMPORAL: `true` = este estudio ve el portal en React. Ver `Studio.portalReact`. */
-  portalReact: boolean;
   // Redes sociales del pie de página público (Fase 3) — ver lib/theme-schema.ts.
   redesSociales: Record<RedSocialId, string>;
   /** Textos de la portada de /reservar escritos por el estudio. Vacío = el
@@ -393,14 +407,14 @@ interface StudioContextValue {
   // Sesiones
   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateSesion: (id: string, changes: Partial<Sesion>) => Promise<ResultadoEscritura>;
-  deleteSesion: (id: string) => Promise<ResultadoEscritura>;
+  deleteSesion: (id: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
   // Series de clases recurrentes (I-3)
   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
-  cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura>;
+  cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
   /** Marca CANCELADA las reservas activas de estas sesiones. Llamar SIEMPRE
    *  después de haber avisado a las socias (ver updateSesion). */
-  cancelarReservasDeSesiones: (ids: string[], op: string) => Promise<ResultadoEscritura>;
+  cancelarReservasDeSesiones: (ids: string[], op: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
 
   // Reservas
   // opciones.checkInInmediato: walk-in (I-alta pilar 6) — se añade y se marca
@@ -411,11 +425,15 @@ interface StudioContextValue {
   // recuperacionCreada/recuperacionCaducaEl: solo la vía pública los rellena
   // (al cancelar una ocurrencia de plaza fija, ver cancelarReservaPublica) —
   // el panel de staff los deja undefined, no aplica ahí.
-  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null }>;
+  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; avisoBono?: string }>;
   // Fase 2b: acepta una oferta de plaza de lista de espera dentro de su plazo.
   // Solo tiene sentido desde el portal (socia con sesión iniciada) — ver
   // app/api/reservas/aceptar-oferta-espera/route.ts.
   aceptarOfertaEspera: (reservaId: string) => Promise<ResultadoEscritura>;
+  // Gap 4 (portal Reservas > Pasadas): valora de 1 a 5 una clase YA ASISTIDA,
+  // autoservicio desde la sesión normal de la socia. Solo tiene sentido desde
+  // el portal — ver valorarExperienciaReservaPublica (supabase-data-admin.ts).
+  valorarExperienciaReserva: (reservaId: string, valoracion: number) => Promise<ResultadoEscritura>;
   // F2 (B2.4) dueña-first: da de baja una reserva y concede una recuperación en su
   // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
   bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
@@ -496,8 +514,10 @@ interface StudioContextValue {
   // Comunidad
   postsComunidad: PostComunidad[];
   likedPostIds: Set<string>;
-  addPost: (texto: string) => void;
+  addPost: (texto: string, opts?: OpcionesAddPost) => void;
   toggleLikePost: (postId: string) => void;
+  updatePost: (postId: string, texto: string, opts?: OpcionesAddPost) => void;
+  deletePost: (postId: string) => void;
   integraciones: Integracion[];
   upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => void;
   rewardRules: RewardRule[];
@@ -692,6 +712,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [tiposClase, setTiposClase] = useState<TipoClase[]>([]);
   const [contenidoPortal, setContenidoPortal] = useState<ContenidoPortal | null>(null);
   const [bannersPortal, setBannersPortal] = useState<BannerPortal[]>([]);
+  const [novedadesEstudio, setNovedadesEstudio] = useState<NovedadEstudio[]>([]);
   const [portalHome, setPortalHome] = useState<OrdenVisibilidad>(DEFAULT_LAYOUT.portalHome);
   const [homeBloques, setHomeBloques] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.home.publicado);
   const [bloquesClases, setBloquesClases] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.clases.publicado);
@@ -699,7 +720,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [bloquesReservar, setBloquesReservar] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.reservar.publicado);
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
   const [barraClasica, setBarraClasica] = useState(false);
-  const [quickLinksStyle, setQuickLinksStyle] = useState<QuickLinksStyleId | null>(null);
+  const [barraFlotante, setBarraFlotante] = useState(false);
   const [variantes, setVariantes] = useState<VariantesResueltas>(DEFAULT_VARIANTES);
   // Tema en BORRADOR dentro del iframe del editor (/portal-preview, /reservar).
   // Estado APARTE del publicado, no un `setVariantes` desde el mensaje: la
@@ -709,7 +730,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [temaJsPreview, setTemaJsPreview] = useState<TemaJs | null>(null);
   const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
   const [themeIdPublicado, setThemeIdPublicado] = useState<string | null>(null);
-  const [portalReact, setPortalReact] = useState(false);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>(() => redesSocialesCompletas(null));
   const [textosReservar, setTextosReservar] = useState({
     titular: '', subtitulo: '', cta: '', sobreTitulo: '', sobreTexto: '',
@@ -717,8 +737,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   });
   // `radio`/`radioInput`(el legacy de radio de tarjeta) no viajan aquí a
   // propósito: hoy solo existen como parámetro de URL (`?radio=`), sin campo
-  // persistido — mismo estado que tenía antes de esta fase.
-  const [aparienciaWidget, setAparienciaWidget] = useState<Omit<AparienciaWidget, 'radio'>>({
+  // persistido — mismo estado que tenía antes de esta fase. `forma`/
+  // `densidad` (Fase 3) siguen el mismo criterio: solo `?forma=`/`?densidad=`
+  // por ahora, sin editor propio en el Theme Builder todavía.
+  const [aparienciaWidget, setAparienciaWidget] = useState<Omit<AparienciaWidget, 'radio' | 'forma' | 'densidad'>>({
     fondo: null, fuente: null, ocultarPie: false, soloPestana: false, texto: 'auto',
     fuenteDisplay: null, radioBoton: null, radioInput: null,
     superficie: null, tinta: null, textoSecundario: null, linea: null, relleno: null,
@@ -727,6 +749,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
   const [retoConteos, setRetoConteos] = useState<Record<string, number>>({});
+  const [valoracionEstudio, setValoracionEstudio] = useState<{ media: number; total: number } | null>(null);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [segmentosClientes, setSegmentosClientes] = useState<SegmentoCliente[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
@@ -962,6 +985,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setCitasDisponibilidad(pub.citasDisponibilidad ?? []);
       setContenidoPortal(pub.contenidoPortal ?? null);
       setBannersPortal(pub.bannersPortal ?? []);
+      setNovedadesEstudio((pub as { novedadesEstudio?: NovedadEstudio[] }).novedadesEstudio ?? []);
       setPortalHome(pub.portalHome ?? DEFAULT_LAYOUT.portalHome);
       setHomeBloques(pub.homeBloques ?? DEFAULT_LAYOUT.bloques.home.publicado);
       setBloquesClases(pub.bloquesClases ?? DEFAULT_LAYOUT.bloques.clases.publicado);
@@ -969,13 +993,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setBloquesReservar(pub.bloquesReservar ?? DEFAULT_LAYOUT.bloques.reservar.publicado);
       setTabBarStyle(pub.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica');
       setBarraClasica(pub.barraClasica === true);
-      setQuickLinksStyle(pub.quickLinksStyle === 'cards' || pub.quickLinksStyle === 'bare' ? pub.quickLinksStyle : null);
+      setBarraFlotante(pub.barraFlotante === true);
       // resolveVariantes valida clave a clave y siempre devuelve el objeto
       // completo — un valor corrupto en un eje no arrastra a los demás.
       setVariantes(resolveVariantes(pub.variantes));
       setNavPortal(resolveNavConfig(pub.navPortal));
       setThemeIdPublicado((pub as { themeIdPublicado?: string | null }).themeIdPublicado ?? null);
-      setPortalReact((pub.studio as { portalReact?: boolean } | null)?.portalReact === true);
       // Las cuatro claves siempre presentes, cada una saneada a string: un
       // tema publicado antes de que existiera TikTok trae solo tres.
       setRedesSociales(redesSocialesCompletas(pub.redesSociales));
@@ -1023,6 +1046,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const ordRes = (pub as { reservar?: { orden?: unknown; ocultos?: unknown } | null }).reservar;
       setOrdenReservar({ orden: listaStr(ordRes?.orden), ocultos: listaStr(ordRes?.ocultos) });
       setRetoConteos(pub.retoConteos ?? {});
+      setValoracionEstudio((pub as { valoracionEstudio?: { media: number; total: number } | null }).valoracionEstudio ?? null);
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
         estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
@@ -1146,21 +1170,36 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // resolving from the (possibly absent, possibly unrelated) auth session.
       if (studioIdOverride) {
         setCurrentStudioId(studioIdOverride);
-      } else if (authUserId) {
+        return fetchCriticalStudioData();
+      }
+      if (authUserId) {
         const resolved = await resolveStudioId();
         // Resetea a vacío si no resuelve, para no heredar el estudio de una
         // sesión anterior en el mismo cliente.
         setCurrentStudioId(resolved ?? '');
-      } else {
-        setCurrentStudioId('');
+        // Sesión de Supabase Auth real pero SIN estudio detrás — p.ej. una
+        // profesional de Network (`red_perfiles.auth_user_id`, independiente
+        // de `studio_id` por diseño, migr 20260813111206) logueada en
+        // `/network`, que no monta ningún StudioSlugGate propio y hereda este
+        // StudioProvider de la raíz. Sin este corte, `authUserId` truthy
+        // bastaba para disparar la carga completa del panel — incluidos los
+        // fetchers de solo-admin (campos personalizados, plantillas de
+        // email, segmentos, dependencias...) — que RLS rechaza con 42501
+        // para una cuenta sin membership de estudio (visto en Sentry:
+        // JAVASCRIPT-NEXTJS-20/21/22/23/24/C, `studioId: "desconocido"`).
+        if (!resolved) return null;
+        return fetchCriticalStudioData();
       }
-      return fetchCriticalStudioData();
+      setCurrentStudioId('');
+      return null;
     })().then(data => {
+      if (!data) { setDataLoaded(true); return; }
       setPlanesTarifa(data.planesTarifa);
       setSalas(data.salas);
       setTiposClase(data.tiposClase);
       setContenidoPortal(data.contenidoPortal);
       setBannersPortal(data.bannersPortal);
+      setNovedadesEstudio(data.novedadesEstudio);
       setInstructores(data.instructores);
       setSpots(data.spots);
       setBloqueosMaquina(data.bloqueosMaquina);
@@ -1233,6 +1272,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // comentario original de fetchDeferredStudioData ya documentaba como
         // sin ningún consumidor.
         setCondicionesSalud(def.condicionesSalud);
+        // Mismo bug, mismo arreglo: sin esto, Comunidad (panel y la pestaña
+        // dentro de Mensajería) nunca mostraba el historial de posts en una
+        // sesión nueva.
+        content.setPostsComunidad(def.postsComunidad);
       }).catch(err => console.error('Error cargando datos diferidos:', err));
     }).catch(err => {
       console.error('Error fetching Supabase data:', err);
@@ -1552,19 +1595,33 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       .filter(x => x.socioId === socioId && x.estado === 'DISPONIBLE')
       .sort((a, b) => b.creadaEn.localeCompare(a.creadaEn))[0]?.caducaEl ?? null;
 
-    // Cancela (atómico: promociona espera). NO devuelve bono; sí consume el de la
-    // promovida (igual que cancelarReserva).
+    // Cancela (atómico: promociona espera). NO devuelve bono a quien se da de
+    // baja (se compensa con la recuperación de arriba, no con el bono); la
+    // promovida sí se lleva el consumo — ambas cosas las decide y las
+    // escribe ahora el servidor (`ejecutarCancelacionReserva`, P-1 de la
+    // auditoría 21ª pasada), que además dispara las notificaciones reales
+    // (antes este camino, cliente-directo contra la RPC, no avisaba a NADIE:
+    // ni a la promovida ni —si el estudio exige plazo de aceptación— a quien
+    // recibía la oferta, que se quedaba sin saber que la tuvo hasta que
+    // caducaba sola).
     setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r));
-    const res = await dbCancelarReservaPlaza(getCurrentStudioId(), reservaId);
-    // Si la BD rechaza la cancelación hay que deshacer las DOS cosas que ya se
-    // hicieron: el optimista y —sobre todo— la recuperación, que se concedió
-    // arriba. Antes no había esta rama: se devolvía 'CREADA' pasara lo que
-    // pasara, así que un fallo de la RPC dejaba a la socia con una recuperación
+    const respuesta = await fetch('/api/reservas/cancelar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ reservaId }),
+    }).catch(() => null);
+    const datos = await respuesta?.json().catch(() => null) as {
+      promovidaSocioId?: string | null;
+    } | null;
+    // Si el servidor rechaza la cancelación hay que deshacer las DOS cosas que
+    // ya se hicieron: el optimista y —sobre todo— la recuperación, que se
+    // concedió arriba. Antes no había esta rama: se devolvía 'CREADA' pasara lo
+    // que pasara, así que un fallo dejaba a la socia con una recuperación
     // regalada, la reserva viva en BD (la plaza no se libera ni promociona la
     // lista de espera) y la pantalla pintándola cancelada. La propietaria
     // además le mandaba el WhatsApp de «Recuperación guardada» por algo que no
     // había ocurrido.
-    if (!res || 'error' in res) {
+    if (!respuesta?.ok || !datos) {
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: cancelada.estado } : r));
       // La recuperación se identifica por `origenReservaId`, que es justo el
       // `reservaId` con el que se creó arriba. `lista` ya está cargada.
@@ -1575,12 +1632,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       }
       return { recuperacion: 'ERROR', caduca: null };
     }
-    if (res.promovidaSocioId && sesionId) {
-      const promovidaSocioId = res.promovidaSocioId;
+    if (datos.promovidaSocioId && sesionId) {
+      const promovidaSocioId = datos.promovidaSocioId;
       setReservas(prev => prev.map(r =>
         (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
           ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
-      await consumirSesionBono(promovidaSocioId, sesionId);
     }
     return { recuperacion: 'CREADA', caduca };
   }
@@ -1690,6 +1746,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbDeleteBannerPortal(id);
     if (!res.ok) return res;
     setBannersPortal(prev => prev.filter(b => b.id !== id));
+    return res;
+  }
+
+  // ── Tablón (novedades_estudio) ──────────────────────────────────────────────
+  async function addNovedadEstudio(fields: Omit<NovedadEstudio, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+    const nuevo: NovedadEstudio = { ...fields, id: uuidV4(), studioId: getCurrentStudioId() };
+    const res = await dbInsertNovedadEstudio(nuevo);
+    if (!res.ok) return res;
+    setNovedadesEstudio(prev => [nuevo, ...prev]);
+    return res;
+  }
+  async function updateNovedadEstudio(id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateNovedadEstudio(id, changes);
+    if (!res.ok) return res;
+    setNovedadesEstudio(prev => prev.map(n => n.id === id ? { ...n, ...changes } : n));
+    return res;
+  }
+  async function deleteNovedadEstudio(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteNovedadEstudio(id);
+    if (!res.ok) return res;
+    setNovedadesEstudio(prev => prev.filter(n => n.id !== id));
     return res;
   }
 
@@ -1893,6 +1970,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
     const { planId, aceptacionContrato, ...socioFields } = fields;
     const ahora = new Date().toISOString();
+    // P-9 (auditoría 21ª pasada): `recibos.fecha_vencimiento`/`fecha_cobro` son
+    // `date`, no `timestamptz` como `socios.fecha_alta` — con `ahora` (ISO en
+    // UTC) un alta cobrada a la 01:30 de Madrid quedaba fechada el día
+    // anterior al que la vivió la clienta (mismo bug que ya documenta
+    // `hoyEnEstudio`).
+    const hoy = hoyEnEstudio(new Date(ahora));
     // Si la firma se recogió en el mostrador, se deja constancia de QUIÉN la
     // introdujo: es lo que distingue una firma de la socia de una tecleada por
     // el estudio en su nombre (RGPD art. 7.1, prueba del consentimiento).
@@ -1931,7 +2014,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           socioId: nuevaSocia.id,
           planId,
           estado: 'ACTIVA',
-          fechaInicio: ahora,
+          fechaInicio: hoy,
           fechaFin: calcularFechaFinBono(ahora, plan.validezDias ?? null),
           sesionesRestantes: plan.sesiones,
           stripeSubscriptionId: null,
@@ -1945,8 +2028,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           concepto: `Alta — ${plan.nombre}`,
           importe: plan.precio,
           estado: 'COBRADO',
-          fechaVencimiento: ahora,
-          fechaCobro: ahora,
+          fechaVencimiento: hoy,
+          fechaCobro: hoy,
           fechaDevolucion: null,
           intentosReintento: 0,
         };
@@ -2278,7 +2361,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       socioId,
       planId: plan.id,
       estado: 'ACTIVA',
-      fechaInicio: new Date().toISOString(),
+      // P-9 (auditoría 21ª pasada): `fecha_inicio` es `date`, no `timestamptz`.
+      fechaInicio: hoyEnEstudio(),
       fechaFin: calcularFechaFinBono(new Date().toISOString(), plan.validezDias ?? null),
       sesionesRestantes: plan.sesiones,
       stripeSubscriptionId: null,
@@ -2469,7 +2553,56 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // que este mismo código fue a arreglar, y en silencio. Ahora devuelve el
   // resultado para que el toast pueda decir la verdad — en los DOS llamantes
   // (clase suelta y serie); el reporte a Sentry se conserva tal cual.
-  async function cancelarReservasDeSesiones(ids: string[], op: string): Promise<ResultadoEscritura> {
+  //
+  // F-32 (auditoría 20ª pasada): la devolución de bono en SÍ seguía siendo
+  // `forEach(r => void devolverSesionBono(...))` — el camino de UNA reserva
+  // (`cancelarReserva`, más abajo) sí espera y produce `avisoBono` si falla;
+  // este, el de cancelar una clase/serie entera, no. `devolverSesionBono` ya
+  // reporta a Sentry cuando falla, pero quien pulsó "Cancelar clase" veía
+  // "clientas avisadas" sin enterarse de que alguna socia se quedó sin su
+  // sesión de vuelta. Ahora se esperan todas (Promise.all) y, si alguna
+  // falla, se añade el mismo `avisoBono` que ya usa el camino individual.
+  // ⚠️ Auditoría 22ª pasada (3-sep-2026), F-1. La devolución la hace el SERVIDOR
+  // (`/api/reservas/devolver-bonos`), no el navegador. La RPC
+  // `devolver_sesion_bono` exige `puede_gestionar_calendario()` desde el 2-sep, y
+  // ese predicado deja fuera a INSTRUCTOR — pero el botón "Cancelar" de una
+  // clase SÍ se le ofrece a la instructora en la suya. Llamando desde aquí,
+  // cada devolución reventaba con NO_AUTORIZADO y las socias se quedaban sin su
+  // sesión de vuelta. Devuelve cuántas devoluciones FALLARON de verdad (una
+  // socia sin bono devolvible no es un fallo).
+  async function devolverBonosEnServidor(reservaIds: string[]): Promise<number> {
+    try {
+      const respuesta = await fetch('/api/reservas/devolver-bonos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ reservaIds }),
+      });
+      const datos = await respuesta.json().catch(() => null) as {
+        devueltas?: number; fallos?: number; saldos?: { suscripcionId: string; sesionesRestantes: number }[];
+      } | null;
+      if (!respuesta.ok || !datos) {
+        capturarMensaje('[devolverBonosEnServidor] el servidor rechazó la devolución', 'error', {
+          extra: { reservaIds, status: respuesta.status },
+        });
+        return reservaIds.length;
+      }
+      // Saldos autoritativos del servidor: el panel ya no los calcula.
+      if (datos.saldos?.length) {
+        const porId = new Map(datos.saldos.map(s => [s.suscripcionId, s.sesionesRestantes]));
+        setSuscripciones(prev => prev.map(s =>
+          porId.has(s.id) ? { ...s, sesionesRestantes: porId.get(s.id) as number } : s
+        ));
+      }
+      return datos.fallos ?? 0;
+    } catch (e) {
+      capturarMensaje('[devolverBonosEnServidor] no se pudo llamar a la devolución', 'error', {
+        extra: { reservaIds, error: e instanceof Error ? e.message : String(e) },
+      });
+      return reservaIds.length;
+    }
+  }
+
+  async function cancelarReservasDeSesiones(ids: string[], op: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
     if (ids.length === 0) return { ok: true };
     const sesionIdsSet = new Set(ids);
     const confirmadasAntes = reservas.filter(r => sesionIdsSet.has(r.sesionId) && r.estado === 'CONFIRMADA');
@@ -2483,15 +2616,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         return { ok: false, error: 'La clase se ha cancelado, pero no hemos podido cancelar sus reservas. Recarga la página.' };
       }
       const idsSet = new Set(res.ids);
+      let avisoBono: string | undefined;
       if (idsSet.size > 0) {
         setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
         if (studio?.cancelacionClaseDevuelveBono ?? true) {
-          confirmadasAntes
-            .filter(r => idsSet.has(r.id))
-            .forEach(r => void devolverSesionBono(r.socioId, r.sesionId));
+          const aDevolver = confirmadasAntes.filter(r => idsSet.has(r.id));
+          if (aDevolver.length > 0) {
+            const fallos = await devolverBonosEnServidor(aDevolver.map(r => r.id));
+            if (fallos > 0) {
+              avisoBono = fallos === 1
+                ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
+                : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`;
+            }
+          }
         }
       }
-      return { ok: true };
+      return { ok: true, avisoBono };
     } catch (e) {
       console.error(`[${op}:dbCancelarReservasPorSesiones]`, e);
       capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'calendario', op } });
@@ -2517,7 +2657,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  async function deleteSesion(id: string): Promise<ResultadoEscritura> {
+  async function deleteSesion(id: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
     // Borrar la sesión CASCADE-borra sus reservas en BD (FK on delete cascade) —
     // antes eso pasaba en silencio: ni email ni aviso in-app a las socias con
     // plaza, a diferencia de "Cancelar" (que sí avisa). Se manda el email Y el
@@ -2528,6 +2668,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const sesion = sesiones.find(s => s.id === id);
     if (sesion) notificarCancelacionSesiones([sesion]);
     await avisarClaseCancelada(id);
+    // Auditoría de producto (P0-1): "Eliminar" no devolvía el bono consumido
+    // aunque "Cancelar" sí — dos botones casi idénticos con consecuencia de
+    // dinero opuesta. Para la alumna, perder su plaza es lo mismo con
+    // cualquiera de los dos botones; captura ANTES del DELETE (el cascade se
+    // lleva las reservas, no queda nada que consultar después).
+    const confirmadas = reservas.filter(r => r.sesionId === id && r.estado === 'CONFIRMADA');
     // El DELETE en sí también se espera ahora — antes era fire-and-forget: el
     // calendario ya la quitaba de pantalla aunque el borrado real en BD
     // hubiera fallado, así que recargar la traía de vuelta.
@@ -2535,6 +2681,30 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (!res.ok) return res;
     setSesiones(prev => prev.filter(s => s.id !== id));
     setReservas(prev => prev.filter(r => r.sesionId !== id));
+    if ((studio?.cancelacionClaseDevuelveBono ?? true) && confirmadas.length > 0) {
+      // ⚠️ Auditoría 22ª pasada (3-sep-2026), F-9. Esto era
+      // `forEach(r => void devolverSesionBono(...))`: fire-and-forget. F-32
+      // (20ª pasada) arregló exactamente este patrón en el gemelo
+      // `cancelarReservasDeSesiones` y dejó este como estaba — la propietaria
+      // veía "Clase eliminada" aunque alguna socia se quedara sin su sesión de
+      // vuelta, y el fallo solo llegaba a Sentry.
+      //
+      // Sigue llamando a la RPC desde el navegador, a diferencia de su gemelo:
+      // "Eliminar" está gateado a `!esInstructor` (calendario/page.tsx), así que
+      // el rol siempre pasa la cerradura de `devolver_sesion_bono`. Y no puede
+      // usar `/api/reservas/devolver-bonos`, que valida contra las reservas: el
+      // DELETE ya se las llevó por cascade.
+      const resultados = await Promise.all(confirmadas.map(r => devolverSesionBono(r.socioId, r.sesionId)));
+      const fallos = resultados.filter(ok => !ok).length;
+      if (fallos > 0) {
+        return {
+          ...res,
+          avisoBono: fallos === 1
+            ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
+            : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`,
+        };
+      }
+    }
     return res;
   }
 
@@ -2602,7 +2772,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Cancela "esta y las siguientes" de una serie (p. ej. "cancelar la serie del
   // verano") y avisa por email a las socias con plaza en cada sesión afectada.
-  async function cancelarSerieDesde(sesionId: string): Promise<ResultadoEscritura> {
+  async function cancelarSerieDesde(sesionId: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
     const objetivo = sesionesDeSerieDesde(sesionId).filter(s => !s.cancelada);
     if (objetivo.length === 0) return { ok: true };
     const ids = objetivo.map(s => s.id);
@@ -2760,13 +2930,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // Mismo motivo que en consumirSesionBono: hay que devolver la sesión AL BONO
   // QUE LA PAGÓ. Sin el tipo de clase se le devolvía al que caducara antes, que
   // con dos bonos vivos regala saldo en uno y lo deja perdido en el otro.
-  async function devolverSesionBono(socioId: string, sesionId?: string | null) {
+  // P2 (auditoría de producto): devuelve `false` si de verdad hacía falta
+  // devolver una sesión y no se pudo — antes era `void` en las tres llamadas
+  // y un fallo aquí solo llegaba a Sentry, nadie del estudio se enteraba de
+  // que una socia se quedó sin su sesión de bono. `true` cubre también "no
+  // había nada que devolver" (sin bono devolvible, o ya al tope): no es un
+  // fallo, así que no debe avisar como si lo fuera.
+  async function devolverSesionBono(socioId: string, sesionId?: string | null): Promise<boolean> {
     const tipoClaseId = sesionId ? sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null : null;
     // I-5: `bonoDevolvible`, no `bonoConsumible`. Para devolver hace falta HUECO,
     // no saldo: usando el de consumir, cancelar la clase que gastó la ÚLTIMA
     // sesión no devolvía nada, porque un bono a 0 ya no es "consumible".
     const devolvible = bonoDevolvible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
-    if (!devolvible) return;
+    if (!devolvible) return true;
     const { suscripcion: sus } = devolvible;
 
     // I-10: incremento ATÓMICO en la BD con el tope dentro del WHERE, en vez de
@@ -2781,15 +2957,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       capturarMensaje('[devolverSesionBono] no se pudo devolver la sesión al bono', 'error', {
         extra: { socioId, sesionId, suscripcionId: sus.id, error: res.error },
       });
-      return;
+      return false;
     }
     // `saldo` null = no había hueco (bono ya al tope): no es un fallo, pero
     // tampoco hay nada que reflejar en pantalla.
-    if (res.saldo == null) return;
+    if (res.saldo == null) return true;
     const saldo = res.saldo;
     setSuscripciones(prev => prev.map(s =>
       s.id === sus.id ? { ...s, sesionesRestantes: saldo } : s
     ));
+    return true;
   }
 
   async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean }): Promise<ResultadoReserva> {
@@ -2912,7 +3089,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return postPublico('/api/public/retos', { studioId: cpub.studioId, retoKey, accion });
   }
 
-  async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null }> {
+  async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; avisoBono?: string }> {
     const cpub = ctxPublico();
     if (cpub) {
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r)); // optimista
@@ -2943,16 +3120,26 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // protegía.
     setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r));
 
-    // Cancelación + promoción de espera ATÓMICAS en la BD (una transacción con
-    // bloqueo de fila). AWAIT, no fire-and-forget: antes esto era
-    // `.then(...)` sin `await` ni `.catch`, y la función devolvía `{ok:true}`
-    // síncrono sin esperar la respuesta — un fallo de la RPC (red, permiso,
-    // constraint) dejaba la reserva CANCELADA en pantalla mientras la BD la
-    // mantenía CONFIRMADA, sin revertir el optimista y afirmando éxito al
-    // llamante. Mismo patrón que ya se corrigió en addReserva.
-    const res = await dbCancelarReservaPlaza(getCurrentStudioId(), reservaId);
-    if (!res || 'error' in res) {
-      // Revierte el optimista: la BD rechazó la cancelación, así que la
+    // P-1 (auditoría 21ª pasada): antes llamaba a `cancelar_reserva_plaza`
+    // DIRECTO desde el navegador (`dbCancelarReservaPlaza`) y luego recalculaba
+    // aquí mismo la devolución/consumo de bono y el email de promoción — sin
+    // pasar nunca por el Notification Engine (`emitirReservaCancelada`,
+    // `emitirPlazaLiberada`, `emitirOfertaListaEspera`). Ahora pasa por el mismo
+    // endpoint de servidor que ya usa el resultado autoritativo
+    // (`ejecutarCancelacionReserva`, el mismo camino que la vía pública): la
+    // devolución/consumo de bono y las tres notificaciones las dispara el
+    // servidor, una sola vez — este bloque solo refleja el resultado en el
+    // estado local, ya no vuelve a escribir nada.
+    const respuesta = await fetch('/api/reservas/cancelar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ reservaId }),
+    }).catch(() => null);
+    const datos = await respuesta?.json().catch(() => null) as {
+      promovidaSocioId?: string | null; ofertaSocioId?: string | null; ofertaExpiraEn?: string | null; error?: string;
+    } | null;
+    if (!respuesta?.ok || !datos) {
+      // Revierte el optimista: el servidor rechazó la cancelación, así que la
       // reserva sigue en el estado que tenía antes. Igual que addReserva: se
       // devuelve el error al llamante (todas las superficies que llaman a
       // cancelarReserva ya lo muestran con su propio aviso), sin duplicar con
@@ -2960,41 +3147,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (cancelada) {
         setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: cancelada.estado } : r));
       }
-      return { ok: false, error: res && 'error' in res ? res.error : 'No se pudo cancelar la reserva' };
+      return { ok: false, error: datos?.error ?? 'No se pudo cancelar la reserva' };
     }
-    const { eraConfirmada, promovidaSocioId, devolverBono, ofertaSocioId, ofertaExpiraEn } = res;
-
-    // Devolver bono a quien canceló solo si su reserva ocupaba plaza Y la
-    // política de cancelación lo permite. Las DOS cosas las decide ahora la
-    // BD (migr 0129): `devolverBono` ya resuelve la ventana del TIPO de clase
-    // y cae a la del estudio si no la tiene.
-    //
-    // Antes esto se recalculaba aquí, y era el sitio donde se colaba el error:
-    // el panel usaba siempre la ventana global mientras el portal sí miraba la
-    // del tipo, así que la misma cancelación salía tardía o a tiempo según por
-    // dónde entrara la socia. Recalcular una regla en cada superficie es cómo
-    // se llega a eso; ahora hay una sola respuesta y esto la obedece.
-    //
-    // Y las plazas fijas quedan fuera: `materializar_plazas_fijas` las inserta
-    // CONFIRMADAS sin consumir bono, así que devolver una sesión al cancelarlas
-    // crea saldo de la nada (su compensación es la recuperación, no el bono).
-    // El camino servidor ya tenía este guard —supabase-data-admin.ts:1860,
-    // `const esPlazaFija = params.reservaId.startsWith('res-pf-')`— y a este le
-    // faltaba: cancelar la MISMA reserva desde el panel regalaba una sesión que
-    // por el portal no se regalaba. Es la misma asimetría panel↔portal que ya
-    // causó el bug de la ventana de cancelación; se cierra copiando el guard.
-    const esPlazaFija = reservaId.startsWith('res-pf-');
-    if (eraConfirmada && cancelada && devolverBono && !esPlazaFija) {
-      void devolverSesionBono(cancelada.socioId, sesionId);
-    }
+    const { promovidaSocioId, ofertaSocioId, ofertaExpiraEn } = datos;
 
     // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
-    // confirma sola. Refleja en el estado local la oferta que la BD acaba de
-    // abrir (sigue en LISTA_ESPERA, sin consumir bono todavía; eso pasa al
-    // aceptar, desde el portal). El aviso a la socia lo manda el server
-    // (emitirOfertaListaEspera, disparado por el camino admin/público) — este
-    // camino cliente-directo no pasa por ahí, así que solo se informa al
-    // panel de que hay una oferta viva.
+    // confirma sola. Refleja en el estado local la oferta que el servidor
+    // acaba de abrir (sigue en LISTA_ESPERA, sin consumir bono todavía; eso
+    // pasa al aceptar, desde el portal). El aviso a la socia ya lo mandó el
+    // servidor (`emitirOfertaListaEspera`, dentro de `ejecutarCancelacionReserva`).
     if (ofertaSocioId && sesionId) {
       setReservas(prev => prev.map(r =>
         (r.sesionId === sesionId && r.socioId === ofertaSocioId && r.estado === 'LISTA_ESPERA')
@@ -3004,35 +3165,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
     if (!promovidaSocioId || !sesionId) return { ok: true };
 
-    // Refleja en el estado local la promoción REAL decidida por la BD.
+    // Refleja en el estado local la promoción REAL decidida por el servidor —
+    // el bono ya se le consumió y el email/notificación ya se le mandó ahí.
     setReservas(prev => prev.map(r =>
       (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
         ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
-    // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
-    await consumirSesionBono(promovidaSocioId, sesionId);
 
     const socio = socios.find(s => s.id === promovidaSocioId);
     const sesion = sesiones.find(s => s.id === sesionId);
     const tipo = sesion ? tiposClase.find(t => t.id === sesion.tipoClaseId) : null;
     const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
     const clase = tipo?.nombre ?? 'la clase';
-    // Email a la socia ascendida: ahora "te avisaremos si se libera una plaza"
-    // es cierto también por la vía admin. Best-effort (Resend puede no estar).
-    if (socio?.email && sesion) {
-      const sala = salas.find(x => x.id === sesion.salaId);
-      const instructor = instructores.find(i => i.id === sesion.instructorId);
-      const inicioSesion = new Date(sesion.inicio);
-      enviarEmailPromocion({
-        to: socio.email,
-        toName: socio.nombre,
-        claseNombre: clase,
-        fecha: fechaLargaEstudio(inicioSesion),
-        hora: horaEstudio(inicioSesion),
-        sala: sala?.nombre ?? '',
-        instructor: instructor?.nombre ?? '',
-        bonoConsumido: true,
-      });
-    }
     toastAviso.show(`Lista de espera promovida: ${nombre} ha pasado de lista de espera a confirmada en ${clase}.`);
     addActividadReciente('NUEVA_RESERVA', `${nombre} promovida de lista de espera → ${clase}`, promovidaSocioId, `/socios/${promovidaSocioId}`);
     return { ok: true };
@@ -3045,6 +3188,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const cpub = ctxPublico();
     if (!cpub) return { ok: false, error: 'No autorizado' };
     const r = await postPublico('/api/reservas/aceptar-oferta-espera', { studioId: cpub.studioId, reservaId });
+    return r.ok ? { ok: true } : r;
+  }
+
+  // Gap 4: sin escritura optimista a propósito — `postPublico` ya resincroniza
+  // `reservas` desde el servidor en su `finally` (cargarPublico()), así que la
+  // estrella pintada en pantalla siempre sale de la respuesta real, nunca de
+  // una suposición local.
+  async function valorarExperienciaReserva(reservaId: string, valoracion: number): Promise<ResultadoEscritura> {
+    const cpub = ctxPublico();
+    if (!cpub) return { ok: false, error: 'No autorizado' };
+    const r = await postPublico('/api/public/reserva', { accion: 'valorar', studioId: cpub.studioId, reservaId, valoracion });
     return r.ok ? { ok: true } : r;
   }
 
@@ -3248,10 +3402,33 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   async function asignarSpot(sesionId: string, socioId: string, spotId: string): Promise<ResultadoEscritura> {
+    // 19ª auditoría · F-7: el filtro era `estado !== 'CANCELADA'`, que deja
+    // pasar LISTA_ESPERA y PENDIENTE_APROBACION. El índice único que impide dos
+    // socias en el mismo reformer es PARCIAL —`uq_reserva_spot_activo ... where
+    // spot_id is not null and estado in ('CONFIRMADA','ASISTIDA')`— así que
+    // escribir el spot en una fila en espera pasaba sin conflicto y la UI ni lo
+    // pintaba (el mapa solo indexa confirmadas): el sitio seguía "Libre".
+    // Al promocionarla después, la fila entra en el predicado del índice, choca
+    // con la confirmada que ya ocupa el spot y el 23505 aborta la transacción
+    // ENTERA de `cancelar_reserva_plaza`: la socia que cancelaba no podía
+    // cancelar y la cola de esa clase quedaba bloqueada. Se asigna sitio solo a
+    // quien el índice protege.
     const reserva = reservas.find(r =>
-      r.sesionId === sesionId && r.socioId === socioId && r.estado !== 'CANCELADA'
+      r.sesionId === sesionId && r.socioId === socioId
+      && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')
     );
-    if (!reserva) return { ok: false, error: 'No hemos encontrado la reserva de esa clienta en esta clase.' };
+    if (!reserva) {
+      const enEspera = reservas.some(r =>
+        r.sesionId === sesionId && r.socioId === socioId
+        && (r.estado === 'LISTA_ESPERA' || r.estado === 'PENDIENTE_APROBACION')
+      );
+      return {
+        ok: false,
+        error: enEspera
+          ? 'Esa clienta todavía no tiene la plaza confirmada. Confírmala primero y luego asígnale el sitio.'
+          : 'No hemos encontrado la reserva de esa clienta en esta clase.',
+      };
+    }
     const anterior = reserva;
     setReservas(prev => prev.map(r => r.id === reserva.id ? { ...r, spotId } : r));
     const res = await dbUpdateReserva(reserva.id, { spotId });
@@ -3440,7 +3617,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (cobrosEnCursoRef.current.has(reciboId)) return { ok: true };
     cobrosEnCursoRef.current.add(reciboId);
     try {
-    const fechaCobro = new Date().toISOString();
+    // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date`, no `timestamptz` —
+    // con un ISO en UTC un cobro manual a la 01:30 de Madrid se fechaba el día
+    // anterior al que lo vivió la clienta (mismo bug que ya documenta
+    // `hoyEnEstudio`).
+    const fechaCobro = hoyEnEstudio();
     // F2 (B2.6): cobro sin pasarela de primera clase. La dueña marca cómo cobró de
     // verdad (Bizum/efectivo/transferencia…), no solo "cobrado". La suscripción vive
     // por fechas: el cobro manual es tan válido como el de Stripe.
@@ -3479,7 +3660,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     {
       const recibo = recibos.find(r => r.id === reciboId) ??
         { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
-      const updatedRecibo = { ...recibo, estado: 'COBRADO' as const, fechaCobro: new Date().toISOString() };
+      const updatedRecibo = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
       const fac = construirFacturaCobro(updatedRecibo, facturas);
       if (fac) {
         setFacturas(prev => [...prev, fac]);
@@ -4462,20 +4643,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // lo publicado. Fuera del preview es `null` y esto es exactamente lo de antes.
   const tabBarStyleEfectivo = temaJsPreview?.tabBarStyle ?? tabBarStyle;
   const barraClasicaEfectiva = temaJsPreview?.barraClasica ?? barraClasica;
-  // ⚠️ NO `??`: `quickLinksStyle` es un campo NULLABLE de verdad (`null` =
-  // "hereda del tema", no "sin valor todavía"). Con `temaJsPreview?.x ?? y`,
-  // un borrador que quiere heredar (`quickLinksStyle: null` dentro del
-  // preview) caería a lo YA PUBLICADO en vez de quedarse en `null` — el
-  // mismo bug de categoría que ya evita el ternario de `themeIdEfectivo` de
-  // abajo. El ternario distingue "sin preview activo" (`temaJsPreview` es
-  // `null`) de "preview activo, y su valor es `null`".
-  const quickLinksStyleEfectivo = temaJsPreview ? temaJsPreview.quickLinksStyle : quickLinksStyle;
+  const barraFlotanteEfectiva = temaJsPreview?.barraFlotante ?? barraFlotante;
   const variantesEfectivas = temaJsPreview?.variantes ?? variantes;
-  // ⚠️ El borrador manda también aquí, y este eje pesa más que los otros tres:
-  // decide qué portal se pinta ENTERO. Sin él, la vista previa del editor
-  // enseñaba siempre el portal de siempre — la propietaria elegía un tema del
-  // kit y lo miraba montado sobre el portal que sus socias ya no usan.
-  const themeIdEfectivo = temaJsPreview ? temaJsPreview.temaKit : themeIdPublicado;
+  // ⚠️ RETIRADO (decisión del fundador, 2026-08-27): `TemaJs.temaKit` decidía
+  // qué portal se pintaba ENTERO (de siempre, o el kit) — se borró junto con
+  // el kit de temas en el PR 2 de "borrar temas del kit"
+  // (`lib/theme-preview-puente.ts`). `themeIdPublicado` ya no cambia según
+  // haya o no preview activo: nada lo consume salvo lo publicado de verdad.
 
   const value: StudioContextValue = useMemo(() => ({
     planesTarifa,
@@ -4490,11 +4664,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bloquesReservar,
     tabBarStyle: tabBarStyleEfectivo,
     barraClasica: barraClasicaEfectiva,
-    quickLinksStyle: quickLinksStyleEfectivo,
+    barraFlotante: barraFlotanteEfectiva,
     variantes: variantesEfectivas,
     navPortal,
-    themeIdPublicado: themeIdEfectivo,
-    portalReact,
+    themeIdPublicado,
     redesSociales,
     textosReservar,
     aparienciaWidget,
@@ -4503,11 +4676,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     toggleFavorito,
     retosApuntados,
     retoConteos,
+    valoracionEstudio,
     toggleReto,
     updateMensajeDestacado,
     addBannerPortal,
     updateBannerPortal,
     deleteBannerPortal,
+    novedadesEstudio,
+    addNovedadEstudio,
+    updateNovedadEstudio,
+    deleteNovedadEstudio,
     instructores,
     spots,
     bloqueosMaquina,
@@ -4594,6 +4772,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addReserva,
     cancelarReserva,
     aceptarOfertaEspera,
+    valorarExperienciaReserva,
     bajaConRecuperacion,
     checkin,
     deshacerCheckin,
@@ -4654,6 +4833,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     likedPostIds,
     addPost: content.addPost,
     toggleLikePost: content.toggleLikePost,
+    updatePost: content.updatePost,
+    deletePost: content.deletePost,
     integraciones,
     upsertIntegracion: integrationsStore.upsertIntegracion,
     rewardRules,
@@ -4729,7 +4910,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // notara.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, quickLinksStyleEfectivo, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, variantesEfectivas, navPortal, themeIdPublicado, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
@@ -4824,11 +5005,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       deleteInstructor={deleteInstructor}
       navPortal={navPortal}
       barraClasica={barraClasicaEfectiva}
+      barraFlotante={barraFlotanteEfectiva}
       tabBarStyle={tabBarStyleEfectivo}
-      quickLinksStyle={quickLinksStyleEfectivo}
       variantes={variantesEfectivas}
-      themeIdPublicado={themeIdEfectivo}
-      portalReact={portalReact}
+      themeIdPublicado={themeIdPublicado}
     >
     <StudioContext.Provider value={value}>
       {children}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { equipoReclamarAction } from '@/lib/actions/equipo/equipoReclamarAction';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { respuestaDeErrorAccion } from '@/lib/actions/errores';
 
 export async function POST(req: NextRequest) {
   // Rate limiting: max 20 intentos por minuto
@@ -12,16 +13,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const result = await equipoReclamarAction({ ...body, jwt });
     return NextResponse.json(result);
-  } catch (error: any) {
-    const message = error?.message || 'Error';
-    let status = 500;
-
-    if (message.includes('no vale')) status = 400;
-    if (message.includes('No autorizado')) status = 401;
-    // Mensajes de MENSAJE_RECHAZO -> 409, salvo FICHA_INACTIVA -> 404
-    if (message.includes('No estás autorizada') || message.includes('Es instructor pero')) status = 409;
-    if (message.includes('Ficha inactiva') || message.includes('desactivada')) status = 404;
-
-    return NextResponse.json({ error: message }, { status });
+  } catch (error) {
+    return respuestaDeErrorAccion('equipo:reclamar', error);
   }
 }

@@ -52,12 +52,15 @@ export async function enviarEmailAlertaPropietaria(params: Marca & {
   const { to, estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando } = params;
   const agotada = tipo === 'agotada';
   const baja = tipo === 'baja';
+  const sinSustituta = tipo === 'sin_sustituta';
   const html = await render(AlertaPropietariaEmail({ estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando }));
   const asunto = baja
     ? `${candidataNombre ?? 'Una instructora'} no puede dar ${claseNombre} — ya estamos en ello`
     : agotada
       ? `⚠️ Sin sustituta para ${claseNombre} — necesita tu decisión`
-      : `${candidataNombre ?? 'La candidata'} no responde — ${claseNombre}`;
+      : sinSustituta
+        ? `⚠️ ${claseNombre} se quedó sin cubrir`
+        : `${candidataNombre ?? 'La candidata'} no responde — ${claseNombre}`;
   return enviar(to, asunto, html, 'Tentare Manager');
 }
 

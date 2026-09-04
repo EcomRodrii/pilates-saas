@@ -24,6 +24,15 @@ function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fal
         select() { return this; },
         eq() { return this; },
         ilike() { return this; },
+        // P-6 (auditoría 21ª pasada): entregarPlanComprado ahora también
+        // llama a sellarFacturaDeRecibo (sella la factura y marca
+        // conciliado_en) — necesita `.limit()` en la cadena para su
+        // comprobación de idempotencia (`cargarExistente`). Sin `studios`/
+        // `facturas` mockeadas, `maybeSingle()` cae al `default` (null) y
+        // sellarFacturaDeRecibo devuelve ok:false por NIF no configurado —
+        // comportamiento real y correcto para un estudio de prueba sin NIF,
+        // no un hueco del mock.
+        limit() { return this; },
         maybeSingle() {
           if (tabla === 'planes_tarifa') return Promise.resolve({ data: opts.plan === undefined ? PLAN : opts.plan, error: null });
           if (tabla === 'socios') return Promise.resolve({ data: opts.socioExistente ?? null, error: null });
@@ -56,6 +65,7 @@ const COMPRA: CompraPlan = {
   // email si ya existe ficha) — ver el test "si ya existe alguien con ese
   // email, se reutiliza en vez de duplicar" más abajo.
   esInvitada: false,
+  fuente: 'webhook',
 };
 
 // Fase 3 — checkout embebido: idsDe() amplió su regex para aceptar también
@@ -140,6 +150,25 @@ test('una compra entrega bono Y recibo cobrado, no solo cobra', async () => {
   assert.equal(rec.estado, 'COBRADO', 'Stripe ya cobró: el recibo nace cobrado');
   assert.equal(rec.importe, 130);
   assert.ok(rec.fecha_cobro);
+});
+
+// P-6 (auditoría 21ª pasada): la compra web nacía fuera del ciclo de
+// conciliación que F-12/F-13 unificó para el resto de caminos de cobro —
+// nunca marcaba `conciliado_en` ni intentaba sellar factura. El estudio de
+// prueba de `fakeAdmin()` no tiene NIF configurado (mismo motivo que ya
+// bloquea el sellado real en producción para un estudio sin configurar), así
+// que el sellado falla — el test comprueba el camino de fallo: la entrega NO
+// se tumba, y queda `factura_pendiente_sellar` para que el conciliador
+// horario (`reintentarFacturasPendientesDeSellar`) lo reintente.
+test('marca conciliado_en aunque el sellado de factura falle (sin NIF configurado)', async () => {
+  const { admin, actualizado } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-existente' });
+
+  assert.equal(r.ok, true, 'un fallo de sellado NUNCA tumba la entrega — el dinero ya entró');
+  const conciliado = actualizado.recibos.find(f => 'conciliado_en' in f);
+  assert.ok(conciliado, 'debe marcar conciliado_en/conciliado_por, igual que confirmarCobroRecibo');
+  assert.equal(conciliado?.conciliado_por, 'webhook');
+  assert.equal(conciliado?.factura_pendiente_sellar, true, 'sin NIF, el sellado falla y queda pendiente de reintento');
 });
 
 test('los ids se derivan de la sesión: un reintento de Stripe no duplica', async () => {
@@ -247,4 +276,110 @@ test('sin teléfono (Modo A / conciliador): la ficha se crea igual, con null', a
   const r = await entregarPlanComprado(admin, COMPRA);
   assert.equal(r.ok, true);
   assert.equal(insertado.socios[0].telefono, null);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I-8 y el segundo índice único (auditoría 26-ago)
+//
+// Los tests de arriba usan `fakeAdmin`, cuyo `insert` nunca choca: NO modela
+// los índices únicos reales de `socios`, que son DOS —`socios_pkey (id)` y
+// `uq_socios_studio_email (studio_id, lower(email)) where borrado_en is null`—.
+// Por eso la regresión de I-8 pasó typecheck, lint y 3.358 tests: el camino
+// `esInvitada: true` chocando por email no lo recorría ningún test.
+//
+// Este fake sí distingue los dos choques y por qué filtro se pregunta.
+// ─────────────────────────────────────────────────────────────────────────────
+function fakeAdminConIndiceUnico(opts: { fichaConEseEmail: Fila | null; fichaConEseId: Fila | null }) {
+  const insertado: Record<string, Fila[]> = { socios: [], suscripciones: [], recibos: [] };
+  const api = {
+    from(tabla: string) {
+      const filtros: Record<string, unknown> = {};
+      const q: Record<string, unknown> = {
+        select() { return q; },
+        eq(col: string, val: unknown) { filtros[col] = val; return q; },
+        ilike(col: string, val: unknown) { filtros[col] = val; return q; },
+        is(col: string, val: unknown) { filtros[col] = val; return q; },
+        // `.limit(n)` es TERMINAL en supabase-js (el builder es thenable) y
+        // devuelve un array, no una fila. El fake lo modela así a propósito:
+        // la búsqueda por email usa `.limit(1)` y no `.maybeSingle()` porque
+        // con dos filas casadas maybeSingle devuelve error y volveríamos a
+        // "cobrado sin entregar".
+        //
+        // P-6 (auditoría 21ª pasada): `sellarFacturaDeRecibo` encadena
+        // `.limit(1).maybeSingle()` — el builder real de supabase-js es
+        // thenable Y chainable a la vez, así que el fake añade `.maybeSingle`
+        // sobre la MISMA promesa en vez de sustituirla por un objeto nuevo:
+        // el resto del fichero sigue pudiendo `await .limit()` directo.
+        limit() {
+          const p = tabla === 'socios' && filtros.email !== undefined
+            ? Promise.resolve({ data: opts.fichaConEseEmail ? [opts.fichaConEseEmail] : [], error: null })
+            : Promise.resolve({ data: [], error: null });
+          return Object.assign(p, { maybeSingle: () => Promise.resolve({ data: null, error: null }) });
+        },
+        maybeSingle() {
+          if (tabla === 'planes_tarifa') return Promise.resolve({ data: PLAN, error: null });
+          if (tabla === 'socios') {
+            // Se consulta por id (¿es el reintento?) o por email (¿de quién es
+            // el email que provocó el choque?). El fake responde a cada una.
+            if (filtros.id !== undefined) return Promise.resolve({ data: opts.fichaConEseId, error: null });
+            if (filtros.email !== undefined) return Promise.resolve({ data: opts.fichaConEseEmail, error: null });
+          }
+          return Promise.resolve({ data: null, error: null });
+        },
+        insert(fila: Fila) {
+          if (tabla === 'socios') {
+            if (opts.fichaConEseId) return Promise.resolve({ error: { code: '23505', message: 'socios_pkey' } });
+            if (opts.fichaConEseEmail) return Promise.resolve({ error: { code: '23505', message: 'uq_socios_studio_email' } });
+          }
+          // FK dura suscripciones.socio_id → socios.id: si la ficha a la que
+          // apuntamos no existe, Postgres responde 23503. Es el fallo real que
+          // dejaba el cobro sin entregar.
+          if (tabla === 'suscripciones') {
+            const existe = (fila.socio_id === opts.fichaConEseEmail?.id) || (fila.socio_id === opts.fichaConEseId?.id)
+              || insertado.socios.some(s => s.id === fila.socio_id);
+            if (!existe) return Promise.resolve({ error: { code: '23503', message: 'suscripciones_socio_id_fkey' } });
+          }
+          insertado[tabla]?.push(fila);
+          return Promise.resolve({ error: null });
+        },
+        update() { return q; },
+      };
+      return q;
+    },
+  };
+  return { admin: api as never, insertado };
+}
+
+test('invitada cuyo email YA tiene ficha: se entrega a esa ficha, no se cobra sin entregar', async () => {
+  // El flujo estrella "pagar y reservar sin login" nunca manda socioId, así que
+  // `esInvitada` es true SIEMPRE. Con I-8 tal cual, toda socia ya dada de alta
+  // que comprara sin loguearse —y toda invitada que comprara por segunda vez—
+  // chocaba con el índice de email, el 23505 se tomaba por "reintento de
+  // Stripe", `socioId` quedaba apuntando a una ficha inexistente y la
+  // suscripción moría con 23503: pagado, y sin bono, sin recibo y sin plaza.
+  const { admin, insertado } = fakeAdminConIndiceUnico({
+    fichaConEseEmail: { id: 'soc-de-siempre' }, fichaConEseId: null,
+  });
+
+  const r = await entregarPlanComprado(admin, { ...COMPRA, esInvitada: true });
+
+  assert.equal(r.ok, true, 'no puede quedarse en cobrado-sin-entregar');
+  assert.equal(r.ok && r.socioId, 'soc-de-siempre');
+  assert.equal(insertado.suscripciones[0].socio_id, 'soc-de-siempre', 'el bono va a la ficha dueña de ese email');
+  assert.equal(insertado.recibos.length, 1, 'y queda su recibo');
+});
+
+test('reintento real de Stripe (choque por clave primaria): sigue siendo idempotente', async () => {
+  // El control positivo del test anterior: el 23505 que SÍ es un reintento no
+  // debe caer en la rama de email ni duplicar nada.
+  const { admin, insertado } = fakeAdminConIndiceUnico({
+    fichaConEseEmail: null, fichaConEseId: { id: idsDe(COMPRA.sessionId).socioId },
+  });
+
+  const r = await entregarPlanComprado(admin, { ...COMPRA, esInvitada: true });
+
+  assert.equal(r.ok, true);
+  assert.equal(r.ok && r.socioId, idsDe(COMPRA.sessionId).socioId, 'la ficha del reintento es la nuestra');
+  assert.equal(r.ok && r.fichaCreada, false, 'no se creó ficha: ya existía');
+  assert.equal(insertado.socios.length, 0);
 });

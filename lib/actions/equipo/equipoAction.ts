@@ -7,6 +7,7 @@ import { leerSnapshotParaBaja, registrarBajaCartera } from '@/lib/instructor-dep
 import { obtenerOFirmarEnlace, marcarEnlaceEnviadoPorEmail } from '@/lib/sustituciones/enlaces';
 import { enviarEmailSolicitudDisponibilidad } from '@/lib/emails/solicitud-disponibilidad-server';
 import * as Sentry from '@sentry/nextjs';
+import { ErrorAccion } from '@/lib/actions/errores';
 
 /**
  * equipoAction
@@ -40,8 +41,22 @@ async function quedariaSinPropietaria(
   return (count ?? 0) === 0;
 }
 
+// `bio` es la bio pública que pinta la ficha de instructora del portal
+// (app/portal/[slug]/instructores/[instructorId]/page.tsx:148). El formulario
+// de Equipo la edita y la envía desde siempre, pero ninguna de las dos listas
+// blancas la copiaba: la pantalla decía "Cambios guardados" y la columna
+// `instructores.bio` nunca se escribía. El límite de 400 es el mismo que
+// muestra el contador del formulario — la validación de cliente no puede ser
+// la única.
+function saneaBio(src: Record<string, unknown>): string | null {
+  const v = src.bio;
+  if (v == null || v === '') return null;
+  return String(v).trim().slice(0, 400) || null;
+}
+
 function saneaFieldsPropietario(src: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  if ('bio' in src) out.bio = saneaBio(src);
   if ('nombre' in src) out.nombre = String(src.nombre ?? '').trim();
   if ('email' in src) out.email = src.email == null || src.email === '' ? null : String(src.email).trim();
   if ('telefono' in src) out.telefono = src.telefono == null || src.telefono === '' ? null : String(src.telefono).trim();
@@ -55,6 +70,7 @@ function saneaFieldsPropietario(src: Record<string, unknown>): Record<string, un
 
 function saneaFieldsPropios(src: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  if ('bio' in src) out.bio = saneaBio(src);
   if ('nombre' in src) out.nombre = String(src.nombre ?? '').trim();
   if ('email' in src) out.email = src.email == null || src.email === '' ? null : String(src.email).trim();
   if ('telefono' in src) out.telefono = src.telefono == null || src.telefono === '' ? null : String(src.telefono).trim();
@@ -75,11 +91,11 @@ async function crearInstructora(
 ) {
   const id = typeof body?.id === 'string' ? body.id : null;
   const nombre = String(body?.nombre ?? '').trim();
-  if (!id || !nombre) throw new Error('Faltan datos obligatorios (id, nombre)');
+  if (!id || !nombre) throw new ErrorAccion('Faltan datos obligatorios (id, nombre)', 400);
 
   const rol = ROLES_VALIDOS.has(String(body?.rol)) ? String(body?.rol) : 'INSTRUCTOR';
   if (!rolesQuePuedeAsignar(sesion.rol).includes(rol as never)) {
-    throw new Error('No puedes dar ese nivel de acceso. Pídeselo a la propietaria.');
+    throw new ErrorAccion('No puedes dar ese nivel de acceso. Pídeselo a la propietaria.', 403);
   }
 
   const email = body?.email == null || body?.email === '' ? null : String(body.email).trim();
@@ -118,15 +134,21 @@ async function crearInstructora(
     activo: body?.activo == null ? true : Boolean(body.activo),
     avatar: body?.avatar == null ? null : String(body.avatar),
     foto_url: body?.fotoUrl == null ? null : String(body.fotoUrl),
+    // Mismo motivo que en las dos listas blancas de arriba: el alta también
+    // envía `bio` desde el formulario de Equipo.
+    bio: saneaBio(body),
     rol,
     auth_user_id: authUserIdVinculado,
   };
 
   const { error } = await admin.from('instructores').insert(row);
   if (esEmailDuplicado(error)) {
-    throw new Error('Ya hay alguien en tu equipo con ese email. Si volvió después de una baja, reactiva su ficha en vez de crear otra: así conserva su historial.');
+    throw new ErrorAccion('Ya hay alguien en tu equipo con ese email. Si volvió después de una baja, reactiva su ficha en vez de crear otra: así conserva su historial.', 409);
   }
-  if (error) throw error;
+  if (error) {
+    Sentry.captureException(error, { tags: { area: 'equipo', accion: 'crear' } });
+    throw new ErrorAccion('No se ha podido guardar el miembro del equipo.', 500);
+  }
 
   if (email && rol === 'INSTRUCTOR') {
     try {
@@ -161,7 +183,7 @@ async function editarInstructora(
 ) {
   const id = typeof body?.id === 'string' ? body.id : null;
   const changes = (body?.changes ?? {}) as Record<string, unknown>;
-  if (!id) throw new Error('Falta el id');
+  if (!id) throw new ErrorAccion('Falta el id', 400);
 
   const { data: ficha } = await admin
     .from('instructores')
@@ -170,7 +192,7 @@ async function editarInstructora(
     .eq('studio_id', sesion.studioId)
     .maybeSingle();
 
-  if (!ficha) throw new Error('Ficha no encontrada');
+  if (!ficha) throw new ErrorAccion('Ficha no encontrada', 404);
 
   const esPropietario = sesion.rol === 'PROPIETARIO';
   const esPropia = ficha.auth_user_id === sesion.userId;
@@ -178,7 +200,7 @@ async function editarInstructora(
     sesion.rol === 'MANAGER' && rolesQuePuedeAsignar('MANAGER').includes(ficha.rol as never);
 
   if (!esPropietario && !esPropia && !puedeEditarEsaFicha) {
-    throw new Error('Solo puedes editar tu propia ficha');
+    throw new ErrorAccion('Solo puedes editar tu propia ficha', 403);
   }
 
   const update = (esPropietario || puedeEditarEsaFicha)
@@ -187,21 +209,21 @@ async function editarInstructora(
 
   if (!esPropietario && 'rol' in update
       && !rolesQuePuedeAsignar(sesion.rol).includes(update.rol as never)) {
-    throw new Error('No puedes dar ese nivel de acceso. Pídeselo a la propietaria.');
+    throw new ErrorAccion('No puedes dar ese nivel de acceso. Pídeselo a la propietaria.', 403);
   }
 
   if ('nombre' in update && !String(update.nombre).trim()) {
-    throw new Error('El nombre no puede quedar vacío');
+    throw new ErrorAccion('El nombre no puede quedar vacío', 400);
   }
 
   if (Object.keys(update).length === 0) {
-    throw new Error('Nada que actualizar');
+    throw new ErrorAccion('Nada que actualizar', 400);
   }
 
   const dejaDeSerPropietariaActiva = ficha.rol === 'PROPIETARIO'
     && ((update.rol !== undefined && update.rol !== 'PROPIETARIO') || update.activo === false);
   if (dejaDeSerPropietariaActiva && await quedariaSinPropietaria(admin, sesion.studioId, ficha.id)) {
-    throw new Error('No puedes hacer esto: dejarías el estudio sin ninguna propietaria activa. Da de alta a otra propietaria antes.');
+    throw new ErrorAccion('No puedes hacer esto: dejarías el estudio sin ninguna propietaria activa. Da de alta a otra propietaria antes.', 409);
   }
 
   const pasaAInactiva = ficha.activo === true && update.activo === false;
@@ -213,9 +235,12 @@ async function editarInstructora(
     .eq('studio_id', sesion.studioId);
 
   if (esEmailDuplicado(error)) {
-    throw new Error('Ya hay alguien en tu equipo con ese email.');
+    throw new ErrorAccion('Ya hay alguien en tu equipo con ese email.', 409);
   }
-  if (error) throw error;
+  if (error) {
+    Sentry.captureException(error, { tags: { area: 'equipo', accion: 'editar' } });
+    throw new ErrorAccion('No se ha podido guardar la ficha.', 500);
+  }
 
   if (pasaAInactiva && ficha.nombre) {
     const snapshotBaja = await leerSnapshotParaBaja(admin, sesion.studioId, id).catch(() => null);
@@ -242,27 +267,38 @@ async function bajaInstructora(
   body: { id?: unknown },
 ) {
   const id = typeof body?.id === 'string' ? body.id : null;
-  if (!id) throw new Error('Falta el id');
+  if (!id) throw new ErrorAccion('Falta el id', 400);
 
   const { data: victima } = await admin
     .from('instructores').select('rol, nombre').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
 
   if (sesion.rol !== 'PROPIETARIO') {
     if (!victima || !rolesQuePuedeAsignar(sesion.rol).includes(victima.rol as never)) {
-      throw new Error('No puedes dar de baja a esta persona.');
+      throw new ErrorAccion('No puedes dar de baja a esta persona.', 403);
     }
   }
 
   if (victima?.rol === 'PROPIETARIO' && await quedariaSinPropietaria(admin, sesion.studioId, id)) {
-    throw new Error('No puedes hacer esto: dejarías el estudio sin ninguna propietaria activa.');
+    throw new ErrorAccion('No puedes hacer esto: dejarías el estudio sin ninguna propietaria activa.', 409);
   }
 
   const snapshotBaja = victima?.nombre
     ? await leerSnapshotParaBaja(admin, sesion.studioId, id).catch(() => null)
     : null;
 
-  const { error } = await admin.from('instructores').delete().eq('id', id).eq('studio_id', sesion.studioId);
-  if (error) throw error;
+  // Auditoría de producto (P0-5): esto era un DELETE duro, pero el modal de
+  // confirmación (app/(dashboard)/equipo/page.tsx) promete "las clases y citas
+  // ya asignadas no se borran". `sesiones_instructor_id_fkey` es NO ACTION (no
+  // SET NULL) — el DELETE fallaba con 23503 en cuanto la instructora tenía una
+  // sola clase asignada, contradiciendo esa promesa. `activo` ya es el flag de
+  // baja que usa el resto del producto (PATCH lo reactiva, los listados de
+  // equipo/candidatas ya filtran por él) — dar de baja es solo desactivar.
+  const { error } = await admin.from('instructores')
+    .update({ activo: false }).eq('id', id).eq('studio_id', sesion.studioId);
+  if (error) {
+    Sentry.captureException(error, { tags: { area: 'equipo', accion: 'baja' } });
+    throw new ErrorAccion('No se ha podido dar de baja.', 500);
+  }
 
   if (snapshotBaja && victima?.nombre) {
     await registrarBajaCartera(admin, {
@@ -285,13 +321,13 @@ export async function equipoAction(input: {
   const sesion = await requireAuthInServerAction();
   const admin = getSupabaseAdmin();
 
-  if (!admin) throw new Error('Servidor no configurado');
+  if (!admin) throw new ErrorAccion('Servidor no configurado', 503);
 
   const method = (input.method || 'POST').toUpperCase();
 
   if (method === 'POST') {
     if (!puedeGestionarEquipo(sesion.rol)) {
-      throw new Error('No tienes permiso para gestionar el equipo');
+      throw new ErrorAccion('No tienes permiso para gestionar el equipo', 403);
     }
     return await crearInstructora(admin, sesion, input);
   }
@@ -306,7 +342,7 @@ export async function equipoAction(input: {
 
   if (method === 'DELETE') {
     if (!puedeGestionarEquipo(sesion.rol)) {
-      throw new Error('No tienes permiso para dar de baja a nadie');
+      throw new ErrorAccion('No tienes permiso para dar de baja a nadie', 403);
     }
 <<<<<<< HEAD
     return await bajaInstructora(admin, sesion, input as any);
@@ -315,5 +351,5 @@ export async function equipoAction(input: {
 >>>>>>> origin/main
   }
 
-  throw new Error(`Método ${method} no soportado`);
+  throw new ErrorAccion(`Método ${method} no soportado`, 405);
 }

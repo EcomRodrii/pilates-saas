@@ -52,7 +52,7 @@ export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
 /** Info de cada plan para la UI de precios (los price IDs de Stripe van aparte). */
 export const PLAN_INFO: Record<Plan, { nombre: string; precioMes: number; resumen: string }> = {
   BASE: { nombre: 'Base', precioMes: 29, resumen: 'Reservas, cobros y check-in. Hasta 150 socias.' },
-  ESTUDIO: { nombre: 'Estudio', precioMes: 59, resumen: 'Socias ilimitadas + gamificación, marketing e IA.' },
+  ESTUDIO: { nombre: 'Estudio', precioMes: 59, resumen: 'Socias ilimitadas + gamificación, marketing y automatizaciones.' },
   CADENA: { nombre: 'Cadena', precioMes: 149, resumen: 'Multi-centro y todo incluido.' },
 };
 

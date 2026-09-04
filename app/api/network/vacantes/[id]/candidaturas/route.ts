@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { mapFilaACandidatura, type FilaRedCandidatura } from '@/lib/network/mapeo';
@@ -17,6 +18,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Mismo gate que vacantes POST, vacantes/[id] PATCH, vacantes/[id]/estado
+  // PATCH y candidaturas/[id] PATCH: esto no es "staff", es reclutamiento. Sin
+  // esto, una RECEPCION del propio estudio veía nombre, foto, ciudad, tarifa,
+  // mensaje y notas de cada candidata.
+  //
+  // ⚠️ PENDIENTE, y no es un olvido: `GET /api/network/vacantes` (el listado)
+  // sigue SIN este gate pese a que su cabecera afirma tenerlo. Cerrarlo aquí y
+  // no allí deja a RECEPCION viendo la lista de vacantes con su contador de
+  // candidaturas. No se cierra en la misma tanda porque `/network` no está en
+  // BLOQUEADO_RECEPCION (lib/permisos-reglas.ts): quitarle el listado es una
+  // decisión de producto, no un arreglo de seguridad evidente.
+  if (!puedeGestionarEquipo(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para ver las candidaturas.' }, { status: 403 });
+  }
 
   const { id } = await params;
   const { data: vacante } = await admin

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useDialogA11y } from './use-dialog-a11y';
 
 // Equivalente a DashboardSheet (components/ui/dashboard-sheet.tsx) para los
@@ -18,6 +19,7 @@ export function DashboardDrawer({
   sheetClassName = 'relative w-full lg:w-[420px] bg-card h-full flex flex-col shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)]',
   sheetStyle,
   closeOnBackdropClick = true,
+  portal = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -28,6 +30,23 @@ export function DashboardDrawer({
   sheetClassName?: string;
   sheetStyle?: React.CSSProperties;
   closeOnBackdropClick?: boolean;
+  /**
+   * Renderiza en `document.body` en vez de donde vive el caller.
+   *
+   * ⚠️ **Cualquier panel abierto desde una página del dashboard lo necesita.**
+   * `PanelPageTransition` envuelve el contenido de cada página en
+   * `.panel-page-in`, cuya animación va con `fill-mode: both` sobre un
+   * fotograma final `transform: none` — y "none" ANIMADO computa a
+   * `matrix(1, 0, 0, 1, 0, 0)`, no a "sin transform". Una identidad sigue
+   * creando un containing block, así que el `fixed inset-0` de aquí se ancla a
+   * la caja de la página, no al viewport: medido en /configuración, el panel
+   * salía a 343×848 dentro de un viewport de 375×812, empezando 56px más abajo
+   * y con el pie tapado por la barra inferior del móvil.
+   *
+   * Mismo problema y mismo remedio que `DashboardSheet`, que ya traía esta
+   * prop; allí el sospechoso anotado era el `backdrop-blur` de la topbar.
+   */
+  portal?: boolean;
 }) {
   const { sheetRef } = useDialogA11y({ open, onClose });
 
@@ -52,7 +71,7 @@ export function DashboardDrawer({
 
   if (!rendered) return null;
 
-  return (
+  const contenido = (
     <div
       className={`${backdropClassName} ${cerrando ? 'animate-drawer-backdrop-out' : 'animate-drawer-backdrop-in'}`}
       style={backdropStyle}
@@ -73,4 +92,6 @@ export function DashboardDrawer({
       </div>
     </div>
   );
+
+  return portal ? createPortal(contenido, document.body) : contenido;
 }

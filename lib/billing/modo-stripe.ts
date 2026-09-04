@@ -46,6 +46,35 @@ export function modoDeClave(clave: string | undefined | null): ModoStripe {
   return 'sin-configurar';
 }
 
+/**
+ * ¿Es una clave que PUEDE llegar al navegador? SOLO la publicable (`pk_`).
+ *
+ * ⚠️ Auditoría 22ª pasada (3-sep-2026), S-2: esto aceptaba también `rk_`. Una
+ * clave restringida de Stripe NO es publicable: es una clave SECRETA con
+ * permisos recortados, de servidor, y Stripe.js la rechaza. Este mismo fichero
+ * ya lo sabía —`modoDeClave` la trata igual que una `sk_` para decidir
+ * live/test (línea 42)— así que la función se contradecía con su vecina.
+ * Ni una `rk_` ni una `sk_`: el bundle del cliente lo
+ * descarga cualquier visitante del widget que el estudio incrusta en su web,
+ * así que una `sk_` ahí es una credencial filtrada, no un fallo de pantalla.
+ *
+ * Va aquí y no en cada pantalla porque este módulo YA es el que decide qué
+ * clave puede estar dónde — es la misma pregunta, en la otra dirección:
+ * `comprobarModoStripe` mira el MODO (live/test) de la clave de servidor, y
+ * esto mira la FORMA de la que se manda al cliente.
+ *
+ * ⚠️ Por qué no basta con comprobar que la variable no esté vacía, que es lo
+ * único que se hacía: `loadStripe()` acepta una `sk_` en su validación de
+ * forma y revienta DESPUÉS, ya dentro de stripe.js, de forma asíncrona. El
+ * `try/catch` síncrono no la ve, `<Elements>` relanza, y se lleva por delante
+ * la PÁGINA ENTERA en vez de dejar el aviso de "pago no disponible" — que es
+ * el peor final posible en `/reservar`, donde quien lo sufre es una visitante
+ * en la web del estudio que simplemente se va.
+ */
+export function esClavePublicable(clave: string | undefined | null): clave is string {
+  return typeof clave === 'string' && clave.startsWith('pk_');
+}
+
 export type EntornoDespliegue = 'produccion' | 'preview' | 'local';
 
 /**

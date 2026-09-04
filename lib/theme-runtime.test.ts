@@ -6,10 +6,8 @@ import {
   themeToCssText,
   validarContrasteTheme,
   presetAThemeConfig,
-  varsKitDelTema,
 } from './theme-runtime.ts';
 import { DEFAULT_THEME, themeConfigSchema } from './theme-schema.ts';
-import { varsRadioSobreTema, varsSombraSobreTema } from '../themes/registro.ts';
 import { cumpleContraste } from './wcag-contrast.ts';
 
 test('foregroundParaFondo: blanco sobre fondo oscuro, negro sobre fondo claro', () => {
@@ -218,120 +216,4 @@ test('themeToCssVars: --portal-foto-pos sale del encuadre elegido', () => {
   const sinToken = { ...DEFAULT_THEME } as Record<string, unknown>;
   delete sinToken.fotoEncuadre;
   assert.equal(pos(sinToken), 'center center');
-});
-
-
-// ── El puente al kit de temas en React ──────────────────────────────────────
-//
-// Contexto de por qué existen estos tests: los dos portales no comparten
-// vocabulario, y el fichero de cada tema declara sus tokens en
-// `html[data-theme="…"]`. Se midió en el navegador que inyectar
-// `:root{--brand:red}` NO movía nada — la propietaria cambiaba el color en
-// Apariencia, lo veía cambiar en la vista previa (que monta el portal viejo) y
-// sus socias seguían viendo el de fábrica.
-
-test('varsKitDelTema: un tema del kit sale con los nombres de token del kit', () => {
-  const css = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'tentada', primary: '#B03060', background: '#FFF5F8', text: '#221122' });
-  assert.ok(css);
-  assert.match(css, /--brand: #B03060;/);
-  assert.match(css, /--bg: #FFF5F8;/);
-  assert.match(css, /--ink: #221122;/);
-  // Y NO los del portal de siempre: ese bloque lo emite `themeToCssText`.
-  assert.doesNotMatch(css, /--portal-brand/);
-});
-
-test('⚠️ varsKitDelTema: el selector es `:root:root` — `:root` PIERDE contra `html[data-theme="…"]`', () => {
-  const css = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'tentada' });
-  assert.ok(css?.startsWith(':root:root {'));
-});
-
-test('varsKitDelTema: un tema que no es del kit no emite nada, ni un bloque vacío', () => {
-  assert.equal(varsKitDelTema({ ...DEFAULT_THEME, themeId: 'classic' }), null);
-  assert.equal(varsKitDelTema({ ...DEFAULT_THEME, themeId: 'no-existe' }), null);
-});
-
-test('varsKitDelTema: el texto sobre la marca se deriva por contraste, no se pide', () => {
-  const claro = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'tentada', primary: '#FFFFFF' });
-  const oscuro = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'tentada', primary: '#000000' });
-  assert.match(claro!, /--on-brand: #1[0-9A-Fa-f]{5}|--on-brand: #0/);
-  assert.match(oscuro!, /--on-brand: #[Ff]/);
-});
-
-test('⚠️ varsRadioSobreTema: el token es `--radius-quick-link`, no `--radius-quick`', () => {
-  // Escribía `--radius-quick`, que no existe en ningún tema: el radio de los
-  // accesos rápidos no habría hecho nada aunque alguien hubiera llamado a esto
-  // (y nadie lo llamaba).
-  const v = varsRadioSobreTema({ acceso: 12 });
-  assert.equal(v['--radius-quick-link'], '12px');
-  assert.equal(v['--radius-quick'], undefined);
-});
-
-
-// ── Los dos fallos que se vieron en el HTML de PRODUCCIÓN, no aquí ──────────
-//
-// El puente se mergeó con los dos dentro y estuvo sirviéndolos. Salieron al
-// mirar lo que `www.tentare.app/portal/tentare/home` devolvía de verdad —
-// ninguna de estas dos cosas la habría cazado un test que no existía.
-
-test('⚠️ el ACENTO no se traduce: en el panel es un fondo pálido y en el kit es tinta', () => {
-  const css = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'tentada', accent: '#F0EDE1' });
-  // Producción servía `--accent: #F0EDE1` —el crema del editor— donde el tema
-  // pone su verde. En Noir habría metido ese crema donde va el dorado.
-  assert.doesNotMatch(css!, /--accent:/);
-});
-
-test('⚠️ sin desviación real, la escala NO se toca — un paso mal mapeado inflaba TODO', () => {
-  // `numeroBono` (60px, el numerazo del saldo del portal viejo) se comparaba
-  // con `pass-number` del kit (18px): cociente 3.33 que, promediado con los
-  // demás, subía toda la escala un 47 %. El saludo de Tentada salía a 64.5px
-  // en vez de a 44 en el HTML que servía producción.
-  const css = varsKitDelTema({
-    ...DEFAULT_THEME, themeId: 'tentada',
-    escalaTexto: { seccion: 20, tituloPantalla: 26, saludo: 44, tituloHero: 25, bienvenida: 25, numeroBono: 60 },
-  });
-  assert.doesNotMatch(css ?? '', /--size-/);
-});
-
-test('la escala SÍ se toca cuando la propietaria la mueve de verdad', () => {
-  const css = varsKitDelTema({
-    ...DEFAULT_THEME, themeId: 'tentada',
-    escalaTexto: { seccion: 30, tituloPantalla: 39, saludo: 66, tituloHero: 37.5, bienvenida: 37.5 },
-  });
-  assert.match(css!, /--size-greeting: 66px;/);
-});
-
-// ── Fase 1 de llevar el kit hacia el editor real: `cardStyle` → sombra ──────
-//
-// Antes, elegir "Elevada"/"Con borde" en la categoría "Tarjetas" del editor
-// no cambiaba NADA en el preview de un tema del kit — el campo existía y se
-// guardaba, pero nada del lado del kit lo leía. `varsSombraSobreTema` es el
-// primer campo del kit derivado de un ajuste "de siempre" YA existente, en
-// vez de un ajuste nuevo — mismo criterio que ya usan color/radio/escala.
-
-test('varsSombraSobreTema: "flat" (el default) no declara nada — el tema conserva su propia sombra', () => {
-  assert.deepEqual(varsSombraSobreTema('flat', '#221122'), {});
-  assert.deepEqual(varsSombraSobreTema(undefined, '#221122'), {});
-});
-
-test('varsSombraSobreTema: "elevated" tiñe la sombra con la tinta del tema, no un negro plano', () => {
-  const v = varsSombraSobreTema('elevated', '#221122');
-  assert.match(v['--shadow-card'], /#221122/);
-  assert.match(v['--shadow-card-hover'], /#221122/);
-  assert.notEqual(v['--shadow-card'], 'none');
-});
-
-test('varsSombraSobreTema: "bordered" apaga la sombra — el borde del kit ya está siempre puesto', () => {
-  assert.deepEqual(varsSombraSobreTema('bordered', '#221122'), {
-    '--shadow-card': 'none', '--shadow-card-hover': 'none',
-  });
-});
-
-test('varsKitDelTema: cardStyle "elevated" de un tema del kit sí llega al preview', () => {
-  const css = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'sereno', cardStyle: 'elevated', text: '#332211' });
-  assert.match(css!, /--shadow-card: 0 12px 26px -18px color-mix\(in srgb, #332211 32%, transparent\);/);
-});
-
-test('varsKitDelTema: cardStyle "flat" no pisa la sombra propia del tema (sin --shadow-card en el bloque inyectado)', () => {
-  const css = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'sereno', cardStyle: 'flat' });
-  assert.doesNotMatch(css!, /--shadow-card:/);
 });

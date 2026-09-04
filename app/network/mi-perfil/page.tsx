@@ -2,21 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Camera, Check, Loader2, ChevronLeft, ChevronRight, Eye, EyeOff, ShieldAlert } from 'lucide-react';
-import { PageHeader } from '@/components/ui/page-header';
+import { Camera, Check, Loader2, Eye, EyeOff, ShieldAlert, Star } from 'lucide-react';
 import { Toast, useToast } from '@/components/ui/toast';
-import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { SelectorChips } from '@/components/network/selector-chips';
 import { SeccionExperienciaNetwork } from '@/components/network/seccion-experiencia';
 import { SeccionReferenciasNetwork } from '@/components/network/seccion-referencias';
 import { SeccionPortfolioNetwork } from '@/components/network/seccion-portfolio';
 import { ListaBadgesNetwork } from '@/components/network/lista-badges';
 import { useAuth } from '@/lib/auth-context';
-import Link from 'next/link';
-import { fetchMiPerfilNetwork, guardarPerfilNetwork, cambiarEstadoPerfilNetwork, fetchSolicitudesContactoNetwork } from '@/lib/api-client';
+import { fetchMiPerfilNetwork, guardarPerfilNetwork, cambiarEstadoPerfilNetwork } from '@/lib/api-client';
 import { subirFotoPerfilNetwork, validarFotoPerfil } from '@/lib/portal-storage';
 import { fetchMisEstudios, type SedeSeleccionable } from '@/lib/supabase-data';
-import { calcularCompletitudPerfil, type DetalleCompletitud } from '@/lib/network/completitud';
 import {
   emailVerificado, experienciaVerificada, referenciaProfesional, identidadVerificada, activaRecientemente,
 } from '@/lib/network/badges';
@@ -28,21 +24,35 @@ import {
   TARIFAS_RANGO_NETWORK, TARIFA_RANGO_LABEL,
   DISPONIBILIDAD_ESTADOS_NETWORK, DISPONIBILIDAD_ESTADO_LABEL,
 } from '@/lib/network/catalogo';
-import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { usePerfilNetwork } from '@/lib/network/perfil-network-context';
+import {
+  NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAND, NW_PRODUCTO, NW_VERDE_OSCURO, NW_ESTADO, NW_ESTRELLA,
+} from '@/components/network-v2/tokens';
 import { cn } from '@/lib/utils';
 
-// Onboarding de instructora EN PASOS (brief §16) — antes era un único
-// formulario largo, que "se sentía como un formulario dentro del dashboard",
-// no como dar de alta un perfil profesional. Los pasos son exactamente las 7
-// secciones que ya pesaba lib/network/completitud.ts (nunca dos fuentes de
-// verdad de "qué cuenta como completo"), más contacto privado (sin peso,
-// nunca contó para el % — es dato de gestión, no de perfil) y una vista
-// previa/publicar al final.
+// Rediseño 2026-09 (Fase 2 del mockup del fundador) — pasa de wizard de 8
+// pasos a pantalla de edición directa con preview en vivo al lado, mismo
+// principio que ya aplicó Fase 1 (Inicio): un solo scroll, sin "Siguiente/
+// Anterior". Los datos y el guardado incremental NO cambian — sigue siendo
+// PUT /api/network/perfil con el formulario acumulado; lo que cambia es que
+// ahora todo el formulario vive en una sola pantalla en vez de repartido en
+// pasos con navegación propia.
 //
-// Cada "Siguiente" GUARDA de verdad (PUT /api/network/perfil con el formulario
-// entero acumulado hasta ahora) antes de avanzar — así cerrar el navegador a
-// mitad no pierde nada, y volver mañana continúa donde lo dejó (brief §5):
-// se abre en el primer paso todavía incompleto, no siempre en el paso 1.
+// Experiencia/Referencias/Portfolio se REUTILIZAN tal cual
+// (SeccionExperienciaNetwork/SeccionReferenciasNetwork/SeccionPortfolioNetwork)
+// — cada una ya gestiona su propio guardado independiente del formulario
+// principal (son tablas aparte), así que no hace falta ningún cambio ahí,
+// solo reflow. SeccionExperienciaNetwork ya tenía un modo `tokensNetworkV2`
+// pensado exactamente para esto; Referencias/Portfolio se quedan con su
+// `cardCls` de panel — auditoría de sistema de diseño 2026-08-18 ya dejó
+// constancia de que --brand/--foreground/--border de Studio coinciden con
+// NW_PRODUCTO/NW_TINTA/NW_BORDE por ahora, así que no desentonan; darles su
+// propio modo v2 es tarea de otra fase si hace falta.
+//
+// `idiomas` gana editor aquí — existía en el modelo y en el wizard de alta
+// (`/network/crear-perfil`) pero nunca tuvo UI de edición POSTERIOR en
+// mi-perfil (auditoría antes de tocar nada). Mismo patrón de texto separado
+// por comas que ya usa el wizard (`idiomasTexto`), no un selector nuevo.
 
 interface FormState {
   nombre: string;
@@ -59,15 +69,7 @@ interface FormState {
   emailContacto: string;
   telefonoContacto: string;
   mostrarEstudiosActuales: boolean;
-}
-
-function formVacio(nombreInicial: string): FormState {
-  return {
-    nombre: nombreInicial, ciudad: '', zona: '', radioKm: '', descripcion: '',
-    especialidades: [], aniosExperiencia: '', tarifaRango: undefined,
-    disponibilidadEstado: 'no_disponible', disponibilidadHorarios: [], tipoTrabajo: [],
-    emailContacto: '', telefonoContacto: '', mostrarEstudiosActuales: false,
-  };
+  idiomasTexto: string;
 }
 
 function formDesdePerfil(p: PerfilNetwork): FormState {
@@ -86,44 +88,29 @@ function formDesdePerfil(p: PerfilNetwork): FormState {
     emailContacto: p.emailContacto ?? '',
     telefonoContacto: p.telefonoContacto ?? '',
     mostrarEstudiosActuales: p.mostrarEstudiosActuales,
+    idiomasTexto: p.idiomas.join(', '),
   };
 }
 
-function saludoDelMomento(): string {
-  const hora = new Date().getHours();
-  if (hora < 12) return 'Buenos días';
-  if (hora < 20) return 'Buenas tardes';
-  return 'Buenas noches';
+function TituloSeccion({ children }: { children: React.ReactNode }) {
+  return <h2 className="text-[13px] font-extrabold uppercase tracking-[.06em] mb-3" style={{ color: NW_MUTED_2 }}>{children}</h2>;
 }
 
-type ClavePaso = 'basicos' | 'especialidades' | 'experiencia' | 'trabajo' | 'disponibilidad' | 'tarifa' | 'contacto' | 'vista_previa';
-
-// `clave` en `DetalleCompletitud` cuando el paso cuenta para el %; `null` si
-// no pesa (contacto privado, o la vista previa final).
-const PASOS: { id: ClavePaso; titulo: string; clave: keyof DetalleCompletitud | null }[] = [
-  { id: 'basicos', titulo: 'Datos básicos', clave: 'datosBasicos' },
-  { id: 'especialidades', titulo: 'Especialidades', clave: 'especialidades' },
-  { id: 'experiencia', titulo: 'Experiencia', clave: 'experiencia' },
-  { id: 'trabajo', titulo: 'Dónde trabajas', clave: 'preferencias' },
-  { id: 'disponibilidad', titulo: 'Disponibilidad', clave: 'disponibilidad' },
-  { id: 'tarifa', titulo: 'Precio', clave: 'tarifa' },
-  { id: 'contacto', titulo: 'Contacto privado', clave: null },
-  { id: 'vista_previa', titulo: 'Vista previa', clave: null },
-];
+const campoLabel = 'text-[11px] font-bold uppercase tracking-wide mb-1.5 block';
+function campoInputStyle(): React.CSSProperties {
+  return { border: `1px solid ${NW_BORDE}`, color: NW_TINTA, background: '#fff' };
+}
+const campoCls = 'w-full px-3.5 py-2.5 rounded-xl text-[13.5px] outline-none focus:ring-2 focus:ring-offset-0';
 
 export default function MiPerfilNetworkPage() {
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const router = useRouter();
   const { user, loading: cargandoSesion } = useAuth();
-  const nombreDefecto = (user?.user_metadata?.nombre as string | undefined) ?? '';
-
-  useEffect(() => {
-    if (!cargandoSesion && !user) router.replace('/network/acceso');
-  }, [cargandoSesion, user, router]);
+  const { refetch: refetchShell } = usePerfilNetwork();
 
   const [cargando, setCargando] = useState(true);
   const [perfil, setPerfil] = useState<PerfilNetwork | null>(null);
-  const [form, setForm] = useState<FormState>(formVacio(nombreDefecto));
+  const [form, setForm] = useState<FormState | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const [subiendoFoto, setSubiendoFoto] = useState(false);
@@ -132,25 +119,16 @@ export default function MiPerfilNetworkPage() {
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [errorEstado, setErrorEstado] = useState('');
   const [experiencias, setExperiencias] = useState<ExperienciaNetwork[]>([]);
-  const tieneExperiencia = experiencias.length > 0;
   const [referencias, setReferencias] = useState<ReferenciaNetwork[]>([]);
-  const [paso, setPaso] = useState(0);
-  const [pasoInicialElegido, setPasoInicialElegido] = useState(false);
-  // "Oportunidades" (brief §18): cuántos estudios han escrito y siguen sin
-  // respuesta — mismo dato que ya pinta /network/solicitudes, aquí solo el
-  // recuento, para no duplicar esa pantalla dentro del resumen.
-  const [solicitudesPendientes, setSolicitudesPendientes] = useState<number | null>(null);
-  // "Actualmente en Tentare" (F1, opt-in): vista previa de las sedes reales
-  // donde trabaja hoy, vía mis_estudios() (RPC con sesión propia, distinta
-  // del JOIN service_role que usa el perfil público). Se carga una vez —
-  // barata, y solo se pinta si el toggle está activado.
   const [sedesActuales, setSedesActuales] = useState<SedeSeleccionable[]>([]);
   const [cargandoSedes, setCargandoSedes] = useState(true);
 
-  // Rediseño 2026-08: mi-perfil deja de ser el sitio del alta inicial (eso
-  // es /network/crear-perfil, el wizard de 12 pasos) — pasa a ser el panel
-  // de edición post-publicación. Sin perfil todavía, no hay nada que
-  // editar aquí: se manda al wizard en vez de enseñar un formulario vacío.
+  useEffect(() => {
+    if (!cargandoSesion && !user) router.replace('/network/acceso');
+  }, [cargandoSesion, user, router]);
+
+  // Sin perfil todavía, no hay nada que editar aquí: se manda al wizard de
+  // alta (/network/crear-perfil) en vez de enseñar un formulario vacío.
   useEffect(() => {
     if (!user) return;
     let vivo = true;
@@ -160,79 +138,55 @@ export default function MiPerfilNetworkPage() {
       setPerfil(p); setForm(formDesdePerfil(p));
       setCargando(false);
     });
-    fetchSolicitudesContactoNetwork().then(sols => {
-      if (vivo) setSolicitudesPendientes(sols.filter(s => s.estado === 'pendiente').length);
-    });
     fetchMisEstudios().then(sedes => {
       if (vivo) { setSedesActuales(sedes); setCargandoSedes(false); }
     });
     return () => { vivo = false; };
   }, [user, router]);
 
-  const { porcentaje, detalle } = calcularCompletitudPerfil(
-    {
-      nombre: form.nombre ?? '',
-      ciudad: form.ciudad || null,
-      fotoUrl: perfil?.fotoUrl ?? null,
-      especialidades: form.especialidades ?? [],
-      disponibilidadHorarios: form.disponibilidadHorarios ?? [],
-      tarifaRango: form.tarifaRango ?? null,
-      tipoTrabajo: form.tipoTrabajo ?? [],
-    },
-    tieneExperiencia,
-  );
+  const badges = useMemo(() => ({
+    emailVerificado: emailVerificado(user?.email_confirmed_at ?? null),
+    experienciaVerificada: experienciaVerificada(experiencias.map(e => e.estadoVerificacion)),
+    referenciaProfesional: referenciaProfesional(referencias.filter(r => r.estado === 'confirmada').length),
+    identidadVerificada: identidadVerificada(perfil?.identidadVerificadaEn ?? null),
+    activaRecientemente: activaRecientemente(perfil?.ultimoAccesoEn ?? null, new Date()),
+  }), [user, experiencias, referencias, perfil]);
 
-  // Continuar donde lo dejó (brief §5): al cargar, si el perfil ya existe y
-  // no está publicado, aterriza en el primer paso incompleto — no siempre en
-  // el 1. Publicado (solo ajustando algo) → directo a la vista previa. Solo
-  // se decide UNA vez, cuando los datos ya cargaron (si no, saltaría de paso
-  // bajo los dedos de quien está escribiendo).
-  // Decide UNA vez en qué paso aterriza, en cuanto los datos (perfil/
-  // completitud) ya cargaron; no es estado derivable en cada render, es el
-  // punto de partida — de ahí el guard `pasoInicialElegido` y los disables.
-  useEffect(() => {
-    if (cargando || pasoInicialElegido) return;
-    if (perfil?.estado === 'published' || perfil?.estado === 'en_revision') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPaso(PASOS.length - 1);
-      setPasoInicialElegido(true);
-      return;
-    }
-    const idx = PASOS.findIndex(p => p.clave && !detalle[p.clave]);
-    setPaso(idx === -1 ? PASOS.length - 1 : idx);
-    setPasoInicialElegido(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cargando, pasoInicialElegido]);
-
-  async function guardar(): Promise<boolean> {
-    setError('');
-    setGuardando(true);
-    const res = await guardarPerfilNetwork({
-      nombre: form.nombre,
-      ciudad: form.ciudad || null,
-      zona: form.zona || null,
-      radioKm: form.radioKm.trim() === '' ? null : Number(form.radioKm),
-      descripcion: form.descripcion || null,
-      especialidades: form.especialidades,
-      aniosExperiencia: form.aniosExperiencia.trim() === '' ? null : Number(form.aniosExperiencia),
-      tarifaRango: form.tarifaRango ?? null,
-      disponibilidadEstado: form.disponibilidadEstado,
-      disponibilidadHorarios: form.disponibilidadHorarios,
-      tipoTrabajo: form.tipoTrabajo,
-      emailContacto: form.emailContacto || null,
-      telefonoContacto: form.telefonoContacto || null,
-      mostrarEstudiosActuales: form.mostrarEstudiosActuales,
-    });
-    setGuardando(false);
-    if (!res.ok) { setError(res.error); return false; }
-    setPerfil(res.perfil);
-    setForm(formDesdePerfil(res.perfil));
-    return true;
+  if (cargandoSesion || !user || cargando || !form || !perfil) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 size={20} className="animate-spin" style={{ color: NW_MUTED }} />
+      </div>
+    );
   }
 
-  async function siguiente() {
-    if (!(await guardar())) return;
-    setPaso(p => Math.min(p + 1, PASOS.length - 1));
+  async function guardar() {
+    setError('');
+    setGuardando(true);
+    const f = form!;
+    const res = await guardarPerfilNetwork({
+      nombre: f.nombre,
+      ciudad: f.ciudad || null,
+      zona: f.zona || null,
+      radioKm: f.radioKm.trim() === '' ? null : Number(f.radioKm),
+      descripcion: f.descripcion || null,
+      especialidades: f.especialidades,
+      aniosExperiencia: f.aniosExperiencia.trim() === '' ? null : Number(f.aniosExperiencia),
+      tarifaRango: f.tarifaRango ?? null,
+      disponibilidadEstado: f.disponibilidadEstado,
+      disponibilidadHorarios: f.disponibilidadHorarios,
+      tipoTrabajo: f.tipoTrabajo,
+      emailContacto: f.emailContacto || null,
+      telefonoContacto: f.telefonoContacto || null,
+      mostrarEstudiosActuales: f.mostrarEstudiosActuales,
+      idiomas: f.idiomasTexto.split(',').map(v => v.trim()).filter(Boolean),
+    });
+    setGuardando(false);
+    if (!res.ok) { setError(res.error); return; }
+    setPerfil(res.perfil);
+    setForm(formDesdePerfil(res.perfil));
+    refetchShell();
+    showToast('Cambios guardados');
   }
 
   async function cambiarEstado(estado: 'en_revision' | 'hidden') {
@@ -242,6 +196,7 @@ export default function MiPerfilNetworkPage() {
     setCambiandoEstado(false);
     if (!res.ok) { setErrorEstado(res.error); return; }
     setPerfil(res.perfil);
+    refetchShell();
     showToast(estado === 'en_revision' ? 'Enviado a revisión' : 'Perfil oculto');
   }
 
@@ -259,447 +214,339 @@ export default function MiPerfilNetworkPage() {
     const res = await guardarPerfilNetwork({ fotoUrl: result.url });
     if (!res.ok) { setErrorFoto(res.error); return; }
     setPerfil(res.perfil);
+    refetchShell();
     showToast('Foto actualizada');
   }
 
-  const badges = useMemo(() => ({
-    emailVerificado: emailVerificado(user?.email_confirmed_at ?? null),
-    experienciaVerificada: experienciaVerificada(experiencias.map(e => e.estadoVerificacion)),
-    referenciaProfesional: referenciaProfesional(referencias.filter(r => r.estado === 'confirmada').length),
-    identidadVerificada: identidadVerificada(perfil?.identidadVerificadaEn ?? null),
-    activaRecientemente: activaRecientemente(perfil?.ultimoAccesoEn ?? null, new Date()),
-  }), [user, experiencias, referencias, perfil]);
-
-  if (cargandoSesion || !user || cargando) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 size={20} className="animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  const idPaso = PASOS[paso].id;
-  const esUltimoPaso = paso === PASOS.length - 1;
+  const estadoLabel = perfil.estado === 'published' ? 'Publicado'
+    : perfil.estado === 'suspended' ? 'Suspendido'
+      : perfil.estado === 'en_revision' ? 'En revisión' : 'Borrador';
+  const estadoEstilo = perfil.estado === 'published'
+    ? { background: NW_ESTADO.verificada.fondo, color: NW_ESTADO.verificada.color }
+    : perfil.estado === 'en_revision'
+      ? { background: NW_ESTADO.pendiente.fondo, color: NW_ESTADO.pendiente.color }
+      : { background: NW_SAND, color: NW_MUTED_2 };
 
   return (
-    <div className="space-y-5 max-w-2xl">
-      <PageHeader
-        title="Mi perfil en Network"
-        description="Cómo te ven los estudios que buscan profesionales de Pilates y Yoga en Tentare Network."
-      />
-
-      {/* Progreso: barra por %, más los pasos como puntos clicables — saltar
-          hacia atrás siempre está permitido (es su propio perfil), hacia
-          delante no (evita publicar sin haber pasado por lo mínimo). */}
-      <div className={`${cardCls} p-5`}>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[12px] font-medium text-foreground">Tu perfil está al {porcentaje}%</p>
-        </div>
-        <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-3">
-          <div
-            className={cn('h-full rounded-full bg-brand transition-all', porcentaje === 100 && 'bg-success')}
-            style={{ width: `${porcentaje}%` }}
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {PASOS.map((p, i) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => i <= paso && setPaso(i)}
-              disabled={i > paso}
-              aria-current={i === paso}
-              className={cn(
-                'px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors',
-                i === paso
-                  ? 'bg-brand text-brand-foreground border-brand'
-                  : i < paso
-                    ? 'bg-muted text-foreground border-border hover:bg-muted/70 cursor-pointer'
-                    : 'bg-transparent text-muted-foreground border-border/60 cursor-not-allowed',
-              )}
-            >
-              {i + 1}. {p.titulo}
-            </button>
-          ))}
-        </div>
+    <div className="max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-[22px] font-extrabold" style={{ color: NW_TINTA }}>Mi perfil</h1>
+        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold" style={estadoEstilo}>{estadoLabel}</span>
       </div>
 
-      {idPaso === 'basicos' && (
-        <div className="space-y-5">
-          <div className={`${cardCls} p-6`}>
-            <div className="flex items-center gap-4 mb-1">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
+        <div className="space-y-6">
+          {/* Identidad */}
+          <div className="rounded-2xl p-6" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
+            <div className="flex items-center gap-4 mb-5">
               <div className="relative shrink-0">
-                <ProfileAvatar fotoUrl={perfil?.fotoUrl} nombre={form.nombre || 'Tu nombre'} size="xl" />
+                {perfil.fotoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- foto subida por la instructora
+                  <img src={perfil.fotoUrl} alt={form.nombre} className="w-16 h-16 rounded-full object-cover" />
+                ) : (
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center text-[20px] font-extrabold text-white" style={{ background: NW_PRODUCTO }}>
+                    {form.nombre.trim().charAt(0).toUpperCase() || '?'}
+                  </div>
+                )}
                 {subiendoFoto && (
                   <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
-                    <Loader2 size={18} className="text-white animate-spin" />
+                    <Loader2 size={16} className="text-white animate-spin" />
                   </div>
                 )}
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={!perfil}
-                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center hover:bg-background transition-colors disabled:opacity-40"
-                  aria-label="Subir foto"
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white flex items-center justify-center hover:opacity-80 transition-opacity"
+                  style={{ border: `1px solid ${NW_BORDE}` }}
+                  aria-label="Cambiar foto"
                 >
-                  <Camera size={14} className="text-foreground" />
+                  <Camera size={12} style={{ color: NW_TINTA }} />
                 </button>
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
               </div>
               <div>
-                <p className="text-[13px] text-muted-foreground">
-                  {perfil
-                    ? 'Sube una foto de tu cara — es lo primero que ve un estudio.'
-                    : 'Guarda tus datos básicos primero para poder subir tu foto.'}
+                <p className="text-[16px] font-extrabold" style={{ color: NW_TINTA }}>{form.nombre || 'Tu nombre'}</p>
+                <p className="text-[12.5px]" style={{ color: NW_MUTED_2 }}>
+                  {form.ciudad || 'Sin ciudad'} · en Network desde {new Date(perfil.creadoEn).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
                 </p>
-                {errorFoto && <p className="text-[11px] text-destructive mt-1">{errorFoto}</p>}
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="text-[12px] font-bold mt-1" style={{ color: NW_PRODUCTO }}>
+                  Cambiar foto
+                </button>
+                {errorFoto && <p className="text-[11px] mt-1" style={{ color: '#A04A3C' }}>{errorFoto}</p>}
               </div>
             </div>
-          </div>
 
-          <div className={`${cardCls} p-6 space-y-4`}>
-            <h3 className="text-[14px] font-semibold text-foreground">Datos básicos</h3>
-            <div>
-              <p className={labelCls}>Nombre</p>
-              <input className={inputCls} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3 mb-4">
               <div>
-                <p className={labelCls}>Ciudad</p>
-                <input className={inputCls} value={form.ciudad} onChange={e => setForm(f => ({ ...f, ciudad: e.target.value }))} placeholder="Barcelona" />
+                <label className={campoLabel} style={{ color: NW_MUTED_2 }}>Nombre</label>
+                <input className={campoCls} style={campoInputStyle()} value={form.nombre} onChange={e => setForm(f => f && { ...f, nombre: e.target.value })} />
               </div>
               <div>
-                <p className={labelCls}>Zona</p>
-                <input className={inputCls} value={form.zona} onChange={e => setForm(f => ({ ...f, zona: e.target.value }))} placeholder="Gràcia" />
+                <label className={campoLabel} style={{ color: NW_MUTED_2 }}>Ciudad</label>
+                <input className={campoCls} style={campoInputStyle()} value={form.ciudad} onChange={e => setForm(f => f && { ...f, ciudad: e.target.value })} placeholder="Barcelona" />
               </div>
             </div>
+
             <div>
-              <p className={labelCls}>Radio aproximado (km)</p>
-              <input
-                type="number" min={0} className={inputCls}
-                value={form.radioKm} onChange={e => setForm(f => ({ ...f, radioKm: e.target.value }))}
-              />
-            </div>
-            <div>
-              <p className={labelCls}>Descripción</p>
+              <label className={campoLabel} style={{ color: NW_MUTED_2 }}>Bio</label>
               <textarea
-                className={`${inputCls} min-h-24 resize-y`}
-                value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+                className={cn(campoCls, 'min-h-28 resize-y')} style={campoInputStyle()}
+                value={form.descripcion} onChange={e => setForm(f => f && { ...f, descripcion: e.target.value })}
                 placeholder="Cuéntale a un estudio quién eres y cómo trabajas."
               />
             </div>
           </div>
-        </div>
-      )}
 
-      {idPaso === 'especialidades' && (
-        <div className={`${cardCls} p-6 space-y-3`}>
-          <h3 className="text-[14px] font-semibold text-foreground">Especialidades</h3>
-          <p className="text-[12.5px] text-muted-foreground -mt-1">En qué disciplina y técnicas estás especializada.</p>
-          <SelectorChips
-            opciones={ESPECIALIDADES_NETWORK.map(v => ({ valor: v, etiqueta: ESPECIALIDAD_LABEL[v] }))}
-            seleccion={form.especialidades ?? []}
-            onChange={sel => setForm(f => ({ ...f, especialidades: sel }))}
-          />
-        </div>
-      )}
-
-      {idPaso === 'experiencia' && (
-        <div className="space-y-5">
-          <div className={`${cardCls} p-6 space-y-4`}>
-            <h3 className="text-[14px] font-semibold text-foreground">Años de experiencia</h3>
-            <input
-              type="number" min={0} className={inputCls}
-              value={form.aniosExperiencia} onChange={e => setForm(f => ({ ...f, aniosExperiencia: e.target.value }))}
-            />
-          </div>
-          {perfil && <SeccionExperienciaNetwork onExperienciasChange={setExperiencias} />}
-          {perfil && <SeccionReferenciasNetwork onReferenciasChange={setReferencias} />}
-          {perfil && user && <SeccionPortfolioNetwork authUserId={user.id} />}
-        </div>
-      )}
-
-      {idPaso === 'trabajo' && (
-        <div className="space-y-5">
-          <div className={`${cardCls} p-6 space-y-3`}>
-            <h3 className="text-[14px] font-semibold text-foreground">Dónde trabajas</h3>
-            <p className="text-[12.5px] text-muted-foreground -mt-1">Qué tipo de trabajo aceptas.</p>
+          {/* Especialidades */}
+          <div className="rounded-2xl p-6" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
+            <TituloSeccion>Especialidades</TituloSeccion>
             <SelectorChips
-              opciones={TIPOS_TRABAJO_NETWORK.map(v => ({ valor: v, etiqueta: TIPO_TRABAJO_LABEL[v] }))}
-              seleccion={form.tipoTrabajo ?? []}
-              onChange={sel => setForm(f => ({ ...f, tipoTrabajo: sel }))}
+              v2
+              opciones={ESPECIALIDADES_NETWORK.map(v => ({ valor: v, etiqueta: ESPECIALIDAD_LABEL[v] }))}
+              seleccion={form.especialidades}
+              onChange={sel => setForm(f => f && { ...f, especialidades: sel })}
             />
           </div>
 
-          <div className={`${cardCls} p-6 space-y-3`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-[14px] font-semibold text-foreground">Actualmente en Tentare</h3>
-                <p className="text-[12.5px] text-muted-foreground mt-0.5">
-                  Muestra en tu perfil público las sedes donde trabajas hoy en Tentare. Apagado por
-                  defecto — actívalo solo si quieres que un estudio que mire tu perfil sepa dónde
-                  trabajas ya.
-                </p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={form.mostrarEstudiosActuales}
-                aria-label="Mostrar mis estudios actuales en mi perfil público"
-                onClick={() => setForm(f => ({ ...f, mostrarEstudiosActuales: !f.mostrarEstudiosActuales }))}
-                className={cn(
-                  'shrink-0 w-10 h-6 rounded-full transition-colors relative',
-                  form.mostrarEstudiosActuales ? 'bg-brand' : 'bg-muted',
-                )}
+          {/* Tarifa + idiomas */}
+          <div className="rounded-2xl p-6 grid sm:grid-cols-2 gap-4" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
+            <div>
+              <label className={campoLabel} style={{ color: NW_MUTED_2 }}>Tarifa orientativa</label>
+              <select
+                className={campoCls} style={campoInputStyle()}
+                value={form.tarifaRango ?? ''}
+                onChange={e => setForm(f => f && { ...f, tarifaRango: (e.target.value || undefined) as FormState['tarifaRango'] })}
               >
-                <span
-                  className={cn(
-                    'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform',
-                    form.mostrarEstudiosActuales && 'translate-x-4',
-                  )}
-                />
-              </button>
+                <option value="">Sin especificar</option>
+                {TARIFAS_RANGO_NETWORK.map(v => <option key={v} value={v}>{TARIFA_RANGO_LABEL[v]}</option>)}
+              </select>
             </div>
-            {form.mostrarEstudiosActuales && (
-              <div className="pt-3 border-t border-border/60">
-                <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Así lo verán los estudios:</p>
-                {cargandoSedes ? (
-                  <Loader2 size={14} className="animate-spin text-muted-foreground" />
-                ) : sedesActuales.length === 0 ? (
-                  <p className="text-[12px] text-muted-foreground">
-                    Hoy no trabajas en ninguna sede de Tentare — no se mostrará nada hasta que la haya.
-                  </p>
-                ) : (
-                  <ul className="space-y-1">
-                    {sedesActuales.map(s => (
-                      <li key={s.id} className="text-[12.5px] text-foreground">
-                        {s.nombre}{s.ciudad ? ` · ${s.ciudad}` : ''}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
+            <div>
+              <label className={campoLabel} style={{ color: NW_MUTED_2 }}>Idiomas</label>
+              <input
+                className={campoCls} style={campoInputStyle()}
+                value={form.idiomasTexto} onChange={e => setForm(f => f && { ...f, idiomasTexto: e.target.value })}
+                placeholder="Español, Catalán, Inglés"
+              />
+            </div>
           </div>
-        </div>
-      )}
 
-      {idPaso === 'disponibilidad' && (
-        <div className={`${cardCls} p-6 space-y-4`}>
-          <h3 className="text-[14px] font-semibold text-foreground">Disponibilidad</h3>
-          <div>
-            <p className={labelCls}>Estado</p>
-            <select
-              className={inputCls}
-              value={form.disponibilidadEstado}
-              onChange={e => setForm(f => ({ ...f, disponibilidadEstado: e.target.value as FormState['disponibilidadEstado'] }))}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={guardar}
+              disabled={guardando || !form.nombre.trim()}
+              className="px-5 py-2.5 rounded-full text-[13.5px] font-bold text-white flex items-center gap-1.5 disabled:opacity-60 transition-opacity hover:opacity-90"
+              style={{ background: NW_PRODUCTO }}
             >
-              {DISPONIBILIDAD_ESTADOS_NETWORK.map(v => <option key={v} value={v}>{DISPONIBILIDAD_ESTADO_LABEL[v]}</option>)}
-            </select>
+              {guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              {guardando ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+            {error && <p className="text-[12px]" style={{ color: '#A04A3C' }}>{error}</p>}
           </div>
-          <div>
-            <p className={labelCls}>Horarios</p>
-            <SelectorChips
-              opciones={HORARIOS_NETWORK.map(v => ({ valor: v, etiqueta: HORARIO_LABEL[v] }))}
-              seleccion={form.disponibilidadHorarios ?? []}
-              onChange={sel => setForm(f => ({ ...f, disponibilidadHorarios: sel }))}
-            />
-          </div>
-        </div>
-      )}
 
-      {idPaso === 'tarifa' && (
-        <div className={`${cardCls} p-6 space-y-4`}>
-          <h3 className="text-[14px] font-semibold text-foreground">Tarifa orientativa</h3>
-          <select
-            className={inputCls}
-            value={form.tarifaRango ?? ''}
-            onChange={e => setForm(f => ({ ...f, tarifaRango: (e.target.value || undefined) as FormState['tarifaRango'] }))}
-          >
-            <option value="">Sin especificar</option>
-            {TARIFAS_RANGO_NETWORK.map(v => <option key={v} value={v}>{TARIFA_RANGO_LABEL[v]}</option>)}
-          </select>
-        </div>
-      )}
+          {/* Experiencia (reutiliza el CRUD ya existente, guardado propio) */}
+          <SeccionExperienciaNetwork onExperienciasChange={setExperiencias} tokensNetworkV2 />
+          <SeccionReferenciasNetwork onReferenciasChange={setReferencias} />
+          {user && <SeccionPortfolioNetwork authUserId={user.id} />}
 
-      {idPaso === 'contacto' && (
-        <div className={`${cardCls} p-6 space-y-4`}>
-          <h3 className="text-[14px] font-semibold text-foreground">Contacto privado</h3>
-          <p className="text-[12px] text-muted-foreground -mt-2">
-            Nunca se muestra en tu perfil público. Solo se revela a un estudio si aceptas su solicitud de contacto.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
+          {/* Dónde trabajas */}
+          <div className="rounded-2xl p-6 space-y-4" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
             <div>
-              <p className={labelCls}>Email de contacto</p>
-              <input type="email" className={inputCls} value={form.emailContacto} onChange={e => setForm(f => ({ ...f, emailContacto: e.target.value }))} />
+              <TituloSeccion>Dónde trabajas</TituloSeccion>
+              <p className="text-[12.5px] mb-3" style={{ color: NW_MUTED }}>Qué tipo de trabajo aceptas.</p>
+              <SelectorChips
+                v2
+                opciones={TIPOS_TRABAJO_NETWORK.map(v => ({ valor: v, etiqueta: TIPO_TRABAJO_LABEL[v] }))}
+                seleccion={form.tipoTrabajo}
+                onChange={sel => setForm(f => f && { ...f, tipoTrabajo: sel })}
+              />
             </div>
-            <div>
-              <p className={labelCls}>Teléfono de contacto</p>
-              <input type="tel" className={inputCls} value={form.telefonoContacto} onChange={e => setForm(f => ({ ...f, telefonoContacto: e.target.value }))} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {idPaso === 'vista_previa' && (
-        <div className="space-y-5">
-          {perfil && (
-            <div className={`${cardCls} p-6`}>
-              <p className="text-[16px] font-semibold text-foreground mb-3">
-                {saludoDelMomento()}, {form.nombre.split(' ')[0] || 'de nuevo'} 👋
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <Link
-                  href="/network/solicitudes"
-                  className="rounded-xl border border-border p-3.5 hover:bg-muted/50 transition-colors"
-                >
-                  <p className="text-[20px] font-semibold text-foreground">
-                    {solicitudesPendientes ?? <Loader2 size={16} className="animate-spin inline text-muted-foreground" />}
+            <div className="pt-4" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[13.5px] font-bold" style={{ color: NW_TINTA }}>Actualmente en Tentare</p>
+                  <p className="text-[12px] mt-0.5" style={{ color: NW_MUTED }}>
+                    Muestra en tu perfil público las sedes donde trabajas hoy. Apagado por defecto.
                   </p>
-                  <p className="text-[12px] text-muted-foreground">
-                    {solicitudesPendientes === 1 ? 'solicitud sin responder' : 'solicitudes sin responder'}
-                  </p>
-                </Link>
+                </div>
                 <button
-                  type="button"
-                  onClick={() => setPaso(PASOS.findIndex(p => p.id === 'disponibilidad'))}
-                  className="rounded-xl border border-border p-3.5 text-left hover:bg-muted/50 transition-colors"
+                  type="button" role="switch" aria-checked={form.mostrarEstudiosActuales}
+                  onClick={() => setForm(f => f && { ...f, mostrarEstudiosActuales: !f.mostrarEstudiosActuales })}
+                  className="shrink-0 w-10 h-6 rounded-full transition-colors relative"
+                  style={{ background: form.mostrarEstudiosActuales ? NW_PRODUCTO : NW_SAND }}
                 >
-                  <p className="text-[13px] font-medium text-foreground">{DISPONIBILIDAD_ESTADO_LABEL[form.disponibilidadEstado]}</p>
-                  <p className="text-[12px] text-muted-foreground">Actualizar disponibilidad</p>
+                  <span
+                    className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+                    style={{ transform: form.mostrarEstudiosActuales ? 'translateX(16px)' : 'none' }}
+                  />
                 </button>
               </div>
-            </div>
-          )}
-
-          {perfil && (
-            <div className={`${cardCls} p-6`}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <span
-                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold mb-1.5"
-                    style={{
-                      backgroundColor: perfil.estado === 'published' ? '#EAF6EE' : perfil.estado === 'en_revision' ? '#FBF3DE' : '#F1F2EA',
-                      color: perfil.estado === 'published' ? '#276749' : perfil.estado === 'en_revision' ? '#8A6A25' : '#5A6142',
-                    }}
-                  >
-                    {perfil.estado === 'published' ? 'Publicado'
-                      : perfil.estado === 'suspended' ? 'Suspendido'
-                        : perfil.estado === 'en_revision' ? 'En revisión'
-                          : 'Borrador'}
-                  </span>
-                  <p className="text-[13px] text-muted-foreground">
-                    {perfil.estado === 'published'
-                      ? 'Tu perfil es visible para los estudios que buscan en Tentare Network.'
-                      : perfil.estado === 'suspended'
-                        ? 'Tu perfil ha sido suspendido por moderación.'
-                        : perfil.estado === 'en_revision'
-                          ? 'El equipo de Tentare lo está revisando antes de publicarlo — normalmente en menos de 48 h.'
-                          : 'Tu perfil todavía no es visible para ningún estudio.'}
-                  </p>
-                  {errorEstado && <p className="text-[12px] text-destructive mt-1.5">{errorEstado}</p>}
+              {form.mostrarEstudiosActuales && (
+                <div className="mt-3">
+                  {cargandoSedes ? (
+                    <Loader2 size={14} className="animate-spin" style={{ color: NW_MUTED }} />
+                  ) : sedesActuales.length === 0 ? (
+                    <p className="text-[12px]" style={{ color: NW_MUTED }}>Hoy no trabajas en ninguna sede de Tentare.</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {sedesActuales.map(s => (
+                        <li key={s.id} className="text-[12.5px]" style={{ color: NW_TINTA }}>{s.nombre}{s.ciudad ? ` · ${s.ciudad}` : ''}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-                {(perfil.estado === 'draft' || perfil.estado === 'published') && (
-                  <button
-                    onClick={() => cambiarEstado(perfil.estado === 'published' ? 'hidden' : 'en_revision')}
-                    disabled={cambiandoEstado}
-                    className={cn(
-                      'shrink-0 px-3.5 py-2 rounded-lg text-[12px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-60',
-                      perfil.estado === 'published'
-                        ? 'bg-card border border-border text-foreground hover:bg-muted'
-                        : 'bg-brand text-brand-foreground hover:brightness-95',
-                    )}
-                  >
-                    {cambiandoEstado ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : perfil.estado === 'published' ? (
-                      <EyeOff size={14} />
-                    ) : (
-                      <Eye size={14} />
-                    )}
-                    {perfil.estado === 'published' ? 'Ocultar perfil' : 'Enviar a revisión'}
-                  </button>
-                )}
-                {perfil.estado === 'hidden' && (
-                  <button
-                    onClick={() => cambiarEstado('en_revision')}
-                    disabled={cambiandoEstado}
-                    className="shrink-0 px-3.5 py-2 rounded-lg text-[12px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-60 bg-brand text-brand-foreground hover:brightness-95"
-                  >
-                    {cambiandoEstado ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
-                    Enviar a revisión
-                  </button>
-                )}
-                {perfil.estado === 'suspended' && <ShieldAlert size={18} className="text-destructive shrink-0 mt-0.5" />}
-              </div>
-            </div>
-          )}
-
-          {perfil && (
-            <div className={`${cardCls} p-6`}>
-              <h3 className="text-[14px] font-semibold text-foreground mb-2">Así te ven los estudios</h3>
-              <ListaBadgesNetwork badges={badges} />
-              {!badges.emailVerificado && (
-                <p className="text-[11px] text-muted-foreground mt-2">
-                  Confirma tu email con el código de 6 dígitos que te enviamos al crear tu cuenta
-                  para conseguir este badge.
-                </p>
               )}
             </div>
-          )}
+          </div>
 
-          <div className={`${cardCls} p-6 space-y-3`}>
-            <div className="flex items-center gap-3">
-              <ProfileAvatar fotoUrl={perfil?.fotoUrl} nombre={form.nombre || 'Tu nombre'} size="lg" />
+          {/* Disponibilidad — las 4 franjas reales del catálogo
+              (mananas/tardes/noches/fines_semana), no un calendario L-D
+              inventado: el modelo no guarda disponibilidad por día concreto. */}
+          <div className="rounded-2xl p-6 space-y-4" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
+            <TituloSeccion>Disponibilidad</TituloSeccion>
+            <div>
+              <label className={campoLabel} style={{ color: NW_MUTED_2 }}>Estado</label>
+              <select
+                className={campoCls} style={campoInputStyle()}
+                value={form.disponibilidadEstado}
+                onChange={e => setForm(f => f && { ...f, disponibilidadEstado: e.target.value as FormState['disponibilidadEstado'] })}
+              >
+                {DISPONIBILIDAD_ESTADOS_NETWORK.map(v => <option key={v} value={v}>{DISPONIBILIDAD_ESTADO_LABEL[v]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={campoLabel} style={{ color: NW_MUTED_2 }}>Horarios</label>
+              <SelectorChips
+                v2
+                opciones={HORARIOS_NETWORK.map(v => ({ valor: v, etiqueta: HORARIO_LABEL[v] }))}
+                seleccion={form.disponibilidadHorarios}
+                onChange={sel => setForm(f => f && { ...f, disponibilidadHorarios: sel })}
+              />
+            </div>
+          </div>
+
+          {/* Contacto privado */}
+          <div className="rounded-2xl p-6 space-y-3" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
+            <div>
+              <TituloSeccion>Contacto privado</TituloSeccion>
+              <p className="text-[12px] -mt-2 mb-3" style={{ color: NW_MUTED }}>
+                Nunca se muestra en tu perfil público. Solo se revela a un estudio si aceptas su solicitud de contacto.
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
               <div>
-                <p className="text-[14px] font-semibold text-foreground">{form.nombre || 'Sin nombre'}</p>
-                <p className="text-[12.5px] text-muted-foreground">{form.ciudad || 'Sin ciudad'}{form.zona ? ` · ${form.zona}` : ''}</p>
+                <label className={campoLabel} style={{ color: NW_MUTED_2 }}>Email de contacto</label>
+                <input type="email" className={campoCls} style={campoInputStyle()} value={form.emailContacto} onChange={e => setForm(f => f && { ...f, emailContacto: e.target.value })} />
+              </div>
+              <div>
+                <label className={campoLabel} style={{ color: NW_MUTED_2 }}>Teléfono de contacto</label>
+                <input type="tel" className={campoCls} style={campoInputStyle()} value={form.telefonoContacto} onChange={e => setForm(f => f && { ...f, telefonoContacto: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          {/* Estado de publicación */}
+          <div className="rounded-2xl p-6" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold mb-1.5" style={estadoEstilo}>{estadoLabel}</span>
+                <p className="text-[13px]" style={{ color: NW_MUTED }}>
+                  {perfil.estado === 'published'
+                    ? 'Tu perfil es visible para los estudios que buscan en Tentare Network.'
+                    : perfil.estado === 'suspended'
+                      ? 'Tu perfil ha sido suspendido por moderación.'
+                      : perfil.estado === 'en_revision'
+                        ? 'El equipo de Tentare lo está revisando antes de publicarlo — normalmente en menos de 48 h.'
+                        : 'Tu perfil todavía no es visible para ningún estudio.'}
+                </p>
+                {errorEstado && <p className="text-[12px] mt-1.5" style={{ color: '#A04A3C' }}>{errorEstado}</p>}
+              </div>
+              {(perfil.estado === 'draft' || perfil.estado === 'published') && (
+                <button
+                  onClick={() => cambiarEstado(perfil.estado === 'published' ? 'hidden' : 'en_revision')}
+                  disabled={cambiandoEstado}
+                  className="shrink-0 px-3.5 py-2 rounded-lg text-[12px] font-bold flex items-center gap-1.5 disabled:opacity-60 transition-opacity hover:opacity-90"
+                  style={perfil.estado === 'published'
+                    ? { background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }
+                    : { background: NW_PRODUCTO, color: '#fff' }}
+                >
+                  {cambiandoEstado ? <Loader2 size={14} className="animate-spin" /> : perfil.estado === 'published' ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {perfil.estado === 'published' ? 'Ocultar perfil' : 'Enviar a revisión'}
+                </button>
+              )}
+              {perfil.estado === 'hidden' && (
+                <button
+                  onClick={() => cambiarEstado('en_revision')}
+                  disabled={cambiandoEstado}
+                  className="shrink-0 px-3.5 py-2 rounded-lg text-[12px] font-bold flex items-center gap-1.5 disabled:opacity-60 text-white"
+                  style={{ background: NW_PRODUCTO }}
+                >
+                  {cambiandoEstado ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
+                  Enviar a revisión
+                </button>
+              )}
+              {perfil.estado === 'suspended' && <ShieldAlert size={18} style={{ color: '#A04A3C' }} className="shrink-0 mt-0.5" />}
+            </div>
+          </div>
+        </div>
+
+        {/* Preview en vivo */}
+        <div className="space-y-4 lg:sticky lg:top-6 self-start">
+          <div className="rounded-2xl p-5" style={{ background: NW_VERDE_OSCURO }}>
+            <p className="text-[10.5px] font-bold uppercase tracking-wide mb-3" style={{ color: 'rgba(255,255,255,.5)' }}>Así te ven los estudios</p>
+            <div className="flex items-center gap-3 mb-3">
+              {perfil.fotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- avatar pequeño, foto subida por la instructora
+                <img src={perfil.fotoUrl} alt={form.nombre} className="w-11 h-11 rounded-full object-cover shrink-0" />
+              ) : (
+                <div className="w-11 h-11 rounded-full flex items-center justify-center text-[15px] font-extrabold shrink-0" style={{ background: 'rgba(255,255,255,.12)', color: '#fff' }}>
+                  {form.nombre.trim().charAt(0).toUpperCase() || '?'}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-[14px] font-extrabold text-white truncate">{form.nombre || 'Sin nombre'}</p>
+                <p className="text-[12px] truncate" style={{ color: 'rgba(255,255,255,.6)' }}>{form.ciudad || 'Sin ciudad'}{form.zona ? ` · ${form.zona}` : ''}</p>
               </div>
             </div>
             {form.especialidades.length > 0 && (
-              <p className="text-[12.5px] text-foreground">{form.especialidades.map(e => ESPECIALIDAD_LABEL[e]).join(' · ')}</p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {form.especialidades.map(e => (
+                  <span key={e} className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: 'rgba(255,255,255,.1)', color: '#fff' }}>
+                    {ESPECIALIDAD_LABEL[e]}
+                  </span>
+                ))}
+              </div>
             )}
-            <p className="text-[12px] text-muted-foreground">
-              {form.tarifaRango ? TARIFA_RANGO_LABEL[form.tarifaRango] : 'Tarifa sin especificar'}
-              {' · '}
-              {DISPONIBILIDAD_ESTADO_LABEL[form.disponibilidadEstado]}
-            </p>
-            {perfil?.slug && perfil.estado === 'published' && (
-              <a href={`/network/instructoras/${perfil.slug}`} target="_blank" rel="noreferrer" className="text-[12px] text-brand font-medium inline-block">
-                Ver mi perfil público →
-              </a>
+            {form.descripcion && (
+              <p className="text-[12.5px] leading-snug line-clamp-3 mb-3" style={{ color: 'rgba(255,255,255,.75)' }}>{form.descripcion}</p>
             )}
+            <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid rgba(255,255,255,.12)' }}>
+              <p className="text-[12.5px] font-bold text-white">
+                {form.tarifaRango ? TARIFA_RANGO_LABEL[form.tarifaRango] : 'Tarifa a consultar'}
+              </p>
+              <p className="text-[11.5px] flex items-center gap-1" style={{ color: 'rgba(255,255,255,.6)' }}>
+                <Star size={11} style={{ color: NW_ESTRELLA }} fill={NW_ESTRELLA} />
+                {DISPONIBILIDAD_ESTADO_LABEL[form.disponibilidadEstado]}
+              </p>
+            </div>
           </div>
+
+          {(badges.emailVerificado || badges.experienciaVerificada || badges.referenciaProfesional || badges.identidadVerificada || badges.activaRecientemente) && (
+            <div className="rounded-2xl p-5" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
+              <p className="text-[11px] font-bold uppercase tracking-wide mb-2.5" style={{ color: NW_MUTED_2 }}>Confianza</p>
+              <ListaBadgesNetwork badges={badges} />
+            </div>
+          )}
+
+          {perfil.slug && perfil.estado === 'published' && (
+            <a
+              href={`/network/instructoras/${perfil.slug}`} target="_blank" rel="noreferrer"
+              className="block text-center px-4 py-2.5 rounded-full text-[13px] font-bold transition-opacity hover:opacity-80"
+              style={{ border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}
+            >
+              Ver mi perfil público →
+            </a>
+          )}
         </div>
-      )}
-
-      {error && <p className="text-[12px] text-destructive">{error}</p>}
-
-      <div className="flex items-center justify-between pt-1">
-        <button
-          onClick={() => setPaso(p => Math.max(p - 1, 0))}
-          disabled={paso === 0}
-          className="px-3.5 py-2 rounded-lg text-[12.5px] font-medium text-foreground disabled:opacity-0 flex items-center gap-1 hover:bg-muted transition-colors"
-        >
-          <ChevronLeft size={14} /> Anterior
-        </button>
-        {!esUltimoPaso ? (
-          <button
-            onClick={siguiente}
-            disabled={guardando || (idPaso === 'basicos' && !form.nombre.trim())}
-            className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12.5px] font-medium hover:brightness-95 transition-colors flex items-center gap-1.5 disabled:opacity-60"
-          >
-            {guardando ? <Loader2 size={14} className="animate-spin" /> : <>Siguiente <ChevronRight size={14} /></>}
-          </button>
-        ) : (
-          <button
-            onClick={async () => { if (await guardar()) showToast('Cambios guardados'); }}
-            disabled={guardando}
-            className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors flex items-center gap-1.5 disabled:opacity-60"
-          >
-            {guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-            {guardando ? 'Guardando…' : 'Guardar cambios'}
-          </button>
-        )}
       </div>
 
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}

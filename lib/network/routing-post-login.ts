@@ -30,7 +30,14 @@ export function resolverDestinoPostLogin(
   estadoPerfilNetworkAlumna: string | null = null,
 ): string {
   if (tieneEstudio) return '/dashboard';
-  if (estadoPerfilNetwork === 'published' || estadoPerfilNetwork === 'en_revision') return '/network/inicio';
+  // 'hidden' es un perfil que en algún momento estuvo completo y publicado
+  // (único origen real: el botón "Ocultar perfil" de /network/mi-perfil, que
+  // solo aparece con estado 'published') — mandarlo al wizard "Hola de
+  // nuevo, sigamos donde lo dejaste" hace que una instructora con el perfil
+  // ya hecho sienta que tiene que rellenarlo todo otra vez. Va a inicio,
+  // igual que published/en_revision; desde ahí llega a mi-perfil, que ya
+  // sabe pintar el aviso de "oculto" con su botón de reactivar.
+  if (estadoPerfilNetwork === 'published' || estadoPerfilNetwork === 'en_revision' || estadoPerfilNetwork === 'hidden') return '/network/inicio';
   if (estadoPerfilNetwork !== null) return '/network/reanudar';
   // Sin nada de instructora: mira alumna antes de asumir "reanudar" (que es
   // destino de instructora) — mismo criterio que la rama de instructora.
@@ -79,8 +86,10 @@ export function resolverAccesoPorProducto(producto: Producto, cuenta: CuentaInfo
       return {
         tipo: 'entra',
         // Mismo criterio que resolverDestinoPostLogin: 'en_revision' es
-        // wizard TERMINADO esperando aprobación, va a inicio, no a reanudar.
-        destino: cuenta.estadoPerfilNetwork === 'published' || cuenta.estadoPerfilNetwork === 'en_revision'
+        // wizard TERMINADO esperando aprobación, y 'hidden' es un perfil que
+        // ya estuvo completo y se ocultó a mano — las dos van a inicio, no
+        // al wizard de reanudar.
+        destino: cuenta.estadoPerfilNetwork === 'published' || cuenta.estadoPerfilNetwork === 'en_revision' || cuenta.estadoPerfilNetwork === 'hidden'
           ? '/network/inicio' : '/network/reanudar',
       };
     }

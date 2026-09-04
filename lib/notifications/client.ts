@@ -71,12 +71,22 @@ export async function fetchPreferencias(getHeaders: Headers): Promise<Record<str
   return prefs ?? {};
 }
 
+// Devuelve `false` si el guardado NO llegó a la BD. Antes era `Promise<void>`
+// y tiraba la respuesta: los dos interruptores (portal y panel) pintan el
+// cambio de forma optimista, así que un 4xx/5xx o un corte de red dejaba a la
+// socia creyendo que había apagado el aviso de pago; al recargar volvía
+// encendido. El endpoint sí sabe fallar (app/api/notifications/preferences).
 export async function guardarPreferencia(
   getHeaders: Headers, studioId: string, category: string, valores: { inapp: boolean; push: boolean },
-): Promise<void> {
-  await fetch('/api/notifications/preferences', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...(await getHeaders()) },
-    body: JSON.stringify({ studioId, category, ...valores }),
-  });
+): Promise<boolean> {
+  try {
+    const res = await fetch('/api/notifications/preferences', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(await getHeaders()) },
+      body: JSON.stringify({ studioId, category, ...valores }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }

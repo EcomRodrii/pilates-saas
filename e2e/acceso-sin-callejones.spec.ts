@@ -76,7 +76,6 @@ test.describe('Entrar sin confirmar el email deja de ser un callejón sin salida
     await page.route('**/auth/v1/token**', route =>
       json(route, { code: 400, error_code: 'email_not_confirmed', msg: 'Email not confirmed' }, 400));
     await page.route('**/auth/v1/resend**', route => { pedido = true; return json(route, {}); });
-    await page.route('**/api/auth/otp/reenviado', route => json(route, { ok: true }));
 
     await page.goto('/login');
     await page.getByLabel('Email').fill('nueva@ejemplo.com');

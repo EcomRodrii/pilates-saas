@@ -11,27 +11,30 @@ import {
   type BloqueHome, type BloqueHijo, type FaqConfig, CAMPOS_ESTILO, CAMPOS_ESTILO_BANNER, CAMPOS_CONTENEDOR, conFijos, esBloqueFijo, esBloqueOcultable } from './portal-home-bloques.ts';
 import { defaultsDe, resolverConfig, type CampoSchema } from './theme/campos.ts';
 
-test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los 4 de siempre detrás, en orden', () => {
+test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los de siempre detrás, en orden', () => {
   const idsVisibles = DEFAULT_BLOQUES_POR_PANTALLA.home
     .filter((b) => !b.oculto)
     .map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
   // ⚠️ `cabecera` y `proximaClase` son nuevos, y NO cambian nada de lo que se
   // pinta: ya se pintaban, escritos a fuego encima del contenedor de bloques.
-  // Lo que cambia es que ahora EXISTEN para el editor. Los 4 de siempre siguen
-  // en su orden, detrás.
-  assert.deepEqual(idsVisibles, ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
+  // Lo que cambia es que ahora EXISTEN para el editor.
+  // `tiraSemana`/`progresoSemanal`/`retos` se sumaron aquí en la auditoría del
+  // Theme Builder / rediseño "Tentare Studio App" (2026-08-26): nacían solo
+  // para Oliva/Noir/Bloom, ahora son parte del Inicio de siempre.
+  // Van INMEDIATAMENTE detrás de los fijos (no al final): en el diseño real
+  // "Tu ritmo" (bono, arriba, escrito a fuego) y "Mi progreso"/"Retos" son un
+  // solo grupo visual continuo — con "Esta semana"/"Invita a una amiga" antes,
+  // un estudio sin capa guardada veía "Tu ritmo" seguido de contenido no
+  // relacionado, y los bloques que sí completan ese grupo varias pantallas
+  // más abajo.
+  assert.deepEqual(idsVisibles, ['cabecera', 'proximaClase', 'tiraSemana', 'progresoSemanal', 'retos', 'estaSemana', 'invitarAmiga', 'contenidoEstudio']);
 });
 
-test('DEFAULT_BLOQUES_POR_PANTALLA.home: tiraSemana/progresoSemanal/retos existen pero OCULTOS (solo Oliva/Noir/Bloom los activan)', () => {
+test('DEFAULT_BLOQUES_POR_PANTALLA.home: ningún bloque de sistema llega oculto por defecto', () => {
   const ocultos = DEFAULT_BLOQUES_POR_PANTALLA.home
     .filter((b) => b.oculto)
     .map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  // Los cinco del kit (2026-08-14) se suman a la lista de ocultos por el mismo
-  // motivo: un estudio con el portal de siempre no tiene quien los pinte.
-  assert.deepEqual(ocultos, [
-    'tiraSemana', 'progresoSemanal', 'retos',
-    'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
-  ]);
+  assert.deepEqual(ocultos, []);
 });
 
 test('DEFAULT_BLOQUES_POR_PANTALLA: Clases y Bonos tienen un único bloque sistema', () => {
@@ -42,33 +45,32 @@ test('DEFAULT_BLOQUES_POR_PANTALLA: Clases y Bonos tienen un único bloque siste
 test('resolveBloquesPantalla: Home sin nada guardado y sin legacy → default de siempre', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: [], ocultos: [] });
   const visibles = r.publicado.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
+  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'tiraSemana', 'progresoSemanal', 'retos', 'estaSemana', 'invitarAmiga', 'contenidoEstudio']);
   assert.deepEqual(r.draft, r.publicado);
 });
 
-test('resolveBloquesPantalla: Home, tiraSemana/progresoSemanal/retos llegan OCULTOS incluso sin legacy', () => {
+test('resolveBloquesPantalla: Home, ningún bloque de sistema llega OCULTO sin legacy', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: [], ocultos: [] });
   const ocultos = r.publicado.filter((b) => b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(ocultos, [
-    'tiraSemana', 'progresoSemanal', 'retos',
-    'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
-  ]);
+  assert.deepEqual(ocultos, []);
 });
 
 test('resolveBloquesPantalla: Home sintetiza desde portalHome legacy (Fase 2) — mismo orden/ocultos, sin migrar datos', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: ['contenidoEstudio', 'estaSemana'], ocultos: ['invitarAmiga'] });
   const visibles = r.publicado.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
   // Los fijos van DELANTE, no en el orden legacy: el saludo y la tarjeta se
-  // mantienen arriba pase lo que pase. El resto conserva su orden guardado.
-  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'contenidoEstudio', 'estaSemana', 'accesosRapidos']);
+  // mantienen arriba pase lo que pase. El resto conserva su orden guardado, y
+  // lo que no estaba en el legacy (tiraSemana/progresoSemanal/retos) se añade
+  // visible al final.
+  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'contenidoEstudio', 'estaSemana', 'tiraSemana', 'progresoSemanal', 'retos']);
   const invitar = r.publicado.find((b) => b.kind === 'sistema' && b.sistemaId === 'invitarAmiga');
   assert.equal(invitar?.oculto, true);
   // tiraSemana/progresoSemanal/retos no estaban en el legacy (no existían) →
-  // se añaden al final por el segundo spread de resolveBloquesPantalla, y
-  // bloqueSistema() ya los marca ocultos por defecto.
+  // se añaden al final por el segundo spread de resolveBloquesPantalla; ya no
+  // están ocultos por defecto (ver test de arriba), así que llegan visibles.
   const nuevos = r.publicado.filter((b) => b.kind === 'sistema' && (b.sistemaId === 'tiraSemana' || b.sistemaId === 'progresoSemanal' || b.sistemaId === 'retos'));
   assert.equal(nuevos.length, 3);
-  assert.ok(nuevos.every((b) => b.oculto));
+  assert.ok(nuevos.every((b) => !b.oculto));
 });
 
 test('resolveBloquesPantalla: Home, una vez hay bloques guardado, YA NO mira portalHome (es la fuente de verdad)', () => {
@@ -346,7 +348,6 @@ test('BLOQUE_SISTEMA_LABEL derivado no cambia ni una coma — hay e2e que buscan
     cabecera: 'Cabecera',
     proximaClase: 'Tarjeta de próxima clase',
     estaSemana: 'Esta semana',
-    accesosRapidos: 'Accesos rápidos',
     invitarAmiga: 'Invita a una amiga',
     contenidoEstudio: 'Contenido del estudio',
     listadoClases: 'Calendario de clases',
@@ -354,13 +355,6 @@ test('BLOQUE_SISTEMA_LABEL derivado no cambia ni una coma — hay e2e que buscan
     tiraSemana: 'Tira de la semana',
     progresoSemanal: 'Progreso semanal',
     retos: 'Retos',
-    // ⚠️ Los cinco del kit se AÑADEN; ninguna etiqueta de las de arriba cambia,
-    // que es lo que este oráculo protege (hay e2e buscando esos textos).
-    racha: 'Tu racha',
-    tarjetaBono: 'Tu bono',
-    misReservas: 'Tus próximas reservas',
-    videosEnCasa: 'Pilates en casa',
-    citaEstudio: 'Cierre del Inicio',
     // /reservar (Fase 1 de su generalización a bloques): mismos nombres que
     // ya usa lib/reservar/secciones.ts, literales — no derivados de ahí, para
     // que este oráculo detecte una divergencia futura entre los dos sitios.
@@ -387,7 +381,6 @@ test('el paréntesis explicativo vive ahora en `descripcion`, no dentro del nomb
   }
 
   assert.equal(REGISTRO_BLOQUES.retos.descripcion, 'Carrusel con conteo real de apuntadas y botón Apuntarme.');
-  assert.equal(REGISTRO_BLOQUES.accesosRapidos.descripcion, 'Reservas, progreso, notificaciones y equipo.');
   assert.equal(REGISTRO_BLOQUES.contenidoEstudio.descripcion, 'Mensaje destacado y banners.');
 });
 
@@ -692,9 +685,8 @@ test('el tipo impide un segundo nivel — BloqueHijo no tiene `hijos`', () => {
 // mientras tuvieran `campos: []` una propietaria no podía editar NADA hasta
 // añadir un bloque de catálogo.
 
-test('los cuatro bloques del Inicio ya no están vacíos de campos', () => {
+test('los bloques del Inicio ya no están vacíos de campos', () => {
   assert.ok(getDefinicionBloque('estaSemana')!.campos.length > 0);
-  assert.ok(getDefinicionBloque('accesosRapidos')!.campos.length > 0);
   assert.ok(getDefinicionBloque('invitarAmiga')!.campos.length > 0);
 });
 
@@ -708,9 +700,6 @@ test('⚠️ los porDefecto SON los textos que estaban escritos a fuego en el re
   assert.equal(campo('invitarAmiga', 'antetitulo').porDefecto, 'Trae a quien quieras');
   assert.equal(campo('invitarAmiga', 'titulo').porDefecto, 'La calma se comparte mejor.');
   assert.equal(campo('invitarAmiga', 'subtitulo').porDefecto, 'Invita a una amiga y ganáis las dos');
-  // El de accesos rápidos va vacío a propósito: sin rótulo propio manda el del
-  // tema (`rotuloAccesos`), y un texto aquí lo pisaría para todo el mundo.
-  assert.equal(campo('accesosRapidos', 'titulo').porDefecto, '');
 });
 
 test('un bloque de sistema guardado SIN config se lee con los textos de siempre', () => {
@@ -810,13 +799,13 @@ test('⚠️ un estudio que YA tiene su Inicio guardado recibe los bloques fijos
   // guardado tal cual. Es lo que dejó fuera a tiraSemana/progresoSemanal/retos
   // de todo estudio que no instalara uno de los tres temas.
   const guardado = {
-    draft: [{ id: 'a', kind: 'sistema', sistemaId: 'accesosRapidos' }],
-    publicado: [{ id: 'a', kind: 'sistema', sistemaId: 'accesosRapidos' }],
+    draft: [{ id: 'a', kind: 'sistema', sistemaId: 'invitarAmiga' }],
+    publicado: [{ id: 'a', kind: 'sistema', sistemaId: 'invitarAmiga' }],
   };
   const r = resolveBloquesPantalla(guardado, 'home');
   const ids = r.draft.filter((b) => b.kind === 'sistema').map((b) => b.sistemaId);
   assert.deepEqual(ids.slice(0, 2), ['cabecera', 'proximaClase'], 'van delante, en su orden');
-  assert.ok(ids.includes('accesosRapidos'), 'y no se pierde lo que ya tenía');
+  assert.ok(ids.includes('invitarAmiga'), 'y no se pierde lo que ya tenía');
 });
 
 test('los fijos NO se duplican si ya estaban guardados', () => {
@@ -824,7 +813,7 @@ test('los fijos NO se duplican si ya estaban guardados', () => {
     draft: [
       { id: 'c', kind: 'sistema', sistemaId: 'cabecera' },
       { id: 'p', kind: 'sistema', sistemaId: 'proximaClase' },
-      { id: 'a', kind: 'sistema', sistemaId: 'accesosRapidos' },
+      { id: 'a', kind: 'sistema', sistemaId: 'invitarAmiga' },
     ],
     publicado: [],
   };
@@ -835,7 +824,7 @@ test('los fijos NO se duplican si ya estaban guardados', () => {
 test('un bloque reordenable que el estudio quitó NO se le vuelve a meter', () => {
   // Solo se inyectan los FIJOS. Reinyectar los demás sería deshacerle una
   // decisión a la propietaria cada vez que abre el editor.
-  const guardado = { draft: [{ id: 'a', kind: 'sistema', sistemaId: 'accesosRapidos' }], publicado: [] };
+  const guardado = { draft: [{ id: 'a', kind: 'sistema', sistemaId: 'contenidoEstudio' }], publicado: [] };
   const ids = resolveBloquesPantalla(guardado, 'home').draft.filter((b) => b.kind === 'sistema').map((b) => b.sistemaId);
   assert.equal(ids.includes('invitarAmiga'), false);
   assert.equal(ids.includes('estaSemana'), false);
@@ -859,7 +848,7 @@ test('⚠️ un campo con porDefecto VACÍO no debe borrar el texto del render',
   assert.equal(c.porDefecto, '', 'vacío = "la frase que traiga tu tema", no una frase impuesta a todos');
   // Y la que sí tiene texto propio lo conserva.
   const sin = getDefinicionBloque('cabecera')!.campos.find((x) => x.id === 'fraseSinClase') as { porDefecto: unknown };
-  assert.equal(sin.porDefecto, 'Tu sitio sigue aquí.');
+  assert.equal(sin.porDefecto, '¿Qué te apetece hoy?');
 });
 
 // ── Etapa 1: condiciones y grupos en el estilo ──────────────────────────────

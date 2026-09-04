@@ -34,7 +34,6 @@ function json(route: Route, body: unknown, status = 200) {
 
 const BLOQUES_HOME_DEFAULT = [
   { id: 'sistema-estaSemana', kind: 'sistema', sistemaId: 'estaSemana' },
-  { id: 'sistema-accesosRapidos', kind: 'sistema', sistemaId: 'accesosRapidos' },
   { id: 'sistema-invitarAmiga', kind: 'sistema', sistemaId: 'invitarAmiga' },
   { id: 'sistema-contenidoEstudio', kind: 'sistema', sistemaId: 'contenidoEstudio' },
 ];

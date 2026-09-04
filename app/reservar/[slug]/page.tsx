@@ -1,17 +1,20 @@
 'use client';
 import { aFechaCal, eventoIcs, nombreIcs } from '@/lib/calendario-ics';
+import { esClavePublicable } from '@/lib/billing/modo-stripe';
 import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { portalAuthHeader } from '@/lib/api-client';
+import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
-import { resolutorCobertura, precioDeCobertura, textoCobertura } from '@/lib/reservar/cobertura';
+import { resolutorCobertura, precioDeCobertura, textoCobertura, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
@@ -28,34 +31,39 @@ import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
-import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe } from '@/lib/reservar/apariencia-widget';
+import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe, escalaDensidad } from '@/lib/reservar/apariencia-widget';
 import { resolverConfigWidget } from '@/lib/reservar/config-widget';
-import { varsPaletaModo } from '@/lib/portal-paleta';
-import { MODO_TOKENS } from '@/lib/portal-modo';
 import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
-import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
+import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, RESERVAR_PALETA, varsReservarModo, tokensCalendarioDeApariencia } from '@/lib/reservar-publico-tokens';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
 import { PantallaReserva } from '@/components/reserva/pantalla-reserva';
+import { SpotPickerPublico } from '@/components/reserva/spot-picker-publico';
 import { piDeClientSecret, RETARDOS_POLL_MS, type RespuestaEstadoPago } from '@/lib/billing/estado-pago-publico';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import {
   Users, CheckCircle2, X, Calendar, ChevronLeft,
   CreditCard, FileText, Download, ExternalLink, Mail,
-  Loader2, AlertTriangle, Hourglass,
+  Loader2, AlertTriangle, Hourglass, Menu,
 } from 'lucide-react';
 
 // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
 // mismo patrón que app/widget-bundle/main.tsx — Modo A (esta página) nunca
 // había necesitado la clave publicable de Stripe en el cliente hasta ahora
 // (la compra de plan existente redirige a Checkout Session, todo en servidor).
-const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+// Saneada, no cruda: una clave con forma equivocada (una `sk_` por una env
+// var mal puesta) pasa la validación de `loadStripe()` y revienta después de
+// forma asíncrona, tumbando la pantalla entera. Con `undefined` se cae al
+// camino ya existente de "pago no disponible".
+const STRIPE_PUBLISHABLE_KEY = esClavePublicable(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  ? process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  : undefined;
 
 // Code-splitting (audit de rendimiento de los widgets embebibles): cada tab
 // de este widget (clases / citas 1:1 / mis reservas / planes) es
@@ -85,6 +93,19 @@ const CitasPublica = dynamic(
 // muestra un esqueleto). Su valor concreto es irrelevante: existe únicamente
 // para no llamar a new Date() durante el SSR y evitar mismatches de hidratación.
 const FECHA_PLACEHOLDER_SSR = new Date('2026-01-01T12:00:00');
+
+// "Cumpleaños · dd/mm/aaaa" (diseño "Tentare Portal Reservas", campo de texto
+// libre, no un `<input type="date">`) → ISO `yyyy-mm-dd` para
+// `fecha_nacimiento` (columna `date`). `null` si no cuadra el patrón o el mes/
+// día no son válidos — el llamador simplemente omite el campo, nunca bloquea.
+function fechaNacimientoISO(texto: string): string | null {
+  const m = texto.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const [, d, mo, y] = m;
+  const dia = Number(d), mes = Number(mo), anio = Number(y);
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+  return `${anio}-${pad2(mes)}-${pad2(dia)}`;
+}
 
 function pad2(n: number) { return String(n).padStart(2, '0'); }
 function localDate(d: Date) {
@@ -185,50 +206,93 @@ function LevelBadge({ nivel }: { nivel?: string }) {
   );
 }
 
-// Mapa de sitios (reformers) para que la socia elija el suyo al reservar (I-12).
-// Anónimo: los ocupados se muestran deshabilitados, sin revelar quién los tiene.
-function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
-  spots: { id: string; nombre: string; fila: number; columna: number }[];
-  takenIds: Set<string>;
-  selected: string | null;
-  onSelect: (id: string | null) => void;
-  primary: string;
+// Diseño "Tentare Portal Reservas": sin barra de pestañas, "Citas"/"El
+// estudio"/"Mi cuenta" no tienen sitio en el .dc.html — quedan en este menú
+// desplegable desde la cabecera (decisión de producto explícita, el diseño
+// no lo especifica). Un botón de icono + un `<div>` posicionado en vez de un
+// `<select>`: necesita pintar cada opción con su propia tipografía/estado
+// activo, que un `<select>` nativo no permite.
+function MenuSecciones({ tabs, tabActual, onIr }: {
+  tabs: readonly (readonly [Tab, string])[];
+  tabActual: string;
+  onIr: (t: Tab) => void;
 }) {
-  const filas = [...new Set(spots.map(s => s.fila))].sort((a, b) => a - b);
-  const columnas = [...new Set(spots.map(s => s.columna))].sort((a, b) => a - b);
+  const [abierto, setAbierto] = useState(false);
+  // Posición en viewport del botón — el menú se porta a `document.body`
+  // (fixed, calculado desde aquí) en vez de `position: absolute` dentro de
+  // este `<div>`: el ancestro que pinta la barra+portada como una sola caja
+  // de degradado (comentario junto a `orden('horario')`, unas líneas más
+  // arriba) lleva `overflow: hidden` a propósito para esa costura, y
+  // cualquier hijo `absolute` de ahí dentro se recorta en el borde de la
+  // caja pase lo que pase con el z-index — encontrado en producción: el
+  // menú se veía cortado nada más abrirlo.
+  const [rect, setRect] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!abierto) return;
+    function fuera(e: MouseEvent) {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (menuRef.current && !menuRef.current.contains(t)) setAbierto(false);
+    }
+    document.addEventListener('mousedown', fuera);
+    return () => document.removeEventListener('mousedown', fuera);
+  }, [abierto]);
+  const otras = tabs.filter(([t]) => t !== 'clases' && t !== 'misreservas');
   return (
-    <div>
-      <div className="rounded-lg py-1.5 text-center text-[9px] font-bold uppercase tracking-widest bg-[var(--portal-surface-2)] text-[var(--portal-muted)] mb-2">
-        Parte frontal · Instructora
-      </div>
-      {/* Celdas compactas de tamaño fijo acotado y centradas (feedback del
-          fundador: «los sitios son muy grandes»), mismo criterio que el
-          SpotPicker del calendario compartido. */}
-      <div className="grid gap-1.5 justify-center" style={{ gridTemplateColumns: `repeat(${columnas.length}, minmax(30px, 48px))` }}>
-        {filas.map(f => columnas.map(c => {
-          const spot = spots.find(s => s.fila === f && s.columna === c);
-          if (!spot) return <div key={`${f}-${c}`} />;
-          const taken = takenIds.has(spot.id);
-          const isSel = selected === spot.id;
-          return (
-            <button key={spot.id} type="button" disabled={taken}
-              onClick={() => onSelect(isSel ? null : spot.id)}
-              title={taken ? 'Ocupado' : spot.nombre}
-              className="aspect-square rounded-[10px] border text-[10px] font-bold flex items-center justify-center transition-all disabled:cursor-not-allowed"
-              style={taken
-                ? { backgroundColor: 'var(--portal-surface-2)', borderColor: 'var(--portal-line)', color: 'var(--portal-micro)' }
-                : isSel
-                ? { backgroundColor: primary, borderColor: primary, color: 'var(--portal-surface)' }
-                : { backgroundColor: 'var(--portal-surface)', borderColor: 'var(--portal-line)', color: 'var(--portal-ink)' }}>
-              {spot.nombre}
+    <div style={{ position: 'relative' }}>
+      <button
+        ref={btnRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={abierto}
+        aria-label="Más secciones"
+        onClick={() => {
+          if (!abierto && btnRef.current) {
+            const r = btnRef.current.getBoundingClientRect();
+            setRect({ top: r.bottom + 8, right: window.innerWidth - r.right });
+          }
+          setAbierto(v => !v);
+        }}
+        style={{
+          width: 46, height: 46, borderRadius: 23, border: '1px solid var(--portal-line)',
+          background: 'var(--portal-surface)', color: 'var(--portal-ink)', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <Menu size={17} />
+      </button>
+      {abierto && rect && typeof document !== 'undefined' && createPortal(
+        <div ref={menuRef} role="menu" style={{
+          position: 'fixed', top: rect.top, right: rect.right, zIndex: 100, minWidth: 160,
+          background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', borderRadius: 14,
+          boxShadow: '0 14px 34px -12px rgba(15,15,15,.28)', padding: 6, display: 'flex', flexDirection: 'column', gap: 2,
+        }}>
+          {otras.map(([t, label]) => (
+            <button
+              key={t}
+              type="button"
+              role="menuitem"
+              onClick={() => { onIr(t); setAbierto(false); }}
+              style={{
+                textAlign: 'left', padding: '9px 12px', borderRadius: 9, border: 'none', cursor: 'pointer',
+                background: tabActual === t ? 'var(--portal-velo)' : 'transparent',
+                color: 'var(--portal-ink)', fontFamily: sans, fontSize: 13, fontWeight: 600,
+              }}
+            >
+              {label}
             </button>
-          );
-        }))}
-      </div>
+          ))}
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
 
+// Mapa de sitios (reformers) para que la socia elija el suyo al reservar (I-12).
+// Anónimo: los ocupados se muestran deshabilitados, sin revelar quién los tiene.
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio' | 'cuenta';
@@ -282,10 +346,11 @@ function claveDeVista(paso: VistaPaso | null, claseId: string): string {
 const OCUPA_PLAZA: Reserva['estado'][] = ['CONFIRMADA', 'ASISTIDA'];
 const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 
-// Tema del calendario compartido para el widget PÚBLICO: reutiliza el tema claro
-// del portal (MODO_TOKENS.dia), que ya casa con el lenguaje visual de /reservar
-// (fondo hueso, tarjetas blancas, marca --portal-brand). Fuera del componente
-// para no recrearlo en cada render.
+// Tema del calendario PÚBLICO: la paleta propia del rediseño de /reservar
+// (RESERVAR_PALETA, lib/reservar-publico-tokens.ts) — YA NO `MODO_TOKENS.dia`
+// (esa es la del portal privado de la clienta, un contexto de marca distinto
+// a propósito, ver .claude/tentare-os.md "Arquitectura de marca"). Fuera del
+// componente para no recrearlo en cada render.
 //
 // ⚠️ **Solo queda `RT.hero` aquí, y a propósito.** El resto de tokens de esta
 // página se leen por variable CSS (`var(--portal-…)`) y no por este objeto: al
@@ -293,7 +358,7 @@ const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 // línea, y un token de JS fijado a `dia` a nivel de módulo NO se entera — las
 // tarjetas se quedaban blancas con letra clara encima. El degradado del hero es
 // la excepción legítima: solo se pinta fuera del modo incrustado.
-const RESERVAR_TOKENS = MODO_TOKENS.dia;
+const RESERVAR_TOKENS = RESERVAR_PALETA.dia;
 const RT = RESERVAR_TOKENS;
 
 // Mínimo razonable de dígitos para un teléfono real (España: 9). No se valida
@@ -414,7 +479,7 @@ export default function ReservarPage() {
   // el widget con la paleta en línea aunque nadie la haya tocado, y a partir de
   // ahí un cambio del tema del portal ya no llegaría aquí.
   const varsTexto = useMemo(
-    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? varsPaletaModo('noche') : null),
+    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? varsReservarModo('noche') : null),
     [embedMode, apariencia],
   );
   // ⚠️ El calendario NO se pinta por variables CSS: recibe los tokens por prop
@@ -427,8 +492,16 @@ export default function ReservarPage() {
   //
   // Fuera del modo incrustado es el MISMO objeto de siempre, así que ningún
   // estudio ve un cambio.
+  //
+  // ⚠️ Auditoría de UX (2026-08-31): por el MISMO motivo de arriba (tercer
+  // canal de color, no CSS), los 5 controles de "Colores del widget" del
+  // Theme Builder (superficie/tinta/texto secundario/bordes/relleno) se
+  // guardaban y se veían en la vista previa del panel pero nunca llegaban
+  // aquí — `tokensCalendarioDeApariencia` (lib/reservar-publico-tokens.ts) es
+  // la pieza que faltaba: la paleta de siempre, con esos 5 campos pisados
+  // solo si el estudio los tocó.
   const tokensCalendario = useMemo(
-    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? MODO_TOKENS.noche : RESERVAR_TOKENS),
+    () => tokensCalendarioDeApariencia(apariencia, embedMode && modoTextoDe(apariencia) === 'noche' ? 'noche' : 'dia'),
     [embedMode, apariencia],
   );
   // Widget incrustado sobre una web oscura. Se saca a su propia constante
@@ -492,8 +565,29 @@ export default function ReservarPage() {
   const [filtroNivel] = useState('');
   const [filtroHorario] = useState<'' | 'manana' | 'mediodia' | 'tarde'>('');
   const [filtroDias] = useState<number[]>([]);
-  const [filtroInstructor] = useState('');
+  const [filtroInstructor, setFiltroInstructor] = useState('');
   const [filtroSala] = useState('');
+  // Chips de instructora — mismo criterio que "El equipo" (`queImparten`):
+  // solo quien de verdad da clases (quita recepción/gerencia y bajas), para
+  // no ofrecer un filtro que siempre da cero resultados.
+  const instructoresVisibles = useMemo(() => queImparten(instructores), [instructores]);
+  // Chips combinados tipo+instructora del bloque sticky (diseño "Tentare
+  // Portal Reservas"): "Todas" + un chip por tipo + un chip por instructora,
+  // en una sola fila — dos filtros independientes (`filtroTipo`/
+  // `filtroInstructor`) que conviven porque `slots` ya los aplica los dos a
+  // la vez (líneas 1114/1123 y 1340/1347).
+  const filtrosChipsClases = useMemo(() => {
+    const chips: { id: string; label: string; activo: boolean; onClick: () => void }[] = [
+      { id: '__todas', label: 'Todas', activo: filtroTipo === '' && filtroInstructor === '', onClick: () => { setFiltroTipo(''); setFiltroInstructor(''); } },
+    ];
+    for (const t of tiposClaseVisibles) {
+      chips.push({ id: `tipo:${t.id}`, label: t.nombre, activo: filtroTipo === t.id, onClick: () => setFiltroTipo(filtroTipo === t.id ? '' : t.id) });
+    }
+    for (const i of instructoresVisibles) {
+      chips.push({ id: `instructor:${i.id}`, label: i.nombre, activo: filtroInstructor === i.nombre, onClick: () => setFiltroInstructor(filtroInstructor === i.nombre ? '' : i.nombre) });
+    }
+    return chips;
+  }, [tiposClaseVisibles, instructoresVisibles, filtroTipo, filtroInstructor]);
   // Buscar por texto libre — nombre de clase o de instructora, sobre los
   // mismos slots ya cargados. Sin UI propia hoy (el handoff
   // design_handoff_widget_reservas no trae buscador), pero `slots` sigue
@@ -564,13 +658,62 @@ export default function ReservarPage() {
   // antes de que el primer render se confirme.
   const [confirmando, setConfirmando] = useState(false);
   const confirmandoRef = useRef(false);
-  const [loginForm, setLoginForm] = useState({ nombre: '', apellidos: '', email: '', telefono: '' });
+  // Mismo cerrojo doble que `confirmando`/`confirmandoRef`, para
+  // `handleSignContract`: sin él, dos pulsaciones rápidas de "Aceptar y
+  // continuar" en el paso 'contrato' de una walk-in en acceso genérico
+  // corrían dos veces `crearAltaWalkIn` con dos `soc-${Date.now()}`
+  // distintos, y `socios` no tiene ningún UNIQUE que lo impida a nivel de
+  // servidor — dos fichas de socia reales para la misma persona (17ª
+  // auditoría, P-6).
+  const [firmando, setFirmando] = useState(false);
+  const firmandoRef = useRef(false);
+  // ⚠️ Auditoría de conversión (2026-08-31): una invitada que rellena "Tus
+  // datos", retrocede (por error, o para mirar otro día) y vuelve a entrar
+  // en el flujo se encontraba el formulario en blanco — sin ningún
+  // `sessionStorage`/`localStorage` que lo recordara. Nombre/email/móvil son
+  // datos que ella misma escribió, no sensibles (nunca tarjeta/pago), así
+  // que se cachean por PESTAÑA — se pierden al cerrarla, como cualquier
+  // autorrelleno razonable — y solo se leen una vez al montar (lazy
+  // initializer, no en cada render).
+  const [loginForm, setLoginForm] = useState<{ nombre: string; apellidos: string; email: string; telefono: string }>(() => {
+    const vacio = { nombre: '', apellidos: '', email: '', telefono: '' };
+    if (typeof window === 'undefined') return vacio;
+    try {
+      const guardado = JSON.parse(sessionStorage.getItem('reservar-datos-invitada') ?? 'null');
+      if (guardado && typeof guardado === 'object') {
+        return {
+          nombre: typeof guardado.nombre === 'string' ? guardado.nombre : '',
+          apellidos: '',
+          email: typeof guardado.email === 'string' ? guardado.email : '',
+          telefono: typeof guardado.telefono === 'string' ? guardado.telefono : '',
+        };
+      }
+    } catch { /* sessionStorage inaccesible (privado/bloqueado) o JSON corrupto: se ignora, formulario vacío */ }
+    return vacio;
+  });
+  // Persiste nombre/email/móvil mientras escribe, SOLO para invitadas (una
+  // socia autenticada ya trae sus datos de `socia`, no necesita este caché).
+  useEffect(() => {
+    if (autenticado) return;
+    if (!loginForm.nombre && !loginForm.email && !loginForm.telefono) return;
+    try {
+      sessionStorage.setItem('reservar-datos-invitada', JSON.stringify({
+        nombre: loginForm.nombre, email: loginForm.email, telefono: loginForm.telefono,
+      }));
+    } catch { /* sessionStorage inaccesible: el formulario sigue funcionando, solo sin recordar */ }
+  }, [autenticado, loginForm.nombre, loginForm.email, loginForm.telefono]);
   const [loginStep, setLoginStep] = useState<Step>('login');
   // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §3/§4).
   const [datosPlan, setDatosPlan] = useState<PlanTarifa | null>(null);
   const [datosClientSecret, setDatosClientSecret] = useState<string | null>(null);
   const [datosError, setDatosError] = useState('');
   const [datosCargando, setDatosCargando] = useState(false);
+  // "Información adicional" (diseño "Tentare Portal Reservas"): datos de perfil
+  // opcionales del checkout sin login — conflicto aprobado ("con migración",
+  // aunque al final no hizo falta: campos_extra/fecha_nacimiento ya existían
+  // en el esquema). Van a checkout-embebido → metadata → entregarPlanComprado,
+  // y solo se escriben si la compra crea una ficha NUEVA.
+  const [datosInfoAdicional, setDatosInfoAdicional] = useState({ genero: '', comoConociste: '', codigoPostal: '', fechaNacimiento: '' });
   // Marca que la pantalla 'done' llegó vía este camino (pago sin login), para
   // mostrar la mención de "hemos creado tu cuenta" en vez del copy genérico.
   const [pagoWebSinLogin, setPagoWebSinLogin] = useState(false);
@@ -610,6 +753,12 @@ export default function ReservarPage() {
   // 03): tabs Próximas/Pasadas sobre la MISMA lista ya cargada — sin fetch
   // aparte, `misReservas` ya trae ambas.
   const [misReservasTab, setMisReservasTab] = useState<'proximas' | 'pasadas'>('proximas');
+  // Diseño "Tentare Portal Reservas": "Mis reservas" es un SHEET que se
+  // desliza desde abajo sobre la lista de clases, no una pestaña de página
+  // completa — el estado que antes vivía en `tab === 'misreservas'` sigue
+  // igual (mismo contenido, mismos estados reales), solo cambia el
+  // contenedor que lo pinta.
+  const [misReservasAbierta, setMisReservasAbierta] = useState(false);
   // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
   // esto nunca bloquea el envío — mismo comportamiento que /login.
   const { widget: captcha, pedirToken } = useCaptcha();
@@ -660,6 +809,14 @@ export default function ReservarPage() {
   // La hoja de confirmar cita vive dentro de <CitasPublica>; nos avisa por
   // `onOverlayAbierto` para poder anclarla igual que las demás.
   const [citaConfirmandoAbierta, setCitaConfirmandoAbierta] = useState(false);
+  // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
+  // 05 "Reserva esta clase"): un enlace directo a `?sesion=` ya no salta
+  // recto a la hoja de reserva — aterriza primero en una ficha-resumen de ESA
+  // clase (fecha/hora/instructora/plazas + precio), sin selector para
+  // cambiarla (respuesta 4 del brief). "Reservar mi plaza" es lo que abre la
+  // hoja de siempre. Declarado aquí (antes de `overlayEmbebidoAbierto`/
+  // `enVistaReserva`, que lo usan) para no depender del orden de ejecución.
+  const [fichaSesionId, setFichaSesionId] = useState<string | null>(null);
   const overlayEmbebidoAbiertoRef = useRef(false);
   // Botón Atrás real: qué slot tiene abierta su ficha, no solo si "hay una
   // ficha abierta" — el id hace falta para reflejarlo en la URL (`?clase=`) y
@@ -701,7 +858,7 @@ export default function ReservarPage() {
   // el seguimiento del scroll EN SILENCIO: se pinta una vez con la franja
   // congelada y luego se despega. Le pasaba a la de «Citas», que ni
   // siquiera exponía su estado hacia fuera.
-  const overlayEmbebidoAbierto = embedMode && (fichaCalendarioAbierta || bookingSesionId !== null || legalDoc !== null || citaConfirmandoAbierta);
+  const overlayEmbebidoAbierto = embedMode && (fichaCalendarioAbierta || bookingSesionId !== null || fichaSesionId !== null || legalDoc !== null || citaConfirmandoAbierta);
   // Rediseño "sin popup": el listado (título "Clases", filtros, calendario,
   // caja "cómo funciona") se oculta mientras se ve la ficha de una clase O
   // el flujo de login/datos/pago que viene después — las DOS mitades de la
@@ -712,7 +869,15 @@ export default function ReservarPage() {
   // este OR, el listado reaparecía DEBAJO del flujo en el mismo instante en
   // que se pulsaba el botón (encontrado con la propia captura de
   // verificación de esta fase, no antes de escribirlo).
-  const enVistaReserva = fichaCalendarioAbierta || bookingSesionId !== null;
+  //
+  // ⚠️ Mismo aviso que el de `overlayEmbebidoAbierto` unas líneas más arriba:
+  // toda hoja/ficha nueva que tape el listado tiene que sumarse AQUÍ o se
+  // pinta encima/debajo del listado genérico en vez de sola. Le pasó a
+  // `fichaSesionId` (la ficha-resumen del deep-link `?sesion=`, Fase 4 CRO):
+  // se añadió sin sumarla a este `||`, y una visitante que llegaba por ese
+  // enlace veía la ficha Y los tabs/filtros/bonos/pie alrededor (17ª
+  // auditoría, P-6).
+  const enVistaReserva = fichaCalendarioAbierta || bookingSesionId !== null || fichaSesionId !== null;
   useEffect(() => {
     overlayEmbebidoAbiertoRef.current = overlayEmbebidoAbierto;
     if (!overlayEmbebidoAbierto || typeof window === 'undefined' || window.parent === window) return;
@@ -805,6 +970,13 @@ export default function ReservarPage() {
   // Posición estimada en lista de espera al reservar una clase llena (I-11).
   const [esperaPos, setEsperaPos] = useState<number | null>(null);
 
+  // F-16 (auditoría 20ª pasada): confirmada, pero el sitio elegido se lo
+  // dieron a otra persona antes — LISTA_ESPERA/PENDIENTE_APROBACION ya tienen
+  // su propio paso ('espera'/'pendiente'), así que este widget solo le
+  // faltaba este caso dentro de 'done'. Mismo mensaje canónico que las otras
+  // dos pantallas de reserva.
+  const [spotNoConseguido, setSpotNoConseguido] = useState(false);
+
   // Confirmación de cancelación de plaza (modal estilizado, sustituye al
   // confirm() nativo — que rompía el diseño y no era traducible).
   const [cancelConfirm, setCancelConfirm] = useState<{ reservaId: string; pierdeBono: boolean; ventana: number } | null>(null);
@@ -842,13 +1014,6 @@ export default function ReservarPage() {
   // Esta rama SÍ depende del magic link, así que sigue exigiendo `autenticado`.
   const deepLinkHecho = useRef(false);
   const leadCompletedRef = useRef(false);
-  // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
-  // 05 "Reserva esta clase"): un enlace directo a `?sesion=` ya no salta
-  // recto a la hoja de reserva — aterriza primero en una ficha-resumen de ESA
-  // clase (fecha/hora/instructora/plazas + precio), sin selector para
-  // cambiarla (respuesta 4 del brief). "Reservar mi plaza" es lo que abre la
-  // hoja de siempre.
-  const [fichaSesionId, setFichaSesionId] = useState<string | null>(null);
   useEffect(() => {
     // Fase 8 (CRO): volver aquí con `wsid` en la URL Y ya autenticada es
     // justo el momento que lead_started no podía medir por sí solo — se
@@ -867,7 +1032,23 @@ export default function ReservarPage() {
       deepLinkHecho.current = true;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Deep link: lee searchParams para abrir una reserva concreta. Depende de la URL, no de props ni estado.
       setTab('clases');
-      setFichaSesionId(sesionDeepLink);
+      // ⚠️ Bug real reportado por el fundador (2026-08-30, con vídeo): Modo B
+      // (`irAPaginaDeTentare`, app/widget-bundle/main.tsx) redirige aquí con
+      // `?sesion=` cuando una invitada toca "Reservar" en SU PROPIO widget
+      // embebido — el comentario de esa función dice explícitamente que
+      // debía caer "directo" en el flujo de pagar-y-reservar-sin-login, sin
+      // paso intermedio. Pero `?sesion=` es el MISMO parámetro que un enlace
+      // de verdad compartido por otra persona ("te han invitado a esta
+      // clase"), y sin distinguirlos las dos vías mostraban la ficha de
+      // invitación — un paso de más que Modo B nunca quiso tener. `directo=1`
+      // lo pone SOLO ese redirect interno; un enlace compartido de verdad
+      // nunca lo lleva, así que sigue abriendo la ficha de invitación como
+      // siempre.
+      if (searchParams.get('directo') === '1') {
+        openBooking(sesionDeepLink);
+      } else {
+        setFichaSesionId(sesionDeepLink);
+      }
     } else if (autenticado && searchParams.get('acceso') === '1') {
       deepLinkHecho.current = true;
       openBooking('');
@@ -1119,6 +1300,7 @@ export default function ReservarPage() {
           miOfertaExpiraEn: mia?.ofertaExpiraEn ?? null,
           precio: precioDeCobertura(cobertura(s.tipoClaseId)),
           coberturaTexto: textoCobertura(cobertura(s.tipoClaseId)),
+          coberturaTextoListaEspera: textoCoberturaListaEspera(cobertura(s.tipoClaseId)),
         } satisfies ReservaSlot;
       });
   }, [sesionesRich, nowMs, configWidget, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
@@ -1339,6 +1521,14 @@ export default function ReservarPage() {
     return misReservasTab === 'pasadas' ? [...partida].reverse() : partida;
   }, [misReservas, misReservasTab, now]);
 
+  // Badge del botón "Mis reservas" de la cabecera — diseño "Tentare Portal
+  // Reservas" (`{{ nReservas }}`): cuenta las PRÓXIMAS, no el total con
+  // pasadas — es lo que de verdad importa antes de abrir el sheet.
+  const misReservasCount = useMemo(
+    () => misReservas.filter(r => new Date(r.sesion!.fin) >= now && r.estado !== 'ASISTIDA').length,
+    [misReservas, now],
+  );
+
   // Citas 1:1 de la socia (para "mis próximas citas" en la pestaña Citas).
   const misCitas = useMemo(() => {
     if (!socia?.socioId) return [];
@@ -1359,8 +1549,18 @@ export default function ReservarPage() {
   // criterio de cobertura que el resto del repo (tiposClaseIds vacío/ausente
   // = cubre todos los tipos, ver hidratarTiposDePlanes/tieneEntitlementActivo).
   function planClaseSueltaPara(tipoClaseId: string | null | undefined, planes: PlanTarifa[]): PlanTarifa | null {
-    return planes.find(p => p.activo && p.tipo === 'PUNTUAL'
-      && (!p.tiposClaseIds || p.tiposClaseIds.length === 0 || (!!tipoClaseId && p.tiposClaseIds.includes(tipoClaseId)))) ?? null;
+    return planesClaseSueltaPara(tipoClaseId, planes)[0] ?? null;
+  }
+
+  // "Bonos y mensualidades del estudio" (checkout sin login, diseño "Tentare
+  // Portal Reservas"): TODOS los planes PUNTUAL que cubren esta clase, no solo
+  // el primero — conflicto aprobado explícitamente por el fundador ("solo
+  // planes PUNTUAL", no bonos multi-sesión/mensualidades: esos no se pueden
+  // pagar-y-usar en el mismo movimiento sin cuenta todavía creada). Mismo
+  // criterio de cobertura que la versión singular de arriba.
+  function planesClaseSueltaPara(tipoClaseId: string | null | undefined, planes: PlanTarifa[]): PlanTarifa[] {
+    return planes.filter(p => p.activo && p.tipo === 'PUNTUAL'
+      && (!p.tiposClaseIds || p.tiposClaseIds.length === 0 || (!!tipoClaseId && p.tiposClaseIds.includes(tipoClaseId))));
   }
 
   // Gate de derechos (C-4): mismo criterio que el servidor, para avisar antes de
@@ -1456,6 +1656,7 @@ export default function ReservarPage() {
     setDatosPlan(null);
     setDatosClientSecret(null);
     setDatosError('');
+    setDatosInfoAdicional({ genero: '', comoConociste: '', codigoPostal: '', fechaNacimiento: '' });
     setPagoWebSinLogin(false);
     if (!autenticado) {
       // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
@@ -1590,7 +1791,11 @@ export default function ReservarPage() {
   // del alcance de esta pieza.
   async function handleDatosContinuar() {
     if (!bookingSesionId || !datosPlan || !studio?.id || datosCargando) return;
-    if (!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono)) return;
+    // Diseño "Tentare Portal Reservas": UN solo campo "Nombre y apellido", no
+    // Nombre/Apellidos por separado — `loginForm.apellidos` ya no se usa en
+    // este flujo (se queda en el tipo/estado compartido, vacío, sin romper el
+    // resto de pasos que sí lo declaran).
+    if (!loginForm.nombre.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono)) return;
     // La casilla de privacidad es obligatoria (rediseño del popup): sin ella
     // no se inicia ningún pago. El botón ya va deshabilitado, esto es el
     // cinturón por si se llega por Enter.
@@ -1606,12 +1811,22 @@ export default function ReservarPage() {
           planId: datosPlan.id,
           sesionId: bookingSesionId,
           socioEmail: loginForm.email.trim(),
-          socioNombre: `${loginForm.nombre.trim()} ${loginForm.apellidos.trim()}`.trim(),
+          socioNombre: loginForm.nombre.trim(),
           // Antes se validaba y se TIRABA: la ficha que crea el webhook
           // quedaba sin teléfono aunque la persona lo acabara de escribir.
           socioTelefono: loginForm.telefono.trim(),
           origenLead: searchParams.get('ref') ?? null,
           codigoDescuento: codigoDescuento.trim() || undefined,
+          spotId: selectedSpot || undefined,
+          genero: datosInfoAdicional.genero || undefined,
+          comoConociste: datosInfoAdicional.comoConociste || undefined,
+          codigoPostal: datosInfoAdicional.codigoPostal.trim() || undefined,
+          // El campo del diseño es texto libre "dd/mm/aaaa" (no un
+          // `<input type="date">`) — se convierte a ISO aquí antes de mandarlo,
+          // que es el formato que espera `fecha_nacimiento` (columna `date`).
+          // Dato opcional y no bloqueante: si no cuadra el patrón, simplemente
+          // no viaja, en vez de frenar una reserva ya pagada por un typo.
+          fechaNacimiento: fechaNacimientoISO(datosInfoAdicional.fechaNacimiento) ?? undefined,
         }),
       });
       const data = await res.json() as { clientSecret?: string; error?: string };
@@ -1720,42 +1935,53 @@ export default function ReservarPage() {
   const referenciaPago = piDeClientSecret(datosClientSecret ?? '');
 
   async function handleSignContract() {
-    if (socia?.socioId) {
-      const res = await updateSocio(socia.socioId, {
-        aceptacionContrato: {
-          fecha: new Date().toISOString(),
-          firma: socia.nombre,
-          // El texto completo que se aceptó, igual que hace el panel. Antes se
-          // guardaba 'v1.1' fijo, que no correspondía a ningún versionado real:
-          // si el estudio editaba sus textos, no había forma de saber qué había
-          // aceptado cada clienta.
-          versionTexto: textoLegalCompleto(studioConfig),
-          origen: 'PORTAL',
-        },
-      });
-      // Sin consentimiento guardado no se sigue: avanzar dejaría al estudio
-      // creyendo que lo tiene.
-      if (!res.ok) { setGateError(res.error); return; }
-    } else if (!bookingSesionId) {
-      // Walk-in en acceso genérico (sin clase elegida): no hay un paso
-      // "confirmar" al que enganchar la alta — con clase (bookingSesionId
-      // truthy) se pospone a handleConfirm a propósito, para no crear la
-      // ficha si el gate de derechos o el aforo la rechazan después; aquí no
-      // hay nada más que pueda rechazarla, así que se crea ya.
-      const nuevoId = `soc-${Date.now()}`;
-      const altaRes = await crearAltaWalkIn(nuevoId);
-      if (!altaRes.ok) { setGateError(altaRes.error); return; }
-      await refrescar();
-      closeBooking();
-      return;
-    }
-    // Con clase pendiente hay algo que confirmar; en acceso genérico ya
-    // está todo hecho (ficha existente + contrato recién firmado arriba).
-    if (bookingSesionId) {
-      setLoginStep('confirm');
-      trackEventoWidget(studio?.id, 'class_detail_viewed', { sesionClaseId: bookingSesionId });
-    } else {
-      closeBooking();
+    // Mismo cerrojo doble que `handleConfirm` (ver comentario en la
+    // declaración de `firmando`/`firmandoRef`): sin él, dos pulsaciones
+    // rápidas de "Aceptar y continuar" daban de alta dos fichas de socia.
+    if (firmando || firmandoRef.current) return;
+    firmandoRef.current = true;
+    setFirmando(true);
+    try {
+      if (socia?.socioId) {
+        const res = await updateSocio(socia.socioId, {
+          aceptacionContrato: {
+            fecha: new Date().toISOString(),
+            firma: socia.nombre,
+            // El texto completo que se aceptó, igual que hace el panel. Antes se
+            // guardaba 'v1.1' fijo, que no correspondía a ningún versionado real:
+            // si el estudio editaba sus textos, no había forma de saber qué había
+            // aceptado cada clienta.
+            versionTexto: textoLegalCompleto(studioConfig),
+            origen: 'PORTAL',
+          },
+        });
+        // Sin consentimiento guardado no se sigue: avanzar dejaría al estudio
+        // creyendo que lo tiene.
+        if (!res.ok) { setGateError(res.error); return; }
+      } else if (!bookingSesionId) {
+        // Walk-in en acceso genérico (sin clase elegida): no hay un paso
+        // "confirmar" al que enganchar la alta — con clase (bookingSesionId
+        // truthy) se pospone a handleConfirm a propósito, para no crear la
+        // ficha si el gate de derechos o el aforo la rechazan después; aquí no
+        // hay nada más que pueda rechazarla, así que se crea ya.
+        const nuevoId = `soc-${Date.now()}`;
+        const altaRes = await crearAltaWalkIn(nuevoId);
+        if (!altaRes.ok) { setGateError(altaRes.error); return; }
+        await refrescar();
+        closeBooking();
+        return;
+      }
+      // Con clase pendiente hay algo que confirmar; en acceso genérico ya
+      // está todo hecho (ficha existente + contrato recién firmado arriba).
+      if (bookingSesionId) {
+        setLoginStep('confirm');
+        trackEventoWidget(studio?.id, 'class_detail_viewed', { sesionClaseId: bookingSesionId });
+      } else {
+        closeBooking();
+      }
+    } finally {
+      firmandoRef.current = false;
+      setFirmando(false);
     }
   }
 
@@ -1808,6 +2034,7 @@ export default function ReservarPage() {
         const enEspera = reservas.filter(x => x.sesionId === bookingSesionId && x.estado === 'LISTA_ESPERA').length;
         setEsperaPos(enEspera + 1);
       }
+      setSpotNoConseguido(!!selectedSpot && !r.spotAsignado);
       setLoginStep(r.estado === 'LISTA_ESPERA' ? 'espera' : r.estado === 'PENDIENTE_APROBACION' ? 'pendiente' : 'done');
     } finally {
       confirmandoRef.current = false;
@@ -1844,6 +2071,15 @@ export default function ReservarPage() {
     // handleConfirm, así que booking_completed se dispara aquí — sin alterar
     // lo que se devuelve a quien llama (la hoja del calendario lo necesita
     // para pintar confirmación/lista de espera in situ).
+    //
+    // ⚠️ Seguro SOLO porque el único disparador de este handler para una
+    // socia autenticada es el botón "Reservar" DENTRO de la ficha de
+    // detalle (`saltarFichaSiInvitada` en reserva-calendario.tsx la
+    // mantiene abierta para socias, precisamente por esto) — un tap en la
+    // TARJETA nunca llega aquí directo para ella. Si algún día una socia
+    // autenticada también saltara la ficha, este camino habría que
+    // quitarlo primero: sería "un tap reserva sin preguntar", con
+    // bono/dinero de por medio.
     const resultado = addReserva(slot.id, socia.socioId, spotId);
     void resultado.then(r => {
       if (r.ok) trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: slot.id, socioId: socia?.socioId ?? null });
@@ -1975,6 +2211,16 @@ export default function ReservarPage() {
 
   const tabsTodas = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio'], ['cuenta', 'Mi cuenta']] as const;
   const tabs = tabsTodas.filter(([t]) => tabHabilitada(t));
+  // Diseño "Tentare Portal Reservas": sin barra de pestañas en la pantalla
+  // de Clases — vacía del todo, no una sola píldora "Clases" (a diferencia
+  // de `embedMode`/`soloPestana`, que sí dejan la píldora del único
+  // propósito visible). Un intento anterior de esto rompió la navegación
+  // real a "El estudio"/"Mi cuenta"/"Citas" — esta vez esas tres secciones
+  // tienen una salida real: `MenuSecciones` en la cabecera. Fuera de Clases
+  // la barra se sigue pintando completa.
+  const tabsVisibles = tab === 'clases' && !embedMode && !apariencia.soloPestana
+    ? []
+    : (embedMode || apariencia.soloPestana) ? tabs.filter(([t]) => t === tab) : tabs;
 
   // ── Orden y visibilidad de las secciones ───────────────────────────────────
   // Lo decide el estudio desde el editor de Apariencia (Theme Builder
@@ -2072,6 +2318,160 @@ export default function ReservarPage() {
       </>
     );
   }
+
+  // Contenido de "Mis reservas" — mismo bloque real (Próximas/Pasadas, login
+  // gate, estado vacío, lista con cancelar inline), extraído a una constante
+  // para poder pintarlo en DOS sitios sin duplicar ~150 líneas: la pestaña de
+  // página completa (`embedMode`/`soloPestana`: un widget de un solo
+  // propósito puede pedir `?tab=misreservas`) y el sheet nuevo de la
+  // cabecera (diseño "Tentare Portal Reservas": aquí es un `PublicSheet` que
+  // se desliza sobre el listado, no una página).
+  const misReservasBody = (
+    <>
+      <h2 style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Mis reservas</h2>
+
+      {socia && (
+        <div style={{ display: 'flex', gap: 4, marginTop: 20, padding: 3, borderRadius: R.pill, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Próximas o pasadas">
+          {([['proximas', 'Próximas'], ['pasadas', 'Pasadas']] as const).map(([id, label]) => (
+            <button key={id} type="button" onClick={() => setMisReservasTab(id)} aria-pressed={misReservasTab === id}
+              style={{
+                padding: '8px 18px', borderRadius: R.pill, border: 'none', cursor: 'pointer',
+                fontFamily: sans, fontSize: 13, fontWeight: 600,
+                background: misReservasTab === id ? 'var(--portal-ink)' : 'transparent',
+                color: misReservasTab === id ? 'var(--portal-bg)' : 'var(--portal-muted)',
+              }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ marginTop: 18 }}>
+        {!socia ? (
+          <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '56px 24px', gap: 16, textAlign: 'center', boxShadow: SH.card }}>
+            <div style={{ width: 56, height: 56, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--portal-surface-2)' }}>
+              <Users size={24} style={{ color: PRIMARY }} />
+            </div>
+            <div>
+              <h3 style={{ fontFamily: serif, fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tus reservas</h3>
+              <p style={{ fontSize: 12.5, color: 'var(--portal-muted-2)', marginTop: 6 }}>Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
+            </div>
+            <button onClick={() => openBooking('')}
+              style={{ height: 48, padding: '0 26px', borderRadius: R.pillBtnSm, background: PRIMARY, color: PRIMARY_FG, border: 'none', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+              Acceder
+            </button>
+          </div>
+        ) : misReservasVista.length === 0 ? (
+          <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '52px 24px 56px', gap: 4, textAlign: 'center' }}>
+            <div style={{ width: 52, height: 52, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--portal-velo)', color: 'var(--portal-muted)' }}>
+              <Calendar size={22} />
+            </div>
+            <p style={{ fontFamily: serif, fontSize: 21, marginTop: 14, color: 'var(--portal-ink)' }}>
+              {misReservasTab === 'proximas' ? 'No tienes reservas próximas' : 'Aún no tienes reservas pasadas'}
+            </p>
+            {/* Fuera de `embedMode` esto es la página completa (barra de
+                pestañas visible) y saltar a «Clases» tiene sentido. En
+                el widget embebido «Mis reservas» no existe una pestaña
+                «Clases» a la que saltar — es un widget de un solo
+                propósito, no el portal entero. */}
+            {misReservasTab === 'proximas' && !embedMode && (
+              <button onClick={() => { setMisReservasAbierta(false); setTab('clases'); }} style={{
+                marginTop: 16, height: 42, padding: '0 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                background: PRIMARY, color: PRIMARY_FG, fontFamily: sans, fontWeight: 700, fontSize: 13,
+              }}>
+                Ver horario y reservar
+              </button>
+            )}
+          </div>
+        ) : (
+          <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', overflow: 'hidden' }}>
+            {misReservasVista.map((r, i) => {
+              const s = r.sesion!;
+              const isPast = new Date(s.fin) < now;
+              const isFuture = !isPast && r.estado !== 'ASISTIDA';
+              const fechaLarga = new Date(s.inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+              const badge = r.estado === 'ASISTIDA'
+                ? { texto: 'Asistida', bg: 'var(--portal-surface-2)', color: 'var(--portal-muted)' }
+                : r.estado === 'LISTA_ESPERA'
+                ? { texto: r.posicionEspera ? `Lista de espera · ${r.posicionEspera}ª` : 'Lista de espera', bg: 'color-mix(in oklab, var(--portal-accent) 10%, var(--portal-surface))', color: 'var(--portal-accent)' }
+                : isPast
+                ? { texto: 'Cancelada', bg: 'var(--portal-surface-2)', color: 'var(--portal-muted)' }
+                : { texto: 'Confirmada', bg: 'color-mix(in oklab, var(--success) 14%, var(--portal-surface))', color: 'var(--success)' };
+              const abriendoCancel = cancelConfirm?.reservaId === r.id;
+              return (
+                <div key={r.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--portal-line)', opacity: isPast ? 0.8 : 1 }}>
+                  <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                    <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                      <div style={{ fontFamily: serif, fontSize: 18.5, lineHeight: 1.15, color: 'var(--portal-ink)' }}>{s.tipo?.nombre}</div>
+                      <div style={{ fontSize: 12.5, color: 'var(--portal-muted)', marginTop: 4, textTransform: 'capitalize' }}>
+                        {fechaLarga} · {fmtTime(s.inicio)}
+                      </div>
+                      {s.instructor && <div style={{ fontSize: 12.5, color: 'var(--portal-muted)', marginTop: 2 }}>{s.instructor.nombre}</div>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, padding: '6px 11px', borderRadius: R.pill, whiteSpace: 'nowrap', background: badge.bg, color: badge.color }}>
+                        {badge.texto}
+                      </span>
+                      {isFuture && !abriendoCancel && (
+                        <button onClick={() => {
+                          const ventana = s.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0;
+                          const tardia = r.estado === 'CONFIRMADA' && esCancelacionTardia(s.inicio, now, ventana);
+                          const pierdeBono = tardia && !(studio?.cancelacionDevolverBonoTardia ?? false);
+                          setErrorCancelar(null);
+                          setCancelConfirm({ reservaId: r.id, pierdeBono, ventana });
+                        }}
+                          style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--portal-muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3, whiteSpace: 'nowrap' }}>
+                          {r.estado === 'LISTA_ESPERA' ? 'Salir de la lista' : 'Cancelar reserva'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Confirmación inline (no modal) — Fase 4 del rediseño. */}
+                  {abriendoCancel && (
+                    <div style={{ margin: '0 20px 16px', padding: '12px 14px', borderRadius: R.spot, background: errorCancelar ? 'color-mix(in oklab, var(--destructive) 8%, var(--portal-surface))' : 'var(--portal-velo)', border: `1px solid ${errorCancelar ? 'color-mix(in oklab, var(--destructive) 25%, transparent)' : 'var(--portal-line)'}` }}>
+                      {errorCancelar ? (
+                        <p style={{ fontSize: 12.5, color: 'var(--portal-ink)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                          <span aria-hidden style={{ color: 'var(--destructive)', fontWeight: 800 }}>!</span>
+                          {errorCancelar}
+                        </p>
+                      ) : (
+                        <p style={{ fontSize: 12.5, color: 'var(--portal-ink)' }}>
+                          {r.estado === 'LISTA_ESPERA'
+                            ? '¿Quieres salir de la lista de espera de esta clase?'
+                            : cancelConfirm?.pierdeBono
+                            ? `¿Quieres cancelar esta reserva? Con menos de ${cancelConfirm.ventana}h de antelación no se te devolverá la sesión del bono.`
+                            : `¿Quieres cancelar esta reserva? Es gratis hasta ${cancelConfirm?.ventana ?? 0}h antes.`}
+                        </p>
+                      )}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                        <button onClick={() => {
+                          if (cancelandoPlaza) return;
+                          setCancelandoPlaza(true);
+                          void cancelarReserva(r.id).then(res => {
+                            setCancelandoPlaza(false);
+                            if (res.ok) { setCancelConfirm(null); setErrorCancelar(null); return; }
+                            setErrorCancelar(res.error);
+                          });
+                        }} disabled={cancelandoPlaza}
+                          style={{ height: 38, padding: '0 16px', borderRadius: R.pillBtnXs, border: 'none', background: 'var(--destructive)', color: '#fff', fontFamily: sans, fontWeight: 700, fontSize: 12.5, cursor: cancelandoPlaza ? 'default' : 'pointer', opacity: cancelandoPlaza ? 0.6 : 1 }}>
+                          {cancelandoPlaza ? 'Cancelando…' : r.estado === 'LISTA_ESPERA' ? 'Sí, salir' : 'Sí, cancelar'}
+                        </button>
+                        <button onClick={() => { setCancelConfirm(null); setErrorCancelar(null); }} disabled={cancelandoPlaza}
+                          style={{ height: 38, padding: '0 16px', borderRadius: R.pillBtnXs, border: '1px solid var(--portal-line)', background: 'transparent', color: 'var(--portal-ink)', fontFamily: sans, fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>
+                          No, mantener
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
+  );
 
   return (
     <>
@@ -2172,6 +2572,36 @@ export default function ReservarPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: cq(14, 2, 26) }}>
             <span style={{ fontSize: 12, color: 'var(--portal-accent)', whiteSpace: 'nowrap' }}>{estudioTelefono}</span>
+            {/* Diseño "Tentare Portal Reservas": sin barra de pestañas — la
+                cabecera solo lleva "Mis reservas"/"Acceder". "Citas"/"El
+                estudio"/"Mi cuenta" no tienen sitio en el diseño (no existen
+                en el .dc.html), así que quedan aquí, en un menú que el
+                diseño no especifica — decisión de producto explícita del
+                fundador tras plantear el conflicto, no una invención propia. */}
+            {!enVistaReserva && tabs.filter(([t]) => t !== 'clases' && t !== 'misreservas').length > 0 && (
+              <MenuSecciones tabs={tabs} tabActual={tab} onIr={setTab} />
+            )}
+            {!enVistaReserva && (
+            <button
+              type="button"
+              onClick={() => setMisReservasAbierta(true)}
+              style={{
+                height: 46, padding: `0 ${cq(16, 1.8, 22)}`, borderRadius: 23, background: 'var(--portal-surface)',
+                border: '1px solid var(--portal-line)', color: 'var(--portal-ink)', fontSize: 12, fontWeight: 800,
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, position: 'relative',
+              }}
+            >
+              Mis reservas
+              {misReservasCount > 0 && (
+                <span aria-hidden="true" style={{
+                  minWidth: 17, height: 17, borderRadius: 99, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+                  fontSize: 9.5, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
+                }}>
+                  {misReservasCount}
+                </span>
+              )}
+            </button>
+            )}
             {socia ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 46, padding: '0 8px 0 8px', borderRadius: 23, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)' }}>
                 <div style={{ width: 24, height: 24, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, background: PRIMARY, color: PRIMARY_FG }}>
@@ -2182,7 +2612,7 @@ export default function ReservarPage() {
               </div>
             ) : (
               <button
-                onClick={() => { setBookingSesionId(''); setLoginStep('login'); openBooking(''); }}
+                onClick={() => openBooking('')}
                 style={{
                   height: 46, padding: `0 ${cq(18, 2, 26)}`, borderRadius: 23, background: PRIMARY, color: PRIMARY_FG,
                   display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
@@ -2236,8 +2666,17 @@ export default function ReservarPage() {
 
         {/* ── PORTADA ───────────────────────────────────────────────────────
             Se OCULTA (lo que pide quien incrusta esto bajo la cabecera que ya
-            tiene su web), pero no se mueve — ver la nota del degradado arriba. */}
-        {!embedMode && seccionVisible('portada') && (
+            tiene su web), pero no se mueve — ver la nota del degradado arriba.
+            ⚠️ Bug real reportado por el fundador (2026-08-30, con vídeo): le
+            faltaba el guardia `!enVistaReserva` que ya llevan TODOS sus
+            vecinos (insignia de confianza, bonos, sobre, cifras, contacto —
+            ver los comentarios de esas secciones más abajo, mismo patrón
+            exacto que ya se corrigió una vez para la insignia el 2026-08-29).
+            Sin él, en la página SUELTA (no embebida) la portada entera —
+            titular, subtítulo, CTA y foto— se colaba DENTRO del flujo de
+            reserva, entre la cabecera y la ficha/confirmación, partiendo la
+            pantalla en dos con un hueco enorme. */}
+        {!embedMode && !enVistaReserva && seccionVisible('portada') && (
         <div
           className="reserva-hero-portada"
           style={{
@@ -2307,8 +2746,12 @@ export default function ReservarPage() {
         {/* ── TABS ───────────────────────────────────────────────────────────
             ⚠️ El `div#horario` se pinta SIEMPRE, con pestañas o sin ellas: es el
             ancla a la que salta el botón de la portada y el que usan los tests.
-            Lo que desaparece con `soloPestana` son los botones de dentro. */}
-        <div id="horario" className={`reserva-tabs-scroll ${embedMode ? '' : 'reserva-tabs'}`} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
+            Lo que desaparece con `soloPestana` son los botones de dentro.
+            ⚠️ Con `tabsVisibles` vacío (Clases, página suelta) no queda NINGÚN
+            hijo dentro — sin `minHeight` el div mide 0×0 y Playwright lo trata
+            como oculto (`toBeVisible`/`waitFor` fallan), rompiendo el ancla de
+            arriba. `minHeight: 1` lo mantiene con tamaño real sin pintar nada. */}
+        <div id="horario" className={`reserva-tabs-scroll ${embedMode ? '' : 'reserva-tabs'}`} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: tabsVisibles.length > 0 ? '1px solid rgba(34,38,31,.12)' : 'none', marginTop: embedMode ? cq(16, 1.6, 20) : (tabsVisibles.length > 0 ? cq(28, 3.6, 46) : 0), overflowX: 'auto', padding: tabsVisibles.length > 0 ? `0 ${cq(20, 3.8, 48)}` : 0, minHeight: tabsVisibles.length === 0 ? 1 : undefined }}>
           {/* Un widget embebido es 1 propósito, no un portal en miniatura:
               en `embedMode` se enseña SIEMPRE únicamente la pestaña que pidió
               `?tab=`, sin barra — quien incrusta «Horario y reserva de
@@ -2322,7 +2765,13 @@ export default function ReservarPage() {
               página con pestañas debajo. El `div#horario` en sí NO se oculta
               (comentario de arriba: es el ancla de scroll/tests), solo sus
               botones. */}
-          {!enVistaReserva && ((embedMode || apariencia.soloPestana) ? tabs.filter(([t]) => t === tab) : tabs).map(([t, label]) => (
+          {/* Diseño "Tentare Portal Reservas": la pantalla de Clases es la
+              pantalla de reservas, sin cabecera de navegación por encima —
+              "Mis reservas"/"El estudio"/"Mi cuenta" quedan accesibles desde
+              el propio header (botones "Mis reservas"/"Acceder"), no de una
+              barra de pestañas aquí. Se ocultan igual que en `embedMode`:
+              mismo mecanismo (`tabsVisibles`), sin duplicar lógica. */}
+          {!enVistaReserva && tabsVisibles.map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               style={{
                 flex: '0 0 auto', padding: '0 2px 16px', marginBottom: -1, background: 'none', border: 'none', cursor: 'pointer',
@@ -2404,71 +2853,33 @@ export default function ReservarPage() {
           );
         })()}
 
-        {tab === 'clases' && !fichaSesionId && (
-          <div style={{ maxWidth: 760, marginInline: 'auto', width: '100%', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
-
-            {/* Rediseño "sin popup": con la ficha de una clase abierta (click
-                en "Reservar" de una fila), el título/mes y los filtros se
-                ocultan — `<ReservaCalendario estiloFicha="vista">` ya deja de
-                montar su propio calendario y pinta SOLO la ficha, así que
-                nada de esto debe seguir a la vista por encima. */}
-            {!enVistaReserva && (<>
-            {/* Título + mes — formato 01 del handoff
-                (design_handoff_widget_reservas/Tentare Widget.dc.html). */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
-              <h2 style={{ fontFamily: serif, fontSize: cq(30, 7, 38), lineHeight: 1 }}>Clases</h2>
-              <span style={{ fontSize: 12, color: 'var(--portal-muted)', paddingBottom: 4 }}>
-                {/* Primera letra a mano, no `textTransform:capitalize`:
-                    ese pone mayúscula en CADA palabra ("Agosto De 2026"),
-                    y en español solo el mes va en mayúscula al empezar
-                    frase — "de" se queda en minúscula. */}
-                {(() => {
-                  const s = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-                  return s.charAt(0).toUpperCase() + s.slice(1);
-                })()}
-              </span>
-            </div>
-
-            {/* Chips de filtro por tipo de clase, en línea — mismo patrón que
-                el handoff: `PRIMARY`/`transparent`, nunca `--portal-surface`
-                como relleno del no-seleccionado (ese token es blanco en modo
-                día, y un fondo claro fijo pintado sobre una web oscura es
-                justo lo que reservar-acoplar-widget.spec.ts vigila). */}
-            {tiposClaseVisibles.length > 0 && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 18 }} role="group" aria-label="Filtrar por tipo de clase">
-                <button type="button" onClick={() => setFiltroTipo('')} aria-pressed={filtroTipo === ''} style={{
-                  padding: '8px 14px', minHeight: 44, borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
-                  // Mismo blindaje táctil que ya lleva la tira de días: sin
-                  // `user-select`/`touch-action`, un toque real puede leerse como
-                  // inicio de selección de texto y el `onClick` no llega nunca
-                  // (el bug de #1257, que aquí seguía abierto). Y 44px de alto
-                  // mínimo, que es el destino táctil por debajo del cual se falla.
-                  WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation',
-                  background: filtroTipo === '' ? PRIMARY : 'transparent',
-                  color: filtroTipo === '' ? PRIMARY_FG : 'var(--portal-muted)',
-                  borderColor: filtroTipo === '' ? 'transparent' : 'var(--portal-line)',
-                }}>
-                  Todas
-                </button>
-                {tiposClaseVisibles.map(t => (
-                  <button key={t.id} type="button" onClick={() => setFiltroTipo(t.id)} aria-pressed={filtroTipo === t.id} style={{
-                    padding: '8px 14px', minHeight: 44, borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
-                  // Mismo blindaje táctil que ya lleva la tira de días: sin
-                  // `user-select`/`touch-action`, un toque real puede leerse como
-                  // inicio de selección de texto y el `onClick` no llega nunca
-                  // (el bug de #1257, que aquí seguía abierto). Y 44px de alto
-                  // mínimo, que es el destino táctil por debajo del cual se falla.
-                  WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation',
-                    background: filtroTipo === t.id ? PRIMARY : 'transparent',
-                    color: filtroTipo === t.id ? PRIMARY_FG : 'var(--portal-muted)',
-                    borderColor: filtroTipo === t.id ? 'transparent' : 'var(--portal-line)',
-                  }}>
-                    {t.nombre}
-                  </button>
-                ))}
-              </div>
-            )}
-            </>)}
+        {tab === 'clases' && !fichaSesionId && bookingSesionId === null && (
+          // ⚠️ Bug real reportado por el fundador (2026-08-31, con captura):
+          // faltaba una condición de flujo aquí — mismo patrón que ya se
+          // corrigió para la portada/bonos/sobre/cifras/contacto
+          // (2026-08-30), pero esta condición solo miraba `fichaSesionId`
+          // (la ficha-resumen del deep-link `?sesion=`), no el checkout
+          // ('datos'/'pago', `bookingSesionId`). Con la ficha-resumen
+          // cerrada pero el checkout abierto, este bloque seguía montado —
+          // `ReservaCalendario` no pinta su lista en ese estado, pero el
+          // `padding` de este `<div>` (`cq(28,3.4,44)` arriba + `cq(50,7,90)`
+          // abajo, ~134px medido en producción) seguía ahí, partiendo la
+          // pantalla en dos con un hueco vacío entre la cabecera y "Volver a
+          // la clase".
+          // ⚠️ A propósito `bookingSesionId === null`, NO `!enVistaReserva`:
+          // `enVistaReserva` también es `true` con `fichaCalendarioAbierta`
+          // (la ficha de detalle de una socia autenticada, que vive DENTRO de
+          // `<ReservaCalendario>` — más abajo). Usar `enVistaReserva` aquí
+          // desmontaba `<ReservaCalendario>` en cuanto se abría su propia
+          // ficha, y con ella la ficha misma — probado con la suite
+          // completa, no solo con el caso de invitada que motivó el arreglo.
+          // Petición explícita del fundador: la columna de clases usaba
+          // `max-width: 760px` desde #1240 (columna de lectura centrada,
+          // como Momence) — en desktop dejaba un pasillo enorme de fondo
+          // vacío a los lados. Ahora ocupa el mismo ancho que la cabecera/
+          // portada (el contenedor de 1280px de siempre), sin tocar nada del
+          // propio ReservaCalendario.
+          <div style={{ width: '100%', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
 
             {/* Calendario de reservas — componente compartido (estilo Acuity), el
                 mismo que usa el portal de socias, re-vestido con el lenguaje
@@ -2497,14 +2908,41 @@ export default function ReservarPage() {
                 slots={slots}
                 variant="calendario"
                 estiloFicha="vista"
+                // Fase 3 del rediseño: `?densidad=`/`?forma=` (solo
+                // `embed=1`, como el resto de `apariencia` — la página
+                // SUELTA no honra parámetros del snippet).
+                densidadEsc={escalaDensidad(apariencia)}
+                radiosEsc={radiosDe(apariencia, { tarjeta: R.card, boton: R.pill, input: R.spot })}
                 // `?diseno=ligero` (snippet, solo llega con embed=1) cambia a
                 // la rejilla compacta del bundle; el default sigue siendo la
                 // tira de 10 días.
                 estiloDias={configWidget?.diseno === 'ligero' ? 'grid' : 'dias'}
+                filtrosChips={filtrosChipsClases}
                 vistaInicial={configWidget?.vistaInicial ?? 'todo'}
                 ocultarPrecio={configWidget?.ocultarPrecio ?? false}
                 ocultarNivel={configWidget?.ocultarNivel ?? false}
                 ocultarSustituta={configWidget?.ocultarSustituta ?? false}
+                // ⚠️ Bug real de producción (2026-08-29): "elegir el sitio se
+                // repite" — sin sesión, `handleReservarCalendario` SIEMPRE
+                // deriva a un segundo paso que vuelve a preguntar el sitio
+                // ('datos' del checkout sin login, o 'confirm' tras iniciar
+                // sesión) — nunca reserva directo desde esta ficha. Pedirlo
+                // aquí TAMBIÉN es redundante; con sesión, en cambio, esta
+                // ficha SÍ es el único paso.
+                ocultarSelectorSitio={!autenticado}
+                // Petición explícita del fundador (2026-08-30, "no quiero
+                // que se coma 3 pantallas seguidas"): SOLO para invitadas
+                // (sin sesión) la tarjeta salta directa a `onReservar` —
+                // 'login'/'datos' es su único paso siguiente de todos modos,
+                // y "Tus datos" ya trae su propia foto/descripción/
+                // ubicación. Para una socia autenticada la ficha SIGUE
+                // siendo el único paso antes de 'confirm' (que no repite
+                // nada) Y es donde se ve el descuento de bono antes de
+                // confirmar ("Descuenta 1 sesión de tu Bono X · te quedarán
+                // Y") — 'confirm' no muestra ese aviso, así que saltarla ahí
+                // también habría sido una pérdida real de transparencia
+                // sobre qué le va a costar, no solo un paso de menos.
+                saltarFichaSiInvitada={!autenticado}
                 loading={!dataLoaded}
                 onReservar={handleReservarCalendario}
                 onCancelar={cancelarReserva}
@@ -2585,7 +3023,7 @@ export default function ReservarPage() {
               disponibilidad={citasDisponibilidad}
               misCitas={misCitas}
               autenticada={!!socia}
-              onNeedLogin={() => { setBookingSesionId(''); setLoginStep('login'); }}
+              onNeedLogin={() => openBooking('')}
               onReservar={(servicioId, instructorId, inicioISO) => reservarCitaPublica({ servicioId, instructorId, inicioISO })}
               onCancelar={cancelarCita}
               primary={PRIMARY}
@@ -2594,152 +3032,30 @@ export default function ReservarPage() {
           </div>
         )}
 
-        {/* ── TAB: MIS RESERVAS ───────────────────────────────────────────── */}
+        {/* ── TAB: MIS RESERVAS (embed/soloPestana: widget de un solo
+            propósito, sigue siendo página completa) ────────────────────── */}
         {tab === 'misreservas' && (
           <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
-            <h2 style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Mis reservas</h2>
-
-            {socia && (
-              <div style={{ display: 'flex', gap: 4, marginTop: 20, padding: 3, borderRadius: R.pill, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Próximas o pasadas">
-                {([['proximas', 'Próximas'], ['pasadas', 'Pasadas']] as const).map(([id, label]) => (
-                  <button key={id} type="button" onClick={() => setMisReservasTab(id)} aria-pressed={misReservasTab === id}
-                    style={{
-                      padding: '8px 18px', borderRadius: R.pill, border: 'none', cursor: 'pointer',
-                      fontFamily: sans, fontSize: 13, fontWeight: 600,
-                      background: misReservasTab === id ? 'var(--portal-ink)' : 'transparent',
-                      color: misReservasTab === id ? 'var(--portal-bg)' : 'var(--portal-muted)',
-                    }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div style={{ marginTop: 18 }}>
-              {!socia ? (
-                <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '56px 24px', gap: 16, textAlign: 'center', boxShadow: SH.card }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--portal-surface-2)' }}>
-                    <Users size={24} style={{ color: PRIMARY }} />
-                  </div>
-                  <div>
-                    <h3 style={{ fontFamily: serif, fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tus reservas</h3>
-                    <p style={{ fontSize: 12.5, color: 'var(--portal-muted-2)', marginTop: 6 }}>Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
-                  </div>
-                  <button onClick={() => { setBookingSesionId(''); setLoginStep('login'); }}
-                    style={{ height: 48, padding: '0 26px', borderRadius: R.pillBtnSm, background: PRIMARY, color: PRIMARY_FG, border: 'none', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-                    Acceder
-                  </button>
-                </div>
-              ) : misReservasVista.length === 0 ? (
-                <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '52px 24px 56px', gap: 4, textAlign: 'center' }}>
-                  <div style={{ width: 52, height: 52, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--portal-velo)', color: 'var(--portal-muted)' }}>
-                    <Calendar size={22} />
-                  </div>
-                  <p style={{ fontFamily: serif, fontSize: 21, marginTop: 14, color: 'var(--portal-ink)' }}>
-                    {misReservasTab === 'proximas' ? 'No tienes reservas próximas' : 'Aún no tienes reservas pasadas'}
-                  </p>
-                  {/* Fuera de `embedMode` esto es la página completa (barra de
-                      pestañas visible) y saltar a «Clases» tiene sentido. En
-                      el widget embebido «Mis reservas» no existe una pestaña
-                      «Clases» a la que saltar — es un widget de un solo
-                      propósito, no el portal entero. */}
-                  {misReservasTab === 'proximas' && !embedMode && (
-                    <button onClick={() => setTab('clases')} style={{
-                      marginTop: 16, height: 42, padding: '0 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
-                      background: PRIMARY, color: PRIMARY_FG, fontFamily: sans, fontWeight: 700, fontSize: 13,
-                    }}>
-                      Ver horario y reservar
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', overflow: 'hidden' }}>
-                  {misReservasVista.map((r, i) => {
-                    const s = r.sesion!;
-                    const isPast = new Date(s.fin) < now;
-                    const isFuture = !isPast && r.estado !== 'ASISTIDA';
-                    const fechaLarga = new Date(s.inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-                    const badge = r.estado === 'ASISTIDA'
-                      ? { texto: 'Asistida', bg: 'var(--portal-surface-2)', color: 'var(--portal-muted)' }
-                      : r.estado === 'LISTA_ESPERA'
-                      ? { texto: r.posicionEspera ? `Lista de espera · ${r.posicionEspera}ª` : 'Lista de espera', bg: 'color-mix(in oklab, var(--portal-accent) 10%, var(--portal-surface))', color: 'var(--portal-accent)' }
-                      : isPast
-                      ? { texto: 'Cancelada', bg: 'var(--portal-surface-2)', color: 'var(--portal-muted)' }
-                      : { texto: 'Confirmada', bg: 'color-mix(in oklab, var(--success) 14%, var(--portal-surface))', color: 'var(--success)' };
-                    const abriendoCancel = cancelConfirm?.reservaId === r.id;
-                    return (
-                      <div key={r.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--portal-line)', opacity: isPast ? 0.8 : 1 }}>
-                        <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                          <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                            <div style={{ fontFamily: serif, fontSize: 18.5, lineHeight: 1.15, color: 'var(--portal-ink)' }}>{s.tipo?.nombre}</div>
-                            <div style={{ fontSize: 12.5, color: 'var(--portal-muted)', marginTop: 4, textTransform: 'capitalize' }}>
-                              {fechaLarga} · {fmtTime(s.inicio)}
-                            </div>
-                            {s.instructor && <div style={{ fontSize: 12.5, color: 'var(--portal-muted)', marginTop: 2 }}>{s.instructor.nombre}</div>}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 11.5, fontWeight: 700, padding: '6px 11px', borderRadius: R.pill, whiteSpace: 'nowrap', background: badge.bg, color: badge.color }}>
-                              {badge.texto}
-                            </span>
-                            {isFuture && !abriendoCancel && (
-                              <button onClick={() => {
-                                const ventana = s.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0;
-                                const tardia = r.estado === 'CONFIRMADA' && esCancelacionTardia(s.inicio, now, ventana);
-                                const pierdeBono = tardia && !(studio?.cancelacionDevolverBonoTardia ?? false);
-                                setErrorCancelar(null);
-                                setCancelConfirm({ reservaId: r.id, pierdeBono, ventana });
-                              }}
-                                style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--portal-muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3, whiteSpace: 'nowrap' }}>
-                                {r.estado === 'LISTA_ESPERA' ? 'Salir de la lista' : 'Cancelar reserva'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Confirmación inline (no modal) — Fase 4 del rediseño. */}
-                        {abriendoCancel && (
-                          <div style={{ margin: '0 20px 16px', padding: '12px 14px', borderRadius: R.spot, background: errorCancelar ? 'color-mix(in oklab, var(--destructive) 8%, var(--portal-surface))' : 'var(--portal-velo)', border: `1px solid ${errorCancelar ? 'color-mix(in oklab, var(--destructive) 25%, transparent)' : 'var(--portal-line)'}` }}>
-                            {errorCancelar ? (
-                              <p style={{ fontSize: 12.5, color: 'var(--portal-ink)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                                <span aria-hidden style={{ color: 'var(--destructive)', fontWeight: 800 }}>!</span>
-                                {errorCancelar}
-                              </p>
-                            ) : (
-                              <p style={{ fontSize: 12.5, color: 'var(--portal-ink)' }}>
-                                {r.estado === 'LISTA_ESPERA'
-                                  ? '¿Quieres salir de la lista de espera de esta clase?'
-                                  : cancelConfirm?.pierdeBono
-                                  ? `¿Quieres cancelar esta reserva? Con menos de ${cancelConfirm.ventana}h de antelación no se te devolverá la sesión del bono.`
-                                  : `¿Quieres cancelar esta reserva? Es gratis hasta ${cancelConfirm?.ventana ?? 0}h antes.`}
-                              </p>
-                            )}
-                            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                              <button onClick={() => {
-                                if (cancelandoPlaza) return;
-                                setCancelandoPlaza(true);
-                                void cancelarReserva(r.id).then(res => {
-                                  setCancelandoPlaza(false);
-                                  if (res.ok) { setCancelConfirm(null); setErrorCancelar(null); return; }
-                                  setErrorCancelar(res.error);
-                                });
-                              }} disabled={cancelandoPlaza}
-                                style={{ height: 38, padding: '0 16px', borderRadius: R.pillBtnXs, border: 'none', background: 'var(--destructive)', color: '#fff', fontFamily: sans, fontWeight: 700, fontSize: 12.5, cursor: cancelandoPlaza ? 'default' : 'pointer', opacity: cancelandoPlaza ? 0.6 : 1 }}>
-                                {cancelandoPlaza ? 'Cancelando…' : r.estado === 'LISTA_ESPERA' ? 'Sí, salir' : 'Sí, cancelar'}
-                              </button>
-                              <button onClick={() => { setCancelConfirm(null); setErrorCancelar(null); }} disabled={cancelandoPlaza}
-                                style={{ height: 38, padding: '0 16px', borderRadius: R.pillBtnXs, border: '1px solid var(--portal-line)', background: 'transparent', color: 'var(--portal-ink)', fontFamily: sans, fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>
-                                No, mantener
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            {misReservasBody}
           </div>
+        )}
+
+        {/* ── SHEET: MIS RESERVAS ──────────────────────────────────────────
+            Diseño "Tentare Portal Reservas": se desliza desde abajo sobre
+            el listado de clases, disparado desde el botón de la cabecera —
+            no una pestaña de página completa. `inline={false}` (el
+            comportamiento por defecto de `PublicSheet`) es exactamente el
+            backdrop + hoja anclada abajo que el diseño pide. */}
+        {!embedMode && (
+          <PublicSheet
+            open={misReservasAbierta}
+            onClose={() => setMisReservasAbierta(false)}
+            label="Mis reservas"
+            sheetClassName="w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl"
+            sheetStyle={{ background: 'var(--portal-bg)' }}
+          >
+            {misReservasBody}
+          </PublicSheet>
         )}
 
         {/* ── TAB: EL ESTUDIO ─────────────────────────────────────────────────
@@ -2869,7 +3185,7 @@ export default function ReservarPage() {
                   <h3 style={{ fontFamily: serif, fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tu cuenta</h3>
                   <p style={{ fontSize: 12.5, color: 'var(--portal-muted-2)', marginTop: 6 }}>Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
                 </div>
-                <button onClick={() => { setBookingSesionId(''); setLoginStep('login'); }}
+                <button onClick={() => openBooking('')}
                   style={{ height: 48, padding: '0 26px', borderRadius: R.pillBtnSm, background: PRIMARY, color: PRIMARY_FG, border: 'none', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
                   Acceder
                 </button>
@@ -2898,11 +3214,21 @@ export default function ReservarPage() {
             El logo se pinta con el componente en línea de siempre
             (components/marca/logo-tentare.tsx), nunca con un asset raster
             aparte, tal y como fija docs/marca/: un solo dibujo, no dos kits
-            de marca conviviendo a un clic de distancia. */}
+            de marca conviviendo a un clic de distancia.
+            ⚠️ Bug real de producción (2026-08-29): a esta insignia le faltaba
+            el guardia `!enVistaReserva` que ya llevan todos sus vecinos
+            (bonos/cifras/sobre-nosotros/footer, unas líneas más abajo) — se
+            colaba DENTRO del checkout, entre la cabecera y la ficha de pago,
+            partiendo la pantalla en dos con un hueco vacío y rompiendo el
+            scroll (el `order` del flex la dejaba fuera de la caja con
+            `overflow:hidden` de la cabecera/portada, así que ni siquiera se
+            comportaba como "pie de página" ahí). */}
+        {!enVistaReserva && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: `${cq(2, 0.6, 8)} 0 16px`, color: 'var(--portal-muted)', fontSize: 11 }}>
           Reservas seguras con
           <LogoTentare formato="horizontal" tinta={esNoche ? 'blanco' : 'tinta'} alto={16} decorativo />
         </div>
+        )}
       </div>
 
       {/* ── FOOTER ──────────────────────────────────────────────────────────────
@@ -2925,7 +3251,7 @@ export default function ReservarPage() {
           checkout de Stripe): una banda «Bonos y membresías» vacía en la
           página pública es peor que no tenerla. */}
       {!enVistaReserva && seccionVisible('bonos') && planesContratables.length > 0 && (
-        <div style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
+        <div id="bonos-membresias" style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
             <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
             {/* ⚠️ Sin las clases `text-destructive`/`bg-destructive` del PANEL.
@@ -3234,20 +3560,34 @@ export default function ReservarPage() {
                     se confirma, verde solo con confirmación REAL del servidor,
                     ámbar para espera/pendiente/tardando/fallida. */}
                 {!pagoWebSinLogin || confirmacionPago === 'confirmada' ? (
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#D1FAE5' }}>
-                    <CheckCircle2 size={30} style={{ color: '#2F6B4F' }} />
+                  // Icono de éxito con el tratamiento del diseño "Tentare
+                  // Portal Reservas": anillo que se expande y se disuelve
+                  // detrás de un check con rebote, más 4 confettis — SOLO
+                  // para el éxito real, nunca para confirmando/espera/fallo
+                  // (esos mantienen su propio icono honesto, sin animación
+                  // de celebración, porque no hay nada que celebrar todavía).
+                  <div className="relative" style={{ width: 62, height: 62 }} aria-hidden="true">
+                    <span className="reserva-confeti-a absolute rounded-sm" style={{ left: '32%', top: '36%', width: 7, height: 10, background: 'var(--portal-brand)' }} />
+                    <span className="reserva-confeti-b1 absolute rounded-full" style={{ left: '48%', top: '33%', width: 7, height: 7, background: 'var(--warning)' }} />
+                    <span className="reserva-confeti-c absolute rounded-sm" style={{ left: '62%', top: '36%', width: 7, height: 10, background: 'var(--destructive)' }} />
+                    <span className="reserva-confeti-b2 absolute rounded-full" style={{ left: '40%', top: '38%', width: 6, height: 6, background: 'var(--portal-ink)' }} />
+                    <span className="reserva-check-ring absolute inset-0 rounded-full" style={{ border: '2.5px solid var(--success)' }} />
+                    <span className="reserva-check-pop absolute inset-0 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: 'color-mix(in oklab, var(--success) 14%, var(--portal-surface))' }}>
+                      <CheckCircle2 size={30} style={{ color: 'var(--success)' }} />
+                    </span>
                   </div>
                 ) : confirmacionPago === 'confirmando' ? (
                   <div className="w-16 h-16 rounded-full flex items-center justify-center bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
                     <Loader2 size={30} className="animate-spin text-[var(--portal-muted)]" aria-label="Confirmando tu plaza" />
                   </div>
                 ) : confirmacionPago === 'lista_espera' || confirmacionPago === 'pendiente_aprobacion' ? (
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
-                    <Hourglass size={30} style={{ color: '#8F6215' }} />
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: 'color-mix(in oklab, var(--warning) 18%, var(--portal-surface))' }}>
+                    <Hourglass size={30} style={{ color: 'var(--warning)' }} />
                   </div>
                 ) : (
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
-                    <AlertTriangle size={30} style={{ color: '#8F6215' }} />
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: 'color-mix(in oklab, var(--warning) 18%, var(--portal-surface))' }}>
+                    <AlertTriangle size={30} style={{ color: 'var(--warning)' }} />
                   </div>
                 )}
                 <div>
@@ -3258,8 +3598,17 @@ export default function ReservarPage() {
                       aquí sigue haciendo falta la línea de clase/fecha/hora.
                       Con pago, la repetiría: el resguardo la dice mejor. */}
                   {!pagoWebSinLogin && (
-                    <p className="text-[var(--portal-muted-2)] text-sm mt-1">
+                    <p className="text-[var(--portal-muted-2)] mt-1" style={{ fontSize: 13, lineHeight: 1.55 }}>
                       {bookingSesion.tipo?.nombre} · {fmtLong(new Date(bookingSesion.inicio))} a las {fmtTime(bookingSesion.inicio)}
+                    </p>
+                  )}
+                  {/* F-16 (auditoría 20ª pasada): mismo aviso que ya dan las
+                      otras dos pantallas de reserva cuando el sitio elegido
+                      se lo dieron a otra persona antes — la reserva es
+                      buena, la plaza elegida no, y son dos cosas distintas. */}
+                  {spotNoConseguido && (
+                    <p className="mt-1.5" style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--warning)' }}>
+                      {mensajeConfirmarReserva({ estado: 'CONFIRMADA', spotAsignado: null }, selectedSpot)}
                     </p>
                   )}
                 </div>
@@ -3426,8 +3775,8 @@ export default function ReservarPage() {
             {/* ── ESPERA ── */}
             {loginStep === 'espera' && (
               <div className="flex flex-col items-center text-center py-4 gap-4 paso-anim">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
-                  <CheckCircle2 size={30} style={{ color: '#8F6215' }} />
+                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: 'color-mix(in oklab, var(--warning) 18%, var(--portal-surface))' }}>
+                  <CheckCircle2 size={30} style={{ color: 'var(--warning)' }} />
                 </div>
                 <div>
                   <p className="text-[var(--portal-ink)] font-extrabold text-xl">¡En lista de espera!</p>
@@ -3446,8 +3795,8 @@ export default function ReservarPage() {
             {/* ── PENDIENTE DE APROBACIÓN (Fase 2a) ── */}
             {loginStep === 'pendiente' && (
               <div className="flex flex-col items-center text-center py-4 gap-4 paso-anim">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
-                  <CheckCircle2 size={30} style={{ color: '#8F6215' }} />
+                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: 'color-mix(in oklab, var(--warning) 18%, var(--portal-surface))' }}>
+                  <CheckCircle2 size={30} style={{ color: 'var(--warning)' }} />
                 </div>
                 <div>
                   <p className="text-[var(--portal-ink)] font-extrabold text-xl">Solicitud enviada</p>
@@ -3533,6 +3882,7 @@ export default function ReservarPage() {
                   instructorNombre: bookingSesion.instructor?.nombre ?? null,
                   salaNombre: bookingSesion.sala?.nombre ?? null,
                   nivel: bookingSesion.tipo?.nivel ? NIVEL_LABEL[bookingSesion.tipo.nivel] : null,
+                  plazasLibres: Math.max(0, bookingSesion.aforoMaximo - bookingSesion.ocupadas),
                 }}
                 precio={datosPlan.precio}
                 fase={loginStep === 'pago' ? 'pago' : 'datos'}
@@ -3548,6 +3898,33 @@ export default function ReservarPage() {
                 codigoDescuento={codigoDescuento}
                 onChangeCodigo={setCodigoDescuento}
                 onContinuar={handleDatosContinuar}
+                // "Bonos y mensualidades del estudio" — diseño "Tentare Portal
+                // Reservas": SIEMPRE visible cuando hay al menos un plan PUNTUAL
+                // que cubre la clase (aunque sea uno solo, "Clase suelta" a su
+                // propio precio) — confirma explícitamente qué se está pagando,
+                // igual que el mockup de referencia.
+                planesOpciones={(() => {
+                  const opciones = planesClaseSueltaPara(bookingSesion.tipoClaseId, planesTarifa);
+                  return opciones.length > 0 ? opciones : undefined;
+                })()}
+                planSeleccionadoId={datosPlan.id}
+                onCambiarPlan={setDatosPlan}
+                // "Elige tu plaza" — mismo criterio que la pantalla 'confirm' de
+                // socia autenticada: solo si la sala tiene mapa de sitios y la
+                // clase no está llena (lista de espera no ocupa sitio).
+                spotPicker={(() => {
+                  const spotsSala = spots.filter(s => s.salaId === bookingSesion.salaId && s.activo);
+                  const lleno = bookingSesion.ocupadas >= bookingSesion.aforoMaximo;
+                  if (spotsSala.length === 0 || lleno) return undefined;
+                  const takenIds = new Set(
+                    reservas
+                      .filter(r => r.sesionId === bookingSesion.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA') && r.spotId)
+                      .map(r => r.spotId as string),
+                  );
+                  return { spots: spotsSala, takenIds, selected: selectedSpot, onSelect: setSelectedSpot, primary: PRIMARY };
+                })()}
+                infoAdicional={datosInfoAdicional}
+                onChangeInfoAdicional={patch => setDatosInfoAdicional(f => ({ ...f, ...patch }))}
                 pago={loginStep === 'pago' && datosClientSecret && studio?.stripeAccountId && STRIPE_PUBLISHABLE_KEY ? {
                   plan: datosPlan,
                   clientSecret: datosClientSecret,
@@ -3635,10 +4012,10 @@ export default function ReservarPage() {
                     className={`${BOTON_SECUNDARIO} flex-1`}>
                     Volver
                   </button>
-                  <button onClick={handleSignContract} disabled={!terminosAceptados}
+                  <button onClick={handleSignContract} disabled={!terminosAceptados || firmando}
                     className={`${BOTON_PRIMARIO} flex-[2]`}
                     style={{ backgroundColor: PRIMARY }}>
-                    Aceptar y continuar →
+                    {firmando ? 'Guardando…' : 'Aceptar y continuar →'}
                   </button>
                 </div>
               </div>
@@ -3710,6 +4087,38 @@ export default function ReservarPage() {
                 {gateError && (
                   <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">
                     {gateError}
+                    {/* ⚠️ Bug real reportado por el fundador (2026-08-30, con
+                        vídeo): el aviso decía "los tienes más abajo, en «Bonos
+                        y membresías»" — pero esa sección va detrás de
+                        `!enVistaReserva`, y este aviso solo se ve CON
+                        `enVistaReserva` en true (dentro del propio flujo de
+                        reserva). "Más abajo" no llevaba a ningún sitio: quien
+                        intentaba desplazarse a buscarla no encontraba nada
+                        que scrollear, y "no puedo hacer scroll" era el síntoma
+                        de un enlace roto, no un fallo de scroll de verdad —
+                        mismo patrón que ya documenta el comentario de
+                        `evaluarGate` sobre la pestaña "El estudio" que
+                        tampoco existía. Este botón SÍ lleva a la sección real:
+                        cierra el flujo (misma limpieza que "Volver a las
+                        clases") y hace scroll hasta ella. */}
+                    {gateError.includes('Bonos y membresías') && (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeBooking();
+                            setFichaSesionId(null);
+                            requestAnimationFrame(() => {
+                              document.getElementById('bonos-membresias')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            });
+                          }}
+                          className="font-semibold underline underline-offset-2"
+                        >
+                          Ver bonos y membresías
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
                 <button onClick={handleConfirm} disabled={confirmando}

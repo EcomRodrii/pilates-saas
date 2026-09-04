@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, ChevronDown, Search, Send, CheckCircle2 } from 'lucide-react';
+import { X, ChevronDown, Search, Send, CheckCircle2, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCore } from '@/lib/core-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
@@ -127,6 +127,14 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
                     <p className="text-[13px] text-muted-foreground text-center py-6">Sin resultados para «{query}»</p>
                   )}
                 </div>
+                <a
+                  href="/ayuda"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-brand-secondary hover:underline"
+                >
+                  Ver todo el Centro de Ayuda <ArrowUpRight size={13} />
+                </a>
               </div>
 
               {/* Contact form */}

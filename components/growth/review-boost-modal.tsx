@@ -36,7 +36,7 @@ import Image from 'next/image';
 import { Star, PartyPopper } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 import { authHeader } from '@/lib/api-client';
 import { capturarEvento } from '@/lib/posthog-cliente';
 import { debeMostrarModal } from '@/lib/growth/review-boost';
@@ -69,7 +69,10 @@ async function enviarFeedback(rating: number, comentario?: string) {
 }
 
 export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: string | null }) {
-  const { updateStudio } = useStudio();
+  // useCore() y no useStudio(): montado en TODAS las páginas del dashboard
+  // (DashboardShell) y solo necesita `updateStudio`, ya aislado en
+  // CoreContext (mismo motivo que Spotlight, components/tour/spotlight.tsx).
+  const { updateStudio } = useCore();
   const [open, setOpen] = useState(false);
   const [pantalla, setPantalla] = useState<Pantalla>('rating');
   const [rating, setRating] = useState(0);

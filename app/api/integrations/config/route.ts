@@ -34,5 +34,15 @@ export async function GET(req: NextRequest) {
   const intg = await dbGetIntegracionConfig(sesion.studioId, tipo as TipoIntegracion);
   // Sin fila configurada no es un error: es una integración que aún no existe,
   // y el modal la abre en blanco igual que siempre.
-  return NextResponse.json({ config: intg?.config ?? {} });
+  const config = intg?.config ?? {};
+  // Una conexión de WhatsApp hecha por Embedded Signup (marcada por llevar
+  // `wabaId`, que el flujo manual nunca rellena) no tiene ningún formulario
+  // que necesite el token para rellenarse — a diferencia del flujo manual,
+  // donde la propietaria sí lo ve para poder editarlo. No exponerlo al
+  // navegador cuando no hace falta, aunque la RLS ya lo protege.
+  if (tipo === 'WHATSAPP' && config.wabaId) {
+    const { token: _token, ...resto } = config;
+    return NextResponse.json({ config: resto });
+  }
+  return NextResponse.json({ config });
 }

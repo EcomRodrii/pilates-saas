@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora } from './portal-home-logic.ts';
-import type { Reserva, Sesion } from './types.ts';
+import { calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, saludoPorHora, huecosHoy } from './portal-home-logic.ts';
+import type { Reserva, Sesion, PlanTarifa, Suscripcion } from './types.ts';
 
 // Miércoles 2026-08-05, 10:00 — un día fijo a media semana para que "lunes de
 // esta semana" (03-08) y "domingo" (09-08) sean deterministas en el test.
@@ -85,62 +85,6 @@ test('META_PROGRESO_SEMANAL: número de referencia positivo (no una meta configu
   assert.ok(META_PROGRESO_SEMANAL > 0);
 });
 
-// ── Accesos rápidos ─────────────────────────────────────────────────────────
-
-// Mismo criterio que el portal real: `usePortalHref` en producción, aquí un
-// builder mínimo — la función pura no sabe ni necesita saber de preview.
-const portalHref = (r: string) => `/portal${r}`;
-
-test('accesosRapidosDe: los CUATRO destinos reales de la app, con sus hrefs', () => {
-  const a = accesosRapidosDe({ slug: 'alma', portalHref, proximas: 2, totalAsistidas: 18, sinLeer: 0, nInstructoras: 3 });
-  assert.equal(a.length, 4);
-  assert.deepEqual(a.map((x) => x.href), [
-    '/portal/alma/reservas', '/portal/alma/progreso', '/portal/alma/notificaciones', '/portal/alma/instructores',
-  ]);
-  // Cada uno trae icono: sin él, las variantes rejilla/círculos no se pueden pintar.
-  assert.ok(a.every((x) => x.icono.length > 0));
-});
-
-test('accesosRapidosDe: singular/plural y los estados vacíos', () => {
-  const cero = accesosRapidosDe({ slug: 's', portalHref, proximas: 0, totalAsistidas: 1, sinLeer: 0, nInstructoras: 1 });
-  assert.equal(cero[0].valor, 'Ninguna');
-  assert.equal(cero[1].valor, '1 clase');
-  assert.equal(cero[2].valor, 'Al día');
-  assert.equal(cero[3].valor, '1 instructora');
-  const varios = accesosRapidosDe({ slug: 's', portalHref, proximas: 1, totalAsistidas: 0, sinLeer: 3, nInstructoras: 2 });
-  assert.equal(varios[0].valor, '1 próxima');
-  assert.equal(varios[1].valor, '0 clases');
-  assert.equal(varios[2].valor, '3 nuevas');
-  assert.equal(varios[3].valor, '2 instructoras');
-});
-
-test('accesosRapidosDe: el punto de aviso solo con notificaciones sin leer', () => {
-  assert.equal(accesosRapidosDe({ slug: 's', portalHref, proximas: 0, totalAsistidas: 0, sinLeer: 0, nInstructoras: 0 })[2].punto, false);
-  assert.equal(accesosRapidosDe({ slug: 's', portalHref, proximas: 0, totalAsistidas: 0, sinLeer: 2, nInstructoras: 0 })[2].punto, true);
-});
-
-test('accesosRapidosDe: "no se sabe" (null) no es "Al día"', () => {
-  // Los avisos vienen del servidor: mientras la respuesta no llega —o si falla—
-  // la fila NO puede afirmar que la socia está al día. Colapsar null a 0 hacía
-  // justo eso, y encima en palabras, mientras la campana de al lado se callaba
-  // prudentemente: dos contadores de la misma cosa contradiciéndose en la misma
-  // pantalla, que es el bug que se vino a matar.
-  const sinSaber = accesosRapidosDe({ slug: 's', portalHref, proximas: 0, totalAsistidas: 0, sinLeer: null, nInstructoras: 0 })[2];
-  assert.equal(sinSaber.valor, '—');
-  assert.equal(sinSaber.punto, false);
-
-  const alDia = accesosRapidosDe({ slug: 's', portalHref, proximas: 0, totalAsistidas: 0, sinLeer: 0, nInstructoras: 0 })[2];
-  assert.equal(alDia.valor, 'Al día');
-});
-
-test('rotuloAccesos: la variante de FILAS no lleva encabezado (es la de hoy)', () => {
-  // Si lo llevara, todo estudio sin tema vería un <h2> nuevo de la noche a la
-  // mañana — justo lo que este mecanismo promete que no pasa.
-  assert.equal(rotuloAccesos('filas'), null);
-  assert.equal(rotuloAccesos('rejilla'), 'Mis accesos rápidos');
-  assert.equal(rotuloAccesos('circulos'), 'Accesos rápidos');
-});
-
 test('saludoPorHora: los cortes de franja, que solo se ven en producción a deshora', () => {
   const a = (h: number) => saludoPorHora(new Date(2026, 7, 5, h, 30));
   assert.equal(a(0), 'Buenas noches');
@@ -151,4 +95,117 @@ test('saludoPorHora: los cortes de franja, que solo se ven en producción a desh
   assert.equal(a(20), 'Buenas tardes');
   assert.equal(a(21), 'Buenas noches');
   assert.equal(a(23), 'Buenas noches');
+});
+
+// ── huecosHoy ────────────────────────────────────────────────────────────
+
+function plan(p: Partial<PlanTarifa> & Pick<PlanTarifa, 'id'>): PlanTarifa {
+  return { studioId: 's1', nombre: 'Mensual', descripcion: null, precio: 89, tipo: 'MENSUAL', sesiones: null, activo: true, ...p };
+}
+function suscripcion(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
+  return { id: `sus-${p.socioId}-${p.planId}`, studioId: 's1', estado: 'ACTIVA', fechaInicio: '2025-01-01', fechaFin: null, sesionesRestantes: null, stripeSubscriptionId: null, ...p };
+}
+
+// Miércoles 2026-08-05, 20:00 en Madrid (CEST, UTC+2) = 18:00 UTC — a media
+// tarde, lejos de cualquier medianoche, para que las pruebas de "no es hoy"
+// no dependan sin querer del gotcha que la última prueba comprueba aparte.
+const HOY_20H_MADRID = new Date(Date.UTC(2026, 7, 5, 18, 0, 0));
+
+const entradaBase = {
+  now: HOY_20H_MADRID, socioId: 'ana', reservas: [],
+  suscripciones: [suscripcion({ socioId: 'ana', planId: 'pl1' })],
+  planesTarifa: [plan({ id: 'pl1' })],
+};
+
+test('huecosHoy: sin socioId (staff en preview, sin sesión real) siempre vacío', () => {
+  const futura = sesion({ id: 'f1', inicio: new Date(Date.UTC(2026, 7, 5, 19, 0, 0)).toISOString() });
+  assert.deepEqual(huecosHoy({ ...entradaBase, socioId: null, sesiones: [futura] }), []);
+});
+
+test('huecosHoy: una clase de HOY con hueco y plan que cubre, aparece', () => {
+  const futura = sesion({ id: 'f1', inicio: new Date(Date.UTC(2026, 7, 5, 19, 0, 0)).toISOString(), aforoMaximo: 10 });
+  const r = huecosHoy({ ...entradaBase, sesiones: [futura] });
+  assert.equal(r.length, 1);
+  assert.equal(r[0].sesion.id, 'f1');
+  assert.equal(r[0].libres, 10);
+});
+
+test('huecosHoy: llena de verdad (CONFIRMADA/ASISTIDA/NO_ASISTIO) no aparece', () => {
+  const futura = sesion({ id: 'f1', inicio: new Date(Date.UTC(2026, 7, 5, 19, 0, 0)).toISOString(), aforoMaximo: 2 });
+  const r = huecosHoy({
+    ...entradaBase, sesiones: [futura],
+    reservas: [
+      reserva({ sesionId: 'f1', estado: 'CONFIRMADA' }),
+      reserva({ sesionId: 'f1', estado: 'ASISTIDA' }),
+    ],
+  });
+  assert.deepEqual(r, []);
+});
+
+test('huecosHoy: la lista de espera y lo pendiente de aprobación NO ocupan plaza', () => {
+  const futura = sesion({ id: 'f1', inicio: new Date(Date.UTC(2026, 7, 5, 19, 0, 0)).toISOString(), aforoMaximo: 2 });
+  const r = huecosHoy({
+    ...entradaBase, sesiones: [futura],
+    reservas: [
+      reserva({ sesionId: 'f1', estado: 'LISTA_ESPERA' }),
+      reserva({ sesionId: 'f1', estado: 'PENDIENTE_APROBACION' }),
+    ],
+  });
+  assert.equal(r.length, 1);
+  assert.equal(r[0].libres, 2);
+});
+
+test('huecosHoy: una clase de MAÑANA con hueco no cuenta como "de hoy"', () => {
+  const manana = sesion({ id: 'm1', inicio: new Date(Date.UTC(2026, 7, 6, 19, 0, 0)).toISOString() });
+  assert.deepEqual(huecosHoy({ ...entradaBase, sesiones: [manana] }), []);
+});
+
+test('huecosHoy: una clase de hoy que ya empezó no se ofrece', () => {
+  const yaEmpezada = sesion({ id: 'p1', inicio: new Date(Date.UTC(2026, 7, 5, 17, 0, 0)).toISOString() }); // 19:00 Madrid, antes de las 20:00 de "ahora"
+  assert.deepEqual(huecosHoy({ ...entradaBase, sesiones: [yaEmpezada] }), []);
+});
+
+test('huecosHoy: si su plan no cubre ese tipo de clase, no se ofrece (peor proponer lo que no puede reservar)', () => {
+  const futura = sesion({ id: 'f1', tipoClaseId: 'mat', inicio: new Date(Date.UTC(2026, 7, 5, 19, 0, 0)).toISOString() });
+  const r = huecosHoy({
+    ...entradaBase, sesiones: [futura],
+    planesTarifa: [plan({ id: 'pl1', tipo: 'BONO', sesiones: 8, tiposClaseIds: ['reformer'] })],
+    suscripciones: [suscripcion({ socioId: 'ana', planId: 'pl1', sesionesRestantes: 5 })],
+  });
+  assert.deepEqual(r, []);
+});
+
+test('huecosHoy: ordena por hora de inicio, no por orden de llegada', () => {
+  const tarde = sesion({ id: 'tarde', inicio: new Date(Date.UTC(2026, 7, 5, 20, 0, 0)).toISOString() });
+  const pronto = sesion({ id: 'pronto', inicio: new Date(Date.UTC(2026, 7, 5, 18, 30, 0)).toISOString() });
+  const r = huecosHoy({ ...entradaBase, sesiones: [tarde, pronto] });
+  assert.deepEqual(r.map((h) => h.sesion.id), ['pronto', 'tarde']);
+});
+
+test('huecosHoy: una clase cancelada nunca se ofrece, aunque tenga hueco', () => {
+  const cancelada = sesion({ id: 'c1', inicio: new Date(Date.UTC(2026, 7, 5, 19, 0, 0)).toISOString(), cancelada: true });
+  assert.deepEqual(huecosHoy({ ...entradaBase, sesiones: [cancelada] }), []);
+});
+
+test('huecosHoy: ⚠️ una clase de las 23:30 en Madrid sigue siendo "hoy" aunque en UTC ya sea el día siguiente', () => {
+  // 23:30 del 5 de agosto en Madrid (CEST, UTC+2) = 21:30 UTC del mismo 5 de
+  // agosto — todavía no cruza medianoche UTC, así que esta prueba por sí sola
+  // no distinguiría un cálculo en UTC de uno en local. La que sí lo hace es
+  // la siguiente, con "ahora" ya pasada la medianoche UTC.
+  const tardeNoche = sesion({ id: 'tn1', inicio: new Date(Date.UTC(2026, 7, 5, 21, 30, 0)).toISOString() });
+  const r = huecosHoy({ ...entradaBase, sesiones: [tardeNoche] });
+  assert.equal(r.length, 1);
+});
+
+test('huecosHoy: ⚠️ "ahora" a la 01:00 de Madrid (23:00 UTC del día anterior) sigue viendo el resto de HOY, no de "mañana"', () => {
+  // 01:00 del 6 de agosto en Madrid = 23:00 UTC del 5 de agosto. Un cálculo
+  // que comparara fechas en UTC leería "ahora" como día 5 y una clase de las
+  // 10:00 del 6 de agosto (08:00 UTC) como si fuera "mañana" en vez de hoy
+  // mismo para la socia — exactamente el gotcha que hoyEnEstudio existe para
+  // evitar (documentado también en Decision OS, franjaLocalDe).
+  const ahoraDeMadrugada = new Date(Date.UTC(2026, 7, 5, 23, 0, 0));
+  const claseDeLaManana = sesion({ id: 'cm1', inicio: new Date(Date.UTC(2026, 7, 6, 8, 0, 0)).toISOString() });
+  const r = huecosHoy({ ...entradaBase, now: ahoraDeMadrugada, sesiones: [claseDeLaManana] });
+  assert.equal(r.length, 1);
+  assert.equal(r[0].sesion.id, 'cm1');
 });

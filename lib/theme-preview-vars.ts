@@ -1,5 +1,3 @@
-// Relativo con .ts explícito: este módulo lo cargan tests bajo `node --test`.
-import { TEMAS_PORTAL, TEMAS_PORTAL_IDS } from '../themes/registro.ts';
 // Claves de CSS var que el preview en vivo puede sobreescribir por
 // postMessage. Es una whitelist de SEGURIDAD: el mensaje llega de otra ventana
 // y no se acepta cualquier propiedad, solo estas.
@@ -102,82 +100,4 @@ export function varsDePreview(
     salida[clave] = typeof v === 'string' ? v : 'initial';
   }
   return salida;
-}
-
-
-// ── Los tokens del kit ──────────────────────────────────────────────────────
-//
-// Whitelist aparte, y con una regla de limpieza OPUESTA a la de arriba. Merece
-// explicación, porque parece una incoherencia y no lo es:
-//
-// Con los `--portal-*`, quitar la propiedad en línea descubre el `<style>` del
-// tema PUBLICADO que pinta el servidor — o sea, el tema equivocado mientras se
-// previsualiza otro. Por eso allí se escribe `initial` en vez de borrar.
-//
-// Con los del kit, lo que hay debajo es el fichero del PROPIO tema
-// (`html[data-theme="…"]`), que es exactamente el valor al que queremos volver
-// cuando la propietaria no ha tocado ese ajuste. Aquí borrar es lo correcto, y
-// escribir `initial` sería el error: `border-radius: var(--radius-card)` no
-// lleva respaldo, así que un `initial` dejaría las tarjetas con las esquinas
-// cuadradas.
-//
-// ⚠️ Auditoría 21-ago: los `--size-*` estaban escritos A MANO y la lista no
-// coincidía con la realidad. `varsEscalaSobreTema` los deriva de
-// `tema.designSystem.type`, que es distinto por tema; comparando la lista con lo
-// que emiten los 5 temas salían 6 claves reales fuera de la whitelist
-// (`--size-body`, `--size-caption`, `--size-meta`, `--size-micro`,
-// `--size-pass-number`, `--size-timer`) y 5 entradas muertas que no existen en
-// ningún tema. Efecto: tocar la escala tipográfica cambiaba el cuerpo, los
-// metadatos y el número del bono en PRODUCCIÓN y no en la vista previa — el
-// mismo bug histórico que este fichero dice prevenir.
-//
-// Ahora se derivan del registro de temas, así que un tema nuevo con un token
-// nuevo entra solo. El test guardián de theme-preview-vars.test.ts lo comprueba.
-const CLAVES_SIZE_DE_LOS_TEMAS: string[] = TEMAS_PORTAL_IDS.flatMap(
-  id => TEMAS_PORTAL[id].designSystem.type.map(t => `--size-${t.token}`),
-);
-
-export const CLAVES_KIT_PERMITIDAS: ReadonlySet<string> = new Set([
-  // `--accent` SALIÓ de aquí por higiene (auditoría previa: ningún emisor del
-  // kit lo producía) y VUELVE ahora que sí lo produce de verdad: `destacado`
-  // ("Acento") → `varsColorSobreTema({accent: ...})` — P1 de la auditoría del
-  // Theme Builder, cableando el kit para que deje de tener campos inertes.
-  // Es TINTA (el dorado de Noir, el rosa de Bloom), nunca el fondo pálido del
-  // vocabulario viejo con el mismo nombre — ver el comentario de
-  // `varsColorSobreTema` en themes/registro.ts.
-  '--accent',
-  // `barraOscura` → `varsBarraOscuraSobreTema` → fondo de `TabBar`. Mismo
-  // motivo y misma fase que `--accent` de arriba.
-  '--tab-bar-bg',
-  '--brand', '--on-brand', '--support', '--bg', '--ink',
-  '--font-body', '--font-display', '--weight-display',
-  '--radius-card', '--radius-button', '--radius-chip', '--radius-quick-link',
-  // La escala se emite entera o no se emite: `varsEscalaSobreTema` aplica un
-  // factor a TODOS los pasos del tema, no solo a los que se tocaron.
-  ...CLAVES_SIZE_DE_LOS_TEMAS,
-  // `cardStyle` → sombra (`varsSombraSobreTema`): 'flat' no las declara, así
-  // que se borran igual que el resto — la tarjeta vuelve a la sombra propia
-  // del fichero del tema, no a un `initial` sin respaldo.
-  '--shadow-card', '--shadow-card-hover',
-  // `buttonStyle` sobre un tema del KIT (`varsBotonSobreTema`) — faltaban las
-  // tres, así que "Botón principal" guardaba el borrador (autosave, "1 sin
-  // publicar") pero la vista previa seguía enseñando el botón sólido: solo se
-  // veía el cambio real al publicar. Reproducido en vivo 2026-08-25.
-  // 'solid' no las declara, así que se borran igual que el resto.
-  '--btn-primary-bg', '--btn-primary-fg', '--btn-primary-border',
-]);
-
-/** Las que vienen, filtradas. Las que no vienen NO salen: se borran. */
-export function varsKitDePreview(
-  entrantes: Record<string, unknown>,
-  permitidas: ReadonlySet<string> = CLAVES_KIT_PERMITIDAS,
-): { aplicar: Record<string, string>; borrar: string[] } {
-  const aplicar: Record<string, string> = {};
-  const borrar: string[] = [];
-  for (const clave of permitidas) {
-    const v = entrantes[clave];
-    if (typeof v === 'string') aplicar[clave] = v;
-    else borrar.push(clave);
-  }
-  return { aplicar, borrar };
 }

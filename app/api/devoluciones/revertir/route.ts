@@ -115,10 +115,16 @@ export async function POST(req: NextRequest) {
   if (reversion.objetivo.fechaFin !== undefined) cambio.fecha_fin = reversion.objetivo.fechaFin;
   if (reversion.objetivo.estado !== undefined) cambio.estado = reversion.objetivo.estado;
 
-  const { error } = await admin.from('suscripciones').update(cambio)
-    .eq('id', dev.suscripcion_id).eq('studio_id', sesion.studioId);
-  if (error) {
-    console.error('[devoluciones] no se pudo revertir la entrega', dev.id, error.message);
+  // ⚠️ `.select('id')` obligatorio: un UPDATE que no casa NINGUNA fila no da
+  // error en Supabase (auditoría 22ª pasada, D-6). Sin esto, si la suscripción
+  // desapareció entre la lectura de arriba y esta escritura, la devolución
+  // quedaba marcada REVERTIDA con un `aplicado` que describe algo que nunca se
+  // escribió: el panel decía que se retiraron las sesiones, la socia las
+  // conservaba, y nada lo señalaba.
+  const { data: revertidas, error } = await admin.from('suscripciones').update(cambio)
+    .eq('id', dev.suscripcion_id).eq('studio_id', sesion.studioId).select('id');
+  if (error || !revertidas?.length) {
+    console.error('[devoluciones] no se pudo revertir la entrega', dev.id, error?.message ?? 'sin filas afectadas');
     return NextResponse.json({ error: 'No se ha podido revertir. Inténtalo de nuevo.' }, { status: 500 });
   }
 

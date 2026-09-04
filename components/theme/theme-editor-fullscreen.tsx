@@ -66,14 +66,14 @@ import { SelectorPagina, type OpcionPagina } from './selector-pagina';
 import { DISPOSITIVOS, DISPOSITIVO_IDS, type DispositivoId } from '@/lib/theme/dispositivos';
 import { useAutoguardado, useAutoguardadoTema } from './use-autoguardado';
 import { textoEstado, peorEstado } from '@/lib/theme/autoguardado';
-import type { ModoPreview } from '@/components/portal/portal-preview-bridge';
+import type { ModoPreview } from '@/components/theme/modo-preview';
 import {
   ESTADO_INICIAL, elegirPagina, elegirBloque, elegirItemContenido, elegirCategoria,
   cerrarCategoria, pantallaOperativa, type EstadoEditor,
 } from '@/lib/theme/editor-navegacion';
 import { MenuMas, MenuGrupo } from './menu-mas';
 import { ThemePreview } from './theme-preview';
-import { contarCambios } from './theme-library';
+import { contarCambios } from '@/lib/theme-runtime';
 import { pilaADeshacer, pilaARehacer } from '@/lib/theme/editor-historial';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
@@ -154,7 +154,7 @@ const GRUPOS_RAIL: { titulo: string; ayuda: string; filas: FilaRail[] }[] = [
     // reagrupado viene a quitar. Aquí se ESCRIBEN; allí se decide dónde caen.
     titulo: 'Avisos y banners',
     ayuda: 'Lo que anuncias a tus clientas. Se ve dentro del portal, pero no es una pantalla. Cada campo se guarda solo al escribirlo.',
-    filas: [{ id: 'contenido-portal', label: 'Mensaje y banners', desplegable: true }],
+    filas: [{ id: 'contenido-portal', label: 'Mensaje, banners y tablón', desplegable: true }],
   },
   {
     // Cuarto grupo, y el único que ve gente que NO ha entrado en ninguna app:
@@ -442,7 +442,7 @@ export function ThemeEditorFullscreen() {
               En rojo cuando falla, porque un aviso gris de "no se ha podido
               guardar" se lee como decoración. */}
           <span
-            className={`text-[11.5px] mr-1 tabular-nums ${estadoGuardado.tipo === 'error' || estadoGuardado.tipo === 'sesion' ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}
+            className={`text-[11.5px] mr-1 tabular-nums ${estadoGuardado.tipo === 'error' || estadoGuardado.tipo === 'sesion' || estadoGuardado.tipo === 'permiso' ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}
             role="status"
             aria-live="polite"
             data-estado-guardado
@@ -764,7 +764,7 @@ export function ThemeEditorFullscreen() {
               </div>
             ) : (nodo.tipo === 'pantalla' && nodo.id === 'contenido-portal') || (nodo.tipo === 'item' && nodo.grupo === 'contenido-portal') ? (
               <div className="w-[320px] aspect-[9/16] rounded-2xl border border-dashed border-border bg-background flex items-center justify-center text-center px-6">
-                <p className="text-[12px] text-muted-foreground">Los banners se ven en Inicio del portal — sin vista previa en directo todavía.</p>
+                <p className="text-[12px] text-muted-foreground">Los banners y el tablón se ven en Inicio del portal — sin vista previa en directo todavía.</p>
               </div>
             ) : (
               <HomePreview

@@ -64,7 +64,7 @@ export function MenuMas({
         <div
           role="menu"
           aria-label={etiqueta}
-          className="absolute right-0 top-full mt-1.5 w-64 rounded-xl border border-border bg-card shadow-lg z-50 p-1.5"
+          className="absolute right-0 top-full mt-1.5 w-64 rounded-xl border border-border bg-card shadow-lg z-50 p-1.5 menu-pop-in"
         >
           {children(() => setAbierto(false))}
         </div>

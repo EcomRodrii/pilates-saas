@@ -19,6 +19,7 @@ import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
 import { FichaExcepciones } from '@/components/socios/ficha-excepciones';
 import { FichaMandatoSepa } from '@/components/socios/ficha-mandato-sepa';
+import { FichaDocumentos } from '@/components/socios/ficha-documentos';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { BotonDevolverRecibo } from '@/components/socios/boton-devolver-recibo';
 import { BotonRectificarFactura } from '@/components/socios/boton-rectificar-factura';
@@ -39,6 +40,7 @@ import {
 import { cn, formatEuro } from '@/lib/utils';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { Toast } from '@/components/ui/toast';
+import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -161,15 +163,19 @@ function AttendanceSparkline({ weeks }: { weeks: boolean[] }) {
 
 // ─── Tab bar ──────────────────────────────────────────────────────────────────
 
-type Tab = 'resumen' | 'reservas' | 'salud' | 'pagos' | 'comunicaciones';
+type Tab = 'resumen' | 'reservas' | 'salud' | 'pagos' | 'comunicaciones' | 'documentos';
 
-function TabBar({ active, onChange, verFinanzas, verFichaClinica }: { active: Tab; onChange: (t: Tab) => void; verFinanzas: boolean; verFichaClinica: boolean }) {
+function TabBar({ active, onChange, verFinanzas, verFichaClinica, gestionaClientas }: { active: Tab; onChange: (t: Tab) => void; verFinanzas: boolean; verFichaClinica: boolean; gestionaClientas: boolean }) {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'resumen', label: 'Resumen' },
     { id: 'reservas', label: 'Reservas' },
     ...(verFichaClinica ? [{ id: 'salud' as Tab, label: 'Salud' }] : []),
     ...(verFinanzas ? [{ id: 'pagos' as Tab, label: 'Pagos' }] : []),
     { id: 'comunicaciones', label: 'Comunicaciones' },
+    // Mismo rol que puede subir/borrar (puedeGestionarClientas, espejo de la
+    // RLS de `documentos_socio`) — sin esto la pestaña se enseñaría a quien
+    // luego recibiría un 403 al abrirla.
+    ...(gestionaClientas ? [{ id: 'documentos' as Tab, label: 'Documentos' }] : []),
   ];
   return (
     <div className="flex border-b border-border bg-card rounded-t-xl overflow-x-auto min-w-0">
@@ -666,9 +672,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
           {/* Tab bar + panels */}
           <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <TabBar active={activeTab} onChange={setActiveTab} verFinanzas={verFinanzas} verFichaClinica={verFichaClinica} />
+            <TabBar active={activeTab} onChange={setActiveTab} verFinanzas={verFinanzas} verFichaClinica={verFichaClinica} gestionaClientas={gestionaClientas} />
 
-            <div className="p-5">
+            <ReanimarAlCambiar clave={activeTab} className="p-5" animClassName="tab-content-in">
 
               {/* ═══ TAB: RESUMEN ═══════════════════════════════════════════ */}
               {activeTab === 'resumen' && (
@@ -862,13 +868,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   </div>
 
                   {/* Plaza fija (F2 · B2.2) */}
-                  <FichaPlazaFija socioId={id} />
+                  <FichaPlazaFija socioId={id} onToast={setToast} />
 
                   {/* Recuperaciones (F2 · B2.3) */}
-                  <FichaRecuperaciones socioId={id} />
+                  <FichaRecuperaciones socioId={id} onToast={setToast} />
 
                   {/* Excepciones (F2 · B2.9) */}
-                  <FichaExcepciones socioId={id} />
+                  <FichaExcepciones socioId={id} onToast={setToast} />
 
                   {/* Domiciliación SEPA (F2 · B2.10). Es el medio de COBRO de la
                       clienta: quien no mueve dinero no lo da de alta ni lo quita. */}
@@ -1195,7 +1201,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
               {/* ═══ TAB: SALUD (ficha clínica) ═════════════════════════════ */}
               {activeTab === 'salud' && verFichaClinica && (
-                <FichaSalud socioId={id} now={now} />
+                <FichaSalud socioId={id} now={now} onToast={setToast} />
               )}
 
               {/* ═══ TAB: PAGOS ═════════════════════════════════════════════ */}
@@ -1419,7 +1425,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <div>
                   <div className="flex items-center justify-between mb-5">
                     <p className="text-xs font-medium text-muted-foreground">
-                      {comunicaciones.length} mensaje(s) enviado(s)
+                      {comunicaciones.length} {comunicaciones.length === 1 ? 'mensaje enviado' : 'mensajes enviados'}
                     </p>
                     <button
                       onClick={() => setShowSendMessage(true)}
@@ -1479,7 +1485,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 </div>
               )}
 
-            </div>
+              {/* ═══ TAB: DOCUMENTOS ════════════════════════════════════════ */}
+              {activeTab === 'documentos' && gestionaClientas && (
+                <FichaDocumentos socioId={id} onToast={setToast} />
+              )}
+
+            </ReanimarAlCambiar>
           </div>
         </div>
 

@@ -1,0 +1,1104 @@
+diff --git a/app/api/interno/network/perfiles/route.ts b/app/api/interno/network/perfiles/route.ts
+index 1f91b842..80eef015 100644
+--- a/app/api/interno/network/perfiles/route.ts
++++ b/app/api/interno/network/perfiles/route.ts
+@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
+ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { exigirPermiso } from '@/lib/interno/auth';
+ import { slugBase, slugConSufijo } from '@/lib/network/slug';
++import { escaparLike } from '@/lib/escapar-like';
+ 
+ export const runtime = 'nodejs';
+ 
+@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
+     .select('id, nombre, ciudad, estado, destacado, creado_en, actualizado_en, ultimo_acceso_en')
+     .order('creado_en', { ascending: false })
+     .limit(500);
+-  if (q) query = query.ilike('nombre', `%${q}%`);
++  if (q) query = query.ilike('nombre', `%${escaparLike(q)}%`);
+   if (estado) query = query.eq('estado', estado);
+ 
+   const { data, error } = await query;
+diff --git a/app/api/network/estudios/buscar/route.ts b/app/api/network/estudios/buscar/route.ts
+index 7525180c..1b19717a 100644
+--- a/app/api/network/estudios/buscar/route.ts
++++ b/app/api/network/estudios/buscar/route.ts
+@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
+ import { verificarUsuarioSupabase } from '@/lib/auth-server';
+ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { errorInterno } from '@/lib/errores-servidor';
++import { escaparLike } from '@/lib/escapar-like';
+ 
+ // Buscador de estudios Tentare — solo para que una profesional elija a
+ // quién pedir la verificación de una experiencia (Fase 7). Nombre + ciudad
+@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
+   const { data, error } = await admin
+     .from('studios')
+     .select('id, nombre, ciudad')
+-    .ilike('nombre', `%${q}%`)
++    .ilike('nombre', `%${escaparLike(q)}%`)
+     .order('nombre', { ascending: true })
+     .limit(10);
+   if (error) return errorInterno('network:estudios:buscar', error, 'No se han podido buscar estudios.');
+diff --git a/app/api/network/vacantes/publicadas/route.ts b/app/api/network/vacantes/publicadas/route.ts
+index 5cb47f01..d919e35a 100644
+--- a/app/api/network/vacantes/publicadas/route.ts
++++ b/app/api/network/vacantes/publicadas/route.ts
+@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { errorInterno } from '@/lib/errores-servidor';
+ import { mapFilaAVacante, type FilaRedVacante } from '@/lib/network/mapeo';
+ import { esEspecialidadValida, esTipoTrabajoValido } from '@/lib/network/catalogo';
++import { escaparLike } from '@/lib/escapar-like';
+ 
+ // Marketplace de oportunidades (Fase 2, "instructora → busca oportunidades")
+ // — vacantes 'published' de cualquier estudio. Requiere sesión (mismo
+@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
+ 
+   if (especialidad && esEspecialidadValida(especialidad)) query = query.contains('especialidades', [especialidad]);
+   if (tipoTrabajo && esTipoTrabajoValido(tipoTrabajo)) query = query.eq('tipo_trabajo', tipoTrabajo);
+-  if (ciudad) query = query.ilike('studios.ciudad', `%${ciudad}%`);
++  if (ciudad) query = query.ilike('studios.ciudad', `%${escaparLike(ciudad)}%`);
+ 
+   const { data, error } = await query;
+   if (error) return errorInterno('network:vacantes:publicadas:GET', error, 'No se han podido cargar las oportunidades.');
+diff --git a/app/network/estudios/[slug]/page.tsx b/app/network/estudios/[slug]/page.tsx
+index ced32676..4d8756b9 100644
+--- a/app/network/estudios/[slug]/page.tsx
++++ b/app/network/estudios/[slug]/page.tsx
+@@ -11,6 +11,7 @@ import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
+ import { BotonFavoritoAlumna } from '@/components/network/boton-favorito-alumna';
+ import { FormularioResenaAlumna } from '@/components/network/formulario-resena-alumna';
+ import { LEGAL } from '@/lib/legal-info';
++import { hrefCanal } from '@/lib/canales-estudio';
+ import { NW_FONDO, NW_TINTA, NW_MUTED, NW_PRODUCTO } from '@/components/network-v2/tokens';
+ 
+ // Ficha pública de ESTUDIO (quinta pieza de F3) — hermana de
+@@ -112,9 +113,14 @@ export default async function FichaEstudioPage({ params }: { params: Promise<{ s
+               {estudio.ciudad && (
+                 <span className="flex items-center gap-1"><MapPin size={14} />{estudio.ciudad}</span>
+               )}
+-              {estudio.sitioWeb && (
++              {/* `hrefCanal` y no el valor crudo: `studios.sitio_web` lo teclea
++                  el estudio y aquí se pinta como href. Los otros dos
++                  consumidores de este mismo dato ya pasaban por el helper —
++                  este se quedó fuera. Devuelve null (y no se pinta el enlace)
++                  para todo lo que no sea http/https. */}
++              {hrefCanal('web', estudio.sitioWeb) && (
+                 <a
+-                  href={estudio.sitioWeb}
++                  href={hrefCanal('web', estudio.sitioWeb)!}
+                   target="_blank"
+                   rel="noopener noreferrer nofollow"
+                   className="flex items-center gap-1 font-semibold hover:opacity-70"
+diff --git a/app/network/instructoras/ciudad/[ciudad]/[especialidad]/page.tsx b/app/network/instructoras/ciudad/[ciudad]/[especialidad]/page.tsx
+index dc4e4ffa..83fd2b15 100644
+--- a/app/network/instructoras/ciudad/[ciudad]/[especialidad]/page.tsx
++++ b/app/network/instructoras/ciudad/[ciudad]/[especialidad]/page.tsx
+@@ -5,11 +5,11 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { buscarPerfilesPublico } from '@/lib/network/publico';
+ import { esEspecialidadValida, ESPECIALIDAD_LABEL, DISCIPLINA_DE_ESPECIALIDAD, DISCIPLINA_LABEL, type EspecialidadNetwork } from '@/lib/network/catalogo';
+ import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
++import { ciudadDesdeParam } from '@/lib/network/ciudad-param';
+ import { LEGAL } from '@/lib/legal-info';
+ 
+-function ciudadDesdeParam(param: string): string {
+-  return decodeURIComponent(param).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+-}
++// `ciudadDesdeParam` compartido con la variante solo-ciudad (antes duplicado
++// literal en los dos ficheros, y sin validar en ninguno de los dos).
+ 
+ const FILTRO_BASE: Omit<FiltroBusquedaNetwork, 'ciudad' | 'especialidades'> = {
+   disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
+@@ -29,7 +29,7 @@ async function hayResultadosReales(nombreCiudad: string, especialidad: Especiali
+ export async function generateMetadata({ params }: { params: Promise<{ ciudad: string; especialidad: string }> }): Promise<Metadata> {
+   const { ciudad, especialidad } = await params;
+   const nombreCiudad = ciudadDesdeParam(ciudad);
+-  if (!esEspecialidadValida(especialidad)) return { title: 'Instructoras de Pilates y Yoga', robots: { index: false, follow: false } };
++  if (!nombreCiudad || !esEspecialidadValida(especialidad)) return { title: 'Instructoras de Pilates y Yoga', robots: { index: false, follow: false } };
+   const nombreEspecialidad = ESPECIALIDAD_LABEL[especialidad];
+   const disciplina = DISCIPLINA_DE_ESPECIALIDAD[especialidad];
+   const nombreDisciplina = disciplina ? DISCIPLINA_LABEL[disciplina] : 'Pilates y Yoga';
+@@ -49,6 +49,7 @@ export default async function MarketplacePorCiudadYEspecialidadPage({
+   const { ciudad, especialidad } = await params;
+   if (!esEspecialidadValida(especialidad)) notFound();
+   const nombreCiudad = ciudadDesdeParam(ciudad);
++  if (!nombreCiudad) notFound();
+   const nombreEspecialidad = ESPECIALIDAD_LABEL[especialidad];
+   return (
+     <MarketplaceLayout
+diff --git a/app/network/instructoras/ciudad/[ciudad]/page.tsx b/app/network/instructoras/ciudad/[ciudad]/page.tsx
+index 022f618d..30616620 100644
+--- a/app/network/instructoras/ciudad/[ciudad]/page.tsx
++++ b/app/network/instructoras/ciudad/[ciudad]/page.tsx
+@@ -1,5 +1,7 @@
+ import type { Metadata } from 'next';
++import { notFound } from 'next/navigation';
+ import { MarketplaceLayout } from '@/components/network-v2/MarketplaceLayout';
++import { ciudadDesdeParam } from '@/lib/network/ciudad-param';
+ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { buscarPerfilesPublico } from '@/lib/network/publico';
+ import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
+@@ -11,9 +13,9 @@ import { LEGAL } from '@/lib/legal-info';
+ // /network/instructoras/[slug] (perfil público) — Next.js no admite dos
+ // nombres de segmento dinámico distintos al mismo nivel de ruta. El prefijo
+ // estático desambigua sin perder legibilidad ni indexabilidad.
+-function ciudadDesdeParam(param: string): string {
+-  return decodeURIComponent(param).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+-}
++// `ciudadDesdeParam` vive ahora en lib/network/ciudad-param.ts: estaba
++// duplicado literal aquí y en la variante ×especialidad, y ninguna de las dos
++// copias validaba nada.
+ 
+ const FILTRO_BASE: Omit<FiltroBusquedaNetwork, 'ciudad'> = {
+   especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
+@@ -36,6 +38,8 @@ async function hayResultadosReales(nombreCiudad: string): Promise<boolean> {
+ export async function generateMetadata({ params }: { params: Promise<{ ciudad: string }> }): Promise<Metadata> {
+   const { ciudad } = await params;
+   const nombre = ciudadDesdeParam(ciudad);
++  // Una URL fabricada no describe ninguna página: ni título ni indexación.
++  if (!nombre) return { title: 'Instructoras de Pilates y Yoga', robots: { index: false, follow: false } };
+   const indexable = await hayResultadosReales(nombre);
+   return {
+     title: `Instructoras de Pilates y Yoga en ${nombre}`,
+@@ -47,6 +51,7 @@ export async function generateMetadata({ params }: { params: Promise<{ ciudad: s
+ export default async function MarketplacePorCiudadPage({ params }: { params: Promise<{ ciudad: string }> }) {
+   const { ciudad } = await params;
+   const nombre = ciudadDesdeParam(ciudad);
++  if (!nombre) notFound(); // mismo criterio que `esEspecialidadValida` en la ruta hermana
+   return (
+     <MarketplaceLayout
+       filtro={{ ...FILTRO_BASE, ciudad: nombre }}
+diff --git a/app/widget-bundle/main.tsx b/app/widget-bundle/main.tsx
+index 9412803e..fc31bc0a 100644
+--- a/app/widget-bundle/main.tsx
++++ b/app/widget-bundle/main.tsx
+@@ -134,7 +134,15 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
+   const [cuentaAbierta, setCuentaAbierta] = useState(false);
+   const [planesAbiertos, setPlanesAbiertos] = useState(false);
+   const walkInSinFicha = autenticado && !socia;
+-  const mostrarFormulario = walkInSinFicha || accesoAbierto;
++  // `&& !socia`: `accesoAbierto` solo se baja en tres sitios, y `onListo` solo
++  // lo llama el REGISTRO — `onLoginPassword` no, confiando en un comentario que
++  // dice que "el padre deja de mostrar este formulario solo". No lo hacía: al
++  // entrar con contraseña, `socia` pasa a truthy y la cabecera cambia a la rama
++  // "Mi cuenta", así que el botón «Ver clases sin iniciar sesión» —el único que
++  // bajaba `accesoAbierto`— desaparecía y el formulario de acceso se quedaba
++  // pintado para siempre encima del calendario, con la socia ya dentro. Es la
++  // otra mitad de #1408 (la ficha y el login abiertos a la vez), en Modo B.
++  const mostrarFormulario = walkInSinFicha || (accesoAbierto && !socia);
+ 
+   // Petición explícita del fundador (2026-08-26, tras una queja real sobre
+   // un estudio en producción): sin sesión, Modo B NO completa el flujo de
+@@ -252,13 +260,18 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
+           />
+         </HojaCuentaWidget>
+       )}
++      {/* `onComprado` con `{silencioso:true}`: <ListaPlanes> hace
++          `setEstado({fase:'exito'})` y acto seguido llama a esto. Con la recarga
++          ruidosa, el esqueleto sustituye el árbol entero y la socia NO llega a
++          ver la confirmación de una compra que ya está cobrada. Mismo fallo que
++          en onReservar, en el camino donde además hay dinero. */}
+       {planesAbiertos && (
+         <HojaCuentaWidget t={tema} onClose={() => setPlanesAbiertos(false)}>
+           <ListaPlanes
+             t={tema} planes={planesTarifa} socioId={socia?.socioId ?? null}
+             publishableKey={STRIPE_PUBLISHABLE_KEY ?? ''} stripeAccountId={stripeAccountId}
+             onCrearIntento={crearCheckoutEmbebido} onBizum={comprarConBizum}
+-            onCerrar={() => setPlanesAbiertos(false)} onComprado={recargar}
++            onCerrar={() => setPlanesAbiertos(false)} onComprado={() => recargar({ silencioso: true })}
+             onIniciarSesion={() => { setPlanesAbiertos(false); setAccesoAbierto(true); }}
+           />
+         </HojaCuentaWidget>
+diff --git a/lib/actions/equipo/equipoRendimientoAction.ts b/lib/actions/equipo/equipoRendimientoAction.ts
+index a32e3204..29a2b5d9 100644
+--- a/lib/actions/equipo/equipoRendimientoAction.ts
++++ b/lib/actions/equipo/equipoRendimientoAction.ts
+@@ -3,6 +3,7 @@
+ import { requireAuthInServerAction } from '@/lib/auth-server-action';
+ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
++import { obtenerRendimientoInstructoras } from '@/lib/equipo/rendimiento-datos';
+ 
+ /**
+  * equipoRendimientoAction
+@@ -20,12 +21,13 @@ export async function equipoRendimientoAction() {
+   const admin = getSupabaseAdmin();
+   if (!admin) return { items: [] };
+ 
+-  const { data: instructoras } = await admin
+-    .from('instructores')
+-    .select('id, nombre, email, activo')
+-    .eq('studio_id', sesion.studioId)
+-    .eq('activo', true)
+-    .order('nombre');
+-
+-  return { items: instructoras ?? [] };
++  // La migración sustituyó el cálculo real por un `select` de nombres, y nadie
++  // falló: `lib/api-client.ts` espera {instructorId, retencionPct, conversionPct,
++  // redSocialPct, datosInsuficientes} y recibía {id, nombre, email, activo}. Con
++  // `datosInsuficientes === undefined` la pantalla NUNCA muestra el aviso honesto
++  // de "no hay datos suficientes" y pinta la rejilla de métricas vacía bajo el
++  // título "últimos 90 días" — una propietaria evaluaba a su equipo con un
++  // informe inventado. `obtenerRendimientoInstructoras` seguía existiendo, sin
++  // un solo llamante, con sus tests en verde midiendo código muerto.
++  return { items: await obtenerRendimientoInstructoras(admin, sesion.studioId, new Date()) };
+ }
+diff --git a/lib/billing/entregar-plan-comprado.test.ts b/lib/billing/entregar-plan-comprado.test.ts
+index 8a40f554..ada0a6e8 100644
+--- a/lib/billing/entregar-plan-comprado.test.ts
++++ b/lib/billing/entregar-plan-comprado.test.ts
+@@ -248,3 +248,103 @@ test('sin teléfono (Modo A / conciliador): la ficha se crea igual, con null', a
+   assert.equal(r.ok, true);
+   assert.equal(insertado.socios[0].telefono, null);
+ });
++
++// ─────────────────────────────────────────────────────────────────────────────
++// I-8 y el segundo índice único (auditoría 26-ago)
++//
++// Los tests de arriba usan `fakeAdmin`, cuyo `insert` nunca choca: NO modela
++// los índices únicos reales de `socios`, que son DOS —`socios_pkey (id)` y
++// `uq_socios_studio_email (studio_id, lower(email)) where borrado_en is null`—.
++// Por eso la regresión de I-8 pasó typecheck, lint y 3.358 tests: el camino
++// `esInvitada: true` chocando por email no lo recorría ningún test.
++//
++// Este fake sí distingue los dos choques y por qué filtro se pregunta.
++// ─────────────────────────────────────────────────────────────────────────────
++function fakeAdminConIndiceUnico(opts: { fichaConEseEmail: Fila | null; fichaConEseId: Fila | null }) {
++  const insertado: Record<string, Fila[]> = { socios: [], suscripciones: [], recibos: [] };
++  const api = {
++    from(tabla: string) {
++      const filtros: Record<string, unknown> = {};
++      const q: Record<string, unknown> = {
++        select() { return q; },
++        eq(col: string, val: unknown) { filtros[col] = val; return q; },
++        ilike(col: string, val: unknown) { filtros[col] = val; return q; },
++        is(col: string, val: unknown) { filtros[col] = val; return q; },
++        // `.limit(n)` es TERMINAL en supabase-js (el builder es thenable) y
++        // devuelve un array, no una fila. El fake lo modela así a propósito:
++        // la búsqueda por email usa `.limit(1)` y no `.maybeSingle()` porque
++        // con dos filas casadas maybeSingle devuelve error y volveríamos a
++        // "cobrado sin entregar".
++        limit() {
++          if (tabla === 'socios' && filtros.email !== undefined) {
++            return Promise.resolve({ data: opts.fichaConEseEmail ? [opts.fichaConEseEmail] : [], error: null });
++          }
++          return Promise.resolve({ data: [], error: null });
++        },
++        maybeSingle() {
++          if (tabla === 'planes_tarifa') return Promise.resolve({ data: PLAN, error: null });
++          if (tabla === 'socios') {
++            // Se consulta por id (¿es el reintento?) o por email (¿de quién es
++            // el email que provocó el choque?). El fake responde a cada una.
++            if (filtros.id !== undefined) return Promise.resolve({ data: opts.fichaConEseId, error: null });
++            if (filtros.email !== undefined) return Promise.resolve({ data: opts.fichaConEseEmail, error: null });
++          }
++          return Promise.resolve({ data: null, error: null });
++        },
++        insert(fila: Fila) {
++          if (tabla === 'socios') {
++            if (opts.fichaConEseId) return Promise.resolve({ error: { code: '23505', message: 'socios_pkey' } });
++            if (opts.fichaConEseEmail) return Promise.resolve({ error: { code: '23505', message: 'uq_socios_studio_email' } });
++          }
++          // FK dura suscripciones.socio_id → socios.id: si la ficha a la que
++          // apuntamos no existe, Postgres responde 23503. Es el fallo real que
++          // dejaba el cobro sin entregar.
++          if (tabla === 'suscripciones') {
++            const existe = (fila.socio_id === opts.fichaConEseEmail?.id) || (fila.socio_id === opts.fichaConEseId?.id)
++              || insertado.socios.some(s => s.id === fila.socio_id);
++            if (!existe) return Promise.resolve({ error: { code: '23503', message: 'suscripciones_socio_id_fkey' } });
++          }
++          insertado[tabla]?.push(fila);
++          return Promise.resolve({ error: null });
++        },
++        update() { return q; },
++      };
++      return q;
++    },
++  };
++  return { admin: api as never, insertado };
++}
++
++test('invitada cuyo email YA tiene ficha: se entrega a esa ficha, no se cobra sin entregar', async () => {
++  // El flujo estrella "pagar y reservar sin login" nunca manda socioId, así que
++  // `esInvitada` es true SIEMPRE. Con I-8 tal cual, toda socia ya dada de alta
++  // que comprara sin loguearse —y toda invitada que comprara por segunda vez—
++  // chocaba con el índice de email, el 23505 se tomaba por "reintento de
++  // Stripe", `socioId` quedaba apuntando a una ficha inexistente y la
++  // suscripción moría con 23503: pagado, y sin bono, sin recibo y sin plaza.
++  const { admin, insertado } = fakeAdminConIndiceUnico({
++    fichaConEseEmail: { id: 'soc-de-siempre' }, fichaConEseId: null,
++  });
++
++  const r = await entregarPlanComprado(admin, { ...COMPRA, esInvitada: true });
++
++  assert.equal(r.ok, true, 'no puede quedarse en cobrado-sin-entregar');
++  assert.equal(r.ok && r.socioId, 'soc-de-siempre');
++  assert.equal(insertado.suscripciones[0].socio_id, 'soc-de-siempre', 'el bono va a la ficha dueña de ese email');
++  assert.equal(insertado.recibos.length, 1, 'y queda su recibo');
++});
++
++test('reintento real de Stripe (choque por clave primaria): sigue siendo idempotente', async () => {
++  // El control positivo del test anterior: el 23505 que SÍ es un reintento no
++  // debe caer en la rama de email ni duplicar nada.
++  const { admin, insertado } = fakeAdminConIndiceUnico({
++    fichaConEseEmail: null, fichaConEseId: { id: idsDe(COMPRA.sessionId).socioId },
++  });
++
++  const r = await entregarPlanComprado(admin, { ...COMPRA, esInvitada: true });
++
++  assert.equal(r.ok, true);
++  assert.equal(r.ok && r.socioId, idsDe(COMPRA.sessionId).socioId, 'la ficha del reintento es la nuestra');
++  assert.equal(r.ok && r.fichaCreada, false, 'no se creó ficha: ya existía');
++  assert.equal(insertado.socios.length, 0);
++});
+diff --git a/lib/billing/entregar-plan-comprado.ts b/lib/billing/entregar-plan-comprado.ts
+index 32d37939..e9adf518 100644
+--- a/lib/billing/entregar-plan-comprado.ts
++++ b/lib/billing/entregar-plan-comprado.ts
+@@ -18,6 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
+ // Relativo y con `.ts` explícita: el alias `@/` no lo resuelve el runner de
+ // `node --test`, y este módulo sí tiene test unitario propio.
+ import { hoyEnEstudio } from '../utils.ts';
++import { escaparLike } from '../escapar-like.ts';
+ 
+ export interface CompraPlan {
+   /**
+@@ -169,21 +170,31 @@ export async function entregarPlanComprado(
+     // peor que no crearla: quedaría un bono que nadie puede reclamar.
+     if (!compra.email) return { ok: false, motivo: 'sin-socia' };
+ 
+-    // I-8: si es invitada, SIEMPRE crear ficha nueva — no reutilizar aunque
++    // I-8: si es invitada, se INTENTA crear ficha nueva — no reutilizar aunque
+     // el email ya exista. Motivo: quien paga sin login (invitada) puede meter
+-    // un email por error / copia-pega. Si reutilizamos, el bono va a la ficha
+-    // existente y la invitada no recibe lo que pagó. Crear ficha nueva garantiza
+-    // que cada compra de invitada es autónoma — sin riesgo de suplantar bonos.
++    // un email por error / copia-pega, y si reutilizamos sin más, su bono va a
++    // la ficha de otra persona.
++    //
++    // «Se intenta», no «siempre»: el índice único `uq_socios_studio_email`
++    // manda por encima de esta preferencia. Cuando el email ya existe, la
++    // alternativa a reutilizar esa ficha NO es "crear otra" —Postgres no deja—,
++    // es no entregar nada sobre un cobro ya hecho. Entre las dos, se entrega:
++    // ver la rama del 23505 más abajo, y el comentario de
++    // `app/api/stripe/webhook/route.ts` sobre por qué eso no compromete nada
++    // (`identidadDemostradaEnCompra` sigue impidiendo tocar credenciales de
++    // pago ajenas, que era el daño grave).
+     const debeCrearFichaNueva = compra.esInvitada;
+ 
+     if (!debeCrearFichaNueva) {
+       // ¿Ya existe alguien con ese email en el estudio? (compró dos veces
+       // autenticada, o se registró entre medias). Se reutiliza en vez de duplicar.
++      // `escaparLike` también aquí, no solo en la rama nueva de abajo: es el
++      // mismo `ilike` sobre el mismo email y llevaba desde siempre sin escapar.
+       const { data: existente } = await admin
+         .from('socios')
+         .select('id')
+         .eq('studio_id', compra.studioId)
+-        .ilike('email', compra.email)
++        .ilike('email', escaparLike(compra.email))
+         .maybeSingle();
+ 
+       if (existente) {
+@@ -211,8 +222,56 @@ export async function entregarPlanComprado(
+       if (error && error.code !== YA_EXISTIA) {
+         return { ok: false, motivo: 'error', detalle: error.message };
+       }
+-      socioId = ids.socioId;
+-      fichaCreada = !error;
++      if (error) {
++        // 23505 aquí NO es siempre "el reintento de Stripe". Hay DOS índices
++        // únicos sobre `socios` y este código daba por hecho que solo había uno:
++        //
++        //   socios_pkey             (id)                      → reintento real
++        //   uq_socios_studio_email  (studio_id, lower(email))  → email ya usado
++        //
++        // Desde I-8 (`debeCrearFichaNueva = compra.esInvitada`) el segundo es el
++        // caso NORMAL, no el raro: la compra pública sin login manda email y no
++        // manda `socioId`, así que toda socia ya dada de alta que compre sin
++        // loguearse —y toda invitada que compre por segunda vez— choca aquí.
++        // Al tratarlo como reintento, `socioId` quedaba apuntando a una ficha
++        // que no existe y el insert de `suscripciones` moría después con 23503
++        // (FK): cobrado, y ni bono, ni recibo, ni la plaza que acababa de pagar.
++        // Sin rescate posible, además: el 200 ya se envió y el conciliador
++        // reintenta cada hora contra el mismo choque.
++        const { data: porId } = await admin
++          .from('socios').select('id').eq('id', ids.socioId).maybeSingle();
++
++        if (porId) {
++          socioId = ids.socioId; // reintento idempotente: la ficha ya es nuestra
++        } else {
++          // `borrado_en is null` para casar con el índice parcial: la fila que
++          // provocó el choque es por fuerza una no borrada.
++          // `escaparLike` y `limit(1)`, no `ilike` crudo + `maybeSingle()`:
++          // `_` es un comodín de LIKE y a la vez un carácter corriente en un
++          // email, así que `maria_lopez@…` casaría también con `maria.lopez@…`.
++          // Con dos filas casadas, `maybeSingle()` devuelve error y aquí se
++          // volvería a caer en "cobrado y sin entregar", que es justo lo que
++          // esta rama existe para impedir. Y `checkout/route.ts` no valida el
++          // `socioEmail` que recibe, así que el comodín puede venir de fuera.
++          const { data: porEmail } = await admin
++            .from('socios')
++            .select('id')
++            .eq('studio_id', compra.studioId)
++            .ilike('email', escaparLike(compra.email))
++            .is('borrado_en', null)
++            .limit(1);
++          const idExistente = porEmail?.[0]?.id as string | undefined;
++          if (!idExistente) return { ok: false, motivo: 'error', detalle: error.message };
++          // Entregar a la ficha que YA tiene ese email no suplanta a nadie: le da
++          // su bono a quien es dueña de ese correo. Lo que I-8 vino a impedir era
++          // otra cosa —guardar el método de pago sobre ficha ajena— y eso lo
++          // cierra `identidadDemostradaEnCompra` en el webhook, no esta rama.
++          socioId = idExistente;
++        }
++      } else {
++        socioId = ids.socioId;
++        fichaCreada = true;
++      }
+     }
+   }
+ 
+diff --git a/lib/billing/socia-nueva.ts b/lib/billing/socia-nueva.ts
+index 5b3da754..5b173f47 100644
+--- a/lib/billing/socia-nueva.ts
++++ b/lib/billing/socia-nueva.ts
+@@ -1,4 +1,5 @@
+ import type { SupabaseClient } from '@supabase/supabase-js';
++import { escaparLike } from '../escapar-like.ts';
+ 
+ // ¿La compra la hace una clienta NUEVA? Es lo que gobierna `soloNuevas` de los
+ // códigos de descuento (lib/billing/descuento-checkout.ts).
+@@ -28,7 +29,13 @@ export async function esSociaNueva(
+   // barra invertida que lo escape: un email con `*` casaría con cualquier ficha
+   // del estudio. Como tampoco es un email válido, se corta aquí.
+   if (email.includes('*')) return false;
+-  const patron = email.replace(/([%_\\])/g, '\\$1');
++  // El escapado en sí es ahora `lib/escapar-like.ts`, compartido con el
++  // buscador del marketplace y con `entregarPlanComprado`: era la misma lógica
++  // escrita tres veces, y la que faltaba (la de entregar) costaba dinero.
++  // La guarda de `*` se queda AQUÍ y antes de escapar a propósito: aquí un `*`
++  // tiene que hacer fail-closed («no es nueva», no se regala el código), no
++  // limpiarse y seguir.
++  const patron = escaparLike(email);
+   const { data, error } = await admin
+     .from('socios')
+     .select('id')
+diff --git a/lib/billing/stripe-cobros.ts b/lib/billing/stripe-cobros.ts
+index d847bc49..f482ad4a 100644
+--- a/lib/billing/stripe-cobros.ts
++++ b/lib/billing/stripe-cobros.ts
+@@ -79,6 +79,16 @@ export async function cobrarReciboOffSession(params: {
+   if (reciboError || !recibo) {
+     return { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' };
+   }
++  // El filtro de arriba comprueba que el recibo es del estudio y que la socia es
++  // del estudio — pero NO que el recibo sea DE ESA SOCIA. Dos de los tres
++  // llamantes (`/api/stripe/charge-off-session` y `/api/cobros/cobrar-online`)
++  // toman `socioId` del body sin cruzarlo con nada, así que el recibo de A se
++  // cobraba a la tarjeta guardada de B: un cargo real a una tarjeta ajena, y el
++  // `metadata.socioId` del PaymentIntent apuntando a quien no lo debía. No cruza
++  // estudios, pero un typo en la UI basta para provocarlo.
++  if (recibo.socio_id !== params.socioId) {
++    return { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' };
++  }
+   // Se puede cobrar un recibo PENDIENTE o uno FALLIDO (recuperación manual tras
+   // agotar el dunning: si la socia paga más adelante, se vuelve a intentar). El
+   // barrido automático solo reintenta los PENDIENTE.
+diff --git a/lib/db/supabase-data-admin.ts b/lib/db/supabase-data-admin.ts
+index 7a7ab122..ddc7da4c 100644
+--- a/lib/db/supabase-data-admin.ts
++++ b/lib/db/supabase-data-admin.ts
+@@ -677,6 +677,15 @@ export async function fetchPublicStudioData(
+     // Barra clásica (Oliva/Noir): decisión de LAYOUT que portal-shell.tsx toma
+     // con JS (position flotante o no), no algo que una CSS var pueda decidir.
+     barraClasica: temaPublicado?.barraClasica ?? null,
++    // Su gemela, que se quedó fuera de este payload: `studio-context` hace
++    // `setBarraFlotante(pub.barraFlotante === true)` y `pub.barraFlotante` era
++    // SIEMPRE undefined, así que la rama 'floating' de portal-tema-marco.tsx era
++    // código muerto en producción. El interruptor «Barra flotante» sí cambiaba
++    // el PREVIEW, porque ahí el valor llega por el otro carril
++    // (lib/theme-preview-puente.ts) — o sea que el editor enseñaba una cosa y el
++    // portal de las socias hacía otra, en los tres temas cuyo tab_bar_style de
++    // fábrica es 'classic' (Tentada, Oliva, Noir).
++    barraFlotante: temaPublicado?.barraFlotante ?? null,
+     // Accesos rápidos del Inicio — solo temas del kit. `null` real (hereda
+     // del tema) es un valor válido, no "sin dato": por eso NO se colapsa a
+     // `?? null` sobre `null` como si fuera ausencia (sería un no-op, pero
+diff --git a/lib/escapar-like.test.ts b/lib/escapar-like.test.ts
+new file mode 100644
+index 00000000..5053a2f1
+--- /dev/null
++++ b/lib/escapar-like.test.ts
+@@ -0,0 +1,55 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { escaparLike } from './escapar-like.ts';
++import { ciudadDesdeParam } from './network/ciudad-param.ts';
++
++test('escaparLike neutraliza los comodines de ILIKE', () => {
++  // El caso real: /network/instructoras/ciudad/%25 llegaba como '%' y producía
++  // ilike('ciudad', '%%%'), que casa con TODAS las ciudades.
++  assert.equal(escaparLike('%'), '\\%');
++  assert.equal(escaparLike('_'), '\\_');
++  assert.equal(escaparLike('50%_off'), '50\\%\\_off');
++  // La barra primero, o se re-escaparían las que añadimos después.
++  assert.equal(escaparLike('a\\b'), 'a\\\\b');
++  // `*` lo traduce PostgREST a `%` por su cuenta: se quita, no se escapa.
++  assert.equal(escaparLike('Mad*rid'), 'Madrid');
++});
++
++test('escaparLike no toca una ciudad normal (control positivo)', () => {
++  assert.equal(escaparLike('Madrid'), 'Madrid');
++  assert.equal(escaparLike("L'Hospitalet de Llobregat"), "L'Hospitalet de Llobregat");
++  assert.equal(escaparLike('A Coruña'), 'A Coruña');
++});
++
++test('ciudadDesdeParam acepta topónimos reales', () => {
++  assert.equal(ciudadDesdeParam('madrid'), 'Madrid');
++  assert.equal(ciudadDesdeParam('san-sebastian'), 'San Sebastian');
++  assert.equal(ciudadDesdeParam('a-coru%C3%B1a'), 'A Coruña');
++});
++
++test('ciudadDesdeParam NO 404ea las URLs que genera el propio sitemap', () => {
++  // `slugCiudadUrl` solo cambia espacios por guiones, así que la puntuación de
++  // los topónimos llega entera a la URL. Una versión anterior de la validación
++  // (`[\p{L}\p{N} -]`) devolvía 404 en todos estos, que son páginas vivas
++  // enlazadas desde app/sitemap.ts. Estos son el motivo de que la clase de
++  // caracteres sea la que es: si alguien la recorta, esto se pone rojo.
++  for (const slug of [
++    "l'hospitalet-de-llobregat",
++    "sant-joan-d'alacant",
++    'nucia,-la',
++    'donostia/san-sebastián',
++    'vitoria-gasteiz',
++    'sant-cugat-del-vallès',
++    'o-barco-de-valdeorras',
++  ]) {
++    assert.notEqual(ciudadDesdeParam(slug), null, `${slug} es un topónimo real y no puede dar 404`);
++  }
++});
++
++test('ciudadDesdeParam devuelve null (→404) ante una URL fabricada', () => {
++  assert.equal(ciudadDesdeParam('%25'), null, 'comodín de ILIKE');
++  assert.equal(ciudadDesdeParam('_'), null, 'comodín de un carácter');
++  assert.equal(ciudadDesdeParam('%ZZ'), null, 'percent-encoding mal formado: no debe lanzar');
++  assert.equal(ciudadDesdeParam('x'.repeat(61)), null, 'longitud desmedida');
++  assert.equal(ciudadDesdeParam('madrid-es-una-<estafa>'), null, 'texto arbitrario para el <title>/<h1>');
++});
+diff --git a/lib/escapar-like.ts b/lib/escapar-like.ts
+new file mode 100644
+index 00000000..d21aefa1
+--- /dev/null
++++ b/lib/escapar-like.ts
+@@ -0,0 +1,28 @@
++/**
++ * Escapa los comodines de un valor que se va a incrustar en un patrón `.ilike()`.
++ *
++ * Vive en `lib/` y no bajo `lib/network/` porque tiene dos familias de
++ * llamantes —el buscador del marketplace y las búsquedas de ficha por email de
++ * facturación— y la regla del repo es que una defensa duplicada acaba
++ * arreglándose en un sitio y no en el gemelo. `lib/billing/socia-nueva.ts` ya
++ * llevaba esta misma lógica escrita a mano, con el mismo razonamiento sobre `*`.
++ *
++ * Sin esto, el texto del buscador ES el patrón. `/network/instructoras/ciudad/%`
++ * llegaba a `query.ilike('ciudad', '%%%')`, que casa con TODAS las ciudades:
++ * un filtro que el usuario elige convertido en "devuélvemelo todo". Y como el
++ * guardia de indexación de esas páginas mide "¿hay algún resultado?", una URL
++ * con `%` siempre daba resultados y quedaba indexable — espacio de URLs
++ * ilimitado bajo el dominio, con `<title>` y `<h1>` de texto arbitrario.
++ *
++ * Tres caracteres, tres motivos:
++ * - `\` primero, o se re-escaparían las barras que añadimos después.
++ * - `%` y `_` son los comodines de LIKE en Postgres.
++ * - `*` se borra en vez de escaparse: PostgREST lo traduce a `%` por su cuenta
++ *   antes de que la cadena llegue a Postgres, así que escaparlo aquí depende
++ *   de en qué orden ocurren las dos traducciones. Un `*` no es parte de ningún
++ *   nombre de ciudad ni de estudio; quitarlo es la opción que no hay que
++ *   razonar dos veces.
++ */
++export function escaparLike(valor: string): string {
++  return valor.replace(/[\\%_]/g, (c) => `\\${c}`).replace(/\*/g, '');
++}
+diff --git a/lib/network/ciudad-param.ts b/lib/network/ciudad-param.ts
+new file mode 100644
+index 00000000..1e635cf2
+--- /dev/null
++++ b/lib/network/ciudad-param.ts
+@@ -0,0 +1,44 @@
++/**
++ * Ciudad de la URL de las páginas SEO del marketplace
++ * (`/network/instructoras/ciudad/[ciudad]` y su variante ×especialidad).
++ *
++ * Estaba duplicado literal en los dos `page.tsx` y no validaba nada: el texto
++ * de la URL viajaba entero al `<title>`, al `<h1>` y al filtro `.ilike` de la
++ * búsqueda. Con la especialidad no pasaba —esa sí se comprueba contra su
++ * catálogo con `esEspecialidadValida`—, así que la asimetría era el hallazgo.
++ *
++ * `null` significa 404, no "ciudad vacía": una cadena que no tiene forma de
++ * topónimo no es una ciudad desconocida, es una URL fabricada. Fallar en
++ * cerrado también le quita al buscador el espacio ilimitado de URLs indexables
++ * que abría el guardia de indexación (que mide "¿hay resultados?" y con un
++ * comodín en la URL siempre los había).
++ */
++// La clase tiene que admitir TODO lo que `slugCiudadUrl` (lib/network/publico.ts)
++// es capaz de meter en una URL, porque esas URLs las publica el propio sitemap:
++// ese helper solo cambia espacios por guiones, así que apóstrofos, comas,
++// puntos, paréntesis, el punto volado y la barra de los topónimos bilingües
++// llegan intactos. Una primera versión de este regex era `[\p{L}\p{N} -]` y
++// habría devuelto 404 en «L'Hospitalet de Llobregat», «Sant Joan d'Alacant»,
++// «Nucia, la» o «Donostia/San Sebastián» — páginas que hoy funcionan y que
++// Tentare enlaza desde su propio sitemap.
++//
++// Lo que sigue fuera es lo que importa: `%` y `_` (comodines de ILIKE), `*`
++// (que PostgREST traduce a `%`), `<`/`>` y cualquier otro texto arbitrario que
++// acabaría en el `<title>` y el `<h1>` de una página indexable.
++const CIUDAD_VALIDA = /^[\p{L}\p{N} '’·.,()/-]{1,60}$/u;
++
++export function ciudadDesdeParam(param: string): string | null {
++  let crudo: string;
++  try {
++    crudo = decodeURIComponent(param);
++  } catch {
++    return null; // `%ZZ` y demás secuencias percent-encoding mal formadas
++  }
++  // `\b\w` era ASCII: en «A Coruña» la `ñ` no es `\w`, así que la `a` siguiente
++  // contaba como inicio de palabra y el `<title>` decía «A CoruñA». Con
++  // `\p{L}` la inicial es la primera letra tras un separador de verdad.
++  const ciudad = crudo
++    .replace(/-/g, ' ')
++    .replace(/(^|\s)(\p{L})/gu, (_, sep: string, inicial: string) => sep + inicial.toUpperCase());
++  return CIUDAD_VALIDA.test(ciudad) ? ciudad : null;
++}
+diff --git a/lib/network/publico-estudios.ts b/lib/network/publico-estudios.ts
+index 66ead53c..dd7f54f1 100644
+--- a/lib/network/publico-estudios.ts
++++ b/lib/network/publico-estudios.ts
+@@ -14,6 +14,7 @@
+ // (mismo principio que ya aplica lib/network/publico.ts a la ficha de
+ // instructora, que tampoco expone email_contacto/telefono_contacto ahí).
+ import type { SupabaseClient } from '@supabase/supabase-js';
++import { escaparLike } from '../escapar-like.ts'; // `.ts` explícita: ver nota en publico.ts
+ 
+ const SELECT_COLUMNAS_PUBLICAS_ESTUDIO = 'id, nombre, ciudad, slug, descripcion, logo_url, foto_url, sitio_web, lat, lng';
+ 
+@@ -135,8 +136,11 @@ export async function buscarEstudiosPublicos(
+     .order('nombre', { ascending: true })
+     .limit(LIMITE_RESULTADOS_ESTUDIOS);
+ 
+-  if (filtro.ciudad) query = query.ilike('ciudad', `%${filtro.ciudad}%`);
+-  if (filtro.q) query = query.ilike('nombre', `%${filtro.q}%`);
++  // El gemelo de lib/network/publico.ts:192. Se arreglan los dos a la vez a
++  // propósito: el fallo recurrente de este repo es cerrar un camino y dejar
++  // abierto el idéntico de al lado.
++  if (filtro.ciudad) query = query.ilike('ciudad', `%${escaparLike(filtro.ciudad)}%`);
++  if (filtro.q) query = query.ilike('nombre', `%${escaparLike(filtro.q)}%`);
+ 
+   const { data, error } = await query;
+   if (error) return { error };
+diff --git a/lib/network/publico.ts b/lib/network/publico.ts
+index 1e9e4bf9..5caf481f 100644
+--- a/lib/network/publico.ts
++++ b/lib/network/publico.ts
+@@ -13,6 +13,9 @@
+ //     (app/api/network/buscar, app/api/network/perfil/[id]), que solo
+ //     añaden el guard de sesión de staff por encima.
+ import type { SupabaseClient } from '@supabase/supabase-js';
++// Relativo y con `.ts` explícita: este módulo tiene test unitario y el runner
++// de `node --test` no resuelve ni el alias `@/` ni las rutas sin extensión.
++import { escaparLike } from '../escapar-like.ts';
+ import {
+   mapFilaAPerfilPublico, mapFilaAExperienciaPublica,
+   type FilaRedPerfilPublica, type FilaRedExperiencia,
+@@ -189,7 +192,7 @@ export async function buscarPerfilesPublico(
+     .order('actualizado_en', { ascending: false })
+     .limit(LIMITE_RESULTADOS);
+ 
+-  if (filtro.ciudad) query = query.ilike('ciudad', `%${filtro.ciudad}%`);
++  if (filtro.ciudad) query = query.ilike('ciudad', `%${escaparLike(filtro.ciudad)}%`);
+   if (filtro.especialidades.length > 0) query = query.overlaps('especialidades', filtro.especialidades);
+   if (filtro.disponibilidad.length > 0) query = query.in('disponibilidad_estado', filtro.disponibilidad);
+   if (filtro.horarios.length > 0) query = query.overlaps('disponibilidad_horarios', filtro.horarios);
+diff --git a/lib/salud/comprobaciones.ts b/lib/salud/comprobaciones.ts
+index dbbbc44f..77312e43 100644
+--- a/lib/salud/comprobaciones.ts
++++ b/lib/salud/comprobaciones.ts
+@@ -123,7 +123,8 @@ export const DEFINICIONES: Definicion[] = [
+     que: 'Eventos de Stripe reclamados hace más de 1 hora y nunca marcados como procesados.',
+     impacto:
+       'Cada uno es un pago que el webhook empezó a procesar y no terminó: la socia pagó y puede no haber recibido ' +
+-      'su bono. Lo rescata el conciliador, pero esto es la señal de que el camino principal está roto.',
++      'su bono. Si era una ENTREGA de plan o recibo, lo rescata el conciliador. Si era un reembolso, una disputa, ' +
++      'un cobro SEPA o un fallo de pago, NO lo rescata nadie: reenvía el evento a mano desde el Dashboard de Stripe.',
+     // ⚠️ Nace en AVISO a propósito, no en verde: al escribir esto había 2 filas
+     // reales, ambas del ámbito `connect:` (el que entrega el bono), atascadas
+     // desde el 9-ago. Sus gemelas `billing:` sí completaron. La causa está
+diff --git a/lib/theme/payload-publico.test.ts b/lib/theme/payload-publico.test.ts
+new file mode 100644
+index 00000000..29524fd7
+--- /dev/null
++++ b/lib/theme/payload-publico.test.ts
+@@ -0,0 +1,87 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { readFileSync } from 'node:fs';
++
++// ─────────────────────────────────────────────────────────────────────────────
++// El guardián que le faltaba al sistema de temas.
++//
++// Los valores de tema viajan por TRES carriles y solo dos tenían prueba
++// automática:
++//   1. CSS `:root`      (vocabulario viejo)  → cubierto por theme-preview-vars
++//   2. CSS `:root:root` (kit)                → cubierto por theme-preview-vars
++//   3. valores JS en `camposTema`            → SIN cubrir  ← este fichero
++//
++// Por el tercero se coló `barraFlotante`: el interruptor existía en el editor,
++// el puente del PREVIEW lo transportaba, `studio-context` hacía
++// `setBarraFlotante(pub.barraFlotante === true)`… y `camposTema` nunca lo
++// emitía, así que `pub.barraFlotante` era SIEMPRE `undefined`. El editor
++// enseñaba la barra flotante y el portal de las socias seguía con la de
++// siempre. El e2e que había miraba el cuerpo del PATCH de guardado —o sea, que
++// el editor lo GUARDA—, nunca que el portal lo LEE.
++//
++// El contrato que se comprueba aquí es el que se rompió, ni más ni menos:
++//   todo eje de tema/nav que `CoreContextValue` transporta como valor JS
++//   tiene que estar en el payload público `camposTema`.
++//
++// Las dos listas se EXTRAEN del código, no se escriben a mano: un eje nuevo
++// entra solo en la cobertura. (Un test que construye su entrada a mano puede
++// estar validando un camino que ningún llamante recorre — ya pasó en este
++// mismo subsistema con las miniaturas.)
++// ─────────────────────────────────────────────────────────────────────────────
++
++const url = (p: string) => new URL(p, import.meta.url);
++
++/** Campos que `PortalShell` recibe ya resueltos, declarados en CoreContextValue. */
++function ejesDelCore(): string[] {
++  const fuente = readFileSync(url('../core-context.tsx'), 'utf8');
++  const i = fuente.indexOf('  navPortal: NavConfigShape;');
++  const j = fuente.indexOf('  portalReact: boolean;');
++  assert.ok(i !== -1 && j > i, 'no se localiza el bloque de tema/nav de CoreContextValue — actualiza este guardián');
++  return [...fuente.slice(i, j).matchAll(/^\s{2}(\w+):/gm)].map(m => m[1]);
++}
++
++/** Claves del objeto que el servidor manda al portal publicado. */
++function bloqueCamposTema(): string {
++  const fuente = readFileSync(url('../db/supabase-data-admin.ts'), 'utf8');
++  const i = fuente.indexOf('const camposTema = {');
++  assert.notEqual(i, -1, 'no se encuentra `const camposTema = {` — ¿lo renombraron?');
++  const j = fuente.indexOf('\n  };', i);
++  assert.notEqual(j, -1, 'no se encuentra el cierre del objeto camposTema');
++  return fuente.slice(i, j);
++}
++
++const emite = (bloque: string, id: string) => new RegExp(`(^|[^\\w])${id}\\s*:`, 'm').test(bloque);
++
++test('camposTema emite todos los ejes de tema/nav que consume el portal', () => {
++  const ejes = ejesDelCore();
++  // Control de que la extracción no se quedó en nada: si el fichero cambia de
++  // forma y `ejes` sale vacío, el filtro de abajo daría verde sin comprobar nada.
++  assert.ok(ejes.length >= 5, `se esperaban ≥5 ejes en CoreContextValue, se extrajeron ${ejes.length}`);
++
++  const bloque = bloqueCamposTema();
++  const ausentes = ejes.filter(id => !emite(bloque, id));
++
++  assert.deepEqual(
++    ausentes, [],
++    'Estos ejes se pueden configurar y publicar, pero NO viajan en el payload público: ' +
++    `cambian el PREVIEW y no el portal de las socias → ${ausentes.join(', ')}`,
++  );
++});
++
++test('control positivo: el guardián detecta de verdad un eje ausente', () => {
++  // Sin esto, cualquier cambio que rompiera la extracción (un bloque que se
++  // devuelve entero, un regex que casa siempre) dejaría el test anterior en
++  // verde para siempre sin comprobar nada — que es exactamente cómo
++  // `barraFlotante` sobrevivió a un e2e "en verde".
++  const bloqueFalso = 'const camposTema = {\n    barraClasica: x,\n';
++  assert.ok(!emite(bloqueFalso, 'barraFlotante'), 'tiene que ver la ausencia');
++  assert.ok(emite(bloqueFalso, 'barraClasica'), 'y no marcar ausente el que sí está');
++});
++
++test('portalReact queda fuera a propósito, y consta por qué', () => {
++  // No es un eje de tema: viaja dentro de `pub.studio`, no de `camposTema`. Se
++  // documenta para que la próxima persona no lo "arregle" añadiéndolo.
++  const fuente = readFileSync(url('../core-context.tsx'), 'utf8');
++  assert.ok(fuente.includes('  portalReact: boolean;'), 'si desaparece, revisar ejesDelCore()');
++  assert.ok(!ejesDelCore().includes('portalReact'));
++});
+diff --git a/lib/widget/usar-datos-widget.ts b/lib/widget/usar-datos-widget.ts
+index 80d14a28..06c1b487 100644
+--- a/lib/widget/usar-datos-widget.ts
++++ b/lib/widget/usar-datos-widget.ts
+@@ -129,12 +129,22 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
+   // inicializador perezoso de `useState` (también se ejecuta durante el
+   // render). Mismo patrón que `now`/`FECHA_PLACEHOLDER_SSR` en
+   // app/reservar/[slug]/page.tsx: placeholder fijo al render inicial, valor
+-  // real fijado en un efecto tras montar. A diferencia de esa página no hace
+-  // falta que se actualice sola (sin reloj en pantalla) — un valor por carga basta.
++  // real fijado en un efecto tras montar.
+   const [nowMs, setNowMs] = useState(0);
+   useEffect(() => {
+     // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: Date.now() no puede llamarse en render. El segundo render es el objetivo.
+     setNowMs(Date.now());
++    // Y con reloj de un minuto, igual que el Modo A. Aquí ponía que "un valor
++    // por carga basta, no hay reloj en pantalla", y era falso por el motivo
++    // equivocado: de `nowMs` sale `slots`, que filtra
++    // `inicio > nowMs` (lib/reservar/construir-slots.ts). Justo encima, este
++    // mismo hook recarga los datos cada 60 s — o sea que un widget embebido en
++    // la web de un estudio y dejado abierto traía clases frescas y las medía
++    // contra la hora del montaje, ofreciendo clases ya empezadas que el
++    // servidor luego rechaza (MENSAJE_CLASE_YA_EMPEZADA). Es el bug que el
++    // Modo A arregló y que a este lado no llegó.
++    const id = setInterval(() => setNowMs(Date.now()), 60_000);
++    return () => clearInterval(id);
+   }, []);
+ 
+   const slots = useMemo<ReservaSlot[]>(() => construirSlots({
+@@ -149,7 +159,16 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
+     const r = await postPublicoWidget(`${baseUrl}/api/public/reserva`, {
+       accion: 'crear', studioId: datos.studioId, sesionId: slot.id, socioId: socia.socioId, email: socia.email, spotId,
+     }, { studioId: datos.studioId });
+-    recargar();
++    // `{silencioso:true}` NO es cosmético: sin él, `recargar()` pone `cargando`
++    // a true y app/widget-bundle/main.tsx sustituye el árbol entero por el
++    // esqueleto, DESMONTANDO <ReservaCalendario> en el mismo lote de estado en
++    // que la hoja iba a pintar «¡Reserva confirmada!» o el motivo del rechazo.
++    // Resultado: la socia pulsaba Reservar, veía un parpadeo y el calendario
++    // volvía sin ficha, sin confirmación y sin error — un «no» del servidor
++    // (sin bono, tope semanal, clase ya empezada) se perdía en silencio.
++    // `cargando` es SOLO para la carga inicial. Aplica a las CUATRO acciones,
++    // incluida la de perfil: mi-perfil.tsx pinta «Guardado.» tras el await.
++    recargar({ silencioso: true });
+     if (!r.ok) return { ok: false, error: r.error };
+     const estado = (r.datos as { estado?: string } | null)?.estado;
+     return { ok: true, estado: estado === 'LISTA_ESPERA' ? 'LISTA_ESPERA' : 'CONFIRMADA' };
+@@ -160,7 +179,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
+     const r = await postPublicoWidget(`${baseUrl}/api/public/reserva`, {
+       accion: 'cancelar', studioId: datos.studioId, reservaId,
+     }, { studioId: datos.studioId });
+-    recargar();
++    recargar({ silencioso: true }); // mismo motivo que en onReservar
+     return r;
+   }, [socia, datos.studioId, recargar, baseUrl]);
+ 
+@@ -170,7 +189,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
+     const r = await postPublicoWidget(`${baseUrl}/api/public/aceptar-oferta-espera`, {
+       studioId: datos.studioId, reservaId,
+     }, { studioId: datos.studioId });
+-    recargar();
++    recargar({ silencioso: true }); // mismo motivo que en onReservar
+     return r;
+   }, [socia, datos.studioId, recargar, baseUrl]);
+ 
+@@ -182,7 +201,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
+     const r = await postPublicoWidget(`${baseUrl}/api/public/socio`, {
+       accion: 'actualizar', studioId: datos.studioId, cambios,
+     }, { studioId: datos.studioId });
+-    recargar();
++    recargar({ silencioso: true }); // mismo motivo que en onReservar
+     return r;
+   }, [socia, datos.studioId, recargar, baseUrl]);
+ 
+diff --git a/supabase/migrations/20260826090000_red_confianza_insert_y_token_no_autootorgables.sql b/supabase/migrations/20260826090000_red_confianza_insert_y_token_no_autootorgables.sql
+new file mode 100644
+index 00000000..31ac55e3
+--- /dev/null
++++ b/supabase/migrations/20260826090000_red_confianza_insert_y_token_no_autootorgables.sql
+@@ -0,0 +1,196 @@
++-- Auditoría 26-ago — CUARTA repetición del mismo fallo de familia: la señal de
++-- confianza del marketplace se protege en el código de la API y no en la base
++-- de datos. Como `authenticated` habla con PostgREST directamente, eso no es
++-- defensa en profundidad: es la única defensa, y está en el sitio equivocado.
++--
++-- 20260813135453 cerró el autoservicio de badges por UPDATE. Pero el trigger
++-- que puso es `before update`, así que **el INSERT nunca pasó por él**, y las
++-- policies de INSERT solo comprueban la propiedad de la fila. Verificado en
++-- producción antes de escribir esto:
++--
++--   has_column_privilege('authenticated','red_experiencias','estado_verificacion','INSERT') => true
++--   has_column_privilege('authenticated','red_referencias','estado','INSERT')               => true
++--   has_column_privilege('authenticated','red_referencias','estado','UPDATE')               => true
++--   has_column_privilege('authenticated','red_perfiles','slug','UPDATE')                    => true
++--
++-- Con eso, cualquiera con cuenta podía, por REST directo y con su propio JWT:
++--   1. Insertar una experiencia con `estado_verificacion='confirmada'` y el
++--      `studio_id` de un estudio real → sello «Perfil verificado» en la ficha
++--      pública (app/network/instructoras/[slug]/page.tsx), filtro
++--      `soloExperienciaVerificada` del buscador y +puntos en lib/network/ranking.ts.
++--   2. Insertar/actualizar una referencia con `estado='confirmada'` → badge
++--      «Referencia profesional» (lib/network/badges.ts) sin que exista ningún
++--      referente. Todo el flujo real (token de un uso, caducidad 7 días, rate
++--      limit) vive en app/api/public/network/referencia, o sea en la API.
++--   3. Fijarse su propio `slug` público y sus propias `lat`/`lng` — moderación
++--      solo genera el slug `if (fila && !fila.slug)` y la geocodificación solo
++--      se recalcula cuando cambia ciudad/zona desde la API.
++--
++-- Comprobado antes de tocar nada: NINGÚN fichero del repo escribe estas tablas
++-- desde el cliente (`grep "from('red_" ` sobre todos los ficheros 'use client'
++-- => 0 resultados). Los 4 únicos escritores son rutas de API con service role.
++-- Por eso cerrar `authenticated` no quita funcionalidad a nadie.
++--
++-- La comparación que da la forma correcta está en la tabla hermana:
++-- red_certificaciones_insert_propio (20260813222513) SÍ exige
++-- `estado = 'pendiente' and resuelto_en is null` en su WITH CHECK.
++
++-- ── 1. red_experiencias: el trigger tiene que cubrir también el INSERT ─────
++-- Se elige trigger y no policy por el mismo motivo que en 20260813135453: una
++-- policy no puede acotar columnas concretas dentro de una fila, y el filtro
++-- tiene que sobrevivir a que la policy cambie de forma.
++create or replace function public.red_experiencias_proteger_verificacion()
++returns trigger
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++begin
++  if auth.role() is distinct from 'service_role' then
++    if tg_op = 'INSERT' then
++      -- Falla en CERRADO: una experiencia nueva nace sin verificar y sin
++      -- estudio atribuido, se pida lo que se pida en el body.
++      new.estado_verificacion := 'sin_solicitar';
++      new.studio_id := null;
++    else
++      new.estado_verificacion := old.estado_verificacion;
++      new.studio_id := old.studio_id;
++    end if;
++  end if;
++  return new;
++end;
++$$;
++
++drop trigger if exists red_experiencias_proteger_verificacion_trigger on public.red_experiencias;
++create trigger red_experiencias_proteger_verificacion_trigger
++  before insert or update on public.red_experiencias
++  for each row execute function public.red_experiencias_proteger_verificacion();
++
++-- ── 2. red_referencias: no tenía NINGÚN trigger, ni en INSERT ni en UPDATE ──
++create or replace function public.red_referencias_proteger_estado()
++returns trigger
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++begin
++  if auth.role() is distinct from 'service_role' then
++    if tg_op = 'INSERT' then
++      new.estado := 'pendiente';
++      new.resuelto_en := null;
++    else
++      -- El token y su caducidad también se congelan: son el secreto que
++      -- app/api/public/network/referencia acepta como prueba de que respondió
++      -- el referente. Si la dueña pudiera reescribirlo, el «un solo uso» y los
++      -- 7 días de validez dejarían de significar nada.
++      new.estado := old.estado;
++      new.resuelto_en := old.resuelto_en;
++      new.token := old.token;
++      new.token_expira_en := old.token_expira_en;
++    end if;
++  end if;
++  return new;
++end;
++$$;
++
++drop trigger if exists red_referencias_proteger_estado_trigger on public.red_referencias;
++create trigger red_referencias_proteger_estado_trigger
++  before insert or update on public.red_referencias
++  for each row execute function public.red_referencias_proteger_estado();
++
++-- ── 3. red_referencias.token no puede ser LEGIBLE por su propia dueña ──────
++-- Sin esto el punto 2 se puentea por la puerta principal: `red_referencias_
++-- select_propio` deja a la dueña leer su fila entera, `token` incluido, y con
++-- ese token se confirma a sí misma llamando al endpoint público legítimo.
++-- El GET de app/api/network/referencias ya excluye `token` de su lista de
++-- COLUMNAS — esto hace que esa decisión sea cierta también por REST directo.
++--
++-- OJO (regla 4-bis del método): `revoke select (token)` sería un NO-OP mientras
++-- exista el grant a nivel de TABLA. Hay que revocar en la tabla y volver a
++-- conceder por columna. Verificado que existía: has_table_privilege(
++-- 'authenticated','red_referencias','UPDATE') => true.
++do $$
++declare
++  cols text;
++begin
++  select string_agg(quote_ident(attname), ', ' order by attname)
++    into cols
++  from pg_attribute
++  where attrelid = 'public.red_referencias'::regclass
++    and attnum > 0
++    and not attisdropped
++    and attname <> 'token';
++
++  execute 'revoke select, insert, update on public.red_referencias from authenticated';
++  execute format('grant select (%s) on public.red_referencias to authenticated', cols);
++  execute format('grant insert (%s) on public.red_referencias to authenticated', cols);
++  execute format('grant update (%s) on public.red_referencias to authenticated', cols);
++end $$;
++
++-- ── 4. red_perfiles: slug, lat y lng tampoco son auto-otorgables ───────────
++-- Mismo mecanismo que 20260825074240 (revoke de TABLA + grant por columna),
++-- ampliando la lista de exclusión. `slug` decide la URL pública y su UNIQUE
++-- permite hacer squatting de la de otra; `lat`/`lng` deciden en qué búsquedas
++-- «cerca de mí» aparece el perfil.
++do $$
++declare
++  cols text;
++begin
++  select string_agg(quote_ident(attname), ', ' order by attname)
++    into cols
++  from pg_attribute
++  where attrelid = 'public.red_perfiles'::regclass
++    and attnum > 0
++    and not attisdropped
++    and attname not in ('destacado', 'identidad_verificada_en', 'slug', 'lat', 'lng');
++
++  execute 'revoke update, insert on public.red_perfiles from authenticated';
++  execute format('grant update (%s) on public.red_perfiles to authenticated', cols);
++  execute format('grant insert (%s) on public.red_perfiles to authenticated', cols);
++end $$;
++
++-- ── 5. red_verificaciones_experiencia: el gemelo, encontrado en la revisión ─
++-- Misma familia y misma forma: `red_verificaciones_insert_propio`
++-- (20260813111206:176) solo comprueba la propiedad de la fila, y `estado`
++-- admite 'confirmada' en su CHECK. El daño directo está acotado (el badge lo
++-- decide `red_experiencias.estado_verificacion`, ya blindado arriba), pero hay
++-- un `unique (experiencia_id)`: una fila auto-insertada BLOQUEA la solicitud
++-- legítima posterior (app/api/network/experiencia/verificar) y además aparece
++-- en la bandeja del estudio.
++--
++-- Solo `before insert`: el UPDATE lo usa `red_verificaciones_update_staff`,
++-- que es el camino por el que el estudio resuelve la solicitud. Tocarlo sin
++-- necesidad sería cambiar comportamiento de negocio.
++create or replace function public.red_verificaciones_proteger_estado()
++returns trigger
++language plpgsql
++security definer
++set search_path = public, pg_temp
++as $$
++begin
++  if auth.role() is distinct from 'service_role' then
++    new.estado := 'pendiente';
++    new.resuelto_en := null;
++    new.resuelto_por := null;
++  end if;
++  return new;
++end;
++$$;
++
++drop trigger if exists red_verificaciones_proteger_estado_trigger on public.red_verificaciones_experiencia;
++create trigger red_verificaciones_proteger_estado_trigger
++  before insert on public.red_verificaciones_experiencia
++  for each row execute function public.red_verificaciones_proteger_estado();
++
++-- ── Salvedad para quien restaure un dump ───────────────────────────────────
++-- `auth.role()` devuelve NULL cuando no hay JWT, y `NULL is distinct from
++-- 'service_role'` es TRUE: estos triggers también se aplican a una conexión
++-- psql directa, al editor SQL del panel y a un `pg_restore`. En una restauración
++-- eso rebajaría todas las verificaciones a 'sin_solicitar'/'pendiente' y
++-- perdería los tokens de referencia, EN SILENCIO (asignan, no lanzan).
++-- Antes de recargar un dump: `alter table <tabla> disable trigger all;` y
++-- volver a habilitarlo al terminar.
++-- Se deja como asignación y no como `raise exception` a propósito: lanzar
++-- rompería la restauración entera en vez de degradarla, y el caso frecuente
++-- (un PATCH malicioso por REST) se atiende mejor ignorando el campo que
++-- devolviendo un error que le diga al atacante qué columna vigilamos.

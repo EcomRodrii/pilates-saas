@@ -50,20 +50,6 @@ export interface Studio {
   colorPrimario: string;
   temaPortal: string;
   /**
-   * TEMPORAL (migr 20260807120000). `true` = las socias de este estudio ven el
-   * portal en React (`components/portal-tema`), el kit de diseño, en vez del
-   * portal actual.
-   *
-   * ⚠️ Tiene fecha de caducidad por decisión explícita: piloto en un estudio,
-   * y si pasa una semana sin incidencias se enciende en el resto y se retira
-   * el portal viejo EN EL MISMO PR que borra esta bandera. Un flag sin fecha
-   * se queda para siempre y acabamos manteniendo dos portales.
-   *
-   * Opcional en el tipo porque hay decenas de fixtures que construyen `Studio`
-   * a mano y ninguno tiene por qué saber de esto.
-   */
-  portalReact?: boolean;
-  /**
    * Lista blanca de orígenes (https://ejemplo.com, sin ruta) autorizados a
    * incrustar el bundle embebible (Modo B, script+div sin iframe) — ver
    * lib/cors-widget.ts. `[]`/undefined = el bundle no funcionará en ningún
@@ -161,8 +147,9 @@ export interface Studio {
   // sobrescribirlo con NULL = hereda, mismo patrón que el resto de arriba —
   // pero OJO, este override se resuelve en SQL directo dentro de
   // cancelar_reserva_plaza, no con heredaOverride() en TS (ver comentario en
-  // esa migración: la RPC es ejecutable directo por `authenticated` desde el
-  // cliente, sin pasar por cargarPoliticaEstudio).
+  // esa migración: la RPC es la única fuente que resuelve esta regla, la
+  // llame quien la llame — panel o portal —, sin pasar por
+  // cargarPoliticaEstudio).
   listaEsperaPlazoAceptacionMinutos: number;
   // Fase 2c (migr 20260731140000): nº mínimo de reservas CONFIRMADA para que
   // la clase se mantenga. Si a 2h del inicio no se alcanza, se cancela
@@ -174,8 +161,7 @@ export interface Studio {
   // Fase 3 (migr 20260730225253): importe fijo en € a cobrar por cancelación
   // tardía o no-show. NULL/0 = regla desactivada. tipos_clase puede
   // sobrescribirlo con NULL = hereda — resuelto en SQL directo dentro de
-  // `cancelar_reserva_plaza` (esa RPC es ejecutable directo por
-  // `authenticated` desde el cliente, mismo criterio que Fase 2b).
+  // `cancelar_reserva_plaza`, mismo criterio que Fase 2b.
   penalizacionImporteEur: number | null;
   penalizacionAplicaCancelacionTardia: boolean;
   penalizacionAplicaNoShow: boolean;
@@ -358,6 +344,11 @@ export interface Socio {
   fechaNacimiento?: string | null;
   direccion?: string | null;
   fotoUrl?: string | null;
+  // "Usuario" (@handle) — Ajustes del portal (migr 20260828100000). Solo un
+  // campo de perfil por ahora: no hay página pública que lo resuelva, es
+  // decisión de producto explícita no construirla todavía. Único por
+  // estudio, formato acotado también en servidor (CHECK de la migración).
+  usuario?: string | null;
   referidoPor?: string | null; // id del socio que la invitó (programa de referidos)
   // P1 auditoría Momence-vs-Tentare: valor crudo de `?ref=` del widget
   // público cuando NO coincide con el id de una socia (referidoPor cubre ese
@@ -366,6 +357,9 @@ export interface Socio {
   origenLead?: string | null;
   // Valores de los campos personalizados del estudio: { [campoId]: valor }.
   camposExtra?: Record<string, string | number | boolean | null>;
+  // Opt-in de la propia socia (migr 20260826202949): ¿su nombre es visible
+  // para otras alumnas en "quién más va" a una clase? Por defecto false.
+  visibleEnClase?: boolean;
 }
 
 // ─── Riesgo de concentración por instructor ─────────────────────────────────
@@ -717,6 +711,12 @@ export interface TipoClase {
   // tipo de clase. Sin override en Sesion: híbridas puntuales quedan fuera
   // de esta primera entrega a propósito.
   esOnline: boolean;
+  // Plazas por defecto al programar una sesión de este tipo (migr
+  // 20260903233651). null = hereda la capacidad de la SALA, que es de donde
+  // salía el aforo antes de existir esta columna — mismo patrón "null =
+  // hereda" que el resto de reglas de arriba, solo que aquí lo que se hereda
+  // no es un ajuste del estudio sino la sala donde se programe.
+  aforoPorDefecto: number | null;
 }
 
 export interface FavoritoClase {
@@ -759,6 +759,23 @@ export interface BannerPortal {
   ubicacion: UbicacionBannerPortal[];
   activo: boolean;
   orden: number;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+}
+
+/**
+ * Un aviso del "Tablón" del portal — texto libre que PROPIETARIO/MANAGER
+ * escriben para las alumnas (horario de verano, un taller, cierre puntual).
+ * A diferencia de `BannerPortal`, no exige imagen ni enlace: es contenido de
+ * texto, no promocional (`supabase/migrations/*_novedades_estudio.sql`).
+ */
+export interface NovedadEstudio {
+  id: string;
+  studioId: string;
+  titulo: string;
+  texto: string | null;
+  emoji: string | null;
+  activo: boolean;
   fechaInicio: string | null;
   fechaFin: string | null;
 }
@@ -840,6 +857,13 @@ export interface Reserva {
   ofertaExpiraEn: string | null;
   checkInEn: string | null;
   creadoEn: string;
+  // Gap 4 (portal Reservas > Pasadas, migr 20260828120000): 1-5, solo sobre
+  // una reserva ya ASISTIDA (CHECK en BD). null = todavía sin valorar. NO
+  // confundir con `valoraciones` (migr 0044, tabla aparte que puntúa a la
+  // INSTRUCTORA por token sin login) — esto es un mecanismo distinto,
+  // autoservicio desde la sesión normal del portal, sin relación (todavía)
+  // con esas estadísticas.
+  valoracionExperiencia?: number | null;
 }
 
 export interface Recibo {
@@ -1053,6 +1077,13 @@ export interface VentaPOS {
   metodoPago: MetodoPago;
   notas: string | null;
   realizadaEn: string;
+  // 19ª auditoría · F-3: la columna existe en la BD desde `0036_pagos_espana_sepa_bizum`
+  // y es POR LA QUE BUSCA `procesarReembolsoVentaPos` para marcar la venta al
+  // recibir `charge.refunded`. Faltaba en el tipo y en los dos mappers, así que
+  // nadie la escribía nunca: las 19 ventas de producción la tienen a NULL y el
+  // reembolso de POS no casaba jamás. Solo la informan los cobros con Stripe
+  // (Bizum/datáfono); en efectivo es null.
+  stripePaymentIntentId?: string | null;
 }
 
 export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIANDO' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';
@@ -1342,10 +1373,26 @@ export interface PostComunidad {
   autorNombre: string;
   autorInicial: string;
   texto: string;
+  // P1 Community & Messaging OS: quién ve este post en el feed de la socia
+  // (portal), reutilizando el mismo segmento que ya resuelve una campaña de
+  // marketing (`resolverDestinatariasCampana`) — sin motor de audiencias
+  // paralelo. 'TODAS' si no se especifica (comportamiento previo intacto).
+  audiencia: DestinatariosCampana;
+  // URL pública de Storage (bucket `comunidad-media`), o null si el post es
+  // solo texto.
+  imagenUrl: string | null;
   likes: number;
   comentariosCount: number;
   fijado: boolean;
   creadoEn: string;
+  // Eventos como entidad propia dentro del Feed (P2 Community & Messaging
+  // OS). 'TEXTO' (default) o 'EVENTO'; los campos evento* solo tienen
+  // sentido cuando tipo === 'EVENTO'. SUPUESTO sobre el esquema de BD: a
+  // confirmar contra la migración real del otro agente.
+  tipo: 'TEXTO' | 'EVENTO';
+  eventoFecha?: string | null;
+  eventoAforo?: number | null;
+  eventoLugar?: string | null;
 }
 
 export interface ComentarioComunidad {

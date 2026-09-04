@@ -1,86 +1,94 @@
-import type { Viewport } from 'next';
-import { PortalAuthProvider } from '@/lib/portal-auth';
-import { PortalShell } from '@/components/portal/portal-shell';
-import { StudioSlugGate } from '@/components/studio-slug-gate';
-import { ThemeStyle } from '@/components/theme-style';
-import { getStudioSeo } from '@/lib/studio-seo';
-import { getThemePublicado } from '@/lib/theme-data';
-import { urlIconoEstudio } from '@/lib/monograma-estudio';
+import type { Metadata, Viewport } from 'next';
+import { notFound } from 'next/navigation';
+import { cargarEstudio } from '@/lib/student/estudio';
+import { acentoCssText } from '@/lib/student/tema';
+import { StudentProvider } from '@/components/student/contexto';
+import { ToastProvider } from '@/components/student/ui/Toast';
+import { RegistroSW } from '@/components/student/RegistroSW';
+import { urlMonograma } from '@/lib/monograma-estudio';
+import './student.css';
 
-// Metadata dinámica: el portal es la "app de marca" del estudio, así que el
-// título, el nombre de la app instalada (appleWebApp.title) y el manifest son
-// los del estudio, no genéricos. getStudioSeo está cacheada por request, así
-// que esta consulta se comparte con la del layout. (Antes además se apuntaba a
-// /manifest.json, que no existe — Next sirve /manifest.webmanifest.)
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+// Raíz de la Student PWA. Server Component a propósito.
+//
+// Aquí se resuelve el estudio UNA vez por petición (`getStudioSeo` está
+// cacheada con `React.cache`, así que `generateMetadata` y este layout
+// comparten la misma consulta) y se inyecta el acento del estudio antes de que
+// el navegador pinte nada.
+//
+// ⚠️ Lo que NO hace, y es la decisión de arquitectura de toda la app: no monta
+// `StudioProvider` (lib/studio-context.tsx). El de `app/layout.tsx` sigue por
+// encima —envuelve toda la aplicación— pero queda inerte en estas rutas: su
+// guardia de ruta pública (`shadowedByPublicRoute`, studio-context.tsx:687)
+// reconoce el prefijo `/portal/`, y sin sesión de personal su efecto de carga
+// sale por el `return` temprano. La app de la alumna no lee su contexto.
+
+export const viewport: Viewport = {
+  // El crema del kit. El navegador tiñe con esto la barra de estado cuando la
+  // app está instalada, así que tiene que ser el mismo `--background`.
+  themeColor: '#FAF9F5',
+  width: 'device-width',
+  initialScale: 1,
+  // `viewportFit: 'cover'` para que el nav inferior llegue al borde en móviles
+  // con notch; el padding lo pone `--safe-bottom`. Sin `maximumScale`: limitar
+  // el zoom rompe la accesibilidad y es la misma decisión que /reservar.
+  viewportFit: 'cover',
+};
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const studio = await getStudioSeo(slug);
-  const nombre = studio?.nombre ?? 'Mi Estudio';
-  // Sin esto, la pestaña del navegador del portal —lo que la alumna tiene
-  // abierto a diario, mucho más que /reservar— enseñaba SIEMPRE el favicon
-  // raíz de Tentare, tuviera o no la propietaria uno propio subido: esta ruta
-  // nunca había tocado `icons`. `getThemePublicado` está cacheada por
-  // request, así que reusa la misma consulta que ya hace `ThemeStyle` más
-  // abajo — sin duplicar trabajo.
-  const theme = studio ? await getThemePublicado(studio.id) : null;
+  const estudio = await cargarEstudio(slug);
+  // Si no se ha podido leer, un título neutro: decir «no encontrado» sería
+  // afirmar algo que no sabemos, y este título acaba en la pestaña y en el
+  // enlace que se comparte.
+  if (estudio === 'no-disponible') return { title: 'Portal del estudio' };
+  if (!estudio) return { title: 'Estudio no encontrado' };
+
+  const base = `/portal/${encodeURIComponent(slug)}`;
   return {
-    title: `${nombre} · Portal`,
-    description: 'Tu espacio de miembro',
-    manifest: `/portal/${slug}/manifest.webmanifest`,
-    appleWebApp: {
-      capable: true,
-      statusBarStyle: 'default' as const,
-      title: nombre,
-    },
-    // `icon` (pestaña/favicon) ya iba por estudio, pero especificar `icons`
-    // aquí desactiva TAMBIÉN el `apple-icon.png` de convención de fichero del
-    // layout raíz (es de Tentare) sin sustituirlo por nada — Next no cae a él,
-    // así que "Añadir a pantalla de inicio" en iOS se quedaba sin ningún
-    // <link rel="apple-touch-icon">, y Safari termina resolviendo el icono de
-    // marca de OTRO negocio. Mismo valor que `icon`: no hace falta un asset
-    // aparte para que la alumna vea el icono de SU estudio, no el de Tentare.
-    // ⚠️ Con favicon propio manda ese; si no, el icono compuesto CON SU LOGO
-    // (`urlIconoEstudio`), y solo sin logo la inicial. Antes se saltaba el logo
-    // por completo: un estudio con logo subido pero sin favicon —que es el caso
-    // normal, porque el favicon vive en el editor de tema y el logo en
-    // Configuración— veía la inicial de su nombre en el icono de la app de su
-    // alumna en vez de su marca.
-    //
-    // Y va COMPUESTO en un cuadrado, no el logo crudo: `apple-touch-icon` no
-    // admite transparencia y iOS lo rellena por su cuenta, así que un PNG
-    // transparente y apaisado sale sobre un fondo que no eligió nadie.
+    title: estudio.nombre,
+    description: `Reserva tu clase en ${estudio.nombre}.`,
+    // Manifest POR ESTUDIO: es lo que hace que instalarla dé la app del
+    // estudio y no «Tentare». El de la plataforma (app/manifest.ts) sigue
+    // sirviendo a la web pública.
+    manifest: `${base}/manifest.webmanifest`,
+    appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: estudio.nombre },
     icons: {
-      icon: theme?.faviconUrl || urlIconoEstudio(nombre, studio?.colorPrimario, 192, studio?.logoUrl, process.env.NEXT_PUBLIC_SUPABASE_URL),
-      apple: theme?.faviconUrl || urlIconoEstudio(nombre, studio?.colorPrimario, 192, studio?.logoUrl, process.env.NEXT_PUBLIC_SUPABASE_URL),
+      icon: urlMonograma(estudio.nombre, estudio.colorPrimario, 192),
+      apple: urlMonograma(estudio.nombre, estudio.colorPrimario, 192),
     },
+    // La app de la alumna vive detrás de sesión: no se indexa. `/portal` ya
+    // está en PREFIJOS_NO_INDEXABLES (lib/seo/paginas.ts), esto es el cinturón.
+    robots: { index: false, follow: false },
   };
 }
 
-// `viewportFit: 'cover'` es lo que hace que `env(safe-area-inset-*)` (usado en
-// portal-shell.tsx y en los bottom sheets) devuelva algo distinto de 0 en un
-// iPhone con notch/Dynamic Island — sin esto, todo ese código es inerte y el
-// contenido puede quedar comprimido contra el borde real de la pantalla.
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  viewportFit: 'cover',
-  themeColor: '#131313',
-};
-
-export default async function PortalLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
+export default async function StudentLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
-  // Resolvemos el estudio en el SERVIDOR (misma consulta cacheada por request
-  // que usa ThemeStyle): el gate monta el StudioProvider al instante, sin el
-  // round-trip de cliente a resolveStudioIdBySlug que hacía antes (mismo
-  // patrón ya usado en app/reservar/[slug]/layout.tsx).
-  const studio = await getStudioSeo(slug);
+  const estudio = await cargarEstudio(slug);
+  // Un fallo al LEER no es un estudio inexistente. Se lanza para que lo recoja
+  // el error boundary del segmento (error.tsx), que ofrece reintentar; con
+  // `notFound()` la clienta veía «esta página no existe» por un parpadeo de la
+  // base de datos, y ese 404 se comparte y se indexa.
+  if (estudio === 'no-disponible') throw new Error('STUDENT_ESTUDIO_NO_DISPONIBLE');
+  if (!estudio) notFound();
+
   return (
-    <StudioSlugGate slug={slug} initialStudioId={studio?.id ?? null} initialResuelto>
-      <ThemeStyle slug={slug} />
-      <PortalAuthProvider slug={slug}>
-        <PortalShell>{children}</PortalShell>
-      </PortalAuthProvider>
-    </StudioSlugGate>
+    <div className="student-app">
+      {/* El acento del estudio, en servidor. Solo los 7 tokens que cambian por
+          estudio; los otros 35 son estáticos y viven en student.css. */}
+      <style dangerouslySetInnerHTML={{ __html: acentoCssText(estudio.colorPrimario) }} />
+      <RegistroSW slug={estudio.slug} />
+      {/* El toast vive aquí y no en cada pantalla: es un aviso global y así
+          sobrevive a las navegaciones dentro del portal. */}
+      <StudentProvider estudio={estudio}>
+        <ToastProvider>{children}</ToastProvider>
+      </StudentProvider>
+    </div>
   );
 }

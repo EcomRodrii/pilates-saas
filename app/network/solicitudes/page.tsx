@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Check, X, Loader2, MessageCircle } from 'lucide-react';
-import { PageHeader } from '@/components/ui/page-header';
+import { Check, X, Loader2, MessageCircle, Inbox } from 'lucide-react';
 import { Toast, useToast } from '@/components/ui/toast';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { HiloMensajes } from '@/components/network/hilo-mensajes';
@@ -12,19 +11,31 @@ import { useAuth } from '@/lib/auth-context';
 import {
   fetchSolicitudesContactoNetwork, resolverSolicitudContactoNetwork, type SolicitudContactoRecibida,
 } from '@/lib/api-client';
-import { cardCls } from '@/app/(dashboard)/configuracion/page';
-import { cn } from '@/lib/utils';
+import { NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAND, NW_PRODUCTO, NW_ESTADO } from '@/components/network-v2/tokens';
+import { selloTemporal } from '@/lib/avisos-portal';
 
-const ESTADO_INFO: Record<SolicitudContactoRecibida['estado'], { texto: string; cls: string }> = {
-  pendiente: { texto: 'Pendiente', cls: 'text-amber-600' },
-  aceptada: { texto: 'Aceptada', cls: 'text-success' },
-  rechazada: { texto: 'Rechazada', cls: 'text-muted-foreground' },
+// Rediseño 2026-09 (Fase 6 del mockup del fundador) — tokens NW_* en vez de
+// cardCls de panel, mismo criterio que fases 1-5. Comportamiento intacto
+// (mismo resolverSolicitudContactoNetwork/HiloMensajes en DashboardSheet).
+//
+// Copy de los botones ajustado a lo que de verdad hacen: "Aceptar y
+// compartir contacto" en vez de "Aceptar" a secas — aceptar SÍ revela el
+// email/teléfono privado a ese estudio (docs/NETWORK-IMPLEMENTATION-PLAN.md
+// §9/§11), así que decirlo explícito en el botón no es más "bonito", es más
+// preciso. "Ahora no" en vez de "Rechazar" — más fiel al tono del resto del
+// rediseño, mismo significado (marca `rechazada`).
+//
+// El mockup mostraba una valoración de estudio (★ 4,9) y una etiqueta "busca
+// X" por tarjeta — ninguna de las dos existe en el modelo (no hay rating de
+// estudio visible a instructoras, y la solicitud no lleva la especialidad
+// que busca el estudio) — se omiten, mismo criterio de "nunca fabricar" que
+// ya aplicaron las fases anteriores.
+const ESTADO_ESTILO: Record<SolicitudContactoRecibida['estado'], { texto: string; fondo: string; color: string }> = {
+  pendiente: { texto: 'Pendiente', fondo: NW_ESTADO.pendiente.fondo, color: NW_ESTADO.pendiente.color },
+  aceptada: { texto: 'Aceptada', fondo: NW_ESTADO.verificada.fondo, color: NW_ESTADO.verificada.color },
+  rechazada: { texto: 'Rechazada', fondo: NW_SAND, color: NW_MUTED_2 },
 };
 
-// Solicitudes de contacto recibidas — docs/NETWORK-IMPLEMENTATION-PLAN.md
-// §9/§11. La profesional decide caso a caso; aceptar revela su email/
-// teléfono de contacto SOLO a ese estudio (nunca en esta pantalla ni en
-// ninguna otra — la revelación va en el envío de la notificación).
 export default function SolicitudesNetworkPage() {
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const router = useRouter();
@@ -32,13 +43,8 @@ export default function SolicitudesNetworkPage() {
   const [cargando, setCargando] = useState(true);
   const [solicitudes, setSolicitudes] = useState<SolicitudContactoRecibida[]>([]);
   const [resolviendoId, setResolviendoId] = useState<string | null>(null);
-  // F1 — mensajería pre-match: qué solicitud PENDIENTE tiene el chat
-  // abierto ahora mismo. Aceptar/Rechazar siguen viviendo en la propia
-  // tarjeta tal cual estaban; esto solo añade el hilo, no lo sustituye.
   const [hiloAbierto, setHiloAbierto] = useState<SolicitudContactoRecibida | null>(null);
 
-  // Misma razón que app/network/mi-perfil/page.tsx: fuera de (dashboard), sin
-  // guard de sesión heredado.
   useEffect(() => {
     if (!cargandoSesion && !user) router.replace('/network/acceso');
   }, [cargandoSesion, user, router]);
@@ -65,15 +71,16 @@ export default function SolicitudesNetworkPage() {
   const resueltas = solicitudes.filter(s => s.estado !== 'pendiente');
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="max-w-2xl mx-auto space-y-5">
       <div className="flex items-start justify-between gap-3">
-        <PageHeader
-          title="Solicitudes de contacto"
-          description="Estudios que han visto tu perfil en Tentare Network y quieren hablar contigo."
-        />
+        <div>
+          <h1 className="text-[22px] font-extrabold" style={{ color: NW_TINTA }}>Solicitudes de contacto</h1>
+          <p className="text-[13px] mt-0.5" style={{ color: NW_MUTED }}>Estudios que quieren hablar contigo. Tu email y teléfono solo se comparten si aceptas.</p>
+        </div>
         <Link
           href="/network/mis-mensajes"
-          className="shrink-0 px-3 py-1.5 rounded-lg border border-border bg-card text-[12px] font-medium text-foreground"
+          className="shrink-0 px-3.5 py-2 rounded-full text-[12px] font-bold transition-opacity hover:opacity-80"
+          style={{ background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}
         >
           Mensajes
         </Link>
@@ -81,71 +88,80 @@ export default function SolicitudesNetworkPage() {
 
       {cargandoSesion || !user || cargando ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 size={18} className="animate-spin text-muted-foreground" />
+          <Loader2 size={18} className="animate-spin" style={{ color: NW_MUTED }} />
         </div>
       ) : solicitudes.length === 0 ? (
-        <div className={`${cardCls} p-8 text-center`}>
-          <p className="text-[13px] text-muted-foreground">Todavía no has recibido ninguna solicitud.</p>
-          <Link href="/network/mi-perfil" className="text-[12px] text-brand font-medium mt-2 inline-block">
+        <div className="rounded-2xl p-10 text-center" style={{ background: NW_SAND }}>
+          <Inbox size={22} style={{ color: NW_MUTED_2 }} className="mx-auto mb-2" />
+          <p className="text-[13px] mb-3" style={{ color: NW_MUTED }}>Todavía no has recibido ninguna solicitud.</p>
+          <Link
+            href="/network/mi-perfil"
+            className="inline-block px-5 py-2.5 rounded-full text-[13px] font-bold text-white transition-opacity hover:opacity-90"
+            style={{ background: NW_PRODUCTO }}
+          >
             Revisa tu perfil
           </Link>
         </div>
       ) : (
         <div className="space-y-3">
-          {[...pendientes, ...resueltas].map(s => (
-            <div key={s.id} className={`${cardCls} p-5`}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-foreground">
-                    {s.estudioNombre}{s.estudioCiudad ? ` · ${s.estudioCiudad}` : ''}
-                  </p>
-                  {s.mensaje && <p className="text-[12px] text-foreground mt-1">{s.mensaje}</p>}
+          {[...pendientes, ...resueltas].map(s => {
+            const estilo = ESTADO_ESTILO[s.estado];
+            return (
+              <div key={s.id} className="rounded-2xl p-5" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-[13.5px] font-bold" style={{ color: NW_TINTA }}>
+                        {s.estudioNombre}{s.estudioCiudad ? ` · ${s.estudioCiudad}` : ''}
+                      </p>
+                      <span className="text-[11px]" style={{ color: NW_MUTED_2 }}>{selloTemporal(s.creadoEn)}</span>
+                    </div>
+                    {s.mensaje && <p className="text-[13px] mt-1.5" style={{ color: NW_TINTA }}>«{s.mensaje}»</p>}
+                  </div>
+                  <span className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: estilo.fondo, color: estilo.color }}>
+                    {estilo.texto}
+                  </span>
                 </div>
-                <span className={cn('text-[11px] font-medium shrink-0', ESTADO_INFO[s.estado].cls)}>
-                  {ESTADO_INFO[s.estado].texto}
-                </span>
+                {s.estado === 'pendiente' && (
+                  <div className="flex items-center gap-2 mt-3.5 flex-wrap">
+                    <button
+                      onClick={() => resolver(s.id, true)}
+                      disabled={resolviendoId === s.id}
+                      className="px-3.5 py-2 rounded-full text-white text-[12.5px] font-bold flex items-center gap-1.5 disabled:opacity-60 transition-opacity hover:opacity-90"
+                      style={{ background: NW_PRODUCTO }}
+                    >
+                      {resolviendoId === s.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                      Aceptar y compartir contacto
+                    </button>
+                    <button
+                      onClick={() => resolver(s.id, false)}
+                      disabled={resolviendoId === s.id}
+                      className="px-3.5 py-2 rounded-full text-[12.5px] font-bold flex items-center gap-1.5 disabled:opacity-60 transition-opacity hover:opacity-80"
+                      style={{ background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}
+                    >
+                      <X size={14} /> Ahora no
+                    </button>
+                    <button
+                      onClick={() => setHiloAbierto(s)}
+                      className="px-3.5 py-2 rounded-full text-[12.5px] font-bold flex items-center gap-1.5 transition-opacity hover:opacity-80"
+                      style={{ background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}
+                    >
+                      <MessageCircle size={14} /> Mensajes
+                    </button>
+                  </div>
+                )}
+                {s.estado === 'aceptada' && (
+                  <Link
+                    href={`/network/mis-mensajes?hilo=${s.id}`}
+                    className="inline-flex items-center gap-1.5 mt-3.5 px-3.5 py-2 rounded-full text-white text-[12.5px] font-bold transition-opacity hover:opacity-90"
+                    style={{ background: NW_PRODUCTO }}
+                  >
+                    <MessageCircle size={14} /> Enviar mensaje
+                  </Link>
+                )}
               </div>
-              {s.estado === 'pendiente' && (
-                <div className="flex items-center gap-2 mt-3">
-                  <button
-                    onClick={() => resolver(s.id, true)}
-                    disabled={resolviendoId === s.id}
-                    className="px-3.5 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5 disabled:opacity-60"
-                  >
-                    {resolviendoId === s.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                    Aceptar
-                  </button>
-                  <button
-                    onClick={() => resolver(s.id, false)}
-                    disabled={resolviendoId === s.id}
-                    className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] text-foreground flex items-center gap-1.5 disabled:opacity-60"
-                  >
-                    <X size={14} /> Rechazar
-                  </button>
-                  {/* F1: unos pocos mensajes ANTES de decidir, para aclarar
-                      dudas sin comprometerse — no sustituye Aceptar/Rechazar. */}
-                  <button
-                    onClick={() => setHiloAbierto(s)}
-                    className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] text-foreground flex items-center gap-1.5"
-                  >
-                    <MessageCircle size={14} /> Mensajes
-                  </button>
-                </div>
-              )}
-              {/* Sin esto, "Aceptada" era una palabra suelta — nada en esta
-                  pantalla llevaba a la conversación de verdad, había que
-                  saber que existe /network/mis-mensajes y buscar ahí el
-                  hilo correcto. Un clic, directo a esa conversación. */}
-              {s.estado === 'aceptada' && (
-                <Link
-                  href={`/network/mis-mensajes?hilo=${s.id}`}
-                  className="inline-flex items-center gap-1.5 mt-3 px-3.5 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium"
-                >
-                  <MessageCircle size={14} /> Enviar mensaje
-                </Link>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

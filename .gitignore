@@ -21,8 +21,10 @@
 /build
 
 # bundle embebible (scripts/build-widget-bundle.mjs, encadenado antes de
-# `next build` — ver package.json) — generado, no código fuente.
+# `next build` — ver package.json) — generado, no código fuente. Segundo
+# fichero (2026-08-31): checkout diferido, mismo motivo.
 /public/widget.js
+/public/widget-checkout.js
 
 # misc
 .DS_Store
@@ -62,3 +64,6 @@ next-env.d.ts
 # explícita para que no parezca un descuido que una sola esté dentro.
 /.claude/skills/*
 !/.claude/skills/context7/
+
+# Capturas de scripts de comparación visual (se regeneran)
+.comparacion-visual/

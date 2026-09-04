@@ -17,6 +17,7 @@ import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
+import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 
 // Fase 3 del "Booking Experience Engine" — checkout embebido dentro del widget
 // (Modo B): sustituye `stripe.checkout.sessions.create()` (redirect de página
@@ -96,10 +97,23 @@ export async function POST(req: NextRequest) {
     // Nunca decide el importe (siempre viene de plan.precio abajo) — solo
     // marca qué reservar después.
     sesionId?: string;
+    // "Elige tu plaza" (diseño "Tentare Portal Reservas"): el sitio concreto de
+    // la sala que la visitante escogió, si la sala tiene mapa de plazas. Nunca
+    // decide el importe — solo viaja hasta reservar_plaza (p_spot_id) tras el
+    // pago, con el mismo candado FOR UPDATE que ya usa el resto de la RPC.
+    spotId?: string | null;
     // Auditoría vs Momence (#canje-codigos-descuento-checkout): mismo criterio
     // que app/api/stripe/checkout — texto tal cual, el servidor recalcula el
     // importe final.
     codigoDescuento?: string;
+    // "Información adicional" del formulario de pago sin login — solo se
+    // escriben al crear ficha NUEVA (ver CompraPlan.datosAdicionales). Nunca
+    // deciden nada de negocio, son datos de perfil.
+    genero?: string | null;
+    comoConociste?: string | null;
+    codigoPostal?: string | null;
+    /** ISO `yyyy-mm-dd`. */
+    fechaNacimiento?: string | null;
   } | null;
 
   if (!body?.studioId) {
@@ -108,6 +122,15 @@ export async function POST(req: NextRequest) {
   if (!body.planId) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el plan a comprar' }, { status: 400 }));
   }
+
+  // F-30 (auditoría 20ª pasada): la sexta puerta por la que entra dinero —
+  // mismo guardia que ya protege charge-off-session, pos-bizum,
+  // terminal/cobrar y reembolsos, que aquí faltaba (y en su gemela
+  // /api/stripe/checkout). Sin él, un estudio con la suscripción a Tentare
+  // caducada seguía cobrando a sus socias por el widget embebido.
+  const bloqueo = await bloqueoPorSuscripcion(body.studioId);
+  if (bloqueo) return conCorsWidget(req, bloqueo);
+
   // El email se valida AQUÍ, antes de que llegue a ningún sitio: sin socioId,
   // `entregarPlanComprado` busca la ficha con `.ilike('email', compra.email)`,
   // y en PostgREST `%` y `_` de `ilike` son COMODINES. Un `socioEmail` con
@@ -229,6 +252,21 @@ export async function POST(req: NextRequest) {
       const codigoAplicado = codigos.find(c => c.codigo.trim().toUpperCase() === body.codigoDescuento!.trim().toUpperCase());
       codigoDescuentoId = codigoAplicado?.id ?? null;
     }
+  }
+
+  // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-11. El `importe > 0` de arriba se
+  // comprueba ANTES del descuento, así que un código del 100 % dejaba llegar un
+  // importe de 0 € a `paymentIntents.create` y Stripe lo rechazaba: la socia
+  // veía un error interno genérico y el estudio no se enteraba de nada. Su
+  // gemelo `app/api/stripe/checkout` ya lo valida DESPUÉS (línea 221); aquí
+  // faltaba. Entregar gratis es otro camino (no pasa por Stripe) y no se
+  // improvisa en un endpoint de cobro: se dice claro que ese código no sirve
+  // para esta compra.
+  if (!(importe > 0)) {
+    return conCorsWidget(req, NextResponse.json(
+      { error: 'Ese código deja la compra en 0 €. Pide a tu estudio que te dé el bono directamente.' },
+      { status: 409 },
+    ));
   }
 
   // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
@@ -388,7 +426,14 @@ export async function POST(req: NextRequest) {
   if (body.socioNombre) metadata.socioNombre = body.socioNombre;
   if (socioTelefono) metadata.socioTelefono = socioTelefono;
   if (body.sesionId) metadata.sesionId = body.sesionId;
+  // Solo tiene sentido junto a sesionId (misma clase que reservar_plaza va a
+  // confirmar) — sin sesión no hay reserva a la que asignarle un sitio.
+  if (body.sesionId && body.spotId) metadata.spotId = body.spotId;
   if (codigoDescuentoId) metadata.codigoDescuentoId = codigoDescuentoId;
+  if (body.genero) metadata.genero = body.genero;
+  if (body.comoConociste) metadata.comoConociste = body.comoConociste;
+  if (body.codigoPostal) metadata.codigoPostal = body.codigoPostal;
+  if (body.fechaNacimiento) metadata.fechaNacimiento = body.fechaNacimiento;
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({

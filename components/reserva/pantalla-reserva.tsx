@@ -34,19 +34,28 @@
 // cambia es que esta vez el "cajón" ocupa la pantalla entera y no se ve como
 // una tarjeta flotante con fondo oscurecido.
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
-import { ChevronLeft, Calendar, Clock, MapPin, Tag, Lock, ShieldCheck, RotateCcw, Check, X, Loader2 } from 'lucide-react';
+import { ChevronLeft, Tag, Lock, ShieldCheck, RotateCcw, Check, X, Loader2 } from 'lucide-react';
 import type { PlanTarifa } from '@/lib/types';
 import type { ModoTokens } from '@/lib/portal-modo';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, EASE } from '@/lib/reservar-publico-tokens';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
 import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
+import { SpotPickerPublico } from '@/components/reserva/spot-picker-publico';
 
 export interface DatosContacto {
   nombre: string;
   apellidos: string;
   email: string;
   telefono: string;
+}
+
+export interface InfoAdicional {
+  genero: string;
+  comoConociste: string;
+  codigoPostal: string;
+  /** ISO `yyyy-mm-dd` (valor nativo de `<input type="date">`). */
+  fechaNacimiento: string;
 }
 
 export interface ClaseParaPantallaReserva {
@@ -60,6 +69,10 @@ export interface ClaseParaPantallaReserva {
   instructorNombre: string | null;
   salaNombre: string | null;
   nivel: string | null;
+  /** Plazas libres — badge sobre la foto y "N libres" en la tarjeta de sala,
+   *  igual que el diseño "Tentare Portal Reservas". `null` si el aforo no
+   *  aplica (p. ej. citas 1:1), nunca un número inventado. */
+  plazasLibres: number | null;
 }
 
 export function PantallaReserva({
@@ -68,6 +81,8 @@ export function PantallaReserva({
   privacidadAceptada, onTogglePrivacidad, onAbrirPrivacidad,
   mostrarCodigo, onMostrarCodigo, codigoDescuento, onChangeCodigo,
   onContinuar, pago,
+  planesOpciones, planSeleccionadoId, onCambiarPlan,
+  spotPicker, infoAdicional, onChangeInfoAdicional,
 }: {
   t: ModoTokens;
   /** "‹ Volver a la clase" — un único punto de salida, no un "atrás" por paso. */
@@ -104,8 +119,34 @@ export function PantallaReserva({
     onExito: () => void;
     onVolverADatos: () => void;
   };
+  /** "Bonos y mensualidades del estudio": solo cuando hay más de un plan
+   *  PUNTUAL que cubre la clase — con uno solo, se auto-elige sin preguntar. */
+  planesOpciones?: PlanTarifa[];
+  planSeleccionadoId?: string;
+  onCambiarPlan?: (plan: PlanTarifa) => void;
+  /** "Elige tu plaza": solo cuando la sala tiene mapa de sitios y la clase no
+   *  está llena (la lista de espera no ocupa sitio, igual que en 'confirm'). */
+  spotPicker?: {
+    spots: { id: string; nombre: string; fila: number; columna: number }[];
+    takenIds: Set<string>;
+    selected: string | null;
+    onSelect: (id: string | null) => void;
+    primary: string;
+  };
+  infoAdicional: InfoAdicional;
+  onChangeInfoAdicional: (patch: Partial<InfoAdicional>) => void;
 }) {
   const [ctaHover, setCtaHover] = useState(false);
+  // ⚠️ Auditoría de conversión (2026-08-31): "Información adicional" (4
+  // campos opcionales) se pintaba SIEMPRE expandida, entre los datos
+  // obligatorios y el resto del checkout — alargaba justo la pantalla de
+  // mayor fricción (primera reserva de pago) sin aportar nada a la decisión
+  // de reservar. Cerrada por defecto, tras un disclosure; se abre sola si ya
+  // hay algo escrito (p. ej. al volver de "pago" a "datos" con
+  // `onVolverADatos`, que no desmonta este componente).
+  const [infoAdicionalAbierta, setInfoAdicionalAbierta] = useState(
+    () => !!(infoAdicional.genero || infoAdicional.comoConociste || infoAdicional.codigoPostal || infoAdicional.fechaNacimiento)
+  );
   const camposIncompletos = camposFaltantes(loginForm, privacidadAceptada);
   const formValido = camposIncompletos.length === 0;
   const ctaActivo = formValido && !datosCargando;
@@ -245,37 +286,77 @@ export function PantallaReserva({
                 position: 'absolute', inset: 0,
                 background: 'linear-gradient(to top, rgba(20,22,15,.82) 0%, rgba(20,22,15,.38) 42%, rgba(20,22,15,0) 68%)',
               }} />
+              {clase.plazasLibres !== null && (
+                <span style={{
+                  position: 'absolute', top: cq(12, 1.4, 16), right: cq(12, 1.4, 16),
+                  background: 'rgba(20,22,15,.55)', backdropFilter: 'blur(6px)', color: '#fff',
+                  borderRadius: 999, padding: '5px 11px', fontSize: 11, fontWeight: 700,
+                }}>
+                  {clase.plazasLibres} {clase.plazasLibres === 1 ? 'plaza' : 'plazas'}
+                </span>
+              )}
               <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: cq(18, 2.4, 28) }}>
                 {clase.nivel && (
                   <div style={{ ...eyebrow(9), color: 'rgba(255,255,255,.82)', marginBottom: 8 }}>{clase.nivel}</div>
                 )}
-                <h1 style={{ fontFamily: serif, fontWeight: 400, fontSize: cq(26, 3.2, 38), lineHeight: 1.04, color: '#fff', letterSpacing: '-0.01em' }}>
+                <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: cq(26, 3.2, 38), lineHeight: 1.04, color: '#fff', letterSpacing: '-0.01em' }}>
                   {clase.nombre}
                 </h1>
               </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: `0 ${cq(2, 0.4, 4)}` }}>
-              <FilaResumen icon={<Calendar size={15} />}>{tituloFecha(clase.inicio)}</FilaResumen>
-              <FilaResumen icon={<Clock size={15} />}>
-                {fmtTime(clase.inicio)} – {fmtTime(clase.fin)}
-                {clase.duracionMinutos ? ` · ${clase.duracionMinutos} min` : ''}
-              </FilaResumen>
-              {clase.salaNombre && (
-                <FilaResumen icon={<MapPin size={15} />}>{clase.salaNombre} · {estudioDireccion || estudioNombre}</FilaResumen>
-              )}
+              {/* Orden del diseño "Tentare Portal Reservas": instructora
+                  justo debajo de la foto, LUEGO los chips de fecha/hora/
+                  duración, luego la tarjeta de sala, luego la descripción —
+                  no al revés. */}
               {clase.instructorNombre && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <AvatarIniciales nombre={clase.instructorNombre} />
                   <span style={{ fontSize: 13.5, color: 'var(--portal-muted-2)' }}>
                     Con <strong style={{ color: 'var(--portal-ink)', fontWeight: 600 }}>{clase.instructorNombre}</strong>
                   </span>
                 </div>
               )}
+              {/* Chips mono en línea (día/hora/duración) — diseño "Tentare
+                  Portal Reservas": una fila de píldoras, no filas icono+texto
+                  apiladas. */}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <ChipResumen>{tituloFecha(clase.inicio)}</ChipResumen>
+                <ChipResumen>
+                  {fmtTime(clase.inicio)} – {fmtTime(clase.fin)}
+                </ChipResumen>
+                {clase.duracionMinutos != null && <ChipResumen>{clase.duracionMinutos} min</ChipResumen>}
+              </div>
+              {clase.salaNombre && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--portal-line)',
+                  borderRadius: 'var(--reservar-radio-tarjeta, ' + R.card + 'px)', padding: '11px 14px', marginTop: 2,
+                }}>
+                  {/* `nw-pulse-dot`: keyframe ya existente en globals.css
+                      (Network landing) — se reutiliza en vez de declarar uno
+                      nuevo, mismo efecto que pide el diseño. */}
+                  <span aria-hidden="true" style={{
+                    width: 8, height: 8, borderRadius: 999, background: 'var(--portal-brand)', flexShrink: 0,
+                    animation: 'nw-pulse-dot 2.4s infinite',
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 800, color: 'var(--portal-ink)' }}>
+                      {estudioNombre} · {clase.salaNombre}
+                    </p>
+                    <p style={{ margin: '1px 0 0', fontSize: 10.5, color: 'var(--portal-muted-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {estudioDireccion || estudioNombre}
+                    </p>
+                  </div>
+                </div>
+              )}
               {clase.descripcion && (
-                <p style={{ color: 'var(--portal-muted-2)', fontSize: 13.5, lineHeight: 1.6, marginTop: 8 }}>
-                  {clase.descripcion}
-                </p>
+                <div style={{ marginTop: 4 }}>
+                  <p style={{ ...eyebrow(9), color: 'var(--portal-muted)', marginBottom: 6 }}>Descripción</p>
+                  <p style={{ margin: 0, color: 'var(--portal-muted-2)', fontSize: 13.5, lineHeight: 1.6 }}>
+                    {clase.descripcion}
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -295,8 +376,15 @@ export function PantallaReserva({
             {fase === 'datos' && (
               <div key="datos" className="pantalla-reserva-seccion" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <div>
-                  <div style={eyebrow(9)}>Paso final</div>
-                  <h2 style={{ fontFamily: serif, fontWeight: 400, fontSize: cq(21, 2.2, 25), color: 'var(--portal-ink)', marginTop: 6, marginBottom: 6 }}>
+                  {/* ⚠️ Auditoría de conversión (2026-08-31): decía "Paso
+                      final" aquí, pero tras "Continuar al pago" viene la
+                      pantalla de pago completa — quien ya se creía en el
+                      último paso y ve otra pantalla más justo al llegar a la
+                      tarjeta (el momento de más fricción) puede dudar de si
+                      algo ha ido mal. `fase === 'pago'` (más abajo) no lleva
+                      ningún eyebrow de paso — quitado aquí también para no
+                      prometer un conteo que el propio flujo no sostiene. */}
+                  <h2 style={{ fontFamily: serif, fontWeight: 800, fontSize: cq(21, 2.2, 25), color: 'var(--portal-ink)', marginBottom: 6 }}>
                     Tus datos
                   </h2>
                   <p style={{ fontSize: 13, color: 'var(--portal-muted-2)', lineHeight: 1.5 }}>
@@ -304,20 +392,124 @@ export function PantallaReserva({
                   </p>
                 </div>
 
-                <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-                  <CampoTexto placeholder="Nombre" value={loginForm.nombre}
-                    onChange={v => onChangeLoginForm({ nombre: v })}
-                    autoFocus />
-                  <CampoTexto placeholder="Apellidos" value={loginForm.apellidos}
-                    onChange={v => onChangeLoginForm({ apellidos: v })} />
+                {/* "Tus datos" — diseño "Tentare Portal Reservas": UN solo
+                    campo "Nombre y apellido" (nunca Nombre/Apellidos por
+                    separado — `entregarPlanComprado` ya sabe partir un nombre
+                    compuesto), Email y Móvil en una fila de dos columnas. */}
+                <CampoTexto placeholder="Nombre y apellido" value={loginForm.nombre}
+                  onChange={v => onChangeLoginForm({ nombre: v })}
+                  autoFocus />
+                <div style={{ display: 'grid', gap: 7, gridTemplateColumns: '1fr 1fr' }}>
+                  <CampoTexto type="email" placeholder="Email" value={loginForm.email}
+                    onChange={v => onChangeLoginForm({ email: v })} />
+                  <CampoTexto type="tel" placeholder="Móvil" value={loginForm.telefono}
+                    onChange={v => onChangeLoginForm({ telefono: v })}
+                    onEnter={onContinuar} />
                 </div>
-                <CampoTexto type="email" placeholder="Tu email" value={loginForm.email}
-                  onChange={v => onChangeLoginForm({ email: v })} />
-                <CampoTexto type="tel" placeholder="Tu teléfono (+34 600 000 000)" value={loginForm.telefono}
-                  onChange={v => onChangeLoginForm({ telefono: v })}
-                  onEnter={onContinuar} />
                 {datosError && (
                   <p style={{ color: 'var(--destructive)', fontSize: 13 }}>{datosError}</p>
+                )}
+
+                {/* "Información adicional" — copy/opciones exactas del
+                    .dc.html, pero YA NO siempre visible (ver auditoría de
+                    conversión arriba, 2026-08-31): un disclosure cerrado por
+                    defecto la saca del camino directo hacia el CTA sin
+                    perder el dato para quien sí quiera rellenarlo. */}
+                <div>
+                  {infoAdicionalAbierta ? (
+                    <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600, marginBottom: 8 }}>
+                      Información adicional <span style={{ fontWeight: 400 }}>· solo te lo pedimos la primera vez</span>
+                    </p>
+                  ) : (
+                    <button type="button" onClick={() => setInfoAdicionalAbierta(true)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5, border: 'none', background: 'none',
+                        padding: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--portal-muted)', cursor: 'pointer',
+                      }}>
+                      + Cuéntanos un poco más <span style={{ fontWeight: 400 }}>(opcional)</span>
+                    </button>
+                  )}
+                  {/* ⚠️ Intentado y revertido (2026-08-29): cambiar a
+                      `auto-fit`/`minmax` para evitar el corte de "¿Cómo nos
+                      has conocido?"/"Cumpleaños" en el layout de dos columnas
+                      de escritorio colapsaba esta rejilla a una sola columna
+                      también en MÓVIL (375px de viewport ya no deja sitio
+                      para 180px×2 ni para 140px×2 con el padding de la
+                      tarjeta) — reproducido en local:
+                      e2e/reservar-modal-movil.spec.ts "no desplaza el
+                      encabezado" pasaba en `main` y rompía con CUALQUIER
+                      valor de minmax probado (119px de salto, mismo número
+                      con 180 y con 140 — la rejilla colapsaba en los dos
+                      casos). `1fr 1fr` coincide exacto con el .dc.html; no
+                      se toca sin una forma de estrechar SOLO el rango de
+                      anchura intermedio (ficha en dos columnas pero ventana
+                      no muy ancha) sin afectar a móvil. */}
+                  {infoAdicionalAbierta && (
+                    <div style={{ display: 'grid', gap: 7, gridTemplateColumns: '1fr 1fr' }}>
+                      <CampoSelect placeholder="Género" value={infoAdicional.genero}
+                        onChange={v => onChangeInfoAdicional({ genero: v })}
+                        opciones={[['mujer', 'Mujer'], ['hombre', 'Hombre'], ['prefiero-no-decirlo', 'Prefiero no decirlo']]} />
+                      <CampoSelect placeholder="¿Cómo nos has conocido?" value={infoAdicional.comoConociste}
+                        onChange={v => onChangeInfoAdicional({ comoConociste: v })}
+                        opciones={[['instagram', 'Instagram'], ['google', 'Google'], ['amiga', 'Una amiga'], ['paso-por-delante', 'Paso por delante']]} />
+                      <CampoTexto placeholder="Código postal" value={infoAdicional.codigoPostal}
+                        onChange={v => onChangeInfoAdicional({ codigoPostal: v })} />
+                      <CampoTexto placeholder="Cumpleaños · dd/mm/aaaa" value={infoAdicional.fechaNacimiento}
+                        onChange={v => onChangeInfoAdicional({ fechaNacimiento: v })} />
+                    </div>
+                  )}
+                </div>
+
+                {/* "Elige tu plaza" — plomería aprobada ("plomería completa"):
+                    mismo componente que ya usa la pantalla 'confirm' de socia
+                    autenticada, reutilizado tal cual (components/reserva/
+                    spot-picker-publico.tsx). Opcional: sin elegir, el servidor
+                    asigna cualquier sitio libre al confirmar el pago. */}
+                {spotPicker && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                      <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600 }}>Elige tu plaza</p>
+                      <span style={{ fontFamily: 'IBM Plex Mono, ui-monospace, monospace', fontSize: 11, color: 'var(--portal-muted)' }}>
+                        {spotPicker.spots.length - spotPicker.takenIds.size === 0
+                          ? 'clase completa'
+                          : `quedan ${spotPicker.spots.length - spotPicker.takenIds.size} de ${spotPicker.spots.length}`}
+                      </span>
+                    </div>
+                    <SpotPickerPublico {...spotPicker} />
+                  </div>
+                )}
+
+                {/* "Bonos y mensualidades del estudio" — plomería aprobada
+                    ("solo planes PUNTUAL"): SIEMPRE visible como en el diseño
+                    (aunque solo cubra una opción, "clase suelta" a su precio
+                    de catálogo — confirma explícitamente qué se está pagando,
+                    igual que el mockup de referencia). */}
+                {planesOpciones && onCambiarPlan && (
+                  <div>
+                    <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600, marginBottom: 8 }}>
+                      Bonos y mensualidades del estudio
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+                      {planesOpciones.map(p => {
+                        const sel = p.id === planSeleccionadoId;
+                        return (
+                          <button key={p.id} type="button" onClick={() => onCambiarPlan(p)}
+                            style={{
+                              textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                              padding: '10px 12px', borderRadius: 14,
+                              border: sel ? '2px solid var(--portal-ink)' : '1.5px solid var(--portal-line)',
+                              background: sel ? 'var(--portal-surface-2)' : 'var(--portal-surface)',
+                            }}>
+                            <span style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--portal-ink)' }}>{p.nombre}</span>
+                            <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 2 }}>
+                              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--portal-ink)' }}>{p.precio} €</span>
+                              {p.descripcion && <span style={{ fontSize: 9.5, color: 'var(--portal-muted)' }}>{p.descripcion}</span>}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
                 {/* Código promocional — colapsado por defecto, un clic lo
@@ -393,50 +585,66 @@ export function PantallaReserva({
                   </span>
                 </label>
 
-                {/* Total justo encima del CTA — misma proximidad que Stripe
-                    Checkout/Bsport: el precio se recuerda justo donde se paga,
-                    no solo arriba del todo, lejos del botón. Con código
-                    válido, el precio tachado deja claro que el descuento ya
-                    cuenta, no solo que "se aplicará". */}
-                <div style={{
-                  display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-                  paddingTop: 14, borderTop: '1px solid var(--portal-line)',
-                }}>
-                  <span style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600 }}>Total a pagar</span>
-                  <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    {precioConDescuento !== null && (
-                      <span style={{ fontSize: 14, color: 'var(--portal-muted)', textDecoration: 'line-through' }}>{precio} €</span>
-                    )}
-                    <span style={{ fontFamily: serif, fontSize: cq(22, 2.2, 26), color: 'var(--portal-ink)' }}>
-                      {precioConDescuento ?? precio} €
+                {/* ⚠️ Auditoría de conversión (2026-08-31): total+CTA
+                    pegados al fondo del VIEWPORT en móvil (`.pantalla-reserva-cta-pegada`,
+                    solo por debajo de 760px — @container en globals.css, el
+                    mismo breakpoint que ya decide una vs. dos columnas aquí
+                    mismo). Esta es la pantalla más larga del checkout (foto +
+                    ficha + formulario + sitio + bonos + código + casilla), y
+                    antes había que bajar por todo eso para encontrar el botón
+                    cada vez que se volvía a ella. `position: sticky` funciona
+                    aquí porque Modo A es una página real con scroll de
+                    ventana; en Modo B (`inline`, sin scroll propio del propio
+                    iframe — crece con el contenido, ver comentario en el
+                    `<PublicSheet>` que monta esto en page.tsx) sticky
+                    simplemente no encuentra un contenedor que hacer scroll y
+                    se comporta como estático — no rompe nada, solo no pega. */}
+                <div className="pantalla-reserva-cta-pegada">
+                  {/* Total justo encima del CTA — misma proximidad que Stripe
+                      Checkout/Bsport: el precio se recuerda justo donde se
+                      paga, no solo arriba del todo, lejos del botón. Con
+                      código válido, el precio tachado deja claro que el
+                      descuento ya cuenta, no solo que "se aplicará". */}
+                  <div style={{
+                    display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+                    paddingTop: 12, borderTop: '1px dashed var(--portal-line)',
+                  }}>
+                    <span style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600 }}>Total a pagar</span>
+                    <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      {precioConDescuento !== null && (
+                        <span style={{ fontSize: 14, color: 'var(--portal-muted)', textDecoration: 'line-through' }}>{precio} €</span>
+                      )}
+                      <span style={{ fontFamily: serif, fontSize: cq(22, 2.2, 26), color: 'var(--portal-ink)' }}>
+                        {precioConDescuento ?? precio} €
+                      </span>
                     </span>
-                  </span>
-                </div>
+                  </div>
 
-                <div>
-                  <button type="button" onClick={onContinuar} disabled={!ctaActivo}
-                    onMouseEnter={() => setCtaHover(true)} onMouseLeave={() => setCtaHover(false)}
-                    style={{
-                      width: '100%', height: cq(50, 4, 58), borderRadius: R.pillBtnCta, border: 'none', cursor: ctaActivo ? 'pointer' : 'not-allowed',
-                      fontFamily: sans, fontSize: 14.5, fontWeight: 600, letterSpacing: '.01em',
-                      color: 'var(--portal-brand-foreground)',
-                      background: 'var(--portal-brand)',
-                      opacity: ctaActivo ? 1 : 0.45,
-                      boxShadow: ctaActivo ? SH.ctaOscuroFuerte : 'none',
-                      transform: ctaActivo && ctaHover ? 'translateY(-1px)' : 'none',
-                      transition: `box-shadow .35s ${EASE}, transform .35s ${EASE}, opacity .25s ease`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    }}>
-                    {datosCargando && <Loader2 size={16} className="animate-spin" />}
-                    {datosCargando ? 'Un momento…' : 'Continuar al pago'}
-                  </button>
-                  {/* Explica exactamente qué falta, sin esperar a que se
-                      pulse el botón deshabilitado — nunca un botón "mudo". */}
-                  {!formValido && !datosCargando && (
-                    <p style={{ fontSize: 11.5, color: 'var(--portal-muted)', textAlign: 'center', marginTop: 8 }}>
-                      Falta: {camposIncompletos.join(', ')}
-                    </p>
-                  )}
+                  <div style={{ marginTop: 14 }}>
+                    <button type="button" onClick={onContinuar} disabled={!ctaActivo}
+                      onMouseEnter={() => setCtaHover(true)} onMouseLeave={() => setCtaHover(false)}
+                      style={{
+                        width: '100%', height: cq(50, 4, 58), borderRadius: R.pillBtnCta, border: 'none', cursor: ctaActivo ? 'pointer' : 'not-allowed',
+                        fontFamily: sans, fontSize: 14.5, fontWeight: 600, letterSpacing: '.01em',
+                        color: 'var(--portal-brand-foreground)',
+                        background: 'var(--portal-brand)',
+                        opacity: ctaActivo ? 1 : 0.45,
+                        boxShadow: ctaActivo ? SH.ctaOscuroFuerte : 'none',
+                        transform: ctaActivo && ctaHover ? 'translateY(-1px)' : 'none',
+                        transition: `box-shadow .35s ${EASE}, transform .35s ${EASE}, opacity .25s ease`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      }}>
+                      {datosCargando && <Loader2 size={16} className="animate-spin" />}
+                      {datosCargando ? 'Un momento…' : 'Continuar al pago'}
+                    </button>
+                    {/* Explica exactamente qué falta, sin esperar a que se
+                        pulse el botón deshabilitado — nunca un botón "mudo". */}
+                    {!formValido && !datosCargando && (
+                      <p style={{ fontSize: 11.5, color: 'var(--portal-muted)', textAlign: 'center', marginTop: 8 }}>
+                        Falta: {camposIncompletos.join(', ')}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <FilaConfianza />
@@ -460,7 +668,7 @@ export function PantallaReserva({
                   ventanaCancelacionHoras={pago.ventanaCancelacionHoras}
                   textoBoton={pago.textoBoton}
                   datosPago={{
-                    nombre: `${loginForm.nombre.trim()} ${loginForm.apellidos.trim()}`.trim(),
+                    nombre: loginForm.nombre.trim(),
                     email: loginForm.email.trim(),
                     telefono: loginForm.telefono.trim(),
                   }}
@@ -484,8 +692,9 @@ export function PantallaReserva({
  *  qué falta"). */
 function camposFaltantes(loginForm: DatosContacto, privacidadAceptada: boolean): string[] {
   const faltan: string[] = [];
-  if (!loginForm.nombre.trim()) faltan.push('nombre');
-  if (!loginForm.apellidos.trim()) faltan.push('apellidos');
+  // Diseño "Tentare Portal Reservas": un solo campo "Nombre y apellido" — sin
+  // requisito separado de apellidos.
+  if (!loginForm.nombre.trim()) faltan.push('nombre y apellido');
   if (!loginForm.email.trim()) faltan.push('email');
   if (!telefonoValido(loginForm.telefono)) faltan.push('teléfono');
   if (!privacidadAceptada) faltan.push('aceptar la política de privacidad');
@@ -498,12 +707,17 @@ function tituloFecha(inicio: string) {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
-function FilaResumen({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+/** Píldora mono — diseño "Tentare Portal Reservas": fecha/hora/duración van
+ *  en una fila de chips, no en filas icono+texto apiladas. */
+function ChipResumen({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: 'var(--portal-muted-2)' }}>
-      <span style={{ color: 'var(--portal-muted)', flexShrink: 0, display: 'inline-flex' }}>{icon}</span>
+    <span style={{
+      background: 'var(--portal-surface-2)', borderRadius: 999, padding: '7px 12px',
+      fontFamily: 'var(--font-plex-mono), ui-monospace, monospace', fontSize: 10.5,
+      color: 'var(--portal-muted-2)', whiteSpace: 'nowrap',
+    }}>
       {children}
-    </div>
+    </span>
   );
 }
 
@@ -554,9 +768,9 @@ function CampoTexto({
     // 16px, no 15: por debajo de 16px iOS Safari amplía la página entera al
     // enfocar el campo y no la devuelve a su sitio (medido, e2e/reservar-
     // modal-movil.spec.ts).
-    width: '100%', padding: '13px 15px', fontSize: 16, color: 'var(--portal-ink)',
-    background: 'var(--portal-surface-2)', border: '1.5px solid var(--portal-line)',
-    borderRadius: 16, outline: 'none',
+    width: '100%', padding: '12px 14px', fontSize: 16, color: 'var(--portal-ink)',
+    background: 'var(--portal-surface)', border: '1.5px solid var(--portal-line)',
+    borderRadius: 14, outline: 'none',
     transition: 'border-color .2s ease, box-shadow .2s ease',
   };
   return (
@@ -574,5 +788,29 @@ function CampoTexto({
       className="pantalla-reserva-campo"
       style={estilo}
     />
+  );
+}
+
+/** Mismo tratamiento visual que `CampoTexto` — reutiliza su clase de foco. */
+function CampoSelect({
+  placeholder, value, onChange, opciones,
+}: {
+  placeholder: string; value: string; onChange: (v: string) => void; opciones: [string, string][];
+}) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="pantalla-reserva-campo"
+      style={{
+        width: '100%', padding: '12px 14px', fontSize: 16,
+        color: value ? 'var(--portal-ink)' : 'var(--portal-muted)',
+        background: 'var(--portal-surface)', border: '1.5px solid var(--portal-line)',
+        borderRadius: 14, outline: 'none', transition: 'border-color .2s ease, box-shadow .2s ease',
+      }}
+    >
+      <option value="">{placeholder}</option>
+      {opciones.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+    </select>
   );
 }

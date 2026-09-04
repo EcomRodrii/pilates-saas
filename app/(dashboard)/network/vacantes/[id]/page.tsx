@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Check, X, Users } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, X, Users, SearchX } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -87,9 +87,7 @@ export default function VacanteDetalleNetworkPage({ params }: { params: Promise<
         <Link href="/network/vacantes" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
           <ArrowLeft size={14} /> Volver a mis vacantes
         </Link>
-        <div className={`${cardCls} p-8 text-center`}>
-          <p className="text-[13px] text-muted-foreground">Esta vacante no existe.</p>
-        </div>
+        <EmptyState icono={SearchX} titulo="Esta vacante no existe." />
       </div>
     );
   }

@@ -12,7 +12,7 @@ const dia = (n: number) => new Date(HOY - n * 86_400_000).toISOString().slice(0,
 
 const lead = (o: Partial<Lead> & { id: string }): Lead => ({
   email: `${o.id}@ejemplo.com`, nombre: null, estudio: null, telefono: null, ciudad: null,
-  softwareActual: null, mensaje: null, origen: 'CONCIERGE', estado: 'NUEVO',
+  softwareActual: null, web: null, instagram: null, mensaje: null, origen: 'CONCIERGE', estado: 'NUEVO',
   motivoPerdida: null, proximoPaso: null, proximaFecha: null, studioId: null, notas: null,
   creadoEn: haceDias(0), actualizadoEn: haceDias(0), ...o,
 });

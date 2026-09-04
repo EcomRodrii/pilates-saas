@@ -18,6 +18,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state'
 import { utilizacionCodigos } from '@/lib/codigos-descuento'
 import { copiarAlPortapapeles } from '@/lib/utils'
+import { Toast, useToast } from '@/components/ui/toast'
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos'
 
 
@@ -64,7 +65,7 @@ const triggerDesc: Record<string, string> = {
   SUSCRIPCION_EXPIRA_1D: 'El día antes de que caduque la suscripción',
   CUMPLEANOS: 'El día del cumpleaños de la clienta',
   NUEVA_ALTA: 'Cuando se registra una nueva clienta',
-  INACTIVIDAD_30D: 'Si no hay actividad en los últimos 45 días — si ya usas "Automatizaciones IA" con la regla de Ausencia, esta se solapa con su secuencia (días 7/14/25); actívala solo si no usas aquella',
+  INACTIVIDAD_30D: 'Si no hay actividad en los últimos 45 días — si ya usas "Automatizaciones" con la regla de Ausencia, esta se solapa con su secuencia (días 7/14/25); actívala solo si no usas aquella',
   BONO_AGOTADO: 'Cuando se agota el bono de sesiones',
   BONO_QUEDA_1: 'Cuando solo queda 1 sesión en el bono',
   CITA_RECORDATORIO: 'Recordatorio antes de una clase reservada',
@@ -496,6 +497,7 @@ export default function MarketingPage() {
   // §3, Nivel A. No bloquea, avisa en el momento de activar en vez de un texto
   // que nadie lee después.
   const [confirmarSolape, setConfirmarSolape] = useState<Automatizacion | null>(null)
+  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast()
   const ausenciaDiasActiva = automationRules.some(r => r.activa && r.trigger === 'AUSENCIA_DIAS')
 
   function handleToggleAutomatizacion(a: Automatizacion) {
@@ -503,7 +505,7 @@ export default function MarketingPage() {
       setConfirmarSolape(a)
       return
     }
-    toggleAutomatizacion(a.id).then(res => { if (!res.ok) window.alert(res.error) })
+    toggleAutomatizacion(a.id).then(res => { if (!res.ok) showToast(res.error) })
   }
 
   // ── Resumen: leads captados por mes (últimos 6 meses, para el sparkline) ────
@@ -694,7 +696,7 @@ export default function MarketingPage() {
       const res = editCampanaId
         ? await updateCampana(editCampanaId, campos)
         : await addCampana({ ...campos, estado: 'BORRADOR', enviadaEn: null, programadaEn: null })
-      if (!res.ok) window.alert(res.error)
+      if (!res.ok) showToast(res.error)
     })()
     setNewCampana(CAMPANA_VACIA)
     setEditCampanaId(null)
@@ -719,7 +721,7 @@ export default function MarketingPage() {
       minImporte: newCodigo.minImporte ? parseFloat(newCodigo.minImporte) : null,
       soloNuevas: newCodigo.soloNuevas,
     })
-    if (!res.ok) { window.alert(res.error); return }
+    if (!res.ok) { showToast(res.error); return }
     setNewCodigo({ codigo: '', descripcion: '', tipo: 'PORCENTAJE', valor: '', usosMaximos: '', expira: '', minImporte: '', soloNuevas: false })
     setShowCodigoModal(false)
   }
@@ -760,7 +762,7 @@ export default function MarketingPage() {
       setSelectedTemplate(null)
       setShowPreview(false)
     } catch {
-      setErrorIA('Error de conexión con el asistente IA')
+      setErrorIA('Error de conexión con el asistente automático')
     } finally {
       setGenerandoIA(false)
     }
@@ -953,7 +955,7 @@ export default function MarketingPage() {
                       )}
                       {(c.estado === 'BORRADOR' || c.estado === 'PROGRAMADA') && (
                         <button
-                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' }).then(res => { if (!res.ok) window.alert(res.error) })}
+                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' }).then(res => { if (!res.ok) showToast(res.error) })}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
                           title="Activar como campaña en curso"
                         >
@@ -962,7 +964,7 @@ export default function MarketingPage() {
                       )}
                       {c.estado === 'ACTIVA' && (
                         <button
-                          onClick={() => updateCampana(c.id, { estado: 'PAUSADA' }).then(res => { if (!res.ok) window.alert(res.error) })}
+                          onClick={() => updateCampana(c.id, { estado: 'PAUSADA' }).then(res => { if (!res.ok) showToast(res.error) })}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
                           title="Pausar campaña"
                         >
@@ -971,7 +973,7 @@ export default function MarketingPage() {
                       )}
                       {c.estado === 'PAUSADA' && (
                         <button
-                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' }).then(res => { if (!res.ok) window.alert(res.error) })}
+                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' }).then(res => { if (!res.ok) showToast(res.error) })}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
                           title="Reanudar campaña"
                         >
@@ -980,7 +982,7 @@ export default function MarketingPage() {
                       )}
                       {(c.estado === 'ACTIVA' || c.estado === 'PAUSADA') && (
                         <button
-                          onClick={() => updateCampana(c.id, { estado: 'ENVIADA', enviadaEn: c.enviadaEn ?? new Date().toISOString() }).then(res => { if (!res.ok) window.alert(res.error) })}
+                          onClick={() => updateCampana(c.id, { estado: 'ENVIADA', enviadaEn: c.enviadaEn ?? new Date().toISOString() }).then(res => { if (!res.ok) showToast(res.error) })}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground text-xs font-medium hover:bg-muted transition-colors"
                           title="Finalizar campaña"
                         >
@@ -997,14 +999,14 @@ export default function MarketingPage() {
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => duplicateCampana(c).then(res => { if (!res.ok) window.alert(res.error) })}
+                          onClick={() => duplicateCampana(c).then(res => { if (!res.ok) showToast(res.error) })}
                           className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                           title="Duplicar"
                         >
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => deleteCampana(c.id).then(res => { if (!res.ok) window.alert(res.error) })}
+                          onClick={() => deleteCampana(c.id).then(res => { if (!res.ok) showToast(res.error) })}
                           className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                           title="Eliminar"
                         >
@@ -1069,7 +1071,7 @@ export default function MarketingPage() {
                     <span className="font-semibold text-foreground text-[14px]">{a.nombre}</span>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => setFlowBuilder({ auto: a })} title="Editar flujo" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={async () => { const res = await deleteAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }} title="Eliminar" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={async () => { const res = await deleteAutomatizacion(a.id); if (!res.ok) showToast(res.error); }} title="Eliminar" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       <button
                         onClick={() => handleToggleAutomatizacion(a)}
                         className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0 ml-1', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}
@@ -1330,14 +1332,14 @@ export default function MarketingPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={async () => { const res = await toggleCodigoDescuento(cod.id); if (!res.ok) window.alert(res.error) }}
+                              onClick={async () => { const res = await toggleCodigoDescuento(cod.id); if (!res.ok) showToast(res.error) }}
                               className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                               title={cod.activo ? 'Desactivar' : 'Activar'}
                             >
                               {cod.activo ? <ToggleRight className="w-4 h-4 text-success" /> : <ToggleLeft className="w-4 h-4" />}
                             </button>
                             <button
-                              onClick={async () => { const res = await deleteCodigoDescuento(cod.id); if (!res.ok) window.alert(res.error) }}
+                              onClick={async () => { const res = await deleteCodigoDescuento(cod.id); if (!res.ok) showToast(res.error) }}
                               className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                               title="Eliminar"
                             >
@@ -1361,10 +1363,10 @@ export default function MarketingPage() {
                         <CopyButton text={cod.codigo} />
                       </div>
                       <div className="flex items-center gap-1">
-                        <button onClick={async () => { const res = await toggleCodigoDescuento(cod.id); if (!res.ok) window.alert(res.error) }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title={cod.activo ? 'Desactivar' : 'Activar'}>
+                        <button onClick={async () => { const res = await toggleCodigoDescuento(cod.id); if (!res.ok) showToast(res.error) }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title={cod.activo ? 'Desactivar' : 'Activar'}>
                           {cod.activo ? <ToggleRight className="w-4 h-4 text-success" /> : <ToggleLeft className="w-4 h-4" />}
                         </button>
-                        <button onClick={async () => { const res = await deleteCodigoDescuento(cod.id); if (!res.ok) window.alert(res.error) }} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" title="Eliminar">
+                        <button onClick={async () => { const res = await deleteCodigoDescuento(cod.id); if (!res.ok) showToast(res.error) }} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" title="Eliminar">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -1425,7 +1427,7 @@ export default function MarketingPage() {
             <button
               className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
               onClick={() => {
-                if (confirmarSolape) toggleAutomatizacion(confirmarSolape.id).then(res => { if (!res.ok) window.alert(res.error) })
+                if (confirmarSolape) toggleAutomatizacion(confirmarSolape.id).then(res => { if (!res.ok) showToast(res.error) })
                 setConfirmarSolape(null)
               }}
             >
@@ -1449,7 +1451,7 @@ export default function MarketingPage() {
             <div className="rounded-xl border border-[#F0D5E3] bg-[#FFF7FB] p-3.5 space-y-2.5">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-brand-secondary" />
-                <span className="text-[12px] font-bold text-foreground">Escribe la campaña con IA</span>
+                <span className="text-[12px] font-bold text-foreground">Escribe la campaña automáticamente</span>
               </div>
               <div className="flex items-center gap-2">
                 <input
@@ -1766,6 +1768,7 @@ export default function MarketingPage() {
           </div>
         </DialogContent>
       </Dialog>
+      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
   )
 }

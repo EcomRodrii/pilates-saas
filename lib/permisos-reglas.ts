@@ -16,15 +16,19 @@ import type { Rol } from './types';
 
 // Instructoras: su agenda, sus alumnas y las herramientas de contenido/equipo
 // — nada de cobros, informes, marketing ni ajustes del negocio.
-// CONGELADO (feature-freeze PMF): se quitaron '/ondemand' y '/comunidad' de esta
-// lista blanca — ya no son visibles para nadie. Reactivar = volver a añadirlos.
+// CONGELADO (feature-freeze PMF): '/ondemand' sigue fuera de esta lista blanca
+// — no es visible para nadie. '/comunidad' SÍ volvió (P1, Community &
+// Messaging OS): es un tablón de equipo/estudio, no una herramienta de
+// gestión del negocio — mismo criterio que ya le abre '/mensajeria'. Decisión
+// tomada aquí, no pedida explícitamente: si algún día se quiere un tablón
+// "solo staff de mostrador", esto hay que revisarlo.
 // '/network' YA NO está aquí: es el buscador de candidatas de la
 // propietaria/manager/recepción (herramienta de contratación), no algo que
 // competa a una instructora. Su propio perfil de Network vive fuera del
 // panel, en app/network/mi-perfil — cuenta independiente por auth_user_id,
 // sin studio_id, alcanzable sin pasar por esta lista blanca en absoluto.
 const PERMITIDO_INSTRUCTOR = [
-  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria', '/mi-perfil',
+  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria', '/mi-perfil', '/comunidad',
 ];
 
 // ⚠️ La lista blanca de arriba se compara POR PREFIJO, así que cada ruta abre
@@ -116,6 +120,17 @@ export function puedeVerFinanzas(rol: Rol): boolean {
 // regla de este repo: la UI no es la cerradura, pero tiene que decir lo mismo
 // que ella o enseña un botón que la BD va a rechazar.
 export function puedeGestionarCalendario(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER' || rol === 'RECEPCION';
+}
+
+// Moderar Comunidad: editar/fijar/borrar el post o comentario de OTRA
+// persona. Espejo TS de `posts_comunidad_editar`/`comentarios_comunidad_editar`
+// (migr 20260902104439, F-18) — INSTRUCTOR queda fuera aquí, no porque no
+// pueda participar en el tablón (sí puede: publicar, comentar, editar/borrar
+// lo suyo), sino porque antes de esta migración cualquier staff podía tocar
+// el post ajeno con solo la RLS de `studio_id` de por medio. Barrera de UI;
+// la cerradura real es esa RLS.
+export function puedeModerarComunidad(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'MANAGER' || rol === 'RECEPCION';
 }
 

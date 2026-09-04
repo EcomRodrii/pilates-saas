@@ -92,11 +92,19 @@ export function OtpVerificacion({ email, onVerificar, onReenviar, onCambiarEmail
     const r = await onReenviar();
     setReenviando(false);
     if (r.error) { setErrorMsg(r.error); return; }
-    // Best-effort: si esto falla, el peor caso es que un bloqueo viejo siga
-    // en pie unos minutos — nunca bloquea el reenvío, que ya tuvo éxito.
-    fetch('/api/auth/otp/reenviado', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }),
-    }).catch(() => {});
+    // Auditoría 22ª pasada (3-sep-2026), S-1: esto llamaba a
+    // `/api/auth/otp/reenviado`, que BORRABA el cerrojo antifuerza-bruta del
+    // servidor con solo `{email}` en el cuerpo — sin captcha ni sesión, sin
+    // ninguna prueba de que el reenvío hubiera pasado por aquí de verdad.
+    // Cualquiera podía resetear el contador de intentos de CUALQUIER email a
+    // voluntad, vaciando de contenido el límite de 6 intentos/15min que existe
+    // precisamente porque gotrue solo limita por IP, no por email. Se retira
+    // el endpoint entero en vez de intentar arreglarlo: el contador ahora solo
+    // se resetea de la única forma segura, cuando `/api/auth/otp/verificar`
+    // tiene éxito de verdad (dentro de esa ruta). El coste es de UX, no de
+    // seguridad — quien falló varias veces y pide un código nuevo puede
+    // toparse antes con el bloqueo de 15 min— y solo se ve tras fallar varias
+    // veces de verdad, no en el camino normal.
     setSegundosBloqueo(0);
     setCooldown(COOLDOWN_REENVIO_SEGUNDOS);
     setDigitos(Array(LONGITUD_OTP).fill(''));

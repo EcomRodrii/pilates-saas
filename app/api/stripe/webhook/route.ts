@@ -4,27 +4,16 @@ import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/lib/webhook-idempotencia';
-import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
 import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 import { metodoReutilizableDe } from '@/lib/billing/metodo-reutilizable';
 import { identidadDemostradaEnCompra } from '@/lib/billing/identidad-compra';
-import { registrarDevolucion, referenciaDevolucion, origenDeReembolso, resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
+import { resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
+import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReembolsoVentaPos, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
-import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
+import { confirmarCobroRecibo } from '@/lib/billing/confirmar-cobro';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
-
-// Orígenes cuyo PaymentIntent apunta a un recibo real de Tentare, y que por
-// tanto hay que marcar DEVUELTO/disputado cuando se devuelve o se impugna.
-//
-// ⚠️ Es una LISTA, no dos comparaciones sueltas, porque ya se olvidó una: al
-// añadir la metadata a las compras de plan por enlace público (`plan_web`) se
-// escribió el `reciboId` en el PaymentIntent pero NO se añadió el origen aquí,
-// así que los tres consumidores lo seguían descartando y la compra continuaba
-// siendo invisible a reembolsos y disputas — exactamente el agujero que ese
-// cambio decía cerrar. Al añadir un origen nuevo, añadirlo también aquí.
-const ORIGENES_CON_RECIBO = new Set(['sepa_recibo', 'tarjeta_recibo', 'plan_web', 'plan_web_embebido']);
 
 // Id de NUESTRA propia cuenta de Stripe (la de la plataforma).
 //
@@ -91,7 +80,17 @@ async function studioDeCuentaConnect(
   const cuenta = cuentaFirmante(accountId, accountId ? null : await cuentaDePlataforma());
   if (!cuenta) return null;
   const { data } = await admin.from('studios').select('id').eq('stripe_account_id', cuenta).maybeSingle();
-  return (data as { id: string } | null)?.id ?? null;
+  if (data) return (data as { id: string }).id;
+  // Auditoría 22ª pasada (3-sep-2026), D-4: si la cuenta ya no está VINCULADA
+  // (se desconectó), sigue habiendo estudio al que atribuir un webhook TARDÍO
+  // sobre algo que ocurrió antes de la desconexión (cobro/reembolso/disputa
+  // real). `stripe_account_id_anterior` no lleva índice único —una cuenta
+  // podría haberse desvinculado de más de un estudio a lo largo del tiempo,
+  // caso raro pero posible—, así que se toma la desconexión MÁS RECIENTE.
+  const { data: anterior } = await admin.from('studios')
+    .select('id').eq('stripe_account_id_anterior', cuenta)
+    .order('stripe_account_desconectado_en', { ascending: false }).limit(1).maybeSingle();
+  return (anterior as { id: string } | null)?.id ?? null;
 }
 
 export async function POST(req: NextRequest) {
@@ -273,7 +272,52 @@ async function procesarEvento(
     const admin = getSupabaseAdmin();
     if (!admin) {
       console.error('[stripe webhook] service role no configurada');
+      // Auditoría 20ª pasada · F-12: desde que el webhook responde 200 antes
+      // de procesar (`after(...)` más arriba), este 5xx no lo recibe nadie —
+      // Stripe ya se fue con un 200. Un `console.error` a secas no llega a
+      // Sentry, así que sin esta línea el fallo no lo ve nadie hasta que una
+      // socia se queje. No se rediseña la señal al conciliador en esta
+      // pasada (decisión arquitectónica, ver informe); esto solo asegura que
+      // el fallo de HOY sea observable.
+      Sentry.captureMessage('[stripe webhook] service role no configurada', {
+        level: 'error', tags: { area: 'cobros' }, extra: { eventId: event.id, eventType: event.type },
+      });
       return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+    }
+
+    // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-9. Las suscripciones al PROPIO
+    // SaaS (`app/api/billing/checkout`, `mode:'subscription'`, cuenta de la
+    // plataforma) no se crean nunca sobre una cuenta Connect, así que no tienen
+    // `event.account` ni estudio que resolver: caían en el 403 de abajo con
+    // `level:'error'`, dejaban el evento clavado en `procesando` y hacían sonar
+    // la alarma del canal del dinero de las socias por un alta de plan nuestra
+    // (confirmado en Sentry: JAVASCRIPT-NEXTJS-15, 4 eventos). Quien las procesa
+    // es `app/api/billing/webhook`, no esta ruta.
+    if (session.mode === 'subscription') {
+      return NextResponse.json({ received: true, ignorado: 'suscripcion_saas' });
+    }
+
+    // El tenant se resuelve desde la CUENTA que firma, no desde la metadata:
+    // `metadata.studioId` lo elige quien crea la sesión. El porqué completo, y
+    // el ataque que esto cierra, en `lib/billing/webhook-tenant.ts`.
+    //
+    // 19ª auditoría · F-1: esta comprobación vivía DENTRO del `else` (la rama de
+    // pago), así que las dos ramas `mode:'setup'` de abajo retornaban antes de
+    // llegar a ella y escribían credenciales de cobro guiándose solo por la
+    // metadata. Es el mismo fallo que webhook-tenant.ts documenta haber cerrado
+    // para la compra de plan: se cerró un camino y se dejó abierto su gemelo.
+    // Ahora protege a las TRES ramas, que es lo que siempre debió hacer.
+    const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
+    if (!tenantAutorizado(studioDeCuenta, studioId)) {
+      Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata', {
+        level: 'error',
+        extra: {
+          sessionId: session.id, eventAccount: event.account,
+          studioIdMetadata: studioId, studioDeCuenta, mode: session.mode,
+          purpose: session.metadata?.purpose ?? null,
+        },
+      });
+      return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
     }
 
     if (session.mode === 'setup' && session.metadata?.purpose === 'tarjeta') {
@@ -304,6 +348,9 @@ async function procesarEvento(
             .update(update).eq('id', socioId).eq('studio_id', studioId);
           if (error) {
             console.error('[stripe webhook] no se pudo guardar la tarjeta autorizada', socioId, error);
+            Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta autorizada', {
+              level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle: error.message },
+            });
             return NextResponse.json({ error: 'Fallo al guardar la tarjeta' }, { status: 500 });
           }
           // Caducidad para los avisos de Fase 3 del Brain. Best-effort: lo que
@@ -326,16 +373,27 @@ async function procesarEvento(
         );
         const pmId = typeof si.payment_method === 'string' ? si.payment_method : si.payment_method?.id;
         const mandateId = typeof si.mandate === 'string' ? si.mandate : (si.mandate?.id ?? null);
-        if (pmId) {
+        if (!studioId) {
+          // 19ª auditoría · F-1: mismo criterio que la rama de tarjeta y que el
+          // guardado tras pago. Sin studioId el UPDATE no se puede acotar al
+          // estudio dueño de la socia, y no se escribe.
+          Sentry.captureMessage('[stripe webhook] alta de mandato SEPA sin studioId: no se guarda', {
+            level: 'warning', extra: { socioId, sessionId: session.id },
+          });
+        } else if (pmId) {
           const update: Record<string, string | null> = {
             sepa_payment_method_id: pmId,
             sepa_mandate_id: mandateId,
             metodo_pago_preferido: 'SEPA',
           };
           if (typeof session.customer === 'string') update.stripe_customer_id = session.customer;
-          const { error } = await admin.from('socios').update(update).eq('id', socioId);
+          const { error } = await admin.from('socios')
+            .update(update).eq('id', socioId).eq('studio_id', studioId);
           if (error) {
             console.error('[stripe webhook] no se pudo guardar el mandato SEPA', socioId, error);
+            Sentry.captureMessage('[stripe webhook] no se pudo guardar el mandato SEPA', {
+              level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle: error.message },
+            });
             return NextResponse.json({ error: 'Fallo al guardar el mandato SEPA' }, { status: 500 });
           }
         }
@@ -351,17 +409,8 @@ async function procesarEvento(
         return NextResponse.json({ received: true, ignorado: 'pago_no_completado' });
       }
 
-      // El tenant se resuelve desde la CUENTA que firma, no desde la metadata:
-      // `metadata.studioId` lo elige quien crea la sesión. El porqué completo, y
-      // el ataque que esto cierra, en `lib/billing/webhook-tenant.ts`.
-      const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
-      if (!tenantAutorizado(studioDeCuenta, studioId)) {
-        Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata', {
-          level: 'error',
-          extra: { sessionId: session.id, eventAccount: event.account, studioIdMetadata: studioId, studioDeCuenta },
-        });
-        return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
-      }
+      // (La comprobación de tenant se hace ahora arriba, antes de repartir por
+      // ramas, para que cubra también los dos `mode:'setup'`. Ver F-1.)
 
       // El recibo es lo crítico (confirma el cobro). Registramos el método real
       // del cobro (tarjeta/bizum) para la conciliación con el gestor.
@@ -405,82 +454,24 @@ async function procesarEvento(
           } catch { /* si falla la lectura, dejamos TARJETA por defecto */ }
         }
         const piId = typeof session.payment_intent === 'string' ? session.payment_intent : null;
-        const { data: marcado, error } = await admin.from('recibos')
-          .update({
-            estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodoCobro,
-            // Un cobro por checkout no dejaba el PaymentIntent en NINGUNA parte
-            // de Tentare (solo lo escribían el cobro off-session y la compra de
-            // plan). Por eso /api/reembolsos tenía que buscarlo en Stripe por
-            // metadata['reciboId'], y con dos cargos descartaba el resultado y
-            // respondía "no encontramos el cobro de este recibo".
-            ...(piId ? { stripe_payment_intent_id: piId } : {}),
-            // Pagada: deja de haber una sesión abierta que reutilizar.
-            checkout_session_id: null,
-          })
-          // Acotado al tenant y a los estados realmente cobrables, que según el
-          // CHECK de `recibos` son PENDIENTE, FALLIDO (recuperación tras dunning)
-          // y EN_CURSO (adeudo SEPA en vuelo: el portal se lo muestra a la socia
-          // como pendiente, así que un pago con tarjeta sobre él es legítimo y
-          // debe marcarlo cobrado). Quedan fuera COBRADO —para no reescribir la
-          // fecha_cobro con un evento tardío o duplicado— y DEVUELTO, para no
-          // resucitar un recibo ya devuelto.
-          .eq('id', reciboId).eq('studio_id', studioId)
-          .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO'])
-          .select('id').maybeSingle();
-        if (error) {
-          console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
+        // F-12/F-13 (rediseño de fondo): marcar cobrado + renovar + sellar
+        // factura + notificar + email viven ahora en UN SOLO SITIO
+        // (lib/billing/confirmar-cobro.ts), compartido con el conciliador —
+        // antes esto estaba duplicado casi carácter por carácter en los dos
+        // sitios, y cada vez que uno ganaba una pieza el otro se quedaba
+        // atrás. Lo que sigue siendo propio de aquí (verificar importe,
+        // detectar Bizum vs tarjeta) es lo que de verdad necesita el objeto
+        // vivo de Stripe.
+        const resConfirmar = await confirmarCobroRecibo(admin, {
+          studioId, reciboId, metodoCobro, paymentIntentId: piId, fuente: 'webhook',
+        });
+        if (!resConfirmar.ok) {
+          console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, resConfirmar.error);
+          Sentry.captureMessage('[stripe webhook] no se pudo marcar el recibo como COBRADO', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, sessionId: session.id, detalle: resConfirmar.error },
+          });
           return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
         }
-        // 0 filas tiene DOS causas muy distintas y hasta ahora se trataban igual
-        // (ni siquiera se miraba: el update iba sin `.select()`):
-        //   · Stripe reentrega el MISMO evento — normal, no hay nada que hacer.
-        //   · Un SEGUNDO cobro real del mismo recibo — dinero cobrado dos veces.
-        // Se distinguen por el PaymentIntent: si el recibo ya guarda uno y llega
-        // otro distinto, no es un reintento. Es el aviso que faltaba para que
-        // esto deje de ser invisible; devolver el cargo sigue siendo manual.
-        if (!marcado && piId) {
-          const { data: previo } = await admin.from('recibos')
-            .select('stripe_payment_intent_id')
-            .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
-          const anterior = (previo?.stripe_payment_intent_id as string | null) ?? null;
-          if (anterior && anterior !== piId) {
-            Sentry.captureMessage('[stripe webhook] SEGUNDO cobro del mismo recibo: hay que devolver uno', {
-              level: 'error',
-              extra: {
-                reciboId, studioId, sessionId: session.id,
-                paymentIntentCobrado: anterior, paymentIntentDuplicado: piId,
-              },
-            });
-          }
-        }
-        // Renovación en servidor (refill de bono / extensión del mensual):
-        // antes solo la aplicaba el panel al "marcar cobrado" a mano, así que
-        // un pago por enlace dejaba la suscripción sin renovar hasta que
-        // alguien abría el panel. Best-effort e idempotente.
-        await aplicarRenovacionServidor(admin, { studioId, reciboId });
-        // Sellado de factura: mismo criterio que cobrarReciboOffSession
-        // (lib/billing/stripe-cobros.ts) y confirmarCobroExitoso — este
-        // era el ÚNICO de los tres caminos de dinero real que no la sellaba.
-        // Un pago desde el portal (la socia paga su recibo pendiente vía
-        // Checkout hospedado) confirmaba el cobro y nunca generaba factura;
-        // best-effort e idempotente: el cobro ya está persistido, un fallo
-        // aquí no puede tumbar el evento.
-        const selladoFactura = await sellarFacturaDeRecibo(admin, {
-          studioId, reciboId, facturaId: `fac-checkout-${reciboId}`,
-        });
-        if (!selladoFactura.ok) {
-          Sentry.captureMessage('[stripe webhook] cobro OK pero factura sin sellar', {
-            level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
-            extra: { reciboId, studioId, error: selladoFactura.error },
-          });
-        }
-        // Notification Engine: confirmación de pago a la socia.
-        const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
-        await emitirPagoRealizado(admin, { studioId, reciboId });
-        // Email de confirmación con enlace a su factura — best-effort, ver
-        // enviarEmailReciboWebhook (nunca lanza, no puede tumbar el webhook).
-        const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
-        await enviarEmailReciboWebhook(admin, { studioId, reciboId });
       }
 
       // Compra de un plan desde el enlace público: crear el bono que se acaba de
@@ -514,6 +505,7 @@ async function procesarEvento(
           origenLead: origenLead ?? null,
           // I-8: si es invitada, crear ficha nueva siempre (no reutilizar)
           esInvitada,
+          fuente: 'webhook',
         });
         if (!entrega.ok) {
           Sentry.captureMessage('[stripe webhook] cobrado pero NO entregado', {
@@ -620,6 +612,9 @@ async function procesarEvento(
               .eq('id', socioId).eq('studio_id', studioId);
             if (error) {
               console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
+              Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta de la socia', {
+                level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle: error.message },
+              });
               return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
             }
             // Y CUÁNDO caduca, para poder avisar antes de que falle el cobro
@@ -657,16 +652,39 @@ async function procesarEvento(
     // registrar la venta, el cobro aparece en "cobros sin registrar".
     const origenPos = pi.metadata?.origen;
     if (origenPos === 'pos_terminal' || origenPos === 'pos_bizum') {
-      const studioId = pi.metadata.studioId;
-      if (!studioId) {
+      const studioIdMetadata = pi.metadata.studioId;
+      if (!studioIdMetadata) {
         console.error('[stripe webhook] PI de terminal sin studioId en metadata', pi.id);
+        Sentry.captureMessage('[stripe webhook] PI de terminal sin studioId en metadata', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, origenPos },
+        });
         return NextResponse.json({ received: true });
       }
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (reconciliación POS)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (reconciliación POS)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, studioId: studioIdMetadata },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
+      // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-3: esta era la ÚNICA rama del
+      // switch que se fiaba de `metadata.studioId` para decidir el tenant. Las
+      // otras nueve (`checkout.session.completed`, plan embebido, SEPA, tarjeta,
+      // reembolsos, disputas…) resuelven el estudio desde `event.account`. Un
+      // estudio con su propia cuenta Connect podía crear un PI de un céntimo con
+      // `metadata:{origen:'pos_terminal', studioId:'<otro estudio>'}` y meter una
+      // fila fantasma en la caja de un tenant ajeno. Mismo patrón de gemelo
+      // divergente que webhook-tenant.ts documenta.
+      const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
+      if (!tenantAutorizado(studioDeCuenta, studioIdMetadata)) {
+        Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata (POS)', {
+          level: 'error', tags: { area: 'cobros' },
+          extra: { paymentIntentId: pi.id, eventAccount: event.account, studioIdMetadata, studioDeCuenta, origenPos },
+        });
+        return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
+      }
+      const studioId = studioDeCuenta as string;
       // Insert idempotente: si el POS ya registró la venta y marcó el marcador
       // RECONCILIADO, la PK del PaymentIntent hace que este INSERT choque (23505)
       // y no pisamos ese estado. Cualquier otro error → 5xx para que Stripe
@@ -679,6 +697,9 @@ async function procesarEvento(
       });
       if (error && error.code !== '23505') {
         console.error('[stripe webhook] no se pudo registrar la reconciliación POS', pi.id, error);
+        Sentry.captureMessage('[stripe webhook] no se pudo registrar la reconciliación POS', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, studioId, detalle: error.message },
+        });
         return NextResponse.json({ error: 'Fallo al registrar la reconciliación' }, { status: 500 });
       }
 
@@ -695,6 +716,9 @@ async function procesarEvento(
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (checkout embebido)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (checkout embebido)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
       // El tenant se resuelve desde la CUENTA que firma, no desde la metadata
@@ -739,6 +763,15 @@ async function procesarEvento(
         origenLead: pi.metadata.origenLead ?? null,
         // I-8: si es invitada, crear ficha nueva siempre (no reutilizar)
         esInvitada,
+        // "Información adicional" del formulario de pago sin login — solo se
+        // escribe al crear ficha NUEVA (ver comentario en CompraPlan).
+        datosAdicionales: {
+          genero: pi.metadata.genero ?? null,
+          comoConociste: pi.metadata.comoConociste ?? null,
+          codigoPostal: pi.metadata.codigoPostal ?? null,
+          fechaNacimiento: pi.metadata.fechaNacimiento ?? null,
+        },
+        fuente: 'webhook',
       });
       if (!entrega.ok) {
         Sentry.captureMessage('[stripe webhook] checkout embebido: cobrado pero NO entregado', {
@@ -824,6 +857,9 @@ async function procesarEvento(
             .eq('id', entrega.socioId).eq('studio_id', studioId);
           if (error) {
             console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia (checkout embebido)', entrega.socioId, error);
+            Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta de la socia (checkout embebido)', {
+              level: 'error', tags: { area: 'cobros' }, extra: { socioId: entrega.socioId, studioId, paymentIntentId: pi.id, detalle: error.message },
+            });
             return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
           }
           // Y CUÁNDO caduca (Fase 3 del Brain). Best-effort a propósito, igual
@@ -875,6 +911,7 @@ async function procesarEvento(
           const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
           const r = await reservarPlazaTrasPagoPublico({
             studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id,
+            spotId: pi.metadata.spotId ?? null,
           });
           if (!r.ok) {
             // `error`, no `warning`: la socia ha PAGADO por una clase concreta
@@ -924,6 +961,9 @@ async function procesarEvento(
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (SEPA succeeded)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (SEPA succeeded)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, reciboId },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
       const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -933,7 +973,7 @@ async function procesarEvento(
         });
         return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
       }
-      const confirmado = await confirmarCobroExitoso({ admin, reciboId, studioId, metodo: 'SEPA' });
+      const confirmado = await confirmarCobroExitoso({ admin, reciboId, studioId, metodo: 'SEPA', fuente: 'webhook' });
       if (!confirmado.ok) {
         // "Recibo no encontrado" es o bien el recibo ya no existe o es de otro
         // estudio (intento de confirmar un cobro ajeno) — se registra y se
@@ -945,6 +985,9 @@ async function procesarEvento(
           return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
         }
         console.error('[stripe webhook] no se pudo marcar el recibo SEPA COBRADO', reciboId, confirmado.error);
+        Sentry.captureMessage('[stripe webhook] no se pudo marcar el recibo SEPA COBRADO', {
+          level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, paymentIntentId: pi.id, detalle: confirmado.error },
+        });
         return NextResponse.json({ error: 'Fallo al confirmar el cobro SEPA' }, { status: 500 });
       }
       capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'sepa' } });
@@ -973,6 +1016,9 @@ async function procesarEvento(
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (tarjeta succeeded)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (tarjeta succeeded)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, reciboId },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
       const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -983,7 +1029,7 @@ async function procesarEvento(
         return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
       }
       const confirmado = await confirmarCobroExitoso({
-        admin, reciboId, studioId, metodo: 'TARJETA', paymentIntentId: pi.id,
+        admin, reciboId, studioId, metodo: 'TARJETA', paymentIntentId: pi.id, fuente: 'webhook',
       });
       if (!confirmado.ok) {
         if (confirmado.error === 'Recibo no encontrado') {
@@ -993,6 +1039,9 @@ async function procesarEvento(
           return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
         }
         console.error('[stripe webhook] no se pudo confirmar el cobro con tarjeta', reciboId, confirmado.error);
+        Sentry.captureMessage('[stripe webhook] no se pudo confirmar el cobro con tarjeta', {
+          level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, paymentIntentId: pi.id, detalle: confirmado.error },
+        });
         return NextResponse.json({ error: 'Fallo al confirmar el cobro con tarjeta' }, { status: 500 });
       }
       // Sin `capturar` de GMV aquí a propósito: la vía síncrona ya lo captura
@@ -1011,6 +1060,9 @@ async function procesarEvento(
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (SEPA failed)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (SEPA failed)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, reciboId },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
       const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1027,6 +1079,9 @@ async function procesarEvento(
         await registrarFalloCobro({ admin, reciboId, studioId, esSepa: true, ahoraISO: new Date().toISOString() });
       } catch (e) {
         console.error('[stripe webhook] no se pudo registrar el adeudo SEPA fallido (dunning)', reciboId, e);
+        Sentry.captureMessage('[stripe webhook] no se pudo registrar el adeudo SEPA fallido (dunning)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, paymentIntentId: pi.id, detalle: e instanceof Error ? e.message : String(e) },
+        });
         return NextResponse.json({ error: 'Fallo al registrar el adeudo SEPA fallido' }, { status: 500 });
       }
     }
@@ -1044,24 +1099,17 @@ async function procesarEvento(
       if (!pi) return NextResponse.json({ error: 'No se pudo recuperar el PaymentIntent' }, { status: 500 });
       const reciboId = pi.metadata?.reciboId;
       const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
-      // Solo un reembolso TOTAL anula el recibo: marcar DEVUELTO un parcial
-      // infravaloraría los ingresos y dejaría un estado incoherente (recibo
-      // "devuelto" con el bono ya aplicado).
-      //
-      // ⚠️ Pero el parcial SÍ entra aquí. Antes esta condición lo dejaba fuera
-      // del handler entero: no marcaba nada, no avisaba a nadie y no dejaba
-      // rastro — y es el caso más habitual, el que hace una propietaria sensata
-      // cuando la socia ya usó parte del bono. El comentario decía que
-      // "requieren ajuste manual del estudio", pero nada le decía al estudio que
-      // hubiera algo que ajustar.
-      const acumuladoDevuelto = charge.amount_refunded ?? 0;
-      const origen = origenDeReembolso({
-        refunded: charge.refunded === true, acumulado: acumuladoDevuelto, total: charge.amount ?? 0,
-      });
+      // ⚠️ El parcial SÍ entra aquí (ver `procesarChargeRefunded`). Antes esta
+      // condición lo dejaba fuera del handler entero: no marcaba nada, no
+      // avisaba a nadie y no dejaba rastro — y es el caso más habitual, el que
+      // hace una propietaria sensata cuando la socia ya usó parte del bono.
       if (reciboId && esRecibo) {
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (refund)');
+          Sentry.captureMessage('[stripe webhook] service role no configurada (refund)', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId },
+          });
           return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
         }
         const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1071,39 +1119,41 @@ async function procesarEvento(
           });
           return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
         }
-        if (origen === 'REEMBOLSO_TOTAL') {
-          const { data: rec, error } = await admin.from('recibos')
-            .update({ estado: 'DEVUELTO', fecha_devolucion: new Date().toISOString(), sepa_estado: pi.metadata?.origen === 'sepa_recibo' ? 'returned' : null })
-            // `.neq('estado','DEVUELTO')` para que un reintento de Stripe no
-            // reescriba la fecha_devolucion original con la de hoy.
-            .eq('id', reciboId).eq('studio_id', studioId).neq('estado', 'DEVUELTO')
-            .select('id').maybeSingle();
-          if (error) {
-            console.error('[stripe webhook] no se pudo marcar el recibo DEVUELTO', reciboId, error);
-            return NextResponse.json({ error: 'Fallo al registrar la devolución' }, { status: 500 });
-          }
-          // 0 filas ya no es un error: puede ser el reintento del mismo evento.
-          if (!rec) {
-            Sentry.captureMessage('[stripe webhook] devolución sin efecto (recibo ya devuelto, inexistente o de otro estudio)', {
-              level: 'warning', extra: { reciboId, studioId, eventAccount: event.account },
-            });
-          }
-        }
-        // Se anota SIEMPRE, total o parcial, y solo se avisa si es un hecho
-        // nuevo (`null` = ya estaba registrada por un reintento).
-        const dev = await registrarDevolucion(admin, {
-          studioId, reciboId, origen, devueltoCentimos: acumuladoDevuelto,
-          referencia: referenciaDevolucion({ tipo: 'reembolso', chargeId: charge.id, acumuladoDevueltoCentimos: acumuladoDevuelto }),
-          stripeChargeId: charge.id,
+        const resultado = await procesarChargeRefunded(admin, {
+          studioId, reciboId, origenPi: pi.metadata?.origen,
+          charge: { id: charge.id, refunded: charge.refunded === true, amount: charge.amount ?? null, amountRefunded: charge.amount_refunded ?? null },
+          fuente: 'webhook', eventAccount: event.account,
         });
-        if (dev) {
-          const { emitirDevolucion } = await import('@/lib/notifications/emit');
-          const { data: recSocio } = await admin.from('recibos').select('socio_id').eq('id', reciboId).maybeSingle();
-          await emitirDevolucion(admin, {
-            studioId, socioId: (recSocio?.socio_id as string | null) ?? null,
-            devolucionId: dev.id, importe: dev.importeDevuelto, origen,
+        if (!resultado.ok) return NextResponse.json({ error: 'Fallo al registrar la devolución' }, { status: 500 });
+      }
+
+      // P-2 (17ª auditoría): reembolso de una venta de POS (datáfono/Bizum
+      // presencial). Rama propia, no sumada a ORIGENES_CON_RECIBO: una venta
+      // POS no tiene `recibos` que marcar — vive en `ventas_pos`, sin la
+      // máquina de entrega/bono que sí necesita `procesarChargeRefunded`.
+      const esVentaPos = ORIGENES_POS.has(pi.metadata?.origen ?? '');
+      if (esVentaPos) {
+        const admin = getSupabaseAdmin();
+        if (!admin) {
+          console.error('[stripe webhook] service role no configurada (refund POS)');
+          Sentry.captureMessage('[stripe webhook] service role no configurada (refund POS)', {
+            level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id },
           });
+          return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
         }
+        const studioId = await studioDeCuentaConnect(admin, event.account);
+        if (!studioId) {
+          Sentry.captureMessage('[stripe webhook] devolución de venta POS de una cuenta Connect no reconocida', {
+            level: 'error', extra: { paymentIntentId: pi.id, eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+        }
+        const resultado = await procesarReembolsoVentaPos(admin, {
+          studioId, paymentIntentId: pi.id,
+          charge: { id: charge.id, refunded: charge.refunded === true, amount: charge.amount ?? null, amountRefunded: charge.amount_refunded ?? null },
+          fuente: 'webhook',
+        });
+        if (!resultado.ok) return NextResponse.json({ error: 'Fallo al registrar la devolución de la venta POS' }, { status: 500 });
       }
     }
   }
@@ -1125,6 +1175,9 @@ async function procesarEvento(
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (dispute created)');
+          Sentry.captureMessage('[stripe webhook] service role no configurada (dispute created)', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId },
+          });
           return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
         }
         const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1134,15 +1187,23 @@ async function procesarEvento(
           });
           return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
         }
-        const { error } = await admin.from('recibos')
-          .update({ disputa_estado: dispute.status, disputa_stripe_id: dispute.id })
-          .eq('id', reciboId).eq('studio_id', studioId);
-        if (error) {
-          console.error('[stripe webhook] no se pudo registrar la disputa', reciboId, error);
+        const resultado = await procesarDisputeCreated(admin, {
+          studioId, reciboId, disputeStatus: dispute.status, disputeId: dispute.id,
+          dueByUnix: dispute.evidence_details?.due_by ?? null, fuente: 'webhook',
+        });
+        if (!resultado.ok) {
+          // ⚠️ Este 500 NO lo ve nadie: `procesarEvento` corre dentro de
+          // `after(...)` y la respuesta ya se envió (ver la cabecera de este
+          // fichero). Sin este `captureMessage`, el fix de D-10 cambiaba un
+          // éxito falso por un silencio total: `console.error` no llega a
+          // Sentry en este proyecto. La red de recuperación sigue siendo el
+          // conciliador de reembolsos, cada 2 h.
+          Sentry.captureMessage('[stripe webhook] no se pudo registrar la disputa', {
+            level: 'error', tags: { area: 'cobros', tipo: 'disputa' },
+            extra: { reciboId, studioId, disputeId: dispute.id, detalle: resultado.error },
+          });
           return NextResponse.json({ error: 'Fallo al registrar la disputa' }, { status: 500 });
         }
-        const { emitirPagoDisputado } = await import('@/lib/notifications/emit');
-        await emitirPagoDisputado(admin, { studioId, reciboId, plazoUnix: dispute.evidence_details?.due_by ?? null });
       }
     }
   }
@@ -1162,6 +1223,9 @@ async function procesarEvento(
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (dispute closed)');
+          Sentry.captureMessage('[stripe webhook] service role no configurada (dispute closed)', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId },
+          });
           return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
         }
         const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1171,59 +1235,17 @@ async function procesarEvento(
           });
           return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
         }
-        // Se parte en DOS escrituras a propósito. `disputa_estado` debe sellarse
-        // SIEMPRE (es el estado real de la disputa en Stripe y es idempotente);
-        // `estado`/`fecha_devolucion` necesitan el guardia `.neq('DEVUELTO')`
-        // de su gemelo `charge.refunded`, para que una reentrega no reescriba
-        // la fecha_devolucion original con la de hoy. Con una sola sentencia
-        // había que elegir: o se perdía el guardia, o el guardia descartaba la
-        // fila entera y `disputa_estado` no se guardaba nunca.
-        const { error } = await admin.from('recibos')
-          .update({ disputa_estado: dispute.status })
-          .eq('id', reciboId).eq('studio_id', studioId);
-        let errDevuelto = null;
-        if (!error && dispute.status === 'lost') {
-          const r = await admin.from('recibos')
-            .update({ estado: 'DEVUELTO', fecha_devolucion: new Date().toISOString() })
-            .eq('id', reciboId).eq('studio_id', studioId).neq('estado', 'DEVUELTO');
-          errDevuelto = r.error;
-        }
-        if (errDevuelto) {
-          console.error('[stripe webhook] disputa perdida: no se pudo marcar DEVUELTO', reciboId, errDevuelto);
-          return NextResponse.json({ error: 'Fallo al cerrar la disputa' }, { status: 500 });
-        }
-        if (error) {
-          console.error('[stripe webhook] no se pudo cerrar la disputa', reciboId, error);
-          return NextResponse.json({ error: 'Fallo al cerrar la disputa' }, { status: 500 });
-        }
-
-        // Hasta ahora este cierre era MUDO: el estudio se enteraba de que le
-        // abrían una disputa (`dispute.created` avisa con ALTA + push + email)
-        // pero nunca de que la perdía — y es cuando el dinero se va de verdad y
-        // la socia se queda con lo entregado.
-        //
-        // ⚠️ `charge_refunded` = el estudio reembolsó DURANTE la disputa. Ese
-        // dinero ya lo anota `charge.refunded` con la misma referencia
-        // (`chargeId:acumulado`), así que aquí no se vuelve a encolar: si no, la
-        // propietaria vería dos tarjetas por el mismo dinero y podría revertir
-        // dos veces.
-        if (dispute.status === 'lost') {
-          const cargoId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null;
-          const dev = await registrarDevolucion(admin, {
-            studioId, reciboId, origen: 'CHARGEBACK',
-            devueltoCentimos: dispute.amount ?? 0,
-            referencia: referenciaDevolucion({ tipo: 'chargeback', disputeId: dispute.id }),
-            stripeChargeId: cargoId,
-          });
-          if (dev) {
-            const { emitirDevolucion } = await import('@/lib/notifications/emit');
-            const { data: recSocio } = await admin.from('recibos').select('socio_id').eq('id', reciboId).maybeSingle();
-            await emitirDevolucion(admin, {
-              studioId, socioId: (recSocio?.socio_id as string | null) ?? null,
-              devolucionId: dev.id, importe: dev.importeDevuelto, origen: 'CHARGEBACK',
-            });
-          }
-        }
+        // Hasta antes de instrumentar `charge.dispute.closed`, este cierre era
+        // MUDO: el estudio se enteraba de que le abrían una disputa
+        // (`dispute.created` avisa con ALTA + push + email) pero nunca de que
+        // la perdía — y es cuando el dinero se va de verdad y la socia se
+        // queda con lo entregado.
+        const cargoId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null;
+        const resultado = await procesarDisputeClosed(admin, {
+          studioId, reciboId, disputeStatus: dispute.status, disputeId: dispute.id,
+          chargeId: cargoId, amount: dispute.amount ?? null, fuente: 'webhook',
+        });
+        if (!resultado.ok) return NextResponse.json({ error: 'Fallo al cerrar la disputa' }, { status: 500 });
       }
     }
   }
@@ -1255,6 +1277,9 @@ async function procesarEvento(
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (refund failed)');
+          Sentry.captureMessage('[stripe webhook] service role no configurada (refund failed)', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId },
+          });
           return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
         }
         const studioId = await studioDeCuentaConnect(admin, event.account);
@@ -1318,6 +1343,9 @@ async function procesarEvento(
             .eq('id', reciboId).eq('studio_id', studioId).eq('estado', 'DEVUELTO');
           if (error) {
             console.error('[stripe webhook] refund fallido: no se pudo restaurar el recibo', reciboId, error);
+            Sentry.captureMessage('[stripe webhook] refund fallido: no se pudo restaurar el recibo', {
+              level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, chargeId, detalle: error.message },
+            });
             return NextResponse.json({ error: 'Fallo al restaurar el recibo' }, { status: 500 });
           }
         }
@@ -1335,6 +1363,9 @@ async function procesarEvento(
           .eq('id', reciboId).eq('studio_id', studioId);
         if (errMarca) {
           console.error('[stripe webhook] refund fallido: sin marcar en el recibo', reciboId, errMarca);
+          Sentry.captureMessage('[stripe webhook] refund fallido: sin marcar en el recibo', {
+            level: 'error', tags: { area: 'cobros' }, extra: { reciboId, studioId, chargeId, detalle: errMarca.message },
+          });
           return NextResponse.json({ error: 'Fallo al marcar el reembolso fallido' }, { status: 500 });
         }
 
@@ -1416,6 +1447,70 @@ async function procesarEvento(
           studioId, socioId: (rec.socio_id as string | null) ?? null, reciboId,
           refundId: refund.id, importe: Number(refund.amount ?? 0) / 100, sesionesTexto,
         });
+      } else if (piId && chargeId && ORIGENES_POS.has(pi.metadata?.origen ?? '')) {
+        // P-8 (auditoría 21ª pasada): F-13 ya cubría `charge.refunded` para
+        // venta POS (`procesarReembolsoVentaPos`), pero `refund.failed` — el
+        // caso "el reembolso se acepta y falla DÍAS después" — solo tocaba
+        // `recibos`. Sin esto, `ventas_pos.devuelta_en` seguía diciendo que
+        // el dinero se había devuelto aunque el reembolso hubiera fallado de
+        // verdad. Alcance deliberadamente menor que la rama de `recibos`:
+        // POS no tiene entrega que revertir ni estado SEPA propio
+        // (`ORIGENES_POS` es datáfono/Bizum presencial), así que el arreglo
+        // es solo el flip de `devuelta_en` — sin la máquina de
+        // `devoluciones`/aviso al mostrador que sí necesita `recibos`. POS
+        // está CONGELADO (`lib/frozen-features.ts`): no hay pantalla que
+        // enseñe ese aviso, así que construirlo sería invertir en una
+        // superficie inalcanzable.
+        const admin = getSupabaseAdmin();
+        if (!admin) {
+          console.error('[stripe webhook] service role no configurada (refund failed, POS)');
+          return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+        }
+        const studioId = await studioDeCuentaConnect(admin, event.account);
+        if (!studioId) {
+          Sentry.captureMessage('[stripe webhook] refund fallido de venta POS de una cuenta Connect no reconocida', {
+            level: 'error', extra: { eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+        }
+        let chargePos = typeof pi.latest_charge === 'object' && pi.latest_charge && pi.latest_charge.id === chargeId
+          ? pi.latest_charge as Stripe.Charge
+          : null;
+        if (!chargePos) {
+          try {
+            chargePos = await stripe.charges.retrieve(chargeId, {}, event.account ? { stripeAccount: event.account } : undefined);
+          } catch (e) {
+            Sentry.captureMessage('[stripe webhook] refund fallido de venta POS: no se pudo leer el charge fresco', {
+              level: 'error', tags: { area: 'cobros', tipo: 'reembolso-perdido-pos' },
+              extra: { eventId: event.id, chargeId, detalle: e instanceof Error ? e.message : String(e) },
+            });
+            return NextResponse.json({ error: 'No se pudo leer el charge' }, { status: 500 });
+          }
+        }
+        const { data: venta } = await admin.from('ventas_pos')
+          .select('id, devuelta_en').eq('studio_id', studioId).eq('stripe_payment_intent_id', piId).maybeSingle();
+        if (!venta) {
+          Sentry.captureMessage('[stripe webhook] refund fallido de venta POS sin venta asociada', {
+            level: 'warning', extra: { paymentIntentId: piId, studioId },
+          });
+          return NextResponse.json({ received: true });
+        }
+        const acumuladoCentimosPos = chargePos.amount_refunded ?? 0;
+        const totalCentimosPos = chargePos.amount ?? 0;
+        const sigueTotalmenteDevueltoPos = chargePos.refunded === true
+          || (totalCentimosPos > 0 && acumuladoCentimosPos >= totalCentimosPos);
+        if (venta.devuelta_en && !sigueTotalmenteDevueltoPos) {
+          const { error } = await admin.from('ventas_pos')
+            .update({ devuelta_en: null, importe_devuelto: acumuladoCentimosPos / 100 })
+            .eq('id', venta.id).eq('studio_id', studioId);
+          if (error) {
+            console.error('[stripe webhook] refund fallido: no se pudo restaurar la venta POS', venta.id, error);
+            Sentry.captureMessage('[stripe webhook] refund fallido: no se pudo restaurar la venta POS', {
+              level: 'error', tags: { area: 'cobros' }, extra: { ventaPosId: venta.id, studioId, chargeId, detalle: error.message },
+            });
+            return NextResponse.json({ error: 'Fallo al restaurar la venta POS' }, { status: 500 });
+          }
+        }
       }
     }
   }
@@ -1458,13 +1553,30 @@ async function procesarEvento(
       const admin = getSupabaseAdmin();
       if (!admin) {
         console.error('[stripe webhook] service role no configurada (deauthorized)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (deauthorized)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { accountId },
+        });
         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
       }
       // Qué estudios pierden el cobro (antes de limpiar el binding).
       const { data: afectados } = await admin.from('studios').select('id').eq('stripe_account_id', accountId);
-      const { error } = await admin.from('studios').update({ stripe_account_id: null }).eq('stripe_account_id', accountId);
+      // Auditoría 22ª pasada (3-sep-2026), D-4: el id se conserva en
+      // `stripe_account_id_anterior` en vez de perderse. Un webhook legítimo
+      // que llegue TARDE (reintento de Stripe) sobre un cobro/reembolso/
+      // disputa que sí ocurrió antes de esta desconexión podría, si no,
+      // resolver a NINGÚN estudio (`studioDeCuentaConnect` busca por
+      // `stripe_account_id` en vivo) y perderse en un 403. Esto NO reabre el
+      // cobro — Stripe ya ha revocado el acceso de la plataforma a esta
+      // cuenta, así que ninguna llamada NUEVA a su API puede funcionar—, solo
+      // permite atribuir correctamente algo que YA pasó.
+      const { error } = await admin.from('studios')
+        .update({ stripe_account_id: null, stripe_account_id_anterior: accountId, stripe_account_desconectado_en: new Date().toISOString() })
+        .eq('stripe_account_id', accountId);
       if (error) {
         console.error('[stripe webhook] no se pudo desvincular la cuenta desconectada', accountId, error);
+        Sentry.captureMessage('[stripe webhook] no se pudo desvincular la cuenta desconectada', {
+          level: 'error', tags: { area: 'cobros' }, extra: { accountId, detalle: error.message },
+        });
         return NextResponse.json({ error: 'Fallo al desvincular la cuenta' }, { status: 500 });
       }
       // Notification Engine: aviso CRÍTICO a la dueña — se han parado los cobros.

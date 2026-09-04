@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PanelPendientes } from '@/components/cobros/panel-pendientes';
 import { PanelFacturas } from '@/components/cobros/panel-facturas';
 import { BotonRemesaSepa } from '@/components/cobros/boton-remesa-sepa';
+import { Toast, useToast } from '@/components/ui/toast';
 
 // "Cobrar" existe ahora como un solo sitio. Antes estaba repartido entre
 // Transacciones, Facturas, POS y una ruta /pagos que ni siquiera salía en el
@@ -42,6 +43,7 @@ function esTab(v: string | null): v is TabId {
 
 export default function Cobros() {
   const [tab, setTab] = useState<TabId>('deudas');
+  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
 
   // Se lee de window.location y no con useSearchParams para no suspender el
   // árbol (mismo motivo que en el resto de pantallas del panel).
@@ -84,11 +86,12 @@ export default function Cobros() {
       {tab === 'deudas' && (
         <>
           <div className="flex justify-end"><BotonRemesaSepa /></div>
-          <PanelPendientes vista="deudas" />
+          <PanelPendientes vista="deudas" onToast={showToast} />
         </>
       )}
-      {tab === 'cobrado' && <PanelPendientes vista="cobrado" />}
+      {tab === 'cobrado' && <PanelPendientes vista="cobrado" onToast={showToast} />}
       {tab === 'facturas' && <PanelFacturas />}
+      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
   );
 }

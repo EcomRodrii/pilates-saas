@@ -6,7 +6,7 @@ import {
   type EstadoGuardado, type PorPantalla,
 } from '@/lib/theme/autoguardado';
 import type { PantallaId } from '@/lib/portal-home-bloques';
-import { esSesionCaducada } from '@/lib/api-client';
+import { esSesionCaducada, esSinPermiso } from '@/lib/api-client';
 
 /** Espera tras la última tecla antes de mandar. */
 const ESPERA_MS = 1_500;
@@ -39,6 +39,9 @@ export function useAutoguardado(
   const fallos = useRef(0);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reintentar = useRef<() => void>(() => {});
+  // El efecto de debounce no puede depender de `estado` (se re-crearía en cada
+  // cambio y reprogramaría el temporizador); se lee por ref.
+  const estadoRef = useRef<EstadoGuardado>({ tipo: 'limpio' });
 
   // Las refs se escriben en efectos, NUNCA durante el render: hacerlo en el
   // cuerpo rompe `react-hooks/refs` y, con el React Compiler, un render
@@ -108,6 +111,14 @@ export function useAutoguardado(
         setEstado({ tipo: 'sesion' });
         return;
       }
+      // Terminal igual que el 401: un 403 no se arregla insistiendo. Sin esto
+      // el reintento subía hasta 60 s y no paraba nunca, enseñando «se sigue
+      // intentando» a quien no iba a poder guardar jamás.
+      if (esSinPermiso(e)) {
+        if (temporizador.current) clearTimeout(temporizador.current);
+        setEstado({ tipo: 'permiso', mensaje: e instanceof Error ? e.message : 'No tienes permiso para guardar estos cambios.' });
+        return;
+      }
       // El contador de fallos vive en una ref y no en el propio `setEstado`:
       // programar el reintento dentro del actualizador lo haría impuro y en
       // modo estricto React lo llama dos veces → dos temporizadores.
@@ -122,6 +133,7 @@ export function useAutoguardado(
   // El reintento entra por una ref, no por recursión: una función no puede
   // referenciarse a sí misma dentro de su propio `useCallback`.
   useEffect(() => { reintentar.current = () => void intentar(); }, [intentar]);
+  useEffect(() => { estadoRef.current = estado; }, [estado]);
 
   // Cada edición reinicia la espera. Escribir un título entero es UNA
   // petición, no una por letra.
@@ -131,8 +143,15 @@ export function useAutoguardado(
     // Con la sesión caducada se deja de programar envíos: seguir mandando
     // 401 cada vez que se teclea no arregla nada y borraría el aviso, que es
     // lo único que le dice a la propietaria que pare y vuelva a entrar.
-    setEstado((prev) => (prev.tipo === 'error' || prev.tipo === 'sesion' ? prev : { tipo: 'pendiente' }));
+    setEstado((prev) => (prev.tipo === 'error' || prev.tipo === 'sesion' || prev.tipo === 'permiso' ? prev : { tipo: 'pendiente' }));
     if (temporizador.current) clearTimeout(temporizador.current);
+    // `permiso` es terminal de verdad: ni se reprograma. Sin esto, cortar el
+    // backoff no bastaba — cada tecla volvía a mandar un PUT que el servidor
+    // iba a rechazar con 403 igual.
+    // `sesion` NO se corta a propósito: ahí sí hay recuperación (el enlace
+    // «Volver a entrar» abre otra pestaña y, al refrescar la sesión, el
+    // siguiente intento sube lo editado).
+    if (estadoRef.current.tipo === 'permiso') return;
     temporizador.current = setTimeout(() => void intentar(), ESPERA_MS);
     return () => { if (temporizador.current) clearTimeout(temporizador.current); };
   }, [bloquesPorPantalla, activo, intentar]);
@@ -186,6 +205,9 @@ export function useAutoguardadoTema<T>(
   const fallos = useRef(0);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reintentar = useRef<() => void>(() => {});
+  // El efecto de debounce no puede depender de `estado` (se re-crearía en cada
+  // cambio y reprogramaría el temporizador); se lee por ref.
+  const estadoRef = useRef<EstadoGuardado>({ tipo: 'limpio' });
 
   useEffect(() => { ultimo.current = draft; }, [draft]);
 
@@ -221,6 +243,14 @@ export function useAutoguardadoTema<T>(
         setEstado({ tipo: 'sesion' });
         return;
       }
+      // Terminal igual que el 401: un 403 no se arregla insistiendo. Sin esto
+      // el reintento subía hasta 60 s y no paraba nunca, enseñando «se sigue
+      // intentando» a quien no iba a poder guardar jamás.
+      if (esSinPermiso(e)) {
+        if (temporizador.current) clearTimeout(temporizador.current);
+        setEstado({ tipo: 'permiso', mensaje: e instanceof Error ? e.message : 'No tienes permiso para guardar estos cambios.' });
+        return;
+      }
       const intentos = fallos.current;
       fallos.current = intentos + 1;
       if (temporizador.current) clearTimeout(temporizador.current);
@@ -230,12 +260,20 @@ export function useAutoguardadoTema<T>(
   }, [guardar]);
 
   useEffect(() => { reintentar.current = () => void intentar(); }, [intentar]);
+  useEffect(() => { estadoRef.current = estado; }, [estado]);
 
   useEffect(() => {
     if (!activo || confirmado.current === null) return;
     if (JSON.stringify(confirmado.current) === JSON.stringify(draft)) return;
-    setEstado((prev) => (prev.tipo === 'error' || prev.tipo === 'sesion' ? prev : { tipo: 'pendiente' }));
+    setEstado((prev) => (prev.tipo === 'error' || prev.tipo === 'sesion' || prev.tipo === 'permiso' ? prev : { tipo: 'pendiente' }));
     if (temporizador.current) clearTimeout(temporizador.current);
+    // `permiso` es terminal de verdad: ni se reprograma. Sin esto, cortar el
+    // backoff no bastaba — cada tecla volvía a mandar un PUT que el servidor
+    // iba a rechazar con 403 igual.
+    // `sesion` NO se corta a propósito: ahí sí hay recuperación (el enlace
+    // «Volver a entrar» abre otra pestaña y, al refrescar la sesión, el
+    // siguiente intento sube lo editado).
+    if (estadoRef.current.tipo === 'permiso') return;
     temporizador.current = setTimeout(() => void intentar(), ESPERA_MS);
     return () => { if (temporizador.current) clearTimeout(temporizador.current); };
   }, [draft, activo, intentar]);

@@ -146,3 +146,32 @@ test('peorEstado: entre dos guardados se queda el MÁS ANTIGUO', () => {
 test('peorEstado: dos limpios siguen limpios', () => {
   assert.deepEqual(peorEstado({ tipo: 'limpio' }, { tipo: 'limpio' }), { tipo: 'limpio' });
 });
+
+// ── Estado `permiso` (403) ───────────────────────────────────────────────────
+// Guardián del 🔴 del 31-ago: el editor de apariencia deja entrar a MANAGER
+// pero guardarThemeAction es solo-PROPIETARIO. El 403 caía en el `error`
+// genérico, que reintenta con backoff y NUNCA se rinde, así que la pantalla
+// decía «se sigue intentando» para siempre y al recargar no había nada.
+
+test('permiso: enseña el motivo del servidor, no una frase genérica', () => {
+  const e: EstadoGuardado = { tipo: 'permiso', mensaje: 'Solo el propietario puede editar la marca' };
+  assert.equal(textoEstado(e, Date.now()), 'Solo el propietario puede editar la marca');
+});
+
+test('permiso: avisa al salir — lo editado se pierde igual que con la sesión caducada', () => {
+  assert.equal(avisarAlSalir({ tipo: 'permiso', mensaje: 'x' }), true);
+});
+
+test('permiso gana a TODOS los demás estados, incluida la sesión caducada', () => {
+  // «Vuelve a entrar» es un consejo inútil cuando el problema es que esta
+  // cuenta no puede guardar esto: taparía el único mensaje accionable.
+  const permiso: EstadoGuardado = { tipo: 'permiso', mensaje: 'sin permiso' };
+  const otros: EstadoGuardado[] = [
+    { tipo: 'limpio' }, { tipo: 'pendiente' }, { tipo: 'guardando' },
+    { tipo: 'guardado', en: Date.now() }, { tipo: 'error', intentos: 3 }, { tipo: 'sesion' },
+  ];
+  for (const otro of otros) {
+    assert.deepEqual(peorEstado(permiso, otro), permiso, `permiso debería ganar a ${otro.tipo}`);
+    assert.deepEqual(peorEstado(otro, permiso), permiso, `permiso debería ganar a ${otro.tipo} (orden inverso)`);
+  }
+});

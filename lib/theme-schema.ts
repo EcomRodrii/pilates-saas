@@ -12,7 +12,7 @@
 // la UI (requisito 3 del brief).
 
 import { z } from 'zod';
-import { NAV_SEG_IDS, NAV_ICONOS_DISPONIBLES, DEFAULT_NAV_CONFIG } from './portal-nav.ts';
+import { NAV_SEG_IDS, NAV_ICONOS_DISPONIBLES, DEFAULT_NAV_CONFIG, migrarNavConfigRaw } from './portal-nav.ts';
 import { VARIANTES_PORTAL, type EjeVariante } from './theme-variantes.ts';
 
 /** Hex de 3 o 6 dígitos. */
@@ -80,24 +80,6 @@ export const ESTILOS_TARJETA = [
 ] as const;
 
 export type CardStyleId = (typeof ESTILOS_TARJETA)[number]['id'];
-
-/**
- * Estilo de los accesos rápidos del Inicio — SOLO afecta a los 5 temas del
- * kit (`components/portal-tema/`, `HomeBlocks.tsx: vm.features.quick_links_
- * style`). El portal "de siempre" no tiene este concepto, así que un tema que
- * no sea del kit ignora este campo sin más — mismo criterio que
- * `barraFlotante`/`barraOscura`, que también son ejes solo del kit.
- *
- * `null` = hereda el valor que trae el tema elegido (Noir nace en `bare`, los
- * otros cuatro en `cards`) — no fuerza un valor único para los 5, que es
- * justo lo que perdería la identidad de Noir si el default fuera 'cards'.
- */
-export const ESTILOS_ACCESOS_RAPIDOS = [
-  { id: 'cards', label: 'Tarjeta con icono' },
-  { id: 'bare', label: 'Círculo sin tarjeta' },
-] as const;
-
-export type QuickLinksStyleId = (typeof ESTILOS_ACCESOS_RAPIDOS)[number]['id'];
 
 /**
  * Tipografía de TITULARES del portal cliente (`display()` en
@@ -184,27 +166,24 @@ const navConfigSchema = z
     ocultos: z.array(navSegIdSchema),
     etiquetas: z.object({
       home: z.string().optional(),
-      clases: z.string().optional(),
-      bonos: z.string().optional(),
-      videos: z.string().optional(),
+      buscar: z.string().optional(),
+      reservas: z.string().optional(),
       perfil: z.string().optional(),
     }),
     iconos: z.object({
       home: navIconoSchema.optional(),
-      clases: navIconoSchema.optional(),
-      bonos: navIconoSchema.optional(),
-      videos: navIconoSchema.optional(),
+      buscar: navIconoSchema.optional(),
+      reservas: navIconoSchema.optional(),
       perfil: navIconoSchema.optional(),
     }),
   })
   .default(DEFAULT_NAV_CONFIG);
 
 const fontIdSchema = z.enum(FUENTES.map((f) => f.id) as [FontId, ...FontId[]]);
-// Nullable = hereda: mismo criterio que quickLinksStyle. `null` es "ningún
-// preset elegido" — para un tema del kit, eso significa "conserva la
-// esquina propia del tema" en vez de pisarla con un valor fijo que ni
-// siquiera se pidió (era el bug real de C1: el default 'rounded' de antes
-// nunca podía significar "hereda", así que el control no tenía forma de no
+// Nullable = hereda. `null` es "ningún preset elegido" — conserva la esquina
+// de siempre en vez de pisarla con un valor fijo que ni siquiera se pidió
+// (era el bug real de C1: el default 'rounded' de antes nunca podía
+// significar "hereda", así que el control no tenía forma de no
 // pisar nada).
 const radiusSchema = z.enum(RADIOS.map((r) => r.id) as [RadiusId, ...RadiusId[]]).nullable();
 const faviconSchema = z.string().url().nullable();
@@ -309,9 +288,6 @@ const widgetColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[
 const widgetRadioSchema = z.number().int().min(0).max(32).nullable();
 const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleId, ...ButtonStyleId[]]);
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
-// Nullable, no `.default('cards')`: `null` = hereda del tema (Noir nace en
-// 'bare') — ver el comentario de ESTILOS_ACCESOS_RAPIDOS arriba.
-const quickLinksStyleSchema = z.enum(ESTILOS_ACCESOS_RAPIDOS.map((q) => q.id) as [QuickLinksStyleId, ...QuickLinksStyleId[]]).nullable();
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
 const tabBarStyleSchema = z.enum(ESTILOS_TAB_BAR.map((t) => t.id) as [TabBarStyleId, ...TabBarStyleId[]]);
 // Dónde se ancla la foto del estudio cuando se recorta para la portada.
@@ -430,7 +406,7 @@ export const themeConfigSchema = z
     primary: hexSchema,
     secondary: hexSchema,
     accent: hexSchema,
-    // Nullable = hereda, mismo criterio que `radius`/`quickLinksStyle`. `null`
+    // Nullable = hereda, mismo criterio que `radius`. `null`
     // es "no lo he tocado" — para el portal de siempre, hereda el fondo de
     // MODO_TOKENS.dia (lib/portal-paleta.ts); para el panel de gestión, ya NO
     // pisa nada (ver C2 de la auditoría de uso real: este campo pintaba el
@@ -481,10 +457,6 @@ export const themeConfigSchema = z
     // estos campos, y debe seguir viéndose exactamente igual (solid/flat).
     buttonStyle: buttonStyleSchema.default('solid'),
     cardStyle: cardStyleSchema.default('flat'),
-    // Solo aplica a temas del kit — ver ESTILOS_ACCESOS_RAPIDOS arriba.
-    // `null` (no un id) es el default: un tema guardado antes de esta fase
-    // sigue heredando el look de fábrica de su tema, sin forzar 'cards'.
-    quickLinksStyle: quickLinksStyleSchema.default(null),
     // Titular del portal cliente — ver ESTILOS_TITULAR_PORTAL arriba.
     portalHeadingFontId: portalHeadingFontSchema.default('instrumentSerif'),
     // Barra inferior del portal cliente — ver ESTILOS_TAB_BAR arriba.
@@ -581,7 +553,6 @@ export const DEFAULT_THEME: ThemeConfig = {
   widgetRelleno: null,
   buttonStyle: 'solid',
   cardStyle: 'flat',
-  quickLinksStyle: null,
   portalHeadingFontId: 'instrumentSerif',
   tabBarStyle: 'clasica',
   barraOscura: false,
@@ -686,7 +657,14 @@ export function instalarTema(
 export function resolveTheme(raw: unknown): ThemeConfig {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const pick = <K extends keyof ThemeConfig>(clave: K, esquema: z.ZodType): ThemeConfig[K] => {
-    const r = esquema.safeParse(obj[clave]);
+    // navPortal pasa primero por la migración de ids legacy (clases/bonos→
+    // reservas, videos→eliminado) — ver migrarNavConfigRaw en portal-nav.ts.
+    // Sin esto, un estudio con `ocultos: ['bonos']` guardado de antes de la
+    // reconstrucción invalidaría el objeto `ocultos` ENTERO contra el enum
+    // nuevo (un id desconocido tumba el array completo en Zod), perdiendo de
+    // golpe toda su personalización de navegación en vez de solo migrarla.
+    const valorCrudo = clave === 'navPortal' ? migrarNavConfigRaw(obj[clave]) : obj[clave];
+    const r = esquema.safeParse(valorCrudo);
     return (r.success ? r.data : DEFAULT_THEME[clave]) as ThemeConfig[K];
   };
   return {
@@ -728,7 +706,6 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     widgetRelleno: pick('widgetRelleno', widgetColorSchema),
     buttonStyle: pick('buttonStyle', buttonStyleSchema),
     cardStyle: pick('cardStyle', cardStyleSchema),
-    quickLinksStyle: pick('quickLinksStyle', quickLinksStyleSchema),
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
     tabBarStyle: pick('tabBarStyle', tabBarStyleSchema),
     barraOscura: pick('barraOscura', barraOscuraSchema),

@@ -84,6 +84,7 @@ import type {
   RowRetoParticipaciones,
   RowContenidoPortal,
   RowContenidoPortalBanners,
+  RowNovedadesEstudio,
   RowUsuarios,
   RowVentasPos,
   RowVideosOnDemand,
@@ -155,6 +156,7 @@ import type {
   RetoParticipacion,
   ContenidoPortal,
   BannerPortal,
+  NovedadEstudio,
   UbicacionBannerPortal,
   Usuario,
   VentaPOS,
@@ -208,9 +210,17 @@ export async function fetchAllRows<T>(
       // "0 filas" en vez de un error. Se reporta para que el fallo sea visible
       // a quien opera, aunque la UI (código existente) siga usando lo que ya
       // se había podido traer.
-      capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
-        tags: { area: 'supabase-data', tabla }, extra: { studioId, desde, error: error.message },
-      });
+      //
+      // Salvo un blip de red del propio cliente ("Failed to fetch" y
+      // compañía) — mismo filtro que ya usa reportDbError() más abajo. Sin
+      // él, este era el único punto de reporte de la tabla que NO lo tenía:
+      // JAVASCRIPT-NEXTJS-1G llevaba 9 apariciones en 8 días, todas con ese
+      // mismo mensaje, sin ningún fallo de app detrás.
+      if (!esErrorDeRedCliente(error)) {
+        capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
+          tags: { area: 'supabase-data', tabla }, extra: { studioId, desde, error: error.message },
+        });
+      }
       return { data: filas, error };
     }
     if (!data || data.length === 0) break;
@@ -411,7 +421,7 @@ export function mapUsuario(r: RowUsuarios): Usuario {
 // textoConsentimientoMarketing), idéntico para todas las socias del estudio,
 // y solo lo necesita el envío real (comparación exacta de vigencia) — no el
 // panel. El panel solo trae fecha+registradoPor (bool-ish, aproximado).
-export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto'>;
+export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'visible_en_clase'>;
 export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancelada_motivo'>;
 // El arranque del panel NO trae ni `proximo_reintento` ni el snapshot de la
 // entrega: son columnas que solo lee el dunning (servidor) y la card de
@@ -433,7 +443,11 @@ export type FilaReciboPanel = Omit<RowRecibos,
   | 'entrega_estado_antes' | 'importe_devuelto'
   // Solo la usa /api/stripe/checkout en servidor, para reutilizar la sesión ya
   // abierta de un recibo (20260817214500). El panel no la pinta ni la decide.
-  | 'checkout_session_id'>;
+  | 'checkout_session_id'
+  // F-12/F-13: metadata de conciliación, solo la escriben/leen el webhook, el
+  // conciliador y sus reintentos de facturación en servidor. El panel no la
+  // pinta ni la decide.
+  | 'conciliado_en' | 'conciliado_por' | 'factura_pendiente_sellar'>;
 
 export function mapSocio(r: FilaSocioPanel): Socio {
   // ⚠️ `versionTexto` llega VACÍO desde el arranque del panel, y es a propósito.
@@ -508,6 +522,12 @@ export function mapSocio(r: FilaSocioPanel): Socio {
     referidoPor: r.referido_por ?? null,
     origenLead: r.origen_lead ?? null,
     camposExtra: r.campos_extra ?? {},
+    usuario: r.usuario ?? null,
+    // I-13 (auditoría 29-ago): `FilaSocioPanel` la excluye a propósito (el
+    // panel de staff no la necesita, es un opt-in solo del portal) — de ahí
+    // el cast: en esa fila `undefined` cae a `false`, en la del portal
+    // (RowSocios completa) se lee el valor real.
+    visibleEnClase: (r as { visible_en_clase?: boolean | null }).visible_en_clase ?? false,
   } as Socio;
 }
 
@@ -878,6 +898,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
     especialidadNetwork: (r.especialidad_network as TipoClase['especialidadNetwork']) ?? null,
     esOnline: r.es_online ?? false,
+    aforoPorDefecto: r.aforo_por_defecto ?? null,
   } as TipoClase;
 }
 
@@ -925,6 +946,19 @@ export function mapBannerPortal(r: RowContenidoPortalBanners): BannerPortal {
   };
 }
 
+export function mapNovedadEstudio(r: RowNovedadesEstudio): NovedadEstudio {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    titulo: r.titulo,
+    texto: r.texto ?? null,
+    emoji: r.emoji ?? null,
+    activo: r.activo,
+    fechaInicio: r.fecha_inicio ?? null,
+    fechaFin: r.fecha_fin ?? null,
+  };
+}
+
 
 // zoom_join_url va aparte y OPCIONAL a propósito: es el único campo de
 // `sesiones` que no debe salir de un select genérico (portal de la socia) —
@@ -966,6 +1000,7 @@ export function mapReserva(r: RowReservas): Reserva {
     ofertaExpiraEn: r.oferta_expira_en ?? null,
     checkInEn: r.check_in_en ?? null,
     creadoEn: r.creado_en,
+    valoracionExperiencia: r.valoracion_experiencia ?? null,
   } as Reserva;
 }
 
@@ -1063,13 +1098,18 @@ export function mapVentaPOS(r: RowVentasPos): VentaPOS {
     metodoPago: r.metodo_pago,
     notas: r.notas ?? null,
     realizadaEn: r.realizada_en,
+    stripePaymentIntentId: r.stripe_payment_intent_id ?? null,
   } as VentaPOS;
 }
 
 // `Omit<..., 'config'>` a propósito: la consulta del panel ya no pide `config`,
 // y declararlo así hace que el compilador cace cualquier intento de volver a
 // leer las credenciales desde aquí.
-export function mapIntegracion(r: Omit<RowIntegraciones, 'config'>): Integracion {
+// `phone_number_id` (como `config`) se excluye a propósito: el arranque del
+// panel no selecciona esa columna (solo WhatsApp la usa, y solo el webhook y
+// el callback de Embedded Signup la leen, nunca el bootstrap del cliente) —
+// exigirla aquí rompería la query real, que sigue sin pedirla.
+export function mapIntegracion(r: Omit<RowIntegraciones, 'config' | 'phone_number_id'>): Integracion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -1251,10 +1291,16 @@ export function mapPostComunidad(r: RowPostsComunidad): PostComunidad {
     autorNombre: r.autor_nombre,
     autorInicial: r.autor_inicial,
     texto: r.texto,
+    audiencia: (r.audiencia as PostComunidad['audiencia'] | null) ?? 'TODAS',
+    imagenUrl: r.imagen_url ?? null,
     likes: r.likes,
     comentariosCount: r.comentarios_count,
     fijado: r.fijado,
     creadoEn: r.creado_en,
+    tipo: (r.tipo as PostComunidad['tipo'] | null) ?? 'TEXTO',
+    eventoFecha: r.evento_fecha ?? null,
+    eventoAforo: r.evento_aforo ?? null,
+    eventoLugar: r.evento_lugar ?? null,
   } as PostComunidad;
 }
 
@@ -1395,21 +1441,6 @@ function sesionToDb(ses: Sesion) {
   };
 }
 
-function reservaToDb(res: Reserva) {
-  return {
-    id: res.id,
-    studio_id: res.studioId ?? STUDIO_ID,
-    sesion_id: res.sesionId,
-    socio_id: res.socioId,
-    estado: res.estado,
-    spot_id: res.spotId ?? null,
-    posicion_espera: res.posicionEspera ?? null,
-    oferta_expira_en: res.ofertaExpiraEn ?? null,
-    check_in_en: res.checkInEn ?? null,
-    creado_en: res.creadoEn,
-  };
-}
-
 function reciboToDb(rec: Recibo) {
   return {
     id: rec.id,
@@ -1488,6 +1519,9 @@ function ventaPOSToDb(venta: VentaPOS) {
     metodo_pago: venta.metodoPago,
     notas: venta.notas ?? null,
     realizada_en: venta.realizadaEn,
+    // 19ª auditoría · F-3: sin esta línea la columna se quedaba a NULL siempre y
+    // `procesarReembolsoVentaPos` no encontraba nunca la venta que devolver.
+    stripe_payment_intent_id: venta.stripePaymentIntentId ?? null,
   };
 }
 
@@ -1651,21 +1685,6 @@ function videoOnDemandToDb(v: VideoOnDemand) {
   };
 }
 
-function postComunidadToDb(p: PostComunidad) {
-  return {
-    id: p.id,
-    studio_id: p.studioId ?? STUDIO_ID,
-    autor_id: p.autorId ?? null,
-    autor_nombre: p.autorNombre,
-    autor_inicial: p.autorInicial,
-    texto: p.texto,
-    likes: p.likes,
-    comentarios_count: p.comentariosCount,
-    fijado: p.fijado,
-    creado_en: p.creadoEn,
-  };
-}
-
 // ─── Write functions (fire-and-forget, errors logged to console) ──────────────
 
 export async function dbInsertSocio(socio: Socio): Promise<ResultadoEscritura> {
@@ -1705,6 +1724,7 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
   if ('fechaNacimiento' in changes) db.fecha_nacimiento = changes.fechaNacimiento;
   if ('direccion' in changes) db.direccion = changes.direccion;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  if ('usuario' in changes) db.usuario = changes.usuario;
   if ('referidoPor' in changes) db.referido_por = changes.referidoPor;
   if ('origenLead' in changes) db.origen_lead = changes.origenLead;
   if ('camposExtra' in changes) db.campos_extra = changes.camposExtra ?? {};
@@ -2475,11 +2495,6 @@ export async function dbDeleteSesion(id: string): Promise<ResultadoEscritura> {
   return error ? falloEscritura('[dbDeleteSesion]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertReserva(res: Reserva) {
-  const { error } = await supabase.from('reservas').insert(reservaToDb(res));
-  if (error) reportDbError('[dbInsertReserva]', error);
-}
-
 // Reserva ATÓMICA desde el panel (sesión autenticada de staff): la RPC decide
 // aforo/lista de espera con bloqueo de fila y aísla por estudio. Sustituye al
 // insert directo (read-decide-insert no atómico → sobreventa).
@@ -2496,43 +2511,6 @@ export async function dbReservarPlaza(
   }
   const row = Array.isArray(data) ? data[0] : data;
   return { estado: row?.estado ?? 'CONFIRMADA', posicionEspera: row?.posicion_espera ?? null };
-}
-
-// Cancelación + promoción de lista de espera ATÓMICAS desde el panel.
-export async function dbCancelarReservaPlaza(
-  studioId: string, reservaId: string,
-): Promise<{
-  eraConfirmada: boolean; promovidaSocioId: string | null; devolverBono: boolean;
-  // Fase 2b (migr 20260731130500): mutuamente excluyente con promovidaSocioId
-  // — solo relleno si el estudio/tipo de clase exige plazo de aceptación
-  // (lista_espera_plazo_aceptacion_minutos > 0), en cuyo caso NO se confirmó
-  // sola, se le abrió una oferta con ese plazo.
-  ofertaSocioId: string | null; ofertaExpiraEn: string | null;
-  // Fase 3 (migr 20260730225253): id de la fila en `penalizaciones` si la
-  // cancelación fue tardía y el estudio/tipo de clase exige penalización —
-  // null si no aplica. El cobro real lo recoge lib/inngest/penalizaciones.ts,
-  // no este caller (aquí solo se traza).
-  penalizacionId: string | null;
-} | { error: string }> {
-  const { data, error } = await supabase.rpc('cancelar_reserva_plaza', {
-    p_studio_id: studioId, p_reserva_id: reservaId, p_socio_id: null,
-  });
-  if (error) { reportDbError('[dbCancelarReservaPlaza]', error); return { error: error.message }; }
-  const row = Array.isArray(data) ? data[0] : data;
-  return {
-    eraConfirmada: !!row?.era_confirmada,
-    promovidaSocioId: row?.promovida_socio_id ?? null,
-    // Quién decide si se devuelve la sesión del bono: la BD (migr 0129), que
-    // resuelve la ventana de cancelación del TIPO de clase y cae a la del
-    // estudio si no la tiene. El cliente lo recalculaba, y el panel usaba
-    // siempre la global: la misma cancelación salía tardía por el portal y a
-    // tiempo por recepción. `?? true` conserva el comportamiento de siempre
-    // (devolver) si la RPC aún no trae la columna a medio despliegue.
-    devolverBono: row?.devolver_bono ?? true,
-    ofertaSocioId: row?.oferta_socio_id ?? null,
-    ofertaExpiraEn: row?.oferta_expira_en ?? null,
-    penalizacionId: row?.penalizacion_id ?? null,
-  };
 }
 
 // Cancela (marca CANCELADA) todas las reservas activas de un lote de sesiones.
@@ -2567,8 +2545,23 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>): Pr
   if ('spotId' in changes) db.spot_id = changes.spotId;
   if ('posicionEspera' in changes) db.posicion_espera = changes.posicionEspera;
   if ('checkInEn' in changes) db.check_in_en = changes.checkInEn;
-  const { error } = await supabase.from('reservas').update(db).eq('id', id);
-  return error ? falloEscritura('[dbUpdateReserva]', error) : ESCRITURA_OK;
+  // ⚠️ `.select('id')`: un UPDATE que no casa ninguna fila —porque la RLS lo
+  // filtró, o porque la reserva ya no existe— NO devuelve error en Supabase
+  // (auditoría 22ª pasada, F-5). Este es el único escritor de SEIS acciones del
+  // panel (check-in, no-show y sus dos deshacer, asignar y liberar sitio), y en
+  // el check-in el éxito falso es caro: se pinta ASISTIDA, se abre la puerta y
+  // se disparan créditos, logros y racha sobre una asistencia que la base de
+  // datos nunca registró — `otorgar_credito_disparador` exige la fila ya en
+  // ASISTIDA, así que el crédito se pierde en silencio.
+  const { data, error } = await supabase.from('reservas').update(db).eq('id', id).select('id');
+  if (error) return falloEscritura('[dbUpdateReserva]', error);
+  if (!data?.length) {
+    // `code: '42501'` para que `mensajeDeFalloAlGuardar` diga "no tienes
+    // permiso" en vez de un genérico: la causa abrumadoramente más probable de
+    // 0 filas aquí es la RLS (una instructora sobre una clase que no es suya).
+    return falloEscritura('[dbUpdateReserva]', { code: '42501', message: `la reserva ${id} no se ha podido actualizar (0 filas)` });
+  }
+  return ESCRITURA_OK;
 }
 
 export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
@@ -3486,17 +3479,61 @@ export async function dbDeleteVideoOnDemand(id: string) {
   if (error) reportDbError('[dbDeleteVideoOnDemand]', error);
 }
 
-export async function dbInsertPostComunidad(p: PostComunidad) {
-  const { error } = await supabase.from('posts_comunidad').insert(postComunidadToDb(p));
-  if (error) reportDbError('[dbInsertPostComunidad]', error);
+// P1 Community & Messaging OS: crea el post vía /api/comunidad/posts
+// (server-authoritative) en vez del insert directo de arriba — es la única
+// vía que dispara el fan-out de notificación a la audiencia del post
+// (after() dentro de esa route, ver app/api/comunidad/posts/route.ts —
+// ya no Inngest).
+//
+// F-19 (auditoría 20ª pasada): el `id` YA NO lo decide el cliente — el
+// servidor lo genera siempre (ver la route: `posts_comunidad.id` es PRIMARY
+// KEY global, y aceptar el id del cliente convertía un 23505 en un oráculo de
+// existencia cross-tenant). Se sigue mandando `p.id` en el body por
+// compatibilidad silenciosa (la route ya no lo lee), y se devuelve el post
+// REAL para que la store reconcilie el id optimista con el que quedó
+// guardado — si no, un like/editar/borrar sobre ese post antes de refrescar
+// apuntaría a un id que nunca existió en la BD.
+//
+// 19ª auditoría · F-2: ya no es best-effort mudo. Devuelve `null` si el post
+// NO llegó a la BD para que la store pueda retirar el optimista — un aviso
+// que la propietaria ve "publicado" en el panel y que no existe (ni se ha
+// notificado a nadie) es peor que un error visible.
+export async function dbCrearPostComunidad(p: PostComunidad): Promise<PostComunidad | null> {
+  try {
+    const res = await fetch('/api/comunidad/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({
+        id: p.id, texto: p.texto, audiencia: p.audiencia, imagenUrl: p.imagenUrl ?? null,
+        tipo: p.tipo, eventoFecha: p.eventoFecha ?? null, eventoAforo: p.eventoAforo ?? null, eventoLugar: p.eventoLugar ?? null,
+      }),
+    });
+    if (!res.ok) {
+      reportDbError('[dbCrearPostComunidad]', await res.json().catch(() => ({ status: res.status })));
+      return null;
+    }
+    const data = (await res.json()) as { post?: PostComunidad };
+    return data.post ?? null;
+  } catch (e) {
+    reportDbError('[dbCrearPostComunidad]', e);
+    return null;
+  }
 }
 
+// F-26 (auditoría 20ª pasada): solo mapeaba texto/likes/comentariosCount/
+// fijado — audiencia/tipo/evento_* mal puestos no se podían corregir aquí,
+// obligando a borrar y republicar el post entero (con el fan-out otra vez).
 export async function dbUpdatePostComunidad(id: string, changes: Partial<PostComunidad>) {
   const db: Record<string, unknown> = {};
   if ('texto' in changes) db.texto = changes.texto;
   if ('likes' in changes) db.likes = changes.likes;
   if ('comentariosCount' in changes) db.comentarios_count = changes.comentariosCount;
   if ('fijado' in changes) db.fijado = changes.fijado;
+  if ('audiencia' in changes) db.audiencia = changes.audiencia;
+  if ('tipo' in changes) db.tipo = changes.tipo;
+  if ('eventoFecha' in changes) db.evento_fecha = changes.eventoFecha;
+  if ('eventoAforo' in changes) db.evento_aforo = changes.eventoAforo;
+  if ('eventoLugar' in changes) db.evento_lugar = changes.eventoLugar;
   const { error } = await supabase.from('posts_comunidad').update(db).eq('id', id);
   if (error) reportDbError('[dbUpdatePostComunidad]', error);
 }
@@ -3528,9 +3565,18 @@ export async function dbMisLikesComunidad(): Promise<string[]> {
   return (data as string[] | null) ?? [];
 }
 
-export async function dbDeletePostComunidad(id: string) {
+// 19ª auditoría · F-2: devuelve si el borrado ocurrió de verdad. Antes no
+// devolvía nada y el llamante lo quitaba de la lista pase lo que pase: la
+// propietaria borraba un aviso del tablón, desaparecía de su pantalla y, si el
+// DELETE había fallado, el post SEGUÍA sirviéndose a todas las socias (el feed
+// público lee la tabla con service-role, no el estado local del panel).
+export async function dbDeletePostComunidad(id: string): Promise<boolean> {
   const { error } = await supabase.from('posts_comunidad').delete().eq('id', id);
-  if (error) reportDbError('[dbDeletePostComunidad]', error);
+  if (error) {
+    reportDbError('[dbDeletePostComunidad]', error);
+    return false;
+  }
+  return true;
 }
 
 export async function dbUpsertIntegracion(
@@ -3547,6 +3593,14 @@ export async function dbUpsertIntegracion(
     activo: intg.activo,
     config: config ?? {},
     actualizado_en: intg.actualizadoEn,
+    // Solo WhatsApp tiene esta columna (Fase D, ver WHATSAPP_AUDIT.md): se
+    // mantiene en sync con `config.phoneId` en CUALQUIER escritura de este
+    // camino (manual o "Desconectar", que llama aquí con `config: {}`) — sin
+    // esto, "Desconectar" apagaba `activo` pero dejaba el `phone_number_id`
+    // de una conexión de Embedded Signup huérfano: el webhook seguía
+    // resolviendo eventos a un estudio "desconectado", y el índice único
+    // parcial de esa columna bloqueaba reconectar el mismo número después.
+    ...(intg.tipo === 'WHATSAPP' ? { phone_number_id: config?.phoneId || null } : {}),
     // Las columnas de salud NO se listan salvo que haya que reiniciarlas: en un
     // upsert, lo que no se nombra no se toca, y así una tanda del cron que haya
     // escrito la salud entre que se cargó la pantalla y se pulsó Guardar no se
@@ -3627,6 +3681,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     penalizacion_importe_eur: t.penalizacionImporteEur ?? null,
     especialidad_network: t.especialidadNetwork ?? null,
     es_online: t.esOnline ?? false,
+    aforo_por_defecto: t.aforoPorDefecto ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -3652,6 +3707,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('penalizacionImporteEur' in changes) db.penalizacion_importe_eur = changes.penalizacionImporteEur;
   if ('especialidadNetwork' in changes) db.especialidad_network = changes.especialidadNetwork;
   if ('esOnline' in changes) db.es_online = changes.esOnline;
+  if ('aforoPorDefecto' in changes) db.aforo_por_defecto = changes.aforoPorDefecto;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateTipoClase]', error) : ESCRITURA_OK;
 }
@@ -3721,6 +3777,41 @@ export async function dbUpdateBannerPortal(id: string, changes: Partial<BannerPo
 export async function dbDeleteBannerPortal(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('contenido_portal_banners').delete().eq('id', id);
   return error ? falloEscritura('[dbDeleteBannerPortal]', error) : ESCRITURA_OK;
+}
+
+// ─── Tablón (novedades_estudio) ─────────────────────────────────────────────
+// Avisos de texto libre del portal — mismo patrón CRUD que los banners de
+// arriba, pero sin imagen/enlace obligatorios (supabase/migrations/*_novedades_estudio.sql).
+// Solo PROPIETARIO/MANAGER escriben (RLS `admin_novedades_estudio`).
+
+function novedadEstudioToDb(n: Omit<NovedadEstudio, 'id'> & { id?: string }) {
+  return {
+    ...(n.id ? { id: n.id } : {}),
+    studio_id: n.studioId, titulo: n.titulo, texto: n.texto, emoji: n.emoji,
+    activo: n.activo, fecha_inicio: n.fechaInicio, fecha_fin: n.fechaFin,
+  };
+}
+
+export async function dbInsertNovedadEstudio(n: NovedadEstudio): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('novedades_estudio').insert(novedadEstudioToDb(n));
+  return error ? falloEscritura('[dbInsertNovedadEstudio]', error) : ESCRITURA_OK;
+}
+
+export async function dbUpdateNovedadEstudio(id: string, changes: Partial<NovedadEstudio>): Promise<ResultadoEscritura> {
+  const db: Record<string, unknown> = {};
+  if ('titulo' in changes) db.titulo = changes.titulo;
+  if ('texto' in changes) db.texto = changes.texto;
+  if ('emoji' in changes) db.emoji = changes.emoji;
+  if ('activo' in changes) db.activo = changes.activo;
+  if ('fechaInicio' in changes) db.fecha_inicio = changes.fechaInicio;
+  if ('fechaFin' in changes) db.fecha_fin = changes.fechaFin;
+  const { error } = await supabase.from('novedades_estudio').update(db).eq('id', id);
+  return error ? falloEscritura('[dbUpdateNovedadEstudio]', error) : ESCRITURA_OK;
+}
+
+export async function dbDeleteNovedadEstudio(id: string): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('novedades_estudio').delete().eq('id', id);
+  return error ? falloEscritura('[dbDeleteNovedadEstudio]', error) : ESCRITURA_OK;
 }
 
 // ─── Salas ───────────────────────────────────────────────────────────────────
@@ -4247,7 +4338,6 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     telefono: r.telefono,
     colorPrimario: r.color_primario,
     temaPortal: r.tema_portal ?? 'original',
-    portalReact: r.portal_react ?? false,
     widgetDominiosAutorizados: r.widget_dominios_autorizados ?? [],
     widgetBuilder: r.widget_builder ?? {},
     logoUrl: r.logo_url ?? null,
@@ -4474,6 +4564,9 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // necesita `sid` — lo que necesita los planes ya cargados es el cruce en
     // memoria, no la consulta.
     planTiposClaseRes,
+    // Añadido AL FINAL del mismo modo que bannersPortalRes de arriba —
+    // desestructurado posicional, así que va después de todo lo existente.
+    novedadesEstudioRes,
   ] = await enTandas([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
@@ -4484,7 +4577,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // 1000 filas — un estudio/cadena grande vería la retención y el ranking de
     // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
-    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),
@@ -4492,9 +4585,9 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('tipos_clase').select('*').eq('studio_id', sid),
     db.from('instructores').select('*').eq('studio_id', sid),
     fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion').eq('studio_id', sid).range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus
     // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a
     // 1000 filas para un estudio con muchas citas 1:1 (auditoría 2026-07-29 §2.3).
@@ -4557,6 +4650,9 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // fetchPublicStudioData.
     db.from('contenido_portal_banners').select('*').eq('studio_id', sid).order('orden', { ascending: true }),
     db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', sid),
+    // Sin filtrar por activo: mismo criterio que contenido_portal_banners —
+    // el editor necesita ver también los inactivos/caducados para gestionarlos.
+    db.from('novedades_estudio').select('*').eq('studio_id', sid).order('created_at', { ascending: false }),
   ]);
 
   // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que
@@ -4583,6 +4679,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
     contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
     bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
+    novedadesEstudio: (novedadesEstudioRes.data ?? []).map((r) => mapNovedadEstudio(r as RowNovedadesEstudio)),
     instructores: (instructoresRes.data ?? []).map(mapInstructor),
     sesiones: (sesionesRes.data ?? []).map(mapSesion),
     reservas: (reservasRes.data ?? []).map(mapReserva),
@@ -4640,6 +4737,7 @@ export async function fetchDeferredStudioData(studioId?: string) {
     notasProgresoRes,
     backupsRes,
     condicionesSaludRes,
+    postsComunidadRes,
   ] = await enTandas([
     // I5: estos tres historiales son append-only y crecen sin fin, pero ninguna
     // vista de STAFF los consume (el portal usa la versión member-scoped de otro
@@ -4662,6 +4760,17 @@ export async function fetchDeferredStudioData(studioId?: string) {
     // silencio (ver e2e/preparar-clase-ia.spec.ts). De vuelta aquí, en la 2ª
     // ola — sigue sin bloquear el primer pintado, que era el objetivo real.
     db.from('condiciones_salud').select('*').eq('studio_id', sid),
+    // Mismo bug que `condicionesSalud` de arriba, encontrado al verificar el
+    // rediseño visual de Comunidad antes de abrir Tentare a 20 estudios
+    // nuevos: `postsComunidad` quedaba `[]` en cada sesión nueva (staff), así
+    // que ni /comunidad ni la pestaña "Comunidad" de /mensajeria mostraban
+    // NUNCA el historial de posts — solo lo publicado en la propia pestaña
+    // del navegador, o lo que llegara después por Realtime. El fan-out de
+    // notificación y `addPost` (alta) seguían funcionando; solo faltaba la
+    // lectura de vuelta. Recientes primero — mismo límite que el resto de
+    // feeds de esta función, un estudio activo no necesita años de historial
+    // en memoria para pintar el tablón.
+    db.from('posts_comunidad').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
   ]);
 
   return {
@@ -4674,6 +4783,7 @@ export async function fetchDeferredStudioData(studioId?: string) {
     // pesada); afirmamos la fila para el mapper.
     backups: (backupsRes.data ?? []).map(r => mapBackupMeta(r as RowBackups)),
     condicionesSalud: (condicionesSaludRes.data ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud)),
+    postsComunidad: (postsComunidadRes.data ?? []).map(r => mapPostComunidad(r as RowPostsComunidad)),
   };
 }
 

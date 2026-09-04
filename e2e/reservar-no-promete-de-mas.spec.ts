@@ -50,7 +50,10 @@ async function montar(page: Page, extra: Record<string, unknown> = {}) {
   await page.route('**/api/public/studio-data', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture(extra)) }));
   await page.route('**/api/public/session', r => r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'no' }) }));
   await page.goto(`/reservar/${SLUG}`);
-  await page.getByRole('button', { name: 'El estudio', exact: true }).click();
+  // Diseño "Tentare Portal Reservas": sin barra de pestañas en Clases —
+  // "El estudio" vive detrás del menú de la cabecera.
+  await page.getByRole('button', { name: 'Más secciones' }).click();
+  await page.getByRole('menuitem', { name: 'El estudio', exact: true }).click();
 }
 
 test('el horario no anuncia días que ya no se dan', async ({ page }) => {

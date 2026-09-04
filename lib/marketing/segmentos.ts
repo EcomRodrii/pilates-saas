@@ -11,6 +11,36 @@ const MS_DIA = 86400000;
 // docs/marketing-integrations-arquitectura.md §4/§6.
 const DIAS_BONO_CADUCA_PRONTO = 14;
 
+// ─── Cómo se LLAMAN estos segmentos en pantalla ─────────────────────────────
+//
+// Vive aquí, junto a la función que los resuelve, y no suelto en el JSX de cada
+// pantalla: el selector de audiencia del Feed de Comunidad enseñaba
+// `BONO_CADUCA_PRONTO` tal cual —el nombre del enum— a la propietaria, y
+// /marketing tenía su propia lista de <option> escrita a mano que ya podía
+// divergir de esta.
+//
+// `descripcion` no es decoración: "Con bono" no dice a quién le llega el post y
+// "Quien tiene un plan o bono activo ahora mismo" sí. Es la diferencia entre
+// elegir a ciegas y elegir.
+export const SEGMENTOS_AUDIENCIA: {
+  id: DestinatariosCampana; etiqueta: string; descripcion: string;
+}[] = [
+  { id: 'TODAS', etiqueta: 'Todas', descripcion: 'Cualquier clienta de tu ficha, esté activa o no' },
+  { id: 'ACTIVAS', etiqueta: 'Solo socias activas', descripcion: 'Las que siguen viniendo al estudio' },
+  { id: 'INACTIVAS', etiqueta: 'Las que se enfriaron', descripcion: 'Dadas de baja o sin actividad' },
+  { id: 'SIN_PLAN', etiqueta: 'Sin plan ni bono', descripcion: 'No tienen nada activo ahora mismo' },
+  { id: 'BONO', etiqueta: 'Con plan o bono', descripcion: 'Tienen una suscripción activa' },
+  { id: 'VIP', etiqueta: 'VIP', descripcion: 'Las que has marcado con la etiqueta VIP' },
+  { id: 'BONO_CADUCA_PRONTO', etiqueta: 'Se les caduca el bono', descripcion: 'Les quedan sesiones y menos de 14 días' },
+  { id: 'PAGO_FALLIDO', etiqueta: 'Con un pago fallido', descripcion: 'Tienen algún recibo sin cobrar' },
+  { id: 'CUMPLE_ESTE_MES', etiqueta: 'Cumpleañeras del mes', descripcion: 'Cumplen años este mes' },
+];
+
+/** La etiqueta humana de un segmento; el propio código si alguna vez no está. */
+export function etiquetaSegmento(id: DestinatariosCampana): string {
+  return SEGMENTOS_AUDIENCIA.find(s => s.id === id)?.etiqueta ?? id;
+}
+
 // Resuelve las destinatarias de una campaña a partir de su segmento. Pura y
 // compartida entre cliente (lib/studio-context.tsx, para el recuento
 // inmediato) y servidor (lib/inngest/campanas.ts, para el envío real) — antes

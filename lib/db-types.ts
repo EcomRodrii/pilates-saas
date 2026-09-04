@@ -21,6 +21,8 @@ export interface RowReservas {
   recordatorio_confirmacion_en: string | null;
   // migr 20260730204404.
   oferta_expira_en: string | null;
+  // migr 20260828010312.
+  valoracion_experiencia: number | null;
 }
 
 export interface RowAchievementDefinitions {
@@ -280,6 +282,8 @@ export interface RowFacturas {
   tipo_rectificativa: string | null;
   // migr 20260812121955.
   importe_rectificacion: number | null;
+  // migr 20260902001721.
+  venta_pos_id: string | null;
 }
 
 export interface RowInstructores {
@@ -326,6 +330,8 @@ export interface RowIntegraciones {
   ultimo_error: string | null;
   // migr 20260818142206.
   ultimo_error_en: string | null;
+  // migr 20260827150000.
+  phone_number_id: string | null;
 }
 
 export interface RowLevelDefinitions {
@@ -423,6 +429,18 @@ export interface RowPostsComunidad {
   comentarios_count: number | null;
   fijado: boolean | null;
   creado_en: string | null;
+  // migr 20260826015923.
+  audiencia: string | null;
+  // migr 20260826015923.
+  imagen_url: string | null;
+  // migr 20260826095321.
+  tipo: string | null;
+  // migr 20260826095321.
+  evento_fecha: string | null;
+  // migr 20260826095321.
+  evento_aforo: number | null;
+  // migr 20260826095321.
+  evento_lugar: string | null;
 }
 
 export interface RowPreferenciasSocio {
@@ -499,6 +517,12 @@ export interface RowRecibos {
   reembolso_fallido_en: string | null;
   // migr 20260820182934.
   reembolso_fallo_motivo: string | null;
+  // migr 20260902001650.
+  conciliado_en: string | null;
+  // migr 20260902001650.
+  conciliado_por: string | null;
+  // migr 20260902001650.
+  factura_pendiente_sellar: boolean | null;
 }
 
 export interface RowRewardActions {
@@ -648,6 +672,10 @@ export interface RowSocios {
   consentimiento_marketing_texto: string | null;
   // migr 20260813122718.
   consentimiento_marketing_por: string | null;
+  // migr 20260826202949.
+  visible_en_clase: boolean | null;
+  // migr 20260828005124.
+  usuario: string | null;
 }
 
 export interface RowSoporteSolicitudes {
@@ -810,8 +838,6 @@ export interface RowStudios {
   instructor_reparto_penalizacion_pct: number | null;
   // migr 20260805120000.
   tour_visto_en: string | null;
-  // migr 20260807120000.
-  portal_react: boolean | null;
   // migr 20260807134223.
   gestoria_envio_automatico: string | null;
   // migr 20260807134223.
@@ -866,6 +892,10 @@ export interface RowStudios {
   lng: number | null;
   // migr 20260824230506.
   visible_en_network: boolean | null;
+  // migr 20260904015605.
+  stripe_account_id_anterior: string | null;
+  // migr 20260904015605.
+  stripe_account_desconectado_en: string | null;
 }
 
 export interface RowSuscripciones {
@@ -915,6 +945,10 @@ export interface RowTiposClase {
   especialidad_network: string | null;
   // migr 20260820193428.
   es_online: boolean | null;
+  // migr 20260903233651. NULL = usa la capacidad de la SALA donde se
+  // programe la sesión, que es de donde salía el aforo antes de existir
+  // esta columna — ver `aforoPorDefectoDeSesion()` en lib/aforo-logic.ts.
+  aforo_por_defecto: number | null;
 }
 
 export interface RowUsuarios {
@@ -940,6 +974,14 @@ export interface RowVentasPos {
   realizada_en: string | null;
   // migr 0036.
   stripe_payment_intent_id: string | null;
+  // migr 20260827093640.
+  devuelta_en: string | null;
+  // migr 20260827093640.
+  importe_devuelto: number | null;
+  // migr 20260902001659.
+  conciliado_en: string | null;
+  // migr 20260902001659.
+  conciliado_por: string | null;
 }
 
 export interface RowVideosOnDemand {
@@ -1557,6 +1599,10 @@ export interface RowPlataformaLead {
   responsable: string | null;
   creado_en: string;
   actualizado_en: string;
+  // migr 20260902162926.
+  web: string | null;
+  // migr 20260902162926.
+  instagram: string | null;
 }
 
 export interface RowLecturasFichaSalud {
@@ -1790,6 +1836,8 @@ export interface RowDevoluciones {
   fallo_en: string | null;
   // migr 20260820182934.
   fallo_motivo: string | null;
+  // migr 20260902001713.
+  venta_pos_id: string | null;
 }
 
 export interface RowCadenaTiposClase {
@@ -2280,6 +2328,81 @@ export interface RowRedFavoritosAlumna {
   creado_en: string;
 }
 
+export interface RowConversaciones {
+  id: string;
+  studio_id: string;
+  tipo: string;
+  titulo: string | null;
+  ancla_sesion_id: string | null;
+  ancla_reserva_id: string | null;
+  creado_en: string;
+  ultimo_mensaje_en: string;
+  // migr 20260901232656.
+  mostrador_leido_hasta: string | null;
+}
+
+export interface RowConversacionParticipantes {
+  conversacion_id: string;
+  auth_user_id: string;
+  rol_en_conversacion: string;
+  socio_id: string | null;
+  leido_hasta: string;
+  unido_en: string;
+}
+
+export interface RowMensajes {
+  id: string;
+  conversacion_id: string;
+  studio_id: string;
+  remitente_auth_user_id: string;
+  cuerpo: string;
+  creado_en: string;
+}
+
+export interface RowDocumentosSocio {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  categoria: string;
+  titulo: string;
+  storage_path: string;
+  subido_por: string;
+  caduca_en: string | null;
+  creado_en: string;
+  borrado_en: string | null;
+}
+
+export interface RowPostEventoAsistentes {
+  post_id: string;
+  socio_id: string;
+  creado_en: string;
+}
+
+export interface RowSocioCompaneras {
+  id: string;
+  studio_id: string;
+  solicitante_id: string;
+  destinataria_id: string;
+  estado: string;
+  bloqueada_por: string | null;
+  creado_en: string;
+  resuelto_en: string | null;
+}
+
+export interface RowNovedadesEstudio {
+  id: string;
+  studio_id: string;
+  titulo: string;
+  texto: string | null;
+  emoji: string | null;
+  activo: boolean;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RowWebhookReembolsos {
   id: string;
   pi_stripe_id: string;
@@ -2298,4 +2421,27 @@ export interface RowWebhookDisputas {
   recibo_id: string | null;
   dispute_status: string;
   procesado_en: string;
+}
+
+export interface RowAyudaFeedback {
+  id: string;
+  articulo_slug: string;
+  categoria_slug: string;
+  valoracion: string;
+  url: string;
+  creado_en: string;
+}
+
+export interface RowPlataformaProspeccionEmail {
+  id: string;
+  lead_id: string;
+  asunto: string;
+  cuerpo: string;
+  estado: string;
+  aprobado_por: string | null;
+  aprobado_en: string | null;
+  enviado_en: string | null;
+  error: string | null;
+  generado_en: string;
+  creado_en: string;
 }

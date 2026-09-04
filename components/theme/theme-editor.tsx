@@ -24,7 +24,7 @@ import {
   type RedSocialId,
 } from '@/lib/canales-estudio';
 import {
-  DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, ESTILOS_ACCESOS_RAPIDOS,
+  DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA,
   type ThemeConfig, POSICION_FOTO,
   SEO_TITULO_MAX, SEO_DESCRIPCION_MAX,
   RESERVAR_TITULAR_MAX, RESERVAR_SUBTITULO_MAX, RESERVAR_CTA_MAX,
@@ -35,9 +35,7 @@ import {
 } from '@/lib/theme-schema';
 import { metadatosPublicos, tituloAutomatico, descripcionAutomatica, IMAGEN_COMPARTIR_POR_DEFECTO } from '@/lib/theme/seo-publico';
 import { PanelVisibilidad } from './panel-visibilidad';
-import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
-import { resolveVariantes } from '@/lib/theme-variantes';
-import { esTemaPortal } from '@/themes/registro';
+import { validarContrasteTheme } from '@/lib/theme-runtime';
 import { crearHistorial, registrar, deshacer as deshacerHist, rehacer as rehacerHist } from '@/lib/theme/editor-historial';
 import { CamposForm, FilaOpciones } from './inspector/campos-form';
 import type { CampoSchema } from '@/lib/theme/campos';
@@ -47,9 +45,7 @@ import {
 } from '@/lib/theme/campos-forma';
 import { type ThemeDefinition } from '@/lib/theme-definitions';
 import { derivarPaleta } from '@/lib/color-utils';
-import { NAV_DISPONIBLES, NAV_ICONOS_DISPONIBLES, navItemsVisibles, resolveNavConfig, type NavSegId, type NavIconoId } from '@/lib/portal-nav';
-import { PortalNav } from '@/components/portal/portal-nav';
-import { altura } from '@/lib/portal-design';
+import { NAV_DISPONIBLES, NAV_ICONOS_DISPONIBLES, resolveNavConfig, type NavSegId, type NavIconoId } from '@/lib/portal-nav';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import { IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { CampoImagen } from '@/components/ui/campo-imagen';
@@ -255,9 +251,12 @@ export function useThemeEditor() {
   // Navegación del portal (Fase 2 del Theme Builder): ocultar/renombrar/
   // cambiar icono de una pestaña. `home` nunca se puede ocultar — es el
   // destino de login del portal (ver resolveNavConfig en lib/portal-nav.ts,
-  // que también lo protege server-side si algo se cuela por aquí).
+  // que también lo protege server-side si algo se cuela por aquí). `buscar`
+  // tampoco: en la reconstrucción "Tentare Studio App" es función core de la
+  // barra (búsqueda global de clases/instructoras), no una sección de
+  // contenido de negocio como Reservas/Perfil.
   function toggleNavOculto(seg: NavSegId) {
-    if (seg === 'home') return;
+    if (seg === 'home' || seg === 'buscar') return;
     setDraft((d) => {
       const actual = resolveNavConfig(d.navPortal);
       const ocultos = actual.ocultos.includes(seg)
@@ -1037,46 +1036,18 @@ export function AjustesCategoriaPanel({
 
   if (categoriaId === 'tarjetas') {
     return (
-      <div className="space-y-5">
-        <div className="flex gap-2">
-          {ESTILOS_TARJETA.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setCampo('cardStyle', c.id)}
-              className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
-                draft.cardStyle === c.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-        {/* Solo tiene efecto en un tema del kit — el portal "de siempre" no
-            usa este eje. Explicado, no ocultado sin más: un control que no
-            hace nada y desaparece sin decir por qué es peor que uno inerte
-            con la razón puesta al lado. */}
-        {esTemaPortal(draft.themeId) ? (
-          <div>
-            <p className="text-[13px] font-semibold text-foreground mb-2">Accesos rápidos del Inicio</p>
-            <div className="flex gap-2">
-              {ESTILOS_ACCESOS_RAPIDOS.map((q) => (
-                <button
-                  key={q.id}
-                  onClick={() => setCampo('quickLinksStyle', q.id)}
-                  className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
-                    draft.quickLinksStyle === q.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
-                  }`}
-                >
-                  {q.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <p className="text-[11.5px] text-muted-foreground">
-            Los accesos rápidos del Inicio solo se pueden personalizar en un tema de la biblioteca — el que tienes instalado no los usa.
-          </p>
-        )}
+      <div className="flex gap-2">
+        {ESTILOS_TARJETA.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setCampo('cardStyle', c.id)}
+            className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
+              draft.cardStyle === c.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
       </div>
     );
   }
@@ -1107,9 +1078,9 @@ export function AjustesCategoriaPanel({
                 <button
                   type="button"
                   onClick={() => hook.toggleNavOculto(item.seg)}
-                  disabled={item.seg === 'home'}
-                  title={item.seg === 'home' ? 'Inicio no se puede ocultar' : oculta ? 'Mostrar' : 'Ocultar'}
-                  aria-label={item.seg === 'home' ? 'Inicio no se puede ocultar' : oculta ? `Mostrar ${item.label}` : `Ocultar ${item.label}`}
+                  disabled={item.seg === 'home' || item.seg === 'buscar'}
+                  title={item.seg === 'home' ? 'Inicio no se puede ocultar' : item.seg === 'buscar' ? 'Buscar no se puede ocultar' : oculta ? 'Mostrar' : 'Ocultar'}
+                  aria-label={item.seg === 'home' ? 'Inicio no se puede ocultar' : item.seg === 'buscar' ? 'Buscar no se puede ocultar' : oculta ? `Mostrar ${item.label}` : `Ocultar ${item.label}`}
                   className="shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-25 disabled:hover:text-muted-foreground"
                 >
                   {oculta ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -1144,26 +1115,10 @@ export function AjustesCategoriaPanel({
           <CamposDelTema campos={CAMPOS_BARRA_PORTAL} hook={hook} />
         </div>
 
-        {/* Preview en vivo (sin iframe: el widget de verdad, con las CSS
-            vars del borrador aplicadas directamente — mismo componente que
-            usa portal-shell.tsx, así que lo que se ve aquí es exacto). */}
-        <div style={themeToCssVars(draft)} className="rounded-2xl border border-border bg-muted/40 p-4">
-          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Así se ve</p>
-          {/* Alto de la MISMA variable que la barra: con la altura fija de
-              antes, un tema que la sube (Bloom, 66px) se salía de su caja en
-              esta previsualización — y esta caja es justo donde la propietaria
-              comprueba cómo queda. */}
-          <div style={{ position: 'relative', height: `var(--portal-tabbar-height, ${altura.tabbar}px)` }}>
-            <PortalNav
-              items={navItemsVisibles(navPortalResuelto, NAV_DISPONIBLES)}
-              activeIndex={0}
-              slug={studio?.slug ?? ''}
-              interactive={false}
-              flotante={!draft.barraClasica}
-              etiquetas={resolveVariantes(draft.variantes).barra}
-            />
-          </div>
-        </div>
+        {/* La previsualización "Así se ve" montaba `PortalNav`, la barra
+            inferior del portal de la alumna. Se retira con él: no queda nada
+            que previsualizar. Los campos de arriba siguen editando el tema,
+            que es lo que consume el resto del producto. */}
       </div>
     );
   }

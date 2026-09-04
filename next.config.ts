@@ -33,6 +33,30 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // ⚠️ Auditoría de rendimiento (2026-08-31, `tentare-performance`): sin esto,
+  // `public/widget.js` (el script que un estudio incrusta en SU web, Modo B)
+  // se servía con el default de Next para `public/` (`max-age=0,
+  // must-revalidate`, medido con `curl -I` en producción) — cada carga en
+  // CUALQUIER web que lo incrusta revalidaba contra el edge antes de poder
+  // ejecutar el script, en vez de servirlo directo de la caché del
+  // navegador. `stale-while-revalidate` en vez de `max-age` largo/
+  // `immutable` a propósito: el fichero no lleva un hash de versión en el
+  // nombre (decisión explícita, confirmada con el fundador) — un `immutable`
+  // dejaría a las webs de estudios sirviendo una versión vieja del widget
+  // (con bugs de checkout ya corregidos) hasta que expirase. 5 min de
+  // frescura + revalidación en segundo plano durante hasta 1 día: la
+  // mayoría de visitas no esperan red, y una corrección real llega a todo el
+  // mundo en minutos, no en horas.
+  async headers() {
+    return [
+      {
+        source: '/widget.js',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=300, stale-while-revalidate=86400' },
+        ],
+      },
+    ];
+  },
 };
 
 // Sentry envuelve la config de build. La subida de source maps solo ocurre si

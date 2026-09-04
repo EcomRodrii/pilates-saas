@@ -163,7 +163,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
       { nombre: 'Avisos de bono a punto de acabarse', valor: TODOS },
       { nombre: 'Aviso de alumna que lleva tiempo sin venir', valor: TODOS },
       { nombre: 'Automatizaciones a tu medida', detalle: 'Tú eliges el disparador, la espera y el mensaje.', valor: TODOS },
-      { nombre: 'Redacción de mensajes con IA', valor: porFeature('ia') },
+      { nombre: 'Redacción de mensajes automática', valor: porFeature('ia') },
     ],
   },
   {

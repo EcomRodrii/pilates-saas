@@ -28,10 +28,6 @@ import type { CampoSchema } from './campos.ts';
 
 /** Etiquetas de negocio de cada valor. Las claves son los ids del catálogo. */
 const ETIQUETA_VARIANTE: Record<string, string> = {
-  // cabeceraInicio
-  clasica: 'Clásica', saludo: 'Saludo', nombre: 'Nombre', titular: 'Titular',
-  // accesosRapidos
-  filas: 'Filas', rejilla: 'Rejilla', circulos: 'Círculos',
   // barra
   soloActiva: 'Solo la activa', todas: 'Todas', todasRelleno: 'Todas, icono relleno',
   // retos
@@ -57,9 +53,13 @@ interface EjeExpuesto {
  * control y su efecto se ven a la vez, en vez de en dos pantallas distintas.
  */
 const EJES_FORMA: readonly EjeExpuesto[] = [
-  { eje: 'cabeceraInicio', etiqueta: 'Cabecera del Inicio', ayuda: 'Cómo se saluda a la socia al abrir el portal.' },
+  // `cabeceraInicio`/`accesosRapidos` quedaron FUERA a propósito (31-ago): el
+  // Inicio tiene un hero único fotográfico para todo estudio, y el bloque
+  // "Accesos rápidos" ni siquiera existe en el diseño real de referencia — los
+  // dos ejes siguen vivos en VARIANTES_PORTAL (compatibilidad de temas ya
+  // guardados), pero ya no se pintan en el Inspector: exponer un control que
+  // no mueve nada sería peor que no tenerlo.
   { eje: 'tarjetaPrincipal', etiqueta: 'Tarjeta principal', ayuda: 'La pieza grande del Inicio, con su próxima clase.' },
-  { eje: 'accesosRapidos', etiqueta: 'Accesos rápidos', ayuda: 'La forma de los cuatro atajos del Inicio.' },
   { eje: 'retos', etiqueta: 'Retos', ayuda: 'Si cada reto lleva su propio color de fondo.' },
   { eje: 'bienvenida', etiqueta: 'Bienvenida antes de entrar', ayuda: 'Pantalla previa al acceso de la socia.' },
 ];

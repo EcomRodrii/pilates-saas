@@ -14,6 +14,13 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 //      se pinta) y sigue ahí al recargar;
 //   2. dejarla vacía sigue significando "hereda la del estudio" — lo que ya
 //      hacían todos los tipos de clase existentes.
+//
+// ⚠️ Los PASOS cambiaron con el rediseño del formulario (panel lateral con
+// secciones plegables, y la herencia como "Ajuste del estudio: … +
+// Personalizar" en vez de un input vacío con placeholder). Lo que NO cambió es
+// lo que esta suite protege: `ventana_cancelacion_horas` = 24 cuando se fija,
+// `null` cuando se hereda. Si algún día vuelve a fallar, mira primero si es el
+// dato o solo el camino para llegar a él.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -90,6 +97,11 @@ async function abrirClases(page: Page) {
   await expect(page.getByRole('button', { name: 'Nuevo tipo de clase' })).toBeVisible({ timeout: 30_000 });
 }
 
+/** La ventana de cancelación vive plegada dentro de su sección. */
+const SECCION_CANCELACIONES = 'Si cancelan o no vienen';
+const PERSONALIZAR_VENTANA = 'Personalizar: ¿Hasta cuándo puede cancelar sin perder la sesión?';
+const CAMPO_VENTANA = 'Ventana de cancelación, en horas';
+
 test.describe('Ventana de cancelación por tipo de clase', () => {
   test('poner una ventana propia se guarda y sigue ahí al recargar', async ({ page }) => {
     const { tipos } = await mockBackend(page);
@@ -98,14 +110,20 @@ test.describe('Ventana de cancelación por tipo de clase', () => {
 
     await page.getByRole('button', { name: 'Nuevo tipo de clase' }).click();
     await page.getByPlaceholder('Ej: Reformer Avanzado').fill('Reformer');
-    await page.getByPlaceholder('Ventana del estudio').fill('24');
+
+    // Desplegar la sección y salir de la herencia: los dos gestos que el
+    // rediseño pide para tocar una regla que por defecto pone el estudio.
+    await page.getByRole('button', { name: new RegExp(SECCION_CANCELACIONES) }).click();
+    await page.getByRole('button', { name: PERSONALIZAR_VENTANA }).click();
+    await page.getByLabel(CAMPO_VENTANA).fill('24');
+
     await page.getByRole('button', { name: 'Crear tipo de clase' }).click();
 
     // Llegó a la BD como su propio campo, no solo a la pantalla.
     await expect.poll(() => tipos.length, { timeout: 15_000 }).toBe(1);
     expect(tipos[0]).toMatchObject({ nombre: 'Reformer', ventana_cancelacion_horas: 24 });
 
-    // Y se ve en la tarjeta sin tener que abrir el modal.
+    // Y se ve en la tarjeta sin tener que abrir la clase.
     await expect(page.getByText('Cancela 24h antes')).toBeVisible();
 
     // La comprobación de la dueña: recargar y ver si le dijimos la verdad.
@@ -126,10 +144,37 @@ test.describe('Ventana de cancelación por tipo de clase', () => {
     await expect(page.getByText(/Cancela \d+h antes/)).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Editar' }).first().click();
-    await expect(page.getByPlaceholder('Ventana del estudio')).toHaveValue('');
+    await page.getByRole('button', { name: new RegExp(SECCION_CANCELACIONES) }).click();
+
+    // Heredada: no hay campo que rellenar, hay una frase que leer. Y el botón
+    // para salirse sigue ahí, que es lo que prueba que sigue heredando.
+    await expect(page.getByLabel(CAMPO_VENTANA)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: PERSONALIZAR_VENTANA })).toBeVisible();
 
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(page.getByText('Tipo de clase actualizado')).toBeVisible({ timeout: 15_000 });
     expect(tipos[0].ventana_cancelacion_horas).toBeNull();
+  });
+
+  test('personalizar y arrepentirse devuelve la regla al estudio', async ({ page }) => {
+    // El camino de vuelta importa tanto como el de ida: "Volver al ajuste del
+    // estudio" tiene que escribir null, no el número que se había tecleado.
+    const { tipos } = await mockBackend(page, { tiposIniciales: [tipoClaseRow('tc-ref', 'Reformer', 24)] });
+    await seedSesionDeDuena(page);
+    await abrirClases(page);
+
+    await expect(page.getByText('Cancela 24h antes')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Editar' }).first().click();
+    await page.getByRole('button', { name: new RegExp(SECCION_CANCELACIONES) }).click();
+
+    // Venía personalizada: se ve su valor, no la frase del estudio.
+    await expect(page.getByLabel(CAMPO_VENTANA)).toHaveValue('24');
+    await page.getByRole('button', { name: 'Volver al ajuste del estudio: ¿Hasta cuándo puede cancelar sin perder la sesión?' }).click();
+
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await expect(page.getByText('Tipo de clase actualizado')).toBeVisible({ timeout: 15_000 });
+    expect(tipos[0].ventana_cancelacion_horas).toBeNull();
+    await expect(page.getByText(/Cancela \d+h antes/)).toHaveCount(0);
   });
 });

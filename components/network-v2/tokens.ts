@@ -3,31 +3,27 @@
 // aproximados: cítalos de aquí en vez de repetir hex sueltos por los
 // componentes, para que un cambio de paleta sea un solo sitio.
 //
-// La primera pasada usaba un verde propio (#4F8A5B, el mismo del disco del
-// logo — docs/marca/) para TODO el acento de página, no solo el logo. El
-// fundador lo devolvió: quería que el marketplace se sintiera la MISMA
-// marca que tentare.app, no un producto satélite con su propio verde. Los
-// tokens de acento (antes NW_PRODUCTO/NW_VERDE_OSCURO/NW_SAGE, en verde) se
-// sustituyen aquí por los tonos reales de la landing principal
-// (components/landing/theme.ts: ACC/BG) — el logo SIGUE tiñendo su disco de
-// verde (regla 1 del kit de marca, sin tocar: "un producto nunca redibuja
-// la marca, solo tiñe su disco"), pero eso es una marca de 24px en la nav,
-// no el tono de cada botón y cada fondo de la página.
+// Historial del acento (dos vueltas, no una): la primera pasada usaba un
+// verde propio (#4F8A5B, el del disco del logo) para todo el acento de
+// página; el fundador lo devolvió por sentir que Network se separaba de la
+// marca de tentare.app, y NW_PRODUCTO pasó a var(--brand) (oliva). El
+// mockup de Claude Design de la landing principal (2026-08-30,
+// "UI mockups for landing page") usa ESE MISMO verde (#4F8A5B/#3E6B4A
+// hover/#6FA97C claro) como acento de TODA la marca, no solo de Network —
+// confirmado explícitamente por el fundador al revisar la divergencia entre
+// /network y el mockup. Revierte la decisión anterior a propósito: ya no es
+// "el verde satélite de Network", es el acento de marca actualizado.
 
-// Fase 2 del sistema de diseño (2026-08-18): NW_TINTA/NW_PRODUCTO (abajo) son
-// los dos únicos tokens de esta paleta que hoy coinciden EXACTAMENTE con un
-// custom property de Studio (--foreground/--brand) — se citan por variable
-// en vez de repetir el hex, así que un rebranding de Studio se propaga aquí
-// solo. El resto de esta paleta (fondo, sage, muted, bordes...) es una
-// paleta HERMANA, no un calco de Studio — sus valores no coinciden con
-// ningún custom property existente, así que se quedan en hex fijo aquí
-// (fusionarlos de verdad cambiaría el aspecto del marketplace sin que se
-// haya pedido; decisión explícita, no un olvido).
+// NW_TINTA sigue citando --foreground por variable (mismo motivo de
+// siempre: un rebranding de Studio se propaga aquí solo). NW_PRODUCTO YA NO
+// coincide con --brand (ver historial arriba) — es hex fijo del mockup,
+// igual que el resto de esta paleta HERMANA (fondo, sage, muted, bordes...),
+// que nunca coincidió con ningún custom property de Studio.
 //
 // Seguro porque `.dark` solo se añade al contenedor del panel
 // (lib/panel-theme.tsx, nunca a <html>, ver app/globals.css) — /network
-// vive fuera de (dashboard), así que estas var() SIEMPRE resuelven al valor
-// de :root (claro), nunca al de .dark. Cero cambio visual hoy.
+// vive fuera de (dashboard), así que NW_TINTA (var()) SIEMPRE resuelve al
+// valor de :root (claro), nunca al de .dark.
 export const NW_TINTA = 'var(--foreground)';
 export const NW_FONDO = '#FAF9F5';
 export const NW_VERDE_OSCURO = '#0F0F0F';
@@ -41,12 +37,28 @@ export const NW_MUTED_2 = '#6C7468';
 export const NW_GRIS_VERDOSO = '#98A093';
 export const NW_ESTRELLA = '#C99A3C';
 
-// Acento de página — el ACC de la landing principal (components/landing/
-// theme.ts), no el verde del disco del logo. Mismo nombre de export
-// (NW_PRODUCTO) para no tocar los ~40 sitios que ya lo citan; solo cambia
-// el valor. Fusionado con --brand (ver la nota de NW_TINTA arriba): mismo
-// hex hoy, ahora también el mismo origen.
-export const NW_PRODUCTO = 'var(--brand)';
+// Acento de página — el verde del mockup (ver historial arriba), no
+// var(--brand). Hex fijo a propósito: es el mismo verde del disco del logo
+// (docs/marca/), así que fusionarlo con --brand no aportaría nada nuevo.
+export const NW_PRODUCTO = '#4F8A5B';
+// Variante oscura para hover/focus sobre NW_PRODUCTO (botones, enlaces
+// sobre fondo claro) — del mismo mockup.
+export const NW_PRODUCTO_OSCURO = '#3E6B4A';
+// Variante clara para hover de enlaces sobre fondo oscuro (NW_VERDE_OSCURO)
+// — del mismo mockup.
+export const NW_PRODUCTO_CLARO = '#6FA97C';
+
+// Segundo acento de marca — la arena del kit oliva/arena (docs/marca/), no
+// un tono nuevo. Se cita por variable (`--brand-foreground`, "texto sobre
+// oliva" en app/globals.css) porque, a diferencia de NW_PRODUCTO, el mockup
+// no define un segundo acento cálido propio — Network sigue tomando este de
+// donde ya lo toma el resto de la app. Rediseño 2026-08-26: la página solo
+// usaba oliva/negro/crema — un único tono de acento para TODO (eyebrows,
+// links, puntos, iconos) es justo lo que hacía sentir la marca plana. La
+// arena entra como acento CÁLIDO secundario (badges, cifras destacadas,
+// detalles sobre fondos oscuros) — NW_PRODUCTO sigue siendo el acento
+// principal de acción (CTAs, enlaces).
+export const NW_ARENA = 'var(--brand-foreground)';
 
 // Tarjeta "sin Network" de la sección Problema (/network) — el único sitio
 // que usa este tono neutro apagado, distinto de NW_MUTED (que sí se repite

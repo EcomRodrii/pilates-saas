@@ -116,7 +116,7 @@ export async function emitirReservaAbandonada(
 // clase ya ha empezado", esta es "no aceptaste la plaza liberada a tiempo").
 export async function emitirReservaCancelada(
   admin: SupabaseClient,
-  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' },
+  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' | 'clase_cancelada' },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
@@ -135,7 +135,12 @@ export async function emitirReservaCancelada(
             ? ' La plaza se ocupó justo antes de que aceptaras. Te hemos guardado una recuperación para otra clase.'
             : p.motivo === 'clase_ya_empezada'
               ? ' La clase ya había empezado cuando aceptaste. Te hemos guardado una recuperación para otra clase.'
-              : '';
+              // El estudio canceló la clase mientras su oferta seguía viva
+              // (migr 20260829120000: la RPC ya no la deja confirmar sobre una
+              // clase cancelada). Tampoco es culpa suya: misma compensación.
+              : p.motivo === 'clase_cancelada'
+                ? ' El estudio canceló la clase. Te hemos guardado una recuperación para otra clase.'
+                : '';
     await publish({
       type: EVENTOS.RESERVA_CANCELADA, studioId: p.studioId,
       data: { ...ctx, socioId: p.socioId, motivoTexto },
@@ -389,6 +394,30 @@ export async function emitirDevolucion(
     });
   } catch (e) {
     console.error('[notifications] emitirDevolucion:', e instanceof Error ? e.message : e);
+  }
+}
+
+// P-2 (17ª auditoría): reembolso de una venta de POS (datáfono/Bizum
+// presencial). `socioId` es `null` con normalidad — la mayoría de ventas de
+// mostrador son anónimas, sin ficha ligada.
+export async function emitirVentaPosDevuelta(
+  admin: SupabaseClient,
+  p: { studioId: string; socioId: string | null; ventaPosId: string; importe: number },
+): Promise<void> {
+  try {
+    const { data: socio } = p.socioId
+      ? await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle()
+      : { data: null };
+    const nombre = socio ? `${socio.nombre ?? ''} ${socio.apellidos ?? ''}`.trim() : '';
+    await publish({
+      type: EVENTOS.VENTA_POS_DEVUELTA,
+      studioId: p.studioId,
+      data: { importe: p.importe, deQuien: nombre ? ` a ${nombre}` : '' },
+      resource: { type: 'venta_pos', id: p.ventaPosId },
+      dedupKey: `venta_pos_devuelta:${p.ventaPosId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirVentaPosDevuelta:', e instanceof Error ? e.message : e);
   }
 }
 
@@ -829,12 +858,16 @@ export async function emitirRedContactoSolicitado(
 // emitirRedVerificacionSolicitada).
 export async function emitirRedCandidaturaRecibida(
   admin: SupabaseClient,
-  p: { studioId: string; candidaturaId: string; vacanteTitulo: string; profesional: string },
+  p: { studioId: string; candidaturaId: string; vacanteId: string; vacanteTitulo: string; profesional: string },
 ): Promise<void> {
   try {
     await publish({
       type: EVENTOS.RED_CANDIDATURA_RECIBIDA, studioId: p.studioId,
-      data: { vacanteTitulo: p.vacanteTitulo, profesional: p.profesional },
+      // `vacanteId` es obligatorio: el deepLink del catálogo es
+      // `/network/vacantes/{vacanteId}` y sin él quedaba en
+      // `/network/vacantes/` — confirmado en producción (fila del 18-ago).
+      // El gemelo emitirRedVacanteEncaja sí lo pasaba.
+      data: { vacanteId: p.vacanteId, vacanteTitulo: p.vacanteTitulo, profesional: p.profesional },
       resource: { type: 'red_candidatura', id: p.candidaturaId },
       dedupKey: `red-candidatura-recibida:${p.candidaturaId}`,
     });
@@ -861,6 +894,104 @@ export async function emitirRedVacanteEncaja(
     });
   } catch (e) {
     console.error('[notifications] emitirRedVacanteEncaja:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Community & Messaging OS (P0): mensaje nuevo → a los demás participantes.
+// `data.authUserIds` los calcula SIEMPRE el caller (todos los participantes
+// de la conversación menos quien escribió; para EQUIPO/ALUMNA_MOSTRADOR, la
+// lista dinámica de staff resuelta vía `puede_gestionar_calendario()`/
+// `instructores` — ver recipients.ts). Solo PUSH: el email vive aparte, en
+// el digest de baja frecuencia (emitirMensajeDigestNoLeido), a propósito de
+// no mandar un correo por cada mensaje.
+export async function emitirMensajeRecibido(
+  admin: SupabaseClient,
+  p: {
+    studioId: string; conversacionId: string; mensajeId: string;
+    remitente: string; previsualizacion?: string | null;
+    authUserIds: string[]; slug?: string | null;
+  },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.MENSAJE_RECIBIDO, studioId: p.studioId,
+      data: {
+        conversacionId: p.conversacionId, remitente: p.remitente,
+        previsualizacion: p.previsualizacion ? `: "${p.previsualizacion}"` : '',
+        authUserIds: p.authUserIds, slug: p.slug ?? null,
+      },
+      resource: { type: 'mensaje', id: p.mensajeId },
+      dedupKey: `mensaje-recibido:${p.mensajeId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirMensajeRecibido:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Digest de baja frecuencia de mensajes sin leer (cron, lib/mensajeria/
+// digest.ts) — el ÚNICO email de toda la mensajería. dedupKey por
+// authUserId+fecha, mismo criterio que emitirDecisionMensajeDia (ahí es
+// studioId+fecha): como mucho un digest al día por persona, aunque el cron
+// corra varias veces dentro de esa ventana.
+export async function emitirMensajeDigestNoLeido(
+  admin: SupabaseClient,
+  p: { studioId: string; authUserId: string; conversaciones: number; fecha: string; slug?: string | null },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.MENSAJE_DIGEST_NO_LEIDO, studioId: p.studioId,
+      data: { conversaciones: p.conversaciones, authUserIds: [p.authUserId], slug: p.slug ?? null },
+      dedupKey: `mensaje-digest:${p.authUserId}:${p.fecha}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirMensajeDigestNoLeido:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Community & Messaging OS: post nuevo en el tablón → a la audiencia ya
+// resuelta del post (app/api/comunidad/posts/route.ts calcula `socioIds` con
+// `resolverDestinatariasCampana` dentro de un `after()`, la misma función
+// pura que usan las campañas de marketing — ya no un worker de Inngest). Una
+// sola llamada a `publish()` con la lista completa — nunca una por socia,
+// mismo criterio que emitirRedVacanteEncaja. dedupKey por post: como mucho
+// un aviso por post, sea cual sea el nº de veces que se reintente `after()`.
+export async function emitirPostComunidadNuevo(
+  admin: SupabaseClient,
+  p: { studioId: string; postId: string; autorNombre: string; previsualizacion?: string | null; socioIds: string[]; slug?: string | null },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.POST_COMUNIDAD_NUEVO, studioId: p.studioId,
+      data: {
+        autor: p.autorNombre,
+        previsualizacion: p.previsualizacion ? `: "${p.previsualizacion}"` : '',
+        socioIds: p.socioIds, slug: p.slug ?? null,
+      },
+      resource: { type: 'post_comunidad', id: p.postId },
+      dedupKey: `post-comunidad-nuevo:${p.postId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPostComunidadNuevo:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Community & Messaging OS (P2, buzón de documentos): el estudio le sube un
+// documento nuevo a una socia concreta. dedupKey por documentoId — un solo
+// aviso por documento, sea cual sea el nº de reintentos del caller.
+export async function emitirDocumentoSocioNuevo(
+  admin: SupabaseClient,
+  p: { studioId: string; documentoId: string; socioId: string; titulo: string },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.DOCUMENTO_SOCIO_NUEVO, studioId: p.studioId,
+      data: { socioId: p.socioId, titulo: p.titulo, slug: (studio?.slug as string | null) ?? '' },
+      resource: { type: 'documento_socio', id: p.documentoId },
+      dedupKey: `documento-socio-nuevo:${p.documentoId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirDocumentoSocioNuevo:', e instanceof Error ? e.message : e);
   }
 }
 

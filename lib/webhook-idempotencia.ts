@@ -34,7 +34,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // sin recibir nada. Prefijar por ámbito hace que cada uno lleve su propia
 // cuenta, y de paso permite reenviar un evento desde Stripe sin que la
 // reclamación del otro ámbito lo bloquee.
-export type AmbitoWebhook = 'connect' | 'billing';
+// 'whatsapp': eventos entrantes de Meta (app/api/webhooks/whatsapp) — ámbito
+// propio porque el `id` de un evento de WhatsApp (wamid de un mensaje/status)
+// vive en un espacio de nombres totalmente distinto al `event.id` de Stripe;
+// prefijar evita cualquier colisión teórica entre los dos.
+export type AmbitoWebhook = 'connect' | 'billing' | 'whatsapp';
 
 export function claveWebhook(ambito: AmbitoWebhook, eventId: string): string {
   return `${ambito}:${eventId}`;

@@ -1,0 +1,1179 @@
+diff --git a/app/api/comunidad/posts/route.ts b/app/api/comunidad/posts/route.ts
+index 5ec8c7cd..cb9388a6 100644
+--- a/app/api/comunidad/posts/route.ts
++++ b/app/api/comunidad/posts/route.ts
+@@ -50,8 +50,21 @@ export async function POST(req: NextRequest) {
+       : 'TODAS';
+   // Nunca se confía en un `imagenUrl` fuera de nuestro propio bucket — evita
+   // que el post embeba (y el feed cargue) un origen arbitrario.
++  //
++  // La comprobación tiene que anclar en el PREFIJO completo del Storage de
++  // este proyecto: un `includes('/comunidad-media/')` deja pasar
++  // `https://rastreo.ajeno.example/comunidad-media/x.png`, y esa URL acaba en
++  // un `<img src>` que cargan todas las socias del estudio (IP, User-Agent y
++  // hora de lectura al tercero). El prefijo es exactamente el que produce
++  // `getPublicUrl` en lib/portal-storage.ts:93.
+   const imagenUrlRaw = typeof body?.imagenUrl === 'string' ? body.imagenUrl : null;
+-  const imagenUrl = imagenUrlRaw && imagenUrlRaw.includes('/comunidad-media/') ? imagenUrlRaw : null;
++  const baseStorage = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
++  const prefijoComunidadMedia = baseStorage
++    ? `${baseStorage}/storage/v1/object/public/comunidad-media/`
++    : null;
++  const imagenUrl = imagenUrlRaw && prefijoComunidadMedia && imagenUrlRaw.startsWith(prefijoComunidadMedia)
++    ? imagenUrlRaw
++    : null;
+ 
+   // Eventos como entidad propia dentro del Feed (P2). Mismo camino de
+   // creación/notificación que un post de texto — un evento nuevo no dispara
+diff --git a/app/api/oauth/v1/clientas/route.ts b/app/api/oauth/v1/clientas/route.ts
+index 4d495553..40b883b2 100644
+--- a/app/api/oauth/v1/clientas/route.ts
++++ b/app/api/oauth/v1/clientas/route.ts
+@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
+ import { conOAuth } from '@/lib/oauth-server';
+ import { registrarSociaPublica } from '@/lib/db/supabase-data-admin';
+ import { uid } from '@/lib/utils';
++import { emailValido } from '@/lib/csv';
+ 
+ // GET /api/oauth/v1/clientas — trigger "Nuevo cliente" de Zapier (polling,
+ // más recientes primero para que Zapier deduplique por `id`). Requiere el
+@@ -40,6 +41,14 @@ export async function POST(req: NextRequest) {
+     if (!body?.nombre || !body?.email) {
+       return { status: 400, body: { error: 'invalid_request', detalle: 'nombre y email son obligatorios' } };
+     }
++    // El email de un integrador externo llega sin validar y acaba en el
++    // `.ilike('email', …)` con el que registrarSociaPublica adopta fichas
++    // fantasma. El escapado de comodines está ya en esa función; esta guarda
++    // es la otra mitad: un valor que no es un email no debería llegar a la
++    // consulta siquiera, y el error es más útil que un 400 genérico después.
++    if (!emailValido(body.email)) {
++      return { status: 400, body: { error: 'invalid_request', detalle: 'email no válido' } };
++    }
+ 
+     const id = `soc-${uid()}`;
+     const resultado = await registrarSociaPublica({
+diff --git a/app/api/public/social/companeras/route.ts b/app/api/public/social/companeras/route.ts
+index c5deb2f2..e8f03452 100644
+--- a/app/api/public/social/companeras/route.ts
++++ b/app/api/public/social/companeras/route.ts
+@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+ import { enforceRateLimit } from '@/lib/rate-limit';
+ import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
++import { uid } from '@/lib/utils';
+ import type { RowSocioCompaneras } from '@/lib/db-types';
+ 
+ // Social graph "compañeras de clase" — Community & Messaging OS, última pieza
+@@ -81,6 +82,12 @@ export async function POST(req: NextRequest) {
+   const { data: creada, error } = await admin
+     .from('socio_companeras')
+     .insert({
++      // `socio_companeras.id` es `text primary key` SIN default en la BD (ver
++      // 20260826203011_socio_companeras_esquema_rls.sql): el id lo genera
++      // siempre el servidor, igual que `com-${uid()}` en comunidad/comentarios
++      // o `msg-${...}` en mensajería. Sin esta línea el INSERT muere con 23502
++      // y la pieza entera de compañeras es inalcanzable.
++      id: `comp-${uid()}`,
+       studio_id: body.studioId,
+       solicitante_id: solicitanteId,
+       destinataria_id: body.destinatariaSocioId,
+diff --git a/components/notifications/notification-preferences.tsx b/components/notifications/notification-preferences.tsx
+index 09333d6b..220791a9 100644
+--- a/components/notifications/notification-preferences.tsx
++++ b/components/notifications/notification-preferences.tsx
+@@ -39,6 +39,7 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
+   const [cargando, setCargando] = useState(true);
+   const [permiso, setPermiso] = useState<NotificationPermission | 'unsupported'>('default');
+   const [activando, setActivando] = useState(false);
++  const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+ 
+   // Notification.permission solo existe en cliente → se lee tras montar.
+   // eslint-disable-next-line react-hooks/set-state-in-effect
+@@ -73,13 +74,24 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
+     const actual = prefs[cat] ?? DEFECTO;
+     const siguiente = { ...actual, [canal]: !actual[canal] };
+     setPrefs(p => ({ ...p, [cat]: siguiente }));
+-    await guardarPreferencia(getHeaders, studioId, cat, siguiente);
++    setErrorGuardado(null);
++    // Gemelo de components/portal/portal-avisos-socia.tsx: escribe-primero CON
++    // vuelta atrás. Sin esto, el interruptor quedaba apagado en pantalla y
++    // encendido en la BD.
++    const ok = await guardarPreferencia(getHeaders, studioId, cat, siguiente);
++    if (!ok) {
++      setPrefs(p => ({ ...p, [cat]: actual }));
++      setErrorGuardado('No se ha podido guardar la preferencia. Inténtalo otra vez.');
++    }
+   }
+ 
+   if (cargando) return <p className="text-[13px] text-muted-foreground">Cargando preferencias…</p>;
+ 
+   return (
+    <div className="flex flex-col gap-4">
++    {errorGuardado && (
++      <p role="alert" className="text-[12.5px] font-semibold text-destructive">{errorGuardado}</p>
++    )}
+     {/* Activar push en este dispositivo */}
+     <div className="rounded-2xl border border-border bg-card px-4 py-3.5 flex items-center gap-3">
+       <span className={`w-9 h-9 rounded-full flex items-center justify-center ${permiso === 'granted' ? 'bg-emerald-500/10 text-success' : 'bg-brand/10 text-brand-medio'}`}>
+diff --git a/components/portal/hoja-oferta-espera.tsx b/components/portal/hoja-oferta-espera.tsx
+index 76ba6db7..80da789c 100644
+--- a/components/portal/hoja-oferta-espera.tsx
++++ b/components/portal/hoja-oferta-espera.tsx
+@@ -19,9 +19,16 @@
+ // se deja ni intentarlo desde aquí.
+ //
+ // "Dejarla pasar" NO es un endpoint nuevo de "rechazar oferta" — es
+-// `cancelarReserva` de siempre: cancelar una reserva en LISTA_ESPERA ya
+-// libera el hueco y promueve a la siguiente en el backend
++// `cancelarReserva` de siempre: cancelar una reserva en LISTA_ESPERA con una
++// oferta viva libera el hueco y promueve a la siguiente en el backend
+ // (`promocionar_siguiente_espera`). No hace falta nada nuevo en el servidor.
++//
++// ⚠️ Esto era FALSO hasta la migración 20260829120000: `cancelar_reserva_plaza`
++// solo promocionaba desde CONFIRMADA/ASISTIDA, así que rechazar la oferta
++// explícitamente dejaba la plaza huérfana y era PEOR que ignorarla (dejarla
++// caducar sí promovía, vía `expirar_oferta_lista_espera`). Si alguien vuelve a
++// tocar esa RPC: la rama `v_estado = 'LISTA_ESPERA' and v_tenia_oferta` es la
++// que sostiene este comentario.
+ 
+ import { useEffect, useState } from 'react';
+ import { PartyPopper } from 'lucide-react';
+diff --git a/components/portal/portal-ajustes-view.tsx b/components/portal/portal-ajustes-view.tsx
+index 294abaf1..d0845b1d 100644
+--- a/components/portal/portal-ajustes-view.tsx
++++ b/components/portal/portal-ajustes-view.tsx
+@@ -104,10 +104,15 @@ export function PortalAjustesView({
+     if (!socio || guardando) return;
+     setGuardando(true);
+     setAviso(null);
++    // SIN `email`: el servidor lo rechaza a propósito (CAMPOS_SOCIA_EDITABLES
++    // en lib/db/supabase-data-admin.ts — cambiarlo aquí desincronizaría
++    // `socios.email` del email de login y auto-bloquearía a la socia), y lo
++    // rechaza ANTES de escribir nada. Enviarlo hacía que tocar el email
++    // tirase en el mismo gesto nombre, apellidos, teléfono y usuario. El
++    // campo se pinta en solo lectura más abajo.
+     const r = await updateSocio(socio.id, {
+       nombre: form.nombre.trim(),
+       apellidos: form.apellidos.trim(),
+-      email: form.email.trim(),
+       telefono: form.telefono.trim() || null,
+       usuario: form.usuario.trim() || null,
+     });
+@@ -241,8 +246,11 @@ export function PortalAjustesView({
+             onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+           <Input label="Apellidos" placeholder="Apellidos" autoComplete="family-name" value={form.apellidos}
+             onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
++          {/* Solo lectura: el email es la identidad de login y todavía no hay
++              flujo para cambiarlo (ver guardarDatos). Editable era una promesa
++              falsa que además hacía fallar el resto del formulario. */}
+           <Input label="Email" placeholder="Email" type="email" autoComplete="email" value={form.email}
+-            onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
++            readOnly style={{ opacity: 0.65 }} onChange={() => {}} />
+           <Input label="Teléfono" placeholder="+34 600 000 000" type="tel" autoComplete="tel" inputMode="tel" value={form.telefono}
+             onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+           {/* @handle — solo el campo (decisión de producto ya tomada, migr
+diff --git a/components/portal/portal-avisos-socia.tsx b/components/portal/portal-avisos-socia.tsx
+index 8c88d01c..14a3a693 100644
+--- a/components/portal/portal-avisos-socia.tsx
++++ b/components/portal/portal-avisos-socia.tsx
+@@ -49,7 +49,14 @@ export function AvisosSocia({ t, studioId }: { t: ModoTokens; studioId: string }
+     const actual = prefs[cat] ?? { inapp: true, push: true };
+     const siguiente = { ...actual, [canal]: !actual[canal] };
+     setPrefs(p => ({ ...p, [cat]: siguiente }));
+-    await guardarPreferencia(portalAuthHeader, studioId, cat, siguiente);
++    // Escribe-primero CON vuelta atrás: sin esto, un fallo del PUT dejaba el
++    // interruptor apagado en pantalla y encendido en la BD. La socia cree que
++    // ha desactivado un aviso y lo sigue recibiendo.
++    const ok = await guardarPreferencia(portalAuthHeader, studioId, cat, siguiente);
++    if (!ok) {
++      setPrefs(p => ({ ...p, [cat]: actual }));
++      alert('No se ha podido guardar la preferencia. Inténtalo otra vez.');
++    }
+   }
+ 
+   const chip = (on: boolean): React.CSSProperties => ({
+diff --git a/components/portal/portal-perfil-view.tsx b/components/portal/portal-perfil-view.tsx
+index b40dd3a1..75b7285f 100644
+--- a/components/portal/portal-perfil-view.tsx
++++ b/components/portal/portal-perfil-view.tsx
+@@ -103,10 +103,12 @@ export function PortalPerfilView({
+     if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); setHoja(null); return; }
+     setGuardando(true);
+     setAviso(null);
++    // Gemelo de portal-ajustes-view.tsx: SIN `email`. El servidor lo rechaza
++    // antes de escribir nada, así que enviarlo hacía perder también nombre,
++    // apellidos, teléfono, fecha de nacimiento y dirección.
+     const r = await updateSocio(socio.id, {
+       nombre: form.nombre.trim(),
+       apellidos: form.apellidos.trim(),
+-      email: form.email.trim(),
+       telefono: form.telefono.trim() || null,
+       fechaNacimiento: form.fechaNacimiento || null,
+       direccion: form.direccion.trim() || null,
+@@ -343,8 +345,9 @@ export function PortalPerfilView({
+             onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+           <Input label="Apellidos" placeholder="Apellidos" autoComplete="family-name" value={form.apellidos}
+             onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
++          {/* Solo lectura: ver guardarDatos. */}
+           <Input label="Email" placeholder="Email" type="email" autoComplete="email" value={form.email}
+-            onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
++            readOnly style={{ opacity: 0.65 }} onChange={() => {}} />
+           <Input label="Teléfono" placeholder="+34 600 000 000" type="tel" autoComplete="tel" inputMode="tel" value={form.telefono}
+             onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+           <Input label="Fecha de nacimiento" type="date" value={form.fechaNacimiento}
+diff --git a/components/portal/portal-reservas-view.tsx b/components/portal/portal-reservas-view.tsx
+index ee4f03b0..98eddba9 100644
+--- a/components/portal/portal-reservas-view.tsx
++++ b/components/portal/portal-reservas-view.tsx
+@@ -271,8 +271,9 @@ export function PortalReservasView({
+   }
+ 
+   // "Dejarla pasar" es `cancelarReserva` de siempre — cancelar una reserva en
+-  // LISTA_ESPERA libera el hueco y promueve a la siguiente en el backend, sin
+-  // necesitar ningún endpoint nuevo de "rechazar oferta".
++  // LISTA_ESPERA con oferta viva libera el hueco y promueve a la siguiente en
++  // el backend, sin necesitar ningún endpoint nuevo de "rechazar oferta".
++  // Cierto SOLO desde la migración 20260829120000 (ver hoja-oferta-espera.tsx).
+   async function onDejarPasarOferta(reservaId: string): Promise<ResultadoEscritura> {
+     if (!escribible) {
+       setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false });
+diff --git a/lib/actions/equipo/equipoAction.ts b/lib/actions/equipo/equipoAction.ts
+index 6a39f035..679d8182 100644
+--- a/lib/actions/equipo/equipoAction.ts
++++ b/lib/actions/equipo/equipoAction.ts
+@@ -37,8 +37,22 @@ async function quedariaSinPropietaria(
+   return (count ?? 0) === 0;
+ }
+ 
++// `bio` es la bio pública que pinta la ficha de instructora del portal
++// (app/portal/[slug]/instructores/[instructorId]/page.tsx:148). El formulario
++// de Equipo la edita y la envía desde siempre, pero ninguna de las dos listas
++// blancas la copiaba: la pantalla decía "Cambios guardados" y la columna
++// `instructores.bio` nunca se escribía. El límite de 400 es el mismo que
++// muestra el contador del formulario — la validación de cliente no puede ser
++// la única.
++function saneaBio(src: Record<string, unknown>): string | null {
++  const v = src.bio;
++  if (v == null || v === '') return null;
++  return String(v).trim().slice(0, 400) || null;
++}
++
+ function saneaFieldsPropietario(src: Record<string, unknown>): Record<string, unknown> {
+   const out: Record<string, unknown> = {};
++  if ('bio' in src) out.bio = saneaBio(src);
+   if ('nombre' in src) out.nombre = String(src.nombre ?? '').trim();
+   if ('email' in src) out.email = src.email == null || src.email === '' ? null : String(src.email).trim();
+   if ('telefono' in src) out.telefono = src.telefono == null || src.telefono === '' ? null : String(src.telefono).trim();
+@@ -52,6 +66,7 @@ function saneaFieldsPropietario(src: Record<string, unknown>): Record<string, un
+ 
+ function saneaFieldsPropios(src: Record<string, unknown>): Record<string, unknown> {
+   const out: Record<string, unknown> = {};
++  if ('bio' in src) out.bio = saneaBio(src);
+   if ('nombre' in src) out.nombre = String(src.nombre ?? '').trim();
+   if ('email' in src) out.email = src.email == null || src.email === '' ? null : String(src.email).trim();
+   if ('telefono' in src) out.telefono = src.telefono == null || src.telefono === '' ? null : String(src.telefono).trim();
+@@ -111,6 +126,9 @@ async function crearInstructora(
+     activo: body?.activo == null ? true : Boolean(body.activo),
+     avatar: body?.avatar == null ? null : String(body.avatar),
+     foto_url: body?.fotoUrl == null ? null : String(body.fotoUrl),
++    // Mismo motivo que en las dos listas blancas de arriba: el alta también
++    // envía `bio` desde el formulario de Equipo.
++    bio: saneaBio(body),
+     rol,
+     auth_user_id: authUserIdVinculado,
+   };
+diff --git a/lib/db/supabase-data-admin.ts b/lib/db/supabase-data-admin.ts
+index 1d517623..f6966e15 100644
+--- a/lib/db/supabase-data-admin.ts
++++ b/lib/db/supabase-data-admin.ts
+@@ -13,6 +13,7 @@ import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, t
+ import { acumuladorSalud } from '@/lib/integraciones/salud';
+ import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
+ import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
++import { escaparLike } from '@/lib/escapar-like';
+ import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
+ import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
+ import { LEGAL } from '@/lib/legal-info';
+@@ -738,13 +739,22 @@ export async function fetchPublicStudioData(
+     // Sin zoom_join_url a propósito: el enlace de Zoom nunca sale de un select
+     // genérico del portal (ver comentario de mapSesion). zoom_meeting_id sí,
+     // porque un id sin la reunión detrás no sirve de nada.
+-    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id').eq('studio_id', studioId).range(from, to)),
++    // Sin `notas` ni `incidencia_texto` por el mismo motivo: son texto que
++    // escribe el personal para el personal («la clienta X viene lesionada»,
++    // «se rompió el reformer 3») y este payload lo sirve `POST
++    // /api/public/studio-data`, que responde también SIN sesión. Ningún
++    // componente del portal, del widget ni de /reservar los lee (verificado
++    // con grep en components/portal, app/portal, app/reservar,
++    // components/reserva, app/widget-bundle y lib/widget); el panel usa su
++    // propio select en lib/supabase-data.ts. Se rellenan a null al mapear
++    // para no cambiar la forma de `Sesion`.
++    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, precio_puntual, google_event_id, serie_id, zoom_meeting_id').eq('studio_id', studioId).range(from, to)),
+     fetchAllRows(studioId, 'reservas', (from, to) => admin.from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId).range(from, to)),
+   ]);
+ 
+   const base = {
+     studio: studioPublico(studioRow as RowStudios),
+-    sesiones: (sesionesData ?? []).map(mapSesion),
++    sesiones: (sesionesData ?? []).map(r => mapSesion({ ...r, notas: null, incidencia_texto: null })),
+     ...catalogo,
+     ...camposTema,
+     ...camposLayout,
+@@ -1979,7 +1989,12 @@ export async function reservarPlazaTrasPagoPublico(params: {
+     // se pierde el dinero (el plan/bono ya se entregó antes de llamar aquí),
+     // pero SÍ hay que avisar al mostrador: mismo tratamiento que
+     // 'sesion-invalida' desde el webhook (emitirReservaPagadaSinPlaza).
+-    if (error.message.includes('SPOT_OCUPADO') || error.message.includes('SPOT_NO_PERTENECE_A_LA_SALA')) {
++    // SPOT_NO_DISPONIBLE = la plaza existe y es de la sala, pero está dada de
++    // baja (migr 20260829120000). Mismo tratamiento: la visitante pagó, no se
++    // pierde el dinero, y el mostrador tiene que enterarse de que hay que
++    // reubicarla.
++    if (error.message.includes('SPOT_OCUPADO') || error.message.includes('SPOT_NO_PERTENECE_A_LA_SALA')
++        || error.message.includes('SPOT_NO_DISPONIBLE')) {
+       return { ok: false, motivo: 'spot-ocupado', detalle: error.message };
+     }
+     return { ok: false, motivo: 'error', detalle: error.message };
+@@ -2212,13 +2227,17 @@ export async function aceptarOfertaListaEspera(params: {
+       p_origen_reserva_id: params.reservaId,
+       p_motivo: resultado === 'AFORO_LLENO'
+         ? 'La plaza se ocupó antes de aceptar la oferta'
+-        : 'La clase ya había empezado al aceptar la oferta',
++        : resultado === 'CLASE_CANCELADA'
++          ? 'El estudio canceló la clase antes de aceptar la oferta'
++          : 'La clase ya había empezado al aceptar la oferta',
+     });
+     if (sesionId) {
+       const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
+       await emitirReservaCancelada(admin, {
+         studioId: params.studioId, sesionId, socioId: params.socioId, reservaId: params.reservaId,
+-        motivo: resultado === 'AFORO_LLENO' ? 'plaza_ya_ocupada' : 'clase_ya_empezada',
++        motivo: resultado === 'AFORO_LLENO' ? 'plaza_ya_ocupada'
++          : resultado === 'CLASE_CANCELADA' ? 'clase_cancelada'
++            : 'clase_ya_empezada',
+       });
+     }
+     // El mensaje no puede sonar a que llegó tarde: aceptó a tiempo. Y si la
+@@ -2226,7 +2245,9 @@ export async function aceptarOfertaListaEspera(params: {
+     const compensada = creada === 'CREADA';
+     const base = resultado === 'AFORO_LLENO'
+       ? 'La plaza se ocupó justo antes de que aceptaras.'
+-      : 'La clase ya había empezado cuando aceptaste.';
++      : resultado === 'CLASE_CANCELADA'
++        ? 'El estudio canceló esta clase.'
++        : 'La clase ya había empezado cuando aceptaste.';
+     return {
+       error: compensada
+         ? `${base} Te hemos guardado una recuperación para que la uses en otra clase.`
+@@ -2915,7 +2936,11 @@ export async function resolverSociaAutenticada(slug: string, authUserId: string,
+   //    email del JWT es de confianza (Supabase lo verificó), así que enlazamos.
+   const { data: claimable } = await admin
+     .from('socios').select('id, nombre, apellidos, email')
+-    .ilike('email', email.trim()).eq('studio_id', studio.id).is('auth_user_id', null).maybeSingle();
++    // Gemelo del `.ilike` de registrarSociaPublica: aquí el email viene del JWT
++    // verificado, pero `%` y `_` son caracteres legales en la parte local de un
++    // email, así que el patrón se escapa igual — la defensa no puede depender
++    // de qué valida el proveedor de identidad.
++    .ilike('email', escaparLike(email.trim())).eq('studio_id', studio.id).is('auth_user_id', null).maybeSingle();
+   if (!claimable) return null;
+   await admin.from('socios').update({ auth_user_id: authUserId }).eq('id', claimable.id);
+   return { socioId: claimable.id, nombre: `${claimable.nombre} ${claimable.apellidos}`.trim(), email: claimable.email };
+@@ -3187,7 +3212,11 @@ export async function registrarSociaPublica(params: {
+     .from('socios')
+     .select('id, origen_lead')
+     .eq('studio_id', params.studioId)
+-    .ilike('email', params.email)
++    // `escaparLike`: el texto del email ES el patrón de `.ilike`. Sin escapar,
++    // un `email: "%"` (llega sin validar desde /api/oauth/v1/clientas, donde lo
++    // pone un integrador con scope `clientas:escribir`) adopta una ficha
++    // fantasma ARBITRARIA del estudio y le reasigna el bono ya cobrado.
++    .ilike('email', escaparLike(params.email))
+     .is('auth_user_id', null)
+     .limit(1);
+   const fantasma = fantasmas?.[0];
+diff --git a/lib/escapar-like-en-toda-ilike.test.ts b/lib/escapar-like-en-toda-ilike.test.ts
+new file mode 100644
+index 00000000..bb0d426e
+--- /dev/null
++++ b/lib/escapar-like-en-toda-ilike.test.ts
+@@ -0,0 +1,84 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { readFileSync, readdirSync, statSync } from 'node:fs';
++import { join, relative } from 'node:path';
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Guardián: NINGÚN `.ilike(` puede incrustar un valor de entrada sin pasar por
++// `escaparLike`.
++//
++// En PostgREST el segundo argumento de `.ilike()` ES el patrón: un `%` en el
++// dato lo convierte en "cásalo con todo". El repo ya centralizó el escapado en
++// `lib/escapar-like.ts` justamente porque «una defensa duplicada acaba
++// arreglándose en un sitio y no en el gemelo» (su propio comentario) — y aun
++// así, en la auditoría del 29-ago quedaban DOS `.ilike('email', …)` sin
++// escapar, uno de ellos alcanzable desde `/api/oauth/v1/clientas` con el email
++// sin validar de un integrador: `email: "%"` adoptaba una ficha fantasma
++// arbitraria del estudio y le reasignaba el bono ya cobrado.
++//
++// Este test es estructural a propósito (mismo criterio que
++// socia-publica-campos-editables.test.ts): los ficheros implicados llevan
++// `import 'server-only'` y no se pueden ejecutar aquí.
++// ─────────────────────────────────────────────────────────────────────────────
++
++const RAIZ = join(import.meta.dirname, '..');
++const CARPETAS = ['lib', 'app', 'components'];
++
++// Un `.ilike` cuyo patrón es una constante literal del propio código (no viene
++// de fuera) no necesita escaparse. Se listan con su motivo para que ampliar la
++// lista obligue a escribir por qué.
++const EXCEPCIONES: Record<string, string> = {};
++
++function ficherosTs(dir: string, acc: string[] = []): string[] {
++  for (const e of readdirSync(dir)) {
++    if (e === 'node_modules' || e === '.next') continue;
++    const p = join(dir, e);
++    if (statSync(p).isDirectory()) ficherosTs(p, acc);
++    else if (/\.tsx?$/.test(e)) acc.push(p);
++  }
++  return acc;
++}
++
++test('todo .ilike() pasa su patrón por escaparLike', () => {
++  const sinEscapar: string[] = [];
++
++  for (const carpeta of CARPETAS) {
++    for (const fichero of ficherosTs(join(RAIZ, carpeta))) {
++      const rel = relative(RAIZ, fichero);
++      if (rel.endsWith('.test.ts') || rel.endsWith('.test.tsx')) continue;
++      if (rel === 'lib/escapar-like.ts') continue;
++
++      const src = readFileSync(fichero, 'utf8');
++      const lineas = src.split('\n');
++      lineas.forEach((linea, i) => {
++        const m = linea.match(/\.ilike\(\s*[^,]+,\s*([^)]*)\)/);
++        if (!m) return;
++        // Los comentarios de este repo citan `.ilike('email', …)` a menudo para
++        // explicar el riesgo; no son llamadas.
++        if (/^\s*(\/\/|\*|\/\*)/.test(linea)) return;
++
++        // Se mira EL ARGUMENTO, no el vecindario: un `escaparLike` que aparece
++        // en el comentario de al lado, o en la llamada gemela de veinte líneas
++        // más abajo, no protege a ESTA. (Primera versión de este test: hacía
++        // exactamente eso y su control positivo pasaba en verde.)
++        const patron = m[1].trim();
++        if (patron.includes('escaparLike')) return;
++        // `const patron = escaparLike(email)` y luego `.ilike('email', patron)`
++        // — el estilo de lib/billing/socia-nueva.ts.
++        if (/^[A-Za-z_]\w*$/.test(patron)
++            && new RegExp(`\\b(const|let)\\s+${patron}\\s*=\\s*escaparLike\\(`).test(src)) return;
++
++        const clave = `${rel}:${i + 1}`;
++        if (clave in EXCEPCIONES) return;
++        sinEscapar.push(`${clave} → ${linea.trim()}`);
++      });
++    }
++  }
++
++  assert.deepEqual(
++    sinEscapar, [],
++    'hay .ilike() sin escaparLike. El valor ES el patrón: un "%" convierte el '
++    + 'filtro en "devuélvemelo todo". Usa escaparLike() o añade el sitio a '
++    + 'EXCEPCIONES explicando por qué el patrón es una constante del código.',
++  );
++});
+diff --git a/lib/insert-id-explicito.test.ts b/lib/insert-id-explicito.test.ts
+new file mode 100644
+index 00000000..28947a84
+--- /dev/null
++++ b/lib/insert-id-explicito.test.ts
+@@ -0,0 +1,103 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { readFileSync, readdirSync, statSync } from 'node:fs';
++import { join, relative } from 'node:path';
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Guardián: si una tabla declara su PK como `id text primary key` SIN DEFAULT,
++// todo `.insert(` sobre ella tiene que poner el `id` a mano.
++//
++// Auditoría 29-ago-2026: `POST /api/public/social/companeras` insertaba sin
++// `id` sobre `socio_companeras` (`id text primary key`, sin default). Todas las
++// solicitudes de "compañera de clase" morían con 23502 desde el día que se
++// desplegó la pieza — verificado en producción, 0 filas en la tabla. Con
++// typecheck, lint y 3.343 tests en verde: el tipo `RowSocioCompaneras` no
++// distingue "columna obligatoria sin default" de "la pone Postgres".
++//
++// El test cruza las migraciones (fuente de verdad del esquema) con el código:
++// no hay que mantener una lista a mano, una tabla nueva con la misma forma
++// queda cubierta sola.
++// ─────────────────────────────────────────────────────────────────────────────
++
++const RAIZ = join(import.meta.dirname, '..');
++
++function ficherosTs(dir: string, acc: string[] = []): string[] {
++  for (const e of readdirSync(dir)) {
++    if (e === 'node_modules' || e === '.next') continue;
++    const p = join(dir, e);
++    if (statSync(p).isDirectory()) ficherosTs(p, acc);
++    else if (/\.tsx?$/.test(e) && !/\.test\.tsx?$/.test(e)) acc.push(p);
++  }
++  return acc;
++}
++
++// Tablas con `id text primary key` y sin `default` en la misma línea.
++function tablasConIdTextSinDefault(): Set<string> {
++  const dir = join(RAIZ, 'supabase/migrations');
++  const out = new Set<string>();
++  for (const f of readdirSync(dir)) {
++    if (!f.endsWith('.sql')) continue;
++    const sql = readFileSync(join(dir, f), 'utf8');
++    const re = /create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?(\w+)\s*\(([\s\S]*?)\n\);/gi;
++    let m: RegExpExecArray | null;
++    while ((m = re.exec(sql)) !== null) {
++      const tabla = m[1];
++      const cuerpo = m[2];
++      const lineaId = cuerpo.split('\n').find(l => /^\s*id\s+text\b/i.test(l));
++      if (!lineaId) continue;
++      if (!/primary\s+key/i.test(lineaId)) continue;
++      if (/\bdefault\b/i.test(lineaId)) continue;
++      out.add(tabla);
++    }
++  }
++  return out;
++}
++
++test('todo .insert() sobre una tabla con `id text primary key` sin default pone el id', () => {
++  const tablas = tablasConIdTextSinDefault();
++  // Control positivo: si el parser deja de encontrar tablas, el test pasaría
++  // vacío y no protegería nada.
++  assert.ok(tablas.size > 5, `el parser de migraciones solo vio ${tablas.size} tablas: revísalo`);
++  assert.ok(tablas.has('socio_companeras'), 'socio_companeras debería estar: es el caso que originó este test');
++
++  const fallos: string[] = [];
++  for (const carpeta of ['lib', 'app']) {
++    for (const fichero of ficherosTs(join(RAIZ, carpeta))) {
++      const src = readFileSync(fichero, 'utf8');
++      for (const tabla of tablas) {
++        // `.from('tabla')` seguido de `.insert(`/`.upsert(` en las siguientes
++        // ~12 líneas, y dentro del objeto insertado tiene que aparecer `id`.
++        const re = new RegExp(`\\.from\\('${tabla}'\\)`, 'g');
++        let m: RegExpExecArray | null;
++        while ((m = re.exec(src)) !== null) {
++          // La ventana se corta en el siguiente `.from(`: sin eso, un
++          // `.update()` sobre esta tabla se quedaba con el `.upsert()` de la
++          // consulta de al lado y salía como falso positivo.
++          let trozo = src.slice(m.index, m.index + 900);
++          const otroFrom = trozo.indexOf(".from('", 1);
++          if (otroFrom > 0) trozo = trozo.slice(0, otroFrom);
++          const ins = trozo.match(/\.(insert|upsert)\(\s*(\{[\s\S]*?\n\s*\}|\{[^{}]*\}|[A-Za-z_][\w.]*)/);
++          if (!ins) continue;
++          const objeto = ins[2];
++          // `id:` y también la forma abreviada `id,` — casi todo el repo hace
++          // `const id = \`docsocio-${uid()}\`` y luego `.insert({ id, … })`.
++          const declaraId = (s: string) => /(?:^|[{,\s])id\s*(?::|,|\}|\r?\n)/.test(s);
++          // Si lo que se inserta es una variable (`.insert(fila)`), el objeto se
++          // construye en otro sitio: se comprueba que el fichero mencione un id.
++          const tieneId = declaraId(objeto) || (!objeto.startsWith('{') && declaraId(src));
++          if (!tieneId) {
++            const linea = src.slice(0, m.index).split('\n').length;
++            fallos.push(`${relative(RAIZ, fichero)}:${linea} → insert en '${tabla}' sin id`);
++          }
++        }
++      }
++    }
++  }
++
++  assert.deepEqual(
++    fallos, [],
++    'estas tablas tienen `id text primary key` SIN default: Postgres no lo genera, '
++    + 'lo tiene que poner el servidor (`comp-${uid()}`, `msg-${crypto.randomUUID()}`…). '
++    + 'Sin él, el INSERT muere con 23502 y la funcionalidad entera queda muerta en producción.',
++  );
++});
+diff --git a/lib/notifications/catalog.ts b/lib/notifications/catalog.ts
+index a6951150..04f79003 100644
+--- a/lib/notifications/catalog.ts
++++ b/lib/notifications/catalog.ts
+@@ -20,6 +20,12 @@ export type Audiencia =
+   // quien la imparte. Que la instructora se entere de que su clase se cancela o
+   // cambia de hora importa tanto como que se enteren las alumnas.
+   | 'socias-e-instructora-de-la-sesion'
++  // Igual que la anterior, pero incluyendo a quien está en LISTA_ESPERA o
++  // PENDIENTE_APROBACION. Solo para clase.cancelada: cancelar la clase cancela
++  // también esas reservas (dbCancelarReservasPorSesiones), así que sin esto se
++  // les borra la reserva en silencio. Para clase.modificada NO aplica: a quien
++  // no tiene plaza no le cambia nada que se mueva la hora.
++  | 'socias-y-espera-e-instructora-de-la-sesion'
+   // Staff de mostrador: la dueña + las recepcionistas activas. Si el estudio no
+   // tiene recepción, resuelve solo a la dueña (comportamiento previo intacto).
+   | 'mostrador'
+@@ -268,7 +274,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
+   // clase.*: SIN EMAIL a propósito. El panel ya manda su propio correo a cada
+   // alumna con plaza (enviarEmailCancelacionClase / avisarAlumnas) → declararlo
+   // aquí les llegaría el mismo aviso dos veces.
+-  [EVENTOS.CLASE_CANCELADA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-e-instructora-de-la-sesion' },
++  [EVENTOS.CLASE_CANCELADA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-y-espera-e-instructora-de-la-sesion' },
+   [EVENTOS.CLASE_MODIFICADA]:      { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-e-instructora-de-la-sesion' },
+   // Solo las alumnas: a quien entra a cubrir ya se le avisa por sustitucion.aceptada.
+   [EVENTOS.CLASE_SUSTITUTA]:       { category: 'clases',   priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socias-de-la-sesion' },
+@@ -385,6 +391,7 @@ export const ROLES_POR_AUDIENCIA: Record<Audiencia, NotificationRole[]> = {
+   'socia-del-evento': ['SOCIA'],
+   'socias-de-la-sesion': ['SOCIA'],
+   'socias-e-instructora-de-la-sesion': ['SOCIA', 'INSTRUCTOR'],
++  'socias-y-espera-e-instructora-de-la-sesion': ['SOCIA', 'INSTRUCTOR'],
+   'propietaria': ['PROPIETARIO'],
+   'instructora-del-evento': ['INSTRUCTOR'],
+   // El manager entra en «mostrador»: lleva la sede, así que un aviso de lo que
+diff --git a/lib/notifications/client.ts b/lib/notifications/client.ts
+index dc0407dd..899fc618 100644
+--- a/lib/notifications/client.ts
++++ b/lib/notifications/client.ts
+@@ -71,12 +71,22 @@ export async function fetchPreferencias(getHeaders: Headers): Promise<Record<str
+   return prefs ?? {};
+ }
+ 
++// Devuelve `false` si el guardado NO llegó a la BD. Antes era `Promise<void>`
++// y tiraba la respuesta: los dos interruptores (portal y panel) pintan el
++// cambio de forma optimista, así que un 4xx/5xx o un corte de red dejaba a la
++// socia creyendo que había apagado el aviso de pago; al recargar volvía
++// encendido. El endpoint sí sabe fallar (app/api/notifications/preferences).
+ export async function guardarPreferencia(
+   getHeaders: Headers, studioId: string, category: string, valores: { inapp: boolean; push: boolean },
+-): Promise<void> {
+-  await fetch('/api/notifications/preferences', {
+-    method: 'PUT',
+-    headers: { 'Content-Type': 'application/json', ...(await getHeaders()) },
+-    body: JSON.stringify({ studioId, category, ...valores }),
+-  });
++): Promise<boolean> {
++  try {
++    const res = await fetch('/api/notifications/preferences', {
++      method: 'PUT',
++      headers: { 'Content-Type': 'application/json', ...(await getHeaders()) },
++      body: JSON.stringify({ studioId, category, ...valores }),
++    });
++    return res.ok;
++  } catch {
++    return false;
++  }
+ }
+diff --git a/lib/notifications/emit.ts b/lib/notifications/emit.ts
+index a657aea3..93138f5d 100644
+--- a/lib/notifications/emit.ts
++++ b/lib/notifications/emit.ts
+@@ -116,7 +116,7 @@ export async function emitirReservaAbandonada(
+ // clase ya ha empezado", esta es "no aceptaste la plaza liberada a tiempo").
+ export async function emitirReservaCancelada(
+   admin: SupabaseClient,
+-  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' },
++  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' | 'clase_cancelada' },
+ ): Promise<void> {
+   try {
+     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+@@ -135,7 +135,12 @@ export async function emitirReservaCancelada(
+             ? ' La plaza se ocupó justo antes de que aceptaras. Te hemos guardado una recuperación para otra clase.'
+             : p.motivo === 'clase_ya_empezada'
+               ? ' La clase ya había empezado cuando aceptaste. Te hemos guardado una recuperación para otra clase.'
+-              : '';
++              // El estudio canceló la clase mientras su oferta seguía viva
++              // (migr 20260829120000: la RPC ya no la deja confirmar sobre una
++              // clase cancelada). Tampoco es culpa suya: misma compensación.
++              : p.motivo === 'clase_cancelada'
++                ? ' El estudio canceló la clase. Te hemos guardado una recuperación para otra clase.'
++                : '';
+     await publish({
+       type: EVENTOS.RESERVA_CANCELADA, studioId: p.studioId,
+       data: { ...ctx, socioId: p.socioId, motivoTexto },
+diff --git a/lib/notifications/engine.test.ts b/lib/notifications/engine.test.ts
+index 2016a2d1..3dbbd376 100644
+--- a/lib/notifications/engine.test.ts
++++ b/lib/notifications/engine.test.ts
+@@ -116,8 +116,13 @@ test('canalesDisponibles: refleja lo que cada rol puede recibir por categoría',
+ });
+ 
+ test('cambios de clase: avisan a las alumnas Y a quien la imparte', () => {
++  // clase.cancelada usa la variante que incluye LISTA_ESPERA/PENDIENTE_APROBACION
++  // (auditoría 29-ago: cancelar la clase cancelaba también esas reservas y no se
++  // avisaba a nadie de ellas). clase.modificada NO: a quien no tiene plaza no le
++  // cambia nada que se mueva la hora.
++  assert.equal(REGLAS[EVENTOS.CLASE_CANCELADA].audiencia, 'socias-y-espera-e-instructora-de-la-sesion');
++  assert.equal(REGLAS[EVENTOS.CLASE_MODIFICADA].audiencia, 'socias-e-instructora-de-la-sesion');
+   for (const evento of [EVENTOS.CLASE_CANCELADA, EVENTOS.CLASE_MODIFICADA]) {
+-    assert.equal(REGLAS[evento].audiencia, 'socias-e-instructora-de-la-sesion');
+     // Sin plantilla para el rol, el motor lo descarta EN SILENCIO: los dos roles
+     // que devuelve la audiencia tienen que tener la suya.
+     for (const rol of ROLES_POR_AUDIENCIA[REGLAS[evento].audiencia]) {
+diff --git a/lib/notifications/recipients.ts b/lib/notifications/recipients.ts
+index c27dbccd..591b7b94 100644
+--- a/lib/notifications/recipients.ts
++++ b/lib/notifications/recipients.ts
+@@ -149,9 +149,18 @@ async function instructoraPorId(admin: SupabaseClient, studioId: string, instruc
+ // resolución (CONFIRMADA de verdad, no el snapshot de cliente) pero fuera del
+ // Notification Engine porque ese canal no lo declara el catálogo (ver comentario
+ // en `resolverDestinatarios` sobre 'socias-e-instructora-de-la-sesion').
+-export async function sociasDeSesion(admin: SupabaseClient, studioId: string, sesionId: string): Promise<Recipient[]> {
++// `estados` por defecto = solo CONFIRMADA, que es el comportamiento que
++// esperan todos los llamantes previos (clase.modificada, clase.sustituta y el
++// email de cambio de instructora: a quien está en lista de espera no le afecta
++// que cambie la hora de una plaza que todavía no tiene). La cancelación de la
++// clase SÍ le afecta —su reserva de espera se cancela con la clase— y por eso
++// pasa su propia lista; ver 'socias-y-espera-e-instructora-de-la-sesion'.
++export async function sociasDeSesion(
++  admin: SupabaseClient, studioId: string, sesionId: string,
++  estados: string[] = ['CONFIRMADA'],
++): Promise<Recipient[]> {
+   const { data: reservas } = await admin.from('reservas')
+-    .select('socio_id').eq('studio_id', studioId).eq('sesion_id', sesionId).eq('estado', 'CONFIRMADA');
++    .select('socio_id').eq('studio_id', studioId).eq('sesion_id', sesionId).in('estado', estados);
+   const ids = [...new Set((reservas ?? []).map(r => r.socio_id as string).filter(Boolean))];
+   const out: Recipient[] = [];
+   for (const id of ids) {
+@@ -261,6 +270,20 @@ export async function resolverDestinatarios(
+       ]);
+       return [...socias, ...instructora];
+     }
++    case 'socias-y-espera-e-instructora-de-la-sesion': {
++      if (!sesionId) return falta('sesionId');
++      const [socias, instructora] = await Promise.all([
++        // Cancelar la clase cancela TAMBIÉN las reservas en LISTA_ESPERA y
++        // PENDIENTE_APROBACION (lib/supabase-data.ts, dbCancelarReservasPorSesiones),
++        // así que si no se las avisa aquí se les borra la reserva sin que se
++        // enteren de nada — siguen creyendo que pueden subir. El orden ya es
++        // el correcto: quien cancela avisa ANTES de cancelar las reservas
++        // (ver el comentario de `updateSesion` en lib/studio-context.tsx).
++        sociasDeSesion(admin, event.studioId, sesionId, ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']),
++        instructoraDeSesion(admin, event.studioId, sesionId),
++      ]);
++      return [...socias, ...instructora];
++    }
+     case 'mostrador': {
+       const [p, r] = await Promise.all([
+         propietaria(admin, event.studioId),
+diff --git a/supabase/migrations/20260829120000_lista_espera_spots_y_valoracion.sql b/supabase/migrations/20260829120000_lista_espera_spots_y_valoracion.sql
+new file mode 100644
+index 00000000..0b80f463
+--- /dev/null
++++ b/supabase/migrations/20260829120000_lista_espera_spots_y_valoracion.sql
+@@ -0,0 +1,423 @@
++-- ─────────────────────────────────────────────────────────────────────────────
++-- Auditoría 29-ago-2026 — cuatro huecos de la familia "reservas", los cuatro
++-- del mismo tipo: un camino se cerró y su GEMELO se quedó abierto.
++--
++-- NO aplicada a mano en producción a propósito: va con el código que la
++-- acompaña (el nuevo `SPOT_NO_DISPONIBLE` y el nuevo `CLASE_CANCELADA` los
++-- tiene que saber leer `lib/db/supabase-data-admin.ts`). Aplicar solo la
++-- migración dejaría la BD por delante del código — el fallo del 22-ago.
++-- ─────────────────────────────────────────────────────────────────────────────
++
++-- ── 1) "Dejarla pasar" una oferta de lista de espera dejaba la plaza huérfana ──
++--
++-- `components/portal/hoja-oferta-espera.tsx` afirma que rechazar la oferta «es
++-- cancelarReserva de siempre: cancelar una reserva en LISTA_ESPERA ya libera el
++-- hueco y promueve a la siguiente». Era falso: `cancelar_reserva_plaza` solo
++-- promocionaba con `v_estado in ('CONFIRMADA','ASISTIDA')`. Resultado: rechazar
++-- la oferta explícitamente era PEOR que ignorarla (dejarla caducar sí promueve,
++-- vía `expirar_oferta_lista_espera`), la cola no se enteraba y la clase se daba
++-- con un hueco.
++--
++-- Se promociona SOLO si la reserva cancelada tenía una oferta viva
++-- (`oferta_expira_en is not null`): es el caso en que hay un hueco realmente
++-- libre esperando a alguien. Una LISTA_ESPERA sin oferta que simplemente
++-- abandona la cola NO debe promocionar a nadie — `promocionar_siguiente_espera`
++-- no comprueba aforo, así que llamarla ahí confirmaría una plaza inexistente.
++create or replace function public.cancelar_reserva_plaza(
++  p_studio_id text, p_reserva_id text, p_socio_id text, p_omitir_penalizacion boolean default false
++)
++returns table(era_confirmada boolean, promovida_socio_id text, devolver_bono boolean,
++              oferta_socio_id text, oferta_expira_en timestamptz, penalizacion_id text)
++language plpgsql
++security definer
++set search_path to 'public', 'pg_temp'
++as $function$
++declare
++  v_sesion_id text;
++  v_estado text;
++  v_res_socio text;
++  v_instructor_id text;
++  v_promo_socio text;
++  v_oferta_socio text;
++  v_oferta_expira timestamptz;
++  v_tenia_oferta boolean;
++  v_inicio timestamptz;
++  v_tipo_clase_id text;
++  v_ventana int;
++  v_devolver_tardia boolean;
++  v_tardia boolean;
++  v_devolver boolean;
++  v_plazo_espera int;
++  v_penalizacion_importe numeric;
++  v_penalizacion_aplica boolean;
++  v_penalizacion_id text;
++begin
++  if auth.uid() is not null and p_studio_id is distinct from current_studio_id() then
++    raise exception 'STUDIO_MISMATCH';
++  end if;
++
++  -- `oferta_expira_en` se lee AQUÍ, en el mismo FOR UPDATE que el estado y
++  -- antes del update que la pone a null más abajo. Leerla después sería leer
++  -- siempre null.
++  --
++  -- ⚠️ CUALIFICADA con `reservas.` a propósito: las columnas de `RETURNS TABLE`
++  -- son variables OUT de PL/pgSQL, y esta función tiene una que se llama
++  -- exactamente `oferta_expira_en`. Sin cualificar, el cuerpo entero revienta
++  -- con 42702 ("column reference is ambiguous") en la PRIMERA sentencia útil —
++  -- y `create or replace` NO lo detecta (no planifica el cuerpo), así que la
++  -- migración se aplicaría en verde y dejaría al producto sin poder cancelar
++  -- ninguna reserva, ni desde el portal ni desde el mostrador. La función no
++  -- lleva `#variable_conflict use_column` (prod tampoco) y no se le añade:
++  -- cambiaría la resolución de todo el cuerpo.
++  select reservas.sesion_id, reservas.estado, reservas.socio_id,
++         (reservas.oferta_expira_en is not null)
++    into v_sesion_id, v_estado, v_res_socio, v_tenia_oferta
++    from reservas where reservas.id = p_reserva_id and reservas.studio_id = p_studio_id
++    for update;
++  if not found then raise exception 'RESERVA_NO_ENCONTRADA'; end if;
++  if p_socio_id is not null and v_res_socio is distinct from p_socio_id then
++    raise exception 'NO_AUTORIZADO';
++  end if;
++
++  if auth.uid() is not null and public.current_rol() = 'INSTRUCTOR' then
++    select instructor_id into v_instructor_id from sesiones where id = v_sesion_id;
++    if v_instructor_id is distinct from public.current_instructor_id() then
++      raise exception 'NO_AUTORIZADO';
++    end if;
++  end if;
++
++  if v_estado = 'CANCELADA' then
++    return query select false, null::text, false, null::text, null::timestamptz, null::text;
++    return;
++  end if;
++
++  perform 1 from sesiones where id = v_sesion_id for update;
++
++  select ss.inicio, ss.tipo_clase_id into v_inicio, v_tipo_clase_id
++    from sesiones ss where ss.id = v_sesion_id;
++  select coalesce(tc.ventana_cancelacion_horas, st.cancelacion_ventana_horas),
++         coalesce(st.cancelacion_devolver_bono_tardia, false),
++         coalesce(tc.lista_espera_plazo_aceptacion_minutos, st.lista_espera_plazo_aceptacion_minutos),
++         coalesce(tc.penalizacion_importe_eur, st.penalizacion_importe_eur),
++         coalesce(st.penalizacion_aplica_cancelacion_tardia, true)
++    into v_ventana, v_devolver_tardia, v_plazo_espera, v_penalizacion_importe, v_penalizacion_aplica
++    from studios st
++    left join tipos_clase tc on tc.id = v_tipo_clase_id and tc.studio_id = p_studio_id
++   where st.id = p_studio_id;
++
++  v_tardia := coalesce(v_ventana, 0) > 0
++              and now() >= v_inicio - make_interval(hours => v_ventana);
++  v_devolver := v_devolver_tardia or not v_tardia;
++
++  -- CAMBIO menor no declarado en el título: se añade `oferta_expira_en = null`,
++  -- que la versión de producción no ponía. Limpia la oferta de una fila que
++  -- queda CANCELADA; nadie la volvería a mirar (`expirar_oferta_lista_espera` y
++  -- `promocionar_siguiente_espera` filtran por `estado='LISTA_ESPERA'`), pero
++  -- dejarla puesta hacía que `v_tenia_oferta` fuese la única forma de saber si
++  -- la reserva estaba ofertada y ensuciaba cualquier consulta futura.
++  update reservas set estado = 'CANCELADA', posicion_espera = null, oferta_expira_en = null
++   where id = p_reserva_id;
++
++  update recuperaciones
++     set estado = 'DISPONIBLE', usada_en_reserva_id = null
++   where usada_en_reserva_id = p_reserva_id and estado = 'USADA';
++
++  if v_estado in ('CONFIRMADA', 'ASISTIDA') and v_tardia and v_penalizacion_aplica
++     and not p_omitir_penalizacion
++     and v_penalizacion_importe is not null and v_penalizacion_importe > 0 then
++    insert into penalizaciones (id, studio_id, socio_id, reserva_id, tipo, importe, estado)
++      values ('pen-' || gen_random_uuid()::text, p_studio_id, v_res_socio, p_reserva_id, 'CANCELACION_TARDIA', v_penalizacion_importe, 'DETECTADA')
++      on conflict (reserva_id, tipo) do nothing
++      returning id into v_penalizacion_id;
++  end if;
++
++  -- CAMBIO: se añade la rama de la oferta rechazada. `promocionar_siguiente_espera`
++  -- ya comprueba por su cuenta que la clase siga viva y coge a la siguiente SIN
++  -- oferta (`oferta_expira_en is null`), así que no puede ofrecerle el hueco a
++  -- quien acaba de rechazarlo.
++  if v_estado in ('CONFIRMADA', 'ASISTIDA')
++     or (v_estado = 'LISTA_ESPERA' and v_tenia_oferta) then
++    select pse.promovida_socio_id, pse.oferta_socio_id, pse.oferta_expira_en
++      into v_promo_socio, v_oferta_socio, v_oferta_expira
++      from public.promocionar_siguiente_espera(p_studio_id, v_sesion_id, v_plazo_espera) as pse;
++  end if;
++
++  update reservas r
++     set posicion_espera = sub.rn
++    from (
++      select id, row_number() over (order by creado_en asc, id asc) as rn
++        from reservas
++       where sesion_id = v_sesion_id and estado = 'LISTA_ESPERA'
++    ) sub
++   where r.id = sub.id and r.posicion_espera is distinct from sub.rn;
++
++  return query select (v_estado in ('CONFIRMADA', 'ASISTIDA')), v_promo_socio, v_devolver, v_oferta_socio, v_oferta_expira, v_penalizacion_id;
++end;
++$function$;
++
++-- ── 2) Aceptar una oferta de una clase CANCELADA ──────────────────────────────
++--
++-- Gemelo sin arreglar de `promocionar_siguiente_espera`, que desde
++-- 20260819120000 sí exige que la clase esté viva. `aceptar_oferta_lista_espera`
++-- comprobaba caducidad, hora de inicio y aforo — pero no `sesiones.cancelada`.
++-- Camino real: cancelar una clase marca `cancelada` y cancela las reservas en
++-- una llamada APARTE que puede fallar («La clase se ha cancelado, pero no hemos
++-- podido cancelar sus reservas»); con la oferta todavía viva, la socia la
++-- aceptaba, quedaba CONFIRMADA y se le gastaba una sesión del bono sobre una
++-- clase que no existe.
++--
++-- Se devuelve 'CLASE_CANCELADA' por la MISMA salida que 'AFORO_LLENO': la
++-- reserva se cancela y el llamante compensa con una recuperación.
++create or replace function public.aceptar_oferta_lista_espera(
++  p_studio_id text, p_reserva_id text, p_socio_id text
++)
++returns table(estado text)
++language plpgsql
++security definer
++set search_path to 'public', 'pg_temp'
++as $function$
++declare
++  v_sesion_id text; v_res_socio text; v_expira timestamptz;
++  v_inicio timestamptz; v_cancelada boolean; v_aforo int; v_ocupadas int;
++begin
++  perform public.validar_studio_mismatch(p_studio_id);
++  select r.sesion_id into v_sesion_id from reservas as r
++   where r.id = p_reserva_id and r.studio_id = p_studio_id and r.estado = 'LISTA_ESPERA';
++  if not found then raise exception 'OFERTA_NO_ENCONTRADA'; end if;
++  select s.inicio, coalesce(s.cancelada, false) into v_inicio, v_cancelada from sesiones as s
++   where s.id = v_sesion_id and s.studio_id = p_studio_id for update;
++  if not found then raise exception 'SESION_NO_ENCONTRADA'; end if;
++  select r.socio_id, r.oferta_expira_en into v_res_socio, v_expira from reservas as r
++   where r.id = p_reserva_id and r.studio_id = p_studio_id and r.estado = 'LISTA_ESPERA' for update;
++  if not found then raise exception 'OFERTA_NO_ENCONTRADA'; end if;
++  if v_res_socio is distinct from p_socio_id then raise exception 'NO_AUTORIZADO'; end if;
++  if v_expira is null then raise exception 'SIN_OFERTA_ACTIVA'; end if;
++  if now() > v_expira then raise exception 'OFERTA_CADUCADA'; end if;
++  -- CAMBIO: la clase cancelada, antes que la hora y que el aforo (una clase
++  -- cancelada del futuro pasaba las dos comprobaciones anteriores).
++  if v_cancelada then
++    update reservas set estado='CANCELADA', posicion_espera=null, oferta_expira_en=null where id = p_reserva_id;
++    perform public.renumerar_lista_espera(v_sesion_id);
++    return query select 'CLASE_CANCELADA'::text;
++    return;
++  end if;
++  if v_inicio <= now() then
++    update reservas set estado='CANCELADA', posicion_espera=null, oferta_expira_en=null where id = p_reserva_id;
++    perform public.renumerar_lista_espera(v_sesion_id);
++    return query select 'CLASE_YA_EMPEZADA'::text;
++    return;
++  end if;
++  v_aforo := aforo_efectivo(v_sesion_id);
++  select count(*) into v_ocupadas from reservas as r
++   where r.sesion_id = v_sesion_id and r.estado in ('CONFIRMADA','ASISTIDA');
++  if v_aforo is not null and v_ocupadas >= v_aforo then
++    update reservas set estado='CANCELADA', posicion_espera=null, oferta_expira_en=null where id = p_reserva_id;
++    perform public.renumerar_lista_espera(v_sesion_id);
++    return query select 'AFORO_LLENO'::text;
++    return;
++  end if;
++  update reservas set estado='CONFIRMADA', posicion_espera=null, oferta_expira_en=null where id = p_reserva_id;
++  perform public.renumerar_lista_espera(v_sesion_id);
++  return query select 'CONFIRMADA'::text;
++end; $function$;
++
++-- ── 3) `reservar_plaza` no miraba `spots.activo`; su gemelo JS sí ─────────────
++--
++-- `asignarSpotReserva` (lib/db/supabase-data-admin.ts) comprueba
++-- `!spot.activo` antes de asignar. La RPC del camino de PAGO (el único que usa
++-- `p_spot_id`) no: un reformer dado de baja se podía vender por "pagar y
++-- reservar sin login". Error propio (`SPOT_NO_DISPONIBLE`) en vez de reutilizar
++-- `SPOT_NO_PERTENECE_A_LA_SALA`, para que el mostrador vea el motivo real.
++create or replace function public.reservar_plaza(
++  p_studio_id text, p_sesion_id text, p_socio_id text, p_reserva_id text,
++  p_permite_lista_espera boolean default true, p_requiere_aprobacion boolean default false,
++  p_spot_id text default null::text
++)
++returns table(estado text, posicion_espera integer)
++language plpgsql
++security definer
++set search_path to 'public', 'pg_temp'
++as $function$
++#variable_conflict use_column
++declare
++  v_inicio timestamptz;
++  v_sala_id text;
++  v_instructor_id text;
++  v_aforo int;
++  v_ocupadas int;
++  v_espera int;
++  v_estado text;
++  v_pos int;
++  v_limite int;
++  v_semana int;
++  v_recup text;
++  v_semana_ini timestamptz;
++  v_spot_sala_id text;
++  v_spot_activo boolean;
++  v_spot_ocupado text;
++begin
++  perform public.validar_studio_mismatch(p_studio_id);
++  perform public.validar_socio_del_studio(p_socio_id, p_studio_id);
++
++  select inicio, instructor_id, sala_id into v_inicio, v_instructor_id, v_sala_id
++    from sesiones where id = p_sesion_id and studio_id = p_studio_id
++    for update;
++  if not found then
++    raise exception 'SESION_NO_ENCONTRADA';
++  end if;
++
++  if auth.uid() is not null and public.current_rol() = 'INSTRUCTOR' then
++    if v_instructor_id is distinct from public.current_instructor_id() then
++      raise exception 'NO_AUTORIZADO';
++    end if;
++  end if;
++
++  if exists (
++    select 1 from reservas
++    where sesion_id = p_sesion_id and socio_id = p_socio_id
++      and estado in ('CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA', 'PENDIENTE_APROBACION')
++  ) then
++    raise exception 'YA_RESERVADA';
++  end if;
++
++  -- Candado del spot ANTES de decidir estado: mismo criterio que el FOR
++  -- UPDATE de sesiones, evita que dos pagos simultáneos elijan el mismo
++  -- sitio. Se hace igual si va a terminar en LISTA_ESPERA/PENDIENTE_APROBACION
++  -- (el candado no hace daño ahí, solo no se usará luego).
++  if p_spot_id is not null then
++    select sp.sala_id, coalesce(sp.activo, true) into v_spot_sala_id, v_spot_activo
++      from spots sp
++      where sp.id = p_spot_id and sp.studio_id = p_studio_id
++      for update;
++    if not found or v_spot_sala_id is distinct from v_sala_id then
++      raise exception 'SPOT_NO_PERTENECE_A_LA_SALA';
++    end if;
++    if not v_spot_activo then
++      raise exception 'SPOT_NO_DISPONIBLE';
++    end if;
++
++    select r.id into v_spot_ocupado
++      from reservas r
++      where r.sesion_id = p_sesion_id and r.spot_id = p_spot_id
++        and r.estado in ('CONFIRMADA', 'ASISTIDA')
++      for update;
++    if v_spot_ocupado is not null then
++      raise exception 'SPOT_OCUPADO';
++    end if;
++  end if;
++
++  if p_requiere_aprobacion then
++    v_estado := 'PENDIENTE_APROBACION';
++    v_pos := null;
++  else
++    v_aforo := aforo_efectivo(p_sesion_id);
++
++    select count(*) into v_ocupadas
++      from reservas
++      where sesion_id = p_sesion_id and estado in ('CONFIRMADA', 'ASISTIDA');
++
++    if v_aforo is null or v_ocupadas < v_aforo then
++      v_estado := 'CONFIRMADA';
++      v_pos := null;
++    else
++      if not p_permite_lista_espera then
++        raise exception 'AFORO_LLENO_SIN_ESPERA';
++      end if;
++      select count(*) into v_espera
++        from reservas where sesion_id = p_sesion_id and estado = 'LISTA_ESPERA';
++      v_estado := 'LISTA_ESPERA';
++      v_pos := v_espera + 1;
++    end if;
++  end if;
++
++  if v_estado = 'CONFIRMADA' then
++    select p.limite_semanal into v_limite
++      from suscripciones s
++      join planes_tarifa p on p.id = s.plan_id
++     where s.studio_id = p_studio_id and s.socio_id = p_socio_id and s.estado = 'ACTIVA'
++       and p.limite_semanal is not null
++       and (s.fecha_fin is null or s.fecha_fin >= current_date)
++     order by p.limite_semanal asc
++     limit 1;
++    if v_limite is not null then
++      v_semana_ini := date_trunc('week', v_inicio at time zone 'Europe/Madrid') at time zone 'Europe/Madrid';
++      select count(*) into v_semana
++        from reservas r
++        join sesiones ss on ss.id = r.sesion_id
++       where r.socio_id = p_socio_id and r.studio_id = p_studio_id
++         and r.estado in ('CONFIRMADA', 'ASISTIDA')
++         and coalesce(ss.cancelada, false) = false
++         and ss.inicio >= v_semana_ini
++         and ss.inicio <  v_semana_ini + interval '7 days';
++      if v_semana >= v_limite then
++        select id into v_recup
++          from recuperaciones
++         where socio_id = p_socio_id and studio_id = p_studio_id
++           and estado = 'DISPONIBLE' and caduca_el >= current_date
++         order by caduca_el asc
++         limit 1
++         for update;
++        if v_recup is null then
++          raise exception 'LIMITE_SEMANAL';
++        end if;
++        update recuperaciones
++           set estado = 'USADA', usada_en_reserva_id = p_reserva_id
++         where id = v_recup;
++      end if;
++    end if;
++  end if;
++
++  insert into reservas (id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, check_in_en, creado_en)
++    values (
++      p_reserva_id, p_studio_id, p_sesion_id, p_socio_id, v_estado,
++      case when v_estado = 'CONFIRMADA' then p_spot_id else null end,
++      v_pos, null, now()
++    );
++
++  return query select v_estado, v_pos;
++end;
++$function$;
++
++-- ── 4) Valorar una clase CONGELABA la reserva ────────────────────────────────
++--
++-- `reservas_valoracion_experiencia_solo_asistida` (20260828010312) es un CHECK
++-- de FILA, no de inserción: una vez valorada, CUALQUIER update posterior de
++-- `estado` fallaba con 23514. Verificado en producción sobre una reserva real
++-- (dentro de una transacción revertida): CANCELADA, NO_ASISTIO y CONFIRMADA
++-- daban las tres el mismo 23514.
++--
++-- Rompía tres caminos reales del mostrador: marcar no-show
++-- (`dbUpdateReserva(..., NO_ASISTIO)`), deshacer un check-in, y cancelar una
++-- reserva ASISTIDA para cuadrar histórico. Hoy hay 0 filas valoradas, así que
++-- estaba latente pero garantizado.
++--
++-- El invariante que se quiere ("solo se valora una clase a la que se asistió")
++-- es sobre la ESCRITURA de la valoración, no sobre la fila para siempre: pasa a
++-- un trigger que valida únicamente cuando la valoración se pone o cambia. La
++-- valoración ya escrita sobrevive a un cambio de estado posterior, que es lo
++-- que quiere el negocio (la clase se dio y se valoró; el ajuste administrativo
++-- de después no borra la opinión).
++alter table public.reservas
++  drop constraint if exists reservas_valoracion_experiencia_solo_asistida;
++
++create or replace function public.reservas_valoracion_solo_asistida()
++returns trigger
++language plpgsql
++set search_path to 'public', 'pg_temp'
++as $$
++begin
++  if new.valoracion_experiencia is not null
++     and (tg_op = 'INSERT' or new.valoracion_experiencia is distinct from old.valoracion_experiencia)
++     and new.estado <> 'ASISTIDA' then
++    raise exception 'VALORACION_SOLO_ASISTIDA';
++  end if;
++  return new;
++end; $$;
++
++drop trigger if exists reservas_valoracion_solo_asistida_trigger on public.reservas;
++create trigger reservas_valoracion_solo_asistida_trigger
++  before insert or update on public.reservas
++  for each row execute function public.reservas_valoracion_solo_asistida();
++
++comment on function public.reservas_valoracion_solo_asistida() is
++  'Sustituye al CHECK de fila reservas_valoracion_experiencia_solo_asistida (auditoría 29-ago-2026): valida SOLO cuando la valoración se pone o cambia, para no congelar el estado de la reserva a partir del momento en que se valora.';

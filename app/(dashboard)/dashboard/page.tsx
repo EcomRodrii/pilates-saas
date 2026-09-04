@@ -16,6 +16,7 @@ import { cn, inicioDeSemana, finDeSemana } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { AvisoIntegracionesCaidas } from '@/components/dashboard/aviso-integraciones-caidas';
 import { ActionCenter } from '@/components/decision/action-center';
@@ -253,6 +254,7 @@ function ClaseHoyCard({
   sesion,
   isNow,
   esPropia,
+  onToast,
 }: {
   sesion: ReturnType<typeof useStudio>['sesiones'][0] & {
     tipoNombre: string;
@@ -266,10 +268,15 @@ function ClaseHoyCard({
   // lo mismo que ya hace app/(dashboard)/calendario, aquí desde la tarjeta que
   // ve nada más entrar, sin tener que navegar al calendario.
   esPropia: boolean;
+  // P2 (auditoría de producto): aviso si se canceló la reserva pero no se
+  // pudo devolver el bono — antes se perdía en silencio.
+  onToast: (msg: string) => void;
 }) {
   const { reservas, socios, checkin, cancelarReserva } = useStudio();
   const [expanded, setExpanded] = useState(isNow);
   const [showNoPuedoAsistir, setShowNoPuedoAsistir] = useState(false);
+  // P1-4 (auditoría de producto): la X quitaba la reserva sin confirmar.
+  const [reservaAQuitar, setReservaAQuitar] = useState<{ id: string; nombre: string } | null>(null);
 
   // P0-27: Map por id en vez de socios.find() por cada reserva de la sesión.
   const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
@@ -387,7 +394,7 @@ function ClaseHoyCard({
                           Check-in
                         </button>
                         <button
-                          onClick={() => { void cancelarReserva(r.id); }}
+                          onClick={() => setReservaAQuitar({ id: r.id, nombre: `${r.socio!.nombre} ${r.socio!.apellidos}` })}
                           className="text-[10px] font-medium px-2 py-1 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                         >
                           ✕
@@ -422,6 +429,24 @@ function ClaseHoyCard({
         open={showNoPuedoAsistir}
         onOpenChange={setShowNoPuedoAsistir}
         sesion={{ id: sesion.id, inicio: sesion.inicio, tipoClase: { nombre: sesion.tipoNombre } }}
+      />
+
+      <ConfirmDialog
+        open={!!reservaAQuitar}
+        onOpenChange={v => { if (!v) setReservaAQuitar(null); }}
+        titulo={reservaAQuitar ? `¿Quitar a ${reservaAQuitar.nombre}?` : ''}
+        descripcion="Se libera su plaza — si hay lista de espera, se promociona automáticamente a la siguiente persona."
+        textoConfirmar="Quitar"
+        destructivo
+        onConfirm={() => {
+          if (reservaAQuitar) {
+            void cancelarReserva(reservaAQuitar.id).then(res => {
+              if (!res.ok) onToast(res.error);
+              else if (res.avisoBono) onToast(res.avisoBono);
+            });
+          }
+          setReservaAQuitar(null);
+        }}
       />
     </div>
   );
@@ -745,7 +770,11 @@ export default function Dashboard() {
   const [avisandoSesion, setAvisandoSesion] = useState<string | null>(null);
   async function avisarCandidatas(sesionId: string, nCandidatas: number, nombreClase: string) {
     if (nCandidatas === 0 || avisandoSesion) return;
-    if (!window.confirm(`Se avisará a ${nCandidatas} socia${nCandidatas === 1 ? '' : 's'} por WhatsApp de que hay hueco en ${nombreClase}. ¿Continuar?`)) return;
+    // «hasta N»: el servidor descarta después a quien no tenga consentimiento
+    // de marketing vigente, a quien ya se avisó en 24 h y a las exentas. Decir
+    // un número exacto que luego no se cumple convierte el resultado en un
+    // misterio — y hoy la mayoría de las socias NO tiene consentimiento.
+    if (!window.confirm(`Se avisará por WhatsApp a hasta ${nCandidatas} socia${nCandidatas === 1 ? '' : 's'} de que hay hueco en ${nombreClase}. Solo recibirán el aviso las que hayan dado su consentimiento de marketing. ¿Continuar?`)) return;
     setAvisandoSesion(sesionId);
     try {
       const res = await fetch('/api/marketing/hueco/avisar', {
@@ -755,7 +784,13 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (!res.ok) { showToast(`Error: ${data.error ?? 'no se pudo avisar'}`); return; }
-      showToast(`Aviso enviado a ${data.enviados} socia${data.enviados === 1 ? '' : 's'}${data.sinTelefono ? ` (${data.sinTelefono} sin teléfono)` : ''}`);
+      // Sin el desglose, «Aviso enviado a 0 socias» no tiene explicación y
+      // parece una avería. `sinConsentimiento` es hoy el motivo más frecuente.
+      const motivos = [
+        data.sinConsentimiento ? `${data.sinConsentimiento} sin consentimiento de marketing` : null,
+        data.sinTelefono ? `${data.sinTelefono} sin teléfono` : null,
+      ].filter(Boolean).join(', ');
+      showToast(`Aviso enviado a ${data.enviados} socia${data.enviados === 1 ? '' : 's'}${motivos ? ` (${motivos})` : ''}`);
     } catch {
       showToast('No se pudo conectar con el servidor. El aviso no se ha enviado.');
     } finally {
@@ -1102,7 +1137,7 @@ export default function Dashboard() {
               ) : (
                 <div className="p-4 space-y-2">
                   {clasesHoy.map(s => (
-                    <ClaseHoyCard key={s.id} sesion={s} isNow={isNowFn(s)} esPropia={!!yo && s.instructorId === yo.id} />
+                    <ClaseHoyCard key={s.id} sesion={s} isNow={isNowFn(s)} esPropia={!!yo && s.instructorId === yo.id} onToast={showToast} />
                   ))}
                 </div>
               )}
@@ -1156,7 +1191,11 @@ export default function Dashboard() {
                           {r.importe} €
                         </CifraPrivada>
                         <button
-                          onClick={() => marcarCobrado(r.id)}
+                          onClick={() => {
+                            void marcarCobrado(r.id).then(res => {
+                              if (!res.ok) showToast(res.error);
+                            });
+                          }}
                           className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors"
                         >
                           Cobrar

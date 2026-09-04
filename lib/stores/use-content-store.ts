@@ -15,14 +15,25 @@
 
 import { useState } from 'react';
 import { uid } from '@/lib/utils';
-import type { VideoOnDemand, PostComunidad } from '@/lib/types';
+import type { VideoOnDemand, PostComunidad, DestinatariosCampana } from '@/lib/types';
 import {
   getCurrentStudioId,
   dbInsertVideoOnDemand,
   dbUpdateVideoOnDemand,
-  dbInsertPostComunidad,
+  dbCrearPostComunidad,
   dbToggleLikePost,
+  dbUpdatePostComunidad,
+  dbDeletePostComunidad,
 } from '@/lib/supabase-data';
+
+// Exportado para que `lib/studio-context.tsx` tipe `addPost` con la firma
+// real (no solo `(texto: string) => void`) — sin esto, cualquier caller que
+// pase el segundo argumento (audiencia/imagenUrl/evento) falla en tsc contra
+// el tipo del contexto aunque la implementación lo acepte perfectamente.
+export type OpcionesAddPost = {
+  audiencia?: DestinatariosCampana; imagenUrl?: string | null;
+  tipo?: 'TEXTO' | 'EVENTO'; eventoFecha?: string | null; eventoAforo?: number | null; eventoLugar?: string | null;
+};
 
 export function useContentStore() {
   const [videosOnDemand, setVideosOnDemand] = useState<VideoOnDemand[]>([]);
@@ -54,7 +65,11 @@ export function useContentStore() {
   }
 
   // ── Comunidad ─────────────────────────────────────────────────────────────
-  function addPost(texto: string) {
+  // P1: `audiencia`/`imagenUrl` opcionales — 'TODAS' y null mantienen el
+  // comportamiento previo intacto para quien siga llamando a addPost(texto).
+  // La persistencia real (y el fan-out de notificación) vive detrás de
+  // dbCrearPostComunidad (/api/comunidad/posts), no de un insert directo.
+  function addPost(texto: string, opts?: OpcionesAddPost) {
     const nuevo: PostComunidad = {
       id: `post-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -62,13 +77,32 @@ export function useContentStore() {
       autorNombre: 'Tentare',
       autorInicial: 'TE',
       texto,
+      audiencia: opts?.audiencia ?? 'TODAS',
+      imagenUrl: opts?.imagenUrl ?? null,
+      tipo: opts?.tipo ?? 'TEXTO',
+      eventoFecha: opts?.eventoFecha ?? null,
+      eventoAforo: opts?.eventoAforo ?? null,
+      eventoLugar: opts?.eventoLugar ?? null,
       likes: 0,
       comentariosCount: 0,
       fijado: false,
       creadoEn: new Date().toISOString(),
     };
     setPostsComunidad(prev => [nuevo, ...prev]);
-    dbInsertPostComunidad(nuevo);
+    // 19ª auditoría · F-2: mismo criterio que `toggleLikePost` — si el servidor
+    // rechaza, se retira el optimista. Dejarlo pintado hacía creer que el aviso
+    // estaba publicado (y notificado a la audiencia) cuando no había llegado ni
+    // a la BD ni al fan-out.
+    //
+    // F-19: el servidor ya no respeta `nuevo.id` (lo genera él, ver
+    // dbCrearPostComunidad) — hay que reconciliar el id optimista con el real
+    // o un like/editar/borrar sobre este post antes del próximo refresco
+    // apuntaría a un id que nunca se guardó.
+    void dbCrearPostComunidad(nuevo).then(guardado => {
+      if (!guardado) { setPostsComunidad(prev => prev.filter(p => p.id !== nuevo.id)); return; }
+      if (guardado.id === nuevo.id) return;
+      setPostsComunidad(prev => prev.map(p => p.id === nuevo.id ? { ...p, id: guardado.id } : p));
+    });
   }
 
   function toggleLikePost(postId: string) {
@@ -108,6 +142,43 @@ export function useContentStore() {
     });
   }
 
+  // Editar un post ya publicado. Optimista, mismo criterio que addPost: sin
+  // rollback si falla el guardado — `dbUpdatePostComunidad` ya reporta el
+  // error, y revertir un texto/audiencia/evento que la propietaria ya ha
+  // vuelto a leer y dado por bueno en pantalla generaría más confusión que
+  // dejarlo como está hasta el próximo refresco real.
+  //
+  // F-26: `opts` cubre audiencia/tipo/evento, no solo texto — antes de esto
+  // no había forma de corregir la fecha/aforo/lugar de un EVENTO mal puesto
+  // sin borrar y republicar el post entero (con el fan-out otra vez).
+  function updatePost(postId: string, texto: string, opts?: OpcionesAddPost) {
+    setPostsComunidad(prev => prev.map(p => p.id === postId ? { ...p, texto, ...opts } : p));
+    void dbUpdatePostComunidad(postId, { texto, ...opts });
+  }
+
+  // 19ª auditoría · F-2: el borrado NO puede ser optimista-sin-vuelta como el
+  // texto. Un post que sigue en la BD sigue sirviéndose a todas las socias
+  // desde el feed público, así que "desaparece del panel" sin haberse borrado
+  // es exactamente el caso que hay que evitar: la propietaria cree retirado un
+  // precio mal puesto o un dato personal que en realidad sigue publicado.
+  function deletePost(postId: string) {
+    // Se guardan fila y posición para reponerlo EXACTAMENTE donde estaba: el
+    // tablón mezcla fijados y no fijados, así que reordenar por fecha al
+    // reponer movería el post de sitio.
+    const posicion = postsComunidad.findIndex(p => p.id === postId);
+    const anterior = posicion >= 0 ? postsComunidad[posicion] : undefined;
+    setPostsComunidad(prev => prev.filter(p => p.id !== postId));
+    void dbDeletePostComunidad(postId).then(ok => {
+      if (ok || !anterior) return;
+      setPostsComunidad(prev => {
+        if (prev.some(p => p.id === postId)) return prev;
+        const n = [...prev];
+        n.splice(Math.min(Math.max(posicion, 0), n.length), 0, anterior);
+        return n;
+      });
+    });
+  }
+
   return {
     // estado
     videosOnDemand,
@@ -122,5 +193,7 @@ export function useContentStore() {
     toggleVideo,
     addPost,
     toggleLikePost,
+    updatePost,
+    deletePost,
   };
 }

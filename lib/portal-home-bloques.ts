@@ -41,17 +41,18 @@ export const BLOQUES_SISTEMA_IDS = [
   // arrastran ni se ocultan — ver `fijo` en el registro y el comentario de
   // BLOQUES_FIJOS_POR_PANTALLA.
   'cabecera', 'proximaClase',
-  'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos',
+  // ⚠️ `accesosRapidos` ("Mis reservas"/"Mi progreso"/"Notificaciones"/
+  // "El equipo") se retiró de este catálogo (31-ago, decisión explícita): no
+  // existe en el diseño real de referencia ("Tentare Studio App") — nunca fue
+  // decorativo, era contenido funcional del Inicio, así que su retirada SÍ
+  // rompe a propósito el "no se pueden eliminar" de más abajo, que sigue
+  // siendo la regla para el resto de bloques `sistema`.
+  'estaSemana', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos',
   // Tema "Oliva"/"Noir"/"Bloom" — ver lib/theme-definitions.ts (bloquesHome).
   // Ninguno aparece en un estudio que no los active a mano o instale uno de
   // esos temas: se añaden al FINAL de BLOQUES_SISTEMA_POR_PANTALLA.home, así
   // que no cambian el orden por defecto de nadie que ya tenga bloques guardados.
   'tiraSemana', 'progresoSemanal', 'retos',
-  // Solo del KIT (`components/portal-tema/`): el tema Tentada los pinta y hasta
-  // ahora el rail no los listaba, así que eran secciones visibles para la socia
-  // e inmovibles para la propietaria. Van OCULTOS por defecto como los tres de
-  // arriba — un estudio sin el kit no los ve.
-  'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
   // /reservar (Fase 1 de su generalización a bloques, ver comentario de
   // `resolveBloquesPantalla`): las 6 secciones de siempre
   // (lib/reservar/secciones.ts), con el prefijo `reservar` para que no se
@@ -87,7 +88,7 @@ export function seccionReservarDeSistemaId(sistemaId: BloqueSistemaId): string {
 // abajo) — un estudio que no instale Oliva/Noir/Bloom ni los active a mano
 // no los ve.
 export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
-  home: ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos', 'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio'],
+  home: ['cabecera', 'proximaClase', 'tiraSemana', 'progresoSemanal', 'retos', 'estaSemana', 'invitarAmiga', 'contenidoEstudio'],
   clases: ['listadoClases'],
   bonos: ['listadoBonos'],
   reservar: SECCIONES_RESERVAR.map((s) => sistemaIdDeSeccionReservar(s.id)),
@@ -567,7 +568,7 @@ export type ClaveBloque = BloqueTipoCatalogo | BloqueSistemaId;
 export const CAMPOS_CABECERA = [
   {
     tipo: 'texto', id: 'fraseSinClase', etiqueta: 'Frase cuando no tiene clase hoy',
-    porDefecto: 'Tu sitio sigue aquí.', maxLargo: 60,
+    porDefecto: '¿Qué te apetece hoy?', maxLargo: 60,
   },
   {
     tipo: 'texto', id: 'fraseConClase', etiqueta: 'Frase cuando sí tiene clase hoy',
@@ -639,13 +640,6 @@ export const CAMPOS_ESTA_SEMANA = [
     tipo: 'texto', id: 'enlaceTexto', etiqueta: 'Enlace de la derecha',
     porDefecto: 'Agenda →', maxLargo: 24,
     ayuda: 'Lleva al calendario de clases.',
-  },
-] as const satisfies readonly CampoSchema[];
-
-export const CAMPOS_ACCESOS_RAPIDOS = [
-  {
-    tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: '', maxLargo: 40,
-    ayuda: 'Déjalo vacío para que la sección no lleve rótulo.',
   },
 ] as const satisfies readonly CampoSchema[];
 
@@ -858,49 +852,9 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
     id: 'sistema', sistemaId: 'estaSemana', nombre: 'Esta semana',
     icono: 'CalendarDays', origen: 'sistema', estilizable: false, campos: CAMPOS_ESTA_SEMANA,
   },
-  accesosRapidos: {
-    id: 'sistema', sistemaId: 'accesosRapidos',
-    nombre: 'Accesos rápidos',
-    descripcion: 'Reservas, progreso, notificaciones y equipo.',
-    icono: 'LayoutGrid', origen: 'sistema', estilizable: false, campos: CAMPOS_ACCESOS_RAPIDOS,
-  },
   invitarAmiga: {
     id: 'sistema', sistemaId: 'invitarAmiga', nombre: 'Invita a una amiga',
     icono: 'UserPlus', origen: 'sistema', estilizable: false, campos: CAMPOS_INVITAR_AMIGA,
-  },
-  // ── Solo del kit ─────────────────────────────────────────────────────────
-  // Cinco secciones que `components/portal-tema/` pinta y el editor no
-  // conocía. Sin ficha aquí no salían en el rail: la socia las veía y la
-  // propietaria no podía ni moverlas ni apagarlas.
-  //
-  // ⚠️ `campos: []` a propósito. Su contenido no lo escribe ella —son datos
-  // suyos: su racha, su bono, sus reservas— así que un panel de edición aquí
-  // prometería algo que no hay. Se listan para ORDENAR y OCULTAR, que es lo
-  // que sí se puede hacer con ellas.
-  racha: {
-    id: 'sistema', sistemaId: 'racha', nombre: 'Tu racha',
-    descripcion: 'Las semanas seguidas que lleva viniendo.',
-    icono: 'Flame', origen: 'sistema', estilizable: false, campos: [],
-  },
-  tarjetaBono: {
-    id: 'sistema', sistemaId: 'tarjetaBono', nombre: 'Tu bono',
-    descripcion: 'Las clases que le quedan y cuándo caduca.',
-    icono: 'Ticket', origen: 'sistema', estilizable: false, campos: [],
-  },
-  misReservas: {
-    id: 'sistema', sistemaId: 'misReservas', nombre: 'Tus próximas reservas',
-    descripcion: 'La lista de lo que tiene reservado.',
-    icono: 'ListChecks', origen: 'sistema', estilizable: false, campos: [],
-  },
-  videosEnCasa: {
-    id: 'sistema', sistemaId: 'videosEnCasa', nombre: 'Pilates en casa',
-    descripcion: 'Invitación a las sesiones en vídeo.',
-    icono: 'Play', origen: 'sistema', estilizable: false, campos: [],
-  },
-  citaEstudio: {
-    id: 'sistema', sistemaId: 'citaEstudio', nombre: 'Cierre del Inicio',
-    descripcion: 'La frase del tema, firmada por el estudio.',
-    icono: 'Quote', origen: 'sistema', estilizable: false, campos: [],
   },
   contenidoEstudio: {
     id: 'sistema', sistemaId: 'contenidoEstudio',
@@ -1038,24 +992,23 @@ export function getBlockCatalogEntry(kind: string): BlockCatalogEntry | undefine
 
 // Ocultos por defecto: los que ningún estudio ve hasta que instala el tema
 // que los pide (lib/theme-definitions.ts, bloquesHome) o los activa a mano.
-const SISTEMA_OCULTO_POR_DEFECTO = new Set<BloqueSistemaId>([
-  'tiraSemana', 'progresoSemanal', 'retos',
-  // ⚠️ Los cinco del kit, ocultos por el MISMO motivo: un estudio con el
-  // portal de siempre no tiene quien los pinte, y listarlos encendidos
-  // prometería secciones que su socia no va a ver. El tema que los compone
-  // manda igual (`ordenDelInicio` respeta lo que él trae si ella no ordenó).
-  'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
-]);
-
+//
+// ⚠️ `tiraSemana`/`progresoSemanal`/`retos` YA NO están aquí (auditoría del
+// Theme Builder / rediseño "Tentare Studio App", 2026-08-26): nacían ocultos
+// porque cada uno era exclusivo de UN tema (Oliva/Noir/Bloom), pero el nuevo
+// diseño los quiere siempre visibles en el Inicio — decisión de producto
+// explícita, no un restyle. `portal-home-view.tsx` YA sabía pintar los tres
+// (los pintaba para ese tema en concreto); esto solo cambia el DEFAULT para
+// quien no ha instalado ninguno de esos tres temas. Los `bloquesHome` de
+// Oliva/Noir/Bloom (theme-definitions.ts) no cambian: siguen siendo su
+// selección curada, ahora simplemente ya no dependen de este flag para
+// que las tres piezas existan también fuera de esos tres temas.
 function bloqueSistema(sistemaId: BloqueSistemaId): BloqueHome {
-  return SISTEMA_OCULTO_POR_DEFECTO.has(sistemaId)
-    ? { id: `sistema-${sistemaId}`, kind: 'sistema', sistemaId, oculto: true }
-    : { id: `sistema-${sistemaId}`, kind: 'sistema', sistemaId };
+  return { id: `sistema-${sistemaId}`, kind: 'sistema', sistemaId };
 }
 
 // Por defecto (ningún estudio ha tocado esto todavía): los bloques `sistema`
-// de cada pantalla, en su orden por defecto, visibles salvo los que se
-// activan por tema (ver SISTEMA_OCULTO_POR_DEFECTO arriba).
+// de cada pantalla, en su orden por defecto, todos visibles.
 // ⚠️ Pasan por `resolverBloque`, no por `bloqueSistema` a secas: desde que los
 // bloques de sistema tienen campos, resolverlos les rellena su `config` con los
 // textos de fábrica. Sin esto, el default y lo que devuelve

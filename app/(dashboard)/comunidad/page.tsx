@@ -1,13 +1,31 @@
-import { redirect } from 'next/navigation';
+'use client';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONGELADO — Comunidad (feature-freeze PMF, 2026-07-23).
-// La página real está intacta en ./page.frozen.tsx. Este stub de servidor evita
-// que se pinte —ni por un instante— y manda al panel. El menú, el buscador ⌘K y
-// el permiso de instructora ya no la enlazan (ver lib/frozen-features.ts).
-// Reactivar: renombrar page.frozen.tsx → page.tsx (borrando este stub) y quitar
-// '/comunidad' de RUTAS_CONGELADAS. Detalle en docs/FEATURE-FREEZE-2026-07.md.
-// ─────────────────────────────────────────────────────────────────────────────
-export default function Page() {
-  redirect('/dashboard');
+// COMUNIDAD — el feed del estudio, lado STAFF.
+//
+// Esta página solo pone la cabecera; el feed en sí (datos + pintura) vive en
+// components/comunidad/comunidad-feed.tsx, compartido con la pestaña
+// "Comunidad" de /mensajeria — mismo patrón que ConversacionesTab.
+
+import { useStudio } from '@/lib/studio-context';
+import { PageHeader } from '@/components/ui/page-header';
+import { ComunidadFeed } from '@/components/comunidad/comunidad-feed';
+
+export default function ComunidadPage() {
+  const { socios } = useStudio();
+  const memberCount = socios.filter(s => s.activo).length;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Comunidad"
+        description="Lo que publiques aquí lo verán tus clientas en su portal."
+        badge={
+          <span className="rounded-full border border-border bg-card px-2.5 py-0.5 text-[12px] text-muted-foreground">
+            {memberCount} clientas activas
+          </span>
+        }
+      />
+      <ComunidadFeed />
+    </div>
+  );
 }

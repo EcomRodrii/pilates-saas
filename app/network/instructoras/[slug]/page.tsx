@@ -2,46 +2,65 @@ import type { Metadata } from 'next';
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, BadgeCheck, Star, MapPin, GraduationCap, Building2 } from 'lucide-react';
+import {
+  ArrowLeft, BadgeCheck, Star, MapPin, GraduationCap, Building2, Briefcase, Images,
+  ShieldCheck, AtSign, Globe, CircleDot, Navigation,
+} from 'lucide-react';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { obtenerPerfilPublicoPorSlug } from '@/lib/network/publico';
 import { NavPublico } from '@/components/network-v2/NavPublico';
 import { PieNetwork } from '@/components/network-v2/PieNetwork';
 import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { BotonContactar, BotonReportar } from '@/components/network-publico/boton-contactar';
+import { BotonCompartirPerfil } from '@/components/network-publico/boton-compartir';
+import { BioExpandible } from '@/components/network-publico/bio-expandible';
 import { BotonFavoritoAlumna } from '@/components/network/boton-favorito-alumna';
 import { FormularioResenaAlumna } from '@/components/network/formulario-resena-alumna';
-import { rangoAnios } from '@/lib/network/formato';
+import { ListaBadgesNetwork } from '@/components/network/lista-badges';
+import { FilaStat } from '@/components/network/ficha-layout';
+import { rangoAnios, hrefDeRedSocial, hrefDeWeb } from '@/lib/network/formato';
 import {
   ESPECIALIDAD_LABEL, HORARIO_LABEL, TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL,
   tituloProfesionalDe,
 } from '@/lib/network/catalogo';
 import { LEGAL } from '@/lib/legal-info';
-import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, NW_PRODUCTO, NW_ESTRELLA, NW_ESTADO } from '@/components/network-v2/tokens';
+import {
+  NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, NW_PRODUCTO,
+  NW_ESTRELLA, NW_ESTADO,
+} from '@/components/network-v2/tokens';
 
-// Perfil público indexable (1c del rediseño) — Server Component puro, sin
-// 'use client': generateMetadata solo funciona así. Misma capa de datos que
-// antes (obtenerPerfilPublicoPorSlug, sin tocar); esto es un rediseño
-// visual: foto grande + cabecera + fila de stats, cuerpo en dos columnas
-// con aside de contacto sticky, en vez de la lista de tarjetas apiladas
-// anterior.
+// Rediseño 2026-08-31 — pedido explícito: la ficha anterior (foto+cabecera+
+// fila de stats+lista de secciones apiladas) ya tenía casi todas las
+// secciones que pedía el brief, pero cada una desaparecía en silencio en
+// cuanto faltaba un dato — con un perfil poco relleno (el caso más común en
+// beta) la pantalla quedaba "header + hueco". Este rediseño NO añade datos
+// nuevos al modelo: reordena y da peso visual a lo que YA existía —
+// `instagram`/`linkedin`/`web`/`radioKm` se guardaban desde el wizard y no
+// se pintaban en ningún sitio (auditoría antes de tocar nada); los otros
+// cuatro badges de confianza (`BadgesNetwork`) solo se usaba
+// `experienciaVerificada`, folded en el pill "Perfil verificado" de
+// arriba — el resto (email/referencia/identidad/actividad) vive ahora en
+// una tarjeta "Confianza" con `ListaBadgesNetwork`, componente que YA
+// existía (usado en /network/mi-perfil) y ya sabe no pintar nada si no hay
+// ninguna señal cierta.
 //
-// "Formación": certificaciones con estado 'verificado' únicamente — una
-// certificación no se enseña como logro solo por haberla subido (mismo
-// criterio que "Perfil verificado" arriba). lib/network/publico.ts ya
-// filtra por estado y nunca expone documentoPath aquí.
+// Un solo componente para las dos vistas (propia y de un estudio): esta
+// ruta SIEMPRE fue de solo lectura — quien edita lo hace en
+// /network/mi-perfil (panel aparte), nunca aquí. No se mezcla edición con
+// descubrimiento (pedido explícito de esta ronda): esta página se queda
+// puramente presentacional, como ya era.
 //
-// La tabla semanal día-a-día sigue sin pintarse: el dato real de hoy son
-// franjas agregadas (mañanas/tardes/noches/fines de semana), no un
-// calendario por día — fabricar esa vista sería inventar un dato que no
-// existe.
+// `ficha-layout.tsx` (Seccion/FilaStat) se comparte con el panel interno
+// (app/(dashboard)/network/[perfilId]/page.tsx) — se sigue citando FilaStat
+// tal cual para la fila de stats del hero (sin tocar el componente), pero
+// las secciones de cuerpo pasan a maquetación propia de este fichero para
+// poder darles el tratamiento editorial pedido sin arriesgar la vista del
+// panel, que usa la rama NO-tokensNetworkV2 del mismo componente.
+//
+// "Modalidad presencial/online" y "colaboraciones"/"actividad" del brief
+// original NO tienen campo en el modelo — no se han inventado; el brief
+// pedía explícitamente no fabricar datos que no existan.
 
-// cache(): generateMetadata() y PerfilInstructoraPage() llaman los dos a
-// cargar() para el mismo slug — sin memoizar por request, Next ejecuta las
-// ~6-7 queries de obtenerPerfilPublicoPorSlug DOS VECES por carga de página
-// (auditoría de performance, 2026-08-18). A diferencia de fetch(), las
-// llamadas de supabase-js no se dedupean solas; React.cache() sí lo hace
-// dentro del mismo render.
 const cargar = cache(async (slug: string) => {
   const admin = getSupabaseAdmin();
   if (!admin) return null;
@@ -71,30 +90,53 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-// `destacado`: tarifa y estado de disponibilidad son los dos datos que de
-// verdad deciden un "me interesa" rápido — antes pesaban exactamente igual
-// que "nº de estudios" o "disponible para", cuatro stats idénticos en fila
-// sin ninguna jerarquía entre ellos (auditoría UX, 2026-08-18). El resto se
-// queda con el peso discreto de siempre.
-function FilaStat({ valor, etiqueta, destacado = false }: { valor: string; etiqueta: string; destacado?: boolean }) {
+/** Cabecera de sección con icono — mismo peso visual en todas, para que el
+    perfil se lea como capítulos de una misma historia, no como una lista
+    de tarjetas sueltas. */
+function TituloSeccion({ icono: Icono, children }: { icono: React.ComponentType<{ size?: number; color?: string }>; children: React.ReactNode }) {
   return (
-    <div>
-      <p className={destacado ? 'text-[22px] font-extrabold' : 'text-[18px] font-bold'} style={{ color: destacado ? NW_PRODUCTO : NW_TINTA }}>{valor}</p>
-      <p className="text-[12.5px]" style={{ color: NW_MUTED_2 }}>{etiqueta}</p>
+    <div className="flex items-center gap-2 mb-4">
+      <Icono size={17} color={NW_PRODUCTO} />
+      <h2 className="text-[13px] font-extrabold uppercase tracking-[.08em]" style={{ color: NW_MUTED_2 }}>{children}</h2>
     </div>
   );
 }
 
-// `compacta`: "Formación" es la única sección que no ayuda a decidir rápido
-// (certificaciones ya verificadas, información de refuerzo, no de
-// diagnóstico) — antes tenía el mismo H2 de 22px que "Sobre mí"/"Experiencia"/
-// "Opiniones", pesando igual que datos con más peso real para la decisión.
-function Seccion({ titulo, children, compacta = false }: { titulo: string; children: React.ReactNode; compacta?: boolean }) {
+/** Franja de disponibilidad — pedido explícito: "no quiero un simple texto
+    pequeño, es una de las razones principales por las que un estudio entra
+    a un perfil". Los cuatro estados son los únicos que existen en el
+    catálogo (DISPONIBILIDAD_ESTADOS_NETWORK); "disponible"/"sustituciones"/
+    "buscando trabajo" son las tres lecturas positivas ("está abierta a
+    algo"), solo "no disponible" cambia de color. */
+const DISPONIBILIDAD_ABIERTA = new Set(['disponible', 'disponible_sustituciones', 'buscando_trabajo']);
+
+function BandaDisponibilidad({
+  estado, horarios,
+}: {
+  estado: keyof typeof DISPONIBILIDAD_ESTADO_LABEL;
+  horarios: readonly string[];
+}) {
+  const abierta = DISPONIBILIDAD_ABIERTA.has(estado);
+  const color = abierta ? NW_ESTADO.verificada.color : NW_MUTED;
+  const fondo = abierta ? NW_ESTADO.verificada.fondo : NW_SAND;
   return (
-    <section>
-      <h2 className={compacta ? 'text-[15px] font-bold uppercase tracking-wide' : 'text-[22px] font-extrabold'} style={{ color: compacta ? NW_MUTED_2 : NW_TINTA }}>{titulo}</h2>
-      <div className="mt-3">{children}</div>
-    </section>
+    <div className="rounded-[22px] px-6 py-5 flex flex-wrap items-center gap-x-6 gap-y-3" style={{ background: fondo }}>
+      <div className="flex items-center gap-2.5">
+        <CircleDot size={18} color={color} fill={abierta ? color : 'none'} />
+        <p className="text-[16px] font-extrabold" style={{ color }}>
+          {(DISPONIBILIDAD_ESTADO_LABEL as Record<string, string>)[estado]}
+        </p>
+      </div>
+      {horarios.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {horarios.map(h => (
+            <span key={h} className="px-2.5 py-1 rounded-full text-[12px] font-semibold" style={{ background: 'rgba(255,255,255,.6)', color }}>
+              {(HORARIO_LABEL as Record<string, string>)[h]}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -121,7 +163,6 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
     } : {}),
   };
 
-  // Mismo patrón de 3 niveles que FeatureStructuredData.tsx.
   const breadcrumbLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -131,6 +172,18 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
       { '@type': 'ListItem', position: 3, name: perfil.nombre, item: url },
     ],
   };
+
+  // Sin iconos de marca (Instagram/LinkedIn no están en lucide-react desde
+  // que se separaron los iconos de marca del paquete base) — AtSign para
+  // los dos perfiles sociales, Globe para la web; el `aria-label` de cada
+  // enlace es lo que de verdad distingue la plataforma.
+  const redesSociales = [
+    perfil.instagram ? { icono: AtSign, label: 'Instagram', href: hrefDeRedSocial(perfil.instagram, 'instagram.com') } : null,
+    perfil.linkedin ? { icono: AtSign, label: 'LinkedIn', href: hrefDeRedSocial(perfil.linkedin, 'linkedin.com') } : null,
+    perfil.web ? { icono: Globe, label: 'Web', href: hrefDeWeb(perfil.web) } : null,
+  ].filter(Boolean) as { icono: typeof AtSign; label: string; href: string }[];
+
+  const hayConfianza = badges.emailVerificado || badges.referenciaProfesional || badges.identidadVerificada || badges.activaRecientemente;
 
   return (
     <div style={{ background: NW_FONDO, color: NW_TINTA }}>
@@ -143,8 +196,14 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
           <ArrowLeft size={14} /> Volver a instructoras
         </Link>
 
+        {/* HERO */}
         <div className="grid lg:grid-cols-[420px_1fr] gap-10">
-          <div>
+          <div className="relative isolate">
+            <div
+              aria-hidden="true"
+              className="hidden lg:block absolute -right-4 -bottom-4 w-32 h-32 -z-10 rounded-[22px]"
+              style={{ background: NW_PRODUCTO, transform: 'rotate(-8deg)' }}
+            />
             <FotoInstructora fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} aspectRatio="4 / 4.8" radius={26} eager />
           </div>
 
@@ -156,11 +215,12 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
             )}
             <div className="flex items-start justify-between gap-3">
               <h1 className="text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight">{perfil.nombre}</h1>
-              <div className="shrink-0 mt-2">
+              <div className="shrink-0 mt-2 flex items-center gap-3">
+                <BotonCompartirPerfil url={url} compacto />
                 <BotonFavoritoAlumna tipo="instructora" id={perfil.id} compacto />
               </div>
             </div>
-            <p className="mt-2 text-[16px] font-bold" style={{ color: NW_PRODUCTO }}>
+            <p className="mt-2 text-[16px] font-bold italic" style={{ color: NW_PRODUCTO }}>
               {tituloProfesionalDe(perfil.especialidades)}
               {perfil.especialidades.length > 0 ? ` · ${perfil.especialidades.slice(0, 2).map(e => ESPECIALIDAD_LABEL[e]).join(' & ')}` : ''}
             </p>
@@ -174,83 +234,90 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
               {perfil.ciudad && (
                 <span className="flex items-center gap-1"><MapPin size={14} />{perfil.ciudad}{perfil.zona ? ` · ${perfil.zona}` : ''}</span>
               )}
+              {redesSociales.length > 0 && (
+                <span className="flex items-center gap-3">
+                  {redesSociales.map(r => (
+                    <a key={r.label} href={r.href} target="_blank" rel="noreferrer noopener" aria-label={r.label} className="hover:opacity-70 transition-opacity" style={{ color: NW_MUTED }}>
+                      <r.icono size={15} />
+                    </a>
+                  ))}
+                </span>
+              )}
             </div>
 
-            <div className="mt-6 pt-6 grid grid-cols-2 sm:grid-cols-4 gap-4" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
-              {perfil.aniosExperiencia != null && <FilaStat valor={`${perfil.aniosExperiencia}`} etiqueta="años de experiencia" />}
+            {/* Resumen rápido — "quién es, qué hace, dónde está, qué
+                experiencia tiene, qué busca" en 10 segundos. Idiomas y
+                radio de desplazamiento son campos que ya se guardaban
+                (paso "Tu perfil"/"Dónde trabajas" del wizard) sin pintarse
+                en ningún sitio del perfil público. */}
+            <div className="mt-6 pt-6 grid grid-cols-2 sm:grid-cols-3 gap-4" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
+              {perfil.aniosExperiencia != null && <FilaStat tokensNetworkV2 valor={`${perfil.aniosExperiencia}`} etiqueta="años de experiencia" />}
               {experiencias.length > 0 && (
-                <FilaStat
+                <FilaStat tokensNetworkV2
                   valor={`${new Set(experiencias.map(e => e.studioId ?? e.nombreEstudio)).size}`}
                   etiqueta="estudios"
                 />
               )}
-              <FilaStat valor={perfil.tipoTrabajo.length > 0 ? perfil.tipoTrabajo.map(t => TIPO_TRABAJO_LABEL[t]).slice(0, 2).join(' · ') : '—'} etiqueta="disponible para" />
-              <FilaStat valor={perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'} etiqueta="tarifa orientativa" destacado />
-              <FilaStat valor={DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]} etiqueta="estado" destacado />
+              {perfil.idiomas.length > 0 && <FilaStat tokensNetworkV2 valor={perfil.idiomas.join(' · ')} etiqueta="idiomas" />}
+              <FilaStat tokensNetworkV2 valor={perfil.tipoTrabajo.length > 0 ? perfil.tipoTrabajo.map(t => TIPO_TRABAJO_LABEL[t]).slice(0, 2).join(' · ') : '—'} etiqueta="disponible para" />
+              <FilaStat tokensNetworkV2 valor={perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'} etiqueta="tarifa orientativa" destacado />
+              {perfil.radioKm != null && <FilaStat tokensNetworkV2 valor={`${perfil.radioKm} km`} etiqueta="se desplaza hasta" destacado />}
             </div>
           </div>
         </div>
 
-        <div className="mt-14 grid lg:grid-cols-[1fr_340px] gap-14">
+        {/* Disponibilidad — pieza propia, ya no repartida entre la fila de
+            stats de arriba y una sección de "Horarios" al final. */}
+        <div className="mt-10">
+          <BandaDisponibilidad estado={perfil.disponibilidadEstado} horarios={perfil.disponibilidadHorarios} />
+        </div>
+
+        <div className="mt-14 grid lg:grid-cols-[1fr_360px] gap-14">
+          {/* Columna principal — visible en TODAS las anchuras (a
+              diferencia del aside de contacto, que en móvil se sustituye
+              por la barra fija de abajo): Confianza y "Actualmente en" son
+              contenido informativo, no solo un atajo al CTA, así que no
+              pueden desaparecer en móvil. */}
           <div className="space-y-10">
+            {hayConfianza && (
+              <section>
+                <TituloSeccion icono={ShieldCheck}>Confianza</TituloSeccion>
+                <div className="rounded-[20px] p-5" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
+                  <ListaBadgesNetwork badges={badges} />
+                </div>
+              </section>
+            )}
+
             {perfil.descripcion && (
-              <Seccion titulo="Sobre mí">
-                <p className="text-[15px] leading-[1.7] max-w-[640px]" style={{ color: '#4A5347' }}>{perfil.descripcion}</p>
-              </Seccion>
+              <section>
+                <TituloSeccion icono={BadgeCheck}>Sobre mí</TituloSeccion>
+                <BioExpandible texto={perfil.descripcion} color="#4A5347" colorAccion={NW_PRODUCTO} />
+              </section>
             )}
 
             {perfil.especialidades.length > 0 && (
-              <Seccion titulo="Especialidades">
+              <section>
+                <TituloSeccion icono={Star}>Especialidades</TituloSeccion>
                 <div className="flex flex-wrap gap-2">
                   {perfil.especialidades.map(e => (
-                    <span key={e} className="px-[18px] py-[9px] rounded-full text-[13.5px] font-bold" style={{ background: NW_SAGE, color: NW_TINTA }}>
+                    <span
+                      key={e}
+                      className="px-[18px] py-[9px] rounded-full text-[13.5px] font-bold"
+                      style={{ background: NW_SAGE, color: NW_TINTA, border: `1px solid ${NW_BORDE}` }}
+                    >
                       {ESPECIALIDAD_LABEL[e]}
                     </span>
                   ))}
                 </div>
-              </Seccion>
-            )}
-
-            {/* Dato ya existía en BD y en el filtro de búsqueda, pero nunca
-                se pintaba en el perfil (auditoría UX, 2026-08-18). En el
-                bloque de body (visible en mobile), no solo en el aside, que
-                está oculto ahí. */}
-            {perfil.idiomas.length > 0 && (
-              <Seccion titulo="Idiomas" compacta>
-                <p className="text-[14px]" style={{ color: NW_TINTA }}>{perfil.idiomas.join(', ')}</p>
-              </Seccion>
-            )}
-
-            {experiencias.length > 0 && (
-              <Seccion titulo="Experiencia">
-                <div>
-                  {experiencias.map((exp, i) => (
-                    <div key={exp.id} className="flex gap-3.5 py-4" style={{ borderTop: i > 0 ? `1px solid ${NW_BORDE}` : undefined }}>
-                      <div
-                        className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-[14px] font-extrabold"
-                        style={{ background: NW_SAND, color: NW_TINTA }}
-                      >
-                        {exp.nombreEstudio.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-[15px] font-bold" style={{ color: NW_TINTA }}>{exp.nombreEstudio}</p>
-                          {exp.estadoVerificacion === 'confirmada' && <BadgeCheck size={14} color={NW_PRODUCTO} />}
-                        </div>
-                        <p className="text-[13px]" style={{ color: NW_MUTED_2 }}>{rangoAnios(exp.fechaInicio, exp.fechaFin)}</p>
-                        {exp.descripcion && <p className="text-[13.5px] mt-1" style={{ color: NW_MUTED }}>{exp.descripcion}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Seccion>
+              </section>
             )}
 
             {estudiosActuales.length > 0 && (
-              <Seccion titulo="Actualmente en" compacta>
-                <div className="space-y-3">
+              <section>
+                <TituloSeccion icono={Building2}>Actualmente en</TituloSeccion>
+                <div className="grid sm:grid-cols-2 gap-3">
                   {estudiosActuales.map((e, i) => (
-                    <div key={`${e.nombre}-${i}`} className="flex items-start gap-3">
+                    <div key={`${e.nombre}-${i}`} className="rounded-2xl p-4 flex items-start gap-3" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
                       <div className="shrink-0 mt-0.5" style={{ color: NW_PRODUCTO }}><Building2 size={16} /></div>
                       <div>
                         <p className="text-[14px] font-bold" style={{ color: NW_TINTA }}>{e.nombre}</p>
@@ -259,14 +326,44 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                     </div>
                   ))}
                 </div>
-              </Seccion>
+              </section>
+            )}
+
+            {experiencias.length > 0 && (
+              <section>
+                <TituloSeccion icono={Briefcase}>Experiencia</TituloSeccion>
+                <div className="relative">
+                  <div aria-hidden="true" className="absolute left-[19px] top-2 bottom-2 w-px" style={{ background: NW_BORDE }} />
+                  <div className="space-y-6">
+                    {experiencias.map(exp => (
+                      <div key={exp.id} className="relative flex gap-4">
+                        <div
+                          className="relative z-10 shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-[14px] font-extrabold"
+                          style={{ background: NW_SAND, color: NW_TINTA, border: `2px solid ${NW_FONDO}` }}
+                        >
+                          {exp.nombreEstudio.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="pt-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-[15px] font-bold" style={{ color: NW_TINTA }}>{exp.nombreEstudio}</p>
+                            {exp.estadoVerificacion === 'confirmada' && <BadgeCheck size={14} color={NW_PRODUCTO} />}
+                          </div>
+                          <p className="text-[13px]" style={{ color: NW_MUTED_2 }}>{rangoAnios(exp.fechaInicio, exp.fechaFin)}</p>
+                          {exp.descripcion && <p className="text-[13.5px] mt-1.5 leading-[1.6]" style={{ color: NW_MUTED }}>{exp.descripcion}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
             )}
 
             {certificaciones.length > 0 && (
-              <Seccion titulo="Formación" compacta>
-                <div className="space-y-3">
+              <section>
+                <TituloSeccion icono={GraduationCap}>Formación</TituloSeccion>
+                <div className="grid sm:grid-cols-2 gap-3">
                   {certificaciones.map((c, i) => (
-                    <div key={`${c.nombre}-${i}`} className="flex items-start gap-3">
+                    <div key={`${c.nombre}-${i}`} className="rounded-2xl p-4 flex items-start gap-3" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
                       <div className="shrink-0 mt-0.5" style={{ color: NW_PRODUCTO }}><GraduationCap size={16} /></div>
                       <div>
                         <p className="text-[14px] font-bold" style={{ color: NW_TINTA }}>{c.nombre}</p>
@@ -275,43 +372,36 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                     </div>
                   ))}
                 </div>
-              </Seccion>
+              </section>
             )}
 
             {mediaFotos.length > 0 && (
-              <Seccion titulo="Portfolio" compacta>
-                <div className="grid grid-cols-3 gap-2">
-                  {mediaFotos.map(m => (
-                    <div key={m.id} className="aspect-square rounded-lg overflow-hidden" style={{ background: NW_SAND }}>
+              <section>
+                <TituloSeccion icono={Images}>Portfolio</TituloSeccion>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {mediaFotos.map((m, i) => (
+                    <div
+                      key={m.id}
+                      className={`overflow-hidden rounded-2xl ${i === 0 && mediaFotos.length >= 3 ? 'col-span-2 row-span-2' : ''}`}
+                      style={{ background: NW_SAND, aspectRatio: '1 / 1' }}
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element -- URL firmada de vida corta, no vale la pena que next/image la cachee */}
-                      <img src={m.url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                      <img
+                        src={m.url} alt="" loading="lazy" decoding="async"
+                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.04]"
+                      />
                     </div>
                   ))}
                 </div>
-              </Seccion>
-            )}
-
-            {/* El estado de disponibilidad y "disponible para" ya viven en
-                la fila de stats de cabecera — esta sección solo aporta dato
-                nuevo cuando hay franjas horarias (auditoría UX, 2026-08-18:
-                antes repetía el mismo estado dos veces en la misma pantalla). */}
-            {perfil.disponibilidadHorarios.length > 0 && (
-              <Seccion titulo="Horarios">
-                <div className="flex flex-wrap gap-2">
-                  {perfil.disponibilidadHorarios.map(h => (
-                    <span key={h} className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold" style={{ background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}>
-                      {HORARIO_LABEL[h]}
-                    </span>
-                  ))}
-                </div>
-              </Seccion>
+              </section>
             )}
 
             {resenas.length > 0 && (
-              <Seccion titulo={`Opiniones · ${perfil.resumenResenas.promedio ?? '—'} de ${resenas.length}`}>
+              <section>
+                <TituloSeccion icono={Star}>{`Opiniones · ${perfil.resumenResenas.promedio ?? '—'} de ${resenas.length}`}</TituloSeccion>
                 <div className="space-y-4">
-                  {resenas.map((r, i) => (
-                    <div key={r.id} style={{ borderTop: i > 0 ? `1px solid ${NW_BORDE}` : undefined, paddingTop: i > 0 ? 16 : 0 }}>
+                  {resenas.map(r => (
+                    <div key={r.id} className="rounded-2xl p-4" style={{ background: '#fff', border: `1px solid ${NW_BORDE}` }}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-0.5">
                           {Array.from({ length: 5 }, (_, j) => (
@@ -324,15 +414,16 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                     </div>
                   ))}
                 </div>
-              </Seccion>
+              </section>
             )}
 
-            {/* Solo se pinta si el servidor confirma elegibilidad — ver
-                components/network/formulario-resena-alumna.tsx. */}
             <FormularioResenaAlumna tipo="instructora" id={perfil.id} nombre={perfil.nombre} />
           </div>
 
-          {/* Aside sticky — oculto en móvil, sustituido por la barra fija de abajo. */}
+          {/* Aside sticky — oculto en móvil, sustituido por la barra fija de
+              abajo. Solo el CTA de contacto: el resto de contenido
+              informativo vive en la columna principal, visible en toda
+              anchura. */}
           <aside className="hidden lg:block self-start sticky top-24">
             <div className="bg-white rounded-[22px] p-6" style={{ border: `1px solid ${NW_BORDE}` }}>
               <p className="text-[17px] font-extrabold">
@@ -341,19 +432,24 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
               <div className="mt-4">
                 <BotonContactar perfilId={perfil.id} nombre={perfil.nombre} />
               </div>
-              {/* Sin cifra de tiempo de respuesta: no se mide en ningún
-                  sitio (mismo criterio que resumenResenas — nunca una señal
-                  fabricada), así que aquí no va nada hasta que exista el
-                  dato real. */}
               <div className="mt-5 pt-5 space-y-2 text-[13px]" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
                 {perfil.ciudad && <div className="flex justify-between"><span style={{ color: NW_MUTED_2 }}>Zona</span><span className="font-semibold">{perfil.ciudad}</span></div>}
                 <div className="flex justify-between"><span style={{ color: NW_MUTED_2 }}>Disponibilidad</span><span className="font-semibold">{DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]}</span></div>
                 <div className="flex justify-between"><span style={{ color: NW_MUTED_2 }}>Precio</span><span className="font-semibold">{perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'}</span></div>
+                {perfil.radioKm != null && (
+                  <div className="flex justify-between">
+                    <span className="flex items-center gap-1" style={{ color: NW_MUTED_2 }}><Navigation size={11} /> Se desplaza</span>
+                    <span className="font-semibold">hasta {perfil.radioKm} km</span>
+                  </div>
+                )}
               </div>
               <p className="mt-4 text-[11.5px] rounded-lg px-3 py-2.5" style={{ background: NW_SAND, color: NW_MUTED }}>
                 Sin comisiones: contactas directamente con {perfil.nombre.split(' ')[0]}.
               </p>
-              <div className="mt-3 text-center"><BotonReportar perfilId={perfil.id} /></div>
+              <div className="mt-4 pt-4 flex items-center justify-center gap-4" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
+                <BotonCompartirPerfil url={url} />
+                <BotonReportar perfilId={perfil.id} />
+              </div>
             </div>
           </aside>
         </div>
@@ -371,17 +467,10 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
               {perfil.tarifaRango ? `Desde ${TARIFA_RANGO_LABEL[perfil.tarifaRango]}` : 'Tarifa a consultar'}
             </p>
           </div>
-          <BotonContactar perfilId={perfil.id} nombre={perfil.nombre} />
+          <BotonContactar perfilId={perfil.id} nombre={perfil.nombre} compacto />
         </div>
       </div>
 
-      {/* pb-36 (144px, > los ~134px medidos del CTA sticky de arriba):
-          `pb-24` del contenedor de arriba solo reserva hueco DENTRO de esa
-          columna, PieNetwork es un hermano fuera de ella — sin este
-          padding, el CTA fijo tapaba el pie entero en móvil (auditoría
-          mobile-first, 2026-08-18: "Privacidad" y "Parte del ecosistema
-          Tentare" quedaban inalcanzables incluso haciendo scroll hasta el
-          final). Solo en móvil (lg:pb-0): el CTA es lg:hidden. */}
       <div className="pb-36 lg:pb-0">
         <PieNetwork />
       </div>

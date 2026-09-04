@@ -10,15 +10,22 @@ import { GoogleIcon } from '@/components/icons/brand-icons';
 import { subirFotoAdmin, eliminarFotoAdmin, subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
 import { fetchTarifasEquipo } from '@/lib/api-client';
 import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
-import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { useCuenta } from '@/components/auth/use-cuenta';
 import { ETIQUETA_ROL } from '@/lib/permisos-reglas';
 
 export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   const { studio, updateAvatarAdmin, updateStudio, instructores, updateInstructor, sesiones } = useStudio();
-  const { user, updateProfile, updateEmail, updatePassword, linkGoogle, unlinkGoogle } = useAuth();
-  // Cambiar la contraseña reautentica por detrás, y eso es una llamada de auth
-  // más: con Turnstile activo en el proyecto, sin token la rechaza gotrue.
-  const { widget: captcha, pedirToken } = useCaptcha();
+  const { user, updateProfile } = useAuth();
+  // P-10 (auditoría 21ª pasada): email/contraseña/Google salen de useCuenta(),
+  // compartido con components/network-v2/ModalCuenta.tsx — misma cuenta de
+  // Supabase Auth, mismo flujo, solo cambia el envoltorio visual.
+  const {
+    captcha,
+    nuevoEmail, setNuevoEmail, cambiandoEmail, emailMsg, cambiarEmail,
+    passwordForm, setPasswordForm, cambiandoPassword, passwordMsg, cambiarPassword,
+    tieneGoogle, tieneEmail, puedeDesconectarGoogle, conectandoAcceso, accesoMsg,
+    conectarGoogle, desconectarGoogle,
+  } = useCuenta();
 
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const rol = yo?.rol ?? 'PROPIETARIO';
@@ -49,46 +56,6 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
   const [perfilGuardado, setPerfilGuardado] = useState(false);
 
-  const [nuevoEmail, setNuevoEmail] = useState('');
-  const [cambiandoEmail, setCambiandoEmail] = useState(false);
-  const [emailMsg, setEmailMsg] = useState<{ error: boolean; texto: string } | null>(null);
-
-  const [passwordForm, setPasswordForm] = useState({ actual: '', nueva: '', confirmar: '' });
-  const [cambiandoPassword, setCambiandoPassword] = useState(false);
-  const [passwordMsg, setPasswordMsg] = useState<{ error: boolean; texto: string } | null>(null);
-
-  // Fase 16 — Métodos de acceso. Se lee de user.identities (fuente nativa de
-  // Supabase, no un booleano propio) para que nunca se desincronice de lo que
-  // gotrue realmente tiene vinculado.
-  const identidades = user?.identities ?? [];
-  const tieneGoogle = identidades.some(i => i.provider === 'google');
-  const tieneEmail = identidades.some(i => i.provider === 'email');
-  // Desvincular deja al usuario sin ese método: solo se ofrece si queda al
-  // menos otro (mismo requisito que ya impone gotrue del lado servidor —
-  // esto es solo para no enseñar un botón que unlinkGoogle acabaría
-  // rechazando).
-  const puedeDesconectarGoogle = tieneGoogle && identidades.length > 1;
-  const [conectandoAcceso, setConectandoAcceso] = useState(false);
-  const [accesoMsg, setAccesoMsg] = useState<{ error: boolean; texto: string } | null>(null);
-
-  async function conectarGoogle() {
-    setAccesoMsg(null);
-    setConectandoAcceso(true);
-    const { error } = await linkGoogle();
-    // En el caso feliz esta pestaña navega a Google y no vuelve a este punto;
-    // solo llegamos aquí si gotrue rechazó antes de redirigir.
-    if (error) { setAccesoMsg({ error: true, texto: error }); setConectandoAcceso(false); }
-  }
-
-  async function desconectarGoogle() {
-    setAccesoMsg(null);
-    setConectandoAcceso(true);
-    const { error } = await unlinkGoogle();
-    setConectandoAcceso(false);
-    if (error) { setAccesoMsg({ error: true, texto: error }); return; }
-    setAccesoMsg({ error: false, texto: 'Google desconectado.' });
-  }
-
   // Tarifa por hora: dato salarial, solo la propia instructora la ve (y solo
   // la suya — el servidor filtra por rol, no confiamos en el cliente).
   const [tarifaHora, setTarifaHora] = useState<number | null>(null);
@@ -113,40 +80,6 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
     setPerfilGuardado(true);
     showToast('Perfil actualizado');
     setTimeout(() => setPerfilGuardado(false), 2000);
-  }
-
-  async function cambiarEmail() {
-    if (!nuevoEmail.trim()) return;
-    setCambiandoEmail(true);
-    const { error, pendiente } = await updateEmail(nuevoEmail.trim());
-    setCambiandoEmail(false);
-    if (error) { setEmailMsg({ error: true, texto: error }); return; }
-    setEmailMsg({
-      error: false,
-      texto: pendiente
-        ? 'Te hemos enviado un email de confirmación. El cambio se aplicará cuando lo confirmes.'
-        : 'Email actualizado.',
-    });
-    setNuevoEmail('');
-  }
-
-  async function cambiarPassword() {
-    if (passwordForm.nueva !== passwordForm.confirmar) {
-      setPasswordMsg({ error: true, texto: 'Las contraseñas nuevas no coinciden.' });
-      return;
-    }
-    if (passwordForm.nueva.length < 8) {
-      setPasswordMsg({ error: true, texto: 'La contraseña nueva debe tener al menos 8 caracteres.' });
-      return;
-    }
-    setCambiandoPassword(true);
-    const token = await pedirToken();
-    if (token === null) { setPasswordMsg({ error: true, texto: ERROR_CAPTCHA }); setCambiandoPassword(false); return; }
-    const { error } = await updatePassword(passwordForm.actual, passwordForm.nueva, token || undefined);
-    setCambiandoPassword(false);
-    if (error) { setPasswordMsg({ error: true, texto: error }); return; }
-    setPasswordMsg({ error: false, texto: 'Contraseña actualizada.' });
-    setPasswordForm({ actual: '', nueva: '', confirmar: '' });
   }
 
   // El avatar/foto es de QUIEN ha iniciado sesión: si es instructora/recepción

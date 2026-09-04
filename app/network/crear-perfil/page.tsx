@@ -44,7 +44,7 @@ import { subirFotoPerfilNetwork, validarFotoPerfil } from '@/lib/portal-storage'
 import { subirDocumentoIdentidad, validarDocumentoIdentidad } from '@/lib/network/documentos-identidad';
 import type { PerfilNetwork, VerificacionIdentidadNetwork, CertificacionNetwork } from '@/lib/network/tipos';
 import { PASOS_ONBOARDING as PASOS, pasoIncompletoDe } from '@/lib/network/pasos-onboarding';
-import { NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAGE, NW_PRODUCTO, NW_FONDO } from '@/components/network-v2/tokens';
+import { NW_TINTA, NW_MUTED, NW_BORDE, NW_PRODUCTO, NW_ARENA, NW_VERDE_OSCURO, NW_FONDO, NW_GRIS_VERDOSO } from '@/components/network-v2/tokens';
 import type { FormState, IdentidadForm } from './form-state';
 import { formVacio, formDesdePerfil, identidadVacia, identidadDesdeApi } from './form-state';
 import { PasoCuenta } from './pasos/paso-cuenta';
@@ -338,14 +338,16 @@ export default function CrearPerfilNetworkPage() {
 
   return (
     <div className="min-h-dvh flex flex-col lg:flex-row" style={{ background: NW_FONDO }}>
-      {/* Rail izquierdo */}
-      <aside className="lg:w-[300px] shrink-0 p-8 lg:min-h-dvh" style={{ background: NW_SAGE }}>
-        <Link href="/network" className="inline-flex mb-8"><LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={22} decorativo /></Link>
-        <h2 className="text-[19px] font-extrabold" style={{ color: NW_TINTA }}>Crea tu perfil</h2>
-        <div className="mt-4 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,.6)' }}>
-          <div className="h-full rounded-full transition-all" style={{ width: `${Math.round((paso / (PASOS.length - 1)) * 100)}%`, background: NW_PRODUCTO }} />
+      {/* Rail izquierdo — banda oscura, mismo lenguaje que "Cómo funciona"
+          en /network: el wizard tiene firma propia, no una barra lateral
+          más. */}
+      <aside className="lg:w-[300px] shrink-0 p-8 lg:min-h-dvh" style={{ background: NW_VERDE_OSCURO }}>
+        <Link href="/network" className="inline-flex mb-8"><LogoTentare formato="horizontal" tinta="blanco" producto="network" titulo="Tentare Network" alto={22} decorativo /></Link>
+        <h2 className="text-[19px] font-extrabold italic" style={{ color: '#fff' }}>Crea tu perfil</h2>
+        <div className="mt-4 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,.12)' }}>
+          <div className="h-full rounded-full transition-all" style={{ width: `${Math.round((paso / (PASOS.length - 1)) * 100)}%`, background: `linear-gradient(90deg, ${NW_PRODUCTO}, ${NW_ARENA})` }} />
         </div>
-        <p className="mt-2 text-[12px] font-semibold" style={{ color: NW_MUTED }}>
+        <p className="mt-2 text-[12px] font-semibold" style={{ color: NW_GRIS_VERDOSO }}>
           {Math.round((paso / (PASOS.length - 1)) * 100)}% · te faltan {PASOS.length - 1 - paso} pasos
         </p>
         <ol className="mt-6 space-y-0.5">
@@ -362,14 +364,14 @@ export default function CrearPerfilNetworkPage() {
                     className="shrink-0 flex items-center justify-center rounded-full text-[11px] font-bold"
                     style={{
                       width: 22, height: 22,
-                      background: hecho ? NW_PRODUCTO : actual ? '#fff' : 'transparent',
-                      border: actual ? `2px solid ${NW_PRODUCTO}` : hecho ? 'none' : `1.5px solid ${NW_MUTED_2}`,
+                      background: hecho ? NW_PRODUCTO : actual ? NW_ARENA : 'transparent',
+                      border: actual ? `2px solid ${NW_PRODUCTO}` : hecho ? 'none' : '1.5px solid rgba(255,255,255,.25)',
                       color: hecho ? '#fff' : NW_TINTA,
                     }}
                   >
                     {hecho ? <Check size={12} /> : p.n}
                   </span>
-                  <span className="text-[13px] font-semibold" style={{ color: actual ? NW_TINTA : NW_MUTED }}>{p.titulo}</span>
+                  <span className="text-[13px] font-semibold" style={{ color: actual ? '#fff' : NW_GRIS_VERDOSO }}>{p.titulo}</span>
                 </button>
               </li>
             );
@@ -387,10 +389,15 @@ export default function CrearPerfilNetworkPage() {
         </div>
 
         <main className="flex-1 max-w-[700px] w-full mx-auto px-8 py-10">
-          <p className="text-[12px] font-bold uppercase tracking-wide mb-1" style={{ color: NW_PRODUCTO }}>Paso {String(pasoActual.n).padStart(2, '0')} de 12</p>
-          <h1 className="text-[30px] sm:text-[34px] font-extrabold mb-6" style={{ color: NW_TINTA }}>
+          <p
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-bold uppercase tracking-wide mb-3"
+            style={{ background: `color-mix(in srgb, ${NW_ARENA} 38%, white)`, color: NW_VERDE_OSCURO }}
+          >
+            Paso {String(pasoActual.n).padStart(2, '0')} de 12
+          </p>
+          <h1 className="text-[30px] sm:text-[36px] font-extrabold mb-6 leading-[1.05] tracking-[-0.01em]" style={{ color: NW_TINTA }}>
             {pasoActual.titulo.split(' ').map((palabra, i, arr) => i === arr.length - 1
-              ? <span key={i} style={{ color: NW_PRODUCTO }}>{palabra}</span>
+              ? <span key={i} className="italic" style={{ color: NW_PRODUCTO }}>{palabra}</span>
               : `${palabra} `)}
           </h1>
 

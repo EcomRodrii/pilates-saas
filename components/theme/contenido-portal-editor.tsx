@@ -1,13 +1,13 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Plus, Trash2, Upload, MessageSquare, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Upload, MessageSquare, Image as ImageIcon, Megaphone } from 'lucide-react';
 import { inputCls, labelCls, btnPrimary, Field, Toggle } from '@/app/(dashboard)/configuracion/page';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useStudio } from '@/lib/studio-context';
 import { usePermisos } from '@/lib/permisos';
 import { subirBannerEstudio, eliminarBannerEstudio } from '@/lib/portal-storage';
-import type { BannerPortal } from '@/lib/types';
+import type { BannerPortal, NovedadEstudio } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 // Id fijo de la fila "Mensaje destacado" en la lista de Secciones — no es un
@@ -36,7 +36,7 @@ function linkValido(tipo: BannerPortal['linkTipo'], valor: string): boolean {
 // campo (sin borrador/publicar) — igual que siempre.
 export function useContenidoPortalEditor() {
   const { rol } = usePermisos();
-  const { contenidoPortal, bannersPortal, updateMensajeDestacado, addBannerPortal } = useStudio();
+  const { contenidoPortal, bannersPortal, novedadesEstudio, updateMensajeDestacado, addBannerPortal, addNovedadEstudio } = useStudio();
   const [mensaje, setMensaje] = useState(contenidoPortal?.mensajeDestacado ?? '');
   const [guardandoMensaje, setGuardandoMensaje] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -59,9 +59,18 @@ export function useContenidoPortalEditor() {
     return true;
   }
 
+  async function handleNuevaNovedad(): Promise<boolean> {
+    const res = await addNovedadEstudio({
+      titulo: 'Nuevo aviso', texto: null, emoji: null,
+      activo: false, fechaInicio: null, fechaFin: null,
+    });
+    if (!res.ok) { setAviso(res.error); return false; }
+    return true;
+  }
+
   return {
-    rol, bannersPortal, mensaje, setMensaje, guardandoMensaje, aviso, setAviso,
-    handleGuardarMensaje, handleNuevoBanner,
+    rol, bannersPortal, novedadesEstudio, mensaje, setMensaje, guardandoMensaje, aviso, setAviso,
+    handleGuardarMensaje, handleNuevoBanner, handleNuevaNovedad,
   };
 }
 
@@ -107,6 +116,30 @@ export function ContenidoPortalList({
         className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border text-foreground"
       >
         <Plus size={14} /> Añadir banner
+      </button>
+
+      <p className="text-[12.5px] text-muted-foreground pt-2 border-t border-border">
+        Tablón — avisos de texto para tus clientas (horario especial, un taller, un cierre puntual).
+      </p>
+      <div className="space-y-1.5">
+        {hook.novedadesEstudio.map((n) => (
+          <button key={n.id} type="button" onClick={() => onSeleccionar(n.id)} className={filaCls(seleccionId === n.id)}>
+            <span className="w-8 h-8 shrink-0 rounded-md border border-border bg-muted flex items-center justify-center text-[15px]">
+              {n.emoji || <Megaphone size={14} className="text-muted-foreground" />}
+            </span>
+            <span className={cn('flex-1 text-[13px] font-medium truncate', n.activo ? 'text-foreground' : 'text-muted-foreground/60')}>
+              {n.titulo}
+            </span>
+            {!n.activo && <span className="text-[10px] text-muted-foreground shrink-0">Oculto</span>}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => void hook.handleNuevaNovedad()}
+        className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border text-foreground"
+      >
+        <Plus size={14} /> Añadir aviso
       </button>
       {hook.aviso && <p className="text-[12.5px] text-muted-foreground">{hook.aviso}</p>}
     </div>
@@ -252,6 +285,81 @@ function BannerPanel({ banner, onToast }: { banner: BannerPortal; onToast: (m: s
   );
 }
 
+function NovedadPanel({ novedad, onToast }: { novedad: NovedadEstudio; onToast: (m: string) => void }) {
+  const { updateNovedadEstudio, deleteNovedadEstudio } = useStudio();
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  // Guardado de campo suelto: mismo criterio que BannerPanel — un fallo de
+  // red/RLS al teclear no puede perderse en silencio.
+  function guardarCampo(changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>) {
+    void updateNovedadEstudio(novedad.id, changes).then(res => { if (!res.ok) onToast(res.error); });
+  }
+
+  async function handleEliminar() {
+    setConfirmDel(false);
+    const res = await deleteNovedadEstudio(novedad.id);
+    if (!res.ok) onToast(res.error);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-3">
+        <input
+          className={cn(inputCls, 'w-16 text-center')}
+          value={novedad.emoji ?? ''}
+          placeholder="📣"
+          maxLength={4}
+          onChange={e => guardarCampo({ emoji: e.target.value || null })}
+        />
+        <div className="flex flex-col items-center gap-2 shrink-0 ml-auto">
+          <Toggle on={novedad.activo} onChange={v => guardarCampo({ activo: v })} />
+          <button type="button" onClick={() => setConfirmDel(true)} className="text-muted-foreground hover:text-destructive" aria-label="Eliminar aviso">
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+      <input
+        className={inputCls}
+        value={novedad.titulo}
+        placeholder="Título del aviso"
+        onChange={e => guardarCampo({ titulo: e.target.value })}
+      />
+      <textarea
+        className={cn(inputCls, 'min-h-16')}
+        value={novedad.texto ?? ''}
+        placeholder="Texto (opcional)"
+        onChange={e => guardarCampo({ texto: e.target.value || null })}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="Desde (opcional)">
+          <input
+            type="date" className={inputCls}
+            value={novedad.fechaInicio ?? ''}
+            onChange={e => guardarCampo({ fechaInicio: e.target.value || null })}
+          />
+        </Field>
+        <Field label="Hasta (opcional)">
+          <input
+            type="date" className={inputCls}
+            value={novedad.fechaFin ?? ''}
+            onChange={e => guardarCampo({ fechaFin: e.target.value || null })}
+          />
+        </Field>
+      </div>
+
+      <ConfirmDialog
+        open={confirmDel}
+        onOpenChange={setConfirmDel}
+        titulo="¿Eliminar este aviso?"
+        descripcion="Se quitará del portal de tus clientas. No se puede deshacer."
+        textoConfirmar="Eliminar"
+        destructivo
+        onConfirm={handleEliminar}
+      />
+    </div>
+  );
+}
+
 export function ContenidoPortalPanel({
   hook, seleccionId,
 }: {
@@ -261,5 +369,7 @@ export function ContenidoPortalPanel({
   if (seleccionId === MENSAJE_DESTACADO_ID) return <MensajeDestacadoPanel hook={hook} />;
   const banner = hook.bannersPortal.find(b => b.id === seleccionId);
   if (banner) return <BannerPanel banner={banner} onToast={hook.setAviso} />;
-  return <p className="text-[13px] text-muted-foreground">Selecciona el mensaje destacado o un banner de la izquierda.</p>;
+  const novedad = hook.novedadesEstudio.find(n => n.id === seleccionId);
+  if (novedad) return <NovedadPanel novedad={novedad} onToast={hook.setAviso} />;
+  return <p className="text-[13px] text-muted-foreground">Selecciona el mensaje destacado, un banner o un aviso del tablón de la izquierda.</p>;
 }

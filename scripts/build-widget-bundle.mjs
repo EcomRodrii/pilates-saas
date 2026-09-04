@@ -44,15 +44,21 @@ const TURNSTILE_SITE_KEY = leerEnvLocal('NEXT_PUBLIC_TURNSTILE_SITE_KEY');
 // cae al aviso "compra no disponible ahora mismo" en vez de romper el resto
 // del widget (calendario/reservas siguen funcionando).
 const STRIPE_PUBLISHABLE_KEY = leerEnvLocal('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
+// Guardia de FORMA, no de presencia. El 19-ago esta variable llegó a contener
+// una `sk_live_` y el bundle público la sirvió a webs de terceros (Sentry
+// JAVASCRIPT-NEXTJS-1P: "You should not use your secret key with Stripe.js").
+// Se cerró rotando la clave; nada impedía repetirlo. `public/widget.js` es el
+// destino más expuesto del repo, así que el build para aquí antes de generarlo.
+if (STRIPE_PUBLISHABLE_KEY && !STRIPE_PUBLISHABLE_KEY.startsWith('pk_')) {
+  console.error('✖ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY no empieza por "pk_". Se aborta el build: esa variable acaba en public/widget.js, servido a terceros.');
+  process.exit(1);
+}
 
-await esbuild.build({
-  entryPoints: [path.join(raiz, 'app/widget-bundle/main.tsx')],
-  outfile: path.join(raiz, 'public/widget.js'),
+const opcionesComunes = {
   bundle: true,
   minify: true,
   sourcemap: false,
   platform: 'browser',
-  format: 'iife',
   target: ['es2020'],
   jsx: 'automatic',
   jsxImportSource: 'react',
@@ -66,6 +72,26 @@ await esbuild.build({
     'process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY': JSON.stringify(STRIPE_PUBLISHABLE_KEY),
   },
   logLevel: 'info',
-});
+};
 
+await esbuild.build({
+  ...opcionesComunes,
+  entryPoints: [path.join(raiz, 'app/widget-bundle/main.tsx')],
+  outfile: path.join(raiz, 'public/widget.js'),
+  format: 'iife',
+});
 console.log('✔ public/widget.js generado');
+
+// ⚠️ Auditoría de rendimiento (2026-08-31, `tentare-performance`): build
+// SEPARADO para `<ListaPlanes>` (Stripe incluido, ~127KB comprimidos) — ver
+// el docblock de components/checkout-widget/checkout-lazy-mount.tsx. `esm`,
+// no `iife`: es lo que permite a `widget.js` pedirlo con `import()` nativo
+// diferido; un `<script>` clásico puede llamar `import()` sin necesitar
+// `type="module"` él mismo.
+await esbuild.build({
+  ...opcionesComunes,
+  entryPoints: [path.join(raiz, 'app/widget-bundle/checkout-entry.tsx')],
+  outfile: path.join(raiz, 'public/widget-checkout.js'),
+  format: 'esm',
+});
+console.log('✔ public/widget-checkout.js generado');

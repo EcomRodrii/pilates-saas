@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Loader2 } from 'lucide-react';
 import { fetchMisReferenciasNetwork, crearReferenciaNetwork } from '@/lib/api-client';
 import type { ReferenciaNetwork, NuevaReferenciaNetwork } from '@/lib/network/tipos';
-import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, labelCls, cardCls } from '@/components/network/campo-estilos';
 
 const FORM_VACIO: NuevaReferenciaNetwork = { nombreReferente: '', emailReferente: '', relacion: null };
 

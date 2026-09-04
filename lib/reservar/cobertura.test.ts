@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { coberturaDeClase, estaCubierta, textoCobertura, precioDeCobertura } from './cobertura.ts';
+import { coberturaDeClase, estaCubierta, textoCobertura, textoCoberturaListaEspera, precioDeCobertura } from './cobertura.ts';
 import { tieneEntitlementActivo, bonoConsumible } from '../bono-logic.ts';
 import type { PlanTarifa, Suscripcion } from '../types.ts';
 
@@ -235,4 +235,38 @@ test('coberturaDeClase y tieneEntitlementActivo NUNCA se contradicen', () => {
     }
   }
   assert.equal(comprobados, 18);
+});
+
+// ── Lista de espera (auditoría de conversión, 2026-08-31): la misma
+// cobertura, en futuro condicional — la sesión NO se consume al apuntarse,
+// solo si acepta la oferta más tarde. Reutilizar `textoCobertura` a secas
+// diría "Descuenta 1 sesión... te quedarán N" antes de que pase nada.
+
+test('lista de espera con bono: en futuro condicional, nunca como un hecho ya pasado', () => {
+  const c = coberturaDeClase({
+    socioId: SOCIA, suscripciones: [sus({ planId: BONO_REFORMER.id, sesionesRestantes: 5 })],
+    planesTarifa: [BONO_REFORMER], hoyISO: HOY, tipoClaseId: REFORMER, precioClaseSuelta: 15,
+  });
+  const texto = textoCoberturaListaEspera(c);
+  assert.match(texto!, /Bono 10 Reformer/);
+  assert.match(texto!, /si se libera un hueco/i);
+  assert.doesNotMatch(texto!, /te quedarán/, 'no debe sonar a que ya se ha descontado');
+});
+
+test('lista de espera con mensual: sigue sin prometer descuento de sesiones', () => {
+  const c = coberturaDeClase({
+    socioId: SOCIA, suscripciones: [sus({ planId: MENSUAL_TODO.id })],
+    planesTarifa: [MENSUAL_TODO], hoyISO: HOY, tipoClaseId: REFORMER, precioClaseSuelta: 15,
+  });
+  assert.doesNotMatch(textoCoberturaListaEspera(c)!, /sesi/i);
+});
+
+test('lista de espera sin plan: precio también en futuro condicional', () => {
+  const c = coberturaDeClase({
+    socioId: SOCIA, suscripciones: [], planesTarifa: [BONO_REFORMER],
+    hoyISO: HOY, tipoClaseId: REFORMER, precioClaseSuelta: 15,
+  });
+  assert.equal(c.estado, 'SIN_PLAN');
+  assert.match(textoCoberturaListaEspera(c)!, /si se libera un hueco/i);
+  assert.match(textoCoberturaListaEspera(c)!, /15/);
 });

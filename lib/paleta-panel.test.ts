@@ -220,8 +220,12 @@ test('las barras móviles siguen el modo del panel, no un blanco fijo', () => {
 test('el cajón "Más" es una superficie siempre oscura', () => {
   // --foreground NO vale aquí: se invierte con el modo y su contenido es
   // text-white incondicional.
-  assert.ok(
-    sidebar.includes("className=\"fixed inset-0 z-50 flex flex-col\" style={{ backgroundColor: 'var(--sidebar)' }}"),
+  // Regex tolerante a la clase de animación (className={cn('fixed inset-0
+  // z-50 flex flex-col', ...)}) en vez de un match literal — la auditoría de
+  // motion (MasDrawer) añadió mas-drawer-in/out sin tocar el fondo.
+  assert.match(
+    sidebar,
+    /fixed inset-0 z-50 flex flex-col'[\s\S]{0,80}style=\{\{ backgroundColor: 'var\(--sidebar\)' \}\}/,
     'el cajón "Más" ya no usa --sidebar como fondo',
   );
 });

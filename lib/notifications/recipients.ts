@@ -117,6 +117,22 @@ async function sociaPorId(admin: SupabaseClient, studioId: string, socioId: stri
   };
 }
 
+// Community & Messaging OS (P1): N socias resueltas por `data.socioIds` — a
+// diferencia de `sociasDeSesion` (deriva los ids de `reservas`), aquí el
+// caller ya tiene los ids (salen de `resolverDestinatariasCampana`). Una sola
+// query `.in('id', …)`, no un bucle de `sociaPorId` por id — el fan-out de un
+// post puede alcanzar a cientos de socias.
+async function sociasPorLista(admin: SupabaseClient, studioId: string, socioIds: string[]): Promise<Recipient[]> {
+  const { data } = await admin.from('socios')
+    .select('id, nombre, apellidos, email, telefono, auth_user_id')
+    .eq('studio_id', studioId).in('id', socioIds);
+  return (data ?? []).map(r => ({
+    role: 'SOCIA' as const, userId: (r.auth_user_id as string | null) ?? null, socioId: r.id as string,
+    nombre: `${r.nombre ?? ''} ${r.apellidos ?? ''}`.trim() || 'Socia',
+    email: (r.email as string | null) ?? null, telefono: (r.telefono as string | null) ?? null,
+  }));
+}
+
 async function instructoraPorId(admin: SupabaseClient, studioId: string, instructorId: string): Promise<Recipient | null> {
   const { data } = await admin.from('instructores')
     .select('id, nombre, email, auth_user_id')
@@ -133,9 +149,18 @@ async function instructoraPorId(admin: SupabaseClient, studioId: string, instruc
 // resolución (CONFIRMADA de verdad, no el snapshot de cliente) pero fuera del
 // Notification Engine porque ese canal no lo declara el catálogo (ver comentario
 // en `resolverDestinatarios` sobre 'socias-e-instructora-de-la-sesion').
-export async function sociasDeSesion(admin: SupabaseClient, studioId: string, sesionId: string): Promise<Recipient[]> {
+// `estados` por defecto = solo CONFIRMADA, que es el comportamiento que
+// esperan todos los llamantes previos (clase.modificada, clase.sustituta y el
+// email de cambio de instructora: a quien está en lista de espera no le afecta
+// que cambie la hora de una plaza que todavía no tiene). La cancelación de la
+// clase SÍ le afecta —su reserva de espera se cancela con la clase— y por eso
+// pasa su propia lista; ver 'socias-y-espera-e-instructora-de-la-sesion'.
+export async function sociasDeSesion(
+  admin: SupabaseClient, studioId: string, sesionId: string,
+  estados: string[] = ['CONFIRMADA'],
+): Promise<Recipient[]> {
   const { data: reservas } = await admin.from('reservas')
-    .select('socio_id').eq('studio_id', studioId).eq('sesion_id', sesionId).eq('estado', 'CONFIRMADA');
+    .select('socio_id').eq('studio_id', studioId).eq('sesion_id', sesionId).in('estado', estados);
   const ids = [...new Set((reservas ?? []).map(r => r.socio_id as string).filter(Boolean))];
   const out: Recipient[] = [];
   for (const id of ids) {
@@ -158,6 +183,55 @@ async function instructoraDeSesion(admin: SupabaseClient, studioId: string, sesi
   return r?.userId ? [r] : [];
 }
 
+// Community & Messaging OS (P0): un participante de conversación resuelto por
+// su auth_user_id, DENTRO del studioId del evento — a diferencia de
+// `porAuthUserId` (Network), que fuerza role: 'INSTRUCTOR' y nunca mira el
+// estudio. Aquí no se sabe de antemano si es socia o staff, así que se
+// prueba en orden: `socios`, `instructores`, y por último la propietaria
+// (que puede no tener fila en `instructores`, ver `propietaria()` arriba).
+async function participanteConversacionPorAuthUserId(
+  admin: SupabaseClient, studioId: string, authUserId: string,
+): Promise<Recipient | null> {
+  const { data: socio } = await admin.from('socios')
+    .select('id, nombre, apellidos, email, telefono')
+    .eq('studio_id', studioId).eq('auth_user_id', authUserId).maybeSingle();
+  if (socio) {
+    return {
+      role: 'SOCIA', userId: authUserId, socioId: socio.id as string,
+      nombre: `${socio.nombre ?? ''} ${socio.apellidos ?? ''}`.trim() || 'Socia',
+      email: (socio.email as string | null) ?? null, telefono: (socio.telefono as string | null) ?? null,
+    };
+  }
+  const { data: staff } = await admin.from('instructores')
+    .select('id, nombre, email, rol')
+    .eq('studio_id', studioId).eq('auth_user_id', authUserId).maybeSingle();
+  if (staff) {
+    return {
+      role: staff.rol as Recipient['role'], userId: authUserId, instructorId: staff.id as string,
+      nombre: (staff.nombre as string | null) ?? 'Equipo', email: (staff.email as string | null) ?? null,
+    };
+  }
+  const { data: studio } = await admin.from('studios')
+    .select('owner_auth_user_id, nombre, email, telefono').eq('id', studioId).maybeSingle();
+  if (studio?.owner_auth_user_id === authUserId) {
+    return {
+      role: 'PROPIETARIO', userId: authUserId,
+      nombre: (studio.nombre as string | null) ?? 'Propietaria',
+      email: (studio.email as string | null) ?? null, telefono: (studio.telefono as string | null) ?? null,
+    };
+  }
+  return null;
+}
+
+async function participantesConversacion(
+  admin: SupabaseClient, studioId: string, authUserIds: string[],
+): Promise<Recipient[]> {
+  const out = await Promise.all(
+    authUserIds.map(id => participanteConversacionPorAuthUserId(admin, studioId, id)),
+  );
+  return out.filter((r): r is Recipient => r !== null);
+}
+
 // Dispatcher: audiencia → destinatarios reales. Ampliar = añadir un case.
 export async function resolverDestinatarios(
   admin: SupabaseClient, audiencia: Audiencia, event: NotificationEvent,
@@ -170,6 +244,7 @@ export async function resolverDestinatarios(
   const nombreProfesional = d.profesional as string | undefined;
   const solicitanteAuthUserId = d.solicitanteAuthUserId as string | undefined;
   const authUserIds = d.authUserIds as string[] | undefined;
+  const socioIds = d.socioIds as string[] | undefined;
 
   // Estas audiencias no pueden resolverse sin su id en `data`. Si falta, el aviso
   // se perdía sin rastro (le pasó a clase.cancelada en producción): grítalo.
@@ -191,6 +266,20 @@ export async function resolverDestinatarios(
       if (!sesionId) return falta('sesionId');
       const [socias, instructora] = await Promise.all([
         sociasDeSesion(admin, event.studioId, sesionId),
+        instructoraDeSesion(admin, event.studioId, sesionId),
+      ]);
+      return [...socias, ...instructora];
+    }
+    case 'socias-y-espera-e-instructora-de-la-sesion': {
+      if (!sesionId) return falta('sesionId');
+      const [socias, instructora] = await Promise.all([
+        // Cancelar la clase cancela TAMBIÉN las reservas en LISTA_ESPERA y
+        // PENDIENTE_APROBACION (lib/supabase-data.ts, dbCancelarReservasPorSesiones),
+        // así que si no se las avisa aquí se les borra la reserva sin que se
+        // enteren de nada — siguen creyendo que pueden subir. El orden ya es
+        // el correcto: quien cancela avisa ANTES de cancelar las reservas
+        // (ver el comentario de `updateSesion` en lib/studio-context.tsx).
+        sociasDeSesion(admin, event.studioId, sesionId, ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']),
         instructoraDeSesion(admin, event.studioId, sesionId),
       ]);
       return [...socias, ...instructora];
@@ -220,6 +309,14 @@ export async function resolverDestinatarios(
         : falta('solicitanteAuthUserId');
     case 'red-instructoras-lista':
       return authUserIds && authUserIds.length > 0 ? porListaAuthUserIds(admin, authUserIds) : falta('authUserIds');
+    case 'participantes-conversacion':
+      return authUserIds && authUserIds.length > 0
+        ? participantesConversacion(admin, event.studioId, authUserIds)
+        : falta('authUserIds');
+    case 'socias-de-lista':
+      return socioIds && socioIds.length > 0
+        ? sociasPorLista(admin, event.studioId, socioIds)
+        : falta('socioIds');
     default:
       return [];
   }

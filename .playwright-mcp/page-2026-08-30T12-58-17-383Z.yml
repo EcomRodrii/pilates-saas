@@ -1,0 +1,159 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e2]:
+    - banner [ref=f5e3]:
+      - generic [ref=f5e4]:
+        - link "Tentare Network — inicio" [ref=f5e5] [cursor=pointer]:
+          - /url: /network
+          - generic [ref=f5e15]: Beta
+        - navigation [ref=f5e16]:
+          - link "Explorar instructoras" [ref=f5e17] [cursor=pointer]:
+            - /url: /network/instructoras
+          - link "Cómo funciona" [ref=f5e18] [cursor=pointer]:
+            - /url: /network#como-funciona
+        - generic [ref=f5e19]:
+          - link "Entrar como estudio" [ref=f5e20] [cursor=pointer]:
+            - /url: /network/acceso
+          - link "Iniciar sesión" [ref=f5e21] [cursor=pointer]:
+            - /url: /network/acceso
+          - link "Crear perfil" [ref=f5e22] [cursor=pointer]:
+            - /url: /network/crear-perfil
+    - generic [ref=f5e23]:
+      - heading "Instructoras de Pilates y Yoga en Barcelona" [level=1] [ref=f5e24]
+      - paragraph [ref=f5e25]: Perfiles verificados de Pilates y Yoga, listos para tu estudio.
+    - generic [ref=f5e26]:
+      - complementary [ref=f5e27]:
+        - generic [ref=f5e28]:
+          - generic [ref=f5e29]:
+            - paragraph [ref=f5e30]: Filtros
+            - button "Limpiar" [ref=f5e31]
+          - generic [ref=f5e32]:
+            - paragraph [ref=f5e33]: Ubicación
+            - textbox "Ciudad" [ref=f5e38]: Barcelona
+          - generic [ref=f5e39]:
+            - paragraph [ref=f5e40]: Especialidad
+            - generic [ref=f5e41]:
+              - generic [ref=f5e42] [cursor=pointer]:
+                - checkbox "Reformer" [checked] [ref=f5e43]
+                - text: Reformer
+              - generic [ref=f5e46] [cursor=pointer]:
+                - checkbox "Mat" [ref=f5e47]
+                - text: Mat
+              - generic [ref=f5e48] [cursor=pointer]:
+                - checkbox "Máquina" [ref=f5e49]
+                - text: Máquina
+              - generic [ref=f5e50] [cursor=pointer]:
+                - checkbox "Yoga" [ref=f5e51]
+                - text: Yoga
+              - generic [ref=f5e52] [cursor=pointer]:
+                - checkbox "HIIT" [ref=f5e53]
+                - text: HIIT
+              - generic [ref=f5e54] [cursor=pointer]:
+                - checkbox "Otro" [ref=f5e55]
+                - text: Otro
+          - generic [ref=f5e56]:
+            - paragraph [ref=f5e57]: Experiencia
+            - generic [ref=f5e58]:
+              - generic [ref=f5e59] [cursor=pointer]:
+                - radio "Cualquiera años" [checked] [ref=f5e60]
+                - text: Cualquiera años
+              - generic [ref=f5e63] [cursor=pointer]:
+                - radio "1+ años" [ref=f5e64]
+                - text: 1+ años
+              - generic [ref=f5e65] [cursor=pointer]:
+                - radio "3+ años" [ref=f5e66]
+                - text: 3+ años
+              - generic [ref=f5e67] [cursor=pointer]:
+                - radio "5+ años" [ref=f5e68]
+                - text: 5+ años
+              - generic [ref=f5e69] [cursor=pointer]:
+                - radio "10+ años" [ref=f5e70]
+                - text: 10+ años
+          - generic [ref=f5e71]:
+            - paragraph [ref=f5e72]: Disponibilidad
+            - generic [ref=f5e73]:
+              - generic [ref=f5e74] [cursor=pointer]:
+                - checkbox "Disponible" [ref=f5e75]
+                - text: Disponible
+              - generic [ref=f5e76] [cursor=pointer]:
+                - checkbox "Disponible para sustituciones" [ref=f5e77]
+                - text: Disponible para sustituciones
+              - generic [ref=f5e78] [cursor=pointer]:
+                - checkbox "Buscando trabajo" [ref=f5e79]
+                - text: Buscando trabajo
+          - generic [ref=f5e80]:
+            - paragraph [ref=f5e81]: Precio máximo
+            - generic [ref=f5e82]:
+              - generic [ref=f5e83] [cursor=pointer]:
+                - checkbox "20–25 €/h" [ref=f5e84]
+                - text: 20–25 €/h
+              - generic [ref=f5e85] [cursor=pointer]:
+                - checkbox "25–30 €/h" [ref=f5e86]
+                - text: 25–30 €/h
+              - generic [ref=f5e87] [cursor=pointer]:
+                - checkbox "30–35 €/h" [ref=f5e88]
+                - text: 30–35 €/h
+              - generic [ref=f5e89] [cursor=pointer]:
+                - checkbox "A negociar" [ref=f5e90]
+                - text: A negociar
+          - generic [ref=f5e91]:
+            - paragraph [ref=f5e92]: Valoración mínima
+            - generic [ref=f5e93]:
+              - generic [ref=f5e94] [cursor=pointer]:
+                - radio "Cualquiera" [checked] [ref=f5e95]
+                - text: Cualquiera
+              - generic [ref=f5e98] [cursor=pointer]:
+                - radio "4+ ★" [ref=f5e99]
+                - text: 4+ ★
+              - generic [ref=f5e100] [cursor=pointer]:
+                - radio "4,5+ ★" [ref=f5e101]
+                - text: 4,5+ ★
+          - generic [ref=f5e102]:
+            - paragraph [ref=f5e103]: Verificación
+            - generic [ref=f5e104]:
+              - generic [ref=f5e105] [cursor=pointer]:
+                - checkbox "Identidad verificada" [ref=f5e106]
+                - text: Identidad verificada
+              - generic [ref=f5e107] [cursor=pointer]:
+                - checkbox "Experiencia verificada" [ref=f5e108]
+                - text: Experiencia verificada
+              - generic [ref=f5e109] [cursor=pointer]:
+                - checkbox "Formación verificada" [ref=f5e110]
+                - text: Formación verificada
+          - generic [ref=f5e111]:
+            - paragraph [ref=f5e112]: Idioma
+            - textbox "Inglés, francés..." [ref=f5e113]
+      - generic [ref=f5e114]:
+        - generic [ref=f5e115]:
+          - button "Barcelona" [ref=f5e116]
+          - button "Reformer" [ref=f5e120]
+        - generic [ref=f5e124]:
+          - paragraph [ref=f5e125]: ¿Buscas en otra zona? Todavía estamos construyendo la network allí.
+          - paragraph [ref=f5e126]: Prueba con otra ciudad o especialidad, o sé de las primeras en publicar tu perfil.
+          - generic [ref=f5e127]:
+            - link "Amplía tu búsqueda" [ref=f5e128] [cursor=pointer]:
+              - /url: /network/instructoras
+            - link "Crear perfil de instructora" [ref=f5e129] [cursor=pointer]:
+              - /url: /network/crear-perfil
+          - generic [ref=f5e130]:
+            - paragraph [ref=f5e131]: ¿Eres un estudio y buscas instructora?
+            - paragraph [ref=f5e132]: Cuéntanos qué necesitas y te avisamos en cuanto encaje un perfil.
+            - generic [ref=f5e133]:
+              - textbox [ref=f5e134]
+              - generic [ref=f5e135]:
+                - textbox "Tu email" [ref=f5e136]
+                - textbox "Ciudad" [ref=f5e137]: Barcelona
+              - button "Avisadme" [ref=f5e138]
+    - contentinfo [ref=f5e139]:
+      - generic [ref=f5e140]:
+        - generic [ref=f5e141]: Beta
+        - navigation [ref=f5e152]:
+          - link "Explorar instructoras" [ref=f5e153] [cursor=pointer]:
+            - /url: /network/instructoras
+          - link "Acceso" [ref=f5e154] [cursor=pointer]:
+            - /url: /network/acceso
+          - link "Términos" [ref=f5e155] [cursor=pointer]:
+            - /url: /network/terminos
+          - link "Privacidad" [ref=f5e156] [cursor=pointer]:
+            - /url: /network/privacidad
+        - paragraph [ref=f5e157]: Parte del ecosistema Tentare
+  - alert [ref=f5e158]

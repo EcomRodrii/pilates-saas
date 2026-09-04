@@ -32,7 +32,7 @@ function estadoRecup(r: Recuperacion, hoy: string): { label: string; viva: boole
 const inputCls = 'w-full text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring';
 const labelCls = 'text-xs font-semibold text-muted-foreground mb-1.5 block';
 
-export function FichaRecuperaciones({ socioId }: { socioId: string }) {
+export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
   const { recuperaciones, darRecuperacion, anularRecuperacion } = useStudio();
   // Conceder o anular una recuperación es una clase gratis: desde la 0122 lo
   // rechaza la base de datos a quien no gestiona clientas. Se ocultan los
@@ -95,7 +95,7 @@ export function FichaRecuperaciones({ socioId }: { socioId: string }) {
                 </div>
                 {puedeTocar && st.viva && (
                   <button
-                    onClick={async () => { const res = await anularRecuperacion(r.id); if (!res.ok) window.alert(res.error); }}
+                    onClick={async () => { const res = await anularRecuperacion(r.id); if (!res.ok) onToast(res.error); }}
                     title="Anular recuperación"
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted shrink-0"
                   >

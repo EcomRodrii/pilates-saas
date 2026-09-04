@@ -38,7 +38,16 @@ export async function GET(req: NextRequest) {
     if (!token.stripe_user_id) {
       throw new Error('Stripe no devolvió una cuenta conectada');
     }
-    await dbSetStripeAccountId(studioId, token.stripe_user_id);
+    // Auditoría 22ª pasada (3-sep-2026), D-7: el resultado se comprueba. Antes
+    // se descartaba (dbSetStripeAccountId era `void`) y este redirect a
+    // `stripe_connected=1` corría igual pasara lo que pasara — incluida una
+    // cuenta ya vinculada a OTRO estudio (`uq_studios_stripe_account`, el caso
+    // natural de una cadena con varias sedes que reconecta sin querer la misma
+    // cuenta): la propietaria veía "conectado" y no cobraba nada.
+    const resultado = await dbSetStripeAccountId(studioId, token.stripe_user_id);
+    if (!resultado.ok) {
+      return NextResponse.redirect(`${appUrl}/configuracion?stripe_connect_error=${encodeURIComponent(resultado.error)}`);
+    }
 
     // Con la cuenta recién conectada, registra sus dominios de wallets:
     // www.tentare.app + ápice (Modo A: el Payment Element vive en el iframe

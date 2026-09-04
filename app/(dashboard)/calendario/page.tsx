@@ -12,6 +12,7 @@ import { semaforo, alertaPreClase, resumenSaludClase, RESPUESTAS_ORDEN, RESPUEST
 import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida, Sesion } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   CalendarDays, ChevronDown,
@@ -24,6 +25,7 @@ import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarClaseCanc
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
+import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
 import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
@@ -63,6 +65,7 @@ import { rangoDia, rangoSemanaDesde, rangoMes, claveRango, type RangoFechas } fr
 import { historialSustituciones } from '@/lib/calendario-historial';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
+import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -266,7 +269,7 @@ function ModalClasesRecurrentes({
 }: {
   open: boolean;
   onClose: () => void;
-  tiposClase: { id: string; nombre: string }[];
+  tiposClase: { id: string; nombre: string; aforoPorDefecto?: number | null }[];
   instructores: { id: string; nombre: string }[];
   ausencias?: AusenciaInstructora[];
   salas: { id: string; nombre: string; capacidad: number }[];
@@ -293,7 +296,7 @@ function ModalClasesRecurrentes({
     diasSemana: [1, 3],
     fechaInicio: new Date().toISOString().slice(0, 10),
     fechaFin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-    aforoMaximo: salas[0]?.capacidad ?? 8,
+    aforoMaximo: aforoPorDefectoDeSesion(tiposClase[0]?.aforoPorDefecto, salas[0]?.capacidad),
   };
 
   const [form, setForm] = useState<RecurringFormData>(emptyForm);
@@ -373,7 +376,19 @@ function ModalClasesRecurrentes({
         </DialogHeader>
         <div className="space-y-4 mt-3">
           <FormField label="Tipo de clase">
-            <select className={s2} value={form.tipoClaseId} onChange={e => setForm(f => ({ ...f, tipoClaseId: e.target.value }))}>
+            <select className={s2} value={form.tipoClaseId} onChange={e => {
+              const tipoClaseId = e.target.value;
+              const tc = tiposClase.find(x => x.id === tipoClaseId);
+              setForm(f => ({
+                ...f,
+                tipoClaseId,
+                // Mismo criterio que el cambio de sala de abajo: si ya tocó el
+                // aforo a mano, se respeta.
+                aforoMaximo: f.aforoTocado
+                  ? f.aforoMaximo
+                  : aforoPorDefectoDeSesion(tc?.aforoPorDefecto, salas.find(x => x.id === f.salaId)?.capacidad, f.aforoMaximo),
+              }));
+            }}>
               {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
             </select>
           </FormField>
@@ -389,13 +404,20 @@ function ModalClasesRecurrentes({
               setForm(f => ({
                 ...f,
                 salaId,
-                aforoMaximo: f.aforoTocado || cap == null ? f.aforoMaximo : cap,
+                aforoMaximo: f.aforoTocado
+                  ? f.aforoMaximo
+                  : aforoPorDefectoDeSesion(tiposClase.find(x => x.id === f.tipoClaseId)?.aforoPorDefecto, cap, f.aforoMaximo),
               }));
             }}>
               {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
             </select>
           </FormField>
-          <div className="grid grid-cols-2 gap-4">
+          {/* P2 (auditoría de producto): las 4 rejillas de 2 columnas de este
+              fichero eran `grid-cols-2` fijo sin `sm:` — este modal es
+              `max-w-lg` y el panel lateral de crear/editar clase es `w-full`
+              por debajo de `lg` (components/ui/dashboard-drawer.tsx), así que
+              a 375px cramaba dos campos de formulario en ~170px cada uno. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Hora inicio">
               <input type="time" className={f2} value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} />
             </FormField>
@@ -426,7 +448,7 @@ function ModalClasesRecurrentes({
             </div>
             {form.diasSemana.length === 0 && <p className="text-xs text-destructive">Selecciona al menos un día</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Fecha inicio">
               <input type="date" className={f2} value={form.fechaInicio} onChange={e => setForm(f => ({ ...f, fechaInicio: e.target.value }))} />
             </FormField>
@@ -638,7 +660,7 @@ export default function Calendario() {
     horaFin: tiposClase[0]?.duracionMinutos
       ? `${String(9 + Math.floor(tiposClase[0].duracionMinutos / 60)).padStart(2, '0')}:${String(tiposClase[0].duracionMinutos % 60).padStart(2, '0')}`
       : '10:00',
-    aforoMaximo: salas[0]?.capacidad ?? 8,
+    aforoMaximo: aforoPorDefectoDeSesion(tiposClase[0]?.aforoPorDefecto, salas[0]?.capacidad),
     notas: '',
     repetir: false,
     repetirSemanas: 4,
@@ -848,7 +870,11 @@ export default function Calendario() {
       // Una instructora crea SU clase: fijada a sí misma, no se le ofrece
       // elegir (la RLS de la 20260731100000 la rechazaría igual si lo hiciera).
       instructorId: esInstructorTop && yoTop ? yoTop.id : elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot, ausencias),
-      aforoMaximo: salas.find(s => s.id === salaId)?.capacidad ?? base.aforoMaximo,
+      aforoMaximo: aforoPorDefectoDeSesion(
+        tiposClase.find(t => t.id === base.tipoClaseId)?.aforoPorDefecto,
+        salas.find(s => s.id === salaId)?.capacidad,
+        base.aforoMaximo,
+      ),
     });
     setErrorSesion(null);
     setShowForm('nueva');
@@ -1215,6 +1241,16 @@ export default function Calendario() {
     }
   }
 
+  // P1-3 (auditoría de producto): "Cancelar"/"Eliminar" clase ejecutaban
+  // directo — el número de alumnas afectadas solo aparecía en el toast
+  // POSTERIOR. Combinado con P0-1 (ya cerrado: "Eliminar" ahora sí devuelve
+  // el bono), un clic accidental en la papelera de una clase llena tenía
+  // impacto real y solo se descubría después. Confirmación previa con el
+  // conteo, mismo componente que ya usa el resto del panel.
+  const [confirmCancelar, setConfirmCancelar] = useState(false);
+  const [confirmEliminar, setConfirmEliminar] = useState(false);
+  const apuntadasSesionActual = reservasActuales.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
+
   async function cancelarSesion() {
     if (!sesionId) return;
     const guardado = await updateSesion(sesionId, { cancelada: true });
@@ -1264,11 +1300,15 @@ export default function Calendario() {
     // UPDATE reintroducía las reservas fantasma sin que nadie se enterara.
     const resReservas = await cancelarReservasDeSesiones([sesionId], 'cancelarSesion');
     setSesionId(null);
-    showToast(!resReservas.ok
+    // F-32: si alguna socia no recuperó su sesión de bono, el toast base
+    // ("clientas avisadas") ya no puede quedarse tan tranquilo — se añade el
+    // mismo aviso que ya usa cancelarReserva (una sola reserva).
+    const base = !resReservas.ok
       ? 'Clase cancelada · no hemos podido cancelar sus reservas, recarga la página'
       : sinAvisar > 0
         ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
-        : 'Clase cancelada · clientas avisadas');
+        : 'Clase cancelada · clientas avisadas';
+    showToast(resReservas.avisoBono ? `${base} · ${resReservas.avisoBono}` : base);
     void refrescarVista();
   }
 
@@ -1289,7 +1329,9 @@ export default function Calendario() {
     const res = await deleteSesion(sesionId);
     if (!res.ok) { showToast(res.error); return; }
     setSesionId(null);
-    showToast('Clase eliminada');
+    // F-9 (auditoría 22ª pasada): mismo trato que "Cancelar" — si alguna socia
+    // no recuperó su sesión de bono, el toast no puede decir solo "eliminada".
+    showToast(res.avisoBono ? `Clase eliminada · ${res.avisoBono}` : 'Clase eliminada');
     void refrescarVista();
   }
 
@@ -1406,26 +1448,45 @@ export default function Calendario() {
     : rangoSemanaDesde(semana);
   const claveVista = claveRango(rango);
 
+  // P1-2 (auditoría de producto): un fallo de red/500 en la PRIMERA carga
+  // dejaba `datosVista` en null para siempre — la pantalla más usada del
+  // panel se quedaba en "Cargando…" indistinguible de un cuelgue real, sin
+  // botón de reintentar (a diferencia de /centro-de-control, que ya tiene
+  // este patrón). Solo se marca error cuando no hay NADA que enseñar
+  // todavía: si ya había una vista cargada, una recarga fallida la deja tal
+  // cual (silencioso a propósito, mismo criterio de antes) en vez de tapar
+  // una rejilla que sigue siendo útil con un error de refresco.
+  const [errorCargaVista, setErrorCargaVista] = useState<string | null>(null);
+
   const cargarDatosVista = useCallback(async (r: RangoFechas) => {
     const clave = claveRango(r);
     ultimaClaveSolicitadaRef.current = clave;
     const cacheado = cacheVistaRef.current.get(clave);
-    if (cacheado) { setDatosVista(cacheado); return; }
+    if (cacheado) { setDatosVista(cacheado); setErrorCargaVista(null); return; }
+    setErrorCargaVista(null); // reintento: vuelve a "Cargando…" en vez de dejar el error puesto
     try {
       const res = await fetch(`/api/calendario?desde=${encodeURIComponent(r.desde)}&hasta=${encodeURIComponent(r.hasta)}`, {
         headers: await authHeader(),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setDatosVista(prev => { if (!prev) setErrorCargaVista('El servidor no ha podido cargar el calendario.'); return prev; });
+        return;
+      }
       const data = (await res.json()) as DatosVista;
       // Defensa ante un payload incompleto (mock de test a medio configurar, o
       // una respuesta real inesperada): sin `sesiones`/`horaApertura` la rejilla
       // reventaría al leer `horaApertura.slice(...)`. Mejor seguir "Cargando…".
-      if (!Array.isArray(data?.sesiones) || typeof data?.horaApertura !== 'string') return;
+      if (!Array.isArray(data?.sesiones) || typeof data?.horaApertura !== 'string') {
+        setDatosVista(prev => { if (!prev) setErrorCargaVista('El servidor no ha podido cargar el calendario.'); return prev; });
+        return;
+      }
       cacheVistaRef.current.set(clave, data);
       if (ultimaClaveSolicitadaRef.current !== clave) return; // respuesta obsoleta, se descarta
       setDatosVista(data);
+      setErrorCargaVista(null);
     } catch {
-      // Silencioso: la rejilla se queda con lo último cargado en vez de romper la pantalla.
+      // Sin red: mismo criterio — solo bloquea la pantalla si no hay nada aún.
+      setDatosVista(prev => { if (!prev) setErrorCargaVista('No se ha podido conectar. Comprueba tu conexión.'); return prev; });
     }
   }, []);
 
@@ -1746,10 +1807,10 @@ export default function Calendario() {
     const r = reservasActuales.find(x => x.id === reservaId);
     if (!r || !sesionActual) return;
     const destino = buscarSesionSemanaSiguiente(sesiones, sesionActual);
-    if (!destino) { window.alert('No hay clase programada la semana que viene en este mismo horario y sala.'); return; }
+    if (!destino) { showToast('No hay clase programada la semana que viene en este mismo horario y sala.'); return; }
     const res = await addReserva(destino.id, r.socioId);
-    if (!res.ok) { window.alert(res.error); return; }
-    window.alert(res.estado === 'CONFIRMADA' ? 'Añadida a la clase de la semana que viene.' : 'La clase de la semana que viene está llena — añadida a lista de espera.');
+    if (!res.ok) { showToast(res.error); return; }
+    showToast(res.estado === 'CONFIRMADA' ? 'Añadida a la clase de la semana que viene.' : 'La clase de la semana que viene está llena — añadida a lista de espera.');
   }
 
   function abrirIncidencia(sesionId: string) {
@@ -2179,7 +2240,7 @@ export default function Calendario() {
             {showNuevaMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowNuevaMenu(false)} />
-                <div className="absolute right-0 top-full mt-1.5 z-20 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px]">
+                <div className="absolute right-0 top-full mt-1.5 z-20 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px] menu-pop-in">
                   <button
                     onClick={() => { setShowNuevaMenu(false); openNueva(); }}
                     className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-foreground hover:bg-muted transition-colors text-left"
@@ -2251,8 +2312,19 @@ export default function Calendario() {
       )}
 
       {/* ── Día por salas / Semana 7 columnas / Mes ────────────────────────────── */}
-      <div className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6">
-        {!datosVista ? (
+      <ReanimarAlCambiar clave={claveVista} className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6" animClassName="calendario-vista-in">
+        {!datosVista && errorCargaVista ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-4">
+            <p className="text-[13px] font-medium text-foreground">No hemos podido cargar el calendario</p>
+            <p className="text-[12px] text-muted-foreground">{errorCargaVista}</p>
+            <button
+              onClick={() => void cargarDatosVista(rango)}
+              className="text-[12px] font-bold px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors"
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : !datosVista ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando…</div>
         ) : vista === 'dia' ? (
           <VistaDiaSalas
@@ -2295,7 +2367,7 @@ export default function Calendario() {
             onClickVacio={(gestionaClientas || creaClasesPropias) ? crearDesdeHueco : undefined}
           />
         )}
-      </div>
+      </ReanimarAlCambiar>
     </div>
     </LienzoCalendario>
 
@@ -2354,11 +2426,11 @@ export default function Calendario() {
               >
                 <AlertTriangle size={12} />Incidencia de sala
               </button>
-              <button onClick={cancelarSesion} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">
+              <button onClick={() => setConfirmCancelar(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">
                 <X size={12} />Cancelar
               </button>
               {!esInstructor && (
-                <button onClick={eliminarSesion} aria-label="Eliminar sesión" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors ml-auto">
+                <button onClick={() => setConfirmEliminar(true)} aria-label="Eliminar sesión" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors ml-auto">
                   <Trash2 size={12} />
                 </button>
               )}
@@ -2372,7 +2444,15 @@ export default function Calendario() {
             onNoShow: marcarNoShow,
             onDeshacerCheckin: deshacerCheckin, onRevertirNoShow: revertirNoShow,
             onAprobar: id => resolverPendiente(id, true), onRechazar: id => resolverPendiente(id, false),
-            onQuitar: gestionaClientas ? cancelarReserva : undefined,
+            onQuitar: gestionaClientas ? (id: string) => {
+              // P2 (auditoría de producto): mostrar el aviso si la reserva se
+              // canceló pero no se pudo devolver el bono — antes se perdía en
+              // silencio (fire-and-forget, solo Sentry se enteraba).
+              void cancelarReserva(id).then(res => {
+                if (!res.ok) showToast(res.error);
+                else if (res.avisoBono) showToast(res.avisoBono);
+              });
+            } : undefined,
             onRepetirSemanaSiguiente: gestionaClientas ? repetirSemanaSiguiente : undefined,
             semaforoPorSocio: verSemaforo ? (socioId => {
               const nivel = semaforoParaMostrar.get(socioId);
@@ -2388,7 +2468,7 @@ export default function Calendario() {
                       key={resp}
                       onClick={async () => {
                         const res = await registrarRespuestaSesion({ socioId: r.socioId, sesionId: sesionActual?.id ?? null, respuesta: resp });
-                        if (!res.ok) window.alert(res.error);
+                        if (!res.ok) showToast(res.error);
                       }}
                       title={rm.label}
                       aria-label={rm.label}
@@ -2521,7 +2601,11 @@ export default function Calendario() {
           socios={socios}
           onCheckinSpot={sesionYaEmpezada(sesionActual.inicio) ? checkin : undefined}
           onLiberarSpot={liberarSpot}
-          onAsignarSpot={(spotId, socioId) => sesionActual && asignarSpot(sesionActual.id, socioId, spotId)}
+          onAsignarSpot={async (spotId, socioId) => {
+            if (!sesionActual) return;
+            const res = await asignarSpot(sesionActual.id, socioId, spotId);
+            if (!res.ok) showToast(res.error ?? 'No hemos podido asignar el sitio. Inténtalo de nuevo.');
+          }}
         />
       )}
 
@@ -2554,6 +2638,30 @@ export default function Calendario() {
         sesion={sesionActual}
       />
 
+      <ConfirmDialog
+        open={confirmCancelar}
+        onOpenChange={setConfirmCancelar}
+        titulo="¿Cancelar esta clase?"
+        descripcion={apuntadasSesionActual > 0
+          ? `${apuntadasSesionActual} alumna${apuntadasSesionActual !== 1 ? 's' : ''} apuntada${apuntadasSesionActual !== 1 ? 's' : ''} se quedará${apuntadasSesionActual !== 1 ? 'n' : ''} sin plaza y recibirá${apuntadasSesionActual !== 1 ? 'n' : ''} un aviso.`
+          : 'La clase no tiene alumnas apuntadas.'}
+        textoConfirmar="Cancelar clase"
+        destructivo
+        onConfirm={() => void cancelarSesion()}
+      />
+
+      <ConfirmDialog
+        open={confirmEliminar}
+        onOpenChange={setConfirmEliminar}
+        titulo="¿Eliminar esta clase?"
+        descripcion={apuntadasSesionActual > 0
+          ? `${apuntadasSesionActual} alumna${apuntadasSesionActual !== 1 ? 's' : ''} apuntada${apuntadasSesionActual !== 1 ? 's' : ''} se quedará${apuntadasSesionActual !== 1 ? 'n' : ''} sin plaza${apuntadasSesionActual !== 1 ? 's' : ''}${(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — su bono se devuelve' : ''} y recibirá${apuntadasSesionActual !== 1 ? 'n' : ''} un aviso.`
+          : 'La clase no tiene alumnas apuntadas.'}
+        textoConfirmar="Eliminar clase"
+        destructivo
+        onConfirm={() => void eliminarSesion()}
+      />
+
       {/* ── Panel lateral crear / editar ────────────────────────────────────────── */}
       <DashboardDrawer open={!!showForm} onClose={() => setShowForm(null)} label={showForm === 'nueva' ? 'Nueva clase' : 'Editar clase'}>
         <>
@@ -2566,16 +2674,23 @@ export default function Calendario() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField label="Tipo de clase">
                   <select
                     className={selectCls}
                     value={form.tipoClaseId}
-                    onChange={e => setForm(f => ({
-                      ...f,
-                      tipoClaseId: e.target.value,
-                      horaFin: finSegunDuracion(f.horaInicio, e.target.value),
-                    }))}
+                    onChange={e => {
+                      const tipoClaseId = e.target.value;
+                      const tc = tiposClase.find(x => x.id === tipoClaseId);
+                      setForm(f => ({
+                        ...f,
+                        tipoClaseId,
+                        horaFin: finSegunDuracion(f.horaInicio, tipoClaseId),
+                        aforoMaximo: f.aforoTocado
+                          ? f.aforoMaximo
+                          : aforoPorDefectoDeSesion(tc?.aforoPorDefecto, salas.find(x => x.id === f.salaId)?.capacidad, f.aforoMaximo),
+                      }));
+                    }}
                   >
                     {!form.tipoClaseId && (
                       <option value="">{tiposClase.length ? 'Elige un tipo de clase' : 'Todavía no tienes tipos de clase'}</option>
@@ -2590,7 +2705,9 @@ export default function Calendario() {
                     setForm(f => ({
                       ...f,
                       salaId,
-                      aforoMaximo: f.aforoTocado || cap == null ? f.aforoMaximo : cap,
+                      aforoMaximo: f.aforoTocado
+                        ? f.aforoMaximo
+                        : aforoPorDefectoDeSesion(tiposClase.find(x => x.id === f.tipoClaseId)?.aforoPorDefecto, cap, f.aforoMaximo),
                     }));
                   }}>
                     {!form.salaId && (
@@ -2621,7 +2738,7 @@ export default function Calendario() {
               <FormField label="Fecha">
                 <input type="date" className={inputCls} value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} />
               </FormField>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField label="Hora inicio">
                   <input
                     type="time"

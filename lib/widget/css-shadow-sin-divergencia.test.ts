@@ -62,6 +62,11 @@ const SOLO_MODO_A = new Set([
   'animate-drawer-backdrop-in', 'animate-drawer-backdrop-out',
   // `components/layout/whatsapp-fab.tsx` — botón flotante del panel.
   'animate-wa-fab-ring',
+  // Icono de éxito del paso 'done' (diseño "Tentare Portal Reservas": anillo +
+  // check + confeti) — vive en el mismo `loginStep === 'done'` de
+  // app/reservar/[slug]/page.tsx que ya justifica el resto de esta lista.
+  'reserva-check-ring', 'reserva-check-pop',
+  'reserva-confeti-a', 'reserva-confeti-b1', 'reserva-confeti-c', 'reserva-confeti-b2',
 ]);
 
 test('toda clase reserva-*/animate-* de globals.css existe también en widget.css', () => {
@@ -78,6 +83,8 @@ test('todo @keyframes usado por esas clases existe en las dos copias', () => {
   const faltan = nuestros
     // Los de `PublicSheet`: mismo motivo que su clase en SOLO_MODO_A.
     .filter(k => !['sheet-pop-in', 'sheet-pop-out', 'sheet-backdrop-out'].includes(k))
+    // Los del icono de éxito del paso 'done' — mismo motivo que sus clases.
+    .filter(k => !['reserva-check-ring', 'reserva-check-pop', 'reserva-confeti-a', 'reserva-confeti-b', 'reserva-confeti-c'].includes(k))
     .filter(k => !keyframesDe(widget).has(k));
   assert.deepEqual(faltan, [], `Keyframes que el widget embebido NO tiene: ${faltan.join(', ')}`);
 });

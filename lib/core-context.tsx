@@ -19,7 +19,7 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { Studio, Instructor } from '@/lib/types';
 import type { NavConfigShape } from '@/lib/portal-nav';
 import type { VariantesResueltas } from '@/lib/theme-variantes';
-import type { TabBarStyleId, QuickLinksStyleId } from '@/lib/theme-schema';
+import type { TabBarStyleId } from '@/lib/theme-schema';
 
 export interface CoreContextValue {
   studio: Studio | null;
@@ -40,13 +40,11 @@ export interface CoreContextValue {
   // no el estado interno crudo — mismo dato que useStudio() expone hoy.
   navPortal: NavConfigShape;
   barraClasica: boolean;
+  // Independiente de barraClasica (Bloom) — mismo motivo de estar aquí.
+  barraFlotante: boolean;
   tabBarStyle: TabBarStyleId;
-  // Solo lo consumen las pantallas del kit (vista-previa-kit.tsx,
-  // portal-tema-marco.tsx) — mismo motivo de estar aquí que barraClasica.
-  quickLinksStyle: QuickLinksStyleId | null;
   variantes: VariantesResueltas;
   themeIdPublicado: string | null;
-  portalReact: boolean;
 }
 
 const CoreContext = createContext<CoreContextValue | null>(null);
@@ -63,18 +61,17 @@ export function CoreProvider({ children, ...core }: { children: ReactNode } & Co
     deleteInstructor: core.deleteInstructor,
     navPortal: core.navPortal,
     barraClasica: core.barraClasica,
+    barraFlotante: core.barraFlotante,
     tabBarStyle: core.tabBarStyle,
-    quickLinksStyle: core.quickLinksStyle,
     variantes: core.variantes,
     themeIdPublicado: core.themeIdPublicado,
-    portalReact: core.portalReact,
     // Las funciones se recrean cada render en StudioProvider (no están
     // envueltas en useCallback) — mismo patrón/limitación ya existente en el
     // useMemo de useStudio(). Solo el ESTADO decide cuándo recalcular.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     core.studio, core.instructores, core.dataLoaded,
-    core.navPortal, core.barraClasica, core.tabBarStyle, core.quickLinksStyle, core.variantes, core.themeIdPublicado, core.portalReact,
+    core.navPortal, core.barraClasica, core.barraFlotante, core.tabBarStyle, core.variantes, core.themeIdPublicado,
   ]);
 
   return <CoreContext.Provider value={value}>{children}</CoreContext.Provider>;

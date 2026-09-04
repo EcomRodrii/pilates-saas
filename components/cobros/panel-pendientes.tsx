@@ -152,7 +152,7 @@ const ETIQUETA_ESTADO: Record<EstadoRecibo | 'TODOS' | 'SIN_COBRAR', string> = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobrado' }) {
+export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas' | 'cobrado'; onToast: (mensaje: string) => void }) {
   const uid = useId();
   // ── Context ─────────────────────────────────────────────────────────────────
   const {
@@ -657,7 +657,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     // cerrarlo — antes se cerraba y limpiaba el formulario aunque la escritura
     // hubiera fallado, y la propietaria no tenía forma de saber que el cobro
     // nunca se guardó ni de reintentarlo sin rellenar todo otra vez.
-    if (!res.ok) { window.alert(res.error); return; }
+    if (!res.ok) { onToast(res.error); return; }
     setShowNuevoCobro(false);
     setNuevoForm({
       socioId: socios[0]?.id ?? '',
@@ -1045,7 +1045,18 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                           className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                           onClick={e => e.stopPropagation()}
                         >
-                          {r.estado === 'PENDIENTE' && (
+                          {/* FALLIDO se cobra exactamente igual que PENDIENTE — no es un
+                              estado ciego. El dunning ya agotó sus 3 reintentos
+                              automáticos (lib/billing/dunning.ts), pero
+                              cobrarReciboOffSession (lib/billing/stripe-cobros.ts)
+                              acepta explícitamente 'PENDIENTE' o 'FALLIDO' como
+                              "recuperación manual tras agotar el dunning": el backend
+                              siempre soportó reintentar un FALLIDO a mano, solo que
+                              esta fila nunca ofrecía ningún botón para hacerlo — con
+                              el estado en rojo "No se pudo cobrar" y ni un solo botón
+                              visible, "Cobrar online" pulsado aquí no hacía nada
+                              porque el botón, sencillamente, no existía. */}
+                          {(r.estado === 'PENDIENTE' || r.estado === 'FALLIDO') && (
                             <>
                               <button
                                 onClick={() => setCobrandoRecibo(r.id)}
@@ -1112,7 +1123,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                             <button
                               onClick={async () => {
                                 const res = await reintentar(r.id);
-                                if (!res.ok) window.alert(res.error);
+                                if (!res.ok) onToast(res.error);
                               }}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-info/10 text-brand-medio hover:bg-info/10 transition-colors"
                             >
@@ -1931,7 +1942,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                   if (!confirmEliminar) return;
                   const res = await deleteRecibo(confirmEliminar);
                   setConfirmEliminar(null);
-                  if (!res.ok) window.alert(res.error);
+                  if (!res.ok) onToast(res.error);
                 }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-destructive hover:bg-red-700 transition-colors"
               >

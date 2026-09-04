@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { enforceRateLimit, rateLimit } from '@/lib/rate-limit';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +61,18 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+
+  // Auditoría 22ª pasada (3-sep-2026), S-1: único sitio seguro para resetear
+  // el cerrojo de intentos. Antes existía `/api/auth/otp/reenviado`, un
+  // endpoint aparte que lo borraba con solo `{email}` en el cuerpo — sin
+  // captcha ni prueba de que un reenvío hubiera pasado por ahí de verdad,
+  // así que cualquiera podía vaciar el límite de 6 intentos/15min de
+  // CUALQUIER email a voluntad. Aquí SÍ hay prueba real: `verifyOtp` ya
+  // respondió con éxito dos líneas arriba. Best-effort (nunca debe tumbar un
+  // login que ya tuvo éxito): si falla, el peor caso es que el cerrojo viejo
+  // siga en pie unos minutos más para un email que ya no lo necesita.
+  const admin = getSupabaseAdmin();
+  if (admin) await admin.from('rate_limits').delete().eq('bucket_key', `otp-verify-email:${email}`);
 
   // Solo lo estrictamente necesario para que el navegador rehidrate la
   // sesión con `setSession()` — nunca se registra el token en logs (Next.js

@@ -1,0 +1,750 @@
+{
+  "studio": {
+    "fotoUrl": null
+  },
+  "sesiones": [
+    {
+      "id": "ses-h11",
+      "inicio": "2026-04-15T09:00:00+00:00",
+      "fin": "2026-04-15T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-2",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-h10",
+      "inicio": "2026-04-22T09:00:00+00:00",
+      "fin": "2026-04-22T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-h09",
+      "inicio": "2026-04-29T09:00:00+00:00",
+      "fin": "2026-04-29T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-2",
+      "salaId": "sala-1",
+      "instructorId": "ins-2",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-h08",
+      "inicio": "2026-05-06T09:00:00+00:00",
+      "fin": "2026-05-06T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-h07",
+      "inicio": "2026-05-13T10:00:00+00:00",
+      "fin": "2026-05-13T11:00:00+00:00",
+      "aforoMaximo": 12,
+      "tipoClaseId": "tc-3",
+      "salaId": "sala-2",
+      "instructorId": "ins-2",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-h06",
+      "inicio": "2026-05-20T09:00:00+00:00",
+      "fin": "2026-05-20T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-h05",
+      "inicio": "2026-05-27T09:00:00+00:00",
+      "fin": "2026-05-27T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-2",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-h04",
+      "inicio": "2026-06-03T18:00:00+00:00",
+      "fin": "2026-06-03T18:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-2",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-h03",
+      "inicio": "2026-06-10T09:00:00+00:00",
+      "fin": "2026-06-10T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-h02",
+      "inicio": "2026-06-17T09:00:00+00:00",
+      "fin": "2026-06-17T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-2",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-h01",
+      "inicio": "2026-06-25T09:00:00+00:00",
+      "fin": "2026-06-25T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-1",
+      "inicio": "2026-06-29T09:00:00+00:00",
+      "fin": "2026-06-29T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-2",
+      "inicio": "2026-06-29T11:00:00+00:00",
+      "fin": "2026-06-29T12:00:00+00:00",
+      "aforoMaximo": 12,
+      "tipoClaseId": "tc-3",
+      "salaId": "sala-2",
+      "instructorId": "ins-2",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-3",
+      "inicio": "2026-06-29T18:00:00+00:00",
+      "fin": "2026-06-29T18:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-2",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-4",
+      "inicio": "2026-06-30T10:00:00+00:00",
+      "fin": "2026-06-30T11:00:00+00:00",
+      "aforoMaximo": 12,
+      "tipoClaseId": "tc-3",
+      "salaId": "sala-2",
+      "instructorId": "ins-2",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-5",
+      "inicio": "2026-06-30T17:30:00+00:00",
+      "fin": "2026-06-30T18:25:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-6",
+      "inicio": "2026-07-01T09:00:00+00:00",
+      "fin": "2026-07-01T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-2",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-7",
+      "inicio": "2026-07-01T11:00:00+00:00",
+      "fin": "2026-07-01T11:50:00+00:00",
+      "aforoMaximo": 12,
+      "tipoClaseId": "tc-4",
+      "salaId": "sala-2",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-8",
+      "inicio": "2026-07-01T19:00:00+00:00",
+      "fin": "2026-07-01T19:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-2",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-9",
+      "inicio": "2026-07-02T10:00:00+00:00",
+      "fin": "2026-07-02T11:00:00+00:00",
+      "aforoMaximo": 12,
+      "tipoClaseId": "tc-3",
+      "salaId": "sala-2",
+      "instructorId": "ins-2",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-10",
+      "inicio": "2026-07-02T18:00:00+00:00",
+      "fin": "2026-07-02T18:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-11",
+      "inicio": "2026-07-03T09:00:00+00:00",
+      "fin": "2026-07-03T09:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-2",
+      "salaId": "sala-1",
+      "instructorId": "ins-2",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-12",
+      "inicio": "2026-07-03T11:00:00+00:00",
+      "fin": "2026-07-03T12:00:00+00:00",
+      "aforoMaximo": 12,
+      "tipoClaseId": "tc-3",
+      "salaId": "sala-2",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    },
+    {
+      "id": "ses-13",
+      "inicio": "2026-07-04T10:00:00+00:00",
+      "fin": "2026-07-04T10:55:00+00:00",
+      "aforoMaximo": 8,
+      "tipoClaseId": "tc-1",
+      "salaId": "sala-1",
+      "instructorId": "ins-1",
+      "cancelada": false,
+      "precioPuntual": null
+    }
+  ],
+  "tiposClase": [
+    {
+      "id": "tc-1",
+      "nombre": "Reformer Fundamental",
+      "nivel": "PRINCIPIANTE",
+      "fotoUrl": null,
+      "descripcion": "Clase base en reformer"
+    },
+    {
+      "id": "tc-2",
+      "nombre": "Reformer Avanzado",
+      "nivel": "AVANZADO",
+      "fotoUrl": null,
+      "descripcion": "Para alumnas con experiencia"
+    },
+    {
+      "id": "tc-3",
+      "nombre": "Pilates Mat",
+      "nivel": "TODOS",
+      "fotoUrl": null,
+      "descripcion": "Trabajo en colchoneta"
+    },
+    {
+      "id": "tc-4",
+      "nombre": "Mat + Circuito",
+      "nivel": "MEDIO",
+      "fotoUrl": null,
+      "descripcion": "Combinación mat y accesorios"
+    }
+  ],
+  "salas": [
+    {
+      "id": "sala-1",
+      "nombre": "Sala Reformer"
+    },
+    {
+      "id": "sala-2",
+      "nombre": "Sala Mat"
+    }
+  ],
+  "instructores": [
+    {
+      "id": "ins-2",
+      "nombre": "Julia Ramos",
+      "activo": true,
+      "fotoUrl": null,
+      "bio": null,
+      "valoracion": null
+    },
+    {
+      "id": "ins-1",
+      "nombre": "María Soler",
+      "activo": true,
+      "fotoUrl": null,
+      "bio": null,
+      "valoracion": null
+    }
+  ],
+  "planesTarifa": [
+    {
+      "id": "plan-1",
+      "nombre": "Mensual Ilimitado",
+      "sesiones": null,
+      "precio": 85
+    },
+    {
+      "id": "plan-2",
+      "nombre": "Bono 8 clases",
+      "sesiones": 8,
+      "precio": 64
+    },
+    {
+      "id": "plan-3",
+      "nombre": "Bono 4 clases",
+      "sesiones": 4,
+      "precio": 36
+    },
+    {
+      "id": "plan-4",
+      "nombre": "Clase suelta",
+      "sesiones": 1,
+      "precio": 12
+    }
+  ],
+  "aforoReservas": [
+    {
+      "sesion_id": "ses-1",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-1",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-1",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-1",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-1",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-1",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-3",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-3",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-3",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-3",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-3",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-3",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-3",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-3",
+      "estado": "LISTA_ESPERA"
+    },
+    {
+      "sesion_id": "ses-5",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-5",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-5",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-5",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-2",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-2",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-2",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-2",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-2",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-2",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-2",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-4",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-4",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-4",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-4",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-4",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-7",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-7",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-7",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-7",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-9",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-9",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-9",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-9",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-9",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-9",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-12",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-12",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-12",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-12",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-6",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-6",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-6",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-6",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-6",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-10",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-10",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-10",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-10",
+      "estado": "CONFIRMADA"
+    },
+    {
+      "sesion_id": "ses-h01",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h01",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h01",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h02",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h02",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h02",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h02",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h03",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h03",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h03",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h03",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h04",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h04",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h04",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h04",
+      "estado": "NO_ASISTIO"
+    },
+    {
+      "sesion_id": "ses-h05",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h05",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h05",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h06",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h06",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h06",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h07",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h07",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h07",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h08",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h08",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h08",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h09",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h09",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h09",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h10",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h10",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h10",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h11",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h11",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h11",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h11",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h01",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h03",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h05",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h07",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h09",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h02",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h06",
+      "estado": "ASISTIDA"
+    },
+    {
+      "sesion_id": "ses-h01",
+      "estado": "ASISTIDA"
+    }
+  ],
+  "socia": null
+}

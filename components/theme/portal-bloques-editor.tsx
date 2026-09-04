@@ -1,8 +1,5 @@
 'use client';
 
-import { elTemaIncluye } from '@/lib/portal-tema/equivalencias';
-import { useStudio } from '@/lib/studio-context';
-import { TEMAS_PORTAL, esTemaPortal } from '@/themes/registro';
 import { useEffect, useState } from 'react';
 import {
   GripVertical, Eye, EyeOff, Plus, Trash2,
@@ -166,17 +163,10 @@ function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 
 }
 
 function Fila({
-  bloque, activa, onSeleccionar, onToggle, onDelete, onDuplicar, fueraDelTema,
+  bloque, activa, onSeleccionar, onToggle, onDelete, onDuplicar,
 }: {
   bloque: BloqueHome; activa: boolean; onSeleccionar: () => void; onToggle: () => void;
   onDelete?: () => void; onDuplicar?: () => void;
-  /**
-   * `true` si el estudio tiene el kit encendido y su tema NO compone esta
-   * sección. Se avisa en vez de esconderla: la propietaria tiene que poder ver
-   * que existe y por qué no aparece, no descubrir que su previsualización y su
-   * lista no coinciden.
-   */
-  fueraDelTema?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: bloque.id });
   return (
@@ -203,14 +193,7 @@ function Fila({
         {/* Se corta con puntos suspensivos en vez de envolver: una fila de
             altura fija hace que la lista se pueda recorrer con la vista. El
             texto entero sigue disponible en el `title`. */}
-        {fueraDelTema ? (
-          <span
-            className="block text-[11px] text-muted-foreground truncate"
-            title="Tu tema no incluye esta sección, así que no aparece en el portal. Se ve al cambiar a un tema que la componga."
-          >
-            No la incluye tu tema
-          </span>
-        ) : descripcionDe(bloque) && !bloque.oculto && (
+        {descripcionDe(bloque) && !bloque.oculto && (
           <span className="block text-[11px] text-muted-foreground truncate" title={descripcionDe(bloque)}>
             {descripcionDe(bloque)}
           </span>
@@ -545,7 +528,7 @@ export function CatalogoBloques({
     <>
       <button className="fixed inset-0 z-20 cursor-default" onClick={onCerrar} aria-hidden tabIndex={-1} />
       <div
-        className={`${ancla ? 'fixed' : 'absolute left-0 top-11'} z-30 w-72 rounded-xl border border-border bg-card shadow-lg p-2 grid grid-cols-2 gap-2`}
+        className={`${ancla ? 'fixed' : 'absolute left-0 top-11'} z-30 w-72 rounded-xl border border-border bg-card shadow-lg p-2 grid grid-cols-2 gap-2 menu-pop-in`}
         style={ancla}
         role="dialog"
         aria-label="Elegir una sección"
@@ -586,15 +569,6 @@ export function BloquesSeccionesList({
   seleccionId: string | null;
   onSeleccionar: (id: string) => void;
 }) {
-  // ⚠️ Con el kit encendido, el Inicio lo compone el TEMA (`home_blocks`), no
-  // el estudio: hay secciones de esta lista que no salen, y arrastrarlas u
-  // ocultarlas no mueve nada. No se importa `useKitActivo` del marco del portal
-  // para no arrastrar el kit entero al bundle del panel — la comprobación es
-  // la misma, dos líneas.
-  const { portalReact, themeIdPublicado } = useStudio();
-  const kitActivo = portalReact && esTemaPortal(themeIdPublicado);
-  const homeBlocks = kitActivo ? TEMAS_PORTAL[themeIdPublicado].home_blocks : [];
-
   const todos = hook.bloquesDe(pantalla);
   // Los FIJOS van aparte y arriba: son el saludo y la tarjeta grande, que se
   // editan pero no se mueven ni se ocultan. Meterlos en la lista arrastrable
@@ -663,11 +637,6 @@ export function BloquesSeccionesList({
                 // Un bloque de SISTEMA no se duplica: es un módulo de producto,
                 // no contenido. Dos "Esta semana" no significan nada.
                 onDuplicar={b.kind === 'sistema' ? undefined : () => { const id = hook.duplicar(pantalla, b.id); if (id) onSeleccionar(id); }}
-                // ⚠️ Solo con el kit encendido: su Inicio lo compone el TEMA
-                // (`home_blocks`), no el estudio, así que hay secciones de esta
-                // lista que sencillamente no salen. Decirlo aquí es lo único
-                // que hace que la lista y la previsualización cuadren.
-                fueraDelTema={kitActivo && b.kind === 'sistema' && !elTemaIncluye(b.sistemaId, homeBlocks)}
               />
               {/* Los hijos cuelgan del padre, sangrados. Solo aparecen si el
                   bloque admite hijos — para los demás no cambia nada. */}

@@ -128,8 +128,9 @@ export const MENSAJE_CLASE_AUN_NO_EMPEZADA = 'Esta clase todavía no ha empezado
 //
 // `huecosLibres` (aforoMaximo - confirmadas, nunca negativo) es a propósito
 // una señal DISTINTA de `enEspera`: `promocionar_siguiente_espera` (la RPC que
-// resuelve "Ofrecer plaza") no comprueba aforo por su cuenta — asume que quien
-// la llama ya sabe que hay un hueco de verdad. Una clase LLENA con lista de
+// resuelve "Ofrecer plaza") solo comprueba aforo en su rama de promoción
+// directa; en la de oferta con plazo, no (corregido el 3-sep-2026, F-8: antes
+// esto decía que no lo comprobaba nunca). Una clase LLENA con lista de
 // espera es un estado SANO (el sistema ya avisa solo en cuanto alguien
 // cancela) — no debe pedir decisión ni ofrecer overselling.
 // `finalizada` = la clase ya terminó (ahora >= sesiones.fin). SIN_INSTRUCTORA

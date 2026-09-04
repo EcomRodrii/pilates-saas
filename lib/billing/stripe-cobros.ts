@@ -7,6 +7,7 @@ import { elegirMetodoCobro } from '@/lib/billing/metodo-cobro';
 import { clasificarErrorCobro } from '@/lib/billing/clasificar-error-cobro';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
+import { hoyEnEstudio } from '@/lib/utils';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
@@ -77,6 +78,16 @@ export async function cobrarReciboOffSession(params: {
   ]);
 
   if (reciboError || !recibo) {
+    return { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' };
+  }
+  // El filtro de arriba comprueba que el recibo es del estudio y que la socia es
+  // del estudio — pero NO que el recibo sea DE ESA SOCIA. Dos de los tres
+  // llamantes (`/api/stripe/charge-off-session` y `/api/cobros/cobrar-online`)
+  // toman `socioId` del body sin cruzarlo con nada, así que el recibo de A se
+  // cobraba a la tarjeta guardada de B: un cargo real a una tarjeta ajena, y el
+  // `metadata.socioId` del PaymentIntent apuntando a quien no lo debía. No cruza
+  // estudios, pero un typo en la UI basta para provocarlo.
+  if (recibo.socio_id !== params.socioId) {
     return { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' };
   }
   // Se puede cobrar un recibo PENDIENTE o uno FALLIDO (recuperación manual tras
@@ -158,8 +169,15 @@ export async function cobrarReciboOffSession(params: {
     // (payment_intent.succeeded / .payment_failed) lo resolverá — PR-4. Solo se
     // marca COBRADO cuando Stripe confirma 'succeeded'.
     if (esSepa && paymentIntent.status === 'processing') {
+      // F-31 (auditoría 20ª pasada): regla de la casa incumplida — su gemelo
+      // de abajo (rama 'succeeded') ya acota por studio_id, este no. No
+      // explotable hoy (`params.reciboId` ya viene validado contra
+      // `studio_id` por el SELECT del arranque de la función), pero un
+      // UPDATE de dinero nunca debe depender de que esa validación previa
+      // se mantenga si el código de alrededor cambia.
       const { error: updErr } = await admin
-        .from('recibos').update({ estado: 'EN_CURSO', metodo_cobro: 'SEPA', sepa_estado: 'processing', stripe_payment_intent_id: paymentIntent.id }).eq('id', params.reciboId);
+        .from('recibos').update({ estado: 'EN_CURSO', metodo_cobro: 'SEPA', sepa_estado: 'processing', stripe_payment_intent_id: paymentIntent.id })
+        .eq('id', params.reciboId).eq('studio_id', params.studioId);
       if (updErr) {
         Sentry.captureException(new Error(`Adeudo SEPA enviado pero no se pudo marcar el recibo EN_CURSO: ${updErr.message}`), {
           level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
@@ -176,7 +194,9 @@ export async function cobrarReciboOffSession(params: {
       // en Sentry con el reciboId/paymentIntent para reconciliación manual.
       const { error: updErr } = await admin
         .from('recibos').update({
-          estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodo.metodo,
+          // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date` — un ISO en
+          // UTC fechaba el día anterior un cobro a la 01:30 de Madrid.
+          estado: 'COBRADO', fecha_cobro: hoyEnEstudio(), metodo_cobro: metodo.metodo,
           // El hilo de vuelta a Stripe. Antes solo se guardaba en la rama SEPA
           // `processing`, así que un cobro con tarjeta que salía BIEN no dejaba
           // ninguna forma de llegar a su cargo — y sin eso no se puede devolver

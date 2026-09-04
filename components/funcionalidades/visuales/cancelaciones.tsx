@@ -3,9 +3,9 @@ import { PanelClaro, PanelOscuro } from './comunes';
 
 // ── Dibujos propios de /funcionalidades/cancelaciones-y-politicas ────────────
 // Fuente:
-//   · `cancelar_reserva_plaza` + dbCancelarReservaPlaza — la decisión de
-//     devolver bono la toma la BD (migr 0129), no el cliente, para que portal
-//     y panel respondan igual.
+//   · `cancelar_reserva_plaza` (vía `ejecutarCancelacionReserva`, panel y
+//     portal por el mismo camino) — la decisión de devolver bono la toma la
+//     BD (migr 0129), no el cliente, para que portal y panel respondan igual.
 //   · `studios.cancelacion_devolver_bono_tardia` (default false).
 //   · Guard de plaza fija: `res-pf-` no devuelve bono porque nunca lo consumió;
 //     su compensación es la recuperación.

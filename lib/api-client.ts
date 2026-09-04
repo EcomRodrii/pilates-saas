@@ -20,12 +20,14 @@ import type {
   PerfilIdentidadNetwork, CambiosPerfilIdentidadNetwork, VerificacionIdentidadNetwork,
   CertificacionNetwork, NuevaCertificacionNetwork,
   VacanteNetwork, NuevaVacanteNetwork, CambiosVacanteNetwork, CandidaturaNetwork,
-  ReferenciaNetwork, NuevaReferenciaNetwork, MediaNetwork,
+  ReferenciaNetwork, NuevaReferenciaNetwork, MediaNetwork, ResenaNetwork, EstudioActualNetwork,
 } from '@/lib/network/tipos';
+import type { CertificacionNetworkPublica } from '@/lib/network/publico';
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
 import type { DetallePerfilPublico } from '@/lib/network/publico.ts';
 import type { EstudioListadoPublico } from '@/lib/network/publico-estudios.ts';
+import type { RowDocumentosSocio } from '@/lib/db-types';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -106,8 +108,9 @@ export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeCon
     body: JSON.stringify(parche),
   });
   if (!res.ok) {
-    const b = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(mensajeSeguro(b.error, 'No se han podido guardar los cambios de marca. Vuelve a intentarlo.'));
+    if (res.status === 401) throw new ErrorSesionCaducada();
+    if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para editar la marca.'));
+    throw new Error(await mensajeDe(res, 'No se han podido guardar los cambios de marca. Vuelve a intentarlo.'));
   }
   return res.json();
 }
@@ -122,7 +125,15 @@ export async function publicarThemeApi(): Promise<ResultadoPublicar> {
     const b = (await res.json()) as { errores?: ErrorContraste[] };
     return { ok: false, errores: b.errores ?? [{ mensaje: 'Contraste insuficiente', categoriaId: 'color-marca' }] };
   }
-  if (!res.ok) throw new Error('Error al publicar');
+  if (!res.ok) {
+    // Antes se tiraba el motivo: los 403 reales ("Solo el propietario puede
+    // publicar la marca", "incluida a partir del plan Estudio") llegaban a la
+    // pantalla como "Error al publicar". Su gemela guardarThemeBorrador sí lo
+    // leía — misma pantalla, dos comportamientos.
+    if (res.status === 401) throw new ErrorSesionCaducada();
+    if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para publicar la marca.'));
+    throw new Error(await mensajeDe(res, 'No se ha podido publicar la marca. Vuelve a intentarlo.'));
+  }
   return { ok: true, theme: await res.json() };
 }
 
@@ -142,8 +153,9 @@ export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfi
     body: JSON.stringify(parche),
   });
   if (!res.ok) {
-    const b = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(mensajeSeguro(b.error, 'No se ha podido guardar el menú. Vuelve a intentarlo.'));
+    if (res.status === 401) throw new ErrorSesionCaducada();
+    if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para editar el menú.'));
+    throw new Error(await mensajeDe(res, 'No se ha podido guardar el menú. Vuelve a intentarlo.'));
   }
   return res.json();
 }
@@ -223,6 +235,29 @@ export function esSesionCaducada(e: unknown): boolean {
   return e instanceof ErrorSesionCaducada;
 }
 
+/**
+ * El servidor dice 403. Estado APARTE de un error cualquiera por la misma
+ * razón que ErrorSesionCaducada: reintentar no arregla nada.
+ *
+ * El caso real: el editor de apariencia deja entrar a MANAGER
+ * (`puedeGestionarPortalHome`) pero `guardarThemeAction` es solo-PROPIETARIO,
+ * así que el autoguardado del tema reintentaba para siempre bajo «No se ha
+ * podido guardar — se sigue intentando» y al recargar no había nada. Mismo
+ * caso con el plan BASE (entitlement `marca`).
+ */
+export class ErrorSinPermiso extends Error {
+  constructor(mensaje: string) { super(mensaje); this.name = 'ErrorSinPermiso'; }
+}
+
+export function esSinPermiso(e: unknown): boolean {
+  return e instanceof ErrorSinPermiso;
+}
+
+async function mensajeDe(res: Response, porDefecto: string): Promise<string> {
+  const b = (await res.json().catch(() => ({}))) as { error?: string };
+  return mensajeSeguro(b.error, porDefecto);
+}
+
 export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: BloqueHome[]): Promise<BloqueHome[]> {
   const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}`, {
     method: 'PUT',
@@ -231,6 +266,7 @@ export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: B
   });
   if (!res.ok) {
     if (res.status === 401) throw new ErrorSesionCaducada();
+    if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para editar el portal.'));
     const b = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(mensajeSeguro(b.error, 'No se han podido guardar los bloques del portal. Vuelve a intentarlo.'));
   }
@@ -240,8 +276,12 @@ export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: B
 export async function publicarBloquesApi(pantalla: PantallaId): Promise<BloqueHome[]> {
   const res = await fetch(`/api/portal-bloques/publish?pantalla=${pantalla}`, { method: 'POST', headers: await authHeader() });
   if (!res.ok) {
-    const b = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(mensajeSeguro(b.error, 'No se han podido publicar los cambios del portal. Vuelve a intentarlo.'));
+    // Gemela de publicarThemeApi: se llama tres líneas después en el mismo
+    // `publicarTodo` (theme-editor-fullscreen.tsx). Su ruta devuelve 403 con
+    // 'Solo la propietaria o la gerencia pueden publicar los bloques'.
+    if (res.status === 401) throw new ErrorSesionCaducada();
+    if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para publicar el portal.'));
+    throw new Error(await mensajeDe(res, 'No se han podido publicar los cambios del portal. Vuelve a intentarlo.'));
   }
   return res.json();
 }
@@ -259,7 +299,10 @@ export async function publicarBloquesApi(pantalla: PantallaId): Promise<BloqueHo
 export async function fetchHomePreviewToken(): Promise<{ token: string; slug: string | null }> {
   return unaVez('home-preview-token', async () => {
     const res = await fetch('/api/theme/home-preview-token', { method: 'POST', headers: await authHeader() });
-    if (!res.ok) throw new Error('No se pudo preparar la vista previa');
+    if (!res.ok) {
+      if (res.status === 401) throw new ErrorSesionCaducada();
+      throw new Error('No se pudo preparar la vista previa');
+    }
     const b = (await res.json()) as { token: string; slug?: string | null };
     return { token: b.token, slug: b.slug ?? null };
   });
@@ -484,16 +527,20 @@ export async function reprogramarClase(sustitucionId: string, inicio: string): P
   }
 }
 
-export async function cancelarClase(sustitucionId: string): Promise<{ ok: true; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } } | { error: string }> {
+// 19ª auditoría · F-10: `aviso` es un éxito PARCIAL — la clase se canceló y se
+// avisó, pero las reservas siguen activas y no se han devuelto bonos. No es un
+// `error` (la acción principal sí ocurrió) y no puede ser silencio: a la
+// propietaria le queda trabajo a mano y tiene que enterarse.
+export async function cancelarClase(sustitucionId: string): Promise<{ ok: true; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean }; aviso?: string } | { error: string }> {
   try {
     const res = await fetch('/api/sustituciones', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ sustitucionId, action: 'cancelar_clase' }),
     });
-    const data = (await res.json().catch(() => ({}))) as { error?: string; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } };
+    const data = (await res.json().catch(() => ({}))) as { error?: string; aviso?: string; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } };
     if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
-    return { ok: true, alumnas: data.alumnas };
+    return { ok: true, alumnas: data.alumnas, aviso: data.aviso };
   } catch {
     return { error: 'No se pudo cancelar' };
   }
@@ -1392,6 +1439,68 @@ export async function obtenerPagosHistoricosSocio(socioId: string): Promise<Arra
   }
 }
 
+// Buzón de documentos (Community & Messaging OS, P2) — lado STAFF. Mismo
+// criterio de `null` en fallo que las dos funciones de arriba: un array
+// vacío significa "sin documentos", no "no se pudo comprobar".
+export async function listarDocumentosSocio(socioId: string): Promise<RowDocumentosSocio[] | null> {
+  try {
+    const res = await fetch(`/api/documentos-socio?socioId=${encodeURIComponent(socioId)}`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = await res.json() as { documentos: RowDocumentosSocio[] };
+    return data.documentos;
+  } catch {
+    return null;
+  }
+}
+
+export async function crearDocumentoSocio(payload: {
+  socioId: string; categoria: RowDocumentosSocio['categoria']; titulo: string; path: string; caducaEn: string | null;
+}): Promise<{ documento: RowDocumentosSocio } | { error: string }> {
+  try {
+    const res = await fetch('/api/documentos-socio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null) as { documento?: RowDocumentosSocio; error?: string } | null;
+    if (!res.ok || !data?.documento) return { error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+    return { documento: data.documento };
+  } catch {
+    return { error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
+  }
+}
+
+// Auditoría 20ª pasada (F-14): URL firmada de un documento para el STAFF (mismo
+// gate `puedeGestionarClientas` que listar/subir/borrar). 60s de validez, igual
+// que el equivalente de la socia — se pide justo antes de abrir, no se guarda.
+export async function abrirDocumentoSocio(id: string): Promise<{ url: string } | { error: string }> {
+  try {
+    const res = await fetch(`/api/documentos-socio/${encodeURIComponent(id)}`, { headers: await authHeader() });
+    const data = await res.json().catch(() => null) as { url?: string; error?: string } | null;
+    if (!res.ok || !data?.url) return { error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+    return { url: data.url };
+  } catch {
+    return { error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
+  }
+}
+
+export async function borrarDocumentoSocio(id: string): Promise<ResultadoEscritura> {
+  try {
+    const res = await fetch('/api/documentos-socio', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'No hay conexión con el servidor. Comprueba tu conexión e inténtalo de nuevo.' };
+  }
+}
+
 // Encola el envío real de una campaña en servidor (Inngest,
 // lib/inngest/campanas.ts) — el envío ya no se orquesta destinataria a
 // destinataria desde el navegador. Ver docs/marketing-integrations-arquitectura.md
@@ -1486,26 +1595,6 @@ export interface DatosClaseEmailCliente {
   hora: string;
   sala: string;
   instructor: string;
-}
-
-// Aviso a una socia ascendida de la lista de espera (disparo desde el panel al
-// cancelar el admin una reserva y promocionarse la siguiente).
-export async function enviarEmailPromocion(params: DatosClaseEmailCliente & {
-  to: string; toName: string; bonoConsumido?: boolean;
-}) {
-  await fetch('/api/emails/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({
-      tipo: 'promocion',
-      to: params.to,
-      toName: params.toName,
-      data: {
-        claseNombre: params.claseNombre, fecha: params.fecha, hora: params.hora,
-        sala: params.sala, instructor: params.instructor, bonoConsumido: params.bonoConsumido ?? false,
-      },
-    }),
-  });
 }
 
 // Aviso a una socia de que su clase reservada ha sido cancelada por el estudio.
@@ -2031,7 +2120,7 @@ export async function pedirPaseDeAcceso(slug: string) {
       body: JSON.stringify({ slug }),
     });
     if (!res.ok) return null;
-    return await res.json() as { hayPase: boolean; vigente?: boolean; yaAsistida?: boolean; minutosParaActivarse?: number; seActivaA?: string | null; inicio?: string; token?: string | null; codigo?: string | null };
+    return await res.json() as { hayPase: boolean; vigente?: boolean; yaAsistida?: boolean; minutosParaActivarse?: number; seActivaA?: string | null; paseHasta?: string | null; inicio?: string; token?: string | null; codigo?: string | null };
   } catch {
     return null;
   }
@@ -2157,15 +2246,29 @@ export async function buscarPerfilesNetwork(filtro: FiltroBusquedaNetwork): Prom
 
 export async function fetchPerfilNetworkPublico(
   id: string,
-): Promise<{ perfil: PerfilNetworkPublico; experiencias: ExperienciaNetworkPublica[]; badges: BadgesNetwork } | null> {
+): Promise<{
+  perfil: PerfilNetworkPublico; experiencias: ExperienciaNetworkPublica[]; badges: BadgesNetwork;
+  certificaciones: CertificacionNetworkPublica[]; resenas: ResenaNetwork[]; mediaFotos: MediaNetwork[];
+  estudiosActuales: EstudioActualNetwork[];
+} | null> {
   try {
     const res = await fetch(`/api/network/perfil/${encodeURIComponent(id)}`, { headers: await authHeader() });
     if (!res.ok) return null;
     const data = (await res.json()) as {
       perfil?: PerfilNetworkPublico; experiencias?: ExperienciaNetworkPublica[]; badges?: BadgesNetwork;
+      certificaciones?: CertificacionNetworkPublica[]; resenas?: ResenaNetwork[]; mediaFotos?: MediaNetwork[];
+      estudiosActuales?: EstudioActualNetwork[];
     };
     if (!data.perfil || !data.badges) return null;
-    return { perfil: data.perfil, experiencias: data.experiencias ?? [], badges: data.badges };
+    return {
+      perfil: data.perfil, experiencias: data.experiencias ?? [], badges: data.badges,
+      // Mismo endpoint que ya devolvía estos campos (app/api/network/perfil/[id]/route.ts,
+      // obtenerPerfilPublicoPorId) — solo se descartaban aquí. La ficha del
+      // panel (app/(dashboard)/network/[perfilId]/page.tsx) los necesita
+      // para dejar de ser una versión empobrecida del perfil público.
+      certificaciones: data.certificaciones ?? [], resenas: data.resenas ?? [],
+      mediaFotos: data.mediaFotos ?? [], estudiosActuales: data.estudiosActuales ?? [],
+    };
   } catch {
     return null;
   }
@@ -3001,12 +3104,16 @@ export interface ClaseAsistidaCliente {
  * cualquiera con una sesión de Supabase por el mero hecho de VISITAR el portal
  * de un estudio.
  */
-export async function altaAlEntrar(slug: string, via: 'google' | 'enlace'): Promise<{ error?: string; creada?: boolean }> {
+export async function altaAlEntrar(slug: string, via: 'google' | 'enlace', nombre?: string): Promise<{ error?: string; creada?: boolean }> {
   try {
     const res = await fetch('/api/public/alta-al-entrar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
-      body: JSON.stringify({ slug, via }),
+      // El endpoint ya acepta `nombre` opcional (solo lo usa si hay que CREAR
+      // la ficha) — ver su propio comentario "Su nombre, si el proveedor lo
+      // da". La vía 'enlace' del onboarding nuevo ("Crea tu cuenta") es la
+      // primera en darlo de verdad.
+      body: JSON.stringify(nombre?.trim() ? { slug, via, nombre: nombre.trim() } : { slug, via }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string; creada?: boolean };
     if (res.ok) return { creada: data.creada };

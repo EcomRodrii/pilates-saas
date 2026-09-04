@@ -20,7 +20,7 @@ const MOTIVOS_REPORTE = [
   { valor: 'otro', etiqueta: 'Otro' },
 ];
 
-export function BotonContactar({ perfilId, nombre }: { perfilId: string; nombre: string }) {
+export function BotonContactar({ perfilId, nombre, compacto = false }: { perfilId: string; nombre: string; compacto?: boolean }) {
   const { user, loading } = useAuth();
   const [abierto, setAbierto] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -49,9 +49,9 @@ export function BotonContactar({ perfilId, nombre }: { perfilId: string; nombre:
     return (
       <a
         href="/login"
-        className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-brand text-brand-foreground text-[13.5px] font-semibold hover:brightness-110 transition-all"
+        className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-brand text-brand-foreground text-[13.5px] font-semibold hover:brightness-110 transition-all whitespace-nowrap"
       >
-        Inicia sesión para contactar con {nombre.split(' ')[0]}
+        {compacto ? 'Inicia sesión' : `Inicia sesión para contactar con ${nombre.split(' ')[0]}`}
       </a>
     );
   }
@@ -61,17 +61,19 @@ export function BotonContactar({ perfilId, nombre }: { perfilId: string; nombre:
       <div>
         <button
           onClick={() => setAbierto(true)}
-          className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-brand text-brand-foreground text-[13.5px] font-semibold hover:brightness-110 transition-all"
+          className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-brand text-brand-foreground text-[13.5px] font-semibold hover:brightness-110 transition-all whitespace-nowrap"
         >
-          Contactar con {nombre.split(' ')[0]}
+          {compacto ? 'Contactar' : `Contactar con ${nombre.split(' ')[0]}`}
         </button>
         {/* Auditoría UX 2026-08-19: el único sitio donde se explicaba qué pasa
             tras contactar era el mensaje de éxito, DESPUÉS de enviar. Quien
             todavía no ha pulsado el botón no sabe si esto es una caja negra —
             una línea antes del clic, no solo después. */}
-        <p className="mt-2 text-[12px] text-[#8E8E86]">
-          Verificamos el email de cada perfil antes de publicarlo. Tu mensaje llega directo, sin comisión ni intermediarios.
-        </p>
+        {!compacto && (
+          <p className="mt-2 text-[12px] text-[#8E8E86]">
+            Verificamos el email de cada perfil antes de publicarlo. Tu mensaje llega directo, sin comisión ni intermediarios.
+          </p>
+        )}
       </div>
       {abierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setAbierto(false)}>

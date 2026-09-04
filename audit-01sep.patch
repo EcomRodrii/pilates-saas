@@ -1,0 +1,658 @@
+diff --git a/app/(dashboard)/calendario/page.tsx b/app/(dashboard)/calendario/page.tsx
+index 475cdd45..b9fc6902 100644
+--- a/app/(dashboard)/calendario/page.tsx
++++ b/app/(dashboard)/calendario/page.tsx
+@@ -2576,7 +2576,11 @@ export default function Calendario() {
+           socios={socios}
+           onCheckinSpot={sesionYaEmpezada(sesionActual.inicio) ? checkin : undefined}
+           onLiberarSpot={liberarSpot}
+-          onAsignarSpot={(spotId, socioId) => sesionActual && asignarSpot(sesionActual.id, socioId, spotId)}
++          onAsignarSpot={async (spotId, socioId) => {
++            if (!sesionActual) return;
++            const res = await asignarSpot(sesionActual.id, socioId, spotId);
++            if (!res.ok) showToast(res.error ?? 'No hemos podido asignar el sitio. Inténtalo de nuevo.');
++          }}
+         />
+       )}
+ 
+diff --git a/app/(dashboard)/sustituciones/page.tsx b/app/(dashboard)/sustituciones/page.tsx
+index 7ac2fe88..2b088252 100644
+--- a/app/(dashboard)/sustituciones/page.tsx
++++ b/app/(dashboard)/sustituciones/page.tsx
+@@ -111,6 +111,12 @@ export default function SustitucionesPage() {
+     try {
+       const r = await cancelarClase(s.id);
+       if ('error' in r) { setErrorAccion(r.error); return; }
++      // 19ª auditoría · F-10: si el servidor no pudo liberar las reservas ni
++      // devolver los bonos, se dice — antes ese caso salía como "Clase
++      // cancelada. N alumnas avisadas", indistinguible del éxito completo.
++      // Se muestra como error (rojo y sin autocierre a los 6 s): es trabajo
++      // pendiente para la propietaria, no una confirmación.
++      if (r.aviso) { setErrorAccion(r.aviso); await recargar(); return; }
+       const a = r.alumnas;
+       setAviso(a && !a.desactivado ? `Clase cancelada. ${a.avisadas} de ${a.total} alumnas avisadas por email.` : 'Clase cancelada.');
+       await recargar();
+diff --git a/app/api/ayuda/feedback/route.ts b/app/api/ayuda/feedback/route.ts
+index 96e73249..fd6bf5f1 100644
+--- a/app/api/ayuda/feedback/route.ts
++++ b/app/api/ayuda/feedback/route.ts
+@@ -32,7 +32,11 @@ export async function POST(req: NextRequest) {
+   }
+ 
+   const db = getSupabaseAdmin();
+-  if (!db) return NextResponse.json({ ok: true, skipped: true });
++  // 19ª auditoría · F-11: devolvía `{ok:true, skipped:true}` — un éxito falso.
++  // El cliente no distingue ese 200 de un guardado real, así que una service
++  // role mal configurada se traga TODOS los votos en silencio y para siempre.
++  // El resto del repo trata este caso como 503 ('Servidor no configurado').
++  if (!db) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+ 
+   const { error } = await db.from('ayuda_feedback').insert({
+     categoria_slug: categoria, articulo_slug: articulo, valoracion, url,
+diff --git a/app/api/billing/checkout/route.ts b/app/api/billing/checkout/route.ts
+index bfd3cbc2..980c5565 100644
+--- a/app/api/billing/checkout/route.ts
++++ b/app/api/billing/checkout/route.ts
+@@ -118,6 +118,21 @@ export async function POST(req: NextRequest) {
+       }
+       if (!cadena) throw new Error('No se pudo resolver la cadena');
+ 
++      // 19ª auditoría · F-4: el guard anti-doble-suscripción vivía SOLO después
++      // del `return` de esta rama, así que protegía a BASE/ESTUDIO y no a
++      // CADENA — su gemela. `cadena.subscription_status` se leía dos veces y no
++      // se usaba nunca. Una propietaria con CADENA ya activa que volviera a
++      // pulsar "Contratar" (doble clic, caché desincronizada, replay) abría un
++      // segundo Checkout de suscripción sobre el mismo customer: dos
++      // suscripciones CADENA cobrando en paralelo. Mismo criterio que abajo,
++      // incluido 'past_due' vía `suscripcionActiva()`.
++      if (suscripcionActiva(cadena.subscription_status)) {
++        return NextResponse.json(
++          { error: 'Ya tienes una suscripción activa. Gestiónala desde Configuración → Facturación.' },
++          { status: 409 },
++        );
++      }
++
+       // Si el estudio venía de ESTUDIO/BASE con una suscripción individual viva,
+       // hay que cancelarla — si no, queda cobrando en paralelo con la de cadena.
+       //
+diff --git a/app/api/stripe/setup-sepa/route.ts b/app/api/stripe/setup-sepa/route.ts
+index df085b0e..63b86402 100644
+--- a/app/api/stripe/setup-sepa/route.ts
++++ b/app/api/stripe/setup-sepa/route.ts
+@@ -3,6 +3,7 @@ import Stripe from 'stripe';
+ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { enforceRateLimit } from '@/lib/rate-limit';
+ import { autorizarSobreSocia } from '@/lib/billing/socia-autorizada';
++import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+ 
+ // Fase 1 · PR-2 — Alta de mandato SEPA (domiciliación de la mensualidad).
+ //
+@@ -28,6 +29,14 @@ export async function POST(req: NextRequest) {
+   if (!key || key.startsWith('sk_test_XXXX')) {
+     return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
+   }
++  // 19ª auditoría · F-5: su gemelo `/api/stripe/setup-tarjeta` sí traía esta
++  // guarda, con el comentario "misma guarda de modo que las dos puertas por las
++  // que entra dinero"; aquí faltaba. Un mandato SEPA dado de alta con las claves
++  // en el modo equivocado queda inservible y solo se descubre al fallar el
++  // primer cobro de la mensualidad. Ver lib/billing/modo-stripe.ts.
++  const modo = comprobarModoStripe();
++  if (!modo.puedeCobrar) return NextResponse.json({ error: modo.motivo }, { status: 503 });
++
+   const admin = getSupabaseAdmin();
+   if (!admin) {
+     return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+diff --git a/app/api/stripe/webhook/route.ts b/app/api/stripe/webhook/route.ts
+index 0b739620..ef1436d0 100644
+--- a/app/api/stripe/webhook/route.ts
++++ b/app/api/stripe/webhook/route.ts
+@@ -266,6 +266,29 @@ async function procesarEvento(
+       return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+     }
+ 
++    // El tenant se resuelve desde la CUENTA que firma, no desde la metadata:
++    // `metadata.studioId` lo elige quien crea la sesión. El porqué completo, y
++    // el ataque que esto cierra, en `lib/billing/webhook-tenant.ts`.
++    //
++    // 19ª auditoría · F-1: esta comprobación vivía DENTRO del `else` (la rama de
++    // pago), así que las dos ramas `mode:'setup'` de abajo retornaban antes de
++    // llegar a ella y escribían credenciales de cobro guiándose solo por la
++    // metadata. Es el mismo fallo que webhook-tenant.ts documenta haber cerrado
++    // para la compra de plan: se cerró un camino y se dejó abierto su gemelo.
++    // Ahora protege a las TRES ramas, que es lo que siempre debió hacer.
++    const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
++    if (!tenantAutorizado(studioDeCuenta, studioId)) {
++      Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata', {
++        level: 'error',
++        extra: {
++          sessionId: session.id, eventAccount: event.account,
++          studioIdMetadata: studioId, studioDeCuenta, mode: session.mode,
++          purpose: session.metadata?.purpose ?? null,
++        },
++      });
++      return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
++    }
++
+     if (session.mode === 'setup' && session.metadata?.purpose === 'tarjeta') {
+       // La socia autorizó una tarjeta sin pagar nada (/api/stripe/setup-tarjeta).
+       // Es el único camino por el que una socia que paga en mostrador, por
+@@ -316,14 +339,22 @@ async function procesarEvento(
+         );
+         const pmId = typeof si.payment_method === 'string' ? si.payment_method : si.payment_method?.id;
+         const mandateId = typeof si.mandate === 'string' ? si.mandate : (si.mandate?.id ?? null);
+-        if (pmId) {
++        if (!studioId) {
++          // 19ª auditoría · F-1: mismo criterio que la rama de tarjeta y que el
++          // guardado tras pago. Sin studioId el UPDATE no se puede acotar al
++          // estudio dueño de la socia, y no se escribe.
++          Sentry.captureMessage('[stripe webhook] alta de mandato SEPA sin studioId: no se guarda', {
++            level: 'warning', extra: { socioId, sessionId: session.id },
++          });
++        } else if (pmId) {
+           const update: Record<string, string | null> = {
+             sepa_payment_method_id: pmId,
+             sepa_mandate_id: mandateId,
+             metodo_pago_preferido: 'SEPA',
+           };
+           if (typeof session.customer === 'string') update.stripe_customer_id = session.customer;
+-          const { error } = await admin.from('socios').update(update).eq('id', socioId);
++          const { error } = await admin.from('socios')
++            .update(update).eq('id', socioId).eq('studio_id', studioId);
+           if (error) {
+             console.error('[stripe webhook] no se pudo guardar el mandato SEPA', socioId, error);
+             return NextResponse.json({ error: 'Fallo al guardar el mandato SEPA' }, { status: 500 });
+@@ -341,17 +372,8 @@ async function procesarEvento(
+         return NextResponse.json({ received: true, ignorado: 'pago_no_completado' });
+       }
+ 
+-      // El tenant se resuelve desde la CUENTA que firma, no desde la metadata:
+-      // `metadata.studioId` lo elige quien crea la sesión. El porqué completo, y
+-      // el ataque que esto cierra, en `lib/billing/webhook-tenant.ts`.
+-      const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
+-      if (!tenantAutorizado(studioDeCuenta, studioId)) {
+-        Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata', {
+-          level: 'error',
+-          extra: { sessionId: session.id, eventAccount: event.account, studioIdMetadata: studioId, studioDeCuenta },
+-        });
+-        return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
+-      }
++      // (La comprobación de tenant se hace ahora arriba, antes de repartir por
++      // ramas, para que cubra también los dos `mode:'setup'`. Ver F-1.)
+ 
+       // El recibo es lo crítico (confirma el cobro). Registramos el método real
+       // del cobro (tarjeta/bizum) para la conciliación con el gestor.
+diff --git a/app/api/sustituciones/route.ts b/app/api/sustituciones/route.ts
+index cd31912a..cbc57594 100644
+--- a/app/api/sustituciones/route.ts
++++ b/app/api/sustituciones/route.ts
+@@ -1,4 +1,5 @@
+ import { NextRequest, NextResponse } from 'next/server';
++import * as Sentry from '@sentry/nextjs';
+ import { imparteClases } from '@/lib/equipo';
+ import { verificarSesionStaff } from '@/lib/auth-server';
+ import { errorInterno } from '@/lib/errores-servidor';
+@@ -381,8 +382,32 @@ export async function PATCH(req: NextRequest) {
+     if (cancRes.error) {
+       // No se corta el flujo: la clase YA está cancelada y las alumnas YA
+       // están avisadas. Se registra para poder repararlo a mano.
+-      console.error('[sustituciones:cancelar_clase:cancelar-reservas]',
+-        cancRes.error.message, `sesion=${sust.sesion_id}`, `studio=${sesion.studioId}`);
++      //
++      // 19ª auditoría · F-10: pero antes solo se registraba con `console.error`
++      // —que no llega a Sentry— y la respuesta seguía siendo `{ok:true}`, con
++      // la UI diciendo "clase cancelada · N avisadas". Tres cosas quedaban mal a
++      // la vez y ninguna se veía: (a) reservas fantasma CONFIRMADA sobre una
++      // clase que no existe, consumiendo cupo semanal y maxSimultaneas —
++      // exactamente lo que el comentario de arriba dice ir a evitar; (b) NINGÚN
++      // bono devuelto, porque la devolución cuelga del `else`; (c) cero rastro.
++      // El gemelo del panel (lib/studio-context.tsx, cancelarClase) sí devuelve
++      // "La clase se ha cancelado, pero no hemos podido cancelar sus reservas".
++      // Se iguala: la propietaria tiene que saber que le queda trabajo a mano.
++      Sentry.captureMessage('[sustituciones:cancelar_clase] clase cancelada pero sus reservas siguen activas', {
++        level: 'error',
++        tags: { area: 'reservas' },
++        extra: {
++          sesionId: sust.sesion_id, studioId: sesion.studioId,
++          detalle: cancRes.error.message,
++          confirmadas: confirmadasAntes?.length ?? 0,
++          queHacer: 'Las reservas de esa sesión siguen CONFIRMADA/LISTA_ESPERA y NO se han devuelto bonos. Cancelarlas a mano y revisar los bonos afectados.',
++        },
++      });
++      return NextResponse.json({
++        ok: true,
++        alumnas,
++        aviso: 'La clase se ha cancelado y hemos avisado a las alumnas, pero no hemos podido liberar sus reservas ni devolver los bonos. Revísalo en el calendario.',
++      });
+     } else if (confirmadasAntes?.length) {
+       const { data: sesionInfo } = await admin.from('sesiones').select('tipo_clase_id')
+         .eq('id', sust.sesion_id).maybeSingle();
+diff --git a/components/ayuda/AyudaFeedback.tsx b/components/ayuda/AyudaFeedback.tsx
+index cb4567bd..da1b66b9 100644
+--- a/components/ayuda/AyudaFeedback.tsx
++++ b/components/ayuda/AyudaFeedback.tsx
+@@ -23,13 +23,29 @@ export function AyudaFeedback({ categoria, articulo }: { categoria: string; arti
+     setEnviando(true);
+     setEnviado(valor); // optimista: es una valoración, no una escritura de dinero — no hace falta esperar para dar la sensación de "hecho".
+     try {
+-      await fetch('/api/ayuda/feedback', {
++      const res = await fetch('/api/ayuda/feedback', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ categoria, articulo, valoracion: valor, url: window.location.pathname }),
+       });
+-    } catch {
+-      // Best-effort: si falla la red, no se molesta a quien solo quería dar su opinión.
++      // 19ª auditoría · F-11: se sigue sin molestar a quien solo quería opinar
++      // (el "Gracias" optimista se queda), pero el fallo deja de ser invisible
++      // PARA NOSOTROS. `ayuda_feedback` lleva 0 filas en producción desde que se
++      // publicó el centro de ayuda, y con el `catch {}` vacío no había forma de
++      // saber si es que nadie vota o es que ningún voto llega.
++      if (!res.ok) {
++        const { captureMessage } = await import('@sentry/nextjs');
++        captureMessage('[ayuda/feedback] el voto no se ha guardado', {
++          level: 'warning',
++          extra: { categoria, articulo, valoracion: valor, status: res.status },
++        });
++      }
++    } catch (e) {
++      const { captureMessage } = await import('@sentry/nextjs');
++      captureMessage('[ayuda/feedback] el voto no ha llegado al servidor', {
++        level: 'warning',
++        extra: { categoria, articulo, valoracion: valor, detalle: e instanceof Error ? e.message : String(e) },
++      });
+     } finally {
+       setEnviando(false);
+     }
+diff --git a/lib/api-client.ts b/lib/api-client.ts
+index da4be9ec..f227bc17 100644
+--- a/lib/api-client.ts
++++ b/lib/api-client.ts
+@@ -527,16 +527,20 @@ export async function reprogramarClase(sustitucionId: string, inicio: string): P
+   }
+ }
+ 
+-export async function cancelarClase(sustitucionId: string): Promise<{ ok: true; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } } | { error: string }> {
++// 19ª auditoría · F-10: `aviso` es un éxito PARCIAL — la clase se canceló y se
++// avisó, pero las reservas siguen activas y no se han devuelto bonos. No es un
++// `error` (la acción principal sí ocurrió) y no puede ser silencio: a la
++// propietaria le queda trabajo a mano y tiene que enterarse.
++export async function cancelarClase(sustitucionId: string): Promise<{ ok: true; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean }; aviso?: string } | { error: string }> {
+   try {
+     const res = await fetch('/api/sustituciones', {
+       method: 'PATCH',
+       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+       body: JSON.stringify({ sustitucionId, action: 'cancelar_clase' }),
+     });
+-    const data = (await res.json().catch(() => ({}))) as { error?: string; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } };
++    const data = (await res.json().catch(() => ({}))) as { error?: string; aviso?: string; alumnas?: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } };
+     if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+-    return { ok: true, alumnas: data.alumnas };
++    return { ok: true, alumnas: data.alumnas, aviso: data.aviso };
+   } catch {
+     return { error: 'No se pudo cancelar' };
+   }
+diff --git a/lib/billing/procesar-reembolso.test.ts b/lib/billing/procesar-reembolso.test.ts
+index 29f25bcf..177fd891 100644
+--- a/lib/billing/procesar-reembolso.test.ts
++++ b/lib/billing/procesar-reembolso.test.ts
+@@ -28,10 +28,11 @@ function fakeAdmin(opts: { venta?: Fila | null } = {}) {
+       const c = {
+         update(fila: Fila) { updates.push(fila); return c; },
+         eq() { return c; },
+-        // `.is('devuelta_en', null)` — si el fake dice que la venta YA está
+-        // devuelta, el guard real de Postgres la habría excluido: se simula
+-        // aquí devolviendo null directamente.
++        // Guards de reentrada (`.is(...)` en recibos, `.or(importe_devuelto...)`
++        // en ventas POS): si el fake dice que la venta ya no casa, el guard real
++        // de Postgres la habría excluido — se simula devolviendo null.
+         is() { return c; },
++        or() { return c; },
+         select() { return c; },
+         maybeSingle() {
+           if (tabla === 'ventas_pos') return Promise.resolve({ data: venta, error: null });
+@@ -81,3 +82,40 @@ test('un reembolso parcial anota el acumulado real, no un delta', async () => {
+   });
+   assert.equal(updates[0].importe_devuelto, 10);
+ });
++
++// ── 19ª auditoría · F-3 y F-6 ───────────────────────────────────────────────
++//
++// Dos fallos que convivieron con esta suite en verde, porque `fakeAdmin`
++// devuelve siempre una fila y por tanto no evalúa NINGÚN predicado. Ambos se
++// prueban sobre el código fuente, que es donde vive el error.
++
++test('F-3: el mapper de ventas POS escribe stripe_payment_intent_id', () => {
++  // La columna existe en la BD desde la migración 0036 y es por la que busca
++  // `procesarReembolsoVentaPos`. `ventaPOSToDb` no la incluía, así que se
++  // quedaba a NULL en todas las ventas (prod: 19 filas, 0 informadas) y el
++  // predicado del UPDATE de abajo no casaba jamás: procesador entero muerto.
++  const datos = readFileSync(new URL('../supabase-data.ts', import.meta.url), 'utf8');
++  const mapper = datos.slice(datos.indexOf('function ventaPOSToDb'));
++  const cuerpo = mapper.slice(0, mapper.indexOf('\n}'));
++  assert.ok(
++    cuerpo.includes('stripe_payment_intent_id'),
++    'ventaPOSToDb debe escribir stripe_payment_intent_id, o el reembolso de POS no encuentra nunca la venta',
++  );
++});
++
++test('F-6: el guard de reentrada no descarta un segundo reembolso parcial', () => {
++  // `.is('devuelta_en', null)` frenaba el reintento pero también el incremento
++  // real: tras el primer parcial la fila dejaba de casar y el acumulado de
++  // Stripe no volvía a escribirse nunca.
++  const fuente = readFileSync(new URL('./procesar-reembolso.ts', import.meta.url), 'utf8');
++  const cuerpo = fuente.slice(fuente.indexOf('export async function procesarReembolsoVentaPos'));
++  const update = cuerpo.slice(cuerpo.indexOf("from('ventas_pos')"), cuerpo.indexOf('maybeSingle'));
++  assert.ok(
++    !update.includes("is('devuelta_en', null)"),
++    'el guard no puede ser devuelta_en IS NULL: descartaría el segundo parcial',
++  );
++  assert.ok(
++    update.includes('importe_devuelto'),
++    'el guard debe apoyarse en el acumulado importe_devuelto, que es monótono',
++  );
++});
+diff --git a/lib/billing/procesar-reembolso.ts b/lib/billing/procesar-reembolso.ts
+index 340cf8d8..5786a891 100644
+--- a/lib/billing/procesar-reembolso.ts
++++ b/lib/billing/procesar-reembolso.ts
+@@ -234,8 +234,16 @@ export async function procesarDisputeClosed(
+  * no tiene entrega/bono/suscripción que revisar (es venta al contado de
+  * productos/servicios sueltos), así que no hay nada que "revertir" más allá
+  * de dejar constancia del reembolso para que el cierre de caja no quede
+- * inflado. La venta se localiza por `stripe_payment_intent_id` — `ventas_pos`
+- * ya lo guarda al cobrar (no hace falta metadata nueva en el PaymentIntent).
++ * inflado. La venta se localiza por `stripe_payment_intent_id`.
++ *
++ * 19ª auditoría · F-3: esa última frase decía "`ventas_pos` ya lo guarda al
++ * cobrar" y era FALSA. La columna existe desde `0036_pagos_espana_sepa_bizum`,
++ * pero ni `VentaPOS` ni `ventaPOSToDb` la incluían, así que se quedaba a NULL en
++ * todas las ventas (verificado en producción: 19 filas, 0 con PaymentIntent).
++ * El predicado de abajo no casaba NUNCA y este procesador era un no-op integral
++ * — con su test en verde, porque el `fakeAdmin` devuelve siempre una fila y no
++ * evalúa el predicado. El mapper ya la escribe; falta que los cobros POS con
++ * Stripe informen el campo al registrar la venta (ver F-3 en el informe).
+  */
+ export async function procesarReembolsoVentaPos(
+   admin: SupabaseClient,
+@@ -248,13 +256,21 @@ export async function procesarReembolsoVentaPos(
+ ): Promise<ResultadoProcesado> {
+   const acumuladoDevuelto = (p.charge.amountRefunded ?? 0) / 100;
+ 
+-  // Guard `.is('devuelta_en', null)`, mismo patrón que `.neq('estado',
+-  // 'DEVUELTO')` en recibos: un reintento del mismo evento (webhook reenviado,
+-  // o el cron llegando después) no debe reescribir `devuelta_en` con la fecha
+-  // de hoy ni perder el importe acumulado real si hubo un segundo parcial.
++  // Guard de reentrada: un reintento del mismo evento (webhook reenviado, o el
++  // cron llegando después) no debe reescribir `devuelta_en` con la fecha de hoy.
++  //
++  // 19ª auditoría · F-6: el guard era `.is('devuelta_en', null)`, que además de
++  // frenar el reintento hacía lo contrario de lo que su propio comentario
++  // prometía — tras el primer parcial la fila ya no casaba, así que un SEGUNDO
++  // reembolso parcial (o el paso de parcial a total) se perdía y el acumulado
++  // real de Stripe no llegaba nunca a la BD. Se cambia por un guard sobre el
++  // importe: `importe_devuelto` es un acumulado monótono (Stripe manda siempre
++  // `amount_refunded` total, no el delta), así que "menor que el nuevo" frena el
++  // reintento exacto y deja pasar todo incremento real.
+   const { data: venta, error } = await admin.from('ventas_pos')
+     .update({ devuelta_en: new Date().toISOString(), importe_devuelto: acumuladoDevuelto })
+-    .eq('studio_id', p.studioId).eq('stripe_payment_intent_id', p.paymentIntentId).is('devuelta_en', null)
++    .eq('studio_id', p.studioId).eq('stripe_payment_intent_id', p.paymentIntentId)
++    .or(`importe_devuelto.is.null,importe_devuelto.lt.${acumuladoDevuelto}`)
+     .select('id, socio_id, total')
+     .maybeSingle();
+ 
+diff --git a/lib/stores/use-content-store.ts b/lib/stores/use-content-store.ts
+index 26ce7ab8..5187838f 100644
+--- a/lib/stores/use-content-store.ts
++++ b/lib/stores/use-content-store.ts
+@@ -89,7 +89,13 @@ export function useContentStore() {
+       creadoEn: new Date().toISOString(),
+     };
+     setPostsComunidad(prev => [nuevo, ...prev]);
+-    dbCrearPostComunidad(nuevo);
++    // 19ª auditoría · F-2: mismo criterio que `toggleLikePost` — si el servidor
++    // rechaza, se retira el optimista. Dejarlo pintado hacía creer que el aviso
++    // estaba publicado (y notificado a la audiencia) cuando no había llegado ni
++    // a la BD ni al fan-out.
++    void dbCrearPostComunidad(nuevo).then(ok => {
++      if (!ok) setPostsComunidad(prev => prev.filter(p => p.id !== nuevo.id));
++    });
+   }
+ 
+   function toggleLikePost(postId: string) {
+@@ -139,9 +145,27 @@ export function useContentStore() {
+     void dbUpdatePostComunidad(postId, { texto });
+   }
+ 
++  // 19ª auditoría · F-2: el borrado NO puede ser optimista-sin-vuelta como el
++  // texto. Un post que sigue en la BD sigue sirviéndose a todas las socias
++  // desde el feed público, así que "desaparece del panel" sin haberse borrado
++  // es exactamente el caso que hay que evitar: la propietaria cree retirado un
++  // precio mal puesto o un dato personal que en realidad sigue publicado.
+   function deletePost(postId: string) {
++    // Se guardan fila y posición para reponerlo EXACTAMENTE donde estaba: el
++    // tablón mezcla fijados y no fijados, así que reordenar por fecha al
++    // reponer movería el post de sitio.
++    const posicion = postsComunidad.findIndex(p => p.id === postId);
++    const anterior = posicion >= 0 ? postsComunidad[posicion] : undefined;
+     setPostsComunidad(prev => prev.filter(p => p.id !== postId));
+-    void dbDeletePostComunidad(postId);
++    void dbDeletePostComunidad(postId).then(ok => {
++      if (ok || !anterior) return;
++      setPostsComunidad(prev => {
++        if (prev.some(p => p.id === postId)) return prev;
++        const n = [...prev];
++        n.splice(Math.min(Math.max(posicion, 0), n.length), 0, anterior);
++        return n;
++      });
++    });
+   }
+ 
+   return {
+diff --git a/lib/studio-context.tsx b/lib/studio-context.tsx
+index 28c90e7f..8098f467 100644
+--- a/lib/studio-context.tsx
++++ b/lib/studio-context.tsx
+@@ -3343,10 +3343,33 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+   }
+ 
+   async function asignarSpot(sesionId: string, socioId: string, spotId: string): Promise<ResultadoEscritura> {
++    // 19ª auditoría · F-7: el filtro era `estado !== 'CANCELADA'`, que deja
++    // pasar LISTA_ESPERA y PENDIENTE_APROBACION. El índice único que impide dos
++    // socias en el mismo reformer es PARCIAL —`uq_reserva_spot_activo ... where
++    // spot_id is not null and estado in ('CONFIRMADA','ASISTIDA')`— así que
++    // escribir el spot en una fila en espera pasaba sin conflicto y la UI ni lo
++    // pintaba (el mapa solo indexa confirmadas): el sitio seguía "Libre".
++    // Al promocionarla después, la fila entra en el predicado del índice, choca
++    // con la confirmada que ya ocupa el spot y el 23505 aborta la transacción
++    // ENTERA de `cancelar_reserva_plaza`: la socia que cancelaba no podía
++    // cancelar y la cola de esa clase quedaba bloqueada. Se asigna sitio solo a
++    // quien el índice protege.
+     const reserva = reservas.find(r =>
+-      r.sesionId === sesionId && r.socioId === socioId && r.estado !== 'CANCELADA'
++      r.sesionId === sesionId && r.socioId === socioId
++      && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA')
+     );
+-    if (!reserva) return { ok: false, error: 'No hemos encontrado la reserva de esa clienta en esta clase.' };
++    if (!reserva) {
++      const enEspera = reservas.some(r =>
++        r.sesionId === sesionId && r.socioId === socioId
++        && (r.estado === 'LISTA_ESPERA' || r.estado === 'PENDIENTE_APROBACION')
++      );
++      return {
++        ok: false,
++        error: enEspera
++          ? 'Esa clienta todavía no tiene la plaza confirmada. Confírmala primero y luego asígnale el sitio.'
++          : 'No hemos encontrado la reserva de esa clienta en esta clase.',
++      };
++    }
+     const anterior = reserva;
+     setReservas(prev => prev.map(r => r.id === reserva.id ? { ...r, spotId } : r));
+     const res = await dbUpdateReserva(reserva.id, { spotId });
+diff --git a/lib/supabase-data.ts b/lib/supabase-data.ts
+index d38576c2..2ef6117a 100644
+--- a/lib/supabase-data.ts
++++ b/lib/supabase-data.ts
+@@ -1093,6 +1093,7 @@ export function mapVentaPOS(r: RowVentasPos): VentaPOS {
+     metodoPago: r.metodo_pago,
+     notas: r.notas ?? null,
+     realizadaEn: r.realizada_en,
++    stripePaymentIntentId: r.stripe_payment_intent_id ?? null,
+   } as VentaPOS;
+ }
+ 
+@@ -1509,6 +1510,9 @@ function ventaPOSToDb(venta: VentaPOS) {
+     metodo_pago: venta.metodoPago,
+     notas: venta.notas ?? null,
+     realizada_en: venta.realizadaEn,
++    // 19ª auditoría · F-3: sin esta línea la columna se quedaba a NULL siempre y
++    // `procesarReembolsoVentaPos` no encontraba nunca la venta que devolver.
++    stripe_payment_intent_id: venta.stripePaymentIntentId ?? null,
+   };
+ }
+ 
+@@ -3517,8 +3521,11 @@ export async function dbInsertPostComunidad(p: PostComunidad) {
+ // ya no Inngest). El `id` lo sigue generando el cliente (mismo
+ // criterio que `dbInsertPostComunidad`/el resto de esta store), así el
+ // estado optimista de useContentStore no diverge del guardado en servidor.
+-// Best-effort: si falla, el post ya se pintó optimista y solo se reporta.
+-export async function dbCrearPostComunidad(p: PostComunidad): Promise<void> {
++// 19ª auditoría · F-2: ya no es best-effort mudo. Devuelve si el post llegó a
++// la BD para que la store pueda retirar el optimista — un aviso que la
++// propietaria ve "publicado" en el panel y que no existe (ni se ha notificado a
++// nadie) es peor que un error visible.
++export async function dbCrearPostComunidad(p: PostComunidad): Promise<boolean> {
+   try {
+     const res = await fetch('/api/comunidad/posts', {
+       method: 'POST',
+@@ -3528,9 +3535,14 @@ export async function dbCrearPostComunidad(p: PostComunidad): Promise<void> {
+         tipo: p.tipo, eventoFecha: p.eventoFecha ?? null, eventoAforo: p.eventoAforo ?? null, eventoLugar: p.eventoLugar ?? null,
+       }),
+     });
+-    if (!res.ok) reportDbError('[dbCrearPostComunidad]', await res.json().catch(() => ({ status: res.status })));
++    if (!res.ok) {
++      reportDbError('[dbCrearPostComunidad]', await res.json().catch(() => ({ status: res.status })));
++      return false;
++    }
++    return true;
+   } catch (e) {
+     reportDbError('[dbCrearPostComunidad]', e);
++    return false;
+   }
+ }
+ 
+@@ -3571,9 +3583,18 @@ export async function dbMisLikesComunidad(): Promise<string[]> {
+   return (data as string[] | null) ?? [];
+ }
+ 
+-export async function dbDeletePostComunidad(id: string) {
++// 19ª auditoría · F-2: devuelve si el borrado ocurrió de verdad. Antes no
++// devolvía nada y el llamante lo quitaba de la lista pase lo que pase: la
++// propietaria borraba un aviso del tablón, desaparecía de su pantalla y, si el
++// DELETE había fallado, el post SEGUÍA sirviéndose a todas las socias (el feed
++// público lee la tabla con service-role, no el estado local del panel).
++export async function dbDeletePostComunidad(id: string): Promise<boolean> {
+   const { error } = await supabase.from('posts_comunidad').delete().eq('id', id);
+-  if (error) reportDbError('[dbDeletePostComunidad]', error);
++  if (error) {
++    reportDbError('[dbDeletePostComunidad]', error);
++    return false;
++  }
++  return true;
+ }
+ 
+ export async function dbUpsertIntegracion(
+diff --git a/lib/types.ts b/lib/types.ts
+index 18626143..6fdd3ebe 100644
+--- a/lib/types.ts
++++ b/lib/types.ts
+@@ -1071,6 +1071,13 @@ export interface VentaPOS {
+   metodoPago: MetodoPago;
+   notas: string | null;
+   realizadaEn: string;
++  // 19ª auditoría · F-3: la columna existe en la BD desde `0036_pagos_espana_sepa_bizum`
++  // y es POR LA QUE BUSCA `procesarReembolsoVentaPos` para marcar la venta al
++  // recibir `charge.refunded`. Faltaba en el tipo y en los dos mappers, así que
++  // nadie la escribía nunca: las 19 ventas de producción la tienen a NULL y el
++  // reembolso de POS no casaba jamás. Solo la informan los cobros con Stripe
++  // (Bizum/datáfono); en efectivo es null.
++  stripePaymentIntentId?: string | null;
+ }
+ 
+ export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIANDO' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';
+diff --git a/supabase/migrations/20260901120000_cierra_anon_novedades_y_escritura_valoraciones.sql b/supabase/migrations/20260901120000_cierra_anon_novedades_y_escritura_valoraciones.sql
+new file mode 100644
+index 00000000..08b5e4bc
+--- /dev/null
++++ b/supabase/migrations/20260901120000_cierra_anon_novedades_y_escritura_valoraciones.sql
+@@ -0,0 +1,70 @@
++-- Auditoría 19ª pasada (1-sep) · F-8 y F-9.
++--
++-- Dos policies que dan más de lo que ningún camino del código usa. Es la
++-- CONTINUACIÓN literal de 20260820165632_cierra_lectura_anon_cross_tenant, y el
++-- primer caso es esa misma migración deshecha: el 20-ago se eliminaron 9
++-- policies `for select to anon using (true)` por leer datos de todos los
++-- estudios, y el 26-ago `novedades_estudio` nació con exactamente esa forma. El
++-- arreglo de entonces cerró las tablas que existían, pero no dejó regla que
++-- impidiera reescribir el patrón en la tabla siguiente.
++--
++-- ── F-8 · novedades_estudio: lectura anon sin filtro de estudio ──────────────
++--
++-- `create policy public_read_novedades_estudio ... for select to anon using (true)`
++-- (20260826220000_novedades_estudio.sql:47-48). Sin `studio_id`: con la clave
++-- anónima —que es pública, viaja en el bundle— se lee el tablón interno de
++-- TODOS los estudios de la plataforma, no solo el propio.
++--
++-- Hoy no filtra de hecho porque `anon` nunca recibió el GRANT de tabla: la
++-- lectura falla con 42501 antes de evaluar la policy. Es decir, es el mismo
++-- desajuste policy↔grant que ya produjo un no-op el 14-ago, solo que esta vez a
++-- nuestro favor. No se deja así: basta que alguien conceda el SELECT para
++-- "arreglar" la lectura pública —que es lo natural al ver el 42501— para abrir
++-- la fuga entera de golpe.
++--
++-- No se pierde ningún camino legítimo: las novedades llegan al portal público
++-- por `fetchPublicStudioData` (service-role, ignora RLS) — verificado en
++-- lib/db/supabase-data-admin.ts, donde viajan en el payload público — y el
++-- panel las lee como `authenticated` por `admin_novedades_estudio`, que sí
++-- acota por `current_studio_id()` y por rol, y queda intacta.
++--
++-- Mismo cinturón y tirantes que el 20-ago: drop de la policy + revoke del grant.
++
++drop policy if exists public_read_novedades_estudio on public.novedades_estudio;
++revoke select on public.novedades_estudio from anon;
++
++-- ── F-9 · valoraciones: la parte evaluada podía escribir su propia nota ──────
++--
++-- `admin_valoraciones` (0044_valoraciones.sql:48) es `FOR ALL` con el único
++-- predicado `studio_id = current_studio_id()`, sin comprobación de rol, y la
++-- tabla lleva `GRANT ALL ... TO anon, authenticated`. `current_studio_id()`
++-- resuelve para propietarias E INSTRUCTORAS, así que una instructora del
++-- estudio podía hacer UPDATE/DELETE/INSERT sobre `valoraciones` — la tabla que
++-- alimenta `valoraciones_resumen_estudio()`, o sea las estrellas de Equipo y el
++-- ranking con el que se reparten las sustituciones. Borrar los suspensos
++-- propios o fabricarse sobresalientes era una llamada REST.
++--
++-- Verificado en producción con impersonación (instructora real 07c25aac…):
++-- pasaba el predicado de la policy y tenía privilegio de UPDATE y de DELETE.
++--
++-- La escritura legítima no pasa por aquí: las valoraciones las crea la alumna
++-- en /api/public/valorar y en /valorar/[token], ambos con service-role (que
++-- ignora RLS y no se ve afectado). Comprobado por grep exhaustivo: no existe
++-- ni un solo `.from('valoraciones')` con la clave del navegador en lib/, app/
++-- ni components/ — el panel las lee por /api/valoraciones, también service-role.
++-- La policy de escritura era código muerto, pero explotable.
++--
++-- Se deja SOLO lectura para el staff del propio estudio (por si algún consumo
++-- futuro del panel la necesita con la clave de usuario) y se revoca `anon`,
++-- que no tiene ninguna policy y por tanto tampoco usaba el grant.
++
++drop policy if exists admin_valoraciones on public.valoraciones;
++create policy admin_valoraciones on public.valoraciones
++  for select to authenticated
++  using (studio_id = public.current_studio_id());
++
++revoke all on table public.valoraciones from anon;
++revoke insert, update, delete on table public.valoraciones from authenticated;
++
++comment on policy admin_valoraciones on public.valoraciones is
++  'Solo lectura y solo del propio estudio. La escritura es exclusiva de service_role (/api/public/valorar): quien es evaluado no puede tocar su nota. Ver auditoría 19ª pasada, F-9.';

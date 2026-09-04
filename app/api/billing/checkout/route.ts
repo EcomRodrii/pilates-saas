@@ -118,11 +118,35 @@ export async function POST(req: NextRequest) {
       }
       if (!cadena) throw new Error('No se pudo resolver la cadena');
 
+      // 19ª auditoría · F-4: el guard anti-doble-suscripción vivía SOLO después
+      // del `return` de esta rama, así que protegía a BASE/ESTUDIO y no a
+      // CADENA — su gemela. `cadena.subscription_status` se leía dos veces y no
+      // se usaba nunca. Una propietaria con CADENA ya activa que volviera a
+      // pulsar "Contratar" (doble clic, caché desincronizada, replay) abría un
+      // segundo Checkout de suscripción sobre el mismo customer: dos
+      // suscripciones CADENA cobrando en paralelo. Mismo criterio que abajo,
+      // incluido 'past_due' vía `suscripcionActiva()`.
+      if (suscripcionActiva(cadena.subscription_status)) {
+        return NextResponse.json(
+          { error: 'Ya tienes una suscripción activa. Gestiónala desde Configuración → Facturación.' },
+          { status: 409 },
+        );
+      }
+
       // Si el estudio venía de ESTUDIO/BASE con una suscripción individual viva,
       // hay que cancelarla — si no, queda cobrando en paralelo con la de cadena.
+      //
+      // Auditoría de producto (P0-4): el `.catch(() => {})` tragaba CUALQUIER
+      // fallo de Stripe, no solo "ya estaba cancelada" — un timeout, un
+      // rate-limit o una clave inválida dejaban seguir el alta de CADENA con la
+      // suscripción individual todavía viva: doble cobro real, sin log ni
+      // aviso. Solo `resource_missing` (ya cancelada/inexistente en Stripe) es
+      // seguro de ignorar; cualquier otro código relanza para que el `catch`
+      // exterior lo registre (errorInterno → Sentry) y bloquee el alta.
       if (studio.subscription_id && studio.subscription_status && studio.subscription_status !== 'canceled') {
-        await stripe.subscriptions.cancel(studio.subscription_id).catch(() => {
-          // Ya cancelada en Stripe (o inexistente) — no bloquea el alta de cadena.
+        await stripe.subscriptions.cancel(studio.subscription_id).catch((err: unknown) => {
+          const code = err instanceof Stripe.errors.StripeError ? err.code : undefined;
+          if (code !== 'resource_missing') throw err;
         });
       }
 

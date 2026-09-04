@@ -15,6 +15,7 @@ import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import { StripeIcon, WhatsAppAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon, GmailIcon, MailchimpIcon, ZapierIcon, ExcelIcon, KisiIcon, KlaviyoIcon } from '@/components/icons/brand-icons';
 import { authHeader } from '@/lib/api-client';
 import { saludIntegracion, textoSalud } from '@/lib/integraciones/salud';
+import { useWhatsappEmbeddedSignup } from '@/lib/hooks/use-whatsapp-embedded-signup';
 import type { TipoIntegracion } from '@/lib/types';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 import { uuidV4 } from '@/lib/utils';
@@ -308,6 +309,45 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   };
 
   const getIntegracion = (tipo: TipoIntegracion) => integraciones.find(i => i.tipo === tipo) ?? null;
+
+  // WhatsApp Embedded Signup v4 (ver WHATSAPP_AUDIT.md/META_SETUP.md): el
+  // botón "Conectar WhatsApp" solo aparece con NEXT_PUBLIC_META_APP_ID/
+  // NEXT_PUBLIC_META_CONFIG_ID configurados — sin ellos, la tarjeta cae al
+  // flujo manual existente (mismo criterio de degradación que Stripe/Google/
+  // Zoom/Klaviyo con sus respectivos client IDs, más arriba).
+  const whatsappSignup = useWhatsappEmbeddedSignup();
+  // Resumen de solo lectura de una conexión hecha por Embedded Signup —
+  // distinta del `form` de campos editables: si viniera de ahí, "Guardar"
+  // sobreescribiría el token con uno vacío (la API ya no lo manda al
+  // navegador para estas filas, ver /api/integrations/config). `null` cuando
+  // la fila es del flujo manual (o no hay fila todavía).
+  const [whatsappResumenMeta, setWhatsappResumenMeta] = useState<{ verifiedName: string; displayPhoneNumber: string } | null>(null);
+  const conectarWhatsappMeta = async () => {
+    const r = await whatsappSignup.conectar();
+    if (!r.ok) {
+      if (r.error) showToast(r.error);
+      return;
+    }
+    // El toast viaja en la URL (mismo patrón que stripe_connected/
+    // google_calendar_connected más abajo), NO se pinta aquí antes de
+    // recargar: showToast() es un setState de React, y window.location.reload()
+    // tira la página abajo antes de que React llegue a pintarlo — la
+    // propietaria solo vería la recarga, nunca la confirmación. El resto de
+    // la pantalla (badge de salud, panel entero) lee de `useStudio()`,
+    // cargada una vez al arrancar, así que hace falta recargar de todos
+    // modos — a diferencia de Stripe/Google/Zoom esto no es la vuelta de un
+    // redirect, así que el query param se añade aquí en vez de venir de un
+    // callback de servidor.
+    window.location.href = `${window.location.pathname}?whatsapp_connected=1`;
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('whatsapp_connected')) {
+      showToast('WhatsApp conectado');
+      window.history.replaceState({}, '', '/configuracion');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stripe no usa el modal genérico de API keys: se conecta vía OAuth (Stripe
   // Connect) para que cada estudio cobre en su propia cuenta, sin tocar
@@ -657,6 +697,14 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       const cfg = data.config ?? {};
       setConfigOriginal(cfg);
       setForm(cfg);
+      // `wabaId` solo lo rellena el callback de Embedded Signup — nunca el
+      // formulario manual. Presente = esta fila se conectó por Meta, y el
+      // modal muestra el resumen de solo lectura en vez de los campos.
+      setWhatsappResumenMeta(
+        cat.tipo === 'WHATSAPP' && cfg.wabaId
+          ? { verifiedName: cfg.verifiedName ?? '', displayPhoneNumber: cfg.displayPhoneNumber ?? '' }
+          : null,
+      );
       setEditando(cat.tipo);
     } catch {
       showToast('No se pudieron cargar las credenciales. Inténtalo otra vez.');
@@ -917,6 +965,37 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   ) : (
                     <NoDisponibleTodavia variable="NEXT_PUBLIC_KLAVIYO_CLIENT_ID" />
                   )
+                ) : cat.tipo === 'WHATSAPP' ? (
+                  <>
+                    {conectado ? (
+                      <>
+                        <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(btnSecondary, abriendo === cat.tipo && 'opacity-60')}>
+                          Gestionar
+                        </button>
+                        {cat.probarUrl && (
+                          <button onClick={() => probarCampos(cat)} disabled={probando === cat.tipo} className={cn(btnSecondary, probando === cat.tipo && 'opacity-50')}>
+                            {probando === cat.tipo ? 'Probando…' : 'Probar conexión'}
+                          </button>
+                        )}
+                      </>
+                    ) : whatsappSignup.disponible ? (
+                      <button type="button" onClick={conectarWhatsappMeta} disabled={whatsappSignup.conectando} className={cn(btnPrimary, whatsappSignup.conectando && 'opacity-50')}>
+                        {whatsappSignup.conectando ? 'Conectando…' : 'Conectar WhatsApp'}
+                      </button>
+                    ) : (
+                      <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(btnPrimary, abriendo === cat.tipo && 'opacity-60')}>
+                        Conectar
+                      </button>
+                    )}
+                    {/* Mismo enlace que ya tenía WhatsApp antes de esta rama dedicada
+                        (heredado de la rama genérica de abajo) — se perdía sin este. */}
+                    {cat.docsUrl && (
+                      <a href={cat.docsUrl} target="_blank" rel="noopener noreferrer"
+                        className="text-[12px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                        Docs <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </>
                 ) : cat.tipo === 'MAILCHIMP' ? (
                   // Modal genérico de campos (Conectar/Gestionar) + Probar
                   // conexión, igual que Kisi/WhatsApp — solo se añade el
@@ -992,6 +1071,31 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   Configurar {cat.nombre}
                 </DialogTitle>
               </DialogHeader>
+              {cat.tipo === 'WHATSAPP' && whatsappResumenMeta ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-success text-[13px] font-medium">
+                    <Check size={16} /> Conectado a través de Meta
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-3 space-y-0.5">
+                    <p className="text-[13px] font-semibold text-foreground">
+                      {whatsappResumenMeta.verifiedName || 'WhatsApp Business'}
+                    </p>
+                    <p className="text-[12px] text-muted-foreground">
+                      {whatsappResumenMeta.displayPhoneNumber || '—'}
+                    </p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Los recordatorios automáticos se envían desde este número. No necesitas
+                    gestionar ningún token ni ID — eso lo hace Tentare por ti.
+                  </p>
+                  <div className="flex items-center justify-between pt-1">
+                    <button onClick={() => desconectar(cat)} className="text-[13px] font-medium text-destructive hover:underline">
+                      Desconectar
+                    </button>
+                    <button onClick={() => setEditando(null)} className={btnSecondary}>Cerrar</button>
+                  </div>
+                </div>
+              ) : (
               <div className="space-y-4">
                 {cat.instrucciones && cat.instrucciones.length > 0 && (
                   <ol className="space-y-1.5 text-[12px] text-muted-foreground bg-muted/50 rounded-lg p-3 list-decimal list-inside">
@@ -1045,10 +1149,12 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   </div>
                 </div>
               </div>
+              )}
             </DialogContent>
           </Dialog>
         );
       })()}
+      {whatsappSignup.script}
     </div>
   );
 }

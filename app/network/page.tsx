@@ -1,26 +1,60 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { buscarPerfilesPublico } from '@/lib/network/publico';
-import { HeroParallax } from '@/components/network-v2/HeroParallax';
-import { NavPublico } from '@/components/network-v2/NavPublico';
-import { PieNetwork } from '@/components/network-v2/PieNetwork';
-import { BuscadorHero } from '@/components/network-v2/BuscadorHero';
-import { TarjetaInstructora } from '@/components/network-v2/TarjetaInstructora';
-import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
-import { FormularioInteresEstudio } from '@/components/network-v2/FormularioInteresEstudio';
+import { LogoTentare } from '@/components/marca/logo-tentare';
+import { NavLandingClon } from '@/components/network-v2/NavLandingClon';
 import { Reveal } from '@/components/network-v2/Reveal';
-import { EnlaceRastreo } from '@/components/network-v2/EnlaceRastreo';
-import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_SAND, NW_BORDE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_ESTADO, NW_PROBLEMA } from '@/components/network-v2/tokens';
+import { NW_PRODUCTO, NW_PRODUCTO_OSCURO, NW_PRODUCTO_CLARO } from '@/components/network-v2/tokens';
+import { LEGAL } from '@/lib/legal-info';
 
-// Landing pública de Tentare Network (1a del rediseño) — Server Component:
-// "sin esto Google ve un div vacío", mismo criterio que ya usa
-// app/network/instructoras/page.tsx para el marketplace. Ocupa la ruta
-// literal /network, que hasta ahora tenía el buscador de la propietaria
-// (movido a /network/buscar, ver lib/nav-config.ts).
+// Clon literal del mockup de Claude Design "UI mockups for landing page"
+// (2026-08-30) — pedido explícito del fundador: "EXACTAMENTE EL MISMO
+// DISEÑO", confirmado en una pregunta de alcance a incluir también las
+// secciones de Estudio (Automatiza/Widget/App), aunque hablen del producto
+// de gestión y no del marketplace de instructoras.
+//
+// Segunda pasada (2026-08-30, mismo día): feedback directo tras ver el
+// clon en móvil — "se ve cortada", "los botones de arriba no funcionan",
+// "no hay contenido explicativo... sobre network", "no es responsive".
+// Cuatro arreglos reales, no cosméticos:
+// 1. `overflow-x: clip` en <body> (app/globals.css) — un elemento
+//    decorativo que se salía unos px de su contenedor abría scroll
+//    horizontal en TODA la página.
+// 2. Nav con menú móvil de verdad (NavLandingClon.tsx) — los tres enlaces
+//    estaban `hidden sm:flex` SIN alternativa: en móvil no había nada que
+//    tocar, literalmente. `scroll-mt-16` en cada sección ancla compensa la
+//    nav sticky (64px) para que el salto no la tape.
+// 3. Móviles del hero con marco real (MovilMock, abajo) en vez de tarjetas
+//    planas sin bisel — y tamaños base más pequeños para caber en 375px.
+// 4. Cuatro secciones nuevas de contenido real sobre NETWORK (el mockup
+//    solo traía una franja-teaser): Cómo funciona, Confianza, Casos de
+//    uso y FAQ — copy recuperado de la versión anterior de esta página
+//    (git f8c14a8a~1), reescrito sobre el sistema visual del clon.
+//
+// Colores en hex literal del propio mockup, no vía los tokens NW_* de
+// siempre — la mayoría no coincide exactamente con ningún token existente
+// y forzar el encaje habría sido justo la clase de aproximación que
+// "exactamente" pedía evitar. NW_PRODUCTO/_OSCURO/_CLARO sí son el mismo
+// verde citado por variable (PR #1480), así que esos tres se reutilizan.
+//
+// Fotos: el mockup referencia imágenes subidas a su propio canvas (uuids
+// sin URL pública). Sustituidas por fotografía real ya existente en este
+// repo (public/disciplinas, public/por-defecto).
+
+const INK = '#14140F';
+const PAPEL = '#FAF9F5';
+const OSCURO = '#0F0F0C';
+const HERO_BG = '#1A1A16';
+const MUTED = '#4A4A42';
+const MUTED_2 = '#7E7A6E';
+const BORDE = '#E5E3DA';
+const GRIS_VERDOSO = '#98A093';
+const SAGE = '#F1F2EA';
+const MONO = "'IBM Plex Mono', ui-monospace, monospace";
+
 export const metadata: Metadata = {
   title: 'Tentare Network — Encuentra tu instructora de Pilates y Yoga',
   description: 'La red profesional de instructoras de Pilates y Yoga. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
+  alternates: { canonical: `${LEGAL.url}/network` },
   openGraph: {
     type: 'website',
     title: 'Tentare Network — Red de instructoras de Pilates y Yoga',
@@ -29,12 +63,6 @@ export const metadata: Metadata = {
   },
 };
 
-// Antes un único bloque de 3 pasos servía "para los dos lados" a la vez —
-// auditoría 2026-08-20: el brief pedía dos bloques diferenciados
-// (instructora / estudio) y el genérico no explicaba de verdad ninguno de
-// los dos flujos reales (el de estudio, sobre todo, ni mencionaba el
-// concierge). Separados, cada uno describe lo que de verdad pasa en ESE
-// lado.
 const PASOS_INSTRUCTORA = [
   { n: '01', titulo: 'Crea tu perfil', desc: 'Experiencia, formación, especialidades, ciudad y disponibilidad. Unos minutos, no una hoja de cálculo.' },
   { n: '02', titulo: 'Hazte visible', desc: 'Los estudios pueden encontrarte cuando buscan justo tu especialidad, o compartir tu perfil como tu CV online.' },
@@ -47,57 +75,17 @@ const PASOS_ESTUDIO = [
   { n: '03', titulo: 'Te presentamos candidatas', desc: 'Hablas directamente con quien encaje. Sin comisión, sin intermediarios de por medio.' },
 ] as const;
 
-const CASOS_USO = [
-  { titulo: 'Necesitas una sustitución', texto: 'Un estudio se queda sin quien dé la clase de mañana y busca una instructora disponible en su zona.' },
-  { titulo: 'Buscas nuevas oportunidades', texto: 'Terminaste una certificación de Reformer y quieres que los estudios que buscan ese perfil te encuentren.' },
-  { titulo: 'Quieres incorporar una especialidad', texto: 'Tu estudio quiere ofrecer Yoga prenatal y hoy no tenéis a nadie formada en eso.' },
-] as const;
-
-// Copy heredado de la landing original (components/landing/network/data.ts,
-// app/network/unirse) — el rediseño de esta página se quedó con el hero y el
-// grid de destacadas, pero perdió el contraste "sin/con", la confianza y el
-// FAQ que sí vivían ahí. El usuario pidió recuperarlo explícitamente sobre el
-// design system nuevo (sin cursiva, paleta oliva) en vez de mantener las dos
-// landings en paralelo.
-const PROBLEMA_ITEMS = [
-  {
-    sin: 'Mandas tu currículum a doce estudios y no sabes si alguien lo ha abierto.',
-    con: 'Publicas un perfil una vez. Lo ven los estudios que buscan justo tu especialidad.',
-  },
-  {
-    sin: 'Te enteras de una sustitución por un grupo de WhatsApp al que ya casi no perteneces.',
-    con: 'Los estudios te contactan a ti directamente cuando tu disponibilidad encaja.',
-  },
-  {
-    sin: 'Negocias tu tarifa desde cero cada vez, sin saber qué es lo normal.',
-    con: 'Marcas tu rango de tarifa una vez. Lo ven todos antes de escribirte.',
-  },
-  {
-    sin: 'Das tu teléfono a cualquiera que pregunte por WhatsApp o Instagram.',
-    con: 'Tu email y tu teléfono quedan privados hasta que tú aceptas hablar.',
-  },
-] as const;
-
 const CONFIANZA_ITEMS = [
-  { titulo: 'Sin intermediarios', texto: 'Instructora y estudio habláis directamente — Tentare no se queda en medio ni cobra comisión.' },
+  { titulo: 'Sin agencia. Sin comisión.', texto: 'Instructora y estudio habláis directamente — Tentare no se queda en medio ni cobra nada sobre lo que acordéis.' },
   { titulo: 'Email verificado', texto: 'Todo perfil confirma su email antes de publicarse.' },
   { titulo: 'Experiencia confirmada', texto: 'Puedes pedir que un estudio que ya usa Tentare confirme que trabajaste ahí — se marca como verificada en tu perfil.' },
   { titulo: 'Actividad reciente', texto: 'Se nota si sigues buscando o si tu perfil lleva meses parado.' },
 ] as const;
 
-const PROBLEMA_ESTUDIO_ITEMS = [
-  {
-    sin: 'Una sustitución urgente se resuelve preguntando en cinco grupos de WhatsApp a la vez.',
-    con: 'Cuéntanos qué necesitas y cruzamos tu petición contra la red de instructoras al momento.',
-  },
-  {
-    sin: 'Los contactos de instructoras se acumulan en notas sueltas, sin saber quién sigue disponible.',
-    con: 'Cada perfil dice si está buscando trabajo, disponible para sustituciones, o ninguna de las dos.',
-  },
-  {
-    sin: 'Comparar candidatas a mano es leer diez conversaciones de WhatsApp distintas.',
-    con: 'Toda la información — experiencia, especialidades, tarifa orientativa — en el mismo formato.',
-  },
+const CASOS_USO = [
+  { titulo: 'Necesitas una sustitución', texto: 'Un estudio se queda sin quien dé la clase de mañana y busca una instructora disponible en su zona.' },
+  { titulo: 'Buscas nuevas oportunidades', texto: 'Terminaste una certificación de Reformer y quieres que los estudios que buscan ese perfil te encuentren.' },
+  { titulo: 'Quieres incorporar una especialidad', texto: 'Tu estudio quiere ofrecer Yoga prenatal y hoy no tenéis a nadie formada en eso.' },
 ] as const;
 
 const FAQ_ITEMS = [
@@ -106,357 +94,448 @@ const FAQ_ITEMS = [
   { q: '¿Quién ve mi teléfono y mi email?', a: 'Nadie, hasta que tú aceptas una solicitud de contacto de un estudio. Antes de eso, solo ven tu perfil público: especialidad, experiencia, disponibilidad y tarifa orientativa.' },
   { q: '¿Cómo saben los estudios que mi experiencia es real?', a: 'Puedes pedir que un estudio donde trabajaste, si usa Tentare, confirme esa experiencia desde su propia cuenta — se marca como verificada en tu perfil, no es algo que rellenes tú misma.' },
   { q: '¿Puedo ocultar mi perfil si dejo de buscar?', a: 'Sí, en cualquier momento, sin perder los datos que ya rellenaste. Vuelves a publicarlo cuando quieras.' },
-  { q: '¿Necesito que mi estudio use Tentare para unirme?', a: 'No. Tu perfil en Network es una cuenta independiente, sin ningún estudio detrás. Da igual el software que use el estudio donde trabajas.' },
-  { q: '¿Qué significa que Tentare Network está en beta?', a: 'Que acabamos de abrir la red y estamos incorporando a las primeras instructoras y estudios. No hay una comunidad grande todavía — entrar ahora significa formar parte desde el principio, no llegar tarde a algo ya lleno.' },
-  { q: '¿En qué ciudades está disponible?', a: 'Empezamos con las primeras instructoras en Barcelona y Madrid, y vamos a sumar más ciudades según se una gente. Si tu ciudad todavía no tiene perfiles, puedes dejarnos tu email y te avisamos.' },
-  { q: '¿Qué pasa si busco y todavía no hay perfiles en mi zona o especialidad?', a: 'Te lo decimos con claridad en vez de enseñarte una página vacía, y puedes dejarnos tu email o crear tu propio perfil para ser de las primeras.' },
+  { q: '¿Qué significa que Tentare Network está en beta?', a: 'Que acabamos de abrir la red y estamos incorporando a las primeras instructoras y estudios. Entrar ahora significa formar parte desde el principio, no llegar tarde a algo ya lleno.' },
+  { q: '¿En qué ciudades está disponible?', a: 'Empezamos con las primeras instructoras en Barcelona y Madrid, y vamos a sumar más ciudades según se una gente.' },
   { q: '¿Cómo elimino mi cuenta o mi perfil?', a: 'Escríbenos a hola@tentare.app y lo borramos. Mientras tanto puedes ocultar tu perfil tú misma desde "Mi perfil" cuando quieras, sin perder tus datos.' },
-  { q: '¿Cómo denuncio un perfil o un mensaje?', a: 'Desde cualquier perfil o conversación hay un botón de "Reportar" que llega directamente al equipo de Tentare, no a la otra persona.' },
 ] as const;
 
-export default async function NetworkLandingPage() {
-  const admin = getSupabaseAdmin();
-  const resultado = admin
-    ? await buscarPerfilesPublico(admin, { ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null })
-    : null;
-  const perfiles = resultado && 'perfiles' in resultado ? resultado.perfiles : [];
-  const destacadas = [...perfiles].sort((a, b) => Number(b.destacado) - Number(a.destacado)).slice(0, 4);
-  // Para el hero: una foto REAL antes que el flag `destacado` — auditoría UX
-  // 2026-08-19 midió que con 0-2 perfiles reales, `destacadas[0]` puede ser
-  // justo el único sin foto (ordenado primero por `destacado`), y eso hacía
-  // caer al fallback de foto de stock genérica aun habiendo una foto de
-  // instructora real disponible. Mostrar la persona real pesa más para la
-  // confianza que respetar el orden de "destacado".
-  const heroPerfil = perfiles.find(p => p.fotoUrl) ?? null;
-
-  // FAQ_ITEMS ya existe y se pinta más abajo (<details>/<summary>) — esto
-  // solo declara el mismo contenido como dato estructurado, sin duplicar
-  // copy nuevo.
-  const faqLd = {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: FAQ_ITEMS.map(({ q, a }) => ({
-      '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a },
-    })),
-  };
-
+/** Titular en curvas con el trazo del acento — misma técnica que el mockup: `<text>` con `fill` = fondo de la sección (se camufla) y `stroke` = acento, `paint-order="stroke"`. */
+function TituloTrazado({
+  texto, viewBox, fontSize, fondo, className = '',
+}: {
+  texto: string; viewBox: string; fontSize: number; fondo: string; className?: string;
+}) {
+  const [, , w, h] = viewBox.split(' ').map(Number);
   return (
-    <div style={{ background: NW_FONDO, color: NW_TINTA }}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd).replace(/</g, '\\u003c') }} />
-      <NavPublico />
+    <svg aria-hidden="true" viewBox={viewBox} className={className} style={{ display: 'block', overflow: 'visible' }}>
+      <text
+        x={w / 2} y={h * 0.82} textAnchor="middle"
+        fontFamily="'Plus Jakarta Sans', system-ui, sans-serif"
+        fontSize={fontSize} fontStyle="italic" fontWeight={800}
+        paintOrder="stroke"
+        fill={fondo}
+        stroke={NW_PRODUCTO}
+        strokeWidth={fontSize / 46}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      >
+        {texto}
+      </text>
+    </svg>
+  );
+}
 
-      <section className="max-w-[1240px] mx-auto px-6 pt-16 pb-20 grid lg:grid-cols-2 gap-14 items-center">
-        <div>
-          <p className="nw-fade-up text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
-            Red profesional de instructoras de Pilates y Yoga
-          </p>
-          <h1 className="nw-fade-up mt-5 text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight text-balance" style={{ animationDelay: '60ms' }}>
-            Encuentra la{' '}
-            <span style={{ color: NW_PRODUCTO }}>instructora de Pilates y Yoga</span>{' '}
-            que necesitas.
-          </h1>
-          <p className="nw-fade-up mt-5 text-[17.5px]" style={{ color: NW_MUTED, animationDelay: '120ms' }}>
-            Publica lo que buscas o explora perfiles verificados directamente. Sin comisiones, sin intermediarios.
-          </p>
-          <div className="nw-fade-up mt-8" style={{ animationDelay: '190ms' }}>
-            <BuscadorHero />
+function AppScreen({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ height: '100%', background: PAPEL, padding: '46px 14px 0', boxSizing: 'border-box', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", color: INK, overflow: 'hidden' }}>
+      {children}
+    </div>
+  );
+}
+
+/** Marco de móvil real (bisel + dynamic island) — sustituye al componente
+    "IOSDevice" del mockup, que no existe en este stack. Sin esto eran
+    tarjetas blancas planas sin bisel, la razón concreta del feedback "los
+    móviles no son los diseños y están mal". */
+function MovilMock({
+  className = '', style, children,
+}: { className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+  return (
+    <div
+      className={className}
+      style={{ ...style, background: INK, borderRadius: 30, padding: 8, boxSizing: 'border-box' }}
+    >
+      <div className="relative w-full h-full overflow-hidden" style={{ borderRadius: 22 }}>
+        <span aria-hidden="true" className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full" style={{ width: 46, height: 14, background: INK, zIndex: 1 }} />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  return (
+    <details className="group py-4" style={{ borderBottom: `1px solid ${BORDE}` }}>
+      <summary className="flex items-center justify-between gap-4 cursor-pointer list-none text-[15px] font-extrabold">
+        {q}
+        <span aria-hidden="true" className="shrink-0 text-[20px] font-normal transition-transform group-open:rotate-45" style={{ color: NW_PRODUCTO }}>+</span>
+      </summary>
+      <p className="mt-2.5 text-[14px] leading-[1.65]" style={{ color: MUTED }}>{a}</p>
+    </details>
+  );
+}
+
+export default function NetworkLandingPage() {
+  return (
+    <div style={{ background: PAPEL, color: INK, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <NavLandingClon />
+
+      {/* Hero */}
+      <header className="relative z-[5]" style={{ background: HERO_BG }}>
+        <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
+          <span className="absolute -inset-y-[12%] inset-x-0" style={{ backgroundImage: 'url(/disciplinas/pilates.jpg)', backgroundSize: 'cover', backgroundPosition: 'center 30%', filter: 'grayscale(1)', opacity: 0.5 }} />
+          <span className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(15,15,12,.92) 0%, rgba(15,15,12,.55) 55%, rgba(15,15,12,.3))' }} />
+          <div className="absolute inset-0">
+            <span className="absolute -top-[18%] right-[6%] w-[120px] h-[150%]" style={{ background: NW_PRODUCTO, opacity: 0.85, transform: 'skewX(-24deg)' }} />
+            <span className="absolute -top-[18%] -right-[4%] w-16 h-[150%]" style={{ background: NW_PRODUCTO, opacity: 0.5, transform: 'skewX(-24deg)' }} />
           </div>
-          {/* Discreto a propósito, DEBAJO del CTA — no lo primero que se lee.
-              Auditoría UX 2026-08-19: un badge grande de "beta/empezando" como
-              primer elemento del hero comunica "esto está vacío" antes de que
-              nadie llegue a leer la propuesta. La honestidad sobre la beta se
-              queda (no se oculta), solo deja de competir con el mensaje
-              principal por la atención de los primeros 2 segundos. */}
-          <p className="nw-fade-up mt-5 flex items-center gap-2 text-[12.5px] font-medium" style={{ color: NW_MUTED, animationDelay: '260ms' }}>
-            <span className="nw-pulse-dot w-[6px] h-[6px] rounded-full" style={{ background: NW_PRODUCTO }} />
-            Beta · empezando en Barcelona y Madrid
-          </p>
         </div>
-        {heroPerfil ? (
-          <div className="nw-fade-up relative" style={{ animationDelay: '140ms' }}>
-            <FotoInstructora fotoUrl={heroPerfil.fotoUrl!} nombre={heroPerfil.nombre} aspectRatio="1 / 1.08" radius={26} eager />
-            <div
-              className="absolute top-5 left-5 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold"
-              style={{ background: 'rgba(250,249,245,.88)', backdropFilter: 'blur(8px)', color: NW_TINTA }}
-            >
-              {heroPerfil.experienciaVerificada && (
-                <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-white text-[11px]" style={{ background: NW_PRODUCTO }}>✓</span>
-              )}
-              {heroPerfil.nombre}{heroPerfil.ciudad ? ` · ${heroPerfil.ciudad}` : ''}
-            </div>
+
+        <div className="relative z-[2] max-w-[1340px] mx-auto px-[clamp(18px,3.5vw,48px)] pt-[clamp(48px,10vh,120px)]">
+          <h1 className="m-0 italic font-extrabold uppercase leading-[.96] tracking-[-.02em] text-[clamp(38px,7.2vw,108px)]">
+            <span className="nw-fade-up block" style={{ color: NW_PRODUCTO }}>Tu estudio,</span>
+            <TituloTrazado texto="A OTRO NIVEL" viewBox="0 0 980 128" fontSize={118} fondo={HERO_BG} className="nw-fade-up w-full max-w-[900px] mt-1" />
+          </h1>
+          <p className="nw-fade-up mt-[26px] italic font-semibold text-[clamp(16px,1.8vw,24px)]" style={{ color: NW_PRODUCTO }}>Pilates y Yoga · reservas, pagos, equipo y alumnas</p>
+          <div className="nw-fade-up flex flex-wrap gap-4 mt-[30px]">
+            <Link href="/network/crear-perfil" className="px-[30px] py-[15px] rounded-xl text-[15.5px] font-extrabold" style={{ background: NW_PRODUCTO, color: PAPEL }}>Empieza</Link>
+            <a href="#estudio" className="px-[26px] py-[15px] rounded-xl text-[15.5px] font-extrabold" style={{ color: PAPEL, boxShadow: 'inset 0 0 0 2px rgba(250,249,245,.5)' }}>Ver cómo funciona</a>
           </div>
-        ) : (
-          // Sin ninguna instructora con foto todavía (red nueva): foto de
-          // marca del hero con efecto parallax sutil, en vez del placeholder
-          // rayado de FotoInstructora (ese comunica "foto rota" a tamaño de
-          // tarjeta, y aquí ocupa media pantalla). Solo escritorio: en móvil
-          // un genérico de stock no aporta credibilidad, mejor no ocupar la
-          // pantalla con él (auditoría UX) — una foto REAL sí se muestra en
-          // móvil (rama de arriba, sin `hidden`).
-          <div className="nw-fade-up hidden lg:block" style={{ animationDelay: '140ms' }}>
-            <HeroParallax src="/network/hero-reformer.webp" alt="" />
+
+          <div className="nw-fade-up max-w-[660px] mt-[26px]">
+            {/* Antes eran <span> estáticos ("Reformer"/"Barcelona" fijos) y
+                el botón enlazaba a /network/instructoras sin ningún filtro —
+                pedido explícito: "que sea funcional". <form method="GET">
+                nativo, sin JS: el navegador arma la querystring él solo y
+                /network/instructoras (filtroDesdeSearchParams) ya sabe
+                leerla — mismo mecanismo que los enlaces de "Populares"
+                de abajo. */}
+            <form action="/network/instructoras" method="GET" className="flex flex-wrap items-stretch gap-3.5 rounded-[22px] p-3 sm:py-3 sm:pr-3 sm:pl-[26px] transition-shadow duration-300 focus-within:shadow-[0_28px_68px_-20px_rgba(0,0,0,.6)]" style={{ background: PAPEL, boxShadow: '0 24px 60px -24px rgba(0,0,0,.5)' }}>
+              <label className="flex-1 min-w-[130px] flex flex-col justify-center py-1.5 px-2 sm:px-2.5 rounded-2xl transition-colors duration-150 hover:bg-black/[.03] has-[:focus]:bg-black/[.05]">
+                <span className="text-[10px] uppercase tracking-[.14em] font-medium" style={{ fontFamily: MONO, color: GRIS_VERDOSO }}>¿Qué buscas?</span>
+                <select name="especialidades" defaultValue="reformer" className="mt-[3px] text-[17px] font-semibold bg-transparent border-0 outline-none p-0 w-full cursor-pointer" style={{ color: MUTED_2 }}>
+                  <option value="reformer">Reformer</option>
+                  <option value="mat">Mat</option>
+                  <option value="maquina">Máquina</option>
+                  <option value="yoga">Yoga</option>
+                  <option value="hiit">HIIT</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </label>
+              <span aria-hidden="true" className="w-px my-1 hidden xs:block" style={{ background: BORDE }} />
+              <label className="flex-1 min-w-[130px] flex flex-col justify-center py-1.5 px-2 sm:px-2.5 rounded-2xl transition-colors duration-150 hover:bg-black/[.03] has-[:focus]:bg-black/[.05]">
+                <span className="text-[10px] uppercase tracking-[.14em] font-medium" style={{ fontFamily: MONO, color: GRIS_VERDOSO }}>¿Dónde?</span>
+                <input type="text" name="ciudad" defaultValue="Barcelona" placeholder="Ciudad" autoComplete="off" className="mt-[3px] text-[17px] font-semibold bg-transparent border-0 outline-none p-0 w-full" style={{ color: MUTED_2 }} />
+              </label>
+              <button type="submit" className="w-full sm:w-auto shrink-0 self-center text-center rounded-full px-7 py-[17px] text-[15.5px] font-extrabold whitespace-nowrap transition-all duration-150 hover:brightness-125 hover:shadow-lg active:scale-[.97]" style={{ background: INK, color: PAPEL }}>Buscar instructoras</button>
+            </form>
+            <p className="mt-3.5 ml-1 text-[14px]" style={{ color: 'rgba(250,249,245,.75)' }}>
+              Populares:{' '}
+              <Link href="/network/instructoras?especialidades=reformer" className="font-extrabold" style={{ color: PAPEL }}>Reformer</Link>
+              <span style={{ color: 'rgba(250,249,245,.4)' }}> · </span>
+              <Link href="/network/instructoras?especialidades=yoga" className="font-extrabold" style={{ color: PAPEL }}>Yoga</Link>
+              <span style={{ color: 'rgba(250,249,245,.4)' }}> · </span>
+              <Link href="/network/instructoras?tipoTrabajo=sustituciones" className="font-extrabold" style={{ color: PAPEL }}>Sustituciones</Link>
+            </p>
+            <p className="flex items-center gap-2 mt-2.5 ml-1 text-[13.5px]" style={{ color: 'rgba(250,249,245,.65)' }}>
+              <span aria-hidden="true" className="nw-pulse-dot w-[7px] h-[7px] rounded-full" style={{ background: NW_PRODUCTO }} />
+              Beta · empezando en Barcelona y Madrid
+            </p>
           </div>
-        )}
+
+          {/* Móviles flotando — ver MovilMock arriba sobre la sustitución de IOSDevice. */}
+          <div className="relative flex justify-center items-end gap-2.5 xs:gap-3.5 sm:gap-[clamp(14px,3vw,40px)] mt-[clamp(36px,7vh,84px)] mb-[-70px] sm:mb-[-170px]">
+            <MovilMock className="nw-float-a w-[92px] xs:w-[112px] sm:w-[195px] h-[200px] xs:h-[243px] sm:h-[422px]" style={{ filter: 'drop-shadow(0 34px 60px rgba(0,0,0,.55))' }}>
+              <AppScreen>
+                <p className="m-0 text-[9px] xs:text-[11px] sm:text-[13px] font-semibold" style={{ color: '#5A5A52' }}>Buenas tardes, Laura</p>
+                <h3 className="m-0 mb-2 mt-0.5 text-[13px] xs:text-[16px] sm:text-[24px] font-extrabold tracking-[-.03em] leading-tight">¿Qué te apetece hoy?</h3>
+                <p className="m-0 flex items-center gap-1.5 rounded-full px-2.5 py-2 sm:px-4 sm:py-3.5 text-[8px] xs:text-[9.5px] sm:text-[13.5px] font-semibold" style={{ background: '#fff', border: `1px solid ${BORDE}`, color: GRIS_VERDOSO }}>Buscar clases o instructoras</p>
+                <p className="mt-2.5 mb-1.5 text-[9.5px] xs:text-[11px] sm:text-[16px] font-extrabold">Explora</p>
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2.5">
+                  <span className="block h-[46px] xs:h-[58px] sm:h-[120px] rounded-lg sm:rounded-2xl" style={{ backgroundImage: 'url(/por-defecto/clase-reformer.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                  <span className="block h-[46px] xs:h-[58px] sm:h-[120px] rounded-lg sm:rounded-2xl" style={{ backgroundImage: 'url(/por-defecto/clase-yoga.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                </div>
+              </AppScreen>
+            </MovilMock>
+            <MovilMock className="nw-float-b w-[102px] xs:w-[126px] sm:w-[218px] h-[225px] xs:h-[273px] sm:h-[473px] z-[2]" style={{ filter: 'drop-shadow(0 44px 70px rgba(0,0,0,.62))' }}>
+              <AppScreen>
+                <h3 className="m-0 mb-2 text-[13px] xs:text-[16px] sm:text-[24px] font-extrabold tracking-[-.03em]">Horario · <span style={{ color: NW_PRODUCTO_OSCURO }}>hoy</span></h3>
+                <div className="flex gap-1 mb-2">
+                  <span className="rounded-lg sm:rounded-xl px-2 sm:px-[15px] py-1 sm:py-2 text-[8px] xs:text-[9.5px] sm:text-[12.5px] font-extrabold" style={{ background: INK, color: PAPEL }}>Hoy</span>
+                  <span className="rounded-lg sm:rounded-xl px-2 sm:px-[15px] py-1 sm:py-2 text-[8px] xs:text-[9.5px] sm:text-[12.5px] font-bold" style={{ border: `1px solid ${BORDE}`, color: MUTED_2 }}>Mañana</span>
+                </div>
+                <div className="flex flex-col gap-1.5 sm:gap-2.5">
+                  <div className="flex gap-1.5 sm:gap-2.5 items-center rounded-lg sm:rounded-2xl px-2 sm:px-3.5 py-2 sm:py-3.5" style={{ background: '#fff', border: `1px solid ${BORDE}` }}>
+                    <span className="text-[8px] xs:text-[10px] sm:text-[14px]" style={{ fontFamily: MONO }}>9:00</span>
+                    <span className="flex-1 text-[8px] xs:text-[10px] sm:text-[14px] font-extrabold truncate">Reformer Despertar</span>
+                    <span className="text-[7px] xs:text-[8px] sm:text-[11px] font-extrabold whitespace-nowrap" style={{ color: NW_PRODUCTO_OSCURO }}>5 plazas</span>
+                  </div>
+                  <div className="flex gap-1.5 sm:gap-2.5 items-center rounded-lg sm:rounded-2xl px-2 sm:px-3.5 py-2 sm:py-3.5" style={{ background: INK, color: '#fff' }}>
+                    <span className="text-[8px] xs:text-[10px] sm:text-[14px]" style={{ fontFamily: MONO }}>19:30</span>
+                    <span className="flex-1 text-[8px] xs:text-[10px] sm:text-[14px] font-extrabold truncate">Reformer Intenso</span>
+                    <span className="text-[7px] xs:text-[8px] sm:text-[11px] font-extrabold whitespace-nowrap" style={{ color: '#F3C46A' }}>quedan 2</span>
+                  </div>
+                  <span className="text-center rounded-full py-2 sm:py-3.5 text-[9px] xs:text-[11px] sm:text-[15px] font-extrabold" style={{ background: NW_PRODUCTO, color: '#fff' }}>Reservar</span>
+                </div>
+              </AppScreen>
+            </MovilMock>
+            <MovilMock className="nw-float-c w-[92px] xs:w-[112px] sm:w-[195px] h-[200px] xs:h-[243px] sm:h-[422px]" style={{ filter: 'drop-shadow(0 34px 60px rgba(0,0,0,.55))' }}>
+              <AppScreen>
+                <span className="block h-[56px] xs:h-[70px] sm:h-[140px] rounded-lg sm:rounded-2xl" style={{ background: `linear-gradient(135deg, ${NW_PRODUCTO}, ${NW_PRODUCTO_OSCURO})` }} />
+                <p className="mt-2 text-[11px] xs:text-[13px] sm:text-[21px] font-extrabold tracking-[-.02em]">Marta G. <span className="text-[8px] xs:text-[9px] sm:text-[14px]" style={{ color: '#C99A3C' }}>★ 4,9</span></p>
+                <p className="mt-[2px] text-[7.5px] xs:text-[9px] sm:text-[13px]" style={{ color: GRIS_VERDOSO }}>Reformer · Gràcia</p>
+                <div className="flex gap-1 mt-2 flex-wrap">
+                  <span className="rounded-full px-1.5 sm:px-3 py-0.5 sm:py-1.5 text-[6.5px] xs:text-[8px] sm:text-[11.5px] font-bold" style={{ background: SAGE }}>Sustituciones</span>
+                </div>
+                <div className="flex gap-1 sm:gap-2 mt-2 sm:mt-3.5">
+                  <span className="flex-1 text-center rounded-full py-1 sm:py-3 text-[7px] xs:text-[8.5px] sm:text-[13px] font-extrabold" style={{ border: `1.5px solid ${INK}` }}>Ver perfil</span>
+                  <span className="flex-1 text-center rounded-full py-1 sm:py-3 text-[7px] xs:text-[8.5px] sm:text-[13px] font-extrabold" style={{ background: INK, color: PAPEL }}>Contactar</span>
+                </div>
+              </AppScreen>
+            </MovilMock>
+          </div>
+        </div>
+      </header>
+
+      {/* Studio */}
+      <section id="estudio" className="scroll-mt-16 overflow-hidden pt-[100px] sm:pt-[210px] px-[clamp(18px,3.5vw,48px)]" style={{ background: PAPEL }}>
+        <div className="max-w-[1340px] mx-auto">
+          <div className="flex flex-wrap gap-[clamp(26px,4vw,70px)] items-start">
+            <Reveal className="flex-1 min-w-[280px]">
+              <h2 className="m-0 font-extrabold leading-[1.04] tracking-[-.035em] text-[clamp(30px,4.4vw,62px)]">Todo tu estudio.<br />En un solo lugar.</h2>
+            </Reveal>
+            <Reveal delayMs={120} className="flex-1 min-w-[280px] max-w-[560px]">
+              <p className="mt-1.5 text-[clamp(15px,1.4vw,18px)] leading-[1.65]" style={{ color: MUTED }}>Horario, reservas, bonos, pagos e instructoras — sin hojas de cálculo ni WhatsApp. Tú abres Tentare por la mañana y ya sabes qué pasa hoy en tu estudio.</p>
+              <div className="flex flex-wrap gap-[22px] mt-[22px]">
+                <p className="m-0 text-[13.5px] font-extrabold">Reservas <span className="block text-[12px] font-semibold" style={{ color: MUTED_2 }}>con lista de espera</span></p>
+                <p className="m-0 text-[13.5px] font-extrabold">Pagos <span className="block text-[12px] font-semibold" style={{ color: MUTED_2 }}>bonos y mensualidades</span></p>
+                <p className="m-0 text-[13.5px] font-extrabold">Equipo <span className="block text-[12px] font-semibold" style={{ color: MUTED_2 }}>sustituciones incluidas</span></p>
+              </div>
+            </Reveal>
+          </div>
+          <TituloTrazado texto="#tentarestudio" viewBox="0 0 1200 168" fontSize={152} fondo={PAPEL} className="w-full max-w-[1180px] mx-auto mt-[clamp(40px,7vh,90px)]" />
+        </div>
       </section>
 
-      {destacadas.length > 0 && (
-        <section className="max-w-[1240px] mx-auto px-6 pb-20">
-          <Reveal className="flex items-end justify-between mb-6">
-            <h2 className="text-[26px] font-extrabold tracking-tight">Descubre instructoras de Pilates y Yoga</h2>
-            {/* Solo con inventario suficiente de verdad — auditoría UX
-                2026-08-19: mandar tráfico a /network/instructoras con 2
-                perfiles reales es mandar a la gente a una página que, en
-                cuanto filtra por ciudad o especialidad, casi siempre da 0
-                resultados. Sin este link, quien quiere un perfil concreto
-                usa el formulario de #estudios (concierge) en su lugar. */}
-            {perfiles.length >= 5 && (
-              <Link href="/network/instructoras" className="text-[13.5px] font-bold hover:opacity-70" style={{ color: NW_PRODUCTO }}>
-                Ver todas →
-              </Link>
-            )}
+      {/* Automatiza */}
+      <section id="automatiza" className="overflow-hidden mt-[clamp(56px,9vh,110px)] py-[clamp(64px,10vh,120px)] px-[clamp(18px,3.5vw,48px)]" style={{ background: OSCURO, color: PAPEL }}>
+        <div className="max-w-[1340px] mx-auto">
+          <Reveal>
+            <h2 className="m-0 font-extrabold leading-[1.1] tracking-[-.03em] text-[clamp(28px,3.8vw,54px)] max-w-[15ch]" style={{ color: NW_PRODUCTO_CLARO }}>Deja de hacerlo todo tú.</h2>
           </Reveal>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {destacadas.map((p, i) => (
-              <Reveal key={p.id} delayMs={i * 60}>
-                <TarjetaInstructora perfil={p} />
+          <div className="grid gap-3 mt-[clamp(28px,4vh,44px)]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
+            {[
+              { pie: 'Una alumna cancela', h: 'La plaza se ofrece sola a la lista de espera.' },
+              { pie: 'Un pago se queda pendiente', h: 'Recordatorio automático, sin conversaciones incómodas.' },
+              { pie: 'Una alumna deja de venir', h: 'Te avisamos a tiempo, antes de perderla.' },
+              { pie: 'Una instructora se cae', h: 'Network te propone sustituta disponible.' },
+            ].map((c, i) => (
+              <Reveal key={c.pie} delayMs={i * 80} className="rounded-[18px] px-[22px] py-5" style={{ background: 'rgba(250,249,245,.06)', border: '1px solid rgba(250,249,245,.12)' }}>
+                <p className="m-0 text-[13px]" style={{ color: 'rgba(250,249,245,.55)' }}>{c.pie}</p>
+                <p className="mt-1.5 mb-0 text-[15px] font-extrabold">{c.h}</p>
               </Reveal>
             ))}
           </div>
-        </section>
-      )}
-
-      <section id="problema" className="max-w-[920px] mx-auto px-6 pb-20 scroll-mt-6">
-        <Reveal>
-          <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
-            Buscar trabajo como instructora
-          </p>
-          <h2 className="mt-4 text-[28px] sm:text-[38px] font-extrabold leading-[1.02] tracking-tight max-w-[16ch] text-balance">
-            Esto es lo que hay hoy.
-          </h2>
-        </Reveal>
-        <div className="mt-10 flex flex-col gap-3.5">
-          {PROBLEMA_ITEMS.map((item, i) => (
-            <Reveal key={item.sin} delayMs={i * 70} className="grid sm:grid-cols-2 gap-3.5">
-              <div className="flex items-start gap-2.5 px-5 py-4.5 rounded-2xl" style={{ background: NW_PROBLEMA.fondo, color: NW_PROBLEMA.texto }}>
-                <span className="mt-0.5 flex-shrink-0" style={{ color: NW_PROBLEMA.icono }}>✕</span>
-                <p className="text-[14.5px] leading-[1.55] m-0">{item.sin}</p>
-              </div>
-              <div className="flex items-start gap-2.5 px-5 py-4.5 rounded-2xl font-medium" style={{ background: NW_ESTADO.verificada.fondo, color: NW_TINTA }}>
-                <span className="mt-0.5 flex-shrink-0" style={{ color: NW_PRODUCTO }}>✓</span>
-                <p className="text-[14.5px] leading-[1.55] m-0">{item.con}</p>
-              </div>
-            </Reveal>
-          ))}
         </div>
       </section>
 
-      <section id="problema-estudio" className="max-w-[920px] mx-auto px-6 pb-20 scroll-mt-6">
-        <Reveal>
-          <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
-            Buscar instructoras para tu estudio
-          </p>
-          <h2 className="mt-4 text-[28px] sm:text-[38px] font-extrabold leading-[1.02] tracking-tight max-w-[18ch] text-balance">
-            Encontrar a la persona adecuada no debería ser un caos.
-          </h2>
-        </Reveal>
-        <div className="mt-10 flex flex-col gap-3.5">
-          {PROBLEMA_ESTUDIO_ITEMS.map((item, i) => (
-            <Reveal key={item.sin} delayMs={i * 70} className="grid sm:grid-cols-2 gap-3.5">
-              <div className="flex items-start gap-2.5 px-5 py-4.5 rounded-2xl" style={{ background: NW_PROBLEMA.fondo, color: NW_PROBLEMA.texto }}>
-                <span className="mt-0.5 flex-shrink-0" style={{ color: NW_PROBLEMA.icono }}>✕</span>
-                <p className="text-[14.5px] leading-[1.55] m-0">{item.sin}</p>
-              </div>
-              <div className="flex items-start gap-2.5 px-5 py-4.5 rounded-2xl font-medium" style={{ background: NW_ESTADO.verificada.fondo, color: NW_TINTA }}>
-                <span className="mt-0.5 flex-shrink-0" style={{ color: NW_PRODUCTO }}>✓</span>
-                <p className="text-[14.5px] leading-[1.55] m-0">{item.con}</p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      <section id="como-funciona" className="max-w-[1240px] mx-auto px-6 pb-20 scroll-mt-6">
-        <Reveal className="mb-6">
-          <h2 className="text-[26px] font-extrabold tracking-tight">Cómo funciona</h2>
-        </Reveal>
-        <div className="grid md:grid-cols-2 gap-6">
-          <Reveal className="rounded-[26px] p-10" style={{ background: NW_SAGE }}>
-            <p className="text-[12px] font-bold uppercase tracking-wide mb-6" style={{ color: NW_PRODUCTO }}>Para instructoras</p>
-            <div className="flex flex-col gap-6">
-              {PASOS_INSTRUCTORA.map(paso => (
-                <div key={paso.n}>
-                  <span className="text-[24px] font-extrabold" style={{ color: NW_PRODUCTO }}>{paso.n}</span>
-                  <h3 className="mt-1 text-[16px] font-extrabold">{paso.titulo}</h3>
-                  <p className="mt-1 text-[13.5px]" style={{ color: NW_MUTED }}>{paso.desc}</p>
-                </div>
-              ))}
-            </div>
+      {/* Widget */}
+      <section id="widget" className="overflow-hidden py-[clamp(64px,10vh,120px)] px-[clamp(18px,3.5vw,48px)]" style={{ background: PAPEL }}>
+        <div className="max-w-[1340px] mx-auto flex flex-wrap gap-[clamp(26px,4vw,70px)] items-center">
+          <Reveal className="flex-1 min-w-[280px]">
+            <h2 className="m-0 font-extrabold leading-[1.04] tracking-[-.035em] text-[clamp(30px,4.4vw,62px)]">Tu web también reserva.</h2>
+            <p className="mt-[18px] text-[clamp(15px,1.4vw,18px)] leading-[1.65] max-w-[52ch]" style={{ color: MUTED }}>El portal de reservas se incrusta en tu página: mismo horario, mismos bonos, pago incluido. Un fragmento de código y tu web vende plazas mientras das clase.</p>
           </Reveal>
-          <Reveal delayMs={80} className="rounded-[26px] p-10 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
-            <p className="text-[12px] font-bold uppercase tracking-wide mb-6" style={{ color: NW_PRODUCTO }}>Para estudios</p>
-            <div className="flex flex-col gap-6">
-              {PASOS_ESTUDIO.map(paso => (
-                <div key={paso.n}>
-                  <span className="text-[24px] font-extrabold" style={{ color: NW_PRODUCTO }}>{paso.n}</span>
-                  <h3 className="mt-1 text-[16px] font-extrabold">{paso.titulo}</h3>
-                  <p className="mt-1 text-[13.5px]" style={{ color: NW_MUTED }}>{paso.desc}</p>
-                </div>
-              ))}
+          <Reveal delayMs={140} className="flex-1 min-w-[280px] max-w-[520px] rounded-[20px] overflow-hidden" style={{ background: '#fff', border: `1px solid ${BORDE}`, boxShadow: '0 30px 70px -30px rgba(20,20,15,.25)' }}>
+            <div className="flex items-center gap-1.5 px-3.5 py-2.5" style={{ background: SAGE }}>
+              <span className="w-[9px] h-[9px] rounded-full" style={{ background: BORDE }} />
+              <span className="w-[9px] h-[9px] rounded-full" style={{ background: BORDE }} />
+              <span className="w-[9px] h-[9px] rounded-full" style={{ background: BORDE }} />
+              <span className="flex-1 text-center rounded-lg py-1 text-[10.5px]" style={{ background: '#fff', fontFamily: MONO, color: MUTED_2 }}>tuestudio.com/reservas</span>
+            </div>
+            <div className="px-[18px] pt-4 pb-5">
+              <p className="m-0 mb-2.5 text-[13.5px] font-extrabold">Horario · <span style={{ color: NW_PRODUCTO_OSCURO }}>hoy</span></p>
+              <div className="flex gap-2.5 items-center rounded-2xl px-3.5 py-2.5" style={{ border: '1px solid #ECEAE0' }}>
+                <span className="text-[12px]" style={{ fontFamily: MONO }}>18:15</span>
+                <span className="flex-1 text-[12.5px] font-extrabold">Reformer Fundamental</span>
+                <span className="text-[10px] font-extrabold" style={{ color: '#8A6A25' }}>últimas 2</span>
+              </div>
+              <div className="flex gap-2.5 items-center rounded-2xl px-3.5 py-2.5 mt-2" style={{ border: '1px solid #ECEAE0' }}>
+                <span className="text-[12px]" style={{ fontFamily: MONO }}>19:30</span>
+                <span className="flex-1 text-[12.5px] font-extrabold">Yoga Flow</span>
+                <span className="text-[10px] font-extrabold" style={{ color: NW_PRODUCTO_OSCURO }}>7 plazas</span>
+              </div>
+              <span className="block text-center rounded-full py-3 text-[13px] font-extrabold mt-3" style={{ background: INK, color: PAPEL }}>Reservar plaza</span>
             </div>
           </Reveal>
         </div>
       </section>
 
-      <section className="max-w-[1240px] mx-auto px-6 pb-24 grid sm:grid-cols-2 gap-6">
-        {/* Reencuadrado 2026-08-20 (tentare-producto): "espera a que te
-            encuentren" es un beneficio pasivo y débil con 2 perfiles reales
-            en toda la red — nadie va a "encontrarte" todavía. El perfil
-            público (/network/instructoras/[slug]) ya existe y funciona como
-            página propia enlazable independientemente de que haya tráfico
-            de estudios o no; eso es lo que se vende primero. La promesa
-            activa (el equipo avisa si encaja con una petición concierge) va
-            después, no como titular — es cierta pero no es algo que se
-            pueda prometer con fecha. */}
-        <Reveal className="rounded-[24px] p-10 transition-transform duration-300 hover:-translate-y-1" style={{ background: NW_VERDE_OSCURO }}>
-          <h2 className="text-[24px] font-extrabold text-white leading-tight">
-            Soy instructora — Tu perfil profesional, listo para compartir.
-          </h2>
-          <p className="mt-3 text-[14px]" style={{ color: 'rgba(255,255,255,.72)' }}>
-            Créalo en unos minutos y úsalo como tu CV online — en tu bio de Instagram, en un
-            mensaje, donde quieras. Y si un estudio busca justo tu perfil, te avisamos nosotros.
-            Gratis, sin comisión.
-          </p>
-          <EnlaceRastreo
-            href="/network/crear-perfil"
-            evento="network_click_crear_perfil"
-            className="inline-block mt-6 px-6 py-3 rounded-full text-[14px] font-bold transition-transform hover:scale-[1.04]"
-            style={{ background: NW_SAND, color: NW_VERDE_OSCURO }}
-          >
-            Crear perfil gratis
-          </EnlaceRastreo>
-        </Reveal>
-        {/* Concierge como puerta principal del lado estudio, no el buscador
-            — decisión de producto 2026-08-19 (tras auditoría cruzada
-            producto+UX): con 2 perfiles públicos, "busca tú misma" casi
-            siempre da 0 resultados. El equipo de Tentare cruza la petición
-            contra la red completa de instructoras (incluidas las que ya
-            trabajan en estudios Tentare, no solo los perfiles públicos),
-            así que hay oferta real detrás aunque el directorio público
-            todavía sea pequeño. El buscador sigue existiendo, pero como
-            opción secundaria (enlace de texto), no como el CTA principal. */}
-        <Reveal delayMs={80} className="rounded-[24px] p-10 bg-white transition-transform duration-300 hover:-translate-y-1" style={{ border: `1px solid ${NW_BORDE}` }}>
-          <h2 className="text-[24px] font-extrabold leading-tight">
-            Soy propietaria — Te buscamos a tu <span style={{ color: NW_PRODUCTO }}>próxima instructora</span>.
-          </h2>
-          <p className="mt-3 text-[14px]" style={{ color: NW_MUTED }}>
-            Cuéntanos qué necesitas y cruzamos tu petición contra la red de instructoras — no solo los perfiles públicos, también las que ya trabajan en estudios Tentare — para presentarte candidatas directamente.
-          </p>
-          <a
-            href="#estudios"
-            className="inline-block mt-6 px-6 py-3 rounded-full text-[14px] font-bold text-white transition-transform hover:scale-[1.04]"
-            style={{ background: NW_TINTA }}
-          >
-            Cuéntanos qué necesitas
-          </a>
-          <Link href="/network/instructoras" className="block mt-3 text-[12.5px] font-semibold hover:opacity-70" style={{ color: NW_MUTED }}>
-            O explora los perfiles públicos tú misma →
-          </Link>
-        </Reveal>
-      </section>
-
-      <section id="estudios" className="max-w-[820px] mx-auto px-6 pb-24 scroll-mt-6">
-        <Reveal className="rounded-[24px] p-10 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
-          <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
-            Para estudios
-          </p>
-          <h2 className="mt-3 text-[24px] font-extrabold tracking-tight">
-            ¿Eres un estudio y estás buscando instructoras?
-          </h2>
-          <p className="mt-2 text-[14.5px]" style={{ color: NW_MUTED }}>
-            No busques tú en un directorio que todavía está creciendo. Cuéntanos qué necesitas
-            — especialidad, ciudad, tipo de colaboración — y el equipo de Tentare cruza tu
-            petición contra la red de instructoras, incluidas las que ya trabajan en estudios
-            Tentare, para presentarte candidatas directamente.
-          </p>
-          <div className="mt-6">
-            <FormularioInteresEstudio variante="completo" />
+      {/* App */}
+      <section id="app" className="scroll-mt-16 overflow-hidden mt-[clamp(56px,9vh,110px)] py-[clamp(64px,10vh,120px)] px-[clamp(18px,3.5vw,48px)]" style={{ background: OSCURO, color: PAPEL }}>
+        <div className="max-w-[1340px] mx-auto">
+          <Reveal>
+            <h2 className="m-0 font-extrabold leading-[1.1] tracking-[-.03em] text-[clamp(28px,3.8vw,54px)] max-w-[16ch]" style={{ color: NW_PRODUCTO_CLARO }}>Tus alumnas reservan solas.<br />Tú te dedicas a dar clase.</h2>
+          </Reveal>
+          <div className="flex justify-start sm:justify-end mt-[clamp(30px,5vh,56px)]">
+            <Reveal className="max-w-[560px]">
+              <p className="m-0 text-[clamp(15px,1.4vw,18px)] leading-[1.7]" style={{ color: 'rgba(250,249,245,.85)' }}>Horario en el bolsillo, plaza y cama elegidas en tres toques, bono siempre a la vista y lista de espera que avisa sola. Y si una clase se llena, la app ofrece la siguiente.</p>
+            </Reveal>
           </div>
-        </Reveal>
-      </section>
-
-      <section id="confianza" className="max-w-[1240px] mx-auto px-6 pb-24 scroll-mt-6">
-        <Reveal>
-          <h2 className="text-[26px] font-extrabold tracking-tight">Por qué puedes fiarte de un perfil</h2>
-        </Reveal>
-        <div className="mt-8 grid sm:grid-cols-3 gap-6">
-          {CONFIANZA_ITEMS.map((item, i) => (
-            <Reveal
-              key={item.titulo} delayMs={i * 80}
-              className="rounded-2xl p-6 bg-white transition-transform duration-300 hover:-translate-y-1"
-              style={{ border: `1px solid ${NW_BORDE}` }}
-            >
-              <h3 className="text-[16px] font-extrabold">{item.titulo}</h3>
-              <p className="mt-2 text-[14px]" style={{ color: NW_MUTED }}>{item.texto}</p>
-            </Reveal>
-          ))}
         </div>
       </section>
 
-      <section id="casos-de-uso" className="max-w-[1240px] mx-auto px-6 pb-24 scroll-mt-6">
-        <Reveal>
-          <h2 className="text-[26px] font-extrabold tracking-tight">Cuándo se usa Tentare Network</h2>
-          {/* Etiquetado explícito como escenario, nunca como historia real —
-              brief punto 15/33: "no inventar usuarios". */}
-          <p className="mt-1.5 text-[13.5px]" style={{ color: NW_MUTED }}>Situaciones habituales, no casos reales.</p>
-        </Reveal>
-        <div className="mt-8 grid sm:grid-cols-3 gap-6">
-          {CASOS_USO.map((c, i) => (
-            <Reveal key={c.titulo} delayMs={i * 80} className="rounded-2xl p-6 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
-              <h3 className="text-[15.5px] font-extrabold">{c.titulo}</h3>
-              <p className="mt-2 text-[13.5px] leading-[1.5]" style={{ color: NW_MUTED }}>{c.texto}</p>
+      {/* Network */}
+      <section id="network" className="scroll-mt-16 overflow-hidden pt-[clamp(64px,10vh,120px)] px-[clamp(18px,3.5vw,48px)]" style={{ background: PAPEL }}>
+        <div className="max-w-[1340px] mx-auto">
+          <div className="flex flex-wrap gap-[clamp(26px,4vw,70px)] items-start">
+            <Reveal className="flex-1 min-w-[280px]">
+              <h2 className="m-0 font-extrabold leading-[1.04] tracking-[-.035em] text-[clamp(30px,4.4vw,62px)]">Encuentra la instructora que necesitas.<br />O la oportunidad que buscas.</h2>
             </Reveal>
-          ))}
+            <Reveal delayMs={120} className="flex-1 min-w-[280px] max-w-[560px]">
+              <p className="mt-1.5 text-[clamp(15px,1.4vw,18px)] leading-[1.65]" style={{ color: MUTED }}>La red profesional de Pilates y Yoga donde los estudios encuentran instructoras y las instructoras encuentran sustituciones, vacantes y colaboraciones — perfiles verificados, disponibilidad real, contacto directo. <strong>Sin agencia. Sin comisión.</strong></p>
+              <div className="flex gap-2.5 mt-[22px] flex-wrap">
+                <span className="inline-flex items-center gap-2 rounded-full pr-3.5 pl-[7px] py-[7px] text-[12px] font-extrabold" style={{ background: '#fff', border: `1px solid ${BORDE}` }}>
+                  <span aria-hidden="true" className="w-[26px] h-[26px] rounded-full" style={{ backgroundImage: 'url(/por-defecto/clase-reformer.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                  Marta G. · Reformer
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full pr-3.5 pl-[7px] py-[7px] text-[12px] font-extrabold" style={{ background: '#fff', border: `1px solid ${BORDE}` }}>
+                  <span aria-hidden="true" className="w-[26px] h-[26px] rounded-full" style={{ backgroundImage: 'url(/por-defecto/clase-yoga.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                  Carmen V. · Yoga
+                </span>
+                {/* Antes decía "+120 perfiles" fijo en el JSX — ninguna cifra
+                    real detrás (el propio comentario de app/sitemap.ts admite
+                    que hoy no hay volumen real de perfiles por ciudad). Un
+                    número inventado en marketing es justo lo que este repo
+                    evita en todas partes; se sustituye por el mismo "Beta"
+                    honesto que ya usa el hero de arriba. */}
+                <span className="inline-flex items-center gap-2 rounded-full px-3.5 py-[7px] text-[12px] font-extrabold" style={{ background: '#fff', border: `1px solid ${BORDE}`, color: NW_PRODUCTO_OSCURO }}>
+                  <span aria-hidden="true" className="nw-pulse-dot w-[7px] h-[7px] rounded-full" style={{ background: NW_PRODUCTO }} />
+                  Beta · Barcelona y Madrid
+                </span>
+              </div>
+              <Link href="/network/instructoras" className="inline-block mt-5 text-[14.5px] font-extrabold pb-[3px] whitespace-nowrap" style={{ color: INK, borderBottom: `2.5px solid ${INK}` }}>Explorar Network →</Link>
+            </Reveal>
+          </div>
+          <TituloTrazado texto="#tentarenetwork" viewBox="0 0 1200 158" fontSize={136} fondo={PAPEL} className="w-full max-w-[1180px] mx-auto mt-[clamp(40px,7vh,90px)]" />
         </div>
       </section>
 
-      <section id="por-que" className="max-w-[820px] mx-auto px-6 pb-24 scroll-mt-6">
-        <Reveal className="rounded-[24px] p-10" style={{ background: NW_SAGE }}>
-          <h2 className="text-[22px] font-extrabold tracking-tight">Por qué construimos esto</h2>
-          <p className="mt-3 text-[14.5px] leading-[1.6]" style={{ color: NW_MUTED }}>
-            Tentare ya gestiona la agenda, los pagos y el equipo de estudios reales de Pilates
-            y Yoga. Una y otra vez vimos el mismo problema fuera de nuestro software: encontrar
-            o cubrir una plaza de instructora se resolvía a mano, por WhatsApp, sin ninguna
-            forma de saber quién estaba disponible de verdad. Network es esa pieza que faltaba
-            — construida por el mismo equipo, empezando desde cero y con la beta a la vista,
-            no escondida.
-          </p>
-          <p className="mt-3 text-[13.5px]" style={{ color: NW_MUTED }}>
-            ¿Preguntas, feedback o algo que no cuadra? Escríbenos a{' '}
-            <a href="mailto:hola@tentare.app" className="font-semibold hover:underline" style={{ color: NW_TINTA }}>hola@tentare.app</a>.
-          </p>
-        </Reveal>
-      </section>
-
-      <section id="faq" className="max-w-[820px] mx-auto px-6 pb-24 scroll-mt-6">
-        <Reveal>
-          <h2 className="text-[26px] font-extrabold tracking-tight">Preguntas frecuentes</h2>
-        </Reveal>
-        <div className="mt-8 flex flex-col gap-3">
-          {FAQ_ITEMS.map((item, i) => (
-            <Reveal key={item.q} delayMs={Math.min(i, 6) * 45}>
-              <details className="group rounded-2xl px-5 py-4 bg-white transition-colors" style={{ border: `1px solid ${NW_BORDE}` }}>
-                <summary className="text-[15px] font-bold cursor-pointer list-none flex items-center justify-between gap-4">
-                  {item.q}
-                  <span className="text-[18px] font-normal group-open:rotate-45 transition-transform" style={{ color: NW_PRODUCTO }}>+</span>
-                </summary>
-                <p className="mt-3 text-[14px] leading-[1.6]" style={{ color: NW_MUTED }}>{item.a}</p>
-              </details>
-            </Reveal>
-          ))}
+      {/* Cómo funciona — contenido real sobre Network que el mockup no traía
+          (era solo una franja-teaser). Dos columnas: instructora / estudio,
+          cada una con su flujo real (auditoría 2026-08-20 original: un
+          bloque genérico no explicaba de verdad ninguno de los dos lados). */}
+      <section className="overflow-hidden mt-[clamp(56px,9vh,110px)] py-[clamp(64px,10vh,120px)] px-[clamp(18px,3.5vw,48px)]" style={{ background: OSCURO, color: PAPEL }}>
+        <div className="max-w-[1340px] mx-auto">
+          <Reveal>
+            <h2 className="m-0 font-extrabold leading-[1.1] tracking-[-.03em] text-[clamp(28px,3.8vw,54px)]" style={{ color: NW_PRODUCTO_CLARO }}>Cómo funciona Tentare Network.</h2>
+          </Reveal>
+          <div className="grid md:grid-cols-2 gap-x-[clamp(26px,4vw,70px)] gap-y-10 mt-[clamp(28px,4vh,44px)]">
+            {[
+              { titulo: 'Para instructoras', pasos: PASOS_INSTRUCTORA },
+              { titulo: 'Para estudios', pasos: PASOS_ESTUDIO },
+            ].map(bloque => (
+              <div key={bloque.titulo}>
+                <Reveal><p className="m-0 mb-5 text-[13px] font-extrabold uppercase tracking-[.1em]" style={{ color: 'rgba(250,249,245,.5)' }}>{bloque.titulo}</p></Reveal>
+                <div className="space-y-5">
+                  {bloque.pasos.map((p, i) => (
+                    <Reveal key={p.n} delayMs={i * 80} className="flex gap-4">
+                      <span className="shrink-0 text-[13px] font-extrabold" style={{ color: NW_PRODUCTO_CLARO }}>{p.n}</span>
+                      <div>
+                        <p className="m-0 text-[15.5px] font-extrabold">{p.titulo}</p>
+                        <p className="mt-1 mb-0 text-[13.5px] leading-[1.6]" style={{ color: 'rgba(250,249,245,.65)' }}>{p.desc}</p>
+                      </div>
+                    </Reveal>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      <PieNetwork />
+      {/* Confianza */}
+      <section className="overflow-hidden py-[clamp(64px,10vh,120px)] px-[clamp(18px,3.5vw,48px)]" style={{ background: PAPEL }}>
+        <div className="max-w-[1340px] mx-auto">
+          <Reveal>
+            <h2 className="m-0 font-extrabold leading-[1.04] tracking-[-.035em] text-[clamp(28px,3.8vw,48px)]">Confianza real, no una insignia.</h2>
+          </Reveal>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-10">
+            {CONFIANZA_ITEMS.map((it, i) => (
+              <Reveal key={it.titulo} delayMs={i * 80} className="rounded-[18px] p-5" style={{ background: SAGE }}>
+                <p className="m-0 text-[15px] font-extrabold">{it.titulo}</p>
+                <p className="mt-1.5 mb-0 text-[13.5px] leading-[1.6]" style={{ color: MUTED }}>{it.texto}</p>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Casos de uso */}
+      <section className="overflow-hidden py-[clamp(64px,10vh,120px)] px-[clamp(18px,3.5vw,48px)]" style={{ background: OSCURO, color: PAPEL }}>
+        <div className="max-w-[1340px] mx-auto">
+          <Reveal>
+            <h2 className="m-0 font-extrabold leading-[1.1] tracking-[-.03em] text-[clamp(28px,3.8vw,48px)]" style={{ color: NW_PRODUCTO_CLARO }}>¿Cuándo se usa Network?</h2>
+          </Reveal>
+          <div className="grid sm:grid-cols-3 gap-4 mt-10">
+            {CASOS_USO.map((c, i) => (
+              <Reveal key={c.titulo} delayMs={i * 80} className="rounded-[18px] px-6 py-6" style={{ background: 'rgba(250,249,245,.06)', border: '1px solid rgba(250,249,245,.12)' }}>
+                <p className="m-0 text-[15px] font-extrabold">{c.titulo}</p>
+                <p className="mt-2 mb-0 text-[13.5px] leading-[1.6]" style={{ color: 'rgba(250,249,245,.65)' }}>{c.texto}</p>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="overflow-hidden py-[clamp(64px,10vh,120px)] px-[clamp(18px,3.5vw,48px)]" style={{ background: PAPEL }}>
+        <div className="max-w-[720px] mx-auto">
+          <Reveal>
+            <h2 className="m-0 font-extrabold leading-[1.04] tracking-[-.035em] text-[clamp(28px,3.8vw,48px)]">Preguntas frecuentes.</h2>
+          </Reveal>
+          <Reveal delayMs={100} className="mt-8">
+            {FAQ_ITEMS.map(f => <FaqItem key={f.q} q={f.q} a={f.a} />)}
+          </Reveal>
+        </div>
+      </section>
+
+      {/* CTA final */}
+      <section id="cta" className="overflow-hidden mt-[clamp(56px,9vh,110px)] py-[clamp(80px,13vh,150px)] px-[clamp(18px,3.5vw,48px)]" style={{ background: OSCURO, color: PAPEL }}>
+        <div className="max-w-[1340px] mx-auto text-center">
+          <Reveal>
+            <h2 className="m-0 italic font-extrabold uppercase leading-[.96] tracking-[-.02em] text-[clamp(34px,6.4vw,96px)]">
+              <span className="block" style={{ color: NW_PRODUCTO_CLARO }}>Tu estudio.</span>
+              <TituloTrazado texto="TODO LO DEMÁS, TENTARE." viewBox="0 0 1560 172" fontSize={112} fondo={OSCURO} className="w-full max-w-[1300px] mx-auto mt-2" />
+            </h2>
+          </Reveal>
+          <Reveal delayMs={120}>
+            <p className="mt-6 italic font-semibold text-[clamp(15px,1.5vw,19px)]" style={{ color: 'rgba(250,249,245,.75)' }}>Descubre, gestiona y crece</p>
+          </Reveal>
+          <Reveal delayMs={200} className="flex justify-center gap-4 mt-8 flex-wrap">
+            <Link href="/network/crear-perfil" className="px-[34px] py-4 rounded-xl text-[16px] font-extrabold" style={{ background: NW_PRODUCTO, color: PAPEL }}>Empieza</Link>
+            <a href="#top" className="px-7 py-4 rounded-xl text-[16px] font-extrabold" style={{ color: PAPEL, boxShadow: 'inset 0 0 0 2px rgba(250,249,245,.5)' }}>Hablar con nosotros</a>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Pie — el mockup solo traía Producto/Network/Precios/Privacidad (las
+          anclas de su propia landing general). Completado con los enlaces
+          reales de Network (pedido explícito tras el clon #1482): el
+          marketplace y sus dos legales propios, más el aviso legal y
+          cookies compartidos con el resto de Tentare. */}
+      <footer style={{ background: OSCURO, color: 'rgba(250,249,245,.7)', borderTop: '1px solid rgba(250,249,245,.12)' }} className="px-[clamp(18px,3.5vw,48px)] py-[34px]">
+        <div className="max-w-[1340px] mx-auto flex flex-col gap-6">
+          <div className="flex flex-wrap gap-[18px] items-center justify-between">
+            <LogoTentare formato="horizontal" tinta="blanco" producto="network" titulo="Tentare Network" alto={22} decorativo />
+            <div className="flex gap-5 flex-wrap text-[13px]">
+              <a href="#estudio" style={{ color: 'rgba(250,249,245,.7)' }}>Producto</a>
+              <Link href="/network/instructoras" style={{ color: 'rgba(250,249,245,.7)' }}>Explorar instructoras</Link>
+              <Link href="/network/acceso" style={{ color: 'rgba(250,249,245,.7)' }}>Acceso</Link>
+              <Link href="/precios" style={{ color: 'rgba(250,249,245,.7)' }}>Precios</Link>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-5" style={{ borderTop: '1px solid rgba(250,249,245,.12)' }}>
+            <div className="flex gap-5 flex-wrap text-[12.5px]" style={{ color: 'rgba(250,249,245,.55)' }}>
+              <Link href="/network/terminos" style={{ color: 'inherit' }}>Términos de Network</Link>
+              <Link href="/network/privacidad" style={{ color: 'inherit' }}>Privacidad de Network</Link>
+              <Link href="/legal" style={{ color: 'inherit' }}>Aviso legal</Link>
+              <Link href="/cookies" style={{ color: 'inherit' }}>Cookies</Link>
+            </div>
+            <p className="m-0 text-[12px]" style={{ color: 'rgba(250,249,245,.45)' }}>© 2026 Tentare · Barcelona</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

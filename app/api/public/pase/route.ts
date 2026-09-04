@@ -70,16 +70,26 @@ export async function POST(req: NextRequest) {
 
     const inicio = new Date(fila.sesiones.inicio);
     const vigente = paseVigente(inicio, ahora);
+    const ventana = ventanaDelPase(inicio);
 
     // Fuera de la ventana se responde igual, con `vigente: false` y los minutos
     // que faltan: la app enseña "tu pase se activa a las 17:30" en vez de un
     // hueco vacío que no explica nada.
     return NextResponse.json({
       hayPase: true as const,
+      // De QUÉ reserva es este pase. Aditivo: sin él, una pantalla de detalle
+      // no puede saber si el pase que le devuelve el endpoint —que siempre es
+      // el de la PRÓXIMA clase— corresponde a la reserva que está enseñando, y
+      // acabaría pintando el pase de otra clase bajo el título de esta.
+      reservaId: fila.id,
       vigente,
       yaAsistida: fila.estado === 'ASISTIDA',
       minutosParaActivarse: minutosParaActivarse(inicio, ahora),
-      seActivaA: ventanaDelPase(inicio).desde.toISOString(),
+      seActivaA: ventana.desde.toISOString(),
+      // Cierre real de la ventana (`paseVigente` deja de dar `true` justo
+      // aquí): la hora que la hoja enseña como "válido hasta" es esta, no un
+      // cálculo aparte — mismo `ventanaDelPase` que ya decidía `vigente`.
+      paseHasta: ventana.hasta.toISOString(),
       inicio: fila.sesiones.inicio,
       // El token solo se emite dentro de la ventana. Antes no hace falta y sería
       // regalar dos minutos de validez a quien mire el pase con antelación.

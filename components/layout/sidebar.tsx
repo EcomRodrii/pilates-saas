@@ -13,6 +13,7 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { useMenuNovedades } from '@/lib/menu-novedades-cliente';
+import { useMensajesSinLeerStaff } from '@/lib/mensajeria/use-sin-leer-staff';
 import { fetchLayout } from '@/lib/api-client';
 import { filtrarItemsMenu } from '@/lib/layout-runtime';
 import { SedeActiva } from '@/components/layout/sede-activa';
@@ -71,14 +72,41 @@ function BadgeNuevo({ compacto }: { compacto?: boolean }) {
   );
 }
 
-function NavItem({ href, label, Icon, onClick, collapsed, nuevo }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean; nuevo?: boolean }) {
+// Contador de no leídos — distinto de BadgeNuevo (que anuncia una función
+// recién lanzada, no un pendiente real). Aquí sí importa el número: es lo que
+// le dice a la propietaria "tienes 3 mensajes sin leer" sin tener que entrar.
+function BadgeContador({ n, compacto }: { n: number; compacto?: boolean }) {
+  const texto = n > 9 ? '9+' : String(n);
+  if (compacto) {
+    return (
+      <span
+        className="absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground ring-2 ring-sidebar"
+        role="status"
+      >
+        <span className="sr-only">{n} sin leer</span>
+        <span aria-hidden>{texto}</span>
+      </span>
+    );
+  }
+  return (
+    <span
+      className="ml-auto flex min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold text-destructive-foreground"
+      role="status"
+    >
+      <span className="sr-only">{n} sin leer</span>
+      <span aria-hidden>{texto}</span>
+    </span>
+  );
+}
+
+function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean; nuevo?: boolean; contador?: number }) {
   const pathname = usePathname();
   const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
   return (
     <Link
       href={href}
       onClick={onClick}
-      title={collapsed ? (nuevo ? `${label} (nuevo)` : label) : undefined}
+      title={collapsed ? (contador ? `${label} (${contador} sin leer)` : nuevo ? `${label} (nuevo)` : label) : undefined}
       className={cn(
         'flex items-center rounded-full text-[13px] font-medium transition-all relative',
         collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
@@ -87,7 +115,7 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo }: { href: strin
     >
       <Icon size={15} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
       {!collapsed && label}
-      {nuevo && <BadgeNuevo compacto={collapsed} />}
+      {Boolean(contador) ? <BadgeContador n={contador!} compacto={collapsed} /> : nuevo && <BadgeNuevo compacto={collapsed} />}
     </Link>
   );
 }
@@ -103,7 +131,7 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
       className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[52px]"
     >
       <div className={cn(
-        'w-10 h-7 rounded-full flex items-center justify-center transition-colors',
+        'w-10 h-7 rounded-full flex items-center justify-center transition-[background-color,transform] duration-150 active:scale-90',
         active ? 'bg-brand' : 'bg-transparent'
       )}>
         <Icon
@@ -124,19 +152,37 @@ function BottomNavItem({ href, label, Icon }: { href: string; label: string; Ico
 
 // ─── Mobile: "Más" full-screen drawer ────────────────────────────────────────
 
-function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }: {
-  onClose: () => void; userInitials: string; userEmail: string; handleSignOut: () => void;
+function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sections }: {
+  open: boolean; onClose: () => void; userInitials: string; userEmail: string; handleSignOut: () => void;
   sections: typeof navSections;
 }) {
   const pathname = usePathname();
   const conNovedad = useMenuNovedades();
+  const sinLeerMensajes = useMensajesSinLeerStaff(open);
+
+  // Aparecía/desaparecía de golpe (auditoría de motion) — mismo patrón que
+  // DashboardDrawer (components/ui/dashboard-drawer.tsx): se queda montado
+  // un instante más al cerrar para que se vea la salida.
+  const [rendered, setRendered] = useState(open);
+  const [cerrando, setCerrando] = useState(false);
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
+    if (open) { setRendered(true); setCerrando(false); }
+    else if (rendered) setCerrando(true);
+  }
+  if (!rendered) return null;
 
   return (
     // --sidebar (#0F0F0F en los dos modos), no --foreground: este cajón es una
     // superficie SIEMPRE oscura —todo su contenido va en text-white— y
     // --foreground se INVIERTE en modo oscuro, así que el menú entero quedaba
     // en blanco sobre blanco. Mismo criterio que el sidebar de escritorio.
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--sidebar)' }}>
+    <div
+      className={cn('fixed inset-0 z-50 flex flex-col', cerrando ? 'mas-drawer-out' : 'mas-drawer-in')}
+      style={{ backgroundColor: 'var(--sidebar)' }}
+      onAnimationEnd={() => { if (cerrando) setRendered(false); }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-12 pb-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <span className="text-white font-semibold text-[16px]">Menú</span>
@@ -180,7 +226,9 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
                 >
                   <item.icon size={18} strokeWidth={active ? 2.5 : 2} />
                   {item.label}
-                  {conNovedad.has(item.href) && <BadgeNuevo />}
+                  {item.href === '/mensajeria' && sinLeerMensajes > 0
+                    ? <BadgeContador n={sinLeerMensajes} />
+                    : conNovedad.has(item.href) && <BadgeNuevo />}
                 </Link>
               );
             })}
@@ -219,6 +267,7 @@ const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label:
 export function Sidebar() {
   // Los `href` señalados como NUEVO desde /interno.
   const conNovedad = useMenuNovedades();
+  const sinLeerMensajes = useMensajesSinLeerStaff(true);
   const [masOpen, setMasOpen] = useState(false);
   const [size, setSize] = useState<SidebarSize>('normal');
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
@@ -351,7 +400,7 @@ export function Sidebar() {
           onClick={() => setMasOpen(true)}
           className="flex flex-col items-center gap-0.5 px-3 py-2 min-w-[52px]"
         >
-          <div className="w-10 h-7 rounded-full flex items-center justify-center">
+          <div className="w-10 h-7 rounded-full flex items-center justify-center transition-transform duration-150 active:scale-90">
             <Menu size={20} strokeWidth={1.8} className="text-muted-foreground" />
           </div>
           <span className="text-[10px] font-medium text-muted-foreground leading-none">Más</span>
@@ -359,7 +408,7 @@ export function Sidebar() {
       </nav>
 
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
-      {masOpen && <MasDrawer onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />}
+      <MasDrawer open={masOpen} onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />
 
       {/* ── Desktop logo (fuera de la píldora del menú) ─────────────────────── */}
       <div
@@ -422,7 +471,11 @@ export function Sidebar() {
                 <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
               )}
               {section.items.map(item => (
-                <NavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} collapsed={collapsed} nuevo={conNovedad.has(item.href)} />
+                <NavItem
+                  key={item.href} href={item.href} label={item.label} Icon={item.icon} collapsed={collapsed}
+                  nuevo={conNovedad.has(item.href)}
+                  contador={item.href === '/mensajeria' ? sinLeerMensajes : undefined}
+                />
               ))}
             </div>
           ))}
@@ -476,7 +529,7 @@ export function Sidebar() {
           {sizeMenuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setSizeMenuOpen(false)} />
-              <div className="absolute bottom-full left-2 right-2 z-20 mb-1.5 rounded-xl overflow-hidden shadow-lg border" style={{ backgroundColor: '#171717', borderColor: 'rgba(255,255,255,0.08)' }}>
+              <div className="absolute bottom-full left-2 right-2 z-20 mb-1.5 rounded-xl overflow-hidden shadow-lg border menu-pop-in" style={{ backgroundColor: '#171717', borderColor: 'rgba(255,255,255,0.08)' }}>
                 {(Object.keys(SIDEBAR_SIZES) as SidebarSize[]).map(key => (
                   <button
                     key={key}

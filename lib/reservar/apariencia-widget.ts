@@ -64,12 +64,33 @@ export interface AparienciaWidget {
   linea: string | null;
   /** Relleno suave (chips, notas, skeleton). `null` = el de la paleta. */
   relleno: string | null;
+  // Fase 3 del rediseño (docs/widget-reservas-theme-builder-diseno.md §3, "tres
+  // piezas que no son solo tokens CSS"): forma/densidad, los dos ejes
+  // estructurales del diseño "Tentare Portal Reservas" que quedaban fuera del
+  // sistema de override de siempre.
+  /**
+   * Preset de radios (tarjeta/botón/input a la vez) — `radio`/`radioBoton`/
+   * `radioInput` explícitos SIEMPRE ganan a esto, campo por campo (ver
+   * `radiosDe`): elegir una forma es un atajo, no un candado.
+   * `null` = el radio del tema, como hasta ahora.
+   */
+  forma: 'pill' | 'redondeado' | 'recto' | null;
+  /**
+   * Escala de espaciado. `compacta` aprieta los huecos MÁS VISIBLES del
+   * calendario/ficha (padding de tarjeta, separación entre filas) — no es un
+   * retrofit de cada margin/padding del código (sería una reescritura de
+   * páginas de miles de líneas para un ajuste cosmético); ver `densidadCss`
+   * en `lib/reservar-publico-tokens.ts` para qué mide exactamente.
+   * `null` = 'comoda', el espaciado de siempre.
+   */
+  densidad: 'comoda' | 'compacta' | null;
 }
 
 export const APARIENCIA_POR_DEFECTO: AparienciaWidget = {
   fondo: null, fuente: null, radio: null, ocultarPie: false, soloPestana: false, texto: 'auto',
   fuenteDisplay: null, radioBoton: null, radioInput: null,
   superficie: null, tinta: null, textoSecundario: null, linea: null, relleno: null,
+  forma: null, densidad: null,
 };
 
 function leerFondo(v: string | null): AparienciaWidget['fondo'] | undefined {
@@ -142,6 +163,12 @@ export function resolverApariencia(
   const textoSecundario = leerColor(params.get('texto-secundario'));
   const linea = leerColor(params.get('linea'));
   const relleno = leerColor(params.get('relleno'));
+  const formaCruda = params.get('forma');
+  const forma = formaCruda === 'pill' || formaCruda === 'redondeado' || formaCruda === 'recto'
+    ? formaCruda : undefined;
+  const densidadCruda = params.get('densidad');
+  const densidad = densidadCruda === 'comoda' || densidadCruda === 'compacta'
+    ? densidadCruda : undefined;
 
   return {
     fondo: fondo ?? base.fondo,
@@ -160,6 +187,8 @@ export function resolverApariencia(
     textoSecundario: textoSecundario ?? base.textoSecundario,
     linea: linea ?? base.linea,
     relleno: relleno ?? base.relleno,
+    forma: forma ?? base.forma,
+    densidad: densidad ?? base.densidad,
   };
 }
 
@@ -236,18 +265,45 @@ export function urlFuenteDisplay(a: AparienciaWidget): string | null {
 }
 
 /**
+ * Los 3 radios del preset `forma` (tarjeta/botón/input a la vez) — valores
+ * del diseño "Tentare Portal Reservas" (`--rCard`/`--rBtn`, más un input
+ * intermedio entre ambos para `redondeado`/`recto`, ya que el diseño
+ * original solo distingue tarjeta/botón).
+ */
+const FORMA_RADIOS: Record<'pill' | 'redondeado' | 'recto', { tarjeta: number; boton: number; input: number }> = {
+  pill: { tarjeta: 20, boton: 999, input: 20 },
+  redondeado: { tarjeta: 16, boton: 13, input: 16 },
+  recto: { tarjeta: 10, boton: 6, input: 10 },
+};
+
+/**
  * Los tokens de RADIO resueltos, con el valor de siempre como fallback: sin
  * tocar nada, `radioBoton`/`radioInput` heredan de `radio` (que a su vez
  * hereda del tema si tampoco está puesto) — un estudio que solo cambia
  * `radio` sigue viendo un widget coherente, no tarjetas de un radio y botones
  * de otro por accidente.
+ *
+ * `forma` es un ATAJO, no un candado: si además hay un `radio`/`radioBoton`/
+ * `radioInput` explícito, ese campo concreto gana sobre el preset — mismo
+ * criterio de "lo explícito pisa lo general" que el resto de esta función.
  */
 export function radiosDe(a: AparienciaWidget, porDefecto: { tarjeta: number; boton: number; input: number }) {
+  const base = a.forma ? FORMA_RADIOS[a.forma] : porDefecto;
   return {
-    tarjeta: a.radio ?? porDefecto.tarjeta,
-    boton: a.radioBoton ?? a.radio ?? porDefecto.boton,
-    input: a.radioInput ?? a.radio ?? porDefecto.input,
+    tarjeta: a.radio ?? base.tarjeta,
+    boton: a.radioBoton ?? a.radio ?? base.boton,
+    input: a.radioInput ?? a.radio ?? base.input,
   };
+}
+
+/**
+ * Multiplicador de espaciado de `densidad`. Se aplica vía CSS
+ * (`densidadCss`, `lib/reservar-publico-tokens.ts`) a un conjunto ACOTADO de
+ * medidas — no a cada padding/margin del código, ver el comentario de
+ * `AparienciaWidget.densidad`.
+ */
+export function escalaDensidad(a: AparienciaWidget): number {
+  return a.densidad === 'compacta' ? 0.75 : 1;
 }
 
 /**

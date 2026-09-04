@@ -29,7 +29,7 @@ function fmtFecha(iso: string | null): string {
 
 const inputCls = 'rounded-lg border border-border px-2.5 py-1.5 text-[13px] w-full focus:outline-none focus:ring-2 focus:ring-black/10';
 
-export function CodigosDescuento() {
+export function CodigosDescuento({ onToast }: { onToast: (mensaje: string) => void }) {
   const { codigosDescuento, addCodigoDescuento, toggleCodigoDescuento } = useStudio();
   const hoy = new Date().toISOString().slice(0, 10);
 
@@ -167,7 +167,7 @@ export function CodigosDescuento() {
               <div className="flex shrink-0 items-center gap-3">
                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${est.clase}`}>{est.texto}</span>
                 <button
-                  onClick={async () => { const res = await toggleCodigoDescuento(c.id); if (!res.ok) window.alert(res.error); }}
+                  onClick={async () => { const res = await toggleCodigoDescuento(c.id); if (!res.ok) onToast(res.error); }}
                   className="text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {c.activo ? 'Desactivar' : 'Activar'}

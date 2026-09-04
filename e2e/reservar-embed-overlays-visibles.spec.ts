@@ -101,7 +101,7 @@ ${script}
   return frame;
 }
 
-test('snippet NUEVO: tras "Reservar", la ficha cae dentro de lo que el usuario ve', async ({ page }) => {
+test('snippet NUEVO: tras un tap en la tarjeta, la pantalla siguiente cae dentro de lo que el usuario ve', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mocks(page);
   const frame = await montarHost(page, 'nuevo');
@@ -113,11 +113,13 @@ test('snippet NUEVO: tras "Reservar", la ficha cae dentro de lo que el usuario v
   await page.waitForTimeout(400);
   await tarjeta.click();
 
-  // Sin `role="dialog"` que buscar (rediseño "sin popup"): la ficha se
-  // identifica por su propio encabezado — único en la página, la lista de
-  // detrás se oculta mientras la ficha está abierta.
-  const titulo = frame.getByRole('heading', { name: 'Reformer' });
-  await expect(titulo).toBeVisible({ timeout: 30_000 });
+  // Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
+  // pantallas seguidas"): una invitada sin sesión ya no pasa por la ficha
+  // de detalle — un tap en la tarjeta lleva DIRECTO al flujo de acceso
+  // ("Entra para reservar"), que tiene que aparecer donde mira el usuario
+  // igual que antes lo hacía la ficha.
+  const tituloAcceso = frame.getByText('Entra para reservar');
+  await expect(tituloAcceso).toBeVisible({ timeout: 30_000 });
   // El snippet nuevo trae la ventana del HOST hasta el iframe (`tentareScrollTo`,
   // aún emitido — ver el docblock de arriba) tras el resize. `expect.poll` en
   // vez de un `waitForTimeout` fijo: el resize + scrollTo son dos mensajes
@@ -127,24 +129,12 @@ test('snippet NUEVO: tras "Reservar", la ficha cae dentro de lo que el usuario v
   // objetivo real de este test es "sin hunting", no "centrado al píxel" — el
   // propio mecanismo de scroll del host (`scrollIntoView`) no promete un
   // encaje perfecto, solo que el elemento quede razonablemente a la vista.
-  await expect.poll(async () => (await titulo.boundingBox())!.y, { timeout: 5000 }).toBeGreaterThanOrEqual(-150);
-  const cajaTitulo = (await titulo.boundingBox())!;
-  expect(cajaTitulo.y).toBeLessThanOrEqual(994);
-
-  const cta = frame.getByRole('button', { name: /^Reservar/ });
-  await expect(cta).toBeInViewport({ ratio: 0 });
-
-  // Siguiente paso: sin sesión, el CTA lleva al flujo de acceso — también
-  // tiene que aparecer donde mira el usuario, por el mismo mecanismo.
-  await cta.click();
-  const tituloAcceso = frame.getByText('Entra para reservar');
-  await expect(tituloAcceso).toBeVisible({ timeout: 30_000 });
   await expect.poll(async () => (await tituloAcceso.boundingBox())!.y, { timeout: 5000 }).toBeGreaterThanOrEqual(-150);
   const cajaAcceso = (await tituloAcceso.boundingBox())!;
   expect(cajaAcceso.y).toBeLessThanOrEqual(994);
 });
 
-test('snippet VIEJO (solo auto-resize): la ficha sigue siendo correcta DENTRO del iframe', async ({ page }) => {
+test('snippet VIEJO (solo auto-resize): la pantalla de acceso sigue siendo correcta DENTRO del iframe', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mocks(page);
   const frame = await montarHost(page, 'viejo');
@@ -154,59 +144,56 @@ test('snippet VIEJO (solo auto-resize): la ficha sigue siendo correcta DENTRO de
   await tarjeta.click();
 
   // El snippet viejo no entiende `tentareScrollTo` — no puede traer la
-  // ventana del HOST hasta el iframe. Pero, a diferencia del comportamiento
-  // viejo (un overlay que podía anclarse al FONDO del iframe entero), la
-  // ficha ya no es un overlay: es contenido normal que siempre nace al
-  // principio del documento DEL IFRAME (`window.scrollTo(0, 0)`,
-  // BookingSheet en modo 'vista') — así que, aunque el host no la traiga a
-  // la vista sola, sigue siendo alcanzable con un scroll normal de la propia
-  // página del host, nunca "perdida" 1000px más abajo.
-  const titulo = frame.getByRole('heading', { name: 'Reformer' });
-  await expect(titulo).toBeVisible({ timeout: 30_000 });
+  // ventana del HOST hasta el iframe. Pero, igual que ya pasaba con la
+  // ficha, la pantalla de acceso NO es un overlay: es contenido normal que
+  // siempre nace al principio del documento DEL IFRAME (`window.scrollTo(0,
+  // 0)`) — así que, aunque el host no la traiga a la vista sola, sigue
+  // siendo alcanzable con un scroll normal de la propia página del host,
+  // nunca "perdida" 1000px más abajo.
+  const tituloAcceso = frame.getByText('Entra para reservar');
+  await expect(tituloAcceso).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(500);
 
   const iframeBox = (await page.locator(`#${IFRAME_ID}`).boundingBox())!;
-  const cajaTitulo = (await titulo.boundingBox())!;
+  const cajaAcceso = (await tituloAcceso.boundingBox())!;
   // El título nace bien dentro de la PRIMERA MITAD del documento del iframe
   // — nunca a mitad ni al fondo, que es justo el defecto que este spec
   // protege (antes, un overlay mal anclado podía caer a ~1000px de lo que el
   // usuario veía). No se compara contra un número de píxeles fijo: la altura
-  // real del documento depende del contenido (foto/descripción de la clase),
-  // así que lo que importa es la proporción, no una cifra adivinada.
-  expect(cajaTitulo.y - iframeBox.y).toBeLessThanOrEqual(iframeBox.height / 2);
+  // real del documento depende del contenido, así que lo que importa es la
+  // proporción, no una cifra adivinada.
+  expect(cajaAcceso.y - iframeBox.y).toBeLessThanOrEqual(iframeBox.height / 2);
 
-  // El CTA de la ficha es alcanzable haciendo scroll DENTRO del iframe (su
-  // propio documento, `window.scrollTo` ya lo dejó al principio) — no hace
-  // falta que el host se mueva para que la reserva sea usable.
-  const cta = frame.getByRole('button', { name: /^Reservar/ });
+  // El CTA de la pantalla de acceso es alcanzable haciendo scroll DENTRO del
+  // iframe (su propio documento, `window.scrollTo` ya lo dejó al principio)
+  // — no hace falta que el host se mueva para que sea usable.
+  const cta = frame.getByRole('button', { name: /Continuar →/ });
   await cta.scrollIntoViewIfNeeded();
   await expect(cta).toBeVisible();
 });
 
-test('sin iframe (móvil 390×844): el CTA es visible AL ABRIR la ficha, sin scroll', async ({ page }) => {
+test('sin iframe (móvil 390×844): el CTA es visible AL ABRIR el acceso, sin scroll', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mocks(page);
   await page.goto(`${APP}/reservar/${SLUG}?tab=clases`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
 
-  // Sin `role="dialog"` (rediseño "sin popup"): la ficha es la página misma,
-  // no un diálogo flotante encima del listado (que además está oculto
-  // mientras la ficha está abierta).
-  await expect(page.getByRole('heading', { name: 'Reformer' })).toBeVisible({ timeout: 30_000 });
+  // Petición explícita del fundador (2026-08-30): una invitada sin sesión
+  // ya no pasa por la ficha de detalle — un tap en la tarjeta lleva DIRECTO
+  // al flujo de acceso. Sin `role="dialog"` (rediseño "sin popup"): es la
+  // página misma, no un diálogo flotante encima del listado (que además
+  // está oculto mientras está abierta).
+  await expect(page.getByRole('heading', { name: /entra para reservar/i })).toBeVisible({ timeout: 30_000 });
 
   // El CTA nace cerca de la parte alta del contenido — no hace falta
-  // scrollear para siquiera VER que existe (aunque llegar a pulsarlo, con una
-  // descripción larga, sí puede pedir un scroll corto — eso lo cubre
-  // `reservar-modal-movil.spec.ts`, «alcanzable con scroll, nunca
-  // inexistente»).
-  const cta = page.getByRole('button', { name: /^Reservar/ });
+  // scrollear para siquiera VER que existe.
+  const cta = page.getByRole('button', { name: /Continuar →/ });
   await expect(cta).toBeVisible();
-  // La ficha ocupa (casi) todo el ancho del viewport (390px), sin el margen
-  // lateral grande de una tarjeta modal centrada — el bloque en modo 'vista'
-  // solo resta su propio padding horizontal (20px por lado, ver BookingSheet
-  // en reserva-calendario.tsx), medido: 350px.
-  const ancho = await page.getByRole('heading', { name: 'Reformer' }).evaluate(
+  // La pantalla ocupa (casi) todo el ancho del viewport (390px), sin el
+  // margen lateral grande de una tarjeta modal centrada — el bloque en modo
+  // `inline` solo resta su propio padding horizontal.
+  const ancho = await page.getByRole('heading', { name: /entra para reservar/i }).evaluate(
     el => el.closest('[style*="flex-direction"]')?.getBoundingClientRect().width ?? document.body.clientWidth,
   );
   expect(ancho).toBeGreaterThan(330);

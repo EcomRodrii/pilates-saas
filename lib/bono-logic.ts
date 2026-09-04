@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Suscripcion, PlanTarifa, TipoPlan } from '@/lib/types';
+import { hoyEnEstudio } from './utils.ts';
 
 // ── ¿Este plan cubre ESTA clase? ─────────────────────────────────────────────
 //
@@ -212,10 +213,16 @@ export function saldoSesionesBono(
 
 // Fecha de caducidad de un bono al comprarlo: fecha_inicio + validez_dias, en
 // 'YYYY-MM-DD'. null si el plan no caduca (validezDias null). Acepta fechaInicio
-// como fecha o timestamp ISO — usa solo la parte de fecha (UTC).
+// como fecha o timestamp ISO — usa el DÍA del estudio (Madrid), no el de UTC.
+//
+// P-9 (auditoría 21ª pasada): antes tomaba `.slice(0, 10)` del ISO tal cual
+// (la parte de fecha en UTC). Sus 3 llamadores pasan `new Date().toISOString()`
+// — un alta cobrada a la 01:30 de Madrid (23:30 UTC del día anterior) hacía
+// arrancar la validez del bono un día antes de cuando la clienta lo compró.
+// Mismo bug que ya documenta `hoyEnEstudio`.
 export function calcularFechaFinBono(fechaInicioISO: string, validezDias: number | null): string | null {
   if (validezDias === null || validezDias <= 0) return null;
-  const base = new Date(`${fechaInicioISO.slice(0, 10)}T00:00:00Z`);
+  const base = new Date(`${hoyEnEstudio(new Date(fechaInicioISO))}T00:00:00Z`);
   base.setUTCDate(base.getUTCDate() + validezDias);
   return base.toISOString().slice(0, 10);
 }
@@ -234,7 +241,9 @@ export function calcularReactivacion(
   ahoraISO: string,
 ): { fechaFin: string | null; sesionesRestantes: number | null } {
   if (plan.tipo === 'MENSUAL') {
-    const nuevaFin = new Date(`${ahoraISO.slice(0, 10)}T00:00:00Z`);
+    // P-9 (auditoría 21ª pasada): mismo bug que ya arregla
+    // `calcularFechaFinBono` — el día del estudio, no el de UTC.
+    const nuevaFin = new Date(`${hoyEnEstudio(new Date(ahoraISO))}T00:00:00Z`);
     nuevaFin.setUTCMonth(nuevaFin.getUTCMonth() + 1);
     return { fechaFin: nuevaFin.toISOString().slice(0, 10), sesionesRestantes: null };
   }

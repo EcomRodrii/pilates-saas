@@ -13,6 +13,7 @@ import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { COLOR_VALIDO, fuenteValida, familiaCssDe, urlFuenteGoogle } from '@/lib/reservar/config-widget';
+import { luminancia } from '@/lib/reservar/apariencia-widget';
 import { SelectorFuente } from '@/components/ui/selector-fuente';
 import { scriptSnippetIframe } from '@/lib/reservar/snippet-embed';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
@@ -976,6 +977,26 @@ ${scriptSnippetIframe({ origen, slug, iframeId })}`;
                   ya lo pegaste en tu web, reemplázalo después de cambiar algo
                   aquí — el widget instalado no se actualiza solo.
                 </p>
+                {widget.modo === 'script' && (
+                  // ⚠️ Bug real encontrado en producción (2026-08-30): en un
+                  // estudio con WordPress + un builder de página, el widget no
+                  // aparecía nunca — cero peticiones a widget.js, sin ningún
+                  // error visible. Causa: el bloque se pintaba con
+                  // `elemento.innerHTML = "..."`, y CUALQUIER <script> dentro
+                  // de un HTML insertado así queda inerte (regla del propio
+                  // navegador, no hay forma de arreglarlo desde el código del
+                  // widget). Pegar el <script> en la cabecera/pie GLOBAL del
+                  // tema (fuera de un bloque de contenido de una entrada
+                  // concreta) evita el problema de raíz.
+                  <p className="text-[11px] text-muted-foreground mt-2">
+                    Si usas un editor de bloques (WordPress, builders de
+                    página) y el widget no aparece, prueba a pegar la línea
+                    {' '}<code className="font-mono">{'<script src="…widget.js">'}</code>{' '}
+                    en la cabecera o pie GLOBAL de tu web (no dentro de un
+                    bloque de una entrada concreta) — algunos editores insertan
+                    el bloque de forma que el script nunca llega a ejecutarse.
+                  </p>
+                )}
               </>
             ) : (
               <p className="text-[12px] text-muted-foreground">
@@ -1035,14 +1056,21 @@ function PreviewWidgetScript({ slug, config }: { slug: string; config: ConfigBui
   const fuenteUiPrevia = fuentePrevia ? familiaCssDe(fuentePrevia) : "'Instrument Sans', system-ui, sans-serif";
   const displayPrevia = fuenteDisplayPrevia ? familiaCssDe(fuenteDisplayPrevia)
     : fuentePrevia ? familiaCssDe(fuentePrevia) : "'Instrument Serif', Georgia, serif";
+  // Mismo cálculo que app/widget-bundle/main.tsx (el mismo componente pinta
+  // el bundle real) — sin esto la vista previa mentía: un estudio con marca
+  // clara veía aquí un texto legible mientras el bundle real, con el
+  // beige fijo de antes, se lo dejaba invisible (bug real en producción,
+  // 2026-08-26).
+  const marcaPrevia = config.marca ?? COLOR_WIDGET_POR_DEFECTO;
+  const lPrevia = luminancia(marcaPrevia);
   return (
     <div
       style={{
         // Mismas CSS vars que fija app/widget-bundle/main.tsx al montar el
         // bundle real — el resto de tokens de color salen de `--portal-*`,
         // ninguno hardcodeado aquí.
-        '--portal-brand': config.marca ?? COLOR_WIDGET_POR_DEFECTO,
-        '--portal-brand-foreground': '#D9C29E',
+        '--portal-brand': marcaPrevia,
+        '--portal-brand-foreground': lPrevia != null && lPrevia < 0.45 ? '#FFFFFF' : '#22261F',
         '--success': '#2F6B4F',
         '--warning': '#8F6215',
         '--destructive': '#A8442A',

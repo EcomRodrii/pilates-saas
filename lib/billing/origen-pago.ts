@@ -64,7 +64,7 @@ export function urlsDeRetorno(p: {
       const plan = p.planId ? `&plan=${encodeURIComponent(p.planId)}` : '';
       return { successUrl: `${base}?compra=ok${plan}`, cancelUrl: `${base}?compra=cancelada` };
     }
-    const base = `${p.appUrl}/portal/${p.slug}/compras`;
+    const base = `${p.appUrl}/portal/${p.slug}/pagos`;
     return { successUrl: `${base}?pago=ok`, cancelUrl: `${base}?pago=cancelado` };
   }
   if (p.esCompraDePlan) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
+import { escaparLike } from '@/lib/escapar-like';
 
 // Buscador de estudios Tentare — solo para que una profesional elija a
 // quién pedir la verificación de una experiencia (Fase 7). Nombre + ciudad
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await admin
     .from('studios')
     .select('id, nombre, ciudad')
-    .ilike('nombre', `%${q}%`)
+    .ilike('nombre', `%${escaparLike(q)}%`)
     .order('nombre', { ascending: true })
     .limit(10);
   if (error) return errorInterno('network:estudios:buscar', error, 'No se han podido buscar estudios.');
