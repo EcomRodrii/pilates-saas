@@ -1745,6 +1745,20 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
     db.consentimiento_marketing_texto = changes.consentimientoMarketing?.texto ?? null;
     db.consentimiento_marketing_por = changes.consentimientoMarketing?.registradoPor ?? null;
   }
+  // Si el email CAMBIA, se rompe el vinculo con la cuenta de acceso anterior.
+  // `fetchPublicStudioData` autoriza por `auth_user_id` (ya no compara email),
+  // asi que reasignar una ficha a otra persona sin soltar el `auth_user_id`
+  // dejaria a la persona ANTERIOR viendo las reservas, bonos y pagos de la
+  // nueva. Se compara contra el valor guardado para no desvincular a nadie
+  // cuando el panel reenvia la ficha entera sin tocar el email. Es
+  // auto-reparable: `resolverSociaAutenticada` vuelve a enlazar por email
+  // verificado en el siguiente inicio de sesion.
+  if ('email' in changes) {
+    const { data: actual } = await supabase.from('socios').select('email').eq('id', id).maybeSingle();
+    const antes = (actual?.email ?? '').trim().toLowerCase();
+    const ahora = (changes.email ?? '').trim().toLowerCase();
+    if (actual && antes !== ahora) db.auth_user_id = null;
+  }
   const { error } = await supabase.from('socios').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateSocio]', error) : ESCRITURA_OK;
 }

@@ -1,7 +1,15 @@
 import type { BookingState } from '@/lib/student/tipos';
 import { COPY } from '@/lib/student/maquina-reserva';
-/** Resultado de reserva devuelto por el servidor. Solo 'confirmed' muestra la celebración. */
-export function BookingStatus({ state, onRetry, onWaitlist, onClose }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void }) {
+/**
+ * Resultado de reserva devuelto por el servidor. Solo 'confirmed' muestra la celebración.
+ *
+ * `mensaje` es el motivo CONCRETO que dio el servidor, cuando lo hay. Manda
+ * sobre el copy genérico del estado: la máquina del diseño no tiene un estado
+ * para «no tienes bono» ni para «has llegado a tu tope de reservas», así que
+ * ambos caen en `error` — y sin este texto la alumna leía «algo no ha salido
+ * como esperábamos, inténtalo de nuevo» y reintentaba contra el mismo muro.
+ */
+export function BookingStatus({ state, mensaje, onRetry, onWaitlist, onClose }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; mensaje?: string; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void }) {
   const c = COPY[state];
   const ok = state === 'confirmed';
   const col = c.tono === 'ok' ? '#4F8A5B' : c.tono === 'warn' ? 'var(--warning)' : 'var(--destructive)';
@@ -13,7 +21,7 @@ export function BookingStatus({ state, onRetry, onWaitlist, onClose }: { state: 
         <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 999, background: col, color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>{c.tono === 'ok' ? '✓' : c.tono === 'warn' ? '!' : '×'}</span>
       </div>
       <h3 className="t-h2" style={{ fontSize: 20, marginTop: 15, letterSpacing: '-.025em', animation: 'apUp .4s .15s both' }}>{c.titulo}</h3>
-      <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--muted-foreground)', lineHeight: 1.5, animation: 'apUp .4s .22s both' }}>{c.cuerpo}</p>
+      <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--muted-foreground)', lineHeight: 1.5, animation: 'apUp .4s .22s both' }}>{mensaje ?? c.cuerpo}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16, animation: 'apUp .4s .3s both' }}>
         {state === 'full' && onWaitlist && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 13.5 }} onClick={onWaitlist}>Unirme a la lista de espera</button>}
         {(state === 'error' || state === 'offline') && onRetry && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 13.5 }} onClick={onRetry}>Intentar de nuevo</button>}

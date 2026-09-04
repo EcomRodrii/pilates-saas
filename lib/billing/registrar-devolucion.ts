@@ -224,8 +224,18 @@ export async function registrarDevolucion(admin: SupabaseClient, p: {
   // incrementando: así un reintento lo deja igual en vez de sumar dos veces.
   const tabla = p.ventaPosId ? 'ventas_pos' : 'recibos';
   const id = p.ventaPosId ?? p.reciboId!;
+  // `devuelta_en` es la marca de "esta venta está devuelta ENTERA" (el webhook
+  // la pone a null cuando el cargo deja de estar totalmente devuelto). Un
+  // reembolso PARCIAL no puede escribirla: dejaba la venta POS contada como
+  // devuelta al 100 % habiendo vuelto solo una parte del dinero. Mismo criterio
+  // que el equivalente de `recibos`, que solo marca DEVUELTO en el TOTAL
+  // (lib/billing/procesar-reembolso.ts). El importe acumulado sí se anota
+  // siempre, total o parcial.
   const camposActualizados = p.ventaPosId
-    ? { importe_devuelto: importeDevuelto, devuelta_en: new Date().toISOString() }
+    ? {
+        importe_devuelto: importeDevuelto,
+        devuelta_en: p.origen === 'REEMBOLSO_TOTAL' ? new Date().toISOString() : null,
+      }
     : { importe_devuelto: importeDevuelto };
   const { error: errImporte } = await admin.from(tabla)
     .update(camposActualizados)

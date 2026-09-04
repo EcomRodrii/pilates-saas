@@ -38,13 +38,18 @@ export async function POST(req: NextRequest) {
   const socioId = await socioAutenticado(user.userId, body.studioId);
   if (!socioId) return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 401 }));
 
+  // El `codigo` del rechazo VIAJA al cliente además del texto: sin él, el
+  // `switch` de lib/student/reserva-codigos.ts caía siempre en el `default`
+  // y la app de la alumna pintaba «algo ha fallado, inténtalo de nuevo» para
+  // TODO — clase completa, reserva duplicada, choque de horario— además de
+  // reportar a Sentry cada rechazo normal de negocio como si fuera una avería.
   try {
     if (body.accion === 'crear') {
       if (!body.sesionId) return conCorsWidget(req, NextResponse.json({ error: 'Falta la sesión' }, { status: 400 }));
       const r = await crearReservaPublica({
         studioId: body.studioId, sesionId: body.sesionId, socioId, authUserId: user.userId, spotId: body.spotId ?? null,
       });
-      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
+      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error, ...('codigo' in r ? { codigo: r.codigo } : {}) }, { status: r.error === 'No autorizado' ? 401 : 400 }));
       return conCorsWidget(req, NextResponse.json(r));
     }
     if (body.accion === 'cancelar') {
@@ -52,7 +57,7 @@ export async function POST(req: NextRequest) {
       const r = await cancelarReservaPublica({
         studioId: body.studioId, reservaId: body.reservaId, socioId, authUserId: user.userId,
       });
-      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
+      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error, ...('codigo' in r ? { codigo: r.codigo } : {}) }, { status: r.error === 'No autorizado' ? 401 : 400 }));
       return conCorsWidget(req, NextResponse.json(r));
     }
     if (body.accion === 'valorar') {
@@ -61,7 +66,7 @@ export async function POST(req: NextRequest) {
       const r = await valorarExperienciaReservaPublica({
         studioId: body.studioId, reservaId: body.reservaId, socioId, authUserId: user.userId, valoracion: body.valoracion,
       });
-      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
+      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error, ...('codigo' in r ? { codigo: r.codigo } : {}) }, { status: r.error === 'No autorizado' ? 401 : 400 }));
       return conCorsWidget(req, NextResponse.json(r));
     }
     return conCorsWidget(req, NextResponse.json({ error: 'Acción no válida' }, { status: 400 }));

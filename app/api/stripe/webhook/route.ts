@@ -1524,7 +1524,13 @@ async function procesarEvento(
   if (event.type === 'charge.dispute.funds_reinstated') {
     const dispute = event.data.object as Stripe.Dispute;
     const admin = getSupabaseAdmin();
-    if (admin && event.account) {
+    // Sin `&& event.account`: un evento SIN `account` viene de la cuenta de la
+    // PLATAFORMA, que es justo la que tiene configurada el único estudio que
+    // cobra de verdad hoy (ver `studioDeCuentaConnect`/`cuentaFirmante`).
+    // Exigirlo aquí hacía que esta rama no se ejecutara nunca para ese estudio
+    // — el resto de ramas de este fichero ya llaman a `studioDeCuentaConnect`
+    // sin exigirlo y comprueban el `studioId` resultante. Misma forma.
+    if (admin) {
       const studioId = await studioDeCuentaConnect(admin, event.account);
       if (studioId) {
         const { data: rec } = await admin.from('recibos')

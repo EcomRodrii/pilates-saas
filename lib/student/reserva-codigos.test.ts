@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { desenlaceDeRespuesta } from './reserva-codigos.ts';
+import { desenlaceDeRespuesta, esRechazoConocido } from './reserva-codigos.ts';
 
 // La regla que defienden estos tests: NINGUNA respuesta que no sea un éxito
 // explícito del servidor puede acabar en `confirmed`. El paquete de diseño lo
@@ -74,4 +74,44 @@ test('una respuesta vacía es error, nunca confirmed', () => {
 
 test('un código que no conocemos cae en error, no en confirmed', () => {
   assert.equal(desenlaceDeRespuesta({ error: 'x', codigo: 'inventado' }).state, 'error');
+});
+
+test('un rechazo por falta de plan llega a la UI con SU mensaje, no como avería', () => {
+  // El 🔴: a la alumna sin bono se le enseñaba «algo no ha salido como
+  // esperábamos… inténtalo de nuevo» más un botón de reintentar que iba a
+  // fallar igual, porque el rechazo del gate de derechos viajaba sin `codigo` y
+  // el mensaje se tiraba por el camino.
+  const ERROR_SIN_PLAN = 'Necesitas un plan o bono activo para reservar';
+  const d = desenlaceDeRespuesta({ error: ERROR_SIN_PLAN, codigo: 'sin-plan' });
+  assert.equal(d.state, 'error');
+  // `mensaje` es lo que BookingStatus pinta (`mensaje ?? c.cuerpo`): si se
+  // pierde aquí, la pantalla vuelve al copy genérico de avería.
+  assert.equal(d.mensaje, ERROR_SIN_PLAN);
+  // Y no es una avería: no puede acabar en Sentry con nivel `error`.
+  assert.equal(esRechazoConocido('sin-plan'), true);
+});
+
+test('los otros dos rechazos del gate de derechos se comportan igual', () => {
+  for (const [codigo, msg] of [
+    ['bono-no-cubre', 'Tu bono no incluye este tipo de clase'],
+    ['max-simultaneas', 'Has alcanzado el máximo de 3 reservas activas'],
+  ] as Array<[string, string]>) {
+    const d = desenlaceDeRespuesta({ error: msg, codigo });
+    assert.equal(d.state, 'error', codigo);
+    assert.equal(d.mensaje, msg, codigo);
+    assert.equal(esRechazoConocido(codigo), true, codigo);
+  }
+});
+
+test('solo lo que NO sabemos nombrar se reporta como avería', () => {
+  // `'error'` es el comodín con el que el servidor dice «me ha pasado algo que
+  // no sé nombrar»: ese sí hay que reportarlo, y la ausencia de código también.
+  assert.equal(esRechazoConocido('error'), false);
+  assert.equal(esRechazoConocido(undefined), false);
+  assert.equal(esRechazoConocido(null), false);
+  assert.equal(esRechazoConocido('codigo-que-nadie-ha-escrito'), false);
+  // Los de negocio que ya existían siguen sin reportarse.
+  for (const c of ['aforo-lleno', 'ya-reservada', 'limite-semanal']) {
+    assert.equal(esRechazoConocido(c), true, c);
+  }
 });

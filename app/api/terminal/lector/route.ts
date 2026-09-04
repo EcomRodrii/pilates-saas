@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { dbSetTerminalReader } from '@/lib/db/supabase-data-admin';
+import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stripe Terminal (datáfono físico, integración SERVER-DRIVEN) — emparejar el
@@ -37,6 +38,15 @@ async function studioConnect(studioId: string): Promise<{ account: string | null
 export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
+  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
+  // mano: el datáfono es la caja del mostrador, y sin esto un INSTRUCTOR o un
+  // MANAGER podía reemparejarlo (o desemparejarlo) pese a que su propia
+  // descripción en pantalla promete que no toca la caja. Mismo guardia que la
+  // ruta hermana /api/terminal/cobrar.
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json({ error: 'Tu rol no puede gestionar el datáfono' }, { status: 403 });
+  }
   const s = getStripe();
   if (!s) return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
   const cx = await studioConnect(sesion.studioId);
@@ -53,6 +63,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
+  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
+  // mano: el datáfono es la caja del mostrador, y sin esto un INSTRUCTOR o un
+  // MANAGER podía reemparejarlo (o desemparejarlo) pese a que su propia
+  // descripción en pantalla promete que no toca la caja. Mismo guardia que la
+  // ruta hermana /api/terminal/cobrar.
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json({ error: 'Tu rol no puede gestionar el datáfono' }, { status: 403 });
+  }
   const s = getStripe();
   if (!s) return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
 
