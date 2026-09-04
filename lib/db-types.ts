@@ -2447,3 +2447,14 @@ export interface RowPlataformaProspeccionEmail {
   generado_en: string;
   creado_en: string;
 }
+
+export interface RowDecisionSnapshots {
+  id: string;
+  studio_id: string;
+  snapshot_data: any;
+  cacheado_en: string;
+  valido_hasta: string;
+  es_valido: boolean;
+  created_at: string;
+  updated_at: string;
+}
