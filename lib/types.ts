@@ -629,6 +629,8 @@ export interface Sala {
   nombre: string;
   capacidad: number;
   color: string;
+  /** Imagen de la sala. La app de la alumna la usa como foto de sus clases. */
+  fotoUrl?: string | null;
 }
 
 export interface Spot {

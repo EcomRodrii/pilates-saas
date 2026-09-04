@@ -63,6 +63,7 @@ export default function PerfilPage() {
           items={[
             { label: 'Datos personales', href: href('/perfil/datos'), valor: socia?.email ?? undefined },
             { label: 'Preferencias', href: href('/perfil/preferencias') },
+            { label: 'Comprar bonos y suscripciones', href: href('/comprar') },
             { label: 'Bonos', href: href('/bonos') },
             { label: 'Pagos y recibos', href: href('/pagos') },
           ]}

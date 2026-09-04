@@ -35,12 +35,22 @@ import type {
  * su pantalla, no antes.
  */
 export interface PayloadPublico {
-  studio: { nombre: string; fotoUrl: string | null; slug: string } | null;
+  studio: {
+    nombre: string; fotoUrl: string | null; slug: string;
+    /** Cuenta conectada de Stripe. `null` = el estudio aún no puede cobrar. */
+    stripeAccountId?: string | null;
+  } | null;
   sesiones: Sesion[];
   tiposClase: TipoClase[];
   salas: Sala[];
   instructores: Instructor[];
   planesTarifa: PlanTarifa[];
+  /** Servicios de cita vendibles online — el payload ya los filtra por
+      `activo` y `auto_reservable`. */
+  citasServicios?: {
+    id: string; nombre: string; descripcion?: string | null; precio?: number | null;
+    duracionMin?: number | null; activo?: boolean | null; autoReservable?: boolean | null; tipo?: string | null;
+  }[];
   aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[];
   socia: {
     suscripciones: Suscripcion[];

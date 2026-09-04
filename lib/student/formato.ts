@@ -95,3 +95,18 @@ export function horaFin(hora: string, duracionMin: number): string {
   const total = ((t % 1440) + 1440) % 1440;
   return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
 }
+
+/**
+ * Lo que se le enseña como precio de una clase cuando NO tiene bono.
+ *
+ * Tres casos distintos, y antes se pintaban los tres igual («0 €»):
+ *   · hay precio            → el importe, el mismo que cobrará el checkout
+ *   · precio 0 deliberado   → «Gratis» (una clase de puertas abiertas)
+ *   · el estudio no vende sueltas → «Solo con bono», que es la verdad y además
+ *     dice qué hacer; «0 €» invitaría a reservar algo que no se puede pagar.
+ */
+export function precioClaseTexto(c: { precioSuelto: number; sinPrecioSuelto?: boolean }): string {
+  if (c.sinPrecioSuelto) return 'Solo con bono';
+  if (c.precioSuelto === 0) return 'Gratis';
+  return euros(c.precioSuelto);
+}

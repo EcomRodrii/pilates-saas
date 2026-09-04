@@ -9,7 +9,7 @@ import { useOnline } from '@/lib/student/useOnline';
 import { getBonos, getClase, getInstructoras, getReservas } from '@/lib/student/datos';
 import { confirmarReserva } from '@/lib/student/reservar';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
-import { etiquetaDia, euros, horaFin } from '@/lib/student/formato';
+import { etiquetaDia, euros, horaFin, precioClaseTexto } from '@/lib/student/formato';
 import type { BookingState } from '@/lib/student/tipos';
 import { AvailabilityBadge } from '@/components/student/ui/Badge';
 import { Sheet } from '@/components/student/ui/Sheet';
@@ -160,7 +160,7 @@ export default function FichaClasePage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <AvailabilityBadge estado={disp} plazas={clase.plazasLibres} />
           <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--muted-foreground)' }}>
-            {bono ? 'Con tu bono · 1 sesión' : `${euros(clase.precioSuelto)} clase suelta`}
+            {bono ? 'Con tu bono · 1 sesión' : (clase.sinPrecioSuelto ? 'Solo con bono' : `${euros(clase.precioSuelto)} clase suelta`)}
           </span>
         </div>
 
@@ -225,7 +225,7 @@ export default function FichaClasePage() {
             <Button full loading={bk === 'submitting'} onClick={confirmar} style={{ marginTop: 14, height: 50, fontSize: 14 }}>
               {disp === 'completa'
                 ? 'Unirme a la lista de espera'
-                : `Confirmar ${clase.hora}${bono ? ' con bono' : ` · ${euros(clase.precioSuelto)}`}`}
+                : `Confirmar ${clase.hora}${bono ? ' con bono' : ` · ${precioClaseTexto(clase)}`}`}
             </Button>
             {bk === 'submitting' && (
               <p className="t-meta" style={{ marginTop: 8, textAlign: 'center' }}>

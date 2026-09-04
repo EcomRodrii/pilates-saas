@@ -10,6 +10,7 @@ import { useAuthStudent } from '@/lib/student/auth';
 import { usePortalHref, useEstudio } from '@/components/student/contexto';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { leerFirma } from '@/lib/student/consentimiento';
+import { recuerdaSesion, fijarRecordarSesion } from '@/lib/db/portal-almacen-sesion';
 
 /**
  * Entrar. Literal del paquete (`app/(auth)/login/page.tsx`) con el backend real
@@ -33,6 +34,8 @@ export default function LoginPage() {
   const [global, setGlobal] = useState('');
   const [cargando, setCargando] = useState(false);
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
+  // Arranca con lo que ya eligió la última vez, no con un valor fijo.
+  const [recordar, setRecordar] = useState(recuerdaSesion);
 
   // `?next=` conserva a dónde iba la alumna antes de que le pidieran entrar.
   // Se valida que sea una ruta de ESTE estudio: sin eso, un `?next=` externo
@@ -55,6 +58,9 @@ export default function LoginPage() {
     const token = await pedirToken();
     if (token === null) { setCargando(false); setGlobal(ERROR_CAPTCHA); return; }
 
+    // ⚠️ ANTES de autenticar: así el token que emita Supabase se escribe ya en
+    // el almacén que toca, y no hay que mudarlo después.
+    fijarRecordarSesion(recordar);
     const res = await loginConPassword(f.email, f.pass, token || undefined);
     setCargando(false);
     if ('error' in res) { setGlobal(res.error); return; }
@@ -66,6 +72,7 @@ export default function LoginPage() {
     setErr({}); setGlobal(''); setCargando(true);
     const token = await pedirToken();
     if (token === null) { setCargando(false); setGlobal(ERROR_CAPTCHA); return; }
+    fijarRecordarSesion(recordar);
     const res = await enviarEnlace(f.email, token || undefined);
     setCargando(false);
     if ('error' in res) { setGlobal(res.error); return; }
@@ -92,6 +99,7 @@ export default function LoginPage() {
    */
   const irAGoogle = () => {
     setGlobal('');
+    fijarRecordarSesion(recordar);
     if (!leerFirma(slug)) { r.push(`${href('/acceso/registro')}?firma=1`); return; }
     void entrarConGoogle().then((res) => { if ('error' in res) setGlobal(res.error); });
   };
@@ -128,9 +136,28 @@ export default function LoginPage() {
       <Input label="Email" type="email" autoComplete="email" inputMode="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} error={err.email} />
       <Input label="Contraseña" type="password" autoComplete="current-password" value={f.pass} onChange={(e) => setF({ ...f, pass: e.target.value })} error={err.pass} />
 
-      <Link href={href('/acceso/recuperar')} style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', alignSelf: 'flex-end', marginTop: -4 }}>
-        ¿Has olvidado la contraseña?
-      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: -4 }}>
+        {/* ⚠️ Este control NO «activa» la persistencia: la sesión ya persistía
+            siempre (auth-js usa localStorage cuando `persistSession` es true y
+            no se le pasa `storage`). Lo que decide es si debe MORIR al cerrar
+            el navegador — el caso del móvil prestado o la tablet del estudio.
+            Marcado por defecto, que es como se comportaba hasta ahora. */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <button
+            type="button" role="checkbox" aria-checked={recordar}
+            aria-label="Recordar inicio de sesión en este dispositivo"
+            onClick={() => setRecordar((v) => !v)}
+            style={{ width: 19, height: 19, flexShrink: 0, borderRadius: 6, border: 'none', background: recordar ? 'var(--accent)' : 'var(--card)', boxShadow: recordar ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: '#fff', fontSize: 11.5, fontWeight: 800, transition: 'all .2s' }}
+          >
+            {recordar ? '✓' : ''}
+          </button>
+          <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>Recordar sesión</span>
+        </label>
+
+        <Link href={href('/acceso/recuperar')} style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)' }}>
+          ¿Has olvidado la contraseña?
+        </Link>
+      </div>
 
       <Button type="submit" full loading={cargando} disabled={!online} style={{ marginTop: 4 }}>
         {online ? 'Entrar' : 'Sin conexión'}
