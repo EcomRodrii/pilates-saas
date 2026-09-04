@@ -1,0 +1,272 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e2]:
+    - navigation "Principal" [ref=f3e4]:
+      - link [ref=f3e5] [cursor=pointer]:
+        - /url: /network
+      - button "Abrir menú" [ref=f3e15]
+    - banner [ref=f3e17]:
+      - generic [ref=f3e24]:
+        - heading "Tu estudio," [level=1] [ref=f3e25]:
+          - img [ref=f3e27]:
+            - generic [ref=f3e28]: A OTRO NIVEL
+        - paragraph [ref=f3e29]: Pilates y Yoga · reservas, pagos, equipo y alumnas
+        - generic [ref=f3e30]:
+          - link "Empieza" [ref=f3e31] [cursor=pointer]:
+            - /url: /network/crear-perfil
+          - link "Ver cómo funciona" [ref=f3e32] [cursor=pointer]:
+            - /url: "#estudio"
+        - generic [ref=f3e33]:
+          - generic [ref=f3e34]:
+            - generic [ref=f3e35]:
+              - generic [ref=f3e36]: ¿Qué buscas?
+              - combobox "¿Qué buscas?" [ref=f3e37]:
+                - option "Reformer" [selected]
+                - option "Mat"
+                - option "Máquina"
+                - option "Yoga"
+                - option "HIIT"
+                - option "Otro"
+            - generic [ref=f3e38]:
+              - generic [ref=f3e39]: ¿Dónde?
+              - textbox "¿Dónde?" [ref=f3e40]:
+                - /placeholder: Ciudad
+                - text: Barcelona
+            - button "Buscar instructoras" [ref=f3e41]
+          - paragraph [ref=f3e42]:
+            - text: "Populares:"
+            - link "Reformer" [ref=f3e43] [cursor=pointer]:
+              - /url: /network/instructoras?especialidades=reformer
+            - text: ·
+            - link "Yoga" [ref=f3e44] [cursor=pointer]:
+              - /url: /network/instructoras?especialidades=yoga
+            - text: ·
+            - link "Sustituciones" [ref=f3e45] [cursor=pointer]:
+              - /url: /network/instructoras?tipoTrabajo=sustituciones
+          - paragraph [ref=f3e46]: Beta · empezando en Barcelona y Madrid
+        - generic [ref=f3e48]:
+          - generic [ref=f3e52]:
+            - paragraph [ref=f3e53]: Buenas tardes, Laura
+            - heading "¿Qué te apetece hoy?" [level=3] [ref=f3e54]
+            - paragraph [ref=f3e55]: Buscar clases o instructoras
+            - paragraph [ref=f3e56]: Explora
+          - generic [ref=f3e63]:
+            - heading "Horario · hoy" [level=3] [ref=f3e64]
+            - generic [ref=f3e65]:
+              - generic [ref=f3e66]: Hoy
+              - generic [ref=f3e67]: Mañana
+            - generic [ref=f3e68]:
+              - generic [ref=f3e69]:
+                - generic [ref=f3e70]: 9:00
+                - generic: Reformer Despertar
+                - generic [ref=f3e71]: 5 plazas
+              - generic [ref=f3e72]:
+                - generic [ref=f3e73]: 19:30
+                - generic: Reformer Intenso
+                - generic [ref=f3e74]: quedan 2
+              - generic [ref=f3e75]: Reservar
+          - generic [ref=f3e79]:
+            - paragraph [ref=f3e81]: Marta G. ★ 4,9
+            - paragraph [ref=f3e82]: Reformer · Gràcia
+            - generic [ref=f3e83]: Sustituciones
+            - generic [ref=f3e85]:
+              - generic [ref=f3e86]: Ver perfil
+              - generic [ref=f3e87]: Contactar
+    - generic [ref=f3e89]:
+      - generic [ref=f3e90]:
+        - heading "Todo tu estudio. En un solo lugar." [level=2] [ref=f3e92]: Todo tu estudio.En un solo lugar.
+        - generic [ref=f3e93]:
+          - paragraph [ref=f3e94]: Horario, reservas, bonos, pagos e instructoras — sin hojas de cálculo ni WhatsApp. Tú abres Tentare por la mañana y ya sabes qué pasa hoy en tu estudio.
+          - generic [ref=f3e95]:
+            - paragraph [ref=f3e96]:
+              - text: Reservas
+              - generic [ref=f3e97]: con lista de espera
+            - paragraph [ref=f3e98]:
+              - text: Pagos
+              - generic [ref=f3e99]: bonos y mensualidades
+            - paragraph [ref=f3e100]:
+              - text: Equipo
+              - generic [ref=f3e101]: sustituciones incluidas
+      - img [ref=f3e102]:
+        - generic [ref=f3e103]: "#tentarestudio"
+    - generic [ref=f3e105]:
+      - heading "Deja de hacerlo todo tú." [level=2] [ref=f3e107]
+      - generic [ref=f3e108]:
+        - generic [ref=f3e109]:
+          - paragraph [ref=f3e110]: Una alumna cancela
+          - paragraph [ref=f3e111]: La plaza se ofrece sola a la lista de espera.
+        - generic [ref=f3e112]:
+          - paragraph [ref=f3e113]: Un pago se queda pendiente
+          - paragraph [ref=f3e114]: Recordatorio automático, sin conversaciones incómodas.
+        - generic [ref=f3e115]:
+          - paragraph [ref=f3e116]: Una alumna deja de venir
+          - paragraph [ref=f3e117]: Te avisamos a tiempo, antes de perderla.
+        - generic [ref=f3e118]:
+          - paragraph [ref=f3e119]: Una instructora se cae
+          - paragraph [ref=f3e120]: Network te propone sustituta disponible.
+    - generic [ref=f3e122]:
+      - generic [ref=f3e123]:
+        - heading "Tu web también reserva." [level=2] [ref=f3e124]
+        - paragraph [ref=f3e125]: "El portal de reservas se incrusta en tu página: mismo horario, mismos bonos, pago incluido. Un fragmento de código y tu web vende plazas mientras das clase."
+      - generic [ref=f3e126]:
+        - generic [ref=f3e127]: tuestudio.com/reservas
+        - generic [ref=f3e132]:
+          - paragraph [ref=f3e133]: Horario · hoy
+          - generic [ref=f3e134]:
+            - generic [ref=f3e135]: 18:15
+            - generic [ref=f3e136]: Reformer Fundamental
+            - generic [ref=f3e137]: últimas 2
+          - generic [ref=f3e138]:
+            - generic [ref=f3e139]: 19:30
+            - generic [ref=f3e140]: Yoga Flow
+            - generic [ref=f3e141]: 7 plazas
+          - generic [ref=f3e142]: Reservar plaza
+    - generic [ref=f3e144]:
+      - heading "Tus alumnas reservan solas. Tú te dedicas a dar clase." [level=2] [ref=f3e146]: Tus alumnas reservan solas.Tú te dedicas a dar clase.
+      - paragraph [ref=f3e149]: Horario en el bolsillo, plaza y cama elegidas en tres toques, bono siempre a la vista y lista de espera que avisa sola. Y si una clase se llena, la app ofrece la siguiente.
+    - generic [ref=f3e151]:
+      - generic [ref=f3e152]:
+        - heading "Encuentra el talento que tu estudio necesita." [level=2] [ref=f3e154]
+        - generic [ref=f3e155]:
+          - paragraph [ref=f3e156]: "Tentare Network conecta estudios con instructoras de Pilates y Yoga: perfiles verificados, disponibilidad real y sustituciones resueltas en minutos, no en cadenas de mensajes."
+          - generic [ref=f3e157]:
+            - generic [ref=f3e158]: Marta G. · Reformer
+            - generic [ref=f3e160]: Carmen V. · Yoga
+            - generic [ref=f3e162]: +120 perfiles
+          - link "Explorar Network →" [ref=f3e163] [cursor=pointer]:
+            - /url: /network/instructoras
+      - img [ref=f3e164]:
+        - generic [ref=f3e165]: "#tentarenetwork"
+    - generic [ref=f3e167]:
+      - heading "Cómo funciona Tentare Network." [level=2] [ref=f3e169]
+      - generic [ref=f3e170]:
+        - generic [ref=f3e171]:
+          - paragraph [ref=f3e173]: Para instructoras
+          - generic [ref=f3e174]:
+            - generic [ref=f3e175]:
+              - generic [ref=f3e176]: "01"
+              - generic [ref=f3e177]:
+                - paragraph [ref=f3e178]: Crea tu perfil
+                - paragraph [ref=f3e179]: Experiencia, formación, especialidades, ciudad y disponibilidad. Unos minutos, no una hoja de cálculo.
+            - generic [ref=f3e180]:
+              - generic [ref=f3e181]: "02"
+              - generic [ref=f3e182]:
+                - paragraph [ref=f3e183]: Hazte visible
+                - paragraph [ref=f3e184]: Los estudios pueden encontrarte cuando buscan justo tu especialidad, o compartir tu perfil como tu CV online.
+            - generic [ref=f3e185]:
+              - generic [ref=f3e186]: "03"
+              - generic [ref=f3e187]:
+                - paragraph [ref=f3e188]: Conecta
+                - paragraph [ref=f3e189]: Si hay interés, respondes tú directamente. Verificamos el email de cada perfil antes de publicarlo.
+        - generic [ref=f3e190]:
+          - paragraph [ref=f3e192]: Para estudios
+          - generic [ref=f3e193]:
+            - generic [ref=f3e194]:
+              - generic [ref=f3e195]: "01"
+              - generic [ref=f3e196]:
+                - paragraph [ref=f3e197]: Cuéntanos qué necesitas
+                - paragraph [ref=f3e198]: Especialidad, ciudad, tipo de colaboración — una sustitución puntual o algo fijo.
+            - generic [ref=f3e199]:
+              - generic [ref=f3e200]: "02"
+              - generic [ref=f3e201]:
+                - paragraph [ref=f3e202]: Buscamos por ti
+                - paragraph [ref=f3e203]: Cruzamos tu petición contra la red de instructoras, no solo el directorio público — también las que ya trabajan en estudios Tentare.
+            - generic [ref=f3e204]:
+              - generic [ref=f3e205]: "03"
+              - generic [ref=f3e206]:
+                - paragraph [ref=f3e207]: Te presentamos candidatas
+                - paragraph [ref=f3e208]: Hablas directamente con quien encaje. Sin comisión, sin intermediarios de por medio.
+    - generic [ref=f3e210]:
+      - heading "Confianza real, no una insignia." [level=2] [ref=f3e212]
+      - generic [ref=f3e213]:
+        - generic [ref=f3e214]:
+          - paragraph [ref=f3e215]: Sin intermediarios
+          - paragraph [ref=f3e216]: Instructora y estudio habláis directamente — Tentare no se queda en medio ni cobra comisión.
+        - generic [ref=f3e217]:
+          - paragraph [ref=f3e218]: Email verificado
+          - paragraph [ref=f3e219]: Todo perfil confirma su email antes de publicarse.
+        - generic [ref=f3e220]:
+          - paragraph [ref=f3e221]: Experiencia confirmada
+          - paragraph [ref=f3e222]: Puedes pedir que un estudio que ya usa Tentare confirme que trabajaste ahí — se marca como verificada en tu perfil.
+        - generic [ref=f3e223]:
+          - paragraph [ref=f3e224]: Actividad reciente
+          - paragraph [ref=f3e225]: Se nota si sigues buscando o si tu perfil lleva meses parado.
+    - generic [ref=f3e227]:
+      - heading "¿Cuándo se usa Network?" [level=2] [ref=f3e229]
+      - generic [ref=f3e230]:
+        - generic [ref=f3e231]:
+          - paragraph [ref=f3e232]: Necesitas una sustitución
+          - paragraph [ref=f3e233]: Un estudio se queda sin quien dé la clase de mañana y busca una instructora disponible en su zona.
+        - generic [ref=f3e234]:
+          - paragraph [ref=f3e235]: Buscas nuevas oportunidades
+          - paragraph [ref=f3e236]: Terminaste una certificación de Reformer y quieres que los estudios que buscan ese perfil te encuentren.
+        - generic [ref=f3e237]:
+          - paragraph [ref=f3e238]: Quieres incorporar una especialidad
+          - paragraph [ref=f3e239]: Tu estudio quiere ofrecer Yoga prenatal y hoy no tenéis a nadie formada en eso.
+    - generic [ref=f3e241]:
+      - heading "Preguntas frecuentes." [level=2] [ref=f3e243]
+      - generic [ref=f3e244]:
+        - group [ref=f3e245]:
+          - generic "¿Cuesta dinero crear mi perfil?" [ref=f3e246] [cursor=pointer]:
+            - text: ¿Cuesta dinero crear mi perfil?
+            - generic [ref=f3e247]: +
+        - group [ref=f3e248]:
+          - generic "¿Tengo que dejar mi trabajo actual?" [ref=f3e249] [cursor=pointer]:
+            - text: ¿Tengo que dejar mi trabajo actual?
+            - generic [ref=f3e250]: +
+        - group [ref=f3e251]:
+          - generic "¿Quién ve mi teléfono y mi email?" [ref=f3e252] [cursor=pointer]:
+            - text: ¿Quién ve mi teléfono y mi email?
+            - generic [ref=f3e253]: +
+        - group [ref=f3e254]:
+          - generic "¿Cómo saben los estudios que mi experiencia es real?" [ref=f3e255] [cursor=pointer]:
+            - text: ¿Cómo saben los estudios que mi experiencia es real?
+            - generic [ref=f3e256]: +
+        - group [ref=f3e257]:
+          - generic "¿Puedo ocultar mi perfil si dejo de buscar?" [ref=f3e258] [cursor=pointer]:
+            - text: ¿Puedo ocultar mi perfil si dejo de buscar?
+            - generic [ref=f3e259]: +
+        - group [ref=f3e260]:
+          - generic "¿Qué significa que Tentare Network está en beta?" [ref=f3e261] [cursor=pointer]:
+            - text: ¿Qué significa que Tentare Network está en beta?
+            - generic [ref=f3e262]: +
+        - group [ref=f3e263]:
+          - generic "¿En qué ciudades está disponible?" [ref=f3e264] [cursor=pointer]:
+            - text: ¿En qué ciudades está disponible?
+            - generic [ref=f3e265]: +
+        - group [ref=f3e266]:
+          - generic "¿Cómo elimino mi cuenta o mi perfil?" [ref=f3e267] [cursor=pointer]:
+            - text: ¿Cómo elimino mi cuenta o mi perfil?
+            - generic [ref=f3e268]: +
+    - generic [ref=f3e270]:
+      - heading "Tu estudio." [level=2] [ref=f3e272]:
+        - img [ref=f3e274]:
+          - generic [ref=f3e275]: TODO LO DEMÁS, TENTARE.
+      - paragraph [ref=f3e277]: Descubre, gestiona y crece
+      - generic [ref=f3e278]:
+        - link "Empieza" [ref=f3e279] [cursor=pointer]:
+          - /url: /network/crear-perfil
+        - link "Hablar con nosotros" [ref=f3e280] [cursor=pointer]:
+          - /url: "#top"
+    - contentinfo [ref=f3e281]:
+      - generic [ref=f3e282]:
+        - generic [ref=f3e293]:
+          - link "Producto" [ref=f3e294] [cursor=pointer]:
+            - /url: "#estudio"
+          - link "Explorar instructoras" [ref=f3e295] [cursor=pointer]:
+            - /url: /network/instructoras
+          - link "Acceso" [ref=f3e296] [cursor=pointer]:
+            - /url: /network/acceso
+          - link "Precios" [ref=f3e297] [cursor=pointer]:
+            - /url: /precios
+        - generic [ref=f3e298]:
+          - generic [ref=f3e299]:
+            - link "Términos de Network" [ref=f3e300] [cursor=pointer]:
+              - /url: /network/terminos
+            - link "Privacidad de Network" [ref=f3e301] [cursor=pointer]:
+              - /url: /network/privacidad
+            - link "Aviso legal" [ref=f3e302] [cursor=pointer]:
+              - /url: /legal
+            - link "Cookies" [ref=f3e303] [cursor=pointer]:
+              - /url: /cookies
+          - paragraph [ref=f3e304]: © 2026 Tentare · Barcelona
+  - alert [ref=f3e305]

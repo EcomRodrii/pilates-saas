@@ -1,0 +1,1487 @@
+diff --git a/app/api/notifications/preferences/route.ts b/app/api/notifications/preferences/route.ts
+index 3ce46303..9105b7f2 100644
+--- a/app/api/notifications/preferences/route.ts
++++ b/app/api/notifications/preferences/route.ts
+@@ -1,6 +1,7 @@
+ import { NextRequest, NextResponse } from 'next/server';
+-import { verificarUsuarioSupabase } from '@/lib/auth-server';
++import { verificarUsuarioSupabase, verificarSesionStaff } from '@/lib/auth-server';
+ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
++import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+ import { errorInterno } from '@/lib/errores-servidor';
+ 
+ // Preferencias de notificación por usuario y categoría (qué quiere recibir y por
+@@ -24,6 +25,18 @@ export async function GET(req: NextRequest) {
+   return NextResponse.json({ prefs });
+ }
+ 
++// Canales del modelo categoría × canal. Se enumeran para poder distinguir
++// "no me mandes este campo" de "ponlo a false": es justo lo que se perdía.
++const CANALES = ['inapp', 'push', 'email', 'whatsapp', 'sms'] as const;
++type Canal = (typeof CANALES)[number];
++
++// Valores por defecto de una preferencia que aún no existe (los mismos de
++// siempre: ausencia de fila = in-app + push encendidos). Solo se usan al CREAR
++// la fila, nunca al actualizarla.
++const POR_DEFECTO: Record<Canal, boolean> = {
++  inapp: true, push: true, email: false, whatsapp: false, sms: false,
++};
++
+ export async function PUT(req: NextRequest) {
+   const user = await verificarUsuarioSupabase(req);
+   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+@@ -35,18 +48,59 @@ export async function PUT(req: NextRequest) {
+     | null;
+   if (!b?.studioId || !b?.category) return NextResponse.json({ error: 'faltan datos' }, { status: 400 });
+ 
+-  const { error } = await admin.from('notification_preference').upsert({
++  // El `studio_id` que se escribe abajo venía CRUDO del body con solo el JWT
++  // validado: cualquiera con cuenta podía sembrar una fila con el estudio de
++  // otro. Se valida la pertenencia igual que el endpoint hermano
++  // (app/api/notifications/route.ts): socia de ese estudio, o staff con ese
++  // estudio activo.
++  const esSocia = !!(await socioAutenticado(user.userId, b.studioId));
++  if (!esSocia) {
++    const staff = await verificarSesionStaff(req);
++    if (staff?.studioId !== b.studioId) {
++      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
++    }
++  }
++
++  // Update PARCIAL de verdad: solo los canales PRESENTES en el body. Antes esto
++  // era un upsert de fila completa con defaults, y las dos pantallas mandan UN
++  // solo canal por toque, así que apagar el email de `pagos` volvía a encender
++  // el push, tocar cualquier push apagaba el email, y whatsapp/sms se ponían a
++  // false en cada guardado. Y respondía ok, así que el borrado no dejaba rastro.
++  const cambios: Partial<Record<Canal, boolean>> = {};
++  for (const canal of CANALES) if (typeof b[canal] === 'boolean') cambios[canal] = b[canal];
++  if (Object.keys(cambios).length === 0) {
++    // No cambiar nada y decir `{ok:true}` sería el mismo éxito falso de antes.
++    return NextResponse.json({ error: 'faltan datos' }, { status: 400 });
++  }
++
++  const ahora = new Date().toISOString();
++  const actualizar = () => admin
++    .from('notification_preference')
++    .update({ ...cambios, updated_at: ahora })
++    .eq('user_id', user.userId).eq('category', b.category as string)
++    .select('id');
++
++  const { data: tocadas, error: errUpdate } = await actualizar();
++  if (errUpdate) return errorInterno('notifications/preferences:put', errUpdate, 'No se han podido guardar las preferencias. Inténtalo de nuevo.');
++  if (tocadas && tocadas.length > 0) return NextResponse.json({ ok: true });
++
++  // Aún no había fila: se crea con los defaults de siempre y encima el cambio.
++  const { error: errInsert } = await admin.from('notification_preference').insert({
+     id: `pref-${user.userId}-${b.category}`,
+     studio_id: b.studioId,
+     user_id: user.userId,
+     category: b.category,
+-    inapp: b.inapp ?? true,
+-    push: b.push ?? true,
+-    email: b.email ?? false,
+-    whatsapp: b.whatsapp ?? false,
+-    sms: b.sms ?? false,
+-    updated_at: new Date().toISOString(),
+-  }, { onConflict: 'user_id,category' });
+-  if (error) return errorInterno('notifications/preferences:put', error, 'No se han podido guardar las preferencias. Inténtalo de nuevo.');
++    ...POR_DEFECTO,
++    ...cambios,
++    updated_at: ahora,
++  });
++  // Carrera: otra petición creó la fila entre el UPDATE y el INSERT (dos toques
++  // seguidos en la misma pantalla). Se resuelve reintentando el update parcial.
++  if (errInsert?.code === '23505') {
++    const { error } = await actualizar();
++    if (error) return errorInterno('notifications/preferences:put', error, 'No se han podido guardar las preferencias. Inténtalo de nuevo.');
++    return NextResponse.json({ ok: true });
++  }
++  if (errInsert) return errorInterno('notifications/preferences:put', errInsert, 'No se han podido guardar las preferencias. Inténtalo de nuevo.');
+   return NextResponse.json({ ok: true });
+ }
+diff --git a/app/api/notifications/subscribe/route.ts b/app/api/notifications/subscribe/route.ts
+index 5e7af7d4..5721b5b4 100644
+--- a/app/api/notifications/subscribe/route.ts
++++ b/app/api/notifications/subscribe/route.ts
+@@ -1,7 +1,8 @@
+ import { NextRequest, NextResponse } from 'next/server';
+ import { randomUUID } from 'node:crypto';
+-import { verificarUsuarioSupabase } from '@/lib/auth-server';
++import { verificarUsuarioSupabase, verificarSesionStaff } from '@/lib/auth-server';
+ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
++import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+ import { errorInterno } from '@/lib/errores-servidor';
+ 
+ // Guarda / elimina la suscripción Web Push del usuario (propietaria/instructora/
+@@ -23,6 +24,19 @@ export async function POST(req: NextRequest) {
+     return NextResponse.json({ error: 'suscripción incompleta' }, { status: 400 });
+   }
+ 
++  // El `studio_id` iba CRUDO del body con solo el JWT validado: cualquiera con
++  // cuenta podía registrar su dispositivo bajo el estudio de otro. Misma
++  // comprobación de pertenencia que el endpoint hermano
++  // (app/api/notifications/route.ts): socia de ese estudio, o staff con ese
++  // estudio activo.
++  const esSocia = !!(await socioAutenticado(user.userId, b.studioId));
++  if (!esSocia) {
++    const staff = await verificarSesionStaff(req);
++    if (staff?.studioId !== b.studioId) {
++      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
++    }
++  }
++
+   const { error } = await admin.from('push_subscription').upsert({
+     id: `push-${randomUUID()}`,
+     studio_id: b.studioId,
+diff --git a/app/api/public/reserva/route.ts b/app/api/public/reserva/route.ts
+index 3d30a01c..444962b8 100644
+--- a/app/api/public/reserva/route.ts
++++ b/app/api/public/reserva/route.ts
+@@ -38,13 +38,18 @@ export async function POST(req: NextRequest) {
+   const socioId = await socioAutenticado(user.userId, body.studioId);
+   if (!socioId) return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 401 }));
+ 
++  // El `codigo` del rechazo VIAJA al cliente además del texto: sin él, el
++  // `switch` de lib/student/reserva-codigos.ts caía siempre en el `default`
++  // y la app de la alumna pintaba «algo ha fallado, inténtalo de nuevo» para
++  // TODO — clase completa, reserva duplicada, choque de horario— además de
++  // reportar a Sentry cada rechazo normal de negocio como si fuera una avería.
+   try {
+     if (body.accion === 'crear') {
+       if (!body.sesionId) return conCorsWidget(req, NextResponse.json({ error: 'Falta la sesión' }, { status: 400 }));
+       const r = await crearReservaPublica({
+         studioId: body.studioId, sesionId: body.sesionId, socioId, authUserId: user.userId, spotId: body.spotId ?? null,
+       });
+-      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
++      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error, ...('codigo' in r ? { codigo: r.codigo } : {}) }, { status: r.error === 'No autorizado' ? 401 : 400 }));
+       return conCorsWidget(req, NextResponse.json(r));
+     }
+     if (body.accion === 'cancelar') {
+@@ -52,7 +57,7 @@ export async function POST(req: NextRequest) {
+       const r = await cancelarReservaPublica({
+         studioId: body.studioId, reservaId: body.reservaId, socioId, authUserId: user.userId,
+       });
+-      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
++      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error, ...('codigo' in r ? { codigo: r.codigo } : {}) }, { status: r.error === 'No autorizado' ? 401 : 400 }));
+       return conCorsWidget(req, NextResponse.json(r));
+     }
+     if (body.accion === 'valorar') {
+@@ -61,7 +66,7 @@ export async function POST(req: NextRequest) {
+       const r = await valorarExperienciaReservaPublica({
+         studioId: body.studioId, reservaId: body.reservaId, socioId, authUserId: user.userId, valoracion: body.valoracion,
+       });
+-      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
++      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error, ...('codigo' in r ? { codigo: r.codigo } : {}) }, { status: r.error === 'No autorizado' ? 401 : 400 }));
+       return conCorsWidget(req, NextResponse.json(r));
+     }
+     return conCorsWidget(req, NextResponse.json({ error: 'Acción no válida' }, { status: 400 }));
+diff --git a/app/api/stripe/webhook/route.ts b/app/api/stripe/webhook/route.ts
+index a6d8cfde..e6ecc7bc 100644
+--- a/app/api/stripe/webhook/route.ts
++++ b/app/api/stripe/webhook/route.ts
+@@ -1514,7 +1514,13 @@ async function procesarEvento(
+   if (event.type === 'charge.dispute.funds_reinstated') {
+     const dispute = event.data.object as Stripe.Dispute;
+     const admin = getSupabaseAdmin();
+-    if (admin && event.account) {
++    // Sin `&& event.account`: un evento SIN `account` viene de la cuenta de la
++    // PLATAFORMA, que es justo la que tiene configurada el único estudio que
++    // cobra de verdad hoy (ver `studioDeCuentaConnect`/`cuentaFirmante`).
++    // Exigirlo aquí hacía que esta rama no se ejecutara nunca para ese estudio
++    // — el resto de ramas de este fichero ya llaman a `studioDeCuentaConnect`
++    // sin exigirlo y comprueban el `studioId` resultante. Misma forma.
++    if (admin) {
+       const studioId = await studioDeCuentaConnect(admin, event.account);
+       if (studioId) {
+         const { data: rec } = await admin.from('recibos')
+diff --git a/app/api/terminal/lector/route.ts b/app/api/terminal/lector/route.ts
+index 76cb75c3..30ddc9f6 100644
+--- a/app/api/terminal/lector/route.ts
++++ b/app/api/terminal/lector/route.ts
+@@ -3,6 +3,7 @@ import Stripe from 'stripe';
+ import { verificarSesionStaff } from '@/lib/auth-server';
+ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { dbSetTerminalReader } from '@/lib/db/supabase-data-admin';
++import { puedeMoverDinero } from '@/lib/permisos-reglas';
+ 
+ // ─────────────────────────────────────────────────────────────────────────────
+ // Stripe Terminal (datáfono físico, integración SERVER-DRIVEN) — emparejar el
+@@ -37,6 +38,15 @@ async function studioConnect(studioId: string): Promise<{ account: string | null
+ export async function GET(req: NextRequest) {
+   const sesion = await verificarSesionStaff(req);
+   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
++  // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
++  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
++  // mano: el datáfono es la caja del mostrador, y sin esto un INSTRUCTOR o un
++  // MANAGER podía reemparejarlo (o desemparejarlo) pese a que su propia
++  // descripción en pantalla promete que no toca la caja. Mismo guardia que la
++  // ruta hermana /api/terminal/cobrar.
++  if (!puedeMoverDinero(sesion.rol)) {
++    return NextResponse.json({ error: 'Tu rol no puede gestionar el datáfono' }, { status: 403 });
++  }
+   const s = getStripe();
+   if (!s) return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
+   const cx = await studioConnect(sesion.studioId);
+@@ -53,6 +63,15 @@ export async function GET(req: NextRequest) {
+ export async function POST(req: NextRequest) {
+   const sesion = await verificarSesionStaff(req);
+   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
++  // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
++  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
++  // mano: el datáfono es la caja del mostrador, y sin esto un INSTRUCTOR o un
++  // MANAGER podía reemparejarlo (o desemparejarlo) pese a que su propia
++  // descripción en pantalla promete que no toca la caja. Mismo guardia que la
++  // ruta hermana /api/terminal/cobrar.
++  if (!puedeMoverDinero(sesion.rol)) {
++    return NextResponse.json({ error: 'Tu rol no puede gestionar el datáfono' }, { status: 403 });
++  }
+   const s = getStripe();
+   if (!s) return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
+ 
+diff --git a/app/api/terminal/reconciliar/route.ts b/app/api/terminal/reconciliar/route.ts
+index 330ec38a..6d177a83 100644
+--- a/app/api/terminal/reconciliar/route.ts
++++ b/app/api/terminal/reconciliar/route.ts
+@@ -1,6 +1,7 @@
+ import { NextRequest, NextResponse } from 'next/server';
+ import { verificarSesionStaff } from '@/lib/auth-server';
+ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
++import { puedeMoverDinero } from '@/lib/permisos-reglas';
+ 
+ // A-14 (backstop): marca un cobro por datáfono como RECONCILIADO una vez que su
+ // venta está registrada. Lo llama el POS tanto en el flujo normal (tras el tap
+@@ -14,6 +15,14 @@ export async function POST(req: NextRequest) {
+ 
+   const sesion = await verificarSesionStaff(req);
+   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
++  // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
++  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
++  // mano: cerrar un cobro del datáfono como RECONCILIADO es tocar el cierre de
++  // caja, y sin esto un INSTRUCTOR o un MANAGER podía dar por cuadrado —o
++  // inventar— un cobro. Mismo guardia que la ruta hermana /api/terminal/cobrar.
++  if (!puedeMoverDinero(sesion.rol)) {
++    return NextResponse.json({ error: 'Tu rol no puede reconciliar cobros' }, { status: 403 });
++  }
+ 
+   const body = (await req.json().catch(() => null)) as
+     | { paymentIntentId?: unknown; ventaId?: unknown; importe?: unknown; concepto?: unknown }
+diff --git a/app/portal/[slug]/[...resto]/route.ts b/app/portal/[slug]/[...resto]/route.ts
+index 49f6667b..1fd3a0ef 100644
+--- a/app/portal/[slug]/[...resto]/route.ts
++++ b/app/portal/[slug]/[...resto]/route.ts
+@@ -1,5 +1,6 @@
+ import { redirect, permanentRedirect } from 'next/navigation';
+ import type { NextRequest } from 'next/server';
++import { destinoPortalViejo } from '@/lib/student/deep-links';
+ 
+ // Compatibilidad con las URLs del portal ANTERIOR.
+ //
+@@ -15,45 +16,33 @@ import type { NextRequest } from 'next/server';
+ //
+ // Next resuelve primero las rutas concretas (`/bonos`, `/perfil`…) y solo cae
+ // aquí lo que no existe, así que este fichero únicamente ve nombres viejos.
+-const MAPA: Record<string, string> = {
+-  // El portal separaba comprar (`/compras`) de consultar el saldo (`/bonos`).
+-  // El diseño nuevo lo llama pagos: es donde está el historial y el recibo.
+-  compras: '/pagos',
+-  // El horario y la ficha de clase cambiaron de nombre.
+-  clases: '/reservar',
+-  // Listado de reservas.
+-  reservas: '/mis-reservas',
+-  // Las tres puertas viejas caen en la puerta única del diseño.
+-  login: '/acceso/login',
+-  acceso: '/acceso/login',
+-  'clave-nueva': '/acceso/verificar',
+-  // Sin equivalente todavía: se manda al inicio, que es un destino honesto.
+-  instructores: '',
+-  comunidad: '',
+-  mensajes: '',
+-};
++//
++// El mapa y la regla de qué destinos admiten cola viven en
++// `lib/student/deep-links.ts` (`destinoPortalViejo`): un `route.ts` no puede
++// exportar nada que no sea un verbo HTTP, así que aquí no habría manera de
++// probar la traducción — y su fallo era justo un bucle infinito de 308.
+ 
+ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string; resto: string[] }> }) {
+   const { slug, resto } = await params;
+   const base = `/portal/${encodeURIComponent(slug)}`;
+-  const [primero, ...cola] = resto ?? [];
+ 
+-  const destino = MAPA[primero ?? ''];
+-  if (destino === undefined) {
++  // La cola solo se conserva cuando el destino la admite —`/clases/<sesionId>`
++  // → `/reservar/<sesionId>`, porque ahí es la mitad del valor del enlace: un
++  // aviso push de «tu clase de mañana» que aterrice en el horario genérico ha
++  // perdido lo que traía—. Arrastrarla siempre reentraba por este mismo
++  // handler y crecía en cada salto (ver ADMITEN_COLA en deep-links.ts).
++  const destino = destinoPortalViejo(resto);
++  if (destino === null) {
+     // Ruta vieja que no reconocemos: al inicio del estudio, nunca a un 404.
+     redirect(base);
+   }
+ 
+-  // `/clases/<sesionId>` → `/reservar/<sesionId>`. La cola se conserva porque
+-  // es la mitad del valor del enlace: un aviso push de «tu clase de mañana»
+-  // que aterrice en el horario genérico ha perdido lo que traía.
+-  const sufijo = cola.length ? '/' + cola.map(encodeURIComponent).join('/') : '';
+-  // Y la query también: los retornos de Stripe la usan (`?compra=ok`,
++  // La query también se conserva: los retornos de Stripe la usan (`?compra=ok`,
+   // `?tarjeta=ok`), y el stub anterior la tiraba — ese era el bug que dejaba a
+   // una clienta recién pagada en una pantalla que no le decía nada.
+   const query = req.nextUrl.search;
+ 
+   // 308 y no 307: son cambios de dirección definitivos, y así los buscadores y
+   // los clientes de correo dejan de pedir la vieja.
+-  permanentRedirect(`${base}${destino}${sufijo}${query}`);
++  permanentRedirect(`${base}${destino}${query}`);
+ }
+diff --git a/app/portal/[slug]/perfil/preferencias/page.tsx b/app/portal/[slug]/perfil/preferencias/page.tsx
+index 6119fa1d..b28f4f44 100644
+--- a/app/portal/[slug]/perfil/preferencias/page.tsx
++++ b/app/portal/[slug]/perfil/preferencias/page.tsx
+@@ -19,17 +19,28 @@ import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/
+ // (`CATEGORIAS_POR_ROL.SOCIA`), y los canales in-app, push, email, WhatsApp y
+ // SMS.
+ //
+-// Se respetan los NOMBRES del diseño —son mejores para una alumna que
+-// «categoría reservas»— pero cada uno gobierna su categoría real, no un
+-// interruptor inventado. Inventarlos habría producido una pantalla que guarda
+-// preferencias que el motor no lee.
++// Se respeta el TONO del diseño —hablarle a una alumna de «categoría reservas»
++// no ayuda a nadie— pero cada fila gobierna su categoría real y su texto
++// describe lo que esa categoría contiene de verdad. Inventar interruptores
++// habría producido una pantalla que guarda preferencias que el motor no lee;
++// heredar los nombres del diseño sin mirar el catálogo produjo algo peor: una
++// pantalla que apagaba lo contrario de lo que prometía (ver FILAS).
+ //
+ // Ausencia de fila = encendido: es el valor por defecto del propio endpoint.
+ 
++// ⚠️ Estas etiquetas describen lo que hay HOY en cada categoría del catálogo
++// (`lib/notifications/catalog.ts`) y TIENEN QUE SEGUIRLO: el interruptor gobierna
++// la categoría entera, no el evento que da nombre a la fila. Antes decían lo
++// contrario de lo que hacían —«Recordatorio de clase» estaba puesto sobre
++// `clases`, que es donde viven CLASE_CANCELADA/CLASE_MODIFICADA/CLASE_SUSTITUTA,
++// mientras que RECORDATORIO_24H y RECORDATORIO_1H son `reservas`—, así que
++// apagar los recordatorios silenciaba el aviso de que te habían cancelado la
++// clase y no apagaba ningún recordatorio. Si algún día se mueve un evento de
++// categoría, lo que hay que reescribir es esta tabla, no la categoría del evento.
+ const FILAS: Array<{ categoria: string; label: string; sub?: string }> = [
+-  { categoria: 'reservas', label: 'Plaza liberada y reservas', sub: 'Cuando estés en lista de espera o cambie tu reserva' },
+-  { categoria: 'clases', label: 'Recordatorio de clase', sub: 'El día antes y un rato antes' },
+-  { categoria: 'pagos', label: 'Bonos y pagos', sub: 'Bono a punto de caducar, cobros' },
++  { categoria: 'reservas', label: 'Tus reservas', sub: 'Recordatorio de tus clases, plaza liberada y cambios en tus reservas' },
++  { categoria: 'clases', label: 'Cambios en las clases', sub: 'Si se cancela, se modifica o la da otra profesora' },
++  { categoria: 'pagos', label: 'Bonos y pagos', sub: 'Bono a punto de caducar o agotado, cobros' },
+   { categoria: 'marketing', label: 'Novedades del estudio' },
+ ];
+ 
+diff --git a/app/portal/[slug]/reservar/[claseId]/page.tsx b/app/portal/[slug]/reservar/[claseId]/page.tsx
+index 337f8839..f8e78843 100644
+--- a/app/portal/[slug]/reservar/[claseId]/page.tsx
++++ b/app/portal/[slug]/reservar/[claseId]/page.tsx
+@@ -36,6 +36,11 @@ export default function FichaClasePage() {
+   const { estudio } = useEstudio();
+   const { online } = useOnline();
+   const [bk, setBk] = useState<BookingState>('idle');
++  // El motivo CONCRETO del servidor, cuando lo hay. Va aparte del estado
++  // porque la máquina del diseño no tiene un estado para cada rechazo: «no
++  // tienes bono activo» y «has llegado a tu tope de reservas» caen los dos en
++  // `error`, y sin guardar el mensaje se pintaba el copy de avería genérico.
++  const [bkMensaje, setBkMensaje] = useState<string | undefined>(undefined);
+ 
+   const cargar = useCallback(async () => {
+     const [clase, reservas, bonos, instructoras] = await Promise.all([
+@@ -54,6 +59,9 @@ export default function FichaClasePage() {
+ 
+   /** Cambia de estado solo si la máquina lo permite. */
+   const ir = useCallback((a: BookingState) => {
++    // El mensaje pertenece a la respuesta que lo trajo: al cambiar de estado
++    // por nuestra cuenta (reintentar, volver a la revisión) deja de valer.
++    setBkMensaje(undefined);
+     setBk((de) => (transicionValida(de, a) ? a : de));
+   }, []);
+ 
+@@ -68,6 +76,7 @@ export default function FichaClasePage() {
+       online,
+     });
+     setBk(r.state);
++    setBkMensaje(r.mensaje);
+     // Los datos han cambiado: la clase tiene una plaza menos y ella una reserva
+     // más. Sin recargar, volver atrás enseña el aforo de antes.
+     if (r.state === 'confirmed' || r.state === 'waitlisted') reintentar();
+@@ -77,13 +86,14 @@ export default function FichaClasePage() {
+     // Durante el envío la hoja no se cierra: cerrarla dejaría a la alumna sin
+     // saber en qué acabó una operación que ya está en marcha.
+     if (bk === 'submitting') return;
++    setBkMensaje(undefined);
+     setBk('idle');
+   }, [bk]);
+ 
+   const finalizar = useCallback(() => {
+     if (bk === 'confirmed' || bk === 'waitlisted') router.push(href('/mis-reservas'));
+     else if (bk === 'session-expired') router.push(href('/acceso/login'));
+-    else setBk('idle');
++    else { setBkMensaje(undefined); setBk('idle'); }
+   }, [bk, router, href]);
+ 
+   if (estado === 'loading') {
+@@ -238,6 +248,7 @@ export default function FichaClasePage() {
+         {esFinal && (
+           <BookingStatus
+             state={bk as Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>}
++            mensaje={bkMensaje}
+             onRetry={() => ir('reviewing')}
+             onWaitlist={() => ir('reviewing')}
+             onClose={finalizar}
+diff --git a/components/student/domain/BookingStatus.tsx b/components/student/domain/BookingStatus.tsx
+index fccb1477..55289e0b 100644
+--- a/components/student/domain/BookingStatus.tsx
++++ b/components/student/domain/BookingStatus.tsx
+@@ -1,7 +1,15 @@
+ import type { BookingState } from '@/lib/student/tipos';
+ import { COPY } from '@/lib/student/maquina-reserva';
+-/** Resultado de reserva devuelto por el servidor. Solo 'confirmed' muestra la celebración. */
+-export function BookingStatus({ state, onRetry, onWaitlist, onClose }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void }) {
++/**
++ * Resultado de reserva devuelto por el servidor. Solo 'confirmed' muestra la celebración.
++ *
++ * `mensaje` es el motivo CONCRETO que dio el servidor, cuando lo hay. Manda
++ * sobre el copy genérico del estado: la máquina del diseño no tiene un estado
++ * para «no tienes bono» ni para «has llegado a tu tope de reservas», así que
++ * ambos caen en `error` — y sin este texto la alumna leía «algo no ha salido
++ * como esperábamos, inténtalo de nuevo» y reintentaba contra el mismo muro.
++ */
++export function BookingStatus({ state, mensaje, onRetry, onWaitlist, onClose }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; mensaje?: string; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void }) {
+   const c = COPY[state];
+   const ok = state === 'confirmed';
+   const col = c.tono === 'ok' ? '#4F8A5B' : c.tono === 'warn' ? 'var(--warning)' : 'var(--destructive)';
+@@ -13,7 +21,7 @@ export function BookingStatus({ state, onRetry, onWaitlist, onClose }: { state:
+         <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 999, background: col, color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>{c.tono === 'ok' ? '✓' : c.tono === 'warn' ? '!' : '×'}</span>
+       </div>
+       <h3 className="t-h2" style={{ fontSize: 20, marginTop: 15, letterSpacing: '-.025em', animation: 'apUp .4s .15s both' }}>{c.titulo}</h3>
+-      <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--muted-foreground)', lineHeight: 1.5, animation: 'apUp .4s .22s both' }}>{c.cuerpo}</p>
++      <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--muted-foreground)', lineHeight: 1.5, animation: 'apUp .4s .22s both' }}>{mensaje ?? c.cuerpo}</p>
+       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16, animation: 'apUp .4s .3s both' }}>
+         {state === 'full' && onWaitlist && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 13.5 }} onClick={onWaitlist}>Unirme a la lista de espera</button>}
+         {(state === 'error' || state === 'offline') && onRetry && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 13.5 }} onClick={onRetry}>Intentar de nuevo</button>}
+diff --git a/lib/billing/dunning-server.ts b/lib/billing/dunning-server.ts
+index 60048ac5..20a93e7d 100644
+--- a/lib/billing/dunning-server.ts
++++ b/lib/billing/dunning-server.ts
+@@ -38,7 +38,7 @@ export async function registrarFalloCobro(params: {
+ 
+   const plan = planificarTrasFallo(rec.intentos_reintento ?? 0, rec.fecha_vencimiento);
+ 
+-  const { error } = await admin
++  const { data: actualizado, error } = await admin
+     .from('recibos')
+     .update({
+       estado: plan.estado,
+@@ -47,8 +47,40 @@ export async function registrarFalloCobro(params: {
+       ...(esSepa ? { sepa_estado: 'failed' } : {}),
+     })
+     .eq('id', reciboId)
+-    .eq('studio_id', studioId);
++    .eq('studio_id', studioId)
++    // Mismo guardia de estados que sus dos hermanas (`confirmarCobroExitoso`
++    // más abajo y `procesarChargeRefunded` en procesar-reembolso.ts): solo se
++    // avanza el ciclo de dunning sobre un recibo REINTENTABLE. Sin esto, un
++    // `charge.failed`/`payment_intent.payment_failed` tardío —o el reenvío de
++    // un evento viejo— RESUCITABA a PENDIENTE un recibo ya COBRADO o ya
++    // DEVUELTO, y encima le mandaba a la socia el email de impago de un cobro
++    // que sí se hizo. Un adeudo SEPA puede fallar semanas después del
++    // succeeded original, así que la secuencia es real, no teórica.
++    // COBRADO solo se admite en SEPA: un adeudo se marca COBRADO al liquidar y
++    // el banco puede devolverlo SEMANAS despues (R-transaction), asi que ahi el
++    // fallo tardio es REAL y hay que procesarlo — excluirlo dejaba el recibo
++    // COBRADO con dinero que nunca entro. Con tarjeta no existe ese caso: tras
++    // un succeeded no llega un failed del mismo PaymentIntent, asi que solo
++    // puede ser el reenvio de un evento viejo. DEVUELTO nunca se resucita.
++    .in('estado', esSepa
++      ? ['PENDIENTE', 'FALLIDO', 'EN_CURSO', 'COBRADO']
++      : ['PENDIENTE', 'FALLIDO', 'EN_CURSO'])
++    .select('id');
+   if (error) throw new Error(error.message);
++  // 0 filas = el recibo existe (se leyó arriba) pero su estado ya no admite
++  // reintento. No es un error, pero tampoco es normal: se reporta para poder
++  // distinguir el reenvío inocente de un evento de un fallo de cobro real que
++  // se está perdiendo.
++  if (!actualizado || actualizado.length === 0) {
++    Sentry.captureMessage('[dunning] fallo de cobro ignorado: el recibo ya no es reintentable', {
++      level: 'warning', tags: { area: 'cobros', tipo: 'dunning' },
++      extra: {
++        reciboId, studioId, esSepa,
++        queHacer: 'El recibo está COBRADO o DEVUELTO: no se avanza su ciclo de dunning ni se avisa a la socia. Revisar si el fallo era real y llegó tarde.',
++      },
++    });
++    return null;
++  }
+ 
+   // Hallazgo A (auditoría dunning 2026-08-10): al agotar los 3 reintentos la
+   // suscripción se quedaba ACTIVA para siempre con `fecha_fin` ya vencida —
+diff --git a/lib/billing/registrar-devolucion.test.ts b/lib/billing/registrar-devolucion.test.ts
+index 96313377..b2c10121 100644
+--- a/lib/billing/registrar-devolucion.test.ts
++++ b/lib/billing/registrar-devolucion.test.ts
+@@ -170,6 +170,20 @@ test('una devolución de venta POS se anota con venta_pos_id, sin recibo_id, y s
+   assert.ok(actualizado[0].fila.devuelta_en, 'ventas_pos SÍ lleva devuelta_en, a diferencia de recibos');
+ });
+ 
++test('⚠️ un reembolso PARCIAL de venta POS NO la marca como devuelta entera', async () => {
++  // `devuelta_en` significa "esta venta está devuelta al 100 %" — el webhook la
++  // pone a null en cuanto el cargo deja de estarlo. Escribirla en un parcial
++  // daba por devuelta entera una venta de la que solo volvió una parte del
++  // dinero: caja y cierre diario descuadrados, y sin nada que lo delatara.
++  const { admin, actualizado } = fakeAdmin();
++  const r = await registrarDevolucion(admin, { ...BASE_POS, origen: 'REEMBOLSO_PARCIAL' as const, devueltoCentimos: 1500 });
++
++  assert.equal(r?.importeDevuelto, 15);
++  assert.equal(actualizado[0].tabla, 'ventas_pos');
++  assert.equal(actualizado[0].fila.importe_devuelto, 15, 'el acumulado sí se anota, total o parcial');
++  assert.equal(actualizado[0].fila.devuelta_en, null, 'solo el REEMBOLSO_TOTAL marca la venta como devuelta');
++});
++
+ test('una devolución de venta POS que no existe en este estudio no se anota', async () => {
+   const { admin, insertado } = fakeAdmin({ ventaPos: null });
+   assert.equal(await registrarDevolucion(admin, BASE_POS), null);
+diff --git a/lib/billing/registrar-devolucion.ts b/lib/billing/registrar-devolucion.ts
+index 0e7b154f..f0197650 100644
+--- a/lib/billing/registrar-devolucion.ts
++++ b/lib/billing/registrar-devolucion.ts
+@@ -224,8 +224,18 @@ export async function registrarDevolucion(admin: SupabaseClient, p: {
+   // incrementando: así un reintento lo deja igual en vez de sumar dos veces.
+   const tabla = p.ventaPosId ? 'ventas_pos' : 'recibos';
+   const id = p.ventaPosId ?? p.reciboId!;
++  // `devuelta_en` es la marca de "esta venta está devuelta ENTERA" (el webhook
++  // la pone a null cuando el cargo deja de estar totalmente devuelto). Un
++  // reembolso PARCIAL no puede escribirla: dejaba la venta POS contada como
++  // devuelta al 100 % habiendo vuelto solo una parte del dinero. Mismo criterio
++  // que el equivalente de `recibos`, que solo marca DEVUELTO en el TOTAL
++  // (lib/billing/procesar-reembolso.ts). El importe acumulado sí se anota
++  // siempre, total o parcial.
+   const camposActualizados = p.ventaPosId
+-    ? { importe_devuelto: importeDevuelto, devuelta_en: new Date().toISOString() }
++    ? {
++        importe_devuelto: importeDevuelto,
++        devuelta_en: p.origen === 'REEMBOLSO_TOTAL' ? new Date().toISOString() : null,
++      }
+     : { importe_devuelto: importeDevuelto };
+   const { error: errImporte } = await admin.from(tabla)
+     .update(camposActualizados)
+diff --git a/lib/db/supabase-data-admin.ts b/lib/db/supabase-data-admin.ts
+index 8a1279a5..bd3e707f 100644
+--- a/lib/db/supabase-data-admin.ts
++++ b/lib/db/supabase-data-admin.ts
+@@ -785,15 +785,39 @@ export async function fetchPublicStudioData(
+ 
+   if (!member) return { ...base, socia: null };
+ 
+-  // Datos de la socia: SOLO si el id existe en ese estudio Y el email coincide
+-  // (prueba mínima de identidad). Si no valida, no se devuelve nada suyo.
++  // Datos de la socia. La autorización YA está hecha arriba: `member.socioId`
++  // sale de `socioAutenticado(usuario.authUserId, studioId)`, o sea de
++  // `auth_user_id` sobre el JWT verificado — el mismo criterio que usa el resto
++  // del sistema (`validarSociaPublica`, `resolverSociaAutenticada`). Aquí solo
++  // se relee su fila, acotada igualmente por id + estudio.
++  //
++  // I-15 (auditoría 29-ago) aplicado también a la LECTURA: esto exigía ADEMÁS
++  // que `socios.email` coincidiera con el email de la sesión y, si no,
++  // devolvía `socia: null` con 200 y sin un solo error. Como el panel puede
++  // reescribir `socios.email` libremente (dbUpdateSocio), bastaba corregir un
++  // typo para que la alumna abriera su app con sesión válida y viera CERO
++  // reservas, CERO bonos y CERO pagos — mientras seguía pudiendo reservar,
++  // porque las ESCRITURAS van por `validarSociaPublica`, que sí la autoriza
++  // por `auth_user_id`. Lectura y escritura autorizaban por criterios
++  // distintos, y el que fallaba lo hacía en silencio.
+   const { data: socioRow } = await admin
+     .from('socios').select('*')
+     .eq('id', member.socioId).eq('studio_id', studioId).maybeSingle();
+ 
+-  const emailOk = socioRow &&
+-    (socioRow.email ?? '').trim().toLowerCase() === member.email.trim().toLowerCase();
+-  if (!socioRow || !emailOk) return { ...base, socia: null };
++  if (!socioRow) return { ...base, socia: null };
++
++  // Red: la divergencia ya no bloquea, pero deja rastro. Significa que el email
++  // de acceso y el de la ficha se han separado, y hay sitios que todavía
++  // asumen que van juntos (lib/portal-auth.tsx, `actualizarEmail`).
++  // `warning`, no `error`: no hay nada roto que arreglar en caliente.
++  if ((socioRow.email ?? '').trim().toLowerCase() !== member.email.trim().toLowerCase()) {
++    capturarMensaje(
++      'fetchPublicStudioData: el email de la ficha no coincide con el de la sesión',
++      'warning',
++      // Sin emails ni nombre: es PII. Con los ids se localiza la fila.
++      { tags: { area: 'portal-socia' }, extra: { studioId, socioId: member.socioId } },
++    );
++  }
+ 
+   const sid = member.socioId;
+   const [susRes, resRes, recRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes, retoRes, recupRes] =
+@@ -1904,9 +1928,16 @@ export async function crearReservaPublica(params: {
+         params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyISO,
+       );
+       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: tieneAlgunPlan ? 'PLAN_NO_INCLUYE_TIPO' : 'SIN_PLAN' });
++      // Con `codigo`, igual que los rechazos que vienen de la RPC más abajo.
++      // Sin él, el cliente (lib/student/reserva-codigos.ts) no puede distinguir
++      // «no tienes bono» de «el servidor ha dicho algo que no sabemos
++      // traducir», y cae en el copy genérico de avería — «algo no ha salido como
++      // esperábamos, inténtalo de nuevo», con un botón de reintentar que va a
++      // fallar exactamente igual — además de disparar un aviso en Sentry por
++      // algo que es una regla de negocio, no una avería.
+       return tieneAlgunPlan
+-        ? { error: ERROR_BONO_NO_CUBRE }
+-        : { error: ERROR_SIN_PLAN };
++        ? { error: ERROR_BONO_NO_CUBRE, codigo: 'bono-no-cubre' as const }
++        : { error: ERROR_SIN_PLAN, codigo: 'sin-plan' as const };
+     }
+     if (pol.maxSimultaneas != null) {
+       const activas = contarReservasActivasFuturas(
+@@ -1924,7 +1955,7 @@ export async function crearReservaPublica(params: {
+       );
+       if (activas >= pol.maxSimultaneas) {
+         registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_SIMULTANEAS' });
+-        return { error: `Has alcanzado el máximo de ${pol.maxSimultaneas} reservas activas` as const };
++        return { error: `Has alcanzado el máximo de ${pol.maxSimultaneas} reservas activas` as const, codigo: 'max-simultaneas' as const };
+       }
+     }
+   }
+diff --git a/lib/inngest/conciliar-cobros.ts b/lib/inngest/conciliar-cobros.ts
+index 5eba652e..28c2eaad 100644
+--- a/lib/inngest/conciliar-cobros.ts
++++ b/lib/inngest/conciliar-cobros.ts
+@@ -273,6 +273,24 @@ async function vigilarEstudio(
+   return escapados.length;
+ }
+ 
++// Roturas HISTÓRICAS ya diagnosticadas y documentadas: la condición es
++// permanente (una factura emitida NO se reescribe, ver `queHacer` de abajo), así
++// que avisar de ellas cada día solo entierra la alerta que sí importaría.
++//
++// `studio-1` / seq 4 (`A-2026-0028`): la migración
++// `supabase/migrations/20260729152338_facturas_numeracion_atomica.sql` reparó un
++// duplicado real de numeración renumerando `fac-auto-1783688865320-feepl` de la
++// seq 3 a la 4, pero NO reenlazó su `verifactu_prev_hash` — que sigue apuntando
++// a la "anterior" que tenía antes del renumerado. Por eso hoy en producción las
++// facturas seq 3 y seq 4 de `studio-1` comparten `prev_hash`. Son facturas de
++// SIEMBRA, jamás transmitidas a la AEAT, y el renumerado fue deliberado.
++//
++// Esta lista es una EXENCIÓN NOMINAL, no un silenciador: cualquier otra rotura
++// —de otro estudio, u otra seq de este mismo— sigue disparando el aviso.
++const ROTURAS_VERIFACTU_CONOCIDAS: ReadonlySet<string> = new Set([
++  'studio-1:4', // A-2026-0028, renumerado de la migración 20260729152338
++]);
++
+ // Auditoría 22ª pasada (3-sep-2026), P-3. `reservar_numero_factura` reserva
+ // numero_completo/verifactu_seq/verifactu_prev_hash bajo un advisory lock POR
+ // ESTUDIO (lib/billing/sellar-factura-server.ts), así que la secuencia y su
+@@ -298,7 +316,12 @@ export async function vigilarCadenaVerifactu(admin: SupabaseClient): Promise<num
+       .order('verifactu_seq', { ascending: true })
+       .range(from, to),
+   );
+-  const roturas = detectarCadenaRotaVerifactu(filas);
++  // El filtro se aplica AQUÍ y no dentro de `detectarCadenaRotaVerifactu`: esa
++  // función es pura, está testeada (lib/verifactu-cadena.test.ts) y debe seguir
++  // diciendo la verdad sobre el estado real de la cadena. Lo que se exime es el
++  // AVISO, no el hecho.
++  const roturas = detectarCadenaRotaVerifactu(filas)
++    .filter(r => !ROTURAS_VERIFACTU_CONOCIDAS.has(`${r.studioId}:${r.seqRota}`));
+   for (const r of roturas) {
+     Sentry.captureMessage('[verifactu] cadena de facturación bifurcada', {
+       level: 'error',
+@@ -413,6 +436,19 @@ async function entregar(
+   const datos = pi ? {
+     email: pi.metadata?.socioEmail ?? null,
+     nombre: pi.metadata?.socioNombre ?? null,
++    // Gemelo divergente con el webhook (app/api/stripe/webhook/route.ts, rama
++    // del checkout embebido): allí la ficha nueva se crea CON teléfono y con
++    // la "información adicional" del formulario de pago sin login. Aquí no se
++    // pasaban, así que la socia rescatada por el cron acababa con una ficha
++    // más pobre que la de la socia rescatada por el webhook — el rescate no
++    // puede entregar peor que el camino normal. Misma metadata, misma forma.
++    telefono: pi.metadata?.socioTelefono ?? null,
++    datosAdicionales: {
++      genero: pi.metadata?.genero ?? null,
++      comoConociste: pi.metadata?.comoConociste ?? null,
++      codigoPostal: pi.metadata?.codigoPostal ?? null,
++      fechaNacimiento: pi.metadata?.fechaNacimiento ?? null,
++    },
+     importeCobradoCentimos: pi.amount_received ?? pi.amount ?? null,
+     paymentIntentId: pi.id,
+   } : {
+@@ -473,6 +509,9 @@ async function entregar(
+         const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
+         const r = await reservarPlazaTrasPagoPublico({
+           studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id,
++          // Igual que el webhook: si la socia pagó por una CAMILLA/plaza
++          // concreta, el rescate tiene que darle ESA, no una cualquiera.
++          spotId: pi.metadata.spotId ?? null,
+         });
+         if (!r.ok) {
+           Sentry.captureMessage('[conciliador] plan entregado pero NO se pudo reservar la clase pagada', {
+diff --git a/lib/inngest/crons-paginacion.test.ts b/lib/inngest/crons-paginacion.test.ts
+index 50de2da3..9cebd8ef 100644
+--- a/lib/inngest/crons-paginacion.test.ts
++++ b/lib/inngest/crons-paginacion.test.ts
+@@ -73,6 +73,35 @@ for (const rel of CRONS_GLOBALES) {
+   });
+ }
+ 
++// Barridos acotados a UN estudio cuyas lecturas, aun así, pasan del corte. El
++// `.eq('studio_id', …)` baja el techo pero no lo quita: `bonos-inactivas-cron`
++// mira 180 días de `sesiones` y las `reservas` de todas ellas, y un estudio
++// activo pasa de 1.000 filas él solo. Truncado ahí, el mapa de última asistencia
++// sale falso y la lista de inactivas se lee igual de bien que "no hay ninguna".
++const CRONS_POR_ESTUDIO = [
++  'lib/notificaciones/bonos-inactivas-cron.ts',
++];
++
++for (const rel of CRONS_POR_ESTUDIO) {
++  test(`${rel}: ninguna lectura de una tabla que crece va sin paginar`, () => {
++    const fuente = leer(rel);
++    for (const s of sentencias(fuente)) {
++      for (const tabla of TABLAS_QUE_CRECEN) {
++        if (!s.includes(`.from('${tabla}')`)) continue;
++        if (!s.includes('.select(')) continue;          // update/delete: no truncan
++        if (s.includes('{ count:')) continue;           // head+count: no devuelve filas
++        assert.ok(
++          s.includes('.range('),
++          `Lectura de '${tabla}' sin .range() en ${rel}.\n` +
++          `Acotarla a un estudio NO la salva: PostgREST la truncará a 1.000 filas EN ` +
++          `SILENCIO. Envuélvela en fetchAllRows.\n` +
++          `Fragmento: ${s.trim().slice(0, 220)}`,
++        );
++      }
++    }
++  });
++}
++
+ // C-3: la lista de estudios que alimenta CADA fan-out (o bucle, tras el
+ // piloto pg_cron). Si se trunca, un estudio entero deja de existir para el
+ // sistema —sin backups, sin recordatorios, sin renovaciones— y no hay error
+diff --git a/lib/notificaciones/bonos-inactivas-cron.ts b/lib/notificaciones/bonos-inactivas-cron.ts
+index 153df695..52e776ed 100644
+--- a/lib/notificaciones/bonos-inactivas-cron.ts
++++ b/lib/notificaciones/bonos-inactivas-cron.ts
+@@ -8,6 +8,7 @@
+ // más simple que una cola, y ya no hace falta pagar por cada paso.
+ // ─────────────────────────────────────────────────────────────────────────────
+ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
++import { fetchAllRows } from '@/lib/supabase-data';
+ import { idsEstudios } from '@/lib/inngest/estudios.ts';
+ import { publish } from '@/lib/notifications/engine';
+ import { EVENTOS } from '@/lib/notifications/catalog';
+@@ -16,6 +17,41 @@ import type { SupabaseClient } from '@supabase/supabase-js';
+ 
+ const fecha = (d: string) => fechaCortaEstudio(new Date(d + 'T12:00:00Z'));
+ 
++// ⚠️ Ninguna lectura de este fichero puede tragarse su `error` ni leer sin
++// paginar. Se tragaban los dos: un fallo de PostgREST dejaba `data: null`, el
++// bucle iteraba `[]` y el barrido devolvía `{publicados: 0}` con un 200 — «no
++// había a quién avisar» y «no he podido mirar» se leían igual. Y aunque las
++// lecturas van acotadas a UN estudio, las de `sesiones` (180 días) y `reservas`
++// pasan de mil filas en un estudio activo, y PostgREST corta ahí EN SILENCIO:
++// el mapa de última asistencia salía falso y con él la lista de inactivas.
++//
++// Los errores se PROPAGAN: las rutas de cron (app/api/cron/notif-bonos y
++// notif-inactivas) los convierten en 500 + Sentry, que es lo que hace visible
++// un barrido que no ha barrido nada.
++function exigir(error: { message: string } | null, que: string): void {
++  if (error) throw new Error(`${que}: ${error.message}`);
++}
++
++// PostgREST mete los valores de `.in()` en la URL: con 180 días de sesiones de
++// un estudio activo la lista pasa de mil UUID (~37 KB) y el proxy responde 414.
++// Se trocea, y cada trozo va paginado. Mismo criterio que `enLotes` de
++// lib/notifications/process.ts.
++const IDS_POR_CONSULTA = 100;
++
++async function leerEnLotes<T>(
++  studioId: string, tabla: string, ids: string[],
++  consulta: (lote: string[], from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
++): Promise<T[]> {
++  const filas: T[] = [];
++  for (let i = 0; i < ids.length; i += IDS_POR_CONSULTA) {
++    const lote = ids.slice(i, i + IDS_POR_CONSULTA);
++    const { data, error } = await fetchAllRows<T>(studioId, tabla, (from, to) => consulta(lote, from, to));
++    exigir(error, `leyendo ${tabla}`);
++    filas.push(...data);
++  }
++  return filas;
++}
++
+ async function estudiosIds(admin: SupabaseClient): Promise<string[]> {
+   return (await idsEstudios(admin)).map((s) => s.id);
+ }
+@@ -33,16 +69,22 @@ export async function barrerBonosPorCaducar(): Promise<{ estudios: number; publi
+ async function bonos(admin: SupabaseClient, studioId: string) {
+   const hoy = new Date().toISOString().slice(0, 10);
+   const en7 = new Date(Date.now() + 7 * 24 * 3600_000).toISOString().slice(0, 10);
+-  const [{ data: subs }, { data: studio }] = await Promise.all([
+-    admin.from('suscripciones').select('id, socio_id, fecha_fin, sesiones_restantes')
+-      .eq('studio_id', studioId).eq('estado', 'ACTIVA')
+-      .not('sesiones_restantes', 'is', null).gt('sesiones_restantes', 0)
+-      .not('fecha_fin', 'is', null).gte('fecha_fin', hoy).lte('fecha_fin', en7),
++  const [subsR, studioR] = await Promise.all([
++    fetchAllRows<{ id: string; socio_id: string | null; fecha_fin: string; sesiones_restantes: number }>(
++      studioId, 'suscripciones',
++      (from, to) => admin.from('suscripciones').select('id, socio_id, fecha_fin, sesiones_restantes')
++        .eq('studio_id', studioId).eq('estado', 'ACTIVA')
++        .not('sesiones_restantes', 'is', null).gt('sesiones_restantes', 0)
++        .not('fecha_fin', 'is', null).gte('fecha_fin', hoy).lte('fecha_fin', en7).range(from, to),
++    ),
+     admin.from('studios').select('slug').eq('id', studioId).maybeSingle(),
+   ]);
+-  const slug = (studio?.slug as string | null) ?? '';
++  exigir(subsR.error, 'leyendo suscripciones');
++  exigir(studioR.error, 'leyendo el estudio');
++  const subs = subsR.data;
++  const slug = (studioR.data?.slug as string | null) ?? '';
+   let publicados = 0;
+-  for (const su of subs ?? []) {
++  for (const su of subs) {
+     if (!su.socio_id) continue;
+     await publish({
+       type: EVENTOS.BONO_POR_CADUCAR, studioId,
+@@ -70,15 +112,23 @@ async function inactivas(admin: SupabaseClient, studioId: string) {
+   const hace180 = new Date(ahora - 180 * 24 * 3600_000).toISOString();
+   const hace30 = ahora - 30 * 24 * 3600_000;
+   // Sesiones pasadas del estudio en la ventana (para acotar el escaneo).
+-  const { data: sesiones } = await admin.from('sesiones')
+-    .select('id, inicio').eq('studio_id', studioId).gte('inicio', hace180).lte('inicio', new Date(ahora).toISOString());
+-  if (!sesiones?.length) return { publicados: 0 };
++  const sesionesR = await fetchAllRows<{ id: string; inicio: string }>(
++    studioId, 'sesiones',
++    (from, to) => admin.from('sesiones').select('id, inicio')
++      .eq('studio_id', studioId).gte('inicio', hace180).lte('inicio', new Date(ahora).toISOString()).range(from, to),
++  );
++  exigir(sesionesR.error, 'leyendo sesiones');
++  const sesiones = sesionesR.data;
++  if (!sesiones.length) return { publicados: 0 };
+   const inicioById = new Map(sesiones.map((s) => [s.id as string, new Date(s.inicio as string).getTime()]));
+-  const { data: reservas } = await admin.from('reservas')
+-    .select('socio_id, sesion_id').eq('studio_id', studioId).in('estado', ['ASISTIDA', 'CONFIRMADA']).in('sesion_id', [...inicioById.keys()]);
++  const reservas = await leerEnLotes<{ socio_id: string | null; sesion_id: string }>(
++    studioId, 'reservas', [...inicioById.keys()],
++    (lote, from, to) => admin.from('reservas').select('socio_id, sesion_id')
++      .eq('studio_id', studioId).in('estado', ['ASISTIDA', 'CONFIRMADA']).in('sesion_id', lote).range(from, to),
++  );
+   // Última asistencia por socia.
+   const ultima = new Map<string, number>();
+-  for (const r of reservas ?? []) {
++  for (const r of reservas) {
+     const t = inicioById.get(r.sesion_id as string);
+     if (t == null || !r.socio_id) continue;
+     const prev = ultima.get(r.socio_id as string) ?? 0;
+@@ -86,8 +136,12 @@ async function inactivas(admin: SupabaseClient, studioId: string) {
+   }
+   const idsInactivas = [...ultima.entries()].filter(([, t]) => t < hace30).map(([id]) => id);
+   if (!idsInactivas.length) return { publicados: 0 };
+-  const { data: socios } = await admin.from('socios').select('id, nombre, apellidos').eq('studio_id', studioId).in('id', idsInactivas);
+-  const nombre = new Map((socios ?? []).map((s) => [s.id as string, `${s.nombre ?? ''} ${s.apellidos ?? ''}`.trim() || 'Una clienta']));
++  const socios = await leerEnLotes<{ id: string; nombre: string | null; apellidos: string | null }>(
++    studioId, 'socios', idsInactivas,
++    (lote, from, to) => admin.from('socios').select('id, nombre, apellidos')
++      .eq('studio_id', studioId).in('id', lote).range(from, to),
++  );
++  const nombre = new Map(socios.map((s) => [s.id as string, `${s.nombre ?? ''} ${s.apellidos ?? ''}`.trim() || 'Una clienta']));
+   const mes = new Date(ahora).toISOString().slice(0, 7);
+   let publicados = 0;
+   for (const socioId of idsInactivas) {
+diff --git a/lib/student/deep-links.test.ts b/lib/student/deep-links.test.ts
+index 50d92cec..88cc64ca 100644
+--- a/lib/student/deep-links.test.ts
++++ b/lib/student/deep-links.test.ts
+@@ -1,6 +1,6 @@
+ import test from 'node:test';
+ import assert from 'node:assert/strict';
+-import { traducirEnlace } from './deep-links.ts';
++import { traducirEnlace, destinoPortalViejo } from './deep-links.ts';
+ 
+ // El deep link se calcula al INSERTAR y se persiste en `notification.deep_link`.
+ // Las filas ya emitidas en producción llevan rutas del portal borrado, y
+@@ -55,3 +55,45 @@ test('el slug de la notificación vieja no manda: manda el del estudio actual',
+   // puede llevar a la alumna a un slug que ya no existe.
+   assert.equal(traducirEnlace('/portal/slug-viejo/clases/ses-2', SLUG), `${B}/reservar/ses-2`);
+ });
++
++// ─── El catch-all `/portal/[slug]/[...resto]` ───────────────────────────────
++
++test('una ruta con cola bajo `acceso`/`login` NO se redirige a sí misma', () => {
++  // El bucle: el destino de estas tres empieza por `acceso`, que a su vez es
++  // clave del mapa. Arrastrando la cola, `/portal/x/acceso/entrar` iba a
++  // `/portal/x/acceso/login/entrar`, que volvía a entrar por el mismo handler y
++  // crecía en cada salto → ERR_TOO_MANY_REDIRECTS, y con 308 el navegador se lo
++  // quedaba cacheado.
++  assert.equal(destinoPortalViejo(['acceso', 'entrar']), '/acceso/login');
++  assert.equal(destinoPortalViejo(['login', 'algo']), '/acceso/login');
++  assert.equal(destinoPortalViejo(['clave-nueva', 'tok-1']), '/acceso/verificar');
++
++  // La prueba de que no hay reentrada: traducir el destino otra vez da lo
++  // mismo. Si creciera aunque fuera un segmento, el bucle sigue vivo.
++  for (const entrada of [['acceso', 'entrar'], ['login', 'a', 'b', 'c']]) {
++    const uno = destinoPortalViejo(entrada)!;
++    const dos = destinoPortalViejo(uno.split('/').filter(Boolean))!;
++    assert.equal(dos, uno, entrada.join('/'));
++  }
++});
++
++test('la cola SÍ se conserva donde el destino tiene segmento dinámico', () => {
++  // Es la mitad del valor del enlace: un aviso de «tu clase de mañana» que
++  // aterrice en el horario genérico ha perdido lo que traía.
++  assert.equal(destinoPortalViejo(['clases', 'ses-1']), '/reservar/ses-1');
++  assert.equal(destinoPortalViejo(['reservas', 'res-9']), '/mis-reservas/res-9');
++  assert.equal(destinoPortalViejo(['compras', 'rec-3']), '/pagos/rec-3');
++  // Y sin cola siguen funcionando, que es lo que ya funcionaba antes.
++  assert.equal(destinoPortalViejo(['clases']), '/reservar');
++  assert.equal(destinoPortalViejo(['acceso']), '/acceso/login');
++});
++
++test('lo desconocido es `null` (al inicio) y lo conocido sin pantalla es cadena vacía', () => {
++  // Son dos cosas distintas: `null` = no la reconocemos; `''` = la conocemos y
++  // todavía no tiene pantalla, así que al inicio del estudio.
++  assert.equal(destinoPortalViejo(['loquesea']), null);
++  assert.equal(destinoPortalViejo([]), null);
++  assert.equal(destinoPortalViejo(undefined), null);
++  assert.equal(destinoPortalViejo(['comunidad', 'hilo-1']), '');
++  assert.equal(destinoPortalViejo(['mensajes']), '');
++});
+diff --git a/lib/student/deep-links.ts b/lib/student/deep-links.ts
+index a1535420..f5f5feda 100644
+--- a/lib/student/deep-links.ts
++++ b/lib/student/deep-links.ts
+@@ -43,3 +43,59 @@ export function traducirEnlace(enlace: string | null | undefined, slug: string):
+   return undefined;
+ }
+ 
++
++// ─── Rutas del portal ANTERIOR que llegan por el catch-all ──────────────────
++// (`app/portal/[slug]/[...resto]/route.ts`). Vive aquí, y no en la propia
++// ruta, por dos motivos: es la misma traducción que `traducirEnlace` —vieja
++// URL → árbol nuevo— y un `route.ts` de Next no puede exportar nada que no sea
++// un verbo HTTP, así que allí no habría forma de probarla.
++
++const MAPA_PORTAL_VIEJO: Record<string, string> = {
++  // El portal separaba comprar (`/compras`) de consultar el saldo (`/bonos`).
++  // El diseño nuevo lo llama pagos: es donde está el historial y el recibo.
++  compras: '/pagos',
++  // El horario y la ficha de clase cambiaron de nombre.
++  clases: '/reservar',
++  // Listado de reservas.
++  reservas: '/mis-reservas',
++  // Las tres puertas viejas caen en la puerta única del diseño.
++  login: '/acceso/login',
++  acceso: '/acceso/login',
++  'clave-nueva': '/acceso/verificar',
++  // Sin equivalente todavía: se manda al inicio, que es un destino honesto.
++  instructores: '',
++  comunidad: '',
++  mensajes: '',
++};
++
++// ⚠️ REENTRADA. Solo estas tres llevan a una pantalla del árbol nuevo que
++// admite un segmento más (`/reservar/[claseId]`, `/mis-reservas/[reservaId]`,
++// `/pagos/[pagoId]`): son las únicas en las que la cola significa algo.
++//
++// Arrastrar la cola SIEMPRE era un bucle infinito de 308: el destino de
++// `acceso`/`login`/`clave-nueva` empieza por el segmento `acceso`, que a su vez
++// es clave de este mapa, así que `/portal/x/acceso/entrar` redirigía a
++// `/portal/x/acceso/login/entrar`, que volvía a entrar por aquí y crecía en
++// cada salto hasta ERR_TOO_MANY_REDIRECTS — y con 308, permanente, el
++// navegador se lo quedaba cacheado. Los casos sin cola nunca fallaron, que es
++// por lo que pasó desapercibido.
++//
++// Ninguno de los tres destinos de aquí abajo (`reservar`, `mis-reservas`,
++// `pagos`) es clave del mapa, así que la traducción no puede reentrar.
++const ADMITEN_COLA: ReadonlySet<string> = new Set(['clases', 'reservas', 'compras']);
++
++/**
++ * Destino en el árbol nuevo para una ruta del portal viejo, SIN el prefijo
++ * `/portal/<slug>` y sin query. `null` = no la reconocemos.
++ *
++ * `''` es un destino válido y distinto de `null`: significa «la conocemos y no
++ * tiene pantalla todavía» (`comunidad`, `mensajes`, `instructores`) → el inicio
++ * del estudio.
++ */
++export function destinoPortalViejo(resto: string[] | undefined): string | null {
++  const [primero, ...cola] = resto ?? [];
++  const destino = MAPA_PORTAL_VIEJO[primero ?? ''];
++  if (destino === undefined) return null;
++  if (cola.length === 0 || !ADMITEN_COLA.has(primero as string)) return destino;
++  return destino + '/' + cola.map(encodeURIComponent).join('/');
++}
+diff --git a/lib/student/reserva-codigos.test.ts b/lib/student/reserva-codigos.test.ts
+index 1134e2ce..6f718a5f 100644
+--- a/lib/student/reserva-codigos.test.ts
++++ b/lib/student/reserva-codigos.test.ts
+@@ -1,6 +1,6 @@
+ import test from 'node:test';
+ import assert from 'node:assert/strict';
+-import { desenlaceDeRespuesta } from './reserva-codigos.ts';
++import { desenlaceDeRespuesta, esRechazoConocido } from './reserva-codigos.ts';
+ 
+ // La regla que defienden estos tests: NINGUNA respuesta que no sea un éxito
+ // explícito del servidor puede acabar en `confirmed`. El paquete de diseño lo
+@@ -75,3 +75,43 @@ test('una respuesta vacía es error, nunca confirmed', () => {
+ test('un código que no conocemos cae en error, no en confirmed', () => {
+   assert.equal(desenlaceDeRespuesta({ error: 'x', codigo: 'inventado' }).state, 'error');
+ });
++
++test('un rechazo por falta de plan llega a la UI con SU mensaje, no como avería', () => {
++  // El 🔴: a la alumna sin bono se le enseñaba «algo no ha salido como
++  // esperábamos… inténtalo de nuevo» más un botón de reintentar que iba a
++  // fallar igual, porque el rechazo del gate de derechos viajaba sin `codigo` y
++  // el mensaje se tiraba por el camino.
++  const ERROR_SIN_PLAN = 'Necesitas un plan o bono activo para reservar';
++  const d = desenlaceDeRespuesta({ error: ERROR_SIN_PLAN, codigo: 'sin-plan' });
++  assert.equal(d.state, 'error');
++  // `mensaje` es lo que BookingStatus pinta (`mensaje ?? c.cuerpo`): si se
++  // pierde aquí, la pantalla vuelve al copy genérico de avería.
++  assert.equal(d.mensaje, ERROR_SIN_PLAN);
++  // Y no es una avería: no puede acabar en Sentry con nivel `error`.
++  assert.equal(esRechazoConocido('sin-plan'), true);
++});
++
++test('los otros dos rechazos del gate de derechos se comportan igual', () => {
++  for (const [codigo, msg] of [
++    ['bono-no-cubre', 'Tu bono no incluye este tipo de clase'],
++    ['max-simultaneas', 'Has alcanzado el máximo de 3 reservas activas'],
++  ] as Array<[string, string]>) {
++    const d = desenlaceDeRespuesta({ error: msg, codigo });
++    assert.equal(d.state, 'error', codigo);
++    assert.equal(d.mensaje, msg, codigo);
++    assert.equal(esRechazoConocido(codigo), true, codigo);
++  }
++});
++
++test('solo lo que NO sabemos nombrar se reporta como avería', () => {
++  // `'error'` es el comodín con el que el servidor dice «me ha pasado algo que
++  // no sé nombrar»: ese sí hay que reportarlo, y la ausencia de código también.
++  assert.equal(esRechazoConocido('error'), false);
++  assert.equal(esRechazoConocido(undefined), false);
++  assert.equal(esRechazoConocido(null), false);
++  assert.equal(esRechazoConocido('codigo-que-nadie-ha-escrito'), false);
++  // Los de negocio que ya existían siguen sin reportarse.
++  for (const c of ['aforo-lleno', 'ya-reservada', 'limite-semanal']) {
++    assert.equal(esRechazoConocido(c), true, c);
++  }
++});
+diff --git a/lib/student/reserva-codigos.ts b/lib/student/reserva-codigos.ts
+index 4db0102e..1452e967 100644
+--- a/lib/student/reserva-codigos.ts
++++ b/lib/student/reserva-codigos.ts
+@@ -30,8 +30,35 @@ export type CodigoReserva =
+   | 'spot-no-disponible'
+   | 'sesion-no-encontrada'
+   | 'no-autorizado'
++  // Gate de derechos (`crearReservaPublica`): rechazos ANTES de tocar el aforo.
++  | 'sin-plan'
++  | 'bono-no-cubre'
++  | 'max-simultaneas'
+   | 'error';
+ 
++/**
++ * Los códigos que son una REGLA DE NEGOCIO, no una avería.
++ *
++ * `'error'` queda fuera a propósito: es el comodín con el que el servidor dice
++ * «me ha pasado algo que no sé nombrar», y eso sí hay que reportarlo.
++ */
++const CODIGOS_DE_NEGOCIO: ReadonlySet<string> = new Set<CodigoReserva>([
++  'ya-reservada', 'conflicto-horario', 'aforo-lleno', 'limite-semanal',
++  'spot-ocupado', 'spot-no-disponible', 'sesion-no-encontrada', 'no-autorizado',
++  'sin-plan', 'bono-no-cubre', 'max-simultaneas',
++]);
++
++/**
++ * ¿El servidor rechazó por una razón que ya sabemos contar?
++ *
++ * Se usa para NO reportar a Sentry: «no tienes bono» o «la clase está llena»
++ * son producto, no producción rota. Sin esto, cada alumna sin bono generaba un
++ * evento de nivel `error` — ruido que además tapa los fallos de verdad.
++ */
++export function esRechazoConocido(codigo: string | null | undefined): boolean {
++  return typeof codigo === 'string' && CODIGOS_DE_NEGOCIO.has(codigo);
++}
++
+ /** Lo que la ruta devuelve al confirmar una reserva. */
+ export type RespuestaReserva =
+   | { ok: true; estado: string; reservaId?: string; posicionEspera?: number | null }
+@@ -88,12 +115,17 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
+     case 'aforo-lleno': return { state: 'full' };
+     case 'spot-ocupado': return { state: 'full', mensaje };
+     case 'no-autorizado': return { state: 'session-expired' };
+-    // `limite-semanal` y `spot-no-disponible` no tienen estado en la máquina:
+-    // llevan un motivo concreto que el copy genérico de `error` no cuenta, así
+-    // que se enseña el mensaje del servidor. Inventarles un estado nuevo sería
+-    // rediseñar la máquina, que es justo lo que no toca hacer aquí.
++    // Estos cinco no tienen estado en la máquina: llevan un motivo concreto que
++    // el copy genérico de `error` no cuenta, así que se enseña el mensaje del
++    // servidor. Inventarles un estado nuevo sería rediseñar la máquina, que es
++    // justo lo que no toca hacer aquí.
++    // Se listan explícitamente aunque el `default` haga lo mismo: así esta
++    // tabla y `esRechazoConocido` no pueden divergir en silencio.
+     case 'limite-semanal':
+     case 'spot-no-disponible':
++    case 'sin-plan':
++    case 'bono-no-cubre':
++    case 'max-simultaneas':
+       return { state: 'error', mensaje };
+     case 'sesion-no-encontrada': return { state: 'error', mensaje };
+     default: return { state: 'error', mensaje };
+diff --git a/lib/student/reservar.ts b/lib/student/reservar.ts
+index db2e37d2..9b972588 100644
+--- a/lib/student/reservar.ts
++++ b/lib/student/reservar.ts
+@@ -20,7 +20,7 @@
+ //     dejar que el cliente diga de quién es la reserva.
+ 
+ import { invalidarCatalogo } from '@/lib/student/catalogo';
+-import { desenlaceDeRespuesta, type DesenlaceReserva, type RespuestaReserva } from '@/lib/student/reserva-codigos';
++import { desenlaceDeRespuesta, esRechazoConocido, type DesenlaceReserva, type RespuestaReserva } from '@/lib/student/reserva-codigos';
+ import { portalAuthHeader } from '@/lib/api-client';
+ import * as Sentry from '@sentry/nextjs';
+ 
+@@ -77,24 +77,48 @@ export async function confirmarReserva(
+ 
+   const desenlace = desenlaceDeRespuesta(respuesta);
+ 
++  const codigo = respuesta && 'codigo' in respuesta ? respuesta.codigo : undefined;
++
+   // Los desenlaces de NEGOCIO (lleno, duplicada, conflicto) son normales y no
+   // se reportan: son parte del producto, no averías. Lo que sí se reporta es
+   // `error`, que significa que el servidor dijo algo que no sabemos traducir —
+   // y sin contexto es indepurable, porque no deja rastro en ninguna pantalla.
+-  if (desenlace.state === 'error') {
++  //
++  // ⚠️ `state === 'error'` NO basta para saber que es una avería: varios
++  // rechazos de negocio caen en ese estado a propósito porque la máquina del
++  // diseño no tiene uno propio para ellos (`sin-plan`, `limite-semanal`…). Sin
++  // mirar el `codigo`, cada alumna que intenta reservar sin bono levantaba un
++  // evento de nivel `error` en Sentry.
++  if (desenlace.state === 'error' && !esRechazoConocido(codigo)) {
+     Sentry.captureMessage('student-pwa: reserva sin desenlace conocido', {
+       level: 'error',
+       tags: { area: 'student-pwa', operacion: 'confirmar-reserva', estudio: slug },
+       extra: {
+         // El código del backend, que es el dato que permite arreglarlo. Sin
+         // PII: ni socia, ni email, ni token.
+-        codigo: respuesta && 'codigo' in respuesta ? respuesta.codigo : undefined,
++        codigo,
+         mensaje: desenlace.mensaje,
+         claseId,
+       },
+     });
+   }
+ 
++  // El `mensaje` solo se le ENSEÑA a la alumna cuando el rechazo es de negocio
++  // y lo hemos redactado nosotros («Necesitas un plan o bono activo…»). Para lo
++  // desconocido, el servidor manda `{ error: error.message }`, que es el texto
++  // crudo de Postgres/PostgREST («duplicate key value violates unique
++  // constraint…»): filtrarlo a la pantalla sería exponer detalle interno y
++  // además no le dice nada a nadie. Ahí vale más el copy genérico de la
++  // máquina, y el texto real ya ha ido a Sentry en el bloque de arriba.
++  //
++  // Se recorta AQUÍ y no en `desenlaceDeRespuesta`: esa función es el mapa fiel
++  // de lo que respondió el servidor (y sus tests lo fijan así); esta es la capa
++  // que decide qué se pinta.
++  const desenlaceParaPantalla: DesenlaceReserva =
++    desenlace.state === 'error' && !esRechazoConocido(codigo)
++      ? { ...desenlace, mensaje: undefined }
++      : desenlace;
++
+   // Si algo cambió de verdad, el catálogo en memoria ya no vale: la clase tiene
+   // una plaza menos y la alumna una reserva más. Sin esto, volver al horario
+   // enseña el aforo de antes y su propia reserva no aparece.
+@@ -102,5 +126,5 @@ export async function confirmarReserva(
+     invalidarCatalogo(slug);
+   }
+ 
+-  return desenlace;
++  return desenlaceParaPantalla;
+ }
+diff --git a/lib/supabase-data.ts b/lib/supabase-data.ts
+index a6489992..0269e630 100644
+--- a/lib/supabase-data.ts
++++ b/lib/supabase-data.ts
+@@ -1744,6 +1744,20 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
+     db.consentimiento_marketing_texto = changes.consentimientoMarketing?.texto ?? null;
+     db.consentimiento_marketing_por = changes.consentimientoMarketing?.registradoPor ?? null;
+   }
++  // Si el email CAMBIA, se rompe el vinculo con la cuenta de acceso anterior.
++  // `fetchPublicStudioData` autoriza por `auth_user_id` (ya no compara email),
++  // asi que reasignar una ficha a otra persona sin soltar el `auth_user_id`
++  // dejaria a la persona ANTERIOR viendo las reservas, bonos y pagos de la
++  // nueva. Se compara contra el valor guardado para no desvincular a nadie
++  // cuando el panel reenvia la ficha entera sin tocar el email. Es
++  // auto-reparable: `resolverSociaAutenticada` vuelve a enlazar por email
++  // verificado en el siguiente inicio de sesion.
++  if ('email' in changes) {
++    const { data: actual } = await supabase.from('socios').select('email').eq('id', id).maybeSingle();
++    const antes = (actual?.email ?? '').trim().toLowerCase();
++    const ahora = (changes.email ?? '').trim().toLowerCase();
++    if (actual && antes !== ahora) db.auth_user_id = null;
++  }
+   const { error } = await supabase.from('socios').update(db).eq('id', id);
+   return error ? falloEscritura('[dbUpdateSocio]', error) : ESCRITURA_OK;
+ }
+diff --git a/lib/notificaciones/preferencias-endpoint.test.ts b/lib/notificaciones/preferencias-endpoint.test.ts
+new file mode 100644
+index 00000000..e9a1cc5d
+--- /dev/null
++++ b/lib/notificaciones/preferencias-endpoint.test.ts
+@@ -0,0 +1,95 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { readFileSync } from 'node:fs';
++import { join } from 'node:path';
++
++// ─────────────────────────────────────────────────────────────────────────────
++// PUT /api/notifications/preferences: guardar UN canal no puede borrar los otros.
++//
++// El modelo es categoría × canal (inapp, push, email, whatsapp, sms) y las dos
++// pantallas que lo usan —portal de la socia y panel— mandan UN solo campo por
++// toque: `{ studioId, category, push: false }`. El endpoint hacía un `upsert` de
++// FILA COMPLETA con defaults (`push: b.push ?? true`, `email: b.email ?? false`,
++// …), así que cada toque reescribía los canales que no venían: apagar el email
++// de `pagos` volvía a encender el push, tocar cualquier push apagaba el email y
++// whatsapp/sms se ponían a false siempre. Respondía `{ok:true}` y ninguna de las
++// dos pantallas recarga, así que el borrado no se veía hasta la siguiente visita.
++//
++// Se comprueba sobre el FUENTE (no importando el módulo) porque la ruta arrastra
++// el cliente de Supabase; mismo idioma que `tope-socias-idempotencia.test.ts`.
++// ─────────────────────────────────────────────────────────────────────────────
++
++const RAIZ = join(import.meta.dirname, '../..');
++const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8');
++
++const PREFERENCIAS = 'app/api/notifications/preferences/route.ts';
++const SUBSCRIBE = 'app/api/notifications/subscribe/route.ts';
++
++// Se quitan los comentarios: el propio fix cita el patrón viejo
++// (`push: b.push ?? true`) para explicar por qué desapareció, y un test que se
++// deja engañar por su propia documentación no vale nada.
++function sinComentarios(fuente: string): string {
++  return fuente.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
++}
++
++function cuerpoDelPut(fuente: string): string {
++  const ini = fuente.indexOf('export async function PUT');
++  assert.ok(ini > 0, 'no encuentro el PUT de preferences: ¿se renombró?');
++  return sinComentarios(fuente.slice(ini));
++}
++
++const CANALES = ['inapp', 'push', 'email', 'whatsapp', 'sms'];
++
++test('el PUT no aplica defaults a los canales que no vienen en el body', () => {
++  const put = cuerpoDelPut(leer(PREFERENCIAS));
++  for (const canal of CANALES) {
++    assert.ok(
++      !new RegExp(`b\\.${canal}\\s*\\?\\?`).test(put),
++      `El PUT vuelve a escribir '${canal}' con un default (\`b.${canal} ?? …\`). ` +
++      'Eso reescribe un canal que la pantalla no ha tocado: guardar uno borra los otros.',
++    );
++  }
++});
++
++test('el PUT solo escribe los canales PRESENTES en el body', () => {
++  const put = cuerpoDelPut(leer(PREFERENCIAS));
++  assert.match(
++    put,
++    /typeof b\[canal\] === 'boolean'/,
++    'El PUT tiene que distinguir "no me mandes este campo" de "ponlo a false" ' +
++    'mirando qué claves vienen; si no, vuelve a ser un upsert de fila completa.',
++  );
++  assert.ok(
++    !put.includes('.upsert('),
++    'Un upsert de fila completa reescribe los canales ausentes. El update parcial ' +
++    'va con UPDATE acotado por (user_id, category) y INSERT solo si no existía.',
++  );
++});
++
++test('el PUT no responde ok cuando no hay ningún canal que guardar', () => {
++  const put = cuerpoDelPut(leer(PREFERENCIAS));
++  assert.match(
++    put,
++    /Object\.keys\(cambios\)\.length === 0[\s\S]{0,400}status: 400/,
++    'Sin ningún canal en el body no hay nada que guardar: responder {ok:true} ' +
++    'sería el mismo éxito falso que se acaba de quitar.',
++  );
++});
++
++// ── El studio_id del body ────────────────────────────────────────────────────
++// Las dos rutas escriben `studio_id: b.studioId` con service-role (sin RLS
++// debajo) y solo el JWT validado. Se comprueban JUNTAS a propósito: son gemelas
++// —misma forma, mismo fallo— y arreglar una y no la otra es exactamente lo que
++// ya ha pasado varias veces en este repo.
++for (const rel of [PREFERENCIAS, SUBSCRIBE]) {
++  test(`${rel}: valida la pertenencia al estudio antes de escribir studio_id`, () => {
++    const fuente = leer(rel);
++    assert.ok(fuente.includes('studio_id: b.studioId'), `${rel} ya no escribe el studio_id del body: revisa este test`);
++    assert.ok(
++      fuente.includes('socioAutenticado(') && fuente.includes('verificarSesionStaff('),
++      `${rel} escribe el studio_id del body sin comprobar que esa persona pertenezca ` +
++      'al estudio. Cualquiera con cuenta puede sembrar filas en el estudio de otro.',
++    );
++    assert.ok(fuente.includes('status: 403'), `${rel} debe responder 403 a quien no pertenece al estudio`);
++  });
++}
+diff --git a/lib/student/cadena-rechazo-reserva.test.ts b/lib/student/cadena-rechazo-reserva.test.ts
+new file mode 100644
+index 00000000..794db4d4
+--- /dev/null
++++ b/lib/student/cadena-rechazo-reserva.test.ts
+@@ -0,0 +1,66 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { readFileSync } from 'node:fs';
++import { join } from 'node:path';
++
++// Estos tests son ESTRUCTURALES (leen el fuente) y hay que decirlo: ni las
++// rutas de Next ni `lib/student/reservar.ts` se pueden importar desde el
++// runner, porque resuelven el alias `@/` que `node --test
++// --experimental-strip-types` no conoce. Es el mismo idioma que ya usan
++// `crons-paginacion.test.ts` y `tope-socias-idempotencia.test.ts`.
++//
++// Por qué existen: el bug que arreglaron NO era una función equivocada, era una
++// CADENA rota en tres saltos distintos, y cada salto vivía en un fichero que los
++// tests de su vecino no miran. La revisión independiente de la auditoría del
++// 4-sep lo dijo con todas las letras: revertir cualquiera de los tres saltos
++// dejaba la suite entera en verde. Esto lo cierra.
++//
++// El síntoma: la alumna sin bono leía «Algo no ha salido como esperábamos ·
++// Inténtalo de nuevo» —con un botón que iba a fallar igual— en vez de
++// «Necesitas un plan o bono activo para reservar».
++
++const raiz = join(import.meta.dirname, '..', '..');
++const leer = (p: string) => readFileSync(join(raiz, p), 'utf8');
++
++test('salto 1: los rechazos de negocio de crearReservaPublica llevan `codigo`', () => {
++  const fuente = leer('lib/db/supabase-data-admin.ts');
++  for (const codigo of ['sin-plan', 'bono-no-cubre', 'max-simultaneas']) {
++    assert.match(
++      fuente, new RegExp(`codigo: '${codigo}'`),
++      `El rechazo '${codigo}' tiene que viajar con su codigo. Sin el, el switch de `
++      + `reserva-codigos.ts cae en el default y la pantalla pinta una averia generica.`,
++    );
++  }
++});
++
++test('salto 2: /api/public/reserva NO se come el `codigo` al serializar', () => {
++  const fuente = leer('app/api/public/reserva/route.ts');
++  const respuestasDeError = fuente.match(/NextResponse\.json\(\{ error: r\.error[^)]*\}/g) ?? [];
++  assert.ok(respuestasDeError.length >= 3, 'esperaba las 3 respuestas de rechazo (crear/cancelar/valorar)');
++  for (const r of respuestasDeError) {
++    assert.match(
++      r, /codigo/,
++      'Esta respuesta devuelve solo `error` y tira el `codigo`. Ese fue el fallo original: '
++      + 'el codigo no llego NUNCA a ningun cliente, asi que los estados full/duplicate/conflict '
++      + 'de la maquina de reserva estaban muertos en produccion.',
++    );
++  }
++});
++
++test('salto 3: BookingStatus pinta el mensaje del servidor cuando lo hay', () => {
++  const fuente = leer('components/student/domain/BookingStatus.tsx');
++  assert.match(
++    fuente, /mensaje \?\? c\.cuerpo/,
++    'Sin esto el componente ignora el mensaje concreto y siempre pinta el copy generico.',
++  );
++});
++
++test('el mensaje crudo del servidor NO se le ensena a la alumna', () => {
++  const fuente = leer('lib/student/reservar.ts');
++  assert.match(
++    fuente, /esRechazoConocido\(codigo\)\s*\?\s*\{ \.\.\.desenlace, mensaje: undefined \}/,
++    'Un rechazo SIN codigo conocido llega como `{ error: error.message }`: el texto crudo de '
++    + 'Postgres. Hay que recortarlo antes de la pantalla, o BookingStatus lo pinta tal cual.',
++  );
++  assert.match(fuente, /return desenlaceParaPantalla;/, 'y hay que devolver el recortado, no el original');
++});
+diff --git a/lib/terminal-rol-rutas.test.ts b/lib/terminal-rol-rutas.test.ts
+new file mode 100644
+index 00000000..45f2687c
+--- /dev/null
++++ b/lib/terminal-rol-rutas.test.ts
+@@ -0,0 +1,82 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { readFileSync } from 'node:fs';
++import { join } from 'node:path';
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Las rutas del datáfono que TOCAN LA CAJA comprueban el rol, no solo la sesión.
++//
++// Todas usan service-role, así que la RLS de la migración 0112 no está debajo:
++// la única cerradura es la de la propia ruta. `/api/terminal/cobrar` sí la tenía
++// (`puedeMoverDinero`, S-2), pero sus hermanas `lector` y `reconciliar` se
++// quedaron en `verificarSesionStaff` — o sea, en "¿eres del equipo?". Con eso,
++// un INSTRUCTOR o un MANAGER podía reemparejar el datáfono del estudio o dar por
++// cuadrado un cobro del cierre de caja.
++//
++// Es el fallo repetido de este repo: arreglar un endpoint y no su gemelo. Por
++// eso se blinda la FAMILIA entera y no solo la ruta que se arregló.
++//
++// Fuera de la lista a propósito: `/api/terminal/estado` y
++// `/api/terminal/reconciliaciones` solo LEEN (estado de un PaymentIntent, lista
++// de pendientes). Que un instructor pueda verlas es otra pregunta —y sigue
++// abierta—, pero no es la de esta familia: aquí se comprueba quién puede
++// ESCRIBIR sobre la caja.
++// ─────────────────────────────────────────────────────────────────────────────
++
++const RAIZ = join(import.meta.dirname, '..');
++const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8');
++
++const RUTAS_DE_CAJA = [
++  'app/api/terminal/cobrar/route.ts',
++  'app/api/terminal/lector/route.ts',
++  'app/api/terminal/reconciliar/route.ts',
++];
++
++// Trocea el fuente por método HTTP exportado: cada handler tiene que traer su
++// propio guardia. Uno solo arriba del fichero no protege a los demás.
++function handlers(fuente: string): Array<{ metodo: string; cuerpo: string }> {
++  const re = /export async function (GET|POST|PUT|PATCH|DELETE)\b/g;
++  const inicios: Array<{ metodo: string; desde: number }> = [];
++  for (const m of fuente.matchAll(re)) inicios.push({ metodo: m[1], desde: m.index as number });
++  return inicios.map((h, i) => ({
++    metodo: h.metodo,
++    cuerpo: fuente.slice(h.desde, i + 1 < inicios.length ? inicios[i + 1].desde : undefined),
++  }));
++}
++
++for (const rel of RUTAS_DE_CAJA) {
++  test(`${rel}: todos sus métodos comprueban el rol con puedeMoverDinero`, () => {
++    const fuente = leer(rel);
++    const metodos = handlers(fuente);
++    assert.ok(metodos.length > 0, `no encuentro ningún handler exportado en ${rel}`);
++    for (const { metodo, cuerpo } of metodos) {
++      assert.ok(
++        cuerpo.includes('puedeMoverDinero(sesion.rol)'),
++        `${metodo} de ${rel} no comprueba el rol. La ruta usa service-role (sin RLS ` +
++        'debajo), así que un INSTRUCTOR o un MANAGER llegaría a la caja. Copia el ' +
++        'guardia de /api/terminal/cobrar.',
++      );
++      const guardia = cuerpo.indexOf('puedeMoverDinero(sesion.rol)');
++      const cierre = cuerpo.indexOf('status: 403', guardia);
++      assert.ok(
++        cierre > guardia && cierre - guardia < 200,
++        `${metodo} de ${rel} llama a puedeMoverDinero pero no corta con un 403.`,
++      );
++    }
++  });
++
++  test(`${rel}: el guardia de rol va antes de tocar Stripe o la base de datos`, () => {
++    for (const { metodo, cuerpo } of handlers(leer(rel))) {
++      const guardia = cuerpo.indexOf('puedeMoverDinero(sesion.rol)');
++      for (const efecto of ['admin.from(', 's.stripe.', 'stripe.terminal.', 'studioConnect(']) {
++        const pos = cuerpo.indexOf(efecto);
++        if (pos < 0) continue;
++        assert.ok(
++          guardia < pos,
++          `${metodo} de ${rel} usa '${efecto}' ANTES de comprobar el rol: el guardia ` +
++          'tiene que ir pegado a la verificación de sesión, no después del trabajo.',
++        );
++      }
++    }
++  });
++}

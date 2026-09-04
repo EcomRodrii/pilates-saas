@@ -11,7 +11,7 @@ import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { remitentePorMarca } from '../emails/remitente.ts';
 import { uid } from '@/lib/utils';
-import { construirSnapshot } from '@/lib/decision/snapshot';
+import { construirSnapshot } from '@/lib/decision/snapshot-cache';
 import { ejecutarAnalisis } from '@/lib/decision/motor';
 import { redactar, type ItemARedactar, type ItemRedactado } from '@/lib/decision/redaccion';
 import { ventanaDiasDe, medirOutcome, type SenalMedicion } from '@/lib/decision/outcomes';

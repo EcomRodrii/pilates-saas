@@ -1,0 +1,1038 @@
+From 650bd21c41fd278e793df9bfa8a9d45dab31cc60 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Auditor=C3=ADa=20Tentare?=
+ <marcosrocarodriguezbussines@gmail.com>
+Date: Wed, 2 Sep 2026 09:57:04 +0200
+Subject: [PATCH] =?UTF-8?q?fix(auditoria=2021=C2=AA=20pasada,=202-sep):=20?=
+ =?UTF-8?q?16=20hallazgos=20cerrados?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+🔴 F-1  facturas: el CHECK 'facturas_entidad_unica' del 2-sep (XOR) rompía TODA
+        rectificativa (recibo_id y venta_pos_id ambos NULL). Relajado a
+        'nunca las dos'. Migración aplicada y verificada en producción.
+🔴 F-2  mensajería: el badge de Mostrador se quedaba encendido para siempre en
+        el portal de la socia (usaba la marca de lectura del ESTUDIO, que el
+        endpoint público ni siquiera selecciona). +7 tests.
+🟠 F-3  webhook Stripe: la rama POS se fiaba de pi.metadata.studioId a pelo —
+        un estudio podía escribir en los 'cobros sin registrar' de otro.
+        Ahora resuelve el tenant desde la cuenta Connect, como su gemela.
+🟠 F-4  webhook billing: dos UPDATE sin .select('id') daban por sincronizada
+        una suscripción que no tocó ninguna fila (200 a Stripe, sin reintento).
+🟠 F-5  devoluciones: si no se actualizaba el acumulado solo había console.error
+        y se devolvía éxito. Ahora queda en Sentry.
+🟠 F-6  documentos: 'Ver' en el panel se lo comía el bloqueador de pop-ups.
+🟠 F-7  bonos: cancelar/eliminar una CLASE devolvía sesión de bono a las plazas
+        fijas (res-pf-), que nunca la consumieron. Saldo regalado.
+🟠 F-8  el resultado de esa devolución se tiraba con 'void': un fallo era
+        invisible. Ahora se espera y llega al toast.
+🟠 F-9  reservas: la hoja del widget era la 4ª pantalla y quedó fuera de F-16 —
+        una reserva PENDIENTE_APROBACION salía en silencio absoluto.
+🟠 F-10 el panel podía reservar en una clase CANCELADA y gastar bono en ella.
+🟠 F-11 'bono consumible sin descontar' (clase servida sin cobrar) se perdía
+        mudo en el panel; el gemelo servidor sí lo reportaba.
+🟠 F-12 integraciones: conectar/desconectar era escritura optimista muda —
+        'WhatsApp desconectado' aunque la escritura fallara (familia §1).
+🟠 F-14 facturas: 'factura_pendiente_sellar' solo lo marcaba 1 de los 3 caminos
+        de cobro; el recurrente (el que más factura) no tenía red.
+🟡 F-13 sustituciones: alerta de vencida silenciada con .catch(() => {}).
+🟡 F-15 revocados grants vestigiales a authenticated (red_resenas,
+        notification_delivery, review_boost_recompensas) + RLS en las dos
+        tablas de webhook. Aplicado y verificado en producción.
+🟡 F-16 el prefijo 'res-pf-' estaba a mano en 8 sitios: una sola función pura
+        (esReservaDePlazaFija) con test de mutación.
+
+Verificado: 3401 tests (0 fallos, +10 nuevos), typecheck limpio, lint limpio.
+Los tests nuevos se comprobaron por mutación: fallan si se reintroduce el bug.
+---
+ app/(dashboard)/calendario/page.tsx           | 12 ++--
+ app/api/billing/webhook/route.ts              | 29 ++++++++-
+ app/api/stripe/webhook/route.ts               | 22 ++++++-
+ app/api/sustituciones/route.ts                |  4 +-
+ app/portal/[slug]/mensajes/page.tsx           |  2 +-
+ .../configuracion/tab-integraciones.tsx       | 12 ++--
+ components/reserva/reserva-calendario.tsx     | 28 ++++++---
+ components/socios/ficha-documentos.tsx        | 11 +++-
+ lib/bandeja-logic.ts                          |  3 +-
+ lib/billing/dunning-server.ts                 |  3 +
+ lib/billing/registrar-devolucion.ts           | 11 ++++
+ lib/billing/stripe-cobros.ts                  |  5 ++
+ lib/bono-logic.test.ts                        | 27 ++++++++-
+ lib/bono-logic.ts                             | 18 ++++++
+ lib/db/supabase-data-admin.ts                 | 21 +++++--
+ lib/mensajeria/presentacion.test.ts           | 53 +++++++++++++++++
+ lib/mensajeria/presentacion.ts                | 18 +++++-
+ lib/stores/use-integrations-store.ts          | 18 +++++-
+ lib/studio-context.tsx                        | 59 +++++++++++++++----
+ lib/supabase-data.ts                          |  6 +-
+ lib/sustituciones/cerrar-vencidas.ts          | 12 +++-
+ lib/use-mensajes-sin-leer.ts                  |  2 +-
+ ...ras_entidad_unica_admite_rectificativa.sql | 27 +++++++++
+ ...evoke_grants_vestigiales_authenticated.sql | 29 +++++++++
+ 24 files changed, 378 insertions(+), 54 deletions(-)
+ create mode 100644 supabase/migrations/20260902120000_facturas_entidad_unica_admite_rectificativa.sql
+ create mode 100644 supabase/migrations/20260902120100_revoke_grants_vestigiales_authenticated.sql
+
+diff --git a/app/(dashboard)/calendario/page.tsx b/app/(dashboard)/calendario/page.tsx
+index b9fc6902..c9ffb85a 100644
+--- a/app/(dashboard)/calendario/page.tsx
++++ b/app/(dashboard)/calendario/page.tsx
+@@ -1281,11 +1281,15 @@ export default function Calendario() {
+     // UPDATE reintroducía las reservas fantasma sin que nadie se enterara.
+     const resReservas = await cancelarReservasDeSesiones([sesionId], 'cancelarSesion');
+     setSesionId(null);
++    // AUDITORÍA 2-sep (F-8): el aviso de bono se propaga al toast. Antes la
++    // devolución se lanzaba con `void` y un fallo no llegaba a ninguna pantalla.
+     showToast(!resReservas.ok
+       ? 'Clase cancelada · no hemos podido cancelar sus reservas, recarga la página'
+-      : sinAvisar > 0
+-        ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
+-        : 'Clase cancelada · clientas avisadas');
++      : resReservas.avisoBono
++        ? `Clase cancelada · ${resReservas.avisoBono}`
++        : sinAvisar > 0
++          ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
++          : 'Clase cancelada · clientas avisadas');
+     void refrescarVista();
+   }
+ 
+@@ -1306,7 +1310,7 @@ export default function Calendario() {
+     const res = await deleteSesion(sesionId);
+     if (!res.ok) { showToast(res.error); return; }
+     setSesionId(null);
+-    showToast('Clase eliminada');
++    showToast(res.avisoBono ? `Clase eliminada · ${res.avisoBono}` : 'Clase eliminada');
+     void refrescarVista();
+   }
+ 
+diff --git a/app/api/billing/webhook/route.ts b/app/api/billing/webhook/route.ts
+index 159a2a93..99f017d3 100644
+--- a/app/api/billing/webhook/route.ts
++++ b/app/api/billing/webhook/route.ts
+@@ -164,15 +164,29 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
+     // `cadenas` es la única fuente de verdad para el billing de una cadena —
+     // el trigger propagar_plan_cadena (migración 0066) hace el fan-out a
+     // TODAS sus sedes en la misma transacción. No tocar `studios` aquí.
+-    const { error } = await admin.from('cadenas').update(update).eq('id', cadenaId);
++    const { data: tocadas, error } = await admin.from('cadenas').update(update).eq('id', cadenaId).select('id');
+     if (error) throw new Error(`update cadenas: ${error.message}`);
++    // AUDITORÍA 2-sep (F-4): mismo motivo que el fallback de abajo, que ya lo
++    // hacía. Un UPDATE que no matchea NADA no da error: sin este `.select`, con
++    // una metadata que apunta a una cadena borrada respondíamos 200, Stripe no
++    // reintenta nunca y el estado de suscripción se queda congelado en silencio.
++    if (!tocadas || tocadas.length === 0) {
++      Sentry.captureMessage('[billing webhook] cadenaId de la metadata no existe: suscripción sin sincronizar', {
++        level: 'error', tags: { area: 'billing' }, extra: { cadenaId, customerId, estado: sub.status },
++      });
++    }
+     capturar(cadenaId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+     return;
+   }
+ 
+   if (studioId) {
+-    const { error } = await admin.from('studios').update(update).eq('id', studioId);
++    const { data: tocados, error } = await admin.from('studios').update(update).eq('id', studioId).select('id');
+     if (error) throw new Error(`update studios: ${error.message}`);
++    if (!tocados || tocados.length === 0) {
++      Sentry.captureMessage('[billing webhook] studioId de la metadata no existe: suscripción sin sincronizar', {
++        level: 'error', tags: { area: 'billing' }, extra: { studioId, customerId, estado: sub.status },
++      });
++    }
+     // R4: señal de ciclo de vida de la suscripción (alta/renovación/impago/baja).
+     capturar(studioId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+     // Review Boost: señal directa "vino de Review Boost y pagó", sin tener que
+@@ -198,8 +212,17 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
+   if (studiosError) throw new Error(`update studios: ${studiosError.message}`);
+   if (enStudios && enStudios.length > 0) return;
+ 
+-  const { error: cadenasError } = await admin.from('cadenas').update(update).eq('stripe_customer_id', customerId);
++  const { data: enCadenas, error: cadenasError } = await admin
++    .from('cadenas').update(update).eq('stripe_customer_id', customerId).select('id');
+   if (cadenasError) throw new Error(`update cadenas (fallback sin metadata): ${cadenasError.message}`);
++  // AUDITORÍA 2-sep (F-4): el fallback ya comprobaba `studios`, pero si tampoco
++  // había cadena nadie se enteraba: la suscripción quedaba sin sincronizar y sin
++  // rastro. Ahora al menos queda la señal para poder reconstruirlo.
++  if (!enCadenas || enCadenas.length === 0) {
++    Sentry.captureMessage('[billing webhook] stripe_customer_id sin estudio ni cadena: suscripción sin sincronizar', {
++      level: 'error', tags: { area: 'billing' }, extra: { customerId, estado: sub.status },
++    });
++  }
+ }
+ 
+ async function avisarFalloPagoSaas(admin: SupabaseClient, invoice: Stripe.Invoice): Promise<void> {
+diff --git a/app/api/stripe/webhook/route.ts b/app/api/stripe/webhook/route.ts
+index 7904c1c2..6441d67b 100644
+--- a/app/api/stripe/webhook/route.ts
++++ b/app/api/stripe/webhook/route.ts
+@@ -629,8 +629,7 @@ async function procesarEvento(
+     // registrar la venta, el cobro aparece en "cobros sin registrar".
+     const origenPos = pi.metadata?.origen;
+     if (origenPos === 'pos_terminal' || origenPos === 'pos_bizum') {
+-      const studioId = pi.metadata.studioId;
+-      if (!studioId) {
++      if (!pi.metadata.studioId) {
+         console.error('[stripe webhook] PI de terminal sin studioId en metadata', pi.id);
+         Sentry.captureMessage('[stripe webhook] PI de terminal sin studioId en metadata', {
+           level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, origenPos },
+@@ -641,10 +640,27 @@ async function procesarEvento(
+       if (!admin) {
+         console.error('[stripe webhook] service role no configurada (reconciliación POS)');
+         Sentry.captureMessage('[stripe webhook] service role no configurada (reconciliación POS)', {
+-          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, studioId },
++          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id, studioId: pi.metadata.studioId },
+         });
+         return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+       }
++      // AUDITORÍA 2-sep (F-3): el tenant se resuelve desde la CUENTA CONNECT que
++      // firma el evento, NO desde la metadata — mismo criterio que la rama
++      // `plan_web_embebido` de abajo y que checkout.session.completed. Antes esta
++      // rama se fiaba de `pi.metadata.studioId` a pelo, así que un estudio podía
++      // crear un PaymentIntent con el studioId de OTRO y meterle una fila en sus
++      // "cobros sin registrar" con importe y concepto arbitrarios.
++      const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
++      if (!tenantAutorizado(studioDeCuenta, pi.metadata.studioId)) {
++        Sentry.captureMessage('[stripe webhook] POS: la cuenta Connect no corresponde al estudio de la metadata', {
++          level: 'error',
++          tags: { area: 'cobros' },
++          extra: { paymentIntentId: pi.id, eventAccount: event.account, studioIdMetadata: pi.metadata.studioId, studioDeCuenta },
++        });
++        return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
++      }
++      const studioId = studioDeCuenta as string;
++
+       // Insert idempotente: si el POS ya registró la venta y marcó el marcador
+       // RECONCILIADO, la PK del PaymentIntent hace que este INSERT choque (23505)
+       // y no pisamos ese estado. Cualquier otro error → 5xx para que Stripe
+diff --git a/app/api/sustituciones/route.ts b/app/api/sustituciones/route.ts
+index cbc57594..286fe3bd 100644
+--- a/app/api/sustituciones/route.ts
++++ b/app/api/sustituciones/route.ts
+@@ -371,7 +371,7 @@ export async function PATCH(req: NextRequest) {
+     //
+     // A las de LISTA_ESPERA y PENDIENTE_APROBACION se les cancela sin aviso:
+     // avisarAlumnas solo alcanza a las CONFIRMADA. Es lo que ya hacía el panel.
+-    const { data: confirmadasAntes } = await admin.from('reservas').select('socio_id')
++    const { data: confirmadasAntes } = await admin.from('reservas').select('id, socio_id')
+       .eq('sesion_id', sust.sesion_id).eq('studio_id', sesion.studioId).eq('estado', 'CONFIRMADA');
+ 
+     const cancRes = await admin.from('reservas')
+@@ -413,7 +413,7 @@ export async function PATCH(req: NextRequest) {
+         .eq('id', sust.sesion_id).maybeSingle();
+       const tipoClaseId = sesionInfo?.tipo_clase_id as string | null;
+       await devolverBonosPorCancelacionClase(admin, sesion.studioId,
+-        confirmadasAntes.map(r => ({ socioId: r.socio_id as string, tipoClaseId })));
++        confirmadasAntes.map(r => ({ socioId: r.socio_id as string, tipoClaseId, reservaId: r.id as string })));
+     }
+ 
+     return NextResponse.json({ ok: true, alumnas });
+diff --git a/app/portal/[slug]/mensajes/page.tsx b/app/portal/[slug]/mensajes/page.tsx
+index f2e9bb6d..600e4bf0 100644
+--- a/app/portal/[slug]/mensajes/page.tsx
++++ b/app/portal/[slug]/mensajes/page.tsx
+@@ -180,7 +180,7 @@ export default function MensajesPage() {
+                 const instructora = instructorId ? instructores.find(x => x.id === instructorId) : null;
+                 const nombreMostrado = esMostrador ? (studio?.nombre ?? 'El estudio') : (instructora?.nombre ?? 'Tu instructora');
+                 const contexto = esMostrador ? 'Mostrador · dudas y horarios' : 'Tu instructora';
+-                const sinLeer = tieneSinLeer(c, authUserId);
++                const sinLeer = tieneSinLeer(c, authUserId, 'socia');
+                 const mio = Boolean(c.ultimo_remitente_auth_user_id && c.ultimo_remitente_auth_user_id === authUserId);
+                 return (
+                   <FilaConversacionPortal
+diff --git a/components/configuracion/tab-integraciones.tsx b/components/configuracion/tab-integraciones.tsx
+index d8372b39..3a23120f 100644
+--- a/components/configuracion/tab-integraciones.tsx
++++ b/components/configuracion/tab-integraciones.tsx
+@@ -713,18 +713,22 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
+     }
+   };
+ 
+-  const guardar = (cat: CatalogoIntegracion) => {
++  const guardar = async (cat: CatalogoIntegracion) => {
+     // Un checkbox (p.ej. "plantilla aprobada") no cuenta como credencial: sin
+     // esto, marcarlo sin haber pegado token/phoneId activaría la integración
+     // como si estuviera conectada.
+     const rellenos = cat.campos.filter(c => c.tipo !== 'checkbox').some(c => (form[c.key] ?? '').trim() !== '');
+-    upsertIntegracion(cat.tipo, rellenos, form, configOriginal);
++    const res = await upsertIntegracion(cat.tipo, rellenos, form, configOriginal);
++    if (!res.ok) { showToast(`No se ha podido guardar ${cat.nombre}. ${res.error}`); return; }
+     setEditando(null);
+     showToast(`${cat.nombre} ${rellenos ? 'conectado' : 'actualizado'}`);
+   };
+ 
+-  const desconectar = (cat: CatalogoIntegracion) => {
+-    upsertIntegracion(cat.tipo, false, {}, configOriginal);
++  const desconectar = async (cat: CatalogoIntegracion) => {
++    // AUDITORÍA 2-sep (F-12): el toast solo se enseña si la escritura fue de
++    // verdad. Antes decía «desconectado» pasara lo que pasara.
++    const res = await upsertIntegracion(cat.tipo, false, {}, configOriginal);
++    if (!res.ok) { showToast(`No se ha podido desconectar ${cat.nombre}. ${res.error}`); return; }
+     setEditando(null);
+     showToast(`${cat.nombre} desconectado`);
+   };
+diff --git a/components/reserva/reserva-calendario.tsx b/components/reserva/reserva-calendario.tsx
+index cfeb8904..ca4380c5 100644
+--- a/components/reserva/reserva-calendario.tsx
++++ b/components/reserva/reserva-calendario.tsx
+@@ -27,6 +27,7 @@ import type { ResultadoReserva } from '@/lib/studio-context';
+ import type { ResultadoEscritura } from '@/lib/errores';
+ import { semantic } from '@/lib/portal-tokens';
+ import { colorOcupacion, ratioOcupacion, etiquetaOcupacion } from '@/lib/ocupacion';
++import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
+ import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
+ import { serif, sans, mono, cq, radius, EASE, densidadCss } from '@/lib/reservar-publico-tokens';
+ import {
+@@ -540,6 +541,12 @@ export function ReservaCalendario({
+   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
+   // Feedback tras una acción, para confirmar visualmente sin cerrar la hoja.
+   const [resultado, setResultado] = useState<EstadoReserva | 'CANCELADA' | null>(null);
++  // AUDITORÍA 2-sep (F-9): esta hoja era la CUARTA pantalla de reserva y se
++  // quedó fuera de F-16. Tenía sus propios textos a mano: sin rama para
++  // PENDIENTE_APROBACION (una reserva pendiente de aprobar salía en silencio
++  // absoluto) y sin el caso "el sitio que elegiste lo cogieron antes". Ahora
++  // usa el mismo `mensajeConfirmarReserva` que las otras tres.
++  const [mensajeResultado, setMensajeResultado] = useState<string | null>(null);
+   // Orden puntual de fuera (botón Atrás real, Modo A): mismo patrón de
+   // "ajustar estado durante el render" que `irADia` arriba, por el mismo
+   // motivo (sin esto, un fotograma real pintaría la ficha vieja o cerrada
+@@ -560,7 +567,7 @@ export function ReservaCalendario({
+     setNonceSlotVisto(abrirSlotExterno.nonce);
+     setOpenSlotId(abrirSlotExterno.slotId);
+     setSelectedSpot(null);
+-    setResultado(null);
++    setResultado(null); setMensajeResultado(null);
+     // Sin esto, saltar de una ficha a otra (botón Atrás real / deep-link
+     // ?sesion=) sin pasar por cerrarHoja() dejaba la ficha nueva con el
+     // `enviando`/`errorReserva` de una petición huérfana de la ficha
+@@ -640,7 +647,7 @@ export function ReservaCalendario({
+   // todavía abierta sobre un slot que ya no existe. La condición se
+   // auto-cancela —al poner `openSlotId` a null deja de cumplirse—, así que no
+   // hace falta guardar el valor anterior ni hay riesgo de bucle.
+-  if (openSlotId && !openSlot) { setOpenSlotId(null); setSelectedSpot(null); setResultado(null); }
++  if (openSlotId && !openSlot) { setOpenSlotId(null); setSelectedSpot(null); setResultado(null); setMensajeResultado(null); }
+ 
+   function navegarSemana(dir: -1 | 1) {
+     const nuevoAnchor = addDays(weekAnchor, dir * 7);
+@@ -655,7 +662,7 @@ export function ReservaCalendario({
+     if (onAntesDeAbrir?.(slot)) return;
+     setOpenSlotId(slot.id);
+     setSelectedSpot(null);
+-    setResultado(null);
++    setResultado(null); setMensajeResultado(null);
+     // Mismo motivo que en abrirSlotExterno: un clic normal en otra tarjeta
+     // mientras hay una petición en vuelo de la ficha anterior no debe heredar
+     // su `enviando`/`errorReserva`.
+@@ -665,7 +672,7 @@ export function ReservaCalendario({
+   function cerrarHoja() {
+     setOpenSlotId(null);
+     setSelectedSpot(null);
+-    setResultado(null);
++    setResultado(null); setMensajeResultado(null);
+     setErrorReserva(null);
+     setEnviando(false);
+   }
+@@ -1071,6 +1078,7 @@ export function ReservaCalendario({
+           selectedSpot={selectedSpot}
+           onSelectSpot={setSelectedSpot}
+           resultado={resultado}
++          mensajeResultado={mensajeResultado}
+           errorReserva={errorReserva}
+           enviando={enviando}
+           cancelacionVentanaHoras={cancelacionVentanaHoras}
+@@ -1103,6 +1111,7 @@ export function ReservaCalendario({
+             }
+             if (r && !r.ok) { setErrorReserva(r.error); return; }
+             setResultado('CONFIRMADA');
++            setMensajeResultado(mensajeConfirmarReserva({ estado: 'CONFIRMADA' }, null));
+           } : undefined}
+           onReservar={async () => {
+             if (enviando) return;
+@@ -1146,6 +1155,9 @@ export function ReservaCalendario({
+             if (!r) return;
+             if (!r.ok) { setErrorReserva(r.error); return; }
+             setResultado(r.estado);
++            setMensajeResultado(mensajeConfirmarReserva(
++              { estado: r.estado, spotAsignado: r.spotAsignado }, selectedSpot,
++            ));
+           }}
+           onCancelar={async () => {
+             if (!openSlot.miReservaId || enviando) return;
+@@ -1475,7 +1487,7 @@ const TarjetaClase = memo(TarjetaClaseImpl);
+ // ── Hoja inferior (bottom sheet) ─────────────────────────────────────────────
+ 
+ function BookingSheet({
+-  t, slot, variantePresentacion = 'modal', selectedSpot, onSelectSpot, resultado, errorReserva, enviando, cancelacionVentanaHoras, ventanaPorTipo,
++  t, slot, variantePresentacion = 'modal', selectedSpot, onSelectSpot, resultado, mensajeResultado, errorReserva, enviando, cancelacionVentanaHoras, ventanaPorTipo,
+   fontFamily, ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false,
+   enIframe = false, franjaVisible = null, origenTentare = '',
+   onClose, onReservar, onCancelar, onAceptarOferta,
+@@ -1487,6 +1499,7 @@ function BookingSheet({
+   selectedSpot: string | null;
+   onSelectSpot: (id: string | null) => void;
+   resultado: EstadoReserva | 'CANCELADA' | null;
++  mensajeResultado: string | null;
+   errorReserva: string | null;
+   enviando: boolean;
+   cancelacionVentanaHoras?: number;
+@@ -1827,8 +1840,9 @@ function BookingSheet({
+ 
+         {/* Banner de resultado / estado actual */}
+         {errorReserva && <Banner tipo="warn" texto={errorReserva} />}
+-        {resultado === 'CONFIRMADA' && <Banner tipo="ok" texto="¡Reserva confirmada! Te esperamos en clase." />}
+-        {resultado === 'LISTA_ESPERA' && <Banner tipo="warn" texto="Estás en lista de espera. Te avisaremos si se libera una plaza." />}
++        {resultado && resultado !== 'CANCELADA' && mensajeResultado && (
++          <Banner tipo={resultado === 'CONFIRMADA' ? 'ok' : 'warn'} texto={mensajeResultado} />
++        )}
+         {resultado === 'CANCELADA' && <Banner tipo="warn" texto="Reserva cancelada." />}
+         {!resultado && yaReservada && <Banner tipo="ok" texto="Ya tienes esta clase reservada." />}
+         {!resultado && enEspera && !hayOferta && <Banner tipo="warn" texto="Estás en lista de espera para esta clase." />}
+diff --git a/components/socios/ficha-documentos.tsx b/components/socios/ficha-documentos.tsx
+index 25410123..3f564394 100644
+--- a/components/socios/ficha-documentos.tsx
++++ b/components/socios/ficha-documentos.tsx
+@@ -93,11 +93,18 @@ export function FichaDocumentos({ socioId, onToast }: { socioId: string; onToast
+   const [abriendoId, setAbriendoId] = useState<string | null>(null);
+ 
+   async function ver(d: RowDocumentosSocio) {
++    if (abriendoId) return;
+     setAbriendoId(d.id);
++    // AUDITORÍA 2-sep (F-6): síncrono, ANTES del await. Si la pestaña se abre
++    // tras la respuesta, Safari la trata como pop-up no solicitado y la bloquea
++    // sin avisar — "Ver" no hacía nada en el iPad del mostrador. Mismo patrón
++    // que el gemelo de la socia (app/portal/[slug]/documentos/page.tsx).
++    const pestana = window.open('about:blank', '_blank', 'noopener,noreferrer');
+     const res = await abrirDocumentoSocio(d.id);
+     setAbriendoId(null);
+-    if ('error' in res) { onToast(res.error); return; }
+-    window.open(res.url, '_blank', 'noopener,noreferrer');
++    if ('error' in res) { pestana?.close(); onToast(res.error); return; }
++    if (pestana) pestana.location.href = res.url;
++    else window.open(res.url, '_blank', 'noopener,noreferrer');
+   }
+ 
+   function abrir() {
+diff --git a/lib/bandeja-logic.ts b/lib/bandeja-logic.ts
+index 41f398a0..b9247f20 100644
+--- a/lib/bandeja-logic.ts
++++ b/lib/bandeja-logic.ts
+@@ -23,6 +23,7 @@ import type {
+   Sesion, Reserva, Socio, Sala,
+ } from '@/lib/types';
+ import { aforoEfectivoSesion } from './aforo-logic.ts';
++import { esReservaDePlazaFija } from './bono-logic.ts';
+ import { sociosConExcepcion } from './excepciones.ts';
+ 
+ // Euro en formato ES, idéntico a formatEuro de utils; inline para no arrastrar
+@@ -204,7 +205,7 @@ function plazasSinClase(e: EntradaBandeja, nombreSocia: (id: string | null) => s
+   const sesionById = new Map(e.sesiones.map(s => [s.id, s]));
+   const conPlazaFutura = new Set<string>();
+   for (const r of e.reservas) {
+-    if (r.estado !== 'CONFIRMADA' || !r.id.startsWith('res-pf-')) continue;
++    if (r.estado !== 'CONFIRMADA' || !esReservaDePlazaFija(r.id)) continue;
+     const s = sesionById.get(r.sesionId);
+     if (!s || s.cancelada || Date.parse(s.inicio) <= e.ahoraMs) continue;
+     conPlazaFutura.add(r.socioId);
+diff --git a/lib/billing/dunning-server.ts b/lib/billing/dunning-server.ts
+index b5a26cc3..721c440f 100644
+--- a/lib/billing/dunning-server.ts
++++ b/lib/billing/dunning-server.ts
+@@ -209,6 +209,9 @@ export async function confirmarCobroExitoso(params: {
+     });
+     if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');
+   } catch (e) {
++    // AUDITORÍA 2-sep (F-14): misma red que el camino de Checkout (confirmar-cobro.ts).
++    await admin.from('recibos').update({ factura_pendiente_sellar: true })
++      .eq('id', reciboId).eq('studio_id', studioId);
+     Sentry.captureException(e instanceof Error ? e : new Error('Fallo al sellar la factura del cobro'), {
+       level: 'warning', tags: { area: 'facturacion', tipo: esSepa ? 'sepa_ciclo' : 'tarjeta_recibo' }, extra: { reciboId },
+     });
+diff --git a/lib/billing/registrar-devolucion.ts b/lib/billing/registrar-devolucion.ts
+index 0e7b154f..e7e4420c 100644
+--- a/lib/billing/registrar-devolucion.ts
++++ b/lib/billing/registrar-devolucion.ts
+@@ -9,6 +9,7 @@
+ // Sin Stripe dentro a propósito: el webhook le pasa datos ya extraídos, y así
+ // todo lo que decide algo es probable sin red.
+ // ─────────────────────────────────────────────────────────────────────────────
++import * as Sentry from '@sentry/nextjs';
+ import type { SupabaseClient } from '@supabase/supabase-js';
+ 
+ export type OrigenDevolucion = 'REEMBOLSO_TOTAL' | 'REEMBOLSO_PARCIAL' | 'CHARGEBACK';
+@@ -231,7 +232,17 @@ export async function registrarDevolucion(admin: SupabaseClient, p: {
+     .update(camposActualizados)
+     .eq('id', id).eq('studio_id', p.studioId);
+   if (errImporte) {
++    // AUDITORÍA 2-sep (F-5): `recibos.importe_devuelto` / `ventas_pos.devuelta_en`
++    // son el espejo que leen el panel y la exportación. Si no se actualizan, el
++    // reembolso es invisible ahí. Antes solo había un console.error: la función
++    // seguía devolviendo un objeto no-null y quien la llama notificaba como si
++    // todo hubiera ido bien. Ahora al menos queda reconstruible.
+     console.error('[devoluciones] devolución anotada pero sin actualizar el acumulado', id, errImporte.message);
++    Sentry.captureMessage('[devoluciones] devolución anotada pero sin actualizar el acumulado', {
++      level: 'error',
++      tags: { area: 'cobros' },
++      extra: { tabla, id, studioId: p.studioId, origen: p.origen, detalle: errImporte.message },
++    });
+   }
+ 
+   return { id: data.id as string, estado, origen: p.origen, importeDevuelto };
+diff --git a/lib/billing/stripe-cobros.ts b/lib/billing/stripe-cobros.ts
+index f482ad4a..e401c172 100644
+--- a/lib/billing/stripe-cobros.ts
++++ b/lib/billing/stripe-cobros.ts
+@@ -219,6 +219,11 @@ export async function cobrarReciboOffSession(params: {
+         studioId: params.studioId, reciboId: params.reciboId, facturaId: `fac-off-${params.reciboId}`,
+       });
+       if (!sellado.ok) {
++        // AUDITORÍA 2-sep (F-14): sin esta marca, `reintentarFacturasPendientesDeSellar`
++        // (cron horario) no ve nunca las facturas del cobro recurrente — que es el
++        // que más facturas genera. La red de recuperación existía solo para Checkout.
++        await admin.from('recibos').update({ factura_pendiente_sellar: true })
++          .eq('id', params.reciboId).eq('studio_id', params.studioId);
+         Sentry.captureMessage('[cobrarReciboOffSession] cobro OK pero factura sin sellar', {
+           level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
+           extra: { reciboId: params.reciboId, error: sellado.error },
+diff --git a/lib/bono-logic.test.ts b/lib/bono-logic.test.ts
+index 007a9c84..0a024100 100644
+--- a/lib/bono-logic.test.ts
++++ b/lib/bono-logic.test.ts
+@@ -7,7 +7,7 @@ import {
+   bonoConsumible, bonoDevolvible, calcularConsumoBono, tieneEntitlementActivo,
+   calcularFechaFinBono, superaLimiteSemanal, nuevaFechaFinTrasCongelar, planCubreTipoClase,
+   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
+-  saldoSesionesBono, generaRenovacionAlAgotarse } from './bono-logic.ts';
++  saldoSesionesBono, generaRenovacionAlAgotarse, esReservaDePlazaFija } from './bono-logic.ts';
+ 
+ // ── Fixtures ─────────────────────────────────────────────────────────────────
+ function sus(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
+@@ -517,3 +517,28 @@ test('un mensual no pasa por aquí, y si pasara no renovaría por esta vía', ()
+   // por MENSUAL. Duplicarla aquí cobraría dos veces.
+   assert.equal(generaRenovacionAlAgotarse({ tipo: 'MENSUAL' }), false);
+ });
++
++// ── AUDITORÍA 2-sep (F-16): reservas de plaza fija ──────────────────────────
++// Regresión de F-7 🔴: cancelar una CLASE entera devolvía sesión de bono a las
++// reservas `res-pf-…`, que nunca la consumieron (las materializa el cron sin
++// tocar el bono). Era saldo regalado. El prefijo estaba escrito a mano en ocho
++// sitios y faltaba en los tres de cancelar la clase completa.
++
++test('esReservaDePlazaFija: reconoce las materializadas por el cron', () => {
++  assert.equal(esReservaDePlazaFija('res-pf-abc123'), true);
++});
++
++test('esReservaDePlazaFija: una reserva normal NO es plaza fija', () => {
++  assert.equal(esReservaDePlazaFija('res-abc123'), false);
++});
++
++test('esReservaDePlazaFija: null/undefined/vacío no revientan', () => {
++  assert.equal(esReservaDePlazaFija(null), false);
++  assert.equal(esReservaDePlazaFija(undefined), false);
++  assert.equal(esReservaDePlazaFija(''), false);
++});
++
++test('esReservaDePlazaFija: el prefijo se compara al PRINCIPIO, no en cualquier parte', () => {
++  // Si algún día alguien usa `includes` en vez de `startsWith`, esto lo caza.
++  assert.equal(esReservaDePlazaFija('res-xx-res-pf-abc'), false);
++});
+diff --git a/lib/bono-logic.ts b/lib/bono-logic.ts
+index 0c56d0a5..86d8ee0a 100644
+--- a/lib/bono-logic.ts
++++ b/lib/bono-logic.ts
+@@ -8,6 +8,24 @@
+ 
+ import type { Suscripcion, PlanTarifa, TipoPlan } from '@/lib/types';
+ 
++// ── ¿Esta reserva la materializó el cron de plazas fijas? ────────────────────
++//
++// AUDITORÍA 2-sep (F-16): `materializar_plazas_fijas` inserta las reservas de
++// plaza fija con id `res-pf-…` y en estado CONFIRMADA SIN tocar el bono — esa
++// plaza se paga por otra vía. Así que al cancelar NO hay que devolverle sesión:
++// devolvérsela es regalar saldo de la nada.
++//
++// La comprobación estaba escrita a mano con `.startsWith('res-pf-')` en ocho
++// sitios, y en tres de ellos faltaba (justo los de cancelar la CLASE entera).
++// Es el patrón "gemelo divergente" del que vive esta base de código: una regla
++// de negocio copiada a mano se arregla en un sitio y se queda rota en el resto.
++// Aquí queda una sola vez, con nombre y con test.
++export const PREFIJO_RESERVA_PLAZA_FIJA = 'res-pf-';
++
++export function esReservaDePlazaFija(reservaId: string | null | undefined): boolean {
++  return !!reservaId && reservaId.startsWith(PREFIJO_RESERVA_PLAZA_FIJA);
++}
++
+ // ── ¿Este plan cubre ESTA clase? ─────────────────────────────────────────────
+ //
+ // Un plan sin tipos de clase asignados cubre TODO — es como se han comportado
+diff --git a/lib/db/supabase-data-admin.ts b/lib/db/supabase-data-admin.ts
+index 8dd308a0..d994f693 100644
+--- a/lib/db/supabase-data-admin.ts
++++ b/lib/db/supabase-data-admin.ts
+@@ -25,7 +25,7 @@ import {
+   contarReservasActivasFuturas, esCancelacionTardia,
+   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
+ } from '@/lib/booking-logic';
+-import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, generaRenovacionAlAgotarse, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
++import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, generaRenovacionAlAgotarse, esReservaDePlazaFija, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
+ import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
+ import { calcularMetrica } from '@/lib/engines/achievement-engine';
+ import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
+@@ -1004,9 +1004,20 @@ async function devolverBonoServidor(
+ // para que el email de cancelación nunca prometa una sesión que no recuperó.
+ export async function devolverBonosPorCancelacionClase(
+   admin: SupabaseClient, studioId: string,
+-  confirmadas: { socioId: string; tipoClaseId: string | null }[],
++  confirmadasEntrada: { socioId: string; tipoClaseId: string | null; reservaId?: string }[],
+ ): Promise<Map<string, boolean>> {
+   const devueltoPorSocia = new Map<string, boolean>();
++  // AUDITORÍA 2-sep (F-7): las reservas de PLAZA FIJA las materializa
++  // `materializar_plazas_fijas` insertando `res-pf-…` en CONFIRMADA SIN tocar el
++  // bono. Devolverles una sesión al cancelar la clase es regalar saldo de la
++  // nada. El guard ya existía en la cancelación de UNA reserva (cancelarReserva,
++  // aquí y en studio-context) pero no en la cancelación de la CLASE ENTERA, que
++  // pasa por esta función. Se pone aquí, que es por donde entran los dos
++  // caminos servidor, en vez de repetirlo en cada llamante.
++  const confirmadas = confirmadasEntrada.filter(c => !esReservaDePlazaFija(c.reservaId));
++  confirmadasEntrada
++    .filter(c => esReservaDePlazaFija(c.reservaId))
++    .forEach(c => devueltoPorSocia.set(c.socioId, false));
+   if (confirmadas.length === 0) return devueltoPorSocia;
+   const { data } = await admin.from('studios')
+     .select('cancelacion_clase_devuelve_bono').eq('id', studioId).maybeSingle();
+@@ -2409,7 +2420,7 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
+   // le prometa a nadie una sesión que no ha recuperado. En esta cancelación cada
+   // socia recibe su propio correo, así que el dato es por persona, no global.
+   const devueltoPorSocia = await devolverBonosPorCancelacionClase(admin, params.studioId,
+-    confirmadas.map(r => ({ socioId: r.socio_id as string, tipoClaseId })));
++    confirmadas.map(r => ({ socioId: r.socio_id as string, tipoClaseId, reservaId: r.id as string })));
+ 
+   // CLASE_CANCELADA no manda email a propósito (catalog.ts) — aquí SÍ hay
+   // dinero de por medio, así que se manda explícito. CancelacionClaseEmail ya
+@@ -2509,7 +2520,7 @@ export async function ejecutarCancelacionReserva(
+   // NO debe devolver una sesión que nunca se descontó: su compensación es la
+   // recuperación (ver cancelarReservaPublica). Sin este guard, cancelar una plaza
+   // fija regalaba una sesión de bono + una recuperación (doble compensación).
+-  const esPlazaFija = params.reservaId.startsWith('res-pf-');
++  const esPlazaFija = esReservaDePlazaFija(params.reservaId);
+   if (row?.era_confirmada && cancelada?.sesion_id && cancelada?.socio_id && !esPlazaFija) {
+     const pol = await cargarPoliticaEstudio(admin, params.studioId);
+     const { data: ses } = await admin
+@@ -2634,7 +2645,7 @@ export async function cancelarReservaPublica(params: {
+   // tope de 4) → clases gratis self-service. La RPC además dedup por origen (0103).
+   let recuperacionCreada = false;
+   let recuperacionCaducaEl: string | null = null;
+-  if (params.reservaId.startsWith('res-pf-') && r.eraConfirmada) {
++  if (esReservaDePlazaFija(params.reservaId) && r.eraConfirmada) {
+     const recupId = `recup-${uid()}`;
+     const { data } = await admin.rpc('crear_recuperacion', {
+       p_id: recupId,
+diff --git a/lib/mensajeria/presentacion.test.ts b/lib/mensajeria/presentacion.test.ts
+index 4357d7f3..5f055021 100644
+--- a/lib/mensajeria/presentacion.test.ts
++++ b/lib/mensajeria/presentacion.test.ts
+@@ -54,3 +54,56 @@ test('nunca marca como sin leer el propio mensaje, ni en el mostrador', () => {
+   });
+   assert.equal(tieneSinLeer(c, 'yo'), false);
+ });
++
++// ── AUDITORÍA 2-sep (F-2 🔴): la marca del MOSTRADOR no vale para la socia ───
++// `mostrador_leido_hasta` es la marca COMPARTIDA del lado estudio. La socia sí
++// tiene fila propia en `conversacion_participantes`, así que su marca es la
++// personal. Antes la rama era incondicional y, como el endpoint público ni
++// siquiera selecciona esa columna, para la socia salía `undefined` → el punto
++// rojo de "Mensajes" se quedaba encendido para siempre, sin forma de apagarlo.
++
++test('mostrador · SOCIA: su leido_hasta posterior al último mensaje → leído', () => {
++  const c = base({
++    tipo: 'ALUMNA_MOSTRADOR',
++    leido_hasta: '2026-01-03T00:00:00Z',
++    mostrador_leido_hasta: null,
++  });
++  assert.equal(tieneSinLeer(c, 'yo', 'socia'), false);
++});
++
++test('mostrador · SOCIA: sin `mostrador_leido_hasta` en el JSON el badge NO se queda pegado', () => {
++  // Reproduce el payload real de /api/public/mensajeria/conversaciones, que no
++  // selecciona la columna. Antes esto devolvía `true` siempre.
++  const c = base({ tipo: 'ALUMNA_MOSTRADOR', leido_hasta: '2026-01-03T00:00:00Z' });
++  delete (c as Partial<ConversacionConResumen>).mostrador_leido_hasta;
++  assert.equal(tieneSinLeer(c, 'yo', 'socia'), false);
++});
++
++test('mostrador · SOCIA: si aún no ha leído nada, sí sale sin leer', () => {
++  const c = base({ tipo: 'ALUMNA_MOSTRADOR', leido_hasta: null });
++  assert.equal(tieneSinLeer(c, 'yo', 'socia'), true);
++});
++
++test('mostrador · SOCIA: ignora la marca del estudio (que el estudio lo lea no es que lo lea ella)', () => {
++  const c = base({
++    tipo: 'ALUMNA_MOSTRADOR',
++    leido_hasta: '2026-01-01T00:00:00Z',      // ella leyó ANTES del último mensaje
++    mostrador_leido_hasta: '2026-01-03T00:00:00Z', // el estudio ya lo leyó
++  });
++  assert.equal(tieneSinLeer(c, 'yo', 'socia'), true);
++});
++
++test('mostrador · STAFF: sigue usando la marca compartida (sin regresión)', () => {
++  const c = base({
++    tipo: 'ALUMNA_MOSTRADOR',
++    leido_hasta: null,
++    mostrador_leido_hasta: '2026-01-03T00:00:00Z',
++  });
++  assert.equal(tieneSinLeer(c, 'yo'), false);
++  assert.equal(tieneSinLeer(c, 'yo', 'staff'), false);
++});
++
++test('mostrador · STAFF: sin marca compartida sigue saliendo sin leer', () => {
++  const c = base({ tipo: 'ALUMNA_MOSTRADOR', mostrador_leido_hasta: null });
++  assert.equal(tieneSinLeer(c, 'yo'), true);
++});
+diff --git a/lib/mensajeria/presentacion.ts b/lib/mensajeria/presentacion.ts
+index 17a9f8a7..aa847467 100644
+--- a/lib/mensajeria/presentacion.ts
++++ b/lib/mensajeria/presentacion.ts
+@@ -173,10 +173,22 @@ export function agruparHilo<T extends MensajeAgrupable>(
+  * (compartido, en la propia conversación) solo para ese tipo; el resto sigue
+  * con la marca personal de siempre.
+  */
+-export function tieneSinLeer(c: ConversacionConResumen, miAuthUserId: string | null): boolean {
++export function tieneSinLeer(
++  c: ConversacionConResumen,
++  miAuthUserId: string | null,
++  perspectiva: 'staff' | 'socia' = 'staff',
++): boolean {
+   if (c.ultimo_remitente_auth_user_id && c.ultimo_remitente_auth_user_id === miAuthUserId) return false;
+-  const leidoHasta = c.tipo === 'ALUMNA_MOSTRADOR' ? c.mostrador_leido_hasta : c.leido_hasta;
+-  if (!leidoHasta) return c.tipo === 'ALUMNA_MOSTRADOR' ? true : false;
++  const esMostrador = c.tipo === 'ALUMNA_MOSTRADOR';
++  // AUDITORÍA 2-sep (F-2): la marca COMPARTIDA `mostrador_leido_hasta` es la del
++  // lado ESTUDIO. La socia sí tiene fila propia en `conversacion_participantes`,
++  // así que para ella la marca buena sigue siendo la personal. Antes la rama era
++  // incondicional: en el portal `mostrador_leido_hasta` ni siquiera viaja en el
++  // JSON (el endpoint público no lo selecciona), así que salía `undefined` y el
++  // punto rojo se quedaba encendido para siempre, sin forma de apagarlo.
++  const usaMarcaDelMostrador = esMostrador && perspectiva === 'staff';
++  const leidoHasta = usaMarcaDelMostrador ? c.mostrador_leido_hasta : c.leido_hasta;
++  if (!leidoHasta) return esMostrador;
+   return new Date(leidoHasta).getTime() < new Date(c.ultimo_mensaje_en).getTime();
+ }
+ 
+diff --git a/lib/stores/use-integrations-store.ts b/lib/stores/use-integrations-store.ts
+index a2ec68b4..c222e574 100644
+--- a/lib/stores/use-integrations-store.ts
++++ b/lib/stores/use-integrations-store.ts
+@@ -11,11 +11,12 @@ import { useState } from 'react';
+ import { uid } from '@/lib/utils';
+ import { getCurrentStudioId, dbUpsertIntegracion } from '@/lib/supabase-data';
+ import type { Integracion, TipoIntegracion } from '@/lib/types';
++import type { ResultadoEscritura } from '@/lib/errores';
+ 
+ export function useIntegrationsStore() {
+   const [integraciones, setIntegraciones] = useState<Integracion[]>([]);
+ 
+-  function upsertIntegracion(
++  async function upsertIntegracion(
+     tipo: TipoIntegracion,
+     activo: boolean,
+     config: Record<string, string>,
+@@ -23,7 +24,7 @@ export function useIntegrationsStore() {
+     // de `integraciones` porque las credenciales ya no viven en el estado del
+     // panel (ver lib/types.ts): las conoce el modal, que es quien las pidió.
+     configAnterior: Record<string, string>,
+-  ) {
++  ): Promise<ResultadoEscritura> {
+     const existente = integraciones.find(i => i.tipo === tipo);
+     const actualizadoEn = new Date().toISOString();
+     // ¿Ha cambiado alguna credencial? Si sí, lo que se sabía del servicio ya no
+@@ -44,11 +45,22 @@ export function useIntegrationsStore() {
+       ultimoError: credencialesCambiadas ? null : existente?.ultimoError ?? null,
+       ultimoErrorEn: credencialesCambiadas ? null : existente?.ultimoErrorEn ?? null,
+     };
++    const previas = integraciones;
+     setIntegraciones(prev => {
+       const otras = prev.filter(i => i.tipo !== tipo);
+       return [...otras, registro];
+     });
+-    dbUpsertIntegracion(registro, config, credencialesCambiadas);
++    // AUDITORÍA 2-sep (F-12): antes esto era fire-and-forget y la función
++    // devolvía `void`, así que la pantalla decía «WhatsApp desconectado» aunque
++    // la escritura hubiera fallado — el número seguía activo mandando
++    // recordatorios. Familia §1 (escritura optimista sin revertir): ahora se
++    // espera, y si falla se deshace el pintado y se devuelve el error.
++    const res = await dbUpsertIntegracion(registro, config, credencialesCambiadas);
++    if (!res.ok) {
++      setIntegraciones(previas);
++      return res;
++    }
++    return { ok: true as const };
+   }
+ 
+   return {
+diff --git a/lib/studio-context.tsx b/lib/studio-context.tsx
+index 8098f467..ad9bcc5a 100644
+--- a/lib/studio-context.tsx
++++ b/lib/studio-context.tsx
+@@ -189,7 +189,7 @@ import {
+   decidirReservaNueva,
+   decidirPremioReferido,
+ } from '@/lib/booking-logic';
+-import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion, generaRenovacionAlAgotarse } from '@/lib/bono-logic';
++import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion, generaRenovacionAlAgotarse, esReservaDePlazaFija } from '@/lib/bono-logic';
+ import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
+ import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
+ import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
+@@ -404,14 +404,14 @@ interface StudioContextValue {
+   // Sesiones
+   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+   updateSesion: (id: string, changes: Partial<Sesion>) => Promise<ResultadoEscritura>;
+-  deleteSesion: (id: string) => Promise<ResultadoEscritura>;
++  deleteSesion: (id: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
+   // Series de clases recurrentes (I-3)
+   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
+   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
+   cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura>;
+   /** Marca CANCELADA las reservas activas de estas sesiones. Llamar SIEMPRE
+    *  después de haber avisado a las socias (ver updateSesion). */
+-  cancelarReservasDeSesiones: (ids: string[], op: string) => Promise<ResultadoEscritura>;
++  cancelarReservasDeSesiones: (ids: string[], op: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
+ 
+   // Reservas
+   // opciones.checkInInmediato: walk-in (I-alta pilar 6) — se añade y se marca
+@@ -516,7 +516,7 @@ interface StudioContextValue {
+   updatePost: (postId: string, texto: string) => void;
+   deletePost: (postId: string) => void;
+   integraciones: Integracion[];
+-  upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => void;
++  upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => Promise<ResultadoEscritura>;
+   rewardRules: RewardRule[];
+   rewardActions: RewardAction[];
+   rewardHistory: RewardHistory[];
+@@ -2530,7 +2530,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+   // que este mismo código fue a arreglar, y en silencio. Ahora devuelve el
+   // resultado para que el toast pueda decir la verdad — en los DOS llamantes
+   // (clase suelta y serie); el reporte a Sentry se conserva tal cual.
+-  async function cancelarReservasDeSesiones(ids: string[], op: string): Promise<ResultadoEscritura> {
++  async function cancelarReservasDeSesiones(ids: string[], op: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
+     if (ids.length === 0) return { ok: true };
+     const sesionIdsSet = new Set(ids);
+     const confirmadasAntes = reservas.filter(r => sesionIdsSet.has(r.sesionId) && r.estado === 'CONFIRMADA');
+@@ -2547,9 +2547,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+       if (idsSet.size > 0) {
+         setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
+         if (studio?.cancelacionClaseDevuelveBono ?? true) {
+-          confirmadasAntes
+-            .filter(r => idsSet.has(r.id))
+-            .forEach(r => void devolverSesionBono(r.socioId, r.sesionId));
++          // AUDITORÍA 2-sep (F-7): sin el guard `res-pf-`, cancelar una clase con
++          // plazas fijas regalaba saldo de bono (esas reservas nunca lo gastaron).
++          // (F-8): antes era `void` dentro de un forEach — ni se esperaba a que
++          // terminara ni se miraba el resultado, así que la función respondía
++          // `ok: true` con las devoluciones aún en vuelo y un fallo era invisible.
++          const aDevolver = confirmadasAntes.filter(r => idsSet.has(r.id) && !esReservaDePlazaFija(r.id));
++          const oks = await Promise.all(aDevolver.map(r => devolverSesionBono(r.socioId, r.sesionId)));
++          if (oks.some(ok => !ok)) {
++            return { ok: true, avisoBono: 'no hemos podido devolver la sesión de bono a todas las alumnas, revísalo a mano' };
++          }
+         }
+       }
+       return { ok: true };
+@@ -2578,7 +2585,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+     return res;
+   }
+ 
+-  async function deleteSesion(id: string): Promise<ResultadoEscritura> {
++  async function deleteSesion(id: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
+     // Borrar la sesión CASCADE-borra sus reservas en BD (FK on delete cascade) —
+     // antes eso pasaba en silencio: ni email ni aviso in-app a las socias con
+     // plaza, a diferencia de "Cancelar" (que sí avisa). Se manda el email Y el
+@@ -2603,7 +2610,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+     setSesiones(prev => prev.filter(s => s.id !== id));
+     setReservas(prev => prev.filter(r => r.sesionId !== id));
+     if ((studio?.cancelacionClaseDevuelveBono ?? true) && confirmadas.length > 0) {
+-      confirmadas.forEach(r => void devolverSesionBono(r.socioId, r.sesionId));
++      // AUDITORÍA 2-sep (F-7/F-8): mismo guard de plaza fija y misma espera real
++      // que en cancelarReservasDeSesiones — antes era `void` en un forEach.
++      const aDevolver = confirmadas.filter(r => !esReservaDePlazaFija(r.id));
++      const oks = await Promise.all(aDevolver.map(r => devolverSesionBono(r.socioId, r.sesionId)));
++      if (oks.some(ok => !ok)) {
++        return { ok: true, avisoBono: 'no hemos podido devolver la sesión de bono a todas las alumnas, revísalo a mano' };
++      }
+     }
+     return res;
+   }
+@@ -2761,7 +2774,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+     // alguien vuelva a olvidarse del tipo, salta en vez de descontar del bono
+     // equivocado sin que se entere nadie.
+     const res = await dbConsumirSesionBono(sus.id, getCurrentStudioId(), sesionId);
+-    if (!('ok' in res)) return; // sin sesión que descontar / error → no tocar recibo
++    if (!('ok' in res)) {
++      // AUDITORÍA 2-sep (F-11): esto significa "la reserva quedó CONFIRMADA pero
++      // la RPC no descontó ninguna sesión" — una clase servida sin cobrar. El
++      // gemelo servidor (consumirBonoServidor, supabase-data-admin.ts) SÍ lo
++      // reporta desde el arreglo I-5; este camino se lo tragaba con un `return`
++      // mudo, así que desde el panel el agujero de bono era invisible.
++      capturarMensaje('[consumirSesionBono] bono consumible sin descontar (posible clase no cobrada)', 'error', {
++        tags: { area: 'bonos' },
++        extra: { suscripcionId: sus.id, socioId, sesionId, detalle: 'error' in res ? res.error : 'sin_sesion' },
++      });
++      return; // sin sesión que descontar / error → no tocar recibo
++    }
+     const nuevasRestantes = res.saldo;
+     setSuscripciones(prev => prev.map(s =>
+       s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
+@@ -2892,6 +2916,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+       return { ok: true, estado: datos?.estado ?? estado, spotAsignado: datos?.spotAsignado ?? null };
+     }
+ 
++    // AUDITORÍA 2-sep (F-10): la RPC `reservar_plaza` NO mira `sesiones.cancelada`
++    // — la guarda vive solo en TS, y solo en el camino público
++    // (`crearReservaPublica`/`reservarPlazaTrasPagoPublico` en
++    // supabase-data-admin.ts). Por el panel, el mostrador podía apuntar a una
++    // socia a una clase cancelada y, acto seguido, `consumirSesionBono` le
++    // gastaba una sesión de bono en una clase que no existe. Mismo rechazo que
++    // ya da el servidor a la socia, ahora también aquí.
++    if (sesion?.cancelada) {
++      return { ok: false, error: 'Esta clase está cancelada: no se pueden añadir reservas.' };
++    }
++
+     const reservaId = `res-${uid()}`;
+     const nueva: Reserva = {
+       id: reservaId,
+@@ -3060,7 +3095,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
+     // faltaba: cancelar la MISMA reserva desde el panel regalaba una sesión que
+     // por el portal no se regalaba. Es la misma asimetría panel↔portal que ya
+     // causó el bug de la ventana de cancelación; se cierra copiando el guard.
+-    const esPlazaFija = reservaId.startsWith('res-pf-');
++    const esPlazaFija = esReservaDePlazaFija(reservaId);
+     // P2 (auditoría de producto): antes era `void` — un fallo solo llegaba a
+     // Sentry y nadie del estudio se enteraba de que la socia se quedó sin su
+     // sesión de bono. Se espera y se convierte en un aviso que el llamante
+diff --git a/lib/supabase-data.ts b/lib/supabase-data.ts
+index 5caba079..faa9a3f0 100644
+--- a/lib/supabase-data.ts
++++ b/lib/supabase-data.ts
+@@ -3639,7 +3639,11 @@ export async function dbUpsertIntegracion(
+     ...(reiniciarSalud ? { ultimo_ok_en: null, ultimo_error: null, ultimo_error_en: null } : {}),
+   };
+   const { error } = await supabase.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
+-  if (error) reportDbError('[dbUpsertIntegracion]', error);
++  if (error) {
++    reportDbError('[dbUpsertIntegracion]', error);
++    return { ok: false as const, error: mensajeDeFalloAlGuardar(error) };
++  }
++  return { ok: true as const };
+ }
+ 
+ // ─── Catálogo de tipos de clase de la cadena (plantilla, ver lib/types.ts) ───
+diff --git a/lib/sustituciones/cerrar-vencidas.ts b/lib/sustituciones/cerrar-vencidas.ts
+index 7a830cd3..2801f028 100644
+--- a/lib/sustituciones/cerrar-vencidas.ts
++++ b/lib/sustituciones/cerrar-vencidas.ts
+@@ -12,6 +12,7 @@
+ // apareciendo como "activa" en el panel indefinidamente, aunque ya haya
+ // pasado (ver app/(dashboard)/sustituciones/page.tsx, que además filtra esto
+ // en el cliente como defensa en profundidad mientras este barrido no corre).
++import * as Sentry from '@sentry/nextjs';
+ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { fetchAllRows } from '@/lib/supabase-data';
+ import { ESTADOS_EN_JUEGO, alertarPropietaria } from '@/lib/sustituciones/contacto';
+@@ -75,7 +76,16 @@ export async function cerrarSustitucionesVencidas(): Promise<{ cerradas: number
+       studioId: s.studio_id,
+       sesion: sesion ? { inicio: sesion.inicio, tipo_clase_id: sesion.tipo_clase_id } : null,
+       tipo: 'sin_sustituta',
+-    }).catch(() => {});
++    }).catch((e: unknown) => {
++      // AUDITORÍA 2-sep (F-13): P0-2 existía justo para que una sustitución no se
++      // cerrara sin avisar a nadie. Con el `.catch(() => {})` mudo eso podía
++      // volver a pasar y nadie lo sabría.
++      Sentry.captureException(e instanceof Error ? e : new Error(String(e)), {
++        level: 'error',
++        tags: { area: 'sustituciones' },
++        extra: { sustitucionId: s.id, studioId: s.studio_id, sesionId: s.sesion_id },
++      });
++    });
+   }));
+ 
+   return { cerradas: actualizadas?.length ?? 0 };
+diff --git a/lib/use-mensajes-sin-leer.ts b/lib/use-mensajes-sin-leer.ts
+index e9a49ee8..ee277fe2 100644
+--- a/lib/use-mensajes-sin-leer.ts
++++ b/lib/use-mensajes-sin-leer.ts
+@@ -31,7 +31,7 @@ export function useMensajesSinLeer(studioId: string | null): number {
+       const headers = await portalAuthHeader();
+       const r = await fetchConversaciones(headers, studioId);
+       if (!vivo || 'error' in r) return;
+-      setN(r.conversaciones.filter(c => tieneSinLeer(c, authUserId)).length);
++      setN(r.conversaciones.filter(c => tieneSinLeer(c, authUserId, 'socia')).length);
+     })();
+     return () => { vivo = false; };
+   }, [studioId]);
+diff --git a/supabase/migrations/20260902120000_facturas_entidad_unica_admite_rectificativa.sql b/supabase/migrations/20260902120000_facturas_entidad_unica_admite_rectificativa.sql
+new file mode 100644
+index 00000000..990182e4
+--- /dev/null
++++ b/supabase/migrations/20260902120000_facturas_entidad_unica_admite_rectificativa.sql
+@@ -0,0 +1,27 @@
++-- AUDITORÍA 21ª pasada (2-sep) · F-1 🔴
++--
++-- La migración 20260902001721 añadió `venta_pos_id` con este CHECK:
++--     check ((recibo_id is not null) <> (venta_pos_id is not null))
++-- es decir, "exactamente uno de los dos". Pero una factura RECTIFICATIVA no
++-- cuelga de ningún recibo: `sellarFacturaDeRecibo` llama a
++-- `reservar_numero_factura` con `p_recibo_id => null` (lib/billing/
++-- sellar-factura-server.ts), y esa RPC nunca escribe `venta_pos_id`. Con los
++-- dos a NULL el XOR es false → 23514, así que TODA rectificativa falla desde
++-- el 2-sep con "No se ha podido reservar el número de la rectificativa".
++--
++-- No se detectó al desplegar porque hoy hay 0 rectificativas en producción
++-- (24 facturas, todas de serie A y todas con recibo_id): el constraint se
++-- validó limpio sobre datos que nunca ejercitan el caso roto.
++--
++-- La invariante REAL que se quería expresar es "nunca las dos a la vez", no
++-- "exactamente una". Se relaja a eso, que además deja pasar la rectificativa.
++-- Ninguna fila existente queda fuera (comprobado: 0 con las dos, 0 sin ninguna).
++
++alter table public.facturas drop constraint facturas_entidad_unica;
++
++alter table public.facturas
++  add constraint facturas_entidad_unica
++  check (num_nonnulls(recibo_id, venta_pos_id) <= 1);
++
++comment on constraint facturas_entidad_unica on public.facturas is
++  'Una factura cuelga como mucho de UNA entidad. Las dos a la vez no tiene sentido; ninguna sí lo tiene: es el caso de la RECTIFICATIVA, que rectifica a otra factura (rectifica_a) y no a un cobro.';
+diff --git a/supabase/migrations/20260902120100_revoke_grants_vestigiales_authenticated.sql b/supabase/migrations/20260902120100_revoke_grants_vestigiales_authenticated.sql
+new file mode 100644
+index 00000000..3afa58bf
+--- /dev/null
++++ b/supabase/migrations/20260902120100_revoke_grants_vestigiales_authenticated.sql
+@@ -0,0 +1,29 @@
++-- AUDITORÍA 21ª pasada (2-sep) · F-15 🟡 (defensa en profundidad)
++--
++-- Estas tres tablas tienen RLS activado y CERO policies —o sea, hoy deniegan
++-- todo a `authenticated`— pero conservan un GRANT completo de la época en que
++-- se pensaba leerlas desde el navegador. Todo su acceso real pasa hoy por
++-- service-role (app/api/network/resenas, app/api/interno/network/resenas,
++-- lib/network/publico.ts, el motor de notificaciones), verificado con grep: no
++-- hay ni un `.from('red_resenas')` con el cliente de navegador.
++--
++-- El riesgo no es hoy, es el día que alguien añada UNA policy permisiva "para
++-- que funcione una cosita": el GRANT ya está puesto y el radio de explosión
++-- sería CRUD completo, incluido `update red_resenas.estado` (auto-publicarse
++-- una reseña que está en moderación) y `delete`. El patrón correcto ya existe
++-- al lado: `socio_companeras` no tiene ningún grant.
++--
++-- Revocar no cambia NADA del comportamiento actual (RLS sin policies ya
++-- deniega); solo desarma el privilegio para que el fallo futuro sea imposible
++-- en vez de estar a una policy de distancia.
++
++revoke all on table public.red_resenas from authenticated;
++revoke all on table public.notification_delivery from authenticated;
++revoke all on table public.review_boost_recompensas from authenticated;
++
++-- `webhook_disputas` y `webhook_reembolsos` estaban SIN RLS. Hoy es inocuo
++-- (tampoco tienen grants, así que PostgREST deniega en la capa de GRANT antes
++-- de que RLS importe), pero deja el proyecto en rojo en los advisors y depende
++-- de que nadie conceda un grant por costumbre. Se activa, que es gratis.
++alter table public.webhook_disputas enable row level security;
++alter table public.webhook_reembolsos enable row level security;
+-- 
+2.34.1
+
