@@ -82,9 +82,9 @@ function Bonos() {
           <EmptyState
             icono="🎟"
             titulo="No tienes ningún bono"
-            cuerpo="Habla con el estudio para activar uno; también puedes reservar clases sueltas."
-            accion="Ver horario"
-            href={href('/reservar')}
+            cuerpo="Compra uno aquí mismo, o reserva clases sueltas desde el horario."
+            accion="Comprar un bono"
+            href={href('/comprar')}
           />
         )}
 
@@ -94,9 +94,9 @@ function Bonos() {
               <EmptyState
                 icono="🎟"
                 titulo="Sin bono activo"
-                cuerpo="Tus bonos anteriores están agotados o han caducado. Puedes reservar clases sueltas."
-                accion="Ver horario"
-                href={href('/reservar')}
+                cuerpo="Tus bonos anteriores están agotados o han caducado."
+                accion="Comprar un bono"
+                href={href('/comprar')}
               />
             )}
             {activos.map((b) => <CreditCard key={b.id} bono={b} />)}
