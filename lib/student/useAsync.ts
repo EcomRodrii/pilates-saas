@@ -31,6 +31,8 @@ export interface ResultadoAsync<T> {
   data: T | null;
   estado: ViewState;
   reintentar: () => void;
+  /** Relanza `fn` SIN pasar por `loading`: si va bien sustituye los datos; si falla, conserva los que había. */
+  refrescar: () => Promise<void>;
 }
 
 export function useAsync<T>(
@@ -65,11 +67,25 @@ export function useAsync<T>(
     setTick((t) => t + 1);
   }, []);
 
+  // Para «al volver a la pestaña»: nada de esqueleto ni de re-animación sobre
+  // una lista que ya se ve. `vacio` fuera de las deps por el mismo motivo que
+  // en el efecto.
+  const refrescar = useCallback(async () => {
+    try {
+      const d = await fn();
+      setData(d);
+      setEstado(vacio(d) ? 'empty' : 'ready');
+    } catch {
+      // Se conserva lo que había: un refresco fallido no borra la pantalla.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fn]);
+
   // ⚠️ El orden importa. Sin red pero CON datos ya cargados, el estado sigue
   // siendo 'ready' y quien avisa es el banner de la cabecera: el diseño (§H)
   // pide que offline se pueda CONSULTAR lo último visto. Solo cuando no hay
   // nada que enseñar se cae a la pantalla de offline.
   const final: ViewState = !online && estado !== 'ready' ? 'offline' : estado;
 
-  return { data, estado: final, reintentar };
+  return { data, estado: final, reintentar, refrescar };
 }
