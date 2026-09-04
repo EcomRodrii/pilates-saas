@@ -54,6 +54,13 @@ export interface Reserva {
   id: string; claseId: string; alumnaId: string; estado: EstadoReserva;
   creadaEn: string; pagadaCon: 'bono' | 'suelto' | 'plan';
   bonoId?: string; posicionEspera?: number;
+  /**
+   * P-5 (auditoría 23ª pasada): si no es `undefined` y `estado === 'en-espera'`,
+   * hay una oferta de plaza viva hasta esta hora ISO — hay que aceptarla o se
+   * pierde el sitio entero (no se reordena "al final de la cola", lo decide el
+   * servidor). `undefined` = en cola normal, sin oferta.
+   */
+  ofertaExpiraEn?: string;
 }
 
 export type EstadoBono = 'activo' | 'agotado' | 'expirado';
