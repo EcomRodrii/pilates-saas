@@ -12,16 +12,19 @@
 import {
   parseCsv,
   autoMapear, autoMapearMembresia, autoMapearClase, autoMapearReserva, autoMapearCita, autoMapearPago,
+  autoMapearRecuperacion,
   validarFilas, validarFilasMembresia, validarFilasClase, validarFilasReserva, validarFilasCita, validarFilasPago,
-  CAMPOS_SOCIA, CAMPOS_MEMBRESIA, CAMPOS_CLASE, CAMPOS_RESERVA, CAMPOS_CITA, CAMPOS_PAGO,
+  validarFilasRecuperacion,
+  CAMPOS_SOCIA, CAMPOS_MEMBRESIA, CAMPOS_CLASE, CAMPOS_RESERVA, CAMPOS_CITA, CAMPOS_PAGO, CAMPOS_RECUPERACION,
   inferirOrdenFecha,
 } from '../csv.ts';
 
-export type EntidadMigracion = 'socias' | 'membresias' | 'clases' | 'reservas' | 'citas' | 'pagos';
+export type EntidadMigracion = 'socias' | 'membresias' | 'clases' | 'reservas' | 'citas' | 'pagos' | 'recuperaciones';
 
-// Orden de ejecución con dependencias: membresías/reservas/citas/pagos necesitan
-// que las socias existan; las reservas necesitan las clases.
-export const ORDEN_EJECUCION: EntidadMigracion[] = ['socias', 'clases', 'membresias', 'reservas', 'citas', 'pagos'];
+// Orden de ejecución con dependencias: membresías/reservas/citas/pagos/
+// recuperaciones necesitan que las socias existan; las reservas necesitan las
+// clases.
+export const ORDEN_EJECUCION: EntidadMigracion[] = ['socias', 'clases', 'membresias', 'reservas', 'citas', 'pagos', 'recuperaciones'];
 
 export interface FilaValidadaComun {
   fila: number;
@@ -33,6 +36,14 @@ export interface FilaValidadaComun {
 interface DefEntidad {
   etiqueta: string;
   campos: { campo: string; etiqueta: string; obligatorio: boolean }[];
+  /**
+   * Campos de los que hace falta AL MENOS UNO para que el archivo pueda ser de
+   * esta entidad. Existe por las recuperaciones: su único campo obligatorio es
+   * el email, así que sin esto cualquier CSV con una columna de email
+   * (empezando por el de clientas) encajaba en ellas y podía ganar la
+   * clasificación por tener menos exigencias que nadie.
+   */
+  requiereAlguno?: string[];
   mapear: (headers: string[]) => Record<string, number>;
   validar: (rows: string[][], mapeo: Record<string, number>) => FilaValidadaComun[];
 }
@@ -41,6 +52,14 @@ interface DefEntidad {
 // mapeo de lib/csv son Record<CampoX, number> (subconjunto de string→number) y
 // las Fila*Validada comparten la forma {fila, datos, estado, motivo}.
 export const ENTIDADES: Record<EntidadMigracion, DefEntidad> = {
+  recuperaciones: {
+    etiqueta: 'Recuperaciones pendientes',
+    campos: CAMPOS_RECUPERACION,
+    // Con el email a secas no basta: eso lo cumple hasta el CSV de clientas.
+    requiereAlguno: ['cantidad', 'caduca_el'],
+    mapear: (h) => autoMapearRecuperacion(h) as Record<string, number>,
+    validar: (r, m) => validarFilasRecuperacion(r, m as Parameters<typeof validarFilasRecuperacion>[1]) as unknown as FilaValidadaComun[],
+  },
   socias: {
     etiqueta: 'Clientas',
     campos: CAMPOS_SOCIA,
@@ -132,7 +151,8 @@ export interface EvalMapeo {
 }
 
 export function evaluarMapeo(def: DefEntidad, headers: string[], rows: string[][], mapeo: Record<string, number>): EvalMapeo {
-  const obligatoriosCubiertos = def.campos.filter(c => c.obligatorio).every(c => (mapeo[c.campo] ?? -1) !== -1);
+  const obligatoriosCubiertos = def.campos.filter(c => c.obligatorio).every(c => (mapeo[c.campo] ?? -1) !== -1)
+    && (!def.requiereAlguno || def.requiereAlguno.some(c => (mapeo[c] ?? -1) !== -1));
   if (!obligatoriosCubiertos) {
     return { obligatoriosCubiertos, validadas: [], tasaOk: 0, columnasReconocidas: 0 };
   }

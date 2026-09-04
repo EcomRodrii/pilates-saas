@@ -17,11 +17,13 @@ import { useStudio } from '@/lib/studio-context';
 import {
   analizarMigracion, deshacerMigracion, migracionesRecientes,
   importarSocias, importarMembresias, importarClases, importarReservas, importarCitas, importarPagosHistoricos,
+  importarRecuperaciones,
 } from '@/lib/api-client';
 import {
   parseCsv,
   validarFilas, validarFilasMembresia, validarFilasClase, validarFilasReserva, validarFilasCita, validarFilasPago,
   type FilaSocia, type FilaMembresia, type FilaClase, type FilaReserva, type FilaCita, type FilaPago,
+  type FilaRecuperacion,
 } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 import type { PlanMigracion, ArchivoAnalizado } from '@/lib/migracion/analizador';
@@ -260,9 +262,15 @@ export default function MigracionPage() {
       } else if (entidad === 'citas') {
         const r = await importarCitas(filas as FilaCita[], id);
         out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.sinSocia + r.sinInstructor + r.errores.length, error: r.error, batchAviso: r.batchAviso });
-      } else {
+      } else if (entidad === 'pagos') {
         const r = await importarPagosHistoricos(filas as FilaPago[], id);
         out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: 0, incidencias: r.sinSocia + r.errores.length, error: r.error, batchAviso: r.batchAviso });
+      } else {
+        // `duplicadas` aquí son las que no caben: la socia ya tenía el máximo
+        // de 4 recuperaciones vivas. No es un error del archivo, así que no
+        // puede contarse como incidencia.
+        const r = await importarRecuperaciones(filas as FilaRecuperacion[], id);
+        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.errores.length, error: r.error, batchAviso: r.batchAviso });
       }
       setResultados([...out]);
       // Un fallo de una entidad no borra lo hecho, pero paramos: las
