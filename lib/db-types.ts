@@ -1671,6 +1671,8 @@ export interface RowInstructorTarifas {
   base_mensual_eur: number | null;
   // migr 20260804180132.
   recargo_sustitucion_pct: number | null;
+  // migr 20260904194535.
+  horas_semanales_contrato: number | null;
 }
 
 export interface RowFavoritosClase {
