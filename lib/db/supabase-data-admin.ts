@@ -1584,16 +1584,35 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
 
   // 3) Socias implicadas (1 query) y mapas de lookup.
   const socioIds = uniq(reservas.map(r => r.socio_id as string));
-  const [{ data: sociosR }, { data: prefsR }, { data: excR }] = socioIds.length
+  const [{ data: sociosR }, { data: excR }] = socioIds.length
     ? await Promise.all([
-        admin.from('socios').select('id, nombre, email, telefono').in('id', socioIds),
-        admin.from('preferencias_socio').select('socio_id, notif_email, notif_whatsapp').in('socio_id', socioIds),
+        admin.from('socios').select('id, nombre, email, telefono, auth_user_id').in('id', socioIds),
         // F2 (B2.9): la dueña puede eximir a una socia de los recordatorios.
         admin.from('socio_excepciones').select('socio_id').eq('tipo', 'SIN_RECORDATORIO').in('socio_id', socioIds),
       ])
-    : [{ data: [] as { id: string; nombre: string | null; email: string | null; telefono: string | null }[] }, { data: [] as { socio_id: string; notif_email: boolean | null; notif_whatsapp: boolean | null }[] }, { data: [] as { socio_id: string }[] }];
-  // Sin fila de preferencias = valores por defecto (true).
-  const prefsPorSocio = new Map((prefsR ?? []).map(p => [p.socio_id, p]));
+    : [{ data: [] as { id: string; nombre: string | null; email: string | null; telefono: string | null; auth_user_id: string | null }[] }, { data: [] as { socio_id: string }[] }];
+
+  // Auditoría 23ª pasada (4-sep-2026), P-6. Antes leía `preferencias_socio`
+  // (notif_email/notif_whatsapp) — una tabla SIN NINGÚN escritor en todo el
+  // repo desde que se retiró la pantalla "Preferencias" del portal viejo. La
+  // pantalla que SÍ existe hoy y SÍ tiene UI funcional
+  // (app/portal/[slug]/perfil/preferencias/page.tsx) escribe en
+  // `notification_preference` — un almacén distinto que la propia socia no
+  // podía tocar para esto. Se lee de ahí (categoría 'reservas', que ya
+  // gobierna los recordatorios de clase desde C-4 de esta misma pasada),
+  // indexado por `auth_user_id` (la fila la crea el JWT de la socia, no su
+  // `socio_id`). `?? true` preserva el comportamiento de siempre para quien
+  // nunca ha tocado su preferencia — es DISTINTO del default `false` que usa
+  // el PUT al crear una fila nueva (ese rige "primera vez que se guarda algo
+  // en esta categoría", no "nunca se ha leído nada aquí").
+  const authUserIds = uniq((sociosR ?? []).map(s => s.auth_user_id).filter((x): x is string => !!x));
+  const { data: prefsR } = authUserIds.length
+    ? await admin.from('notification_preference')
+        .select('user_id, email, whatsapp')
+        .eq('category', 'reservas')
+        .in('user_id', authUserIds)
+    : { data: [] as { user_id: string; email: boolean | null; whatsapp: boolean | null }[] };
+  const prefsPorAuthUserId = new Map((prefsR ?? []).map(p => [p.user_id, p]));
   const exentosRecordatorio = new Set((excR ?? []).map(e => e.socio_id as string));
 
   const nombrePorId = (rows: { id: string; nombre: string | null }[] | null) =>
@@ -1634,16 +1653,12 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
       const socia = sociaPorId.get(r.socio_id);
       if (!socia) continue;
       if (exentosRecordatorio.has(r.socio_id)) continue; // "a esta jamás" (B2.9)
-      // notif_email/notif_whatsapp de preferencias_socio: sin fila = valores por
-      // defecto (true). ⚠️ Sin UI que los ponga a false hoy — se retiró la
-      // pantalla "Preferencias" del portal (era cosmética en todo lo demás,
-      // ver auditoría de onboarding/2026-08) y nunca tuvo un control para
-      // estos dos campos. Quedan como el único freno posible si algún día se
-      // escriben a mano en BD; si se quiere un control real, hace falta UI
-      // nueva, no reintroducir la pantalla borrada.
-      const prefs = prefsPorSocio.get(r.socio_id);
-      const quiereEmail = prefs?.notif_email ?? true;
-      const quiereWhatsapp = prefs?.notif_whatsapp ?? true;
+      // notification_preference (categoría 'reservas'), no preferencias_socio
+      // — ver el comentario largo junto a `prefsPorAuthUserId` más arriba.
+      // Sin `auth_user_id` (socia sin cuenta creada) o sin fila = true.
+      const prefs = socia.auth_user_id ? prefsPorAuthUserId.get(socia.auth_user_id) : undefined;
+      const quiereEmail = prefs?.email ?? true;
+      const quiereWhatsapp = prefs?.whatsapp ?? true;
 
       if (quiereEmail) {
         if (!socia.email) {
