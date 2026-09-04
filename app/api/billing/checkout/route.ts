@@ -177,6 +177,18 @@ export async function POST(req: NextRequest) {
         cancel_url: `${appUrl}/configuracion?suscripcion=cancel`,
         locale: 'es',
         ...(discounts ? { discounts } : { allow_promotion_codes: true }),
+      }, {
+        // Auditoría 23ª pasada, P-2: sin esto, dos pestañas (o un doble clic
+        // con la caché del panel desincronizada) entraban ANTES de que
+        // ninguna hubiera guardado `subscription_id` — el guard de
+        // "ya está activa" de arriba lee ESE campo, así que las dos lo
+        // pasaban y `checkout.sessions.create` creaba dos Checkout Sessions
+        // reales sobre el MISMO customer. Con la misma clave, Stripe
+        // devuelve la sesión que ya creó la primera en vez de abrir una
+        // segunda. Ventana de 1 minuto (mismo criterio que
+        // `claveCheckoutPlanModoA`): un reintento minutos después, con la
+        // suscripción anterior ya cancelada, sigue pudiendo contratar.
+        idempotencyKey: `billing-checkout-cadena-${cadena.id}-${plan}-${Math.floor(Date.now() / 60000)}`,
       });
 
       if (discounts) capturar(studio.id, { nombre: 'review_boost_reward_claimed', props: {} });
@@ -231,6 +243,12 @@ export async function POST(req: NextRequest) {
       cancel_url: `${appUrl}/configuracion?suscripcion=cancel`,
       locale: 'es',
       ...(discounts ? { discounts } : { allow_promotion_codes: true }),
+    }, {
+      // Auditoría 23ª pasada, P-2: mismo criterio que la rama CADENA de
+      // arriba — sin esto, dos pestañas o un doble clic entraban ANTES de
+      // que ninguna hubiera guardado `subscription_id`, y las dos creaban
+      // una Checkout Session real sobre el MISMO customer.
+      idempotencyKey: `billing-checkout-${studio.id}-${plan}-${Math.floor(Date.now() / 60000)}`,
     });
 
     if (discounts) capturar(studio.id, { nombre: 'review_boost_reward_claimed', props: {} });
