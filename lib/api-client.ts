@@ -1982,6 +1982,8 @@ export interface TarifaInstructor {
   tarifaHora: number | null;
   baseMensualEur: number | null;
   recargoSustitucionPct: number | null;
+  /** Horas semanales pactadas. null = sin contrato definido: no se compara. */
+  horasSemanalesContrato: number | null;
 }
 
 export async function fetchTarifasEquipo(): Promise<TarifaInstructor[]> {
@@ -1997,7 +1999,11 @@ export async function fetchTarifasEquipo(): Promise<TarifaInstructor[]> {
 
 export async function actualizarTarifaInstructor(
   instructorId: string, tarifaHora: number | null,
-  extra?: { baseMensualEur?: number | null; recargoSustitucionPct?: number | null },
+  extra?: {
+    baseMensualEur?: number | null;
+    recargoSustitucionPct?: number | null;
+    horasSemanalesContrato?: number | null;
+  },
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch('/api/equipo/tarifas', {
