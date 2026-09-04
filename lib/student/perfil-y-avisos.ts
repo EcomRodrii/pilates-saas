@@ -9,6 +9,7 @@ import { portalAuthHeader } from '@/lib/api-client';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import type { Notificacion } from '@/lib/student/tipos';
 import { traducirEnlace } from '@/lib/student/deep-links';
+import { tipoDeAviso } from '@/lib/student/tipo-aviso';
 
 // ── Notificaciones ──────────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ interface FilaNotificacion {
   title?: string | null;
   body?: string | null;
   category?: string | null;
+  eventType?: string | null;
   deepLink?: string | null;
   readAt?: string | null;
   createdAt?: string | null;
@@ -43,26 +45,8 @@ interface FilaNotificacion {
   created_at?: string | null;
 }
 
-/**
- * Del catálogo del motor al tipo del diseño.
- *
- * ⚠️ Los cinco tipos del diseño ('plaza-liberada', 'recordatorio', 'bono',
- * 'estudio', 'valorar') NO existen en el backend: lo que hay son CATEGORÍAS por
- * rol, y para una socia son `reservas`, `clases`, `pagos`, `marketing` y
- * `mensajeria` (lib/notifications/catalog.ts:989). Se mapean por lo que
- * significan, no por el nombre, y lo que no encaja cae en 'estudio' — que es el
- * icono neutro del diseño (📣) y no miente.
- */
-function tipoDeCategoria(categoria: string | null | undefined): Notificacion['tipo'] {
-  switch (categoria) {
-    case 'reservas': return 'plaza-liberada';
-    case 'clases': return 'recordatorio';
-    case 'pagos': return 'bono';
-    case 'marketing': return 'estudio';
-    case 'mensajeria': return 'estudio';
-    default: return 'estudio';
-  }
-}
+// El tipo del diseño sale de `tipoDeAviso` (lib/student/tipo-aviso.ts, puro y
+// con tests): primero por EVENTO, después por categoría.
 
 export { traducirEnlace } from '@/lib/student/deep-links';
 
@@ -84,7 +68,7 @@ export async function getNotificaciones(slug: string, studioId: string): Promise
     const filas = Array.isArray(cuerpo) ? cuerpo : (cuerpo.items ?? cuerpo.notifications ?? []);
     return filas.map((n) => ({
       id: n.id,
-      tipo: tipoDeCategoria(n.category),
+      tipo: tipoDeAviso(n.eventType, n.category),
       titulo: n.title ?? '',
       cuerpo: n.body ?? '',
       fecha: n.createdAt ?? n.created_at ?? new Date().toISOString(),

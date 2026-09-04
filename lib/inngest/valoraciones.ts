@@ -9,6 +9,7 @@ import { idsEstudios } from './estudios.ts';
 import { firmarTokenValoracion } from '@/lib/valoraciones/token';
 import { destinatariasValoracion } from '@/lib/valoraciones/destinatarias';
 import { enviarEmailPedirValoracion } from '@/lib/valoraciones/email';
+import { emitirValorarClase } from '@/lib/notifications/emit';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 function cuandoTexto(inicio: string): string {
@@ -100,12 +101,12 @@ export const procesarValoracionesEstudio = inngest.createFunction(
         // la clase NO se marca como pedida y el siguiente barrido la vuelve a
         // mirar, mientras siga dentro de la ventana de 48 h.
         const { data: reservasRaw } = await admin
-          .from('reservas').select('socio_id, estado')
+          .from('reservas').select('id, socio_id, estado')
           .eq('studio_id', studioId).eq('sesion_id', c.id).eq('estado', 'ASISTIDA');
         const idsSocias = Array.from(new Set((reservasRaw ?? []).map((r) => r.socio_id)));
         const { data: sociosRaw } = idsSocias.length
-          ? await admin.from('socios').select('id, nombre, apellidos, email, borrado_en').in('id', idsSocias)
-          : { data: [] as { id: string; nombre: string; apellidos: string | null; email: string | null; borrado_en: string | null }[] };
+          ? await admin.from('socios').select('id, nombre, apellidos, email, borrado_en, auth_user_id').in('id', idsSocias)
+          : { data: [] as { id: string; nombre: string; apellidos: string | null; email: string | null; borrado_en: string | null; auth_user_id: string | null }[] };
         const lista = destinatariasValoracion(reservasRaw ?? [], sociosRaw ?? []);
         if (lista.length === 0) return { pedida: false, lista: [], datos: null };
 
@@ -139,6 +140,22 @@ export const procesarValoracionesEstudio = inngest.createFunction(
       let enviados = 0;
       if (pedida.pedida && pedida.datos) {
         const datos = pedida.datos;
+        // Aviso in-app/push (motor de notificaciones) para TODA la clase en UN
+        // step, antes de los emails: `emitirValorarClase` es best-effort (nunca
+        // lanza) y `publish` deduplica por `valorar:<sesión>:<socia>`, así que
+        // re-ejecutar el step es seguro y N steps por alumna solo sumarían
+        // coste en Inngest sin dar reintentos. Solo a quien tiene cuenta
+        // reclamada: sin `auth_user_id` no hay bandeja ni push que ver.
+        await step.run(`valorar-inapp-${c.id}`, async () => {
+          const admin = getSupabaseAdmin();
+          if (!admin) return 0;
+          let creadas = 0;
+          for (const a of pedida.lista) {
+            if (!a.conCuenta) continue;
+            creadas += await emitirValorarClase(admin, { studioId, sesionId: c.id, socioId: a.socio_id, reservaId: a.reserva_id, instructora: datos.instructorNombre });
+          }
+          return creadas;
+        });
         for (const a of pedida.lista) {
           if (!a.email) continue;
           const enviado = await step.run(`valorar-${c.id}-${a.socio_id}`, async () => {
