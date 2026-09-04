@@ -16,6 +16,10 @@ import { validarDatosEmail } from '@/lib/emails/validar-datos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 import { registrarComunicacion } from '@/lib/db/supabase-data-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { escaparLike } from '@/lib/escapar-like';
+import { rateLimit } from '@/lib/rate-limit';
+import { tooManyRequestsResponse, retryAfterSeconds } from '@/lib/rate-limit-core';
 
 export async function POST(req: NextRequest) {
   // SEGURIDAD: solo staff autenticado. Evita que cualquiera use la cuenta de
@@ -47,6 +51,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       error: `${body.toName || body.to} tiene un email de ejemplo (${body.to}), no una dirección real. Corrígelo en su ficha para que reciba los avisos.`,
     }, { status: 400 });
+  }
+
+  // Auditoría 23ª pasada (4-sep-2026), P-4. Hasta aquí solo se comprobaba que
+  // hubiera SESIÓN de staff — cualquier rol (incluida INSTRUCTOR) podía mandar
+  // asunto y cuerpo arbitrarios a CUALQUIER dirección, en volumen ilimitado,
+  // firmados desde el dominio verificado que comparten TODOS los estudios. El
+  // radio de explosión no era el estudio de quien llamaba: era la reputación
+  // de envío del SaaS entero.
+  //
+  // Los ocho tipos de este endpoint son comunicaciones de NEGOCIO a una socia
+  // (recibo, bienvenida, reserva, cancelación...) — ninguno es un envío libre a
+  // una dirección externa. Todos los llamantes reales (lib/api-client.ts,
+  // mensajería, automatizaciones) ya sacan `to`/`toName` de una fila de
+  // `socios` cargada del propio estudio, así que exigirlo en servidor no
+  // rompe ningún camino legítimo, solo cierra el que nadie usa.
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+  const { data: socia } = await admin
+    .from('socios').select('id')
+    .eq('studio_id', sesion.studioId)
+    .ilike('email', escaparLike(body.to.trim()))
+    .limit(1).maybeSingle();
+  if (!socia) {
+    return NextResponse.json({ error: 'Ese destinatario no es una clienta de tu estudio.' }, { status: 403 });
+  }
+
+  // Red de seguridad de volumen: generoso a propósito (la mensajería masiva ya
+  // manda a "todas" las socias de un estudio en una sola campaña) — no está
+  // pensado para acotar el uso normal, solo para que una sesión comprometida
+  // no pueda convertir esto en un cañón de spam sin límite.
+  const porEstudio = await rateLimit(`emails-send:${sesion.studioId}`, { max: 500, windowSeconds: 3600 });
+  if (!porEstudio.allowed) {
+    return tooManyRequestsResponse(retryAfterSeconds(porEstudio.resetAt, 3600));
   }
 
   // `body.data` llega con un `as` que TypeScript no comprueba en runtime. Se
