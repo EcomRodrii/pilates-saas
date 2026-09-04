@@ -941,7 +941,9 @@ export interface RowTiposClase {
   especialidad_network: string | null;
   // migr 20260820193428.
   es_online: boolean | null;
-  // migr 20260903233651. NULL = usa la capacidad de la sala.
+  // migr 20260903233651. NULL = usa la capacidad de la SALA donde se
+  // programe la sesión, que es de donde salía el aforo antes de existir
+  // esta columna — ver `aforoPorDefectoDeSesion()` en lib/aforo-logic.ts.
   aforo_por_defecto: number | null;
 }
 

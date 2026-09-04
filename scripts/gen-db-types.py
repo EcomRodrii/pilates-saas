@@ -145,6 +145,10 @@ NOTAS_MANUALES = {
     ('tipos_clase', 'objetivos'):
         "`text[] not null default '{}'` — pero se declara nullable aquí porque una "
         'fila leída con un `select` que no la pida llega sin ella, y el mapper ya lo tolera.',
+    ('tipos_clase', 'aforo_por_defecto'):
+        'NULL = usa la capacidad de la SALA donde se programe la sesión, que es de '
+        'donde salía el aforo antes de existir esta columna — ver '
+        '`aforoPorDefectoDeSesion()` en lib/aforo-logic.ts.',
     ('sustituciones', 'candidatos_network'): 'Sugerencia sin puntuar, aparte de `ranking`.',
     ('studios', 'trial_ends_at'):
         'Fin de la prueba gratuita LOCAL de 7 días (sin tarjeta). La fija el trigger '
