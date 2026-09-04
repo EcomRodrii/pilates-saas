@@ -112,6 +112,15 @@ export const conciliarReembolsos = inngest.createFunction(
           level: 'error', tags: { area: 'cobros', tipo: 'conciliar-disputas' }, extra: { studioId: studio.id },
         });
       }
+      try {
+        // P-1: backstop del CIERRE de una disputa ya conocida — ver el
+        // comentario largo junto a `conciliarDisputasAbiertasEstudio`.
+        disputas += await conciliarDisputasAbiertasEstudio(admin, stripe, studio);
+      } catch (e) {
+        Sentry.captureException(e instanceof Error ? e : new Error('conciliar-disputas-abiertas'), {
+          level: 'error', tags: { area: 'cobros', tipo: 'conciliar-disputas-abiertas' }, extra: { studioId: studio.id },
+        });
+      }
     }
     return { estudios: studios.length, reembolsos, disputas };
   }
@@ -372,4 +381,91 @@ async function conciliarDisputesEstudio(
     }
   }
   return aplicadas;
+}
+
+// Auditoría 23ª pasada (4-sep-2026), P-1. `conciliarDisputesEstudio` (arriba)
+// lista por `dispute.created` en una ventana de 24h — pero una disputa se
+// RESUELVE 30-75 días después de crearse, así que un `charge.dispute.closed`
+// tardío nunca cae dentro de esa ventana. El webhook responde 200 ANTES de
+// procesar (ver cabecera del fichero), así que si esa entrega concreta falla,
+// este cron era el único rescate — y no llegaba: recibo COBRADO para siempre
+// sobre un chargeback perdido de verdad.
+//
+// Consulta INVERTIDA a propósito: en vez de listar disputas recientes de
+// Stripe (que no sabe cuáles nos interesan), se listan LOS RECIBOS que
+// nuestra propia BD ya sabe que tienen una disputa sin cerrar y se pregunta a
+// Stripe, uno a uno, si ha cambiado. Sin ventana de tiempo — una disputa
+// abierta hace 75 días sigue siendo candidata mientras no se resuelva.
+//
+// Sin riesgo de doble procesamiento con `conciliarDisputesEstudio` ni con el
+// webhook: `procesarDisputeClosed` ya es idempotente (el UPDATE va
+// condicionado a que la disputa siga abierta — ver procesar-reembolso.ts) y
+// `registrarDevolucion` tiene UNIQUE por `referencia`. Que las dos funciones
+// se solapen alguna vez sobre la misma disputa no duplica ningún efecto.
+const ESTADOS_DISPUTA_CERRADA = ['lost', 'won', 'warning_closed'];
+
+async function conciliarDisputasAbiertasEstudio(
+  admin: SupabaseClient,
+  stripe: Stripe,
+  studio: { id: string; stripe_account_id: string },
+): Promise<number> {
+  let cerradas = 0;
+
+  const { data: abiertas } = await fetchAllRows<{ id: string; disputa_stripe_id: string }>(
+    studio.id, 'recibos',
+    (from, to) => admin
+      .from('recibos')
+      .select('id, disputa_stripe_id')
+      .eq('studio_id', studio.id)
+      .not('disputa_stripe_id', 'is', null)
+      .not('disputa_estado', 'in', `(${ESTADOS_DISPUTA_CERRADA.join(',')})`)
+      .range(from, to),
+  );
+
+  for (const rec of abiertas) {
+    let dispute: Stripe.Dispute;
+    try {
+      dispute = await stripe.disputes.retrieve(rec.disputa_stripe_id, {}, { stripeAccount: studio.stripe_account_id });
+    } catch (e) {
+      Sentry.captureException(e instanceof Error ? e : new Error('conciliar-disputas-abiertas retrieve dispute'), {
+        level: 'error', tags: { area: 'cobros', tipo: 'conciliar-disputas-abiertas' },
+        extra: { studioId: studio.id, reciboId: rec.id, disputeId: rec.disputa_stripe_id },
+      });
+      continue;
+    }
+
+    if (!ESTADOS_DISPUTA_CERRADA.includes(dispute.status)) continue; // sigue abierta, nada que hacer todavía.
+
+    const resultado = await procesarDisputeClosed(admin, {
+      studioId: studio.id, reciboId: rec.id, disputeStatus: dispute.status, disputeId: dispute.id,
+      chargeId: typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null,
+      amount: dispute.amount ?? null, fuente: 'conciliador',
+    });
+
+    const { error: errAuditoria } = await admin.from('webhook_disputas').upsert({
+      pi_stripe_id: typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id ?? null,
+      dispute_stripe_id: dispute.id,
+      recibo_id: rec.id,
+      dispute_status: dispute.status,
+    }, { onConflict: 'pi_stripe_id,dispute_stripe_id' });
+    if (errAuditoria) {
+      console.error('[conciliar-reembolsos] no se pudo dejar el registro de auditoría de disputa (cierre tardío)', dispute.id, errAuditoria.message);
+    }
+
+    if (!resultado.ok) {
+      Sentry.captureMessage('[conciliar-reembolsos] cierre tardío de disputa recuperado pero no se pudo aplicar', {
+        level: 'error', tags: { area: 'cobros', tipo: 'conciliar-disputas-abiertas-fallo' },
+        extra: { studioId: studio.id, reciboId: rec.id, disputeId: dispute.id, error: resultado.error },
+      });
+      continue;
+    }
+    if (resultado.huboEfecto) {
+      cerradas++;
+      Sentry.captureMessage('[conciliar-reembolsos] cierre tardío de disputa recuperado (fuera de la ventana de 24h del otro barrido)', {
+        level: 'warning', tags: { area: 'cobros', tipo: 'conciliado' },
+        extra: { studioId: studio.id, reciboId: rec.id, disputeId: dispute.id, disputeStatus: dispute.status },
+      });
+    }
+  }
+  return cerradas;
 }
