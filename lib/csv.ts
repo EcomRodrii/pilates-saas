@@ -737,6 +737,100 @@ export function validarFilasPlazaFija(
   });
 }
 
+// ─── Importación de RECUPERACIONES pendientes ────────────────────────────────
+// Lo único que el importador no sabía traerse de un software anterior. Sin
+// esto, un estudio que migra deja a sus socias sin las clases que ya les debía
+// —y esas son deuda con la clienta, no un dato de archivo.
+
+export type CampoRecuperacion = 'email' | 'cantidad' | 'caduca_el' | 'motivo';
+interface CampoMetaRecuperacion { campo: CampoRecuperacion; etiqueta: string; obligatorio: boolean }
+
+export const CAMPOS_RECUPERACION: CampoMetaRecuperacion[] = [
+  { campo: 'email', etiqueta: 'Email de la socia', obligatorio: true },
+  { campo: 'cantidad', etiqueta: 'Cuántas (opcional, por defecto 1)', obligatorio: false },
+  { campo: 'caduca_el', etiqueta: 'Caduca el (opcional)', obligatorio: false },
+  { campo: 'motivo', etiqueta: 'Motivo (opcional)', obligatorio: false },
+];
+
+const SINONIMOS_RECUPERACION: Record<CampoRecuperacion, string[]> = {
+  email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'socia', 'socio', 'cliente', 'alumna', 'alumno',
+    'client', 'customer', 'member', 'student'],
+  // Muchos programas exportan el saldo como un número por clienta, no una fila
+  // por recuperación: "recuperaciones pendientes: 3".
+  // ⚠️ Nada de 'saldo', 'credits' ni 'numero': 'saldo'/'credits' son de las
+  // SESIONES de un bono (SINONIMOS_MEMBRESIA) y los genéricos se comen
+  // cualquier columna. Aquí solo van palabras que únicamente significan
+  // recuperación.
+  cantidad: ['cantidad', 'recuperaciones', 'recuperaciones pendientes', 'pendientes', 'clases a recuperar',
+    'a recuperar', 'recuperables', 'cuantas', 'makeups', 'make ups'],
+  caduca_el: ['caduca', 'caduca el', 'caducidad', 'fecha caducidad', 'vence', 'vencimiento', 'valido hasta',
+    'validez', 'expira', 'expiry', 'expiry date', 'expires', 'valid until'],
+  motivo: ['motivo', 'razon', 'causa', 'concepto', 'nota', 'notas', 'observaciones', 'comentario', 'reason'],
+};
+
+export function autoMapearRecuperacion(headers: string[]): Record<CampoRecuperacion, number> {
+  return mapearColumnas(headers, CAMPOS_RECUPERACION.map((c) => c.campo), SINONIMOS_RECUPERACION);
+}
+
+export interface FilaRecuperacion {
+  email: string;
+  /** Cuántas recuperaciones lleva esa fila. Siempre >= 1 tras validar. */
+  cantidad: number;
+  /** 'YYYY-MM-DD' o null = la caducidad la pone la política del estudio. */
+  caducaEl: string | null;
+  motivo: string | null;
+}
+export interface FilaRecuperacionValidada { fila: number; datos: FilaRecuperacion; estado: 'ok' | 'error'; motivo?: string }
+
+/** Tope por fila. El de verdad es el de 4 vivas por socia y lo aplica la BD;
+ *  este solo evita que una celda con un número absurdo genere miles de filas. */
+export const MAX_RECUPERACIONES_POR_FILA = 20;
+
+export function validarFilasRecuperacion(
+  rows: string[][],
+  mapeo: Record<CampoRecuperacion, number>,
+  /** Hoy en 'YYYY-MM-DD'. Se pasa para que la validación sea determinista. */
+  hoy: string = new Date().toISOString().slice(0, 10),
+): FilaRecuperacionValidada[] {
+  const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+  // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
+  const orden = inferirOrdenFecha([...columna(rows, mapeo.caduca_el)]);
+  return rows.map((fila, i) => {
+    const emailRaw = val(fila, mapeo.email);
+    const cantidadRaw = mapeo.cantidad >= 0 ? val(fila, mapeo.cantidad) : '';
+    const caducaEl = mapeo.caduca_el >= 0 ? parsearFecha(val(fila, mapeo.caduca_el), orden) : null;
+    const motivo = mapeo.motivo >= 0 ? val(fila, mapeo.motivo) : '';
+
+    // Sin columna de cantidad, cada fila es una recuperación.
+    let cantidad = 1;
+    let cantidadIlegible = false;
+    if (cantidadRaw !== '') {
+      const n = Number(cantidadRaw.replace(',', '.'));
+      if (!Number.isFinite(n) || !Number.isInteger(n)) cantidadIlegible = true;
+      else cantidad = n;
+    }
+
+    const datos: FilaRecuperacion = { email: emailRaw.toLowerCase(), cantidad, caducaEl, motivo: motivo || null };
+    const base = { fila: i + 1, datos };
+    if (!emailRaw) return { ...base, estado: 'error' as const, motivo: 'Falta el email de la socia' };
+    if (!emailValido(emailRaw)) return { ...base, estado: 'error' as const, motivo: 'Email no válido' };
+    // Ilegible ≠ vacío: una celda que no se entiende va a cuarentena, nunca se
+    // convierte en un 1 por defecto — inventarse el saldo es el bug que ya
+    // costó regalar bonos enteros al importar membresías.
+    if (cantidadIlegible) return { ...base, estado: 'error' as const, motivo: `No se entiende la cantidad «${cantidadRaw}»` };
+    if (cantidad < 1) return { ...base, estado: 'error' as const, motivo: 'La cantidad tiene que ser 1 o más' };
+    if (cantidad > MAX_RECUPERACIONES_POR_FILA) {
+      return { ...base, estado: 'error' as const, motivo: `Demasiadas en una fila (máximo ${MAX_RECUPERACIONES_POR_FILA})` };
+    }
+    // Una recuperación que nace caducada no sirve para nada y encima ocuparía
+    // sitio en el tope de 4. Mismo criterio que la RPC (CADUCIDAD_EN_PASADO).
+    if (caducaEl && caducaEl < hoy) {
+      return { ...base, estado: 'error' as const, motivo: 'La fecha de caducidad ya ha pasado' };
+    }
+    return { ...base, estado: 'ok' as const };
+  });
+}
+
 // ─── Importación de CLASES y HORARIOS ────────────────────────────────────────
 // Tercera pieza de la migración asistida (tras socias y membresías). Trae el
 // horario del software anterior — sin esto el calendario llega vacío y no puede
