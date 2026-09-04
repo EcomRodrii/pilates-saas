@@ -898,6 +898,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
     especialidadNetwork: (r.especialidad_network as TipoClase['especialidadNetwork']) ?? null,
     esOnline: r.es_online ?? false,
+    aforoPorDefecto: r.aforo_por_defecto ?? null,
   } as TipoClase;
 }
 
@@ -3680,6 +3681,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     penalizacion_importe_eur: t.penalizacionImporteEur ?? null,
     especialidad_network: t.especialidadNetwork ?? null,
     es_online: t.esOnline ?? false,
+    aforo_por_defecto: t.aforoPorDefecto ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -3705,6 +3707,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('penalizacionImporteEur' in changes) db.penalizacion_importe_eur = changes.penalizacionImporteEur;
   if ('especialidadNetwork' in changes) db.especialidad_network = changes.especialidadNetwork;
   if ('esOnline' in changes) db.es_online = changes.esOnline;
+  if ('aforoPorDefecto' in changes) db.aforo_por_defecto = changes.aforoPorDefecto;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateTipoClase]', error) : ESCRITURA_OK;
 }
