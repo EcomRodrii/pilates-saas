@@ -15,6 +15,7 @@ import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
 import { escaparLike } from '@/lib/escapar-like';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
+import { primerError } from '@/lib/db/primer-error';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { LEGAL } from '@/lib/legal-info';
 import type { ResultadoEscritura } from '@/lib/errores';
@@ -520,6 +521,20 @@ export async function fetchPublicStudioData(
       // de la socia que lo escribió, no del catálogo público.
       admin.from('valoraciones').select('instructor_id, puntuacion').eq('studio_id', studioId),
     ]);
+    // ESENCIALES: sin ellas la app no se queda corta, MIENTE. Una consulta
+    // fallida (Supabase saturado, un 504, una RLS cambiada) dejaba su parte
+    // vacía y se servía —y se cacheaba un minuto para todo el estudio— un
+    // catálogo mutilado: horario sin clases, «Solo con bono» sin planes,
+    // instructora sin nota. Se lanza: la ruta responde 5xx y la app enseña
+    // error con reintento, que es lo honesto. `conCacheCatalogo` no guarda si
+    // se lanza. Lo accesorio se degrada en vez de lanzar (ver más abajo).
+    {
+      const fallo = primerError(
+        [tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, citasServiciosRes, citasDisponibilidadRes, susPlanesRes, sustitucionesRes, valoracionesRes],
+        ['tipos_clase', 'salas', 'instructores', 'spots', 'planes_tarifa', 'citas_servicios', 'citas_disponibilidad', 'suscripciones', 'sustituciones', 'valoraciones'],
+      );
+      if (fallo) throw new Error(`catálogo público: ${fallo}`);
+    }
 
     // Exclusivo del portal instalable (app/portal/[slug]) — ver comentario de
     // `liviano` arriba. Sin ellas cuando el widget no las necesita: un array
@@ -571,6 +586,19 @@ export async function fetchPublicStudioData(
         // `studios` habría sido una segunda fuente del mismo dato.
         admin.from('studio_horario').select('*').eq('studio_id', studioId).order('dia_semana', { ascending: true }),
       ]);
+    // Estas NO tumban el catálogo, a diferencia de las de arriba: son el
+    // ADORNO del portal instalable (vídeos, gamificación, banners, novedades,
+    // horario de apertura). Sin ellas la app sigue diciendo la verdad —el
+    // horario y los precios son correctos—, así que dejar a una alumna sin
+    // poder reservar porque falló `novedades_estudio` sería un remedio peor.
+    // Se registra para que el fallo no sea invisible.
+    {
+      const fallo = primerError(
+        [videosRes, rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes, contenidoPortalRes, bannersPortalRes, novedadesRes, retoParticipRes, horarioRes],
+        ['videos_on_demand', 'reward_rules', 'reward_catalog', 'level_definitions', 'achievement_definitions', 'challenge_definitions', 'contenido_portal', 'contenido_portal_banners', 'novedades_estudio', 'reto_participaciones', 'studio_horario'],
+      );
+      if (fallo) console.error(`[studio-data] contenido secundario degradado (${studioId}): ${fallo}`);
+    }
 
     const retoConteos = (retoParticipRes?.data ?? []).reduce<Record<string, number>>((acc, r) => {
       const key = (r as { reto_key: string }).reto_key;
@@ -752,7 +780,7 @@ export async function fetchPublicStudioData(
   // 1000 filas — un estudio con histórico real perdía en silencio las
   // sesiones futuras (incluida la semana siguiente) en el portal de la
   // clienta, aunque el panel interno (fetchCriticalStudioData) sí paginaba.
-  const [{ data: sesionesData }, { data: reservasAforo }] = await Promise.all([
+  const [{ data: sesionesData, error: errSesiones }, { data: reservasAforo, error: errReservas }] = await Promise.all([
     // Columnas, no `select('*')`: esto corre en el SERVIDOR y en CADA visita al
     // portal, así que cada columna de más se paga dos veces en Active CPU de
     // Fluid — al parsear la respuesta de PostgREST y al volver a serializar el
@@ -774,6 +802,10 @@ export async function fetchPublicStudioData(
     fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, precio_puntual, google_event_id, serie_id, zoom_meeting_id').eq('studio_id', studioId).range(from, to)),
     fetchAllRows(studioId, 'reservas', (from, to) => admin.from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId).range(from, to)),
   ]);
+  // Mismo criterio que el catálogo: un horario o un aforo truncados por un
+  // fallo no se sirven como si fueran completos.
+  if (errSesiones) throw new Error(`catálogo público: sesiones: ${errSesiones.message}`);
+  if (errReservas) throw new Error(`catálogo público: reservas: ${errReservas.message}`);
 
   const base = {
     studio: studioPublico(studioRow as RowStudios),
