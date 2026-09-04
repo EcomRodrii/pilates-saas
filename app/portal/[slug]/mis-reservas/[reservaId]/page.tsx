@@ -13,6 +13,7 @@ import { qrSvgMarkup } from '@/lib/qr-svg';
 import { Badge } from '@/components/student/ui/Badge';
 import { Button } from '@/components/student/ui/Button';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
+import { ValorarClase } from '@/components/student/domain/ValorarClase';
 
 // Detalle de reserva + pase de acceso (§A.10).
 //
@@ -189,6 +190,12 @@ export default function DetalleReservaPage() {
           <Button variant="ghost" full onClick={() => router.push(href('/mis-reservas'))}>
             Gestionar o cancelar
           </Button>
+        )}
+
+        {/* Solo tras asistir. El servidor lo vuelve a comprobar: la tarjeta
+            no se pinta si él dice que no. */}
+        {res.estado === 'asistida' && (
+          <ValorarClase studioId={estudio.id} sesionId={c.id} instructora={i?.nombre} />
         )}
       </div>
     </StudentShell>

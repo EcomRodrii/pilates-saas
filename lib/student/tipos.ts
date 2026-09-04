@@ -27,6 +27,8 @@ export type NivelClase = 'Todos' | 'Iniciación' | 'Medio' | 'Avanzado';
 
 export interface Clase {
   id: string;
+  /** Tipo de clase (Reformer, Mat…): es la unidad de «favorita». */
+  tipoClaseId: string;
   fecha: string;            // ISO date YYYY-MM-DD
   hora: string;             // HH:mm
   duracionMin: number;

@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { getBonos, getClases, getInstructoras, getReservas } from '@/lib/student/datos';
+import { getFavoritos } from '@/lib/student/favoritos';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, hoyISO } from '@/lib/student/formato';
 import { DateSelector } from '@/components/student/domain/DateSelector';
@@ -38,16 +39,18 @@ export default function HorarioPage() {
   const [q, setQ] = useState(sp.get('q') ?? '');
 
   const cargar = useCallback(async () => {
-    const [clases, reservas, bonos, instructoras] = await Promise.all([
-      getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug),
+    const [clases, reservas, bonos, instructoras, favoritos] = await Promise.all([
+      getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getFavoritos(estudio.slug),
     ]);
-    return { clases, reservas, bonos, instructoras };
+    return { clases, reservas, bonos, instructoras, favoritos };
   }, [estudio.slug]);
 
   const { data, estado, reintentar } = useAsync(cargar, () => false);
 
   const tipos = useMemo(
-    () => ['Todo', ...Array.from(new Set(data?.clases.map((c) => c.tipo) ?? [])), 'Con hueco'],
+    // «Favoritas» solo aparece cuando hay alguna: una píldora que filtra a
+    // vacío para todo el mundo es ruido.
+    () => ['Todo', ...(data?.favoritos.size ? ['Favoritas'] : []), ...Array.from(new Set(data?.clases.map((c) => c.tipo) ?? [])), 'Con hueco'],
     [data],
   );
 
@@ -62,7 +65,10 @@ export default function HorarioPage() {
     // elegido: buscar «yoga» y que no salga nada porque hoy no hay es la peor
     // respuesta posible a una búsqueda.
     .filter((c) => (consulta ? true : c.fecha === dia))
-    .filter((c) => filtro === 'Todo' || (filtro === 'Con hueco' ? c.plazasLibres > 0 : c.tipo === filtro))
+    .filter((c) => filtro === 'Todo'
+      || (filtro === 'Con hueco' ? c.plazasLibres > 0
+        : filtro === 'Favoritas' ? (data?.favoritos.has(c.tipoClaseId) ?? false)
+          : c.tipo === filtro))
     .filter((c) => !consulta
       || normalizar(c.nombre).includes(consulta)
       || normalizar(c.tipo).includes(consulta)

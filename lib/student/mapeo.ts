@@ -196,6 +196,8 @@ export interface PayloadMin {
     suscripciones?: SuscripcionMin[];
     reservas?: { id: string; sesionId: string; socioId: string; estado: string; creadoEn: string; posicionEspera: number | null }[];
     recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null }[];
+    /** Tipos de clase marcados como favoritos (`favoritos_clase`). */
+    favoritos?: { tipoClaseId: string }[];
   } | null;
 }
 
@@ -231,6 +233,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
 
     salida.push({
       id: s.id,
+      tipoClaseId: s.tipoClaseId,
       fecha: f,
       hora: horaLocal(s.inicio),
       duracionMin: Math.max(1, Math.round((new Date(s.fin).getTime() - new Date(s.inicio).getTime()) / 60000)),
@@ -286,6 +289,11 @@ export function proyectarInstructoras(d: PayloadMin): Instructora[] {
       rating: i.valoracion && i.valoracion.total >= 5 ? i.valoracion.media : undefined,
       bio: i.bio ?? undefined,
     }));
+}
+
+/** Tipos de clase favoritos de la socia. Vacío sin sesión. */
+export function proyectarFavoritos(d: PayloadMin): Set<string> {
+  return new Set((d.socia?.favoritos ?? []).map((f) => f.tipoClaseId));
 }
 
 export function proyectarReservas(d: PayloadMin): Reserva[] {

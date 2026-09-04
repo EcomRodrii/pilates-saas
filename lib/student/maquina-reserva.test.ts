@@ -4,7 +4,7 @@ import { disponibilidad, avisoCancelacion, transicionValida, COPY } from './maqu
 import type { Clase, Reserva } from './tipos.ts';
 
 const clase = (over: Partial<Clase> = {}): Clase => ({
-  id: 'c1', fecha: '2026-10-01', hora: '10:00', duracionMin: 55,
+  id: 'c1', tipoClaseId: 'tc-1', fecha: '2026-10-01', hora: '10:00', duracionMin: 55,
   nombre: 'Reformer', tipo: 'Reformer', disciplina: 'Pilates', nivel: 'Todos',
   instructoraId: 'i1', sala: 'Sala 1', capacidad: 10, plazasLibres: 5,
   precioSuelto: 18, fotoUrl: '/x.webp', ...over,
