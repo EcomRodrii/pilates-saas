@@ -30,7 +30,34 @@ export type CodigoReserva =
   | 'spot-no-disponible'
   | 'sesion-no-encontrada'
   | 'no-autorizado'
+  // Gate de derechos (`crearReservaPublica`): rechazos ANTES de tocar el aforo.
+  | 'sin-plan'
+  | 'bono-no-cubre'
+  | 'max-simultaneas'
   | 'error';
+
+/**
+ * Los códigos que son una REGLA DE NEGOCIO, no una avería.
+ *
+ * `'error'` queda fuera a propósito: es el comodín con el que el servidor dice
+ * «me ha pasado algo que no sé nombrar», y eso sí hay que reportarlo.
+ */
+const CODIGOS_DE_NEGOCIO: ReadonlySet<string> = new Set<CodigoReserva>([
+  'ya-reservada', 'conflicto-horario', 'aforo-lleno', 'limite-semanal',
+  'spot-ocupado', 'spot-no-disponible', 'sesion-no-encontrada', 'no-autorizado',
+  'sin-plan', 'bono-no-cubre', 'max-simultaneas',
+]);
+
+/**
+ * ¿El servidor rechazó por una razón que ya sabemos contar?
+ *
+ * Se usa para NO reportar a Sentry: «no tienes bono» o «la clase está llena»
+ * son producto, no producción rota. Sin esto, cada alumna sin bono generaba un
+ * evento de nivel `error` — ruido que además tapa los fallos de verdad.
+ */
+export function esRechazoConocido(codigo: string | null | undefined): boolean {
+  return typeof codigo === 'string' && CODIGOS_DE_NEGOCIO.has(codigo);
+}
 
 /** Lo que la ruta devuelve al confirmar una reserva. */
 export type RespuestaReserva =
@@ -88,12 +115,17 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
     case 'aforo-lleno': return { state: 'full' };
     case 'spot-ocupado': return { state: 'full', mensaje };
     case 'no-autorizado': return { state: 'session-expired' };
-    // `limite-semanal` y `spot-no-disponible` no tienen estado en la máquina:
-    // llevan un motivo concreto que el copy genérico de `error` no cuenta, así
-    // que se enseña el mensaje del servidor. Inventarles un estado nuevo sería
-    // rediseñar la máquina, que es justo lo que no toca hacer aquí.
+    // Estos cinco no tienen estado en la máquina: llevan un motivo concreto que
+    // el copy genérico de `error` no cuenta, así que se enseña el mensaje del
+    // servidor. Inventarles un estado nuevo sería rediseñar la máquina, que es
+    // justo lo que no toca hacer aquí.
+    // Se listan explícitamente aunque el `default` haga lo mismo: así esta
+    // tabla y `esRechazoConocido` no pueden divergir en silencio.
     case 'limite-semanal':
     case 'spot-no-disponible':
+    case 'sin-plan':
+    case 'bono-no-cubre':
+    case 'max-simultaneas':
       return { state: 'error', mensaje };
     case 'sesion-no-encontrada': return { state: 'error', mensaje };
     default: return { state: 'error', mensaje };

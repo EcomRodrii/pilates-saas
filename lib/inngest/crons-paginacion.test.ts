@@ -73,6 +73,35 @@ for (const rel of CRONS_GLOBALES) {
   });
 }
 
+// Barridos acotados a UN estudio cuyas lecturas, aun así, pasan del corte. El
+// `.eq('studio_id', …)` baja el techo pero no lo quita: `bonos-inactivas-cron`
+// mira 180 días de `sesiones` y las `reservas` de todas ellas, y un estudio
+// activo pasa de 1.000 filas él solo. Truncado ahí, el mapa de última asistencia
+// sale falso y la lista de inactivas se lee igual de bien que "no hay ninguna".
+const CRONS_POR_ESTUDIO = [
+  'lib/notificaciones/bonos-inactivas-cron.ts',
+];
+
+for (const rel of CRONS_POR_ESTUDIO) {
+  test(`${rel}: ninguna lectura de una tabla que crece va sin paginar`, () => {
+    const fuente = leer(rel);
+    for (const s of sentencias(fuente)) {
+      for (const tabla of TABLAS_QUE_CRECEN) {
+        if (!s.includes(`.from('${tabla}')`)) continue;
+        if (!s.includes('.select(')) continue;          // update/delete: no truncan
+        if (s.includes('{ count:')) continue;           // head+count: no devuelve filas
+        assert.ok(
+          s.includes('.range('),
+          `Lectura de '${tabla}' sin .range() en ${rel}.\n` +
+          `Acotarla a un estudio NO la salva: PostgREST la truncará a 1.000 filas EN ` +
+          `SILENCIO. Envuélvela en fetchAllRows.\n` +
+          `Fragmento: ${s.trim().slice(0, 220)}`,
+        );
+      }
+    }
+  });
+}
+
 // C-3: la lista de estudios que alimenta CADA fan-out (o bucle, tras el
 // piloto pg_cron). Si se trunca, un estudio entero deja de existir para el
 // sistema —sin backups, sin recordatorios, sin renovaciones— y no hay error

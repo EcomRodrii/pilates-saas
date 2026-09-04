@@ -20,7 +20,7 @@
 //     dejar que el cliente diga de quién es la reserva.
 
 import { invalidarCatalogo } from '@/lib/student/catalogo';
-import { desenlaceDeRespuesta, type DesenlaceReserva, type RespuestaReserva } from '@/lib/student/reserva-codigos';
+import { desenlaceDeRespuesta, esRechazoConocido, type DesenlaceReserva, type RespuestaReserva } from '@/lib/student/reserva-codigos';
 import { portalAuthHeader } from '@/lib/api-client';
 import * as Sentry from '@sentry/nextjs';
 
@@ -77,23 +77,47 @@ export async function confirmarReserva(
 
   const desenlace = desenlaceDeRespuesta(respuesta);
 
+  const codigo = respuesta && 'codigo' in respuesta ? respuesta.codigo : undefined;
+
   // Los desenlaces de NEGOCIO (lleno, duplicada, conflicto) son normales y no
   // se reportan: son parte del producto, no averías. Lo que sí se reporta es
   // `error`, que significa que el servidor dijo algo que no sabemos traducir —
   // y sin contexto es indepurable, porque no deja rastro en ninguna pantalla.
-  if (desenlace.state === 'error') {
+  //
+  // ⚠️ `state === 'error'` NO basta para saber que es una avería: varios
+  // rechazos de negocio caen en ese estado a propósito porque la máquina del
+  // diseño no tiene uno propio para ellos (`sin-plan`, `limite-semanal`…). Sin
+  // mirar el `codigo`, cada alumna que intenta reservar sin bono levantaba un
+  // evento de nivel `error` en Sentry.
+  if (desenlace.state === 'error' && !esRechazoConocido(codigo)) {
     Sentry.captureMessage('student-pwa: reserva sin desenlace conocido', {
       level: 'error',
       tags: { area: 'student-pwa', operacion: 'confirmar-reserva', estudio: slug },
       extra: {
         // El código del backend, que es el dato que permite arreglarlo. Sin
         // PII: ni socia, ni email, ni token.
-        codigo: respuesta && 'codigo' in respuesta ? respuesta.codigo : undefined,
+        codigo,
         mensaje: desenlace.mensaje,
         claseId,
       },
     });
   }
+
+  // El `mensaje` solo se le ENSEÑA a la alumna cuando el rechazo es de negocio
+  // y lo hemos redactado nosotros («Necesitas un plan o bono activo…»). Para lo
+  // desconocido, el servidor manda `{ error: error.message }`, que es el texto
+  // crudo de Postgres/PostgREST («duplicate key value violates unique
+  // constraint…»): filtrarlo a la pantalla sería exponer detalle interno y
+  // además no le dice nada a nadie. Ahí vale más el copy genérico de la
+  // máquina, y el texto real ya ha ido a Sentry en el bloque de arriba.
+  //
+  // Se recorta AQUÍ y no en `desenlaceDeRespuesta`: esa función es el mapa fiel
+  // de lo que respondió el servidor (y sus tests lo fijan así); esta es la capa
+  // que decide qué se pinta.
+  const desenlaceParaPantalla: DesenlaceReserva =
+    desenlace.state === 'error' && !esRechazoConocido(codigo)
+      ? { ...desenlace, mensaje: undefined }
+      : desenlace;
 
   // Si algo cambió de verdad, el catálogo en memoria ya no vale: la clase tiene
   // una plaza menos y la alumna una reserva más. Sin esto, volver al horario
@@ -102,5 +126,5 @@ export async function confirmarReserva(
     invalidarCatalogo(slug);
   }
 
-  return desenlace;
+  return desenlaceParaPantalla;
 }

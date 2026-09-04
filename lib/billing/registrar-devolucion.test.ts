@@ -170,6 +170,20 @@ test('una devolución de venta POS se anota con venta_pos_id, sin recibo_id, y s
   assert.ok(actualizado[0].fila.devuelta_en, 'ventas_pos SÍ lleva devuelta_en, a diferencia de recibos');
 });
 
+test('⚠️ un reembolso PARCIAL de venta POS NO la marca como devuelta entera', async () => {
+  // `devuelta_en` significa "esta venta está devuelta al 100 %" — el webhook la
+  // pone a null en cuanto el cargo deja de estarlo. Escribirla en un parcial
+  // daba por devuelta entera una venta de la que solo volvió una parte del
+  // dinero: caja y cierre diario descuadrados, y sin nada que lo delatara.
+  const { admin, actualizado } = fakeAdmin();
+  const r = await registrarDevolucion(admin, { ...BASE_POS, origen: 'REEMBOLSO_PARCIAL' as const, devueltoCentimos: 1500 });
+
+  assert.equal(r?.importeDevuelto, 15);
+  assert.equal(actualizado[0].tabla, 'ventas_pos');
+  assert.equal(actualizado[0].fila.importe_devuelto, 15, 'el acumulado sí se anota, total o parcial');
+  assert.equal(actualizado[0].fila.devuelta_en, null, 'solo el REEMBOLSO_TOTAL marca la venta como devuelta');
+});
+
 test('una devolución de venta POS que no existe en este estudio no se anota', async () => {
   const { admin, insertado } = fakeAdmin({ ventaPos: null });
   assert.equal(await registrarDevolucion(admin, BASE_POS), null);

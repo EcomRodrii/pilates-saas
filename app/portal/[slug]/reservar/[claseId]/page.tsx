@@ -36,6 +36,11 @@ export default function FichaClasePage() {
   const { estudio } = useEstudio();
   const { online } = useOnline();
   const [bk, setBk] = useState<BookingState>('idle');
+  // El motivo CONCRETO del servidor, cuando lo hay. Va aparte del estado
+  // porque la máquina del diseño no tiene un estado para cada rechazo: «no
+  // tienes bono activo» y «has llegado a tu tope de reservas» caen los dos en
+  // `error`, y sin guardar el mensaje se pintaba el copy de avería genérico.
+  const [bkMensaje, setBkMensaje] = useState<string | undefined>(undefined);
 
   const cargar = useCallback(async () => {
     const [clase, reservas, bonos, instructoras] = await Promise.all([
@@ -54,6 +59,9 @@ export default function FichaClasePage() {
 
   /** Cambia de estado solo si la máquina lo permite. */
   const ir = useCallback((a: BookingState) => {
+    // El mensaje pertenece a la respuesta que lo trajo: al cambiar de estado
+    // por nuestra cuenta (reintentar, volver a la revisión) deja de valer.
+    setBkMensaje(undefined);
     setBk((de) => (transicionValida(de, a) ? a : de));
   }, []);
 
@@ -68,6 +76,7 @@ export default function FichaClasePage() {
       online,
     });
     setBk(r.state);
+    setBkMensaje(r.mensaje);
     // Los datos han cambiado: la clase tiene una plaza menos y ella una reserva
     // más. Sin recargar, volver atrás enseña el aforo de antes.
     if (r.state === 'confirmed' || r.state === 'waitlisted') reintentar();
@@ -77,13 +86,14 @@ export default function FichaClasePage() {
     // Durante el envío la hoja no se cierra: cerrarla dejaría a la alumna sin
     // saber en qué acabó una operación que ya está en marcha.
     if (bk === 'submitting') return;
+    setBkMensaje(undefined);
     setBk('idle');
   }, [bk]);
 
   const finalizar = useCallback(() => {
     if (bk === 'confirmed' || bk === 'waitlisted') router.push(href('/mis-reservas'));
     else if (bk === 'session-expired') router.push(href('/acceso/login'));
-    else setBk('idle');
+    else { setBkMensaje(undefined); setBk('idle'); }
   }, [bk, router, href]);
 
   if (estado === 'loading') {
@@ -238,6 +248,7 @@ export default function FichaClasePage() {
         {esFinal && (
           <BookingStatus
             state={bk as Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>}
+            mensaje={bkMensaje}
             onRetry={() => ir('reviewing')}
             onWaitlist={() => ir('reviewing')}
             onClose={finalizar}

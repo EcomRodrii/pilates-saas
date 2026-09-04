@@ -38,7 +38,7 @@ export async function registrarFalloCobro(params: {
 
   const plan = planificarTrasFallo(rec.intentos_reintento ?? 0, rec.fecha_vencimiento);
 
-  const { error } = await admin
+  const { data: actualizado, error } = await admin
     .from('recibos')
     .update({
       estado: plan.estado,
@@ -47,8 +47,40 @@ export async function registrarFalloCobro(params: {
       ...(esSepa ? { sepa_estado: 'failed' } : {}),
     })
     .eq('id', reciboId)
-    .eq('studio_id', studioId);
+    .eq('studio_id', studioId)
+    // Mismo guardia de estados que sus dos hermanas (`confirmarCobroExitoso`
+    // más abajo y `procesarChargeRefunded` en procesar-reembolso.ts): solo se
+    // avanza el ciclo de dunning sobre un recibo REINTENTABLE. Sin esto, un
+    // `charge.failed`/`payment_intent.payment_failed` tardío —o el reenvío de
+    // un evento viejo— RESUCITABA a PENDIENTE un recibo ya COBRADO o ya
+    // DEVUELTO, y encima le mandaba a la socia el email de impago de un cobro
+    // que sí se hizo. Un adeudo SEPA puede fallar semanas después del
+    // succeeded original, así que la secuencia es real, no teórica.
+    // COBRADO solo se admite en SEPA: un adeudo se marca COBRADO al liquidar y
+    // el banco puede devolverlo SEMANAS despues (R-transaction), asi que ahi el
+    // fallo tardio es REAL y hay que procesarlo — excluirlo dejaba el recibo
+    // COBRADO con dinero que nunca entro. Con tarjeta no existe ese caso: tras
+    // un succeeded no llega un failed del mismo PaymentIntent, asi que solo
+    // puede ser el reenvio de un evento viejo. DEVUELTO nunca se resucita.
+    .in('estado', esSepa
+      ? ['PENDIENTE', 'FALLIDO', 'EN_CURSO', 'COBRADO']
+      : ['PENDIENTE', 'FALLIDO', 'EN_CURSO'])
+    .select('id');
   if (error) throw new Error(error.message);
+  // 0 filas = el recibo existe (se leyó arriba) pero su estado ya no admite
+  // reintento. No es un error, pero tampoco es normal: se reporta para poder
+  // distinguir el reenvío inocente de un evento de un fallo de cobro real que
+  // se está perdiendo.
+  if (!actualizado || actualizado.length === 0) {
+    Sentry.captureMessage('[dunning] fallo de cobro ignorado: el recibo ya no es reintentable', {
+      level: 'warning', tags: { area: 'cobros', tipo: 'dunning' },
+      extra: {
+        reciboId, studioId, esSepa,
+        queHacer: 'El recibo está COBRADO o DEVUELTO: no se avanza su ciclo de dunning ni se avisa a la socia. Revisar si el fallo era real y llegó tarde.',
+      },
+    });
+    return null;
+  }
 
   // Hallazgo A (auditoría dunning 2026-08-10): al agotar los 3 reintentos la
   // suscripción se quedaba ACTIVA para siempre con `fecha_fin` ya vencida —

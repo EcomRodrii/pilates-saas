@@ -786,15 +786,39 @@ export async function fetchPublicStudioData(
 
   if (!member) return { ...base, socia: null };
 
-  // Datos de la socia: SOLO si el id existe en ese estudio Y el email coincide
-  // (prueba mínima de identidad). Si no valida, no se devuelve nada suyo.
+  // Datos de la socia. La autorización YA está hecha arriba: `member.socioId`
+  // sale de `socioAutenticado(usuario.authUserId, studioId)`, o sea de
+  // `auth_user_id` sobre el JWT verificado — el mismo criterio que usa el resto
+  // del sistema (`validarSociaPublica`, `resolverSociaAutenticada`). Aquí solo
+  // se relee su fila, acotada igualmente por id + estudio.
+  //
+  // I-15 (auditoría 29-ago) aplicado también a la LECTURA: esto exigía ADEMÁS
+  // que `socios.email` coincidiera con el email de la sesión y, si no,
+  // devolvía `socia: null` con 200 y sin un solo error. Como el panel puede
+  // reescribir `socios.email` libremente (dbUpdateSocio), bastaba corregir un
+  // typo para que la alumna abriera su app con sesión válida y viera CERO
+  // reservas, CERO bonos y CERO pagos — mientras seguía pudiendo reservar,
+  // porque las ESCRITURAS van por `validarSociaPublica`, que sí la autoriza
+  // por `auth_user_id`. Lectura y escritura autorizaban por criterios
+  // distintos, y el que fallaba lo hacía en silencio.
   const { data: socioRow } = await admin
     .from('socios').select('*')
     .eq('id', member.socioId).eq('studio_id', studioId).maybeSingle();
 
-  const emailOk = socioRow &&
-    (socioRow.email ?? '').trim().toLowerCase() === member.email.trim().toLowerCase();
-  if (!socioRow || !emailOk) return { ...base, socia: null };
+  if (!socioRow) return { ...base, socia: null };
+
+  // Red: la divergencia ya no bloquea, pero deja rastro. Significa que el email
+  // de acceso y el de la ficha se han separado, y hay sitios que todavía
+  // asumen que van juntos (lib/portal-auth.tsx, `actualizarEmail`).
+  // `warning`, no `error`: no hay nada roto que arreglar en caliente.
+  if ((socioRow.email ?? '').trim().toLowerCase() !== member.email.trim().toLowerCase()) {
+    capturarMensaje(
+      'fetchPublicStudioData: el email de la ficha no coincide con el de la sesión',
+      'warning',
+      // Sin emails ni nombre: es PII. Con los ids se localiza la fila.
+      { tags: { area: 'portal-socia' }, extra: { studioId, socioId: member.socioId } },
+    );
+  }
 
   const sid = member.socioId;
   const [susRes, resRes, recRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes, retoRes, recupRes] =
@@ -1905,9 +1929,16 @@ export async function crearReservaPublica(params: {
         params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyISO,
       );
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: tieneAlgunPlan ? 'PLAN_NO_INCLUYE_TIPO' : 'SIN_PLAN' });
+      // Con `codigo`, igual que los rechazos que vienen de la RPC más abajo.
+      // Sin él, el cliente (lib/student/reserva-codigos.ts) no puede distinguir
+      // «no tienes bono» de «el servidor ha dicho algo que no sabemos
+      // traducir», y cae en el copy genérico de avería — «algo no ha salido como
+      // esperábamos, inténtalo de nuevo», con un botón de reintentar que va a
+      // fallar exactamente igual — además de disparar un aviso en Sentry por
+      // algo que es una regla de negocio, no una avería.
       return tieneAlgunPlan
-        ? { error: ERROR_BONO_NO_CUBRE }
-        : { error: ERROR_SIN_PLAN };
+        ? { error: ERROR_BONO_NO_CUBRE, codigo: 'bono-no-cubre' as const }
+        : { error: ERROR_SIN_PLAN, codigo: 'sin-plan' as const };
     }
     if (pol.maxSimultaneas != null) {
       const activas = contarReservasActivasFuturas(
@@ -1925,7 +1956,7 @@ export async function crearReservaPublica(params: {
       );
       if (activas >= pol.maxSimultaneas) {
         registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_SIMULTANEAS' });
-        return { error: `Has alcanzado el máximo de ${pol.maxSimultaneas} reservas activas` as const };
+        return { error: `Has alcanzado el máximo de ${pol.maxSimultaneas} reservas activas` as const, codigo: 'max-simultaneas' as const };
       }
     }
   }

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { verificarUsuarioSupabase, verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 
 // Guarda / elimina la suscripción Web Push del usuario (propietaria/instructora/
@@ -21,6 +22,19 @@ export async function POST(req: NextRequest) {
   const sub = b?.subscription;
   if (!b?.studioId || !sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) {
     return NextResponse.json({ error: 'suscripción incompleta' }, { status: 400 });
+  }
+
+  // El `studio_id` iba CRUDO del body con solo el JWT validado: cualquiera con
+  // cuenta podía registrar su dispositivo bajo el estudio de otro. Misma
+  // comprobación de pertenencia que el endpoint hermano
+  // (app/api/notifications/route.ts): socia de ese estudio, o staff con ese
+  // estudio activo.
+  const esSocia = !!(await socioAutenticado(user.userId, b.studioId));
+  if (!esSocia) {
+    const staff = await verificarSesionStaff(req);
+    if (staff?.studioId !== b.studioId) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
   }
 
   const { error } = await admin.from('push_subscription').upsert({

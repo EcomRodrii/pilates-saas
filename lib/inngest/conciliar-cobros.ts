@@ -273,6 +273,24 @@ async function vigilarEstudio(
   return escapados.length;
 }
 
+// Roturas HISTÓRICAS ya diagnosticadas y documentadas: la condición es
+// permanente (una factura emitida NO se reescribe, ver `queHacer` de abajo), así
+// que avisar de ellas cada día solo entierra la alerta que sí importaría.
+//
+// `studio-1` / seq 4 (`A-2026-0028`): la migración
+// `supabase/migrations/20260729152338_facturas_numeracion_atomica.sql` reparó un
+// duplicado real de numeración renumerando `fac-auto-1783688865320-feepl` de la
+// seq 3 a la 4, pero NO reenlazó su `verifactu_prev_hash` — que sigue apuntando
+// a la "anterior" que tenía antes del renumerado. Por eso hoy en producción las
+// facturas seq 3 y seq 4 de `studio-1` comparten `prev_hash`. Son facturas de
+// SIEMBRA, jamás transmitidas a la AEAT, y el renumerado fue deliberado.
+//
+// Esta lista es una EXENCIÓN NOMINAL, no un silenciador: cualquier otra rotura
+// —de otro estudio, u otra seq de este mismo— sigue disparando el aviso.
+const ROTURAS_VERIFACTU_CONOCIDAS: ReadonlySet<string> = new Set([
+  'studio-1:4', // A-2026-0028, renumerado de la migración 20260729152338
+]);
+
 // Auditoría 22ª pasada (3-sep-2026), P-3. `reservar_numero_factura` reserva
 // numero_completo/verifactu_seq/verifactu_prev_hash bajo un advisory lock POR
 // ESTUDIO (lib/billing/sellar-factura-server.ts), así que la secuencia y su
@@ -298,7 +316,12 @@ export async function vigilarCadenaVerifactu(admin: SupabaseClient): Promise<num
       .order('verifactu_seq', { ascending: true })
       .range(from, to),
   );
-  const roturas = detectarCadenaRotaVerifactu(filas);
+  // El filtro se aplica AQUÍ y no dentro de `detectarCadenaRotaVerifactu`: esa
+  // función es pura, está testeada (lib/verifactu-cadena.test.ts) y debe seguir
+  // diciendo la verdad sobre el estado real de la cadena. Lo que se exime es el
+  // AVISO, no el hecho.
+  const roturas = detectarCadenaRotaVerifactu(filas)
+    .filter(r => !ROTURAS_VERIFACTU_CONOCIDAS.has(`${r.studioId}:${r.seqRota}`));
   for (const r of roturas) {
     Sentry.captureMessage('[verifactu] cadena de facturación bifurcada', {
       level: 'error',
@@ -413,6 +436,19 @@ async function entregar(
   const datos = pi ? {
     email: pi.metadata?.socioEmail ?? null,
     nombre: pi.metadata?.socioNombre ?? null,
+    // Gemelo divergente con el webhook (app/api/stripe/webhook/route.ts, rama
+    // del checkout embebido): allí la ficha nueva se crea CON teléfono y con
+    // la "información adicional" del formulario de pago sin login. Aquí no se
+    // pasaban, así que la socia rescatada por el cron acababa con una ficha
+    // más pobre que la de la socia rescatada por el webhook — el rescate no
+    // puede entregar peor que el camino normal. Misma metadata, misma forma.
+    telefono: pi.metadata?.socioTelefono ?? null,
+    datosAdicionales: {
+      genero: pi.metadata?.genero ?? null,
+      comoConociste: pi.metadata?.comoConociste ?? null,
+      codigoPostal: pi.metadata?.codigoPostal ?? null,
+      fechaNacimiento: pi.metadata?.fechaNacimiento ?? null,
+    },
     importeCobradoCentimos: pi.amount_received ?? pi.amount ?? null,
     paymentIntentId: pi.id,
   } : {
@@ -473,6 +509,9 @@ async function entregar(
         const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
         const r = await reservarPlazaTrasPagoPublico({
           studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id,
+          // Igual que el webhook: si la socia pagó por una CAMILLA/plaza
+          // concreta, el rescate tiene que darle ESA, no una cualquiera.
+          spotId: pi.metadata.spotId ?? null,
         });
         if (!r.ok) {
           Sentry.captureMessage('[conciliador] plan entregado pero NO se pudo reservar la clase pagada', {

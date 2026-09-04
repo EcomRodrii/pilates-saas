@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 // A-14 (backstop): marca un cobro por datáfono como RECONCILIADO una vez que su
 // venta está registrada. Lo llama el POS tanto en el flujo normal (tras el tap
@@ -14,6 +15,14 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
+  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
+  // mano: cerrar un cobro del datáfono como RECONCILIADO es tocar el cierre de
+  // caja, y sin esto un INSTRUCTOR o un MANAGER podía dar por cuadrado —o
+  // inventar— un cobro. Mismo guardia que la ruta hermana /api/terminal/cobrar.
+  if (!puedeMoverDinero(sesion.rol)) {
+    return NextResponse.json({ error: 'Tu rol no puede reconciliar cobros' }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as
     | { paymentIntentId?: unknown; ventaId?: unknown; importe?: unknown; concepto?: unknown }

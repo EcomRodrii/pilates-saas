@@ -19,17 +19,28 @@ import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/
 // (`CATEGORIAS_POR_ROL.SOCIA`), y los canales in-app, push, email, WhatsApp y
 // SMS.
 //
-// Se respetan los NOMBRES del diseño —son mejores para una alumna que
-// «categoría reservas»— pero cada uno gobierna su categoría real, no un
-// interruptor inventado. Inventarlos habría producido una pantalla que guarda
-// preferencias que el motor no lee.
+// Se respeta el TONO del diseño —hablarle a una alumna de «categoría reservas»
+// no ayuda a nadie— pero cada fila gobierna su categoría real y su texto
+// describe lo que esa categoría contiene de verdad. Inventar interruptores
+// habría producido una pantalla que guarda preferencias que el motor no lee;
+// heredar los nombres del diseño sin mirar el catálogo produjo algo peor: una
+// pantalla que apagaba lo contrario de lo que prometía (ver FILAS).
 //
 // Ausencia de fila = encendido: es el valor por defecto del propio endpoint.
 
+// ⚠️ Estas etiquetas describen lo que hay HOY en cada categoría del catálogo
+// (`lib/notifications/catalog.ts`) y TIENEN QUE SEGUIRLO: el interruptor gobierna
+// la categoría entera, no el evento que da nombre a la fila. Antes decían lo
+// contrario de lo que hacían —«Recordatorio de clase» estaba puesto sobre
+// `clases`, que es donde viven CLASE_CANCELADA/CLASE_MODIFICADA/CLASE_SUSTITUTA,
+// mientras que RECORDATORIO_24H y RECORDATORIO_1H son `reservas`—, así que
+// apagar los recordatorios silenciaba el aviso de que te habían cancelado la
+// clase y no apagaba ningún recordatorio. Si algún día se mueve un evento de
+// categoría, lo que hay que reescribir es esta tabla, no la categoría del evento.
 const FILAS: Array<{ categoria: string; label: string; sub?: string }> = [
-  { categoria: 'reservas', label: 'Plaza liberada y reservas', sub: 'Cuando estés en lista de espera o cambie tu reserva' },
-  { categoria: 'clases', label: 'Recordatorio de clase', sub: 'El día antes y un rato antes' },
-  { categoria: 'pagos', label: 'Bonos y pagos', sub: 'Bono a punto de caducar, cobros' },
+  { categoria: 'reservas', label: 'Tus reservas', sub: 'Recordatorio de tus clases, plaza liberada y cambios en tus reservas' },
+  { categoria: 'clases', label: 'Cambios en las clases', sub: 'Si se cancela, se modifica o la da otra profesora' },
+  { categoria: 'pagos', label: 'Bonos y pagos', sub: 'Bono a punto de caducar o agotado, cobros' },
   { categoria: 'marketing', label: 'Novedades del estudio' },
 ];
 

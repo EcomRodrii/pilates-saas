@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { traducirEnlace } from './deep-links.ts';
+import { traducirEnlace, destinoPortalViejo } from './deep-links.ts';
 
 // El deep link se calcula al INSERTAR y se persiste en `notification.deep_link`.
 // Las filas ya emitidas en producción llevan rutas del portal borrado, y
@@ -54,4 +54,46 @@ test('el slug de la notificación vieja no manda: manda el del estudio actual', 
   // Una fila emitida con el slug antiguo del estudio (cambió de dirección) no
   // puede llevar a la alumna a un slug que ya no existe.
   assert.equal(traducirEnlace('/portal/slug-viejo/clases/ses-2', SLUG), `${B}/reservar/ses-2`);
+});
+
+// ─── El catch-all `/portal/[slug]/[...resto]` ───────────────────────────────
+
+test('una ruta con cola bajo `acceso`/`login` NO se redirige a sí misma', () => {
+  // El bucle: el destino de estas tres empieza por `acceso`, que a su vez es
+  // clave del mapa. Arrastrando la cola, `/portal/x/acceso/entrar` iba a
+  // `/portal/x/acceso/login/entrar`, que volvía a entrar por el mismo handler y
+  // crecía en cada salto → ERR_TOO_MANY_REDIRECTS, y con 308 el navegador se lo
+  // quedaba cacheado.
+  assert.equal(destinoPortalViejo(['acceso', 'entrar']), '/acceso/login');
+  assert.equal(destinoPortalViejo(['login', 'algo']), '/acceso/login');
+  assert.equal(destinoPortalViejo(['clave-nueva', 'tok-1']), '/acceso/verificar');
+
+  // La prueba de que no hay reentrada: traducir el destino otra vez da lo
+  // mismo. Si creciera aunque fuera un segmento, el bucle sigue vivo.
+  for (const entrada of [['acceso', 'entrar'], ['login', 'a', 'b', 'c']]) {
+    const uno = destinoPortalViejo(entrada)!;
+    const dos = destinoPortalViejo(uno.split('/').filter(Boolean))!;
+    assert.equal(dos, uno, entrada.join('/'));
+  }
+});
+
+test('la cola SÍ se conserva donde el destino tiene segmento dinámico', () => {
+  // Es la mitad del valor del enlace: un aviso de «tu clase de mañana» que
+  // aterrice en el horario genérico ha perdido lo que traía.
+  assert.equal(destinoPortalViejo(['clases', 'ses-1']), '/reservar/ses-1');
+  assert.equal(destinoPortalViejo(['reservas', 'res-9']), '/mis-reservas/res-9');
+  assert.equal(destinoPortalViejo(['compras', 'rec-3']), '/pagos/rec-3');
+  // Y sin cola siguen funcionando, que es lo que ya funcionaba antes.
+  assert.equal(destinoPortalViejo(['clases']), '/reservar');
+  assert.equal(destinoPortalViejo(['acceso']), '/acceso/login');
+});
+
+test('lo desconocido es `null` (al inicio) y lo conocido sin pantalla es cadena vacía', () => {
+  // Son dos cosas distintas: `null` = no la reconocemos; `''` = la conocemos y
+  // todavía no tiene pantalla, así que al inicio del estudio.
+  assert.equal(destinoPortalViejo(['loquesea']), null);
+  assert.equal(destinoPortalViejo([]), null);
+  assert.equal(destinoPortalViejo(undefined), null);
+  assert.equal(destinoPortalViejo(['comunidad', 'hilo-1']), '');
+  assert.equal(destinoPortalViejo(['mensajes']), '');
 });
