@@ -19,7 +19,6 @@ import type { StudioConfig } from '@/lib/student/tipos';
 // `generateMetadata` comparten una sola consulta.
 
 /** Campos del diseño que hoy NO tienen columna propia en `studios`. */
-const POLITICA_CANCELACION_POR_DEFECTO = 12;
 
 export interface EstudioStudent extends StudioConfig {
   /** Id interno. NO se manda al cliente como autorización: la identidad sale
@@ -76,14 +75,14 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     // por estudio. El diseño usa esto solo como etiqueta, así que se deja vacío
     // en vez de inventar una clasificación que no existe.
     disciplinas: [],
-    // ⚠️ ORIENTATIVO. La ventana real es una cascada por tipo de clase
-    // (`tipos_clase.ventana_cancelacion_horas ?? studios.cancelacion_ventana_horas`)
-    // y la resuelve el SERVIDOR al cancelar. Este número solo sirve para el
-    // texto informativo del sheet; nunca para decidir si se puede cancelar.
-    politicaCancelacionHoras: POLITICA_CANCELACION_POR_DEFECTO,
-    // Igual: `permite_lista_espera` tiene override por tipo de clase. La
-    // disponibilidad real la devuelve `reservar_plaza`.
-    soportaListaEspera: true,
+    // La del estudio, no una constante: la app la enseña («gratis hasta X h
+    // antes»). Sigue siendo el TRAMO BASE de la cascada — un tipo de clase
+    // puede tener la suya, y esa viaja en `Clase.ventanaCancelacionHoras` —, y
+    // quien decide al cancelar es siempre el servidor.
+    politicaCancelacionHoras: s.cancelacionVentanaHoras,
+    // Igual: base del estudio; `permite_lista_espera` admite override por tipo
+    // de clase y la disponibilidad real la devuelve `reservar_plaza`.
+    soportaListaEspera: s.permiteListaEspera,
     tema: {},
     colorPrimario: s.colorPrimario,
     paginaOculta: s.paginaOculta,

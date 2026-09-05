@@ -183,7 +183,6 @@ export default function DetalleReservaPage() {
           <Fila k="Instructora" v={i?.nombre ?? '—'} />
           <Fila k="Sala" v={c.sala} />
           <Fila k="Dirección" v={estudio.direccion} />
-          <Fila k="Pagada con" v={res.pagadaCon === 'bono' ? 'Bono · 1 sesión' : res.pagadaCon === 'plan' ? 'Tu plan' : 'Clase suelta'} />
         </div>
 
         {activa && (
