@@ -3,6 +3,7 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { supabase } from '@/lib/db/supabase';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
+import { enlaceRevocado } from '@/lib/sustituciones/enlaces';
 import { enviarEmailAccesoActivado } from '@/lib/emails/acceso-activado-server';
 import { MENSAJE_RECHAZO, motivoNoReclamable } from '@/lib/equipo/reclamar-reglas';
 import type { Rol } from '@/lib/types';
@@ -56,6 +57,14 @@ export async function equipoReclamarAction(input: { token?: string; jwt?: string
 
   const admin = getSupabaseAdmin();
   if (!admin) throw new ErrorAccion(ERROR_SISTEMA, 503);
+
+  // La firma+scope+caducidad ya los validó verificarTokenInstructora — esto
+  // comprueba, además, que sea el enlace que reconocemos como vigente: un
+  // reenvío de invitación (equipoInvitarAction) regenera y revoca cualquier
+  // token anterior, así que uno viejo filtrado no debe seguir sirviendo.
+  if (await enlaceRevocado(admin, claim.instructorId, 'invitacion', token)) {
+    throw new ErrorAccion(ENLACE_NO_VALIDO, 400);
+  }
 
   const rolEmisor = ROLES.includes(claim.ref as Rol) ? (claim.ref as Rol) : null;
 

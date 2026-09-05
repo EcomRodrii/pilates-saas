@@ -12,8 +12,9 @@ export function mismoToken(recibido: string, almacenado: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-// Solo cubre 'disponibilidad' y 'reportar_baja' (los únicos scopes que pasan
-// por instructor_enlaces_vigentes, migración 0057). Úsalo DESPUÉS de que
+// Cubre 'disponibilidad', 'reportar_baja' e 'invitacion' (los scopes que
+// pasan por instructor_enlaces_vigentes — migración 0057, ampliada en
+// 20260905014901 para incluir 'invitacion'). Úsalo DESPUÉS de que
 // verificarTokenInstructora ya haya validado firma+scope+caducidad — esto
 // comprueba, además, que sea el enlace que reconocemos como el vigente.
 //
@@ -42,7 +43,10 @@ export async function obtenerOFirmarEnlace(
   admin: SupabaseClient,
   studioId: string,
   instructorId: string,
-  scope: 'disponibilidad' | 'reportar_baja',
+  scope: 'disponibilidad' | 'reportar_baja' | 'invitacion',
+  // Solo lo usa 'invitacion' (el rol de quien invita, ver equipoInvitarAction).
+  // 'disponibilidad'/'reportar_baja' no llevan ref — se deja null como siempre.
+  ref: string | null = null,
 ): Promise<string> {
   const { data: vigente } = await admin
     .from('instructor_enlaces_vigentes')
@@ -50,7 +54,7 @@ export async function obtenerOFirmarEnlace(
 
   const token = vigente?.token && verificarTokenInstructora(vigente.token as string, scope as ScopeToken)
     ? (vigente.token as string)
-    : firmarTokenInstructora(instructorId, studioId, scope as ScopeToken);
+    : firmarTokenInstructora(instructorId, studioId, scope as ScopeToken, ref);
 
   if (token !== vigente?.token) {
     const { error } = await admin.from('instructor_enlaces_vigentes').upsert(
@@ -66,7 +70,7 @@ export async function obtenerOFirmarEnlace(
 
 /** Marca cuándo se mandó por email el enlace vigente de una instructora+scope. */
 export async function marcarEnlaceEnviadoPorEmail(
-  admin: SupabaseClient, instructorId: string, scope: 'disponibilidad' | 'reportar_baja',
+  admin: SupabaseClient, instructorId: string, scope: 'disponibilidad' | 'reportar_baja' | 'invitacion',
 ): Promise<void> {
   const { error } = await admin.from('instructor_enlaces_vigentes')
     .update({ email_enviado_en: new Date().toISOString() })
