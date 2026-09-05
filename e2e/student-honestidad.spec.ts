@@ -64,18 +64,28 @@ test.describe('Student PWA · lo que la app no debe decir', () => {
   });
 
   test('Datos personales no deja guardar antes de cargar: borraría apellidos', async ({ page }) => {
-    // El payload tarda: el formulario sale vacío y guardar mandaría todo en blanco.
+    // El payload se retiene hasta que el test lo suelta: nada de carreras
+    // contra un `setTimeout` — en CI la primera carga tarda más que el retardo
+    // y el test comprobaba el botón cuando los datos YA habían llegado.
+    let soltar = () => {};
+    const retenido = new Promise<void>((r) => { soltar = r; });
     await sembrarSociaLista(page);
     await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], unread: 0 }) }));
     await page.route('**/api/public/studio-data', async (r) => {
-      await new Promise((res) => setTimeout(res, 4000));
+      await retenido;
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixtureSociaLista()) });
     });
+
     await page.goto(`${base}/perfil/datos`);
     const guardar = page.getByRole('button', { name: /guardar/i });
-    await expect(guardar).toBeVisible({ timeout: 30_000 });
+    await expect(guardar).toBeVisible({ timeout: 60_000 });
+    // Sin datos: el formulario está vacío y guardar mandaría apellidos y
+    // teléfono en blanco. Debe estar bloqueado.
     await expect(guardar).toBeDisabled();
-    // Cuando llegan los datos, se habilita y el nombre ya está puesto.
+    await expect(page.getByLabel('Nombre')).toHaveValue('');
+
+    soltar();
+    // Con los datos ya cargados, se habilita y el nombre viene relleno.
     await expect(guardar).toBeEnabled({ timeout: 30_000 });
     await expect(page.getByLabel('Nombre')).toHaveValue(/.+/);
   });
