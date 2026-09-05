@@ -107,6 +107,9 @@ export interface PlanMin {
   /** El checkout exige `activo`; enseñar el precio de un plan apagado
       llevaría a un cobro que la ruta rechaza. */
   activo?: boolean | null;
+  /** Tipos de clase a los que está acotado. Vacío = todos. Lo cuelga
+      `hidratarTiposDePlanes` en el payload público. */
+  tiposClaseIds?: string[];
 }
 
 /**
@@ -136,6 +139,9 @@ export function bonoDeSuscripcion(s: SuscripcionMin, plan: PlanMin | undefined, 
   else if (!ilimitado && restantes <= 0) estado = 'agotado';
 
   return {
+    // A qué tipos de clase está acotado: lo necesita la hoja de clase para no
+    // prometer «no pagas nada hoy» con un bono que no cubre esa clase.
+    tiposClaseIds: plan?.tiposClaseIds,
     id: s.id,
     nombre: plan?.nombre ?? 'Bono',
     creditosTotales: ilimitado ? Infinity : totales,

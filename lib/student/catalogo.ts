@@ -63,6 +63,17 @@ export interface PayloadPublico {
   challengeDefinitions?: ChallengeDefinition[];
   rewardCatalog?: RewardCatalogItem[];
   socia: {
+    /** La ficha de la socia (el servidor manda `select('*')` de `socios`).
+        Solo se declaran los campos que la app usa. */
+    socio?: {
+      id?: string; nombre?: string | null; apellidos?: string | null;
+      email?: string | null; telefono?: string | null; direccion?: string | null;
+      fotoUrl?: string | null;
+      /** Método de pago guardado: son datos suyos; el número completo lo
+          guarda la pasarela, no el estudio. */
+      tarjetaMarca?: string | null; tarjetaUltimos4?: string | null;
+      tarjetaExpMes?: number | null; tarjetaExpAnio?: number | null;
+    } | null;
     suscripciones: Suscripcion[];
     reservas: Reserva[];
     recibos: Recibo[];

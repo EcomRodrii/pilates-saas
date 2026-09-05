@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { getBonos, getClases, getInstructoras, getReservas } from '@/lib/student/datos';
+import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, hoyISO } from '@/lib/student/formato';
 import { Calendar } from '@/components/student/domain/Calendar';
@@ -35,7 +36,6 @@ export default function CalendarioPage() {
     .filter((f): f is string => Boolean(f));
 
   const lista = (data?.clases ?? []).filter((c) => c.fecha === dia).sort((a, b) => a.hora.localeCompare(b.hora));
-  const bono = data?.bonos.find((b) => b.estado === 'activo');
 
   return (
     <StudentShell>
@@ -63,7 +63,7 @@ export default function CalendarioPage() {
                       clase={c}
                       instructora={data.instructoras.find((x) => x.id === c.instructoraId)}
                       estado={disponibilidad(c, data.reservas, estudio.soportaListaEspera)}
-                      conBono={Boolean(bono)}
+                      conBono={Boolean(bonoParaClase(data?.bonos ?? [], c.tipoClaseId))}
                       delay={i * 55}
                     />
                   ))}

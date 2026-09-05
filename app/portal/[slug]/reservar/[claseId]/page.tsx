@@ -8,6 +8,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { getBonos, getClases, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
 import { getFavoritos } from '@/lib/student/favoritos';
+import { bonoParaClase, tieneBonoQueNoCubre } from '@/lib/student/bono-cubre';
 import { confirmarReserva } from '@/lib/student/reservar';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, euros, horaFin, precioClaseTexto } from '@/lib/student/formato';
@@ -63,7 +64,12 @@ export default function FichaClasePage() {
   const clase = data?.clase ?? null;
   const inst = data?.instructoras.find((i) => i.id === clase?.instructoraId);
   const disp = clase ? disponibilidad(clase, data?.reservas ?? [], estudio.soportaListaEspera) : 'disponible';
-  const bono = data?.bonos.find((b) => b.estado === 'activo' && b.creditosUsados < b.creditosTotales) ?? null;
+  // El bono que de VERDAD cubre esta clase: un plan puede estar acotado a
+  // ciertos tipos, y el servidor lo aplica al reservar. Elegir «el primero con
+  // saldo» hacía que la hoja prometiera «no pagas nada hoy» y el servidor
+  // rechazara la reserva.
+  const bono = clase ? bonoParaClase(data?.bonos ?? [], clase.tipoClaseId) : null;
+  const bonoNoCubre = clase ? tieneBonoQueNoCubre(data?.bonos ?? [], clase.tipoClaseId) : false;
   const aviso = clase ? avisoCancelacion(clase, estudio.politicaCancelacionHoras) : null;
   const favorita = favoritaLocal ?? (clase ? (data?.favoritos.has(clase.tipoClaseId) ?? false) : false);
 
@@ -247,6 +253,7 @@ export default function FichaClasePage() {
                 clase={clase}
                 instructora={inst}
                 bono={disp === 'completa' ? null : bono}
+                bonoNoCubre={bonoNoCubre}
                 politicaHoras={estudio.politicaCancelacionHoras}
               />
             </div>

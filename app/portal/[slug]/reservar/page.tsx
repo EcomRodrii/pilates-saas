@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { getBonos, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
+import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { getFavoritos } from '@/lib/student/favoritos';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, hoyISO } from '@/lib/student/formato';
@@ -84,7 +85,6 @@ export default function HorarioPage() {
       || normalizar(nombreInstructora(c.instructoraId)).includes(consulta))
     .sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
 
-  const bono = data?.bonos.find((b) => b.estado === 'activo');
 
   return (
     <StudentShell>
@@ -157,7 +157,7 @@ export default function HorarioPage() {
                 clase={c}
                 instructora={data.instructoras.find((x) => x.id === c.instructoraId)}
                 estado={disponibilidad(c, data.reservas, estudio.soportaListaEspera)}
-                conBono={Boolean(bono)}
+                conBono={Boolean(bonoParaClase(data?.bonos ?? [], c.tipoClaseId))}
                 delay={i * 55}
               />
             ))

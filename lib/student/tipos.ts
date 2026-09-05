@@ -78,6 +78,8 @@ export type EstadoBono = 'activo' | 'agotado' | 'expirado';
 export interface Bono {
   id: string; nombre: string; creditosTotales: number; creditosUsados: number;
   compradoEn: string; expiraEn: string | null; estado: EstadoBono; precio: number;
+  /** Tipos de clase que cubre. Vacío = todos (misma regla que el servidor). */
+  tiposClaseIds?: string[];
 }
 
 export type EstadoPago = 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded';

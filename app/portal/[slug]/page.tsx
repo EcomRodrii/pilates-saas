@@ -7,6 +7,7 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { useAsync } from '@/lib/student/useAsync';
 import { getBonos, getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/student/datos';
+import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { getGamificacion } from '@/lib/student/gamificacion-datos';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { fechaLarga, hoyISO, saludo } from '@/lib/student/formato';
@@ -272,7 +273,7 @@ export default function InicioPage() {
                       clase={c}
                       instructora={data.instructoras.find((x) => x.id === c.instructoraId)}
                       estado={disponibilidad(c, data.reservas, estudio.soportaListaEspera)}
-                      conBono={Boolean(bonoActivo)}
+                      conBono={Boolean(bonoParaClase(data?.bonos ?? [], c.tipoClaseId))}
                       delay={i * 55}
                     />
                   ))}
