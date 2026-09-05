@@ -30,6 +30,7 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
       {clase.logoUrl && (
         <span
           aria-hidden
+          data-testid="logo-clase"
           style={{
             width: 34, height: 34, flexShrink: 0, borderRadius: 10,
             background: 'url(' + clase.logoUrl + ') center/cover',
