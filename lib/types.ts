@@ -686,7 +686,19 @@ export interface TipoClase {
   duracionMinutos: number;
   descripcion: string | null;
   nivel: NivelClase;
+  /**
+   * Banner ancho de cabecera. Es la imagen que la app de la alumna pinta a
+   * sangre en el héroe de la clase, y su ayuda pide 1600×900.
+   */
   fotoUrl: string | null;
+  /**
+   * Logo CUADRADO, para filas y listados.
+   *
+   * Existe aparte de `fotoUrl` porque una sola imagen no puede quedar bien
+   * recortada de las dos formas: el panel la pintaba en 44×44 y la alumna en
+   * un héroe de 290 px de alto. Ver migr 20260905130124.
+   */
+  logoUrl: string | null;
   // Objetivos de la lista FIJA (lib/reservar/objetivos.ts) que cubre este tipo
   // de clase, para el asistente de la página pública.
   //

@@ -132,7 +132,11 @@ const aforoOpcional = (v: string): number | null => {
  * Lo que se guarda. Único sitio donde el formulario se convierte en el
  * contrato de `TipoClase` — el panel nunca escribe columnas por su cuenta.
  */
-export function formACampos(form: ClaseForm): Omit<TipoClase, 'id' | 'studioId' | 'fotoUrl'> {
+// `fotoUrl` y `logoUrl` quedan FUERA a propósito: las dos imágenes no se
+// guardan con el resto del formulario, sino por su propia vía (subida a
+// Storage + `updateTipoClase` con ese único campo), porque necesitan el id de
+// la clase para construir el path del bucket.
+export function formACampos(form: ClaseForm): Omit<TipoClase, 'id' | 'studioId' | 'fotoUrl' | 'logoUrl'> {
   return {
     nombre: form.nombre.trim(),
     color: form.color,

@@ -22,7 +22,7 @@ import type { TipoClase } from '../types.ts';
 
 const tipo = (extra: Partial<TipoClase> = {}): TipoClase => ({
   id: 'tc1', studioId: 'e1', nombre: 'Reformer', color: '#111111', duracionMinutos: 50,
-  descripcion: null, nivel: 'TODOS', fotoUrl: null, objetivos: [],
+  descripcion: null, nivel: 'TODOS', fotoUrl: null, logoUrl: null, objetivos: [],
   ventanaCancelacionHoras: null, reservaExigirPlan: null, reservaVentanaMinimaMinutos: null,
   reservaAntelacionMaximaDias: null, permiteListaEspera: null, requiereAprobacion: null,
   listaEsperaPlazoAceptacionMinutos: null, minimoAsistentesPorClase: null,

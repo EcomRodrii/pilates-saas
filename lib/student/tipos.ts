@@ -52,7 +52,17 @@ export interface Clase {
   precioSuelto: number;     // € si no hay bono
   /** `true` si el estudio NO vende clases sueltas — distinto de «cuesta 0 €». */
   sinPrecioSuelto?: boolean;
+  /** Banner ancho de la cabecera. Hereda: sala → tipo de clase → estudio. */
   fotoUrl: string;
+  /**
+   * Logo CUADRADO del tipo de clase, para la fila del horario.
+   *
+   * No hereda de nada, a diferencia de `fotoUrl`: un logo identifica a la
+   * clase, así que el del estudio o el de la sala no valdrían — se vería el
+   * mismo icono en todas las filas, que es peor que no ver ninguno.
+   * `undefined` = esta clase no tiene logo y la fila se pinta como siempre.
+   */
+  logoUrl?: string;
   descripcion?: string;
 }
 

@@ -920,7 +920,10 @@ export interface RowTiposClase {
   duracion_minutos: number | null;
   descripcion: string | null;
   nivel: string | null;
+  /** Banner ancho de cabecera (1600×900). El logo cuadrado es `logo_url`. */
   foto_url: string | null;
+  /** Logo cuadrado para filas y listados (migr 20260905130124). */
+  logo_url: string | null;
   // migr 0116.
   ventana_cancelacion_horas: number | null;
   // migr 20260730152516.

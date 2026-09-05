@@ -19,6 +19,8 @@
 export const LADO_AVATAR = 512;
 /** Lado máximo para la foto de un tipo de clase (se pinta como tarjeta). */
 export const LADO_FOTO_CLASE = 1280;
+/** Lado máximo del logo cuadrado de un tipo de clase (se pinta a 40-48 px). */
+export const LADO_LOGO_CLASE = 512;
 /** Lado máximo para un banner del portal (se pinta a ancho completo). */
 export const LADO_BANNER = 1600;
 

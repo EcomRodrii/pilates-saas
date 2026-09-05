@@ -180,7 +180,7 @@ export interface PayloadMin {
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; nivel?: string | null; fotoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null }[];
+  tiposClase?: { id: string; nombre: string; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null }[];
   levelDefinitions?: NivelDef[];
   achievementDefinitions?: LogroDef[];
   challengeDefinitions?: RetoDef[];
@@ -273,12 +273,21 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       precioSuelto: precioDeSesion(s.precioPuntual, d.planesTarifa) ?? 0,
       /** `true` si el estudio NO vende clases sueltas: no es «gratis». */
       sinPrecioSuelto: precioDeSesion(s.precioPuntual, d.planesTarifa) === null,
-      // ⚠️ La SALA manda. Antes era `tipo ?? studio`, y como ningún tipo de
-      // clase suele tener foto, TODAS las clases acababan enseñando la MISMA
-      // imagen del estudio — que en un estudio real es a menudo la foto de la
-      // propietaria. La sala es el nivel correcto: una clase ocurre en una
-      // sala, y la sala tiene un aspecto reconocible.
-      fotoUrl: sala?.fotoUrl ?? tipo?.fotoUrl ?? d.studio?.fotoUrl ?? '',
+      // ⚠️ Herencia del BANNER, y el orden importa.
+      //
+      // Era `sala ?? tipo ?? studio` por un motivo que sigue siendo válido:
+      // como casi ningún tipo de clase tenía foto, TODAS las clases enseñaban
+      // la misma imagen del estudio —que a menudo es la foto de la
+      // propietaria—, y la sala al menos tiene un aspecto reconocible.
+      //
+      // Lo que cambia es solo el primer escalón: si la propietaria ha subido
+      // un banner A ESTA CLASE, manda el suyo. Es una elección explícita sobre
+      // esta clase concreta, y dejar que la foto genérica de la sala la tapara
+      // convertía el banner por clase en una función que no se ve nunca. Sin
+      // banner propio, todo sigue exactamente igual que antes.
+      fotoUrl: tipo?.fotoUrl ?? sala?.fotoUrl ?? d.studio?.fotoUrl ?? '',
+      // El logo NO hereda: ver el comentario en `Clase.logoUrl`.
+      logoUrl: tipo?.logoUrl ?? undefined,
       descripcion: tipo?.descripcion ?? undefined,
     });
   }

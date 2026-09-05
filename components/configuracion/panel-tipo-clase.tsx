@@ -9,7 +9,7 @@ import { CampoImagen } from '@/components/ui/campo-imagen';
 import { btnPrimary, btnSecondary, inputCls, Toggle } from '@/app/(dashboard)/configuracion/page';
 import { OBJETIVOS } from '@/lib/reservar/objetivos';
 import { ESPECIALIDADES_NETWORK, ESPECIALIDAD_LABEL } from '@/lib/network/catalogo.ts';
-import { imagenDeClase } from '@/lib/imagenes-por-defecto';
+import { imagenDeClase, IMAGENES_CLASE, type FamiliaClase } from '@/lib/imagenes-por-defecto';
 import type { Studio, TipoClase } from '@/lib/types';
 import { cn, formatEuro } from '@/lib/utils';
 import {
@@ -280,28 +280,83 @@ function Segmentado<T extends string | number>({
 }
 
 /** "Así la verá tu alumna" — lo que se está configurando, con su forma real. */
-function Previsualizacion({ form, fotoUrl }: { form: ClaseForm; fotoUrl?: string | null }) {
+function Previsualizacion({ form, fotoUrl, logoUrl }: { form: ClaseForm; fotoUrl?: string | null; logoUrl?: string | null }) {
   const partes = [NIVEL_LABELS[form.nivel], `${form.duracionMinutos || '—'} min`];
   const plazas = plazasSiPropias(form.aforoPorDefecto);
   if (plazas) partes.push(plazas);
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-3">
+    <div className="rounded-xl border border-border bg-muted/40 p-3">
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Así la verá tu alumna</p>
+      {/* La FILA del horario: es donde va el logo, no el banner. Antes esta
+          previsualización recortaba el banner a 48×48 y lo llamaba «así la
+          verá tu alumna» — pero en la fila no salía ninguna imagen, y el
+          banner solo aparece al abrir la clase. Enseñaba algo que no pasaba
+          en ninguna de las dos pantallas. */}
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-2.5">
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- puede ser una URL de Storage o pegada; next/image exigiría allowlist de dominios
+          <img src={logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-[10px] border border-black/5 object-cover" />
+        ) : (
+          <span className="h-9 w-9 shrink-0 rounded-[10px] border border-dashed border-border" aria-hidden="true" />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13.5px] font-semibold text-foreground">{form.nombre.trim() || 'Tu clase'}</p>
+          <p className="truncate text-[11.5px] text-muted-foreground">{partes.join(' · ')}</p>
+        </div>
+        <span
+          className="h-3 w-3 shrink-0 rounded-full border border-black/10"
+          style={{ backgroundColor: form.color }}
+          aria-hidden="true"
+        />
+      </div>
+      {/* Y el BANNER, que es lo que ve al abrirla. */}
       {/* eslint-disable-next-line @next/next/no-img-element -- respaldo local ya optimizado, sin pasar por next/image */}
       <img
         src={imagenDeClase({ fotoUrl, nombre: form.nombre })}
         alt=""
-        className="h-12 w-12 shrink-0 rounded-lg border border-black/5 object-cover"
+        className="mt-2 h-20 w-full rounded-lg border border-black/5 object-cover"
       />
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Así la verá tu alumna</p>
-        <p className="truncate text-[13.5px] font-semibold text-foreground">{form.nombre.trim() || 'Tu clase'}</p>
-        <p className="truncate text-[11.5px] text-muted-foreground">{partes.join(' · ')}</p>
+      <p className="mt-1 text-[10.5px] text-muted-foreground">Arriba, en el horario. Abajo, al abrir la clase.</p>
+    </div>
+  );
+}
+
+/**
+ * Las imágenes de banner que ya trae Tentare.
+ *
+ * Existen desde siempre en `public/por-defecto/` y se usaban SOLO como
+ * respaldo automático adivinado por el nombre de la clase: no había forma de
+ * elegir otra a mano. Una propietaria cuyo «Circuito» no case con ninguna
+ * familia se quedaba con la genérica sin saber que había cinco más.
+ */
+function BannersPorDefecto({ actual, onElegir, ocupado }: {
+  actual: string | null;
+  onElegir: (url: string | null) => Promise<void>;
+  ocupado: boolean;
+}) {
+  const opciones = Object.entries(IMAGENES_CLASE) as [FamiliaClase, string][];
+  return (
+    <div className="mt-2">
+      <p className="mb-1.5 text-[11px] text-muted-foreground">O elige una de Tentare:</p>
+      <div className="flex flex-wrap gap-1.5">
+        {opciones.map(([familia, url]) => (
+          <button
+            key={familia}
+            type="button"
+            disabled={ocupado}
+            aria-pressed={actual === url}
+            aria-label={`Usar el banner ${familia}`}
+            onClick={() => onElegir(url)}
+            className={cn(
+              'h-11 w-16 overflow-hidden rounded-md border transition-colors disabled:opacity-50',
+              actual === url ? 'border-brand ring-2 ring-[color-mix(in_srgb,var(--brand)_35%,transparent)]' : 'border-border hover:border-muted-foreground/50',
+            )}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- respaldo local ya optimizado */}
+            <img src={url} alt="" className="h-full w-full object-cover" />
+          </button>
+        ))}
       </div>
-      <span
-        className="h-3 w-3 shrink-0 rounded-full border border-black/10"
-        style={{ backgroundColor: form.color }}
-        aria-hidden="true"
-      />
     </div>
   );
 }
@@ -320,6 +375,9 @@ export function PanelTipoClase({
   subiendoFoto,
   onSubirFoto,
   onCambiarFoto,
+  subiendoLogo,
+  onSubirLogo,
+  onCambiarLogo,
   onGuardar,
   onCerrar,
 }: {
@@ -334,6 +392,9 @@ export function PanelTipoClase({
   subiendoFoto: boolean;
   onSubirFoto: (file: File) => Promise<{ url: string } | { error: string }>;
   onCambiarFoto: (url: string | null) => Promise<void>;
+  subiendoLogo: boolean;
+  onSubirLogo: (file: File) => Promise<{ url: string } | { error: string }>;
+  onCambiarLogo: (url: string | null) => Promise<void>;
   onGuardar: () => void;
   onCerrar: () => void;
 }) {
@@ -398,7 +459,7 @@ export function PanelTipoClase({
 
       {/* ─── Cuerpo ─── */}
       <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-7">
-        <Previsualizacion form={form} fotoUrl={editando?.fotoUrl} />
+        <Previsualizacion form={form} fotoUrl={editando?.fotoUrl} logoUrl={editando?.logoUrl} />
 
         {/* NIVEL 1 — lo básico, siempre a la vista */}
         <div className="space-y-5 py-5">
@@ -563,22 +624,46 @@ export function PanelTipoClase({
               solo aparece al editar — enseñar un campo inservible al crear era
               peor que no enseñarlo (P4). */}
           {modo === 'editar' && (
-            <Campo
-              label="Foto"
-              ayuda="Se usa en el portal de tus alumnas y en la sesión guiada. Mientras no pongas la tuya se usa una de Tentare, elegida por el nombre. Lo ideal es 1600 × 900 px."
-            >
-              <CampoImagen
-                etiqueta={`foto de ${form.nombre || 'la clase'}`}
-                valor={editando?.fotoUrl}
-                respaldo={imagenDeClase({ nombre: form.nombre })}
-                onSubir={onSubirFoto}
-                onCambiar={onCambiarFoto}
-                ocupado={subiendoFoto}
-                clasePreview="w-16 h-16"
-                textoSubir="Subir foto"
-                textoCambiar="Cambiar foto"
-              />
-            </Campo>
+            <>
+              <Campo
+                label="Logo"
+                ayuda="El icono cuadrado que acompaña a esta clase en el horario de tus alumnas. Si no pones ninguno, la fila se queda sin icono — mejor eso que el mismo dibujo repetido en todas."
+              >
+                <CampoImagen
+                  etiqueta={`logo de ${form.nombre || 'la clase'}`}
+                  valor={editando?.logoUrl}
+                  onSubir={onSubirLogo}
+                  onCambiar={onCambiarLogo}
+                  ocupado={subiendoLogo}
+                  clasePreview="w-12 h-12"
+                  textoSubir="Subir logo"
+                  textoCambiar="Cambiar logo"
+                />
+              </Campo>
+
+              <Campo
+                label="Banner"
+                ayuda="La imagen ancha de cabecera al abrir la clase. Lo ideal es 1600 × 900 px."
+              >
+                <CampoImagen
+                  etiqueta={`banner de ${form.nombre || 'la clase'}`}
+                  valor={editando?.fotoUrl}
+                  respaldo={imagenDeClase({ nombre: form.nombre })}
+                  onSubir={onSubirFoto}
+                  onCambiar={onCambiarFoto}
+                  ocupado={subiendoFoto}
+                  clasePreview="w-24 h-14"
+                  ajuste="cover"
+                  textoSubir="Subir banner"
+                  textoCambiar="Cambiar banner"
+                />
+                <BannersPorDefecto
+                  actual={editando?.fotoUrl ?? null}
+                  onElegir={onCambiarFoto}
+                  ocupado={subiendoFoto}
+                />
+              </Campo>
+            </>
           )}
         </Seccion>
 

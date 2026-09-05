@@ -26,7 +26,7 @@ const sesion = (id: string, tipoClaseId: string, inicio: string, aforoMaximo = 8
 const asistida = (socioId: string, sesionId: string, creadoEn: string): Reserva =>
   ({ id: `r-${++n}`, studioId: 'e1', socioId, sesionId, estado: 'ASISTIDA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn });
 const tipoClase = (id: string, nombre: string): TipoClase =>
-  ({ id, studioId: 'e1', nombre, color: '#000', duracionMinutos: 50, descripcion: null, nivel: 'TODOS', fotoUrl: null, ventanaCancelacionHoras: null, reservaExigirPlan: null, reservaVentanaMinimaMinutos: null, reservaAntelacionMaximaDias: null, permiteListaEspera: null, requiereAprobacion: null, listaEsperaPlazoAceptacionMinutos: null, minimoAsistentesPorClase: null, penalizacionImporteEur: null, especialidadNetwork: null, esOnline: false, aforoPorDefecto: null, requiereAutorizacion: false });
+  ({ id, studioId: 'e1', nombre, color: '#000', duracionMinutos: 50, descripcion: null, nivel: 'TODOS', fotoUrl: null, logoUrl: null, ventanaCancelacionHoras: null, reservaExigirPlan: null, reservaVentanaMinimaMinutos: null, reservaAntelacionMaximaDias: null, permiteListaEspera: null, requiereAprobacion: null, listaEsperaPlazoAceptacionMinutos: null, minimoAsistentesPorClase: null, penalizacionImporteEur: null, especialidadNetwork: null, esOnline: false, aforoPorDefecto: null, requiereAutorizacion: false });
 const recibo = (socioId: string, p: Partial<Recibo> = {}): Recibo =>
   ({ id: `rec-${++n}`, studioId: 'e1', socioId, suscripcionId: null, concepto: 'cuota', importe: 60, estado: 'PENDIENTE', fechaVencimiento: diasAntes(10), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0, ...p });
 
