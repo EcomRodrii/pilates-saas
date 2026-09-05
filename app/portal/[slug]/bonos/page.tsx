@@ -7,7 +7,8 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
-import { getBonos } from '@/lib/student/datos';
+import { getBonos, getPlazaFija } from '@/lib/student/datos';
+import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { useToast } from '@/components/student/ui/Toast';
 import { avisoDeRetorno, esperarBonoDePlan } from '@/lib/student/retorno-pago';
@@ -22,8 +23,13 @@ function Bonos() {
   const { estudio } = useEstudio();
   const href = usePortalHref();
 
-  const cargar = useCallback(() => getBonos(estudio.slug), [estudio.slug]);
-  const { data, estado, reintentar } = useAsync(cargar);
+  const cargar = useCallback(async () => {
+    const [bonos, plazaFija] = await Promise.all([getBonos(estudio.slug), getPlazaFija(estudio.slug)]);
+    return { bonos, plazaFija };
+  }, [estudio.slug]);
+  const { data: cargado, estado, reintentar } = useAsync(cargar, (d) => d.bonos.length === 0 && !d.plazaFija.plaza && d.plazaFija.recuperaciones.disponibles === 0);
+  const data = cargado?.bonos ?? null;
+  const plazaFija = cargado?.plazaFija ?? null;
 
   // ── Retorno de Stripe ─────────────────────────────────────────────────────
   // `?compra=ok` dice que STRIPE cobró, no que el bono esté: lo entrega el
@@ -82,9 +88,9 @@ function Bonos() {
           <EmptyState
             icono="🎟"
             titulo="No tienes ningún bono"
-            cuerpo="Habla con el estudio para activar uno; también puedes reservar clases sueltas."
-            accion="Ver horario"
-            href={href('/reservar')}
+            cuerpo="Compra uno aquí mismo, o reserva clases sueltas desde el horario."
+            accion="Comprar un bono"
+            href={href('/comprar')}
           />
         )}
 
@@ -94,11 +100,12 @@ function Bonos() {
               <EmptyState
                 icono="🎟"
                 titulo="Sin bono activo"
-                cuerpo="Tus bonos anteriores están agotados o han caducado. Puedes reservar clases sueltas."
-                accion="Ver horario"
-                href={href('/reservar')}
+                cuerpo="Tus bonos anteriores están agotados o han caducado."
+                accion="Comprar un bono"
+                href={href('/comprar')}
               />
             )}
+            {plazaFija && <PlazaFijaCard plaza={plazaFija.plaza} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
             {activos.map((b) => <CreditCard key={b.id} bono={b} />)}
             {otros.length > 0 && <p className="t-label" style={{ margin: '10px 0 0' }}>Anteriores</p>}
             {otros.map((b) => <CreditCard key={b.id} bono={b} />)}

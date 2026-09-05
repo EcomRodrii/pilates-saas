@@ -36,6 +36,8 @@ export interface Clase {
   id: string;
   /** Tipo de clase (Reformer, Mat…): es la unidad de «favorita». */
   tipoClaseId: string;
+  /** Ventana de cancelación propia de este tipo de clase; `null` = la del estudio. */
+  ventanaCancelacionHoras: number | null;
   fecha: string;            // ISO date YYYY-MM-DD
   hora: string;             // HH:mm
   duracionMin: number;
@@ -61,7 +63,7 @@ export type EstadoReserva = 'confirmada' | 'cancelada' | 'asistida' | 'no-asisti
 
 export interface Reserva {
   id: string; claseId: string; alumnaId: string; estado: EstadoReserva;
-  creadaEn: string; pagadaCon: 'bono' | 'suelto' | 'plan';
+  creadaEn: string;
   bonoId?: string; posicionEspera?: number;
   /**
    * P-5 (auditoría 23ª pasada): si no es `undefined` y `estado === 'en-espera'`,
@@ -82,6 +84,13 @@ export type EstadoPago = 'processing' | 'success' | 'failed' | 'cancelled' | 're
 export interface Pago { id: string; concepto: string; importe: number; fecha: string; estado: EstadoPago; metodo: string; bonoId?: string; }
 
 export interface Notificacion { id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string; }
+
+/** Plaza fija vigente de la alumna, ya con nombres (F2). */
+export interface PlazaFijaVista {
+  diaSemana: number; hora: string; sala: string; tipo: string | null; estado: 'ACTIVA' | 'PAUSADA';
+  proximaFecha: string | null; vigenciaHasta: string | null;
+}
+export interface RecuperacionesVista { disponibles: number; proximaCaducidad: string | null }
 
 /** Máquina de estados de reserva (ver lib/booking-machine.ts). */
 export type BookingState =

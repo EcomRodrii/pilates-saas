@@ -2,7 +2,8 @@
 // resuelve ese alias, y ponerlo aquí tumbó `datos-mapeo.test.ts` y
 // `proyeccion-payload.test.ts` — que importan este módulo por ruta relativa.
 import { precioDeSesion } from './precio-suelta.ts';
-import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, Instructora, NivelClase, Pago, Reserva } from './tipos.ts';
+import { proyectarPlazaFija as plazaFijaDe, proyectarRecuperaciones as recuperacionesDe, type PlazaFijaMin, type RecuperacionMin } from './plaza-fija.ts';
+import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from './tipos.ts';
 
 // Traducción PURA entre el vocabulario del backend y el del paquete de diseño.
 //
@@ -176,7 +177,7 @@ export interface PayloadMin {
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; nivel?: string | null; fotoUrl?: string | null; descripcion?: string | null }[];
+  tiposClase?: { id: string; nombre: string; nivel?: string | null; fotoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null }[];
   salas?: { id: string; nombre: string; fotoUrl?: string | null }[];
   instructores?: {
     id: string; nombre: string; activo?: boolean; fotoUrl?: string | null;
@@ -198,6 +199,8 @@ export interface PayloadMin {
     recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null }[];
     /** Tipos de clase marcados como favoritos (`favoritos_clase`). */
     favoritos?: { tipoClaseId: string }[];
+    plazasFijas?: PlazaFijaMin[];
+    recuperaciones?: RecuperacionMin[];
   } | null;
 }
 
@@ -234,6 +237,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
     salida.push({
       id: s.id,
       tipoClaseId: s.tipoClaseId,
+      ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null,
       fecha: f,
       hora: horaLocal(s.inicio),
       duracionMin: Math.max(1, Math.round((new Date(s.fin).getTime() - new Date(s.inicio).getTime()) / 60000)),
@@ -292,6 +296,20 @@ export function proyectarInstructoras(d: PayloadMin): Instructora[] {
     }));
 }
 
+/** La plaza fija vigente, con nombres de sala y tipo. `null` sin plaza (o sin sesión). */
+export function proyectarPlazaFija(d: PayloadMin, hoyISO: string, horaAhora = '00:00'): PlazaFijaVista | null {
+  const p = plazaFijaDe(d.socia?.plazasFijas ?? [], hoyISO, horaAhora);
+  if (!p) return null;
+  const sala = (d.salas ?? []).find((s) => s.id === p.salaId)?.nombre ?? 'Sala';
+  const tipo = p.tipoClaseId ? ((d.tiposClase ?? []).find((t) => t.id === p.tipoClaseId)?.nombre ?? null) : null;
+  return { diaSemana: p.diaSemana, hora: p.hora, sala, tipo, estado: p.estado, proximaFecha: p.proximaFecha, vigenciaHasta: p.vigenciaHasta };
+}
+
+/** Recuperaciones que aún puede usar. */
+export function proyectarRecuperaciones(d: PayloadMin, hoyISO: string): RecuperacionesVista {
+  return recuperacionesDe(d.socia?.recuperaciones ?? [], hoyISO);
+}
+
 /** Tipos de clase favoritos de la socia. Vacío sin sesión. */
 export function proyectarFavoritos(d: PayloadMin): Set<string> {
   return new Set((d.socia?.favoritos ?? []).map((f) => f.tipoClaseId));
@@ -300,7 +318,6 @@ export function proyectarFavoritos(d: PayloadMin): Set<string> {
 export function proyectarReservas(d: PayloadMin): Reserva[] {
   const socia = d.socia;
   if (!socia) return [];
-  const tieneBonoActivo = (socia.suscripciones ?? []).some((s) => s.estado === 'ACTIVA');
 
   return (socia.reservas ?? []).map((r) => ({
     id: r.id,
@@ -308,10 +325,11 @@ export function proyectarReservas(d: PayloadMin): Reserva[] {
     alumnaId: r.socioId,
     estado: estadoReservaDe(r.estado),
     creadaEn: r.creadoEn,
-    // El backend no guarda CON QUÉ se pagó una reserva: el consumo de bono es
-    // un paso aparte (`consumir_sesion_bono`) y no deja columna en `reservas`.
-    // Sirve para el texto de la pantalla, nunca para decidir un cobro.
-    pagadaCon: tieneBonoActivo ? 'bono' : 'suelto',
+    // NO hay `pagadaCon`: `reservas` no guarda con qué se pagó (el consumo de
+    // bono es un paso aparte, `consumir_sesion_bono`, y no deja columna). Lo
+    // que había era una suposición —«¿tiene bono activo HOY?»— que etiquetaba
+    // como pagadas con bono reservas de hace meses. Lo único cierto sobre el
+    // dinero es el recibo (`Pago`), y se enseña en Pagos.
     posicionEspera: r.posicionEspera ?? undefined,
     ofertaExpiraEn: r.ofertaExpiraEn ?? undefined,
   }));

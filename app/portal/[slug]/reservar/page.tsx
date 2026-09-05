@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
-import { getBonos, getClases, getInstructoras, getReservas } from '@/lib/student/datos';
+import { getBonos, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
 import { getFavoritos } from '@/lib/student/favoritos';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, hoyISO } from '@/lib/student/formato';
@@ -40,12 +40,21 @@ export default function HorarioPage() {
 
   const cargar = useCallback(async () => {
     const [clases, reservas, bonos, instructoras, favoritos] = await Promise.all([
-      getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getFavoritos(estudio.slug),
+      getClasesFrescas(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getFavoritos(estudio.slug),
     ]);
     return { clases, reservas, bonos, instructoras, favoritos };
   }, [estudio.slug]);
 
-  const { data, estado, reintentar } = useAsync(cargar, () => false);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
+
+  // Al volver a la app (otra pestaña, el móvil bloqueado) las plazas pueden
+  // haber cambiado: se relee el aforo ligero, no el payload entero, y en
+  // silencio — sin esqueleto sobre una lista que ya se ve.
+  useEffect(() => {
+    const alVolver = () => { if (document.visibilityState === 'visible') void refrescar(); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => document.removeEventListener('visibilitychange', alVolver);
+  }, [refrescar]);
 
   const tipos = useMemo(
     // «Favoritas» solo aparece cuando hay alguna: una píldora que filtra a

@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react';
 import { supabasePortal } from '@/lib/db/supabase-portal';
+import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { mensajeSeguro } from '@/lib/errores';
 
@@ -163,7 +164,9 @@ export function useAuthStudent(slug: string) {
     return { ok: true };
   }, [base]);
 
-  const logout = useCallback(async () => { await supabasePortal.auth.signOut(); }, []);
+  // Cinturón además de los tirantes: el catálogo cacheado lleva la `socia` de
+  // quien se va; `catalogo.ts` ya se vacía en SIGNED_OUT, pero aquí no cuesta.
+  const logout = useCallback(async () => { invalidarCatalogo(slug); await supabasePortal.auth.signOut(); }, [slug]);
 
   return { loginConPassword, enviarEnlace, registrarCuenta, fijarPassword, recuperar, entrarConGoogle, logout };
 }

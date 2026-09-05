@@ -96,9 +96,11 @@ export default function MisReservasPage() {
     // previo: la ventana real puede diferir (tipo de clase con la suya propia).
     toast(!res.eraConfirmada
       ? 'Has salido de la lista de espera'
-      : res.bonoDevuelto
-        ? 'Cancelada · sesión devuelta a tu bono ✓'
-        : 'Cancelada — la sesión no se devuelve');
+      : res.recuperacionCreada
+        ? `Cancelada · tienes una clase para recuperar${res.recuperacionCaducaEl ? ` hasta el ${fechaCorta(res.recuperacionCaducaEl)}` : ''} ✓`
+        : res.bonoDevuelto
+          ? 'Cancelada · sesión devuelta a tu bono ✓'
+          : 'Cancelada — la sesión no se devuelve');
     // Y se recarga: la plaza vuelve al aforo y puede haber promocionado a
     // alguien de la cola. Tachar la fila a mano enseñaría un estado inventado.
     reintentar();
@@ -214,7 +216,6 @@ export default function MisReservasPage() {
                     <p style={{ margin: '3px 0 0', fontSize: 13.5, fontWeight: 700 }}>{c.nombre}</p>
                     <p className="t-meta" style={{ marginTop: 2 }}>
                       con {i?.nombre ?? '—'} · {c.sala}
-                      {r.pagadaCon === 'bono' ? ' · con tu bono' : ''}
                     </p>
                     <div style={{ display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap' }}>
                       <Link href={href(`/mis-reservas/${r.id}`)} className="btn btn--light btn--sm" style={{ height: 34 }}>

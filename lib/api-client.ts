@@ -337,7 +337,13 @@ export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boole
     headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
     body: JSON.stringify({ slug, liviano: opts?.liviano ?? false }),
   });
-  if (!res.ok) return null;
+  // 404 es la única respuesta que significa de verdad «no hay datos»: ese
+  // estudio no existe. Las demás (500, 429, 503…) son fallos, y devolver null
+  // las convertía en listas vacías: la pantalla decía «no tienes reservas» o
+  // «hoy no hay clases» cuando lo cierto era que el servidor no había
+  // contestado, y el estado de error con reintento no se alcanzaba nunca.
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`studio-data respondió ${res.status}`);
   return res.json();
 }
 

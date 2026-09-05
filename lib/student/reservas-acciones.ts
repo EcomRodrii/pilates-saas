@@ -17,6 +17,10 @@ export type ResultadoCancelar =
       tardia: boolean;
       /** Si la sesión volvió al bono. Columna devuelta por `cancelar_reserva_plaza`. */
       bonoDevuelto: boolean;
+      /** Era una ocurrencia de plaza fija: el servidor ha creado una recuperación (F2). */
+      recuperacionCreada: boolean;
+      /** YYYY-MM-DD hasta el que puede usarla. */
+      recuperacionCaducaEl: string | null;
       /** `false` si estaba en lista de espera: salir de la cola no devuelve nada. */
       eraConfirmada: boolean;
     }
@@ -48,7 +52,7 @@ export async function cancelarReserva(
     }
 
     const cuerpo = (await res.json().catch(() => null)) as
-      | { ok?: true; tardia?: boolean; bonoDevuelto?: boolean; eraConfirmada?: boolean; error?: string }
+      | { ok?: true; tardia?: boolean; bonoDevuelto?: boolean; eraConfirmada?: boolean; recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; error?: string }
       | null;
 
     if (!res.ok || !cuerpo?.ok) {
@@ -63,6 +67,8 @@ export async function cancelarReserva(
       tardia: cuerpo.tardia === true,
       bonoDevuelto: cuerpo.bonoDevuelto === true,
       eraConfirmada: cuerpo.eraConfirmada === true,
+      recuperacionCreada: cuerpo.recuperacionCreada === true,
+      recuperacionCaducaEl: cuerpo.recuperacionCaducaEl ?? null,
     };
   } catch {
     // Se cayó la red a mitad. No sabemos si llegó a cancelarse, así que NO se

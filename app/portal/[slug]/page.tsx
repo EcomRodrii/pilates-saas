@@ -6,7 +6,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { useAsync } from '@/lib/student/useAsync';
-import { getBonos, getClases, getInstructoras, getReservas } from '@/lib/student/datos';
+import { getBonos, getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/student/datos';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { fechaLarga, hoyISO, saludo } from '@/lib/student/formato';
 import { NextClassCard } from '@/components/student/domain/NextClassCard';
@@ -14,6 +14,7 @@ import { ClassCard } from '@/components/student/domain/ClassCard';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { urlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
 import { BonoRitmo, TuSemana, MiProgreso } from '@/components/student/domain/TuRitmo';
+import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { semanaDe, hechasEstaSemana, rachaSemanas, lunesDe, cuentaComoHecha } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
 
@@ -33,13 +34,14 @@ export default function InicioPage() {
   const hoy = hoyISO();
 
   const cargar = useCallback(async () => {
-    const [clases, reservas, bonos, instructoras] = await Promise.all([
-      getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug),
+    const [clases, reservas, bonos, instructoras, plazaFija] = await Promise.all([
+      getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug),
     ]);
-    return { clases, reservas, bonos, instructoras };
+    return { clases, reservas, bonos, instructoras, plazaFija };
   }, [estudio.slug]);
 
   const { data, estado, reintentar } = useAsync(cargar, () => false);
+  const plazaFija = data?.plazaFija ?? null;
 
   const bonoActivo = data?.bonos.find((b) => b.estado === 'activo') ?? null;
 
@@ -231,6 +233,10 @@ export default function InicioPage() {
                 )}
             </div>
 
+
+            {/* ── PLAZA FIJA / RECUPERACIONES (F2) ────────────────────────
+                Solo si tiene: sin plaza ni recuperaciones no se pinta nada. */}
+            {plazaFija && <PlazaFijaCard compacta plaza={plazaFija.plaza} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
 
             <section>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>
