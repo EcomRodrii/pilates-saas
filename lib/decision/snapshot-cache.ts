@@ -4,6 +4,7 @@
 
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { construirSnapshot as construirSnapshotOriginal } from './snapshot';
+import { parsearSnapshotCacheado } from './snapshot-cache-parse.ts';
 import type { SnapshotEstudio } from './tipos';
 
 /**
@@ -55,16 +56,14 @@ async function getCachedSnapshot(studioId: string): Promise<SnapshotEstudio | nu
     return null;
   }
 
-  if (!data) {
-    return null;
+  // `data` llega como OBJETO (supabase-js ya parsea el jsonb) — ver
+  // snapshot-cache-parse.ts para por qué el JSON.parse que había aquí hacía
+  // que la caché no acertara nunca.
+  const snapshot = parsearSnapshotCacheado(data);
+  if (data != null && snapshot === null) {
+    console.error(`[snapshot-cache] fila cacheada con forma inesperada para ${studioId}`);
   }
-
-  try {
-    return JSON.parse(data) as SnapshotEstudio;
-  } catch (err) {
-    console.error(`[snapshot-cache] Parse failed:`, err);
-    return null;
-  }
+  return snapshot;
 }
 
 async function cacheSnapshot(studioId: string, snapshot: SnapshotEstudio): Promise<void> {
