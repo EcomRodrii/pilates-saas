@@ -12,7 +12,7 @@ import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/sen
 import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
-import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
+import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe } from '@/lib/utils';
 import { escaparLike } from '@/lib/escapar-like';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { primerError } from '@/lib/db/primer-error';
@@ -27,7 +27,7 @@ import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, generaRenovacionAlAgotarse, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, avisaBonoAgotado, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
@@ -952,7 +952,7 @@ async function validarSociaPublica(
 }
 
 // Descuenta una sesión del bono activo de la socia (si aplica) usando bono-logic.
-// Si el bono se agota, genera el recibo de renovación PENDIENTE.
+// Si el bono se agota, avisa (sin crear ninguna deuda: ver `avisaBonoAgotado`).
 // Devuelve true si realmente descontó una sesión de un bono (false si la socia
 // no tenía bono consumible — p. ej. plan mensual). Lo usa el email de promoción
 // para no afirmar "se descontó una sesión" cuando no fue así.
@@ -1012,29 +1012,23 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
     );
     return false;
   }
-  // ⚠️ `PUNTUAL` NO se renueva: es una clase suelta, una compra única. Aquí no
-  // se miraba el tipo de plan, así que agotar la única sesión —o sea, usarla,
-  // que es todo su ciclo de vida— generaba un recibo «Renovación Clase suelta»
-  // PENDIENTE con su primer reintento de cobro ya programado. La clienta
-  // compraba una clase y se le quedaba una deuda a nombre de algo que nunca
-  // pidió, y la propietaria veía dos cobros donde solo hubo una compra.
+  // ⚠️ Aquí NO se crea ningún recibo. Agotar un bono es el final de una compra
+  // única, no el principio de otra: hasta el 2026-09-05 este bloque insertaba
+  // un recibo «Renovación <plan>» PENDIENTE con `proximo_reintento`, o sea con
+  // el cobro automático ya programado, y el dunning acababa pasando la tarjeta
+  // de la socia por un bono que nadie había pedido (visto en producción:
+  // «Bono 4 clases» autocobrado el 2026-09-02, `pi_3UB9Ya…`). Es el mismo
+  // defecto que ya se corrigió para `PUNTUAL` en agosto; `BONO` se quedó
+  // dentro por creer que el recibo era solo un aviso.
   //
-  // `BONO` sí sigue renovando: ahí agotarse es el final de un ciclo y avisar
-  // con el recibo es el comportamiento pretendido. El cron de renovaciones
-  // (`lib/inngest/renovaciones.ts`) ya aplicaba este mismo criterio filtrando
-  // por `MENSUAL`; este camino era el que se había quedado sin él.
-  if (nuevoSaldo === 0 && generaRenovacionAlAgotarse(plan)) {
-    const hoy = hoyEnEstudio();
-    // Dunning (0041): el recibo entra al ciclo con su primer reintento programado
-    // al día +1 del vencimiento (= hoy + 1 día). El barrido diario lo cobrará.
-    const primerReintento = new Date(new Date(hoy).getTime() + 24 * 60 * 60 * 1000).toISOString();
-    await admin.from('recibos').insert({
-      id: `rec-renov-${uid()}`, studio_id: studioId, socio_id: socioId, suscripcion_id: sus.id,
-      concepto: `Renovación ${plan.nombre}`, importe: plan.precio, estado: 'PENDIENTE',
-      fecha_vencimiento: hoy, fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0,
-      proximo_reintento: primerReintento,
-    });
-    // Notification Engine: avisa a la socia de que ha gastado la última sesión.
+  // El aviso sí se queda —no mueve dinero y es justo lo que la socia necesita
+  // saber—, y renovar sigue siendo posible cuando alguien lo PIDE: el botón
+  // «Renovar en un toque» del portal (`app/api/public/renovar-plan`) o el
+  // cobro a mano desde /cobros. Ver `avisaBonoAgotado` en `lib/bono-logic.ts`.
+  //
+  // El mensual no pasa por aquí (no consume sesiones): su renovación la sigue
+  // llevando el cron `lib/inngest/renovaciones.ts`, intacto.
+  if (nuevoSaldo === 0 && avisaBonoAgotado(plan)) {
     const { emitirBonoAgotado } = await import('@/lib/notifications/emit');
     await emitirBonoAgotado(admin, { studioId, socioId, plan: plan.nombre, suscripcionId: sus.id });
   }

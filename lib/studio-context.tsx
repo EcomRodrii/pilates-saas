@@ -193,7 +193,7 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion, generaRenovacionAlAgotarse } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion, avisaBonoAgotado } from '@/lib/bono-logic';
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -2915,7 +2915,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // ── Reservas ─────────────────────────────────────────────────────────────────
 
   // Descuenta una sesión del bono activo del socio al confirmar una reserva.
-  // Si el bono se agota, genera el recibo de renovación + notificación.
+  // Si el bono se agota, avisa — sin crear ninguna deuda (ver `avisaBonoAgotado`).
   // `sesionId` no es opcional por comodidad: sin él, con un "Bono Reformer" y un
   // "Bono Mat" vivos a la vez, bonoConsumible ordena por caducidad y descuenta
   // del que caduque antes — aunque sea el que NO cubre esta clase. La puerta de
@@ -2945,58 +2945,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
     ));
 
-    // Bono agotado (transición autoritativa a 0) → recibo de renovación + notificación
+    // Bono agotado (transición autoritativa a 0) → AVISO. Y solo aviso.
     //
-    // ⚠️ `PUNTUAL` queda fuera: una clase suelta es una compra única y agotar su
-    // única sesión es usarla, no terminar un ciclo. Sin este filtro se generaba
-    // «Renovación Clase suelta» PENDIENTE y la clienta acababa debiendo algo que
-    // nunca pidió. Mismo arreglo, y por el mismo motivo, que en
-    // `consumirBonoServidor` (supabase-data-admin.ts) — son dos caminos gemelos
-    // para lo mismo y hay que tocar los dos o vuelve por el otro lado.
-    if (nuevasRestantes === 0 && generaRenovacionAlAgotarse(plan)) {
+    // ⚠️ Aquí se creaba un recibo «Renovación <plan>» PENDIENTE. Se ha quitado:
+    // ese recibo entraba en el ciclo de dunning y la tarjeta de la socia se
+    // acababa cobrando sola por un bono que nadie había pedido. Un bono es una
+    // compra única de N sesiones — gastarlas es su ciclo de vida completo, no
+    // el principio de otro. Motivo largo en `avisaBonoAgotado`
+    // (`lib/bono-logic.ts`); el gemelo servidor es `consumirBonoServidor`
+    // (supabase-data-admin.ts) y hay que tocar los dos o vuelve por el otro lado.
+    //
+    // `PUNTUAL` sigue fuera por lo de siempre: usar una clase suelta no es
+    // «quedarse sin bono», así que ni siquiera avisa.
+    if (nuevasRestantes === 0 && avisaBonoAgotado(plan)) {
       const socio = socios.find(s => s.id === socioId);
       const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
-      const hoy = hoyEnEstudio();
-      const reciboRenovacion: Recibo = {
-        id: `rec-renov-${uid()}`,
-        studioId: getCurrentStudioId(),
-        socioId,
-        suscripcionId: sus.id,
-        concepto: `Renovación ${plan.nombre}`,
-        importe: plan.precio,
-        estado: 'PENDIENTE',
-        fechaVencimiento: hoy,
-        fechaCobro: null,
-        fechaDevolucion: null,
-        intentosReintento: 0,
-      };
-      setRecibos(prev => [reciboRenovacion, ...prev]);
-      // Se ESPERA y se comprueba: antes se disparaba sin await y su fallo (Sentry
-      // dbInsertRecibo 23503, recibos_suscripcion_id_fkey — visto en producción)
-      // pasaba inadvertido. La pantalla seguía mostrando un recibo de renovación
-      // que nunca llegó a existir en la base de datos, así que el cobro
-      // correspondiente jamás se registraba.
-      const resRecibo = await dbInsertRecibo(reciboRenovacion);
-      const reciboGuardado = resRecibo.ok;
-      if (!reciboGuardado) {
-        setRecibos(prev => prev.filter(r => r.id !== reciboRenovacion.id));
-        capturarMensaje('[consumirSesionBono] no se pudo crear el recibo de renovación', 'error', {
-          extra: { socioId, sesionId, suscripcionId: sus.id, error: resRecibo.error },
-        });
-      }
-      // El bono agotado es un hecho real (la RPC ya lo confirmó arriba) sea o
-      // no se haya podido guardar el recibo automático: avisar a la dueña
-      // SIEMPRE, para que no pierda de vista una renovación pendiente solo
-      // porque el recibo automático falló — antes, ese fallo también se comía
-      // el aviso entero y nadie se enteraba de que había que renovar.
       toastAviso.show(
-        reciboGuardado
-          ? `Bono agotado: ${nombreSocio} ha consumido su último bono de ${plan.nombre}. Se ha generado un recibo de renovación.`
-          : `Bono agotado: ${nombreSocio} ha consumido su último bono de ${plan.nombre}. No se ha podido generar el recibo de renovación automático — créalo a mano.`,
+        `Bono agotado: ${nombreSocio} ha consumido su última sesión de ${plan.nombre}.`,
       );
       addActividadReciente(
         'PAGO_PENDIENTE',
-        `Bono agotado — ${nombreSocio} necesita renovar ${plan.nombre}`,
+        `Bono agotado — ${nombreSocio} puede querer renovar ${plan.nombre}`,
         socioId,
         `/socios/${socioId}`,
       );

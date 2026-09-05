@@ -7,7 +7,7 @@ import {
   bonoConsumible, bonoDevolvible, calcularConsumoBono, tieneEntitlementActivo,
   calcularFechaFinBono, superaLimiteSemanal, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
-  saldoSesionesBono, generaRenovacionAlAgotarse } from './bono-logic.ts';
+  saldoSesionesBono, avisaBonoAgotado } from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 function sus(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
@@ -513,22 +513,51 @@ test('saldoSesionesBono respeta los tipos de clase del bono', () => {
   assert.equal(saldoSesionesBono('a', suscripciones, planes, HOY_S)?.restantes, 8, 'sin clase concreta, todo');
 });
 
-test('⚠️ una clase suelta NO genera renovación al usarse', () => {
-  // El bug de producción del 2026-08-20: comprar «Clase suelta» (PUNTUAL, 1
-  // sesión) y reservarla dejaba 0 sesiones, y eso disparaba un recibo
-  // «Renovación Clase suelta» PENDIENTE con reintento de cobro programado. Una
-  // compra única no se renueva: gastar su única sesión ES usarla.
-  assert.equal(generaRenovacionAlAgotarse({ tipo: 'PUNTUAL' }), false);
+// Guard de regresión sobre el CÓDIGO, no sobre una función pura: lo que hay
+// que impedir es que vuelva a nacer una deuda al agotarse un bono, y eso pasa
+// en dos ficheros gemelos que no se pueden ejecutar desde un test unitario
+// (uno es un contexto de React, el otro habla con Supabase). El bug del
+// 2026-09-04 se coló justo por ahí: la lógica pura ya distinguía los tipos, y
+// aun así los dos caminos insertaban el recibo.
+test('⚠️ ningún camino de consumo de bono crea un recibo de «Renovación»', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const gemelos = [
+    { fichero: 'lib/studio-context.tsx', funcion: 'consumirSesionBono' },
+    { fichero: 'lib/db/supabase-data-admin.ts', funcion: 'consumirBonoServidor' },
+  ];
+  for (const { fichero, funcion } of gemelos) {
+    const codigo = await readFile(new URL(`../${fichero}`, import.meta.url), 'utf8');
+    const desde = codigo.indexOf(`function ${funcion}`);
+    assert.notEqual(desde, -1, `${funcion} ya no está en ${fichero}: actualiza este test`);
+    // Hasta la siguiente declaración de función, sea cual sea su indentación:
+    // `consumirBonoServidor` es de primer nivel y `consumirSesionBono` está
+    // anidada en el provider, así que un solo patrón no vale para las dos.
+    const resto = codigo.slice(desde + 1);
+    const siguiente = resto.search(/\n\s*(?:export\s+)?(?:async\s+)?function\s/);
+    const cuerpo = siguiente === -1 ? resto : resto.slice(0, siguiente);
+    assert.ok(
+      !/concepto:\s*`Renovación/.test(cuerpo),
+      `${funcion} (${fichero}) vuelve a crear un recibo de renovación al agotarse un bono: `
+      + 'eso entra en el dunning y le cobra la tarjeta a la socia por algo que no ha pedido',
+    );
+  }
 });
 
-test('un bono agotado SÍ sigue generando su renovación', () => {
-  // Esto no se toca: quedarse a cero en un bono es el final de un ciclo y el
-  // recibo es el aviso pretendido.
-  assert.equal(generaRenovacionAlAgotarse({ tipo: 'BONO' }), true);
+test('un bono agotado sí AVISA — el aviso no era el problema, la deuda sí', () => {
+  // Quitar el recibo no puede llevarse por delante la notificación: la
+  // propietaria y la socia siguen necesitando saber que se acabó.
+  assert.equal(avisaBonoAgotado({ tipo: 'BONO' }), true);
 });
 
-test('un mensual no pasa por aquí, y si pasara no renovaría por esta vía', () => {
-  // Su renovación la lleva el cron (lib/inngest/renovaciones.ts), que filtra
-  // por MENSUAL. Duplicarla aquí cobraría dos veces.
-  assert.equal(generaRenovacionAlAgotarse({ tipo: 'MENSUAL' }), false);
+test('⚠️ una clase suelta ni renueva ni avisa de «bono agotado»', () => {
+  // El arreglo del 2026-08-20: usar una clase suelta ES su ciclo de vida, no
+  // quedarse sin bono. Si al quitar el recibo se hubiera quitado el guard
+  // entero, PUNTUAL habría empezado a anunciar «bono agotado» al usarse.
+  assert.equal(avisaBonoAgotado({ tipo: 'PUNTUAL' }), false);
+});
+
+test('un mensual no pasa por aquí: su renovación la lleva el cron', () => {
+  // `lib/inngest/renovaciones.ts` filtra por MENSUAL y sigue intacto — es el
+  // único camino que renueva solo, y debe seguir haciéndolo.
+  assert.equal(avisaBonoAgotado({ tipo: 'MENSUAL' }), false);
 });
