@@ -7,6 +7,7 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { useAsync } from '@/lib/student/useAsync';
 import { getBonos, getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/student/datos';
+import { getGamificacion } from '@/lib/student/gamificacion-datos';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { fechaLarga, hoyISO, saludo } from '@/lib/student/formato';
 import { NextClassCard } from '@/components/student/domain/NextClassCard';
@@ -15,6 +16,7 @@ import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/stu
 import { urlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
 import { BonoRitmo, TuSemana, MiProgreso } from '@/components/student/domain/TuRitmo';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
+import { NivelCard } from '@/components/student/domain/NivelCard';
 import { DelEstudio } from '@/components/student/domain/DelEstudio';
 import { semanaDe, hechasEstaSemana, rachaSemanas, lunesDe, cuentaComoHecha } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
@@ -35,14 +37,15 @@ export default function InicioPage() {
   const hoy = hoyISO();
 
   const cargar = useCallback(async () => {
-    const [clases, reservas, bonos, instructoras, plazaFija] = await Promise.all([
-      getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug),
+    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion] = await Promise.all([
+      getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug), getGamificacion(estudio.slug),
     ]);
-    return { clases, reservas, bonos, instructoras, plazaFija };
+    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion };
   }, [estudio.slug]);
 
   const { data, estado, reintentar } = useAsync(cargar, () => false);
   const plazaFija = data?.plazaFija ?? null;
+  const gamificacion = data?.gamificacion ?? null;
 
   const bonoActivo = data?.bonos.find((b) => b.estado === 'activo') ?? null;
 
@@ -238,6 +241,9 @@ export default function InicioPage() {
             {/* ── PLAZA FIJA / RECUPERACIONES (F2) ────────────────────────
                 Solo si tiene: sin plaza ni recuperaciones no se pinta nada. */}
             {plazaFija && <PlazaFijaCard compacta plaza={plazaFija.plaza} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
+
+            {/* Nivel y créditos: solo si el estudio usa gamificación. */}
+            {gamificacion && <NivelCard g={gamificacion} href={href('/logros')} />}
             {/* ── DEL ESTUDIO ──────────────────────────────────────────────
                 Lo último que ha publicado el estudio en su tablón. Una sola
                 petición (`limite=1`); si no hay nada o falla, no se pinta. */}

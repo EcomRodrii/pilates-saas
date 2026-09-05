@@ -75,6 +75,7 @@ export default function PerfilPage() {
             { label: 'Ayuda y contacto', href: href('/ayuda') },
             { label: 'Notificaciones', href: href('/notificaciones') },
             { label: 'Comunidad', href: href('/comunidad') },
+            { label: 'Logros y recompensas', href: href('/logros') },
           ]}
         />
 
