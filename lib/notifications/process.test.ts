@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { entregarExternos, resumenFallos, barrerEntregasPendientes } from './process.ts';
+import { entregarExternos, resumenFallos, barrerEntregasPendientes, retry } from './process.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // `entregarExternos` no tenía NINGÚN test, y manda emails y push de verdad.
@@ -235,6 +235,42 @@ test('barrerEntregasPendientes sin nada pendiente no toca nada', async () => {
   assert.equal(r.intentadas, 0);
   // Sin filas que barrer, no hace falta ni leer `notification`/`studios`.
   assert.deepEqual(consultas, ['notification_delivery']);
+});
+
+// ── retry() (botón "Reintentar" del Notification Center, auditoría 23ª) ─────
+
+test('retry: resuelve el email real de la socia antes de reintentar (antes SIEMPRE quedaba sin destinatario)', async () => {
+  const { admin, actualizados } = fakeAdmin({
+    notification: [noti('n-1', { recipient_role: 'SOCIA', recipient_socio_id: 'soc-1', recipient_user_id: null })],
+    notification_delivery: [
+      { id: 'del-1', notification_id: 'n-1', channel: 'EMAIL', status: 'FAILED', attempts: 1, error: 'boom', sent_at: null },
+    ],
+    socios: [{ id: 'soc-1', studio_id: 'st-1', nombre: 'María', apellidos: 'Soler', email: 'maria@x.com', telefono: null, auth_user_id: null }],
+  });
+  const r = await retry(admin, 'n-1');
+  assert.equal(r.reintentados, 1);
+  // Sin RESEND_API_KEY en el entorno de test el email sigue sin poder salir
+  // — pero AHORA es porque el canal no está configurado, no porque
+  // `destinatario.email` nunca llegó a resolverse (el bug real: antes el
+  // `dest` de retry() no llevaba ni email ni teléfono, así que EMAIL/
+  // WHATSAPP/SMS daban SIEMPRE "destinatario sin email/teléfono").
+  const upd = actualizados.find(a => a.tabla === 'notification_delivery');
+  assert.equal(upd?.cambios.error, 'email no configurado');
+});
+
+test('retry: un canal que ahora da SKIPPED no borra el FAILED anterior', async () => {
+  const { admin, actualizados } = fakeAdmin({
+    notification: [noti('n-1', { recipient_role: 'PROPIETARIO', recipient_user_id: 'u-1' })],
+    notification_delivery: [
+      { id: 'del-1', notification_id: 'n-1', channel: 'PUSH', status: 'FAILED', attempts: 1, error: 'timeout', sent_at: null },
+    ],
+    studios: [{ id: 'st-1', owner_auth_user_id: 'u-1', nombre: 'Estudio', email: null, telefono: null }],
+  });
+  const r = await retry(admin, 'n-1');
+  assert.equal(r.reintentados, 1);
+  assert.equal(r.enviados, 0);
+  const upd = actualizados.find(a => a.tabla === 'notification_delivery');
+  assert.equal(upd?.cambios.status, 'FAILED', 'un SKIPPED no debe sustituir un FAILED ya registrado');
 });
 
 // ── Aviso de entregas fallidas ──────────────────────────────────────────────

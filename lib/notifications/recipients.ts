@@ -117,6 +117,38 @@ async function sociaPorId(admin: SupabaseClient, studioId: string, socioId: stri
   };
 }
 
+// Reintentar un delivery FAILED (Notification Center) ya sabe EXACTAMENTE
+// quién es el destinatario — recipient_role + recipient_socio_id/
+// recipient_instructor_id de la fila `notification` — así que no hace falta
+// reconstruir la audiencia completa del evento original (resolverDestinatarios
+// necesita `event.data`, que el barrido de reintento no tiene). Prueba en
+// orden socia → staff → propietaria, igual que participanteConversacionPorAuthUserId
+// de arriba, pero por id conocido en vez de por auth_user_id — así también
+// funciona para una socia SIN cuenta reclamada (auth_user_id null), que
+// igualmente puede recibir EMAIL.
+export async function resolverContactoConocido(
+  admin: SupabaseClient, studioId: string,
+  noti: { recipientRole: string; socioId: string | null; instructorId: string | null; userId: string | null },
+): Promise<Recipient> {
+  if (noti.socioId) {
+    const r = await sociaPorId(admin, studioId, noti.socioId);
+    if (r) return r;
+  }
+  if (noti.instructorId) {
+    const r = await instructoraPorId(admin, studioId, noti.instructorId);
+    // instructoraPorId fija `role: 'INSTRUCTOR'` a secas — aquí se corrige al
+    // rol real (MANAGER/RECEPCION también viven en `instructores`).
+    if (r) return { ...r, role: noti.recipientRole as Recipient['role'] };
+  }
+  if (noti.recipientRole === 'PROPIETARIO') {
+    const [p] = await propietaria(admin, studioId);
+    if (p) return p;
+  }
+  // Sin fila propia que consultar (dato ya borrado, o un rol sin id
+  // asociado): solo servirán los canales que ya se conforman con el userId.
+  return { role: noti.recipientRole as Recipient['role'], userId: noti.userId };
+}
+
 // Community & Messaging OS (P1): N socias resueltas por `data.socioIds` — a
 // diferencia de `sociasDeSesion` (deriva los ids de `reservas`), aquí el
 // caller ya tiene los ids (salen de `resolverDestinatariasCampana`). Una sola

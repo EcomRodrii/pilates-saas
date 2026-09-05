@@ -9,10 +9,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { REGLAS } from './catalog.ts';
 import { CANALES, type ResultadoCanal } from './channels.ts';
 import { crearInApp, canalesExtraDe, preferenciaDe, PREF_DEFECTO, type Preferencia } from './inapp.ts';
+import { resolverContactoConocido } from './recipients.ts';
 import * as Sentry from '@sentry/nextjs';
 import type {
   NotificationCategory, NotificationChannel, NotificationEvent, NotificationRow, Recipient,
@@ -327,24 +327,45 @@ function mapRow(row: Record<string, unknown>): NotificationRow {
 }
 
 // Reintenta los deliveries fallidos de una notificación (Notification Center).
-export async function retry(notificationId: string): Promise<void> {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
+//
+// Auditoría 23ª pasada (hallazgo pendiente): un canal reintentado puede
+// devolver SKIPPED por una razón que NO tiene nada que ver con el fallo
+// original (p.ej. RESEND_API_KEY se cae justo en el momento del reintento, o
+// la socia borró su teléfono entre medias) — sin la guardia de abajo, eso
+// SUSTITUÍA el FAILED por un SKIPPED y el fallo real desaparecía del
+// historial como si nunca hubiera pasado. Un reintento solo puede mejorar el
+// estado (→ SENT) o confirmar que sigue sin poder entregarse (se queda
+// FAILED); nunca puede "borrar" el fallo convirtiéndolo en "no aplica".
+export async function retry(admin: SupabaseClient, notificationId: string): Promise<{ reintentados: number; enviados: number }> {
   const { data: noti } = await admin.from('notification').select('*').eq('id', notificationId).maybeSingle();
-  if (!noti) return;
+  if (!noti) return { reintentados: 0, enviados: 0 };
   const { data: fallidos } = await admin.from('notification_delivery')
     .select('*').eq('notification_id', notificationId).eq('status', 'FAILED');
-  for (const d of fallidos ?? []) {
+  if (!fallidos?.length) return { reintentados: 0, enviados: 0 };
+
+  // Resuelto UNA vez por notificación, no por cada delivery FAILED — es el
+  // mismo destinatario para todos sus canales. Sin esto, el `dest` de antes
+  // nunca llevaba `email`/`telefono` (solo role/userId/socioId/instructorId),
+  // así que EMAIL/WHATSAPP/SMS devolvían SIEMPRE SKIPPED "sin email"/"sin
+  // teléfono" — el botón de reintentar no podía funcionar de verdad para
+  // ningún canal salvo PUSH.
+  const dest = await resolverContactoConocido(admin, noti.studio_id, {
+    recipientRole: noti.recipient_role, socioId: noti.recipient_socio_id,
+    instructorId: noti.recipient_instructor_id, userId: noti.recipient_user_id,
+  });
+
+  let reintentados = 0, enviados = 0;
+  for (const d of fallidos) {
     const canal = CANALES[d.channel as NotificationChannel];
     if (!canal) continue;
-    const dest: Recipient = {
-      role: noti.recipient_role, userId: noti.recipient_user_id,
-      socioId: noti.recipient_socio_id, instructorId: noti.recipient_instructor_id,
-    };
     const res = await canal.enviar({ admin, notificacion: mapRow(noti), destinatario: dest });
+    const nuevoEstado = res.status === 'SKIPPED' ? 'FAILED' : res.status;
     await admin.from('notification_delivery').update({
-      status: res.status, attempts: (d.attempts as number) + 1, error: res.error ?? null,
-      sent_at: res.status === 'SENT' ? new Date().toISOString() : d.sent_at,
+      status: nuevoEstado, attempts: (d.attempts as number) + 1, error: res.error ?? null,
+      sent_at: nuevoEstado === 'SENT' ? new Date().toISOString() : d.sent_at,
     }).eq('id', d.id);
+    reintentados++;
+    if (nuevoEstado === 'SENT') enviados++;
   }
+  return { reintentados, enviados };
 }
