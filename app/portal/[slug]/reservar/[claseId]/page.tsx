@@ -7,6 +7,7 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { getBonos, getClase, getInstructoras, getReservas } from '@/lib/student/datos';
+import { getFavoritos } from '@/lib/student/favoritos';
 import { confirmarReserva } from '@/lib/student/reservar';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, euros, horaFin, precioClaseTexto } from '@/lib/student/formato';
@@ -19,6 +20,7 @@ import { BookingButton } from '@/components/student/domain/BookingButton';
 import { BookingSummary } from '@/components/student/domain/BookingSummary';
 import { BookingStatus } from '@/components/student/domain/BookingStatus';
 import { InstructorCard } from '@/components/student/domain/InstructorCard';
+import { FavoritoButton } from '@/components/student/domain/FavoritoButton';
 
 // Ficha de clase + hoja de reserva (§A.7). Es la pantalla donde la máquina de
 // estados del paquete se conecta al servidor real.
@@ -41,12 +43,15 @@ export default function FichaClasePage() {
   // tienes bono activo» y «has llegado a tu tope de reservas» caen los dos en
   // `error`, y sin guardar el mensaje se pintaba el copy de avería genérico.
   const [bkMensaje, setBkMensaje] = useState<string | undefined>(undefined);
+  // Corazón optimista: `null` = lo que diga el payload; true/false = lo que
+  // acaba de pulsar la alumna (y se revierte si el servidor dice que no).
+  const [favoritaLocal, setFavoritaLocal] = useState<boolean | null>(null);
 
   const cargar = useCallback(async () => {
-    const [clase, reservas, bonos, instructoras] = await Promise.all([
-      getClase(estudio.slug, claseId), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug),
+    const [clase, reservas, bonos, instructoras, favoritos] = await Promise.all([
+      getClase(estudio.slug, claseId), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getFavoritos(estudio.slug),
     ]);
-    return { clase, reservas, bonos, instructoras };
+    return { clase, reservas, bonos, instructoras, favoritos };
   }, [estudio.slug, claseId]);
 
   const { data, estado, reintentar } = useAsync(cargar, (d) => !d.clase);
@@ -56,6 +61,7 @@ export default function FichaClasePage() {
   const disp = clase ? disponibilidad(clase, data?.reservas ?? [], estudio.soportaListaEspera) : 'disponible';
   const bono = data?.bonos.find((b) => b.estado === 'activo' && b.creditosUsados < b.creditosTotales) ?? null;
   const aviso = clase ? avisoCancelacion(clase, estudio.politicaCancelacionHoras) : null;
+  const favorita = favoritaLocal ?? (clase ? (data?.favoritos.has(clase.tipoClaseId) ?? false) : false);
 
   /** Cambia de estado solo si la máquina lo permite. */
   const ir = useCallback((a: BookingState) => {
@@ -155,6 +161,11 @@ export default function FichaClasePage() {
         >
           ←
         </button>
+        <FavoritoButton
+          slug={estudio.slug} studioId={estudio.id} tipoClaseId={clase.tipoClaseId}
+          marcada={favorita} onCambio={setFavoritaLocal}
+          style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', right: 14 }}
+        />
         <div style={{ position: 'absolute', left: 16, right: 16, bottom: 13, color: '#fff' }}>
           <p className="t-label" style={{ color: 'rgba(255,255,255,.82)' }}>{clase.tipo} · nivel {clase.nivel.toLowerCase()}</p>
           <h1 style={{ margin: '3px 0 0', fontSize: 26, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.nombre}</h1>

@@ -2,7 +2,7 @@
 
 import { cargarDatosPublicos } from '@/lib/api-client';
 import type {
-  Instructor, PlanTarifa, Recibo, Reserva, Sala, Sesion, Suscripcion, TipoClase,
+  FavoritoClase, Instructor, PlanTarifa, Recibo, Reserva, Sala, Sesion, Suscripcion, TipoClase,
 } from '@/lib/types';
 
 // El cargador del que beben todos los adaptadores.
@@ -56,6 +56,7 @@ export interface PayloadPublico {
     suscripciones: Suscripcion[];
     reservas: Reserva[];
     recibos: Recibo[];
+    favoritos?: FavoritoClase[];
   } | null;
 }
 
