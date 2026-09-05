@@ -91,6 +91,16 @@ export interface PlazaFijaVista {
   proximaFecha: string | null; vigenciaHasta: string | null;
 }
 export interface RecuperacionesVista { disponibles: number; proximaCaducidad: string | null }
+/** Publicación del tablón del estudio (`posts_comunidad`), ya filtrada por audiencia en el servidor. */
+export interface Post {
+  id: string; texto: string; imagenUrl: string | null; autorNombre: string; autorInicial: string;
+  creadoEn: string; likes: number; tipo: 'TEXTO' | 'EVENTO';
+  eventoFecha: string | null; eventoAforo: number | null; eventoLugar: string | null;
+  /** Solo eventos: asistentes confirmadas. */
+  totalAsistentes?: number;
+  /** Solo eventos: si ESTA socia ya está apuntada. */
+  apuntada: boolean;
+}
 
 /** Máquina de estados de reserva (ver lib/booking-machine.ts). */
 export type BookingState =

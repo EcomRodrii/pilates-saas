@@ -74,6 +74,7 @@ export default function PerfilPage() {
           items={[
             { label: 'Ayuda y contacto', href: href('/ayuda') },
             { label: 'Notificaciones', href: href('/notificaciones') },
+            { label: 'Comunidad', href: href('/comunidad') },
           ]}
         />
 

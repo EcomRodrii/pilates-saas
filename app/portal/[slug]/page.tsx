@@ -15,6 +15,7 @@ import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/stu
 import { urlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
 import { BonoRitmo, TuSemana, MiProgreso } from '@/components/student/domain/TuRitmo';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
+import { DelEstudio } from '@/components/student/domain/DelEstudio';
 import { semanaDe, hechasEstaSemana, rachaSemanas, lunesDe, cuentaComoHecha } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
 
@@ -237,6 +238,10 @@ export default function InicioPage() {
             {/* ── PLAZA FIJA / RECUPERACIONES (F2) ────────────────────────
                 Solo si tiene: sin plaza ni recuperaciones no se pinta nada. */}
             {plazaFija && <PlazaFijaCard compacta plaza={plazaFija.plaza} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
+            {/* ── DEL ESTUDIO ──────────────────────────────────────────────
+                Lo último que ha publicado el estudio en su tablón. Una sola
+                petición (`limite=1`); si no hay nada o falla, no se pinta. */}
+            <DelEstudio studioId={estudio.id} href={href('/comunidad')} />
 
             <section>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>

@@ -31,9 +31,14 @@ test('una ruta que ya es del árbol nuevo se deja intacta', () => {
 
 test('lo que no se sabe traducir se queda SIN enlace', () => {
   // Una notificación que no lleva a ninguna parte es mejor que una que lleva al
-  // sitio equivocado: `comunidad` y `mensajes` no tienen pantalla todavía.
-  assert.equal(traducirEnlace(`/portal/${SLUG}/comunidad`, SLUG), undefined);
+  // sitio equivocado: `mensajes` no tiene pantalla todavía.
   assert.equal(traducirEnlace(`/portal/${SLUG}/mensajes/m-1`, SLUG), undefined);
+  assert.equal(traducirEnlace(`/portal/${SLUG}/instructores/i-1`, SLUG), undefined);
+});
+
+test('el tablón ya tiene pantalla: comunidad (y un hilo concreto) van al tablón', () => {
+  assert.equal(traducirEnlace(`/portal/${SLUG}/comunidad`, SLUG), `/portal/${SLUG}/comunidad`);
+  assert.equal(traducirEnlace(`/portal/${SLUG}/comunidad/hilo-1`, SLUG), `/portal/${SLUG}/comunidad`);
 });
 
 test('las rutas de STAFF no se cuelan en la app de la alumna', () => {
@@ -94,6 +99,7 @@ test('lo desconocido es `null` (al inicio) y lo conocido sin pantalla es cadena 
   assert.equal(destinoPortalViejo(['loquesea']), null);
   assert.equal(destinoPortalViejo([]), null);
   assert.equal(destinoPortalViejo(undefined), null);
-  assert.equal(destinoPortalViejo(['comunidad', 'hilo-1']), '');
+  assert.equal(destinoPortalViejo(['comunidad', 'hilo-1']), '/comunidad');
+  assert.equal(destinoPortalViejo(['instructores']), '');
   assert.equal(destinoPortalViejo(['mensajes']), '');
 });
