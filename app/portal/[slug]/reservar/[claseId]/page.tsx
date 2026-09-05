@@ -274,6 +274,7 @@ export default function FichaClasePage() {
             mensaje={bkMensaje}
             onRetry={() => ir('reviewing')}
             onWaitlist={() => ir('reviewing')}
+            onComprar={() => router.push(href('/comprar'))}
             onClose={finalizar}
           />
         )}

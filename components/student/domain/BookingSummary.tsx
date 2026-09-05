@@ -11,7 +11,7 @@ export function BookingSummary({ clase, instructora, bono, politicaHoras }: { cl
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--accent-soft)', borderRadius: 14, padding: '11px 14px', marginTop: 9 }}>
         <span aria-hidden style={{ width: 22, height: 22, flexShrink: 0, borderRadius: 999, background: '#4F8A5B', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</span>
-        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--accent-soft-foreground)' }}>{bono && quedan > 0 ? 'Se usará 1 sesión de tu ' + bono.nombre.toLowerCase() + ' (' + quedan + ' disponibles). No pagas nada hoy.' : (clase.sinPrecioSuelto ? 'Esta clase solo se reserva con bono. Consíguelo desde Bonos.' : 'Sin bono activo: clase suelta ' + euros(clase.precioSuelto) + '. El cobro se confirma en el siguiente paso.')}</p>
+        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--accent-soft-foreground)' }}>{bono && quedan > 0 ? 'Se usará 1 sesión de tu ' + bono.nombre.toLowerCase() + ' (' + quedan + ' disponibles). No pagas nada hoy.' : (clase.sinPrecioSuelto ? 'Esta clase solo se reserva con bono. Puedes comprar uno desde Perfil → Comprar.' : 'Sin bono activo: clase suelta ' + euros(clase.precioSuelto) + '. El cobro se confirma en el siguiente paso.')}</p>
       </div>
       <p className="t-meta" style={{ margin: '9px 0 0', textAlign: 'center', fontSize: 10.5, color: 'var(--subtle-foreground)' }}>Cancelación gratuita hasta {politicaHoras} h antes — recuperas la sesión.</p>
     </div>

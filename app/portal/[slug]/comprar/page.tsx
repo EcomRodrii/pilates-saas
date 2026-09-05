@@ -92,9 +92,19 @@ export default function ComprarPage() {
                   // en vez de fingir un cobro que este endpoint no sabe hacer.
                   onComprar={() => {
                     if (p.familia === 'servicio') {
-                      window.location.href = `/reservar/${encodeURIComponent(estudio.slug)}#bonos-membresias`;
+                      // A la pestaña que SÍ contiene servicios de cita. El ancla
+                      // `#bonos-membresias` solo pinta planes de tarifa y no
+                      // existe si el estudio no vende ninguno: la alumna salía
+                      // de la app y no encontraba lo que acababa de tocar.
+                      // Nueva pestaña: `/reservar` está fuera del scope del
+                      // manifest, así que navegar ahí abandona la PWA.
+                      window.open(`/reservar/${encodeURIComponent(estudio.slug)}?tab=citas`, '_blank', 'noopener');
                       return;
                     }
+                    // Sin socia resuelta el servidor cobraría como invitada
+                    // anónima y el bono no quedaría ligado a nadie: primero se
+                    // resuelve la identidad.
+                    if (!socia?.socioId) { router.push(href('/acceso/verificar')); return; }
                     const plan = (data?.planes ?? []).find((x) => x.id === p.id) ?? null;
                     setComprando(plan);
                   }}
