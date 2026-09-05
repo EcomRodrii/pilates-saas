@@ -67,27 +67,20 @@ function tieneLecturaViva(tabla: string): boolean {
   return VIVAS.some(l => l.includes(`.from('${tabla}').select(`));
 }
 
-// Las que YA estaban huérfanas cuando se escribió este guardián.
+// La única que sigue sin cargador, y a propósito.
 //
-// No se tapan: se anclan. Con la lista explícita, el test pasa hoy y ninguna
-// tabla NUEVA puede quedarse sin cargador sin ponerse en rojo — que es lo que
-// faltó en #1375. Y la lista es la deuda, escrita donde se ve.
+// `videos_on_demand` tiene datos (7 filas en producción) y un consumidor de
+// panel… que es `app/(dashboard)/ondemand/page.frozen.tsx`. La página VIVA es
+// un stub que redirige: VOD está CONGELADO por el feature-freeze de PMF
+// (2026-07-23, ver docs/FEATURE-FREEZE-2026-07.md). Escribirle un cargador
+// sería añadir una consulta en cada arranque de una pantalla a la que no se
+// puede llegar.
 //
-// Las tres primeras no se leen en NINGÚN sitio del repo: el panel las escribe
-// y nunca las relee. Las tres últimas sí se leen, pero por el camino de
-// servidor (`supabase-data-admin.ts`, rutas de API) para el portal — no por el
-// estado del panel, así que sus pantallas de panel siguen viendo vacío.
-//
-// Arreglarlas es tocar VOD, notas internas, cuestionarios de sesión, gráficos
-// del dashboard y citas: cinco funciones que no tienen que ver con la
-// gamificación, y que merecen su propio cambio y sus propias pruebas.
+// Cuando se descongele —renombrando page.frozen.tsx— habrá que darle su carga
+// bajo demanda y borrarla de aquí. El segundo test de este fichero lo exige:
+// en cuanto tenga lectura viva, esta lista tiene que menguar.
 const HUERFANAS_CONOCIDAS = [
-  'notas_internas',        // sin lectura viva en todo el repo
-  'respuestas_sesion',     // sin lectura viva en todo el repo
-  'dashboard_charts',      // sin lectura viva en todo el repo
-  'videos_on_demand',      // solo la lee el servidor, para el portal
-  'citas_servicios',       // solo la lee el servidor, para el portal
-  'citas_disponibilidad',  // solo la lee el servidor, para el portal
+  'videos_on_demand',      // VOD congelado: la página viva es un stub que redirige
 ];
 
 test('toda tabla marcada «lazy-load» tiene quien la cargue después', () => {
@@ -112,20 +105,34 @@ test('toda tabla marcada «lazy-load» tiene quien la cargue después', () => {
     'Estas tablas salieron del arranque y nadie las carga: la pantalla que las use verá siempre vacío.');
 });
 
-test('las tablas de gamificación las carga fetchGamificacionStudio', () => {
-  // El caso concreto que ocurrió, anclado aparte: el guardián de arriba se
-  // conforma con que exista CUALQUIER consulta viva, y estas diez tienen que
-  // ir juntas — cargar la mitad deja las pestañas a medias igualmente.
+test('cada área tiene su cargador, y carga TODAS sus tablas', () => {
+  // Los casos concretos, anclados aparte: el guardián de arriba se conforma con
+  // que exista CUALQUIER lectura viva, y las tablas de un área tienen que ir
+  // JUNTAS — cargar la mitad deja la pantalla a medias igualmente.
   const vivas = VIVAS.join('\n');
-  const cuerpo = vivas.slice(vivas.indexOf('export async function fetchGamificacionStudio'));
-  const fin = cuerpo.indexOf('\nexport async function ', 1);
-  const fn = fin === -1 ? cuerpo : cuerpo.slice(0, fin);
 
-  const esperadas = [
-    'reward_rules', 'reward_actions', 'member_credits', 'reward_catalog', 'reward_redemptions',
-    'achievement_definitions', 'achievement_progress', 'level_definitions',
-    'challenge_definitions', 'challenge_progress',
-  ];
-  const faltan = esperadas.filter(t => !fn.includes(`.from('${t}').select(`));
-  assert.deepEqual(faltan, [], 'Sin estas, las pestañas de Configuración › Logros y motivación se quedan en blanco.');
+  const AREAS: Record<string, string[]> = {
+    fetchGamificacionStudio: [
+      'reward_rules', 'reward_actions', 'member_credits', 'reward_catalog', 'reward_redemptions',
+      'achievement_definitions', 'achievement_progress', 'level_definitions',
+      'challenge_definitions', 'challenge_progress',
+    ],
+    fetchAgendaCitasStudio: ['citas_servicios', 'citas_disponibilidad'],
+    fetchFichaClientaStudio: ['notas_internas', 'respuestas_sesion'],
+    fetchDashboardChartsStudio: ['dashboard_charts'],
+  };
+
+  const faltan: string[] = [];
+  for (const [fn, tablas] of Object.entries(AREAS)) {
+    const desde = vivas.indexOf(`export async function ${fn}`);
+    assert.notEqual(desde, -1, `No existe ${fn}: sin él, su pantalla lee un estado que nadie rellena.`);
+    const resto = vivas.slice(desde);
+    const corte = resto.indexOf('\nexport async function ', 1);
+    const cuerpo = corte === -1 ? resto : resto.slice(0, corte);
+    for (const t of tablas) {
+      if (!cuerpo.includes(`.from('${t}').select(`)) faltan.push(`${fn} → ${t}`);
+    }
+  }
+
+  assert.deepEqual(faltan, [], 'Falta cargar estas tablas: su pantalla se queda en blanco.');
 });

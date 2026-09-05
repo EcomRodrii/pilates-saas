@@ -2233,7 +2233,15 @@ export default function Calendario() {
   const rolCalendario = useRol();
   const verFichaClinica = puedeVerFichaClinica(rolCalendario);
   const verSemaforo = puedeVerSemaforo(rolCalendario);
-  const { condicionesSalud, respuestasSesion, registrarRespuestaSesion } = useStudio();
+  const { condicionesSalud, respuestasSesion, registrarRespuestaSesion, cargarFichaClienta } = useStudio();
+
+  // ⚠️ Aquí no es solo que la lista se vea vacía. `registrarRespuestaSesion`
+  // decide UPDATE vs INSERT buscando en `respuestasSesion`, y con la lista
+  // siempre vacía (#1375 la sacó del arranque y nadie escribió la carga) nunca
+  // encuentra la respuesta previa: SIEMPRE inserta. La tabla no tiene índice
+  // único, así que corregir la respuesta de una alumna añadía una fila más en
+  // vez de corregir la que había.
+  useEffect(() => { cargarFichaClienta(); }, [cargarFichaClienta]);
   const esInstructor = rolCalendario === 'INSTRUCTOR';
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const esPropiaClase = sesionActual ? (!esInstructor || (!!yo && sesionActual.instructorId === yo.id)) : false;

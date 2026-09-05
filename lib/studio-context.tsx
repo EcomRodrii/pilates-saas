@@ -9,7 +9,8 @@ import { supabase } from '@/lib/db/supabase';
 import { apuntarCobroEnCaja } from '@/lib/pos/cliente';
 import type { RowInstructores } from '@/lib/db-types';
 import {
-  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchGamificacionStudio, fetchDatosTrasVentaPOS, mapInstructor,
+  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchGamificacionStudio,
+  fetchAgendaCitasStudio, fetchFichaClientaStudio, fetchDashboardChartsStudio, fetchDatosTrasVentaPOS, mapInstructor,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbFetchCamposPersonalizados, dbInsertCampoPersonalizado, dbUpdateCampoPersonalizado, dbDeleteCampoPersonalizado,
   dbFetchSegmentosClientes, dbInsertSegmentoCliente, dbUpdateSegmentoCliente, dbDeleteSegmentoCliente,
@@ -646,6 +647,12 @@ interface StudioContextValue {
    * Es idempotente por estudio: entrar y salir de la pestaña no vuelve a pedir.
    */
   cargarGamificacion: () => void;
+  /** Servicios y horario de citas. La piden las dos pestañas de Configuración. */
+  cargarAgendaCitas: () => void;
+  /** Notas internas y respuestas de sesión. Las piden la ficha y el calendario. */
+  cargarFichaClienta: () => void;
+  /** Gráficos personalizados del dashboard. */
+  cargarDashboardCharts: () => void;
   dataLoaded: boolean;
   /**
    * La carga pública falló de verdad (red/servidor) — distinto de `dataLoaded`
@@ -4985,6 +4992,76 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // (`lib/theme-preview-puente.ts`). `themeIdPublicado` ya no cambia según
   // haya o no preview activo: nada lo consume salvo lo publicado de verdad.
 
+  // ── Cargas bajo demanda ─────────────────────────────────────────────────────
+  //
+  // ⚠️ Van AQUÍ, antes del `useMemo` que arma el valor del contexto, y no abajo
+  // con el resto de funciones: son `const`, no `function`, así que no se izan.
+  // Puestas después, el objeto del contexto las referencia dentro de su zona
+  // muerta temporal y el provider revienta en runtime con «Cannot access
+  // 'cargarGamificacion' before initialization». Ni el typecheck ni el lint ni
+  // el build lo ven — solo se cae al abrir el panel.
+  //
+  // #1375 («Sprint 1: lazy-load non-critical tables», 25-ago-2026) sacó veinte
+  // tablas del arranque y dejó `[]` en su sitio, confiando en que cada pantalla
+  // las pediría. Para varias, esa segunda mitad nunca se escribió: la pantalla
+  // leía un estado que nadie rellenaba y enseñaba «no hay nada», que es
+  // indistinguible de un estudio sin configurar.
+  //
+  // No se devuelven al arranque —de ahí se sacaron para bajarlo de 1452 ms a
+  // 69 ms—: las pide la pantalla que las usa, y una sola vez por estudio.
+  //
+  // El guardián se extrae porque la coreografía tiene dos detalles fáciles de
+  // olvidar al copiarla, y los dos importan: marcar ANTES de esperar (si no,
+  // montar la pantalla dispara varias cargas idénticas) y DESMARCAR si falla
+  // (si no, un error de red condena esa pantalla a quedarse vacía el resto de
+  // la sesión — exactamente el fallo que esto viene a reparar).
+  const cargadoDe = useRef<Record<string, string>>({});
+
+  const cargarUnaVez = useCallback((area: string, aplicar: (sid: string) => Promise<void>) => {
+    const sid = getCurrentStudioId();
+    if (!sid || cargadoDe.current[area] === sid) return;
+    cargadoDe.current[area] = sid;
+    aplicar(sid).catch(e => {
+      delete cargadoDe.current[area];
+      capturarExcepcion(e, { tags: { area } });
+    });
+  }, []);
+
+  const cargarGamificacion = useCallback(() => cargarUnaVez('gamificacion', async sid => {
+    const g = await fetchGamificacionStudio(sid);
+    setRewardRules(g.rewardRules);
+    setRewardActions(g.rewardActions);
+    setMemberCredits(g.memberCredits);
+    setRewardCatalog(g.rewardCatalog);
+    setRewardRedemptions(g.rewardRedemptions);
+    setAchievementDefinitions(g.achievementDefinitions);
+    setAchievementProgress(g.achievementProgress);
+    setLevelDefinitions(g.levelDefinitions);
+    setChallengeDefinitions(g.challengeDefinitions);
+    setChallengeProgress(g.challengeProgress);
+  }), [cargarUnaVez]);
+
+  const cargarAgendaCitas = useCallback(() => cargarUnaVez('citas', async sid => {
+    const a = await fetchAgendaCitasStudio(sid);
+    setCitasServicios(a.citasServicios);
+    setCitasDisponibilidad(a.citasDisponibilidad);
+  }), [cargarUnaVez]);
+
+  const cargarFichaClienta = useCallback(() => cargarUnaVez('ficha-clienta', async sid => {
+    const f = await fetchFichaClientaStudio(sid);
+    setNotasInternas(f.notasInternas);
+    setRespuestasSesion(f.respuestasSesion);
+  }), [cargarUnaVez]);
+
+  // Se saca el setter del store en vez de depender del objeto entero: es un
+  // `useState` setter, o sea estable, así que el callback no se recrea en cada
+  // render. Depender del store —que sí se recrea— haría que el efecto de la
+  // pantalla se disparase siempre, y silenciar el aviso escondería justo eso.
+  const { setDashboardCharts } = dashboardChartsStore;
+  const cargarDashboardCharts = useCallback(() => cargarUnaVez('dashboard-charts', async sid => {
+    setDashboardCharts(await fetchDashboardChartsStudio(sid));
+  }), [cargarUnaVez, setDashboardCharts]);
+
   const value: StudioContextValue = useMemo(() => ({
     planesTarifa,
     salas,
@@ -5218,6 +5295,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     updateStudioConfig,
     resetDatosPilates,
     cargarGamificacion,
+    cargarAgendaCitas,
+    cargarFichaClienta,
+    cargarDashboardCharts,
     automationRules,
     automationLogs,
     notasProgreso,
@@ -5275,37 +5355,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     studio,
     authUserId, publicSlug, studioIdOverride,
   ]);
-
-  // Ver el comentario largo de `fetchGamificacionStudio`: estas diez tablas
-  // dejaron de cargarse en #1375 y nadie las recogió después. Se piden aquí,
-  // bajo demanda, para no devolverlas al arranque —que es de donde se sacaron
-  // para bajarlo de 1452 ms a 69 ms—.
-  const gamificacionCargadaDe = useRef<string | null>(null);
-
-  function cargarGamificacion() {
-    const sid = getCurrentStudioId();
-    if (!sid || gamificacionCargadaDe.current === sid) return;
-    // Se marca ANTES de esperar: si no, abrir la pestaña dispara varias cargas
-    // idénticas antes de que vuelva la primera.
-    gamificacionCargadaDe.current = sid;
-    fetchGamificacionStudio(sid).then(g => {
-      setRewardRules(g.rewardRules);
-      setRewardActions(g.rewardActions);
-      setMemberCredits(g.memberCredits);
-      setRewardCatalog(g.rewardCatalog);
-      setRewardRedemptions(g.rewardRedemptions);
-      setAchievementDefinitions(g.achievementDefinitions);
-      setAchievementProgress(g.achievementProgress);
-      setLevelDefinitions(g.levelDefinitions);
-      setChallengeDefinitions(g.challengeDefinitions);
-      setChallengeProgress(g.challengeProgress);
-    }).catch(e => {
-      // Si falla, se permite reintentar: dejarlo marcado condenaría la pestaña
-      // a quedarse vacía el resto de la sesión, que es justo el fallo de origen.
-      gamificacionCargadaDe.current = null;
-      capturarExcepcion(e, { tags: { area: 'gamificacion' } });
-    });
-  }
 
   function resetDatosPilates() {
     fetchAllStudioData().then(data => {

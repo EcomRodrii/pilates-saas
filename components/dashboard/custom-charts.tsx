@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useId } from 'react';
+import { useEffect, useState, useMemo, useId } from 'react';
 import { BarChart3, Plus, Trash2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { computeSerieGrafico, METRICAS_GRAFICO, AGRUPACIONES_GRAFICO } from '@/lib/engines/dashboard-chart-engine';
@@ -99,7 +99,12 @@ function ChartCard({ chart, onDelete }: { chart: DashboardChart; onDelete: () =>
 
 export function CustomChartsSection() {
   const uid = useId();
-  const { dashboardCharts, addDashboardChart, deleteDashboardChart } = useStudio();
+  const { dashboardCharts, addDashboardChart, deleteDashboardChart, cargarDashboardCharts } = useStudio();
+  // Estas tablas no vienen en el arranque del panel: #1375 las sacó y nadie
+  // escribió la carga posterior, así que esta pantalla leía un estado que nadie
+  // rellenaba. Se piden aquí, donde se usan, y una sola vez por estudio.
+  useEffect(() => { cargarDashboardCharts(); }, [cargarDashboardCharts]);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);

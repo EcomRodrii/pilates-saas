@@ -411,8 +411,13 @@ function PreguntaCuestionario({
 export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Date; onToast: (mensaje: string) => void }) {
   const {
     socios, condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion, updateSocio, instructores,
+    cargarFichaClienta,
     plantillasCuestionarioSalud, respuestasCuestionarioSalud, guardarRespuestaCuestionarioSalud,
   } = useStudio();
+  // Las notas internas y las respuestas de sesión no vienen en el arranque
+  // (#1375 las sacó y nadie escribió la carga posterior). Se piden aquí.
+  useEffect(() => { cargarFichaClienta(); }, [cargarFichaClienta]);
+
   const { user } = useAuth();
   const rol = useRol();
   const socio = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);

@@ -5350,6 +5350,76 @@ export async function fetchDeferredStudioData(studioId?: string) {
 //
 // Se carga aparte y bajo demanda, no volviendo a meterlo en el arranque: el
 // arranque del panel bajó de 1452 ms a 69 ms precisamente sacando esto de ahí.
+// ─── Agenda de citas del panel (carga bajo demanda) ──────────────────────────
+//
+// Mismo origen que `fetchGamificacionStudio`: #1375 comentó estos dos SELECT y
+// nadie escribió la otra mitad. Aquí el daño es peor que ver una pantalla
+// vacía, porque el horario de citas SÍ está vivo de cara al público —
+// `/reservar/[slug]` lo lee del catálogo de servidor y funciona— mientras el
+// panel enseña que no hay nada configurado.
+//
+// Y `setDisponibilidadCitas` guarda REEMPLAZANDO (borra las franjas de esa
+// instructora e inserta las del borrador). Como el borrador nace del estado
+// vacío, quien edite un día y guarde se lleva por delante los demás. En
+// producción hay 15 franjas reales de tres instructoras, diez creadas el
+// 6-sep-2026 — después del corte: la función está en uso.
+export async function fetchAgendaCitasStudio(studioId?: string) {
+  const sid = studioId ?? getCurrentStudioId();
+  // Solo cliente, igual que `fetchGamificacionStudio` (P-7, 26ª pasada): esta
+  // carga la pide una pantalla del panel y no la usa ningún camino de
+  // servidor, así que no hace falta el service-role — y no importarlo evita
+  // arrastrar supabase-admin.ts a la cadena de imports del bundle.
+  const db = supabase;
+  const [serviciosRes, disponibilidadRes] = await enTandas([
+    db.from('citas_servicios').select('*').eq('studio_id', sid),
+    db.from('citas_disponibilidad').select('*').eq('studio_id', sid),
+  ]);
+  return {
+    citasServicios: (serviciosRes?.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
+    citasDisponibilidad: (disponibilidadRes?.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
+  };
+}
+
+// ─── Ficha de la clienta: notas y respuestas de sesión (bajo demanda) ────────
+//
+// Las dos van juntas porque las pide la misma pantalla (la ficha) y porque
+// `respuestas_sesion` arrastra un daño de segundo orden:
+// `registrarRespuestaSesion` decide UPDATE vs INSERT buscando en esta lista, y
+// con la lista siempre vacía nunca encuentra nada, así que SIEMPRE inserta. La
+// tabla no tiene índice único, de modo que cada corrección de una respuesta
+// crearía una fila más en vez de corregir la que ya había.
+export async function fetchFichaClientaStudio(studioId?: string) {
+  const sid = studioId ?? getCurrentStudioId();
+  // Solo cliente, igual que `fetchGamificacionStudio` (P-7, 26ª pasada): esta
+  // carga la pide una pantalla del panel y no la usa ningún camino de
+  // servidor, así que no hace falta el service-role — y no importarlo evita
+  // arrastrar supabase-admin.ts a la cadena de imports del bundle.
+  const db = supabase;
+  const [notasRes, respuestasRes] = await enTandas([
+    db.from('notas_internas').select('*').eq('studio_id', sid),
+    db.from('respuestas_sesion').select('*').eq('studio_id', sid),
+  ]);
+  return {
+    notasInternas: (notasRes?.data ?? []).map((r) => mapNotaInterna(r as RowNotasInternas)),
+    respuestasSesion: (respuestasRes?.data ?? []).map((r) => mapRespuestaSesion(r as RowRespuestasSesion)),
+  };
+}
+
+// ─── Gráficos del dashboard (bajo demanda) ───────────────────────────────────
+//
+// Con la lista vacía, el color de un gráfico nuevo sale siempre de
+// `COLORES[0]`: se pueden crear cinco y salir los cinco del mismo color.
+export async function fetchDashboardChartsStudio(studioId?: string) {
+  const sid = studioId ?? getCurrentStudioId();
+  // Solo cliente, igual que `fetchGamificacionStudio` (P-7, 26ª pasada): esta
+  // carga la pide una pantalla del panel y no la usa ningún camino de
+  // servidor, así que no hace falta el service-role — y no importarlo evita
+  // arrastrar supabase-admin.ts a la cadena de imports del bundle.
+  const db = supabase;
+  const { data } = await db.from('dashboard_charts').select('*').eq('studio_id', sid);
+  return (data ?? []).map((r) => mapDashboardChart(r as RowDashboardCharts));
+}
+
 export async function fetchGamificacionStudio(studioId?: string) {
   const sid = studioId ?? getCurrentStudioId();
   // Solo cliente (P-7, 26ª pasada): sin caller de servidor (no la usa
