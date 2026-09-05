@@ -1667,7 +1667,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Membresía</span>
+                <span className="text-xs text-muted-foreground">Paquete</span>
                 <span className="text-xs font-bold text-foreground">{planActivo?.nombre ?? 'Sin plan'}</span>
               </div>
               <div className="flex items-center justify-between">

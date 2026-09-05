@@ -19,6 +19,15 @@ export interface NavItemDef {
   href: string;
   label: string;
   icon: React.ElementType;
+  /**
+   * Otros nombres por los que el ⌘K debe encontrar esta sección.
+   *
+   * El buscador casa solo contra `label`, así que RENOMBRAR una sección la
+   * hace inencontrable por su nombre viejo — y quien lleva meses usando
+   * Tentare busca por el nombre que aprendió, no por el nuevo. Aquí van esos
+   * nombres, en minúsculas y sin tildes (`normalizar` ya las quita).
+   */
+  alias?: string[];
 }
 export interface NavSection {
   label?: string;
@@ -69,7 +78,7 @@ const allSections: NavSection[] = [
       // usa en el mostrador.
       { href: '/cobros', label: 'Cobros', icon: CreditCard },
       { href: '/pos', label: 'Caja', icon: Store },
-      { href: '/productos', label: 'Membresías', icon: Package },
+      { href: '/productos', label: 'Paquetes', icon: Package, alias: ['membresias', 'planes', 'tarifas', 'bonos'] },
     ],
   },
   {

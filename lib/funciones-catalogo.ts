@@ -42,7 +42,7 @@ const CATEGORIAS_BASE: CategoriaFunciones[] = [
     id: 'cobros', label: 'Cobros y pagos',
     funciones: [
       { href: '/cobros', label: 'Cobros', descripcion: 'Qué está pendiente y qué ya se cobró — con Stripe conectado, la mayoría se cobra sola.' },
-      { href: '/productos', label: 'Membresías', descripcion: 'Planes, bonos y precios que tus clientas pueden contratar.' },
+      { href: '/productos', label: 'Paquetes', descripcion: 'Suscripciones, bonos y clases sueltas que tus clientas pueden contratar.' },
       { href: '/cierre', label: 'Cierre de año', descripcion: 'Resumen de ingresos e IVA listo para tu gestoría — no presenta impuestos, los prepara.' },
     ],
   },
