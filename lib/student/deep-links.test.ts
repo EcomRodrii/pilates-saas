@@ -15,6 +15,8 @@ test('las rutas del portal borrado se traducen al árbol nuevo', () => {
     [`/portal/${SLUG}/clases/ses-1`, `${B}/reservar/ses-1`],
     [`/portal/${SLUG}/clases`, `${B}/reservar`],
     [`/portal/${SLUG}/reservas?tab=ESPERA`, `${B}/mis-reservas`],
+    // El aviso «¿qué tal la clase?» enlaza a SU reserva: el id no se puede tirar.
+    [`/portal/${SLUG}/reservas/res-9`, `${B}/mis-reservas/res-9`],
     [`/portal/${SLUG}/compras`, `${B}/pagos`],
     [`/portal/${SLUG}/notificaciones`, `${B}/notificaciones`],
   ];

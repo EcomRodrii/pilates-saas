@@ -1054,3 +1054,26 @@ export async function emitirRedContactoAceptado(
     console.error('[notifications] emitirRedContactoAceptado:', e instanceof Error ? e.message : e);
   }
 }
+
+// Tras asistir: «¿qué tal la clase?» in-app/push, con enlace al detalle de SU
+// reserva (donde está la tarjeta de valorar). Lo emite el cron de valoraciones
+// junto al email, para las mismas destinatarias (solo quien ASISTIÓ).
+export async function emitirValorarClase(
+  admin: SupabaseClient,
+  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; instructora: string },
+): Promise<number> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    const creadas = await publish({
+      type: EVENTOS.VALORAR_CLASE,
+      studioId: p.studioId,
+      data: { ...ctx, socioId: p.socioId, reservaId: p.reservaId, instructora: p.instructora || 'tu instructora' },
+      resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `valorar:${p.sesionId}:${p.socioId}`,
+    });
+    return creadas.length;
+  } catch (e) {
+    console.error('[notifications] emitirValorarClase:', e instanceof Error ? e.message : e);
+    return 0;
+  }
+}

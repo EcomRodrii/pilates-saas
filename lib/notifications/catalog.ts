@@ -189,6 +189,9 @@ export const EVENTOS = {
   RECORDATORIO_1H: 'reserva.recordatorio_1h',
   BONO_POR_CADUCAR: 'bono.por_caducar',
   BONO_AGOTADO: 'bono.agotado',
+  // Tras ASISTIR: pide valorar la clase desde la app. Lo emite el cron de
+  // valoraciones junto al email (misma regla: solo a quien asistió).
+  VALORAR_CLASE: 'clase.valorar',
   CLASE_CASI_LLENA: 'clase.casi_llena',
   SOCIA_INACTIVA: 'socia.inactiva',
   // Autoservicio de instructora (migración 20260731100000): se ha creado a sí
@@ -333,6 +336,7 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Automatizaciones
   [EVENTOS.RECORDATORIO_24H]:      { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.RECORDATORIO_1H]:       { category: 'reservas', priority: 'ALTA',  canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  [EVENTOS.VALORAR_CLASE]:         { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.BONO_POR_CADUCAR]:      { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.BONO_AGOTADO]:          { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.CLASE_CASI_LLENA]:      { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
@@ -817,6 +821,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Tu clase es en 1 hora',
     body: '{clase} a las {hora}. ¡Nos vemos en un rato!',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+  },
+  [`${EVENTOS.VALORAR_CLASE}#SOCIA`]: {
+    title: '¿Qué tal la clase?',
+    body: 'Cuéntanos cómo fue {clase} con {instructora}. Un minuto, y ayudas al estudio.',
+    // Al detalle de SU reserva: ahí vive la tarjeta de valorar (solo tras asistir).
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservas/${s(d.reservaId)}`,
   },
   [`${EVENTOS.BONO_POR_CADUCAR}#SOCIA`]: {
     title: 'Tu bono está por caducar',

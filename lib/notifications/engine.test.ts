@@ -54,6 +54,7 @@ test('automatizaciones: cada evento nuevo tiene regla + plantilla que renderiza'
   const casos: [string, 'SOCIA' | 'PROPIETARIO', Record<string, unknown>, RegExp][] = [
     [EVENTOS.RECORDATORIO_24H, 'SOCIA', { clase: 'Reformer', hora: '09:00' }, /Reformer.*09:00/],
     [EVENTOS.RECORDATORIO_1H, 'SOCIA', { clase: 'Mat', hora: '18:00' }, /Mat.*18:00/],
+    [EVENTOS.VALORAR_CLASE, 'SOCIA', { clase: 'Reformer', instructora: 'Ana' }, /Reformer.*Ana/],
     [EVENTOS.BONO_POR_CADUCAR, 'SOCIA', { sesiones: 3, fecha: '30 de julio' }, /3 sesiones.*30 de julio/],
     [EVENTOS.CLASE_CASI_LLENA, 'PROPIETARIO', { clase: 'Barre', cuando: 'hoy', porcentaje: 90, ocupadas: 9, aforo: 10 }, /Barre.*90%.*9\/10/],
     [EVENTOS.SOCIA_INACTIVA, 'PROPIETARIO', { socia: 'María', dias: 45 }, /María.*45 días/],

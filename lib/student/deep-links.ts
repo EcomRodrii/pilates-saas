@@ -35,6 +35,10 @@ export function traducirEnlace(enlace: string | null | undefined, slug: string):
 
   if (resto.startsWith('clases/')) return `${base}/reservar/${resto.slice('clases/'.length)}`;
   if (resto === 'clases') return `${base}/reservar`;
+  // `reservas/<id>` → el detalle de ESA reserva (el árbol nuevo lo admite);
+  // `reservas` o `reservas?tab=…` → la lista.
+  const mr = resto.match(/^reservas\/([^/?]+)/);
+  if (mr) return `${base}/mis-reservas/${mr[1]}`;
   if (resto.startsWith('reservas')) return `${base}/mis-reservas`;
   if (resto.startsWith('compras')) return `${base}/pagos`;
   if (resto.startsWith('notificaciones')) return `${base}/notificaciones`;
