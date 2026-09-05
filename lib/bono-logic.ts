@@ -312,25 +312,38 @@ export function seArreglaComprando(mensajeError: string): boolean {
 }
 
 /**
- * ¿Agotar este plan debe generar un recibo de RENOVACIÓN pendiente?
+ * ¿Agotar este plan debe AVISAR de que se ha quedado a cero?
  *
- * ⚠️ `PUNTUAL` no. Una clase suelta es una compra única: agotar su única sesión
- * es USARLA, que es todo su ciclo de vida — no el final de un ciclo que haya que
- * empezar otra vez. Sin esta regla, comprar una clase suelta y reservarla
- * generaba «Renovación Clase suelta» en estado PENDIENTE, con su primer
- * reintento de cobro ya programado: la clienta acababa debiendo algo que nunca
- * pidió y la propietaria veía dos cobros donde solo hubo una compra (visto en
- * producción el 2026-08-20).
+ * Ojo con lo que esta función ya NO decide: hasta el 2026-09-05 se llamaba
+ * `generaRenovacionAlAgotarse` y gobernaba dos cosas a la vez — el aviso y un
+ * recibo de RENOVACIÓN en estado PENDIENTE. Ese recibo nacía con
+ * `proximo_reintento`, así que entraba en el ciclo de dunning y la tarjeta
+ * guardada de la socia se cobraba SOLA: un bono de 4 clases se comportaba como
+ * una suscripción que nadie había contratado.
  *
- * `BONO` sí: ahí quedarse a cero es el final de un ciclo y el recibo es el aviso
- * pretendido. `MENSUAL` no llega por aquí (no consume sesiones); su renovación
- * la lleva el cron `lib/inngest/renovaciones.ts`, que ya filtraba por tipo — era
- * este camino el que se había quedado sin el filtro.
+ * Visto en producción el 2026-09-04: un «Bono 4 clases» se autocobró el 02-09
+ * (`pi_3UB9Ya…`) al gastarse la cuarta sesión, y al agotarse otra vez generó
+ * el siguiente recibo con su reintento ya programado. Es el MISMO defecto que
+ * ya se había corregido para `PUNTUAL` el 2026-08-20 —«la clienta acababa
+ * debiendo algo que nunca pidió»— pero `BONO` se dejó dentro entonces dando
+ * por hecho que el recibo era solo un aviso. No lo era: era una deuda con
+ * cobro automático.
+ *
+ * Un bono es una compra ÚNICA de N sesiones. Se acaba y se acabó; si la socia
+ * quiere otro, lo compra (portal: «Renovar en un toque»,
+ * `app/api/public/renovar-plan`, que sí es un acto explícito suyo) o se lo
+ * cobra el estudio a mano desde /cobros. Nada lo renueva por su cuenta.
+ *
+ * Lo que SÍ se conserva es el aviso, que es información útil y no mueve dinero.
+ * Por eso esta función sobrevive en vez de desaparecer: sin ella, quitar el
+ * recibo se llevaría por delante la notificación, y quitar el guard entero
+ * haría que una CLASE SUELTA anunciara «bono agotado» al usarse, que es
+ * justo lo contrario de lo que se arregló en agosto.
  *
  * Vive aquí, en la lógica pura, porque hay DOS caminos gemelos que la aplican
  * —`consumirBonoServidor` (servidor) y `consumirSesionBono` (cliente)— y
  * repetir la condición en los dos es exactamente cómo se vuelven a separar.
  */
-export function generaRenovacionAlAgotarse(plan: { tipo: TipoPlan }): boolean {
+export function avisaBonoAgotado(plan: { tipo: TipoPlan }): boolean {
   return plan.tipo === 'BONO';
 }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   planVacio, planAFormulario, formularioAPlan, motivoNoGuardable, caducaPorDias,
   type FormularioPlan,
+  erroresPlan, resumenCondicionesPlan,
 } from './formulario.ts';
 import type { PlanTarifa } from '../types.ts';
 
@@ -112,4 +113,110 @@ test('dos formularios vacíos no comparten la lista de clases', () => {
   a.tiposClaseIds.push('tc-1');
   assert.deepEqual(b.tiposClaseIds, []);
   assert.notEqual(a.tiposClaseIds, b.tiposClaseIds);
+});
+
+// ── Validación por campo (erroresPlan) ───────────────────────────────────────
+
+test('erroresPlan señala el campo, no una frase suelta', () => {
+  const e = erroresPlan({ ...planVacio(), tipo: 'BONO' });
+  assert.equal(e.nombre, 'Ponle un nombre a la tarifa');
+  assert.equal(e.precio, 'Falta el precio');
+  assert.equal(e.sesiones, 'Un bono necesita cuántas sesiones incluye');
+});
+
+test('⚠️ un 0 en caducidad es un error, no «sin caducidad»', () => {
+  // `enteroPositivo` convierte "0" en null, que aguas abajo significa «no
+  // caduca nunca» — lo contrario de lo que acaba de escribir la propietaria.
+  // Vacío sí es «sin caducidad», y eso debe seguir siendo válido.
+  const base = { ...planVacio(), nombre: 'Bono', precio: '40', tipo: 'BONO' as const, sesiones: '4' };
+  assert.ok(erroresPlan({ ...base, validezDias: '0' }).validezDias);
+  assert.ok(erroresPlan({ ...base, validezDias: '-5' }).validezDias);
+  assert.equal(erroresPlan({ ...base, validezDias: '' }).validezDias, undefined);
+  assert.equal(erroresPlan({ ...base, validezDias: '60' }).validezDias, undefined);
+});
+
+test('⚠️ un 0 en límite semanal es un error, no «sin tope»', () => {
+  const base = { ...planVacio(), nombre: 'Mensual', precio: '59' };
+  assert.ok(erroresPlan({ ...base, limiteSemanal: '0' }).limiteSemanal);
+  assert.equal(erroresPlan({ ...base, limiteSemanal: '' }).limiteSemanal, undefined);
+  assert.equal(erroresPlan({ ...base, limiteSemanal: '2' }).limiteSemanal, undefined);
+});
+
+test('un precio que no es un número se explica como tal', () => {
+  const e = erroresPlan({ ...planVacio(), nombre: 'X', precio: 'abc' });
+  assert.match(e.precio ?? '', /números/);
+});
+
+test('motivoNoGuardable sigue diciendo lo mismo que antes, en el mismo orden', () => {
+  // La otra pantalla de tarifas (configuración) la usa tal cual: afinar la
+  // presentación aquí no puede cambiarle el comportamiento allí.
+  assert.equal(motivoNoGuardable(planVacio()), 'Ponle un nombre a la tarifa');
+  assert.equal(motivoNoGuardable({ ...planVacio(), nombre: 'X' }), 'Falta el precio');
+  assert.equal(motivoNoGuardable({ ...planVacio(), nombre: 'X', precio: '-1' }), 'El precio no puede ser negativo');
+  assert.equal(
+    motivoNoGuardable({ ...planVacio(), nombre: 'X', precio: '10', tipo: 'BONO' }),
+    'Un bono necesita cuántas sesiones incluye',
+  );
+  assert.equal(motivoNoGuardable({ ...planVacio(), nombre: 'X', precio: '10' }), null);
+});
+
+// ── Resumen automático ───────────────────────────────────────────────────────
+
+test('resumenCondicionesPlan redacta el bono sin que nadie lo repita a mano', () => {
+  const r = resumenCondicionesPlan({
+    ...planVacio(), tipo: 'BONO', nombre: 'Bono 4', precio: '40',
+    sesiones: '4', validezDias: '60',
+  });
+  assert.deepEqual(r, ['4 sesiones', 'Válido durante 60 días desde la compra']);
+});
+
+test('resumenCondicionesPlan dice «sin caducidad» en vez de callarse', () => {
+  const r = resumenCondicionesPlan({ ...planVacio(), tipo: 'BONO', sesiones: '10' });
+  assert.deepEqual(r, ['10 sesiones', 'Sin fecha de caducidad']);
+});
+
+test('resumenCondicionesPlan singulariza: 1 sesión, 1 clase', () => {
+  const r = resumenCondicionesPlan({
+    ...planVacio(), tipo: 'BONO', sesiones: '1', validezDias: '30', limiteSemanal: '1',
+  });
+  assert.deepEqual(r, ['1 sesión', 'Válido durante 30 días desde la compra', 'Máximo 1 clase por semana']);
+});
+
+test('resumenCondicionesPlan: el mensual no habla de caducidad ni de sesiones', () => {
+  // Un mensual no caduca por días y no consume sesiones — mencionarlo sería
+  // mentir en la tarjeta de resumen.
+  const r = resumenCondicionesPlan({
+    ...planVacio(), tipo: 'MENSUAL', sesiones: '99', validezDias: '99', limiteSemanal: '3',
+  });
+  assert.deepEqual(r, ['Se renueva y se cobra cada mes', 'Máximo 3 clases por semana']);
+});
+
+test('resumenCondicionesPlan: la clase suelta se cuenta como una, no como N sesiones', () => {
+  const r = resumenCondicionesPlan({ ...planVacio(), tipo: 'PUNTUAL', sesiones: '1' });
+  assert.deepEqual(r, ['Una clase, pago único', 'Sin fecha de caducidad']);
+});
+
+// ── Separador decimal ────────────────────────────────────────────────────────
+
+test('⚠️ «59,50» son 59,50 € y no 59 €', () => {
+  // `parseFloat('59,50')` se para en la coma y devuelve 59: la propietaria
+  // escribe el precio como se escribe en español y el plan se guarda 50
+  // céntimos más barato, sin un solo aviso.
+  assert.equal(formularioAPlan(form({ nombre: 'X', precio: '59,50' })).precio, 59.5);
+  assert.equal(formularioAPlan(form({ nombre: 'X', precio: '59.50' })).precio, 59.5);
+  assert.equal(formularioAPlan(form({ nombre: 'X', precio: ' 59,50 € ' })).precio, 59.5);
+});
+
+test('un precio con coma no se marca como error', () => {
+  assert.equal(erroresPlan(form({ nombre: 'X', precio: '59,50' })).precio, undefined);
+});
+
+test('lo que sigue sin ser un número sigue protestando', () => {
+  assert.ok(erroresPlan(form({ nombre: 'X', precio: '12,3,4' })).precio);
+  assert.ok(erroresPlan(form({ nombre: 'X', precio: 'gratis' })).precio);
+  assert.ok(erroresPlan(form({ nombre: 'X', precio: '-1' })).precio);
+});
+
+test('un precio ilegible sigue guardándose como 0, nunca como NaN', () => {
+  assert.equal(formularioAPlan(form({ nombre: 'X', precio: 'gratis' })).precio, 0);
 });

@@ -104,6 +104,25 @@ export function planAFormulario(p: PlanTarifa): FormularioPlan {
   };
 }
 
+/**
+ * El precio tal cual se escribe en España → número.
+ *
+ * ⚠️ `parseFloat('59,50')` es **59**, no 59,50: se para en la coma y se come
+ * los céntimos sin avisar. Aquí se escribe con coma —es el separador decimal
+ * del idioma— así que el formulario tiene que entenderla. Se acepta también el
+ * punto, y se quitan los espacios y el símbolo de euro por si se pega un
+ * importe copiado de otro sitio.
+ *
+ * Devuelve NaN si no hay un número legible, para que quien llame decida: la
+ * validación protesta, y `formularioAPlan` cae a 0 antes que propagar un NaN
+ * hasta el recibo.
+ */
+export function precioANumero(v: string): number {
+  const limpio = v.replace(/[€\s]/g, '').replace(',', '.');
+  if (!limpio || !/^-?\d*\.?\d*$/.test(limpio)) return NaN;
+  return parseFloat(limpio);
+}
+
 // Un entero positivo o null. Evita que un "0", un "-3" o un "abc" acaben en la
 // base de datos: 0 sesiones o 0 días de validez sería un bono nacido muerto, y
 // NaN revienta más abajo sin decir dónde.
@@ -116,7 +135,7 @@ function enteroPositivo(v: string): number | null {
 /** Formulario → lo que se guarda. Es LA regla, y solo vive aquí. */
 export function formularioAPlan(f: FormularioPlan): DatosPlan {
   const conCaducidad = caducaPorDias(f.tipo);
-  const precio = parseFloat(f.precio);
+  const precio = precioANumero(f.precio);
   return {
     nombre: f.nombre.trim(),
     descripcion: f.descripcion.trim() || null,
@@ -133,20 +152,90 @@ export function formularioAPlan(f: FormularioPlan): DatosPlan {
   };
 }
 
+/** Los campos del formulario que pueden llevar un error propio. */
+export type CampoPlan = 'nombre' | 'precio' | 'sesiones' | 'validezDias' | 'limiteSemanal';
+
+/**
+ * Qué está mal, CAMPO A CAMPO.
+ *
+ * Antes solo existía `motivoNoGuardable`, que devuelve el primer fallo como
+ * una frase suelta: la pantalla la enseñaba encima de la botonera y quien
+ * rellenaba tenía que adivinar a qué caja se refería. Aquí cada mensaje sabe
+ * de quién es, y el formulario puede pintarlo pegado a su input.
+ *
+ * Añade además los tres estados imposibles que `enteroPositivo` se tragaba en
+ * silencio: escribir `0` sesiones, `0` días de caducidad o `0` de límite
+ * semanal se guardaba como `null` —es decir, como «sin caducidad» o «sin
+ * tope»— que es lo contrario de lo que acababa de escribir la propietaria.
+ */
+export function erroresPlan(f: FormularioPlan): Partial<Record<CampoPlan, string>> {
+  const e: Partial<Record<CampoPlan, string>> = {};
+
+  if (!f.nombre.trim()) e.nombre = 'Ponle un nombre a la tarifa';
+
+  const precio = precioANumero(f.precio);
+  if (!f.precio.trim()) e.precio = 'Falta el precio';
+  else if (!Number.isFinite(precio)) e.precio = 'Escribe el precio en números, por ejemplo 59,00';
+  else if (precio < 0) e.precio = 'El precio no puede ser negativo';
+
+  if (caducaPorDias(f.tipo) && !enteroPositivo(f.sesiones)) {
+    e.sesiones = f.sesiones.trim()
+      ? 'Tiene que ser un número entero mayor que 0'
+      : 'Un bono necesita cuántas sesiones incluye';
+  }
+  // Estos dos son OPCIONALES: vacío es válido y significa «sin caducidad» /
+  // «sin tope». Solo se protesta cuando hay algo escrito que no vale.
+  if (f.validezDias.trim() && !enteroPositivo(f.validezDias)) {
+    e.validezDias = 'Tiene que ser un número de días mayor que 0';
+  }
+  if (f.limiteSemanal.trim() && !enteroPositivo(f.limiteSemanal)) {
+    e.limiteSemanal = 'Tiene que ser un número de clases mayor que 0';
+  }
+
+  return e;
+}
+
 /**
  * Por qué NO se puede guardar todavía, o null si está listo.
- * Devuelve el motivo en vez de un booleano para poder decírselo a quien lo
- * rellena: un botón gris sin explicación es de las cosas que más desesperan.
+ *
+ * Se deriva de `erroresPlan` en un ORDEN FIJO para que siga diciendo lo mismo
+ * que decía cuando era la única validación — la otra pantalla de tarifas
+ * (`components/configuracion/tab-planes.tsx`) la sigue usando tal cual y no
+ * debe cambiar de comportamiento porque aquí se haya afinado la presentación.
  */
 export function motivoNoGuardable(f: FormularioPlan): string | null {
-  if (!f.nombre.trim()) return 'Ponle un nombre a la tarifa';
-  if (!f.precio.trim()) return 'Falta el precio';
-  const precio = parseFloat(f.precio);
-  if (!Number.isFinite(precio) || precio < 0) return 'El precio no puede ser negativo';
-  // Un bono sin sesiones no es un bono: sería un plan que no da derecho a nada
-  // y que la app no sabría descontar.
-  if (caducaPorDias(f.tipo) && !enteroPositivo(f.sesiones)) {
-    return 'Un bono necesita cuántas sesiones incluye';
-  }
+  const e = erroresPlan(f);
+  const orden: CampoPlan[] = ['nombre', 'precio', 'sesiones', 'validezDias', 'limiteSemanal'];
+  for (const campo of orden) if (e[campo]) return e[campo]!;
   return null;
+}
+
+/**
+ * Las condiciones del plan dichas como se las diría a una clienta.
+ *
+ * Existe para que la propietaria no tenga que repetir a mano en la descripción
+ * lo que ya ha rellenado en el formulario («Válido 2 meses» escrito debajo de
+ * un campo de caducidad que ya dice 60). La descripción queda libre para lo
+ * que de verdad aporta —el argumento de venta— y esto lo redacta la app.
+ */
+export function resumenCondicionesPlan(f: FormularioPlan): string[] {
+  if (f.tipo === 'MENSUAL') {
+    const lineas = ['Se renueva y se cobra cada mes'];
+    const tope = enteroPositivo(f.limiteSemanal);
+    if (tope) lineas.push(`Máximo ${tope} ${tope === 1 ? 'clase' : 'clases'} por semana`);
+    return lineas;
+  }
+
+  const lineas: string[] = [];
+  if (f.tipo === 'PUNTUAL') {
+    lineas.push('Una clase, pago único');
+  } else {
+    const n = enteroPositivo(f.sesiones);
+    if (n) lineas.push(`${n} ${n === 1 ? 'sesión' : 'sesiones'}`);
+  }
+  const dias = enteroPositivo(f.validezDias);
+  lineas.push(dias ? `Válido durante ${dias} días desde la compra` : 'Sin fecha de caducidad');
+  const tope = enteroPositivo(f.limiteSemanal);
+  if (tope) lineas.push(`Máximo ${tope} ${tope === 1 ? 'clase' : 'clases'} por semana`);
+  return lineas;
 }
