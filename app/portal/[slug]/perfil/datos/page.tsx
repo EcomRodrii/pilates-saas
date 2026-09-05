@@ -52,6 +52,11 @@ export default function DatosPage() {
   }
 
   const guardar = async () => {
+    // Sin la ficha cargada, el formulario está VACÍO: guardar entonces manda
+    // apellidos y teléfono en blanco y borra los que ya tenía. La validación de
+    // nombre tapaba el caso extremo, pero no este: escribir el nombre y guardar
+    // antes de que llegue el payload.
+    if (!socia) { toast('Espera un momento: aún estamos cargando tus datos.'); return; }
     const e: Record<string, string> = {};
     if (!f.nombre.trim()) e.nombre = 'Escribe tu nombre';
     setErr(e);
@@ -87,7 +92,7 @@ export default function DatosPage() {
             backend sí la admite (`CAMPOS_SOCIA_EDITABLES`) si algún día se
             decide pedirla. */}
 
-        <Button full loading={guardando} disabled={!online} onClick={() => void guardar()} style={{ marginTop: 6 }}>
+        <Button full loading={guardando} disabled={!online || !socia} onClick={() => void guardar()} style={{ marginTop: 6 }}>
           {online ? 'Guardar cambios' : 'Sin conexión'}
         </Button>
       </div>
