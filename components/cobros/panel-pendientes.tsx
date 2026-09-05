@@ -366,6 +366,10 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
     return { cobradoMes, pendienteTotal, sociosConDeuda, mediaXSocia };
   }, [recibos, socios, thisMonth]);
 
+  // Una sola cuenta para los dos sitios que la enseñan (el enlace de arriba y
+  // la cabecera del panel): antes cada uno la recalculaba por su lado.
+  const activas = suscripciones.filter(s => s.estado === 'ACTIVA').length;
+
   // ── Cobros tab filtered list ──────────────────────────────────────────────────
 
   const filtradosCobros = useMemo(() => {
@@ -934,7 +938,11 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
               onClick={() => setVerSuscripciones(true)}
               className="underline underline-offset-2 hover:text-foreground transition-colors"
             >
-              Ver las {suscripciones.filter(s => s.estado === 'ACTIVA').length} suscripciones activas
+              {/* En singular cuando hay una: «Ver las 1 suscripciones activas» es
+                  lo que salía con un solo plan vivo, que es justo el caso de un
+                  estudio recién empezado — la primera pantalla de cobros que ve
+                  nadie. */}
+              {activas === 1 ? 'Ver la suscripción activa' : `Ver las ${activas} suscripciones activas`}
             </button>
           </p>
 
@@ -1231,7 +1239,7 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <p className="text-sm font-semibold text-foreground">
-              {suscripciones.filter(s => s.estado === 'ACTIVA').length} suscripciones activas
+              {activas === 1 ? '1 suscripción activa' : `${activas} suscripciones activas`}
             </p>
           </div>
 
