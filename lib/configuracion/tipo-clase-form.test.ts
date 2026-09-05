@@ -27,7 +27,7 @@ const tipo = (extra: Partial<TipoClase> = {}): TipoClase => ({
   reservaAntelacionMaximaDias: null, permiteListaEspera: null, requiereAprobacion: null,
   listaEsperaPlazoAceptacionMinutos: null, minimoAsistentesPorClase: null,
   penalizacionImporteEur: null, especialidadNetwork: null, esOnline: false,
-  aforoPorDefecto: null, ...extra,
+  aforoPorDefecto: null, requiereAutorizacion: false, ...extra,
 });
 
 const form = (extra: Partial<ClaseForm> = {}): ClaseForm => ({ ...emptyClaseForm('#111111'), ...extra });
@@ -67,6 +67,8 @@ test('ida y vuelta: lo guardado vuelve idéntico al formulario', () => {
     listaEsperaPlazoAceptacionMinutos: 30, minimoAsistentesPorClase: 3,
     penalizacionImporteEur: 12.5, especialidadNetwork: 'reformer', esOnline: true,
     aforoPorDefecto: 8, descripcion: 'Con máquina', objetivos: ['reformer'],
+    // Niveles: booleano plano, no tri-estado — no hereda del estudio.
+    requiereAutorizacion: true,
   });
   const c = formACampos(claseToForm(t));
   assert.deepEqual(c, {
@@ -76,6 +78,7 @@ test('ida y vuelta: lo guardado vuelve idéntico al formulario', () => {
     reservaAntelacionMaximaDias: 14, permiteListaEspera: true, requiereAprobacion: false,
     listaEsperaPlazoAceptacionMinutos: 30, minimoAsistentesPorClase: 3,
     penalizacionImporteEur: 12.5, especialidadNetwork: 'reformer', esOnline: true,
+    requiereAutorizacion: true,
   });
 });
 

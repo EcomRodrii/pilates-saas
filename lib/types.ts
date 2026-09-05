@@ -671,6 +671,13 @@ export interface CadenaTipoClase {
   actualizadoEn: string;
 }
 
+/** Una clase que una socia concreta tiene autorizada (niveles). */
+export interface SocioTipoClaseAutorizado {
+  socioId: string;
+  tipoClaseId: string;
+  autorizadaEn: string;
+}
+
 export interface TipoClase {
   id: string;
   studioId: string;
@@ -701,6 +708,14 @@ export interface TipoClase {
   permiteListaEspera: boolean | null;
   // Fase 2a (migr 20260730192445): mismo patrón de override.
   requiereAprobacion: boolean | null;
+  /**
+   * Solo pueden reservarla las socias autorizadas expresamente (niveles).
+   * A diferencia del resto de reglas de reserva, NO hereda del estudio: es una
+   * propiedad de la clase, no una política que se pueda poner por defecto —
+   * «Avanzado» exige autorización y «Suelo» no, y eso no tiene un valor global
+   * que tenga sentido.
+   */
+  requiereAutorizacion: boolean;
   // Fase 2b (migr 20260731130000): mismo patrón de override. Resuelto en SQL
   // directo, no con heredaOverride() — ver comentario en Studio.
   listaEsperaPlazoAceptacionMinutos: number | null;

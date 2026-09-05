@@ -34,6 +34,8 @@ export type CodigoReserva =
   | 'sin-plan'
   | 'bono-no-cubre'
   | 'max-simultaneas'
+  // Niveles: la clase exige que el estudio autorice a esta alumna.
+  | 'necesita-autorizacion'
   | 'error';
 
 /**
@@ -45,7 +47,7 @@ export type CodigoReserva =
 const CODIGOS_DE_NEGOCIO: ReadonlySet<string> = new Set<CodigoReserva>([
   'ya-reservada', 'conflicto-horario', 'aforo-lleno', 'limite-semanal',
   'spot-ocupado', 'spot-no-disponible', 'sesion-no-encontrada', 'no-autorizado',
-  'sin-plan', 'bono-no-cubre', 'max-simultaneas',
+  'sin-plan', 'bono-no-cubre', 'max-simultaneas', 'necesita-autorizacion',
 ]);
 
 /**
@@ -126,6 +128,7 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
     case 'sin-plan':
     case 'bono-no-cubre':
     case 'max-simultaneas':
+    case 'necesita-autorizacion':
       return { state: 'error', mensaje };
     case 'sesion-no-encontrada': return { state: 'error', mensaje };
     default: return { state: 'error', mensaje };
