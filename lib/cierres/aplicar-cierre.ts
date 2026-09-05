@@ -10,7 +10,7 @@
 //   · Prorroga bonos y recuperaciones → la RPC `ampliar_caducidades` (#1621),
 //     con el mismo tope de 365 días que ya valida ella.
 //   · Impedir reservar en esas fechas NO se hace aquí: vive en la RPC
-//     `reservar_plaza` (migr 20260905160000). Tiene que seguir siendo cierto
+//     `reservar_plaza` (migr 20260905153105). Tiene que seguir siendo cierto
 //     para una sesión creada DESPUÉS de declarar el cierre, y eso solo lo
 //     garantiza la base de datos.
 //
