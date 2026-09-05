@@ -888,6 +888,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     nivel: r.nivel,
     objetivos: Array.isArray(r.objetivos) ? r.objetivos : [],
     fotoUrl: r.foto_url ?? null,
+    logoUrl: r.logo_url ?? null,
     ventanaCancelacionHoras: r.ventana_cancelacion_horas ?? null,
     reservaExigirPlan: r.reserva_exigir_plan ?? null,
     reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? null,
@@ -3842,7 +3843,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
   const row = {
     id: t.id, studio_id: t.studioId ?? STUDIO_ID, nombre: t.nombre, color: t.color,
     duracion_minutos: t.duracionMinutos, descripcion: t.descripcion ?? null, nivel: t.nivel,
-    foto_url: t.fotoUrl ?? null, objetivos: t.objetivos ?? [], ventana_cancelacion_horas: t.ventanaCancelacionHoras ?? null,
+    foto_url: t.fotoUrl ?? null, logo_url: t.logoUrl ?? null, objetivos: t.objetivos ?? [], ventana_cancelacion_horas: t.ventanaCancelacionHoras ?? null,
     reserva_exigir_plan: t.reservaExigirPlan ?? null,
     reserva_ventana_minima_minutos: t.reservaVentanaMinimaMinutos ?? null,
     reserva_antelacion_maxima_dias: t.reservaAntelacionMaximaDias ?? null,
@@ -3868,6 +3869,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('nivel' in changes) db.nivel = changes.nivel;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  if ('logoUrl' in changes) db.logo_url = changes.logoUrl;
   if ('objetivos' in changes) db.objetivos = changes.objetivos ?? [];
   if ('ventanaCancelacionHoras' in changes) db.ventana_cancelacion_horas = changes.ventanaCancelacionHoras;
   if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;

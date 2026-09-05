@@ -16,7 +16,7 @@ import type { Instructor, PlanTarifa, Reserva, Sala, Sesion, Socio, Suscripcion,
 
 const tipo = (id: string, nombre: string, extra: Partial<TipoClase> = {}): TipoClase => ({
   id, studioId: 's1', nombre, color: '#000', duracionMinutos: 50, descripcion: null,
-  nivel: 'TODOS', fotoUrl: null, ventanaCancelacionHoras: null, reservaExigirPlan: null,
+  nivel: 'TODOS', fotoUrl: null, logoUrl: null, ventanaCancelacionHoras: null, reservaExigirPlan: null,
   reservaVentanaMinimaMinutos: null, reservaAntelacionMaximaDias: null, permiteListaEspera: null,
   requiereAprobacion: null, listaEsperaPlazoAceptacionMinutos: null, minimoAsistentesPorClase: null,
   penalizacionImporteEur: null, especialidadNetwork: null, esOnline: false, aforoPorDefecto: null, requiereAutorizacion: false, ...extra,

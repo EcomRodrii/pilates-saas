@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/db/supabase';
 import { recortarTransparencia } from '@/lib/imagen/recortar-logo';
-import { redimensionarImagen, LADO_AVATAR, LADO_FOTO_CLASE, LADO_BANNER } from '@/lib/imagen-cliente';
+import { redimensionarImagen, LADO_AVATAR, LADO_FOTO_CLASE, LADO_LOGO_CLASE, LADO_BANNER } from '@/lib/imagen-cliente';
 // La higienización de la clave vive en un módulo SIN imports para que
 // `node --test` pueda probarla: no resuelve el alias `@/`, y este fichero lo usa.
 import { claveDeImagenPortal } from '@/lib/storage-clave';
@@ -111,6 +111,33 @@ export async function subirFotoClase(tipoClaseId: string, file: File): Promise<{
 
 export async function eliminarFotoClase(tipoClaseId: string): Promise<{ ok: true } | { error: string }> {
   const { error } = await supabase.storage.from(BUCKET).remove([`clase-${tipoClaseId}`]);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+// Logo CUADRADO de un tipo de clase — mismo bucket, prefijo propio.
+//
+// ⚠️ El prefijo es `claselogo-`, sin guion tras «clase», y no es cosmético:
+// `avatars_path_autorizado` resuelve el permiso con una cadena de `elsif` por
+// prefijo, así que `clase-logo-<id>` caería en la rama `clase-%` y buscaría un
+// tipo de clase con id «logo-<id>» —que no existe— y la RLS RECHAZARÍA la
+// subida. Igual con `banner-clase-<id>` y la rama `banner-%`. La rama propia
+// se añadió en la migr 20260905130124.
+export async function subirLogoClase(tipoClaseId: string, file: File): Promise<{ url: string } | { error: string }> {
+  const path = `claselogo-${tipoClaseId}`;
+  const img = await redimensionarImagen(file, LADO_LOGO_CLASE);
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, img, { upsert: true, contentType: img.type });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
+export async function eliminarLogoClase(tipoClaseId: string): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.storage.from(BUCKET).remove([`claselogo-${tipoClaseId}`]);
   if (error) return { error: error.message };
   return { ok: true };
 }

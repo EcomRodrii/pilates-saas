@@ -953,6 +953,8 @@ export interface RowTiposClase {
   aforo_por_defecto: number | null;
   // migr 20260905011213.
   requiere_autorizacion: boolean | null;
+  // migr 20260905130124.
+  logo_url: string | null;
 }
 
 export interface RowUsuarios {

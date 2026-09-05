@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { btnPrimary, cardCls } from '@/app/(dashboard)/configuracion/page';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PanelTipoClase } from '@/components/configuracion/panel-tipo-clase';
-import { eliminarFotoClase, subirFotoClase } from '@/lib/portal-storage';
+import { eliminarFotoClase, subirFotoClase, eliminarLogoClase, subirLogoClase } from '@/lib/portal-storage';
 import { colorSalaPorDefecto } from '@/components/configuracion/tab-salas';
 import { useStudio } from '@/lib/studio-context';
 import { imagenDeClase } from '@/lib/imagenes-por-defecto';
@@ -147,6 +147,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [subiendoLogo, setSubiendoLogo] = useState(false);
   const editando = editId ? tiposClase.find(t => t.id === editId) ?? null : null;
 
   // Subir y guardar van separados: `CampoImagen` ofrece dos vías —archivo o
@@ -175,6 +176,30 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     if (!res.ok) showToast(res.error);
   }, [editId, updateTipoClase, showToast]);
 
+  // El logo va por su propia vía, igual que el banner: mismo par subir/guardar,
+  // distinto prefijo de Storage y distinta columna.
+  const subirLogoDeClase = useCallback(async (file: File) => {
+    if (!editId) return { error: 'Guarda la clase antes de ponerle logo.' };
+    if (!file.type.startsWith('image/')) return { error: 'Elige un archivo de imagen' };
+    if (file.size > 5 * 1024 * 1024) return { error: 'La imagen no puede superar 5 MB' };
+    setSubiendoLogo(true);
+    const result = await subirLogoClase(editId, file);
+    setSubiendoLogo(false);
+    return result;
+  }, [editId]);
+
+  const guardarLogoDeClase = useCallback(async (url: string | null) => {
+    if (!editId) return;
+    if (url === null) {
+      setSubiendoLogo(true);
+      const result = await eliminarLogoClase(editId);
+      setSubiendoLogo(false);
+      if ('error' in result) { showToast(result.error); return; }
+    }
+    const res = await updateTipoClase(editId, { logoUrl: url });
+    if (!res.ok) showToast(res.error);
+  }, [editId, updateTipoClase, showToast]);
+
   const openNueva = useCallback(() => {
     setForm(emptyClaseForm(colorSalaPorDefecto(tiposClase.length)));
     setEditId(null);
@@ -197,7 +222,9 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       // Esperamos a la base de datos antes de decir que está creado.
       setGuardando(true);
       setErrorGuardar(null);
-      const res = await addTipoClase({ ...fields, fotoUrl: null });
+      // Las dos imágenes nacen vacías: sus campos ni siquiera se enseñan al
+      // crear, porque para subirlas a Storage hace falta el id de la clase.
+      const res = await addTipoClase({ ...fields, fotoUrl: null, logoUrl: null });
       setGuardando(false);
       if (!res.ok) { setErrorGuardar(res.error); return; }
       showToast(`"${fields.nombre}" ya está guardado`);
@@ -264,6 +291,9 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
         subiendoFoto={subiendoFoto}
         onSubirFoto={subirFotoDeClase}
         onCambiarFoto={guardarFotoDeClase}
+        subiendoLogo={subiendoLogo}
+        onSubirLogo={subirLogoDeClase}
+        onCambiarLogo={guardarLogoDeClase}
         onGuardar={guardar}
         onCerrar={closeModal}
       />

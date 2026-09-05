@@ -8,7 +8,7 @@ import { precioClaseTexto } from '@/lib/student/formato';
 // es la única del proyecto. Aquí cuelgan del slug del estudio, así que pasan
 // por `usePortalHref()`: dejarlos absolutos mandaría a la alumna a la landing
 // de Tentare o al panel.
-/** Fila de clase del horario (kit): hora mono | divisor | nombre + avatar instructora | badge + precio. */
+/** Fila de clase del horario (kit): hora mono | divisor | logo | nombre + avatar instructora | badge + precio. */
 export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { clase: Clase; instructora?: Instructora; estado: Disponibilidad; conBono: boolean; delay?: number }) {
   const href = usePortalHref();
   return (
@@ -18,6 +18,26 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
         <p style={{ margin: '1px 0 0', fontSize: 9.5, color: 'var(--subtle-foreground)' }}>{clase.duracionMin} min</p>
       </div>
       <div aria-hidden style={{ width: 1, alignSelf: 'stretch', background: 'var(--muted)' }} />
+      {/* El logo del tipo de clase. Hasta ahora la fila no enseñaba NINGUNA
+          imagen de la clase — la única era el avatar de la instructora, dos
+          líneas más abajo, que es otra cosa.
+
+          Solo se pinta si la propietaria ha subido uno: `lib/imagenes-por-defecto.ts`
+          documenta, y con razón, que no se ponga imagen por defecto en las
+          miniaturas de los listados («la misma foto ocho veces se lee como un
+          error; el color del tipo de clase distingue mejor»). Un logo propio
+          por clase no es ese caso; a falta de él, la fila queda como estaba. */}
+      {clase.logoUrl && (
+        <span
+          aria-hidden
+          data-testid="logo-clase"
+          style={{
+            width: 34, height: 34, flexShrink: 0, borderRadius: 10,
+            background: 'url(' + clase.logoUrl + ') center/cover',
+            border: '1px solid var(--muted)',
+          }}
+        />
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clase.nombre}</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
