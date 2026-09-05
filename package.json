@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "typecheck": "node --max-old-space-size=4096 ./node_modules/.bin/tsc --noEmit",
+    "typecheck:watch": "node --max-old-space-size=4096 ./node_modules/.bin/tsc --noEmit --watch --incremental",
     "build": "npm run build:widget && next build",
     "build:widget": "node scripts/build-widget-bundle.mjs",
     "start": "next start",
