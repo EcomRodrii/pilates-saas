@@ -53,6 +53,17 @@ interface ResultadoEntidad {
 
 // Etiquetas legibles de lo que crea un lote (claves de ids_creados → nombre de
 // cara a la propietaria), para el resumen de "migraciones recientes".
+// Lo que el dropzone dice que acepta, DERIVADO del registro de entidades. Estaba
+// escrito a mano y se quedó corto en cuanto entró una entidad nueva: enumeraba
+// cinco cuando ya eran siete, así que las recuperaciones se podían subir y nadie
+// se enteraba de que podía hacerlo. Escrito así, añadir una entidad la anuncia
+// sola.
+const ENTIDADES_QUE_ACEPTA = (() => {
+  const etiquetas = Object.values(ENTIDADES).map(e => e.etiqueta.toLowerCase());
+  const ultima = etiquetas[etiquetas.length - 1];
+  return `${etiquetas.slice(0, -1).join(', ')} y ${ultima}`;
+})();
+
 const ETIQUETA_ENTIDAD_BATCH: Record<string, string> = {
   socios: 'clientas', suscripciones: 'bonos', tipos_clase: 'tipos de clase',
   sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'plazas fijas',
@@ -389,7 +400,7 @@ export default function MigracionPage() {
             <Upload size={34} className="mx-auto mb-3 text-brand-medio" />
             <p className="text-[15px] font-bold text-foreground">Arrastra aquí lo que puedas exportar de tu software actual</p>
             <p className="text-[13px] text-muted-foreground mt-1.5">
-              Clientas, bonos, horario, reservas, citas — CSV o Excel, da igual el formato o el nombre de las columnas. Hasta 8 archivos.
+              <span className="first-letter:uppercase">{ENTIDADES_QUE_ACEPTA}</span> — CSV o Excel, da igual el formato o el nombre de las columnas. Hasta 8 archivos.
             </p>
             <input
               ref={inputRef} id={inputId} type="file" multiple accept=".csv,.xlsx,.xls,text/csv"

@@ -151,7 +151,8 @@ export default function ImportarSociasPage() {
         <span className="text-[18px]">✨</span>
         <span className="flex-1 text-[13px] text-foreground">
           <strong>¿Vienes de otro software?</strong> Prueba la migración automática: arrastra tus exports tal cual
-          (clientas, bonos, horario, reservas — CSV o Excel) y los reconocemos solos. Con acta y deshacer.
+          (clientas, bonos, horario, reservas, citas, pagos y recuperaciones — CSV o Excel) y los reconocemos
+          solos. Con acta y deshacer.
         </span>
         <span className="text-[13px] font-bold text-brand-secondary shrink-0">Ir a Migración →</span>
       </a>
