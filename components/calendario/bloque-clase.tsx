@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { Check } from 'lucide-react';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import { PINTA, type EstadoSesion } from '@/lib/calendario-estado';
 import { cn, horaEstudio } from '@/lib/utils';
@@ -22,6 +23,9 @@ export interface BloqueClaseProps {
   estado: EstadoSesion;
   modo: 'ancho' | 'compacto';
   seleccionada: boolean;
+  /** Marcada dentro de una selección múltiple (reasignar varias a la vez).
+   *  Es distinto de `seleccionada`, que es «esta es la que tienes abierta». */
+  marcada?: boolean;
   /** Filtro por instructora: esta clase no es de la instructora elegida — se
    *  atenúa, no se esconde (punto 9: no se pierde el contexto del estudio). */
   atenuada?: boolean;
@@ -37,7 +41,7 @@ export interface BloqueClaseProps {
 }
 
 export function BloqueClase({
-  sesion, tipo, instructor, reservasSesion, estado, modo, seleccionada,
+  sesion, tipo, instructor, reservasSesion, estado, modo, seleccionada, marcada,
   atenuada, style, onSeleccionar, accion, arrastrable, onMover,
 }: BloqueClaseProps) {
   const p = PINTA[estado];
@@ -133,8 +137,23 @@ export function BloqueClase({
         'transition-transform duration-150 hover:-translate-y-px hover:shadow-md hover:z-20',
         arrastrable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
         ancho ? 'gap-1 p-2' : 'gap-0.5 px-1.5 py-1',
+        // El aro va por fuera del borde para que se vea sobre cualquier color
+        // de tipo de clase; con un `border` se perdía en los tonos oscuros.
+        marcada && 'ring-2 ring-brand ring-offset-1 ring-offset-card z-30',
       )}
+      aria-pressed={marcada ? true : undefined}
     >
+      {/* Marca de selección múltiple. Va dentro del bloque y no como overlay
+          para que herede su recorte: en la vista de semana un bloque de 15
+          minutos mide 14 px de alto y cualquier cosa flotante se le sale. */}
+      {marcada && (
+        <span
+          aria-hidden="true"
+          className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-brand text-brand-foreground"
+        >
+          <Check size={9} strokeWidth={3.5} />
+        </span>
+      )}
       <span className="flex items-center gap-1.5 min-w-0">
         <span
           className={cn('font-bold tabular-nums whitespace-nowrap', ancho ? 'text-xs' : 'text-[9.5px]')}

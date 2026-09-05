@@ -35,6 +35,9 @@ export interface VistaSemanaProps {
   horaFinMin: number;
   pxPorHora: number;
   seleccionadaId: string | null;
+  /** Ids marcados en una selección múltiple. La decisión de qué hace un clic
+   *  (abrir la clase o marcarla) vive en page.tsx: aquí solo se pintan. */
+  marcadas?: ReadonlySet<string>;
   onSeleccionar: (id: string) => void;
   atenuada?: (d: DatoSesion) => boolean;
   /** Fase 2: aquí las columnas son DÍAS, no salas — arrastrar solo puede
@@ -49,7 +52,7 @@ export interface VistaSemanaProps {
 
 export function VistaSemana({
   columnas, datos, fechasSemana, hoyIndex, ahoraMin, horaInicioMin, horaFinMin, pxPorHora,
-  seleccionadaId, onSeleccionar, atenuada, arrastrable, onMoverSesion, onClickVacio,
+  seleccionadaId, marcadas, onSeleccionar, atenuada, arrastrable, onMoverSesion, onClickVacio,
 }: VistaSemanaProps) {
   const altoTotal = ((horaFinMin - horaInicioMin) / 60) * pxPorHora;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -230,6 +233,7 @@ export function VistaSemana({
                       estado={d.estado}
                       modo="compacto"
                       seleccionada={seleccionadaId === s.id}
+                      marcada={marcadas?.has(s.id)}
                       atenuada={atenuada?.(d)}
                       onSeleccionar={() => onSeleccionar(s.id)}
                       arrastrable={arrastrable?.(d) ?? false}

@@ -17,7 +17,7 @@ import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   CalendarDays, ChevronDown,
   UserPlus, UserCheck, Pencil, Trash2, Copy,
-  Bot, Loader2, Upload, QrCode, LayoutGrid, Rows3,
+  Bot, Loader2, Upload, QrCode, LayoutGrid, Rows3, CheckSquare,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
@@ -599,6 +599,33 @@ export default function Calendario() {
 
   // ── Selection ───────────────────────────────────────────────────────────────
   const [sesionId, setSesionId] = useState<string | null>(null);
+
+  // ── Selección múltiple: reasignar varias clases sueltas de una vez ──────────
+  // Pedido tras una demo: cambiar la instructora de seis clases sueltas eran
+  // seis vueltas de abrir clase → editar → guardar → decidir si avisar. Y esa
+  // última decisión, repetida seis veces, es la que acaba en «avisa tú» o en
+  // seis correos separados a la misma alumna.
+  //
+  // No es un modo nuevo del calendario: reutiliza el `onSeleccionar` que ya
+  // tenían las dos vistas y solo cambia lo que ese clic significa.
+  const [modoSeleccion, setModoSeleccion] = useState(false);
+  const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
+  const [reasignarLote, setReasignarLote] = useState<{ instructorId: string; nombre: string } | null>(null);
+  const [reasignando, setReasignando] = useState(false);
+
+  function salirDeSeleccion() {
+    setModoSeleccion(false);
+    setMarcadas(new Set());
+    setReasignarLote(null);
+  }
+
+  function alternarMarcada(id: string) {
+    setMarcadas(prev => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id); else s.add(id);
+      return s;
+    });
+  }
   const [pestanaPanel, setPestanaPanel] = useState<PestanaSesion>('clientas');
 
   // ── Modals ──────────────────────────────────────────────────────────────────
@@ -1074,6 +1101,73 @@ export default function Calendario() {
       showToast(`Aviso puesto en la app${faltan}`);
     } else {
       showToast('No se ha podido avisar. Inténtalo otra vez.');
+    }
+  }
+
+  // ── Reasignar en lote ──────────────────────────────────────────────────────
+  //
+  // ⚠️ Lo que se agrupa es la DECISIÓN de avisar, no los correos. El endpoint
+  // resuelve destinatarias por sesión en servidor, así que se le llama una vez
+  // por clase movida y quien esté en dos recibe dos avisos — que es correcto:
+  // son dos clases suyas cambiando, no un mensaje repetido. Lo que se ahorra es
+  // contestar «¿aviso a las apuntadas?» una vez por clase.
+  function loteReasignable(instructorId: string) {
+    const candidatas = sesionesEnriquecidas.filter(x => marcadas.has(x.id));
+    // Ya empezada no se puede editar (misma regla que el botón Editar), y una
+    // clase que YA la da esa instructora no es un cambio: contarla inflaría el
+    // «vas a mover N clases» con clases que no se mueven.
+    const mueven = candidatas.filter(x =>
+      !sesionYaEmpezada(x.inicio) && !x.cancelada && x.instructorId !== instructorId);
+    const descartadas = candidatas.length - mueven.length;
+    // Una alumna apuntada a tres de las clases del lote cuenta UNA vez.
+    const alumnas = new Set<string>();
+    for (const x of mueven) {
+      for (const r of reservas) {
+        if (r.sesionId === x.id && r.estado === 'CONFIRMADA' && r.socioId) alumnas.add(r.socioId);
+      }
+    }
+    return { mueven, descartadas, alumnas: alumnas.size };
+  }
+
+  async function aplicarReasignacionLote(instructorId: string, avisar: boolean) {
+    if (reasignando) return;
+    const { mueven } = loteReasignable(instructorId);
+    if (mueven.length === 0) { setReasignarLote(null); return; }
+    setReasignando(true);
+    try {
+      const nueva = nombreInstructor(instructorId);
+      let hechas = 0;
+      const fallos: string[] = [];
+      for (const ses of mueven) {
+        const anterior = nombreInstructor(ses.instructorId);
+        const guardado = await updateSesion(ses.id, { instructorId });
+        if (!guardado.ok) { fallos.push(guardado.error); continue; }
+        hechas++;
+        addActividadReciente(
+          'SESION_REASIGNADA',
+          `Clase de ${ses.tipoClase.nombre} (${formatHora(ses.inicio)}) reasignada: ${anterior} → ${nueva}`,
+        );
+        if (!avisar) continue;
+        const d = new Date(ses.inicio);
+        await avisarCambioClaseServidor(ses.id, {
+          clase: ses.tipoClase.nombre, cuando: cuandoEstudio(d),
+          sala: salas.find(x => x.id === ses.salaId)?.nombre ?? '',
+          instructora: nueva, instructorActual: nueva,
+          fecha: fechaLargaEstudio(d), hora: horaEstudio(d), instructorAnterior: anterior,
+        });
+      }
+      // Se cuenta lo que de verdad se guardó, no lo que se intentó: decir
+      // «6 clases» cuando dos fallaron es justo la escritura optimista que
+      // este repo no se permite en ningún sitio.
+      if (fallos.length) {
+        showToast(`${hechas} de ${mueven.length} clases pasadas a ${nueva}. ${fallos.length} no se pudieron cambiar.`);
+      } else {
+        showToast(`${hechas} clase${hechas === 1 ? '' : 's'} ${hechas === 1 ? 'pasada' : 'pasadas'} a ${nueva}${avisar ? ' · alumnas avisadas' : ''}`);
+      }
+      salirDeSeleccion();
+      void refrescarVista();
+    } finally {
+      setReasignando(false);
     }
   }
 
@@ -2225,6 +2319,22 @@ export default function Calendario() {
             </Link>
           )}
 
+          {gestionaClientas && (
+            <button
+              onClick={() => (modoSeleccion ? salirDeSeleccion() : setModoSeleccion(true))}
+              title="Marcar varias clases para cambiarles la instructora de una vez"
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg border px-2.5 lg:px-3 py-2 text-[13px] font-medium transition-colors',
+                modoSeleccion
+                  ? 'border-brand bg-brand text-brand-foreground'
+                  : 'border-border bg-card text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <CheckSquare size={14} />
+              <span className="hidden lg:inline">{modoSeleccion ? 'Salir de selección' : 'Seleccionar varias'}</span>
+            </button>
+          )}
+
           {/* Punto 2: Día (por sala) / Semana (7 columnas) — vistas distintas, no un breakpoint. */}
           <div className="flex items-center gap-0.5 bg-muted rounded-xl p-1">
             <button
@@ -2382,7 +2492,8 @@ export default function Calendario() {
             pxPorHora={96}
             ahoraMin={localDate(diaSeleccionado) === todayStr ? now.getHours() * 60 + now.getMinutes() : null}
             seleccionadaId={sesionId}
-            onSeleccionar={id => { setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
+            marcadas={marcadas}
+            onSeleccionar={id => { if (modoSeleccion) { alternarMarcada(id); return; } setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
             atenuada={atenuada}
             accionPara={accionParaBloque}
             arrastrable={arrastrableSesion}
@@ -2407,7 +2518,8 @@ export default function Calendario() {
             horaFinMin={horaFinMinVista}
             pxPorHora={58}
             seleccionadaId={sesionId}
-            onSeleccionar={id => { setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
+            marcadas={marcadas}
+            onSeleccionar={id => { if (modoSeleccion) { alternarMarcada(id); return; } setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
             atenuada={atenuada}
             arrastrable={arrastrableSesion}
             onMoverSesion={moverSesionArrastrada}
@@ -2417,6 +2529,44 @@ export default function Calendario() {
       </ReanimarAlCambiar>
     </div>
     </LienzoCalendario>
+
+      {/* ── Selección múltiple: barra de acción ──────────────────────────────────
+          Flotante y anclada abajo: en semana hay que poder seguir marcando
+          clases de días distintos sin que la barra tape la rejilla. */}
+      {modoSeleccion && (
+        <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 pointer-events-none">
+          <div className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.35)]">
+            <span className="text-[13px] font-semibold text-foreground">
+              {marcadas.size === 0
+                ? 'Toca las clases que quieras cambiar'
+                : `${marcadas.size} clase${marcadas.size === 1 ? '' : 's'} marcada${marcadas.size === 1 ? '' : 's'}`}
+            </span>
+            {marcadas.size > 0 && (
+              <select
+                aria-label="Pasar las clases marcadas a"
+                className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground"
+                value=""
+                onChange={e => {
+                  const id = e.target.value;
+                  if (!id) return;
+                  setReasignarLote({ instructorId: id, nombre: nombreInstructor(id) });
+                }}
+              >
+                <option value="">Pasar a…</option>
+                {instructores.filter(i => i.activo).map(i => (
+                  <option key={i.id} value={i.id}>{i.nombre}</option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={salirDeSeleccion}
+              className="rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Salir
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Panel lateral de sesión (punto 5: 3 pestañas) ───────────────────────── */}
       {sesionActual && sesionId && !showForm && (
@@ -3068,6 +3218,64 @@ export default function Calendario() {
       </Dialog>
 
       {/* La clase ya está guardada; lo único que se decide aquí es si se avisa. */}
+      {/* ── Confirmación del lote ─────────────────────────────────────────────────
+          Lo que se agrupa aquí es LA DECISIÓN, no los correos: cada clase que
+          cambia genera su aviso, porque cada una es información distinta para
+          quien está apuntada. Lo que desaparece es tener que contestar «¿aviso?»
+          una vez por clase.
+          El recuento de arriba sí es de PERSONAS distintas, no de reservas:
+          «2 alumnas» con una apuntada a las dos clases, no «3». */}
+      <Dialog open={reasignarLote !== null} onOpenChange={open => !open && setReasignarLote(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
+              {(() => {
+                const n = reasignarLote ? loteReasignable(reasignarLote.instructorId).mueven.length : 0;
+                return `¿Pasar ${n} clase${n === 1 ? '' : 's'} a ${reasignarLote?.nombre}?`;
+              })()}
+            </DialogTitle>
+          </DialogHeader>
+          {reasignarLote && (() => {
+            const { mueven, descartadas, alumnas } = loteReasignable(reasignarLote.instructorId);
+            return (
+              <>
+                <p className="text-[13px] text-muted-foreground mt-2">
+                  {alumnas === 0
+                    ? 'No hay ninguna alumna apuntada en esas clases.'
+                    : <>Hay <strong className="text-foreground">{alumnas} alumna{alumnas === 1 ? '' : 's'}</strong> apuntada{alumnas === 1 ? '' : 's'} en total. Si avisas, {alumnas === 1 ? 'recibe' : 'reciben'} un correo por cada clase suya que cambie.</>}
+                  {descartadas > 0 && (
+                    <> {descartadas} de las marcadas no se {descartadas === 1 ? 'mueve' : 'mueven'}: ya {descartadas === 1 ? 'la da' : 'las da'} esa instructora, o la clase ya empezó.</>
+                  )}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <button
+                    disabled={reasignando}
+                    className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                    onClick={() => setReasignarLote(null)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    disabled={reasignando || mueven.length === 0}
+                    className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                    onClick={() => void aplicarReasignacionLote(reasignarLote.instructorId, false)}
+                  >
+                    Cambiar sin avisar
+                  </button>
+                  <button
+                    disabled={reasignando || mueven.length === 0}
+                    className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+                    onClick={() => void aplicarReasignacionLote(reasignarLote.instructorId, true)}
+                  >
+                    {reasignando ? 'Cambiando…' : alumnas === 0 ? 'Cambiar' : 'Cambiar y avisar'}
+                  </button>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={avisoInstructora !== null} onOpenChange={open => !open && setAvisoInstructora(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
