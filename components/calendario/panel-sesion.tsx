@@ -105,7 +105,13 @@ export function PanelSesion({
       </div>
 
       {accionesCabecera && (
-        <div className="flex flex-none items-center gap-2 border-b border-border px-4 py-2.5">
+        // ⚠️ `flex-wrap`, no `nowrap`. Con nowrap esta barra pedía 555 px en un
+        // panel de 420 y el desbordamiento no se veía: se comía «Cancelar»
+        // —dejando a la vista solo la × de su icono, que parecía un botón de
+        // cerrar suelto— y «Eliminar» entero. Dos acciones inalcanzables, no un
+        // recorte estético. Envolver es mejor que un scroll horizontal aquí:
+        // nadie descubre que una barra de botones se desplaza.
+        <div className="flex flex-none flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
           {accionesCabecera}
         </div>
       )}
