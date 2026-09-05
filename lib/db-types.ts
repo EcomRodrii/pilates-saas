@@ -951,6 +951,8 @@ export interface RowTiposClase {
   // programe la sesión, que es de donde salía el aforo antes de existir
   // esta columna — ver `aforoPorDefectoDeSesion()` en lib/aforo-logic.ts.
   aforo_por_defecto: number | null;
+  // migr 20260905011213.
+  requiere_autorizacion: boolean | null;
 }
 
 export interface RowUsuarios {
@@ -2459,4 +2461,12 @@ export interface RowDecisionSnapshots {
   es_valido: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface RowSocioTiposClaseAutorizados {
+  studio_id: string;
+  socio_id: string;
+  tipo_clase_id: string;
+  autorizada_en: string;
+  autorizada_por: string | null;
 }

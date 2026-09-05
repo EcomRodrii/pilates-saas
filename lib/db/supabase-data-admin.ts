@@ -1789,7 +1789,7 @@ type MotivoIntentoFallido =
   | 'LIMITE_SEMANAL' | 'MAX_SIMULTANEAS'
   // El CHECK de la columna lo amplía 20260903150000: sin eso, esta fila se
   // pierde en silencio (el insert va sin `await` a propósito).
-  | 'CONFLICTO_HORARIO';
+  | 'CONFLICTO_HORARIO' | 'NECESITA_AUTORIZACION';
 
 function registrarIntentoFallido(admin: SupabaseClient, params: {
   studioId: string; socioId: string; sesionId?: string | null; tipoClaseId?: string | null; motivo: MotivoIntentoFallido;
@@ -2020,6 +2020,13 @@ export async function crearReservaPublica(params: {
     if (error.message.includes('LIMITE_SEMANAL')) {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'LIMITE_SEMANAL' });
       return { error: 'Has alcanzado el máximo de clases por semana de tu plan' as const, codigo: 'limite-semanal' as const };
+    }
+    if (error.message.includes('NECESITA_AUTORIZACION')) {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'NECESITA_AUTORIZACION' });
+      // El mensaje no dice «no tienes nivel»: quien lo lee es la alumna, y el
+      // estudio decide cómo se lo cuenta en persona. Aquí solo se le dice que
+      // hable con el estudio, no se la juzga.
+      return { error: 'Esta clase necesita que el estudio te dé acceso. Escríbeles y te la abren.' as const, codigo: 'necesita-autorizacion' as const };
     }
     if (error.message.includes('AFORO_LLENO_SIN_ESPERA')) {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'AFORO_LLENO_SIN_ESPERA' });
@@ -2864,6 +2871,28 @@ export async function crearPlazaFijaPublica(params: {
     .eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
   if (!ses) return { error: 'Sesión no encontrada' as const };
   if (ses.cancelada) return { error: 'Esta clase está cancelada' as const };
+
+  // Niveles: sin esto, una socia podía crearse la plaza fija de una clase para
+  // la que no está autorizada. La reserva de ESA semana la rechazaba
+  // `reservar_plaza`, pero el fallo se ignoraba más abajo (se devuelve
+  // `ok: true` igual) y la plaza quedaba ACTIVA, así que el cron nocturno le
+  // confirmaba todas las ocurrencias siguientes. Encontrado en revisión de
+  // seguridad. El disparador de `reservas` lo corta igualmente; esto evita
+  // además dejar la fila huérfana y da un mensaje que se entiende.
+  if (ses.tipo_clase_id) {
+    const { data: tipo } = await admin
+      .from('tipos_clase').select('requiere_autorizacion')
+      .eq('id', ses.tipo_clase_id as string).eq('studio_id', params.studioId).maybeSingle();
+    if (tipo?.requiere_autorizacion) {
+      const { data: permiso } = await admin
+        .from('socio_tipos_clase_autorizados').select('tipo_clase_id')
+        .eq('studio_id', params.studioId)
+        .eq('socio_id', params.socioId)
+        .eq('tipo_clase_id', ses.tipo_clase_id as string)
+        .maybeSingle();
+      if (!permiso) return { error: 'Esta clase necesita que el estudio te dé acceso. Escríbeles y te la abren.' as const };
+    }
+  }
 
   const { dow, hora, minuto } = franjaLocalDe(ses.inicio as string);
   const horaInicio = `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}:00`;

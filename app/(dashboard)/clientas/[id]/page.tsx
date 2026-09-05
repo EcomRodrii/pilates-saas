@@ -17,6 +17,7 @@ import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puede
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
 import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
+import { FichaClasesAutorizadas } from '@/components/socios/ficha-clases-autorizadas';
 import { FichaExcepciones } from '@/components/socios/ficha-excepciones';
 import { FichaMandatoSepa } from '@/components/socios/ficha-mandato-sepa';
 import { FichaDocumentos } from '@/components/socios/ficha-documentos';
@@ -872,6 +873,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
                   {/* Recuperaciones (F2 · B2.3) */}
                   <FichaRecuperaciones socioId={id} onToast={setToast} />
+
+                  {/* Niveles: clases que solo reserva quien esté autorizada.
+                      Se pinta sola solo si el estudio ha marcado alguna. */}
+                  {studio && <FichaClasesAutorizadas socioId={id} studioId={studio.id} onToast={setToast} />}
 
                   {/* Excepciones (F2 · B2.9) */}
                   <FichaExcepciones socioId={id} onToast={setToast} />

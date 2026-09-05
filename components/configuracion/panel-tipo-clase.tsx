@@ -678,6 +678,27 @@ export function PanelTipoClase({
             />
           </CampoHeredado>
 
+          {/* Niveles. NO va en CampoHeredado: no hereda del estudio — que una
+              clase pida autorización es propiedad suya, no una política que
+              tenga un "por defecto" con sentido. */}
+          <div className="rounded-xl border border-border p-3.5">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.requiereAutorizacion}
+                onChange={e => setForm(f => ({ ...f, requiereAutorizacion: e.target.checked }))}
+                className="w-4 h-4 mt-0.5 rounded accent-brand shrink-0"
+              />
+              <span>
+                <span className="text-[13px] font-semibold text-foreground block">Solo para alumnas autorizadas</span>
+                <span className="text-[12px] text-muted-foreground block mt-0.5">
+                  Para clases con nivel o requisitos. Nadie puede reservarla salvo que se la abras
+                  desde su ficha, una a una. Si lo dejas apagado, la reserva cualquiera con plan.
+                </span>
+              </span>
+            </label>
+          </div>
+
           <CampoHeredado
             label="¿Hay lista de espera cuando se llena?"
             heredado={form.permiteListaEspera === 'hereda'}

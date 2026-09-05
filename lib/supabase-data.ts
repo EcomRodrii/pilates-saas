@@ -894,6 +894,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? null,
     requiereAprobacion: r.requiere_aprobacion ?? null,
+    requiereAutorizacion: r.requiere_autorizacion ?? false,
     listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? null,
     minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? null,
     penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
@@ -2386,6 +2387,48 @@ export async function dbAnularRecuperacion(id: string): Promise<ResultadoEscritu
   return error ? falloEscritura('[dbAnularRecuperacion]', error) : ESCRITURA_OK;
 }
 
+// ─── Niveles: qué clases tiene autorizadas cada socia ────────────────────────
+// Solo aplica a los tipos con `requiereAutorizacion`. Se lee por socia y no en
+// bloque con el resto del estudio: es un dato de su ficha, y meterlo en la
+// carga global lo dejaría creciendo con cada alumna sin que nadie lo mire.
+
+export async function dbListAutorizadosDeSocia(studioId: string, socioId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('socio_tipos_clase_autorizados')
+    .select('tipo_clase_id')
+    .eq('studio_id', studioId)
+    .eq('socio_id', socioId);
+  if (error) { reportDbError('[dbListAutorizadosDeSocia]', error); return []; }
+  return (data ?? []).map(r => r.tipo_clase_id as string);
+}
+
+export async function dbAutorizarTipoClase(
+  studioId: string, socioId: string, tipoClaseId: string,
+): Promise<ResultadoEscritura> {
+  // ⚠️ INSERT y no `upsert`: postgrest-js traduce `upsert` a
+  // `ON CONFLICT DO UPDATE`, que exige el privilegio UPDATE — revocado a
+  // propósito en esta tabla (es de alta y baja, nunca se modifica una fila).
+  // Con upsert fallaba SIEMPRE con 42501, también la primera vez.
+  // El duplicado (23505) se trata como éxito: autorizar dos veces es autorizar.
+  const { error } = await supabase
+    .from('socio_tipos_clase_autorizados')
+    .insert({ studio_id: studioId, socio_id: socioId, tipo_clase_id: tipoClaseId });
+  if (error && error.code !== '23505') return falloEscritura('[dbAutorizarTipoClase]', error);
+  return ESCRITURA_OK;
+}
+
+export async function dbDesautorizarTipoClase(
+  studioId: string, socioId: string, tipoClaseId: string,
+): Promise<ResultadoEscritura> {
+  const { error } = await supabase
+    .from('socio_tipos_clase_autorizados')
+    .delete()
+    .eq('studio_id', studioId)
+    .eq('socio_id', socioId)
+    .eq('tipo_clase_id', tipoClaseId);
+  return error ? falloEscritura('[dbDesautorizarTipoClase]', error) : ESCRITURA_OK;
+}
+
 /**
  * Suma días a la caducidad de los bonos vivos y las recuperaciones DISPONIBLE
  * de esas socias, en UNA transacción (migr 20260904182127). No toca las cuotas
@@ -2605,6 +2648,10 @@ export async function dbReservarPlaza(
   if (error) {
     reportDbError('[dbReservarPlaza]', error);
     if (error.message.includes('LIMITE_SEMANAL')) return { error: 'Ha alcanzado el máximo de clases por semana de su plan' };
+    // Sin esto, a recepción le salía literalmente «NECESITA_AUTORIZACION».
+    if (error.message.includes('NECESITA_AUTORIZACION')) {
+      return { error: 'Esta clase es solo para alumnas autorizadas. Autorízala en su ficha y vuelve a apuntarla.' };
+    }
     return { error: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;
@@ -3774,6 +3821,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     reserva_antelacion_maxima_dias: t.reservaAntelacionMaximaDias ?? null,
     permite_lista_espera: t.permiteListaEspera ?? null,
     requiere_aprobacion: t.requiereAprobacion ?? null,
+    requiere_autorizacion: t.requiereAutorizacion ?? false,
     lista_espera_plazo_aceptacion_minutos: t.listaEsperaPlazoAceptacionMinutos ?? null,
     minimo_asistentes_por_clase: t.minimoAsistentesPorClase ?? null,
     penalizacion_importe_eur: t.penalizacionImporteEur ?? null,
@@ -3800,6 +3848,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('reservaAntelacionMaximaDias' in changes) db.reserva_antelacion_maxima_dias = changes.reservaAntelacionMaximaDias;
   if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
   if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
+  if ('requiereAutorizacion' in changes) db.requiere_autorizacion = changes.requiereAutorizacion;
   if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
   if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
   if ('penalizacionImporteEur' in changes) db.penalizacion_importe_eur = changes.penalizacionImporteEur;
