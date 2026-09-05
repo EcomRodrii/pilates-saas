@@ -129,6 +129,22 @@ export function hoyEnEstudio(ahora: Date = new Date()): string {
   }).format(ahora);
 }
 
+/**
+ * Suma días a una fecha 'YYYY-MM-DD' y devuelve otra igual.
+ *
+ * Existe aparte de la aritmética con `Date` normal por dos motivos: no toca el
+ * reloj (`Date.UTC` con valores explícitos es determinista, así que se puede
+ * llamar durante el render sin saltarse la regla de pureza del compilador de
+ * React), y trabaja sobre la fecha del ESTUDIO — sumarle 14 días a un instante
+ * UTC puede caer en otro día natural del que se ve en el calendario.
+ *
+ * Admite días negativos.
+ */
+export function masDias(iso: string, dias: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + dias)).toISOString().slice(0, 10);
+}
+
 // ── Franja horaria local (día de la semana + hora del estudio) ──────────────
 //
 // Vive aquí, con TZ_ESTUDIO, porque la usan dos lados que no deberían

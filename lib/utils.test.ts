@@ -12,7 +12,7 @@
 // que un formateo que ignorase la zona fallaría en al menos uno de los dos.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana, compararVersiones, copiarAlPortapapeles, nombreCortoInstructora } from './utils.ts';
+import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana, compararVersiones, copiarAlPortapapeles, nombreCortoInstructora, masDias } from './utils.ts';
 
 test('compararVersiones: doble cifra no se ordena como texto', () => {
   assert.ok(compararVersiones('0.10', '0.9') > 0, '0.10 es mayor que 0.9 numéricamente');
@@ -232,4 +232,26 @@ test('nombreCortoInstructora usa el ÚLTIMO token como apellido', () => {
 test('nombreCortoInstructora aguanta espacios de sobra y cadena vacía', () => {
   assert.equal(nombreCortoInstructora('  Lucía   Ramos  '), 'Lucía R.');
   assert.equal(nombreCortoInstructora('   '), '');
+});
+
+// ── masDias ─────────────────────────────────────────────────────────────────
+
+test('masDias suma y resta días sobre una fecha del estudio', () => {
+  assert.equal(masDias('2026-09-05', 14), '2026-09-19');
+  assert.equal(masDias('2026-09-05', 0), '2026-09-05');
+  assert.equal(masDias('2026-09-05', -5), '2026-08-31');
+});
+
+test('masDias cruza mes, año y año bisiesto sin descuadrarse', () => {
+  assert.equal(masDias('2026-01-31', 1), '2026-02-01');
+  assert.equal(masDias('2026-12-31', 1), '2027-01-01');
+  assert.equal(masDias('2028-02-28', 1), '2028-02-29'); // 2028 es bisiesto
+  assert.equal(masDias('2027-02-28', 1), '2027-03-01'); // 2027 no lo es
+});
+
+test('masDias no se mueve con el cambio de hora', () => {
+  // El último domingo de octubre España atrasa el reloj. Sumando instantes UTC
+  // de 24 h, un rango que cruce ese día se queda corto; sobre la fecha, no.
+  assert.equal(masDias('2026-10-24', 2), '2026-10-26');
+  assert.equal(masDias('2026-03-28', 2), '2026-03-30');
 });
