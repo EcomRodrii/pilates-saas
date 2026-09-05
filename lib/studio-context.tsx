@@ -23,6 +23,7 @@ import {
   dbPonerExcepcion, dbQuitarExcepcion,
   dbUpsertMandatoSepa, dbCancelarMandatoSepa,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
+  dbReasignarInstructora,
   dbCancelarReservasPorSesiones,
   dbUpdateReserva, dbReservarPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbMarcarCobrado, dbUpdateRecibosBatch, dbDeleteRecibo,
@@ -416,6 +417,11 @@ interface StudioContextValue {
   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
   cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
+  /** Pasa las clases de una instructora a otra entre dos fechas. Devuelve los
+   *  ids movidos (para poder avisar a esas alumnas) y los que chocaron. */
+  reasignarInstructora: (
+    params: { origenId: string; destinoId: string; desde: string; hasta: string; omitirConflictos: boolean },
+  ) => Promise<{ ok: true; reasignadas: string[]; conflictos: string[] } | { ok: false; error: string }>;
   /** Marca CANCELADA las reservas activas de estas sesiones. Llamar SIEMPRE
    *  después de haber avisado a las socias (ver updateSesion). */
   cancelarReservasDeSesiones: (ids: string[], op: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
@@ -2783,6 +2789,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // instructora, aforo, notas) se aplican a todas; la hora se re-aplica a la
   // fecha de cada sesión (mantiene su día, cambia H:M). changes trae horaInicio/
   // horaFin en 'HH:MM' (hora local) para poder reconstruir inicio/fin por sesión.
+  // Reasignación en bloque (baja larga, cambio de cuadrante). La decisión de
+  // QUÉ clases entran vive en la RPC — replicar aquí el filtro de fechas en
+  // hora local sería tener el criterio en dos sitios. Al terminar se recarga:
+  // pueden haberse movido decenas de clases y el estado optimista no compensa
+  // en una acción tan rara.
+  async function reasignarInstructora(
+    params: { origenId: string; destinoId: string; desde: string; hasta: string; omitirConflictos: boolean },
+  ): Promise<{ ok: true; reasignadas: string[]; conflictos: string[] } | { ok: false; error: string }> {
+    const res = await dbReasignarInstructora(getCurrentStudioId(), params);
+    if (res.ok && res.reasignadas.length > 0) resetDatosPilates();
+    return res;
+  }
+
   async function editarSerieDesde(
     sesionId: string,
     changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string },
@@ -4828,6 +4847,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     deleteSesion,
     addSesionesSerie,
     editarSerieDesde,
+    reasignarInstructora,
     cancelarSerieDesde,
     cancelarReservasDeSesiones,
     addReserva,

@@ -10,14 +10,16 @@ import {
   Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History,
   CalendarClock, CalendarOff, Copy, Star, Search, MoreVertical, Camera, Loader2, Clock, Download,
   ChevronLeft, ChevronRight, Plane, Stethoscope, AlertTriangle, MessageCircle, Bell, Euro, TrendingUp,
-  Network,
+  Network, ArrowLeftRight,
 } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
-import { formatFechaHora, formatFechaLarga, uid as generarId, cn } from '@/lib/utils';
+import { formatFechaHora, formatFechaLarga, uid as generarId, cn, hoyEnEstudio, masDias, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { mapLimit } from '@/lib/concurrency';
 import { resumenHoras } from '@/lib/equipo/horas-contrato.ts';
 import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
 import {
   generarEnlaceDisponibilidad, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia,
+  avisarCambioClaseServidor,
   fetchTarifasEquipo, actualizarTarifaInstructor, tarjetasEquipo,
   type ValoracionDetalle, type AusenciaInstructora,
 } from '@/lib/api-client';
@@ -116,7 +118,7 @@ export default function EquipoPage() {
   const gestiona = miRol !== 'INSTRUCTOR';
   const uid = useId();
   const router = useRouter();
-  const { instructores, sesiones, tiposClase, addInstructor, updateInstructor, deleteInstructor, actividadReciente, dependencySnapshots } = useStudio();
+  const { instructores, sesiones, tiposClase, salas, reservas, addInstructor, updateInstructor, deleteInstructor, actividadReciente, dependencySnapshots } = useStudio();
 
   const [tab, setTab] = useState<'equipo' | 'actividad'>('equipo');
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
@@ -276,6 +278,7 @@ export default function EquipoPage() {
 
   const [verValor, setVerValor] = useState<Instructor | null>(null);
   const [verHoras, setVerHoras] = useState<Instructor | null>(null);
+  const [reasignarDe, setReasignarDe] = useState<Instructor | null>(null);
   const [verAusencias, setVerAusencias] = useState<Instructor | null>(null);
 
   function instructorDe(m: MiembroCompleto): Instructor | null {
@@ -549,6 +552,7 @@ export default function EquipoPage() {
               onHoras={() => { setMenuCardId(null); setVerHoras(instructorDe(m)); }}
               onAusencias={() => { setMenuCardId(null); setVerAusencias(instructorDe(m)); }}
               onEnlaceBaja={() => { setMenuCardId(null); abrirEnlace(m, 'reportar_baja'); }}
+              onReasignar={() => { setMenuCardId(null); setReasignarDe(instructorDe(m)); }}
               ausente={ausenciaHoy(ausencias, m.id)}
               invitando={invitando === m.id}
               onInvitar={() => { const i = instructorDe(m); if (i) enviarInvitacion(i); }}
@@ -780,6 +784,16 @@ export default function EquipoPage() {
       </Dialog>
 
       <ValoracionesDialog instructor={verValor} tiposClase={tiposClase} onClose={() => setVerValor(null)} />
+      <ReasignarDialog
+        instructor={reasignarDe}
+        instructores={instructores}
+        sesiones={sesiones}
+        tiposClase={tiposClase}
+        salas={salas}
+        reservas={reservas}
+        onClose={() => setReasignarDe(null)}
+        onToast={showToast}
+      />
       <HorasDialog
         instructor={verHoras}
         sesiones={sesiones}
@@ -875,13 +889,13 @@ const ACCION_ICONO: Record<AccionTipo, typeof Bell> = {
 
 function TarjetaMiembro({
   m, rolViewer, gestiona, refCb, pedido, diaSel, onDiaSel, menuAbierto, onMenu, onAccion,
-  onEditar, onEliminar, onValoraciones, onHoras, onAusencias, onEnlaceBaja, ausente, invitando, onInvitar,
+  onEditar, onEliminar, onValoraciones, onHoras, onAusencias, onEnlaceBaja, onReasignar, ausente, invitando, onInvitar,
 }: {
   m: MiembroCompleto; rolViewer: Rol; gestiona: boolean; refCb: (el: HTMLElement | null) => void;
   pedido: boolean; diaSel: number | null; onDiaSel: (i: number) => void;
   menuAbierto: boolean; onMenu: () => void; onAccion: (tipo: AccionTipo) => void;
   onEditar: () => void; onEliminar: () => void; onValoraciones: () => void; onHoras: () => void;
-  onAusencias: () => void; onEnlaceBaja: () => void;
+  onAusencias: () => void; onEnlaceBaja: () => void; onReasignar: () => void;
   ausente?: AusenciaInstructora | null; invitando?: boolean; onInvitar?: () => void;
 }) {
   const ahora = new Date();
@@ -952,6 +966,9 @@ function TarjetaMiembro({
                     </button>
                     <button onClick={onEnlaceBaja} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
                       <CalendarOff size={14} className="text-muted-foreground" /> {TEXTOS_ENLACE.reportar_baja.menu}
+                    </button>
+                    <button onClick={onReasignar} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-foreground hover:bg-muted text-left">
+                      <ArrowLeftRight size={14} className="text-muted-foreground" /> Pasar sus clases a otra
                     </button>
                   </>
                 )}
@@ -1106,6 +1123,195 @@ function ActividadTab({ actividadReciente }: { actividadReciente: import('@/lib/
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Pasar las clases de una instructora a otra ──────────────────────────────
+// El caso: una baja larga, un cambio de cuadrante. Antes había que abrir clase
+// por clase, y "editar esta y las siguientes" no sirve — exige serie y solo
+// llega al final de ESA serie, mientras que una baja cruza series distintas,
+// clases sueltas y varios días.
+//
+// ⚠️ No confundir con el motor de sustituciones: esto no busca a nadie ni
+// pregunta. Es la propietaria diciendo a quién le pasa las clases.
+
+function ReasignarDialog({ instructor, instructores, sesiones, tiposClase, salas, reservas, onClose, onToast }: {
+  instructor: Instructor | null;
+  instructores: Instructor[];
+  sesiones: Sesion[];
+  tiposClase: TipoClase[];
+  salas: { id: string; nombre: string }[];
+  reservas: { sesionId: string; estado: string }[];
+  onClose: () => void;
+  onToast: (m: string) => void;
+}) {
+  const { reasignarInstructora } = useStudio();
+  const hoy = hoyEnEstudio();
+  const en14 = masDias(hoy, 14);
+
+  const [destinoId, setDestinoId] = useState('');
+  const [desde, setDesde] = useState(hoy);
+  const [hasta, setHasta] = useState(en14);
+  const [omitir, setOmitir] = useState(true);
+  const [avisar, setAvisar] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [resultado, setResultado] = useState<{ movidas: number; conflictos: number; avisadas: number } | null>(null);
+
+  // Reinicia al cambiar de instructora, sin efecto (patrón ya usado arriba).
+  const [anteriorId, setAnteriorId] = useState(instructor?.id);
+  if (instructor?.id !== anteriorId) {
+    setAnteriorId(instructor?.id);
+    setDestinoId(''); setDesde(hoy); setHasta(en14);
+    setOmitir(true); setAvisar(true); setError(null); setResultado(null);
+  }
+
+  // Mismo criterio de fecha que la RPC (hora local del estudio): si aquí se
+  // contara en la del navegador, el número que se enseña no sería el que se va
+  // a mover, y eso se descubre cuando ya está hecho.
+  const candidatas = useMemo(() => {
+    if (!instructor) return [];
+    return sesiones.filter(s => {
+      if (s.instructorId !== instructor.id || s.cancelada) return false;
+      const dia = hoyEnEstudio(new Date(s.inicio));
+      return dia >= desde && dia <= hasta;
+    });
+  }, [instructor, sesiones, desde, hasta]);
+
+  const idsCandidatas = useMemo(() => new Set(candidatas.map(s => s.id)), [candidatas]);
+  const apuntadas = reservas.filter(r => idsCandidatas.has(r.sesionId) && r.estado === 'CONFIRMADA').length;
+  const destinos = instructores.filter(i => i.activo && i.id !== instructor?.id);
+  const rangoValido = hasta >= desde;
+
+  async function ejecutar() {
+    if (!instructor || !destinoId || enviando || !rangoValido) return;
+    setEnviando(true);
+    setError(null);
+    // Se captura ANTES: al terminar, el contexto se recarga y esas sesiones ya
+    // figuran con la instructora nueva — el aviso necesita saber quién la daba.
+    const antes = candidatas;
+    const destino = instructores.find(i => i.id === destinoId);
+    const res = await reasignarInstructora({
+      origenId: instructor.id, destinoId, desde, hasta, omitirConflictos: omitir,
+    });
+    if (!res.ok) {
+      setEnviando(false);
+      setError(res.error === 'CONFLICTO_SIN_OMITIR'
+        ? `${destino?.nombre ?? 'Esa instructora'} ya tiene otra clase a la misma hora que alguna de estas. Marca "saltar las que choquen" para mover el resto.`
+        : res.error);
+      return;
+    }
+
+    let avisadas = 0;
+    if (avisar && res.reasignadas.length > 0) {
+      const porId = new Map(antes.map(s => [s.id, s]));
+      await mapLimit(res.reasignadas, 5, async (id) => {
+        const s = porId.get(id);
+        if (!s) return;
+        const d = new Date(s.inicio);
+        const enviado = await avisarCambioClaseServidor(id, {
+          clase: tiposClase.find(t => t.id === s.tipoClaseId)?.nombre ?? 'Clase',
+          cuando: cuandoEstudio(d),
+          sala: salas.find(x => x.id === s.salaId)?.nombre ?? '',
+          instructora: destino?.nombre ?? '',
+          instructorActual: destino?.nombre ?? '',
+          fecha: fechaLargaEstudio(d),
+          hora: horaEstudio(d),
+          instructorAnterior: instructor.nombre,
+          cambioHora: false,
+          cambioSala: false,
+        });
+        if (enviado) avisadas += enviado.enviados + enviado.enApp;
+      });
+    }
+
+    setEnviando(false);
+    setResultado({ movidas: res.reasignadas.length, conflictos: res.conflictos.length, avisadas });
+    if (res.reasignadas.length > 0) onToast(`${res.reasignadas.length} clase(s) ahora las da ${destino?.nombre ?? 'la nueva instructora'}`);
+  }
+
+  return (
+    <Dialog open={instructor !== null} onOpenChange={o => !o && !enviando && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Pasar las clases de {instructor?.nombre}</DialogTitle></DialogHeader>
+
+        {resultado ? (
+          <div className="space-y-4">
+            <p className="text-[13px] text-foreground">
+              {resultado.movidas === 0
+                ? 'No había ninguna clase suya en esas fechas.'
+                : `${resultado.movidas} clase${resultado.movidas === 1 ? '' : 's'} cambiada${resultado.movidas === 1 ? '' : 's'} de instructora.`}
+              {resultado.conflictos > 0 && ` ${resultado.conflictos} se quedaron sin mover porque ya tenía otra clase a esa hora.`}
+              {resultado.avisadas > 0 && ` Se ha avisado a ${resultado.avisadas} alumna(s).`}
+            </p>
+            <button onClick={onClose} className="w-full py-2 rounded-xl text-[13px] font-bold text-primary-foreground bg-primary hover:brightness-95">
+              Cerrar
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <label htmlFor="reasig-destino" className={labelCls}>¿Quién las da a partir de ahora?</label>
+              <select id="reasig-destino" className={inputCls} value={destinoId} disabled={enviando}
+                onChange={e => setDestinoId(e.target.value)}>
+                <option value="">Elige a alguien…</option>
+                {destinos.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="reasig-desde" className={labelCls}>Desde</label>
+                <input id="reasig-desde" type="date" className={inputCls} value={desde} disabled={enviando}
+                  onChange={e => setDesde(e.target.value)} />
+              </div>
+              <div>
+                <label htmlFor="reasig-hasta" className={labelCls}>Hasta</label>
+                <input id="reasig-hasta" type="date" className={inputCls} value={hasta} disabled={enviando}
+                  onChange={e => setHasta(e.target.value)} />
+              </div>
+            </div>
+            {!rangoValido && <p role="alert" className="text-[11.5px] text-destructive">La fecha de fin es anterior a la de inicio.</p>}
+
+            <p className="text-[12.5px] text-muted-foreground">
+              {candidatas.length === 0
+                ? 'No tiene ninguna clase en esas fechas.'
+                : `${candidatas.length} clase${candidatas.length === 1 ? '' : 's'} en ese periodo${apuntadas > 0 ? `, con ${apuntadas} alumna(s) apuntada(s)` : ', sin nadie apuntado'}.`}
+            </p>
+
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input type="checkbox" checked={omitir} disabled={enviando} onChange={e => setOmitir(e.target.checked)} className="w-4 h-4 mt-0.5 rounded accent-brand" />
+              <span className="text-[12.5px] text-foreground">
+                Saltar las que choquen
+                <span className="block text-[11.5px] text-muted-foreground">Si a esa hora ya da otra clase, esa se queda como está en vez de fallar todo.</span>
+              </span>
+            </label>
+
+            {apuntadas > 0 && (
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={avisar} disabled={enviando} onChange={e => setAvisar(e.target.checked)} className="w-4 h-4 mt-0.5 rounded accent-brand" />
+                <span className="text-[12.5px] text-foreground">
+                  Avisar a las alumnas del cambio
+                  <span className="block text-[11.5px] text-muted-foreground">Por email y aviso en su app, una vez por clase.</span>
+                </span>
+              </label>
+            )}
+
+            {error && <p role="alert" className="text-[12.5px] text-destructive">{error}</p>}
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={onClose} disabled={enviando}
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted disabled:opacity-40">
+                Cancelar
+              </button>
+              <button onClick={ejecutar} disabled={enviando || !destinoId || candidatas.length === 0 || !rangoValido}
+                className="flex-1 py-2 rounded-xl text-[13px] font-bold text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95">
+                {enviando ? 'Pasando…' : `Pasar ${candidatas.length} clase${candidatas.length === 1 ? '' : 's'}`}
+              </button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

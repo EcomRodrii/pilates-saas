@@ -2545,6 +2545,49 @@ export async function dbUpdateSerieDesde(
   return error ? falloEscritura('[dbUpdateSerieDesde]', error) : { ...ESCRITURA_OK, count: data as number };
 }
 
+/**
+ * Pasa las clases de una instructora a otra entre dos fechas (migr
+ * 20260905003749). Devuelve una fila por clase para poder distinguir las que se
+ * movieron de las que chocaron — un contador solo no permite ni avisar a las
+ * alumnas correctas ni decir cuáles se quedaron sin mover.
+ */
+export async function dbReasignarInstructora(
+  studioId: string,
+  params: { origenId: string; destinoId: string; desde: string; hasta: string; omitirConflictos: boolean },
+): Promise<
+  | { ok: true; reasignadas: string[]; conflictos: string[] }
+  | { ok: false; error: string }
+> {
+  const { data, error } = await supabase.rpc('reasignar_instructora', {
+    p_studio_id: studioId,
+    p_instructor_origen: params.origenId,
+    p_instructor_destino: params.destinoId,
+    p_desde: params.desde,
+    p_hasta: params.hasta,
+    p_omitir_conflictos: params.omitirConflictos,
+  });
+  if (error) {
+    reportDbError('[dbReasignarInstructora]', error);
+    const m = error.message;
+    if (m.includes('NO_AUTORIZADO')) return { ok: false, error: 'No tienes permiso para reasignar clases' };
+    if (m.includes('MISMA_INSTRUCTORA')) return { ok: false, error: 'Elige una instructora distinta de la actual' };
+    if (m.includes('DESTINO_INACTIVA')) return { ok: false, error: 'Esa instructora está dada de baja: sus clases se quedarían sin nadie' };
+    if (m.includes('RANGO_DEMASIADO_LARGO')) return { ok: false, error: 'El periodo no puede pasar de un año' };
+    if (m.includes('RANGO_INVALIDO')) return { ok: false, error: 'La fecha de fin es anterior a la de inicio' };
+    // 23P01: la destino ya tenía clase a esa hora y no se pidió saltarlas.
+    if (m.includes('23P01') || m.toLowerCase().includes('exclusion')) {
+      return { ok: false, error: 'CONFLICTO_SIN_OMITIR' };
+    }
+    return { ok: false, error: mensajeDeFalloAlGuardar(error) };
+  }
+  const filas = (data ?? []) as { id_sesion: string; resultado: string }[];
+  return {
+    ok: true,
+    reasignadas: filas.filter(f => f.resultado === 'REASIGNADA').map(f => f.id_sesion),
+    conflictos: filas.filter(f => f.resultado === 'CONFLICTO').map(f => f.id_sesion),
+  };
+}
+
 export async function dbDeleteSesion(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('sesiones').delete().eq('id', id);
   return error ? falloEscritura('[dbDeleteSesion]', error) : ESCRITURA_OK;
