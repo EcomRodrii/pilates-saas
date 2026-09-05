@@ -35,14 +35,19 @@ const nextConfig: NextConfig = {
   // El bloque estaba además envuelto en un `NODE_ENV === 'production' ? {} : …`
   // que no protegía nada: `main` no tiene ninguna otra opción `experimental`.
   //
-  // ⚠️ `staticPageGenerationTimeout` NO se toca aquí, pero ojo con él: 999999
-  // segundos no es «desactivar el aviso en dev» como decía su comentario — la
-  // opción no distingue dev de producción, así que una página que se cuelgue
-  // en el build deja de fallar al minuto y pasa a colgar el build ~11 días.
-  // Se deja como está porque es una clave VÁLIDA y cambiar su valor es una
-  // decisión de producto, no la limpieza de claves muertas que hace este
-  // commit.
-  staticPageGenerationTimeout: 999999,
+  // Segundos que Next espera a que se genere una página estática antes de
+  // rendirse. El default de Next 16 son 60 (ver `@default 60` en
+  // next/dist/server/config-shared.d.ts); aquí van 120 para dar holgura al
+  // build más pesado sin renunciar a que exista un techo.
+  //
+  // ⚠️ Estuvo en 999999 con el comentario «Disable static generation timing in
+  // dev», y las dos mitades de esa frase eran falsas: la opción NO distingue
+  // dev de producción, así que también aplicaba al build real, y 999999 s no
+  // «desactiva un aviso» — son ~11 días. Una página que se colgara en el build
+  // dejaba de fallar en un minuto y pasaba a colgar el build hasta que lo
+  // matara el timeout del runner, que es el peor final posible: se lee como
+  // «CI lenta», no como «hay una página rota».
+  staticPageGenerationTimeout: 120,
   // URL limpia para el origen dedicado de temas ZIP publicados
   // (`imports.tentare.app/<slug>` en vez de `/tema-publicado/<slug>`). Esto
   // es SOLO azúcar de URL — la cerradura real de seguridad vive DENTRO del
