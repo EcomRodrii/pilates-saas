@@ -10,6 +10,14 @@ const nextConfig: NextConfig = {
     ignoreDevErrors: true,  // Allow dev server to start even with type errors
     tsconfigPath: process.env.NODE_ENV === 'production' ? './tsconfig.json' : './tsconfig.dev.json',
   },
+  // EMERGENCY: Disable experimental features that consume CPU
+  experimental: process.env.NODE_ENV === 'production' ? {} : {
+    // Disable polling-based features in dev
+    optimizePackageImports: false,
+    turbopack: false,  // Use webpack instead of turbopack
+  },
+  // Disable static generation timing in dev
+  staticPageGenerationTimeout: 999999,
   // URL limpia para el origen dedicado de temas ZIP publicados
   // (`imports.tentare.app/<slug>` en vez de `/tema-publicado/<slug>`). Esto
   // es SOLO azúcar de URL — la cerradura real de seguridad vive DENTRO del
