@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { ChevronDown, Sparkles, X } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from '@/components/ui/collapsible';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
@@ -73,6 +73,9 @@ function Seccion({
   ayuda,
   resumen,
   defaultOpen = false,
+  abierta,
+  onAbrir,
+  anclaRef,
   children,
 }: {
   titulo: string;
@@ -80,10 +83,20 @@ function Seccion({
   /** Lo configurado aquí dentro, en una línea. */
   resumen?: string;
   defaultOpen?: boolean;
+  /** Modo controlado: para poder abrirla desde fuera (p. ej. desde la
+   *  previsualización, que enseña justo lo que se configura aquí dentro). */
+  abierta?: boolean;
+  onAbrir?: (abierta: boolean) => void;
+  anclaRef?: React.Ref<HTMLDivElement>;
   children: React.ReactNode;
 }) {
+  const controlada = abierta !== undefined;
   return (
-    <Collapsible defaultOpen={defaultOpen} className="border-t border-border">
+    <Collapsible
+      ref={anclaRef}
+      {...(controlada ? { open: abierta, onOpenChange: onAbrir } : { defaultOpen })}
+      className="border-t border-border"
+    >
       <CollapsibleTrigger className="w-full py-4 text-left">
         <ChevronDown aria-hidden="true" className="shrink-0 text-muted-foreground" />
         <span className="flex-1 min-w-0">
@@ -280,7 +293,11 @@ function Segmentado<T extends string | number>({
 }
 
 /** "Así la verá tu alumna" — lo que se está configurando, con su forma real. */
-function Previsualizacion({ form, fotoUrl, logoUrl }: { form: ClaseForm; fotoUrl?: string | null; logoUrl?: string | null }) {
+function Previsualizacion({ form, fotoUrl, logoUrl, onEditarImagenes }: {
+  form: ClaseForm; fotoUrl?: string | null; logoUrl?: string | null;
+  /** Sin esto la previsualización enseña dos imágenes y no dice cómo se ponen. */
+  onEditarImagenes?: () => void;
+}) {
   const partes = [NIVEL_LABELS[form.nivel], `${form.duracionMinutos || '—'} min`];
   const plazas = plazasSiPropias(form.aforoPorDefecto);
   if (plazas) partes.push(plazas);
@@ -316,7 +333,23 @@ function Previsualizacion({ form, fotoUrl, logoUrl }: { form: ClaseForm; fotoUrl
         alt=""
         className="mt-2 h-20 w-full rounded-lg border border-black/5 object-cover"
       />
-      <p className="mt-1 text-[10.5px] text-muted-foreground">Arriba, en el horario. Abajo, al abrir la clase.</p>
+      {/* ⚠️ Este pie era solo un cartel, y por eso se reportó «no se puede
+          agregar ni banner ni logo»: los controles SÍ existen, pero viven
+          dentro de una sección plegada cuyo resumen habla de objetivos y no
+          menciona ninguna imagen. Quien mira esta previsualización tiene ya la
+          intención delante — el sitio del botón es aquí. */}
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <p className="text-[10.5px] text-muted-foreground">Arriba, en el horario. Abajo, al abrir la clase.</p>
+        {onEditarImagenes && (
+          <button
+            type="button"
+            onClick={onEditarImagenes}
+            className="text-[10.5px] font-semibold text-brand underline underline-offset-2 hover:opacity-80"
+          >
+            {logoUrl || fotoUrl ? 'Cambiar logo o banner' : 'Poner logo y banner'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -402,6 +435,17 @@ export function PanelTipoClase({
   // a partir de ahí, se corrigen en vivo. Un "Ponle un nombre" en rojo antes de
   // haber podido teclear la primera letra es ruido, no ayuda.
   const [intentado, setIntentado] = useState(false);
+  // La sección de imágenes se abre también desde la previsualización, así que
+  // va controlada. Se despliega Y se trae a la vista: abrirla sin desplazar
+  // deja el cambio fuera de pantalla en un panel que ya viene con scroll.
+  const [seccionImagenes, setSeccionImagenes] = useState(false);
+  const refImagenes = useRef<HTMLDivElement>(null);
+  const abrirImagenes = () => {
+    setSeccionImagenes(true);
+    requestAnimationFrame(() =>
+      refImagenes.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    );
+  };
   const zoomConectado = !!studio?.zoomEmail;
 
   const nombreVacio = form.nombre.trim() === '';
@@ -459,7 +503,12 @@ export function PanelTipoClase({
 
       {/* ─── Cuerpo ─── */}
       <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-7">
-        <Previsualizacion form={form} fotoUrl={editando?.fotoUrl} logoUrl={editando?.logoUrl} />
+        <Previsualizacion
+          form={form}
+          fotoUrl={editando?.fotoUrl}
+          logoUrl={editando?.logoUrl}
+          onEditarImagenes={modo === 'editar' ? abrirImagenes : undefined}
+        />
 
         {/* NIVEL 1 — lo básico, siempre a la vista */}
         <div className="space-y-5 py-5">
@@ -569,57 +618,28 @@ export function PanelTipoClase({
 
         {/* NIVEL 2 — cómo la encuentran */}
         <Seccion
-          titulo="Cómo la encuentran tus alumnas"
+          titulo="Imágenes y cómo la encuentran tus alumnas"
           ayuda="Lo que ve quien entra en tu página de reservas sin conocer todavía tu estudio."
+          abierta={seccionImagenes}
+          onAbrir={setSeccionImagenes}
+          anclaRef={refImagenes}
           resumen={
-            form.objetivos.length > 0
-              ? `${form.objetivos.length} objetivo${form.objetivos.length === 1 ? '' : 's'}${form.descripcion.trim() ? ' · con descripción' : ''}`
-              : 'Se ofrece para todos los objetivos'
+            // El resumen es la única pista de lo que hay dentro cuando está
+            // plegada. Antes solo hablaba de objetivos, así que el logo y el
+            // banner no se mencionaban en ninguna parte de la pantalla salvo
+            // en una previsualización que no se podía tocar.
+            [
+              modo === 'editar'
+                ? [editando?.logoUrl && 'con logo', editando?.fotoUrl && 'con banner']
+                    .filter(Boolean).join(' · ') || 'sin logo ni banner'
+                : null,
+              form.objetivos.length > 0
+                ? `${form.objetivos.length} objetivo${form.objetivos.length === 1 ? '' : 's'}`
+                : 'todos los objetivos',
+              form.descripcion.trim() ? 'con descripción' : null,
+            ].filter(Boolean).join(' · ')
           }
         >
-          <Campo
-            label="¿Para qué sirve esta clase?"
-            ayuda="Lo usa el asistente de tu página pública para recomendarla. Sin marcar nada, se ofrece para todo."
-          >
-            <div className="flex flex-wrap gap-2">
-              {OBJETIVOS.map(o => {
-                const activo = form.objetivos.includes(o.id);
-                return (
-                  <button
-                    key={o.id}
-                    type="button"
-                    title={o.ayuda}
-                    aria-pressed={activo}
-                    onClick={() =>
-                      setForm(f => ({
-                        ...f,
-                        objetivos: activo ? f.objetivos.filter(x => x !== o.id) : [...f.objetivos, o.id],
-                      }))
-                    }
-                    className={cn(
-                      'rounded-full border px-3.5 py-2 text-[12.5px] font-medium transition-colors',
-                      activo
-                        ? 'border-transparent bg-brand text-brand-foreground'
-                        : 'border-border text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
-            </div>
-          </Campo>
-
-          <Campo label="Descripción" ayuda="Qué se trabaja y para quién es. Aparece en la página de reservas.">
-            <textarea
-              className={cn(inputCls, 'h-20 resize-none')}
-              value={form.descripcion}
-              onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
-              placeholder="Breve descripción de la clase..."
-              aria-label="Descripción de la clase"
-            />
-          </Campo>
-
           {/* La foto necesita el id de la clase para subirse a Storage, así que
               solo aparece al editar — enseñar un campo inservible al crear era
               peor que no enseñarlo (P4). */}
@@ -665,6 +685,50 @@ export function PanelTipoClase({
               </Campo>
             </>
           )}
+
+          <Campo
+            label="¿Para qué sirve esta clase?"
+            ayuda="Lo usa el asistente de tu página pública para recomendarla. Sin marcar nada, se ofrece para todo."
+          >
+            <div className="flex flex-wrap gap-2">
+              {OBJETIVOS.map(o => {
+                const activo = form.objetivos.includes(o.id);
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    title={o.ayuda}
+                    aria-pressed={activo}
+                    onClick={() =>
+                      setForm(f => ({
+                        ...f,
+                        objetivos: activo ? f.objetivos.filter(x => x !== o.id) : [...f.objetivos, o.id],
+                      }))
+                    }
+                    className={cn(
+                      'rounded-full border px-3.5 py-2 text-[12.5px] font-medium transition-colors',
+                      activo
+                        ? 'border-transparent bg-brand text-brand-foreground'
+                        : 'border-border text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          </Campo>
+
+          <Campo label="Descripción" ayuda="Qué se trabaja y para quién es. Aparece en la página de reservas.">
+            <textarea
+              className={cn(inputCls, 'h-20 resize-none')}
+              value={form.descripcion}
+              onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+              placeholder="Breve descripción de la clase..."
+              aria-label="Descripción de la clase"
+            />
+          </Campo>
+
         </Seccion>
 
         {/* NIVEL 3 — reservas */}
