@@ -4,7 +4,7 @@ import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
 import { enviarEmailInvitacionEquipo } from '@/lib/emails/invitacion-equipo-server';
-import { firmarTokenInstructora } from '@/lib/sustituciones/token';
+import { obtenerOFirmarEnlace } from '@/lib/sustituciones/enlaces';
 import { ErrorAccion } from '@/lib/actions/errores';
 
 /**
@@ -61,6 +61,12 @@ export async function equipoInvitarAction(input: Record<string, unknown>) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
 
+  // Reenviar la invitación reutiliza el enlace vigente si aún es válido, o lo
+  // regenera y REVOCA el anterior (instructor_enlaces_vigentes, migr
+  // 20260905014901) — antes cada reenvío firmaba un token independiente y los
+  // 30 días de validez del anterior seguían corriendo sin que nada lo supiera.
+  const token = await obtenerOFirmarEnlace(admin, sesion.studioId, instructor.id as string, 'invitacion', sesion.rol);
+
   await enviarEmailInvitacionEquipo({
     to: instructor.email as string,
     nombre: instructor.nombre as string,
@@ -69,9 +75,7 @@ export async function equipoInvitarAction(input: Record<string, unknown>) {
     colorPrimario: studio?.color_primario,
     logoUrl: studio?.logo_url,
     rol: instructor.rol as string,
-    url: `${appUrl}/invitacion?token=${encodeURIComponent(
-      firmarTokenInstructora(instructor.id as string, sesion.studioId, 'invitacion', sesion.rol),
-    )}`,
+    url: `${appUrl}/invitacion?token=${encodeURIComponent(token)}`,
   });
 
   return { ok: true, email: instructor.email };
