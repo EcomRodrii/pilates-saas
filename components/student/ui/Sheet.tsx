@@ -60,6 +60,10 @@ export function Sheet({ open, onClose, children, label }: {
         role="dialog"
         aria-modal
         aria-label={label}
+        // Cerrada solo está DESPLAZADA fuera de pantalla (para la animación de
+        // salida): sin esto, Tab desde el CTA entraba en sus enlaces invisibles
+        // y VoiceOver la leía como parte de la página.
+        inert={!open}
         style={{
           position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 51, maxWidth: 640, margin: '0 auto',
           background: 'var(--background)',
@@ -82,7 +86,10 @@ export function Sheet({ open, onClose, children, label }: {
         >
           <div style={{ width: 34, height: 4, borderRadius: 99, background: 'var(--border-strong)', margin: '0 auto' }} />
         </div>
-        <div style={{ padding: '10px 18px 26px' }}>{children}</div>
+        {/* Tope de altura: con mucho contenido (bio larga + lista) el panel
+            tapaba el velo y el handle quedaba fuera de pantalla — sin forma
+            táctil de cerrar. */}
+        <div style={{ padding: '10px 18px 26px', maxHeight: 'calc(100dvh - 120px)', overflowY: 'auto', overscrollBehavior: 'contain' }}>{children}</div>
       </div>
     </>
   );

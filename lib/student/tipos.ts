@@ -21,7 +21,14 @@ export interface StudioConfig {
 
 export interface Alumna { id: string; nombre: string; apellidos: string; email: string; telefono?: string; fotoUrl?: string | null; }
 
-export interface Instructora { id: string; nombre: string; iniciales: string; fotoUrl: string | null; especialidades: string[]; rating?: number; bio?: string; }
+export interface Instructora {
+  id: string; nombre: string; iniciales: string; fotoUrl: string | null; especialidades: string[];
+  /** Media, solo con ≥5 votos (ver mapeo). */
+  rating?: number;
+  /** Cuántas valoraciones respaldan la media. */
+  valoraciones?: number;
+  bio?: string;
+}
 
 export type NivelClase = 'Todos' | 'Iniciación' | 'Medio' | 'Avanzado';
 

@@ -287,6 +287,7 @@ export function proyectarInstructoras(d: PayloadMin): Instructora[] {
       // trae media Y total precisamente por esto: con dos votos, un «5,0» dice
       // que es perfecta cuando lo que pasa es que la han puntuado dos veces.
       rating: i.valoracion && i.valoracion.total >= 5 ? i.valoracion.media : undefined,
+      valoraciones: i.valoracion && i.valoracion.total >= 5 ? i.valoracion.total : undefined,
       bio: i.bio ?? undefined,
     }));
 }

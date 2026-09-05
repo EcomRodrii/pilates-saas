@@ -6,7 +6,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
-import { getBonos, getClase, getInstructoras, getReservas } from '@/lib/student/datos';
+import { getBonos, getClase, getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { getFavoritos } from '@/lib/student/favoritos';
 import { confirmarReserva } from '@/lib/student/reservar';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
@@ -21,6 +21,7 @@ import { BookingSummary } from '@/components/student/domain/BookingSummary';
 import { BookingStatus } from '@/components/student/domain/BookingStatus';
 import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { FavoritoButton } from '@/components/student/domain/FavoritoButton';
+import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 
 // Ficha de clase + hoja de reserva (§A.7). Es la pantalla donde la máquina de
 // estados del paquete se conecta al servidor real.
@@ -46,12 +47,15 @@ export default function FichaClasePage() {
   // Corazón optimista: `null` = lo que diga el payload; true/false = lo que
   // acaba de pulsar la alumna (y se revierte si el servidor dice que no).
   const [favoritaLocal, setFavoritaLocal] = useState<boolean | null>(null);
+  const [verInstructora, setVerInstructora] = useState(false);
 
   const cargar = useCallback(async () => {
-    const [clase, reservas, bonos, instructoras, favoritos] = await Promise.all([
-      getClase(estudio.slug, claseId), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getFavoritos(estudio.slug),
+    // `getClases` sale del MISMO payload que `getClase`: la ficha de la
+    // instructora enseña sus próximas clases sin una petición más.
+    const [clase, reservas, bonos, instructoras, favoritos, clases] = await Promise.all([
+      getClase(estudio.slug, claseId), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getFavoritos(estudio.slug), getClases(estudio.slug),
     ]);
-    return { clase, reservas, bonos, instructoras, favoritos };
+    return { clase, reservas, bonos, instructoras, favoritos, clases };
   }, [estudio.slug, claseId]);
 
   const { data, estado, reintentar } = useAsync(cargar, (d) => !d.clase);
@@ -65,6 +69,9 @@ export default function FichaClasePage() {
 
   /** Cambia de estado solo si la máquina lo permite. */
   const ir = useCallback((a: BookingState) => {
+    // Una hoja a la vez: el velo tapa el puntero pero no el teclado, y Tab +
+    // Enter en «Reservar» abría la hoja de reserva encima de la de instructora.
+    setVerInstructora(false);
     // El mensaje pertenece a la respuesta que lo trajo: al cambiar de estado
     // por nuestra cuenta (reintentar, volver a la revisión) deja de valer.
     setBkMensaje(undefined);
@@ -185,7 +192,7 @@ export default function FichaClasePage() {
           </span>
         </div>
 
-        {inst && <InstructorCard i={inst} />}
+        {inst && <InstructorCard i={inst} onClick={() => setVerInstructora(true)} />}
 
         <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
           {clase.descripcion ?? `Grupo reducido de ${clase.capacidad} personas. Ven con calcetines antideslizantes; si es tu primera vez, llega 10 minutos antes.`}
@@ -223,6 +230,11 @@ export default function FichaClasePage() {
           onCancelar={() => router.push(href('/mis-reservas'))}
         />
       </div>
+
+      <InstructoraSheet
+        instructora={inst ?? null} clases={data?.clases ?? []} reservas={data?.reservas ?? []} soportaEspera={estudio.soportaListaEspera} href={href}
+        open={verInstructora} onClose={() => setVerInstructora(false)}
+      />
 
       <Sheet open={enSheet} onClose={cerrar} label="Reservar clase">
         {(bk === 'reviewing' || bk === 'submitting') && (
