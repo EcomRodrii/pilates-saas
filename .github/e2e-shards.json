@@ -1,0 +1,94 @@
+{
+  "shard": [
+    {
+      "id": 1,
+      "tests": [
+        "reservar-pago-completo.spec.ts",
+        "panel-equipo.spec.ts"
+      ]
+    },
+    {
+      "id": 2,
+      "tests": [
+        "panel-calendario.spec.ts",
+        "landing.spec.ts",
+        "acceso-google.spec.ts"
+      ]
+    },
+    {
+      "id": 3,
+      "tests": [
+        "centro-control.spec.ts",
+        "instructora-calendario.spec.ts",
+        "instructora-tarifas.spec.ts"
+      ]
+    },
+    {
+      "id": 4,
+      "tests": [
+        "reservar-modo-b.spec.ts",
+        "panel-facturas.spec.ts",
+        "portal-homepage.spec.ts"
+      ]
+    },
+    {
+      "id": 5,
+      "tests": [
+        "crear-estudio-y-socia.spec.ts",
+        "panel-dashboard.spec.ts",
+        "portal-qr.spec.ts"
+      ]
+    },
+    {
+      "id": 6,
+      "tests": [
+        "checkout-stripe.spec.ts",
+        "widget-public.spec.ts",
+        "portal-historial.spec.ts"
+      ]
+    },
+    {
+      "id": 7,
+      "tests": [
+        "sustituciones-flow.spec.ts",
+        "socia-lista-espera.spec.ts"
+      ]
+    },
+    {
+      "id": 8,
+      "tests": [
+        "reservar-sin-login.spec.ts",
+        "contactas-export.spec.ts",
+        "admin-audit.spec.ts"
+      ]
+    },
+    {
+      "id": 9,
+      "tests": [
+        "portal-reserva.spec.ts",
+        "acceso-sin-callejones.spec.ts"
+      ]
+    },
+    {
+      "id": 10,
+      "tests": [
+        "widget-checkout.spec.ts",
+        "panel-clientes.spec.ts"
+      ]
+    },
+    {
+      "id": 11,
+      "tests": [
+        "reservar-el-servidor-dice-no.spec.ts",
+        "reservar-lista-espera.spec.ts"
+      ]
+    },
+    {
+      "id": 12,
+      "tests": [
+        "panel-suscripciones.spec.ts",
+        "alta-panel.spec.ts"
+      ]
+    }
+  ]
+}
