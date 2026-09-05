@@ -111,6 +111,13 @@ export default function InstructorasPage() {
             { titulo: 'Rendimiento por instructora', body: 'Ocupación y asistencia de sus clases, para hablar con datos y no con sensaciones.' },
           ]}
         />
+        <p>
+          Y si la tienes contratada por horas, apunta sus <strong>horas semanales de contrato</strong> y cada mes verás las
+          tres cifras que hacen falta para saber si le estás dando lo que le pagas: las <strong>asignadas</strong> (lo que
+          tiene en el calendario), las <strong>realizadas</strong> (lo que ya ocurrió) y la diferencia respecto a su
+          contrato. La equivalencia mensual usa la convención de nómina de siempre —52 semanas entre 12—, así que 12 h a la
+          semana salen 52 al mes y no 48: cuadra con lo que espera tu gestoría.
+        </p>
         <Limite titulo="No es un software de nóminas">
           Calcula lo que corresponde pagar y lo deja listo; no genera nóminas ni ejecuta transferencias. El pago sigue
           haciéndose donde lo haces hoy.
@@ -127,6 +134,21 @@ export default function InstructorasPage() {
           Verlo a tiempo da margen para repartir formatos, meter a otra instructora en las clases que solo lleva una, o
           simplemente saber a qué te expones. Es información para decidir, no una alarma.
         </p>
+      </Seccion>
+
+      <Seccion id="reasignar" titulo="Cuando ya sabes quién cubre: pasar sus clases de una vez">
+        <p>
+          Una baja de tres semanas o un cambio de cuadrante no es una sustitución que haya que buscar: es una decisión que
+          ya has tomado y que hay que ejecutar. Eliges a quién pasan sus clases y entre qué fechas, y se mueven todas.
+        </p>
+        <Rejilla
+          items={[
+            { titulo: 'Te dice qué va a mover antes de moverlo', body: 'Cuántas clases caen en ese periodo y cuántas alumnas hay apuntadas, antes de tocar nada.' },
+            { titulo: 'Decides qué pasa con los choques', body: 'Si la que recibe ya da otra clase a esa hora: o se saltan esas y se mueve el resto, o no se mueve ninguna. Nunca queda a medias.' },
+            { titulo: 'Las alumnas se enteran', body: 'Aviso por email y en su app, una vez por clase. Cambiar veinte clases en silencio es peor que no cambiarlas.' },
+            { titulo: 'No lo hace nadie por ti', body: 'Registrar una ausencia te dice cuántas clases quedan sin cubrir, pero no las reasigna sola: esa decisión es tuya.' },
+          ]}
+        />
       </Seccion>
 
       <Seccion id="sustituciones" titulo="Y de aquí sale la cobertura de bajas">
