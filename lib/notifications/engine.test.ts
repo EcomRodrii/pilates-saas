@@ -10,6 +10,7 @@ test('equipo y sistema: reglas + plantillas que renderizan', () => {
     [EVENTOS.INSTRUCTORA_BAJA, { instructora: 'Marta', clase: 'Reformer', cuando: 'martes 9:00', motivo: ' (gripe)' }, /Marta.*Reformer.*gripe/],
     [EVENTOS.SISTEMA_STRIPE_DESCONECTADO, {}, /Stripe/],
     [EVENTOS.SISTEMA_EMAIL_FALLIDO, { error: 'domain not verified' }, /domain not verified/],
+    [EVENTOS.TRIAL_EXPIRADO, {}, /datos están intactos/i],
     [EVENTOS.SUSTITUCION_RECHAZADA, { instructora: 'Lucía', clase: 'Mat', cuando: 'hoy', siguiente: 'Ya se lo hemos preguntado a Berta.' }, /Lucía.*Mat.*Berta/],
     [EVENTOS.INSTRUCTORA_AUSENCIA, { instructora: 'Ana', desde: '1 de agosto', hasta: '15 de agosto', clases: ' · 6 clases suyas en esas fechas por cubrir' }, /Ana.*1 de agosto.*15 de agosto.*6 clases/],
   ];
@@ -27,6 +28,20 @@ test('email fallido NO usa el canal email (evitar realimentación)', () => {
   // Ni activándolo a mano, ni siquiera si algún día pasara a CRÍTICA.
   assert.deepEqual(canalesExtraDe(r, PREF({ email: true }), false), []);
   assert.deepEqual(canalesExtraDe(r, PREF({ email: true }), true), []);
+});
+
+test('prueba a punto de expirar: ALTA + PUSH/EMAIL, título con los días', () => {
+  const r = REGLAS[EVENTOS.TRIAL_PROXIMO_A_EXPIRAR];
+  assert.equal(r.priority, 'ALTA');
+  assert.deepEqual(r.canales.sort(), ['EMAIL', 'PUSH']);
+  const pl = plantillaDe(EVENTOS.TRIAL_PROXIMO_A_EXPIRAR, 'PROPIETARIO')!;
+  assert.match(render(pl.title, { dias: 2 }), /2 días/);
+});
+
+test('prueba expirada es CRÍTICA pero sin WHATSAPP/SMS (bloquea el panel, no cobros en curso)', () => {
+  const r = REGLAS[EVENTOS.TRIAL_EXPIRADO];
+  assert.equal(r.priority, 'CRITICA');
+  assert.deepEqual(canalesExtraDe(r, PREF({ push: false, email: false }), true).sort(), ['EMAIL', 'PUSH']);
 });
 
 test('stripe desconectado es CRÍTICA: llega por todos los canales que declara', () => {

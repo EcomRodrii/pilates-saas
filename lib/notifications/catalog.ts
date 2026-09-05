@@ -206,6 +206,12 @@ export const EVENTOS = {
   // Sistema: cosas que rompen el negocio y exigen acción de la dueña.
   SISTEMA_STRIPE_DESCONECTADO: 'sistema.stripe_desconectado',
   SISTEMA_EMAIL_FALLIDO: 'sistema.email_fallido',
+  // Prueba gratuita de 7 días (lib/billing/trial.ts): antes ni avisaba de que
+  // estaba a punto de acabar ni de que ya bloqueó el panel — la dueña entraba
+  // un lunes y se encontraba con el estudio cerrado sin ningún aviso previo ni
+  // posterior (auditoría 23ª pasada, hallazgo pendiente).
+  TRIAL_PROXIMO_A_EXPIRAR: 'sistema.trial_proximo_a_expirar',
+  TRIAL_EXPIRADO: 'sistema.trial_expirado',
   // El Umbral (lib/decision/umbral.ts): como mucho UN evento de este tipo al
   // día por estudio (reforzado por el UNIQUE(studio_id,fecha) de
   // decision_mensajes_dia) — nunca se dispara si el día es de silencio.
@@ -347,6 +353,12 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Email fallido: ALTA (no CRÍTICA) y sin EMAIL declarado a propósito — avisar
   // por correo de que el correo falla sería absurdo y podría realimentarse.
   [EVENTOS.SISTEMA_EMAIL_FALLIDO]: { category: 'sistema', priority: 'ALTA', canales: [], audiencia: 'propietaria' },
+  // Prueba a punto de acabar: ALTA + PUSH/EMAIL (no CRÍTICA — todavía hay
+  // acceso). Una vez bloqueado sí es CRÍTICA, mismo criterio que
+  // SISTEMA_STRIPE_DESCONECTADO, pero sin WHATSAPP/SMS: bloquea el panel, no
+  // deja de cobrar dinero real de socias en curso.
+  [EVENTOS.TRIAL_PROXIMO_A_EXPIRAR]: { category: 'sistema', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
+  [EVENTOS.TRIAL_EXPIRADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   // ALTA + PUSH+INAPP a propósito, nada más: el Umbral solo interrumpe cuando
   // cree que merece la pena — un canal más (EMAIL/WHATSAPP/SMS) diluiría esa
   // misma promesa. Sin EMAIL: el mensaje es del día, no algo para revisar
@@ -863,6 +875,16 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Fallan los envíos de email',
     body: 'Hoy no se han podido entregar algunos correos a tus clientas (último error: {error}). Revisa la configuración de email.',
     deepLink: () => `/configuracion?tab=integraciones`,
+  },
+  [`${EVENTOS.TRIAL_PROXIMO_A_EXPIRAR}#PROPIETARIO`]: {
+    title: 'Prueba gratuita · {dias} días',
+    body: 'Cuando quieras puedes elegir tu plan. Tu estudio y tus datos siguen donde están.',
+    deepLink: () => `/suscripcion`,
+  },
+  [`${EVENTOS.TRIAL_EXPIRADO}#PROPIETARIO`]: {
+    title: 'Tu prueba gratuita ha terminado',
+    body: 'Tus datos están intactos. Elige un plan para volver a entrar en tu estudio.',
+    deepLink: () => `/suscripcion`,
   },
   [`${EVENTOS.AUTOMATIZACION_DISPARADA}#PROPIETARIO`]: {
     title: 'Automatización: {automatizacion}',

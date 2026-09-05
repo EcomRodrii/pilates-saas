@@ -745,6 +745,42 @@ export async function emitirEmailFallido(
   }
 }
 
+// Prueba gratuita a punto de acabar (fase AVISO/ULTIMO_DIA de estadoTrial()).
+// dedupKey por trialEndsAt (no por fecha del día): un aviso por CICLO de
+// prueba, no uno por cada tick del cron mientras dure la ventana de 2-3 días.
+export async function emitirTrialProximoAExpirar(
+  admin: SupabaseClient, p: { studioId: string; dias: number; trialEndsAt: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.TRIAL_PROXIMO_A_EXPIRAR, studioId: p.studioId,
+      data: { dias: p.dias },
+      dedupKey: `trial-aviso:${p.studioId}:${p.trialEndsAt}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirTrialProximoAExpirar:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Prueba gratuita ya bloqueó el acceso (fase EXPIRADA). dedupKey por
+// trialEndsAt: si el estudio arranca una prueba NUEVA más adelante (no
+// debería, pero `trg_arrancar_prueba_gratuita` no lo impide a nivel de
+// negocio), vuelve a avisar en vez de quedar silenciado para siempre por un
+// dedup de la prueba anterior.
+export async function emitirTrialExpirado(
+  admin: SupabaseClient, p: { studioId: string; trialEndsAt: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.TRIAL_EXPIRADO, studioId: p.studioId,
+      data: {},
+      dedupKey: `trial-expirado:${p.studioId}:${p.trialEndsAt}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirTrialExpirado:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Sustitución aceptada: a la instructora que cubre (nueva clase asignada).
 export async function emitirSustitucionAceptada(
   admin: SupabaseClient, p: { studioId: string; sesionId: string; instructorId: string },
