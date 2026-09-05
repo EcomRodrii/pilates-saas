@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Sparkles } from 'lucide-react';
+import { CalendarOff, Copy, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { Toggle, cardCls, btnPrimary, btnSecondary } from '@/app/(dashboard)/configuracion/page';
@@ -198,6 +198,103 @@ export function TabEstudioHorario({ showToast }: { showToast: (m: string) => voi
           {guardando ? 'Guardando…' : 'Guardar horario'}
         </button>
       </div>
+
+      <CierreDelCentro showToast={showToast} />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cierre del centro: la semana de vacaciones, el puente, la reforma.
+//
+// Va debajo del horario semanal y no en una pantalla propia porque es la misma
+// pregunta —cuándo abre este estudio— contestada para una fecha concreta en vez
+// de para un día de la semana.
+// ─────────────────────────────────────────────────────────────────────────────
+function CierreDelCentro({ showToast }: { showToast: (m: string) => void }) {
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const [aplicando, setAplicando] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
+
+  const rangoInvalido = !!desde && !!hasta && hasta < desde;
+  const listo = !!desde && !!hasta && !rangoInvalido;
+
+  async function aplicar() {
+    setAplicando(true);
+    try {
+      const res = await fetch('/api/cierres', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ desde, hasta, motivo }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { showToast(data?.error ?? 'No se pudo aplicar el cierre'); return; }
+      const partes = [`${data.dias} día${data.dias === 1 ? '' : 's'} cerrados`];
+      if (data.clasesCanceladas) partes.push(`${data.clasesCanceladas} clase${data.clasesCanceladas === 1 ? '' : 's'} cancelada${data.clasesCanceladas === 1 ? '' : 's'}`);
+      if (data.bonosAmpliados) partes.push(`${data.bonosAmpliados} bono${data.bonosAmpliados === 1 ? '' : 's'} prorrogado${data.bonosAmpliados === 1 ? '' : 's'}`);
+      showToast(partes.join(' · '));
+      // Las incidencias no se esconden detrás del mensaje de éxito.
+      if (data.incidencias?.length) showToast(`Con avisos: ${data.incidencias[0]}`);
+      setDesde(''); setHasta(''); setMotivo(''); setConfirmando(false);
+    } finally {
+      setAplicando(false);
+    }
+  }
+
+  return (
+    <div className={cn(cardCls, 'p-6')}>
+      <h3 className="text-[14px] font-semibold text-foreground flex items-center gap-1.5 mb-1">
+        <CalendarOff size={14} className="text-brand-medio" />
+        Cerrar el centro unos días
+      </h3>
+      <p className="text-[12px] text-muted-foreground mb-4">
+        Vacaciones, un puente, una reforma. Se cancelan las clases de esas fechas avisando a quien tuviera reserva, se les devuelve el bono, y a todo el estudio se le suman esos días a la caducidad de bonos y recuperaciones. Nadie podrá reservar en ese rango.
+      </p>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-[12px] text-muted-foreground">Desde</span>
+          <input type="date" value={desde} onChange={e => { setDesde(e.target.value); setConfirmando(false); }}
+            className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13px]" />
+        </label>
+        <label className="block">
+          <span className="text-[12px] text-muted-foreground">Hasta (incluido)</span>
+          <input type="date" value={hasta} onChange={e => { setHasta(e.target.value); setConfirmando(false); }}
+            className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13px]" />
+        </label>
+      </div>
+      <label className="mt-3 block">
+        <span className="text-[12px] text-muted-foreground">Motivo (opcional)</span>
+        <input value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Vacaciones de agosto"
+          className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13px]" />
+      </label>
+
+      {rangoInvalido && (
+        <p className="mt-2 text-[12px] text-destructive">La fecha de fin no puede ser anterior a la de inicio.</p>
+      )}
+
+      {/* Cancela clases y toca la caducidad de TODOS los bonos del estudio: no
+          es un guardado más, así que no se hace de un solo clic. */}
+      {confirmando ? (
+        <div className="mt-4 rounded-lg border border-warning/40 bg-warning/10 p-3">
+          <p className="text-[12.5px] text-foreground">
+            Se van a cancelar las clases del {desde} al {hasta} y a avisar a quien tuviera reserva. Esto no se deshace solo.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button onClick={aplicar} disabled={aplicando} className={cn(btnPrimary)}>
+              {aplicando ? 'Aplicando…' : 'Sí, cerrar esos días'}
+            </button>
+            <button onClick={() => setConfirmando(false)} disabled={aplicando} className={cn(btnSecondary)}>
+              Volver
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setConfirmando(true)} disabled={!listo} className={cn(btnPrimary, 'mt-4')}>
+          Cerrar el centro esos días
+        </button>
+      )}
     </div>
   );
 }

@@ -2474,3 +2474,12 @@ export interface RowSocioTiposClaseAutorizados {
   autorizada_en: string;
   autorizada_por: string | null;
 }
+
+export interface RowCierresEstudio {
+  id: string;
+  studio_id: string;
+  desde: string;
+  hasta: string;
+  motivo: string | null;
+  creado_en: string;
+}

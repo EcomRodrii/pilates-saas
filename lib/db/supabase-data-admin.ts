@@ -2548,9 +2548,16 @@ export async function expirarOfertaListaEspera(params: {
 // Dos guardas de idempotencia INDEPENDIENTES (no una sola compuesta): si el
 // cron reintenta tras un fallo parcial, la sesión ya marcada cancelada=true
 // no bloquea que se sigan limpiando reservas sueltas.
+// El `motivo` se generalizó al añadir el cierre del centro: los dos casos son
+// «cancela el estudio, no la socia», y por eso los dos devuelven bono. Se
+// mantiene el default para no tocar al caller original (el cron de mínimo de
+// asistentes) y, sobre todo, para no duplicar el invariante de más abajo: el
+// aviso va ANTES del UPDATE o se manda a nadie.
 export async function cancelarSesionPorMinimoNoAlcanzado(params: {
   studioId: string; sesionId: string;
+  motivo?: 'minimo_no_alcanzado' | 'cierre_centro';
 }): Promise<{ ok: true } | { error: string }> {
+  const motivo = params.motivo ?? 'minimo_no_alcanzado';
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
@@ -2562,7 +2569,7 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
 
   if (!ses.cancelada) {
     await admin.from('sesiones')
-      .update({ cancelada: true, cancelada_motivo: 'minimo_no_alcanzado' })
+      .update({ cancelada: true, cancelada_motivo: motivo })
       .eq('id', params.sesionId).eq('cancelada', false);
   }
 
@@ -2616,7 +2623,11 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
         tipo: 'cancelacion', to: s.email as string, toName: (s.nombre as string) ?? 'Socia',
         data: { ...datos, bonoDevuelto: devueltoPorSocia.get(s.id as string) === true },
         studioId: params.studioId,
-        idempotencyKey: `minimo-no-alcanzado-${params.sesionId}-${s.id}`
+        // ⚠️ El prefijo del caso original se conserva LETRA POR LETRA
+        // (`minimo-no-alcanzado`, con guiones, no el valor de columna con guion
+        // bajo). Cambiarlo haría que una sesión ya cancelada antes de este
+        // despliegue no reconociera su clave anterior y reenviara el correo.
+        idempotencyKey: `${motivo === 'minimo_no_alcanzado' ? 'minimo-no-alcanzado' : 'cierre-centro'}-${params.sesionId}-${s.id}`
       });
     }
   }
