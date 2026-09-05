@@ -45,7 +45,7 @@ type PoliticaForm = {
   // Migr 20260809020328: default true = comportamiento de siempre (pase/QR
   // obligatorio). false = confía en la reserva: se marca asistida sola.
   requiereCheckinQr: boolean;
-  // Migr 20260905150000: impedir reservar con un recibo FALLIDO o DEVUELTO.
+  // Migr 20260905151515: impedir reservar con un recibo FALLIDO o DEVUELTO.
   // Opt-in: encenderlo por defecto dejaría fuera a socias que hoy reservan.
   bloquearReservaImpago: boolean;
 };

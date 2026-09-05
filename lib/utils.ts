@@ -107,6 +107,46 @@ export function finDeSemana(fecha: Date | string): Date {
 // dos horas distintas. Un único sitio, y que no vuelva a pasar.
 export const TZ_ESTUDIO = 'Europe/Madrid';
 
+/** Desfase de la zona del estudio respecto a UTC, en milisegundos, para un
+ *  instante dado. Cambia con el horario de verano, así que NO se puede fijar. */
+function desfaseEstudio(msUtc: number): number {
+  const f = new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ_ESTUDIO, hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+  const p = Object.fromEntries(f.formatToParts(new Date(msUtc)).map(x => [x.type, x.value]));
+  // `hour` puede venir como '24' a medianoche en algunos entornos.
+  const hora = Number(p.hour) % 24;
+  const comoUtc = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), hora, Number(p.minute), Number(p.second));
+  return comoUtc - msUtc;
+}
+
+/**
+ * Un día natural del estudio ('YYYY-MM-DD') como el instante UTC en que empieza.
+ *
+ * ⚠️ No vale con `new Date(fecha)`: eso interpreta la fecha en UTC, y en Madrid
+ * el día empieza una o dos horas ANTES. Un cierre del 10 al 16 se comería la
+ * madrugada del 10 y dejaría fuera la del 17 — verificado en la BD: una clase
+ * de las 00:30 del 10 cae dentro del cierre en hora local y fuera en UTC.
+ *
+ * Se resuelve el desfase con el instante tentativo y se corrige, así el cambio
+ * de hora sale bien sin tabla de reglas.
+ */
+export function inicioDelDiaEstudio(fechaISO: string): string {
+  const [a, m, d] = fechaISO.split('-').map(Number);
+  const tentativo = Date.UTC(a, m - 1, d, 0, 0, 0);
+  return new Date(tentativo - desfaseEstudio(tentativo)).toISOString();
+}
+
+/** El instante UTC en que TERMINA ese día del estudio (= empieza el siguiente).
+ *  Exclusivo, para usarlo como `< fin` y no dejar fuera los últimos segundos. */
+export function finDelDiaEstudio(fechaISO: string): string {
+  const [a, m, d] = fechaISO.split('-').map(Number);
+  const tentativo = Date.UTC(a, m - 1, d + 1, 0, 0, 0);
+  return new Date(tentativo - desfaseEstudio(tentativo)).toISOString();
+}
+
 /**
  * El día de HOY en la zona del estudio, como 'YYYY-MM-DD'.
  *

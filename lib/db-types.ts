@@ -898,7 +898,7 @@ export interface RowStudios {
   stripe_account_id_anterior: string | null;
   // migr 20260904015605.
   stripe_account_desconectado_en: string | null;
-  // migr 20260905150000.
+  // migr 20260905151515.
   bloquear_reserva_impago: boolean | null;
 }
 
@@ -2473,4 +2473,13 @@ export interface RowSocioTiposClaseAutorizados {
   tipo_clase_id: string;
   autorizada_en: string;
   autorizada_por: string | null;
+}
+
+export interface RowCierresEstudio {
+  id: string;
+  studio_id: string;
+  desde: string;
+  hasta: string;
+  motivo: string | null;
+  creado_en: string;
 }
