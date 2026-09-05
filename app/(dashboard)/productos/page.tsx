@@ -19,15 +19,23 @@ import {
 
 type Tab = 'planes' | 'pos';
 
-// Membresías (antes "Productos"): los 3 tipos de plan ya existentes
-// (MENSUAL/BONO/PUNTUAL) se navegan como 3 pestañas por nombre de negocio en
-// vez de una rejilla única sin filtrar — mismo dato, mejor organizado.
+// Paquetes (antes "Membresías", y antes de eso "Productos"): los 3 tipos de
+// plan ya existentes (MENSUAL/BONO/PUNTUAL) se navegan como 3 pestañas por
+// nombre de negocio en vez de una rejilla única sin filtrar — mismo dato,
+// mejor organizado.
 // "Bajo demanda" = PUNTUAL: se paga sesión a sesión, sin compromiso fijo, que
 // es justo lo que ya significa ese tipo aquí.
+//
+// ⚠️ La pestaña de BONO se llamaba "Paquetes", que es ahora el nombre de la
+// SECCIÓN entera: dejarlo daba un "Paquetes › Paquetes" donde no se sabía si
+// el de dentro era el mismo de fuera o un subconjunto. Pasa a "Bonos", que es
+// como se llama ese tipo en el resto del producto (`NOMBRE_TIPO_PLAN.BONO` es
+// «Bono de sesiones», y la lógica entera habla de bonos: `bono-logic.ts`,
+// «bono agotado», «Bonos activos» en la ficha de clienta).
 type TipoPlanTab = 'MENSUAL' | 'BONO' | 'PUNTUAL';
 const TIPO_TABS: { v: TipoPlanTab; label: string; singular: string; icon: React.ElementType }[] = [
   { v: 'MENSUAL', label: 'Suscripciones', singular: 'suscripción', icon: Repeat },
-  { v: 'BONO', label: 'Paquetes', singular: 'paquete', icon: Zap },
+  { v: 'BONO', label: 'Bonos', singular: 'bono', icon: Zap },
   { v: 'PUNTUAL', label: 'Bajo demanda', singular: 'plan bajo demanda', icon: Tag },
 ];
 
@@ -706,8 +714,8 @@ export default function Productos() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Membresías"
-        description={posCongelado ? 'Suscripciones, paquetes y clases sueltas' : 'Suscripciones, paquetes y catálogo de productos POS'}
+        title="Paquetes"
+        description={posCongelado ? 'Suscripciones, bonos y clases sueltas' : 'Suscripciones, bonos, clases sueltas y catálogo de productos POS'}
         actions={
           <button
             onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}

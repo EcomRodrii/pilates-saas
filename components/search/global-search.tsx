@@ -127,8 +127,14 @@ export function GlobalSearch({
     return MODULOS
       .filter(m => puedeVer(m.href))
       .map(m => {
+        // Los alias puntúan por debajo del rótulo real: quien escribe el
+        // nombre actual debe ver primero su sección, pero quien busca por el
+        // nombre viejo —«membresías» tras el rename a «Paquetes»— tiene que
+        // llegar igual. Sin esto, renombrar una sección la borra del ⌘K para
+        // todo el que la conocía por su nombre anterior.
         const nl = normalizar(m.label);
-        const punt = nl.startsWith(nq) ? 100 : nl.includes(nq) ? 70 : 0;
+        const porAlias = (m.alias ?? []).some(a => normalizar(a).includes(nq)) ? 50 : 0;
+        const punt = nl.startsWith(nq) ? 100 : nl.includes(nq) ? 70 : porAlias;
         return { m, punt };
       })
       .filter(x => x.punt > 0)
