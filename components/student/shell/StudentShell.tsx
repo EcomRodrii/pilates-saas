@@ -1,5 +1,8 @@
 'use client';
 
+import { useNoLeidas } from '@/lib/student/no-leidas';
+import { useEstudio } from '@/components/student/contexto';
+
 import type { ReactNode } from 'react';
 import { GuardiaSesion } from '@/components/student/GuardiaSesion';
 import { StudioHeader } from './StudioHeader';
@@ -36,10 +39,15 @@ export function StudentShell({
   badgeReservas?: number;
   headerTransparente?: boolean;
 }) {
+  // El punto de la campana era una rama muerta: ninguna pantalla pasaba
+  // `noLeidas`. Lo pide el marco, una vez y compartido. Una pantalla puede
+  // seguir pasándolo explícitamente y entonces manda el suyo.
+  const { estudio } = useEstudio();
+  const sinLeer = useNoLeidas(estudio.id);
   return (
     <GuardiaSesion>
       <div className="shell">
-        <StudioHeader noLeidas={noLeidas} transparente={headerTransparente} />
+        <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} />
         <main className="page" style={headerTransparente ? { paddingTop: 0 } : undefined}>
           <OfflineBanner />
           {children}

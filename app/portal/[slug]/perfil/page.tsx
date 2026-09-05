@@ -66,6 +66,7 @@ export default function PerfilPage() {
             { label: 'Comprar bonos y suscripciones', href: href('/comprar') },
             { label: 'Bonos', href: href('/bonos') },
             { label: 'Pagos y recibos', href: href('/pagos') },
+            { label: 'Método de pago', href: href('/perfil/pago') },
           ]}
         />
 
