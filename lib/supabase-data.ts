@@ -4192,6 +4192,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('reembolsoPlazoDias' in changes) db.reembolso_plazo_dias = changes.reembolsoPlazoDias;
   if ('reembolsoSoloSinUsar' in changes) db.reembolso_solo_sin_usar = changes.reembolsoSoloSinUsar;
   if ('requiereCheckinQr' in changes) db.requiere_checkin_qr = changes.requiereCheckinQr;
+  if ('bloquearReservaImpago' in changes) db.bloquear_reserva_impago = changes.bloquearReservaImpago;
   if ('visibleEnNetwork' in changes) db.visible_en_network = changes.visibleEnNetwork;
   // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
@@ -4569,6 +4570,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     reembolsoPlazoDias: r.reembolso_plazo_dias ?? 14,
     reembolsoSoloSinUsar: r.reembolso_solo_sin_usar ?? true,
     requiereCheckinQr: r.requiere_checkin_qr ?? true,
+    bloquearReservaImpago: r.bloquear_reserva_impago ?? false,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
     onboardingDescartadoEn: r.onboarding_descartado_en ?? null,

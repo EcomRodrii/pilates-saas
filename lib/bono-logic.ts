@@ -20,7 +20,7 @@ import { hoyEnEstudio } from './utils.ts';
 // cobertura que aún no sabemos si aplica.
 //
 // Misma semántica que `plazas_fijas.tipo_clase_id` (0083), donde null = cualquiera.
-// Su gemela en SQL es `plan_cubre_tipo_clase` (migr 20260905140000), que la
+// Su gemela en SQL es `plan_cubre_tipo_clase` (migr 20260905143242), que la
 // usa `reservar_plaza` para el límite semanal por actividad. Si cambia una,
 // cambia la otra: la regla es la misma en los dos lados.
 export function planCubreTipoClase(plan: PlanTarifa, tipoClaseId?: string | null): boolean {

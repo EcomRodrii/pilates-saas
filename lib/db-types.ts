@@ -846,6 +846,7 @@ export interface RowStudios {
   gestoria_ultimo_envio_periodo: string | null;
   // migr 20260809020328.
   requiere_checkin_qr: boolean | null;
+  bloquear_reserva_impago: boolean | null;
   // migr 20260810140000.
   imagen_bienvenida_url: string | null;
   // migr 20260811091725.
