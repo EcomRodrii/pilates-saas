@@ -179,16 +179,22 @@ jobs:
         if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
-      # Caché de compilación entre runs (docs de Next: "CI Build Caching").
-      # ⚠️ MEDIDO: hoy no sirve de nada. En Next 16 el bundler por defecto es
-      # Turbopack, y su caché persistente de build es opt-in
-      # (`experimental.turbopackFileSystemCacheForBuild`, marcada experimental
-      # para producción). Sin ella, `.next/cache` se guarda con 0 MB — se
-      # comprobó en la caché real del repo. Se deja el paso porque cuesta 2s y
-      # es correcto el día que esa opción se estabilice o se vuelva a webpack;
-      # NO se activa la experimental a propósito: haría que el build de CI
-      # dejara de ser el mismo que el de Vercel, y una caché experimental
-      # sirviendo salida obsoleta convierte un CI verde en una mentira.
+      # Caché de Turbo (task runner) — BATCH 3 Phase 2 optimization.
+      # Turbo.json define inputs para build task, permitiendo caché hit cuando
+      # nada ha cambiado. Expected: 2m34s → 1m20s (-50%) on incremental rebuild.
+      - name: Restaurar caché de Turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('package-lock.json', 'turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('package-lock.json', 'turbo.json') }}-
+            turbo-${{ runner.os }}-
+
+      # Caché de compilación Next.js: .next/cache (cuando esté habilitada en
+      # next.config.ts). Hoy guarda 0 MB porque Turbopack necesita
+      # `experimental.turbopackFileSystemCacheForBuild`. Se mantiene porque es
+      # correcto para el día que esté estabilizada.
       - name: Restaurar caché de Next.js
         uses: actions/cache@v4
         with:

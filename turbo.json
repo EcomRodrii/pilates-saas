@@ -1,0 +1,39 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["VERCEL", "VERCEL_ENV", "NEXT_TELEMETRY_DISABLED"],
+  "tasks": {
+    "build": {
+      "description": "Next.js production build with Turbopack cache",
+      "outputs": [".next/**"],
+      "cache": true,
+      "inputs": [
+        "app/**",
+        "components/**",
+        "lib/**",
+        "public/**",
+        "emails/**",
+        "scripts/**",
+        "package.json",
+        "package-lock.json",
+        "tsconfig.json",
+        ".eslintrc.cjs",
+        "next.config.ts",
+        "tailwind.config.ts"
+      ],
+      "outputLogs": "new-only"
+    },
+    "build:widget": {
+      "description": "Bundle widget for external embedding",
+      "outputs": ["public/widget.js", "public/widget-checkout.js"],
+      "cache": true,
+      "inputs": [
+        "components/widget/**",
+        "lib/**",
+        "public/**",
+        "scripts/build-widget-bundle.mjs",
+        "package.json",
+        "tsconfig.json"
+      ]
+    }
+  }
+}
