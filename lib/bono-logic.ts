@@ -20,6 +20,9 @@ import { hoyEnEstudio } from './utils.ts';
 // cobertura que aún no sabemos si aplica.
 //
 // Misma semántica que `plazas_fijas.tipo_clase_id` (0083), donde null = cualquiera.
+// Su gemela en SQL es `plan_cubre_tipo_clase` (migr 20260905140000), que la
+// usa `reservar_plaza` para el límite semanal por actividad. Si cambia una,
+// cambia la otra: la regla es la misma en los dos lados.
 export function planCubreTipoClase(plan: PlanTarifa, tipoClaseId?: string | null): boolean {
   const tipos = plan.tiposClaseIds;
   if (!tipos || tipos.length === 0) return true;
@@ -250,12 +253,6 @@ export function calcularReactivacion(
   return { fechaFin: calcularFechaFinBono(ahoraISO, plan.validezDias ?? null), sesionesRestantes: plan.sesiones };
 }
 
-// ¿La socia ya alcanzó el tope semanal del bono? reservasEnSemana = reservas
-// CONFIRMADA/ASISTIDA suyas en la misma semana ISO (lo cuenta quien llama, con
-// contexto de reservas+sesiones). Sin tope (null) nunca supera.
-export function superaLimiteSemanal(reservasEnSemana: number, limiteSemanal: number | null): boolean {
-  return limiteSemanal !== null && reservasEnSemana >= limiteSemanal;
-}
 
 // Nueva fecha_fin tras una congelación: se empuja por los días congelados
 // [desde, hasta] para que no consuman la validez. null si no había caducidad.

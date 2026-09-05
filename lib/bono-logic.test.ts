@@ -5,7 +5,7 @@ import type { Suscripcion, PlanTarifa } from '@/lib/types';
 import {
   hayAlgoQueContratar,
   bonoConsumible, bonoDevolvible, calcularConsumoBono, tieneEntitlementActivo,
-  calcularFechaFinBono, superaLimiteSemanal, nuevaFechaFinTrasCongelar, planCubreTipoClase,
+  calcularFechaFinBono, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
   saldoSesionesBono, avisaBonoAgotado } from './bono-logic.ts';
 
@@ -229,20 +229,6 @@ test('calcularFechaFinBono: acepta timestamp ISO y usa solo la fecha', () => {
 // enero en Madrid (CET, UTC+1 en invierno).
 test('calcularFechaFinBono: un cobro de madrugada en Madrid usa el día de Madrid, no el de UTC', () => {
   assert.equal(calcularFechaFinBono('2026-01-01T23:30:00.000Z', 30), '2026-02-01');
-});
-
-// ── superaLimiteSemanal ───────────────────────────────────────────────────────
-test('superaLimiteSemanal: sin tope (null) nunca supera', () => {
-  assert.equal(superaLimiteSemanal(10, null), false);
-});
-
-test('superaLimiteSemanal: por debajo del tope → false', () => {
-  assert.equal(superaLimiteSemanal(1, 2), false);
-});
-
-test('superaLimiteSemanal: en el tope o por encima → true', () => {
-  assert.equal(superaLimiteSemanal(2, 2), true);
-  assert.equal(superaLimiteSemanal(3, 2), true);
 });
 
 // ── nuevaFechaFinTrasCongelar ─────────────────────────────────────────────────
