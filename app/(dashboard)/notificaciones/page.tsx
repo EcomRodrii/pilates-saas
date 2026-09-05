@@ -42,6 +42,7 @@ function fecha(iso: string) {
 export default function NotificationCenterPage() {
   const [items, setItems] = useState<AdminItem[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [reintentando, setReintentando] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     const res = await fetch('/api/notifications/admin', { headers: await authHeader(), cache: 'no-store' });
@@ -53,6 +54,19 @@ export default function NotificationCenterPage() {
   // setState tras await (asíncrono) — falso positivo del lint del compilador.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void cargar(); }, [cargar]);
+
+  const reintentar = useCallback(async (notificationId: string) => {
+    setReintentando(notificationId);
+    try {
+      await fetch('/api/notifications/admin', {
+        method: 'POST', headers: { ...(await authHeader()), 'content-type': 'application/json' },
+        body: JSON.stringify({ notificationId }),
+      });
+      await cargar();
+    } finally {
+      setReintentando(null);
+    }
+  }, [cargar]);
 
   return (
     <div className="max-w-5xl">
@@ -101,6 +115,16 @@ export default function NotificationCenterPage() {
                             {d.error && <span className="text-destructive/70 text-[11px]"> · {d.error}</span>}
                           </span>
                         ))}
+                        {n.deliveries.some(d => d.status === 'FAILED') && (
+                          <button
+                            type="button"
+                            onClick={() => reintentar(n.id)}
+                            disabled={reintentando === n.id}
+                            className="mt-1 self-start text-[11px] font-semibold text-brand hover:underline disabled:opacity-50"
+                          >
+                            {reintentando === n.id ? 'Reintentando…' : 'Reintentar'}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

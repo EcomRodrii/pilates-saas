@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { puedeVerCentroNotificaciones } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { retry } from '@/lib/notifications/process';
 
 // Notification Center (vista admin del estudio): TODAS las notificaciones del
 // estudio con su estado de entrega por canal. Datos para la tabla: fecha,
@@ -54,4 +55,30 @@ export async function GET(req: NextRequest) {
     deliveries: porNoti.get(n.id as string) ?? [],
   }));
   return NextResponse.json({ items });
+}
+
+// Reintentar los deliveries FAILED de una notificación (botón "Reintentar" del
+// Notification Center). Antes `retry()` existía pero sin un solo llamador —
+// ninguna entrega fallida se reintentaba nunca (auditoría 23ª pasada).
+export async function POST(req: NextRequest) {
+  const staff = await verificarSesionStaff(req);
+  if (!staff) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (!puedeVerCentroNotificaciones(staff.rol)) {
+    return NextResponse.json({ error: 'Tu rol no puede reintentar notificaciones' }, { status: 403 });
+  }
+  const body = await req.json().catch(() => null);
+  const notificationId = typeof body?.notificationId === 'string' ? body.notificationId : null;
+  if (!notificationId) return NextResponse.json({ error: 'Falta notificationId' }, { status: 400 });
+
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+
+  // Acota SIEMPRE al estudio de la sesión: notificationId lo manda el
+  // cliente, y sin este filtro cualquier PROPIETARIO podría disparar un
+  // reintento (y su email/push real) sobre la notificación de OTRO estudio.
+  const { data: noti } = await admin.from('notification').select('id').eq('id', notificationId).eq('studio_id', staff.studioId).maybeSingle();
+  if (!noti) return NextResponse.json({ error: 'Notificación no encontrada' }, { status: 404 });
+
+  const resultado = await retry(admin, notificationId);
+  return NextResponse.json(resultado);
 }
