@@ -42,6 +42,8 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
   const hoy = isoHoy();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [motivo, setMotivo] = useState('');
+  // Vacío = caduca según la política del estudio, que es el caso normal.
+  const [caducaEl, setCaducaEl] = useState('');
   const [aviso, setAviso] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
 
@@ -51,14 +53,20 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
   );
   const vivas = mias.filter(r => estadoRecup(r, hoy).viva).length;
 
+  // Una fecha anterior a hoy la rechaza la propia RPC (CADUCIDAD_EN_PASADO):
+  // aquí se bloquea antes para no gastar un viaje al servidor en decir que no.
+  const fechaValida = caducaEl === '' || caducaEl >= hoy;
+
   async function dar() {
+    if (!fechaValida) return;
     setGuardando(true);
     setAviso(null);
-    const r = await darRecuperacion(socioId, motivo.trim() || null);
+    const r = await darRecuperacion(socioId, motivo.trim() || null, caducaEl || null);
     setGuardando(false);
     if (r === 'TOPE') { setAviso('Ya tiene 4 recuperaciones vivas (el máximo).'); return; }
     if (r === 'ERROR') { setAviso('No se pudo crear. Inténtalo de nuevo.'); return; }
     setMotivo('');
+    setCaducaEl('');
     setDialogOpen(false);
   }
 
@@ -73,7 +81,7 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
         </div>
         {puedeTocar && (
         <button
-          onClick={() => { setMotivo(''); setAviso(null); setDialogOpen(true); }}
+          onClick={() => { setMotivo(''); setCaducaEl(''); setAviso(null); setDialogOpen(true); }}
           className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors shrink-0"
         >
           <Plus size={14} /> Dar recuperación
@@ -112,16 +120,28 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Dar recuperación</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">Le concedes una clase a recuperar. Caduca según la política del estudio (por defecto, fin del mes siguiente).</p>
+            <p className="text-xs text-muted-foreground">Le concedes una clase a recuperar. Si no pones fecha, caduca según la política del estudio (Configuración → Reservas).</p>
             <div>
               <label htmlFor="recup-motivo" className={labelCls}>Motivo (opcional)</label>
               <input id="recup-motivo" className={inputCls} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ej: avisó que el martes no podía" />
             </div>
+            <div>
+              <label htmlFor="recup-caduca" className={labelCls}>Caduca el (opcional)</label>
+              <input id="recup-caduca" type="date" min={hoy} className={inputCls} value={caducaEl} onChange={e => setCaducaEl(e.target.value)} />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Para un caso suelto («se va tres meses y vuelve»), sin tocar la política de todo el estudio.
+              </p>
+            </div>
+            {!fechaValida && (
+              <p role="alert" className="text-xs font-medium text-destructive">
+                La fecha no puede ser anterior a hoy: nacería caducada.
+              </p>
+            )}
             {aviso && <p className="text-xs font-medium text-warning">{aviso}</p>}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setDialogOpen(false)} className="text-xs font-semibold px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground">Cancelar</button>
-            <button disabled={guardando} onClick={dar} className="text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed">
+            <button disabled={guardando || !fechaValida} onClick={dar} className="text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed">
               {guardando ? 'Concediendo…' : 'Dar recuperación'}
             </button>
           </div>

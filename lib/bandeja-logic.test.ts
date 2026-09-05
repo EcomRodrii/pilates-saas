@@ -140,6 +140,55 @@ test('plaza PAUSADA no entra', () => {
   assert.equal(b.length, 0);
 });
 
+// ── Plaza fija sin clase EN EL HORARIO (la clase se movió) ───────────────────
+// La plaza de las factorías es jueves 10:00 en sala1. En julio (CEST, UTC+2)
+// las 10:00 locales son las 08:00Z; las 12:00 locales, las 10:00Z.
+const SEMANA_MS = 7 * 86_400_000;
+function juevesSemanales(horaUtc: string, n: number, over: Partial<Sesion> = {}): Sesion[] {
+  return Array.from({ length: n }, (_, i) => {
+    const inicio = new Date(Date.parse(`2026-07-16T${horaUtc}:00Z`) + i * SEMANA_MS).toISOString();
+    return sesion({ id: `ses-${horaUtc}-${i}`, salaId: 'sala1', inicio, fin: inicio, ...over });
+  });
+}
+
+test('la clase del slot se movió de hora: entra con la causa concreta y enlaza a editar la plaza', () => {
+  const p = plaza({ id: 'p1', socioId: 's1', creadaEn: '2026-07-01T00:00:00Z' });
+  const b = construirBandeja(entrada({ plazasFijas: [p], sesiones: juevesSemanales('10:00', 6) })); // ahora a las 12:00 locales
+  assert.equal(b.length, 1, 'una sola entrada: no se duplica con el aviso genérico');
+  assert.equal(b[0].titulo, 'Plaza fija sin clase en el horario');
+  assert.match(b[0].detalle, /Ana García/);
+  assert.match(b[0].detalle, /jueves a las 10:00 en Reformer/);
+  assert.equal(b[0].href, '/clientas/s1');
+  assert.equal(b[0].cta, 'Editar plaza fija');
+});
+
+test('con clase en el slot pero sin reserva materializada sigue saliendo el aviso genérico (¿aforo?)', () => {
+  const p = plaza({ id: 'p1', socioId: 's1', creadaEn: '2026-07-01T00:00:00Z' });
+  const b = construirBandeja(entrada({ plazasFijas: [p], sesiones: juevesSemanales('08:00', 6) })); // 10:00 locales
+  assert.equal(b.length, 1);
+  assert.equal(b[0].titulo, 'Plaza fija sin clase');
+});
+
+test('la causa concreta va por encima del aviso genérico, y cada plaza sale una sola vez', () => {
+  const huerfana = plaza({ id: 'p1', socioId: 's1', creadaEn: '2026-07-01T00:00:00Z' });           // jueves 10:00
+  const sinAforo = plaza({ id: 'p2', socioId: 's1', diaSemana: 5, creadaEn: '2026-07-01T00:00:00Z' }); // viernes 10:00
+  const viernes = juevesSemanales('08:00', 6).map((s, i) => ({
+    ...s, id: `vie-${i}`,
+    inicio: new Date(Date.parse(s.inicio) + 86_400_000).toISOString(),
+    fin: new Date(Date.parse(s.fin) + 86_400_000).toISOString(),
+  }));
+  const b = construirBandeja(entrada({ plazasFijas: [huerfana, sinAforo], sesiones: viernes }));
+  assert.deepEqual(b.map(i => i.titulo), ['Plaza fija sin clase en el horario', 'Plaza fija sin clase']);
+  assert.deepEqual(b.map(i => i.id), ['plaza-sin-clase-p1', 'plaza-p2']);
+});
+
+test('si el horario programado no llega a una semana no se afirma que la plaza esté huérfana', () => {
+  const p = plaza({ id: 'p1', socioId: 's1', creadaEn: '2026-07-01T00:00:00Z' });
+  const b = construirBandeja(entrada({ plazasFijas: [p], sesiones: juevesSemanales('10:00', 1) }));
+  assert.equal(b.length, 1);
+  assert.equal(b[0].titulo, 'Plaza fija sin clase'); // el genérico, no la causa concreta
+});
+
 // ── Tope de 5 + orden ─────────────────────────────────────────────────────────
 test('la bandeja nunca supera 5 y ordena por urgencia (avería primera)', () => {
   const recs = Array.from({ length: 8 }, (_, i) => recup({ id: `r${i}`, socioId: 's1', caducaEl: '2026-07-16' }));

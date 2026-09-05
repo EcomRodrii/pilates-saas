@@ -469,6 +469,16 @@ export async function sellarRectificativaDeFactura(
   let seq: number;
 
   if (existente) {
+    // Auditoría 23ª pasada (4-sep-2026): mismo guardia D-2 que ya lleva
+    // sellarFacturaDeRecibo, que aquí faltaba. Sin él, una fila `existente`
+    // sin `verifactu_seq` reservado da `Number(null)` = 0 y huella anterior
+    // vacía — "soy el primer registro de la cadena". Hoy no es explotable
+    // (el llamador siempre deriva `facturaRectificativaId` de un hash propio,
+    // nunca de un id legacy), pero la defensa no debe vivir SOLO en quien
+    // llama — una cadena Veri*Factu bifurcada no se arregla reescribiéndola.
+    if (existente.verifactu_seq == null || !existente.numero_completo) {
+      return { ok: false, error: 'Esta rectificativa tiene una reserva incompleta sin número asignado: sellarla rompería la cadena.' };
+    }
     // Reserva incompleta retomada (crash entre reservar_numero_factura y el
     // UPDATE final con la huella) — mismos datos ya reservados, sin pedir
     // número nuevo.

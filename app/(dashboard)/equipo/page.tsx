@@ -13,7 +13,8 @@ import {
   Network,
 } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
-import { formatFechaHora, formatFechaLarga, uid as generarId } from '@/lib/utils';
+import { formatFechaHora, formatFechaLarga, uid as generarId, cn } from '@/lib/utils';
+import { resumenHoras } from '@/lib/equipo/horas-contrato.ts';
 import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
 import {
   generarEnlaceDisponibilidad, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia,
@@ -162,6 +163,13 @@ export default function EquipoPage() {
   // nunca la pinta directamente, así que no es una fuga nueva.
   const [tarifas, setTarifas] = useState<Record<string, number | null>>({});
   const [tarifaHoraInput, setTarifaHoraInput] = useState('');
+  // Horas semanales de contrato: mismo origen (instructor_tarifas) y mismo
+  // criterio de privacidad que la tarifa — se lee para el formulario y para el
+  // diálogo de horas, nunca se pinta en la rejilla.
+  const [horasContrato, setHorasContrato] = useState<Record<string, number | null>>({});
+  const [horasContratoInput, setHorasContratoInput] = useState('');
+  const horasContratoValidas = horasContratoInput.trim() === ''
+    || (Number.isFinite(Number(horasContratoInput)) && Number(horasContratoInput) >= 0 && Number(horasContratoInput) <= 168);
   // El `min={0}` del input es solo una pista visual del navegador — no impide
   // escribir un negativo. El servidor (app/api/equipo/tarifas/route.ts) ya lo
   // rechazaba con un 400 y su mensaje de error, pero el diálogo se cerraba
@@ -179,6 +187,7 @@ export default function EquipoPage() {
       fetchTarifasEquipo().then(r => {
         if (!vivo) return;
         setTarifas(Object.fromEntries(r.map(t => [t.instructorId, t.tarifaHora])));
+        setHorasContrato(Object.fromEntries(r.map(t => [t.instructorId, t.horasSemanalesContrato])));
       });
     }
     return () => { vivo = false; };
@@ -322,6 +331,8 @@ export default function EquipoPage() {
     setEditId(i.id);
     const tarifaActual = tarifas[i.id];
     setTarifaHoraInput(tarifaActual == null ? '' : String(tarifaActual));
+    const horasActuales = horasContrato[i.id];
+    setHorasContratoInput(horasActuales == null ? '' : String(horasActuales));
     setModal('editar');
   }
 
@@ -359,11 +370,20 @@ export default function EquipoPage() {
       if (!res.ok) { showToast(res.error); setModal(null); return; }
       const tarifaAnterior = tarifas[editId] ?? null;
       const tarifaNueva = tarifaHoraInput.trim() === '' ? null : Number(tarifaHoraInput);
+      const horasAnteriores = horasContrato[editId] ?? null;
+      const horasNuevas = horasContratoInput.trim() === '' ? null : Number(horasContratoInput);
       let mensaje = 'Cambios guardados';
-      if (tarifaNueva !== tarifaAnterior) {
-        const r = await actualizarTarifaInstructor(editId, tarifaNueva);
-        if (r.ok) setTarifas(prev => ({ ...prev, [editId]: tarifaNueva }));
-        else mensaje = `Cambios guardados, pero la tarifa no se pudo actualizar: ${r.error ?? ''}`;
+      // Tarifa y horas viven en la misma fila, así que van en la MISMA llamada:
+      // dos PATCH seguidos sobre `instructor_tarifas` se pisan el uno al otro
+      // (el upsert manda la fila entera con lo que traiga cada uno).
+      if (tarifaNueva !== tarifaAnterior || horasNuevas !== horasAnteriores) {
+        const r = await actualizarTarifaInstructor(editId, tarifaNueva, { horasSemanalesContrato: horasNuevas });
+        if (r.ok) {
+          setTarifas(prev => ({ ...prev, [editId]: tarifaNueva }));
+          setHorasContrato(prev => ({ ...prev, [editId]: horasNuevas }));
+        } else {
+          mensaje = `Cambios guardados, pero la tarifa y las horas no se pudieron actualizar: ${r.error ?? ''}`;
+        }
       }
       showToast(mensaje);
     }
@@ -663,6 +683,24 @@ export default function EquipoPage() {
                     Tiene que ser un número entre 0 y 999,99 €/h.
                   </p>
                 )}
+                <label htmlFor={`${uid}-horas-contrato`} className={labelCls + ' mt-4'}>Horas semanales de contrato (opcional)</label>
+                <div className="relative">
+                  <input
+                    id={`${uid}-horas-contrato`} type="number" min={0} max={168} step={0.5}
+                    className={inputCls + ' pr-12'} value={horasContratoInput} placeholder="Sin contrato"
+                    onChange={e => setHorasContratoInput(e.target.value)}
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">h/sem</span>
+                </div>
+                {horasContratoValidas ? (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Sirve para comparar en “Ver horas” lo que tiene asignado con lo que le pagas. En blanco, no se compara nada.
+                  </p>
+                ) : (
+                  <p role="alert" className="text-[11px] text-destructive mt-1">
+                    Tiene que ser un número entre 0 y 168 horas por semana.
+                  </p>
+                )}
               </div>
             )}
 
@@ -686,7 +724,7 @@ export default function EquipoPage() {
 
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
-              <button onClick={guardar} disabled={!form.nombre.trim() || !tarifaValida || guardando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
+              <button onClick={guardar} disabled={!form.nombre.trim() || !tarifaValida || !horasContratoValidas || guardando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
                 {guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                 {guardando ? 'Guardando…' : 'Guardar'}
               </button>
@@ -742,7 +780,13 @@ export default function EquipoPage() {
       </Dialog>
 
       <ValoracionesDialog instructor={verValor} tiposClase={tiposClase} onClose={() => setVerValor(null)} />
-      <HorasDialog instructor={verHoras} sesiones={sesiones} tiposClase={tiposClase} onClose={() => setVerHoras(null)} />
+      <HorasDialog
+        instructor={verHoras}
+        sesiones={sesiones}
+        tiposClase={tiposClase}
+        horasSemanalesContrato={verHoras ? (horasContrato[verHoras.id] ?? null) : null}
+        onClose={() => setVerHoras(null)}
+      />
       <AusenciasDialog instructor={verAusencias} onClose={() => setVerAusencias(null)} />
 
       <Dialog open={confirmDel !== null} onOpenChange={open => !open && !eliminando && setConfirmDel(null)}>
@@ -1067,8 +1111,9 @@ function ActividadTab({ actividadReciente }: { actividadReciente: import('@/lib/
 
 // ─── Horas del mes por instructora ───────────────────────────────────────────
 
-function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
-  instructor: Instructor | null; sesiones: Sesion[]; tiposClase: TipoClase[]; onClose: () => void;
+function HorasDialog({ instructor, sesiones, tiposClase, horasSemanalesContrato, onClose }: {
+  instructor: Instructor | null; sesiones: Sesion[]; tiposClase: TipoClase[];
+  horasSemanalesContrato: number | null; onClose: () => void;
 }) {
   const [mesAtras, setMesAtras] = useState(0);
   // Reinicia el mes al cambiar de instructora — ajuste de estado durante el
@@ -1109,9 +1154,19 @@ function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
       });
   }, [instructor, sesiones, tiposClase, mes, mesFin]);
 
-  const totalHoras = filas.reduce((a, f) => a + f.horas, 0);
+  // Asignadas / realizadas / diferencia contra contrato. Sin memo, igual que el
+  // `totalHoras` que había antes: es un recorrido de las clases de un mes, y
+  // meterlo en un useMemo obligaría a declarar `new Date()` como dependencia,
+  // que es justo lo que no puede serlo.
+  const resumen = resumenHoras(
+    filas.map(f => ({ inicio: f.inicio, horas: f.horas })),
+    new Date(),
+    horasSemanalesContrato,
+  );
+  const totalHoras = resumen.asignadas;
   const fmtMes = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
   const fmtH = (h: number) => `${h % 1 === 0 ? h : h.toFixed(1)} h`;
+  const fmtDif = (h: number) => `${h > 0 ? '+' : h < 0 ? '−' : ''}${fmtH(Math.abs(h))}`;
 
   function exportar() {
     if (!instructor) return;
@@ -1159,14 +1214,46 @@ function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
 
         <div className="flex items-center gap-6 py-3 px-4 rounded-xl bg-muted/50">
           <div>
-            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{fmtH(totalHoras)}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">en clases este mes</p>
+            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{fmtH(resumen.asignadas)}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">asignadas este mes</p>
+          </div>
+          <div className="pl-6 border-l border-border">
+            <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{fmtH(resumen.realizadas)}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">ya realizadas</p>
           </div>
           <div className="pl-6 border-l border-border">
             <p className="text-[20px] font-extrabold text-foreground leading-none tabular-nums">{filas.length}</p>
             <p className="text-[11px] text-muted-foreground mt-1">clase{filas.length === 1 ? '' : 's'}</p>
           </div>
         </div>
+
+        {/* Sin contrato definido no se enseña ninguna comparación: un 0 dejaría
+            a todo el mundo "por encima de contrato" sin haberlo pactado. */}
+        {resumen.contratoMes != null && resumen.diferencia != null && (
+          <div className="flex items-center justify-between gap-3 py-2.5 px-4 rounded-xl border border-border">
+            <div className="min-w-0">
+              <p className="text-[12.5px] font-semibold text-foreground">
+                Contrato: {fmtH(horasSemanalesContrato ?? 0)}/semana
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                ≈ {fmtH(resumen.contratoMes)} al mes (52 semanas entre 12)
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className={cn(
+                'text-[16px] font-extrabold leading-none tabular-nums',
+                Math.abs(resumen.diferencia) < 0.05 ? 'text-foreground'
+                  : resumen.diferencia > 0 ? 'text-warning' : 'text-muted-foreground',
+              )}>
+                {fmtDif(resumen.diferencia)}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {Math.abs(resumen.diferencia) < 0.05 ? 'en contrato'
+                  : resumen.diferencia > 0 ? 'por encima' : 'por debajo'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {filas.length === 0 ? (
           <p className="text-[13px] text-muted-foreground text-center py-6">Sin clases este mes.</p>

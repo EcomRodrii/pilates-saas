@@ -72,6 +72,52 @@ export async function cancelarReserva(
   }
 }
 
+export type ResultadoAceptarOferta =
+  | { ok: true; confirmada: true }
+  // Aceptó a tiempo y aun así se quedó sin plaza (alguien se adelantó dentro
+  // del mismo plazo) — el servidor la compensa con una recuperación, decisión
+  // de producto: no se reordena "al final de la cola".
+  | { ok: true; confirmada: false }
+  | { ok: false; error: string; sesionCaducada?: boolean };
+
+/**
+ * Auditoría 23ª pasada, P-5. Acepta una oferta de plaza de lista de espera
+ * (Fase 2b) — hasta ahora este endpoint solo lo llamaba el widget viejo; la
+ * PWA nueva no tenía ninguna vía para aceptar. Mismo criterio que
+ * `cancelarReserva`: nunca lanza, y el catálogo se invalida porque una
+ * aceptación cambia el aforo real de la clase.
+ */
+export async function aceptarOfertaEspera(
+  slug: string, studioId: string, reservaId: string, opts: { online?: boolean } = {},
+): Promise<ResultadoAceptarOferta> {
+  if (opts.online === false) return { ok: false, error: 'Sin conexión. Vuelve a intentarlo cuando tengas red.' };
+
+  try {
+    const auth = await portalAuthHeader();
+    const res = await fetch('/api/public/aceptar-oferta-espera', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({ studioId, reservaId }),
+    });
+
+    if (res.status === 401) {
+      return { ok: false, error: 'Tu sesión ha caducado. Vuelve a entrar.', sesionCaducada: true };
+    }
+
+    const cuerpo = (await res.json().catch(() => null)) as { ok?: true; estado?: string; error?: string } | null;
+    if (!res.ok || !cuerpo?.ok) {
+      return { ok: false, error: cuerpo?.error ?? 'No hemos podido aceptar la plaza. Sigue en lista de espera.' };
+    }
+
+    invalidarCatalogo(slug);
+    return { ok: true, confirmada: cuerpo.estado === 'CONFIRMADA' };
+  } catch {
+    // Se cayó la red a mitad: no sabemos si llegó a confirmarse, así que no se
+    // anuncia éxito. Al recargar se verá la verdad (mismo criterio que cancelar).
+    return { ok: false, error: 'No hemos podido aceptar la plaza. Comprueba tu conexión y vuelve a intentarlo.' };
+  }
+}
+
 export type Pase =
   | { hayPase: false }
   | {

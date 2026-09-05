@@ -579,7 +579,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.RESERVA_OFERTA_LISTA_ESPERA}#SOCIA`]: {
     title: 'Se ha liberado una plaza',
     body: 'Tienes hasta las {hora} para aceptar tu plaza en {clase} ({cuando}).',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservas?tab=ESPERA`,
+    // P-5 (auditoría 23ª pasada): apuntaba a `/reservas?tab=ESPERA`, una ruta
+    // que no existe en la PWA nueva (ni siquiera `/reservas` a secas). La
+    // pantalla real es «Mis clases» — ahora con el CTA "Aceptar plaza" que
+    // antes tampoco existía en ningún sitio de la app.
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/mis-reservas`,
   },
   // {motivoTexto}: vacío en la cancelación normal (mismo texto de siempre);
   // rellena cuando la cancela el rechazo/expiración de una aprobación

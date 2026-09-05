@@ -26,6 +26,7 @@ import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
+import { sesionEncajaEnPlaza, type SesionSlot } from '@/lib/plazas-fijas-slot';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
 import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
@@ -520,9 +521,9 @@ interface DatosVista {
 export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
-    suscripciones, planesTarifa, studio,
+    suscripciones, planesTarifa, studio, plazasFijas,
     addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
-    cancelarReservasDeSesiones,
+    cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
     addActividadReciente, addRecibo, resetDatosPilates,
@@ -1042,6 +1043,21 @@ export default function Calendario() {
     return reservas.filter(r => r.sesionId === id && r.estado === 'CONFIRMADA').length;
   }
 
+  // Plazas fijas ancladas al slot de esta clase (día/hora/sala, mismo criterio
+  // que el cron). Por el SLOT y no por las reservas 'res-pf-' de la sesión:
+  // si la ocurrencia de esta semana no se materializó (sin aforo, cancelada
+  // por la socia, plaza de hace menos de una noche) no habría reserva y el
+  // aviso se callaría con plaza. Mover UNA clase no mueve la plaza fija —es
+  // una excepción puntual, la plaza sigue anclada a su día/hora— y eso
+  // conviene decirlo antes de que la propietaria suelte el bloque.
+  function cuantasPlazasFijasEnSlot(sesion: SesionSlot): number {
+    return plazasFijas.filter(pf => (pf.estado === 'ACTIVA' || pf.estado === 'PAUSADA') && sesionEncajaEnPlaza(pf, sesion)).length;
+  }
+
+  function avisoPlazaFijaNoSeMueve(n: number): string {
+    return `${n === 1 ? 'Una socia tiene plaza fija' : `${n} socias tienen plaza fija`} a esta hora. Solo se mueve esta clase: la plaza fija sigue anclada a su día y hora de siempre. Para cambiar el horario fijo, edita la serie o la plaza fija desde la ficha de la socia.`;
+  }
+
   async function avisarCambioInstructora(aviso: NonNullable<typeof avisoInstructora>) {
     showToast('Avisando…');
     const r = await avisarCambioClaseServidor(aviso.sesionId, {
@@ -1249,7 +1265,20 @@ export default function Calendario() {
   // conteo, mismo componente que ya usa el resto del panel.
   const [confirmCancelar, setConfirmCancelar] = useState(false);
   const [confirmEliminar, setConfirmEliminar] = useState(false);
+  const [confirmCancelarSerie, setConfirmCancelarSerie] = useState(false);
   const apuntadasSesionActual = reservasActuales.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
+
+  // Lo que se llevaría por delante "Cancelar serie": exactamente el mismo
+  // tramo que cancela `cancelarSerieDesde` (esta clase y las siguientes de su
+  // serie, sin contar las ya canceladas). Se calcula aquí para poder decirlo
+  // ANTES en la confirmación, igual que "Cancelar"/"Eliminar" de una suelta.
+  const sesionesSerieRestantes = sesionActual?.serieId
+    ? sesionesEnriquecidas.filter(s => s.serieId === sesionActual.serieId && s.inicio >= sesionActual.inicio && !s.cancelada)
+    : [];
+  const idsSerieRestantes = new Set(sesionesSerieRestantes.map(s => s.id));
+  const apuntadasSerieRestante = reservas.filter(
+    r => idsSerieRestantes.has(r.sesionId) && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'),
+  ).length;
 
   async function cancelarSesion() {
     if (!sesionId) return;
@@ -1312,12 +1341,23 @@ export default function Calendario() {
     void refrescarVista();
   }
 
-  // OJO si vienes a reponer "cancelar la serie entera": la capacidad NO se ha
-  // borrado. `cancelarSerieDesde` sigue entera en studio-context (con aviso a
-  // las socias incluido); lo que había aquí era un envoltorio que ningún botón
-  // llamaba — editar serie sí tiene el suyo, cancelar serie no. Se quitó por
-  // estar muerto, no por estar de más: si se decide reponer el botón, llama
-  // directamente a `cancelarSerieDesde` desde el panel.
+  // Cancelar la serie entera desde esta clase. `cancelarSerieDesde` ya existía
+  // en studio-context (batch atómico + aviso a las socias + cancelación de sus
+  // reservas con devolución de bono según la política del estudio) pero no
+  // tenía botón: editar serie sí, cancelar serie no, y la única salida era
+  // cancelar clase por clase.
+  async function cancelarSerie() {
+    if (!sesionId) return;
+    // El conteo se captura ANTES de escribir: al cerrar el panel el tramo
+    // deja de calcularse y el toast se quedaría sin cifra.
+    const n = sesionesSerieRestantes.length;
+    const res = await cancelarSerieDesde(sesionId);
+    setSesionId(null);
+    if (!res.ok) { showToast(res.error); return; }
+    const base = `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''} · clientas avisadas`;
+    showToast(res.avisoBono ? `${base} · ${res.avisoBono}` : base);
+    void refrescarVista();
+  }
 
   async function eliminarSesion() {
     if (!sesionId) return;
@@ -1889,7 +1929,7 @@ export default function Calendario() {
   // ── Arrastrar y soltar (Fase 2) ──────────────────────────────────────────────
   const [confirmarArrastre, setConfirmarArrastre] = useState<{
     sesionId: string; nuevoSalaId: string; nuevoInicio: string; nuevoFin: string;
-    apuntadas: number; horaTexto: string;
+    apuntadas: number; plazasFijas: number; horaTexto: string;
   } | null>(null);
 
   const arrastrableSesion = useCallback((d: DatoSesion) =>
@@ -1963,13 +2003,20 @@ export default function Calendario() {
     }
 
     const apuntadas = cuantasApuntadas(sesionId);
+    const enPlazaFija = cuantasPlazasFijasEnSlot(sesion);
     if (apuntadas > 0) {
       // Un desliz en un iPad no debe reprogramar una clase con gente apuntada
       // y avisarla por email sin confirmación previa — a diferencia del
       // formulario de editar (que ya tiene su propia pausa: el botón Guardar).
-      setConfirmarArrastre({ sesionId, nuevoSalaId, nuevoInicio, nuevoFin, apuntadas, horaTexto: mmA(inicioMin) });
+      setConfirmarArrastre({
+        sesionId, nuevoSalaId, nuevoInicio, nuevoFin, apuntadas,
+        plazasFijas: enPlazaFija, horaTexto: mmA(inicioMin),
+      });
       return;
     }
+    // Sin nadie apuntada no hay diálogo — pero con plaza fija en este slot el
+    // aviso tiene que llegar igual, así que va en el toast.
+    if (enPlazaFija > 0) showToast(avisoPlazaFijaNoSeMueve(enPlazaFija));
     void ejecutarMoverSesion(sesionId, nuevoSalaId, nuevoInicio, nuevoFin);
   }
 
@@ -2429,6 +2476,20 @@ export default function Calendario() {
               <button onClick={() => setConfirmCancelar(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">
                 <X size={12} />Cancelar
               </button>
+              {/* Con 1 sola clase viva por delante haría lo mismo que
+                  "Cancelar", así que no se ofrece. Fuera del rol INSTRUCTOR:
+                  la RLS le deja tocar únicamente sus propias clases, así que
+                  un batch sobre la serie podría cancelar media y decir que
+                  fue bien. */}
+              {sesionesSerieRestantes.length > 1 && !esInstructor && (
+                <button
+                  onClick={() => setConfirmCancelarSerie(true)}
+                  title="Cancela esta clase y todas las siguientes de la serie"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  <X size={12} />Cancelar serie
+                </button>
+              )}
               {!esInstructor && (
                 <button onClick={() => setConfirmEliminar(true)} aria-label="Eliminar sesión" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors ml-auto">
                   <Trash2 size={12} />
@@ -2648,6 +2709,18 @@ export default function Calendario() {
         textoConfirmar="Cancelar clase"
         destructivo
         onConfirm={() => void cancelarSesion()}
+      />
+
+      <ConfirmDialog
+        open={confirmCancelarSerie}
+        onOpenChange={setConfirmCancelarSerie}
+        titulo={`¿Cancelar ${sesionesSerieRestantes.length} clases de esta serie?`}
+        descripcion={apuntadasSerieRestante > 0
+          ? `Desde esta clase en adelante. ${apuntadasSerieRestante} reserva${apuntadasSerieRestante !== 1 ? 's' : ''} se cancelará${apuntadasSerieRestante !== 1 ? 'n' : ''}${(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — se les devuelve la sesión del bono' : ''} y las alumnas recibirán un aviso. Las clases anteriores de la serie no se tocan.`
+          : 'Desde esta clase en adelante. Ninguna tiene alumnas apuntadas, y las clases anteriores de la serie no se tocan.'}
+        textoConfirmar="Cancelar serie"
+        destructivo
+        onConfirm={() => void cancelarSerie()}
       />
 
       <ConfirmDialog
@@ -3042,6 +3115,11 @@ export default function Calendario() {
           <p className="text-[13px] text-muted-foreground mt-2">
             Hay reservas confirmadas en esta clase — al moverla les avisamos por email del nuevo horario.
           </p>
+          {(confirmarArrastre?.plazasFijas ?? 0) > 0 && (
+            <p className="text-[13px] text-muted-foreground mt-2">
+              {avisoPlazaFijaNoSeMueve(confirmarArrastre?.plazasFijas ?? 0)}
+            </p>
+          )}
           <div className="flex gap-2 mt-4">
             <button
               className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors"

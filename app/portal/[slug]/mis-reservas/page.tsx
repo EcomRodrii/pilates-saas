@@ -10,7 +10,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
-import { cancelarReserva } from '@/lib/student/reservas-acciones';
+import { cancelarReserva, aceptarOfertaEspera } from '@/lib/student/reservas-acciones';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, fechaCorta, hoyISO } from '@/lib/student/formato';
 import { urlCalendario } from '@/lib/student/enlaces-clase';
@@ -37,6 +37,12 @@ export default function MisReservasPage() {
   const [tab, setTab] = useState<'prox' | 'hist'>('prox');
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelando, setCancelando] = useState(false);
+  const [aceptandoId, setAceptandoId] = useState<string | null>(null);
+  // `Date.now()` es impuro y el compilador de React lo rechaza en el cuerpo
+  // del render — se captura UNA vez al montar. No hace falta que se actualice
+  // segundo a segundo: la pantalla ya se recarga entera (`reintentar()`) tras
+  // cualquier acción, y es lo único que decide si el CTA de aceptar se pinta.
+  const [ahoraMs] = useState(() => Date.now());
 
   const cargar = useCallback(async () => {
     const [reservas, clases, instructoras] = await Promise.all([
@@ -98,6 +104,25 @@ export default function MisReservasPage() {
     reintentar();
   };
 
+  // P-5 (auditoría 23ª pasada): hasta ahora no había NINGUNA vía en la PWA
+  // para aceptar una oferta de lista de espera — el aviso llegaba, y la
+  // única acción posible era esperar a que el cron se la quitara al caducar.
+  async function handleAceptarOferta(reservaId: string) {
+    setAceptandoId(reservaId);
+    const res = await aceptarOfertaEspera(estudio.slug, estudio.id, reservaId, { online });
+    setAceptandoId(null);
+
+    if (!res.ok) {
+      if (res.sesionCaducada) { router.push(href('/acceso/login')); return; }
+      toast(res.error);
+      return;
+    }
+    toast(res.confirmada
+      ? '¡Plaza confirmada! ✓'
+      : 'Alguien se te adelantó por segundos — te hemos dado una clase de recuperación.');
+    reintentar();
+  }
+
   return (
     <StudentShell>
       <PageHeader titulo="Mis clases" />
@@ -155,13 +180,17 @@ export default function MisReservasPage() {
                 const i = data.instructoras.find((x) => x.id === c.instructoraId);
                 const av = avisoCancelacion(c, estudio.politicaCancelacionHoras);
                 const espera = r.estado === 'en-espera';
+                // P-5: la oferta vive hasta `ofertaExpiraEn` — pasado ese
+                // instante el cron ya la ha caducado y el sitio no es suyo,
+                // aunque el catálogo todavía no se haya recargado.
+                const ofertaViva = espera && !!r.ofertaExpiraEn && new Date(r.ofertaExpiraEn).getTime() > ahoraMs;
                 return (
                   <div
                     key={r.id}
                     className="a-pop"
                     style={{
-                      background: espera ? 'var(--card)' : 'var(--accent-soft)',
-                      border: `1px solid ${espera ? 'var(--border)' : 'transparent'}`,
+                      background: ofertaViva ? 'var(--warning-soft)' : espera ? 'var(--card)' : 'var(--accent-soft)',
+                      border: `1px solid ${ofertaViva ? 'var(--warning)' : espera ? 'var(--border)' : 'transparent'}`,
                       borderRadius: 17, padding: '13px 15px',
                     }}
                   >
@@ -169,12 +198,19 @@ export default function MisReservasPage() {
                       <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: espera ? 'var(--foreground)' : 'var(--accent-soft-foreground)' }}>
                         {etiquetaDia(c.fecha)} · {c.hora}
                       </p>
-                      <Badge tone={espera ? 'wait' : 'ok'}>
-                        {espera
-                          ? `Lista de espera${r.posicionEspera ? ` · ${r.posicionEspera}ª` : ''}`
-                          : 'Confirmada ✓'}
+                      <Badge tone={ofertaViva ? 'few' : espera ? 'wait' : 'ok'}>
+                        {ofertaViva
+                          ? '¡Plaza libre!'
+                          : espera
+                            ? `Lista de espera${r.posicionEspera ? ` · ${r.posicionEspera}ª` : ''}`
+                            : 'Confirmada ✓'}
                       </Badge>
                     </div>
+                    {ofertaViva && (
+                      <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 700, color: 'var(--warning-foreground)' }}>
+                        Tienes hasta las {new Date(r.ofertaExpiraEn as string).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} para aceptarla — si no, pasa a la siguiente de la lista.
+                      </p>
+                    )}
                     <p style={{ margin: '3px 0 0', fontSize: 13.5, fontWeight: 700 }}>{c.nombre}</p>
                     <p className="t-meta" style={{ marginTop: 2 }}>
                       con {i?.nombre ?? '—'} · {c.sala}
@@ -200,11 +236,23 @@ export default function MisReservasPage() {
                           + Calendario
                         </button>
                       )}
+                      {ofertaViva && (
+                        <button
+                          type="button"
+                          className="btn btn--primary btn--sm"
+                          style={{ height: 34 }}
+                          disabled={!online || aceptandoId === r.id}
+                          title={!online ? 'Necesitas conexión' : undefined}
+                          onClick={() => handleAceptarOferta(r.id)}
+                        >
+                          {aceptandoId === r.id ? 'Aceptando…' : 'Aceptar plaza'}
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn btn--danger btn--sm"
                         style={{ height: 34 }}
-                        disabled={!online || !av.puede}
+                        disabled={!online || !av.puede || aceptandoId === r.id}
                         title={!online ? 'Necesitas conexión' : !av.puede ? 'La clase ya ha empezado' : undefined}
                         onClick={() => setCancelId(r.id)}
                       >

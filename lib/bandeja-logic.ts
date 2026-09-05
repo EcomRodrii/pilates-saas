@@ -24,6 +24,7 @@ import type {
 } from '@/lib/types';
 import { aforoEfectivoSesion } from './aforo-logic.ts';
 import { sociosConExcepcion } from './excepciones.ts';
+import { plazasFijasSinSesion, nombreDiaSemana } from './plazas-fijas-slot.ts';
 
 // Euro en formato ES, idéntico a formatEuro de utils; inline para no arrastrar
 // clsx/tailwind-merge a un módulo de lógica pura (y su test con node --test).
@@ -94,11 +95,18 @@ export function construirBandeja(e: EntradaBandeja): ItemBandeja[] {
   };
   const nombreSala = (id: string): string => e.salas.find(x => x.id === id)?.nombre ?? 'la sala';
 
+  // Primero las plazas cuyo slot ya no tiene clase (la causa concreta), y esas
+  // se excluyen del aviso genérico de abajo para no listar la misma plaza dos
+  // veces con dos diagnósticos distintos.
+  const huerfanas = plazasFijasSinSesion(e.plazasFijas, e.sesiones, e.ahoraMs);
+  const idsHuerfanas = new Set(huerfanas.map(p => p.id));
+
   const items: ItemBandeja[] = [
     ...recuperacionesPorVencer(e, nombreSocia),
     ...cobrosPendientes(e, nombreSocia),
     ...averiaOverflow(e, nombreSala),
-    ...plazasSinClase(e, nombreSocia),
+    ...plazasSinSesion(huerfanas, nombreSocia, nombreSala),
+    ...plazasSinClase(e, nombreSocia, idsHuerfanas),
   ];
 
   items.sort((a, b) => b.urgencia - a.urgencia || a.id.localeCompare(b.id));
@@ -196,11 +204,40 @@ function averiaOverflow(e: EntradaBandeja, nombreSala: (id: string) => string): 
   return out;
 }
 
-// 4 · Plaza fija sin clase: una plaza ACTIVA cuya socia no tiene NINGUNA reserva
+// 4a · Plaza fija sin clase EN EL HORARIO: el estudio movió la clase (editar
+// serie, arrastrar) y la plaza sigue anclada al día/hora/sala de antes, así que
+// el cron no tiene ninguna sesión con la que emparejarla — y el aviso a la
+// socia (`plazas_fijas_sin_materializar`) tampoco salta, porque usa el mismo
+// JOIN. Esto es lo único que ve la propietaria, y se arregla editando la plaza
+// (ficha de la socia). El emparejamiento lo re-deriva lib/plazas-fijas-slot.ts,
+// espejo del SQL; incluye la guardia de "el horario aún no llega tan lejos".
+function plazasSinSesion(
+  huerfanas: PlazaFija[],
+  nombreSocia: (id: string | null) => string,
+  nombreSala: (id: string) => string,
+): ItemBandeja[] {
+  return huerfanas.map(p => ({
+    id: `plaza-sin-clase-${p.id}`,
+    categoria: 'PLAZA' as const,
+    urgencia: 70,
+    titulo: 'Plaza fija sin clase en el horario',
+    detalle: `${nombreSocia(p.socioId)} tiene plaza fija el ${nombreDiaSemana(p.diaSemana)} a las ${p.horaInicio.slice(0, 5)} en ${nombreSala(p.salaId)}, pero ya no hay ninguna clase a esa hora. Si la clase se movió, edita su plaza fija.`,
+    socioId: p.socioId,
+    href: `/clientas/${p.socioId}`,
+    cta: 'Editar plaza fija',
+  }));
+}
+
+// 4b · Plaza fija sin clase: una plaza ACTIVA cuya socia no tiene NINGUNA reserva
 // materializada (id 'res-pf-') futura → el cron no pudo colocarla (aforo lleno o
 // sin sesión). Conservador: sin re-derivar el emparejamiento de slot (eso vive en
 // SQL), así que una socia con varias plazas se da por colocada si tiene alguna.
-function plazasSinClase(e: EntradaBandeja, nombreSocia: (id: string | null) => string): ItemBandeja[] {
+// `excluirPlazas`: ids de las ya reportadas en 4a con su causa concreta.
+function plazasSinClase(
+  e: EntradaBandeja,
+  nombreSocia: (id: string | null) => string,
+  excluirPlazas: Set<string> = new Set(),
+): ItemBandeja[] {
   const sesionById = new Map(e.sesiones.map(s => [s.id, s]));
   const conPlazaFutura = new Set<string>();
   for (const r of e.reservas) {
@@ -217,6 +254,7 @@ function plazasSinClase(e: EntradaBandeja, nombreSocia: (id: string | null) => s
     if (p.vigenciaHasta && diasHasta(p.vigenciaHasta, e.ahoraMs) < 0) continue; // ya terminó
     if (e.ahoraMs - Date.parse(p.creadaEn) < PLAZA_GRACIA_MS) continue;      // el cron aún no ha corrido
     if (conPlazaFutura.has(p.socioId)) continue;                            // sí se materializó
+    if (excluirPlazas.has(p.id)) continue;                                  // ya avisada con la causa real (4a)
     out.push({
       id: `plaza-${p.id}`,
       categoria: 'PLAZA',

@@ -20,7 +20,7 @@ import {
   ChevronUp, ChevronDown, ChevronsUpDown, Mail, Pencil,
   Trash2, AlertTriangle, CheckCircle2, Upload, X, UserX,
   Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck, Loader2,
-  CircleDashed,
+  CircleDashed, CalendarPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -168,6 +168,7 @@ export default function Socios() {
   const {
     socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados,
     segmentosClientes, addSegmentoCliente, updateSegmentoCliente, deleteSegmentoCliente,
+    ampliarCaducidades,
   } = useStudio();
   const rol = useRol();
   const verSemaforo = puedeVerSemaforo(rol);
@@ -226,6 +227,12 @@ export default function Socios() {
   const [asignarPlanId, setAsignarPlanId] = useState('');
   const [asignando, setAsignando] = useState(false);
   const [errorAsignar, setErrorAsignar] = useState<string | null>(null);
+  // Ampliar caducidad en lote (cierre del centro, festivos, vacaciones).
+  const [showAmpliar, setShowAmpliar] = useState(false);
+  const [diasAmpliar, setDiasAmpliar] = useState(7);
+  const [ampliando, setAmpliando] = useState(false);
+  const [errorAmpliar, setErrorAmpliar] = useState<string | null>(null);
+  const [resultadoAmpliar, setResultadoAmpliar] = useState<{ bonos: number; recuperaciones: number } | null>(null);
 
   // Create / edit modal
   const [showForm, setShowForm] = useState<'nueva' | 'editar' | null>(null);
@@ -582,6 +589,30 @@ export default function Socios() {
     setAsignarPlanId('');
   }
 
+  async function handleAmpliarCaducidades() {
+    if (ampliando) return;
+    setAmpliando(true);
+    setErrorAmpliar(null);
+    const res = await ampliarCaducidades([...selected], diasAmpliar);
+    setAmpliando(false);
+    if (!res.ok) { setErrorAmpliar(res.error); return; }
+    // El resultado se enseña en el propio diálogo en vez de cerrarlo: "hecho"
+    // a secas no distingue haber ampliado 40 bonos de no haber tocado nada
+    // porque a nadie le quedaba un bono vivo.
+    setResultadoAmpliar({ bonos: res.bonos, recuperaciones: res.recuperaciones });
+  }
+
+  // La selección se suelta al cerrar, no al ampliar: si se limpiara antes, el
+  // título del propio diálogo ("— N clientas") se quedaría en cero mientras
+  // se está leyendo el resultado.
+  function cerrarAmpliar() {
+    if (resultadoAmpliar) setSelected(new Set());
+    setShowAmpliar(false);
+    setErrorAmpliar(null);
+    setResultadoAmpliar(null);
+    setDiasAmpliar(7);
+  }
+
   // ── Create / edit ──────────────────────────────────────────────────────────
   function resetModal() {
     setShowForm(null);
@@ -907,6 +938,15 @@ export default function Socios() {
           >
             <Tag size={12} />
             Cambiar plan
+          </button>
+          )}
+          {mueveDinero && (
+          <button
+            onClick={() => { setResultadoAmpliar(null); setErrorAmpliar(null); setShowAmpliar(true); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-card/10 hover:bg-card/20 transition-colors"
+          >
+            <CalendarPlus size={12} />
+            Ampliar caducidad
           </button>
           )}
           <button
@@ -1558,6 +1598,66 @@ export default function Socios() {
               </button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: Ampliar caducidad (bulk) ─────────────────────────────────── */}
+      <Dialog open={showAmpliar} onOpenChange={(open) => { if (!open && !ampliando) cerrarAmpliar(); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold text-foreground">
+              Ampliar caducidad — {selected.size} clienta{selected.size !== 1 ? 's' : ''}
+            </DialogTitle>
+          </DialogHeader>
+          {resultadoAmpliar ? (
+            <div className="space-y-4 mt-2">
+              <p className="text-[13px] text-foreground">
+                {resultadoAmpliar.bonos === 0 && resultadoAmpliar.recuperaciones === 0
+                  ? 'No había ningún bono ni recuperación en vigor que ampliar.'
+                  : `Ampliados ${diasAmpliar} días: ${resultadoAmpliar.bonos} bono${resultadoAmpliar.bonos !== 1 ? 's' : ''} y ${resultadoAmpliar.recuperaciones} recuperaci${resultadoAmpliar.recuperaciones !== 1 ? 'ones' : 'ón'}.`}
+              </p>
+              <button
+                onClick={cerrarAmpliar}
+                className="w-full py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary hover:brightness-95 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4 mt-2">
+              <FF label="Días a añadir">
+                <input
+                  type="number" min={1} max={365}
+                  className={inputCls}
+                  value={diasAmpliar}
+                  disabled={ampliando}
+                  onChange={(e) => setDiasAmpliar(Math.min(365, Math.max(1, Number(e.target.value) || 1)))}
+                />
+              </FF>
+              <p className="text-[12px] text-muted-foreground">
+                Se suman a los bonos en vigor y a las recuperaciones sin usar. Las cuotas
+                mensuales no se tocan: su fecha marca el próximo cobro. Lo que ya haya
+                caducado no se recupera, así que amplía antes de cerrar.
+              </p>
+              {errorAmpliar && <p className="text-[12.5px] text-destructive">{errorAmpliar}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={cerrarAmpliar}
+                  disabled={ampliando}
+                  className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleAmpliarCaducidades}
+                  disabled={ampliando}
+                  className="flex-1 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
+                >
+                  {ampliando ? 'Ampliando…' : `Ampliar ${diasAmpliar} días`}
+                </button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

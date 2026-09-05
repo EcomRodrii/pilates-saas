@@ -2342,19 +2342,32 @@ export async function dbUpdatePlazaFija(id: string, changes: Partial<PlazaFija>)
   if ('vigenciaHasta' in changes) db.vigencia_hasta = changes.vigenciaHasta;
   if ('estado' in changes) db.estado = changes.estado;
   const { error } = await supabase.from('plazas_fijas').update(db).eq('id', id);
+  // Cambiar día/hora/sitio choca con la misma exclusión GiST que el alta, así
+  // que necesita el mismo mensaje: el genérico de Postgres no dice a quién
+  // pertenece el sitio ni qué hacer.
+  if (error?.message.includes('plazas_fijas_spot_sin_solape')) {
+    reportDbError('[dbUpdatePlazaFija]', error);
+    return { ok: false, error: 'Ese sitio ya está asignado a otra socia en ese día y hora' };
+  }
   return error ? falloEscritura('[dbUpdatePlazaFija]', error) : ESCRITURA_OK;
 }
 
 // F2 (B2.3): recuperaciones. La caducidad + el tope (4) los resuelve la RPC.
 export async function dbCrearRecuperacion(
   studioId: string, socioId: string, origenReservaId: string | null, motivo: string | null,
+  /** 'YYYY-MM-DD'. null = la caducidad la pone la política del estudio. */
+  caducaEl: string | null = null,
 ): Promise<'CREADA' | 'TOPE' | 'ERROR'> {
+  // Siempre la firma de 6 argumentos (migr 20260904215616). La de 5 sigue viva
+  // como envoltorio para las pestañas que aún tengan el bundle anterior, pero
+  // desde aquí no se usa: un solo camino.
   const { data, error } = await supabase.rpc('crear_recuperacion', {
     p_id: `recup-${uid()}`,
     p_studio_id: studioId,
     p_socio_id: socioId,
     p_origen_reserva_id: origenReservaId,
     p_motivo: motivo,
+    p_caduca_el: caducaEl,
   });
   if (error) { reportDbError('[dbCrearRecuperacion]', error); return 'ERROR'; }
   return (data as 'CREADA' | 'TOPE') ?? 'ERROR';
@@ -2371,6 +2384,33 @@ export async function dbListRecuperaciones(studioId: string): Promise<Recuperaci
 export async function dbAnularRecuperacion(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('recuperaciones').update({ estado: 'ANULADA' }).eq('id', id);
   return error ? falloEscritura('[dbAnularRecuperacion]', error) : ESCRITURA_OK;
+}
+
+/**
+ * Suma días a la caducidad de los bonos vivos y las recuperaciones DISPONIBLE
+ * de esas socias, en UNA transacción (migr 20260904182127). No toca las cuotas
+ * mensuales ni resucita lo ya caducado — el porqué está en la migración.
+ * Devuelve cuántas filas ha movido de cada tipo para poder decirlo en el toast:
+ * "he ampliado" sin cifra no distingue el caso de no haber ampliado nada.
+ */
+export async function dbAmpliarCaducidades(
+  studioId: string, socioIds: string[], dias: number,
+): Promise<{ ok: true; bonos: number; recuperaciones: number } | { ok: false; error: string }> {
+  const { data, error } = await supabase.rpc('ampliar_caducidades', {
+    p_studio_id: studioId,
+    p_socio_ids: socioIds,
+    p_dias: dias,
+  });
+  if (error) {
+    reportDbError('[dbAmpliarCaducidades]', error);
+    if (error.message.includes('NO_AUTORIZADO')) return { ok: false, error: 'No tienes permiso para ampliar caducidades' };
+    if (error.message.includes('DIAS_INVALIDOS')) return { ok: false, error: 'Los días tienen que estar entre 1 y 365' };
+    return { ok: false, error: mensajeDeFalloAlGuardar(error) };
+  }
+  // `returns table` llega como array de una fila.
+  const fila = (Array.isArray(data) ? data[0] : data) as
+    { bonos_ampliados?: number; recuperaciones_ampliadas?: number } | null | undefined;
+  return { ok: true, bonos: fila?.bonos_ampliados ?? 0, recuperaciones: fila?.recuperaciones_ampliadas ?? 0 };
 }
 
 // F2 (B2.9): excepciones por socia. El toggle = poner (upsert) / quitar (delete).
@@ -4009,6 +4049,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('anioFundacion' in changes) db.anio_fundacion = changes.anioFundacion;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
+  if ('recuperacionCaducidadTipo' in changes) db.recuperacion_caducidad_tipo = changes.recuperacionCaducidadTipo;
+  if ('recuperacionCaducidadDias' in changes) db.recuperacion_caducidad_dias = changes.recuperacionCaducidadDias;
   if ('cancelacionClaseDevuelveBono' in changes) db.cancelacion_clase_devuelve_bono = changes.cancelacionClaseDevuelveBono;
   if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;
   if ('compraPublicaModo' in changes) db.compra_publica_modo = changes.compraPublicaModo;
@@ -4385,6 +4427,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     cancelacionClaseDevuelveBono: r.cancelacion_clase_devuelve_bono ?? true,
+    recuperacionCaducidadTipo: (r.recuperacion_caducidad_tipo as 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE') ?? 'FIN_MES_SIGUIENTE',
+    recuperacionCaducidadDias: r.recuperacion_caducidad_dias ?? null,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
@@ -4653,11 +4697,10 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // db.from('dashboard_charts').select('*').eq('studio_id', sid),
     // db.from('citas_servicios').select('*').eq('studio_id', sid),
     // db.from('citas_disponibilidad').select('*').eq('studio_id', sid),
-    // db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
     // db.from('plazas_fijas').select('*').eq('studio_id', sid),
     // db.from('recuperaciones').select('*').eq('studio_id', sid),
-    // db.from('socio_excepciones').select('*').eq('studio_id', sid),
-    // db.from('mandatos_sepa').select('*').eq('studio_id', sid),
+    // bloqueos_maquina / socio_excepciones / mandatos_sepa: en la 2ª ola
+    // (fetchDeferredStudioData), ver el comentario allí.
     db.from('contenido_portal').select('*').eq('studio_id', sid).maybeSingle(),
     // Sin filtrar por activo/ubicación: el editor del dashboard necesita ver
     // TODOS los banners (incluidos inactivos/de otras pantallas) para poder
@@ -4729,11 +4772,11 @@ export async function fetchCriticalStudioData(studioId?: string) {
     dashboardCharts: [], // Sprint 1: lazy-load
     citasServicios: [], // Sprint 1: lazy-load
     citasDisponibilidad: [], // Sprint 1: lazy-load
-    bloqueosMaquina: [], // Sprint 1: lazy-load
+    bloqueosMaquina: [], // 2ª ola: fetchDeferredStudioData
     plazasFijas: [], // Sprint 1: lazy-load
     recuperaciones: [], // Sprint 1: lazy-load
-    socioExcepciones: [], // Sprint 1: lazy-load
-    mandatosSepa: [], // Sprint 1: lazy-load
+    socioExcepciones: [], // 2ª ola: fetchDeferredStudioData
+    mandatosSepa: [], // 2ª ola: fetchDeferredStudioData
   };
 }
 
@@ -4753,6 +4796,11 @@ export async function fetchDeferredStudioData(studioId?: string) {
     backupsRes,
     condicionesSaludRes,
     postsComunidadRes,
+    bloqueosMaquinaRes,
+    socioExcepcionesRes,
+    mandatosSepaRes,
+    plazasFijasRes,
+    recuperacionesRes,
   ] = await enTandas([
     // I5: estos tres historiales son append-only y crecen sin fin, pero ninguna
     // vista de STAFF los consume (el portal usa la versión member-scoped de otro
@@ -4786,6 +4834,39 @@ export async function fetchDeferredStudioData(studioId?: string) {
     // feeds de esta función, un estudio activo no necesita años de historial
     // en memoria para pintar el tablón.
     db.from('posts_comunidad').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
+    // Mismo bug de Sprint 1 (#1375), tres tablas más. Se quitaron del
+    // arranque con la promesa de cargarlas «desde su página», y ninguna
+    // página lo hizo nunca — `dbListBloqueosMaquina` se quedó sin un solo
+    // caller. Efecto en el panel, en cada sesión nueva:
+    //   · Configuración → Salas decía «No hay averías activas» con averías
+    //     abiertas en BD, y `aforoEfectivoSesion` (bandeja «Para hoy») las
+    //     ignoraba: el aforo real de la sala averiada no bajaba.
+    //   · Las «Excepciones» de la ficha arrancaban TODAS apagadas aunque
+    //     estuvieran activas — y el toggle, al creerlas apagadas, hacía un
+    //     upsert de la que ya existía en vez de quitarla.
+    //   · La ficha no veía el mandato SEPA vigente («Sin mandato») y la
+    //     remesa 19.14 de Cobros se construía sin ningún mandato: todos los
+    //     recibos pendientes quedaban «sin domiciliar».
+    // Tablas pequeñas (una fila por avería/excepción/mandato), sin acotar —
+    // mismas consultas que estaban comentadas en fetchCriticalStudioData,
+    // aquí en la 2ª ola para seguir sin bloquear el primer pintado.
+    db.from('bloqueos_maquina').select('*').eq('studio_id', sid),
+    db.from('socio_excepciones').select('*').eq('studio_id', sid),
+    // La RLS (`mandatos_sepa_lectura`, migr 20260731090000) solo deja leer a
+    // quien ve finanzas (PROPIETARIO/RECEPCION); INSTRUCTOR/MANAGER reciben
+    // [] sin error, igual que con recibos — no hace falta mirar el rol aquí.
+    db.from('mandatos_sepa').select('*').eq('studio_id', sid),
+    // Y las dos que faltaban del mismo bug (#1375), encontradas al investigar
+    // por qué una plaza fija deja de materializar cuando el estudio mueve la
+    // clase: `plazasFijas` quedaba `[]` SIEMPRE en el panel, así que la ficha
+    // decía "Sin plaza fija" aunque hubiera una, /libreta no las listaba y la
+    // bandeja "Para hoy" no podía avisar de ninguna. Una fila por socia con
+    // plaza — no pesa.
+    db.from('plazas_fijas').select('*').eq('studio_id', sid),
+    // `recuperaciones`, el mismo agujero: solo se releía tras conceder una o
+    // tras una baja con recuperación, así que en una sesión nueva la ficha,
+    // /libreta y la primera fuente de la bandeja arrancaban vacías.
+    db.from('recuperaciones').select('*').eq('studio_id', sid),
   ]);
 
   return {
@@ -4799,6 +4880,11 @@ export async function fetchDeferredStudioData(studioId?: string) {
     backups: (backupsRes.data ?? []).map(r => mapBackupMeta(r as RowBackups)),
     condicionesSalud: (condicionesSaludRes.data ?? []).map(r => mapCondicionSalud(r as RowCondicionesSalud)),
     postsComunidad: (postsComunidadRes.data ?? []).map(r => mapPostComunidad(r as RowPostsComunidad)),
+    bloqueosMaquina: (bloqueosMaquinaRes.data ?? []).map(r => mapBloqueoMaquina(r as RowBloqueosMaquina)),
+    socioExcepciones: (socioExcepcionesRes.data ?? []).map(r => mapSocioExcepcion(r as RowSocioExcepciones)),
+    mandatosSepa: (mandatosSepaRes.data ?? []).map(r => mapMandatoSepa(r as RowMandatosSepa)),
+    plazasFijas: (plazasFijasRes.data ?? []).map(r => mapPlazaFija(r as RowPlazasFijas)),
+    recuperaciones: (recuperacionesRes.data ?? []).map(r => mapRecuperacion(r as RowRecuperaciones)),
   };
 }
 

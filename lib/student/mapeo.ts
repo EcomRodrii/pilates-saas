@@ -194,7 +194,7 @@ export interface PayloadMin {
       fotoUrl?: string | null;
     } | null;
     suscripciones?: SuscripcionMin[];
-    reservas?: { id: string; sesionId: string; socioId: string; estado: string; creadoEn: string; posicionEspera: number | null }[];
+    reservas?: { id: string; sesionId: string; socioId: string; estado: string; creadoEn: string; posicionEspera: number | null; ofertaExpiraEn?: string | null }[];
     recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null }[];
     /** Tipos de clase marcados como favoritos (`favoritos_clase`). */
     favoritos?: { tipoClaseId: string }[];
@@ -312,6 +312,7 @@ export function proyectarReservas(d: PayloadMin): Reserva[] {
     // Sirve para el texto de la pantalla, nunca para decidir un cobro.
     pagadaCon: tieneBonoActivo ? 'bono' : 'suelto',
     posicionEspera: r.posicionEspera ?? undefined,
+    ofertaExpiraEn: r.ofertaExpiraEn ?? undefined,
   }));
 }
 

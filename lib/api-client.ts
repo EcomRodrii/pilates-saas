@@ -1040,7 +1040,7 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
 
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 
-import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita, FilaPlazaFija, FilaPago } from '@/lib/csv';
+import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita, FilaPlazaFija, FilaPago, FilaRecuperacion } from '@/lib/csv';
 
 
 
@@ -1925,6 +1925,37 @@ export async function importarPagosHistoricos(rows: FilaPago[], batchId?: string
   }
 }
 
+// Resultado de importar recuperaciones pendientes.
+export interface ResultadoImportRecuperaciones {
+  batchAviso?: string | null;
+  importadas: number;
+  /** Las que no se crearon porque la socia ya tenía el máximo de 4 vivas. */
+  duplicadas: number;
+  errores: { fila: number; motivo: string }[];
+  error?: string;
+}
+
+// Importa las recuperaciones que la socia traía pendientes del software
+// anterior. Una fila con "cantidad 3" se convierte en tres recuperaciones. La
+// caducidad la pone la política del estudio salvo que el archivo traiga fecha.
+export async function importarRecuperaciones(
+  rows: FilaRecuperacion[], batchId?: string,
+): Promise<ResultadoImportRecuperaciones> {
+  const vacio = { importadas: 0, duplicadas: 0, errores: [] };
+  try {
+    const res = await fetch('/api/recuperaciones/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ rows, batchId }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return data as ResultadoImportRecuperaciones;
+  } catch {
+    return { ...vacio, error: 'No se pudo conectar con el servidor' };
+  }
+}
+
 // ─── Plantillas de email: vista previa + envío de prueba (P2-11) ─────────────
 
 // El borrador del formulario, sin guardar: la vista previa y el envío de
@@ -1982,6 +2013,8 @@ export interface TarifaInstructor {
   tarifaHora: number | null;
   baseMensualEur: number | null;
   recargoSustitucionPct: number | null;
+  /** Horas semanales pactadas. null = sin contrato definido: no se compara. */
+  horasSemanalesContrato: number | null;
 }
 
 export async function fetchTarifasEquipo(): Promise<TarifaInstructor[]> {
@@ -1997,7 +2030,11 @@ export async function fetchTarifasEquipo(): Promise<TarifaInstructor[]> {
 
 export async function actualizarTarifaInstructor(
   instructorId: string, tarifaHora: number | null,
-  extra?: { baseMensualEur?: number | null; recargoSustitucionPct?: number | null },
+  extra?: {
+    baseMensualEur?: number | null;
+    recargoSustitucionPct?: number | null;
+    horasSemanalesContrato?: number | null;
+  },
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch('/api/equipo/tarifas', {

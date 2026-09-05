@@ -18,8 +18,8 @@ import {
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
   dbGuardarEntrega,
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
-  dbInsertPlazaFija, dbUpdatePlazaFija,
-  dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion,
+  dbInsertPlazaFija, dbUpdatePlazaFija, dbListPlazasFijas,
+  dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion, dbAmpliarCaducidades,
   dbPonerExcepcion, dbQuitarExcepcion,
   dbUpsertMandatoSepa, dbCancelarMandatoSepa,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
@@ -333,6 +333,7 @@ interface StudioContextValue {
   // F2 (B2.2): asignar devuelve el resultado para que la UI muestre el choque de
   // sitio (violación de la exclusión GiST). quitar = baja lógica (estado BAJA).
   asignarPlazaFija: (fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>) => Promise<{ ok: true } | { error: string }>;
+  editarPlazaFija: (id: string, cambios: Partial<Omit<PlazaFija, 'id' | 'studioId' | 'socioId' | 'creadaEn'>>) => Promise<ResultadoEscritura>;
   quitarPlazaFija: (id: string) => Promise<ResultadoEscritura>;
   // Feature #2 (ficha Lorari-vs-Tentare): autoservicio desde el portal — solo
   // tiene efecto con sesión de socia (ctxPublico presente); nunca desde staff,
@@ -354,8 +355,11 @@ interface StudioContextValue {
   ponerExcepcion: (socioId: string, tipo: string, motivo: string | null) => Promise<ResultadoEscritura>;
   quitarExcepcion: (socioId: string, tipo: string) => Promise<ResultadoEscritura>;
   // F2 (B2.3): dueña concede una recuperación. Devuelve TOPE si ya tiene 4 vivas.
-  darRecuperacion: (socioId: string, motivo: string | null) => Promise<'CREADA' | 'TOPE' | 'ERROR'>;
+  darRecuperacion: (socioId: string, motivo: string | null, caducaEl?: string | null) => Promise<'CREADA' | 'TOPE' | 'ERROR'>;
   anularRecuperacion: (id: string) => Promise<ResultadoEscritura>;
+  ampliarCaducidades: (
+    socioIds: string[], dias: number,
+  ) => Promise<{ ok: true; bonos: number; recuperaciones: number } | { ok: false; error: string }>;
 
   // Mutable state
   socios: Socio[];
@@ -1276,6 +1280,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // dentro de Mensajería) nunca mostraba el historial de posts en una
         // sesión nueva.
         content.setPostsComunidad(def.postsComunidad);
+        // Ídem para averías, excepciones y mandatos SEPA: sin esto, Salas,
+        // la ficha de la socia y la remesa de Cobros arrancaban ciegas en
+        // cada sesión nueva (ver el comentario en fetchDeferredStudioData).
+        setBloqueosMaquina(def.bloqueosMaquina);
+        setSocioExcepciones(def.socioExcepciones);
+        setMandatosSepa(def.mandatosSepa);
+        // Y las dos que faltaban: sin esto la ficha, /libreta y la bandeja no
+        // veían NINGUNA plaza fija ni recuperación (ver el comentario en
+        // fetchDeferredStudioData).
+        setPlazasFijas(def.plazasFijas);
+        setRecuperaciones(def.recuperaciones);
       }).catch(err => console.error('Error cargando datos diferidos:', err));
     }).catch(err => {
       console.error('Error fetching Supabase data:', err);
@@ -1483,6 +1498,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
+  // Cambiar el hueco de una plaza fija ya asignada (día, hora, sala, sitio o
+  // vigencia). Antes solo había asignar/quitar, así que mover a una socia de
+  // hora obligaba a darla de baja y crearla otra vez — perdiendo la fila y su
+  // histórico (y su antigüedad, que es lo que decide el turno cuando falta
+  // aforo en la materialización). NO optimista por lo mismo que
+  // `asignarPlazaFija`: el slot nuevo puede chocar con la exclusión GiST.
+  async function editarPlazaFija(
+    id: string,
+    cambios: Partial<Omit<PlazaFija, 'id' | 'studioId' | 'socioId' | 'creadaEn'>>,
+  ): Promise<ResultadoEscritura> {
+    const res = await dbUpdatePlazaFija(id, cambios);
+    if (!res.ok) return res;
+    setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, ...cambios } : p));
+    return res;
+  }
+
   // Baja lógica (estado BAJA): deja de materializar; conserva el histórico.
   async function quitarPlazaFija(id: string): Promise<ResultadoEscritura> {
     const res = await dbUpdatePlazaFija(id, { estado: 'BAJA' });
@@ -1523,8 +1554,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // F2 (B2.3): concede una recuperación (dueña-first). La caducidad y el tope (4)
   // los resuelve la RPC; al crearla, recargamos la lista para reflejar caduca_el.
-  async function darRecuperacion(socioId: string, motivo: string | null): Promise<'CREADA' | 'TOPE' | 'ERROR'> {
-    const r = await dbCrearRecuperacion(getCurrentStudioId(), socioId, null, motivo);
+  async function darRecuperacion(
+    socioId: string, motivo: string | null, caducaEl: string | null = null,
+  ): Promise<'CREADA' | 'TOPE' | 'ERROR'> {
+    const r = await dbCrearRecuperacion(getCurrentStudioId(), socioId, null, motivo, caducaEl);
     if (r === 'CREADA') setRecuperaciones(await dbListRecuperaciones(getCurrentStudioId()));
     return r;
   }
@@ -1533,6 +1566,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbAnularRecuperacion(id);
     if (!res.ok) return res;
     setRecuperaciones(prev => prev.map(r => r.id === id ? { ...r, estado: 'ANULADA' as const } : r));
+    return res;
+  }
+
+  // Ampliar en lote la caducidad de bonos y recuperaciones (cierre del centro,
+  // festivos, vacaciones). Toda la decisión de QUÉ filas se mueven vive en la
+  // RPC; aquí no se replica el criterio (plan BONO/PUNTUAL, activa, aún viva)
+  // porque tenerlo en dos sitios es cómo se acaba enseñando en pantalla algo
+  // distinto de lo que hay en la base. Por eso, al terminar, se recarga en vez
+  // de tocar el estado a mano: es una acción rara y deliberada, no un camino
+  // caliente.
+  async function ampliarCaducidades(
+    socioIds: string[], dias: number,
+  ): Promise<{ ok: true; bonos: number; recuperaciones: number } | { ok: false; error: string }> {
+    const res = await dbAmpliarCaducidades(getCurrentStudioId(), socioIds, dias);
+    if (res.ok) resetDatosPilates();
     return res;
   }
 
@@ -2767,6 +2815,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setSesiones(prev => prev.map(s => antes.get(s.id) ?? s));
       return res;
     }
+    // La RPC mueve también las plazas fijas ancladas al slot viejo (migr
+    // 20260904230204) — qué filas, y si alguna se partió en dos, lo decide la
+    // BD. Sin recargar, la ficha seguiría enseñando el horario viejo y la
+    // bandeja marcaría como huérfana una plaza que se acaba de arreglar sola.
+    // Se relee entera (una consulta pequeña, y editar una serie es raro) en
+    // vez de pedirle ids a la RPC: cambiar su firma reabre el gotcha de grants.
+    // `dbListPlazasFijas` devuelve [] también si la lectura falla; la RPC
+    // nunca borra plazas, así que un [] con plazas en memoria es un fallo de
+    // red, no un estado nuevo — se conserva lo que había.
+    const plazas = await dbListPlazasFijas(getCurrentStudioId());
+    setPlazasFijas(prev => (plazas.length > 0 || prev.length === 0) ? plazas : prev);
     return { ok: true, count: res.count };
   }
 
@@ -4706,6 +4765,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     marcarAveria,
     quitarAveria,
     asignarPlazaFija,
+    editarPlazaFija,
     quitarPlazaFija,
     crearPlazaFijaPropia,
     pausarPlazaFijaPropia,
@@ -4713,6 +4773,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     darDeBajaPlazaFijaPropia,
     darRecuperacion,
     anularRecuperacion,
+    ampliarCaducidades,
     addTipoClase,
     updateTipoClase,
     deleteTipoClase,
