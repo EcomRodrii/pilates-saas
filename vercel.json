@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/materializar-plazas",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/verifactu-transmitir",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

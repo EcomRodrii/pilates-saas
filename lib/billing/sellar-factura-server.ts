@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 // Relativos y con `.ts` explícita, no `@/lib/...`: este módulo ahora lo
 // importa `entregar-plan-comprado.ts` (P-6, auditoría 21ª pasada), que sí
@@ -6,7 +5,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { calcularHuellaAlta, type RegistroAltaVerifactu } from '../verifactu.ts';
 import { fechaExpedicionDesdeISO, fechaHoraHusoMadrid, urlQrVerifactu } from '../verifactu-qr.ts';
 import { nifEmisorValido } from '../nif.ts';
-import { fiskalyConfigurado, asegurarEmisor, firmarFactura } from './fiskaly.ts';
 
 // Núcleo del sellado Veri*Factu, extraído de app/api/facturas/sellar para que lo
 // puedan invocar TANTO la ruta (staff autenticado) COMO el webhook de Stripe
@@ -18,7 +16,8 @@ import { fiskalyConfigurado, asegurarEmisor, firmarFactura } from './fiskaly.ts'
 // duplica la factura ni bifurca la cadena. Distingue "reservada pero
 // incompleta" (crash entre la reserva atómica y el UPDATE final con la huella)
 // de "verdaderamente sellada": en el primer caso retoma el cálculo de la
-// huella/Fiskaly con los datos YA reservados, sin pedir un número nuevo.
+// huella y la cola de transmisión con los datos YA reservados, sin pedir un
+// número nuevo.
 //
 // ── C-5 (cerrado) ───────────────────────────────────────────────────────────
 // La reserva de numero_completo/verifactu_seq/verifactu_prev_hash pasa por la
@@ -32,7 +31,7 @@ import { fiskalyConfigurado, asegurarEmisor, firmarFactura } from './fiskaly.ts'
 // transacción compartida. Además, UNIQUE(studio_id, verifactu_seq) y
 // UNIQUE(studio_id, numero_completo) actúan como red de seguridad dura.
 //
-// La huella (calcularHuellaAlta, función pura) y la firma Fiskaly (llamada
+// La huella (calcularHuellaAlta, función pura) y el encolado para la AEAT (ver
 // HTTP externa) se calculan DESPUÉS de la reserva, fuera del lock — no lo
 // necesitan — y terminan en un UPDATE por id (sin condición de carrera:
 // acotado además a verifactu_hash IS NULL, así que si otra llamada
@@ -108,7 +107,7 @@ export async function sellarFacturaDeRecibo(
 
   const { data: studio } = await admin
     .from('studios')
-    .select('nif, iva_por_defecto, razon_social, nombre, direccion, ciudad, codigo_postal, email, fiskaly_signer_id, fiskaly_client_id')
+    .select('nif, iva_por_defecto, razon_social, nombre, direccion, ciudad, codigo_postal, email')
     .eq('id', studioId)
     .maybeSingle();
   const nifEmisor = studio?.nif?.trim() || '';
@@ -124,7 +123,6 @@ export async function sellarFacturaDeRecibo(
   let receptorNombre: string;
   let receptorNIF: string | null;
   let baseImponible: number;
-  let tipoIVA: number;
   let cuotaIVA: number;
   let total: number;
   let huellaAnterior: string;
@@ -143,13 +141,12 @@ export async function sellarFacturaDeRecibo(
       return { ok: false, error: 'Esta factura es anterior a Veri*Factu y no tiene número reservado: sellarla rompería la cadena.' };
     }
     // Retoma la reserva incompleta: numeroCompleto/seq/prev_hash YA están en
-    // la fila (los puso reservar_numero_factura); solo falta la huella/Fiskaly.
+    // la fila (los puso reservar_numero_factura); solo falta la huella.
     numeroCompleto = existente.numero_completo;
     fechaEmision = existente.fecha_emision;
     receptorNombre = existente.receptor_nombre ?? 'Cliente';
     receptorNIF = existente.receptor_nif;
     baseImponible = Number(existente.base_imponible);
-    tipoIVA = Number(existente.tipo_iva);
     cuotaIVA = Number(existente.cuota_iva);
     total = Number(existente.total);
     huellaAnterior = existente.verifactu_prev_hash ?? '';
@@ -224,7 +221,6 @@ export async function sellarFacturaDeRecibo(
       receptorNombre = existente.receptor_nombre ?? 'Cliente';
       receptorNIF = existente.receptor_nif;
       baseImponible = Number(existente.base_imponible);
-      tipoIVA = Number(existente.tipo_iva);
       cuotaIVA = Number(existente.cuota_iva);
       total = Number(existente.total);
       huellaAnterior = existente.verifactu_prev_hash ?? '';
@@ -237,7 +233,6 @@ export async function sellarFacturaDeRecibo(
       receptorNombre = receptorNombreCalc;
       receptorNIF = receptorNIFCalc;
       baseImponible = baseCalc;
-      tipoIVA = tipoIVAStudio;
       cuotaIVA = cuotaCalc;
       total = totalCalc;
     }
@@ -270,62 +265,21 @@ export async function sellarFacturaDeRecibo(
     verifactu_ts: ts,
     verifactu_seq: seq,
   };
-  let salida: Record<string, unknown> = {
+  const salida: Record<string, unknown> = {
     verifactuHash: huella, verifactuPrevHash: huellaAnterior, verifactuTs: ts, verifactuSeq: seq,
     qrUrl, entorno: produccion ? 'produccion' : 'pruebas',
   };
 
-  // Firma + transmisión a la AEAT vía Fiskaly, SOLO si está configurado (creds
-  // en entorno). Si algo falla, la factura mantiene la huella propia de arriba:
-  // no se pierde ninguna factura por un fallo de Fiskaly.
-  if (fiskalyConfigurado()) {
-    try {
-      let signerId = studio?.fiskaly_signer_id as string | null;
-      let clientId = studio?.fiskaly_client_id as string | null;
-      if (!signerId || !clientId) {
-        const nuevos = await asegurarEmisor(
-          {
-            legalName: (studio?.razon_social as string | null) || (studio?.nombre as string | null) || 'Estudio',
-            nif: nifEmisor,
-            direccion: (studio?.direccion as string | null) || undefined,
-            ciudad: (studio?.ciudad as string | null) || undefined,
-            codigoPostal: (studio?.codigo_postal as string | null) || undefined,
-            email: (studio?.email as string | null) || undefined,
-          },
-          signerId || randomUUID(),
-          clientId || randomUUID(),
-        );
-        signerId = nuevos.signerId;
-        clientId = nuevos.clientId;
-        await admin.from('studios')
-          .update({ fiskaly_signer_id: signerId, fiskaly_client_id: clientId })
-          .eq('id', studioId);
-      }
-
-      const fiskalyInvoiceId = randomUUID();
-      const res = await firmarFactura({
-        clientId,
-        invoiceId: fiskalyInvoiceId,
-        numero: numeroCompleto,
-        simplificada: !receptorNIF,
-        concepto: `Servicios de ${(studio?.nombre as string | null) || 'estudio'}`,
-        totalConIva: total,
-        lineas: [{ texto: 'Servicios prestados', base: baseImponible, total, tipoIva: tipoIVA }],
-        receptor: receptorNIF
-          ? { nombre: receptorNombre, nif: receptorNIF, direccion: 'España', codigoPostal: '00000' }
-          : undefined,
-      });
-      camposFinales.fiskaly_invoice_id = res.id;
-      camposFinales.verifactu_qr_url = res.qrUrl;
-      camposFinales.verifactu_qr_imagen = res.qrImagen;
-      camposFinales.verifactu_estado = res.transmision;
-      camposFinales.verifactu_csv = res.csv;
-      salida = { ...salida, fiskaly: { estado: res.estado, transmision: res.transmision, csv: res.csv, qrUrl: res.qrUrl } };
-    } catch (e) {
-      console.error('[sellarFacturaDeRecibo] Fiskaly:', e instanceof Error ? e.message : e);
-      // Se sigue con la huella propia; queda registro en logs para revisar.
-    }
-  }
+  // La factura entra EN COLA para transmitirla a la AEAT. No se manda aquí: la
+  // AEAT impone control de flujo entre envíos (arranca en 60 s), así que
+  // transmitir dentro del sellado dejaría el panel esperando en cuanto alguien
+  // cobrara dos recibos seguidos. Lo hace el cron /api/cron/verifactu-transmitir
+  // en lotes, respetando ese tiempo.
+  //
+  // Se marca siempre, haya certificado o no: sin él simplemente esperan, y el
+  // día que se configure salen solas y en orden, sin tener que ir a buscar las
+  // atrasadas.
+  camposFinales.verifactu_estado = 'PENDIENTE';
 
   // UPDATE por id (PK, sin condición de carrera posible ahí) — acotado además
   // a verifactu_hash IS NULL: si otra llamada concurrente para esta MISMA
@@ -387,7 +341,13 @@ export function mapSalida(row: { verifactu_hash: string | null; verifactu_prev_h
 // corresponda). No hay una fórmula fiscal fiable para derivarlo en código
 // sin criterio humano/gestoría de por medio — se recibe todo ya calculado.
 //
-// ⚠️ Fiskaly: DELIBERADAMENTE no se llama en esta Fase A. Su payload exacto
+// ⚠️ Nota histórica: aquí NO se llamaba a la transmisión porque el payload del
+// proveedor externo para rectificativas no estaba verificado. Con la
+// transmisión propia (lib/verifactu/) esa distinción desaparece: una
+// rectificativa es un RegistroAlta con TipoFactura R1-R5, el mismo mensaje que
+// el resto. Entra en la misma cola.
+//
+// (texto original) Su payload exacto
 // para rectificativas (¿`type: 'CORRECTIVE'`? ¿SIMPLIFIED/COMPLETE normal con
 // TipoFactura=R1 en el content?) no está verificado contra su documentación
 // autenticada ni contra su sandbox real — mandar algo adivinado sería firmar
@@ -455,7 +415,7 @@ export async function sellarRectificativaDeFactura(
 
   const { data: studio } = await admin
     .from('studios')
-    .select('nif, iva_por_defecto, razon_social, nombre, direccion, ciudad, codigo_postal, email, fiskaly_signer_id, fiskaly_client_id')
+    .select('nif, iva_por_defecto, razon_social, nombre, direccion, ciudad, codigo_postal, email')
     .eq('id', studioId)
     .maybeSingle();
   const nifEmisor = studio?.nif?.trim() || '';
@@ -535,14 +495,16 @@ export async function sellarRectificativaDeFactura(
     { produccion },
   );
 
-  // Fiskaly NO se llama aquí a propósito — ver el aviso de cabecera. El
-  // fiskalyConfigurado() de sellarFacturaDeRecibo NO se reutiliza sin más:
-  // haría falta el payload correcto, que todavía no está verificado.
+  // La rectificativa entra en la MISMA cola que el resto: para la AEAT es un
+  // RegistroAlta con TipoFactura R1-R5, no un mensaje aparte. Lo que antes
+  // obligaba a dejarla fuera era el payload del proveedor externo, que ya no
+  // está en medio.
   const camposFinales = {
     verifactu_hash: huella,
     verifactu_prev_hash: huellaAnterior,
     verifactu_ts: ts,
     verifactu_seq: seq,
+    verifactu_estado: 'PENDIENTE',
   };
 
   const { data: actualizada, error: errorUpdate } = await admin
@@ -571,7 +533,7 @@ export async function sellarRectificativaDeFactura(
   return {
     ok: true,
     sellada: true,
-    aviso: 'Rectificativa sellada con huella propia. Transmisión a Fiskaly/AEAT NO enviada todavía — su payload para rectificativas no está verificado contra el sandbox real. Contacta con soporte de Fiskaly antes de activar el envío.'
+    aviso: 'Rectificativa sellada y en cola para la AEAT. Se transmitirá con el resto en cuanto haya certificado configurado.'
       + ((rectificativasPrevias ?? 0) > 0 ? ` Aviso: esta factura ya tenía ${rectificativasPrevias} rectificativa(s) previa(s).` : ''),
     factura: {
       verifactuHash: huella, verifactuPrevHash: huellaAnterior, verifactuTs: ts, verifactuSeq: seq,
