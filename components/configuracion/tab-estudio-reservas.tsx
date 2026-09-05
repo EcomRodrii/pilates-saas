@@ -45,6 +45,9 @@ type PoliticaForm = {
   // Migr 20260809020328: default true = comportamiento de siempre (pase/QR
   // obligatorio). false = confía en la reserva: se marca asistida sola.
   requiereCheckinQr: boolean;
+  // Migr 20260905150000: impedir reservar con un recibo FALLIDO o DEVUELTO.
+  // Opt-in: encenderlo por defecto dejaría fuera a socias que hoy reservan.
+  bloquearReservaImpago: boolean;
 };
 
 function studioToPolitica(s: Studio | null): PoliticaForm {
@@ -68,6 +71,7 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
     penalizacionAplicaNoShow: s?.penalizacionAplicaNoShow ?? true,
     penalizacionCobroAutomatico: s?.penalizacionCobroAutomatico ?? false,
     requiereCheckinQr: s?.requiereCheckinQr ?? true,
+    bloquearReservaImpago: s?.bloquearReservaImpago ?? false,
   };
 }
 
@@ -269,6 +273,15 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               Al liberarse una plaza, hoy se confirma sola a la primera de la lista aunque no esté mirando el móvil en ese momento — y si no aparece, la plaza se pierde. Con un plazo (p.ej. 15 min), le das tiempo a confirmar que la quiere antes de dársela; si no contesta, pasa a la siguiente. Vacío o 0 = como hasta ahora, sin plazo.
             </p>
           </div>
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-[13px] text-foreground">
+              No dejar reservar con un pago fallido
+              <span className="block text-[11px] text-muted-foreground">
+                Solo cuenta un cobro que se intentó y no salió (tarjeta rechazada o recibo devuelto), no una cuota emitida que aún está en plazo. Nunca bloquea desde mostrador —ahí decides tú— ni a quien acaba de pagar esa misma clase.
+              </span>
+            </span>
+            <Toggle on={pol.bloquearReservaImpago} onChange={v => setPol(p => ({ ...p, bloquearReservaImpago: v }))} />
+          </label>
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
               Requerir aprobación manual

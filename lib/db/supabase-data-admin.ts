@@ -1815,7 +1815,9 @@ type MotivoIntentoFallido =
   | 'LIMITE_SEMANAL' | 'MAX_SIMULTANEAS'
   // El CHECK de la columna lo amplía 20260903150000: sin eso, esta fila se
   // pierde en silencio (el insert va sin `await` a propósito).
-  | 'CONFLICTO_HORARIO' | 'NECESITA_AUTORIZACION';
+  | 'CONFLICTO_HORARIO' | 'NECESITA_AUTORIZACION'
+  // Igual: el CHECK lo amplía 20260905150000.
+  | 'RESERVA_BLOQUEADA_IMPAGO';
 
 function registrarIntentoFallido(admin: SupabaseClient, params: {
   studioId: string; socioId: string; sesionId?: string | null; tipoClaseId?: string | null; motivo: MotivoIntentoFallido;
@@ -2047,6 +2049,13 @@ export async function crearReservaPublica(params: {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'LIMITE_SEMANAL' });
       return { error: 'Has alcanzado el máximo de clases por semana de tu plan' as const, codigo: 'limite-semanal' as const };
     }
+    if (error.message.includes('RESERVA_BLOQUEADA_IMPAGO')) {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'RESERVA_BLOQUEADA_IMPAGO' });
+      // Mismo criterio que el mensaje de autorización de al lado: no se la
+      // juzga ni se le detalla la deuda en una pantalla pública. Se le dice a
+      // quién preguntar.
+      return { error: 'Tienes un pago pendiente con el estudio. Escríbeles y lo resolvéis.' as const, codigo: 'impago' as const };
+    }
     if (error.message.includes('NECESITA_AUTORIZACION')) {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'NECESITA_AUTORIZACION' });
       // El mensaje no dice «no tienes nivel»: quien lo lee es la alumna, y el
@@ -2166,6 +2175,12 @@ export async function reservarPlazaTrasPagoPublico(params: {
     p_permite_lista_espera: permiteListaEsperaResuelto,
     p_requiere_aprobacion: requiereAprobacionResuelto,
     p_spot_id: params.spotId ?? null,
+    // ⚠️ ÚNICO sitio del repo que salta el gate de impago, y es obligatorio:
+    // aquí el dinero YA está cobrado (esto corre desde el webhook de Stripe).
+    // Sin esto, una socia con un recibo fallido de otro mes pagaría esta clase
+    // y acto seguido se quedaría sin plaza. Quien acaba de pagar no es quien
+    // debe.
+    p_saltar_gate_impago: true,
   });
   if (error) {
     // YA_RESERVADA: mismo p_reserva_id que un reintento anterior del webhook

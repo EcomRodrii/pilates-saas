@@ -187,6 +187,8 @@ export interface Studio {
   // "¿hay alguien en la puerta dispuesto a escanear?", no algo que varíe
   // clase a clase.
   requiereCheckinQr: boolean;
+  /** Impedir reservar con un recibo FALLIDO o DEVUELTO. Solo autoservicio. */
+  bloquearReservaImpago: boolean;
   // Devoluciones desde el panel (migr 20260811091725). Apagadas por defecto: un
   // botón que mueve dinero real no aparece solo, lo enciende la propietaria —
   // mismo criterio que `penalizacionImporteEur`. Sin override por tipo de clase
