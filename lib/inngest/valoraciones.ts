@@ -1,5 +1,5 @@
-// Valoraciones — barrido que, tras cada clase, pide a las alumnas apuntadas que
-// la valoren. Mismo patrón durable que dunning (dispatcher cron → fan-out por
+// Valoraciones — barrido que, tras cada clase, pide a las alumnas que ASISTIERON
+// que la valoren. Mismo patrón durable que dunning (dispatcher cron → fan-out por
 // estudio → un step.run por clase). Idempotente: `sesiones.valoracion_pedida_en`
 // se fija con compare-and-set ANTES de enviar, así una clase solo dispara una vez
 // aunque el barrido se solape o reintente.
@@ -7,6 +7,7 @@ import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { idsEstudios } from './estudios.ts';
 import { firmarTokenValoracion } from '@/lib/valoraciones/token';
+import { destinatariasValoracion } from '@/lib/valoraciones/destinatarias';
 import { enviarEmailPedirValoracion } from '@/lib/valoraciones/email';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
@@ -90,6 +91,24 @@ export const procesarValoracionesEstudio = inngest.createFunction(
         const admin = getSupabaseAdmin();
         if (!admin) throw new Error('Service role no configurada');
 
+        // A quién: SOLO a quien ASISTIÓ (regla de producto, la misma que aplica
+        // la app en /api/public/valorar-clase). Antes se usaba
+        // `alumnas_apuntadas`, que devuelve CONFIRMADAS: en cuanto el estudio
+        // pasaba lista, las que fueron salían de la invitación y las que no
+        // aparecieron seguían dentro. Se mira ANTES del compare-and-set: si aún
+        // nadie está marcada como asistida (el estudio pasa lista más tarde),
+        // la clase NO se marca como pedida y el siguiente barrido la vuelve a
+        // mirar, mientras siga dentro de la ventana de 48 h.
+        const { data: reservasRaw } = await admin
+          .from('reservas').select('socio_id, estado')
+          .eq('studio_id', studioId).eq('sesion_id', c.id).eq('estado', 'ASISTIDA');
+        const idsSocias = Array.from(new Set((reservasRaw ?? []).map((r) => r.socio_id)));
+        const { data: sociosRaw } = idsSocias.length
+          ? await admin.from('socios').select('id, nombre, apellidos, email, borrado_en').in('id', idsSocias)
+          : { data: [] as { id: string; nombre: string; apellidos: string | null; email: string | null; borrado_en: string | null }[] };
+        const lista = destinatariasValoracion(reservasRaw ?? [], sociosRaw ?? []);
+        if (lista.length === 0) return { pedida: false, lista: [], datos: null };
+
         // Compare-and-set: marca pedida ANTES de enviar. Si otra ejecución llegó
         // antes (0 filas), no reenvía.
         const { data: marcada } = await admin
@@ -105,8 +124,6 @@ export const procesarValoracionesEstudio = inngest.createFunction(
           admin.from('studios').select('nombre, color_primario, logo_url').eq('id', studioId).maybeSingle(),
         ]);
 
-        const { data: alumnas } = await admin.rpc('alumnas_apuntadas', { p_sesion_id: c.id });
-        const lista = (alumnas ?? []) as { socio_id: string; nombre: string; email: string | null }[];
         return {
           pedida: true, lista,
           datos: {
