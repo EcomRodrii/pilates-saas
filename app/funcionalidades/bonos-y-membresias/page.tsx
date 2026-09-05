@@ -101,6 +101,27 @@ export default function BonosPage() {
         </Limite>
       </Seccion>
 
+      <Seccion id="caducidades" titulo="Vacaciones, festivos y el cierre de agosto">
+        <p>
+          Cierras una semana y de repente tienes un problema administrativo: nadie debería perder días de bono por un cierre
+          tuyo, pero tampoco vas a entrar en cincuenta fichas de una en una. Seleccionas a las alumnas y amplías la
+          caducidad de todas a la vez, los días que decidas.
+        </p>
+        <Rejilla
+          items={[
+            { titulo: 'Bonos y recuperaciones', body: 'Se amplían los bonos en vigor y las clases que les debes, en la misma operación.' },
+            { titulo: 'Las mensualidades no se tocan', body: 'Ahí esa fecha es la del próximo cobro: moverla no regala días, cambia cuándo se cobra.' },
+            { titulo: 'Te dice qué movió', body: 'Cuántos bonos y cuántas recuperaciones, no un «hecho» a secas.' },
+            { titulo: 'Hazlo antes de cerrar', body: 'Lo que ya caducó no vuelve. Ampliar el día 8 no resucita el bono que venció el 3.' },
+          ]}
+        />
+        <p>
+          Para el caso de una sola alumna que se va de viaje hay algo mejor que ampliar: <strong>congelar su plan</strong>.
+          Mientras está congelado no corre el tiempo, y al reanudarlo su fecha se empuja exactamente los días que estuvo
+          parada.
+        </p>
+      </Seccion>
+
       <Seccion id="cobro" titulo="Y todo esto, ¿cómo se cobra?">
         <p>
           Definir el plan es la mitad; la otra es que el dinero entre sin que persigas a nadie. Las cuotas se renuevan y se

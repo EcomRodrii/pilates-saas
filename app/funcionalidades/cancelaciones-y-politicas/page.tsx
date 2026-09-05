@@ -154,6 +154,27 @@ export default function CancelacionesPage() {
         </p>
       </Seccion>
 
+      <Seccion id="autorizadas" titulo="Y las clases a las que no debería apuntarse cualquiera">
+        <p>
+          Hay clases con requisitos: un avanzado, un grupo reducido con máquina, algo que pide una valoración previa. Puedes
+          marcarlas como <strong>solo para alumnas autorizadas</strong> y decidir tú, una por una, quién entra.
+        </p>
+        <p>
+          No se hace con un «nivel» del 1 al 3 en la ficha, y es a propósito: eso da por hecho que tus clases se ordenan de
+          menor a mayor, y en un estudio conviven Máquina, Suelo, Gyrotonic y Yoga además de gentil, intermedio y avanzado.
+          «Autorizada a Gyrotonic» no es un escalón por encima de «autorizada a Suelo». Con una lista por alumna autorizas
+          exactamente lo que quieres.
+        </p>
+        <Rejilla
+          items={[
+            { titulo: 'Nada cambia hasta que marcas una clase', body: 'Si no enciendes la casilla en ninguna, ni siquiera aparece el bloque en las fichas.' },
+            { titulo: 'Vale también en mostrador', body: 'Si recepción pudiera saltársela, creerías que la regla se cumple mientras media plantilla la esquiva.' },
+            { titulo: 'Retirarla surte efecto ya', body: 'Y si estaba en lista de espera, deja de promocionarse: pasa a la siguiente, sin cancelarle nada.' },
+            { titulo: 'Se suma al resto de reglas', body: 'Una clase puede pedir autorización y además exigir bono activo o antelación mínima.' },
+          ]}
+        />
+      </Seccion>
+
       <Seccion id="faq" titulo="Preguntas frecuentes">
         <FeatureFaq items={FAQ} />
       </Seccion>
