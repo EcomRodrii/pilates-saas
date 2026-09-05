@@ -3,15 +3,15 @@ import { PanelClaro, PanelOscuro } from './comunes';
 
 // ── Dibujos propios de /funcionalidades/facturacion ──────────────────────────
 // Fuente: lib/verifactu.ts (cadena y huella SHA-256 en el orden de la AEAT),
-// lib/billing/sellar-factura-server.ts (numeración atómica + encadenado) y
-// lib/billing/fiskaly.ts (firma y transmisión). El ejemplo de huella de abajo
-// es ILUSTRATIVO —hex acortado— pero el formato de la cadena es el real.
+// lib/billing/sellar-factura-server.ts (numeración atómica + encadenado). La
+// firma y el envío a la AEAT están EN CONSTRUCCIÓN (lib/verifactu/), así que el
+// dibujo no los pinta como hechos. El ejemplo de huella de abajo es ILUSTRATIVO
+// —hex acortado— pero el formato de la cadena es el real.
 
 const ETAPAS = [
   { t: 'Se cobra', d: 'Tarjeta, SEPA o cobro de mostrador. El recibo pasa a COBRADO.', c: '#3E7C86' },
   { t: 'Se reserva el número', d: 'Correlativo, con bloqueo por estudio: dos cobros a la vez no pueden partir la serie.', c: '#5A6142' },
   { t: 'Se calcula la huella', d: 'SHA-256 de los datos fiscales encadenados con la huella de la factura anterior.', c: '#343825' },
-  { t: 'Se firma y se transmite', d: 'Fiskaly SIGN ES firma con certificado y envía el registro a la AEAT.', c: '#22251A' },
   { t: 'Queda el QR', d: 'Impreso en la factura, para cotejarla en la sede electrónica.', c: '#4E9E7F' },
 ];
 
@@ -19,7 +19,7 @@ export function DelCobroALaFactura() {
   return (
     <PanelClaro
       titulo="Del cobro a la factura sellada"
-      nota="Las tres primeras etapas ocurren siempre, con Fiskaly configurado o sin él. Si la firma externa falla, la factura conserva su número y su huella: nunca se pierde ni se queda a medias."
+      nota="Estas cuatro etapas ocurren siempre, en cada cobro. La firma con certificado y el envío del registro a la AEAT están en construcción: cuando lleguen, se suman al final de este mismo flujo sin cambiar nada de lo anterior."
     >
       <div className="fac-flujo">
         {ETAPAS.map((e, i) => (

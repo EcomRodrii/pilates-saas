@@ -44,8 +44,8 @@ export default function FacturacionPage() {
       path={PATH}
       eyebrow="España · Ley Antifraude"
       h1={<>Facturas que cumplen, sin que tengas que saber cómo.</>}
-      intro={<>Cada cobro genera su factura con número correlativo, huella encadenada y QR de verificación. Firmada y transmitida a la AEAT sin que abras nada.</>}
-      chips={['Veri*Factu nativo', 'Numeración a prueba de carreras', 'Cierre anual para la gestoría']}
+      intro={<>Cada cobro genera su factura con número correlativo, huella encadenada y QR de verificación, en el formato que exige el reglamento. Sin que abras nada.</>}
+      chips={['Formato Veri*Factu', 'Numeración a prueba de carreras', 'Cierre anual para la gestoría']}
       visual={<LoQueLlevaLaFactura />}
     >
       <Seccion id="contexto" titulo="Qué cambió en España, en una página">
@@ -95,28 +95,29 @@ export default function FacturacionPage() {
         </p>
       </Seccion>
 
-      <Seccion id="aeat" titulo="Firma y envío a la AEAT">
+      <Seccion id="aeat" titulo="Qué se genera hoy, y qué falta">
         <p>
           Calcular la huella es la mitad. La otra mitad es <strong>firmar el registro con un certificado</strong> y
-          transmitirlo. De eso se encarga Fiskaly SIGN ES, un proveedor especializado que gestiona el certificado, encadena
-          por emisor y hace el envío.
+          transmitirlo a la AEAT. Lo primero está hecho y funciona en cada factura; lo segundo, todavía no.
         </p>
         <Tabla
-          cabeceras={['Paso', 'Quién lo hace', 'Depende de configuración']}
+          cabeceras={['Paso', 'Estado hoy']}
           filas={[
-            ['Numeración correlativa', 'Tentare', 'No — siempre'],
-            ['Huella encadenada', 'Tentare', 'No — siempre'],
-            ['QR de cotejo AEAT', 'Tentare', 'No — siempre'],
-            ['Firma con certificado', 'Fiskaly SIGN ES', 'Sí — credenciales del entorno'],
-            ['Transmisión a la AEAT', 'Fiskaly SIGN ES', 'Sí — credenciales del entorno'],
+            ['Numeración correlativa y a prueba de carreras', 'Sí, siempre'],
+            ['Huella SHA-256 encadenada', 'Sí, siempre'],
+            ['QR de cotejo AEAT', 'Sí, siempre'],
+            ['Facturas rectificativas (R1–R5)', 'Sí, siempre'],
+            ['Cierre trimestral y anual para la gestoría', 'Sí, siempre'],
+            ['Firma con certificado y envío a la AEAT', 'En construcción'],
           ]}
         />
         <Limite titulo="Dónde está el límite, dicho claro">
-          La numeración, la huella y el QR se generan siempre. La firma y la transmisión pasan por un proveedor externo y
-          están condicionadas a que sus credenciales estén activas en el entorno; si esa llamada falla, la factura conserva
-          su número y su huella y no se pierde nada, pero ese registro concreto no habrá llegado a la AEAT hasta que se
-          reintente. Además, esto cubre la vía común: los territorios forales tienen sus propios sistemas y no están
-          incluidos. Nada de esto es asesoramiento fiscal — el encaje con tu situación lo confirma tu asesoría.
+          Tus facturas se emiten hoy con el formato que exige el reglamento: numeración legal, huella encadenada y QR de
+          cotejo. Lo que <strong>todavía no ocurre</strong> es el envío automático del registro a la AEAT, que estamos
+          construyendo — y preferimos decirlo aquí antes que dejar que te enteres cuando toque. La obligación entra en
+          enero de 2027 para sociedades y en julio de 2027 para autónomos. Además, esto cubre la vía común: los
+          territorios forales tienen sus propios sistemas y no están incluidos. Nada de esto es asesoramiento fiscal — el
+          encaje con tu situación lo confirma tu asesoría.
         </Limite>
       </Seccion>
 

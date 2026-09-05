@@ -82,8 +82,9 @@ export function BotonRectificarFactura({
           <DialogHeader><DialogTitle>Emitir factura rectificativa de {factura.numeroCompleto}</DialogTitle></DialogHeader>
           <div className="space-y-4 text-sm">
             <p className="text-xs text-muted-foreground rounded-lg border border-warning/30 bg-warning/10 px-3 py-2">
-              La transmisión a Fiskaly/AEAT todavía no está activada para rectificativas — quedará sellada y
-              encadenada en Tentare, pero hay que transmitirla aparte hasta que se verifique el envío.
+              El envío del registro a la AEAT todavía no está activo — ni para esta ni para el resto de
+              facturas. Quedará numerada, encadenada y con su QR, pero hay que transmitirla aparte hasta
+              que el envío automático esté en marcha.
             </p>
             <div>
               <span id={`${uid}-tipo`} className="text-xs font-semibold text-muted-foreground mb-1.5 block">Tipo (catálogo AEAT)</span>

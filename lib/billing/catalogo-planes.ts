@@ -150,7 +150,14 @@ export const CATEGORIAS: CategoriaPlan[] = [
     titulo: 'Facturación',
     filas: [
       { nombre: 'Facturas con numeración legal', valor: TODOS },
-      { nombre: 'Veri*Factu (AEAT)', detalle: 'Firma y envío a Hacienda desde el propio panel.', valor: TODOS },
+      // ⚠️ Esta fila decía «Firma y envío a Hacienda desde el propio panel», y el
+      // envío NO está ocurriendo: 26 facturas en producción y cero transmitidas
+      // (el proveedor de firma que se dio por activado en julio nunca llegó a
+      // firmar ninguna). Lo que sí es verdad y no es poco: la numeración legal,
+      // la huella encadenada y el QR de cotejo, que son el formato que exige el
+      // reglamento. La fila se queda con lo cierto hasta que el envío funcione
+      // de extremo a extremo — anunciarlo antes es vender lo que no hay.
+      { nombre: 'Facturas con el formato de Veri*Factu', detalle: 'Numeración legal, huella encadenada y QR de cotejo, como exige el reglamento.', valor: TODOS },
       { nombre: 'Cierre de año para la gestoría', valor: TODOS },
       { nombre: 'Exportación de tus datos cuando quieras', valor: TODOS },
     ],

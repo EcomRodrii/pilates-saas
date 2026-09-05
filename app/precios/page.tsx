@@ -188,7 +188,7 @@ export default function PreciosPage() {
             <div style={{ background: '#F4F8F5', border: '1px solid #DFEBE3', borderRadius: 18, padding: '22px 24px' }}>
               <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#3B7D64', marginBottom: 14 }}>Incluido en la cuota</div>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
-                {['Todas las funcionalidades de tu plan', 'Actualizaciones y funciones nuevas', 'Importación de tus datos desde otra plataforma', 'Soporte en español', 'Facturación con Veri*Factu', 'Exportación de tus datos cuando quieras'].map((t) => (
+                {['Todas las funcionalidades de tu plan', 'Actualizaciones y funciones nuevas', 'Importación de tus datos desde otra plataforma', 'Soporte en español', 'Facturación con el formato de Veri*Factu', 'Exportación de tus datos cuando quieras'].map((t) => (
                   <li key={t} style={{ display: 'flex', gap: 9, fontSize: 14.5, lineHeight: 1.5, color: '#3A3A34' }}>
                     <span style={{ color: '#4E9E7F', flexShrink: 0 }}>✓</span>{t}
                   </li>
