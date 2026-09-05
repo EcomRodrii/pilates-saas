@@ -328,8 +328,10 @@ test.describe('Editar una tarifa que ya existe', () => {
     const { planes } = await mockBackend(page, [BONO_EXISTENTE]);
     await seedSesionDeDuena(page);
     await page.goto('/productos');
-    // La lista arranca en «Suscripciones»; el bono vive en «Paquetes».
-    await page.getByRole('button', { name: 'Paquetes' }).click();
+    // La lista arranca en «Suscripciones»; el bono vive en «Bonos».
+    // (Esa pestaña se llamaba «Paquetes» hasta que ese pasó a ser el nombre de
+    // la sección entera y habría quedado un «Paquetes › Paquetes».)
+    await page.getByRole('button', { name: 'Bonos', exact: true }).click();
     await page.getByRole('button', { name: /Editar/ }).first().click();
 
     const d = page.getByRole('dialog', { name: 'Editar tarifa' });
