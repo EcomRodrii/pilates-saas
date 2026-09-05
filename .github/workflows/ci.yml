@@ -34,6 +34,17 @@ env:
   # es la clave de ejemplo pública y documentada por el propio Stripe
   # (docs.stripe.com), no un secreto de ninguna cuenta real.
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_TYooMQauvdEDq54NiTphI7jx
+  # Clave PÚBLICA de Web Push (VAPID). Sin ella `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+  # sale undefined del build y la tarjeta de avisos entra —correctamente— en
+  # el estado «el estudio aún no tiene los avisos configurados», así que los
+  # e2e de push no podían ejercitar ningún camino real (encontrado en CI:
+  # 4 de 6 fallaban esperando `default` y recibiendo `sin-clave`).
+  #
+  # ⚠️ Tiene que ser una clave P-256 válida en base64url, no una cadena
+  # cualquiera: `urlBase64ToUint8Array` la decodifica y `pushManager.subscribe`
+  # la valida. Es solo la mitad PÚBLICA de un par generado para pruebas —
+  # viaja al navegador por diseño y no corresponde a ningún envío real.
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: BOYC92HP6cu9iaagKm3rQj9GnH0XlM5oTd7T7KTWE8sAVf9ZuxYwBL3W9rKpRaP573eHqED3EmrbMo3MnIo1BL0
   # B0.3: siembra el estudio en la resolución server-side para que la E2E
   # (registro · reserva · pago) corra de verdad y bloquee el deploy.
   E2E_TEST: '1'
