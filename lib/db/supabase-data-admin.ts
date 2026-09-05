@@ -1816,7 +1816,7 @@ type MotivoIntentoFallido =
   // El CHECK de la columna lo amplía 20260903150000: sin eso, esta fila se
   // pierde en silencio (el insert va sin `await` a propósito).
   | 'CONFLICTO_HORARIO' | 'NECESITA_AUTORIZACION'
-  // Igual: el CHECK lo amplía 20260905150000.
+  // Igual: el CHECK lo amplía 20260905151515.
   | 'RESERVA_BLOQUEADA_IMPAGO';
 
 function registrarIntentoFallido(admin: SupabaseClient, params: {
