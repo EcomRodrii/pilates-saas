@@ -61,9 +61,26 @@ test('estado de pago: EN_CURSO no es pagado', () => {
   // Un adeudo SEPA en vuelo. Leerlo como pagado le diría a la alumna que ya
   // está cobrado cuando el banco todavía puede devolverlo.
   assert.equal(estadoPagoDe('EN_CURSO'), 'processing');
-  assert.equal(estadoPagoDe('PENDIENTE'), 'processing');
   assert.equal(estadoPagoDe('FALLIDO'), 'failed');
   assert.equal(estadoPagoDe('DEVUELTO'), 'refunded');
+});
+
+test('estado de pago: PENDIENTE no es un cobro en marcha', () => {
+  // Los dos caían en `processing`, y son cosas distintas: `EN_CURSO` es un
+  // adeudo saliendo del banco; `PENDIENTE` es un recibo emitido y sin cobrar
+  // —lo que el dunning reintenta—, donde no hay ningún cobro en marcha.
+  // Colapsarlos le prometía a quien tiene un recibo impagado un aviso de
+  // confirmación que nadie iba a mandarle.
+  assert.equal(estadoPagoDe('PENDIENTE'), 'pending');
+  assert.notEqual(estadoPagoDe('PENDIENTE'), estadoPagoDe('EN_CURSO'));
+});
+
+test('estado de pago: un estado desconocido no se pinta como cobro en marcha', () => {
+  // Ante algo que no conocemos, «todavía sin cobrar» es lo que menos promete:
+  // «procesando» afirma que hay un cobro saliendo, que es un hecho concreto y
+  // puede ser falso.
+  assert.equal(estadoPagoDe('LO_QUE_SEA'), 'pending');
+  assert.equal(estadoPagoDe(null), 'pending');
 });
 
 // ── Bonos: la traducción más cara de equivocar ──────────────────────────────

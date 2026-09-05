@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { catalogoTienda, resumenProducto } from './tienda.ts';
+import { catalogoTienda, coberturaProducto, resumenProducto } from './tienda.ts';
 
 const PLANES = [
   { id: 'p1', nombre: 'Mensual Ilimitado', tipo: 'MENSUAL', precio: 85, sesiones: null, activo: true },
@@ -72,4 +72,55 @@ test('resumen: solo menciona la caducidad si el plan la declara', () => {
 test('resumen de una privada incluye su duración', () => {
   const c = catalogoTienda([], SERVICIOS);
   assert.match(resumenProducto(c[0]), /60 min/);
+});
+
+
+// ── A qué tipos de clase está acotado un bono ───────────────────────────────
+//
+// Lo decidía el servidor y la tienda se lo callaba: un bono de Mat se vendía
+// sin una palabra de que en un Reformer no sirve, y la alumna se enteraba al
+// reservar, ya pagado.
+
+const NOMBRES = new Map([['t1', 'Reformer'], ['t2', 'Mat'], ['t3', 'Barre']]);
+
+function bono(tiposClaseIds: string[]) {
+  return catalogoTienda([{ id: 'b', nombre: 'Bono', tipo: 'BONO', precio: 50, sesiones: 5, activo: true, tiposClaseIds }], [])[0];
+}
+
+test('cobertura: sin tipos declarados, el bono vale para todo y no se dice nada', () => {
+  // La regla del servidor (`cubreTipo`): lista vacía = sirve para cualquier
+  // tipo. Escribir «Solo para…» ahí sería inventar una restricción.
+  assert.equal(coberturaProducto(bono([]), NOMBRES), null);
+});
+
+test('cobertura: un tipo se nombra en singular', () => {
+  assert.equal(coberturaProducto(bono(['t2']), NOMBRES), 'Solo para Mat');
+});
+
+test('cobertura: varios tipos se enumeran con «y», no con comas sueltas', () => {
+  assert.equal(coberturaProducto(bono(['t1', 't2', 't3']), NOMBRES), 'Solo para Reformer, Mat y Barre');
+  assert.equal(coberturaProducto(bono(['t1', 't2']), NOMBRES), 'Solo para Reformer y Mat');
+});
+
+test('cobertura: un id sin nombre se omite en vez de inventarlo', () => {
+  // Un tipo archivado, o que el estudio no publica: no viaja en el payload.
+  assert.equal(coberturaProducto(bono(['t1', 'fantasma']), NOMBRES), 'Solo para Reformer');
+});
+
+test('cobertura: si NINGÚN id se puede nombrar, no se escribe nada', () => {
+  // Callar es peor que avisar, pero peor todavía es un aviso que no dice de
+  // qué: «Solo para » no ayuda a decidir, y afirmar «vale para todo» sería
+  // falso. Sin nombres no hay frase.
+  assert.equal(coberturaProducto(bono(['x', 'y']), NOMBRES), null);
+});
+
+test('cobertura: un tipo repetido no se nombra dos veces', () => {
+  assert.equal(coberturaProducto(bono(['t1', 't1']), NOMBRES), 'Solo para Reformer');
+});
+
+test('cobertura: un servicio de cita nunca está acotado a tipos de clase', () => {
+  // No se reserva contra el horario, así que `plan_tipos_clase` no le aplica.
+  const s = catalogoTienda([], [{ id: 's1', nombre: 'Privada', precio: 45, activo: true, autoReservable: true }])[0];
+  assert.deepEqual(s.tiposClaseIds, []);
+  assert.equal(coberturaProducto(s, NOMBRES), null);
 });

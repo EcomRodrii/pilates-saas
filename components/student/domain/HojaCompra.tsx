@@ -32,9 +32,17 @@ type Estado =
   | { fase: 'hecho' };
 
 export function HojaCompra({
-  plan, studioId, socioId, stripeAccountId, onCerrar, onComprado, onSesionCaducada,
+  plan, cobertura, studioId, socioId, stripeAccountId, onCerrar, onComprado, onSesionCaducada,
 }: {
   plan: PlanTarifa | null;
+  /**
+   * A qué tipos de clase está ACOTADO el plan («Solo para Reformer»), ya
+   * resuelto a nombres por `coberturaProducto`. `null` = sirve para todas.
+   * Se repite aquí, y no solo en la tarjeta de la tienda, porque esta es la
+   * última pantalla antes de pagar: es donde tiene que estar lo que cambia
+   * para qué sirve lo que se compra.
+   */
+  cobertura?: string | null;
   studioId: string;
   socioId: string | null;
   stripeAccountId: string | null;
@@ -43,6 +51,9 @@ export function HojaCompra({
   onSesionCaducada: () => void;
 }) {
   const [estado, setEstado] = useState<Estado>({ fase: 'listo' });
+  // ¿Hay una confirmación de pago EN VUELO? Lo dice el propio checkout
+  // (`onProcesando`), no una suposición desde fuera.
+  const [confirmando, setConfirmando] = useState(false);
   const publishableKey = clavePublicableStripe();
 
   const arrancar = useCallback(async () => {
@@ -60,22 +71,41 @@ export function HojaCompra({
   const sinCobro = !stripeAccountId || !publishableKey;
 
   return (
-    // Mientras se prepara el pago no se puede cerrar por velo, Esc ni arrastre:
-    // hay una sesión de cobro creándose en Stripe y cerrar deja a la socia sin
-    // saber en qué quedó.
+    // No se puede cerrar —ni por velo, ni con Esc, ni arrastrando— en los dos
+    // momentos en los que hay dinero en movimiento:
     //
-    // ⚠️ Durante la CONFIRMACIÓN (ya pulsó pagar) no se puede hacer lo mismo:
-    // `CheckoutEmbebido` solo avisa por `onExito`, así que desde aquí no se
-    // distingue «rellenando la tarjeta» de «Stripe confirmando». Bloquear las
-    // dos sería peor —impediría arrepentirse antes de pagar—, y añadir la señal
-    // obliga a tocar un componente de pago compartido con /reservar y el
-    // widget. Queda anotado, no resuelto.
-    <Sheet open onClose={estado.fase === 'preparando' ? () => {} : onCerrar} label={`Comprar ${plan.nombre}`}>
+    //   · PREPARANDO: se está creando la sesión de cobro en Stripe.
+    //   · CONFIRMANDO: ya pulsó pagar y Stripe está resolviendo.
+    //
+    // Y SOLO en esos dos. Mientras rellena la tarjeta cerrar es legítimo: es
+    // arrepentirse antes de pagar, y bloquearlo sería peor que el problema.
+    // Distinguir las dos cosas exigía que el checkout lo dijera, porque desde
+    // fuera «rellenando» y «confirmando» se ven igual; ahora lo dice con
+    // `onProcesando`, que es opcional y no cambia nada para /reservar ni para
+    // el widget.
+    <Sheet
+      open
+      onClose={estado.fase === 'preparando' || confirmando ? () => {} : onCerrar}
+      label={`Comprar ${plan.nombre}`}
+    >
       <div className="px" style={{ paddingBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
           <h2 className="t-h1" style={{ fontSize: 19 }}>{plan.nombre}</h2>
           <p style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>{euros(Number(plan.precio))}</p>
         </div>
+
+        {cobertura && (
+          <p
+            data-testid="cobertura-compra"
+            style={{
+              display: 'inline-flex', margin: '8px 0 0', padding: '3px 9px', borderRadius: 999,
+              background: 'var(--warning-soft)', color: 'var(--warning-foreground)',
+              fontSize: 11.5, fontWeight: 800,
+            }}
+          >
+            {cobertura}
+          </p>
+        )}
 
         {sinCobro ? (
           <>
@@ -130,7 +160,8 @@ export function HojaCompra({
             clientSecret={estado.clientSecret}
             publishableKey={publishableKey}
             stripeAccountId={stripeAccountId}
-            onExito={() => setEstado({ fase: 'hecho' })}
+            onProcesando={setConfirmando}
+            onExito={() => { setConfirmando(false); setEstado({ fase: 'hecho' }); }}
             onCerrar={onCerrar}
           />
         )}

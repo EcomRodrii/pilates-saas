@@ -69,19 +69,33 @@ export function estadoReservaDe(v: string | null | undefined): EstadoReserva {
   return ESTADO_RESERVA[v ?? ''] ?? 'confirmada';
 }
 
-/** `EstadoRecibo` del backend → los cinco del diseño. */
+/**
+ * `EstadoRecibo` del backend → lo que ve la alumna.
+ *
+ * ⚠️ `PENDIENTE` y `EN_CURSO` caían los dos en `processing`, y son cosas
+ * distintas. `EN_CURSO` es un adeudo SEPA en vuelo: el cobro está saliendo y el
+ * banco todavía puede devolverlo. `PENDIENTE` es un recibo EMITIDO Y SIN
+ * COBRAR —lo que el panel llama «pendientes» y lo que el dunning reintenta
+ * (índice `idx_recibos_dunning`)—: ahí no hay ningún cobro en marcha.
+ *
+ * Leerlos igual le decía a una alumna con un recibo impagado «el banco todavía
+ * no ha confirmado el cobro, te avisaremos»: se queda esperando un aviso que no
+ * va a llegar, mientras lo que hay es una deuda que alguien tiene que cobrar.
+ * Es el mismo error que ya se evitó con `EN_CURSO` ≠ `COBRADO`, una casilla más
+ * abajo.
+ */
 const ESTADO_PAGO: Record<string, EstadoPago> = {
   COBRADO: 'success',
-  // `EN_CURSO` es un adeudo SEPA en vuelo. Leerlo como pagado le diría a la
-  // alumna que ya está cobrado cuando el banco todavía puede devolverlo.
   EN_CURSO: 'processing',
-  PENDIENTE: 'processing',
+  PENDIENTE: 'pending',
   FALLIDO: 'failed',
   DEVUELTO: 'refunded',
 };
 
 export function estadoPagoDe(v: string | null | undefined): EstadoPago {
-  return ESTADO_PAGO[v ?? ''] ?? 'processing';
+  // Por defecto `pending`, no `processing`: ante un estado que no conocemos,
+  // «todavía sin cobrar» es lo que menos promete.
+  return ESTADO_PAGO[v ?? ''] ?? 'pending';
 }
 
 // ── Bonos ───────────────────────────────────────────────────────────────────

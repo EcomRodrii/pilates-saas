@@ -22,9 +22,9 @@ export function NextClassCard({ reserva, clase, instructora, onCalendario, onCom
         <p style={{ margin: '6px 0 0', fontSize: 15.5, fontWeight: 800, letterSpacing: '-.02em', color: '#FAF9F5' }}>{clase.nombre}</p>
         <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'rgba(234,240,231,.8)' }}>con {instructora?.nombre} · {clase.sala} · {clase.duracionMin} min</p>
         <div style={{ display: 'flex', gap: 7, marginTop: 11, flexWrap: 'wrap' }}>
-          <Link href={href('/mis-reservas/' + reserva.id)} className="btn btn--sm" style={{ background: '#FAF9F5', color: 'var(--accent-deep)', height: 34 }}>Ver mi reserva</Link>
-          <button type="button" onClick={onComoLlegar} className="btn btn--sm" style={{ height: 34, background: 'rgba(234,240,231,.12)', color: '#EAF0E7', border: '1px solid rgba(234,240,231,.35)' }}>Cómo llegar</button>
-          <button type="button" onClick={onCalendario} className="btn btn--sm" style={{ height: 34, background: 'rgba(234,240,231,.12)', color: '#EAF0E7', border: '1px solid rgba(234,240,231,.35)' }}>+ Calendario</button>
+          <Link href={href('/mis-reservas/' + reserva.id)} className="btn btn--sm tap" style={{ background: '#FAF9F5', color: 'var(--accent-deep)', height: 34 }}>Ver mi reserva</Link>
+          <button type="button" onClick={onComoLlegar} className="btn btn--sm tap" style={{ height: 34, background: 'rgba(234,240,231,.12)', color: '#EAF0E7', border: '1px solid rgba(234,240,231,.35)' }}>Cómo llegar</button>
+          <button type="button" onClick={onCalendario} className="btn btn--sm tap" style={{ height: 34, background: 'rgba(234,240,231,.12)', color: '#EAF0E7', border: '1px solid rgba(234,240,231,.35)' }}>+ Calendario</button>
         </div>
       </div>
     </section>

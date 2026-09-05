@@ -7,7 +7,7 @@ export function EmptyState({ icono = '📋', titulo, cuerpo, accion, href, onAcc
       <span aria-hidden style={{ fontSize: 28 }}>{icono}</span>
       <p style={{ margin: '10px 0 0', fontSize: 14.5, fontWeight: 800 }}>{titulo}</p>
       {cuerpo && <p style={{ margin: '5px 0 0', fontSize: 12.5, color: 'var(--muted-foreground)', lineHeight: 1.5 }}>{cuerpo}</p>}
-      {accion && (href ? <Link href={href} className="btn btn--primary btn--sm" style={{ marginTop: 14, height: 40, fontSize: 12.5, boxShadow: 'none' }}>{accion}</Link> : <Button size="sm" style={{ marginTop: 14, height: 40, fontSize: 12.5, boxShadow: 'none' }} onClick={onAccion}>{accion}</Button>)}
+      {accion && (href ? <Link href={href} className="btn btn--primary btn--sm tap" style={{ marginTop: 14, height: 40, fontSize: 12.5, boxShadow: 'none' }}>{accion}</Link> : <Button size="sm" style={{ marginTop: 14, height: 40, fontSize: 12.5, boxShadow: 'none' }} onClick={onAccion}>{accion}</Button>)}
     </div>
   );
 }

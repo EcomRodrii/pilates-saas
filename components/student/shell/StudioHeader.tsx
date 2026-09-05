@@ -56,6 +56,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false }: { noLeidas?
         <Link
           href={href('/notificaciones')}
           aria-label={'Notificaciones' + (noLeidas ? `, ${noLeidas} sin leer` : '')}
+          className="tap tap--icono"
           style={{ position: 'relative', width: 40, height: 40, flexShrink: 0, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid ' + (transparente ? 'rgba(255,255,255,.45)' : 'var(--border)'), background: transparente ? 'rgba(250,249,245,.22)' : 'var(--card)', color: transparente ? '#FAF9F5' : 'var(--foreground)' }}
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

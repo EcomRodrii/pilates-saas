@@ -170,6 +170,7 @@ export default function FichaClasePage() {
           type="button"
           onClick={() => router.back()}
           aria-label="Volver"
+          className="tap tap--icono"
           style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', left: 14, width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', fontSize: 15 }}
         >
           ←

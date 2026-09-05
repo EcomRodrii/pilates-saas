@@ -36,6 +36,11 @@ export interface ProductoTienda {
   duracionMin: number | null;
   /** Máximo de clases por semana que permite el plan. `null` = sin tope. */
   limiteSemanal: number | null;
+  /**
+   * Tipos de clase a los que está ACOTADO (`plan_tipos_clase`). Vacío = sirve
+   * para todas, que es la regla del servidor (`cubreTipo`, bono-cubre.ts).
+   */
+  tiposClaseIds: string[];
 }
 
 export interface PlanTienda {
@@ -48,6 +53,7 @@ export interface PlanTienda {
   activo?: boolean | null;
   validezDias?: number | null;
   limiteSemanal?: number | null;
+  tiposClaseIds?: string[] | null;
 }
 
 export interface ServicioTienda {
@@ -105,6 +111,7 @@ export function catalogoTienda(
         validezDias: p.validezDias ?? null,
         duracionMin: null,
         limiteSemanal: p.limiteSemanal ?? null,
+        tiposClaseIds: p.tiposClaseIds ?? [],
       }];
     });
 
@@ -123,6 +130,9 @@ export function catalogoTienda(
       validezDias: null,
       duracionMin: s.duracionMin ?? null,
       limiteSemanal: null,
+      // Un servicio de cita no pasa por `plan_tipos_clase`: no está acotado a
+      // tipos de clase porque no se reserva contra el horario.
+      tiposClaseIds: [],
     }));
 
   const orden: Record<FamiliaProducto, number> = { suscripcion: 0, bono: 1, suelta: 2, servicio: 3 };
@@ -154,4 +164,52 @@ export function resumenProducto(p: ProductoTienda): string {
   if (p.limiteSemanal) partes.push(`máx. ${p.limiteSemanal}/semana`);
   if (p.validezDias) partes.push(`caduca a los ${p.validezDias} días`);
   return partes.join(' · ');
+}
+
+
+/**
+ * A qué tipos de clase está ACOTADO el producto, en una línea, o `null` si
+ * sirve para todas.
+ *
+ * ⚠️ Esto lo decidía el servidor y la tienda no lo contaba. Un bono acotado a
+ * Mat se vendía como «Bono 8 clases · caduca a los 60 días», sin una palabra
+ * sobre que en un Reformer no vale: la alumna lo compraba, iba a reservar y el
+ * servidor rechazaba la reserva (`planCubreTipoClase`, lib/bono-logic.ts). Lo
+ * que hace falta saber ANTES de pagar se dice antes de pagar.
+ *
+ * `nombres` traduce id → nombre con los tipos que YA viajan en el payload
+ * público. Un id que no esté ahí (tipo archivado, o que el estudio no publica)
+ * se OMITE en vez de inventarle un nombre; y si no queda ninguno reconocible
+ * no se escribe nada, porque una restricción que no sabemos nombrar no se
+ * puede explicar.
+ */
+export function coberturaProducto(
+  p: ProductoTienda,
+  nombres: ReadonlyMap<string, string>,
+): string | null {
+  return coberturaDeTipos(p.tiposClaseIds, nombres);
+}
+
+/**
+ * Igual, pero desde los ids sueltos — para quien tiene el plan y no su
+ * proyección de tienda (la hoja de compra recibe el `PlanTarifa` entero).
+ */
+export function coberturaDeTipos(
+  tiposClaseIds: readonly string[] | null | undefined,
+  nombres: ReadonlyMap<string, string>,
+): string | null {
+  if (!tiposClaseIds || tiposClaseIds.length === 0) return null;
+  const vistos = new Set<string>();
+  const legibles: string[] = [];
+  for (const id of tiposClaseIds) {
+    const n = nombres.get(id)?.trim();
+    if (!n || vistos.has(n)) continue;
+    vistos.add(n);
+    legibles.push(n);
+  }
+  if (legibles.length === 0) return null;
+  if (legibles.length === 1) return `Solo para ${legibles[0]}`;
+  // «A, B y C» — la conjunción en español, no una lista con comas sueltas.
+  const ultimo = legibles[legibles.length - 1];
+  return `Solo para ${legibles.slice(0, -1).join(', ')} y ${ultimo}`;
 }

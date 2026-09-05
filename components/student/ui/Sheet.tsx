@@ -1,10 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 /**
  * Bottom sheet del kit: handle 34×4, radio 24, entrada con spring, y cierre por
  * velo, Esc o arrastre de más de 90 px.
+ *
+ * El FOCO lo gestiona esta hoja, y el paquete no lo contempla: al abrirse, el
+ * foco se quedaba en el botón que la había abierto —debajo del velo—, así que
+ * con teclado Tab seguía recorriendo la página tapada y un lector de pantalla
+ * anunciaba «diálogo» sin entrar en él. Ahora entra en la hoja, se queda dentro
+ * mientras está abierta y VUELVE a donde estaba al cerrarse, que es lo que
+ * espera quien navega sin ratón.
  *
  * Dos desviaciones respecto al fichero del paquete, las dos TÉCNICAS — la forma,
  * las medidas y el movimiento son idénticos:
@@ -27,13 +34,63 @@ export function Sheet({ open, onClose, children, label }: {
   const [dy, setDy] = useState(0);
   const [arrastrando, setArrastrando] = useState(false);
   const y0 = useRef<number | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
+
+  // Lo que puede recibir foco DENTRO de la hoja, en orden de tabulación. Se
+  // recalcula en cada Tab a propósito: el contenido cambia mientras está
+  // abierta (la hoja de compra pasa de un botón a un formulario de tarjeta).
+  const focosables = useCallback(() => Array.from(
+    panel.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])',
+    ) ?? [],
+  ).filter((el) => el.offsetParent !== null || el.tagName === 'IFRAME'), []);
 
   useEffect(() => {
     if (!open) return;
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const k = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key !== 'Tab') return;
+      // Trampa de foco. Sin esto, Tab desde el último control de la hoja se
+      // iba a la página de debajo —que está tapada por el velo— y no había
+      // forma de volver sin ratón.
+      //
+      // Ojo: cuando el foco está DENTRO de un iframe (el bloque de tarjeta de
+      // Stripe), sus eventos no llegan a este documento, así que este manejador
+      // ni se ejecuta y el tabulado interno de Stripe funciona como siempre.
+      const items = focosables();
+      if (items.length === 0) { e.preventDefault(); panel.current?.focus(); return; }
+      const primero = items[0];
+      const ultimo = items[items.length - 1];
+      const activo = document.activeElement;
+      // El foco puede estar FUERA del panel sin que nadie haya tabulado hacia
+      // afuera: basta con que desaparezca el control que lo tenía. Pasa en esta
+      // misma app —al pulsar «Continuar al pago», ese botón se va del DOM y el
+      // foco cae al <body>—, y desde ahí el siguiente Tab se iba a la página
+      // tapada. Comprobar solo los extremos no lo cubría.
+      if (!panel.current?.contains(activo)) {
+        e.preventDefault();
+        (e.shiftKey ? ultimo : primero).focus();
+        return;
+      }
+      if (!e.shiftKey && activo === ultimo) { e.preventDefault(); primero.focus(); }
+      else if (e.shiftKey && (activo === primero || activo === panel.current)) { e.preventDefault(); ultimo.focus(); }
+    };
     document.addEventListener('keydown', k);
     return () => document.removeEventListener('keydown', k);
-  }, [open, onClose]);
+  }, [open, onClose, focosables]);
+
+  // Entrar al abrir y VOLVER al cerrar. El destino de vuelta se captura al
+  // abrir: en ese momento `document.activeElement` sigue siendo el control que
+  // la abrió.
+  useEffect(() => {
+    if (!open) return;
+    const previo = document.activeElement as HTMLElement | null;
+    // Al panel, no al primer botón: leer el título antes que la primera acción
+    // es lo que hace un diálogo bien hecho, y evita disparar sin querer un
+    // control con la barra espaciadora nada más abrir.
+    panel.current?.focus({ preventScroll: true });
+    return () => { previo?.focus?.({ preventScroll: true }); };
+  }, [open]);
 
   // Derivado, no sincronizado: cerrada, el desplazamiento es 0 sin más.
   const desplazamiento = open ? dy : 0;
@@ -57,6 +114,10 @@ export function Sheet({ open, onClose, children, label }: {
         }}
       />
       <div
+        ref={panel}
+        // Sin `tabIndex` un <div> no puede recibir foco, y sin foco dentro no
+        // hay nada que atrapar: es lo que hace del diálogo el punto de partida.
+        tabIndex={-1}
         role="dialog"
         aria-modal
         aria-label={label}
@@ -74,6 +135,7 @@ export function Sheet({ open, onClose, children, label }: {
           // Mientras se arrastra no hay transición: el panel tiene que seguir al
           // dedo. Al soltar vuelve el spring.
           transition: arrastrando ? 'none' : 'transform var(--dur-sheet) var(--ease-spring)',
+          outline: 'none',
         }}
       >
         <div

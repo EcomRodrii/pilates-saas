@@ -127,6 +127,26 @@
 .student-app .btn--light { background: var(--background); color: var(--foreground); height: 40px; font-size: 11.5px; padding: 0 14px; }
 .student-app .btn--full { width: 100%; }
 
+/* ── Área táctil ──
+   Crece la zona sensible al toque hasta 44 px SIN tocar la caja pintada.
+
+   El diseño usa chips de 34-36 px a propósito: una fila de cuatro acciones con
+   botones de 44 px no cabe en una pantalla de 320. Pero 34 px es menos de lo
+   que acierta un pulgar, y aquí fallar tiene consecuencia: debajo de esos
+   chips hay una tarjeta que es un enlace, así que el toque que se sale no «no
+   hace nada» — se lleva a la alumna a otra pantalla. Cancelar una reserva y
+   acabar en el detalle de la clase es el caso que se veía.
+
+   Crece SOLO en vertical: los chips van uno al lado del otro en una fila, y
+   crecer también en horizontal haría que se robaran los toques entre ellos.
+   Para los botones REDONDOS de icono, que están sueltos, está `.tap--icono`. */
+.student-app .tap { position: relative; }
+.student-app .tap::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  height: 44px; transform: translateY(-50%);
+}
+.student-app .tap--icono::after { left: 50%; right: auto; width: 44px; margin-left: -22px; }
+
 /* ── Badges de plazas ── */
 .student-app .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; padding: 5px 10px; border-radius: var(--radius-pill); white-space: nowrap; }
 .student-app .badge--ok { background: var(--accent-soft); color: var(--accent-soft-foreground); }
