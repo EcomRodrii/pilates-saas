@@ -9,6 +9,8 @@ import { useEstudio } from '@/components/student/contexto';
 import { useToast } from '@/components/student/ui/Toast';
 import { getPreferencias, guardarPreferencia, type PreferenciaCategoria } from '@/lib/student/perfil-y-avisos';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+import { activarPushStudent, contextoPushStudent, desactivarPushStudent } from '@/lib/student/push';
+import { estadoPush, textoPush, type EstadoPush } from '@/lib/student/push-estado';
 
 // Preferencias de aviso (§A.19).
 //
@@ -69,6 +71,10 @@ export default function PreferenciasPage() {
   const { online } = useOnline();
   const { toast } = useToast();
   const [local, setLocal] = useState<Record<string, { push: boolean; email: boolean }>>({});
+  // Estado de push de ESTE dispositivo. Es del navegador, no del servidor:
+  // permiso + suscripción del SW acotado a la app. `null` hasta leerlo.
+  const [push, setPush] = useState<EstadoPush | null>(null);
+  const [ocupadoPush, setOcupadoPush] = useState(false);
 
   const cargar = useCallback(async () => {
     const prefs = await getPreferencias();
@@ -79,8 +85,9 @@ export default function PreferenciasPage() {
       mapa[f.categoria] = { push: p ? p.push : true, email: p ? p.email : false };
     }
     setLocal(mapa);
+    setPush(estadoPush(await contextoPushStudent(estudio.slug)));
     return mapa;
-  }, []);
+  }, [estudio.slug]);
 
   const { estado, reintentar } = useAsync(cargar, () => false);
 
@@ -97,6 +104,31 @@ export default function PreferenciasPage() {
     }
   };
 
+  // Los interruptores por categoría de arriba no sirven de nada si este
+  // dispositivo no está suscrito: esta es la tarjeta que lo suscribe. Se
+  // relee el estado real del navegador después de cada acción en vez de
+  // suponer el resultado.
+  const alternarPush = async () => {
+    if (push === null || ocupadoPush) return;
+    const accion = textoPush(push).accion;
+    if (!accion) return;
+    setOcupadoPush(true);
+    try {
+      if (accion === 'activar') {
+        const r = await activarPushStudent(estudio.id, estudio.slug);
+        if (!r.ok && r.motivo !== 'denied') toast('No hemos podido activar los avisos en este dispositivo.');
+      } else {
+        const ok = await desactivarPushStudent(estudio.slug);
+        if (!ok) toast('No hemos podido desactivar los avisos en este dispositivo.');
+      }
+      setPush(estadoPush(await contextoPushStudent(estudio.slug)));
+    } finally {
+      setOcupadoPush(false);
+    }
+  };
+
+  const dispositivo = push === null ? null : textoPush(push);
+
   return (
     <StudentShell>
       <PageHeader titulo="Preferencias" back />
@@ -107,7 +139,29 @@ export default function PreferenciasPage() {
 
         {estado === 'ready' && (
           <>
-            <p className="t-label" style={{ margin: '0 0 7px' }}>Avisos en el móvil</p>
+            {dispositivo && (
+              <>
+                <p className="t-label" style={{ margin: '0 0 7px' }}>Este dispositivo</p>
+                <div className="card" style={{ overflow: 'hidden' }} data-testid="push-dispositivo" data-estado={push ?? undefined}>
+                  {dispositivo.accion ? (
+                    <Toggle
+                      label={dispositivo.titulo}
+                      sub={dispositivo.cuerpo}
+                      on={dispositivo.encendido}
+                      disabled={!online || ocupadoPush}
+                      onChange={() => void alternarPush()}
+                    />
+                  ) : (
+                    <div style={{ padding: '13px 15px', minHeight: 56 }}>
+                      <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>{dispositivo.titulo}</span>
+                      <span className="t-meta" style={{ display: 'block', marginTop: 1 }}>{dispositivo.cuerpo}</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            <p className="t-label" style={{ margin: '16px 0 7px' }}>Avisos en el móvil</p>
             <div className="card" style={{ overflow: 'hidden' }}>
               {FILAS.map((f) => (
                 <Toggle
