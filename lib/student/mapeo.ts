@@ -3,7 +3,10 @@
 // `proyeccion-payload.test.ts` — que importan este módulo por ruta relativa.
 import { precioDeSesion } from './precio-suelta.ts';
 import { proyectarPlazaFija as plazaFijaDe, proyectarRecuperaciones as recuperacionesDe, type PlazaFijaMin, type RecuperacionMin } from './plaza-fija.ts';
-import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from './tipos.ts';
+// `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
+// traduce el nivel de una CLASE (PRINCIPIANTE → Iniciación). Nada que ver.
+import { hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type RetoDef } from './gamificacion.ts';
+import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from './tipos.ts';
 
 // Traducción PURA entre el vocabulario del backend y el del paquete de diseño.
 //
@@ -178,6 +181,10 @@ export interface PayloadMin {
     cancelada: boolean; precioPuntual: number | null;
   }[];
   tiposClase?: { id: string; nombre: string; nivel?: string | null; fotoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null }[];
+  levelDefinitions?: NivelDef[];
+  achievementDefinitions?: LogroDef[];
+  challengeDefinitions?: RetoDef[];
+  rewardCatalog?: RecompensaDef[];
   salas?: { id: string; nombre: string; fotoUrl?: string | null }[];
   instructores?: {
     id: string; nombre: string; activo?: boolean; fotoUrl?: string | null;
@@ -201,6 +208,10 @@ export interface PayloadMin {
     favoritos?: { tipoClaseId: string }[];
     plazasFijas?: PlazaFijaMin[];
     recuperaciones?: RecuperacionMin[];
+    memberCredits?: { saldo: number; totalGanado: number; totalCanjeado: number }[];
+    achievementProgress?: ProgresoMin[];
+    challengeProgress?: ProgresoMin[];
+    retosApuntados?: string[];
   } | null;
 }
 
@@ -294,6 +305,26 @@ export function proyectarInstructoras(d: PayloadMin): Instructora[] {
       valoraciones: i.valoracion && i.valoracion.total >= 5 ? i.valoracion.total : undefined,
       bio: i.bio ?? undefined,
     }));
+}
+
+/**
+ * Todo lo que la alumna ve de gamificación, ya ordenado. El progreso y el saldo
+ * vienen calculados del servidor; aquí solo se presenta.
+ */
+export function proyectarGamificacion(d: PayloadMin, hoyISO: string): GamificacionVista {
+  const c = d.socia?.memberCredits?.[0];
+  const saldo = c?.saldo ?? 0;
+  const totalGanado = c?.totalGanado ?? 0;
+  const niveles = d.levelDefinitions ?? [];
+  const logros = logrosDe(d.achievementDefinitions ?? [], d.socia?.achievementProgress ?? []);
+  const retos = retosDe(d.challengeDefinitions ?? [], d.socia?.challengeProgress ?? [], d.socia?.retosApuntados ?? [], hoyISO);
+  const recompensas = recompensasDe(d.rewardCatalog ?? [], saldo);
+  return {
+    hay: hayGamificacion({ niveles, logros: d.achievementDefinitions ?? [], retos: d.challengeDefinitions ?? [], recompensas: d.rewardCatalog ?? [] }),
+    saldo, totalGanado, totalCanjeado: c?.totalCanjeado ?? 0,
+    nivel: nivelDeCreditos(totalGanado, niveles),
+    logros, retos, recompensas,
+  };
 }
 
 /** La plaza fija vigente, con nombres de sala y tipo. `null` sin plaza (o sin sesión). */

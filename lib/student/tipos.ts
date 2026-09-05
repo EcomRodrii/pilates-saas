@@ -85,6 +85,17 @@ export interface Pago { id: string; concepto: string; importe: number; fecha: st
 
 export interface Notificacion { id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string; }
 
+/** Todo lo que la alumna ve de gamificación (lib/student/gamificacion.ts). */
+export interface GamificacionVista {
+  /** `false` = el estudio no la usa: no se pinta nada. */
+  hay: boolean;
+  saldo: number; totalGanado: number; totalCanjeado: number;
+  nivel: import('./gamificacion.ts').NivelVista;
+  logros: import('./gamificacion.ts').LogroVista[];
+  retos: import('./gamificacion.ts').RetoVista[];
+  recompensas: import('./gamificacion.ts').RecompensaVista[];
+}
+
 /** Plaza fija vigente de la alumna, ya con nombres (F2). */
 export interface PlazaFijaVista {
   diaSemana: number; hora: string; sala: string; tipo: string | null; estado: 'ACTIVA' | 'PAUSADA';

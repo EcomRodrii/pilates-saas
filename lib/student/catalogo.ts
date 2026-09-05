@@ -5,7 +5,9 @@ import { aplicarAforo } from '@/lib/student/aforo-fresco';
 import { borrarPorSlug, claveCatalogo } from '@/lib/student/catalogo-clave';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import type {
-  FavoritoClase, Instructor, PlanTarifa, PlazaFija, Recibo, Recuperacion, Reserva, Sala, Sesion, Suscripcion, TipoClase,
+  AchievementDefinition, AchievementProgress, ChallengeDefinition, ChallengeProgress,
+  FavoritoClase, Instructor, LevelDefinition, MemberCredits, PlanTarifa, PlazaFija, Recibo,
+  Recuperacion, Reserva, RewardCatalogItem, Sala, Sesion, Suscripcion, TipoClase,
 } from '@/lib/types';
 
 // El cargador del que beben todos los adaptadores.
@@ -55,6 +57,11 @@ export interface PayloadPublico {
     duracionMin?: number | null; activo?: boolean | null; autoReservable?: boolean | null; tipo?: string | null;
   }[];
   aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[];
+  /** Gamificación — lo que el ESTUDIO ha configurado. Vacío = no la usa. */
+  levelDefinitions?: LevelDefinition[];
+  achievementDefinitions?: AchievementDefinition[];
+  challengeDefinitions?: ChallengeDefinition[];
+  rewardCatalog?: RewardCatalogItem[];
   socia: {
     suscripciones: Suscripcion[];
     reservas: Reserva[];
@@ -62,6 +69,11 @@ export interface PayloadPublico {
     favoritos?: FavoritoClase[];
     plazasFijas?: PlazaFija[];
     recuperaciones?: Recuperacion[];
+    /** Gamificación — lo que lleva ELLA. El progreso lo calcula el servidor. */
+    memberCredits?: MemberCredits[];
+    achievementProgress?: AchievementProgress[];
+    challengeProgress?: ChallengeProgress[];
+    retosApuntados?: string[];
   } | null;
 }
 
