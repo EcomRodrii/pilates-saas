@@ -46,7 +46,19 @@ export function BuscadorRapido({ candidatas, onSeleccionar }: BuscadorRapidoProp
       {abierto && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setAbierto(false)} />
-          <div className="absolute right-0 top-full mt-1.5 z-20 w-72 rounded-xl border border-border bg-card shadow-lg overflow-hidden menu-pop-in">
+          {/* ⚠️ Se ancla a la IZQUIERDA del botón, no a la derecha. Con
+              `right-0` el panel crecía hacia la izquierda y se salía por debajo
+              del borde de la tarjeta del calendario, que tiene `overflow:
+              hidden` para sus esquinas redondeadas. Y cuanto más estrecha la
+              ventana, peor: medido en 1440 no se salía nada, en 1024 se salían
+              214 px y en 390 (móvil) 234 px — o sea que en un teléfono el
+              buscador estaba casi entero fuera. Por eso se veía bien "a veces".
+              El resto de menús de esta cabecera sí usan `right-0` y no se
+              cortan (page.tsx:2290) — pero miden 180 px, no 288. Este es el
+              primero del grupo de acciones, así que a su derecha siempre queda
+              el resto de la barra, y hacia ahí sí cabe.
+              Fijado por e2e/calendario-tres-recortes.spec.ts en los 3 anchos. */}
+          <div className="absolute left-0 top-full mt-1.5 z-20 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card shadow-lg overflow-hidden menu-pop-in">
             <input
               ref={inputRef}
               value={texto}

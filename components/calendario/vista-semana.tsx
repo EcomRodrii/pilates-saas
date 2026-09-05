@@ -166,7 +166,11 @@ export function VistaSemana({
               {horas.map(h => (
                 <span
                   key={h.label}
-                  className="absolute right-2 -translate-y-1.5 text-[10.5px] font-semibold tabular-nums text-muted-foreground"
+                  // La primera etiqueta NO se sube: `-translate-y-1.5` centra
+                  // cada hora sobre su línea, pero en la de arriba del todo
+                  // esos 6 px la sacan del contenedor y se monta sobre el borde
+                  // redondeado y la cabecera de días.
+                  className={`absolute right-2 text-[10.5px] font-semibold tabular-nums text-muted-foreground${h.topPx > 0 ? ' -translate-y-1.5' : ''}`}
                   style={{ top: h.topPx }}
                 >
                   {h.label}
