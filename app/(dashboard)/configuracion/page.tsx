@@ -289,8 +289,14 @@ export default function ConfiguracionPage() {
         description="Gestiona los planes, clases, salas, instructoras e integraciones de tu estudio"
       />
 
-      {/* Tab nav */}
-      <div className="flex gap-1 p-1 bg-card border border-border rounded-xl overflow-x-auto">
+      {/* Tab nav
+          Doce pestañas no caben en una línea, y con solo `overflow-x-auto` la
+          última quedaba cortada A MEDIA PALABRA sin nada que indicara que se
+          podía desplazar: se leía como rota, no como desplazable.
+          A partir de `sm` envuelven —hay sitio de sobra en dos filas y así todo
+          está a la vista—; por debajo se mantiene el desplazamiento, porque en
+          un móvil doce pestañas envueltas se comerían la pantalla. */}
+      <div className="flex gap-1 p-1 bg-card border border-border rounded-xl overflow-x-auto sm:overflow-x-visible sm:flex-wrap">
         {TABS.map(tab => (
           <button
             key={tab.id}

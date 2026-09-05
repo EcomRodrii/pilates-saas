@@ -152,7 +152,18 @@ const ETIQUETA_ESTADO: Record<EstadoRecibo | 'TODOS' | 'SIN_COBRAR', string> = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas' | 'cobrado'; onToast: (mensaje: string) => void }) {
+export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
+  vista?: 'deudas' | 'cobrado';
+  onToast: (mensaje: string) => void;
+  /**
+   * Acciones que aporta la página y se pintan en la MISMA fila que las del
+   * panel. Antes la página ponía su botón en su propio `flex justify-end` y el
+   * panel los suyos en otro justo debajo: tres acciones en dos filas
+   * escalonadas, cada una pegada a la derecha, con un hueco enorme a la
+   * izquierda. Se leía como algo mal colocado, no como una barra de acciones.
+   */
+  acciones?: React.ReactNode;
+}) {
   const uid = useId();
   // ── Context ─────────────────────────────────────────────────────────────────
   const {
@@ -352,13 +363,20 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
       .filter(r => r.estado === 'COBRADO' && r.fechaCobro && isoToYearMonth(r.fechaCobro) === thisMonth)
       .reduce((s, r) => s + r.importe, 0);
 
-    const pendienteTotal = recibos
-      .filter(r => r.estado === 'PENDIENTE')
-      .reduce((s, r) => s + r.importe, 0);
+    // ⚠️ MISMA lista que la tabla de abajo (`ESTADOS_SIN_COBRAR`), no solo
+    // 'PENDIENTE'. Contaban distinto y se veía: la tarjeta decía «89 € · 1
+    // recibo pendiente · 1 cliente con deuda» mientras la lista de debajo
+    // enseñaba DOS recibos, 178 €, de dos clientas. Y la que se caía de la
+    // cuenta era la del recibo FALLIDO — la tarjeta rechazada, justo la deuda
+    // que más urge perseguir.
+    //
+    // Dos criterios de «quién me debe» en la misma pantalla no son un matiz de
+    // presentación: es la cifra por la que se decide a quién llamar hoy.
+    const sinCobrar = recibos.filter(r => ESTADOS_SIN_COBRAR.includes(r.estado));
 
-    const sociosConDeuda = new Set(
-      recibos.filter(r => r.estado === 'PENDIENTE').map(r => r.socioId)
-    ).size;
+    const pendienteTotal = sinCobrar.reduce((s, r) => s + r.importe, 0);
+
+    const sociosConDeuda = new Set(sinCobrar.map(r => r.socioId)).size;
 
     const activasCount = socios.filter(s => s.activo).length;
     const mediaXSocia = activasCount > 0 ? cobradoMes / activasCount : 0;
@@ -707,7 +725,10 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
     return recibos.filter(r => r.estado === value).length;
   }
 
-  const pendientesCount = recibos.filter(r => r.estado === 'PENDIENTE').length;
+  // Mismo criterio que la cifra que acompaña y que la lista de abajo: si el
+  // importe suma los fallidos, el recuento tiene que sumarlos también, o la
+  // tarjeta se contradice consigo misma («178 € en 1 recibo»).
+  const pendientesCount = recibos.filter(r => ESTADOS_SIN_COBRAR.includes(r.estado)).length;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -788,7 +809,8 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
       )}
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-                      <button
+            {acciones}
+            <button
               onClick={() => {
                 setFacturaForm({ socioId: socios[0]?.id ?? '', concepto: '', importe: '' });
                 setShowFactura(true);
@@ -846,7 +868,7 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
           <CifraPrivada className="text-2xl font-extrabold text-warning">
             {formatEuro(kpis.pendienteTotal)}
           </CifraPrivada>
-          <p className="text-xs text-muted-foreground mt-1">{pendientesCount} recibo{pendientesCount !== 1 ? 's' : ''} pendiente{pendientesCount !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-muted-foreground mt-1">{pendientesCount} recibo{pendientesCount !== 1 ? 's' : ''} sin cobrar</p>
         </div>
 
         {/* Clientas con deuda */}
@@ -862,7 +884,7 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
           <p className="text-2xl font-extrabold text-destructive">
             {kpis.sociosConDeuda}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">cliente{kpis.sociosConDeuda !== 1 ? 's' : ''} con recibos pendientes</p>
+          <p className="text-xs text-muted-foreground mt-1">clienta{kpis.sociosConDeuda !== 1 ? 's' : ''} con recibos sin cobrar</p>
         </div>
 
         {/* Media por clienta */}

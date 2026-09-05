@@ -1634,7 +1634,17 @@ export default function Calendario() {
         headers: await authHeader(),
       });
       if (!res.ok) {
-        setDatosVista(prev => { if (!prev) setErrorCargaVista('El servidor no ha podido cargar el calendario.'); return prev; });
+        // Antes las dos causas decían lo mismo, y encima repetían el título
+        // palabra por palabra: «No hemos podido cargar el calendario» arriba y
+        // «El servidor no ha podido cargar el calendario» debajo. Dos frases
+        // para no decir nada — quien lo lee no sabe si esperar, reintentar o
+        // llamar a alguien.
+        setDatosVista(prev => {
+          if (!prev) setErrorCargaVista(res.status >= 500
+            ? 'El servidor ha fallado al responder. Vuelve a intentarlo en un momento.'
+            : 'No hemos podido pedir las clases de estos días. Comprueba tu conexión.');
+          return prev;
+        });
         return;
       }
       const data = (await res.json()) as DatosVista;
@@ -1642,7 +1652,10 @@ export default function Calendario() {
       // una respuesta real inesperada): sin `sesiones`/`horaApertura` la rejilla
       // reventaría al leer `horaApertura.slice(...)`. Mejor seguir "Cargando…".
       if (!Array.isArray(data?.sesiones) || typeof data?.horaApertura !== 'string') {
-        setDatosVista(prev => { if (!prev) setErrorCargaVista('El servidor no ha podido cargar el calendario.'); return prev; });
+        setDatosVista(prev => {
+          if (!prev) setErrorCargaVista('La respuesta del servidor llegó incompleta. Reintenta; si sigue igual, avísanos.');
+          return prev;
+        });
         return;
       }
       cacheVistaRef.current.set(clave, data);
