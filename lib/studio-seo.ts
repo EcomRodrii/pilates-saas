@@ -36,6 +36,10 @@ export interface StudioSeo {
   descripcion: string | null;
   /** Foto del local; el logo NO sirve como `image` de un negocio local. */
   fotoUrl: string | null;
+  /** Horas antes de la clase en las que cancelar aún devuelve la sesión. */
+  cancelacionVentanaHoras: number;
+  /** Si el estudio admite apuntarse a una clase completa. */
+  permiteListaEspera: boolean;
 }
 
 /**
@@ -70,6 +74,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       colorPrimario: '#1A1A1A', logoUrl: null, slug,
       telefono: '+34 600 000 000', email: 'hola@studio-test.es',
       codigoPostal: '29001', descripcion: 'Estudio de prueba.', fotoUrl: null,
+      cancelacionVentanaHoras: 12, permiteListaEspera: true,
       // Configurable para que el gate de página oculta se pueda ejercitar
       // alguna vez desde la suite: se decide en el SERVIDOR, así que
       // `page.route` no puede llegar a él y sin esto el camino de "oculta" no
@@ -98,7 +103,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
   const [base, visibilidad] = await Promise.all([
     admin
       .from('studios')
-      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url')
+      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera')
       .eq('slug', slug)
       .maybeSingle(),
     // `.then(ok, ko)` y no `.catch`: el builder de supabase-js es un
@@ -133,6 +138,13 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     codigoPostal: data.codigo_postal ?? null,
     descripcion: data.descripcion ?? null,
     fotoUrl: data.foto_url ?? null,
+    // La política de verdad del estudio. La app la ENSEÑA («gratis hasta X h»,
+    // «completa · lista»), así que un valor por defecto del cliente es una
+    // promesa que el servidor no tiene por qué cumplir. Los `??` son solo
+    // para una fila antigua sin la columna puesta, con el mismo defecto que
+    // usa el servidor al resolver la cancelación.
+    cancelacionVentanaHoras: (data.cancelacion_ventana_horas as number | null) ?? 12,
+    permiteListaEspera: (data.permite_lista_espera as boolean | null) ?? true,
     // `=== true` y no un truthy: sin la columna todavía aplicada, «no sé» tiene
     // que significar «no oculta» y no esconder la página de todo el mundo.
     paginaOculta: visibilidad?.pagina_publica_oculta === true,

@@ -6,7 +6,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
-import { getBonos, getClase, getClases, getInstructoras, getReservas } from '@/lib/student/datos';
+import { getBonos, getClases, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
 import { getFavoritos } from '@/lib/student/favoritos';
 import { confirmarReserva } from '@/lib/student/reservar';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
@@ -53,7 +53,7 @@ export default function FichaClasePage() {
     // `getClases` sale del MISMO payload que `getClase`: la ficha de la
     // instructora enseña sus próximas clases sin una petición más.
     const [clase, reservas, bonos, instructoras, favoritos, clases] = await Promise.all([
-      getClase(estudio.slug, claseId), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getFavoritos(estudio.slug), getClases(estudio.slug),
+      getClasesFrescas(estudio.slug).then((cs) => cs.find((c) => c.id === claseId) ?? null), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getFavoritos(estudio.slug), getClases(estudio.slug),
     ]);
     return { clase, reservas, bonos, instructoras, favoritos, clases };
   }, [estudio.slug, claseId]);

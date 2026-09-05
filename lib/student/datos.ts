@@ -1,6 +1,6 @@
 'use client';
 
-import { catalogo } from '@/lib/student/catalogo';
+import { catalogo, refrescarAforo } from '@/lib/student/catalogo';
 import {
   proyectarAlumna, proyectarBonos, proyectarClases, proyectarInstructoras, proyectarPagos, proyectarReservas,
 } from '@/lib/student/mapeo';
@@ -29,6 +29,18 @@ import type { Alumna, Bono, Clase, Instructora, Pago, Reserva } from '@/lib/stud
 export async function getClases(slug: string, fecha?: string): Promise<Clase[]> {
   const d = await catalogo(slug);
   return d ? proyectarClases(d, fecha) : [];
+}
+
+/**
+ * Como `getClases`, pero con el aforo recién leído de `/api/public/aforo`
+ * (ligero, sin PII): para el horario y la hoja de clase, donde las plazas se
+ * miran de verdad. El payload pesado sigue viniendo de la caché de 60 s.
+ */
+export async function getClasesFrescas(slug: string, fecha?: string): Promise<Clase[]> {
+  const d = await catalogo(slug);
+  if (!d) return [];
+  const fresco = await refrescarAforo(slug);
+  return proyectarClases(fresco ?? d, fecha);
 }
 
 /** Sale del mismo payload: no hay endpoint por id de clase. */
