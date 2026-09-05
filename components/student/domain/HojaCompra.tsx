@@ -60,7 +60,17 @@ export function HojaCompra({
   const sinCobro = !stripeAccountId || !publishableKey;
 
   return (
-    <Sheet open onClose={onCerrar} label={`Comprar ${plan.nombre}`}>
+    // Mientras se prepara el pago no se puede cerrar por velo, Esc ni arrastre:
+    // hay una sesión de cobro creándose en Stripe y cerrar deja a la socia sin
+    // saber en qué quedó.
+    //
+    // ⚠️ Durante la CONFIRMACIÓN (ya pulsó pagar) no se puede hacer lo mismo:
+    // `CheckoutEmbebido` solo avisa por `onExito`, así que desde aquí no se
+    // distingue «rellenando la tarjeta» de «Stripe confirmando». Bloquear las
+    // dos sería peor —impediría arrepentirse antes de pagar—, y añadir la señal
+    // obliga a tocar un componente de pago compartido con /reservar y el
+    // widget. Queda anotado, no resuelto.
+    <Sheet open onClose={estado.fase === 'preparando' ? () => {} : onCerrar} label={`Comprar ${plan.nombre}`}>
       <div className="px" style={{ paddingBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
           <h2 className="t-h1" style={{ fontSize: 19 }}>{plan.nombre}</h2>

@@ -51,33 +51,33 @@ interface FilaNotificacion {
 export { traducirEnlace } from '@/lib/student/deep-links';
 
 export async function getNotificaciones(slug: string, studioId: string): Promise<Notificacion[]> {
-  try {
-    const auth = await portalAuthHeader();
-    const url = `/api/notifications?ambito=socia&studioId=${encodeURIComponent(studioId)}`;
-    const res = await fetch(url, { headers: auth });
-    if (!res.ok) return [];
-    // ⚠️ La clave es `items`, NO `notifications`.
-    //
-    // Se leía `cuerpo.notifications`, que esta ruta no devuelve nunca: responde
-    // `{ items, unread }`. El resultado era `undefined ?? []`, así que la
-    // pantalla enseñaba «Todo al día» SIEMPRE, con avisos sin leer en la base.
-    // No fallaba ni avisaba: mentía. Se vio comparando el render contra el
-    // paquete —que ahí sí lista avisos—; en el código no se ve, porque leer una
-    // clave que no existe es un `undefined` perfectamente legal.
-    const cuerpo = (await res.json()) as { items?: FilaNotificacion[]; notifications?: FilaNotificacion[] } | FilaNotificacion[];
-    const filas = Array.isArray(cuerpo) ? cuerpo : (cuerpo.items ?? cuerpo.notifications ?? []);
-    return filas.map((n) => ({
-      id: n.id,
-      tipo: tipoDeAviso(n.eventType, n.category),
-      titulo: n.title ?? '',
-      cuerpo: n.body ?? '',
-      fecha: n.createdAt ?? n.created_at ?? new Date().toISOString(),
-      leida: Boolean(n.readAt ?? n.read_at),
-      enlace: traducirEnlace(n.deepLink ?? n.deep_link, slug),
-    }));
-  } catch {
-    return [];
-  }
+  const auth = await portalAuthHeader();
+  const url = `/api/notifications?ambito=socia&studioId=${encodeURIComponent(studioId)}`;
+  const res = await fetch(url, { headers: auth });
+  // Un fallo del servidor NO es «no tienes avisos»: pintar «Todo al día»
+  // cuando la bandeja no se pudo leer es exactamente la mentira que la
+  // pantalla debe evitar. Se lanza y `useAsync` enseña error con reintento.
+  if (!res.ok) throw new Error(`notifications respondió ${res.status}`);
+  // ⚠️ La clave es `items`, NO `notifications`.
+  //
+  // Se leía `cuerpo.notifications`, que esta ruta no devuelve nunca: responde
+  // `{ items, unread }`. El resultado era `undefined ?? []`, así que la
+  // pantalla enseñaba «Todo al día» SIEMPRE, con avisos sin leer en la base.
+  // No fallaba ni avisaba: mentía. Se vio comparando el render contra el
+  // paquete —que ahí sí lista avisos—; en el código no se ve, porque leer una
+  // clave que no existe es un `undefined` perfectamente legal.
+  const cuerpo = (await res.json()) as { items?: FilaNotificacion[]; notifications?: FilaNotificacion[] } | FilaNotificacion[];
+  const filas = Array.isArray(cuerpo) ? cuerpo : (cuerpo.items ?? cuerpo.notifications ?? []);
+  return filas.map((n) => ({
+    id: n.id,
+    tipo: tipoDeAviso(n.eventType, n.category),
+    titulo: n.title ?? '',
+    cuerpo: n.body ?? '',
+    fecha: n.createdAt ?? n.created_at ?? new Date().toISOString(),
+    leida: Boolean(n.readAt ?? n.read_at),
+    enlace: traducirEnlace(n.deepLink ?? n.deep_link, slug),
+  }));
+
 }
 
 /** Marca una notificación —o todas— como leídas. */
@@ -122,23 +122,23 @@ export interface PreferenciaCategoria {
  * escritos por separado que nadie llegó a cruzar.
  */
 export async function getPreferencias(): Promise<PreferenciaCategoria[]> {
-  try {
-    const auth = await portalAuthHeader();
-    const res = await fetch('/api/notifications/preferences', { headers: auth });
-    if (!res.ok) return [];
-    const cuerpo = (await res.json()) as
-      | { prefs?: Record<string, { inapp?: boolean; push?: boolean; email?: boolean }> }
-      | PreferenciaCategoria[];
-    if (Array.isArray(cuerpo)) return cuerpo;
-    return Object.entries(cuerpo.prefs ?? {}).map(([category, v]) => ({
-      category,
-      inapp: v?.inapp ?? true,
-      push: v?.push ?? true,
-      email: v?.email ?? false,
-    }));
-  } catch {
-    return [];
-  }
+  const auth = await portalAuthHeader();
+  const res = await fetch('/api/notifications/preferences', { headers: auth });
+  // Igual que arriba: devolver [] pintaba TODOS los interruptores encendidos
+  // como si fueran los suyos, y el primer toque guardaría un valor que ella
+  // no eligió.
+  if (!res.ok) throw new Error(`preferences respondió ${res.status}`);
+  const cuerpo = (await res.json()) as
+    | { prefs?: Record<string, { inapp?: boolean; push?: boolean; email?: boolean }> }
+    | PreferenciaCategoria[];
+  if (Array.isArray(cuerpo)) return cuerpo;
+  return Object.entries(cuerpo.prefs ?? {}).map(([category, v]) => ({
+    category,
+    inapp: v?.inapp ?? true,
+    push: v?.push ?? true,
+    email: v?.email ?? false,
+  }));
+
 }
 
 /**
