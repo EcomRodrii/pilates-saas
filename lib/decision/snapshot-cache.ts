@@ -66,6 +66,9 @@ async function getCachedSnapshot(studioId: string): Promise<SnapshotEstudio | nu
   return snapshot;
 }
 
+// La RPC borra todo lo anterior de ESE estudio antes de insertar (migr
+// 20260905001248): la tabla queda en una fila por estudio, sin cron de purga.
+// Antes solo marcaba `es_valido = false` y nada borraba nunca.
 async function cacheSnapshot(studioId: string, snapshot: SnapshotEstudio): Promise<void> {
   const supabase = requireSupabaseAdmin();
 
