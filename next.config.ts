@@ -2,6 +2,14 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // ⚠️ CRITICAL OPTIMIZATION: Disable TypeScript checking in dev
+  // tsc consumes 2-3GB memory and blocks dev startup. Type errors still show
+  // as warnings in dev, but don't block the server. Full typecheck runs via
+  // npm run typecheck (separate process with 4GB memory limit).
+  typescript: {
+    ignoreDevErrors: true,  // Allow dev server to start even with type errors
+    tsconfigPath: process.env.NODE_ENV === 'production' ? './tsconfig.json' : './tsconfig.dev.json',
+  },
   // URL limpia para el origen dedicado de temas ZIP publicados
   // (`imports.tentare.app/<slug>` en vez de `/tema-publicado/<slug>`). Esto
   // es SOLO azúcar de URL — la cerradura real de seguridad vive DENTRO del
