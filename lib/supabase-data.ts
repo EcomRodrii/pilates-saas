@@ -1396,20 +1396,48 @@ function socioToDb(socio: Socio) {
 // Esto los cuelga en `tiposClaseIds`. Sin filas para un plan = cubre todas, que
 // es el comportamiento de siempre: por eso el fallo (una consulta que falle deja
 // los planes tal cual) es abrir, no cerrar.
+
+// Las columnas de una tarifa, en UN solo sitio: las recorren tanto el alta
+// (`planTarifaToDb`) como la edición (`dbUpdatePlanTarifa`).
+//
+// POR QUÉ: eran dos listas escritas a mano y una se quedó a medias.
+// `oferta_hasta` (migr 20260819202520) entró en el alta y nunca en la edición,
+// así que abrir una tarifa ya creada, poner o quitar "Oferta hasta" y guardar
+// decía «Plan actualizado» y no escribía nada — el estado optimista de
+// `updatePlan` pintaba la fecha bien hasta recargar. El aviso «Oferta caducada
+// — revisa el precio» no saltaba nunca en las tarifas editadas después de
+// crearlas, que son justo para las que se hizo.
+//
+// Es el mismo argumento que ya obligó a que la derivación del formulario viva
+// una sola vez (lib/planes/formulario.ts): un campo nuevo entra por los dos
+// caminos o por ninguno, no a medias.
+//
+// Fuera a propósito: `id`/`studioId` (identidad, no se editan) y
+// `tiposClaseIds`, que no es columna — vive en la tabla puente
+// `plan_tipos_clase` y la sincroniza `sincronizarTiposDePlan`.
+const COLUMNAS_PLAN = {
+  nombre: 'nombre',
+  descripcion: 'descripcion',
+  precio: 'precio',
+  tipo: 'tipo',
+  sesiones: 'sesiones',
+  validezDias: 'validez_dias',
+  limiteSemanal: 'limite_semanal',
+  activo: 'activo',
+  ofertaHasta: 'oferta_hasta',
+} as const satisfies Partial<Record<keyof PlanTarifa, string>>;
+
+const CAMPOS_PLAN = Object.entries(COLUMNAS_PLAN) as [keyof typeof COLUMNAS_PLAN, string][];
+
 function planTarifaToDb(plan: PlanTarifa) {
-  return {
+  const db: Record<string, unknown> = {
     id: plan.id,
     studio_id: plan.studioId ?? STUDIO_ID,
-    nombre: plan.nombre,
-    descripcion: plan.descripcion ?? null,
-    precio: plan.precio,
-    tipo: plan.tipo,
-    sesiones: plan.sesiones ?? null,
-    validez_dias: plan.validezDias ?? null,
-    limite_semanal: plan.limiteSemanal ?? null,
-    activo: plan.activo,
-    oferta_hasta: plan.ofertaHasta ?? null,
   };
+  // El alta escribe TODAS las columnas: lo ausente se guarda como null, que es
+  // lo que hacía la lista literal de antes.
+  for (const [campo, columna] of CAMPOS_PLAN) db[columna] = plan[campo] ?? null;
+  return db;
 }
 
 function suscripcionToDb(sus: Suscripcion) {
@@ -2107,14 +2135,13 @@ export async function dbInsertPlanTarifa(plan: PlanTarifa): Promise<ResultadoEsc
 
 export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
-  if ('nombre' in changes) db.nombre = changes.nombre;
-  if ('descripcion' in changes) db.descripcion = changes.descripcion;
-  if ('precio' in changes) db.precio = changes.precio;
-  if ('tipo' in changes) db.tipo = changes.tipo;
-  if ('sesiones' in changes) db.sesiones = changes.sesiones;
-  if ('validezDias' in changes) db.validez_dias = changes.validezDias;
-  if ('limiteSemanal' in changes) db.limite_semanal = changes.limiteSemanal;
-  if ('activo' in changes) db.activo = changes.activo;
+  // Se escribe lo que el llamante trae de verdad. `undefined` se salta (no lo
+  // manda, igual que antes: `JSON.stringify` lo tiraba de todas formas), pero
+  // un `null` explícito SÍ se escribe — es como se vacía "Oferta hasta".
+  for (const [campo, columna] of CAMPOS_PLAN) {
+    const valor = changes[campo];
+    if (valor !== undefined) db[columna] = valor;
+  }
   const { error } = await supabase.from('planes_tarifa').update(db).eq('id', id);
   if (error) return falloEscritura('[dbUpdatePlanTarifa]', error);
   if ('tiposClaseIds' in changes) {
