@@ -48,18 +48,13 @@ interface DefEntidad {
   validar: (rows: string[][], mapeo: Record<string, number>) => FilaValidadaComun[];
 }
 
-// Registro uniforme de las 5 entidades. Los casts son seguros: los Record de
-// mapeo de lib/csv son Record<CampoX, number> (subconjunto de string→number) y
+// Registro uniforme de las entidades. ⚠️ EL ORDEN DE LAS CLAVES SE VE: de él
+// sale la lista que el dropzone enseña como «lo que acepta». Va de lo que
+// primero trae un estudio a lo último, igual que ORDEN_EJECUCION — no por
+// orden de aparición en el código. Los casts son seguros: los Record de
+// Los casts son seguros: los Record de mapeo de lib/csv son Record<CampoX, number> (subconjunto de string→number) y
 // las Fila*Validada comparten la forma {fila, datos, estado, motivo}.
 export const ENTIDADES: Record<EntidadMigracion, DefEntidad> = {
-  recuperaciones: {
-    etiqueta: 'Recuperaciones pendientes',
-    campos: CAMPOS_RECUPERACION,
-    // Con el email a secas no basta: eso lo cumple hasta el CSV de clientas.
-    requiereAlguno: ['cantidad', 'caduca_el'],
-    mapear: (h) => autoMapearRecuperacion(h) as Record<string, number>,
-    validar: (r, m) => validarFilasRecuperacion(r, m as Parameters<typeof validarFilasRecuperacion>[1]) as unknown as FilaValidadaComun[],
-  },
   socias: {
     etiqueta: 'Clientas',
     campos: CAMPOS_SOCIA,
@@ -95,6 +90,14 @@ export const ENTIDADES: Record<EntidadMigracion, DefEntidad> = {
     campos: CAMPOS_PAGO,
     mapear: (h) => autoMapearPago(h) as Record<string, number>,
     validar: (r, m) => validarFilasPago(r, m as Parameters<typeof validarFilasPago>[1]) as unknown as FilaValidadaComun[],
+  },
+  recuperaciones: {
+    etiqueta: 'Recuperaciones pendientes',
+    campos: CAMPOS_RECUPERACION,
+    // Con el email a secas no basta: eso lo cumple hasta el CSV de clientas.
+    requiereAlguno: ['cantidad', 'caduca_el'],
+    mapear: (h) => autoMapearRecuperacion(h) as Record<string, number>,
+    validar: (r, m) => validarFilasRecuperacion(r, m as Parameters<typeof validarFilasRecuperacion>[1]) as unknown as FilaValidadaComun[],
   },
 };
 
