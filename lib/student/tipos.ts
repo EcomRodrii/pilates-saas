@@ -47,6 +47,11 @@ export interface Clase {
   nivel: NivelClase;
   instructoraId: string;
   sala: string;
+  /**
+   * Id de la sala. `sala` es solo su NOMBRE, y con un nombre no se pueden
+   * buscar los huecos de esa sala: `spots` los cuelga de `salaId`.
+   */
+  salaId: string;
   capacidad: number;
   plazasLibres: number;
   precioSuelto: number;     // € si no hay bono

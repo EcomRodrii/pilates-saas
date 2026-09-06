@@ -298,6 +298,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       nivel: nivelDe(tipo?.nivel),
       instructoraId: s.instructorId,
       sala: sala?.nombre ?? '',
+      salaId: s.salaId ?? '',
       capacidad: s.aforoMaximo,
       plazasLibres: Math.max(0, s.aforoMaximo - (ocupadas.get(s.id) ?? 0)),
       // ⚠️ Antes: `s.precioPuntual ?? 0`. `sesiones.precio_puntual` es un

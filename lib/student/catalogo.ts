@@ -57,6 +57,12 @@ export interface PayloadPublico {
     duracionMin?: number | null; activo?: boolean | null; autoReservable?: boolean | null; tipo?: string | null;
   }[];
   aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[];
+  /**
+   * Los huecos (camas, reformers, esterillas) de cada sala. El servidor los
+   * manda desde siempre; esta frontera no los declaraba, así que la app de la
+   * alumna no podía verlos aunque viajaran en el mismo payload.
+   */
+  spots?: { id: string; salaId: string; nombre: string; fila: number; columna: number; activo?: boolean | null }[];
   /** Gamificación — lo que el ESTUDIO ha configurado. Vacío = no la usa. */
   levelDefinitions?: LevelDefinition[];
   achievementDefinitions?: AchievementDefinition[];
