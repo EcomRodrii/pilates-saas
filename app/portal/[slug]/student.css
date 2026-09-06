@@ -80,7 +80,13 @@
   /* ── Semánticos ── */
   --warning: #C99A3C;
   --warning-soft: #F6EEDD;
-  --warning-foreground: #8A6A25;
+  /* ⚠️ Era `#8A6A25`, que sobre `--warning-soft` da **4,36:1** — por debajo del
+     4,5 de AA, y estos textos van a 10-12,5 px, así que no entran en la
+     excepción de texto grande. Medido en el render, no supuesto: lo llevan los
+     badges «Pendiente», «Quedan N» y los avisos en ámbar.
+     `#876824` conserva tono y saturación (solo baja un 2 % la luminosidad) y
+     da 4,51:1. Es el valor más CLARO que cumple. */
+  --warning-foreground: #876824;
   --destructive: #C2503A;
   --destructive-soft: #F4E9E5;
   --destructive-foreground: #A04A3C;
@@ -92,7 +98,12 @@
      Se distingue de `--accent` a propósito: el acento es la voz del estudio (y
      el estudio puede sustituirlo), mientras que «esto ha salido bien» debe
      seguir siendo verde aunque el estudio tenga la marca en terracota. */
-  --success: #4F8A5B;
+  /* ⚠️ Era `#4F8A5B`, el valor que estaba escrito a mano en 14 ficheros. Como
+     FONDO con texto blanco encima —que es como lo usa `badge--booked`,
+     «Reservada ✓»— daba **4,10:1**, por debajo de AA. `#4B8256` conserva tono y
+     saturación (5 % menos de luminosidad) y da 4,52:1. Como texto sobre claro
+     solo mejora, así que los demás usos no pierden nada. */
+  --success: #4B8256;
   --success-foreground: #FFFFFF;
 
   /* Tinta clara sobre superficie oscura (la tarjeta de próxima clase, el pase,
