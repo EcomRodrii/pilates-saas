@@ -58,6 +58,9 @@ function Toggle({ on, onChange, label, sub, disabled }: {
       <button
         type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled}
         onClick={() => onChange(!on)}
+        // El interruptor mide 44×26: se toca a menudo y el fallo cae en la
+        // fila de al lado, que cambia OTRA preferencia.
+        className="tap"
         style={{ position: 'relative', width: 44, height: 26, borderRadius: 99, border: 'none', background: on ? 'var(--success)' : 'var(--border-strong)', transition: 'background .25s', flexShrink: 0 }}
       >
         <span aria-hidden style={{ position: 'absolute', top: 3, left: 3, width: 20, height: 20, borderRadius: 99, background: '#fff', boxShadow: '0 2px 6px rgba(26,26,26,.25)', transform: on ? 'translateX(18px)' : 'none', transition: 'transform .25s var(--ease-spring)' }} />

@@ -175,7 +175,7 @@ function TarjetaProducto({ p, cobertura, delay, onComprar }: {
         <p style={{ margin: '7px 0 0', fontSize: 12.5, lineHeight: 1.5, color: 'var(--muted-foreground)' }}>{p.descripcion}</p>
       )}
 
-      <Button full onClick={onComprar} style={{ marginTop: 12, height: 42 }}>
+      <Button full onClick={onComprar} style={{ marginTop: 'var(--s-3)', height: 'var(--h-control-md)' }}>
         {p.familia === 'suscripcion' ? 'Contratar' : 'Comprar'}
       </Button>
     </article>

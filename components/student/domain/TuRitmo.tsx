@@ -130,7 +130,7 @@ export function TuRitmo({ dias, racha, estaSemana, bono, hrefBono, hrefBonos }: 
         ) : (
           <Dato rotulo="Tu bono">
             <p className="t-card-title">Sin bono activo</p>
-            <Link href={hrefBonos} className="t-meta" style={{ color: 'var(--accent)', fontWeight: 800 }}>Ver bonos →</Link>
+            <Link href={hrefBonos} className="t-meta tap" style={{ color: 'var(--accent)', fontWeight: 800 }}>Ver bonos →</Link>
           </Dato>
         )}
       </div>

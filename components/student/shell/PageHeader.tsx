@@ -10,7 +10,7 @@ export function PageHeader({ titulo, sub, back, accion }: { titulo: string; sub?
     <div className="px a-up" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, padding: '8px 18px 0' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {back && (
-          <button type="button" onClick={() => r.back()} aria-label="Volver" style={{ width: 36, height: 36, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', fontSize: 15 }}>
+          <button type="button" onClick={() => r.back()} aria-label="Volver" className="tap tap--icono" style={{ width: 36, height: 36, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', fontSize: 15 }}>
             ←
           </button>
         )}

@@ -58,6 +58,9 @@ export function ValorarClase({ studioId, sesionId, instructora }: { studioId: st
             key={n} type="button" aria-label={`${n} estrellas`} aria-pressed={!soloLectura && puntuacion === n}
             disabled={soloLectura || enviando}
             onClick={() => setPuntuacion(n)} onMouseEnter={() => { if (!soloLectura) setHover(n); }}
+            // Van en fila: solo se crece en vertical, o cada estrella
+            // robaría los toques de la de al lado.
+            className="tap"
             style={{ width: 40, height: 40, border: 'none', background: 'transparent', padding: 0, cursor: soloLectura ? 'default' : 'pointer' }}
           >
             <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden

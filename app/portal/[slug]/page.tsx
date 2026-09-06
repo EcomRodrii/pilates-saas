@@ -248,7 +248,7 @@ export default function InicioPage() {
             <section>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>
                 <h2 className="t-h2">Huecos de hoy</h2>
-                <Link href={href('/reservar')} style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)' }}>
+                <Link href={href('/reservar')} className="tap" style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)' }}>
                   Ver horario →
                 </Link>
               </div>

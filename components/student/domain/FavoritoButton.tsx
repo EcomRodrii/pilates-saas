@@ -31,6 +31,8 @@ export function FavoritoButton({ slug, studioId, tipoClaseId, marcada, onCambio,
 
   return (
     <button
+      // Redondo y suelto sobre la foto: crece en las dos direcciones.
+      className="tap tap--icono"
       type="button" onClick={() => void alternar()} disabled={ocupado}
       aria-pressed={marcada} aria-label={marcada ? 'Quitar de favoritas' : 'Guardar como favorita'}
       data-testid="favorito"

@@ -66,11 +66,11 @@ export default function AyudaPage() {
             servidor: las tres dan 200, y `/legal/privacidad` —lo que enlazaba
             la pantalla de registro— daba 404. */}
         <p className="t-meta" style={{ fontSize: 10.5, color: 'var(--subtle-foreground)', textAlign: 'center', marginTop: 4 }}>
-          <Link href="/terminos" target="_blank" style={{ color: 'inherit' }}>Aviso legal</Link>
+          <Link href="/terminos" target="_blank" className="tap" style={{ color: 'inherit' }}>Aviso legal</Link>
           {' \u00b7 '}
-          <Link href="/privacidad" target="_blank" style={{ color: 'inherit' }}>Privacidad</Link>
+          <Link href="/privacidad" target="_blank" className="tap" style={{ color: 'inherit' }}>Privacidad</Link>
           {' \u00b7 '}
-          <Link href="/cookies" target="_blank" style={{ color: 'inherit' }}>Cookies</Link>
+          <Link href="/cookies" target="_blank" className="tap" style={{ color: 'inherit' }}>Cookies</Link>
         </p>
       </div>
     </StudentShell>

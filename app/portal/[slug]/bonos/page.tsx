@@ -118,7 +118,7 @@ function Bonos() {
             {activos.length > 0 && (
               <div className="stack" style={{ ['--gap' as string]: 'var(--s-2)', marginTop: 'var(--s-2)', alignItems: 'center' }}>
                 <Link href={href('/reservar')} className="btn btn--primary btn--full tap">Reservar una clase</Link>
-                <Link href={href('/comprar')} className="t-meta" style={{ color: 'var(--accent)', fontWeight: 800 }}>
+                <Link href={href('/comprar')} className="t-meta tap" style={{ color: 'var(--accent)', fontWeight: 800 }}>
                   Ver bonos y suscripciones →
                 </Link>
               </div>
