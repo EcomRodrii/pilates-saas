@@ -258,9 +258,14 @@ function pasosDeRegla(rule: AutomationRule): PasoVisible[] {
 function RuleCard({
   rule,
   onToggle,
+  soloLectura = false,
 }: {
   rule: AutomationRule;
   onToggle: () => void;
+  /** Vista previa de una regla SUGERIDA, que todavía no existe en la base de
+   *  datos. Se puede leer y desplegar sus pasos; el interruptor invita a
+   *  añadirlas en vez de fingir que ya se pueden encender. */
+  soloLectura?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const pasos = useMemo(() => pasosDeRegla(rule), [rule]);
@@ -293,12 +298,14 @@ function RuleCard({
                 ? { color: 'var(--brand)', background: 'color-mix(in srgb, var(--brand) 12%, var(--card))' }
                 : { color: 'var(--muted-foreground)', background: 'var(--muted)' }}
             >
-              {rule.activa ? 'Activada' : 'Desactivada'}
+              {soloLectura ? 'Sin añadir' : rule.activa ? 'Activada' : 'Desactivada'}
             </span>
             <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border">
               {triggerLabels[rule.trigger] ?? rule.trigger}
             </span>
-            <span className="text-[10px] text-muted-foreground">{rule.ejecutadaVeces} ejecuciones</span>
+            {!soloLectura && (
+              <span className="text-[10px] text-muted-foreground">{rule.ejecutadaVeces} ejecuciones</span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -319,9 +326,13 @@ function RuleCard({
           <button
             type="button"
             role="switch"
-            aria-checked={rule.activa}
-            aria-label={`${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
-            title={rule.activa ? 'Activada — desactivar' : 'Desactivada — activar'}
+            aria-checked={soloLectura ? false : rule.activa}
+            aria-label={soloLectura
+              ? `Añadir las reglas sugeridas para poder activar ${rule.nombre}`
+              : `${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
+            title={soloLectura
+              ? 'Añádelas primero para poder encenderla'
+              : rule.activa ? 'Activada — desactivar' : 'Desactivada — activar'}
             onClick={onToggle}
             className="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors"
             style={{ background: rule.activa ? 'var(--brand)' : 'var(--muted-foreground)' }}
@@ -669,29 +680,72 @@ export default function AutomatizacionesPage() {
 
       {tab === 'reglas' && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-xs text-muted-foreground">
-              Las reglas llegan <strong className="text-foreground">desactivadas</strong>. Ábrelas para ver
-              qué envía cada una y enciende solo las que quieras.
-            </p>
-            <button
-              onClick={handleCargarSugeridas}
-              className="flex items-center gap-1.5 shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
-            >
-              <Zap size={12} />
-              Cargar reglas sugeridas
-            </button>
-          </div>
-          {automationRules.length === 0 && (
-            <EmptyState icono={Bot} titulo="Todavía no tienes ninguna automatización activa" />
+          {/* Sin reglas guardadas, esta pantalla enseñaba «Todavía no tienes
+              ninguna automatización activa» y escondía las siete sugeridas
+              detrás de un enlace gris arriba a la derecha. Durante una prueba
+              de 7 días, lo que no se ve no existe — y estas secuencias (la
+              clienta ausente que se recupera sola, el impago que se persigue
+              con dos avisos) son de lo mejor que tiene el producto.
+
+              Ahora se ven desde el primer segundo, sin escribir nada en la base
+              de datos: son tarjetas de solo lectura, con sus pasos
+              desplegables, hasta que la propietaria decide añadirlas. */}
+          {automationRules.length === 0 ? (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground max-w-xl">
+                  Esto es lo que Tentare puede hacer solo por ti. Añádelas cuando quieras:
+                  llegan <strong className="text-foreground">apagadas</strong>, y las enciendes una a una
+                  después de leer qué envía cada una.
+                </p>
+                <button
+                  onClick={handleCargarSugeridas}
+                  className="flex items-center gap-1.5 shrink-0 text-sm font-semibold px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  <Zap size={13} />
+                  Añadir estas {REGLAS_SUGERIDAS.length} reglas
+                </button>
+              </div>
+              {REGLAS_SUGERIDAS.map((sug, i) => (
+                <RuleCard
+                  key={sug.nombre}
+                  rule={{
+                    ...sug,
+                    id: `sugerida-${i}`,
+                    studioId: '',
+                    ejecutadaVeces: 0,
+                    ultimaEjecucion: null,
+                    creadaEn: '',
+                  } as AutomationRule}
+                  soloLectura
+                  onToggle={handleCargarSugeridas}
+                />
+              ))}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-xs text-muted-foreground">
+                  Las reglas llegan <strong className="text-foreground">desactivadas</strong>. Ábrelas para ver
+                  qué envía cada una y enciende solo las que quieras.
+                </p>
+                <button
+                  onClick={handleCargarSugeridas}
+                  className="flex items-center gap-1.5 shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
+                >
+                  <Zap size={12} />
+                  Cargar reglas sugeridas
+                </button>
+              </div>
+              {automationRules.map(rule => (
+                <RuleCard
+                  key={rule.id}
+                  rule={rule}
+                  onToggle={() => handleToggleRule(rule)}
+                />
+              ))}
+            </>
           )}
-          {automationRules.map(rule => (
-            <RuleCard
-              key={rule.id}
-              rule={rule}
-              onToggle={() => handleToggleRule(rule)}
-            />
-          ))}
         </div>
       )}
 
