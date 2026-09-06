@@ -232,6 +232,17 @@ export interface ReservaCalendarioProps {
   // snippet ya incrustado).
   /** Quita el precio del CTA y la línea de cobertura/coste de la hoja. */
   ocultarPrecio?: boolean;
+  /**
+   * Aviso de «para reservar aquí hace falta un bono», con su enlace de compra.
+   * Se pinta en la ficha de la clase, junto al CTA, para que el requisito se
+   * sepa ANTES de dar los datos y firmar el contrato (ver el docblock de
+   * `avisoRequisitoCompra` en `BookingSheet`). `null`/ausente = no aplica.
+   *
+   * Es una FUNCIÓN del tipo de clase porque la regla se puede sobreescribir por
+   * tipo (Configuración → Clases): anunciar «necesitas bono» en una clase que
+   * no lo exige es tan malo como no anunciarlo donde sí.
+   */
+  avisoRequisitoCompra?: ((tipoClaseId: string | null) => { texto: string; href: string; cta: string } | null) | null;
   /** Quita el badge de nivel de la hoja. */
   ocultarNivel?: boolean;
   /** Quita el aviso «Sustituye a X hoy» (queda el rótulo de rol de siempre). */
@@ -509,6 +520,7 @@ export function ReservaCalendario({
   ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false, saltarFichaSiInvitada = false, vistaInicial = 'todo',
   enIframe = false, franjaVisible = null, alCambiarFicha, origenTentare = '',
   estiloFicha = 'modal', abrirSlotExterno, onAntesDeAbrir,
+  avisoRequisitoCompra = null,
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
@@ -1083,6 +1095,7 @@ export function ReservaCalendario({
           enIframe={enIframe}
           franjaVisible={franjaVisible}
           origenTentare={origenTentare}
+          avisoRequisitoCompra={avisoRequisitoCompra?.(openSlot.tipoClaseId ?? null) ?? null}
           onClose={cerrarHoja}
           onAceptarOferta={onAceptarOferta ? async () => {
             if (!openSlot.miReservaId || enviando) return;
@@ -1478,6 +1491,7 @@ function BookingSheet({
   t, slot, variantePresentacion = 'modal', selectedSpot, onSelectSpot, resultado, errorReserva, enviando, cancelacionVentanaHoras, ventanaPorTipo,
   fontFamily, ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false,
   enIframe = false, franjaVisible = null, origenTentare = '',
+  avisoRequisitoCompra = null,
   onClose, onReservar, onCancelar, onAceptarOferta,
 }: {
   t: ModoTokens;
@@ -1500,6 +1514,18 @@ function BookingSheet({
   enIframe?: boolean;
   franjaVisible?: { top: number; height: number } | null;
   origenTentare?: string;
+  /**
+   * «Para reservar aquí hace falta un bono», dicho ANTES de empezar.
+   *
+   * El estudio puede exigir plan o bono activo para reservar. Ese requisito
+   * solo se comprobaba al final: la visitante elegía clase, daba su nombre y su
+   * teléfono, leía y aceptaba el contrato, y en el último paso se encontraba un
+   * «necesitas un plan o bono activo». Se le pedían los datos y la firma para
+   * después decirle que no podía — y a esas alturas ya se ha ido.
+   *
+   * `null` cuando no aplica (no se exige plan, o quien mira ya tiene uno).
+   */
+  avisoRequisitoCompra?: { texto: string; href: string; cta: string } | null;
   onClose: () => void;
   onReservar: () => void;
   onCancelar: () => void;
@@ -1894,6 +1920,17 @@ function BookingSheet({
             display: 'flex', flexDirection: 'column', gap: 10,
           }}
         >
+          {avisoRequisitoCompra && !tieneReserva && (
+            <p style={{ fontSize: 12.5, color: t.ink, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'baseline' }}>
+              <span>{avisoRequisitoCompra.texto}</span>
+              <a
+                href={avisoRequisitoCompra.href}
+                style={{ color: 'var(--portal-brand)', fontWeight: 800, textDecoration: 'underline', textUnderlineOffset: 3 }}
+              >
+                {avisoRequisitoCompra.cta}
+              </a>
+            </p>
+          )}
           {ventanaEfectiva != null && ventanaEfectiva > 0 && !tieneReserva && !lleno && (
             <p style={{ fontSize: 12, color: t.muted }}>
               Cancela con al menos {ventanaEfectiva}h de antelación para recuperar tu sesión.
