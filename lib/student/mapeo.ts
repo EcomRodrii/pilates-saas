@@ -1,6 +1,10 @@
 // ⚠️ Import RELATIVO, no `@/`: `node --test --experimental-strip-types` no
 // resuelve ese alias, y ponerlo aquí tumbó `datos-mapeo.test.ts` y
 // `proyeccion-payload.test.ts` — que importan este módulo por ruta relativa.
+// `hoyEnEstudio` vive en lib/utils.ts y la comparte con `bono-logic.ts`, que
+// es quien fija la regla de vigencia en servidor. Import relativo por el
+// mismo motivo que el resto del fichero.
+import { hoyEnEstudio } from '../utils.ts';
 import { precioDeSesion } from './precio-suelta.ts';
 import { proyectarPlazaFija as plazaFijaDe, proyectarRecuperaciones as recuperacionesDe, type PlazaFijaMin, type RecuperacionMin } from './plaza-fija.ts';
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
@@ -142,7 +146,20 @@ export function bonoDeSuscripcion(s: SuscripcionMin, plan: PlanMin | undefined, 
   const ilimitado = s.sesionesRestantes === null;
   const totales = plan?.sesiones ?? 0;
   const restantes = s.sesionesRestantes ?? 0;
-  const caducado = !!s.fechaFin && new Date(s.fechaFin).getTime() < ahora;
+  // ⚠️ Se compara DÍA con DÍA, no un día contra un instante.
+  //
+  // Esto era `new Date(s.fechaFin).getTime() < ahora`, y `s.fechaFin` es
+  // 'YYYY-MM-DD': `new Date()` lo lee como MEDIANOCHE UTC, así que a cualquier
+  // hora de su último día válido el bono ya salía caducado. La alumna veía la
+  // tarjeta atenuada, la etiqueta «Expirado» y un «caducó hoy», y al abrir una
+  // clase se le pedía pagar — mientras el servidor seguía aceptando ese bono
+  // tan campante (`!s.fechaFin || s.fechaFin >= hoyISO`, lib/bono-logic.ts, y
+  // `fecha_fin >= current_date` en SQL). Perdía el último día de su bono y lo
+  // más probable es que volviera a comprar.
+  //
+  // Ahora usa la MISMA regla que el servidor, y en el día del ESTUDIO: un bono
+  // vale hasta el final de su fecha de fin.
+  const caducado = !!s.fechaFin && s.fechaFin < hoyEnEstudio(new Date(ahora));
 
   let estado: EstadoBono = 'activo';
   // El orden importa: la FECHA manda sobre el saldo. Un bono con sesiones de

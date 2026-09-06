@@ -131,6 +131,44 @@ test('bono caducado: la fecha manda sobre el saldo', () => {
   assert.equal(b.estado, 'expirado');
 });
 
+test('⚠️ el bono vale TODO su último día, no hasta la medianoche UTC', () => {
+  // El bug: `caducado` comparaba `new Date(s.fechaFin).getTime() < ahora`, y
+  // `fechaFin` es 'YYYY-MM-DD', que `new Date()` lee como MEDIANOCHE UTC. A
+  // cualquier hora de su último día válido el bono ya salía «Expirado»: tarjeta
+  // atenuada, «caducó hoy» y, al abrir una clase, se le pedía pagar — mientras
+  // el servidor lo seguía aceptando (`fechaFin >= hoyISO`). La alumna perdía el
+  // último día de su bono y lo más probable es que volviera a comprar.
+  const enSuUltimoDia = (hora: string) => bonoDeSuscripcion(
+    { id: 's-lim', planId: 'p1', estado: 'ACTIVA', fechaInicio: '2026-01-01', fechaFin: '2026-09-06', sesionesRestantes: 3 },
+    PLAN_BONO,
+    Date.parse(`2026-09-06T${hora}`),
+  );
+  // De madrugada, a media tarde y al filo de la noche: el día entero es suyo.
+  for (const hora of ['00:30:00Z', '12:00:00Z', '21:59:00Z']) {
+    assert.notEqual(enSuUltimoDia(hora).estado, 'expirado', `se caducó a las ${hora}`);
+  }
+});
+
+test('al día siguiente sí está caducado', () => {
+  const b = bonoDeSuscripcion(
+    { id: 's-lim2', planId: 'p1', estado: 'ACTIVA', fechaInicio: '2026-01-01', fechaFin: '2026-09-06', sesionesRestantes: 3 },
+    PLAN_BONO,
+    Date.parse('2026-09-07T09:00:00Z'),
+  );
+  assert.equal(b.estado, 'expirado');
+});
+
+test('la vigencia usa el día del ESTUDIO, no el de UTC', () => {
+  // A las 00:30 de Madrid del día 7 son las 22:30 UTC del 6. Con UTC, un bono
+  // que caducó el 6 seguiría pareciendo vigente media noche de más.
+  const b = bonoDeSuscripcion(
+    { id: 's-tz', planId: 'p1', estado: 'ACTIVA', fechaInicio: '2026-01-01', fechaFin: '2026-09-06', sesionesRestantes: 3 },
+    PLAN_BONO,
+    Date.parse('2026-09-06T22:30:00Z'), // ya es día 7 en Madrid
+  );
+  assert.equal(b.estado, 'expirado');
+});
+
 test('bono de una suscripción no activa: expirado', () => {
   for (const estado of ['PAUSADA', 'CANCELADA', 'EXPIRADA']) {
     const b = bonoDeSuscripcion(
