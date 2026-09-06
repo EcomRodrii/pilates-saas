@@ -93,7 +93,10 @@ async function mockBackend(page: Page, opts: {
       const id = decodeURIComponent(req.url().match(/id=eq\.([^&]+)/)?.[1] ?? '');
       const i = planes.findIndex(p => p.id === id);
       if (i >= 0) planes[i] = { ...planes[i], ...cambios };
-      return json(route, [], 200);
+      // Las filas TOCADAS, como PostgREST con `.select()`: la escritura ahora
+      // distingue «0 filas» de «escrito» para no cantar «Tarifa actualizada»
+      // cuando la RLS rechaza.
+      return json(route, i >= 0 ? [{ id }] : [], 200);
     }
     return json(route, planes);
   });

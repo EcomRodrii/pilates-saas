@@ -716,7 +716,7 @@ export default function Productos() {
       <PageHeader
         title="Paquetes"
         description={posCongelado ? 'Suscripciones, bonos y clases sueltas' : 'Suscripciones, bonos, clases sueltas y catálogo de productos POS'}
-        actions={
+        actions={mueveDinero && (
           <button
             onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold transition-colors"
@@ -725,7 +725,7 @@ export default function Productos() {
             <Plus size={15} />
             {tab === 'planes' ? 'Crear' : 'Nuevo producto'}
           </button>
-        }
+        )}
       />
 
       {/* Tabs — la pestaña "Productos POS" queda oculta con POS congelado (solo
@@ -776,8 +776,12 @@ export default function Productos() {
             <EmptyState
               icono={Package}
               titulo={`Aún no tienes ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}`}
-              descripcion="Crea uno nuevo o cambia de pestaña para ver otro tipo."
-              cta={{ label: `Añadir ${TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'plan'}`, onClick: () => setPlanModal('new') }}
+              descripcion={mueveDinero
+                ? 'Crea uno nuevo o cambia de pestaña para ver otro tipo.'
+                : 'Cambia de pestaña para ver otro tipo. Crearlos es cosa de la propietaria o de recepción.'}
+              cta={mueveDinero
+                ? { label: `Añadir ${TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'plan'}`, onClick: () => setPlanModal('new') }
+                : undefined}
             />
           ) : planesFiltrados.length === 0 ? (
             <EmptyState compacto titulo={`Sin resultados para "${busqueda}".`} />
@@ -802,6 +806,16 @@ export default function Productos() {
                       </span>
                     </div>
                   </div>
+                  {/* Las tarifas son dinero: la RLS de `planes_tarifa` exige
+                      `puede_mover_dinero()` (PROPIETARIO o RECEPCION). Un
+                      MANAGER llega a esta pantalla —/productos no está en
+                      BLOQUEADO_MANAGER— y podía pulsar estos botones para
+                      nada: el UPDATE se quedaba en cero filas y la pantalla
+                      decía «Tarifa actualizada». Ofrecer lo que la cerradura
+                      ya prohíbe es la mitad del bug; la otra mitad (dejar de
+                      mentir cuando falla) está en `dbUpdatePlanTarifa`.
+                      Leer sí puede: la lista se queda. */}
+                  {mueveDinero && (
                   <div className="flex gap-1 shrink-0">
                     <button onClick={() => setPlanModal(plan)} aria-label="Editar plan"
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
@@ -812,6 +826,7 @@ export default function Productos() {
                       <Trash2 size={14} />
                     </button>
                   </div>
+                  )}
                 </div>
 
                 <div className="flex items-end justify-between">
@@ -851,12 +866,15 @@ export default function Productos() {
             );
           })}
 
-          {/* Add card */}
+          {/* Add card — solo para quien puede escribir tarifas (ver el
+              comentario de los botones de editar/eliminar). */}
+          {mueveDinero && (
           <button onClick={() => setPlanModal('new')}
             className="bg-card rounded-2xl border-2 border-dashed border-border p-5 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-brand hover:text-brand-medio transition-colors min-h-[160px]">
             <Plus size={20} />
             <span className="text-sm font-semibold">Añadir</span>
           </button>
+          )}
           </div>
           )}
         </>

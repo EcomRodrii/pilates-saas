@@ -2151,8 +2151,20 @@ export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa
     const valor = changes[campo];
     if (valor !== undefined) db[columna] = valor;
   }
-  const { error } = await supabase.from('planes_tarifa').update(db).eq('id', id);
+  // `.select('id')` NO es cosmético: sin él, un UPDATE que la RLS deja en CERO
+  // filas vuelve con `error: null` y es indistinguible de un guardado bueno.
+  //
+  // La política `planes_tarifa_escritura_update` exige `puede_mover_dinero()`
+  // —PROPIETARIO o RECEPCION—, pero /productos NO está en BLOQUEADO_MANAGER y
+  // su pestaña de planes no estaba gateada. Un MANAGER editaba el precio de un
+  // bono, veía «Tarifa actualizada», el estado optimista pintaba el precio
+  // nuevo y hasta se escribía una actividad reciente… y al recargar volvía el
+  // viejo. Es el mismo patrón que ya costó el bug de `oferta_hasta`, por la
+  // otra puerta.
+  const { data: tocadas, error } = await supabase
+    .from('planes_tarifa').update(db).eq('id', id).select('id');
   if (error) return falloEscritura('[dbUpdatePlanTarifa]', error);
+  if (!tocadas?.length) return { ok: false, error: await motivoSinEfecto(id, 'cambiar') };
   if ('tiposClaseIds' in changes) {
     const { data: fila } = await supabase.from('planes_tarifa').select('studio_id').eq('id', id).maybeSingle();
     if (fila?.studio_id) await sincronizarTiposDePlan(id, fila.studio_id as string, changes.tiposClaseIds);
@@ -2161,8 +2173,29 @@ export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa
 }
 
 export async function dbDeletePlanTarifa(id: string): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('planes_tarifa').delete().eq('id', id);
-  return error ? falloEscritura('[dbDeletePlanTarifa]', error) : ESCRITURA_OK;
+  // Mismo silencio que en el UPDATE: sin `.select()`, un DELETE que la RLS
+  // deja en cero filas se lee como borrado hecho.
+  const { data: borradas, error } = await supabase
+    .from('planes_tarifa').delete().eq('id', id).select('id');
+  if (error) return falloEscritura('[dbDeletePlanTarifa]', error);
+  if (!borradas?.length) return { ok: false, error: await motivoSinEfecto(id, 'borrar') };
+  return ESCRITURA_OK;
+}
+
+/**
+ * Por qué una escritura sobre una tarifa no tocó ninguna fila.
+ *
+ * Son dos causas muy distintas y decirlas mal manda a la usuaria al sitio
+ * equivocado: o no tiene permiso (la RLS de `planes_tarifa` exige
+ * `puede_mover_dinero()`), o la tarifa ya no está. Se distinguen leyendo: el
+ * SELECT sí está abierto a todo el estudio, así que si la fila se ve, el
+ * problema era el permiso.
+ */
+async function motivoSinEfecto(id: string, verbo: 'cambiar' | 'borrar'): Promise<string> {
+  const { data } = await supabase.from('planes_tarifa').select('id').eq('id', id).maybeSingle();
+  return data
+    ? `No tienes permiso para ${verbo} tarifas. Pídeselo a la propietaria o a recepción.`
+    : 'Esa tarifa ya no existe. Recarga la página.';
 }
 
 // ─── Citas: catálogo de servicios (0046) — escritura del panel (anon + RLS) ───

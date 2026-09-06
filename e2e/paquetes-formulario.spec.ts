@@ -83,7 +83,11 @@ async function mockBackend(page: Page, planesIniciales: Record<string, unknown>[
       const id = decodeURIComponent(req.url().match(/id=eq\.([^&]+)/)?.[1] ?? '');
       const i = planes.findIndex(p => p.id === id);
       if (i >= 0) planes[i] = { ...planes[i], ...cambios };
-      return json(route, [], 200);
+      // Devuelve las filas TOCADAS, como hace PostgREST con `.select()`. Devolver
+      // `[]` era irrealista y, desde que la escritura distingue «0 filas» de
+      // «escrito» —para no cantar «Tarifa actualizada» cuando la RLS rechaza—,
+      // este mock hacía fallar el guardado en el test y solo en el test.
+      return json(route, i >= 0 ? [{ id }] : [], 200);
     }
     return json(route, planes);
   });
