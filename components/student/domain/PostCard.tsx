@@ -146,7 +146,7 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
           }}
         >
           <span aria-hidden style={{ fontSize: 14 }}>{liked ? '♥' : '♡'}</span>
-          {likes > 0 ? likes : 'Me gusta'}
+          {likes > 0 ? ` ${likes}` : 'Me gusta'}
         </button>
         <button
           type="button"

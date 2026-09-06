@@ -12,7 +12,7 @@ const base = `/portal/${SLUG}`;
 
 function posts() {
   return [
-    { id: 'p-txt', texto: 'Esta semana estrenamos la sala nueva. ¡Venid a verla!', imagenUrl: null, autorNombre: 'Estudio Alma', autorInicial: 'E', creadoEn: '2026-08-11T10:00:00Z', likes: 3, comentariosCount: 0, tipo: 'TEXTO', eventoFecha: null, eventoAforo: null, eventoLugar: null },
+    { id: 'p-txt', texto: 'Esta semana estrenamos la sala nueva. ¡Venid a verla!', imagenUrl: null, autorNombre: 'Estudio Alma', autorInicial: 'E', creadoEn: '2026-08-11T10:00:00Z', likes: 3, likedByMe: false, comentariosCount: 0, tipo: 'TEXTO', eventoFecha: null, eventoAforo: null, eventoLugar: null },
     { id: 'p-ev', texto: 'Masterclass de respiración.', imagenUrl: null, autorNombre: 'Ana', autorInicial: 'A', creadoEn: '2026-08-10T10:00:00Z', likes: 0, comentariosCount: 0, tipo: 'EVENTO', eventoFecha: '2026-08-20T18:00:00Z', eventoAforo: 10, eventoLugar: 'Sala 1', totalAsistentes: 3, apuntada: false },
     { id: 'p-lleno', texto: 'Taller de suelo pélvico.', imagenUrl: null, autorNombre: 'Ana', autorInicial: 'A', creadoEn: '2026-08-09T10:00:00Z', likes: 0, comentariosCount: 0, tipo: 'EVENTO', eventoFecha: '2026-08-21T18:00:00Z', eventoAforo: 5, eventoLugar: 'Sala 2', totalAsistentes: 5, apuntada: false },
     { id: 'p-pasado', texto: 'Brunch de junio.', imagenUrl: null, autorNombre: 'Ana', autorInicial: 'A', creadoEn: '2026-06-01T10:00:00Z', likes: 8, comentariosCount: 0, tipo: 'EVENTO', eventoFecha: '2026-06-15T11:00:00Z', eventoAforo: null, eventoLugar: null, totalAsistentes: 12, apuntada: true },
@@ -48,15 +48,20 @@ test.describe('Student PWA · comunidad', () => {
     await expect(page.getByRole('heading', { name: 'Comunidad' })).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('[data-testid=post]')).toHaveCount(4);
 
-    await expect(post(page, 'p-txt').getByText('♥ 3')).toBeVisible();
+    // `likedByMe: false` en el mock → corazón vacío: esta socia no lo ha dado
+    // ella, aunque otras 3 personas sí (P2, antes el corazón era un contador
+    // estático siempre relleno — ahora distingue "cuántos" de "yo también").
+    await expect(post(page, 'p-txt').getByText('♡ 3')).toBeVisible();
     await expect(post(page, 'p-ev').getByText('3 de 10 plazas')).toBeVisible();
     await expect(post(page, 'p-ev').getByRole('button', { name: 'Me apunto' })).toBeVisible();
-    // Completo: sin botón, y se dice.
+    // Completo: sin botón de RSVP, y se dice. (P2: like/comentar viven en
+    // TODO post ahora — la ausencia que importa aquí es la de "Me
+    // apunto"/"Ya no voy", no la de cualquier botón de la tarjeta.)
     await expect(post(page, 'p-lleno').getByText(/Completo/)).toBeVisible();
-    await expect(post(page, 'p-lleno').getByRole('button')).toHaveCount(0);
-    // Pasado: sin botón aunque estuviera apuntada.
+    await expect(post(page, 'p-lleno').getByRole('button', { name: /Me apunto|Ya no voy/ })).toHaveCount(0);
+    // Pasado: sin botón de RSVP aunque estuviera apuntada.
     await expect(post(page, 'p-pasado').getByText(/Ya celebrado/)).toBeVisible();
-    await expect(post(page, 'p-pasado').getByRole('button')).toHaveCount(0);
+    await expect(post(page, 'p-pasado').getByRole('button', { name: /Me apunto|Ya no voy/ })).toHaveCount(0);
   });
 
   test('«Me apunto» manda el estudio al servidor y actualiza plazas; «Ya no voy» hace DELETE', async ({ page }) => {
