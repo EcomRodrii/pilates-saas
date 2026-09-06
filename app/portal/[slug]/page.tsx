@@ -15,12 +15,12 @@ import { NextClassCard } from '@/components/student/domain/NextClassCard';
 import { ClassCard } from '@/components/student/domain/ClassCard';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { urlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
-import { BonoRitmo, TuSemana, MiProgreso } from '@/components/student/domain/TuRitmo';
+import { TuRitmo } from '@/components/student/domain/TuRitmo';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
 import { DelEstudio } from '@/components/student/domain/DelEstudio';
 import { MensajesCard } from '@/components/student/domain/MensajesCard';
-import { semanaDe, hechasEstaSemana, rachaSemanas, lunesDe, cuentaComoHecha } from '@/lib/student/ritmo';
+import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
 
 // Inicio (§A.5 del handoff): héroe fotográfico, próxima clase, bono y huecos de
@@ -72,17 +72,10 @@ export default function InicioPage() {
   const semana = semanaDe(clasesHechas, hoy);
   const estaSemana = hechasEstaSemana(clasesHechas, hoy);
   const racha = rachaSemanas(clasesHechas, hoy);
-  // Referencia de la barra: su MEJOR semana, no una meta inventada. Se agrupa
-  // por el lunes de cada clase — agrupar por mes+día, como hacía la primera
-  // versión de esto, no agrupa por semana en absoluto.
-  const porSemana = clasesHechas
-    .filter((c) => cuentaComoHecha(c, hoy))
-    .reduce<Record<string, number>>((acc, c) => {
-      const k = lunesDe(c.fecha);
-      acc[k] = (acc[k] ?? 0) + 1;
-      return acc;
-    }, {});
-  const mejorSemana = Math.max(1, ...Object.values(porSemana), estaSemana);
+  // Aquí se calculaba la MEJOR semana conocida, que era el eje de la barra de
+  // «Mi progreso». Esa barra se ha ido: medía exactamente lo mismo que los
+  // siete puntos de la semana justo encima, y contra una referencia que la
+  // propia app se inventaba. Con la barra fuera, el cálculo sobra.
 
   const huecos = (data?.clases ?? [])
     .filter((c) => c.fecha === hoy)
@@ -218,26 +211,21 @@ export default function InicioPage() {
             )}
 
             {/* ── TU RITMO ─────────────────────────────────────────────────
-                Bloque nuevo. Todo lo que enseña sale de sus reservas reales
+                Todo lo que enseña sale de sus reservas reales
                 (`lib/student/ritmo.ts`, 16 tests): los días de la semana, la
                 racha y lo que lleva hecho. Lo que el backend no tiene —una meta
-                semanal configurable, retos— no se rellena con cifras a dedo. */}
-            <p className="t-label" style={{ marginTop: 4 }}>Tu ritmo</p>
+                semanal configurable, retos— no se rellena con cifras a dedo.
 
-            <TuSemana dias={semana} racha={racha} />
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <MiProgreso estaSemana={estaSemana} referencia={mejorSemana} />
-              {bonoActivo
-                ? <BonoRitmo bono={bonoActivo} href={href(`/bonos/${bonoActivo.id}`)} />
-                : (
-                  <Link href={href('/bonos')} className="card card--tap" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '13px 15px' }}>
-                    <p className="t-label">Bonos</p>
-                    <p style={{ margin: '7px 0 0', fontSize: 13.5, fontWeight: 800 }}>Sin bono activo</p>
-                    <p className="t-meta" style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--accent)' }}>Ver bonos →</p>
-                  </Link>
-                )}
-            </div>
+                Era un rótulo suelto + tres tarjetas; ahora es UNA. El detalle
+                de por qué, en el componente. */}
+            <TuRitmo
+              dias={semana}
+              racha={racha}
+              estaSemana={estaSemana}
+              bono={bonoActivo ?? null}
+              hrefBono={bonoActivo ? href(`/bonos/${bonoActivo.id}`) : href('/bonos')}
+              hrefBonos={href('/bonos')}
+            />
 
 
             {/* ── PLAZA FIJA / RECUPERACIONES (F2) ────────────────────────

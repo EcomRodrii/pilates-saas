@@ -4,118 +4,136 @@ import Link from 'next/link';
 import type { Bono } from '@/lib/student/tipos';
 import type { DiaSemana } from '@/lib/student/ritmo';
 
-// Sección «TU RITMO» del diseño nuevo: bono, semana y progreso.
+// «TU RITMO» — una sola tarjeta, no tres.
 //
-// ⚠️ RECONSTRUIDO DESDE UNA CAPTURA DE MÓVIL, no desde un paquete. La
-// composición, el orden y la jerarquía se leen bien en la imagen; los tamaños
-// exactos son aproximaciones medidas a ojo sobre ella. Donde había duda se ha
-// reutilizado el valor que ya usa el kit (`--radius-card`, `.card`, `.t-label`)
-// en vez de inventar uno nuevo.
+// ⚠️ REDISEÑO DE COMPOSICIÓN. Antes eran tres bloques apilados: una tarjeta
+// ancha con siete puntos de 8 px perdidos en medio de un espacio vacío, y
+// debajo dos tarjetas gemelas —«Mi progreso» y «Mi bono»— con la MISMA forma
+// exacta: etiqueta, cifra grande, pie y barra. Dos cajas idénticas una al lado
+// de otra no crean jerarquía; crean ruido, y es lo que hacía que esta zona
+// pareciese el panel de administración de otra aplicación en vez de la app de
+// un estudio.
+//
+// Lo que cambia:
+//
+//  · La SEMANA pasa a ser lo primero y ocupa el ancho de verdad. Es el dato con
+//    forma —siete marcas que se leen de un vistazo—, así que manda.
+//  · «Esta semana» PIERDE SU BARRA. Medía lo mismo que los puntos de arriba,
+//    contra una referencia que la propia app se inventaba (la mejor semana
+//    conocida). Dos dibujos del mismo hecho, y uno de ellos con un eje que no
+//    significa nada. Queda la cifra, que sí.
+//  · El BONO conserva la suya, porque el consumo no se ve en ningún otro sitio.
 //
 // ⚠️ NINGUNA CIFRA ESTÁ INVENTADA. Bono, días y racha salen de sus reservas
-// reales (`lib/student/ritmo.ts`). La META semanal del diseño («meta 3/sem») no
-// existe en el backend: nadie la fija en ninguna parte, así que la tarjeta de
-// progreso NO se pinta con una meta a dedo — se pinta sin ella, contando lo que
-// lleva. El día que exista una meta configurable, entra aquí.
+// reales (`lib/student/ritmo.ts`). La META semanal del diseño original
+// («meta 3/sem») no existe en el backend —ni tabla, ni campo, ni pantalla donde
+// fijarla—, así que no se pinta: se cuenta lo que lleva.
 
-/** Barra de progreso del kit, en la proporción que le pasen. */
-function Barra({ hecho, total, tono = 'accent' }: { hecho: number; total: number; tono?: 'accent' | 'warning' }) {
+/** Barra del sistema (`.bar` en student.css). El porcentaje lo pone el padre. */
+function Barra({ hecho, total, tono }: { hecho: number; total: number; tono?: 'ok' }) {
   const pct = total > 0 ? Math.min(100, Math.round((hecho / total) * 100)) : 0;
   return (
-    <div aria-hidden style={{ height: 6, borderRadius: 99, background: 'var(--muted)', overflow: 'hidden' }}>
-      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, background: tono === 'warning' ? 'var(--warning)' : 'var(--accent)', transition: 'width .5s var(--ease)' }} />
+    <div aria-hidden className={'bar' + (tono === 'ok' ? ' bar--ok' : '')} style={{ ['--pct' as string]: `${pct}%` }}>
+      <i />
     </div>
   );
 }
 
 /**
- * Bono, en la MISMA forma que «Mi progreso»: etiqueta, cifra grande, pie, barra.
- *
- * La primera versión ponía el nombre del bono y «quedan N» en una fila. En la
- * columna estrecha de la rejilla —la mitad de un móvil de 375— «Bono 4 clases»
- * se partía en dos líneas y empujaba al número: se veía roto. Aquí la cifra
- * manda, que además es lo que la alumna viene a mirar, y el nombre del bono va
- * debajo en pequeño, donde puede partirse sin estorbar.
- */
-export function BonoRitmo({ bono, href }: { bono: Bono; href: string }) {
-  const ilimitado = !Number.isFinite(bono.creditosTotales);
-  const quedan = ilimitado ? null : bono.creditosTotales - bono.creditosUsados;
-  return (
-    <Link href={href} className="card card--tap" style={{ display: 'block', padding: '13px 15px' }}>
-      <p className="t-label">Mi bono</p>
-      <p style={{ margin: '7px 0 0', fontSize: 15, fontWeight: 800 }}>
-        {ilimitado ? 'Ilimitado' : <>{quedan} {quedan === 1 ? 'sesión' : 'sesiones'}</>}
-      </p>
-      <p className="t-meta" style={{ margin: '1px 0 9px', fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {bono.nombre}
-      </p>
-      {ilimitado
-        ? <Barra hecho={1} total={1} />
-        : <Barra hecho={bono.creditosUsados} total={bono.creditosTotales} />}
-    </Link>
-  );
-}
-
-/**
- * «Tu semana»: siete puntos, uno por día.
+ * Los siete días.
  *
  * Relleno = clase hecha. Anillo = hoy. El día de hoy sin clase se ve como
- * anillo vacío, que es lo que hace la captura.
+ * anillo vacío. Antes los puntos iban centrados en una fila con el título a la
+ * izquierda y la racha a la derecha, así que en un móvil de 390 se apretaban en
+ * un tercio del ancho; ahora se reparten por todo, que es lo que los hace
+ * legibles de un vistazo.
  */
-export function TuSemana({ dias, racha }: { dias: DiaSemana[]; racha: number }) {
+function Semana({ dias }: { dias: DiaSemana[] }) {
   return (
-    <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 15px' }}>
-      <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, flexShrink: 0 }}>Tu semana</p>
+    <ul className="row" style={{ ['--gap' as string]: 'var(--s-1)', justifyContent: 'space-between', margin: 0, padding: 0, listStyle: 'none' }}>
+      {dias.map((d) => (
+        <li key={d.fecha} className="stack" style={{ ['--gap' as string]: '6px', alignItems: 'center', flex: 1 }}>
+          <span className="t-mono t-faint" style={{ fontSize: 9.5, letterSpacing: '.06em' }}>{d.letra}</span>
+          <span
+            aria-hidden
+            style={{
+              width: 10, height: 10, borderRadius: 'var(--radius-pill)',
+              background: d.hecha ? 'var(--accent)' : 'transparent',
+              boxShadow: d.hecha ? 'none' : `inset 0 0 0 1.5px ${d.esHoy ? 'var(--foreground)' : 'var(--border-strong)'}`,
+            }}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
 
-      <ul style={{ display: 'flex', gap: 9, margin: 0, padding: 0, listStyle: 'none', flex: 1, justifyContent: 'center' }}>
-        {dias.map((d) => (
-          <li key={d.fecha} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <span className="t-mono" style={{ fontSize: 9, color: 'var(--subtle-foreground)' }}>{d.letra}</span>
-            <span
-              aria-hidden
-              style={{
-                width: 8, height: 8, borderRadius: 99,
-                background: d.hecha ? 'var(--accent)' : 'transparent',
-                boxShadow: d.hecha ? 'none' : `inset 0 0 0 1.5px ${d.esHoy ? 'var(--foreground)' : 'var(--border-strong)'}`,
-              }}
-            />
-          </li>
-        ))}
-      </ul>
-
-      {/* La racha solo aparece si existe: «🔥 0 sem.» no motiva a nadie. */}
-      {racha > 0 && (
-        <p className="t-mono" style={{ margin: 0, fontSize: 11, color: 'var(--muted-foreground)', flexShrink: 0 }}>
-          🔥 {racha} sem.
-        </p>
-      )}
-
-      <span className="sr-only">
-        {dias.filter((d) => d.hecha).length} clases esta semana
-        {racha > 0 ? `, ${racha} semanas seguidas` : ''}
-      </span>
+/** Un dato de la fila de abajo: rótulo pequeño arriba, hecho debajo. */
+function Dato({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
+  return (
+    <div className="stack" style={{ ['--gap' as string]: '3px', minWidth: 0, flex: 1 }}>
+      <span className="t-label">{rotulo}</span>
+      {children}
     </div>
   );
 }
 
-/**
- * «Mi progreso» de la captura, SIN la meta.
- *
- * El diseño rotula «meta 3/sem» y muestra «1 de 3». Esa meta no existe en el
- * backend —ni tabla, ni campo, ni pantalla donde fijarla— así que ponerla a 3
- * sería inventarse el objetivo de otra persona y medirla contra él. Se enseña
- * lo que sí es cierto: cuántas lleva. La barra usa la mejor semana conocida
- * como referencia, que es un dato suyo, no una cifra puesta a dedo.
- */
-export function MiProgreso({ estaSemana, referencia }: { estaSemana: number; referencia: number }) {
+export function TuRitmo({ dias, racha, estaSemana, bono, hrefBono, hrefBonos }: {
+  dias: DiaSemana[];
+  racha: number;
+  estaSemana: number;
+  /** `null` = todavía no tiene ninguno activo. */
+  bono: Bono | null;
+  hrefBono: string;
+  hrefBonos: string;
+}) {
+  const ilimitado = bono ? !Number.isFinite(bono.creditosTotales) : false;
+  const quedan = bono && !ilimitado ? bono.creditosTotales - bono.creditosUsados : null;
+
   return (
-    <div className="card" style={{ padding: '13px 15px' }}>
-      <p className="t-label">Mi progreso</p>
-      <p style={{ margin: '7px 0 0', fontSize: 15, fontWeight: 800 }}>
-        {estaSemana} {estaSemana === 1 ? 'clase' : 'clases'}
-      </p>
-      <p className="t-meta" style={{ margin: '1px 0 9px', fontSize: 11.5 }}>esta semana</p>
-      <Barra hecho={estaSemana} total={Math.max(referencia, 1)} />
-    </div>
+    <section className="card card--pad-lg stack" style={{ ['--gap' as string]: 'var(--s-4)' }} aria-label="Tu ritmo">
+      <div className="row row--between">
+        <p className="t-label">Tu ritmo</p>
+        {/* La racha solo aparece si existe: «🔥 0 sem.» no motiva a nadie. */}
+        {racha > 0 && (
+          <p className="t-mono t-dim no-shrink" style={{ fontSize: 11 }}>🔥 {racha} sem.</p>
+        )}
+      </div>
+
+      <Semana dias={dias} />
+
+      <span className="sr-only">
+        {estaSemana} {estaSemana === 1 ? 'clase' : 'clases'} esta semana
+        {racha > 0 ? `, ${racha} semanas seguidas` : ''}
+      </span>
+
+      <div aria-hidden style={{ height: 1, background: 'var(--border)' }} />
+
+      <div className="row row--top" style={{ ['--gap' as string]: 'var(--s-4)' }}>
+        <Dato rotulo="Esta semana">
+          <p className="t-card-title t-num">{estaSemana} {estaSemana === 1 ? 'clase' : 'clases'}</p>
+        </Dato>
+
+        {bono ? (
+          <Link href={hrefBono} className="stack" style={{ ['--gap' as string]: '3px', minWidth: 0, flex: 1 }}>
+            <span className="t-label">Tu bono</span>
+            <p className="t-card-title t-num">
+              {ilimitado ? 'Sin límite' : <>{quedan} {quedan === 1 ? 'sesión' : 'sesiones'}</>}
+            </p>
+            <p className="t-meta trunc">{bono.nombre}</p>
+            <div style={{ marginTop: 3 }}>
+              {ilimitado
+                ? <Barra hecho={1} total={1} tono="ok" />
+                : <Barra hecho={bono.creditosUsados} total={bono.creditosTotales} />}
+            </div>
+          </Link>
+        ) : (
+          <Dato rotulo="Tu bono">
+            <p className="t-card-title">Sin bono activo</p>
+            <Link href={hrefBonos} className="t-meta" style={{ color: 'var(--accent)', fontWeight: 800 }}>Ver bonos →</Link>
+          </Dato>
+        )}
+      </div>
+    </section>
   );
 }

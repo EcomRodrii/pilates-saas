@@ -25,7 +25,7 @@ export function CreditCard({ bono, compacta = false }: { bono: Bono; compacta?: 
         <p style={{ margin: 0, fontSize: compacta ? 12.5 : 13.5, fontWeight: 800 }}>{bono.nombre}</p>
         {compacta ? <span className="t-mono" style={{ fontSize: 11, color: 'var(--accent)' }}>quedan {quedan}</span> : <Badge tone={tono}>{etiqueta}</Badge>}
       </div>
-      <div style={{ height: compacta ? 5 : 6, borderRadius: 99, background: 'var(--muted)', overflow: 'hidden', marginTop: 9 }}><div style={{ width: pct + '%', height: '100%', borderRadius: 99, background: bono.estado === 'activo' ? '#4F8A5B' : 'var(--border-strong)', transition: 'width .6s var(--ease)' }} /></div>
+      <div style={{ height: compacta ? 5 : 6, borderRadius: 99, background: 'var(--muted)', overflow: 'hidden', marginTop: 9 }}><div style={{ width: pct + '%', height: '100%', borderRadius: 99, background: bono.estado === 'activo' ? 'var(--success)' : 'var(--border-strong)', transition: 'width .6s var(--ease)' }} /></div>
       {!compacta && (
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
           <p className="t-meta">{ilimitado ? 'Clases sin límite' : `${quedan} de ${bono.creditosTotales} sesiones`}</p>

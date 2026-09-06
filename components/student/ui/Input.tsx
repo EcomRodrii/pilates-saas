@@ -10,7 +10,11 @@ export function Input({
   const id = useId();
   return (
     <div>
-      <label htmlFor={id} style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--muted-foreground)', margin: '0 0 6px 2px' }}>
+      <label
+        htmlFor={id}
+        className="t-meta"
+        style={{ display: 'block', fontSize: 'var(--t-meta)', fontWeight: 700, margin: '0 0 var(--s-1) 2px' }}
+      >
         {label}
       </label>
       <input
@@ -22,7 +26,7 @@ export function Input({
       />
       {error
         ? <p id={id + '-e'} role="alert" className="field-error">{error}</p>
-        : hint ? <p className="t-meta" style={{ margin: '6px 0 0 2px' }}>{hint}</p> : null}
+        : hint ? <p className="t-meta" style={{ margin: 'var(--s-1) 0 0 2px' }}>{hint}</p> : null}
     </div>
   );
 }

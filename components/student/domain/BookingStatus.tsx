@@ -19,12 +19,12 @@ export function BookingStatus({ state, mensaje, onRetry, onWaitlist, onClose, on
   // alumna contra el mismo muro en el momento en que más ganas tiene de
   // resolverlo. La regla es la MISMA que aplica el servidor (lib/bono-logic.ts).
   const compraLoArregla = state === 'error' && !!mensaje && !!onComprar && seArreglaComprando(mensaje);
-  const col = c.tono === 'ok' ? '#4F8A5B' : c.tono === 'warn' ? 'var(--warning)' : 'var(--destructive)';
+  const col = c.tono === 'ok' ? 'var(--success)' : c.tono === 'warn' ? 'var(--warning)' : 'var(--destructive)';
   return (
     <div role="status" aria-live="assertive" style={{ position: 'relative', textAlign: 'center', padding: '10px 0 4px', overflow: 'hidden' }}>
-      {ok && ['A', 'B', 'C', 'B', 'A', 'C'].map((k, i) => <span key={i} aria-hidden style={{ position: 'absolute', left: (28 + i * 9) + '%', top: '30%', width: i % 2 ? 8 : 7, height: i % 2 ? 8 : 11, borderRadius: i % 2 ? 99 : 2, background: ['#4F8A5B', '#C99A3C', '#C2503A', '#1A1A1A'][i % 4], animation: 'apConf' + k + ' .95s ' + (i * .05) + 's ease-out both' }} />)}
+      {ok && ['A', 'B', 'C', 'B', 'A', 'C'].map((k, i) => <span key={i} aria-hidden style={{ position: 'absolute', left: (28 + i * 9) + '%', top: '30%', width: i % 2 ? 8 : 7, height: i % 2 ? 8 : 11, borderRadius: i % 2 ? 99 : 2, background: ['var(--success)', '#C99A3C', '#C2503A', '#1A1A1A'][i % 4], animation: 'apConf' + k + ' .95s ' + (i * .05) + 's ease-out both' }} />)}
       <div style={{ position: 'relative', width: 64, height: 64, margin: '0 auto' }}>
-        {ok && <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 999, border: '2.5px solid #4F8A5B', animation: 'apRing .9s ease-out both' }} />}
+        {ok && <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 999, border: '2.5px solid var(--success)', animation: 'apRing .9s ease-out both' }} />}
         <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 999, background: col, color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>{c.tono === 'ok' ? '✓' : c.tono === 'warn' ? '!' : '×'}</span>
       </div>
       <h3 className="t-h2" style={{ fontSize: 20, marginTop: 15, letterSpacing: '-.025em', animation: 'apUp .4s .15s both' }}>{c.titulo}</h3>

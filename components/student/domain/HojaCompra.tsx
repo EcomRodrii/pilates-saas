@@ -146,7 +146,7 @@ export function HojaCompra({
           </>
         ) : estado.fase === 'hecho' ? (
           <div className="a-pop" style={{ textAlign: 'center', padding: '8px 0 4px' }}>
-            <span aria-hidden style={{ width: 60, height: 60, margin: '0 auto', borderRadius: 999, background: '#4F8A5B', color: '#fff', fontSize: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</span>
+            <span aria-hidden style={{ width: 60, height: 60, margin: '0 auto', borderRadius: 999, background: 'var(--success)', color: '#fff', fontSize: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</span>
             <h3 className="t-h1" style={{ fontSize: 19, marginTop: 14 }}>Compra realizada</h3>
             <p className="t-meta" style={{ marginTop: 6, fontSize: 12.5 }}>
               Ya está en tu cuenta. Puedes reservar con ella ahora mismo.

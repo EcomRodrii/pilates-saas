@@ -26,7 +26,7 @@ import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components
 function Barra({ pct, tono = 'accent' }: { pct: number; tono?: 'accent' | 'ok' }) {
   return (
     <div aria-hidden style={{ height: 6, borderRadius: 99, background: 'var(--muted)', overflow: 'hidden', marginTop: 8 }}>
-      <div style={{ width: `${Math.round(pct * 100)}%`, height: '100%', borderRadius: 99, background: tono === 'ok' ? '#4F8A5B' : 'var(--accent)', transition: 'width .6s var(--ease)' }} />
+      <div style={{ width: `${Math.round(pct * 100)}%`, height: '100%', borderRadius: 99, background: tono === 'ok' ? 'var(--success)' : 'var(--accent)', transition: 'width .6s var(--ease)' }} />
     </div>
   );
 }
