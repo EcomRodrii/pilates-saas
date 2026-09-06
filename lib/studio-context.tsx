@@ -3404,6 +3404,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         concepto: `Renovación ${plan.nombre}`,
         importe: plan.precio,
         estado: 'PENDIENTE',
+        // Esto sí renueva un ciclo ya entregado: al cobrarlo hay que extender
+        // el mensual. Ver `Recibo.esRenovacion`.
+        esRenovacion: true,
         fechaVencimiento: sus.fechaFin,
         fechaCobro: null,
         fechaDevolucion: null,

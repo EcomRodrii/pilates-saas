@@ -154,6 +154,8 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
         const { error: insErr } = await admin.from('recibos').insert({
           id, studio_id: studioId, socio_id: sus.socio_id, suscripcion_id: sus.id,
           concepto: `Renovación ${plan.nombre}`, importe: plan.precio, estado: 'PENDIENTE',
+          // Renueva un ciclo ya entregado: al cobrarlo hay que recargar/extender.
+          es_renovacion: true,
           fecha_vencimiento: sus.fecha_fin, fecha_cobro: null, fecha_devolucion: null,
           intentos_reintento: 0, proximo_reintento: proximoReintento,
         });
