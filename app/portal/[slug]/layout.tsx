@@ -49,6 +49,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!estudio) return { title: 'Estudio no encontrado' };
 
   const base = `/portal/${encodeURIComponent(slug)}`;
+  const iconoDe = (size: 32 | 192) =>
+    urlIconoEstudio(estudio.nombre, estudio.colorPrimario, size, estudio.logoUrl, baseSupabase());
   return {
     title: estudio.nombre,
     description: `Reserva tu clase en ${estudio.nombre}.`,
@@ -67,9 +69,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     //
     // Sin logo, o con uno que no podemos servir, sigue cayendo al monograma —
     // nunca al icono de Tentare, que es lo que este mecanismo vino a evitar.
+    // ⚠️ CON `sizes`, y con un 32 para la pestaña. Sin declarar tamaño, el
+    // navegador comparaba nuestro icono contra el `favicon.ico` de Tentare
+    // —que sí declara 48x48 y que Next inyecta en toda ruta, sin que una hija
+    // pueda quitarlo— y se quedaba con el de la plataforma. Ver el comentario
+    // de `TAMANOS_MONOGRAMA`.
     icons: {
-      icon: urlIconoEstudio(estudio.nombre, estudio.colorPrimario, 192, estudio.logoUrl, baseSupabase()),
-      apple: urlIconoEstudio(estudio.nombre, estudio.colorPrimario, 192, estudio.logoUrl, baseSupabase()),
+      icon: [
+        { url: iconoDe(32), sizes: '32x32', type: 'image/png' },
+        { url: iconoDe(192), sizes: '192x192', type: 'image/png' },
+      ],
+      apple: iconoDe(192),
     },
     // La app de la alumna vive detrás de sesión: no se indexa. `/portal` ya
     // está en PREFIJOS_NO_INDEXABLES (lib/seo/paginas.ts), esto es el cinturón.

@@ -33,8 +33,19 @@ export function coloresMonograma(colorPrimario: string | null | undefined): { fo
   return { fondo, texto: foregroundParaFondo(fondo) };
 }
 
-/** Tamaños que sirve la ruta. Cualquier otro valor cae a 512. */
-export const TAMANOS_MONOGRAMA = [192, 512] as const;
+/**
+ * Tamaños que sirve la ruta. Cualquier otro valor cae a 512.
+ *
+ * ⚠️ El 32 es para la PESTAÑA del navegador, y sin él el estudio perdía esa
+ * batalla. En el portal nuestros iconos sustituyen a los de la plataforma…
+ * salvo `favicon.ico`, que Next inyecta en TODAS las rutas y una ruta hija no
+ * puede quitar. Quedaban dos candidatos: el de Tentare, declarado `48x48`, y
+ * el del estudio a 192 y SIN `sizes`. Para una pestaña —16 px a 1x, 32 a 2x—
+ * el navegador no tenía ningún motivo para preferir el nuestro.
+ * Con un 32 declarado hay coincidencia exacta a 2x y el candidato más pequeño
+ * por encima del pedido a 1x: gana el del estudio en los dos casos.
+ */
+export const TAMANOS_MONOGRAMA = [32, 192, 512] as const;
 export type TamanoMonograma = (typeof TAMANOS_MONOGRAMA)[number];
 
 export function tamanoValido(v: string | null): TamanoMonograma {
