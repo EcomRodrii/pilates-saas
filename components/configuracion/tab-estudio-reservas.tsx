@@ -48,7 +48,7 @@ type PoliticaForm = {
   // Migr 20260905151515: impedir reservar con un recibo FALLIDO o DEVUELTO.
   // Opt-in: encenderlo por defecto dejaría fuera a socias que hoy reservan.
   bloquearReservaImpago: boolean;
-  // Migr 20260906090000: recuperaciones solas al cerrar la semana.
+  // Migr 20260906005059: recuperaciones solas al cerrar la semana.
   recuperacionAutoSemanal: boolean;
 };
 
