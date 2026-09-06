@@ -1,6 +1,7 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { esJwtCaducado } from '@/lib/recuperar-sesion';
 import { mapLimit } from '@/lib/concurrency';
+import { mensajeDeErrorReserva } from '@/lib/reservas/errores-rpc';
 import { supabase } from '@/lib/db/supabase';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
 import type { Plan } from '@/lib/billing/entitlements';
@@ -2764,12 +2765,11 @@ export async function dbReservarPlaza(
   });
   if (error) {
     reportDbError('[dbReservarPlaza]', error);
-    if (error.message.includes('LIMITE_SEMANAL')) return { error: 'Ha alcanzado el máximo de clases por semana de su plan' };
-    // Sin esto, a recepción le salía literalmente «NECESITA_AUTORIZACION».
-    if (error.message.includes('NECESITA_AUTORIZACION')) {
-      return { error: 'Esta clase es solo para alumnas autorizadas. Autorízala en su ficha y vuelve a apuntarla.' };
-    }
-    return { error: error.message };
+    // Traducción COMPLETA (lib/reservas/errores-rpc.ts), no caso a caso: antes
+    // se traducían dos de los catorce códigos y el resto salía crudo a
+    // pantalla — apuntar a alguien ya apuntada mostraba «YA_RESERVADA».
+    const traducido = mensajeDeErrorReserva(error.message);
+    return { error: traducido ?? 'No se ha podido apuntar. Inténtalo otra vez.' };
   }
   const row = Array.isArray(data) ? data[0] : data;
   return { estado: row?.estado ?? 'CONFIRMADA', posicionEspera: row?.posicion_espera ?? null };
