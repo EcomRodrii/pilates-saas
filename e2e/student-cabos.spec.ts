@@ -14,6 +14,32 @@ async function montar(page: Page, ajustar?: (f: Record<string, unknown>) => void
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], unread: 0 }) }));
   await page.route('**/api/notifications/preferences**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ prefs: {} }) }));
   await page.route((u) => u.pathname === '/api/public/comunidad/posts', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ posts: [] }) }));
+  // `@stripe/stripe-js` inyecta js.stripe.com al IMPORTARSE, así que basta con
+  // que la pantalla importe el checkout (aunque no lo monte) para que la
+  // petición salga. Aquí no hay red externa: se queda pendiente y el evento
+  // `load` no llega nunca, de modo que `page.goto` agotaba el tiempo ANTES de
+  // mirar nada. Se corta en seco, y se navega sin esperar a `load`.
+  //
+  // ⚠️ SOLO Stripe. Un bloqueo genérico de «todo lo que no sea localhost»
+  // pisaba la red de seguridad de `sembrarSociaLista` para `**/rest/v1/**`
+  // —se registra antes, así que el último gana— y dejaba las pantallas
+  // colgadas por otro motivo distinto del que se quería quitar de en medio.
+  await page.route(/js\.stripe\.com/, (r) => r.abort());
+  // ⚠️ `sembrarSociaLista` enruta `**/api/public/session`, pero la app la llama
+  // con query (`?slug=…`) y ese glob no casa con una URL que la lleve: la
+  // sesión se quedaba sin resolver y `socia.socioId` venía vacío. En la tienda
+  // eso no es «no pasa nada»: el botón de comprar deriva a /acceso/verificar,
+  // así que el test terminaba en «Elige tu contraseña». Con predicado sobre el
+  // pathname da igual la query.
+  await page.route((u) => u.pathname === '/api/public/session', (r) => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ socioId: 'socio-e2e-1', nombre: 'Ana Test', email: 'socia-e2e@test.com' }),
+  }));
+}
+
+/** Navegar sin esperar a subrecursos externos (ver el bloqueo de arriba). */
+async function ir(page: Page, url: string) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
 }
 
 /** Dos bonos: uno acotado a Reformer y otro que sirve para cualquier clase. */
@@ -25,11 +51,19 @@ function conBonosAcotados(f: Record<string, unknown>) {
 }
 
 test.describe('Student PWA · cabos sueltos de la auditoría', () => {
+  // Los casos que encadenan DOS interacciones (abrir la tienda y pulsar
+  // comprar; abrir la lista de pagos y entrar en un recibo) no caben en los
+  // 30 s por defecto cuando la máquina va cargada: la primera carga se los
+  // come y el fallo es del reloj, no del código. Es el mismo error que ya
+  // cometí una vez en `student-honestidad`, así que aquí se da margen en vez
+  // de correr una carrera.
+  test.describe.configure({ timeout: 120_000 });
+
   test('la tienda dice a qué tipo de clase está acotado un bono, ANTES de pagar', async ({ page }) => {
     // Lo decidía el servidor (`planCubreTipoClase`) y la tienda se lo callaba:
     // el bono se compraba, y el rechazo llegaba al ir a reservar.
     await montar(page, conBonosAcotados);
-    await page.goto(`${base}/comprar`);
+    await ir(page, `${base}/comprar`);
     await expect(page.getByText('Bono Reformer')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('cobertura')).toHaveText('Solo para Reformer');
     // Y SOLO uno: el bono abierto no lleva aviso, porque sirve para todo.
@@ -38,9 +72,14 @@ test.describe('Student PWA · cabos sueltos de la auditoría', () => {
 
   test('la hoja de compra repite la restricción en la pantalla del pago', async ({ page }) => {
     await montar(page, conBonosAcotados);
-    await page.goto(`${base}/comprar`);
+    await ir(page, `${base}/comprar`);
     await expect(page.getByText('Bono Reformer')).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Comprar' }).first().click();
+    // El «Comprar» de ESA tarjeta, no el primero de la lista: dentro de cada
+    // familia se ordena de más barato a más caro, así que el primero es el
+    // bono abierto —el que no tiene restricción— y el test habría comprobado
+    // la ausencia del aviso creyendo comprobar su presencia.
+    await page.locator('article').filter({ hasText: 'Bono Reformer' })
+      .getByRole('button', { name: 'Comprar' }).click();
     await expect(page.getByTestId('cobertura-compra')).toHaveText('Solo para Reformer');
   });
 
@@ -54,7 +93,7 @@ test.describe('Student PWA · cabos sueltos de la auditoría', () => {
         metodoCobro: null, suscripcionId: null,
       }];
     });
-    await page.goto(`${base}/pagos`);
+    await ir(page, `${base}/pagos`);
     await expect(page.getByText('Pendiente')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Procesando')).toHaveCount(0);
 
@@ -67,7 +106,7 @@ test.describe('Student PWA · cabos sueltos de la auditoría', () => {
     // Sin esto el foco se quedaba debajo del velo: con teclado, Tab seguía
     // recorriendo la página tapada y no había forma de entrar en el diálogo.
     await montar(page, conBonosAcotados);
-    await page.goto(`${base}/comprar`);
+    await ir(page, `${base}/comprar`);
     const abrir = page.getByRole('button', { name: 'Comprar' }).first();
     await expect(abrir).toBeVisible({ timeout: 30_000 });
     await abrir.focus();
@@ -98,9 +137,9 @@ test.describe('Student PWA · cabos sueltos de la auditoría', () => {
       }];
     });
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`${base}/mis-reservas`);
+    await ir(page, `${base}/mis-reservas`);
     // Que los chips EXISTAN es parte de lo que se comprueba.
-    await expect(page.getByRole('button', { name: /cancelar/i })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Cancelar', exact: true })).toBeVisible({ timeout: 30_000 });
 
     const alturas = await page.locator('.tap').evaluateAll((els) => els.map((el) => {
       const caja = el.getBoundingClientRect();
