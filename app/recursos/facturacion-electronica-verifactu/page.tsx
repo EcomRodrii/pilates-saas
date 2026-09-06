@@ -33,7 +33,7 @@ const TOC = [
 const FAQ = [
   { q: '¿Me afecta si soy autónoma y tributo por módulos?', a: 'En general sí: Veri*factu aplica a la inmensa mayoría de autónomos y empresas que emiten facturas, con matices según el régimen. Consulta tu caso concreto con tu asesoría.' },
   { q: '¿Qué pasa si mi estudio no cumple a tiempo?', a: 'La normativa prevé sanciones para el software y los negocios que no se adapten. Lo importante es no dejarlo para el último trimestre: cambiar de software de facturación lleva tiempo.' },
-  { q: '¿Tengo que hacer algo yo, o lo hace el software?', a: 'Con un software que ya cumple Veri*factu de fábrica, tú sigues facturando como siempre; el hash, el QR y el envío a la AEAT ocurren solos en cada factura.' },
+  { q: '¿Tengo que hacer algo yo, o lo hace el software?', a: 'Con un software que cumple Veri*factu de fábrica, tú sigues facturando como siempre: el hash y el QR se generan solos en cada factura. El envío del registro a la AEAT es el paso que cada software activa con su certificado — pregunta siempre si ya está funcionando o si está por llegar.' },
   { q: '¿Veri*factu sustituye mi declaración de IVA?', a: 'No. Veri*factu certifica que tus facturas son íntegras y trazables; tus declaraciones de IVA e IRPF las sigues presentando igual, normalmente con tu asesoría.' },
 ];
 

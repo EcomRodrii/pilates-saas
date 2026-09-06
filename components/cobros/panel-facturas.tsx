@@ -175,6 +175,33 @@ export function PanelFacturas() {
   // activa de verdad para este estudio (se activa sola en el primer sellado, no
   // es un flag manual) — el banner de "Próximamente" no puede ser un texto fijo,
   // o mentiría sobre una obligación fiscal en cuanto la primera factura se selle.
+/**
+ * El estado del registro ante la AEAT, cuando lo hay.
+ *
+ * ⚠️ Solo se pinta si la factura ESTÁ en la cola (`verifactuEstado` no nulo).
+ * NULL significa «fuera de la cola» —histórico anterior a la transmisión
+ * propia— y pintar ahí un «pendiente» sería mentir: nadie va a enviarla.
+ *
+ * Existe porque el dato se leía de la BD y se descartaba en el mapper: una
+ * factura RECHAZADA por Hacienda no se veía en NINGUNA pantalla, y el único
+ * rastro era un captureMessage en Sentry que la propietaria no mira.
+ */
+function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | null }) {
+  if (!estado) return null;
+  const PINTA: Record<string, { txt: string; cls: string }> = {
+    PENDIENTE: { txt: 'AEAT: en cola', cls: 'text-muted-foreground' },
+    REGISTRADA: { txt: 'AEAT: registrada', cls: 'text-brand-medio' },
+    ACEPTADA_CON_ERRORES: { txt: 'AEAT: admitida con avisos', cls: 'text-warning' },
+    RECHAZADA: { txt: 'AEAT: RECHAZADA — revísala', cls: 'text-destructive' },
+  };
+  const p = PINTA[estado] ?? { txt: `AEAT: ${estado}`, cls: 'text-muted-foreground' };
+  return (
+    <p className={`text-[11px] font-semibold mt-0.5 ${p.cls}`} title={csv ? `CSV: ${csv}` : undefined}>
+      {p.txt}
+    </p>
+  );
+}
+
   const verifactuActivo = facturas.some(f => f.verifactuHash);
 
   // ── render ────────────────────────────────────────────────────────────────────
@@ -313,6 +340,7 @@ export function PanelFacturas() {
                           <p className="font-mono text-[12px] font-bold text-brand-medio">{f.numeroCompleto}</p>
                           <p className="text-[14px] font-semibold text-foreground truncate mt-0.5">{f.receptorNombre}</p>
                           <p className="text-[12px] text-muted-foreground mt-0.5">{fecha(f.fechaEmision)} · IVA {f.tipoIVA}%</p>
+                          <EstadoAeat estado={f.verifactuEstado} csv={f.verifactuCsv} />
                           <div className="flex items-center gap-4 mt-1.5">
                             <button onClick={() => setPreview(f.id)} className="text-[12px] font-semibold text-muted-foreground">Ver</button>
                             <button onClick={() => descargarPDF(f, socio)} className="text-[12px] font-semibold text-brand-medio inline-flex items-center gap-1">
@@ -347,7 +375,10 @@ export function PanelFacturas() {
                         const socio = socioParaFactura(f.reciboId);
                         return (
                           <tr key={f.id} className="hover:bg-muted transition-colors">
-                            <td className="px-4 py-3 font-mono text-xs font-bold text-brand-medio">{f.numeroCompleto}</td>
+                            <td className="px-4 py-3 font-mono text-xs font-bold text-brand-medio">
+                              {f.numeroCompleto}
+                              <EstadoAeat estado={f.verifactuEstado} csv={f.verifactuCsv} />
+                            </td>
                             <td className="px-4 py-3 whitespace-nowrap font-medium text-muted-foreground">{fecha(f.fechaEmision)}</td>
                             <td className="px-4 py-3 font-semibold text-foreground">
                               {socio
