@@ -107,6 +107,16 @@ export function HojaCompra({
           </p>
         )}
 
+        {/* Cada fase entra con un fundido corto. Antes el contenido de la hoja
+            SALTABA de golpe —«continuar» → «preparando» → tarjeta → «hecho»—
+            en la pantalla donde se mueve el dinero, que es justo donde un
+            cambio brusco se lee como que algo ha fallado.
+            La `key` por fase es lo que lo hace funcionar: sin remontar, React
+            reutiliza el nodo, la clase no se vuelve a aplicar y la animación
+            solo se vería la primera vez.
+            `.a-fade` (250 ms, solo opacidad) llevaba definida en el sistema
+            desde el principio sin que la usara nadie. */}
+        <div key={sinCobro ? 'sin-cobro' : estado.fase} className="a-fade">
         {sinCobro ? (
           <>
             <p className="t-meta" style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.55 }}>
@@ -165,6 +175,7 @@ export function HojaCompra({
             onCerrar={onCerrar}
           />
         )}
+        </div>
       </div>
     </Sheet>
   );
