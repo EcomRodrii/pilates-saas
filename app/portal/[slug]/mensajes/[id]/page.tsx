@@ -9,7 +9,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import {
   fetchConversaciones, fetchMensajes, enviarMensaje, marcarConversacionLeida, useMiAuthUserId,
 } from '@/lib/student/mensajeria';
-import { agruparHilo, etiquetaDia, horaCorta } from '@/lib/mensajeria/presentacion';
+import { agruparHilo, horaCorta } from '@/lib/mensajeria/presentacion';
 import type { RowMensajes } from '@/lib/db-types';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { useToast } from '@/components/student/ui/Toast';
