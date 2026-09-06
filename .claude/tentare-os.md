@@ -46,6 +46,25 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   (`fix(seguridad):`, `feat(alta):`, `chore(migraciones):`, `perf(panel):`...) y número de
   PR entre paréntesis cuando exista. El tono puede ser narrativo/autocrítico, no hace falta
   forzar un tono corporativo.
+- **Despliegues — la cuota de Vercel es un recurso compartido y se agota**. El plan
+  gratuito da 100 deployments/día **para toda la cuenta**, y con varias sesiones en
+  paralelo se llega sin darse cuenta: el 2026-08-07 se mergearon **31 PRs** y producción
+  se quedó **bloqueada más de 3 horas** justo cuando había que desplegar el arreglo de un
+  cobro perdido. Por eso:
+  - **Agrupa commits antes de subir.** Cada push a una rama de PR cuenta. Trabaja en local
+    y sube una vez, no commit a commit.
+  - **NUNCA un commit vacío para "forzar el redeploy".** Es el reflejo natural y es
+    exactamente lo contrario de lo que hay que hacer: consume otra unidad de cuota y
+    **alarga** el bloqueo. En `main` hay ya 5 commits de sesiones que cayeron en esto.
+    Cuando está bloqueado, lo único que funciona es **esperar**.
+  - ⚠️ **`gh api .../deployments` NO mide el consumo real.** El `ignoreCommand` de
+    `vercel.json` salta las builds de preview, pero esas ejecuciones saltadas siguen
+    creando un deployment en Vercel que GitHub no registra. El 2026-08-08 GitHub decía
+    "30 Production, 0 Preview" con la cuota agotada. Si el recuento sale bajo y aun así
+    está bloqueado, no sigas buscando el consumo ahí.
+  - Y lo de siempre: **mergeado ≠ desplegado**. Para cambios de dinero o seguridad,
+    comprueba el despliegue real por **ancestría**, nunca por fecha:
+    `git merge-base --is-ancestor <sha> <sha-desplegado>`.
 - **Migraciones**: numeradas correlativas en `supabase/migrations/`. Comprueba siempre el
   último número existente antes de crear una (`list_migrations` o `ls`) — este repo ha
   colisionado números más de una vez. Mergear un PR **no** aplica su migración: verifica que
