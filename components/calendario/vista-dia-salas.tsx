@@ -33,6 +33,9 @@ export interface VistaDiaSalasProps {
   /** Minutos desde medianoche de "ahora", solo si el día mostrado es hoy — null lo apaga. */
   ahoraMin: number | null;
   seleccionadaId: string | null;
+  /** Ids marcados en una selección múltiple. La decisión de qué hace un clic
+   *  (abrir la clase o marcarla) vive en page.tsx: aquí solo se pintan. */
+  marcadas?: ReadonlySet<string>;
   onSeleccionar: (id: string) => void;
   /** true = esta clase se atenúa (filtro por instructora, punto 9: nunca se esconde). */
   atenuada?: (d: DatoSesion) => boolean;
@@ -52,7 +55,7 @@ export interface VistaDiaSalasProps {
 
 export function VistaDiaSalas({
   columnas, datos, horaInicioMin, horaFinMin, pxPorHora, ahoraMin,
-  seleccionadaId, onSeleccionar, atenuada, accionPara, arrastrable, onMoverSesion, onClickVacio,
+  seleccionadaId, marcadas, onSeleccionar, atenuada, accionPara, arrastrable, onMoverSesion, onClickVacio,
 }: VistaDiaSalasProps) {
   const altoTotal = ((horaFinMin - horaInicioMin) / 60) * pxPorHora;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -169,6 +172,7 @@ export function VistaDiaSalas({
                       estado={d.estado}
                       modo={s.totalCarriles === 1 ? 'ancho' : 'compacto'}
                       seleccionada={seleccionadaId === s.id}
+                      marcada={marcadas?.has(s.id)}
                       atenuada={atenuada?.(d)}
                       onSeleccionar={() => onSeleccionar(s.id)}
                       accion={accionPara?.(d) ?? null}
