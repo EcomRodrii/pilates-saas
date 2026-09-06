@@ -10,6 +10,17 @@ export type EstadoRecibo = 'PENDIENTE' | 'COBRADO' | 'DEVUELTO' | 'EN_CURSO' | '
 // Pagos España (0036): método recurrente preferido de la socia y método real de cada cobro.
 export type MetodoPagoPreferido = 'TARJETA' | 'SEPA';
 export type MetodoCobro = 'TARJETA' | 'SEPA' | 'BIZUM' | 'EFECTIVO' | 'TRANSFERENCIA';
+/**
+ * Qué pasó con el dinero al dar de alta a una socia con plan.
+ *
+ * Existe porque el alta daba el primer recibo por COBRADO siempre, sin método
+ * de pago y sin preguntar: se contaba como ingreso del mes dinero que nadie
+ * había pagado. `pagado: false` (el valor por defecto de la pantalla) deja el
+ * recibo PENDIENTE, que es lo que de verdad ocurre en la mayoría de altas.
+ */
+export type CobroAlta =
+  | { pagado: false }
+  | { pagado: true; metodo: MetodoCobro };
 // PENDIENTE_APROBACION (Fase 2a, migr 20260730192445): no ocupa aforo ni
 // consume bono, mismo criterio que LISTA_ESPERA — se decide al aprobar.
 export type EstadoReserva = 'CONFIRMADA' | 'LISTA_ESPERA' | 'ASISTIDA' | 'CANCELADA' | 'NO_ASISTIO' | 'PENDIENTE_APROBACION';

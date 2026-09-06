@@ -115,7 +115,7 @@ export async function sellarFacturaDeRecibo(
   // demo) — crearía una cadena Veri*Factu con identidad fiscal falsa. Se bloquea la
   // emisión hasta que el estudio configure un NIF válido.
   if (!nifEmisorValido(nifEmisor)) {
-    return { ok: false, error: 'Configura un NIF fiscal válido en Configuración → Mi estudio antes de emitir facturas (el actual está vacío o es de relleno).' };
+    return { ok: false, error: 'Configura un NIF fiscal válido en Configuración → Estudio → Datos fiscales antes de emitir facturas (el actual está vacío o es de relleno).' };
   }
 
   let numeroCompleto: string;
@@ -420,7 +420,7 @@ export async function sellarRectificativaDeFactura(
     .maybeSingle();
   const nifEmisor = studio?.nif?.trim() || '';
   if (!nifEmisorValido(nifEmisor)) {
-    return { ok: false, error: 'Configura un NIF fiscal válido en Configuración → Mi estudio antes de emitir facturas.' };
+    return { ok: false, error: 'Configura un NIF fiscal válido en Configuración → Estudio → Datos fiscales antes de emitir facturas.' };
   }
 
   let numeroCompleto: string;
