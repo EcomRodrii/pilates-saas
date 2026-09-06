@@ -75,7 +75,7 @@ export async function aplicarRenovacionServidor(
   try {
     const { data: rec } = await admin
       .from('recibos')
-      .select('suscripcion_id, entrega_tipo, entrega_aplicada')
+      .select('suscripcion_id, entrega_tipo, entrega_aplicada, es_renovacion')
       .eq('id', reciboId)
       .eq('studio_id', studioId)
       .maybeSingle();
@@ -101,6 +101,21 @@ export async function aplicarRenovacionServidor(
     // marca NINGUNA en vez de dejarlo en blanco: distingue "no aplicaba" de
     // "no se llegó a mirar".
     if (!rec?.suscripcion_id) return guardar(SIN_ENTREGA);
+
+    // ⚠️ Tener `suscripcion_id` NO significa ser una renovación.
+    //
+    // Recepción asigna un «Bono 10» desde la ficha y `assignPlan` crea la
+    // suscripción YA con sus 10 sesiones más este recibo PENDIENTE. Cobrarlo
+    // online entraba aquí, `renovar_bono_idempotente` SUMA, y la socia acababa
+    // con 20 sesiones habiendo pagado una vez (con PUNTUAL, dos clases por el
+    // precio de una). La idempotencia de la RPC es por RECIBO, así que no lo
+    // frenaba: para ese recibo era la primera entrega.
+    //
+    // La distinción no puede salir del saldo —una renovación anticipada con
+    // sesiones aún vivas es legítima, y ese guard es justo el que I-6 quitó por
+    // cobrar sin entregar— ni del texto del concepto, que es copy. Va marcada
+    // en el recibo por quien lo crea. Ver `recibos.es_renovacion`.
+    if (rec.es_renovacion !== true) return guardar(SIN_ENTREGA);
 
     const { data: sus } = await admin
       .from('suscripciones')

@@ -523,6 +523,8 @@ export interface RowRecibos {
   conciliado_por: string | null;
   // migr 20260902001650.
   factura_pendiente_sellar: boolean | null;
+  // migr 20260906003934.
+  es_renovacion: boolean | null;
 }
 
 export interface RowRewardActions {

@@ -33,7 +33,7 @@ function fakeAdmin(opts: { sus: Fila; plan: Fila; rpcSaldo?: number | null; reci
         select() { return this; },
         eq() { return this; },
         maybeSingle() {
-          if (tabla === 'recibos') return Promise.resolve({ data: opts.recibo ?? { suscripcion_id: 'sus-1' }, error: null });
+          if (tabla === 'recibos') return Promise.resolve({ data: opts.recibo ?? { suscripcion_id: 'sus-1', es_renovacion: true }, error: null });
           if (tabla === 'suscripciones') return Promise.resolve({ data: opts.sus, error: null });
           if (tabla === 'planes_tarifa') return Promise.resolve({ data: opts.plan, error: null });
           return Promise.resolve({ data: null, error: null });
@@ -218,4 +218,69 @@ test('recibo sin suscripción (una penalización): NINGUNA, no en blanco', async
   assert.equal(r.aplicada, false);
   assert.equal(capturado[0].entrega_tipo, 'NINGUNA');
   assert.equal(capturado[0].entrega_aplicada, false);
+});
+
+// ── Venta inicial vs renovación ──────────────────────────────────────────────
+
+test('⚠️ cobrar la PRIMERA venta de un bono NO regala otra tanda de sesiones', async () => {
+  // Recepción asigna un «Bono 10» desde la ficha: `assignPlan` crea la
+  // suscripción YA con sus 10 sesiones y un recibo PENDIENTE. Pulsar «Cobrar
+  // online» entraba aquí, `renovar_bono_idempotente` SUMA, y la socia acababa
+  // con 20 sesiones habiendo pagado una vez.
+  //
+  // La idempotencia de la RPC es por RECIBO, así que no lo frenaba: para ese
+  // recibo era la primera entrega.
+  const { admin, updates, rpcs } = fakeAdmin({
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: 10, fecha_fin: '2026-11-05', estado: 'ACTIVA' },
+    plan: BONO,
+    rpcSaldo: 20, // lo que habría pasado: 10 + 10
+    recibo: { suscripcion_id: 'sus-1', es_renovacion: false },
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+
+  assert.equal(rpcs.length, 0, 'no puede ni llamar a la recarga');
+  assert.equal(updates.suscripciones.length, 0, 'la suscripción no se toca');
+  assert.equal(r.aplicada, false);
+  assert.equal(r.tipo, 'NINGUNA');
+});
+
+test('una venta inicial de CLASE SUELTA tampoco duplica', async () => {
+  // Mismo camino: serían dos clases por el precio de una.
+  const { admin, rpcs } = fakeAdmin({
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: 1, fecha_fin: null, estado: 'ACTIVA' },
+    plan: { tipo: 'PUNTUAL', sesiones: 1 },
+    rpcSaldo: 2,
+    recibo: { suscripcion_id: 'sus-1', es_renovacion: false },
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+  assert.equal(rpcs.length, 0);
+  assert.equal(r.aplicada, false);
+});
+
+test('una venta inicial de MENSUAL no extiende el ciclo por cobrarse', async () => {
+  const { admin, updates } = fakeAdmin({
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: null, fecha_fin: '2026-10-06', estado: 'ACTIVA' },
+    plan: MENSUAL,
+    recibo: { suscripcion_id: 'sus-1', es_renovacion: false },
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+  assert.equal(updates.suscripciones.length, 0);
+  assert.equal(r.aplicada, false);
+});
+
+test('una renovación de verdad SIGUE recargando, aunque queden sesiones vivas', async () => {
+  // Esto es lo que no se puede romper al arreglar lo de arriba: renovar por
+  // adelantado con saldo > 0 es legítimo, y el guard viejo
+  // (`sesiones_restantes !== 0`) se quitó en I-6 justo porque cobraba sin
+  // entregar. La distinción es QUÉ ES el recibo, no cuánto saldo queda.
+  const { admin, updates, rpcs } = fakeAdmin({
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: 2, fecha_fin: '2026-10-01', estado: 'ACTIVA' },
+    plan: BONO,
+    rpcSaldo: 12, // 2 + 10: no pierde lo que le quedaba
+    recibo: { suscripcion_id: 'sus-1', es_renovacion: true },
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+  assert.equal(rpcs[0]?.nombre, 'renovar_bono_idempotente');
+  assert.equal(r.aplicada, true);
+  assert.equal(updates.suscripciones.length, 1);
 });

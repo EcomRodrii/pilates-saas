@@ -70,6 +70,8 @@ export async function POST(req: NextRequest) {
     const { error: insErr } = await admin.from('recibos').insert({
       id, studio_id: body.studioId, socio_id: socioId, suscripcion_id: sus.id,
       concepto: `Renovación ${plan.nombre}`, importe: plan.precio, estado: 'PENDIENTE',
+      // «Renovar en un toque»: renueva un ciclo ya entregado.
+      es_renovacion: true,
       fecha_vencimiento: sus.fecha_fin ?? hoy, fecha_cobro: null, fecha_devolucion: null,
       intentos_reintento: 0,
     });

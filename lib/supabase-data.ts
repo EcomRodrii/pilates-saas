@@ -437,6 +437,11 @@ export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancel
 // la pantalla, no dejarla decidiendo con datos que no tiene.
 export type FilaReciboPanel = Omit<RowRecibos,
   | 'proximo_reintento'
+  // Metadata de SERVIDOR: decide si cobrar este recibo entrega algo
+  // (`aplicarRenovacionServidor`). El panel la ESCRIBE al crear un recibo de
+  // renovación —vía `reciboToDb`— pero no la lee ni la pinta, igual que el
+  // snapshot de entrega de la línea siguiente.
+  | 'es_renovacion'
   | 'entrega_tipo' | 'entrega_aplicada' | 'entrega_aplicada_en'
   | 'entrega_sesiones_antes'
   | 'entrega_fecha_fin_antes' | 'entrega_fecha_fin_despues'
@@ -1488,6 +1493,9 @@ function reciboToDb(rec: Recibo) {
     metodo_cobro: rec.metodoCobro ?? null,
     sepa_estado: rec.sepaEstado ?? null,
     proximo_reintento: rec.proximoReintento ?? null,
+    // Por defecto FALSE: un recibo nuevo es una venta, no una renovación. Solo
+    // los tres caminos que renuevan de verdad lo ponen a true.
+    es_renovacion: rec.esRenovacion ?? false,
   };
 }
 

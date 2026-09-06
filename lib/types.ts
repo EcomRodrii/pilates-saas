@@ -922,6 +922,18 @@ export interface Recibo {
   sepaEstado?: string | null;
   // Dunning (0041): cuándo el barrido diario debe reintentar el cobro (null = sin reintento).
   proximoReintento?: string | null;
+  /**
+   * ¿Este recibo RENUEVA un ciclo ya entregado, o es la venta inicial?
+   *
+   * Cobrar uno de venta inicial NO debe entregar nada: las sesiones ya se
+   * dieron al crear la suscripción. Sin esta distinción, cobrar online un
+   * «Bono 10» recién asignado desde la ficha dejaba a la socia con 20 sesiones
+   * habiendo pagado una vez — ver `aplicarRenovacionServidor`.
+   *
+   * Es un campo explícito y no una deducción del concepto: «Renovación …» es
+   * copy, y una decisión de dinero no puede depender de que nadie lo traduzca.
+   */
+  esRenovacion?: boolean;
   // Qué entregó este cobro, guardado al entregarlo. Sirve para poder OFRECER
   // deshacerlo si se devuelve el dinero: `suscripciones` no guarda histórico, así
   // que sin esto se pierde. `entregaAplicada` distingue tres cosas que no se
