@@ -86,6 +86,14 @@ export default function ReciboPage() {
             {fechaLarga(data.fecha)}{data.metodo ? ` · ${data.metodo}` : ''}
           </p>
 
+          {data.estado === 'pending' && (
+            // Un recibo emitido y sin cobrar. Antes caía en el texto de
+            // «procesando» y le prometía a la alumna un aviso que nadie iba a
+            // mandarle: no hay ningún cobro en marcha que confirmar.
+            <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--warning-foreground)', fontWeight: 700 }}>
+              Este recibo todavía está sin cobrar. Lo gestiona el estudio.
+            </p>
+          )}
           {data.estado === 'processing' && (
             <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--warning-foreground)', fontWeight: 700 }}>
               El banco todavía no ha confirmado el cobro. Te avisaremos.

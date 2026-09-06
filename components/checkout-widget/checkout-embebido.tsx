@@ -22,6 +22,7 @@ import { semantic } from '@/lib/portal-tokens';
 export function CheckoutEmbebido({
   t, plan, clientSecret, publishableKey, stripeAccountId, onExito, onBizum, onCerrar,
   resumenClase, textoBoton, ventanaCancelacionHoras, datosPago, fuentePago, radioInput,
+  onProcesando,
 }: {
   t: ModoTokens;
   plan: PlanTarifa;
@@ -84,6 +85,17 @@ export function CheckoutEmbebido({
    * checkout.
    */
   radioInput?: number;
+  /**
+   * Avisa de cuándo hay una confirmación de pago EN VUELO (desde que se pulsa
+   * pagar hasta que Stripe resuelve, falla o caduca el tope de 90 s).
+   *
+   * Existe porque quien monta este checkout dentro de una hoja o un modal no
+   * tenía forma de distinguir «rellenando la tarjeta» —donde cerrar es
+   * legítimo: es arrepentirse antes de pagar— de «Stripe confirmando», donde
+   * cerrar deja a la persona sin saber si le han cobrado. Opcional: los tres
+   * callers que no lo pasan se comportan exactamente igual que antes.
+   */
+  onProcesando?: (enVuelo: boolean) => void;
 }) {
   // `useMemo`, no una constante a nivel de módulo: `stripeAccount` cambia
   // según de qué estudio sea el widget (varios widgets, distintos estudios,
@@ -278,7 +290,7 @@ export function CheckoutEmbebido({
       >
         <FormularioPago
           t={t} plan={plan} onExito={onExito} onBizum={onBizum} onCerrar={onCerrar} textoBoton={textoBoton}
-          ventanaCancelacionHoras={ventanaCancelacionHoras} datosPago={datosPago}
+          ventanaCancelacionHoras={ventanaCancelacionHoras} datosPago={datosPago} onProcesando={onProcesando}
         />
       </Elements>
     </div>
@@ -286,11 +298,12 @@ export function CheckoutEmbebido({
 }
 
 function FormularioPago({
-  t, plan, onExito, onBizum, onCerrar, textoBoton, ventanaCancelacionHoras, datosPago,
+  t, plan, onExito, onBizum, onCerrar, textoBoton, ventanaCancelacionHoras, datosPago, onProcesando,
 }: {
   t: ModoTokens; plan: PlanTarifa; onExito: () => void; onBizum?: () => void; onCerrar: () => void;
   textoBoton?: string; ventanaCancelacionHoras?: number;
   datosPago?: { nombre?: string; email?: string; telefono?: string };
+  onProcesando?: (enVuelo: boolean) => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -303,9 +316,17 @@ function FormularioPago({
   // specified Element" (Sentry JAVASCRIPT-NEXTJS-1S, tráfico real embebido).
   const [elementoListo, setElementoListo] = useState(false);
 
+  // Un solo sitio donde cambia «hay pago en vuelo». Tenerlo separado del
+  // `setEnviando` de cada rama era la forma de que una de las tres salidas se
+  // olvidara de avisar y dejara la hoja bloqueada para siempre.
+  function marcarEnVuelo(v: boolean) {
+    setEnviando(v);
+    onProcesando?.(v);
+  }
+
   async function pagar() {
     if (!stripe || !elements || !elementoListo || enviando) return;
-    setEnviando(true);
+    marcarEnVuelo(true);
     setError(null);
     // El 3DS que SÍ exige salir (banco sin soporte para el modal embebido,
     // poco común) navega a `return_url` — se queda en la MISMA página del
@@ -320,7 +341,7 @@ function FormularioPago({
       // pago con Apple Pay): `confirmPayment` no siempre resuelve con
       // `{ error }` — también puede RECHAZAR la promesa (Stripe.js lanza
       // `IntegrationError` y compañía). Sin `try`, la excepción se llevaba por
-      // delante el `setEnviando(false)` de abajo y el botón se quedaba en
+      // delante el `marcarEnVuelo(false)` de abajo y el botón se quedaba en
       // «Procesando el pago…» PARA SIEMPRE: sin éxito, sin error y sin salida.
       // Este mismo fichero ya advierte unas líneas más arriba de que Stripe.js
       // «falla de DOS maneras distintas»; aquí solo se contemplaba una.
@@ -344,7 +365,7 @@ function FormularioPago({
     } catch (e) {
       const esTimeout = e instanceof Error && e.message === 'TENTARE_TIMEOUT';
       console.error('[checkout-embebido] confirmPayment no resolvió', e);
-      setEnviando(false);
+      marcarEnVuelo(false);
       setError(esTimeout
         // Honesto: aquí NO sabemos si se cobró. Decir «no se ha realizado
         // ningún cargo» sería justo la mentira que este repo ya ha pagado cara
@@ -353,7 +374,7 @@ function FormularioPago({
         : 'No hemos podido procesar el pago. Vuelve a intentarlo.');
       return;
     }
-    setEnviando(false);
+    marcarEnVuelo(false);
     if (err) {
       // El motivo REAL del rechazo, que hasta ahora se perdía: `err.message`
       // es el texto para la persona, pero `decline_code` es lo único que
@@ -450,7 +471,7 @@ function FormularioPago({
             <p style={{ fontSize: 12.5, fontWeight: 700, color: semantic.warning.text }}>No hemos podido procesar el pago</p>
             <p style={{ fontSize: 12, color: semantic.warning.text, marginTop: 2 }}>{error} No se ha realizado ningún cargo.</p>
             {/* Accionable, no solo diagnóstico: qué hacer ahora. El botón de
-                pagar ya vuelve solo a su estado normal (setEnviando(false)
+                pagar ya vuelve solo a su estado normal (marcarEnVuelo(false)
                 antes de pintar este error). */}
             <p style={{ fontSize: 12, fontWeight: 600, color: semantic.warning.text, marginTop: 4 }}>
               Revisa los datos de la tarjeta o prueba con otra e inténtalo de nuevo.

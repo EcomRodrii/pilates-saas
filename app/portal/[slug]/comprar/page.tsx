@@ -7,7 +7,7 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { catalogo } from '@/lib/student/catalogo';
 import { euros } from '@/lib/student/formato';
-import { catalogoTienda, resumenProducto, TITULO_FAMILIA, type FamiliaProducto, type ProductoTienda } from '@/lib/student/tienda';
+import { catalogoTienda, coberturaDeTipos, coberturaProducto, resumenProducto, TITULO_FAMILIA, type FamiliaProducto, type ProductoTienda } from '@/lib/student/tienda';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Button } from '@/components/student/ui/Button';
 import { HojaCompra } from '@/components/student/domain/HojaCompra';
@@ -44,12 +44,16 @@ export default function ComprarPage() {
       productos: catalogoTienda(d?.planesTarifa ?? [], d?.citasServicios ?? []),
       planes: d?.planesTarifa ?? [],
       stripeAccountId: d?.studio?.stripeAccountId ?? null,
+      // Para poder decir A QUÉ está acotado un bono hace falta el nombre del
+      // tipo, no su id. Los dos datos ya viajan en el mismo payload.
+      nombresTipo: new Map((d?.tiposClase ?? []).map((t) => [t.id, t.nombre])),
     };
   }, [estudio.slug]);
 
   const { data, estado, reintentar } = useAsync(cargar);
 
   const productos = data?.productos ?? [];
+  const nombresTipo = data?.nombresTipo ?? new Map<string, string>();
   const familias = (['suscripcion', 'bono', 'suelta', 'servicio'] as FamiliaProducto[])
     .map((f) => ({ familia: f, items: productos.filter((p) => p.familia === f) }))
     .filter((g) => g.items.length > 0);
@@ -84,6 +88,7 @@ export default function ComprarPage() {
                 <TarjetaProducto
                   key={p.id}
                   p={p}
+                  cobertura={coberturaProducto(p, nombresTipo)}
                   delay={i * 55}
                   // Los PLANES se cobran aquí dentro, con el mismo
                   // `CheckoutEmbebido` que usa `/reservar`. Los SERVICIOS de
@@ -117,6 +122,7 @@ export default function ComprarPage() {
 
       <HojaCompra
         plan={comprando}
+        cobertura={coberturaDeTipos(comprando?.tiposClaseIds, nombresTipo)}
         studioId={estudio.id}
         socioId={socia?.socioId ?? null}
         stripeAccountId={data?.stripeAccountId ?? null}
@@ -133,7 +139,9 @@ export default function ComprarPage() {
   );
 }
 
-function TarjetaProducto({ p, delay, onComprar }: { p: ProductoTienda; delay: number; onComprar: () => void }) {
+function TarjetaProducto({ p, cobertura, delay, onComprar }: {
+  p: ProductoTienda; cobertura: string | null; delay: number; onComprar: () => void;
+}) {
   const resumen = resumenProducto(p);
   return (
     <article className="card a-up" style={{ padding: '14px 15px', animationDelay: `${delay}ms` }}>
@@ -146,6 +154,23 @@ function TarjetaProducto({ p, delay, onComprar }: { p: ProductoTienda; delay: nu
       </div>
 
       {resumen && <p className="t-meta" style={{ margin: '4px 0 0', fontSize: 12 }}>{resumen}</p>}
+
+      {/* La restricción va ANTES del precio de decidir, no después de pagar:
+          un bono acotado a un tipo de clase se rechaza al reservar cualquier
+          otro. Se pinta como aviso, no como un dato más de la lista de arriba,
+          porque cambia lo que la alumna puede hacer con lo que compra. */}
+      {cobertura && (
+        <p
+          data-testid="cobertura"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5, margin: '7px 0 0',
+            padding: '3px 9px', borderRadius: 999, background: 'var(--warning-soft)',
+            color: 'var(--warning-foreground)', fontSize: 11.5, fontWeight: 800,
+          }}
+        >
+          {cobertura}
+        </p>
+      )}
       {p.descripcion && (
         <p style={{ margin: '7px 0 0', fontSize: 12.5, lineHeight: 1.5, color: 'var(--muted-foreground)' }}>{p.descripcion}</p>
       )}

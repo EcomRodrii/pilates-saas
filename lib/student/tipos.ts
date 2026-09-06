@@ -92,7 +92,13 @@ export interface Bono {
   tiposClaseIds?: string[];
 }
 
-export type EstadoPago = 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded';
+/**
+ * `pending` y `processing` NO son lo mismo, y colapsarlos mentía:
+ *   · `pending`    — recibo emitido y todavía sin cobrar. Nadie está cobrando
+ *                    nada; o lo cobra el estudio, o lo reintenta el dunning.
+ *   · `processing` — adeudo EN VUELO (SEPA). El banco puede devolverlo.
+ */
+export type EstadoPago = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded';
 export interface Pago { id: string; concepto: string; importe: number; fecha: string; estado: EstadoPago; metodo: string; bonoId?: string; }
 
 export interface Notificacion { id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string; }

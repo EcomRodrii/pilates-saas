@@ -150,6 +150,9 @@ export default function MisReservasPage() {
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
+            // 9 px arriba y abajo dejaban la pestaña en 34 px de alto. `tap`
+            // la lleva a 44 sin mover ni un píxel de lo que se ve.
+            className="tap"
             style={{
               flex: 1, position: 'relative', border: 'none', background: 'none', padding: '9px 0',
               fontSize: 12.5, fontWeight: 800,
@@ -218,7 +221,7 @@ export default function MisReservasPage() {
                       con {i?.nombre ?? '—'} · {c.sala}
                     </p>
                     <div style={{ display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap' }}>
-                      <Link href={href(`/mis-reservas/${r.id}`)} className="btn btn--light btn--sm" style={{ height: 34 }}>
+                      <Link href={href(`/mis-reservas/${r.id}`)} className="btn btn--light btn--sm tap" style={{ height: 34 }}>
                         Detalle
                       </Link>
                       {/* ⚠️ Faltaba. El paquete pone TRES acciones en esta
@@ -230,7 +233,7 @@ export default function MisReservasPage() {
                       {!espera && (
                         <button
                           type="button"
-                          className="btn btn--light btn--sm"
+                          className="btn btn--light btn--sm tap"
                           style={{ height: 34 }}
                           onClick={() => window.open(urlCalendario(c, estudio.nombre, estudio.direccion), '_blank', 'noopener')}
                         >
@@ -240,7 +243,7 @@ export default function MisReservasPage() {
                       {ofertaViva && (
                         <button
                           type="button"
-                          className="btn btn--primary btn--sm"
+                          className="btn btn--primary btn--sm tap"
                           style={{ height: 34 }}
                           disabled={!online || aceptandoId === r.id}
                           title={!online ? 'Necesitas conexión' : undefined}
@@ -251,7 +254,7 @@ export default function MisReservasPage() {
                       )}
                       <button
                         type="button"
-                        className="btn btn--danger btn--sm"
+                        className="btn btn--danger btn--sm tap"
                         style={{ height: 34 }}
                         disabled={!online || !av.puede || aceptandoId === r.id}
                         title={!online ? 'Necesitas conexión' : !av.puede ? 'La clase ya ha empezado' : undefined}

@@ -5,7 +5,14 @@ import type { Pago } from '@/lib/student/tipos';
 import { euros, fechaCorta } from '@/lib/student/formato';
 import { Badge } from '@/components/student/ui/Badge';
 export const ESTADO_PAGO: Record<Pago['estado'], { txt: string; tone: 'ok' | 'few' | 'full' | 'neutral' | 'wait' }> = {
-  success: { txt: 'Pagado', tone: 'ok' }, processing: { txt: 'Procesando', tone: 'wait' }, failed: { txt: 'Fallido', tone: 'full' }, cancelled: { txt: 'Cancelado', tone: 'neutral' }, refunded: { txt: 'Reembolsado', tone: 'neutral' },
+  success: { txt: 'Pagado', tone: 'ok' },
+  // «Pendiente» ≠ «Procesando». Ver el mapa de `lib/student/mapeo.ts`: uno es
+  // un recibo sin cobrar y el otro un adeudo saliendo del banco.
+  pending: { txt: 'Pendiente', tone: 'few' },
+  processing: { txt: 'Procesando', tone: 'wait' },
+  failed: { txt: 'Fallido', tone: 'full' },
+  cancelled: { txt: 'Cancelado', tone: 'neutral' },
+  refunded: { txt: 'Reembolsado', tone: 'neutral' },
 };
 export function PaymentItem({ p, delay = 0 }: { p: Pago; delay?: number }) {
   const href = usePortalHref();

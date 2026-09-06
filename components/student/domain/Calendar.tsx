@@ -17,9 +17,9 @@ export function Calendar({ value, onChange, marcados }: { value: string; onChang
   return (
     <div className="card" style={{ padding: '14px 14px 12px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <button type="button" aria-label="Mes anterior" onClick={() => mover(-1)} className="btn btn--ghost" style={{ width: 36, height: 36, padding: 0 }}>‹</button>
+        <button type="button" aria-label="Mes anterior" onClick={() => mover(-1)} className="btn btn--ghost tap tap--icono" style={{ width: 36, height: 36, padding: 0 }}>‹</button>
         <p style={{ margin: 0, fontSize: 14, fontWeight: 800 }}>{mes}</p>
-        <button type="button" aria-label="Mes siguiente" onClick={() => mover(1)} className="btn btn--ghost" style={{ width: 36, height: 36, padding: 0 }}>›</button>
+        <button type="button" aria-label="Mes siguiente" onClick={() => mover(1)} className="btn btn--ghost tap tap--icono" style={{ width: 36, height: 36, padding: 0 }}>›</button>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
         {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => <span key={d} className="t-label" style={{ textAlign: 'center', fontSize: 9 }}>{d}</span>)}
