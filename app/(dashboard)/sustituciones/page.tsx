@@ -1182,16 +1182,39 @@ function NuevaBajaDialog({
   const [error, setError] = useState<string | null>(null);
 
   const [ahoraMs, setAhoraMs] = useState(0);
-  const proximas = useMemo(() => {
-    return sesiones
-      .filter(s => !s.cancelada && new Date(s.inicio).getTime() > ahoraMs && !yaConBaja.has(s.id))
-      .sort((a, b) => a.inicio.localeCompare(b.inicio))
-      .slice(0, 40);
-  }, [sesiones, yaConBaja, ahoraMs]);
+  const [busquedaClase, setBusquedaClase] = useState('');
+
+  // ⚠️ Este diálogo se usa a las 8 de la mañana, con la instructora al teléfono
+  // y la sala llenándose. Antes era una lista corrida de hasta 40 entradas casi
+  // idénticas («Pilates Reformer · Lunes, 7 sept · 09:00», «… Miércoles, 9
+  // sept …»), sin buscador ni filtro — y el `.slice(0, 40)` no era un tope
+  // visual: con 40 clases a la semana, la clase del jueves de la semana que
+  // viene simplemente NO estaba en la lista y no había forma de llegar a ella.
+  //
+  // Ahora se busca por clase, instructora o día, y el corte se aplica DESPUÉS
+  // de filtrar, así que escribir «jueves» o «Laura» siempre la encuentra.
+  const proximasTodas = useMemo(() => sesiones
+    .filter(s => !s.cancelada && new Date(s.inicio).getTime() > ahoraMs && !yaConBaja.has(s.id))
+    .sort((a, b) => a.inicio.localeCompare(b.inicio)),
+    [sesiones, yaConBaja, ahoraMs]);
+
+  const TOPE_LISTA = 40;
+  const { proximas, ocultas } = useMemo(() => {
+    const q = busquedaClase.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const casa = q
+      ? proximasTodas.filter(s => {
+          const t = tiposClase.find(x => x.id === s.tipoClaseId)?.nombre ?? '';
+          const ins = instructores.find(i => i.id === s.instructorId)?.nombre ?? '';
+          const texto = `${t} ${ins} ${fmtClase(s.inicio)}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          return texto.includes(q);
+        })
+      : proximasTodas;
+    return { proximas: casa.slice(0, TOPE_LISTA), ocultas: Math.max(0, casa.length - TOPE_LISTA) };
+  }, [proximasTodas, busquedaClase, tiposClase, instructores]);
 
   // Reset al abrir (patrón estándar de diálogo controlado).
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { if (open) { setSesionId(null); setMotivo(''); setError(null); setAhoraMs(Date.now()); } }, [open]);
+  useEffect(() => { if (open) { setSesionId(null); setMotivo(''); setError(null); setBusquedaClase(''); setAhoraMs(Date.now()); } }, [open]);
 
   async function crear() {
     // La guarda no es cosmética: `crearBaja` ya ha escrito cuando empieza la
@@ -1218,9 +1241,23 @@ function NuevaBajaDialog({
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">Elige la clase que se queda sin instructora. Te propondremos a quién avisar al instante.</p>
+          {proximasTodas.length > 8 && (
+            <input
+              type="search"
+              value={busquedaClase}
+              onChange={e => setBusquedaClase(e.target.value)}
+              placeholder="Buscar por clase, instructora o día…"
+              aria-label="Buscar la clase que se queda sin instructora"
+              className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all"
+            />
+          )}
           <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
             {proximas.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">No hay clases próximas sin baja marcada.</p>
+              <p className="text-sm text-muted-foreground py-6 text-center">
+                {busquedaClase.trim()
+                  ? `Ninguna clase próxima coincide con «${busquedaClase.trim()}».`
+                  : 'No hay clases próximas sin baja marcada.'}
+              </p>
             ) : proximas.map(s => {
               const t = tiposClase.find(x => x.id === s.tipoClaseId);
               const ins = instructores.find(i => i.id === s.instructorId);
@@ -1239,6 +1276,11 @@ function NuevaBajaDialog({
                 </button>
               );
             })}
+            {ocultas > 0 && (
+              <p className="text-[11px] text-muted-foreground py-2 text-center">
+                Y {ocultas} clase{ocultas === 1 ? '' : 's'} más. Escribe el día o la instructora para encontrarla.
+              </p>
+            )}
           </div>
           <div>
             <label htmlFor={`${uid}-1`} className="text-[12px] font-semibold text-foreground block mb-1.5">Motivo (opcional)</label>
