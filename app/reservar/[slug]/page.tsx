@@ -2205,7 +2205,11 @@ export default function ReservarPage() {
   // `null` cuando no aplica: el estudio no exige plan, no hay nada a la venta
   // (entonces el gate tampoco bloquea, ver `hayAlgoQueContratar`) o quien mira
   // ya tiene un bono que le sirve.
-  const avisoRequisitoCompra = useMemo(() => {
+  // Sin useMemo: este bloque vive DESPUÉS del `if (!mounted) return`, así que un
+  // hook aquí se llamaría condicionalmente. Y no hace falta — el React Compiler
+  // ya memoiza, y el cálculo es una búsqueda en una lista corta (mismo criterio
+  // que `planesContratables`, justo arriba).
+  const avisoRequisitoCompra = (() => {
     if (!studio) return null;
     if (!hayAlgoQueContratar(planesTarifa)) return null;
     return (tipoClaseId: string | null) => {
@@ -2219,7 +2223,7 @@ export default function ReservarPage() {
         cta: 'Ver bonos y precios',
       };
     };
-  }, [studio, planesTarifa, tiposClase, socia?.socioId, suscripciones, now, slug]);
+  })();
 
   // Lo que la página promete antes de reservar. Puro y probado aparte: el paso
   // de «hasta 12 h» a «hasta 24 h, según la clase» depende de una tabla de
