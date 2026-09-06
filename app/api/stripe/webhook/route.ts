@@ -474,6 +474,14 @@ async function procesarEvento(
         }
       }
 
+      // A quién pertenece la tarjeta que se guarde más abajo. `socioId` (la
+      // metadata) es null cuando compra una INVITADA por el enlace público, y
+      // es justo entonces cuando `entregarPlanComprado` acaba de crear su
+      // ficha: sin esto, su método de pago no se guardaba nunca. Ver el guard
+      // de guardado de tarjeta.
+      let socioEntregado: string | null = null;
+      let fichaCreadaEnLaEntrega = false;
+
       // Compra de un plan desde el enlace público: crear el bono que se acaba de
       // pagar. Un fallo aquí devuelve 5xx para que Stripe REINTENTE — el dinero
       // ya está cobrado, así que no entregarlo no puede quedarse en un log.
@@ -554,13 +562,38 @@ async function procesarEvento(
         await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
         const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
         await enviarEmailReciboWebhook(admin, { studioId, reciboId: entrega.reciboId });
+        socioEntregado = entrega.socioId;
+        fichaCreadaEnLaEntrega = entrega.fichaCreada;
       }
 
       // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la
       // próxima vez. También crítico: un fallo aquí devuelve 5xx para reintentar
       // (idempotente: mismos customer/payment_method). Bizum no es guardable, así
       // que solo persiste tarjeta (setup_future_usage solo se pide en 'card').
-      if (socioId && typeof session.customer === 'string' && typeof session.payment_intent === 'string') {
+      // ⚠️ `socioDestino` NO es `socioId` a secas. `socioId` solo existe cuando la
+      // compradora venía autenticada; una INVITADA que compra por el enlace
+      // público llega sin él, y entonces la ficha la acaba de crear
+      // `entregarPlanComprado` unas líneas más arriba. Con el guard viejo
+      // (`if (socioId && …)`) su tarjeta no se guardaba NUNCA, y la cadena
+      // seguía así: `renovaciones.ts` solo programa reintento a quien tiene
+      // método off-session → `proximo_reintento` null → `dunning.ts` exige
+      // `not is null` → nunca la ve. Un plan MENSUAL comprado así se cobraba el
+      // primer mes y no se volvía a cobrar jamás, con el recibo de renovación
+      // PENDIENTE para siempre. Agujero de caja silencioso, el mismo tipo que
+      // cerró #1668.
+      //
+      // El criterio de a quién se le puede tocar el método de pago es el mismo
+      // que ya usa su gemelo, el checkout embebido: `identidadDemostradaEnCompra`
+      // — o el `socioId` venía verificado contra el JWT, o la ficha nació de
+      // esta compra y no hay nadie a quien suplantar. Una invitada que cae
+      // sobre una ficha que ya existía (resuelta por email) paga y recibe su
+      // plan igual, pero no toca credenciales de pago ajenas.
+      const socioDestino = socioId ?? socioEntregado;
+      const puedeGuardarMetodo = identidadDemostradaEnCompra({
+        socioIdVerificado: socioId,
+        fichaCreada: fichaCreadaEnLaEntrega,
+      });
+      if (socioDestino && puedeGuardarMetodo && typeof session.customer === 'string' && typeof session.payment_intent === 'string') {
         // Este PaymentIntent vive en la cuenta conectada del estudio (event.account),
         // no en la de la plataforma — hay que targetearla explícitamente o Stripe
         // devuelve "no such payment_intent".
@@ -582,16 +615,16 @@ async function procesarEvento(
             // socia: preferimos no escribir a escribir cross-tenant sobre un id
             // que viene de metadata.
             Sentry.captureMessage('[stripe webhook] checkout.session sin studioId: no se guarda la tarjeta', {
-              level: 'warning', extra: { socioId, sessionId: session.id },
+              level: 'warning', extra: { socioId: socioDestino, sessionId: session.id },
             });
           } else {
             const { error } = await admin.from('socios')
               .update({ stripe_customer_id: session.customer, stripe_payment_method_id: paymentMethodId })
-              .eq('id', socioId).eq('studio_id', studioId);
+              .eq('id', socioDestino).eq('studio_id', studioId);
             if (error) {
-              console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
+              console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioDestino, error);
               Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta de la socia', {
-                level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle: error.message },
+                level: 'error', tags: { area: 'cobros' }, extra: { socioId: socioDestino, studioId, sessionId: session.id, detalle: error.message },
               });
               return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
             }
@@ -603,7 +636,7 @@ async function procesarEvento(
             // devolver 5xx aquí haría a Stripe reintentar un evento de cobro ya
             // confirmado.
             await guardarCaducidadTarjeta(admin, stripe, {
-              socioId, studioId, paymentMethodId, stripeAccount: event.account,
+              socioId: socioDestino, studioId, paymentMethodId, stripeAccount: event.account,
             });
           }
         }

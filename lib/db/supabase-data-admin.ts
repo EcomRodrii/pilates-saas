@@ -1894,20 +1894,32 @@ export async function crearReservaPublica(params: {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
-  if (!socia) return { error: 'No autorizado' as const };
+  if (!socia) return { error: 'No autorizado' as const, codigo: 'no-autorizado' as const };
 
   // No se puede reservar una clase ya empezada/pasada (I-17). La UI lo bloquea,
   // pero la API también debe: evita datos basura y gamificación explotable.
+  //
+  // ⚠️ Los rechazos de este bloque llevan `codigo`, igual que los del gate de
+  // derechos de abajo y los que traduce la RPC. Se quedaron sin él cuando se
+  // arregló la cadena rota del 4-sep —que solo tocó `sin-plan`,
+  // `bono-no-cubre` y `max-simultaneas`— así que para la alumna seguían siendo
+  // el mismo bug: sin `codigo`, el switch de `lib/student/reserva-codigos.ts`
+  // cae en el `default`, la pantalla pinta el copy genérico de avería con un
+  // botón de reintentar que no puede funcionar (una clase que ya empezó no va
+  // a dejar de haber empezado), y `lib/student/reservar.ts` reporta a Sentry
+  // una regla de negocio como si fuera producción rota.
+  // Visto en producción: JAVASCRIPT-NEXTJS-26, «Esta clase ya ha empezado»,
+  // una socia real en Bilbao el 4-sep-2026.
   let tipoClaseId: string | null | undefined;
   let inicioISO: string;
   {
     const { data: ses } = await admin
       .from('sesiones').select('inicio, cancelada, tipo_clase_id')
       .eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
-    if (!ses) return { error: 'Sesión no encontrada' as const };
-    if (ses.cancelada) return { error: 'Esta clase está cancelada' as const };
+    if (!ses) return { error: 'Sesión no encontrada' as const, codigo: 'sesion-no-encontrada' as const };
+    if (ses.cancelada) return { error: 'Esta clase está cancelada' as const, codigo: 'clase-cancelada' as const };
     if (new Date(ses.inicio as string).getTime() <= Date.now()) {
-      return { error: MENSAJE_CLASE_YA_EMPEZADA };
+      return { error: MENSAJE_CLASE_YA_EMPEZADA, codigo: 'clase-ya-empezada' as const };
     }
     tipoClaseId = ses.tipo_clase_id as string | null | undefined;
     inicioISO = ses.inicio as string;
@@ -1931,12 +1943,12 @@ export async function crearReservaPublica(params: {
     const ventanaMinima = heredaOverride(reglasTipo.ventanaMinimaMinutos, pol.ventanaMinimaMinutos);
     if (!puedeReservarPorVentanaMinima(inicioISO, new Date(), ventanaMinima)) {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'FUERA_VENTANA_MINIMA' });
-      return { error: 'Ya no se puede reservar esta clase: hace falta reservar con más antelación' as const };
+      return { error: 'Ya no se puede reservar esta clase: hace falta reservar con más antelación' as const, codigo: 'fuera-ventana-minima' as const };
     }
     const antelacionMaxima = heredaOverride(reglasTipo.antelacionMaximaDias, pol.antelacionMaximaDias);
     if (!puedeReservarPorAntelacionMaxima(inicioISO, new Date(), antelacionMaxima)) {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'FUERA_VENTANA_MAXIMA' });
-      return { error: 'Todavía no se puede reservar esta clase' as const };
+      return { error: 'Todavía no se puede reservar esta clase' as const, codigo: 'fuera-ventana-maxima' as const };
     }
   }
 
@@ -2066,6 +2078,20 @@ export async function crearReservaPublica(params: {
     if (error.message.includes('AFORO_LLENO_SIN_ESPERA')) {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'AFORO_LLENO_SIN_ESPERA' });
       return { error: 'Esta clase está completa' as const, codigo: 'aforo-lleno' as const };
+    }
+    // ⚠️ Los dos últimos cierran la escalera contra los 12 `raise exception` de
+    // la RPC. `ESTUDIO_CERRADO` (migr 20260905153105) llegó con el cierre del
+    // centro y se quedó fuera: es alcanzable de verdad —`lib/cierres/
+    // aplicar-cierre.ts` dice explícitamente que la guardia vive en la RPC
+    // «para una sesión creada DESPUÉS de declarar el cierre», y esas sesiones
+    // no están `cancelada`, así que ninguna de las comprobaciones de arriba
+    // las para— y sin traducir caía en el `codigo: 'error'` de abajo: copy
+    // genérico de avería para la alumna y un evento de Sentry por intento.
+    if (error.message.includes('ESTUDIO_CERRADO')) {
+      return { error: 'El estudio está cerrado ese día' as const, codigo: 'estudio-cerrado' as const };
+    }
+    if (error.message.includes('NO_AUTORIZADO')) {
+      return { error: 'No autorizado' as const, codigo: 'no-autorizado' as const };
     }
     return { error: error.message, codigo: 'error' as const };
   }
@@ -2202,6 +2228,15 @@ export async function reservarPlazaTrasPagoPublico(params: {
     if (error.message.includes('SPOT_OCUPADO') || error.message.includes('SPOT_NO_PERTENECE_A_LA_SALA')
         || error.message.includes('SPOT_NO_DISPONIBLE')) {
       return { ok: false, motivo: 'spot-ocupado', detalle: error.message };
+    }
+    // ⚠️ Aquí el dinero YA está cobrado (esto corre desde el webhook de
+    // Stripe). `ESTUDIO_CERRADO` caía en el `motivo: 'error'` de abajo, y ese
+    // motivo NO dispara `emitirReservaPagadaSinPlaza`: la socia pagaba, se
+    // quedaba sin plaza y el mostrador no se enteraba de nada. Se trata como
+    // `sesion-invalida`, igual que la clase completa, que es exactamente la
+    // misma situación de negocio: cobrado y sin poder entregar.
+    if (error.message.includes('ESTUDIO_CERRADO')) {
+      return { ok: false, motivo: 'sesion-invalida', detalle: 'el estudio está cerrado ese día' };
     }
     return { ok: false, motivo: 'error', detalle: error.message };
   }

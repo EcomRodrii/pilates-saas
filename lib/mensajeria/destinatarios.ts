@@ -27,7 +27,14 @@ async function mostradorDinamico(admin: SupabaseClient, studioId: string): Promi
   const [{ data: studio }, { data: staff }] = await Promise.all([
     admin.from('studios').select('owner_auth_user_id').eq('id', studioId).maybeSingle(),
     admin.from('instructores').select('auth_user_id')
-      .eq('studio_id', studioId).in('rol', ['MANAGER', 'RECEPCION']).eq('activo', true),
+      // PROPIETARIO incluido a proposito: la RLS que decide QUIEN VE el hilo es
+      // `puede_gestionar_calendario()` = rol in (PROPIETARIO, MANAGER,
+      // RECEPCION), y este fan-out —quien SE ENTERA— se habia quedado en dos de
+      // los tres. Una copropietaria dada de alta como fila de `instructores`
+      // con rol PROPIETARIO (hay 7 activas en produccion) veia el hilo pero no
+      // recibia aviso nunca. Con #1680 el mostrador es el canal real
+      // socia -> estudio, asi que quien puede leer tiene que poder enterarse.
+      .eq('studio_id', studioId).in('rol', ['PROPIETARIO', 'MANAGER', 'RECEPCION']).eq('activo', true),
   ]);
   const ids = new Set<string>();
   if (studio?.owner_auth_user_id) ids.add(studio.owner_auth_user_id as string);

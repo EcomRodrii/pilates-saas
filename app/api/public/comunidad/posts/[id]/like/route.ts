@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
+import { socioEnLaAudiencia, audienciaDelPost } from '@/lib/comunidad/audiencia';
 
 // Alterna el "me gusta" de la socia sobre un post del tablón — antes era de
 // solo lectura en el portal (ver migración toggle_like_post_portal). Mismo
@@ -27,6 +28,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   const { id } = await params;
+
+  // Mismo guard de audiencia que el RSVP (F-24) y que los comentarios: la RPC
+  // solo comprueba que el post exista y sea del estudio, así que sin esto una
+  // socia fuera del segmento puede dar like a un post que no va dirigido a
+  // ella — y su like cuenta en el contador que ve el estudio.
+  const audiencia = await audienciaDelPost(admin, { postId: id, studioId });
+  if (!audiencia) return NextResponse.json({ error: 'Publicación no encontrada.' }, { status: 404 });
+  if (!await socioEnLaAudiencia(admin, { studioId, socioId, audiencia })) {
+    return NextResponse.json({ error: 'Esta publicación no está dirigida a ti' }, { status: 403 });
+  }
 
   const { data, error } = await admin.rpc('toggle_like_post_portal', {
     p_post_id: id,

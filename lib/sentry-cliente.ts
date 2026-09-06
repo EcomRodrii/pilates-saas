@@ -67,6 +67,24 @@ export function forzarCarga(): Promise<SDK | null> {
           // /legal (Sentry NEXTJS-X). No es un bug propio: ningún código de
           // este repo referencia `window.webkit`.
           ignoreErrors: [/window\.webkit\.messageHandlers/],
+          // Google Translate: cuando alguien nos lee a través de
+          // `*.translate.goog`, su runtime (`el_main`) inyecta su propio JS y
+          // sus rechazos de promesa acaban aquí atribuidos a nuestra ruta.
+          // Visto en /precios (NEXTJS-25): un `Error: La` con los CUATRO
+          // frames del stack dentro del bundle de Google y ninguno en
+          // `_next/static` — «La» es un trozo de una frase nuestra que su
+          // tokenizador partió.
+          //
+          // `denyUrls` y no `ignoreErrors`: el texto que le atragante cambia
+          // con la página (hoy «La», mañana otra palabra), pero el origen es
+          // siempre el mismo. Filtrar por mensaje solo taparía este ejemplar.
+          //
+          // ⚠️ NO vale `/translate\.goog/` a secas: bajo el proxy, NUESTROS
+          // propios chunks se sirven desde `<host>.translate.goog/_next/
+          // static/...`, y `denyUrls` mira el filename del ultimo frame del
+          // stack — o sea que ese patron se tragaria tambien los errores
+          // reales de la app de cualquiera que nos lea traducidos.
+          denyUrls: [/translate_http/, /translate\.googleapis\.com/],
         });
       }
       sdk = m;
