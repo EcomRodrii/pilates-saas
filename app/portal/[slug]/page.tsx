@@ -19,6 +19,7 @@ import { BonoRitmo, TuSemana, MiProgreso } from '@/components/student/domain/TuR
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
 import { DelEstudio } from '@/components/student/domain/DelEstudio';
+import { MensajesCard } from '@/components/student/domain/MensajesCard';
 import { semanaDe, hechasEstaSemana, rachaSemanas, lunesDe, cuentaComoHecha } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
 
@@ -249,6 +250,12 @@ export default function InicioPage() {
                 Lo último que ha publicado el estudio en su tablón. Una sola
                 petición (`limite=1`); si no hay nada o falla, no se pinta. */}
             <DelEstudio studioId={estudio.id} href={href('/comunidad')} />
+
+            {/* ── MENSAJES ─────────────────────────────────────────────────
+                Al contrario que "Del estudio", esta SIEMPRE se pinta si la
+                petición fue bien (ver MensajesCard): es la única puerta de
+                entrada al chat con el estudio para una socia nueva. */}
+            <MensajesCard studioId={estudio.id} nombreEstudio={estudio.nombre} href={href('/mensajes')} />
 
             <section>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>

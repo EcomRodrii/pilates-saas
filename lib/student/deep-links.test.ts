@@ -33,9 +33,13 @@ test('una ruta que ya es del árbol nuevo se deja intacta', () => {
 
 test('lo que no se sabe traducir se queda SIN enlace', () => {
   // Una notificación que no lleva a ninguna parte es mejor que una que lleva al
-  // sitio equivocado: `mensajes` no tiene pantalla todavía.
-  assert.equal(traducirEnlace(`/portal/${SLUG}/mensajes/m-1`, SLUG), undefined);
+  // sitio equivocado: `instructores` sigue sin pantalla.
   assert.equal(traducirEnlace(`/portal/${SLUG}/instructores/i-1`, SLUG), undefined);
+});
+
+test('mensajes ya tiene pantalla: un hilo concreto se conserva, la lista va a la bandeja', () => {
+  assert.equal(traducirEnlace(`/portal/${SLUG}/mensajes/m-1`, SLUG), `${B}/mensajes/m-1`);
+  assert.equal(traducirEnlace(`/portal/${SLUG}/mensajes`, SLUG), `${B}/mensajes`);
 });
 
 test('el tablón ya tiene pantalla: comunidad (y un hilo concreto) van al tablón', () => {
@@ -103,5 +107,9 @@ test('lo desconocido es `null` (al inicio) y lo conocido sin pantalla es cadena 
   assert.equal(destinoPortalViejo(undefined), null);
   assert.equal(destinoPortalViejo(['comunidad', 'hilo-1']), '/comunidad');
   assert.equal(destinoPortalViejo(['instructores']), '');
-  assert.equal(destinoPortalViejo(['mensajes']), '');
+});
+
+test('mensajes ya tiene pantalla propia, con hilo concreto si lleva cola', () => {
+  assert.equal(destinoPortalViejo(['mensajes']), '/mensajes');
+  assert.equal(destinoPortalViejo(['mensajes', 'm-1']), '/mensajes/m-1');
 });

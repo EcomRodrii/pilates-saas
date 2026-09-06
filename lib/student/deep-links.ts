@@ -25,7 +25,7 @@ export function traducirEnlace(enlace: string | null | undefined, slug: string):
   const base = `/portal/${encodeURIComponent(slug)}`;
 
   // Ya está en el árbol nuevo.
-  if (/^\/portal\/[^/]+\/(reservar|mis-reservas|bonos|pagos|notificaciones|perfil|ayuda|calendario)(\/|\?|$)/.test(enlace)) {
+  if (/^\/portal\/[^/]+\/(reservar|mis-reservas|bonos|pagos|notificaciones|perfil|ayuda|calendario|mensajes)(\/|\?|$)/.test(enlace)) {
     return enlace;
   }
 
@@ -45,7 +45,12 @@ export function traducirEnlace(enlace: string | null | undefined, slug: string):
   if (resto.startsWith('bonos')) return `${base}/bonos`;
   // El tablón: un hilo concreto no tiene pantalla propia, así que al tablón entero.
   if (resto.startsWith('comunidad')) return `${base}/comunidad`;
-  // `mensajes`, `instructores`… no tienen pantalla todavía.
+  // Un hilo de mensajes SÍ tiene pantalla propia — `<id>` es un `conversacion_id`
+  // del mismo esquema que ya usaba el portal viejo, no un id inventado.
+  const mm = resto.match(/^mensajes\/([^/?]+)/);
+  if (mm) return `${base}/mensajes/${mm[1]}`;
+  if (resto.startsWith('mensajes')) return `${base}/mensajes`;
+  // `instructores`… no tiene pantalla todavía.
   return undefined;
 }
 
@@ -70,9 +75,10 @@ const MAPA_PORTAL_VIEJO: Record<string, string> = {
   'clave-nueva': '/acceso/verificar',
   // El tablón del estudio.
   comunidad: '/comunidad',
+  // El chat con el estudio ya tiene pantalla.
+  mensajes: '/mensajes',
   // Sin equivalente todavía: se manda al inicio, que es un destino honesto.
   instructores: '',
-  mensajes: '',
 };
 
 // ⚠️ REENTRADA. Solo estas tres llevan a una pantalla del árbol nuevo que
@@ -87,9 +93,9 @@ const MAPA_PORTAL_VIEJO: Record<string, string> = {
 // navegador se lo quedaba cacheado. Los casos sin cola nunca fallaron, que es
 // por lo que pasó desapercibido.
 //
-// Ninguno de los tres destinos de aquí abajo (`reservar`, `mis-reservas`,
-// `pagos`) es clave del mapa, así que la traducción no puede reentrar.
-const ADMITEN_COLA: ReadonlySet<string> = new Set(['clases', 'reservas', 'compras']);
+// Ninguno de los cuatro destinos de aquí abajo (`reservar`, `mis-reservas`,
+// `pagos`, `mensajes`) es clave del mapa, así que la traducción no puede reentrar.
+const ADMITEN_COLA: ReadonlySet<string> = new Set(['clases', 'reservas', 'compras', 'mensajes']);
 
 /**
  * Destino en el árbol nuevo para una ruta del portal viejo, SIN el prefijo
