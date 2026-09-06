@@ -3,7 +3,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
-import { Search, Download, FileText, ChevronDown, ChevronRight, X, ShieldCheck } from 'lucide-react';
+import { Search, Download, FileText, ChevronDown, ChevronRight, X, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { nifEmisorValido } from '@/lib/nif';
 import { cn } from '@/lib/utils';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { urlQrVerifactu, fechaExpedicionDesdeISO } from '@/lib/verifactu-qr';
@@ -177,6 +178,12 @@ export function PanelFacturas() {
   // o mentiría sobre una obligación fiscal en cuanto la primera factura se selle.
   const verifactuActivo = facturas.some(f => f.verifactuHash);
 
+  // Sin NIF válido no se puede sellar NINGUNA factura, pero eso solo se sabía
+  // por un toast que se autodescarta a los segundos y desde otra pantalla: la
+  // dueña cobraba, veía «0 facturas» aquí y no tenía forma de saber por qué.
+  // Ahora el motivo vive en la pantalla donde se nota el problema.
+  const faltaNif = !nifEmisorValido(studio?.nif);
+
   // ── render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -220,6 +227,28 @@ export function PanelFacturas() {
           <p className="text-xs font-medium text-muted-foreground mt-1">{filtradas.length} factura{filtradas.length === 1 ? '' : 's'}</p>
         </div>
       </div>
+
+      {/* Falta el NIF: sin él no se emite ni una factura. Va ANTES del banner
+          de Verifactu porque es lo único accionable de esta pantalla. */}
+      {faltaNif && (
+        <div role="alert" className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/25">
+          <AlertTriangle size={16} className="text-destructive shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-foreground">No se está emitiendo ninguna factura</p>
+            <p className="text-xs font-medium mt-0.5 text-muted-foreground">
+              Falta tu NIF, así que los cobros se registran pero se quedan sin factura. En cuanto lo pongas,
+              las facturas se emiten solas al cobrar.
+            </p>
+            <Link
+              href="/configuracion?tab=estudio&sub=general#datos-fiscales"
+              className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold text-destructive hover:underline"
+            >
+              Poner mi NIF ahora
+              <ChevronRight size={13} />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Verifactu banner */}
       <div className="flex items-center gap-3 p-4 rounded-xl bg-brand/10 border border-info/10">
