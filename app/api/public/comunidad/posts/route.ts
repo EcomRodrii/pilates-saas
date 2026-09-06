@@ -11,9 +11,12 @@ import type { RowPostsComunidad } from '@/lib/db-types';
 const LIMITE_DEFECTO = 20;
 const LIMITE_MAXIMO = 50;
 
-// Feed de Comunidad para el PORTAL (P1, solo lectura — sin comentarios ni
-// likes de socia en esta pieza, decisión ya cerrada del diseño). Mismo
-// patrón que /api/public/mensajeria/conversaciones: la socia no tiene JWT
+// Feed de Comunidad para el PORTAL. P1 lo dejó de solo lectura para la socia
+// (decisión de diseño de entonces) — P2 (pedido expreso del usuario tras
+// verlo en producción: "nadie puede dar like, nadie puede comentar") abre
+// like real (`likedByMe` aquí, alternar en /posts/[id]/like) y comentarios
+// (/api/public/comunidad/comentarios). Mismo patrón que
+// /api/public/mensajeria/conversaciones: la socia no tiene JWT
 // `authenticated` de Postgres (su sesión no llega a auth.uid() en RLS), así
 // que esta ruta usa service-role y filtra a mano — nunca confía en RLS para
 // resolver quién es ella.
@@ -85,6 +88,18 @@ export async function GET(req: NextRequest) {
   // por evento, una sola query agregada sobre los posts de esta página —
   // nunca N+1. Se salta del todo si ningún post de la página es un evento
   // (el caso común, un feed de solo texto).
+  // Qué posts de ESTA página ya ha likeado esta socia — una sola consulta
+  // acotada a los ids visibles, nunca "todos sus likes de la historia".
+  const misLikes = new Set<string>();
+  if (visibles.length > 0) {
+    const { data: likesRaw } = await admin
+      .from('post_likes')
+      .select('post_id')
+      .eq('user_id', user.userId)
+      .in('post_id', visibles.map(row => row.id));
+    for (const row of (likesRaw ?? []) as { post_id: string }[]) misLikes.add(row.post_id);
+  }
+
   const idsEventos = visibles.filter(row => row.tipo === 'EVENTO').map(row => row.id);
   const totalPorPost = new Map<string, number>();
   // Si ESTA socia ya está apuntada: sin esto la app no sabe si pintar «Me
@@ -111,6 +126,7 @@ export async function GET(req: NextRequest) {
       autorInicial: row.autor_inicial,
       creadoEn: row.creado_en,
       likes: row.likes ?? 0,
+      likedByMe: misLikes.has(row.id),
       comentariosCount: row.comentarios_count ?? 0,
       tipo: (row.tipo as 'TEXTO' | 'EVENTO' | null) ?? 'TEXTO',
       eventoFecha: row.evento_fecha ?? null,

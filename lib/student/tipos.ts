@@ -129,6 +129,15 @@ export interface Post {
   totalAsistentes?: number;
   /** Solo eventos: si ESTA socia ya está apuntada. */
   apuntada: boolean;
+  /** Si ESTA socia ya le ha dado a "me gusta". */
+  likedByMe: boolean;
+  comentariosCount: number;
+}
+
+/** Un comentario del hilo de un post (`comentarios_comunidad`). */
+export interface ComentarioTablon {
+  id: string; postId: string; autorNombre: string; autorInicial: string | null;
+  texto: string; creadoEn: string; esMio: boolean;
 }
 
 /** Máquina de estados de reserva (ver lib/booking-machine.ts). */
