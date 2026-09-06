@@ -22,6 +22,14 @@ export interface PanelSesionProps {
 
   titulo: string;
   horaTexto: string;
+  /**
+   * Quién la da y dónde. El panel decía «Pilates Reformer · 09:00–09:50 ·
+   * Programada» y nada más: con 9 instructoras y 2 salas, la propietaria tenía
+   * que abrir «Editar» para saber a quién estaba sustituyendo o en qué sala
+   * caía la clase que acababa de abrir. `null` = dato desconocido.
+   */
+  instructoraNombre?: string | null;
+  salaNombre?: string | null;
   estado: EstadoSesion;
   /** 0..1 — barra de ocupación bajo la cabecera. null la oculta (p.ej. sesión aún no resuelta). */
   ocupacion: { confirmadas: number; aforoMaximo: number } | null;
@@ -57,6 +65,7 @@ const PESTANAS: { id: PestanaSesion; label: string }[] = [
 
 export function PanelSesion({
   abierto, onCerrar, pestana, onCambiarPestana, titulo, horaTexto, estado, ocupacion, accionesCabecera,
+  instructoraNombre = null, salaNombre = null,
   clientas, extraClientas, eventosHistorial, spots, reservasConSocio, socios,
   onCheckinSpot, onLiberarSpot, onAsignarSpot,
 }: PanelSesionProps) {
@@ -78,6 +87,12 @@ export function PanelSesion({
             <p className="text-[12px] text-muted-foreground">
               {horaTexto} · <span style={{ color: p.tinta }}>{p.label}</span>
             </p>
+            {(instructoraNombre || salaNombre) && (
+              <p className="text-[12px] text-muted-foreground truncate">
+                {instructoraNombre ? `Con ${instructoraNombre}` : 'Sin instructora'}
+                {salaNombre ? ` · ${salaNombre}` : ''}
+              </p>
+            )}
           </div>
           <button onClick={onCerrar} aria-label="Cerrar" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
             ✕

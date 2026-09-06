@@ -12,7 +12,7 @@ import { enviarEmailBienvenida } from '@/lib/api-client';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
-import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, LeadStage } from '@/lib/types';
+import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, LeadStage, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
@@ -47,6 +47,11 @@ type FormSocia = {
   telefono: string;
   nif: string;
   planId: string;
+  // Qué pasó con el dinero de esa primera cuota/bono. Por defecto, nada: el
+  // recibo nace PENDIENTE. Antes el alta lo daba por cobrado siempre y sin
+  // método, y «Cobrado este mes» contaba dinero que no había entrado.
+  cobroPagado: boolean;
+  cobroMetodo: MetodoCobro;
   camposExtra: Record<string, string | number | boolean | null>;
 };
 
@@ -57,6 +62,8 @@ const emptyForm = (): FormSocia => ({
   telefono: '',
   nif: '',
   planId: '',
+  cobroPagado: false,
+  cobroMetodo: 'EFECTIVO',
   camposExtra: {},
 });
 
@@ -639,6 +646,7 @@ export default function Socios() {
       activo: true,
       camposExtra: form.camposExtra,
       planId: form.planId || undefined,
+      cobroAlta: form.cobroPagado ? { pagado: true, metodo: form.cobroMetodo } : { pagado: false },
       // Sin firma no se guarda ninguna aceptación: la socia queda pendiente y
       // el portal se la pedirá a ella (reservar/[slug] ya lo hace cuando no hay
       // `aceptacionContrato`). Con firma, se marca que la recogió el estudio.
@@ -709,6 +717,9 @@ export default function Socios() {
       telefono: s.telefono ?? '',
       nif: s.nif ?? '',
       planId: sus?.planId ?? '',
+      // Solo se usa en el alta; al editar no se crea ningún recibo.
+      cobroPagado: false,
+      cobroMetodo: 'EFECTIVO',
       camposExtra: s.camposExtra ?? {},
     });
     setFormStep(1);
@@ -1375,7 +1386,7 @@ export default function Socios() {
                   El manager da de alta clientas pero no cobra, así que ve el
                   formulario sin este campo. */}
               {mueveDinero && (
-              <FF label="Plan / Tarifa" description="Si eliges uno, se le genera la primera factura automáticamente al guardar.">
+              <FF label="Plan / Tarifa" description="Le crea su plan y su primer recibo. Tú dices si ya te lo ha pagado.">
                 <select
                   className={selectCls}
                   value={form.planId}
@@ -1390,11 +1401,60 @@ export default function Socios() {
                 </select>
               </FF>
               )}
-              {form.planId && showForm === 'nueva' && (
+              {/* ¿Ya te ha pagado? Antes no se preguntaba: el recibo salía
+                  siempre COBRADO, sin método, y sumaba a los ingresos del mes
+                  dinero que no había entrado en el banco. */}
+              {mueveDinero && form.planId && showForm === 'nueva' && (
+                <FF label="¿Ya te ha pagado?" description="Marca «Todavía no» y el recibo queda pendiente en Cobros. La factura se emite cuando lo cobres.">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, cobroPagado: false }))}
+                      aria-pressed={!form.cobroPagado}
+                      className={`rounded-lg border px-3 py-2 text-[13px] text-left transition-colors ${
+                        !form.cobroPagado
+                          ? 'border-foreground bg-foreground text-background font-medium'
+                          : 'border-border bg-card hover:bg-muted/40'
+                      }`}
+                    >
+                      Todavía no
+                      <span className="block text-[11px] opacity-70">Queda pendiente de cobro</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, cobroPagado: true }))}
+                      aria-pressed={form.cobroPagado}
+                      className={`rounded-lg border px-3 py-2 text-[13px] text-left transition-colors ${
+                        form.cobroPagado
+                          ? 'border-foreground bg-foreground text-background font-medium'
+                          : 'border-border bg-card hover:bg-muted/40'
+                      }`}
+                    >
+                      Sí, ya está cobrado
+                      <span className="block text-[11px] opacity-70">Cuenta como ingreso de hoy</span>
+                    </button>
+                  </div>
+                  {form.cobroPagado && (
+                    <select
+                      className={`${selectCls} mt-2`}
+                      aria-label="Cómo te lo ha pagado"
+                      value={form.cobroMetodo}
+                      onChange={(e) => setForm((f) => ({ ...f, cobroMetodo: e.target.value as MetodoCobro }))}
+                    >
+                      <option value="EFECTIVO">Efectivo</option>
+                      <option value="TARJETA">Tarjeta (datáfono)</option>
+                      <option value="BIZUM">Bizum</option>
+                      <option value="TRANSFERENCIA">Transferencia</option>
+                      <option value="SEPA">Domiciliación bancaria</option>
+                    </select>
+                  )}
+                </FF>
+              )}
+              {form.planId && showForm === 'nueva' && form.cobroPagado && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-success/10 border border-success/20 rounded-lg">
                   <CheckCircle2 size={14} className="text-success shrink-0" />
                   <p className="text-[12px] text-success">
-                    Se generará factura automática al completar la inscripción
+                    Se emitirá su factura al completar la inscripción
                   </p>
                 </div>
               )}

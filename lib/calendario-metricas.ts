@@ -93,17 +93,51 @@ export interface SesionMetricaAgregada {
   estado: EstadoSesion;
   confirmadas: number;
   aforoMaximo: number;
+  /**
+   * Inicio de la clase, para saber si su ocupación ya significa algo.
+   *
+   * Opcional por compatibilidad: sin él, la clase se cuenta como siempre (es
+   * decir, se la considera ya juzgable). Los callers de esta página sí lo pasan.
+   */
+  inicioISO?: string;
+}
+
+/**
+ * Cuánto antes de empezar tiene sentido llamar «floja» a una clase.
+ *
+ * Una clase creada hace un minuto para dentro de cuatro días tiene 0 reservas
+ * porque acaba de nacer, no porque no interese a nadie: contarla como floja
+ * hacía que el calendario regañara por clases que no habían abierto todavía —
+ * al programar el trimestre, el contador saltaba a decenas y dejaba de mirarse.
+ * Y un contador que nadie mira no avisa el día que sí hay una clase floja.
+ *
+ * 24 h es el margen en el que todavía se puede hacer algo (un mensaje al grupo,
+ * mover la hora); más allá, la ocupación aún no dice nada.
+ */
+const HORAS_ANTES_PARA_JUZGAR = 24;
+
+function ocupacionYaSignifica(s: SesionMetricaAgregada, ahora: Date): boolean {
+  if (!s.inicioISO) return true;
+  const inicio = new Date(s.inicioISO).getTime();
+  if (Number.isNaN(inicio)) return true;
+  return inicio - ahora.getTime() <= HORAS_ANTES_PARA_JUZGAR * 3_600_000;
 }
 
 // `esSemanaActual` distingue "esta semana" (la que se vive ahora) de "esa
 // semana" (navegando a otra) — I-8: los números hablan de lo que se mira, no
 // siempre de hoy. Por defecto `true` para las llamadas que reutilizan estas
 // tres tarjetas fuera de la vista de Semana (p.ej. un día que no es hoy).
-export function metricasSemana(sesiones: SesionMetricaAgregada[], esSemanaActual: boolean = true): [MetricaCard, MetricaCard, MetricaCard] {
+export function metricasSemana(
+  sesiones: SesionMetricaAgregada[],
+  esSemanaActual: boolean = true,
+  ahora: Date = new Date(),
+): [MetricaCard, MetricaCard, MetricaCard] {
   const noCancel = sesiones.filter(s => s.estado !== 'CANCELADA');
   const totalPlazas = noCancel.reduce((a, s) => a + s.aforoMaximo, 0);
   const tomadas = noCancel.reduce((a, s) => a + s.confirmadas, 0);
-  const flojas = noCancel.filter(s => ratioOcupacion(s.confirmadas, s.aforoMaximo) < 0.6).length;
+  const flojas = noCancel.filter(s =>
+    ocupacionYaSignifica(s, ahora) && ratioOcupacion(s.confirmadas, s.aforoMaximo) < 0.6,
+  ).length;
   const cuando = esSemanaActual ? 'esta semana' : 'esa semana';
 
   return [

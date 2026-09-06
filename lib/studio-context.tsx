@@ -110,6 +110,7 @@ import type {
   EstadoReserva,
   Recibo,
   MetodoCobro,
+  CobroAlta,
   Factura,
   PlanTarifa,
   Sala,
@@ -372,7 +373,7 @@ interface StudioContextValue {
   notasInternas: NotaInterna[];
 
   // Socios
-  addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }) => Promise<ResultadoEscritura & { id?: string }>;
+  addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato; cobroAlta?: CobroAlta }) => Promise<ResultadoEscritura & { id?: string }>;
   addSocioFromPortal: (fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null; origenLead?: string | null }) => Promise<ResultadoEscritura>;
   updateSocio: (id: string, changes: Partial<Socio>) => Promise<ResultadoEscritura>;
   deleteSocio: (id: string) => Promise<void>;
@@ -2014,7 +2015,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Socios ────────────────────────────────────────────────────────────────────
 
-  async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }): Promise<ResultadoEscritura & { id?: string }> {
+  async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato; cobroAlta?: CobroAlta }): Promise<ResultadoEscritura & { id?: string }> {
     // El insert de más abajo va directo a Supabase desde el navegador (RLS, sin
     // ruta de servidor de por medio) — el tope de socias del plan se comprueba
     // aquí, antes, porque si no el alta manual lo saltaba entero (el importador
@@ -2022,7 +2023,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const motivoBloqueo = await verificarLimiteSocias();
     if (motivoBloqueo) return { ok: false, error: motivoBloqueo };
 
-    const { planId, aceptacionContrato, ...socioFields } = fields;
+    const { planId, aceptacionContrato, cobroAlta, ...socioFields } = fields;
     const ahora = new Date().toISOString();
     // P-9 (auditoría 21ª pasada): `recibos.fecha_vencimiento`/`fecha_cobro` son
     // `date`, no `timestamptz` como `socios.fecha_alta` — con `ahora` (ISO en
@@ -2076,19 +2077,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           ...cicloInicialDe(plan, ahora),
           stripeSubscriptionId: null,
         };
+        // El alta NO da por cobrado nada por su cuenta. Antes este recibo nacía
+        // siempre `COBRADO` con `metodo_cobro` a null: sin Stripe, sin tarjeta y
+        // sin que nadie tocara un euro, «Cobrado este mes» subía en Cobros, en
+        // el Dashboard y en Informes, y a fin de mes no cuadraba con el banco.
+        // Ahora el estado sale de lo que diga el mostrador: cobrado de verdad
+        // (con su método) o pendiente de cobro, que es el valor por defecto.
+        const cobrado = cobroAlta?.pagado === true;
         const reciboId = `rec-${uid()}`;
-        const reciboCobrado: Recibo = {
+        const reciboAlta: Recibo = {
           id: reciboId,
           studioId: getCurrentStudioId(),
           socioId: nuevaSocia.id,
           suscripcionId: susId,
           concepto: `Alta — ${plan.nombre}`,
           importe: plan.precio,
-          estado: 'COBRADO',
+          estado: cobrado ? 'COBRADO' : 'PENDIENTE',
           fechaVencimiento: hoy,
-          fechaCobro: hoy,
+          fechaCobro: cobrado ? hoy : null,
           fechaDevolucion: null,
           intentosReintento: 0,
+          ...(cobrado ? { metodoCobro: cobroAlta.metodo } : {}),
         };
 
         // Suscripción y recibo, en orden y esperados. La socia ya existe, así
@@ -2097,9 +2106,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         if (!resSus.ok) return resSus;
         setSuscripciones(prev => [...prev, sus]);
 
-        const resRec = await dbInsertRecibo(reciboCobrado);
+        const resRec = await dbInsertRecibo(reciboAlta);
         if (!resRec.ok) return resRec;
-        setRecibos(prev => [...prev, reciboCobrado]);
+        setRecibos(prev => [...prev, reciboAlta]);
 
         // La factura se SELLA (Veri*Factu, cadena de hashes) y no se puede
         // borrar: solo se emite cuando el cobro que la respalda está guardado.
@@ -2107,9 +2116,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // 2.2: el sellado (llamada de red) se saca del updater de setFacturas —
         // ahí dentro debe ser puro, o React lo duplica en StrictMode/reintentos
         // concurrentes y se sella la misma factura fiscal dos veces.
-        const fac = buildFactura(reciboCobrado, facturas);
-        setFacturas(prev => [...prev, fac]);
-        void sellarFacturaYActualizar(fac);
+        // Y solo se factura lo COBRADO: un recibo pendiente todavía no es una
+        // venta, y emitir su factura gastaría un número de la serie legal por
+        // un dinero que puede no llegar nunca. Cuando se cobre, `marcarCobrado`
+        // emite la factura entonces.
+        if (cobrado) {
+          const fac = buildFactura(reciboAlta, facturas);
+          setFacturas(prev => [...prev, fac]);
+          void sellarFacturaYActualizar(fac);
+        }
       }
     }
 

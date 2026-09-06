@@ -6,7 +6,7 @@
 //
 // dia_semana: 0=domingo..6=sábado, para casar con EXTRACT(DOW) del scoring (0038).
 
-export type FranjaKey = 'manana' | 'tarde' | 'noche';
+export type FranjaKey = 'manana' | 'media_manana' | 'tarde' | 'noche';
 
 export interface Franja {
   key: FranjaKey;
@@ -15,10 +15,21 @@ export interface Franja {
   horaFin: string;    // 'HH:MM'
 }
 
+// ⚠️ Cuatro franjas, no tres. «Mañana» era 06:00–14:00 de una pieza: una
+// instructora que puede a las 12:00 pero no a las 09:00 no tenía forma de
+// decirlo — marcaba la mañana entera y el motor la proponía para una clase que
+// no podía cubrir. Dos fallos así y la propietaria deja de fiarse del ranking,
+// que es justo lo que sostiene la funcionalidad estrella.
+//
+// El corte va a las 10:00 y a las 18:00 porque es donde de verdad se parte el
+// día de un estudio de Pilates (primera hora antes de trabajar, media mañana,
+// tarde, y la punta de después del trabajo). Siguen siendo un toque por celda y
+// caben en la pantalla de un móvil.
 export const FRANJAS: Franja[] = [
-  { key: 'manana', label: 'Mañana', horaInicio: '06:00', horaFin: '14:00' },
-  { key: 'tarde', label: 'Tarde', horaInicio: '14:00', horaFin: '20:00' },
-  { key: 'noche', label: 'Noche', horaInicio: '20:00', horaFin: '23:59' },
+  { key: 'manana', label: 'Primera hora', horaInicio: '06:00', horaFin: '10:00' },
+  { key: 'media_manana', label: 'Media mañana', horaInicio: '10:00', horaFin: '14:00' },
+  { key: 'tarde', label: 'Tarde', horaInicio: '14:00', horaFin: '18:00' },
+  { key: 'noche', label: 'Última hora', horaInicio: '18:00', horaFin: '23:59' },
 ];
 
 export interface Dia {
@@ -52,7 +63,18 @@ export function parseCeldaKey(clave: string): { dow: number; franja: FranjaKey }
 }
 
 // Mapea una hora_inicio de la BD ('HH:MM:SS' o 'HH:MM') a su franja.
+//
+// Por CONTENCIÓN y no por igualdad exacta: las disponibilidades guardadas con
+// la rejilla vieja de tres franjas empiezan a las 06:00, 14:00 y 20:00, y esa
+// última no coincide con el inicio de ninguna franja nueva. Con la comparación
+// exacta de antes, una instructora que ya había marcado sus noches abría el
+// enlace y se encontraba la rejilla en blanco, como si nunca hubiera contestado
+// — y el estudio veía «todavía no ha respondido». La fila seguía en la base de
+// datos y el ranking la seguía usando: solo desaparecía de la pantalla, que es
+// la peor forma de perderse.
 export function franjaPorHoraInicio(horaInicio: string): FranjaKey | null {
   const hhmm = horaInicio.slice(0, 5);
-  return FRANJAS.find((f) => f.horaInicio === hhmm)?.key ?? null;
+  const exacta = FRANJAS.find((f) => f.horaInicio === hhmm);
+  if (exacta) return exacta.key;
+  return FRANJAS.find((f) => hhmm >= f.horaInicio && hhmm < f.horaFin)?.key ?? null;
 }

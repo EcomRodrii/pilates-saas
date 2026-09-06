@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Printer, Notebook } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
+import { hoyEnEstudio } from '@/lib/utils';
 
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
@@ -19,7 +20,11 @@ function fechaCorta(iso: string): string {
 
 export default function Libreta() {
   const { studio, socios, suscripciones, planesTarifa, recuperaciones, plazasFijas, salas } = useStudio();
-  const hoyISO = new Date().toISOString().slice(0, 10);
+  // `hoyEnEstudio`, no `toISOString()`: esta fecha se imprime en el pie de la
+  // libreta («Generada el …») y además decide qué recuperaciones siguen vivas.
+  // Con UTC, una libreta sacada a las 00:20 de Madrid salía fechada el día
+  // anterior y descontaba las recuperaciones que caducaban hoy.
+  const hoyISO = hoyEnEstudio();
   const mes = new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
 
   const filas = useMemo(() => {

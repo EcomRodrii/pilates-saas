@@ -157,7 +157,12 @@ export const CATEGORIAS: CategoriaPlan[] = [
       // la huella encadenada y el QR de cotejo, que son el formato que exige el
       // reglamento. La fila se queda con lo cierto hasta que el envío funcione
       // de extremo a extremo — anunciarlo antes es vender lo que no hay.
-      { nombre: 'Facturas con el formato de Veri*Factu', detalle: 'Numeración legal, huella encadenada y QR de cotejo, como exige el reglamento.', valor: TODOS },
+      // El detalle dice ADEMÁS lo que todavía no hace. «Como exige el
+      // reglamento» a secas se leía como «ya cumples», y dentro del producto el
+      // panel de Facturas dice «envío a la AEAT en desarrollo»: descubrir esa
+      // diferencia durante la prueba destruye la confianza justo cuando se está
+      // decidiendo la compra.
+      { nombre: 'Facturas con el formato de Veri*Factu', detalle: 'Numeración legal, huella encadenada y QR de cotejo. El envío automático a la AEAT está en construcción.', valor: TODOS },
       { nombre: 'Cierre de año para la gestoría', valor: TODOS },
       { nombre: 'Exportación de tus datos cuando quieras', valor: TODOS },
     ],

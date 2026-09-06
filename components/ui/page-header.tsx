@@ -75,7 +75,13 @@ function PageHeader({
           {description && (
             <p
               data-slot="page-header-description"
-              className="text-sm text-muted-foreground text-balance"
+              // `text-pretty`, no `text-balance`: balance reparte las palabras
+              // en líneas de ancho parecido, y cuando la columna se estrecha
+              // (móvil, o una barra de acciones ancha al lado) degenera en una
+              // palabra por línea — medido en el Calendario a 757 px: «7 / – /
+              // 13 / de / septiembre / de / 2026», siete líneas. `balance` está
+              // pensado para titulares cortos, no para un párrafo.
+              className="text-sm text-muted-foreground text-pretty"
             >
               {description}
             </p>
@@ -85,7 +91,11 @@ function PageHeader({
       {actions && (
         <div
           data-slot="page-header-actions"
-          className="flex shrink-0 items-center gap-2"
+          // `flex-wrap` + `justify-end`: sin ellos, una barra de acciones
+          // ancha (la del Calendario lleva siete controles) se lleva todo el
+          // espacio con su `shrink-0` y deja la columna del título en nada.
+          // Ahora los botones bajan de línea antes que aplastar el título.
+          className="flex shrink-0 flex-wrap items-center justify-end gap-2"
         >
           {actions}
         </div>

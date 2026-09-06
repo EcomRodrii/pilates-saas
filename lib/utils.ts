@@ -248,6 +248,20 @@ export function cuandoEstudio(fecha: Date | string): string {
 }
 
 /**
+ * Primera letra en mayúscula, el resto tal cual.
+ *
+ * Para las fechas en español, que `toLocaleDateString('es-ES')` devuelve en
+ * minúscula a propósito. Se venía resolviendo con la clase `capitalize` de CSS,
+ * que sube la inicial de CADA palabra: «Domingo, 6 De Septiembre De 2026»,
+ * «6 – 12 De Septiembre De 2026». En castellano ni los meses ni los días llevan
+ * mayúscula, y las preposiciones menos — en un producto que presume de estar
+ * escrito en español, se nota.
+ */
+export function capitalizarPrimera(texto: string): string {
+  return texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : texto;
+}
+
+/**
  * Copia al portapapeles y dice SI LO CONSIGUIÓ.
  *
  * ⚠️ Existe porque cinco pantallas hacían `navigator.clipboard.writeText(x)` sin

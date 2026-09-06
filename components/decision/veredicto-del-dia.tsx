@@ -37,7 +37,35 @@ function tituloEstadoGlobal(nAutonomasHoy: number): { titulo: string; subtitulo:
   };
 }
 
-export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, procesando, whatsappHref, nAutonomasHoy = 0, totalPendiente = 0, onVerPendiente }: {
+// Ejemplo de un día CON mensaje, para un estudio que todavía no tiene
+// historial del que sacar uno propio. No es un dato real ni pretende parecerlo:
+// va rotulado como ejemplo y sin botones de acción.
+//
+// Existe porque durante la prueba de 7 días esta pantalla —la primera del menú,
+// y el argumento que justifica el plan Estudio— dice «Todo bajo control» los
+// siete días. Quien la mira no puede distinguir «es brillante» de «no hace
+// nada», y decide sobre lo segundo.
+function EjemploDelUmbral() {
+  return (
+    <div className="mt-4 w-full max-w-md rounded-xl border border-dashed border-border p-4 text-left">
+      <p className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Ejemplo · así se verá cuando tenga algo que decirte
+      </p>
+      <p className="mt-2 text-[14px] font-semibold text-foreground">
+        Marta lleva 3 semanas sin venir y su bono caduca el viernes.
+      </p>
+      <p className="mt-1 text-[12.5px] text-muted-foreground">
+        Venía dos veces por semana desde marzo. Le quedan 4 sesiones sin usar. Escribirle hoy
+        cuesta un minuto; recuperarla cuando se dé de baja, mucho más.
+      </p>
+      <p className="mt-2 text-[11.5px] text-muted-foreground">
+        Con tus datos reales, aquí tendrás su nombre, la evidencia y un botón para resolverlo.
+      </p>
+    </div>
+  );
+}
+
+export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, procesando, whatsappHref, nAutonomasHoy = 0, totalPendiente = 0, onVerPendiente, sinHistorial = false }: {
   veredicto: VeredictoAPI;
   onHecho: () => void;
   onYaLoSe: () => void;
@@ -54,6 +82,11 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
    * contradice a un clic de distancia a "9 cosas necesitan tu atención". */
   totalPendiente?: number;
   onVerPendiente?: () => void;
+  /** Estudio recién creado, sin historial del que sacar un mensaje propio.
+   *  Enseña un ejemplo rotulado para que se pueda entender qué hace esta
+   *  pantalla antes de tener datos — durante la prueba, es la diferencia entre
+   *  parecer brillante y parecer vacía. */
+  sinHistorial?: boolean;
 }) {
   const [porQueAbierto, setPorQueAbierto] = useState(false);
   const [queRevisoAbierto, setQueRevisoAbierto] = useState(false);
@@ -107,6 +140,7 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
               {QUE_REVISO.map(item => <li key={item}>{item}</li>)}
             </ul>
           )}
+          {sinHistorial && totalPendiente === 0 && <EjemploDelUmbral />}
         </CardContent>
       </Card>
     );

@@ -20,7 +20,7 @@ import {
   Bot, Loader2, Upload, QrCode, LayoutGrid, Rows3, CheckSquare,
 } from 'lucide-react';
 import Link from 'next/link';
-import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio, capitalizarPrimera } from '@/lib/utils';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
@@ -191,6 +191,9 @@ type RecurringFormData = {
   fechaFin: string;
   aforoMaximo: number;
   aforoTocado?: boolean;
+  /** Igual que `aforoTocado`: si la propietaria ya escribió una duración a
+   *  mano, cambiar de tipo de clase no se la pisa. */
+  duracionTocada?: boolean;
 };
 
 // ─── Aviso de aforo mayor que la sala ─────────────────────────────────────────
@@ -270,7 +273,7 @@ function ModalClasesRecurrentes({
 }: {
   open: boolean;
   onClose: () => void;
-  tiposClase: { id: string; nombre: string; aforoPorDefecto?: number | null }[];
+  tiposClase: { id: string; nombre: string; aforoPorDefecto?: number | null; duracionMinutos?: number | null }[];
   instructores: { id: string; nombre: string }[];
   ausencias?: AusenciaInstructora[];
   salas: { id: string; nombre: string; capacidad: number }[];
@@ -293,7 +296,11 @@ function ModalClasesRecurrentes({
     instructorId: instructores[0]?.id ?? '',
     salaId: salas[0]?.id ?? '',
     horaInicio: '10:00',
-    duracion: 60,
+    // La duración del TIPO de clase, no un 60 fijo. El aforo ya se heredaba de
+    // la sala y de `aforoPorDefecto`; la duración era la única que se ignoraba,
+    // así que un estudio con clases de 50 min programaba el trimestre entero a
+    // 60 y se le solapaban las salas.
+    duracion: tiposClase[0]?.duracionMinutos ?? 60,
     diasSemana: [1, 3],
     fechaInicio: new Date().toISOString().slice(0, 10),
     fechaFin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
@@ -388,6 +395,7 @@ function ModalClasesRecurrentes({
                 aforoMaximo: f.aforoTocado
                   ? f.aforoMaximo
                   : aforoPorDefectoDeSesion(tc?.aforoPorDefecto, salas.find(x => x.id === f.salaId)?.capacidad, f.aforoMaximo),
+                duracion: f.duracionTocada ? f.duracion : (tc?.duracionMinutos ?? f.duracion),
               }));
             }}>
               {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
@@ -428,9 +436,9 @@ function ModalClasesRecurrentes({
                 value={form.duracion || ''}
                 onChange={e => {
                   const bruto = e.target.value;
-                  if (bruto === '') { setForm(f => ({ ...f, duracion: 0 })); return; }
+                  if (bruto === '') { setForm(f => ({ ...f, duracion: 0, duracionTocada: true })); return; }
                   const n = Number(bruto);
-                  setForm(f => ({ ...f, duracion: Number.isNaN(n) ? f.duracion : Math.min(300, n) }));
+                  setForm(f => ({ ...f, duracion: Number.isNaN(n) ? f.duracion : Math.min(300, n), duracionTocada: true }));
                 }} />
             </FormField>
             {duracionInvalida && (
@@ -1809,9 +1817,10 @@ export default function Calendario() {
           nombre: tc?.nombre ?? '?', lugar: sala?.nombre ?? '?',
           confirmadas: r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length,
           aforoMaximo: s.aforoMaximo,
+          inicioISO: s.inicio,
         };
       });
-      return esHoyReal ? metricasDia(base, ahoraMin) : metricasSemana(base, false);
+      return esHoyReal ? metricasDia(base, ahoraMin) : metricasSemana(base, false, now);
     }
     const base = sesionesVistaFiltradas.map(s => {
       const r = reservasPorSesion.get(s.id) ?? [];
@@ -1819,10 +1828,11 @@ export default function Calendario() {
         estado: estadoPorSesion.get(s.id) ?? 'PROGRAMADA' as EstadoSesion,
         confirmadas: r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length,
         aforoMaximo: s.aforoMaximo,
+        inicioISO: s.inicio,
       };
     });
     // I-8: "esta semana" solo si la semana visible incluye hoy — mismo criterio que el StatsBar viejo.
-    return metricasSemana(base, dias.some(d => localDate(d) === todayStr));
+    return metricasSemana(base, dias.some(d => localDate(d) === todayStr), now);
   }, [datosVista, vista, sesionesVistaFiltradas, diaSeleccionado, todayStr, now, reservasPorSesion, estadoPorSesion, tiposClase, dias]);
 
   // ── Franja de decisiones (puntos 3 y 4) ─────────────────────────────────────
@@ -2304,7 +2314,7 @@ export default function Calendario() {
       <PageHeader
         className="shrink-0 px-4 lg:px-6 pt-4 lg:pt-5 pb-3 lg:pb-4 sm:items-center"
         title="Calendario"
-        description={<span className="capitalize">{mesLabel}</span>}
+        description={capitalizarPrimera(mesLabel)}
         actions={
         <div className="flex items-center gap-2 flex-wrap">
           <BuscadorRapido candidatas={candidatasBusqueda} onSeleccionar={saltarAClase} />
@@ -2577,6 +2587,8 @@ export default function Calendario() {
           onCambiarPestana={setPestanaPanel}
           titulo={sesionActual.tipoClase.nombre}
           horaTexto={horaTextoSesion(sesionActual.inicio, sesionActual.fin)}
+          instructoraNombre={sesionActual.instructor.nombre === '?' ? null : sesionActual.instructor.nombre}
+          salaNombre={sesionActual.sala.nombre === '?' ? null : sesionActual.sala.nombre}
           estado={estadoVista}
           ocupacion={{ confirmadas: sesionActual.confirmadas, aforoMaximo: sesionActual.aforoMaximo }}
           accionesCabecera={esPropiaClase ? (
@@ -3409,11 +3421,26 @@ export default function Calendario() {
           </DialogHeader>
           <textarea
             className={inputCls + ' resize-none h-24 mt-2'}
-            placeholder="Ej. sala sin luz, reformer averiado..."
+            placeholder="Ej. sala sin luz, gotera, se ha ido la calefacción..."
             value={dialogoIncidencia?.texto ?? ''}
             onChange={e => setDialogoIncidencia(prev => prev && { ...prev, texto: e.target.value })}
           />
-          <p className="text-[11px] text-muted-foreground mt-1">Déjalo en blanco y guarda para borrar la incidencia.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Una nota para tu equipo, solo en esta clase. Déjalo en blanco y guarda para borrarla.</p>
+          {/* ⚠️ El ejemplo de este campo era «reformer averiado», y aquí eso no
+              hace nada: es una nota de texto. Quien de verdad baja el aforo de
+              todas las clases de esa sala es «Averías de máquina»
+              (Configuración → Salas), y con el ejemplo anterior la propietaria
+              escribía la avería aquí, se quedaba tranquila y seguía vendiendo
+              una plaza que no existía. Dos cosas con el mismo vocabulario y
+              distinto efecto: ahora esta se queda con lo que sí resuelve y
+              señala a la otra. */}
+          <Link
+            href="/configuracion?tab=estudio&sub=salas"
+            className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-medio hover:underline"
+          >
+            ¿Se ha averiado una máquina? Márcalo en Salas y baja el aforo solo
+            <ChevronRight size={12} />
+          </Link>
           <div className="flex gap-2 mt-4">
             <button className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors" onClick={() => setDialogoIncidencia(null)}>
               Cancelar
