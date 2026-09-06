@@ -190,7 +190,7 @@ export default function RegistroPage() {
           <Input label="Contraseña" type="password" autoComplete="new-password" value={f.pass} onChange={(e) => setF({ ...f, pass: e.target.value })} error={err.pass} />
           <div aria-hidden style={{ display: 'flex', gap: 4, marginTop: 8 }}>
             {[1, 2, 3].map((n) => (
-              <span key={n} style={{ flex: 1, height: 4, borderRadius: 99, background: fuerza >= n ? (fuerza === 1 ? 'var(--warning)' : '#4F8A5B') : 'var(--muted)', transition: 'background .25s' }} />
+              <span key={n} style={{ flex: 1, height: 4, borderRadius: 99, background: fuerza >= n ? (fuerza === 1 ? 'var(--warning)' : 'var(--success)') : 'var(--muted)', transition: 'background .25s' }} />
             ))}
           </div>
         </div>

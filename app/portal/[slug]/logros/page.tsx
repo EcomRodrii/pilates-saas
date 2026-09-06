@@ -23,10 +23,16 @@ import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components
 // Si el estudio no ha configurado nada, la pantalla lo dice y no inventa un
 // tablero vacío con cifras a cero.
 
+/** La barra del sistema (`.bar`). Era la TERCERA reimplementación del mismo
+ *  dibujo en la app; ahora solo pone el porcentaje y el tono. */
 function Barra({ pct, tono = 'accent' }: { pct: number; tono?: 'accent' | 'ok' }) {
   return (
-    <div aria-hidden style={{ height: 6, borderRadius: 99, background: 'var(--muted)', overflow: 'hidden', marginTop: 8 }}>
-      <div style={{ width: `${Math.round(pct * 100)}%`, height: '100%', borderRadius: 99, background: tono === 'ok' ? '#4F8A5B' : 'var(--accent)', transition: 'width .6s var(--ease)' }} />
+    <div
+      aria-hidden
+      className={'bar' + (tono === 'ok' ? ' bar--ok' : '')}
+      style={{ ['--pct' as string]: `${Math.round(pct * 100)}%`, marginTop: 'var(--s-2)' }}
+    >
+      <i />
     </div>
   );
 }
@@ -63,7 +69,7 @@ export default function LogrosPage() {
   return (
     <StudentShell>
       <PageHeader titulo="Logros y recompensas" back />
-      <div className="px" style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560, paddingBottom: 90 }}>
+      <div className="px stack" style={{ ['--gap' as string]: 'var(--s-4)', marginTop: 14, maxWidth: 560, paddingBottom: 90 }}>
         {estado === 'loading' && <ListSkeleton n={3} h={110} />}
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver tus logros." />}
@@ -80,26 +86,26 @@ export default function LogrosPage() {
             {/* ── NIVEL Y CRÉDITOS ─────────────────────────────────────────
                 El nivel sale del total GANADO, no del saldo: canjear nunca
                 hace bajar de nivel (misma regla que enuncia el panel). */}
-            <section className="card" data-testid="nivel" style={{ padding: '15px 16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <section className="card card--pad-lg" data-testid="nivel">
+              <div className="row row--top row--between" style={{ ['--gap' as string]: 'var(--s-3)' }}>
                 <div style={{ minWidth: 0 }}>
-                  <p className="t-label" style={{ margin: 0 }}>Tu nivel</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 20, fontWeight: 800, letterSpacing: '-.02em' }}>
+                  <p className="t-label">Tu nivel</p>
+                  <p className="t-title" style={{ marginTop: 'var(--s-1)' }}>
                     {data.nivel.actual ? `${data.nivel.actual.icono} ${data.nivel.actual.nombre}` : 'Aún sin nivel'}
                   </p>
                   {data.nivel.actual?.beneficios && (
-                    <p className="t-meta" style={{ margin: '2px 0 0' }}>{data.nivel.actual.beneficios}</p>
+                    <p className="t-meta" style={{ marginTop: 2 }}>{data.nivel.actual.beneficios}</p>
                   )}
                 </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <p className="t-label" style={{ margin: 0 }}>Créditos</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 20, fontWeight: 800 }}>{data.saldo}</p>
+                <div className="no-shrink" style={{ textAlign: 'right' }}>
+                  <p className="t-label">Créditos</p>
+                  <p className="t-title t-num" style={{ marginTop: 'var(--s-1)' }}>{data.saldo}</p>
                 </div>
               </div>
               {data.nivel.siguiente && (
                 <>
                   <Barra pct={data.nivel.progreso} />
-                  <p className="t-meta" style={{ margin: '6px 0 0' }}>
+                  <p className="t-meta" style={{ marginTop: 'var(--s-1)' }}>
                     Te faltan {data.nivel.faltan} créditos para {data.nivel.siguiente.nombre}
                   </p>
                 </>
@@ -110,22 +116,22 @@ export default function LogrosPage() {
                 Solo los vigentes: uno terminado no se puede ganar. */}
             {data.retos.length > 0 && (
               <section data-testid="retos">
-                <p className="t-label" style={{ margin: '0 0 8px' }}>Retos de ahora</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <p className="t-label" style={{ marginBottom: 'var(--s-2)' }}>Retos de ahora</p>
+                <div className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
                   {data.retos.map((r) => (
-                    <div key={r.id} className="card" style={{ padding: '13px 15px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                    <div key={r.id} className="card card--pad">
+                      <div className="row row--top row--between" style={{ ['--gap' as string]: 'var(--s-2)' }}>
                         <div style={{ minWidth: 0 }}>
-                          <p style={{ margin: 0, fontSize: 14, fontWeight: 800 }}>{r.icono} {r.nombre}</p>
-                          {r.descripcion && <p className="t-meta" style={{ margin: '2px 0 0' }}>{r.descripcion}</p>}
+                          <p className="t-card-title">{r.icono} {r.nombre}</p>
+                          {r.descripcion && <p className="t-meta" style={{ marginTop: 2 }}>{r.descripcion}</p>}
                         </div>
                         {r.completado
                           ? <Badge tone="ok">Conseguido</Badge>
                           : <Badge tone={r.diasRestantes <= 3 ? 'few' : 'neutral'}>{r.diasRestantes === 0 ? 'Último día' : `${r.diasRestantes} días`}</Badge>}
                       </div>
                       <Barra pct={r.objetivo > 0 ? r.progresoActual / r.objetivo : 0} tono={r.completado ? 'ok' : 'accent'} />
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 7 }}>
-                        <p className="t-meta" style={{ margin: 0 }}>
+                      <div className="row row--between" style={{ ['--gap' as string]: 'var(--s-2)', marginTop: 'var(--s-2)' }}>
+                        <p className="t-meta">
                           {r.progresoActual} de {r.objetivo} · {r.creditosRecompensa} créditos
                         </p>
                         {!r.completado && (
@@ -144,21 +150,21 @@ export default function LogrosPage() {
             {/* ── LOGROS ───────────────────────────────────────────────── */}
             {data.logros.length > 0 && (
               <section data-testid="logros">
-                <p className="t-label" style={{ margin: '0 0 8px' }}>Tus logros</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <p className="t-label" style={{ marginBottom: 'var(--s-2)' }}>Tus logros</p>
+                <div className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
                   {data.logros.map((l) => (
-                    <div key={l.id} className="card" style={{ padding: '13px 15px', opacity: l.completado ? 1 : 0.92 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                    <div key={l.id} className="card card--pad" style={{ opacity: l.completado ? 1 : 0.92 }}>
+                      <div className="row row--top row--between" style={{ ['--gap' as string]: 'var(--s-2)' }}>
                         <div style={{ minWidth: 0 }}>
-                          <p style={{ margin: 0, fontSize: 14, fontWeight: 800 }}>{l.icono} {l.nombre}</p>
-                          {l.descripcion && <p className="t-meta" style={{ margin: '2px 0 0' }}>{l.descripcion}</p>}
+                          <p className="t-card-title">{l.icono} {l.nombre}</p>
+                          {l.descripcion && <p className="t-meta" style={{ marginTop: 2 }}>{l.descripcion}</p>}
                         </div>
                         {l.completado && <Badge tone="ok">✓</Badge>}
                       </div>
                       {!l.completado && (
                         <>
                           <Barra pct={l.umbral > 0 ? l.progresoActual / l.umbral : 0} />
-                          <p className="t-meta" style={{ margin: '6px 0 0' }}>
+                          <p className="t-meta" style={{ marginTop: 'var(--s-1)' }}>
                             {l.progresoActual} de {l.umbral} · {l.creditosRecompensa} créditos
                           </p>
                         </>
@@ -174,13 +180,13 @@ export default function LogrosPage() {
                 atómica: si no llega, lo dice él, no una comprobación de aquí. */}
             {data.recompensas.length > 0 && (
               <section data-testid="recompensas">
-                <p className="t-label" style={{ margin: '0 0 8px' }}>Canjea tus créditos</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <p className="t-label" style={{ marginBottom: 'var(--s-2)' }}>Canjea tus créditos</p>
+                <div className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
                   {data.recompensas.map((p) => (
-                    <div key={p.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '13px 15px' }}>
+                    <div key={p.id} className="card card--pad row row--between" style={{ ['--gap' as string]: 'var(--s-3)' }}>
                       <div style={{ minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: 14, fontWeight: 800 }}>{p.icono} {p.nombre}</p>
-                        <p className="t-meta" style={{ margin: '2px 0 0' }}>
+                        <p className="t-card-title">{p.icono} {p.nombre}</p>
+                        <p className="t-meta" style={{ marginTop: 2 }}>
                           {p.costeCreditos} créditos
                           {p.agotada ? ' · agotada' : p.alcanzable ? '' : ` · te faltan ${p.faltan}`}
                         </p>

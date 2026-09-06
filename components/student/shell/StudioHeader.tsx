@@ -39,7 +39,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false }: { noLeidas?
             No se tapa con `overflow: hidden` en el header: se arregla donde
             está el problema — el logo se acota, el nombre puede encogerse y
             elidirse, y la campana no se comprime nunca. */}
-        <Link href={href()} aria-label={estudio.nombre} style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, color: transparente ? '#FAF9F5' : 'var(--foreground)' }}>
+        <Link href={href()} aria-label={estudio.nombre} className="tap" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, color: transparente ? '#FAF9F5' : 'var(--foreground)' }}>
           {estudio.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={estudio.logoUrl} alt="" style={{ height: 26, maxWidth: 132, objectFit: 'contain', flexShrink: 0 }} />

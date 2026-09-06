@@ -26,7 +26,7 @@ export function OfflineBanner() {
         animation: 'apSlideDown .35s var(--ease) both',
       }}
     >
-      <span aria-hidden style={{ width: 7, height: 7, borderRadius: 99, background: reconectando ? '#4F8A5B' : 'var(--warning)', animation: 'apPulse 1.6s infinite' }} />
+      <span aria-hidden style={{ width: 7, height: 7, borderRadius: 99, background: reconectando ? 'var(--success)' : 'var(--warning)', animation: 'apPulse 1.6s infinite' }} />
       {reconectando ? 'Conexión recuperada · actualizando' : 'Sin conexión — puedes consultar, pero no reservar ni pagar'}
     </div>
   );

@@ -5,7 +5,7 @@ import { acentoCssText } from '@/lib/student/tema';
 import { StudentProvider } from '@/components/student/contexto';
 import { ToastProvider } from '@/components/student/ui/Toast';
 import { RegistroSW } from '@/components/student/RegistroSW';
-import { urlMonograma } from '@/lib/monograma-estudio';
+import { urlIconoEstudio } from '@/lib/monograma-estudio';
 import './student.css';
 
 // Raíz de la Student PWA. Server Component a propósito.
@@ -34,6 +34,11 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+/** La base de nuestro Supabase, única procedencia aceptada para un logo. */
+function baseSupabase(): string | null {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const estudio = await cargarEstudio(slug);
@@ -44,6 +49,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!estudio) return { title: 'Estudio no encontrado' };
 
   const base = `/portal/${encodeURIComponent(slug)}`;
+  const iconoDe = (size: 32 | 192) =>
+    urlIconoEstudio(estudio.nombre, estudio.colorPrimario, size, estudio.logoUrl, baseSupabase());
   return {
     title: estudio.nombre,
     description: `Reserva tu clase en ${estudio.nombre}.`,
@@ -52,9 +59,27 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     // sirviendo a la web pública.
     manifest: `${base}/manifest.webmanifest`,
     appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: estudio.nombre },
+    // ⚠️ Con el LOGO del estudio, no solo con su inicial.
+    //
+    // `urlIconoEstudio` existía desde hace tiempo —con su validación anti-SSRF
+    // y sus tests—, y NADIE la llamaba: los cuatro sitios que pintan el icono
+    // usaban `urlMonograma`, que solo sabe de nombre y color. Resultado: un
+    // estudio que SÍ había subido su logo veía una inicial generada en la
+    // pantalla de inicio del móvil de sus alumnas.
+    //
+    // Sin logo, o con uno que no podemos servir, sigue cayendo al monograma —
+    // nunca al icono de Tentare, que es lo que este mecanismo vino a evitar.
+    // ⚠️ CON `sizes`, y con un 32 para la pestaña. Sin declarar tamaño, el
+    // navegador comparaba nuestro icono contra el `favicon.ico` de Tentare
+    // —que sí declara 48x48 y que Next inyecta en toda ruta, sin que una hija
+    // pueda quitarlo— y se quedaba con el de la plataforma. Ver el comentario
+    // de `TAMANOS_MONOGRAMA`.
     icons: {
-      icon: urlMonograma(estudio.nombre, estudio.colorPrimario, 192),
-      apple: urlMonograma(estudio.nombre, estudio.colorPrimario, 192),
+      icon: [
+        { url: iconoDe(32), sizes: '32x32', type: 'image/png' },
+        { url: iconoDe(192), sizes: '192x192', type: 'image/png' },
+      ],
+      apple: iconoDe(192),
     },
     // La app de la alumna vive detrás de sesión: no se indexa. `/portal` ya
     // está en PREFIJOS_NO_INDEXABLES (lib/seo/paginas.ts), esto es el cinturón.

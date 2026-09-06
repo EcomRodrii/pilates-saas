@@ -76,10 +76,25 @@ test('sin banner ni sala, cae al estudio', () => {
   assert.equal(proyectar({}).fotoUrl, '/estudio.webp');
 });
 
-test('sin nada, cadena vacía y no `undefined`', () => {
-  // `Clase.fotoUrl` es `string`, no opcional: quien lo pinta hace
-  // `url(...)` sin comprobar, y un `undefined` ahí pinta la palabra.
-  assert.equal(proyectar({ studio: null }).fotoUrl, '');
+test('sin nada, ni `undefined` NI cadena vacía: la por defecto de su familia', () => {
+  // Este caso exigía cadena vacía, con un motivo que sigue valiendo:
+  // `Clase.fotoUrl` es `string`, no opcional, y quien lo pinta hace `url(...)`
+  // sin comprobar, así que un `undefined` ahí pinta la palabra.
+  //
+  // Pero la cadena vacía tampoco servía. Da un `<img src="">` y, en el detalle
+  // de la clase, 290 px de negro liso — el hueco roto que el diseño prohíbe.
+  // Se vio ejecutando la app, no leyendo el código.
+  //
+  // El contrato se refuerza en la misma dirección: nunca vacío, nunca
+  // `undefined`, siempre algo pintable. Y no es una decisión nueva:
+  // `imagenes-por-defecto.ts` ya la había tomado —«la foto de clase se pinta
+  // grande (detalle, sesión guiada) y ahí sí lleva default»—; lo que faltaba
+  // era llamarla.
+  const foto = proyectar({ studio: null }).fotoUrl;
+  assert.notEqual(foto, '');
+  assert.equal(typeof foto, 'string');
+  // De SU familia, deducida del nombre del tipo, no una genérica cualquiera.
+  assert.match(foto, /reformer/);
 });
 
 // ── Las dos a la vez ─────────────────────────────────────────────────────────

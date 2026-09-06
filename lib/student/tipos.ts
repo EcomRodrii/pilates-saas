@@ -46,7 +46,18 @@ export interface Clase {
   disciplina: Disciplina;
   nivel: NivelClase;
   instructoraId: string;
+  /**
+   * Color del tipo de clase. Es obligatorio en `tipos_clase` y la propietaria
+   * lo elige; hasta ahora la app de la alumna no lo usaba en ninguna parte.
+   * Es la identidad de la clase cuando no hay logo.
+   */
+  color: string;
   sala: string;
+  /**
+   * Id de la sala. `sala` es solo su NOMBRE, y con un nombre no se pueden
+   * buscar los huecos de esa sala: `spots` los cuelga de `salaId`.
+   */
+  salaId: string;
   capacidad: number;
   plazasLibres: number;
   precioSuelto: number;     // € si no hay bono

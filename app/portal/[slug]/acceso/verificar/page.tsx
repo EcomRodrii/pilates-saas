@@ -149,7 +149,7 @@ function Verificar() {
   if (listo) {
     return (
       <div className="a-pop" style={{ textAlign: 'center' }}>
-        <span aria-hidden style={{ width: 64, height: 64, margin: '0 auto', borderRadius: 999, background: '#4F8A5B', color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>✓</span>
+        <span aria-hidden style={{ width: 64, height: 64, margin: '0 auto', borderRadius: 999, background: 'var(--success)', color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>✓</span>
         <h2 className="t-h1" style={{ fontSize: 22, marginTop: 16 }}>Todo listo</h2>
         <p className="t-meta" style={{ marginTop: 6, fontSize: 13 }}>Te llevamos a tu estudio…</p>
       </div>

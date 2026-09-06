@@ -156,7 +156,15 @@ export default function MisReservasPage() {
             style={{
               flex: 1, position: 'relative', border: 'none', background: 'none', padding: '9px 0',
               fontSize: 12.5, fontWeight: 800,
-              color: tab === t ? 'var(--foreground)' : 'var(--subtle-foreground)',
+              // ⚠️ `--subtle-foreground` NO vale aquí. Está calibrado contra el
+              // crema del fondo (4,55:1) y contra la tarjeta blanca (4,80),
+              // pero la pista de este control es `--muted`, que es más oscura:
+              // ahí cae a **4,09:1** y «Historial» quedaba por debajo de AA.
+              // Es el mismo error que ya documenta DC-7 —un token calibrado
+              // contra un fondo y usado sobre otro—, así que la salida no es
+              // retocar el token (rompería las 21 pantallas donde sí cumple)
+              // sino usar aquí el que sí contrasta: 5,93:1.
+              color: tab === t ? 'var(--foreground)' : 'var(--muted-foreground)',
               transition: 'color .25s',
             }}
           >

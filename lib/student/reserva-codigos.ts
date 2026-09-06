@@ -87,13 +87,28 @@ export function esRechazoConocido(codigo: string | null | undefined): boolean {
 
 /** Lo que la ruta devuelve al confirmar una reserva. */
 export type RespuestaReserva =
-  | { ok: true; estado: string; reservaId?: string; posicionEspera?: number | null }
+  | {
+      ok: true; estado: string; reservaId?: string; posicionEspera?: number | null;
+      /**
+       * El sitio que el servidor pudo darle. `null` = pidió uno y NO se lo
+       * pudieron dar (se lo cogieron entre que eligió y confirmó).
+       *
+       * ⚠️ El servidor lo devuelve desde siempre y el widget de /reservar ya lo
+       * leía; este tipo no lo declaraba, así que la app de la alumna no podía
+       * distinguir «tienes el sitio que pediste» de «lo cogieron antes». Es
+       * exactamente el fallo que ya costó una vez: el servidor decía «no pude»
+       * y el cliente solo miraba el estado.
+       */
+      spotAsignado?: string | null;
+    }
   | { error: string; codigo?: CodigoReserva | string };
 
 export interface DesenlaceReserva {
   state: BookingState;
   reservaId?: string;
   posicionEspera?: number | null;
+  /** Ver `RespuestaReserva.spotAsignado`. */
+  spotAsignado?: string | null;
   /** El mensaje del servidor, para los estados que no tienen copy propio. */
   mensaje?: string;
 }
@@ -117,7 +132,7 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
   if ('ok' in r && r.ok) {
     switch (r.estado) {
       case 'CONFIRMADA':
-        return { state: 'confirmed', reservaId: r.reservaId };
+        return { state: 'confirmed', reservaId: r.reservaId, spotAsignado: r.spotAsignado ?? null };
       case 'LISTA_ESPERA':
         return { state: 'waitlisted', reservaId: r.reservaId, posicionEspera: r.posicionEspera ?? null };
       // 'PENDIENTE_APROBACION' no tiene estado propio en la máquina del

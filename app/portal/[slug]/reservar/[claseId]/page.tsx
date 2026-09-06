@@ -9,6 +9,7 @@ import { useOnline } from '@/lib/student/useOnline';
 import { getBonos, getClases, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
 import { getFavoritos } from '@/lib/student/favoritos';
 import { bonoParaClase, tieneBonoQueNoCubre } from '@/lib/student/bono-cubre';
+import { catalogo } from '@/lib/student/catalogo';
 import { confirmarReserva } from '@/lib/student/reservar';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, euros, horaFin, precioClaseTexto } from '@/lib/student/formato';
@@ -19,6 +20,8 @@ import { Button } from '@/components/student/ui/Button';
 import { ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { BookingButton } from '@/components/student/domain/BookingButton';
 import { BookingSummary } from '@/components/student/domain/BookingSummary';
+import { ElegirHueco, huecosDeClase } from '@/components/student/domain/ElegirHueco';
+import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { BookingStatus } from '@/components/student/domain/BookingStatus';
 import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { FavoritoButton } from '@/components/student/domain/FavoritoButton';
@@ -40,6 +43,14 @@ export default function FichaClasePage() {
   const { estudio } = useEstudio();
   const { online } = useOnline();
   const [bk, setBk] = useState<BookingState>('idle');
+  // El sitio elegido. `null` = que lo asigne el estudio, que es lo que pasaba
+  // SIEMPRE hasta ahora: la app sabía mandar `spotId` desde el primer día y
+  // ninguna pantalla llegaba a ponerlo nunca.
+  //
+  // Va aquí arriba, con el resto de hooks: más abajo hay returns tempranos
+  // (cargando, sin clase) y un `useState` después de uno de ellos se salta en
+  // esos renders, que es justo lo que prohíben las reglas de hooks.
+  const [hueco, setHueco] = useState<string | null>(null);
   // El motivo CONCRETO del servidor, cuando lo hay. Va aparte del estado
   // porque la máquina del diseño no tiene un estado para cada rechazo: «no
   // tienes bono activo» y «has llegado a tu tope de reservas» caen los dos en
@@ -53,10 +64,18 @@ export default function FichaClasePage() {
   const cargar = useCallback(async () => {
     // `getClases` sale del MISMO payload que `getClase`: la ficha de la
     // instructora enseña sus próximas clases sin una petición más.
-    const [clase, reservas, bonos, instructoras, favoritos, clases] = await Promise.all([
+    const [clase, reservas, bonos, instructoras, favoritos, clases, payload] = await Promise.all([
       getClasesFrescas(estudio.slug).then((cs) => cs.find((c) => c.id === claseId) ?? null), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getFavoritos(estudio.slug), getClases(estudio.slug),
+      // Los huecos de la sala y quién los ocupa. Son los ÚNICOS dos campos que
+      // esta pantalla necesita en crudo: no tienen proyección propia porque
+      // hasta ahora nadie los usaba en la app de la alumna. `catalogo` está
+      // cacheado, así que no es una petición más.
+      catalogo(estudio.slug),
     ]);
-    return { clase, reservas, bonos, instructoras, favoritos, clases };
+    return {
+      clase, reservas, bonos, instructoras, favoritos, clases,
+      spots: payload?.spots, aforoReservas: payload?.aforoReservas,
+    };
   }, [estudio.slug, claseId]);
 
   const { data, estado, reintentar } = useAsync(cargar, (d) => !d.clase);
@@ -93,13 +112,22 @@ export default function FichaClasePage() {
     // «Confirmando…» para siempre, que es la peor pantalla posible.
     const r = await confirmarReserva(estudio.slug, clase.id, estudio.id, {
       online,
+      spotId: hueco,
     });
     setBk(r.state);
-    setBkMensaje(r.mensaje);
+    // Si pidió sitio y NO se lo dieron, se dice. El servidor lo responde en
+    // `spotAsignado` desde siempre; callarlo la dejaría llegando al estudio
+    // convencida de que tiene el que eligió. El texto es el canónico
+    // (`mensajeConfirmarReserva`), el mismo que ya usan el portal y el widget.
+    setBkMensaje(
+      r.state === 'confirmed' && hueco && !r.spotAsignado
+        ? mensajeConfirmarReserva({ estado: 'CONFIRMADA', spotAsignado: r.spotAsignado ?? null }, hueco)
+        : r.mensaje,
+    );
     // Los datos han cambiado: la clase tiene una plaza menos y ella una reserva
     // más. Sin recargar, volver atrás enseña el aforo de antes.
     if (r.state === 'confirmed' || r.state === 'waitlisted') reintentar();
-  }, [clase, online, estudio.slug, estudio.id, ir, reintentar]);
+  }, [clase, online, estudio.slug, estudio.id, ir, reintentar, hueco]);
 
   const cerrar = useCallback(() => {
     // Durante el envío la hoja no se cierra: cerrarla dejaría a la alumna sin
@@ -143,6 +171,8 @@ export default function FichaClasePage() {
     );
   }
 
+  const huecos = clase ? huecosDeClase(data?.spots, data?.aforoReservas, clase.salaId, clase.id) : null;
+
   const enSheet = bk !== 'idle';
   const esFinal = enSheet && bk !== 'reviewing' && bk !== 'submitting';
 
@@ -181,6 +211,23 @@ export default function FichaClasePage() {
           style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', right: 14 }}
         />
         <div style={{ position: 'absolute', left: 16, right: 16, bottom: 13, color: '#fff' }}>
+          {/* El LOGO de la clase. Estaba en el listado y no aquí, que es
+              justo donde se mira la clase: el banner de arriba HEREDA (tipo →
+              sala → estudio), así que a menudo es la misma foto para todas, y
+              el logo es lo único que identifica a esta. No hereda a propósito
+              —ver `Clase.logoUrl`—, así que sin logo propio no se pinta nada
+              en vez de tomar prestado el de otra. */}
+          {clase.logoUrl && (
+            <span
+              aria-hidden
+              data-testid="logo-clase"
+              style={{
+                display: 'block', width: 44, height: 44, borderRadius: 12, marginBottom: 9,
+                background: `url(${clase.logoUrl}) center/cover`,
+                border: '1px solid rgba(255,255,255,.5)',
+              }}
+            />
+          )}
           <p className="t-label" style={{ color: 'rgba(255,255,255,.82)' }}>{clase.tipo} · nivel {clase.nivel.toLowerCase()}</p>
           <h1 style={{ margin: '3px 0 0', fontSize: 26, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.nombre}</h1>
           <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -258,6 +305,12 @@ export default function FichaClasePage() {
                 politicaHoras={estudio.politicaCancelacionHoras}
               />
             </div>
+            {/* Elegir sitio: solo si la sala tiene huecos definidos, y solo
+                cuando hay plaza — en lista de espera no hay sitio que elegir
+                todavía. */}
+            {huecos && disp !== 'completa' && (
+              <ElegirHueco spots={huecos.spots} ocupados={huecos.ocupados} elegido={hueco} onElegir={setHueco} />
+            )}
             {disp === 'completa' && (
               <p className="t-meta" style={{ marginTop: 8, textAlign: 'center' }}>
                 Sin coste — solo reservas si se libera y tú confirmas.

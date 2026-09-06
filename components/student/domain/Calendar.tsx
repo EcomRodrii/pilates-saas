@@ -31,7 +31,7 @@ export function Calendar({ value, onChange, marcados }: { value: string; onChang
             <button key={iso} type="button" aria-pressed={sel} aria-label={iso + (tiene ? ', tienes clase' : '')} onClick={() => onChange(iso)}
               style={{ height: 44, border: esHoy && !sel ? '1.5px solid var(--primary)' : '1px solid transparent', borderRadius: 12, background: sel ? 'var(--primary)' : 'transparent', color: sel ? 'var(--primary-foreground)' : pasado ? 'var(--subtle-foreground)' : 'var(--foreground)', fontSize: 13, fontWeight: sel || esHoy ? 800 : 600, position: 'relative', transition: 'all .2s' }}>
               {i + 1}
-              {tiene && <span aria-hidden style={{ position: 'absolute', bottom: 5, left: '50%', transform: 'translateX(-50%)', width: 5, height: 5, borderRadius: 99, background: sel ? 'var(--primary-foreground)' : '#4F8A5B' }} />}
+              {tiene && <span aria-hidden style={{ position: 'absolute', bottom: 5, left: '50%', transform: 'translateX(-50%)', width: 5, height: 5, borderRadius: 99, background: sel ? 'var(--primary-foreground)' : 'var(--success)' }} />}
             </button>
           );
         })}

@@ -5,6 +5,7 @@
 // es quien fija la regla de vigencia en servidor. Import relativo por el
 // mismo motivo que el resto del fichero.
 import { hoyEnEstudio } from '../utils.ts';
+import { imagenDeClase } from '../imagenes-por-defecto.ts';
 import { precioDeSesion } from './precio-suelta.ts';
 import { proyectarPlazaFija as plazaFijaDe, proyectarRecuperaciones as recuperacionesDe, type PlazaFijaMin, type RecuperacionMin } from './plaza-fija.ts';
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
@@ -217,7 +218,7 @@ export interface PayloadMin {
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null }[];
+  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null }[];
   levelDefinitions?: NivelDef[];
   achievementDefinitions?: LogroDef[];
   challengeDefinitions?: RetoDef[];
@@ -297,6 +298,8 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       nivel: nivelDe(tipo?.nivel),
       instructoraId: s.instructorId,
       sala: sala?.nombre ?? '',
+      salaId: s.salaId ?? '',
+      color: tipo?.color ?? '',
       capacidad: s.aforoMaximo,
       plazasLibres: Math.max(0, s.aforoMaximo - (ocupadas.get(s.id) ?? 0)),
       // ⚠️ Antes: `s.precioPuntual ?? 0`. `sesiones.precio_puntual` es un
@@ -322,7 +325,21 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       // esta clase concreta, y dejar que la foto genérica de la sala la tapara
       // convertía el banner por clase en una función que no se ve nunca. Sin
       // banner propio, todo sigue exactamente igual que antes.
-      fotoUrl: tipo?.fotoUrl ?? sala?.fotoUrl ?? d.studio?.fotoUrl ?? '',
+      //
+      // ⚠️ Y si NINGUNO de los tres tiene foto, la por defecto de su familia
+      // de disciplina. Sin esto la cadena acababa en `''`, y una cadena vacía
+      // no es «sin foto»: es un `<img src="">` y una cabecera de 290 px de
+      // negro liso en el detalle de la clase — el hueco roto que el diseño
+      // prohíbe expresamente.
+      //
+      // No es una decisión nueva: `lib/imagenes-por-defecto.ts` ya la dejó
+      // escrita al listar dónde SÍ va foto por defecto —«la foto de clase se
+      // pinta grande (detalle, sesión guiada) y ahí sí lleva default»— y dejó
+      // el ayudante hecho y probado. La app de la alumna nunca lo llamó. Los
+      // dos únicos sitios que leen esto son renders grandes, así que no entra
+      // en el caso excluido (las miniaturas de los listados, donde la misma
+      // foto ocho veces se lee como un error).
+      fotoUrl: imagenDeClase({ fotoUrl: tipo?.fotoUrl ?? sala?.fotoUrl ?? d.studio?.fotoUrl, nombre: tipo?.nombre }),
       // El logo NO hereda: ver el comentario en `Clase.logoUrl`.
       logoUrl: tipo?.logoUrl ?? undefined,
       descripcion: tipo?.descripcion ?? undefined,
