@@ -115,3 +115,55 @@ test('la identidad de la tarifa no es editable', () => {
   assert.ok(!('studioId' in columnas), 'studioId no puede entrar en el mapa de columnas editables');
   assert.match(cuerpoDe('function planTarifaToDb'), /studio_id: plan\.studioId \?\? STUDIO_ID/);
 });
+
+// ── Que una escritura sin efecto no se cante como éxito ──────────────────────
+//
+// La RLS de `planes_tarifa` exige `puede_mover_dinero()` (PROPIETARIO o
+// RECEPCION) para INSERT, UPDATE y DELETE. Pero /productos NO está en
+// BLOQUEADO_MANAGER, así que un MANAGER llega a la pantalla, edita el precio de
+// un bono y pulsa Guardar: el UPDATE se queda en CERO filas y —sin `.select()`—
+// PostgREST devuelve `error: null`, indistinguible de un guardado bueno. La
+// pantalla decía «Tarifa actualizada», el estado optimista pintaba el precio
+// nuevo y hasta se escribía una actividad reciente. Al recargar volvía el viejo.
+//
+// Es el mismo patrón que ya costó el bug de `oferta_hasta` que motivó este
+// fichero, pero por la otra puerta: allí faltaba la columna, aquí falta saber
+// si la fila llegó a tocarse.
+
+for (const fn of ['export async function dbUpdatePlanTarifa', 'export async function dbDeletePlanTarifa']) {
+  const nombre = fn.replace('export async function ', '');
+
+  test(`${nombre} pide las filas tocadas: sin eso, 0 filas parece éxito`, () => {
+    const cuerpo = cuerpoDe(fn);
+    assert.match(
+      cuerpo,
+      /\.select\(/,
+      `${nombre} escribe sin \`.select()\`: un rechazo de la RLS volvería como éxito`,
+    );
+  });
+
+  test(`${nombre} trata «ninguna fila tocada» como fallo`, () => {
+    const cuerpo = cuerpoDe(fn);
+    assert.match(
+      cuerpo,
+      /!\w+\?\.length/,
+      `${nombre} no comprueba cuántas filas tocó, así que no puede distinguir un rechazo`,
+    );
+    assert.match(
+      cuerpo,
+      /motivoSinEfecto/,
+      `${nombre} debe explicar POR QUÉ no se escribió (sin permiso vs ya no existe)`,
+    );
+  });
+}
+
+test('el motivo distingue «sin permiso» de «ya no existe»', () => {
+  // Decirlo mal manda a la usuaria al sitio equivocado: a buscar una tarifa que
+  // sigue ahí, o a pedir un permiso que no le falta.
+  const cuerpo = cuerpoDe('async function motivoSinEfecto');
+  assert.match(cuerpo, /permiso/i);
+  assert.match(cuerpo, /ya no existe/i);
+  // Lo decide LEYENDO: el SELECT sí está abierto a todo el estudio, así que si
+  // la fila se ve, lo que faltaba era el permiso.
+  assert.match(cuerpo, /\.select\(/);
+});
