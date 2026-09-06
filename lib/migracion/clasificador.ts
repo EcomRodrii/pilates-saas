@@ -95,7 +95,21 @@ export const ENTIDADES: Record<EntidadMigracion, DefEntidad> = {
     etiqueta: 'Recuperaciones pendientes',
     campos: CAMPOS_RECUPERACION,
     // Con el email a secas no basta: eso lo cumple hasta el CSV de clientas.
-    requiereAlguno: ['cantidad', 'caduca_el'],
+    //
+    // ⚠️ Y con una FECHA tampoco. `caduca_el` estaba aquí, y sus sinónimos son
+    // «expiry date», «caducidad», «vencimiento», «validez» — que es exactamente
+    // como llama cualquier plataforma a la caducidad del BONO. Resultado: un
+    // export de clientas con una columna «Expiry Date» generaba un bloque
+    // «Recuperaciones pendientes: 4 se importarán», una por socia, incluidas
+    // las que tenían esa celda vacía. Y una recuperación es una clase gratis
+    // que el estudio le debe a alguien: la migración inventaba deudas.
+    //
+    // Solo `cantidad` identifica esta entidad, con el mismo criterio que ya
+    // aplica el comentario de sus sinónimos: aquí solo van palabras que
+    // únicamente significan recuperación. Una fecha suelta no dice nada, y ante
+    // la duda es mejor no importarlas que inventarlas (el estudio siempre puede
+    // subir un archivo con su columna de recuperaciones).
+    requiereAlguno: ['cantidad'],
     mapear: (h) => autoMapearRecuperacion(h) as Record<string, number>,
     validar: (r, m) => validarFilasRecuperacion(r, m as Parameters<typeof validarFilasRecuperacion>[1]) as unknown as FilaValidadaComun[],
   },

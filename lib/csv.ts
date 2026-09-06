@@ -866,7 +866,14 @@ const SINONIMOS_CLASE: Record<CampoClase, string[]> = {
   // columna a `dia_semana` (lo cazó csv-clases.test.ts). Si algún export usa
   // "Día" como fecha, el usuario lo corrige en el paso de mapeo del asistente.
   fecha: ['fecha', 'date', 'fecha clase', 'fecha de la clase', 'start date'],
-  dia_semana: ['dia semana', 'dia de la semana', 'weekday', 'day of week', 'dow', 'dia'],
+  // 'day' va aquí por el mismo motivo que 'dia', y faltaba: un horario
+  // exportado en inglés («Class name, Instructor, Room, Day, Start») no mapeaba
+  // esa columna a ninguna parte, así que cada fila moría con «Falta la fecha o
+  // el día de la semana» y el horario entero se quedaba en cuarentena — 0 de 5.
+  // Justo el archivo que más cuesta rehacer a mano. `parsearDiaSemana` ya
+  // entendía «Monday»; lo que no había manera es de llegar hasta él.
+  // Seguro respecto a `fecha`, que se mapea antes y no reclama 'day'.
+  dia_semana: ['dia semana', 'dia de la semana', 'weekday', 'day of week', 'dow', 'dia', 'day'],
   hora_inicio: ['hora inicio', 'hora de inicio', 'inicio', 'hora', 'start', 'start time', 'comienzo', 'time', 'desde'],
   hora_fin: ['hora fin', 'hora de fin', 'fin', 'end', 'end time', 'final', 'hasta', 'termina'],
   duracion: ['duracion', 'duration', 'minutos', 'mins', 'min', 'length'],

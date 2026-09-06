@@ -351,7 +351,17 @@ export default function MigracionPage() {
 
   const listos = archivosEfectivos.filter(a => a.entidad !== null);
   const sinClasificar = archivosEfectivos.filter(a => a.entidad === null);
-  const totalOk = listos.reduce((s, a) => s + a.ok, 0);
+  // ⚠️ `a.ok` no sabe nada del mapeo de tarifas. Al marcar tres planes como
+  // «no importar estas filas», el botón seguía ofreciendo «Importar 13
+  // registros» aunque solo fueran a entrar 10: el número que se confirma no
+  // coincidía con lo que la pantalla acababa de decidir. La ejecución sí lo
+  // respetaba (el acta salía correcta), pero en una pantalla cuyo trato es
+  // «revisa el plan y confirma», la cifra que se confirma tiene que ser la
+  // real. Se descuenta con la misma función que usa la ejecución.
+  const totalOk = listos.reduce((s, a) => {
+    if (a.entidad !== 'membresias') return s + a.ok;
+    return s + filasDe(a).length;
+  }, 0);
 
   // Cambia la entidad de un archivo: prerellena el mapeo con el auto-mapeo de esa
   // entidad (mejor punto de partida que en blanco) para que solo retoque lo justo.
