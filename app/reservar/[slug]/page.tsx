@@ -13,7 +13,7 @@ import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva } from '@/lib/types';
-import { tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
+import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando } from '@/lib/bono-logic';
 import { resolutorCobertura, precioDeCobertura, textoCobertura, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
   contarReservasActivasFuturas, esCancelacionTardia,
@@ -1597,11 +1597,13 @@ export default function ReservarPage() {
           : false;
         return tieneAlguno
           ? 'Tu bono no incluye este tipo de clase. Puedes reservarla pagando la clase suelta.'
-          // ⚠️ Antes decía «en la pestaña "El estudio"». Los bonos ya no viven
-          // ahí, y un aviso que manda a un sitio donde no está lo que promete
-          // es peor que uno genérico — es el mismo tipo de error que un enlace
-          // roto, pero sin que nadie lo note.
-          : 'Necesitas un plan o bono activo para reservar. Los tienes más abajo, en «Bonos y membresías».';
+          // ⚠️ Este mensaje ya ha mandado dos veces a un sitio que no existía:
+          // primero a «la pestaña El estudio», después a «más abajo, en Bonos
+          // y membresías» — una sección que solo se pinta si el estudio la
+          // tiene visible Y tiene planes contratables, condiciones que este
+          // aviso nunca comprobó. El texto ya no nombra ningún destino: quien
+          // sabe a dónde se puede ir es el botón de abajo, que lo calcula.
+          : `${ERROR_SIN_PLAN}.`;
       }
     }
     if (studio.reservaMaxSimultaneas != null && socioId) {
@@ -2191,6 +2193,33 @@ export default function ReservarPage() {
   // Sale del JSX a una constante porque ahora se pregunta DOS veces: para
   // pintar las tarjetas y para decidir si la sección existe siquiera.
   const planesContratables = planesTarifa.filter(p => p.activo && p.precio > 0);
+
+  // ¿Hay que comprar algo antes de poder reservar aquí? Se resuelve una vez y
+  // se enseña AL PRINCIPIO del flujo, no al final.
+  //
+  // El orden de antes era: elegir clase → nombre y teléfono → leer y aceptar el
+  // contrato → «necesitas un plan o bono activo». Se le pedían los datos y la
+  // firma a alguien que venía de Instagram para, tres pantallas después,
+  // decirle que no podía reservar. Quien llega a ese punto no vuelve.
+  //
+  // `null` cuando no aplica: el estudio no exige plan, no hay nada a la venta
+  // (entonces el gate tampoco bloquea, ver `hayAlgoQueContratar`) o quien mira
+  // ya tiene un bono que le sirve.
+  const avisoRequisitoCompra = useMemo(() => {
+    if (!studio) return null;
+    if (!hayAlgoQueContratar(planesTarifa)) return null;
+    return (tipoClaseId: string | null) => {
+      const tipo = tipoClaseId ? tiposClase.find(t => t.id === tipoClaseId) : undefined;
+      if (!heredaOverride(tipo?.reservaExigirPlan, studio.reservaExigirPlan)) return null;
+      const socioIdActual = socia?.socioId ?? null;
+      if (socioIdActual && tieneEntitlementActivo(socioIdActual, suscripciones, planesTarifa, localDate(now), tipoClaseId ?? undefined)) return null;
+      return {
+        texto: 'Para reservar necesitas un bono o plan activo.',
+        href: `/portal/${slug}/comprar`,
+        cta: 'Ver bonos y precios',
+      };
+    };
+  }, [studio, planesTarifa, tiposClase, socia?.socioId, suscripciones, now, slug]);
 
   // Lo que la página promete antes de reservar. Puro y probado aparte: el paso
   // de «hasta 12 h» a «hasta 24 h, según la clase» depende de una tabla de
@@ -2943,6 +2972,7 @@ export default function ReservarPage() {
                 // también habría sido una pérdida real de transparencia
                 // sobre qué le va a costar, no solo un paso de menos.
                 saltarFichaSiInvitada={!autenticado}
+                avisoRequisitoCompra={avisoRequisitoCompra}
                 loading={!dataLoaded}
                 onReservar={handleReservarCalendario}
                 onCancelar={cancelarReserva}
@@ -3957,7 +3987,23 @@ export default function ReservarPage() {
               <div className="paso-anim">
                 <div className="mb-3"><IndicadorPasos recorrido={recorridoDe('registro')!} /></div>
                 <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">¿Cómo te llamas?</h2>
-                <p className="text-[var(--portal-muted-2)] text-sm mb-5">Completa tus datos para tu primera reserva — el estudio los usará para avisarte de cualquier cambio en tus clases.</p>
+                <p className="text-[var(--portal-muted-2)] text-sm mb-3">Completa tus datos para tu primera reserva — el estudio los usará para avisarte de cualquier cambio en tus clases.</p>
+                {/* El requisito de bono se dice AQUÍ, en el primer paso, y no
+                    al final: sin esto se pedían nombre, teléfono y la firma del
+                    contrato para rechazar la reserva dos pantallas después. */}
+                {(() => {
+                  const sesionEnCurso = bookingSesionId ? sesiones.find(s => s.id === bookingSesionId) : null;
+                  const aviso = avisoRequisitoCompra?.(sesionEnCurso?.tipoClaseId ?? null) ?? null;
+                  if (!aviso) return null;
+                  return (
+                    <div className="mb-5 px-3.5 py-3 rounded-xl border border-[var(--portal-line)]" style={{ backgroundColor: 'var(--portal-surface-2)' }}>
+                      <p className="text-[13px] text-[var(--portal-ink)]">{aviso.texto}</p>
+                      <a href={aviso.href} className="text-[13px] font-semibold underline underline-offset-2 text-[var(--portal-brand)]">
+                        {aviso.cta}
+                      </a>
+                    </div>
+                  );
+                })()}
                 <input type="text"
                   placeholder="Tu nombre completo"
                   value={loginForm.nombre}
@@ -4087,38 +4133,55 @@ export default function ReservarPage() {
                 {gateError && (
                   <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">
                     {gateError}
-                    {/* ⚠️ Bug real reportado por el fundador (2026-08-30, con
-                        vídeo): el aviso decía "los tienes más abajo, en «Bonos
-                        y membresías»" — pero esa sección va detrás de
-                        `!enVistaReserva`, y este aviso solo se ve CON
-                        `enVistaReserva` en true (dentro del propio flujo de
-                        reserva). "Más abajo" no llevaba a ningún sitio: quien
-                        intentaba desplazarse a buscarla no encontraba nada
-                        que scrollear, y "no puedo hacer scroll" era el síntoma
-                        de un enlace roto, no un fallo de scroll de verdad —
-                        mismo patrón que ya documenta el comentario de
-                        `evaluarGate` sobre la pestaña "El estudio" que
-                        tampoco existía. Este botón SÍ lleva a la sección real:
-                        cierra el flujo (misma limpieza que "Volver a las
-                        clases") y hace scroll hasta ella. */}
-                    {gateError.includes('Bonos y membresías') && (
-                      <>
-                        {' '}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            closeBooking();
-                            setFichaSesionId(null);
-                            requestAnimationFrame(() => {
-                              document.getElementById('bonos-membresias')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            });
-                          }}
-                          className="font-semibold underline underline-offset-2"
-                        >
-                          Ver bonos y membresías
-                        </button>
-                      </>
-                    )}
+                    {/* ⚠️ Tercera versión de este botón, y las dos anteriores
+                        mandaban a sitios que podían no existir: primero a «la
+                        pestaña El estudio», después a la sección
+                        #bonos-membresias de ESTA página — que solo se pinta si
+                        el estudio la tiene visible y tiene planes contratables.
+                        Cuando no se cumple, el botón cerraba el flujo, hacía
+                        scroll a la nada y devolvía a la clienta al listado de
+                        clases: había dado su nombre, su teléfono y aceptado el
+                        contrato para acabar donde empezó y sin poder comprar.
+
+                        Ahora el destino se DECIDE, no se supone: si la sección
+                        existe en esta página, scroll; si no, la tienda del
+                        portal, que existe siempre. Y si no hubiera nada a la
+                        venta, el gate ni siquiera bloquea (`hayAlgoQueContratar`),
+                        así que no queda ningún camino sin salida. */}
+                    {seArreglaComprando(gateError) && (() => {
+                      const seccionEnEstaPagina = seccionVisible('bonos') && planesContratables.length > 0;
+                      if (seccionEnEstaPagina) {
+                        return (
+                          <>
+                            {' '}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                closeBooking();
+                                setFichaSesionId(null);
+                                requestAnimationFrame(() => {
+                                  document.getElementById('bonos-membresias')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                });
+                              }}
+                              className="font-semibold underline underline-offset-2"
+                            >
+                              Ver bonos y membresías
+                            </button>
+                          </>
+                        );
+                      }
+                      return (
+                        <>
+                          {' '}
+                          <a
+                            href={`/portal/${slug}/comprar`}
+                            className="font-semibold underline underline-offset-2"
+                          >
+                            Comprar un bono
+                          </a>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
                 <button onClick={handleConfirm} disabled={confirmando}
