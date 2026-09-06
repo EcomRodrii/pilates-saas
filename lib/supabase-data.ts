@@ -4193,6 +4193,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('reembolsoSoloSinUsar' in changes) db.reembolso_solo_sin_usar = changes.reembolsoSoloSinUsar;
   if ('requiereCheckinQr' in changes) db.requiere_checkin_qr = changes.requiereCheckinQr;
   if ('bloquearReservaImpago' in changes) db.bloquear_reserva_impago = changes.bloquearReservaImpago;
+  if ('recuperacionAutoSemanal' in changes) db.recuperacion_auto_semanal = changes.recuperacionAutoSemanal;
   if ('visibleEnNetwork' in changes) db.visible_en_network = changes.visibleEnNetwork;
   // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
@@ -4571,6 +4572,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     reembolsoSoloSinUsar: r.reembolso_solo_sin_usar ?? true,
     requiereCheckinQr: r.requiere_checkin_qr ?? true,
     bloquearReservaImpago: r.bloquear_reserva_impago ?? false,
+    recuperacionAutoSemanal: r.recuperacion_auto_semanal ?? false,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
     onboardingDescartadoEn: r.onboarding_descartado_en ?? null,
@@ -4767,7 +4769,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('tipos_clase').select('*').eq('studio_id', sid),
     db.from('instructores').select('*').eq('studio_id', sid),
     fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia, cancelada_tardia').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion').eq('studio_id', sid).range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus

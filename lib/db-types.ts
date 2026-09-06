@@ -23,6 +23,8 @@ export interface RowReservas {
   oferta_expira_en: string | null;
   // migr 20260828010312.
   valoracion_experiencia: number | null;
+  // migr 20260906090000.
+  cancelada_tardia: boolean | null;
 }
 
 export interface RowAchievementDefinitions {
@@ -900,6 +902,8 @@ export interface RowStudios {
   stripe_account_desconectado_en: string | null;
   // migr 20260905151515.
   bloquear_reserva_impago: boolean | null;
+  // migr 20260906090000.
+  recuperacion_auto_semanal: boolean | null;
 }
 
 export interface RowSuscripciones {

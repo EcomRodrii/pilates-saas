@@ -48,6 +48,8 @@ type PoliticaForm = {
   // Migr 20260905151515: impedir reservar con un recibo FALLIDO o DEVUELTO.
   // Opt-in: encenderlo por defecto dejaría fuera a socias que hoy reservan.
   bloquearReservaImpago: boolean;
+  // Migr 20260906090000: recuperaciones solas al cerrar la semana.
+  recuperacionAutoSemanal: boolean;
 };
 
 function studioToPolitica(s: Studio | null): PoliticaForm {
@@ -72,6 +74,7 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
     penalizacionCobroAutomatico: s?.penalizacionCobroAutomatico ?? false,
     requiereCheckinQr: s?.requiereCheckinQr ?? true,
     bloquearReservaImpago: s?.bloquearReservaImpago ?? false,
+    recuperacionAutoSemanal: s?.recuperacionAutoSemanal ?? false,
   };
 }
 
@@ -273,6 +276,15 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               Al liberarse una plaza, hoy se confirma sola a la primera de la lista aunque no esté mirando el móvil en ese momento — y si no aparece, la plaza se pierde. Con un plazo (p.ej. 15 min), le das tiempo a confirmar que la quiere antes de dársela; si no contesta, pasa a la siguiente. Vacío o 0 = como hasta ahora, sin plazo.
             </p>
           </div>
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-[13px] text-foreground">
+              Dar recuperaciones solas al cerrar la semana
+              <span className="block text-[11px] text-muted-foreground">
+                Cada lunes, a quien canceló a tiempo y no le dio tiempo a recuperar el hueco esa semana, le aparece una recuperación sin que tenga que pedírtela. Solo afecta a planes con límite semanal —con bono ya se devuelve la sesión sola— y respeta tu tope de 4 y tu política de caducidad.
+              </span>
+            </span>
+            <Toggle on={pol.recuperacionAutoSemanal} onChange={v => setPol(p => ({ ...p, recuperacionAutoSemanal: v }))} />
+          </label>
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
               No dejar reservar con un pago fallido
