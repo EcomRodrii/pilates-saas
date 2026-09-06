@@ -5,12 +5,12 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
-import { mapSesion, mapReserva, mapSocio, mapSuscripcion, mapPlanTarifa } from '@/lib/supabase-data';
+import { mapSesion, mapReserva, mapSocio, mapSuscripcion, mapPlanTarifa, hidratarTiposDePlanes } from '@/lib/supabase-data';
 import type { RowSesiones, RowReservas, RowSocios, RowSuscripciones, RowPlanesTarifa } from '@/lib/db-types';
 import { LEGAL } from '@/lib/legal-info';
 import { filtrarPorConsentimientoMarketing } from '@/lib/marketing/consentimiento';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
-import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 
 // Radar de ocupación → "Avisar a candidatas" (Configuración → Dashboard).
 // Server-only: manda WhatsApp real con credenciales de plataforma y necesita
@@ -60,7 +60,23 @@ export async function POST(req: NextRequest) {
     const reservas = (reservasRows ?? []).map(r => mapReserva(r as RowReservas));
     const socios = (sociosRows ?? []).map(r => mapSocio(r as RowSocios));
     const suscripciones = (suscripcionesRows ?? []).map(r => mapSuscripcion(r as RowSuscripciones));
-    const planesTarifa = (planesRows ?? []).map(r => mapPlanTarifa(r as RowPlanesTarifa));
+    // ⚠️ HIDRATAR es obligatorio, no un extra. `mapPlanTarifa` no trae
+    // `tiposClaseIds` —no es columna de `planes_tarifa`, vive en la tabla
+    // puente `plan_tipos_clase`— y `planCubreTipoClase` lee la lista vacía
+    // como «cubre TODAS las clases».
+    //
+    // Sin esto, el filtro por cobertura de `candidatasParaHueco` no filtraba
+    // nada: a una socia con «Bono 10 Mat» se le mandaba un WhatsApp
+    // ofreciéndole un hueco de Reformer, y al ir a reservarlo
+    // `crearReservaPublica` la rechazaba con «Tu bono no incluye este tipo de
+    // clase». Un mensaje comercial que promete algo que el servidor niega.
+    //
+    // Los otros cuatro llamadores de `mapPlanTarifa` en servidor ya hidratan
+    // (supabase-data-admin.ts: 611, 973, 1061, 1961); esta ruta era la única
+    // que se lo había saltado.
+    const planesTarifa = await hidratarTiposDePlanes(
+      admin as never, sesion.studioId, (planesRows ?? []).map(r => mapPlanTarifa(r as RowPlanesTarifa)),
+    );
 
     // Confirma que sigue siendo una sesión futura por debajo del umbral —
     // protege contra un doble clic sobre datos ya obsoletos.
@@ -80,7 +96,10 @@ export async function POST(req: NextRequest) {
     }
     const { huecos: plazasLibres } = huecos[0];
 
-    const hoyISO = ahora.toISOString().slice(0, 10);
+    // El día del ESTUDIO, no el de UTC: entre las 00:00 y las 02:00 de Madrid
+    // el día UTC es todavía el anterior, así que un bono caducado ayer contaba
+    // como vigente y su dueña entraba en la lista de candidatas.
+    const hoyISO = hoyEnEstudio(ahora);
     let candidatas = candidatasParaHueco({ sesion: sesionObj, sesiones, socios, reservas, suscripciones, planesTarifa, hoyISO });
 
     // Cap: no tiene sentido avisar a mucha más gente que huecos reales.
