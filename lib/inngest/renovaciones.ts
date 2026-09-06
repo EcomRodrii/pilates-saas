@@ -91,7 +91,20 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
         .eq('estado', 'PENDIENTE')
         .is('proximo_reintento', null)
         .not('suscripcion_id', 'is', null)
-        .like('concepto', 'Renovación%');
+        // ⚠️ Por `es_renovacion`, NO por el texto del concepto. Este es el sitio
+        // que decide A QUIEN SE LE COBRA SOLO, y hasta #1671 decidia por copy.
+        // Su gemelo —`aplicarRenovacionServidor`, quien decide QUE SE ENTREGA—
+        // ya migro a la columna, y la migracion 20260906003934 lo dice con
+        // todas las letras: «una decision de dinero no puede depender de que
+        // nadie lo traduzca ni lo reescriba». Quedaban divergentes: recepcion
+        // crea desde /cobros un recibo con `suscripcion_id` (se adjunta solo la
+        // suscripcion activa) y `es_renovacion: false` (el panel nunca lo
+        // marca); si teclea el concepto «Renovacion Bono 10», el cron lo
+        // adoptaba, el dunning le pasaba la tarjeta off-session y la entrega
+        // devolvia SIN_ENTREGA. Cobro automatico real sin entregar nada.
+        // El conjunto adoptado no cambia con los datos de hoy: la migracion
+        // relleno `es_renovacion = true where concepto like 'Renovación%'`.
+        .eq('es_renovacion', true);
       if (candErr) throw new Error(candErr.message);
       const idsAAdoptar = (candidatos ?? [])
         .filter(r => conMetodoCobro.has(r.socio_id as string))

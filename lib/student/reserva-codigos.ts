@@ -30,12 +30,34 @@ export type CodigoReserva =
   | 'spot-no-disponible'
   | 'sesion-no-encontrada'
   | 'no-autorizado'
+  // Guardias de la SESIÓN, antes incluso del gate de derechos
+  // (`crearReservaPublica`). Los cuatro son reglas de negocio con un motivo
+  // que la alumna entiende, y los cuatro viajaban SIN código: la pantalla les
+  // pintaba «algo no ha salido como esperábamos · inténtalo de nuevo» —con un
+  // botón de reintentar que iba a fallar exactamente igual, porque el tiempo
+  // no va hacia atrás— y además levantaban un evento de nivel `error` en
+  // Sentry por cada intento (JAVASCRIPT-NEXTJS-26, una socia real en Bilbao
+  // el 4-sep-2026 contra una clase ya empezada).
+  | 'clase-cancelada'
+  | 'clase-ya-empezada'
+  | 'fuera-ventana-minima'
+  | 'fuera-ventana-maxima'
   // Gate de derechos (`crearReservaPublica`): rechazos ANTES de tocar el aforo.
   | 'sin-plan'
   | 'bono-no-cubre'
   | 'max-simultaneas'
   // Niveles: la clase exige que el estudio autorice a esta alumna.
   | 'necesita-autorizacion'
+  // Gate de impago (#1664, 5-sep-2026): el estudio puede bloquear la reserva a
+  // quien tiene un recibo fallido. El servidor YA emitia este codigo; esta
+  // tabla no lo conocia, asi que la socia bloqueada leia «algo no ha salido
+  // como esperabamos · intentalo de nuevo» en vez de a quien tenia que
+  // escribir — el mismo fallo que la auditoria del 4-sep dio por cerrado,
+  // reaparecido un dia despues por una puerta nueva.
+  | 'impago'
+  // Cierre del centro (#1665): el estudio cierra unos dias y la RPC rechaza
+  // las sesiones creadas DESPUES de declararlo.
+  | 'estudio-cerrado'
   | 'error';
 
 /**
@@ -47,7 +69,9 @@ export type CodigoReserva =
 const CODIGOS_DE_NEGOCIO: ReadonlySet<string> = new Set<CodigoReserva>([
   'ya-reservada', 'conflicto-horario', 'aforo-lleno', 'limite-semanal',
   'spot-ocupado', 'spot-no-disponible', 'sesion-no-encontrada', 'no-autorizado',
+  'clase-cancelada', 'clase-ya-empezada', 'fuera-ventana-minima', 'fuera-ventana-maxima',
   'sin-plan', 'bono-no-cubre', 'max-simultaneas', 'necesita-autorizacion',
+  'impago', 'estudio-cerrado',
 ]);
 
 /**
@@ -129,6 +153,18 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
     case 'bono-no-cubre':
     case 'max-simultaneas':
     case 'necesita-autorizacion':
+    // Las cuatro guardias de la sesión: tampoco tienen estado propio, pero su
+    // mensaje es justo lo que le falta a la alumna para saber que no hay nada
+    // que reintentar («esta clase ya ha empezado», «hace falta reservar con
+    // más antelación»).
+    case 'clase-cancelada':
+    case 'clase-ya-empezada':
+    case 'fuera-ventana-minima':
+    case 'fuera-ventana-maxima':
+    // Impago y cierre: el mensaje del servidor no detalla la deuda ni el
+    // motivo a proposito, solo dice a quien escribir. Es lo que hay que pintar.
+    case 'impago':
+    case 'estudio-cerrado':
       return { state: 'error', mensaje };
     case 'sesion-no-encontrada': return { state: 'error', mensaje };
     default: return { state: 'error', mensaje };

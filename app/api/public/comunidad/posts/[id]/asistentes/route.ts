@@ -4,9 +4,9 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
-import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
+import { socioEnLaAudiencia } from '@/lib/comunidad/audiencia';
 import type { RowPostsComunidad } from '@/lib/db-types';
-import type { Socio, Suscripcion, Recibo, DestinatariosCampana } from '@/lib/types';
+import type { DestinatariosCampana } from '@/lib/types';
 
 // Eventos como entidad propia dentro del Feed (P2 Community & Messaging OS).
 // Apuntarse/desapuntarse de un evento del tablón, desde el portal de la
@@ -54,33 +54,6 @@ async function autenticar(req: NextRequest, studioId: string) {
   return socioAutenticado(user.userId, studioId);
 }
 
-// F-24 (auditoría 20ª pasada): el RSVP no comprobaba `posts_comunidad.audiencia`
-// — una socia fuera del segmento (p.ej. el evento es "solo VIP") podía
-// apuntarse con un POST directo, sin pasar nunca por la pantalla que filtra
-// quién lo ve. Reutiliza `resolverDestinatariasCampana` (la MISMA función que
-// ya decide el fan-out de notificación al crear el post) sobre los datos de
-// esta única socia, en vez de un criterio de segmento paralelo que pudiera
-// divergir del real.
-async function socioEnLaAudiencia(
-  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
-  p: { studioId: string; socioId: string; audiencia: DestinatariosCampana },
-): Promise<boolean> {
-  if (p.audiencia === 'TODAS') return true;
-  const [{ data: socioRaw }, { data: susRaw }, { data: recRaw }] = await Promise.all([
-    admin.from('socios').select('id, activo, tags, fecha_nacimiento').eq('id', p.socioId).eq('studio_id', p.studioId).maybeSingle(),
-    admin.from('suscripciones').select('socio_id, estado, sesiones_restantes, fecha_fin').eq('socio_id', p.socioId).eq('studio_id', p.studioId).eq('estado', 'ACTIVA'),
-    admin.from('recibos').select('socio_id, estado').eq('socio_id', p.socioId).eq('studio_id', p.studioId).eq('estado', 'FALLIDO'),
-  ]);
-  if (!socioRaw) return false;
-  const socios = [{
-    id: socioRaw.id, activo: socioRaw.activo, tags: socioRaw.tags ?? undefined, fechaNacimiento: socioRaw.fecha_nacimiento ?? undefined,
-  }] as unknown as Socio[];
-  const suscripciones = ((susRaw ?? []).map(r => ({
-    socioId: r.socio_id, estado: r.estado, sesionesRestantes: r.sesiones_restantes, fechaFin: r.fecha_fin,
-  }))) as unknown as Suscripcion[];
-  const recibos = ((recRaw ?? []).map(r => ({ socioId: r.socio_id, estado: r.estado }))) as unknown as Recibo[];
-  return resolverDestinatariasCampana(p.audiencia, { socios, suscripciones, recibos }).some(s => s.id === p.socioId);
-}
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const limited = await enforceRateLimit(req, 'public-comunidad-asistentes', { max: 20, windowSeconds: 60 });

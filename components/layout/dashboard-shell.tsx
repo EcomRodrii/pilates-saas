@@ -136,6 +136,37 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Sesión ya resuelta y NO hay sesión: el efecto de arriba está rebotando a
+  // /login, pero `router.replace` es navegación soft y tarda — y mientras
+  // tanto este componente seguía devolviendo `children`, porque `cargandoDatos`
+  // (más abajo) empieza por `!!session &&` y con `session === null` vale
+  // `false`. O sea que las páginas del panel se montaban SIN sesión y sus
+  // efectos consultaban la BD con la anon key: `dbStatsClientas` en
+  // /dashboard, y sus gemelos en /clientas y /informes.
+  //
+  // Consecuencias vistas en producción (JAVASCRIPT-NEXTJS-27, 4-sep-2026,
+  // `permission denied for table socios` como rol `anon`): ruido de nivel
+  // `error` en Sentry, y —peor— el listener de errores de BD le pintaba a la
+  // usuaria «No tienes permiso para hacer este cambio» justo mientras rebotaba
+  // al login, un mensaje de ESCRITURA para una LECTURA que ella no pidió.
+  //
+  // Va aquí arriba, y no en la expresión de `cargandoDatos`, para cubrir
+  // también las dos ramas que devuelven `children` sin mirarla: el editor de
+  // apariencia y `PantallaBienvenida`.
+  if (!session) {
+    return (
+      <PanelPrivacyProvider>
+        <PanelThemeProvider className="min-h-dvh bg-background">
+          <main className="lg:pl-[var(--sidebar-w)] min-h-dvh">
+            <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
+              <PanelSkeleton />
+            </div>
+          </main>
+        </PanelThemeProvider>
+      </PanelPrivacyProvider>
+    );
+  }
+
   // Nunca un skeleton para siempre: si a los 6 s la cuenta sigue sin estudio,
   // no es una carga lenta — es una cuenta que no pertenece a este panel (p.
   // ej. una de Tentare Network sin studio_id). Salida explícita, no un

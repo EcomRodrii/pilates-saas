@@ -5,6 +5,8 @@ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
+import { socioEnLaAudiencia, audienciaDelPost } from '@/lib/comunidad/audiencia';
+import type { DestinatariosCampana } from '@/lib/types';
 
 // Comentarios del tablón para el PORTAL — antes el tablón ni siquiera enseñaba
 // el contador de comentarios a la socia (ver lib/student/tipos.ts), y no
@@ -44,6 +46,16 @@ export async function GET(req: NextRequest) {
   const socioId = await socioAutenticado(user.userId, studioId);
   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
+  // Mismo guard que el hermano `posts/[id]/asistentes` (F-24): el filtro de
+  // audiencia se aplica al LISTADO de posts, pero se saltaba en cuanto se pide
+  // por `postId` — y los ids son adivinables. Sin esto, una socia fuera del
+  // segmento lee el hilo entero de un post que no va dirigido a ella.
+  const audiencia = await audienciaDelPost(admin, { postId, studioId });
+  if (!audiencia) return NextResponse.json({ error: 'Publicación no encontrada.' }, { status: 404 });
+  if (!await socioEnLaAudiencia(admin, { studioId, socioId, audiencia })) {
+    return NextResponse.json({ error: 'Esta publicación no está dirigida a ti' }, { status: 403 });
+  }
+
   const { data, error } = await admin
     .from('comentarios_comunidad')
     .select('*')
@@ -80,12 +92,19 @@ export async function POST(req: NextRequest) {
   // El post debe existir y ser de este estudio — autoridad del JWT, nunca del body.
   const { data: post, error: errPost } = await admin
     .from('posts_comunidad')
-    .select('id, comentarios_count')
+    .select('id, comentarios_count, audiencia')
     .eq('id', postId)
     .eq('studio_id', studioId)
     .maybeSingle();
   if (errPost) return errorInterno('public/comunidad/comentarios:POST', errPost, 'No se ha podido leer la publicación.');
   if (!post) return NextResponse.json({ error: 'Publicación no encontrada.' }, { status: 404 });
+
+  // Escribir pesa más que leer: el comentario lo verán el staff y todo el
+  // segmento destinatario. Mismo guard de audiencia que el GET y que el RSVP.
+  const audiencia = ((post.audiencia as DestinatariosCampana | null) ?? 'TODAS');
+  if (!await socioEnLaAudiencia(admin, { studioId, socioId, audiencia })) {
+    return NextResponse.json({ error: 'Esta publicación no está dirigida a ti' }, { status: 403 });
+  }
 
   const { data: socio, error: errSocio } = await admin
     .from('socios').select('nombre, apellidos').eq('id', socioId).maybeSingle();

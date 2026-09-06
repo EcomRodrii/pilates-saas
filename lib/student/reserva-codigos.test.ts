@@ -103,6 +103,31 @@ test('los otros dos rechazos del gate de derechos se comportan igual', () => {
   }
 });
 
+test('las cuatro guardias de la sesión enseñan su motivo y no son avería', () => {
+  // JAVASCRIPT-NEXTJS-26 (4-sep-2026): una socia real intentó reservar una
+  // clase ya empezada. El servidor lo rechazó bien y con su frase, pero SIN
+  // `codigo` — así que la pantalla le pintó «algo no ha salido como
+  // esperábamos · inténtalo de nuevo» (con un botón que no podía funcionar) y
+  // Sentry registró una regla de negocio como avería de producción.
+  for (const [codigo, msg] of [
+    ['clase-ya-empezada', 'Esta clase ya ha empezado'],
+    ['clase-cancelada', 'Esta clase está cancelada'],
+    ['fuera-ventana-minima', 'Ya no se puede reservar esta clase: hace falta reservar con más antelación'],
+    ['fuera-ventana-maxima', 'Todavía no se puede reservar esta clase'],
+    // #1664 y #1665: el servidor ya emitía estos dos códigos y esta tabla no
+    // los conocía. Van con assert propio —y no solo en el tipo— porque quitar
+    // la entrada de CODIGOS_DE_NEGOCIO es lo que rompe el comportamiento, y
+    // los tests estructurales no lo verían.
+    ['impago', 'Tienes un pago pendiente con el estudio. Escríbeles y lo resolvéis.'],
+    ['estudio-cerrado', 'El estudio está cerrado ese día'],
+  ] as Array<[string, string]>) {
+    const d = desenlaceDeRespuesta({ error: msg, codigo });
+    assert.equal(d.state, 'error', codigo);
+    assert.equal(d.mensaje, msg, `${codigo}: el motivo es justo lo que le falta a la alumna para saber que no hay nada que reintentar`);
+    assert.equal(esRechazoConocido(codigo), true, `${codigo}: es producto, no producción rota`);
+  }
+});
+
 test('solo lo que NO sabemos nombrar se reporta como avería', () => {
   // `'error'` es el comodín con el que el servidor dice «me ha pasado algo que
   // no sé nombrar»: ese sí hay que reportarlo, y la ausencia de código también.
