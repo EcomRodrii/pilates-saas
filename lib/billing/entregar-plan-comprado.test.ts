@@ -234,11 +234,33 @@ test('un fallo de escritura se reporta (el webhook lo convierte en reintento)', 
   if (!r.ok) assert.equal(r.motivo, 'error');
 });
 
-test('un plan sin caducidad entra sin fecha de fin', async () => {
-  const { admin, insertado } = fakeAdmin({ plan: { ...PLAN, validez_dias: null, sesiones: null, tipo: 'MENSUAL' } });
+test('un BONO sin caducidad entra sin fecha de fin', async () => {
+  // «Sin caducidad» es una opción real del formulario de tarifas para un bono:
+  // aquí el null SÍ significa lo que dice.
+  const { admin, insertado } = fakeAdmin({ plan: { ...PLAN, validez_dias: null, sesiones: 10, tipo: 'BONO' } });
   const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1' });
   assert.equal(r.ok, true);
   assert.equal(insertado.suscripciones[0].fecha_fin, null);
+});
+
+test('⚠️ un MENSUAL comprado por web entra CON fecha de fin, o no se cobra nunca más', async () => {
+  // Este test afirmaba lo contrario —`fecha_fin: null` para un MENSUAL— y con
+  // eso estaba fijando el agujero: un mensual sin fecha de fin es «no caduca
+  // nunca» para `tieneEntitlementActivo`, y el cron de renovaciones filtra
+  // `fecha_fin is not null`, así que no vuelve a generar recibo jamás. Se
+  // cobraba un mes y la socia seguía reservando gratis.
+  //
+  // Su nombre hablaba de «un plan sin caducidad» —que es el caso del BONO de
+  // arriba— pero su fixture era MENSUAL. Encontrado en producción el
+  // 2026-09-05 con 4 suscripciones así, una de ellas comprada por esta misma
+  // vía. Ver `cicloInicialDe` en lib/bono-logic.ts.
+  const { admin, insertado } = fakeAdmin({ plan: { ...PLAN, validez_dias: null, sesiones: null, tipo: 'MENSUAL' } });
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1' });
+  assert.equal(r.ok, true);
+  const fin = insertado.suscripciones[0].fecha_fin as string | null;
+  assert.ok(fin, 'un mensual sin fecha de fin no se renueva nunca');
+  assert.match(fin, /^\d{4}-\d{2}-\d{2}$/);
+  assert.ok(fin > new Date().toISOString().slice(0, 10), 'el ciclo tiene que quedar en el futuro');
 });
 
 test('deja constancia de qué entregó, para poder revertirlo si se devuelve', async () => {

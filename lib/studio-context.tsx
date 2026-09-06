@@ -193,7 +193,7 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion, avisaBonoAgotado } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, calcularReactivacion, cicloInicialDe, avisaBonoAgotado } from '@/lib/bono-logic';
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -2069,8 +2069,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           planId,
           estado: 'ACTIVA',
           fechaInicio: hoy,
-          fechaFin: calcularFechaFinBono(ahora, plan.validezDias ?? null),
-          sesionesRestantes: plan.sesiones,
+          // `cicloInicialDe`, no `calcularFechaFinBono`: un MENSUAL no caduca
+          // por días (su `validezDias` es siempre null) y salía con `fecha_fin`
+          // a NULL, que aguas abajo es «no caduca nunca» — se cobraba un mes y
+          // la socia seguía reservando gratis. Ver el comentario de la función.
+          ...cicloInicialDe(plan, ahora),
           stripeSubscriptionId: null,
         };
         const reciboId = `rec-${uid()}`;
@@ -2417,8 +2420,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       estado: 'ACTIVA',
       // P-9 (auditoría 21ª pasada): `fecha_inicio` es `date`, no `timestamptz`.
       fechaInicio: hoyEnEstudio(),
-      fechaFin: calcularFechaFinBono(new Date().toISOString(), plan.validezDias ?? null),
-      sesionesRestantes: plan.sesiones,
+      // Mismo motivo que en `addSocio`: un MENSUAL nacía sin fecha de fin y no
+      // se renovaba nunca. Ver `cicloInicialDe`.
+      ...cicloInicialDe(plan, new Date().toISOString()),
       stripeSubscriptionId: null,
     } : null;
 
