@@ -191,6 +191,9 @@ type RecurringFormData = {
   fechaFin: string;
   aforoMaximo: number;
   aforoTocado?: boolean;
+  /** Igual que `aforoTocado`: si la propietaria ya escribió una duración a
+   *  mano, cambiar de tipo de clase no se la pisa. */
+  duracionTocada?: boolean;
 };
 
 // ─── Aviso de aforo mayor que la sala ─────────────────────────────────────────
@@ -270,7 +273,7 @@ function ModalClasesRecurrentes({
 }: {
   open: boolean;
   onClose: () => void;
-  tiposClase: { id: string; nombre: string; aforoPorDefecto?: number | null }[];
+  tiposClase: { id: string; nombre: string; aforoPorDefecto?: number | null; duracionMinutos?: number | null }[];
   instructores: { id: string; nombre: string }[];
   ausencias?: AusenciaInstructora[];
   salas: { id: string; nombre: string; capacidad: number }[];
@@ -293,7 +296,11 @@ function ModalClasesRecurrentes({
     instructorId: instructores[0]?.id ?? '',
     salaId: salas[0]?.id ?? '',
     horaInicio: '10:00',
-    duracion: 60,
+    // La duración del TIPO de clase, no un 60 fijo. El aforo ya se heredaba de
+    // la sala y de `aforoPorDefecto`; la duración era la única que se ignoraba,
+    // así que un estudio con clases de 50 min programaba el trimestre entero a
+    // 60 y se le solapaban las salas.
+    duracion: tiposClase[0]?.duracionMinutos ?? 60,
     diasSemana: [1, 3],
     fechaInicio: new Date().toISOString().slice(0, 10),
     fechaFin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
@@ -388,6 +395,7 @@ function ModalClasesRecurrentes({
                 aforoMaximo: f.aforoTocado
                   ? f.aforoMaximo
                   : aforoPorDefectoDeSesion(tc?.aforoPorDefecto, salas.find(x => x.id === f.salaId)?.capacidad, f.aforoMaximo),
+                duracion: f.duracionTocada ? f.duracion : (tc?.duracionMinutos ?? f.duracion),
               }));
             }}>
               {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
@@ -428,9 +436,9 @@ function ModalClasesRecurrentes({
                 value={form.duracion || ''}
                 onChange={e => {
                   const bruto = e.target.value;
-                  if (bruto === '') { setForm(f => ({ ...f, duracion: 0 })); return; }
+                  if (bruto === '') { setForm(f => ({ ...f, duracion: 0, duracionTocada: true })); return; }
                   const n = Number(bruto);
-                  setForm(f => ({ ...f, duracion: Number.isNaN(n) ? f.duracion : Math.min(300, n) }));
+                  setForm(f => ({ ...f, duracion: Number.isNaN(n) ? f.duracion : Math.min(300, n), duracionTocada: true }));
                 }} />
             </FormField>
             {duracionInvalida && (
@@ -1809,9 +1817,10 @@ export default function Calendario() {
           nombre: tc?.nombre ?? '?', lugar: sala?.nombre ?? '?',
           confirmadas: r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length,
           aforoMaximo: s.aforoMaximo,
+          inicioISO: s.inicio,
         };
       });
-      return esHoyReal ? metricasDia(base, ahoraMin) : metricasSemana(base, false);
+      return esHoyReal ? metricasDia(base, ahoraMin) : metricasSemana(base, false, now);
     }
     const base = sesionesVistaFiltradas.map(s => {
       const r = reservasPorSesion.get(s.id) ?? [];
@@ -1819,10 +1828,11 @@ export default function Calendario() {
         estado: estadoPorSesion.get(s.id) ?? 'PROGRAMADA' as EstadoSesion,
         confirmadas: r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length,
         aforoMaximo: s.aforoMaximo,
+        inicioISO: s.inicio,
       };
     });
     // I-8: "esta semana" solo si la semana visible incluye hoy — mismo criterio que el StatsBar viejo.
-    return metricasSemana(base, dias.some(d => localDate(d) === todayStr));
+    return metricasSemana(base, dias.some(d => localDate(d) === todayStr), now);
   }, [datosVista, vista, sesionesVistaFiltradas, diaSeleccionado, todayStr, now, reservasPorSesion, estadoPorSesion, tiposClase, dias]);
 
   // ── Franja de decisiones (puntos 3 y 4) ─────────────────────────────────────
@@ -2577,6 +2587,8 @@ export default function Calendario() {
           onCambiarPestana={setPestanaPanel}
           titulo={sesionActual.tipoClase.nombre}
           horaTexto={horaTextoSesion(sesionActual.inicio, sesionActual.fin)}
+          instructoraNombre={sesionActual.instructor.nombre === '?' ? null : sesionActual.instructor.nombre}
+          salaNombre={sesionActual.sala.nombre === '?' ? null : sesionActual.sala.nombre}
           estado={estadoVista}
           ocupacion={{ confirmadas: sesionActual.confirmadas, aforoMaximo: sesionActual.aforoMaximo }}
           accionesCabecera={esPropiaClase ? (
