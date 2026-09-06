@@ -22,7 +22,7 @@ import { semantic } from '@/lib/portal-tokens';
 export function CheckoutEmbebido({
   t, plan, clientSecret, publishableKey, stripeAccountId, onExito, onBizum, onCerrar,
   resumenClase, textoBoton, ventanaCancelacionHoras, datosPago, fuentePago, radioInput,
-  onProcesando,
+  onProcesando, importeTotal,
 }: {
   t: ModoTokens;
   plan: PlanTarifa;
@@ -96,6 +96,16 @@ export function CheckoutEmbebido({
    * callers que no lo pasan se comportan exactamente igual que antes.
    */
   onProcesando?: (enVuelo: boolean) => void;
+  /**
+   * Lo que se va a cobrar DE VERDAD, dicho por el servidor.
+   *
+   * ⚠️ Sin esto, el total y el botón salían de `plan.precio`, que es el precio
+   * SIN descuento: con un código aplicado la pantalla decía una cifra y Stripe
+   * cobraba otra. El descuento se resuelve en el servidor —y un código que ya
+   * no vale se ignora en silencio—, así que ninguna resta hecha aquí puede
+   * garantizar que coincidan. Opcional: sin pasarlo, se comporta como siempre.
+   */
+  importeTotal?: number;
 }) {
   // `useMemo`, no una constante a nivel de módulo: `stripeAccount` cambia
   // según de qué estudio sea el widget (varios widgets, distintos estudios,
@@ -281,7 +291,7 @@ export function CheckoutEmbebido({
         <div style={{ borderTop: `1px dashed ${t.line}` }} />
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <p style={{ fontSize: 12, color: t.muted }}>Total</p>
-          <p style={{ fontFamily: serif, fontSize: 20, color: t.ink }}>{plan.precio} €</p>
+          <p style={{ fontFamily: serif, fontSize: 20, color: t.ink }}>{importeTotal ?? plan.precio} €</p>
         </div>
       </div>
       <Elements
@@ -291,6 +301,7 @@ export function CheckoutEmbebido({
         <FormularioPago
           t={t} plan={plan} onExito={onExito} onBizum={onBizum} onCerrar={onCerrar} textoBoton={textoBoton}
           ventanaCancelacionHoras={ventanaCancelacionHoras} datosPago={datosPago} onProcesando={onProcesando}
+          importeTotal={importeTotal}
         />
       </Elements>
     </div>
@@ -298,12 +309,22 @@ export function CheckoutEmbebido({
 }
 
 function FormularioPago({
-  t, plan, onExito, onBizum, onCerrar, textoBoton, ventanaCancelacionHoras, datosPago, onProcesando,
+  t, plan, onExito, onBizum, onCerrar, textoBoton, ventanaCancelacionHoras, datosPago, onProcesando, importeTotal,
 }: {
   t: ModoTokens; plan: PlanTarifa; onExito: () => void; onBizum?: () => void; onCerrar: () => void;
   textoBoton?: string; ventanaCancelacionHoras?: number;
   datosPago?: { nombre?: string; email?: string; telefono?: string };
   onProcesando?: (enVuelo: boolean) => void;
+  /**
+   * Lo que se va a cobrar DE VERDAD, dicho por el servidor.
+   *
+   * ⚠️ Sin esto, el total y el botón salían de `plan.precio`, que es el precio
+   * SIN descuento: con un código aplicado la pantalla decía una cifra y Stripe
+   * cobraba otra. El descuento se resuelve en el servidor —y un código que ya
+   * no vale se ignora en silencio—, así que ninguna resta hecha aquí puede
+   * garantizar que coincidan. Opcional: sin pasarlo, se comporta como siempre.
+   */
+  importeTotal?: number;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -496,7 +517,7 @@ function FormularioPago({
             <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: 999, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.85, flexShrink: 0 }} />
             Procesando el pago…
           </span>
-        ) : (textoBoton ?? `Pagar ${plan.precio} €`)}
+        ) : (textoBoton ?? `Pagar ${importeTotal ?? plan.precio} €`)}
       </button>
       {/* Línea de confianza (pantalla 04) — candado + un hecho VERAZ (el pago
           lo procesa Stripe de verdad; nada de sellos ni "100% seguro") + la

@@ -236,6 +236,9 @@ export async function POST(req: NextRequest) {
   // app/api/stripe/checkout — el servidor recalcula siempre, un código
   // inválido/caducado/agotado no bloquea la compra, solo se ignora.
   let codigoDescuentoId: string | null = null;
+  // Cuánto se ha descontado, para poder DECÍRSELO a quien paga. Ver el
+  // comentario de la respuesta, al final de esta función.
+  let descuentoAplicado = 0;
   if (body.codigoDescuento) {
     const { data: codigosRaw } = await admin
       .from('codigos_descuento')
@@ -248,6 +251,7 @@ export async function POST(req: NextRequest) {
       esNueva: await esSociaNueva(admin, body.studioId, socioId, body.socioEmail),
     });
     if (resultado.ok) {
+      descuentoAplicado = resultado.descuento;
       importe = Math.max(0, Math.round((importe - resultado.descuento) * 100) / 100);
       const codigoAplicado = codigos.find(c => c.codigo.trim().toUpperCase() === body.codigoDescuento!.trim().toUpperCase());
       codigoDescuentoId = codigoAplicado?.id ?? null;
@@ -468,7 +472,24 @@ export async function POST(req: NextRequest) {
       idempotencyKey: idemKey,
     });
 
-    return conCorsWidget(req, NextResponse.json({ clientSecret: paymentIntent.client_secret }));
+    // ⚠️ Se devuelve el IMPORTE, y no es un extra: es lo único que permite que
+    // la pantalla enseñe lo que de verdad se va a cobrar.
+    //
+    // El total lo pintaba el cliente desde `plan.precio`, mientras el descuento
+    // se resuelve AQUÍ. Con un código aplicado, la pantalla decía el precio
+    // entero y Stripe cobraba menos; y como un código inválido «no bloquea la
+    // compra, solo se ignora» (ver arriba), un código que dejara de valer entre
+    // que se comprueba y se paga daba el desajuste contrario: pantalla con
+    // descuento y cobro completo.
+    //
+    // Con el importe del servidor no hay aritmética en el cliente que pueda
+    // divergir: se enseña el número con el que se ha creado el PaymentIntent.
+    return conCorsWidget(req, NextResponse.json({
+      clientSecret: paymentIntent.client_secret,
+      importe,
+      descuento: descuentoAplicado,
+      codigoAplicado: codigoDescuentoId !== null,
+    }));
   } catch (err) {
     return conCorsWidget(req, errorInterno('public/checkout-embebido:POST', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo más tarde.'));
   }

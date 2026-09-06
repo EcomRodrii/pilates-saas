@@ -5,7 +5,7 @@ import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
 import { MODO_TOKENS } from '@/lib/portal-paleta';
-import { iniciarCompra, clavePublicableStripe } from '@/lib/student/comprar';
+import { comprobarCodigo, iniciarCompra, clavePublicableStripe } from '@/lib/student/comprar';
 import { euros } from '@/lib/student/formato';
 import type { PlanTarifa } from '@/lib/types';
 
@@ -27,7 +27,7 @@ import type { PlanTarifa } from '@/lib/types';
 type Estado =
   | { fase: 'listo' }
   | { fase: 'preparando' }
-  | { fase: 'pagando'; clientSecret: string }
+  | { fase: 'pagando'; clientSecret: string; importe: number; descuento: number }
   | { fase: 'error'; mensaje: string; sesionCaducada?: boolean }
   | { fase: 'hecho' };
 
@@ -56,13 +56,45 @@ export function HojaCompra({
   const [confirmando, setConfirmando] = useState(false);
   const publishableKey = clavePublicableStripe();
 
+  // ── Código de descuento ───────────────────────────────────────────────
+  // ⚠️ AQUÍ NO SE RESTA NADA. Se manda el texto y el servidor decide, con la
+  // MISMA función que usa el cobro. Un descuento calculado en el cliente puede
+  // divergir del cargo, y ese es justo el fallo que este bloque evita.
+  const [codigo, setCodigo] = useState('');
+  const [comprobando, setComprobando] = useState(false);
+  const [codigoDicho, setCodigoDicho] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  const comprobar = useCallback(async () => {
+    if (!plan || !codigo.trim() || comprobando) return;
+    setComprobando(true);
+    const r = await comprobarCodigo(studioId, codigo.trim(), Number(plan.precio), socioId);
+    setComprobando(false);
+    setCodigoDicho(r.ok
+      ? { ok: true, texto: `Código aplicado: −${euros(r.descuento)}` }
+      : { ok: false, texto: r.motivo });
+  }, [plan, codigo, comprobando, studioId, socioId]);
+
   const arrancar = useCallback(async () => {
     if (!plan) return;
     setEstado({ fase: 'preparando' });
-    const r = await iniciarCompra(studioId, plan.id, socioId);
-    if (r.ok) { setEstado({ fase: 'pagando', clientSecret: r.clientSecret }); return; }
+    const r = await iniciarCompra(studioId, plan.id, socioId, codigo.trim() || null);
+    if (r.ok) {
+      // El importe con el que el servidor creó el cobro. Si un código dejó de
+      // valer entre comprobarlo y pagar, aquí llega el precio entero y eso es
+      // lo que se enseña — sin sorpresa en el extracto.
+      setEstado({
+        fase: 'pagando',
+        clientSecret: r.clientSecret,
+        importe: Number.isFinite(r.importe) ? r.importe : Number(plan.precio),
+        descuento: r.descuento,
+      });
+      if (codigo.trim() && !r.codigoAplicado) {
+        setCodigoDicho({ ok: false, texto: 'Ese código ya no se puede aplicar. Pagas el precio normal.' });
+      }
+      return;
+    }
     setEstado({ fase: 'error', mensaje: r.error, sesionCaducada: r.sesionCaducada });
-  }, [plan, studioId, socioId]);
+  }, [plan, studioId, socioId, codigo]);
 
   if (!plan) return null;
 
@@ -133,10 +165,51 @@ export function HojaCompra({
                 abandonados en el panel del estudio por cada curioseo. Y de paso
                 desaparece el `setState` dentro de un efecto que el compilador
                 de React rechaza, con razón. */}
-            <p className="t-meta" style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.55 }}>
-              Vas a pagar {euros(Number(plan.precio))}. El cobro lo hace el estudio a través de Stripe.
+            <p className="t-small t-dim" style={{ marginTop: 'var(--s-3)' }}>
+              El cobro lo hace el estudio a través de Stripe.
             </p>
-            <Button full onClick={() => void arrancar()} style={{ marginTop: 14 }}>
+
+            {/* ── Código de descuento ─────────────────────────────────────
+                El campo no promete nada por sí solo: quien dice si vale, y
+                cuánto, es el servidor. */}
+            <div style={{ marginTop: 'var(--s-4)' }}>
+              <p className="t-label" style={{ marginBottom: 'var(--s-2)' }}>¿Tienes un código?</p>
+              <div className="row" style={{ ['--gap' as string]: 'var(--s-2)' }}>
+                <input
+                  className="input"
+                  value={codigo}
+                  onChange={(e) => { setCodigo(e.target.value.toUpperCase()); setCodigoDicho(null); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void comprobar(); }}
+                  placeholder="CÓDIGO"
+                  aria-label="Código de descuento"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  style={{ height: 'var(--h-control-md)', fontSize: 13.5, letterSpacing: '.06em' }}
+                />
+                <Button
+                  variant="secondary"
+                  onClick={() => void comprobar()}
+                  loading={comprobando}
+                  disabled={!codigo.trim()}
+                  className="no-shrink"
+                >
+                  Aplicar
+                </Button>
+              </div>
+              {codigoDicho && (
+                <p
+                  role="status"
+                  data-testid="codigo-resultado"
+                  className={'note ' + (codigoDicho.ok ? 'note--ok' : 'note--warn')}
+                  style={{ marginTop: 'var(--s-2)' }}
+                >
+                  {codigoDicho.texto}
+                </p>
+              )}
+            </div>
+
+            <Button full onClick={() => void arrancar()} style={{ marginTop: 'var(--s-4)' }}>
               Continuar al pago
             </Button>
           </>
@@ -164,16 +237,61 @@ export function HojaCompra({
             <Button full onClick={onComprado} style={{ marginTop: 14 }}>Ver mis bonos</Button>
           </div>
         ) : (
-          <CheckoutEmbebido
+          <>
+            {/* ⚠️ El desglose sale del SERVIDOR, no de una resta aquí. Con un
+                código aplicado se ve el precio original, lo descontado y el
+                total; sin él, no se pinta nada y la pantalla queda como
+                estaba. El total es el importe con el que se creó el cobro. */}
+            {/* ⚠️ Y si el código YA NO VALE, se dice AQUÍ. El aviso se guardaba
+                pero solo se pintaba en la fase anterior, que para entonces ya
+                no está en pantalla: la alumna se quedaba esperando un
+                descuento que no iba a llegar y lo descubría en el extracto.
+                Lo cazó la prueba, no la revisión. */}
+            {estado.descuento === 0 && codigoDicho && !codigoDicho.ok && (
+              <p
+                role="status"
+                data-testid="codigo-resultado"
+                className="note note--warn"
+                style={{ marginBottom: 'var(--s-3)' }}
+              >
+                {codigoDicho.texto}
+              </p>
+            )}
+            {estado.descuento > 0 && (
+              <div
+                className="card card--pad stack"
+                data-testid="desglose"
+                style={{ ['--gap' as string]: 'var(--s-1)', marginBottom: 'var(--s-3)' }}
+              >
+                <div className="row row--between">
+                  <span className="t-small t-dim">Precio</span>
+                  <span className="t-small t-num">{euros(Number(plan.precio))}</span>
+                </div>
+                <div className="row row--between">
+                  <span className="t-small t-dim">Descuento</span>
+                  <span className="t-small t-num" style={{ color: 'var(--success)', fontWeight: 800 }}>
+                    −{euros(estado.descuento)}
+                  </span>
+                </div>
+                <div aria-hidden style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
+                <div className="row row--between">
+                  <span className="t-card-title">Total</span>
+                  <span className="t-card-title t-num">{euros(estado.importe)}</span>
+                </div>
+              </div>
+            )}
+            <CheckoutEmbebido
             t={MODO_TOKENS.dia}
             plan={plan}
             clientSecret={estado.clientSecret}
             publishableKey={publishableKey}
             stripeAccountId={stripeAccountId}
+            importeTotal={estado.importe}
             onProcesando={setConfirmando}
             onExito={() => { setConfirmando(false); setEstado({ fase: 'hecho' }); }}
             onCerrar={onCerrar}
-          />
+            />
+          </>
         )}
         </div>
       </div>
