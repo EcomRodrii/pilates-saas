@@ -1010,6 +1010,13 @@ export interface Factura {
   rectificaA?: string | null;
   tipoRectificativa?: 'S' | 'I' | null;
   importeRectificacion?: number | null;
+  /** Estado ante la AEAT: PENDIENTE | REGISTRADA | ACEPTADA_CON_ERRORES | RECHAZADA.
+   *  NULL = fuera de la cola (histórico anterior a la transmisión propia).
+   *  ⚠️ Se leía de la BD y se tiraba en el mapper: sin esto, un RECHAZADA por
+   *  Hacienda no se ve en ninguna pantalla. */
+  verifactuEstado?: string | null;
+  /** El CSV que devuelve la AEAT al admitir el registro. Es el acuse. */
+  verifactuCsv?: string | null;
 }
 
 // Ingreso cobrado FUERA de Tentare (efectivo, transferencia, otra plataforma…)

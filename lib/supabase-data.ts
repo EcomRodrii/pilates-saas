@@ -1057,6 +1057,11 @@ export function mapFactura(r: RowFacturas): Factura {
     verifactuPrevHash: r.verifactu_prev_hash ?? null,
     verifactuTs: r.verifactu_ts ?? null,
     verifactuSeq: r.verifactu_seq ?? null,
+    // ⚠️ Estos dos se SELECCIONAN de la BD desde siempre y no llegaban aquí:
+    // sin ellos, una factura RECHAZADA por la AEAT no se ve en ninguna
+    // pantalla — el único rastro sería un captureMessage en Sentry.
+    verifactuEstado: r.verifactu_estado ?? null,
+    verifactuCsv: r.verifactu_csv ?? null,
     serie: r.serie ?? undefined,
     tipo: r.tipo ?? undefined,
     rectificaA: r.rectifica_a ?? null,
