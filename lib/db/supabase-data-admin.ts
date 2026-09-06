@@ -31,6 +31,7 @@ import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContr
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
+import { calcularRacha } from '@/lib/engines/streak-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
@@ -2697,6 +2698,42 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
  * decide en el caller, nunca aquí).
  */
 
+// D-1 (auditoría 24ª pasada): cancelar una plaza fija (`res-pf-…`) da derecho
+// a una recuperación (compensa la clase perdida, tope de 4 dentro de la RPC) —
+// pero esto vivía SOLO dentro de `cancelarReservaPublica` (la socia cancela
+// desde el portal). El mostrador (`app/api/reservas/cancelar`) entraba
+// directo a `ejecutarCancelacionReserva` sin pasar por aquí: si recepción
+// cancelaba la MISMA plaza fija por teléfono, la socia perdía la clase sin
+// compensación — mismo hecho de negocio, resultado distinto según quién
+// pulsara el botón. Extraído a su propia función para que cualquier llamador
+// nuevo lo tenga por construcción, en vez de copiar el bloque una tercera vez.
+async function otorgarRecuperacionPlazaFijaSiAplica(
+  admin: SupabaseClient,
+  params: { studioId: string; socioId: string; reservaId: string; eraConfirmada: boolean },
+): Promise<{ recuperacionCreada: boolean; recuperacionCaducaEl: string | null }> {
+  if (!params.reservaId.startsWith('res-pf-') || !params.eraConfirmada) {
+    return { recuperacionCreada: false, recuperacionCaducaEl: null };
+  }
+  const recupId = `recup-${uid()}`;
+  const { data } = await admin.rpc('crear_recuperacion', {
+    p_id: recupId,
+    p_studio_id: params.studioId,
+    p_socio_id: params.socioId,
+    p_origen_reserva_id: params.reservaId,
+    p_motivo: 'Plaza fija — no puede esta semana',
+  });
+  const recuperacionCreada = data === 'CREADA';
+  // Para que quien la pidió pueda decir "recupérala antes del [fecha]" sin ir a
+  // buscarlo — la RPC solo devuelve 'CREADA'/'TOPE'/etc, no la fila. Una
+  // lectura más, solo cuando de verdad se creó una.
+  let recuperacionCaducaEl: string | null = null;
+  if (recuperacionCreada) {
+    const { data: fila } = await admin.from('recuperaciones').select('caduca_el').eq('id', recupId).maybeSingle();
+    recuperacionCaducaEl = (fila?.caduca_el as string | undefined) ?? null;
+  }
+  return { recuperacionCreada, recuperacionCaducaEl };
+}
+
 export async function ejecutarCancelacionReserva(
   admin: SupabaseClient,
   params: {
@@ -2706,6 +2743,12 @@ export async function ejecutarCancelacionReserva(
     // generar penalización aunque la cancelación sea tardía. Portal y panel
     // dejan esto en false (default): siguen aplicando la regla si toca.
     omitirPenalizacion?: boolean;
+    // D-1: por defecto SÍ se ofrece la recuperación de plaza fija — es lo que
+    // corresponde tanto si cancela la socia (portal) como si cancela recepción
+    // por ella (mostrador). Solo `app/api/socios/eliminar` lo pone a `false`:
+    // una cuenta que se está borrando no va a volver a canjear nada, y crear
+    // la fila ahí es puro ruido sobre un socio_id a punto de desaparecer.
+    otorgarRecuperacionPlazaFija?: boolean;
   },
 ): Promise<{
   ok: true; tardia: boolean; bonoDevuelto: boolean; eraConfirmada: boolean;
@@ -2715,6 +2758,9 @@ export async function ejecutarCancelacionReserva(
   // (Notification Engine) ya la disparó esta misma función más abajo, esto
   // es solo para que la UI no tenga que esperar al próximo refresco.
   promovidaSocioId: string | null; ofertaSocioId: string | null; ofertaExpiraEn: string | null;
+  // D-1: expuestos aquí (y no calculados aparte por cada caller) para que
+  // mostrador y portal enseñen el mismo "recupérala antes del [fecha]".
+  recuperacionCreada: boolean; recuperacionCaducaEl: string | null;
 } | { error: string }> {
   const { data, error } = await admin.rpc('cancelar_reserva_plaza', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
@@ -2815,11 +2861,22 @@ export async function ejecutarCancelacionReserva(
   if (cancelada?.socio_id) {
     await evaluarGamificacionServidor(admin, params.studioId, cancelada.socio_id as string);
   }
+
+  const eraConfirmada = row?.era_confirmada === true;
+  const { recuperacionCreada, recuperacionCaducaEl } =
+    params.otorgarRecuperacionPlazaFija !== false && cancelada?.socio_id
+      ? await otorgarRecuperacionPlazaFijaSiAplica(admin, {
+          studioId: params.studioId, socioId: cancelada.socio_id as string,
+          reservaId: params.reservaId, eraConfirmada,
+        })
+      : { recuperacionCreada: false, recuperacionCaducaEl: null };
+
   return {
-    ok: true as const, tardia, bonoDevuelto, eraConfirmada: row?.era_confirmada === true,
+    ok: true as const, tardia, bonoDevuelto, eraConfirmada,
     promovidaSocioId: (row?.promovida_socio_id as string | null) ?? null,
     ofertaSocioId: (row?.oferta_socio_id as string | null) ?? null,
     ofertaExpiraEn: (row?.oferta_expira_en as string | null) ?? null,
+    recuperacionCreada, recuperacionCaducaEl,
   };
 }
 
@@ -2856,40 +2913,12 @@ export async function cancelarReservaPublica(params: {
   }
 
   // tardia/bonoDevuelto → la UI puede confirmar a la socia si recuperó la sesión.
+  // recuperacionCreada/recuperacionCaducaEl (plaza fija, D-1): ahora las
+  // resuelve `ejecutarCancelacionReserva` internamente, con el mismo tope de 4
+  // que aplica la RPC — mismo camino que usa el mostrador.
   const r = await ejecutarCancelacionReserva(admin, { studioId: params.studioId, reservaId: params.reservaId, socioId: params.socioId });
   if ('error' in r) return r;
-
-  // F2 (B2.5) vía socia mínima: si lo que cancela es su PLAZA FIJA (reserva
-  // materializada por el cron, id `res-pf-…`), se le guarda una recuperación en
-  // vez de perder la clase — la misma compensación que la vía dueña-first. El tope
-  // (4) lo aplica la RPC. Para reservas normales no aplica (rige la devolución de
-  // bono habitual).
-  // Solo si la cancelación REALMENTE ocurrió ahora (la reserva estaba CONFIRMADA
-  // y se ha cancelado). `cancelar_reserva_plaza` devuelve sin error también cuando
-  // la reserva YA estaba CANCELADA (era_confirmada=false); sin este gate, re-llamar
-  // a cancelar la misma plaza fija minaba una recuperación nueva cada vez (hasta el
-  // tope de 4) → clases gratis self-service. La RPC además dedup por origen (0103).
-  let recuperacionCreada = false;
-  let recuperacionCaducaEl: string | null = null;
-  if (params.reservaId.startsWith('res-pf-') && r.eraConfirmada) {
-    const recupId = `recup-${uid()}`;
-    const { data } = await admin.rpc('crear_recuperacion', {
-      p_id: recupId,
-      p_studio_id: params.studioId,
-      p_socio_id: params.socioId,
-      p_origen_reserva_id: params.reservaId,
-      p_motivo: 'Plaza fija — no puede esta semana',
-    });
-    recuperacionCreada = data === 'CREADA';
-    // Para que el portal pueda decir "recupérala antes del [fecha]" sin que la
-    // socia tenga que ir a buscarlo — la RPC solo devuelve 'CREADA'/'TOPE'/etc,
-    // no la fila. Una lectura más, solo cuando de verdad se creó una.
-    if (recuperacionCreada) {
-      const { data: fila } = await admin.from('recuperaciones').select('caduca_el').eq('id', recupId).maybeSingle();
-      recuperacionCaducaEl = (fila?.caduca_el as string | undefined) ?? null;
-    }
-  }
-  return { ...r, recuperacionCreada, recuperacionCaducaEl };
+  return r;
 }
 
 // Gap 4 (portal Reservas > Pasadas, migr 20260828120000): la socia valora de
@@ -4075,6 +4104,21 @@ async function evaluarGamificacionServidor(
     if (!ctx) return;
     await evaluarLogrosServidor(admin, studioId, socioId, ctx);
     await evaluarRetosServidor(admin, studioId, socioId, ctx);
+    // D-2 (auditoría 24ª pasada): "Semana completa" (30 créditos) solo se
+    // otorgaba desde el check-in MANUAL del panel (`lib/studio-context.tsx`,
+    // llamaba a `calcularRacha` en cliente) — el check-in de servidor
+    // (`checkinPublico`, kiosko/escáner de pase) nunca la daba, aunque es el
+    // camino REAL de la mayoría de estudios. Mismo motor puro
+    // (`lib/engines/streak-engine.ts`) sobre el mismo contexto ya cargado
+    // arriba (reservas+sesiones ya reflejan el check-in que disparó esta
+    // evaluación, porque `cargarContextoGamificacion` lee de BD DESPUÉS del
+    // UPDATE). Mismo ref_id que el cliente (`socioId:claveSemanaActual`) —
+    // el UNIQUE de `reward_actions` es lo que evita otorgarla dos veces la
+    // misma semana, tanto si la da el panel como si la da el servidor.
+    const racha = calcularRacha(ctx.reservas, ctx.sesiones, new Date());
+    if (racha.semanas > 0) {
+      await otorgarCreditosServidor(admin, studioId, socioId, 'SEMANA_COMPLETA', `${socioId}:${racha.claveSemanaActual}`);
+    }
   } catch (err) {
     reportDbError('[evaluarGamificacionServidor]', err);
   }
