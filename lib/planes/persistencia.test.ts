@@ -167,3 +167,57 @@ test('el motivo distingue «sin permiso» de «ya no existe»', () => {
   // la fila se ve, lo que faltaba era el permiso.
   assert.match(cuerpo, /\.select\(/);
 });
+
+// ── La cobertura por tipo de clase no puede quedarse vacía a medias ──────────
+//
+// `plan_tipos_clase` sin filas para un plan significa «cubre TODAS las clases»
+// (migr 0111). Eso hace que el orden de las escrituras sea una decisión de
+// negocio, no de estilo: `sincronizarTiposDePlan` borraba TODO y luego
+// insertaba, así que un insert fallido dejaba el plan sin filas — un «Bono 10
+// Reformer» de 130 € pasaba a valer para Mat y para todo lo demás, con la
+// pantalla diciendo «Tarifa actualizada».
+//
+// Ahora sincroniza por diferencia y añade ANTES de quitar, así que el estado
+// «sin filas» no llega a existir.
+
+test('⚠️ sincronizarTiposDePlan no borra la cobertura entera antes de escribirla', () => {
+  const cuerpo = cuerpoDe('async function sincronizarTiposDePlan');
+  // Un `.delete()` acotado solo por el plan borra TODA su cobertura. El de
+  // ahora acota además por los tipos que sobran (`.in('tipo_clase_id', …)`).
+  const borrados = cuerpo.match(/\.delete\(\)[^\n]*/g) ?? [];
+  assert.ok(borrados.length > 0, 'ya no borra nada: ¿cambió la estrategia? actualiza este test');
+  for (const linea of borrados) {
+    assert.match(
+      linea,
+      /tipo_clase_id/,
+      'un delete acotado solo al plan deja la cobertura VACÍA = «cubre todas las clases»',
+    );
+  }
+});
+
+test('sincronizarTiposDePlan añade antes de quitar', () => {
+  // El orden es lo que hace que falle del lado seguro: si el insert no sale, el
+  // plan conserva su cobertura anterior en vez de quedarse abierto.
+  const cuerpo = cuerpoDe('async function sincronizarTiposDePlan');
+  const iInsert = cuerpo.indexOf('.insert(');
+  const iDelete = cuerpo.indexOf('.delete()');
+  assert.ok(iInsert !== -1 && iDelete !== -1, 'faltan insert o delete: actualiza este test');
+  assert.ok(iInsert < iDelete, 'quitar antes de añadir reabre la ventana de «sin filas»');
+});
+
+test('⚠️ un fallo al guardar la cobertura NO se canta como éxito', () => {
+  // Antes se reportaba a Sentry y se devolvía void, así que `dbUpdatePlanTarifa`
+  // seguía devolviendo ESCRITURA_OK y la pantalla decía que se había guardado.
+  const sincro = cuerpoDe('async function sincronizarTiposDePlan');
+  assert.match(sincro, /Promise<ResultadoEscritura>/, 'tiene que poder decir que falló');
+  assert.match(sincro, /return falloEscritura/, 'y devolverlo, no solo reportarlo');
+
+  for (const fn of ['export async function dbInsertPlanTarifa', 'export async function dbUpdatePlanTarifa']) {
+    const cuerpo = cuerpoDe(fn);
+    assert.match(
+      cuerpo,
+      /return sincronizarTiposDePlan\(/,
+      `${fn.replace('export async function ', '')} se traga el fallo de la cobertura en vez de propagarlo`,
+    );
+  }
+});

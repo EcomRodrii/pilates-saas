@@ -2124,22 +2124,67 @@ export async function dbAddComentarioComunidad(postId: string, texto: string): P
 
 /** Deja `plan_tipos_clase` exactamente con los tipos indicados (vacío = borra
  *  todo, que significa "cubre todas"). Se reemplaza en bloque: son 0-N filas. */
-async function sincronizarTiposDePlan(planId: string, studioId: string, tipos: string[] | undefined) {
-  if (tipos === undefined) return; // no se tocó el campo
-  const { error: errDel } = await supabase.from('plan_tipos_clase').delete().eq('plan_id', planId);
-  if (errDel) { reportDbError('[sincronizarTiposDePlan:delete]', errDel); return; }
-  if (tipos.length === 0) return;
-  const { error } = await supabase.from('plan_tipos_clase').insert(
-    tipos.map(t => ({ plan_id: planId, tipo_clase_id: t, studio_id: studioId })),
-  );
-  if (error) reportDbError('[sincronizarTiposDePlan:insert]', error);
+/**
+ * Deja `plan_tipos_clase` con exactamente los tipos pedidos.
+ *
+ * ⚠️ Antes esto BORRABA TODO y luego insertaba, y fallaba EN ABIERTO. Si el
+ * insert no salía —un blip de red, un tipo de clase borrado entre medias— el
+ * plan se quedaba SIN FILAS, y sin filas significa «cubre TODAS las clases»
+ * (migr 0111). Un «Bono 10 Reformer» de 130 € pasaba a valer para Mat y para
+ * todo lo demás, la pantalla decía «Tarifa actualizada» y el estado de React
+ * seguía enseñando la cobertura correcta hasta la siguiente recarga. La socia
+ * gastaba el bono caro en la clase barata y nadie veía nada raro.
+ *
+ * Ahora se sincroniza por DIFERENCIA y en el orden que falla del lado seguro:
+ * primero se añade lo que falta, después se quita lo que sobra. Así el momento
+ * «sin filas» no existe nunca:
+ *
+ *   · si falla el INSERT, el plan conserva su cobertura anterior (más
+ *     restrictiva que la pedida: falla CERRADO);
+ *   · si falla el DELETE, conserva algún tipo de más — un superconjunto de lo
+ *     que ya tenía, nunca «todas».
+ *
+ * Y en los dos casos se DEVUELVE el fallo, para que quien guarda deje de decir
+ * que se guardó.
+ */
+async function sincronizarTiposDePlan(
+  planId: string, studioId: string, tipos: string[] | undefined,
+): Promise<ResultadoEscritura> {
+  if (tipos === undefined) return ESCRITURA_OK; // no se tocó el campo
+
+  const { data: actualesRows, error: errLee } = await supabase
+    .from('plan_tipos_clase').select('tipo_clase_id').eq('plan_id', planId);
+  if (errLee) return falloEscritura('[sincronizarTiposDePlan:leer]', errLee);
+
+  const actuales = new Set((actualesRows ?? []).map(r => r.tipo_clase_id as string));
+  const pedidos = new Set(tipos);
+  const aInsertar = tipos.filter(t => !actuales.has(t));
+  const aBorrar = [...actuales].filter(t => !pedidos.has(t));
+
+  // Primero añadir. Si esto falla, no se ha quitado nada todavía.
+  if (aInsertar.length > 0) {
+    const { error } = await supabase.from('plan_tipos_clase').insert(
+      aInsertar.map(t => ({ plan_id: planId, tipo_clase_id: t, studio_id: studioId })),
+    );
+    if (error) return falloEscritura('[sincronizarTiposDePlan:insert]', error);
+  }
+
+  // Y ahora sí quitar lo que sobra.
+  if (aBorrar.length > 0) {
+    const { error } = await supabase
+      .from('plan_tipos_clase').delete().eq('plan_id', planId).in('tipo_clase_id', aBorrar);
+    if (error) return falloEscritura('[sincronizarTiposDePlan:delete]', error);
+  }
+
+  return ESCRITURA_OK;
 }
 
 export async function dbInsertPlanTarifa(plan: PlanTarifa): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('planes_tarifa').insert(planTarifaToDb(plan));
   if (error) return falloEscritura('[dbInsertPlanTarifa]', error);
-  await sincronizarTiposDePlan(plan.id, plan.studioId ?? STUDIO_ID, plan.tiposClaseIds);
-  return ESCRITURA_OK;
+  // Se propaga: una tarifa creada sin su cobertura vale para TODAS las clases,
+  // que es justo lo contrario de lo que acaba de pedir la propietaria.
+  return sincronizarTiposDePlan(plan.id, plan.studioId ?? STUDIO_ID, plan.tiposClaseIds);
 }
 
 export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>): Promise<ResultadoEscritura> {
@@ -2167,7 +2212,10 @@ export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa
   if (!tocadas?.length) return { ok: false, error: await motivoSinEfecto(id, 'cambiar') };
   if ('tiposClaseIds' in changes) {
     const { data: fila } = await supabase.from('planes_tarifa').select('studio_id').eq('id', id).maybeSingle();
-    if (fila?.studio_id) await sincronizarTiposDePlan(id, fila.studio_id as string, changes.tiposClaseIds);
+    if (!fila?.studio_id) {
+      return { ok: false, error: 'No hemos podido guardar a qué clases se aplica. Vuelve a intentarlo.' };
+    }
+    return sincronizarTiposDePlan(id, fila.studio_id as string, changes.tiposClaseIds);
   }
   return ESCRITURA_OK;
 }
