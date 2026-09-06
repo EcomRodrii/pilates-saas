@@ -243,6 +243,40 @@ export function calcularReactivacion(
   plan: Pick<PlanTarifa, 'tipo' | 'sesiones' | 'validezDias'>,
   ahoraISO: string,
 ): { fechaFin: string | null; sesionesRestantes: number | null } {
+  // Reactivar es empezar un ciclo desde cero, así que es literalmente lo mismo
+  // que un alta. Ver `cicloInicialDe`.
+  return cicloInicialDe(plan, ahoraISO);
+}
+
+/**
+ * El primer ciclo de un plan recién contratado: hasta cuándo vale y con
+ * cuántas sesiones nace.
+ *
+ * ⚠️ EXISTE PORQUE LOS TRES CAMINOS DE ALTA LO HACÍAN MAL. Los tres llamaban a
+ * `calcularFechaFinBono(ahora, plan.validezDias)` **sin mirar el tipo**, y
+ * `formularioAPlan` fuerza `validezDias: null` en todo MENSUAL (un mensual se
+ * renueva, no caduca por días). Resultado: `fecha_fin` a NULL, que aguas abajo
+ * significa «no caduca nunca»:
+ *
+ *   · `tieneEntitlementActivo` lo da por vigente para siempre;
+ *   · el cron de renovaciones filtra `fecha_fin is not null`, así que NUNCA
+ *     genera el recibo del mes 2;
+ *   · el efecto de planes caducados del panel corta en `!sus.fechaFin`.
+ *
+ * O sea: se cobraba UN mes y la socia seguía reservando gratis, sin error, sin
+ * recibo pendiente y sin nada raro que mirar. Encontrado en producción el
+ * 2026-09-05 con 4 de 14 suscripciones mensuales activas así — 172 €/mes que
+ * no se iban a volver a cobrar nunca.
+ *
+ * La lógica correcta ya vivía aquí, en `calcularReactivacion`, cuyo comentario
+ * decía «mismo criterio que `assignPlan`» — y no lo era. Ahora sí: los cuatro
+ * caminos (alta de socia, asignar plan, compra web y reactivar) pasan por esta
+ * función y no pueden volver a separarse.
+ */
+export function cicloInicialDe(
+  plan: Pick<PlanTarifa, 'tipo' | 'sesiones' | 'validezDias'>,
+  ahoraISO: string,
+): { fechaFin: string | null; sesionesRestantes: number | null } {
   if (plan.tipo === 'MENSUAL') {
     // P-9 (auditoría 21ª pasada): mismo bug que ya arregla
     // `calcularFechaFinBono` — el día del estudio, no el de UTC.

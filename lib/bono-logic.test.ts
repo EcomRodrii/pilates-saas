@@ -7,7 +7,7 @@ import {
   bonoConsumible, bonoDevolvible, calcularConsumoBono, tieneEntitlementActivo,
   calcularFechaFinBono, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
-  saldoSesionesBono, avisaBonoAgotado } from './bono-logic.ts';
+  saldoSesionesBono, avisaBonoAgotado, cicloInicialDe } from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 function sus(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
@@ -546,4 +546,71 @@ test('un mensual no pasa por aquí: su renovación la lleva el cron', () => {
   // `lib/inngest/renovaciones.ts` filtra por MENSUAL y sigue intacto — es el
   // único camino que renueva solo, y debe seguir haciéndolo.
   assert.equal(avisaBonoAgotado({ tipo: 'MENSUAL' }), false);
+});
+
+// ── El primer ciclo de un plan (cicloInicialDe) ──────────────────────────────
+
+test('⚠️ un MENSUAL nace con fecha de fin: sin ella no se cobra NUNCA más', () => {
+  // El agujero de caja encontrado en producción el 2026-09-05: 4 de 14
+  // suscripciones mensuales activas tenían `fecha_fin` a NULL, o sea 172 €/mes
+  // que no se iban a volver a cobrar. Los tres caminos de alta llamaban a
+  // `calcularFechaFinBono(ahora, plan.validezDias)` sin mirar el tipo, y un
+  // MENSUAL tiene `validezDias` null POR DEFINICIÓN (se renueva, no caduca).
+  const ciclo = cicloInicialDe({ tipo: 'MENSUAL', sesiones: null, validezDias: null }, '2026-09-06T10:00:00Z');
+  assert.equal(ciclo.fechaFin, '2026-10-06', 'un mes vista');
+  assert.equal(ciclo.sesionesRestantes, null, 'un mensual no gasta sesiones');
+});
+
+test('el mensual ignora `validezDias` aunque venga con valor', () => {
+  // Si un plan mensual trae días por lo que sea, no convierten el mensual en
+  // un bono: sigue siendo un ciclo de un mes.
+  const ciclo = cicloInicialDe({ tipo: 'MENSUAL', sesiones: 8, validezDias: 90 }, '2026-09-06T10:00:00Z');
+  assert.equal(ciclo.fechaFin, '2026-10-06');
+  assert.equal(ciclo.sesionesRestantes, null);
+});
+
+test('un BONO conserva su caducidad por días y sus sesiones', () => {
+  const ciclo = cicloInicialDe({ tipo: 'BONO', sesiones: 10, validezDias: 60 }, '2026-09-06T10:00:00Z');
+  assert.equal(ciclo.fechaFin, '2026-11-05');
+  assert.equal(ciclo.sesionesRestantes, 10);
+});
+
+test('un BONO sin caducidad sigue sin caducar — eso sí es intencionado', () => {
+  // Aquí NULL sí significa «no caduca», y es una opción real del formulario.
+  // La diferencia con el mensual es que allí nadie lo había elegido.
+  const ciclo = cicloInicialDe({ tipo: 'BONO', sesiones: 4, validezDias: null }, '2026-09-06T10:00:00Z');
+  assert.equal(ciclo.fechaFin, null);
+  assert.equal(ciclo.sesionesRestantes, 4);
+});
+
+test('una CLASE SUELTA se comporta como el bono', () => {
+  const ciclo = cicloInicialDe({ tipo: 'PUNTUAL', sesiones: 1, validezDias: 30 }, '2026-09-06T10:00:00Z');
+  assert.equal(ciclo.fechaFin, '2026-10-06');
+  assert.equal(ciclo.sesionesRestantes, 1);
+});
+
+test('reactivar y dar de alta son el MISMO ciclo, no dos criterios', () => {
+  // `calcularReactivacion` ya tenía la lógica buena y su comentario decía
+  // «mismo criterio que assignPlan» — pero assignPlan hacía otra cosa. Ahora
+  // delega, así que no pueden volver a separarse.
+  for (const plan of [
+    { tipo: 'MENSUAL' as const, sesiones: null, validezDias: null },
+    { tipo: 'BONO' as const, sesiones: 10, validezDias: 60 },
+    { tipo: 'PUNTUAL' as const, sesiones: 1, validezDias: null },
+  ]) {
+    assert.deepEqual(
+      calcularReactivacion(plan, '2026-09-06T10:00:00Z'),
+      cicloInicialDe(plan, '2026-09-06T10:00:00Z'),
+      `divergen en ${plan.tipo}`,
+    );
+  }
+});
+
+test('el mensual de madrugada usa el día de Madrid, no el de UTC', () => {
+  // 01:30 de Madrid son las 23:30 UTC del día anterior: sin esto el ciclo
+  // empezaría (y acabaría) un día antes de lo que vivió la propietaria.
+  assert.equal(
+    cicloInicialDe({ tipo: 'MENSUAL', sesiones: null, validezDias: null }, '2026-09-05T23:30:00Z').fechaFin,
+    '2026-10-06',
+  );
 });

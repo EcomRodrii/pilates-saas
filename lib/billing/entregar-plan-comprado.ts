@@ -23,7 +23,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // fichero avisan con `console.error`, como ya hacía el snapshot de entrega.
 import { hoyEnEstudio } from '../utils.ts';
 import { escaparLike } from '../escapar-like.ts';
-import { calcularFechaFinBono } from '../bono-logic.ts';
+import { cicloInicialDe } from '../bono-logic.ts';
+import type { PlanTarifa } from '../types.ts';
 import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
 import type { FuenteConfirmacion } from './confirmar-cobro.ts';
 
@@ -311,12 +312,18 @@ export async function entregarPlanComprado(
   }
 
   // ── 2. La suscripción (el bono en sí) ──────────────────────────────────────
-  const validez = plan.validez_dias as number | null;
   // P-9 (auditoría 21ª pasada, residual): este cálculo duplicaba a mano lo que
-  // ya hace `calcularFechaFinBono` (con el mismo bug de UTC-en-vez-de-Madrid
-  // que esa función ya corrige) en vez de reutilizarla — se encontró al volver
-  // a este fichero para P-6, no en la pasada de P-9 original.
-  const fechaFin = calcularFechaFinBono(hoy, validez);
+  // ya hacía `calcularFechaFinBono` (con el mismo bug de UTC-en-vez-de-Madrid
+  // que esa función ya corrige) en vez de reutilizarla.
+  //
+  // Y desde el 2026-09-06 no es `calcularFechaFinBono` sino `cicloInicialDe`:
+  // un MENSUAL comprado desde la web nacía con `fecha_fin` a NULL —porque su
+  // `validezDias` es null por definición— y eso aguas abajo es «no caduca
+  // nunca». Había una suscripción así en producción, comprada por web.
+  const { fechaFin } = cicloInicialDe(
+    { tipo: plan.tipo as PlanTarifa['tipo'], sesiones: plan.sesiones as number | null, validezDias: plan.validez_dias as number | null },
+    hoy,
+  );
 
   const { error: errSus } = await admin.from('suscripciones').insert({
     id: ids.suscripcionId,
