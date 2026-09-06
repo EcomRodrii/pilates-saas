@@ -130,3 +130,35 @@ test('ningún estado se queda sin mensaje', () => {
     assert.ok(m.titulo.length > 0 && m.detalle.length > 0, JSON.stringify(entrada));
   }
 });
+
+test('⚠️ un «trialing» nuestro SIN fecha de fin no da acceso: era gratis para siempre', () => {
+  // El agujero real, visto en producción el 2026-09-05: un estudio con 35 días
+  // de plan CADENA sin pagar un euro y sin nada que fuera a terminarlo.
+  //
+  // El razonamiento era circular. `accesoProducto` da por bueno 'trialing' y
+  // delega aquí la distinción entre la prueba de Stripe y la nuestra; aquí, sin
+  // fecha, se contestaba SIN_PRUEBA («que decida la suscripción») y la
+  // suscripción era ese mismo 'trialing'. Y `cerrar_pruebas_vencidas()`
+  // filtraba por `trial_ends_at is not null`, así que tampoco lo veía.
+  const roto = estadoTrial({ trialEndsAt: null, subscriptionStatus: 'trialing', subscriptionId: null }, AHORA);
+  assert.equal(roto.agotada, true, 'sin fecha de fin no puede haber acceso');
+  assert.equal(roto.enPrueba, false);
+});
+
+test('la prueba de STRIPE sin trial_ends_at sigue siendo válida', () => {
+  // Ahí la fecha vive en Stripe, no en nuestra columna, y quien cierra es
+  // Stripe: `subscriptionId` es lo que las separa. Confundirlas cortaría el
+  // acceso a quien sí tiene tarjeta puesta.
+  const stripe = estadoTrial({ trialEndsAt: null, subscriptionStatus: 'trialing', subscriptionId: 'sub_123' }, AHORA);
+  assert.equal(stripe.fase, 'SUSCRITO');
+  assert.equal(stripe.agotada, false);
+});
+
+test('los estudios anteriores a la apertura NO se ven afectados', () => {
+  // Son `active` (o sin estado), no 'trialing': siguen cayendo en SUSCRITO o en
+  // SIN_PRUEBA como antes. El cambio solo alcanza a la combinación incoherente,
+  // y este test es el que fija ese límite.
+  assert.equal(estadoTrial({ trialEndsAt: null, subscriptionStatus: 'active' }, AHORA).agotada, false);
+  assert.equal(estadoTrial({ trialEndsAt: null, subscriptionStatus: null }, AHORA).fase, 'SIN_PRUEBA');
+  assert.equal(estadoTrial({ trialEndsAt: null, subscriptionStatus: 'trial_expirado' }, AHORA).fase, 'SIN_PRUEBA');
+});

@@ -126,6 +126,26 @@ export function estadoTrial(entrada: EntradaTrial, ahora: Date = new Date()): Es
     return { enPrueba: false, fase: 'SUSCRITO', diasRestantes: 0, finaliza: null, agotada: false };
   }
 
+  // ⚠️ 'trialing' NUESTRO (sin `subscriptionId`) y SIN fecha de fin: un estado
+  // incoherente que daba acceso completo para siempre.
+  //
+  // El razonamiento era circular. `accesoProducto` da por bueno 'trialing' y
+  // delega en esta función la distinción entre la prueba de Stripe y la
+  // nuestra; esta función, al no ver fecha, contestaba SIN_PRUEBA —«que decida
+  // la suscripción»— y la suscripción era justo ese 'trialing'. Nadie cerraba:
+  // `cerrar_pruebas_vencidas()` filtraba por `trial_ends_at is not null`, así
+  // que tampoco lo veía. Visto en producción el 2026-09-05: un estudio con 35
+  // días de plan CADENA sin pagar y sin nada que fuera a terminarlo nunca.
+  //
+  // Se trata como prueba agotada, que es lo único seguro: si de verdad tiene
+  // derecho a acceso, alguien tiene que decirlo poniéndole una suscripción o
+  // una fecha — no la AUSENCIA de un dato. La combinación ya no debería
+  // existir (la repara la migr 20260905213839, que además endurece el
+  // barrido); esto es la red por si vuelve.
+  if (!fin && status === 'trialing') {
+    return { enPrueba: false, fase: 'EXPIRADA', diasRestantes: 0, finaliza: null, agotada: true };
+  }
+
   // Estudio SIN prueba local: los de antes de abrir al público. No es una
   // prueba agotada — es que nunca la hubo. Quien decide su acceso sigue siendo
   // la suscripción, como toda la vida.
