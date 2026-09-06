@@ -167,3 +167,26 @@ test('los campos obligatorios declarados son clase y hora de inicio', () => {
   const obligatorios = CAMPOS_CLASE.filter(c => c.obligatorio).map(c => c.campo);
   assert.deepEqual(obligatorios.sort(), ['clase', 'hora_inicio']);
 });
+
+// ── Regresión: el horario exportado en inglés no se importaba ────────────────
+// «Class name;Instructor;Room;Day;Start;Duration;Capacity» — el export típico de
+// una plataforma internacional. La columna «Day» no se mapeaba a nada, así que
+// las cinco filas morían con «Falta la fecha o el día de la semana» y el
+// horario entero se quedaba en cuarentena (0 % válidas). `parsearDiaSemana` ya
+// entendía «Monday»: lo que faltaba era llegar hasta él.
+test('un horario en inglés con columna «Day» se mapea y valida', () => {
+  const headers = ['Class name', 'Instructor', 'Room', 'Day', 'Start', 'Duration (min)', 'Capacity'];
+  const mapeo = autoMapearClase(headers);
+  assert.equal(mapeo.dia_semana, 3, 'la columna «Day» debe mapear a día de la semana');
+
+  const filas = validarFilasClase(
+    [
+      ['Reformer Inicial', 'Laura Giménez', 'Sala Reformer', 'Monday', '10:00', '50', '8'],
+      ['Yoga Vinyasa', 'Nuria Vidal', 'Sala 3', 'Thursday', '19:30', '60', '14'],
+    ],
+    mapeo,
+  );
+  assert.equal(filas.filter(f => f.estado === 'ok').length, 2);
+  assert.equal(filas[0].datos.diaSemana, 1); // lunes
+  assert.equal(filas[1].datos.diaSemana, 4); // jueves
+});

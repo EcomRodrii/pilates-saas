@@ -113,3 +113,27 @@ test('membresías sin archivo de clientas → aviso global; orden respeta depend
   const soloBonos = await analizarArchivos([{ nombre: 'bonos.csv', contenido: bonos }], CTX);
   assert.ok(soloBonos.avisos.some(a => a.includes('clientas')));
 });
+
+// ── Regresión: la migración inventaba deudas ─────────────────────────────────
+// Un export de clientas con «Expiry Date» (la caducidad del BONO, que es como
+// la llama todo el mundo) derivaba un bloque «Recuperaciones pendientes» con
+// una por socia — incluidas las que tenían la celda vacía. Una recuperación es
+// una clase gratis que el estudio le debe a alguien: confirmar el plan de
+// migración le regalaba clases que nunca prometió.
+test('una columna de caducidad de bono NO genera recuperaciones inventadas', async () => {
+  const csv = [
+    'First Name,Last Name,Email Address,Membership,Credits Remaining,Expiry Date',
+    'Elena,Sanz,elena@test.com,Bono 10,4,2026-11-30',
+    'Pilar,Muñoz,pilar@test.com,Cuota mensual,,',
+  ].join('\n');
+  const plan = await analizarArchivos([{ nombre: 'clientas.csv', contenido: csv }], CTX);
+  assert.equal(plan.archivos.some(a => a.entidad === 'recuperaciones'), false);
+  assert.equal(plan.archivos.some(a => a.entidad === 'socias'), true);
+});
+
+test('un archivo con columna de recuperaciones de verdad sí se reconoce', async () => {
+  const csv = 'Email;Recuperaciones pendientes;Caduca\nelena@test.com;2;2026-11-30\n';
+  const plan = await analizarArchivos([{ nombre: 'recuperaciones.csv', contenido: csv }], CTX);
+  assert.equal(plan.archivos[0].entidad, 'recuperaciones');
+  assert.equal(plan.archivos[0].ok, 1);
+});
