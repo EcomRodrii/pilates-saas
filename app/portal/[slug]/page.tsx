@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
+import { compararPorCaducidad } from '@/lib/student/bono-cubre';
 import { useAsync } from '@/lib/student/useAsync';
 import { getBonos, getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/student/datos';
 import { bonoParaClase } from '@/lib/student/bono-cubre';
@@ -49,7 +50,12 @@ export default function InicioPage() {
   const plazaFija = data?.plazaFija ?? null;
   const gamificacion = data?.gamificacion ?? null;
 
-  const bonoActivo = data?.bonos.find((b) => b.estado === 'activo') ?? null;
+  // ⚠️ El que el servidor gastaría primero, no «el primero del array».
+  // `.find()` devolvía el que viniera antes en la respuesta, así que la tarjeta
+  // de inicio podía anunciar un bono y el servidor descontar otro.
+  const bonoActivo = [...(data?.bonos ?? [])]
+    .filter((b) => b.estado === 'activo')
+    .sort(compararPorCaducidad)[0] ?? null;
 
   // La próxima: de sus reservas confirmadas, la primera que aún no ha pasado.
   // El paquete no filtra por fecha porque sus datos de ejemplo son siempre
