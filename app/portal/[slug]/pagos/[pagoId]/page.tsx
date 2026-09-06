@@ -76,7 +76,9 @@ export default function ReciboPage() {
           <p
             style={{
               margin: '12px 0 0', fontSize: 34, fontWeight: 800, letterSpacing: '-.03em',
-              textDecoration: data.estado === 'refunded' ? 'line-through' : 'none',
+              // Ver la nota de abajo: un recibo devuelto por el banco sigue
+              // siendo deuda, así que su importe no se tacha.
+              textDecoration: 'none',
             }}
           >
             {euros(data.importe)}
@@ -104,9 +106,16 @@ export default function ReciboPage() {
               El pago no se completó y no se ha hecho ningún cargo. Habla con el estudio para volver a intentarlo.
             </p>
           )}
+          {/* ⚠️ `refunded` NO es «te devolvimos el dinero»: sale de
+              `recibos.estado = 'DEVUELTO'` (lib/student/mapeo.ts), que en el
+              panel se lee «Devuelto por el banco» — es decir, el cobro se
+              intentó, el banco lo rechazó y el importe SIGUE DEBIÉNDOSE. El
+              texto anterior decía justo lo contrario, y con el bloqueo por
+              impago encendido la alumna leía «este importe se te devolvió»
+              mientras el sistema no la dejaba reservar por deberlo. */}
           {data.estado === 'refunded' && (
-            <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--muted-foreground)', fontWeight: 700 }}>
-              Este importe se te devolvió.
+            <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--destructive-foreground)', fontWeight: 700 }}>
+              El banco devolvió este recibo, así que el pago no llegó a completarse. Habla con el estudio para resolverlo.
             </p>
           )}
         </div>

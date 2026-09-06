@@ -2853,15 +2853,34 @@ export async function dbMarcarCobrado(
 ): Promise<ResultadoEscritura & { yaEstaba?: boolean }> {
   const db: Record<string, unknown> = { estado: 'COBRADO', fecha_cobro: changes.fechaCobro };
   if (changes.metodoCobro) db.metodo_cobro = changes.metodoCobro;
+  // ⚠️ PENDIENTE, FALLIDO y DEVUELTO — los tres son deuda viva y los tres se
+  // pueden cobrar en mano.
+  //
+  // Antes era `.eq('estado','PENDIENTE')` a secas, y eso dejaba un callejón sin
+  // salida: la fila de un recibo FALLIDO SÍ ofrece el botón «Cobrar» (con un
+  // comentario al lado explicando que se cobra igual que un PENDIENTE), pero
+  // este escritor no casaba ninguna fila y devolvía «ya no está pendiente». La
+  // socia pagaba en efectivo, la propietaria pulsaba Cobrar, leía un error que
+  // no venía a cuento, y el recibo seguía en rojo. Con el bloqueo por impago
+  // encendido (#1664) eso además la dejaba SIN PODER RESERVAR, sin ninguna vía
+  // de UI para arreglarlo: «Cobrar online» exige tarjeta guardada y volvería a
+  // cobrar un dinero ya cobrado.
+  //
+  // DEVUELTO es el caso más claro de los tres: el banco devolvió el recibo, o
+  // sea que el dinero NO está. Que no se pudiera marcar cobrado a mano era
+  // dejar la deuda sin ninguna salida.
+  //
+  // El filtro por estado se mantiene (no se quita, se amplía): sigue siendo un
+  // compare-and-set que impide re-cobrar algo ya COBRADO o anulado.
   const { data, error } = await supabase
     .from('recibos')
     .update(db)
     .eq('id', id)
-    .eq('estado', 'PENDIENTE')
+    .in('estado', ['PENDIENTE', 'FALLIDO', 'DEVUELTO'])
     .select('id');
   if (error) return falloEscritura('[dbMarcarCobrado]', error);
   if (!data || data.length === 0) {
-    return { ok: false, error: 'Este recibo ya no está pendiente (puede que ya se haya cobrado).', yaEstaba: true };
+    return { ok: false, error: 'Este recibo ya no se puede cobrar (puede que ya esté cobrado o anulado).', yaEstaba: true };
   }
   return ESCRITURA_OK;
 }
@@ -2941,8 +2960,13 @@ export async function dbUpdateRecibosBatch(
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
   if (Object.keys(db).length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   let q = supabase.from('recibos').update(db).in('id', ids);
-  const filtroEstado = soloSiEstadoActual ?? (changes.estado === 'COBRADO' ? 'PENDIENTE' : undefined);
+  // Mismo criterio que dbMarcarCobrado: cobrar en lote también alcanza a los
+  // FALLIDO y DEVUELTO, que son deuda viva. Antes solo casaba PENDIENTE, así
+  // que un cobro masivo saltaba en silencio justo los recibos problemáticos —
+  // los únicos por los que alguien usaría el masivo.
+  const filtroEstado = soloSiEstadoActual;
   if (filtroEstado) q = q.eq('estado', filtroEstado);
+  else if (changes.estado === 'COBRADO') q = q.in('estado', ['PENDIENTE', 'FALLIDO', 'DEVUELTO']);
   const { data, error } = await q.select('id');
   if (error) return falloEscritura('[dbUpdateRecibosBatch]', error);
   return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string) };
