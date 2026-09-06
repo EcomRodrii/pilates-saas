@@ -14,6 +14,7 @@ import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando } from '@/lib/bono-logic';
+import { planesComprablesParaReservar } from '@/lib/reserva-planes-comprables';
 import { resolutorCobertura, precioDeCobertura, textoCobertura, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
   contarReservasActivasFuturas, esCancelacionTardia,
@@ -1545,23 +1546,13 @@ export default function ReservarPage() {
   }, [citas, citasServicios, instructores, socia]);
 
   // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §2):
-  // el plan PUNTUAL (una sola sesión) que cubre esta clase, si existe. Mismo
-  // criterio de cobertura que el resto del repo (tiposClaseIds vacío/ausente
-  // = cubre todos los tipos, ver hidratarTiposDePlanes/tieneEntitlementActivo).
+  // lo primero que se le ofrece a quien llega sin cuenta. La clase suelta si
+  // existe (es la entrada más barata); si el estudio no vende clases sueltas,
+  // el bono más barato que cubra la clase.
   function planClaseSueltaPara(tipoClaseId: string | null | undefined, planes: PlanTarifa[]): PlanTarifa | null {
-    return planesClaseSueltaPara(tipoClaseId, planes)[0] ?? null;
+    return planesComprablesParaReservar(tipoClaseId, planes)[0] ?? null;
   }
 
-  // "Bonos y mensualidades del estudio" (checkout sin login, diseño "Tentare
-  // Portal Reservas"): TODOS los planes PUNTUAL que cubren esta clase, no solo
-  // el primero — conflicto aprobado explícitamente por el fundador ("solo
-  // planes PUNTUAL", no bonos multi-sesión/mensualidades: esos no se pueden
-  // pagar-y-usar en el mismo movimiento sin cuenta todavía creada). Mismo
-  // criterio de cobertura que la versión singular de arriba.
-  function planesClaseSueltaPara(tipoClaseId: string | null | undefined, planes: PlanTarifa[]): PlanTarifa[] {
-    return planes.filter(p => p.activo && p.tipo === 'PUNTUAL'
-      && (!p.tiposClaseIds || p.tiposClaseIds.length === 0 || (!!tipoClaseId && p.tiposClaseIds.includes(tipoClaseId))));
-  }
 
   // Gate de derechos (C-4): mismo criterio que el servidor, para avisar antes de
   // intentar la reserva. El servidor es la autoridad; esto es solo UX.
@@ -1662,11 +1653,12 @@ export default function ReservarPage() {
     setPagoWebSinLogin(false);
     if (!autenticado) {
       // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
-      // §2/§3): si esta clase exige plan y hay un plan de una sola sesión que
-      // la cubre, el pago sustituye al login — nunca lo precede. Una clase sin
-      // esa regla (o sin ese plan a la venta) sigue yendo por 'login' como
-      // siempre: es la Ruta A únicamente, no el camino "reservar gratis sin
-      // cuenta" (deferred a propósito, ver nota junto a handleDatosContinuar).
+      // §2/§3): si esta clase exige plan y hay algo comprable que la cubre
+      // (clase suelta o bono, ver `planesComprablesParaReservar`), el pago
+      // sustituye al login — nunca lo precede. Una clase sin esa regla (o sin
+      // nada a la venta que la cubra) sigue yendo por 'login' como siempre: no
+      // existe un camino "reservar gratis sin cuenta" (deferred a propósito,
+      // ver la nota junto a handleDatosContinuar).
       const sesionDelGate = sesionId ? sesiones.find(s => s.id === sesionId) : undefined;
       const tipoDelGate = sesionDelGate?.tipoClaseId ? tiposClase.find(t => t.id === sesionDelGate.tipoClaseId) : undefined;
       const exigePlan = studio && tipoDelGate ? heredaOverride(tipoDelGate.reservaExigirPlan, studio.reservaExigirPlan) : false;
@@ -1787,10 +1779,10 @@ export default function ReservarPage() {
   // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
   // crea el PaymentIntent para la clase elegida — precio SIEMPRE resuelto en
   // servidor a partir de datosPlan.id (checkout-embebido/route.ts relee
-  // plan.precio, nunca confía en el body). Solo Ruta A (comprar el plan
-  // PUNTUAL que cubre la clase); no existe todavía un camino "reservar gratis
-  // sin cuenta" para clases que no exigen plan — deferred a propósito, fuera
-  // del alcance de esta pieza.
+  // plan.precio, nunca confía en el body). Se compra lo que la visitante haya
+  // elegido de `planesComprablesParaReservar` (clase suelta o bono); no existe
+  // un camino "reservar gratis sin cuenta" para clases que no exigen plan —
+  // deferred a propósito, fuera del alcance de esta pieza.
   async function handleDatosContinuar() {
     if (!bookingSesionId || !datosPlan || !studio?.id || datosCargando) return;
     // Diseño "Tentare Portal Reservas": UN solo campo "Nombre y apellido", no
@@ -3938,7 +3930,7 @@ export default function ReservarPage() {
                 // propio precio) — confirma explícitamente qué se está pagando,
                 // igual que el mockup de referencia.
                 planesOpciones={(() => {
-                  const opciones = planesClaseSueltaPara(bookingSesion.tipoClaseId, planesTarifa);
+                  const opciones = planesComprablesParaReservar(bookingSesion.tipoClaseId, planesTarifa);
                   return opciones.length > 0 ? opciones : undefined;
                 })()}
                 planSeleccionadoId={datosPlan.id}

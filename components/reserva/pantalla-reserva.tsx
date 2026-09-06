@@ -479,15 +479,19 @@ export function PantallaReserva({
                   </div>
                 )}
 
-                {/* "Bonos y mensualidades del estudio" — plomería aprobada
-                    ("solo planes PUNTUAL"): SIEMPRE visible como en el diseño
-                    (aunque solo cubra una opción, "clase suelta" a su precio
-                    de catálogo — confirma explícitamente qué se está pagando,
-                    igual que el mockup de referencia). */}
+                {/* Qué se está comprando para poder reservar esta clase.
+                    SIEMPRE visible, aunque solo haya una opción — confirmar el
+                    importe antes de pagar es la mitad del trabajo de esta
+                    pantalla.
+
+                    Desde que el bono entra aquí (antes solo se podía comprar
+                    una clase suelta), cada tarjeta dice CUÁNTAS clases da y
+                    cuándo caduca: quien paga 120 € tiene que ver que se lleva
+                    diez clases y no la de hoy. */}
                 {planesOpciones && onCambiarPlan && (
                   <div>
                     <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', fontWeight: 600, marginBottom: 8 }}>
-                      Bonos y mensualidades del estudio
+                      Qué compras para reservar esta clase
                     </p>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
                       {planesOpciones.map(p => {
@@ -505,6 +509,11 @@ export function PantallaReserva({
                               <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--portal-ink)' }}>{p.precio} €</span>
                               {p.descripcion && <span style={{ fontSize: 9.5, color: 'var(--portal-muted)' }}>{p.descripcion}</span>}
                             </span>
+                            {queIncluye(p) && (
+                              <span style={{ display: 'block', fontSize: 10, color: 'var(--portal-muted)', marginTop: 3 }}>
+                                {queIncluye(p)}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
@@ -690,6 +699,24 @@ export function PantallaReserva({
  *  rellenan los campos — para explicar el botón deshabilitado en vez de
  *  dejarlo mudo (Fase 3 del rediseño: "validación que explique exactamente
  *  qué falta"). */
+/**
+ * «10 clases · caduca a los 90 días» — qué se lleva quien paga esto.
+ *
+ * Sin esta línea, un bono de 120 € y una clase suelta de 15 € se veían igual:
+ * un nombre y un precio. Quien elige el de 120 tiene que ver que se lleva diez
+ * clases, no la de hoy diez veces más cara.
+ *
+ * Devuelve cadena vacía para un PUNTUAL: «1 clase» junto a «Clase suelta» es
+ * ruido, no información.
+ */
+function queIncluye(p: PlanTarifa): string {
+  if (p.tipo !== 'BONO') return '';
+  const partes: string[] = [];
+  if (p.sesiones && p.sesiones > 0) partes.push(`${p.sesiones} clases`);
+  if (p.validezDias && p.validezDias > 0) partes.push(`caduca a los ${p.validezDias} días`);
+  return partes.join(' · ');
+}
+
 function camposFaltantes(loginForm: DatosContacto, privacidadAceptada: boolean): string[] {
   const faltan: string[] = [];
   // Diseño "Tentare Portal Reservas": un solo campo "Nombre y apellido" — sin
