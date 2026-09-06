@@ -6,7 +6,7 @@ import type { Clase, Reserva } from './tipos.ts';
 const clase = (over: Partial<Clase> = {}): Clase => ({
   id: 'c1', tipoClaseId: 'tc-1', fecha: '2026-10-01', hora: '10:00', duracionMin: 55,
   nombre: 'Reformer', tipo: 'Reformer', disciplina: 'Pilates', nivel: 'Todos',
-  instructoraId: 'i1', sala: 'Sala 1', salaId: 'sala-1', capacidad: 10, plazasLibres: 5,
+  instructoraId: 'i1', sala: 'Sala 1', salaId: 'sala-1', color: '#7C6A52', capacidad: 10, plazasLibres: 5,
   precioSuelto: 18, fotoUrl: '/x.webp', ventanaCancelacionHoras: null, ...over,
 });
 const reserva = (over: Partial<Reserva> = {}): Reserva => ({

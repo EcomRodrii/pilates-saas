@@ -218,7 +218,7 @@ export interface PayloadMin {
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null }[];
+  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null }[];
   levelDefinitions?: NivelDef[];
   achievementDefinitions?: LogroDef[];
   challengeDefinitions?: RetoDef[];
@@ -299,6 +299,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       instructoraId: s.instructorId,
       sala: sala?.nombre ?? '',
       salaId: s.salaId ?? '',
+      color: tipo?.color ?? '',
       capacidad: s.aforoMaximo,
       plazasLibres: Math.max(0, s.aforoMaximo - (ocupadas.get(s.id) ?? 0)),
       // ⚠️ Antes: `s.precioPuntual ?? 0`. `sesiones.precio_puntual` es un

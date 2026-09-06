@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { coloresMonograma, inicialDe } from '@/lib/monograma-estudio';
 import { usePortalHref } from '@/components/student/contexto';
 import type { Clase, Disponibilidad, Instructora } from '@/lib/student/tipos';
 import { AvailabilityBadge } from '@/components/student/ui/Badge';
@@ -11,6 +12,7 @@ import { precioClaseTexto } from '@/lib/student/formato';
 /** Fila de clase del horario (kit): hora mono | divisor | logo | nombre + avatar instructora | badge + precio. */
 export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { clase: Clase; instructora?: Instructora; estado: Disponibilidad; conBono: boolean; delay?: number }) {
   const href = usePortalHref();
+  const chip = coloresMonograma(clase.color);
   return (
     <Link href={href('/reservar/' + clase.id)} className="card card--tap a-up" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', animationDelay: delay + 'ms', borderColor: estado === 'reservada' ? 'var(--accent)' : undefined, borderWidth: estado === 'reservada' ? 1.5 : 1 }}>
       {/* El bloque de la izquierda: LOGO de la clase sobre la hora.
@@ -28,7 +30,7 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
           error; el color del tipo de clase distingue mejor»). Un logo propio
           por clase no es ese caso; a falta de él, la fila queda como estaba. */}
       <div className="stack" style={{ ['--gap' as string]: '5px', alignItems: 'center', minWidth: 46 }}>
-        {clase.logoUrl && (
+        {clase.logoUrl ? (
           <span
             aria-hidden
             data-testid="logo-clase"
@@ -38,6 +40,31 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
               border: '1px solid var(--muted)',
             }}
           />
+        ) : (
+          /* Sin logo, el COLOR del tipo con su inicial.
+             Antes aquí no iba nada, y en un horario donde unas clases tienen
+             logo y otras no las filas quedaban de distinta altura y solo
+             algunas con marca: la lista se veía a medio hacer.
+             El color no se inventa —es obligatorio en `tipos_clase` y lo elige
+             la propietaria— y es justo lo que `imagenes-por-defecto.ts` señala
+             como la forma correcta de distinguir clases en un listado: «la
+             misma foto ocho veces se lee como un error; el color del tipo de
+             clase distingue mejor».
+             El par fondo/texto sale de `coloresMonograma`, que ya resuelve el
+             contraste con WCAG y valida el color: un color roto cae al oliva de
+             marca en vez de dejar el chip invisible. */
+          <span
+            aria-hidden
+            data-testid="color-clase"
+            style={{
+              width: 30, height: 30, borderRadius: 9,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              background: chip.fondo, color: chip.texto,
+              fontSize: 12, fontWeight: 800, letterSpacing: '-.02em',
+            }}
+          >
+            {inicialDe(clase.tipo)}
+          </span>
         )}
         <div style={{ textAlign: 'center' }}>
           <p className="t-mono" style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{clase.hora}</p>
