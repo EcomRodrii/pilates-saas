@@ -12,6 +12,7 @@ import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { useToast } from '@/components/student/ui/Toast';
 import { avisoDeRetorno, esperarBonoDePlan } from '@/lib/student/retorno-pago';
+import { renovarPlan } from '@/lib/student/pagos-acciones';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 
 // Bonos (§A.12). Solo lectura: no hay ninguna acción que mueva dinero aquí.
@@ -43,6 +44,26 @@ function Bonos() {
   // rechaza (render en cascada) — y aquí ni siquiera hacía falta.
   const [confirmando, setConfirmando] = useState(aviso?.comprobar === true);
   const yaTratado = useRef(false);
+  const [renovando, setRenovando] = useState(false);
+
+  // B-1 (auditoría 24ª pasada): "Renovar en un toque" — prepara el recibo de
+  // su plan más reciente y la lleva DIRECTA al mismo checkout que ya usa el
+  // panel para cobrar un recibo pendiente, sin pantalla intermedia de "¿qué
+  // plan quieres?" (es el MISMO plan que ya tenía). Encender `renovando` ANTES
+  // del `await` para que no se pueda pulsar dos veces mientras la red va y
+  // vuelve (mismo motivo que el resto de escrituras de este portal).
+  const renovar = useCallback(async () => {
+    setRenovando(true);
+    const r = await renovarPlan(estudio.id);
+    if (!r.ok) {
+      setRenovando(false);
+      toast(r.error);
+      return;
+    }
+    // Redirección real a Stripe: no hay nada más que pintar aquí, así que no
+    // se apaga `renovando` — la pantalla se sustituye por el checkout.
+    window.location.href = r.url;
+  }, [estudio.id, toast]);
 
   useEffect(() => {
     if (yaTratado.current || !aviso) return;
@@ -97,13 +118,29 @@ function Bonos() {
         {data && estado === 'ready' && (
           <>
             {activos.length === 0 && (
-              <EmptyState
-                icono="🎟"
-                titulo="Sin bono activo"
-                cuerpo="Tus bonos anteriores están agotados o han caducado."
-                accion="Comprar un bono"
-                href={href('/comprar')}
-              />
+              otros.length > 0 ? (
+                // B-1: si ya tuvo un plan (aunque hoy esté agotado/caducado),
+                // ofrecerle renovar ESE plan es más directo que mandarla a
+                // "Comprar" a elegir de nuevo entre todos — mismo plan, mismo
+                // precio, un toque menos.
+                <div className="card card--pad stack" style={{ ['--gap' as string]: 'var(--s-2)', alignItems: 'center', textAlign: 'center' }}>
+                  <span aria-hidden style={{ fontSize: 28 }}>🎟</span>
+                  <p className="t-small" style={{ fontWeight: 800 }}>Sin bono activo</p>
+                  <p className="t-meta">Tus bonos anteriores están agotados o han caducado.</p>
+                  <button type="button" className="btn btn--primary btn--sm" disabled={renovando} onClick={renovar}>
+                    {renovando ? 'Preparando el pago…' : 'Renovar mi plan'}
+                  </button>
+                  <Link href={href('/comprar')} className="t-label">o comprar un bono distinto</Link>
+                </div>
+              ) : (
+                <EmptyState
+                  icono="🎟"
+                  titulo="Sin bono activo"
+                  cuerpo="Tus bonos anteriores están agotados o han caducado."
+                  accion="Comprar un bono"
+                  href={href('/comprar')}
+                />
+              )
             )}
             {plazaFija && <PlazaFijaCard plaza={plazaFija.plaza} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
             {activos.map((b) => <CreditCard key={b.id} bono={b} />)}
