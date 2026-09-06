@@ -189,6 +189,8 @@ export interface Studio {
   requiereCheckinQr: boolean;
   /** Impedir reservar con un recibo FALLIDO o DEVUELTO. Solo autoservicio. */
   bloquearReservaImpago: boolean;
+  /** Otorgar recuperaciones solas al cerrar la semana. Solo planes con límite semanal. */
+  recuperacionAutoSemanal: boolean;
   // Devoluciones desde el panel (migr 20260811091725). Apagadas por defecto: un
   // botón que mueve dinero real no aparece solo, lo enciende la propietaria —
   // mismo criterio que `penalizacionImporteEur`. Sin override por tipo de clase

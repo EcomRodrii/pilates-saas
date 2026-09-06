@@ -28,8 +28,7 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-test('el interruptor de impago llega hasta la columna, no solo al toast', async ({ page }) => {
-  const patches: string[] = [];
+async function abrirReservas(page: import('@playwright/test').Page, patches: string[]) {
 
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -65,6 +64,11 @@ test('el interruptor de impago llega hasta la columna, no solo al toast', async 
   });
 
   await page.goto('/configuracion?tab=estudio&sub=reservas');
+}
+
+test('el interruptor de impago llega hasta la columna, no solo al toast', async ({ page }) => {
+  const patches: string[] = [];
+  await abrirReservas(page, patches);
 
   const toggle = page.getByText('No dejar reservar con un pago fallido');
   await expect(toggle).toBeVisible({ timeout: 30_000 });
@@ -76,4 +80,18 @@ test('el interruptor de impago llega hasta la columna, no solo al toast', async 
   const cuerpo = patches.join(' ');
   expect(cuerpo, 'el campo no viaja en el PATCH: la lista blanca se lo comió').toContain('bloquear_reserva_impago');
   expect(JSON.parse(patches[patches.length - 1]).bloquear_reserva_impago).toBe(true);
+});
+
+test('el interruptor de recuperaciones automáticas también llega a la columna', async ({ page }) => {
+  const patches: string[] = [];
+  await abrirReservas(page, patches);
+
+  const toggle = page.getByText('Dar recuperaciones solas al cerrar la semana');
+  await expect(toggle).toBeVisible({ timeout: 30_000 });
+  await toggle.click();
+  await page.getByRole('button', { name: /Guardar/ }).first().click();
+
+  await expect.poll(() => patches.length, { timeout: 15_000 }).toBeGreaterThan(0);
+  expect(patches.join(' '), 'la lista blanca se comió el campo').toContain('recuperacion_auto_semanal');
+  expect(JSON.parse(patches[patches.length - 1]).recuperacion_auto_semanal).toBe(true);
 });
