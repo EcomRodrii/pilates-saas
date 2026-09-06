@@ -18,6 +18,17 @@ import { useToast } from '@/components/student/ui/Toast';
 // mensajeria.ts): se refresca al montar, al enviar, y al volver a la pestaña
 // — mismo criterio que el resto de la Student PWA (comunidad, notificaciones),
 // que tampoco llevan websocket.
+//
+// ⚠️ El compositor va en el FLUJO NORMAL, nunca en `position: fixed`. La
+// primera versión lo ponía fijo, flotando encima de la nav inferior con un
+// `bottom: var(--nav-height)` calculado a mano — en iOS Safari real, al abrir
+// el teclado, dos elementos `fixed` (compositor + nav) se separan del
+// viewport visual y acaban flotando a mitad de pantalla, por encima del
+// teclado (visto en grabación real, no en el navegador headless). El arreglo
+// de verdad es `StudentShell sinNav`: la pantalla pasa a ser una columna flex
+// a pantalla completa (mensajes con scroll propio, compositor como último
+// hijo normal) — así el compositor sube con el teclado solo, como hace
+// cualquier `<input>` normal, sin ninguna posición fija que reconciliar.
 
 function tituloDe(tipo: string | null, nombreEstudio: string): string {
   if (tipo === 'ALUMNA_MOSTRADOR') return nombreEstudio;
@@ -73,90 +84,84 @@ export default function HiloMensajesPage() {
   };
 
   const dias = agruparHilo(mensajes, new Date());
+  const listo = estado === 'ready' || estado === 'empty';
 
   return (
-    <StudentShell>
-      <PageHeader titulo={tituloDe(tipo, estudio.nombre)} back />
-      {/* `--nav-height` (74px) es la altura de `BottomNavigation`, siempre
-          montada por `StudentShell` — no hay forma de ocultarla pantalla por
-          pantalla, así que el compositor flota JUSTO ENCIMA de ella en vez de
-          reemplazarla, y este padding extra es lo que evita que el último
-          mensaje quede tapado detrás de los dos. */}
-      <div className="px" style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 560, paddingBottom: 90 }}>
-        {estado === 'loading' && <ListSkeleton n={5} h={40} />}
-        {estado === 'error' && <ErrorState onRetry={reintentar} />}
-        {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver este hilo." />}
-        {(estado === 'ready' || estado === 'empty') && dias.map((dia) => (
-          <div key={dia.etiqueta}>
-            <p className="t-mono" style={{ textAlign: 'center', margin: '10px 0', fontSize: 10, color: 'var(--subtle-foreground)' }}>{dia.etiqueta}</p>
-            {dia.bloques.map((bloque, i) => {
-              const mio = bloque.remitenteAuthUserId === miId;
-              return (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: mio ? 'flex-end' : 'flex-start', gap: 3, marginTop: 6 }}>
-                  {bloque.items.map((m) => (
-                    <div
-                      key={m.id}
-                      style={{
-                        maxWidth: '80%', padding: '9px 12px', borderRadius: 16,
-                        borderBottomRightRadius: mio ? 4 : 16, borderBottomLeftRadius: mio ? 16 : 4,
-                        background: mio ? 'var(--accent)' : 'var(--muted)', color: mio ? 'var(--accent-foreground)' : 'var(--foreground)',
-                        fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                      }}
-                    >
-                      {m.cuerpo}
-                    </div>
-                  ))}
-                  <span className="t-mono" style={{ fontSize: 9, color: 'var(--subtle-foreground)' }}>{horaCorta(bloque.items[bloque.items.length - 1].creado_en)}</span>
-                </div>
-              );
-            })}
-          </div>
-        ))}
-        {estado === 'empty' && (
-          <p className="t-meta" style={{ textAlign: 'center', margin: '20px 0' }}>Este es el comienzo de tu conversación.</p>
-        )}
-        <div ref={finRef} />
-      </div>
+    <StudentShell sinNav>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <PageHeader titulo={tituloDe(tipo, estudio.nombre)} back />
 
-      {(estado === 'ready' || estado === 'empty') && (
-        <div
-          style={{
-            position: 'fixed', left: 0, right: 0, bottom: 'var(--nav-height)', zIndex: 40,
-            background: 'rgba(250,249,245,.94)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--border)',
-          }}
-        >
-          <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'flex-end', padding: '10px 16px' }}>
-            <textarea
-              value={borrador}
-              onChange={(e) => setBorrador(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); }
-              }}
-              rows={1}
-              placeholder="Escribe un mensaje…"
-              aria-label="Escribe un mensaje"
-              className="input"
-              style={{ flex: 1, resize: 'none', fontSize: 13.5, minHeight: 40, maxHeight: 120, padding: '9px 12px' }}
-            />
-            <button
-              type="button"
-              onClick={() => void enviar()}
-              disabled={!borrador.trim() || enviando}
-              aria-label="Enviar"
-              style={{
-                width: 40, height: 40, flexShrink: 0, borderRadius: 999, border: 'none',
-                background: 'var(--accent)', color: 'var(--accent-foreground)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                opacity: !borrador.trim() || enviando ? 0.5 : 1,
-              }}
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" />
-              </svg>
-            </button>
-          </div>
+        <div className="px" style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {estado === 'loading' && <ListSkeleton n={5} h={40} />}
+          {estado === 'error' && <ErrorState onRetry={reintentar} />}
+          {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver este hilo." />}
+          {listo && dias.map((dia) => (
+            <div key={dia.etiqueta}>
+              <p className="t-mono" style={{ textAlign: 'center', margin: '10px 0', fontSize: 10, color: 'var(--subtle-foreground)' }}>{dia.etiqueta}</p>
+              {dia.bloques.map((bloque, i) => {
+                const mio = bloque.remitenteAuthUserId === miId;
+                return (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: mio ? 'flex-end' : 'flex-start', gap: 3, marginTop: 6 }}>
+                    {bloque.items.map((m) => (
+                      <div
+                        key={m.id}
+                        style={{
+                          maxWidth: '80%', padding: '9px 12px', borderRadius: 16,
+                          borderBottomRightRadius: mio ? 4 : 16, borderBottomLeftRadius: mio ? 16 : 4,
+                          background: mio ? 'var(--accent)' : 'var(--muted)', color: mio ? 'var(--accent-foreground)' : 'var(--foreground)',
+                          fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                        }}
+                      >
+                        {m.cuerpo}
+                      </div>
+                    ))}
+                    <span className="t-mono" style={{ fontSize: 9, color: 'var(--subtle-foreground)' }}>{horaCorta(bloque.items[bloque.items.length - 1].creado_en)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          {estado === 'empty' && (
+            <p className="t-meta" style={{ textAlign: 'center', margin: '20px 0' }}>Este es el comienzo de tu conversación.</p>
+          )}
+          <div ref={finRef} />
         </div>
-      )}
+
+        {listo && (
+          <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)', background: 'var(--card)' }}>
+            <div className="px" style={{ display: 'flex', gap: 8, alignItems: 'flex-end', padding: '10px 16px' }}>
+              <textarea
+                value={borrador}
+                onChange={(e) => setBorrador(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); }
+                }}
+                rows={1}
+                placeholder="Escribe un mensaje…"
+                aria-label="Escribe un mensaje"
+                className="input"
+                style={{ flex: 1, resize: 'none', fontSize: 13.5, minHeight: 40, maxHeight: 120, padding: '9px 12px' }}
+              />
+              <button
+                type="button"
+                onClick={() => void enviar()}
+                disabled={!borrador.trim() || enviando}
+                aria-label="Enviar"
+                style={{
+                  width: 40, height: 40, flexShrink: 0, borderRadius: 999, border: 'none',
+                  background: 'var(--accent)', color: 'var(--accent-foreground)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  opacity: !borrador.trim() || enviando ? 0.5 : 1,
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </StudentShell>
   );
 }
