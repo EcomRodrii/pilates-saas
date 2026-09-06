@@ -123,6 +123,10 @@ export async function POST(req: NextRequest) {
   for (const r of reservasFuturas ?? []) {
     const res = await ejecutarCancelacionReserva(admin, {
       studioId: sesion.studioId, reservaId: r.id as string, socioId, omitirPenalizacion: true,
+      // D-1: una cuenta que se está borrando no va a volver a canjear ninguna
+      // recuperación — crearla aquí sería una fila de `recuperaciones` sobre
+      // un socio_id a punto de anonimizarse, puro ruido.
+      otorgarRecuperacionPlazaFija: false,
     });
     // Best-effort a propósito: una reserva que no se pudo cancelar (carrera
     // rarísima, o ya la canceló otra vía justo antes) no debe bloquear la

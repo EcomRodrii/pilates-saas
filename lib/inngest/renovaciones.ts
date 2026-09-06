@@ -104,7 +104,20 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
         // devolvia SIN_ENTREGA. Cobro automatico real sin entregar nada.
         // El conjunto adoptado no cambia con los datos de hoy: la migracion
         // relleno `es_renovacion = true where concepto like 'Renovación%'`.
-        .eq('es_renovacion', true);
+        .eq('es_renovacion', true)
+        // ⚠️ D-3 (auditoría 24ª pasada): `/api/public/renovar-plan` crea un
+        // recibo IDÉNTICO a este por convención (mismo id determinista
+        // `rec-renov-{suscripcion}-{mes}`, para que choque por PK con el que
+        // este mismo cron generaría) cuando la socia pulsa «Renovar» en el
+        // portal — pero ESE es para pagarlo ELLA, ahora, con su propio
+        // checkout. Sin este filtro, si cierra el checkout sin completarlo,
+        // el barrido de MAÑANA lo adopta igual y el dunning de las 08:30 le
+        // cobra la tarjeta guardada off-session sin que ella lo pidiera esta
+        // vez. `checkout_session_id` se rellena en cuanto
+        // app/api/stripe/checkout crea la sesión (antes de que pague o no),
+        // así que es la señal de "esto lo está llevando ella en persona,
+        // no lo adoptes" — sin inventar ninguna columna nueva.
+        .is('checkout_session_id', null);
       if (candErr) throw new Error(candErr.message);
       const idsAAdoptar = (candidatos ?? [])
         .filter(r => conMetodoCobro.has(r.socio_id as string))
