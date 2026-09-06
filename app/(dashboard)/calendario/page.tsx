@@ -20,7 +20,7 @@ import {
   Bot, Loader2, Upload, QrCode, LayoutGrid, Rows3, CheckSquare,
 } from 'lucide-react';
 import Link from 'next/link';
-import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio, capitalizarPrimera } from '@/lib/utils';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
@@ -2314,7 +2314,7 @@ export default function Calendario() {
       <PageHeader
         className="shrink-0 px-4 lg:px-6 pt-4 lg:pt-5 pb-3 lg:pb-4 sm:items-center"
         title="Calendario"
-        description={<span className="capitalize">{mesLabel}</span>}
+        description={capitalizarPrimera(mesLabel)}
         actions={
         <div className="flex items-center gap-2 flex-wrap">
           <BuscadorRapido candidatas={candidatasBusqueda} onSeleccionar={saltarAClase} />
@@ -3421,11 +3421,26 @@ export default function Calendario() {
           </DialogHeader>
           <textarea
             className={inputCls + ' resize-none h-24 mt-2'}
-            placeholder="Ej. sala sin luz, reformer averiado..."
+            placeholder="Ej. sala sin luz, gotera, se ha ido la calefacción..."
             value={dialogoIncidencia?.texto ?? ''}
             onChange={e => setDialogoIncidencia(prev => prev && { ...prev, texto: e.target.value })}
           />
-          <p className="text-[11px] text-muted-foreground mt-1">Déjalo en blanco y guarda para borrar la incidencia.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Una nota para tu equipo, solo en esta clase. Déjalo en blanco y guarda para borrarla.</p>
+          {/* ⚠️ El ejemplo de este campo era «reformer averiado», y aquí eso no
+              hace nada: es una nota de texto. Quien de verdad baja el aforo de
+              todas las clases de esa sala es «Averías de máquina»
+              (Configuración → Salas), y con el ejemplo anterior la propietaria
+              escribía la avería aquí, se quedaba tranquila y seguía vendiendo
+              una plaza que no existía. Dos cosas con el mismo vocabulario y
+              distinto efecto: ahora esta se queda con lo que sí resuelve y
+              señala a la otra. */}
+          <Link
+            href="/configuracion?tab=estudio&sub=salas"
+            className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-medio hover:underline"
+          >
+            ¿Se ha averiado una máquina? Márcalo en Salas y baja el aforo solo
+            <ChevronRight size={12} />
+          </Link>
           <div className="flex gap-2 mt-4">
             <button className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors" onClick={() => setDialogoIncidencia(null)}>
               Cancelar
