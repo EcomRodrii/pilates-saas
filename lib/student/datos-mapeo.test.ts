@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // alias y descarta el fichero entero SIN fallar, así que el test dejaría de
 // existir sin que nadie se entere. Los `import type` sí pueden usar `@/`
 // porque se borran al compilar.
-import { nivelDe, estadoReservaDe, estadoPagoDe, bonoDeSuscripcion, OCUPA_PLAZA } from './mapeo.ts';
+import { nivelDe, estadoReservaDe, estadoPagoDe, bonoDeSuscripcion, proyectarClases, OCUPA_PLAZA } from './mapeo.ts';
 
 // Los mapeos entre el vocabulario del backend y el del paquete de diseño.
 //
@@ -191,4 +191,34 @@ test('bono sin plan: no revienta, cuenta a cero', () => {
   assert.equal(b.nombre, 'Bono');
   assert.equal(b.creditosTotales, 0);
   assert.equal(b.precio, 0);
+});
+
+// ── La foto de la clase nunca puede quedar vacía ────────────────────────────
+
+test('sin foto en tipo, sala ni estudio, la clase cae en la por defecto de su familia', () => {
+  // Una cadena vacía no es «sin foto»: acaba en un `<img src="">` y en una
+  // cabecera de 290 px de negro liso en el detalle. `imagenes-por-defecto.ts`
+  // ya había decidido que ahí SÍ va default; nadie lo llamaba.
+  const d = {
+    tiposClase: [{ id: 't1', nombre: 'Reformer Flow' }],
+    salas: [{ id: 's1', nombre: 'Sala 1' }],
+    instructores: [{ id: 'i1', nombre: 'Ana', activo: true }],
+    sesiones: [{ id: 'x1', tipoClaseId: 't1', salaId: 's1', instructorId: 'i1', inicio: '2026-09-06T10:00:00', fin: '2026-09-06T10:50:00', aforoMaximo: 10 }],
+    planesTarifa: [],
+  };
+  const [c] = proyectarClases(d as never);
+  assert.ok(c.fotoUrl.length > 0, 'la foto no puede ser cadena vacía');
+  // Y es la de SU familia, deducida del nombre, no una genérica cualquiera.
+  assert.match(c.fotoUrl, /reformer/);
+});
+
+test('si el tipo trae foto propia, manda la suya y no la por defecto', () => {
+  const d = {
+    tiposClase: [{ id: 't1', nombre: 'Reformer Flow', fotoUrl: 'https://cdn/estudio/mi-foto.webp' }],
+    salas: [{ id: 's1', nombre: 'Sala 1' }],
+    instructores: [{ id: 'i1', nombre: 'Ana', activo: true }],
+    sesiones: [{ id: 'x1', tipoClaseId: 't1', salaId: 's1', instructorId: 'i1', inicio: '2026-09-06T10:00:00', fin: '2026-09-06T10:50:00', aforoMaximo: 10 }],
+    planesTarifa: [],
+  };
+  assert.equal(proyectarClases(d as never)[0].fotoUrl, 'https://cdn/estudio/mi-foto.webp');
 });

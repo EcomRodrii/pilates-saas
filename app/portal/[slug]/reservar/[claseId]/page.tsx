@@ -181,6 +181,23 @@ export default function FichaClasePage() {
           style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', right: 14 }}
         />
         <div style={{ position: 'absolute', left: 16, right: 16, bottom: 13, color: '#fff' }}>
+          {/* El LOGO de la clase. Estaba en el listado y no aquí, que es
+              justo donde se mira la clase: el banner de arriba HEREDA (tipo →
+              sala → estudio), así que a menudo es la misma foto para todas, y
+              el logo es lo único que identifica a esta. No hereda a propósito
+              —ver `Clase.logoUrl`—, así que sin logo propio no se pinta nada
+              en vez de tomar prestado el de otra. */}
+          {clase.logoUrl && (
+            <span
+              aria-hidden
+              data-testid="logo-clase"
+              style={{
+                display: 'block', width: 44, height: 44, borderRadius: 12, marginBottom: 9,
+                background: `url(${clase.logoUrl}) center/cover`,
+                border: '1px solid rgba(255,255,255,.5)',
+              }}
+            />
+          )}
           <p className="t-label" style={{ color: 'rgba(255,255,255,.82)' }}>{clase.tipo} · nivel {clase.nivel.toLowerCase()}</p>
           <h1 style={{ margin: '3px 0 0', fontSize: 26, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.nombre}</h1>
           <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
