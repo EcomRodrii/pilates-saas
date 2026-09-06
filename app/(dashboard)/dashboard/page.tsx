@@ -12,7 +12,7 @@ import {
   Clock, Activity, Bot, MessageSquare, CalendarX,
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
-import { cn, inicioDeSemana, finDeSemana } from '@/lib/utils';
+import { cn, inicioDeSemana, finDeSemana, capitalizarPrimera } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -843,7 +843,7 @@ export default function Dashboard() {
         <PageHeader
           style={{ order: -1 }}
           title={`${saludo} 👋`}
-          description={<span className="capitalize">{mesFecha}</span>}
+          description={capitalizarPrimera(mesFecha)}
           actions={
             gestionaClientas ? (
             <>
