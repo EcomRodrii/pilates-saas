@@ -74,8 +74,9 @@ export default function ReciboPage() {
         <div className="card a-pop" style={{ padding: '22px 18px', textAlign: 'center' }}>
           <Badge tone={e.tone}>{e.txt}</Badge>
           <p
+            className="t-display t-num"
             style={{
-              margin: '12px 0 0', fontSize: 34, fontWeight: 800, letterSpacing: '-.03em',
+              marginTop: 'var(--s-3)',
               textDecoration: data.estado === 'refunded' ? 'line-through' : 'none',
             }}
           >
@@ -86,26 +87,29 @@ export default function ReciboPage() {
             {fechaLarga(data.fecha)}{data.metodo ? ` · ${data.metodo}` : ''}
           </p>
 
+          {/* Los cuatro avisos comparten forma: son `.note` del sistema, no
+              cuatro párrafos con su propio color y su propio margen escritos a
+              mano. El TONO distingue la gravedad. */}
           {data.estado === 'pending' && (
             // Un recibo emitido y sin cobrar. Antes caía en el texto de
             // «procesando» y le prometía a la alumna un aviso que nadie iba a
             // mandarle: no hay ningún cobro en marcha que confirmar.
-            <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--warning-foreground)', fontWeight: 700 }}>
+            <p className="note note--warn" style={{ marginTop: 'var(--s-3)', textAlign: 'left' }}>
               Este recibo todavía está sin cobrar. Lo gestiona el estudio.
             </p>
           )}
           {data.estado === 'processing' && (
-            <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--warning-foreground)', fontWeight: 700 }}>
+            <p className="note note--warn" style={{ marginTop: 'var(--s-3)', textAlign: 'left' }}>
               El banco todavía no ha confirmado el cobro. Te avisaremos.
             </p>
           )}
           {data.estado === 'failed' && (
-            <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--destructive-foreground)', fontWeight: 700 }}>
+            <p className="note note--danger" style={{ marginTop: 'var(--s-3)', textAlign: 'left' }}>
               El pago no se completó y no se ha hecho ningún cargo. Habla con el estudio para volver a intentarlo.
             </p>
           )}
           {data.estado === 'refunded' && (
-            <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--muted-foreground)', fontWeight: 700 }}>
+            <p className="note note--info" style={{ marginTop: 'var(--s-3)', textAlign: 'left' }}>
               Este importe se te devolvió.
             </p>
           )}

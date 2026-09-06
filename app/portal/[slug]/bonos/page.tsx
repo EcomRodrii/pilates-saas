@@ -74,11 +74,11 @@ function Bonos() {
         accion={<Link href={href('/pagos')} className="btn btn--secondary btn--sm">Pagos</Link>}
       />
 
-      <div className="px" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+      <div className="px stack" style={{ ['--gap' as string]: 'var(--s-3)', marginTop: 14 }}>
         {confirmando && (
-          <div className="card" role="status" aria-live="polite" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span aria-hidden style={{ width: 16, height: 16, borderRadius: 999, border: '2px solid var(--border-strong)', borderTopColor: 'var(--accent)', animation: 'apSpin .7s linear infinite' }} />
-            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700 }}>Confirmando tu compra con el estudio…</p>
+          <div className="card card--pad row" role="status" aria-live="polite">
+            <span aria-hidden style={{ width: 16, height: 16, borderRadius: 'var(--radius-pill)', border: '2px solid var(--border-strong)', borderTopColor: 'var(--accent)', animation: 'apSpin .7s linear infinite' }} />
+            <p className="t-small" style={{ fontWeight: 700 }}>Confirmando tu compra con el estudio…</p>
           </div>
         )}
         {estado === 'loading' && <ListSkeleton n={2} h={96} />}
@@ -107,8 +107,22 @@ function Bonos() {
             )}
             {plazaFija && <PlazaFijaCard plaza={plazaFija.plaza} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
             {activos.map((b) => <CreditCard key={b.id} bono={b} />)}
-            {otros.length > 0 && <p className="t-label" style={{ margin: '10px 0 0' }}>Anteriores</p>}
+            {otros.length > 0 && <p className="t-label" style={{ margin: 'var(--s-2) 0 0' }}>Anteriores</p>}
             {otros.map((b) => <CreditCard key={b.id} bono={b} />)}
+
+            {/* La salida. Con un bono activo, esta pantalla se quedaba en una
+                tarjeta y el resto de la pantalla en blanco, sin decir qué se
+                puede hacer con lo que acaba de mirar: el siguiente paso natural
+                —reservar— estaba a dos toques por el menú y a ninguno desde
+                aquí. No se inventa nada; son dos rutas que ya existen. */}
+            {activos.length > 0 && (
+              <div className="stack" style={{ ['--gap' as string]: 'var(--s-2)', marginTop: 'var(--s-2)', alignItems: 'center' }}>
+                <Link href={href('/reservar')} className="btn btn--primary btn--full tap">Reservar una clase</Link>
+                <Link href={href('/comprar')} className="t-meta" style={{ color: 'var(--accent)', fontWeight: 800 }}>
+                  Ver bonos y suscripciones →
+                </Link>
+              </div>
+            )}
           </>
         )}
       </div>

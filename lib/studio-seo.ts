@@ -71,7 +71,14 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
   if (process.env.E2E_TEST === '1') {
     return { estudio: {
       id: 'studio-test', nombre: 'Tentare', ciudad: 'Málaga', direccion: 'Calle Test 1',
-      colorPrimario: '#1A1A1A', logoUrl: null, slug,
+      colorPrimario: '#1A1A1A',
+      // Mismo motivo que `E2E_PAGINA_OCULTA` de unas líneas más abajo: el icono
+      // de la PWA se compone en el SERVIDOR a partir de este campo, así que
+      // `page.route` no puede llegar a él y sin esta palanca el camino «el
+      // estudio SÍ tiene logo» no es alcanzable por ningún test. Ausente =
+      // sin logo, como siempre.
+      logoUrl: process.env.E2E_LOGO_URL ?? null,
+      slug,
       telefono: '+34 600 000 000', email: 'hola@studio-test.es',
       codigoPostal: '29001', descripcion: 'Estudio de prueba.', fotoUrl: null,
       cancelacionVentanaHoras: 12, permiteListaEspera: true,

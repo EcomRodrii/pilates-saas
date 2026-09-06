@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cargarEstudio } from '@/lib/student/estudio';
-import { urlMonograma } from '@/lib/monograma-estudio';
+import { urlIconoEstudio } from '@/lib/monograma-estudio';
 
 // Manifest POR ESTUDIO. Es lo que convierte «añadir a pantalla de inicio» en la
 // app del estudio y no en «Tentare»: nombre, icono y `start_url` propios.
@@ -23,6 +23,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   if (!estudio) return new NextResponse('No encontrado', { status: 404 });
 
   const base = `/portal/${encodeURIComponent(slug)}`;
+  // Solo se acepta un logo alojado en NUESTRO Supabase: la ruta del icono lo
+  // descarga en servidor, así que una URL libre sería una puerta de SSRF.
+  const icono = (size: 192 | 512) =>
+    urlIconoEstudio(estudio.nombre, estudio.colorPrimario, size, estudio.logoUrl, process.env.NEXT_PUBLIC_SUPABASE_URL ?? null);
   return NextResponse.json(
     {
       name: estudio.nombre,
@@ -34,10 +38,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
       background_color: '#FAF9F5',
       theme_color: '#FAF9F5',
       lang: 'es',
+      // Con el LOGO del estudio cuando lo tiene y podemos servirlo; si no, su
+      // inicial. Ver el comentario del layout: `urlIconoEstudio` llevaba tiempo
+      // escrita y probada, y aquí se seguía llamando a `urlMonograma`, que no
+      // sabe de logos.
       icons: [
-        { src: urlMonograma(estudio.nombre, estudio.colorPrimario, 192), sizes: '192x192', type: 'image/png' },
-        { src: urlMonograma(estudio.nombre, estudio.colorPrimario, 512), sizes: '512x512', type: 'image/png' },
-        { src: urlMonograma(estudio.nombre, estudio.colorPrimario, 512), sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        { src: icono(192), sizes: '192x192', type: 'image/png' },
+        { src: icono(512), sizes: '512x512', type: 'image/png' },
+        { src: icono(512), sizes: '512x512', type: 'image/png', purpose: 'maskable' },
       ],
     },
     {
