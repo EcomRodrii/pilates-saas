@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
-import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarClaseCancelada, avisarClaseModificada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
+import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarClaseCancelada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
@@ -1334,13 +1334,34 @@ export default function Calendario() {
     if (base?.serieId) {
       const clase = tiposClase.find(t => t.id === form.tipoClaseId)?.nombre ?? base.tipoClase.nombre;
       const salaNombre = salas.find(s => s.id === form.salaId)?.nombre ?? '';
+      const nuevaInstructora = nombreInstructor(form.instructorId);
       for (const s of sesionesEnriquecidas) {
         if (s.serieId !== base.serieId || s.inicio < base.inicio) continue;
         const nuevoInicioS = toISO(localDate(new Date(s.inicio)), form.horaInicio);
-        if (s.inicio === nuevoInicioS && s.salaId === form.salaId) continue;
+        const cambioHora = s.inicio !== nuevoInicioS;
+        const cambioSala = s.salaId !== form.salaId;
+        // ⚠️ El cambio de INSTRUCTORA entra en la condición, y antes no estaba:
+        // el bucle solo avisaba si había cambiado la hora o la sala, así que
+        // pasar una serie de 12 clases a otra profesora no mandaba NI UN aviso
+        // a las 8 alumnas apuntadas. La comparación es POR SESIÓN y no contra
+        // `base`: dentro de una serie puede haber clases con instructoras
+        // distintas (una sustitución puntual), y esas también cambian.
+        const cambioInstructora = s.instructorId !== form.instructorId;
+        if (!cambioHora && !cambioSala && !cambioInstructora) continue;
         const d = new Date(nuevoInicioS);
-        const cuando = cuandoEstudio(d);
-        void avisarClaseModificada(s.id, { clase, cuando, sala: salaNombre });
+        // Se usa el aviso COMPLETO (el mismo que la clase suelta y el lote), no
+        // `avisarClaseModificada`: ese no lleva instructora, así que el correo
+        // habría dicho que algo cambió sin decir qué.
+        void avisarCambioHorarioSala(
+          s.id,
+          {
+            clase, cuando: cuandoEstudio(d), d, sala: salaNombre,
+            instructora: cambioInstructora ? nuevaInstructora : '',
+            instructorActual: nuevaInstructora,
+            instructorAnterior: cambioInstructora ? nombreInstructor(s.instructorId) : undefined,
+          },
+          { cambioHora, cambioSala },
+        );
       }
     }
     setShowForm(null);
