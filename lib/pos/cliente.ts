@@ -139,6 +139,22 @@ export function devolverVenta(p: { ventaId: string; lineas?: { lineaId: string; 
   );
 }
 
+/**
+ * Apunta en el libro de caja un recibo que se acaba de cobrar a mano.
+ *
+ * No lleva importe ni método: los lee el servidor de la base. Un apunte de
+ * caja cuyo importe viniera del navegador sería un descuadre a un `fetch` de
+ * distancia.
+ *
+ * `apuntado: false` no es un fallo — sin caja abierta, o cobrado por
+ * transferencia o SEPA, no hay nada que apuntar y el motivo lo dice.
+ */
+export function apuntarCobroEnCaja(reciboId: string) {
+  return pedir<{ apuntado: boolean; importe: number; motivo: string | null }>(
+    '/api/pos/caja/apuntar-cobro', { method: 'POST', body: JSON.stringify({ reciboId }) },
+  );
+}
+
 /** ¿La respuesta trae un error? Estrecha el tipo para no repetir el `in` por todas partes. */
 export function esError<T extends object>(r: T | { error: string }): r is { error: string } {
   return 'error' in r && typeof (r as { error: unknown }).error === 'string';

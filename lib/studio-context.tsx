@@ -6,6 +6,7 @@ import { fijarEtiqueta, capturarExcepcion, capturarMensaje } from '@/lib/sentry-
 import { CoreProvider } from '@/lib/core-context';
 import { Toast, useToast } from '@/components/ui/toast';
 import { supabase } from '@/lib/db/supabase';
+import { apuntarCobroEnCaja } from '@/lib/pos/cliente';
 import type { RowInstructores } from '@/lib/db-types';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchDatosTrasVentaPOS, mapInstructor,
@@ -3939,6 +3940,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         numeroFacturaEmitida = fac.numeroCompleto;
       }
     }
+    // ── El apunte de caja que faltaba ────────────────────────────────────
+    // Hasta ahora las ÚNICAS escrituras en `movimientos_caja` venían del TPV.
+    // Este camino —la dueña marcando un cobro a mano— es por donde entra el
+    // efectivo de mostrador, y no apuntaba nada: al cerrar la caja, el
+    // recuento salía por encima de lo esperado exactamente por esa cantidad,
+    // cada vez y sin ninguna pista de dónde venía.
+    //
+    // Va DESPUÉS del cobro y no puede tumbarlo: el dinero ya está registrado
+    // en `recibos`, que es donde vive. Si el apunte falla, la caja descuadra
+    // —que es lo que pasaba siempre hasta hoy— pero el cobro no se pierde.
+    // El servidor decide si procede: sin caja abierta, o cobrado por
+    // transferencia o SEPA, no apunta nada y responde con el motivo.
+    void apuntarCobroEnCaja(reciboId).catch(() => {});
+
     // Refill bono or extend mensual when renewal payment is collected
     const recibo = recibos.find(r => r.id === reciboId);
     if (recibo) await aplicarRenovacionSuscripcion(recibo);

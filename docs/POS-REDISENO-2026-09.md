@@ -332,3 +332,58 @@ deriva de comentarios, que no cambia comportamiento.
 comparar `md5(prosrc)` contra el fichero, función por función. «Probé que
 funciona» y «apliqué lo que dice el fichero» son dos afirmaciones distintas, y
 solo la segunda se comprueba así.
+
+---
+
+## 10. Fase 3 — el cobro de mostrador que no pasaba por la caja
+
+Encontrado auditando la integración, no pedido: si las dos quejas anteriores
+eran de integración, el siguiente agujero probablemente también.
+
+### 10.1 El descuadre
+
+**Las únicas escrituras en `movimientos_caja` venían de las RPC del TPV.** Nada
+más en todo el repo apunta ahí — verificado con un grep sobre `lib`, `app`,
+`components` y `supabase`.
+
+Pero `/cobros` sí deja marcar un recibo como cobrado **en efectivo**. La socia
+paga sus 60 € en mano, alguien lo marca, el dinero entra en el cajón, y en el
+libro de caja no consta. Como `saldo_caja` es `fondo_inicial + movimientos en
+EFECTIVO`, al cerrar el recuento sale por encima de lo esperado **exactamente
+por esa cantidad**: un sobrante sin explicación, cada vez, sin ninguna pista de
+dónde viene. Es un descuadre de dinero real.
+
+`apuntar_cobro_en_caja` (migr `20260907171330`) añade el apunte que faltaba,
+llamada desde `marcarCobrado` **después** de que el cobro esté registrado y sin
+poder tumbarlo: el dinero vive en `recibos`, la caja solo cuenta el cajón.
+
+⚠️ **Qué entra y qué no.** Se apuntan EFECTIVO, TARJETA, DATAFONO y BIZUM —
+todos se cobran con la clienta delante— y se dejan fuera TRANSFERENCIA y SEPA,
+que llegan al banco sin pasar por el cajón. Meterlas inflaría «lo cobrado hoy
+aquí» con dinero que nunca estuvo aquí. Hay además un motivo técnico:
+`movimientos_caja.metodo_pago` no admite SEPA y `recibos.metodo_cobro` sí — un
+recibo cobrado por SEPA habría reventado el CHECK en ejecución.
+
+Tipo nuevo `COBRO` en `movimientos_caja_tipo_check`: un cobro de recibo no es
+una VENTA del TPV, y mezclarlos haría ilegible el arqueo.
+
+### 10.2 «Vengo a pagar la cuota»
+
+De lo más normal en un mostrador, y el TPV no sabía hacerlo: había que salir a
+/cobros. Ahora, al elegir a la clienta, el TPV enseña lo que debe y lo cobra
+ahí mismo, reutilizando el `marcarCobrado` del contexto —el MISMO que usa
+/cobros, con su compare-and-set, su sellado fiscal y su renovación de bono— en
+vez de duplicar esa lógica.
+
+⚠️ **Solo efectivo, a propósito.** Marcar a mano un recibo como pagado «con
+tarjeta» es exactamente lo que este rediseño existe para eliminar: una
+transacción de tarjeta dada por buena sin que ningún proveedor la haya
+confirmado. El efectivo es distinto — hay alguien contándolo y el recuento del
+cierre lo verifica. **Cobrar un recibo por datáfono sigue sin construirse**:
+necesita pasar por el datáfono de verdad, no por un botón, y eso es un flujo de
+pago propio, no una variante de este.
+
+⚠️ **Bug propio, encontrado y cubierto con test.** La primera versión metió el
+panel dentro del pie del ticket, que entero está detrás de `carrito.length > 0`
+— quien viene solo a pagar la cuota lleva el ticket VACÍO, así que no se habría
+visto nunca justo cuando hace falta. El test lo fija con el ticket vacío.

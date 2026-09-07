@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
+import { DeudaClienta } from './deuda-clienta';
 import { buscarCodigo, validarCodigoCanjeable, calcularDescuento } from '@/lib/codigos-descuento';
 import { calcularTicket, estadoStock, puedeAnadir, type LineaTicket } from '@/lib/pos/ticket';
 import { cargarCatalogoPOS, esError, type CatalogoPOS } from '@/lib/pos/cliente';
@@ -623,6 +624,29 @@ export function PosTerminal() {
             )}
           </div>
 
+          {/* Lo que debe, cobrable aquí mismo.
+              ⚠️ FUERA del pie a propósito: el pie entero está detrás de
+              `carrito.length > 0`, y quien viene solo a pagar la cuota tiene el
+              ticket VACÍO — que es justo el caso que esto resuelve. Dentro del
+              pie no se habría visto nunca cuando más falta hace. */}
+          {cliente && (
+            <div className="shrink-0 border-t border-border px-4 pt-3 space-y-2">
+              {carrito.length === 0 && (
+                <button
+                  onClick={() => setClienteId(null)}
+                  className="w-full h-11 px-3 rounded-xl border border-border bg-background flex items-center gap-2.5 text-left"
+                >
+                  <User size={15} className="text-muted-foreground" />
+                  <span className="flex-1 text-[14px] truncate text-foreground font-medium">
+                    {cliente.nombre} {cliente.apellidos ?? ''}
+                  </span>
+                  <X size={14} className="text-muted-foreground" />
+                </button>
+              )}
+              <DeudaClienta socioId={cliente.id} onCobrado={refrescar} />
+            </div>
+          )}
+
           {carrito.length > 0 && (
             <div className="shrink-0 border-t border-border p-4 space-y-3">
               {aviso && (
@@ -652,6 +676,7 @@ export function PosTerminal() {
                   </span>
                 )}
               </button>
+
 
               {/* Descuento + código */}
               <div className="flex gap-2">
