@@ -269,7 +269,14 @@ jobs:
   # shard. En un repo público eso no cuesta dinero, solo runners en paralelo.
   #
   # Si el repo pasa a privado de verdad, esta decisión se invierte: son dos
-  # sitios, esta lista y el `--shard=N/12` de abajo.
+  # sitios, esta lista y el `--de=12` que se le pasa abajo al repartidor.
+  #
+  # Y sobre el desequilibrio del que habla el párrafo anterior: desde
+  # 2026-09-07 el reparto ya NO lo hace Playwright por número de tests, sino
+  # scripts/shard-e2e-by-duration.js por tiempo. Mientras
+  # e2e/.duration-profile.json esté vacío el resultado es el mismo que antes
+  # (mediana para todos = repartir por número); en cuanto se rellene con los
+  # artefactos `timings-*` de una run real, empieza a equilibrar de verdad.
   # ---------------------------------------------------------------------------
   e2e:
     name: E2E ${{ matrix.shard }}/12
@@ -350,12 +357,41 @@ jobs:
             exit 1
           fi
 
+      # Reparto por TIEMPO, no por número de tests. La lista de specs sale de
+      # globear `e2e/` dentro del script, así que un spec nuevo entra solo: no
+      # hay ninguna lista commiteada que se pueda quedar atrás (la primera
+      # versión de esto sí la tenía, con 28 de sus 30 nombres ya inexistentes).
+      # El script revienta si algún spec quedara sin asignar o duplicado, en vez
+      # de correr de menos y salir verde.
+      - name: Repartir los specs de este shard
+        id: reparto
+        run: |
+          echo "specs=$(node scripts/shard-e2e-by-duration.js --shard=${{ matrix.shard }} --de=12)" >> "$GITHUB_OUTPUT"
+          node scripts/shard-e2e-by-duration.js --check --de=12
+
       - name: E2E (registro · reserva · pago)
         # E2E_USA_BUILD=1 hace que el webServer de Playwright arranque
         # `next start` en vez de `next dev` (ver playwright.config.ts).
         env:
           E2E_USA_BUILD: '1'
-        run: npx playwright test --shard=${{ matrix.shard }}/12 --reporter=blob
+          PLAYWRIGHT_JSON_OUTPUT_NAME: timings-${{ matrix.shard }}.json
+        run: npx playwright test ${{ steps.reparto.outputs.specs }} --reporter=blob,json
+
+      # ⚠️ Este SÍ se sube siempre, a diferencia del blob de abajo. Es de donde
+      # salen las duraciones reales del perfil: sin subirlo en verde no hay
+      # forma de medir cuánto tarda cada spec, y el reparto se queda a ciegas
+      # (que es como nació esta fase, con un perfil de duraciones inventado).
+      # Para refrescarlo:
+      #   gh run download <run-id> --pattern 'timings-*' --dir /tmp/t
+      #   node scripts/perfil-duraciones-e2e.js /tmp/t
+      - name: Subir tiempos medidos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timings-${{ matrix.shard }}
+          path: timings-${{ matrix.shard }}.json
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: Subir reporte parcial si falla
         if: failure()
