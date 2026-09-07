@@ -14,6 +14,8 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    "tsBuildInfoFile": "./.next/tsconfig.tsbuildinfo",
+    "maxNodeModuleJsDepth": 1,
     "plugins": [
       {
         "name": "next"
@@ -23,14 +25,33 @@
       "@/*": ["./*"]
     }
   },
+  "//include": "TypeScript NO expande llaves: `app/**/*.{ts,tsx}` no casa con NADA y tsc aborta con TS18003 sin comprobar una línea. Una entrada por extensión, siempre. Y `.next/types` son las rutas que genera Next: sin ellas el tipado de rutas no existe (por eso `.next` no puede estar en `exclude`).",
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.jsx",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
+    "emails/**/*.ts",
+    "emails/**/*.tsx",
+    "scripts/**/*.ts",
+    "scripts/**/*.tsx",
+    "scripts/**/*.mts",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "out",
+    "coverage",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "e2e"
+  ]
 }

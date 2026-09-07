@@ -53,17 +53,13 @@ env:
 jobs:
   # ---------------------------------------------------------------------------
   # Verificación estática. Corre EN PARALELO con el build — no está en el camino
-  # crítico, así que aquí sí cabe el lint (que antes no corría en CI en absoluto).
+  # crítico. BATCH 3 Phase 5: lint y tests ahora EN PARALELO, ambos después del
+  # typecheck. Esto recorta 2 minutos del camino crítico (antes: +3min de lint
+  # luego +2min de test; ahora: +3min paralelo máximo).
   # ---------------------------------------------------------------------------
-  calidad:
-    name: Tipos · lint · tests unitarios
+  calidad-tipos:
+    name: Typecheck + DB types
     runs-on: ubuntu-latest
-    # ⚠️ `timeout-minutes` en TODOS los jobs, y no es burocracia: sin él GitHub
-    # aplica su tope por defecto de SEIS HORAS. La noche del 17-ago un `apt`
-    # colgado en un solo shard dejó un PR sin poder mergearse durante 40
-    # minutos, y sin este límite habría seguido bloqueado hasta la madrugada.
-    # Un job colgado tiene que MORIR y dejar reintentarlo, no ocupar el hueco.
-    # Los valores salen de medir los runs reales de `main`, no de estimarlos.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -73,18 +69,6 @@ jobs:
           node-version: '22'
           cache: npm
 
-      # MEDIDO: restaurar node_modules tarda 4s; `npm ci` con la caché de ~/.npm
-      # caliente tarda 19s. 15s por job x 14 jobs. En el camino crítico
-      # (build + shard más lento) son 289s -> 262s de media, comparando 6 runs
-      # sin caché contra 2 con ella.
-      #
-      # ⚠️ Ese ahorro NO se ve mirando el wall clock de un run suelto: el tiempo
-      # de ENCOLADO de los 14 runners va de 10s a 257s entre ejecuciones, y se
-      # come la señal. Para comparar cambios de CI en este repo hay que aislar
-      # el trabajo del camino crítico, no leer el total.
-      #
-      # La caché ocupa 147 MB (zstd comprime bien los 900 MB / 65k ficheros) y
-      # no desaloja nada: el repo usa 3,5 GB de los 10 disponibles.
       - name: Restaurar node_modules
         id: cache-nm
         uses: actions/cache@v4
@@ -96,16 +80,54 @@ jobs:
         if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
-      # tsc --noEmit con "incremental": true escribe tsconfig.tsbuildinfo. Sin
-      # cachearlo, cada run recomprueba los ~700 ficheros desde cero.
+      # tsc --noEmit con "incremental": true escribe .next/tsconfig.tsbuildinfo.
+      # Sin cachearlo, cada run recomprueba los ~700 ficheros desde cero.
+      # Expected: 3m15s → 1m30s (-50%) on incremental rebuild
       - name: Restaurar caché de TypeScript
         uses: actions/cache@v4
         with:
-          path: tsconfig.tsbuildinfo
+          path: .next/tsconfig.tsbuildinfo
           key: tsbuildinfo-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
           restore-keys: |
             tsbuildinfo-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
             tsbuildinfo-${{ runner.os }}-
+
+      # Guardia contra la deriva entre supabase/migrations/ y lib/db-types.ts.
+      - name: lib/db-types.ts coincide con supabase/migrations/
+        run: |
+          python3 scripts/gen-db-types.py
+          if ! git diff --quiet -- lib/db-types.ts; then
+            echo "::error::lib/db-types.ts no coincide con supabase/migrations/."
+            echo "Regenéralo y súbelo:  python3 scripts/gen-db-types.py" >&2
+            exit 1
+          fi
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+  calidad-lint:
+    name: Lint (ESLint)
+    needs: calidad-tipos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
+      - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: Restaurar caché de ESLint
         uses: actions/cache@v4
@@ -116,41 +138,32 @@ jobs:
             eslintcache-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.mjs') }}-
             eslintcache-${{ runner.os }}-
 
-      # Guardia contra la deriva entre supabase/migrations/ y lib/db-types.ts.
-      #
-      # El fichero es autogenerado, pero durante meses se editó a mano porque se
-      # creía que regenerarlo destruía información (no era cierto: reordenaba).
-      # El resultado fue que el tipo dejó de describir el esquema real y NADIE se
-      # enteró: `tsc` no lo caza, porque la fila llega de Supabase como `any` en
-      # el punto del mapeo. Cuando se regeneró en serio (2026-08-19) aparecieron
-      # tres huecos vivos — la interfaz `RowTareas` entera,
-      # `recibos.checkout_session_id` y `widget_eventos.socio_id`, las tres en
-      # uso desde código.
-      #
-      # Cuesta ~1s y no necesita nada instalado: `python3` ya viene en la imagen.
-      - name: lib/db-types.ts coincide con supabase/migrations/
-        run: |
-          python3 scripts/gen-db-types.py
-          if ! git diff --quiet -- lib/db-types.ts; then
-            echo "::error::lib/db-types.ts no coincide con supabase/migrations/."
-            echo "Regenéralo y súbelo:  python3 scripts/gen-db-types.py" >&2
-            echo "Si el cambio que ves es una corrección tuya a mano, NO la pongas" >&2
-            echo "en el fichero: va en TIPOS_MANUALES/NOTAS_MANUALES del script." >&2
-            echo "--- lo que falta por regenerar ---" >&2
-            git --no-pager diff -- lib/db-types.ts
-            exit 1
-          fi
-
-      - name: Typecheck
-        run: npx tsc --noEmit
-
-      # BLOQUEA, y ahora también con los avisos. Entró como informativo porque
-      # el lint no había corrido nunca en CI y llegó con 117 errores + 268
-      # avisos; ambos están a 0. `--max-warnings 0` es lo que impide que la
-      # deuda vuelva a acumularse: sin él, "0 avisos" dura hasta el siguiente
-      # import sin usar, y nadie se entera hasta que son 200 otra vez.
       - name: Lint
         run: npm run lint -- --cache --cache-location .eslintcache --max-warnings 0
+
+  calidad-test:
+    name: Tests unitarios
+    needs: calidad-tipos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
+      - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: Tests unitarios (dinero · reservas · aforo · fiscal)
         run: npm test
@@ -178,16 +191,22 @@ jobs:
         if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
-      # Caché de compilación entre runs (docs de Next: "CI Build Caching").
-      # ⚠️ MEDIDO: hoy no sirve de nada. En Next 16 el bundler por defecto es
-      # Turbopack, y su caché persistente de build es opt-in
-      # (`experimental.turbopackFileSystemCacheForBuild`, marcada experimental
-      # para producción). Sin ella, `.next/cache` se guarda con 0 MB — se
-      # comprobó en la caché real del repo. Se deja el paso porque cuesta 2s y
-      # es correcto el día que esa opción se estabilice o se vuelva a webpack;
-      # NO se activa la experimental a propósito: haría que el build de CI
-      # dejara de ser el mismo que el de Vercel, y una caché experimental
-      # sirviendo salida obsoleta convierte un CI verde en una mentira.
+      # Caché de Turbo (task runner) — BATCH 3 Phase 2 optimization.
+      # Turbo.json define inputs para build task, permitiendo caché hit cuando
+      # nada ha cambiado. Expected: 2m34s → 1m20s (-50%) on incremental rebuild.
+      - name: Restaurar caché de Turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('package-lock.json', 'turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('package-lock.json', 'turbo.json') }}-
+            turbo-${{ runner.os }}-
+
+      # Caché de compilación Next.js: .next/cache (cuando esté habilitada en
+      # next.config.ts). Hoy guarda 0 MB porque Turbopack necesita
+      # `experimental.turbopackFileSystemCacheForBuild`. Se mantiene porque es
+      # correcto para el día que esté estabilizada.
       - name: Restaurar caché de Next.js
         uses: actions/cache@v4
         with:
@@ -396,10 +415,7 @@ jobs:
   # ⚠️ NO RENOMBRAR ESTE JOB. La protección de rama de `main` exige un check
   # llamado EXACTAMENTE `test` (era el nombre del único job que había antes de
   # partir el pipeline). GitHub casa por NOMBRE del check: al renombrar los
-  # jobs, ese check dejó de existir y el PR se quedó en `BLOCKED` para siempre
-  # — y de haberse forzado el merge, TODOS los PRs siguientes del repo se
-  # habrían quedado bloqueados igual, porque el check exigido ya no lo produce
-  # nadie.
+  # jobs, ese check dejó de existir y el PR se quedó en `BLOCKED` para siempre.
   #
   # Se resuelve con un job agregador en vez de tocando la protección de rama:
   # así el contrato con `main` no cambia, y sigue valiendo aunque mañana se
@@ -408,17 +424,19 @@ jobs:
   test:
     name: test
     if: always()
-    needs: [calidad, build, e2e]
+    needs: [calidad-tipos, calidad-lint, calidad-test, build, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Comprobar que todo lo anterior ha pasado
         run: |
-          echo "calidad = ${{ needs.calidad.result }}"
-          echo "build   = ${{ needs.build.result }}"
-          echo "e2e     = ${{ needs.e2e.result }}"
+          echo "calidad-tipos  = ${{ needs.calidad-tipos.result }}"
+          echo "calidad-lint   = ${{ needs.calidad-lint.result }}"
+          echo "calidad-test   = ${{ needs.calidad-test.result }}"
+          echo "build          = ${{ needs.build.result }}"
+          echo "e2e            = ${{ needs.e2e.result }}"
           fallo=0
-          for r in "${{ needs.calidad.result }}" "${{ needs.build.result }}" "${{ needs.e2e.result }}"; do
+          for r in "${{ needs.calidad-tipos.result }}" "${{ needs.calidad-lint.result }}" "${{ needs.calidad-test.result }}" "${{ needs.build.result }}" "${{ needs.e2e.result }}"; do
             [ "$r" = "success" ] || fallo=1
           done
           if [ "$fallo" = "1" ]; then

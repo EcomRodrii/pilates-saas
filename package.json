@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "SKIP_ENV_VALIDATION=true next dev",
+    "dev:strict": "NEXT_PUBLIC_FORCE_TYPE_CHECK=true next dev",
+    "typecheck": "node --max-old-space-size=8192 ./node_modules/.bin/tsc --noEmit",
+    "typecheck:watch": "node --max-old-space-size=8192 ./node_modules/.bin/tsc --noEmit --watch --incremental",
+    "typecheck:fast": "node ./node_modules/.bin/tsc --noEmit --skipLibCheck --maxNodeModuleJsDepth 0",
+    "transpile:watch": "node scripts/esbuild-transpile.mjs --watch",
     "build": "npm run build:widget && next build",
     "build:widget": "node scripts/build-widget-bundle.mjs",
     "start": "next start",
