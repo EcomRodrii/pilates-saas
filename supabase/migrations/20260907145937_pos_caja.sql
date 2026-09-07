@@ -136,7 +136,7 @@ CREATE POLICY movimientos_caja_lectura ON public.movimientos_caja
 
 -- Sin políticas de INSERT/UPDATE/DELETE a propósito, para ninguna de las dos:
 -- abrir, cerrar y mover caja pasa SIEMPRE por las RPC de servidor
--- (20260907090400_pos_rpc_caja.sql), que corren con service_role y saltan la
+-- (20260907150401_pos_rpc_caja.sql), que corren con service_role y saltan la
 -- RLS. Una caja que el navegador pudiera escribir directamente no es una caja,
 -- es una sugerencia — y el arqueo dejaría de significar nada.
 

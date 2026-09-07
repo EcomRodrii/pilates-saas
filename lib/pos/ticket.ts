@@ -5,7 +5,7 @@
 // total ANTES de pulsar «Cobrar», sin pedírselo al servidor en cada toque.
 //
 // ⚠️ Esto NO es la fuente de verdad. Lo es `registrar_venta_pos`
-// (migr 20260907090300), que vuelve a calcularlo todo leyendo el catálogo. Lo
+// (migr 20260907150310), que vuelve a calcularlo todo leyendo el catálogo. Lo
 // que se escribe en la base de datos sale SIEMPRE de allí; esto solo pinta.
 //
 // Por eso las reglas de redondeo de este fichero son las MISMAS que las de la

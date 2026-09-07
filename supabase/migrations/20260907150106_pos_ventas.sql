@@ -182,7 +182,7 @@ ALTER TABLE public.ventas_pos_lineas ENABLE ROW LEVEL SECURITY;
 -- A `authenticated` también: una tabla nueva de `public` nace con las cuatro
 -- operaciones concedidas por el pg_default_acl del proyecto, y un GRANT SELECT
 -- posterior no retira las otras tres (verificado en vivo). Ver la nota larga en
--- 20260907090000_pos_caja.sql.
+-- 20260907145937_pos_caja.sql.
 REVOKE ALL ON TABLE public.ventas_pos_lineas FROM anon, authenticated;
 GRANT SELECT ON TABLE public.ventas_pos_lineas TO authenticated;
 GRANT ALL ON TABLE public.ventas_pos_lineas TO service_role;

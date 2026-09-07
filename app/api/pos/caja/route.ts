@@ -8,7 +8,7 @@ import { mensajeErrorVenta, codigoDeErrorPg } from '@/lib/pos/tipos';
 
 export const dynamic = 'force-dynamic';
 
-/** Espejo del CHECK de `movimientos_caja.metodo_pago` (migr 20260907090000). */
+/** Espejo del CHECK de `movimientos_caja.metodo_pago` (migr 20260907145937). */
 const METODOS_CAJA = ['EFECTIVO', 'TARJETA', 'BIZUM', 'TRANSFERENCIA', 'DATAFONO', 'OTRO'];
 
 // ─────────────────────────────────────────────────────────────────────────────

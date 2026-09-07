@@ -98,13 +98,14 @@ de un cobro ya no deja nada huérfano.
 
 | Migración | Qué hace |
 |---|---|
-| `20260907090000_pos_caja` | **Nuevas** `cajas` (sesión de caja, una ABIERTA por estudio vía índice parcial) y `movimientos_caja` (libro append-only, importe SIEMPRE con signo). RLS: leer exige `puede_ver_finanzas`, y **no hay política de escritura** — todo pasa por RPC de servidor. |
-| `20260907090100_pos_catalogo` | `productos_pos` + `stock`, `stock_minimo`, `iva_pct`, `descripcion`, `imagen_url`, `sku`, `codigo_barras`, `orden`. CHECK de stock no negativo, únicos parciales de SKU y código de barras por estudio. |
-| `20260907090200_pos_ventas` | `ventas_pos` + `numero`, `estado`, `pago_estado`, `base_imponible`, `iva_total`, `efectivo_recibido`, `cambio`, `vendido_por`, `caja_id`, `recibo_id`, `idempotencia_clave`, `anulada_*`. **Nueva** `ventas_pos_lineas`. Backfill del correlativo de las 19 ventas existentes. **Se retiran INSERT/UPDATE/DELETE de `ventas_pos` al navegador.** |
-| `20260907090300_pos_rpc_venta` | `registrar_venta_pos`, `confirmar_pago_venta_pos`, `fallar_pago_venta_pos`. |
-| `20260907090400_pos_rpc_caja` | `saldo_caja`, `abrir_caja`, `mover_caja`, `cerrar_caja`. |
-| `20260907090500_pos_rpc_devolucion` | `devolver_venta_pos` (parcial por línea, repone stock, retira bono intacto, apunta salida de caja). |
-| `20260907090600_pos_creditos_por_compra` | `reward_rules.unidad_euros`; `otorgar_creditos_compra` y `retirar_creditos_compra`. |
+| `20260907145937_pos_caja` | **Nuevas** `cajas` (sesión de caja, una ABIERTA por estudio vía índice parcial) y `movimientos_caja` (libro append-only, importe SIEMPRE con signo). RLS: leer exige `puede_ver_finanzas`, y **no hay política de escritura** — todo pasa por RPC de servidor. |
+| `20260907150011_pos_catalogo` | `productos_pos` + `stock`, `stock_minimo`, `iva_pct`, `descripcion`, `imagen_url`, `sku`, `codigo_barras`, `orden`. CHECK de stock no negativo, únicos parciales de SKU y código de barras por estudio. |
+| `20260907150106_pos_ventas` | `ventas_pos` + `numero`, `estado`, `pago_estado`, `base_imponible`, `iva_total`, `efectivo_recibido`, `cambio`, `vendido_por`, `caja_id`, `recibo_id`, `idempotencia_clave`, `anulada_*`. **Nueva** `ventas_pos_lineas`. Backfill del correlativo de las 19 ventas existentes. **Se retiran INSERT/UPDATE/DELETE de `ventas_pos` al navegador.** |
+| `20260907150310_pos_rpc_venta` | `registrar_venta_pos`, `confirmar_pago_venta_pos`, `fallar_pago_venta_pos`. |
+| `20260907150401_pos_rpc_caja` | `saldo_caja`, `abrir_caja`, `mover_caja`, `cerrar_caja`. |
+| `20260907150458_pos_rpc_devolucion` | `devolver_venta_pos` (parcial por línea, repone stock, retira bono intacto, apunta salida de caja). |
+| `20260907150546_pos_creditos_por_compra` | `reward_rules.unidad_euros`; `otorgar_creditos_compra` y `retirar_creditos_compra`. |
+| `20260907151014_pos_textos_caja_con_acentos` | Corrección de fidelidad: al aplicar a mano se ASCII-ificaron dos literales visibles en el libro de caja («Devolucion», «Cierre de caja:»). Se recrean las dos funciones con el texto exacto del fichero. Sin cambio de comportamiento. |
 
 Todas las funciones son `SECURITY DEFINER` y **solo `service_role`**, con los
 tres `REVOKE` explícitos (`PUBLIC`, `anon`, `authenticated`) que exige el
@@ -199,10 +200,19 @@ Los dos se cazaron con `execute_sql` + `ROLLBACK`, no leyendo el código.
 
 ## 8. Riesgos y límites conocidos
 
-1. **Las migraciones NO están aplicadas en producción.** Se han verificado con
-   `execute_sql` + `ROLLBACK`, que prueba que el SQL es correcto, no que esté
-   desplegado. Aplicar y comprobar por NOMBRE, no por número (ver
-   `.claude/tentare-os.md`).
+1. ~~Las migraciones no están aplicadas.~~ **APLICADAS en producción el
+   2026-09-07** (versiones `20260907145937`–`20260907151014`), verificadas una a
+   una: las 19 ventas existentes quedaron numeradas 1–19, las tres políticas de
+   escritura de `ventas_pos` retiradas, `authenticated` con solo `SELECT`, las
+   diez funciones con `anon=false / authenticated=false / service_role=true`, y
+   `get_advisors` sin ningún aviso nuevo (86, los mismos de antes, 0 ERROR).
+   Prueba funcional end-to-end contra el esquema ya aplicado, con `ROLLBACK`:
+   venta con tres tipos de IVA cuadrando al céntimo, correlativo continuando en
+   #20, stock 10→8→9→10, pre-vuelo de devolución sin escribir, y arqueo.
+   ⚠️ Los ficheros locales se RENOMBRARON a la versión con que quedaron
+   selladas: `apply_migration` usa la marca de tiempo del momento de aplicar, no
+   la del fichero, y sin renombrar un `supabase db push` desde limpio las vería
+   pendientes y las reaplicaría con OTRO timestamp.
 2. **Por Stripe no ha pasado un euro real en este flujo.** El datáfono y Bizum
    están probados contra mocks, no contra hardware ni contra un
    `paymentIntent` de verdad. **Probar el primer cobro en un estudio de prueba

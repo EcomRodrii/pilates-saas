@@ -1166,7 +1166,7 @@ export interface ProductoPOS {
   /** CON IVA incluido, como todos los precios de Tentare. */
   precio: number;
   activo: boolean;
-  // ── Campos del rediseño del TPV (migr 20260907090100) ──────────────────────
+  // ── Campos del rediseño del TPV (migr 20260907150011) ──────────────────────
   descripcion?: string | null;
   imagenUrl?: string | null;
   sku?: string | null;

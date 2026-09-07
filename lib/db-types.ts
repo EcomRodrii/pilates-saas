@@ -469,21 +469,21 @@ export interface RowProductosPos {
   categoria: string;
   precio: number;
   activo: boolean | null;
-  // migr 20260907090100.
+  // migr 20260907150011.
   stock: number | null;
-  // migr 20260907090100.
+  // migr 20260907150011.
   stock_minimo: number;
-  // migr 20260907090100.
+  // migr 20260907150011.
   iva_pct: number | null;
-  // migr 20260907090100.
+  // migr 20260907150011.
   descripcion: string | null;
-  // migr 20260907090100.
+  // migr 20260907150011.
   imagen_url: string | null;
-  // migr 20260907090100.
+  // migr 20260907150011.
   sku: string | null;
-  // migr 20260907090100.
+  // migr 20260907150011.
   codigo_barras: string | null;
-  // migr 20260907090100.
+  // migr 20260907150011.
   orden: number | null;
 }
 
