@@ -238,9 +238,10 @@ export function calcularFechaFinBono(fechaInicioISO: string, validezDias: number
 // todo — reactivar con la fecha_fin vieja la dejaría caducada al instante —
 // así que se recalcula igual que un alta nueva (mismo criterio que
 // `assignPlan` en studio-context.tsx): BONO/PUNTUAL arranca hoy con las
-// sesiones del plan a tope; MENSUAL con el próximo ciclo a un mes vista.
+// sesiones del plan a tope; MENSUAL con el próximo ciclo a un ciclo vista
+// (un mes, o lo que diga `periodicidadMeses`).
 export function calcularReactivacion(
-  plan: Pick<PlanTarifa, 'tipo' | 'sesiones' | 'validezDias'>,
+  plan: Pick<PlanTarifa, 'tipo' | 'sesiones' | 'validezDias'> & Partial<Pick<PlanTarifa, 'periodicidadMeses'>>,
   ahoraISO: string,
 ): { fechaFin: string | null; sesionesRestantes: number | null } {
   // Reactivar es empezar un ciclo desde cero, así que es literalmente lo mismo
@@ -274,17 +275,54 @@ export function calcularReactivacion(
  * función y no pueden volver a separarse.
  */
 export function cicloInicialDe(
-  plan: Pick<PlanTarifa, 'tipo' | 'sesiones' | 'validezDias'>,
+  plan: Pick<PlanTarifa, 'tipo' | 'sesiones' | 'validezDias'> & Partial<Pick<PlanTarifa, 'periodicidadMeses'>>,
   ahoraISO: string,
 ): { fechaFin: string | null; sesionesRestantes: number | null } {
   if (plan.tipo === 'MENSUAL') {
     // P-9 (auditoría 21ª pasada): mismo bug que ya arregla
     // `calcularFechaFinBono` — el día del estudio, no el de UTC.
     const nuevaFin = new Date(`${hoyEnEstudio(new Date(ahoraISO))}T00:00:00Z`);
-    nuevaFin.setUTCMonth(nuevaFin.getUTCMonth() + 1);
+    nuevaFin.setUTCMonth(nuevaFin.getUTCMonth() + mesesDeCiclo(plan));
     return { fechaFin: nuevaFin.toISOString().slice(0, 10), sesionesRestantes: null };
   }
   return { fechaFin: calcularFechaFinBono(ahoraISO, plan.validezDias ?? null), sesionesRestantes: plan.sesiones };
+}
+
+/**
+ * Cada cuántos meses dura un ciclo de esta cuota.
+ *
+ * Una cuota podía ser solo mensual: los tres sitios que extienden una
+ * suscripción sumaban `+ 1` a pelo. Un estudio que cobra por trimestres —muy
+ * común de septiembre a junio— no podía reproducir su lista de precios.
+ *
+ * `?? 1` no es un detalle: es lo que hace que las 24 tarifas que ya existen se
+ * comporten exactamente igual que antes, y que un plan leído de un backup
+ * anterior a la columna no extienda una suscripción cero meses.
+ *
+ * Se acota a lo que el CHECK de la BD permite. Un valor imposible (una fila
+ * tocada a mano, un import antiguo) cae a 1 en vez de dar una fecha absurda:
+ * cobrar de más por un dato corrupto es peor que cobrar de menos.
+ */
+export function mesesDeCiclo(plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>>): number {
+  const m = plan.periodicidadMeses;
+  return m === 3 || m === 6 || m === 12 ? m : 1;
+}
+
+/**
+ * Cómo se llama ese periodo: «mes», «trimestre», «semestre», «año».
+ *
+ * UNA función y no tres («/mes», «al mes», «cada mes»): las tres formas que
+ * hacen falta en pantalla se construyen anteponiendo la preposición
+ * (`/${nombrePeriodo(p)}`, `al ${…}`, `cada ${…}`), y las cuatro palabras
+ * funcionan con las tres. Tres tablas paralelas es como divergen las cosas.
+ */
+export function nombrePeriodo(plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>>): string {
+  switch (mesesDeCiclo(plan)) {
+    case 3: return 'trimestre';
+    case 6: return 'semestre';
+    case 12: return 'año';
+    default: return 'mes';
+  }
 }
 
 

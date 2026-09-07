@@ -563,6 +563,27 @@ export interface PlanTarifa {
   // `precio`; esto solo pinta un aviso para que se acuerde de subirlo de
   // vuelta al pasar la fecha. null = sin oferta activa.
   ofertaHasta?: string | null;
+  /**
+   * Cada cuántos meses se cobra y se extiende una CUOTA (`tipo: 'MENSUAL'`).
+   *
+   * 1 = mensual (el comportamiento de siempre y el valor por defecto en BD),
+   * 3 = trimestral, 6 = semestral, 12 = anual. Se ignora en BONO y PUNTUAL,
+   * donde el ciclo lo marcan `validezDias`/`sesiones`.
+   *
+   * Meses y no un enum: quien lo usa (`cicloInicialDe` y las dos mitades de la
+   * renovación) solo suma meses a una fecha. Un enum obligaría a mantener el
+   * mapa a meses en tres sitios, que es justo como divergen las cosas aquí.
+   */
+  periodicidadMeses?: number | null;
+  /**
+   * Cuota de alta, en euros. Se cobra UNA VEZ —la primera vez que una socia
+   * contrata un plan en el estudio— y como recibo APARTE.
+   *
+   * Aparte y no sumada al precio a propósito: el cron de renovaciones emite el
+   * recibo con `precio` tal cual, así que meterla dentro la cobraría cada
+   * ciclo. Con su propio recibo eso es imposible.
+   */
+  matricula?: number | null;
 }
 
 export interface Suscripcion {

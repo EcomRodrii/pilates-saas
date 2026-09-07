@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { InfoTip } from '@/components/ui/tooltip';
 import { cn, formatFechaLarga } from '@/lib/utils';
+import { nombrePeriodo } from '@/lib/bono-logic';
 import { useStudio } from '@/lib/studio-context';
 import type { PlanTarifa, TipoClase } from '@/lib/types';
 
@@ -30,7 +31,7 @@ function estadoOferta(plan: PlanTarifa): 'activa' | 'caducada' | null {
 }
 import {
   planVacio, planAFormulario, formularioAPlan, motivoNoGuardable,
-  NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN,
+  NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA,
   type FormularioPlan,
 } from '@/lib/planes/formulario';
 import {
@@ -56,6 +57,24 @@ const planToForm = planAFormulario;
 
 // Para qué clases sirve una tarifa. Sin marcar nada cubre todas — es la
 // semántica de `plan_tipos_clase` (migr 0111) y la que han tenido siempre.
+// El precio de una cuota SIN decir cada cuánto se cobra es un número que no
+// significa nada desde que una cuota puede ser trimestral: 180 € es barato al
+// trimestre y carísimo al mes. Va aquí, y no repetido en las dos tablas
+// (escritorio y móvil), para que no puedan divergir.
+function PrecioPlan({ plan }: { plan: PlanTarifa }) {
+  return (
+    <>
+      {plan.precio} €
+      {plan.tipo === 'MENSUAL' && (
+        <span className="font-normal text-muted-foreground">/{nombrePeriodo(plan)}</span>
+      )}
+      {(plan.matricula ?? 0) > 0 && (
+        <span className="font-normal text-muted-foreground"> + {plan.matricula} € matrícula</span>
+      )}
+    </>
+  );
+}
+
 function CoberturaPlan({ plan, tiposClase }: { plan: PlanTarifa; tiposClase: TipoClase[] }) {
   const ids = plan.tiposClaseIds ?? [];
   if (ids.length === 0) {
@@ -196,7 +215,7 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                     <td className="px-5 py-3">
                       <TipoPlanBadge tipo={plan.tipo} />
                     </td>
-                    <td className="px-5 py-3 font-semibold text-foreground">{plan.precio} €</td>
+                    <td className="px-5 py-3 font-semibold text-foreground"><PrecioPlan plan={plan} /></td>
                     <td className="px-5 py-3 text-muted-foreground">
                       {plan.sesiones !== null ? plan.sesiones : '—'}
                     </td>
@@ -272,7 +291,7 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-[13px] text-muted-foreground">
-                      <span className="font-semibold text-foreground">{plan.precio} €</span>
+                      <span className="font-semibold text-foreground"><PrecioPlan plan={plan} /></span>
                       {plan.sesiones !== null && ` · ${plan.sesiones} sesiones`}
                       {' · '}
                       <CoberturaPlan plan={plan} tiposClase={tiposClase} />
@@ -361,6 +380,22 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                 />
               </Field>
             </div>
+            {form.tipo === 'MENSUAL' && (
+              <Field
+                label="¿Cada cuánto se cobra?"
+                description="Una cuota no tiene por qué ser mensual: muchos estudios cobran por trimestres de septiembre a junio. El precio de arriba es lo que se cobra CADA VEZ, no lo que sale al mes."
+              >
+                <select
+                  className={inputCls}
+                  value={form.periodicidadMeses}
+                  onChange={e => setForm(f => ({ ...f, periodicidadMeses: e.target.value }))}
+                >
+                  {PERIODICIDADES_CUOTA.map(p => (
+                    <option key={p.meses} value={String(p.meses)}>{p.etiqueta}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
             {sesionesRequeridas && (
               <div className="grid grid-cols-2 gap-3">
                 <Field
@@ -391,19 +426,35 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                 </Field>
               </div>
             )}
-            <Field
-              label="Límite semanal (opcional)"
-              description="Máximo de clases que puede reservar por semana con este plan. Déjalo vacío para no poner tope."
-            >
-              <input
-                className={inputCls}
-                type="number"
-                min={1}
-                value={form.limiteSemanal}
-                onChange={e => setForm(f => ({ ...f, limiteSemanal: e.target.value }))}
-                placeholder="Sin límite"
-              />
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field
+                label="Límite semanal (opcional)"
+                description="Máximo de clases que puede reservar por semana con este plan. Déjalo vacío para no poner tope."
+              >
+                <input
+                  className={inputCls}
+                  type="number"
+                  min={1}
+                  value={form.limiteSemanal}
+                  onChange={e => setForm(f => ({ ...f, limiteSemanal: e.target.value }))}
+                  placeholder="Sin límite"
+                />
+              </Field>
+              <Field
+                label="Matrícula (opcional)"
+                description="Cuota de alta, en euros. Se cobra UNA sola vez —en el primer plan que contrata la clienta— y como recibo aparte, así que las renovaciones no la vuelven a incluir. Hoy se aplica al dar de alta o asignar el plan desde el panel; una compra por internet desde el portal todavía no la cobra."
+              >
+                <input
+                  className={inputCls}
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={form.matricula}
+                  onChange={e => setForm(f => ({ ...f, matricula: e.target.value }))}
+                  placeholder="Sin matrícula"
+                />
+              </Field>
+            </div>
             <Field
               label="¿Para qué clases sirve? (opcional)"
               description="Sin marcar nada, el plan sirve para todas las clases. Marca solo las que cubra si, por ejemplo, tu bono de reformer no debe valer para mat."

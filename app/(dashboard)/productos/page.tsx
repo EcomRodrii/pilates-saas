@@ -7,13 +7,14 @@ import { useRol, puedeMoverDinero } from '@/lib/permisos';
 import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS, TipoPlan } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { nombrePeriodo } from '@/lib/bono-logic';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   planVacio, planAFormulario, formularioAPlan, erroresPlan, precioANumero,
-  resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN,
+  resumenCondicionesPlan, NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN, PERIODICIDADES_CUOTA,
   type FormularioPlan, type CampoPlan,
 } from '@/lib/planes/formulario';
 
@@ -151,6 +152,18 @@ function Interruptor({ activo, onChange, labelledBy, describedBy }: {
 }
 
 /**
+ * «mes» / «trimestre» / «semestre» / «año» para ESTE formulario.
+ *
+ * El formulario guarda los meses como texto (sale de una lista de botones), y
+ * el resto del repo trabaja con el plan ya guardado. Un solo sitio donde se
+ * hace la conversión, para que el precio, el resumen y la etiqueta no puedan
+ * decir tres cosas distintas.
+ */
+function periodoDe(f: FormularioPlan): string {
+  return nombrePeriodo({ periodicidadMeses: parseInt(f.periodicidadMeses, 10) });
+}
+
+/**
  * Cómo va a quedar, mientras se escribe.
  *
  * Es la misma información que la clienta verá en la tienda, así que enseña los
@@ -169,7 +182,9 @@ function ResumenPlan({ form, tiposClase }: { form: FormularioPlan; tiposClase: {
         </p>
         <p className="mt-1 text-2xl font-bold text-foreground tabular-nums">
           {Number.isFinite(precio) && form.precio.trim() ? fmt(precio) : '—'} €
-          {form.tipo === 'MENSUAL' && <span className="text-sm font-medium text-muted-foreground"> / mes</span>}
+          {form.tipo === 'MENSUAL' && (
+            <span className="text-sm font-medium text-muted-foreground"> / {periodoDe(form)}</span>
+          )}
         </p>
         {form.descripcion.trim() && (
           <p className="mt-2 text-[13px] text-muted-foreground break-words">{form.descripcion.trim()}</p>
@@ -241,6 +256,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
   const enPantalla: Record<CampoPlan, boolean> = {
     nombre: true, precio: true, limiteSemanal: form.limiteSemanal.trim() !== '',
     sesiones: form.tipo === 'BONO', validezDias: form.tipo !== 'MENSUAL',
+    matricula: form.matricula.trim() !== '',
   };
   const camposConErrorVisibles = (Object.keys(errores) as CampoPlan[]).some(c => enPantalla[c]);
   const sucio = JSON.stringify(form) !== JSON.stringify(inicial);
@@ -352,10 +368,10 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
               <Seccion titulo="Precio">
                 <Campo
                   id={`${uid}-precio`}
-                  etiqueta={form.tipo === 'MENSUAL' ? 'Precio al mes' : 'Precio'}
+                  etiqueta={form.tipo === 'MENSUAL' ? `Precio al ${periodoDe(form)}` : 'Precio'}
                   obligatorio error={visible('precio')}
                   ayuda={form.tipo === 'MENSUAL'
-                    ? 'Se le cobra cada mes hasta que se dé de baja.'
+                    ? `Se le cobra cada ${periodoDe(form)} hasta que se dé de baja.`
                     : 'Se le cobra una sola vez, al comprarlo.'}>
                   {p => (
                     <div className="relative max-w-[240px]">
@@ -369,11 +385,39 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
                         className={cn(cajaCls(visible('precio')), 'pl-7 pr-14 tabular-nums')}
                         placeholder="0,00" />
                       {form.tipo === 'MENSUAL' && (
-                        <span aria-hidden className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">/ mes</span>
+                        <span aria-hidden className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">/ {periodoDe(form)}</span>
                       )}
                     </div>
                   )}
                 </Campo>
+                {/* Una cuota no tiene por qué ser mensual: cobrar por
+                    trimestres de septiembre a junio es lo normal en un estudio
+                    de Pilates, y hasta ahora había que fingirlo con un bono sin
+                    sesiones. Va pegado al precio a propósito — el número de
+                    arriba es lo que se cobra CADA VEZ, no lo que sale al mes, y
+                    esa confusión se paga en euros. */}
+                {form.tipo === 'MENSUAL' && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">¿Cada cuánto se cobra?</p>
+                    <div role="radiogroup" aria-label="Cada cuánto se cobra" className="flex flex-wrap gap-2">
+                      {PERIODICIDADES_CUOTA.map(op => {
+                        const puesto = parseInt(form.periodicidadMeses, 10) === op.meses;
+                        return (
+                          <button
+                            key={op.meses} type="button" role="radio" aria-checked={puesto}
+                            onClick={() => set('periodicidadMeses', String(op.meses))}
+                            className={cn(
+                              'rounded-xl border px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--ring)]',
+                              puesto ? 'border-brand text-foreground' : 'border-border text-muted-foreground hover:border-muted-foreground/40',
+                            )}
+                            style={puesto ? { backgroundColor: 'color-mix(in srgb, var(--brand) 8%, var(--card))' } : undefined}>
+                            {op.etiqueta}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </Seccion>
 
               <Seccion titulo="Condiciones">
@@ -434,6 +478,41 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
                               onBlur={() => tocar('limiteSemanal')} type="number" min="1" inputMode="numeric"
                               className={cn(cajaCls(visible('limiteSemanal')), 'tabular-nums')} />
                             <span className="text-sm text-muted-foreground shrink-0">por semana</span>
+                          </div>
+                        )}
+                      </Campo>
+                    </div>
+                  )}
+                </div>
+
+                {/* Matrícula: mismo patrón de interruptor que el límite
+                    semanal, y por el mismo motivo — un campo suelto con «0» de
+                    marcador parece algo a rellenar. La mayoría de tarifas no
+                    tienen matrícula, así que apagada por defecto. */}
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <Interruptor
+                      activo={form.matricula.trim() !== ''}
+                      onChange={v => set('matricula', v ? '30' : '')}
+                      labelledBy={`${uid}-matricula-tx`} />
+                    <span
+                      id={`${uid}-matricula-tx`}
+                      onClick={() => set('matricula', form.matricula.trim() ? '' : '30')}
+                      className="text-sm font-medium text-foreground cursor-pointer select-none">
+                      Cobrar matrícula al darse de alta
+                    </span>
+                  </div>
+                  {form.matricula.trim() !== '' && (
+                    <div className="mt-3 pl-[52px]">
+                      <Campo
+                        id={`${uid}-matricula`} etiqueta="Matrícula" error={visible('matricula')}
+                        ayuda="Se cobra UNA vez, en el primer plan que contrata, y en un recibo aparte: las renovaciones no la vuelven a incluir. Se aplica al dar de alta o asignar el plan desde el panel; una compra por internet desde el portal todavía no la cobra.">
+                        {p => (
+                          <div className="relative max-w-[240px]">
+                            <span aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">€</span>
+                            <input {...p} value={form.matricula} onChange={e => set('matricula', e.target.value)}
+                              onBlur={() => tocar('matricula')} type="text" inputMode="decimal"
+                              className={cn(cajaCls(visible('matricula')), 'pl-7 tabular-nums')} placeholder="0,00" />
                           </div>
                         )}
                       </Campo>
@@ -833,8 +912,15 @@ export default function Productos() {
                   <div>
                     <p className="text-2xl font-extrabold text-foreground">{fmt(plan.precio)} €</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {plan.tipo === 'MENSUAL' ? 'al mes' : plan.sesiones ? `${plan.sesiones} ${plan.sesiones > 1 ? 'sesiones' : 'sesión'}` : 'por sesión'}
+                      {plan.tipo === 'MENSUAL' ? `al ${nombrePeriodo(plan)}` : plan.sesiones ? `${plan.sesiones} ${plan.sesiones > 1 ? 'sesiones' : 'sesión'}` : 'por sesión'}
                     </p>
+                    {/* Una matrícula que solo se ve abriendo la tarifa es una
+                        matrícula que se olvida de cobrar. */}
+                    {(plan.matricula ?? 0) > 0 && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        + {fmt(plan.matricula ?? 0)} € de matrícula la primera vez
+                      </p>
+                    )}
                     {/* La caducidad no se veía en ningún sitio: había que abrir el
                         plan para saber si el bono expira, y hasta ahora ni eso. */}
                     {plan.tipo !== 'MENSUAL' && (

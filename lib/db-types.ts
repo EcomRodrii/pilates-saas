@@ -418,6 +418,10 @@ export interface RowPlanesTarifa {
   limite_semanal: number | null;
   // migr 20260819202520.
   oferta_hasta: string | null;
+  // migr 20260907120000.
+  periodicidad_meses: number | null;
+  // migr 20260907120000.
+  matricula: number | null;
 }
 
 export interface RowPostsComunidad {

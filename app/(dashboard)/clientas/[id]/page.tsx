@@ -10,7 +10,7 @@ import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { estructurarNotaIA } from '@/lib/ai/instructor-note-client';
 import { resumenSocio } from '@/lib/socio-resumen';
-import { saldoSesionesBono } from '@/lib/bono-logic';
+import { saldoSesionesBono, nombrePeriodo } from '@/lib/bono-logic';
 import type { LeadStage } from '@/lib/types';
 import { enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
@@ -702,7 +702,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                             <div>
                               <p className="font-bold text-foreground text-base">{plan.nombre}</p>
                               <p className="text-xs font-medium text-muted-foreground mt-0.5">
-                                {plan.tipo === 'MENSUAL' ? 'Mensual ilimitado' : plan.tipo === 'BONO' ? `Bono ${plan.sesiones ?? ''} sesiones` : 'Puntual'}
+                                {plan.tipo === 'MENSUAL' ? `Ilimitado, cada ${nombrePeriodo(plan)}` : plan.tipo === 'BONO' ? `Bono ${plan.sesiones ?? ''} sesiones` : 'Puntual'}
                                 {' · '}Desde {fecha(suscripcion.fechaInicio)}
                               </p>
                               {suscripcion.estado === 'PAUSADA' && (
@@ -721,7 +721,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                             {verFinanzas && (
                               <div className="text-right shrink-0">
                                 <p className="text-2xl font-extrabold text-foreground">{plan.precio} €</p>
-                                <p className="text-xs font-medium text-muted-foreground">{plan.tipo === 'MENSUAL' ? '/ mes' : 'bono'}</p>
+                                <p className="text-xs font-medium text-muted-foreground">{plan.tipo === 'MENSUAL' ? `/ ${nombrePeriodo(plan)}` : 'bono'}</p>
                               </div>
                             )}
                           </div>
@@ -1992,8 +1992,16 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <div>
                   <p className="font-bold text-foreground">{p.nombre}</p>
                   <p className="text-xs font-medium text-muted-foreground">
-                    {p.precio} € {p.tipo === 'MENSUAL' ? '/ mes' : p.sesiones ? `· ${p.sesiones} sesiones` : ''}
+                    {p.precio} € {p.tipo === 'MENSUAL' ? `/ ${nombrePeriodo(p)}` : p.sesiones ? `· ${p.sesiones} sesiones` : ''}
                   </p>
+                  {/* Se cobra al asignar el plan si es el primero que contrata
+                      aquí, así que se dice ANTES de pulsar, no después en el
+                      recibo. */}
+                  {(p.matricula ?? 0) > 0 && (
+                    <p className="text-xs font-medium text-muted-foreground">
+                      + {p.matricula} € de matrícula si es su primer plan
+                    </p>
+                  )}
                 </div>
                 {suscripcion?.planId === p.id && (
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#FFF2F7', color: 'var(--brand)' }}>Actual</span>

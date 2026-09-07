@@ -769,6 +769,11 @@ export function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
     limiteSemanal: r.limite_semanal ?? null,
     activo: r.activo,
     ofertaHasta: r.oferta_hasta ?? null,
+    // `?? 1` y `?? 0`: la BD los trae NOT NULL con default, pero los tipos
+    // generados los dan como opcionales y un plan leído de un backup viejo
+    // podría no traerlos. Los defaults son el comportamiento de siempre.
+    periodicidadMeses: r.periodicidad_meses ?? 1,
+    matricula: r.matricula ?? 0,
   } as PlanTarifa;
 }
 
@@ -1437,6 +1442,8 @@ const COLUMNAS_PLAN = {
   limiteSemanal: 'limite_semanal',
   activo: 'activo',
   ofertaHasta: 'oferta_hasta',
+  periodicidadMeses: 'periodicidad_meses',
+  matricula: 'matricula',
 } as const satisfies Partial<Record<keyof PlanTarifa, string>>;
 
 const CAMPOS_PLAN = Object.entries(COLUMNAS_PLAN) as [keyof typeof COLUMNAS_PLAN, string][];
@@ -2362,6 +2369,33 @@ async function conReintentoFK<T extends { error: { code: string; message: string
     res = await insertar();
   }
   return res;
+}
+
+/**
+ * ¿Esta socia ha tenido ALGUNA VEZ un plan en este estudio?
+ *
+ * Es la pregunta que decide si se le cobra la matrícula (`planes_tarifa.
+ * matricula`), y por eso NO se contesta con el `suscripciones` que tiene el
+ * contexto en memoria: esa carga no pagina, así que en un estudio grande se
+ * corta a 1000 filas y la suscripción vieja de una socia de hace tres años
+ * puede no estar. Contestar «no tiene ninguna» por un truncado es cobrarle la
+ * matrícula por segunda vez.
+ *
+ * Cuenta TODOS los estados, no solo ACTIVA: una socia que se dio de baja y
+ * vuelve ya pagó su alta en su día.
+ *
+ * `null` = no se ha podido saber. Quien llama NO debe cobrar entonces:
+ * quedarse una matrícula corta se arregla en el mostrador en un minuto,
+ * cobrarla dos veces es una devolución y una conversación incómoda.
+ */
+export async function dbSocioTieneAlgunPlan(socioId: string, studioId: string): Promise<boolean | null> {
+  const { count, error } = await supabase
+    .from('suscripciones')
+    .select('id', { count: 'exact', head: true })
+    .eq('studio_id', studioId)
+    .eq('socio_id', socioId);
+  if (error) { console.error('[dbSocioTieneAlgunPlan]', error); return null; }
+  return (count ?? 0) > 0;
 }
 
 export async function dbInsertSuscripcion(sus: Suscripcion): Promise<ResultadoEscritura> {

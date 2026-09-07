@@ -14,6 +14,10 @@
 // quedarse a medias en una de las dos.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { PlanTarifa, TipoPlan } from '@/lib/types';
+// Relativo y con `.ts` explícita: el alias `@/` no lo resuelve el runner de
+// `node --test`, y este módulo tiene tests propios. El `import type` de arriba
+// sí puede usarlo porque desaparece al quitar los tipos.
+import { mesesDeCiclo, nombrePeriodo } from '../bono-logic.ts';
 
 // Cómo se llaman los tipos de tarifa EN CASTELLANO.
 //
@@ -23,17 +27,35 @@ import type { PlanTarifa, TipoPlan } from '@/lib/types';
 // «PUNTUAL»: dice «clase suelta». Aquí, junto al resto de la entidad, para que
 // las dos pantallas de tarifas digan lo mismo.
 export const NOMBRE_TIPO_PLAN: Record<TipoPlan, string> = {
-  MENSUAL: 'Cuota mensual',
+  // «Cuota» a secas, no «Cuota mensual»: desde que una cuota puede ser
+  // trimestral, semestral o anual (`periodicidadMeses`), la insignia de la
+  // tabla llamaba «mensual» a una tarifa que se cobra cada tres meses. Cada
+  // cuánto se cobra se dice junto al precio, que es donde importa.
+  MENSUAL: 'Cuota',
   BONO: 'Bono de sesiones',
   PUNTUAL: 'Clase suelta',
 };
 
 /** Una línea explicando cada tipo, para el desplegable de crear tarifa. */
 export const EXPLICACION_TIPO_PLAN: Record<TipoPlan, string> = {
-  MENSUAL: 'Se cobra sola cada mes hasta que la clienta se dé de baja.',
+  MENSUAL: 'Se cobra sola cada mes, trimestre, semestre o año hasta que la clienta se dé de baja.',
   BONO: 'Un puñado de sesiones que se van gastando conforme reserva.',
   PUNTUAL: 'Un pago único, sin renovación.',
 };
+
+/**
+ * Cada cuánto se puede cobrar una cuota, para el desplegable.
+ *
+ * Los mismos cuatro valores que acota el CHECK de `planes_tarifa`
+ * (migr 20260907120000). Si algún día se añade uno, se añade aquí y en el
+ * CHECK — el `nombre` sale de `nombrePeriodo`, así que no hay una tercera
+ * lista que mantener.
+ */
+export const PERIODICIDADES_CUOTA = [1, 3, 6, 12].map(meses => ({
+  meses,
+  /** «Cada mes», «Cada trimestre»… */
+  etiqueta: `Cada ${nombrePeriodo({ periodicidadMeses: meses })}`,
+}));
 
 /** El formulario en crudo: todo texto, como sale de los <input>. */
 export type FormularioPlan = {
@@ -51,6 +73,13 @@ export type FormularioPlan = {
   // oferta temporal sobre `precio`, o '' = sin oferta. Puramente informativa
   // (ver comentario en lib/types.ts) — no participa en ningún cálculo aquí.
   ofertaHasta: string;
+  /**
+   * Cada cuántos meses se cobra la cuota, como string porque sale de un
+   * `<select>`. Solo se usa con `tipo: 'MENSUAL'`.
+   */
+  periodicidadMeses: string;
+  /** Cuota de alta en euros, o '' = sin matrícula. */
+  matricula: string;
 };
 
 /** Lo que se guarda: un plan sin los campos que pone el sistema. */
@@ -74,6 +103,8 @@ export function planVacio(): FormularioPlan {
     tiposClaseIds: [],
     activo: true,
     ofertaHasta: '',
+    periodicidadMeses: '1',
+    matricula: '',
   };
 }
 
@@ -101,6 +132,11 @@ export function planAFormulario(p: PlanTarifa): FormularioPlan {
     tiposClaseIds: p.tiposClaseIds ?? [],
     activo: p.activo,
     ofertaHasta: p.ofertaHasta ?? '',
+    periodicidadMeses: String(mesesDeCiclo(p)),
+    // 0 = sin matrícula, y el input se enseña VACÍO, no con un «0» que hay que
+    // borrar antes de escribir. Vacío vuelve a 0 en `formularioAPlan`, así que
+    // la ida y vuelta no cambia nada.
+    matricula: p.matricula ? String(p.matricula) : '',
   };
 }
 
@@ -149,11 +185,32 @@ export function formularioAPlan(f: FormularioPlan): DatosPlan {
     tiposClaseIds: f.tiposClaseIds,
     activo: f.activo,
     ofertaHasta: f.ofertaHasta.trim() || null,
+    // Fuera de una cuota no hay ciclo que renovar (un bono manda por
+    // `validezDias`, un puntual no se renueva), así que se guarda 1 — el valor
+    // por defecto de la columna — en vez de arrastrar un «cada 3 meses» que
+    // ninguna pantalla enseñaría y nadie usaría. Mismo criterio que `sesiones`.
+    periodicidadMeses: f.tipo === 'MENSUAL' ? mesesDeCiclo({ periodicidadMeses: parseInt(f.periodicidadMeses, 10) }) : 1,
+    matricula: importeNoNegativo(f.matricula),
   };
 }
 
+/**
+ * Un importe en euros escrito a mano → número, nunca NaN ni negativo.
+ *
+ * Vacío es 0 («sin matrícula»), que es lo que la propietaria quiere decir al
+ * dejar la caja en blanco. Un texto ilegible también cae a 0 y no a NaN: la
+ * validación ya protesta antes de llegar aquí, y un NaN que se cuela llega
+ * hasta el recibo, donde ya no se sabe de dónde salió (mismo criterio que
+ * `precio`).
+ */
+function importeNoNegativo(v: string): number {
+  if (!v.trim()) return 0;
+  const n = precioANumero(v);
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+}
+
 /** Los campos del formulario que pueden llevar un error propio. */
-export type CampoPlan = 'nombre' | 'precio' | 'sesiones' | 'validezDias' | 'limiteSemanal';
+export type CampoPlan = 'nombre' | 'precio' | 'sesiones' | 'validezDias' | 'limiteSemanal' | 'matricula';
 
 /**
  * Qué está mal, CAMPO A CAMPO.
@@ -191,6 +248,15 @@ export function erroresPlan(f: FormularioPlan): Partial<Record<CampoPlan, string
   if (f.limiteSemanal.trim() && !enteroPositivo(f.limiteSemanal)) {
     e.limiteSemanal = 'Tiene que ser un número de clases mayor que 0';
   }
+  // La matrícula es opcional (vacío = sin matrícula), pero si hay algo escrito
+  // tiene que ser un importe de verdad: `importeNoNegativo` cae a 0 en
+  // silencio, y guardar «sin matrícula» cuando se ha escrito «30 €uros» es
+  // perder 30 € por socia sin que nadie avise.
+  if (f.matricula.trim()) {
+    const m = precioANumero(f.matricula);
+    if (!Number.isFinite(m)) e.matricula = 'Escribe la matrícula en números, por ejemplo 30,00';
+    else if (m < 0) e.matricula = 'La matrícula no puede ser negativa';
+  }
 
   return e;
 }
@@ -205,7 +271,7 @@ export function erroresPlan(f: FormularioPlan): Partial<Record<CampoPlan, string
  */
 export function motivoNoGuardable(f: FormularioPlan): string | null {
   const e = erroresPlan(f);
-  const orden: CampoPlan[] = ['nombre', 'precio', 'sesiones', 'validezDias', 'limiteSemanal'];
+  const orden: CampoPlan[] = ['nombre', 'precio', 'sesiones', 'validezDias', 'limiteSemanal', 'matricula'];
   for (const campo of orden) if (e[campo]) return e[campo]!;
   return null;
 }
@@ -219,11 +285,20 @@ export function motivoNoGuardable(f: FormularioPlan): string | null {
  * que de verdad aporta —el argumento de venta— y esto lo redacta la app.
  */
 export function resumenCondicionesPlan(f: FormularioPlan): string[] {
+  // La matrícula va la ÚLTIMA en los dos casos, y dice «solo la primera vez»
+  // siempre: es la duda que trae de vuelta a la clienta al mostrador —«¿esto
+  // me lo vais a cobrar cada trimestre?»— y contestarla aquí cuesta cinco
+  // palabras.
+  const matricula = importeNoNegativo(f.matricula);
+  const conMatricula = (lineas: string[]) =>
+    matricula > 0 ? [...lineas, `Matrícula de ${matricula} € solo la primera vez`] : lineas;
+
   if (f.tipo === 'MENSUAL') {
-    const lineas = ['Se renueva y se cobra cada mes'];
+    const periodo = nombrePeriodo({ periodicidadMeses: parseInt(f.periodicidadMeses, 10) });
+    const lineas = [`Se renueva y se cobra cada ${periodo}`];
     const tope = enteroPositivo(f.limiteSemanal);
     if (tope) lineas.push(`Máximo ${tope} ${tope === 1 ? 'clase' : 'clases'} por semana`);
-    return lineas;
+    return conMatricula(lineas);
   }
 
   const lineas: string[] = [];
@@ -237,5 +312,5 @@ export function resumenCondicionesPlan(f: FormularioPlan): string[] {
   lineas.push(dias ? `Válido durante ${dias} días desde la compra` : 'Sin fecha de caducidad');
   const tope = enteroPositivo(f.limiteSemanal);
   if (tope) lineas.push(`Máximo ${tope} ${tope === 1 ? 'clase' : 'clases'} por semana`);
-  return lineas;
+  return conMatricula(lineas);
 }

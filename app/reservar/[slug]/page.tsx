@@ -13,7 +13,7 @@ import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva } from '@/lib/types';
-import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando } from '@/lib/bono-logic';
+import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando, nombrePeriodo } from '@/lib/bono-logic';
 import { planesComprablesParaReservar } from '@/lib/reserva-planes-comprables';
 import { resolutorCobertura, precioDeCobertura, textoCobertura, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
@@ -3345,7 +3345,11 @@ export default function ReservarPage() {
                       {destacado && <div style={{ ...eyebrow(8.5), color: `color-mix(in srgb, ${PRIMARY_FG} 65%, transparent)` }}>EL MÁS ELEGIDO</div>}
                       <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, marginTop: destacado ? 9 : 0, color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.nombre}</div>
                       <div style={{ fontSize: 11, marginTop: 7, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 60%, transparent)` : 'var(--portal-muted-2)' }}>
-                        {p.tipo === 'MENSUAL' ? 'Mensual · sin compromiso' : (porClase ?? p.descripcion ?? `Bono ${p.sesiones ?? ''} clases`)}
+                        {/* «Mensual» era una etiqueta fija: una cuota
+                            trimestral se anunciaba como mensual y su precio,
+                            debajo, como «/mes». Decir cada cuánto se cobra es
+                            justo lo que decide la compra. */}
+                        {p.tipo === 'MENSUAL' ? `Cada ${nombrePeriodo(p)} · sin compromiso` : (porClase ?? p.descripcion ?? `Bono ${p.sesiones ?? ''} clases`)}
                       </div>
                       {ahorro !== null && (
                         <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 80%, transparent)` : 'var(--portal-accent)' }}>
@@ -3354,7 +3358,7 @@ export default function ReservarPage() {
                       )}
                     </div>
                     <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), whiteSpace: 'nowrap', color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>
-                      {p.precio} €{p.tipo === 'MENSUAL' && <span style={{ fontFamily: sans, fontSize: 12 }}>/mes</span>}
+                      {p.precio} €{p.tipo === 'MENSUAL' && <span style={{ fontFamily: sans, fontSize: 12 }}>/{nombrePeriodo(p)}</span>}
                     </div>
                     <button onClick={() => handleContratarPlan(p)}
                       disabled={stripeLoading === p.id}
