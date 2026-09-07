@@ -1056,7 +1056,12 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
                               el estado en rojo "No se pudo cobrar" y ni un solo botón
                               visible, "Cobrar online" pulsado aquí no hacía nada
                               porque el botón, sencillamente, no existía. */}
-                          {(r.estado === 'PENDIENTE' || r.estado === 'FALLIDO') && (
+                          {/* DEVUELTO entra aquí también: el banco devolvió el recibo, o
+                              sea que el dinero NO está y sigue siendo deuda. Sin este
+                              botón, un recibo devuelto no tenía NINGUNA vía de UI para
+                              resolverse — y con el bloqueo por impago encendido dejaba a
+                              la socia sin poder reservar indefinidamente. */}
+                          {(r.estado === 'PENDIENTE' || r.estado === 'FALLIDO' || r.estado === 'DEVUELTO') && (
                             <>
                               <button
                                 onClick={() => setCobrandoRecibo(r.id)}
