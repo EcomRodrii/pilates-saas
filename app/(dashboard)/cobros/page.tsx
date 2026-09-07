@@ -84,10 +84,7 @@ export default function Cobros() {
       </div>
 
       {tab === 'deudas' && (
-        <>
-          <div className="flex justify-end"><BotonRemesaSepa /></div>
-          <PanelPendientes vista="deudas" onToast={showToast} />
-        </>
+        <PanelPendientes vista="deudas" onToast={showToast} acciones={<BotonRemesaSepa />} />
       )}
       {tab === 'cobrado' && <PanelPendientes vista="cobrado" onToast={showToast} />}
       {tab === 'facturas' && <PanelFacturas />}

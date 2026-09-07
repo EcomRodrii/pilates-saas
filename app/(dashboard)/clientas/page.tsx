@@ -146,7 +146,8 @@ function StatCard({
 }: {
   icon: ElementType;
   label: string;
-  value: number;
+  /** `null` = todavía no ha llegado. NO es cero: ver el comentario de `stats`. */
+  value: number | null;
   color: string;
 }) {
   return (
@@ -155,7 +156,7 @@ function StatCard({
         <Icon size={16} style={{ color }} />
       </div>
       <div className="min-w-0">
-        <p className="text-[22px] font-bold text-foreground leading-tight">{value}</p>
+        <p className="text-[22px] font-bold text-foreground leading-tight">{value ?? '—'}</p>
         <p className="text-[11px] text-muted-foreground truncate">{label}</p>
       </div>
     </div>
@@ -432,7 +433,12 @@ export default function Socios() {
   }
 
   // ── Stats (F1 · B1: contadores del SERVIDOR, count() SQL sin cap 1000) ───────
-  const [stats, setStats] = useState({ total: 0, activas: 0, conBono: 0, inactivas30d: 0 });
+  // ⚠️ `null` mientras `stats_clientas()` no responde, NO ceros. Arrancando en
+  // cero, la pantalla enseñaba «0 total clientas» encima de una tabla que
+  // listaba cuatro y remataba con «Mostrando 4 de 4» — se contradecía sola. Y
+  // si la llamada falla, ese cero se queda para siempre pareciendo un dato
+  // medido. Ausente no es cero.
+  const [stats, setStats] = useState<{ total: number; activas: number; conBono: number; inactivas30d: number } | null>(null);
   useEffect(() => {
     let cancel = false;
     void dbStatsClientas().then((r) => { if (!cancel) setStats(r); });
@@ -800,10 +806,10 @@ export default function Socios() {
 
       {/* ── Stats row ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={Users} label="Total clientas" value={stats.total} color="var(--muted-foreground)" />
-        <StatCard icon={UserCheck} label="Activas" value={stats.activas} color="var(--success)" />
-        <StatCard icon={Bookmark} label="Con bono vigente" value={stats.conBono} color="#6E9E0A" />
-        <StatCard icon={Clock} label="Sin venir 30d" value={stats.inactivas30d} color="var(--warning)" />
+        <StatCard icon={Users} label="Total clientas" value={stats?.total ?? null} color="var(--muted-foreground)" />
+        <StatCard icon={UserCheck} label="Activas" value={stats?.activas ?? null} color="var(--success)" />
+        <StatCard icon={Bookmark} label="Con bono vigente" value={stats?.conBono ?? null} color="#6E9E0A" />
+        <StatCard icon={Clock} label="Sin venir 30d" value={stats?.inactivas30d ?? null} color="var(--warning)" />
       </div>
 
       {/* ── Search + filters ────────────────────────────────────────────────── */}

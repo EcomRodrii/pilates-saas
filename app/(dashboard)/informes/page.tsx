@@ -164,7 +164,11 @@ export default function Informes() {
   const [agg, setAgg] = useState<{ total: number; nSocias: number; mrr: number; porDia: { dia: string; total: number }[] } | null>(null);
   // F1 (B4/B1): ocupación por tipo y retención también del servidor.
   const [ocupData, setOcupData] = useState<{ tipoClaseId: string | null; nSesiones: number; aforo: number; ocupadas: number }[]>([]);
-  const [retencion, setRetencion] = useState(0);
+  // ⚠️ `null` mientras no ha llegado, NO cero. Arrancando en 0 la tarjeta
+  // pintaba «0 %» en rojo —con su color de alarma— junto a su propio pie,
+  // «3 activas de 4», que dice 75 %. Un dato que aún no está no es un dato
+  // malo: ausente no es cero.
+  const [retencion, setRetencion] = useState<number | null>(null);
   // Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) + variación
   // vs. el período anterior de igual duración — pedido explícito del fundador.
   const [ventasTipo, setVentasTipo] = useState<VentaTipoConVariacion[] | null>(null);
@@ -249,7 +253,12 @@ export default function Informes() {
         if (cancel) return;
         setAgg({ total: per.total, nSocias: per.nSocias, mrr: mes.total, porDia: dias });
         setOcupData(ocup);
-        setRetencion(stc.total > 0 ? Math.round((stc.activas / stc.total) * 100) : 0);
+        // ⚠️ Sin clientas NO hay una retención del 0 %: no hay retención que
+        // medir. Devolver 0 pintaba un «0 %» en rojo de alarma —con su color
+        // de «esto va mal»— para un estudio que simplemente no tiene datos
+        // todavía, y también cuando la consulta volvía vacía por un fallo.
+        // Mismo criterio que el resto: ausente no es cero.
+        setRetencion(stc.total > 0 ? Math.round((stc.activas / stc.total) * 100) : null);
         setVentasTipo(combinarConVariacion(ventasActual, ventasAnterior));
       });
     return () => { cancel = true; };
@@ -283,6 +292,12 @@ export default function Informes() {
 
   // ─── KPI: Tasa retención (server-side, F1) ──────────────────────────────────
   const tasaRetencion = retencion;
+  // Para el color: sin dato no se pinta ni bien ni mal, se pinta neutro.
+  const tonoRetencion = tasaRetencion == null
+    ? 'var(--muted-foreground)'
+    : tasaRetencion >= 80 ? 'var(--success)'
+    : tasaRetencion >= 60 ? 'var(--warning)'
+    : 'var(--destructive)';
 
   // ─── Ocupación por tipo de clase ────────────────────────────────────────────
   const ocupacionPorTipo = useMemo(() => {
@@ -563,17 +578,14 @@ export default function Informes() {
         <div className="bg-card border border-border rounded-xl p-5">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-            style={{ backgroundColor: tasaRetencion >= 80 ? 'color-mix(in srgb, var(--success) 12%, var(--card))' : tasaRetencion >= 60 ? 'color-mix(in srgb, var(--warning) 12%, var(--card))' : 'color-mix(in srgb, var(--destructive) 12%, var(--card))' }}
+            style={{ backgroundColor: `color-mix(in srgb, ${tonoRetencion} 12%, var(--card))` }}
           >
-            <Users size={17} style={{ color: tasaRetencion >= 80 ? 'var(--success)' : tasaRetencion >= 60 ? 'var(--warning)' : 'var(--destructive)' }} />
+            <Users size={17} style={{ color: tonoRetencion }} />
           </div>
           <p className="text-xs font-semibold" style={{ color: 'var(--muted-foreground)' }}>Tasa retención</p>
           <p className="text-[11px] mb-1" style={{ color: 'var(--muted-foreground)' }}>Cuántas de tus clientas siguen activas hoy</p>
-          <p
-            className="text-2xl font-extrabold leading-none"
-            style={{ color: tasaRetencion >= 80 ? 'var(--success)' : tasaRetencion >= 60 ? 'var(--warning)' : 'var(--destructive)' }}
-          >
-            {tasaRetencion}%
+          <p className="text-2xl font-extrabold leading-none" style={{ color: tonoRetencion }}>
+            {tasaRetencion == null ? '—' : `${tasaRetencion}%`}
           </p>
           <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>
             {socios.filter(s => s.activo).length} activas de {socios.length}
