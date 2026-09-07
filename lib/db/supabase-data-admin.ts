@@ -3932,9 +3932,43 @@ export async function canjearRecompensaPublica(params: {
     }),
   ]);
 
+  // Una recompensa de CLASE_GRATIS se entrega sola: concede una recuperación,
+  // que es el derecho a una clase suelta que ya existe en el producto. No se
+  // inventa un vale nuevo — la alumna la gasta reservando por el camino de
+  // siempre, cuenta contra su tope y caduca con la política del estudio.
+  if (item.efecto === 'CLASE_GRATIS') {
+    const { data: resultado, error: recupErr } = await admin.rpc('crear_recuperacion', {
+      p_id: `rec-${uid()}`,
+      p_studio_id: params.studioId,
+      p_socio_id: params.socioId,
+      p_origen_reserva_id: null,
+      p_motivo: `Canje de recompensa: ${item.nombre}`,
+      p_caduca_el: null,
+    });
+
+    // 'TOPE' = ya tiene 4 recuperaciones vivas y no le cabe otra. NO se le
+    // puede cobrar por algo que no va a recibir, así que se deshace el canje
+    // entero — créditos y stock — por el camino que ya existe y es atómico.
+    // Sin esto, el fallo sería el peor de todos: pagar y no recibir nada.
+    if (recupErr || resultado === 'TOPE') {
+      await admin.rpc('cancelar_canje', { p_redemption_id: redemptionId, p_studio_id: params.studioId });
+      return {
+        error: resultado === 'TOPE'
+          ? 'Ya tienes el máximo de clases pendientes de recuperar. Usa alguna antes de canjear esta.' as const
+          : 'No se ha podido activar tu clase. No se te han descontado créditos.' as const,
+      };
+    }
+
+    // No hay nada que entregar en mostrador: el canje nace resuelto.
+    await admin.from('reward_redemptions').update({ estado: 'ENTREGADO' }).eq('id', redemptionId);
+  }
+
   // El portal le promete a la socia «El estudio te avisará». Sin esto, no se
   // avisaba a nadie: el canje quedaba PENDIENTE en una tabla que ninguna
   // pantalla leía, y ella se quedaba sin créditos y sin recompensa.
+  //
+  // Se avisa igualmente en CLASE_GRATIS: el estudio no tiene que hacer nada,
+  // pero sí querer saber que se ha regalado una clase.
   const { emitirCanjeSolicitado } = await import('@/lib/notifications/emit');
   await emitirCanjeSolicitado({
     studioId: params.studioId, socioId: params.socioId,

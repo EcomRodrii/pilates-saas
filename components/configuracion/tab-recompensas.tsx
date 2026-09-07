@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Coins, Gift, Plus, Pencil, Trash2, Check } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { REWARD_TRIGGERS } from '@/lib/engines/reward-engine';
-import type { RewardCatalogItem } from '@/lib/types';
+import type { EfectoRecompensa, RewardCatalogItem } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
@@ -26,7 +26,7 @@ const CREDITOS_SUGERIDOS: Record<string, number> = {
 };
 
 const emptyCatalogForm = (): Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'> => ({
-  nombre: '', descripcion: '', costeCreditos: 500, icono: '🎁', activo: true, stock: null,
+  nombre: '', descripcion: '', costeCreditos: 500, icono: '🎁', activo: true, stock: null, efecto: 'MANUAL',
 });
 
 
@@ -140,7 +140,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
 
   function openNuevo() { setForm(emptyCatalogForm()); setEditId(null); setModal('nuevo'); }
   function openEditar(item: RewardCatalogItem) {
-    setForm({ nombre: item.nombre, descripcion: item.descripcion ?? '', costeCreditos: item.costeCreditos, icono: item.icono, activo: item.activo, stock: item.stock });
+    setForm({ nombre: item.nombre, descripcion: item.descripcion ?? '', costeCreditos: item.costeCreditos, icono: item.icono, activo: item.activo, stock: item.stock, efecto: item.efecto });
     setEditId(item.id);
     setModal('editar');
   }
@@ -257,7 +257,10 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold text-foreground">{item.nombre}</p>
-                  <p className="text-[12px] text-muted-foreground">{item.costeCreditos} créditos{item.stock != null ? ` · ${item.stock} en stock` : ''}</p>
+                  <p className="text-[12px] text-muted-foreground">
+                    {item.costeCreditos} créditos{item.stock != null ? ` · ${item.stock} en stock` : ''}
+                    {item.efecto === 'CLASE_GRATIS' ? ' · clase gratis automática' : ''}
+                  </p>
                   {!item.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactiva</span>}
                 </div>
                 <div className="flex gap-1 shrink-0">
@@ -324,6 +327,18 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                 </Field>
               </div>
             </div>
+            <Field label="Qué pasa al canjearla"
+              description="«Clase gratis» se entrega sola: la clienta recibe una recuperación y puede reservar con ella cuando quiera. El resto se lo das tú en el estudio."
+            >
+              <select
+                className={inputCls}
+                value={form.efecto}
+                onChange={e => setForm(f => ({ ...f, efecto: e.target.value as EfectoRecompensa }))}
+              >
+                <option value="MANUAL">Se la entregas tú en el estudio</option>
+                <option value="CLASE_GRATIS">Una clase gratis (automático)</option>
+              </select>
+            </Field>
             <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-2 text-[13px] text-foreground">
                 <input type="checkbox" checked={form.activo} onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))} />

@@ -11,7 +11,7 @@ export interface NivelDef { id: string; nombre: string; orden: number; umbralCre
 export interface LogroDef { id: string; nombre: string; descripcion: string | null; umbral: number; icono: string; creditosRecompensa: number; activo: boolean }
 export interface RetoDef { id: string; nombre: string; descripcion: string | null; icono: string; objetivo: number; fechaInicio: string; fechaFin: string; creditosRecompensa: number; activo?: boolean }
 export interface ProgresoMin { achievementId?: string; challengeId?: string; progresoActual: number; completado: boolean; completadoEn: string | null }
-export interface RecompensaDef { id: string; nombre: string; descripcion: string | null; costeCreditos: number; icono: string; activo: boolean; stock: number | null }
+export interface RecompensaDef { id: string; nombre: string; descripcion: string | null; costeCreditos: number; icono: string; activo: boolean; stock: number | null; efecto?: 'MANUAL' | 'CLASE_GRATIS' }
 
 export interface NivelVista {
   actual: NivelDef | null;

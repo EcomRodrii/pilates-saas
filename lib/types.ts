@@ -1649,6 +1649,17 @@ export interface MemberCredits {
 
 export type EstadoRecompensaCanjeable = 'DISPONIBLE' | 'BLOQUEADA' | 'CANJEADA';
 
+/**
+ * Qué pasa al canjear una recompensa.
+ *
+ * `CLASE_GRATIS` no crea un vale nuevo: concede una RECUPERACIÓN, que es el
+ * derecho a una clase suelta que ya existe en el producto (se gasta reservando
+ * por el camino normal, cuenta contra el tope de 4 vivas y caduca con la
+ * política del estudio). Un vale paralelo tendría que reimplementar las tres
+ * cosas y se desincronizaría de todas.
+ */
+export type EfectoRecompensa = 'MANUAL' | 'CLASE_GRATIS';
+
 export interface RewardCatalogItem {
   id: string;
   studioId: string;
@@ -1658,6 +1669,7 @@ export interface RewardCatalogItem {
   icono: string;
   activo: boolean;
   stock: number | null; // null = ilimitado
+  efecto: EfectoRecompensa;
   creadoEn: string;
 }
 

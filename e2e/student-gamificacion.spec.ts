@@ -28,8 +28,8 @@ function conGamificacion() {
     { id: 'r2', studioId: STUDIO_ID, nombre: 'Reto de julio', descripcion: null, icono: '⏰', metric: 'CLASES', objetivo: 8, fechaInicio: '2026-07-01', fechaFin: '2026-07-31', creditosRecompensa: 30 },
   ];
   f.rewardCatalog = [
-    { id: 'p1', studioId: STUDIO_ID, nombre: 'Clase suelta', descripcion: null, costeCreditos: 100, icono: '🎟', activo: true, stock: null },
-    { id: 'p2', studioId: STUDIO_ID, nombre: 'Camiseta', descripcion: null, costeCreditos: 500, icono: '👕', activo: true, stock: 3 },
+    { id: 'p1', studioId: STUDIO_ID, nombre: 'Clase suelta', descripcion: null, costeCreditos: 100, icono: '🎟', activo: true, stock: null, efecto: 'CLASE_GRATIS' },
+    { id: 'p2', studioId: STUDIO_ID, nombre: 'Camiseta', descripcion: null, costeCreditos: 500, icono: '👕', activo: true, stock: 3, efecto: 'MANUAL' },
   ];
   const socia = f.socia as Record<string, unknown>;
   socia.memberCredits = [{ socioId: 'socio-e2e-1', studioId: STUDIO_ID, saldo: 150, totalGanado: 250, totalCanjeado: 100, actualizadoEn: '2026-08-10T00:00:00Z' }];
@@ -105,7 +105,23 @@ test.describe('Student PWA · gamificación', () => {
     await botones.nth(0).click();
     await expect.poll(() => p.length).toBe(1);
     expect(p[0].body).toEqual({ studioId: STUDIO_ID, catalogItemId: 'p1' });
-    await expect(page.getByText(/has canjeado/i)).toBeVisible();
+    // Una clase gratis ya está en su cuenta: mandarla a esperar un aviso del
+    // estudio sería falso y retrasaría que la use.
+    await expect(page.getByText(/resérvala cuando quieras/i)).toBeVisible();
+    await expect(page.getByText(/el estudio te avisará/i)).toHaveCount(0);
+  });
+
+  test('cada recompensa dice qué recibe y qué tiene que hacer después', async ({ page }) => {
+    // Sin esto, la alumna espera en casa un aviso que no va a llegar (clase
+    // gratis, que ya tiene) o va al mostrador a por algo que ya está en su
+    // cuenta. Las dos frases van juntas a propósito: lo que distingue una
+    // recompensa de otra es lo que toca hacer luego, no su nombre.
+    await montar(page, conGamificacion());
+    await page.goto(`${base}/logros`);
+    const rec = page.getByTestId('recompensas');
+    await expect(rec).toBeVisible({ timeout: 30_000 });
+    await expect(rec.getByText(/reserva con ella cuando quieras/i)).toBeVisible();
+    await expect(rec.getByText(/te la entregan en el estudio/i)).toBeVisible();
   });
 
   test('si el servidor rechaza el canje, se dice lo que él dijo', async ({ page }) => {
