@@ -1,6 +1,22 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SUITE SALTADA — el editor de marca está EN MANTENIMIENTO (2026-09-07).
+//
+// Estos tests entran por `/configuracion/apariencia/editor`, que ahora redirige
+// a la pantalla de aviso. No fallan por un bug: fallan porque la puerta que
+// prueban está cerrada a propósito.
+//
+// NO SE BORRAN. El editor sigue entero en el repo y esta suite es lo que
+// demuestra que funciona; borrarla ahora significaría reabrirlo a ciegas.
+//
+// PARA REACTIVARLA: se hace en el mismo momento que se reabre el editor —
+// ver la nota «PARA REABRIRLO» en
+// app/(dashboard)/configuracion/apariencia/editor/page.tsx. Aquí basta con
+// quitar el `.skip` de los `test.describe` de abajo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
 // /reservar dentro del editor a pantalla completa, UNIFICADA con el mismo
 // constructor de bloques que ya usan Inicio/Clases/Bonos
 // (theme-editor-fullscreen.tsx, components/theme/portal-bloques-editor.tsx) —
@@ -107,7 +123,7 @@ async function publicar(page: Page) {
   await page.getByRole('dialog').getByRole('button', { name: /Publicar/ }).click();
 }
 
-test.describe('Editor a pantalla completa — /reservar unificada con el constructor de bloques', () => {
+test.describe.skip('Editor a pantalla completa — /reservar unificada con el constructor de bloques', () => {
   test('las 6 secciones de siempre, con sus nombres', async ({ page }) => {
     await montar(page);
     for (const label of ['Portada', 'Horario y reservas', 'Bonos y membresías', 'Sobre nosotros', 'Cifras del estudio', 'Contacto y pie']) {

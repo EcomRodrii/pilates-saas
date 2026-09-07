@@ -55,6 +55,29 @@ test('el editor tampoco se abre escribiendo la URL', () => {
     'La ruta no puede seguir montando el editor.');
 });
 
+test('los e2e del editor se saltan, no se borran', () => {
+  // Son lo que demuestra que el editor funciona. Borrarlas mientras está
+  // cerrado significaría reabrirlo a ciegas el día que toque.
+  // `.spec.ts` y no `apariencia-*` a secas: al lado vive `apariencia-mock.ts`,
+  // que es andamiaje compartido y no tiene ningún test que saltar.
+  const specs = readdirSync(join(raiz, 'e2e'))
+    .filter(f => f.startsWith('apariencia-') && f.endsWith('.spec.ts'));
+  assert.ok(specs.length >= 5, `esperaba las suites de apariencia, encontré ${specs.length}`);
+  for (const f of specs) {
+    const src = readFileSync(join(raiz, 'e2e', f), 'utf8');
+    assert.ok(!/^test\.describe\(/m.test(src),
+      `${f} entra por la ruta cerrada: tiene que ir con .skip mientras dure el mantenimiento.`);
+    assert.match(src, /PARA REACTIVARLA/,
+      `${f} se salta sin decir cómo devolverlo: así es como una suite se queda muerta para siempre.`);
+  }
+});
+
+test('la nota de reapertura lista TODO lo que hay que deshacer', () => {
+  const src = leer(EDITOR);
+  assert.match(src, /e2e\/apariencia-\*\.spec\.ts/,
+    'Sin nombrar los e2e, se reabre el editor y sus tests siguen saltados en silencio.');
+});
+
 test('el editor NO se borra: solo se cierra la puerta', () => {
   // Mantenimiento ≠ borrar. Si algún día se reabre, tiene que estar entero.
   const editor = leer('components/theme/theme-editor-fullscreen.tsx');

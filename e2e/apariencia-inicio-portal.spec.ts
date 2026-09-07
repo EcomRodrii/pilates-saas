@@ -2,6 +2,22 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import { abrirCategoriaTema, abrirSecciones } from './apariencia-mock.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SUITE SALTADA — el editor de marca está EN MANTENIMIENTO (2026-09-07).
+//
+// Estos tests entran por `/configuracion/apariencia/editor`, que ahora redirige
+// a la pantalla de aviso. No fallan por un bug: fallan porque la puerta que
+// prueban está cerrada a propósito.
+//
+// NO SE BORRAN. El editor sigue entero en el repo y esta suite es lo que
+// demuestra que funciona; borrarla ahora significaría reabrirlo a ciegas.
+//
+// PARA REACTIVARLA: se hace en el mismo momento que se reabre el editor —
+// ver la nota «PARA REABRIRLO» en
+// app/(dashboard)/configuracion/apariencia/editor/page.tsx. Aquí basta con
+// quitar el `.skip` de los `test.describe` de abajo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Constructor de bloques del portal, dentro del editor a pantalla completa
 // (PR 4 — components/theme/theme-editor-fullscreen.tsx). Antes vivía en su
 // propia pestaña ("Bloques del portal" → "Secciones", con un selector de
@@ -110,7 +126,7 @@ async function publicar(page: Page) {
   await page.getByRole('dialog').getByRole('button', { name: /Publicar/ }).click();
 }
 
-test.describe('Editor a pantalla completa — constructor de bloques del portal', () => {
+test.describe.skip('Editor a pantalla completa — constructor de bloques del portal', () => {
   test('Inicio llega desplegado, con los 3 módulos de siempre listados', async ({ page }) => {
     await montar(page);
     await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
@@ -464,7 +480,7 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
 // ya se cumplía; lo que faltaba era que ese panel tuviera forma. La tarjeta de
 // próxima clase son 16 campos, y en lista plana no es "todo a la vista", es un
 // muro: solo una de sus cinco situaciones se da a la vez.
-test.describe('Inspector — secciones', () => {
+test.describe.skip('Inspector — secciones', () => {
   test('los bloques fijos SIGUEN en la lista después de cargar el borrador', async ({ page }) => {
     // ⚠️ Regresión real: el borrador guardado no contiene los bloques fijos
     // (se añadieron después), y el editor cargaba el GET tal cual. El bloque
@@ -511,7 +527,7 @@ test.describe('Inspector — secciones', () => {
 });
 
 // ── Etapa 1: el panel de estilo, agrupado y condicional ─────────────────────
-test.describe('Inspector — estilo por secciones y condiciones', () => {
+test.describe.skip('Inspector — estilo por secciones y condiciones', () => {
   test('"Esquinas" aparece SOLO al poner un fondo', async ({ page }) => {
     await montar(page);
     await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
@@ -539,7 +555,7 @@ test.describe('Inspector — estilo por secciones y condiciones', () => {
 });
 
 // ── Etapa 2: el bloque contenedor ──────────────────────────────────────────
-test.describe('Grupo — bloques dentro de bloques', () => {
+test.describe.skip('Grupo — bloques dentro de bloques', () => {
   test('crear un Grupo, meterle dos bloques y reordenarlos', async ({ page }) => {
     const { putsPorPantalla } = await montar(page);
     await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
@@ -594,7 +610,7 @@ test.describe('Grupo — bloques dentro de bloques', () => {
 });
 
 // ── Etapa 4: duplicar (primer consumidor del documento mapa+orden) ─────────
-test.describe('Duplicar un bloque', () => {
+test.describe.skip('Duplicar un bloque', () => {
   test('la copia cae JUSTO detrás, con su contenido, y queda seleccionada', async ({ page }) => {
     await montar(page);
     await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
@@ -627,7 +643,7 @@ test.describe('Duplicar un bloque', () => {
 // tarjeta y por pantalla) entró sin una sola prueba de pantalla. Estas cubren
 // lo que se rompería sin que nadie se entere: que el control siga siendo de
 // SUBIR y no una casilla de pegar URL, y que la foto llegue al guardado.
-test.describe('Fotos por bloque', () => {
+test.describe.skip('Fotos por bloque', () => {
   test('un banner ofrece SUBIR la foto, no solo pegar un enlace', async ({ page }) => {
     await montar(page, {
       bloquesHomeGuardar: [

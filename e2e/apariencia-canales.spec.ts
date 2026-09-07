@@ -3,6 +3,22 @@ import { resolveTheme } from '../lib/theme-schema.ts';
 import { abrirCategoriaTema } from './apariencia-mock.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SUITE SALTADA — el editor de marca está EN MANTENIMIENTO (2026-09-07).
+//
+// Estos tests entran por `/configuracion/apariencia/editor`, que ahora redirige
+// a la pantalla de aviso. No fallan por un bug: fallan porque la puerta que
+// prueban está cerrada a propósito.
+//
+// NO SE BORRAN. El editor sigue entero en el repo y esta suite es lo que
+// demuestra que funciona; borrarla ahora significaría reabrirlo a ciegas.
+//
+// PARA REACTIVARLA: se hace en el mismo momento que se reabre el editor —
+// ver la nota «PARA REABRIRLO» en
+// app/(dashboard)/configuracion/apariencia/editor/page.tsx. Aquí basta con
+// quitar el `.skip` de los `test.describe` de abajo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Canales del estudio — la mitad que vive en el TEMA (las cuatro redes;
 // la web es una columna de `studios` y se edita en Configuración → Estudio,
 // ver lib/canales-estudio.ts).
@@ -72,7 +88,7 @@ async function publicar(page: Page) {
   await page.getByRole('dialog').getByRole('button', { name: /Publicar/ }).click();
 }
 
-test.describe('Canales del estudio — redes sociales en el editor', () => {
+test.describe.skip('Canales del estudio — redes sociales en el editor', () => {
   test('TikTok tiene su casilla y lo escrito llega al patch de /api/theme', async ({ page }) => {
     const { puts } = await montar(page);
 
