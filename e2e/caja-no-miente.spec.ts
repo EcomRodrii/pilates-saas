@@ -348,10 +348,10 @@ test('dos ventas iguales seguidas son DOS ventas, no una repetida', async ({ pag
   expect(c.ventas).toBe(2);
   const a = c.cuerpos[0] as { idempotenciaClave: string };
   const b = c.cuerpos[1] as { idempotenciaClave: string };
-  expect(a.idempotenciaClave).not.toBe(
-    b.idempotenciaClave,
+  expect(
+    a.idempotenciaClave,
     'dos ventas distintas con el mismo carrito NO pueden compartir clave',
-  );
+  ).not.toBe(b.idempotenciaClave);
 });
 
 
@@ -417,8 +417,8 @@ test('dentro del MISMO intento la clave no cambia (doble toque, reintento de red
   expect(c.ventas).toBe(2);
   const a = c.cuerpos[0] as { idempotenciaClave: string };
   const b = c.cuerpos[1] as { idempotenciaClave: string };
-  expect(a.idempotenciaClave).toBe(
-    b.idempotenciaClave,
+  expect(
+    a.idempotenciaClave,
     'reintentar el mismo cobro tiene que llevar la misma clave, o se cobraría dos veces',
-  );
+  ).toBe(b.idempotenciaClave);
 });
