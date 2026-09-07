@@ -67,10 +67,19 @@ export function calcularDescuento(codigo: CodigoDescuento, subtotal: number): nu
  */
 export function validarCodigoCanjeable(
   codigo: CodigoDescuento | null | undefined,
-  opts: { hoyISO: string; subtotal: number },
+  opts: {
+    hoyISO: string; subtotal: number;
+    /** P-5 (auditoría 26ª pasada): cada código es como mucho una vez por
+     *  socia, tenga o no `usosMax` — antes solo había tope GLOBAL, así que un
+     *  código sin tope era reutilizable indefinidamente por la misma persona.
+     *  El POS (`components/pos/pos-terminal.tsx`) llama a esta función sin
+     *  pasar este campo a propósito: feature congelada, no se toca aquí. */
+    yaUsadoPorEstaSocia?: boolean;
+  },
 ): ResultadoCanje {
   if (!codigo) return { ok: false, motivo: 'Ese código no existe' };
   if (!codigo.activo) return { ok: false, motivo: 'Ese código está desactivado' };
+  if (opts.yaUsadoPorEstaSocia) return { ok: false, motivo: 'Ya has usado este código antes' };
   if (codigo.expira && codigo.expira < opts.hoyISO.slice(0, 10)) {
     return { ok: false, motivo: 'Ese código ya ha caducado' };
   }

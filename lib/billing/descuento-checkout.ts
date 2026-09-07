@@ -17,6 +17,11 @@ export interface OpcionesResolverDescuento {
   // ("¿esto es un alta o una socia ya con ficha?"), que es el caso de uso de
   // marketing (código de bienvenida) que este campo existe para cubrir.
   esNueva: boolean;
+  // P-5 (auditoría 26ª pasada): ids de código que esta socia YA ha canjeado
+  // (lib/billing/codigos-ya-usados.ts). Vacío para una invitada sin ficha
+  // todavía — en ese caso el UNIQUE de BD en el momento de consumir
+  // (lib/billing/confirmar-cobro.ts) es la defensa real.
+  codigosYaUsados: ReadonlySet<string>;
 }
 
 /**
@@ -36,5 +41,8 @@ export function resolverDescuentoCheckout(
   if (codigo.soloNuevas && !opts.esNueva) {
     return { ok: false, motivo: 'Ese código es solo para clientas nuevas' };
   }
-  return validarCodigoCanjeable(codigo, { hoyISO: opts.hoyISO, subtotal: opts.subtotal });
+  return validarCodigoCanjeable(codigo, {
+    hoyISO: opts.hoyISO, subtotal: opts.subtotal,
+    yaUsadoPorEstaSocia: opts.codigosYaUsados.has(codigo.id),
+  });
 }

@@ -71,6 +71,21 @@ test('sin usosMax se puede canjear siempre', () => {
   assert.equal(validarCodigoCanjeable(cod({ usosMax: null, usos: 99 }), { hoyISO: HOY, subtotal: 50 }).ok, true);
 });
 
+// ── P-5 (auditoría 26ª pasada): una vez por socia, aunque no haya usosMax ───
+
+test('P-5: yaUsadoPorEstaSocia rechaza incluso SIN usosMax', () => {
+  const r = validarCodigoCanjeable(cod({ usosMax: null, usos: 0 }), {
+    hoyISO: HOY, subtotal: 50, yaUsadoPorEstaSocia: true,
+  });
+  assert.equal(r.ok, false);
+  assert.match((r as { motivo: string }).motivo, /ya has usado/i);
+});
+
+test('P-5: sin marcar yaUsadoPorEstaSocia, se comporta como siempre', () => {
+  assert.equal(validarCodigoCanjeable(cod(), { hoyISO: HOY, subtotal: 50 }).ok, true);
+  assert.equal(validarCodigoCanjeable(cod(), { hoyISO: HOY, subtotal: 50, yaUsadoPorEstaSocia: false }).ok, true);
+});
+
 test('buscarCodigo ignora mayúsculas y espacios', () => {
   const lista = [cod({ codigo: 'VUELVE-A3F2' })];
   assert.ok(buscarCodigo(lista, '  vuelve-a3f2 '));

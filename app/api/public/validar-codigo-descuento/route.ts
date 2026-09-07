@@ -4,6 +4,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
+import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
     hoyISO: new Date().toISOString(),
     subtotal: Number(body.subtotal),
     esNueva: await esSociaNueva(admin, body.studioId, body.socioId ?? null, null),
+    codigosYaUsados: await codigosYaUsadosPorSocia(admin, body.socioId ?? null),
   });
   return conCorsWidget(req, NextResponse.json(resultado));
 }

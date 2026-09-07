@@ -556,7 +556,7 @@ async function procesarEvento(
         // ya está cobrado y el plan ya entregado, así que un fallo aquí no
         // puede tumbar el evento, pero sí queda en Sentry.
         await consumirCodigoDescuentoSiAplica(admin, {
-          codigoDescuentoId, reciboId: entrega.reciboId, studioId, fuente: 'stripe webhook',
+          codigoDescuentoId, reciboId: entrega.reciboId, studioId, socioId: entrega.socioId, fuente: 'stripe webhook',
         });
         const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
         await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
@@ -912,7 +912,7 @@ async function procesarEvento(
       // checkout.session.completed — ver consumirCodigoDescuentoSiAplica.
       await consumirCodigoDescuentoSiAplica(admin, {
         codigoDescuentoId: pi.metadata.codigoDescuentoId, reciboId: entrega.reciboId, studioId,
-        fuente: 'stripe webhook: checkout embebido',
+        socioId: entrega.socioId, fuente: 'stripe webhook: checkout embebido',
       });
 
       const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
