@@ -11,6 +11,8 @@ import { useToast } from '@/components/student/ui/Toast';
 import { guardarDatos } from '@/lib/student/perfil-y-avisos';
 import { Input } from '@/components/student/ui/Input';
 import { Button } from '@/components/student/ui/Button';
+import { FotoPerfil } from '@/components/student/domain/FotoPerfil';
+import { invalidarCatalogo } from '@/lib/student/catalogo';
 
 // Datos personales (§A.18).
 //
@@ -36,6 +38,10 @@ export default function DatosPage() {
   const [err, setErr] = useState<Record<string, string>>({});
   const [guardando, setGuardando] = useState(false);
   const [rellenadoDe, setRellenadoDe] = useState<string | null>(null);
+  // La foto que se ve AHORA. `undefined` = todavía la del payload; un valor
+  // (o `null`) = lo que la alumna acaba de hacer, para que el cambio se vea al
+  // instante sin esperar a que el payload se recargue.
+  const [fotoLocal, setFotoLocal] = useState<string | null | undefined>(undefined);
 
   // La sesión llega asíncrona, así que el formulario se rellena cuando aparece.
   // Se ajusta DURANTE EL RENDER y no en un efecto: es el patrón que React
@@ -75,6 +81,23 @@ export default function DatosPage() {
     <StudentShell>
       <PageHeader titulo="Datos personales" back />
       <div className="px" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14, maxWidth: 520 }}>
+        {/* La foto. Antes no había forma de poner ninguna: el avatar era
+            siempre las iniciales. */}
+        {socia && (
+          <FotoPerfil
+            studioId={estudio.id}
+            url={fotoLocal !== undefined ? fotoLocal : (socia.fotoUrl ?? null)}
+            iniciales={[socia.nombre, socia.apellidos].filter(Boolean).map((x) => (x as string)[0]).join('').toUpperCase() || '·'}
+            onCambio={(u) => {
+              setFotoLocal(u);
+              // El catálogo cacheado lleva la foto vieja: sin invalidarlo, la
+              // cabecera y el resto de pantallas seguirían enseñándola hasta
+              // que caducara el caché.
+              invalidarCatalogo(estudio.slug);
+            }}
+          />
+        )}
+
         <Input label="Nombre" value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} error={err.nombre} autoComplete="given-name" />
         <Input label="Apellidos" value={f.apellidos} onChange={(e) => setF({ ...f, apellidos: e.target.value })} autoComplete="family-name" />
         <Input
