@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import { Plus, X, Ticket } from 'lucide-react';
 import type { Recuperacion } from '@/lib/types';
@@ -33,6 +34,10 @@ const inputCls = 'w-full text-sm rounded-lg border border-border bg-background p
 const labelCls = 'text-xs font-semibold text-muted-foreground mb-1.5 block';
 
 export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onToast: (mensaje: string) => void }) {
+  // Anular una recuperación le quita a la alumna una clase que ya tenía
+  // ganada, y no se puede deshacer. Antes se ejecutaba con un solo clic en un
+  // icono de papelera, sin preguntar nada.
+  const [anulando, setAnulando] = useState<string | null>(null);
   const { recuperaciones, darRecuperacion, anularRecuperacion } = useStudio();
   // Conceder o anular una recuperación es una clase gratis: desde la 0122 lo
   // rechaza la base de datos a quien no gestiona clientas. Se ocultan los
@@ -103,7 +108,7 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
                 </div>
                 {puedeTocar && st.viva && (
                   <button
-                    onClick={async () => { const res = await anularRecuperacion(r.id); if (!res.ok) onToast(res.error); }}
+                    onClick={() => setAnulando(r.id)}
                     title="Anular recuperación"
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted shrink-0"
                   >
@@ -147,6 +152,25 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Anular le quita a la alumna una clase que ya tenía ganada y no se
+          deshace. El resto del panel ya usa este diálogo para lo destructivo
+          (22 sitios); esta papelera se había quedado sin él. */}
+      <ConfirmDialog
+        open={anulando !== null}
+        onOpenChange={abierto => { if (!abierto) setAnulando(null); }}
+        titulo="¿Anular esta recuperación?"
+        descripcion="La alumna la perderá y no se puede recuperar. Si fue un error al concederla, puedes volver a dársela."
+        textoConfirmar="Sí, anularla"
+        destructivo
+        onConfirm={async () => {
+          const id = anulando;
+          setAnulando(null);
+          if (!id) return;
+          const res = await anularRecuperacion(id);
+          if (!res.ok) onToast(res.error);
+        }}
+      />
     </div>
   );
 }

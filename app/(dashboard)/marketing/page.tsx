@@ -3,6 +3,7 @@
 import { useState, useEffect, useId } from 'react'
 import Link from 'next/link'
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useRouter } from 'next/navigation'
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags'
 import { cn } from '@/lib/utils'
@@ -492,6 +493,9 @@ export default function MarketingPage() {
     if (!MARKETING_MODULE_ENABLED) router.replace('/dashboard')
   }, [router])
   const [tab, setTab] = useState<'resumen' | 'campanas' | 'automatizaciones' | 'codigos'>('resumen')
+  // Borrar una campaña o una automatización no se deshace, y se ejecutaba con
+  // un solo clic en una papelera. El resto del panel ya pregunta antes.
+  const [borrando, setBorrando] = useState<{ tipo: 'campana' | 'automatizacion'; id: string } | null>(null)
   // Automatización pendiente de confirmar antes de ENCENDERLA por solape con
   // AUSENCIA_DIAS (motor clásico) — ver docs/marketing-solape-motores-diseno.md
   // §3, Nivel A. No bloquea, avisa en el momento de activar en vez de un texto
@@ -1006,7 +1010,7 @@ export default function MarketingPage() {
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => deleteCampana(c.id).then(res => { if (!res.ok) showToast(res.error) })}
+                          onClick={() => setBorrando({ tipo: 'campana', id: c.id })}
                           className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                           title="Eliminar"
                         >
@@ -1071,7 +1075,7 @@ export default function MarketingPage() {
                     <span className="font-semibold text-foreground text-[14px]">{a.nombre}</span>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => setFlowBuilder({ auto: a })} title="Editar flujo" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={async () => { const res = await deleteAutomatizacion(a.id); if (!res.ok) showToast(res.error); }} title="Eliminar" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setBorrando({ tipo: 'automatizacion', id: a.id })} title="Eliminar" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       <button
                         onClick={() => handleToggleAutomatizacion(a)}
                         className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0 ml-1', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}
@@ -1769,6 +1773,26 @@ export default function MarketingPage() {
         </DialogContent>
       </Dialog>
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
+
+      <ConfirmDialog
+        open={borrando !== null}
+        onOpenChange={a => { if (!a) setBorrando(null) }}
+        titulo={borrando?.tipo === 'automatizacion' ? '¿Eliminar esta automatización?' : '¿Eliminar esta campaña?'}
+        descripcion={borrando?.tipo === 'automatizacion'
+          ? 'Dejará de ejecutarse y no se puede deshacer.'
+          : 'Se borra junto con su histórico y no se puede deshacer.'}
+        textoConfirmar="Sí, eliminar"
+        destructivo
+        onConfirm={async () => {
+          const b = borrando
+          setBorrando(null)
+          if (!b) return
+          const res = b.tipo === 'automatizacion'
+            ? await deleteAutomatizacion(b.id)
+            : await deleteCampana(b.id)
+          if (!res.ok) showToast(res.error)
+        }}
+      />
     </div>
   )
 }
