@@ -53,13 +53,19 @@ function PageHeader({
       )}
       {...props}
     >
-      {/* `basis-64` + `grow` es la otra mitad: un elemento flexible con base 0
-          nunca fuerza el salto de línea (siempre "cabe"), así que sin una base
-          real la barra de acciones seguiría cabiendo a su lado y aplastándolo.
-          Con 16rem de base, en cuanto título y acciones no caben juntos, salta.
-          Y `grow` mantiene lo de siempre cuando sí caben: el título se lleva
-          todo el ancho sobrante. */}
-      <div className="flex min-w-0 grow basis-64 items-start gap-3">
+      {/* `sm:basis-64` + `sm:grow` es la otra mitad: un elemento flexible con
+          base 0 nunca fuerza el salto de línea (siempre "cabe"), así que sin
+          una base real la barra de acciones se colocaría a su lado y lo
+          aplastaría. Con 16rem de base, en cuanto título y acciones no caben
+          juntos, la barra salta de línea; y `grow` mantiene lo de siempre
+          cuando sí caben.
+          ⚠️ LAS DOS VAN CON `sm:`, Y NO ES COSMÉTICA. Debajo de `sm` la
+          cabecera es `flex-col`, y ahí `flex-basis` mide el eje VERTICAL: sin
+          el prefijo, `basis-64` le daba 16rem de ALTO a la columna del título
+          y abría un hueco en blanco de 256 px entre el título y el contenido
+          en TODAS las pantallas del panel en móvil. La regresión que esto
+          arregla la introduje yo con la versión sin prefijo. */}
+      <div className="flex min-w-0 sm:grow sm:basis-64 items-start gap-3">
         {back && (
           <Link
             href={back.href}
@@ -105,9 +111,15 @@ function PageHeader({
         <div
           data-slot="page-header-actions"
           // `flex-wrap` propio para que los siete controles del Calendario se
-          // repartan en dos filas cuando la barra ya ha bajado de línea, y
-          // `justify-end` para que sigan pegados a la derecha ahí abajo.
-          className="flex shrink-0 flex-wrap items-center justify-end gap-2"
+          // repartan en dos filas cuando la barra ya ha bajado de línea.
+          //
+          // `justify-end` solo desde `sm`: en móvil la cabecera es una columna
+          // y la barra ocupa el ancho entero, así que alinear a la derecha
+          // dejaba los botones desparejados respecto al título —una escalera
+          // ragged pegada al borde derecho, que es como se veían Cobros y
+          // Clientas en un teléfono—. Alineados a la izquierda caen a plomo
+          // con el <h1>.
+          className="flex shrink-0 flex-wrap items-center sm:justify-end gap-2"
         >
           {actions}
         </div>

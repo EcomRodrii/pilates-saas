@@ -831,7 +831,14 @@ export default function Socios() {
 
         {/* Smart filter chips + sort */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 flex-wrap flex-1">
+          {/* `flex-1` solo desde `sm`: en un teléfono las pastillas ocupan
+              varias líneas y, con `flex-1`, el bloque se quedaba con el ancho
+              entero de su fila y dejaba «Toda etapa» descolgada contra el
+              borde derecho, sin nada al lado. Sin el prefijo, los desplegables
+              caen justo detrás de la última pastilla. En escritorio caben en
+              una línea y `flex-1` sigue empujándolos a la derecha, que es lo
+              que se buscaba. */}
+          <div className="flex items-center gap-1.5 flex-wrap sm:flex-1">
             {SMART_FILTERS.map((f) => (
               <button
                 key={f.id}
