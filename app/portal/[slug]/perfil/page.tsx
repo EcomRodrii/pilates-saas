@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useSesionStudent } from '@/lib/student/sesion';
+import { InvitarAmiga } from '@/components/student/domain/InvitarAmiga';
 import { useRouter } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
@@ -21,6 +23,8 @@ function iniciales(nombre: string): string {
 // compartido eso es dejar la cuenta abierta.
 export default function PerfilPage() {
   const { estudio } = useEstudio();
+  // El id de la socia, que es lo que lleva el enlace de invitación.
+  const { socia: sesion } = useSesionStudent(estudio.slug);
   const href = usePortalHref();
   const router = useRouter();
   const cargarAlumna = useCallback(() => getAlumna(estudio.slug), [estudio.slug]);
@@ -69,6 +73,16 @@ export default function PerfilPage() {
             { label: 'Método de pago', href: href('/perfil/pago') },
           ]}
         />
+
+        {/* Invitar a una amiga. Va suelto y no como una fila más de una lista:
+            es lo único de esta pantalla que se COMPARTE, y en una lista de
+            ajustes se leería como otro enlace de configuración.
+
+            Solo con la socia resuelta: el enlace lleva su id, así que sin él
+            no hay invitación que dar. */}
+        {sesion?.socioId && (
+          <InvitarAmiga slug={estudio.slug} socioId={sesion.socioId} nombreEstudio={estudio.nombre} />
+        )}
 
         <ProfileSection
           titulo="Estudio"

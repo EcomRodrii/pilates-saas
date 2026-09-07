@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import { leerReferidor, olvidarReferidor } from '@/lib/student/referido-sesion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/student/ui/Input';
 import { Button } from '@/components/student/ui/Button';
@@ -76,11 +77,23 @@ function Verificar() {
         nombre: firma.firma,
         telefono: firma.telefono ?? '',
         aceptacion: { fecha: firma.fecha, firma: firma.firma, versionTexto: firma.versionTexto },
+        // ⚠️ Quien la invitó, si llegó por un enlace de invitación. El endpoint
+        // aceptaba `referidoPor` desde siempre y esta pantalla no lo mandaba
+        // NUNCA, así que la cadena entera de referidos —el crédito a quien
+        // invita, el logro de amigas invitadas— no se disparaba jamás.
+        //
+        // El servidor lo comprueba contra la base (misma socia, mismo estudio)
+        // y lo descarta en silencio si no cuadra: el alta nunca depende de que
+        // el enlace estuviera bien.
+        referidoPor: leerReferidor(slug),
       }),
     });
     if (!res.ok) return { ok: false as const, motivo: 'servidor' as const };
 
     olvidarFirma(slug);
+    // Igual que la firma: el trámite terminó. Dejarlo permitiría que un
+    // segundo alta en la misma pestaña heredara una atribución que no es suya.
+    olvidarReferidor(slug);
     invalidarCatalogo(slug);
     await refrescar();
     return { ok: true as const };

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { registrarSociaPublica, actualizarSociaPublica, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
@@ -76,9 +77,35 @@ export async function POST(req: NextRequest) {
       // al insert y DESPUÉS de su salida temprana por idempotencia. Aquí corría
       // antes, así que un reintento de una socia que ya existía se llevaba el
       // bloqueo sin ir a crear nada.
+      // ⚠️ EL REFERIDOR SE COMPRUEBA, y no es una cortesía: `socios.referido_por`
+      // tiene clave foránea a `socios(id)`, así que un valor que no exista NO
+      // se ignora — hace fallar el INSERT y deja a la invitada SIN PODER DARSE
+      // DE ALTA. Como el valor llega de un enlace que cualquiera puede
+      // manipular (`?ref=`), sin esta comprobación bastaba con repartir un
+      // enlace con basura para impedir altas en un estudio.
+      //
+      // Se exige además el MISMO estudio: un id de otro estudio existe en la
+      // tabla, así que pasaría la clave foránea, y dejaría una socia atribuida
+      // a alguien de fuera —y sumando para su logro de amigas invitadas—.
+      //
+      // Un referidor que no cuadra se descarta EN SILENCIO: el alta es lo
+      // importante y nunca puede depender de que el enlace estuviera bien.
+      let referidoPor: string | null = null;
+      const admin = getSupabaseAdmin();
+      if (body.referidoPor && admin) {
+        const { data: quienInvita } = await admin
+          .from('socios').select('id')
+          .eq('id', body.referidoPor).eq('studio_id', body.studioId)
+          .maybeSingle();
+        referidoPor = quienInvita ? (quienInvita.id as string) : null;
+      }
+      // Sin cliente de administración no se puede comprobar, así que no se
+      // manda: mejor un alta sin atribuir que un alta que revienta. La
+      // atribución es un extra; la cuenta, no.
+
       const r = await registrarSociaPublica({
         studioId: body.studioId, id: body.id, nombre: body.nombre, email: user.email,
-        telefono: body.telefono, authUserId: user.userId, aceptacion, referidoPor: body.referidoPor ?? null,
+        telefono: body.telefono, authUserId: user.userId, aceptacion, referidoPor,
         origenLead: body.origenLead ?? null,
       });
       if ('error' in r) {

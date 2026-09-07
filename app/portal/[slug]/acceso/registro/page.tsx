@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { guardarReferidor } from '@/lib/student/referido-sesion';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/student/ui/Input';
@@ -57,6 +58,19 @@ export default function RegistroPage() {
   // Solo firma: ni email ni contraseña. La identidad la pone Google, o ya la
   // puso el enlace del correo.
   const soloFirma = sp.get('firma') === '1';
+  // ⚠️ Quien invita viaja en el enlace y hay que guardarlo: entre esta pantalla
+  // y la que crea la ficha hay un correo o una vuelta por Google, y la query no
+  // sobrevive a eso. Se guarda donde ya vive la firma, con la misma duración y
+  // el mismo modo de fallar.
+  //
+  // En un EFECTO, no durante el render: escribir en `sessionStorage` es un
+  // efecto secundario, se ejecutaría en cada render y no es lo que un render
+  // debe hacer. No lleva `setState`, así que no cae en lo que el compilador de
+  // React rechaza.
+  const refDelEnlace = sp.get('ref');
+  useEffect(() => {
+    if (refDelEnlace) guardarReferidor(slug, refDelEnlace);
+  }, [slug, refDelEnlace]);
 
   const [f, setF] = useState({ nombre: '', email: '', telefono: '', pass: '', acepto: false });
   const [err, setErr] = useState<Record<string, string>>({});
