@@ -2162,24 +2162,41 @@ export async function dbAddComentarioComunidad(postId: string, texto: string): P
  */
 async function sincronizarTiposDePlan(
   planId: string, studioId: string, tipos: string[] | undefined,
+  limites?: Record<string, number | null>,
 ): Promise<ResultadoEscritura> {
   if (tipos === undefined) return ESCRITURA_OK; // no se tocó el campo
 
+  const limiteDe = (t: string) => limites?.[t] ?? null;
+
   const { data: actualesRows, error: errLee } = await supabase
-    .from('plan_tipos_clase').select('tipo_clase_id').eq('plan_id', planId);
+    .from('plan_tipos_clase').select('tipo_clase_id, limite_semanal').eq('plan_id', planId);
   if (errLee) return falloEscritura('[sincronizarTiposDePlan:leer]', errLee);
 
-  const actuales = new Set((actualesRows ?? []).map(r => r.tipo_clase_id as string));
+  const actuales = new Map((actualesRows ?? []).map(r =>
+    [r.tipo_clase_id as string, (r.limite_semanal as number | null) ?? null]));
   const pedidos = new Set(tipos);
   const aInsertar = tipos.filter(t => !actuales.has(t));
-  const aBorrar = [...actuales].filter(t => !pedidos.has(t));
+  const aBorrar = [...actuales.keys()].filter(t => !pedidos.has(t));
+  // Los que ya estaban y les cambia el tope. Sin esto, editar «2» por «3» en un
+  // tipo ya marcado no escribiría nada y la pantalla diría que sí — el mismo
+  // fallo que ya costó `oferta_hasta`.
+  const aActualizar = tipos.filter(t => actuales.has(t) && actuales.get(t) !== limiteDe(t));
 
   // Primero añadir. Si esto falla, no se ha quitado nada todavía.
   if (aInsertar.length > 0) {
     const { error } = await supabase.from('plan_tipos_clase').insert(
-      aInsertar.map(t => ({ plan_id: planId, tipo_clase_id: t, studio_id: studioId })),
+      aInsertar.map(t => ({ plan_id: planId, tipo_clase_id: t, studio_id: studioId, limite_semanal: limiteDe(t) })),
     );
     if (error) return falloEscritura('[sincronizarTiposDePlan:insert]', error);
+  }
+
+  // Los topes, antes del borrado: un tope es MÁS restrictivo, así que fallar
+  // aquí deja el plan como estaba, nunca más abierto de lo pedido.
+  for (const t of aActualizar) {
+    const { error } = await supabase.from('plan_tipos_clase')
+      .update({ limite_semanal: limiteDe(t) })
+      .eq('plan_id', planId).eq('tipo_clase_id', t);
+    if (error) return falloEscritura('[sincronizarTiposDePlan:limite]', error);
   }
 
   // Y ahora sí quitar lo que sobra.
@@ -2197,7 +2214,7 @@ export async function dbInsertPlanTarifa(plan: PlanTarifa): Promise<ResultadoEsc
   if (error) return falloEscritura('[dbInsertPlanTarifa]', error);
   // Se propaga: una tarifa creada sin su cobertura vale para TODAS las clases,
   // que es justo lo contrario de lo que acaba de pedir la propietaria.
-  return sincronizarTiposDePlan(plan.id, plan.studioId ?? STUDIO_ID, plan.tiposClaseIds);
+  return sincronizarTiposDePlan(plan.id, plan.studioId ?? STUDIO_ID, plan.tiposClaseIds, plan.limitePorTipo);
 }
 
 export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>): Promise<ResultadoEscritura> {
@@ -2228,7 +2245,7 @@ export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa
     if (!fila?.studio_id) {
       return { ok: false, error: 'No hemos podido guardar a qué clases se aplica. Vuelve a intentarlo.' };
     }
-    return sincronizarTiposDePlan(id, fila.studio_id as string, changes.tiposClaseIds);
+    return sincronizarTiposDePlan(id, fila.studio_id as string, changes.tiposClaseIds, changes.limitePorTipo);
   }
   return ESCRITURA_OK;
 }
@@ -4984,7 +5001,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // gestionarlos — el filtro para lo que se muestra en el portal vive en
     // fetchPublicStudioData.
     db.from('contenido_portal_banners').select('*').eq('studio_id', sid).order('orden', { ascending: true }),
-    db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', sid),
+    db.from('plan_tipos_clase').select('plan_id, tipo_clase_id, limite_semanal').eq('studio_id', sid),
     // Sin filtrar por activo: mismo criterio que contenido_portal_banners —
     // el editor necesita ver también los inactivos/caducados para gestionarlos.
     db.from('novedades_estudio').select('*').eq('studio_id', sid).order('created_at', { ascending: false }),
@@ -5354,9 +5371,9 @@ export async function hidratarTiposDePlanes<C extends { from: (t: string) => nev
 ): Promise<PlanTarifa[]> {
   if (planes.length === 0) return planes;
   const db = client as unknown as {
-    from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => Promise<{ data: { plan_id: string; tipo_clase_id: string }[] | null }> } };
+    from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => Promise<{ data: { plan_id: string; tipo_clase_id: string; limite_semanal: number | null }[] | null }> } };
   };
-  const { data } = await db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', studioId);
+  const { data } = await db.from('plan_tipos_clase').select('plan_id, tipo_clase_id, limite_semanal').eq('studio_id', studioId);
   return unirTiposAPlanes(planes, data);
 }
 
@@ -5366,16 +5383,28 @@ export async function hidratarTiposDePlanes<C extends { from: (t: string) => nev
 // Promise.all y solo necesita cruzar). Misma lógica en un único sitio.
 export function unirTiposAPlanes(
   planes: PlanTarifa[],
-  filas: { plan_id: string; tipo_clase_id: string }[] | null,
+  filas: { plan_id: string; tipo_clase_id: string; limite_semanal?: number | null }[] | null,
 ): PlanTarifa[] {
   if (planes.length === 0 || !filas || filas.length === 0) return planes;
   const porPlan = new Map<string, string[]>();
+  // Cuota combinada: el tope por actividad. Solo se cuelga si hay alguno, para
+  // que un plan de los de siempre siga saliendo exactamente igual que antes.
+  const limitesPorPlan = new Map<string, Record<string, number | null>>();
   for (const f of filas) {
     const arr = porPlan.get(f.plan_id) ?? [];
     arr.push(f.tipo_clase_id);
     porPlan.set(f.plan_id, arr);
+    if (f.limite_semanal != null) {
+      const lim = limitesPorPlan.get(f.plan_id) ?? {};
+      lim[f.tipo_clase_id] = f.limite_semanal;
+      limitesPorPlan.set(f.plan_id, lim);
+    }
   }
-  return planes.map(p => (porPlan.has(p.id) ? { ...p, tiposClaseIds: porPlan.get(p.id) } : p));
+  return planes.map(p => {
+    if (!porPlan.has(p.id)) return p;
+    const lim = limitesPorPlan.get(p.id);
+    return { ...p, tiposClaseIds: porPlan.get(p.id), ...(lim ? { limitePorTipo: lim } : {}) };
+  });
 }
 
 

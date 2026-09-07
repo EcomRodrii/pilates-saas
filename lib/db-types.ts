@@ -1590,6 +1590,8 @@ export interface RowPlanTiposClase {
   plan_id: string;
   tipo_clase_id: string;
   studio_id: string;
+  // migr 20260907030553.
+  limite_semanal: number | null;
 }
 
 export interface RowStudioSlugsAntiguos {

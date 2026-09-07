@@ -17,6 +17,7 @@ import { escaparLike } from '@/lib/escapar-like';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { primerError } from '@/lib/db/primer-error';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
+import { esCodigoReserva } from '@/lib/reservas/errores-rpc';
 import { LEGAL } from '@/lib/legal-info';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { decidirCierreDeEspera, suscripcionDeReservaWeb, PREFIJO_RESERVA_WEB } from '@/lib/lista-espera/esperas-sin-plaza';
@@ -1818,7 +1819,10 @@ type MotivoIntentoFallido =
   // pierde en silencio (el insert va sin `await` a propósito).
   | 'CONFLICTO_HORARIO' | 'NECESITA_AUTORIZACION'
   // Igual: el CHECK lo amplía 20260905151515.
-  | 'RESERVA_BLOQUEADA_IMPAGO';
+  | 'RESERVA_BLOQUEADA_IMPAGO'
+  // Y otra vez: 20260907031432. Se distingue de LIMITE_SEMANAL a propósito —
+  // «quiere más Máquina de la que su cuota le da» es una señal de venta.
+  | 'LIMITE_SEMANAL_ACTIVIDAD';
 
 function registrarIntentoFallido(admin: SupabaseClient, params: {
   studioId: string; socioId: string; sesionId?: string | null; tipoClaseId?: string | null; motivo: MotivoIntentoFallido;
@@ -2058,7 +2062,16 @@ export async function crearReservaPublica(params: {
     if (error.message.includes('SPOT_OCUPADO')) return { error: 'Ese sitio lo acaba de coger otra persona' as const, codigo: 'spot-ocupado' as const };
     if (error.message.includes('SPOT_NO_DISPONIBLE')) return { error: 'Ese sitio no está disponible' as const, codigo: 'spot-no-disponible' as const };
     if (error.message.includes('SPOT_NO_PERTENECE_A_LA_SALA')) return { error: 'Ese sitio no es de esta sala' as const, codigo: 'spot-no-disponible' as const };
-    if (error.message.includes('LIMITE_SEMANAL')) {
+    // ⚠️ El de ACTIVIDAD va PRIMERO y con `esCodigoReserva`, no con `includes`:
+    // `LIMITE_SEMANAL_ACTIVIDAD` contiene `LIMITE_SEMANAL`, así que un
+    // `includes` en el orden de siempre le pondría el mensaje del techo general
+    // —«has llegado a tu tope»— a alguien a quien todavía le quedan clases de
+    // la otra actividad de su cuota.
+    if (esCodigoReserva(error.message, 'LIMITE_SEMANAL_ACTIVIDAD')) {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'LIMITE_SEMANAL_ACTIVIDAD' });
+      return { error: 'Ya has hecho todas las clases de esta actividad que incluye tu cuota esta semana' as const, codigo: 'limite-semanal-actividad' as const };
+    }
+    if (esCodigoReserva(error.message, 'LIMITE_SEMANAL')) {
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'LIMITE_SEMANAL' });
       return { error: 'Has alcanzado el máximo de clases por semana de tu plan' as const, codigo: 'limite-semanal' as const };
     }
@@ -2306,7 +2319,10 @@ export async function resolverReservaPendiente(params: {
     // reservar_plaza). La excepción revierte todo, así que la reserva SIGUE
     // pendiente de aprobación — el mensaje se lo dice a quien aprueba para que
     // decida, en vez de dejarle un error críptico.
-    if (error.message.includes('LIMITE_SEMANAL')) {
+    if (esCodigoReserva(error.message, 'LIMITE_SEMANAL_ACTIVIDAD')) {
+      return { error: 'La socia ya hizo todas las clases de esa actividad que incluye su cuota esta semana, y no tiene recuperaciones. La reserva sigue pendiente: libera una de esa actividad o recházala.' };
+    }
+    if (esCodigoReserva(error.message, 'LIMITE_SEMANAL')) {
       return { error: 'La socia ya alcanzó el límite semanal de su plan y no tiene recuperaciones disponibles. La reserva sigue pendiente: libera una clase de esa semana o recházala.' };
     }
     return { error: error.message };
