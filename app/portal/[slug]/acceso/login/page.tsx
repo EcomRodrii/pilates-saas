@@ -32,6 +32,10 @@ export default function LoginPage() {
   const [f, setF] = useState({ email: '', pass: '' });
   const [err, setErr] = useState<Record<string, string>>({});
   const [global, setGlobal] = useState('');
+  // ¿El fallo fue «no has confirmado tu email»? Ese caso NO es un error a
+  // secas: tiene una salida concreta, y ofrecerla cierra el embudo que crea
+  // cuentas duplicadas — ver `CodigoAuth`.
+  const [sinConfirmar, setSinConfirmar] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
   // Arranca con lo que ya eligió la última vez, no con un valor fijo.
@@ -49,7 +53,7 @@ export default function LoginPage() {
     const e: Record<string, string> = {};
     if (!/.+@.+\..+/.test(f.email)) e.email = 'Escribe un email válido';
     if (!f.pass) e.pass = 'Escribe tu contraseña';
-    setErr(e); setGlobal('');
+    setErr(e); setGlobal(''); setSinConfirmar(false);
     if (Object.keys(e).length) return;
 
     setCargando(true);
@@ -63,7 +67,7 @@ export default function LoginPage() {
     fijarRecordarSesion(recordar);
     const res = await loginConPassword(f.email, f.pass, token || undefined);
     setCargando(false);
-    if ('error' in res) { setGlobal(res.error); return; }
+    if ('error' in res) { setGlobal(res.error); setSinConfirmar(res.codigo === 'sin-confirmar'); return; }
     r.push(destino);
   };
 
@@ -128,9 +132,33 @@ export default function LoginPage() {
       </div>
 
       {global && (
-        <p role="alert" style={{ margin: 0, background: 'var(--destructive-soft)', color: 'var(--destructive-foreground)', borderRadius: 12, padding: '10px 13px', fontSize: 12.5, fontWeight: 700 }}>
+        <div role="alert" className="note note--danger" data-testid="error-acceso">
           {global}
-        </p>
+          {/* ⚠️ La SALIDA, no solo el diagnóstico. Quien no ha confirmado su
+              email no puede entrar, y hasta ahora el mensaje terminaba ahí.
+              Ese callejón tiene consecuencia: la salida natural es pulsar
+              «Continuar con Google», y como gotrue solo vincula identidades
+              cuando el email de la cuenta existente está confirmado, ahí nace
+              una SEGUNDA cuenta.
+              El enlace mágico resuelve las dos cosas de una vez: confirma la
+              dirección y la deja dentro. Y no es un botón nuevo — es el que ya
+              existía, ofrecido donde hace falta. */}
+          {sinConfirmar && (
+            <button
+              type="button"
+              onClick={() => void pedirEnlace()}
+              disabled={cargando}
+              data-testid="reenviar-confirmacion"
+              style={{
+                display: 'block', marginTop: 'var(--s-2)', background: 'none', border: 'none', padding: 0,
+                color: 'inherit', font: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3,
+                cursor: cargando ? 'progress' : 'pointer',
+              }}
+            >
+              Mándame un enlace para entrar y confirmarlo
+            </button>
+          )}
+        </div>
       )}
 
       <Input label="Email" type="email" autoComplete="email" inputMode="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} error={err.email} />
