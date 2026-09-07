@@ -469,6 +469,22 @@ export interface RowProductosPos {
   categoria: string;
   precio: number;
   activo: boolean | null;
+  // migr 20260907090100.
+  stock: number | null;
+  // migr 20260907090100.
+  stock_minimo: number;
+  // migr 20260907090100.
+  iva_pct: number | null;
+  // migr 20260907090100.
+  descripcion: string | null;
+  // migr 20260907090100.
+  imagen_url: string | null;
+  // migr 20260907090100.
+  sku: string | null;
+  // migr 20260907090100.
+  codigo_barras: string | null;
+  // migr 20260907090100.
+  orden: number | null;
 }
 
 export interface RowRecibos {

@@ -66,6 +66,12 @@ const BLOQUEADO_MANAGER = [
   '/notificaciones',
   '/cobros', '/cierre',
   '/transacciones', '/facturas', '/pagos',
+  // La caja/TPV. Sus rutas de servidor exigen `puedeMoverDinero` (vender,
+  // devolver, abrir y cuadrar caja) y `puedeVerFinanzas` (ver el catálogo y el
+  // arqueo), y las dos dejan fuera al manager. Sin esta línea le aparecería en
+  // el menú una pantalla que responde 403 nada más abrirla — un botón que la
+  // base de datos va a rechazar es justo lo que esta lista existe para evitar.
+  '/pos',
   // Importar membresías es meter BONOS: dinero cobrado. Su ruta de API ya exige
   // `puedeMoverDinero` (app/api/suscripciones/import), que deja fuera al manager
   // igual que la deja fuera de /cobros. El resto de importaciones sí las hace.

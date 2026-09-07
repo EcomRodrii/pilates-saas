@@ -1,0 +1,316 @@
+import 'server-only';
+import Stripe from 'stripe';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { MetodoPago } from '@/lib/types';
+import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
+import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import type { EstadoPagoPOS } from './tipos.ts';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proveedores de cobro del TPV.
+//
+// El POS no habla con Stripe: habla con un `ProveedorTerminal`. Hay tres, y la
+// diferencia entre ellos NO es de implementación, es de quién tiene la última
+// palabra sobre si el dinero entró:
+//
+//   · `datafono`  — Stripe Terminal, lector físico (card_present). Lo confirma
+//                   Stripe. Es la integración REAL que ya existía en
+//                   /api/terminal/cobrar; aquí solo se le pone un contrato
+//                   delante para que el POS no dependa de ella directamente.
+//   · `bizum`     — Stripe Checkout con `payment_method_types: ['bizum']`. Lo
+//                   confirma Stripe.
+//   · `manual`    — efectivo, transferencia, y el datáfono NO integrado (el
+//                   estudio cobra en su TPV externo del banco). Aquí no hay
+//                   tercero a quien preguntar: la confirmación es la palabra de
+//                   quien está cobrando, y eso está BIEN siempre que el sistema
+//                   no finja que la comprobó.
+//
+// ⚠️ Esa última frase es el bug que este módulo existe para no repetir. El TPV
+// anterior tenía un botón «Cobro realizado» en Bizum que llamaba a
+// `finalizarVenta()` sin preguntarle nada a Stripe, y un fallback que
+// registraba la venta como cobrada cuando el checkout ni siquiera respondía.
+// Un pago por móvil NO es un billete de 50 €: uno se ve, el otro hay que
+// comprobarlo. `esAutoritativo` es lo que separa los dos casos, y ninguna
+// pantalla puede saltárselo.
+//
+// ─── Añadir un proveedor nuevo (otro banco, otro TPV) ──────────────────────
+// Implementar `ProveedorTerminal` y registrarlo en `proveedorPara()`. Nada más
+// del POS cambia: la ruta de venta, la de confirmación y el webhook trabajan
+// contra el contrato, no contra Stripe.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ContextoCobro {
+  stripe: Stripe;
+  /** Cuenta Connect del estudio. El dinero es suyo, no de la plataforma. */
+  stripeAccount: string;
+  studioId: string;
+  esTest: boolean;
+}
+
+export interface PeticionCobro {
+  /** En céntimos, calculado EN SERVIDOR a partir de la venta ya registrada. */
+  importeCentimos: number;
+  concepto: string;
+  /** Viaja en la metadata para que el webhook sepa a qué venta confirmar. */
+  ventaId: string;
+}
+
+export type ResultadoInicio =
+  | { ok: true; referencia: string; url?: string | null; estado: EstadoPagoPOS }
+  | { ok: false; error: string };
+
+export interface ProveedorTerminal {
+  readonly id: 'datafono' | 'bizum' | 'manual';
+  readonly nombre: string;
+  /**
+   * ¿La respuesta de este proveedor es la fuente de verdad del pago?
+   * `false` = lo confirma la persona que cobra (efectivo y equivalentes).
+   */
+  readonly esAutoritativo: boolean;
+  iniciar(ctx: ContextoCobro, p: PeticionCobro): Promise<ResultadoInicio>;
+  consultar(ctx: ContextoCobro, referencia: string): Promise<{ estado: EstadoPagoPOS; error?: string }>;
+  cancelar(ctx: ContextoCobro, referencia: string): Promise<void>;
+}
+
+// ─── Traducción de los estados de Stripe a los del POS ───────────────────────
+// Se traduce en un solo sitio, y a un vocabulario nuestro: `requires_action` no
+// significa nada en un mostrador. El default es ERROR, nunca PAGADO — un estado
+// que no reconocemos jamás puede leerse como "cobrado".
+function estadoDesdeStripe(status: Stripe.PaymentIntent.Status): EstadoPagoPOS {
+  switch (status) {
+    case 'succeeded':                return 'PAGADO';
+    case 'processing':               return 'PROCESANDO';
+    case 'requires_payment_method':  return 'PENDIENTE';
+    case 'requires_confirmation':
+    case 'requires_action':
+    case 'requires_capture':         return 'PROCESANDO';
+    case 'canceled':                 return 'CANCELADO';
+    default:                         return 'ERROR';
+  }
+}
+
+// ─── Datáfono (Stripe Terminal) ──────────────────────────────────────────────
+
+function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
+  return {
+    id: 'datafono',
+    nombre: 'Datáfono',
+    esAutoritativo: true,
+
+    async iniciar(ctx, p) {
+      if (!readerId) {
+        return { ok: false, error: 'No hay datáfono emparejado. Configúralo en Ajustes del TPV.' };
+      }
+      try {
+        const pi = await ctx.stripe.paymentIntents.create({
+          amount: p.importeCentimos,
+          currency: 'eur',
+          payment_method_types: ['card_present'],
+          capture_method: 'automatic',
+          // `ventaId` es lo que permite que el webhook cierre la venta aunque
+          // el navegador del mostrador se cierre a mitad del cobro. Sin esto
+          // haría falta el rodeo del backstop de reconciliación.
+          metadata: { studioId: ctx.studioId, origen: 'pos_terminal', ventaId: p.ventaId, concepto: p.concepto },
+          ...(applicationFeeAmount(p.importeCentimos) !== undefined
+            ? { application_fee_amount: applicationFeeAmount(p.importeCentimos) }
+            : {}),
+        }, { stripeAccount: ctx.stripeAccount });
+
+        await ctx.stripe.terminal.readers.processPaymentIntent(
+          readerId, { payment_intent: pi.id }, { stripeAccount: ctx.stripeAccount },
+        );
+        // Solo en test: simula que alguien acerca la tarjeta, para poder probar
+        // el flujo entero sin hardware.
+        if (ctx.esTest) {
+          await ctx.stripe.testHelpers.terminal.readers.presentPaymentMethod(
+            readerId, {}, { stripeAccount: ctx.stripeAccount },
+          );
+        }
+        return { ok: true, referencia: pi.id, estado: 'PROCESANDO' };
+      } catch (err) {
+        console.error('[pos/terminal:datafono]', err instanceof Stripe.errors.StripeError ? err.message : err);
+        return { ok: false, error: 'No se pudo enviar el importe al datáfono.' };
+      }
+    },
+
+    async consultar(ctx, referencia) {
+      try {
+        const pi = await ctx.stripe.paymentIntents.retrieve(referencia, {}, { stripeAccount: ctx.stripeAccount });
+        return {
+          estado: estadoDesdeStripe(pi.status),
+          error: pi.last_payment_error?.message ?? undefined,
+        };
+      } catch (err) {
+        console.error('[pos/terminal:datafono:consultar]', err instanceof Stripe.errors.StripeError ? err.message : err);
+        // No se pudo PREGUNTAR. Eso no es "no pagado": es "no lo sé". Se
+        // devuelve PROCESANDO para que quien espera siga esperando en vez de
+        // dar el cobro por fallido y arriesgarse a cobrar dos veces.
+        return { estado: 'PROCESANDO' };
+      }
+    },
+
+    async cancelar(ctx, referencia) {
+      try {
+        if (readerId) {
+          // `{}` de parámetros y la cuenta Connect en el TERCER argumento: es
+          // la posición de las opciones de petición. Pasarla como segundo
+          // argumento la mandaría en el cuerpo y el cobro se cancelaría (o no)
+          // en la cuenta de la plataforma, no en la del estudio.
+          await ctx.stripe.terminal.readers.cancelAction(readerId, {}, { stripeAccount: ctx.stripeAccount });
+        }
+        await ctx.stripe.paymentIntents.cancel(referencia, {}, { stripeAccount: ctx.stripeAccount });
+      } catch (err) {
+        // Cancelar es best-effort: si el PaymentIntent ya no admite cancelación
+        // (porque acaba de cobrarse), lo correcto es NO tocarlo. El estado real
+        // lo dirá la siguiente consulta.
+        console.error('[pos/terminal:datafono:cancelar]', err instanceof Stripe.errors.StripeError ? err.message : err);
+      }
+    },
+  };
+}
+
+// ─── Bizum (Checkout hosted) ─────────────────────────────────────────────────
+
+function crearProveedorBizum(origen: string): ProveedorTerminal {
+  return {
+    id: 'bizum',
+    nombre: 'Bizum',
+    esAutoritativo: true,
+
+    async iniciar(ctx, p) {
+      try {
+        const sesion = await ctx.stripe.checkout.sessions.create({
+          mode: 'payment',
+          payment_method_types: ['bizum'],
+          line_items: [{
+            quantity: 1,
+            price_data: {
+              currency: 'eur',
+              unit_amount: p.importeCentimos,
+              product_data: { name: p.concepto.slice(0, 120) || 'Venta' },
+            },
+          }],
+          payment_intent_data: {
+            metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ventaId: p.ventaId },
+            ...(applicationFeeAmount(p.importeCentimos) !== undefined
+              ? { application_fee_amount: applicationFeeAmount(p.importeCentimos) }
+              : {}),
+          },
+          metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ventaId: p.ventaId },
+          success_url: `${origen}/pos?bizum=ok`,
+          cancel_url: `${origen}/pos?bizum=cancelado`,
+        }, { stripeAccount: ctx.stripeAccount });
+
+        if (!sesion.url) return { ok: false, error: 'Stripe no devolvió el enlace de pago.' };
+        // La referencia es el PaymentIntent, no la sesión: es lo que confirma
+        // el webhook y lo que se puede reembolsar después.
+        const pi = typeof sesion.payment_intent === 'string'
+          ? sesion.payment_intent
+          : sesion.payment_intent?.id ?? sesion.id;
+        return { ok: true, referencia: pi, url: sesion.url, estado: 'PENDIENTE' };
+      } catch (err) {
+        console.error('[pos/terminal:bizum]', err instanceof Stripe.errors.StripeError ? err.message : err);
+        return { ok: false, error: 'No se pudo generar el cobro por Bizum.' };
+      }
+    },
+
+    async consultar(ctx, referencia) {
+      try {
+        const pi = await ctx.stripe.paymentIntents.retrieve(referencia, {}, { stripeAccount: ctx.stripeAccount });
+        return { estado: estadoDesdeStripe(pi.status), error: pi.last_payment_error?.message ?? undefined };
+      } catch {
+        return { estado: 'PROCESANDO' };
+      }
+    },
+
+    async cancelar(ctx, referencia) {
+      try {
+        await ctx.stripe.paymentIntents.cancel(referencia, {}, { stripeAccount: ctx.stripeAccount });
+      } catch { /* best-effort, ver datáfono */ }
+    },
+  };
+}
+
+// ─── Manual (efectivo, transferencia, TPV del banco) ─────────────────────────
+
+const PROVEEDOR_MANUAL: ProveedorTerminal = {
+  id: 'manual',
+  nombre: 'Cobro en mostrador',
+  // Lo importante de este módulo entero está en esta línea: aquí NO hay
+  // tercero que confirme. La venta se registra ya cobrada porque quien la
+  // registra ha visto el dinero — y el sistema lo dice así, en vez de fingir
+  // una comprobación que no existe.
+  esAutoritativo: false,
+  async iniciar() { return { ok: true, referencia: '', estado: 'PAGADO' }; },
+  async consultar() { return { estado: 'PAGADO' }; },
+  async cancelar() { /* nada que cancelar */ },
+};
+
+// ─── Selección ───────────────────────────────────────────────────────────────
+
+export function proveedorPara(
+  metodo: MetodoPago,
+  opts: { readerId?: string | null; origen?: string } = {},
+): ProveedorTerminal {
+  switch (metodo) {
+    case 'DATAFONO': return crearProveedorDatafono(opts.readerId ?? null);
+    case 'BIZUM':    return crearProveedorBizum(opts.origen ?? '');
+    // TARJETA sin datáfono integrado = el estudio pasa la tarjeta por el TPV
+    // de su banco y lo apunta aquí. Es manual y así se registra, sin inventar
+    // una confirmación que nadie ha dado.
+    default:         return PROVEEDOR_MANUAL;
+  }
+}
+
+/**
+ * Prepara el contexto de cobro de un estudio: cliente de Stripe, cuenta
+ * Connect y lector emparejado. Devuelve el motivo cuando no se puede cobrar,
+ * en lugar de `null` a secas — el mostrador necesita saber QUÉ le falta.
+ */
+export async function contextoCobroDe(
+  admin: SupabaseClient,
+  studioId: string,
+): Promise<{ ok: true; ctx: ContextoCobro; readerId: string | null } | { ok: false; motivo: string; status: number }> {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key || key.startsWith('sk_test_XXXX')) {
+    return { ok: false, motivo: 'Stripe no está configurado en este servidor.', status: 503 };
+  }
+  // Mismo guardia que /api/stripe/checkout y /api/terminal/cobrar: con el
+  // .env.local de producción copiado a una máquina, esta ruta cobraría de
+  // verdad. Ver lib/billing/modo-stripe.ts.
+  const modo = comprobarModoStripe();
+  // `motivo` es opcional en el guardia; aquí NO puede serlo, porque este texto
+  // es lo único que va a leer quien está en el mostrador preguntándose por qué
+  // no puede cobrar. Un mensaje vacío sería peor que uno genérico.
+  if (!modo.puedeCobrar) {
+    return { ok: false, status: 503, motivo: modo.motivo ?? 'Los cobros con tarjeta no están disponibles en este entorno.' };
+  }
+
+  const { data: studio } = await admin
+    .from('studios')
+    .select('stripe_account_id, stripe_terminal_reader_id')
+    .eq('id', studioId)
+    .maybeSingle();
+
+  const cuentaConnect = studio?.stripe_account_id ?? null;
+  if (!cuentaConnect) {
+    return { ok: false, motivo: 'Conecta tu cuenta de Stripe antes de cobrar con tarjeta.', status: 409 };
+  }
+
+  return {
+    ok: true,
+    readerId: studio?.stripe_terminal_reader_id ?? null,
+    ctx: {
+      stripe: new Stripe(key, { apiVersion: '2026-06-24.dahlia' }),
+      // Ya comprobado no nulo arriba; se extrae a una constante para que el
+      // compilador lo sepa también (`studio.x` vuelve a ser `string | null`
+      // dentro del literal).
+      stripeAccount: cuentaConnect,
+      studioId,
+      esTest: key.startsWith('sk_test'),
+    },
+  };
+}
+
+/** Tope del importe de un cobro en mostrador. Un typo no puede ser un cargo absurdo. */
+export const MAX_CENTIMOS_POS = 1_000_000; // 10.000 €

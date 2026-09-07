@@ -1,13 +1,17 @@
-import { redirect } from 'next/navigation';
+import { PosTerminal } from '@/components/pos/pos-terminal';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONGELADO — POS / Caja (feature-freeze PMF, 2026-07-23).
-// La página real está intacta en ./page.frozen.tsx. Este stub de servidor evita
-// que se pinte —ni por un instante— y manda al panel. El menú, el buscador ⌘K y
-// los accesos rápidos ya no la enlazan (ver lib/frozen-features.ts).
-// Reactivar: renombrar page.frozen.tsx → page.tsx (borrando este stub) y quitar
-// '/pos' de RUTAS_CONGELADAS. Detalle en docs/FEATURE-FREEZE-2026-07.md.
+// Caja / TPV.
+//
+// Estuvo congelada desde el feature-freeze de PMF (2026-07-23) y se ha
+// reactivado con el rediseño server-authoritative: la venta ya no la escribe el
+// navegador, la registra `registrar_venta_pos` releyendo el catálogo. El
+// historial de por qué estaba congelada sigue en docs/FEATURE-FREEZE-2026-07.md.
+//
+// El guardia de rol NO vive aquí: `puedeVer(rol, '/pos')` lo aplica
+// dashboard-shell, y las rutas de servidor vuelven a comprobarlo con
+// `puedeMoverDinero`/`puedeVerFinanzas` — la pantalla nunca es el límite.
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Page() {
-  redirect('/dashboard');
+  return <PosTerminal />;
 }

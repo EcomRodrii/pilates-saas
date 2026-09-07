@@ -20,6 +20,11 @@ test('no se puede señalar como nuevo un módulo congelado', () => {
   for (const { href } of opcionesDeMenu()) {
     assert.equal(esRutaCongelada(href), false, `${href} está congelada y no debería ofrecerse`);
   }
-  assert.equal(esHrefDeMenu('/pos'), false, '/pos está congelada');
+  // `/pos` salió del freeze el 2026-09-07 (rediseño del TPV): ahora SÍ es una
+  // entrada real del menú y sí se puede señalar. Se comprueba contra las que
+  // siguen congeladas, que es lo que este test vino a proteger.
+  assert.equal(esHrefDeMenu('/kiosk'), false, '/kiosk está congelada');
+  assert.equal(esHrefDeMenu('/ondemand'), false, '/ondemand está congelada');
+  assert.equal(esHrefDeMenu('/pos'), true, '/pos ya no está congelada');
   assert.equal(opcionesDeMenu().length, MODULOS.length);
 });
