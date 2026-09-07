@@ -6,6 +6,7 @@ import { fetchThemePublicado } from '@/lib/api-client';
 // de theme-runtime.ts: ese módulo importa theme-schema.ts (zod) y
 // PanelThemeProvider está montado en TODAS las rutas del panel — importar
 // desde ahí bundlaría zod en las 22.
+import { ID_ANFITRION_PANEL } from '@/lib/panel-portal';
 import { foregroundParaFondo } from '@/lib/wcag-contrast';
 import { colorLegibleSobreClaro } from '@/lib/color-utils';
 import type { ThemeConfig } from '@/lib/theme-schema';
@@ -112,7 +113,18 @@ export function PanelThemeProvider({ children, className }: { children: React.Re
 
   return (
     <PanelThemeContext.Provider value={{ dark, setDark }}>
-      <div ref={ref} className={className}>{children}</div>
+      <div ref={ref} className={className}>
+        {children}
+        {/* ⚠️ Anfitrión de los portales del panel. Va AQUÍ y no en
+            `document.body` por una razón concreta: la clase `.dark` vive en
+            este div, así que todo lo que se portalee fuera vuelve a los tokens
+            CLAROS — hojas blancas sobre el panel oscuro y texto blanco sobre
+            blanco. Y va como hermano de `children`, no dentro, para quedar
+            fuera de lo que `.panel-page-in` transforma: si no, `position:
+            fixed` volvería a medirse contra la caja animada en vez del
+            viewport, que es justo por lo que se portalea. */}
+        <div id={ID_ANFITRION_PANEL} />
+      </div>
     </PanelThemeContext.Provider>
   );
 }

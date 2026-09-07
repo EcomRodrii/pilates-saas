@@ -94,16 +94,55 @@ test('Apariencia ofrece UNA salida, a personalizar el panel', () => {
     'Un solo botón: era el encargo, y dos destinos aquí es una pantalla de menú.');
 });
 
-test('la pantalla del panel trae las tres cosas', () => {
+test('la pantalla del panel trae las cinco cosas', () => {
   const src = leer(PANEL);
-  // 1) color  2) módulos  3) menú
-  assert.match(src, /guardarThemeBorrador|publicarThemeApi/, 'falta el color');
-  assert.match(src, /HomeSeccionesList/, 'faltan los módulos');
-  assert.match(src, /menuPosicion/, 'falta la posición del menú');
-  // Los módulos se REUSAN, no se reimplementan: el editor de Inicio ya existía
-  // dentro del editor de marca y arrastra, oculta y guarda.
+  assert.match(src, /publicarThemeApi/, 'faltan los colores');
+  assert.match(src, /p\.modulos/, 'faltan los módulos del menú');
+  assert.match(src, /p\.seccionesHome/, 'faltan las secciones de Inicio');
+  assert.match(src, /elegirPosicion/, 'falta la posición del menú');
+  assert.match(src, /setDark/, 'falta claro/oscuro');
+  // El arrastrar-y-soltar vive en UN componente compartido: dos listas
+  // parecidas es como acaban divergiendo (el ojo a un lado en una y al otro
+  // en la otra) y ninguna parece del mismo producto.
   assert.ok(!/DndContext/.test(src),
-    'Si aquí hay drag & drop propio, hay dos editores de Inicio que divergirán.');
+    'La lista ordenable es compartida: aquí no puede haber otra.');
+});
+
+// ⚠️ El fallo que costó una migración de ida y vuelta.
+test('la posición del menú usa el layout que YA existía, no una columna nueva', () => {
+  const src = leer(PANEL) + leer('components/panel/use-personalizacion-panel.ts');
+  assert.match(src, /menuPosition/, 'tiene que ir por `studio_layout`');
+  assert.ok(!/menu_posicion|menuPosicion/.test(src),
+    '`MENU_POSICIONES` existe en layout-runtime desde antes: una columna aparte son dos fuentes para el mismo ajuste.');
+  const sidebar = leer('components/layout/sidebar.tsx');
+  // Lo que importa es que la LEA del layout, no con qué grafía: la primera
+  // versión de este guardia exigía `setMenuPosition(l.menuPosition)` literal y
+  // se rompió sola al endurecer el valor contra respuestas vacías.
+  assert.match(sidebar, /setMenuPosition\([^)]*l\.menuPosition/,
+    'El menú tiene que LEER la posición del layout: declararla y no cablearla fue el problema original.');
+});
+
+test('guardar el color repinta el panel sin recargar', () => {
+  const src = leer(PANEL);
+  // `PanelThemeProvider` ya escucha este evento. No dispararlo fue exactamente
+  // por qué la primera versión «no hacía nada» al guardar un color.
+  assert.match(src, /dispatchEvent\(new CustomEvent\('tentare-theme-changed'\)\)/);
+  assert.ok(!/Recarga para verlo/.test(src),
+    'Pedir una recarga era tapar el fallo, no arreglarlo.');
+});
+
+test('guardar el menú lo recoloca sin recargar', () => {
+  const hook = leer('components/panel/use-personalizacion-panel.ts');
+  assert.match(hook, /dispatchEvent\(new CustomEvent\('tentare-layout-changed'\)\)/);
+  assert.match(leer('components/layout/sidebar.tsx'), /addEventListener\('tentare-layout-changed'/,
+    'Si el menú no escucha, guardar no mueve nada hasta recargar.');
+});
+
+test('no se puede guardar encima de un layout que no se ha podido leer', () => {
+  const hook = leer('components/panel/use-personalizacion-panel.ts');
+  assert.match(hook, /setEstado\('error'\)/);
+  assert.match(leer(PANEL), /disabled=\{p\.guardando \|\| p\.estado === 'error'\}/,
+    'Guardar sobre una lectura fallida borraría el menú que el estudio ya tenía.');
 });
 
 test('el color se guarda sobre lo PUBLICADO, no sobre el borrador', () => {
@@ -111,8 +150,8 @@ test('el color se guarda sobre lo PUBLICADO, no sobre el borrador', () => {
   // `guardarBorradorTheme` fusiona sobre el borrador actual. Si hubiera uno a
   // medias del editor viejo, publicar sacaría a producción cambios que nadie
   // pidió sacar.
-  assert.match(src, /guardarThemeBorrador\(\{ \.\.\.publicado, primary \}\)/,
-    'Publicar tiene que ser predecible: publicado + el color, y nada más.');
+  assert.match(src, /guardarThemeBorrador\(\{ \.\.\.base, primary, secondary \}\)/,
+    'Publicar tiene que ser predecible: publicado + los colores, y nada más.');
 });
 
 test('un color sin contraste no llega a publicarse en silencio', () => {
@@ -122,35 +161,19 @@ test('un color sin contraste no llega a publicarse en silencio', () => {
     'Se enseña el motivo real del rechazo, no un genérico.');
 });
 
-// ── Las dos posiciones, iguales en la BD y en TypeScript ─────────────────────
-test('el CHECK de la BD y el tipo de TS dicen las mismas dos posiciones', () => {
-  const dir = join(raiz, 'supabase', 'migrations');
-  const f = readdirSync(dir).filter(x => x.endsWith('.sql'))
-    .filter(x => readFileSync(join(dir, x), 'utf8').includes('studios_menu_posicion_valido'))
-    .sort().pop();
-  assert.ok(f, 'no encuentro la migración de menu_posicion');
-
-  const sql = readFileSync(join(dir, f!), 'utf8');
-  const check = sql.slice(sql.indexOf('studios_menu_posicion_valido'));
-  const enSql = [...check.matchAll(/'([a-z]+)'/g)].map(m => m[1]).slice(0, 2).sort();
-
-  const tipos = leer('lib/types.ts');
-  const decl = /export type MenuPosicion = ([^;]+);/.exec(tipos);
-  assert.ok(decl, 'no encuentro el tipo MenuPosicion');
-  const enTs = [...decl![1].matchAll(/'([a-z]+)'/g)].map(m => m[1]).sort();
-
-  assert.deepEqual(enTs, enSql,
-    'Una posición que TS acepta y la BD rechaza revienta al guardar; al revés, es una columna con valores que nadie sabe pintar.');
-});
-
 // ── El armazón ───────────────────────────────────────────────────────────────
-test('con el menú arriba, el contenido no reserva hueco a la izquierda', () => {
+test('los dos huecos los escribe el MENÚ, y siempre uno de los dos a cero', () => {
   const src = leer('components/layout/sidebar.tsx');
-  assert.match(src, /horizontal \? '0px' : SIDEBAR_SIZES\[initial\]\.cssVar/,
-    'Sin poner --sidebar-w a 0 queda una franja vacía donde ya no hay menú.');
+  assert.match(src, /setProperty\('--sidebar-w', horizontal \? '0px'/,
+    'Sin --sidebar-w a 0 queda una franja vacía donde ya no hay menú.');
+  assert.match(src, /setProperty\('--panel-top', horizontal \? BARRA_SUPERIOR_ALTO/,
+    'Y sin hueco ARRIBA, la barra tapa la primera fila de cada pantalla.');
+  // ⚠️ Los dos, en la MISMA función: separarlos es como acaban discrepando
+  // (menú arriba y hueco a la izquierda a la vez).
+  assert.match(src, /function aplicarHuecos\(/);
   const shell = leer('components/layout/dashboard-shell.tsx');
-  assert.match(shell, /lg:pt-\[92px\]/,
-    'Y sin hueco ARRIBA, la barra flotante tapa la primera fila de cada pantalla.');
+  assert.match(shell, /lg:pt-\[var\(--panel-top\)\]/,
+    'El armazón no pide el layout: si decidiera el hueco por su cuenta, discreparía con la barra en cada carga.');
 });
 
 test('el menú de tamaño no se ofrece tumbado', () => {

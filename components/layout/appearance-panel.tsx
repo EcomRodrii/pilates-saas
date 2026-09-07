@@ -56,23 +56,28 @@ export function AppearancePanel({ open, onClose }: { open: boolean; onClose: () 
             <p className="text-[11.5px] text-muted-foreground mt-3">Solo lo ves tú — se guarda en este navegador.</p>
           </div>
 
-          {/* Marca del estudio — solo propietaria. Lleva al editor completo. */}
+          {/* Personalizar el panel — solo propietaria.
+              ⚠️ Antes decía «Editar marca y apariencia · colores, tipografía,
+              logo y favicon de la app de clientas» y llevaba al editor de
+              marca. Ese editor está EN MANTENIMIENTO, así que ese enlace
+              prometía lo único que ahora mismo no se puede hacer. Lleva a lo
+              que sí se puede tocar. */}
           {rol === 'PROPIETARIO' && (
             <div className="border-t border-muted pt-5">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Marca del estudio</p>
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Tu estudio</p>
               <Link
-                href="/configuracion/apariencia"
+                href="/configuracion/apariencia/panel"
                 onClick={onClose}
                 className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl bg-muted hover:bg-muted/70 transition-colors"
               >
                 <span className="flex items-center gap-2.5 text-[13px] font-semibold text-foreground">
                   <Palette size={16} />
-                  Editar marca y apariencia
+                  Personalizar tu panel
                 </span>
                 <ChevronRight size={16} className="text-muted-foreground" />
               </Link>
               <p className="text-[11.5px] text-muted-foreground mt-3">
-                Colores, tipografía, logo y favicon de la app de clientas y la página de reservas.
+                Los colores, qué módulos ves en el menú y en qué orden, y dónde va el menú.
               </p>
             </div>
           )}

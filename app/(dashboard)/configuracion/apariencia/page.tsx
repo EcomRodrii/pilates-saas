@@ -59,8 +59,8 @@ export default function AparienciaPage() {
               Personalizar tu panel
             </span>
             <span className="mt-1 block text-[13px] leading-relaxed text-muted-foreground">
-              El color de tu software, el orden de los módulos de Inicio y si el menú va fijo a la
-              izquierda o fijo arriba.
+              Los colores de tu software, qué módulos aparecen en tu menú y en qué orden, las
+              secciones de tu Inicio, y si el menú va fijo a la izquierda o fijo arriba.
             </span>
           </span>
         </span>

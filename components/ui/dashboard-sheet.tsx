@@ -1,6 +1,7 @@
 'use client';
 
 import { createPortal } from 'react-dom';
+import { anfitrionPortal } from '@/lib/panel-portal';
 import { useDialogA11y } from './use-dialog-a11y';
 
 // Equivalente a PublicSheet (components/ui/public-sheet.tsx) para los
@@ -64,5 +65,5 @@ export function DashboardSheet({
     </div>
   );
 
-  return portal ? createPortal(contenido, document.body) : contenido;
+  return portal ? createPortal(contenido, anfitrionPortal()) : contenido;
 }

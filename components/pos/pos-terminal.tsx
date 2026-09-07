@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { anfitrionPortal } from '@/lib/panel-portal';
 import {
   Search, Plus, Minus, X, ShoppingCart, Wallet, User, Package,
   Loader2, Tag, AlertTriangle, Ticket, Receipt,
@@ -772,7 +773,7 @@ export function PosTerminal() {
         <HojaVentas onCerrar={() => setMostrarVentas(false)} onCambio={() => { refrescar(); }} />
       )}
     </div>,
-    document.body,
+    anfitrionPortal(),
   );
 }
 

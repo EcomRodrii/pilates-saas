@@ -74,6 +74,11 @@
 :root {
   /* Floating sidebar width — toggled between expanded/collapsed by components/layout/sidebar.tsx */
   --sidebar-w: 256px;
+  /* Hueco que el contenido deja al menú cuando va ARRIBA (0.5rem = pegado,
+     que es lo que corresponde con el menú a la izquierda). Lo escribe el
+     propio menú; este valor es el de la primera pintada, antes de que el
+     layout llegue. */
+  --panel-top: 0.5rem;
   /* Altura de la barra superior de nav cuando menuPosition='superior' (0 en lateral). */
   --topnav-h: 0px;
 

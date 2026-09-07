@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { anfitrionPortal } from '@/lib/panel-portal';
 import { useDialogA11y } from './use-dialog-a11y';
 
 // Equivalente a DashboardSheet (components/ui/dashboard-sheet.tsx) para los
@@ -93,5 +94,5 @@ export function DashboardDrawer({
     </div>
   );
 
-  return portal ? createPortal(contenido, document.body) : contenido;
+  return portal ? createPortal(contenido, anfitrionPortal()) : contenido;
 }
