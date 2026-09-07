@@ -36,7 +36,7 @@ import {
   ArrowLeft, Phone, Mail, CreditCard, Calendar, Pencil, Trash2,
   AlertTriangle, Plus, Tag, MessageSquare, Pause, Play, X, Clock, Megaphone,
   Send, CheckCircle2, Filter, ShieldCheck, FileSignature,
-  Bot, Loader2, Mic, RefreshCw,
+  Bot, Loader2, Mic, RefreshCw, XCircle,
 } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
@@ -226,7 +226,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     socios, suscripciones, planesTarifa, recibos, reservas, sesiones,
     tiposClase, salas, instructores, notasInternas,
     updateSocio, deleteSocio, assignPlan, marcarCobrado, addRecibo, cobrarTodosPendientes,
-    addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion, reactivarSuscripcion,
+    addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion, reactivarSuscripcion, cancelarSuscripcion,
     addNota, deleteNota,
     notasProgreso, addNotaProgreso,
     condicionesSalud, camposPersonalizados,
@@ -279,6 +279,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [toast, setToast] = useState<string | null>(null);
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
   const [reactivando, setReactivando] = useState(false);
+  const [confirmarCancelarSus, setConfirmarCancelarSus] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   // ── AI instructor notes ────────────────────────────────────────────────────
@@ -530,15 +531,35 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // el servidor hubiera contestado —y saltaba igual cuando contestaba que no—,
   // así que una instructora sin permiso veía el mismo mensaje de éxito que la
   // dueña y el plan reaparecía al recargar. Ahora el aviso dice lo que ha pasado.
-  async function cambiarPlan(planId: string | null, nombrePlan?: string) {
+  // Solo ASIGNA. Quitar el plan ya no pasa por aquí: `assignPlan(id, null)`
+  // protege a propósito los bonos con saldo, así que como «cancelar» mentía.
+  // El tipo (sin `| null`) es lo que impide que vuelva a colarse.
+  async function cambiarPlan(planId: string, nombrePlan: string) {
     if (cambiandoPlan) return;
     setCambiandoPlan(true);
     try {
       await assignPlan(id, planId);
       setShowChangePlan(false);
-      setToast(nombrePlan ? `Plan "${nombrePlan}" asignado` : 'Plan retirado');
+      setToast(`Plan "${nombrePlan}" asignado`);
     } catch (e) {
       setToast(e instanceof Error ? e.message : ERROR_GENERICO);
+    } finally {
+      setCambiandoPlan(false);
+    }
+  }
+
+  // ⚠️ Este botón llamaba a `assignPlan(id, null)` («quítale el plan»), que no
+  // es lo mismo que cancelar la suscripción que se está mirando: con un bono
+  // con sesiones sin gastar no hacía NADA y aun así decía «Plan retirado»
+  // (7 de las 27 socias con tarjeta, medido en producción). Ver
+  // `cancelarSuscripcion` en studio-context.
+  async function handleCancelarSuscripcion() {
+    if (!suscripcion || cambiandoPlan) return;
+    setCambiandoPlan(true);
+    try {
+      const res = await cancelarSuscripcion(suscripcion.id);
+      setToast(res.ok ? 'Suscripción cancelada' : res.error);
+      if (res.ok) setConfirmarCancelarSus(false);
     } finally {
       setCambiandoPlan(false);
     }
@@ -843,7 +864,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               </button>
                             )}
                             <button
-                              onClick={() => cambiarPlan(null)}
+                              onClick={() => setConfirmarCancelarSus(true)}
                               disabled={cambiandoPlan}
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 disabled:opacity-40 transition-colors text-muted-foreground"
                             >
@@ -1969,15 +1990,23 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <DialogTitle className="text-lg font-semibold text-foreground">{plan ? 'Cambiar plan' : 'Asignar plan'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 mt-3">
-            <button
-              onClick={() => cambiarPlan(null)}
-              disabled={cambiandoPlan}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-muted disabled:opacity-40"
-              style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
-            >
-              <span>Sin plan</span>
-              {!plan && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-muted">Actual</span>}
-            </button>
+            {/* «Sin plan» arrastraba el mismo fallo que el botón de la tarjeta:
+                era `assignPlan(id, null)`, que con un bono con saldo no quitaba
+                nada y aun así decía «Plan retirado». Ahora lleva a la misma
+                confirmación —y al mismo camino real— que «Cancelar
+                suscripción», así que las dos vías hacen lo mismo o no existen:
+                sin nada que cancelar, este botón no tiene sentido y no se
+                pinta. */}
+            {suscripcion && suscripcion.estado !== 'CANCELADA' && (
+              <button
+                onClick={() => { setShowChangePlan(false); setConfirmarCancelarSus(true); }}
+                disabled={cambiandoPlan}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-muted disabled:opacity-40"
+                style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
+              >
+                <span>Sin plan</span>
+              </button>
+            )}
             {planesTarifa.filter(p => p.activo).map(p => (
               <button
                 key={p.id}
@@ -2101,6 +2130,39 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             >
               {enviandoMsg ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}Enviar email
             </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar cancelación de la suscripción.
+          Cancelar un bono con sesiones sin gastar TIRA algo que la clienta ya
+          ha pagado, así que se dice cuántas quedan antes de pulsar — es la
+          diferencia entre una decisión y un susto. Con una cuota mensual no hay
+          saldo que perder y el texto no lo inventa. */}
+      <Dialog open={confirmarCancelarSus && !!suscripcion} onOpenChange={open => !open && setConfirmarCancelarSus(false)}>
+        <DialogContent className="max-w-sm">
+          <div className="flex flex-col items-center text-center gap-4 py-2">
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-destructive/10">
+              <XCircle size={24} className="text-destructive" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-foreground mb-1">Cancelar la suscripción</h3>
+              <p className="text-sm text-muted-foreground">
+                {plan?.nombre ? `«${plan.nombre}» dejará` : 'La suscripción dejará'} de estar activa: {socio.nombre} no podrá reservar con ella y no se le volverá a cobrar.
+                {(suscripcion?.sesionesRestantes ?? 0) > 0 && (
+                  <> Le quedan <strong className="text-destructive">{suscripcion!.sesionesRestantes} {suscripcion!.sesionesRestantes === 1 ? 'sesión' : 'sesiones'} sin usar</strong> que ya ha pagado, y las pierde.</>
+                )}
+                {' '}Puedes volver a activarla después desde esta misma tarjeta.
+              </p>
+            </div>
+            <div className="flex gap-3 w-full">
+              <button onClick={() => setConfirmarCancelarSus(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted">
+                Volver
+              </button>
+              <button onClick={handleCancelarSuscripcion} disabled={cambiandoPlan} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 transition-colors">
+                {cambiandoPlan ? 'Cancelando…' : 'Cancelar suscripción'}
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

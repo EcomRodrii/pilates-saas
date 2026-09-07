@@ -386,6 +386,7 @@ interface StudioContextValue {
   pausarSuscripcion: (susId: string, motivo?: string) => Promise<ResultadoEscritura>;
   reanudarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
   reactivarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
+  cancelarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
 
   // Notas internas
   addNota: (socioId: string, texto: string) => Promise<ResultadoEscritura>;
@@ -2681,6 +2682,51 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true };
   }
 
+  /**
+   * Cancelar ESTA suscripción, la de la tarjeta que se está mirando.
+   *
+   * ⚠️ Existe porque el botón «Cancelar suscripción» de la ficha de la clienta
+   * llamaba a `assignPlan(socioId, null)`, que es otra operación: «quítale el
+   * plan». Y no hacía lo que decía en tres casos distintos:
+   *
+   *  · un BONO con sesiones sin gastar NUNCA se cancelaba — `assignPlan`
+   *    protege a propósito el saldo ya pagado al cambiar de plan, así que el
+   *    botón no hacía nada y el aviso decía «Plan retirado». Medido en
+   *    producción: 7 de las 27 socias con tarjeta de suscripción estaban en ese
+   *    caso;
+   *  · una suscripción PAUSADA tampoco — `assignPlan` solo mira las ACTIVA, y
+   *    el botón se enseña en cuanto no está cancelada;
+   *  · y cuando sí cancelaba, cancelaba TODAS las activas de la socia, no la de
+   *    la tarjeta. Hoy no se nota (nadie tiene dos a la vez en producción),
+   *    pero `planes_por_tipo_de_clase` está pensado justo para eso: cuota
+   *    mensual y bonos conviviendo.
+   *
+   * Aquí se cancela por id y punto. Quién puede pulsar el botón lo decide la
+   * pantalla (`puedeCobrar`) y la RLS de `suscripciones`, como en las hermanas.
+   */
+  async function cancelarSuscripcion(susId: string): Promise<ResultadoEscritura> {
+    const sus = suscripciones.find(s => s.id === susId);
+    if (!sus) return { ok: false, error: 'No se encuentra esta suscripción.' };
+    if (sus.estado === 'CANCELADA') return { ok: false, error: 'Esta suscripción ya está cancelada.' };
+
+    const res = await dbUpdateSuscripcion(susId, { estado: 'CANCELADA' });
+    if (!res.ok) return res;
+    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'CANCELADA' as const } : s));
+
+    // El rastro que ya dejaba el camino viejo (`assignPlan` registra «quitó el
+    // plan»): sin esto, cancelar una suscripción sería lo único de esta
+    // pantalla que no aparece en el histórico de la clienta.
+    const socio = socios.find(s => s.id === sus.socioId);
+    const plan = planesTarifa.find(p => p.id === sus.planId);
+    addActividadReciente(
+      'PLAN_ASIGNADO',
+      `${actorNombre ?? 'Alguien'} canceló el plan${plan ? ` "${plan.nombre}"` : ''} de ${socio?.nombre ?? 'una socia'}`,
+      sus.socioId,
+      `/socios/${sus.socioId}`,
+    );
+    return { ok: true };
+  }
+
   // ── Sesiones ─────────────────────────────────────────────────────────────────
 
   // Escribe PRIMERO y solo entonces la pinta. Antes era al revés: la clase
@@ -4951,6 +4997,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     pausarSuscripcion,
     reanudarSuscripcion,
     reactivarSuscripcion,
+    cancelarSuscripcion,
     addNota,
     deleteNota,
     condicionesSalud,
