@@ -533,7 +533,7 @@ interface StudioContextValue {
   updatePost: (postId: string, texto: string, opts?: OpcionesAddPost) => void;
   deletePost: (postId: string) => void;
   integraciones: Integracion[];
-  upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => void;
+  upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => Promise<ResultadoEscritura>;
   rewardRules: RewardRule[];
   rewardActions: RewardAction[];
   rewardHistory: RewardHistory[];
@@ -570,8 +570,8 @@ interface StudioContextValue {
   deleteChallengeDefinition: (id: string) => Promise<ResultadoEscritura>;
   evaluarRetosSocio: (socioId: string) => void;
   dashboardCharts: DashboardChart[];
-  addDashboardChart: (fields: Omit<DashboardChart, 'id' | 'studioId' | 'creadoEn'>) => void;
-  deleteDashboardChart: (id: string) => void;
+  addDashboardChart: (fields: Omit<DashboardChart, 'id' | 'studioId' | 'creadoEn'>) => Promise<ResultadoEscritura>;
+  deleteDashboardChart: (id: string) => Promise<ResultadoEscritura>;
   backups: BackupMeta[];
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;

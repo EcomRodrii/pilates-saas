@@ -3479,13 +3479,21 @@ export async function dbInsertAchievementHistory(h: AchievementHistory) {
 
 // ─── Soporte ──────────────────────────────────────────────────────────────────
 
-export async function dbInsertSoporteSolicitud(s: { id: string; tipo: string; mensaje: string; contacto: string | null; creadoEn: string }) {
+/**
+ * ⚠️ DEVUELVE si ha ido bien, y no es un detalle de estilo.
+ *
+ * Antes se tragaba el error (`reportDbError` y a otra cosa) y no devolvía nada,
+ * así que el widget de ayuda no tenía forma de saberlo: enseñaba «¡Enviado!»
+ * SIEMPRE. Una propietaria escribiendo «no me funciona el cobro» se quedaba
+ * convencida de que la habíamos leído, y aquí no había llegado nada.
+ */
+export async function dbInsertSoporteSolicitud(s: { id: string; tipo: string; mensaje: string; contacto: string | null; creadoEn: string }): Promise<ResultadoEscritura> {
   const row = {
     id: s.id, studio_id: getCurrentStudioId(), tipo: s.tipo, mensaje: s.mensaje,
     contacto: s.contacto, creado_en: s.creadoEn,
   };
   const { error } = await supabase.from('soporte_solicitudes').insert(row);
-  if (error) reportDbError('[dbInsertSoporteSolicitud]', error);
+  return error ? falloEscritura('[dbInsertSoporteSolicitud]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertLevelDefinition(l: LevelDefinition): Promise<ResultadoEscritura> {
@@ -3568,18 +3576,18 @@ export async function dbInsertChallengeHistory(h: ChallengeHistory) {
 
 // ─── Dashboard: gráficos personalizados ────────────────────────────────────────
 
-export async function dbInsertDashboardChart(c: DashboardChart) {
+export async function dbInsertDashboardChart(c: DashboardChart): Promise<ResultadoEscritura> {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, tipo: c.tipo,
     metrica: c.metrica, agrupacion: c.agrupacion, rango: c.rango, color: c.color, creado_en: c.creadoEn,
   };
   const { error } = await supabase.from('dashboard_charts').insert(row);
-  if (error) reportDbError('[dbInsertDashboardChart]', error);
+  return error ? falloEscritura('[dbInsertDashboardChart]', error) : ESCRITURA_OK;
 }
 
-export async function dbDeleteDashboardChart(id: string) {
+export async function dbDeleteDashboardChart(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('dashboard_charts').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteDashboardChart]', error);
+  return error ? falloEscritura('[dbDeleteDashboardChart]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertAutomationLog(log: AutomationLog) {
@@ -3910,7 +3918,7 @@ export async function dbUpsertIntegracion(
   // las credenciales solo existen en el cliente mientras el modal está abierto.
   config: Record<string, string>,
   reiniciarSalud = false,
-) {
+): Promise<ResultadoEscritura> {
   const row = {
     id: intg.id,
     studio_id: intg.studioId ?? STUDIO_ID,
@@ -3938,7 +3946,7 @@ export async function dbUpsertIntegracion(
     ...(reiniciarSalud ? { ultimo_ok_en: null, ultimo_error: null, ultimo_error_en: null } : {}),
   };
   const { error } = await supabase.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
-  if (error) reportDbError('[dbUpsertIntegracion]', error);
+  return error ? falloEscritura('[dbUpsertIntegracion]', error) : ESCRITURA_OK;
 }
 
 // ─── Catálogo de tipos de clase de la cadena (plantilla, ver lib/types.ts) ───

@@ -43,6 +43,7 @@ export default function NotificationCenterPage() {
   const [items, setItems] = useState<AdminItem[]>([]);
   const [cargando, setCargando] = useState(true);
   const [reintentando, setReintentando] = useState<string | null>(null);
+  const [errorReintento, setErrorReintento] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     const res = await fetch('/api/notifications/admin', { headers: await authHeader(), cache: 'no-store' });
@@ -55,14 +56,27 @@ export default function NotificationCenterPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void cargar(); }, [cargar]);
 
+  // ⚠️ Este botón no miraba la respuesta. `fetch` no lanza con un 4xx/5xx —solo
+  // con la red caída—, así que un 403 (rol sin permiso) o un 500 pasaban de
+  // largo: se recargaba la lista, el aviso seguía FAILED y no había forma de
+  // distinguir «lo he reintentado y ha vuelto a fallar» de «el botón no hace
+  // nada». Justo en la pantalla a la que se entra cuando algo ya ha fallado.
   const reintentar = useCallback(async (notificationId: string) => {
     setReintentando(notificationId);
+    setErrorReintento(null);
     try {
-      await fetch('/api/notifications/admin', {
+      const r = await fetch('/api/notifications/admin', {
         method: 'POST', headers: { ...(await authHeader()), 'content-type': 'application/json' },
         body: JSON.stringify({ notificationId }),
       });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        setErrorReintento(d?.error ?? 'No se ha podido reintentar el envío.');
+        return;
+      }
       await cargar();
+    } catch {
+      setErrorReintento('No se ha podido reintentar: revisa la conexión.');
     } finally {
       setReintentando(null);
     }
@@ -74,6 +88,12 @@ export default function NotificationCenterPage() {
         title="Notificaciones"
         description="Todo lo que el sistema ha enviado: a quién, por qué canal y con qué resultado."
       />
+
+      {errorReintento && (
+        <p role="alert" className="mt-3 px-3 py-2.5 rounded-xl text-[12px] font-semibold bg-destructive/10 text-destructive">
+          {errorReintento}
+        </p>
+      )}
 
       {cargando ? (
         <p className="text-[13px] text-muted-foreground">Cargando…</p>

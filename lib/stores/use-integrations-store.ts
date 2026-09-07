@@ -10,12 +10,18 @@
 import { useState } from 'react';
 import { uid } from '@/lib/utils';
 import { getCurrentStudioId, dbUpsertIntegracion } from '@/lib/supabase-data';
+import type { ResultadoEscritura } from '@/lib/errores';
 import type { Integracion, TipoIntegracion } from '@/lib/types';
 
 export function useIntegrationsStore() {
   const [integraciones, setIntegraciones] = useState<Integracion[]>([]);
 
-  function upsertIntegracion(
+  // ⚠️ Escribía sin `await` sobre un helper que además se tragaba su propio
+  // error, así que la pantalla pintaba «conectado» y cantaba éxito aunque el
+  // upsert se hubiera rechazado (la RLS de `integraciones` no es para todo el
+  // mundo). Credenciales que parecen guardadas y no están son de lo peor que
+  // puede hacer esta pantalla: no se descubre hasta que algo deja de enviarse.
+  async function upsertIntegracion(
     tipo: TipoIntegracion,
     activo: boolean,
     config: Record<string, string>,
@@ -23,7 +29,7 @@ export function useIntegrationsStore() {
     // de `integraciones` porque las credenciales ya no viven en el estado del
     // panel (ver lib/types.ts): las conoce el modal, que es quien las pidió.
     configAnterior: Record<string, string>,
-  ) {
+  ): Promise<ResultadoEscritura> {
     const existente = integraciones.find(i => i.tipo === tipo);
     const actualizadoEn = new Date().toISOString();
     // ¿Ha cambiado alguna credencial? Si sí, lo que se sabía del servicio ya no
@@ -48,7 +54,17 @@ export function useIntegrationsStore() {
       const otras = prev.filter(i => i.tipo !== tipo);
       return [...otras, registro];
     });
-    dbUpsertIntegracion(registro, config, credencialesCambiadas);
+    const res = await dbUpsertIntegracion(registro, config, credencialesCambiadas);
+    // Si no ha entrado, la pantalla vuelve a lo que hay de verdad en la base:
+    // dejarla diciendo «conectado» es la mentira que se descubre semanas
+    // después, cuando un aviso no sale y nadie sabe por qué.
+    if (!res.ok) {
+      setIntegraciones(prev => {
+        const otras = prev.filter(i => i.tipo !== tipo);
+        return existente ? [...otras, existente] : otras;
+      });
+    }
+    return res;
   }
 
   return {
