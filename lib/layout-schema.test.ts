@@ -262,3 +262,13 @@ test('no muta la lista que recibe', () => {
   ordenarItemsMenu(items, ['/b', '/a']);
   assert.deepEqual(items.map(x => x.href), ['/a', '/b']);
 });
+
+// ⚠️ `/api/layout` puede responder `{}` — un mock a medias, un proxy, un 200
+// vacío— y `fetchLayout` devuelve el JSON TAL CUAL, sin normalizar. Con un
+// `orden.length` a secas esto reventaba el menú y con él la pantalla entera.
+// Es la regla que ya costó una vez: nada del panel da por hecha la forma de una
+// respuesta de API.
+test('sin lista de orden (undefined) no revienta: devuelve los items tal cual', () => {
+  const items = [it('/a'), it('/b')];
+  assert.deepEqual(ordenarItemsMenu(items, undefined).map(x => x.href), ['/a', '/b']);
+});

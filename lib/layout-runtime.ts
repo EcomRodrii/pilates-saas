@@ -138,8 +138,14 @@ export function aplicarLayout(todos: string[], cfg: OrdenVisibilidad): string[] 
  * desaparecer para todo estudio que hubiera guardado un orden antes de que
  * existiera.
  */
-export function ordenarItemsMenu<T extends { href: string }>(items: T[], orden: string[]): T[] {
-  if (orden.length === 0) return items;
+export function ordenarItemsMenu<T extends { href: string }>(items: T[], orden: readonly string[] | undefined): T[] {
+  // ⚠️ Tolera que no llegue lista. `fetchLayout` devuelve `res.json()` TAL CUAL,
+  // sin normalizar, así que un `/api/layout` que responda `{}` —un mock a medias,
+  // un proxy, un 200 vacío— deja esto en `undefined`. Con un `orden.length` a
+  // secas, el menú entero revienta y con él la pantalla. Es exactamente la regla
+  // que este repo ya tiene escrita: nada del panel puede dar por hecha la forma
+  // de una respuesta de API.
+  if (!orden?.length) return items;
   const pos = new Map(orden.map((h, i) => [h, i]));
   return [...items].sort((a, b) => {
     const pa = pos.get(a.href) ?? Number.MAX_SAFE_INTEGER;

@@ -363,9 +363,12 @@ export function Sidebar() {
       fetchLayout()
         .then(l => {
           if (!vivo) return;
+          // Defensa en profundidad, por el mismo motivo: `fetchLayout` no
+          // normaliza nada. `new Set(undefined)` ya era inofensivo; el orden y
+          // la posición también tienen que serlo.
           setOcultos(new Set(l.ocultos));
-          setOrdenMenu(l.orden);
-          setMenuPosition(l.menuPosition);
+          setOrdenMenu(Array.isArray(l.orden) ? l.orden : []);
+          setMenuPosition(l.menuPosition === 'superior' ? 'superior' : 'lateral');
         })
         .catch(() => {});
     }

@@ -12,7 +12,7 @@
 // una columna nueva: dos fuentes para el mismo ajuste es lo que este repo
 // prohíbe, y ya costó una migración de ida y vuelta.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { usePermisos } from '@/lib/permisos';
@@ -52,10 +52,17 @@ export function usePersonalizacionPanel() {
   const [sucio, setSucio] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
 
+  // ⚠️ `puedeVer` cambia de identidad en cada render, así que con él como
+  // dependencia el efecto de carga se re-ejecutaba SIEMPRE — y su `setSucio(false)`
+  // borraba «tienes cambios sin guardar» al instante. Ocultar un módulo parecía
+  // no hacer nada y el botón de guardar no llegaba a aparecer nunca.
+  const puedeVerRef = useRef(puedeVer);
+  useEffect(() => { puedeVerRef.current = puedeVer; });
+
   const cargar = useCallback(() => {
     // Solo los módulos que este rol puede ver: ofrecer ocultar algo que ya no
     // ves es un control que no hace nada.
-    const visibles = MODULOS.filter(m => puedeVer(m.href));
+    const visibles = MODULOS.filter(m => puedeVerRef.current(m.href));
     fetchLayout()
       .then(l => {
         setModulos(ordenarItemsMenu(visibles, l.orden).map(m => ({
@@ -79,9 +86,12 @@ export function usePersonalizacionPanel() {
         setModulos(visibles.map(m => ({ id: m.href, label: m.label, fijo: NO_OCULTABLES.includes(m.href) })));
         setEstado('error');
       });
-  }, [puedeVer]);
+  }, []);
 
-  useEffect(cargar, [cargar]);
+  // Una sola vez: recargar aquí es RESETEAR lo que la propietaria lleve tocado.
+  // Volver a leer es cosa de `descartar`, que es explícito.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { cargar(); }, []);
 
   const tocado = () => { setSucio(true); setAviso(null); };
 
