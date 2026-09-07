@@ -28,6 +28,7 @@
   "//include": "TypeScript NO expande llaves: `app/**/*.{ts,tsx}` no casa con NADA y tsc aborta con TS18003 sin comprobar una línea. Una entrada por extensión, siempre. Y `.next/types` son las rutas que genera Next: sin ellas el tipado de rutas no existe (por eso `.next` no puede estar en `exclude`).",
   "include": [
     "next-env.d.ts",
+    "*.ts",
     "app/**/*.ts",
     "app/**/*.tsx",
     "components/**/*.ts",
