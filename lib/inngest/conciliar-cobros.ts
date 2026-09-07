@@ -551,6 +551,9 @@ async function entregar(
     // socioId conocido, es una compra de invitada.
     esInvitada: !p.socioId,
     fuente: 'conciliador',
+    // P-1 (auditoría 26ª pasada): ya decidido al crear el checkout, aquí solo
+    // se lee para registrarla — mismo criterio que codigoDescuentoId abajo.
+    matriculaCobradaCentimos: Number(sesion?.metadata?.matriculaCentimos ?? pi?.metadata?.matriculaCentimos ?? 0) || 0,
   });
 
   if (!entrega.ok) {

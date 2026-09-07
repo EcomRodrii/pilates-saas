@@ -120,6 +120,18 @@ export interface CompraPlan {
    * de caminos de cobro (nunca sellaba factura ni marcaba `conciliado_en`).
    */
   fuente: FuenteConfirmacion;
+  /**
+   * P-1 (auditoría 26ª pasada): cuánto de `importeCobradoCentimos` era la
+   * matrícula — decidido ANTES de cobrar (`primeraVezConPlan`, en el
+   * endpoint de checkout), nunca recalculado aquí. `null`/`0` = no aplicaba
+   * (no era su primer plan, o el plan no tiene matrícula).
+   *
+   * Recibo APARTE del de la cuota, nunca sumada a `plan.precio`: el cron de
+   * renovaciones emite el recibo del ciclo siguiente con ese precio tal
+   * cual — metida dentro se cobraría cada ciclo. Mismo criterio ya resuelto
+   * en el alta/asignación de plan por mostrador (lib/studio-context.tsx).
+   */
+  matriculaCobradaCentimos?: number | null;
 }
 
 export type ResultadoEntrega =
@@ -150,6 +162,10 @@ export function idsDe(sessionId: string) {
   return {
     suscripcionId: `sus-web-${base}`,
     reciboId: `rec-web-${base}`,
+    // P-1 (auditoría 26ª pasada): recibo APARTE para la matrícula, con el
+    // mismo sufijo derivado — un reintento del webhook choca por PK igual
+    // que el recibo del plan, nunca duplica la matrícula.
+    reciboMatriculaId: `rec-web-mat-${base}`,
     socioId: `soc-web-${base}`,
     // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
     // §4.2): idempotencia de la RESERVA nacida de este pago, mismo patrón —
@@ -183,8 +199,12 @@ export async function entregarPlanComprado(
 
   const ids = idsDe(compra.sessionId);
   const ahora = new Date().toISOString();
+  // P-1: lo cobrado por el PLAN, sin la matrícula (que se registra aparte,
+  // más abajo). `matriculaCentimos` ya viene acotado a lo que de verdad se
+  // sumó al cargo — restarlo aquí nunca deja el recibo del plan en negativo.
+  const matriculaCentimos = compra.matriculaCobradaCentimos ?? 0;
   const importeReal = compra.importeCobradoCentimos != null
-    ? compra.importeCobradoCentimos / 100
+    ? (compra.importeCobradoCentimos - matriculaCentimos) / 100
     : Number(plan.precio);
   // El día del ESTUDIO, no el de UTC: un pago de la 01:33 de la madrugada en
   // España son las 23:33 UTC del día anterior, y el recibo salía fechado un día
@@ -422,6 +442,51 @@ export async function entregarPlanComprado(
   }
   if (!selladoFactura.ok) {
     console.error('[entregarPlanComprado] cobro OK pero factura sin sellar:', selladoFactura.error);
+  }
+
+  // ── 4. La matrícula, si se cobró en este mismo cargo ───────────────────────
+  // P-1 (auditoría 26ª pasada). Recibo y factura APARTE de los del plan —
+  // mismo criterio ya resuelto en el alta/asignación de plan por mostrador
+  // (lib/studio-context.tsx): "son dos ventas distintas y Hacienda las
+  // quiere así". Sin `suscripcion_id`: la matrícula no es de ningún ciclo,
+  // cancelar el plan no debe arrastrar un alta ya cobrada.
+  if (matriculaCentimos > 0) {
+    const { error: errMat } = await admin.from('recibos').insert({
+      id: ids.reciboMatriculaId,
+      studio_id: compra.studioId,
+      socio_id: socioId,
+      suscripcion_id: null,
+      concepto: `Matrícula — ${plan.nombre}`,
+      importe: matriculaCentimos / 100,
+      estado: 'COBRADO',
+      fecha_vencimiento: hoy,
+      fecha_cobro: hoy,
+      fecha_devolucion: null,
+      intentos_reintento: 0,
+      metodo_cobro: 'TARJETA',
+      stripe_payment_intent_id: compra.paymentIntentId,
+    });
+    if (errMat && errMat.code !== YA_EXISTIA) {
+      // Best-effort a propósito, igual que el sellado de arriba: el plan y su
+      // cobro YA están entregados, así que un fallo aquí no puede tumbar la
+      // entrega — pero la propietaria tiene que enterarse de que falta anotar
+      // un dinero que ya cobró.
+      console.error('[entregarPlanComprado] matrícula cobrada pero no anotada:', errMat.message);
+    } else {
+      const selladoMatricula = await sellarFacturaDeRecibo(admin, {
+        studioId: compra.studioId, reciboId: ids.reciboMatriculaId, facturaId: `fac-checkout-${ids.reciboMatriculaId}`,
+      });
+      const { error: errConciliadoMat } = await admin.from('recibos').update({
+        conciliado_en: ahora, conciliado_por: compra.fuente,
+        ...(selladoMatricula.ok ? {} : { factura_pendiente_sellar: true }),
+      }).eq('id', ids.reciboMatriculaId).eq('studio_id', compra.studioId);
+      if (errConciliadoMat) {
+        console.error('[entregarPlanComprado] matrícula sin marca de conciliación:', errConciliadoMat.message);
+      }
+      if (!selladoMatricula.ok) {
+        console.error('[entregarPlanComprado] matrícula cobrada pero factura sin sellar:', selladoMatricula.error);
+      }
+    }
   }
 
   return { ok: true, socioId, suscripcionId: ids.suscripcionId, reciboId: ids.reciboId, fichaCreada };

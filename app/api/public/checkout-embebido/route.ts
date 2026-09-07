@@ -16,6 +16,7 @@ import type { TipoPlan } from '@/lib/types';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
+import { primeraVezConPlan } from '@/lib/billing/matricula-online';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
@@ -154,7 +155,7 @@ export async function POST(req: NextRequest) {
 
   const { data: plan, error: errPlan } = await admin
     .from('planes_tarifa')
-    .select('nombre, precio, tipo, studio_id, activo')
+    .select('nombre, precio, tipo, studio_id, activo, matricula')
     .eq('id', body.planId)
     .maybeSingle();
   if (errPlan || !plan) {
@@ -258,6 +259,14 @@ export async function POST(req: NextRequest) {
       const codigoAplicado = codigos.find(c => c.codigo.trim().toUpperCase() === body.codigoDescuento!.trim().toUpperCase());
       codigoDescuentoId = codigoAplicado?.id ?? null;
     }
+  }
+
+  // P-1 (auditoría 26ª pasada): la matrícula se cobra la PRIMERA vez que esta
+  // socia contrata un plan aquí — nunca sobre el código de descuento (ese es
+  // del plan, no de esta venta aparte). Decidido AQUÍ, antes de cobrar.
+  let matriculaCentimos = 0;
+  if (Number(plan.matricula) > 0 && await primeraVezConPlan(admin, body.studioId, socioId, body.socioEmail ?? null)) {
+    matriculaCentimos = Math.round(Number(plan.matricula) * 100);
   }
 
   // ⚠️ Auditoría 22ª pasada (3-sep-2026), D-11. El `importe > 0` de arriba se
@@ -417,7 +426,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const amountCentimos = Math.round(importe * 100);
+  // P-1: el TOTAL cobrado incluye la matrícula, en el mismo cargo — un solo
+  // PaymentIntent, nunca un segundo cobro aparte.
+  const amountCentimos = Math.round(importe * 100) + matriculaCentimos;
   const fee = applicationFeeAmount(amountCentimos);
 
   const metadata: Record<string, string> = {
@@ -436,6 +447,7 @@ export async function POST(req: NextRequest) {
   // confirmar) — sin sesión no hay reserva a la que asignarle un sitio.
   if (body.sesionId && body.spotId) metadata.spotId = body.spotId;
   if (codigoDescuentoId) metadata.codigoDescuentoId = codigoDescuentoId;
+  if (matriculaCentimos > 0) metadata.matriculaCentimos = String(matriculaCentimos);
   if (body.genero) metadata.genero = body.genero;
   if (body.comoConociste) metadata.comoConociste = body.comoConociste;
   if (body.codigoPostal) metadata.codigoPostal = body.codigoPostal;
@@ -491,6 +503,10 @@ export async function POST(req: NextRequest) {
       importe,
       descuento: descuentoAplicado,
       codigoAplicado: codigoDescuentoId !== null,
+      // P-1: para que la pantalla pueda decir "Cuota X € + Matrícula Y €" en
+      // vez de un total mudo — el desglose real, con el que se ha creado el
+      // cobro, nunca una resta hecha en el cliente.
+      matricula: matriculaCentimos / 100,
     }));
   } catch (err) {
     return conCorsWidget(req, errorInterno('public/checkout-embebido:POST', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo más tarde.'));

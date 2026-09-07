@@ -123,6 +123,38 @@ test('una sesión sin cargo asociado se entrega igual, sin el id', async () => {
   assert.equal(insertado.recibos[0].stripe_payment_intent_id, null);
 });
 
+// ── P-1 (auditoría 26ª pasada): matrícula cobrada en el mismo cargo ─────────
+
+test('con matrícula: DOS recibos — el del plan sin la matrícula, y uno aparte para ella', async () => {
+  const { admin, insertado } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, {
+    ...COMPRA, socioId: 'soc-existente',
+    importeCobradoCentimos: 13000 + 3000, // 130 € de plan + 30 € de matrícula, UN cargo.
+    matriculaCobradaCentimos: 3000,
+  });
+
+  assert.equal(r.ok, true);
+  assert.equal(insertado.recibos.length, 2, 'el recibo del plan y el de la matrícula');
+  assert.equal(insertado.recibos[0].importe, 130, 'el recibo del plan no incluye la matrícula');
+  assert.equal(insertado.recibos[0].suscripcion_id, 'sus-web-abc123def456ghi789', 'el del plan SÍ va atado a la suscripción');
+
+  const reciboMatricula = insertado.recibos.find(r2 => (r2.concepto as string)?.startsWith('Matrícula'));
+  assert.ok(reciboMatricula, 'debe existir un recibo con concepto "Matrícula — …"');
+  assert.equal(reciboMatricula!.importe, 30);
+  assert.equal(reciboMatricula!.estado, 'COBRADO');
+  assert.equal(reciboMatricula!.suscripcion_id, null, 'sin suscripción: cancelar el plan no debe arrastrar un alta ya cobrada');
+});
+
+test('sin matrícula (0 o ausente): un único recibo, igual que siempre', async () => {
+  const { admin, insertado } = fakeAdmin();
+  await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-existente', matriculaCobradaCentimos: 0 });
+  assert.equal(insertado.recibos.length, 1);
+
+  const { admin: admin2, insertado: insertado2 } = fakeAdmin();
+  await entregarPlanComprado(admin2, { ...COMPRA, socioId: 'soc-existente' }); // sin el campo en absoluto
+  assert.equal(insertado2.recibos.length, 1);
+});
+
 test('sin importe cobrado se cae al precio del plan (comportamiento de siempre)', async () => {
   const { admin, insertado } = fakeAdmin();
   await entregarPlanComprado(admin, {

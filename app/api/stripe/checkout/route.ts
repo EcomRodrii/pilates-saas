@@ -12,6 +12,7 @@ import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
+import { primeraVezConPlan } from '@/lib/billing/matricula-online';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
@@ -109,6 +110,9 @@ export async function POST(req: NextRequest) {
   // webhook no intenta marcar como cobrado un recibo inexistente).
   let importe: number;
   let concepto: string;
+  // P-1 (auditoría 26ª pasada): matrícula cobrada en este MISMO cargo, solo
+  // en la rama de compra de plan (nunca en pago de un recibo ya existente).
+  let matriculaCentimos = 0;
   // ⚠️ El `socioId` NUNCA se toma del body a pelo (auditoría 21/22-ago, C-1).
   // Antes era `body.socioId ?? null` sin comprobar nada: pagando con tarjeta
   // propia se podía escribir bono/recibo/suscripción a nombre de OTRA socia
@@ -155,7 +159,7 @@ export async function POST(req: NextRequest) {
   } else if (body.planId) {
     const { data: plan, error } = await admin
       .from('planes_tarifa')
-      .select('nombre, precio, studio_id, activo')
+      .select('nombre, precio, studio_id, activo, matricula')
       .eq('id', body.planId)
       .maybeSingle();
     if (error || !plan) {
@@ -224,6 +228,16 @@ export async function POST(req: NextRequest) {
         if (codigoAplicado) metadata.codigoDescuentoId = codigoAplicado.id;
       }
     }
+
+    // P-1 (auditoría 26ª pasada): la matrícula se cobra la PRIMERA vez que
+    // esta socia contrata un plan aquí — nunca sobre el código de descuento
+    // (ese es del plan, no de esta venta aparte). La puerta se decide AQUÍ,
+    // antes de cobrar: `entregarPlanComprado` ya no vuelve a preguntarlo,
+    // solo registra lo que este importe diga que se cobró.
+    if (Number(plan.matricula) > 0 && await primeraVezConPlan(admin, body.studioId, socioId, body.socioEmail ?? null)) {
+      matriculaCentimos = Math.round(Number(plan.matricula) * 100);
+      metadata.matriculaCentimos = String(matriculaCentimos);
+    }
   } else {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el recibo o el plan a cobrar' }, { status: 400 }));
   }
@@ -256,7 +270,8 @@ export async function POST(req: NextRequest) {
   });
 
   // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
-  const fee = applicationFeeAmount(Math.round(importe * 100));
+  // Sobre el TOTAL cobrado, matrícula incluida — es la misma venta, un solo cargo.
+  const fee = applicationFeeAmount(Math.round(importe * 100) + matriculaCentimos);
 
   // Bizum no admite `setup_future_usage` (es un pago puntual sin mandato
   // reutilizable), así que durante un tiempo pedir Bizum apagaba el guardado de
@@ -361,6 +376,16 @@ export async function POST(req: NextRequest) {
           },
           quantity: 1,
         },
+        // P-1: línea APARTE para la matrícula — Stripe Checkout ya la
+        // desglosa sola en su propia pantalla de pago, sin tocar nada de UI.
+        ...(matriculaCentimos > 0 ? [{
+          price_data: {
+            currency: 'eur' as const,
+            product_data: { name: `Matrícula — ${concepto}` },
+            unit_amount: matriculaCentimos,
+          },
+          quantity: 1,
+        }] : []),
       ],
       customer_email: body.socioEmail ?? undefined,
       // Siempre: sin Customer no hay dónde adjuntar la tarjeta, y esto vale
