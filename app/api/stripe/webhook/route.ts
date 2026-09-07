@@ -263,6 +263,9 @@ async function procesarEvento(
     // consume el uso, y solo tras confirmar el pago (nunca al crear el
     // checkout: un checkout abandonado no debe gastar el uso de nadie).
     const codigoDescuentoId = session.metadata?.codigoDescuentoId;
+    // P-1 (auditoría 26ª pasada): cuánto de lo cobrado era matrícula — ya
+    // decidido al crear el checkout, aquí solo se lee para registrarla.
+    const matriculaCentimos = Number(session.metadata?.matriculaCentimos ?? 0) || 0;
 
     // P0-18: la persistencia se hace con service-role (bypassa RLS; el webhook
     // no tiene sesión de usuario) y cualquier fallo de escritura devuelve un
@@ -514,6 +517,7 @@ async function procesarEvento(
           // I-8: si es invitada, crear ficha nueva siempre (no reutilizar)
           esInvitada,
           fuente: 'webhook',
+          matriculaCobradaCentimos: matriculaCentimos,
         });
         if (!entrega.ok) {
           Sentry.captureMessage('[stripe webhook] cobrado pero NO entregado', {
@@ -860,6 +864,8 @@ async function procesarEvento(
           fechaNacimiento: pi.metadata.fechaNacimiento ?? null,
         },
         fuente: 'webhook',
+        // P-1 (auditoría 26ª pasada): ya decidido al crear el PaymentIntent.
+        matriculaCobradaCentimos: Number(pi.metadata.matriculaCentimos ?? 0) || 0,
       });
       if (!entrega.ok) {
         Sentry.captureMessage('[stripe webhook] checkout embebido: cobrado pero NO entregado', {

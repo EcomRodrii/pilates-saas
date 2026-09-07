@@ -33,6 +33,13 @@ export type InicioCobro =
       descuento: number;
       /** `false` con un código que el servidor no pudo aplicar. */
       codigoAplicado: boolean;
+      /**
+       * P-1 (auditoría 26ª pasada): cuánto de `importe` es matrícula de
+       * alta — 0 si no aplica (no es su primer plan, o el plan no la tiene).
+       * Va INCLUIDA en `importe` (un solo cargo); esto es solo para poder
+       * desglosarla en pantalla.
+       */
+      matricula: number;
     }
   | { ok: false; error: string; sesionCaducada?: boolean };
 
@@ -99,7 +106,7 @@ export async function iniciarCompra(
 
     const cuerpo = (await res.json().catch(() => null)) as {
       clientSecret?: string; error?: string;
-      importe?: number; descuento?: number; codigoAplicado?: boolean;
+      importe?: number; descuento?: number; codigoAplicado?: boolean; matricula?: number;
     } | null;
 
     if (!res.ok) {
@@ -118,6 +125,7 @@ export async function iniciarCompra(
       importe: typeof cuerpo.importe === 'number' ? cuerpo.importe : NaN,
       descuento: typeof cuerpo.descuento === 'number' ? cuerpo.descuento : 0,
       codigoAplicado: cuerpo.codigoAplicado === true,
+      matricula: typeof cuerpo.matricula === 'number' ? cuerpo.matricula : 0,
     };
   } catch {
     return { ok: false, error: 'No hemos podido iniciar el pago. Comprueba tu conexión — no se te ha cobrado nada.' };

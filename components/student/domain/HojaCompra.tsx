@@ -27,7 +27,7 @@ import type { PlanTarifa } from '@/lib/types';
 type Estado =
   | { fase: 'listo' }
   | { fase: 'preparando' }
-  | { fase: 'pagando'; clientSecret: string; importe: number; descuento: number }
+  | { fase: 'pagando'; clientSecret: string; importe: number; descuento: number; matricula: number }
   | { fase: 'error'; mensaje: string; sesionCaducada?: boolean }
   | { fase: 'hecho' };
 
@@ -87,6 +87,7 @@ export function HojaCompra({
         clientSecret: r.clientSecret,
         importe: Number.isFinite(r.importe) ? r.importe : Number(plan.precio),
         descuento: r.descuento,
+        matricula: r.matricula,
       });
       if (codigo.trim() && !r.codigoAplicado) {
         setCodigoDicho({ ok: false, texto: 'Ese código ya no se puede aplicar. Pagas el precio normal.' });
@@ -265,7 +266,11 @@ export function HojaCompra({
                 {codigoDicho.texto}
               </p>
             )}
-            {estado.descuento > 0 && (
+            {/* P-1 (auditoría 26ª pasada): la matrícula se cobra en el MISMO
+                cargo que la cuota, así que sin desglosarla el total no cuadra
+                con "el precio del plan" que se ve arriba — mismo patrón que
+                el descuento, ambos pueden aparecer a la vez. */}
+            {(estado.descuento > 0 || estado.matricula > 0) && (
               <div
                 className="card card--pad stack"
                 data-testid="desglose"
@@ -275,12 +280,20 @@ export function HojaCompra({
                   <span className="t-small t-dim">Precio</span>
                   <span className="t-small t-num">{euros(Number(plan.precio))}</span>
                 </div>
-                <div className="row row--between">
-                  <span className="t-small t-dim">Descuento</span>
-                  <span className="t-small t-num" style={{ color: 'var(--success)', fontWeight: 800 }}>
-                    −{euros(estado.descuento)}
-                  </span>
-                </div>
+                {estado.descuento > 0 && (
+                  <div className="row row--between">
+                    <span className="t-small t-dim">Descuento</span>
+                    <span className="t-small t-num" style={{ color: 'var(--success)', fontWeight: 800 }}>
+                      −{euros(estado.descuento)}
+                    </span>
+                  </div>
+                )}
+                {estado.matricula > 0 && (
+                  <div className="row row--between">
+                    <span className="t-small t-dim">Matrícula</span>
+                    <span className="t-small t-num">{euros(estado.matricula)}</span>
+                  </div>
+                )}
                 <div aria-hidden style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />
                 <div className="row row--between">
                   <span className="t-card-title">Total</span>
