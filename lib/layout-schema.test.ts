@@ -225,3 +225,40 @@ test('bloqueHomeSchema conserva `fijo` — si zod lo podara, el bloque volvería
   const r = bloqueHomeSchema.parse({ id: 'sistema-cabecera', kind: 'sistema', sistemaId: 'cabecera', fijo: true });
   assert.equal((r as { fijo?: true }).fijo, true);
 });
+
+// ── Orden del menú ───────────────────────────────────────────────────────────
+// `layout.orden` existía en el esquema y NADIE lo aplicaba: se guardaba un
+// orden que el menú ignoraba. Estos tests fijan las dos reglas que hacen que
+// aplicarlo no rompa nada.
+import { ordenarItemsMenu } from './layout-runtime.ts';
+
+const it = (href: string) => ({ href });
+
+test('sin orden guardado, los items se quedan como venían', () => {
+  const items = [it('/a'), it('/b'), it('/c')];
+  assert.deepEqual(ordenarItemsMenu(items, []).map(x => x.href), ['/a', '/b', '/c']);
+});
+
+test('el orden guardado manda', () => {
+  const items = [it('/a'), it('/b'), it('/c')];
+  assert.deepEqual(ordenarItemsMenu(items, ['/c', '/a', '/b']).map(x => x.href), ['/c', '/a', '/b']);
+});
+
+test('un módulo NUEVO va al final, no desaparece', () => {
+  // El estudio guardó su orden antes de que existiera /nuevo. Si los no
+  // listados se cayeran, cada módulo que saque Tentare sería invisible para
+  // quien alguna vez tocó su menú.
+  const items = [it('/a'), it('/nuevo'), it('/b')];
+  assert.deepEqual(ordenarItemsMenu(items, ['/b', '/a']).map(x => x.href), ['/b', '/a', '/nuevo']);
+});
+
+test('dos módulos nuevos conservan entre ellos el orden de fábrica', () => {
+  const items = [it('/n1'), it('/a'), it('/n2')];
+  assert.deepEqual(ordenarItemsMenu(items, ['/a']).map(x => x.href), ['/a', '/n1', '/n2']);
+});
+
+test('no muta la lista que recibe', () => {
+  const items = [it('/a'), it('/b')];
+  ordenarItemsMenu(items, ['/b', '/a']);
+  assert.deepEqual(items.map(x => x.href), ['/a', '/b']);
+});

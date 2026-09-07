@@ -27,9 +27,6 @@ export type EstadoReserva = 'CONFIRMADA' | 'LISTA_ESPERA' | 'ASISTIDA' | 'CANCEL
 export type NivelClase = 'TODOS' | 'PRINCIPIANTE' | 'MEDIO' | 'AVANZADO';
 export type TipoSpot = 'REFORMER' | 'MAT' | 'OTRO';
 
-/** Las dos posiciones del menú del panel. El CHECK de `studios` valida lo mismo. */
-export type MenuPosicion = 'izquierda' | 'arriba';
-
 export interface Studio {
   id: string;
   nombre: string;
@@ -246,14 +243,6 @@ export interface Studio {
   // UNA sola vez. NULL = aún no lo ha visto. No bloquea nada — el botón para
   // repetirlo sigue disponible siempre; mismo patrón que decisionContratoVistoEn.
   tourVistoEn: string | null;
-  /**
-   * Dónde vive el menú del panel: `'izquierda'` (lo de siempre) o `'arriba'`.
-   *
-   * Del ESTUDIO y no de cada persona: la propietaria configura su software y
-   * quien entra después se lo encuentra como ella lo dejó. El modo
-   * claro/oscuro sí es personal y sigue en el navegador de cada una.
-   */
-  menuPosicion: MenuPosicion;
   // Horario real por día de la semana (tabla studio_horario, migr
   // 20260804210500). horaApertura/horaCierre de arriba siguen siendo el
   // fallback si un estudio no tuviera ninguna fila aquí. undefined = aún no

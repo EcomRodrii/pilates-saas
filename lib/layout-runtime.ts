@@ -124,6 +124,31 @@ export function aplicarLayout(todos: string[], cfg: OrdenVisibilidad): string[] 
  * Lo que NO hace: reordenar. El orden del menú es el mismo en todos los
  * estudios a propósito (principio 6), así que aquí solo se filtra.
  */
+/**
+ * Ordena los items del menú según el orden guardado por el estudio.
+ *
+ * ⚠️ DENTRO de cada sección, nunca entre secciones. `layout.orden` es una lista
+ * plana de hrefs, pero el menú se pinta agrupado («Día a día», «Negocio»…): si
+ * el orden pudiera cruzar grupos, arrastrar «Cobros» arriba lo sacaría de su
+ * grupo y el menú dejaría de leerse. Se ordena lo que hay dentro de cada uno y
+ * los grupos se quedan donde están.
+ *
+ * Lo que NO está en la lista guardada va al final, en su orden de siempre: así
+ * un módulo NUEVO de Tentare aparece —abajo, pero aparece— en vez de
+ * desaparecer para todo estudio que hubiera guardado un orden antes de que
+ * existiera.
+ */
+export function ordenarItemsMenu<T extends { href: string }>(items: T[], orden: string[]): T[] {
+  if (orden.length === 0) return items;
+  const pos = new Map(orden.map((h, i) => [h, i]));
+  return [...items].sort((a, b) => {
+    const pa = pos.get(a.href) ?? Number.MAX_SAFE_INTEGER;
+    const pb = pos.get(b.href) ?? Number.MAX_SAFE_INTEGER;
+    // Empate = los dos son nuevos: se respeta el orden en que venían.
+    return pa === pb ? items.indexOf(a) - items.indexOf(b) : pa - pb;
+  });
+}
+
 export function filtrarItemsMenu<T extends { href: string }>(
   items: T[],
   opts: {

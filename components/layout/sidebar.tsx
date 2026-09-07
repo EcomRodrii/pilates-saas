@@ -15,11 +15,10 @@ import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { useMenuNovedades } from '@/lib/menu-novedades-cliente';
 import { useMensajesSinLeerStaff } from '@/lib/mensajeria/use-sin-leer-staff';
 import { fetchLayout } from '@/lib/api-client';
-import { filtrarItemsMenu } from '@/lib/layout-runtime';
+import { filtrarItemsMenu, ordenarItemsMenu, type MenuPosicion } from '@/lib/layout-runtime';
 import { SedeActiva } from '@/components/layout/sede-activa';
 import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentare';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
-import type { MenuPosicion } from '@/lib/types';
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
@@ -100,7 +99,7 @@ function BadgeContador({ n, compacto }: { n: number; compacto?: boolean }) {
   );
 }
 
-function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean; nuevo?: boolean; contador?: number }) {
+function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, horizontal }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean; nuevo?: boolean; contador?: number; horizontal?: boolean }) {
   const pathname = usePathname();
   const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
   return (
@@ -111,6 +110,11 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador }: { h
       className={cn(
         'flex items-center rounded-full text-[13px] font-medium transition-all relative',
         collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
+        // ⚠️ Tumbado, el item NO se encoge ni parte la etiqueta. Sin esto,
+        // «Centro de Control» se rompía en tres líneas y «Configuración» salía
+        // cortada a media palabra: en una fila, flex reparte el hueco que falta
+        // encogiendo a todos. Lo correcto es que la fila SE DESPLACE.
+        horizontal && 'shrink-0 whitespace-nowrap',
         active ? 'bg-brand text-brand-foreground font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-card/5'
       )}
     >
@@ -259,6 +263,11 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
 
 type SidebarSize = 'compacto' | 'normal' | 'grande';
 
+// Alto de la barra cuando el menú va arriba, MÁS su separación del borde: es
+// el hueco exacto que el contenido tiene que dejarle. Un número suelto en dos
+// sitios es como la barra acaba tapando la primera fila.
+const BARRA_SUPERIOR_ALTO = '84px';
+
 const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label: string }> = {
   compacto: { aside: 'w-16', cssVar: '96px', label: 'Pequeño' },
   normal: { aside: 'w-56', cssVar: '256px', label: 'Normal' },
@@ -270,14 +279,26 @@ const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label:
  *
  * ⚠️ Monta TAMBIÉN el andamiaje de móvil (barra superior, barra inferior y el
  * cajón «Más»), así que nunca se sustituye por otro componente: la posición
- * `arriba` es una VARIANTE de su parte de escritorio, no un menú aparte. Hacer
+ * `superior` es una VARIANTE de su parte de escritorio, no un menú aparte. Hacer
  * un componente nuevo habría duplicado permisos, badges, modo esencial/todo y
  * la lista de items — cuatro sitios donde divergir en silencio.
  */
-export function Sidebar({ posicion = 'izquierda' }: { posicion?: MenuPosicion }) {
+/**
+ * Los dos huecos que el contenido tiene que dejarle al menú.
+ *
+ * `--sidebar-w` es el de la izquierda y `--panel-top` el de arriba: siempre
+ * uno de los dos a cero. Se escriben juntos para que no puedan contradecirse.
+ */
+function aplicarHuecos(horizontal: boolean, size: SidebarSize) {
+  const raiz = document.documentElement.style;
+  raiz.setProperty('--sidebar-w', horizontal ? '0px' : SIDEBAR_SIZES[size].cssVar);
+  raiz.setProperty('--panel-top', horizontal ? BARRA_SUPERIOR_ALTO : '0.5rem');
+}
+
+export function Sidebar() {
   // Solo cambia el escritorio. En móvil no hay sidebar que mover: ya es barra
   // arriba + barra abajo, y así se queda.
-  const horizontal = posicion === 'arriba';
+
   // Los `href` señalados como NUEVO desde /interno.
   const conNovedad = useMenuNovedades();
   const sinLeerMensajes = useMensajesSinLeerStaff(true);
@@ -329,18 +350,44 @@ export function Sidebar({ posicion = 'izquierda' }: { posicion?: MenuPosicion })
   // menos: esconder por un error de red dejaría a alguien sin encontrar su
   // trabajo). NO_OCULTABLES protege lo imprescindible en lib/nav-config.ts.
   const [ocultos, setOcultos] = useState<Set<string>>(new Set());
+  const [ordenMenu, setOrdenMenu] = useState<string[]>([]);
+  // ⚠️ La posición del menú sale del MISMO `studio_layout` que el orden y los
+  // ocultos — no de una columna aparte. `MENU_POSICIONES` (lateral|superior)
+  // existe en `layout-runtime.ts` desde antes que esta barra; lo que faltaba
+  // era leerlo, no inventarlo.
+  const [menuPosition, setMenuPosition] = useState<MenuPosicion>('lateral');
+  const horizontal = menuPosition === 'superior';
   useEffect(() => {
     let vivo = true;
-    fetchLayout()
-      .then(l => { if (vivo) setOcultos(new Set(l.ocultos)); })
-      .catch(() => {});
-    return () => { vivo = false; };
+    function cargar() {
+      fetchLayout()
+        .then(l => {
+          if (!vivo) return;
+          setOcultos(new Set(l.ocultos));
+          setOrdenMenu(l.orden);
+          setMenuPosition(l.menuPosition);
+        })
+        .catch(() => {});
+    }
+    cargar();
+    // Guardar desde «Personalizar tu panel» dispara esto: el menú se recoloca
+    // y se reordena en el sitio, sin recargar. Mismo evento que ya usaba el
+    // editor de Inicio — no se inventa uno nuevo.
+    const alCambiar = () => cargar();
+    window.addEventListener('tentare-layout-changed', alCambiar);
+    return () => { vivo = false; window.removeEventListener('tentare-layout-changed', alCambiar); };
   }, []);
 
   const seccionesVisibles = navSections
     .map(s => ({
       ...s,
-      items: filtrarItemsMenu(s.items, { puedeVer, ocultos, modo: navMode, esenciales: ESSENTIAL_HREFS }),
+      // ⚠️ Ordenar DESPUÉS de filtrar, no antes: ordenar primero recorre
+      // también lo que este rol no puede ver, y eso es trabajo tirado en cada
+      // render del panel.
+      items: ordenarItemsMenu(
+        filtrarItemsMenu(s.items, { puedeVer, ocultos, modo: navMode, esenciales: ESSENTIAL_HREFS }),
+        ordenMenu,
+      ),
     }))
     .filter(s => s.items.length > 0);
   // La barra inferior de móvil no distingue esencial/avanzado: son las cuatro
@@ -352,7 +399,7 @@ export function Sidebar({ posicion = 'izquierda' }: { posicion?: MenuPosicion })
   function applySize(next: SidebarSize) {
     setSize(next);
     localStorage.setItem('sidebar-size', next);
-    if (!horizontal) document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[next].cssVar);
+    aplicarHuecos(horizontal, next);
   }
 
   // Restore the size preference (migrating the old binary "collapsed" flag if
@@ -367,8 +414,15 @@ export function Sidebar({ posicion = 'izquierda' }: { posicion?: MenuPosicion })
     // Con el menú arriba el <main> no lleva hueco a la izquierda: la barra
     // ocupa el ancho entero. El tamaño guardado se conserva igualmente, para
     // que al volver a «izquierda» esté como lo dejó.
-    document.documentElement.style.setProperty('--sidebar-w', horizontal ? '0px' : SIDEBAR_SIZES[initial].cssVar);
+    aplicarHuecos(horizontal, initial);
   }, [horizontal]);
+
+  // ⚠️ Los dos huecos los pone el MENÚ, no el armazón. `dashboard-shell` no
+  // pide el layout —y no debe: es el proveedor de TODAS las rutas— así que si
+  // la posición viviera solo en su estado, el hueco y la barra podrían
+  // discrepar medio segundo en cada carga. Con variables CSS hay un solo
+  // dueño y el desfase no existe.
+  useEffect(() => { aplicarHuecos(horizontal, size); }, [horizontal, size]);
 
   async function handleSignOut() {
     await signOut();
@@ -503,7 +557,14 @@ export function Sidebar({ posicion = 'izquierda' }: { posicion?: MenuPosicion })
           // En horizontal la lista corre de lado y se desplaza si no cabe: un
           // estudio con todos los módulos no entra en 1280 px, y lo que NO
           // puede pasar es que se recorten items en silencio.
-          horizontal ? 'flex flex-row items-center gap-1 overflow-x-auto py-0' : 'py-2 overflow-y-auto space-y-1',
+          horizontal
+            // `min-w-0` para que la fila pueda encogerse por debajo de su
+            // contenido: sin él, flex la deja crecer y empuja el avatar y el
+            // enlace al portal fuera de la barra.
+            // La barra de desplazamiento se oculta (8 px dentro de 68 no caben)
+            // pero la rueda y el trackpad siguen funcionando.
+            ? 'flex min-w-0 flex-row items-center gap-1 overflow-x-auto py-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+            : 'py-2 overflow-y-auto space-y-1',
         )}>
           {seccionesVisibles.map((section, si) => (
             <div key={si} className={cn(horizontal && 'flex flex-row items-center gap-1')}>
@@ -520,6 +581,7 @@ export function Sidebar({ posicion = 'izquierda' }: { posicion?: MenuPosicion })
               {section.items.map(item => (
                 <NavItem
                   key={item.href} href={item.href} label={item.label} Icon={item.icon}
+                  horizontal={horizontal}
                   // Tumbado siempre con rótulo: un menú de solo iconos en
                   // horizontal es un test de memoria. El tamaño «compacto» es
                   // una preferencia de la columna, no de la barra.
@@ -531,6 +593,18 @@ export function Sidebar({ posicion = 'izquierda' }: { posicion?: MenuPosicion })
             </div>
           ))}
         </nav>
+
+        {/* ⚠️ Pista de que la fila SIGUE. Con el menú tumbado, «Configuración»
+            y lo que venga detrás se salen de la barra en cuanto hay muchos
+            módulos, y una fila que se desplaza sin decirlo es una fila cuyo
+            final nadie encuentra. El degradado no intercepta el ratón. */}
+        {horizontal && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-[132px] w-10"
+            style={{ background: 'linear-gradient(to right, transparent, #0A0A0A)' }}
+          />
+        )}
 
         {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
         {studioSlug && (collapsed || horizontal ? (
