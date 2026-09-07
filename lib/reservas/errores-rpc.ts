@@ -22,6 +22,10 @@ export const MENSAJE_RESERVA_RPC: Record<string, string> = {
   CONFLICTO_HORARIO: 'Ya tiene otra clase o cita a esa misma hora.',
   AFORO_LLENO_SIN_ESPERA: 'La clase está llena y este tipo de clase no admite lista de espera.',
   LIMITE_SEMANAL: 'Ha alcanzado el máximo de clases por semana de su plan.',
+  // Cuota combinada: ha gastado lo de ESA actividad, no lo de toda la cuota.
+  // Decir «su tope» a secas sería mentir a medias — le quedan clases, pero de
+  // la otra.
+  LIMITE_SEMANAL_ACTIVIDAD: 'Ha alcanzado el máximo semanal de esa actividad. Puede que aún le queden clases de otra.',
   NECESITA_AUTORIZACION: 'Esta clase es solo para alumnas autorizadas. Autorízala en su ficha y vuelve a apuntarla.',
   RESERVA_BLOQUEADA_IMPAGO: 'Tiene un recibo sin cobrar. Márcalo como cobrado desde Cobros y vuelve a apuntarla.',
   ESTUDIO_CERRADO: 'El estudio está cerrado ese día. Quita el cierre desde Configuración → Horario si de verdad abrís.',
@@ -46,7 +50,24 @@ export const MENSAJE_RESERVA_RPC: Record<string, string> = {
 export function mensajeDeErrorReserva(mensajeCrudo: string | null | undefined): string | null {
   if (!mensajeCrudo) return null;
   for (const [codigo, texto] of Object.entries(MENSAJE_RESERVA_RPC)) {
-    if (mensajeCrudo.includes(codigo)) return texto;
+    if (esCodigoReserva(mensajeCrudo, codigo)) return texto;
   }
   return null;
+}
+
+/**
+ * ¿El error de la RPC es EXACTAMENTE este código?
+ *
+ * ⚠️ No es un `includes`, y la diferencia no es cosmética: un código puede ser
+ * PREFIJO de otro. `LIMITE_SEMANAL_ACTIVIDAD` contiene `LIMITE_SEMANAL`, así
+ * que un `includes` le pone el mensaje del techo general —«has llegado a tu
+ * tope»— a alguien a quien todavía le quedan clases de la otra actividad. Y el
+ * orden del `Record` decidiría cuál gana, que es una forma preciosa de romperse
+ * al reordenar una línea.
+ *
+ * `\b` funciona porque `_` cuenta como carácter de palabra: entre `LIMITE_SEMANAL`
+ * y `_ACTIVIDAD` no hay frontera, así que el corto NO casa dentro del largo.
+ */
+export function esCodigoReserva(mensajeCrudo: string, codigo: string): boolean {
+  return new RegExp(`\\b${codigo}\\b`).test(mensajeCrudo);
 }

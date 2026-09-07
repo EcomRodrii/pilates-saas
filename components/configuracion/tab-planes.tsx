@@ -493,6 +493,41 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                   })}
                 </div>
               )}
+              {/* Cuota combinada: «2 de Máquina + 1 de Gyrotonic» en UN solo
+                  producto. Va aquí abajo y no dentro de la pastilla porque la
+                  pastilla es un <button> y no puede llevar un <input> dentro.
+                  Solo aparece con dos tipos o más: con uno solo, el tope de esa
+                  actividad y el del plan son lo mismo y pedir el número dos
+                  veces solo confunde. */}
+              {form.tiposClaseIds.length > 1 && (
+                <div className="mt-3 space-y-2 rounded-lg border border-[var(--color-border)] p-3">
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    ¿Cuántas de cada una a la semana? Déjalo vacío para no poner tope a esa
+                    actividad. Si además pones un máximo arriba, se cumplen los dos.
+                  </p>
+                  {form.tiposClaseIds.map(id => {
+                    const t = tiposClase.find(x => x.id === id);
+                    if (!t) return null;
+                    return (
+                      <label key={id} className="flex items-center justify-between gap-3 text-sm">
+                        <span>{t.nombre}</span>
+                        <input
+                          type="number"
+                          min={1}
+                          inputMode="numeric"
+                          className="w-28 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-sm"
+                          value={form.limitePorTipo[id] ?? ''}
+                          onChange={e =>
+                            setForm(f => ({ ...f, limitePorTipo: { ...f.limitePorTipo, [id]: e.target.value } }))
+                          }
+                          placeholder="Sin tope"
+                          aria-label={`Máximo de ${t.nombre} a la semana`}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
               {form.tiposClaseIds.length > 0 && (
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
                   Quien tenga este plan no podrá usarlo en el resto de clases.{' '}

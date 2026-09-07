@@ -556,6 +556,17 @@ export interface PlanTarifa {
   // 0111). Vacío o ausente = cubre TODAS, que es como se han comportado siempre.
   // Permite el "Bono 10 Reformer" que no sirve para Mat.
   tiposClaseIds?: string[];
+  // Cuota combinada (migr 20260907030553): cuántas de CADA tipo por semana,
+  // dentro de esta misma cuota. Clave = tipo_clase_id, valor = tope semanal.
+  //
+  // ⚠️ No sustituye a `limiteSemanal`, convive con él y significan cosas
+  // distintas: `limiteSemanal` es el techo TOTAL de la cuota y esto es el techo
+  // de esa actividad. «2 de Máquina + 1 de Gyrotonic» necesita los dos, porque
+  // con solo un total de 3 se pueden hacer 3 de Gyrotonic y 0 de Máquina.
+  //
+  // Un tipo cubierto SIN entrada aquí no tiene sublímite. Solo tiene sentido
+  // para ids que estén en `tiposClaseIds`.
+  limitePorTipo?: Record<string, number | null>;
   activo: boolean;
   // P2 (auditoría "Veredicto de Marta"): fecha de fin de una oferta temporal
   // sobre `precio` — PURAMENTE informativa, no cambia ningún cálculo de

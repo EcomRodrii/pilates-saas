@@ -26,6 +26,9 @@ export type CodigoReserva =
   | 'conflicto-horario'
   | 'aforo-lleno'
   | 'limite-semanal'
+  // Cuota combinada (migr 20260907030553): ha gastado lo de ESA actividad, no
+  // toda su cuota. Decirle «has llegado a tu tope» sería mentirle a medias.
+  | 'limite-semanal-actividad'
   | 'spot-ocupado'
   | 'spot-no-disponible'
   | 'sesion-no-encontrada'
@@ -67,7 +70,7 @@ export type CodigoReserva =
  * «me ha pasado algo que no sé nombrar», y eso sí hay que reportarlo.
  */
 const CODIGOS_DE_NEGOCIO: ReadonlySet<string> = new Set<CodigoReserva>([
-  'ya-reservada', 'conflicto-horario', 'aforo-lleno', 'limite-semanal',
+  'ya-reservada', 'conflicto-horario', 'aforo-lleno', 'limite-semanal', 'limite-semanal-actividad',
   'spot-ocupado', 'spot-no-disponible', 'sesion-no-encontrada', 'no-autorizado',
   'clase-cancelada', 'clase-ya-empezada', 'fuera-ventana-minima', 'fuera-ventana-maxima',
   'sin-plan', 'bono-no-cubre', 'max-simultaneas', 'necesita-autorizacion',
@@ -178,6 +181,7 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
     // Se listan explícitamente aunque el `default` haga lo mismo: así esta
     // tabla y `esRechazoConocido` no pueden divergir en silencio.
     case 'limite-semanal':
+    case 'limite-semanal-actividad':
     case 'spot-no-disponible':
     case 'sin-plan':
     case 'bono-no-cubre':

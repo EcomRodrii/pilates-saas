@@ -160,3 +160,23 @@ test('si no se gastó ninguna, el campo viaja como null, no como undefined', () 
   assert.equal(d.recuperacionUsada, null,
     'null dice «se preguntó y no hubo»; undefined dice «nadie preguntó».');
 });
+
+// ── Cuota combinada: «2 de Máquina + 1 de Gyrotonic» ─────────────────────────
+// El código nuevo es una REGLA DE NEGOCIO, no una avería: si no está en la
+// lista, cada socia que agota su cupo de una actividad levanta un evento de
+// nivel `error` en Sentry — el ruido que ya tapó fallos de verdad una vez.
+test('limite-semanal-actividad no se reporta como avería', () => {
+  assert.equal(esRechazoConocido('limite-semanal-actividad'), true);
+});
+
+test('limite-semanal-actividad enseña el mensaje del servidor, no el genérico', () => {
+  const d = desenlaceDeRespuesta({
+    error: 'Ya has hecho todas las clases de esta actividad que incluye tu cuota esta semana',
+    codigo: 'limite-semanal-actividad',
+  });
+  assert.equal(d.state, 'error');
+  // Sin esto le saldría «algo no ha salido como esperábamos · inténtalo de
+  // nuevo», con un botón de reintentar que va a fallar igual — y encima
+  // creyendo que ha gastado su cuota entera cuando le quedan de la otra.
+  assert.match(d.mensaje ?? '', /actividad/);
+});

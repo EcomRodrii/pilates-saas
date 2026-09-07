@@ -68,6 +68,16 @@ export type FormularioPlan = {
   limiteSemanal: string;
   /** Vacío = el plan vale para todas las clases (lo de siempre). */
   tiposClaseIds: string[];
+  /**
+   * Cuota combinada: cuántas de CADA tipo por semana. Clave = tipo_clase_id,
+   * valor = lo que se escribió (texto, como el resto del formulario; '' = sin
+   * tope para ese tipo).
+   *
+   * Solo cuentan las claves que estén también en `tiposClaseIds`: desmarcar un
+   * tipo NO borra su número, para que volver a marcarlo no obligue a
+   * reescribirlo. Lo que se guarda lo filtra `datosDelFormulario`.
+   */
+  limitePorTipo: Record<string, string>;
   activo: boolean;
   // P2 (auditoría "Veredicto de Marta"): fecha 'YYYY-MM-DD' de fin de una
   // oferta temporal sobre `precio`, o '' = sin oferta. Puramente informativa
@@ -101,6 +111,7 @@ export function planVacio(): FormularioPlan {
     validezDias: '',
     limiteSemanal: '',
     tiposClaseIds: [],
+    limitePorTipo: {},
     activo: true,
     ofertaHasta: '',
     periodicidadMeses: '1',
@@ -130,6 +141,9 @@ export function planAFormulario(p: PlanTarifa): FormularioPlan {
     validezDias: texto(p.validezDias),
     limiteSemanal: texto(p.limiteSemanal),
     tiposClaseIds: p.tiposClaseIds ?? [],
+    limitePorTipo: Object.fromEntries(
+      Object.entries(p.limitePorTipo ?? {}).map(([k, v]) => [k, texto(v)]),
+    ),
     activo: p.activo,
     ofertaHasta: p.ofertaHasta ?? '',
     periodicidadMeses: String(mesesDeCiclo(p)),
@@ -183,6 +197,17 @@ export function formularioAPlan(f: FormularioPlan): DatosPlan {
     validezDias: conCaducidad ? enteroPositivo(f.validezDias) : null,
     limiteSemanal: enteroPositivo(f.limiteSemanal),
     tiposClaseIds: f.tiposClaseIds,
+    // Solo de los tipos MARCADOS: un número dejado atrás al desmarcar no puede
+    // acabar en la BD, donde significaría un tope sobre una actividad que este
+    // plan ya ni cubre.
+    //
+    // Y solo se emite el campo si hay ALGÚN tope. Un plan de los de siempre
+    // tiene que salir de aquí idéntico a como entró —hay un test de ida y
+    // vuelta que lo exige— y un `{tc-1: null}` sería un campo nuevo donde antes
+    // no había nada. Cuando se BORRA el último tope, `limitePorTipo` vuelve a
+    // ausente y `sincronizarTiposDePlan` lo lee como «ninguno», que es
+    // justamente lo que hay que escribir.
+    ...limitesDeTipos(f),
     activo: f.activo,
     ofertaHasta: f.ofertaHasta.trim() || null,
     // Fuera de una cuota no hay ciclo que renovar (un bono manda por
@@ -207,6 +232,13 @@ function importeNoNegativo(v: string): number {
   if (!v.trim()) return 0;
   const n = precioANumero(v);
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+}
+
+/** Los topes por actividad de los tipos marcados, o nada si no hay ninguno. */
+function limitesDeTipos(f: FormularioPlan): { limitePorTipo?: Record<string, number | null> } {
+  const pares = f.tiposClaseIds.map(id => [id, enteroPositivo(f.limitePorTipo[id] ?? '')] as const);
+  if (!pares.some(([, v]) => v != null)) return {};
+  return { limitePorTipo: Object.fromEntries(pares) };
 }
 
 /** Los campos del formulario que pueden llevar un error propio. */

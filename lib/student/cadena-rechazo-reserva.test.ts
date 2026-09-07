@@ -151,7 +151,19 @@ test('salto 0: todo `raise exception` de reservar_plaza lo traduce el TS', () =>
   const fin = ts.indexOf('\nexport async function', inicio + 1);
   const cuerpo = ts.slice(inicio, fin > 0 ? fin : undefined);
 
-  const sinTraducir = [...lanzados].filter(n => !cuerpo.includes(`includes('${n}')`));
+  // ⚠️ Se aceptan las DOS formas de emparejar, y no por gusto: `includes` es
+  // incorrecto en cuanto un codigo es PREFIJO de otro. `LIMITE_SEMANAL_ACTIVIDAD`
+  // (cuota combinada, migr 20260907030553) contiene `LIMITE_SEMANAL`, asi que un
+  // `includes` le pone el mensaje del techo general —«has llegado a tu tope»— a
+  // quien todavia tiene clases de la otra actividad. Esos casos usan
+  // `esCodigoReserva`, que empareja por palabra completa.
+  //
+  // Lo que este test comprueba es que el codigo TIENE una rama, no con que
+  // funcion se escribio: atarlo a una sola grafia lo hace fallar cuando la
+  // grafia correcta cambia, que es exactamente lo que paso aqui.
+  const tieneRama = (n: string) =>
+    new RegExp(`(includes|esCodigoReserva)\\([^)]*'${n}'`).test(cuerpo);
+  const sinTraducir = [...lanzados].filter(n => !tieneRama(n));
   assert.deepEqual(
     sinTraducir, [],
     `La RPC lanza estos rechazos y crearReservaPublica no los traduce, asi que caen en `

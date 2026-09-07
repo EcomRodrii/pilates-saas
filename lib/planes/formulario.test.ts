@@ -273,3 +273,40 @@ test('un bono con matrícula también la anuncia', () => {
   }));
   assert.ok(lineas.some(l => l.includes('25 €')), lineas.join(' | '));
 });
+
+// ── Cuota combinada: «2 de Máquina + 1 de Gyrotonic» en un solo producto ─────
+test('el tope por actividad solo se guarda de los tipos MARCADOS', () => {
+  const f = { ...planVacio(), nombre: 'Cuota combinada', precio: '65',
+    tiposClaseIds: ['tc-maquina'],
+    // Se quedó de cuando Gyrotonic estaba marcado y se desmarcó.
+    limitePorTipo: { 'tc-maquina': '2', 'tc-gyro': '1' } };
+  const d = formularioAPlan(f);
+  assert.deepEqual(d.limitePorTipo, { 'tc-maquina': 2 },
+    'Un número huérfano en la BD es un tope sobre una actividad que el plan ya ni cubre.');
+});
+
+test('sin número, ese tipo va sin tope (null, no 0)', () => {
+  const f = { ...planVacio(), nombre: 'x', precio: '10',
+    tiposClaseIds: ['tc-a', 'tc-b'], limitePorTipo: { 'tc-a': '2' } };
+  assert.deepEqual(formularioAPlan(f).limitePorTipo, { 'tc-a': 2, 'tc-b': null });
+});
+
+// El plan de siempre tiene que salir EXACTAMENTE como entró: sin este campo.
+// Con un `{tc-1: null}` de más, el test de ida y vuelta de arriba deja de pasar
+// — y ese test existe porque un campo que aparece solo acaba escribiéndose solo.
+test('sin ningún tope, el campo ni aparece', () => {
+  const f = { ...planVacio(), nombre: 'x', precio: '10', tiposClaseIds: ['tc-a', 'tc-b'] };
+  assert.equal('limitePorTipo' in formularioAPlan(f), false);
+});
+
+test('los topes van y vuelven del plan al formulario', () => {
+  const plan = { id: 'p1', studioId: 's1', nombre: 'Combinada', descripcion: null,
+    precio: 65, tipo: 'MENSUAL' as const, sesiones: null, activo: true,
+    limiteSemanal: 3, tiposClaseIds: ['tc-maquina', 'tc-gyro'],
+    limitePorTipo: { 'tc-maquina': 2, 'tc-gyro': 1 } };
+  const f = planAFormulario(plan);
+  assert.deepEqual(f.limitePorTipo, { 'tc-maquina': '2', 'tc-gyro': '1' });
+  assert.deepEqual(formularioAPlan(f).limitePorTipo, { 'tc-maquina': 2, 'tc-gyro': 1 });
+  // El techo TOTAL sigue existiendo aparte: los dos se cumplen.
+  assert.equal(formularioAPlan(f).limiteSemanal, 3);
+});
