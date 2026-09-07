@@ -74,7 +74,7 @@ test('aplicarGananciaCreditos suma al saldo y al total ganado, sin tocar el canj
 
 // ── validarCanje ─────────────────────────────────────────────────────────────
 function item(p: Partial<RewardCatalogItem> & Pick<RewardCatalogItem, 'costeCreditos'>): RewardCatalogItem {
-  return { id: 'cat-1', studioId: 'e1', nombre: 'Toalla', descripcion: null, icono: '🎁', activo: true, stock: null, creadoEn: '2026-01-01', ...p };
+  return { id: 'cat-1', studioId: 'e1', nombre: 'Toalla', descripcion: null, icono: '🎁', activo: true, stock: null, efecto: 'MANUAL', creadoEn: '2026-01-01', ...p };
 }
 
 test('validarCanje: ok con saldo suficiente, activa y con stock', () => {

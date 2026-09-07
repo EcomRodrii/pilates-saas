@@ -570,6 +570,7 @@ export interface RowRewardCatalog {
   activo: boolean;
   stock: number | null;
   creado_en: string;
+  efecto: string;
 }
 
 export interface RowRewardHistory {

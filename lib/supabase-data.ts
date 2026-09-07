@@ -632,6 +632,10 @@ export function mapRewardCatalogItem(r: RowRewardCatalog): RewardCatalogItem {
     icono: r.icono,
     activo: r.activo,
     stock: r.stock ?? null,
+    // Filas anteriores a la migración no traen la columna: MANUAL es lo que
+    // hacían, así que el respaldo conserva su comportamiento en vez de
+    // convertirlas en algo que nadie configuró.
+    efecto: r.efecto === 'CLASE_GRATIS' ? 'CLASE_GRATIS' : 'MANUAL',
     creadoEn: r.creado_en,
   } as RewardCatalogItem;
 }
@@ -3463,7 +3467,8 @@ export async function dbRecibosCobradosParaExport(
 export async function dbInsertRewardCatalogItem(c: RewardCatalogItem): Promise<ResultadoEscritura> {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
-    coste_creditos: c.costeCreditos, icono: c.icono, activo: c.activo, stock: c.stock ?? null, creado_en: c.creadoEn,
+    coste_creditos: c.costeCreditos, icono: c.icono, activo: c.activo, stock: c.stock ?? null,
+    efecto: c.efecto ?? 'MANUAL', creado_en: c.creadoEn,
   };
   const { error } = await supabase.from('reward_catalog').insert(row);
   return error ? falloEscritura('[dbInsertRewardCatalogItem]', error) : ESCRITURA_OK;
@@ -3477,6 +3482,7 @@ export async function dbUpdateRewardCatalogItem(id: string, changes: Partial<Rew
   if ('icono' in changes) db.icono = changes.icono;
   if ('activo' in changes) db.activo = changes.activo;
   if ('stock' in changes) db.stock = changes.stock;
+  if ('efecto' in changes) db.efecto = changes.efecto;
   const { error } = await supabase.from('reward_catalog').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateRewardCatalogItem]', error) : ESCRITURA_OK;
 }

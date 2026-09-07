@@ -56,13 +56,17 @@ export default function LogrosPage() {
     await refrescar();
   };
 
-  const canjear = async (id: string, nombre: string) => {
+  const canjear = async (id: string, esClaseGratis: boolean, nombre: string) => {
     if (ocupado) return;
     setOcupado(id);
     const r = await canjearRecompensa(estudio.slug, estudio.id, id);
     setOcupado(null);
     if (!r.ok) { toast(r.error); return; }
-    toast(`Has canjeado: ${nombre}. El estudio te avisará.`);
+    // Una clase gratis ya está en su cuenta: mandarla a esperar un aviso sería
+    // falso, y encima retrasaría que la use.
+    toast(esClaseGratis
+      ? `¡Hecho! Ya tienes tu clase de ${nombre}. Resérvala cuando quieras.`
+      : `Has canjeado: ${nombre}. El estudio te avisará.`);
     await refrescar();
   };
 
@@ -190,9 +194,20 @@ export default function LogrosPage() {
                           {p.costeCreditos} créditos
                           {p.agotada ? ' · agotada' : p.alcanzable ? '' : ` · te faltan ${p.faltan}`}
                         </p>
+                        {/* Lo que recibe cambia según el efecto, y con ello lo
+                            que tiene que hacer después. Una clase gratis le
+                            llega sola y la reserva cuando quiera; el resto se
+                            lo dan en el estudio. Decirlo aquí evita que espere
+                            en casa un aviso que no va a llegar, o que vaya al
+                            mostrador a por algo que ya tiene. */}
+                        <p className="t-meta" style={{ marginTop: 2, opacity: .75 }}>
+                          {p.efecto === 'CLASE_GRATIS'
+                            ? 'Te la damos al momento: reserva con ella cuando quieras'
+                            : 'Te la entregan en el estudio'}
+                        </p>
                       </div>
                       <Button size="sm" disabled={!p.alcanzable || !online || ocupado === p.id}
-                        onClick={() => void canjear(p.id, p.nombre)}>
+                        onClick={() => void canjear(p.id, p.efecto === 'CLASE_GRATIS', p.nombre)}>
                         {ocupado === p.id ? 'Canjeando…' : 'Canjear'}
                       </Button>
                     </div>
