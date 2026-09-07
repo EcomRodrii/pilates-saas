@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { codigoDeError, traducirAuth } from './auth-errores.ts';
+import { codigoDeError, emailYaEnUso, traducirAuth } from './auth-errores.ts';
 
 test('el email sin confirmar se detecta por TEXTO y por código', () => {
   // gotrue manda `email_not_confirmed` en las versiones nuevas y «Email not
@@ -34,4 +34,12 @@ test('«sin confirmar» tiene mensaje propio y ACCIONABLE, no un callejón', () 
   const t = traducirAuth('Email not confirmed')!;
   assert.match(t, /confirmar tu email/i);
   assert.doesNotMatch(t, /mira tu correo/i);
+});
+
+test('«ese email ya es de otra cuenta» se reconoce en las tres formas de gotrue', () => {
+  assert.equal(emailYaEnUso('email_exists'), true);
+  assert.equal(emailYaEnUso('User already registered'), true);
+  assert.equal(emailYaEnUso('A user with this email address has already been registered'), true);
+  assert.equal(emailYaEnUso('Invalid login credentials'), false);
+  assert.equal(emailYaEnUso(''), false);
 });
