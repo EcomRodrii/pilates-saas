@@ -121,8 +121,11 @@ export function aplicarLayout(todos: string[], cfg: OrdenVisibilidad): string[] 
  *   · esencial  — modo por defecto: solo el día a día, para que un estudio
  *                 nuevo no se ahogue. Se amplía con "Ver todo".
  *
- * Lo que NO hace: reordenar. El orden del menú es el mismo en todos los
- * estudios a propósito (principio 6), así que aquí solo se filtra.
+ * Lo que NO hace: reordenar — de eso se encarga `ordenarItemsMenu`, justo
+ * debajo. El comentario que había aquí decía que «el orden del menú es el mismo
+ * en todos los estudios a propósito (principio 6)»: dejó de ser cierto cuando el
+ * fundador pidió expresamente poder organizar los módulos. Filtrar y ordenar
+ * siguen separados, pero por composición, no porque no se ordene.
  */
 /**
  * Ordena los items del menú según el orden guardado por el estudio.

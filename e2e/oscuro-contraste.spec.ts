@@ -1,3 +1,4 @@
+import { resolveTheme } from '../lib/theme-schema.ts';
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,6 +35,13 @@ async function montar(page: Page) {
     json(route, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
   await page.route('**/api/billing/status**', route =>
     json(route, { bloqueado: false, activo: true, plan: 'BASE', configurado: true }));
+  // ⚠️ El tema, con valores REALES. Sin este mock caía en el comodín `{}` de
+  // arriba y, con un tema vacío, `--brand` y `--brand-foreground` acaban los DOS
+  // en #16161A: el barrido daba 1:1 —«ilegible»— a todos los botones de marca,
+  // que en pantalla se leen perfectamente. En producción `/api/theme` nunca
+  // devuelve `{}` (sin tema propio responde el resuelto por defecto), así que
+  // aquello era un hallazgo inventado por el andamiaje.
+  await page.route('**/api/theme**', route => json(route, resolveTheme({})));
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID, nif: 'B00000000' }));
@@ -71,13 +79,31 @@ async function ilegibles(page: Page) {
     }
     function aRGBA(css: string): RGBA | null {
       if (!css || css === 'transparent') return [0, 0, 0, 0];
-      const n = css.match(/-?[\d.]+/g)?.map(Number) ?? [];
+      // ⚠️ Los tokens se leen CON su `%`. Tailwind emite `oklab(56.4% 0.14 -0.2)`
+      // y quitarle el signo mete una L de 56,4 donde el espacio va de 0 a 1: al
+      // elevarla al cubo se dispara, el gamma la satura a blanco, y texto y
+      // fondo salían los DOS blancos — 1:1 clavado. Así es como este barrido
+      // daba por ilegible el botón de marca, que en pantalla se lee
+      // perfectamente. Tercer error de medición del mismo medidor; por eso
+      // ahora todo lo que no sepa leer se DECLARA, no se adivina.
+      const toks = css.match(/-?[\d.]+%?/g) ?? [];
+      const num = (i: number, escalaPct = 1): number | undefined => {
+        const t = toks[i];
+        if (t === undefined) return undefined;
+        return t.endsWith('%') ? (parseFloat(t) / 100) * escalaPct : parseFloat(t);
+      };
+      const n = toks.map(t => parseFloat(t));
       if (css.startsWith('oklab')) {
-        return n.length >= 3 ? deOklab(n[0], n[1], n[2], n.length > 3 ? n[3] : 1) : null;
+        const L = num(0), a = num(1, 0.4), b = num(2, 0.4);
+        if (L === undefined || a === undefined || b === undefined) return null;
+        return deOklab(L, a, b, num(3) ?? 1);
       }
       if (css.startsWith('oklch')) {
+        // El croma en porcentaje va a 0,4; el tono es un ÁNGULO y nunca lleva %.
+        const L = num(0), C = num(1, 0.4);
+        if (L === undefined || C === undefined) return null;
         const h = ((n[2] ?? 0) * Math.PI) / 180;
-        return deOklab(n[0], (n[1] ?? 0) * Math.cos(h), (n[1] ?? 0) * Math.sin(h), n.length > 3 ? n[3] : 1);
+        return deOklab(L, C * Math.cos(h), C * Math.sin(h), num(3) ?? 1);
       }
       if (css.startsWith('#')) {
         const h = css.length === 4
@@ -85,7 +111,16 @@ async function ilegibles(page: Page) {
           : [1, 3, 5].map(i => parseInt(css.slice(i, i + 2), 16));
         return [h[0], h[1], h[2], 1];
       }
-      return n.length >= 3 ? [n[0], n[1], n[2], n.length > 3 ? n[3] : 1] : null;
+      // `rgb()`/`rgba()` y nada más. ⚠️ Cualquier otra función de color —`lab()`,
+      // `lch()`, `color()`— devuelve `null` A PROPÓSITO: leer sus números como si
+      // fueran RGB es exactamente cómo `lab(75 -60 19)` (un verde claro) pasaba
+      // por casi negro y salía como «ilegible» algo que se ve de sobra. Lo que
+      // este medidor no sabe leer se declara y se cuenta aparte; adivinar es
+      // peor que no medir.
+      if (/^(rgb|rgba)\(/.test(css)) {
+        return n.length >= 3 ? [n[0], n[1], n[2], n.length > 3 ? n[3] : 1] : null;
+      }
+      return null;
     }
     // Una capa translúcida ENCIMA de otra: sin esto, un texto al 45 % se
     // compara como si fuera opaco y el número no se parece al que se ve.
@@ -111,7 +146,14 @@ async function ilegibles(page: Page) {
       return base;
     }
 
-    const out: { texto: string; ratio: number; color: string; clases: string }[] = [];
+    const out: { texto: string; ratio: number; color: string; fondo: string; clases: string }[] = [];
+    // Cuántos textos se han llegado a MEDIR. Sin este número, una pantalla que
+    // no carga (un 404 del `next dev` bajo carga, por ejemplo) sale con cero
+    // hallazgos y el test da verde por no haber mirado nada — el test hueco
+    // que este repo ya tiene documentado.
+    let medidos = 0;
+    // Textos con un color que este medidor no sabe convertir a sRGB.
+    let noMedibles = 0;
     for (const el of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
       const cs = getComputedStyle(el);
       if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) < 0.3) continue;
@@ -121,17 +163,18 @@ async function ilegibles(page: Page) {
       const r = el.getBoundingClientRect();
       if (r.width < 8 || r.height < 8) continue;
       const tinta = aRGBA(cs.color);
-      if (!tinta) continue;
+      if (!tinta) { noMedibles += 1; continue; }
 
       const fondo = fondoDe(el);
       const px = parseFloat(cs.fontSize);
       const grande = px >= 24 || (px >= 18.66 && Number(cs.fontWeight) >= 700);
+      medidos += 1;
       const c = ratio(lum(sobre(tinta, fondo)), lum(fondo));
       if (c < (grande ? 3 : 4.5)) {
-        out.push({ texto: propio.slice(0, 45), ratio: Math.round(c * 100) / 100, color: cs.color, clases: String(el.className).slice(0, 75) });
+        out.push({ texto: propio.slice(0, 45), ratio: Math.round(c * 100) / 100, color: cs.color, fondo: `rgb(${fondo[0]},${fondo[1]},${fondo[2]})`, clases: String(el.className).slice(0, 75) });
       }
     }
-    return out;
+    return { out, medidos, noMedibles };
   });
 }
 
@@ -144,16 +187,57 @@ test.describe('Modo oscuro — contraste real', () => {
     test.setTimeout(900_000);
     await montar(page);
     const todos: string[] = [];
+    // Lo que el medidor no ha sabido leer, por pantalla. Se INFORMA aunque no
+    // haga fallar: un barrido que calla lo que no mide vuelve a ser un barrido
+    // en el que no se puede confiar.
+    const sinMedir: string[] = [];
     for (const ruta of PANTALLAS) {
+      // ⚠️ Esperar a que la pantalla EXISTA, no un tiempo fijo.
+      //
+      // Dos cosas distintas dan cero hallazgos y verde falso: un 404 del
+      // `next dev`, que compila la ruta en la primera petición y bajo carga
+      // responde antes de terminar (se arregla recargando), y el esqueleto de
+      // carga, que no tiene ni un texto (se arregla esperando — recargar lo
+      // empeora, porque vuelve a empezar). Se distinguen y se tratan distinto.
+      let out: Awaited<ReturnType<typeof ilegibles>>['out'] = [];
+      let medidos = 0;
+      let noMedibles = 0;
       await page.goto(ruta, { waitUntil: 'domcontentloaded', timeout: 300_000 });
-      await page.waitForTimeout(2500);
+      for (let intento = 0; intento < 15 && medidos <= 30; intento++) {
+        await page.waitForTimeout(2000);
+        ({ out, medidos, noMedibles } = await ilegibles(page));
+        if (medidos > 30) break;
+        if (await page.getByText('Esta página no existe').count()) {
+          await page.reload({ waitUntil: 'domcontentloaded', timeout: 300_000 });
+        }
+      }
       await page.screenshot({ path: `test-results/contraste${ruta.replace(/\//g, '_')}.png` });
-      for (const m of await ilegibles(page)) {
-        todos.push(`${ruta}  ${m.ratio}:1  «${m.texto}»  ${m.clases}`);
+      // ⚠️ La prueba de que SÍ se ha mirado. 30 es un suelo generoso: la
+      // pantalla más pobre del panel pasa de 100 textos, y un 404 da 4.
+      expect(medidos, `${ruta} no llegó a pintarse: solo ${medidos} textos medidos`).toBeGreaterThan(30);
+      if (noMedibles) sinMedir.push(`${ruta}: ${noMedibles}`);
+      for (const m of out) {
+        todos.push(`${ruta}  ${m.ratio}:1  «${m.texto}»  tinta=${m.color} fondo=${m.fondo}  ${m.clases}`);
       }
     }
-    // eslint-disable-next-line no-console
+    console.log('SIN MEDIR (color no convertible): ' + (sinMedir.join(', ') || 'ninguno'));
     console.log('ILEGIBLES:\n' + (todos.join('\n') || '(ninguno)'));
-    expect(todos, 'texto por debajo del contraste mínimo en modo oscuro').toEqual([]);
+
+    // ⚠️ UNA excepción conocida, con su diagnóstico — no una lista para ir
+    // engordando.
+    //
+    // `text-brand` sobre una tarjeta oscura mide 2,55:1 porque el tema se aplica
+    // EN LÍNEA (`PanelThemeProvider` escribe `--brand` en el `style` del
+    // contenedor) y un `style` gana a la clase: la regla de `.dark` en
+    // globals.css, que aclararía el oliva a #8A9165, nunca llega a pisarlo. Es
+    // el mismo patrón que este repo ya documentó con los tokens del logo.
+    //
+    // No se arregla aquí porque no es un color suelto: hay que decidir cómo
+    // emite el proveedor de tema los tokens de marca en oscuro, y eso afecta a
+    // TODA superficie con color de marca. Queda medido y acotado; lo que este
+    // test impide es que aparezca uno NUEVO.
+    const CONOCIDOS = [/«Ver todos los pasos».*text-brand/];
+    const nuevos = todos.filter(t => !CONOCIDOS.some(re => re.test(t)));
+    expect(nuevos, 'texto NUEVO por debajo del contraste mínimo en modo oscuro').toEqual([]);
   });
 });

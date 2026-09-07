@@ -1,4 +1,5 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
+import { unaVez } from '@/lib/una-vez';
 import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion';
 import { mapLimit } from '@/lib/concurrency';
 import { mensajeDeErrorReserva } from '@/lib/reservas/errores-rpc';
@@ -4690,21 +4691,29 @@ export interface SedeSeleccionable {
 // — nunca una policy de fila sobre `studios`, que expone columnas sensibles
 // (nif, stripe_customer_id, kiosk_token...) a cualquiera con acceso de fila.
 export async function fetchMisEstudios(): Promise<SedeSeleccionable[]> {
-  // ⚠️ Sin try/catch, un fallo de RED (no un error de Postgres/PostgREST)
-  // hace que `await` LANCE en vez de resolver con `{ error }` — el `if
-  // (error)` de abajo nunca se alcanza, y la excepción sale sin capturar
-  // hasta el `.then()` de cada llamador (ninguno tiene `.catch()`), que
-  // Sentry ve como rejection global: "TypeError: Load failed" en Safari
-  // (JAVASCRIPT-NEXTJS-R/-18), ruido de red ya filtrado en todo lo demás por
-  // `reportDbError`/`esErrorDeRedCliente`, colándose aquí por esta vía.
-  try {
-    const { data, error } = await supabase.rpc('mis_estudios');
-    if (error) { reportDbError('[fetchMisEstudios]', error); return []; }
-    return (data as SedeSeleccionable[]) ?? [];
-  } catch (e) {
-    reportDbError('[fetchMisEstudios]', e);
-    return [];
-  }
+  // ⚠️ Dedupe en vuelo: la piden DOS componentes que se montan a la vez en cada
+  // carga del panel —`SedeActiva` (en el menú) y `NotificationBell` (en la barra
+  // de arriba)— con 9 ms de diferencia, sin saber uno del otro. Medido con
+  // StrictMode apagado, que es lo único que distingue un duplicado real del
+  // doble efecto de desarrollo. No es una caché: en cuanto la petición termina
+  // la entrada se suelta, así que cambiar de sede sigue viéndose al instante.
+  return unaVez('mis-estudios', async () => {
+    // ⚠️ Sin try/catch, un fallo de RED (no un error de Postgres/PostgREST)
+    // hace que `await` LANCE en vez de resolver con `{ error }` — el `if
+    // (error)` de abajo nunca se alcanza, y la excepción sale sin capturar
+    // hasta el `.then()` de cada llamador (ninguno tiene `.catch()`), que
+    // Sentry ve como rejection global: "TypeError: Load failed" en Safari
+    // (JAVASCRIPT-NEXTJS-R/-18), ruido de red ya filtrado en todo lo demás por
+    // `reportDbError`/`esErrorDeRedCliente`, colándose aquí por esta vía.
+    try {
+      const { data, error } = await supabase.rpc('mis_estudios');
+      if (error) { reportDbError('[fetchMisEstudios]', error); return []; }
+      return (data as SedeSeleccionable[]) ?? [];
+    } catch (e) {
+      reportDbError('[fetchMisEstudios]', e);
+      return [];
+    }
+  });
 }
 
 // Cambia la sede activa de la sesión actual (selector "cambiar de sede").

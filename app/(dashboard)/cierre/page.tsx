@@ -301,12 +301,12 @@ export default function CierreDeAnoPage() {
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="text-xs font-medium text-muted-foreground">Base imponible</div>
           <div className="text-2xl font-extrabold tracking-tight mt-2 tabular-nums">{eur(cierre.totales.base)}</div>
-          <div className="text-xs text-muted-foreground/70 mt-0.5">lo que declaras como ingreso</div>
+          <div className="text-xs text-muted-foreground mt-0.5">lo que declaras como ingreso</div>
         </div>
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="text-xs font-medium text-muted-foreground">IVA repercutido</div>
           <div className="text-2xl font-extrabold tracking-tight mt-2 tabular-nums">{eur(cierre.totales.cuota)}</div>
-          <div className="text-xs text-muted-foreground/70 mt-0.5">para cuadrar tus 303 / 390</div>
+          <div className="text-xs text-muted-foreground mt-0.5">para cuadrar tus 303 / 390</div>
         </div>
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="text-xs font-medium text-muted-foreground">Facturas emitidas</div>

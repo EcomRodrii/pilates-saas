@@ -456,33 +456,17 @@ export function Sidebar() {
     const el = barraRef.current;
     if (!el) return;
     const ro = new ResizeObserver(([entrada]) => {
-      const alto = entrada?.contentRect.height ?? el.getBoundingClientRect().height;
+      // ⚠️ `borderBoxSize`, NUNCA `contentRect`: `contentRect` mide el CONTENIDO
+      // y deja fuera el relleno de la barra (`py-4`, 32 px), así que el hueco
+      // salía 32 px corto y la barra volvía a tapar la primera fila — el mismo
+      // bug de antes, con otro disfraz.
+      const alto = entrada?.borderBoxSize?.[0]?.blockSize ?? el.getBoundingClientRect().height;
       if (alto > 0) aplicarHuecos(true, sizeRef.current, alto);
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, [horizontal]);
 
-  // ¿Queda fila por ver a la derecha? De eso depende la pista del degradado.
-  // No se deduce del número de módulos: depende del ancho de la ventana, del
-  // idioma de las etiquetas y de si hay selector de sede. Se pregunta al DOM.
-  const navRef = useRef<HTMLElement | null>(null);
-  const [desbordaNav, setDesbordaNav] = useState(false);
-  useEffect(() => {
-    // Tumbada o no, la pista solo se pinta en la rama horizontal: cuando el
-    // menú vuelve a la columna no hay nada que apagar.
-    if (!horizontal) return;
-    const el = navRef.current;
-    if (!el) return;
-    const medir = () => setDesbordaNav(el.scrollWidth - el.clientWidth - el.scrollLeft > 2);
-    medir();
-    const ro = new ResizeObserver(medir);
-    ro.observe(el);
-    // Al llegar al final, la pista sobra: seguir pintándola dice que hay más
-    // cuando ya no hay nada.
-    el.addEventListener('scroll', medir, { passive: true });
-    return () => { ro.disconnect(); el.removeEventListener('scroll', medir); };
-  }, [horizontal]);
 
   async function handleSignOut() {
     await signOut();
@@ -497,6 +481,58 @@ export function Sidebar() {
     ? metaNombre.slice(0, 2).toUpperCase()
     : (user?.email?.slice(0, 2).toUpperCase() ?? 'TE');
   const userEmail = user?.email ?? 'Modo auditoría';
+
+  // El menú en sí. Una sola copia: tumbado va dentro de un envoltorio
+  // posicionado (para que la pista de «la fila sigue» se pegue a SU borde
+  // derecho, que depende de lo que venga detrás), y de pie va suelto. Escribirlo
+  // dos veces es como una rama acaba con un `min-w-0` que la otra no tiene.
+  const menu = (
+    <nav className={cn(
+      'flex-1 px-2',
+      // ⚠️ Tumbado, la fila ENVUELVE; no se desplaza.
+      //
+      // Medido con los 19 módulos en «Todo»: el menú ocupa 2530 px dentro de
+      // 1042 disponibles. Con desplazamiento horizontal eso son ONCE módulos
+      // detrás de un gesto que nadie ve —ni barra (8 px no caben en 68) ni
+      // flecha— o sea, escondidos. Envolviendo no se esconde ninguno: la barra
+      // crece, y el hueco del contenido crece con ella porque se MIDE
+      // (`ResizeObserver` de arriba). Los grupos envuelven enteros, así que
+      // «Clases» o «Ventas» nunca se parten por la mitad.
+      horizontal
+        // `min-w-0` para que la fila pueda encogerse por debajo de su
+        // contenido: sin él, flex la deja crecer y empuja el avatar y el
+        // enlace al portal fuera de la barra.
+        ? 'flex min-w-0 flex-row flex-wrap items-center gap-1 py-1'
+        : 'py-2 overflow-y-auto space-y-1',
+    )}>
+      {seccionesVisibles.map((section, si) => (
+        <div key={si} className={cn(horizontal && 'contents')}>
+          {/* El rótulo del grupo no cabe tumbado: en horizontal manda el
+              orden, que ya agrupa por sección. */}
+          {section.label && !collapsed && !horizontal && (
+            <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/50">
+              {section.label}
+            </p>
+          )}
+          {section.label && collapsed && si > 0 && !horizontal && (
+            <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+          )}
+          {section.items.map(item => (
+            <NavItem
+              key={item.href} href={item.href} label={item.label} Icon={item.icon}
+              horizontal={horizontal}
+              // Tumbado siempre con rótulo: un menú de solo iconos en
+              // horizontal es un test de memoria. El tamaño «compacto» es
+              // una preferencia de la columna, no de la barra.
+              collapsed={horizontal ? false : collapsed}
+              nuevo={conNovedad.has(item.href)}
+              contador={item.href === '/mensajeria' ? sinLeerMensajes : undefined}
+            />
+          ))}
+        </div>
+      ))}
+    </nav>
+  );
 
   return (
     <>
@@ -562,12 +598,15 @@ export function Sidebar() {
       <aside
         ref={barraRef}
         className={cn(
-          'hidden lg:flex fixed z-20 overflow-hidden transition-[width] duration-200',
+          'hidden lg:flex fixed z-20 transition-[width] duration-200',
+          // Recortar solo tiene sentido en la columna: tumbada, la barra CRECE
+          // con las filas que haga falta en vez de tragarse los módulos.
+          !horizontal && 'overflow-hidden',
           horizontal
             // Barra: ancho completo, alto fijo, y todo en fila. El
             // `rounded-3xl` es el mismo lenguaje de la píldora, solo que
             // tumbada.
-            ? 'top-4 left-4 right-4 flex-row items-center gap-2 rounded-3xl px-3'
+            ? 'top-4 left-4 right-4 flex-row items-start gap-2 rounded-3xl px-3 py-4'
             : 'top-[104px] left-4 bottom-4 flex-col rounded-[28px]',
           !horizontal && SIDEBAR_SIZES[size].aside,
         )}
@@ -602,7 +641,7 @@ export function Sidebar() {
                   title={val === 'esencial' ? 'Solo el día a día: agenda, clientas, cobros, equipo e informes' : 'Todas las funciones'}
                   className={cn(
                     'flex-1 py-1 rounded-full text-[10.5px] font-bold transition-all',
-                    navMode === val ? 'bg-brand text-brand-foreground' : 'text-white/40',
+                    navMode === val ? 'bg-brand text-brand-foreground' : 'text-white/55',
                   )}
                 >
                   {label}
@@ -612,108 +651,7 @@ export function Sidebar() {
           </div>
         )}
 
-        {/* Nav.
-            Tumbado va dentro de un envoltorio posicionado: la pista de «la
-            fila sigue» tiene que pegarse al borde DERECHO DEL MENÚ, y ese
-            borde depende de lo que venga detrás (el enlace al portal solo
-            aparece con la sede resuelta, y el bloque de usuario cambia de
-            ancho con el avatar). Iba clavada en `right-[132px]` — otro número
-            a ojo, como el alto de la barra: sobra o falta según el caso, y
-            acababa siendo una mancha oscura encima del último módulo. */}
-        {horizontal ? (
-          <div className="relative flex min-w-0 flex-1 items-center">
-          <nav ref={navRef} className={cn(
-            'flex-1 px-2',
-            // En horizontal la lista corre de lado y se desplaza si no cabe: un
-            // estudio con todos los módulos no entra en 1280 px, y lo que NO
-            // puede pasar es que se recorten items en silencio.
-            horizontal
-              // `min-w-0` para que la fila pueda encogerse por debajo de su
-              // contenido: sin él, flex la deja crecer y empuja el avatar y el
-              // enlace al portal fuera de la barra.
-              // La barra de desplazamiento se oculta (8 px dentro de 68 no caben)
-              // pero la rueda y el trackpad siguen funcionando.
-              ? 'flex min-w-0 flex-row items-center gap-1 overflow-x-auto py-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-              : 'py-2 overflow-y-auto space-y-1',
-          )}>
-            {seccionesVisibles.map((section, si) => (
-              <div key={si} className={cn(horizontal && 'flex flex-row items-center gap-1')}>
-                {/* El rótulo del grupo no cabe tumbado: en horizontal manda el
-                    orden, que ya agrupa por sección. */}
-                {section.label && !collapsed && !horizontal && (
-                  <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/20">
-                    {section.label}
-                  </p>
-                )}
-                {section.label && collapsed && si > 0 && !horizontal && (
-                  <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
-                )}
-                {section.items.map(item => (
-                  <NavItem
-                    key={item.href} href={item.href} label={item.label} Icon={item.icon}
-                    horizontal={horizontal}
-                    // Tumbado siempre con rótulo: un menú de solo iconos en
-                    // horizontal es un test de memoria. El tamaño «compacto» es
-                    // una preferencia de la columna, no de la barra.
-                    collapsed={horizontal ? false : collapsed}
-                    nuevo={conNovedad.has(item.href)}
-                    contador={item.href === '/mensajeria' ? sinLeerMensajes : undefined}
-                  />
-                ))}
-              </div>
-            ))}
-          </nav>
-            {desbordaNav && (
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-y-0 right-0 w-10"
-                style={{ background: 'linear-gradient(to right, transparent, #0A0A0A)' }}
-              />
-            )}
-          </div>
-        ) : (
-          <nav ref={navRef} className={cn(
-            'flex-1 px-2',
-            // En horizontal la lista corre de lado y se desplaza si no cabe: un
-            // estudio con todos los módulos no entra en 1280 px, y lo que NO
-            // puede pasar es que se recorten items en silencio.
-            horizontal
-              // `min-w-0` para que la fila pueda encogerse por debajo de su
-              // contenido: sin él, flex la deja crecer y empuja el avatar y el
-              // enlace al portal fuera de la barra.
-              // La barra de desplazamiento se oculta (8 px dentro de 68 no caben)
-              // pero la rueda y el trackpad siguen funcionando.
-              ? 'flex min-w-0 flex-row items-center gap-1 overflow-x-auto py-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-              : 'py-2 overflow-y-auto space-y-1',
-          )}>
-            {seccionesVisibles.map((section, si) => (
-              <div key={si} className={cn(horizontal && 'flex flex-row items-center gap-1')}>
-                {/* El rótulo del grupo no cabe tumbado: en horizontal manda el
-                    orden, que ya agrupa por sección. */}
-                {section.label && !collapsed && !horizontal && (
-                  <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/20">
-                    {section.label}
-                  </p>
-                )}
-                {section.label && collapsed && si > 0 && !horizontal && (
-                  <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
-                )}
-                {section.items.map(item => (
-                  <NavItem
-                    key={item.href} href={item.href} label={item.label} Icon={item.icon}
-                    horizontal={horizontal}
-                    // Tumbado siempre con rótulo: un menú de solo iconos en
-                    // horizontal es un test de memoria. El tamaño «compacto» es
-                    // una preferencia de la columna, no de la barra.
-                    collapsed={horizontal ? false : collapsed}
-                    nuevo={conNovedad.has(item.href)}
-                    contador={item.href === '/mensajeria' ? sinLeerMensajes : undefined}
-                  />
-                ))}
-              </div>
-            ))}
-          </nav>
-        )}
+        {menu}
 
         {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
         {studioSlug && (collapsed || horizontal ? (
@@ -791,7 +729,7 @@ export function Sidebar() {
             onClick={() => setSizeMenuOpen(v => !v)}
             title="Tamaño del menú"
             className={cn(
-              'flex items-center h-9 w-full transition-colors hover:bg-card/5 text-white/30 hover:text-white/70',
+              'flex items-center h-9 w-full transition-colors hover:bg-card/5 text-white/55 hover:text-white/80',
               collapsed ? 'justify-center' : 'justify-center gap-2',
             )}
           >
