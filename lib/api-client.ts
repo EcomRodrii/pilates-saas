@@ -1,6 +1,7 @@
 'use client';
 
 import { supabase } from '@/lib/db/supabase';
+import { unaVez } from '@/lib/una-vez';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
@@ -46,34 +47,8 @@ export async function portalAuthHeader(): Promise<Record<string, string>> {
 }
 
 // ── Tema white-label (editor de marca, solo propietario) ─────────────────────
-// ─── Deduplicación de peticiones EN VUELO ────────────────────────────────────
-//
-// Varias piezas del panel piden lo mismo al montar: `fetchLayout` lo llaman el
-// sidebar, el dashboard, el editor de temas y studio-context — cuatro sitios,
-// sin saber unos de otros. Medido en producción, eso son dos peticiones
-// idénticas por carga a /api/layout, /api/theme y /api/billing/status. Cada una
-// arrastra además `verificarSesionStaff` entero en el servidor.
-//
-// Esto NO es una caché: la entrada se borra en cuanto la petición termina, así
-// que solo pueden compartirla las llamadas literalmente simultáneas. No puede
-// servir un dato viejo ni retrasar una invalidación — el peor caso es que no
-// coincidan y se hagan las dos, exactamente como ahora.
-//
-// Por eso no lleva TTL: un TTL sí introduciría staleness, y estos tres datos
-// (menú, tema, estado de suscripción) los reescribe el propio panel y tienen
-// que verse al instante.
-const enVuelo = new Map<string, Promise<unknown>>();
-
-function unaVez<T>(clave: string, hacer: () => Promise<T>): Promise<T> {
-  const yaVa = enVuelo.get(clave);
-  if (yaVa) return yaVa as Promise<T>;
-  // `finally` y no `then`: la entrada también tiene que soltarse si la petición
-  // falla, o un fallo puntual dejaría a todo el mundo pegado a una promesa
-  // rechazada para siempre.
-  const p = hacer().finally(() => { enVuelo.delete(clave); });
-  enVuelo.set(clave, p);
-  return p;
-}
+// La deduplicación de peticiones en vuelo vive en `lib/una-vez.ts`: el mismo
+// problema aparece fuera de esta capa (ver el comentario de ese archivo).
 
 export async function fetchThemeBorrador(): Promise<ThemeConfig> {
   return unaVez('theme-borrador', async () => {
@@ -138,11 +113,35 @@ export async function publicarThemeApi(): Promise<ResultadoPublicar> {
 }
 
 // ── Configuración de menú por estudio (Fase 4) ───────────────────────────────
+// ⚠️ El menú SÍ lleva caché, a diferencia del tema y del estado de billing.
+//
+// Motivo, medido con StrictMode apagado en una carga de /dashboard: lo piden el
+// `Sidebar` a los 5721 ms y el `Dashboard` a los 7094 ms. **1,4 segundos de
+// separación**, así que el dedupe en vuelo no puede unirlas por construcción —
+// la primera terminó hace rato. Era el caso que este mismo archivo ya
+// documentaba como «necesita caché real, no dedupe», y sigue siendo el único.
+//
+// Lo que hace segura la caché es que aquí hay un ÚNICO escritor: el panel, por
+// `guardarLayoutApi`, que además devuelve la configuración ya resuelta y la
+// guarda encima. No hay ventana de dato viejo tras guardar, y `olvidarLayout()`
+// deja la puerta abierta a invalidar desde fuera si algún día hace falta.
+// Vive lo que la pestaña: una recarga la vacía.
+let layoutCacheado: LayoutConfig | null = null;
+
+export function olvidarLayout() { layoutCacheado = null; }
+
 export async function fetchLayout(): Promise<LayoutConfig> {
+  // Solo en el navegador, por el mismo motivo que `unaVez` (ver su comentario):
+  // en el servidor una variable de módulo la comparten peticiones de personas
+  // distintas, y esto guarda el menú de UN estudio.
+  if (typeof window !== 'undefined' && layoutCacheado) return layoutCacheado;
   return unaVez('layout', async () => {
     const res = await fetch('/api/layout', { headers: await authHeader() });
     if (!res.ok) throw new Error('No se pudo cargar el menú');
-    return res.json() as Promise<LayoutConfig>;
+    // Solo se cachea lo que llegó BIEN: un fallo no debe congelarse.
+    const config = await (res.json() as Promise<LayoutConfig>);
+    if (typeof window !== 'undefined') layoutCacheado = config;
+    return config;
   });
 }
 
@@ -157,7 +156,12 @@ export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfi
     if (res.status === 403) throw new ErrorSinPermiso(await mensajeDe(res, 'No tienes permiso para editar el menú.'));
     throw new Error(await mensajeDe(res, 'No se ha podido guardar el menú. Vuelve a intentarlo.'));
   }
-  return res.json();
+  // La respuesta ES la configuración ya resuelta: se guarda encima de la caché
+  // en vez de invalidarla, así el `fetchLayout()` que dispara
+  // `tentare-layout-changed` justo después no vuelve a pedir nada.
+  const config = (await res.json()) as LayoutConfig;
+  if (typeof window !== 'undefined') layoutCacheado = config;
+  return config;
 }
 
 // ── Constructor de bloques del portal (Fase 3, generalizado a todas las

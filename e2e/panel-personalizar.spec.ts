@@ -35,12 +35,21 @@ async function montar(page: Page, layout: Record<string, unknown> = {}, oscuro =
     }));
   }, [STORAGE_KEY, AUTH_UID, oscuro ? '1' : ''] as const);
 
+  const gets = { layout: 0, misEstudios: 0 };
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/api/layout**', route => {
     if (route.request().method() === 'PUT') {
       puts.push(route.request().postDataJSON() as Record<string, unknown>);
-      return json(route, route.request().postDataJSON());
+      // El PUT real devuelve la configuración COMPLETA ya resuelta
+      // (`guardarLayout`, lib/layout-data.ts), no el parche — y de eso depende
+      // que la caché del cliente pueda guardarla encima sin quedarse a medias.
+      return json(route, {
+        orden: [], ocultos: [], menuPosition: 'lateral',
+        home: { orden: [], ocultos: [] },
+        ...(route.request().postDataJSON() as Record<string, unknown>),
+      });
     }
+    gets.layout += 1;
     return json(route, {
       orden: [], ocultos: [], menuPosition: 'lateral',
       home: { orden: [], ocultos: [] }, ...layout,
@@ -60,7 +69,10 @@ async function montar(page: Page, layout: Record<string, unknown> = {}, oscuro =
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
-  return { puts };
+  // ⚠️ Después del comodín `**/rest/v1/**`: Playwright prueba las rutas en
+  // orden INVERSO al registro, así que puesta antes no la vería nadie.
+  await page.route('**/rest/v1/rpc/mis_estudios', route => { gets.misEstudios += 1; return json(route, []); });
+  return { puts, gets };
 }
 
 test.describe('Apariencia — mantenimiento y salida', () => {
@@ -129,6 +141,84 @@ test.describe('Personalizar tu panel', () => {
   });
 });
 
+// ⚠️ Estos dos existen porque «lo de mover los módulos no se cambian» fue la
+// queja EXACTA del fundador sobre la primera entrega. Uno prueba que el editor
+// reordena y lo guarda; el otro, que el menú obedece lo guardado. Con solo el
+// primero, el editor podía verse perfecto y el menú seguir igual — que es justo
+// lo que pasaba.
+test.describe('Reordenar módulos', () => {
+  test('arrastrar un módulo cambia su orden y viaja en el guardado', async ({ page }) => {
+    const { puts } = await montar(page);
+    await page.goto('/configuracion/apariencia/panel');
+    // Con el ratón, que es como se usa. `PointerSensor` no arranca hasta los
+    // 5 px (para que pulsar el ojo no cuente como arrastre), así que el gesto
+    // tiene que ir por pasos: un salto seco de A a B no lo despierta.
+    const asa = page.getByRole('button', { name: 'Reordenar Citas' });
+    await asa.waitFor({ state: 'visible', timeout: 30_000 });
+    // ⚠️ Traer la fila a la vista ANTES de medirla. `boundingBox()` devuelve
+    // coordenadas de página, no de pantalla: con la lista abajo del todo salían
+    // y=791 en un viewport de 720 y el ratón se movía a un sitio donde no hay
+    // nada — los eventos caían en <html> y el arrastre no arrancaba. El test
+    // decía «no se mueve» de una pantalla que sí se mueve.
+    await asa.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(200);
+    const desde = (await asa.boundingBox())!;
+    const hasta = (await page.getByRole('button', { name: 'Reordenar Calendario' }).boundingBox())!;
+    await page.mouse.move(desde.x + desde.width / 2, desde.y + desde.height / 2);
+    await page.mouse.down();
+    // Pasar del CENTRO de la fila de destino: dnd-kit decide por colisión, no
+    // por haber salido de la fila propia.
+    for (const paso of [0.25, 0.5, 0.75, 1]) {
+      await page.mouse.move(
+        desde.x + desde.width / 2,
+        desde.y + desde.height / 2 + (hasta.y - desde.y) * paso,
+        { steps: 5 },
+      );
+    }
+    await page.mouse.up();
+    // El botón solo existe si algo cambió de verdad: su sola aparición ya
+    // descarta el fallo original («arrastro y no pasa nada»).
+    await page.getByRole('button', { name: 'Guardar cambios' }).click({ timeout: 15_000 });
+    await expect.poll(() => puts.length).toBeGreaterThan(0);
+    const orden = puts[0].orden as string[];
+    expect(orden.indexOf('/citas')).toBeGreaterThanOrEqual(0);
+    expect(orden.indexOf('/citas')).toBeLessThan(orden.indexOf('/calendario'));
+  });
+
+  test('el menú pinta los módulos en el orden guardado, no en el de fábrica', async ({ page }) => {
+    // De fábrica Calendario va antes que Citas (lib/nav-config.ts).
+    await montar(page, { orden: ['/citas', '/calendario'] });
+    await page.goto('/dashboard');
+    // «Todo»: en modo esencial no se listan los dos y no habría nada que comparar.
+    await page.getByRole('button', { name: 'Todo' }).click({ timeout: 30_000 });
+    const hrefs = await page.locator('aside').first().locator('a[href]').evaluateAll(
+      as => as.map(a => a.getAttribute('href')),
+    );
+    expect(hrefs).toContain('/citas');
+    expect(hrefs.indexOf('/citas')).toBeLessThan(hrefs.indexOf('/calendario'));
+  });
+});
+
+// ⚠️ Estos números salen de una medición real con StrictMode APAGADO (que es lo
+// único que separa un duplicado de verdad del doble efecto de desarrollo) sobre
+// una carga de /dashboard: `/api/layout` la pedían el Sidebar a los 5721 ms y el
+// Dashboard a los 7094 ms —1,4 s de separación, imposible de unir con el dedupe
+// en vuelo— y `mis_estudios` la pedían SedeActiva y NotificationBell con 9 ms de
+// diferencia. Sin este test, cualquier consumidor nuevo las devuelve a dos sin
+// que nadie se entere.
+test.describe('El panel no pide dos veces lo mismo', () => {
+  test('el menú y las sedes se piden UNA vez por carga', async ({ page }) => {
+    const { gets } = await montar(page);
+    await page.goto('/dashboard');
+    await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 30_000 });
+    // Margen para que llegue cualquier petición tardía (la del Dashboard iba
+    // 1,4 s por detrás de la del menú).
+    await page.waitForTimeout(3000);
+    expect(gets.layout).toBe(1);
+    expect(gets.misEstudios).toBe(1);
+  });
+});
+
 test.describe('El menú arriba', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -141,9 +231,13 @@ test.describe('El menú arriba', () => {
 
     const b = await barra.boundingBox();
     expect(b, 'la barra no se ha pintado').toBeTruthy();
-    // Tumbada de verdad: ancha y baja, no una columna.
+    // Tumbada de verdad: ancha y baja, no una columna. La comparación es
+    // RELATIVA a propósito — el número fijo que había aquí (110 px) se escribió
+    // cuando la barra medía siempre lo mismo, y ya no: con todos los módulos
+    // envuelve en varias filas. Lo que la define como barra es la proporción,
+    // no una altura concreta.
     expect(b!.width).toBeGreaterThan(900);
-    expect(b!.height).toBeLessThan(110);
+    expect(b!.height).toBeLessThan(b!.width / 4);
 
     // ⚠️ Lo que se rompió la primera vez: el contenido arrancaba DEBAJO de la
     // barra flotante y la primera fila quedaba tapada.
@@ -157,6 +251,24 @@ test.describe('El menú arriba', () => {
       expect(p!.y, 'el primer título queda debajo de la barra').toBeGreaterThan(b!.y + b!.height);
     }
     expect(m).toBeTruthy();
+  });
+
+  // ⚠️ El hueco se MIDE contra la barra real, no contra un número escrito a
+  // mano. Con el selector de sede de una cadena, o con el zoom del navegador,
+  // la barra crece y el contenido acababa por debajo de ella.
+  test('el hueco del contenido coincide con el alto REAL de la barra', async ({ page }) => {
+    await montar(page, { menuPosition: 'superior' });
+    await page.goto('/dashboard');
+    const barra = page.locator('aside').first();
+    await expect(barra).toBeVisible({ timeout: 30_000 });
+    await page.waitForTimeout(500);
+
+    const b = (await barra.boundingBox())!;
+    const hueco = await page.evaluate(() =>
+      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--panel-top')));
+    // El hueco tiene que cubrir la barra entera (borde superior incluido), con
+    // un margen de holgura de 2 px por el redondeo.
+    expect(hueco + 2).toBeGreaterThanOrEqual(b.y + b.height);
   });
 
   test('con el menú a la izquierda, la barra sigue siendo una columna', async ({ page }) => {

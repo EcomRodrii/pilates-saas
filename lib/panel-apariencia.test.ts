@@ -166,8 +166,15 @@ test('los dos huecos los escribe el MENÚ, y siempre uno de los dos a cero', () 
   const src = leer('components/layout/sidebar.tsx');
   assert.match(src, /setProperty\('--sidebar-w', horizontal \? '0px'/,
     'Sin --sidebar-w a 0 queda una franja vacía donde ya no hay menú.');
-  assert.match(src, /setProperty\('--panel-top', horizontal \? BARRA_SUPERIOR_ALTO/,
+  assert.match(src, /setProperty\('--panel-top', horizontal \?/,
     'Y sin hueco ARRIBA, la barra tapa la primera fila de cada pantalla.');
+  // ⚠️ El alto se MIDE, no se supone: un número fijo se queda corto con el
+  // selector de sede de una cadena, con el tipo de letra del sistema más grande
+  // o en cuanto la barra envuelve en varias filas.
+  assert.match(src, /new ResizeObserver/,
+    'El hueco tiene que seguir al alto REAL de la barra, no a una constante.');
+  assert.match(src, /borderBoxSize/,
+    '`contentRect` deja fuera el relleno: el hueco salía 32 px corto.');
   // ⚠️ Los dos, en la MISMA función: separarlos es como acaban discrepando
   // (menú arriba y hueco a la izquierda a la vez).
   assert.match(src, /function aplicarHuecos\(/);
