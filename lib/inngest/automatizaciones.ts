@@ -2,8 +2,8 @@ import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { fetchAllRows, fetchAllStudioData, dbUpdateAutomationRule, dbUpdateAutomatizacion } from '@/lib/supabase-data';
-import { dbUpsertAutomationLog } from '@/lib/db/supabase-data-admin';
+import { fetchAllRows } from '@/lib/supabase-data';
+import { dbUpsertAutomationLog, fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor, dbUpdateAutomatizacionServidor } from '@/lib/db/supabase-data-admin';
 import { computeAutomationCandidatos, type AutomationCandidato } from '@/lib/engines/automation-engine';
 import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } from '@/lib/engines/marketing-automation-engine';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
@@ -447,7 +447,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     // No se toca `construirSnapshot` (Decision OS): ese YA devuelve un
     // SnapshotEstudio recortado, con ventanas temporales incluidas.
     const data = await step.run('fetch-data', async () => {
-      const d = await fetchAllStudioData(studioId);
+      const d = await fetchAllStudioDataServidor(studioId);
       return {
         automationRules: d.automationRules,
         automationLogs: d.automationLogs,
@@ -525,7 +525,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       await step.run('actualizar-reglas', async () => {
         for (const [ruleId, count] of firedPorRegla) {
           const base = data.automationRules.find(r => r.id === ruleId)?.ejecutadaVeces ?? 0;
-          await dbUpdateAutomationRule(ruleId, studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
+          await dbUpdateAutomationRuleServidor(ruleId, studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
         }
       });
     }
@@ -556,7 +556,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       await step.run('actualizar-automatizaciones', async () => {
         for (const [autoId, count] of firedPorAuto) {
           const base = data.automatizaciones.find(a => a.id === autoId)?.ejecutadas ?? 0;
-          await dbUpdateAutomatizacion(autoId, studioId, { ejecutadas: base + count });
+          await dbUpdateAutomatizacionServidor(autoId, studioId, { ejecutadas: base + count });
         }
       });
     }
