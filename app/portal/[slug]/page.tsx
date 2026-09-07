@@ -7,6 +7,7 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { compararPorCaducidad } from '@/lib/student/bono-cubre';
 import { useAsync } from '@/lib/student/useAsync';
+import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { getBonos, getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/student/datos';
 import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { getGamificacion } from '@/lib/student/gamificacion-datos';
@@ -46,7 +47,11 @@ export default function InicioPage() {
     return { clases, reservas, bonos, instructoras, plazaFija, gamificacion };
   }, [estudio.slug]);
 
-  const { data, estado, reintentar } = useAsync(cargar, () => false);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
+  // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
+  // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
+  // no se pide nada.
+  useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
   const plazaFija = data?.plazaFija ?? null;
   const gamificacion = data?.gamificacion ?? null;
 

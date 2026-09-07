@@ -6,6 +6,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
+import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { getPase, type Pase } from '@/lib/student/reservas-acciones';
 import { fechaLarga, hoyISO } from '@/lib/student/formato';
@@ -50,7 +51,11 @@ export default function DetalleReservaPage() {
     return res && c ? { res, c, i: instructoras.find((x) => x.id === c.instructoraId) } : null;
   }, [estudio.slug, reservaId]);
 
-  const { data, estado, reintentar } = useAsync(cargar, (d) => !d);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d);
+  // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
+  // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
+  // no se pide nada.
+  useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
 
   // «Activa» = confirmada Y todavía por venir. Sin la segunda mitad, una clase
   // confirmada de hace tres meses —que el estudio nunca marcó como asistida—
