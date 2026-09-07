@@ -122,6 +122,23 @@ export default function MisReservasPage() {
     if (!res.ok) {
       if (res.sesionCaducada) { router.push(href('/acceso/login')); return; }
       toast(res.error);
+      // ⚠️ 26ª pasada: aquí no se recargaba nada, y no era cosmético. El camino
+      // de fallo de `aceptarOfertaListaEspera` NO deja las cosas como estaban:
+      // la RPC YA canceló la reserva (lo dice su propio comentario, «PIERDE EL
+      // SITIO — ya la ha cancelado la RPC») y le ha creado una recuperación.
+      // Sin recargar, la socia se queda leyendo «en lista de espera» sobre una
+      // reserva que ya no existe, y sin ver la recuperación que acaba de ganar.
+      //
+      // `refrescar`, no `reintentar`: `reintentar` pasa por `loading`, y la
+      // lista está gateada a `estado !== 'loading'`, así que desmontaría la
+      // pantalla entera bajo un esqueleto —y taparía con un `ErrorState` el
+      // toast que acaba de explicar la recuperación— justo en el momento en
+      // que la socia necesita leerlo. `refrescar` sustituye los datos si va
+      // bien y conserva los que había si falla, que es para lo que existe.
+      //
+      // Sin red no se pide nada: `aceptarOfertaEspera` sale antes de tocar el
+      // servidor, así que ahí no ha cambiado nada que recargar.
+      if (online) void refrescar();
       return;
     }
     toast(res.confirmada

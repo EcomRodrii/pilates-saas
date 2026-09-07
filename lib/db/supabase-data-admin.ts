@@ -2259,14 +2259,45 @@ export async function reservarPlazaTrasPagoPublico(params: {
         || error.message.includes('SPOT_NO_DISPONIBLE')) {
       return { ok: false, motivo: 'spot-ocupado', detalle: error.message };
     }
-    // ⚠️ Aquí el dinero YA está cobrado (esto corre desde el webhook de
-    // Stripe). `ESTUDIO_CERRADO` caía en el `motivo: 'error'` de abajo, y ese
-    // motivo NO dispara `emitirReservaPagadaSinPlaza`: la socia pagaba, se
-    // quedaba sin plaza y el mostrador no se enteraba de nada. Se trata como
-    // `sesion-invalida`, igual que la clase completa, que es exactamente la
-    // misma situación de negocio: cobrado y sin poder entregar.
-    if (error.message.includes('ESTUDIO_CERRADO')) {
-      return { ok: false, motivo: 'sesion-invalida', detalle: 'el estudio está cerrado ese día' };
+    // ⚠️ Aquí el dinero YA está cobrado (esto corre desde el webhook de Stripe
+    // y desde el conciliador). Cualquier rechazo es «cobrado y sin poder
+    // entregar», y hay que nombrarlo para que el mostrador pueda llamar hoy a
+    // la socia.
+    //
+    // Corrección de la 26ª pasada: la versión anterior de este comentario
+    // afirmaba que `motivo: 'error'` NO dispara `emitirReservaPagadaSinPlaza`.
+    // Es FALSO — los dos llamantes hacen `if (!r.ok)` sin mirar el motivo
+    // (app/api/stripe/webhook/route.ts y lib/inngest/conciliar-cobros.ts), así
+    // que el aviso al mostrador sí salía. Lo que se perdía era el DIAGNÓSTICO:
+    // el aviso y el Sentry llevaban el código crudo de la RPC.
+    //
+    // Los de abajo son REGLAS DE NEGOCIO alcanzables desde el widget público
+    // (`CONFLICTO_HORARIO`, con solo tener otra reserva a la misma hora) y
+    // estaban cayendo en el comodín: copy interno para quien atiende, y un
+    // evento de Sentry de nivel `error` por cada intento — justo el ruido que
+    // la escalera existe para evitar.
+    //
+    // La lista se contrastó código a código con los `raise exception` de la
+    // `reservar_plaza` VIVA en producción (`select prosrc from pg_proc`), no de
+    // memoria. Los dos que quedan sin brazo son inalcanzables DESDE AQUÍ y está
+    // comprobado por qué: `RESERVA_BLOQUEADA_IMPAGO` va tras `if not
+    // p_saltar_gate_impago` y este llamante pasa `true` (quien acaba de pagar
+    // no es quien debe), y `NO_AUTORIZADO` exige `current_rol() = 'INSTRUCTOR'`,
+    // imposible con service-role. Solo `SESION_NO_ENCONTRADA` —una carrera con
+    // un borrado— cae al comodín, y ahí «error» es la verdad.
+    const RECHAZOS_DE_NEGOCIO: [string, string][] = [
+      // `LIMITE_SEMANAL_ACTIVIDAD` antes que `LIMITE_SEMANAL`: el primero
+      // contiene al segundo como subcadena y un `includes` los confundiría.
+      ['LIMITE_SEMANAL_ACTIVIDAD', 'ha llegado al máximo semanal de esa actividad'],
+      ['LIMITE_SEMANAL', 'ha llegado al máximo de clases de la semana'],
+      ['ESTUDIO_CERRADO', 'el estudio está cerrado ese día'],
+      ['CONFLICTO_HORARIO', 'ya tiene otra clase a esa hora'],
+      ['NECESITA_AUTORIZACION', 'esa clase necesita autorización del estudio'],
+    ];
+    for (const [codigo, legible] of RECHAZOS_DE_NEGOCIO) {
+      if (error.message.includes(codigo)) {
+        return { ok: false, motivo: 'sesion-invalida', detalle: legible };
+      }
     }
     return { ok: false, motivo: 'error', detalle: error.message };
   }

@@ -7,6 +7,7 @@ import { useEstudio } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useToast } from '@/components/student/ui/Toast';
 import { getNotificaciones, marcarLeidas } from '@/lib/student/perfil-y-avisos';
+import { invalidarNoLeidas } from '@/lib/student/no-leidas';
 import { NotificationItem } from '@/components/student/domain/NotificationItem';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 
@@ -36,7 +37,13 @@ export default function NotificacionesPage() {
     // Solo se dice «marcadas» si el servidor lo confirma: el paquete lo canta
     // sin preguntar, y con la red caída eso es un aviso falso.
     toast(ok ? 'Marcadas como leídas ✓' : 'No hemos podido marcarlas. Inténtalo otra vez.');
-    if (ok) reintentar();
+    if (ok) {
+      reintentar();
+      // El punto de la campana vive en un caché compartido con TTL de 60 s
+      // (`lib/student/no-leidas.ts`), así que sin esto seguía encendido un
+      // minuto después de decirle a la socia que ya estaba todo leído.
+      invalidarNoLeidas(estudio.id);
+    }
   };
 
   return (

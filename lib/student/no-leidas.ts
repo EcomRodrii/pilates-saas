@@ -29,10 +29,43 @@ async function pedir(studioId: string): Promise<number> {
   return cuerpo.unread ?? (cuerpo.items ?? []).filter((i) => i.readAt == null).length;
 }
 
-/** Fuerza una relectura: la usa la pantalla de avisos al marcarlos como leídos. */
-export function invalidarNoLeidas(): void {
+/**
+ * Fuerza una relectura tras marcar avisos como leídos.
+ *
+ * ⚠️ 26ª pasada. Esta función tenía DOS fallos a la vez y ninguno se veía:
+ *
+ *   1. **Cero llamantes en todo el repo**, pese a que su propio comentario
+ *      decía «la usa la pantalla de avisos al marcarlos como leídos». No la
+ *      usaba nadie.
+ *   2. Aunque se llamara, era un placebo: vaciaba `cache` y ya. No avisaba a
+ *      los `oyentes` ni volvía a pedir nada, así que el punto de la campana
+ *      seguía encendido hasta que caducase el TTL de 60 s — con la socia
+ *      mirando una pantalla que le acababa de decir «Marcadas como leídas ✓».
+ *
+ * Ahora vacía, RELEE y reparte el valor nuevo a quien esté suscrito. Es
+ * best-effort a propósito: si la relectura falla, el peor caso es el de antes
+ * (el punto tarda un minuto), nunca un error en pantalla por un adorno.
+ */
+export function invalidarNoLeidas(studioId: string): void {
   cache = null;
-  void 0;
+  // ⚠️ Aquí había un `if (enVuelo) return` que parecía un ahorro y era el fix
+  // inerte: esa petición en vuelo SALIÓ ANTES del PATCH, así que al resolverse
+  // escribiría el conteo VIEJO en el caché y lo repartiría a los oyentes —
+  // volviendo a encender el punto de la campana durante otros 60 s, justo lo
+  // que se venía a arreglar. Se ENCADENA en su lugar: la relectura empieza
+  // cuando la anterior termine, y siempre es posterior al PATCH.
+  const anterior = enVuelo ?? Promise.resolve(0);
+  const mia = anterior
+    .catch(() => 0)
+    .then(() => pedir(studioId))
+    .then((v) => { cache = { studioId, valor: v, cuando: Date.now() }; return v; })
+    .catch(() => 0);
+  enVuelo = mia;
+  void mia.then((v) => {
+    // Solo publica si sigue siendo la última: una relectura posterior manda.
+    if (enVuelo === mia) enVuelo = null;
+    for (const o of oyentes) o(v);
+  });
 }
 
 export function useNoLeidas(studioId: string): number {

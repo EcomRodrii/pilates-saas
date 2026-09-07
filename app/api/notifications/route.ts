@@ -3,6 +3,7 @@ import { verificarUsuarioSupabase, verificarSesionStaff } from '@/lib/auth-serve
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { filtroDeAmbito, ambitoDeCompatibilidad, parsearAmbito, type FiltroAmbito } from '@/lib/notifications/ambito';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Centro de notificaciones (in-app) de CUALQUIER usuario autenticado —
 // propietaria, instructora o socia (mismo endpoint; identidad del JWT). Se valida
@@ -96,9 +97,21 @@ export async function GET(req: NextRequest) {
   if (filtro.rolIgual) q = q.eq('recipient_role', filtro.rolIgual);
   if (filtro.rolDistinto) q = q.neq('recipient_role', filtro.rolDistinto);
 
-  const { data } = await q
+  const { data, error } = await q
     .order('created_at', { ascending: false })
     .limit(60);
+  // ⚠️ 26ª pasada: `error` se descartaba (`const { data } = await q`) y un fallo
+  // de BD se respondía con 200 + `{ items: [], unread: 0 }`, o sea «estás al
+  // día». El cliente ya tiene la defensa escrita —`lib/student/perfil-y-avisos
+  // .ts` dice literalmente «un fallo del servidor NO es "no tienes avisos"»—
+  // pero solo se activa con `!res.ok`, que nunca llegaba. La defensa estaba en
+  // la capa equivocada.
+  //
+  // El vacío honesto de arriba (ámbito no aplicable a esta cuenta) se queda
+  // como está: ahí el 200 vacío es la verdad, no un error tapado.
+  if (error) {
+    return errorInterno('GET /api/notifications', error, 'No hemos podido cargar tus avisos.');
+  }
   const items = (data ?? []).map(mapRow);
   const unread = items.filter(i => i.readAt == null).length;
   return NextResponse.json({ items, unread });
@@ -136,16 +149,25 @@ export async function PATCH(req: NextRequest) {
     return u;
   };
 
+  // ⚠️ 26ª pasada: ninguna de estas cuatro escrituras miraba su `error` y la
+  // respuesta era `{ ok: true }` pasara lo que pasara. La pantalla canta
+  // «Marcadas como leídas ✓» (app/portal/[slug]/notificaciones/page.tsx), así
+  // que un fallo de BD se le enseñaba a la socia como éxito y los avisos
+  // seguían sin leer al recargar. Éxito falso de manual.
+  let fallo: { message: string } | null = null;
   if (action === 'read' && id) {
-    await enAmbito({ read_at: now }).eq('id', id).is('read_at', null);
+    ({ error: fallo } = await enAmbito({ read_at: now }).eq('id', id).is('read_at', null));
   } else if (action === 'unread' && id) {
-    await enAmbito({ read_at: null }).eq('id', id);
+    ({ error: fallo } = await enAmbito({ read_at: null }).eq('id', id));
   } else if (action === 'read-all') {
-    await enAmbito({ read_at: now }).is('read_at', null);
+    ({ error: fallo } = await enAmbito({ read_at: now }).is('read_at', null));
   } else if (action === 'archive' && id) {
-    await enAmbito({ archived_at: now }).eq('id', id);
+    ({ error: fallo } = await enAmbito({ archived_at: now }).eq('id', id));
   } else {
     return NextResponse.json({ error: 'acción no válida' }, { status: 400 });
+  }
+  if (fallo) {
+    return errorInterno(`PATCH /api/notifications (${action})`, fallo, 'No hemos podido guardar el cambio.');
   }
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { catalogoTienda, coberturaProducto, resumenProducto } from './tienda.ts';
+import { catalogoTienda, coberturaProducto, resumenProducto, topesPorActividad } from './tienda.ts';
 
 const PLANES = [
   { id: 'p1', nombre: 'Mensual Ilimitado', tipo: 'MENSUAL', precio: 85, sesiones: null, activo: true },
@@ -123,4 +123,53 @@ test('cobertura: un servicio de cita nunca está acotado a tipos de clase', () =
   const s = catalogoTienda([], [{ id: 's1', nombre: 'Privada', precio: 45, activo: true, autoReservable: true }])[0];
   assert.deepEqual(s.tiposClaseIds, []);
   assert.equal(coberturaProducto(s, NOMBRES), null);
+});
+
+// ── El tope por actividad se le cuenta a la alumna ANTES de pagar ────────────
+//
+// 26ª pasada. `plan_tipos_clase.limite_semanal` (migr 20260907030553) viajaba
+// hasta el cliente y ninguna pantalla lo decía: el escaparate enseñaba solo el
+// techo total, así que «2 de Máquina + 1 de Gyrotonic» se leía como «3 clases
+// por semana». La alumna lo descubría al reservar la tercera de Máquina, con
+// el dinero ya pagado.
+//
+// El primer intento de arreglo se aplicó sobre `lib/portal-tema/datos.ts`, que
+// NO lo importa nadie (resto del kit de tema borrado): un no-op perfecto que
+// pasó typecheck, lint y 3.969 tests. De ahí este test — ata la frase a la
+// función que la pantalla viva (`app/portal/[slug]/comprar`) llama de verdad.
+
+const NOMBRES_TOPES = new Map([['tc-maq', 'Máquina'], ['tc-gyro', 'Gyrotonic']]);
+
+test('el resumen cuenta el tope por actividad, no solo el total', () => {
+  const [cuota] = catalogoTienda([{
+    id: 'p-comb', nombre: 'Cuota combinada', tipo: 'MENSUAL', precio: 90, activo: true,
+    limiteSemanal: 3, tiposClaseIds: ['tc-maq', 'tc-gyro'],
+    limitePorTipo: { 'tc-maq': 2, 'tc-gyro': 1 },
+  }], []);
+  assert.deepEqual(cuota.limitePorTipo, { 'tc-maq': 2, 'tc-gyro': 1 },
+    'el tope por actividad tiene que llegar a la proyección de tienda');
+  const resumen = resumenProducto(cuota, NOMBRES_TOPES);
+  assert.match(resumen, /2 de Máquina y 1 de Gyrotonic por semana/,
+    'sin esto, «máx. 3/semana» se lee como «3 de lo que quieras»');
+});
+
+test('sin los nombres de los tipos no se inventa la frase', () => {
+  const [cuota] = catalogoTienda([{
+    id: 'p-comb', nombre: 'Cuota', tipo: 'MENSUAL', precio: 90, activo: true,
+    limitePorTipo: { 'tc-archivado': 2 },
+  }], []);
+  // Un tipo que el estudio no publica se omite en vez de nombrarlo con su id.
+  assert.equal(topesPorActividad(cuota, NOMBRES_TOPES), null);
+  assert.equal(topesPorActividad(cuota, undefined), null);
+});
+
+test('los topes a null o 0 no se anuncian', () => {
+  // El formulario del panel escribe `null` en los tipos sin tope: «0 de
+  // Gyrotonic» sería peor que no decir nada.
+  const [cuota] = catalogoTienda([{
+    id: 'p', nombre: 'Cuota', tipo: 'MENSUAL', precio: 90, activo: true,
+    limitePorTipo: { 'tc-maq': 2, 'tc-gyro': null },
+  }], []);
+  assert.deepEqual(cuota.limitePorTipo, { 'tc-maq': 2 });
+  assert.equal(topesPorActividad(cuota, NOMBRES_TOPES), '2 de Máquina por semana');
 });

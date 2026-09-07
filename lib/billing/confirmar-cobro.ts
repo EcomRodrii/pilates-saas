@@ -35,6 +35,7 @@ import * as Sentry from '@sentry/nextjs';
 import { aplicarRenovacionServidor } from './renovacion-server.ts';
 import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
 import { hoyEnEstudio } from '../utils.ts';
+import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
 
 export type FuenteConfirmacion = 'webhook' | 'conciliador';
 
@@ -85,12 +86,36 @@ export async function confirmarCobroRecibo(
       checkout_session_id: null,
       conciliado_en: ahoraISO, conciliado_por: fuente,
     })
-    // Acotado al tenant y a los estados realmente cobrables (CHECK de
-    // `recibos`: PENDIENTE, FALLIDO, EN_CURSO). Quedan fuera COBRADO —para no
-    // reescribir fecha_cobro con un evento tardío o duplicado— y DEVUELTO,
-    // para no resucitar un recibo ya devuelto.
+    // Acotado al tenant y a los estados realmente cobrables. Queda fuera
+    // COBRADO, para no reescribir `fecha_cobro` con un evento tardío o
+    // duplicado.
+    //
+    // ⚠️ 26ª pasada, corrección de A-1. Aquí faltaba `DEVUELTO`, y el motivo
+    // escrito («para no resucitar un recibo ya devuelto») solo es cierto para
+    // UNA de las dos cosas que significa ese estado: un reembolso. Un recibo
+    // «devuelto por el banco» es deuda viva, `socio_tiene_impago` bloquea por
+    // él, `dbMarcarCobrado` deja cerrarlo desde el panel y ahora también
+    // /api/stripe/checkout deja pagarlo — si este escritor no lo aceptara, la
+    // socia pagaría de verdad y el UPDATE tocaría 0 filas: sin entrega, sin
+    // factura, sin email, sin renovación y todavía bloqueada. Cobrado y sin
+    // entregar, que es peor que el problema que A-1 venía a arreglar.
+    //
+    // La lista sale de `ESTADOS_COBRABLES` para que no vuelva a haber cuatro
+    // listas distintas, y las dos guardas de reembolso son las mismas columnas
+    // que mira `esReciboCobrable`: un recibo que se le está devolviendo a la
+    // socia NO se resucita por aquí.
+    //
+    // El tercer discriminante de `esReciboCobrable` (`importe_devuelto >=
+    // importe`) NO se replica aquí, y es deliberado: PostgREST no compara dos
+    // columnas entre sí, y hacerlo en TS sería un read-then-update con carrera.
+    // La puerta que decide si se le puede COBRAR es /api/stripe/checkout, que
+    // sí lo comprueba antes de mover un euro; si aun así llegara un pago sobre
+    // una fila así, marcarla cobrada y ENTREGAR es menos malo que quedarse el
+    // dinero sin entregar nada.
     .eq('id', reciboId).eq('studio_id', studioId)
-    .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO'])
+    .in('estado', [...ESTADOS_COBRABLES, 'EN_CURSO'])
+    .is('reembolso_stripe_id', null)
+    .is('reembolso_solicitado_en', null)
     .select('id').maybeSingle();
   if (error) return { ok: false, error: error.message };
 
@@ -208,11 +233,27 @@ export async function consumirCodigoDescuentoSiAplica(
     .from('codigos_descuento_consumos')
     .insert({ recibo_id: reciboId, codigo_id: codigoDescuentoId });
   if (!errMarcarConsumo) {
-    const { error: errConsumo } = await admin.rpc('consumir_codigo_descuento', { p_codigo_id: codigoDescuentoId });
+    const { data: usosTras, error: errConsumo } = await admin.rpc('consumir_codigo_descuento', { p_codigo_id: codigoDescuentoId });
     if (errConsumo) {
       Sentry.captureMessage(`[${fuente}] plan entregado pero el código de descuento no se consumió`, {
         level: 'warning', tags: { area: 'cobros' },
         extra: { codigoDescuentoId, studioId, reciboId, detalle: String(errConsumo) },
+      });
+    } else if (usosTras == null) {
+      // ⚠️ 26ª pasada. `consumir_codigo_descuento` es un `UPDATE … RETURNING
+      // usos` con el tope y el `activo` en su propio WHERE: si el código se
+      // agotó o se desactivó ENTRE la validación y el cobro, no da error —
+      // simplemente no toca ninguna fila y devuelve NULL. Aquí se descartaba
+      // `data`, así que el descuento ya estaba aplicado al importe cobrado y
+      // el contador de usos no lo registraba nunca: el tope se rebasaba en
+      // silencio y no quedaba ni rastro para reconstruirlo después.
+      //
+      // No se revierte el cobro a propósito —el dinero ya se movió y quitarle
+      // el descuento a posteriori sería peor—, pero el estudio tiene que poder
+      // enterarse de que su campaña se pasó del tope.
+      Sentry.captureMessage(`[${fuente}] descuento aplicado sobre un código agotado o desactivado`, {
+        level: 'warning', tags: { area: 'cobros' },
+        extra: { codigoDescuentoId, studioId, reciboId },
       });
     }
   } else if (errMarcarConsumo.code !== '23505') {
