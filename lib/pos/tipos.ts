@@ -111,7 +111,13 @@ export function mensajeErrorVenta(codigo: string): string {
     case 'ARTICULO_INACTIVO':        return `«${a}» está desactivado y no se puede vender.`;
     case 'PLAN_NO_ENCONTRADO':       return 'Ese bono ya no está en el catálogo. Quítalo del ticket.';
     case 'PLAN_INACTIVO':            return `«${a}» está desactivado y no se puede vender.`;
+    // PLAN_SIN_CLIENTA ya no lo lanza la RPC (un bono se puede vender sin
+    // ficha y asignarse después). Se conserva la traducción porque un
+    // despliegue a medias podría seguir devolviéndolo, y un código crudo en
+    // pantalla es peor que una frase de más aquí.
     case 'PLAN_SIN_CLIENTA':         return `«${a}» es un bono: elige a nombre de quién va antes de cobrar.`;
+    case 'VENTA_YA_ASIGNADA':        return 'Esa venta ya está a nombre de una clienta.';
+    case 'CLIENTA_NO_ENCONTRADA':    return 'No encontramos esa clienta.';
     case 'PLAN_CANTIDAD_UNICA':      return 'Cada bono va en su propia línea. Añádelo otra vez para vender dos.';
     case 'CODIGO_NO_CANJEABLE':      return 'Ese código ya no se puede usar (caducado, agotado o desactivado).';
     case 'CODIGO_MINIMO_NO_ALCANZADO': return `Ese código necesita una compra mínima de ${a} €.`;

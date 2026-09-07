@@ -5125,6 +5125,43 @@ export async function fetchCriticalStudioData(studioId?: string) {
 
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo que cambia cuando se cobra en el mostrador.
+//
+// El TPV escribe en SERVIDOR con `service_role` (`/api/pos/*`), así que el
+// panel no se entera de nada: el recibo está en la base, la factura está
+// sellada, y /cobros sigue enseñando lo de antes hasta recargar la página. Un
+// mostrador que cobra y una pantalla de cobros que no lo refleja es la misma
+// clase de mentira que el TPV viejo — solo que en la dirección contraria.
+//
+// Se releen SOLO las cinco tablas que una venta puede tocar, no el estudio
+// entero: `fetchCriticalStudioData` trae socias, sesiones y reservas, y
+// pagarlo después de cada botella de agua tiraría por tierra el arranque que
+// costó bajar de 1452 ms a 69 ms.
+//
+// Mismos `select` y mismos mapeadores que la carga grande, a propósito: dos
+// listas de columnas para la misma tabla divergen a la primera.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function fetchDatosTrasVentaPOS(studioId?: string) {
+  const sid = studioId ?? getCurrentStudioId();
+  const db = getSupabaseAdmin() ?? supabase;
+  const [recibosRes, facturasRes, suscripcionesRes, ventasPOSRes, productosPOSRes] = await Promise.all([
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion').eq('studio_id', sid).range(from, to)),
+    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
+    fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
+    db.from('productos_pos').select('*').eq('studio_id', sid),
+  ]);
+
+  return {
+    recibos: (recibosRes.data ?? []).map(mapRecibo),
+    facturas: (facturasRes.data ?? []).map(mapFactura),
+    suscripciones: (suscripcionesRes.data ?? []).map(mapSuscripcion),
+    ventasPOS: (ventasPOSRes.data ?? []).map(mapVentaPOS),
+    productosPOS: (productosPOSRes.data ?? []).map(mapProductoPOS),
+  };
+}
+
 export async function fetchDeferredStudioData(studioId?: string) {
   const sid = studioId ?? getCurrentStudioId();
   // Mismo motivo que fetchCriticalStudioData: service-role en servidor (crons),

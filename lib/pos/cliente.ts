@@ -2,6 +2,7 @@
 
 import { authHeader } from '@/lib/api-client';
 import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
+import type { Factura } from '@/lib/types';
 import type { PeticionVenta, EstadoPagoPOS, EstadoVentaPOS } from './tipos.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,6 +110,27 @@ export function cerrarCaja(efectivoContado: number, notas?: string) {
   return pedir<{ esperado: number; contado: number; diferencia: number }>('/api/pos/caja', {
     method: 'POST', body: JSON.stringify({ accion: 'cerrar', efectivoContado, notas }),
   });
+}
+
+/**
+ * La factura de una venta ya cobrada, para dársela a quien la pide en el
+ * mostrador. Devuelve `factura: null` con un `motivo` legible cuando todavía
+ * no está sellada — un hueco mudo dejaría a quien atiende sin nada que decir.
+ */
+export function cargarFacturaVenta(ventaId: string) {
+  return pedir<{ factura: Factura | null; receptor: { telefono: string | null; email: string | null } | null; motivo?: string; numeroVenta?: number }>(
+    `/api/pos/factura?ventaId=${encodeURIComponent(ventaId)}`,
+  );
+}
+
+/**
+ * Engancha a una ficha una venta que se cobró sin clienta (clase de prueba,
+ * compra de mostrador). El bono se entrega en ese momento, no antes.
+ */
+export function asignarVentaAClienta(ventaId: string, socioId: string) {
+  return pedir<{ ok: true; numero: number | null; reciboId: string | null; entrega: { bonos: number; creditos: number; facturaSellada: boolean; avisos: string[] } }>(
+    '/api/pos/venta/asignar', { method: 'POST', body: JSON.stringify({ ventaId, socioId }) },
+  );
 }
 
 export function devolverVenta(p: { ventaId: string; lineas?: { lineaId: string; cantidad: number }[]; motivo?: string }) {

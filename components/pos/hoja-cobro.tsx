@@ -12,6 +12,7 @@ import { calcularCambio, sugerenciasEfectivo } from '@/lib/pos/ticket';
 import { confirmarPago, esError, type RespuestaVenta } from '@/lib/pos/cliente';
 import type { EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
+import { BotonFactura } from './boton-factura';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El cobro.
@@ -360,9 +361,14 @@ export function HojaCobro({
                   ))}
                 </ul>
               )}
+              {/* «¿Me das la factura?» se pregunta AQUÍ, con la clienta
+                  delante — no en otra pantalla diez minutos después. */}
+              <div className="w-full mt-3">
+                <BotonFactura ventaId={fase.venta.ventaId} />
+              </div>
               <button
                 onClick={() => onHecho(fase.venta)}
-                className="mt-3 w-full h-14 rounded-xl bg-brand text-brand-foreground text-[16px] font-bold active:scale-[0.99] transition-all"
+                className="mt-2 w-full h-14 rounded-xl bg-brand text-brand-foreground text-[16px] font-bold active:scale-[0.99] transition-all"
               >
                 Nueva venta
               </button>
