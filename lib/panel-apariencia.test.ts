@@ -115,7 +115,10 @@ test('la posición del menú usa el layout que YA existía, no una columna nueva
   assert.ok(!/menu_posicion|menuPosicion/.test(src),
     '`MENU_POSICIONES` existe en layout-runtime desde antes: una columna aparte son dos fuentes para el mismo ajuste.');
   const sidebar = leer('components/layout/sidebar.tsx');
-  assert.match(sidebar, /setMenuPosition\(l\.menuPosition\)/,
+  // Lo que importa es que la LEA del layout, no con qué grafía: la primera
+  // versión de este guardia exigía `setMenuPosition(l.menuPosition)` literal y
+  // se rompió sola al endurecer el valor contra respuestas vacías.
+  assert.match(sidebar, /setMenuPosition\([^)]*l\.menuPosition/,
     'El menú tiene que LEER la posición del layout: declararla y no cablearla fue el problema original.');
 });
 
