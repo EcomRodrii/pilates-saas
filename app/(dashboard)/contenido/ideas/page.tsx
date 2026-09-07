@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { useContenido } from '@/lib/contenido/store';
 import { PageHeader, PlataformaAvatar } from '@/components/contenido/ui';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   PLATAFORMAS, PLATAFORMA_META, ESTADO_IDEA_META,
   type EstadoIdea, type Idea, type Plataforma,
@@ -18,6 +19,8 @@ export default function IdeasPage() {
   const uid = useId();
   const { ideas, crearIdea, actualizarIdea, eliminarIdea } = useContenido();
   const [abrir, setAbrir] = useState(false);
+  // Borrar una idea no se deshace: el resto del panel ya pregunta antes.
+  const [borrando, setBorrando] = useState<string | null>(null);
   const [titulo, setTitulo] = useState('');
   const [notas, setNotas] = useState('');
   const [plataforma, setPlataforma] = useState<Plataforma | ''>('');
@@ -81,7 +84,7 @@ export default function IdeasPage() {
                       <select value={idea.estado} onChange={(e) => actualizarIdea(idea.id, { estado: e.target.value as EstadoIdea })} className="rounded-full border border-border bg-card px-2 h-7 text-[11px] font-semibold text-foreground focus:outline-none">
                         {COLUMNAS.map((c) => <option key={c} value={c}>{ESTADO_IDEA_META[c].label}</option>)}
                       </select>
-                      <button title="Eliminar" onClick={() => eliminarIdea(idea.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button title="Eliminar" onClick={() => setBorrando(idea.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </article>
                 ))}
@@ -129,6 +132,16 @@ export default function IdeasPage() {
           <Lightbulb className="w-4 h-4" /> Empieza capturando tu primera idea de contenido.
         </div>
       )}
+
+      <ConfirmDialog
+        open={borrando !== null}
+        onOpenChange={a => { if (!a) setBorrando(null); }}
+        titulo="¿Eliminar esta idea?"
+        descripcion="Se borra de tu lista y no se puede deshacer."
+        textoConfirmar="Sí, eliminar"
+        destructivo
+        onConfirm={() => { const id = borrando; setBorrando(null); if (id) void eliminarIdea(id); }}
+      />
     </div>
   );
 }

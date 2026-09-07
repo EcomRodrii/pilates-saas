@@ -13,10 +13,13 @@ import {
 } from '@/lib/contenido/types';
 import { Plus, Search, Copy, Trash2, FolderOpen } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export default function BibliotecaPage() {
   const { publicaciones, duplicarPublicacion, eliminarPublicacion } = useContenido();
   const [q, setQ] = useState('');
+  // Borrar una publicación no se deshace: el resto del panel ya pregunta antes.
+  const [borrando, setBorrando] = useState<string | null>(null);
   const [estado, setEstado] = useState<EstadoPublicacion | 'todos'>('todos');
   const [plat, setPlat] = useState<Plataforma | 'todas'>('todas');
   const [dialog, setDialog] = useState<{ pub?: Publicacion | null } | null>(null);
@@ -93,7 +96,7 @@ export default function BibliotecaPage() {
                 </div>
                 <div className="flex items-center gap-0.5">
                   <button title="Duplicar" onClick={() => duplicarPublicacion(p.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"><Copy className="w-3.5 h-3.5" /></button>
-                  <button title="Eliminar" onClick={() => eliminarPublicacion(p.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button title="Eliminar" onClick={() => setBorrando(p.id)} className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
             </article>
@@ -102,6 +105,16 @@ export default function BibliotecaPage() {
       )}
 
       {dialog && <PublicacionDialog open onClose={() => setDialog(null)} publicacion={dialog.pub} />}
+
+      <ConfirmDialog
+        open={borrando !== null}
+        onOpenChange={a => { if (!a) setBorrando(null); }}
+        titulo="¿Eliminar esta publicación?"
+        descripcion="Se borra de tu biblioteca y no se puede deshacer."
+        textoConfirmar="Sí, eliminar"
+        destructivo
+        onConfirm={() => { const id = borrando; setBorrando(null); if (id) void eliminarPublicacion(id); }}
+      />
     </div>
   );
 }
