@@ -8,6 +8,8 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
+import { supabase } from '@/lib/db/supabase';
+import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
 import { portalAuthHeader } from '@/lib/api-client';
 import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { textoLegalCompleto } from '@/lib/legal-textos';
@@ -370,6 +372,7 @@ export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio, redesSociales, dataLoaded, errorPublico, recargarPublico,
+    refrescarAforo,
     addReserva, updateSocio, cancelarReserva, aceptarOfertaEspera, addSocioFromPortal, planMasElegidoId, sustitucionesConfirmadas, textosReservar, bloquesReservar,
     aparienciaWidget,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
@@ -389,13 +392,41 @@ export default function ReservarPage() {
   // listener de foco de studio-context.tsx.
   const recargarPublicoRef = useRef(recargarPublico);
   useEffect(() => { recargarPublicoRef.current = recargarPublico; });
+
+  // Aforo en vivo, también aquí. Esta pantalla la mira alguien SIN cuenta —es
+  // la que el estudio incrusta en su web—, así que el canal se abrió a `anon`
+  // (migr 20260907042134). Por él solo viaja `{sesionId}`: ni quién, ni qué.
+  //
+  // Se distingue qué recargar, y no es un capricho: `recargarPublico` trae el
+  // catálogo COMPLETO del estudio y `refrescarAforo` solo las plazas de las
+  // clases próximas (`/api/public/aforo`, ligero y cacheado en CDN). Casi todos
+  // los avisos son «alguien ha reservado» sobre una clase que ya tenemos
+  // delante: pedir el catálogo entero para eso sería cambiar un sondeo caro por
+  // un aviso caro. Solo si la clase NO nos suena hay algo nuevo que traer.
+  const sesionesRef = useRef(sesiones);
+  useEffect(() => { sesionesRef.current = sesiones; });
+  const { conectado: aforoEnVivo } = useAforoEnVivo(supabase, {
+    studioId: studio?.id,
+    alCambiar: ids => {
+      const conocidas = sesionesRef.current;
+      const hayAlgunaNueva = ids.some(id => !conocidas.some(x => x.id === id));
+      if (hayAlgunaNueva) recargarPublicoRef.current(); else void refrescarAforo();
+    },
+  });
+
+  // ⚠️ El sondeo se queda como RESPALDO, no como solución: solo corre si el
+  // canal no ha llegado a conectar. Esta pantalla se sirve desde la web del
+  // estudio, donde un proxy corporativo puede bloquear WebSockets — sin esto se
+  // quedaría muda para siempre en vez de tardar un minuto. Con el canal vivo no
+  // se pide nada.
   useEffect(() => {
+    if (aforoEnVivo) return;
     const id = setInterval(() => {
       if (document.hidden) return;
       recargarPublicoRef.current();
     }, 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [aforoEnVivo]);
 
   // Fase 7 "Widget Experience Builder": qué pestañas y si se ofrece el
   // Discovery Quiz, configurable por estudio en el bloque `reservarHorario`

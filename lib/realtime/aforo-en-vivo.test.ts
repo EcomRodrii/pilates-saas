@@ -76,8 +76,10 @@ test('el WHEN de sesiones cubre capacidad, cancelación y encuadre', () => {
 
 // ── La cerradura de tenant ───────────────────────────────────────────────────
 test('solo escucha el staff del estudio o una socia activa suya', () => {
-  const sql = migracionViva('aforo_broadcast_lectura');
-  const pol = sql.slice(sql.indexOf('create policy aforo_broadcast_lectura'));
+  // ⚠️ Con el nombre a secas casaría también `aforo_broadcast_lectura_anonima`,
+  // que lo lleva dentro — la misma trampa de prefijo de `LIMITE_SEMANAL`.
+  const sql = migracionViva('create policy aforo_broadcast_lectura on');
+  const pol = sql.slice(sql.indexOf('create policy aforo_broadcast_lectura on'));
   assert.match(pol, /split_part\(realtime\.topic\(\), ':', 2\)/,
     'El estudio va en el 2º segmento del topic, como en el feed.');
   assert.match(pol, /s\.auth_user_id = \(select auth\.uid\(\)\)/, 'vía socia');
@@ -116,6 +118,51 @@ test('el calendario del panel escucha, y quitar a una alumna refresca su vista',
   const bloque = cal.slice(i, i + 1200);
   assert.match(bloque, /refrescarVista\(\)/,
     'Quitar a una alumna tiene que refrescar `datosVista`: es de donde sale el contador.');
+});
+
+// ── El widget que el estudio incrusta en su propia web ──────────────────────
+// Lo mira alguien SIN cuenta, así que el canal se abrió a `anon`. Son dos
+// pantallas distintas y hay que enganchar las dos: `/reservar/{slug}` (Modo A,
+// la página alojada) y `public/widget.js` (Modo B, el script embebido, que se
+// alimenta de `usar-datos-widget`).
+test('los dos modos del widget escuchan el canal', () => {
+  for (const p of ['app/reservar/[slug]/page.tsx', 'lib/widget/usar-datos-widget.ts']) {
+    assert.match(leer(p), /useAforoEnVivo\(/, `${p} no escucha el aforo`);
+  }
+});
+
+test('el sondeo del widget es RESPALDO: no corre con el canal vivo', () => {
+  // Si el `setInterval` no depende del estado de la conexión, se está pagando
+  // dos veces por lo mismo — y el usuario pidió expresamente que la solución no
+  // fuera un sondeo.
+  for (const p of ['app/reservar/[slug]/page.tsx', 'lib/widget/usar-datos-widget.ts']) {
+    const src = leer(p);
+    const i = src.indexOf('setInterval');
+    assert.ok(i > 0, `${p}: no encuentro el tic`);
+    const bloque = src.slice(Math.max(0, i - 400), i);
+    assert.match(bloque, /if \(aforoEnVivo\) return;/,
+      `${p}: el tic corre aunque el canal esté conectado.`);
+  }
+});
+
+test('la policy anónima está acotada a los topics de aforo', () => {
+  const sql = migracionViva('aforo_broadcast_lectura_anonima');
+  const pol = sql.slice(sql.indexOf('create policy aforo_broadcast_lectura_anonima'));
+  assert.match(pol, /to anon/);
+  assert.match(pol, /split_part\(realtime\.topic\(\), ':', 1\) = 'aforo'/,
+    'Sin el prefijo, un anónimo entraría también en el feed y en la mensajería.');
+  assert.match(pol, /for select/,
+    'Solo lectura: publicar sigue siendo cosa del trigger.');
+});
+
+test('el bundle embebible NO monta un SupabaseClient completo', () => {
+  const src = leer('lib/widget/canales-widget.ts');
+  assert.match(src, /RealtimeClient/);
+  // Importar `lib/db/supabase` aquí metería Postgrest y Storage en un script
+  // que se sirve desde la web del estudio: ~110 KB sin usar. Mismo motivo por
+  // el que `supabasePortal` es solo `.auth`.
+  assert.ok(!/from '@\/lib\/db\/supabase'/.test(src),
+    'El cliente completo no puede entrar en el bundle embebible.');
 });
 
 // El aviso llega por la red y agrupado; la acción de uno mismo no debe esperarlo.

@@ -29,6 +29,7 @@
     "@stripe/react-stripe-js": "^6.8.1",
     "@stripe/stripe-js": "^9.13.0",
     "@supabase/auth-js": "^2.110.0",
+    "@supabase/realtime-js": "^2.110.0",
     "@supabase/supabase-js": "^2.110.0",
     "@types/nodemailer": "^8.0.1",
     "aws4fetch": "^1.0.20",
