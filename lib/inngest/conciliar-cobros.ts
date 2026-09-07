@@ -37,6 +37,7 @@ import { confirmarCobroRecibo, reintentarFacturasPendientesDeSellar, consumirCod
 import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
 import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
+import { recibosCobradosSinFactura, type ReciboCobrado } from '../facturas-sin-sellar.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Cuánto atrás se mira. Generoso a propósito: con el barrido cada 5 minutos
@@ -336,6 +337,53 @@ export async function vigilarCadenaVerifactu(admin: SupabaseClient): Promise<num
   return roturas.length;
 }
 
+// Auditoría 26ª pasada, P-3. Mismo patrón que vigilarCadenaVerifactu: una
+// query global (fetchAllRows, sin fan-out por estudio), sin escribir en BD,
+// solo Sentry. NO sella nada ni amplía la ventana de
+// `reintentarFacturasPendientesDeSellar` (72h, a propósito — ver su cabecera
+// en lib/billing/confirmar-cobro.ts: sellar hoy una factura de hace semanas
+// tiene implicación de trimestre fiscal, decisión de una persona). Esto solo
+// cierra el agujero de que esos cobros históricos nunca tuvieron ninguna
+// señal: 32 de 60 recibos COBRADO sin factura, medido en producción, todos
+// de antes de que `entregarPlanComprado` empezara a sellar al entregar.
+//
+// `facturas.recibo_id` es la relación (no hay columna en `recibos` que
+// apunte a la factura), así que la detección es un diff de dos consultas —
+// mismo criterio que `detectarPendientes` en este mismo fichero, que ya
+// compara sets en TS en vez de forzar un JOIN por PostgREST.
+export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): Promise<number> {
+  const { data: cobrados } = await fetchAllRows<{ id: string; studio_id: string; fecha_cobro: string | null }>(
+    '(global)', 'recibos',
+    (from, to) => admin
+      .from('recibos').select('id, studio_id, fecha_cobro').eq('estado', 'COBRADO').range(from, to),
+  );
+  const { data: facturadas } = await fetchAllRows<{ recibo_id: string | null }>(
+    '(global)', 'facturas',
+    (from, to) => admin
+      .from('facturas').select('recibo_id').not('recibo_id', 'is', null).range(from, to),
+  );
+  const idsConFactura = new Set(facturadas.map(f => f.recibo_id as string));
+
+  const sinFactura: ReciboCobrado[] = recibosCobradosSinFactura(
+    cobrados.map(r => ({ id: r.id, studioId: r.studio_id, fechaCobro: r.fecha_cobro })),
+    idsConFactura,
+  );
+  if (sinFactura.length > 0) {
+    const porEstudio: Record<string, number> = {};
+    for (const r of sinFactura) porEstudio[r.studioId] = (porEstudio[r.studioId] ?? 0) + 1;
+    Sentry.captureMessage('[conciliador] recibos COBRADO sin ninguna factura', {
+      level: 'warning',
+      tags: { area: 'facturacion', tipo: 'cobrado-sin-factura' },
+      extra: {
+        total: sinFactura.length,
+        porEstudio,
+        queHacer: 'Sellar factura retroactiva es decisión humana (implicación de trimestre fiscal) — revisar caso a caso con el asesor fiscal, nunca desde un cron.',
+      },
+    });
+  }
+  return sinFactura.length;
+}
+
 export const conciliarCobrosVigilancia = inngest.createFunction(
   // Una vez al día: no es un barrido de recuperación, es una red por debajo de
   // la red. Un tic diario no mueve la aguja del consumo (O-1) y cierra el
@@ -386,7 +434,16 @@ export const conciliarCobrosVigilancia = inngest.createFunction(
       return { rotas: await vigilarCadenaVerifactu(admin) };
     });
 
-    return { cobros, facturacion };
+    // Auditoría 26ª pasada, P-3. Paso aparte por el mismo motivo que el de
+    // arriba: no depende de Stripe, y un fallo aquí no debe tumbar los otros
+    // dos pasos del mismo cron ni al revés.
+    const facturasSinSellar = await step.run('vigilar-facturas-sin-sellar', async () => {
+      const admin = getSupabaseAdmin();
+      if (!admin) return { skipped: 'sin service-role' };
+      return { sinFactura: await vigilarRecibosCobradosSinFactura(admin) };
+    });
+
+    return { cobros, facturacion, facturasSinSellar };
   },
 );
 
