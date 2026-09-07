@@ -1,37 +1,782 @@
 {
   "profiles": [
-    { "file": "reservar-el-servidor-dice-no.spec.ts", "duration": 45000, "seconds": 45 },
-    { "file": "acceso-sin-callejones.spec.ts", "duration": 38000, "seconds": 38 },
-    { "file": "crear-estudio-y-socia.spec.ts", "duration": 52000, "seconds": 52 },
-    { "file": "socia-lista-espera.spec.ts", "duration": 35000, "seconds": 35 },
-    { "file": "reservar-pago-completo.spec.ts", "duration": 58000, "seconds": 58 },
-    { "file": "alta-panel.spec.ts", "duration": 42000, "seconds": 42 },
-    { "file": "landing.spec.ts", "duration": 28000, "seconds": 28 },
-    { "file": "panel-dashboard.spec.ts", "duration": 31000, "seconds": 31 },
-    { "file": "instructora-calendario.spec.ts", "duration": 29000, "seconds": 29 },
-    { "file": "reservar-lista-espera.spec.ts", "duration": 41000, "seconds": 41 },
-    { "file": "contactas-export.spec.ts", "duration": 36000, "seconds": 36 },
-    { "file": "portal-homepage.spec.ts", "duration": 24000, "seconds": 24 },
-    { "file": "portal-reserva.spec.ts", "duration": 47000, "seconds": 47 },
-    { "file": "widget-public.spec.ts", "duration": 33000, "seconds": 33 },
-    { "file": "checkout-stripe.spec.ts", "duration": 51000, "seconds": 51 },
-    { "file": "panel-equipo.spec.ts", "duration": 27000, "seconds": 27 },
-    { "file": "panel-suscripciones.spec.ts", "duration": 44000, "seconds": 44 },
-    { "file": "panel-clientes.spec.ts", "duration": 39000, "seconds": 39 },
-    { "file": "portal-qr.spec.ts", "duration": 22000, "seconds": 22 },
-    { "file": "instructora-tarifas.spec.ts", "duration": 25000, "seconds": 25 },
-    { "file": "reservar-sin-login.spec.ts", "duration": 48000, "seconds": 48 },
-    { "file": "panel-calendario.spec.ts", "duration": 55000, "seconds": 55 },
-    { "file": "acceso-google.spec.ts", "duration": 26000, "seconds": 26 },
-    { "file": "centro-control.spec.ts", "duration": 54000, "seconds": 54 },
-    { "file": "admin-audit.spec.ts", "duration": 19000, "seconds": 19 },
-    { "file": "portal-historial.spec.ts", "duration": 21000, "seconds": 21 },
-    { "file": "sustituciones-flow.spec.ts", "duration": 50000, "seconds": 50 },
-    { "file": "panel-facturas.spec.ts", "duration": 30000, "seconds": 30 },
-    { "file": "reservar-modo-b.spec.ts", "duration": 53000, "seconds": 53 },
-    { "file": "widget-checkout.spec.ts", "duration": 46000, "seconds": 46 }
+    {
+      "file": "reservar-acoplar-widget.spec.ts",
+      "duration": 419901,
+      "seconds": 420
+    },
+    {
+      "file": "widget-config-params.spec.ts",
+      "duration": 343080,
+      "seconds": 343
+    },
+    {
+      "file": "reservar-pago-confirmacion.spec.ts",
+      "duration": 318377,
+      "seconds": 318
+    },
+    {
+      "file": "reservar-orden-secciones.spec.ts",
+      "duration": 296937,
+      "seconds": 297
+    },
+    {
+      "file": "reservar-pagar-sin-cuenta.spec.ts",
+      "duration": 173691,
+      "seconds": 174
+    },
+    {
+      "file": "reservar-el-servidor-dice-no.spec.ts",
+      "duration": 148078,
+      "seconds": 148
+    },
+    {
+      "file": "reservar-boton-atras.spec.ts",
+      "duration": 136192,
+      "seconds": 136
+    },
+    {
+      "file": "reservar-si-falla-lo-dice.spec.ts",
+      "duration": 117821,
+      "seconds": 118
+    },
+    {
+      "file": "booking.spec.ts",
+      "duration": 114247,
+      "seconds": 114
+    },
+    {
+      "file": "reservar-modal-movil.spec.ts",
+      "duration": 93161,
+      "seconds": 93
+    },
+    {
+      "file": "reservar-footer.spec.ts",
+      "duration": 89799,
+      "seconds": 90
+    },
+    {
+      "file": "student-reserva.spec.ts",
+      "duration": 79542,
+      "seconds": 80
+    },
+    {
+      "file": "reservar-oscuro-todas-las-vistas.spec.ts",
+      "duration": 79504,
+      "seconds": 80
+    },
+    {
+      "file": "reservar-indexable.spec.ts",
+      "duration": 74070,
+      "seconds": 74
+    },
+    {
+      "file": "reservar-citas-movil.spec.ts",
+      "duration": 69183,
+      "seconds": 69
+    },
+    {
+      "file": "student-gamificacion.spec.ts",
+      "duration": 64664,
+      "seconds": 65
+    },
+    {
+      "file": "widget-tipografia-llega-a-todo.spec.ts",
+      "duration": 63168,
+      "seconds": 63
+    },
+    {
+      "file": "reservar-p6-callejones-y-doble-alta.spec.ts",
+      "duration": 61004,
+      "seconds": 61
+    },
+    {
+      "file": "reservar-no-promete-de-mas.spec.ts",
+      "duration": 60592,
+      "seconds": 61
+    },
+    {
+      "file": "reservar-ventana-por-tipo.spec.ts",
+      "duration": 60350,
+      "seconds": 60
+    },
+    {
+      "file": "alta-estudio.spec.ts",
+      "duration": 53972,
+      "seconds": 54
+    },
+    {
+      "file": "student-auditoria.spec.ts",
+      "duration": 52405,
+      "seconds": 52
+    },
+    {
+      "file": "student-push.spec.ts",
+      "duration": 47799,
+      "seconds": 48
+    },
+    {
+      "file": "caja-no-miente.spec.ts",
+      "duration": 47523,
+      "seconds": 48
+    },
+    {
+      "file": "reservar-embed-overlays-visibles.spec.ts",
+      "duration": 47217,
+      "seconds": 47
+    },
+    {
+      "file": "reservar-que-me-cuesta.spec.ts",
+      "duration": 47177,
+      "seconds": 47
+    },
+    {
+      "file": "reservar-escritorio-no-es-movil-estirado.spec.ts",
+      "duration": 47017,
+      "seconds": 47
+    },
+    {
+      "file": "student-plaza-fija.spec.ts",
+      "duration": 41959,
+      "seconds": 42
+    },
+    {
+      "file": "student-honestidad.spec.ts",
+      "duration": 40632,
+      "seconds": 41
+    },
+    {
+      "file": "student-favoritos.spec.ts",
+      "duration": 40327,
+      "seconds": 40
+    },
+    {
+      "file": "panel-personalizar.spec.ts",
+      "duration": 36057,
+      "seconds": 36
+    },
+    {
+      "file": "network-marketplace-publico.spec.ts",
+      "duration": 34172,
+      "seconds": 34
+    },
+    {
+      "file": "student-valorar.spec.ts",
+      "duration": 33503,
+      "seconds": 34
+    },
+    {
+      "file": "calendario-momentos.spec.ts",
+      "duration": 33262,
+      "seconds": 33
+    },
+    {
+      "file": "student-comunidad.spec.ts",
+      "duration": 32222,
+      "seconds": 32
+    },
+    {
+      "file": "reservar-negocio-local.spec.ts",
+      "duration": 31334,
+      "seconds": 31
+    },
+    {
+      "file": "reservar-cancelar-reserva.spec.ts",
+      "duration": 30169,
+      "seconds": 30
+    },
+    {
+      "file": "reservar-checkout-error-legible.spec.ts",
+      "duration": 29890,
+      "seconds": 30
+    },
+    {
+      "file": "paquetes-formulario.spec.ts",
+      "duration": 28827,
+      "seconds": 29
+    },
+    {
+      "file": "popup-empezar-gratis.spec.ts",
+      "duration": 28585,
+      "seconds": 29
+    },
+    {
+      "file": "widget-builder.spec.ts",
+      "duration": 24629,
+      "seconds": 25
+    },
+    {
+      "file": "student-logo-clase.spec.ts",
+      "duration": 24174,
+      "seconds": 24
+    },
+    {
+      "file": "duracion-dos-digitos.spec.ts",
+      "duration": 22993,
+      "seconds": 23
+    },
+    {
+      "file": "prueba-gratuita-panel.spec.ts",
+      "duration": 20463,
+      "seconds": 20
+    },
+    {
+      "file": "onboarding-valor.spec.ts",
+      "duration": 19491,
+      "seconds": 19
+    },
+    {
+      "file": "reservar-selector-fecha-movil.spec.ts",
+      "duration": 18219,
+      "seconds": 18
+    },
+    {
+      "file": "arrastrar-clase.spec.ts",
+      "duration": 17937,
+      "seconds": 18
+    },
+    {
+      "file": "intro-logo.spec.ts",
+      "duration": 17748,
+      "seconds": 18
+    },
+    {
+      "file": "planes-por-tipo-de-clase.spec.ts",
+      "duration": 17486,
+      "seconds": 17
+    },
+    {
+      "file": "buscador-global-secciones.spec.ts",
+      "duration": 16784,
+      "seconds": 17
+    },
+    {
+      "file": "student-instructora.spec.ts",
+      "duration": 16708,
+      "seconds": 17
+    },
+    {
+      "file": "guardar-salas.spec.ts",
+      "duration": 16609,
+      "seconds": 17
+    },
+    {
+      "file": "bajar-capacidad-de-sala.spec.ts",
+      "duration": 16382,
+      "seconds": 16
+    },
+    {
+      "file": "alta-otp.spec.ts",
+      "duration": 16000,
+      "seconds": 16
+    },
+    {
+      "file": "interno-prospeccion.spec.ts",
+      "duration": 14352,
+      "seconds": 14
+    },
+    {
+      "file": "cobros-masivo.spec.ts",
+      "duration": 14311,
+      "seconds": 14
+    },
+    {
+      "file": "migracion-mapeo-de-planes.spec.ts",
+      "duration": 14211,
+      "seconds": 14
+    },
+    {
+      "file": "calendario-tres-recortes.spec.ts",
+      "duration": 13871,
+      "seconds": 14
+    },
+    {
+      "file": "calendario-reasignar-varias.spec.ts",
+      "duration": 13714,
+      "seconds": 14
+    },
+    {
+      "file": "apagar-un-correo.spec.ts",
+      "duration": 12484,
+      "seconds": 12
+    },
+    {
+      "file": "dashboard-action-center.spec.ts",
+      "duration": 11429,
+      "seconds": 11
+    },
+    {
+      "file": "cobros-recibo-fallido.spec.ts",
+      "duration": 11412,
+      "seconds": 11
+    },
+    {
+      "file": "automatizaciones-consentimiento.spec.ts",
+      "duration": 11351,
+      "seconds": 11
+    },
+    {
+      "file": "buscador-rapido.spec.ts",
+      "duration": 11209,
+      "seconds": 11
+    },
+    {
+      "file": "devoluciones-card.spec.ts",
+      "duration": 10789,
+      "seconds": 11
+    },
+    {
+      "file": "direccion-del-portal.spec.ts",
+      "duration": 10401,
+      "seconds": 10
+    },
+    {
+      "file": "cancelacion-por-tipo-de-clase.spec.ts",
+      "duration": 10179,
+      "seconds": 10
+    },
+    {
+      "file": "lista-espera-mostrador.spec.ts",
+      "duration": 10125,
+      "seconds": 10
+    },
+    {
+      "file": "acceso-sin-callejones.spec.ts",
+      "duration": 10106,
+      "seconds": 10
+    },
+    {
+      "file": "sustituciones-feedback.spec.ts",
+      "duration": 10024,
+      "seconds": 10
+    },
+    {
+      "file": "cabecera-no-abre-un-hueco-en-movil.spec.ts",
+      "duration": 9690,
+      "seconds": 10
+    },
+    {
+      "file": "alta-clienta-guardada.spec.ts",
+      "duration": 9673,
+      "seconds": 10
+    },
+    {
+      "file": "onboarding-datos.spec.ts",
+      "duration": 9460,
+      "seconds": 9
+    },
+    {
+      "file": "horario-del-estudio.spec.ts",
+      "duration": 9408,
+      "seconds": 9
+    },
+    {
+      "file": "cierre-del-centro.spec.ts",
+      "duration": 9363,
+      "seconds": 9
+    },
+    {
+      "file": "citas-guardadas.spec.ts",
+      "duration": 9173,
+      "seconds": 9
+    },
+    {
+      "file": "student-aislamiento.spec.ts",
+      "duration": 9053,
+      "seconds": 9
+    },
+    {
+      "file": "network-software-separacion.spec.ts",
+      "duration": 8835,
+      "seconds": 9
+    },
+    {
+      "file": "lista-de-sedes.spec.ts",
+      "duration": 8794,
+      "seconds": 9
+    },
+    {
+      "file": "plantillas-preview-y-prueba.spec.ts",
+      "duration": 8653,
+      "seconds": 9
+    },
+    {
+      "file": "recuperar-contrasena.spec.ts",
+      "duration": 8397,
+      "seconds": 8
+    },
+    {
+      "file": "pedir-disponibilidad-masiva.spec.ts",
+      "duration": 8321,
+      "seconds": 8
+    },
+    {
+      "file": "instructora-ausencia.spec.ts",
+      "duration": 8176,
+      "seconds": 8
+    },
+    {
+      "file": "menu-badge-nuevo.spec.ts",
+      "duration": 8063,
+      "seconds": 8
+    },
+    {
+      "file": "no-puedo-asistir.spec.ts",
+      "duration": 7981,
+      "seconds": 8
+    },
+    {
+      "file": "student-password.spec.ts",
+      "duration": 7810,
+      "seconds": 8
+    },
+    {
+      "file": "whatsapp-embedded-signup.spec.ts",
+      "duration": 7803,
+      "seconds": 8
+    },
+    {
+      "file": "student-descuento.spec.ts",
+      "duration": 7792,
+      "seconds": 8
+    },
+    {
+      "file": "interno-equipo.spec.ts",
+      "duration": 7742,
+      "seconds": 8
+    },
+    {
+      "file": "numeros-coherentes.spec.ts",
+      "duration": 6970,
+      "seconds": 7
+    },
+    {
+      "file": "dashboard-embudo-widget-card.spec.ts",
+      "duration": 6899,
+      "seconds": 7
+    },
+    {
+      "file": "instructora-no-ve-la-caja.spec.ts",
+      "duration": 6845,
+      "seconds": 7
+    },
+    {
+      "file": "equipo-invitacion.spec.ts",
+      "duration": 6766,
+      "seconds": 7
+    },
+    {
+      "file": "aforo-hereda-la-sala.spec.ts",
+      "duration": 6710,
+      "seconds": 7
+    },
+    {
+      "file": "integracion-caida-se-ve.spec.ts",
+      "duration": 6683,
+      "seconds": 7
+    },
+    {
+      "file": "vocabulario-clientas.spec.ts",
+      "duration": 6672,
+      "seconds": 7
+    },
+    {
+      "file": "instructora-disponibilidad.spec.ts",
+      "duration": 6527,
+      "seconds": 7
+    },
+    {
+      "file": "caja-captura.spec.ts",
+      "duration": 6388,
+      "seconds": 6
+    },
+    {
+      "file": "canal-web-estudio.spec.ts",
+      "duration": 6361,
+      "seconds": 6
+    },
+    {
+      "file": "duplicar-clase.spec.ts",
+      "duration": 6227,
+      "seconds": 6
+    },
+    {
+      "file": "interno-crecimiento.spec.ts",
+      "duration": 5836,
+      "seconds": 6
+    },
+    {
+      "file": "carteles-honestos.spec.ts",
+      "duration": 5732,
+      "seconds": 6
+    },
+    {
+      "file": "plaza-fija-editar.spec.ts",
+      "duration": 5694,
+      "seconds": 6
+    },
+    {
+      "file": "cancelar-suscripcion-hace-algo.spec.ts",
+      "duration": 5668,
+      "seconds": 6
+    },
+    {
+      "file": "student-cabos.spec.ts",
+      "duration": 5666,
+      "seconds": 6
+    },
+    {
+      "file": "clase-logo-banner-se-encuentran.spec.ts",
+      "duration": 5438,
+      "seconds": 5
+    },
+    {
+      "file": "cobro-semaforo-invertido.spec.ts",
+      "duration": 5381,
+      "seconds": 5
+    },
+    {
+      "file": "mandato-sepa-se-ve-al-entrar.spec.ts",
+      "duration": 5291,
+      "seconds": 5
+    },
+    {
+      "file": "review-boost-modal.spec.ts",
+      "duration": 5265,
+      "seconds": 5
+    },
+    {
+      "file": "instructora-crea-su-clase.spec.ts",
+      "duration": 5263,
+      "seconds": 5
+    },
+    {
+      "file": "credenciales-no-se-pierden.spec.ts",
+      "duration": 5206,
+      "seconds": 5
+    },
+    {
+      "file": "recargar-datos-honesto.spec.ts",
+      "duration": 5203,
+      "seconds": 5
+    },
+    {
+      "file": "interno-movil.spec.ts",
+      "duration": 5180,
+      "seconds": 5
+    },
+    {
+      "file": "dashboard-ocupacion-domingo.spec.ts",
+      "duration": 5050,
+      "seconds": 5
+    },
+    {
+      "file": "centro-control-especialistas.spec.ts",
+      "duration": 5030,
+      "seconds": 5
+    },
+    {
+      "file": "impago-no-deja-reservar.spec.ts",
+      "duration": 4971,
+      "seconds": 5
+    },
+    {
+      "file": "soporte-no-miente-al-enviar.spec.ts",
+      "duration": 4915,
+      "seconds": 5
+    },
+    {
+      "file": "averias-se-ven-al-entrar.spec.ts",
+      "duration": 4900,
+      "seconds": 5
+    },
+    {
+      "file": "recompensas-y-devoluciones.spec.ts",
+      "duration": 4775,
+      "seconds": 5
+    },
+    {
+      "file": "network-buscador-panel.spec.ts",
+      "duration": 4633,
+      "seconds": 5
+    },
+    {
+      "file": "student-invitar.spec.ts",
+      "duration": 4627,
+      "seconds": 5
+    },
+    {
+      "file": "crear-clase-otra-semana.spec.ts",
+      "duration": 4545,
+      "seconds": 5
+    },
+    {
+      "file": "interno-facturacion.spec.ts",
+      "duration": 4530,
+      "seconds": 5
+    },
+    {
+      "file": "textos-legales.spec.ts",
+      "duration": 4456,
+      "seconds": 4
+    },
+    {
+      "file": "excepciones-ficha-arrancan-encendidas.spec.ts",
+      "duration": 4366,
+      "seconds": 4
+    },
+    {
+      "file": "nota-progreso-ficha-clinica.spec.ts",
+      "duration": 4314,
+      "seconds": 4
+    },
+    {
+      "file": "clientas-tarjetas-vs-tabla.spec.ts",
+      "duration": 3933,
+      "seconds": 4
+    },
+    {
+      "file": "vista-mes.spec.ts",
+      "duration": 3914,
+      "seconds": 4
+    },
+    {
+      "file": "sede-activa.spec.ts",
+      "duration": 3775,
+      "seconds": 4
+    },
+    {
+      "file": "invitacion-alta.spec.ts",
+      "duration": 3516,
+      "seconds": 4
+    },
+    {
+      "file": "captcha-inerte-sin-clave.spec.ts",
+      "duration": 3515,
+      "seconds": 4
+    },
+    {
+      "file": "firma-contrato.spec.ts",
+      "duration": 3354,
+      "seconds": 3
+    },
+    {
+      "file": "student-email.spec.ts",
+      "duration": 3206,
+      "seconds": 3
+    },
+    {
+      "file": "automatizaciones-esperando-muerto.spec.ts",
+      "duration": 3086,
+      "seconds": 3
+    },
+    {
+      "file": "stock-no-se-teclea.spec.ts",
+      "duration": 3085,
+      "seconds": 3
+    },
+    {
+      "file": "reservas-defaults-protectores.spec.ts",
+      "duration": 2936,
+      "seconds": 3
+    },
+    {
+      "file": "canjes-pendientes.spec.ts",
+      "duration": 2866,
+      "seconds": 3
+    },
+    {
+      "file": "suscripcion-factura.spec.ts",
+      "duration": 2614,
+      "seconds": 3
+    },
+    {
+      "file": "sustituciones-probabilidad.spec.ts",
+      "duration": 2547,
+      "seconds": 3
+    },
+    {
+      "file": "student-foto-perfil.spec.ts",
+      "duration": 2502,
+      "seconds": 3
+    },
+    {
+      "file": "crear-tipo-de-clase-rapido.spec.ts",
+      "duration": 2425,
+      "seconds": 2
+    },
+    {
+      "file": "recepcion-no-instructora.spec.ts",
+      "duration": 2214,
+      "seconds": 2
+    },
+    {
+      "file": "sustituciones-esperando-respuesta.spec.ts",
+      "duration": 1743,
+      "seconds": 2
+    },
+    {
+      "file": "preparar-clase-ia.spec.ts",
+      "duration": 1634,
+      "seconds": 2
+    },
+    {
+      "file": "pestanas-caben-en-movil.spec.ts",
+      "duration": 1588,
+      "seconds": 2
+    },
+    {
+      "file": "network-solicitudes-instructora.spec.ts",
+      "duration": 1208,
+      "seconds": 1
+    },
+    {
+      "file": "sin-jerga-tecnica.spec.ts",
+      "duration": 1034,
+      "seconds": 1
+    },
+    {
+      "file": "student-acceso.spec.ts",
+      "duration": 701,
+      "seconds": 1
+    },
+    {
+      "file": "apariencia-inicio-portal.spec.ts",
+      "duration": 0,
+      "seconds": 0
+    },
+    {
+      "file": "apariencia-reservar-orden.spec.ts",
+      "duration": 0,
+      "seconds": 0
+    },
+    {
+      "file": "equipo-server-actions.spec.ts",
+      "duration": 0,
+      "seconds": 0
+    },
+    {
+      "file": "stripe-modo-cruzado.spec.ts",
+      "duration": 0,
+      "seconds": 0
+    },
+    {
+      "file": "apariencia-autoguardado-fallo.spec.ts",
+      "duration": 0,
+      "seconds": 0
+    },
+    {
+      "file": "apariencia-boton-tarjeta.spec.ts",
+      "duration": 0,
+      "seconds": 0
+    },
+    {
+      "file": "apariencia-canales.spec.ts",
+      "duration": 0,
+      "seconds": 0
+    }
   ],
-  "totalTime": 1142000,
-  "timestamp": "2026-09-05T00:00:00Z",
-  "note": "Stub profile for demonstration. Run `node scripts/profile-e2e.js` with real tests for accurate measurements."
+  "totalTime": 4529567,
+  "timestamp": "2026-09-07T19:48:56.175Z",
+  "origen": "medido en CI, 12 shards"
 }
