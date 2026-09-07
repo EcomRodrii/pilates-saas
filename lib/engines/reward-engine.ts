@@ -10,6 +10,7 @@ export const REWARD_TRIGGERS: RewardTriggerDef[] = [
   { trigger: 'SEMANA_COMPLETA', nombre: 'Completar una semana', descripcion: 'Asiste a todas las clases que tenía reservadas en la semana.' },
   { trigger: 'PRIMERA_RESERVA', nombre: 'Primera reserva', descripcion: 'La socia reserva una clase por primera vez.' },
   { trigger: 'OBJETIVO_MENSUAL', nombre: 'Cumplir objetivo mensual', descripcion: 'Alcanza el objetivo de clases que se marcó para el mes.' },
+  { trigger: 'COMPRA', nombre: 'Comprar en el estudio', descripcion: 'Compra algo en la caja: producto, bono o clase suelta. Los créditos van por lo que gasta.' },
 ];
 
 export function reglaActivaPara(rules: RewardRule[], trigger: RewardTrigger): RewardRule | null {

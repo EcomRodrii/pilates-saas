@@ -155,6 +155,38 @@ export function apuntarCobroEnCaja(reciboId: string) {
   );
 }
 
+export interface MovimientoStock {
+  id: string; fecha: string;
+  tipo: 'ENTRADA' | 'MERMA' | 'AJUSTE' | 'VENTA' | 'DEVOLUCION';
+  /** Con signo: +12 entraron, −3 se perdieron. */
+  cantidad: number;
+  stockResultante: number | null;
+  detalle: string | null;
+  quien: string | null;
+}
+
+export function cargarStock(productoId: string) {
+  return pedir<{
+    producto: { id: string; nombre: string; stock: number | null; stockMinimo: number };
+    movimientos: MovimientoStock[];
+  }>(`/api/pos/stock?productoId=${encodeURIComponent(productoId)}`);
+}
+
+/**
+ * ⚠️ `cantidad` significa dos cosas según el tipo, y la pantalla lo pregunta
+ * en consecuencia: unidades que entran o se pierden en ENTRADA/MERMA, y
+ * cuántas HAY de verdad en AJUSTE. La diferencia la calcula el servidor con la
+ * fila bloqueada, para que no se cuele una venta entre contar y guardar.
+ */
+export function moverStock(p: {
+  productoId: string; tipo: 'ENTRADA' | 'MERMA' | 'AJUSTE'; cantidad: number;
+  motivo?: string; costeUnitario?: number;
+}) {
+  return pedir<{ ok: true; stockAnterior: number | null; stock: number | null; delta: number }>(
+    '/api/pos/stock', { method: 'POST', body: JSON.stringify(p) },
+  );
+}
+
 /** ¿La respuesta trae un error? Estrecha el tipo para no repetir el `in` por todas partes. */
 export function esError<T extends object>(r: T | { error: string }): r is { error: string } {
   return 'error' in r && typeof (r as { error: unknown }).error === 'string';

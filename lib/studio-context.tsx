@@ -546,7 +546,7 @@ interface StudioContextValue {
   otorgarCreditos: (socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) => void;
   saldoCreditos: (socioId: string) => number;
   rachaSocio: (socioId: string) => RachaInfo;
-  addRewardRule: (fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual'> & { topeMensual?: number | null }) => Promise<ResultadoEscritura>;
+  addRewardRule: (fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual' | 'unidadEuros'> & { topeMensual?: number | null; unidadEuros?: number | null }) => Promise<ResultadoEscritura>;
   updateRewardRule: (id: string, changes: Partial<Omit<RewardRule, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   addRewardCatalogItem: (fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>) => Promise<ResultadoEscritura>;
   updateRewardCatalogItem: (id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
@@ -4503,8 +4503,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return calcularRacha(reservas.filter(r => r.socioId === socioId), sesiones, new Date());
   }
 
-  async function addRewardRule(fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual'> & { topeMensual?: number | null }): Promise<ResultadoEscritura> {
-    const nueva: RewardRule = { topeMensual: null, ...fields, id: `rwr-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+  async function addRewardRule(fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual' | 'unidadEuros'> & { topeMensual?: number | null; unidadEuros?: number | null }): Promise<ResultadoEscritura> {
+    // `unidadEuros` opcional, como `topeMensual`: solo COMPRA lo usa, y los
+    // otros cinco disparadores no tienen por qué nombrarlo.
+    const nueva: RewardRule = { topeMensual: null, unidadEuros: null, ...fields, id: `rwr-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
     const res = await dbInsertRewardRule(nueva);
     if (!res.ok) return res;
     setRewardRules(prev => [...prev, nueva]);

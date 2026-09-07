@@ -387,3 +387,112 @@ pago propio, no una variante de este.
 panel dentro del pie del ticket, que entero está detrás de `carrito.length > 0`
 — quien viene solo a pagar la cuota lleva el ticket VACÍO, así que no se habría
 visto nunca justo cuando hace falta. El test lo fija con el ticket vacío.
+
+---
+
+## 11. Fase 4 — stock de verdad
+
+### 11.1 Lo que había
+
+Un campo de texto en la ficha del producto. La venta lo descontaba y la
+devolución lo reponía, pero cualquier otra variación era un `UPDATE` a pelo
+desde el navegador: se podía pasar de 3 a 300 sin que nada lo registrara. Eso
+no es control de existencias, es un número editable — y es el hueco por el que
+en una tienda se tapa una merma.
+
+Faltaban las tres cosas que de verdad pasan: meter mercancía cuando llega,
+corregir el número cuando se cuenta, y poder responder «¿por qué hay 7 y no
+10?».
+
+### 11.2 Lo que hay
+
+`movimientos_stock` + `mover_stock` (migr `20260907172606`). Tres verbos, que
+son los tres que ocurren en un estudio:
+
+| | Qué pregunta la pantalla |
+|---|---|
+| **Entrada** | ¿Cuántas han entrado? (con coste unitario opcional) |
+| **Merma** | ¿Cuántas se han perdido? |
+| **Recuento** | ¿Cuántas hay de verdad? |
+
+⚠️ **El recuento va por valor absoluto, no por diferencia.** Quien cuenta dice
+«hay 7», no «quita 3»; pedirle la resta con la caja delante es pedirle que se
+equivoque. La diferencia la calcula la RPC con la fila bloqueada, así que
+tampoco puede colarse una venta entre contar y guardar.
+
+⚠️ **Al editar un artículo, las existencias son de solo lectura.** El saldo de
+apertura se escribe al CREAR —ahí empieza el libro— y a partir de ahí solo se
+mueve. Un stock sobrescribible convertiría el libro en decoración, que es el
+mismo fallo que un captcha que nadie comprueba en servidor.
+
+### 11.3 El historial no guarda las ventas
+
+Se **derivan** de `ventas_pos_lineas` y se unen a los movimientos manuales al
+pintarlos. Copiarlas al libro habría obligado a tocar otra vez
+`registrar_venta_pos` y `devolver_venta_pos` —dos funciones de dinero ya
+auditadas— para acabar con dos versiones del mismo hecho que pueden separarse.
+Un historial derivado no puede contradecir a la venta; uno copiado, sí.
+
+Las ventas ANULADAS se excluyen: nunca llegaron a descontar stock
+(`fallar_pago_venta_pos` lo devuelve), así que aparecerían como una salida que
+no ocurrió.
+
+⚠️ **Dos consultas, no un `embed`.** `ventas_pos_lineas` NO tiene `creado_en`
+—su fecha es la de la venta— así que no se puede ordenar por ella, y ordenar
+por una columna de la tabla incrustada depende de la versión de PostgREST. Se
+juntan en JS, que aquí es determinista.
+
+### 11.4 Verificación
+
+Nueve escenarios contra la base real con `ROLLBACK`: entrada, merma, recuento,
+recuento sin cambio, merma mayor que el stock, artículo sin control de
+existencias, aislamiento entre estudios, y la invariante que importa —
+**10 + suma de movimientos = 7 = stock actual**. El libro cuadra.
+
+Migración verificada por **md5 literal** contra el fichero; grants
+`anon=false`, `authenticated=false`, `service_role=true`, y la tabla sin
+INSERT/UPDATE/DELETE para `authenticated` (el pg_default_acl los concede solos
+y `GRANT SELECT` no los retira).
+
+### 11.5 Fuera de esta fase, a propósito
+
+- **Valoración de inventario y coste medio.** `coste_unitario` se guarda pero
+  es informativo: fingir una valoración con un solo campo sería peor que no
+  tenerla.
+- **Proveedores y pedidos.** Una entrada dice cuántas llegaron y qué costaron;
+  no hay entidad «proveedor» ni recepción de pedido, y no debería inventarse
+  hasta que alguien la pida de verdad.
+- **Aviso proactivo de stock bajo.** El umbral ya existe y la etiqueta se
+  pinta, pero nadie recibe un aviso cuando se cruza. Es una regla del Decision
+  OS, no una pantalla más.
+
+---
+
+## 12. Fase 5 — la regla de créditos que nadie podía encender
+
+`otorgar_creditos_compra` y `reward_rules.unidad_euros` se construyeron con el
+rediseño del TPV y quedaron **inalcanzables**: la pantalla de recompensas
+dibuja una fila por cada entrada de `REWARD_TRIGGERS`, y `COMPRA` no estaba en
+esa lista. La RPC buscaba una regla activa que ninguna pantalla podía crear.
+
+Una función que nadie puede activar no es una funcionalidad a medias: es código
+muerto que parece una funcionalidad, y engaña también a quien lee el esquema.
+
+Añadida la fila con su campo propio, «por cada €», porque es el único
+disparador cuyos créditos **no son una cifra por suceso** sino por importe:
+`floor(importe / unidad_euros) × creditos`.
+
+⚠️ **La sugerencia arranca en 1 crédito, no en 10 como los demás.** La RPC usa
+`unidad_euros = 1 €` cuando el campo está vacío, así que encender la regla con
+la sugerencia alta de los otros disparadores habría dado **10 créditos por
+euro** desde el primer segundo — 700 créditos por un bono de 70 €.
+
+⚠️ **`unidad_euros` va en las DOS listas blancas de columnas**, la del alta y la
+de la edición. Son listas distintas, y un campo que falte en una se tira en
+silencio dejando un toast de éxito — el bug que ya documenta
+`lista-blanca-de-columnas-alta-vs-edicion`.
+
+Sin riesgo de premiar dos veces: `REWARD_TRIGGERS` solo lo consume la pantalla
+de configuración, y el motor de TypeScript (`otorgarCreditos`) se llama siempre
+con disparadores literales, ninguno de ellos `COMPRA`. Esos créditos salen
+únicamente de la RPC, dentro de la misma transacción que la venta.

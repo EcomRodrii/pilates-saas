@@ -4,11 +4,12 @@ import { useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero } from '@/lib/permisos';
-import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS, TipoPlan } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { nombrePeriodo } from '@/lib/bono-logic';
 import { estadoStock } from '@/lib/pos/ticket';
+import { HojaStock } from '@/components/pos/hoja-stock';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
@@ -665,11 +666,13 @@ type PosFormData = {
   ivaPct: string;
 };
 
-function PosModal({ initial, onSave, onClose, onDelete }: {
+function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
   initial?: ProductoPOS;
   onSave: (d: PosFormData) => void;
   onClose: () => void;
   onDelete?: () => void;
+  /** Solo al EDITAR: abre el libro de existencias. Al crear no hay qué mover. */
+  onMoverStock?: () => void;
 }) {
   const uid = useId();
   const [form, setForm] = useState<PosFormData>({
@@ -735,9 +738,14 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor={`${uid}-stock`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Existencias</label>
+              {/* ⚠️ Al EDITAR no se teclea: se mueve. Un stock que se
+                  sobrescribe a mano no deja rastro —se pasaba de 3 a 300 sin
+                  que nada lo registrara— y ese es el hueco por el que se tapa
+                  una merma. Al CREAR sí se escribe: es el saldo de apertura,
+                  y ahí empieza el libro. */}
               <input id={`${uid}-stock`} value={form.stock} onChange={e => set('stock', e.target.value.replace(/[^0-9]/g, ''))}
-                inputMode="numeric"
-                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
+                inputMode="numeric" readOnly={Boolean(initial)}
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand read-only:bg-muted/40 read-only:text-muted-foreground"
                 placeholder="Sin control" />
             </div>
             <div>
@@ -749,10 +757,21 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
             </div>
           </div>
           <p className="-mt-2 text-[11.5px] text-muted-foreground">
-            {controlaStock
-              ? 'La caja descuenta cada venta y no deja vender por debajo de 0.'
-              : 'Vacío = sin control de existencias. Pon 0 solo si quieres marcarlo como agotado.'}
+            {!initial
+              ? (controlaStock
+                  ? 'Es el saldo de apertura. A partir de ahí, cada movimiento queda apuntado.'
+                  : 'Vacío = sin control de existencias. Pon 0 solo si quieres marcarlo como agotado.')
+              : (controlaStock
+                  ? 'La caja descuenta cada venta y no deja vender por debajo de 0.'
+                  : 'Este artículo no lleva control de existencias.')}
           </p>
+
+          {initial && controlaStock && onMoverStock && (
+            <button type="button" onClick={onMoverStock}
+              className="w-full h-11 rounded-xl border border-border text-sm font-semibold text-foreground inline-flex items-center justify-center gap-2">
+              <Boxes size={15} /> Entradas, mermas y recuento
+            </button>
+          )}
 
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -818,7 +837,7 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Productos() {
-  const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones, tiposClase } = useStudio();
+  const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones, tiposClase, refrescarTrasVentaPOS } = useStudio();
   const [tab, setTab] = useState<Tab>('planes');
   const [tipoTab, setTipoTab] = useState<TipoPlanTab>('MENSUAL');
   const [busqueda, setBusqueda] = useState('');
@@ -837,6 +856,9 @@ export default function Productos() {
     return () => clearTimeout(t);
   }, [aviso]);
   const [posModal, setPosModal] = useState<ProductoPOS | null | 'new'>(null);
+  // Libro de existencias del artículo abierto. Va aparte del modal para que
+  // cerrar la hoja no cierre también la ficha del producto.
+  const [stockDe, setStockDe] = useState<string | null>(null);
 
   // CONGELADO (feature-freeze PMF): oculta la pestaña "Productos POS" mientras POS
   // esté congelado. La pestaña "Planes de suscripción" es core de facturación y se
@@ -1214,11 +1236,19 @@ export default function Productos() {
           {aviso}
         </div>
       )}
+      {stockDe && (
+        <HojaStock
+          productoId={stockDe}
+          onCerrar={() => setStockDe(null)}
+          onCambio={refrescarTrasVentaPOS}
+        />
+      )}
       {posModal && (
         <PosModal
           initial={posModal !== 'new' ? posModal : undefined}
           onSave={savePos}
           onClose={() => setPosModal(null)}
+          onMoverStock={posModal !== 'new' && posModal ? () => setStockDe(posModal.id) : undefined}
           onDelete={posModal !== 'new' && posModal ? async () => {
             const res = await deleteProductoPOS(posModal.id);
             if (!res.ok) { setAviso(res.error); return; }

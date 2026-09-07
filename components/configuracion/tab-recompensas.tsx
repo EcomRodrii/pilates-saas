@@ -18,6 +18,11 @@ const CREDITOS_SUGERIDOS: Record<string, number> = {
   SEMANA_COMPLETA: 30,
   PRIMERA_RESERVA: 20,
   OBJETIVO_MENSUAL: 50,
+  // ⚠️ Por compra los créditos van POR IMPORTE, no por suceso, y la RPC usa
+  // `unidad_euros = 1 €` cuando está vacío. Con la sugerencia alta que llevan
+  // los demás disparadores, encender esta regla habría dado 10 créditos POR
+  // EURO desde el primer segundo. 1 por euro es legible y se sube a mano.
+  COMPRA: 1,
 };
 
 const emptyCatalogForm = (): Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'> => ({
@@ -113,6 +118,18 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
     if (!res.ok) showToast(res.error);
   }
 
+  // Cada cuántos euros se dan los créditos (solo COMPRA). Sin esto la regla
+  // existía en la base y NADIE podía encenderla: `otorgar_creditos_compra`
+  // busca una regla COMPRA activa con `unidad_euros`, y no había forma de
+  // crearla desde ninguna pantalla. Una función que nadie puede activar es
+  // código muerto que parece una funcionalidad.
+  function handleUnidadChange(trigger: string, nombre: string, descripcion: string, unidadEuros: number | null) {
+    const existente = reglaDe(trigger);
+    return existente
+      ? updateRewardRule(existente.id, { unidadEuros })
+      : addRewardRule({ trigger: trigger as never, nombre, descripcion, creditos: CREDITOS_SUGERIDOS[trigger] ?? 0, activa: true, unidadEuros });
+  }
+
   // Tope mensual de referidos premiados (solo REFERIDO_AMIGO). Vacío o 0 = sin tope.
   function handleTopeChange(trigger: string, nombre: string, descripcion: string, topeMensual: number | null) {
     const existente = reglaDe(trigger);
@@ -157,6 +174,19 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                   <p className="text-[13px] font-semibold text-foreground">{def.nombre}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">{def.descripcion}</p>
                 </div>
+                {def.trigger === 'COMPRA' && (
+                  <div className="flex flex-col items-center shrink-0">
+                    <CampoNumero
+                      valor={regla?.unidadEuros ?? null}
+                      onGuardar={n => handleUnidadChange(def.trigger, def.nombre, def.descripcion, n && n > 0 ? n : null)}
+                      placeholder="1"
+                      className={cn(inputCls, 'w-16 text-center')}
+                      title="Cada cuántos euros de compra se dan los créditos (vacío = cada euro)"
+                      ariaLabel="Euros por cada premio de compra"
+                    />
+                    <span className="text-[9px] text-muted-foreground mt-0.5">por cada € </span>
+                  </div>
+                )}
                 {def.trigger === 'REFERIDO_AMIGO' && (
                   <div className="flex flex-col items-center shrink-0">
                     <CampoNumero

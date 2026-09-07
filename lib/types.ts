@@ -1577,7 +1577,10 @@ export type RewardTrigger =
   | 'REFERIDO_AMIGO'
   | 'SEMANA_COMPLETA'
   | 'PRIMERA_RESERVA'
-  | 'OBJETIVO_MENSUAL';
+  | 'OBJETIVO_MENSUAL'
+  // Comprar en el mostrador. Es el único disparador cuyos créditos NO son una
+  // cifra fija: van por importe gastado (`unidadEuros`).
+  | 'COMPRA';
 
 // Catálogo (fijo en código: solo la app puede "detectar" estos disparadores;
 // lo configurable es cuánto vale cada uno, vía RewardRule) de qué es cada uno.
@@ -1598,6 +1601,12 @@ export interface RewardRule {
   // Máximo de veces al mes que esta regla puede premiar (por socia que invita).
   // null = sin tope. Usado sobre todo por REFERIDO_AMIGO para acotar el fraude.
   topeMensual: number | null;
+  /**
+   * Solo COMPRA: cada cuántos euros gastados se dan `creditos`. 5 € con 10
+   * créditos = 10 créditos por cada 5 € de compra. `null` en el resto de
+   * disparadores, donde los créditos son una cifra fija por suceso.
+   */
+  unidadEuros: number | null;
   creadoEn: string;
 }
 
