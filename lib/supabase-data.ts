@@ -456,7 +456,12 @@ export type FilaReciboPanel = Omit<RowRecibos,
   // F-12/F-13: metadata de conciliación, solo la escriben/leen el webhook, el
   // conciliador y sus reintentos de facturación en servidor. El panel no la
   // pinta ni la decide.
-  | 'conciliado_en' | 'conciliado_por' | 'factura_pendiente_sellar'>;
+  | 'conciliado_en' | 'conciliado_por' | 'factura_pendiente_sellar'
+  // PaymentIntent EN VUELO de un cobro por datáfono lanzado desde el TPV
+  // (20260907174656). Lo escriben y lo leen /api/pos/recibo y su confirmación,
+  // en servidor; el panel no lo pinta ni lo decide. Mismo criterio que
+  // `checkout_session_id`, que es su equivalente para Checkout.
+  | 'cobro_mostrador_pi'>;
 
 export function mapSocio(r: FilaSocioPanel): Socio {
   // ⚠️ `versionTexto` llega VACÍO desde el arranque del panel, y es a propósito.

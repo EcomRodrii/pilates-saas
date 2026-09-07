@@ -37,7 +37,11 @@ import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
 
-export type FuenteConfirmacion = 'webhook' | 'conciliador';
+// 'tpv' = el mostrador cobrando un recibo por datáfono o Bizum. Se distingue
+// de 'manual' a propósito: 'manual' es alguien marcándolo sin que nadie lo
+// confirme, 'tpv' es Stripe diciendo que sí. El CHECK de `conciliado_por` lo
+// admite desde la migración `20260907174932`.
+export type FuenteConfirmacion = 'webhook' | 'conciliador' | 'tpv';
 
 export type ResultadoConfirmarCobroRecibo =
   | {

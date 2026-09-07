@@ -676,6 +676,48 @@ async function procesarEvento(
       // Esto es lo que hace que cerrar el navegador a mitad de un cobro deje de
       // ser un problema: antes el cobro quedaba huérfano esperando a que
       // alguien lo completara a mano desde un aviso.
+      // ── Un RECIBO cobrado por el datáfono del mostrador ──────────────────
+      //
+      // Mismo principio que la venta: llegan dos caminos —este y el TPV
+      // releyendo el PaymentIntent— en cualquier orden y sin conocerse. El
+      // compare-and-set vive dentro de `confirmarCobroRecibo`, que solo toca
+      // filas en estado cobrable, así que el segundo en llegar no repite nada.
+      //
+      // Va ANTES del backstop de reconciliación: con `reciboId` en la metadata
+      // sí sabemos a qué apuntar, y dejarlo caer al backstop lo convertiría en
+      // un cobro huérfano que alguien tendría que casar a mano.
+      const reciboIdPos = pi.metadata?.reciboId;
+      if (reciboIdPos) {
+        const res = await confirmarCobroRecibo(admin, {
+          studioId,
+          reciboId: reciboIdPos,
+          // El CHECK de `recibos.metodo_cobro` no conoce DATAFONO (es anterior
+          // al TPV): un cobro por datáfono es una tarjeta.
+          metodoCobro: pi.metadata?.origen === 'pos_bizum' ? 'BIZUM' : 'TARJETA',
+          paymentIntentId: pi.id,
+          fuente: 'tpv',
+        });
+        if (!res.ok) {
+          Sentry.captureMessage('[stripe webhook] recibo cobrado en mostrador sin poder cerrarlo', {
+            level: 'error', tags: { area: 'cobros' },
+            extra: { paymentIntentId: pi.id, reciboId: reciboIdPos, studioId, detalle: res.error },
+          });
+          // 5xx para que Stripe reintente: el dinero está cobrado y el recibo
+          // sigue abierto, que es justo lo que no puede quedarse así.
+          return NextResponse.json({ error: 'Fallo al cerrar el recibo' }, { status: 500 });
+        }
+
+        // El dinero pasó por el mostrador. Idempotente por id derivado del
+        // recibo, así que el TPV llegando también no lo duplica.
+        await admin.rpc('apuntar_cobro_en_caja', {
+          p_studio_id: studioId, p_recibo_id: reciboIdPos, p_por: null, p_por_nombre: 'Datáfono',
+        });
+        await admin.from('recibos').update({ cobro_mostrador_pi: null })
+          .eq('id', reciboIdPos).eq('studio_id', studioId);
+
+        return NextResponse.json({ received: true });
+      }
+
       const ventaIdPos = pi.metadata?.ventaId;
       if (ventaIdPos) {
         const { data: conf, error: errConf } = await admin.rpc('confirmar_pago_venta_pos', {

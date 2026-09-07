@@ -187,6 +187,25 @@ export function moverStock(p: {
   );
 }
 
+// ─── Cobrar un recibo desde el mostrador ─────────────────────────────────────
+// Efectivo NO pasa por aquí: lo cierra `marcarCobrado` del contexto (y lo
+// apunta en caja el servidor). Esto es solo para lo que confirma un tercero.
+
+export function cobrarReciboEnMostrador(reciboId: string, metodo: 'DATAFONO' | 'BIZUM') {
+  return pedir<{ reciboId: string; referencia: string; url: string | null; pagoEstado: EstadoPagoPOS; importe: number }>(
+    '/api/pos/recibo', { method: 'POST', body: JSON.stringify({ reciboId, metodo }) },
+  );
+}
+
+export function confirmarCobroRecibo(
+  reciboId: string, metodo: 'DATAFONO' | 'BIZUM', accion: 'consultar' | 'cancelar' = 'consultar',
+) {
+  return pedir<{
+    reciboId: string; estado: string; pagoEstado: EstadoPagoPOS; importe: number;
+    cobrado?: boolean; motivo?: string | null; aviso?: string;
+  }>('/api/pos/recibo/confirmar', { method: 'POST', body: JSON.stringify({ reciboId, metodo, accion }) });
+}
+
 /** ¿La respuesta trae un error? Estrecha el tipo para no repetir el `in` por todas partes. */
 export function esError<T extends object>(r: T | { error: string }): r is { error: string } {
   return 'error' in r && typeof (r as { error: unknown }).error === 'string';

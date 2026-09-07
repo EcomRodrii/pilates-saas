@@ -47,12 +47,28 @@ export interface ContextoCobro {
   esTest: boolean;
 }
 
+/**
+ * QUÉ se está cobrando. Viaja en la metadata del PaymentIntent para que el
+ * webhook sepa qué cerrar aunque el navegador del mostrador muera a mitad.
+ *
+ * Son dos cosas distintas y no se pueden mezclar: una VENTA del TPV (que hay
+ * que confirmar y entregar) y un RECIBO ya existente (una cuota que la socia
+ * viene a pagar). El tipo lo hace excluyente para que no se pueda mandar las
+ * dos ni ninguna.
+ */
+export type ReferenciaCobro =
+  | { ventaId: string; reciboId?: never }
+  | { reciboId: string; ventaId?: never };
+
+export function metadataDe(ref: ReferenciaCobro): Record<string, string> {
+  return ref.ventaId ? { ventaId: ref.ventaId } : { reciboId: ref.reciboId! };
+}
+
 export interface PeticionCobro {
-  /** En céntimos, calculado EN SERVIDOR a partir de la venta ya registrada. */
+  /** En céntimos, calculado EN SERVIDOR a partir de la venta o el recibo. */
   importeCentimos: number;
   concepto: string;
-  /** Viaja en la metadata para que el webhook sepa a qué venta confirmar. */
-  ventaId: string;
+  ref: ReferenciaCobro;
 }
 
 export type ResultadoInicio =
@@ -68,9 +84,19 @@ export interface ProveedorTerminal {
    */
   readonly esAutoritativo: boolean;
   iniciar(ctx: ContextoCobro, p: PeticionCobro): Promise<ResultadoInicio>;
-  /** `importeCentimos` = lo que el proveedor dice haber cobrado, para poder
-   *  contrastarlo con el total de la venta. `null` si no lo sabe todavía. */
-  consultar(ctx: ContextoCobro, referencia: string): Promise<{ estado: EstadoPagoPOS; error?: string; importeCentimos?: number | null }>;
+  /**
+   * `importeCentimos` = lo que el proveedor dice haber cobrado, para poder
+   * contrastarlo con el total de la venta. `null` si no lo sabe todavía.
+   *
+   * `metadata` = la que ESTE servidor puso al crear el cobro. Es lo único que
+   * demuestra que un PaymentIntent pertenece a la venta o al recibo que se
+   * está cerrando: la referencia se guarda en una columna que el cliente puede
+   * escribir (`recibos` tiene GRANT de UPDATE a `authenticated`, y un REVOKE
+   * por columna no resta de un grant de tabla). Sin comprobarla, se podría
+   * apuntar un recibo al PaymentIntent que ya pagó OTRO del mismo importe y
+   * cobrar dos veces con un solo pago.
+   */
+  consultar(ctx: ContextoCobro, referencia: string): Promise<{ estado: EstadoPagoPOS; error?: string; importeCentimos?: number | null; metadata?: Record<string, string> }>;
   cancelar(ctx: ContextoCobro, referencia: string): Promise<void>;
 }
 
@@ -109,10 +135,11 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
           currency: 'eur',
           payment_method_types: ['card_present'],
           capture_method: 'automatic',
-          // `ventaId` es lo que permite que el webhook cierre la venta aunque
-          // el navegador del mostrador se cierre a mitad del cobro. Sin esto
-          // haría falta el rodeo del backstop de reconciliación.
-          metadata: { studioId: ctx.studioId, origen: 'pos_terminal', ventaId: p.ventaId, concepto: p.concepto },
+          // La referencia es lo que permite que el webhook cierre la venta —o
+          // el recibo— aunque el navegador del mostrador se cierre a mitad del
+          // cobro. Sin esto haría falta el rodeo del backstop de
+          // reconciliación, que no sabe a qué apuntar.
+          metadata: { studioId: ctx.studioId, origen: 'pos_terminal', ...metadataDe(p.ref), concepto: p.concepto },
           ...(applicationFeeAmount(p.importeCentimos) !== undefined
             ? { application_fee_amount: applicationFeeAmount(p.importeCentimos) }
             : {}),
@@ -142,6 +169,7 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
           estado: estadoDesdeStripe(pi.status),
           error: pi.last_payment_error?.message ?? undefined,
           importeCentimos: pi.amount_received ?? null,
+          metadata: (pi.metadata ?? {}) as Record<string, string>,
         };
       } catch (err) {
         console.error('[pos/terminal:datafono:consultar]', err instanceof Stripe.errors.StripeError ? err.message : err);
@@ -194,12 +222,12 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
             },
           }],
           payment_intent_data: {
-            metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ventaId: p.ventaId },
+            metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ...metadataDe(p.ref) },
             ...(applicationFeeAmount(p.importeCentimos) !== undefined
               ? { application_fee_amount: applicationFeeAmount(p.importeCentimos) }
               : {}),
           },
-          metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ventaId: p.ventaId },
+          metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ...metadataDe(p.ref) },
           success_url: `${origen}/pos?bizum=ok`,
           cancel_url: `${origen}/pos?bizum=cancelado`,
         }, { stripeAccount: ctx.stripeAccount });
@@ -224,6 +252,7 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
           estado: estadoDesdeStripe(pi.status),
           error: pi.last_payment_error?.message ?? undefined,
           importeCentimos: pi.amount_received ?? null,
+          metadata: (pi.metadata ?? {}) as Record<string, string>,
         };
       } catch {
         return { estado: 'PROCESANDO' };

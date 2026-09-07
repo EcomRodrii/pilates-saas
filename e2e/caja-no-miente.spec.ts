@@ -511,9 +511,60 @@ test('lo que la socia debe se ve y se cobra desde el TPV, con el ticket VACÍO',
   await expect(page.getByText('Ticket vacío')).toBeVisible();
   await expect(page.getByText(/Debe 60/)).toBeVisible();
   await expect(page.getByText('Cuota de septiembre')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Efectivo/ })).toBeEnabled();
+  // Los tres caminos del mostrador. La diferencia entre ellos NO es cosmética:
+  // el efectivo lo confirma quien cuenta, el datáfono y el Bizum los confirma
+  // Stripe. Ninguno marca nada por el hecho de haberse pulsado.
+  await expect(page.getByRole('button', { name: 'Efectivo' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Datáfono' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Bizum' })).toBeEnabled();
+});
 
-  // Y solo efectivo: marcar una tarjeta como pagada sin que ningún proveedor
-  // lo confirme es justo lo que este rediseño existe para impedir.
-  await expect(page.getByText(/Solo efectivo desde aquí/)).toBeVisible();
+
+test('un recibo por datáfono NO se da por cobrado hasta que lo confirma Stripe', async ({ page }) => {
+  // Es LA regla del rediseño, aplicada al otro flujo de dinero del mostrador.
+  // Antes, cobrar una cuota con tarjeta obligaba a salir a /cobros y marcarla a
+  // mano: una transacción de tarjeta dada por buena sin que ningún proveedor la
+  // hubiera confirmado.
+  let consultas = 0;
+  const arrancados: Record<string, unknown>[] = [];
+
+  await montar(page, (route) => json(route, {}));
+
+  // Sin `**` al final: `**/api/pos/recibo` no debe tragarse `/confirmar`.
+  await page.route('**/api/pos/recibo', async (route) => {
+    arrancados.push(JSON.parse(route.request().postData() ?? '{}'));
+    return json(route, { reciboId: 'rec-cuota', referencia: 'pi_test', url: null, pagoEstado: 'PROCESANDO', importe: 60 });
+  });
+  await page.route('**/api/pos/recibo/confirmar', async (route) => {
+    consultas++;
+    // Las dos primeras vueltas el datáfono sigue esperando. Solo la tercera
+    // dice que sí — y hasta entonces la pantalla no puede cantar victoria.
+    if (consultas < 3) {
+      return json(route, { reciboId: 'rec-cuota', estado: 'PENDIENTE', pagoEstado: 'PROCESANDO', importe: 60 });
+    }
+    return json(route, { reciboId: 'rec-cuota', estado: 'COBRADO', pagoEstado: 'PAGADO', importe: 60, cobrado: true });
+  });
+
+  await abrirCaja(page);
+  await page.getByPlaceholder(/Buscar artículo/i).fill('María');
+  await page.getByRole('button', { name: /María García/ }).click();
+  await expect(page.getByText(/Debe 60/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Datáfono' }).click();
+
+  // Mientras el proveedor no confirma, la pantalla dice que está esperando —
+  // y lo dice explícitamente, para que nadie del mostrador lo interprete mal.
+  await expect(page.getByText(/Acerca la tarjeta al datáfono/)).toBeVisible();
+  await expect(page.getByText(/No lo damos por cobrado hasta que lo confirme el banco/)).toBeVisible();
+
+  // Y se pregunta de verdad: sin contador, «no mintió» podría ser cierto por no
+  // haber intentado nada.
+  await expect.poll(() => consultas, { timeout: 15_000 }).toBeGreaterThan(2);
+
+  const arranque = arrancados[0] as { reciboId: string; metodo: string };
+  expect(arranque.reciboId).toBe('rec-cuota');
+  expect(
+    arranque.metodo,
+    'el método viaja al servidor: es él quien elige proveedor, no la pantalla',
+  ).toBe('DATAFONO');
 });
