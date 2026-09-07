@@ -1,16 +1,16 @@
 // Adaptador de lectura (DECISION-OS-ARQUITECTURA.md §5): única frontera entre
-// el núcleo puro y `fetchAllStudioData`. Recorta ventanas temporales aquí —
-// el núcleo nunca sabe de dónde vinieron los datos ni cuánto abarcan.
+// el núcleo puro y `fetchAllStudioDataServidor`. Recorta ventanas temporales
+// aquí — el núcleo nunca sabe de dónde vinieron los datos ni cuánto abarcan.
 // NO se importa desde ningún archivo de lib/decision cubierto por node --test:
-// usa imports de valor (`@/lib/supabase-data`) que solo resuelven bajo el
-// bundler de Next.js, nunca bajo el runner de tests bare-node.
-import { fetchAllStudioData, fetchSustitucionesRecientes, contarSedesCadena, fetchInstructorTarifas, fetchIntentosFallidosRecientes, fetchBloqueosAgendaFuturos, fetchAbandonoCheckoutReciente } from '@/lib/supabase-data';
+// usa imports de valor (`@/lib/db/supabase-data-admin`) que solo resuelven
+// bajo el bundler de Next.js, nunca bajo el runner de tests bare-node.
+import { fetchAllStudioDataServidor, fetchSustitucionesRecientes, contarSedesCadena, fetchInstructorTarifas, fetchIntentosFallidosRecientes, fetchBloqueosAgendaFuturos, fetchAbandonoCheckoutReciente } from '@/lib/db/supabase-data-admin';
 import type { SnapshotEstudio } from './tipos.ts';
 
 const MS_DIA = 86400000;
 
 export async function construirSnapshot(studioId: string, now: Date): Promise<SnapshotEstudio> {
-  const data = await fetchAllStudioData(studioId);
+  const data = await fetchAllStudioDataServidor(studioId);
 
   const desde180 = now.getTime() - 180 * MS_DIA;
   const desde90 = now.getTime() - 90 * MS_DIA;

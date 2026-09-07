@@ -2,7 +2,8 @@ import { inngest, EVENTS } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { fetchAllStudioData, mapCampana } from '@/lib/supabase-data';
+import { mapCampana } from '@/lib/supabase-data';
+import { fetchAllStudioDataServidor } from '@/lib/db/supabase-data-admin';
 import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
 import { filtrarPorConsentimientoMarketing } from '@/lib/marketing/consentimiento';
 import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
@@ -55,7 +56,7 @@ export const procesarEnvioCampana = inngest.createFunction(
     // solo se devuelve lo que hace falta, aunque fetchAllStudioData consulte
     // el arranque completo del panel por dentro.
     const { socios, suscripciones, recibos } = await step.run('fetch-destinatarias', async () => {
-      const d = await fetchAllStudioData(studioId);
+      const d = await fetchAllStudioDataServidor(studioId);
       return { socios: d.socios, suscripciones: d.suscripciones, recibos: d.recibos };
     });
 

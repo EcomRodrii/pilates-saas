@@ -58,6 +58,8 @@ import type {
 } from '@/lib/db-types';
 import type {
   AutomationLog,
+  AutomationRule,
+  Automatizacion,
   Instructor,
   TipoIntegracion,
   Reserva,
@@ -111,6 +113,10 @@ import {
   mapSpot,
   mapTipoClase,
   mapVideoOnDemand,
+  fetchCriticalStudioDataCon,
+  fetchDeferredStudioDataCon,
+  dbUpdateAutomationRuleCon,
+  dbUpdateAutomatizacionCon,
 } from '@/lib/supabase-data';
 
 function dbEscritura(): SupabaseClient {
@@ -4678,3 +4684,199 @@ export async function dbGuardarConexionWhatsappEmbeddedSignup(
 }
 
 
+
+// ─── Movidas desde lib/supabase-data.ts (P-7, 26ª pasada de auditoría) ──────
+//
+// Ninguna la llama código de cliente (solo lib/decision/snapshot.ts, servidor) —
+// mismo criterio que ya trajo aquí el resto de este fichero (#559). El cluster
+// fetchCriticalStudioData/fetchAllStudioData/dbEscritura que SÍ compartían
+// cliente y servidor se cerró aparte, con el patrón núcleo-compartido +
+// wrapper: ver fetchAllStudioDataServidor/dbUpdateAutomationRuleServidor/
+// dbUpdateAutomatizacionServidor al final de este fichero, y sus núcleos
+// (…Con) en lib/supabase-data.ts. Con eso, supabase-admin.ts ya lleva
+// `server-only`.
+
+// Fase A1 (Decision OS): sustituciones sin resolver, para que el especialista
+// EQUIPO pueda ver "instructora sin contestar". Fuera de fetchAllStudioData
+// a propósito — nadie más lo necesita hoy y no vale la pena cargarlo en cada
+// pantalla del panel. Mismo patrón service-role-cuando-existe que
+// fetchCriticalStudioData (Decision OS/crons corren sin sesión de usuario,
+// la RLS anónima devolvería cero filas).
+export interface SustitucionSnapshotRow {
+  id: string;
+  studioId: string;
+  sesionId: string;
+  instructorOriginalId: string | null;
+  estado: string;
+  creadoEn: string;
+}
+
+/** Ver BloqueoAgendaSnapshot en lib/decision/tipos.ts (mismo shape). */
+export interface BloqueoAgendaSnapshotRow {
+  instructorId: string;
+  fecha: string;
+  horaInicio: string | null;
+  horaFin: string | null;
+}
+
+export async function fetchSustitucionesRecientes(studioId: string, desdeISO: string): Promise<SustitucionSnapshotRow[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { data, error } = await db
+    .from('sustituciones')
+    .select('id, studio_id, sesion_id, instructor_original_id, estado, creado_en')
+    .eq('studio_id', studioId)
+    .gte('creado_en', desdeISO) as { data: { id: string; studio_id: string; sesion_id: string; instructor_original_id: string | null; estado: string; creado_en: string }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchSustitucionesRecientes]', error); return []; }
+  return (data ?? []).map(r => ({
+    id: r.id, studioId: r.studio_id, sesionId: r.sesion_id,
+    instructorOriginalId: r.instructor_original_id, estado: r.estado, creadoEn: r.creado_en,
+  }));
+}
+
+// Bloqueos de agenda futuros de las instructoras (Decision OS · Agenda A5).
+// Server-only con service-role, igual que el resto del snapshot: la RLS de
+// gestión solo deja a cada instructora ver lo suyo, y aquí hace falta el
+// estudio entero para saber qué clases programadas se quedan sin quien las dé.
+//
+// Solo tipo='bloqueo': las excepciones 'extra' son lo contrario (disponibilidad
+// añadida) y no ponen ninguna clase en riesgo. Devuelve filas crudas, no un Map
+// — ver BloqueoAgendaSnapshot en lib/decision/tipos.ts.
+export async function fetchBloqueosAgendaFuturos(studioId: string, desdeDia: string, hastaDia: string): Promise<BloqueoAgendaSnapshotRow[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { data, error } = await db
+    .from('instructora_disponibilidad_excepciones')
+    .select('instructor_id, fecha, hora_inicio, hora_fin')
+    .eq('studio_id', studioId)
+    .eq('tipo', 'bloqueo')
+    .gte('fecha', desdeDia)
+    .lte('fecha', hastaDia) as { data: { instructor_id: string; fecha: string; hora_inicio: string | null; hora_fin: string | null }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchBloqueosAgendaFuturos]', error); return []; }
+  return (data ?? []).map(r => ({
+    instructorId: r.instructor_id, fecha: r.fecha,
+    horaInicio: r.hora_inicio, horaFin: r.hora_fin,
+  }));
+}
+
+// Margen de contribución por clase (Decision OS/Informes): tarifa/hora por
+// instructora. Server-only con service-role (bypasa la RLS de gestión, que
+// solo deja leer la propia fila a la instructora) — igual que el resto del
+// snapshot, que necesita ver todo el estudio para calcular, no solo lo suyo.
+// Devuelve filas crudas, no un Map — SnapshotEstudio.instructorTarifas debe
+// ser JSON-serializable (cruza un step.run de Inngest en decision.ts); el
+// Map de consulta se construye en construirIndices (senales.ts).
+//
+// Vía deliberadamente separada de `fetchTarifasEquipo` (api-client.ts, usada
+// por Informes): esa pasa por `/api/equipo/tarifas` con sesión de staff y la
+// RLS real; esta es server-role para el snapshot del cron. Mismo criterio
+// que ya separa `/api/mi-disponibilidad` de `/api/public/disponibilidad` —
+// mecanismos de auth distintos, no se mezclan en un mismo camino aunque
+// lean la misma tabla.
+export interface InstructorTarifaRow {
+  instructorId: string;
+  tarifaHora: number | null;
+}
+
+export async function fetchInstructorTarifas(studioId: string): Promise<InstructorTarifaRow[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { data, error } = await db
+    .from('instructor_tarifas')
+    .select('instructor_id, tarifa_hora')
+    .eq('studio_id', studioId) as { data: { instructor_id: string; tarifa_hora: number | null }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchInstructorTarifas]', error); return []; }
+  return (data ?? []).map(r => ({ instructorId: r.instructor_id, tarifaHora: r.tarifa_hora }));
+}
+
+// Informe fila 14 (Decision OS): intentos de reserva self-service que el
+// servidor rechazó de verdad — "es la alumna que quería pagar y no pudo".
+// Mismo criterio service-role que fetchInstructorTarifas/fetchSustitucionesRecientes.
+// Devuelve filas crudas (array, no Map) — mismo motivo de siempre.
+export interface IntentoFallidoRow {
+  id: string;
+  socioId: string;
+  sesionId: string | null;
+  tipoClaseId: string | null;
+  motivo: string;
+  creadoEn: string;
+}
+
+export async function fetchIntentosFallidosRecientes(studioId: string, desdeISO: string): Promise<IntentoFallidoRow[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { data, error } = await db
+    .from('intentos_reserva_fallidos')
+    .select('id, socio_id, sesion_id, tipo_clase_id, motivo, creado_en')
+    .eq('studio_id', studioId)
+    .gte('creado_en', desdeISO) as { data: { id: string; socio_id: string; sesion_id: string | null; tipo_clase_id: string | null; motivo: string; creado_en: string }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchIntentosFallidosRecientes]', error); return []; }
+  return (data ?? []).map(r => ({
+    id: r.id, socioId: r.socio_id, sesionId: r.sesion_id,
+    tipoClaseId: r.tipo_clase_id, motivo: r.motivo, creadoEn: r.creado_en,
+  }));
+}
+
+// Captación C3 (Decision OS): eventos crudos de `widget_eventos` para medir
+// abandono de checkout en el widget de reservas — solo los dos tipos que
+// hacen falta para el cruce (checkout_started/booking_completed por
+// session_id), nunca toda la tabla (widget_loaded/class_list_viewed... son
+// mucho más numerosos y no aportan nada aquí). Mismo patrón service-role que
+// fetchIntentosFallidosRecientes justo arriba.
+export interface WidgetEventoAbandonoRow {
+  sessionId: string;
+  tipo: 'checkout_started' | 'booking_completed';
+  creadoEn: string;
+}
+
+export async function fetchAbandonoCheckoutReciente(studioId: string, desdeISO: string): Promise<WidgetEventoAbandonoRow[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  // QA (PR #1274): sin `order`, PostgREST corta en `max_rows` (1000, ver
+  // supabase/config.toml) sin garantía de qué filas caen dentro — mismo
+  // patrón ya documentado en memoria del proyecto (truncado-1000-filas), pero
+  // esta query es nueva. El widget público acumula tráfico anónimo sin gate
+  // de login en checkout_started, así que un estudio con volumen medio/alto
+  // puede superar 1000 eventos en 60 días. `order` por fecha descendente da
+  // al menos un corte determinista y prioriza lo más reciente (que es lo que
+  // más pesa en la ventana de 14d) sobre lo más antiguo de la ventana base.
+  const { data, error } = await db
+    .from('widget_eventos')
+    .select('session_id, tipo, creado_en')
+    .eq('studio_id', studioId)
+    .in('tipo', ['checkout_started', 'booking_completed'])
+    .gte('creado_en', desdeISO)
+    .order('creado_en', { ascending: false })
+    .limit(1000) as { data: { session_id: string; tipo: 'checkout_started' | 'booking_completed'; creado_en: string }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchAbandonoCheckoutReciente]', error); return []; }
+  return (data ?? []).map(r => ({ sessionId: r.session_id, tipo: r.tipo, creadoEn: r.creado_en }));
+}
+
+// Fase A1 (Decision OS): nº de sedes de la cadena a la que pertenece el
+// estudio, para calibrar umbrales de "tamaño" — una cadena de 5 sedes con
+// pocas socias en cada una no es un "estudio pequeño". 1 si no hay cadena.
+export async function contarSedesCadena(cadenaId: string): Promise<number> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { count, error } = await db.from('studios').select('id', { count: 'exact', head: true }).eq('cadena_id', cadenaId);
+  if (error) { reportDbError('[contarSedesCadena]', error); return 1; }
+  return count ?? 1;
+}
+
+// ─── Wrappers de servidor (P-7, 26ª pasada) ──────────────────────────────────
+//
+// Resuelven `getSupabaseAdmin() ?? supabase` y llaman al núcleo compartido
+// (definido en lib/supabase-data.ts, que ya NO importa getSupabaseAdmin).
+// Úsalos desde cualquier código que corre sin sesión de usuario (crons,
+// motor de automatizaciones) — el resto sigue con la versión de cliente.
+
+export async function fetchAllStudioDataServidor(studioId?: string) {
+  const db = getSupabaseAdmin() ?? supabase;
+  const [critical, deferred] = await Promise.all([
+    fetchCriticalStudioDataCon(db, studioId),
+    fetchDeferredStudioDataCon(db, studioId),
+  ]);
+  return { ...critical, ...deferred };
+}
+
+export async function dbUpdateAutomationRuleServidor(id: string, studioId: string, changes: Partial<AutomationRule>) {
+  return dbUpdateAutomationRuleCon(getSupabaseAdmin() ?? supabase, id, studioId, changes);
+}
+
+export async function dbUpdateAutomatizacionServidor(id: string, studioId: string, changes: Partial<Automatizacion>) {
+  return dbUpdateAutomatizacionCon(getSupabaseAdmin() ?? supabase, id, studioId, changes);
+}

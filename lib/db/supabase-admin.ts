@@ -1,3 +1,4 @@
+import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 // Cliente con la Service Role Key — SOLO para rutas de servidor (nunca
@@ -5,6 +6,16 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 // RLS a propósito: los backups necesitan leer/escribir todas las tablas de
 // un negocio sin depender de qué sesión (o ninguna, en el caso del cron)
 // esté haciendo la llamada.
+//
+// `import 'server-only'` (P-7, 26ª pasada de auditoría): defensa en
+// profundidad — si algún día un archivo de cliente vuelve a importar este
+// módulo, el build de Next.js falla en vez de dejar la clave de servicio
+// alcanzable en teoría desde el bundle del navegador. Se pudo añadir recién
+// después de cortar la única cadena de imports real que lo impedía
+// (`lib/supabase-data.ts`, importado por `studio-context.tsx` con `'use
+// client'`, ya no importa `getSupabaseAdmin` — los usos que necesitaban
+// service-role se resuelven ahora en `lib/db/supabase-data-admin.ts`, que ya
+// era `server-only`).
 let admin: SupabaseClient | null = null;
 
 export function getSupabaseAdmin(): SupabaseClient | null {

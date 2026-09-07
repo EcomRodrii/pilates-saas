@@ -5,7 +5,6 @@ import { mensajeDeErrorReserva } from '@/lib/reservas/errores-rpc';
 import { supabase } from '@/lib/db/supabase';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
 import type { Plan } from '@/lib/billing/entitlements';
-import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
 // (Aquí había dos imports de `send-server` y `whatsapp` cuyos cuatro bindings
 // no se usaban en las 4200 líneas del fichero. Turbopack ya los sacudía bien
@@ -3841,9 +3840,10 @@ export async function dbInsertCampana(c: Campana): Promise<ResultadoEscritura> {
   return error ? falloEscritura('[dbInsertCampana]', error) : ESCRITURA_OK;
 }
 
-// studioId: filtro de fila explícito, no solo RLS — dbEscritura() usa
-// service-role cuando corre en servidor (el job de envío de campañas,
-// lib/inngest/campanas.ts), donde no hay JWT que la RLS pueda comprobar.
+// studioId: filtro de fila explícito, no solo RLS. Solo cliente (verificado
+// para P-7, 26ª pasada): el job de envío de campañas (lib/inngest/campanas.ts)
+// escribe `campanas` con su propio cliente admin, nunca llama a esta función
+// — el comentario que decía lo contrario estaba desfasado.
 export async function dbUpdateCampana(id: string, studioId: string, changes: Partial<Campana>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
@@ -3860,7 +3860,7 @@ export async function dbUpdateCampana(id: string, studioId: string, changes: Par
   if ('objetivo' in changes) db.objetivo = changes.objetivo;
   if ('presupuesto' in changes) db.presupuesto = changes.presupuesto;
   if ('publicaciones' in changes) db.publicaciones = changes.publicaciones;
-  const { error } = await dbEscritura().from('campanas').update(db).eq('id', id).eq('studio_id', studioId);
+  const { error } = await supabase.from('campanas').update(db).eq('id', id).eq('studio_id', studioId);
   return error ? falloEscritura('[dbUpdateCampana]', error) : ESCRITURA_OK;
 }
 
@@ -4862,10 +4862,6 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
 
 const COLUMNA_AUSENTE_ASUME_YA_VISTA = '1970-01-01T00:00:00.000Z';
 
-function dbEscritura(): SupabaseClient {
-  return getSupabaseAdmin() ?? supabase;
-}
-
 export function mapInstructor(r: RowInstructores): Instructor {
   return {
     id: r.id,
@@ -4930,16 +4926,20 @@ async function enTandas<T extends readonly unknown[] | []>(
   return res as { -readonly [P in keyof T]: Awaited<T[P]> };
 }
 
-export async function fetchCriticalStudioData(studioId?: string) {
+// Núcleo compartido cliente/servidor (P-7, 26ª pasada). Decision-OS / crons
+// invocan esta carga también desde SERVIDOR sin sesión de usuario (Inngest —
+// construirSnapshot, motor de campañas). Con el cliente anónimo, la RLS
+// (current_studio_id() = null) devolvía CERO filas de socios/recibos/sesiones
+// → el snapshot llegaba vacío y todos los especialistas veían "todo en orden"
+// (bug del Centro de Control). El wrapper de servidor
+// (fetchCriticalStudioDataServidor, lib/db/supabase-data-admin.ts) resuelve
+// `getSupabaseAdmin() ?? supabase` y pasa el resultado aquí; el wrapper de
+// cliente (fetchCriticalStudioData, justo debajo) pasa siempre `supabase` —
+// en el navegador `getSupabaseAdmin()` es SIEMPRE null (sin
+// SUPABASE_SERVICE_ROLE_KEY en el bundle), así que el comportamiento real no
+// cambia, solo se rompe la cadena de imports estática hacia supabase-admin.ts.
+export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId?: string) {
   const sid = studioId ?? getCurrentStudioId();
-  // Decision-OS / crons: esta carga la invoca también código de SERVIDOR sin
-  // sesión de usuario (Inngest — construirSnapshot, motor de automatizaciones).
-  // Con el cliente anónimo, la RLS (current_studio_id() = null) devolvía CERO
-  // filas de socios/recibos/sesiones → el snapshot llegaba vacío y todos los
-  // especialistas veían "todo en orden" (bug del Centro de Control). Se prefiere
-  // el service-role cuando existe (servidor); en el navegador getSupabaseAdmin()
-  // es null y se usa el anónimo + la sesión del usuario, que RLS scopea bien.
-  const db = getSupabaseAdmin() ?? supabase;
   const [
     studioRes,
     studioHorarioRes,
@@ -5158,6 +5158,10 @@ export async function fetchCriticalStudioData(studioId?: string) {
   };
 }
 
+export async function fetchCriticalStudioData(studioId?: string) {
+  return fetchCriticalStudioDataCon(supabase, studioId);
+}
+
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -5179,7 +5183,12 @@ export async function fetchCriticalStudioData(studioId?: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function fetchDatosTrasVentaPOS(studioId?: string) {
   const sid = studioId ?? getCurrentStudioId();
-  const db = getSupabaseAdmin() ?? supabase;
+  // Solo cliente (P-7, 26ª pasada): nadie de servidor llama a esta función —
+  // ni siquiera vía fetchAllStudioData, que no la incluye. `getSupabaseAdmin()`
+  // en el navegador es SIEMPRE null (sin SUPABASE_SERVICE_ROLE_KEY en el
+  // bundle), así que quitarlo no cambia el comportamiento real, solo la
+  // cadena de imports estática.
+  const db = supabase;
   const [recibosRes, facturasRes, suscripcionesRes, ventasPOSRes, productosPOSRes] = await Promise.all([
     fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion').eq('studio_id', sid).range(from, to)),
@@ -5197,11 +5206,10 @@ export async function fetchDatosTrasVentaPOS(studioId?: string) {
   };
 }
 
-export async function fetchDeferredStudioData(studioId?: string) {
+// Núcleo compartido cliente/servidor — mismo motivo y mismo patrón que
+// fetchCriticalStudioDataCon, justo arriba.
+export async function fetchDeferredStudioDataCon(db: SupabaseClient, studioId?: string) {
   const sid = studioId ?? getCurrentStudioId();
-  // Mismo motivo que fetchCriticalStudioData: service-role en servidor (crons),
-  // anónimo + sesión en navegador.
-  const db = getSupabaseAdmin() ?? supabase;
   const [
     rewardHistoryRes,
     creditTransactionsRes,
@@ -5303,168 +5311,12 @@ export async function fetchDeferredStudioData(studioId?: string) {
   };
 }
 
-// Fase A1 (Decision OS): sustituciones sin resolver, para que el especialista
-// EQUIPO pueda ver "instructora sin contestar". Fuera de fetchAllStudioData
-// a propósito — nadie más lo necesita hoy y no vale la pena cargarlo en cada
-// pantalla del panel. Mismo patrón service-role-cuando-existe que
-// fetchCriticalStudioData (Decision OS/crons corren sin sesión de usuario,
-// la RLS anónima devolvería cero filas).
-export interface SustitucionSnapshotRow {
-  id: string;
-  studioId: string;
-  sesionId: string;
-  instructorOriginalId: string | null;
-  estado: string;
-  creadoEn: string;
+export async function fetchDeferredStudioData(studioId?: string) {
+  return fetchDeferredStudioDataCon(supabase, studioId);
 }
 
-/** Ver BloqueoAgendaSnapshot en lib/decision/tipos.ts (mismo shape). */
-export interface BloqueoAgendaSnapshotRow {
-  instructorId: string;
-  fecha: string;
-  horaInicio: string | null;
-  horaFin: string | null;
-}
 
-export async function fetchSustitucionesRecientes(studioId: string, desdeISO: string): Promise<SustitucionSnapshotRow[]> {
-  const db = getSupabaseAdmin() ?? supabase;
-  const { data, error } = await db
-    .from('sustituciones')
-    .select('id, studio_id, sesion_id, instructor_original_id, estado, creado_en')
-    .eq('studio_id', studioId)
-    .gte('creado_en', desdeISO) as { data: { id: string; studio_id: string; sesion_id: string; instructor_original_id: string | null; estado: string; creado_en: string }[] | null; error: { message: string } | null };
-  if (error) { reportDbError('[fetchSustitucionesRecientes]', error); return []; }
-  return (data ?? []).map(r => ({
-    id: r.id, studioId: r.studio_id, sesionId: r.sesion_id,
-    instructorOriginalId: r.instructor_original_id, estado: r.estado, creadoEn: r.creado_en,
-  }));
-}
-
-// Bloqueos de agenda futuros de las instructoras (Decision OS · Agenda A5).
-// Server-only con service-role, igual que el resto del snapshot: la RLS de
-// gestión solo deja a cada instructora ver lo suyo, y aquí hace falta el
-// estudio entero para saber qué clases programadas se quedan sin quien las dé.
-//
-// Solo tipo='bloqueo': las excepciones 'extra' son lo contrario (disponibilidad
-// añadida) y no ponen ninguna clase en riesgo. Devuelve filas crudas, no un Map
-// — ver BloqueoAgendaSnapshot en lib/decision/tipos.ts.
-export async function fetchBloqueosAgendaFuturos(studioId: string, desdeDia: string, hastaDia: string): Promise<BloqueoAgendaSnapshotRow[]> {
-  const db = getSupabaseAdmin() ?? supabase;
-  const { data, error } = await db
-    .from('instructora_disponibilidad_excepciones')
-    .select('instructor_id, fecha, hora_inicio, hora_fin')
-    .eq('studio_id', studioId)
-    .eq('tipo', 'bloqueo')
-    .gte('fecha', desdeDia)
-    .lte('fecha', hastaDia) as { data: { instructor_id: string; fecha: string; hora_inicio: string | null; hora_fin: string | null }[] | null; error: { message: string } | null };
-  if (error) { reportDbError('[fetchBloqueosAgendaFuturos]', error); return []; }
-  return (data ?? []).map(r => ({
-    instructorId: r.instructor_id, fecha: r.fecha,
-    horaInicio: r.hora_inicio, horaFin: r.hora_fin,
-  }));
-}
-
-// Margen de contribución por clase (Decision OS/Informes): tarifa/hora por
-// instructora. Server-only con service-role (bypasa la RLS de gestión, que
-// solo deja leer la propia fila a la instructora) — igual que el resto del
-// snapshot, que necesita ver todo el estudio para calcular, no solo lo suyo.
-// Devuelve filas crudas, no un Map — SnapshotEstudio.instructorTarifas debe
-// ser JSON-serializable (cruza un step.run de Inngest en decision.ts); el
-// Map de consulta se construye en construirIndices (senales.ts).
-//
-// Vía deliberadamente separada de `fetchTarifasEquipo` (api-client.ts, usada
-// por Informes): esa pasa por `/api/equipo/tarifas` con sesión de staff y la
-// RLS real; esta es server-role para el snapshot del cron. Mismo criterio
-// que ya separa `/api/mi-disponibilidad` de `/api/public/disponibilidad` —
-// mecanismos de auth distintos, no se mezclan en un mismo camino aunque
-// lean la misma tabla.
-export interface InstructorTarifaRow {
-  instructorId: string;
-  tarifaHora: number | null;
-}
-
-export async function fetchInstructorTarifas(studioId: string): Promise<InstructorTarifaRow[]> {
-  const db = getSupabaseAdmin() ?? supabase;
-  const { data, error } = await db
-    .from('instructor_tarifas')
-    .select('instructor_id, tarifa_hora')
-    .eq('studio_id', studioId) as { data: { instructor_id: string; tarifa_hora: number | null }[] | null; error: { message: string } | null };
-  if (error) { reportDbError('[fetchInstructorTarifas]', error); return []; }
-  return (data ?? []).map(r => ({ instructorId: r.instructor_id, tarifaHora: r.tarifa_hora }));
-}
-
-// Informe fila 14 (Decision OS): intentos de reserva self-service que el
-// servidor rechazó de verdad — "es la alumna que quería pagar y no pudo".
-// Mismo criterio service-role que fetchInstructorTarifas/fetchSustitucionesRecientes.
-// Devuelve filas crudas (array, no Map) — mismo motivo de siempre.
-export interface IntentoFallidoRow {
-  id: string;
-  socioId: string;
-  sesionId: string | null;
-  tipoClaseId: string | null;
-  motivo: string;
-  creadoEn: string;
-}
-
-export async function fetchIntentosFallidosRecientes(studioId: string, desdeISO: string): Promise<IntentoFallidoRow[]> {
-  const db = getSupabaseAdmin() ?? supabase;
-  const { data, error } = await db
-    .from('intentos_reserva_fallidos')
-    .select('id, socio_id, sesion_id, tipo_clase_id, motivo, creado_en')
-    .eq('studio_id', studioId)
-    .gte('creado_en', desdeISO) as { data: { id: string; socio_id: string; sesion_id: string | null; tipo_clase_id: string | null; motivo: string; creado_en: string }[] | null; error: { message: string } | null };
-  if (error) { reportDbError('[fetchIntentosFallidosRecientes]', error); return []; }
-  return (data ?? []).map(r => ({
-    id: r.id, socioId: r.socio_id, sesionId: r.sesion_id,
-    tipoClaseId: r.tipo_clase_id, motivo: r.motivo, creadoEn: r.creado_en,
-  }));
-}
-
-// Captación C3 (Decision OS): eventos crudos de `widget_eventos` para medir
-// abandono de checkout en el widget de reservas — solo los dos tipos que
-// hacen falta para el cruce (checkout_started/booking_completed por
-// session_id), nunca toda la tabla (widget_loaded/class_list_viewed... son
-// mucho más numerosos y no aportan nada aquí). Mismo patrón service-role que
-// fetchIntentosFallidosRecientes justo arriba.
-export interface WidgetEventoAbandonoRow {
-  sessionId: string;
-  tipo: 'checkout_started' | 'booking_completed';
-  creadoEn: string;
-}
-
-export async function fetchAbandonoCheckoutReciente(studioId: string, desdeISO: string): Promise<WidgetEventoAbandonoRow[]> {
-  const db = getSupabaseAdmin() ?? supabase;
-  // QA (PR #1274): sin `order`, PostgREST corta en `max_rows` (1000, ver
-  // supabase/config.toml) sin garantía de qué filas caen dentro — mismo
-  // patrón ya documentado en memoria del proyecto (truncado-1000-filas), pero
-  // esta query es nueva. El widget público acumula tráfico anónimo sin gate
-  // de login en checkout_started, así que un estudio con volumen medio/alto
-  // puede superar 1000 eventos en 60 días. `order` por fecha descendente da
-  // al menos un corte determinista y prioriza lo más reciente (que es lo que
-  // más pesa en la ventana de 14d) sobre lo más antiguo de la ventana base.
-  const { data, error } = await db
-    .from('widget_eventos')
-    .select('session_id, tipo, creado_en')
-    .eq('studio_id', studioId)
-    .in('tipo', ['checkout_started', 'booking_completed'])
-    .gte('creado_en', desdeISO)
-    .order('creado_en', { ascending: false })
-    .limit(1000) as { data: { session_id: string; tipo: 'checkout_started' | 'booking_completed'; creado_en: string }[] | null; error: { message: string } | null };
-  if (error) { reportDbError('[fetchAbandonoCheckoutReciente]', error); return []; }
-  return (data ?? []).map(r => ({ sessionId: r.session_id, tipo: r.tipo, creadoEn: r.creado_en }));
-}
-
-// Fase A1 (Decision OS): nº de sedes de la cadena a la que pertenece el
-// estudio, para calibrar umbrales de "tamaño" — una cadena de 5 sedes con
-// pocas socias en cada una no es un "estudio pequeño". 1 si no hay cadena.
-export async function contarSedesCadena(cadenaId: string): Promise<number> {
-  const db = getSupabaseAdmin() ?? supabase;
-  const { count, error } = await db.from('studios').select('id', { count: 'exact', head: true }).eq('cadena_id', cadenaId);
-  if (error) { reportDbError('[contarSedesCadena]', error); return 1; }
-  return count ?? 1;
-}
-
-// Combina ambas olas. Lo usa el cron de automatizaciones, que necesita todo.
+// Combina ambas olas.
 
 
 // ─── Gamificación del panel (carga bajo demanda) ─────────────────────────────
@@ -5494,7 +5346,9 @@ export async function contarSedesCadena(cadenaId: string): Promise<number> {
 // arranque del panel bajó de 1452 ms a 69 ms precisamente sacando esto de ahí.
 export async function fetchGamificacionStudio(studioId?: string) {
   const sid = studioId ?? getCurrentStudioId();
-  const db = getSupabaseAdmin() ?? supabase;
+  // Solo cliente (P-7, 26ª pasada): sin caller de servidor (no la usa
+  // fetchAllStudioData). Mismo motivo que fetchDatosTrasVentaPOS de arriba.
+  const db = supabase;
   const [
     rewardRulesRes, rewardActionsRes, memberCreditsRes, rewardCatalogRes, rewardRedemptionsRes,
     achievementDefinitionsRes, achievementProgressRes, levelDefinitionsRes,
@@ -5525,6 +5379,10 @@ export async function fetchGamificacionStudio(studioId?: string) {
   };
 }
 
+// Combina ambas olas. Versión CLIENTE — usada por studio-context.tsx. La
+// versión de servidor (fetchAllStudioDataServidor, para los crons que corren
+// sin sesión de usuario: campanas.ts, decision/snapshot.ts) vive en
+// lib/db/supabase-data-admin.ts, que ya es server-only (P-7, 26ª pasada).
 export async function fetchAllStudioData(studioId?: string) {
   // Aquí sí `Promise.all`: estos dos elementos ya son llamadas INVOCADAS (no
   // builders perezosos), así que arrancan igual. Cada una limita por dentro.
@@ -5588,29 +5446,48 @@ export function unirTiposAPlanes(
 
 
 
-export async function dbUpdateAutomationRule(id: string, studioId: string, changes: Partial<AutomationRule>): Promise<ResultadoEscritura> {
-  const db: Record<string, unknown> = {};
-  if ('activa' in changes) db.activa = changes.activa;
-  if ('ejecutadaVeces' in changes) db.ejecutada_veces = changes.ejecutadaVeces;
-  if ('ultimaEjecucion' in changes) db.ultima_ejecucion = changes.ultimaEjecucion;
-  const { error } = await dbEscritura().from('automation_rules').update(db).eq('id', id).eq('studio_id', studioId);
+// Núcleo compartido cliente/servidor (P-7, 26ª pasada): esta escritura la
+// hace tanto studio-context.tsx (cliente, con sesión) como el motor de
+// automatizaciones sin JWT (lib/inngest/automatizaciones.ts,
+// app/api/automatizaciones/run/route.ts) — a diferencia de dbUpdateCampana,
+// aquí SÍ hace falta el cliente que resuelve `getSupabaseAdmin() ?? supabase`,
+// así que el `db` con permiso de servidor se recibe como parámetro en vez de
+// resolverse aquí dentro: así este fichero no necesita importar
+// `getSupabaseAdmin` para nada, y `supabase-admin.ts` puede llevar
+// `server-only` sin romper el build (el wrapper de servidor vive en
+// lib/db/supabase-data-admin.ts, que ya es server-only).
+export async function dbUpdateAutomationRuleCon(db: SupabaseClient, id: string, studioId: string, changes: Partial<AutomationRule>): Promise<ResultadoEscritura> {
+  const cambios: Record<string, unknown> = {};
+  if ('activa' in changes) cambios.activa = changes.activa;
+  if ('ejecutadaVeces' in changes) cambios.ejecutada_veces = changes.ejecutadaVeces;
+  if ('ultimaEjecucion' in changes) cambios.ultima_ejecucion = changes.ultimaEjecucion;
+  const { error } = await db.from('automation_rules').update(cambios).eq('id', id).eq('studio_id', studioId);
   return error ? falloEscritura('[dbUpdateAutomationRule]', error) : ESCRITURA_OK;
+}
+
+export async function dbUpdateAutomationRule(id: string, studioId: string, changes: Partial<AutomationRule>): Promise<ResultadoEscritura> {
+  return dbUpdateAutomationRuleCon(supabase, id, studioId, changes);
 }
 
 
 
-export async function dbUpdateAutomatizacion(id: string, studioId: string, changes: Partial<Automatizacion>): Promise<ResultadoEscritura> {
-  const db: Record<string, unknown> = {};
-  if ('nombre' in changes) db.nombre = changes.nombre;
-  if ('trigger' in changes) db.trigger = changes.trigger;
-  if ('accion' in changes) db.accion = changes.accion;
-  if ('asunto' in changes) db.asunto = changes.asunto;
-  if ('mensaje' in changes) db.mensaje = changes.mensaje;
-  if ('activa' in changes) db.activa = changes.activa;
-  if ('ejecutadas' in changes) db.ejecutadas = changes.ejecutadas;
-  if ('pasos' in changes) db.pasos = changes.pasos;
-  const { error } = await dbEscritura().from('automatizaciones').update(db).eq('id', id).eq('studio_id', studioId);
+// Mismo motivo que dbUpdateAutomationRuleCon, justo arriba.
+export async function dbUpdateAutomatizacionCon(db: SupabaseClient, id: string, studioId: string, changes: Partial<Automatizacion>): Promise<ResultadoEscritura> {
+  const cambios: Record<string, unknown> = {};
+  if ('nombre' in changes) cambios.nombre = changes.nombre;
+  if ('trigger' in changes) cambios.trigger = changes.trigger;
+  if ('accion' in changes) cambios.accion = changes.accion;
+  if ('asunto' in changes) cambios.asunto = changes.asunto;
+  if ('mensaje' in changes) cambios.mensaje = changes.mensaje;
+  if ('activa' in changes) cambios.activa = changes.activa;
+  if ('ejecutadas' in changes) cambios.ejecutadas = changes.ejecutadas;
+  if ('pasos' in changes) cambios.pasos = changes.pasos;
+  const { error } = await db.from('automatizaciones').update(cambios).eq('id', id).eq('studio_id', studioId);
   return error ? falloEscritura('[dbUpdateAutomatizacion]', error) : ESCRITURA_OK;
+}
+
+export async function dbUpdateAutomatizacion(id: string, studioId: string, changes: Partial<Automatizacion>): Promise<ResultadoEscritura> {
+  return dbUpdateAutomatizacionCon(supabase, id, studioId, changes);
 }
 
 // Fase 3: penalizaciones pendientes de aprobación manual (studios con

@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { fetchAllStudioData, dbUpdateAutomationRule } from '@/lib/supabase-data';
+import { fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor } from '@/lib/db/supabase-data-admin';
 import { computeAutomationCandidatos } from '@/lib/engines/automation-engine';
 import { procesarCandidato } from '@/lib/inngest/automatizaciones';
 import { mapLimit } from '@/lib/concurrency';
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
   const nowISO = new Date().toISOString();
 
   try {
-    const data = await fetchAllStudioData(sesion.studioId);
+    const data = await fetchAllStudioDataServidor(sesion.studioId);
     const studioNombre = data.studio?.nombre ?? 'tu estudio';
     const studioColor = data.studio?.colorPrimario;
     const studioLogo = data.studio?.logoUrl;
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       for (const c of candidatos) firedPorRegla.set(c.rule.id, (firedPorRegla.get(c.rule.id) ?? 0) + 1);
       for (const [ruleId, count] of firedPorRegla) {
         const base = data.automationRules.find((r) => r.id === ruleId)?.ejecutadaVeces ?? 0;
-        await dbUpdateAutomationRule(ruleId, sesion.studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
+        await dbUpdateAutomationRuleServidor(ruleId, sesion.studioId, { ejecutadaVeces: base + count, ultimaEjecucion: nowISO });
       }
     }
 
