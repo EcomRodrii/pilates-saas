@@ -2604,3 +2604,18 @@ export interface RowVentasPosLineas {
   devuelta_cantidad: number;
   orden: number;
 }
+
+export interface RowMovimientosStock {
+  id: string;
+  studio_id: string;
+  producto_id: string;
+  tipo: string;
+  cantidad: number;
+  stock_anterior: number | null;
+  stock_resultante: number;
+  motivo: string | null;
+  coste_unitario: number | null;
+  creado_por: string | null;
+  creado_por_nombre: string | null;
+  creado_en: string;
+}

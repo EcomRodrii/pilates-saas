@@ -13,7 +13,7 @@ import {
 
 let n = 0;
 function regla(p: Partial<RewardRule> & Pick<RewardRule, 'trigger' | 'creditos' | 'activa'>): RewardRule {
-  return { id: `rwr-${++n}`, studioId: 'e1', nombre: 'R', descripcion: null, topeMensual: null, creadoEn: '2026-01-01', ...p };
+  return { id: `rwr-${++n}`, studioId: 'e1', nombre: 'R', descripcion: null, topeMensual: null, unidadEuros: null, creadoEn: '2026-01-01', ...p };
 }
 function action(trigger: RewardAction['trigger'], refId: string | null): RewardAction {
   return { id: `rwa-${++n}`, studioId: 'e1', socioId: 's1', trigger, refId, creadoEn: '2026-01-01' };

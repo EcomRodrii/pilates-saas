@@ -563,6 +563,7 @@ export function mapRewardRule(r: RowRewardRules): RewardRule {
     creditos: r.creditos,
     activa: r.activa,
     topeMensual: r.tope_mensual ?? null,
+    unidadEuros: r.unidad_euros ?? null,
     creadoEn: r.creado_en,
   } as RewardRule;
 }
@@ -3176,7 +3177,8 @@ export async function dbInsertRewardRule(r: RewardRule): Promise<ResultadoEscrit
   const row = {
     id: r.id, studio_id: r.studioId ?? STUDIO_ID, trigger: r.trigger, nombre: r.nombre,
     descripcion: r.descripcion ?? null, creditos: r.creditos, activa: r.activa,
-    tope_mensual: r.topeMensual ?? null, creado_en: r.creadoEn,
+    tope_mensual: r.topeMensual ?? null, unidad_euros: r.unidadEuros ?? null,
+    creado_en: r.creadoEn,
   };
   const { error } = await supabase.from('reward_rules').insert(row);
   return error ? falloEscritura('[dbInsertRewardRule]', error) : ESCRITURA_OK;
@@ -3189,6 +3191,10 @@ export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule
   if ('creditos' in changes) db.creditos = changes.creditos;
   if ('activa' in changes) db.activa = changes.activa;
   if ('topeMensual' in changes) db.tope_mensual = changes.topeMensual;
+  // ⚠️ La lista blanca de la EDICIÓN es otra que la del alta, y un campo que
+  // falte aquí se tira en silencio con un toast de éxito — el bug de
+  // «lista blanca de columnas: alta ≠ edición».
+  if ('unidadEuros' in changes) db.unidad_euros = changes.unidadEuros;
   const { error } = await supabase.from('reward_rules').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateRewardRule]', error) : ESCRITURA_OK;
 }
