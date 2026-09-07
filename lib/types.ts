@@ -1163,8 +1163,26 @@ export interface ProductoPOS {
   studioId: string;
   nombre: string;
   categoria: CategoriaPOS;
+  /** CON IVA incluido, como todos los precios de Tentare. */
   precio: number;
   activo: boolean;
+  // ── Campos del rediseño del TPV (migr 20260907150011) ──────────────────────
+  descripcion?: string | null;
+  imagenUrl?: string | null;
+  sku?: string | null;
+  codigoBarras?: string | null;
+  /**
+   * `null` = este artículo NO controla existencias (un servicio, una clase).
+   * Deliberadamente distinto de 0, que significa AGOTADO: confundirlos dejaría
+   * un servicio sin poder venderse nunca.
+   */
+  stock?: number | null;
+  /** Umbral del aviso "stock bajo". 0 = solo avisa al agotarse. */
+  stockMinimo?: number;
+  /** `null` = hereda `studios.ivaPorDefecto`. Mismo patrón "hereda" que las reglas por tipo de clase. */
+  ivaPct?: number | null;
+  /** Orden manual en la rejilla del TPV. `null` = al final, alfabético. */
+  orden?: number | null;
 }
 
 export interface ItemVentaPOS {

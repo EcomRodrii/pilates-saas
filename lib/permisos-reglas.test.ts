@@ -72,8 +72,33 @@ test('recepción hace lo operativo pero no toca el negocio', () => {
 test('ni siquiera la propietaria ve un módulo congelado', () => {
   // El feature-freeze manda sobre el rol: si no, reactivar por accidente un
   // módulo se lo enseñaría solo a ella y nadie lo notaría.
-  assert.equal(puedeVer('PROPIETARIO', '/pos'), false);
   assert.equal(puedeVer('PROPIETARIO', '/kiosk'), false);
+  assert.equal(puedeVer('PROPIETARIO', '/ondemand'), false);
+  assert.equal(puedeVer('PROPIETARIO', '/chat'), false);
+});
+
+// La caja salió del freeze el 2026-09-07 (ver lib/frozen-features.ts). Quien la
+// ve tiene que coincidir EXACTAMENTE con quien puede usarla: sus rutas de
+// servidor exigen `puedeMoverDinero` para vender y `puedeVerFinanzas` para
+// mirar, y las dos dejan fuera a manager e instructora. Enseñar el menú a quien
+// va a recibir un 403 al abrirlo es el bug que esta tabla existe para evitar.
+test('la caja la ven exactamente los roles que pueden usarla', () => {
+  assert.equal(puedeVer('PROPIETARIO', '/pos'), true);
+  assert.equal(puedeVer('RECEPCION', '/pos'), true);
+  assert.equal(puedeVer('MANAGER', '/pos'), false, 'el manager no mueve dinero');
+  assert.equal(puedeVer('INSTRUCTOR', '/pos'), false);
+});
+
+test('quien ve la caja es quien puede mover dinero, sin excepciones', () => {
+  // Espejo explícito: si algún día se separan `puedeMoverDinero` y el acceso a
+  // /pos, que falle aquí y no en el mostrador con una clienta delante.
+  const roles = ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const;
+  for (const rol of roles) {
+    assert.equal(
+      puedeVer(rol, '/pos'), puedeMoverDinero(rol),
+      `${rol}: ver /pos y poder cobrar tienen que decir lo mismo`,
+    );
+  }
 });
 
 test('una subruta hereda el bloqueo de su prefijo', () => {

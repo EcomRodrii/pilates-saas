@@ -9,13 +9,19 @@
 // usuario no sepa que existen.
 //
 //   · Kiosko    → /kiosk/*            (pantalla de check-in en tablet)
-//   · POS/Caja  → /pos                (punto de venta / TPV / datáfono)
 //   · VOD       → /ondemand  +  el "Vídeos" del portal de socias
 //   · Chat      → /chat               (chat de equipo — RLS roto D2 + no es la cuña)
 //
-// Comunidad se REACTIVÓ (P1, Community & Messaging OS, ver
-// docs/community-os-diseno-p0.md/community-messaging-os-freeze-levantado):
-// decisión explícita del usuario, no una reversión de este documento.
+// DESCONGELADOS, cada uno por su motivo y con decisión explícita detrás:
+//   · Comunidad → P1, Community & Messaging OS (ver
+//     docs/community-os-diseno-p0.md/community-messaging-os-freeze-levantado).
+//   · POS/Caja  → 2026-09-07. No se "reactivó" el código congelado: se
+//     reconstruyó server-authoritative (la venta la registra
+//     `registrar_venta_pos` releyendo el catálogo, no el navegador), con
+//     stock, caja real, IVA por artículo y bonos que crean la MISMA
+//     suscripción que el resto de Tentare. El TPV viejo se borró.
+//
+// Ninguno de los dos es una reversión de este documento.
 //
 // Fuente única de verdad del freeze. Un solo interruptor gobierna: menú lateral,
 // barra inferior, cajón "Más", editor de menú, buscador/paleta ⌘K y el guardia
@@ -43,10 +49,18 @@
 //
 // Detalle completo en docs/FEATURE-FREEZE-2026-07.md.
 
-/** Prefijos de ruta congelados. Un prefijo cubre la ruta exacta y sus subrutas. */
+/**
+ * Prefijos de ruta congelados. Un prefijo cubre la ruta exacta y sus subrutas.
+ *
+ * ⚠️ `/pos` SALIÓ de esta lista (2026-09-07). No fue una reversión del freeze:
+ * el TPV se reconstruyó server-authoritative —la venta la registra
+ * `registrar_venta_pos` releyendo el catálogo, no el navegador— y con ello se
+ * cerró lo que de verdad lo hacía inseguro (importes que llegaban del cliente,
+ * un botón que marcaba Bizum como cobrado sin preguntarle a Stripe, stock
+ * inexistente, ninguna caja real). Kiosko, VOD y Chat siguen congelados.
+ */
 export const RUTAS_CONGELADAS = [
   '/kiosk',
-  '/pos',
   '/ondemand',
   '/chat',
 ] as const;

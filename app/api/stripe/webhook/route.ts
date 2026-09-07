@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { entregarVentaPOS } from '@/lib/pos/venta-servidor';
 import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/lib/webhook-idempotencia';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
@@ -659,6 +660,77 @@ async function procesarEvento(
         return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
       }
       const studioId = studioDeCuenta as string;
+
+      // ── Rediseño del TPV (2026-09-07): la venta YA existe ────────────────
+      //
+      // Los cobros que lanza /api/pos/venta llevan `ventaId` en la metadata, y
+      // entonces esto NO es un backstop: es uno de los dos caminos legítimos
+      // por los que una venta se cierra. El otro es el propio TPV releyendo el
+      // PaymentIntent. Llegan los dos, en cualquier orden, y no se conocen.
+      //
+      // `confirmar_pago_venta_pos` es un compare-and-set sobre PENDIENTE_PAGO:
+      // solo quien lo gana entrega el bono, suma los créditos y sella la
+      // factura. El que llega segundo recibe `r_aplicado = false` y no repite
+      // nada. Por eso aquí no hace falta ninguna comprobación extra.
+      //
+      // Esto es lo que hace que cerrar el navegador a mitad de un cobro deje de
+      // ser un problema: antes el cobro quedaba huérfano esperando a que
+      // alguien lo completara a mano desde un aviso.
+      const ventaIdPos = pi.metadata?.ventaId;
+      if (ventaIdPos) {
+        const { data: conf, error: errConf } = await admin.rpc('confirmar_pago_venta_pos', {
+          p_venta_id: ventaIdPos,
+          p_studio_id: studioId,
+          p_payment_intent_id: pi.id,
+          p_importe_confirmado: (pi.amount_received ?? pi.amount ?? 0) / 100,
+        });
+        if (errConf) {
+          // 5xx a propósito: Stripe reintenta. Un cobro real cuya venta no se
+          // cierra es dinero cobrado sin bono entregado ni factura.
+          Sentry.captureMessage('[stripe webhook] no se pudo confirmar la venta POS', {
+            level: 'error', tags: { area: 'cobros' },
+            extra: { paymentIntentId: pi.id, ventaId: ventaIdPos, studioId, detalle: errConf.message },
+          });
+          return NextResponse.json({ error: 'Fallo al confirmar la venta' }, { status: 500 });
+        }
+        const filaConf = Array.isArray(conf) ? conf[0] : conf;
+        if (filaConf?.r_aplicado === true) {
+          await entregarVentaPOS(admin, { studioId, ventaId: ventaIdPos });
+        } else if (filaConf?.r_estado === 'ANULADA') {
+          // El cobro triunfó sobre una venta que ya se había anulado: se
+          // canceló en el mostrador, o el proveedor devolvió un estado que se
+          // leyó como fallo, y la tarjeta liquidó después. El estudio tiene el
+          // dinero y la clienta no tiene ni bono ni recibo ni factura.
+          //
+          // Con un solo booleano esto pasaba en silencio. Se deja en
+          // `reconciliaciones_pos` —la tabla que existe exactamente para
+          // "cobro sin registrar", idempotente por PK del PaymentIntent— y se
+          // avisa, para que alguien lo resuelva en vez de descubrirlo cuadrando
+          // con el banco.
+          Sentry.captureMessage('[stripe webhook] cobro confirmado sobre una venta POS ya anulada', {
+            level: 'error', tags: { area: 'cobros' },
+            extra: { paymentIntentId: pi.id, ventaId: ventaIdPos, studioId,
+                     importe: (pi.amount_received ?? pi.amount ?? 0) / 100 },
+          });
+          const { error: errRec } = await admin.from('reconciliaciones_pos').insert({
+            payment_intent_id: pi.id,
+            studio_id: studioId,
+            importe: (pi.amount_received ?? pi.amount ?? 0) / 100,
+            concepto: pi.metadata.concepto ?? 'Cobro sobre venta anulada',
+          });
+          if (errRec && errRec.code !== '23505') {
+            return NextResponse.json({ error: 'Fallo al registrar el cobro huérfano' }, { status: 500 });
+          }
+        }
+        capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: origenPos === 'pos_bizum' ? 'bizum' : 'terminal' } });
+        return NextResponse.json({ received: true });
+      }
+
+      // ── Sin `ventaId`: backstop clásico ──────────────────────────────────
+      // Cobros lanzados por el TPV anterior (o por /api/terminal/cobrar, que
+      // sigue en pie). No hay venta a la que apuntar, así que se deja el
+      // marcador de "cobro sin registrar" de siempre.
+      //
       // Insert idempotente: si el POS ya registró la venta y marcó el marcador
       // RECONCILIADO, la PK del PaymentIntent hace que este INSERT choque (23505)
       // y no pisamos ese estado. Cualquier otro error → 5xx para que Stripe

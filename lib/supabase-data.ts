@@ -1102,6 +1102,17 @@ export function mapProductoPOS(r: RowProductosPos): ProductoPOS {
     categoria: r.categoria,
     precio: r.precio,
     activo: r.activo,
+    descripcion: r.descripcion ?? null,
+    imagenUrl: r.imagen_url ?? null,
+    sku: r.sku ?? null,
+    codigoBarras: r.codigo_barras ?? null,
+    // `?? null` a propósito, NO `?? 0`: null significa "no controla stock" y 0
+    // significa "agotado". Colapsarlos aquí pintaría todos los servicios como
+    // agotados en el TPV.
+    stock: r.stock ?? null,
+    stockMinimo: r.stock_minimo ?? 0,
+    ivaPct: r.iva_pct ?? null,
+    orden: r.orden ?? null,
   } as ProductoPOS;
 }
 
@@ -2347,6 +2358,10 @@ export async function dbReplaceDisponibilidadCitas(
 }
 
 // ── Productos POS ──────────────────────────────────────────────────────────────
+// ⚠️ Alta y edición son DOS listas blancas de columnas, y tienen que decir lo
+// mismo. Un campo que esté en una y no en la otra se tira en silencio y la
+// pantalla enseña un toast de éxito igualmente — ya pasó una vez en este repo.
+// Si añades una columna a `productos_pos`, va en las dos funciones de abajo.
 export async function dbInsertProductoPOS(prod: ProductoPOS): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('productos_pos').insert({
     id: prod.id,
@@ -2355,6 +2370,17 @@ export async function dbInsertProductoPOS(prod: ProductoPOS): Promise<ResultadoE
     categoria: prod.categoria,
     precio: prod.precio,
     activo: prod.activo,
+    descripcion: prod.descripcion ?? null,
+    imagen_url: prod.imagenUrl ?? null,
+    sku: prod.sku ?? null,
+    codigo_barras: prod.codigoBarras ?? null,
+    // `?? null` y no `?? 0`: null es "no controla stock", 0 es "agotado". Un
+    // servicio dado de alta con 0 no podría venderse nunca.
+    stock: prod.stock ?? null,
+    stock_minimo: prod.stockMinimo ?? 0,
+    // null = hereda el IVA del estudio.
+    iva_pct: prod.ivaPct ?? null,
+    orden: prod.orden ?? null,
   });
   return error ? falloEscritura('[dbInsertProductoPOS]', error) : ESCRITURA_OK;
 }
@@ -2364,6 +2390,14 @@ export async function dbUpdateProductoPOS(id: string, changes: Partial<ProductoP
   if ('categoria' in changes) db.categoria = changes.categoria;
   if ('precio' in changes) db.precio = changes.precio;
   if ('activo' in changes) db.activo = changes.activo;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion ?? null;
+  if ('imagenUrl' in changes) db.imagen_url = changes.imagenUrl ?? null;
+  if ('sku' in changes) db.sku = changes.sku ?? null;
+  if ('codigoBarras' in changes) db.codigo_barras = changes.codigoBarras ?? null;
+  if ('stock' in changes) db.stock = changes.stock ?? null;
+  if ('stockMinimo' in changes) db.stock_minimo = changes.stockMinimo ?? 0;
+  if ('ivaPct' in changes) db.iva_pct = changes.ivaPct ?? null;
+  if ('orden' in changes) db.orden = changes.orden ?? null;
   const { error } = await supabase.from('productos_pos').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateProductoPOS]', error) : ESCRITURA_OK;
 }

@@ -8,6 +8,7 @@ import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, 
 import type { PlanTarifa, ProductoPOS, TipoPlan } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { nombrePeriodo } from '@/lib/bono-logic';
+import { estadoStock } from '@/lib/pos/ticket';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
@@ -635,9 +636,34 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
   );
 }
 
+// Etiqueta de existencias para el listado. `null` = este artículo no lleva
+// control (una clase, un servicio) y entonces no se pinta nada: un "sin stock"
+// en cada fila sería ruido, y un "0" sería mentira.
+function EtiquetaStock({ stock, minimo }: { stock?: number | null; minimo?: number }) {
+  const estado = estadoStock(stock, minimo ?? 0);
+  if (estado === 'SIN_CONTROL') return null;
+  const estilo =
+    estado === 'AGOTADO' ? { color: 'var(--destructive)', texto: 'Agotado' }
+    : estado === 'BAJO'  ? { color: 'var(--warning)', texto: `Quedan ${stock}` }
+    :                      { color: 'var(--muted-foreground)', texto: `${stock} en stock` };
+  return (
+    <span className="text-[11px] font-semibold" style={{ color: estilo.color }}>
+      {estilo.texto}
+    </span>
+  );
+}
+
 // ── ProductoPOS form modal ────────────────────────────────────────────────────
 
-type PosFormData = { nombre: string; precio: string; categoria: ProductoPOS['categoria']; activo: boolean };
+type PosFormData = {
+  nombre: string; precio: string; categoria: ProductoPOS['categoria']; activo: boolean;
+  descripcion: string; sku: string; codigoBarras: string;
+  // Texto vacío = "no controla stock" (null en BD). Es DISTINTO de "0", que
+  // significa agotado: un servicio con 0 no podría venderse nunca.
+  stock: string; stockMinimo: string;
+  // Texto vacío = hereda el IVA del estudio.
+  ivaPct: string;
+};
 
 function PosModal({ initial, onSave, onClose, onDelete }: {
   initial?: ProductoPOS;
@@ -651,9 +677,16 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
     precio: initial?.precio?.toString() ?? '',
     categoria: initial?.categoria ?? 'PRODUCTO',
     activo: initial?.activo ?? true,
+    descripcion: initial?.descripcion ?? '',
+    sku: initial?.sku ?? '',
+    codigoBarras: initial?.codigoBarras ?? '',
+    stock: initial?.stock == null ? '' : String(initial.stock),
+    stockMinimo: initial?.stockMinimo ? String(initial.stockMinimo) : '',
+    ivaPct: initial?.ivaPct == null ? '' : String(initial.ivaPct),
   });
   const set = (k: keyof PosFormData, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
   const valid = form.nombre.trim() && form.precio && Number(form.precio) >= 0;
+  const controlaStock = form.stock.trim() !== '';
 
   return (
     <DashboardSheet open onClose={onClose} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}>
@@ -687,6 +720,66 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
               </select>
             </div>
           </div>
+          <div>
+            <label htmlFor={`${uid}-desc`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Descripción</label>
+            <input id={`${uid}-desc`} value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
+              placeholder="Se ve bajo el nombre en la caja" />
+          </div>
+
+          {/* ── Existencias ──────────────────────────────────────────────────
+              Dejar el stock VACÍO significa que este artículo no lleva control
+              (una clase, un servicio). No es lo mismo que poner 0, que es
+              "agotado" y bloquea la venta. Se dice explícitamente porque es la
+              confusión que más cuesta después. */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor={`${uid}-stock`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Existencias</label>
+              <input id={`${uid}-stock`} value={form.stock} onChange={e => set('stock', e.target.value.replace(/[^0-9]/g, ''))}
+                inputMode="numeric"
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
+                placeholder="Sin control" />
+            </div>
+            <div>
+              <label htmlFor={`${uid}-min`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Avisar por debajo de</label>
+              <input id={`${uid}-min`} value={form.stockMinimo} onChange={e => set('stockMinimo', e.target.value.replace(/[^0-9]/g, ''))}
+                inputMode="numeric" disabled={!controlaStock}
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand disabled:opacity-40"
+                placeholder="0" />
+            </div>
+          </div>
+          <p className="-mt-2 text-[11.5px] text-muted-foreground">
+            {controlaStock
+              ? 'La caja descuenta cada venta y no deja vender por debajo de 0.'
+              : 'Vacío = sin control de existencias. Pon 0 solo si quieres marcarlo como agotado.'}
+          </p>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label htmlFor={`${uid}-iva`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">IVA (%)</label>
+              <input id={`${uid}-iva`} value={form.ivaPct} onChange={e => set('ivaPct', e.target.value.replace(/[^0-9.,]/g, ''))}
+                inputMode="decimal"
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
+                placeholder="Del estudio" />
+            </div>
+            <div>
+              <label htmlFor={`${uid}-sku`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Referencia</label>
+              <input id={`${uid}-sku`} value={form.sku} onChange={e => set('sku', e.target.value)}
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
+                placeholder="SKU" />
+            </div>
+            <div>
+              <label htmlFor={`${uid}-ean`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Cód. barras</label>
+              <input id={`${uid}-ean`} value={form.codigoBarras} onChange={e => set('codigoBarras', e.target.value.replace(/[^0-9A-Za-z-]/g, ''))}
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
+                placeholder="Opcional" />
+            </div>
+          </div>
+          <p className="-mt-2 text-[11.5px] text-muted-foreground">
+            El precio es CON IVA incluido. Deja el IVA vacío para usar el del estudio.
+            El código de barras se puede escanear en la caja desde el buscador.
+          </p>
+
           <div className="flex items-center gap-2.5">
             <button
               type="button"
@@ -772,12 +865,28 @@ export default function Productos() {
     setAviso(editando ? 'Tarifa actualizada' : `"${datos.nombre}" ya está a la venta`);
   }
 
-  async function savePos(d: { nombre: string; precio: string; categoria: ProductoPOS['categoria']; activo: boolean }) {
+  async function savePos(d: PosFormData) {
+    // Campo vacío → `null`, no `0`. En existencias y en IVA los dos valores
+    // significan cosas distintas: null es "no controla / hereda", 0 es
+    // "agotado / exento". El formulario deja vacío a propósito y aquí NO se
+    // colapsa.
+    const numeroONulo = (v: string) => {
+      const t = v.trim().replace(',', '.');
+      if (t === '') return null;
+      const n = Number(t);
+      return Number.isFinite(n) ? n : null;
+    };
     const fields = {
       nombre: d.nombre.trim(),
       precio: parseFloat(d.precio) || 0,
       categoria: d.categoria,
       activo: d.activo,
+      descripcion: d.descripcion.trim() || null,
+      sku: d.sku.trim() || null,
+      codigoBarras: d.codigoBarras.trim() || null,
+      stock: numeroONulo(d.stock),
+      stockMinimo: numeroONulo(d.stockMinimo) ?? 0,
+      ivaPct: numeroONulo(d.ivaPct),
     };
     const res = posModal && posModal !== 'new' ? await updateProductoPOS(posModal.id, fields) : await addProductoPOS(fields);
     if (!res.ok) { setAviso(res.error); return; }
@@ -1011,6 +1120,7 @@ export default function Productos() {
                               {p.activo ? 'Activo' : 'Inactivo'}
                             </span>
                           </div>
+                          <EtiquetaStock stock={p.stock} minimo={p.stockMinimo} />
                         </td>
                         <td className="px-5 py-3.5">
                           <button onClick={() => setPosModal(p)} aria-label="Editar producto"
@@ -1043,6 +1153,7 @@ export default function Productos() {
                             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.activo ? 'var(--success)' : 'var(--muted-foreground)' }} />
                             {p.activo ? 'Activo' : 'Inactivo'}
                           </span>
+                          <EtiquetaStock stock={p.stock} minimo={p.stockMinimo} />
                         </div>
                       </div>
                       <span className="font-bold text-foreground text-[14px] shrink-0">{fmt(p.precio)} €</span>
