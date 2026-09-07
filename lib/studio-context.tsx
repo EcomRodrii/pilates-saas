@@ -9,7 +9,7 @@ import { supabase } from '@/lib/db/supabase';
 import { apuntarCobroEnCaja } from '@/lib/pos/cliente';
 import type { RowInstructores } from '@/lib/db-types';
 import {
-  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchDatosTrasVentaPOS, mapInstructor,
+  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchGamificacionStudio, fetchDatosTrasVentaPOS, mapInstructor,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbFetchCamposPersonalizados, dbInsertCampoPersonalizado, dbUpdateCampoPersonalizado, dbDeleteCampoPersonalizado,
   dbFetchSegmentosClientes, dbInsertSegmentoCliente, dbUpdateSegmentoCliente, dbDeleteSegmentoCliente,
@@ -40,7 +40,7 @@ import {
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem, dbAjustarStock,
   dbConsumirSesionBono,
   dbDevolverSesionBono,
-  dbInsertRewardRedemption, dbUpdateRewardRedemption,
+  dbInsertRewardRedemption, dbUpdateRewardRedemption, dbCancelarCanje,
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
   dbUpsertAchievementProgress, dbInsertAchievementHistory,
   dbInsertLevelDefinition, dbUpdateLevelDefinition, dbDeleteLevelDefinition,
@@ -639,6 +639,13 @@ interface StudioContextValue {
 
   // Studio management
   resetDatosPilates: () => void;
+  /**
+   * Carga las tablas de gamificación, que NO vienen en el arranque.
+   *
+   * La llama la pestaña que las necesita (Configuración › Logros y motivación).
+   * Es idempotente por estudio: entrar y salir de la pestaña no vuelve a pedir.
+   */
+  cargarGamificacion: () => void;
   dataLoaded: boolean;
   /**
    * La carga pública falló de verdad (red/servidor) — distinto de `dataLoaded`
@@ -4609,6 +4616,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   async function updateRewardRedemptionEstado(id: string, estado: RewardRedemption['estado']): Promise<ResultadoEscritura> {
+    // CANCELADO no es un estado más: devuelve créditos y stock. Eso va por la
+    // RPC `cancelar_canje`, que hace las tres escrituras en una transacción —
+    // hacerlas aquí sueltas dejaría a la socia sin recompensa y sin créditos si
+    // fallara la segunda. ENTREGADO sí es solo un cambio de estado.
+    if (estado === 'CANCELADO') {
+      const socioId = rewardRedemptions.find(r => r.id === id)?.socioId ?? null;
+      const res = await dbCancelarCanje(id, getCurrentStudioId());
+      if ('error' in res) return { ok: false, error: res.error };
+      // La RPC es idempotente y responde con el estado REAL: si alguien lo
+      // había entregado ya desde otra pestaña, se refleja eso y no 'CANCELADO'.
+      setRewardRedemptions(prev => prev.map(r => r.id === id ? { ...r, estado: res.estado } : r));
+      if (socioId) {
+        setMemberCredits(prev => prev.map(m => m.socioId === socioId ? { ...m, saldo: res.saldo } : m));
+      }
+      return { ok: true };
+    }
     const res = await dbUpdateRewardRedemption(id, { estado });
     if (!res.ok) return res;
     setRewardRedemptions(prev => prev.map(r => r.id === id ? { ...r, estado } : r));
@@ -5193,6 +5216,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     studioConfig,
     updateStudioConfig,
     resetDatosPilates,
+    cargarGamificacion,
     automationRules,
     automationLogs,
     notasProgreso,
@@ -5250,6 +5274,37 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     studio,
     authUserId, publicSlug, studioIdOverride,
   ]);
+
+  // Ver el comentario largo de `fetchGamificacionStudio`: estas diez tablas
+  // dejaron de cargarse en #1375 y nadie las recogió después. Se piden aquí,
+  // bajo demanda, para no devolverlas al arranque —que es de donde se sacaron
+  // para bajarlo de 1452 ms a 69 ms—.
+  const gamificacionCargadaDe = useRef<string | null>(null);
+
+  function cargarGamificacion() {
+    const sid = getCurrentStudioId();
+    if (!sid || gamificacionCargadaDe.current === sid) return;
+    // Se marca ANTES de esperar: si no, abrir la pestaña dispara varias cargas
+    // idénticas antes de que vuelva la primera.
+    gamificacionCargadaDe.current = sid;
+    fetchGamificacionStudio(sid).then(g => {
+      setRewardRules(g.rewardRules);
+      setRewardActions(g.rewardActions);
+      setMemberCredits(g.memberCredits);
+      setRewardCatalog(g.rewardCatalog);
+      setRewardRedemptions(g.rewardRedemptions);
+      setAchievementDefinitions(g.achievementDefinitions);
+      setAchievementProgress(g.achievementProgress);
+      setLevelDefinitions(g.levelDefinitions);
+      setChallengeDefinitions(g.challengeDefinitions);
+      setChallengeProgress(g.challengeProgress);
+    }).catch(e => {
+      // Si falla, se permite reintentar: dejarlo marcado condenaría la pestaña
+      // a quedarse vacía el resto de la sesión, que es justo el fallo de origen.
+      gamificacionCargadaDe.current = null;
+      capturarExcepcion(e, { tags: { area: 'gamificacion' } });
+    });
+  }
 
   function resetDatosPilates() {
     fetchAllStudioData().then(data => {

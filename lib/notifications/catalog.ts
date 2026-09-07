@@ -189,6 +189,11 @@ export const EVENTOS = {
   RECORDATORIO_1H: 'reserva.recordatorio_1h',
   BONO_POR_CADUCAR: 'bono.por_caducar',
   BONO_AGOTADO: 'bono.agotado',
+  // Una socia ha gastado sus créditos en una recompensa del catálogo. El
+  // portal le dice «El estudio te avisará» — y hasta ahora al estudio no se le
+  // avisaba: el canje quedaba en PENDIENTE en una tabla que ninguna pantalla
+  // leía. Va al MOSTRADOR porque quien entrega la recompensa está allí.
+  CANJE_SOLICITADO: 'canje.solicitado',
   // El barrido de los lunes reparte las recuperaciones de la semana que acaba
   // de cerrar (`lib/recuperaciones/otorgar-semanales.ts`). Nacían en SILENCIO:
   // la socia solo se enteraba si abría la app y comparaba el número con el que
@@ -311,6 +316,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // momento, quiere enterarse igual — pedido explícito del fundador tras
   // probar un pago real sin tener el panel en pantalla.
   [EVENTOS.VENTA_REGISTRADA]:      { category: 'pagos',    priority: 'MEDIA',  canales: ['PUSH'], audiencia: 'mostrador' },
+  // PUSH y prioridad MEDIA: la socia ya ha pagado con sus créditos y espera
+  // algo a cambio. No es urgente como un pago fallido, pero dejarlo solo en el
+  // panel repetiría justo el problema que este evento viene a cerrar.
+  [EVENTOS.CANJE_SOLICITADO]:      { category: 'pagos',    priority: 'MEDIA',  canales: ['PUSH'], audiencia: 'mostrador' },
   // Sin EMAIL: el recibo (ReciboEmail) ya se manda por separado.
   [EVENTOS.PAGO_PENALIZACION]:     { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // Solo in-app, sin push: es accionable pero no urgente de interrumpir.
@@ -737,6 +746,24 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   // Nueva venta → mostrador (dueña/manager/recepción). Mismo texto para las
   // tres, mismo criterio que el resto de plantillas `mostrador`.
+  // Mismo texto para los tres roles de `mostrador`: quien lo lea tiene que
+  // hacer lo mismo — entregar la recompensa. Sin plantilla para alguno de los
+  // tres, el motor descarta ese rol (lo vigila catalogo-completo.test.ts).
+  [`${EVENTOS.CANJE_SOLICITADO}#PROPIETARIO`]: {
+    title: 'Canje pendiente de entregar',
+    body: '{socia} ha canjeado «{recompensa}» por {creditos} créditos.',
+    deepLink: () => `/configuracion?tab=gamificacion&sub=canjes`,
+  },
+  [`${EVENTOS.CANJE_SOLICITADO}#MANAGER`]: {
+    title: 'Canje pendiente de entregar',
+    body: '{socia} ha canjeado «{recompensa}» por {creditos} créditos.',
+    deepLink: () => `/configuracion?tab=gamificacion&sub=canjes`,
+  },
+  [`${EVENTOS.CANJE_SOLICITADO}#RECEPCION`]: {
+    title: 'Canje pendiente de entregar',
+    body: '{socia} ha canjeado «{recompensa}» por {creditos} créditos.',
+    deepLink: () => `/configuracion?tab=gamificacion&sub=canjes`,
+  },
   [`${EVENTOS.VENTA_REGISTRADA}#PROPIETARIO`]: {
     title: 'Nueva venta',
     body: '{socia} ha comprado {concepto} — {importe} €.',

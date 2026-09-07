@@ -135,6 +135,7 @@ import type {
   RewardCatalogItem,
   RewardHistory,
   RewardRedemption,
+  EstadoCanje,
   RewardRule,
   Sala,
   BloqueoMaquina,
@@ -3484,6 +3485,30 @@ export async function dbInsertRewardRedemption(r: RewardRedemption) {
   if (error) reportDbError('[dbInsertRewardRedemption]', error);
 }
 
+// Cancelar un canje NO es un cambio de estado más: hay que devolver los
+// créditos y el stock, y las tres escrituras deben ir juntas o no ir. Hacerlas
+// desde aquí en tres llamadas dejaría a la socia sin recompensa y sin créditos
+// si fallara la segunda. Por eso va por RPC (migración 20260907193000), que
+// además es idempotente: cancelar dos veces devuelve el crédito una.
+export async function dbCancelarCanje(
+  redemptionId: string, studioId: string,
+): Promise<{ ok: true; estado: EstadoCanje; saldo: number } | { error: string }> {
+  const { data, error } = await supabase.rpc('cancelar_canje', {
+    p_redemption_id: redemptionId, p_studio_id: studioId,
+  });
+  if (error) {
+    if (error.message.includes('CANJE_NO_ENCONTRADO')) return { error: 'Ese canje ya no existe.' };
+    reportDbError('[dbCancelarCanje]', error);
+    return { error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    reportDbError('[dbCancelarCanje]', { message: 'La RPC no devolvió ninguna fila' });
+    return { error: 'No se ha podido confirmar la cancelación.' };
+  }
+  return { ok: true, estado: row.estado as EstadoCanje, saldo: row.saldo as number };
+}
+
 export async function dbUpdateRewardRedemption(id: string, changes: Partial<RewardRedemption>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
@@ -5435,6 +5460,64 @@ export async function contarSedesCadena(cadenaId: string): Promise<number> {
 
 // Combina ambas olas. Lo usa el cron de automatizaciones, que necesita todo.
 
+
+// ─── Gamificación del panel (carga bajo demanda) ─────────────────────────────
+//
+// ⚠️ Esto NO es una optimización nueva: es reparar una carga que desapareció.
+//
+// «Sprint 1: lazy-load non-critical tables» (#1375, 25-ago-2026) comentó los
+// SELECT de las diez tablas de gamificación en `fetchCriticalStudioData` y
+// dejó `[]` en su sitio. La parte de "lazy" nunca llegó: ninguna función las
+// carga después. Ni `fetchDeferredStudioData`, ni `fetchAllStudioData` (que es
+// crítica + diferida, así que tampoco), ni `resetDatosPilates`. Otras tablas
+// del mismo commit sí recuperaron su cargador —`plazas_fijas` tiene el suyo—;
+// estas se quedaron huérfanas.
+//
+// Lo que provocó, medido en producción:
+//  · Las cinco pestañas de Configuración › Logros y motivación leen un estado
+//    que nadie rellena. Un estudio con 24 logros y 11 niveles guardados los ve
+//    todos en blanco, y el catálogo de recompensas siempre vacío.
+//  · Peor: `otorgarCreditos` filtra en local con `rewardRules` antes de llamar
+//    a la RPC. Con la lista vacía, `decidirOtorgarCreditos` siempre dice que no
+//    y la RPC no se llega a llamar. El panel lleva SIN CONCEDER UN SOLO CRÉDITO
+//    desde el 21-ago (última concesión `rwa-srv-%` en producción), mientras el
+//    camino del portal —que no depende del estado del cliente— seguía vivo. Por
+//    eso no saltó ninguna alarma.
+//
+// Se carga aparte y bajo demanda, no volviendo a meterlo en el arranque: el
+// arranque del panel bajó de 1452 ms a 69 ms precisamente sacando esto de ahí.
+export async function fetchGamificacionStudio(studioId?: string) {
+  const sid = studioId ?? getCurrentStudioId();
+  const db = getSupabaseAdmin() ?? supabase;
+  const [
+    rewardRulesRes, rewardActionsRes, memberCreditsRes, rewardCatalogRes, rewardRedemptionsRes,
+    achievementDefinitionsRes, achievementProgressRes, levelDefinitionsRes,
+    challengeDefinitionsRes, challengeProgressRes,
+  ] = await enTandas([
+    db.from('reward_rules').select('*').eq('studio_id', sid),
+    db.from('reward_actions').select('*').eq('studio_id', sid),
+    db.from('member_credits').select('*').eq('studio_id', sid),
+    db.from('reward_catalog').select('*').eq('studio_id', sid),
+    db.from('reward_redemptions').select('*').eq('studio_id', sid),
+    db.from('achievement_definitions').select('*').eq('studio_id', sid),
+    db.from('achievement_progress').select('*').eq('studio_id', sid),
+    db.from('level_definitions').select('*').eq('studio_id', sid),
+    db.from('challenge_definitions').select('*').eq('studio_id', sid),
+    db.from('challenge_progress').select('*').eq('studio_id', sid),
+  ]);
+  return {
+    rewardRules: (rewardRulesRes?.data ?? []).map(mapRewardRule),
+    rewardActions: (rewardActionsRes?.data ?? []).map(mapRewardAction),
+    memberCredits: (memberCreditsRes?.data ?? []).map(mapMemberCredits),
+    rewardCatalog: (rewardCatalogRes?.data ?? []).map(mapRewardCatalogItem),
+    rewardRedemptions: (rewardRedemptionsRes?.data ?? []).map(mapRewardRedemption),
+    achievementDefinitions: (achievementDefinitionsRes?.data ?? []).map(mapAchievementDefinition),
+    achievementProgress: (achievementProgressRes?.data ?? []).map(mapAchievementProgress),
+    levelDefinitions: (levelDefinitionsRes?.data ?? []).map(mapLevelDefinition),
+    challengeDefinitions: (challengeDefinitionsRes?.data ?? []).map(mapChallengeDefinition),
+    challengeProgress: (challengeProgressRes?.data ?? []).map(mapChallengeProgress),
+  };
+}
 
 export async function fetchAllStudioData(studioId?: string) {
   // Aquí sí `Promise.all`: estos dos elementos ya son llamadas INVOCADAS (no

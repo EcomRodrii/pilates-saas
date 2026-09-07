@@ -44,6 +44,11 @@ const CONTRATOS = [
     fichero: 'lib/supabase-data.ts',
     fn: 'dbOtorgarCreditoDisparador',
   },
+  {
+    rpc: 'cancelar_canje',
+    fichero: 'lib/supabase-data.ts',
+    fn: 'dbCancelarCanje',
+  },
 ];
 
 // Última declaración `returns table(...)` de una función en las migraciones.

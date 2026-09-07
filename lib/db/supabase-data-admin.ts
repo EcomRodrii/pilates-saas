@@ -3925,6 +3925,17 @@ export async function canjearRecompensaPublica(params: {
       creditos: -item.costeCreditos, descripcion: `Canje: ${item.nombre}`, ref_id: redemptionId, creado_en: now,
     }),
   ]);
+
+  // El portal le promete a la socia «El estudio te avisará». Sin esto, no se
+  // avisaba a nadie: el canje quedaba PENDIENTE en una tabla que ninguna
+  // pantalla leía, y ella se quedaba sin créditos y sin recompensa.
+  const { emitirCanjeSolicitado } = await import('@/lib/notifications/emit');
+  await emitirCanjeSolicitado({
+    studioId: params.studioId, socioId: params.socioId,
+    socia: (socia.nombre as string | null) ?? 'Una socia',
+    recompensa: item.nombre, creditos: item.costeCreditos, redemptionId,
+  });
+
   return { ok: true as const };
 }
 
