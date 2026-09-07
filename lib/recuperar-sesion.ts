@@ -23,6 +23,30 @@ export function esJwtCaducado(error: unknown): boolean {
   return code === 'PGRST303' || /\bjwt expired\b/i.test(msg);
 }
 
+// JAVASCRIPT-NEXTJS-29 (7-sep-2026): una escritura de staff murió con
+// «permission denied for table tipos_clase» y el `hint` de Postgres decía
+// literalmente «GRANT SELECT ON public.tipos_clase TO anon». Eso solo puede
+// significar que la petición viajó SIN la sesión de la usuaria — Postgres
+// tailorea el `hint` al rol que de verdad ejecutó la sentencia, así que un
+// 42501 de una usuaria autenticada de verdad JAMÁS menciona «anon» en su
+// hint (mencionaría «authenticated»). Mismo síntoma de fondo que el JWT
+// caducado (la sesión murió sin que la pestaña se enterase a tiempo), y la
+// misma recuperación sirve: refrescar y, si el refresco también falla,
+// mandar a /login — por eso NO es una función nueva, es un segundo criterio
+// para el MISMO camino de recuperación.
+//
+// ⚠️ Exige el `hint` con "anon" a propósito, no basta con `code === '42501'`:
+// el test de abajo fija que un 42501 CUALQUIERA (RLS de verdad denegando a
+// una usuaria autenticada sin permiso real) no debe tratarse como sesión
+// caducada — confundirlos reintentaría en bucle una acción a la que ese rol
+// nunca tuvo acceso.
+export function esSesionAnonimaInesperada(error: unknown): boolean {
+  const e = (error ?? {}) as { code?: unknown; hint?: unknown };
+  const code = typeof e.code === 'string' ? e.code : '';
+  const hint = typeof e.hint === 'string' ? e.hint : '';
+  return code === '42501' && /\bto anon\b/i.test(hint);
+}
+
 export type DecisionRecuperacionJwt = 'recargar' | 'login' | 'nada';
 
 // Si la última recarga por este motivo fue hace menos de esto y el token

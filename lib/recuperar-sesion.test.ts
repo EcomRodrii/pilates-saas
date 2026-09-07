@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { esJwtCaducado, decidirRecuperacionJwt, VENTANA_ANTIBUCLE_MS } from './recuperar-sesion.ts';
+import { esJwtCaducado, esSesionAnonimaInesperada, decidirRecuperacionJwt, VENTANA_ANTIBUCLE_MS } from './recuperar-sesion.ts';
 
 // A-3 (auditoría 20-ago): tabla de verdad de la recuperación de sesión.
 
@@ -23,6 +23,32 @@ test('⚠️ otros errores de permisos NO son sesión caducada', () => {
   assert.equal(esJwtCaducado({ message: 'row-level security violation' }), false);
   assert.equal(esJwtCaducado(null), false);
   assert.equal(esJwtCaducado('cualquier cosa'), false);
+});
+
+// ── esSesionAnonimaInesperada (JAVASCRIPT-NEXTJS-29) ────────────────────────
+
+test('42501 con el hint nombrando a "anon": la petición viajó sin sesión', () => {
+  assert.equal(esSesionAnonimaInesperada({
+    code: '42501', message: 'permission denied for table tipos_clase',
+    hint: 'Grant the required privileges to the current role with: GRANT SELECT ON public.tipos_clase TO anon;',
+  }), true);
+});
+
+test('⚠️ un 42501 SIN mención de "anon" en el hint es RLS de verdad denegando: NO es sesión caducada', () => {
+  // Este es justo el caso que ya cubre esJwtCaducado==false — una usuaria
+  // autenticada sin permiso real. Confundirlo la mandaría a "reintenta, ya
+  // se está arreglando" cuando en realidad nunca va a tener acceso.
+  assert.equal(esSesionAnonimaInesperada({
+    code: '42501', message: 'permission denied for table socios',
+    hint: 'Grant the required privileges to the current role with: GRANT SELECT ON public.socios TO authenticated;',
+  }), false);
+  assert.equal(esSesionAnonimaInesperada({ code: '42501', message: 'permission denied for table socios' }), false);
+});
+
+test('otros códigos, aunque mencionen "anon" en cualquier campo, no cuentan', () => {
+  assert.equal(esSesionAnonimaInesperada({ code: 'PGRST303', hint: 'to anon' }), false);
+  assert.equal(esSesionAnonimaInesperada(null), false);
+  assert.equal(esSesionAnonimaInesperada('cualquier cosa'), false);
 });
 
 // ── decidirRecuperacionJwt ──────────────────────────────────────────────────

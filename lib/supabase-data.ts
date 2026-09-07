@@ -1,5 +1,5 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
-import { esJwtCaducado } from '@/lib/recuperar-sesion';
+import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion';
 import { mapLimit } from '@/lib/concurrency';
 import { mensajeDeErrorReserva } from '@/lib/reservas/errores-rpc';
 import { supabase } from '@/lib/db/supabase';
@@ -340,7 +340,10 @@ export function reportDbError(tag: string, error: unknown, opts?: { escrituraVis
   // en servidor `jwtCaducadoListener` es siempre null (auth-context es 'use
   // client') y un jwt caducado ahí es una clave mal configurada — un fallo de
   // clase "outage" que DEBE seguir cayendo al camino de Sentry de abajo.
-  if (esJwtCaducado(error) && jwtCaducadoListener) {
+  // JAVASCRIPT-NEXTJS-29: mismo camino de recuperación que el JWT caducado —
+  // ver el comentario de `esSesionAnonimaInesperada`, que es la otra forma en
+  // que "la sesión murió sin que la pestaña se enterase a tiempo" se presenta.
+  if ((esJwtCaducado(error) || esSesionAnonimaInesperada(error)) && jwtCaducadoListener) {
     try {
       jwtCaducadoListener({ recargable: opts?.recargaTrasSesion === true });
     } catch {
