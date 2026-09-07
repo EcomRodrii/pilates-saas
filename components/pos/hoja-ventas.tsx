@@ -8,6 +8,8 @@ import { authHeader } from '@/lib/api-client';
 import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
 import { devolverVenta, esError } from '@/lib/pos/cliente';
 import { formatNumeroVenta } from '@/lib/pos/tipos';
+import { BotonFactura } from './boton-factura';
+import { AsignarVenta } from './asignar-venta';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Historial de ventas y devoluciones.
@@ -21,6 +23,8 @@ interface VentaFila {
   id: string; numero: number; socioId: string | null; total: number;
   metodoPago: string; estado: string; realizadaEn: string;
   vendidoPor: string | null; importeDevuelto: number;
+  /** Bonos de esta venta cobrados y todavía sin dueña. Solo en la lista. */
+  bonosPorAsignar?: number;
 }
 interface LineaDetalle {
   id: string; tipo: string; nombre: string; precioUnitario: number; cantidad: number;
@@ -155,6 +159,11 @@ export function HojaVentas({ onCerrar, onCambio }: { onCerrar: () => void; onCam
                           {v.importeDevuelto >= v.total ? 'Devuelta' : 'Devuelta en parte'}
                         </span>
                       )}
+                      {(v.bonosPorAsignar ?? 0) > 0 && (
+                        <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded bg-brand/15 text-brand">
+                          {v.bonosPorAsignar === 1 ? 'Bono por asignar' : `${v.bonosPorAsignar} bonos por asignar`}
+                        </span>
+                      )}
                     </p>
                     <p className="text-[12px] text-muted-foreground">
                       {new Date(v.realizadaEn).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -179,6 +188,23 @@ export function HojaVentas({ onCerrar, onCambio }: { onCerrar: () => void; onCam
                   <Dato label="Entregado / cambio" valor={`${formatEuro(detalle.venta.efectivoRecibido)} / ${formatEuro(detalle.venta.cambio ?? 0)}`} />
                 )}
               </div>
+
+              {/* La factura de una venta de HACE DÍAS: alguien que vuelve a
+                  pedirla. Sin esto había que salir del TPV y buscarla por
+                  número en Cobros → Facturas. */}
+              {detalle.venta.estado === 'PAGADA' && (
+                <BotonFactura ventaId={detalle.venta.id} />
+              )}
+
+              {/* Cobrada sin ficha. Puede ser una botella de agua (y entonces
+                  no hay nada que asignar) o una clase de prueba cuyo bono está
+                  esperando dueña. */}
+              {detalle.venta.estado === 'PAGADA' && detalle.venta.socioId == null && (
+                <AsignarVenta
+                  ventaId={detalle.venta.id}
+                  onHecho={() => { void abrir(detalle.venta.id); onCambio(); }}
+                />
+              )}
 
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Líneas</p>

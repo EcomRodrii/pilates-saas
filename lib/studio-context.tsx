@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { fijarEtiqueta, capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { CoreProvider } from '@/lib/core-context';
@@ -8,7 +8,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { supabase } from '@/lib/db/supabase';
 import type { RowInstructores } from '@/lib/db-types';
 import {
-  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, mapInstructor,
+  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchDatosTrasVentaPOS, mapInstructor,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbFetchCamposPersonalizados, dbInsertCampoPersonalizado, dbUpdateCampoPersonalizado, dbDeleteCampoPersonalizado,
   dbFetchSegmentosClientes, dbInsertSegmentoCliente, dbUpdateSegmentoCliente, dbDeleteSegmentoCliente,
@@ -655,6 +655,16 @@ interface StudioContextValue {
    * vuelta a primer plano.
    */
   refrescarAforo: () => void;
+  /**
+   * Relee lo que una venta del mostrador puede haber cambiado: recibos,
+   * facturas, bonos, ventas y stock.
+   *
+   * El TPV escribe en SERVIDOR (`/api/pos/*`, service_role), así que ninguna
+   * de las mutaciones de este contexto se entera. Sin esto, se cobraba, se
+   * sellaba la factura, y /cobros seguía enseñando lo de antes hasta recargar
+   * la página entera — el mostrador quedaba desconectado del resto del panel.
+   */
+  refrescarTrasVentaPOS: () => Promise<void>;
 
   // Studio record (propietario) + avatar del admin
   studio: Studio | null;
@@ -1137,6 +1147,25 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
    * `cargarPublico()` completo — no afecta al aforo, que es lo que este tic
    * mantiene fresco.
    */
+  // Ver el comentario de `refrescarTrasVentaPOS` en la interfaz. Solo cinco
+  // tablas: releer el estudio entero después de cada venta de mostrador
+  // pagaría socias, sesiones y reservas por una botella de agua.
+  const refrescarTrasVentaPOS = useCallback(async () => {
+    try {
+      const d = await fetchDatosTrasVentaPOS();
+      setRecibos(d.recibos);
+      setFacturas(d.facturas);
+      setSuscripciones(d.suscripciones);
+      setVentasPOS(d.ventasPOS);
+      setProductosPOS(d.productosPOS);
+    } catch (err) {
+      // Se traga: el cobro YA está hecho y confirmado por el servidor. Que el
+      // panel tarde un poco más en reflejarlo no puede parecer un fallo de
+      // cobro a quien está en el mostrador.
+      console.error('Error refrescando el panel tras una venta del TPV:', err);
+    }
+  }, []);
+
   function refrescarAforo() {
     if (!publicSlug) return;
     cargarAforoPublico(publicSlug).then(res => {
@@ -5166,6 +5195,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     sustitucionesConfirmadas,
     recargarPublico: cargarPublico,
     refrescarAforo,
+    refrescarTrasVentaPOS,
     studio,
     updateAvatarAdmin,
     updateStudio,

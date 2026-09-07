@@ -84,11 +84,33 @@ export async function GET(req: NextRequest) {
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: 'No se han podido cargar las ventas' }, { status: 500 });
 
+  // Bonos cobrados y todavía sin dueña: una clase de prueba que se pagó de pie
+  // y sin dar datos. Va en la LISTA y no solo en el detalle porque si no, no
+  // se encuentra: nadie abre venta por venta a ver si alguna tenía algo
+  // pendiente, y un bono pagado que nunca se entrega es dinero cobrado sin dar
+  // el servicio.
+  //
+  // Una consulta agregada para toda la página, no una por fila.
+  const sinFicha = (data ?? []).filter((v) => v.socio_id == null).map((v) => v.id);
+  const porAsignar = new Map<string, number>();
+  if (sinFicha.length > 0) {
+    const { data: pendientes } = await admin.from('ventas_pos_lineas')
+      .select('venta_id')
+      .eq('studio_id', sesion.studioId)
+      .eq('tipo', 'PLAN')
+      .is('suscripcion_id', null)
+      .in('venta_id', sinFicha);
+    for (const l of pendientes ?? []) {
+      porAsignar.set(l.venta_id, (porAsignar.get(l.venta_id) ?? 0) + 1);
+    }
+  }
+
   return NextResponse.json({
     ventas: (data ?? []).map((v) => ({
       id: v.id, numero: v.numero, socioId: v.socio_id, total: Number(v.total),
       metodoPago: v.metodo_pago, estado: v.estado, realizadaEn: v.realizada_en,
       vendidoPor: v.vendido_por_nombre, importeDevuelto: Number(v.importe_devuelto ?? 0),
+      bonosPorAsignar: porAsignar.get(v.id) ?? 0,
     })),
   });
 }

@@ -283,21 +283,80 @@ test('un artículo agotado no se puede meter en el ticket', async ({ page }) => 
   expect(c.ventas).toBe(0);
 });
 
-test('un bono sin clienta no se puede cobrar, y ni se intenta', async ({ page }) => {
-  // Un bono que se cobra sin saber de quién es, es un bono que nadie puede
-  // usar: dinero cobrado y nada entregado. El servidor lo rechaza, pero la
-  // pantalla tiene que decirlo ANTES.
-  const c = await montar(page, (route) => json(route, {}));
+test('un bono SÍ se puede cobrar sin ficha, avisando de que queda por asignar', async ({ page }) => {
+  // Alguien entra de la calle a pagar una clase de prueba y no da sus datos.
+  // Antes esto bloqueaba el botón de cobrar, y el mostrador acababa
+  // tecleándolo como importe libre con el concepto a mano: el dinero entraba
+  // igual, pero la clase no quedaba registrada como clase en ningún sitio.
+  //
+  // La regla nueva es «avisa, no impide»: se cobra, y el bono queda sin
+  // entregar hasta que alguien le ponga ficha desde Ventas.
+  const c = await montar(page, (route) =>
+    json(route, {
+      ventaId: 'v1', numero: 1, subtotal: 80, descuento: 0, baseImponible: 66.12,
+      ivaTotal: 13.88, total: 80, cambio: 20, estado: 'PAGADA', pagoEstado: 'PAGADO',
+      entrega: { bonos: 0, creditos: 0, facturaSellada: true, avisos: [] },
+    }));
   await abrirCaja(page);
 
   await page.getByRole('button', { name: /Bono Reformer 10/ }).click();
-  await expect(page.getByRole('button', { name: /Elige la clienta del bono/ })).toBeDisabled();
-  expect(c.ventas).toBe(0);
 
-  // Al elegirla, se desbloquea.
-  await page.getByPlaceholder(/Buscar artículo/i).fill('María');
-  await page.getByRole('button', { name: /María García/ }).click();
-  await expect(page.getByRole('button', { name: /Cobrar/ })).toBeEnabled();
+  // Avisa...
+  await expect(page.getByText('Sin ficha: el bono quedará por asignar')).toBeVisible();
+  // ...pero NO impide.
+  await page.getByRole('button', { name: /^Cobrar/ }).click();
+  await page.getByRole('button', { name: /^Efectivo/ }).click();
+  await page.getByLabel('¿Con cuánto paga?').fill('100');
+  await page.getByRole('button', { name: 'Confirmar pago' }).click();
+  await expect(page.getByText('Cobrado', { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  // Sin contador esto sería un test hueco: «no bloqueó» puede ser verdad por
+  // no haber intentado nada.
+  expect(c.ventas).toBe(1);
+  const cuerpo = c.cuerpos[0] as { socioId: string | null };
+  expect(
+    cuerpo.socioId,
+    'la venta sin ficha viaja SIN clienta; inventar una sería peor que no tenerla',
+  ).toBeNull();
+});
+
+test('desde «Cobrado» se puede sacar la factura, sin salir del mostrador', async ({ page }) => {
+  // «¿Me das la factura?» es la pregunta más normal del mostrador. La factura
+  // se sellaba desde el primer día, pero había que salir del TPV, entrar en
+  // Cobros → Facturas y buscar el número, con la clienta esperando.
+  const c = await montar(page, (route) =>
+    json(route, {
+      ventaId: 'v1', numero: 1, subtotal: 25, descuento: 0, baseImponible: 20.66,
+      ivaTotal: 4.34, total: 25, cambio: 0, estado: 'PAGADA', pagoEstado: 'PAGADO',
+      entrega: { bonos: 0, creditos: 0, facturaSellada: true, avisos: [] },
+    }));
+
+  await page.route('**/api/pos/factura**', (route) =>
+    json(route, {
+      factura: {
+        id: 'fac-1', studioId: STUDIO_ID, reciboId: 'rec-1', numeroCompleto: 'A-2026-0049',
+        fechaEmision: '2026-09-07', receptorNombre: 'Cliente de mostrador', receptorNIF: null,
+        baseImponible: 20.66, tipoIVA: 21, cuotaIVA: 4.34, total: 25,
+        verifactuHash: 'abc', verifactuPrevHash: null, verifactuTs: null, verifactuSeq: 1,
+        verifactuEstado: 'PENDIENTE', verifactuCsv: null, serie: 'A', tipo: 'F2',
+        rectificaA: null, tipoRectificativa: null, importeRectificacion: null,
+      },
+      receptor: null,
+      numeroVenta: 1,
+    }));
+
+  await abrirCaja(page);
+  await anadirCalcetines(page);
+  await page.getByRole('button', { name: /^Cobrar/ }).click();
+  await page.getByRole('button', { name: /^Efectivo/ }).click();
+  await page.getByLabel('¿Con cuánto paga?').fill('25');
+  await page.getByRole('button', { name: 'Confirmar pago' }).click();
+  await expect(page.getByText('Cobrado', { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  // El número real, no un botón genérico: si dice «Factura A-2026-0049» es que
+  // el documento existe de verdad y se ha leído.
+  await expect(page.getByRole('button', { name: /Factura A-2026-0049/ })).toBeEnabled({ timeout: 15_000 });
+  expect(c.ventas).toBe(1);
 });
 
 test('el ticket enseña el IVA desglosado, no una cifra suelta', async ({ page }) => {

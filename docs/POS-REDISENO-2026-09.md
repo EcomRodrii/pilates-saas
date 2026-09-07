@@ -241,3 +241,94 @@ Los dos se cazaron con `execute_sql` + `ROLLBACK`, no leyendo el código.
 7. **`reconciliaciones_pos` sigue en pie** para los cobros lanzados por
    `/api/terminal/cobrar` (que no se ha retirado). Las ventas nuevas ya no lo
    necesitan.
+
+---
+
+## 9. Fase 2 — el mostrador deja de ser una isla, y se cobra sin ficha
+
+Escrita tras usar el TPV en producción. Tres quejas, tres causas distintas.
+
+### 9.1 «No sale en cobros»
+
+**Era cierto, y la causa no estaba en Cobros.** El TPV escribe en servidor con
+`service_role` (`/api/pos/*`) y después solo recargaba **su propio catálogo**.
+El `StudioContext` del panel —de donde salen /cobros, /facturas y la ficha de
+la clienta— no se enteraba de nada: el recibo estaba en la base y la factura
+sellada, pero la pantalla seguía enseñando lo de antes hasta recargar la
+página entera.
+
+Arreglado con `fetchDatosTrasVentaPOS` (`lib/supabase-data.ts`) +
+`refrescarTrasVentaPOS` en el contexto, enganchado al `refrescar()` que el TPV
+ya llamaba tras cobrar, devolver y mover caja. Se releen **cinco** tablas
+—recibos, facturas, suscripciones, ventas y productos—, no el estudio entero:
+`fetchCriticalStudioData` trae socias, sesiones y reservas, y pagar eso después
+de cada botella de agua tiraría por tierra el arranque que costó bajar de
+1452 ms a 69 ms.
+
+### 9.2 «No se puede descargar la factura si la clienta la pide»
+
+La factura existía desde el primer día. Lo que no existía era una forma de
+llegar a ella sin salir del TPV, entrar en Cobros → Facturas y buscar el
+número, con la clienta esperando.
+
+`GET /api/pos/factura?ventaId=…` + `<BotonFactura>`, en la pantalla de
+«Cobrado» y en el detalle de cualquier venta pasada (alguien que vuelve al día
+siguiente). No emite nada: solo lee lo que `sellarFacturaDeRecibo` ya selló.
+Cuando todavía no está sellada devuelve el motivo en una frase —«se está
+emitiendo, estará lista en unos minutos»— en vez de un hueco mudo.
+
+⚠️ **La factura se pide AL MONTAR, no al pulsar.** `abrirFacturaPDF` hace
+`window.open`, y una pestaña abierta después de un `await` ya no cuenta como
+gesto del usuario: Safari la bloquea sin decir nada, y eso se ve exactamente
+igual que un botón roto. Precargando, el clic es síncrono. Misma familia que el
+portapapeles de Safari (#994): funciona en Chrome de escritorio y falla en el
+iPad del mostrador, que es donde se usa.
+
+### 9.3 «El TPV debe poder cobrar sin ficha»
+
+Productos e importe libre ya se cobraban sin ficha. Lo que no se podía era
+vender un **bono o una clase suelta**: `registrar_venta_pos` lanzaba
+`PLAN_SIN_CLIENTA`. En producción eso se tradujo en la venta #20, una clase de
+prueba cobrada como importe libre con el concepto tecleado a mano — 20 € que
+entraron bien, con recibo y factura correctos, pero que no constan como clase
+en ninguna parte.
+
+Ahora un plan sin clienta se vende y su línea queda con `suscripcion_id` a NULL
+(«cobrado, sin entregar»); la venta sale marcada **«Bono por asignar»** en la
+lista de ventas, y `asignar_venta_pos_a_socia` la engancha a una ficha cuando
+esa persona se apunta —ese mismo día o tres semanas después—, entregando
+entonces el bono y los créditos con la lógica de siempre.
+
+Sin entidad nueva: no hay «cliente ocasional» ni registro de invitados. La
+venta simplemente no tenía dueña y ahora la tiene.
+
+⚠️ **La factura NO se mueve al asignar.** Se emitió como F2 (simplificada, sin
+receptor identificado), que es lo que la norma prevé para un ticket de
+mostrador. Reescribir el receptor de un documento sellado y encadenado en
+Veri*Factu no es corregirlo, es falsearlo. Para eso está la rectificativa desde
+/facturas, que decide una persona con criterio de gestoría. El **recibo** sí
+pasa a su ficha, para que el cobro aparezca en su historial de pagos.
+
+### 9.4 Corrección: la verificación de la fase 1 no cubría la fidelidad
+
+El informe anterior decía que las migraciones se habían «verificado una a una».
+Eso era cierto **del comportamiento y de los grants**, y falso de la fidelidad
+del texto. Comparando el md5 de cada `prosrc` contra el de su fichero apareció
+lo siguiente:
+
+- **Nueve de las diez funciones tenían la lógica idéntica**, pero siete habían
+  perdido sus comentarios al pegarlas a mano. Deriva cosmética: nada las lee.
+- **`retirar_creditos_compra` sí divergía en lógica**: producción decía
+  `'Devolucion de una compra'` y el fichero `'Devolución'`. No es un comentario
+  interno — es la descripción que la socia lee en su monedero al retirársele
+  créditos por una devolución. Tercer literal ASCII-ificado de la tanda; la
+  correctiva `20260907151014` cazó los dos del libro de caja y este se escapó.
+
+Corregidas las tres funciones que esta migración toca, verificadas por **md5
+literal** (no solo por lógica) contra el fichero. Las otras seis conservan la
+deriva de comentarios, que no cambia comportamiento.
+
+**Regla que sale de aquí:** una tanda aplicada a mano no está verificada hasta
+comparar `md5(prosrc)` contra el fichero, función por función. «Probé que
+funciona» y «apliqué lo que dice el fichero» son dos afirmaciones distintas, y
+solo la segunda se comprueba así.

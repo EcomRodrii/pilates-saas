@@ -42,7 +42,7 @@ type ItemCarrito = LineaTicket & { stock: number | null; stockMinimo: number };
 type Categoria = { valor: string; label: string };
 
 export function PosTerminal() {
-  const { socios, codigosDescuento } = useStudio();
+  const { socios, codigosDescuento, refrescarTrasVentaPOS } = useStudio();
 
   const [catalogo, setCatalogo] = useState<CatalogoPOS | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -90,7 +90,16 @@ export function PosTerminal() {
   // función que hace setState desde el cuerpo del efecto — que es lo que la
   // regla `set-state-in-effect` prohíbe, y con razón: encadena renders.
   const [recarga, setRecarga] = useState(0);
-  const refrescar = useCallback(() => setRecarga((n) => n + 1), []);
+  // Recarga el catálogo del TPV (stock, caja, resumen del día) Y el panel
+  // (recibos, facturas, bonos). Son dos mundos: el catálogo lo sirve
+  // /api/pos/catalogo y el panel vive en el StudioContext, que no se entera de
+  // nada porque el TPV escribe en servidor con service_role. Antes solo se
+  // hacía lo primero, así que se cobraba y /cobros seguía enseñando lo de
+  // antes hasta recargar la página entera.
+  const refrescar = useCallback(() => {
+    setRecarga((n) => n + 1);
+    void refrescarTrasVentaPOS();
+  }, [refrescarTrasVentaPOS]);
 
   useEffect(() => {
     let vivo = true;
@@ -239,9 +248,15 @@ export function PosTerminal() {
     setCodigoAplicado(encontrado); setCodigoError(null);
   }
 
-  // Un bono sin clienta no se puede entregar: el servidor lo rechaza, pero la
-  // pantalla lo dice ANTES de que nadie pulse Cobrar.
-  const faltaClienta = carrito.some((i) => i.tipo === 'PLAN') && !clienteId;
+  // Un bono sin ficha SE PUEDE cobrar: alguien entra de la calle, paga una
+  // clase de prueba y se va sin dar sus datos. Antes esto bloqueaba el botón
+  // de cobrar, y el mostrador acababa tecleándolo como importe libre — el
+  // dinero entraba, pero la clase no quedaba registrada como clase.
+  //
+  // Sigue avisando, porque no es lo mismo que una botella de agua: el bono
+  // queda SIN ENTREGAR hasta que alguien le ponga ficha desde Ventas. El aviso
+  // informa; no impide.
+  const bonoSinFicha = carrito.some((i) => i.tipo === 'PLAN') && !clienteId;
 
   // ── Cobro ─────────────────────────────────────────────────────────────────
   //
@@ -300,13 +315,13 @@ export function PosTerminal() {
       if (e.key === 'Escape' && !mostrarCobro && !mostrarCaja) { setBusqueda(''); (e.target as HTMLElement)?.blur?.(); }
       // Enter NO cobra desde cualquier sitio: en el TPV anterior un Enter suelto
       // lanzaba el cobro entero. Aquí abre la hoja, que es donde se decide.
-      if (e.key === 'Enter' && !enCampo && carrito.length > 0 && !mostrarCobro && !faltaClienta) {
+      if (e.key === 'Enter' && !enCampo && carrito.length > 0 && !mostrarCobro) {
         setMostrarCobro(true);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [carrito.length, mostrarCobro, mostrarCaja, faltaClienta]);
+  }, [carrito.length, mostrarCobro, mostrarCaja]);
 
   if (cargando) {
     return (
@@ -619,12 +634,12 @@ export function PosTerminal() {
                 onClick={() => { setVistaMovil('catalogo'); buscadorRef.current?.focus(); }}
                 className={cn(
                   'w-full h-12 px-3 rounded-xl border flex items-center gap-2.5 text-left transition-colors',
-                  faltaClienta ? 'border-warning/50 bg-warning/10' : 'border-border bg-background hover:border-foreground/30',
+                  bonoSinFicha ? 'border-warning/50 bg-warning/10' : 'border-border bg-background hover:border-foreground/30',
                 )}
               >
-                <User size={15} className={faltaClienta ? 'text-warning' : 'text-muted-foreground'} />
-                <span className={cn('flex-1 text-[14px] truncate', cliente ? 'text-foreground font-medium' : faltaClienta ? 'text-warning font-medium' : 'text-muted-foreground')}>
-                  {cliente ? `${cliente.nombre} ${cliente.apellidos ?? ''}` : faltaClienta ? 'Un bono necesita clienta' : 'Venta sin clienta'}
+                <User size={15} className={bonoSinFicha ? 'text-warning' : 'text-muted-foreground'} />
+                <span className={cn('flex-1 text-[14px] truncate', cliente ? 'text-foreground font-medium' : bonoSinFicha ? 'text-warning font-medium' : 'text-muted-foreground')}>
+                  {cliente ? `${cliente.nombre} ${cliente.apellidos ?? ''}` : bonoSinFicha ? 'Sin ficha: el bono quedará por asignar' : 'Venta sin clienta'}
                 </span>
                 {cliente && (
                   <span
@@ -705,10 +720,9 @@ export function PosTerminal() {
 
               <button
                 onClick={() => setMostrarCobro(true)}
-                disabled={faltaClienta}
-                className="w-full h-16 rounded-2xl bg-brand text-brand-foreground text-[18px] font-extrabold disabled:opacity-40 active:scale-[0.99] transition-all"
+                className="w-full h-16 rounded-2xl bg-brand text-brand-foreground text-[18px] font-extrabold active:scale-[0.99] transition-all"
               >
-                {faltaClienta ? 'Elige la clienta del bono' : `Cobrar ${formatEuro(ticket.total)}`}
+                {`Cobrar ${formatEuro(ticket.total)}`}
               </button>
             </div>
           )}
