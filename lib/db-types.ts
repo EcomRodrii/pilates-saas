@@ -2342,6 +2342,8 @@ export interface RowCodigosDescuentoConsumos {
   recibo_id: string;
   codigo_id: string;
   consumido_en: string;
+  // migr 20260907172746.
+  socio_id: string | null;
 }
 
 export interface RowReviewBoostFeedback {
