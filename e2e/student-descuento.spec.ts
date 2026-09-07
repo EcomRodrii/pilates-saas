@@ -100,7 +100,13 @@ test.describe('Student PWA · código de descuento', () => {
   });
 
   test('sin código, la hoja queda como estaba: ni desglose ni promesas', async ({ page }) => {
-    await montar(page);
+    // ⚠️ El checkout se mockea A PROPÓSITO sin descuento. El mock por defecto de
+    // `montar` devuelve `descuento: 10` —sirve al resto de casos, que sí meten
+    // código— y este test decía «sin código» mientras su propio servidor
+    // simulado respondía que había aplicado uno. El componente pintaba el
+    // desglose correctamente y el test fallaba culpando al producto.
+    // Un servidor real, sin código, devuelve descuento 0 y el precio íntegro.
+    await montar(page, { checkout: { clientSecret: 'pi_x_secret_y', importe: 70, descuento: 0, codigoAplicado: false } });
     await abrirCompra(page);
     await page.getByRole('button', { name: 'Continuar al pago' }).click();
     await expect(page.getByTestId('desglose')).toHaveCount(0);
