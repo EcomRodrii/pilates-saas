@@ -19,6 +19,7 @@ import { filtrarItemsMenu } from '@/lib/layout-runtime';
 import { SedeActiva } from '@/components/layout/sede-activa';
 import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentare';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
+import type { MenuPosicion } from '@/lib/types';
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
@@ -264,7 +265,19 @@ const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label:
   grande: { aside: 'w-72', cssVar: '320px', label: 'Grande' },
 };
 
-export function Sidebar() {
+/**
+ * El menú del panel.
+ *
+ * ⚠️ Monta TAMBIÉN el andamiaje de móvil (barra superior, barra inferior y el
+ * cajón «Más»), así que nunca se sustituye por otro componente: la posición
+ * `arriba` es una VARIANTE de su parte de escritorio, no un menú aparte. Hacer
+ * un componente nuevo habría duplicado permisos, badges, modo esencial/todo y
+ * la lista de items — cuatro sitios donde divergir en silencio.
+ */
+export function Sidebar({ posicion = 'izquierda' }: { posicion?: MenuPosicion }) {
+  // Solo cambia el escritorio. En móvil no hay sidebar que mover: ya es barra
+  // arriba + barra abajo, y así se queda.
+  const horizontal = posicion === 'arriba';
   // Los `href` señalados como NUEVO desde /interno.
   const conNovedad = useMenuNovedades();
   const sinLeerMensajes = useMensajesSinLeerStaff(true);
@@ -339,7 +352,7 @@ export function Sidebar() {
   function applySize(next: SidebarSize) {
     setSize(next);
     localStorage.setItem('sidebar-size', next);
-    document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[next].cssVar);
+    if (!horizontal) document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[next].cssVar);
   }
 
   // Restore the size preference (migrating the old binary "collapsed" flag if
@@ -351,8 +364,11 @@ export function Sidebar() {
     const initial: SidebarSize = storedSize ?? (legacyCollapsed === '1' ? 'compacto' : 'normal');
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee localStorage y escribe una custom property en document.documentElement. Ambas cosas son el DOM, un sistema externo.
     setSize(initial);
-    document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[initial].cssVar);
-  }, []);
+    // Con el menú arriba el <main> no lleva hueco a la izquierda: la barra
+    // ocupa el ancho entero. El tamaño guardado se conserva igualmente, para
+    // que al volver a «izquierda» esté como lo dejó.
+    document.documentElement.style.setProperty('--sidebar-w', horizontal ? '0px' : SIDEBAR_SIZES[initial].cssVar);
+  }, [horizontal]);
 
   async function handleSignOut() {
     await signOut();
@@ -410,10 +426,14 @@ export function Sidebar() {
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
       <MasDrawer open={masOpen} onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />
 
-      {/* ── Desktop logo (fuera de la píldora del menú) ─────────────────────── */}
+      {/* ── Desktop logo ───────────────────────────────────────────────────
+          Con el menú a la izquierda va FUERA de la píldora, encima. Con el
+          menú arriba no hay «encima»: se oculta aquí y se pinta dentro de la
+          propia barra, a la izquierda del todo. */}
       <div
         className={cn(
-          'hidden lg:flex fixed top-4 left-4 z-20 items-center justify-center h-20 shrink-0 transition-[width] duration-200',
+          'fixed top-4 left-4 z-20 items-center justify-center h-20 shrink-0 transition-[width] duration-200',
+          horizontal ? 'hidden' : 'hidden lg:flex',
           SIDEBAR_SIZES[size].aside,
         )}
       >
@@ -427,19 +447,38 @@ export function Sidebar() {
       {/* ── Desktop sidebar (floating black pill — Midbox) ─────────────────── */}
       <aside
         className={cn(
-          'hidden lg:flex fixed top-[104px] left-4 bottom-4 z-20 flex-col rounded-[28px] overflow-hidden transition-[width] duration-200',
-          SIDEBAR_SIZES[size].aside,
+          'hidden lg:flex fixed z-20 overflow-hidden transition-[width] duration-200',
+          horizontal
+            // Barra: ancho completo, alto fijo, y todo en fila. El
+            // `rounded-3xl` es el mismo lenguaje de la píldora, solo que
+            // tumbada.
+            ? 'top-4 left-4 right-4 h-[68px] flex-row items-center gap-2 rounded-3xl px-3'
+            : 'top-[104px] left-4 bottom-4 flex-col rounded-[28px]',
+          !horizontal && SIDEBAR_SIZES[size].aside,
         )}
         style={{ backgroundColor: '#0A0A0A' }}
       >
+        {/* El logo, solo en horizontal: aquí sí hay sitio a la izquierda. */}
+        {horizontal && (
+          <Link href="/dashboard" className="shrink-0 pl-1 pr-1 flex items-center" aria-label="Inicio">
+            <LogoTentare formato="isotipo" tinta="auto" producto={producto} titulo={marca} alto={34} animacion={animacionLogo} />
+          </Link>
+        )}
         {/* Sede activa (solo en cadenas): lo primero de la píldora, porque
             condiciona todo lo que hay debajo. En modo compacto no cabe el
             nombre, y una sede sin nombre no sirve de nada. */}
-        {!collapsed && <SedeActiva variante="sidebar" />}
+        {(horizontal || !collapsed) && (
+          <div className={cn(horizontal && 'shrink-0 max-w-[190px]')}>
+            <SedeActiva variante="sidebar" />
+          </div>
+        )}
 
-        {/* Modo Esencial / Avanzado */}
-        {!collapsed && (
-          <div className="px-3 pt-2.5 pb-1">
+        {/* Modo Esencial / Avanzado.
+            ⚠️ Se conserva también en horizontal: es lo único que devuelve el
+            menú completo a quien esté en «esencial». Sin él, quedaría
+            encerrada en media aplicación sin saber por qué. */}
+        {(horizontal || !collapsed) && (
+          <div className={cn(horizontal ? 'shrink-0 w-[132px]' : 'px-3 pt-2.5 pb-1')}>
             <div className="flex gap-0.5 p-0.5 rounded-full bg-card/5">
               {([['esencial', 'Esencial'], ['avanzado', 'Todo']] as const).map(([val, label]) => (
                 <button
@@ -459,20 +498,32 @@ export function Sidebar() {
         )}
 
         {/* Nav */}
-        <nav className={cn('flex-1 py-2 overflow-y-auto space-y-1', collapsed ? 'px-2' : 'px-2')}>
+        <nav className={cn(
+          'flex-1 px-2',
+          // En horizontal la lista corre de lado y se desplaza si no cabe: un
+          // estudio con todos los módulos no entra en 1280 px, y lo que NO
+          // puede pasar es que se recorten items en silencio.
+          horizontal ? 'flex flex-row items-center gap-1 overflow-x-auto py-0' : 'py-2 overflow-y-auto space-y-1',
+        )}>
           {seccionesVisibles.map((section, si) => (
-            <div key={si}>
-              {section.label && !collapsed && (
+            <div key={si} className={cn(horizontal && 'flex flex-row items-center gap-1')}>
+              {/* El rótulo del grupo no cabe tumbado: en horizontal manda el
+                  orden, que ya agrupa por sección. */}
+              {section.label && !collapsed && !horizontal && (
                 <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/20">
                   {section.label}
                 </p>
               )}
-              {section.label && collapsed && si > 0 && (
+              {section.label && collapsed && si > 0 && !horizontal && (
                 <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
               )}
               {section.items.map(item => (
                 <NavItem
-                  key={item.href} href={item.href} label={item.label} Icon={item.icon} collapsed={collapsed}
+                  key={item.href} href={item.href} label={item.label} Icon={item.icon}
+                  // Tumbado siempre con rótulo: un menú de solo iconos en
+                  // horizontal es un test de memoria. El tamaño «compacto» es
+                  // una preferencia de la columna, no de la barra.
+                  collapsed={horizontal ? false : collapsed}
                   nuevo={conNovedad.has(item.href)}
                   contador={item.href === '/mensajeria' ? sinLeerMensajes : undefined}
                 />
@@ -482,8 +533,8 @@ export function Sidebar() {
         </nav>
 
         {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
-        {studioSlug && (collapsed ? (
-          <div className="px-2 pb-2 flex flex-col items-center gap-0.5">
+        {studioSlug && (collapsed || horizontal ? (
+          <div className={cn('flex items-center gap-0.5', horizontal ? 'shrink-0' : 'px-2 pb-2 flex-col')}>
             <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal clientes" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-brand-medio">
               <ExternalLink size={15} />
             </Link>
@@ -502,16 +553,22 @@ export function Sidebar() {
         ))}
 
         {/* User */}
-        <div className="px-3 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-          <div className={cn('flex items-center gap-2.5 rounded-lg', collapsed ? 'justify-center px-0 py-2' : 'px-2 py-2')}>
+        <div
+          className={cn(horizontal ? 'shrink-0 pl-2 border-l' : 'px-3 py-3 border-t')}
+          style={{ borderColor: 'rgba(255,255,255,0.07)' }}
+        >
+          <div className={cn('flex items-center gap-2.5 rounded-lg', (collapsed && !horizontal) ? 'justify-center px-0 py-2' : 'px-2 py-2')}>
             <Link href="/configuracion" title="Editar mi perfil" className="shrink-0">
               <ProfileAvatar avatarId={yo ? yo.avatar : studio?.avatarAdmin} fotoUrl={yo ? yo.fotoUrl : studio?.fotoUrl} nombre={userInitials} size="xs" />
             </Link>
-            {!collapsed && (
+            {(!collapsed || horizontal) && (
               <>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-medium text-white/75 truncate leading-tight">{userEmail}</p>
-                </div>
+                {/* El correo no cabe en una barra: se queda en la columna. */}
+                {!horizontal && (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-medium text-white/75 truncate leading-tight">{userEmail}</p>
+                  </div>
+                )}
                 <button
                   onClick={handleSignOut}
                   title="Cerrar sesión"
@@ -524,7 +581,11 @@ export function Sidebar() {
           </div>
         </div>
 
-        {/* Size menu: Pequeño / Normal / Grande */}
+        {/* Size menu: Pequeño / Normal / Grande.
+            Fuera en horizontal: «Pequeño/Normal/Grande» describe el ANCHO de
+            la columna, y tumbada no hay ancho que elegir. La preferencia se
+            conserva guardada para cuando vuelva a la izquierda. */}
+        {!horizontal && (
         <div className="relative shrink-0 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
           {sizeMenuOpen && (
             <>
@@ -555,6 +616,7 @@ export function Sidebar() {
             {!collapsed && <span className="text-[11px] font-semibold">{SIDEBAR_SIZES[size].label}</span>}
           </button>
         </div>
+        )}
       </aside>
     </>
   );

@@ -1,6 +1,22 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SUITE SALTADA — el editor de marca está EN MANTENIMIENTO (2026-09-07).
+//
+// Estos tests entran por `/configuracion/apariencia/editor`, que ahora redirige
+// a la pantalla de aviso. No fallan por un bug: fallan porque la puerta que
+// prueban está cerrada a propósito.
+//
+// NO SE BORRAN. El editor sigue entero en el repo y esta suite es lo que
+// demuestra que funciona; borrarla ahora significaría reabrirlo a ciegas.
+//
+// PARA REACTIVARLA: se hace en el mismo momento que se reabre el editor —
+// ver la nota «PARA REABRIRLO» en
+// app/(dashboard)/configuracion/apariencia/editor/page.tsx. Aquí basta con
+// quitar el `.skip` de los `test.describe` de abajo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
 // El camino de FALLO del autoguardado del editor de temas.
 //
 // Este fichero existe porque la regla que este repo repite —"page.route mockea
@@ -80,7 +96,7 @@ async function montar(page: Page) {
 
 const chip = (page: Page) => page.locator('[data-estado-guardado]');
 
-test.describe('Autoguardado — el camino de fallo', () => {
+test.describe.skip('Autoguardado — el camino de fallo', () => {
   test('si el guardado falla, lo avisa y NO revierte lo que hay en pantalla', async ({ page }) => {
     const estado = await montar(page);
     await expect(page.getByText('Invita a una amiga')).toBeVisible({ timeout: 30_000 });
