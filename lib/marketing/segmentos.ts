@@ -36,8 +36,40 @@ export const SEGMENTOS_AUDIENCIA: {
   { id: 'CUMPLE_ESTE_MES', etiqueta: 'Cumpleañeras del mes', descripcion: 'Cumplen años este mes' },
 ];
 
+// ─── Segmentos con parámetro ────────────────────────────────────────────────
+//
+// `ETAPA:<leadStage>` y `ETIQUETA:<tag>`. No son un segment builder genérico
+// (ver el corte del §4 del documento de arquitectura): son las DOS formas de
+// elegir destinatarias que la pantalla de Mensajería ya ofrecía por su cuenta,
+// mandando los emails uno a uno desde el navegador —sin filtro de
+// consentimiento, sin enlace de baja y sin quedar registrado—. Al unificar esa
+// pantalla con el motor de campañas había que traérselas, no tirarlas.
+
+/** «ETAPA:EN_RIESGO» → 'EN_RIESGO'. `null` si no es de esa forma. */
+export function etapaDeSegmento(id: DestinatariosCampana): string | null {
+  return id.startsWith('ETAPA:') ? id.slice('ETAPA:'.length) : null;
+}
+
+/** «ETIQUETA:VIP» → 'VIP'. `null` si no es de esa forma. */
+export function etiquetaDeSegmento(id: DestinatariosCampana): string | null {
+  return id.startsWith('ETIQUETA:') ? id.slice('ETIQUETA:'.length) : null;
+}
+
+const ETAPAS_LEGIBLES: Record<string, string> = {
+  LEAD: 'Lead (primer contacto)',
+  INTERESADA: 'Interesada',
+  PRUEBA: 'En prueba',
+  ACTIVA: 'Activa (convertida)',
+  EN_RIESGO: 'En riesgo',
+  PERDIDA: 'Perdida',
+};
+
 /** La etiqueta humana de un segmento; el propio código si alguna vez no está. */
 export function etiquetaSegmento(id: DestinatariosCampana): string {
+  const etapa = etapaDeSegmento(id);
+  if (etapa) return `Etapa: ${ETAPAS_LEGIBLES[etapa] ?? etapa}`;
+  const tag = etiquetaDeSegmento(id);
+  if (tag) return `Etiqueta: ${tag}`;
   return SEGMENTOS_AUDIENCIA.find(s => s.id === id)?.etiqueta ?? id;
 }
 
@@ -53,6 +85,15 @@ export function resolverDestinatariasCampana(
   now: Date = new Date(),
 ): Socio[] {
   const { socios, suscripciones, recibos = [] } = datos;
+
+  // Los dos con parámetro van ANTES del switch: no son valores del enum, así
+  // que el `default` los trataría como TODAS — mandar una campaña pensada para
+  // seis personas «En riesgo» a las 300 socias del estudio.
+  const etapa = etapaDeSegmento(destinatarios);
+  if (etapa) return socios.filter(s => s.leadStage === etapa);
+  const tag = etiquetaDeSegmento(destinatarios);
+  if (tag) return socios.filter(s => (s.tags ?? []).includes(tag));
+
   const conSusActiva = new Set(
     suscripciones.filter(s => s.estado === 'ACTIVA').map(s => s.socioId)
   );

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Socio, Suscripcion, Recibo } from '@/lib/types';
-import { resolverDestinatariasCampana } from './segmentos.ts';
+import { resolverDestinatariasCampana, etiquetaSegmento } from './segmentos.ts';
 
 const NOW = new Date('2026-08-13T12:00:00.000Z');
 const enDias = (n: number) => new Date(NOW.getTime() + n * 86400000).toISOString();
@@ -83,4 +83,44 @@ test('CUMPLE_ESTE_MES: mismo mes de nacimiento que el mes actual (agosto)', () =
   ];
   const r = resolverDestinatariasCampana('CUMPLE_ESTE_MES', { socios, suscripciones: [] }, NOW);
   assert.deepEqual(r.map(s => s.id), ['1']);
+});
+
+// ── Segmentos con parámetro (unificación con Mensajería) ────────────────────
+// La pantalla de Mensajería filtraba por etapa del embudo y por etiqueta con su
+// propia lógica, y mandaba los emails uno a uno desde el navegador: sin filtro
+// de consentimiento, sin enlace de baja y sin quedar registrados. Al pasarla
+// por el motor de campañas, esas dos formas de elegir tienen que existir aquí.
+test('ETAPA: filtra por etapa del embudo', () => {
+  const socios = [
+    { id: 'a', leadStage: 'EN_RIESGO' },
+    { id: 'b', leadStage: 'ACTIVA' },
+    { id: 'c' },
+  ] as unknown as Parameters<typeof resolverDestinatariasCampana>[1]['socios'];
+  const r = resolverDestinatariasCampana('ETAPA:EN_RIESGO', { socios, suscripciones: [] });
+  assert.deepEqual(r.map(s => s.id), ['a']);
+});
+
+test('ETIQUETA: filtra por etiqueta de la ficha', () => {
+  const socios = [
+    { id: 'a', tags: ['VIP', 'Embarazo'] },
+    { id: 'b', tags: ['Embarazo'] },
+    { id: 'c' },
+  ] as unknown as Parameters<typeof resolverDestinatariasCampana>[1]['socios'];
+  const r = resolverDestinatariasCampana('ETIQUETA:Embarazo', { socios, suscripciones: [] });
+  assert.deepEqual(r.map(s => s.id), ['a', 'b']);
+});
+
+// ⚠️ Esto es lo que hace peligroso el `default: return socios` del switch: un
+// segmento con parámetro que no se reconociera mandaría a TODAS una campaña
+// pensada para seis personas.
+test('un segmento con parámetro nunca cae en «todas» por el default', () => {
+  const socios = [{ id: 'a' }, { id: 'b' }] as unknown as Parameters<typeof resolverDestinatariasCampana>[1]['socios'];
+  assert.deepEqual(resolverDestinatariasCampana('ETAPA:NO_EXISTE', { socios, suscripciones: [] }), []);
+  assert.deepEqual(resolverDestinatariasCampana('ETIQUETA:no-existe', { socios, suscripciones: [] }), []);
+});
+
+test('la etiqueta humana de un segmento con parámetro se lee', () => {
+  assert.equal(etiquetaSegmento('ETAPA:EN_RIESGO'), 'Etapa: En riesgo');
+  assert.equal(etiquetaSegmento('ETIQUETA:VIP'), 'Etiqueta: VIP');
+  assert.equal(etiquetaSegmento('TODAS'), 'Todas');
 });

@@ -1159,12 +1159,27 @@ export interface VentaPOS {
 
 export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIANDO' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';
 export type TipoCampana = 'EMAIL' | 'WHATSAPP' | 'SMS';
-export type DestinatariosCampana =
+export type SegmentoFijo =
   | 'TODAS' | 'ACTIVAS' | 'INACTIVAS' | 'SIN_PLAN' | 'BONO' | 'VIP'
   // Paso 6 de docs/marketing-integrations-arquitectura.md §8/§4: señales ya
   // existentes en el repo (Decision OS F3, recibos, cumpleaños), no un
   // segment builder genérico — ver el archivo para el porqué de ese corte.
   | 'BONO_CADUCA_PRONTO' | 'PAGO_FALLIDO' | 'CUMPLE_ESTE_MES';
+
+/**
+ * A quién va una campaña.
+ *
+ * Los fijos de arriba, más dos con parámetro: `ETAPA:<leadStage>` y
+ * `ETIQUETA:<tag>`. Existen porque la pantalla de Mensajería ya sabía filtrar
+ * por etapa del embudo y por etiqueta, pero lo hacía por su cuenta y mandaba
+ * los emails uno a uno desde el navegador — sin filtro de consentimiento, sin
+ * enlace de baja y sin quedar registrado en ninguna parte. Al unificarlo con el
+ * motor de campañas había que traerse esas dos formas de elegir, no tirarlas.
+ *
+ * Cadena y no objeto porque `campanas.destinatarios` es una columna de texto y
+ * cambiar su forma obligaría a migrar las campañas ya guardadas.
+ */
+export type DestinatariosCampana = SegmentoFijo | `ETAPA:${string}` | `ETIQUETA:${string}`;
 
 export interface Campana {
   id: string;
@@ -1278,7 +1293,16 @@ export interface AutomationRule {
   descripcion: string;
   icono: string;
   trigger: TriggerRule;
-  condicion: Record<string, number | string | boolean>;
+  /**
+   * Los ajustes de la regla: umbrales (días, porcentajes…) y, bajo la clave
+   * `mensajes`, los textos que el estudio haya reescrito para sus clientas
+   * (`lib/engines/mensajes-automatizacion.ts`).
+   *
+   * Es un jsonb, así que admite el objeto anidado sin migración. Se declara
+   * como caso aparte y no como `unknown` para que siga siendo un error meter
+   * cualquier cosa: lo único anidado que existe es ese diccionario de textos.
+   */
+  condicion: Record<string, number | string | boolean | Record<string, string> | undefined>;
   pasos: AutomationStep[];
   activa: boolean;
   ejecutadaVeces: number;

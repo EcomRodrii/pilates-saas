@@ -492,7 +492,7 @@ interface StudioContextValue {
 
   // Campañas
   campanas: Campana[];
-  addCampana: (fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>) => Promise<ResultadoEscritura>;
+  addCampana: (fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>) => Promise<ResultadoEscritura & { campana?: Campana }>;
   deleteCampana: (id: string) => Promise<ResultadoEscritura>;
   duplicateCampana: (campana: Campana) => Promise<ResultadoEscritura>;
   updateCampana: (id: string, patch: Partial<Campana>) => Promise<ResultadoEscritura>;
@@ -622,6 +622,9 @@ interface StudioContextValue {
   automationLogs: AutomationLog[];
   notasProgreso: NotaProgreso[];
   toggleAutomationRule: (id: string) => Promise<ResultadoEscritura>;
+  /** Reescribe (o devuelve a su texto de fábrica, con `null`) uno de los
+   *  mensajes que esa automatización manda a las clientas. */
+  guardarMensajeAutomatizacion: (id: string, clave: string, texto: string | null) => Promise<ResultadoEscritura>;
   addAutomationRule: (fields: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>) => Promise<ResultadoEscritura>;
   addAutomationLog: (log: Omit<AutomationLog, 'id' | 'studioId'>) => void;
   runAutomation: () => Promise<AutomationLog[]>;
@@ -4040,7 +4043,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Campañas ─────────────────────────────────────────────────────────────────
 
-  async function addCampana(fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>): Promise<ResultadoEscritura> {
+  // Devuelve la campaña creada, no solo `ok`: quien la crea para enviarla acto
+  // seguido necesita su id, y buscarla en `campanas` justo después no funciona
+  // (el `setCampanas` de aquí abajo no se ha aplicado todavía en ese render).
+  async function addCampana(fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>): Promise<ResultadoEscritura & { campana?: Campana }> {
     const nueva: Campana = {
       id: `camp-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -4053,7 +4059,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbInsertCampana(nueva);
     if (!res.ok) return res;
     setCampanas(prev => [nueva, ...prev]);
-    return res;
+    return { ...res, campana: nueva };
   }
 
   async function deleteCampana(id: string): Promise<ResultadoEscritura> {
@@ -4626,6 +4632,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
+  // El texto de un mensaje vive en `condicion.mensajes[clave]` — jsonb que ya
+  // existe y ya guarda los umbrales de la regla, así que esto no necesita
+  // ninguna columna nueva. `null` borra la personalización y devuelve el texto
+  // de fábrica, en vez de dejar guardada una copia idéntica que dejaría de
+  // recibir las mejoras del texto por defecto.
+  async function guardarMensajeAutomatizacion(id: string, clave: string, texto: string | null): Promise<ResultadoEscritura> {
+    const rule = automationRules.find(r => r.id === id);
+    if (!rule) return { ok: false, error: 'No se encuentra esa regla.' };
+    const previos = { ...(rule.condicion.mensajes as Record<string, string> | undefined ?? {}) };
+    if (texto && texto.trim()) previos[clave] = texto.trim();
+    else delete previos[clave];
+    const condicion = { ...rule.condicion, mensajes: previos };
+    const res = await dbUpdateAutomationRule(id, getCurrentStudioId(), { condicion });
+    if (!res.ok) return res;
+    setAutomationRules(prev => prev.map(r => (r.id === id ? { ...r, condicion } : r)));
+    return res;
+  }
+
   async function addAutomationRule(fields: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>): Promise<ResultadoEscritura> {
     const nueva: AutomationRule = {
       ...fields,
@@ -4955,6 +4979,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     automationLogs,
     notasProgreso,
     toggleAutomationRule,
+    guardarMensajeAutomatizacion,
     addAutomationRule,
     addAutomationLog,
     runAutomation,
