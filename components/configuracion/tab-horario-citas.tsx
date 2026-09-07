@@ -65,7 +65,12 @@ function totalHoras(draft: Draft): number {
 }
 
 export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void }) {
-  const { instructores, citasDisponibilidad, setDisponibilidadCitas } = useStudio();
+  const { instructores, citasDisponibilidad, setDisponibilidadCitas, cargarAgendaCitas } = useStudio();
+  // Estas tablas no vienen en el arranque del panel: #1375 las sacó y nadie
+  // escribió la carga posterior, así que esta pantalla leía un estado que nadie
+  // rellenaba. Se piden aquí, donde se usan, y una sola vez por estudio.
+  useEffect(() => { cargarAgendaCitas(); }, [cargarAgendaCitas]);
+
   const activos = useMemo(() => queImparten(instructores), [instructores]);
 
   const [selected, setSelected] = useState<string>(activos[0]?.id ?? '');
@@ -82,15 +87,27 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
   // cumplirse—, así que no hace falta guardar el valor anterior.
   if (!selected && activos.length > 0) setSelected(activos[0].id);
 
-  // Carga el borrador desde la BD al cambiar de instructora (no pisa ediciones:
-  // solo recarga cuando cambia la instructora seleccionada).
+  // Deriva el borrador desde la BD: al cambiar de instructora, y también cuando
+  // los datos LLEGAN.
+  //
+  // ⚠️ Esto dependía solo de `[selected]`, y con eso no basta: la
+  // disponibilidad se carga bajo demanda (`cargarAgendaCitas`) y llega DESPUÉS
+  // del primer render. Para entonces el efecto ya había corrido con la lista
+  // vacía y `loadedFor` bloqueaba cualquier recarga, así que la pantalla se
+  // quedaba con el vacío para siempre — y como guarda REEMPLAZANDO, editar un
+  // día y guardar se llevaba por delante los demás.
+  //
+  // Lo que no se puede perder al arreglarlo es la protección de las ediciones
+  // a medias: si hay cambios sin guardar, manda lo que está en pantalla y la
+  // llegada tardía no lo pisa.
   useEffect(() => {
-    if (!selected || loadedFor.current === selected) return;
+    if (!selected) return;
+    const cambioDeInstructora = loadedFor.current !== selected;
+    if (!cambioDeInstructora && dirty) return;
     setDraft(draftFromDisponibilidad(citasDisponibilidad, selected));
-    setDirty(false);
+    if (cambioDeInstructora) setDirty(false);
     loadedFor.current = selected;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
+  }, [selected, citasDisponibilidad, dirty]);
 
   // Antes se insertaba SIEMPRE 09:00-10:00 y se pasaba por mergeFranjas: si ya
   // había una franja que cubría o tocaba ese rango (muy común, ej. "09:00-14:00"),

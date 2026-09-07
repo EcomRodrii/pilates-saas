@@ -225,6 +225,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     studio,
     socios, suscripciones, planesTarifa, recibos, reservas, sesiones,
     tiposClase, salas, instructores, notasInternas,
+    cargarFichaClienta,
     updateSocio, deleteSocio, assignPlan, marcarCobrado, addRecibo, cobrarTodosPendientes,
     addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion, reactivarSuscripcion, cancelarSuscripcion,
     addNota, deleteNota,
@@ -232,6 +233,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     condicionesSalud, camposPersonalizados,
     facturas,
   } = useStudio();
+  // Las notas internas y las respuestas de sesión no vienen en el arranque
+  // (#1375 las sacó y nadie escribió la carga posterior). Se piden aquí.
+  useEffect(() => { cargarFichaClienta(); }, [cargarFichaClienta]);
+
 
   // Ficha de instructora del usuario logueado — la nota de progreso debe
   // quedar a nombre de quien la escribe de verdad, no de `instructores[0]`

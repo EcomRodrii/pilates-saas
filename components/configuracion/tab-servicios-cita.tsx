@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ColorInput, ColorSwatch, Field, Toggle,
   btnPrimary, btnSecondary, cardCls, inputCls, labelCls,
@@ -55,7 +55,12 @@ function servicioToForm(s: ServicioCita): ServicioForm {
 }
 
 export function TabServiciosCita({ showToast }: { showToast: (m: string) => void }) {
-  const { citasServicios, addServicioCita, updateServicioCita, deleteServicioCita } = useStudio();
+  const { citasServicios, addServicioCita, updateServicioCita, deleteServicioCita, cargarAgendaCitas } = useStudio();
+  // Estas tablas no vienen en el arranque del panel: #1375 las sacó y nadie
+  // escribió la carga posterior, así que esta pantalla leía un estado que nadie
+  // rellenaba. Se piden aquí, donde se usan, y una sola vez por estudio.
+  useEffect(() => { cargarAgendaCitas(); }, [cargarAgendaCitas]);
+
 
   const [modal, setModal] = useState<'nueva' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
