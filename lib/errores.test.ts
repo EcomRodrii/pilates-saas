@@ -126,3 +126,23 @@ test('otras claves duplicadas siguen con el mensaje genérico', () => {
   assert.match(r, /Ya existe algo con esos mismos datos/);
   assert.ok(!/clienta/i.test(r), 'no se puede hablar de clientas ante un choque de sustituciones');
 });
+
+// ── Petición que viajó como anon sin que la usuaria se enterase ────────────
+// JAVASCRIPT-NEXTJS-29: el `hint` de Postgres nombraba a "anon" en un 42501
+// real de una escritura de staff. Mismo mensaje que el JWT caducado — ver
+// esSesionAnonimaInesperada en recuperar-sesion.ts — porque reportDbError ya
+// ha disparado la misma recuperación silenciosa (refrescar sesión / login).
+
+test('un 42501 con el hint de Postgres nombrando "anon" se trata como sesión caducada', () => {
+  const r = mensajeDeFalloAlGuardar({
+    code: '42501',
+    message: 'permission denied for table tipos_clase',
+    hint: 'Grant the required privileges to the current role with: GRANT SELECT ON public.tipos_clase TO anon;',
+  });
+  assert.match(r, /sesión había caducado/i);
+});
+
+test('⚠️ un 42501 SIN "anon" en el hint sigue siendo "no tienes permiso", no sesión caducada', () => {
+  const r = mensajeDeFalloAlGuardar({ code: '42501', message: 'permission denied for table socios' });
+  assert.match(r, /no tienes permiso/i);
+});

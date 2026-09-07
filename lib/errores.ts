@@ -15,6 +15,8 @@
 // siempre se quedan cortas; su trabajo es que un descuido futuro no acabe en la
 // pantalla de una clienta, no ahorrarnos hacer bien la capa 1.
 
+import { esSesionAnonimaInesperada } from './recuperar-sesion.ts';
+
 // Huellas de error de Postgres/PostgREST, de la capa de red y de JavaScript.
 const HUELLAS_TECNICAS: RegExp[] = [
   // Postgres / PostgREST / Supabase
@@ -104,7 +106,12 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
   // permisos: en cuanto ocurre, el recuperador de auth-context refresca la
   // sesión en segundo plano, así que reintentar el clic suele bastar. Va ANTES
   // del caso 401/403 para no confundirlo con «no tienes permiso».
-  if (code === 'PGRST303' || /\bjwt expired\b/i.test(msg)) {
+  // JAVASCRIPT-NEXTJS-29: el mismo mensaje de arriba también vale cuando el
+  // 42501 viene de una petición que viajó sin la sesión de la usuaria (ver
+  // esSesionAnonimaInesperada) — el `reportDbError` ya ha disparado la misma
+  // recuperación silenciosa que el JWT caducado, así que "vuelve a entrar"
+  // sería peor consejo que "reintenta, se está renovando".
+  if (code === 'PGRST303' || /\bjwt expired\b/i.test(msg) || esSesionAnonimaInesperada(e)) {
     return 'Tu sesión había caducado y se está renovando. Vuelve a intentarlo.';
   }
   if (status === 401 || status === 403 || code === '42501' || /row-level security|permission denied/i.test(msg)) {
