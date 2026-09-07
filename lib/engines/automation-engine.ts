@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { mensajeDe } from './mensajes-automatizacion.ts';
 import type {
   AutomationRule,
   AutomationLog,
@@ -203,7 +204,7 @@ export function computeAutomationCandidatos(
           candidatos.push({
             rule, socio,
             titulo: '¿Todo bien por el estudio?',
-            mensajeCliente: `${socio.nombre}, hace un par de semanas que no coincidimos en clase. Si hay algo que te esté costando encajar el horario, o alguna molestia, dínoslo — nos encanta ayudarte a volver a tu ritmo.`,
+            mensajeCliente: mensajeDe(rule, 'ausencia_checkin', { nombre: socio.nombre }),
             proximaAccionEn: null,
             accion: 'ENVIAR_EMAIL',
             marcaInactividad: true,
@@ -227,7 +228,7 @@ export function computeAutomationCandidatos(
         candidatos.push({
           rule, socio,
           titulo: 'Te echamos de menos',
-          mensajeCliente: `${socio.nombre}, llevas ${dias} días sin venir a clase. ¿Todo bien? Te esperamos pronto por el estudio.`,
+          mensajeCliente: mensajeDe(rule, 'ausencia_recordatorio', { nombre: socio.nombre, dias }),
           proximaAccionEn: new Date(now.getTime() + 48 * 3600000).toISOString(),
           accion: 'ENVIAR_EMAIL',
           marcaInactividad: true,
@@ -296,7 +297,7 @@ export function computeAutomationCandidatos(
           candidatos.push({
             rule, socio,
             titulo: 'Segundo aviso: pago pendiente',
-            mensajeCliente: `${socio.nombre}, tu pago de ${recibo.importe}€ (${recibo.concepto}) sigue pendiente desde hace ${dias} días. Puedes regularizarlo desde tu área de socia o pasando por el estudio — si ya lo hiciste, ignora este aviso.`,
+            mensajeCliente: mensajeDe(rule, 'pago_segundo_aviso', { nombre: socio.nombre, importe: recibo.importe, concepto: recibo.concepto, dias }),
             proximaAccionEn: null,
             accion: 'ENVIAR_EMAIL',
             reciboId: recibo.id,
@@ -309,7 +310,7 @@ export function computeAutomationCandidatos(
         candidatos.push({
           rule, socio,
           titulo: 'Tienes un pago pendiente',
-          mensajeCliente: `${socio.nombre}, tienes un pago pendiente de ${recibo.importe}€ (${recibo.concepto}) desde hace ${dias} días. Puedes regularizarlo fácilmente desde tu área de socia o pasando por el estudio — si ya lo has hecho, ignora este aviso. ¡Gracias!`,
+          mensajeCliente: mensajeDe(rule, 'pago_primer_aviso', { nombre: socio.nombre, importe: recibo.importe, concepto: recibo.concepto, dias }),
           proximaAccionEn: new Date(now.getTime() + 72 * 3600000).toISOString(),
           accion: 'ENVIAR_EMAIL',
           reciboId: recibo.id,
@@ -340,7 +341,7 @@ export function computeAutomationCandidatos(
               candidatos.push({
                 rule, socio,
                 titulo: 'Recordatorio: tu clase es mañana',
-                mensajeCliente: `${socio.nombre}, te recordamos tu clase de ${tipo?.nombre ?? 'pilates'} mañana a las ${hora}. Si no puedes venir, cancela desde tu portal (Mis reservas) para liberar la plaza — ¡te esperamos!`,
+                mensajeCliente: mensajeDe(rule, 'recordatorio_clase', { nombre: socio.nombre, clase: tipo?.nombre ?? 'pilates', hora }),
                 proximaAccionEn: null,
                 accion: socio.telefono ? 'ENVIAR_WHATSAPP' : 'ENVIAR_EMAIL',
               });
@@ -492,7 +493,7 @@ export function computeAutomationCandidatos(
           candidatos.push({
             rule, socio,
             titulo: '¿Ya has visto los horarios?',
-            mensajeCliente: `${socio.nombre}, ¿ya has echado un vistazo a los horarios? Reserva tu primera clase cuando quieras desde tu área de socia — te esperamos.`,
+            mensajeCliente: mensajeDe(rule, 'nueva_sin_reservar', { nombre: socio.nombre }),
             proximaAccionEn: null,
             accion: 'ENVIAR_EMAIL',
             comercial: true,
@@ -537,7 +538,7 @@ export function computeAutomationCandidatos(
           candidatos.push({
             rule, socio,
             titulo: 'Renovación confirmada',
-            mensajeCliente: `${socio.nombre}, hemos cobrado tu renovación de ${recibo.concepto} por ${recibo.importe}€. Aquí tienes tu recibo desde tu área de socia.${cierre}`,
+            mensajeCliente: mensajeDe(rule, 'renovacion_confirmada', { nombre: socio.nombre, concepto: recibo.concepto, importe: recibo.importe, cierre }),
             proximaAccionEn: null,
             accion: 'ENVIAR_EMAIL',
             reciboId: recibo.id,

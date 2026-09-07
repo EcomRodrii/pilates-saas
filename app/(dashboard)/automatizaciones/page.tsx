@@ -16,6 +16,10 @@ import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } fr
 import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
+import {
+  mensajesDeTrigger, plantillaDe, vistaPreviaMensaje, mensajesPersonalizados,
+  type MensajeAutomatizacion,
+} from '@/lib/engines/mensajes-automatizacion';
 import { Toast, useToast } from '@/components/ui/toast';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -269,6 +273,7 @@ function RuleCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const pasos = useMemo(() => pasosDeRegla(rule), [rule]);
+  const mensajes = useMemo(() => mensajesDeTrigger(rule.trigger), [rule.trigger]);
 
   return (
     <div className={cn(
@@ -374,6 +379,128 @@ function RuleCard({
                 Esta automatización no tiene pasos configurados, así que no enviará nada.
               </p>
             )}
+          </div>
+
+          {mensajes.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+                Qué le llega a tu clienta
+              </p>
+              <div className="space-y-2">
+                {mensajes.map(def => (
+                  <EditorMensaje key={def.clave} rule={rule} def={def} soloLectura={soloLectura} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Mensaje de una automatización: leerlo, y cambiarlo ──────────────────────
+//
+// Lo que faltaba para poder encender ninguna regla. La pantalla decía «QUÉ
+// HACE, PASO A PASO: WhatsApp el día antes de la clase» y en ningún sitio el
+// texto que iba a salir con el nombre del estudio a 300 personas. Nadie
+// enciende eso a ciegas — y una automatización apagada no vale nada.
+function EditorMensaje({ rule, def, soloLectura }: {
+  rule: AutomationRule;
+  def: MensajeAutomatizacion;
+  soloLectura: boolean;
+}) {
+  const { guardarMensajeAutomatizacion } = useStudio();
+  const [abierto, setAbierto] = useState(false);
+  const [borrador, setBorrador] = useState(() => plantillaDe(rule, def.clave));
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const personalizado = def.clave in mensajesPersonalizados(rule);
+
+  async function guardar(texto: string | null) {
+    setGuardando(true);
+    setError(null);
+    const res = await guardarMensajeAutomatizacion(rule.id, def.clave, texto);
+    setGuardando(false);
+    if (!res.ok) { setError(res.error); return; }
+    setAbierto(false);
+    if (texto === null) setBorrador(plantillaDe({ condicion: {} }, def.clave));
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold text-foreground">{def.cuando}</p>
+          <p className="text-[10.5px] text-muted-foreground mt-0.5">Asunto: {def.asunto}</p>
+        </div>
+        {personalizado && (
+          <span className="shrink-0 text-[9.5px] font-bold uppercase tracking-wider text-brand-medio">Tuyo</span>
+        )}
+      </div>
+
+      {/* Lo que de verdad va a leer la clienta, con datos de ejemplo. */}
+      <p className="mt-2 rounded-md bg-card border border-border p-2.5 text-[11.5px] leading-relaxed text-foreground">
+        {vistaPreviaMensaje(rule, def.clave)}
+      </p>
+
+      {!soloLectura && !abierto && (
+        <div className="mt-2 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => { setBorrador(plantillaDe(rule, def.clave)); setAbierto(true); }}
+            className="text-[11px] font-semibold text-brand-medio hover:underline"
+          >
+            Escribirlo a mi manera
+          </button>
+          {personalizado && (
+            <button
+              type="button"
+              onClick={() => guardar(null)}
+              disabled={guardando}
+              className="text-[11px] font-semibold text-muted-foreground hover:underline disabled:opacity-50"
+            >
+              Volver al texto de Tentare
+            </button>
+          )}
+        </div>
+      )}
+
+      {abierto && (
+        <div className="mt-2 space-y-2">
+          <textarea
+            value={borrador}
+            onChange={e => setBorrador(e.target.value)}
+            rows={4}
+            aria-label={`Texto del mensaje: ${def.cuando}`}
+            className="w-full rounded-md border border-border bg-card px-2.5 py-2 text-[11.5px] leading-relaxed text-foreground outline-none focus:border-brand resize-none"
+          />
+          <p className="text-[10.5px] text-muted-foreground">
+            Entre llaves van los datos de cada clienta:{' '}
+            {def.variables.map((v, i) => (
+              <span key={v.clave}>
+                {i > 0 && ' · '}
+                <code className="font-mono text-foreground">{`{${v.clave}}`}</code> {v.descripcion.toLowerCase()}
+              </span>
+            ))}
+          </p>
+          {error && <p role="alert" className="text-[11px] text-destructive">{error}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setAbierto(false)}
+              className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-semibold text-foreground hover:bg-muted"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => guardar(borrador)}
+              disabled={guardando || !borrador.trim()}
+              className="rounded-lg bg-brand px-3 py-1.5 text-[11px] font-bold text-brand-foreground disabled:opacity-40"
+            >
+              {guardando ? 'Guardando…' : 'Guardar'}
+            </button>
           </div>
         </div>
       )}
