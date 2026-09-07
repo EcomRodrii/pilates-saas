@@ -10,7 +10,7 @@ import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { qrSvgMarkup } from '@/lib/qr-svg';
 import { calcularCambio, sugerenciasEfectivo } from '@/lib/pos/ticket';
 import { confirmarPago, esError, type RespuestaVenta } from '@/lib/pos/cliente';
-import type { EstadoPagoPOS } from '@/lib/pos/tipos';
+import { necesitaAtestiguar, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 import { BotonFactura } from './boton-factura';
 
@@ -41,9 +41,16 @@ const METODOS: { valor: MetodoPago; label: string; Icono: React.ElementType; ayu
 type Fase =
   | { f: 'metodo' }
   | { f: 'efectivo' }
+  // Tarjeta del banco y transferencia: nadie externo puede confirmarlas, así
+  // que se le pregunta a quien cobra ANTES de dar nada por bueno.
+  | { f: 'atestiguar'; metodo: MetodoPago }
   | { f: 'enviando' }
   | { f: 'esperando'; venta: RespuestaVenta; estado: EstadoPagoPOS; url?: string | null }
-  | { f: 'exito'; venta: RespuestaVenta; entrega?: RespuestaVenta['entrega'] }
+  // `verificado` = lo confirmó un TERCERO (Stripe), no la persona que cobra.
+  // La pantalla de éxito tiene que decir cuál de las dos cosas es: «Cobrado» a
+  // secas para un cobro que nadie ha comprobado es la mentira que este
+  // rediseño existe para quitar.
+  | { f: 'exito'; venta: RespuestaVenta; entrega?: RespuestaVenta['entrega']; verificado: boolean }
   | { f: 'fallo'; mensaje: string };
 
 // El datáfono espera hasta minuto y medio: es lo que tarda alguien en sacar la
@@ -80,7 +87,12 @@ export function HojaCobro({
     if (esError(r)) { setFase({ f: 'fallo', mensaje: r.error }); return; }
 
     if (r.estado === 'PAGADA') {
-      setFase({ f: 'exito', venta: r, entrega: r.entrega });
+      // ⚠️ El EFECTIVO también cuenta como verificado, y no es un matiz: el
+      // dinero está en el cajón, lo ha contado una persona y el arqueo del
+      // cierre lo cuadra. Lo que NO está verificado es lo que se afirma sin
+      // que nadie —ni Stripe ni quien cobra— haya visto entrar el dinero
+      // aquí: la tarjeta del datáfono del banco y la transferencia.
+      setFase({ f: 'exito', venta: r, entrega: r.entrega, verificado: !necesitaAtestiguar(m) });
       return;
     }
     setFase({ f: 'esperando', venta: r, estado: r.pagoEstado, url: r.pago?.url ?? null });
@@ -120,6 +132,9 @@ export function HojaCobro({
       if (r.estado === 'PAGADA') {
         setFase((prev) => ({
           f: 'exito',
+          // A este camino solo se llega sondeando a Stripe, que es quien
+          // acaba de decir que sí.
+          verificado: true,
           venta: {
             ...(prev.f === 'esperando' ? prev.venta : ({} as RespuestaVenta)),
             ventaId: ventaEnCurso, numero: r.numero, total: r.total,
@@ -157,7 +172,7 @@ export function HojaCobro({
     // Si entre el clic y la cancelación la tarjeta llegó a pasarse, manda lo
     // que diga Stripe: cancelar no puede deshacer un cobro real.
     if (!esError(r) && r.estado === 'PAGADA') {
-      setFase({ f: 'exito', venta: { ...fase.venta, estado: 'PAGADA', pagoEstado: 'PAGADO' }, entrega: r.entrega });
+      setFase({ f: 'exito', venta: { ...fase.venta, estado: 'PAGADA', pagoEstado: 'PAGADO' }, entrega: r.entrega, verificado: true });
       return;
     }
     setFase({ f: 'metodo' });
@@ -189,7 +204,11 @@ export function HojaCobro({
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {/* ── Elegir método ───────────────────────────────────────────── */}
+          {/* ── Elegir método ─────────────────────────────────────────────
+              Efectivo a lo ancho y el resto en dos columnas: es el método más
+              frecuente del mostrador y antes tenía el mismo peso que los
+              demás, con «Transferencia» además quedándose huérfana en la
+              última fila de una rejilla de cinco. */}
           {fase.f === 'metodo' && (
             <div className="p-4 grid grid-cols-2 gap-3">
               {METODOS.map(({ valor, label, Icono, ayuda }) => {
@@ -200,12 +219,14 @@ export function HojaCobro({
                     disabled={!ok}
                     onClick={() => {
                       if (valor === 'EFECTIVO') { setEntregado(''); setFase({ f: 'efectivo' }); }
+                      else if (necesitaAtestiguar(valor)) setFase({ f: 'atestiguar', metodo: valor });
                       else lanzar(valor, null);
                     }}
                     // 96 px de alto: se pulsa con el pulgar, de pie, sin mirar.
                     className={cn(
                       'h-24 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition-all',
                       'active:scale-[0.97]',
+                      valor === 'EFECTIVO' && 'col-span-2',
                       ok
                         ? 'border-border bg-background hover:border-foreground/40 hover:bg-card'
                         : 'border-border/50 bg-muted/40 opacity-50 cursor-not-allowed',
@@ -214,11 +235,62 @@ export function HojaCobro({
                     <Icono size={22} className="text-foreground" />
                     <span className="text-[15px] font-semibold text-foreground">{label}</span>
                     <span className="text-[11px] text-muted-foreground">
-                      {ok ? ayuda : valor === 'DATAFONO' ? 'Sin datáfono emparejado' : 'Conecta Stripe'}
+                      {/* Un método apagado tiene que decir QUÉ HACER, no solo
+                          que no está. «Sin datáfono emparejado» a alguien que
+                          está cobrando le suena a avería. */}
+                      {ok
+                        ? ayuda
+                        : valor === 'DATAFONO'
+                          ? 'Empareja uno en Configuración → Integraciones'
+                          : 'Conecta Stripe en Configuración → Integraciones'}
                     </span>
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* ── Atestiguar (tarjeta del banco, transferencia) ────────────
+              A Tentare NO le consta este cobro: se hace en el datáfono del
+              banco o en la cuenta, fuera de aquí. Antes se registraba como
+              «Cobrado» en cuanto se pulsaba el método —el proveedor manual
+              devuelve PAGADO al instante— y en pantalla salía idéntico a un
+              cobro confirmado por Stripe. Eso es exactamente la transacción
+              dada por buena sin que nadie la compruebe.
+              Ahora se pide a quien cobra que lo afirme, y queda firmado con su
+              nombre en `vendido_por`. */}
+          {fase.f === 'atestiguar' && (
+            <div className="p-6 space-y-4 text-center">
+              <button onClick={() => setFase({ f: 'metodo' })} className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground">
+                <ArrowLeft size={14} /> Otro método
+              </button>
+              <div className="w-14 h-14 rounded-full bg-warning/10 flex items-center justify-center mx-auto">
+                <AlertTriangle size={26} className="text-warning" />
+              </div>
+              <p className="text-[17px] font-bold text-foreground">
+                {fase.metodo === 'TARJETA'
+                  ? '¿Ha aprobado el datáfono de tu banco?'
+                  : '¿Te ha llegado la transferencia?'}
+              </p>
+              <p className="text-[13.5px] text-muted-foreground max-w-[340px] mx-auto">
+                {fase.metodo === 'TARJETA'
+                  ? `Tentare no ve los cobros del datáfono de tu banco. Confirma que has cobrado ${formatEuro(total)} y lo registramos a tu nombre.`
+                  : `Tentare no ve tu cuenta bancaria. Confirma que has recibido ${formatEuro(total)} y lo registramos a tu nombre.`}
+              </p>
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  onClick={() => lanzar(fase.metodo, null)}
+                  className="w-full h-14 rounded-xl bg-brand text-brand-foreground text-[16px] font-bold active:scale-[0.99] transition-transform"
+                >
+                  Sí, he cobrado {formatEuro(total)}
+                </button>
+                <button
+                  onClick={() => setFase({ f: 'metodo' })}
+                  className="w-full h-12 rounded-xl text-[14px] font-medium text-muted-foreground"
+                >
+                  No, todavía no
+                </button>
+              </div>
             </div>
           )}
 
@@ -342,7 +414,17 @@ export function HojaCobro({
               <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center animate-in zoom-in-50 duration-300">
                 <CheckCircle2 size={38} className="text-success" />
               </div>
-              <p className="text-[20px] font-extrabold text-foreground">Cobrado</p>
+              <p className="text-[20px] font-extrabold text-foreground">
+                {fase.verificado ? 'Cobrado' : 'Registrado'}
+              </p>
+              {/* La diferencia importa y por eso se dice: un cobro que ha
+                  confirmado Stripe y uno que ha afirmado quien está en el
+                  mostrador no son lo mismo, aunque los dos sean dinero real. */}
+              {!fase.verificado && (
+                <p className="text-[12.5px] text-muted-foreground max-w-[300px]">
+                  Queda anotado a tu nombre. Tentare no ha podido comprobarlo por su cuenta.
+                </p>
+              )}
               {fase.venta.cambio != null && fase.venta.cambio > 0 && (
                 <div className="rounded-2xl bg-success/10 px-6 py-3">
                   <p className="text-[12px] font-semibold uppercase tracking-wide text-success/80">Devuelve</p>

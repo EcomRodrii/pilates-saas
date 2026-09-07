@@ -85,4 +85,17 @@ test('captura del TPV', async ({ page }) => {
   await page.setViewportSize({ width: 834, height: 1112 });
   await page.waitForTimeout(600);
   await page.screenshot({ path: 'test-results/pos-tablet.png' });
+
+  // Móvil: el TPV se rediseñó mirando escritorio y iPad, nunca un teléfono, y
+  // «no es responsive» fue justo la queja.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: 'test-results/pos-movil.png' });
+
+  // Y la hoja de cobro en móvil, que es donde se toca el dinero.
+  await page.getByRole('button', { name: /Ver el ticket/ }).click();
+  await page.waitForTimeout(400);
+  await page.getByRole('button', { name: /^Cobrar/ }).click();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: 'test-results/pos-movil-cobro.png' });
 });

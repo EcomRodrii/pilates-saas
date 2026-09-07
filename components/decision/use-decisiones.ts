@@ -121,7 +121,21 @@ export function useDecisiones() {
         setData(null);
         return;
       }
-      setData(await res.json());
+      // ⚠️ Un 200 no garantiza la FORMA. `data` se lee en seis sitios de la
+      // pantalla como `data.prioridades.length` y `[...data.prioridades]`, y
+      // un `{}` es un objeto verdadero: pasa el `data ?` y revienta en el
+      // `.length`, tirando el Centro de Control ENTERO al límite de error —
+      // «Algo ha ido mal» donde debería haber una pantalla degradada.
+      //
+      // Es el mismo fallo que ya se cerró en /dashboard, y aquí es peor: esta
+      // es la pantalla desde la que se decide el día.
+      const cuerpo = await res.json().catch(() => null);
+      if (!cuerpo || !Array.isArray(cuerpo.prioridades) || !Array.isArray(cuerpo.masSituaciones)) {
+        setError('La respuesta del servidor llegó incompleta. Vuelve a intentarlo.');
+        setData(null);
+        return;
+      }
+      setData(cuerpo);
       setError(null);
     } catch {
       setError('No se pudo conectar con el servidor');

@@ -143,8 +143,17 @@ export default function EquipoPage() {
   // repite cada vez que cambia `instructores` (tras un alta/edición/baja).
   const [tarjetas, setTarjetas] = useState<MiembroCompleto[]>([]);
   const [cargandoTarjetas, setCargandoTarjetas] = useState(true);
+  // ⚠️ Un fallo de carga NO es un equipo vacío. Antes `tarjetasEquipo()`
+  // devolvía `[]` ante un 500 o un corte de red, y esta pantalla lo pintaba
+  // como «Aún no hay nadie en el equipo» — con su botón invitando a dar de
+  // alta otra vez a instructoras que ya existen.
+  const [falloTarjetas, setFalloTarjetas] = useState(false);
   const recargarTarjetas = useCallback(() => {
-    tarjetasEquipo().then(items => { setTarjetas(items); setCargandoTarjetas(false); });
+    tarjetasEquipo().then(items => {
+      setFalloTarjetas(items === null);
+      setTarjetas(items ?? []);
+      setCargandoTarjetas(false);
+    });
   }, []);
   useEffect(() => { recargarTarjetas(); }, [recargarTarjetas, instructores]);
 
@@ -521,6 +530,13 @@ export default function EquipoPage() {
 
       {cargandoTarjetas ? (
         <p className="text-sm text-muted-foreground py-16 text-center">Cargando el equipo…</p>
+      ) : falloTarjetas ? (
+        <EmptyState
+          icono={Users}
+          titulo="No hemos podido cargar tu equipo"
+          descripcion="Es un problema nuestro, no que te falten instructoras. Vuelve a intentarlo."
+          cta={{ label: 'Reintentar', onClick: () => { setCargandoTarjetas(true); recargarTarjetas(); } }}
+        />
       ) : tarjetas.length === 0 ? (
         <EmptyState
           icono={Users}

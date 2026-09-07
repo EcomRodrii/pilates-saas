@@ -1787,11 +1787,30 @@ export async function resumenValoraciones(): Promise<ResumenValoraciones> {
 // El servidor ya recorta cada `MiembroCompleto` al rol de quien pregunta
 // (ver app/api/equipo/tarjetas/route.ts) — este cliente no filtra nada, solo
 // transporta lo que llegó.
-export async function tarjetasEquipo(): Promise<import('./equipo-tarjetas.ts').MiembroCompleto[]> {
-  const res = await fetch('/api/equipo/tarjetas', { headers: await authHeader() });
-  if (!res.ok) return [];
-  const data = (await res.json().catch(() => null)) as { items?: import('./equipo-tarjetas.ts').MiembroCompleto[] } | null;
-  return data?.items ?? [];
+/**
+ * Las fichas del equipo, o `null` si NO se han podido cargar.
+ *
+ * ⚠️ `null` y `[]` son cosas distintas y la diferencia se ve en pantalla: con
+ * `[]` la pantalla enseña «Aún no hay nadie en el equipo» y un botón
+ * invitando a añadir instructoras. Devolviendo `[]` ante un 500, un 403 o un
+ * corte de red, un fallo del servidor se le presentaba a la propietaria como
+ * «tu equipo está vacío» — con llamada a la acción para volver a dar de alta
+ * a gente que ya existe.
+ *
+ * Mismo criterio que el resto del panel: ausente no es cero, ni vacío.
+ */
+export async function tarjetasEquipo(): Promise<import('./equipo-tarjetas.ts').MiembroCompleto[] | null> {
+  try {
+    const res = await fetch('/api/equipo/tarjetas', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as { items?: import('./equipo-tarjetas.ts').MiembroCompleto[] } | null;
+    // Una respuesta 200 sin `items` tampoco es un equipo vacío: es una
+    // respuesta que no entendemos.
+    return Array.isArray(data?.items) ? data.items : null;
+  } catch {
+    // La red se cayó. Tampoco es un equipo vacío.
+    return null;
+  }
 }
 
 // ── Valoraciones: detalle (cada valoración individual de una instructora) ────
