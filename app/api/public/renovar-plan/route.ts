@@ -4,6 +4,7 @@ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
+import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 
 // "Renovar en un toque" desde el portal: garantiza que exista el recibo de
 // renovación del plan de la socia y devuelve su id — el portal lo paga acto
@@ -66,7 +67,26 @@ export async function POST(req: NextRequest) {
     if (pendiente) return NextResponse.json({ reciboId: pendiente.id });
 
     const hoy = new Date().toISOString().slice(0, 10);
-    const id = `rec-renov-${sus.id}-${hoy.slice(0, 7)}`;
+    // ⚠️ 26ª pasada. El id determinista POR MES viene de `lib/inngest/
+    // renovaciones.ts`: se elige así a propósito para que CHOQUE por PK con el
+    // que generaría el cron y no salgan dos recibos del mismo ciclo. Eso es
+    // correcto para una cuota MENSUAL —un ciclo por mes— y falso para un BONO,
+    // que es justo donde el portal enseña el botón «Renovar» (se pinta cuando
+    // las sesiones se agotan, app/portal/[slug]/bonos/page.tsx).
+    //
+    // Una socia que agota su bono de 4 dos veces en el mismo mes: la primera
+    // renovación crea y COBRA `rec-renov-…-2026-09`; la segunda no lo ve en el
+    // dedupe de arriba (solo mira PENDIENTE/EN_CURSO), choca 23505, y el
+    // `insErr.code !== '23505'` lo trataba como éxito devolviendo el id del
+    // recibo YA COBRADO — que /api/stripe/checkout rechaza con 409 y la socia
+    // lee como una avería. Venta perdida con cara de fallo del sistema.
+    //
+    // Los ciclos de 3/6/12 meses (`periodicidad_meses`, #1701) caen en meses
+    // distintos, así que la convención les sirve igual que a la mensual.
+    const cicloEsMensual = plan.tipo === 'MENSUAL';
+    const id = cicloEsMensual
+      ? `rec-renov-${sus.id}-${hoy.slice(0, 7)}`
+      : `rec-renov-${sus.id}-${hoy}-${crypto.randomUUID().slice(0, 8)}`;
     const { error: insErr } = await admin.from('recibos').insert({
       id, studio_id: body.studioId, socio_id: socioId, suscripcion_id: sus.id,
       concepto: `Renovación ${plan.nombre}`, importe: plan.precio, estado: 'PENDIENTE',
@@ -76,7 +96,23 @@ export async function POST(req: NextRequest) {
       intentos_reintento: 0,
     });
     // 23505: otro camino (cron, doble toque) lo creó en paralelo — se reutiliza.
-    if (insErr && insErr.code !== '23505') throw new Error(insErr.message);
+    // Pero SOLO si de verdad se puede pagar: el que ya estaba ahí puede estar
+    // COBRADO (renovación anterior del mismo mes) y devolver su id mandaba a la
+    // socia a un checkout que responde 409. Se comprueba con el mismo criterio
+    // que usa /api/stripe/checkout para aceptarlo, no con una lista aparte.
+    if (insErr) {
+      if (insErr.code !== '23505') throw new Error(insErr.message);
+      const { data: chocado } = await admin
+        .from('recibos')
+        .select('estado, importe, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en')
+        .eq('id', id).eq('studio_id', body.studioId).maybeSingle();
+      if (!chocado || !esReciboCobrable(chocado as Parameters<typeof esReciboCobrable>[0])) {
+        return NextResponse.json(
+          { error: 'Ya has renovado este plan. Si necesitas otro, habla con tu estudio.' },
+          { status: 409 },
+        );
+      }
+    }
 
     return NextResponse.json({ reciboId: id });
   } catch (err) {

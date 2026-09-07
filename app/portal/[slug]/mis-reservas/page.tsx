@@ -122,6 +122,14 @@ export default function MisReservasPage() {
     if (!res.ok) {
       if (res.sesionCaducada) { router.push(href('/acceso/login')); return; }
       toast(res.error);
+      // ⚠️ 26ª pasada: aquí faltaba el `reintentar()` y no era cosmético. El
+      // camino de fallo de `aceptarOfertaListaEspera` NO deja las cosas como
+      // estaban: la RPC YA canceló la reserva (lo dice su propio comentario,
+      // «PIERDE EL SITIO — ya la ha cancelado la RPC») y le ha creado una
+      // recuperación. Sin recargar, la socia se queda leyendo «en lista de
+      // espera» sobre una reserva que ya no existe, y sin ver la recuperación
+      // que acaba de ganar, hasta que recargue a mano.
+      reintentar();
       return;
     }
     toast(res.confirmada

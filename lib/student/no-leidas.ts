@@ -29,10 +29,33 @@ async function pedir(studioId: string): Promise<number> {
   return cuerpo.unread ?? (cuerpo.items ?? []).filter((i) => i.readAt == null).length;
 }
 
-/** Fuerza una relectura: la usa la pantalla de avisos al marcarlos como leídos. */
-export function invalidarNoLeidas(): void {
+/**
+ * Fuerza una relectura tras marcar avisos como leídos.
+ *
+ * ⚠️ 26ª pasada. Esta función tenía DOS fallos a la vez y ninguno se veía:
+ *
+ *   1. **Cero llamantes en todo el repo**, pese a que su propio comentario
+ *      decía «la usa la pantalla de avisos al marcarlos como leídos». No la
+ *      usaba nadie.
+ *   2. Aunque se llamara, era un placebo: vaciaba `cache` y ya. No avisaba a
+ *      los `oyentes` ni volvía a pedir nada, así que el punto de la campana
+ *      seguía encendido hasta que caducase el TTL de 60 s — con la socia
+ *      mirando una pantalla que le acababa de decir «Marcadas como leídas ✓».
+ *
+ * Ahora vacía, RELEE y reparte el valor nuevo a quien esté suscrito. Es
+ * best-effort a propósito: si la relectura falla, el peor caso es el de antes
+ * (el punto tarda un minuto), nunca un error en pantalla por un adorno.
+ */
+export function invalidarNoLeidas(studioId: string): void {
   cache = null;
-  void 0;
+  // Si ya hay una petición en vuelo se aprovecha: sus oyentes se avisan solos
+  // al resolverse, y lanzar otra en paralelo solo duplicaría la llamada.
+  if (enVuelo) return;
+  enVuelo = pedir(studioId)
+    .then((v) => { cache = { studioId, valor: v, cuando: Date.now() }; return v; })
+    .catch(() => 0)
+    .finally(() => { enVuelo = null; });
+  void enVuelo.then((v) => { for (const o of oyentes) o(v); });
 }
 
 export function useNoLeidas(studioId: string): number {

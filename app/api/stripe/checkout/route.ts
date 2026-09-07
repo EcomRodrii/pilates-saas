@@ -16,6 +16,7 @@ import type { RowCodigosDescuento } from '@/lib/db-types';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
+import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest) {
   if (body.reciboId) {
     const { data: recibo, error } = await admin
       .from('recibos')
-      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id')
+      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en')
       .eq('id', body.reciboId)
       .maybeSingle();
     if (error || !recibo) {
@@ -135,7 +136,14 @@ export async function POST(req: NextRequest) {
     if (recibo.studio_id !== body.studioId) {
       return conCorsWidget(req, NextResponse.json({ error: 'Ese recibo no pertenece a este estudio' }, { status: 403 }));
     }
-    if (recibo.estado !== 'PENDIENTE') {
+    // ⚠️ Antes esto era `recibo.estado !== 'PENDIENTE'`. #1694 amplió a FALLIDO
+    // los dos escritores del panel y se dejó ESTE, que es el único por el que
+    // paga la socia: con el bloqueo por impago encendido quedaba sin poder
+    // reservar y sin poder pagar (3 socias reales, 107 €, ver
+    // lib/billing/deuda-recibo.ts). Ahora el criterio es uno solo y es el mismo
+    // que usa la RPC `socio_tiene_impago` para bloquearla: lo que bloquea por
+    // deuda tiene que poder pagarse.
+    if (!esReciboCobrable(recibo as Parameters<typeof esReciboCobrable>[0])) {
       return conCorsWidget(req, NextResponse.json({ error: 'Este recibo ya no está pendiente de cobro' }, { status: 409 }));
     }
     importe = Number(recibo.importe);

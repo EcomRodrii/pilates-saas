@@ -85,6 +85,39 @@ function elegirBono(
   tipoClaseId: string | null | undefined,
   esApto: (sesionesRestantes: number, plan: PlanTarifa) => boolean,
 ): { suscripcion: Suscripcion; plan: PlanTarifa; sesionesRestantes: number } | null {
+  // ⚠️ LA MENSUAL GANA. `lib/reservar/cobertura.ts:112` lo dice desde que existe
+  // («si la cubre, no se le descuenta ninguna sesión de bono, y decirle "te
+  // quedan 3" cuando no se le va a restar nada sería mentira») y lo cumplía
+  // ELLA sola: aquí no estaba. La pantalla anunciaba «Incluida en tu cuota» y
+  // el servidor descontaba una sesión del bono igualmente, sin error, sin
+  // recibo y sin nada que se lo contara a nadie.
+  //
+  // Es la misma familia que #1690 («elegir el mismo bono que va a gastar el
+  // servidor»), cerrada para bono-vs-bono y no para mensual-vs-bono. Y deja de
+  // ser el caso raro con la cuota combinada (migr 20260907030553): tener una
+  // MENSUAL con techo por actividad y un bono suelto para el resto es
+  // exactamente lo que esa funcionalidad viene a vender.
+  //
+  // El segundo daño era peor y no se veía: `reservar_plaza` consume una
+  // RECUPERACIÓN al topar el límite semanal de la mensual, y
+  // `crearReservaPublica` llama a `consumirBonoServidor` justo después sin
+  // mirar nada (supabase-data-admin.ts). La misma clase se pagaba dos veces,
+  // con recuperación Y con sesión de bono.
+  //
+  // Va en el cuerpo COMÚN a propósito, no en `bonoConsumible`: si la mensual
+  // cubre y no se descuenta al reservar, tampoco puede devolverse nada al
+  // cancelar, o la cancelación REGALA una sesión que nunca se gastó.
+  const cubiertaPorMensual = suscripciones.some(s => {
+    if (s.socioId !== socioId || s.estado !== 'ACTIVA') return false;
+    const plan = planesTarifa.find(p => p.id === s.planId);
+    if (!plan || plan.tipo !== 'MENSUAL') return false;
+    // Misma vigencia y misma cobertura que usa `coberturaDeClase` para decidir
+    // que la clase entra en la cuota. Si divergen, vuelve la mentira.
+    if (s.fechaFin && s.fechaFin < hoyISO) return false;
+    return planCubreTipoClase(plan, tipoClaseId);
+  });
+  if (cubiertaPorMensual) return null;
+
   const candidatas = suscripciones.filter(s => {
     if (s.socioId !== socioId || s.estado !== 'ACTIVA' || s.sesionesRestantes === null) return false;
     const plan = planesTarifa.find(p => p.id === s.planId);

@@ -208,11 +208,27 @@ export async function consumirCodigoDescuentoSiAplica(
     .from('codigos_descuento_consumos')
     .insert({ recibo_id: reciboId, codigo_id: codigoDescuentoId });
   if (!errMarcarConsumo) {
-    const { error: errConsumo } = await admin.rpc('consumir_codigo_descuento', { p_codigo_id: codigoDescuentoId });
+    const { data: usosTras, error: errConsumo } = await admin.rpc('consumir_codigo_descuento', { p_codigo_id: codigoDescuentoId });
     if (errConsumo) {
       Sentry.captureMessage(`[${fuente}] plan entregado pero el código de descuento no se consumió`, {
         level: 'warning', tags: { area: 'cobros' },
         extra: { codigoDescuentoId, studioId, reciboId, detalle: String(errConsumo) },
+      });
+    } else if (usosTras == null) {
+      // ⚠️ 26ª pasada. `consumir_codigo_descuento` es un `UPDATE … RETURNING
+      // usos` con el tope y el `activo` en su propio WHERE: si el código se
+      // agotó o se desactivó ENTRE la validación y el cobro, no da error —
+      // simplemente no toca ninguna fila y devuelve NULL. Aquí se descartaba
+      // `data`, así que el descuento ya estaba aplicado al importe cobrado y
+      // el contador de usos no lo registraba nunca: el tope se rebasaba en
+      // silencio y no quedaba ni rastro para reconstruirlo después.
+      //
+      // No se revierte el cobro a propósito —el dinero ya se movió y quitarle
+      // el descuento a posteriori sería peor—, pero el estudio tiene que poder
+      // enterarse de que su campaña se pasó del tope.
+      Sentry.captureMessage(`[${fuente}] descuento aplicado sobre un código agotado o desactivado`, {
+        level: 'warning', tags: { area: 'cobros' },
+        extra: { codigoDescuentoId, studioId, reciboId },
       });
     }
   } else if (errMarcarConsumo.code !== '23505') {
