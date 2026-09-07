@@ -472,7 +472,7 @@ export interface RowProductosPos {
   // migr 20260907150011.
   stock: number | null;
   // migr 20260907150011.
-  stock_minimo: number;
+  stock_minimo: number | null;
   // migr 20260907150011.
   iva_pct: number | null;
   // migr 20260907150011.
@@ -601,6 +601,8 @@ export interface RowRewardRules {
   activa: boolean;
   creado_en: string;
   tope_mensual: number | null;
+  // migr 20260907150546.
+  unidad_euros: number | null;
 }
 
 export interface RowSalas {
@@ -1016,6 +1018,40 @@ export interface RowVentasPos {
   conciliado_en: string | null;
   // migr 20260902001659.
   conciliado_por: string | null;
+  // migr 20260907150106.
+  numero: number | null;
+  // migr 20260907150106.
+  estado: string | null;
+  // migr 20260907150106.
+  pago_estado: string | null;
+  // migr 20260907150106.
+  pago_actualizado_en: string | null;
+  // migr 20260907150106.
+  pago_error: string | null;
+  // migr 20260907150106.
+  base_imponible: number | null;
+  // migr 20260907150106.
+  iva_total: number | null;
+  // migr 20260907150106.
+  efectivo_recibido: number | null;
+  // migr 20260907150106.
+  cambio: number | null;
+  // migr 20260907150106.
+  vendido_por: string | null;
+  // migr 20260907150106.
+  vendido_por_nombre: string | null;
+  // migr 20260907150106.
+  caja_id: string | null;
+  // migr 20260907150106.
+  recibo_id: string | null;
+  // migr 20260907150106.
+  idempotencia_clave: string | null;
+  // migr 20260907150106.
+  anulada_en: string | null;
+  // migr 20260907150106.
+  anulada_por: string | null;
+  // migr 20260907150106.
+  anulada_motivo: string | null;
 }
 
 export interface RowVideosOnDemand {
@@ -2512,4 +2548,55 @@ export interface RowCierresEstudio {
   hasta: string;
   motivo: string | null;
   creado_en: string;
+}
+
+export interface RowCajas {
+  id: string;
+  studio_id: string;
+  estado: string;
+  fondo_inicial: number;
+  abierta_en: string;
+  abierta_por: string | null;
+  abierta_por_nombre: string | null;
+  cerrada_en: string | null;
+  cerrada_por: string | null;
+  cerrada_por_nombre: string | null;
+  efectivo_contado: number | null;
+  efectivo_esperado: number | null;
+  diferencia: number | null;
+  notas_cierre: string | null;
+}
+
+export interface RowMovimientosCaja {
+  id: string;
+  studio_id: string;
+  caja_id: string;
+  tipo: string;
+  importe: number;
+  metodo_pago: string;
+  concepto: string;
+  referencia: string | null;
+  metadata: any;
+  creado_en: string;
+  creado_por: string | null;
+  creado_por_nombre: string | null;
+}
+
+export interface RowVentasPosLineas {
+  id: string;
+  venta_id: string;
+  studio_id: string;
+  tipo: string;
+  referencia_id: string | null;
+  nombre: string;
+  precio_unitario: number;
+  cantidad: number;
+  iva_pct: number;
+  descuento: number;
+  base_imponible: number;
+  iva_importe: number;
+  total: number;
+  suscripcion_id: string | null;
+  devuelta_cantidad: number;
+  orden: number;
 }
