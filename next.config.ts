@@ -2,21 +2,46 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
-  // ⚠️ CRITICAL OPTIMIZATION: Disable TypeScript checking in dev
-  // tsc consumes 2-3GB memory and blocks dev startup. Type errors still show
-  // as warnings in dev, but don't block the server. Full typecheck runs via
-  // npm run typecheck (separate process with 4GB memory limit).
+  // El desarrollo usa un tsconfig más ligero (sin `strict`, sin
+  // `skipLibCheck` de más, sin incremental): eso es lo que baja de verdad la
+  // memoria que gasta tsc mientras se programa. La comprobación de tipos
+  // COMPLETA sigue viva donde importa — `npm run typecheck` y el build de
+  // producción, que usa `tsconfig.json` a secas.
+  //
+  // ⚠️ `tsconfigPath` es la ÚNICA clave que Next reconoce aquí junto a
+  // `ignoreBuildErrors`. Aquí hubo un `ignoreDevErrors: true` que NO EXISTE en
+  // Next: el propio Next lo cantaba en cada arranque («Unrecognized key(s) in
+  // object: 'ignoreDevErrors' at "typescript"»), así que no hacía nada y su
+  // comentario prometía un comportamiento que nadie estaba aplicando. Si algún
+  // día se quiere de verdad «que no bloquee», la clave es `ignoreBuildErrors`
+  // — pero apaga la comprobación en el BUILD DE PRODUCCIÓN, que es justo donde
+  // no queremos apagarla. Por eso se retira en vez de traducirse.
   typescript: {
-    ignoreDevErrors: true,  // Allow dev server to start even with type errors
     tsconfigPath: process.env.NODE_ENV === 'production' ? './tsconfig.json' : './tsconfig.dev.json',
   },
-  // EMERGENCY: Disable experimental features that consume CPU
-  experimental: process.env.NODE_ENV === 'production' ? {} : {
-    // Disable polling-based features in dev
-    optimizePackageImports: false,
-    turbopack: false,  // Use webpack instead of turbopack
-  },
-  // Disable static generation timing in dev
+  // ⚠️ Aquí vivía un bloque `experimental` con dos claves que tampoco hacían
+  // nada, y se retira entero en vez de "arreglarse":
+  //
+  //   · `optimizePackageImports: false` — el tipo es `string[]` (una lista de
+  //     paquetes con barrel files), no un booleano. Y sobra: los docs de Next
+  //     dicen literalmente que «Turbopack automatically analyzes imports and
+  //     optimizes them. It does not require this configuration», y Turbopack es
+  //     el bundler por defecto desde Next 16.
+  //   · `turbopack: false` — no es una clave de `experimental`. El bundler se
+  //     elige por CLI: Turbopack va por defecto y a webpack se entra con
+  //     `next dev --webpack`. Si alguna vez hace falta, va en el script `dev`
+  //     de package.json, no aquí.
+  //
+  // El bloque estaba además envuelto en un `NODE_ENV === 'production' ? {} : …`
+  // que no protegía nada: `main` no tiene ninguna otra opción `experimental`.
+  //
+  // ⚠️ `staticPageGenerationTimeout` NO se toca aquí, pero ojo con él: 999999
+  // segundos no es «desactivar el aviso en dev» como decía su comentario — la
+  // opción no distingue dev de producción, así que una página que se cuelgue
+  // en el build deja de fallar al minuto y pasa a colgar el build ~11 días.
+  // Se deja como está porque es una clave VÁLIDA y cambiar su valor es una
+  // decisión de producto, no la limpieza de claves muertas que hace este
+  // commit.
   staticPageGenerationTimeout: 999999,
   // URL limpia para el origen dedicado de temas ZIP publicados
   // (`imports.tentare.app/<slug>` en vez de `/tema-publicado/<slug>`). Esto
