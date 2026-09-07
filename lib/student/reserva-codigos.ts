@@ -100,6 +100,15 @@ export type RespuestaReserva =
        * y el cliente solo miraba el estado.
        */
       spotAsignado?: string | null;
+      /**
+       * La recuperación que se ha gastado en ESTA reserva, si la hubo.
+       *
+       * ⚠️ `reservar_plaza` la consume sola al topar el límite semanal y no lo
+       * dice en su retorno, así que la alumna pasaba de 2 recuperaciones a 1
+       * sin que nada se lo contara. Y es asimétrico: GANAR una sí se le cuenta
+       * («tienes una clase para recuperar hasta el …»), gastarla no.
+       */
+      recuperacionUsada?: { caducaEl: string | null } | null;
     }
   | { error: string; codigo?: CodigoReserva | string };
 
@@ -109,6 +118,8 @@ export interface DesenlaceReserva {
   posicionEspera?: number | null;
   /** Ver `RespuestaReserva.spotAsignado`. */
   spotAsignado?: string | null;
+  /** Ver `RespuestaReserva.recuperacionUsada`. */
+  recuperacionUsada?: { caducaEl: string | null } | null;
   /** El mensaje del servidor, para los estados que no tienen copy propio. */
   mensaje?: string;
 }
@@ -132,7 +143,11 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
   if ('ok' in r && r.ok) {
     switch (r.estado) {
       case 'CONFIRMADA':
-        return { state: 'confirmed', reservaId: r.reservaId, spotAsignado: r.spotAsignado ?? null };
+        return {
+          state: 'confirmed', reservaId: r.reservaId,
+          spotAsignado: r.spotAsignado ?? null,
+          recuperacionUsada: r.recuperacionUsada ?? null,
+        };
       case 'LISTA_ESPERA':
         return { state: 'waitlisted', reservaId: r.reservaId, posicionEspera: r.posicionEspera ?? null };
       // 'PENDIENTE_APROBACION' no tiene estado propio en la máquina del

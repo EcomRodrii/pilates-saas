@@ -2099,8 +2099,24 @@ export async function crearReservaPublica(params: {
   const row = Array.isArray(data) ? data[0] : data;
   const estado: string = row?.estado ?? 'CONFIRMADA';
 
+  // ⚠️ ¿Se ha gastado una recuperación? La RPC la consume EN SILENCIO al topar
+  // el límite semanal y no lo dice en su retorno, así que la alumna pasaba de 2
+  // a 1 sin que nada se lo contara — ni antes ni después de reservar. Y es
+  // asimétrico: GANAR una sí se le cuenta («tienes una clase para recuperar
+  // hasta el …»), gastarla no.
+  //
+  // Se lee del enlace que la propia RPC deja (`usada_en_reserva_id`), en vez de
+  // cambiar su tipo de retorno: `RETURNS TABLE` no se puede modificar con
+  // `create or replace`, haría falta DROP + CREATE y rehacer los grants de una
+  // función que es el corazón de las reservas. No compensa por un booleano.
+  let recuperacionUsada: { caducaEl: string | null } | null = null;
   let spotAsignado: string | null = null;
   if (estado === 'CONFIRMADA') {
+    const { data: recup } = await admin
+      .from('recuperaciones').select('caduca_el')
+      .eq('usada_en_reserva_id', reservaId).eq('studio_id', params.studioId)
+      .maybeSingle();
+    if (recup) recuperacionUsada = { caducaEl: (recup.caduca_el as string | null) ?? null };
     // La clase decide de QUÉ bono se descuenta (0111): con un "Bono Reformer" y
     // un "Bono Mat" a la vez, sin esto se quitaría del equivocado.
     await consumirBonoServidor(admin, params.studioId, params.socioId, params.sesionId);
@@ -2134,7 +2150,7 @@ export async function crearReservaPublica(params: {
     const { emitirReservaPendienteAprobacion } = await import('@/lib/notifications/emit');
     await emitirReservaPendienteAprobacion(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId });
   }
-  return { ok: true as const, estado, reservaId, spotAsignado };
+  return { ok: true as const, estado, reservaId, spotAsignado, recuperacionUsada };
 }
 
 // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.2):

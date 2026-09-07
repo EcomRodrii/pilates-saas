@@ -119,11 +119,20 @@ export default function FichaClasePage() {
     // `spotAsignado` desde siempre; callarlo la dejaría llegando al estudio
     // convencida de que tiene el que eligió. El texto es el canónico
     // (`mensajeConfirmarReserva`), el mismo que ya usan el portal y el widget.
-    setBkMensaje(
-      r.state === 'confirmed' && hueco && !r.spotAsignado
-        ? mensajeConfirmarReserva({ estado: 'CONFIRMADA', spotAsignado: r.spotAsignado ?? null }, hueco)
-        : r.mensaje,
-    );
+    // ⚠️ Y si la reserva ha GASTADO una recuperación, se le dice. La RPC la
+    // consume sola al topar el límite semanal y no avisaba de nada: la alumna
+    // pasaba de 2 a 1 sin enterarse, y solo lo descubría volviendo a Inicio y
+    // comparando el número. Es asimétrico —ganar una sí se le cuenta— y encima
+    // es justo el momento en que le importa.
+    const avisoRecuperacion = r.state === 'confirmed' && r.recuperacionUsada
+      ? 'Has usado una de tus recuperaciones para esta clase.'
+      : null;
+    const avisoSitio = r.state === 'confirmed' && hueco && !r.spotAsignado
+      ? mensajeConfirmarReserva({ estado: 'CONFIRMADA', spotAsignado: r.spotAsignado ?? null }, hueco)
+      : null;
+    // El del sitio va primero: es una expectativa suya que no se ha cumplido, y
+    // pesa más que un dato informativo.
+    setBkMensaje([avisoSitio, avisoRecuperacion].filter(Boolean).join(' ') || r.mensaje);
     // Los datos han cambiado: la clase tiene una plaza menos y ella una reserva
     // más. Sin recargar, volver atrás enseña el aforo de antes.
     if (r.state === 'confirmed' || r.state === 'waitlisted') reintentar();
