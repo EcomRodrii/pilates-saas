@@ -129,6 +129,43 @@ test.describe('Personalizar tu panel', () => {
   });
 });
 
+// ⚠️ Estos dos existen porque «lo de mover los módulos no se cambian» fue la
+// queja EXACTA del fundador sobre la primera entrega. Uno prueba que el editor
+// reordena y lo guarda; el otro, que el menú obedece lo guardado. Con solo el
+// primero, el editor podía verse perfecto y el menú seguir igual — que es justo
+// lo que pasaba.
+test.describe('Reordenar módulos', () => {
+  test('arrastrar un módulo cambia su orden y viaja en el guardado', async ({ page }) => {
+    const { puts } = await montar(page);
+    await page.goto('/configuracion/apariencia/panel');
+    // Por teclado y no por ratón: es el MISMO sensor de dnd-kit (`KeyboardSensor`,
+    // ya montado para quien no puede arrastrar), sin depender de píxeles ni de
+    // cuánto tarda una animación.
+    await page.getByRole('button', { name: 'Reordenar Citas' }).focus({ timeout: 30_000 });
+    await page.keyboard.press('Space');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Space');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await expect.poll(() => puts.length).toBeGreaterThan(0);
+    const orden = puts[0].orden as string[];
+    expect(orden.indexOf('/citas')).toBeGreaterThanOrEqual(0);
+    expect(orden.indexOf('/citas')).toBeLessThan(orden.indexOf('/calendario'));
+  });
+
+  test('el menú pinta los módulos en el orden guardado, no en el de fábrica', async ({ page }) => {
+    // De fábrica Calendario va antes que Citas (lib/nav-config.ts).
+    await montar(page, { orden: ['/citas', '/calendario'] });
+    await page.goto('/dashboard');
+    // «Todo»: en modo esencial no se listan los dos y no habría nada que comparar.
+    await page.getByRole('button', { name: 'Todo' }).click({ timeout: 30_000 });
+    const hrefs = await page.locator('aside').first().locator('a[href]').evaluateAll(
+      as => as.map(a => a.getAttribute('href')),
+    );
+    expect(hrefs).toContain('/citas');
+    expect(hrefs.indexOf('/citas')).toBeLessThan(hrefs.indexOf('/calendario'));
+  });
+});
+
 test.describe('El menú arriba', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -157,6 +194,24 @@ test.describe('El menú arriba', () => {
       expect(p!.y, 'el primer título queda debajo de la barra').toBeGreaterThan(b!.y + b!.height);
     }
     expect(m).toBeTruthy();
+  });
+
+  // ⚠️ El hueco se MIDE contra la barra real, no contra un número escrito a
+  // mano. Con el selector de sede de una cadena, o con el zoom del navegador,
+  // la barra crece y el contenido acababa por debajo de ella.
+  test('el hueco del contenido coincide con el alto REAL de la barra', async ({ page }) => {
+    await montar(page, { menuPosition: 'superior' });
+    await page.goto('/dashboard');
+    const barra = page.locator('aside').first();
+    await expect(barra).toBeVisible({ timeout: 30_000 });
+    await page.waitForTimeout(500);
+
+    const b = (await barra.boundingBox())!;
+    const hueco = await page.evaluate(() =>
+      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--panel-top')));
+    // El hueco tiene que cubrir la barra entera (borde superior incluido), con
+    // un margen de holgura de 2 px por el redondeo.
+    expect(hueco + 2).toBeGreaterThanOrEqual(b.y + b.height);
   });
 
   test('con el menú a la izquierda, la barra sigue siendo una columna', async ({ page }) => {
