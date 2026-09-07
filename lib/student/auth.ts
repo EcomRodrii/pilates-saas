@@ -93,6 +93,37 @@ export function useAuthStudent(slug: string) {
     return error ? { error: traducir(error.message, 'No se ha podido guardar la contraseña. Inténtalo de nuevo.') } : { ok: true };
   }, []);
 
+  /**
+   * Cambiar la contraseña DESDE DENTRO, con la actual por delante.
+   *
+   * ⚠️ Por qué se pide la actual y no basta con `updateUser({ password })`: el
+   * proyecto tiene activado «exigir reautenticación para cambiar la
+   * contraseña», y con eso gotrue solo la deja cambiar sin más si la sesión se
+   * creó en las últimas 24 horas. En esta app las sesiones duran semanas —es
+   * una PWA instalada—, así que el caso NORMAL es el que necesita
+   * reautenticación: sin `current_password`, a casi todo el mundo le fallaría.
+   *
+   * `current_password` es la vía sin correo de por medio. La otra —pedir un
+   * código por email con `reauthenticate()`— añade un viaje al buzón para algo
+   * que la persona ya sabe.
+   *
+   * ⚠️ Esto NO afecta a la recuperación: el enlace del correo crea una sesión
+   * NUEVA, así que entra de lleno en la ventana de 24 horas y `fijarPassword`
+   * sigue funcionando sin pedir nada.
+   */
+  const cambiarPassword = useCallback(async (actual: string, nueva: string): Promise<ResultadoAuth> => {
+    const { error } = await supabasePortal.auth.updateUser({ password: nueva, current_password: actual });
+    if (!error) return { ok: true };
+    // La contraseña actual equivocada es EL caso frecuente, y el texto crudo de
+    // gotrue no lo dice de forma útil. Se distingue para poder señalar el campo
+    // correcto en vez de culpar a la nueva.
+    const crudo = error.message.toLowerCase();
+    if (crudo.includes('current password') || crudo.includes('invalid') || crudo.includes('credentials')) {
+      return { error: 'La contraseña actual no es correcta.' };
+    }
+    return { error: traducir(error.message, 'No se ha podido cambiar la contraseña. Inténtalo de nuevo.') };
+  }, []);
+
   /** Recuperación: manda el enlace que lleva a elegir contraseña nueva. */
   const recuperar = useCallback(async (email: string, captchaToken?: string): Promise<ResultadoAuth> => {
     const { error } = await supabasePortal.auth.resetPasswordForEmail(email.trim(), {
@@ -168,5 +199,5 @@ export function useAuthStudent(slug: string) {
   // quien se va; `catalogo.ts` ya se vacía en SIGNED_OUT, pero aquí no cuesta.
   const logout = useCallback(async () => { invalidarCatalogo(slug); await supabasePortal.auth.signOut(); }, [slug]);
 
-  return { loginConPassword, enviarEnlace, registrarCuenta, fijarPassword, recuperar, entrarConGoogle, logout };
+  return { loginConPassword, enviarEnlace, registrarCuenta, fijarPassword, cambiarPassword, recuperar, entrarConGoogle, logout };
 }

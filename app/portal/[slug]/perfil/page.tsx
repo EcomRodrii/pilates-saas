@@ -67,6 +67,10 @@ export default function PerfilPage() {
           items={[
             { label: 'Datos personales', href: href('/perfil/datos'), valor: socia?.email ?? undefined },
             { label: 'Preferencias', href: href('/perfil/preferencias') },
+            // Antes no había ninguna entrada: la única forma de cambiar la
+            // contraseña era el flujo de recuperación por correo, que es para
+            // cuando NO te acuerdas.
+            { label: 'Contraseña', href: href('/perfil/seguridad') },
             { label: 'Comprar bonos y suscripciones', href: href('/comprar') },
             { label: 'Bonos', href: href('/bonos') },
             { label: 'Pagos y recibos', href: href('/pagos') },
