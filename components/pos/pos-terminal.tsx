@@ -61,6 +61,14 @@ export function PosTerminal() {
   const [mostrarCobro, setMostrarCobro] = useState(false);
   const [mostrarCaja, setMostrarCaja] = useState(false);
   const [mostrarVentas, setMostrarVentas] = useState(false);
+  // Importe libre: un concepto tecleado en el mostrador (un arreglo, una
+  // señal, algo que no está en catálogo). Es el ÚNICO sitio donde el precio lo
+  // pone el cliente, y es correcto que así sea: no hay catálogo que releer, es
+  // una decisión de quien cobra —con `puedeMoverDinero` ya comprobado— y queda
+  // firmada con su nombre en la venta. El servidor lo acota igual (máx 10.000 €).
+  const [libreAbierto, setLibreAbierto] = useState(false);
+  const [libreNombre, setLibreNombre] = useState('');
+  const [libreImporte, setLibreImporte] = useState('');
   const [vistaMovil, setVistaMovil] = useState<'catalogo' | 'ticket'>('catalogo');
   const [aviso, setAviso] = useState<string | null>(null);
 
@@ -181,6 +189,19 @@ export function PosTerminal() {
     });
   }
 
+  function anadirLibre() {
+    const nombre = libreNombre.trim();
+    const precio = parseFloat(libreImporte.replace(',', '.')) || 0;
+    if (!nombre || precio <= 0) return;
+    setCarrito((prev) => [...prev, {
+      clave: `libre:${prev.length}:${Date.now()}`,
+      tipo: 'LIBRE', referenciaId: null, nombre: nombre.slice(0, 120),
+      precio, cantidad: 1, ivaPct: catalogo?.ivaDefecto ?? 21,
+      stock: null, stockMinimo: 0,
+    }]);
+    setLibreNombre(''); setLibreImporte(''); setLibreAbierto(false);
+  }
+
   function cambiarCantidad(clave: string, delta: number) {
     setAviso(null);
     setCarrito((prev) => prev.flatMap((i) => {
@@ -199,6 +220,7 @@ export function PosTerminal() {
     setCarrito([]); setClienteId(null); setDescuentoTexto('');
     setCodigoTexto(''); setCodigoAplicado(null); setCodigoError(null);
     setAviso(null); setVistaMovil('catalogo');
+    setLibreAbierto(false); setLibreNombre(''); setLibreImporte('');
   }
 
   // ── Totales (previsualización; manda el servidor) ─────────────────────────
@@ -410,7 +432,45 @@ export function PosTerminal() {
                   {c.label}
                 </button>
               ))}
+              <button
+                onClick={() => setLibreAbierto((v) => !v)}
+                aria-expanded={libreAbierto}
+                className={cn(
+                  'shrink-0 h-11 px-4 rounded-xl text-[14px] font-semibold border transition-colors flex items-center gap-1.5',
+                  libreAbierto
+                    ? 'bg-foreground text-background border-foreground'
+                    : 'bg-card border-dashed border-border text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Plus size={15} /> Importe libre
+              </button>
             </div>
+
+            {libreAbierto && (
+              <div className="rounded-2xl border border-border bg-card p-3 flex flex-col sm:flex-row gap-2">
+                <input
+                  autoFocus value={libreNombre}
+                  onChange={(e) => setLibreNombre(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && anadirLibre()}
+                  placeholder="¿De qué es?" aria-label="Concepto del importe libre"
+                  className="flex-1 h-12 px-3 rounded-xl border border-border bg-background text-[15px] text-foreground outline-none focus:border-foreground"
+                />
+                <input
+                  inputMode="decimal" value={libreImporte}
+                  onChange={(e) => setLibreImporte(e.target.value.replace(/[^0-9.,]/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && anadirLibre()}
+                  placeholder="0,00" aria-label="Importe libre"
+                  className="w-full sm:w-32 h-12 px-3 rounded-xl border border-border bg-background text-[15px] font-bold text-foreground tabular-nums text-center outline-none focus:border-foreground"
+                />
+                <button
+                  onClick={anadirLibre}
+                  disabled={!libreNombre.trim() || (parseFloat(libreImporte.replace(',', '.')) || 0) <= 0}
+                  className="h-12 px-5 rounded-xl bg-brand text-brand-foreground text-[15px] font-bold disabled:opacity-40"
+                >
+                  Añadir
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 sm:px-4 pb-6">

@@ -342,3 +342,34 @@ test('dos toques seguidos en Cobrar mandan la MISMA clave de idempotencia', asyn
   const b = c.cuerpos[1] as { idempotenciaClave: string };
   expect(a.idempotenciaClave).toBe(b.idempotenciaClave);
 });
+
+test('el importe libre se cobra, y va como línea LIBRE con su concepto', async ({ page }) => {
+  // Es el ÚNICO sitio donde el precio lo pone el cliente. Se comprueba que
+  // viaja etiquetado como LIBRE —el servidor lo acota aparte— y no disfrazado
+  // de artículo de catálogo.
+  const c = await montar(page, (route) =>
+    json(route, {
+      ventaId: 'v1', numero: 1, subtotal: 12, descuento: 0, baseImponible: 9.92,
+      ivaTotal: 2.08, total: 12, cambio: 0, estado: 'PAGADA', pagoEstado: 'PAGADO',
+    }));
+
+  await abrirCaja(page);
+  await page.getByRole('button', { name: /Importe libre/ }).click();
+  await page.getByLabel('Concepto del importe libre').fill('Arreglo de cinta');
+  // Exacto: «Concepto del importe libre» contiene esta misma cadena.
+  await page.getByLabel('Importe libre', { exact: true }).fill('12');
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+
+  await expect(page.getByText('Arreglo de cinta')).toBeVisible();
+  await page.getByRole('button', { name: /Cobrar/ }).click();
+  await page.getByRole('button', { name: /^Efectivo/ }).click();
+  await page.getByLabel('¿Con cuánto paga?').fill('12');
+  await page.getByRole('button', { name: 'Confirmar pago' }).click();
+  await expect(page.getByText('Cobrado', { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  expect(c.ventas).toBe(1);
+  const cuerpo = c.cuerpos[0] as { lineas: { tipo: string; nombre?: string; precio?: number }[] };
+  expect(cuerpo.lineas[0].tipo).toBe('LIBRE');
+  expect(cuerpo.lineas[0].nombre).toBe('Arreglo de cinta');
+  expect(cuerpo.lineas[0].precio).toBe(12);
+});
