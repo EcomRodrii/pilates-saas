@@ -15,6 +15,7 @@ import { telefonoValido } from '@/lib/csv';
 import type { TipoPlan } from '@/lib/types';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
+import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
@@ -249,6 +250,7 @@ export async function POST(req: NextRequest) {
       hoyISO: new Date().toISOString(),
       subtotal: importe,
       esNueva: await esSociaNueva(admin, body.studioId, socioId, body.socioEmail),
+      codigosYaUsados: await codigosYaUsadosPorSocia(admin, socioId),
     });
     if (resultado.ok) {
       descuentoAplicado = resultado.descuento;

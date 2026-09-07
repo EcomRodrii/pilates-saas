@@ -570,7 +570,7 @@ async function entregar(
   // que era este barrido quien entregaba, no el webhook.
   await consumirCodigoDescuentoSiAplica(admin, {
     codigoDescuentoId: sesion?.metadata?.codigoDescuentoId ?? pi?.metadata?.codigoDescuentoId,
-    reciboId: entrega.reciboId, studioId: p.studioId, fuente: 'conciliador',
+    reciboId: entrega.reciboId, studioId: p.studioId, socioId: entrega.socioId, fuente: 'conciliador',
   });
 
   // Auditoría 26ª pasada, P-2: mismo gemelo que faltaba, esta vez del guardado

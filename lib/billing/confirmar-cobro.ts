@@ -225,13 +225,13 @@ export async function reintentarFacturasPendientesDeSellar(
 // sin sumar un uso de más — mismo criterio que `entregarPlanComprado`.
 export async function consumirCodigoDescuentoSiAplica(
   admin: SupabaseClient,
-  params: { codigoDescuentoId: string | null | undefined; reciboId: string; studioId: string; fuente: string },
+  params: { codigoDescuentoId: string | null | undefined; reciboId: string; studioId: string; socioId: string; fuente: string },
 ): Promise<void> {
-  const { codigoDescuentoId, reciboId, studioId, fuente } = params;
+  const { codigoDescuentoId, reciboId, studioId, socioId, fuente } = params;
   if (!codigoDescuentoId) return;
   const { error: errMarcarConsumo } = await admin
     .from('codigos_descuento_consumos')
-    .insert({ recibo_id: reciboId, codigo_id: codigoDescuentoId });
+    .insert({ recibo_id: reciboId, codigo_id: codigoDescuentoId, socio_id: socioId });
   if (!errMarcarConsumo) {
     const { data: usosTras, error: errConsumo } = await admin.rpc('consumir_codigo_descuento', { p_codigo_id: codigoDescuentoId });
     if (errConsumo) {
@@ -256,7 +256,26 @@ export async function consumirCodigoDescuentoSiAplica(
         extra: { codigoDescuentoId, studioId, reciboId },
       });
     }
-  } else if (errMarcarConsumo.code !== '23505') {
+  } else if (errMarcarConsumo.code === '23505') {
+    // P-5 (26ª pasada): el mismo 23505 tiene ahora DOS causas distintas, y no
+    // son lo mismo. La PK (`recibo_id`) es el reintento de siempre —este
+    // mismo evento ya se procesó, no pasa nada—. El UNIQUE nuevo
+    // (`codigo_id, socio_id`) es que esta socia YA había canjeado este
+    // código en OTRO recibo: el descuento se calculó y se cobró igual (se
+    // aplica ANTES del cobro, en resolverDescuentoCheckout), así que el
+    // dinero ya se movió de menos — no se puede deshacer aquí, pero el
+    // estudio tiene que enterarse, mismo criterio que el código agotado de
+    // más abajo. Se distingue por el nombre del índice en el mensaje de
+    // Postgres, igual que ya se hace con roturas conocidas en otros sitios.
+    if (/codigos_descuento_consumos_codigo_socio_unq/i.test(errMarcarConsumo.message ?? '')) {
+      Sentry.captureMessage(`[${fuente}] descuento aplicado dos veces a la misma socia`, {
+        level: 'warning', tags: { area: 'cobros' },
+        extra: { codigoDescuentoId, studioId, reciboId, socioId },
+      });
+    }
+    // Choque por `recibo_id` (reintento del mismo evento): no es un error, no
+    // se reporta nada — mismo criterio de siempre.
+  } else {
     Sentry.captureMessage(`[${fuente}] no se pudo registrar el consumo del código de descuento`, {
       level: 'warning', tags: { area: 'cobros' },
       extra: { codigoDescuentoId, studioId, reciboId, detalle: String(errMarcarConsumo) },
