@@ -34,6 +34,7 @@ import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { fetchAllRows } from '../supabase-data.ts';
 import { entregarPlanComprado, idsDe } from '../billing/entregar-plan-comprado.ts';
 import { confirmarCobroRecibo, reintentarFacturasPendientesDeSellar, consumirCodigoDescuentoSiAplica } from '../billing/confirmar-cobro.ts';
+import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
 import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -427,6 +428,28 @@ async function entregar(
       paymentIntentId: piId, fuente: 'conciliador',
     });
     if (!res.ok) throw new Error(`conciliador/recibo ${p.reciboId}: ${res.error}`);
+
+    // Auditoría 26ª pasada, P-2: mismo guardado de método que las dos ramas del
+    // webhook (guardar-metodo-de-compra.ts) — el conciliador es el camino REAL
+    // en 4 de cada 6 cobros (cabecera del fichero), y no guardarlo aquí deja a
+    // la socia sin tarjeta guardada: la siguiente renovación automática nunca
+    // vuelve a cobrar sola (lib/inngest/renovaciones.ts exige un método no
+    // nulo para entrar al dunning). `sesion.metadata.socioId` viene siempre
+    // poblado para una sesión de recibo (app/api/stripe/checkout/route.ts lo
+    // pone desde `recibo.socio_id`, ya de confianza) — sin guard de identidad,
+    // mismo criterio que Modo A en el webhook.
+    if (sesion?.metadata?.socioId && typeof sesion.customer === 'string') {
+      const resMetodo = await guardarMetodoDeCompra(admin, stripe, {
+        studioId: p.studioId, socioId: sesion.metadata.socioId, customerId: sesion.customer,
+        stripeAccount: cuenta, paymentIntentId: piId, exigirIdentidadDemostrada: false,
+      });
+      if (!resMetodo.ok) {
+        Sentry.captureMessage('[conciliador] cobrado pero no se pudo guardar el método de pago', {
+          level: 'error', tags: { area: 'cobros', tipo: 'conciliado-sin-metodo' },
+          extra: { sesionId: p.sesionId, studioId: p.studioId, reciboId: p.reciboId, detalle: resMetodo.motivo },
+        });
+      }
+    }
     return;
   }
 
@@ -492,6 +515,30 @@ async function entregar(
     codigoDescuentoId: sesion?.metadata?.codigoDescuentoId ?? pi?.metadata?.codigoDescuentoId,
     reciboId: entrega.reciboId, studioId: p.studioId, fuente: 'conciliador',
   });
+
+  // Auditoría 26ª pasada, P-2: mismo gemelo que faltaba, esta vez del guardado
+  // de tarjeta. Modo B (`pi`) exige el guard de identidad — la misma invitada
+  // por email que ya protege el webhook del checkout embebido; Modo A
+  // (`sesion`) no, porque su socioId ya viene verificado desde la creación.
+  const customerId = pi ? pi.customer : sesion?.customer;
+  if (typeof customerId === 'string') {
+    const resMetodo = pi
+      ? await guardarMetodoDeCompra(admin, stripe, {
+          studioId: p.studioId, socioId: entrega.socioId, customerId, stripeAccount: cuenta,
+          paymentIntent: pi, exigirIdentidadDemostrada: true,
+          socioIdVerificado: pi.metadata?.socioId, fichaCreada: entrega.fichaCreada,
+        })
+      : await guardarMetodoDeCompra(admin, stripe, {
+          studioId: p.studioId, socioId: entrega.socioId, customerId, stripeAccount: cuenta,
+          paymentIntentId: datos.paymentIntentId, exigirIdentidadDemostrada: false,
+        });
+    if (!resMetodo.ok) {
+      Sentry.captureMessage('[conciliador] entregado pero no se pudo guardar el método de pago', {
+        level: 'error', tags: { area: 'cobros', tipo: 'conciliado-sin-metodo' },
+        extra: { sesionId: p.sesionId, studioId: p.studioId, socioId: entrega.socioId, detalle: resMetodo.motivo },
+      });
+    }
+  }
 
   if (pi) {
     // Mismo remate que el webhook del checkout embebido: sin `reciboId` en la
