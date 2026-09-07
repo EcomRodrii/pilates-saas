@@ -1,0 +1,128 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Guardias del aforo en vivo.
+//
+// El fallo original: la propietaria quitaba a una alumna de una clase llena y
+// su propio calendario seguía diciendo 8/8, y la app de la alumna seguía
+// diciendo «en lista de espera». Con F5 salía bien — la BD estuvo correcta todo
+// el tiempo, lo que no existía era una vía para que las pantallas ABIERTAS se
+// enteraran.
+//
+// Estos tests son estructurales a propósito. Lo que hay que impedir no es que
+// una función devuelva mal un número: es que alguien añada una pantalla nueva,
+// o una acción nueva, y se olvide de engancharla — que es exactamente cómo
+// nació el fallo (24 manejadores llamaban a `refrescarVista()` y uno no).
+// ─────────────────────────────────────────────────────────────────────────────
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+const raiz = join(import.meta.dirname, '..', '..');
+const leer = (p: string) => readFileSync(join(raiz, p), 'utf8');
+
+// La definición viva del trigger es la de la migración MÁS RECIENTE que lo
+// reescribe — mismo criterio que los guardias de `reservar_plaza`.
+function migracionViva(marca: string): string {
+  const dir = join(raiz, 'supabase', 'migrations');
+  const f = readdirSync(dir).filter(x => x.endsWith('.sql'))
+    .filter(x => readFileSync(join(dir, x), 'utf8').includes(marca))
+    .sort().pop();
+  assert.ok(f, `ninguna migración contiene ${marca}`);
+  return readFileSync(join(dir, f!), 'utf8');
+}
+
+// ── Lo que viaja por el canal ────────────────────────────────────────────────
+test('el aviso NO lleva datos personales, solo el id de la clase', () => {
+  const sql = migracionViva('function public.difundir_cambio_aforo');
+  const envio = sql.slice(sql.indexOf('realtime.send'));
+  assert.match(envio, /jsonb_build_object\('sesionId'/,
+    'El aviso tiene que ser «la clase X ha cambiado», nada más.');
+  // El canal es del ESTUDIO entero y lo escuchan otras socias: difundir la fila
+  // de `reservas` metería `socio_id` de unas en la pantalla de otras.
+  for (const prohibido of ['socio_id', 'record', 'to_jsonb(new)', 'old_record']) {
+    assert.ok(!envio.includes(prohibido),
+      `'${prohibido}' no puede viajar en un canal que escucha todo el estudio.`);
+  }
+});
+
+test('el trigger no puede tumbar la reserva que lo dispara', () => {
+  const sql = migracionViva('function public.difundir_cambio_aforo');
+  const cuerpo = sql.slice(sql.indexOf('function public.difundir_cambio_aforo'));
+  assert.match(cuerpo, /exception when others then/,
+    'Cuelga de la transacción de reservar y cancelar, que mueve bonos y dinero: '
+    + 'un fallo al avisar no puede dejar a una socia sin reservar.');
+});
+
+// ── Qué cambios despiertan a las pantallas ───────────────────────────────────
+// Si una columna que SE VE queda fuera del WHEN, el fallo es silencioso: no
+// falla nada, simplemente la pantalla no se entera. Igual que el bug original.
+test('el WHEN de reservas cubre todo lo que la rejilla pinta', () => {
+  const sql = migracionViva('trg_difundir_cambio_aforo_reservas_upd');
+  const when = sql.slice(sql.indexOf('trg_difundir_cambio_aforo_reservas_upd'));
+  for (const col of ['estado', 'spot_id', 'check_in_en', 'posicion_espera', 'oferta_expira_en']) {
+    assert.match(when, new RegExp(`old\\.${col} is distinct from new\\.${col}`), col);
+  }
+});
+
+test('el WHEN de sesiones cubre capacidad, cancelación y encuadre', () => {
+  const sql = migracionViva('trg_difundir_cambio_aforo_sesiones_upd');
+  const when = sql.slice(sql.indexOf('trg_difundir_cambio_aforo_sesiones_upd'));
+  // `aforo_maximo` es el «/8» del «8/8»: cambiarlo mueve el contador igual que
+  // quitar a una alumna.
+  for (const col of ['aforo_maximo', 'cancelada', 'inicio', 'fin', 'sala_id', 'instructor_id']) {
+    assert.match(when, new RegExp(`old\\.${col} is distinct from new\\.${col}`), col);
+  }
+});
+
+// ── La cerradura de tenant ───────────────────────────────────────────────────
+test('solo escucha el staff del estudio o una socia activa suya', () => {
+  const sql = migracionViva('aforo_broadcast_lectura');
+  const pol = sql.slice(sql.indexOf('create policy aforo_broadcast_lectura'));
+  assert.match(pol, /split_part\(realtime\.topic\(\), ':', 2\)/,
+    'El estudio va en el 2º segmento del topic, como en el feed.');
+  assert.match(pol, /s\.auth_user_id = \(select auth\.uid\(\)\)/, 'vía socia');
+  assert.match(pol, /public\.current_studio_id\(\)/, 'vía staff');
+  assert.match(pol, /s\.activo = true/,
+    'Una socia dada de baja no sigue escuchando el estudio.');
+});
+
+// ── Que nadie se olvide de engancharlo ───────────────────────────────────────
+test('las pantallas de la alumna que enseñan plazas o su reserva están enganchadas', () => {
+  const pantallas = [
+    'app/portal/[slug]/page.tsx',
+    'app/portal/[slug]/mis-reservas/page.tsx',
+    'app/portal/[slug]/mis-reservas/[reservaId]/page.tsx',
+    'app/portal/[slug]/reservar/page.tsx',
+    'app/portal/[slug]/reservar/[claseId]/page.tsx',
+    'app/portal/[slug]/calendario/page.tsx',
+  ];
+  for (const p of pantallas) {
+    assert.match(leer(p), /useAforoEnVivoPortal\(/,
+      `${p} enseña plazas o el estado de su reserva y no se entera de los cambios.`);
+  }
+});
+
+test('el calendario del panel escucha, y quitar a una alumna refresca su vista', () => {
+  const cal = leer('app/(dashboard)/calendario/page.tsx');
+  assert.match(cal, /useAforoEnVivo\(supabase, \{/, 'el calendario no escucha el canal');
+
+  // ⚠️ ESTE es el bug exacto que se reportó. La pantalla tiene DOS fuentes para
+  // el mismo número: `datosVista` (que pinta «8/8») y `reservas` del contexto
+  // (que pinta la lista de asistentes). `cancelarReserva` solo toca la segunda,
+  // así que sin `refrescarVista()` la alumna desaparecía de la lista y el
+  // contador se quedaba en 8/8.
+  const i = cal.indexOf('onQuitar:');
+  assert.ok(i > 0, 'no encuentro el manejador de quitar');
+  const bloque = cal.slice(i, i + 1200);
+  assert.match(bloque, /refrescarVista\(\)/,
+    'Quitar a una alumna tiene que refrescar `datosVista`: es de donde sale el contador.');
+});
+
+// El aviso llega por la red y agrupado; la acción de uno mismo no debe esperarlo.
+test('el hook agrupa los avisos en ráfaga', () => {
+  const src = leer('lib/realtime/aforo-en-vivo.ts');
+  assert.match(src, /AGRUPAR_MS/,
+    'Cancelar una clase entera cambia N reservas a la vez: sin agrupar son N recargas.');
+  assert.match(src, /TOKEN_REFRESHED/,
+    'Sin renovar el token el canal enmudece a la hora, con el mismo síntoma que el bug.');
+});

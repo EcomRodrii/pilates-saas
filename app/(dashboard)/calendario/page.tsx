@@ -5,6 +5,8 @@ import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElemen
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
+import { supabase } from '@/lib/db/supabase';
+import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { queImparten } from '@/lib/equipo';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias } from '@/lib/permisos';
@@ -1667,6 +1669,28 @@ export default function Calendario() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rango.desde, rango.hasta, cargarDatosVista]);
 
+  // Aforo en vivo. Cierra dos agujeros a la vez:
+  //
+  //  · Lo que ve OTRA gente. Una socia reserva o cancela desde su móvil y esta
+  //    rejilla no se enteraba hasta recargar. Igual entre dos ventanas del
+  //    propio mostrador.
+  //  · Lo que hace UNO MISMO por un camino que se olvidó de refrescar. Esta
+  //    pantalla tiene DOS fuentes para el mismo número —`datosVista` (que es lo
+  //    que pinta «8/8») y `reservas` del contexto (que es lo que pinta la lista
+  //    de asistentes del panel)—, y cada mutación tiene que acordarse de llamar
+  //    a `refrescarVista()`. Veinticuatro se acuerdan; `onQuitar` no se acordaba,
+  //    y por eso quitar a una alumna la sacaba de la lista y dejaba el contador
+  //    en 8/8. Eso se arregla abajo, pero el aviso del servidor lo cubre pase lo
+  //    que pase: llega igual aunque el siguiente manejador nuevo vuelva a
+  //    olvidarse.
+  //
+  // No es un sondeo: si nadie toca nada, no se pide nada. Ver
+  // `lib/realtime/aforo-en-vivo.ts` para por qué Broadcast y no `postgres_changes`.
+  useAforoEnVivo(supabase, {
+    studioId: studio?.id,
+    alCambiar: () => { void refrescarVista(); },
+  });
+
   // ── Estado derivado por sesión (punto 1) ────────────────────────────────────
   const estadoPorSesion = useMemo(() => {
     const m = new Map<string, EstadoSesion>();
@@ -2692,9 +2716,15 @@ export default function Calendario() {
               // P2 (auditoría de producto): mostrar el aviso si la reserva se
               // canceló pero no se pudo devolver el bono — antes se perdía en
               // silencio (fire-and-forget, solo Sentry se enteraba).
-              void cancelarReserva(id).then(res => {
+              void cancelarReserva(id).then(async res => {
                 if (!res.ok) showToast(res.error);
                 else if (res.avisoBono) showToast(res.avisoBono);
+                // ⚠️ Sin esto el contador se quedaba en «8/8» con la alumna ya
+                // fuera de la lista: `cancelarReserva` actualiza `reservas` del
+                // contexto (de donde sale la lista) y NO `datosVista` (de donde
+                // sale el número). El aviso en vivo también lo arreglaría, pero
+                // llega por la red: para la acción de uno mismo se refresca ya.
+                await refrescarVista();
               });
             } : undefined,
             onRepetirSemanaSiguiente: gestionaClientas ? repetirSemanaSiguiente : undefined,

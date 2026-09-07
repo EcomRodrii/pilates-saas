@@ -5,6 +5,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
+import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { getBonos, getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
@@ -28,7 +29,11 @@ export default function CalendarioPage() {
     return { clases, reservas, bonos, instructoras };
   }, [estudio.slug]);
 
-  const { data, estado, reintentar } = useAsync(cargar, () => false);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
+  // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
+  // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
+  // no se pide nada.
+  useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
 
   const reservadas = (data?.reservas ?? [])
     .filter((r) => r.estado === 'confirmada')

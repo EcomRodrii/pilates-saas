@@ -7,6 +7,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
+import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { getBonos, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
 import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { getFavoritos } from '@/lib/student/favoritos';
@@ -47,6 +48,10 @@ export default function HorarioPage() {
   }, [estudio.slug]);
 
   const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
+  // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
+  // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
+  // no se pide nada.
+  useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
 
   // Al volver a la app (otra pestaña, el móvil bloqueado) las plazas pueden
   // haber cambiado: se relee el aforo ligero, no el payload entero, y en

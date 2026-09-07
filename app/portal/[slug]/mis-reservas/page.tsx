@@ -7,6 +7,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
+import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
@@ -51,7 +52,11 @@ export default function MisReservasPage() {
     return { reservas, clases, instructoras };
   }, [estudio.slug]);
 
-  const { data, estado, reintentar } = useAsync(cargar, () => false);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
+  // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
+  // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
+  // no se pide nada.
+  useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
 
   const items = (data?.reservas ?? [])
     .map((r) => ({ r, c: data?.clases.find((c) => c.id === r.claseId) }))

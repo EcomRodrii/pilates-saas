@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
+import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { useOnline } from '@/lib/student/useOnline';
 import { getBonos, getClases, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
 import { getFavoritos } from '@/lib/student/favoritos';
@@ -78,7 +79,11 @@ export default function FichaClasePage() {
     };
   }, [estudio.slug, claseId]);
 
-  const { data, estado, reintentar } = useAsync(cargar, (d) => !d.clase);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d.clase);
+  // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
+  // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
+  // no se pide nada.
+  useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
 
   const clase = data?.clase ?? null;
   const inst = data?.instructoras.find((i) => i.id === clase?.instructoraId);
