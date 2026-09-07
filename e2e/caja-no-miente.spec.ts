@@ -38,6 +38,14 @@ const SOCIOS = [
     email: 'maria@example.com', activo: true, fecha_alta: '2026-01-10T09:00:00+00:00', campos_extra: {} },
 ];
 
+// Lo que María debe. El contexto los carga por PostgREST, no por /api.
+const RECIBOS = [
+  { id: 'rec-cuota', studio_id: STUDIO_ID, socio_id: 'soc-1', suscripcion_id: null,
+    concepto: 'Cuota de septiembre', importe: 60, estado: 'PENDIENTE',
+    fecha_vencimiento: '2026-09-01', fecha_cobro: null, fecha_devolucion: null,
+    intentos_reintento: 0, metodo_cobro: null },
+];
+
 const CATALOGO = {
   ivaDefecto: 21,
   cobro: { stripeConectado: true, datafonoEmparejado: true },
@@ -100,6 +108,7 @@ async function montar(
   await page.route('**/rest/v1/studios**', (route) => json(route, STUDIO_ROW));
   await page.route('**/rest/v1/instructores**', (route) => json(route, EQUIPO));
   await page.route('**/rest/v1/socios**', (route) => json(route, SOCIOS));
+  await page.route('**/rest/v1/recibos**', (route) => json(route, RECIBOS));
 
   await page.route('**/api/pos/catalogo**', (route) => json(route, CATALOGO));
   await page.route('**/api/pos/caja**', (route) => json(route, { caja: CATALOGO.caja, esperado: 100, movimientos: [] }));
@@ -480,4 +489,31 @@ test('dentro del MISMO intento la clave no cambia (doble toque, reintento de red
     a.idempotenciaClave,
     'reintentar el mismo cobro tiene que llevar la misma clave, o se cobraría dos veces',
   ).toBe(b.idempotenciaClave);
+});
+
+
+test('lo que la socia debe se ve y se cobra desde el TPV, con el ticket VACÍO', async ({ page }) => {
+  // «Vengo a pagar la cuota» es de lo más normal del mostrador, y obligaba a
+  // salir a /cobros — donde además ese efectivo no se apuntaba en la caja, así
+  // que el arqueo del día salía sobrado sin explicación.
+  //
+  // ⚠️ El ticket VACÍO es la parte que importa del test. La primera versión
+  // metió este panel dentro del pie del ticket, que entero está detrás de
+  // `carrito.length > 0`: quien viene solo a pagar la cuota no lleva nada en
+  // el ticket, así que no se habría visto NUNCA cuando más falta hace.
+  await montar(page, (route) => json(route, {}));
+  await abrirCaja(page);
+
+  // Se elige a la socia desde el mismo buscador, sin añadir nada al ticket.
+  await page.getByPlaceholder(/Buscar artículo/i).fill('María');
+  await page.getByRole('button', { name: /María García/ }).click();
+
+  await expect(page.getByText('Ticket vacío')).toBeVisible();
+  await expect(page.getByText(/Debe 60/)).toBeVisible();
+  await expect(page.getByText('Cuota de septiembre')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Efectivo/ })).toBeEnabled();
+
+  // Y solo efectivo: marcar una tarjeta como pagada sin que ningún proveedor
+  // lo confirme es justo lo que este rediseño existe para impedir.
+  await expect(page.getByText(/Solo efectivo desde aquí/)).toBeVisible();
 });
