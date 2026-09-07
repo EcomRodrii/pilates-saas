@@ -47,7 +47,7 @@ export const EXPLICACION_TIPO_PLAN: Record<TipoPlan, string> = {
  * Cada cuánto se puede cobrar una cuota, para el desplegable.
  *
  * Los mismos cuatro valores que acota el CHECK de `planes_tarifa`
- * (migr 20260907120000). Si algún día se añade uno, se añade aquí y en el
+ * (migr 20260907031555). Si algún día se añade uno, se añade aquí y en el
  * CHECK — el `nombre` sale de `nombrePeriodo`, así que no hay una tercera
  * lista que mantener.
  */
