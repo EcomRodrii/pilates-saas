@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { codigoDeError, traducirAuth, type CodigoAuth } from './auth-errores.ts';
+import { codigoDeError, emailYaEnUso, traducirAuth, type CodigoAuth } from './auth-errores.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
@@ -122,6 +122,39 @@ export function useAuthStudent(slug: string) {
     return { error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No se ha podido cambiar la contraseña. Inténtalo de nuevo.')) };
   }, []);
 
+  /**
+   * Cambiar el email con el que entra.
+   *
+   * ⚠️ NO cambia al instante, y la pantalla no puede fingir que sí. El proyecto
+   * tiene activada la confirmación segura de cambio de email, así que Supabase
+   * manda un enlace a la dirección NUEVA (y otro a la vieja) y el cambio no
+   * ocurre hasta que se abre. `pendiente` dice exactamente eso: se sabe porque
+   * el usuario que devuelve gotrue sigue trayendo el email antiguo.
+   *
+   * ⚠️ Y NO toca `socios.email`. Escribirlo antes de que el cambio se confirme
+   * dejaría la ficha con un email que no corresponde a ninguna sesión real. La
+   * realineación la hace el servidor al resolver la sesión, comparando contra
+   * el email del JWT — que es el único que está verificado.
+   *
+   * El id de usuario NO cambia: cambia el email de la identidad, no la
+   * identidad. Reservas, bonos, pagos e historial cuelgan de `socios.id`, que
+   * a su vez cuelga de `auth_user_id`. Nada de eso se toca.
+   */
+  const cambiarEmail = useCallback(async (nuevo: string): Promise<ResultadoAuth & { pendiente?: boolean }> => {
+    const limpio = nuevo.trim();
+    const { data, error } = await supabasePortal.auth.updateUser({ email: limpio });
+    if (error) {
+      // El caso que el encargo pide cubrir: el email ya es de otra cuenta. El
+      // texto lo pone aquí y no `traducirAuth` porque al registrarse el mismo
+      // fallo pide otra salida distinta.
+      if (emailYaEnUso(error.message)) return { error: 'Ese email ya está en uso en otra cuenta.' };
+      return { error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No se ha podido cambiar el email. Inténtalo de nuevo.')) };
+    }
+    // Si el usuario devuelto sigue con el email viejo, quedó pendiente de que
+    // abra el enlace. Es el caso NORMAL con la confirmación segura activada.
+    return { ok: true, pendiente: data.user?.email?.toLowerCase() !== limpio.toLowerCase() };
+  }, []);
+
   /** Recuperación: manda el enlace que lleva a elegir contraseña nueva. */
   const recuperar = useCallback(async (email: string, captchaToken?: string): Promise<ResultadoAuth> => {
     const { error } = await supabasePortal.auth.resetPasswordForEmail(email.trim(), {
@@ -197,5 +230,5 @@ export function useAuthStudent(slug: string) {
   // quien se va; `catalogo.ts` ya se vacía en SIGNED_OUT, pero aquí no cuesta.
   const logout = useCallback(async () => { invalidarCatalogo(slug); await supabasePortal.auth.signOut(); }, [slug]);
 
-  return { loginConPassword, enviarEnlace, registrarCuenta, fijarPassword, cambiarPassword, recuperar, entrarConGoogle, logout };
+  return { loginConPassword, enviarEnlace, registrarCuenta, fijarPassword, cambiarPassword, cambiarEmail, recuperar, entrarConGoogle, logout };
 }

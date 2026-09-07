@@ -3406,6 +3406,24 @@ export async function resolverSociaAutenticada(slug: string, authUserId: string,
     .from('socios').select('id, nombre, apellidos, email')
     .eq('auth_user_id', authUserId).eq('studio_id', studio.id).maybeSingle();
   if (linked) {
+    // ⚠️ El email de la ficha se REALINEA con el del JWT cuando difieren.
+    //
+    // `socios.email` es una COPIA: la identidad es `auth_user_id` (I-15), y por
+    // eso una copia vieja no bloquea el acceso. Pero sí rompe cosas reales: los
+    // correos que el estudio le manda salen de ahí, y una compra de invitada
+    // resuelve la ficha con `.ilike('email', …)` — con el email viejo, una
+    // compra hecha con el nuevo NO encontraría su ficha y le entregaría el plan
+    // a una ficha nueva.
+    //
+    // La fuente de verdad es el JWT, que Supabase ya verificó. Y se realinea
+    // aquí, en la resolución de sesión, en vez de perseguir el evento de
+    // confirmación: así se cura sola cualquier deriva —un cambio de email
+    // confirmado, un typo corregido en el panel— sin depender de que llegara
+    // ningún webhook. Solo escribe cuando de verdad difieren.
+    if (email && linked.email && linked.email.trim().toLowerCase() !== email.trim().toLowerCase()) {
+      await admin.from('socios').update({ email: email.trim() }).eq('id', linked.id);
+      return { socioId: linked.id, nombre: `${linked.nombre} ${linked.apellidos}`.trim(), email: email.trim() };
+    }
     return { socioId: linked.id, nombre: `${linked.nombre} ${linked.apellidos}`.trim(), email: linked.email };
   }
 

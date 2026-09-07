@@ -51,3 +51,21 @@ export function traducirAuth(mensaje: string): string | null {
   if (m.includes('should be at least') || m.includes('password')) return 'La contraseña es demasiado corta. Usa al menos 8 caracteres.';
   return null;
 }
+
+/**
+ * ¿El fallo es «ese email ya es de otra cuenta»?
+ *
+ * Vive aparte de `traducirAuth` porque el MISMO fallo pide dos textos según
+ * quién pregunte: al registrarse la salida es «entra con tu contraseña», y al
+ * cambiar de email es «ese email ya está en uso». Una sola traducción tendría
+ * que elegir una y equivocarse en la otra, así que aquí solo se clasifica y el
+ * texto lo pone quien llama.
+ *
+ * Se aceptan las tres formas de gotrue —`email_exists`, «already been
+ * registered» y «already registered»— por la misma razón que en
+ * `codigoDeError`: atarse a una la deja sin detectar al subir de versión.
+ */
+export function emailYaEnUso(mensaje: string): boolean {
+  const m = (mensaje ?? '').toLowerCase();
+  return m.includes('email_exists') || m.includes('already registered') || m.includes('already been registered');
+}

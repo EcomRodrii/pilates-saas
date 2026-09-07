@@ -11,6 +11,7 @@ import { useToast } from '@/components/student/ui/Toast';
 import { guardarDatos } from '@/lib/student/perfil-y-avisos';
 import { Input } from '@/components/student/ui/Input';
 import { Button } from '@/components/student/ui/Button';
+import { useAuthStudent } from '@/lib/student/auth';
 import { FotoPerfil } from '@/components/student/domain/FotoPerfil';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 
@@ -33,6 +34,7 @@ export default function DatosPage() {
   const cargarAlumna = useCallback(() => getAlumna(estudio.slug), [estudio.slug]);
   const { data: socia } = useAsync(cargarAlumna, (d) => !d);
   const { toast } = useToast();
+  const { cambiarEmail } = useAuthStudent(estudio.slug);
 
   const [f, setF] = useState({ nombre: '', apellidos: '', telefono: '' });
   const [err, setErr] = useState<Record<string, string>>({});
@@ -42,6 +44,30 @@ export default function DatosPage() {
   // (o `null`) = lo que la alumna acaba de hacer, para que el cambio se vea al
   // instante sin esperar a que el payload se recargue.
   const [fotoLocal, setFotoLocal] = useState<string | null | undefined>(undefined);
+  const [emailNuevo, setEmailNuevo] = useState('');
+  const [emailAviso, setEmailAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [cambiandoEmail, setCambiandoEmail] = useState(false);
+  const emailCambiado = emailNuevo.trim().length > 0
+    && emailNuevo.trim().toLowerCase() !== (socia?.email ?? '').toLowerCase();
+
+  const cambiarMiEmail = async () => {
+    const destino = emailNuevo.trim();
+    if (!destino || cambiandoEmail) return;
+    setEmailAviso(null);
+    setCambiandoEmail(true);
+    const r = await cambiarEmail(destino);
+    setCambiandoEmail(false);
+    if ('error' in r) { setEmailAviso({ ok: false, texto: r.error }); return; }
+    // ⚠️ El texto depende de si quedó PENDIENTE. Con la confirmación doble
+    // activada lo normal es que sí, y decir «cambiado» sin más la dejaría
+    // creyendo que ya entra con el nuevo.
+    setEmailAviso({
+      ok: true,
+      texto: r.pendiente
+        ? `Te hemos mandado un enlace a ${destino}. Ábrelo para confirmar el cambio; hasta entonces entras con el de ahora.`
+        : 'Email actualizado ✓',
+    });
+  };
 
   // La sesión llega asíncrona, así que el formulario se rellena cuando aparece.
   // Se ajusta DURANTE EL RENDER y no en un efecto: es el patrón que React
@@ -50,6 +76,7 @@ export default function DatosPage() {
   // rellenó para no pisar lo que ella esté escribiendo en cada re-render.
   if (socia && socia.id !== rellenadoDe) {
     setRellenadoDe(socia.id);
+    setEmailNuevo(socia.email ?? '');
     setF({
       nombre: socia.nombre ?? '',
       apellidos: socia.apellidos ?? '',
@@ -100,15 +127,43 @@ export default function DatosPage() {
 
         <Input label="Nombre" value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} error={err.nombre} autoComplete="given-name" />
         <Input label="Apellidos" value={f.apellidos} onChange={(e) => setF({ ...f, apellidos: e.target.value })} autoComplete="family-name" />
+        {/* ⚠️ El email ya se puede cambiar. Estaba deshabilitado con un «pídeselo
+            al estudio» porque el flujo no existía; ahora sí, con la
+            confirmación doble que el proyecto tiene activada.
+
+            NO cambia al instante y la pantalla no lo finge: hasta que abra el
+            enlace, sigue entrando con el de siempre. Decir «cambiado» aquí
+            sería la mentira más cara de esta pantalla — se quedaría fuera
+            creyendo que su email es otro. */}
         <Input
           label="Email"
           type="email"
-          value={socia?.email ?? ''}
-          onChange={() => {}}
-          disabled
-          hint="Para cambiarlo, escríbele al estudio: es el mismo con el que entras."
+          value={emailNuevo}
+          onChange={(e) => { setEmailNuevo(e.target.value); setEmailAviso(null); }}
+          hint={emailCambiado
+            ? 'Te mandaremos un enlace para confirmarlo. Hasta entonces entras con el de ahora.'
+            : 'Es el mismo con el que entras.'}
           autoComplete="email"
         />
+        {emailCambiado && (
+          <Button
+            variant="secondary"
+            loading={cambiandoEmail}
+            disabled={!online}
+            onClick={() => void cambiarMiEmail()}
+          >
+            Cambiar el email
+          </Button>
+        )}
+        {emailAviso && (
+          <p
+            role="status"
+            data-testid="email-aviso"
+            className={'note ' + (emailAviso.ok ? 'note--ok' : 'note--warn')}
+          >
+            {emailAviso.texto}
+          </p>
+        )}
         <Input label="Teléfono" type="tel" value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} autoComplete="tel" />
         {/* Sin campo de dirección: el formulario del paquete pide nombre,
             apellidos, email y teléfono, y añadir campos es rediseñar. El
