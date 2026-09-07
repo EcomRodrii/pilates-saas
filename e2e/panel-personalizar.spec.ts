@@ -230,3 +230,41 @@ test.describe('Modo oscuro', () => {
     expect(problemas, 'texto claro sobre fondo claro en modo oscuro').toEqual([]);
   });
 });
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La prueba de fuego del modo oscuro: una HOJA abierta.
+//
+// Las hojas y modales del panel se renderizan en un portal. Iban a
+// `document.body`, o sea FUERA del <div> que lleva `.dark`, así que sus tokens
+// volvían a los CLAROS: tarjeta blanca sobre panel oscuro y texto pensado para
+// fondo oscuro, blanco sobre blanco. Ninguna captura de una pantalla de fondo
+// lo enseña — hay que ABRIR la hoja.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Modo oscuro — las hojas', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('una hoja abierta en oscuro es oscura, no una isla blanca', async ({ page }) => {
+    test.setTimeout(180_000);
+    await montar(page, {}, true);
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 120_000 });
+
+    await page.getByRole('button', { name: 'Abrir menú de perfil' }).click({ timeout: 60_000 });
+    // Sin `exact`: el ítem lleva una etiqueta «BETA» al lado, así que su
+    // nombre accesible es «Apariencia BETA» y un texto exacto no lo encuentra.
+    await page.getByRole('button', { name: /Apariencia/ }).first().click({ timeout: 30_000 });
+
+    const hoja = page.getByRole('dialog');
+    await expect(hoja).toBeVisible({ timeout: 30_000 });
+    await page.screenshot({ path: 'test-results/oscuro_hoja.png' });
+
+    const fondo = await hoja.evaluate(el => getComputedStyle(el).backgroundColor);
+    const m = fondo.match(/[\d.]+/g)!;
+    const lum = (0.2126 * Number(m[0]) + 0.7152 * Number(m[1]) + 0.0722 * Number(m[2])) / 255;
+    expect(lum, `la hoja salió con fondo ${fondo}: sigue portaleada fuera de .dark`).toBeLessThan(0.5);
+
+    // Y que herede la clase de verdad, no que acierte por casualidad.
+    const dentroDeDark = await hoja.evaluate(el => Boolean(el.closest('.dark')));
+    expect(dentroDeDark, 'la hoja no cuelga del contenedor con .dark').toBe(true);
+  });
+});

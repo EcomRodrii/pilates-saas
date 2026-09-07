@@ -1,0 +1,590 @@
+From 3ca0c7544853fb1d5efedc4bea0d0ca6927df623 Mon Sep 17 00:00:00 2001
+From: Auditoria Tentare <audit@tentare.app>
+Date: Sun, 6 Sep 2026 09:52:36 +0200
+Subject: [PATCH] =?UTF-8?q?fix(auditoria):=2025=C2=AA=20pasada=20=E2=80=94?=
+ =?UTF-8?q?=20la=20familia=20del=20`codigo`=20de=20rechazo,=20cerrada=20co?=
+ =?UTF-8?q?n=20contrato=20derivado=20del=20SQL?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+C-1  El rechazo por impago llegaba a la alumna como avería genérica.
+     `crearReservaPublica` emite `codigo:'impago'` con un mensaje escrito a
+     mano, pero el código no estaba en `CODIGOS_DE_NEGOCIO`: `reservar.ts` lo
+     daba por avería, RECORTABA el mensaje y pintaba «algo no ha salido como
+     esperábamos» con un botón de reintentar que falla siempre. Confirmado en
+     producción con una socia real (Sentry JAVASCRIPT-NEXTJS-26, 6-sep 03:25,
+     Zaragoza, iPhone) y 2 filas en `intentos_reserva_fallidos`.
+
+C-2  `ESTUDIO_CERRADO` (#1665) y `NO_AUTORIZADO` no tenían brazo en la
+     escalera: caían en el comodín `codigo:'error'`. Mismo síntoma. Además
+     `no-autorizado` ya existía en la union del cliente sin que nadie lo
+     emitiera: el mapeo estaba muerto.
+
+C-3  El cron de renovaciones decidía A QUIÉN SE LE COBRA SOLO por el TEXTO del
+     concepto (`like 'Renovación%'`), mientras su gemelo —quien decide QUÉ SE
+     ENTREGA— ya usaba `es_renovacion`. La migración 20260906003934 dice
+     literalmente que una decisión de dinero no puede depender del copy, y
+     dejó este sitio sin migrar. Un recibo creado desde /cobros nace con
+     `suscripcion_id` y `es_renovacion:false`; con el concepto «Renovación …»
+     el cron lo adoptaba, el dunning pasaba la tarjeta off-session y la
+     entrega devolvía SIN_ENTREGA: cobro real sin entregar nada.
+
+C-4  La tarjeta de una INVITADA no se guardaba nunca (Modo A usaba
+     `metadata.socioId`, null en ese camino; su gemelo el checkout embebido ya
+     usaba `entrega.socioId` + `fichaCreada`). Cadena: sin método off-session
+     → `proximo_reintento` null → el dunning no la ve nunca. Un MENSUAL
+     comprado por enlace público se cobraba una vez y no se volvía a cobrar.
+     3 socias en producción con `stripe_customer_id` y sin método.
+
+I-1  #1673 abrió comentarios y like al MISMO post sin heredar el guard de
+     audiencia de su hermano `asistentes` (F-24). Se extrae
+     `socioEnLaAudiencia` a `lib/comunidad/audiencia.ts` — fuente única — y se
+     cablea en las tres rutas. Latente hoy (0 posts segmentados en prod).
+
+I-2  El fan-out del mostrador avisaba a MANAGER/RECEPCION, pero la RLS que
+     decide quién LEE el hilo incluye PROPIETARIO: 3 copropietarias reales
+     veían la conversación y no se enteraban nunca. Con #1680 el mostrador es
+     el canal socia→estudio, así que quien puede leer tiene que enterarse.
+
+TEST  `cadena-rechazo-salto0.test.ts`: el eslabón que faltaba. No nombra
+     códigos —los DERIVA de los `raise exception` de la migración vigente de
+     `reservar_plaza`— y exige que la escalera TS y el contrato del cliente
+     los cubran. Un test que enumera ejemplares no cierra una familia; este
+     pone en rojo cualquier rechazo nuevo sin cablear. Mutado 4 veces,
+     incluida la del ternario que burló al test del 4-sep.
+
+Verificado: 3.849 tests PASS, lint PASS, `tsc --noEmit` completo PASS.
+---
+ app/api/public/comunidad/comentarios/route.ts |  21 +++-
+ .../comunidad/posts/[id]/asistentes/route.ts  |  31 +-----
+ .../public/comunidad/posts/[id]/like/route.ts |  11 ++
+ app/api/stripe/webhook/route.ts               |  45 ++++++--
+ lib/comunidad/audiencia.ts                    |  67 ++++++++++++
+ lib/db/supabase-data-admin.ts                 |  23 ++++
+ lib/inngest/renovaciones.ts                   |  15 ++-
+ lib/mensajeria/destinatarios.ts               |   9 +-
+ lib/student/cadena-rechazo-salto0.test.ts     | 100 ++++++++++++++++++
+ lib/student/reserva-codigos.ts                |  11 ++
+ 10 files changed, 295 insertions(+), 38 deletions(-)
+ create mode 100644 lib/comunidad/audiencia.ts
+ create mode 100644 lib/student/cadena-rechazo-salto0.test.ts
+
+diff --git a/app/api/public/comunidad/comentarios/route.ts b/app/api/public/comunidad/comentarios/route.ts
+index c29e4a1a..cafd3618 100644
+--- a/app/api/public/comunidad/comentarios/route.ts
++++ b/app/api/public/comunidad/comentarios/route.ts
+@@ -5,6 +5,8 @@ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+ import { enforceRateLimit } from '@/lib/rate-limit';
+ import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
+ import { uid } from '@/lib/utils';
++import { socioEnLaAudiencia, audienciaDelPost } from '@/lib/comunidad/audiencia';
++import type { DestinatariosCampana } from '@/lib/types';
+ 
+ // Comentarios del tablón para el PORTAL — antes el tablón ni siquiera enseñaba
+ // el contador de comentarios a la socia (ver lib/student/tipos.ts), y no
+@@ -44,6 +46,16 @@ export async function GET(req: NextRequest) {
+   const socioId = await socioAutenticado(user.userId, studioId);
+   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+ 
++  // Mismo guard que el hermano `posts/[id]/asistentes` (F-24): el filtro de
++  // audiencia se aplica al LISTADO de posts, pero se saltaba en cuanto se pide
++  // por `postId` — y los ids son adivinables. Sin esto, una socia fuera del
++  // segmento lee el hilo entero de un post que no va dirigido a ella.
++  const audiencia = await audienciaDelPost(admin, { postId, studioId });
++  if (!audiencia) return NextResponse.json({ error: 'Publicación no encontrada.' }, { status: 404 });
++  if (!await socioEnLaAudiencia(admin, { studioId, socioId, audiencia })) {
++    return NextResponse.json({ error: 'Esta publicación no está dirigida a ti' }, { status: 403 });
++  }
++
+   const { data, error } = await admin
+     .from('comentarios_comunidad')
+     .select('*')
+@@ -80,13 +92,20 @@ export async function POST(req: NextRequest) {
+   // El post debe existir y ser de este estudio — autoridad del JWT, nunca del body.
+   const { data: post, error: errPost } = await admin
+     .from('posts_comunidad')
+-    .select('id, comentarios_count')
++    .select('id, comentarios_count, audiencia')
+     .eq('id', postId)
+     .eq('studio_id', studioId)
+     .maybeSingle();
+   if (errPost) return errorInterno('public/comunidad/comentarios:POST', errPost, 'No se ha podido leer la publicación.');
+   if (!post) return NextResponse.json({ error: 'Publicación no encontrada.' }, { status: 404 });
+ 
++  // Escribir pesa más que leer: el comentario lo verán el staff y todo el
++  // segmento destinatario. Mismo guard de audiencia que el GET y que el RSVP.
++  const audiencia = ((post.audiencia as DestinatariosCampana | null) ?? 'TODAS');
++  if (!await socioEnLaAudiencia(admin, { studioId, socioId, audiencia })) {
++    return NextResponse.json({ error: 'Esta publicación no está dirigida a ti' }, { status: 403 });
++  }
++
+   const { data: socio, error: errSocio } = await admin
+     .from('socios').select('nombre, apellidos').eq('id', socioId).maybeSingle();
+   if (errSocio || !socio) return errorInterno('public/comunidad/comentarios:POST', errSocio, 'No se ha podido leer tu ficha.');
+diff --git a/app/api/public/comunidad/posts/[id]/asistentes/route.ts b/app/api/public/comunidad/posts/[id]/asistentes/route.ts
+index fda0cbcd..21cc1546 100644
+--- a/app/api/public/comunidad/posts/[id]/asistentes/route.ts
++++ b/app/api/public/comunidad/posts/[id]/asistentes/route.ts
+@@ -4,9 +4,9 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+ import { enforceRateLimit } from '@/lib/rate-limit';
+ import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
+-import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
++import { socioEnLaAudiencia } from '@/lib/comunidad/audiencia';
+ import type { RowPostsComunidad } from '@/lib/db-types';
+-import type { Socio, Suscripcion, Recibo, DestinatariosCampana } from '@/lib/types';
++import type { DestinatariosCampana } from '@/lib/types';
+ 
+ // Eventos como entidad propia dentro del Feed (P2 Community & Messaging OS).
+ // Apuntarse/desapuntarse de un evento del tablón, desde el portal de la
+@@ -54,33 +54,6 @@ async function autenticar(req: NextRequest, studioId: string) {
+   return socioAutenticado(user.userId, studioId);
+ }
+ 
+-// F-24 (auditoría 20ª pasada): el RSVP no comprobaba `posts_comunidad.audiencia`
+-// — una socia fuera del segmento (p.ej. el evento es "solo VIP") podía
+-// apuntarse con un POST directo, sin pasar nunca por la pantalla que filtra
+-// quién lo ve. Reutiliza `resolverDestinatariasCampana` (la MISMA función que
+-// ya decide el fan-out de notificación al crear el post) sobre los datos de
+-// esta única socia, en vez de un criterio de segmento paralelo que pudiera
+-// divergir del real.
+-async function socioEnLaAudiencia(
+-  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+-  p: { studioId: string; socioId: string; audiencia: DestinatariosCampana },
+-): Promise<boolean> {
+-  if (p.audiencia === 'TODAS') return true;
+-  const [{ data: socioRaw }, { data: susRaw }, { data: recRaw }] = await Promise.all([
+-    admin.from('socios').select('id, activo, tags, fecha_nacimiento').eq('id', p.socioId).eq('studio_id', p.studioId).maybeSingle(),
+-    admin.from('suscripciones').select('socio_id, estado, sesiones_restantes, fecha_fin').eq('socio_id', p.socioId).eq('studio_id', p.studioId).eq('estado', 'ACTIVA'),
+-    admin.from('recibos').select('socio_id, estado').eq('socio_id', p.socioId).eq('studio_id', p.studioId).eq('estado', 'FALLIDO'),
+-  ]);
+-  if (!socioRaw) return false;
+-  const socios = [{
+-    id: socioRaw.id, activo: socioRaw.activo, tags: socioRaw.tags ?? undefined, fechaNacimiento: socioRaw.fecha_nacimiento ?? undefined,
+-  }] as unknown as Socio[];
+-  const suscripciones = ((susRaw ?? []).map(r => ({
+-    socioId: r.socio_id, estado: r.estado, sesionesRestantes: r.sesiones_restantes, fechaFin: r.fecha_fin,
+-  }))) as unknown as Suscripcion[];
+-  const recibos = ((recRaw ?? []).map(r => ({ socioId: r.socio_id, estado: r.estado }))) as unknown as Recibo[];
+-  return resolverDestinatariasCampana(p.audiencia, { socios, suscripciones, recibos }).some(s => s.id === p.socioId);
+-}
+ 
+ export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+   const limited = await enforceRateLimit(req, 'public-comunidad-asistentes', { max: 20, windowSeconds: 60 });
+diff --git a/app/api/public/comunidad/posts/[id]/like/route.ts b/app/api/public/comunidad/posts/[id]/like/route.ts
+index 6f85edd9..0e707b30 100644
+--- a/app/api/public/comunidad/posts/[id]/like/route.ts
++++ b/app/api/public/comunidad/posts/[id]/like/route.ts
+@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+ import { enforceRateLimit } from '@/lib/rate-limit';
+ import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
++import { socioEnLaAudiencia, audienciaDelPost } from '@/lib/comunidad/audiencia';
+ 
+ // Alterna el "me gusta" de la socia sobre un post del tablón — antes era de
+ // solo lectura en el portal (ver migración toggle_like_post_portal). Mismo
+@@ -28,6 +29,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
+ 
+   const { id } = await params;
+ 
++  // Mismo guard de audiencia que el RSVP (F-24) y que los comentarios: la RPC
++  // solo comprueba que el post exista y sea del estudio, así que sin esto una
++  // socia fuera del segmento puede dar like a un post que no va dirigido a
++  // ella — y su like cuenta en el contador que ve el estudio.
++  const audiencia = await audienciaDelPost(admin, { postId: id, studioId });
++  if (!audiencia) return NextResponse.json({ error: 'Publicación no encontrada.' }, { status: 404 });
++  if (!await socioEnLaAudiencia(admin, { studioId, socioId, audiencia })) {
++    return NextResponse.json({ error: 'Esta publicación no está dirigida a ti' }, { status: 403 });
++  }
++
+   const { data, error } = await admin.rpc('toggle_like_post_portal', {
+     p_post_id: id,
+     p_studio_id: studioId,
+diff --git a/app/api/stripe/webhook/route.ts b/app/api/stripe/webhook/route.ts
+index b3c96ce9..b7f12b9c 100644
+--- a/app/api/stripe/webhook/route.ts
++++ b/app/api/stripe/webhook/route.ts
+@@ -474,6 +474,14 @@ async function procesarEvento(
+         }
+       }
+ 
++      // A quién pertenece la tarjeta que se guarde más abajo. `socioId` (la
++      // metadata) es null cuando compra una INVITADA por el enlace público, y
++      // es justo entonces cuando `entregarPlanComprado` acaba de crear su
++      // ficha: sin esto, su método de pago no se guardaba nunca. Ver el guard
++      // de guardado de tarjeta.
++      let socioEntregado: string | null = null;
++      let fichaCreadaEnLaEntrega = false;
++
+       // Compra de un plan desde el enlace público: crear el bono que se acaba de
+       // pagar. Un fallo aquí devuelve 5xx para que Stripe REINTENTE — el dinero
+       // ya está cobrado, así que no entregarlo no puede quedarse en un log.
+@@ -554,13 +562,38 @@ async function procesarEvento(
+         await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
+         const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
+         await enviarEmailReciboWebhook(admin, { studioId, reciboId: entrega.reciboId });
++        socioEntregado = entrega.socioId;
++        fichaCreadaEnLaEntrega = entrega.fichaCreada;
+       }
+ 
+       // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la
+       // próxima vez. También crítico: un fallo aquí devuelve 5xx para reintentar
+       // (idempotente: mismos customer/payment_method). Bizum no es guardable, así
+       // que solo persiste tarjeta (setup_future_usage solo se pide en 'card').
+-      if (socioId && typeof session.customer === 'string' && typeof session.payment_intent === 'string') {
++      // ⚠️ `socioDestino` NO es `socioId` a secas. `socioId` solo existe cuando la
++      // compradora venía autenticada; una INVITADA que compra por el enlace
++      // público llega sin él, y entonces la ficha la acaba de crear
++      // `entregarPlanComprado` unas líneas más arriba. Con el guard viejo
++      // (`if (socioId && …)`) su tarjeta no se guardaba NUNCA, y la cadena
++      // seguía así: `renovaciones.ts` solo programa reintento a quien tiene
++      // método off-session → `proximo_reintento` null → `dunning.ts` exige
++      // `not is null` → nunca la ve. Un plan MENSUAL comprado así se cobraba el
++      // primer mes y no se volvía a cobrar jamás, con el recibo de renovación
++      // PENDIENTE para siempre. Agujero de caja silencioso, el mismo tipo que
++      // cerró #1668.
++      //
++      // El criterio de a quién se le puede tocar el método de pago es el mismo
++      // que ya usa su gemelo, el checkout embebido: `identidadDemostradaEnCompra`
++      // — o el `socioId` venía verificado contra el JWT, o la ficha nació de
++      // esta compra y no hay nadie a quien suplantar. Una invitada que cae
++      // sobre una ficha que ya existía (resuelta por email) paga y recibe su
++      // plan igual, pero no toca credenciales de pago ajenas.
++      const socioDestino = socioId ?? socioEntregado;
++      const puedeGuardarMetodo = identidadDemostradaEnCompra({
++        socioIdVerificado: socioId,
++        fichaCreada: fichaCreadaEnLaEntrega,
++      });
++      if (socioDestino && puedeGuardarMetodo && typeof session.customer === 'string' && typeof session.payment_intent === 'string') {
+         // Este PaymentIntent vive en la cuenta conectada del estudio (event.account),
+         // no en la de la plataforma — hay que targetearla explícitamente o Stripe
+         // devuelve "no such payment_intent".
+@@ -582,16 +615,16 @@ async function procesarEvento(
+             // socia: preferimos no escribir a escribir cross-tenant sobre un id
+             // que viene de metadata.
+             Sentry.captureMessage('[stripe webhook] checkout.session sin studioId: no se guarda la tarjeta', {
+-              level: 'warning', extra: { socioId, sessionId: session.id },
++              level: 'warning', extra: { socioId: socioDestino, sessionId: session.id },
+             });
+           } else {
+             const { error } = await admin.from('socios')
+               .update({ stripe_customer_id: session.customer, stripe_payment_method_id: paymentMethodId })
+-              .eq('id', socioId).eq('studio_id', studioId);
++              .eq('id', socioDestino).eq('studio_id', studioId);
+             if (error) {
+-              console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
++              console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioDestino, error);
+               Sentry.captureMessage('[stripe webhook] no se pudo guardar la tarjeta de la socia', {
+-                level: 'error', tags: { area: 'cobros' }, extra: { socioId, studioId, sessionId: session.id, detalle: error.message },
++                level: 'error', tags: { area: 'cobros' }, extra: { socioId: socioDestino, studioId, sessionId: session.id, detalle: error.message },
+               });
+               return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
+             }
+@@ -603,7 +636,7 @@ async function procesarEvento(
+             // devolver 5xx aquí haría a Stripe reintentar un evento de cobro ya
+             // confirmado.
+             await guardarCaducidadTarjeta(admin, stripe, {
+-              socioId, studioId, paymentMethodId, stripeAccount: event.account,
++              socioId: socioDestino, studioId, paymentMethodId, stripeAccount: event.account,
+             });
+           }
+         }
+diff --git a/lib/comunidad/audiencia.ts b/lib/comunidad/audiencia.ts
+new file mode 100644
+index 00000000..247cd8b4
+--- /dev/null
++++ b/lib/comunidad/audiencia.ts
+@@ -0,0 +1,67 @@
++import type { getSupabaseAdmin } from '@/lib/db/supabase-admin';
++import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
++import type { Socio, Suscripcion, Recibo, DestinatariosCampana } from '@/lib/types';
++
++type Admin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
++
++/**
++ * ¿Esta socia está dentro de la audiencia de este post del tablón?
++ *
++ * FUENTE ÚNICA. Nació dentro de `posts/[id]/asistentes/route.ts` como arreglo
++ * de F-24 (auditoría 20ª pasada): el RSVP no comprobaba
++ * `posts_comunidad.audiencia`, así que una socia fuera del segmento —el evento
++ * es «solo VIP», o «solo con bono»— podía apuntarse con un POST directo, sin
++ * pasar nunca por la pantalla que filtra.
++ *
++ * Vive aquí, y no copiada en cada ruta, porque #1673 abrió dos puertas nuevas
++ * al MISMO post (comentarios y like) y ninguna heredó el guard: el filtro se
++ * aplicaba al LISTADO (`GET /api/public/comunidad/posts`) pero se saltaba en
++ * cuanto se pedía por `postId`, y los ids son adivinables (en producción
++ * conviven `post-1`, `post-2`… con los `post-<uid()>`). Replicar el `if` por
++ * tercera vez es justo lo que hace que la familia no se cierre.
++ *
++ * Reutiliza `resolverDestinatariasCampana` —la MISMA función que decide el
++ * fan-out de notificación al crear el post— sobre los datos de esta única
++ * socia, en vez de un criterio de segmento paralelo que pudiera divergir del
++ * real.
++ */
++export async function socioEnLaAudiencia(
++  admin: Admin,
++  p: { studioId: string; socioId: string; audiencia: DestinatariosCampana },
++): Promise<boolean> {
++  if (p.audiencia === 'TODAS') return true;
++  const [{ data: socioRaw }, { data: susRaw }, { data: recRaw }] = await Promise.all([
++    admin.from('socios').select('id, activo, tags, fecha_nacimiento').eq('id', p.socioId).eq('studio_id', p.studioId).maybeSingle(),
++    admin.from('suscripciones').select('socio_id, estado, sesiones_restantes, fecha_fin').eq('socio_id', p.socioId).eq('studio_id', p.studioId).eq('estado', 'ACTIVA'),
++    admin.from('recibos').select('socio_id, estado').eq('socio_id', p.socioId).eq('studio_id', p.studioId).eq('estado', 'FALLIDO'),
++  ]);
++  if (!socioRaw) return false;
++  const socios = [{
++    id: socioRaw.id, activo: socioRaw.activo, tags: socioRaw.tags ?? undefined, fechaNacimiento: socioRaw.fecha_nacimiento ?? undefined,
++  }] as unknown as Socio[];
++  const suscripciones = ((susRaw ?? []).map(r => ({
++    socioId: r.socio_id, estado: r.estado, sesionesRestantes: r.sesiones_restantes, fechaFin: r.fecha_fin,
++  }))) as unknown as Suscripcion[];
++  const recibos = ((recRaw ?? []).map(r => ({ socioId: r.socio_id, estado: r.estado }))) as unknown as Recibo[];
++  return resolverDestinatariasCampana(p.audiencia, { socios, suscripciones, recibos }).some(s => s.id === p.socioId);
++}
++
++/**
++ * Lee la audiencia de un post del estudio. `null` = el post no existe aquí.
++ *
++ * Devuelve 'TODAS' cuando la columna está a null: es el default de la tabla y
++ * el valor con el que nacieron los posts anteriores a la segmentación.
++ */
++export async function audienciaDelPost(
++  admin: Admin,
++  p: { postId: string; studioId: string },
++): Promise<DestinatariosCampana | null> {
++  const { data } = await admin
++    .from('posts_comunidad')
++    .select('audiencia')
++    .eq('id', p.postId)
++    .eq('studio_id', p.studioId)
++    .maybeSingle();
++  if (!data) return null;
++  return ((data.audiencia as DestinatariosCampana | null) ?? 'TODAS');
++}
+diff --git a/lib/db/supabase-data-admin.ts b/lib/db/supabase-data-admin.ts
+index 8a41c426..011417fb 100644
+--- a/lib/db/supabase-data-admin.ts
++++ b/lib/db/supabase-data-admin.ts
+@@ -2056,6 +2056,29 @@ export async function crearReservaPublica(params: {
+       // quién preguntar.
+       return { error: 'Tienes un pago pendiente con el estudio. Escríbeles y lo resolvéis.' as const, codigo: 'impago' as const };
+     }
++    if (error.message.includes('ESTUDIO_CERRADO')) {
++      // NO se registra en `intentos_reserva_fallidos`: el CHECK de la columna
++      // (verificado en produccion) no admite 'ESTUDIO_CERRADO', y ese insert va
++      // sin `await` a proposito, asi que la fila se perderia EN SILENCIO —
++      // exactamente el fallo que documenta el comentario de
++      // `MotivoIntentoFallido`. Ampliar el CHECK es una migracion y una
++      // decision de producto (¿es «demanda perdida» que alguien intente
++      // reservar un dia que el estudio cerro?), no algo que deba colarse en un
++      // arreglo de copy. Queda anotado en el informe.
++      //
++      // El estudio cerro ese dia a proposito (migr 20260905153105). No es una
++      // averia y no sirve reintentar: se le dice lo que pasa, no «algo ha ido
++      // mal». Sin este brazo caia en el comodin `error` y la pantalla pintaba
++      // el copy generico con un boton de reintentar que fallaba siempre.
++      return { error: 'El estudio no abre ese dia' as const, codigo: 'estudio-cerrado' as const };
++    }
++    if (error.message.includes('NO_AUTORIZADO')) {
++      // La RPC lo lanza cuando quien reserva es una instructora tocando una
++      // clase que no es suya. `no-autorizado` ya existia en la union del
++      // cliente y mapea a `session-expired`, pero NINGUN brazo lo emitia: el
++      // mapeo estaba muerto y el caso caia en `error`.
++      return { error: 'No tienes permiso para reservar en esta clase' as const, codigo: 'no-autorizado' as const };
++    }
+     if (error.message.includes('NECESITA_AUTORIZACION')) {
+       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'NECESITA_AUTORIZACION' });
+       // El mensaje no dice «no tienes nivel»: quien lo lee es la alumna, y el
+diff --git a/lib/inngest/renovaciones.ts b/lib/inngest/renovaciones.ts
+index 501c105c..b22600fa 100644
+--- a/lib/inngest/renovaciones.ts
++++ b/lib/inngest/renovaciones.ts
+@@ -91,7 +91,20 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
+         .eq('estado', 'PENDIENTE')
+         .is('proximo_reintento', null)
+         .not('suscripcion_id', 'is', null)
+-        .like('concepto', 'Renovación%');
++        // ⚠️ Por `es_renovacion`, NO por el texto del concepto. Este es el sitio
++        // que decide A QUIEN SE LE COBRA SOLO, y hasta #1671 decidia por copy.
++        // Su gemelo —`aplicarRenovacionServidor`, quien decide QUE SE ENTREGA—
++        // ya migro a la columna, y la migracion 20260906003934 lo dice con
++        // todas las letras: «una decision de dinero no puede depender de que
++        // nadie lo traduzca ni lo reescriba». Quedaban divergentes: recepcion
++        // crea desde /cobros un recibo con `suscripcion_id` (se adjunta solo la
++        // suscripcion activa) y `es_renovacion: false` (el panel nunca lo
++        // marca); si teclea el concepto «Renovacion Bono 10», el cron lo
++        // adoptaba, el dunning le pasaba la tarjeta off-session y la entrega
++        // devolvia SIN_ENTREGA. Cobro automatico real sin entregar nada.
++        // El conjunto adoptado no cambia con los datos de hoy: la migracion
++        // relleno `es_renovacion = true where concepto like 'Renovación%'`.
++        .eq('es_renovacion', true);
+       if (candErr) throw new Error(candErr.message);
+       const idsAAdoptar = (candidatos ?? [])
+         .filter(r => conMetodoCobro.has(r.socio_id as string))
+diff --git a/lib/mensajeria/destinatarios.ts b/lib/mensajeria/destinatarios.ts
+index cce1d1bf..52caaf2d 100644
+--- a/lib/mensajeria/destinatarios.ts
++++ b/lib/mensajeria/destinatarios.ts
+@@ -27,7 +27,14 @@ async function mostradorDinamico(admin: SupabaseClient, studioId: string): Promi
+   const [{ data: studio }, { data: staff }] = await Promise.all([
+     admin.from('studios').select('owner_auth_user_id').eq('id', studioId).maybeSingle(),
+     admin.from('instructores').select('auth_user_id')
+-      .eq('studio_id', studioId).in('rol', ['MANAGER', 'RECEPCION']).eq('activo', true),
++      // PROPIETARIO incluido a proposito: la RLS que decide QUIEN VE el hilo es
++      // `puede_gestionar_calendario()` = rol in (PROPIETARIO, MANAGER,
++      // RECEPCION), y este fan-out —quien SE ENTERA— se habia quedado en dos de
++      // los tres. Una copropietaria dada de alta como fila de `instructores`
++      // con rol PROPIETARIO (hay 7 activas en produccion) veia el hilo pero no
++      // recibia aviso nunca. Con #1680 el mostrador es el canal real
++      // socia -> estudio, asi que quien puede leer tiene que poder enterarse.
++      .eq('studio_id', studioId).in('rol', ['PROPIETARIO', 'MANAGER', 'RECEPCION']).eq('activo', true),
+   ]);
+   const ids = new Set<string>();
+   if (studio?.owner_auth_user_id) ids.add(studio.owner_auth_user_id as string);
+diff --git a/lib/student/cadena-rechazo-salto0.test.ts b/lib/student/cadena-rechazo-salto0.test.ts
+new file mode 100644
+index 00000000..3ef0e3b8
+--- /dev/null
++++ b/lib/student/cadena-rechazo-salto0.test.ts
+@@ -0,0 +1,100 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { readFileSync, readdirSync } from 'node:fs';
++import { join } from 'node:path';
++
++// SALTO 0 — el eslabon que faltaba: la RPC contra el TypeScript.
++//
++// Por que existe. El `codigo` con el que se rechaza una reserva atraviesa
++// cuatro saltos —`reservar_plaza` (SQL) → `crearReservaPublica` (escalera de
++// ifs) → `/api/public/reserva` → `reserva-codigos.ts` (union + switch)— y
++// NINGUNO esta tipado contra el siguiente. Anadir un `raise exception` en una
++// migracion no rompe la compilacion ni pone ningun test en rojo: el sintoma
++// aparece cuando una socia se lo encuentra.
++//
++// Ya paso tres veces en cinco dias:
++//   · `sin-plan` / `bono-no-cubre` (4-sep) — la alumna sin bono leia «algo no
++//     ha salido bien» con un boton que fallaba igual.
++//   · `RESERVA_BLOQUEADA_IMPAGO` (#1664, 5-sep) — mismo sintoma. Confirmado en
++//     produccion con una socia real: Sentry JAVASCRIPT-NEXTJS-26, 6-sep 03:25,
++//     `codigo: "impago"`, con su mensaje redactado a mano recortado por el
++//     camino porque el codigo no estaba en `CODIGOS_DE_NEGOCIO`.
++//   · `ESTUDIO_CERRADO` (#1665, 5-sep) — idem, sin llegar a reportarse.
++//
++// El test del 4-sep no lo impidio porque nombraba los tres codigos que ya
++// conocia. Un test que enumera ejemplares no cierra una familia. Este no
++// nombra ninguno: DERIVA la lista del SQL y exige que cada eslabon la cubra.
++// Anadir un `raise exception` nuevo sin cablearlo deja este test en rojo.
++//
++// Es un test ESTRUCTURAL (lee el fuente) por la misma razon que sus vecinos
++// `cadena-rechazo-reserva.test.ts` y `crons-paginacion.test.ts`: ni las rutas
++// de Next ni la RPC se pueden importar desde el runner.
++
++const raiz = join(import.meta.dirname, '..', '..');
++const leer = (p: string) => readFileSync(join(raiz, p), 'utf8');
++
++/** La ultima migracion que (re)define `reservar_plaza` es la que manda. */
++function migracionVigenteDeReservarPlaza(): { fichero: string; sql: string } {
++  const dir = join(raiz, 'supabase', 'migrations');
++  const candidatos = readdirSync(dir)
++    .filter(f => f.endsWith('.sql'))
++    .sort()
++    .filter(f => /function\s+(public\.)?reservar_plaza/.test(readFileSync(join(dir, f), 'utf8')));
++  assert.ok(candidatos.length > 0, 'ninguna migracion define reservar_plaza');
++  const fichero = candidatos[candidatos.length - 1];
++  return { fichero, sql: readFileSync(join(dir, fichero), 'utf8') };
++}
++
++test('salto 0: todo `raise exception` de reservar_plaza tiene brazo en crearReservaPublica', () => {
++  const { fichero, sql } = migracionVigenteDeReservarPlaza();
++  const lanzados = [...new Set([...sql.matchAll(/raise\s+exception\s+'([A-Z_]+)'/g)].map(m => m[1]))];
++  assert.ok(lanzados.length >= 10, `esperaba la lista completa de rechazos, encontre ${lanzados.length}`);
++
++  const escalera = leer('lib/db/supabase-data-admin.ts');
++  const sinBrazo = lanzados.filter(n => !escalera.includes(`includes('${n}')`));
++  assert.deepEqual(
++    sinBrazo, [],
++    `Estos rechazos los LANZA ${fichero} y la escalera de crearReservaPublica no los reconoce, `
++    + `asi que caen en el comodin \`codigo: 'error'\`: la alumna lee el copy generico de averia `
++    + `con un boton de reintentar que va a fallar siempre, y cada intento levanta un evento de `
++    + `nivel error en Sentry. Anade su brazo en lib/db/supabase-data-admin.ts.`,
++  );
++});
++
++test('salto 0 bis: todo `codigo` que emite el servidor existe en el contrato del cliente', () => {
++  const escalera = leer('lib/db/supabase-data-admin.ts');
++  // Sin anclar a `return {`: los rechazos tambien viajan en ternarios, y ese
++  // fue justo el agujero del test anterior (no veia `sin-plan` ni
++  // `bono-no-cubre`, los dos del fix que decia proteger).
++  const emitidos = [...new Set([...escalera.matchAll(/codigo:\s*'([a-z-]+)'/g)].map(m => m[1]))];
++  assert.ok(emitidos.length >= 12, `esperaba los codigos de reserva, encontre ${emitidos.length}`);
++
++  const contrato = leer('lib/student/reserva-codigos.ts');
++  const union = contrato.slice(
++    contrato.indexOf('export type CodigoReserva'),
++    contrato.indexOf('const CODIGOS_DE_NEGOCIO'),
++  );
++  const negocio = contrato.slice(
++    contrato.indexOf('const CODIGOS_DE_NEGOCIO'),
++    contrato.indexOf('export function esRechazoConocido'),
++  );
++
++  const fueraDeLaUnion = emitidos.filter(c => !union.includes(`'${c}'`));
++  assert.deepEqual(
++    fueraDeLaUnion, [],
++    'Estos codigos los emite el servidor y no estan en `CodigoReserva`. TypeScript no lo detecta '
++    + 'porque la respuesta viaja serializada por HTTP.',
++  );
++
++  // 'error' es el comodin de averia: queda fuera a proposito, es lo unico que
++  // SI debe reportarse a Sentry.
++  const noReconocidos = emitidos.filter(c => c !== 'error' && !negocio.includes(`'${c}'`));
++  assert.deepEqual(
++    noReconocidos, [],
++    'Estos codigos son rechazos de NEGOCIO (el servidor les redacta un mensaje a mano) pero no '
++    + 'estan en CODIGOS_DE_NEGOCIO. Consecuencia doble y silenciosa: `esRechazoConocido` los da '
++    + 'por averia, asi que (1) lib/student/reservar.ts RECORTA el mensaje y la alumna lee el copy '
++    + 'generico en vez de lo que le escribimos, y (2) cada rechazo normal levanta un evento de '
++    + 'nivel error en Sentry.',
++  );
++});
+diff --git a/lib/student/reserva-codigos.ts b/lib/student/reserva-codigos.ts
+index 1b9dc658..b899a5e9 100644
+--- a/lib/student/reserva-codigos.ts
++++ b/lib/student/reserva-codigos.ts
+@@ -36,6 +36,14 @@ export type CodigoReserva =
+   | 'max-simultaneas'
+   // Niveles: la clase exige que el estudio autorice a esta alumna.
+   | 'necesita-autorizacion'
++  // Puertas del ESTUDIO, antes del aforo. Las lanza `reservar_plaza`
++  // (migraciones 20260905151515 y 20260905153105) y las dos llevan un mensaje
++  // redactado a mano que hay que ENSEÑAR. Sin estar aqui, `esRechazoConocido`
++  // las da por averia: el mensaje se recorta, la alumna lee el copy generico
++  // con un boton de reintentar que va a fallar siempre, y cada una levanta un
++  // evento `error` en Sentry. Paso en produccion (JAVASCRIPT-NEXTJS-26).
++  | 'impago'
++  | 'estudio-cerrado'
+   | 'error';
+ 
+ /**
+@@ -48,6 +56,7 @@ const CODIGOS_DE_NEGOCIO: ReadonlySet<string> = new Set<CodigoReserva>([
+   'ya-reservada', 'conflicto-horario', 'aforo-lleno', 'limite-semanal',
+   'spot-ocupado', 'spot-no-disponible', 'sesion-no-encontrada', 'no-autorizado',
+   'sin-plan', 'bono-no-cubre', 'max-simultaneas', 'necesita-autorizacion',
++  'impago', 'estudio-cerrado',
+ ]);
+ 
+ /**
+@@ -129,6 +138,8 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
+     case 'bono-no-cubre':
+     case 'max-simultaneas':
+     case 'necesita-autorizacion':
++    case 'impago':
++    case 'estudio-cerrado':
+       return { state: 'error', mensaje };
+     case 'sesion-no-encontrada': return { state: 'error', mensaje };
+     default: return { state: 'error', mensaje };
+-- 
+2.34.1
+
