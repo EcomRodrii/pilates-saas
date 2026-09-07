@@ -207,6 +207,12 @@ export default function CentroDeControlPage() {
         nAutonomasHoy={data.nAutonomasHoy ?? 0}
         totalPendiente={totalPendiente}
         onVerPendiente={handleVerPendiente}
+        // Un estudio con menos de cinco socias todavía no puede producir un
+        // mensaje del Umbral: no hay historial de asistencia ni de cobros del
+        // que sacarlo. En vez de enseñar «Todo bajo control» los siete días de
+        // la prueba —indistinguible de que la pantalla no haga nada— se enseña
+        // un ejemplo rotulado de qué aparecerá aquí cuando lo haya.
+        sinHistorial={socios.filter(s => s.activo).length < 5}
       />
 
       {/* 2. Seguimiento — situaciones ya detectadas, sin cambios desde la última revisión */}

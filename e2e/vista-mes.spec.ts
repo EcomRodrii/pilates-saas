@@ -104,7 +104,7 @@ test.describe('Vista de Mes', () => {
   test('agrega las clases por día y no cuenta las canceladas', async ({ page }) => {
     await montar(page);
 
-    await expect(page.getByText('agosto de 2026', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Agosto de 2026', { exact: true })).toBeVisible({ timeout: 30_000 });
 
     const dia5 = page.getByRole('button', { name: '5 de agosto de 2026' });
     await expect(dia5.getByText('2 clases')).toBeVisible();
@@ -129,12 +129,12 @@ test.describe('Vista de Mes', () => {
 
   test('navegar de mes cambia la etiqueta sin tocar el mes original', async ({ page }) => {
     await montar(page);
-    await expect(page.getByText('agosto de 2026', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Agosto de 2026', { exact: true })).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Mes siguiente' }).click();
-    await expect(page.getByText('septiembre de 2026', { exact: true })).toBeVisible();
+    await expect(page.getByText('Septiembre de 2026', { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Hoy' }).click();
-    await expect(page.getByText('agosto de 2026', { exact: true })).toBeVisible();
+    await expect(page.getByText('Agosto de 2026', { exact: true })).toBeVisible();
   });
 });

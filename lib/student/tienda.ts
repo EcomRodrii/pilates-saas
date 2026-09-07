@@ -19,6 +19,12 @@
 //     que es la puerta de «vendible online» del estudio. Si alguna vez dejaran
 //     de filtrarse ahí, el filtro de aquí las sigue tapando.
 
+// Relativo y con `.ts` explícita, que es lo que sí resuelve el runner de
+// `node --test` — la advertencia de arriba es sobre `@/`, no sobre compartir
+// código. Y compartir aquí importa: el nombre del periodo lo decide un solo
+// sitio para el panel y para el escaparate.
+import { nombrePeriodo } from '../bono-logic.ts';
+
 export type FamiliaProducto = 'suscripcion' | 'bono' | 'suelta' | 'servicio';
 
 export interface ProductoTienda {
@@ -37,6 +43,16 @@ export interface ProductoTienda {
   /** Máximo de clases por semana que permite el plan. `null` = sin tope. */
   limiteSemanal: number | null;
   /**
+   * Cada cuántos meses se cobra una suscripción: 1, 3, 6 o 12. `null` en todo
+   * lo que no es una suscripción.
+   *
+   * Sin esto, el escaparate ponía «/mes» debajo de TODA suscripción, también
+   * de una que se cobra por trimestres: la alumna leería 180 €/mes donde el
+   * estudio cobra 180 € cada tres meses, y decidiría sobre un precio que no
+   * existe.
+   */
+  periodicidadMeses: number | null;
+  /**
    * Tipos de clase a los que está ACOTADO (`plan_tipos_clase`). Vacío = sirve
    * para todas, que es la regla del servidor (`cubreTipo`, bono-cubre.ts).
    */
@@ -53,6 +69,7 @@ export interface PlanTienda {
   activo?: boolean | null;
   validezDias?: number | null;
   limiteSemanal?: number | null;
+  periodicidadMeses?: number | null;
   tiposClaseIds?: string[] | null;
 }
 
@@ -111,6 +128,9 @@ export function catalogoTienda(
         validezDias: p.validezDias ?? null,
         duracionMin: null,
         limiteSemanal: p.limiteSemanal ?? null,
+        // Solo en suscripciones: en un bono el ciclo lo marcan las sesiones y
+        // su caducidad, y un «/mes» ahí sería sencillamente falso.
+        periodicidadMeses: familia === 'suscripcion' ? (p.periodicidadMeses ?? 1) : null,
         tiposClaseIds: p.tiposClaseIds ?? [],
       }];
     });
@@ -130,6 +150,7 @@ export function catalogoTienda(
       validezDias: null,
       duracionMin: s.duracionMin ?? null,
       limiteSemanal: null,
+      periodicidadMeses: null,
       // Un servicio de cita no pasa por `plan_tipos_clase`: no está acotado a
       // tipos de clase porque no se reserva contra el horario.
       tiposClaseIds: [],
@@ -158,7 +179,10 @@ export const TITULO_FAMILIA: Record<FamiliaProducto, string> = {
  */
 export function resumenProducto(p: ProductoTienda): string {
   const partes: string[] = [];
-  if (p.familia === 'suscripcion') partes.push(p.sesiones === null ? 'Clases ilimitadas' : `${p.sesiones} clases al mes`);
+  if (p.familia === 'suscripcion') {
+    const periodo = nombrePeriodo({ periodicidadMeses: p.periodicidadMeses });
+    partes.push(p.sesiones === null ? 'Clases ilimitadas' : `${p.sesiones} clases al ${periodo}`);
+  }
   else if (p.sesiones !== null) partes.push(`${p.sesiones} ${p.sesiones === 1 ? 'clase' : 'clases'}`);
   if (p.duracionMin) partes.push(`${p.duracionMin} min`);
   if (p.limiteSemanal) partes.push(`máx. ${p.limiteSemanal}/semana`);

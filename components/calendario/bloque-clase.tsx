@@ -95,6 +95,17 @@ export function BloqueClase({
     ? `${horaEstudio(sesion.inicio)} – ${horaEstudio(sesion.fin)}`
     : horaEstudio(sesion.inicio);
 
+  // En la vista de SEMANA el bloque solo decía la hora y el nombre de la clase:
+  // ni cuántas van ni quién la da. Y la semana es donde vive la propietaria —
+  // para saber qué clase va floja había que abrir las clases una a una.
+  //
+  // La ocupación cabe siempre (va en la misma línea que la hora). La
+  // instructora necesita una tercera línea, así que solo se pinta si el bloque
+  // da de sí: una clase de 15 min mide 14 px de alto y la recortaría a la
+  // mitad, que es peor que no ponerla.
+  const duracionMin = Math.max(0, Math.round((new Date(sesion.fin).getTime() - new Date(sesion.inicio).getTime()) / 60_000));
+  const cabeInstructoraCompacto = duracionMin >= 40;
+
   return (
     <div
       role="button"
@@ -169,6 +180,14 @@ export function BloqueClase({
             {p.label}
           </span>
         )}
+        {!ancho && !sesion.cancelada && (
+          <span
+            className="ml-auto text-[9.5px] font-bold tabular-nums whitespace-nowrap"
+            style={{ color: colorOcupacion(ratio) }}
+          >
+            {confirmadas}/{sesion.aforoMaximo}
+          </span>
+        )}
       </span>
 
       <span
@@ -181,6 +200,13 @@ export function BloqueClase({
       {ancho && (
         <span className="text-[10.5px] truncate" style={{ color: estado === 'PROGRAMADA' ? 'var(--muted-foreground)' : p.tinta }}>
           {instructor?.nombre ?? 'Sin instructora'} · {confirmadas} de {sesion.aforoMaximo} · {etiquetaOcupacion(ratio)}
+          {enEspera > 0 ? ` · ${enEspera} en espera` : ''}
+        </span>
+      )}
+
+      {!ancho && cabeInstructoraCompacto && (
+        <span className="text-[9px] leading-tight truncate" style={{ color: estado === 'PROGRAMADA' ? 'var(--muted-foreground)' : p.tinta }}>
+          {instructor?.nombre ?? 'Sin instructora'}
           {enEspera > 0 ? ` · ${enEspera} en espera` : ''}
         </span>
       )}

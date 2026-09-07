@@ -164,11 +164,16 @@ const FUNCIONALIDADES: PaginaSeo[] = [
   {
     path: '/funcionalidades/facturacion',
     titulo: 'Facturación con Veri*Factu para estudios de Pilates | Tentare',
+    // ⚠️ Decía «firmada y transmitida a la AEAT» / «enviada a Hacienda», y el
+    // envío automático NO está ocurriendo todavía — la propia página lo dice en
+    // «Dónde está el límite, dicho claro». Que el título de Google prometa una
+    // cosa y la página diga otra es la peor forma de perder la confianza de
+    // quien te está evaluando. Aquí solo va lo que hoy es cierto.
     descripcion:
-      'Cada cobro genera su factura con numeración correlativa, huella encadenada y QR de verificación, firmada y transmitida a la AEAT. Y el cierre de año listo para tu gestoría.',
+      'Cada cobro genera su factura con numeración correlativa, huella encadenada y QR de verificación. Y el cierre de año listo para tu gestoría.',
     grupo: 'funcionalidades',
     etiqueta: 'Facturación',
-    resumen: 'Del cobro a la factura sellada y enviada a Hacienda, sin tocar nada.',
+    resumen: 'Del cobro a la factura sellada, sin tocar nada.',
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,

@@ -7,7 +7,8 @@ import {
   bonoConsumible, bonoDevolvible, calcularConsumoBono, tieneEntitlementActivo,
   calcularFechaFinBono, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
-  saldoSesionesBono, avisaBonoAgotado, cicloInicialDe } from './bono-logic.ts';
+  saldoSesionesBono, avisaBonoAgotado, cicloInicialDe,
+  mesesDeCiclo, nombrePeriodo } from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 function sus(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
@@ -613,4 +614,98 @@ test('el mensual de madrugada usa el día de Madrid, no el de UTC', () => {
     cicloInicialDe({ tipo: 'MENSUAL', sesiones: null, validezDias: null }, '2026-09-05T23:30:00Z').fechaFin,
     '2026-10-06',
   );
+});
+
+// ── Cuotas que no son mensuales (periodicidadMeses) ──────────────────────────
+//
+// Una cuota podía ser SOLO mensual: los tres sitios que extienden una
+// suscripción sumaban `+ 1` a pelo. Un estudio que cobra por trimestres —de
+// septiembre a junio, lo normal en Pilates— no podía reproducir su lista de
+// precios sin fingirlo con un bono. Lo que se prueba aquí es que el ciclo
+// nuevo no altera NADA de lo que ya funcionaba.
+
+test('una cuota trimestral nace con tres meses de vigencia, no con uno', () => {
+  const ciclo = cicloInicialDe(
+    { tipo: 'MENSUAL', sesiones: null, validezDias: null, periodicidadMeses: 3 },
+    '2026-09-06T10:00:00Z',
+  );
+  assert.equal(ciclo.fechaFin, '2026-12-06');
+  assert.equal(ciclo.sesionesRestantes, null);
+});
+
+test('semestral y anual salen del mismo cálculo, sin casos aparte', () => {
+  const de = (meses: number) => cicloInicialDe(
+    { tipo: 'MENSUAL', sesiones: null, validezDias: null, periodicidadMeses: meses },
+    '2026-09-06T10:00:00Z',
+  ).fechaFin;
+  assert.equal(de(6), '2027-03-06');
+  assert.equal(de(12), '2027-09-06');
+});
+
+test('⚠️ sin periodicidad, una cuota sigue siendo mensual', () => {
+  // Es lo que garantiza que las tarifas que ya existen —y las leídas de un
+  // backup anterior a la columna— se comporten EXACTAMENTE igual que antes.
+  for (const plan of [
+    { tipo: 'MENSUAL' as const, sesiones: null, validezDias: null },
+    { tipo: 'MENSUAL' as const, sesiones: null, validezDias: null, periodicidadMeses: null },
+    { tipo: 'MENSUAL' as const, sesiones: null, validezDias: null, periodicidadMeses: 1 },
+  ]) {
+    assert.equal(cicloInicialDe(plan, '2026-09-06T10:00:00Z').fechaFin, '2026-10-06');
+  }
+});
+
+test('⚠️ un valor imposible cae a mensual, no a una fecha absurda', () => {
+  // Una fila tocada a mano o un import viejo podría traer cualquier número. El
+  // CHECK de la BD ya lo impide, pero aquí se lee también de payloads públicos
+  // y de backups. Cobrar de menos por un dato corrupto es recuperable;
+  // extender una suscripción 99 meses, no.
+  for (const meses of [0, -3, 2, 99, NaN]) {
+    assert.equal(mesesDeCiclo({ periodicidadMeses: meses }), 1, `${meses} debería caer a 1`);
+  }
+});
+
+test('la periodicidad no toca a los bonos ni a las clases sueltas', () => {
+  // Ahí el ciclo lo marcan `validezDias`/`sesiones`. Si se colara, un bono con
+  // una periodicidad heredada cambiaría de caducidad sin que nadie la tocara.
+  const bono = cicloInicialDe(
+    { tipo: 'BONO', sesiones: 10, validezDias: 60, periodicidadMeses: 12 },
+    '2026-09-06T10:00:00Z',
+  );
+  assert.equal(bono.fechaFin, '2026-11-05');
+  const puntual = cicloInicialDe(
+    { tipo: 'PUNTUAL', sesiones: 1, validezDias: 30, periodicidadMeses: 3 },
+    '2026-09-06T10:00:00Z',
+  );
+  assert.equal(puntual.fechaFin, '2026-10-06');
+});
+
+test('reactivar una trimestral la reactiva TRES meses, como el alta', () => {
+  // El mismo emparejamiento que ya fijaba el test de arriba, ahora con ciclo.
+  const plan = { tipo: 'MENSUAL' as const, sesiones: null, validezDias: null, periodicidadMeses: 3 };
+  assert.deepEqual(
+    calcularReactivacion(plan, '2026-09-06T10:00:00Z'),
+    cicloInicialDe(plan, '2026-09-06T10:00:00Z'),
+  );
+});
+
+test('el nombre del periodo se dice en castellano, y uno por cada valor', () => {
+  assert.equal(nombrePeriodo({ periodicidadMeses: 1 }), 'mes');
+  assert.equal(nombrePeriodo({ periodicidadMeses: 3 }), 'trimestre');
+  assert.equal(nombrePeriodo({ periodicidadMeses: 6 }), 'semestre');
+  assert.equal(nombrePeriodo({ periodicidadMeses: 12 }), 'año');
+  // Las tres formas que usan las pantallas se construyen anteponiendo la
+  // preposición, así que las cuatro palabras tienen que encajar con las tres.
+  assert.equal(`al ${nombrePeriodo({ periodicidadMeses: 12 })}`, 'al año');
+  assert.equal(`cada ${nombrePeriodo({ periodicidadMeses: 3 })}`, 'cada trimestre');
+});
+
+test('⚠️ el fin de mes no se desborda al mes siguiente', () => {
+  // `setUTCMonth` normaliza: 31 de agosto + 6 meses no existe (31 de febrero)
+  // y JS lo empuja a marzo. Se documenta el comportamiento real para que
+  // nadie lo descubra en un recibo: la socia gana un día o dos, nunca pierde.
+  const ciclo = cicloInicialDe(
+    { tipo: 'MENSUAL', sesiones: null, validezDias: null, periodicidadMeses: 6 },
+    '2026-08-31T10:00:00Z',
+  );
+  assert.equal(ciclo.fechaFin, '2027-03-03');
 });

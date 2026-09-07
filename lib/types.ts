@@ -10,6 +10,17 @@ export type EstadoRecibo = 'PENDIENTE' | 'COBRADO' | 'DEVUELTO' | 'EN_CURSO' | '
 // Pagos España (0036): método recurrente preferido de la socia y método real de cada cobro.
 export type MetodoPagoPreferido = 'TARJETA' | 'SEPA';
 export type MetodoCobro = 'TARJETA' | 'SEPA' | 'BIZUM' | 'EFECTIVO' | 'TRANSFERENCIA';
+/**
+ * Qué pasó con el dinero al dar de alta a una socia con plan.
+ *
+ * Existe porque el alta daba el primer recibo por COBRADO siempre, sin método
+ * de pago y sin preguntar: se contaba como ingreso del mes dinero que nadie
+ * había pagado. `pagado: false` (el valor por defecto de la pantalla) deja el
+ * recibo PENDIENTE, que es lo que de verdad ocurre en la mayoría de altas.
+ */
+export type CobroAlta =
+  | { pagado: false }
+  | { pagado: true; metodo: MetodoCobro };
 // PENDIENTE_APROBACION (Fase 2a, migr 20260730192445): no ocupa aforo ni
 // consume bono, mismo criterio que LISTA_ESPERA — se decide al aprobar.
 export type EstadoReserva = 'CONFIRMADA' | 'LISTA_ESPERA' | 'ASISTIDA' | 'CANCELADA' | 'NO_ASISTIO' | 'PENDIENTE_APROBACION';
@@ -552,6 +563,27 @@ export interface PlanTarifa {
   // `precio`; esto solo pinta un aviso para que se acuerde de subirlo de
   // vuelta al pasar la fecha. null = sin oferta activa.
   ofertaHasta?: string | null;
+  /**
+   * Cada cuántos meses se cobra y se extiende una CUOTA (`tipo: 'MENSUAL'`).
+   *
+   * 1 = mensual (el comportamiento de siempre y el valor por defecto en BD),
+   * 3 = trimestral, 6 = semestral, 12 = anual. Se ignora en BONO y PUNTUAL,
+   * donde el ciclo lo marcan `validezDias`/`sesiones`.
+   *
+   * Meses y no un enum: quien lo usa (`cicloInicialDe` y las dos mitades de la
+   * renovación) solo suma meses a una fecha. Un enum obligaría a mantener el
+   * mapa a meses en tres sitios, que es justo como divergen las cosas aquí.
+   */
+  periodicidadMeses?: number | null;
+  /**
+   * Cuota de alta, en euros. Se cobra UNA VEZ —la primera vez que una socia
+   * contrata un plan en el estudio— y como recibo APARTE.
+   *
+   * Aparte y no sumada al precio a propósito: el cron de renovaciones emite el
+   * recibo con `precio` tal cual, así que meterla dentro la cobraría cada
+   * ciclo. Con su propio recibo eso es imposible.
+   */
+  matricula?: number | null;
 }
 
 export interface Suscripcion {
@@ -1148,12 +1180,27 @@ export interface VentaPOS {
 
 export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIANDO' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';
 export type TipoCampana = 'EMAIL' | 'WHATSAPP' | 'SMS';
-export type DestinatariosCampana =
+export type SegmentoFijo =
   | 'TODAS' | 'ACTIVAS' | 'INACTIVAS' | 'SIN_PLAN' | 'BONO' | 'VIP'
   // Paso 6 de docs/marketing-integrations-arquitectura.md §8/§4: señales ya
   // existentes en el repo (Decision OS F3, recibos, cumpleaños), no un
   // segment builder genérico — ver el archivo para el porqué de ese corte.
   | 'BONO_CADUCA_PRONTO' | 'PAGO_FALLIDO' | 'CUMPLE_ESTE_MES';
+
+/**
+ * A quién va una campaña.
+ *
+ * Los fijos de arriba, más dos con parámetro: `ETAPA:<leadStage>` y
+ * `ETIQUETA:<tag>`. Existen porque la pantalla de Mensajería ya sabía filtrar
+ * por etapa del embudo y por etiqueta, pero lo hacía por su cuenta y mandaba
+ * los emails uno a uno desde el navegador — sin filtro de consentimiento, sin
+ * enlace de baja y sin quedar registrado en ninguna parte. Al unificarlo con el
+ * motor de campañas había que traerse esas dos formas de elegir, no tirarlas.
+ *
+ * Cadena y no objeto porque `campanas.destinatarios` es una columna de texto y
+ * cambiar su forma obligaría a migrar las campañas ya guardadas.
+ */
+export type DestinatariosCampana = SegmentoFijo | `ETAPA:${string}` | `ETIQUETA:${string}`;
 
 export interface Campana {
   id: string;
@@ -1267,7 +1314,16 @@ export interface AutomationRule {
   descripcion: string;
   icono: string;
   trigger: TriggerRule;
-  condicion: Record<string, number | string | boolean>;
+  /**
+   * Los ajustes de la regla: umbrales (días, porcentajes…) y, bajo la clave
+   * `mensajes`, los textos que el estudio haya reescrito para sus clientas
+   * (`lib/engines/mensajes-automatizacion.ts`).
+   *
+   * Es un jsonb, así que admite el objeto anidado sin migración. Se declara
+   * como caso aparte y no como `unknown` para que siga siendo un error meter
+   * cualquier cosa: lo único anidado que existe es ese diccionario de textos.
+   */
+  condicion: Record<string, number | string | boolean | Record<string, string> | undefined>;
   pasos: AutomationStep[];
   activa: boolean;
   ejecutadaVeces: number;

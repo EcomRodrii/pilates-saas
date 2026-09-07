@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import type { EstadoRecibo, Socio, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { cn, copiarAlPortapapeles, formatEuro } from '@/lib/utils';
+import { cn, copiarAlPortapapeles, formatEuro, hoyEnEstudio } from '@/lib/utils';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cobrarOnlineDirecto, crearEnlaceTarjeta, enviarEmailRecibo } from '@/lib/api-client';
@@ -317,7 +317,11 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
     socioId: socios[0]?.id ?? '',
     concepto: '',
     importe: '',
-    fechaVencimiento: now.toISOString().split('T')[0],
+    // `hoyEnEstudio`, no `toISOString()`: este campo es una columna `date` y
+    // `toISOString` da la fecha en UTC. Un cobro creado a las 00:20 de Madrid
+    // nacía vencido ayer — es decir, en rojo desde el primer segundo. Mismo
+    // arreglo que ya llevan `marcarCobrado` y el alta de socia.
+    fechaVencimiento: hoyEnEstudio(now),
   });
 
   // ── Lookups ──────────────────────────────────────────────────────────────────

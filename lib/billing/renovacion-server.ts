@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { mesesDeCiclo } from '../bono-logic.ts';
 import * as Sentry from '@sentry/nextjs';
 
 // Aplica la RENOVACIÓN de una suscripción cuando se cobra su recibo, en el
@@ -127,7 +128,7 @@ export async function aplicarRenovacionServidor(
 
     const { data: plan } = await admin
       .from('planes_tarifa')
-      .select('tipo, sesiones')
+      .select('tipo, sesiones, periodicidad_meses')
       .eq('id', sus.plan_id)
       .eq('studio_id', studioId)
       .maybeSingle();
@@ -177,7 +178,11 @@ export async function aplicarRenovacionServidor(
 
     if (plan.tipo === 'MENSUAL') {
       const nuevaFin = new Date();
-      nuevaFin.setMonth(nuevaFin.getMonth() + 1);
+      // Tantos meses como dure el ciclo de esta cuota, no uno fijo: una
+      // trimestral que se renovara mes a mes le cobraría a la socia tres veces
+      // por el mismo trimestre. `mesesDeCiclo` cae a 1 con cualquier valor que
+      // no sea uno de los permitidos, así que las cuotas de siempre no cambian.
+      nuevaFin.setMonth(nuevaFin.getMonth() + mesesDeCiclo({ periodicidadMeses: plan.periodicidad_meses }));
       const fechaFin = nuevaFin.toISOString().slice(0, 10);
       if (sus.fecha_fin && sus.fecha_fin >= fechaFin) {
         return guardar({ aplicada: false, tipo: 'MENSUAL', antes, despues: antes });

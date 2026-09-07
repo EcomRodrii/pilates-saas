@@ -7,6 +7,7 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { catalogo } from '@/lib/student/catalogo';
 import { euros } from '@/lib/student/formato';
+import { nombrePeriodo } from '@/lib/bono-logic';
 import { catalogoTienda, coberturaDeTipos, coberturaProducto, resumenProducto, TITULO_FAMILIA, type FamiliaProducto, type ProductoTienda } from '@/lib/student/tienda';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Button } from '@/components/student/ui/Button';
@@ -149,7 +150,9 @@ function TarjetaProducto({ p, cobertura, delay, onComprar }: {
         <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, letterSpacing: '-.01em' }}>{p.nombre}</h3>
         <p style={{ margin: 0, fontSize: 15, fontWeight: 800, flexShrink: 0 }}>
           {euros(p.precio)}
-          {p.familia === 'suscripcion' && <span className="t-meta" style={{ fontSize: 11 }}>/mes</span>}
+          {p.familia === 'suscripcion' && (
+            <span className="t-meta" style={{ fontSize: 11 }}>/{nombrePeriodo({ periodicidadMeses: p.periodicidadMeses })}</span>
+          )}
         </p>
       </div>
 

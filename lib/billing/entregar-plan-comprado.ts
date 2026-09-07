@@ -174,7 +174,7 @@ export async function entregarPlanComprado(
 ): Promise<ResultadoEntrega> {
   const { data: plan, error: errPlan } = await admin
     .from('planes_tarifa')
-    .select('id, nombre, precio, tipo, sesiones, validez_dias, studio_id')
+    .select('id, nombre, precio, tipo, sesiones, validez_dias, periodicidad_meses, studio_id')
     .eq('id', compra.planId)
     .eq('studio_id', compra.studioId)
     .maybeSingle();
@@ -320,8 +320,17 @@ export async function entregarPlanComprado(
   // un MENSUAL comprado desde la web nacía con `fecha_fin` a NULL —porque su
   // `validezDias` es null por definición— y eso aguas abajo es «no caduca
   // nunca». Había una suscripción así en producción, comprada por web.
+  //
+  // `periodicidadMeses` viaja también: una cuota trimestral comprada por web
+  // nacería con un mes de vigencia —y se le volvería a cobrar a los 30 días—
+  // si aquí se leyera solo el tipo. El cron de renovación ya lee su columna.
   const { fechaFin } = cicloInicialDe(
-    { tipo: plan.tipo as PlanTarifa['tipo'], sesiones: plan.sesiones as number | null, validezDias: plan.validez_dias as number | null },
+    {
+      tipo: plan.tipo as PlanTarifa['tipo'],
+      sesiones: plan.sesiones as number | null,
+      validezDias: plan.validez_dias as number | null,
+      periodicidadMeses: plan.periodicidad_meses as number | null,
+    },
     hoy,
   );
 

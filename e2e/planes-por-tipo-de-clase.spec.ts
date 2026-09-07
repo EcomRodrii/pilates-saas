@@ -247,6 +247,6 @@ test.describe('El tipo de tarifa se dice en castellano', () => {
     // Por opción: el nombre accesible del <select> arrastra el del InfoTip, así
     // que getByLabel('Tipo') no basta para leer lo que hay dentro.
     const opciones = page.getByRole('combobox').first().getByRole('option');
-    await expect(opciones).toHaveText(['Cuota mensual', 'Bono de sesiones', 'Clase suelta']);
+    await expect(opciones).toHaveText(['Cuota', 'Bono de sesiones', 'Clase suelta']);
   });
 });

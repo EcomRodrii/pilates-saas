@@ -64,6 +64,7 @@ test('editar y volver a guardar sin tocar nada no cambia el plan', () => {
     id: 'plan-1', studioId: 's-1', nombre: 'Bono 10 clases', descripcion: 'Diez sesiones',
     precio: 120, tipo: 'BONO', sesiones: 10, validezDias: 60, limiteSemanal: null,
     tiposClaseIds: ['tc-1'], activo: true, ofertaHasta: null,
+    periodicidadMeses: 1, matricula: 0,
   } as PlanTarifa;
 
   const vuelta = formularioAPlan(planAFormulario(guardado));
@@ -219,4 +220,56 @@ test('lo que sigue sin ser un número sigue protestando', () => {
 
 test('un precio ilegible sigue guardándose como 0, nunca como NaN', () => {
   assert.equal(formularioAPlan(form({ nombre: 'X', precio: 'gratis' })).precio, 0);
+});
+
+// ── Matrícula y periodicidad ────────────────────────────────────────────────
+
+test('la matrícula vacía es 0 («sin matrícula»), no NaN', () => {
+  assert.equal(formularioAPlan(form({ nombre: 'X', precio: '60' })).matricula, 0);
+  assert.equal(formularioAPlan(form({ nombre: 'X', precio: '60', matricula: '  ' })).matricula, 0);
+});
+
+test('la matrícula se escribe con coma, como el precio', () => {
+  // `parseFloat('30,50')` es 30: se para en la coma y se come los céntimos.
+  assert.equal(formularioAPlan(form({ nombre: 'X', precio: '60', matricula: '30,50' })).matricula, 30.5);
+  assert.equal(formularioAPlan(form({ nombre: 'X', precio: '60', matricula: '30 €' })).matricula, 30);
+});
+
+test('una matrícula ilegible no se guarda como un importe cualquiera', () => {
+  assert.ok(erroresPlan(form({ nombre: 'X', precio: '60', matricula: 'treinta' })).matricula);
+  assert.ok(erroresPlan(form({ nombre: 'X', precio: '60', matricula: '-10' })).matricula);
+  // Y vacía no protesta: es la respuesta normal.
+  assert.equal(erroresPlan(form({ nombre: 'X', precio: '60' })).matricula, undefined);
+});
+
+test('la periodicidad solo se guarda en una cuota; el resto queda en 1', () => {
+  const cuota = formularioAPlan(form({ nombre: 'Trimestral', precio: '180', periodicidadMeses: '3' }));
+  assert.equal(cuota.periodicidadMeses, 3);
+  // Un bono no tiene ciclo que renovar: arrastrar un «cada 3 meses» que
+  // ninguna pantalla enseñaría es dato muerto que algún día se leería.
+  const bono = formularioAPlan(form({ nombre: 'Bono', precio: '120', tipo: 'BONO', sesiones: '10', periodicidadMeses: '3' }));
+  assert.equal(bono.periodicidadMeses, 1);
+});
+
+test('una periodicidad que la BD no acepta cae a mensual, no revienta el CHECK', () => {
+  for (const v of ['', 'abc', '0', '7']) {
+    assert.equal(formularioAPlan(form({ nombre: 'X', precio: '60', periodicidadMeses: v })).periodicidadMeses, 1);
+  }
+});
+
+test('el resumen para la clienta dice el ciclo REAL y que la matrícula es una vez', () => {
+  const lineas = resumenCondicionesPlan(form({
+    nombre: 'Trimestral', precio: '180', periodicidadMeses: '3', matricula: '30',
+  }));
+  assert.ok(lineas.some(l => l.includes('cada trimestre')), lineas.join(' | '));
+  assert.ok(lineas.some(l => /30 €.*primera vez/.test(l)), lineas.join(' | '));
+  // Sin matrícula no se menciona: una línea de «0 € de matrícula» es ruido.
+  assert.ok(!resumenCondicionesPlan(form({ nombre: 'X', precio: '60' })).some(l => l.includes('atrícula')));
+});
+
+test('un bono con matrícula también la anuncia', () => {
+  const lineas = resumenCondicionesPlan(form({
+    nombre: 'Bono', precio: '120', tipo: 'BONO', sesiones: '10', validezDias: '60', matricula: '25',
+  }));
+  assert.ok(lineas.some(l => l.includes('25 €')), lineas.join(' | '));
 });

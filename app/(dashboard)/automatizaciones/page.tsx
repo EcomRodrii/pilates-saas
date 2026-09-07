@@ -16,6 +16,10 @@ import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } fr
 import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
+import {
+  mensajesDeTrigger, plantillaDe, vistaPreviaMensaje, mensajesPersonalizados,
+  type MensajeAutomatizacion,
+} from '@/lib/engines/mensajes-automatizacion';
 import { Toast, useToast } from '@/components/ui/toast';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -258,12 +262,18 @@ function pasosDeRegla(rule: AutomationRule): PasoVisible[] {
 function RuleCard({
   rule,
   onToggle,
+  soloLectura = false,
 }: {
   rule: AutomationRule;
   onToggle: () => void;
+  /** Vista previa de una regla SUGERIDA, que todavía no existe en la base de
+   *  datos. Se puede leer y desplegar sus pasos; el interruptor invita a
+   *  añadirlas en vez de fingir que ya se pueden encender. */
+  soloLectura?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const pasos = useMemo(() => pasosDeRegla(rule), [rule]);
+  const mensajes = useMemo(() => mensajesDeTrigger(rule.trigger), [rule.trigger]);
 
   return (
     <div className={cn(
@@ -293,12 +303,14 @@ function RuleCard({
                 ? { color: 'var(--brand)', background: 'color-mix(in srgb, var(--brand) 12%, var(--card))' }
                 : { color: 'var(--muted-foreground)', background: 'var(--muted)' }}
             >
-              {rule.activa ? 'Activada' : 'Desactivada'}
+              {soloLectura ? 'Sin añadir' : rule.activa ? 'Activada' : 'Desactivada'}
             </span>
             <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full border">
               {triggerLabels[rule.trigger] ?? rule.trigger}
             </span>
-            <span className="text-[10px] text-muted-foreground">{rule.ejecutadaVeces} ejecuciones</span>
+            {!soloLectura && (
+              <span className="text-[10px] text-muted-foreground">{rule.ejecutadaVeces} ejecuciones</span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -319,9 +331,13 @@ function RuleCard({
           <button
             type="button"
             role="switch"
-            aria-checked={rule.activa}
-            aria-label={`${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
-            title={rule.activa ? 'Activada — desactivar' : 'Desactivada — activar'}
+            aria-checked={soloLectura ? false : rule.activa}
+            aria-label={soloLectura
+              ? `Añadir las reglas sugeridas para poder activar ${rule.nombre}`
+              : `${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
+            title={soloLectura
+              ? 'Añádelas primero para poder encenderla'
+              : rule.activa ? 'Activada — desactivar' : 'Desactivada — activar'}
             onClick={onToggle}
             className="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors"
             style={{ background: rule.activa ? 'var(--brand)' : 'var(--muted-foreground)' }}
@@ -363,6 +379,128 @@ function RuleCard({
                 Esta automatización no tiene pasos configurados, así que no enviará nada.
               </p>
             )}
+          </div>
+
+          {mensajes.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+                Qué le llega a tu clienta
+              </p>
+              <div className="space-y-2">
+                {mensajes.map(def => (
+                  <EditorMensaje key={def.clave} rule={rule} def={def} soloLectura={soloLectura} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Mensaje de una automatización: leerlo, y cambiarlo ──────────────────────
+//
+// Lo que faltaba para poder encender ninguna regla. La pantalla decía «QUÉ
+// HACE, PASO A PASO: WhatsApp el día antes de la clase» y en ningún sitio el
+// texto que iba a salir con el nombre del estudio a 300 personas. Nadie
+// enciende eso a ciegas — y una automatización apagada no vale nada.
+function EditorMensaje({ rule, def, soloLectura }: {
+  rule: AutomationRule;
+  def: MensajeAutomatizacion;
+  soloLectura: boolean;
+}) {
+  const { guardarMensajeAutomatizacion } = useStudio();
+  const [abierto, setAbierto] = useState(false);
+  const [borrador, setBorrador] = useState(() => plantillaDe(rule, def.clave));
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const personalizado = def.clave in mensajesPersonalizados(rule);
+
+  async function guardar(texto: string | null) {
+    setGuardando(true);
+    setError(null);
+    const res = await guardarMensajeAutomatizacion(rule.id, def.clave, texto);
+    setGuardando(false);
+    if (!res.ok) { setError(res.error); return; }
+    setAbierto(false);
+    if (texto === null) setBorrador(plantillaDe({ condicion: {} }, def.clave));
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold text-foreground">{def.cuando}</p>
+          <p className="text-[10.5px] text-muted-foreground mt-0.5">Asunto: {def.asunto}</p>
+        </div>
+        {personalizado && (
+          <span className="shrink-0 text-[9.5px] font-bold uppercase tracking-wider text-brand-medio">Tuyo</span>
+        )}
+      </div>
+
+      {/* Lo que de verdad va a leer la clienta, con datos de ejemplo. */}
+      <p className="mt-2 rounded-md bg-card border border-border p-2.5 text-[11.5px] leading-relaxed text-foreground">
+        {vistaPreviaMensaje(rule, def.clave)}
+      </p>
+
+      {!soloLectura && !abierto && (
+        <div className="mt-2 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => { setBorrador(plantillaDe(rule, def.clave)); setAbierto(true); }}
+            className="text-[11px] font-semibold text-brand-medio hover:underline"
+          >
+            Escribirlo a mi manera
+          </button>
+          {personalizado && (
+            <button
+              type="button"
+              onClick={() => guardar(null)}
+              disabled={guardando}
+              className="text-[11px] font-semibold text-muted-foreground hover:underline disabled:opacity-50"
+            >
+              Volver al texto de Tentare
+            </button>
+          )}
+        </div>
+      )}
+
+      {abierto && (
+        <div className="mt-2 space-y-2">
+          <textarea
+            value={borrador}
+            onChange={e => setBorrador(e.target.value)}
+            rows={4}
+            aria-label={`Texto del mensaje: ${def.cuando}`}
+            className="w-full rounded-md border border-border bg-card px-2.5 py-2 text-[11.5px] leading-relaxed text-foreground outline-none focus:border-brand resize-none"
+          />
+          <p className="text-[10.5px] text-muted-foreground">
+            Entre llaves van los datos de cada clienta:{' '}
+            {def.variables.map((v, i) => (
+              <span key={v.clave}>
+                {i > 0 && ' · '}
+                <code className="font-mono text-foreground">{`{${v.clave}}`}</code> {v.descripcion.toLowerCase()}
+              </span>
+            ))}
+          </p>
+          {error && <p role="alert" className="text-[11px] text-destructive">{error}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setAbierto(false)}
+              className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-semibold text-foreground hover:bg-muted"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => guardar(borrador)}
+              disabled={guardando || !borrador.trim()}
+              className="rounded-lg bg-brand px-3 py-1.5 text-[11px] font-bold text-brand-foreground disabled:opacity-40"
+            >
+              {guardando ? 'Guardando…' : 'Guardar'}
+            </button>
           </div>
         </div>
       )}
@@ -669,29 +807,72 @@ export default function AutomatizacionesPage() {
 
       {tab === 'reglas' && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-xs text-muted-foreground">
-              Las reglas llegan <strong className="text-foreground">desactivadas</strong>. Ábrelas para ver
-              qué envía cada una y enciende solo las que quieras.
-            </p>
-            <button
-              onClick={handleCargarSugeridas}
-              className="flex items-center gap-1.5 shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
-            >
-              <Zap size={12} />
-              Cargar reglas sugeridas
-            </button>
-          </div>
-          {automationRules.length === 0 && (
-            <EmptyState icono={Bot} titulo="Todavía no tienes ninguna automatización activa" />
+          {/* Sin reglas guardadas, esta pantalla enseñaba «Todavía no tienes
+              ninguna automatización activa» y escondía las siete sugeridas
+              detrás de un enlace gris arriba a la derecha. Durante una prueba
+              de 7 días, lo que no se ve no existe — y estas secuencias (la
+              clienta ausente que se recupera sola, el impago que se persigue
+              con dos avisos) son de lo mejor que tiene el producto.
+
+              Ahora se ven desde el primer segundo, sin escribir nada en la base
+              de datos: son tarjetas de solo lectura, con sus pasos
+              desplegables, hasta que la propietaria decide añadirlas. */}
+          {automationRules.length === 0 ? (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground max-w-xl">
+                  Esto es lo que Tentare puede hacer solo por ti. Añádelas cuando quieras:
+                  llegan <strong className="text-foreground">apagadas</strong>, y las enciendes una a una
+                  después de leer qué envía cada una.
+                </p>
+                <button
+                  onClick={handleCargarSugeridas}
+                  className="flex items-center gap-1.5 shrink-0 text-sm font-semibold px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  <Zap size={13} />
+                  Añadir estas {REGLAS_SUGERIDAS.length} reglas
+                </button>
+              </div>
+              {REGLAS_SUGERIDAS.map((sug, i) => (
+                <RuleCard
+                  key={sug.nombre}
+                  rule={{
+                    ...sug,
+                    id: `sugerida-${i}`,
+                    studioId: '',
+                    ejecutadaVeces: 0,
+                    ultimaEjecucion: null,
+                    creadaEn: '',
+                  } as AutomationRule}
+                  soloLectura
+                  onToggle={handleCargarSugeridas}
+                />
+              ))}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-xs text-muted-foreground">
+                  Las reglas llegan <strong className="text-foreground">desactivadas</strong>. Ábrelas para ver
+                  qué envía cada una y enciende solo las que quieras.
+                </p>
+                <button
+                  onClick={handleCargarSugeridas}
+                  className="flex items-center gap-1.5 shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
+                >
+                  <Zap size={12} />
+                  Cargar reglas sugeridas
+                </button>
+              </div>
+              {automationRules.map(rule => (
+                <RuleCard
+                  key={rule.id}
+                  rule={rule}
+                  onToggle={() => handleToggleRule(rule)}
+                />
+              ))}
+            </>
           )}
-          {automationRules.map(rule => (
-            <RuleCard
-              key={rule.id}
-              rule={rule}
-              onToggle={() => handleToggleRule(rule)}
-            />
-          ))}
         </div>
       )}
 

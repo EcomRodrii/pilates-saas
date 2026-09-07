@@ -16,6 +16,7 @@ import {
   dbFetchDependencySnapshots,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
+  dbSocioTieneAlgunPlan,
   dbGuardarEntrega,
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
   dbInsertPlazaFija, dbUpdatePlazaFija, dbListPlazasFijas,
@@ -110,6 +111,7 @@ import type {
   EstadoReserva,
   Recibo,
   MetodoCobro,
+  CobroAlta,
   Factura,
   PlanTarifa,
   Sala,
@@ -193,7 +195,7 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoConsumible, bonoDevolvible, calcularReactivacion, cicloInicialDe, avisaBonoAgotado } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, calcularReactivacion, cicloInicialDe, avisaBonoAgotado, mesesDeCiclo } from '@/lib/bono-logic';
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -372,7 +374,7 @@ interface StudioContextValue {
   notasInternas: NotaInterna[];
 
   // Socios
-  addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }) => Promise<ResultadoEscritura & { id?: string }>;
+  addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato; cobroAlta?: CobroAlta }) => Promise<ResultadoEscritura & { id?: string }>;
   addSocioFromPortal: (fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null; origenLead?: string | null }) => Promise<ResultadoEscritura>;
   updateSocio: (id: string, changes: Partial<Socio>) => Promise<ResultadoEscritura>;
   deleteSocio: (id: string) => Promise<void>;
@@ -493,7 +495,7 @@ interface StudioContextValue {
 
   // Campañas
   campanas: Campana[];
-  addCampana: (fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>) => Promise<ResultadoEscritura>;
+  addCampana: (fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>) => Promise<ResultadoEscritura & { campana?: Campana }>;
   deleteCampana: (id: string) => Promise<ResultadoEscritura>;
   duplicateCampana: (campana: Campana) => Promise<ResultadoEscritura>;
   updateCampana: (id: string, patch: Partial<Campana>) => Promise<ResultadoEscritura>;
@@ -623,6 +625,9 @@ interface StudioContextValue {
   automationLogs: AutomationLog[];
   notasProgreso: NotaProgreso[];
   toggleAutomationRule: (id: string) => Promise<ResultadoEscritura>;
+  /** Reescribe (o devuelve a su texto de fábrica, con `null`) uno de los
+   *  mensajes que esa automatización manda a las clientas. */
+  guardarMensajeAutomatizacion: (id: string, clave: string, texto: string | null) => Promise<ResultadoEscritura>;
   addAutomationRule: (fields: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>) => Promise<ResultadoEscritura>;
   addAutomationLog: (log: Omit<AutomationLog, 'id' | 'studioId'>) => void;
   runAutomation: () => Promise<AutomationLog[]>;
@@ -2016,7 +2021,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Socios ────────────────────────────────────────────────────────────────────
 
-  async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }): Promise<ResultadoEscritura & { id?: string }> {
+  async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato; cobroAlta?: CobroAlta }): Promise<ResultadoEscritura & { id?: string }> {
     // El insert de más abajo va directo a Supabase desde el navegador (RLS, sin
     // ruta de servidor de por medio) — el tope de socias del plan se comprueba
     // aquí, antes, porque si no el alta manual lo saltaba entero (el importador
@@ -2024,7 +2029,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const motivoBloqueo = await verificarLimiteSocias();
     if (motivoBloqueo) return { ok: false, error: motivoBloqueo };
 
-    const { planId, aceptacionContrato, ...socioFields } = fields;
+    const { planId, aceptacionContrato, cobroAlta, ...socioFields } = fields;
     const ahora = new Date().toISOString();
     // P-9 (auditoría 21ª pasada): `recibos.fecha_vencimiento`/`fecha_cobro` son
     // `date`, no `timestamptz` como `socios.fecha_alta` — con `ahora` (ISO en
@@ -2078,19 +2083,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           ...cicloInicialDe(plan, ahora),
           stripeSubscriptionId: null,
         };
+        // El alta NO da por cobrado nada por su cuenta. Antes este recibo nacía
+        // siempre `COBRADO` con `metodo_cobro` a null: sin Stripe, sin tarjeta y
+        // sin que nadie tocara un euro, «Cobrado este mes» subía en Cobros, en
+        // el Dashboard y en Informes, y a fin de mes no cuadraba con el banco.
+        // Ahora el estado sale de lo que diga el mostrador: cobrado de verdad
+        // (con su método) o pendiente de cobro, que es el valor por defecto.
+        const cobrado = cobroAlta?.pagado === true;
         const reciboId = `rec-${uid()}`;
-        const reciboCobrado: Recibo = {
+        const reciboAlta: Recibo = {
           id: reciboId,
           studioId: getCurrentStudioId(),
           socioId: nuevaSocia.id,
           suscripcionId: susId,
           concepto: `Alta — ${plan.nombre}`,
           importe: plan.precio,
-          estado: 'COBRADO',
+          estado: cobrado ? 'COBRADO' : 'PENDIENTE',
           fechaVencimiento: hoy,
-          fechaCobro: hoy,
+          fechaCobro: cobrado ? hoy : null,
           fechaDevolucion: null,
           intentosReintento: 0,
+          ...(cobrado ? { metodoCobro: cobroAlta.metodo } : {}),
         };
 
         // Suscripción y recibo, en orden y esperados. La socia ya existe, así
@@ -2099,9 +2112,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         if (!resSus.ok) return resSus;
         setSuscripciones(prev => [...prev, sus]);
 
-        const resRec = await dbInsertRecibo(reciboCobrado);
+        const resRec = await dbInsertRecibo(reciboAlta);
         if (!resRec.ok) return resRec;
-        setRecibos(prev => [...prev, reciboCobrado]);
+        setRecibos(prev => [...prev, reciboAlta]);
 
         // La factura se SELLA (Veri*Factu, cadena de hashes) y no se puede
         // borrar: solo se emite cuando el cobro que la respalda está guardado.
@@ -2109,9 +2122,70 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // 2.2: el sellado (llamada de red) se saca del updater de setFacturas —
         // ahí dentro debe ser puro, o React lo duplica en StrictMode/reintentos
         // concurrentes y se sella la misma factura fiscal dos veces.
-        const fac = buildFactura(reciboCobrado, facturas);
-        setFacturas(prev => [...prev, fac]);
-        void sellarFacturaYActualizar(fac);
+        // Y solo se factura lo COBRADO: un recibo pendiente todavía no es una
+        // venta, y emitir su factura gastaría un número de la serie legal por
+        // un dinero que puede no llegar nunca. Cuando se cobre, `marcarCobrado`
+        // emite la factura entonces.
+        const facturaAlta = cobrado ? buildFactura(reciboAlta, facturas) : null;
+        if (facturaAlta) {
+          setFacturas(prev => [...prev, facturaAlta]);
+          void sellarFacturaYActualizar(facturaAlta);
+        }
+
+        // ── Matrícula ───────────────────────────────────────────────────────
+        //
+        // Cuota de alta: se cobra la PRIMERA vez que una socia contrata un
+        // plan, y aquí eso es siempre — esta ficha acaba de nacer, no puede
+        // tener nada anterior.
+        //
+        // RECIBO APARTE, y no sumada al importe del plan, por una razón que no
+        // es de presentación: el cron de renovaciones emite el recibo del ciclo
+        // siguiente con `plan.precio` tal cual. Metida dentro, la matrícula se
+        // cobraría cada mes. Aparte es imposible por construcción, y además
+        // deja la caja legible («¿cuánto entró de matrículas este trimestre?»).
+        const matricula = plan.matricula ?? 0;
+        if (matricula > 0) {
+          const reciboMatricula: Recibo = {
+            id: `rec-${uid()}`,
+            studioId: getCurrentStudioId(),
+            socioId: nuevaSocia.id,
+            // Sin `suscripcionId`: la matrícula no es de ningún ciclo. Si
+            // colgara de la suscripción, cancelarla la arrastraría, y una
+            // matrícula ya cobrada es una venta cerrada.
+            suscripcionId: null,
+            concepto: `Matrícula — ${plan.nombre}`,
+            importe: matricula,
+            estado: cobrado ? 'COBRADO' : 'PENDIENTE',
+            fechaVencimiento: hoy,
+            fechaCobro: cobrado ? hoy : null,
+            fechaDevolucion: null,
+            intentosReintento: 0,
+            ...(cobrado ? { metodoCobro: cobroAlta.metodo } : {}),
+          };
+          const resMat = await dbInsertRecibo(reciboMatricula);
+          if (resMat.ok) {
+            setRecibos(prev => [...prev, reciboMatricula]);
+            if (cobrado) {
+              // Su propia factura, con su propio número: son dos ventas
+              // distintas (una cuota y un alta) y Hacienda las quiere así.
+              // Con la factura del plan ya incluida: `buildFactura` deriva el
+              // número de la lista que se le pasa, y con `facturas` a secas
+              // las dos saldrían con el MISMO número en pantalla hasta que el
+              // servidor las renumerase al sellarlas.
+              const facMat = buildFactura(reciboMatricula, facturaAlta ? [...facturas, facturaAlta] : facturas);
+              setFacturas(prev => [...prev, facMat]);
+              void sellarFacturaYActualizar(facMat);
+            }
+          } else {
+            // El alta ya está hecha y no se deshace por esto: se avisa de que
+            // falta anotar la matrícula, que es lo único que se puede hacer.
+            // La marca de tiempo del alta y no `Date.now()`: es igual de
+            // única para este aviso, y el compilador de React da la llamada
+            // impura por error aquí dentro (el resto del fichero la usa desde
+            // sitios que sí analiza).
+            setDbError({ msg: `El alta se ha guardado, pero la matrícula de ${matricula} € no ha quedado anotada: añádela a mano en Cobros.`, key: new Date(ahora).getTime() });
+          }
+        }
       }
     }
 
@@ -2441,6 +2515,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // posible; que la clienta se quede de más y no de menos es la mitad buena.
     const fallos: string[] = [];
 
+    // ¿Es el PRIMER plan que contrata en este estudio? Decide si se le cobra
+    // matrícula, y hay que preguntarlo ANTES de insertar el plan nuevo — un
+    // segundo después la respuesta ya sería «no» siempre.
+    //
+    // Se pregunta al servidor y no a `suscripciones` en memoria: esa carga no
+    // pagina y se corta a 1000 filas, así que en un estudio grande la
+    // suscripción de hace tres años de una socia que vuelve puede no estar
+    // cargada, y cobrarle otra vez el alta es una devolución. `null` (no se ha
+    // podido saber) cuenta como «ya tenía»: ante la duda no se cobra.
+    const cobraMatricula = (plan?.matricula ?? 0) > 0
+      && (await dbSocioTieneAlgunPlan(socioId, getCurrentStudioId())) === false;
+
     // 1) El plan nuevo. Si esto falla no se ha tocado nada: se corta aquí.
     if (nueva) {
       const res = await dbInsertSuscripcion(nueva);
@@ -2480,6 +2566,31 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       else fallos.push(`El plan se ha asignado, pero el cobro de ${plan.precio} € no ha quedado anotado en "Quién me debe": añádelo a mano.`);
     }
 
+    // 2b) La matrícula, si es su primer plan aquí. Recibo APARTE del de la
+    //     cuota —nunca sumada a `plan.precio`— porque el cron de renovaciones
+    //     emite el recibo del ciclo siguiente con ese precio tal cual: metida
+    //     dentro se cobraría cada ciclo. Y sin `suscripcionId`, porque no
+    //     pertenece a ningún ciclo: cancelar el plan no anula un alta cobrada.
+    let reciboMatricula: Recibo | null = null;
+    if (nueva && plan && cobraMatricula) {
+      const rec: Recibo = {
+        id: `rec-${uid()}`,
+        studioId: getCurrentStudioId(),
+        socioId,
+        suscripcionId: null,
+        concepto: `Matrícula — ${plan.nombre}`,
+        importe: plan.matricula ?? 0,
+        estado: 'PENDIENTE',
+        fechaVencimiento: nueva.fechaInicio,
+        fechaCobro: null,
+        fechaDevolucion: null,
+        intentosReintento: 0,
+      };
+      const res = await dbInsertRecibo(rec);
+      if (res.ok) reciboMatricula = rec;
+      else fallos.push(`La matrícula de ${plan.matricula} € no ha quedado anotada en "Quién me debe": añádela a mano.`);
+    }
+
     // 3) Y por último, retirar lo viejo. Lo que no se consiga dar de baja sigue
     //    activo en el servidor, así que tampoco se tacha en pantalla.
     const desactivadas = new Set<string>();
@@ -2501,8 +2612,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       );
       return nueva ? [...bajas, nueva] : bajas;
     });
-    const rec = reciboPlan;
-    if (rec) setRecibos(prev => [...prev, rec]);
+    const nuevosRecibos = [reciboPlan, reciboMatricula].filter((r): r is Recibo => r !== null);
+    if (nuevosRecibos.length > 0) setRecibos(prev => [...prev, ...nuevosRecibos]);
 
     const socio = socios.find(s => s.id === socioId);
     addActividadReciente(
@@ -3626,7 +3737,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ));
     } else if (plan.tipo === 'MENSUAL') {
       const nuevaFin = new Date();
-      nuevaFin.setMonth(nuevaFin.getMonth() + 1);
+      // Espejo exacto de `renovacion-server.ts`: tantos meses como dure el
+      // ciclo. Cobrar una trimestral y extenderla un mes le cobraría a la
+      // socia tres veces el mismo trimestre.
+      nuevaFin.setMonth(nuevaFin.getMonth() + mesesDeCiclo(plan));
       const fechaFin = nuevaFin.toISOString().slice(0, 10);
       // ⚠️ Este guard FALTABA aquí, y sí está en el espejo de servidor
       // (`renovacion-server.ts`). Sin él, cobrar una renovación de una
@@ -4037,7 +4151,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Campañas ─────────────────────────────────────────────────────────────────
 
-  async function addCampana(fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>): Promise<ResultadoEscritura> {
+  // Devuelve la campaña creada, no solo `ok`: quien la crea para enviarla acto
+  // seguido necesita su id, y buscarla en `campanas` justo después no funciona
+  // (el `setCampanas` de aquí abajo no se ha aplicado todavía en ese render).
+  async function addCampana(fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>): Promise<ResultadoEscritura & { campana?: Campana }> {
     const nueva: Campana = {
       id: `camp-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -4050,7 +4167,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbInsertCampana(nueva);
     if (!res.ok) return res;
     setCampanas(prev => [nueva, ...prev]);
-    return res;
+    return { ...res, campana: nueva };
   }
 
   async function deleteCampana(id: string): Promise<ResultadoEscritura> {
@@ -4623,6 +4740,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
+  // El texto de un mensaje vive en `condicion.mensajes[clave]` — jsonb que ya
+  // existe y ya guarda los umbrales de la regla, así que esto no necesita
+  // ninguna columna nueva. `null` borra la personalización y devuelve el texto
+  // de fábrica, en vez de dejar guardada una copia idéntica que dejaría de
+  // recibir las mejoras del texto por defecto.
+  async function guardarMensajeAutomatizacion(id: string, clave: string, texto: string | null): Promise<ResultadoEscritura> {
+    const rule = automationRules.find(r => r.id === id);
+    if (!rule) return { ok: false, error: 'No se encuentra esa regla.' };
+    const previos = { ...(rule.condicion.mensajes as Record<string, string> | undefined ?? {}) };
+    if (texto && texto.trim()) previos[clave] = texto.trim();
+    else delete previos[clave];
+    const condicion = { ...rule.condicion, mensajes: previos };
+    const res = await dbUpdateAutomationRule(id, getCurrentStudioId(), { condicion });
+    if (!res.ok) return res;
+    setAutomationRules(prev => prev.map(r => (r.id === id ? { ...r, condicion } : r)));
+    return res;
+  }
+
   async function addAutomationRule(fields: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>): Promise<ResultadoEscritura> {
     const nueva: AutomationRule = {
       ...fields,
@@ -4952,6 +5087,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     automationLogs,
     notasProgreso,
     toggleAutomationRule,
+    guardarMensajeAutomatizacion,
     addAutomationRule,
     addAutomationLog,
     runAutomation,

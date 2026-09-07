@@ -97,6 +97,44 @@ test('"Por debajo del 60%" cuenta clases flojas y avisa si hay alguna', () => {
   assert.match(flojas.pie, /revisa su hora/);
 });
 
+// Regresión: al crear una serie del trimestre, el contador saltaba a decenas
+// al instante — clases de dentro de semanas, con 0 reservas porque acababan de
+// nacer, contadas como «clases que no llenan · revisa su hora». Un contador
+// que regaña por algo que no ha pasado deja de mirarse.
+test('"Por debajo del 60%" ignora las clases cuya reserva aún no ha abierto', () => {
+  const ahora = new Date('2026-09-07T09:00:00Z');
+  const dentroDe4Dias = new Date('2026-09-11T09:00:00Z').toISOString();
+  const [, , flojas] = metricasSemana(
+    [sa({ estado: 'PROGRAMADA', confirmadas: 0, aforoMaximo: 10, inicioISO: dentroDe4Dias })],
+    true,
+    ahora,
+  );
+  assert.equal(flojas.valor, '0');
+  assert.match(flojas.pie, /ninguna clase floja/);
+});
+
+test('"Por debajo del 60%" sí cuenta la clase que empieza dentro de menos de 24 h', () => {
+  const ahora = new Date('2026-09-07T09:00:00Z');
+  const estaTarde = new Date('2026-09-07T18:00:00Z').toISOString();
+  const [, , flojas] = metricasSemana(
+    [sa({ estado: 'PROGRAMADA', confirmadas: 1, aforoMaximo: 10, inicioISO: estaTarde })],
+    true,
+    ahora,
+  );
+  assert.equal(flojas.valor, '1');
+});
+
+test('"Por debajo del 60%" cuenta la clase que ya se dio', () => {
+  const ahora = new Date('2026-09-07T09:00:00Z');
+  const ayer = new Date('2026-09-06T10:00:00Z').toISOString();
+  const [, , flojas] = metricasSemana(
+    [sa({ estado: 'FINALIZADA', confirmadas: 2, aforoMaximo: 10, inicioISO: ayer })],
+    true,
+    ahora,
+  );
+  assert.equal(flojas.valor, '1');
+});
+
 test('"Por debajo del 60%" en 0 dice que ninguna clase está floja', () => {
   const [, , flojas] = metricasSemana([sa({ estado: 'PROGRAMADA', confirmadas: 7, aforoMaximo: 8 })]);
   assert.equal(flojas.valor, '0');
