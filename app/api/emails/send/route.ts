@@ -11,7 +11,7 @@ import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { CambioClaseEmail } from '@/lib/emails/cambio-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { resolverPlantilla, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, generarEnlaceAccesoSocia } from '@/lib/emails/plantillas-server';
+import { resolverPlantilla, envioDesactivado, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, generarEnlaceAccesoSocia } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from '@/lib/emails/remitente';
@@ -84,6 +84,20 @@ export async function POST(req: NextRequest) {
   const porEstudio = await rateLimit(`emails-send:${sesion.studioId}`, { max: 500, windowSeconds: 3600 });
   if (!porEstudio.allowed) {
     return tooManyRequestsResponse(retryAfterSeconds(porEstudio.resetAt, 3600));
+  }
+
+  // La propietaria puede apagar cualquiera de los correos automáticos desde
+  // Configuración → Emails. Se comprueba aquí, en la puerta de servidor, y no
+  // en cada pantalla que llama: un interruptor que dependa de que seis sitios
+  // se acuerden de mirarlo no es un interruptor.
+  //
+  // 200 con `omitido`, no un 4xx: quien llama no ha hecho nada mal —el estudio
+  // ha decidido que ese correo no sale—, y un error pintaría un aviso rojo en
+  // el panel cada vez que se da de alta a una clienta con la bienvenida
+  // apagada. Los llamantes que cuentan avisos de verdad
+  // (enviarEmailCancelacionClase) miran este campo para no contar de más.
+  if (await envioDesactivado(sesion.studioId, body.tipo)) {
+    return NextResponse.json({ omitido: 'desactivado' });
   }
 
   // `body.data` llega con un `as` que TypeScript no comprueba en runtime. Se

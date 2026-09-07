@@ -5,7 +5,7 @@ import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { ReservaEmail } from '@/lib/emails/reserva-template';
 import { EsperaSinPlazaEmail } from '@/lib/emails/espera-sin-plaza-template';
-import { resolverPlantilla, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, type PlantillaOverride, type MarcaEstudio } from '@/lib/emails/plantillas-server';
+import { resolverPlantilla, envioDesactivado, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, type PlantillaOverride, type MarcaEstudio } from '@/lib/emails/plantillas-server';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from './remitente.ts';
 
@@ -115,6 +115,13 @@ export async function enviarEmailTransaccional(params: {
   if (esDominioReservado(params.to)) {
     return { ok: false, error: `Email de ejemplo (${params.to}), no una dirección real` };
   }
+
+  // La propietaria puede apagar este correo desde Configuración → Emails.
+  // Se comprueba ANTES de resolver plantilla y marca: si no va a salir, no hay
+  // nada que preparar. `skipped` (no `error`) porque no ha fallado nada — es
+  // una decisión del estudio, y los crons que cuentan fallidos no deben verlo
+  // como uno (lo mismo que ya pasa cuando Resend no está configurado).
+  if (await envioDesactivado(params.studioId, params.tipo)) return { ok: false, skipped: true };
 
   try {
     const [plantilla, marca] = await Promise.all([

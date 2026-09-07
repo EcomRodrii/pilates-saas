@@ -1943,7 +1943,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ? { ...existente, ...changes }
       : {
           id: `pl-${uid()}`, studioId: getCurrentStudioId(), tipo,
-          asunto: null, intro: null, activa: true,
+          asunto: null, intro: null, activa: true, enviar: true,
           cuerpo: null, botonTexto: null, colorCabecera: null, colorBoton: null,
           logoUrl: null, pie: null, fuente: null,
           ...changes,
