@@ -109,6 +109,17 @@ test.describe('Student PWA · código de descuento', () => {
     await montar(page, { checkout: { clientSecret: 'pi_x_secret_y', importe: 70, descuento: 0, codigoAplicado: false } });
     await abrirCompra(page);
     await page.getByRole('button', { name: 'Continuar al pago' }).click();
+    // ⚠️ Y se ANCLA antes de negar. `toHaveCount(0)` se cumple sola mientras el
+    // elemento todavía no existe, así que sin esperar a que la hoja llegue de
+    // verdad a la pantalla de pago las dos negaciones de abajo pasarían aunque
+    // el desglose se pintara un instante después. Era el otro defecto de este
+    // caso, además del mock que se contradecía: pasó en local y en la CI del
+    // PR, y falló en main. Una negación sin ancla no prueba nada.
+    //
+    // El ancla es la FASE, no un texto: el primer intento esperaba «Pagar 70 €»
+    // y ese botón depende de que Stripe cargue, que en pruebas no ocurre —así
+    // que el ancla misma era inestable.
+    await expect(page.getByTestId('fase-pagando')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('desglose')).toHaveCount(0);
     await expect(page.getByTestId('codigo-resultado')).toHaveCount(0);
   });

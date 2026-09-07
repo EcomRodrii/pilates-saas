@@ -148,7 +148,15 @@ export function HojaCompra({
             solo se vería la primera vez.
             `.a-fade` (250 ms, solo opacidad) llevaba definida en el sistema
             desde el principio sin que la usara nadie. */}
-        <div key={sinCobro ? 'sin-cobro' : estado.fase} className="a-fade">
+        {/* `data-testid` con la fase: es lo que hace OBSERVABLE en qué punto
+            está la hoja. Sin él, una prueba solo puede adivinarlo por textos
+            que dependen de que Stripe cargue —y en pruebas no carga—, así que
+            anclar en «Pagar 70 €» era anclar en algo que a veces no existe. */}
+        <div
+          key={sinCobro ? 'sin-cobro' : estado.fase}
+          data-testid={'fase-' + (sinCobro ? 'sin-cobro' : estado.fase)}
+          className="a-fade"
+        >
         {sinCobro ? (
           <>
             <p className="t-meta" style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.55 }}>
