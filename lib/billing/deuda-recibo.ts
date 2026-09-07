@@ -21,7 +21,7 @@
 // online desde el 5 de septiembre.
 //
 // El criterio es el mismo que el de la RPC `socio_tiene_impago`
-// (migr 20260907120000) y de ahí sale: **lo que bloquea por deuda tiene que
+// (migr 20260907075400) y de ahí sale: **lo que bloquea por deuda tiene que
 // poder pagarse**. Si divergen, vuelve el callejón sin salida — y hay un test
 // que los cruza (`deuda-recibo.test.ts`), que DERIVA la lista de la migración
 // vigente en vez de repetirla a mano.
