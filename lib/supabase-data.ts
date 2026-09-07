@@ -2059,6 +2059,9 @@ function mapPlantillaEmail(r: RowPlantillasEmail): PlantillaEmail {
     asunto: r.asunto ?? null,
     intro: r.intro ?? null,
     activa: r.activa ?? true,
+    // Sin fila, o con la columna aún sin rellenar, el correo SE ENVÍA: es lo
+    // que llevaba pasando siempre, y apagarlo tiene que ser un acto explícito.
+    enviar: r.enviar ?? true,
     cuerpo: r.cuerpo ?? null,
     botonTexto: r.boton_texto ?? null,
     colorCabecera: r.color_cabecera ?? null,
@@ -2084,6 +2087,7 @@ export async function dbUpsertPlantillaEmail(p: PlantillaEmail): Promise<Resulta
     asunto: p.asunto,
     intro: p.intro,
     activa: p.activa,
+    enviar: p.enviar,
     cuerpo: p.cuerpo,
     boton_texto: p.botonTexto,
     color_cabecera: p.colorCabecera,

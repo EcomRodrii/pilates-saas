@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { ImpagoEmail } from '@/lib/emails/impago-template';
-import { resolverMarcaEstudio, resolverPlantilla, interpolar, interpolarPersonalizacion } from '@/lib/emails/plantillas-server';
+import { resolverMarcaEstudio, resolverPlantilla, envioDesactivado, interpolar, interpolarPersonalizacion } from '@/lib/emails/plantillas-server';
 import { remitentePorMarca } from './remitente.ts';
 
 // Envío del email de IMPAGO a la socia desde código de servidor (webhook de Stripe
@@ -20,6 +20,10 @@ export async function enviarEmailImpago(params: {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
   if (!params.to) return { ok: false, error: 'Sin destinatario' };
+  // Apagado desde Configuración → Emails. Mismo criterio que send-server: es
+  // una decisión del estudio, no un fallo, así que el dunning no lo cuenta
+  // como email fallido ni reintenta nada.
+  if (await envioDesactivado(params.studioId, 'impago')) return { ok: false, skipped: true };
 
   try {
     const [marca, plantilla] = await Promise.all([

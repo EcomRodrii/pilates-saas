@@ -1699,6 +1699,10 @@ export async function avisarClaseModificada(
 // Devuelve si el envío se confirmó de verdad (mismo patrón que
 // enviarEmailCampana): el llamador (cancelarSesion) lo usa para saber
 // CUÁNTAS clientas quedaron avisadas de verdad, no asumirlo siempre.
+// Por eso no basta `res.ok`: si la propietaria ha apagado este correo, el
+// servidor responde 200 con `omitido` y NADIE ha sido avisado — contarlo como
+// aviso enviado dejaría el toast diciendo "8 clientas avisadas" con la bandeja
+// de las ocho vacía.
 export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente & {
   to: string; toName: string;
 }): Promise<boolean> {
@@ -1716,7 +1720,9 @@ export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente
         },
       }),
     });
-    return res.ok;
+    if (!res.ok) return false;
+    const j = await res.json().catch(() => null) as { omitido?: string } | null;
+    return !j?.omitido;
   } catch {
     return false;
   }

@@ -24,6 +24,40 @@ export function esTipoEditable(tipo: string): tipo is TipoPlantillaEditable {
   return (TIPOS_PLANTILLA_EDITABLES as readonly string[]).includes(tipo);
 }
 
+// ¿La propietaria ha APAGADO este correo? (`plantillas_email.enviar`, migr
+// 20260907121459). Petición literal de una propietaria que no quiere que salga
+// la confirmación de reserva.
+//
+// Va SEPARADA de `resolverPlantilla` y no es un campo más de
+// `PlantillaOverride` por una razón concreta: ese resolver devuelve `{}` en
+// cuanto la fila tiene `activa = false`, así que un estudio con la
+// personalización desactivada Y el correo apagado habría perdido el apagado
+// por el camino, mandando el correo de fábrica que justo no quiere.
+//
+// Solo puede apagarse lo que la propietaria ya puede editar
+// (TIPOS_PLANTILLA_EDITABLES). Eso deja fuera a propósito `recibo` y `factura`
+// (contenido fiscal), `automatizacion`/`cambio` (los dispara ella a mano) y
+// `espera-sin-plaza` (cierra la promesa de «te avisamos si se libera un
+// sitio» diciéndole que su dinero sigue ahí — el mismo motivo por el que
+// tampoco se puede reescribir).
+//
+// Fail-OPEN a propósito: sin service-role, sin fila o con la consulta caída
+// devuelve `false` y el correo sale. Dejar de mandar recordatorios y
+// cancelaciones porque una query falló es mucho peor que mandar uno que
+// alguien había apagado.
+export async function envioDesactivado(studioId: string | null | undefined, tipo: string): Promise<boolean> {
+  if (!studioId || !esTipoEditable(tipo)) return false;
+  const admin = getSupabaseAdmin();
+  if (!admin) return false;
+  const { data } = await admin
+    .from('plantillas_email')
+    .select('enviar')
+    .eq('studio_id', studioId)
+    .eq('tipo', tipo)
+    .maybeSingle();
+  return data?.enviar === false;
+}
+
 export async function resolverPlantilla(studioId: string | null | undefined, tipo: string): Promise<PlantillaOverride> {
   if (!studioId || !esTipoEditable(tipo)) return {};
   const admin = getSupabaseAdmin();

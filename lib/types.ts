@@ -428,6 +428,11 @@ export interface PlantillaEmail {
   asunto: string | null;
   intro: string | null;
   activa: boolean;
+  // ⚠️ `enviar` NO es lo mismo que `activa`, y confundirlos manda (o deja de
+  // mandar) correos a clientas reales: `activa: false` = «olvida mi
+  // personalización y manda el correo de fábrica»; `enviar: false` = «no lo
+  // mandes». migr 20260907121459.
+  enviar: boolean;
   // Personalización total. `null` en cualquiera = se mantiene lo de siempre,
   // campo a campo. `cuerpo` es Markdown con los tokens {datos} y {boton}.
   cuerpo: string | null;

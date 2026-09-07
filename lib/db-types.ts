@@ -1207,6 +1207,8 @@ export interface RowPlantillasEmail {
   pie: string | null;
   // migr 20260811005749.
   fuente: string | null;
+  // migr 20260907121459.
+  enviar: boolean | null;
 }
 
 export interface RowInstructorDependencySnapshots {

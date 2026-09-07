@@ -37,6 +37,12 @@ const PLANTILLAS_META: {
   datosLabel: string;
   // Presente solo si la plantilla tiene adónde enlazar.
   botonLabel?: string;
+  // Qué se pierde la clienta si se apaga este correo. Se enseña al apagarlo y
+  // mientras siga apagado: apagar un correo es una decisión legítima de la
+  // propietaria, pero tiene que tomarla sabiendo qué deja de llegar. No es un
+  // bloqueo ni un "¿estás segura?" — es la consecuencia, dicha una vez y en
+  // cristiano.
+  avisoAlApagar: string;
 }[] = [
   {
     tipo: 'bienvenida', label: 'Bienvenida', cuando: 'Se envía al dar de alta a una clienta.',
@@ -44,6 +50,7 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, estamos encantadas de tenerte en {estudio}.',
     variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
     datosLabel: 'Su plan contratado',
+    avisoAlApagar: 'Nadie le mandará el enlace para entrar a su portal al darla de alta.',
     botonLabel: 'Botón de acceso a su portal',
   },
   {
@@ -52,6 +59,7 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, tu plaza está reservada.',
     variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
+    avisoAlApagar: 'Solo verá la confirmación en pantalla al reservar y en su portal.',
   },
   {
     tipo: 'recordatorio', label: 'Recordatorio de clase', cuando: 'Se envía antes de la clase.',
@@ -59,6 +67,7 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, te esperamos en tu próxima clase. Aquí tienes los detalles.',
     variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
+    avisoAlApagar: 'No le llegará el aviso previo por correo (el de WhatsApp, si lo tienes, sigue saliendo).',
   },
   {
     tipo: 'cancelacion', label: 'Clase cancelada', cuando: 'Se envía cuando el estudio cancela una clase.',
@@ -66,6 +75,7 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, lamentamos avisarte de que esta clase ha sido cancelada. No hace falta que te presentes.',
     variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
+    avisoAlApagar: 'No se enterará por correo de que has anulado su clase.',
   },
   {
     tipo: 'promocion', label: 'Plaza liberada', cuando: 'Se envía al ascender a una clienta desde la lista de espera.',
@@ -73,6 +83,7 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, estabas en lista de espera y ha quedado una plaza libre.',
     variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
+    avisoAlApagar: 'No sabrá que ha entrado desde la lista de espera y puede perder la plaza.',
   },
   {
     tipo: 'impago', label: 'Pago fallido', cuando: 'Se envía cuando un cobro automático no se completa.',
@@ -80,6 +91,7 @@ const PLANTILLAS_META: {
     introDefault: 'Hola {nombre}, hemos intentado cobrar tu cuota y el pago no se ha completado.',
     variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
     datosLabel: 'El concepto y el importe',
+    avisoAlApagar: 'No sabrá que su cobro ha fallado: tendrás que avisarla tú.',
   },
 ];
 
@@ -130,6 +142,36 @@ function cuerpoDePartida(meta: Meta, intro: string): string {
   const partes = [`# ${meta.label}`, '', intro.trim() || meta.introDefault, '', '{datos}'];
   if (meta.botonLabel) partes.push('', '{boton}');
   return partes.join('\n');
+}
+
+// ─── Interruptor de encendido/apagado ────────────────────────────────────────
+// Mismo patrón que el de preferencias de notificación: un <button role="switch">
+// de verdad, no un div con onClick — un lector de pantalla tiene que poder
+// decir "activado/desactivado" y la barra espaciadora tiene que funcionar.
+
+function Interruptor({ on, onChange, label, ocupado }: {
+  on: boolean; onChange: () => void; label: string; ocupado: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      title={label}
+      disabled={ocupado}
+      onClick={onChange}
+      className={cn(
+        'relative h-6 w-10 shrink-0 rounded-full transition-colors disabled:opacity-50',
+        on ? 'bg-brand' : 'bg-muted-foreground/25',
+      )}
+    >
+      <span className={cn(
+        'absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
+        on && 'translate-x-4',
+      )} />
+    </button>
+  );
 }
 
 // ─── Barra de formato ────────────────────────────────────────────────────────
@@ -328,10 +370,24 @@ function EditorPlantilla({
     showToast('error' in r ? r.error : `Prueba enviada a ${r.enviadoA}`);
   }
 
+  // Editar un correo apagado es legítimo (dejarlo listo para cuando se vuelva a
+  // encender), pero callárselo no: sin este aviso se escribe, se guarda, sale
+  // "Guardado" y no le llega a nadie — que es exactamente la clase de mentira
+  // silenciosa que este panel intenta no cometer.
+  const apagado = plantilla?.enviar === false;
+
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
       {/* ── Columna de edición ── */}
       <div className="space-y-5">
+        {apagado && (
+          <p className="rounded-xl border border-border bg-muted/60 p-3 text-[12px] text-foreground">
+            <strong className="font-semibold">Ahora mismo este correo no se envía.</strong>{' '}
+            Puedes editarlo y se guarda igual, pero no le llegará a nadie hasta
+            que lo vuelvas a encender en la lista.
+          </p>
+        )}
+
         <Field label="Asunto" description="Es lo único que ve en la bandeja antes de abrirlo.">
           <input className={inputCls} placeholder={meta.asuntoDefault}
             value={b.asunto} onChange={e => set('asunto', e.target.value)} />
@@ -519,39 +575,78 @@ function EditorPlantilla({
 export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => void }) {
   const { plantillasEmail, upsertPlantillaEmail } = useStudio();
   const [abierta, setAbierta] = useState<TipoPlantillaEmail | null>(null);
+  // Qué interruptor está guardando ahora mismo. Sin esto se puede pulsar dos
+  // veces seguidas y la segunda escritura sale con el valor de antes.
+  const [cambiando, setCambiando] = useState<TipoPlantillaEmail | null>(null);
   const metaAbierta = PLANTILLAS_META.find(m => m.tipo === abierta);
+
+  // Encender/apagar un correo. Al apagarlo se dice en el mismo momento qué deja
+  // de recibir la clienta: es una decisión de la propietaria, pero no a ciegas.
+  async function cambiarEnvio(meta: Meta, enviar: boolean) {
+    setCambiando(meta.tipo);
+    const res = await upsertPlantillaEmail(meta.tipo, { enviar });
+    setCambiando(null);
+    if (!res.ok) { showToast(res.error); return; }
+    showToast(enviar
+      ? `«${meta.label}» vuelve a enviarse.`
+      : `«${meta.label}» ya no se envía. ${meta.avisoAlApagar}`);
+  }
 
   return (
     <div className="max-w-2xl space-y-4">
       <p className="text-[12px] text-muted-foreground">
-        Estos son los correos que Tentare envía sola a tus clientas. Puedes cambiarles el
-        saludo o escribirlos enteros, y los vas viendo mientras los editas. Los de recibo y
-        factura no se tocan por su contenido fiscal.
+        Estos son los correos que Tentare envía sola a tus clientas. Puedes apagar el que no
+        quieras que salga, cambiarles el saludo o escribirlos enteros, y los vas viendo
+        mientras los editas. Los de recibo y factura no se tocan ni se apagan por su
+        contenido fiscal.
       </p>
 
       <div className={cn(cardCls, 'divide-y divide-border')}>
         {PLANTILLAS_META.map(meta => {
           const p = plantillasEmail.find(x => x.tipo === meta.tipo);
+          const enviar = p?.enviar ?? true;
           const r = resumen(borradorDe(p), p?.activa ?? true);
           return (
-            <button
-              key={meta.tipo}
-              type="button"
-              onClick={() => setAbierta(meta.tipo)}
-              className="flex w-full items-center gap-4 p-4 text-left hover:bg-muted/50"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold text-foreground">{meta.label}</p>
-                <p className="truncate text-[12px] text-muted-foreground">{meta.cuando}</p>
-              </div>
-              <span className={cn(
-                'shrink-0 rounded-full px-2.5 py-1 text-[11px]',
-                r.tocado ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground',
-              )}>
-                {r.texto}
-              </span>
-              <Pencil size={14} className="shrink-0 text-muted-foreground" />
-            </button>
+            <div key={meta.tipo} className="flex w-full items-center gap-2 pr-4">
+              {/* El interruptor va FUERA del botón que abre el editor: un botón
+                  dentro de otro botón no es HTML válido, y además apagar un
+                  correo no debe abrir de paso la pantalla de edición. */}
+              <button
+                type="button"
+                onClick={() => setAbierta(meta.tipo)}
+                className="flex min-w-0 flex-1 items-center gap-4 p-4 text-left hover:bg-muted/50"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className={cn('text-[14px] font-semibold', enviar ? 'text-foreground' : 'text-muted-foreground')}>
+                    {meta.label}
+                  </p>
+                  {/* Apagado, el hueco lo ocupa la consecuencia: mientras siga
+                      así, lo que importa no es cuándo se enviaba sino qué ha
+                      dejado de llegarle a la clienta. */}
+                  <p className="truncate text-[12px] text-muted-foreground">
+                    {enviar ? meta.cuando : meta.avisoAlApagar}
+                  </p>
+                </div>
+                {/* Apagado gana a personalizado: da igual lo bonito que esté
+                    el correo si no sale, así que el estado que se lee de un
+                    vistazo es ese. Contorno en vez de relleno para que no se
+                    confunda con la etiqueta negra de "personalizado". */}
+                <span className={cn(
+                  'shrink-0 rounded-full px-2.5 py-1 text-[11px]',
+                  !enviar ? 'border border-border text-muted-foreground'
+                    : r.tocado ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground',
+                )}>
+                  {enviar ? r.texto : 'Apagado'}
+                </span>
+                <Pencil size={14} className="shrink-0 text-muted-foreground" />
+              </button>
+              <Interruptor
+                on={enviar}
+                ocupado={cambiando === meta.tipo}
+                onChange={() => void cambiarEnvio(meta, !enviar)}
+                label={enviar ? `Dejar de enviar «${meta.label}»` : `Volver a enviar «${meta.label}»`}
+              />
+            </div>
           );
         })}
       </div>
