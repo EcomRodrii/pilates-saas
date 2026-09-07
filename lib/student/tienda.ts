@@ -57,6 +57,18 @@ export interface ProductoTienda {
    * para todas, que es la regla del servidor (`cubreTipo`, bono-cubre.ts).
    */
   tiposClaseIds: string[];
+  /**
+   * Techo semanal POR ACTIVIDAD, ya filtrado a los topes reales (> 0).
+   *
+   * ⚠️ Viajaba hasta el cliente y NADIE se lo contaba a la alumna: el
+   * escaparate enseñaba solo `limiteSemanal` («máx. 3/semana») donde el
+   * servidor entiende «2 de Máquina y 1 de Gyrotonic». Es literalmente lo que
+   * la migración que lo creó dice que hay que impedir, y la alumna lo
+   * descubría al reservar la tercera de Máquina, con un `LIMITE_SEMANAL_
+   * ACTIVIDAD` y el dinero ya pagado: una condición de venta que solo aparece
+   * después de comprar.
+   */
+  limitePorTipo: Record<string, number>;
 }
 
 export interface PlanTienda {
@@ -71,6 +83,8 @@ export interface PlanTienda {
   limiteSemanal?: number | null;
   periodicidadMeses?: number | null;
   tiposClaseIds?: string[] | null;
+  /** Techo semanal POR ACTIVIDAD (`plan_tipos_clase.limite_semanal`, migr 20260907030553). */
+  limitePorTipo?: Record<string, number | null> | null;
 }
 
 export interface ServicioTienda {
@@ -128,6 +142,13 @@ export function catalogoTienda(
         validezDias: p.validezDias ?? null,
         duracionMin: null,
         limiteSemanal: p.limiteSemanal ?? null,
+        // Solo los topes de verdad: el formulario del panel escribe `null` en
+        // los tipos sin tope (lib/planes/formulario.ts), y anunciar «0 de
+        // Gyrotonic» sería peor que no decir nada.
+        limitePorTipo: Object.fromEntries(
+          Object.entries(p.limitePorTipo ?? {})
+            .filter((e): e is [string, number] => typeof e[1] === 'number' && e[1] > 0),
+        ),
         // Solo en suscripciones: en un bono el ciclo lo marcan las sesiones y
         // su caducidad, y un «/mes» ahí sería sencillamente falso.
         periodicidadMeses: familia === 'suscripcion' ? (p.periodicidadMeses ?? 1) : null,
@@ -150,6 +171,7 @@ export function catalogoTienda(
       validezDias: null,
       duracionMin: s.duracionMin ?? null,
       limiteSemanal: null,
+      limitePorTipo: {},
       periodicidadMeses: null,
       // Un servicio de cita no pasa por `plan_tipos_clase`: no está acotado a
       // tipos de clase porque no se reserva contra el horario.
@@ -177,7 +199,13 @@ export const TITULO_FAMILIA: Record<FamiliaProducto, string> = {
  * escribe «sin caducidad» —puede que el estudio la aplique por otra vía— sino
  * que simplemente no se menciona.
  */
-export function resumenProducto(p: ProductoTienda): string {
+export function resumenProducto(
+  p: ProductoTienda,
+  // Opcional: sin los nombres de los tipos de clase no se puede explicar un
+  // tope por actividad, y una restricción que no sabemos nombrar no se escribe
+  // — mismo criterio que `coberturaDeTipos`.
+  nombresTipo?: ReadonlyMap<string, string>,
+): string {
   const partes: string[] = [];
   if (p.familia === 'suscripcion') {
     const periodo = nombrePeriodo({ periodicidadMeses: p.periodicidadMeses });
@@ -186,6 +214,8 @@ export function resumenProducto(p: ProductoTienda): string {
   else if (p.sesiones !== null) partes.push(`${p.sesiones} ${p.sesiones === 1 ? 'clase' : 'clases'}`);
   if (p.duracionMin) partes.push(`${p.duracionMin} min`);
   if (p.limiteSemanal) partes.push(`máx. ${p.limiteSemanal}/semana`);
+  const topes = topesPorActividad(p, nombresTipo);
+  if (topes) partes.push(topes);
   if (p.validezDias) partes.push(`caduca a los ${p.validezDias} días`);
   return partes.join(' · ');
 }
@@ -236,4 +266,33 @@ export function coberturaDeTipos(
   // «A, B y C» — la conjunción en español, no una lista con comas sueltas.
   const ultimo = legibles[legibles.length - 1];
   return `Solo para ${legibles.slice(0, -1).join(', ')} y ${ultimo}`;
+}
+
+
+/**
+ * Los topes semanales POR ACTIVIDAD en una frase, o `null` si no hay ninguno
+ * que se pueda nombrar.
+ *
+ * Convive con `limiteSemanal` y no lo sustituye: son cosas distintas (el techo
+ * TOTAL de la cuota y el techo de cada actividad), y una cuota combinada puede
+ * tener los dos. Por eso el resumen los enseña seguidos.
+ */
+export function topesPorActividad(
+  p: ProductoTienda,
+  nombres?: ReadonlyMap<string, string>,
+): string | null {
+  if (!nombres) return null;
+  const partes: string[] = [];
+  for (const [id, n] of Object.entries(p.limitePorTipo)) {
+    const nombre = nombres.get(id)?.trim();
+    // Un tipo archivado o que el estudio no publica se OMITE en vez de
+    // inventarle un nombre, igual que en `coberturaDeTipos`.
+    if (!nombre) continue;
+    partes.push(`${n} de ${nombre}`);
+  }
+  if (partes.length === 0) return null;
+  const cuerpo = partes.length === 1
+    ? partes[0]
+    : `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+  return `${cuerpo} por semana`;
 }

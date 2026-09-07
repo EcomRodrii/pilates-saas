@@ -332,15 +332,32 @@ test('invariante: si la cobertura dice MENSUAL, no se consume NI se devuelve bon
 
   let vecesQueLaMensualGano = 0;
   let vecesQuePagoElBono = 0;
+  let vecesSinTipo = 0;
+  // `null` entra en la matriz a propósito (lo señaló la revisión independiente):
+  // cuatro llamantes reales pueden pasarlo —`devolverSesionBono` con `sesionId`
+  // opcional, y los `.find()`/`?? null` que resuelven el tipo desde la ventana
+  // de sesiones cargada— y `planCubreTipoClase` responde `true` ante un nulo.
+  // Sin este caso, el guardián sería más estrecho que la realidad.
   for (const e of escenarios) {
-    for (const tipoClaseId of [REFORMER, MAT, GYRO]) {
+    for (const tipoClaseId of [REFORMER, MAT, GYRO, null]) {
       const c = coberturaDeClase({
         socioId: SOCIA, suscripciones: e.suscripciones, planesTarifa: e.planes,
         hoyISO: HOY, tipoClaseId, precioClaseSuelta: 15,
       });
       const consumible = bonoConsumible(SOCIA, e.suscripciones, e.planes, HOY, tipoClaseId);
       const devolvible = bonoDevolvible(SOCIA, e.suscripciones, e.planes, HOY, tipoClaseId);
-      const donde = `${e.nombre} · ${tipoClaseId}`;
+      const donde = `${e.nombre} · ${tipoClaseId ?? 'SIN TIPO'}`;
+      if (tipoClaseId === null) {
+        // Sin clase delante no se afirma cobertura: si hay un bono apto, PAGA.
+        // El caso contrario («la mensual la cubre, no descuentes») regalaría la
+        // sesión cada vez que el llamante no sepa de qué clase se trata.
+        vecesSinTipo++;
+        const hayBonoConSaldo = e.suscripciones.some(x =>
+          x.estado === 'ACTIVA' && (x.sesionesRestantes ?? 0) > 0);
+        assert.equal(Boolean(consumible), hayBonoConSaldo,
+          `${donde}: sin tipo de clase, la decisión de consumo no puede apoyarse en la mensual`);
+        continue;
+      }
       if (c.estado === 'MENSUAL') {
         vecesQueLaMensualGano++;
         assert.equal(consumible, null, `${donde}: la pantalla dice «incluida» y el servidor descontaría un bono`);
@@ -358,4 +375,5 @@ test('invariante: si la cobertura dice MENSUAL, no se consume NI se devuelve bon
   // en SIN_PLAN, los asserts de arriba pasarían sin comprobar nada.
   assert.ok(vecesQueLaMensualGano >= 4, `la matriz no ejerció el caso MENSUAL (${vecesQueLaMensualGano})`);
   assert.ok(vecesQuePagoElBono >= 3, `la matriz no ejerció el caso BONO (${vecesQuePagoElBono})`);
+  assert.equal(vecesSinTipo, escenarios.length, 'la matriz no ejerció el caso «sin tipo de clase»');
 });

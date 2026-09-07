@@ -90,6 +90,7 @@ export default function ComprarPage() {
                   key={p.id}
                   p={p}
                   cobertura={coberturaProducto(p, nombresTipo)}
+                  nombresTipo={nombresTipo}
                   delay={i * 55}
                   // Los PLANES se cobran aquí dentro, con el mismo
                   // `CheckoutEmbebido` que usa `/reservar`. Los SERVICIOS de
@@ -140,10 +141,14 @@ export default function ComprarPage() {
   );
 }
 
-function TarjetaProducto({ p, cobertura, delay, onComprar }: {
-  p: ProductoTienda; cobertura: string | null; delay: number; onComprar: () => void;
+function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
+  p: ProductoTienda; cobertura: string | null;
+  // Hacen falta para poder nombrar los topes por actividad («2 de Máquina y 1
+  // de Gyrotonic por semana»): sin ellos el resumen no los escribe.
+  nombresTipo: ReadonlyMap<string, string>;
+  delay: number; onComprar: () => void;
 }) {
-  const resumen = resumenProducto(p);
+  const resumen = resumenProducto(p, nombresTipo);
   return (
     <article className="card a-up" style={{ padding: '14px 15px', animationDelay: `${delay}ms` }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>

@@ -83,10 +83,26 @@ export async function POST(req: NextRequest) {
     //
     // Los ciclos de 3/6/12 meses (`periodicidad_meses`, #1701) caen en meses
     // distintos, así que la convención les sirve igual que a la mensual.
+    //
+    // ⚠️ El id sigue siendo DETERMINISTA para todos: solo cambia la resolución,
+    // de mes a día. La revisión independiente cazó que un sufijo aleatorio
+    // arreglaba el caso del bono y rompía algo peor — el dedupe de arriba es un
+    // SELECT no atómico, y la PK determinista era la única defensa REAL contra
+    // dos peticiones en vuelo (doble toque, re-render). Con un id aleatorio las
+    // dos insertan y nacen dos recibos PENDIENTE de la misma renovación; el que
+    // se quede sin `checkout_session_id` cumple todos los criterios del cron de
+    // adopción y el dunning de las 08:30 le pasa la tarjeta off-session:
+    // segundo cobro de algo ya pagado. Justo lo que el filtro
+    // `.is('checkout_session_id', null)` de `lib/inngest/renovaciones.ts` existe
+    // para impedir, reabierto por otra puerta.
+    //
+    // Por día: dos toques seguidos siguen chocando por PK (dedupe atómico), y
+    // un bono agotado dos veces el MISMO día —el caso raro que queda— cae en el
+    // 409 honesto de abajo en vez de mandarla a un checkout que responde 409.
     const cicloEsMensual = plan.tipo === 'MENSUAL';
     const id = cicloEsMensual
       ? `rec-renov-${sus.id}-${hoy.slice(0, 7)}`
-      : `rec-renov-${sus.id}-${hoy}-${crypto.randomUUID().slice(0, 8)}`;
+      : `rec-renov-${sus.id}-${hoy}`;
     const { error: insErr } = await admin.from('recibos').insert({
       id, studio_id: body.studioId, socio_id: socioId, suscripcion_id: sus.id,
       concepto: `Renovación ${plan.nombre}`, importe: plan.precio, estado: 'PENDIENTE',

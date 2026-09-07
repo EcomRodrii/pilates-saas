@@ -114,6 +114,15 @@ function elegirBono(
     // Misma vigencia y misma cobertura que usa `coberturaDeClase` para decidir
     // que la clase entra en la cuota. Si divergen, vuelve la mentira.
     if (s.fechaFin && s.fechaFin < hoyISO) return false;
+    // ⚠️ Sin saber DE QUÉ CLASE hablamos no se afirma que la cuota la cubra.
+    // `planCubreTipoClase` responde `true` ante un `tipoClaseId` nulo, y eso
+    // es lo correcto para una pregunta de DERECHO («¿puede reservar algo?»:
+    // permisivo ante la duda) y exactamente lo contrario para una decisión de
+    // CONSUMO, donde significaría regalar la clase. Y el nulo llega de verdad:
+    // `devolverSesionBono` acepta `sesionId` opcional, y tanto el panel como
+    // el servidor resuelven el tipo con un `.find()`/`?.tipo_clase_id ?? null`
+    // que devuelve null si la sesión no está en la ventana cargada.
+    if (tipoClaseId == null) return false;
     return planCubreTipoClase(plan, tipoClaseId);
   });
   if (cubiertaPorMensual) return null;

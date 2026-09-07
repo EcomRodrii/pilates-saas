@@ -48,14 +48,24 @@ async function pedir(studioId: string): Promise<number> {
  */
 export function invalidarNoLeidas(studioId: string): void {
   cache = null;
-  // Si ya hay una petición en vuelo se aprovecha: sus oyentes se avisan solos
-  // al resolverse, y lanzar otra en paralelo solo duplicaría la llamada.
-  if (enVuelo) return;
-  enVuelo = pedir(studioId)
-    .then((v) => { cache = { studioId, valor: v, cuando: Date.now() }; return v; })
+  // ⚠️ Aquí había un `if (enVuelo) return` que parecía un ahorro y era el fix
+  // inerte: esa petición en vuelo SALIÓ ANTES del PATCH, así que al resolverse
+  // escribiría el conteo VIEJO en el caché y lo repartiría a los oyentes —
+  // volviendo a encender el punto de la campana durante otros 60 s, justo lo
+  // que se venía a arreglar. Se ENCADENA en su lugar: la relectura empieza
+  // cuando la anterior termine, y siempre es posterior al PATCH.
+  const anterior = enVuelo ?? Promise.resolve(0);
+  const mia = anterior
     .catch(() => 0)
-    .finally(() => { enVuelo = null; });
-  void enVuelo.then((v) => { for (const o of oyentes) o(v); });
+    .then(() => pedir(studioId))
+    .then((v) => { cache = { studioId, valor: v, cuando: Date.now() }; return v; })
+    .catch(() => 0);
+  enVuelo = mia;
+  void mia.then((v) => {
+    // Solo publica si sigue siendo la última: una relectura posterior manda.
+    if (enVuelo === mia) enVuelo = null;
+    for (const o of oyentes) o(v);
+  });
 }
 
 export function useNoLeidas(studioId: string): number {

@@ -497,26 +497,6 @@ export function condicionesDe(p: PlanTarifa, tipos: TipoClase[] = []): string[] 
         : `Máximo ${p.limiteSemanal} clases por semana`,
     );
   }
-  // ⚠️ 26ª pasada. El sublímite por actividad (`plan_tipos_clase.limite_semanal`,
-  // migr 20260907030553) NO se le contaba a la alumna en ningún sitio: se
-  // enseñaba solo el techo total y ella leía «3 clases por semana» donde el
-  // servidor entiende «2 de Máquina y 1 de Gyrotonic». Es literalmente lo que
-  // la migración dice que hay que impedir, y lo descubría al reservar la
-  // tercera de Máquina con un `LIMITE_SEMANAL_ACTIVIDAD` — una condición de
-  // venta que solo aparece después de comprar.
-  //
-  // Va DESPUÉS del techo total y no en su lugar: los dos conviven y significan
-  // cosas distintas (lib/types.ts), así que una cuota puede tener los dos.
-  const topes = Object.entries(p.limitePorTipo ?? {})
-    .filter((e): e is [string, number] => typeof e[1] === 'number' && e[1] > 0)
-    .map(([id, n]) => {
-      const nombre = tipos.find(t => t.id === id)?.nombre;
-      return nombre ? `${n} de ${nombre}` : null;
-    })
-    .filter((s): s is string => s !== null);
-  if (topes.length) {
-    fuera.push(`Por semana: ${listaEnTexto(topes)}`);
-  }
   // Lista vacía o ausente = cubre TODAS, que es como se han comportado
   // siempre: no se anuncia una restricción que no existe.
   const cubre = (p.tiposClaseIds ?? [])
