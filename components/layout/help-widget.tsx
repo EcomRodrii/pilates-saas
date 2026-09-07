@@ -20,6 +20,7 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
   const [contacto, setContacto] = useState('');
   const [enviado, setEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const q = query.trim().toLowerCase();
   const faqsFiltrados = q
@@ -37,11 +38,23 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
       creadoEn: new Date().toISOString(),
     };
     // 1) Registro durable en BD (historial). 2) Aviso por correo a soporte para
-    //    que NOS LLEGUE — antes solo se guardaba y nadie lo veía. El correo es
-    //    best-effort: si falla, el registro ya está guardado.
-    await dbInsertSoporteSolicitud(solicitud);
+    //    que NOS LLEGUE.
+    //
+    // ⚠️ Esto decía «¡Enviado!» PASARA LO QUE PASARA. El insert se tragaba su
+    // propio error y devolvía void, y `fetch` no lanza con un 4xx/5xx —solo con
+    // la red caída—, así que ni el `catch` veía un 502 de Resend ni un 429 del
+    // rate-limit. Alguien escribiendo «no me funciona el cobro» se quedaba
+    // convencido de que le habíamos leído, y aquí no había llegado nada: es el
+    // peor sitio del panel para mentir, porque el que escribe ya está atascado.
+    //
+    // Ahora basta con que UNA de las dos vías llegue: el registro en BD y el
+    // correo son dos formas de enterarnos, no una cadena. Solo si fallan las
+    // dos se dice que no y se conserva lo escrito, que es lo que costaría
+    // volver a teclear.
+    const guardado = await dbInsertSoporteSolicitud(solicitud);
+    let correo = false;
     try {
-      await fetch('/api/soporte', {
+      const r = await fetch('/api/soporte', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -49,8 +62,17 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
           studioNombre: studio?.nombre ?? null,
         }),
       });
-    } catch { /* el registro en BD ya persiste; el correo es best-effort */ }
+      // `skipped: true` = Resend sin configurar. Eso NO es un envío: si además
+      // el registro falló, no se ha enterado nadie.
+      correo = r.ok && !(await r.json().catch(() => ({}))).skipped;
+    } catch { /* red caída: queda el registro en BD, si entró */ }
     setEnviando(false);
+
+    if (!guardado.ok && !correo) {
+      setError('No hemos podido enviar tu mensaje. Revisa la conexión y vuelve a intentarlo — no se ha borrado lo que has escrito.');
+      return;
+    }
+    setError(null);
     setEnviado(true);
     setMensaje('');
     setContacto('');
@@ -176,13 +198,18 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
                       placeholder="Email de contacto (opcional)"
                       className="w-full px-3 py-2.5 rounded-xl border border-border text-[13px] focus:outline-none focus:border-brand-secondary"
                     />
+                    {error && (
+                      <p role="alert" className="px-3 py-2.5 rounded-xl text-[12px] font-semibold bg-destructive/10 text-destructive">
+                        {error}
+                      </p>
+                    )}
                     <button
                       onClick={enviarSolicitud}
                       disabled={!mensaje.trim() || enviando}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-[13px] font-bold disabled:opacity-40"
                     >
                       <Send size={14} />
-                      {enviando ? 'Enviando…' : 'Enviar'}
+                      {enviando ? 'Enviando…' : error ? 'Reintentar' : 'Enviar'}
                     </button>
                   </div>
                 )}

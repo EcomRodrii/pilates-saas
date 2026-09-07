@@ -713,18 +713,22 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
   };
 
-  const guardar = (cat: CatalogoIntegracion) => {
+  // El modal NO se cierra si no se ha guardado: cerrarlo se lleva por delante
+  // las credenciales que acaba de pegar, y encima diciendo «conectado».
+  const guardar = async (cat: CatalogoIntegracion) => {
     // Un checkbox (p.ej. "plantilla aprobada") no cuenta como credencial: sin
     // esto, marcarlo sin haber pegado token/phoneId activaría la integración
     // como si estuviera conectada.
     const rellenos = cat.campos.filter(c => c.tipo !== 'checkbox').some(c => (form[c.key] ?? '').trim() !== '');
-    upsertIntegracion(cat.tipo, rellenos, form, configOriginal);
+    const res = await upsertIntegracion(cat.tipo, rellenos, form, configOriginal);
+    if (!res.ok) { showToast(res.error); return; }
     setEditando(null);
     showToast(`${cat.nombre} ${rellenos ? 'conectado' : 'actualizado'}`);
   };
 
-  const desconectar = (cat: CatalogoIntegracion) => {
-    upsertIntegracion(cat.tipo, false, {}, configOriginal);
+  const desconectar = async (cat: CatalogoIntegracion) => {
+    const res = await upsertIntegracion(cat.tipo, false, {}, configOriginal);
+    if (!res.ok) { showToast(res.error); return; }
     setEditando(null);
     showToast(`${cat.nombre} desconectado`);
   };

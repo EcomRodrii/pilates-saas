@@ -1956,7 +1956,16 @@ export default function Calendario() {
     await refrescarVista();
     showToast(`Clase cubierta con ${nombreInstructor(instructorId)}`, {
       texto: 'Deshacer',
-      onClick: async () => { await updateSesion(sesionId, { instructorId: prevInstructorId }); await refrescarVista(); },
+      // ⚠️ El «Deshacer» no miraba el resultado, al revés que la acción de ida
+      // (que sí enseña `guardado.error`). Volver a poner a la instructora
+      // original puede ser rechazado —se le ha metido otra clase a esa hora
+      // mientras tanto—, y entonces `refrescarVista()` repintaba el estado del
+      // servidor SIN CAMBIAR y sin decir nada: el botón parecía no hacer nada.
+      onClick: async () => {
+        const vuelta = await updateSesion(sesionId, { instructorId: prevInstructorId });
+        if (!vuelta.ok) { showToast(vuelta.error); return; }
+        await refrescarVista();
+      },
     });
   }
 
@@ -2024,7 +2033,11 @@ export default function Calendario() {
     await refrescarVista();
     showToast('Incidencia resuelta', {
       texto: 'Deshacer',
-      onClick: async () => { await updateSesion(sesionId, { incidenciaTexto: prevTexto }); await refrescarVista(); },
+      onClick: async () => {
+        const vuelta = await updateSesion(sesionId, { incidenciaTexto: prevTexto });
+        if (!vuelta.ok) { showToast(vuelta.error); return; }
+        await refrescarVista();
+      },
     });
   }
 
@@ -2050,7 +2063,11 @@ export default function Calendario() {
     await refrescarVista();
     showToast(`Aforo ajustado a ${nuevoAforo}`, {
       texto: 'Deshacer',
-      onClick: async () => { await updateSesion(sesionId, { aforoMaximo: prevAforo }); await refrescarVista(); },
+      onClick: async () => {
+        const vuelta = await updateSesion(sesionId, { aforoMaximo: prevAforo });
+        if (!vuelta.ok) { showToast(vuelta.error); return; }
+        await refrescarVista();
+      },
     });
   }
 

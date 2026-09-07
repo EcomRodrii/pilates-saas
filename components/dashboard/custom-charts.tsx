@@ -64,7 +64,7 @@ export function ChartBars({ points, color }: { points: { label: string; value: n
   );
 }
 
-function ChartCard({ chart, onDelete }: { chart: DashboardChart; onDelete: () => void }) {
+function ChartCard({ chart, onDelete }: { chart: DashboardChart; onDelete: () => void | Promise<void> }) {
   const { recibos, socios, reservas, sesiones, creditTransactions } = useStudio();
   // P0-21: `now` estable (una vez por montaje) + serie memoizada, para no
   // recalcular el gráfico entero en cada re-render en cascada del contexto.
@@ -101,6 +101,8 @@ export function CustomChartsSection() {
   const uid = useId();
   const { dashboardCharts, addDashboardChart, deleteDashboardChart } = useStudio();
   const [modalOpen, setModalOpen] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<{
     nombre: string; tipo: TipoGraficoDashboard; metrica: MetricaGraficoDashboard;
     agrupacion: AgrupacionGraficoDashboard; rango: number; color: string;
@@ -109,15 +111,27 @@ export function CustomChartsSection() {
     color: COLORES[dashboardCharts.length % COLORES.length],
   });
 
-  function crear() {
-    if (!form.nombre.trim()) return;
-    addDashboardChart(form);
+  async function crear() {
+    if (!form.nombre.trim() || guardando) return;
+    setGuardando(true);
+    const res = await addDashboardChart(form);
+    setGuardando(false);
+    // El cajón NO se cierra si no se ha guardado: cerrarlo borraría lo que
+    // acaba de escribir y le dejaría un gráfico en pantalla que desaparece al
+    // recargar, sin ninguna explicación.
+    if (!res.ok) { setError(res.error); return; }
+    setError(null);
     setForm({ nombre: '', tipo: 'LINEA', metrica: 'INGRESOS_COBRADOS', agrupacion: 'MES', rango: 6, color: COLORES[(dashboardCharts.length + 1) % COLORES.length] });
     setModalOpen(false);
   }
 
   return (
     <div>
+      {error && !modalOpen && (
+        <p role="alert" className="mb-3 px-3 py-2.5 rounded-lg text-[12px] font-semibold bg-destructive/10 text-destructive">
+          {error}
+        </p>
+      )}
       {dashboardCharts.length === 0 ? (
         // Vacío → botón discreto (no un cajón grande que empuja el contenido).
         <button
@@ -142,7 +156,7 @@ export function CustomChartsSection() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {dashboardCharts.map(chart => (
-              <ChartCard key={chart.id} chart={chart} onDelete={() => deleteDashboardChart(chart.id)} />
+              <ChartCard key={chart.id} chart={chart} onDelete={async () => { const r = await deleteDashboardChart(chart.id); if (!r.ok) setError(r.error); }} />
             ))}
           </div>
         </>
@@ -196,12 +210,17 @@ export function CustomChartsSection() {
                 ))}
               </div>
             </div>
+            {error && (
+              <p role="alert" className="px-3 py-2.5 rounded-lg text-[12px] font-semibold bg-destructive/10 text-destructive">
+                {error}
+              </p>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm rounded-lg bg-card border border-border text-foreground hover:bg-muted transition-colors">
                 Cancelar
               </button>
-              <button onClick={crear} className="px-4 py-2 text-sm rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors font-medium">
-                Crear gráfico
+              <button onClick={crear} disabled={guardando} className="px-4 py-2 text-sm rounded-lg bg-brand text-brand-foreground hover:brightness-95 disabled:opacity-40 transition-colors font-medium">
+                {guardando ? 'Creando…' : 'Crear gráfico'}
               </button>
             </div>
           </div>

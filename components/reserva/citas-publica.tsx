@@ -122,6 +122,13 @@ export function CitasPublica({
         const [instructorId] = instructoras;
         const url = `/api/public/citas?studioId=${encodeURIComponent(studioId)}&servicioId=${encodeURIComponent(servicioId)}&instructorId=${encodeURIComponent(instructorId)}&fecha=${selectedDay}`;
         const r = await fetch(url);
+        // ⚠️ `fetch` no lanza con un 4xx/5xx, solo con la red caída. Sin esto,
+        // un 500 (o un 429 del rate-limit) devolvía un JSON sin `huecos`, la
+        // lista quedaba vacía y el widget enseñaba «no hay horas disponibles»
+        // — que no es lo que ha pasado. La alumna se va convencida de que no
+        // hay hueco, y el estudio no se entera de nada. El estado de error ya
+        // existía ahí abajo, con su «Reintentar»; solo no se llegaba a él.
+        if (!r.ok) throw new Error(`citas ${r.status}`);
         const d = await r.json();
         const brutos: { inicio: string; fin: string }[] = Array.isArray(d.huecos) ? d.huecos : [];
         setHuecos(brutos.map(h => ({ ...h, instructorId })).sort((a, b) => a.inicio.localeCompare(b.inicio)));
@@ -129,6 +136,7 @@ export function CitasPublica({
       }
       const url = `/api/public/citas?studioId=${encodeURIComponent(studioId)}&servicioId=${encodeURIComponent(servicioId)}&instructorId=${encodeURIComponent(instructoras.join(','))}&fecha=${selectedDay}`;
       const r = await fetch(url);
+      if (!r.ok) throw new Error(`citas ${r.status}`);
       const d = await r.json();
       const porInstructor: Record<string, { inicio: string; fin: string }[]> =
         d.porInstructor && typeof d.porInstructor === 'object' ? d.porInstructor : {};
