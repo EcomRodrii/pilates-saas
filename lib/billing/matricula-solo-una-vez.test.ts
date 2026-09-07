@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 // ─────────────────────────────────────────────────────────────────────────────
 // El guardián de la matrícula: una cuota de alta se cobra UNA VEZ.
 //
-// `planes_tarifa.matricula` (migr 20260907120000) es una columna APARTE y no
+// `planes_tarifa.matricula` (migr 20260907031555) es una columna APARTE y no
 // una suma al precio, y eso no es una preferencia de presentación: el cron de
 // renovaciones emite el recibo del ciclo siguiente con `plan.precio` tal cual
 // (`lib/inngest/renovaciones.ts`, «Renovación {nombre}»). El día que alguien
