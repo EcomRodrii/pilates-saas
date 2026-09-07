@@ -8,6 +8,9 @@ import { mensajeErrorVenta, codigoDeErrorPg } from '@/lib/pos/tipos';
 
 export const dynamic = 'force-dynamic';
 
+/** Espejo del CHECK de `movimientos_caja.metodo_pago` (migr 20260907090000). */
+const METODOS_CAJA = ['EFECTIVO', 'TARJETA', 'BIZUM', 'TRANSFERENCIA', 'DATAFONO', 'OTRO'];
+
 // ─────────────────────────────────────────────────────────────────────────────
 // La caja: abrir, mover y cerrar.
 //
@@ -105,6 +108,13 @@ export async function POST(req: NextRequest) {
     const importe = Number(body?.importe ?? 0);
     const concepto = typeof body?.concepto === 'string' ? body.concepto.trim() : '';
     if (!tipo) return NextResponse.json({ error: 'Di si es una entrada o una salida.' }, { status: 400 });
+    // Lista blanca antes de la BD: sin ella un valor inventado lo rechazaba el
+    // CHECK de `movimientos_caja` y salía como 500 genérico, no como el 400
+    // que es. Mismo criterio que `METODOS` en la ruta de venta.
+    const metodoPago = typeof body?.metodoPago === 'string' ? body.metodoPago : 'EFECTIVO';
+    if (!METODOS_CAJA.includes(metodoPago)) {
+      return NextResponse.json({ error: 'Ese método de pago no es válido.' }, { status: 400 });
+    }
     if (!Number.isFinite(importe) || importe <= 0) return NextResponse.json({ error: 'Ese importe no es válido.' }, { status: 400 });
     if (!concepto) return NextResponse.json({ error: 'Escribe de qué es el movimiento.' }, { status: 400 });
 
@@ -115,7 +125,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await admin.rpc('mover_caja', {
       p_movimiento_id: `mov-${uid()}`, p_studio_id: sesion.studioId, p_caja_id: caja.id,
       p_tipo: tipo, p_importe: importe, p_concepto: concepto,
-      p_metodo_pago: typeof body?.metodoPago === 'string' ? body.metodoPago : 'EFECTIVO',
+      p_metodo_pago: metodoPago,
       p_por: sesion.userId, p_por_nombre: sesion.nombre,
     });
     if (error) return fallo(error);

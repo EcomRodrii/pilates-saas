@@ -93,7 +93,13 @@ export async function POST(req: NextRequest) {
       p_venta_id: ventaId,
       p_studio_id: sesion.studioId,
       p_payment_intent_id: venta.stripe_payment_intent_id,
-      p_importe_confirmado: Number(venta.total ?? 0),
+      // Lo que dice el PROVEEDOR haber cobrado, no el total de la venta: pasar
+      // `venta.total` comparaba el importe consigo mismo y dejaba inerte el
+      // guardia `IMPORTE_NO_COINCIDE` por este camino. Si el proveedor no lo
+      // sabe todavía, `null` desactiva la comprobación en vez de inventarla.
+      p_importe_confirmado: estadoProveedor.importeCentimos == null
+        ? null
+        : estadoProveedor.importeCentimos / 100,
     });
     if (error) return errorInterno('pos:confirmar', error, 'El cobro salió bien pero no hemos podido cerrarlo. Avísanos antes de volver a cobrar.');
 

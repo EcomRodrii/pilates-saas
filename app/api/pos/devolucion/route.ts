@@ -9,6 +9,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { uid } from '@/lib/utils';
 import { contextoCobroDe } from '@/lib/pos/terminal';
 import { revertirCreditosVentaPOS } from '@/lib/pos/venta-servidor';
+import { registrarDevolucion } from '@/lib/billing/registrar-devolucion';
 import { mensajeErrorVenta, codigoDeErrorPg } from '@/lib/pos/tipos';
 
 export const dynamic = 'force-dynamic';
@@ -84,56 +85,50 @@ export async function POST(req: NextRequest) {
     .select('id').eq('studio_id', sesion.studioId).eq('estado', 'ABIERTA').maybeSingle();
 
   const devolucionId = `dev-${uid()}`;
+  const porStripe = Boolean(venta.stripe_payment_intent_id)
+    && (venta.metodo_pago === 'DATAFONO' || venta.metodo_pago === 'BIZUM' || venta.metodo_pago === 'TARJETA');
 
-  // ── 1. Calcular cuánto toca devolver, SIN escribir todavía ───────────────
-  // Se hace en una transacción que se deshace, para saber el importe exacto
-  // antes de mover dinero en Stripe. La RPC es la única que sabe prorratear el
-  // descuento y el redondeo por línea; recalcularlo aquí sería una segunda
-  // implementación que se desviaría.
-  const { data: previo, error: errPrevio } = await admin.rpc('devolver_venta_pos', {
-    p_devolucion_id: devolucionId, p_venta_id: ventaId, p_studio_id: sesion.studioId,
-    p_lineas: lineas, p_motivo: motivo, p_caja_id: caja?.id ?? null,
-    p_por: sesion.userId, p_por_nombre: sesion.nombre,
-  });
-
-  if (errPrevio) {
-    const codigo = codigoDeErrorPg(errPrevio.message);
+  const traducirFallo = (e: { message: string }, contexto: string) => {
+    const codigo = codigoDeErrorPg(e.message);
     const frase = mensajeErrorVenta(codigo);
     if (codigo && frase !== 'No se ha podido completar la operación. Inténtalo de nuevo.') {
       return NextResponse.json({ error: frase, codigo }, { status: 409 });
     }
-    return errorInterno('pos:devolucion', errPrevio, 'No se ha podido registrar la devolución.');
-  }
+    return errorInterno(contexto, e, 'No se ha podido registrar la devolución.');
+  };
 
-  const fila = Array.isArray(previo) ? previo[0] : previo;
-  const importe = Number(fila?.r_importe_devuelto ?? 0);
-  const esTotal = fila?.r_es_total === true;
+  // ── 1. PRE-VUELO: cuánto toca devolver, sin escribir nada ────────────────
+  // `p_simular` calcula y vuelve antes de tocar una sola fila. Hace falta el
+  // importe exacto ANTES de mover dinero en Stripe, y el prorrateo del
+  // descuento y el redondeo por línea viven en la RPC — replicarlos aquí sería
+  // una segunda implementación que se desviaría.
+  const { data: previo, error: errPrevio } = await admin.rpc('devolver_venta_pos', {
+    p_devolucion_id: devolucionId, p_venta_id: ventaId, p_studio_id: sesion.studioId,
+    p_lineas: lineas, p_motivo: motivo, p_caja_id: caja?.id ?? null,
+    p_por: sesion.userId, p_por_nombre: sesion.nombre, p_simular: true,
+  });
+  if (errPrevio) return traducirFallo(errPrevio, 'pos:devolucion:previo');
 
-  // ── 2. Dinero de vuelta ──────────────────────────────────────────────────
-  const porStripe = Boolean(venta.stripe_payment_intent_id)
-    && (venta.metodo_pago === 'DATAFONO' || venta.metodo_pago === 'BIZUM' || venta.metodo_pago === 'TARJETA');
+  const filaPrevia = Array.isArray(previo) ? previo[0] : previo;
+  const importe = Number(filaPrevia?.r_importe_devuelto ?? 0);
 
+  // ── 2. Dinero de vuelta, ANTES del libro ─────────────────────────────────
+  // Este orden importa. Al revés, un fallo de Stripe dejaba a la clienta sin
+  // bono y sin dinero, y el reintento era imposible: la segunda llamada chocaba
+  // con DEVOLUCION_EXCEDE porque el libro ya se había escrito. Así, si el
+  // reembolso no sale, no se ha tocado nada y se puede repetir.
   if (porStripe && importe > 0) {
     const ctx = await contextoCobroDe(admin, sesion.studioId);
     if (!ctx.ok) {
-      // El libro ya se escribió arriba. No se puede devolver el dinero ahora
-      // mismo, y hay que decirlo con claridad en vez de fingir que salió bien.
-      Sentry.captureMessage('[pos] devolución registrada sin poder reembolsar en Stripe', {
-        level: 'error', tags: { area: 'cobros' },
-        extra: { ventaId, importe, motivo: ctx.motivo },
-      });
-      return NextResponse.json({
-        error: `Hemos apuntado la devolución de ${importe.toFixed(2)} €, pero no hemos podido devolver el dinero: ${ctx.motivo}`,
-        importe, esTotal, dineroDevuelto: false,
-      }, { status: 502 });
+      return NextResponse.json({ error: ctx.motivo, importe, dineroDevuelto: false }, { status: ctx.status });
     }
     try {
       await ctx.ctx.stripe.refunds.create({
         payment_intent: venta.stripe_payment_intent_id!,
         amount: Math.round(importe * 100),
-        // Un doble clic no puede devolver dos veces. La clave lleva el id de la
-        // devolución, que es distinto en cada parcial legítima.
         metadata: { studioId: sesion.studioId, ventaId, devolucionId, origen: 'pos_devolucion' },
+        // Un doble clic no puede devolver dos veces. La clave lleva el id de la
+        // devolución, distinto en cada parcial legítima.
       }, { stripeAccount: ctx.ctx.stripeAccount, idempotencyKey: `pos-devol-${devolucionId}` });
     } catch (err) {
       const msg = err instanceof Stripe.errors.StripeError ? err.message : String(err);
@@ -141,11 +136,49 @@ export async function POST(req: NextRequest) {
         level: 'error', tags: { area: 'cobros' },
         extra: { ventaId, devolucionId, importe, studioId: sesion.studioId },
       });
+      // Nada escrito: se puede reintentar tal cual.
       return NextResponse.json({
-        error: `Hemos apuntado la devolución de ${importe.toFixed(2)} €, pero Stripe no la ha completado: ${msg}`,
-        importe, esTotal, dineroDevuelto: false,
+        error: `No se ha podido devolver el dinero: ${msg}. No se ha apuntado nada, puedes volver a intentarlo.`,
+        importe, dineroDevuelto: false,
       }, { status: 502 });
     }
+  }
+
+  // ── 3. El libro: cantidades, stock, bono y caja ──────────────────────────
+  const { data: aplicado, error: errAplicar } = await admin.rpc('devolver_venta_pos', {
+    p_devolucion_id: devolucionId, p_venta_id: ventaId, p_studio_id: sesion.studioId,
+    p_lineas: lineas, p_motivo: motivo, p_caja_id: caja?.id ?? null,
+    p_por: sesion.userId, p_por_nombre: sesion.nombre, p_simular: false,
+  });
+  if (errAplicar) {
+    // El dinero YA salió (si era por Stripe). Responder error aquí haría que
+    // alguien lo reintentara y devolviera dos veces. Se avisa a gritos y se
+    // sigue: el webhook `charge.refunded` acaba escribiendo la fila de
+    // `devoluciones` por su cuenta. Mismo criterio que /api/reembolsos.
+    Sentry.captureException(new Error('Devolución cobrada en Stripe pero sin registrar en el libro'), {
+      level: 'error', tags: { area: 'cobros' },
+      extra: { ventaId, devolucionId, importe, studioId: sesion.studioId, detalle: errAplicar.message },
+    });
+    if (!porStripe) return traducirFallo(errAplicar, 'pos:devolucion');
+  }
+
+  const fila = Array.isArray(aplicado) ? aplicado[0] : aplicado;
+  const esTotal = fila?.r_es_total === true;
+
+  // ── 4. Fila de auditoría del canal EFECTIVO ──────────────────────────────
+  // Para tarjeta y Bizum la escribe el webhook `charge.refunded`
+  // (`procesarReembolsoVentaPos`), idempotente por charge. El efectivo no pasa
+  // por Stripe, así que si no se escribe aquí «la tabla única de reembolsos de
+  // cualquier canal» se queda justo sin ese canal.
+  if (!porStripe && importe > 0) {
+    await registrarDevolucion(admin, {
+      studioId: sesion.studioId,
+      ventaPosId: ventaId,
+      origen: esTotal ? 'REEMBOLSO_TOTAL' : 'REEMBOLSO_PARCIAL',
+      devueltoCentimos: Math.round((Number(venta.importe_devuelto ?? 0) + importe) * 100),
+      referencia: `pos-efectivo:${devolucionId}`,
+      stripeChargeId: null,
+    });
   }
 
   // ── 3. Créditos de gamificación ──────────────────────────────────────────

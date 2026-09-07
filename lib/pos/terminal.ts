@@ -68,7 +68,9 @@ export interface ProveedorTerminal {
    */
   readonly esAutoritativo: boolean;
   iniciar(ctx: ContextoCobro, p: PeticionCobro): Promise<ResultadoInicio>;
-  consultar(ctx: ContextoCobro, referencia: string): Promise<{ estado: EstadoPagoPOS; error?: string }>;
+  /** `importeCentimos` = lo que el proveedor dice haber cobrado, para poder
+   *  contrastarlo con el total de la venta. `null` si no lo sabe todavía. */
+  consultar(ctx: ContextoCobro, referencia: string): Promise<{ estado: EstadoPagoPOS; error?: string; importeCentimos?: number | null }>;
   cancelar(ctx: ContextoCobro, referencia: string): Promise<void>;
 }
 
@@ -139,6 +141,7 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
         return {
           estado: estadoDesdeStripe(pi.status),
           error: pi.last_payment_error?.message ?? undefined,
+          importeCentimos: pi.amount_received ?? null,
         };
       } catch (err) {
         console.error('[pos/terminal:datafono:consultar]', err instanceof Stripe.errors.StripeError ? err.message : err);
@@ -217,7 +220,11 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
     async consultar(ctx, referencia) {
       try {
         const pi = await ctx.stripe.paymentIntents.retrieve(referencia, {}, { stripeAccount: ctx.stripeAccount });
-        return { estado: estadoDesdeStripe(pi.status), error: pi.last_payment_error?.message ?? undefined };
+        return {
+          estado: estadoDesdeStripe(pi.status),
+          error: pi.last_payment_error?.message ?? undefined,
+          importeCentimos: pi.amount_received ?? null,
+        };
       } catch {
         return { estado: 'PROCESANDO' };
       }
@@ -242,7 +249,7 @@ const PROVEEDOR_MANUAL: ProveedorTerminal = {
   // una comprobación que no existe.
   esAutoritativo: false,
   async iniciar() { return { ok: true, referencia: '', estado: 'PAGADO' }; },
-  async consultar() { return { estado: 'PAGADO' }; },
+  async consultar() { return { estado: 'PAGADO' as const, importeCentimos: null }; },
   async cancelar() { /* nada que cancelar */ },
 };
 

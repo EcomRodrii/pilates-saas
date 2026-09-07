@@ -312,36 +312,48 @@ test('el ticket enseña el IVA desglosado, no una cifra suelta', async ({ page }
   await expect(page.getByText('Total', { exact: true })).toBeVisible();
 });
 
-test('dos toques seguidos en Cobrar mandan la MISMA clave de idempotencia', async ({ page }) => {
-  // Es lo que impide cobrar dos veces por un doble toque o un reintento de red.
+test('dos ventas iguales seguidas son DOS ventas, no una repetida', async ({ page }) => {
+  // ⚠️ Este test nació al revés y fijaba un bug como si fuera la protección.
+  //
+  // La clave de idempotencia se ataba solo al CONTENIDO del ticket, así que dos
+  // clientas comprando lo mismo —una botella en efectivo, el caso más común de
+  // un mostrador— producían la misma clave: el servidor devolvía la venta de la
+  // primera, la segunda no se registraba nunca, el stock no bajaba y la
+  // pantalla decía «Cobrado» igual. A partir de la primera venta de una forma
+  // dada, ninguna igual volvía a existir en ese estudio.
+  //
+  // Lo que la clave tiene que identificar es ESTE INTENTO DE COBRO, no la forma
+  // del carrito.
   const c = await montar(page, (route) =>
     json(route, {
       ventaId: 'v1', numero: 1, subtotal: 25, descuento: 0, baseImponible: 20.66,
       ivaTotal: 4.34, total: 25, cambio: 0, estado: 'PAGADA', pagoEstado: 'PAGADO',
     }));
 
+  const cobrarEnEfectivo = async () => {
+    await page.getByRole('button', { name: /Cobrar/ }).click();
+    await page.getByRole('button', { name: /^Efectivo/ }).click();
+    await page.getByLabel('¿Con cuánto paga?').fill('25');
+    await page.getByRole('button', { name: 'Confirmar pago' }).click();
+    await expect(page.getByText('Cobrado', { exact: true })).toBeVisible({ timeout: 15_000 });
+  };
+
   await abrirCaja(page);
   await anadirCalcetines(page);
-  await page.getByRole('button', { name: /Cobrar/ }).click();
-  await page.getByRole('button', { name: /^Efectivo/ }).click();
-  await page.getByLabel('¿Con cuánto paga?').fill('25');
-  await page.getByRole('button', { name: 'Confirmar pago' }).click();
-  await expect(page.getByText('Cobrado', { exact: true })).toBeVisible({ timeout: 15_000 });
-
-  // Se vuelve al mismo ticket y se cobra otra vez: misma firma → misma clave.
+  await cobrarEnEfectivo();
   await page.getByRole('button', { name: 'Nueva venta' }).click();
   await anadirCalcetines(page);
-  await page.getByRole('button', { name: /Cobrar/ }).click();
-  await page.getByRole('button', { name: /^Efectivo/ }).click();
-  await page.getByLabel('¿Con cuánto paga?').fill('25');
-  await page.getByRole('button', { name: 'Confirmar pago' }).click();
-  await expect(page.getByText('Cobrado', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await cobrarEnEfectivo();
 
   expect(c.ventas).toBe(2);
   const a = c.cuerpos[0] as { idempotenciaClave: string };
   const b = c.cuerpos[1] as { idempotenciaClave: string };
-  expect(a.idempotenciaClave).toBe(b.idempotenciaClave);
+  expect(a.idempotenciaClave).not.toBe(
+    b.idempotenciaClave,
+    'dos ventas distintas con el mismo carrito NO pueden compartir clave',
+  );
 });
+
 
 test('el importe libre se cobra, y va como línea LIBRE con su concepto', async ({ page }) => {
   // Es el ÚNICO sitio donde el precio lo pone el cliente. Se comprueba que
@@ -372,4 +384,41 @@ test('el importe libre se cobra, y va como línea LIBRE con su concepto', async 
   expect(cuerpo.lineas[0].tipo).toBe('LIBRE');
   expect(cuerpo.lineas[0].nombre).toBe('Arreglo de cinta');
   expect(cuerpo.lineas[0].precio).toBe(12);
+});
+
+test('dentro del MISMO intento la clave no cambia (doble toque, reintento de red)', async ({ page }) => {
+  // La otra mitad: mientras no se vacíe el ticket ni se toque el carrito, dos
+  // envíos son el mismo cobro. Aquí el primer intento falla con un error de
+  // servidor y se reintenta desde la misma hoja, sin tocar nada.
+  let intento = 0;
+  const c = await montar(page, (route) => {
+    intento++;
+    if (intento === 1) return json(route, { error: 'Se ha caído la conexión.' }, 500);
+    return json(route, {
+      ventaId: 'v1', numero: 1, subtotal: 25, descuento: 0, baseImponible: 20.66,
+      ivaTotal: 4.34, total: 25, cambio: 0, estado: 'PAGADA', pagoEstado: 'PAGADO',
+    });
+  });
+
+  await abrirCaja(page);
+  await anadirCalcetines(page);
+  await page.getByRole('button', { name: /Cobrar/ }).click();
+  await page.getByRole('button', { name: /^Efectivo/ }).click();
+  await page.getByLabel('¿Con cuánto paga?').fill('25');
+  await page.getByRole('button', { name: 'Confirmar pago' }).click();
+
+  await expect(page.getByText(/No se ha completado el cobro/i)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Probar otra vez' }).click();
+  await page.getByRole('button', { name: /^Efectivo/ }).click();
+  await page.getByLabel('¿Con cuánto paga?').fill('25');
+  await page.getByRole('button', { name: 'Confirmar pago' }).click();
+  await expect(page.getByText('Cobrado', { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  expect(c.ventas).toBe(2);
+  const a = c.cuerpos[0] as { idempotenciaClave: string };
+  const b = c.cuerpos[1] as { idempotenciaClave: string };
+  expect(a.idempotenciaClave).toBe(
+    b.idempotenciaClave,
+    'reintentar el mismo cobro tiene que llevar la misma clave, o se cobraría dos veces',
+  );
 });

@@ -696,6 +696,31 @@ async function procesarEvento(
         const filaConf = Array.isArray(conf) ? conf[0] : conf;
         if (filaConf?.r_aplicado === true) {
           await entregarVentaPOS(admin, { studioId, ventaId: ventaIdPos });
+        } else if (filaConf?.r_estado === 'ANULADA') {
+          // El cobro triunfó sobre una venta que ya se había anulado: se
+          // canceló en el mostrador, o el proveedor devolvió un estado que se
+          // leyó como fallo, y la tarjeta liquidó después. El estudio tiene el
+          // dinero y la clienta no tiene ni bono ni recibo ni factura.
+          //
+          // Con un solo booleano esto pasaba en silencio. Se deja en
+          // `reconciliaciones_pos` —la tabla que existe exactamente para
+          // "cobro sin registrar", idempotente por PK del PaymentIntent— y se
+          // avisa, para que alguien lo resuelva en vez de descubrirlo cuadrando
+          // con el banco.
+          Sentry.captureMessage('[stripe webhook] cobro confirmado sobre una venta POS ya anulada', {
+            level: 'error', tags: { area: 'cobros' },
+            extra: { paymentIntentId: pi.id, ventaId: ventaIdPos, studioId,
+                     importe: (pi.amount_received ?? pi.amount ?? 0) / 100 },
+          });
+          const { error: errRec } = await admin.from('reconciliaciones_pos').insert({
+            payment_intent_id: pi.id,
+            studio_id: studioId,
+            importe: (pi.amount_received ?? pi.amount ?? 0) / 100,
+            concepto: pi.metadata.concepto ?? 'Cobro sobre venta anulada',
+          });
+          if (errRec && errRec.code !== '23505') {
+            return NextResponse.json({ error: 'Fallo al registrar el cobro huérfano' }, { status: 500 });
+          }
         }
         capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: origenPos === 'pos_bizum' ? 'bizum' : 'terminal' } });
         return NextResponse.json({ received: true });

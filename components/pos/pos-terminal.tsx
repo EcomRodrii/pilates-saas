@@ -11,6 +11,7 @@ import { useStudio } from '@/lib/studio-context';
 import { buscarCodigo, validarCodigoCanjeable, calcularDescuento } from '@/lib/codigos-descuento';
 import { calcularTicket, estadoStock, puedeAnadir, type LineaTicket } from '@/lib/pos/ticket';
 import { cargarCatalogoPOS, esError, type CatalogoPOS } from '@/lib/pos/cliente';
+import { formatNumeroVenta } from '@/lib/pos/tipos';
 import { registrarVenta } from '@/lib/pos/cliente';
 import type { CodigoDescuento } from '@/lib/types';
 import type { MetodoPago } from '@/lib/types';
@@ -221,6 +222,7 @@ export function PosTerminal() {
     setCodigoTexto(''); setCodigoAplicado(null); setCodigoError(null);
     setAviso(null); setVistaMovil('catalogo');
     setLibreAbierto(false); setLibreNombre(''); setLibreImporte('');
+    setNonceVenta(nuevoNonce());
   }
 
   // ── Totales (previsualización; manda el servidor) ─────────────────────────
@@ -242,12 +244,29 @@ export function PosTerminal() {
   const faltaClienta = carrito.some((i) => i.tipo === 'PLAN') && !clienteId;
 
   // ── Cobro ─────────────────────────────────────────────────────────────────
-  // La clave de idempotencia se ata al contenido del ticket: mientras el
-  // carrito no cambie, dos envíos son el mismo cobro. Si cambia, es otra venta.
+  //
+  // ⚠️ La clave de idempotencia identifica ESTE INTENTO DE COBRO, no la forma
+  // del ticket. La diferencia no es sutil: atada solo al contenido, dos
+  // clientas comprando lo mismo (una botella de agua en efectivo, el caso más
+  // común de un mostrador) generarían la MISMA clave, el servidor devolvería la
+  // venta de la primera y la segunda no se registraría nunca — sin bajar stock,
+  // sin ingreso, y con la pantalla diciendo «Cobrado». A partir de la primera
+  // venta de una forma dada, ninguna igual volvería a existir.
+  //
+  // De ahí el nonce: se genera al montar, y se renueva al vaciar el ticket y
+  // tras cada venta con éxito. Dentro de un mismo intento no cambia, que es lo
+  // que hace que un doble toque o un reintento de red sigan siendo un solo
+  // cobro. El contenido sigue en la firma para que MODIFICAR el carrito a
+  // media venta cuente como intento nuevo.
+  const [nonceVenta, setNonceVenta] = useState(() => nuevoNonce());
   const claveIdempotencia = useMemo(() => {
-    const firma = carrito.map((i) => `${i.tipo}|${i.referenciaId}|${i.cantidad}`).join(';');
-    return `pos-${hash(firma + clienteId + descuentoTexto + descuentoTipo + (codigoAplicado?.id ?? ''))}`;
-  }, [carrito, clienteId, descuentoTexto, descuentoTipo, codigoAplicado]);
+    const firma = carrito
+      // Las líneas LIBRE no tienen `referenciaId`, así que sin nombre y precio
+      // «Esterilla 3 €» y «Camiseta 25 €» darían la misma firma.
+      .map((i) => `${i.tipo}|${i.referenciaId ?? i.nombre}|${i.precio}|${i.cantidad}`)
+      .join(';');
+    return `pos-${hash(nonceVenta + firma + clienteId + descuentoTexto + descuentoTipo + (codigoAplicado?.id ?? ''))}`;
+  }, [nonceVenta, carrito, clienteId, descuentoTexto, descuentoTipo, codigoAplicado]);
 
   const enviarVenta = useCallback(async (metodo: MetodoPago, efectivoRecibido: number | null) => {
     const r = await registrarVenta({
@@ -263,6 +282,13 @@ export function PosTerminal() {
       efectivoRecibido,
       idempotenciaClave: `${claveIdempotencia}-${metodo}`,
     });
+    // `yaExistia` = el servidor reconoció este mismo intento y devolvió la
+    // venta que ya había creado. No es un cobro nuevo, y hay que decirlo: dar
+    // por buena una venta que no se ha registrado ahora es justo lo que
+    // convierte un reintento en un descuadre invisible.
+    if (!esError(r) && r.yaExistia) {
+      setAviso(`Esta venta ya estaba registrada (${formatNumeroVenta(r.numero)}). No se ha cobrado dos veces.`);
+    }
     return r;
   }, [carrito, clienteId, descuentoTexto, descuentoTipo, codigoAplicado, claveIdempotencia]);
 
@@ -726,6 +752,17 @@ function Fila({ label, valor, tono }: { label: string; valor: string; tono?: 'wa
       <span>{label}</span><span className="tabular-nums">{valor}</span>
     </div>
   );
+}
+
+/**
+ * Identificador de un intento de cobro. `crypto.randomUUID` no existe en
+ * contextos sin HTTPS (un TPV en la red local del estudio), así que hay
+ * respaldo — no puede quedarse sin nonce, porque sin él dos ventas iguales
+ * volverían a colisionar.
+ */
+function nuevoNonce(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /** Hash corto y estable para la clave de idempotencia (FNV-1a, como en codigos-descuento). */

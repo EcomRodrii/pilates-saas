@@ -92,6 +92,8 @@ DECLARE
   v_linea_total   numeric(10,2);
   v_linea_base    numeric(10,2);
   v_ultima_id     text;
+  v_filas         integer;
+  v_controla_stock boolean;
   v_items         jsonb := '[]'::jsonb;
   -- Cada línea se guarda dos veces en memoria: una para insertar y otra para
   -- poder repartir el descuento con el subtotal ya conocido (hace falta el
@@ -106,6 +108,19 @@ BEGIN
   -- MISMA venta. Se comprueba ANTES de tocar nada: si se hiciera al final, el
   -- stock ya se habría descontado dos veces.
   IF p_idempotencia_clave IS NOT NULL THEN
+    -- Lock por CLAVE antes de mirar. Sin él, dos peticiones simultáneas con la
+    -- misma clave (el doble toque, que es justo el caso para el que esto
+    -- existe) pasan las dos el SELECT y la perdedora choca con el índice único:
+    -- su transacción entera se deshace —así que no hay doble cobro— pero quien
+    -- reintenta recibe un 23505 crudo en vez de su venta.
+    --
+    -- ⚠️ Y NO se acota por tiempo. Se intentó con una ventana de 15 minutos y
+    -- se contradice con el índice, que es permanente: pasada la ventana el
+    -- SELECT ignora la clave, el INSERT choca igual, y la venta muere con un
+    -- error de restricción. O manda el índice o manda la ventana; manda el
+    -- índice. Que la clave no se repita es trabajo del nonce por intento que
+    -- genera el TPV, no de un plazo aquí.
+    PERFORM pg_advisory_xact_lock(hashtext(p_studio_id || ':idem:' || p_idempotencia_clave));
     SELECT v.id, v.numero, v.subtotal, v.descuento, v.base_imponible,
            v.iva_total, v.total, v.cambio
       INTO v_existente
@@ -200,7 +215,10 @@ BEGIN
 
     v_resueltas := v_resueltas || jsonb_build_object(
       'tipo', v_tipo, 'referenciaId', v_ref, 'nombre', v_nombre,
-      'precio', v_precio, 'cantidad', v_cantidad, 'iva', v_iva, 'bruto', v_bruto
+      'precio', v_precio, 'cantidad', v_cantidad, 'iva', v_iva, 'bruto', v_bruto,
+      -- Si el artículo lleva control de existencias. Se decide AQUÍ, con la
+      -- fila ya bloqueada, para que la segunda pasada no tenga que releerla.
+      'controlaStock', v_stock IS NOT NULL
     );
   END LOOP;
 
@@ -275,6 +293,11 @@ BEGIN
     v_orden    := v_orden + 1;
     v_bruto    := (v_linea->>'bruto')::numeric;
     v_iva      := (v_linea->>'iva')::numeric;
+    -- Resuelto en la primera pasada, con la fila ya bloqueada. Si esto se
+    -- quedara sin asignar sería NULL, el `IF ... AND v_controla_stock` daría
+    -- falso y el stock NO se descontaría nunca — mudo, y en el sitio exacto
+    -- donde más caro sale.
+    v_controla_stock := COALESCE((v_linea->>'controlaStock')::boolean, false);
 
     IF v_orden = jsonb_array_length(v_resueltas) THEN
       v_desc_linea := ROUND(v_descuento - v_desc_repartido, 2);
@@ -305,13 +328,24 @@ BEGIN
     -- que no lo controlan; el `>= cantidad` es la red de seguridad por si
     -- algo se colara entre la validación y aquí (no puede, con el FOR UPDATE
     -- cogido, pero un decremento de stock no es sitio para confiar).
-    IF (v_linea->>'tipo') = 'PRODUCTO' THEN
+    IF (v_linea->>'tipo') = 'PRODUCTO' AND v_controla_stock THEN
       UPDATE public.productos_pos p
          SET stock = p.stock - (v_linea->>'cantidad')::int
        WHERE p.id = (v_linea->>'referenciaId')
          AND p.studio_id = p_studio_id
          AND p.stock IS NOT NULL
          AND p.stock >= (v_linea->>'cantidad')::int;
+      -- ⚠️ Sin este GET DIAGNOSTICS el UPDATE fallaba MUDO. La validación de
+      -- la primera pasada mira línea a línea, así que dos líneas del MISMO
+      -- artículo leen el mismo stock y las dos pasan: con 6 unidades y dos
+      -- líneas de 5, la segunda no afectaba a ninguna fila, nadie se enteraba,
+      -- y se vendían 10 dejando el stock en 1. La UI fusiona las líneas
+      -- iguales, pero la API acepta ambas — y el comentario de aquí prometía
+      -- una red de seguridad que no existía.
+      GET DIAGNOSTICS v_filas = ROW_COUNT;
+      IF v_filas = 0 THEN
+        RAISE EXCEPTION 'SIN_STOCK:%:%', v_linea->>'nombre', 0;
+      END IF;
     END IF;
 
     v_total     := v_total + v_linea_total;
@@ -343,6 +377,15 @@ BEGIN
   -- Solo si la venta ya está cobrada. Una venta PENDIENTE_PAGO todavía no ha
   -- movido dinero: apuntarla ahora inflaría el arqueo con un cobro que aún
   -- puede fallar. La apunta `confirmar_pago_venta_pos` al confirmarse.
+  -- La caja tiene que ser de ESTE estudio y estar abierta. La ruta ya la
+  -- resuelve así y nunca la toma del body, pero era el único parámetro sin
+  -- cotejar y un movimiento en una caja cerrada ensucia un arqueo ya firmado.
+  IF p_caja_id IS NOT NULL THEN
+    PERFORM 1 FROM public.cajas c
+     WHERE c.id = p_caja_id AND c.studio_id = p_studio_id AND c.estado = 'ABIERTA';
+    IF NOT FOUND THEN p_caja_id := NULL; END IF;
+  END IF;
+
   IF p_caja_id IS NOT NULL AND p_estado_inicial = 'PAGADA' AND v_total > 0 THEN
     INSERT INTO public.movimientos_caja (
       id, studio_id, caja_id, tipo, importe, metodo_pago, concepto,
@@ -375,7 +418,7 @@ CREATE OR REPLACE FUNCTION public.confirmar_pago_venta_pos(
   p_payment_intent_id text,
   p_importe_confirmado numeric   -- en euros, tal y como lo cobró el proveedor
 )
-RETURNS TABLE (r_aplicado boolean, r_total numeric, r_numero bigint, r_caja_id text)
+RETURNS TABLE (r_aplicado boolean, r_total numeric, r_numero bigint, r_caja_id text, r_estado text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
 AS $$
 DECLARE
@@ -385,9 +428,10 @@ DECLARE
   v_metodo  text;
   v_por     uuid;
   v_por_nom text;
+  v_estado  text;
 BEGIN
-  SELECT v.total, v.numero, v.caja_id, v.metodo_pago, v.vendido_por, v.vendido_por_nombre
-    INTO v_total, v_numero, v_caja, v_metodo, v_por, v_por_nom
+  SELECT v.total, v.numero, v.caja_id, v.metodo_pago, v.vendido_por, v.vendido_por_nombre, v.estado
+    INTO v_total, v_numero, v_caja, v_metodo, v_por, v_por_nom, v_estado
     FROM public.ventas_pos v
    WHERE v.id = p_venta_id AND v.studio_id = p_studio_id
    FOR UPDATE;
@@ -410,11 +454,22 @@ BEGIN
      AND v.estado = 'PENDIENTE_PAGO';
 
   IF NOT FOUND THEN
-    -- Ya estaba cobrada (o anulada): no es un error, es el segundo camino
-    -- llegando tarde. Se responde que no aplicó nada y quien llame no vuelve
-    -- a entregar el bono ni a sumar los créditos.
-    RETURN QUERY SELECT false, v_total, v_numero, v_caja;
+    -- No aplicó. Pero «ya estaba PAGADA» y «está ANULADA» NO son lo mismo, y
+    -- por eso se devuelve `r_estado`: si el pago triunfa sobre una venta que
+    -- ya se anuló (se canceló en el mostrador, o el proveedor devolvió un
+    -- estado que se leyó como fallo, y la tarjeta liquidó después), el estudio
+    -- se queda el dinero y la clienta sin bono, sin recibo y sin factura. Con
+    -- un solo booleano eso pasaba en silencio.
+    RETURN QUERY SELECT false, v_total, v_numero, v_caja, v_estado;
     RETURN;
+  END IF;
+
+  -- Entre que se lanzó el cobro y llega su confirmación, la caja puede haberse
+  -- cerrado. Apuntar después de la fila de CIERRE ensuciaría ese arqueo.
+  IF v_caja IS NOT NULL THEN
+    PERFORM 1 FROM public.cajas c
+     WHERE c.id = v_caja AND c.studio_id = p_studio_id AND c.estado = 'ABIERTA';
+    IF NOT FOUND THEN v_caja := NULL; END IF;
   END IF;
 
   IF v_caja IS NOT NULL AND v_total > 0 THEN
@@ -428,7 +483,7 @@ BEGIN
     ON CONFLICT (id) DO NOTHING;
   END IF;
 
-  RETURN QUERY SELECT true, v_total, v_numero, v_caja;
+  RETURN QUERY SELECT true, v_total, v_numero, v_caja, 'PAGADA'::text;
 END;
 $$;
 

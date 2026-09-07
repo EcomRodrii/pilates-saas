@@ -161,6 +161,42 @@ descuento de 9.999 € deja el total en 0,00, nunca negativo.
 
 ---
 
+## 7 bis. Revisión de seguridad y lo que encontró
+
+Revisión completa (`tentare-seguridad`) del esquema, las seis rutas, las RPC y
+el webhook. **Cero hallazgos de autorización**: las seis rutas comprueban el rol
+en servidor, el `studioId` sale siempre del JWT, el aislamiento multi-inquilino
+está cerrado y las diez funciones nuevas tienen los grants correctos.
+
+Pero encontró **un fallo grave de dinero**, y la corrección destapó otros dos:
+
+| # | Qué | Estado |
+|---|---|---|
+| **H-1** | **La clave de idempotencia identificaba la FORMA DEL CARRITO, no el intento de cobro.** Dos clientas comprando lo mismo (una botella en efectivo, el caso más común de un mostrador) generaban la misma clave: el servidor devolvía la venta de la primera y la segunda **no se registraba nunca** — sin bajar stock, sin ingreso, y con la pantalla diciendo «Cobrado». Peor: el e2e que escribí **fijaba ese comportamiento como si fuera la protección**. | Corregido: nonce por intento (renovado al vaciar y tras cada venta), nombre y precio en la firma de las líneas LIBRE, y la UI avisa cuando el servidor responde `yaExistia`. El test se reescribió al derecho y se añadió su complementario. |
+| **M-1** | La devolución escribía el libro ANTES de reembolsar, y el comentario decía lo contrario («una transacción que se deshace» — no había rollback). Si Stripe fallaba, la clienta se quedaba sin bono y sin dinero, y el reintento chocaba con `DEVOLUCION_EXCEDE`. | Corregido: `p_simular` calcula sin escribir → reembolso → libro. Si el reembolso falla, no se ha tocado nada. |
+| **M-2** | Un cobro que triunfaba sobre una venta ya ANULADA se perdía en silencio: `r_aplicado=false` no distinguía «ya estaba pagada» de «está anulada». | Corregido: `confirmar_pago_venta_pos` devuelve `r_estado`; el webhook avisa a Sentry y deja el cobro en `reconciliaciones_pos`. |
+| **M-3** | Dos líneas del mismo artículo se saltaban el control de stock: el decremento fallaba **mudo**, al revés de lo que prometía su comentario. No alcanzable desde la UI (fusiona líneas), sí desde la API. | Corregido con `GET DIAGNOSTICS` tras el decremento. |
+| **L-1** | Grants por defecto a `authenticated` en las tres tablas nuevas. | Ya estaba corregido antes de la revisión (medido con `has_table_privilege`). |
+| **L-2** | `p_caja_id` era el único parámetro sin cotejar contra el estudio. No cross-tenant (las rutas la resuelven ellas), pero permitía apuntar en una caja ya cerrada. | Corregido en las tres RPC. |
+| **L-3** | El guardia `IMPORTE_NO_COINCIDE` era inerte por el camino del TPV: comparaba el total consigo mismo. | Corregido: el proveedor devuelve `importeCentimos`. |
+| **L-4** | Las devoluciones en efectivo no dejaban fila en `devoluciones`, pese a que el comentario decía que sí. | Corregido: la ruta llama a `registrarDevolucion` para ese canal. |
+| **L-5** | `metodoPago` de un movimiento de caja llegaba sin lista blanca (500 en vez de 400). | Corregido. |
+| — | Un doble toque **simultáneo** respondía 500. No cobraba dos veces (la transacción perdedora se deshacía entera), pero era el peor mensaje en el peor momento. | Corregido con un lock por clave de idempotencia. |
+
+⚠️ **Y la propia corrección introdujo dos bugs que solo aparecieron al volver a
+probar contra la base**, que es la razón de hacerlo:
+
+1. Una sustitución de texto sin comprobar dejó `v_controla_stock` **sin asignar**
+   → habría sido `NULL`, el `IF` habría dado falso y **el stock no se habría
+   descontado nunca**. Mudo, y en el sitio donde más caro sale.
+2. La ventana de 15 minutos que se añadió a la búsqueda de idempotencia
+   **contradecía al índice único**, que es permanente: pasada la ventana el
+   `SELECT` ignoraba la clave, el `INSERT` chocaba igual y la venta moría con un
+   `23505` crudo. Se retiró la ventana — manda el índice, y que la clave no se
+   repita es trabajo del nonce.
+
+Los dos se cazaron con `execute_sql` + `ROLLBACK`, no leyendo el código.
+
 ## 8. Riesgos y límites conocidos
 
 1. **Las migraciones NO están aplicadas en producción.** Se han verificado con

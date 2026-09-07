@@ -37,7 +37,13 @@ CREATE OR REPLACE FUNCTION public.devolver_venta_pos(
   p_motivo        text,
   p_caja_id       text,
   p_por           uuid,
-  p_por_nombre    text
+  p_por_nombre    text,
+  -- Pre-vuelo: calcula el importe y NO escribe nada. Existe porque el dinero
+  -- se devuelve en Stripe ANTES de tocar el libro, y para eso hay que saber
+  -- cuánto sin haberlo apuntado ya. El prorrateo del descuento y el redondeo
+  -- por línea viven aquí; recalcularlos en TypeScript sería una segunda
+  -- implementación que se desviaría a la primera de cambio.
+  p_simular       boolean DEFAULT false
 )
 RETURNS TABLE (
   r_importe_devuelto numeric,
@@ -77,6 +83,33 @@ BEGIN
       FROM public.ventas_pos_lineas l
      WHERE l.venta_id = p_venta_id AND l.cantidad > l.devuelta_cantidad;
     IF p_lineas IS NULL THEN RAISE EXCEPTION 'NADA_QUE_DEVOLVER'; END IF;
+  END IF;
+
+  -- Primera pasada: solo calcula. Sin `p_simular` seguiría de largo y escribiría
+  -- en la misma vuelta.
+  IF p_simular THEN
+    FOR v_linea IN SELECT * FROM jsonb_array_elements(p_lineas)
+    LOOP
+      SELECT l.* INTO v_rec
+        FROM public.ventas_pos_lineas l
+       WHERE l.id = (v_linea->>'lineaId') AND l.venta_id = p_venta_id AND l.studio_id = p_studio_id;
+      IF NOT FOUND THEN RAISE EXCEPTION 'LINEA_NO_ENCONTRADA:%', v_linea->>'lineaId'; END IF;
+      v_cant := COALESCE((v_linea->>'cantidad')::int, 0);
+      IF v_cant <= 0 THEN RAISE EXCEPTION 'CANTIDAD_INVALIDA'; END IF;
+      IF v_rec.devuelta_cantidad + v_cant > v_rec.cantidad THEN
+        RAISE EXCEPTION 'DEVOLUCION_EXCEDE:%:%', v_rec.nombre, v_rec.cantidad - v_rec.devuelta_cantidad;
+      END IF;
+      v_unitario_neto := ROUND(v_rec.total / v_rec.cantidad, 2);
+      IF v_rec.devuelta_cantidad + v_cant = v_rec.cantidad THEN
+        v_importe := v_importe + ROUND(v_rec.total - (v_unitario_neto * v_rec.devuelta_cantidad), 2);
+      ELSE
+        v_importe := v_importe + ROUND(v_unitario_neto * v_cant, 2);
+      END IF;
+    END LOOP;
+    v_importe := ROUND(v_importe, 2);
+    RETURN QUERY SELECT v_importe, ROUND(v_ya_devuelto + v_importe, 2),
+                        (ROUND(v_ya_devuelto + v_importe, 2) >= v_total_venta - 0.01);
+    RETURN;
   END IF;
 
   FOR v_linea IN SELECT * FROM jsonb_array_elements(p_lineas)
@@ -153,6 +186,16 @@ BEGIN
    WHERE v.id = p_venta_id;
 
   -- Caja: sale dinero del cajón. Signo negativo, como toda salida.
+  -- L-2: `p_caja_id` es el único parámetro que no se cotejaba contra el
+  -- estudio. Las rutas la resuelven ellas mismas y nunca la toman del body, así
+  -- que no es cross-tenant — pero apuntar en una caja ajena o ya cerrada
+  -- ensuciaría un arqueo que alguien ya firmó. Si no cuadra, se apunta sin caja.
+  IF p_caja_id IS NOT NULL THEN
+    PERFORM 1 FROM public.cajas c
+     WHERE c.id = p_caja_id AND c.studio_id = p_studio_id AND c.estado = 'ABIERTA';
+    IF NOT FOUND THEN p_caja_id := NULL; END IF;
+  END IF;
+
   IF p_caja_id IS NOT NULL AND v_importe > 0 THEN
     INSERT INTO public.movimientos_caja (
       id, studio_id, caja_id, tipo, importe, metodo_pago, concepto, referencia,
@@ -169,8 +212,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.devolver_venta_pos(text,text,text,jsonb,text,text,uuid,text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.devolver_venta_pos(text,text,text,jsonb,text,text,uuid,text) TO service_role;
+REVOKE ALL ON FUNCTION public.devolver_venta_pos(text,text,text,jsonb,text,text,uuid,text,boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.devolver_venta_pos(text,text,text,jsonb,text,text,uuid,text,boolean) TO service_role;
 
-COMMENT ON FUNCTION public.devolver_venta_pos(text,text,text,jsonb,text,text,uuid,text) IS
+COMMENT ON FUNCTION public.devolver_venta_pos(text,text,text,jsonb,text,text,uuid,text,boolean) IS
   'POS: devolución total o parcial por línea. Repone stock, retira el bono si sigue intacto y apunta la salida de caja. NO mueve dinero ni escribe en `devoluciones` — eso lo hace /api/pos/devolucion (Stripe) o el webhook.';
