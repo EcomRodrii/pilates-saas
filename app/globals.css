@@ -269,6 +269,18 @@
    la clase .dark al contenedor del panel (nunca a <html>, para no afectar a la
    app de socias). Los tokens --brand* no cambian entre claro/oscuro. */
 .dark {
+  /* ⚠️ ESTA LÍNEA ES LA QUE ARREGLA EL MODO OSCURO ENTERO.
+     `color` se HEREDA, y quien lo declara es `body` — que está FUERA de este
+     contenedor y por tanto resolvió `--foreground` con el valor CLARO. Los
+     fondos no tenían ese problema porque `bg-card` se calcula en el propio
+     elemento, ya dentro de `.dark`. Resultado: texto casi negro (#1A1A1A)
+     sobre tarjeta casi negra (#1E1E22) en TODO lo que no declarase su color a
+     mano — importes de Cierre de año, títulos de tablas, rótulos de filas.
+     Medido: 1,05:1, cuando el mínimo legible es 4,5:1.
+     Volver a declararlo aquí hace que el subárbol herede el foreground de
+     ESTE ámbito, que es el que corresponde. */
+  color: var(--foreground);
+
   --background: #16161A;
   --foreground: #EDEDE8;
   --card: #1E1E22;

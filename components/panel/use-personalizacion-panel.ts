@@ -18,10 +18,16 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { usePermisos } from '@/lib/permisos';
 import { fetchLayout, guardarLayoutApi } from '@/lib/api-client';
 import { ordenarItemsMenu, type MenuPosicion } from '@/lib/layout-runtime';
-import { MODULOS, NO_OCULTABLES } from '@/lib/nav-config';
+import { navSections, NO_OCULTABLES } from '@/lib/nav-config';
 import { HOME_SECCIONES, HOME_FIJAS_PRIMERO } from '@/lib/home-sections';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { ItemOrdenable } from '@/components/panel/lista-ordenable';
+
+export interface GrupoModulos {
+  /** El rótulo del menú («Clases», «Ventas»…). Sin él, el grupo va suelto arriba. */
+  label?: string;
+  items: ItemOrdenable[];
+}
 
 // Las de HOME_FIJAS_PRIMERO no se listan: son avisos de estado que aparecen y
 // desaparecen solos, no contenido que tenga sentido arrastrar (mismo criterio
@@ -42,7 +48,14 @@ function mover<T>(lista: T[], e: DragEndEvent, clave: (x: T) => string): T[] {
 export function usePersonalizacionPanel() {
   const { puedeVer } = usePermisos();
 
-  const [modulos, setModulos] = useState<ItemOrdenable[]>([]);
+  // ⚠️ AGRUPADOS COMO EL MENÚ, no una lista plana.
+  //
+  // La primera versión enseñaba todos los módulos seguidos y ordenaba DENTRO de
+  // cada grupo (cruzar grupos rompe la lectura del menú: «Cobros» fuera de
+  // «Ventas» no se encuentra). Resultado: arrastrabas «Calendario» al principio
+  // de la lista y el menú no se movía — un editor que promete un orden que
+  // nunca va a aplicarse. Enseñando los grupos, lo que se ve es lo que pasa.
+  const [grupos, setGrupos] = useState<GrupoModulos[]>([]);
   const [modulosOcultos, setModulosOcultos] = useState<Set<string>>(new Set());
   const [posicion, setPosicion] = useState<MenuPosicion>('lateral');
   const [seccionesHome, setSeccionesHome] = useState<string[]>(SECCIONES_HOME.map(s => s.id));
@@ -62,11 +75,16 @@ export function usePersonalizacionPanel() {
   const cargar = useCallback(() => {
     // Solo los módulos que este rol puede ver: ofrecer ocultar algo que ya no
     // ves es un control que no hace nada.
-    const visibles = MODULOS.filter(m => puedeVerRef.current(m.href));
+    const gruposVisibles = navSections
+      .map(sec => ({ label: sec.label, items: sec.items.filter(m => puedeVerRef.current(m.href)) }))
+      .filter(g => g.items.length > 0);
+    const aItem = (m: { href: string; label: string }): ItemOrdenable =>
+      ({ id: m.href, label: m.label, fijo: NO_OCULTABLES.includes(m.href) });
     fetchLayout()
       .then(l => {
-        setModulos(ordenarItemsMenu(visibles, l.orden).map(m => ({
-          id: m.href, label: m.label, fijo: NO_OCULTABLES.includes(m.href),
+        setGrupos(gruposVisibles.map(g => ({
+          label: g.label,
+          items: ordenarItemsMenu(g.items, l.orden).map(aItem),
         })));
         setModulosOcultos(new Set(l.ocultos));
         setPosicion(l.menuPosition);
@@ -83,7 +101,7 @@ export function usePersonalizacionPanel() {
         // Fallar en ABIERTO: se listan los módulos con su orden de fábrica en
         // vez de dejar la pantalla vacía. Lo que no se hace es dejar guardar
         // encima de un layout que no se ha podido leer — eso borraría el suyo.
-        setModulos(visibles.map(m => ({ id: m.href, label: m.label, fijo: NO_OCULTABLES.includes(m.href) })));
+        setGrupos(gruposVisibles.map(g => ({ label: g.label, items: g.items.map(aItem) })));
         setEstado('error');
       });
   }, []);
@@ -97,10 +115,15 @@ export function usePersonalizacionPanel() {
 
   return {
     estado, guardando, sucio, aviso,
-    modulos, modulosOcultos, posicion, seccionesHome, homeOcultos,
+    grupos, modulosOcultos, posicion, seccionesHome, homeOcultos,
     secciones: SECCIONES_HOME,
 
-    moverModulo: (e: DragEndEvent) => { setModulos(p => mover(p, e, x => x.id)); tocado(); },
+    // El arrastre es POR GRUPO: cada lista tiene su propio contexto, así que
+    // un id solo puede moverse dentro del suyo.
+    moverModulo: (iGrupo: number, e: DragEndEvent) => {
+      setGrupos(p => p.map((g, i) => (i === iGrupo ? { ...g, items: mover(g.items, e, x => x.id) } : g)));
+      tocado();
+    },
     ocultarModulo: (id: string) => {
       if (NO_OCULTABLES.includes(id)) return;
       setModulosOcultos(p => { const n = new Set(p); if (!n.delete(id)) n.add(id); return n; });
@@ -118,7 +141,9 @@ export function usePersonalizacionPanel() {
       setAviso(null);
       try {
         await guardarLayoutApi({
-          orden: modulos.map(m => m.id),
+          // Se aplana en el orden que se ve: los grupos en su orden natural y,
+          // dentro, lo que la propietaria haya dejado.
+          orden: grupos.flatMap(g => g.items.map(m => m.id)),
           ocultos: [...modulosOcultos],
           menuPosition: posicion,
           home: { orden: seccionesHome, ocultos: [...homeOcultos] },

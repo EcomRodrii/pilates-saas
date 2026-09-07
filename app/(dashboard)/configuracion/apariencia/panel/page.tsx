@@ -214,12 +214,29 @@ export default function PersonalizarPanelPage() {
 
       <Bloque
         titulo="Los módulos de tu menú"
-        pista="Arrastra para ordenarlos y usa el ojo para esconder los que no uses. Inicio, Configuración y Suscripción no se pueden esconder: sin ellos no habría por dónde volver."
+        pista="Arrastra para ordenarlos dentro de su grupo y usa el ojo para esconder los que no uses. Los grupos son los que ves en el menú y no se mezclan entre sí. Dashboard, Configuración y Suscripción no se pueden esconder: sin ellos no habría por dónde volver."
       >
         {p.estado === 'cargando' ? (
           <p className="text-[13px] text-muted-foreground">Cargando tu menú…</p>
         ) : (
-          <ListaOrdenable items={p.modulos} ocultos={p.modulosOcultos} onDragEnd={p.moverModulo} onToggle={p.ocultarModulo} />
+          // Un bloque por grupo del menú, con su mismo rótulo. Así se ve dónde
+          // puede moverse cada módulo: arrastrar «Calendario» fuera de «Clases»
+          // no es posible, y por eso tampoco se insinúa.
+          <div className="space-y-4">
+            {p.grupos.map((g, i) => (
+              <div key={g.label ?? `sin-rotulo-${i}`} className="space-y-1.5">
+                {g.label && (
+                  <p className="px-1 text-[10.5px] font-bold uppercase tracking-widest text-muted-foreground">{g.label}</p>
+                )}
+                <ListaOrdenable
+                  items={g.items}
+                  ocultos={p.modulosOcultos}
+                  onDragEnd={e => p.moverModulo(i, e)}
+                  onToggle={p.ocultarModulo}
+                />
+              </div>
+            ))}
+          </div>
         )}
       </Bloque>
 
