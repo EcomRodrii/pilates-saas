@@ -40,13 +40,26 @@ function PageHeader({
   return (
     <header
       data-slot="page-header"
+      // `sm:flex-wrap` es lo que de verdad protege al título. Sin él, la
+      // barra de acciones (`shrink-0`) se queda con su ancho natural y la
+      // columna del título —que sí puede encogerse, `min-w-0`— se come todo el
+      // recorte: medido en el Calendario a 1280 px, la barra ocupaba 904 de
+      // 974 px y el título quedaba en 10 px de ancho, una tira vertical de una
+      // letra por línea. Con el envoltorio, la barra entera baja a su propia
+      // línea antes que aplastarlo.
       className={cn(
-        "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
+        "flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between",
         className
       )}
       {...props}
     >
-      <div className="flex min-w-0 items-start gap-3">
+      {/* `basis-64` + `grow` es la otra mitad: un elemento flexible con base 0
+          nunca fuerza el salto de línea (siempre "cabe"), así que sin una base
+          real la barra de acciones seguiría cabiendo a su lado y aplastándolo.
+          Con 16rem de base, en cuanto título y acciones no caben juntos, salta.
+          Y `grow` mantiene lo de siempre cuando sí caben: el título se lleva
+          todo el ancho sobrante. */}
+      <div className="flex min-w-0 grow basis-64 items-start gap-3">
         {back && (
           <Link
             href={back.href}
@@ -91,10 +104,9 @@ function PageHeader({
       {actions && (
         <div
           data-slot="page-header-actions"
-          // `flex-wrap` + `justify-end`: sin ellos, una barra de acciones
-          // ancha (la del Calendario lleva siete controles) se lleva todo el
-          // espacio con su `shrink-0` y deja la columna del título en nada.
-          // Ahora los botones bajan de línea antes que aplastar el título.
+          // `flex-wrap` propio para que los siete controles del Calendario se
+          // repartan en dos filas cuando la barra ya ha bajado de línea, y
+          // `justify-end` para que sigan pegados a la derecha ahí abajo.
           className="flex shrink-0 flex-wrap items-center justify-end gap-2"
         >
           {actions}
