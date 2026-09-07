@@ -189,6 +189,12 @@ export const EVENTOS = {
   RECORDATORIO_1H: 'reserva.recordatorio_1h',
   BONO_POR_CADUCAR: 'bono.por_caducar',
   BONO_AGOTADO: 'bono.agotado',
+  // El barrido de los lunes reparte las recuperaciones de la semana que acaba
+  // de cerrar (`lib/recuperaciones/otorgar-semanales.ts`). Nacían en SILENCIO:
+  // la socia solo se enteraba si abría la app y comparaba el número con el que
+  // recordaba. Una clase que caduca y nadie te dijo que tenías es peor que no
+  // habértela dado.
+  RECUPERACION_OTORGADA: 'recuperacion.otorgada',
   // Tras ASISTIR: pide valorar la clase desde la app. Lo emite el cron de
   // valoraciones junto al email (misma regla: solo a quien asistió).
   VALORAR_CLASE: 'clase.valorar',
@@ -339,6 +345,9 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.VALORAR_CLASE]:         { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.BONO_POR_CADUCAR]:      { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.BONO_AGOTADO]:          { category: 'pagos',    priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  // Va por PUSH y no por email a propósito: es una buena noticia con fecha
+  // límite, y el sitio donde se gasta es la app.
+  [EVENTOS.RECUPERACION_OTORGADA]:  { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.CLASE_CASI_LLENA]:      { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
   [EVENTOS.CLASE_CREADA_POR_INSTRUCTOR]: { category: 'clases', priority: 'BAJA', canales: [],   audiencia: 'propietaria' },
   [EVENTOS.SOCIA_INACTIVA]:        { category: 'clases',   priority: 'BAJA',  canales: [],       audiencia: 'propietaria' },
@@ -561,18 +570,28 @@ function plantillaDocumentoSocioNuevo(): Record<string, Plantilla> {
   };
 }
 
+// Una misma plantilla para VARIOS roles.
+//
+// ⚠️ Existe por un agujero real: el texto de staff es idéntico para quien lleva
+// el mostrador y para quien lleva la sede, y estaba COPIADO una vez por rol. Al
+// meter MANAGER en la audiencia 'mostrador' se añadió el rol y no las
+// plantillas, así que a un gerente se le descartaban ocho eventos EN SILENCIO
+// —`inapp.ts` hace `if (!pl) { omitidas++; continue; }`—, cuatro de ellos de
+// dinero (pago fallido, disputa, chargeback perdido, devolución fallida).
+//
+// Atado a ROLES_POR_AUDIENCIA a propósito: así el siguiente rol que entre en
+// 'mostrador' hereda el texto en vez de estrenar el mismo agujero.
+function paraRoles(evento: string, roles: readonly NotificationRole[], p: Plantilla): Record<string, Plantilla> {
+  return Object.fromEntries(roles.map(r => [`${evento}#${r}`, p]));
+}
+
 export const PLANTILLAS: Record<string, Plantilla> = {
   // Reserva creada → la dueña y el mostrador (nueva inscripción)
-  [`${EVENTOS.RESERVA_CREADA}#PROPIETARIO`]: {
+  ...paraRoles(EVENTOS.RESERVA_CREADA, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Nueva reserva',
     body: '{socia} ha reservado {clase} el {cuando}.',
     deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
-  },
-  [`${EVENTOS.RESERVA_CREADA}#RECEPCION`]: {
-    title: 'Nueva reserva',
-    body: '{socia} ha reservado {clase} el {cuando}.',
-    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
-  },
+  }),
   // Reserva confirmada → la socia
   [`${EVENTOS.RESERVA_CONFIRMADA}#SOCIA`]: {
     title: 'Reserva confirmada',
@@ -702,16 +721,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     deepLink: () => `/sustituciones`,
   },
   // Pago fallido → dueña, mostrador y socia (mismo evento, textos por rol)
-  [`${EVENTOS.PAGO_FALLIDO}#PROPIETARIO`]: {
+  ...paraRoles(EVENTOS.PAGO_FALLIDO, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Pago fallido',
     body: 'No se ha podido cobrar {concepto} ({importe} €) a {socia}.',
     deepLink: () => `/cobros?tab=pendientes`,
-  },
-  [`${EVENTOS.PAGO_FALLIDO}#RECEPCION`]: {
-    title: 'Pago fallido',
-    body: 'No se ha podido cobrar {concepto} ({importe} €) a {socia}.',
-    deepLink: () => `/cobros?tab=pendientes`,
-  },
+  }),
   [`${EVENTOS.PAGO_FALLIDO}#SOCIA`]: {
     title: 'Problema con tu pago',
     body: 'No hemos podido cobrar {concepto} ({importe} €). Revisa tu método de pago.',
@@ -752,61 +766,36 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // {tipoTexto} distingue total de parcial dentro del mismo evento — mismo
   // patrón que {motivoTexto} en RESERVA_CANCELADA. Lo que NO se puede meter en
   // una variable es la prioridad, y por eso el chargeback es un evento aparte.
-  [`${EVENTOS.PAGO_DEVUELTO}#PROPIETARIO`]: {
+  ...paraRoles(EVENTOS.PAGO_DEVUELTO, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Has devuelto un cobro',
     body: 'Se han devuelto {importe} € a {socia}{tipoTexto}. Revisa si hay que retirarle lo que pagó.',
     deepLink: () => `/dashboard`,
-  },
-  [`${EVENTOS.PAGO_DEVUELTO}#RECEPCION`]: {
-    title: 'Has devuelto un cobro',
-    body: 'Se han devuelto {importe} € a {socia}{tipoTexto}. Revisa si hay que retirarle lo que pagó.',
-    deepLink: () => `/dashboard`,
-  },
+  }),
   // {deQuien} viene ya formado (" a {nombre}" o "" si la venta era anónima de
   // mostrador, sin ficha) — así el texto no necesita una segunda variante para
   // el caso sin socia.
-  [`${EVENTOS.VENTA_POS_DEVUELTA}#PROPIETARIO`]: {
+  ...paraRoles(EVENTOS.VENTA_POS_DEVUELTA, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Se ha devuelto una venta de mostrador',
     body: 'Se han devuelto {importe} € de una venta de mostrador{deQuien}. Ya está reflejado en el cierre de caja.',
     deepLink: () => `/productos`,
-  },
-  [`${EVENTOS.VENTA_POS_DEVUELTA}#RECEPCION`]: {
-    title: 'Se ha devuelto una venta de mostrador',
-    body: 'Se han devuelto {importe} € de una venta de mostrador{deQuien}. Ya está reflejado en el cierre de caja.',
-    deepLink: () => `/productos`,
-  },
+  }),
   // {sesionesTexto} solo se rellena si la entrega ya se había REVERTIDO: ahí la
   // clienta pagó Y perdió lo entregado, y hay que devolvérselo a mano.
-  [`${EVENTOS.PAGO_DEVOLUCION_FALLIDA}#PROPIETARIO`]: {
+  ...paraRoles(EVENTOS.PAGO_DEVOLUCION_FALLIDA, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Una devolución ha fallado',
     body: 'La devolución de {importe} € a {socia} ha fallado: la clienta NO ha recibido el dinero.{sesionesTexto} Puedes reintentarla desde su ficha.',
     deepLink: (d: Datos) => (d.socioId ? `/clientas/${s(d.socioId)}` : '/cobros'),
-  },
-  [`${EVENTOS.PAGO_DEVOLUCION_FALLIDA}#RECEPCION`]: {
-    title: 'Una devolución ha fallado',
-    body: 'La devolución de {importe} € a {socia} ha fallado: la clienta NO ha recibido el dinero.{sesionesTexto} Puedes reintentarla desde su ficha.',
-    deepLink: (d: Datos) => (d.socioId ? `/clientas/${s(d.socioId)}` : '/cobros'),
-  },
-  [`${EVENTOS.PAGO_CHARGEBACK_PERDIDO}#PROPIETARIO`]: {
+  }),
+  ...paraRoles(EVENTOS.PAGO_CHARGEBACK_PERDIDO, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Has perdido una disputa',
     body: 'El banco ha dado la razón a {socia}: {importe} € se han perdido definitivamente. Sigue teniendo lo que pagó — revísalo.',
     deepLink: () => `/dashboard`,
-  },
-  [`${EVENTOS.PAGO_CHARGEBACK_PERDIDO}#RECEPCION`]: {
-    title: 'Has perdido una disputa',
-    body: 'El banco ha dado la razón a {socia}: {importe} € se han perdido definitivamente. Sigue teniendo lo que pagó — revísalo.',
-    deepLink: () => `/dashboard`,
-  },
-  [`${EVENTOS.PAGO_DISPUTADO}#PROPIETARIO`]: {
+  }),
+  ...paraRoles(EVENTOS.PAGO_DISPUTADO, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Un cargo ha sido disputado',
     body: '{socia} ha impugnado el cargo de {concepto} ({importe} €) ante su banco. Tienes hasta el {plazo} para responder con evidencia en Stripe.',
     deepLink: () => `/cobros?tab=pendientes`,
-  },
-  [`${EVENTOS.PAGO_DISPUTADO}#RECEPCION`]: {
-    title: 'Un cargo ha sido disputado',
-    body: '{socia} ha impugnado el cargo de {concepto} ({importe} €) ante su banco. Tienes hasta el {plazo} para responder con evidencia en Stripe.',
-    deepLink: () => `/cobros?tab=pendientes`,
-  },
+  }),
   [`${EVENTOS.SISTEMA_ERROR}#PROPIETARIO`]: {
     title: 'Aviso del sistema',
     body: '{mensaje}',
@@ -837,6 +826,15 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Se te ha agotado el bono',
     body: 'Has usado la última sesión de tu bono de {plan}. Renueva para seguir reservando.',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
+  },
+  // `{clases}` llega ya en singular o plural desde el barrido: este catálogo no
+  // sabe pluralizar y no se le va a enseñar por un caso.
+  // El enlace lleva al HORARIO, no a «mis reservas»: la recuperación se gasta
+  // reservando, y mandarla a mirar el pasado no la acerca a usarla.
+  [`${EVENTOS.RECUPERACION_OTORGADA}#SOCIA`]: {
+    title: 'Tienes {clases} para recuperar',
+    body: 'Cancelaste a tiempo y la semana se cerró sin que pudieras volver. Reserva cuando te venga bien, antes del {fecha}.',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar`,
   },
   [`${EVENTOS.CLASE_CASI_LLENA}#PROPIETARIO`]: {
     title: 'Clase casi llena',
@@ -896,16 +894,11 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: 'Tus datos están intactos. Elige un plan para volver a entrar en tu estudio.',
     deepLink: () => `/suscripcion`,
   },
-  [`${EVENTOS.AUTOMATIZACION_DISPARADA}#PROPIETARIO`]: {
+  ...paraRoles(EVENTOS.AUTOMATIZACION_DISPARADA, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Automatización: {automatizacion}',
     body: 'Se ha disparado para {socia}.',
     deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
-  },
-  [`${EVENTOS.AUTOMATIZACION_DISPARADA}#RECEPCION`]: {
-    title: 'Automatización: {automatizacion}',
-    body: 'Se ha disparado para {socia}.',
-    deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
-  },
+  }),
   // El Umbral: una sola frase, sin vocabulario de especialista/confianza
   // cruda. {titulo}/{motivo} ya vienen redactados por el motor
   // (tituloMotor/motivoMotor de la candidata elegida).
