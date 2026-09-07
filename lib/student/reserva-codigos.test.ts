@@ -140,3 +140,23 @@ test('solo lo que NO sabemos nombrar se reporta como avería', () => {
     assert.equal(esRechazoConocido(c), true, c);
   }
 });
+
+// ── Gastar una recuperación no puede ser invisible ────────────────────────────
+// `reservar_plaza` la consume sola al topar el límite semanal y no lo dice en su
+// retorno. La alumna pasaba de 2 recuperaciones a 1 sin que nada se lo contara,
+// y solo lo descubría volviendo a Inicio y comparando el número. Asimétrico:
+// GANAR una sí se le cuenta.
+test('una reserva que gasta recuperación lo dice en el desenlace', () => {
+  const d = desenlaceDeRespuesta({
+    ok: true, estado: 'CONFIRMADA', reservaId: 'r-1',
+    recuperacionUsada: { caducaEl: '2026-10-31' },
+  });
+  assert.equal(d.state, 'confirmed');
+  assert.deepEqual(d.recuperacionUsada, { caducaEl: '2026-10-31' });
+});
+
+test('si no se gastó ninguna, el campo viaja como null, no como undefined', () => {
+  const d = desenlaceDeRespuesta({ ok: true, estado: 'CONFIRMADA', reservaId: 'r-2' });
+  assert.equal(d.recuperacionUsada, null,
+    'null dice «se preguntó y no hubo»; undefined dice «nadie preguntó».');
+});
