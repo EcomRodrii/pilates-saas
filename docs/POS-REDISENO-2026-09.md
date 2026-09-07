@@ -496,3 +496,72 @@ Sin riesgo de premiar dos veces: `REWARD_TRIGGERS` solo lo consume la pantalla
 de configuración, y el motor de TypeScript (`otorgarCreditos`) se llama siempre
 con disparadores literales, ninguno de ellos `COMPRA`. Esos créditos salen
 únicamente de la RPC, dentro de la misma transacción que la venta.
+
+---
+
+## 13. Fase 6 — cobrar un recibo por el datáfono
+
+Cierra el hueco que la fase 3 dejó abierto a propósito: allí una socia que venía
+a pagar su cuota solo podía pagarla **en efectivo** desde el TPV. Con tarjeta
+había que salir a /cobros y marcarla a mano — que es exactamente la transacción
+dada por buena sin que ningún proveedor la confirme que este rediseño existe
+para impedir.
+
+Mismo flujo que una venta, a propósito:
+
+```
+POST /api/pos/recibo            → arranca el cobro (Stripe Terminal o Bizum)
+POST /api/pos/recibo/confirmar  → PREGUNTA al proveedor y solo entonces cierra
+```
+
+**El cierre no se reimplementa.** Lo hace `confirmarCobroRecibo`, el punto único
+que ya comparten el webhook de Checkout y el conciliador; este flujo entra como
+una fuente más (`fuente: 'tpv'`). Escribir aquí una segunda versión del cierre
+habría recreado el patrón de «gemelos divergentes» que ese módulo existe para
+cerrar.
+
+`PeticionCobro.ventaId` pasa a `ref: { ventaId } | { reciboId }` — excluyente,
+para que no se pueda mandar las dos ni ninguna. Un solo llamador que tocar.
+
+### 13.1 Dos fallos que habrían costado dinero, encontrados antes de escribir
+
+**`recibos.conciliado_por` no admitía `'tpv'`.** Su CHECK conocía `webhook`,
+`conciliador` y `manual`. La confirmación habría reventado con un `23514`
+**justo después de cobrarle la tarjeta a la socia**: dinero cobrado y recibo sin
+cerrar, el peor resultado de los posibles. Ampliado en `20260907174932`. Se
+prefiere `'tpv'` a reutilizar `'manual'` porque la diferencia importa al
+cuadrar: `manual` es alguien marcándolo sin que nadie lo confirme, `tpv` es
+Stripe diciendo que sí.
+
+**`authenticated` puede escribir `recibos.cobro_mostrador_pi`.** `recibos` tiene
+GRANT de UPDATE a nivel de tabla, y un `REVOKE` por columna NO resta de un grant
+de tabla (lección ya documentada). Sin más defensa, se podría apuntar el recibo
+B al PaymentIntent que ya pagó el A —del mismo importe— y **cerrar los dos con
+un solo pago**.
+
+La defensa no es el permiso: al confirmar, el servidor comprueba que el
+PaymentIntent dice ser de ESTE recibo y de ESTE estudio (`metadata.reciboId` y
+`metadata.studioId`, que solo escribe este servidor), **además** de contrastar
+el importe. Si alguna falla no se cierra nada y se avisa: un recibo cerrado por
+error es dinero que el estudio cree tener.
+
+### 13.2 Decisiones
+
+- **El efectivo NO pasa por este flujo.** Lo cierra `marcarCobrado` y lo apunta
+  en caja `apuntar_cobro_en_caja` (fase 3). Meterlo aquí sería fingir una
+  confirmación que nadie da.
+- **`cobro_mostrador_pi` es una columna nueva, no `stripe_payment_intent_id`.**
+  Esa es la del cargo que SÍ salió bien, y de ella cuelgan los reembolsos: dejar
+  ahí un intento que aún puede fallar haría que un reembolso apuntara a un cobro
+  que nunca ocurrió.
+- **El webhook también cierra el recibo**, antes del backstop de reconciliación:
+  con `reciboId` en la metadata sí sabemos a qué apuntar, y dejarlo caer al
+  backstop lo convertiría en un cobro huérfano que alguien tendría que casar a
+  mano.
+- **Tope de sondeo (3 min).** Al agotarse NO se marca nada como fallido: el
+  recibo sigue pendiente —que es la verdad— y si el pago llega lo cierra el
+  webhook.
+
+⚠️ **Y el aviso que crece con esta fase**: por Stripe **no ha pasado un euro
+real** en ningún punto del TPV. Esta fase añade superficie de pago sobre esa
+misma base sin probar. El primer cobro de verdad, en un estudio de pruebas.

@@ -250,7 +250,7 @@ export async function POST(req: NextRequest) {
   const origen = req.nextUrl.origin;
   const prov = proveedorPara(metodoPago, { readerId: ctx.readerId, origen });
   const concepto = sane.lineas.length === 1 ? 'Venta en el estudio' : `Venta de ${sane.lineas.length} artículos`;
-  const inicio = await prov.iniciar(ctx.ctx, { importeCentimos: centimos, concepto, ventaId: base.ventaId });
+  const inicio = await prov.iniciar(ctx.ctx, { importeCentimos: centimos, concepto, ref: { ventaId: base.ventaId } });
 
   if (!inicio.ok) {
     await admin.rpc('fallar_pago_venta_pos', {

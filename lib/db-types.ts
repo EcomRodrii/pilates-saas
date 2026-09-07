@@ -547,6 +547,8 @@ export interface RowRecibos {
   factura_pendiente_sellar: boolean | null;
   // migr 20260906003934.
   es_renovacion: boolean | null;
+  // migr 20260907174656.
+  cobro_mostrador_pi: string | null;
 }
 
 export interface RowRewardActions {
