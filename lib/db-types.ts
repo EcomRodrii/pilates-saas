@@ -928,6 +928,8 @@ export interface RowStudios {
   bloquear_reserva_impago: boolean | null;
   // migr 20260906005059.
   recuperacion_auto_semanal: boolean | null;
+  // migr 20260907165827.
+  menu_posicion: string | null;
 }
 
 export interface RowSuscripciones {

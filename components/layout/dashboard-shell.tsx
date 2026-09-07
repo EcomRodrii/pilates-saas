@@ -20,6 +20,7 @@ import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida'
 import { ReviewBoostModal } from '@/components/growth/review-boost-modal';
 import { estadoBilling } from '@/lib/api-client';
 import { navSections } from '@/lib/nav-config';
+import { cn } from '@/lib/utils';
 
 // Antes vivía todo esto directo en app/(dashboard)/layout.tsx, pero ese
 // archivo necesita exportar `metadata` (manifest del panel instalable) y eso
@@ -32,6 +33,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // solo mira `studio`. Con useStudio() se re-renderizaba (y recreaba Sidebar,
   // Topbar y AvisoCambioDeSede) ante cualquier cambio del god-context.
   const { studio } = useCore();
+  // `?? 'izquierda'` y no una deducción: mientras el estudio carga, el panel se
+  // monta como está montado desde siempre. Adivinar aquí haría que la barra
+  // saltara de sitio a mitad de carga.
+  const menuPosicion = studio?.menuPosicion ?? 'izquierda';
   const { rol, puedeVer } = usePermisos();
   const router = useRouter();
   const pathname = usePathname();
@@ -254,7 +259,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <PanelPrivacyProvider>
       <PanelThemeProvider className="min-h-dvh bg-background">
         <TourProvider>
-          <Sidebar />
+          {/* Dónde vive el menú lo decide el ESTUDIO (`studios.menu_posicion`),
+              no cada persona: la propietaria monta su software y quien entre
+              después se lo encuentra igual. Mientras `studio` carga vale el
+              valor por defecto — nunca se adivina. */}
+          <Sidebar posicion={menuPosicion} />
           {/* Cambiar de sede recarga el panel entero y aterrizas en un dashboard
               idéntico salvo por los datos: esto es lo único que confirma el salto. */}
           <AvisoCambioDeSede />
@@ -267,7 +276,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               debeMostrarModal() — el componente decide si se muestra. */}
           <ReviewBoostModal studio={studio} rol={rolResuelto ? rol : null} />
           <main className="lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200">
-            <div className="pt-14 lg:pt-2 pb-32 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
+            {/* Con el menú arriba, el hueco va arriba y no a la izquierda: la
+                barra flota en `top-4` y mide 68 px, así que el contenido
+                empieza en 92. En móvil no cambia nada (ya era barra arriba). */}
+            <div className={cn(
+              'pb-32 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6',
+              menuPosicion === 'arriba' ? 'pt-14 lg:pt-[92px]' : 'pt-14 lg:pt-2',
+            )}>
               <Topbar />
               <PanelPageTransition>
                 {cargandoDatos ? <PanelSkeleton /> : children}
