@@ -135,6 +135,7 @@ import type {
   RewardCatalogItem,
   RewardHistory,
   RewardRedemption,
+  EstadoCanje,
   RewardRule,
   Sala,
   BloqueoMaquina,
@@ -3204,21 +3205,15 @@ export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule
   return error ? falloEscritura('[dbUpdateRewardRule]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertRewardHistory(h: RewardHistory) {
-  const row = {
-    id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, rule_id: h.ruleId,
-    action_id: h.actionId, creditos: h.creditos, descripcion: h.descripcion, creado_en: h.creadoEn,
-  };
-  // Misma carrera de visibilidad de FK que dbInsertRecibo (Sentry
-  // JAVASCRIPT-NEXTJS-11): `action_id` referencia la fila de `reward_actions`
-  // que acaba de crear `otorgar_credito_disparador` — el cliente la inserta
-  // justo después de recibir el `accionId` de esa RPC, pero puede llegar
-  // antes de que la fila sea visible a esta conexión.
-  const { error } = await conReintentoFK('reward_history_action_id_fkey', () =>
-    supabase.from('reward_history').insert(row),
-  );
-  if (error) reportDbError('[dbInsertRewardHistory]', error);
-}
+// (Aquí vivía `dbInsertRewardHistory`. Existía para sortear una carrera de
+// visibilidad de FK —Sentry JAVASCRIPT-NEXTJS-11—: el cliente insertaba
+// `reward_history` inmediatamente después de recibir el `accionId` de la RPC, y
+// la fila de `reward_actions` podía no ser visible todavía a esta conexión, así
+// que hacía falta un reintento sobre el nombre del constraint.
+//
+// Ese apunte lo escribe ahora la propia RPC, en la MISMA transacción que crea
+// la acción. La carrera no puede darse, y con ella se va la función y su
+// reintento: la solución del problema era no tener dos escrituras separadas.)
 
 export async function dbInsertCreditTransaction(t: CreditTransaction) {
   const row = {
@@ -3244,7 +3239,7 @@ export async function dbInsertCreditTransaction(t: CreditTransaction) {
 // cuando otorgado=true, si no duplicaría esas filas en un reintento.
 export async function dbOtorgarCreditoDisparador(
   socioId: string, studioId: string, trigger: string, refId: string, configId?: string,
-): Promise<{ ok: true; saldo: number; otorgado: boolean; accionId: string | null } | { error: string }> {
+): Promise<{ ok: true; saldo: number; otorgado: boolean; accionId: string | null; creditos: number; descripcion: string | null } | { error: string }> {
   const { data, error } = await supabase.rpc('otorgar_credito_disparador', {
     p_socio_id: socioId, p_studio_id: studioId, p_trigger: trigger, p_ref_id: refId,
     p_config_id: configId ?? null,
@@ -3269,6 +3264,11 @@ export async function dbOtorgarCreditoDisparador(
   return {
     ok: true, saldo: row.saldo as number, otorgado: row.otorgado as boolean,
     accionId: (row.accion_id as string | null) ?? null,
+    // El importe y el texto los decide el SERVIDOR desde la regla del estudio.
+    // Antes los ponía el cliente con su copia de la regla, que podía estar
+    // desfasada: el ledger declaraba un número distinto del que se movió.
+    creditos: (row.creditos as number | null) ?? 0,
+    descripcion: (row.descripcion as string | null) ?? null,
   };
 }
 
@@ -3493,6 +3493,30 @@ export async function dbInsertRewardRedemption(r: RewardRedemption) {
   };
   const { error } = await supabase.from('reward_redemptions').insert(row);
   if (error) reportDbError('[dbInsertRewardRedemption]', error);
+}
+
+// Cancelar un canje NO es un cambio de estado más: hay que devolver los
+// créditos y el stock, y las tres escrituras deben ir juntas o no ir. Hacerlas
+// desde aquí en tres llamadas dejaría a la socia sin recompensa y sin créditos
+// si fallara la segunda. Por eso va por RPC (migración 20260907193000), que
+// además es idempotente: cancelar dos veces devuelve el crédito una.
+export async function dbCancelarCanje(
+  redemptionId: string, studioId: string,
+): Promise<{ ok: true; estado: EstadoCanje; saldo: number } | { error: string }> {
+  const { data, error } = await supabase.rpc('cancelar_canje', {
+    p_redemption_id: redemptionId, p_studio_id: studioId,
+  });
+  if (error) {
+    if (error.message.includes('CANJE_NO_ENCONTRADO')) return { error: 'Ese canje ya no existe.' };
+    reportDbError('[dbCancelarCanje]', error);
+    return { error: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    reportDbError('[dbCancelarCanje]', { message: 'La RPC no devolvió ninguna fila' });
+    return { error: 'No se ha podido confirmar la cancelación.' };
+  }
+  return { ok: true, estado: row.estado as EstadoCanje, saldo: row.saldo as number };
 }
 
 export async function dbUpdateRewardRedemption(id: string, changes: Partial<RewardRedemption>): Promise<ResultadoEscritura> {
@@ -5446,6 +5470,64 @@ export async function contarSedesCadena(cadenaId: string): Promise<number> {
 
 // Combina ambas olas. Lo usa el cron de automatizaciones, que necesita todo.
 
+
+// ─── Gamificación del panel (carga bajo demanda) ─────────────────────────────
+//
+// ⚠️ Esto NO es una optimización nueva: es reparar una carga que desapareció.
+//
+// «Sprint 1: lazy-load non-critical tables» (#1375, 25-ago-2026) comentó los
+// SELECT de las diez tablas de gamificación en `fetchCriticalStudioData` y
+// dejó `[]` en su sitio. La parte de "lazy" nunca llegó: ninguna función las
+// carga después. Ni `fetchDeferredStudioData`, ni `fetchAllStudioData` (que es
+// crítica + diferida, así que tampoco), ni `resetDatosPilates`. Otras tablas
+// del mismo commit sí recuperaron su cargador —`plazas_fijas` tiene el suyo—;
+// estas se quedaron huérfanas.
+//
+// Lo que provocó, medido en producción:
+//  · Las cinco pestañas de Configuración › Logros y motivación leen un estado
+//    que nadie rellena. Un estudio con 24 logros y 11 niveles guardados los ve
+//    todos en blanco, y el catálogo de recompensas siempre vacío.
+//  · Peor: `otorgarCreditos` filtra en local con `rewardRules` antes de llamar
+//    a la RPC. Con la lista vacía, `decidirOtorgarCreditos` siempre dice que no
+//    y la RPC no se llega a llamar. El panel lleva SIN CONCEDER UN SOLO CRÉDITO
+//    desde el 21-ago (última concesión `rwa-srv-%` en producción), mientras el
+//    camino del portal —que no depende del estado del cliente— seguía vivo. Por
+//    eso no saltó ninguna alarma.
+//
+// Se carga aparte y bajo demanda, no volviendo a meterlo en el arranque: el
+// arranque del panel bajó de 1452 ms a 69 ms precisamente sacando esto de ahí.
+export async function fetchGamificacionStudio(studioId?: string) {
+  const sid = studioId ?? getCurrentStudioId();
+  const db = getSupabaseAdmin() ?? supabase;
+  const [
+    rewardRulesRes, rewardActionsRes, memberCreditsRes, rewardCatalogRes, rewardRedemptionsRes,
+    achievementDefinitionsRes, achievementProgressRes, levelDefinitionsRes,
+    challengeDefinitionsRes, challengeProgressRes,
+  ] = await enTandas([
+    db.from('reward_rules').select('*').eq('studio_id', sid),
+    db.from('reward_actions').select('*').eq('studio_id', sid),
+    db.from('member_credits').select('*').eq('studio_id', sid),
+    db.from('reward_catalog').select('*').eq('studio_id', sid),
+    db.from('reward_redemptions').select('*').eq('studio_id', sid),
+    db.from('achievement_definitions').select('*').eq('studio_id', sid),
+    db.from('achievement_progress').select('*').eq('studio_id', sid),
+    db.from('level_definitions').select('*').eq('studio_id', sid),
+    db.from('challenge_definitions').select('*').eq('studio_id', sid),
+    db.from('challenge_progress').select('*').eq('studio_id', sid),
+  ]);
+  return {
+    rewardRules: (rewardRulesRes?.data ?? []).map(mapRewardRule),
+    rewardActions: (rewardActionsRes?.data ?? []).map(mapRewardAction),
+    memberCredits: (memberCreditsRes?.data ?? []).map(mapMemberCredits),
+    rewardCatalog: (rewardCatalogRes?.data ?? []).map(mapRewardCatalogItem),
+    rewardRedemptions: (rewardRedemptionsRes?.data ?? []).map(mapRewardRedemption),
+    achievementDefinitions: (achievementDefinitionsRes?.data ?? []).map(mapAchievementDefinition),
+    achievementProgress: (achievementProgressRes?.data ?? []).map(mapAchievementProgress),
+    levelDefinitions: (levelDefinitionsRes?.data ?? []).map(mapLevelDefinition),
+    challengeDefinitions: (challengeDefinitionsRes?.data ?? []).map(mapChallengeDefinition),
+    challengeProgress: (challengeProgressRes?.data ?? []).map(mapChallengeProgress),
+  };
+}
 
 export async function fetchAllStudioData(studioId?: string) {
   // Aquí sí `Promise.all`: estos dos elementos ya son llamadas INVOCADAS (no

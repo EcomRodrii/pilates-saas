@@ -628,6 +628,28 @@ export async function emitirBonoAgotado(
   }
 }
 
+// Una socia ha canjeado una recompensa con sus créditos. Al mostrador, que es
+// quien se la entrega. `dedupKey` por id de canje: cada canje avisa UNA vez,
+// aunque el emisor se reintente.
+// (Sin `admin`, a diferencia del resto de emisores de este fichero: los demás
+// lo usan para resolver datos que les faltan —el slug, el nombre de la sesión—.
+// Aquí quien llama ya tiene la socia y la recompensa cargadas, y un parámetro
+// que no se usa miente sobre lo que la función necesita.)
+export async function emitirCanjeSolicitado(
+  p: { studioId: string; socioId: string; socia: string; recompensa: string; creditos: number; redemptionId: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.CANJE_SOLICITADO, studioId: p.studioId,
+      data: { socia: p.socia, recompensa: p.recompensa, creditos: p.creditos, socioId: p.socioId },
+      resource: { type: 'canje', id: p.redemptionId },
+      dedupKey: `canje-solicitado:${p.redemptionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirCanjeSolicitado:', e instanceof Error ? e.message : e);
+  }
+}
+
 // La instructora avisa de que no puede dar una clase (baja desde su enlace):
 // la dueña se entera al instante, no al abrir el panel.
 export async function emitirInstructoraBaja(

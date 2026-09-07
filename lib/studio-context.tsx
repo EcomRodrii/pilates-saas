@@ -9,7 +9,7 @@ import { supabase } from '@/lib/db/supabase';
 import { apuntarCobroEnCaja } from '@/lib/pos/cliente';
 import type { RowInstructores } from '@/lib/db-types';
 import {
-  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchDatosTrasVentaPOS, mapInstructor,
+  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchGamificacionStudio, fetchDatosTrasVentaPOS, mapInstructor,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbFetchCamposPersonalizados, dbInsertCampoPersonalizado, dbUpdateCampoPersonalizado, dbDeleteCampoPersonalizado,
   dbFetchSegmentosClientes, dbInsertSegmentoCliente, dbUpdateSegmentoCliente, dbDeleteSegmentoCliente,
@@ -35,12 +35,12 @@ import {
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
   dbInsertRewardRule, dbUpdateRewardRule,
-  dbInsertRewardHistory, dbInsertCreditTransaction, dbAjustarCreditos,
+  dbInsertCreditTransaction, dbAjustarCreditos,
   dbOtorgarCreditoDisparador,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem, dbAjustarStock,
   dbConsumirSesionBono,
   dbDevolverSesionBono,
-  dbInsertRewardRedemption, dbUpdateRewardRedemption,
+  dbInsertRewardRedemption, dbUpdateRewardRedemption, dbCancelarCanje,
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
   dbUpsertAchievementProgress, dbInsertAchievementHistory,
   dbInsertLevelDefinition, dbUpdateLevelDefinition, dbDeleteLevelDefinition,
@@ -175,7 +175,7 @@ import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
 import { useAuth } from '@/lib/auth-context';
-import { reglaActivaPara, decidirOtorgarCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
+import { reglaActivaPara, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
@@ -543,7 +543,7 @@ interface StudioContextValue {
   memberCredits: MemberCredits[];
   rewardCatalog: RewardCatalogItem[];
   rewardRedemptions: RewardRedemption[];
-  otorgarCreditos: (socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) => void;
+  otorgarCreditos: (socioId: string, trigger: RewardTrigger, refId: string | null) => void;
   saldoCreditos: (socioId: string) => number;
   rachaSocio: (socioId: string) => RachaInfo;
   addRewardRule: (fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual' | 'unidadEuros'> & { topeMensual?: number | null; unidadEuros?: number | null }) => Promise<ResultadoEscritura>;
@@ -639,6 +639,13 @@ interface StudioContextValue {
 
   // Studio management
   resetDatosPilates: () => void;
+  /**
+   * Carga las tablas de gamificación, que NO vienen en el arranque.
+   *
+   * La llama la pestaña que las necesita (Configuración › Logros y motivación).
+   * Es idempotente por estudio: entrar y salir de la pestaña no vuelve a pedir.
+   */
+  cargarGamificacion: () => void;
   dataLoaded: boolean;
   /**
    * La carga pública falló de verdad (red/servidor) — distinto de `dataLoaded`
@@ -4435,7 +4442,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // El valor de cada acción SIEMPRE sale de rewardRules (configurable por el
   // estudio) — otorgarCreditos nunca usa un número fijo.
 
-  function otorgarCreditos(socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) {
+  function otorgarCreditos(socioId: string, trigger: RewardTrigger, refId: string | null) {
     // Gate de plan (espejo del servidor en lib/supabase-data.ts): sin la
     // feature 'gamificacion' del plan, el panel no otorga créditos nuevos desde
     // acciones de staff. El servidor sigue siendo la fuente de verdad — este
@@ -4444,54 +4451,50 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (studio && !tieneFeature(studio, 'gamificacion')) return;
     if (!refId) return;
     const studioId = getCurrentStudioId();
-    // Filtro local rápido (regla activa + no otorgado ya según lo que tenemos
-    // cargado) — solo para no disparar una llamada de más. La fuente de verdad
-    // real es el servidor: dbOtorgarCreditoDisparador recalcula el importe desde
-    // la regla del estudio (nunca confía en `regla.creditos` del cliente) y,
-    // para ASISTENCIA_CLASE/REFERIDO_AMIGO, exige que la condición exista de
-    // verdad en la BD (una reserva ASISTIDA real) antes de conceder nada. Sin
-    // esto, cualquier staff autenticado podía otorgarse créditos arbitrarios
-    // llamando directo a la BD desde la consola del navegador.
-    const { otorgar, regla } = decidirOtorgarCreditos(rewardRules, rewardActions, trigger, refId);
-    if (!otorgar || !regla) return;
 
+    // ⚠️ Aquí había un filtro local previo —`decidirOtorgarCreditos(rewardRules,
+    // rewardActions, ...)`— que se documentaba como un atajo para «no disparar
+    // una llamada de más». Resultó ser el fallo: `rewardRules` dejó de cargarse
+    // en el panel en #1375 (25-ago-2026), y con la lista vacía el atajo decía
+    // que no SIEMPRE, así que la RPC no se llamaba nunca. El panel estuvo desde
+    // el 21-ago sin conceder un solo crédito, y no saltó ninguna alarma porque
+    // el camino del portal no pasa por aquí.
+    //
+    // No se repone el filtro: se quita. La RPC ya revalida todo en servidor
+    // —regla activa, importe, condición real (una reserva ASISTIDA de verdad) e
+    // idempotencia por UNIQUE(studio,trigger,ref_id)—, así que el atajo solo
+    // podía equivocarse en una dirección: decir que no cuando el servidor decía
+    // que sí. Un atajo que puede contradecir a la fuente de verdad no es un
+    // atajo, es una segunda regla.
     (async () => {
       const res = await dbOtorgarCreditoDisparador(socioId, studioId, trigger, refId);
       if ('error' in res) return; // condición no cumplida o sin regla activa
       if (!res.otorgado) return; // ya se había concedido antes para este refId
-      if (!res.accionId) {
-        // Defensivo: la RPC siempre devuelve accion_id cuando otorgado=true; si
-        // alguna vez no lo hiciera, no fabricar un id local — insertarlo violaría
-        // reward_history_action_id_fkey (bug JAVASCRIPT-NEXTJS-11 de Sentry). El
-        // saldo ya se actualizó server-side; solo se pierde el registro de
-        // historial de este otorgamiento puntual, no el crédito en sí.
-        capturarMensaje('[otorgarCreditos] RPC otorgado=true sin accionId', 'error', { tags: { area: 'gamificacion' } });
-        return;
-      }
+      if (!res.accionId) return; // defensivo: sin acción no hay nada que reflejar
 
+      // Los apuntes del ledger (reward_history + credit_transactions) los
+      // escribe ya la RPC, en la misma transacción que mueve el saldo. Aquí
+      // solo se refleja en pantalla lo que el servidor dice que ha pasado.
       const now = new Date().toISOString();
+      const descripcion = res.descripcion ?? '';
       const action: RewardAction = { id: res.accionId, studioId, socioId, trigger, refId, creadoEn: now };
-      const historyEntry: RewardHistory = {
-        id: `rwh-${uid()}`, studioId, socioId, ruleId: regla.id, actionId: action.id,
-        creditos: regla.creditos, descripcion: descripcionOverride ?? regla.nombre, creadoEn: now,
-      };
       const transaccion: CreditTransaction = {
-        id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: regla.creditos,
-        descripcion: historyEntry.descripcion, refId, creadoEn: now,
+        id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: res.creditos,
+        descripcion, refId, creadoEn: now,
       };
 
+      // No se refleja `reward_history` en local: la RPC ya escribió esa fila y
+      // el id real es suyo, así que un eco aquí sería una fila INVENTADA con
+      // otro id. Además ninguna pantalla del panel muestra ese historial hoy.
       setRewardActions(prev => [...prev, action]);
-      setRewardHistory(prev => [historyEntry, ...prev]);
       setCreditTransactions(prev => [transaccion, ...prev]);
       setMemberCredits(prev => {
         const existente = prev.find(m => m.socioId === socioId);
         const actualizado: MemberCredits = existente
-          ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + regla.creditos, actualizadoEn: now }
-          : { socioId, studioId, saldo: res.saldo, totalGanado: regla.creditos, totalCanjeado: 0, actualizadoEn: now };
+          ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + res.creditos, actualizadoEn: now }
+          : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, actualizadoEn: now };
         return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
       });
-      dbInsertRewardHistory(historyEntry);
-      dbInsertCreditTransaction(transaccion);
     })();
   }
 
@@ -4611,6 +4614,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   async function updateRewardRedemptionEstado(id: string, estado: RewardRedemption['estado']): Promise<ResultadoEscritura> {
+    // CANCELADO no es un estado más: devuelve créditos y stock. Eso va por la
+    // RPC `cancelar_canje`, que hace las tres escrituras en una transacción —
+    // hacerlas aquí sueltas dejaría a la socia sin recompensa y sin créditos si
+    // fallara la segunda. ENTREGADO sí es solo un cambio de estado.
+    if (estado === 'CANCELADO') {
+      const socioId = rewardRedemptions.find(r => r.id === id)?.socioId ?? null;
+      const res = await dbCancelarCanje(id, getCurrentStudioId());
+      if ('error' in res) return { ok: false, error: res.error };
+      // La RPC es idempotente y responde con el estado REAL: si alguien lo
+      // había entregado ya desde otra pestaña, se refleja eso y no 'CANCELADO'.
+      setRewardRedemptions(prev => prev.map(r => r.id === id ? { ...r, estado: res.estado } : r));
+      if (socioId) {
+        setMemberCredits(prev => prev.map(m => m.socioId === socioId ? { ...m, saldo: res.saldo } : m));
+      }
+      return { ok: true };
+    }
     const res = await dbUpdateRewardRedemption(id, { estado });
     if (!res.ok) return res;
     setRewardRedemptions(prev => prev.map(r => r.id === id ? { ...r, estado } : r));
@@ -4687,19 +4706,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           const res = await dbOtorgarCreditoDisparador(socioId, studioId, 'LOGRO', `${socioId}:${def.id}`, def.id);
           if ('error' in res) return; // sin regla activa
           if (!res.otorgado) return; // ya se había otorgado antes
+          // El importe y el texto salen de la RPC, no de `def`: el servidor los
+          // recalcula desde achievement_definitions y además ya ha escrito el
+          // apunte. Aquí solo se refleja lo que dice que ha pasado.
           const transaccion: CreditTransaction = {
-            id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: def.creditosRecompensa,
-            descripcion: `Logro desbloqueado: ${def.nombre}`, refId: def.id, creadoEn: now.toISOString(),
+            id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: res.creditos,
+            descripcion: res.descripcion ?? '', refId: def.id, creadoEn: now.toISOString(),
           };
           setCreditTransactions(prev => [transaccion, ...prev]);
           setMemberCredits(prev => {
             const existente = prev.find(m => m.socioId === socioId);
             const actualizado: MemberCredits = existente
-              ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + def.creditosRecompensa, actualizadoEn: now.toISOString() }
-              : { socioId, studioId, saldo: res.saldo, totalGanado: def.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
+              ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + res.creditos, actualizadoEn: now.toISOString() }
+              : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, actualizadoEn: now.toISOString() };
             return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
           });
-          dbInsertCreditTransaction(transaccion);
         })();
       }
     });
@@ -4806,19 +4827,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
             const res = await dbOtorgarCreditoDisparador(socioId, studioId, 'RETO', `${socioId}:${reto.id}`, reto.id);
             if ('error' in res) return; // sin regla activa
           if (!res.otorgado) return; // ya se había otorgado antes
+            // Mismo motivo que en el logro: importe y texto del servidor, y el
+            // apunte ya escrito por la RPC.
             const transaccion: CreditTransaction = {
-              id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: reto.creditosRecompensa,
-              descripcion: `Reto completado: ${reto.nombre}`, refId: reto.id, creadoEn: now.toISOString(),
+              id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: res.creditos,
+              descripcion: res.descripcion ?? '', refId: reto.id, creadoEn: now.toISOString(),
             };
             setCreditTransactions(prev => [transaccion, ...prev]);
             setMemberCredits(prev => {
               const existente = prev.find(m => m.socioId === socioId);
               const actualizado: MemberCredits = existente
-                ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + reto.creditosRecompensa, actualizadoEn: now.toISOString() }
-                : { socioId, studioId, saldo: res.saldo, totalGanado: reto.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
+                ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + res.creditos, actualizadoEn: now.toISOString() }
+                : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, actualizadoEn: now.toISOString() };
               return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
             });
-            dbInsertCreditTransaction(transaccion);
           })();
         }
       });
@@ -5195,6 +5217,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     studioConfig,
     updateStudioConfig,
     resetDatosPilates,
+    cargarGamificacion,
     automationRules,
     automationLogs,
     notasProgreso,
@@ -5252,6 +5275,37 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     studio,
     authUserId, publicSlug, studioIdOverride,
   ]);
+
+  // Ver el comentario largo de `fetchGamificacionStudio`: estas diez tablas
+  // dejaron de cargarse en #1375 y nadie las recogió después. Se piden aquí,
+  // bajo demanda, para no devolverlas al arranque —que es de donde se sacaron
+  // para bajarlo de 1452 ms a 69 ms—.
+  const gamificacionCargadaDe = useRef<string | null>(null);
+
+  function cargarGamificacion() {
+    const sid = getCurrentStudioId();
+    if (!sid || gamificacionCargadaDe.current === sid) return;
+    // Se marca ANTES de esperar: si no, abrir la pestaña dispara varias cargas
+    // idénticas antes de que vuelva la primera.
+    gamificacionCargadaDe.current = sid;
+    fetchGamificacionStudio(sid).then(g => {
+      setRewardRules(g.rewardRules);
+      setRewardActions(g.rewardActions);
+      setMemberCredits(g.memberCredits);
+      setRewardCatalog(g.rewardCatalog);
+      setRewardRedemptions(g.rewardRedemptions);
+      setAchievementDefinitions(g.achievementDefinitions);
+      setAchievementProgress(g.achievementProgress);
+      setLevelDefinitions(g.levelDefinitions);
+      setChallengeDefinitions(g.challengeDefinitions);
+      setChallengeProgress(g.challengeProgress);
+    }).catch(e => {
+      // Si falla, se permite reintentar: dejarlo marcado condenaría la pestaña
+      // a quedarse vacía el resto de la sesión, que es justo el fallo de origen.
+      gamificacionCargadaDe.current = null;
+      capturarExcepcion(e, { tags: { area: 'gamificacion' } });
+    });
+  }
 
   function resetDatosPilates() {
     fetchAllStudioData().then(data => {
