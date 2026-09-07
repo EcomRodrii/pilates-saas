@@ -88,5 +88,7 @@ test('un plan mensual dice que es mensual, al lado del botón de pago', async ({
   // que se cobra CADA MES: el precio lo lleva pegado, y el calificador vuelve
   // al subtítulo en vez de perderse detrás de la descripción.
   await expect(page.getByText('95 €/mes')).toBeVisible();
-  await expect(page.getByText('Mensual Ilimitado').locator('..')).toContainText('Mensual · sin compromiso');
+  // «Cada mes» y no «Mensual»: desde que una cuota puede ser trimestral, la
+  // etiqueta dice el ciclo real (ver `nombrePeriodo`, lib/bono-logic.ts).
+  await expect(page.getByText('Mensual Ilimitado').locator('..')).toContainText('Cada mes · sin compromiso');
 });

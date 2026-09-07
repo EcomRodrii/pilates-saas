@@ -152,7 +152,7 @@ test.describe('Crear una tarifa sin tener que pensar', () => {
     const d = dialogo(page);
 
     // Arranca en mensual: los campos de bono no deben existir siquiera.
-    await expect(d.getByRole('radio', { name: /Cuota mensual/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(d.getByRole('radio', { name: /^Cuota/ })).toHaveAttribute('aria-checked', 'true');
     await expect(d.getByLabel('Sesiones que incluye')).toHaveCount(0);
     await expect(d.getByLabel('Caducidad')).toHaveCount(0);
     // Y el precio dice que es al mes, no un pago suelto.
@@ -161,12 +161,12 @@ test.describe('Crear una tarifa sin tener que pensar', () => {
     // Al cambiar a bono aparecen, y al volver desaparecen otra vez.
     await d.getByRole('radio', { name: /Bono de sesiones/ }).click();
     await expect(d.getByLabel('Sesiones que incluye')).toBeVisible();
-    await d.getByRole('radio', { name: /Cuota mensual/ }).click();
+    await d.getByRole('radio', { name: /^Cuota/ }).click();
     await expect(d.getByLabel('Sesiones que incluye')).toHaveCount(0);
 
     await d.getByLabel('Nombre', { exact: false }).first().fill('Mensual ilimitado');
     await d.getByLabel('Precio', { exact: false }).first().fill('59');
-    await d.getByRole('button', { name: 'Crear cuota mensual' }).click();
+    await d.getByRole('button', { name: 'Crear cuota' }).click();
     await expect(d).toBeHidden();
 
     expect(planes).toHaveLength(1);
