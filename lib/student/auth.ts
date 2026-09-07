@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { codigoDeError, traducirAuth, type CodigoAuth } from './auth-errores.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
@@ -25,18 +26,8 @@ import { mensajeSeguro } from '@/lib/errores';
 // está invertido —el token tarda ~3,5 s— así que se pide AL ENVIAR, nunca al
 // montar. Ver components/auth/turnstile-widget.tsx.
 
-export type ResultadoAuth = { ok: true } | { error: string };
+export type ResultadoAuth = { ok: true } | { error: string; codigo?: CodigoAuth };
 
-/** Traducción de los errores de gotrue a algo que una alumna entienda. */
-function traducir(mensaje: string, porDefecto: string): string {
-  const m = mensaje.toLowerCase();
-  if (m.includes('invalid login credentials')) return 'Email o contraseña incorrectos.';
-  if (m.includes('rate limit') || m.includes('too many')) return 'Demasiados intentos. Espera un minuto y vuelve a intentarlo.';
-  if (m.includes('email not confirmed')) return 'Tienes que confirmar tu email antes de entrar. Mira tu correo.';
-  if (m.includes('user already registered')) return 'Ya existe una cuenta con ese email. Entra con tu contraseña o pide un enlace.';
-  if (m.includes('should be at least') || m.includes('password')) return 'La contraseña es demasiado corta. Usa al menos 8 caracteres.';
-  return mensajeSeguro(mensaje, porDefecto);
-}
 
 export function useAuthStudent(slug: string) {
   const base = `/portal/${encodeURIComponent(slug)}`;
@@ -48,7 +39,14 @@ export function useAuthStudent(slug: string) {
     // El token de Turnstile es de un solo uso: marcarlo gastado evita que el
     // siguiente intento reutilice uno que gotrue ya ha invalidado.
     if (captchaToken) captchaGastado();
-    return error ? { error: traducir(error.message, 'No se ha podido iniciar sesión. Inténtalo de nuevo en unos segundos.') } : { ok: true };
+    if (!error) return { ok: true };
+    // El código viaja aparte del texto: la pantalla necesita saber QUÉ pasó
+    // para ofrecer la salida correcta, y comparar mensajes traducidos sería
+    // atarla a la redacción.
+    return {
+      error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No se ha podido iniciar sesión. Inténtalo de nuevo en unos segundos.')),
+      codigo: codigoDeError(error.message),
+    };
   }, []);
 
   /**
@@ -61,7 +59,7 @@ export function useAuthStudent(slug: string) {
       options: { emailRedirectTo: `${window.location.origin}${base}/acceso/verificar`, captchaToken },
     });
     if (captchaToken) captchaGastado();
-    return error ? { error: traducir(error.message, 'No se ha podido enviar el enlace. Inténtalo de nuevo en unos segundos.') } : { ok: true };
+    return error ? { error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No se ha podido enviar el enlace. Inténtalo de nuevo en unos segundos.')) } : { ok: true };
   }, [base]);
 
   /**
@@ -77,7 +75,7 @@ export function useAuthStudent(slug: string) {
       options: { emailRedirectTo: `${window.location.origin}${base}/acceso/verificar`, captchaToken },
     });
     if (captchaToken) captchaGastado();
-    return error ? { error: traducir(error.message, 'No se ha podido crear la cuenta. Inténtalo de nuevo en unos segundos.') } : { ok: true };
+    return error ? { error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No se ha podido crear la cuenta. Inténtalo de nuevo en unos segundos.')) } : { ok: true };
   }, [base]);
 
   /**
@@ -90,7 +88,7 @@ export function useAuthStudent(slug: string) {
    */
   const fijarPassword = useCallback(async (password: string): Promise<ResultadoAuth> => {
     const { error } = await supabasePortal.auth.updateUser({ password });
-    return error ? { error: traducir(error.message, 'No se ha podido guardar la contraseña. Inténtalo de nuevo.') } : { ok: true };
+    return error ? { error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No se ha podido guardar la contraseña. Inténtalo de nuevo.')) } : { ok: true };
   }, []);
 
   /**
@@ -121,7 +119,7 @@ export function useAuthStudent(slug: string) {
     if (crudo.includes('current password') || crudo.includes('invalid') || crudo.includes('credentials')) {
       return { error: 'La contraseña actual no es correcta.' };
     }
-    return { error: traducir(error.message, 'No se ha podido cambiar la contraseña. Inténtalo de nuevo.') };
+    return { error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No se ha podido cambiar la contraseña. Inténtalo de nuevo.')) };
   }, []);
 
   /** Recuperación: manda el enlace que lleva a elegir contraseña nueva. */
@@ -131,7 +129,7 @@ export function useAuthStudent(slug: string) {
       captchaToken,
     });
     if (captchaToken) captchaGastado();
-    return error ? { error: traducir(error.message, 'No se ha podido enviar el enlace. Inténtalo de nuevo en unos segundos.') } : { ok: true };
+    return error ? { error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No se ha podido enviar el enlace. Inténtalo de nuevo en unos segundos.')) } : { ok: true };
   }, [base]);
 
   /**
@@ -191,7 +189,7 @@ export function useAuthStudent(slug: string) {
     // Si todo va bien navegamos fuera de la pestaña y nunca llegamos aquí.
     // Solo se alcanza cuando gotrue rechaza antes del redirect: proveedor mal
     // configurado, URL de retorno no permitida o rate limit.
-    if (error) return { error: traducir(error.message, 'No hemos podido abrir la entrada con Google.') };
+    if (error) return { error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No hemos podido abrir la entrada con Google.')) };
     return { ok: true };
   }, [base]);
 
