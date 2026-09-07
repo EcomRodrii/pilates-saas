@@ -10,6 +10,8 @@ import type {
 } from '@/lib/types';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import type { ResultadoReserva } from '@/lib/studio-context';
+import { canalesWidget } from '@/lib/widget/canales-widget';
+import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
 
 // Hook mínimo del bundle embebible (Modo B): trae SOLO lo que
 // <ReservaCalendario> necesita para pintar y reservar, sin montar
@@ -116,13 +118,33 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
   // Silencioso (no toca `cargando`) y se salta el tic con la pestaña oculta.
   const recargarRef = useRef(recargar);
   useEffect(() => { recargarRef.current = recargar; });
+
+  // Aforo en vivo. Quien mira este widget está en la web del estudio y no tiene
+  // cuenta, así que el canal se abrió a `anon` (migr 20260907042134): por él
+  // solo viaja `{sesionId}`, ni quién ni qué.
+  //
+  // Se recarga entero y no solo el aforo porque este hook no tiene una vía
+  // barata aparte: `recargar` YA es la única puerta, y es silenciosa. La
+  // diferencia con el tic es que ahora solo se pide cuando algo ha cambiado de
+  // verdad, en vez de cada minuto pase lo que pase.
+  const { conectado: aforoEnVivo } = useAforoEnVivo(canalesWidget, {
+    studioId: datos.studioId || null,
+    alCambiar: () => recargarRef.current({ silencioso: true }),
+  });
+
+  // ⚠️ El tic se queda como RESPALDO, no como solución: solo corre si el canal
+  // no ha llegado a conectar. Este bundle se sirve desde la web del estudio,
+  // donde un proxy corporativo puede bloquear WebSockets — sin esto se quedaría
+  // mudo para siempre en vez de tardar un minuto. Con el canal vivo no se pide
+  // nada.
   useEffect(() => {
+    if (aforoEnVivo) return;
     const id = setInterval(() => {
       if (document.hidden) return;
       recargarRef.current({ silencioso: true });
     }, 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [aforoEnVivo]);
 
   // `Date.now()` es impuro — no puede llamarse dentro del cuerpo de un
   // `useMemo` (regla de pureza de React Compiler) ni siquiera en un

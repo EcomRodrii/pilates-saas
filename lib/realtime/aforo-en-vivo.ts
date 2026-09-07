@@ -23,7 +23,7 @@
 // tabla de la publicación. `reservas` se escribe mucho más que aquella.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -43,6 +43,21 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 type FuenteAuth = Pick<SupabaseClient['auth'], 'getSession' | 'onAuthStateChange'>;
 
 /**
+ * Lo mínimo para abrir un canal. Un `SupabaseClient` lo cumple tal cual.
+ *
+ * Es una forma estructural y no el cliente entero porque el bundle embebible
+ * (`public/widget.js`) no puede permitirse un `SupabaseClient` —instancia
+ * Postgrest y Storage que no usa— y monta un `RealtimeClient` pelado: +16 KB
+ * comprimidos en vez de los ~110 KB del completo. Medido, no estimado.
+ */
+export interface FuenteCanales {
+  realtime: { setAuth(token: string | null): void | Promise<void> };
+  channel: SupabaseClient['channel'];
+  removeChannel: SupabaseClient['removeChannel'];
+  auth: FuenteAuth;
+}
+
+/**
  * Cuánto se espera antes de refrescar tras el primer aviso.
  *
  * Cancelar una clase entera cambia N reservas en una transacción y produce N
@@ -55,18 +70,34 @@ const AGRUPAR_MS = 250;
 export interface OpcionesAforoEnVivo {
   /** `null` mientras no se sepa el estudio: no se suscribe a nada. */
   studioId: string | null | undefined;
-  /** Qué hacer cuando algo cambió. Se llama ya agrupado. */
-  alCambiar: () => void;
+  /**
+   * Qué hacer cuando algo cambió. Se llama ya agrupado, con los ids de TODAS
+   * las clases que cambiaron en la ráfaga.
+   *
+   * Sirve para elegir qué recargar: si la clase ya se tiene delante basta con
+   * refrescar sus plazas, y solo si no suena de nada hay algo nuevo que traer.
+   */
+  alCambiar: (sesionIds: string[]) => void;
   /** Apagar sin desmontar (p. ej. una pantalla que no lo necesita). */
   activo?: boolean;
   /** De dónde sale la sesión. Por defecto, la del propio `cliente`. */
   auth?: FuenteAuth;
 }
 
+/**
+ * ¿Está el canal escuchando de verdad?
+ *
+ * Se devuelve porque hay pantallas —el widget que un estudio incrusta en su
+ * propia web— que además tienen un sondeo de respaldo. Ese sondeo NO debe
+ * correr mientras el canal funciona (sería pagar dos veces por lo mismo), y sí
+ * tiene que volver si el canal no llega a conectar: un widget servido desde la
+ * web de un estudio puede toparse con un proxy que bloquee WebSockets, y sin
+ * respaldo se quedaría mudo para siempre en vez de tardar un minuto.
+ */
 export function useAforoEnVivo(
-  cliente: SupabaseClient,
+  cliente: FuenteCanales,
   { studioId, alCambiar, activo = true, auth = cliente.auth }: OpcionesAforoEnVivo,
-): void {
+): { conectado: boolean } {
   // La callback cambia en cada render (se define inline en la pantalla). Si
   // entrara como dependencia del efecto, el canal se cerraría y se volvería a
   // abrir en cada render — que es como se pierden avisos sin que nada falle.
@@ -75,6 +106,8 @@ export function useAforoEnVivo(
   const alCambiarRef = useRef(alCambiar);
   useEffect(() => { alCambiarRef.current = alCambiar; });
 
+  const [conectado, setConectado] = useState(false);
+
   useEffect(() => {
     if (!activo || !studioId) return;
 
@@ -82,11 +115,17 @@ export function useAforoEnVivo(
     let temporizador: ReturnType<typeof setTimeout> | null = null;
     let canal: ReturnType<typeof cliente.channel> | null = null;
 
-    const refrescarAgrupado = () => {
+    // Los ids que llegaron en esta ráfaga. Se vacía al entregar.
+    const pendientes = new Set<string>();
+    const refrescarAgrupado = (msg: { payload?: { sesionId?: unknown } }) => {
+      const id = msg?.payload?.sesionId;
+      if (typeof id === 'string') pendientes.add(id);
       if (temporizador) return; // ya hay uno en camino
       temporizador = setTimeout(() => {
         temporizador = null;
-        if (vivo) alCambiarRef.current();
+        const ids = [...pendientes];
+        pendientes.clear();
+        if (vivo) alCambiarRef.current(ids);
       }, AGRUPAR_MS);
     };
 
@@ -101,7 +140,9 @@ export function useAforoEnVivo(
       canal = cliente
         .channel(`aforo:${studioId}`, { config: { private: true } })
         .on('broadcast', { event: 'aforo' }, refrescarAgrupado)
-        .subscribe();
+        .subscribe(estado => {
+          if (vivo) setConectado(estado === 'SUBSCRIBED');
+        });
     })();
 
     // El token caduca solo. Sin esto, el canal se queda mudo pasada una hora y
@@ -114,9 +155,12 @@ export function useAforoEnVivo(
 
     return () => {
       vivo = false;
+      setConectado(false);
       if (temporizador) clearTimeout(temporizador);
       sub.subscription.unsubscribe();
       if (canal) void cliente.removeChannel(canal);
     };
   }, [cliente, auth, studioId, activo]);
+
+  return { conectado };
 }

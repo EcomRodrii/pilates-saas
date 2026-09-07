@@ -29,6 +29,9 @@ export function useAforoEnVivoPortal(
   studioId: string | null | undefined,
   refrescar: () => void | Promise<void>,
 ): void {
+  // Los ids que cambiaron no se usan aquí a propósito: la alumna necesita el
+  // payload completo de todos modos —su reserva vive en la parte `socia`, no en
+  // el aforo anónimo—, así que saber CUÁL cambió no ahorraría nada.
   const alCambiar = useCallback(() => {
     if (slug) invalidarCatalogo(slug);
     void refrescar();
