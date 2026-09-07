@@ -35,7 +35,7 @@ import {
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
   dbInsertRewardRule, dbUpdateRewardRule,
-  dbInsertRewardHistory, dbInsertCreditTransaction, dbAjustarCreditos,
+  dbInsertCreditTransaction, dbAjustarCreditos,
   dbOtorgarCreditoDisparador,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem, dbAjustarStock,
   dbConsumirSesionBono,
@@ -175,7 +175,7 @@ import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
 import { useAuth } from '@/lib/auth-context';
-import { reglaActivaPara, decidirOtorgarCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
+import { reglaActivaPara, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
@@ -543,7 +543,7 @@ interface StudioContextValue {
   memberCredits: MemberCredits[];
   rewardCatalog: RewardCatalogItem[];
   rewardRedemptions: RewardRedemption[];
-  otorgarCreditos: (socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) => void;
+  otorgarCreditos: (socioId: string, trigger: RewardTrigger, refId: string | null) => void;
   saldoCreditos: (socioId: string) => number;
   rachaSocio: (socioId: string) => RachaInfo;
   addRewardRule: (fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual'> & { topeMensual?: number | null }) => Promise<ResultadoEscritura>;
@@ -4442,7 +4442,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // El valor de cada acción SIEMPRE sale de rewardRules (configurable por el
   // estudio) — otorgarCreditos nunca usa un número fijo.
 
-  function otorgarCreditos(socioId: string, trigger: RewardTrigger, refId: string | null, descripcionOverride?: string) {
+  function otorgarCreditos(socioId: string, trigger: RewardTrigger, refId: string | null) {
     // Gate de plan (espejo del servidor en lib/supabase-data.ts): sin la
     // feature 'gamificacion' del plan, el panel no otorga créditos nuevos desde
     // acciones de staff. El servidor sigue siendo la fuente de verdad — este
@@ -4451,54 +4451,50 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (studio && !tieneFeature(studio, 'gamificacion')) return;
     if (!refId) return;
     const studioId = getCurrentStudioId();
-    // Filtro local rápido (regla activa + no otorgado ya según lo que tenemos
-    // cargado) — solo para no disparar una llamada de más. La fuente de verdad
-    // real es el servidor: dbOtorgarCreditoDisparador recalcula el importe desde
-    // la regla del estudio (nunca confía en `regla.creditos` del cliente) y,
-    // para ASISTENCIA_CLASE/REFERIDO_AMIGO, exige que la condición exista de
-    // verdad en la BD (una reserva ASISTIDA real) antes de conceder nada. Sin
-    // esto, cualquier staff autenticado podía otorgarse créditos arbitrarios
-    // llamando directo a la BD desde la consola del navegador.
-    const { otorgar, regla } = decidirOtorgarCreditos(rewardRules, rewardActions, trigger, refId);
-    if (!otorgar || !regla) return;
 
+    // ⚠️ Aquí había un filtro local previo —`decidirOtorgarCreditos(rewardRules,
+    // rewardActions, ...)`— que se documentaba como un atajo para «no disparar
+    // una llamada de más». Resultó ser el fallo: `rewardRules` dejó de cargarse
+    // en el panel en #1375 (25-ago-2026), y con la lista vacía el atajo decía
+    // que no SIEMPRE, así que la RPC no se llamaba nunca. El panel estuvo desde
+    // el 21-ago sin conceder un solo crédito, y no saltó ninguna alarma porque
+    // el camino del portal no pasa por aquí.
+    //
+    // No se repone el filtro: se quita. La RPC ya revalida todo en servidor
+    // —regla activa, importe, condición real (una reserva ASISTIDA de verdad) e
+    // idempotencia por UNIQUE(studio,trigger,ref_id)—, así que el atajo solo
+    // podía equivocarse en una dirección: decir que no cuando el servidor decía
+    // que sí. Un atajo que puede contradecir a la fuente de verdad no es un
+    // atajo, es una segunda regla.
     (async () => {
       const res = await dbOtorgarCreditoDisparador(socioId, studioId, trigger, refId);
       if ('error' in res) return; // condición no cumplida o sin regla activa
       if (!res.otorgado) return; // ya se había concedido antes para este refId
-      if (!res.accionId) {
-        // Defensivo: la RPC siempre devuelve accion_id cuando otorgado=true; si
-        // alguna vez no lo hiciera, no fabricar un id local — insertarlo violaría
-        // reward_history_action_id_fkey (bug JAVASCRIPT-NEXTJS-11 de Sentry). El
-        // saldo ya se actualizó server-side; solo se pierde el registro de
-        // historial de este otorgamiento puntual, no el crédito en sí.
-        capturarMensaje('[otorgarCreditos] RPC otorgado=true sin accionId', 'error', { tags: { area: 'gamificacion' } });
-        return;
-      }
+      if (!res.accionId) return; // defensivo: sin acción no hay nada que reflejar
 
+      // Los apuntes del ledger (reward_history + credit_transactions) los
+      // escribe ya la RPC, en la misma transacción que mueve el saldo. Aquí
+      // solo se refleja en pantalla lo que el servidor dice que ha pasado.
       const now = new Date().toISOString();
+      const descripcion = res.descripcion ?? '';
       const action: RewardAction = { id: res.accionId, studioId, socioId, trigger, refId, creadoEn: now };
-      const historyEntry: RewardHistory = {
-        id: `rwh-${uid()}`, studioId, socioId, ruleId: regla.id, actionId: action.id,
-        creditos: regla.creditos, descripcion: descripcionOverride ?? regla.nombre, creadoEn: now,
-      };
       const transaccion: CreditTransaction = {
-        id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: regla.creditos,
-        descripcion: historyEntry.descripcion, refId, creadoEn: now,
+        id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: res.creditos,
+        descripcion, refId, creadoEn: now,
       };
 
+      // No se refleja `reward_history` en local: la RPC ya escribió esa fila y
+      // el id real es suyo, así que un eco aquí sería una fila INVENTADA con
+      // otro id. Además ninguna pantalla del panel muestra ese historial hoy.
       setRewardActions(prev => [...prev, action]);
-      setRewardHistory(prev => [historyEntry, ...prev]);
       setCreditTransactions(prev => [transaccion, ...prev]);
       setMemberCredits(prev => {
         const existente = prev.find(m => m.socioId === socioId);
         const actualizado: MemberCredits = existente
-          ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + regla.creditos, actualizadoEn: now }
-          : { socioId, studioId, saldo: res.saldo, totalGanado: regla.creditos, totalCanjeado: 0, actualizadoEn: now };
+          ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + res.creditos, actualizadoEn: now }
+          : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, actualizadoEn: now };
         return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
       });
-      dbInsertRewardHistory(historyEntry);
-      dbInsertCreditTransaction(transaccion);
     })();
   }
 
@@ -4708,19 +4704,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           const res = await dbOtorgarCreditoDisparador(socioId, studioId, 'LOGRO', `${socioId}:${def.id}`, def.id);
           if ('error' in res) return; // sin regla activa
           if (!res.otorgado) return; // ya se había otorgado antes
+          // El importe y el texto salen de la RPC, no de `def`: el servidor los
+          // recalcula desde achievement_definitions y además ya ha escrito el
+          // apunte. Aquí solo se refleja lo que dice que ha pasado.
           const transaccion: CreditTransaction = {
-            id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: def.creditosRecompensa,
-            descripcion: `Logro desbloqueado: ${def.nombre}`, refId: def.id, creadoEn: now.toISOString(),
+            id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: res.creditos,
+            descripcion: res.descripcion ?? '', refId: def.id, creadoEn: now.toISOString(),
           };
           setCreditTransactions(prev => [transaccion, ...prev]);
           setMemberCredits(prev => {
             const existente = prev.find(m => m.socioId === socioId);
             const actualizado: MemberCredits = existente
-              ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + def.creditosRecompensa, actualizadoEn: now.toISOString() }
-              : { socioId, studioId, saldo: res.saldo, totalGanado: def.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
+              ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + res.creditos, actualizadoEn: now.toISOString() }
+              : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, actualizadoEn: now.toISOString() };
             return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
           });
-          dbInsertCreditTransaction(transaccion);
         })();
       }
     });
@@ -4827,19 +4825,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
             const res = await dbOtorgarCreditoDisparador(socioId, studioId, 'RETO', `${socioId}:${reto.id}`, reto.id);
             if ('error' in res) return; // sin regla activa
           if (!res.otorgado) return; // ya se había otorgado antes
+            // Mismo motivo que en el logro: importe y texto del servidor, y el
+            // apunte ya escrito por la RPC.
             const transaccion: CreditTransaction = {
-              id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: reto.creditosRecompensa,
-              descripcion: `Reto completado: ${reto.nombre}`, refId: reto.id, creadoEn: now.toISOString(),
+              id: `ctx-${uid()}`, studioId, socioId, tipo: 'GANANCIA', creditos: res.creditos,
+              descripcion: res.descripcion ?? '', refId: reto.id, creadoEn: now.toISOString(),
             };
             setCreditTransactions(prev => [transaccion, ...prev]);
             setMemberCredits(prev => {
               const existente = prev.find(m => m.socioId === socioId);
               const actualizado: MemberCredits = existente
-                ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + reto.creditosRecompensa, actualizadoEn: now.toISOString() }
-                : { socioId, studioId, saldo: res.saldo, totalGanado: reto.creditosRecompensa, totalCanjeado: 0, actualizadoEn: now.toISOString() };
+                ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + res.creditos, actualizadoEn: now.toISOString() }
+                : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, actualizadoEn: now.toISOString() };
               return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
             });
-            dbInsertCreditTransaction(transaccion);
           })();
         }
       });

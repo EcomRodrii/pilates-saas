@@ -3194,21 +3194,15 @@ export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule
   return error ? falloEscritura('[dbUpdateRewardRule]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertRewardHistory(h: RewardHistory) {
-  const row = {
-    id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, rule_id: h.ruleId,
-    action_id: h.actionId, creditos: h.creditos, descripcion: h.descripcion, creado_en: h.creadoEn,
-  };
-  // Misma carrera de visibilidad de FK que dbInsertRecibo (Sentry
-  // JAVASCRIPT-NEXTJS-11): `action_id` referencia la fila de `reward_actions`
-  // que acaba de crear `otorgar_credito_disparador` — el cliente la inserta
-  // justo después de recibir el `accionId` de esa RPC, pero puede llegar
-  // antes de que la fila sea visible a esta conexión.
-  const { error } = await conReintentoFK('reward_history_action_id_fkey', () =>
-    supabase.from('reward_history').insert(row),
-  );
-  if (error) reportDbError('[dbInsertRewardHistory]', error);
-}
+// (Aquí vivía `dbInsertRewardHistory`. Existía para sortear una carrera de
+// visibilidad de FK —Sentry JAVASCRIPT-NEXTJS-11—: el cliente insertaba
+// `reward_history` inmediatamente después de recibir el `accionId` de la RPC, y
+// la fila de `reward_actions` podía no ser visible todavía a esta conexión, así
+// que hacía falta un reintento sobre el nombre del constraint.
+//
+// Ese apunte lo escribe ahora la propia RPC, en la MISMA transacción que crea
+// la acción. La carrera no puede darse, y con ella se va la función y su
+// reintento: la solución del problema era no tener dos escrituras separadas.)
 
 export async function dbInsertCreditTransaction(t: CreditTransaction) {
   const row = {
@@ -3234,7 +3228,7 @@ export async function dbInsertCreditTransaction(t: CreditTransaction) {
 // cuando otorgado=true, si no duplicaría esas filas en un reintento.
 export async function dbOtorgarCreditoDisparador(
   socioId: string, studioId: string, trigger: string, refId: string, configId?: string,
-): Promise<{ ok: true; saldo: number; otorgado: boolean; accionId: string | null } | { error: string }> {
+): Promise<{ ok: true; saldo: number; otorgado: boolean; accionId: string | null; creditos: number; descripcion: string | null } | { error: string }> {
   const { data, error } = await supabase.rpc('otorgar_credito_disparador', {
     p_socio_id: socioId, p_studio_id: studioId, p_trigger: trigger, p_ref_id: refId,
     p_config_id: configId ?? null,
@@ -3259,6 +3253,11 @@ export async function dbOtorgarCreditoDisparador(
   return {
     ok: true, saldo: row.saldo as number, otorgado: row.otorgado as boolean,
     accionId: (row.accion_id as string | null) ?? null,
+    // El importe y el texto los decide el SERVIDOR desde la regla del estudio.
+    // Antes los ponía el cliente con su copia de la regla, que podía estar
+    // desfasada: el ledger declaraba un número distinto del que se movió.
+    creditos: (row.creditos as number | null) ?? 0,
+    descripcion: (row.descripcion as string | null) ?? null,
   };
 }
 
