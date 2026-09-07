@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { anfitrionPortal } from '@/lib/panel-portal';
 import {
@@ -135,7 +135,7 @@ export function PosTerminal() {
       nombre: p.nombre, precio: p.precio, ivaPct: p.ivaPct,
       categoria: p.tipo === 'BONO' ? 'BONOS' : p.tipo === 'MENSUAL' ? 'CUOTAS' : 'CLASES',
       stock: null as number | null, stockMinimo: 0,
-      detalle: p.sesiones ? `${p.sesiones} sesiones` : p.descripcion,
+      detalle: p.sesiones ? `${p.sesiones} ${p.sesiones === 1 ? 'sesión' : 'sesiones'}` : p.descripcion,
       sku: null as string | null, codigoBarras: null as string | null,
     }));
     return [...planes, ...productos];
@@ -369,7 +369,7 @@ export function PosTerminal() {
       <header className="shrink-0 h-16 px-4 sm:px-5 border-b border-border bg-card flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <h1 className="hidden md:block text-[16px] font-bold text-foreground shrink-0">Caja</h1>
-          <div className="hidden sm:flex items-center gap-2">
+          <div className="hidden sm:flex items-center">
             <Metrica label="Hoy" valor={formatEuro(catalogo?.hoy.total ?? 0)} destacado />
             <Metrica label="Ventas" valor={String(catalogo?.hoy.ventas ?? 0)} />
             <Metrica label="Ticket medio" valor={formatEuro(catalogo?.hoy.ticketMedio ?? 0)} />
@@ -398,22 +398,35 @@ export function PosTerminal() {
       </header>
 
       {/* ── Conmutador móvil ──────────────────────────────────────────────── */}
-      <div className="lg:hidden shrink-0 flex gap-1 p-2 bg-card border-b border-border">
-        {(['catalogo', 'ticket'] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => setVistaMovil(v)}
-            className={cn(
-              'flex-1 h-12 rounded-xl text-[14px] font-semibold transition-colors flex items-center justify-center gap-2',
-              vistaMovil === v ? 'bg-brand text-brand-foreground' : 'text-muted-foreground',
-            )}
-          >
-            {v === 'catalogo' ? 'Catálogo' : 'Ticket'}
-            {v === 'ticket' && unidades > 0 && (
-              <span className="text-[12px] font-bold px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground">{unidades}</span>
-            )}
-          </button>
-        ))}
+      {/* Segmentado de verdad: los dos lados dentro de un mismo carril. Antes
+          el elegido era una píldora sólida y el otro texto suelto sobre el
+          fondo, así que no se leía como «dos pestañas» sino como un botón
+          principal y una etiqueta. */}
+      <div className="lg:hidden shrink-0 p-2 bg-card border-b border-border">
+        <div role="tablist" className="flex gap-1 p-1 rounded-2xl bg-muted/60">
+          {(['catalogo', 'ticket'] as const).map((v) => (
+            <button
+              key={v}
+              role="tab"
+              aria-selected={vistaMovil === v}
+              onClick={() => setVistaMovil(v)}
+              className={cn(
+                'flex-1 h-11 rounded-xl text-[14px] font-semibold transition-all flex items-center justify-center gap-2',
+                vistaMovil === v ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground',
+              )}
+            >
+              {v === 'catalogo' ? 'Catálogo' : 'Ticket'}
+              {/* Cuántos artículos llevas, no un error: el rojo de
+                  `destructive` decía «algo va mal» para contar hasta tres. */}
+              {v === 'ticket' && unidades > 0 && (
+                <span className={cn(
+                  'text-[12px] font-bold px-2 py-0.5 rounded-full',
+                  vistaMovil === v ? 'bg-brand text-brand-foreground' : 'bg-foreground/10 text-foreground',
+                )}>{unidades}</span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
@@ -517,7 +530,10 @@ export function PosTerminal() {
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 sm:px-4 pb-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5">
+            <div
+              className="grid gap-2.5"
+              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))' }}
+            >
               {articulosFiltrados.map((a) => {
                 const est = estadoStock(a.stock, a.stockMinimo);
                 const agotado = est === 'AGOTADO';
@@ -527,28 +543,43 @@ export function PosTerminal() {
                     onClick={() => !agotado && anadir(a)}
                     disabled={agotado}
                     className={cn(
-                      'group relative rounded-2xl border bg-card p-3.5 text-left flex flex-col justify-between',
-                      'min-h-[112px] transition-all',
+                      // `justify-between` + alto mínimo: los precios de una
+                      // misma fila quedan en la MISMA línea aunque un artículo
+                      // no tenga subtítulo. Sin esto, «Mensual ilimitado» subía
+                      // su precio respecto a sus vecinos y la rejilla se leía
+                      // desordenada.
+                      'group relative rounded-2xl border bg-card px-3 py-2.5 text-left flex flex-col justify-between gap-1.5',
+                      'min-h-[104px] transition-all',
                       agotado
-                        ? 'border-border/60 opacity-50 cursor-not-allowed'
+                        // ⚠️ Sin `opacity`: atenuar el bloque entero dejaba el
+                        // nombre en gris sobre gris, ilegible. Se apaga el
+                        // FONDO y el texto conserva su contraste — un artículo
+                        // agotado hay que poder leerlo para saber cuál es.
+                        ? 'border-border/60 bg-muted/40 cursor-not-allowed'
                         : 'border-border hover:border-foreground/30 hover:shadow-sm active:scale-[0.98]',
                     )}
                   >
                     <div className="min-w-0">
-                      <p className="text-[15px] font-semibold text-foreground leading-snug line-clamp-2">{a.nombre}</p>
-                      {a.detalle && <p className="mt-0.5 text-[12px] text-muted-foreground truncate">{a.detalle}</p>}
+                      <p className={cn(
+                        'text-[14.5px] font-semibold leading-snug line-clamp-2',
+                        agotado ? 'text-muted-foreground' : 'text-foreground',
+                      )}>{a.nombre}</p>
+                      {a.detalle && <p className="text-[11.5px] text-muted-foreground truncate">{a.detalle}</p>}
                     </div>
-                    <div className="mt-2 flex items-end justify-between gap-2">
-                      <div>
-                        <p className="text-[17px] font-bold text-foreground tabular-nums leading-none">{formatEuro(a.precio)}</p>
-                        {/* El stock solo se pinta cuando dice algo. Un «10 en
-                            stock» en cada ficha es ruido; un «Quedan 2» no. */}
-                        {est === 'BAJO' && <p className="mt-1 text-[11.5px] font-semibold text-warning">Quedan {a.stock}</p>}
-                        {est === 'AGOTADO' && <p className="mt-1 text-[11.5px] font-semibold text-destructive">Agotado</p>}
-                      </div>
-                      {!agotado && (
-                        <span className="w-9 h-9 rounded-xl bg-brand/10 text-brand-secondary flex items-center justify-center shrink-0 group-hover:bg-brand group-hover:text-brand-foreground transition-colors">
-                          <Plus size={17} />
+                    <div className="flex items-center justify-between gap-2">
+                      <p className={cn(
+                        'text-[16.5px] font-bold tabular-nums leading-none',
+                        agotado ? 'text-muted-foreground' : 'text-foreground',
+                      )}>{formatEuro(a.precio)}</p>
+                      {/* Una sola forma para el stock, siempre en el mismo
+                          sitio: antes «Quedan 3» era un texto naranja bajo el
+                          precio y «Agotado» otro rojo, y sin control no había
+                          nada — tres lenguajes visuales para un solo dato. */}
+                      {est === 'BAJO' && <Chip tono="warning">Quedan {a.stock}</Chip>}
+                      {est === 'AGOTADO' && <Chip tono="muted">Agotado</Chip>}
+                      {!agotado && est !== 'BAJO' && (
+                        <span className="w-8 h-8 rounded-lg bg-brand/10 text-brand-secondary flex items-center justify-center shrink-0 group-hover:bg-brand group-hover:text-brand-foreground transition-colors">
+                          <Plus size={16} />
                         </span>
                       )}
                     </div>
@@ -566,6 +597,25 @@ export function PosTerminal() {
               </div>
             )}
           </div>
+
+          {/* ── Barra de ticket (solo táctil) ────────────────────────────
+              En un iPad con ocho artículos, el catálogo dejaba media pantalla
+              en blanco y el camino a cobrar estaba arriba del todo, en una
+              pestaña. Esta barra acota ese vacío y pone el total y el paso
+              siguiente donde está el pulgar. En escritorio no aparece: allí el
+              ticket ya está a la vista en su columna. */}
+          {carrito.length > 0 && (
+            <button
+              onClick={() => setVistaMovil('ticket')}
+              className="lg:hidden shrink-0 m-3 h-16 rounded-2xl bg-brand text-brand-foreground px-4 flex items-center gap-3 active:scale-[0.99] transition-transform"
+            >
+              <span className="w-8 h-8 rounded-full bg-brand-foreground/20 flex items-center justify-center text-[14px] font-extrabold tabular-nums">
+                {unidades}
+              </span>
+              <span className="flex-1 text-left text-[15px] font-bold">Ver el ticket</span>
+              <span className="text-[19px] font-extrabold tabular-nums">{formatEuro(ticket.total)}</span>
+            </button>
+          )}
         </section>
 
         {/* ── Ticket ─────────────────────────────────────────────────────── */}
@@ -679,7 +729,12 @@ export function PosTerminal() {
               </button>
 
 
-              {/* Descuento + código */}
+              {/* ── Descuento ───────────────────────────────────────────
+                  Antes eran un icono, un número suelto y un botón «€» que
+                  alternaba en silencio: mirando la pantalla no se podía saber
+                  si «10» eran diez euros o el diez por ciento. Ahora la unidad
+                  es un segmentado con las dos opciones a la vista, y la que
+                  manda está marcada. */}
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -690,13 +745,22 @@ export function PosTerminal() {
                     className="w-full h-12 pl-9 pr-3 rounded-xl border border-border bg-background text-[14px] text-foreground outline-none focus:border-foreground"
                   />
                 </div>
-                <button
-                  onClick={() => setDescuentoTipo((t) => (t === 'EUROS' ? 'PORCENTAJE' : 'EUROS'))}
-                  aria-label="Cambiar entre euros y porcentaje"
-                  className="w-14 h-12 rounded-xl border border-border bg-background text-[15px] font-bold text-foreground"
-                >
-                  {descuentoTipo === 'EUROS' ? '€' : '%'}
-                </button>
+                <div role="group" aria-label="Unidad del descuento" className="flex h-12 rounded-xl border border-border bg-background overflow-hidden shrink-0">
+                  {(['EUROS', 'PORCENTAJE'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setDescuentoTipo(t)}
+                      aria-pressed={descuentoTipo === t}
+                      aria-label={t === 'EUROS' ? 'Descuento en euros' : 'Descuento en porcentaje'}
+                      className={cn(
+                        'w-11 text-[15px] font-bold transition-colors',
+                        descuentoTipo === t ? 'bg-foreground text-background' : 'text-muted-foreground',
+                      )}
+                    >
+                      {t === 'EUROS' ? '€' : '%'}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {codigoAplicado ? (
@@ -777,9 +841,33 @@ export function PosTerminal() {
   );
 }
 
+/**
+ * Un solo formato para los avisos de la tarjeta. Antes cada estado de stock
+ * tenía su propio color y su propio sitio; esto los pone en la misma forma y
+ * en la misma esquina, que es lo que deja leer una rejilla de un vistazo.
+ */
+function Chip({ tono, children }: { tono: 'warning' | 'muted'; children: ReactNode }) {
+  return (
+    <span
+      className={cn(
+        'shrink-0 px-2 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap',
+        tono === 'warning' ? 'bg-warning/15 text-warning' : 'bg-muted text-muted-foreground',
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Cifra del día. SIN fondo de píldora, a propósito: llevaba el mismo relleno
+ * redondeado que los botones «Ventas» y «Caja abierta» de su derecha, así que
+ * tres datos de solo lectura parecían tres controles más. Un separador fino
+ * las agrupa sin disfrazarlas de botón.
+ */
 function Metrica({ label, valor, destacado }: { label: string; valor: string; destacado?: boolean }) {
   return (
-    <div className="rounded-xl bg-background px-3.5 py-1.5">
+    <div className="px-3.5 border-l border-border first:border-l-0 first:pl-0">
       <p className="text-[10.5px] uppercase tracking-wide text-muted-foreground leading-none">{label}</p>
       <p className={cn('mt-1 text-[15px] font-bold leading-none tabular-nums', destacado ? 'text-success' : 'text-foreground')}>{valor}</p>
     </div>
