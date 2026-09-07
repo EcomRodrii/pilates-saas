@@ -457,7 +457,9 @@ interface StudioContextValue {
   // Recibos
   addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => Promise<ResultadoEscritura>;
   crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }) => Promise<ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }>;
-  marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }>;
+  /** Devuelve `numeroFactura` cuando el cobro emitió factura: el llamador NO
+   *  debe buscarla en el estado — todavía no está ahí (ver marcarCobrado). */
+  marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<(ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }) & { numeroFactura?: string }>;
   marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentarSelladoFactura: (reciboId: string) => Promise<ResultadoEscritura>;
@@ -3664,7 +3666,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return buildFactura(reciboCobrado, facturasActuales);
   }
 
-  async function marcarCobrado(reciboId: string, metodo?: MetodoCobro): Promise<ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }> {
+  async function marcarCobrado(reciboId: string, metodo?: MetodoCobro): Promise<(ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }) & { numeroFactura?: string }> {
     // Re-entrada: si este recibo ya se está cobrando (doble clic), no se repite
     // el sellado de factura ni la renovación del bono. Se responde ok para no
     // marcar como fallido el segundo intento del mismo recibo en el cobro masivo.
@@ -3711,6 +3713,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // aquí porque es una acción manual de un solo recibo, no el cobro masivo
     // (que sigue en fire-and-forget para no bloquearse recibo a recibo).
     let resSellado: ResultadoEscritura = { ok: true };
+    let numeroFacturaEmitida: string | undefined;
     {
       const recibo = recibos.find(r => r.id === reciboId) ??
         { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
@@ -3719,6 +3722,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (fac) {
         setFacturas(prev => [...prev, fac]);
         resSellado = await sellarFacturaYActualizar(fac);
+        // ⚠️ Se devuelve al llamador, no se le deja buscarla en el estado.
+        // `panel-pendientes` hacía `facturas.find(...)` JUSTO DESPUÉS de este
+        // await, leyendo el array del render anterior —React todavía no ha
+        // re-renderizado— así que la factura recién creada no estaba y el email
+        // de justificante salía SIN número de factura, segundos después de
+        // haberla emitido. Quien la crea es el único que la conoce con certeza.
+        numeroFacturaEmitida = fac.numeroCompleto;
       }
     }
     // Refill bono or extend mensual when renewal payment is collected
@@ -3743,7 +3753,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // intentarlo": el cobro ya está hecho, reintentarlo duplicaría la
     // atestación; lo que hay que reintentar es solo el sellado
     // (`reintentarSelladoFactura`, ya expuesto en la pestaña "Cobrado").
-    return resSellado.ok ? res : { ...resSellado, cobroRegistrado: true };
+    return resSellado.ok
+      ? { ...res, numeroFactura: numeroFacturaEmitida }
+      : { ...resSellado, cobroRegistrado: true, numeroFactura: numeroFacturaEmitida };
     } finally {
       cobrosEnCursoRef.current.delete(reciboId);
     }

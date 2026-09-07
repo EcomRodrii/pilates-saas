@@ -613,7 +613,12 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
     }
     const r = recibos.find(x => x.id === reciboId);
     const socio = r ? socios.find(s => s.id === r.socioId) : null;
-    const factura = facturas.find(f => f.reciboId === reciboId);
+    // ⚠️ El número viene de `marcarCobrado`, NO de `facturas`. Antes se hacía
+    // `facturas.find(...)` justo después del await: React aún no había
+    // re-renderizado, así que ese array era el del render ANTERIOR y no
+    // contenía la factura recién emitida. Resultado: la socia recibía su
+    // justificante SIN número de factura, segundos después de emitirse.
+    const numeroFactura = marcado.numeroFactura;
     // Sin esto la fila desaparecía de "Quién me debe" en silencio y parecía
     // que el clic no había hecho nada — el estado sí se actualizaba, solo
     // faltaba decirlo. Y si el sellado falló, el toast lo dice explícito (en
@@ -630,7 +635,7 @@ export function PanelPendientes({ vista = 'deudas', onToast }: { vista?: 'deudas
         concepto: r.concepto,
         importe: r.importe,
         fechaCobro: new Date().toISOString(),
-        numeroFactura: factura?.numeroCompleto,
+        numeroFactura,
       });
     }
   }
