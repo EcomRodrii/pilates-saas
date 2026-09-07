@@ -31,7 +31,7 @@ for (const file of specFiles) {
       stdio: 'pipe',
       timeout: 180000, // 3 min timeout per test
     });
-  } catch (e) {
+  } catch (_e) {
     // Some tests may fail, but we only care about duration
   }
 

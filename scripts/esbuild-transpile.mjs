@@ -7,8 +7,6 @@
 
 import * as esbuild from 'esbuild';
 import { globSync } from 'glob';
-import * as fs from 'fs';
-import * as path from 'path';
 
 const entry = globSync([
   'app/**/*.{ts,tsx}',

@@ -28,7 +28,7 @@ const profilePath = join('e2e', '.duration-profile.json');
 let profile;
 try {
   profile = JSON.parse(readFileSync(profilePath, 'utf-8'));
-} catch (e) {
+} catch (_e) {
   console.error(`❌ Could not read ${profilePath}. Run: node scripts/profile-e2e.js`);
   process.exit(1);
 }
