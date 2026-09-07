@@ -673,13 +673,32 @@ interface StudioContextValue {
 // en tiempo real"). Evaluado con tentare-arquitecto: un Realtime de verdad
 // (canal Postgres directo desde el navegador de la socia) exigiría dar a
 // `anon`/`authenticated` lectura ampliada sobre `reservas`/`sesiones` — la
-// migración 0091 CERRÓ justo ese acceso tras el pentest (fuga cross-tenant),
-// y `socios` ni siquiera tiene `auth_user_id` para acotar RLS por fila. Abrir
-// esa vía de nuevo es un cambio de seguridad genuino, no una mejora de UX, y
-// queda fuera de esta fase a propósito. En su lugar: acortar el intervalo de
+// migración 0091 CERRÓ justo ese acceso tras el pentest (fuga cross-tenant).
+// Abrir esa vía de nuevo es un cambio de seguridad genuino, no una mejora de
+// UX, y queda fuera de esta fase a propósito. En su lugar: acortar el intervalo de
 // refresco activo (ya introducido en Fase 1 a 20s) a algo que cierre el caso
 // real —dos socias reservando la misma clase casi a la vez— sin tocar RLS.
 export const REFRESCO_ACTIVO_MS = 5_000;
+
+// ⚠️ DOS AVISOS SOBRE EL COMENTARIO DE ARRIBA, que ya no describe el presente.
+//
+// 1. «`socios` ni siquiera tiene `auth_user_id`» era cierto al escribirlo y hoy
+//    NO lo es (`20260827005014_socios_unique_auth_studio`). Se ha quitado de la
+//    frase porque razonar con ella lleva a la conclusión contraria a la buena:
+//    la RLS de la socia SÍ se puede acotar por fila.
+//
+// 2. Y la conclusión —«nada de realtime, sondeo cada 5 s»— ya está superada:
+//    `lib/realtime/aforo-en-vivo.ts` lo resolvió SIN reabrir ninguna lectura de
+//    tabla, que era la única objeción real. El canal es un Broadcast desde la
+//    BD cuyo mensaje solo dice «la clase X ha cambiado»: no lleva ni una fila,
+//    así que no hace falta dar acceso a `reservas` ni a `sesiones` a nadie.
+//
+// ⚠️ Lo que este comentario SIGUE describiendo bien es lo que hay: `/reservar`
+// —el widget anónimo que el estudio incrusta en su web— no tiene sesión de
+// Supabase, así que no puede suscribirse a un canal privado y se queda con el
+// sondeo. Y ojo: `refrescarAforo` de este contexto NO LA LLAMA NADIE. El tic de
+// 5 s que describe el comentario de abajo no existe; lo que hay en /reservar es
+// una recarga del catálogo entero cada 60 s.
 
 const StudioContext = createContext<StudioContextValue | null>(null);
 
