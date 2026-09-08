@@ -83,6 +83,9 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     // Igual: base del estudio; `permite_lista_espera` admite override por tipo
     // de clase y la disponibilidad real la devuelve `reservar_plaza`.
     soportaListaEspera: s.permiteListaEspera,
+    // Se pasa CRUDO (puede ser null): el respaldo lo pone `nombreCreditos`
+    // en el momento de pintar, para que panel y portal usen la misma palabra.
+    creditosNombre: s.creditosNombre,
     tema: {},
     colorPrimario: s.colorPrimario,
     paginaOculta: s.paginaOculta,

@@ -8,6 +8,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getGamificacion, apuntarseReto, canjearRecompensa } from '@/lib/student/gamificacion-datos';
+import { nombreCreditos } from '@/lib/creditos-nombre';
 import { Button } from '@/components/student/ui/Button';
 import { Badge } from '@/components/student/ui/Badge';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
@@ -39,6 +40,9 @@ function Barra({ pct, tono = 'accent' }: { pct: number; tono?: 'accent' | 'ok' }
 
 export default function LogrosPage() {
   const { estudio } = useEstudio();
+  // Cómo llama ESTE estudio a su moneda. Sin esto la pantalla decía «créditos»
+  // aunque el estudio los llamara «puntos» en todo lo demás.
+  const moneda = nombreCreditos(estudio.creditosNombre);
   const { online } = useOnline();
   const { toast } = useToast();
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -110,7 +114,7 @@ export default function LogrosPage() {
                 <>
                   <Barra pct={data.nivel.progreso} />
                   <p className="t-meta" style={{ marginTop: 'var(--s-1)' }}>
-                    Te faltan {data.nivel.faltan} créditos para {data.nivel.siguiente.nombre}
+                    Te faltan {data.nivel.faltan} {moneda} para {data.nivel.siguiente.nombre}
                   </p>
                 </>
               )}
@@ -136,7 +140,7 @@ export default function LogrosPage() {
                       <Barra pct={r.objetivo > 0 ? r.progresoActual / r.objetivo : 0} tono={r.completado ? 'ok' : 'accent'} />
                       <div className="row row--between" style={{ ['--gap' as string]: 'var(--s-2)', marginTop: 'var(--s-2)' }}>
                         <p className="t-meta">
-                          {r.progresoActual} de {r.objetivo} · {r.creditosRecompensa} créditos
+                          {r.progresoActual} de {r.objetivo} · {r.creditosRecompensa} {moneda}
                         </p>
                         {!r.completado && (
                           <Button size="sm" variant={r.apuntada ? 'secondary' : 'primary'} disabled={!online || ocupado === r.id}
@@ -169,7 +173,7 @@ export default function LogrosPage() {
                         <>
                           <Barra pct={l.umbral > 0 ? l.progresoActual / l.umbral : 0} />
                           <p className="t-meta" style={{ marginTop: 'var(--s-1)' }}>
-                            {l.progresoActual} de {l.umbral} · {l.creditosRecompensa} créditos
+                            {l.progresoActual} de {l.umbral} · {l.creditosRecompensa} {moneda}
                           </p>
                         </>
                       )}
@@ -184,14 +188,14 @@ export default function LogrosPage() {
                 atómica: si no llega, lo dice él, no una comprobación de aquí. */}
             {data.recompensas.length > 0 && (
               <section data-testid="recompensas">
-                <p className="t-label" style={{ marginBottom: 'var(--s-2)' }}>Canjea tus créditos</p>
+                <p className="t-label" style={{ marginBottom: 'var(--s-2)' }}>Canjea tus {moneda}</p>
                 <div className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
                   {data.recompensas.map((p) => (
                     <div key={p.id} className="card card--pad row row--between" style={{ ['--gap' as string]: 'var(--s-3)' }}>
                       <div style={{ minWidth: 0 }}>
                         <p className="t-card-title">{p.icono} {p.nombre}</p>
                         <p className="t-meta" style={{ marginTop: 2 }}>
-                          {p.costeCreditos} créditos
+                          {p.costeCreditos} {moneda}
                           {p.agotada ? ' · agotada' : p.alcanzable ? '' : ` · te faltan ${p.faltan}`}
                         </p>
                         {/* Lo que recibe cambia según el efecto, y con ello lo

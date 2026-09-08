@@ -244,7 +244,7 @@ export default function InicioPage() {
             {plazaFija && <PlazaFijaCard compacta plaza={plazaFija.plaza} recuperaciones={plazaFija.recuperaciones} hrefHorario={href('/reservar')} />}
 
             {/* Nivel y créditos: solo si el estudio usa gamificación. */}
-            {gamificacion && <NivelCard g={gamificacion} href={href('/logros')} />}
+            {gamificacion && <NivelCard g={gamificacion} href={href('/logros')} creditosNombre={estudio.creditosNombre} />}
             {/* ── DEL ESTUDIO ──────────────────────────────────────────────
                 Lo último que ha publicado el estudio en su tablón. Una sola
                 petición (`limite=1`); si no hay nada o falla, no se pinta. */}

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { GamificacionVista } from '@/lib/student/tipos';
+import { nombreCreditos } from '@/lib/creditos-nombre';
 
 // «Tu nivel» en Inicio: nivel, créditos y lo que falta para el siguiente.
 // Solo si el estudio usa gamificación — sin configurar, no se pinta nada en
@@ -15,7 +16,10 @@ import type { GamificacionVista } from '@/lib/student/tipos';
 //
 // Lo que NO cambia: si no hay nivel siguiente no se inventa una meta, y los
 // créditos son los que dice el servidor.
-export function NivelCard({ g, href }: { g: GamificacionVista; href: string }) {
+export function NivelCard({ g, href, creditosNombre }: { g: GamificacionVista; href: string; creditosNombre?: string | null }) {
+  // Entra por prop y no desde el contexto: esta tarjeta la pinta Inicio, que ya
+  // tiene el estudio a mano, y así el componente sigue siendo puro de datos.
+  const moneda = nombreCreditos(creditosNombre);
   if (!g.hay) return null;
   const { actual, siguiente, faltan, progreso } = g.nivel;
   const pct = Math.round(progreso * 100);
@@ -30,7 +34,7 @@ export function NivelCard({ g, href }: { g: GamificacionVista; href: string }) {
       <div className="row row--between">
         <p className="t-label">Tu nivel</p>
         <span className="t-meta no-shrink t-num" style={{ color: 'var(--accent)', fontWeight: 800 }}>
-          {g.saldo} créditos →
+          {g.saldo} {moneda} →
         </span>
       </div>
 
@@ -45,7 +49,7 @@ export function NivelCard({ g, href }: { g: GamificacionVista; href: string }) {
           {actual?.icono ?? ''}
         </span>
         <div className="stack" style={{ ['--gap' as string]: '2px', minWidth: 0 }}>
-          <p className="t-card-title trunc">{actual ? actual.nombre : 'Empieza a sumar créditos'}</p>
+          <p className="t-card-title trunc">{actual ? actual.nombre : `Empieza a sumar ${moneda}`}</p>
           {siguiente
             ? <p className="t-meta">Te faltan {faltan} para {siguiente.nombre}</p>
             : actual && <p className="t-meta">Has llegado al último nivel</p>}
