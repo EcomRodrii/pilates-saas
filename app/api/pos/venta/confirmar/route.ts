@@ -102,6 +102,10 @@ export async function POST(req: NextRequest) {
       p_importe_confirmado: estadoProveedor.importeCentimos == null
         ? null
         : estadoProveedor.importeCentimos / 100,
+      // 28ª pasada: mismo criterio que ya aplica el webhook y el sondeo de
+      // recibos — el método que pulsó quien cobra puede no ser el real
+      // (Bizum admite también tarjeta, #1744). `null` deja el de creación.
+      p_metodo_pago: estadoProveedor.metodoReal ?? null,
     });
     if (error) return errorInterno('pos:confirmar', error, 'El cobro salió bien pero no hemos podido cerrarlo. Avísanos antes de volver a cobrar.');
 

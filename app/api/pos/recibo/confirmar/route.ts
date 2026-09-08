@@ -114,10 +114,17 @@ export async function POST(req: NextRequest) {
       const res = await confirmarCobroRecibo(admin, {
         studioId: sesion.studioId,
         reciboId,
-        // DATAFONO no existe en el CHECK de `recibos.metodo_cobro` (es de la
+        // 28ª pasada: este camino GANA casi siempre la carrera contra el
+        // webhook (el mostrador sondea con la pestaña abierta; el webhook
+        // suele tardar más), así que era aquí donde P-3 (27ª pasada) seguía
+        // sin cerrarse — el arreglo solo llegó al backstop del webhook. Con
+        // `est.metodoReal` ya no se confía en el botón que pulsó quien cobra
+        // (la sesión de Bizum acepta también tarjeta, #1744): manda lo que
+        // dice el cargo real cuando el proveedor puede resolverlo. DATAFONO
+        // no existe en el CHECK de `recibos.metodo_cobro` (es de la
         // migración 0100, anterior al TPV): un cobro por datáfono es una
-        // tarjeta, y así se registra.
-        metodoCobro: metodo === 'DATAFONO' ? 'TARJETA' : metodo,
+        // tarjeta, y así se registra cuando no hay nada más fino que decir.
+        metodoCobro: est.metodoReal ?? (metodo === 'DATAFONO' ? 'TARJETA' : metodo),
         paymentIntentId: recibo.cobro_mostrador_pi,
         fuente: 'tpv',
       });
