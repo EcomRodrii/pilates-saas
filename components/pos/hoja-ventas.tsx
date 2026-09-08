@@ -198,8 +198,13 @@ export function HojaVentas({ onCerrar, onCambio }: { onCerrar: () => void; onCam
 
               {/* Cobrada sin ficha. Puede ser una botella de agua (y entonces
                   no hay nada que asignar) o una clase de prueba cuyo bono está
-                  esperando dueña. */}
-              {detalle.venta.estado === 'PAGADA' && detalle.venta.socioId == null && (
+                  esperando dueña.
+                  31ª pasada de auditoría: una venta ya devuelta (entera o en
+                  parte) no se ofrece — asignarla reentregaría un bono real y
+                  créditos por dinero que el estudio ya no tiene. La RPC
+                  también lo bloquea (VENTA_YA_DEVUELTA); esto es para que
+                  mostrador ni siquiera vea la opción. */}
+              {detalle.venta.estado === 'PAGADA' && detalle.venta.socioId == null && detalle.venta.importeDevuelto === 0 && (
                 <AsignarVenta
                   ventaId={detalle.venta.id}
                   onHecho={() => { void abrir(detalle.venta.id); onCambio(); }}

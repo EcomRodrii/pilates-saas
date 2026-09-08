@@ -4255,42 +4255,48 @@ async function evaluarLogrosServidor(
     const valor = calcularMetrica(def.metric, { reservas, sesiones, socio, now, todosLosSocios: referidas });
     const completadoAhora = valor >= def.umbral;
 
+    if (!completadoAhora) {
+      const { error: progError } = await admin.from('achievement_progress').upsert({
+        id: existente?.id ?? `achp-${uid()}`,
+        studio_id: studioId, socio_id: socioId, achievement_id: def.id,
+        progreso_actual: valor, completado: false, completado_en: null,
+      }, { onConflict: 'socio_id,achievement_id' });
+      if (progError) reportDbError('[evaluarLogrosServidor] progreso', progError);
+      return;
+    }
+
+    // 31ª pasada de auditoría: el crédito se concede ANTES de marcar el logro
+    // como conseguido, con la RPC atómica que ya mueve saldo y ledger en la
+    // misma transacción (`otorgar_credito_disparador`, migr. 20260907200500 —
+    // ya soporta trigger LOGRO/RETO). Antes se hacía a mano en tres pasos sin
+    // comprobar el resultado: si `ajustar_creditos` fallaba, el logro se
+    // marcaba conseguido igual (y nunca se reintentaba, por el guard de
+    // arriba) sin que el saldo real se hubiera movido — el mismo defecto que
+    // ya se corrigió hoy para `otorgar_credito_disparador` en el resto de
+    // disparadores, sin replicarlo aquí hasta ahora.
+    if (def.creditosRecompensa > 0) {
+      const { error: credError } = await admin.rpc('otorgar_credito_disparador', {
+        p_studio_id: studioId, p_socio_id: socioId,
+        p_trigger: 'LOGRO', p_ref_id: `${socioId}:${def.id}`, p_config_id: def.id,
+      });
+      // Si falla, NO se marca el progreso como completado: la próxima
+      // evaluación lo reintenta. Idempotente si ya se concedió antes (el
+      // UNIQUE de reward_actions dentro de la RPC lo hace un no-op sin error).
+      if (credError) { reportDbError('[evaluarLogrosServidor] crédito', credError); return; }
+    }
+
     const { error: progError } = await admin.from('achievement_progress').upsert({
       id: existente?.id ?? `achp-${uid()}`,
       studio_id: studioId, socio_id: socioId, achievement_id: def.id,
-      progreso_actual: valor, completado: completadoAhora,
-      completado_en: completadoAhora ? now.toISOString() : null,
+      progreso_actual: valor, completado: true, completado_en: now.toISOString(),
     }, { onConflict: 'socio_id,achievement_id' });
     if (progError) { reportDbError('[evaluarLogrosServidor] progreso', progError); return; }
-
-    if (!completadoAhora) return;
 
     const { error: histError } = await admin.from('achievement_history').insert({
       id: `achh-${uid()}`, studio_id: studioId, socio_id: socioId, achievement_id: def.id,
       nombre: def.nombre, icono: def.icono, creado_en: now.toISOString(),
     });
     if (histError) reportDbError('[evaluarLogrosServidor] historial', histError);
-
-    if (def.creditosRecompensa <= 0) return;
-    // C-11: la idempotencia real la da el UNIQUE de reward_actions. Dos
-    // evaluaciones concurrentes (dos reservas a la vez) no pueden doblar el
-    // saldo: la segunda choca con el UNIQUE y sale.
-    const { error: claimError } = await admin.from('reward_actions').insert({
-      id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId,
-      trigger: 'LOGRO', ref_id: `${socioId}:${def.id}`, creado_en: now.toISOString(),
-    });
-    if (claimError) return; // ya otorgado por otra evaluación
-
-    // P0-20: incremento ATÓMICO del saldo.
-    await admin.rpc('ajustar_creditos', {
-      p_socio_id: socioId, p_studio_id: studioId,
-      p_delta_saldo: def.creditosRecompensa, p_delta_ganado: def.creditosRecompensa, p_delta_canjeado: 0,
-    });
-    await admin.from('credit_transactions').insert({
-      id: `ctx-${uid()}`, studio_id: studioId, socio_id: socioId, tipo: 'GANANCIA',
-      creditos: def.creditosRecompensa, descripcion: `Logro desbloqueado: ${def.nombre}`,
-      ref_id: def.id, creado_en: now.toISOString(),
-    });
   }));
 }
 
@@ -4323,39 +4329,41 @@ async function evaluarRetosServidor(
     const valor = calcularProgresoReto(reto, reservas, sesiones, socio, referidas, now);
     const completadoAhora = valor >= reto.objetivo;
 
+    if (!completadoAhora) {
+      const { error: progError } = await admin.from('challenge_progress').upsert({
+        id: existente?.id ?? `chap-${uid()}`,
+        studio_id: studioId, socio_id: socioId, challenge_id: reto.id,
+        progreso_actual: valor, completado: false, completado_en: null,
+      }, { onConflict: 'socio_id,challenge_id' });
+      if (progError) reportDbError('[evaluarRetosServidor] progreso', progError);
+      return;
+    }
+
+    // 31ª pasada de auditoría: mismo arreglo que evaluarLogrosServidor — el
+    // crédito se concede ANTES de marcar el reto conseguido, con la RPC
+    // atómica `otorgar_credito_disparador` (mueve saldo+ledger en una sola
+    // transacción). Un fallo deja el reto reintentable en vez de darlo por
+    // conseguido sin haber pagado el crédito.
+    if (reto.creditosRecompensa > 0) {
+      const { error: credError } = await admin.rpc('otorgar_credito_disparador', {
+        p_studio_id: studioId, p_socio_id: socioId,
+        p_trigger: 'RETO', p_ref_id: `${socioId}:${reto.id}`, p_config_id: reto.id,
+      });
+      if (credError) { reportDbError('[evaluarRetosServidor] crédito', credError); return; }
+    }
+
     const { error: progError } = await admin.from('challenge_progress').upsert({
       id: existente?.id ?? `chap-${uid()}`,
       studio_id: studioId, socio_id: socioId, challenge_id: reto.id,
-      progreso_actual: valor, completado: completadoAhora,
-      completado_en: completadoAhora ? now.toISOString() : null,
+      progreso_actual: valor, completado: true, completado_en: now.toISOString(),
     }, { onConflict: 'socio_id,challenge_id' });
     if (progError) { reportDbError('[evaluarRetosServidor] progreso', progError); return; }
-
-    if (!completadoAhora) return;
 
     const { error: histError } = await admin.from('challenge_history').insert({
       id: `chah-${uid()}`, studio_id: studioId, socio_id: socioId, challenge_id: reto.id,
       nombre: reto.nombre, icono: reto.icono, creado_en: now.toISOString(),
     });
     if (histError) reportDbError('[evaluarRetosServidor] historial', histError);
-
-    if (reto.creditosRecompensa <= 0) return;
-    // Mismo UNIQUE de reward_actions que los logros, con trigger 'RETO'.
-    const { error: claimError } = await admin.from('reward_actions').insert({
-      id: `rwa-${uid()}`, studio_id: studioId, socio_id: socioId,
-      trigger: 'RETO', ref_id: `${socioId}:${reto.id}`, creado_en: now.toISOString(),
-    });
-    if (claimError) return; // ya otorgado por otra evaluación
-
-    await admin.rpc('ajustar_creditos', {
-      p_socio_id: socioId, p_studio_id: studioId,
-      p_delta_saldo: reto.creditosRecompensa, p_delta_ganado: reto.creditosRecompensa, p_delta_canjeado: 0,
-    });
-    await admin.from('credit_transactions').insert({
-      id: `ctx-${uid()}`, studio_id: studioId, socio_id: socioId, tipo: 'GANANCIA',
-      creditos: reto.creditosRecompensa, descripcion: `Reto completado: ${reto.nombre}`,
-      ref_id: reto.id, creado_en: now.toISOString(),
-    });
   }));
 }
 

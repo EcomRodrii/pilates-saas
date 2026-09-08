@@ -136,6 +136,9 @@ export function mensajeErrorVenta(codigo: string): string {
     // pantalla es peor que una frase de más aquí.
     case 'PLAN_SIN_CLIENTA':         return `«${a}» es un bono: elige a nombre de quién va antes de cobrar.`;
     case 'VENTA_YA_ASIGNADA':        return 'Esa venta ya está a nombre de una clienta.';
+    // 31ª pasada de auditoría: asignar una venta ya devuelta reentregaría un
+    // bono/créditos por dinero que el estudio ya no tiene.
+    case 'VENTA_YA_DEVUELTA':        return 'Esa venta ya se ha devuelto (entera o en parte): no se puede asignar a una clienta.';
     case 'CLIENTA_NO_ENCONTRADA':    return 'No encontramos esa clienta.';
     case 'PLAN_CANTIDAD_UNICA':      return 'Cada bono va en su propia línea. Añádelo otra vez para vender dos.';
     case 'CODIGO_NO_CANJEABLE':      return 'Ese código ya no se puede usar (caducado, agotado o desactivado).';
