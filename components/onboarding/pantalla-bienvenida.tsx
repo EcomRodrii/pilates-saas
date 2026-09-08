@@ -62,7 +62,8 @@ type Respuestas = {
   // borradores de bono/cuota (lib/onboarding/plan-configuracion.ts). Las seis
   // de arriba siguen siendo perfil del estudio.
   salas?: string;
-  aforo?: string;
+  /** Una etiqueta por sala, en orden. Ver `construirPasos`. */
+  aforos?: string[];
   duracion?: string;
   clases?: string[];
   cobro?: string[];
@@ -77,6 +78,13 @@ type Paso = {
   nota: string | ((ans: Respuestas) => string);
   opciones: string[];
   multi?: number;
+  /**
+   * Solo para los pasos de aforo: a qué sala pregunta. La respuesta se guarda
+   * en `ans.aforos[indiceSala]` en vez de en un campo suyo, así que el número
+   * de preguntas puede depender de cuántas salas haya dicho sin inventar
+   * claves nuevas en `Respuestas` (que es lo que se persiste en el borrador).
+   */
+  indiceSala?: number;
 };
 
 // ── De dónde viene el estudio ───────────────────────────────────────────────
@@ -112,7 +120,7 @@ function vieneDeOtraPlataforma(software: string | undefined): boolean {
   return !!software && software !== SIN_SOFTWARE && software !== OTRO_SOFTWARE;
 }
 
-const PASOS: Paso[] = [
+const PASOS_BASE: Paso[] = [
   {
     id: 'centros', etiqueta: 'Tu estudio', titulo: '¿Cuántos centros tienes?',
     // Decía "activamos la vista multicentro". No se activa nada: las sedes de
@@ -144,9 +152,12 @@ const PASOS: Paso[] = [
     opciones: [...OPCIONES_SALAS],
   },
   {
-    id: 'aforo', etiqueta: 'Tu espacio', titulo: '¿Cuántas plazas hay en cada sala?',
+    // Plantilla: `construirPasos` la expande en una pregunta por sala. El
+    // título de aquí solo se usa cuando hay una sola sala.
+    id: 'aforos', etiqueta: 'Tu espacio', titulo: '¿Cuántas plazas tiene tu sala?',
     nota: 'Es el límite real de reservas por clase, así que no lo adivinamos.',
     opciones: [...OPCIONES_AFORO],
+    indiceSala: 0,
   },
   {
     id: 'duracion', etiqueta: 'Tus clases', titulo: '¿Cuánto dura una clase?',
@@ -155,9 +166,13 @@ const PASOS: Paso[] = [
   },
   {
     id: 'clases', etiqueta: 'Tus clases', titulo: '¿Qué clases das?',
-    nota: 'Elige hasta cuatro. Las dejamos creadas y podrás añadir más luego.',
+    // Seis y no cuatro: con Yoga y Taller en la lista, un estudio de «Pilates y
+    // Yoga» normal ya se come el tope solo con lo que da de verdad —Reformer,
+    // Mat, Yoga, Prenatal, Suelo pélvico—, y quedarse corto aquí significa
+    // crear los que faltan a mano en Configuración.
+    nota: 'Elige hasta seis. Las dejamos creadas y podrás añadir más luego.',
     opciones: [...TIPOS_CLASE_SUGERIDOS],
-    multi: 4,
+    multi: 6,
   },
   {
     id: 'cobro', etiqueta: 'Tus precios', titulo: '¿Cómo cobras a tus alumnas?',
@@ -212,6 +227,61 @@ const PASOS: Paso[] = [
     opciones: ['Lo configuro yo', 'Quiero una videollamada', 'Configuradlo por mí'],
   },
 ];
+
+// Cuántas salas dijo, para saber cuántas veces preguntar el aforo. Se lee de la
+// etiqueta ("2 salas" → 2) con el mismo criterio que `plan-configuracion`.
+function numSalasDe(ans: Respuestas): number {
+  const m = ans.salas?.trim().match(/^(\d+)/);
+  const n = m ? Number(m[1]) : 1;
+  return Number.isFinite(n) && n >= 1 ? Math.min(Math.trunc(n), MAX_PREGUNTAS_AFORO) : 1;
+}
+
+/**
+ * Tope de preguntas de aforo. Con 1-3 salas se pregunta por todas, que es el
+ * caso de casi cualquier estudio. Con "4 o más" se pregunta por las tres
+ * primeras y el resto hereda la última (`planificarConfiguracion`): encadenar
+ * seis pantallas iguales cansa más de lo que aporta, y el aforo se corrige en
+ * Configuración → Salas en veinte segundos.
+ */
+const MAX_PREGUNTAS_AFORO = 3;
+
+/**
+ * Los pasos reales, que dependen de lo ya contestado.
+ *
+ * El único paso que se expande es el del aforo: una pregunta por sala. Antes
+ * era una sola cifra para todas —"¿Cuántas plazas hay en cada sala?"— y eso es
+ * falso en cuanto hay más de una: la sala de máquinas cabe 6-8 (tantas como
+ * reformers) y la de suelo 15-20. Quien contestaba pensando en el Reformer
+ * dejaba la sala grande limitada a 8 y perdía diez plazas por clase sin
+ * enterarse.
+ */
+function construirPasos(ans: Respuestas): Paso[] {
+  const n = numSalasDe(ans);
+  return PASOS_BASE.flatMap((p) => {
+    if (p.indiceSala === undefined) return [p];
+    if (n === 1) return [p];
+    return Array.from({ length: n }, (_, i) => ({
+      ...p,
+      titulo: `¿Cuántas plazas hay en la sala ${i + 1}?`,
+      nota: i === 0
+        ? 'Es el límite real de reservas por clase. Te lo preguntamos sala por sala porque casi nunca coinciden.'
+        : 'Puede ser distinto del de la sala anterior — por eso lo preguntamos.',
+      indiceSala: i,
+    }));
+  });
+}
+
+/**
+ * "8 plazas · 12 o más" en el panel de la derecha, en el orden de las salas.
+ *
+ * Las etiquetas van tal cual, sin recortarles el "plazas": una de ellas puede
+ * ser "12 o más", y quitarle el sufijo a las otras para añadirlo al final
+ * producía "8 · 12 o más plazas", que se lee como si el 8 no fueran plazas.
+ */
+function resumenAforos(ans: Respuestas): string {
+  return (ans.aforos ?? []).filter(Boolean).join(' · ');
+}
+
 
 const ease = (p: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, p)), 3);
 
@@ -369,9 +439,14 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
 
   // ── Wizard ─────────────────────────────────────────────────────────────
   const qp = ease((now - e.qAt) / 340);
+  const PASOS = construirPasos(e.ans);
   const paso = e.fase === 'wizard' ? PASOS[Math.min(e.paso, PASOS.length - 1)] : null;
   const multi = paso?.multi;
-  const sel = paso ? e.ans[paso.id] : undefined;
+  const sel = paso
+    ? (paso.indiceSala !== undefined
+        ? (e.ans.aforos ?? [])[paso.indiceSala]
+        : e.ans[paso.id])
+    : undefined;
   const nSel = (sel as string[] | undefined)?.length ?? 0;
   const listo = multi ? nSel > 0 : !!sel;
 
@@ -411,7 +486,7 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
     ['Centros', e.ans.centros],
     ['Alumnos activos', e.ans.alumnos],
     ['Salas', e.ans.salas],
-    ['Plazas por sala', e.ans.aforo],
+    ['Plazas por sala', resumenAforos(e.ans)],
     ['Duración de clase', e.ans.duracion],
     ['Clases', (e.ans.clases ?? []).join(' · ')],
     ['Cobras con', (e.ans.cobro ?? []).join(' · ')],
@@ -670,7 +745,9 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     const e = engineRef.current;
     if (!e) return;
     if (avanceTRef.current) { clearTimeout(avanceTRef.current); avanceTRef.current = null; }
-    if (e.paso >= PASOS.length - 1) {
+    // Los pasos dependen de lo contestado (el aforo se pregunta por sala), así
+    // que el final se calcula con las respuestas de ahora, no con una longitud fija.
+    if (e.paso >= construirPasos(e.ans).length - 1) {
       e.fase = 'resumen';
       e.qAt = performance.now();
       e.buttonAt = performance.now();
@@ -727,7 +804,17 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
       refrescar();
       return;
     }
-    e.ans = { ...e.ans, [paso.id]: valor } as Respuestas;
+    if (paso.indiceSala !== undefined) {
+      // El aforo se guarda en su posición: `aforos[0]` es la sala 1. Se
+      // rellenan los huecos para que cambiar la respuesta de la sala 2 sin
+      // haber contestado la 1 no desplace nada.
+      const aforos = [...(e.ans.aforos ?? [])];
+      while (aforos.length < paso.indiceSala) aforos.push('');
+      aforos[paso.indiceSala] = valor;
+      e.ans = { ...e.ans, aforos } as Respuestas;
+    } else {
+      e.ans = { ...e.ans, [paso.id]: valor } as Respuestas;
+    }
     guardarProgresoWizard(studio.id, e.paso, e.ans);
     refrescar();
     if (avanceTRef.current) clearTimeout(avanceTRef.current);
@@ -779,8 +866,11 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     // solo en este `Engine`, un `useRef` que se pierde al desmontar.
     const guardado = leerProgresoWizard(studio.id);
     if (guardado) {
-      e.paso = Math.min(guardado.paso, PASOS.length - 1);
       e.ans = guardado.ans as Respuestas;
+      // Se acota DESPUÉS de restaurar las respuestas: cuántos pasos hay depende
+      // de ellas (cuántas salas dijo), así que hacerlo antes recortaría contra
+      // una longitud que no es la suya.
+      e.paso = Math.min(guardado.paso, construirPasos(e.ans).length - 1);
       e.qAt = now;
     }
     engineRef.current = e;
@@ -789,7 +879,7 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     const onKey = (ev: KeyboardEvent) => {
       const eng = engineRef.current;
       if (!eng || eng.fase !== 'wizard') return;
-      const paso = PASOS[eng.paso];
+      const paso = construirPasos(eng.ans)[eng.paso];
       if (!paso) return;
       if (ev.key === 'Enter') { avanzar(); return; }
       const n = parseInt(ev.key, 10);
