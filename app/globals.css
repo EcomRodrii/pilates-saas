@@ -1009,11 +1009,23 @@ nextjs-portal { display: none !important; }
     radial-gradient(circle at 50% 50%, transparent 52%, color-mix(in srgb, var(--orb-1) 42%, transparent) 100%);
 }
 
-/* «Pensando»: mismo dibujo, más deprisa y más nítido — la única diferencia
-   entre los dos estados del kit. */
+/* «Pensando»: mismo dibujo, más deprisa, más nítido, y respirando.
+   La respiración no es adorno: en los botones «con IA» el Orb sustituye al
+   spinner que había antes, y a 15 px una rotación de 4,5 s de degradados
+   difuminados no se ve — el botón parecía muerto mientras esperaba varios
+   segundos por el modelo. Misma cadencia (1,4 s) y mismo criterio que la
+   animación `t-cargando` del logo, que ya resuelve esto en este repo:
+   «espera larga: respira, no gira».
+   El bloque global de prefers-reduced-motion de más arriba la neutraliza,
+   igual que neutralizaba el spinner al que sustituye. */
 .orb-tentare[data-estado='pensando'] {
   --orb-ritmo: 4.5s;
   --orb-difuminado: 1px;
+  animation: orb-respira 1.4s ease-in-out infinite;
 }
 
 @keyframes orb-giro { to { transform: rotate(360deg); } }
+@keyframes orb-respira {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(.82); }
+}

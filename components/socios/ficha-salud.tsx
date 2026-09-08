@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import {
-  Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, Activity, CalendarClock, ShieldCheck, Bot, Loader2, X,
+  Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, Activity, CalendarClock, ShieldCheck, X,
 } from 'lucide-react';
 import type {
   CondicionSalud, CategoriaCondicion, ZonaCorporal, SeveridadCondicion, PlantillaCuestionarioSalud,
@@ -24,6 +24,7 @@ import {
 import { dbRegistrarLecturaFichaSalud, getCurrentStudioId } from '@/lib/supabase-data';
 import { sugerirAdaptacionesSocio, type AdaptacionSocioIA } from '@/lib/ai/ficha-clinica-socio-client';
 import type { ResultadoEscritura } from '@/lib/errores';
+import { TentareOrb } from '@/components/marca/tentare-orb';
 
 // ─── Etiquetas de presentación ───────────────────────────────────────────────
 
@@ -594,7 +595,11 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
               disabled={adaptacionIALoading}
               className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[11px] font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-50 transition-colors"
             >
-              {adaptacionIALoading ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
+              {/* El Orb en sus dos estados, en vez de un robot que se convierte en
+                un spinner genérico: es el MISMO objeto, primero quieto y
+                después pensando. Un icono distinto mientras trabaja decía que
+                había empezado otra cosa. */}
+              <TentareOrb tam={15} estado={adaptacionIALoading ? 'pensando' : 'reposo'} />
               {adaptacionIALoading ? 'Adaptando…' : 'Adaptar ejercicios con IA'}
             </button>
           )}

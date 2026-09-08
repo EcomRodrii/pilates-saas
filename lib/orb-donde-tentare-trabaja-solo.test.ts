@@ -29,12 +29,37 @@ const leerCodigo = (p: string) =>
     .filter(l => !/^\s*\/\//.test(l))
     .join('\n');
 
-// Las tres pantallas donde Tentare ejecuta acciones por su cuenta.
+// Donde Tentare piensa o ejecuta por su cuenta. Las tres primeras son
+// pantallas que trabajan solas; las tres últimas, botones que llaman de verdad
+// a un modelo (lib/ai/*).
 const CON_ORB = [
   'components/decision/piloto-automatico.tsx',
   'app/(dashboard)/automatizaciones/page.tsx',
   'app/(dashboard)/dashboard/page.tsx',
+  'app/(dashboard)/calendario/page.tsx',
+  'components/socios/ficha-salud.tsx',
+  'components/socios/modal-nota-voz.tsx',
 ];
+
+// Los tres botones «con IA». Antes eran `<Bot>` y, al pulsar, `<Loader2>`
+// girando: dos dibujos distintos para el mismo objeto: al empezar a trabajar
+// parecía que hubiera empezado otra cosa. El Orb tiene DOS estados
+// precisamente para esto, así que el icono no se sustituye — cambia de estado.
+const BOTONES_IA: [string, string][] = [
+  ['app/(dashboard)/calendario/page.tsx', 'prepIALoading'],
+  ['components/socios/ficha-salud.tsx', 'adaptacionIALoading'],
+  ['components/socios/modal-nota-voz.tsx', 'procesando'],
+];
+
+for (const [fichero, cargando] of BOTONES_IA) {
+  test(`${fichero}: el botón de IA no cambia de icono al ponerse a trabajar`, () => {
+    const src = leerCodigo(fichero);
+    assert.match(src, new RegExp(`TentareOrb[^>]*estado=\\{${cargando} \\? 'pensando' : 'reposo'\\}`),
+      'El mismo Orb, en su estado «pensando». No un icono que se cambia por otro.');
+    assert.doesNotMatch(src, /Loader2/,
+      'El spinner genérico sobraba: el Orb ya dice que está trabajando, y el texto del botón también.');
+  });
+}
 
 for (const fichero of CON_ORB) {
   test(`${fichero}: donde Tentare trabaja solo va el Orb`, () => {

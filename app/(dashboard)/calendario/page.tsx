@@ -19,7 +19,7 @@ import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   CalendarDays, ChevronDown,
   UserPlus, UserCheck, Pencil, Trash2, Copy,
-  Bot, Loader2, Upload, QrCode, LayoutGrid, Rows3, CheckSquare,
+  Upload, QrCode, LayoutGrid, Rows3, CheckSquare,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio, capitalizarPrimera } from '@/lib/utils';
@@ -69,6 +69,7 @@ import { historialSustituciones } from '@/lib/calendario-historial';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
+import { TentareOrb } from '@/components/marca/tentare-orb';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -2851,7 +2852,11 @@ export default function Calendario() {
                       disabled={prepIALoading}
                       className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[11px] font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-50 transition-colors"
                     >
-                      {prepIALoading ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
+                      {/* El Orb en sus dos estados, en vez de un robot que se convierte en
+                        un spinner genérico: es el MISMO objeto, primero quieto y
+                        después pensando. Un icono distinto mientras trabaja decía que
+                        había empezado otra cosa. */}
+                      <TentareOrb tam={15} estado={prepIALoading ? 'pensando' : 'reposo'} />
                       {prepIALoading ? 'Preparando…' : 'Preparar clase con IA'}
                     </button>
                   )}
