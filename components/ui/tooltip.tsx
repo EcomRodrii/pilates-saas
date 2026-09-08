@@ -31,8 +31,13 @@ function TooltipProvider({ ...props }: TooltipPrimitive.Provider.Props) {
   return <TooltipPrimitive.Provider {...props} />
 }
 
+// ⚠️ Sin `z-*` aquí: el recuadro es `position: static` y el `z-index` de un
+// elemento estático se IGNORA. Va en el Positioner de cada uno (`z-[60]`), que
+// es el que está posicionado. Con el z-index puesto aquí, un InfoTip dentro de
+// un diálogo (tab-planes, "Cómo elegir el tipo de plan") se abría por debajo
+// del propio diálogo.
 const tooltipPopupClass =
-  "z-50 max-w-64 origin-[var(--transform-origin)] rounded-lg bg-popover px-2 py-1 text-xs text-popover-foreground ring-1 ring-foreground/10 shadow-md transition-[transform,opacity] duration-100 ease-out data-starting-style:opacity-0 data-starting-style:scale-98 data-ending-style:opacity-0 data-ending-style:scale-98 data-instant:transition-none"
+  "max-w-64 origin-[var(--transform-origin)] rounded-lg bg-popover px-2 py-1 text-xs text-popover-foreground ring-1 ring-foreground/10 shadow-md transition-[transform,opacity] duration-100 ease-out data-starting-style:opacity-0 data-starting-style:scale-98 data-ending-style:opacity-0 data-ending-style:scale-98 data-instant:transition-none"
 
 function Tooltip({
   content,
@@ -54,7 +59,7 @@ function Tooltip({
         render={children}
       />
       <TooltipPrimitive.Portal>
-        <TooltipPrimitive.Positioner side={side} sideOffset={sideOffset}>
+        <TooltipPrimitive.Positioner className="z-[60]" side={side} sideOffset={sideOffset}>
           <TooltipPrimitive.Popup
             data-slot="tooltip"
             className={tooltipPopupClass}
@@ -97,7 +102,7 @@ function InfoTip({
         <InfoIcon className="size-3.5" aria-hidden="true" />
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Positioner side={side} sideOffset={sideOffset}>
+        <PopoverPrimitive.Positioner className="z-[60]" side={side} sideOffset={sideOffset}>
           <PopoverPrimitive.Popup
             data-slot="infotip"
             className={cn(

@@ -49,8 +49,19 @@ async function montar(page: Page, ruta: string) {
     json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
   await page.route('**/rest/v1/studios**', route => json(route, STUDIO_ROW));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
+  // La Caja no monta su barra hasta tener catálogo. Va aquí y no en el test que
+  // la usa porque en Playwright gana la ruta registrada la ÚLTIMA, y el
+  // `**/api/**` genérico de arriba se lo comería.
+  await page.route('**/api/pos/catalogo**', route => json(route, {
+    ivaDefecto: 21,
+    cobro: { stripeConectado: false, datafonoEmparejado: false },
+    productos: [], planes: [], caja: null,
+    hoy: { total: 0, ventas: 0, ticketMedio: 0 },
+  }));
   await page.goto(ruta);
-  await page.waitForSelector('[data-slot="page-header"]', { timeout: 30_000 });
+  // La Caja no usa PageHeader (su cabecera es la barra de mostrador), así que
+  // se espera a cualquiera de las dos cosas, no solo a la cabecera de página.
+  await page.waitForSelector('[data-slot="page-header"], [data-slot="ayuda-pantalla-trigger"]', { timeout: 30_000 });
 }
 
 // Una muestra de secciones, no las veinte: todas pasan por el mismo camino
@@ -86,6 +97,36 @@ test('se abre también al pasar el ratón por encima', async ({ page }) => {
   await montar(page, '/equipo');
   await page.getByRole('button', { name: 'Qué es Equipo' }).hover();
   await expect(page.locator('[data-slot="ayuda-pantalla"]')).toBeVisible();
+});
+
+// ⚠️ En la Caja el recuadro SE ABRÍA y Playwright lo daba por «visible» —
+// estaba en el DOM y con tamaño— pero se pintaba DEBAJO del TPV, que es un
+// panel `fixed z-40` en su propio portal. Desde fuera se veía como un botón que
+// no hace nada, y así lo reportó el estudio.
+//
+// La causa: el `z-50` estaba en el recuadro, que es `position: static`, y en un
+// elemento estático el z-index se IGNORA sin avisar. Por eso este test no
+// pregunta si el recuadro es visible: pregunta QUÉ ELEMENTO hay pintado encima
+// de su propia superficie. Un test de visibilidad pasaba con el fallo delante.
+test('en la Caja el recuadro se pinta ENCIMA del TPV', async ({ page }) => {
+  // El (i) de la Caja solo se pinta de `md` para arriba: en un móvil esa barra
+  // es de mostrador y no hay sitio ni para el título.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await montar(page, '/pos');
+
+  await page.getByRole('button', { name: 'Qué es Caja' }).click();
+  const recuadro = page.locator('[data-slot="ayuda-pantalla"]');
+  await expect(recuadro).toBeVisible();
+
+  const tapado = await page.evaluate(() => {
+    const popup = document.querySelector('[data-slot="ayuda-pantalla"]');
+    if (!popup) return 'no hay recuadro';
+    const r = popup.getBoundingClientRect();
+    const encima = document.elementFromPoint(r.x + r.width / 2, r.y + 20);
+    if (!encima) return 'nada en ese punto';
+    return popup.contains(encima) ? null : `tapado por ${encima.tagName}.${String((encima as HTMLElement).className).slice(0, 60)}`;
+  });
+  expect(tapado).toBeNull();
 });
 
 test('una subpantalla de un flujo no pinta el icono', async ({ page }) => {
