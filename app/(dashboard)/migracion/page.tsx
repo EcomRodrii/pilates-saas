@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useId } from 'react';
 import {
-  Upload, FileSpreadsheet, AlertTriangle, CheckCircle2, Sparkles,
+  Upload, FileSpreadsheet, AlertTriangle, CheckCircle2,
   Loader2, Undo2, ChevronDown, ChevronUp, ArrowRight,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
@@ -36,6 +36,7 @@ import {
   ENTIDADES, analizarConMapeoManual, avisosGlobalesYOrden,
   type EntidadMigracion, type ContextoEstudio,
 } from '@/lib/migracion/clasificador';
+import { TentareOrb } from '@/components/marca/tentare-orb';
 
 type Paso = 'subir' | 'analizando' | 'revisar' | 'ejecutando' | 'acta';
 
@@ -438,9 +439,14 @@ export default function MigracionPage() {
                 disabled={paso === 'analizando'}
                 className="mt-2 w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-brand text-brand-foreground text-[14px] font-extrabold hover:brightness-95 disabled:opacity-60 transition"
               >
+                {/* El Orb en sus dos estados. Aquí Tentare está de verdad
+                    leyendo unos ficheros que no ha visto nunca y decidiendo qué
+                    es cada columna — no es un destello decorativo. Y no se
+                    cambia el icono al ponerse a trabajar: es el mismo, pensando. */}
+                <TentareOrb tam={16} estado={paso === 'analizando' ? 'pensando' : 'reposo'} />
                 {paso === 'analizando'
-                  ? <><Loader2 size={16} className="animate-spin" /> Analizando tus archivos…</>
-                  : <><Sparkles size={16} /> Analizar {archivos.length} archivo{archivos.length === 1 ? '' : 's'}</>}
+                  ? 'Analizando tus archivos…'
+                  : <>Analizar {archivos.length} archivo{archivos.length === 1 ? '' : 's'}</>}
               </button>
               <p className="text-[12px] text-muted-foreground text-center">El análisis no importa nada: primero verás el plan completo y lo confirmas tú.</p>
             </div>

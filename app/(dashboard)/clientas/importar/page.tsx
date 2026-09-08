@@ -14,6 +14,7 @@ import {
 import { esArchivoTabularValido, leerArchivoTabular, ACCEPT_ARCHIVO_TABULAR, MENSAJE_ARCHIVO_NO_VALIDO } from '@/lib/importar-archivo';
 import { importarSocias, type ResultadoImport } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
+import { TentareOrb } from '@/components/marca/tentare-orb';
 import { useStudio } from '@/lib/studio-context';
 
 type Paso = 1 | 2 | 3;
@@ -148,7 +149,11 @@ export default function ImportarSociasPage() {
         href="/migracion"
         className="flex items-center gap-3 rounded-2xl border border-brand/25 bg-brand/5 px-4 py-3 hover:bg-brand/10 transition-colors"
       >
-        <span className="text-[18px]">✨</span>
+        {/* Era un emoji suelto — lo único de todo el panel que representaba
+            «esto lo hace Tentare por ti» con un carácter de texto. El destino
+            de este enlace ES la Migración Mágica, así que lleva su misma
+            marca. */}
+        <TentareOrb tam={18} />
         <span className="flex-1 text-[13px] text-foreground">
           <strong>¿Vienes de otro software?</strong> Prueba la migración automática: arrastra tus exports tal cual
           (clientas, bonos, horario, reservas, citas, pagos y recuperaciones — CSV o Excel) y los reconocemos
