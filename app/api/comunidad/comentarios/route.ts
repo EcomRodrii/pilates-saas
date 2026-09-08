@@ -78,12 +78,10 @@ export async function POST(req: NextRequest) {
   if (errIns) return NextResponse.json({ error: 'No se pudo guardar el comentario' }, { status: 500 });
 
   // Mantener comentarios_count coherente (lo usa la tarjeta y el ranking de
-  // miembros más activos). Best-effort: si falla, el comentario ya está guardado.
-  await admin
-    .from('posts_comunidad')
-    .update({ comentarios_count: (post.comentarios_count ?? 0) + 1 })
-    .eq('id', postId)
-    .eq('studio_id', sesion.studioId);
+  // miembros más activos). Best-effort: si falla, el comentario ya está
+  // guardado. Incremento ATÓMICO en SQL (33ª pasada de auditoría): leer y
+  // sumar aquí perdía incrementos bajo comentarios concurrentes.
+  await admin.rpc('ajustar_comentarios_count', { p_post_id: postId, p_studio_id: sesion.studioId, p_delta: 1 });
 
   return NextResponse.json({ comentario: mapRow(fila) });
 }

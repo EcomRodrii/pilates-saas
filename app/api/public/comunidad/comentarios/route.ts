@@ -125,12 +125,10 @@ export async function POST(req: NextRequest) {
   const { error: errIns } = await admin.from('comentarios_comunidad').insert(fila);
   if (errIns) return errorInterno('public/comunidad/comentarios:POST', errIns, 'No se ha podido guardar el comentario.');
 
-  // Best-effort, igual que en el lado staff: si esto falla el comentario ya está guardado.
-  await admin
-    .from('posts_comunidad')
-    .update({ comentarios_count: (post.comentarios_count ?? 0) + 1 })
-    .eq('id', postId)
-    .eq('studio_id', studioId);
+  // Best-effort, igual que en el lado staff: si esto falla el comentario ya
+  // está guardado. Incremento ATÓMICO (33ª pasada de auditoría) — ver
+  // ajustar_comentarios_count.
+  await admin.rpc('ajustar_comentarios_count', { p_post_id: postId, p_studio_id: studioId, p_delta: 1 });
 
   return NextResponse.json({ comentario: { ...mapRow(fila), esMio: true } });
 }
