@@ -384,8 +384,16 @@ export default function MigracionPage() {
   });
 
   return (
-    <div className="max-w-3xl mx-auto pb-16">
+    // Sin `mx-auto`: `DashboardShell` ya centra el panel entero, y centrar otra
+    // vez aquí dejaba el título 185 px a la derecha del de todas las demás
+    // pantallas. El `max-w-3xl` se queda — es ancho de lectura para un
+    // asistente por pasos.
+    <div className="max-w-3xl pb-16">
+      {/* `mb-6`: esta pantalla separa sus bloques con márgenes propios, no con
+          un `space-y` en la raíz, y la cabecera se había quedado sin el suyo —
+          la segunda línea del subtítulo tocaba la zona de arrastre. */}
       <PageHeader
+        className="mb-6"
         title="Traer mis datos"
         description="Trae tu estudio desde tu software anterior. Tú no migras nada: arrastra lo que tengas, revisa el plan y confirma — todo se puede deshacer con un clic."
       />

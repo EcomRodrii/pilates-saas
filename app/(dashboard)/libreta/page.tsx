@@ -8,8 +8,8 @@
 import { useMemo } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Printer, Notebook } from 'lucide-react';
-import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
 import { hoyEnEstudio } from '@/lib/utils';
 
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -42,31 +42,41 @@ export default function Libreta() {
   }, [socios, suscripciones, planesTarifa, recuperaciones, plazasFijas, hoyISO]);
 
   return (
-    <div className="libreta-root p-6 max-w-4xl mx-auto">
+    // ⚠️ Ni `mx-auto` ni `p-6`. `DashboardShell` ya envuelve TODA pantalla del
+    // panel en un contenedor centrado de 1320 px con su propio padding, así que
+    // esto centraba una caja dentro de otra ya centrada —el título quedaba 180
+    // px a la derecha del de cualquier otra pantalla, y saltaba al navegar— y
+    // duplicaba el padding. El `max-w-4xl` sí se queda: es ancho de LECTURA
+    // para una tabla que se imprime, no una decisión de alineación.
+    <div className="libreta-root max-w-4xl">
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          .libreta-root { padding: 0 !important; max-width: none !important; }
+          .libreta-root { max-width: none !important; }
           .libreta-doc { border: none !important; box-shadow: none !important; }
           @page { margin: 1.5cm; }
         }
       `}</style>
 
-      <div className="no-print flex items-center justify-between mb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-foreground">Libreta de clientas</h1>
-            <AyudaDePantalla />
-          </div>
-          <p className="text-sm text-muted-foreground">Copia de tus clientas siempre al día: imprímela o guárdala como PDF cuando quieras.</p>
-        </div>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
-        >
-          <Printer size={15} /> Descargar / imprimir
-        </button>
-      </div>
+      {/* La cabecera compartida, no una a mano. La de aquí era un <h1> de
+          `text-lg` — MÁS PEQUEÑO que el <h2> del documento de debajo, así que
+          el título de la pantalla se leía como un subtítulo del papel. Es
+          justo lo que `PageHeader` existe para evitar (ver su comentario: cinco
+          tamaños distintos de <h1> por el panel). El (i) lo pinta ella sola,
+          resuelto por la ruta. */}
+      <PageHeader
+        className="no-print mb-4"
+        title="Libreta de clientas"
+        description="Copia de tus clientas siempre al día: imprímela o guárdala como PDF cuando quieras."
+        actions={
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
+          >
+            <Printer size={15} /> Descargar / imprimir
+          </button>
+        }
+      />
 
       <div className="libreta-doc border border-border rounded-xl p-8 bg-card">
         <div className="mb-6">
