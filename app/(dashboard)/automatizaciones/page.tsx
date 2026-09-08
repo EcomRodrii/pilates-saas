@@ -15,6 +15,7 @@ import { resultadoDeCobro } from '@/lib/billing/resultado-cobro';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
   mensajesDeTrigger, plantillaDe, vistaPreviaMensaje, mensajesPersonalizados,
@@ -155,6 +156,14 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
           <div className="flex items-center gap-2 mb-1">
             <Bot size={20} className="text-white/60" />
             <span className="text-sm text-white/50 font-medium">Sistema autónomo</span>
+            {/* El (i) va junto a esta etiqueta y no junto al <h1>, porque el
+                título de esta pantalla es un saludo: "Buenas tardes 👋" no es
+                el nombre de nada que explicar. Tinta propia: el resto del
+                panel lo pinta sobre fondo claro, y aquí el fondo es la marca. */}
+            <AyudaDePantalla
+              ruta="/automatizaciones"
+              className="text-white/50 hover:bg-white/10 hover:text-white data-popup-open:bg-white/10 data-popup-open:text-white"
+            />
           </div>
           <h1 className="text-2xl font-bold mb-1">
             {greeting} 👋

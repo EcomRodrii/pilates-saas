@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { estadoBilling, iniciarSuscripcion, gestionarSuscripcion, type EstadoBilling } from '@/lib/api-client';
+import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { SelectorPlan } from '@/components/planes/selector-plan';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { TZ_ESTUDIO } from '@/lib/utils';
@@ -111,9 +112,16 @@ export default function SuscripcionPage() {
 
         {/* ── Encabezado: una sola frase que dice dónde está ─────────────── */}
         <header className="mb-7">
-          <h1 className="text-[27px] font-extrabold leading-tight tracking-tight text-foreground sm:text-[34px]">
-            {yaPaga ? 'Tu suscripción' : pruebaAgotada ? 'Tu prueba ha terminado' : 'Elige tu plan'}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-[27px] font-extrabold leading-tight tracking-tight text-foreground sm:text-[34px]">
+              {yaPaga ? 'Tu suscripción' : pruebaAgotada ? 'Tu prueba ha terminado' : 'Elige tu plan'}
+            </h1>
+            {/* Esta pantalla vive fuera del panel y no usa PageHeader, así que
+                su (i) va a mano y con la ruta escrita: el título cambia según
+                el estado ("Elige tu plan", "Tu suscripción") y no siempre dice
+                de qué pantalla se trata. */}
+            <AyudaDePantalla ruta="/suscripcion" />
+          </div>
           <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
             {yaPaga
               ? 'Está al día. Puedes cambiar de plan, ver tus facturas o actualizar la tarjeta cuando quieras.'

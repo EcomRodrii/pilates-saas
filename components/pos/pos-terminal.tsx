@@ -18,6 +18,7 @@ import { registrarVenta } from '@/lib/pos/cliente';
 import type { CodigoDescuento } from '@/lib/types';
 import type { MetodoPago } from '@/lib/types';
 import { HojaCobro } from './hoja-cobro';
+import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { HojaCaja } from './hoja-caja';
 import { HojaVentas } from './hoja-ventas';
 
@@ -369,6 +370,9 @@ export function PosTerminal() {
       <header className="shrink-0 h-16 px-4 sm:px-5 border-b border-border bg-card flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <h1 className="hidden md:block text-[16px] font-bold text-foreground shrink-0">Caja</h1>
+          {/* La Caja no usa PageHeader (es una barra de mostrador, no una
+              cabecera de página), así que su (i) se pone aquí a mano. */}
+          <AyudaDePantalla ruta="/pos" className="hidden md:inline-flex" />
           {/* En móvil las tres métricas no caben, pero dejar la fila VACÍA era
               peor: media cabecera en blanco encima de un catálogo que ya iba
               justo de alto. Se enseña la única cifra que se mira de pie. */}

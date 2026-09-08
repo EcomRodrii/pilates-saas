@@ -2,6 +2,7 @@ import { ArrowLeftIcon } from "lucide-react"
 import Link from "next/link"
 import * as React from "react"
 
+import { AyudaDePantalla } from "@/components/ayuda/AyudaDePantalla"
 import { cn } from "@/lib/utils"
 
 // Cabecera única para todas las pantallas del dashboard.
@@ -89,6 +90,12 @@ function PageHeader({
             >
               {title}
             </h1>
+            {/* El (i) de "qué es esta pantalla". No lleva prop: se resuelve por
+                la ruta contra lib/ayuda/pantallas.ts, así que una pantalla
+                nueva no puede olvidarse de ponerlo —solo de escribir su ficha,
+                que es lo que de verdad cuesta— y las subpantallas de un flujo
+                (los importadores) no lo pintan porque no tienen ficha. */}
+            <AyudaDePantalla />
             {badge}
           </div>
           {description && (
