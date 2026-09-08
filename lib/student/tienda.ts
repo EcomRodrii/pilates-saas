@@ -25,7 +25,16 @@
 // sitio para el panel y para el escaparate.
 import { nombrePeriodo } from '../bono-logic.ts';
 
-export type FamiliaProducto = 'suscripcion' | 'bono' | 'suelta' | 'servicio';
+export type FamiliaProducto = 'suscripcion' | 'bono' | 'suelta' | 'servicio' | 'producto';
+
+/** Lo que el servidor manda de un producto físico. Ya filtrado y acotado allí. */
+export interface ProductoFisicoTienda {
+  id: string;
+  nombre: string;
+  precio: number | null;
+  descripcion: string | null;
+  imagenUrl: string | null;
+}
 
 export interface ProductoTienda {
   id: string;
@@ -42,6 +51,13 @@ export interface ProductoTienda {
   duracionMin: number | null;
   /** Máximo de clases por semana que permite el plan. `null` = sin tope. */
   limiteSemanal: number | null;
+  /**
+   * Foto, solo en productos físicos. `null` = sin foto, que hoy es lo normal.
+   *
+   * La URL se pasa TAL CUAL: lleva un `?v=<timestamp>` que rompe el caché
+   * cuando el estudio sustituye la imagen conservando la ruta.
+   */
+  imagenUrl: string | null;
   /**
    * Cada cuántos meses se cobra una suscripción: 1, 3, 6 o 12. `null` en todo
    * lo que no es una suscripción.
@@ -123,6 +139,7 @@ function precioValido(p: number | null | undefined): p is number {
 export function catalogoTienda(
   planes: readonly PlanTienda[] | null | undefined,
   servicios: readonly ServicioTienda[] | null | undefined,
+  productos?: readonly ProductoFisicoTienda[] | null,
 ): ProductoTienda[] {
   const dePlanes: ProductoTienda[] = (planes ?? [])
     .filter((p) => p.activo !== false)
@@ -153,6 +170,8 @@ export function catalogoTienda(
         // su caducidad, y un «/mes» ahí sería sencillamente falso.
         periodicidadMeses: familia === 'suscripcion' ? (p.periodicidadMeses ?? 1) : null,
         tiposClaseIds: p.tiposClaseIds ?? [],
+        // Un plan no tiene foto: lo que se vende es lo que incluye, no una imagen.
+        imagenUrl: null,
       }];
     });
 
@@ -176,10 +195,36 @@ export function catalogoTienda(
       // Un servicio de cita no pasa por `plan_tipos_clase`: no está acotado a
       // tipos de clase porque no se reserva contra el horario.
       tiposClaseIds: [],
+      imagenUrl: null,
     }));
 
-  const orden: Record<FamiliaProducto, number> = { suscripcion: 0, bono: 1, suelta: 2, servicio: 3 };
-  return [...dePlanes, ...deServicios].sort(
+  // Productos FÍSICOS. Vienen ya filtrados de servidor (activos y de categoría
+  // PRODUCTO); aquí solo se descarta lo que no tiene precio válido, igual que
+  // en las otras familias.
+  //
+  // ⚠️ Estos NO se compran por la app: se compran EN EL ESTUDIO. Por eso no
+  // llevan nada que sugiera un checkout —ni sesiones, ni validez, ni límites—
+  // y por eso van los últimos: lo que hace crecer a un estudio es que la
+  // clienta reserve, no que compre una botella.
+  const deProductos: ProductoTienda[] = (productos ?? [])
+    .filter((p) => precioValido(p.precio))
+    .map((p) => ({
+      id: p.id, familia: 'producto' as const,
+      nombre: p.nombre,
+      descripcion: p.descripcion ?? null,
+      precio: p.precio as number,
+      sesiones: null,
+      validezDias: null,
+      duracionMin: null,
+      limiteSemanal: null,
+      limitePorTipo: {},
+      periodicidadMeses: null,
+      tiposClaseIds: [],
+      imagenUrl: p.imagenUrl ?? null,
+    }));
+
+  const orden: Record<FamiliaProducto, number> = { suscripcion: 0, bono: 1, suelta: 2, servicio: 3, producto: 4 };
+  return [...dePlanes, ...deServicios, ...deProductos].sort(
     (a, b) => orden[a.familia] - orden[b.familia] || a.precio - b.precio,
   );
 }
@@ -190,7 +235,20 @@ export const TITULO_FAMILIA: Record<FamiliaProducto, string> = {
   bono: 'Bonos y paquetes',
   suelta: 'Clases sueltas',
   servicio: 'Sesiones y privadas',
+  producto: 'En el estudio',
 };
+
+/**
+ * El aviso de la sección de productos, que NO es un detalle de copy.
+ *
+ * Estos artículos no tienen checkout y no lo van a tener con este diseño: no
+ * hay nada detrás que aparte la unidad ni que sepa que hay que entregarla en
+ * mano. Cobrar sin eso es justo el patrón que este repo lleva meses quitando.
+ *
+ * Va VISIBLE en la sección y no en un pie: tiene que leerse antes de que a
+ * nadie le apetezca buscar el botón de pagar.
+ */
+export const AVISO_PRODUCTOS = 'Se compran en el estudio: te los damos en recepción. No hacemos envíos.';
 
 /**
  * Lo que incluye el producto, en una línea.

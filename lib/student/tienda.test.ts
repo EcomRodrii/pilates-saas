@@ -173,3 +173,57 @@ test('los topes a null o 0 no se anuncian', () => {
   assert.deepEqual(cuota.limitePorTipo, { 'tc-maq': 2 });
   assert.equal(topesPorActividad(cuota, NOMBRES_TOPES), '2 de Máquina por semana');
 });
+
+// ── Productos físicos ────────────────────────────────────────────────────────
+
+const PRODUCTOS = [
+  { id: 'pf1', nombre: 'Calcetines antideslizantes', precio: 12, descripcion: 'Talla única.', imagenUrl: 'https://x/y.webp?v=17' },
+  { id: 'pf2', nombre: 'Botella', precio: 5, descripcion: null, imagenUrl: null },
+];
+
+test('los productos físicos van los ÚLTIMOS, detrás de todo lo que hace volver', () => {
+  const c = catalogoTienda(PLANES, SERVICIOS, PRODUCTOS);
+  const familias = [...new Set(c.map((p) => p.familia))];
+  assert.equal(familias[familias.length - 1], 'producto',
+    'Lo que hace crecer al estudio es que reserve, no que compre una botella.');
+});
+
+test('un producto sin foto entra igual: hoy NINGUNO tiene', () => {
+  // Medido en producción: 3 productos activos, 0 con imagen. Si la foto fuera
+  // requisito, la sección nacería vacía para todo el mundo.
+  const c = catalogoTienda([], [], PRODUCTOS);
+  assert.equal(c.length, 2);
+  assert.equal(c.find((p) => p.id === 'pf2')?.imagenUrl, null);
+});
+
+test('la URL de la foto se pasa TAL CUAL, con su parámetro de caché', () => {
+  // El `?v=` es lo que hace que se vea la foto NUEVA cuando el estudio la
+  // sustituye conservando la ruta. Normalizarla la dejaría pegada a la vieja.
+  const c = catalogoTienda([], [], PRODUCTOS);
+  assert.equal(c.find((p) => p.id === 'pf1')?.imagenUrl, 'https://x/y.webp?v=17');
+});
+
+test('un producto sin precio válido no se enseña', () => {
+  const c = catalogoTienda([], [], [{ id: 'x', nombre: 'Roto', precio: 0, descripcion: null, imagenUrl: null }]);
+  assert.deepEqual(c, []);
+});
+
+test('sin productos, el catálogo es exactamente el de antes', () => {
+  // Que la familia nueva sea OPCIONAL importa: `/reservar` y el widget llaman
+  // con dos argumentos y no deben cambiar de comportamiento.
+  assert.deepEqual(catalogoTienda(PLANES, SERVICIOS), catalogoTienda(PLANES, SERVICIOS, []));
+  assert.deepEqual(catalogoTienda(PLANES, SERVICIOS), catalogoTienda(PLANES, SERVICIOS, null));
+});
+
+test('un producto NO trae nada que sugiera comprarlo online', () => {
+  // Sesiones, validez, duración o límites son el vocabulario de algo que se
+  // consume dentro del producto. Un artículo físico no tiene nada de eso, y
+  // rellenarlo invitaría a pintarle un checkout que no existe.
+  const p = catalogoTienda([], [], PRODUCTOS)[0];
+  assert.equal(p.sesiones, null);
+  assert.equal(p.validezDias, null);
+  assert.equal(p.duracionMin, null);
+  assert.equal(p.limiteSemanal, null);
+  assert.equal(p.periodicidadMeses, null);
+  assert.deepEqual(p.tiposClaseIds, []);
+});

@@ -56,6 +56,19 @@ export interface PayloadPublico {
     id: string; nombre: string; descripcion?: string | null; precio?: number | null;
     duracionMin?: number | null; activo?: boolean | null; autoReservable?: boolean | null; tipo?: string | null;
   }[];
+  /**
+   * Productos FÍSICOS del estudio, para el escaparate de «Comprar».
+   *
+   * Vienen ya filtrados de servidor: solo `activo` y de categoría PRODUCTO.
+   * `productos_pos` mezcla cuatro categorías y dos de ellas —SESION y PACK—
+   * son lo mismo que ya se vende por `planesTarifa`; publicarlas daría dos
+   * precios para la misma clase en la misma pantalla.
+   *
+   * No traen `stock`, `sku`, `codigo_barras` ni `iva_pct`: son datos de
+   * mostrador, y el stock además prometería una disponibilidad que nadie
+   * está reservando.
+   */
+  productosFisicos?: { id: string; nombre: string; precio: number; descripcion: string | null; imagenUrl: string | null }[];
   aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[];
   /**
    * Los huecos (camas, reformers, esterillas) de cada sala. El servidor los
