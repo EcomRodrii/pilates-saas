@@ -73,23 +73,38 @@ export function hechasEstaSemana(clases: ClaseHecha[], hoy: string): number {
 }
 
 /**
- * Semanas consecutivas con al menos una clase, contando hacia atrás.
+ * Semanas consecutivas cumplidas, contando hacia atrás.
  *
- * La semana EN CURSO solo rompe la racha si ya terminó sin clases — mientras
- * corre, que aún no haya ido no significa que la haya perdido. Sin esto, la
- * racha se caería cada lunes por la mañana y volvería a aparecer el martes, que
- * es la peor forma posible de contar algo que pretende motivar.
+ * La semana EN CURSO solo rompe la racha si ya terminó sin cumplir — mientras
+ * corre, que aún no haya llegado al mínimo no significa que la haya perdido.
+ * Sin esto, la racha se caería cada lunes por la mañana y volvería a aparecer
+ * el martes, que es la peor forma posible de contar algo que pretende motivar.
+ *
+ * `minimoSemanal` lo decide el estudio (`studios.racha_clases_semana`). Uno
+ * que da clase tres veces por semana y otro que la da una no miden lo mismo
+ * con «al menos una»: para el primero, la racha se mantiene faltando dos de
+ * cada tres, y deja de significar nada.
+ *
+ * Por debajo de 1 se trata como 1: una racha que se cumple sin ir a clase no
+ * es una racha.
  */
-export function rachaSemanas(clases: ClaseHecha[], hoy: string): number {
-  const semanas = new Set(
-    clases.filter((c) => cuentaComoHecha(c, hoy)).map((c) => lunesDe(c.fecha)),
-  );
+export function rachaSemanas(clases: ClaseHecha[], hoy: string, minimoSemanal = 1): number {
+  const minimo = Math.max(1, Math.floor(minimoSemanal || 1));
+  // Cuántas hizo en cada semana, no solo si hizo alguna.
+  const porSemana = new Map<string, number>();
+  for (const c of clases) {
+    if (!cuentaComoHecha(c, hoy)) continue;
+    const lunes = lunesDe(c.fecha);
+    porSemana.set(lunes, (porSemana.get(lunes) ?? 0) + 1);
+  }
+  const cumplida = (lunes: string) => (porSemana.get(lunes) ?? 0) >= minimo;
+
   let racha = 0;
   let cursor = lunesDe(hoy);
-  // La semana en curso: si tiene clase suma; si no, se salta sin romper.
-  if (semanas.has(cursor)) racha += 1;
+  // La semana en curso: si ya cumple suma; si no, se salta sin romper.
+  if (cumplida(cursor)) racha += 1;
   cursor = retrocederUnaSemana(cursor);
-  while (semanas.has(cursor)) {
+  while (cumplida(cursor)) {
     racha += 1;
     cursor = retrocederUnaSemana(cursor);
   }

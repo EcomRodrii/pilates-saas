@@ -59,6 +59,8 @@ export interface PayloadPublico {
     politicaPrivacidad?: string | null;
     terminosServicio?: string | null;
     cancelacionVentanaHoras?: number | null;
+    /** Clases por semana que mantienen la racha. `null` = 1 (lo de siempre). */
+    rachaClasesSemana?: number | null;
     penalizacionImporteEur?: number | null;
   } | null;
   sesiones: Sesion[];

@@ -8,6 +8,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getGamificacion, apuntarseReto, canjearRecompensa } from '@/lib/student/gamificacion-datos';
+import { useCreditosEnVivoPortal } from '@/lib/student/use-creditos-portal';
 import { nombreCreditos } from '@/lib/creditos-nombre';
 import { Button } from '@/components/student/ui/Button';
 import { Badge } from '@/components/student/ui/Badge';
@@ -49,6 +50,11 @@ export default function LogrosPage() {
 
   const cargar = useCallback(() => getGamificacion(estudio.slug), [estudio.slug]);
   const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d.hay);
+
+  // El saldo cambia por cosas que ella no hace: el mostrador le da el check-in
+  // y gana créditos con la clase recién terminada. Sin esto, su pantalla
+  // abierta seguiría diciendo el saldo de antes hasta recargar a mano.
+  useCreditosEnVivoPortal(estudio.slug, estudio.id, refrescar);
 
   const alternarReto = async (retoId: string, apuntada: boolean) => {
     if (ocupado) return;

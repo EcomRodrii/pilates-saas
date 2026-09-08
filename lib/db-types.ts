@@ -944,6 +944,8 @@ export interface RowStudios {
   creditos_nombre: string | null;
   // migr 20260908020000.
   creditos_caducan_meses: number | null;
+  // migr 20260908210000.
+  racha_clases_semana: number | null;
 }
 
 export interface RowSuscripciones {

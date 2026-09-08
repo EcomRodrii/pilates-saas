@@ -79,6 +79,19 @@ export async function getPlazaFija(slug: string): Promise<{ plaza: PlazaFijaVist
   return { plaza: proyectarPlazaFija(d, hoyISO(ahora), hora), recuperaciones: proyectarRecuperaciones(d, hoyISO(ahora)) };
 }
 
+/**
+ * Cuántas clases por semana mantienen la racha en ESTE estudio.
+ *
+ * Sale del mismo payload cacheado que todo lo demás, así que no añade una
+ * petición. `1` cuando el estudio no lo ha decidido: es lo que hacía el código
+ * antes de que fuera configurable.
+ */
+export async function getMinimoRacha(slug: string): Promise<number> {
+  const d = await catalogo(slug);
+  const n = d?.studio?.rachaClasesSemana;
+  return typeof n === 'number' && n >= 1 ? Math.floor(n) : 1;
+}
+
 // `confirmarReserva` y `cancelarReserva` NO viven aquí: son escrituras contra
 // `POST /api/public/reserva` y su traducción de errores es la máquina de
 // estados del diseño. Entran en F4, con su propio fichero y sus propios tests.

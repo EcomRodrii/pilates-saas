@@ -133,6 +133,8 @@ export interface Studio {
   creditosNombre?: string | null;
   /** Meses que duran los créditos desde la última ganancia. `null` = no caducan. */
   creditosCaducanMeses?: number | null;
+  /** Clases por semana que mantienen la racha de la alumna. `null` = 1. */
+  rachaClasesSemana?: number | null;
   cancelacionDevolverBonoTardia: boolean;
   /** Cuando el ESTUDIO cancela una clase completa (no una reserva suelta):
    *  true = devuelve la sesión a cada socia con plaza confirmada. */

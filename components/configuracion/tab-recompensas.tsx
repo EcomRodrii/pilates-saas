@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Coins, Gift, Plus, Pencil, Trash2, Check } from 'lucide-react';
+import { Coins, Flame, Gift, Plus, Pencil, Trash2, Check } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { REWARD_TRIGGERS } from '@/lib/engines/reward-engine';
 import { sugerirRecompensas } from '@/lib/recompensas-sugeridas';
@@ -185,6 +185,16 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
     return res;
   }
 
+  // La racha vive en la app de la alumna, pero el criterio es del estudio: uno
+  // que da clase tres veces por semana no mide lo mismo con «al menos una».
+  async function guardarRacha(clases: number | null) {
+    const res = await updateStudio({ rachaClasesSemana: clases });
+    showToast(res.ok
+      ? (clases && clases > 1 ? `La racha pide ${clases} clases por semana` : 'La racha pide 1 clase por semana')
+      : res.error);
+    return res;
+  }
+
   async function guardarMoneda(valor: string) {
     const limpio = normalizarNombreCreditos(valor);
     if ((studio?.creditosNombre ?? null) === limpio) return;
@@ -238,6 +248,29 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
             ariaLabel="Meses hasta que caducan"
           />
           <span className="text-[12px] text-muted-foreground">meses</span>
+        </div>
+      </div>
+
+      {/* Racha */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <Flame size={16} className="text-brand-secondary" />
+          <h3 className="text-[14px] font-semibold text-foreground">Racha</h3>
+        </div>
+        <p className="text-[12px] text-muted-foreground mb-3">
+          Cuántas clases tiene que hacer una clienta en una semana para mantener su racha.
+          La semana en curso nunca se la rompe: solo cuenta cuando termina.
+        </p>
+        <div className={cn(cardCls, 'p-4 flex items-center gap-2')}>
+          <CampoNumero
+            valor={studio?.rachaClasesSemana ?? null}
+            onGuardar={guardarRacha}
+            placeholder="1"
+            className={cn(inputCls, 'w-20 text-center')}
+            title="Clases por semana para mantener la racha (vacío = 1)"
+            ariaLabel="Clases por semana para la racha"
+          />
+          <span className="text-[12px] text-muted-foreground">clases por semana</span>
         </div>
       </div>
 
