@@ -16,7 +16,25 @@ const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
 // por timeout ya conocidos en este repo. Requiere un `.next` ya construido, que
 // en CI llega como artefacto del job de build.
 // En local se sigue usando `next dev` por comodidad (sin esperar un build);
-// para reproducir CI tal cual: `E2E_USA_BUILD=1 npm run build && npx playwright test`.
+// para reproducir CI tal cual:
+//
+//     npm run build:e2e && E2E_USA_BUILD=1 npx playwright test
+//
+// ⚠️ `build:e2e` y no `build`, y esto NO es un detalle de estilo. Las variables
+// `NEXT_PUBLIC_*` se INCRUSTAN AL COMPILAR, no se leen al arrancar: el
+// `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` que este fichero pasa en `webServer.env`
+// (más abajo) llega al proceso del servidor, pero el bundle ya se construyó sin
+// él y dentro vale `undefined`.
+//
+// Lo que se ve entonces son 5 rojos en `student-descuento.spec.ts` (y el paso
+// de pago de /reservar) que NO corresponden a ningún fallo del producto: la
+// hoja de compra cae a «este estudio todavía no tiene los pagos activados»,
+// porque `HojaCompra` decide `sinCobro = !stripeAccountId || !publishableKey`.
+// En CI no pasa porque el job de build ya lleva la clave en su `env`.
+//
+// Costó un diagnóstico entero llegar hasta aquí desde «el spec está roto en
+// main», así que queda escrito: si esos tests se ponen rojos en local, lo
+// primero que hay que mirar es con qué se compiló.
 const USA_BUILD = process.env.E2E_USA_BUILD === '1';
 
 // ⚠️ Las pantallas que corren TAMBIÉN en WebKit — la lista es corta a propósito.
@@ -123,6 +141,9 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'dummy-anon-key-for-ci',
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'dummy-service-role-key-for-ci',
       NEXT_PUBLIC_APP_URL: BASE_URL,
+      // ⚠️ Esto sirve para `next dev` (compila bajo demanda y la lee), NO para
+      // `E2E_USA_BUILD=1`: ahí el bundle ya está construido y el valor quedó
+      // incrustado al compilar. Ver la nota de arriba y `npm run build:e2e`.
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? 'pk_test_dummy_e2e_key',
       // Fijo (no derivado de nada secreto de verdad): e2e/portal-preview-home.spec.ts
       // firma su propio token con este mismo valor para probar /portal-preview/[slug]
