@@ -130,6 +130,7 @@ export function PosTerminal() {
         nombre: p.nombre, precio: p.precio, ivaPct: p.ivaPct,
         categoria: p.categoria, stock: p.stock, stockMinimo: p.stockMinimo,
         detalle: p.descripcion, sku: p.sku, codigoBarras: p.codigoBarras,
+        foto: p.imagenUrl ?? null,
       }));
     const planes = catalogo.planes.map((p) => ({
       clave: `plan:${p.id}`, tipo: 'PLAN' as const, referenciaId: p.id,
@@ -138,6 +139,9 @@ export function PosTerminal() {
       stock: null as number | null, stockMinimo: 0,
       detalle: p.sesiones ? `${p.sesiones} ${p.sesiones === 1 ? 'sesión' : 'sesiones'}` : p.descripcion,
       sku: null as string | null, codigoBarras: null as string | null,
+      // Un plan no lleva foto: lo que se compra es tiempo o sesiones, no un
+      // objeto. La rejilla lo admite y pinta la tarjeta sin miniatura.
+      foto: null as string | null,
     }));
     return [...planes, ...productos];
   }, [catalogo]);
@@ -582,12 +586,22 @@ export function PosTerminal() {
                         : 'border-border hover:border-foreground/30 hover:shadow-sm active:scale-[0.98]',
                     )}
                   >
-                    <div className="min-w-0">
-                      <p className={cn(
-                        'text-[14.5px] font-semibold leading-snug line-clamp-2',
-                        agotado ? 'text-muted-foreground' : 'text-foreground',
-                      )}>{a.nombre}</p>
-                      {a.detalle && <p className="text-[11.5px] text-muted-foreground truncate">{a.detalle}</p>}
+                    <div className="flex min-w-0 gap-2.5">
+                      {/* La miniatura es OPCIONAL y no reserva sitio si no
+                          hay: un catálogo sin fotos tiene que verse igual de
+                          ordenado que antes, no como una rejilla de huecos. */}
+                      {a.foto && (
+                        // eslint-disable-next-line @next/next/no-img-element -- foto subida por el estudio, no un asset conocido en build
+                        <img src={a.foto} alt="" loading="lazy" decoding="async"
+                          className={cn('w-11 h-11 rounded-lg object-cover shrink-0 border border-border', agotado && 'grayscale')} />
+                      )}
+                      <div className="min-w-0">
+                        <p className={cn(
+                          'text-[14.5px] font-semibold leading-snug line-clamp-2',
+                          agotado ? 'text-muted-foreground' : 'text-foreground',
+                        )}>{a.nombre}</p>
+                        {a.detalle && <p className="text-[11.5px] text-muted-foreground truncate">{a.detalle}</p>}
+                      </div>
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <p className={cn(

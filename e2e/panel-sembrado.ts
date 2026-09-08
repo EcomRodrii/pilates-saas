@@ -157,11 +157,24 @@ export async function ir(page: Page, ruta: string) {
   // ⚠️ Un `waitForTimeout` a secas no vale: bajo carga (varios workers contra un
   // solo `next dev`) la pantalla se queda en su esqueleto y lo que se mide es
   // el esqueleto — capturas grises, y un barrido que no encuentra nada porque
-  // no había nada que encontrar. Se espera a que no quede ningún esqueleto.
+  // no había nada que encontrar.
+  //
+  // Se espera a DOS cosas, y en este orden:
+  //   1. que el panel haya montado — `#panel-portal-host`, el anfitrión de sus
+  //      portales, que `DashboardShell` pinta en TODAS sus pantallas y que el
+  //      404 (que vive en la raíz, fuera de ese layout) no tiene;
+  //   2. que no quede ningún esqueleto de datos.
+  //
+  // ⚠️ El presupuesto del segundo es corto A PROPÓSITO. Esperarlo 25 s se comía
+  // casi entero el límite de 30 s por test de Playwright, y cuando expiraba el
+  // test moría sin haber medido nada — el remedio salía más caro que la
+  // enfermedad. Aquí una espera agotada no es un fallo: es «sigue adelante y
+  // mide lo que haya», y el guardia del propio test decide si sirve.
+  await page.waitForSelector('#panel-portal-host', { timeout: 20_000 }).catch(() => {});
   await page
-    .waitForFunction(() => !document.querySelector('.animate-pulse'), null, { timeout: 25_000 })
+    .waitForFunction(() => !document.querySelector('.animate-pulse'), null, { timeout: 5_000 })
     .catch(() => {});
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(600);
 }
 
 /** Arranca el panel en modo oscuro (preferencia por usuario, localStorage). */

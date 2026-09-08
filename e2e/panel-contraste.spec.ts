@@ -21,7 +21,21 @@ import { montar, ir, enOscuro } from './panel-sembrado';
 // haciendo falta mirar.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const RUTAS = ['dashboard', 'cobros', 'productos', 'clientas', 'informes', 'equipo'];
+// Cada test carga una pantalla ENTERA del panel. Los 30 s por defecto de
+// Playwright se quedan cortos cuando el servidor va cargado (varios workers, o
+// una máquina compartida con otra compilación), y entonces el test muere sin
+// haber medido nada — que es peor que tardar.
+test.describe.configure({ timeout: 60_000 });
+
+const RUTAS = [
+  'dashboard', 'cobros', 'productos', 'clientas', 'informes', 'equipo',
+  'centro-de-control', 'calendario', 'citas', 'configuracion',
+  'automatizaciones', 'cierre', 'comunidad', 'contenido',
+  'explorar-funciones', 'facturas', 'libreta', 'marketing',
+  'mensajeria', 'mi-perfil', 'migracion', 'notificaciones',
+  'pagos', 'primeros-pasos', 'socios', 'sustituciones',
+  'transacciones', 'network/buscar',
+];
 
 interface Fallo { ruta: string; texto: string; ratio: number; color: string; fondo: string; px: number }
 
@@ -31,7 +45,7 @@ interface Fallo { ruta: string; texto: string; ratio: number; color: string; fon
  * Se ejecuta dentro de la página (no hay forma de leer estilos calculados
  * desde fuera) y devuelve solo los incumplimientos, no los ~2.000 nodos.
  */
-async function medir(page: import('@playwright/test').Page, ruta: string): Promise<{ revisados: number; fallos: Fallo[] }> {
+async function medir(page: import('@playwright/test').Page, ruta: string): Promise<{ revisados: number; panel: boolean; fallos: Fallo[] }> {
   return page.evaluate((rutaActual) => {
     const rgb = (s: string): [number, number, number, number] | null => {
       const m = s.match(/rgba?\(([^)]+)\)/);
@@ -115,7 +129,14 @@ async function medir(page: import('@playwright/test').Page, ruta: string): Promi
         });
       }
     }
-    return { revisados, fallos };
+    // ¿Se ha pintado el PANEL? `#panel-portal-host` es la señal: lo pinta
+    // `DashboardShell` en TODAS sus pantallas —incluidos los estados de error y
+    // los vacíos— y el 404 no lo tiene, porque vive en la raíz, fuera de ese
+    // layout. Contar texto no servía: /notificaciones cargada mide 8 nodos y un
+    // 404 mide 4, demasiado cerca para separarlos por volumen. Y un enlace
+    // concreto del menú tampoco: el menú es configurable por estudio.
+    const panel = Boolean(document.querySelector('#panel-portal-host'));
+    return { revisados, fallos, panel };
   }, ruta);
 }
 
@@ -130,15 +151,18 @@ for (const modo of ['claro', 'oscuro'] as const) {
       await page.setViewportSize({ width: 1440, height: 900 });
       await ir(page, ruta);
 
-      const { revisados, fallos } = await medir(page, ruta);
+      const { revisados, panel, fallos } = await medir(page, ruta);
       // ⚠️ Sin esto el test se pone verde por VACÍO: si la pantalla no llegó a
       // pintarse no hay texto que medir, no hay fallos, y pasa sin haber mirado
       // nada. Pasó dos veces mientras se escribía esto: /clientas quedándose en
-      // su esqueleto (0 nodos) y el `next dev` local devolviendo 404 a todo tras
-      // una tanda con --repeat-each (4 nodos, los de la página de error). El
-      // suelo va en 15 porque la pantalla más escueta de la lista, /productos,
-      // mide 21 — por encima de los dos casos malos y por debajo del real.
-      expect(revisados, `${ruta} (${modo}) no llegó a pintar texto: se midieron ${revisados} nodos`).toBeGreaterThan(15);
+      // su esqueleto y el `next dev` local devolviendo 404 a todo.
+      //
+      // El guardia mira si el PANEL se ha montado, no cuánta letra hay. Un
+      // umbral de volumen no distingue las dos cosas que hay que distinguir:
+      // /notificaciones cargada —un estado vacío legítimo, con su cartelito y
+      // poco más— mide 8 nodos, y la página 404 mide 4.
+      expect(panel, `${ruta} (${modo}) no llegó a pintar el panel: ¿404 o esqueleto?`).toBe(true);
+      expect(revisados, `${ruta} (${modo}) pintó el panel pero ni una línea de texto`).toBeGreaterThan(3);
       expect(fallos, `texto por debajo de AA:\n${informe(fallos)}`).toEqual([]);
     });
   }

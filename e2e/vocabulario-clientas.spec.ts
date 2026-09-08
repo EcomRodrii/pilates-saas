@@ -30,6 +30,17 @@ const SOCIA = {
   telefono: null, activo: true, fecha_alta: '2026-01-01', campos_extra: {}, tags: [],
 };
 
+// Una instructora completa, con la forma que devuelve /api/equipo/tarjetas.
+const MIEMBRO = {
+  id: 'ins-1', nombre: 'Marta Ruiz', rol: 'INSTRUCTOR', color: '#5A6142', avatar: null,
+  fotoUrl: null, activo: true, conAcceso: true, esYo: false,
+  email: 'marta@example.com', telefono: null, enClaseAhora: false, claseHoyLabel: null,
+  proximaClaseIso: null, ultimaClaseIso: null, clasesUltimos90Dias: null,
+  semana: [0, 0, 0, 0, 0, 0, 0], horasDia: [null, null, null, null, null, null, null],
+  ocupacionPct: null, valoracion: null, horasMes: null, costeMes: null,
+  coincideContigo: null, disponibilidadActualizadaEn: null,
+};
+
 async function montar(page: Page, ruta: string) {
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -50,6 +61,13 @@ async function montar(page: Page, ruta: string) {
   await page.route('**/api/billing/status**', route => json(route, { bloqueado: false, activo: true, plan: 'BASE', configurado: true }));
   await page.route('**/api/theme**', route =>
     json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
+  // ⚠️ El equipo se sirve DE VERDAD, no con el `{}` del comodín. Con la carga
+  // caída, /equipo enseña su estado de error y esconde la fila de KPIs —
+  // porque «0 miembros» encima de «no hemos podido cargar tu equipo» son dos
+  // afirmaciones incompatibles. Este test va de VOCABULARIO, así que tiene que
+  // mirar la pantalla cargada: si no, comprobaba la palabra sobre un cero que
+  // era mentira.
+  await page.route('**/api/equipo/tarjetas**', route => json(route, { items: [MIEMBRO] }));
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));

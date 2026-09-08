@@ -491,7 +491,7 @@ interface StudioContextValue {
   // POS
   productosPOS: ProductoPOS[];
   ventasPOS: VentaPOS[];
-  addProductoPOS: (fields: Omit<ProductoPOS, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  addProductoPOS: (fields: Omit<ProductoPOS, 'id' | 'studioId'>, idPreferido?: string) => Promise<ResultadoEscritura>;
   updateProductoPOS: (id: string, changes: Partial<ProductoPOS>) => Promise<ResultadoEscritura>;
   deleteProductoPOS: (id: string) => Promise<ResultadoEscritura>;
   addVentaPOS: (fields: Omit<VentaPOS, 'id' | 'studioId' | 'realizadaEn'>) => Promise<ResultadoEscritura>;
@@ -4193,8 +4193,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── POS ──────────────────────────────────────────────────────────────────────
 
-  async function addProductoPOS(fields: Omit<ProductoPOS, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
-    const nuevo: ProductoPOS = { id: `pos-${uid()}`, studioId: getCurrentStudioId(), ...fields };
+  // `idPreferido` existe por la foto: la RLS de Storage exige que el artículo
+  // YA EXISTA para aceptar la subida, así que quien da de alta necesita saber
+  // con qué id ha quedado para subirla justo después.
+  async function addProductoPOS(
+    fields: Omit<ProductoPOS, 'id' | 'studioId'>,
+    idPreferido?: string,
+  ): Promise<ResultadoEscritura> {
+    const nuevo: ProductoPOS = { id: idPreferido ?? `pos-${uid()}`, studioId: getCurrentStudioId(), ...fields };
     const res = await dbInsertProductoPOS(nuevo);
     if (!res.ok) return res;
     setProductosPOS(prev => [...prev, nuevo]);
