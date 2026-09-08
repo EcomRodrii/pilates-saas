@@ -176,7 +176,11 @@ async function conciliarRefundsEstudio(
     if (!reciboId || !esRecibo) continue;
 
     const resultado = await procesarChargeRefunded(admin, {
-      studioId: studio.id, reciboId, origenPi: pi.metadata?.origen,
+      studioId: studio.id, reciboId,
+      // 32ª pasada de auditoría: mismo motivo que el webhook — reparte el
+      // reembolso entre plan y matrícula cuando el cargo los combinó.
+      reciboMatriculaId: pi.metadata?.reciboMatriculaId ?? null,
+      origenPi: pi.metadata?.origen,
       charge: {
         id: charge.id, refunded: charge.refunded === true,
         amount: charge.amount ?? null, amountRefunded: charge.amount_refunded ?? null,

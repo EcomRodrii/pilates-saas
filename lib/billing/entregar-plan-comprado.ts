@@ -142,7 +142,19 @@ export interface CompraPlan {
 }
 
 export type ResultadoEntrega =
-  | { ok: true; socioId: string; suscripcionId: string; reciboId: string; fichaCreada: boolean }
+  | {
+      ok: true; socioId: string; suscripcionId: string; reciboId: string; fichaCreada: boolean;
+      /**
+       * 32ª pasada de auditoría: el recibo de la matrícula (si se cobró en
+       * este mismo cargo) es una fila de `recibos` DISTINTA del plan — sin
+       * exponer su id aquí, el webhook solo podía sellar en la metadata del
+       * PaymentIntent el recibo del plan, y un reembolso posterior no tenía
+       * forma de saber que ahí dentro había una segunda venta que también
+       * había que devolver. `null`/`undefined` = no hubo matrícula en este
+       * cobro (comportamiento idéntico al de antes de este campo).
+       */
+      reciboMatriculaId?: string | null;
+    }
   | { ok: false; motivo: 'plan-no-encontrado' | 'sin-socia' | 'error'; detalle?: string };
 
 /** 23505 = unique_violation: ya existía (reintento de Stripe). No es un fallo. */
@@ -501,5 +513,8 @@ export async function entregarPlanComprado(
     }
   }
 
-  return { ok: true, socioId, suscripcionId: ids.suscripcionId, reciboId: ids.reciboId, fichaCreada };
+  return {
+    ok: true, socioId, suscripcionId: ids.suscripcionId, reciboId: ids.reciboId, fichaCreada,
+    reciboMatriculaId: matriculaCentimos > 0 ? ids.reciboMatriculaId : null,
+  };
 }
