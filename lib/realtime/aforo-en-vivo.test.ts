@@ -167,9 +167,37 @@ test('el bundle embebible NO monta un SupabaseClient completo', () => {
 
 // El aviso llega por la red y agrupado; la acción de uno mismo no debe esperarlo.
 test('el hook agrupa los avisos en ráfaga', () => {
-  const src = leer('lib/realtime/aforo-en-vivo.ts');
+  // La fontanería se movió a `canal-en-vivo.ts` al aparecer el segundo canal
+  // (créditos): duplicarla habría hecho que una de las dos copias se quedara
+  // vieja y fallara en silencio. Lo que se vigila es lo mismo, en su sitio.
+  const src = leer('lib/realtime/canal-en-vivo.ts');
   assert.match(src, /AGRUPAR_MS/,
     'Cancelar una clase entera cambia N reservas a la vez: sin agrupar son N recargas.');
   assert.match(src, /TOKEN_REFRESHED/,
     'Sin renovar el token el canal enmudece a la hora, con el mismo síntoma que el bug.');
+});
+
+test('los dos canales comparten la fontanería, no la copian', () => {
+  // Si alguien vuelve a duplicarla, la copia que se quede sin el reintento de
+  // token enmudece a la hora sin fallar — el síntoma exacto del bug original.
+  for (const f of ['lib/realtime/aforo-en-vivo.ts', 'lib/realtime/creditos-en-vivo.ts']) {
+    assert.match(leer(f), /useCanalEnVivo/, `${f} debe delegar en canal-en-vivo.ts`);
+    assert.doesNotMatch(leer(f), /TOKEN_REFRESHED/, `${f} no debe reimplementar la renovación de token`);
+  }
+});
+
+test('el aviso de créditos NO dice de quién es el saldo', () => {
+  // El canal es del estudio y lo escuchan otras socias: mandar el `socio_id`
+  // metería el identificador de una clienta en un canal ajeno. Mismo criterio
+  // que el de aforo con la fila de `reservas`.
+  const sql = leer('supabase/migrations/20260908220000_creditos_en_vivo.sql');
+  // Solo las líneas VIVAS: el comentario de la migración menciona `socio_id`
+  // precisamente para explicar por qué NO va en el mensaje, y contarlo sería
+  // el mismo verde-por-comentario que ya mordió al guardián de lazy-load.
+  const vivas = sql.split('\n').filter((l) => !l.trimStart().startsWith('--')).join('\n');
+  assert.doesNotMatch(vivas, /socio_id/, 'el payload no puede llevar el socio_id');
+  assert.match(sql, /jsonb_build_object\('cambio'/, 'el aviso solo dice que algo cambió');
+  // Y no puede tumbar la escritura que lo provoca: mueve créditos.
+  assert.match(sql, /exception when others/,
+    'un fallo del esquema de realtime no puede impedir ganar o canjear créditos');
 });

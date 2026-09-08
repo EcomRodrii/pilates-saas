@@ -4454,6 +4454,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('anioFundacion' in changes) db.anio_fundacion = changes.anioFundacion;
   if ('creditosNombre' in changes) db.creditos_nombre = changes.creditosNombre;
   if ('creditosCaducanMeses' in changes) db.creditos_caducan_meses = changes.creditosCaducanMeses;
+  if ('rachaClasesSemana' in changes) db.racha_clases_semana = changes.rachaClasesSemana;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
   if ('recuperacionCaducidadTipo' in changes) db.recuperacion_caducidad_tipo = changes.recuperacionCaducidadTipo;
@@ -4844,6 +4845,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
     creditosNombre: r.creditos_nombre ?? null,
     creditosCaducanMeses: r.creditos_caducan_meses ?? null,
+    rachaClasesSemana: r.racha_clases_semana ?? null,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     cancelacionClaseDevuelveBono: r.cancelacion_clase_devuelve_bono ?? true,
     recuperacionCaducidadTipo: (r.recuperacion_caducidad_tipo as 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE') ?? 'FIN_MES_SIGUIENTE',

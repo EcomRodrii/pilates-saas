@@ -106,3 +106,48 @@ test('racha: las canceladas no sostienen la racha', () => {
   ];
   assert.equal(rachaSemanas(clases, HOY), 0);
 });
+
+// ── La racha, con el mínimo que decide el estudio ────────────────────────────
+//
+// «Al menos una clase» no mide lo mismo en un estudio que da clase una vez por
+// semana que en uno que la da tres: en el segundo, la racha se mantiene
+// faltando dos de cada tres y deja de significar nada.
+
+const asistida = (fecha: string) => ({ fecha, estado: 'asistida' });
+
+test('con mínimo 1 se comporta EXACTAMENTE como antes', () => {
+  // El respaldo conserva el comportamiento: ningún estudio ve cambiar su racha
+  // por el mero hecho de que ahora sea configurable.
+  const clases = [asistida('2026-09-01'), asistida('2026-08-25')];
+  assert.equal(rachaSemanas(clases, HOY), rachaSemanas(clases, HOY, 1));
+});
+
+test('con mínimo 2, una sola clase en la semana NO la cumple', () => {
+  const unaPorSemana = [asistida('2026-09-01'), asistida('2026-08-25')];
+  assert.equal(rachaSemanas(unaPorSemana, HOY, 1), 2);
+  assert.equal(rachaSemanas(unaPorSemana, HOY, 2), 0);
+});
+
+test('con mínimo 2, dos clases en la misma semana sí la cumplen', () => {
+  const dosPorSemana = [
+    asistida('2026-09-01'), asistida('2026-09-03'),
+    asistida('2026-08-25'), asistida('2026-08-27'),
+  ];
+  assert.equal(rachaSemanas(dosPorSemana, HOY, 2), 2);
+});
+
+test('la semana EN CURSO sigue sin romper la racha aunque no llegue al mínimo', () => {
+  // Es la regla que ya existía y la que más fácil se pierde al tocar esto:
+  // sin ella la racha se caería cada lunes y volvería el martes.
+  const clases = [asistida('2026-08-25'), asistida('2026-08-27')];
+  // Nada en la semana en curso, pero la anterior cumple: la racha vive.
+  assert.equal(rachaSemanas(clases, HOY, 2), 1);
+});
+
+test('un mínimo absurdo no rompe nada: por debajo de 1 se trata como 1', () => {
+  // Una racha que se cumple sin ir a clase no es una racha.
+  const clases = [asistida('2026-09-01')];
+  assert.equal(rachaSemanas(clases, HOY, 0), rachaSemanas(clases, HOY, 1));
+  assert.equal(rachaSemanas(clases, HOY, -3), rachaSemanas(clases, HOY, 1));
+  assert.equal(rachaSemanas(clases, HOY, 1.7), rachaSemanas(clases, HOY, 1));
+});

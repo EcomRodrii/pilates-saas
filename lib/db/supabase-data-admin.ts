@@ -358,6 +358,9 @@ function studioPublico(r: RowStudios) {
     })(),
     // Política pública que la página de reservas necesita para avisar a la socia
     // (ventana de cancelación) y hacer el pre-check de derechos/límite.
+    // La racha de la alumna se calcula en su app: sin esto usaría siempre 1 y
+    // el ajuste del estudio no tendría efecto donde se ve.
+    rachaClasesSemana: (r as { racha_clases_semana?: number | null }).racha_clases_semana ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,

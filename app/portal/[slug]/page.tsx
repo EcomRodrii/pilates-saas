@@ -8,7 +8,7 @@ import { useSesionStudent } from '@/lib/student/sesion';
 import { compararPorCaducidad } from '@/lib/student/bono-cubre';
 import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
-import { getBonos, getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/student/datos';
+import { getBonos, getClases, getInstructoras, getPlazaFija, getMinimoRacha, getReservas } from '@/lib/student/datos';
 import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { getGamificacion } from '@/lib/student/gamificacion-datos';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
@@ -41,10 +41,10 @@ export default function InicioPage() {
   const hoy = hoyISO();
 
   const cargar = useCallback(async () => {
-    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion] = await Promise.all([
-      getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug), getGamificacion(estudio.slug),
+    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha] = await Promise.all([
+      getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug), getGamificacion(estudio.slug), getMinimoRacha(estudio.slug),
     ]);
-    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion };
+    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha };
   }, [estudio.slug]);
 
   const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
@@ -82,7 +82,9 @@ export default function InicioPage() {
 
   const semana = semanaDe(clasesHechas, hoy);
   const estaSemana = hechasEstaSemana(clasesHechas, hoy);
-  const racha = rachaSemanas(clasesHechas, hoy);
+  // El mínimo lo decide el estudio: «al menos una» no mide lo mismo donde se da
+  // clase una vez por semana que donde se da tres.
+  const racha = rachaSemanas(clasesHechas, hoy, data?.minimoRacha ?? 1);
   // Aquí se calculaba la MEJOR semana conocida, que era el eje de la barra de
   // «Mi progreso». Esa barra se ha ido: medía exactamente lo mismo que los
   // siete puntos de la semana justo encima, y contra una referencia que la
