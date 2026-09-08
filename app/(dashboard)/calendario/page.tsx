@@ -1118,7 +1118,7 @@ export default function Calendario() {
   }
 
   function avisoPlazaFijaNoSeMueve(n: number): string {
-    return `${n === 1 ? 'Una socia tiene plaza fija' : `${n} socias tienen plaza fija`} a esta hora. Solo se mueve esta clase: la plaza fija sigue anclada a su día y hora de siempre. Para cambiar el horario fijo, edita la serie o la plaza fija desde la ficha de la socia.`;
+    return `${n === 1 ? 'Una clienta tiene plaza fija' : `${n} clientas tienen plaza fija`} a esta hora. Solo se mueve esta clase: la plaza fija sigue anclada a su día y hora de siempre. Para cambiar el horario fijo, edita la serie o la plaza fija desde la ficha de la clienta.`;
   }
 
   async function avisarCambioInstructora(aviso: NonNullable<typeof avisoInstructora>) {

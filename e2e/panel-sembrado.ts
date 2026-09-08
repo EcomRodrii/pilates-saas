@@ -170,9 +170,31 @@ export async function ir(page: Page, ruta: string) {
   // test moría sin haber medido nada — el remedio salía más caro que la
   // enfermedad. Aquí una espera agotada no es un fallo: es «sigue adelante y
   // mide lo que haya», y el guardia del propio test decide si sirve.
-  await page.waitForSelector('#panel-portal-host', { timeout: 20_000 }).catch(() => {});
+  // ⚠️ `state: 'attached'`. Es un <div> VACÍO, así que nunca llega a ser
+  // «visible» —mide 0×0— y con el estado por defecto esta espera se agotaba
+  // entera sin cumplirse nunca: 20 s por pantalla tirados, en cada corrida.
+  // Lo tapaba el `.catch()`, y el guardia del test seguía funcionando porque
+  // `querySelector` no mira el tamaño. Una espera que nunca acierta no falla:
+  // solo cuesta.
+  await page.waitForSelector('#panel-portal-host', { state: 'attached', timeout: 20_000 }).catch(() => {});
   await page
     .waitForFunction(() => !document.querySelector('.animate-pulse'), null, { timeout: 5_000 })
+    .catch(() => {});
+  // ⚠️ Y a que termine la animación de ENTRADA de la pantalla. `.panel-page-in`
+  // hace un fundido de opacidad, y medir a mitad devuelve colores que no son de
+  // nadie: mezclas del texto con el fondo. Costó 18 «fallos» de contraste
+  // fantasma en una corrida de CI, todos de una pantalla que además solo
+  // redirigía —dos transiciones encadenadas—. Se mira solo esa animación y no
+  // `getAnimations()` entero, que en una pantalla con un spinner no termina
+  // nunca.
+  await page
+    .waitForFunction(
+      () => Array.from(document.querySelectorAll('.panel-page-in'))
+        .flatMap((el) => el.getAnimations())
+        .every((a) => a.playState === 'finished' || a.playState === 'idle'),
+      null,
+      { timeout: 5_000 },
+    )
     .catch(() => {});
   await page.waitForTimeout(600);
 }

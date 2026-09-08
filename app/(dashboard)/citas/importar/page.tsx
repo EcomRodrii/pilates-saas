@@ -134,7 +134,7 @@ export default function ImportarCitasPage() {
           <div className="flex items-start gap-2.5 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-4">
             <Info size={15} className="mt-0.5 shrink-0 text-[#92400E]" />
             <p className="text-[12.5px] text-[#92400E]">
-              <span className="font-semibold">Importa antes las socias.</span> Cada cita se empareja por email;
+              <span className="font-semibold">Importa antes las clientas.</span> Cada cita se empareja por email;
               las filas cuya socia no exista se omiten y te las listamos.
             </p>
           </div>

@@ -145,7 +145,7 @@ export function ComunidadFeed() {
     }
     if (socios.length > 0) {
       const activas = socios.filter(s => s.activo).length;
-      out.push({ emoji: '🎯', titulo: 'Tasa de socias activas', subtitulo: `${Math.round((activas / socios.length) * 100)}% (${activas} de ${socios.length})` });
+      out.push({ emoji: '🎯', titulo: 'Tasa de clientas activas', subtitulo: `${Math.round((activas / socios.length) * 100)}% (${activas} de ${socios.length})` });
     }
     const nueva = [...socios].sort((a, b) => (b.fechaAlta ?? '').localeCompare(a.fechaAlta ?? ''))[0];
     if (nueva) out.push({ emoji: '⭐', titulo: 'Última alta', subtitulo: `${nueva.nombre} ${nueva.apellidos}` });

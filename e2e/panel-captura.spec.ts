@@ -23,12 +23,13 @@ const RUTAS = [
   'dashboard', 'centro-de-control', 'calendario', 'clientas',
   'cobros', 'equipo', 'informes', 'productos', 'configuracion', 'citas',
   // Segunda tanda: el resto del panel vivo. Fuera quedan las tres congeladas
-  // (/chat, /ondemand y el kiosko), que no pintan página a propósito.
-  'automatizaciones', 'cierre', 'comunidad', 'contenido',
-  'explorar-funciones', 'facturas', 'libreta', 'marketing',
-  'mensajeria', 'mi-perfil', 'migracion', 'notificaciones',
-  'pagos', 'primeros-pasos', 'socios', 'sustituciones',
-  'transacciones', 'network/buscar',
+  // (/chat, /ondemand y el kiosko), las cuatro que solo redirigen a /cobros
+  // (/facturas, /pagos, /socios, /transacciones) y las dos que redirigen a
+  // /dashboard mientras el módulo de marketing está apagado (/contenido,
+  // /marketing): ninguna de esas seis pinta pantalla propia.
+  'automatizaciones', 'cierre', 'comunidad', 'explorar-funciones',
+  'libreta', 'mensajeria', 'mi-perfil', 'migracion',
+  'notificaciones', 'primeros-pasos', 'sustituciones', 'network/buscar',
 ];
 
 // ⚠️ Un test POR PANTALLA, no un bucle dentro de un test. Con el bucle, diez

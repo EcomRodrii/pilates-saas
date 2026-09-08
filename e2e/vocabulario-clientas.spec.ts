@@ -19,7 +19,15 @@ const STUDIO_ID = 'studio-test';
 const STORAGE_KEY = 'sb-example-auth-token';
 
 // Sinónimos desterrados del panel cuando se habla de la clientela.
-const SINONIMOS = [/\bAlumnos\b/, /\bAlumnas\b/, /\bsocias\b/, /\bSocias\b/, /\bNuevo cliente\b/];
+//
+// ⚠️ El SINGULAR también. La lista solo traía «socias» en plural, y por ese
+// hueco se colaron ocho sitios: la cabecera «Socia» de la propia libreta —que
+// este test ya recorría—, «esta socia» en Citas y en la ficha, «cada socia» al
+// importar plazas fijas, «Una socia tiene plaza fija» en el calendario. Un
+// sinónimo en singular es el mismo sinónimo.
+const SINONIMOS = [
+  /\bAlumnos?\b/i, /\bAlumnas?\b/i, /\bsocias?\b/i, /\bNuevo cliente\b/,
+];
 
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
@@ -107,12 +115,19 @@ test.describe('El panel usa una sola palabra: clientas', () => {
 
   test('la libreta habla de clientas, no de socias', async ({ page }) => {
     await montar(page, '/libreta');
-    const texto = await textoDe(page, /Libreta del estudio/);
+    const texto = await textoDe(page, /Libreta de clientas/);
 
     for (const s of SINONIMOS) {
       expect(texto, `sinónimo suelto en la libreta: ${s}`).not.toMatch(s);
     }
     await expect(page.getByText(/Copia de tus clientas siempre al día/)).toBeVisible();
+    // ⚠️ La pantalla tiene que llamarse como el sitio desde el que se llega. El
+    // menú dice «Libreta de clientas» y el título decía «Libreta del estudio»:
+    // es el mismo error que ya costó el «Mi estudio» del menú contra el
+    // «Configuración» de la página, dos arriba en este mismo fichero. El título
+    // puede AÑADIR («Informes y analítica» para un menú que dice «Informes»),
+    // pero no puede cambiar las palabras por las que alguien pulsó.
+    await expect(page.getByRole('heading', { name: 'Libreta de clientas' })).toBeVisible();
   });
 
   test('el menú lateral dice "Configuración", que es la palabra que se busca', async ({ page }) => {
@@ -124,6 +139,29 @@ test.describe('El panel usa una sola palabra: clientas', () => {
     // "Libreta de clientas" no se comprueba aquí: /libreta no está en el modo
     // Esencial, que es el que trae el menú por defecto.
   });
+
+  // Estas tres pantallas no las recorría nadie, y en las tres había un sinónimo
+  // suelto: «Tasa de socias activas» en Comunidad —a diez píxeles de una tarjeta
+  // que decía «CLIENTAS ACTIVAS»—, «esta socia» en Citas y «Una socia tiene
+  // plaza fija» en el aviso del calendario.
+  for (const [pantalla, ruta] of [
+    ['Comunidad', '/comunidad'],
+    ['Citas', '/citas'],
+    ['Calendario', '/calendario'],
+  ] as const) {
+    test(`${pantalla} tampoco mezcla palabras`, async ({ page }) => {
+      await montar(page, ruta);
+      // El panel ha montado cuando existe el anfitrión de sus portales; leer el
+      // texto antes devuelve el de una pantalla a medio pintar.
+      // `state: 'attached'` porque es un <div> vacío: nunca es «visible».
+      await page.waitForSelector('#panel-portal-host', { state: 'attached', timeout: 30_000 });
+      await page.waitForTimeout(1500);
+      const texto = await page.locator('body').innerText();
+      for (const s of SINONIMOS) {
+        expect(texto, `sinónimo suelto en ${pantalla}: ${s}`).not.toMatch(s);
+      }
+    });
+  }
 
   test('"Miembros" sigue significando el EQUIPO, que es otra cosa', async ({ page }) => {
     await montar(page, '/equipo');

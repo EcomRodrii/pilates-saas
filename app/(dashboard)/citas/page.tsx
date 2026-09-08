@@ -876,7 +876,7 @@ export default function CitasPage() {
                 <p className="text-sm text-muted-foreground">
                   Se generará un recibo cobrado y una factura al contado por{' '}
                   <span className="font-semibold text-foreground">{cita.precio != null ? formatEuro(cita.precio) : ''}</span>
-                  {' '}a nombre de <span className="font-semibold text-foreground">{socio ? `${socio.nombre} ${socio.apellidos}` : 'esta socia'}</span>.
+                  {' '}a nombre de <span className="font-semibold text-foreground">{socio ? `${socio.nombre} ${socio.apellidos}` : 'esta clienta'}</span>.
                   No se puede deshacer con un clic — si te has equivocado, gestiónalo después desde Cobros.
                 </p>
                 {errorCobro && (

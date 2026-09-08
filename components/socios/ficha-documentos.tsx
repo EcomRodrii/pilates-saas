@@ -142,7 +142,7 @@ export function FichaDocumentos({ socioId, onToast }: { socioId: string; onToast
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="min-w-0">
           <p className="text-sm font-bold text-foreground">Documentos</p>
-          <p className="text-xs text-muted-foreground">Plan, facturas, contratos u otros archivos compartidos con esta socia.</p>
+          <p className="text-xs text-muted-foreground">Plan, facturas, contratos u otros archivos compartidos con esta clienta.</p>
         </div>
         <button
           onClick={abrir}
@@ -170,7 +170,7 @@ export function FichaDocumentos({ socioId, onToast }: { socioId: string; onToast
           ))}
         </div>
       ) : documentos.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-2">Todavía no hay documentos compartidos con esta socia.</p>
+        <p className="text-xs text-muted-foreground py-2">Todavía no hay documentos compartidos con esta clienta.</p>
       ) : (
         <div className="space-y-2">
           {documentos.map(d => {
