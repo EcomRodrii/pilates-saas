@@ -1,3 +1,4 @@
+import { STRIPE_STUB } from './stripe-stub';
 import { test, expect, type Page } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -60,52 +61,9 @@ function fixtureClaseConPlanPuntual() {
 // el PaymentElement necesita create → mount → on('ready') para que la página
 // habilite el botón de pagar; y confirmPayment devuelve `succeeded`, que es
 // el disparo real de onExito → handlePagoExitoso.
-const STRIPE_STUB = `
-window.Stripe = function () {
-  var mkElement = function () {
-    var handlers = {};
-    var el = {
-      mount: function (target) {
-        var node = typeof target === 'string' ? document.querySelector(target) : target;
-        if (node) node.textContent = 'stripe-stub';
-        setTimeout(function () { (handlers['ready'] || []).forEach(function (f) { f(el); }); }, 50);
-      },
-      on: function (ev, fn) { (handlers[ev] = handlers[ev] || []).push(fn); return el; },
-      off: function () { return el; },
-      once: function (ev, fn) { return el.on(ev, fn); },
-      update: function () { return el; },
-      destroy: function () {}, unmount: function () {},
-      blur: function () {}, clear: function () {}, focus: function () {}, collapse: function () {},
-    };
-    return el;
-  };
-  return {
-    elements: function () {
-      return {
-        create: mkElement,
-        getElement: function () { return null; },
-        update: function () {},
-        fetchUpdates: function () { return Promise.resolve({}); },
-        submit: function () { return Promise.resolve({}); },
-        on: function () {},
-      };
-    },
-    createToken: function () { return Promise.resolve({}); },
-    createPaymentMethod: function () { return Promise.resolve({}); },
-    confirmCardPayment: function () { return Promise.resolve({}); },
-    confirmPayment: function () {
-      // El comportamiento lo elige cada test con window.__TENTARE_CONFIRM.
-      var modo = window.__TENTARE_CONFIRM || 'succeeded';
-      if (modo === 'throw') { throw new Error('IntegrationError simulado'); }
-      if (modo === 'reject') { return Promise.reject(new Error('IntegrationError simulado')); }
-      if (modo === 'pending') { return new Promise(function () {}); }  // NUNCA resuelve
-      return Promise.resolve({ paymentIntent: { status: 'succeeded' } });
-    },
-    registerAppInfo: function () {},
-    _registerWrapper: function () {},
-  };
-};
-`;
+// El stub vive en `e2e/stripe-stub.ts`: lo usa también
+// `checkout-casilla-legal.spec.ts`, y dos copias divergirían.
+
 
 async function pulsarPagar(page: Page, modoConfirm: 'succeeded' | 'throw' | 'reject' | 'pending' = 'succeeded') {
   await page.addInitScript((m) => { (window as unknown as Record<string, string>).__TENTARE_CONFIRM = m; }, modoConfirm);

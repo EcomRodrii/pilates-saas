@@ -2,6 +2,7 @@ import 'server-only';
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { capturar } from '@/lib/analytics';
 import { supabase } from '@/lib/db/supabase';
+import { configLegalDe } from '@/lib/legal-textos';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
 import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
@@ -322,10 +323,39 @@ function studioPublico(r: RowStudios) {
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     slug: r.slug ?? null,
-    // Política/términos del estudio: el portal se los muestra a la clienta y quedan
-    // registrados con su aceptación. null = el cliente usa el texto por defecto.
-    politicaPrivacidad: (r as { politica_privacidad?: string | null }).politica_privacidad ?? null,
-    terminosServicio: (r as { terminos_servicio?: string | null }).terminos_servicio ?? null,
+    // Política/términos EFECTIVOS: los suyos si los ha reescrito, y si no los de
+    // por defecto REDACTADOS CON SUS DATOS FISCALES.
+    //
+    // ⚠️ Antes salían crudos, con la nota «null = el cliente usa el texto por
+    // defecto». Ese contrato no se podía cumplir: componer el respaldo exige el
+    // NIF y la dirección, y esta misma lista blanca los excluye a propósito. El
+    // cliente acababa haciendo `textoLegalCompleto({ '', '' })`.
+    //
+    // Medido en producción antes de arreglarlo: de 11 estudios, 10 sin política
+    // propia y NINGUNO con términos propios. Y en `socios.aceptacion_version`,
+    // que guarda lo que firmó cada una: 2170 caracteres de media en las altas
+    // de MOSTRADOR (el panel sí compone bien) y **41** en las de PORTAL — que
+    // son exactamente los del separador entre dos textos vacíos. Las que se
+    // registraron desde su app firmaron una raya horizontal.
+    //
+    // Se compone aquí, donde los datos fiscales están, con la MISMA función que
+    // usa el panel. Y con la misma que sella la aceptación por compra, así que
+    // lo que se enseña, lo que se firma y lo que se sella no pueden separarse.
+    ...(() => {
+      const efectivos = configLegalDe(
+        {
+          nombre: r.nombre, razonSocial: (r as { razon_social?: string | null }).razon_social ?? null,
+          nif: r.nif ?? null, direccion: r.direccion ?? null, ciudad: r.ciudad ?? null,
+          codigoPostal: (r as { codigo_postal?: string | null }).codigo_postal ?? null,
+          email: r.email ?? null,
+        },
+        {
+          politicaPrivacidad: (r as { politica_privacidad?: string | null }).politica_privacidad ?? null,
+          terminosServicio: (r as { terminos_servicio?: string | null }).terminos_servicio ?? null,
+        },
+      );
+      return { politicaPrivacidad: efectivos.politicaPrivacidad, terminosServicio: efectivos.terminosServicio };
+    })(),
     // Política pública que la página de reservas necesita para avisar a la socia
     // (ventana de cancelación) y hacer el pre-check de derechos/límite.
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
