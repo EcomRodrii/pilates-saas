@@ -132,7 +132,7 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
     // El nombre viaja en la URL de vuelta, no en el cuerpo de este POST: la
     // sesión de Supabase no existe todavía (solo se confirma al abrir el
     // enlace), así que no hay dónde guardarlo salvo pasarlo de largo hasta
-    // /clave-nueva, que es quien de verdad crea la ficha (ver altaAlEntrar).
+    // /clave-nueva, que es quien de verdad crea la ficha.
     // Solo se usa si hay que dar de alta — a una socia ya existente no le
     // toca el nombre.
     const redirectTo = new URL(`${window.location.origin}/portal/${slug}/clave-nueva`);
