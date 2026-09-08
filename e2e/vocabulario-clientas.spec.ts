@@ -115,12 +115,19 @@ test.describe('El panel usa una sola palabra: clientas', () => {
 
   test('la libreta habla de clientas, no de socias', async ({ page }) => {
     await montar(page, '/libreta');
-    const texto = await textoDe(page, /Libreta del estudio/);
+    const texto = await textoDe(page, /Libreta de clientas/);
 
     for (const s of SINONIMOS) {
       expect(texto, `sinónimo suelto en la libreta: ${s}`).not.toMatch(s);
     }
     await expect(page.getByText(/Copia de tus clientas siempre al día/)).toBeVisible();
+    // ⚠️ La pantalla tiene que llamarse como el sitio desde el que se llega. El
+    // menú dice «Libreta de clientas» y el título decía «Libreta del estudio»:
+    // es el mismo error que ya costó el «Mi estudio» del menú contra el
+    // «Configuración» de la página, dos arriba en este mismo fichero. El título
+    // puede AÑADIR («Informes y analítica» para un menú que dice «Informes»),
+    // pero no puede cambiar las palabras por las que alguien pulsó.
+    await expect(page.getByRole('heading', { name: 'Libreta de clientas' })).toBeVisible();
   });
 
   test('el menú lateral dice "Configuración", que es la palabra que se busca', async ({ page }) => {

@@ -55,7 +55,7 @@ export default function Libreta() {
       <div className="no-print flex items-center justify-between mb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-foreground">Libreta del estudio</h1>
+            <h1 className="text-lg font-bold text-foreground">Libreta de clientas</h1>
             <AyudaDePantalla />
           </div>
           <p className="text-sm text-muted-foreground">Copia de tus clientas siempre al día: imprímela o guárdala como PDF cuando quieras.</p>
