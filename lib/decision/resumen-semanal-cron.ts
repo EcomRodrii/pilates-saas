@@ -18,6 +18,7 @@ import { enviarEmailResumenSemanal } from '@/lib/emails/resumen-semanal-server';
 import { semanaAnterior, semanaPrevia } from '@/lib/inngest/resumen-semanal-fechas.ts';
 import { calcularVariacionPct } from '@/lib/informes/ventas-por-tipo';
 import * as Sentry from '@sentry/nextjs';
+import { emailDeLaPropietaria } from '@/lib/notifications/recipients';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -30,6 +31,20 @@ export async function enviarResumenesSemanalesDeTodos(): Promise<{ estudios: num
     try {
       const resultado = await procesarEstudio(admin, studioId);
       if ('ok' in resultado && resultado.ok) enviados++;
+      // `enviarEmailResumenSemanal` NUNCA lanza: devuelve {ok:false, error} en
+      // sus tres caminos de fallo. Sin esta rama, una caída de Resend un lunes
+      // daba el MISMO {estudios:9, enviados:0, fallidos:0} + Sentry limpio que
+      // «ninguna semana fue silenciosa» — indistinguible. Y como la fila de
+      // dedup se reclama ANTES de enviar (a propósito, para no duplicar), ese
+      // estudio no recibe el resumen de esa semana nunca: si se pierde, al
+      // menos tiene que verse.
+      else if ('ok' in resultado && !resultado.ok) {
+        fallidos++;
+        Sentry.captureMessage('[resumen-semanal] el email no salió', {
+          level: 'warning', tags: { area: 'decision-os' },
+          extra: { studioId, error: 'error' in resultado ? resultado.error : null },
+        });
+      }
     } catch (e) {
       fallidos++;
       Sentry.captureException(e instanceof Error ? e : new Error('resumen semanal'), {
@@ -50,10 +65,18 @@ async function procesarEstudio(admin: AdminClient, studioId: string) {
   if (!silenciosa) return { skipped: 'semana con mensaje' };
 
   // Mismo criterio de resolución de "propietaria" que
-  // lib/notifications/recipients.ts (propietaria()): studios.email +
-  // studios.nombre — no hay una tabla de "personas propietarias" aparte.
-  const { data: studio } = await admin.from('studios').select('nombre, email').eq('id', studioId).maybeSingle();
-  if (!studio?.email) return { skipped: 'sin email de contacto' };
+  // lib/notifications/recipients.ts (`emailDeLaPropietaria`): el email PÚBLICO
+  // del estudio si lo hay y, si no, el de su CUENTA. Antes se quedaba en
+  // `studios.email` a secas y, como ese campo está vacío en la mayoría de los
+  // estudios de producción, el resumen semanal no llegaba a casi ninguno —
+  // y ni siquiera contaba como fallo, salía por `skipped`.
+  const { data: studio } = await admin.from('studios')
+    .select('nombre, email, owner_auth_user_id').eq('id', studioId).maybeSingle();
+  if (!studio) return { skipped: 'estudio no encontrado' };
+  const email = studio.owner_auth_user_id
+    ? await emailDeLaPropietaria(admin, studio.owner_auth_user_id as string, studio.email)
+    : ((studio.email as string | null) ?? null);
+  if (!email) return { skipped: 'sin email de contacto' };
 
   // Compare-and-set: reclama la fila ANTES de enviar, no después. A
   // diferencia del resto del Notification Engine, este email no pasa por
@@ -79,7 +102,7 @@ async function procesarEstudio(admin: AdminClient, studioId: string) {
   const crecimientoPct = variacion !== null && variacion > 0 ? variacion : undefined;
 
   return enviarEmailResumenSemanal({
-    to: studio.email as string,
+    to: email,
     propietariaNombre: (studio.nombre as string | null) ?? 'Propietaria',
     studioId,
     estudioNombre: (studio.nombre as string | null) ?? 'tu estudio',

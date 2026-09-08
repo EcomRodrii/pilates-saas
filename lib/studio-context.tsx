@@ -393,11 +393,11 @@ interface StudioContextValue {
   // Sesiones
   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateSesion: (id: string, changes: Partial<Sesion>) => Promise<ResultadoEscritura>;
-  deleteSesion: (id: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
+  deleteSesion: (id: string) => Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }>;
   // Series de clases recurrentes (I-3)
   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
-  cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura & { avisoBono?: string }>;
+  cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }>;
   /** Pasa las clases de una instructora a otra entre dos fechas. Devuelve los
    *  ids movidos (para poder avisar a esas alumnas) y los que chocaron. */
   reasignarInstructora: (
@@ -2913,7 +2913,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  async function deleteSesion(id: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
+  async function deleteSesion(id: string): Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }> {
     // Borrar la sesión CASCADE-borra sus reservas en BD (FK on delete cascade) —
     // antes eso pasaba en silencio: ni email ni aviso in-app a las socias con
     // plaza, a diferencia de "Cancelar" (que sí avisa). Se manda el email Y el
@@ -2922,8 +2922,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // sesión en servidor por id, y si el DELETE le gana la carrera ya no
     // encontraría nada que notificar.
     const sesion = sesiones.find(s => s.id === id);
-    if (sesion) notificarCancelacionSesiones([sesion]);
-    await avisarClaseCancelada(id);
+    const aviso = sesion ? await notificarCancelacionSesiones([sesion]) : { avisadas: 0, sinAvisar: 0 };
+    const enApp = await avisarClaseCancelada(id);
     // Auditoría de producto (P0-1): "Eliminar" no devolvía el bono consumido
     // aunque "Cancelar" sí — dos botones casi idénticos con consecuencia de
     // dinero opuesta. Para la alumna, perder su plaza es lo mismo con
@@ -2954,14 +2954,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const fallos = resultados.filter(ok => !ok).length;
       if (fallos > 0) {
         return {
-          ...res,
+          ...res, ...aviso, enApp,
           avisoBono: fallos === 1
             ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
             : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`,
         };
       }
     }
-    return res;
+    return { ...res, ...aviso, enApp };
   }
 
   // ── Series de clases recurrentes (I-3) ───────────────────────────────────────
@@ -3052,7 +3052,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Cancela "esta y las siguientes" de una serie (p. ej. "cancelar la serie del
   // verano") y avisa por email a las socias con plaza en cada sesión afectada.
-  async function cancelarSerieDesde(sesionId: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
+  async function cancelarSerieDesde(sesionId: string): Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }> {
     const objetivo = sesionesDeSerieDesde(sesionId).filter(s => !s.cancelada);
     if (objetivo.length === 0) return { ok: true };
     const ids = objetivo.map(s => s.id);
@@ -3066,7 +3066,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return res;
     }
     // Aviso a las socias con plaza en cualquiera de las sesiones canceladas.
-    notificarCancelacionSesiones(objetivo);
+    const aviso = await notificarCancelacionSesiones(objetivo);
     // Notification Engine: además del email, in-app/push por cada sesión cancelada
     // (igual que cancelar una clase suelta, que sí lo hacía). Sin esto, cancelar
     // "esta y las siguientes" de una serie solo mandaba email y las socias no
@@ -3075,7 +3075,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // las reservas: `avisarClaseCancelada` los busca en servidor por
     // estado = 'CONFIRMADA', así que cancelarlas antes deja el aviso sin
     // nadie a quien mandarlo (mismo motivo por el que `deleteSesion` espera).
-    await Promise.all(ids.map(id => avisarClaseCancelada(id)));
+    const enApp = (await Promise.all(ids.map(id => avisarClaseCancelada(id)))).every(Boolean);
     // Las reservas de esas sesiones quedaban en CONFIRMADA/LISTA_ESPERA
     // apuntando a una sesión ya cancelada — la socia veía en su portal una
     // plaza "confirmada" para una clase que nunca va a pasar. Se marcan
@@ -3087,31 +3087,49 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // `cancelarSerieDesde` devolvía `{ok:true}` aunque las reservas se quedaran
     // CONFIRMADA — el mismo `{ok:true}` mentiroso que ya se cerró en el camino
     // de la clase suelta (calendario/page.tsx:1265).
-    return await cancelarReservasDeSesiones(ids, 'cancelarSerieDesde');
+    return { ...await cancelarReservasDeSesiones(ids, 'cancelarSerieDesde'), ...aviso, enApp };
   }
 
   // Email de cancelación a cada socia con plaza (confirmada/asistida) en las
   // sesiones dadas. Mismo criterio que la cancelación de una clase suelta.
-  function notificarCancelacionSesiones(sesionesCanceladas: Sesion[]) {
-    sesionesCanceladas.forEach(ses => {
+  // Devuelve el recuento REAL de envíos. Antes era un `.forEach` sin `await`
+  // sobre `enviarEmailCancelacionClase` —que devuelve boolean y nunca lanza—,
+  // así que el resultado se tiraba al suelo y el panel anunciaba «clientas
+  // avisadas» pasara lo que pasara: cancelar la serie del verano podía no
+  // avisar a nadie y la propietaria no tenía forma de saberlo. El camino de
+  // clase suelta (calendario/page.tsx, cancelarSesion) ya se arregló así; sus
+  // gemelos —cancelarSerieDesde y deleteSesion— se habían quedado atrás.
+  //
+  // `null` = socia sin email: no cuenta ni como avisada ni como fallo, igual
+  // criterio que el camino de clase suelta.
+  async function notificarCancelacionSesiones(
+    sesionesCanceladas: Sesion[],
+  ): Promise<{ avisadas: number; sinAvisar: number }> {
+    const envios = sesionesCanceladas.flatMap(ses => {
       const tipo = tiposClase.find(t => t.id === ses.tipoClaseId);
       const sala = salas.find(x => x.id === ses.salaId);
       const instructor = instructores.find(i => i.id === ses.instructorId);
       const inicio = new Date(ses.inicio);
       const fecha = fechaLargaEstudio(inicio);
       const hora = horaEstudio(inicio);
-      reservas
+      return reservas
         .filter(r => r.sesionId === ses.id && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
-        .forEach(r => {
+        .map(async r => {
           const socia = socios.find(s => s.id === r.socioId);
-          if (!socia?.email) return;
-          enviarEmailCancelacionClase({
+          if (!socia?.email) return null;
+          return enviarEmailCancelacionClase({
             to: socia.email, toName: socia.nombre,
             claseNombre: tipo?.nombre ?? 'Clase', fecha, hora,
             sala: sala?.nombre ?? '', instructor: instructor?.nombre ?? '',
           });
         });
     });
+    let avisadas = 0, sinAvisar = 0;
+    for (const ok of await Promise.all(envios)) {
+      if (ok === null) continue;
+      if (ok) avisadas++; else sinAvisar++;
+    }
+    return { avisadas, sinAvisar };
   }
 
   // ── Reservas ─────────────────────────────────────────────────────────────────
@@ -3942,7 +3960,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // —que es lo que pasaba siempre hasta hoy— pero el cobro no se pierde.
     // El servidor decide si procede: sin caja abierta, o cobrado por
     // transferencia o SEPA, no apunta nada y responde con el motivo.
-    void apuntarCobroEnCaja(reciboId).catch(() => {});
+    // `apuntarCobroEnCaja` va por `pedir()`, que NUNCA rechaza: devuelve
+    // {error}. Así que el `.catch()` que había aquí era código muerto y el
+    // fallo real (500, RLS, red) se descartaba sin toast, sin Sentry y sin
+    // consola — justo el descuadre «sin ninguna pista de dónde venía» que
+    // este bloque dice haber cerrado. No se bloquea el cobro; se deja rastro.
+    void apuntarCobroEnCaja(reciboId).then(r => {
+      if (r && 'error' in r) {
+        capturarMensaje('[caja] el cobro manual no se apuntó en la caja', 'error', {
+          extra: { reciboId, error: r.error },
+        });
+      }
+    });
 
     // Refill bono or extend mensual when renewal payment is collected
     const recibo = recibos.find(r => r.id === reciboId);
