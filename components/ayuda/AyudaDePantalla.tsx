@@ -78,10 +78,19 @@ export function AyudaDePantalla({
         <IconoInfo className="size-4" aria-hidden="true" />
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Positioner side="bottom" align="start" sideOffset={8}>
+        {/* ⚠️ El z-index va en el POSITIONER, no en el recuadro.
+            El recuadro es `position: static`, y en un elemento estático el
+            `z-index` NO HACE NADA: se ignora sin avisar. Con el `z-50` puesto
+            ahí, en la Caja el recuadro se abría y se pintaba DEBAJO del TPV
+            (que es un panel `fixed z-40` en su propio portal), así que parecía
+            que el (i) no funcionaba. `z-[60]` y no `z-50` porque el (i) tiene
+            que ganar también dentro de un diálogo, que ya vive en z-50 — y a
+            igualdad de z-index manda el orden del DOM, donde este portal va
+            primero y perdería. */}
+        <PopoverPrimitive.Positioner className="z-[60]" side="bottom" align="start" sideOffset={8}>
           <PopoverPrimitive.Popup
             data-slot="ayuda-pantalla"
-            className="z-50 w-[min(20rem,calc(100vw-2rem))] origin-[var(--transform-origin)] rounded-xl bg-popover p-3.5 text-popover-foreground ring-1 ring-foreground/10 shadow-lg transition-[transform,opacity] duration-100 ease-out data-starting-style:scale-98 data-starting-style:opacity-0 data-ending-style:scale-98 data-ending-style:opacity-0"
+            className="w-[min(20rem,calc(100vw-2rem))] origin-[var(--transform-origin)] rounded-xl bg-popover p-3.5 text-popover-foreground ring-1 ring-foreground/10 shadow-lg transition-[transform,opacity] duration-100 ease-out data-starting-style:scale-98 data-starting-style:opacity-0 data-ending-style:scale-98 data-ending-style:opacity-0"
           >
             <Contenido ayuda={ayuda} />
           </PopoverPrimitive.Popup>
