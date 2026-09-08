@@ -22,7 +22,7 @@
 // CTA principal es negro en TODAS las pantallas, y cambiarlo por el color del
 // estudio rompería el contraste calculado de los botones sobre foto.
 
-import { hexToHsl, hslToHex, colorLegibleSobreClaro } from '@/lib/color-utils';
+import { hexToHsl, hslToHex, colorLegibleSobre } from '@/lib/color-utils';
 
 /** Los cuatro tokens de acento que un estudio puede teñir. */
 export interface AcentoStudent {
@@ -71,8 +71,8 @@ const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(mi
  * gris; uno con marca fluorescente sale apagado, que es justo el contrato.
  *
  * `accent-soft-foreground` no se calcula por fórmula sino con
- * `colorLegibleSobreClaro`, que es la función que este repo ya usa para
- * garantizar contraste de texto sobre fondo casi blanco.
+ * `colorLegibleSobre`, que es la función que este repo ya usa para garantizar
+ * contraste de texto — medido contra `accentSoft`, que es su fondo real.
  */
 export function acentoDeEstudio(colorPrimario: string | null | undefined): AcentoStudent {
   const hsl = colorPrimario ? hexToHsl(colorPrimario) : null;
@@ -86,7 +86,10 @@ export function acentoDeEstudio(colorPrimario: string | null | undefined): Acent
     // El acento es siempre oscuro (L≤42), así que el texto encima es claro.
     accentForeground: '#FFFFFF',
     accentSoft: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.45, 10, 26), l: 93 }),
-    accentSoftForeground: colorLegibleSobreClaro(accent),
+    // Contra `accentSoft`, no contra blanco: es el fondo sobre el que se pinta
+    // de verdad, y es más oscuro que el blanco, así que medirlo contra blanco
+    // daba por bueno un contraste que la pantalla no tenía.
+    accentSoftForeground: colorLegibleSobre(accent, hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.45, 10, 26), l: 93 })),
     accentDeep: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.9, 20, 42), l: 12 }),
     accentDeepForeground: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.35, 8, 24), l: 93 }),
     accentDeepMuted: hslToHex({ h: hsl.h, s: clamp(hsl.s * 0.5, 12, 32), l: 74 }),

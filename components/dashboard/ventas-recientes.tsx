@@ -27,9 +27,17 @@ const BADGE: Record<EstadoRecibo, { bg: string; text: string; label: string }> =
   COBRADO:   { bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)', label: 'Cobrado' },
   PENDIENTE: { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)', label: 'Sin cobrar' },
   DEVUELTO:  { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)', label: 'Devuelto' },
-  EN_CURSO:  { bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', text: 'var(--brand)', label: 'En curso' },
-  FALLIDO:   { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: '#7A2F1D', label: 'Fallido' },
+  EN_CURSO:  { bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', text: 'var(--info)', label: 'En curso' },
+  FALLIDO:   { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)', label: 'Fallido' },
 };
+// ⚠️ Aquí no puede entrar un hex a pelo. «Fallido» llevaba `#7A2F1D`, un rojo
+// elegido a ojo para fondo claro, mientras su gemelo «Devuelto» —mismo fondo,
+// misma familia— usaba el token. En modo oscuro eso dejaba el badge en 1,47:1
+// sobre su propio tinte: el aviso de que un cobro ha fallado era justo el
+// único ilegible de la lista. `--destructive` ya vale para los dos modos
+// (#A8442A en claro, #E08A6B en oscuro); el hex no sabía que el modo oscuro
+// existe. Igual con «En curso», que se pintaba con `--brand` sobre un tinte
+// de `--info`: cada fila usa el MISMO token para el tinte y para la tinta.
 
 function fecha(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });

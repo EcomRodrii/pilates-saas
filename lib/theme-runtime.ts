@@ -20,7 +20,7 @@ import type { CSSProperties } from 'react';
 import { resolveTheme, FUENTES, RADIOS, RADIO_PRESET_PX, DEFAULT_THEME, type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
 import { getPreset } from './theme-presets.ts';
 import { cumpleContraste, foregroundParaFondo, hexARgb } from './wcag-contrast.ts';
-import { colorLegibleSobreClaro } from './color-utils.ts';
+import { colorLegibleSobre, mezclarHex } from './color-utils.ts';
 import { MODO_TOKENS } from './portal-paleta.ts';
 
 // foregroundParaFondo vive en wcag-contrast.ts (cero dependencias) y se
@@ -283,8 +283,12 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     // A diferencia de --portal-brand-secondary (arriba), en el PANEL este color
     // se usa SIEMPRE como texto (badges, pestañas activas, iconos) — nunca como
     // superficie. Se garantiza legible aquí, no en el dato del tema (ver
-    // colorLegibleSobreClaro en color-utils.ts).
-    '--brand-secondary': colorLegibleSobreClaro(t.secondary),
+    // colorLegibleSobre en color-utils.ts).
+    // ⚠️ El fondo NO es blanco: esos badges y pestañas van sobre `bg-brand/10`
+    // o `color-mix(brand 12%, card)`. Medirlo contra blanco daba por bueno un
+    // 3,29:1 real en la pestaña activa de Paquetes. Se mide contra el tinte más
+    // fuerte que usa el panel (12 %), que es el peor caso de los dos.
+    '--brand-secondary': colorLegibleSobre(t.secondary, mezclarHex(t.primary, '#FFFFFF', 0.12)),
     // Neutros y acento. Sin `--background` a propósito: era el campo "Fondo"
     // del editor, pero pintaba el PANEL de gestión (Informes, Clientas,
     // Cierre...), no el portal de las socias que la propia pantalla de

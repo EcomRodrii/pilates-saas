@@ -8,7 +8,7 @@ import { fetchThemePublicado } from '@/lib/api-client';
 // desde ahí bundlaría zod en las 22.
 import { ID_ANFITRION_PANEL } from '@/lib/panel-portal';
 import { foregroundParaFondo } from '@/lib/wcag-contrast';
-import { colorLegibleSobreClaro } from '@/lib/color-utils';
+import { colorLegibleSobre, mezclarHex } from '@/lib/color-utils';
 import type { ThemeConfig } from '@/lib/theme-schema';
 
 const DARK_KEY = 'panel-dark-mode';
@@ -27,10 +27,25 @@ export function usePanelTheme(): PanelThemeValue {
   return ctx;
 }
 
-function aplicarMarca(el: HTMLElement, theme: ThemeConfig) {
+// `--card` en claro y en oscuro (app/globals.css). No se leen del DOM porque
+// esto corre antes del primer pintado.
+const CARD_CLARO = '#FFFFFF';
+const CARD_OSCURO = '#1E1E22';
+
+// ⚠️ El modo entra aquí como argumento, y no es un detalle. La clase `.dark` y
+// estas custom properties viven en el MISMO div, y un `style` en línea gana a
+// una regla de clase: el `--brand-secondary: #A8B37A` del bloque oscuro de
+// globals.css nunca llegaba a aplicarse en un estudio con tema propio. Se
+// quedaba con el color calculado para fondo claro, sobre fondo oscuro.
+function aplicarMarca(el: HTMLElement, theme: ThemeConfig, dark: boolean) {
   el.style.setProperty('--brand', theme.primary);
   el.style.setProperty('--brand-foreground', foregroundParaFondo(theme.primary));
-  el.style.setProperty('--brand-secondary', colorLegibleSobreClaro(theme.secondary));
+  // El fondo real de este color no es la tarjeta, sino su tinte de marca al
+  // 12 % — que es donde el panel pinta badges y pestañas activas.
+  el.style.setProperty(
+    '--brand-secondary',
+    colorLegibleSobre(theme.secondary, mezclarHex(theme.primary, dark ? CARD_OSCURO : CARD_CLARO, 0.12)),
+  );
 }
 
 function leerMarcaCacheada(): ThemeConfig | null {
@@ -56,6 +71,9 @@ function guardarMarcaCache(theme: ThemeConfig) {
 // de globals.css (fallback robusto).
 export function PanelThemeProvider({ children, className }: { children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Último tema aplicado: al cambiar de claro a oscuro hay que recalcular el
+  // color con el fondo nuevo, y para eso hace falta acordarse de él.
+  const temaRef = useRef<ThemeConfig | null>(null);
   const [dark, setDarkState] = useState(false);
 
   // I: el panel mostraba un instante el oliva por defecto de globals.css antes
@@ -66,7 +84,9 @@ export function PanelThemeProvider({ children, className }: { children: React.Re
   // y corrigiendo en segundo plano por si el tema cambió desde la última visita.
   useLayoutEffect(() => {
     const cached = leerMarcaCacheada();
-    if (cached && ref.current) aplicarMarca(ref.current, cached);
+    if (!cached || !ref.current) return;
+    temaRef.current = cached;
+    aplicarMarca(ref.current, cached, localStorage.getItem(DARK_KEY) === '1');
   }, []);
 
   useEffect(() => {
@@ -88,7 +108,10 @@ export function PanelThemeProvider({ children, className }: { children: React.Re
       try {
         const theme = await fetchThemePublicado();
         if (!vivo) return;
-        if (ref.current) aplicarMarca(ref.current, theme);
+        temaRef.current = theme;
+        // El modo se lee del DOM, no de `storedDark`: entre el arranque y la
+        // respuesta del fetch el usuario puede haber pulsado el interruptor.
+        if (ref.current) aplicarMarca(ref.current, theme, ref.current.classList.contains('dark'));
         guardarMarcaCache(theme);
       } catch {
         // sin conexión / sin sesión → marca por defecto
@@ -108,7 +131,10 @@ export function PanelThemeProvider({ children, className }: { children: React.Re
   function setDark(v: boolean) {
     setDarkState(v);
     localStorage.setItem(DARK_KEY, v ? '1' : '0');
-    if (ref.current) ref.current.classList.toggle('dark', v);
+    if (!ref.current) return;
+    ref.current.classList.toggle('dark', v);
+    // El fondo ha cambiado, así que el color de marca legible sobre él también.
+    if (temaRef.current) aplicarMarca(ref.current, temaRef.current, v);
   }
 
   return (
