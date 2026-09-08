@@ -12,7 +12,7 @@ export async function tokenPreviewValido(slug: string, t: string | undefined): P
 }
 
 // Sin token válido para ESTE estudio → placeholder, nunca el login (esta
-// ruta no tiene formulario de login que mostrar: no monta PortalAuthProvider).
+// ruta no tiene formulario de login que mostrar).
 export function PlaceholderPreview() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#EEEEE8] px-6 text-center">
