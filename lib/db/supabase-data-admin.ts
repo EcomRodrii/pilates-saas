@@ -13,7 +13,7 @@ import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/sen
 import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
-import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe } from '@/lib/utils';
+import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
 import { escaparLike } from '@/lib/escapar-like';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { primerError } from '@/lib/db/primer-error';
@@ -4019,33 +4019,46 @@ export async function canjearRecompensaPublica(params: {
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
 
-  const [{ data: itemRow }, { data: credRow }] = await Promise.all([
+  const [{ data: itemRow }, { data: credRow }, { count: canjesPrevios }] = await Promise.all([
     admin.from('reward_catalog').select('*').eq('id', params.catalogItemId).eq('studio_id', params.studioId).maybeSingle(),
     admin.from('member_credits').select('*').eq('socio_id', params.socioId).maybeSingle(),
+    // Los cancelados NO cuentan, igual que en la RPC: cancelar devuelve
+    // créditos y stock, así que devuelve el derecho a volver a canjearla.
+    admin.from('reward_redemptions').select('id', { count: 'exact', head: true })
+      .eq('studio_id', params.studioId).eq('socio_id', params.socioId)
+      .eq('catalog_item_id', params.catalogItemId).neq('estado', 'CANCELADO'),
   ]);
   const item = itemRow ? mapRewardCatalogItem(itemRow as RowRewardCatalog) : undefined;
   const saldo = credRow ? mapMemberCredits(credRow as RowMemberCredits).saldo : 0;
 
-  const validacion = validarCanje(item, saldo);
+  const validacion = validarCanje(item, saldo, {
+    hoy: hoyEnEstudio(), canjesPrevios: canjesPrevios ?? 0,
+  });
   if ('error' in validacion) return validacion;
   if (!item) return { error: 'Esta recompensa ya no está disponible.' as const };
 
   const now = new Date().toISOString();
   const redemptionId = `rwd-${uid()}`;
 
-  // A-13: para ítems con stock limitado, se RESERVA el stock ATÓMICAMENTE (RPC)
-  // antes de cobrar créditos. Antes se hacía `update stock = item.stock-1` con un
-  // valor leído de un snapshot → dos canjes concurrentes del último ítem lo
-  // vendían dos veces. Si está agotado, no se debita nada.
+  // A-13: se RESERVA ATÓMICAMENTE antes de cobrar créditos. Antes se hacía
+  // `update stock = item.stock-1` con un valor leído de un snapshot → dos canjes
+  // concurrentes del último ítem lo vendían dos veces.
+  //
+  // `reservar_recompensa` hace vigencia + límite por socia + stock bajo un
+  // `for update` de la fila del catálogo. Las tres van juntas porque las tres
+  // tienen la misma carrera: la validación de arriba es un snapshot, y dos
+  // peticiones simultáneas la pasarían las dos. Si algo falla, no se debita nada.
   const stockLimitado = item.stock != null;
-  if (stockLimitado) {
-    const { error: stockErr } = await admin.rpc('ajustar_stock', {
-      p_item_id: params.catalogItemId, p_studio_id: params.studioId, p_delta: -1,
-    });
-    if (stockErr) {
-      if (stockErr.message.includes('SIN_STOCK')) return { error: 'Esta recompensa está agotada.' as const };
-      return { error: stockErr.message };
-    }
+  const { error: reservaErr } = await admin.rpc('reservar_recompensa', {
+    p_item_id: params.catalogItemId, p_studio_id: params.studioId, p_socio_id: params.socioId,
+  });
+  if (reservaErr) {
+    const m = reservaErr.message;
+    if (m.includes('SIN_STOCK')) return { error: 'Esta recompensa está agotada.' as const };
+    if (m.includes('LIMITE_ALCANZADO')) return { error: 'Ya has canjeado esta recompensa el máximo de veces.' as const };
+    if (m.includes('FUERA_DE_VIGENCIA')) return { error: 'Esta recompensa no está disponible ahora mismo.' as const };
+    if (m.includes('NO_DISPONIBLE')) return { error: 'Esta recompensa ya no está disponible.' as const };
+    return { error: m };
   }
 
   // P0-20: descuento ATÓMICO del saldo (con guard de saldo suficiente). Si falla,

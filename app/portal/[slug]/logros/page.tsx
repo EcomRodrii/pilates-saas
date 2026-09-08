@@ -10,6 +10,7 @@ import { useToast } from '@/components/student/ui/Toast';
 import { getGamificacion, apuntarseReto, canjearRecompensa } from '@/lib/student/gamificacion-datos';
 import { useCreditosEnVivoPortal } from '@/lib/student/use-creditos-portal';
 import { nombreCreditos } from '@/lib/creditos-nombre';
+import { fechaCorta } from '@/lib/student/formato';
 import { Button } from '@/components/student/ui/Button';
 import { Badge } from '@/components/student/ui/Badge';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
@@ -215,8 +216,22 @@ export default function LogrosPage() {
                         <p className="t-card-title">{p.icono} {p.nombre}</p>
                         <p className="t-meta" style={{ marginTop: 2 }}>
                           {p.costeCreditos} {moneda}
-                          {p.agotada ? ' · agotada' : p.alcanzable ? '' : ` · te faltan ${p.faltan}`}
+                          {/* El orden importa: primero por qué NO puede
+                              canjearla, y solo al final cuánto le falta. Decir
+                              «te faltan 20» de algo agotado o que ya se ha
+                              llevado la manda a ahorrar para nada. */}
+                          {p.limiteAlcanzado ? ' · ya la has canjeado'
+                            : p.agotada ? ' · agotada'
+                              : p.aunNoDisponible ? ` · desde el ${fechaCorta(p.disponibleDesde!)}`
+                                : p.alcanzable ? '' : ` · te faltan ${p.faltan}`}
                         </p>
+                        {/* La fecha de fin solo cuando la hay: mete prisa de
+                            verdad, y callarla haría que se le pasara. */}
+                        {p.disponibleHasta && !p.limiteAlcanzado && (
+                          <p className="t-meta" style={{ marginTop: 2, color: 'var(--accent)' }}>
+                            Hasta el {fechaCorta(p.disponibleHasta)}
+                          </p>
+                        )}
                         {/* Lo que recibe cambia según el efecto, y con ello lo
                             que tiene que hacer después. Una clase gratis le
                             llega sola y la reserva cuando quiera; el resto se
@@ -231,7 +246,7 @@ export default function LogrosPage() {
                       </div>
                       <Button size="sm" disabled={!p.alcanzable || !online || ocupado === p.id}
                         onClick={() => void canjear(p.id, p.efecto === 'CLASE_GRATIS', p.nombre)}>
-                        {ocupado === p.id ? 'Canjeando…' : 'Canjear'}
+                        {ocupado === p.id ? 'Canjeando…' : p.limiteAlcanzado ? 'Canjeada' : 'Canjear'}
                       </Button>
                     </div>
                   ))}

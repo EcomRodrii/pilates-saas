@@ -39,6 +39,7 @@ import {
   dbInsertCreditTransaction, dbAjustarCreditos,
   dbOtorgarCreditoDisparador,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem, dbAjustarStock,
+  dbReservarRecompensa,
   dbConsumirSesionBono,
   dbDevolverSesionBono,
   dbInsertRewardRedemption, dbUpdateRewardRedemption, dbCancelarCanje,
@@ -4565,8 +4566,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   async function canjearRecompensa(socioId: string, catalogItemId: string): Promise<{ ok: true } | { error: string }> {
     const item = rewardCatalog.find(c => c.id === catalogItemId);
-    // Validación pura y testeada (reward-engine): disponibilidad, stock y saldo.
-    const validacion = validarCanje(item, saldoCreditos(socioId));
+    // Validación pura y testeada (reward-engine): disponibilidad, vigencia,
+    // límite por clienta, stock y saldo. Es un PRE-filtro para dar el mensaje
+    // correcto — quien decide de verdad es `reservar_recompensa` en la BD.
+    const canjesPrevios = rewardRedemptions.filter(
+      r => r.socioId === socioId && r.catalogItemId === catalogItemId && r.estado !== 'CANCELADO',
+    ).length;
+    const validacion = validarCanje(item, saldoCreditos(socioId), { hoy: hoyEnEstudio(), canjesPrevios });
     if ('error' in validacion) return validacion;
     if (!item) return { error: 'Esta recompensa ya no está disponible.' };
 
@@ -4602,12 +4608,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // confirmado en BD, así que no diverge en el error.
     (async () => {
       const stockLimitado = item.stock != null;
-      if (stockLimitado) {
-        const s = await dbAjustarStock(catalogItemId, studioId, -1);
-        if ('error' in s) {
-          setDbError({ msg: 'Esta recompensa está agotada.', key: Date.now() });
-          return;
-        }
+      // Una sola RPC para vigencia + límite + stock: el mostrador tiene que
+      // chocar con lo mismo que el portal. Antes esto solo miraba el stock, así
+      // que un límite por clienta se habría respetado en la app y no aquí.
+      const s = await dbReservarRecompensa(catalogItemId, studioId, socioId);
+      if ('error' in s) {
+        const msg = s.error === 'SIN_STOCK' ? 'Esta recompensa está agotada.'
+          : s.error === 'LIMITE_ALCANZADO' ? 'Esta clienta ya la ha canjeado el máximo de veces.'
+            : s.error === 'FUERA_DE_VIGENCIA' ? 'Esta recompensa no está disponible en esta fecha.'
+              : s.error === 'NO_DISPONIBLE' ? 'Esta recompensa ya no está disponible.'
+                : 'No se pudo completar el canje.';
+        setDbError({ msg, key: Date.now() });
+        return;
       }
       const c = await dbAjustarCreditos(socioId, studioId, -item.costeCreditos, 0, item.costeCreditos);
       if ('error' in c) {

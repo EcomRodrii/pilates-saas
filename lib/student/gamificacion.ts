@@ -11,7 +11,14 @@ export interface NivelDef { id: string; nombre: string; orden: number; umbralCre
 export interface LogroDef { id: string; nombre: string; descripcion: string | null; umbral: number; icono: string; creditosRecompensa: number; activo: boolean }
 export interface RetoDef { id: string; nombre: string; descripcion: string | null; icono: string; objetivo: number; fechaInicio: string; fechaFin: string; creditosRecompensa: number; activo?: boolean }
 export interface ProgresoMin { achievementId?: string; challengeId?: string; progresoActual: number; completado: boolean; completadoEn: string | null }
-export interface RecompensaDef { id: string; nombre: string; descripcion: string | null; costeCreditos: number; icono: string; activo: boolean; stock: number | null; efecto?: 'MANUAL' | 'CLASE_GRATIS' }
+export interface RecompensaDef {
+  id: string; nombre: string; descripcion: string | null; costeCreditos: number;
+  icono: string; activo: boolean; stock: number | null; efecto?: 'MANUAL' | 'CLASE_GRATIS';
+  /** null = sin límite por socia; null en las dos fechas = siempre vigente. */
+  limitePorSocia?: number | null;
+  disponibleDesde?: string | null;
+  disponibleHasta?: string | null;
+}
 
 export interface NivelVista {
   actual: NivelDef | null;
@@ -101,24 +108,58 @@ function diasEntre(desdeISO: string, hastaISO: string): number {
   return Math.max(0, Math.round((b - a) / 86_400_000));
 }
 
-export interface RecompensaVista extends RecompensaDef { alcanzable: boolean; faltan: number; agotada: boolean }
+export interface RecompensaVista extends RecompensaDef {
+  alcanzable: boolean; faltan: number; agotada: boolean;
+  /** Su ventana aún no ha empezado: se enseña, pero no se puede canjear. */
+  aunNoDisponible: boolean;
+  /** Ya la ha canjeado tantas veces como permite el estudio. */
+  limiteAlcanzado: boolean;
+}
 
 /**
- * El catálogo, con lo que la socia puede permitirse HOY. `stock` a 0 es agotado
- * (`null` = ilimitado); una recompensa agotada se enseña deshabilitada en vez de
- * desaparecer, porque el estudio la anuncia y no verla confunde más.
+ * El catálogo, con lo que la socia puede permitirse HOY.
+ *
+ * Qué se enseña y qué no, que es la decisión de verdad:
+ *
+ *  · Agotada (`stock` 0; `null` = ilimitado) → se enseña deshabilitada. El
+ *    estudio la anuncia y no verla confunde más que verla sin poder pulsarla.
+ *  · Aún no vigente → se enseña con su fecha. Da algo por lo que volver, y
+ *    explica por qué no se puede pulsar en vez de dejarlo en misterio.
+ *  · Vigencia ya pasada → NO se enseña. Nadie va a poder canjearla nunca más,
+ *    así que es ruido en una pantalla que ya lleva nivel, logros y retos.
+ *  · Límite personal alcanzado → se enseña deshabilitada, porque otra socia sí
+ *    puede: desaparecer daría a entender que el estudio la ha retirado.
+ *
+ * `canjesPorItem` cuenta los canjes NO cancelados de ESTA socia. Nada de esto
+ * es el cerrojo: quien decide es `reservar_recompensa` en la base de datos.
  */
-export function recompensasDe(items: RecompensaDef[], saldo: number): RecompensaVista[] {
+export function recompensasDe(
+  items: RecompensaDef[],
+  saldo: number,
+  hoy?: string,
+  canjesPorItem: Record<string, number> = {},
+): RecompensaVista[] {
   return items
     .filter((i) => i.activo)
-    .map((i) => ({
-      ...i,
-      alcanzable: saldo >= i.costeCreditos && (i.stock === null || i.stock > 0),
-      faltan: Math.max(0, i.costeCreditos - saldo),
-      agotada: i.stock !== null && i.stock <= 0,
-    }))
+    .filter((i) => !(hoy && i.disponibleHasta && hoy > i.disponibleHasta))
+    .map((i) => {
+      const aunNoDisponible = Boolean(hoy && i.disponibleDesde && hoy < i.disponibleDesde);
+      const agotada = i.stock !== null && i.stock !== undefined && i.stock <= 0;
+      const limiteAlcanzado = i.limitePorSocia != null && (canjesPorItem[i.id] ?? 0) >= i.limitePorSocia;
+      return {
+        ...i,
+        alcanzable: saldo >= i.costeCreditos && !agotada && !aunNoDisponible && !limiteAlcanzado,
+        faltan: Math.max(0, i.costeCreditos - saldo),
+        agotada,
+        aunNoDisponible,
+        limiteAlcanzado,
+      };
+    })
     .sort((a, b) => {
-      if (a.agotada !== b.agotada) return a.agotada ? 1 : -1;
+      // Lo que ya no da nada baja del todo; lo que se puede canjear, arriba.
+      const muerta = (r: RecompensaVista) => r.agotada || r.limiteAlcanzado;
+      if (muerta(a) !== muerta(b)) return muerta(a) ? 1 : -1;
+      if (a.aunNoDisponible !== b.aunNoDisponible) return a.aunNoDisponible ? 1 : -1;
       if (a.alcanzable !== b.alcanzable) return a.alcanzable ? -1 : 1;
       return a.costeCreditos - b.costeCreditos;
     });

@@ -57,12 +57,54 @@ export function aplicarGananciaCreditos(
 
 // ── Canje de recompensas ──────────────────────────────────────────────────────
 
-// Valida si una socia puede canjear una recompensa del catálogo con su saldo.
+/**
+ * ¿Está la recompensa dentro de su ventana de vigencia?
+ *
+ * Fechas ISO comparadas como TEXTO a propósito: 'YYYY-MM-DD' ordena igual
+ * alfabéticamente que cronológicamente, y así no entra un `Date` —que traería
+ * la zona horaria del navegador— en una decisión que el estudio piensa en su
+ * propio calendario. Ambos extremos van INCLUIDOS.
+ */
+export function enVigencia(
+  item: Pick<RewardCatalogItem, 'disponibleDesde' | 'disponibleHasta'>,
+  hoy: string,
+): boolean {
+  if (item.disponibleDesde && hoy < item.disponibleDesde) return false;
+  if (item.disponibleHasta && hoy > item.disponibleHasta) return false;
+  return true;
+}
+
+/**
+ * Valida si una socia puede canjear una recompensa del catálogo.
+ *
+ * ⚠️ Esto NO es el cerrojo. Vigencia, límite y stock los decide de verdad la
+ * RPC `reservar_recompensa`, bajo un `for update` de la fila del catálogo —
+ * dos canjes a la vez pasarían esta comprobación los dos. Lo que hace aquí es
+ * dar el mensaje correcto y no dejar que la pantalla prometa lo que el
+ * servidor va a rechazar.
+ *
+ * `canjesPrevios` cuenta los canjes NO cancelados de esta socia sobre este
+ * ítem, igual que los cuenta la RPC: cancelar devuelve créditos y stock, así
+ * que devuelve también el derecho a repetir.
+ */
 export function validarCanje(
   item: RewardCatalogItem | undefined,
   saldo: number,
+  ctx: { hoy?: string; canjesPrevios?: number } = {},
 ): { ok: true } | { error: string } {
   if (!item || !item.activo) return { error: 'Esta recompensa ya no está disponible.' };
+  if (ctx.hoy && !enVigencia(item, ctx.hoy)) {
+    // Distinguir los dos lados de la ventana importa: «todavía no» invita a
+    // volver, «ya no» solo confundiría si se anunciara como disponible.
+    return item.disponibleDesde && ctx.hoy < item.disponibleDesde
+      ? { error: 'Todavía no está disponible.' }
+      : { error: 'Esta recompensa ya no está disponible.' };
+  }
+  if (item.limitePorSocia != null && (ctx.canjesPrevios ?? 0) >= item.limitePorSocia) {
+    return item.limitePorSocia === 1
+      ? { error: 'Ya has canjeado esta recompensa.' }
+      : { error: `Ya la has canjeado ${item.limitePorSocia} veces, que es el máximo.` };
+  }
   if (item.stock != null && item.stock <= 0) return { error: 'Sin stock disponible.' };
   if (saldo < item.costeCreditos) return { error: 'No tienes créditos suficientes todavía.' };
   return { ok: true };

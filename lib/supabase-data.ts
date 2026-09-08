@@ -652,6 +652,9 @@ export function mapRewardCatalogItem(r: RowRewardCatalog): RewardCatalogItem {
     // hacían, así que el respaldo conserva su comportamiento en vez de
     // convertirlas en algo que nadie configuró.
     efecto: r.efecto === 'CLASE_GRATIS' ? 'CLASE_GRATIS' : 'MANUAL',
+    limitePorSocia: r.limite_por_socia ?? null,
+    disponibleDesde: r.disponible_desde ?? null,
+    disponibleHasta: r.disponible_hasta ?? null,
     creadoEn: r.creado_en,
   } as RewardCatalogItem;
 }
@@ -3331,6 +3334,31 @@ export async function dbAjustarStock(
   return { ok: true };
 }
 
+/**
+ * Reserva un canje: vigencia + límite por socia + stock, atómico (ruta panel).
+ *
+ * Sustituye a `dbAjustarStock(-1)` en el canje. Las tres comprobaciones tienen
+ * la misma carrera —leer y luego decidir— y por eso viven juntas bajo el
+ * `for update` de la fila del catálogo. Devuelve un código, no una frase: el
+ * mensaje lo pone quien llama, que es el que sabe si habla con la clienta o con
+ * el mostrador.
+ */
+export async function dbReservarRecompensa(
+  itemId: string, studioId: string, socioId: string,
+): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.rpc('reservar_recompensa', {
+    p_item_id: itemId, p_studio_id: studioId, p_socio_id: socioId,
+  });
+  if (error) {
+    for (const codigo of ['SIN_STOCK', 'LIMITE_ALCANZADO', 'FUERA_DE_VIGENCIA', 'NO_DISPONIBLE', 'NO_AUTORIZADO']) {
+      if (error.message.includes(codigo)) return { error: codigo };
+    }
+    reportDbError('[dbReservarRecompensa]', error);
+    return { error: error.message };
+  }
+  return { ok: true };
+}
+
 // R2 (ruta panel): decremento ATÓMICO de una sesión de bono vía la misma RPC
 // `consumir_sesion_bono` que usa el servidor. UPDATE condicional serializado por
 // lock de fila (`sesiones_restantes = sesiones_restantes - 1 WHERE > 0`). Devuelve
@@ -3493,6 +3521,9 @@ export async function dbInsertRewardCatalogItem(c: RewardCatalogItem): Promise<R
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
     coste_creditos: c.costeCreditos, icono: c.icono, activo: c.activo, stock: c.stock ?? null,
     efecto: c.efecto ?? 'MANUAL', creado_en: c.creadoEn,
+    limite_por_socia: c.limitePorSocia ?? null,
+    disponible_desde: c.disponibleDesde ?? null,
+    disponible_hasta: c.disponibleHasta ?? null,
   };
   const { error } = await supabase.from('reward_catalog').insert(row);
   return error ? falloEscritura('[dbInsertRewardCatalogItem]', error) : ESCRITURA_OK;
@@ -3507,6 +3538,9 @@ export async function dbUpdateRewardCatalogItem(id: string, changes: Partial<Rew
   if ('activo' in changes) db.activo = changes.activo;
   if ('stock' in changes) db.stock = changes.stock;
   if ('efecto' in changes) db.efecto = changes.efecto;
+  if ('limitePorSocia' in changes) db.limite_por_socia = changes.limitePorSocia;
+  if ('disponibleDesde' in changes) db.disponible_desde = changes.disponibleDesde;
+  if ('disponibleHasta' in changes) db.disponible_hasta = changes.disponibleHasta;
   const { error } = await supabase.from('reward_catalog').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateRewardCatalogItem]', error) : ESCRITURA_OK;
 }

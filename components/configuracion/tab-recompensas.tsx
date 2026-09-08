@@ -29,6 +29,10 @@ const CREDITOS_SUGERIDOS: Record<string, number> = {
 
 const emptyCatalogForm = (): Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'> => ({
   nombre: '', descripcion: '', costeCreditos: 500, icono: '🎁', activo: true, stock: null, efecto: 'MANUAL',
+  // Sin límite y sin fechas: lo que hacían todas las recompensas hasta ahora.
+  // Un valor por defecto aquí cambiaría el comportamiento de las que ya existen
+  // sin que nadie lo haya pedido.
+  limitePorSocia: null, disponibleDesde: null, disponibleHasta: null,
 });
 
 
@@ -115,6 +119,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
     const res = await addRewardCatalogItem({
       nombre: sg.nombre, descripcion: sg.descripcion, costeCreditos: sg.costeCreditos,
       icono: sg.icono, activo: true, stock: null, efecto: sg.efecto,
+      limitePorSocia: null, disponibleDesde: null, disponibleHasta: null,
     });
     setAnadiendo(null);
     showToast(res.ok ? `«${sg.nombre}» añadida al catálogo` : res.error);
@@ -163,12 +168,25 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
 
   function openNuevo() { setForm(emptyCatalogForm()); setEditId(null); setModal('nuevo'); }
   function openEditar(item: RewardCatalogItem) {
-    setForm({ nombre: item.nombre, descripcion: item.descripcion ?? '', costeCreditos: item.costeCreditos, icono: item.icono, activo: item.activo, stock: item.stock, efecto: item.efecto });
+    setForm({
+      nombre: item.nombre, descripcion: item.descripcion ?? '', costeCreditos: item.costeCreditos,
+      icono: item.icono, activo: item.activo, stock: item.stock, efecto: item.efecto,
+      limitePorSocia: item.limitePorSocia ?? null,
+      disponibleDesde: item.disponibleDesde ?? null,
+      disponibleHasta: item.disponibleHasta ?? null,
+    });
     setEditId(item.id);
     setModal('editar');
   }
+  const ventanaInvertida = Boolean(
+    form.disponibleDesde && form.disponibleHasta && form.disponibleHasta < form.disponibleDesde,
+  );
+
   async function guardar() {
     if (!form.nombre.trim() || form.costeCreditos <= 0) return;
+    // La BD tiene un CHECK que la rechazaría, pero con un mensaje de Postgres
+    // que nadie entiende. Mejor no llegar.
+    if (ventanaInvertida) { showToast('La fecha de fin no puede ser anterior a la de inicio.'); return; }
     const res = modal === 'nuevo' ? await addRewardCatalogItem(form) : editId ? await updateRewardCatalogItem(editId, form) : { ok: true as const };
     if (!res.ok) { showToast(res.error); return; }
     setModal(null);
@@ -419,6 +437,10 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                   <p className="text-[13px] font-semibold text-foreground">{item.nombre}</p>
                   <p className="text-[12px] text-muted-foreground">
                     {item.costeCreditos} {moneda}{item.stock != null ? ` · ${item.stock} en stock` : ''}
+                    {item.limitePorSocia != null ? ` · máx. ${item.limitePorSocia} por clienta` : ''}
+                    {item.disponibleDesde || item.disponibleHasta
+                      ? ` · ${item.disponibleDesde ?? '…'} a ${item.disponibleHasta ?? '…'}`
+                      : ''}
                     {item.efecto === 'CLASE_GRATIS' ? ' · clase gratis automática' : ''}
                   </p>
                   {!item.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactiva</span>}
@@ -487,6 +509,39 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                 </Field>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Field label="Máximo por clienta (vacío = sin límite)"
+                  description="Cuántas veces puede canjearla la MISMA clienta. Sin esto, quien más créditos acumula puede llevarse el stock entero."
+                >
+                  <input
+                    type="number" min={1} className={inputCls}
+                    value={form.limitePorSocia ?? ''}
+                    onChange={e => setForm(f => ({ ...f, limitePorSocia: e.target.value === '' ? null : Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                  />
+                </Field>
+              </div>
+              <div>
+                <Field label="Solo entre estas fechas (opcional)"
+                  description="Para promociones con fecha. Fuera de la ventana no se puede canjear, sin que tengas que acordarte de apagarla."
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date" className={inputCls} aria-label="Disponible desde"
+                      value={form.disponibleDesde ?? ''}
+                      onChange={e => setForm(f => ({ ...f, disponibleDesde: e.target.value || null }))}
+                    />
+                    <span className="text-[12px] text-muted-foreground">a</span>
+                    <input
+                      type="date" className={inputCls} aria-label="Disponible hasta"
+                      min={form.disponibleDesde ?? undefined}
+                      value={form.disponibleHasta ?? ''}
+                      onChange={e => setForm(f => ({ ...f, disponibleHasta: e.target.value || null }))}
+                    />
+                  </div>
+                </Field>
+              </div>
+            </div>
             <Field label="Qué pasa al canjearla"
               description="«Clase gratis» se entrega sola: la clienta recibe una recuperación y puede reservar con ella cuando quiera. El resto se lo das tú en el estudio."
             >
@@ -508,9 +563,10 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                 <button onClick={() => setModal(null)} className={btnSecondary}>Cancelar</button>
                 <button
                   onClick={guardar}
-                  disabled={!form.nombre.trim() || form.costeCreditos <= 0}
+                  disabled={!form.nombre.trim() || form.costeCreditos <= 0 || ventanaInvertida}
                   className={btnPrimary}
-                  title={!form.nombre.trim() ? 'Ponle un nombre a la recompensa' : undefined}
+                  title={!form.nombre.trim() ? 'Ponle un nombre a la recompensa'
+                    : ventanaInvertida ? 'La fecha de fin es anterior a la de inicio' : undefined}
                 >
                   <Check size={14} /> Guardar
                 </button>

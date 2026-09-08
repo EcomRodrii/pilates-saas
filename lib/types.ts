@@ -1697,6 +1697,11 @@ export interface RewardCatalogItem {
   activo: boolean;
   stock: number | null; // null = ilimitado
   efecto: EfectoRecompensa;
+  /** Cuántas veces puede canjearla la MISMA socia. null = sin límite. */
+  limitePorSocia: number | null;
+  /** Ventana de vigencia (YYYY-MM-DD, ambas incluidas). null = sin fecha. */
+  disponibleDesde: string | null;
+  disponibleHasta: string | null;
   creadoEn: string;
 }
 

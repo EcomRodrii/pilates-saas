@@ -97,6 +97,77 @@ test('recompensas: primero lo alcanzable y barato; lo agotado al final y marcado
   assert.equal(v[2].alcanzable, false, 'agotada no es alcanzable aunque sobre saldo');
 });
 
+// ── recompensas: vigencia y límite por socia ─────────────────────────────────
+const HOY = '2026-09-08';
+
+test('la vencida NO se enseña; la que aún no empieza SÍ, pero no se puede canjear', () => {
+  const v = recompensasDe([
+    { id: 'viva', nombre: 'Viva', descripcion: null, costeCreditos: 10, icono: '✅', activo: true, stock: null },
+    { id: 'vencida', nombre: 'Vencida', descripcion: null, costeCreditos: 10, icono: '⌛', activo: true, stock: null, disponibleHasta: '2026-09-07' },
+    { id: 'futura', nombre: 'Futura', descripcion: null, costeCreditos: 10, icono: '🔜', activo: true, stock: null, disponibleDesde: '2026-10-01' },
+  ], 999, HOY);
+
+  // La vencida se va: nadie va a poder canjearla nunca más y sería ruido.
+  assert.deepEqual(v.map((x) => x.nombre), ['Viva', 'Futura']);
+  // La futura se queda: explica por qué no se puede pulsar y da algo por lo
+  // que volver. Desaparecer solo sería un misterio.
+  const futura = v.find((x) => x.id === 'futura')!;
+  assert.equal(futura.aunNoDisponible, true);
+  assert.equal(futura.alcanzable, false, 'con saldo de sobra, pero fuera de ventana');
+});
+
+test('el último día de la ventana todavía se enseña y se puede canjear', () => {
+  const v = recompensasDe(
+    [{ id: 'hoy', nombre: 'Justo hoy', descripcion: null, costeCreditos: 10, icono: '🎯', activo: true, stock: null, disponibleDesde: HOY, disponibleHasta: HOY }],
+    999, HOY,
+  );
+  assert.equal(v.length, 1);
+  assert.equal(v[0].alcanzable, true);
+  assert.equal(v[0].aunNoDisponible, false);
+});
+
+test('la que ya ha canjeado hasta su tope se enseña marcada, no desaparece', () => {
+  // Desaparecer daría a entender que el estudio la ha retirado, cuando otra
+  // socia sí puede llevársela.
+  const premio = { id: 'lim', nombre: 'Una por cabeza', descripcion: null, costeCreditos: 10, icono: '🎁', activo: true, stock: null, limitePorSocia: 1 };
+  const agotadaParaElla = recompensasDe([premio], 999, HOY, { lim: 1 });
+  assert.equal(agotadaParaElla.length, 1);
+  assert.equal(agotadaParaElla[0].limiteAlcanzado, true);
+  assert.equal(agotadaParaElla[0].alcanzable, false, 'con saldo de sobra, pero ya la tiene');
+
+  const primeraVez = recompensasDe([premio], 999, HOY, {});
+  assert.equal(primeraVez[0].limiteAlcanzado, false);
+  assert.equal(primeraVez[0].alcanzable, true);
+});
+
+test('sin límite configurado, haberla canjeado veinte veces no la bloquea', () => {
+  const v = recompensasDe(
+    [{ id: 'libre', nombre: 'Sin tope', descripcion: null, costeCreditos: 10, icono: '♾', activo: true, stock: null }],
+    999, HOY, { libre: 20 },
+  );
+  assert.equal(v[0].limiteAlcanzado, false);
+  assert.equal(v[0].alcanzable, true);
+});
+
+test('lo que ya no da nada baja del todo; lo canjeable manda', () => {
+  const v = recompensasDe([
+    { id: 'a', nombre: 'Ya canjeada', descripcion: null, costeCreditos: 10, icono: '🎁', activo: true, stock: null, limitePorSocia: 1 },
+    { id: 'b', nombre: 'Futura', descripcion: null, costeCreditos: 10, icono: '🔜', activo: true, stock: null, disponibleDesde: '2026-12-01' },
+    { id: 'c', nombre: 'Canjeable', descripcion: null, costeCreditos: 10, icono: '✅', activo: true, stock: null },
+  ], 999, HOY, { a: 1 });
+  assert.deepEqual(v.map((x) => x.nombre), ['Canjeable', 'Futura', 'Ya canjeada']);
+});
+
+test('sin `hoy` ni canjes, el catálogo se comporta como antes', () => {
+  // Compatibilidad: los dos argumentos nuevos son opcionales, y quien no los
+  // pase no debe empezar a ver recompensas bloqueadas de la nada.
+  const v = recompensasDe([
+    { id: 'x', nombre: 'Con fechas', descripcion: null, costeCreditos: 10, icono: '📅', activo: true, stock: null, disponibleDesde: '2030-01-01', limitePorSocia: 1 },
+  ], 999);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].alcanzable, true);
+});
+
 test('sin nada configurado, la pantalla no debe existir', () => {
   assert.equal(hayGamificacion({ niveles: [], logros: [], retos: [], recompensas: [] }), false);
   assert.equal(hayGamificacion({ niveles: [], logros: [1], retos: [], recompensas: [] }), true);
