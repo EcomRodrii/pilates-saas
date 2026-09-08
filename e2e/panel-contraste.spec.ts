@@ -30,12 +30,18 @@ test.describe.configure({ timeout: 60_000 });
 const RUTAS = [
   'dashboard', 'cobros', 'productos', 'clientas', 'informes', 'equipo',
   'centro-de-control', 'calendario', 'citas', 'configuracion',
-  'automatizaciones', 'cierre', 'comunidad', 'contenido',
-  'explorar-funciones', 'facturas', 'libreta', 'marketing',
-  'mensajeria', 'mi-perfil', 'migracion', 'notificaciones',
-  'pagos', 'primeros-pasos', 'socios', 'sustituciones',
-  'transacciones', 'network/buscar',
+  'automatizaciones', 'cierre', 'comunidad', 'explorar-funciones',
+  'libreta', 'mensajeria', 'mi-perfil', 'migracion',
+  'notificaciones', 'primeros-pasos', 'sustituciones', 'network/buscar',
 ];
+
+// ⚠️ Fuera de la lista, y no por descuido: /facturas, /pagos, /socios y
+// /transacciones NO son pantallas — son redirecciones a /cobros, y /contenido
+// y /marketing lo son a /dashboard mientras el módulo está apagado. Medirlas
+// no añade nada (mide dos veces la misma pantalla) y además encadena DOS
+// transiciones de página: la primera vez que estuvieron aquí, el barrido cazó
+// 18 «fallos» de contraste en /facturas que eran los colores a medio fundir de
+// la animación de entrada de /cobros, no un color de nadie.
 
 interface Fallo { ruta: string; texto: string; ratio: number; color: string; fondo: string; px: number }
 

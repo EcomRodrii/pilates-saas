@@ -180,6 +180,22 @@ export async function ir(page: Page, ruta: string) {
   await page
     .waitForFunction(() => !document.querySelector('.animate-pulse'), null, { timeout: 5_000 })
     .catch(() => {});
+  // ⚠️ Y a que termine la animación de ENTRADA de la pantalla. `.panel-page-in`
+  // hace un fundido de opacidad, y medir a mitad devuelve colores que no son de
+  // nadie: mezclas del texto con el fondo. Costó 18 «fallos» de contraste
+  // fantasma en una corrida de CI, todos de una pantalla que además solo
+  // redirigía —dos transiciones encadenadas—. Se mira solo esa animación y no
+  // `getAnimations()` entero, que en una pantalla con un spinner no termina
+  // nunca.
+  await page
+    .waitForFunction(
+      () => Array.from(document.querySelectorAll('.panel-page-in'))
+        .flatMap((el) => el.getAnimations())
+        .every((a) => a.playState === 'finished' || a.playState === 'idle'),
+      null,
+      { timeout: 5_000 },
+    )
+    .catch(() => {});
   await page.waitForTimeout(600);
 }
 
