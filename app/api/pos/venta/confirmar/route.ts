@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   if (!ventaId) return NextResponse.json({ error: 'Falta la venta' }, { status: 400 });
 
   const { data: venta } = await admin.from('ventas_pos')
-    .select('id, estado, pago_estado, pago_error, total, metodo_pago, stripe_payment_intent_id, socio_id, numero')
+    .select('id, estado, pago_estado, pago_error, total, metodo_pago, stripe_payment_intent_id, checkout_session_id, socio_id, numero')
     .eq('id', ventaId).eq('studio_id', sesion.studioId)
     .maybeSingle();
   if (!venta) return NextResponse.json({ error: 'No encontramos esa venta' }, { status: 404 });
@@ -83,7 +83,9 @@ export async function POST(req: NextRequest) {
   const prov = proveedorPara(venta.metodo_pago as MetodoPago, { readerId: ctx.readerId, origen: req.nextUrl.origin });
 
   if (accion === 'cancelar') {
-    await prov.cancelar(ctx.ctx, venta.stripe_payment_intent_id);
+    // P-1 (27ª pasada): con Bizum, esto expira la Checkout Session de
+    // verdad (no solo el PaymentIntent) — ver lib/pos/terminal.ts.
+    await prov.cancelar(ctx.ctx, venta.stripe_payment_intent_id, venta.checkout_session_id);
   }
 
   const estadoProveedor = await prov.consultar(ctx.ctx, venta.stripe_payment_intent_id);

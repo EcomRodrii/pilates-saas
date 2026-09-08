@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   if (!reciboId) return NextResponse.json({ error: 'Falta el recibo' }, { status: 400 });
 
   const { data: recibo } = await admin.from('recibos')
-    .select('id, importe, estado, cobro_mostrador_pi')
+    .select('id, importe, estado, cobro_mostrador_pi, cobro_mostrador_checkout_session_id')
     .eq('id', reciboId).eq('studio_id', sesion.studioId)
     .maybeSingle();
   if (!recibo) return NextResponse.json({ error: 'No encontramos ese recibo' }, { status: 404 });
@@ -78,7 +78,11 @@ export async function POST(req: NextRequest) {
   const prov = proveedorPara(metodo, { readerId: ctx.readerId, origen: req.nextUrl.origin });
 
   try {
-    if (accion === 'cancelar') await prov.cancelar(ctx.ctx, recibo.cobro_mostrador_pi);
+    // P-1 (27ª pasada): con Bizum, esto expira la Checkout Session de
+    // verdad (no solo el PaymentIntent) — ver lib/pos/terminal.ts.
+    if (accion === 'cancelar') {
+      await prov.cancelar(ctx.ctx, recibo.cobro_mostrador_pi, recibo.cobro_mostrador_checkout_session_id);
+    }
 
     const est = await prov.consultar(ctx.ctx, recibo.cobro_mostrador_pi);
 
@@ -129,7 +133,7 @@ export async function POST(req: NextRequest) {
         p_por: sesion.userId, p_por_nombre: sesion.nombre,
       });
 
-      await admin.from('recibos').update({ cobro_mostrador_pi: null })
+      await admin.from('recibos').update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
         .eq('id', reciboId).eq('studio_id', sesion.studioId);
 
       return responder('PAGADO', { cobrado: true, yaEstaba: !res.actualizado });
@@ -142,7 +146,7 @@ export async function POST(req: NextRequest) {
     // RECHAZADO / CANCELADO / EXPIRADO / ERROR. El recibo NO se toca: sigue
     // pendiente, que es la verdad. Solo se suelta la referencia para que el
     // siguiente intento empiece limpio.
-    await admin.from('recibos').update({ cobro_mostrador_pi: null })
+    await admin.from('recibos').update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
       .eq('id', reciboId).eq('studio_id', sesion.studioId);
     return responder(est.estado, { motivo: est.error ?? null });
   } catch (e) {

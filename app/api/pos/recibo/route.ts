@@ -91,7 +91,13 @@ export async function POST(req: NextRequest) {
     // recarga del navegador. No va en `stripe_payment_intent_id`: esa es la del
     // cargo bueno, y de ella cuelgan los reembolsos.
     const { error: errRef } = await admin.from('recibos')
-      .update({ cobro_mostrador_pi: inicio.referencia })
+      .update({
+        cobro_mostrador_pi: inicio.referencia,
+        // P-1 (27ª pasada): solo Bizum la rellena — hace falta para poder
+        // expirar la Checkout Session de verdad al cancelar, en vez de solo
+        // el PaymentIntent (que no invalida el enlace de pago).
+        cobro_mostrador_checkout_session_id: inicio.checkoutSessionId ?? null,
+      })
       .eq('id', reciboId).eq('studio_id', sesion.studioId);
     if (errRef) {
       // El cobro ya está lanzado en Stripe; perder la referencia solo significa
