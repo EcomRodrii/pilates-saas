@@ -27,6 +27,8 @@ const CONTENIDO: Record<string, () => Promise<{ default: ComponentType }>> = {
   'pagos/reembolsos': () => import('@/components/ayuda/articulos/pagos-reembolsos'),
   'pagos/facturas': () => import('@/components/ayuda/articulos/pagos-facturas'),
   'pagos/prueba-de-7-dias': () => import('@/components/ayuda/articulos/pagos-prueba-de-7-dias'),
+  'pagos/cobrar-en-la-caja': () => import('@/components/ayuda/articulos/pagos-cobrar-en-la-caja'),
+  'pagos/abrir-y-cerrar-la-caja': () => import('@/components/ayuda/articulos/pagos-abrir-y-cerrar-la-caja'),
   'bonos/tipos-de-bono': () => import('@/components/ayuda/articulos/bonos-tipos-de-bono'),
   'bonos/crear-un-plan': () => import('@/components/ayuda/articulos/bonos-crear-un-plan'),
   'bonos/caducidad-de-un-bono': () => import('@/components/ayuda/articulos/bonos-caducidad-de-un-bono'),

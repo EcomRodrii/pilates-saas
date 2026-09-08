@@ -94,7 +94,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
     resumen:
       'El mostrador: cobras un bono, una clase suelta o un producto en el momento, con tarjeta o en efectivo, y queda registrado con su factura como cualquier otro cobro.',
     ahorra: 'Apuntar en una hoja lo que cobras a pie de mostrador para pasarlo luego.',
-    destino: { categoria: 'pagos', slug: 'conectar-stripe' },
+    destino: { categoria: 'pagos', slug: 'cobrar-en-la-caja' },
   },
 
   '/productos': {
