@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
 import { Toggle, inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { obtenerConfirmacionRiesgo, actualizarConfirmacionRiesgo } from '@/lib/api-client';
 
 // P2 (auditoría "Veredicto de Marta"): los 13 campos de este formulario iban
 // todos con el mismo peso visual en una sola columna — fácil confundir un
@@ -92,6 +93,43 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
   // criterio que el override por tipo de clase (#867): comparar en minutos.
   const ventanaImposible = pol.reservaAntelacionMaximaDias != null
     && pol.reservaVentanaMinimaMinutos > pol.reservaAntelacionMaximaDias * 24 * 60;
+
+  // ⚠️ «Pedir confirmación de asistencia» NO viaja en `pol`, y no es un
+  // descuido.
+  //
+  // Vivía sola en Centro de Control, debajo de un desplegable cerrado por
+  // defecto, y por eso una propietaria veía cancelarse reservas sin encontrar
+  // nunca dónde se decidía eso. Su sitio son estas reglas. Pero su columna solo
+  // la escribe `/api/decisiones/confirmacion-riesgo`, que además de comprobar
+  // el rol exige plan con Centro de Control (el riesgo lo calcula el motor de
+  // decisiones). Meterla en `updateStudio` —un UPDATE del cliente contra la
+  // RLS— la habría regalado a cualquier plan sin que se notara. Se queda con su
+  // endpoint, y por eso guarda al pulsar en vez de esperar al botón de abajo.
+  const [confirmacion, setConfirmacion] = useState<boolean | null>(null); // null = cargando
+  const [sinPlanConfirmacion, setSinPlanConfirmacion] = useState(false);
+  const [guardandoConfirmacion, setGuardandoConfirmacion] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    obtenerConfirmacionRiesgo().then(r => {
+      if (!vivo) return;
+      if ('activo' in r) { setConfirmacion(r.activo); return; }
+      // Fallar en CERRADO para lo que se pinta: sin poder leerlo, se enseña
+      // apagado y sin permitir tocarlo, nunca encendido por defecto.
+      setConfirmacion(false);
+      setSinPlanConfirmacion(true);
+    });
+    return () => { vivo = false; };
+  }, []);
+
+  async function cambiarConfirmacion(activo: boolean) {
+    const previo = confirmacion;
+    setConfirmacion(activo); // optimista
+    setGuardandoConfirmacion(true);
+    const r = await actualizarConfirmacionRiesgo(activo);
+    setGuardandoConfirmacion(false);
+    if ('error' in r) { setConfirmacion(previo); showToast(r.error); return; }
+    showToast(activo ? 'Se pedirá confirmación a quien tenga más riesgo de no venir' : 'Ya no se pedirá confirmación');
+  }
 
   async function guardarPolitica() {
     if (ventanaImposible) return;
@@ -293,6 +331,29 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               </span>
             </span>
             <Toggle on={pol.bloquearReservaImpago} onChange={v => setPol(p => ({ ...p, bloquearReservaImpago: v }))} />
+          </label>
+          <label className={cn('flex items-center justify-between gap-4', sinPlanConfirmacion ? 'cursor-default' : 'cursor-pointer')}>
+            <span className="text-[13px] text-foreground">
+              Pedir confirmación a quien suele no venir
+              <span className="block text-[11px] text-muted-foreground">
+                La víspera se le manda un email para que confirme que viene. Si no
+                confirma antes de la clase, se cancela su reserva y la plaza pasa a
+                la lista de espera. <strong className="font-semibold">No se le pide a todo el mundo</strong>: solo a
+                quien acumula faltas recientes, no a quien reserva y viene. Se
+                guarda al pulsar, no hace falta el botón de abajo.
+              </span>
+              {sinPlanConfirmacion && (
+                <span className="block text-[11px] text-muted-foreground mt-1">
+                  Esta regla va con el Centro de Control: quien decide a quién pedírselo
+                  es el motor de decisiones, y tu plan no lo incluye.
+                </span>
+              )}
+            </span>
+            <Toggle
+              on={!!confirmacion}
+              onChange={v => { if (!sinPlanConfirmacion) void cambiarConfirmacion(v); }}
+              disabled={confirmacion === null || guardandoConfirmacion || sinPlanConfirmacion}
+            />
           </label>
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
