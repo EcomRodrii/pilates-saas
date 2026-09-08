@@ -89,9 +89,12 @@ export async function POST(req: NextRequest) {
     const refreshToken = body.refresh_token;
     if (!refreshToken) return errorOAuth('invalid_request', 400);
 
-    const resultado = await rotarRefreshToken(admin, refreshToken);
+    // 33ª pasada de auditoría: `clienteEsperado` se comprueba DENTRO de
+    // `rotarRefreshToken`, antes de tocar la fila — la comprobación tardía
+    // que había aquí dejaba revocar la cadena de OTRO cliente antes de
+    // devolver el error. Ver el comentario de la función.
+    const resultado = await rotarRefreshToken(admin, refreshToken, cliente.id);
     if (!resultado.ok) return errorOAuth(resultado.error, 400);
-    if (resultado.clienteId !== cliente.id) return errorOAuth('invalid_grant', 400);
 
     return NextResponse.json({
       access_token: resultado.accessToken,

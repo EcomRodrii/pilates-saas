@@ -171,15 +171,32 @@ export async function emitirParTokens(
 
 export type RotarRefreshResultado =
   | ({ ok: true; clienteId: string; scopes: ScopeOAuth[] } & ParTokens)
-  | { ok: false; error: 'invalid_grant'; motivo: 'no_existe' | 'revocado' | 'expirado' };
+  | { ok: false; error: 'invalid_grant'; motivo: 'no_existe' | 'cliente_no_coincide' | 'revocado' | 'expirado' };
 
 // Rotación de refresh token (RFC 6749 §6, "MAY issue a new refresh token"):
 // aquí SIEMPRE se rota. Reuse de un refresh ya revocado (token robado y
 // reutilizado tras haberse rotado ya legítimamente) revoca la cadena entera.
-export async function rotarRefreshToken(admin: SupabaseClient, refreshTokenRecibido: string): Promise<RotarRefreshResultado> {
+//
+// `clienteEsperado` (33ª pasada de auditoría): mismo criterio y mismo orden
+// que ya usa `canjearCodigoAutorizacion` — comprobar que el token pertenece
+// al cliente autenticado en la petición ANTES de tocar nada (revocar la
+// cadena si ya estaba revocado, o reclamar la fila para rotarla). Antes esta
+// comprobación la hacía el LLAMADOR (`token/route.ts`) después de que esta
+// función ya hubiera revocado la fila vieja y emitido un par nuevo — un
+// cliente B con el valor en claro del refresh token de un cliente A distinto
+// podía invalidar en silencio la sesión de A con su propio `client_id` (sin
+// necesitar el secreto de A), aunque la respuesta HTTP fuera un `invalid_grant`
+// que parecía inocuo.
+export async function rotarRefreshToken(
+  admin: SupabaseClient, refreshTokenRecibido: string, clienteEsperado: string,
+): Promise<RotarRefreshResultado> {
   const hash = sha256Hex(refreshTokenRecibido);
   const { data: fila } = await admin.from('oauth_tokens').select('*').eq('refresh_token_hash', hash).maybeSingle();
   if (!fila) return { ok: false, error: 'invalid_grant', motivo: 'no_existe' };
+
+  if (fila.cliente_id !== clienteEsperado) {
+    return { ok: false, error: 'invalid_grant', motivo: 'cliente_no_coincide' };
+  }
 
   if (fila.revocado_en) {
     await revocarCadena(admin, fila.cadena_id);
