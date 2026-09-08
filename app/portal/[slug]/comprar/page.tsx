@@ -16,6 +16,7 @@ import { useSesionStudent } from '@/lib/student/sesion';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { useRouter } from 'next/navigation';
 import type { PlanTarifa } from '@/lib/types';
+import { configLegalDe } from '@/lib/legal-textos';
 
 // Comprar (P0-5). Hasta ahora la alumna solo podía RESERVAR: no había ningún
 // sitio donde ver qué vende el estudio, así que un bono o una suscripción solo
@@ -47,12 +48,15 @@ export default function ComprarPage() {
       stripeAccountId: d?.studio?.stripeAccountId ?? null,
       // Los textos del estudio ya viajan en el payload (los usa el registro
       // para la firma). Aquí sirven para poder LEERLOS antes de pagar.
-      textosLegales: (() => {
-        const s2 = d?.studio as { politicaPrivacidad?: string; terminosServicio?: string } | undefined;
-        return s2?.politicaPrivacidad || s2?.terminosServicio
-          ? { politicaPrivacidad: s2.politicaPrivacidad ?? '', terminosServicio: s2.terminosServicio ?? '' }
-          : null;
-      })(),
+      //
+      // Va por `configLegalDe` y no por los campos crudos: casi ningún estudio
+      // ha reescrito sus condiciones, así que leyéndolos a pelo esto salía
+      // `null`, la pantalla no pintaba la línea «Al pagar aceptas…» y la
+      // compradora no veía NADA legal — mientras el servidor sí escribía en su
+      // recibo el hash de unas condiciones aceptadas. Y el caso mixto (privacidad
+      // sí, términos no) abría un diálogo en blanco. Con la composición efectiva
+      // siempre hay documento, y es el MISMO que sella `lib/legal-sellado.ts`.
+      textosLegales: configLegalDe(d?.studio, d?.studio),
       // Para poder decir A QUÉ está acotado un bono hace falta el nombre del
       // tipo, no su id. Los dos datos ya viajan en el mismo payload.
       nombresTipo: new Map((d?.tiposClase ?? []).map((t) => [t.id, t.nombre])),

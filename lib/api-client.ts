@@ -1658,15 +1658,22 @@ export async function borrarAusencia(id: string): Promise<boolean> {
 // indefinidamente mientras el resto de la UI seguía como si ya estuviera
 // borrada. Mismo AbortSignal.timeout que entregarExternos() en
 // lib/notifications/engine.ts.
-export async function avisarClaseCancelada(sesionId: string): Promise<void> {
+// Devuelve si el aviso in-app/push SALIÓ. Antes era `Promise<void>` y un 401
+// (sesión caducada), un 404 ('Sesión no encontrada') o un 500 eran
+// indistinguibles del éxito, así que el panel podía decir «clientas avisadas»
+// sin que se hubiera avisado a nadie. Su hermana `avisarCambioClaseServidor`
+// ya devolvía el resultado por este mismo motivo. Sigue sin bloquear la
+// cancelación: quien llama decide si lo cuenta en el toast.
+export async function avisarClaseCancelada(sesionId: string): Promise<boolean> {
   try {
-    await fetch('/api/clases/avisar-cancelada', {
+    const res = await fetch('/api/clases/avisar-cancelada', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ sesionId }),
       signal: AbortSignal.timeout(10_000),
     });
-  } catch { /* best-effort: no bloquea la cancelación */ }
+    return res.ok;
+  } catch { /* best-effort: no bloquea la cancelación */ return false; }
 }
 
 // Avisa (in-app) a la propietaria de que una instructora ha creado una clase
@@ -1720,6 +1727,11 @@ export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente
     const res = await fetch('/api/emails/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      // Desde la 27ª pasada este envío se ESPERA (el panel cuenta cuántas
+      // socias se avisaron de verdad), así que necesita el mismo techo que
+      // `avisarClaseCancelada`: sin él, un /api/emails/send colgado dejaba el
+      // borrado de la clase esperando sin límite.
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         tipo: 'cancelacion',
         to: params.to,

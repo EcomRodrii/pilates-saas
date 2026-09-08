@@ -44,6 +44,22 @@ export interface PayloadPublico {
     nombre: string; fotoUrl: string | null; slug: string;
     /** Cuenta conectada de Stripe. `null` = el estudio aún no puede cobrar. */
     stripeAccountId?: string | null;
+    // Identidad fiscal y condiciones. Ya viajaban en el payload
+    // (lib/db/supabase-data-admin.ts las mapea), pero este tipo no las
+    // declaraba, así que la pantalla de comprar tenía que castear para leerlas
+    // — y un cast es justo donde se pierde el contrato entre capas. Declaradas
+    // aquí, `configLegalDe` las recibe con la forma que espera.
+    razonSocial?: string | null;
+    nif?: string | null;
+    direccion?: string | null;
+    ciudad?: string | null;
+    codigoPostal?: string | null;
+    email?: string | null;
+    /** `null` = la clienta ve el texto por defecto, redactado con los datos de arriba. */
+    politicaPrivacidad?: string | null;
+    terminosServicio?: string | null;
+    cancelacionVentanaHoras?: number | null;
+    penalizacionImporteEur?: number | null;
   } | null;
   sesiones: Sesion[];
   tiposClase: TipoClase[];

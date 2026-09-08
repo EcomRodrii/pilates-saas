@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hashTextoLegal } from './legal-hash.ts';
-import { configLegalDe, textoLegalCompleto } from './legal-textos.ts';
+import { configLegalDe, textoLegalCompleto, datosLegalesDeFila } from './legal-textos.ts';
 
 // La cadena completa de la aceptación por compra, sin base de datos:
 // datos del estudio → texto legal efectivo → huella.
@@ -72,4 +72,57 @@ test('con los datos del estudio, lo que se firma identifica a alguien', () => {
   const bueno = textoLegalCompleto(configLegalDe(ESTUDIO, { politicaPrivacidad: null, terminosServicio: null }));
   assert.ok(bueno.length > 1000, `esperaba un documento de verdad, salieron ${bueno.length} caracteres`);
   assert.ok(bueno.includes('Pilates Centro') && bueno.includes('B00000000'));
+});
+
+// ── 27ª pasada (8 sep 2026), L-1 ────────────────────────────────────────────
+// El sello certificaba un texto DISTINTO del que veía la compradora: a
+// `configLegalDe` se le pasaba la fila de `studios` en snake_case y, como
+// `DatosEstudioLegal` tiene todos los campos opcionales, TypeScript lo aceptaba
+// y se perdían en silencio la razón social, el código postal, la ventana de
+// cancelación y la cláusula de penalización.
+//
+// Este test ancla la FORMA, no la función: el test anterior («salen de la misma
+// función») pasaba tan campante mientras el documento sellado y el mostrado
+// eran distintos, porque a las dos llamadas se les daba la misma forma.
+test('el sello se compone con los MISMOS datos que ve la compradora en el portal', () => {
+  const fila = {
+    nombre: 'Pilates Boutique',
+    razon_social: 'Pilates Boutique SL',
+    nif: 'B12345678',
+    direccion: 'Calle Larios 1',
+    ciudad: 'Málaga',
+    codigo_postal: '29005',
+    email: 'hola@ejemplo.es',
+    cancelacion_ventana_horas: 24,
+    penalizacion_importe_eur: 8,
+    politica_privacidad: null,
+    terminos_servicio: null,
+  };
+  // Lo que el portal le pasa a configLegalDe (lib/studio-context.tsx): camelCase.
+  const comoLoVeLaCompradora = {
+    nombre: 'Pilates Boutique', razonSocial: 'Pilates Boutique SL', nif: 'B12345678',
+    direccion: 'Calle Larios 1', ciudad: 'Málaga', codigoPostal: '29005',
+    email: 'hola@ejemplo.es', cancelacionVentanaHoras: 24, penalizacionImporteEur: 8,
+  };
+  assert.deepEqual(datosLegalesDeFila(fila), comoLoVeLaCompradora);
+
+  const delServidor = textoLegalCompleto(configLegalDe(datosLegalesDeFila(fila), { politicaPrivacidad: null, terminosServicio: null }));
+  const delPortal = textoLegalCompleto(configLegalDe(comoLoVeLaCompradora, { politicaPrivacidad: null, terminosServicio: null }));
+  assert.equal(hashTextoLegal(delServidor), hashTextoLegal(delPortal));
+
+  // Y que de verdad lleva lo que se perdía: razón social, CP y las dos reglas.
+  assert.match(delServidor, /Pilates Boutique SL/);
+  assert.match(delServidor, /29005/);
+  assert.match(delServidor, /24/);
+});
+
+test('pasar la fila CRUDA produce un texto distinto — que es lo que ocurría', () => {
+  const fila = {
+    nombre: 'Pilates Boutique', razon_social: 'Pilates Boutique SL', nif: 'B12345678',
+    direccion: 'Calle Larios 1', ciudad: 'Málaga', codigo_postal: '29005', email: 'hola@ejemplo.es',
+    cancelacion_ventana_horas: 24, penalizacion_importe_eur: 8,
+  };
+  const bien = textoLegalCompleto(configLegalDe(datosLegalesDeFila(fila), { politicaPrivacidad: null, terminosServicio: null }));
+  const comoAntes = textoLegalCompleto(configLegalDe(fila as never, { politicaPrivacidad: null, terminosServicio: null }));
+  assert.notEqual(hashTextoLegal(bien), hashTextoLegal(comoAntes));
 });

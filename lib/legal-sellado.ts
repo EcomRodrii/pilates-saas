@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { configLegalDe, textoLegalCompleto } from '@/lib/legal-textos';
+import { configLegalDe, textoLegalCompleto, datosLegalesDeFila } from '@/lib/legal-textos';
 import { hashTextoLegal } from '@/lib/legal-hash';
 
 // Sella qué condiciones estaban vigentes cuando una clienta compra.
@@ -33,19 +33,28 @@ export async function sellarCondicionesVigentes(
   try {
     const { data: s } = await admin
       .from('studios')
-      .select('nombre, razon_social, nif, direccion, ciudad, codigo_postal, email, politica_privacidad, terminos_servicio')
+      .select('nombre, razon_social, nif, direccion, ciudad, codigo_postal, email, politica_privacidad, terminos_servicio, cancelacion_ventana_horas, penalizacion_importe_eur')
       .eq('id', studioId)
       .maybeSingle();
     if (!s) return null;
 
-    const e = s as Record<string, string | null>;
+    const e = s as Record<string, unknown>;
     // La MISMA composición que firma la clienta en el portal: sus textos si los
     // ha reescrito, y si no los de por defecto redactados con sus datos
     // fiscales. `configLegalDe` vive en `lib/legal-textos.ts` justamente para
     // que servidor y cliente no tengan dos reglas distintas.
-    const config = configLegalDe(e, {
-      politicaPrivacidad: e.politica_privacidad,
-      terminosServicio: e.terminos_servicio,
+    //
+    // ⚠️ El mapeo a camelCase es OBLIGATORIO y no cosmético: `DatosEstudioLegal`
+    // tiene todos los campos opcionales, así que pasarle la fila cruda en
+    // snake_case COMPILA y se traga en silencio `razon_social`, `codigo_postal`,
+    // `cancelacion_ventana_horas` y `penalizacion_importe_eur`. El resultado era
+    // un sello que certificaba un texto DISTINTO del que vio la compradora: con
+    // el nombre comercial en vez de la razón social que factura, sin código
+    // postal, con la ventana de cancelación por defecto y sin la cláusula de
+    // penalización. Es decir, prueba de un consentimiento que no se dio.
+    const config = configLegalDe(datosLegalesDeFila(e), {
+      politicaPrivacidad: (e.politica_privacidad as string | null) ?? null,
+      terminosServicio: (e.terminos_servicio as string | null) ?? null,
     });
     const texto = textoLegalCompleto(config);
     const hash = hashTextoLegal(texto);

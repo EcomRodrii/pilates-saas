@@ -7,14 +7,44 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Audiencia } from './catalog.ts';
 import type { NotificationEvent, Recipient } from './types.ts';
 
+// El email al que SE LE ESCRIBE a la propietaria.
+//
+// `studios.email` es el email PÚBLICO de contacto del estudio, que la dueña
+// rellena en Configuración y que 6 de los 9 estudios activos tienen vacío
+// (medido en producción el 8 sep 2026). Cuando falta, el email de su CUENTA
+// (auth.users) sí existe siempre — es con el que entra — y es el mismo
+// fallback que ya usaba `porAuthUserId` para Network unas líneas más abajo.
+//
+// Sin esto, el canal EMAIL de la propietaria no existía: las 4 únicas
+// entregas EMAIL de la historia de `notification_delivery` acabaron en
+// SKIPPED «destinatario sin email», y con ellas los avisos CRITICA
+// SISTEMA_STRIPE_DESCONECTADO («se deja de cobrar») y TRIAL_EXPIRADO, que no
+// tienen más canal que ese para llegar a quien no está mirando la app.
+export async function emailDeLaPropietaria(
+  admin: SupabaseClient, ownerAuthUserId: string, emailDelEstudio: unknown,
+): Promise<string | null> {
+  const publico = typeof emailDelEstudio === 'string' ? emailDelEstudio.trim() : '';
+  if (publico) return publico;
+  // No puede tumbar el reparto: resolver destinatarios es el paso previo a
+  // TODOS los canales, así que si la consulta a auth falla (o el cliente no la
+  // expone) se sigue sin email —in-app y push llegan igual— en vez de dejar el
+  // aviso entero sin enviar. Es la misma regla que el resto del módulo: quien
+  // no tiene un dato pierde su canal, no el evento.
+  try {
+    const { data } = await admin.auth.admin.getUserById(ownerAuthUserId);
+    return data.user?.email ?? null;
+  } catch { return null; }
+}
+
 async function propietaria(admin: SupabaseClient, studioId: string): Promise<Recipient[]> {
   const { data } = await admin.from('studios')
     .select('nombre, owner_auth_user_id, email, telefono').eq('id', studioId).maybeSingle();
   if (!data?.owner_auth_user_id) return [];
+  const ownerId = data.owner_auth_user_id as string;
   return [{
-    role: 'PROPIETARIO', userId: data.owner_auth_user_id as string,
+    role: 'PROPIETARIO', userId: ownerId,
     nombre: (data.nombre as string | null) ?? 'Propietaria',
-    email: (data.email as string | null) ?? null,
+    email: await emailDeLaPropietaria(admin, ownerId, data.email),
     telefono: (data.telefono as string | null) ?? null,
   }];
 }
@@ -92,7 +122,7 @@ async function staffPorAuthUserId(admin: SupabaseClient, studioId: string, authU
     return [{
       role: 'PROPIETARIO', userId: authUserId,
       nombre: (studio.nombre as string | null) ?? 'Propietaria',
-      email: (studio.email as string | null) ?? null,
+      email: await emailDeLaPropietaria(admin, authUserId, studio.email),
       telefono: (studio.telefono as string | null) ?? null,
     }];
   }

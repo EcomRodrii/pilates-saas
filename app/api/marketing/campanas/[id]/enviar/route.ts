@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { mapCampana } from '@/lib/supabase-data';
 import type { RowCampanas } from '@/lib/db-types';
+import * as Sentry from '@sentry/nextjs';
 
 // POST /api/marketing/campanas/[id]/enviar — encola el envío real en
 // servidor (lib/inngest/campanas.ts) y devuelve inmediato. El envío ya no se
@@ -51,7 +52,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Esta campaña ya se está enviando o ya se envió' }, { status: 409 });
   }
 
-  await inngest.send({ name: EVENTS.CAMPANA_ENVIAR, data: { campanaId, studioId: sesion.studioId } });
+  // El CAS de arriba ya dejó la campaña en ENVIANDO. Si el encolado falla
+  // (Inngest caído, INNGEST_EVENT_KEY rotada) y no se deshace, la campaña se
+  // queda en «Enviando…» para siempre: el propio CAS impide reintentarla, no
+  // hay barrido de ENVIANDO atascadas y ninguna pantalla la devuelve a
+  // BORRADOR. Devolverla es lo que le da una SALIDA a la propietaria.
+  try {
+    await inngest.send({ name: EVENTS.CAMPANA_ENVIAR, data: { campanaId, studioId: sesion.studioId } });
+  } catch (e) {
+    await admin.from('campanas').update({ estado: 'BORRADOR' })
+      .eq('id', campanaId).eq('studio_id', sesion.studioId).eq('estado', 'ENVIANDO');
+    Sentry.captureException(e instanceof Error ? e : new Error('campana enviar: encolado'), {
+      level: 'error', tags: { area: 'marketing' }, extra: { campanaId, studioId: sesion.studioId },
+    });
+    return NextResponse.json({ error: 'No se ha podido encolar el envío. Vuelve a intentarlo.' }, { status: 503 });
+  }
 
   return NextResponse.json({ ok: true });
 }

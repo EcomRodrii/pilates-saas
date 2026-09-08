@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { REGLAS } from './catalog.ts';
 import { CANALES, type ResultadoCanal } from './channels.ts';
 import { crearInApp, canalesExtraDe, preferenciaDe, PREF_DEFECTO, type Preferencia } from './inapp.ts';
-import { resolverContactoConocido } from './recipients.ts';
+import { resolverContactoConocido, emailDeLaPropietaria } from './recipients.ts';
 import * as Sentry from '@sentry/nextjs';
 import type {
   NotificationCategory, NotificationChannel, NotificationEvent, NotificationRow, Recipient,
@@ -243,6 +243,7 @@ export async function entregarExternos(
 
   let entregadas = 0, deliveries = 0;
   const fallos: FalloEnvio[] = [];
+  const emailsDeCuenta = new Map<string, string | null>();
   for (const noti of pendientes) {
     const regla = REGLAS[noti.event_type as string];
     const dest: Recipient = {
@@ -262,6 +263,21 @@ export async function entregarExternos(
       const st = studios.get(noti.studio_id as string);
       dest.email = (st?.email as string | null) ?? null;
       dest.telefono = (st?.telefono as string | null) ?? null;
+      // `studios.email` es el email PÚBLICO del estudio y está vacío en la
+      // mayoría (medido en producción el 8 sep 2026). Sin este fallback, la
+      // propietaria NO tenía canal EMAIL: las únicas entregas EMAIL de la
+      // historia de esta tabla acabaron SKIPPED «destinatario sin email», y
+      // con ellas los avisos CRITICA que no tienen otra vía de llegar a quien
+      // no está mirando el panel (Stripe desconectado, prueba expirada).
+      // Se cachea por usuario: un aviso a todo un estudio recorre este bucle
+      // muchas veces y el email de su cuenta no cambia dentro de la tanda.
+      if (!dest.email && dest.userId) {
+        const yaVisto = emailsDeCuenta.get(dest.userId);
+        dest.email = yaVisto !== undefined
+          ? yaVisto
+          : await emailDeLaPropietaria(admin, dest.userId, null);
+        emailsDeCuenta.set(dest.userId, dest.email);
+      }
     }
 
     const critica = regla.priority === 'CRITICA';

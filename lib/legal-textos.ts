@@ -187,14 +187,43 @@ export interface StudioConfig {
  * pilates" — sin nombre ni NIF, aunque el estudio los tuviera rellenos. Lo que
  * firmaba la clienta no identificaba a nadie.
  */
+/**
+ * Traduce la fila de `studios` (snake_case) a `DatosEstudioLegal` (camelCase).
+ *
+ * Exportada A PROPÓSITO para poder anclarla en un test: como todos los campos
+ * de `DatosEstudioLegal` son opcionales, pasar la fila cruda COMPILA y se traga
+ * media identidad fiscal en silencio. Lo que hay que probar es la FORMA, no que
+ * servidor y portal llamen a la misma función — eso ya se cumplía cuando el
+ * sello certificaba un texto que la compradora nunca vio.
+ */
+export function datosLegalesDeFila(fila: Record<string, unknown>): DatosEstudioLegal {
+  const t = (k: string) => (fila[k] as string | null) ?? null;
+  const n = (k: string) => (fila[k] === null || fila[k] === undefined ? null : Number(fila[k]));
+  return {
+    nombre: t('nombre'),
+    razonSocial: t('razon_social'),
+    nif: t('nif'),
+    direccion: t('direccion'),
+    ciudad: t('ciudad'),
+    codigoPostal: t('codigo_postal'),
+    email: t('email'),
+    cancelacionVentanaHoras: n('cancelacion_ventana_horas'),
+    penalizacionImporteEur: n('penalizacion_importe_eur'),
+  };
+}
+
 export function configLegalDe(
   studio: DatosEstudioLegal | null | undefined,
   guardados: { politicaPrivacidad?: string | null; terminosServicio?: string | null } | null | undefined,
 ): StudioConfig {
   const e = studio ?? {};
+  // `??` dejaba pasar la cadena vacía: un estudio que borrara el contenido del
+  // editor y guardara '' sellaba —y enseñaba— un documento EN BLANCO en vez del
+  // de por defecto. Vacío es "no lo he reescrito", no "mis condiciones son
+  // ninguna".
   return {
-    politicaPrivacidad: guardados?.politicaPrivacidad ?? politicaPrivacidadPorDefecto(e),
-    terminosServicio: guardados?.terminosServicio ?? terminosServicioPorDefecto(e),
+    politicaPrivacidad: vacio(guardados?.politicaPrivacidad) ? politicaPrivacidadPorDefecto(e) : guardados!.politicaPrivacidad!,
+    terminosServicio: vacio(guardados?.terminosServicio) ? terminosServicioPorDefecto(e) : guardados!.terminosServicio!,
   };
 }
 

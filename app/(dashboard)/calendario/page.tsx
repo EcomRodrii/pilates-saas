@@ -1504,7 +1504,15 @@ export default function Calendario() {
     const res = await cancelarSerieDesde(sesionId);
     setSesionId(null);
     if (!res.ok) { showToast(res.error); return; }
-    const base = `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''} · clientas avisadas`;
+    // El toast cuenta lo que de verdad salió. Antes decía «clientas avisadas»
+    // siempre: `notificarCancelacionSesiones` disparaba los emails sin esperar
+    // el resultado, exactamente el fallo que ya se cerró en `cancelarSesion`
+    // (clase suelta) y que su gemelo de serie se había quedado sin heredar.
+    const avisadas = res.avisadas ?? 0, sinAvisar = res.sinAvisar ?? 0;
+    const aviso = sinAvisar > 0
+      ? `${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
+      : avisadas > 0 ? 'clientas avisadas' : 'sin clientas a las que avisar';
+    const base = `Serie cancelada · ${n} clase${n !== 1 ? 's' : ''} · ${aviso}${res.enApp === false ? ' · sin aviso en la app' : ''}`;
     showToast(res.avisoBono ? `${base} · ${res.avisoBono}` : base);
     void refrescarVista();
   }
@@ -1521,7 +1529,15 @@ export default function Calendario() {
     setSesionId(null);
     // F-9 (auditoría 22ª pasada): mismo trato que "Cancelar" — si alguna socia
     // no recuperó su sesión de bono, el toast no puede decir solo "eliminada".
-    showToast(res.avisoBono ? `Clase eliminada · ${res.avisoBono}` : 'Clase eliminada');
+    // Igual que "Cancelar": eliminar también avisa por email e in-app, así que
+    // el toast tiene que poder decir que ese aviso no salió.
+    const sinAvisar = res.sinAvisar ?? 0;
+    const pegas = [
+      sinAvisar > 0 ? `${sinAvisar} sin avisar` : null,
+      res.enApp === false ? 'sin aviso en la app' : null,
+      res.avisoBono ?? null,
+    ].filter(Boolean);
+    showToast(['Clase eliminada', ...pegas].join(' · '));
     void refrescarVista();
   }
 
