@@ -1134,3 +1134,25 @@ export async function emitirValorarClase(
     return 0;
   }
 }
+
+// 34ª pasada de auditoría: la AEAT ha rechazado una factura Veri*Factu. Antes
+// esto solo quedaba en un Sentry.captureMessage (lo ve Tentare, no la
+// propietaria, que es la obligada tributaria real) — y en silencio, ninguna
+// factura posterior de ese estudio vuelve a transmitirse nunca (la "última
+// secuencia registrada" que calcula transmitir.ts no avanza más allá de una
+// fila RECHAZADA). `dedupKey` por factura: un reintento del cron sobre el
+// mismo hueco no debe generar un aviso nuevo cada vez.
+export async function emitirFacturaRechazadaAeat(
+  admin: SupabaseClient, p: { studioId: string; facturaId: string; numero: string; motivo: string | null },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.FACTURA_RECHAZADA_AEAT, studioId: p.studioId,
+      data: { numero: p.numero, motivo: p.motivo ?? 'motivo no especificado por la AEAT' },
+      resource: { type: 'factura', id: p.facturaId },
+      dedupKey: `factura-rechazada-aeat:${p.facturaId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirFacturaRechazadaAeat:', e instanceof Error ? e.message : e);
+  }
+}

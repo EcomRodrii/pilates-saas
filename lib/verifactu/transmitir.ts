@@ -236,6 +236,15 @@ export async function transmitirPendientes(): Promise<ResumenTransmision> {
           tags: { area: 'verifactu', studio: studioId },
           extra: { factura: factura.numeroCompleto, error: errorRegistro },
         });
+        // 34ª pasada de auditoría: sin esto, la propietaria (la obligada
+        // tributaria real) nunca se enteraba de un rechazo que congela para
+        // siempre la transmisión de toda factura posterior de su estudio —
+        // solo quedaba en un Sentry que solo ve Tentare. Best-effort: un
+        // fallo al notificar no puede impedir que el resumen del cron avance.
+        const { emitirFacturaRechazadaAeat } = await import('@/lib/notifications/emit');
+        await emitirFacturaRechazadaAeat(admin, {
+          studioId, facturaId: factura.id, numero: factura.numeroCompleto, motivo: errorRegistro ?? null,
+        });
       }
     }
   }
