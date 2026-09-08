@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import * as Sentry from '@sentry/nextjs';
-import { Mic, Square, Loader2, CheckCircle2, Bot } from 'lucide-react';
+import { Mic, Square, CheckCircle2 } from 'lucide-react';
+import { TentareOrb } from '@/components/marca/tentare-orb';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudio } from '@/lib/studio-context';
 import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
@@ -105,7 +106,11 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
                   disabled={procesando}
                   className="flex items-center gap-1.5 px-4 py-2 border border-border rounded-xl text-xs font-bold disabled:opacity-40 hover:bg-muted transition-colors"
                 >
-                  {procesando ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
+                  {/* El Orb en sus dos estados, en vez de un robot que se convierte en
+                    un spinner genérico: es el MISMO objeto, primero quieto y
+                    después pensando. Un icono distinto mientras trabaja decía que
+                    había empezado otra cosa. */}
+                  <TentareOrb tam={15} estado={procesando ? 'pensando' : 'reposo'} />
                   {procesando ? 'Procesando…' : 'Estructurar con IA'}
                 </button>
               )}
