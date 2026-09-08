@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
@@ -12,17 +12,24 @@ import { euros, fechaLarga } from '@/lib/student/formato';
 import { Badge } from '@/components/student/ui/Badge';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
 import { ESTADO_PAGO } from '@/components/student/domain/PaymentItem';
+import { getFacturaDeRecibo, type FacturaDeSocia } from '@/lib/student/factura-datos';
+import { abrirFacturaPDF } from '@/lib/factura-pdf';
+import { Button } from '@/components/student/ui/Button';
 
 // Recibo (§A.15).
 //
 // ⚠️ DOS BOTONES DEL PAQUETE NO ESTÁN, y no es un olvido:
 //
-// «Descargar recibo» · No existe ninguna ruta que le sirva a una alumna su
-// recibo o su factura. Las dos de `app/api/facturas/*` son `verificarSesionStaff`
-// (rectificar y sellar), y la factura es un documento fiscal sellado con
-// Veri*Factu: crear un endpoint público que lo entregue es una decisión de
-// producto y de cumplimiento, no un botón. Poner el botón enseñando un toast de
-// «pendiente» sería peor: promete algo que no va a pasar.
+// «Descargar factura» · YA ESTÁ (ver más abajo). La cautela de antes era
+// correcta y apuntaba al CÓMO: no había ruta que sirviera una factura a una
+// alumna, y poner un botón que enseñara un toast de «pendiente» habría sido
+// peor que no ponerlo. Ahora existe `/api/public/factura`, de SOLO LECTURA y
+// con la identidad derivada del JWT — entregar a la clienta su propia factura
+// ya emitida es para lo que existe una factura; lo que sigue sin poder hacerse
+// desde aquí es crearla, alterarla o re-emitirla.
+//
+// Y si el recibo no tiene factura (35 de 73 en producción no la llevan), el
+// botón no aparece y se mantiene el respaldo de «pídesela al estudio».
 //
 // «Intentar el pago de nuevo» · Reintentar un cobro fallido desde la app abre un
 // camino de dinero nuevo. Hoy el reintento con la tarjeta guardada existe pero
@@ -42,6 +49,18 @@ export default function ReciboPage() {
     [estudio.slug, pagoId],
   );
   const { data, estado, reintentar } = useAsync(cargar, (d) => !d);
+
+  // ⚠️ La factura se pide AL MONTAR, no al pulsar. `abrirFacturaPDF` hace
+  // `window.open`, y el navegador lo bloquea si sale de un callback asíncrono
+  // en vez de directamente del clic. Mismo motivo, escrito ya, que en
+  // `components/pos/boton-factura.tsx`.
+  const [factura, setFactura] = useState<FacturaDeSocia | null>(null);
+  useEffect(() => {
+    let vigente = true;
+    if (!data?.id) return;
+    void getFacturaDeRecibo(estudio.id, data.id).then((f) => { if (vigente) setFactura(f); });
+    return () => { vigente = false; };
+  }, [estudio.id, data?.id]);
 
   if (estado === 'loading') {
     return (
@@ -141,9 +160,22 @@ export default function ReciboPage() {
           )}
         </div>
 
-        <p className="t-meta" style={{ textAlign: 'center', fontSize: 11.5, lineHeight: 1.5 }}>
-          ¿Necesitas la factura? Pídesela al estudio: {estudio.email || estudio.telefono || estudio.nombre}.
-        </p>
+        {/* Con factura emitida, se descarga. Sin ella, el respaldo de siempre:
+            no tener factura NO es un error, es lo normal en más de la mitad de
+            los recibos, y un botón que fallara sería peor que esta línea. */}
+        {factura ? (
+          <Button
+            full
+            onClick={() => abrirFacturaPDF(factura.factura, factura.emisor, factura.receptor)}
+            style={{ height: 'var(--h-control-md)' }}
+          >
+            Descargar factura
+          </Button>
+        ) : (
+          <p className="t-meta" style={{ textAlign: 'center', fontSize: 11.5, lineHeight: 1.5 }}>
+            ¿Necesitas la factura? Pídesela al estudio: {estudio.email || estudio.telefono || estudio.nombre}.
+          </p>
+        )}
       </div>
     </StudentShell>
   );
