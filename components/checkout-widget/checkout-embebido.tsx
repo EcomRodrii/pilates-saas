@@ -344,6 +344,9 @@ function FormularioPago({
   const [enviando, setEnviando] = useState(false);
   // Qué documento se está leyendo, si es que hay alguno abierto.
   const [legal, setLegal] = useState<{ titulo: string; texto: string } | null>(null);
+  // La aceptación es un acto suyo, no una consecuencia de haber llegado hasta
+  // aquí: nace SIN marcar y el botón de pagar no funciona hasta que la marca.
+  const [acepta, setAcepta] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // `stripe` (useStripe) se pone en verdad en cuanto carga el SDK — antes de
   // que el PaymentElement (su propio iframe) termine de montarse y emita
@@ -519,8 +522,15 @@ function FormularioPago({
           MEDIO DE PAGO, no sobre las condiciones del estudio. Va ANTES del
           botón: leerlo después de pagar no sirve de nada. */}
       {textosLegales && (
-        <p style={{ margin: '0 0 10px', fontSize: 11.5, lineHeight: 1.5, color: 'var(--portal-muted)' }}>
-          Al pagar aceptas las{' '}
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '0 0 10px', fontSize: 11.5, lineHeight: 1.5, color: 'var(--portal-muted)', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={acepta}
+            onChange={(e) => setAcepta(e.target.checked)}
+            style={{ marginTop: 2, flexShrink: 0, accentColor: 'var(--portal-brand)', width: 15, height: 15, cursor: 'pointer' }}
+          />
+          <span>
+          He leído y acepto las{' '}
           <button
             type="button"
             onClick={() => setLegal({ titulo: 'Condiciones del servicio', texto: textosLegales.terminosServicio })}
@@ -535,7 +545,8 @@ function FormularioPago({
           >
             política de privacidad
           </button>.
-        </p>
+          </span>
+        </label>
       )}
       {legal && (
         <div
@@ -558,12 +569,12 @@ function FormularioPago({
         </div>
       )}
       <button
-        type="button" disabled={!stripe || !elementoListo || enviando} onClick={pagar}
+        type="button" disabled={!stripe || !elementoListo || enviando || (!!textosLegales && !acepta)} onClick={pagar}
         aria-busy={enviando}
         style={{
           width: '100%', height: 52, borderRadius: radius.pillBtnSm, border: 'none', fontSize: 14, fontWeight: 800,
           background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-          cursor: (!stripe || !elementoListo || enviando) ? 'default' : 'pointer', opacity: (!stripe || !elementoListo || enviando) ? 0.6 : 1,
+          cursor: (!stripe || !elementoListo || enviando || (!!textosLegales && !acepta)) ? 'default' : 'pointer', opacity: (!stripe || !elementoListo || enviando || (!!textosLegales && !acepta)) ? 0.6 : 1,
         }}
       >
         {enviando ? (

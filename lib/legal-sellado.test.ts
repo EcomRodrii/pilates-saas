@@ -47,3 +47,29 @@ test('la misma configuración da SIEMPRE la misma huella', () => {
   const dos = hashTextoLegal(textoLegalCompleto(configLegalDe(ESTUDIO, {})));
   assert.equal(uno, dos);
 });
+
+// ── Lo que el SERVIDOR manda al portal ───────────────────────────────────────
+//
+// `studioPublico` enviaba los textos CRUDOS con la nota «null = el cliente usa
+// el texto por defecto». Ese contrato no se podía cumplir: componer el respaldo
+// exige el NIF y la dirección, y esa lista blanca los excluye a propósito. El
+// portal acababa componiendo dos vacíos.
+//
+// Medido en producción antes de arreglarlo: 10 de 11 estudios sin política
+// propia, ninguno con términos propios, y en `socios.aceptacion_version` las
+// altas de PORTAL guardaban 41 caracteres frente a 2170 las de MOSTRADOR. Esos
+// 41 son EXACTAMENTE el separador entre dos textos vacíos.
+
+test('componer desde dos vacíos da solo el separador: 41 caracteres de nada', () => {
+  // Este es el bug, escrito como test para que no vuelva por otra puerta.
+  const vacio = textoLegalCompleto({ politicaPrivacidad: '', terminosServicio: '' });
+  assert.equal(vacio.trim().replace(/─/g, ''), '', 'no queda ni una palabra');
+  assert.ok(vacio.length < 60, `un documento legal no cabe en ${vacio.length} caracteres`);
+});
+
+test('con los datos del estudio, lo que se firma identifica a alguien', () => {
+  // La diferencia entre las dos filas de producción, en una aserción.
+  const bueno = textoLegalCompleto(configLegalDe(ESTUDIO, { politicaPrivacidad: null, terminosServicio: null }));
+  assert.ok(bueno.length > 1000, `esperaba un documento de verdad, salieron ${bueno.length} caracteres`);
+  assert.ok(bueno.includes('Pilates Centro') && bueno.includes('B00000000'));
+});
