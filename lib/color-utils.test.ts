@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hexToHsl, hslToHex, ajustarLuminosidad, derivarPaleta, colorLegibleSobreClaro } from './color-utils.ts';
+import { hexToHsl, hslToHex, ajustarLuminosidad, derivarPaleta, colorLegibleSobreClaro, colorLegibleSobre, mezclarHex } from './color-utils.ts';
 import { cumpleContraste } from './wcag-contrast.ts';
 
 test('hexToHsl: negro/blanco/rojo puro', () => {
@@ -82,4 +82,38 @@ test('colorLegibleSobreClaro: pastel casi blanco (secondary de Bloom) también s
 
 test('colorLegibleSobreClaro: hex inválido → cae al oscuro por defecto (nunca deja `--brand-secondary` con un valor CSS roto)', () => {
   assert.equal(colorLegibleSobreClaro('no-es-un-color'), '#131313');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El gate medía contra BLANCO y con el umbral de TEXTO GRANDE. Ninguna de las
+// dos cosas se parecía a la pantalla: `--brand-secondary` se pinta en 11-14 px
+// sobre `bg-brand/10`. Medido en la pestaña activa de Paquetes: 3,29:1.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('mezclarHex: 12 % de la marca sobre blanco da el tinte que pinta el panel', () => {
+  assert.equal(mezclarHex('#000000', '#FFFFFF', 0.5), '#808080');
+  assert.equal(mezclarHex('#343825', '#FFFFFF', 0), '#ffffff');
+  assert.equal(mezclarHex('#343825', '#FFFFFF', 1), '#343825');
+});
+
+test('colorLegibleSobre: la arena de la marca, sobre el tinte real, cumple AA de texto NORMAL', () => {
+  const tinte = mezclarHex('#343825', '#FFFFFF', 0.12);
+  const r = colorLegibleSobre('#D9C29E', tinte);
+  assert.equal(
+    cumpleContraste(r, tinte, {}),
+    true,
+    `${r} sobre ${tinte} no llega a 4,5:1 — es el 3,29:1 que se veía en Paquetes`,
+  );
+});
+
+test('colorLegibleSobre: contra el tinte OSCURO aclara en vez de oscurecer', () => {
+  const tinte = mezclarHex('#343825', '#1E1E22', 0.12);
+  const r = colorLegibleSobre('#343825', tinte);
+  assert.equal(cumpleContraste(r, tinte, {}), true);
+  // Un oliva casi negro sobre fondo casi negro solo se salva subiendo.
+  assert.ok(hexToHsl(r)!.l > hexToHsl('#343825')!.l, `${r} debería ser más claro que #343825`);
+});
+
+test('colorLegibleSobre: fondo inválido → blanco o negro, nunca un valor CSS roto', () => {
+  assert.equal(colorLegibleSobre('#D9C29E', 'no-es-un-color'), '#FFFFFF');
 });

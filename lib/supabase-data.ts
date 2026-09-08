@@ -3415,13 +3415,19 @@ export async function dbVentasPorTipo(
 // F1 (B1): contadores de clientas SERVER-SIDE (migr 0097). Sustituye a los 4 filter/
 // length sobre el array de socios del cliente (capado a 1000). count() en SQL no se
 // capa; la RLS acota por estudio.
-export async function dbStatsClientas(): Promise<{ total: number; activas: number; conBono: number; inactivas30d: number }> {
+// ⚠️ Devuelve `null` cuando no hay respuesta, NUNCA ceros. Un cero aquí es una
+// afirmación —«no tienes ninguna clienta»— y la pantalla no puede distinguirla
+// de la verdad: la tarjeta pinta `stats?.total ?? null` para poder enseñar «—»,
+// y ese guardia quedaba anulado desde aquí. Un estudio con 200 socias y la RPC
+// caída leía «0 Total clientas» con su lista de 200 debajo.
+export async function dbStatsClientas(): Promise<{ total: number; activas: number; conBono: number; inactivas30d: number } | null> {
   const { data, error } = await supabase.rpc('stats_clientas');
-  if (error) { reportDbError('[dbStatsClientas]', error); return { total: 0, activas: 0, conBono: 0, inactivas30d: 0 }; }
+  if (error) { reportDbError('[dbStatsClientas]', error); return null; }
   const row = (Array.isArray(data) ? data[0] : data) as { total: number; activas: number; con_bono: number; inactivas_30d: number } | undefined;
+  if (!row) return null;
   return {
-    total: Number(row?.total ?? 0), activas: Number(row?.activas ?? 0),
-    conBono: Number(row?.con_bono ?? 0), inactivas30d: Number(row?.inactivas_30d ?? 0),
+    total: Number(row.total ?? 0), activas: Number(row.activas ?? 0),
+    conBono: Number(row.con_bono ?? 0), inactivas30d: Number(row.inactivas_30d ?? 0),
   };
 }
 

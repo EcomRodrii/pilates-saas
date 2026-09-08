@@ -73,18 +73,16 @@ function normalizaBusqueda(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '');
 }
 
-function avatarColor(str: string) {
-  const colors = [
-    ['#E0E7FF', '#6E9E0A'],
-    ['#D1FAE5', '#065F46'],
-    ['#FEF3C7', '#92400E'],
-    ['#FCE7F3', '#9D174D'],
-    ['#E0F2FE', '#0369A1'],
-    ['#F3E8FF', '#6B21A8'],
-  ];
+// Tono del avatar. Sale de la paleta CATEGÓRICA del panel (`--cat-1..9`), que
+// ya está resuelta para claro y para oscuro, en vez de los seis pares de hex
+// fijos que había — pensados solo para fondo claro, y con un despiste dentro:
+// el primer par mezclaba un fondo índigo con una tinta VERDE LIMA (#6E9E0A),
+// que era el único que no compartía familia con su fondo. Nueve tonos en vez de
+// seis, además, reparten mejor una lista larga.
+function avatarColor(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  return colors[Math.abs(hash) % colors.length];
+  return `var(--cat-${(Math.abs(hash) % 9) + 1})`;
 }
 
 function relativeTime(iso: string | null | undefined): string {
@@ -1069,7 +1067,7 @@ export default function Socios() {
                 const lastVisit = getLastVisit(s.id);
                 const sesRest = saldoBonosPorSocio.get(s.id) ?? sus?.sesionesRestantes;
                 const isSelected = selected.has(s.id);
-                const [, avatarText] = avatarColor(`${s.nombre}${s.apellidos}`);
+                const avatarText = avatarColor(`${s.nombre}${s.apellidos}`);
 
                 // Sesiones badge color
                 let sesColor = 'var(--success)';
@@ -1217,7 +1215,7 @@ export default function Socios() {
               const plan = getPlan(sus?.planId);
               const lastVisit = getLastVisit(s.id);
               const sesRest = saldoBonosPorSocio.get(s.id) ?? sus?.sesionesRestantes;
-              const [, avatarText] = avatarColor(`${s.nombre}${s.apellidos}`);
+              const avatarText = avatarColor(`${s.nombre}${s.apellidos}`);
               return (
                 <div
                   key={s.id}

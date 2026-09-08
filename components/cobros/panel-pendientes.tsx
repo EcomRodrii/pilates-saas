@@ -120,7 +120,7 @@ const BADGE: Record<string, { bg: string; text: string; label: string }> = {
   PENDIENTE: { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)', label: 'Sin cobrar' },
   DEVUELTO:  { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)', label: 'Devuelto por el banco' },
   EN_CURSO:  { bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', text: 'var(--brand)', label: 'Enviado al banco' },
-  FALLIDO:   { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: '#7A2F1D', label: 'No se pudo cobrar' },
+  FALLIDO:   { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)', label: 'No se pudo cobrar' },
 };
 
 type SortKey = 'reciente' | 'antiguo' | 'mayor' | 'menor';

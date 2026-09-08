@@ -815,7 +815,10 @@ export default function Dashboard() {
   // descartaba a quien no ha venido NUNCA, dos criterios que la RPC no aplica—,
   // así que el número de la tarjeta y el de la página a la que te manda no
   // coincidían. Compartir la fuente hace imposible que vuelvan a divergir.
-  const [statsClientas, setStatsClientas] = useState({ total: 0, activas: 0, conBono: 0, inactivas30d: 0 });
+  // `null` mientras no haya respuesta, y también si la RPC falla: un «0 sin
+  // venir en 30 días» es una noticia buena que el panel no puede dar sin
+  // haberla comprobado. Ver `dbStatsClientas`.
+  const [statsClientas, setStatsClientas] = useState<{ total: number; activas: number; conBono: number; inactivas30d: number } | null>(null);
   useEffect(() => {
     let vivo = true;
     void dbStatsClientas().then(r => { if (vivo) setStatsClientas(r); });
@@ -887,7 +890,7 @@ export default function Dashboard() {
             { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Clientas hoy', alert: false, privada: false },
             ...(verFinanzas ? [{ href: '/cobros', Icon: CreditCard, value: pendientesTotal as number | string, label: 'Pagos pendientes', alert: pendientesTotal > 0, privada: false }] : []),
             { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0, privada: false },
-            { href: '/clientas', Icon: Clock, value: statsClientas.inactivas30d, label: 'Sin venir 30d', alert: statsClientas.inactivas30d > 0, privada: false },
+            { href: '/clientas', Icon: Clock, value: statsClientas?.inactivas30d ?? '—', label: 'Sin venir 30d', alert: (statsClientas?.inactivas30d ?? 0) > 0, privada: false },
             // Ocupación semana e Ingresos del mes ya NO van aquí: se repetían
             // tal cual (mismo número, mismo enlace a /informes) en la tarjeta
             // de Ingresos y en la fila de KPIs de más abajo, sin aportar nada
@@ -1050,7 +1053,7 @@ export default function Dashboard() {
             value={sociasActivas}
             sub={verFinanzas
               ? `${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`
-              : `${statsClientas.inactivas30d} sin venir en 30 días`}
+              : statsClientas ? `${statsClientas.inactivas30d} sin venir en 30 días` : 'Sin venir en 30 días: —'}
             Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
           {/* Único KPI de esta fila con click-through a /informes: era la única
               función que perdía la fila "Hoy de un vistazo" al quitar de ahí

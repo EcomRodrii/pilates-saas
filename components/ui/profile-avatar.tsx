@@ -70,8 +70,28 @@ export const ProfileAvatar = memo(function ProfileAvatar({
     return <img src={memojiUrl(memojiSeed)} alt={nombre} className={cls} style={{ objectFit: 'cover' }} loading="lazy" decoding="async" />;
   }
 
+  // El COLOR distingue; las INICIALES se leen. Antes hacían las dos cosas: el
+  // fondo era `${color}1A` (el mismo tono al 10 % de alfa) y la tinta el tono a
+  // pelo, así que la legibilidad dependía de qué hex tocara. Medido: 2,04:1 en
+  // oscuro y 2,89:1 en claro, a 10 px.
+  //
+  // ⚠️ Y no se arregla oscureciendo el tono: el fondo es ESE MISMO tono, así
+  // que se mueven los dos a la vez. Con un color claro (una instructora que
+  // eligió arena, un blanco) no hay mezcla que salve el par. Por eso el tono se
+  // queda solo en el fondo —al 20 %, donde se ve— y las iniciales van con
+  // `--foreground`, que es legible sobre él en los dos modos y con cualquier
+  // color que elija el estudio, sin depender de nada.
+  //
+  // `color-mix` y no concatenar alfa al hex: con un token (`var(--cat-3)`) la
+  // concatenación produce `var(--cat-3)1A`, que no es un color — la misma
+  // trampa que ya documenta /automatizaciones.
   return (
-    <div className={cls} style={{ backgroundColor: color ? `${color}1A` : 'var(--muted)', color: color ?? 'var(--muted-foreground)' }}>
+    <div
+      className={cls}
+      style={color
+        ? { backgroundColor: `color-mix(in srgb, ${color} 20%, var(--card))`, color: 'var(--foreground)' }
+        : { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}
+    >
       {initialsOf(nombre, apellidos)}
     </div>
   );

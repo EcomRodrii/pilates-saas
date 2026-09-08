@@ -258,7 +258,7 @@ export default function Informes() {
         // de «esto va mal»— para un estudio que simplemente no tiene datos
         // todavía, y también cuando la consulta volvía vacía por un fallo.
         // Mismo criterio que el resto: ausente no es cero.
-        setRetencion(stc.total > 0 ? Math.round((stc.activas / stc.total) * 100) : null);
+        setRetencion(stc && stc.total > 0 ? Math.round((stc.activas / stc.total) * 100) : null);
         setVentasTipo(combinarConVariacion(ventasActual, ventasAnterior));
       });
     return () => { cancel = true; };
@@ -501,8 +501,11 @@ export default function Informes() {
         description={`Panel de rendimiento del estudio · ${now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`}
         actions={
           <div
-            className="flex items-center gap-1 p-1 rounded-xl overflow-x-auto flex-nowrap"
-            style={{ backgroundColor: 'var(--border)' }}
+            // `bg-muted`, no `var(--border)`: ese token es para líneas de un
+            // píxel, no para superficies, y es más oscuro que `--muted` — el
+            // texto de las opciones inactivas se quedaba en 4,32:1. Es además
+            // el fondo que usan los demás segmentados del panel.
+            className="flex items-center gap-1 p-1 rounded-xl overflow-x-auto flex-nowrap bg-muted"
             role="group"
             aria-label="Seleccionar periodo"
           >
@@ -903,7 +906,7 @@ export default function Informes() {
                           className="inline-block px-1.5 py-0.5 rounded font-bold tabular-nums"
                           style={{
                             backgroundColor: row.pct30 >= 70 ? 'color-mix(in srgb, var(--success) 12%, var(--card))' : row.pct30 >= 40 ? 'color-mix(in srgb, var(--warning) 12%, var(--card))' : 'color-mix(in srgb, var(--destructive) 12%, var(--card))',
-                            color: row.pct30 >= 70 ? 'var(--success)' : row.pct30 >= 40 ? 'var(--warning)' : '#7A2F1D',
+                            color: row.pct30 >= 70 ? 'var(--success)' : row.pct30 >= 40 ? 'var(--warning)' : 'var(--destructive)',
                           }}
                           title={row.total === 0 ? 'Sin altas ese mes: no hay nada que medir' : undefined}
                         >

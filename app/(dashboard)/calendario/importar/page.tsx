@@ -251,7 +251,7 @@ export default function ImportarHorarioPage() {
               {conteo.ok} filas correctas
             </span>
             {conteo.err > 0 && (
-              <span className="rounded-xl bg-destructive/10 px-3 py-1.5 text-[12.5px] font-semibold text-[#7A2F1D]">
+              <span className="rounded-xl bg-destructive/10 px-3 py-1.5 text-[12.5px] font-semibold text-destructive">
                 {conteo.err} con problemas (se omiten)
               </span>
             )}

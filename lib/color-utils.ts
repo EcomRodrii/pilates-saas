@@ -6,7 +6,7 @@
 // colores y el resto de la paleta se deriva de forma armónica (derivarPaleta).
 // Puro, sin dependencias de runtime → importable en cliente y testeable en node.
 
-import { hexARgb, cumpleContraste } from './wcag-contrast.ts';
+import { hexARgb, cumpleContraste, luminanciaRelativa, foregroundParaFondo } from './wcag-contrast.ts';
 
 export type Hsl = { h: number; s: number; l: number };
 
@@ -105,24 +105,53 @@ export function derivarPaleta(primary: string): PaletaDerivada {
   };
 }
 
+/** Mezcla dos hex en sRGB. `pesoA` 0..1 — el peso de `a` sobre `b`. */
+export function mezclarHex(a: string, b: string, pesoA: number): string {
+  const ra = hexARgb(a);
+  const rb = hexARgb(b);
+  if (!ra || !rb) return b;
+  const w = clamp(pesoA, 0, 1);
+  const mez = (x: number, y: number) => Math.round(x * w + y * (1 - w));
+  const hx = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${hx(mez(ra.r, rb.r))}${hx(mez(ra.g, rb.g))}${hx(mez(ra.b, rb.b))}`;
+}
+
 /**
- * Un color, garantizado legible como TEXTO sobre un fondo casi blanco — el uso
- * real de `--brand-secondary` en el PANEL (badges, pestañas activas, iconos;
- * nunca relleno sólido). En los temas de la galería (Oliva/Bloom/Noir), ese
- * mismo campo `secondary` tiene otro papel — "superficie suave", no texto — y
- * puede ser deliberadamente pastel; `destacado` tampoco sirve de sustituto
- * genérico (en Bloom es un rosa claro pensado para ir SOBRE la marca, no sobre
- * blanco). Por eso esto no reemplaza el valor del tema: se aplica solo en el
- * punto donde `--brand-secondary` se convierte en texto del panel, oscureciendo
- * progresivamente hasta cumplir AA si hace falta. Un hex inválido nunca sale
- * tal cual (dejaría `--brand-secondary` con un valor CSS roto): cae al oscuro
- * por defecto, igual que el resto de fallbacks de este módulo.
+ * Un color, garantizado legible como TEXTO NORMAL (AA, 4,5:1) sobre el fondo
+ * que se le pase — oscureciéndolo si el fondo es claro, aclarándolo si es
+ * oscuro. Es el uso real de `--brand-secondary` en el PANEL (badges, pestañas
+ * activas, iconos; nunca relleno sólido). En los temas de la galería
+ * (Oliva/Bloom/Noir), ese mismo campo `secondary` tiene otro papel —
+ * "superficie suave", no texto — y puede ser deliberadamente pastel;
+ * `destacado` tampoco sirve de sustituto genérico (en Bloom es un rosa claro
+ * pensado para ir SOBRE la marca, no sobre blanco). Por eso esto no reemplaza
+ * el valor del tema: se aplica solo en el punto donde `--brand-secondary` se
+ * convierte en texto del panel.
+ *
+ * ⚠️ Dos cosas que este gate daba por buenas y no lo eran, medidas en la
+ * pantalla real (Paquetes, pestaña activa: 3,29:1):
+ *   1. Pedía el umbral de TEXTO GRANDE (3:1). Pero `--brand-secondary` se pinta
+ *      en 11-14 px por todo el panel — es texto normal, y el umbral es 4,5:1.
+ *   2. Medía contra BLANCO PURO. Casi ningún sitio lo pinta sobre blanco: van
+ *      sobre `bg-brand/10` o `color-mix(brand 12%, card)`, que es más oscuro y
+ *      resta contraste. Por eso el fondo se pasa ahora explícitamente.
+ * Un hex inválido nunca sale tal cual (dejaría la var con un valor CSS roto):
+ * cae al blanco o negro que más contraste haga con el fondo.
  */
-export function colorLegibleSobreClaro(hex: string): string {
-  if (cumpleContraste(hex, '#FFFFFF', { grande: true })) return hex;
-  for (let delta = -10; delta >= -70; delta -= 10) {
-    const candidato = ajustarLuminosidad(hex, delta);
-    if (cumpleContraste(candidato, '#FFFFFF', { grande: true })) return candidato;
+export function colorLegibleSobre(color: string, fondo: string): string {
+  if (!hexARgb(color) || !hexARgb(fondo)) return foregroundParaFondo(fondo);
+  if (cumpleContraste(color, fondo, {})) return color;
+  // Hacia dónde moverse: si el fondo es claro, oscurecer; si es oscuro, aclarar.
+  const fondoClaro = luminanciaRelativa(hexARgb(fondo)!) > 0.18;
+  const paso = fondoClaro ? -6 : 6;
+  for (let delta = paso; Math.abs(delta) <= 96; delta += paso) {
+    const candidato = ajustarLuminosidad(color, delta);
+    if (cumpleContraste(candidato, fondo, {})) return candidato;
   }
-  return '#131313';
+  return foregroundParaFondo(fondo);
+}
+
+/** `colorLegibleSobre` contra blanco puro. */
+export function colorLegibleSobreClaro(hex: string): string {
+  return colorLegibleSobre(hex, '#FFFFFF');
 }

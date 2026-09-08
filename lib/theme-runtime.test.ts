@@ -9,6 +9,7 @@ import {
 } from './theme-runtime.ts';
 import { DEFAULT_THEME, themeConfigSchema } from './theme-schema.ts';
 import { cumpleContraste } from './wcag-contrast.ts';
+import { mezclarHex } from './color-utils.ts';
 
 test('foregroundParaFondo: blanco sobre fondo oscuro, negro sobre fondo claro', () => {
   assert.equal(foregroundParaFondo('#131313'), '#FFFFFF');
@@ -112,7 +113,11 @@ test('themeToVarMap (vía themeToCssVars): --brand-secondary de un tema con seco
   const vars = themeToCssVars({ ...DEFAULT_THEME, secondary: '#C4B5FD', background: '#FFFFFF' }) as Record<string, string>;
   assert.equal(vars['--portal-brand-secondary'], '#C4B5FD');
   assert.notEqual(vars['--brand-secondary'], '#C4B5FD');
-  assert.equal(cumpleContraste(vars['--brand-secondary'], '#FFFFFF', { grande: true }), true);
+  // Contra el tinte REAL (marca al 12 % sobre la tarjeta) y con el umbral de
+  // texto normal — no contra blanco y no con el de texto grande, que es como
+  // este gate dejaba pasar un 3,29:1 a la pestaña activa de Paquetes.
+  const tinte = mezclarHex(DEFAULT_THEME.primary, '#FFFFFF', 0.12);
+  assert.equal(cumpleContraste(vars['--brand-secondary'], tinte, {}), true);
 });
 
 test('themeToVarMap: --brand-secondary de un secondary ya legible no se toca', () => {

@@ -476,6 +476,11 @@ export default function EquipoPage() {
         <ActividadTab actividadReciente={actividadReciente} />
       ) : (
       <>
+      {/* ⚠️ Con la carga caída, `tarjetas` es [] y estas tres tarjetas dirían
+          «0 miembros · 0 clases · 0 €» justo encima de un cartel que dice que
+          no hemos podido cargar el equipo. Cero no es «no lo sé», y aquí no lo
+          sabemos: la fila entera se calla. */}
+      {!falloTarjetas && (
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
           { label: 'Miembros', value: tarjetas.length, sub: `${activos} activos`, color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', Icon: Users },
@@ -498,6 +503,7 @@ export default function EquipoPage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Barra de filtros, fija al hacer scroll */}
       {tarjetas.length > 0 && (
