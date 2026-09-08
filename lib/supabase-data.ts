@@ -462,11 +462,13 @@ export type FilaReciboPanel = Omit<RowRecibos,
   // conciliador y sus reintentos de facturación en servidor. El panel no la
   // pinta ni la decide.
   | 'conciliado_en' | 'conciliado_por' | 'factura_pendiente_sellar'
-  // PaymentIntent EN VUELO de un cobro por datáfono lanzado desde el TPV
+  // PaymentIntent EN VUELO de un cobro por datáfono/Bizum lanzado desde el TPV
   // (20260907174656). Lo escriben y lo leen /api/pos/recibo y su confirmación,
   // en servidor; el panel no lo pinta ni lo decide. Mismo criterio que
-  // `checkout_session_id`, que es su equivalente para Checkout.
-  | 'cobro_mostrador_pi'
+  // `checkout_session_id`, que es su equivalente para Checkout — y
+  // `cobro_mostrador_checkout_session_id` (P-1, 27ª pasada) es el equivalente
+  // de ESE para la Checkout Session de Bizum del mostrador en concreto.
+  | 'cobro_mostrador_pi' | 'cobro_mostrador_checkout_session_id'
   // Aceptación por compra (migr 20260908160000). Son PRUEBA, no interfaz: el
   // panel no las pinta ni las decide, y el hash no le dice nada a nadie sin
   // resolverlo contra `terminos_versiones`. Mismo criterio que dejó fuera
