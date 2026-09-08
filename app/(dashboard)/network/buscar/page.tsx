@@ -191,11 +191,18 @@ export default function NetworkBuscadorPage() {
             </div>
           ) : resultados.length === 0 ? (
             <div className={cardCls}>
+              {/* Con filtros puestos, la salida va EN el vacío. Sin ella, la
+                  frase deja a quien busca sin saber si no hay nadie o si es
+                  que ha acotado de más — y los filtros están en una columna
+                  aparte que en móvil ni siquiera se ve. */}
               <EmptyState
                 compacto
                 titulo={hayFiltrosActivos
                   ? 'Ninguna profesional coincide con estos filtros.'
                   : 'Todavía no hay profesionales publicadas en tu zona.'}
+                cta={hayFiltrosActivos
+                  ? { label: 'Quitar los filtros', onClick: () => setFiltro(FILTRO_VACIO) }
+                  : undefined}
               />
             </div>
           ) : vista === 'mapa' ? (
