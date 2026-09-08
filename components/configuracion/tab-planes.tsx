@@ -2,11 +2,12 @@
 
 import { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Ticket, Trash2 } from 'lucide-react';
 import { InfoTip } from '@/components/ui/tooltip';
 import { cn, formatFechaLarga } from '@/lib/utils';
 import { nombrePeriodo } from '@/lib/bono-logic';
 import { useStudio } from '@/lib/studio-context';
+import { EmptyState } from '@/components/ui/empty-state';
 import type { PlanTarifa, TipoClase } from '@/lib/types';
 
 // P2 (auditoría "Veredicto de Marta"): el alta de un estudio nuevo precrea
@@ -166,9 +167,17 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
 
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
         {planesTarifa.length === 0 ? (
-          <div className="px-5 py-10 text-center text-[13px] text-muted-foreground">
-            No hay planes creados. Haz clic en &quot;Nuevo plan&quot; para empezar.
-          </div>
+          // Antes: «No hay planes creados. Haz clic en "Nuevo plan" para
+          // empezar.» Ni decía para qué sirve un plan ni el matiz que de
+          // verdad importa: mientras no haya NINGUNO activo, la página pública
+          // deja reservar sin plan (`hayAlgoQueContratar`). Crear el primero
+          // cambia cómo se reserva, y eso hay que decirlo aquí.
+          <EmptyState
+            icono={Ticket}
+            titulo="Todavía no vendes bonos ni cuotas"
+            descripcion="Sin ningún plan, tus alumnas reservan y te pagan como lo hagas hoy. En cuanto crees el primero y lo actives, hará falta tenerlo para reservar."
+            cta={{ label: 'Crear mi primer plan', onClick: openNuevo, icono: Plus }}
+          />
         ) : (
           <>
             {/* Desktop table */}

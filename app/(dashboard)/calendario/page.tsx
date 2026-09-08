@@ -2647,6 +2647,8 @@ export default function Calendario() {
             tiposClase={tiposClase.map(t => ({ nombre: t.nombre, duracionMinutos: t.duracionMinutos }))}
             salas={salas.map(s => ({ nombre: s.nombre, capacidad: s.capacidad }))}
             puedeCrear={gestionaClientas}
+            slug={studio?.slug ?? null}
+            nombreEstudio={studio?.nombre ?? 'tu estudio'}
             onCreado={(n) => {
               showToast(`Horario creado: ${n} clases en las próximas semanas`);
               void cargarDatosVista(rango);

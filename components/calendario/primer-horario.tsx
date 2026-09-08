@@ -24,6 +24,7 @@ import { CalendarPlus, Sparkles, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { DIAS_SEMANA } from '@/lib/onboarding/horario-propuesto';
 import { PropuestaHorario, type ResultadoPropuesta } from '@/components/onboarding/propuesta-horario';
+import { ListoParaReservar } from '@/components/onboarding/listo-para-reservar';
 
 /**
  * Días preseleccionados: de lunes a viernes, que es lo que abre la inmensa
@@ -44,6 +45,8 @@ export function PrimerHorario({
   salas,
   onCreado,
   puedeCrear,
+  slug,
+  nombreEstudio,
 }: {
   horaApertura: string;
   horaCierre: string;
@@ -52,9 +55,13 @@ export function PrimerHorario({
   onCreado: (creadas: number) => void;
   /** Una instructora ve el calendario vacío igual, pero no puede sembrarlo. */
   puedeCrear: boolean;
+  slug: string | null;
+  nombreEstudio: string;
 }) {
   const [dias, setDias] = useState<number[]>(DIAS_LABORABLES);
   const [proponiendo, setProponiendo] = useState(false);
+  // Cuántas clases acaba de crear. `null` = todavía no ha creado ninguna.
+  const [reciénCreadas, setReciénCreadas] = useState<number | null>(null);
 
   const entrada = useMemo(() => ({
     dias,
@@ -69,6 +76,25 @@ export function PrimerHorario({
   // Sin tipos de clase no hay nada que proponer: lo primero es crearlos.
   const puedeProponer = puedeCrear && tiposClase.length > 0;
 
+  // ⚠️ El momento de valor va AQUÍ y no en un toast. Antes, confirmar el
+  // horario enseñaba «Horario creado: 80 clases» y devolvía a la rejilla —
+  // técnicamente correcto y completamente mudo sobre lo que acababa de
+  // conseguir. El caso que lo justifica está en producción: un estudio con 208
+  // clases programadas, 0 alumnas y 0 reservas. Montó el horario entero y
+  // nunca supo que su página ya estaba abierta.
+  if (reciénCreadas != null && slug) {
+    // Se pinta a pantalla completa por su cuenta (position: fixed), así que no
+    // se envuelve en ningún contenedor del calendario.
+    return (
+      <ListoParaReservar
+        slug={slug}
+        nombreEstudio={nombreEstudio}
+        clasesCreadas={reciénCreadas}
+        onSeguir={() => { const n = reciénCreadas; setReciénCreadas(null); onCreado(n); }}
+      />
+    );
+  }
+
   if (proponiendo) {
     return (
       <div className="flex h-full items-start justify-center overflow-y-auto p-6">
@@ -78,7 +104,11 @@ export function PrimerHorario({
             compacta
             onTerminar={(r: ResultadoPropuesta) => {
               setProponiendo(false);
-              if (r !== 'descartada') onCreado(r.creadas);
+              // Sin slug no hay página que enseñar: se cae al camino de antes
+              // (recargar el calendario) en vez de una pantalla a medias.
+              if (r === 'descartada') return;
+              if (slug) setReciénCreadas(r.creadas);
+              else onCreado(r.creadas);
             }}
           />
         </div>

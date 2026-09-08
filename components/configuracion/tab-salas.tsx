@@ -5,9 +5,10 @@ import { ColorInput, ColorSwatch, Field, btnPrimary, btnSecondary, cardCls, inpu
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudio } from '@/lib/studio-context';
+import { EmptyState } from '@/components/ui/empty-state';
 import type { Sala } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { AlertTriangle, Pencil, Plus, Trash2, Wrench } from 'lucide-react';
+import { AlertTriangle, DoorOpen, Pencil, Plus, Trash2, Wrench } from 'lucide-react';
 
 type SalaForm = {
   nombre: string;
@@ -228,9 +229,17 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
 
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
         {salas.length === 0 ? (
-          <div className="px-5 py-10 text-center text-[13px] text-muted-foreground">
-            No hay salas creadas. Haz clic en &quot;Nueva sala&quot; para empezar.
-          </div>
+          // Antes: «No hay salas creadas. Haz clic en "Nueva sala" para
+          // empezar.» — decía dónde pulsar pero no QUÉ consigue con ello, que
+          // es lo único que hace que alguien pulse. El aforo de la sala es lo
+          // que limita cuánta gente entra en cada clase: sin salas no se puede
+          // programar nada.
+          <EmptyState
+            icono={DoorOpen}
+            titulo="Todavía no tienes salas"
+            descripcion="El aforo de cada sala es el límite de plazas de las clases que se den en ella. Sin al menos una, no puedes programar clases."
+            cta={{ label: 'Crear mi primera sala', onClick: openNueva, icono: Plus }}
+          />
         ) : (
           <>
             {/* Desktop table */}

@@ -166,3 +166,38 @@ test('v2: las recomendaciones nunca contradicen un paso ya marcado como hecho', 
   const r = calcularOnboarding({ ...VACIO_V2, stripeAccountId: 'acct_123' });
   assert.ok(!r.recomendaciones.some(rec => rec.id === 'stripe'));
 });
+
+// ── Progreso esencial ───────────────────────────────────────────────────────
+// El checklist contaba los 17 pasos —incluidas automatizaciones, equipo y
+// portal—, así que un estudio con su página ya funcionando veía «40 %». Ese
+// número no medía nada que la propietaria reconociera.
+
+test('v2: el progreso esencial mide solo el camino a la primera reserva', () => {
+  const r = calcularOnboarding(VACIO_V2);
+  const config = r.categorias.find(c => c.id === 'configuracion-inicial')!;
+  assert.equal(r.esencial.total, config.pasos.length);
+  assert.ok(r.esencial.total < r.totalPasos, 'la esencial tiene que ser un subconjunto');
+  assert.equal(r.esencial.hechos, 0);
+  assert.equal(r.esencial.pct, 0);
+});
+
+// Los pasos están en el orden en que se desbloquean: sin salas no hay clases,
+// sin clases no hay reservas. Saltarse uno la deja trabada más adelante.
+test('v2: el siguiente paso es el primero PENDIENTE en orden, no el más fácil', () => {
+  const r = calcularOnboarding({ ...VACIO_V2, nif: '12345678A' });
+  assert.equal(r.esencial.siguiente?.id, 'marca');
+  const r2 = calcularOnboarding({ ...VACIO_V2, nif: '1', logoUrl: 'x' });
+  assert.equal(r2.esencial.siguiente?.id, 'salas');
+});
+
+test('v2: con la configuración esencial terminada, no queda siguiente paso', () => {
+  const todo = calcularOnboarding({
+    ...VACIO_V2, slug: 'mi-estudio', nif: '1', logoUrl: 'x', numSalas: 1, numInstructores: 1,
+    numTiposClase: 1, numSesiones: 4, numSocios: 2, numPlanesTarifa: 1, numReservas: 1,
+  });
+  assert.equal(todo.esencial.siguiente, null);
+  assert.equal(todo.esencial.pct, 100);
+  // Y aun así el checklist global NO está completo: quedan equipo, portal y
+  // automatizaciones, que siguen viviendo en /primeros-pasos.
+  assert.ok(todo.totalCompletados < todo.totalPasos);
+});

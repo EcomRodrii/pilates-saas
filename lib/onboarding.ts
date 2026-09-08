@@ -90,12 +90,33 @@ const AUTOMATIZACIONES_ONBOARDING: { id: string; trigger: string; label: string;
  * es un motor de recomendaciones, no un panel de KPIs, y este onboarding no
  * lo reconstruye ahí.
  */
+/**
+ * El progreso que de verdad importa: lo que hace falta para que el estudio
+ * pueda recibir una reserva.
+ *
+ * ⚠️ NO es el total de pasos. El checklist cuenta 17 —incluidas
+ * automatizaciones, equipo y portal—, así que un estudio con su página ya
+ * funcionando veía «40 %». Ese número no medía nada que la propietaria
+ * reconociera: había terminado lo que le hacía falta para abrir y el panel le
+ * decía que iba por la mitad. Aquí solo cuenta la categoría de configuración
+ * inicial, que es el camino a la primera reserva.
+ */
+export interface ProgresoEsencial {
+  hechos: number;
+  total: number;
+  pct: number;
+  /** El siguiente paso pendiente, para poder ofrecerlo con su enlace en vez de
+   *  mandarla a una lista a buscarlo. `null` = ya está todo. */
+  siguiente: PasoOnboarding | null;
+}
+
 export function calcularOnboarding(d: DatosOnboarding): {
   categorias: CategoriaOnboarding[];
   enlaces: EnlaceOnboarding[];
   recomendaciones: RecomendacionOnboarding[];
   totalPasos: number;
   totalCompletados: number;
+  esencial: ProgresoEsencial;
 } {
   const marcaPersonalizada = !!d.logoUrl || (!!d.colorPrimario && d.colorPrimario !== '#4F46E5') || (!!d.temaPortal && d.temaPortal !== 'original');
 
@@ -176,7 +197,20 @@ export function calcularOnboarding(d: DatosOnboarding): {
   const totalPasos = categorias.reduce((n, c) => n + c.pasos.length, 0);
   const totalCompletados = categorias.reduce((n, c) => n + c.pasos.filter(p => p.done).length, 0);
 
-  return { categorias, enlaces, recomendaciones: calcularRecomendaciones(d), totalPasos, totalCompletados };
+  const esencialPasos = categorias.find(c => c.id === 'configuracion-inicial')?.pasos ?? [];
+  const hechos = esencialPasos.filter(p => p.done).length;
+  const esencial: ProgresoEsencial = {
+    hechos,
+    total: esencialPasos.length,
+    pct: esencialPasos.length === 0 ? 0 : Math.round((hechos / esencialPasos.length) * 100),
+    // El primero pendiente EN ORDEN, no el más fácil: los pasos están puestos
+    // en el orden en que se desbloquean (sin salas no hay clases, sin clases
+    // no hay reservas), así que saltarse uno deja a la propietaria trabada más
+    // adelante sin saber por qué.
+    siguiente: esencialPasos.find(p => !p.done) ?? null,
+  };
+
+  return { categorias, enlaces, recomendaciones: calcularRecomendaciones(d), totalPasos, totalCompletados, esencial };
 }
 
 /**
