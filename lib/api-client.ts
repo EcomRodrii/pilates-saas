@@ -590,14 +590,20 @@ export async function setAvisarAlumnas(avisar: boolean): Promise<{ ok: true } | 
 }
 
 // Toggle de "pedir confirmación a socias de riesgo de plantón" (migración 0059).
-export async function obtenerConfirmacionRiesgo(): Promise<{ activo: boolean } | { error: string }> {
+//
+// ⚠️ Devuelve `sinPlan` aparte del mensaje. El endpoint responde 403 tanto si no
+// eres propietaria como si tu plan no incluye el Centro de Control, y desde que
+// este ajuste se ve en Configuración junto al resto de reglas de reserva hay que
+// distinguirlo: un interruptor apagado y mudo se lee como «esto está roto», no
+// como «esto es de otro plan».
+export async function obtenerConfirmacionRiesgo(): Promise<{ activo: boolean } | { error: string; sinPlan: boolean }> {
   try {
     const res = await fetch('/api/decisiones/confirmacion-riesgo', { headers: await authHeader() });
     const data = (await res.json().catch(() => ({}))) as { activo?: boolean; error?: string };
-    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)), sinPlan: res.status === 403 };
     return { activo: !!data.activo };
   } catch {
-    return { error: 'No se pudo cargar el ajuste' };
+    return { error: 'No se pudo cargar el ajuste', sinPlan: false };
   }
 }
 

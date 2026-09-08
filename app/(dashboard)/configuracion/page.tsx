@@ -91,16 +91,18 @@ export function Field({
   );
 }
 
-export function Toggle({ on, onChange, ariaLabel }: { on: boolean; onChange: (v: boolean) => void; ariaLabel?: string }) {
+export function Toggle({ on, onChange, ariaLabel, disabled }: { on: boolean; onChange: (v: boolean) => void; ariaLabel?: string; disabled?: boolean }) {
   return (
     <button
       type="button"
-      onClick={() => onChange(!on)}
+      onClick={() => { if (!disabled) onChange(!on); }}
+      disabled={disabled}
       aria-pressed={on}
       aria-label={ariaLabel}
       className={cn(
         'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
-        on ? 'bg-primary' : 'bg-muted-foreground/40'
+        on ? 'bg-primary' : 'bg-muted-foreground/40',
+        disabled && 'opacity-40 cursor-not-allowed'
       )}
     >
       <span
