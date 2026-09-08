@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, useId } from 'react';
-import { Sparkles, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+import { TentareOrb } from '@/components/marca/tentare-orb';
 import { authHeader } from '@/lib/api-client';
 
 interface AutonomiaConfig {
@@ -84,8 +85,11 @@ export function PilotoAutomatico() {
     <div className="rounded-3xl border border-border bg-card p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
+          {/* El Orb, no destellos: aquí Tentare ejecuta acciones por su cuenta,
+              que es literalmente lo que el Orb significa. `Sparkles` en este
+              producto ya quiere decir «novedad» (el changelog). */}
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10">
-            <Sparkles size={16} className="text-brand-medio" />
+            <TentareOrb tam={18} />
           </div>
           <div>
             <h2 className="font-heading text-[15px] font-semibold text-foreground">Piloto automático</h2>

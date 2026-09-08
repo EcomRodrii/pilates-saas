@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import {
-  Bot, Zap, CheckCircle2, Clock, AlertTriangle, XCircle,
+  Zap, CheckCircle2, Clock, AlertTriangle, XCircle,
   Play, ChevronRight, Loader2,
   MessageSquare, Mail, CreditCard, Bell, Gift, TrendingUp,
   Send, X, Eye,
@@ -16,6 +16,7 @@ import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } fr
 import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
+import { TentareOrb } from '@/components/marca/tentare-orb';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
   mensajesDeTrigger, plantillaDe, vistaPreviaMensaje, mensajesPersonalizados,
@@ -154,7 +155,10 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Bot size={20} className="text-white/60" />
+            {/* Mismo criterio que el Piloto automático: el Orb marca dónde
+                está trabajando Tentare solo. Va a 20 px sobre el fondo de
+                marca, donde su iridiscencia se lee bien. */}
+            <TentareOrb tam={20} />
             <span className="text-sm text-white/50 font-medium">Sistema autónomo</span>
             {/* El (i) va junto a esta etiqueta y no junto al <h1>, porque el
                 título de esta pantalla es un saludo: "Buenas tardes 👋" no es
