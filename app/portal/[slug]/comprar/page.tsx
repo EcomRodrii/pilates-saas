@@ -46,17 +46,26 @@ export default function ComprarPage() {
       productos: catalogoTienda(d?.planesTarifa ?? [], d?.citasServicios ?? [], d?.productosFisicos ?? []),
       planes: d?.planesTarifa ?? [],
       stripeAccountId: d?.studio?.stripeAccountId ?? null,
-      // Los textos del estudio ya viajan en el payload (los usa el registro
-      // para la firma). Aquí sirven para poder LEERLOS antes de pagar.
+      // La CASILLA (checkout-embebido.tsx) es opt-in a propósito: solo exige
+      // marcar algo cuando el estudio ha reescrito de verdad alguna condición
+      // — casi ninguno lo ha hecho, y forzar una casilla contra el texto por
+      // defecto de todos los estudios no aporta nada. `textosLegales` sigue
+      // acotado por los campos CRUDOS del estudio (null = no reescribió
+      // nada = sin casilla), no por `configLegalDe` a secas: esa función
+      // SIEMPRE compone un documento (con los valores por defecto si hace
+      // falta), así que usarla también para decidir si HAY casilla la
+      // habría dejado apareciendo en todos los checkouts, siempre.
       //
-      // Va por `configLegalDe` y no por los campos crudos: casi ningún estudio
-      // ha reescrito sus condiciones, así que leyéndolos a pelo esto salía
-      // `null`, la pantalla no pintaba la línea «Al pagar aceptas…» y la
-      // compradora no veía NADA legal — mientras el servidor sí escribía en su
-      // recibo el hash de unas condiciones aceptadas. Y el caso mixto (privacidad
-      // sí, términos no) abría un diálogo en blanco. Con la composición efectiva
-      // siempre hay documento, y es el MISMO que sella `lib/legal-sellado.ts`.
-      textosLegales: configLegalDe(d?.studio, d?.studio),
+      // Lo que SÍ hay que arreglar con `configLegalDe` es el CONTENIDO que se
+      // enseña cuando la casilla sí aparece: el caso mixto (solo reescribió
+      // uno de los dos documentos) pasaba el otro campo crudo — `''` — y
+      // abría un diálogo en blanco en vez de caer al texto por defecto de
+      // ESE documento. Es el MISMO efectivo que sella `lib/legal-sellado.ts`,
+      // así que lo que se firma y lo que se lee vuelven a coincidir.
+      textosLegales: (() => {
+        const s2 = d?.studio as { politicaPrivacidad?: string | null; terminosServicio?: string | null } | undefined;
+        return s2?.politicaPrivacidad || s2?.terminosServicio ? configLegalDe(d?.studio, d?.studio) : null;
+      })(),
       // Para poder decir A QUÉ está acotado un bono hace falta el nombre del
       // tipo, no su id. Los dos datos ya viajan en el mismo payload.
       nombresTipo: new Map((d?.tiposClase ?? []).map((t) => [t.id, t.nombre])),
