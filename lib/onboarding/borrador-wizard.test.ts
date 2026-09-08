@@ -70,3 +70,30 @@ test('valores fuera de las listas conocidas (localStorage editado a mano) se fil
     assert.deepEqual(r?.ans.clases, ['ok']);
   });
 });
+
+// El aforo se guarda por sala, y el índice ES la sala. Este saneado se olvidó
+// de `aforos` al principio: el asistente lo pintaba bien y al recargar la
+// pestaña las plazas desaparecían del resumen.
+test('el borrador conserva un aforo por sala', () => {
+  conStorageFalso(() => {
+    guardarProgresoWizard('stu-1', 5, { salas: '2 salas', aforos: ['8 plazas', '12 o más'] });
+    const leido = leerProgresoWizard('stu-1');
+    assert.deepEqual(leido?.ans.aforos, ['8 plazas', '12 o más']);
+  });
+});
+
+test('un hueco en los aforos NO desplaza a las siguientes salas', () => {
+  conStorageFalso(() => {
+    guardarProgresoWizard('stu-1', 5, { salas: '3 salas', aforos: ['', '18 plazas'] });
+    const leido = leerProgresoWizard('stu-1');
+    assert.deepEqual(leido?.ans.aforos, ['', '18 plazas'], 'la sala 2 sigue siendo la sala 2');
+  });
+});
+
+test('un borrador manipulado con basura en aforos no rompe la lectura', () => {
+  conStorageFalso(() => {
+    guardarProgresoWizard('stu-1', 5, { aforos: [{ x: 1 } as unknown as string, '8 plazas'] });
+    const leido = leerProgresoWizard('stu-1');
+    assert.deepEqual(leido?.ans.aforos, ['', '8 plazas']);
+  });
+});

@@ -43,16 +43,41 @@ export function colorPorIndice(i: number): string {
 // propósito: es la que se le enseña como opciones, y así el plan no depende de
 // texto libre que habría que sanear. Quien quiera "Barre Concept" lo crea
 // después en Configuración — el onboarding cubre el caso normal, no todos.
+//
+// ⚠️ «Yoga» y «Taller» NO son un añadido cosmético. La lista era Pilates puro
+// —Reformer, Mat, Cadillac, Barril, Silla, Prenatal, Suelo pélvico,
+// Rehabilitación— y buena parte de los estudios a los que se vende esto son de
+// «Pilates y Yoga». Una propietaria que da yoga llegaba al paso 7, no
+// encontraba lo suyo por ningún lado y se preguntaba si el producto es para
+// ella: es el primer momento del alta en el que se duda del encaje, y pasa
+// antes de haber visto nada del producto.
+//
+// «Clase privada» se queda FUERA a propósito: las sesiones uno a uno viven en
+// /citas, con su propio cobro y su propia agenda. Crear un tipo de clase
+// grupal llamado «privada» sería el mismo concepto en dos sitios.
 export const TIPOS_CLASE_SUGERIDOS = [
-  'Reformer', 'Mat', 'Cadillac', 'Barril', 'Silla', 'Prenatal', 'Suelo pélvico', 'Rehabilitación',
+  'Reformer', 'Mat', 'Yoga', 'Cadillac', 'Barril', 'Silla', 'Prenatal', 'Suelo pélvico', 'Rehabilitación', 'Taller',
 ] as const;
 export type TipoClaseSugerido = (typeof TIPOS_CLASE_SUGERIDOS)[number];
 
 export interface RespuestasOperativa {
   /** Cuántas salas tiene. Ausente = no crear ninguna. */
   numSalas?: number;
-  /** Plazas por sala. Sin esto no se crea sala: el aforo ES el límite de reservas. */
-  aforoPorSala?: number;
+  /**
+   * Plazas de CADA sala, en orden. Sin esto no se crea sala: el aforo ES el
+   * límite de reservas.
+   *
+   * Es una lista y no un número porque las salas de un estudio no tienen el
+   * mismo aforo casi nunca: la de máquinas cabe 6-8 (tantas como reformers) y
+   * la de suelo 15-20. Preguntando una sola cifra —como se hacía antes— quien
+   * contestaba pensando en su sala de Reformer se dejaba diez plazas por clase
+   * sin vender en la sala grande, y no había forma de enterarse: el asistente
+   * no lo decía y el aforo solo se ve entrando a Configuración → Salas.
+   *
+   * Si trae menos entradas que salas, las que faltan heredan la última: es lo
+   * que permite seguir preguntando poco cuando hay muchas salas.
+   */
+  aforosPorSala?: number[];
   /** Duración habitual de una clase, en minutos. */
   duracionMinutos?: number;
   /** Tipos de clase que da, de la lista cerrada de arriba. */
@@ -133,19 +158,30 @@ function enteroEntre(v: unknown, min: number, max: number): number | null {
  */
 export function planificarConfiguracion(r: RespuestasOperativa): PlanConfiguracion {
   const numSalas = enteroEntre(r.numSalas, 1, MAX_SALAS);
-  const aforo = enteroEntre(r.aforoPorSala, 1, MAX_AFORO);
   const duracion = enteroEntre(r.duracionMinutos, DURACION_MIN, DURACION_MAX);
+
+  // Aforos válidos, en orden y sin huecos: una respuesta basura en medio no
+  // puede desplazar a las siguientes ni colarse como capacidad.
+  // `enteroEntre` devuelve NULL para lo que no vale, no undefined: filtrar por
+  // `!== undefined` dejaba pasar los nulos y las salas salían con
+  // `capacidad: null` — una sala sin tope real de reservas.
+  const aforos = (r.aforosPorSala ?? [])
+    .map((a) => enteroEntre(a, 1, MAX_AFORO))
+    .filter((a): a is number => a !== null);
 
   // Una sala sin aforo no se crea: el aforo de la sala es lo que limita cuánta
   // gente entra en cada clase, así que una sala con un aforo inventado deja
   // pasar (o corta) reservas reales. Es el caso donde callarse es más seguro.
-  const salas: SalaAPlanificar[] = numSalas && aforo
+  const salas: SalaAPlanificar[] = numSalas && aforos.length > 0
     ? Array.from({ length: numSalas }, (_, i) => ({
         // "Sala 1..N" cuando hay varias; con una sola, "Sala" a secas — un
         // "Sala 1" en un estudio de una sala solo invita a preguntarse dónde
         // está la 2.
         nombre: numSalas === 1 ? 'Sala' : `Sala ${i + 1}`,
-        capacidad: aforo,
+        // La última respondida cubre a las que no se preguntaron. Heredar el
+        // último aforo es lo menos malo: repetir un número que ella misma ha
+        // dicho, y que puede corregir en Configuración, en vez de inventar uno.
+        capacidad: aforos[i] ?? aforos[aforos.length - 1],
         color: colorPorIndice(i),
       }))
     : [];
@@ -252,6 +288,14 @@ function numeroDeEtiqueta(etiqueta: string | undefined): number | undefined {
 
 export function interpretarRespuestasWizard(ans: {
   salas?: string;
+  /** Una etiqueta por sala, en orden ("8 plazas", "18 plazas"…). */
+  aforos?: string[];
+  /**
+   * Formato antiguo: una sola etiqueta para todas las salas. Se sigue leyendo
+   * porque puede haber borradores a medias en el localStorage de alguien que
+   * empezó el alta antes de este cambio — su asistente se reanuda, no se
+   * reinicia.
+   */
   aforo?: string;
   duracion?: string;
   clases?: string[];
@@ -260,9 +304,12 @@ export function interpretarRespuestasWizard(ans: {
   horario?: string;
 }): RespuestasOperativa {
   const cobro = ans.cobro ?? [];
+  const aforos = (ans.aforos ?? (ans.aforo ? [ans.aforo] : []))
+    .map(numeroDeEtiqueta)
+    .filter((n): n is number => n !== undefined);
   return {
     numSalas: numeroDeEtiqueta(ans.salas),
-    aforoPorSala: numeroDeEtiqueta(ans.aforo),
+    aforosPorSala: aforos,
     duracionMinutos: numeroDeEtiqueta(ans.duracion),
     tiposClase: ans.clases ?? [],
     usaBonos: cobro.includes('Bonos de sesiones'),

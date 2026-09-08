@@ -7,7 +7,7 @@ import {
 
 test('el caso del enunciado: 2 salas, aforo 8, clases de 50 min', () => {
   const p = planificarConfiguracion({
-    numSalas: 2, aforoPorSala: 8, duracionMinutos: 50,
+    numSalas: 2, aforosPorSala: [8], duracionMinutos: 50,
     tiposClase: ['Reformer', 'Mat'], usaBonos: true,
   });
   assert.deepEqual(p.salas.map(s => s.nombre), ['Sala 1', 'Sala 2']);
@@ -19,12 +19,12 @@ test('el caso del enunciado: 2 salas, aforo 8, clases de 50 min', () => {
 });
 
 test('con una sola sala se llama "Sala", sin número', () => {
-  const p = planificarConfiguracion({ numSalas: 1, aforoPorSala: 10 });
+  const p = planificarConfiguracion({ numSalas: 1, aforosPorSala: [10] });
   assert.deepEqual(p.salas.map(s => s.nombre), ['Sala']);
 });
 
 test('las salas salen de colores distintos', () => {
-  const p = planificarConfiguracion({ numSalas: 3, aforoPorSala: 6 });
+  const p = planificarConfiguracion({ numSalas: 3, aforosPorSala: [6] });
   assert.equal(new Set(p.salas.map(s => s.color)).size, 3);
 });
 
@@ -43,7 +43,7 @@ test('los planes se crean SIEMPRE como borrador no vendible', () => {
 });
 
 test('sin decir que usa bonos ni membresías no se crea ningún plan', () => {
-  assert.deepEqual(planificarConfiguracion({ numSalas: 1, aforoPorSala: 5 }).planes, []);
+  assert.deepEqual(planificarConfiguracion({ numSalas: 1, aforosPorSala: [5] }).planes, []);
 });
 
 // ── Regla 2: sin respuesta no se inventa nada ────────────────────────────────
@@ -68,15 +68,15 @@ test('respuestas vacías dan un plan vacío, no un estudio con relleno', () => {
 
 test('números fuera de rango no crean filas', () => {
   for (const numSalas of [0, -3, 999, 2.5e9, NaN, Infinity]) {
-    const p = planificarConfiguracion({ numSalas, aforoPorSala: 8 });
+    const p = planificarConfiguracion({ numSalas, aforosPorSala: [8] });
     assert.ok(p.salas.length <= 20, `numSalas=${numSalas} generó ${p.salas.length} salas`);
   }
-  assert.deepEqual(planificarConfiguracion({ numSalas: 0, aforoPorSala: 8 }).salas, []);
-  assert.deepEqual(planificarConfiguracion({ numSalas: 2, aforoPorSala: 0 }).salas, []);
+  assert.deepEqual(planificarConfiguracion({ numSalas: 0, aforosPorSala: [8] }).salas, []);
+  assert.deepEqual(planificarConfiguracion({ numSalas: 2, aforosPorSala: [0] }).salas, []);
 });
 
 test('2.5 salas se trunca, no se redondea a 3 (no se inventa una sala)', () => {
-  assert.equal(planificarConfiguracion({ numSalas: 2.9, aforoPorSala: 8 }).salas.length, 2);
+  assert.equal(planificarConfiguracion({ numSalas: 2.9, aforosPorSala: [8] }).salas.length, 2);
 });
 
 test('duraciones imposibles no crean tipos de clase', () => {
@@ -117,7 +117,7 @@ test('la paleta cicla en vez de quedarse sin color', () => {
 
 test('el mismo cuestionario da siempre el mismo plan', () => {
   // Es lo que permite que el ejecutor sea idempotente comparando por nombre.
-  const r = { numSalas: 2, aforoPorSala: 8, duracionMinutos: 50, tiposClase: ['Mat'], usaBonos: true };
+  const r = { numSalas: 2, aforosPorSala: [8], duracionMinutos: 50, tiposClase: ['Mat'], usaBonos: true };
   assert.deepEqual(planificarConfiguracion(r), planificarConfiguracion(r));
 });
 
@@ -129,7 +129,7 @@ test('las etiquetas del asistente se traducen a números', () => {
     clases: ['Reformer'], cobro: ['Bonos de sesiones'],
   });
   assert.equal(r.numSalas, 2);
-  assert.equal(r.aforoPorSala, 8);
+  assert.equal(r.aforosPorSala?.[0], 8);
   assert.equal(r.duracionMinutos, 50);
   assert.equal(r.usaBonos, true);
   assert.equal(r.usaMembresias, false);
@@ -139,7 +139,7 @@ test('"4 o más" se queda en 4: pasarse es peor que quedarse corto', () => {
   // Con 7 salas reales, crear 4 y que añada 3 es mejor que crear 10 y que
   // borre 3. En el aforo además pasarse deja entrar reservas que no caben.
   assert.equal(interpretarRespuestasWizard({ salas: '4 o más' }).numSalas, 4);
-  assert.equal(interpretarRespuestasWizard({ aforo: '12 o más' }).aforoPorSala, 12);
+  assert.equal(interpretarRespuestasWizard({ aforo: '12 o más' }).aforosPorSala?.[0], 12);
 });
 
 test('TODAS las opciones que pinta el asistente son interpretables', () => {
@@ -149,7 +149,7 @@ test('TODAS las opciones que pinta el asistente son interpretables', () => {
     assert.equal(typeof interpretarRespuestasWizard({ salas: s }).numSalas, 'number', s);
   }
   for (const a of OPCIONES_AFORO) {
-    assert.equal(typeof interpretarRespuestasWizard({ aforo: a }).aforoPorSala, 'number', a);
+    assert.equal(typeof interpretarRespuestasWizard({ aforo: a }).aforosPorSala?.[0], 'number', a);
   }
   for (const d of OPCIONES_DURACION) {
     assert.equal(typeof interpretarRespuestasWizard({ duracion: d }).duracionMinutos, 'number', d);
@@ -244,4 +244,57 @@ test('la etiqueta que se pinta y la que se interpreta son el mismo dato', () => 
     planificarConfiguracion(interpretarRespuestasWizard({ imparte: OPCIONES_IMPARTE[0] })).instructoraPropia,
     true,
   );
+});
+
+// ─── Aforo por sala ──────────────────────────────────────────────────────────
+// El caso real: la sala de máquinas cabe 8 y la de suelo 18. Antes se
+// preguntaba una sola cifra y la sala grande se quedaba con el aforo de la
+// pequeña, perdiendo diez plazas por clase sin que nadie lo dijera.
+
+test('cada sala se queda con SU aforo, no con el de la primera', () => {
+  const p = planificarConfiguracion({ numSalas: 2, aforosPorSala: [8, 18] });
+  assert.deepEqual(p.salas.map((s) => s.capacidad), [8, 18]);
+  assert.deepEqual(p.salas.map((s) => s.nombre), ['Sala 1', 'Sala 2']);
+});
+
+test('con menos aforos que salas, las que faltan heredan el último', () => {
+  const p = planificarConfiguracion({ numSalas: 4, aforosPorSala: [8, 18] });
+  assert.deepEqual(p.salas.map((s) => s.capacidad), [8, 18, 18, 18]);
+});
+
+test('un aforo inválido en medio no desplaza a los siguientes', () => {
+  const p = planificarConfiguracion({ numSalas: 2, aforosPorSala: [0, 18] });
+  assert.deepEqual(p.salas.map((s) => s.capacidad), [18, 18]);
+});
+
+test('ninguna sala sale con capacidad nula', () => {
+  for (const aforos of [[0], [NaN], [-4], [1e9], []]) {
+    const p = planificarConfiguracion({ numSalas: 2, aforosPorSala: aforos });
+    for (const s of p.salas) {
+      assert.equal(typeof s.capacidad, 'number', `capacidad no numérica con ${JSON.stringify(aforos)}`);
+      assert.ok(s.capacidad >= 1, `capacidad < 1 con ${JSON.stringify(aforos)}`);
+    }
+  }
+});
+
+test('el asistente manda una etiqueta por sala', () => {
+  const r = interpretarRespuestasWizard({ salas: '2 salas', aforos: ['8 plazas', '12 o más'] });
+  assert.equal(r.numSalas, 2);
+  assert.deepEqual(r.aforosPorSala, [8, 12]);
+});
+
+// Retrocompatibilidad: alguien puede tener un borrador a medias con el formato
+// viejo (una sola etiqueta). Su asistente debe reanudarse, no reiniciarse.
+test('un borrador antiguo con un solo aforo sigue valiendo para todas', () => {
+  const r = interpretarRespuestasWizard({ salas: '3 salas', aforo: '10 plazas' });
+  assert.deepEqual(r.aforosPorSala, [10]);
+  assert.deepEqual(
+    planificarConfiguracion(r).salas.map((s) => s.capacidad),
+    [10, 10, 10],
+  );
+});
+
+test('«Yoga» y «Taller» son planificables como cualquier otro tipo', () => {
+  const p = planificarConfiguracion({ duracionMinutos: 50, tiposClase: ['Yoga', 'Taller'] });
+  assert.deepEqual(p.tiposClase.map((t) => t.nombre), ['Yoga', 'Taller']);
 });

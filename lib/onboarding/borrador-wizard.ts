@@ -20,6 +20,10 @@ export interface RespuestasWizard {
   foco?: string[];
   ayuda?: string;
   salas?: string;
+  /** Una etiqueta de aforo por sala, en orden. */
+  aforos?: string[];
+  /** Formato antiguo (una sola cifra para todas). Se sigue leyendo para no
+   *  reiniciar el asistente a quien tenga un borrador a medias. */
   aforo?: string;
   duracion?: string;
   clases?: string[];
@@ -48,6 +52,19 @@ const texto = (v: unknown): string | undefined =>
 const listaTexto = (v: unknown): string[] | undefined =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length > 0 && x.length <= MAX_TEXTO) : undefined;
 
+/**
+ * Como `listaTexto`, pero CONSERVANDO LAS POSICIONES: en `aforos` el índice es
+ * la sala, así que descartar un hueco no es quitar ruido, es correr el aforo de
+ * la sala 2 a la sala 1. Lo que no vale se sustituye por '' y se sigue.
+ */
+const listaPorIndice = (v: unknown): string[] | undefined =>
+  Array.isArray(v)
+    ? v.slice(0, MAX_SALAS_BORRADOR).map((x) => (typeof x === 'string' && x.length <= MAX_TEXTO ? x : ''))
+    : undefined;
+
+/** Tope defensivo: el localStorage lo puede editar cualquiera. */
+const MAX_SALAS_BORRADOR = 20;
+
 /** `null` si no hay borrador, caducó, o es de OTRO estudio (mismo navegador, alta distinta). */
 export function leerProgresoWizard(studioId: string): { paso: number; ans: RespuestasWizard } | null {
   if (typeof window === 'undefined') return null;
@@ -65,7 +82,8 @@ export function leerProgresoWizard(studioId: string): { paso: number; ans: Respu
     const ans: RespuestasWizard = {
       centros: texto(a.centros), software: texto(a.software), alumnos: texto(a.alumnos),
       importar: texto(a.importar), foco: listaTexto(a.foco), ayuda: texto(a.ayuda),
-      salas: texto(a.salas), aforo: texto(a.aforo), duracion: texto(a.duracion),
+      salas: texto(a.salas), aforos: listaPorIndice(a.aforos), aforo: texto(a.aforo),
+      duracion: texto(a.duracion),
       clases: listaTexto(a.clases), cobro: listaTexto(a.cobro), imparte: texto(a.imparte),
       horario: texto(a.horario),
     };
