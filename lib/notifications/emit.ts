@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publish } from './engine.ts';
 import { EVENTOS } from './catalog.ts';
+import { criterioArchivadoMensajeDia } from './mensaje-dia-archivado.ts';
 import { cuandoEstudio, horaEstudio, fechaCortaEstudio, TZ_ESTUDIO } from '@/lib/utils';
 
 function cuandoLargo(iso: string): string {
@@ -822,13 +823,47 @@ export async function emitirSustitucionAceptada(
 // El Umbral (lib/decision/umbral.ts): el único mensaje del día, si lo hay.
 // dedupKey por fecha (no por dedupeKey de la candidata) — refuerza en este
 // nivel también "como mucho un push de este tipo al día por estudio".
+//
+// ⚠️ Esa clave por fecha es correcta para el PUSH y era el problema en la
+// BANDEJA. Un asunto que sigue vivo se vuelve a elegir cada mañana, y como la
+// clave cambia de día, cada mañana dejaba una fila NUEVA. Medido en producción:
+// «A Carmen le caducan 4 sesiones sin usar» doce días seguidos (13→28 ago),
+// «Llamaría hoy a Laura» seis, «Elena reserva pero no está viniendo» cinco. Con
+// 59 sin leer, el aviso deja de ser un aviso — y justo estos son los mejores
+// textos del producto.
+//
+// Se arregla archivando lo anterior del MISMO asunto que siga sin leer, no
+// tocando la clave: sigue habiendo como mucho un push al día, pero en la
+// bandeja queda una sola fila por asunto, la de hoy. Lo ya leído no se toca:
+// eso es historial, y borrarlo sería reescribir lo que la propietaria vio.
 export async function emitirDecisionMensajeDia(
-  admin: SupabaseClient, p: { studioId: string; fecha: string; titulo: string; motivo: string },
+  admin: SupabaseClient,
+  p: { studioId: string; fecha: string; titulo: string; motivo: string; asuntoKey?: string | null },
 ): Promise<void> {
   try {
+    const criterio = criterioArchivadoMensajeDia(p.studioId, p.asuntoKey);
+    if (criterio) {
+      const { error } = await admin
+        .from('notification')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('studio_id', criterio.studioId)
+        .eq('event_type', criterio.eventType)
+        .eq(criterio.campoAsunto, criterio.asuntoKey)
+        .is('read_at', null)
+        .is('archived_at', null);
+      // Si el archivado falla se sigue: el mensaje del día importa más que
+      // dejar la bandeja limpia, y lo peor que pasa es volver al comportamiento
+      // de antes (dos filas del mismo asunto) en vez de quedarse sin aviso.
+      if (error) console.error('[notifications] archivar mensaje-dia previo:', error.message);
+    }
     await publish({
       type: EVENTOS.DECISION_MENSAJE_DIA, studioId: p.studioId,
-      data: { titulo: p.titulo, motivo: p.motivo },
+      // `asuntoKey` viaja en `data` porque es lo que permite reconocer mañana
+      // que la fila de hoy es "lo mismo": el dedupeKey de la candidata es
+      // estable por asunto (FINANZAS:BONO_CADUCA:carmen), mientras que el
+      // título cambia solo con que cambie una cifra ("40 clases van casi
+      // vacías" → "37 clases…"), y agrupar por título no las juntaría.
+      data: { titulo: p.titulo, motivo: p.motivo, ...(p.asuntoKey ? { asuntoKey: p.asuntoKey } : {}) },
       dedupKey: `decision-mensaje-dia:${p.studioId}:${p.fecha}`,
     });
   } catch (e) {
