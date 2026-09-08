@@ -250,7 +250,12 @@ export const analizarEstudio = inngest.createFunction(
         dedupeKey: veredicto.candidata.dedupeKey, motivoMotor: veredicto.candidata.motivoMotor,
         motivoSilencio: null, enviadoEn: nowISOStr,
       });
-      await emitirDecisionMensajeDia(requireSupabaseAdmin(), { studioId, fecha, titulo, motivo });
+      await emitirDecisionMensajeDia(requireSupabaseAdmin(), {
+        studioId, fecha, titulo, motivo,
+        // Identifica el ASUNTO, no el mensaje de hoy: si mañana vuelve a ganar
+        // lo mismo, la fila de hoy se archiva en vez de acumularse.
+        asuntoKey: veredicto.candidata.dedupeKey,
+      });
     });
 
     if (resultado.nuevosHechosMemoria.length > 0) {
