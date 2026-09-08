@@ -8,6 +8,7 @@
 import { useMemo } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Printer, Notebook } from 'lucide-react';
+import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { EmptyState } from '@/components/ui/empty-state';
 import { hoyEnEstudio } from '@/lib/utils';
 
@@ -53,7 +54,10 @@ export default function Libreta() {
 
       <div className="no-print flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-lg font-bold text-foreground">Libreta del estudio</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold text-foreground">Libreta del estudio</h1>
+            <AyudaDePantalla />
+          </div>
           <p className="text-sm text-muted-foreground">Copia de tus clientas siempre al día: imprímela o guárdala como PDF cuando quieras.</p>
         </div>
         <button
