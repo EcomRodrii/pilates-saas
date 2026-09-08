@@ -40,6 +40,8 @@ export interface StudioSeo {
   cancelacionVentanaHoras: number;
   /** Si el estudio admite apuntarse a una clase completa. */
   permiteListaEspera: boolean;
+  /** Cómo llama el estudio a su moneda de fidelización. `null` = la del producto. */
+  creditosNombre: string | null;
 }
 
 /**
@@ -82,6 +84,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       telefono: '+34 600 000 000', email: 'hola@studio-test.es',
       codigoPostal: '29001', descripcion: 'Estudio de prueba.', fotoUrl: null,
       cancelacionVentanaHoras: 12, permiteListaEspera: true,
+      creditosNombre: process.env.E2E_CREDITOS_NOMBRE ?? null,
       // Configurable para que el gate de página oculta se pueda ejercitar
       // alguna vez desde la suite: se decide en el SERVIDOR, así que
       // `page.route` no puede llegar a él y sin esto el camino de "oculta" no
@@ -110,7 +113,9 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
   const [base, visibilidad] = await Promise.all([
     admin
       .from('studios')
-      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera')
+      // ⚠️ Lista de columnas EXPLÍCITA: lo que no se nombre aquí llega
+      // `undefined` al portal sin fallar y sin avisar.
+      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera, creditos_nombre')
       .eq('slug', slug)
       .maybeSingle(),
     // `.then(ok, ko)` y no `.catch`: el builder de supabase-js es un
@@ -152,6 +157,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     // usa el servidor al resolver la cancelación.
     cancelacionVentanaHoras: (data.cancelacion_ventana_horas as number | null) ?? 12,
     permiteListaEspera: (data.permite_lista_espera as boolean | null) ?? true,
+    creditosNombre: (data.creditos_nombre as string | null) ?? null,
     // `=== true` y no un truthy: sin la columna todavía aplicada, «no sé» tiene
     // que significar «no oculta» y no esconder la página de todo el mundo.
     paginaOculta: visibilidad?.pagina_publica_oculta === true,

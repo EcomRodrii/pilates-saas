@@ -7,6 +7,7 @@ import { REWARD_TRIGGERS } from '@/lib/engines/reward-engine';
 import type { EfectoRecompensa, RewardCatalogItem } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { nombreCreditos, normalizarNombreCreditos, NOMBRE_CREDITOS_MAX } from '@/lib/creditos-nombre';
 import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 // Valores de partida sugeridos — un punto de arranque, no un límite: el
@@ -90,7 +91,13 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
   const {
     rewardRules, addRewardRule, updateRewardRule,
     rewardCatalog, addRewardCatalogItem, updateRewardCatalogItem, deleteRewardCatalogItem,
+    studio, updateStudio,
   } = useStudio();
+
+  // El nombre que este estudio le da a su moneda. Se usa en TODA esta pestaña,
+  // no solo en el campo que lo edita: si el panel sigue diciendo «créditos»
+  // mientras la app de la clienta dice «puntos», parecen dos cosas distintas.
+  const moneda = nombreCreditos(studio?.creditosNombre);
 
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -152,16 +159,46 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
     showToast(modal === 'nuevo' ? 'Recompensa creada' : 'Recompensa actualizada');
   }
 
+  async function guardarMoneda(valor: string) {
+    const limpio = normalizarNombreCreditos(valor);
+    if ((studio?.creditosNombre ?? null) === limpio) return;
+    const res = await updateStudio({ creditosNombre: limpio });
+    showToast(res.ok ? 'Nombre actualizado' : res.error);
+  }
+
   return (
     <div className="space-y-6 max-w-3xl">
+      {/* Cómo se llaman. Va PRIMERO porque nombra todo lo que viene debajo. */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <Coins size={16} className="text-brand-secondary" />
+          <h3 className="text-[14px] font-semibold text-foreground">Cómo llamas a tus {moneda}</h3>
+        </div>
+        <p className="text-[12px] text-muted-foreground mb-3">
+          El nombre que verán tus clientas en su app. En plural: «puntos», «estrellas»…
+          Déjalo vacío para usar «créditos».
+        </p>
+        <div className={cn(cardCls, 'p-4')}>
+          <input
+            className={cn(inputCls, 'max-w-[220px]')}
+            defaultValue={studio?.creditosNombre ?? ''}
+            placeholder="créditos"
+            maxLength={NOMBRE_CREDITOS_MAX}
+            aria-label="Nombre de tus créditos"
+            onBlur={e => void guardarMoneda(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+          />
+        </div>
+      </div>
+
       {/* Reglas de créditos */}
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Coins size={16} className="text-brand-secondary" />
-          <h3 className="text-[14px] font-semibold text-foreground">Créditos por acción</h3>
+          <h3 className="text-[14px] font-semibold text-foreground">{moneda} por acción</h3>
         </div>
         <p className="text-[12px] text-muted-foreground mb-3">
-          Cuántos créditos gana una clienta por cada acción. Cambia cualquier valor o desactívalo — nunca están fijos en el código.
+          Cuántos {moneda} gana una clienta por cada acción. Cambia cualquier valor o desactívalo — nunca están fijos en el código.
         </p>
         <div className={cn(cardCls, 'divide-y divide-[#F1F1F4]')}>
           {REWARD_TRIGGERS.map(def => {
@@ -242,7 +279,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
             <Plus size={14} /> Nueva recompensa
           </button>
         </div>
-        <p className="text-[12px] text-muted-foreground mb-3">Lo que las clientas pueden canjear con sus créditos.</p>
+        <p className="text-[12px] text-muted-foreground mb-3">Lo que las clientas pueden canjear con sus {moneda}.</p>
 
         {rewardCatalog.length === 0 ? (
           <div className={cn(cardCls, 'p-8 text-center')}>
@@ -258,7 +295,7 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold text-foreground">{item.nombre}</p>
                   <p className="text-[12px] text-muted-foreground">
-                    {item.costeCreditos} créditos{item.stock != null ? ` · ${item.stock} en stock` : ''}
+                    {item.costeCreditos} {moneda}{item.stock != null ? ` · ${item.stock} en stock` : ''}
                     {item.efecto === 'CLASE_GRATIS' ? ' · clase gratis automática' : ''}
                   </p>
                   {!item.activo && <span className="text-[10px] font-bold uppercase text-muted-foreground">Inactiva</span>}

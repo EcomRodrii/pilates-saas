@@ -5,6 +5,7 @@ import { Gift, Check, X, Clock } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import type { EstadoCanje, RewardRedemption } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { nombreCreditos } from '@/lib/creditos-nombre';
 import { btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 
 // Los canjes de las socias, y qué hacer con ellos.
@@ -36,7 +37,8 @@ function fechaCorta(iso: string): string {
 }
 
 export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
-  const { rewardRedemptions, rewardCatalog, socios, updateRewardRedemptionEstado } = useStudio();
+  const { rewardRedemptions, rewardCatalog, socios, updateRewardRedemptionEstado, studio } = useStudio();
+  const moneda = nombreCreditos(studio?.creditosNombre);
   const [enCurso, setEnCurso] = useState<string | null>(null);
 
   const { pendientes, resueltos } = useMemo(() => {
@@ -59,7 +61,7 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
     if (!res.ok) { showToast(res.error); return; }
     showToast(estado === 'ENTREGADO'
       ? 'Canje marcado como entregado'
-      : `Canje cancelado — se han devuelto ${canje.creditosGastados} créditos`);
+      : `Canje cancelado — se han devuelto ${canje.creditosGastados} ${moneda}`);
   }
 
   function Fila({ canje, accionable }: { canje: RewardRedemption; accionable: boolean }) {
@@ -74,7 +76,7 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
             {nombreRecompensa(canje.catalogItemId)}
           </p>
           <p className="text-[12px] text-muted-foreground truncate">
-            {nombreSocia(canje.socioId)} · {canje.creditosGastados} créditos · {fechaCorta(canje.creadoEn)}
+            {nombreSocia(canje.socioId)} · {canje.creditosGastados} {moneda} · {fechaCorta(canje.creadoEn)}
           </p>
         </div>
         {accionable ? (
@@ -90,7 +92,7 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
               onClick={() => resolver(canje, 'CANCELADO')}
               disabled={ocupado}
               className={cn(btnSecondary, 'disabled:opacity-50')}
-              title="Devuelve los créditos a la socia y el stock al catálogo"
+              title={`Devuelve los ${moneda} a la socia y el stock al catálogo`}
             >
               <X size={14} /> Cancelar
             </button>
@@ -115,8 +117,8 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
           <h3 className="text-[14px] font-semibold text-foreground">Pendientes de entregar</h3>
         </div>
         <p className="text-[12px] text-muted-foreground mb-3">
-          Lo que tus clientas ya han pagado con sus créditos y esperan recibir. Cancelar
-          les devuelve los créditos y repone el stock.
+          Lo que tus clientas ya han pagado con sus {moneda} y esperan recibir. Cancelar
+          se los devuelve y repone el stock.
         </p>
         {pendientes.length === 0 ? (
           <div className={cn(cardCls, 'p-8 text-center')}>

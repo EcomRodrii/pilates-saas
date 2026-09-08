@@ -4428,6 +4428,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('imagenBienvenidaUrl' in changes) db.imagen_bienvenida_url = changes.imagenBienvenidaUrl;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('anioFundacion' in changes) db.anio_fundacion = changes.anioFundacion;
+  if ('creditosNombre' in changes) db.creditos_nombre = changes.creditosNombre;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
   if ('recuperacionCaducidadTipo' in changes) db.recuperacion_caducidad_tipo = changes.recuperacionCaducidadTipo;
@@ -4816,6 +4817,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     currentPeriodEnd: r.current_period_end ?? null,
     trialEndsAt: r.trial_ends_at ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
+    creditosNombre: r.creditos_nombre ?? null,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     cancelacionClaseDevuelveBono: r.cancelacion_clase_devuelve_bono ?? true,
     recuperacionCaducidadTipo: (r.recuperacion_caducidad_tipo as 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE') ?? 'FIN_MES_SIGUIENTE',

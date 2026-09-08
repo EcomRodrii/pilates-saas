@@ -111,6 +111,20 @@ test.describe('Student PWA · gamificación', () => {
     await expect(page.getByText(/el estudio te avisará/i)).toHaveCount(0);
   });
 
+  test('sin nombre propio configurado, la moneda se llama «créditos»', async ({ page }) => {
+    // El nombre viaja por TRES listas blancas hasta aquí (el SELECT de
+    // `studio-seo`, `StudioConfig` y `cargarEstudio`), y ninguna falla al
+    // omitirlo: llega `undefined` en silencio. Este test ancla el respaldo —
+    // que es lo que se vería si alguna de las tres se rompiera— y que la
+    // pantalla no revienta al resolverlo.
+    await montar(page, conGamificacion());
+    await page.goto(`${base}/logros`);
+    const rec = page.getByTestId('recompensas');
+    await expect(rec).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Canjea tus créditos')).toBeVisible();
+    await expect(rec.getByText('100 créditos')).toBeVisible();
+  });
+
   test('cada recompensa dice qué recibe y qué tiene que hacer después', async ({ page }) => {
     // Sin esto, la alumna espera en casa un aviso que no va a llegar (clase
     // gratis, que ya tiene) o va al mostrador a por algo que ya está en su

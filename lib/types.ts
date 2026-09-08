@@ -129,6 +129,8 @@ export interface Studio {
   trialEndsAt: string | null;
   // Política de reservas y cancelaciones (auditoría C-2/C-4).
   cancelacionVentanaHoras: number;
+  /** Cómo llama el estudio a su moneda de fidelización. `null` = la del producto. */
+  creditosNombre?: string | null;
   cancelacionDevolverBonoTardia: boolean;
   /** Cuando el ESTUDIO cancela una clase completa (no una reserva suelta):
    *  true = devuelve la sesión a cada socia con plaza confirmada. */

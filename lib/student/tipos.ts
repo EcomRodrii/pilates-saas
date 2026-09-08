@@ -16,6 +16,8 @@ export interface StudioConfig {
   logoUrl: string | null; iconoUrl: string; fotoPortada: string;
   telefono: string; email: string; disciplinas: Disciplina[];
   politicaCancelacionHoras: number; soportaListaEspera: boolean;
+  /** Cómo llama el estudio a sus créditos. `null` = el nombre por defecto. */
+  creditosNombre: string | null;
   tema: Record<string, string>;
 }
 
