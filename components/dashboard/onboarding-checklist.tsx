@@ -19,6 +19,7 @@ export function OnboardingChecklist() {
   const {
     studio, updateStudio, instructores, tiposClase, sesiones, socios,
     salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    reservas,
   } = useStudio();
 
   if (!studio || studio.onboardingDescartadoEn) return null;
@@ -35,6 +36,7 @@ export function OnboardingChecklist() {
     numTiposClase: tiposClase.length,
     numSesiones: sesiones.length,
     numSocios: socios.length,
+    numReservas: reservas.length,
     numSalas: salas.length,
     // P1-6 (auditoría de producto): contar CUALQUIER fila marcaba «✓ Configura
     // tus bonos» tachado aunque fuera el borrador que crea el wizard de

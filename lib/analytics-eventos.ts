@@ -34,7 +34,33 @@ export type EventoAnalitica =
   | { nombre: 'review_boost_platform_clicked'; props: { plataforma: 'capterra' | 'getapp' } }
   | { nombre: 'review_boost_reward_offered'; props: Record<string, never> }
   | { nombre: 'review_boost_reward_claimed'; props: Record<string, never> }
-  | { nombre: 'review_boost_converted_to_paid'; props: Record<string, never> };
+  | { nombre: 'review_boost_converted_to_paid'; props: Record<string, never> }
+  // ── Embudo de activación ───────────────────────────────────────────────────
+  //
+  // Antes NO había ni un solo evento del onboarding: los 12 de arriba son de
+  // pagos y de Review Boost, así que la pregunta «¿dónde abandonan?» solo se
+  // podía contestar contando filas en la base de datos a mano. Estos tres
+  // cierran el embudo con `reserva_completada`, que ya existía y es el final:
+  //
+  //   asistente terminado → horario creado → primera reserva
+  //
+  // No se añade un evento por cada paso del asistente a propósito: el progreso
+  // ya se recupera de `borrador-wizard` y lo que importa medir es dónde se cae
+  // del EMBUDO, no cuántas veces tocó un botón.
+  | {
+      nombre: 'onboarding_completado';
+      // Qué le quedó montado. Sin esto no se puede distinguir a quien contestó
+      // todo de quien pasó de pantalla en pantalla sin elegir nada.
+      props: { salas: number; tipos_clase: number; planes: number; instructora: boolean; horario: boolean };
+    }
+  // El paso donde se pierde más de la mitad de los estudios (4 de 10 lo
+  // superan). `origen` distingue el horario propuesto por Tentare del que la
+  // propietaria importa de un Excel: son dos caminos con conversiones muy
+  // distintas y mezclarlos oculta cuál funciona.
+  | { nombre: 'horario_creado'; props: { origen: 'onboarding' | 'importacion'; sesiones: number } }
+  // Vio la propuesta y dijo que no. Es la señal de que el horario propuesto no
+  // le encajaba — y sin ella, «no lo creó» y «ni lo vio» se confunden.
+  | { nombre: 'horario_propuesto_descartado'; props: Record<string, never> };
 
 /** ¿Está configurada la analítica? (POSTHOG_KEY presente). */
 export function analyticsHabilitado(): boolean {

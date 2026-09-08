@@ -51,6 +51,7 @@ import { FiltrosCalendario } from '@/components/calendario/filtros-calendario';
 import { FranjaDecisiones, type DecisionResumen } from '@/components/calendario/franja-decisiones';
 import { DialogoDecision } from '@/components/calendario/dialogo-decision';
 import { VistaDiaSalas, type DatoSesion } from '@/components/calendario/vista-dia-salas';
+import { PrimerHorario } from '@/components/calendario/primer-horario';
 import { VistaSemana } from '@/components/calendario/vista-semana';
 import { VistaMes } from '@/components/calendario/vista-mes';
 import { BuscadorRapido } from '@/components/calendario/buscador-rapido';
@@ -537,7 +538,7 @@ export default function Calendario() {
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
-    addActividadReciente, addRecibo, resetDatosPilates,
+    addActividadReciente, addRecibo, resetDatosPilates, dataLoaded,
   } = useStudio();
   const { user } = useAuth();
   // Un solo sistema de toast (antes había dos en paralelo) — con soporte de
@@ -1642,6 +1643,23 @@ export default function Calendario() {
 
   // ── Rediseño: datos de vista (rejilla/métricas/franja/panel) por rango+rol ──
   const [datosVista, setDatosVista] = useState<DatosVista | null>(null);
+  // ⚠️ TRES condiciones, y las tres hacen falta para no acusar de vacío a un
+  // estudio que no lo está:
+  //
+  //  · `dataLoaded`: sin él, `sesiones.length === 0` es cierto DURANTE la
+  //    carga, y un estudio en marcha vería el bloque un instante antes de que
+  //    llegaran sus clases.
+  //  · `sesiones` (la lista completa del estudio) y no las de la semana: una
+  //    semana sin clases en un estudio en marcha es normal —vacaciones— y ahí
+  //    esto sería ruido.
+  //  · Y ADEMÁS que la vista actual tampoco traiga ninguna. Es redundante a
+  //    propósito: si la lista completa fallara al cargar por cualquier motivo,
+  //    `sesiones` quedaría a cero con `dataLoaded` ya en true, y le diríamos
+  //    «tu horario está vacío» a alguien que tiene el calendario lleno
+  //    delante. Con dos fuentes, para equivocarse tienen que fallar las dos.
+  const sinNingunaClase = dataLoaded
+    && sesiones.length === 0
+    && (datosVista?.sesiones.length ?? 0) === 0;
   const cacheVistaRef = useRef<Map<string, DatosVista>>(new Map());
   // Guarda contra la carrera entre dos fetches de rangos distintos en vuelo a
   // la vez (p. ej. refrescarVista() del rango viejo + el efecto de claveVista
@@ -2618,6 +2636,22 @@ export default function Calendario() {
           </div>
         ) : !datosVista ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando…</div>
+        ) : sinNingunaClase ? (
+          // ⚠️ CERO sesiones en TODO el estudio, no «cero esta semana»: una
+          // semana vacía en un estudio en marcha es normal (vacaciones) y aquí
+          // sería ruido. Antes no había NADA en este hueco — la pantalla más
+          // usada del panel recibía a un estudio nuevo con la rejilla en blanco.
+          <PrimerHorario
+            horaApertura={datosVista.horaApertura}
+            horaCierre={datosVista.horaCierre}
+            tiposClase={tiposClase.map(t => ({ nombre: t.nombre, duracionMinutos: t.duracionMinutos }))}
+            salas={salas.map(s => ({ nombre: s.nombre, capacidad: s.capacidad }))}
+            puedeCrear={gestionaClientas}
+            onCreado={(n) => {
+              showToast(`Horario creado: ${n} clases en las próximas semanas`);
+              void cargarDatosVista(rango);
+            }}
+          />
         ) : vista === 'dia' ? (
           <VistaDiaSalas
             columnas={columnasDia}

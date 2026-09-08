@@ -24,6 +24,9 @@ export interface DatosOnboarding {
   numSalas: number;
   numPlanesTarifa: number;
   numSuscripcionesActivas: number;
+  /** Reservas del estudio. Es el activation event real: sin una reserva, todo
+   *  lo demás es configuración que todavía no ha servido para nada. */
+  numReservas: number;
   contenidoPortalPersonalizado: boolean;
   /** Solo los triggers relevantes para "Funciones inteligentes", con si están activos. */
   automatizacionesActivas: Set<string>;
@@ -104,14 +107,37 @@ export function calcularOnboarding(d: DatosOnboarding): {
     // clientela porque el equipo de un estudio de Pilates lo es casi siempre.
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: 'Gestiona horarios, sustituciones, disponibilidad y estadísticas de tus instructoras.', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
     { id: 'clase', label: 'Crea tu primera clase', descripcion: 'El tipo de clase (Reformer, Mat...) es la base de tu horario.', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases-salas' },
-    { id: 'horario', label: 'Programa tus horarios', descripcion: 'Las sesiones concretas que tus clientas van a poder reservar.', minutos: 5, done: d.numSesiones > 0, href: '/calendario' },
+    // El paso donde se pierde más de la mitad de los estudios (4 de 10 lo
+    // superan). El calendario ya no recibe vacío: propone el horario a partir
+    // de lo que contestó en el asistente.
+    { id: 'horario', label: 'Programa tus clases', descripcion: 'Sin clases en el calendario, tu página de reservas no tiene nada que enseñar. Te proponemos un horario y lo confirmas.', minutos: 2, done: d.numSesiones > 0, href: '/calendario' },
     { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: 'Empieza con las que ya tienes — el resto se apuntará sola desde tu página de reservas.', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1', labelSecundario: '¿Vienes de otro software? Importa tus datos', hrefSecundario: '/migracion' },
     { id: 'bonos', label: 'Configura tus bonos y membresías', descripcion: 'Planes de pago recurrente o por sesiones — sin esto, cada clienta paga clase a clase.', minutos: 4, done: d.numPlanesTarifa > 0, href: '/configuracion?tab=planes' },
   ];
-  const reservasHecho = configuracionInicial.every(p => p.done) && !!d.stripeAccountId;
+  // ⚠️ EL CANDADO DE STRIPE ERA FALSO. Este paso exigía `stripeAccountId`, y
+  // para recibir una reserva Stripe NO hace falta: se comprobó contra el camino
+  // real (`crearReservaPublica` → RPC `reservar_plaza`), donde el gate de plan
+  // ni siquiera se aplica si el estudio no tiene planes ACTIVOS
+  // (`hayAlgoQueContratar`). Un estudio que cobra en el mostrador tenía su
+  // página funcionando y el checklist diciéndole para siempre que le faltaba
+  // abrir las reservas. Un checklist que miente sobre lo que ya está hecho es
+  // peor que no tenerlo.
+  //
+  // Lo que de verdad hace falta, y es lo que ahora se pide: una clase
+  // programada (si no, la página no tiene nada que enseñar) y la dirección
+  // pública. Cobrar online es otra cosa, y ya tiene su paso en «Pagos».
+  const puedeRecibirReservas = d.numSesiones > 0 && !!d.slug;
   configuracionInicial.push({
-    id: 'reservas', label: 'Abre las reservas', descripcion: 'Tu página pública de reservas, lista para compartir con tus clientas.',
-    minutos: 1, done: reservasHecho, href: d.slug ? `/reservar/${d.slug}` : '/configuracion?tab=estudio', externo: reservasHecho,
+    id: 'reservas', label: 'Abre las reservas', descripcion: 'Tu página pública, lista para compartir con tus alumnas. No necesitas Stripe para recibir reservas.',
+    minutos: 1, done: puedeRecibirReservas, href: d.slug ? `/reservar/${d.slug}` : '/configuracion?tab=estudio', externo: puedeRecibirReservas,
+  });
+  // El final del embudo, y el único paso que mide VALOR en vez de
+  // configuración: alguien ha reservado. Medido en producción, solo 2 de 10
+  // estudios llegan aquí — es la cifra que este checklist existe para mover.
+  configuracionInicial.push({
+    id: 'primera-reserva', label: 'Recibe tu primera reserva',
+    descripcion: 'El momento en que Tentare empieza a trabajar para ti. Comparte tu enlace y deja que alguien reserve.',
+    minutos: 1, done: d.numReservas > 0, href: '/calendario',
   });
 
   const pagos: PasoOnboarding[] = [

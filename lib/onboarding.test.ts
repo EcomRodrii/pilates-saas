@@ -68,7 +68,7 @@ const VACIO_V2: DatosOnboarding = {
   nif: null, stripeAccountId: null, slug: 'mi-estudio',
   colorPrimario: '#4F46E5', temaPortal: 'original', logoUrl: null,
   numInstructores: 0, numInstructoresConCuenta: 0, numTiposClase: 0, numSesiones: 0, numSocios: 0,
-  numSalas: 0, numPlanesTarifa: 0, numSuscripcionesActivas: 0,
+  numSalas: 0, numPlanesTarifa: 0, numSuscripcionesActivas: 0, numReservas: 0,
   contenidoPortalPersonalizado: false, automatizacionesActivas: new Set(),
 };
 
@@ -92,16 +92,46 @@ test('v2: "Personaliza tu marca" se marca hecho con logo, color o tema distintos
   assert.equal(calcularOnboarding({ ...VACIO_V2, temaPortal: 'oliva' }).categorias[0].pasos.find(p => p.id === 'marca')!.done, true);
 });
 
-test('v2: "Abre las reservas" exige también Stripe, no solo el resto de configuración inicial', () => {
-  const casiTodo: DatosOnboarding = {
-    ...VACIO_V2, nif: '12345678A', logoUrl: 'x', numSalas: 1, numInstructores: 1,
-    numTiposClase: 1, numSesiones: 1, numSocios: 1, numPlanesTarifa: 1,
-  };
-  const sinStripe = calcularOnboarding(casiTodo).categorias[0].pasos.find(p => p.id === 'reservas')!;
-  assert.equal(sinStripe.done, false);
-  const conStripe = calcularOnboarding({ ...casiTodo, stripeAccountId: 'acct_123' }).categorias[0].pasos.find(p => p.id === 'reservas')!;
-  assert.equal(conStripe.done, true);
-  assert.equal(conStripe.externo, true);
+// ⚠️ Este caso afirmaba lo CONTRARIO: que «Abre las reservas» exigía también
+// Stripe. Sobre el camino real de una reserva pública eso no es cierto, y se ha
+// revertido a propósito:
+//
+//   · `crearReservaPublica` → RPC `reservar_plaza` no mira Stripe en ningún
+//     punto. Un estudio que cobra en el mostrador recibe reservas igual.
+//   · El gate de plan ni siquiera se aplica si el estudio no tiene planes
+//     ACTIVOS (`hayAlgoQueContratar`, lib/bono-logic.ts).
+//
+// Consecuencia del candado falso: un estudio con su página funcionando veía el
+// checklist diciéndole PARA SIEMPRE que le faltaba abrir las reservas. Un
+// checklist que miente sobre lo que ya está hecho es peor que no tenerlo.
+test('v2: "Abre las reservas" NO exige Stripe — basta una clase programada y la dirección pública', () => {
+  const base: DatosOnboarding = { ...VACIO_V2, slug: 'mi-estudio' };
+  const paso = (d: DatosOnboarding) => calcularOnboarding(d).categorias[0].pasos.find(p => p.id === 'reservas')!;
+
+  assert.equal(paso({ ...base, numSesiones: 1 }).done, true, 'con clase y slug debería estar hecho');
+  assert.equal(paso({ ...base, numSesiones: 1 }).externo, true);
+  // Sin Stripe sigue estando hecho: no hace falta para recibir una reserva.
+  assert.equal(paso({ ...base, numSesiones: 1, stripeAccountId: null }).done, true);
+});
+
+test('v2: sin clases programadas no se puede abrir las reservas — la página no tendría nada que enseñar', () => {
+  const paso = calcularOnboarding({ ...VACIO_V2, slug: 'mi-estudio', numSesiones: 0 })
+    .categorias[0].pasos.find(p => p.id === 'reservas')!;
+  assert.equal(paso.done, false);
+  assert.equal(paso.externo, false);
+});
+
+// El único paso que mide VALOR y no configuración. Medido en producción: solo
+// 2 de 10 estudios llegan aquí.
+test('v2: "Recibe tu primera reserva" se marca con una reserva real, y con nada más', () => {
+  const paso = (d: DatosOnboarding) => calcularOnboarding(d).categorias[0].pasos.find(p => p.id === 'primera-reserva')!;
+  assert.equal(paso(VACIO_V2).done, false);
+  // Tenerlo todo configurado no basta: hasta que alguien reserva, no ha pasado nada.
+  assert.equal(paso({
+    ...VACIO_V2, slug: 'mi-estudio', nif: '1', logoUrl: 'x', numSalas: 1, numInstructores: 1,
+    numTiposClase: 1, numSesiones: 9, numSocios: 4, numPlanesTarifa: 2, stripeAccountId: 'acct_1',
+  }).done, false);
+  assert.equal(paso({ ...VACIO_V2, numReservas: 1 }).done, true);
 });
 
 test('v2: "Funciones inteligentes" refleja las automatizaciones realmente activas por trigger', () => {
