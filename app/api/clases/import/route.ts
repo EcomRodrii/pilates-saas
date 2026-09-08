@@ -8,6 +8,7 @@ import type { FilaClase } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { capturar } from '@/lib/analytics';
 
 // Una importación con miles de filas hace varios lotes secuenciales de INSERT;
 // damos margen sobre el default de Vercel para que no corte a medias.
@@ -44,6 +45,10 @@ interface Cuerpo {
   rows?: FilaClase[];
   semanas?: number;   // cuántas semanas expandir las filas recurrentes
   desde?: string;     // 'YYYY-MM-DD' — inicio de la expansión
+  /** De dónde viene el horario. El propuesto por Tentare al empezar y el que
+   *  la propietaria importa de un Excel son dos caminos con conversiones muy
+   *  distintas, y mezclarlos en la misma métrica oculta cuál funciona. */
+  origen?: 'onboarding' | 'importacion';
 }
 
 /** Suma días a una fecha local 'YYYY-MM-DD' sin tocar zonas horarias. */
@@ -224,6 +229,16 @@ export async function POST(req: NextRequest) {
   const batchAviso = batchId && idsCreados.length > 0
     ? (await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'sesiones', ids: idsCreados })) ? null : 'No se pudo registrar el lote para deshacer'
     : null;
+
+  // El paso donde se pierde más de la mitad de los estudios: 4 de 10 llegan a
+  // tener alguna clase programada, y sin clases la página pública no tiene
+  // nada que enseñar.
+  if (creadas > 0) {
+    capturar(sesion.studioId, {
+      nombre: 'horario_creado',
+      props: { origen: body?.origen === 'onboarding' ? 'onboarding' : 'importacion', sesiones: creadas },
+    });
+  }
 
   return NextResponse.json({
     ok: true,

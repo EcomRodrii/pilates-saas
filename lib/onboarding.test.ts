@@ -68,7 +68,7 @@ const VACIO_V2: DatosOnboarding = {
   nif: null, stripeAccountId: null, slug: 'mi-estudio',
   colorPrimario: '#4F46E5', temaPortal: 'original', logoUrl: null,
   numInstructores: 0, numInstructoresConCuenta: 0, numTiposClase: 0, numSesiones: 0, numSocios: 0,
-  numSalas: 0, numPlanesTarifa: 0, numSuscripcionesActivas: 0,
+  numSalas: 0, numPlanesTarifa: 0, numSuscripcionesActivas: 0, numReservas: 0,
   contenidoPortalPersonalizado: false, automatizacionesActivas: new Set(),
 };
 
@@ -92,16 +92,46 @@ test('v2: "Personaliza tu marca" se marca hecho con logo, color o tema distintos
   assert.equal(calcularOnboarding({ ...VACIO_V2, temaPortal: 'oliva' }).categorias[0].pasos.find(p => p.id === 'marca')!.done, true);
 });
 
-test('v2: "Abre las reservas" exige también Stripe, no solo el resto de configuración inicial', () => {
-  const casiTodo: DatosOnboarding = {
-    ...VACIO_V2, nif: '12345678A', logoUrl: 'x', numSalas: 1, numInstructores: 1,
-    numTiposClase: 1, numSesiones: 1, numSocios: 1, numPlanesTarifa: 1,
-  };
-  const sinStripe = calcularOnboarding(casiTodo).categorias[0].pasos.find(p => p.id === 'reservas')!;
-  assert.equal(sinStripe.done, false);
-  const conStripe = calcularOnboarding({ ...casiTodo, stripeAccountId: 'acct_123' }).categorias[0].pasos.find(p => p.id === 'reservas')!;
-  assert.equal(conStripe.done, true);
-  assert.equal(conStripe.externo, true);
+// ⚠️ Este caso afirmaba lo CONTRARIO: que «Abre las reservas» exigía también
+// Stripe. Sobre el camino real de una reserva pública eso no es cierto, y se ha
+// revertido a propósito:
+//
+//   · `crearReservaPublica` → RPC `reservar_plaza` no mira Stripe en ningún
+//     punto. Un estudio que cobra en el mostrador recibe reservas igual.
+//   · El gate de plan ni siquiera se aplica si el estudio no tiene planes
+//     ACTIVOS (`hayAlgoQueContratar`, lib/bono-logic.ts).
+//
+// Consecuencia del candado falso: un estudio con su página funcionando veía el
+// checklist diciéndole PARA SIEMPRE que le faltaba abrir las reservas. Un
+// checklist que miente sobre lo que ya está hecho es peor que no tenerlo.
+test('v2: "Abre las reservas" NO exige Stripe — basta una clase programada y la dirección pública', () => {
+  const base: DatosOnboarding = { ...VACIO_V2, slug: 'mi-estudio' };
+  const paso = (d: DatosOnboarding) => calcularOnboarding(d).categorias[0].pasos.find(p => p.id === 'reservas')!;
+
+  assert.equal(paso({ ...base, numSesiones: 1 }).done, true, 'con clase y slug debería estar hecho');
+  assert.equal(paso({ ...base, numSesiones: 1 }).externo, true);
+  // Sin Stripe sigue estando hecho: no hace falta para recibir una reserva.
+  assert.equal(paso({ ...base, numSesiones: 1, stripeAccountId: null }).done, true);
+});
+
+test('v2: sin clases programadas no se puede abrir las reservas — la página no tendría nada que enseñar', () => {
+  const paso = calcularOnboarding({ ...VACIO_V2, slug: 'mi-estudio', numSesiones: 0 })
+    .categorias[0].pasos.find(p => p.id === 'reservas')!;
+  assert.equal(paso.done, false);
+  assert.equal(paso.externo, false);
+});
+
+// El único paso que mide VALOR y no configuración. Medido en producción: solo
+// 2 de 10 estudios llegan aquí.
+test('v2: "Recibe tu primera reserva" se marca con una reserva real, y con nada más', () => {
+  const paso = (d: DatosOnboarding) => calcularOnboarding(d).categorias[0].pasos.find(p => p.id === 'primera-reserva')!;
+  assert.equal(paso(VACIO_V2).done, false);
+  // Tenerlo todo configurado no basta: hasta que alguien reserva, no ha pasado nada.
+  assert.equal(paso({
+    ...VACIO_V2, slug: 'mi-estudio', nif: '1', logoUrl: 'x', numSalas: 1, numInstructores: 1,
+    numTiposClase: 1, numSesiones: 9, numSocios: 4, numPlanesTarifa: 2, stripeAccountId: 'acct_1',
+  }).done, false);
+  assert.equal(paso({ ...VACIO_V2, numReservas: 1 }).done, true);
 });
 
 test('v2: "Funciones inteligentes" refleja las automatizaciones realmente activas por trigger', () => {
@@ -135,4 +165,39 @@ test('v2: con todo resuelto, no hay recomendaciones pendientes', () => {
 test('v2: las recomendaciones nunca contradicen un paso ya marcado como hecho', () => {
   const r = calcularOnboarding({ ...VACIO_V2, stripeAccountId: 'acct_123' });
   assert.ok(!r.recomendaciones.some(rec => rec.id === 'stripe'));
+});
+
+// ── Progreso esencial ───────────────────────────────────────────────────────
+// El checklist contaba los 17 pasos —incluidas automatizaciones, equipo y
+// portal—, así que un estudio con su página ya funcionando veía «40 %». Ese
+// número no medía nada que la propietaria reconociera.
+
+test('v2: el progreso esencial mide solo el camino a la primera reserva', () => {
+  const r = calcularOnboarding(VACIO_V2);
+  const config = r.categorias.find(c => c.id === 'configuracion-inicial')!;
+  assert.equal(r.esencial.total, config.pasos.length);
+  assert.ok(r.esencial.total < r.totalPasos, 'la esencial tiene que ser un subconjunto');
+  assert.equal(r.esencial.hechos, 0);
+  assert.equal(r.esencial.pct, 0);
+});
+
+// Los pasos están en el orden en que se desbloquean: sin salas no hay clases,
+// sin clases no hay reservas. Saltarse uno la deja trabada más adelante.
+test('v2: el siguiente paso es el primero PENDIENTE en orden, no el más fácil', () => {
+  const r = calcularOnboarding({ ...VACIO_V2, nif: '12345678A' });
+  assert.equal(r.esencial.siguiente?.id, 'marca');
+  const r2 = calcularOnboarding({ ...VACIO_V2, nif: '1', logoUrl: 'x' });
+  assert.equal(r2.esencial.siguiente?.id, 'salas');
+});
+
+test('v2: con la configuración esencial terminada, no queda siguiente paso', () => {
+  const todo = calcularOnboarding({
+    ...VACIO_V2, slug: 'mi-estudio', nif: '1', logoUrl: 'x', numSalas: 1, numInstructores: 1,
+    numTiposClase: 1, numSesiones: 4, numSocios: 2, numPlanesTarifa: 1, numReservas: 1,
+  });
+  assert.equal(todo.esencial.siguiente, null);
+  assert.equal(todo.esencial.pct, 100);
+  // Y aun así el checklist global NO está completo: quedan equipo, portal y
+  // automatizaciones, que siguen viviendo en /primeros-pasos.
+  assert.ok(todo.totalCompletados < todo.totalPasos);
 });

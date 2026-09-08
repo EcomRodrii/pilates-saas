@@ -110,12 +110,29 @@ test.describe('Configuración > Estudio > Horario', () => {
   });
 });
 
+// ⚠️ Estos dos tests necesitan un estudio QUE YA TENGA HORARIO, y hasta ahora
+// mockeaban `sesiones: []`. El propio título del primero lo dice —«aunque tenga
+// clases»— pero el fixture no se lo daba, y pasaba por casualidad: el calendario
+// no distinguía entre «esta semana no hay nada» y «este estudio nunca ha
+// programado nada», así que pintaba la rejilla igual en los dos casos.
+//
+// Desde que existe el primer horario (PrimerHorario), un estudio con CERO
+// clases en total recibe el estado vacío en vez de la rejilla — y sin rejilla no
+// hay celdas que digan «Cerrado» ni «Sin clases». La distinción que estos tests
+// protegen sigue viva y sigue importando; lo que estaba mal era el escenario.
+const UNA_CLASE = {
+  id: 'ses-ya-existe', studioId: 's', tipoClaseId: 'tc-1', salaId: null, instructorId: null,
+  inicio: new Date(Date.now() + 3_600_000).toISOString(),
+  fin: new Date(Date.now() + 6_600_000).toISOString(),
+  aforoMaximo: 8, cancelada: false, notas: null, precioPuntual: null, serieId: null,
+};
+
 test.describe('Calendario: "Cerrado" (horario) vs "Sin clases" (nada programado)', () => {
   test('un día fuera del horario configurado dice "Cerrado", aunque tenga clases', async ({ page }) => {
     await mockComun(page);
     await seedSesionDeDuena(page);
     await page.route('**/api/calendario**', route => json(route, {
-      sesiones: [], reservas: [], sustituciones: [], salas: [], instructores: [],
+      sesiones: [UNA_CLASE], reservas: [], sustituciones: [], salas: [], instructores: [],
       horaApertura: '08:00:00', horaCierre: '22:00:00',
       // domingo (dia local 6) cerrado, resto abiertos.
       horarioSemana: [0, 1, 2, 3, 4, 5, 6].map(dia => ({ dia, abierto: dia !== 6 })),
@@ -130,7 +147,7 @@ test.describe('Calendario: "Cerrado" (horario) vs "Sin clases" (nada programado)
     await mockComun(page);
     await seedSesionDeDuena(page);
     await page.route('**/api/calendario**', route => json(route, {
-      sesiones: [], reservas: [], sustituciones: [], salas: [], instructores: [],
+      sesiones: [UNA_CLASE], reservas: [], sustituciones: [], salas: [], instructores: [],
       horaApertura: '08:00:00', horaCierre: '22:00:00',
       horarioSemana: [0, 1, 2, 3, 4, 5, 6].map(dia => ({ dia, abierto: true })),
       rol: 'PROPIETARIO',

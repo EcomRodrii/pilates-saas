@@ -43,6 +43,7 @@ export default function PrimerosPasosPage() {
   const {
     studio, instructores, tiposClase, sesiones, socios,
     salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    reservas,
   } = useStudio();
   const { iniciarTour } = useTour();
 
@@ -64,6 +65,7 @@ export default function PrimerosPasosPage() {
     numTiposClase: tiposClase.length,
     numSesiones: sesiones.length,
     numSocios: socios.length,
+    numReservas: reservas.length,
     numSalas: salas.length,
     // P1-6 (auditoría de producto): ver components/dashboard/onboarding-checklist.tsx.
     numPlanesTarifa: planesTarifa.filter(p => p.activo && p.precio > 0).length,

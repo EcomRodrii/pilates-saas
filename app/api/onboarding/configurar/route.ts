@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
+import { capturar } from '@/lib/analytics';
 import { getThemeBorrador, getThemePublicado } from '@/lib/theme-data';
 import { uid } from '@/lib/utils';
 import {
@@ -232,6 +233,21 @@ export async function POST(req: NextRequest) {
         else horarioAjustado = true;
       }
     }
+
+    // Cierra el primer tramo del embudo de activación. Va aquí y no en el
+    // cliente porque `capturar()` usa `after()` de Next, que solo vale en
+    // ámbito de petición — y porque este es el punto donde de verdad se sabe
+    // QUÉ quedó montado, no solo que la propietaria pulsó «terminar».
+    capturar(studioId, {
+      nombre: 'onboarding_completado',
+      props: {
+        salas: salasNuevas.length,
+        tipos_clase: tiposNuevos.length,
+        planes: planesNuevos.length,
+        instructora: instructoraCreada,
+        horario: horarioAjustado,
+      },
+    });
 
     return NextResponse.json({
       ok: true,

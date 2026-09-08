@@ -118,3 +118,43 @@ test('la baraja termina pidiendo el logo, y se puede seguir sin ponerlo', async 
   await page.getByRole('button', { name: 'Montar mi estudio' }).click();
   await expect(page.getByText('¿Cuántos centros tienes?')).toBeVisible();
 });
+
+// ── Perfil: tres preguntas en una pantalla ──────────────────────────────────
+// «Cuántos centros», «de qué software vienes» y «cuántas alumnas» son las tres
+// únicas preguntas del asistente que NO configuran nada: solo alimentan el
+// panel interno para saber de qué competidor llega cada estudio. Ocupaban tres
+// pantallas completas de un asistente que ya era demasiado largo.
+test('las tres preguntas de perfil caben en una sola pantalla', async ({ page }) => {
+  await montarBienvenida(page);
+  await page.getByRole('button', { name: 'Saltar' }).click({ timeout: 30_000 });
+
+  await expect(page.getByRole('heading', { name: 'Cuéntanos de tu estudio' })).toBeVisible();
+  for (const etiqueta of ['¿Cuántos centros tienes?', '¿Con qué lo llevas ahora?', '¿Cuántas alumnas activas tienes?']) {
+    await expect(page.getByLabel(etiqueta)).toBeVisible();
+  }
+  // Y ya no son tres pasos: el asistente encoge.
+  await expect(page.getByText('01 — 11')).toBeVisible();
+});
+
+// Las tres son opcionales: «Prefiero no decirlo» es una respuesta. Dejar el
+// botón apagado hasta contestar convertiría en obligatorio lo que no lo es.
+test('se puede pasar del perfil sin contestar nada', async ({ page }) => {
+  await montarBienvenida(page);
+  await page.getByRole('button', { name: 'Saltar' }).click({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Cuéntanos de tu estudio' })).toBeVisible();
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  // Pasa a la siguiente pregunta, que ya es de las que SÍ configuran algo.
+  await expect(page.getByText('¿Cuántas salas tienes?')).toBeVisible();
+});
+
+// El asistente permite elegir con las teclas 1-N. Sobre un desplegable, teclear
+// un número disparaba la elección de una opción que no existe.
+test('los atajos numéricos no disparan nada en la pantalla de perfil', async ({ page }) => {
+  await montarBienvenida(page);
+  await page.getByRole('button', { name: 'Saltar' }).click({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Cuéntanos de tu estudio' })).toBeVisible();
+  await page.keyboard.press('2');
+  // Sigue en la misma pantalla y sin nada seleccionado.
+  await expect(page.getByRole('heading', { name: 'Cuéntanos de tu estudio' })).toBeVisible();
+  await expect(page.getByLabel('¿Cuántos centros tienes?')).toHaveValue('');
+});

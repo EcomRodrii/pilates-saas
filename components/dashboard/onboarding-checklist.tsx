@@ -19,11 +19,12 @@ export function OnboardingChecklist() {
   const {
     studio, updateStudio, instructores, tiposClase, sesiones, socios,
     salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    reservas,
   } = useStudio();
 
   if (!studio || studio.onboardingDescartadoEn) return null;
 
-  const { recomendaciones, totalPasos, totalCompletados } = calcularOnboarding({
+  const { totalPasos, totalCompletados, esencial } = calcularOnboarding({
     nif: studio.nif,
     stripeAccountId: studio.stripeAccountId,
     slug: studio.slug,
@@ -35,6 +36,7 @@ export function OnboardingChecklist() {
     numTiposClase: tiposClase.length,
     numSesiones: sesiones.length,
     numSocios: socios.length,
+    numReservas: reservas.length,
     numSalas: salas.length,
     // P1-6 (auditoría de producto): contar CUALQUIER fila marcaba «✓ Configura
     // tus bonos» tachado aunque fuera el borrador que crea el wizard de
@@ -50,9 +52,12 @@ export function OnboardingChecklist() {
 
   if (totalCompletados === totalPasos) return null;
 
-  const pct = totalPasos === 0 ? 0 : Math.round((totalCompletados / totalPasos) * 100);
-  // Solo la más urgente aquí — el resto se ve dentro de la página completa.
-  const topRecomendacion = recomendaciones[0];
+  // ⚠️ El porcentaje mide la ESENCIAL, no los 17 pasos. Contándolos todos, un
+  // estudio con su página ya abierta veía «40 %»: había terminado lo que le
+  // hacía falta para operar y el panel le decía que iba por la mitad. El resto
+  // de categorías (equipo, portal, automatizaciones) siguen en /primeros-pasos,
+  // que es donde tienen sentido.
+  const pct = esencial.pct;
 
   async function handleDismiss() {
     await updateStudio({ onboardingDescartadoEn: new Date().toISOString() });
@@ -66,8 +71,10 @@ export function OnboardingChecklist() {
             <Rocket size={16} />
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-foreground">Primeros pasos con tu estudio</p>
-            <p className="text-[11px] text-muted-foreground">{totalCompletados} de {totalPasos} pasos completados · {pct}%</p>
+            <p className="text-[13px] font-semibold text-foreground">
+              {pct === 100 ? 'Tu estudio ya puede recibir reservas' : `Tu estudio está al ${pct}%`}
+            </p>
+            <p className="text-[11px] text-muted-foreground">{esencial.hechos} de {esencial.total} para poder recibir reservas</p>
           </div>
         </div>
         <button onClick={handleDismiss} aria-label="Ocultar primeros pasos" className="shrink-0 p-1 rounded-lg hover:bg-muted transition-colors" title="Ocultar">
@@ -79,10 +86,20 @@ export function OnboardingChecklist() {
         <div className="h-full rounded-full bg-brand-secondary transition-all" style={{ width: `${pct}%` }} />
       </div>
 
-      {topRecomendacion && (
-        <Link href={topRecomendacion.href} className="flex items-start gap-2 text-[12px] text-foreground mt-3 hover:underline">
-          <Lightbulb size={14} className="text-warning shrink-0 mt-[1px]" />
-          <span>{topRecomendacion.texto}</span>
+      {/* El siguiente paso concreto con su enlace, no un consejo. Antes aquí
+          iba la recomendación más urgente («Vemos que todavía no has conectado
+          Stripe»), que dice lo que falta pero no la lleva a hacerlo — y encima
+          podía no ser el siguiente paso del camino. */}
+      {esencial.siguiente && (
+        <Link
+          href={esencial.siguiente.href}
+          className="mt-3 flex items-start gap-2 rounded-xl border border-border bg-background px-3 py-2.5 transition-colors hover:bg-muted"
+        >
+          <Lightbulb size={14} className="mt-[2px] shrink-0 text-warning" aria-hidden />
+          <span className="min-w-0">
+            <span className="block text-[12.5px] font-semibold text-foreground">{esencial.siguiente.label}</span>
+            <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{esencial.siguiente.descripcion}</span>
+          </span>
         </Link>
       )}
 

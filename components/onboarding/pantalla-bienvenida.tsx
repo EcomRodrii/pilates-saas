@@ -85,6 +85,21 @@ type Paso = {
    * claves nuevas en `Respuestas` (que es lo que se persiste en el borrador).
    */
   indiceSala?: number;
+  /**
+   * Varias preguntas en UNA pantalla, con desplegables en vez de botones.
+   *
+   * ⚠️ Existe por una razón concreta: «cuántos centros», «de qué software
+   * vienes» y «cuántas alumnas» son las tres únicas preguntas del asistente
+   * que NO configuran nada — solo alimentan el panel interno para saber de
+   * dónde llegan los clientes. Tres pantallas completas por tres datos que la
+   * propietaria no va a ver nunca es un mal cambio: son tres toques antes de
+   * llegar a lo que de verdad le monta el estudio. Juntas ocupan una.
+   *
+   * No se borran porque son la ÚNICA forma que hay de saber de qué competidor
+   * viene cada estudio (`/interno` → Crecimiento). El dato es valioso; las
+   * tres pantallas no.
+   */
+  campos?: { id: keyof Respuestas; label: string; opciones: readonly string[] }[];
 };
 
 // ── De dónde viene el estudio ───────────────────────────────────────────────
@@ -122,29 +137,19 @@ function vieneDeOtraPlataforma(software: string | undefined): boolean {
 
 const PASOS_BASE: Paso[] = [
   {
-    id: 'centros', etiqueta: 'Tu estudio', titulo: '¿Cuántos centros tienes?',
-    // Decía "activamos la vista multicentro". No se activa nada: las sedes de
-    // una cadena se crean por /api/cadena/sedes y el multicentro depende de
-    // eso, no de esta respuesta. Se cuenta lo que sí pasa.
-    nota: 'Nos dice si vas a necesitar gestionar varias sedes.',
-    opciones: ['1 estudio', '2-3 estudios', '4-10 estudios', 'Más de 10'],
-  },
-  {
-    id: 'software', etiqueta: 'Tu estudio', titulo: '¿Con qué llevas ahora tu estudio?',
-    // "¿Desde qué software vienes?" daba por hecho que viene de uno, y muchos
-    // estudios no vienen de ninguno: lo llevan en papel, en WhatsApp o en una
-    // hoja de cálculo. Preguntado así, «Todavía ninguno» es una respuesta más,
-    // no la confesión de que te falta algo.
-    nota: 'Si vienes de otra plataforma, traemos tus datos gratis. Y si no usas ninguna, también está bien.',
-    opciones: [...OPCIONES_SOFTWARE],
-  },
-  {
-    id: 'alumnos', etiqueta: 'Tu estudio', titulo: '¿Cuántos alumnos activos tienes?',
-    // Decía "ajustamos los límites y los informes a tu tamaño real". No hay
-    // límites por estudio que ajustar, y los informes se calculan sobre los
-    // datos reales, no sobre esta respuesta.
-    nota: 'Nos ayuda a entender el tamaño de tu estudio desde el primer día.',
-    opciones: ['Menos de 50', '50-150', '150-300', '300-600', 'Más de 600'],
+    // Tres preguntas de perfil en UNA pantalla (antes eran tres). Ninguna
+    // configura nada: son las que contestan «de dónde vienen nuestros
+    // usuarios» en el panel interno. Ver `campos` en el tipo `Paso`.
+    id: 'centros', etiqueta: 'Tu estudio', titulo: 'Cuéntanos de tu estudio',
+    nota: 'Tres datos rápidos. Si vienes de otra plataforma, traemos tus datos gratis.',
+    opciones: [],
+    campos: [
+      { id: 'centros', label: '¿Cuántos centros tienes?', opciones: ['1 estudio', '2-3 estudios', '4-10 estudios', 'Más de 10'] },
+      // «Todavía ninguno» es una respuesta más, no la confesión de que te
+      // falta algo: muchos estudios lo llevan en papel o en WhatsApp.
+      { id: 'software', label: '¿Con qué lo llevas ahora?', opciones: OPCIONES_SOFTWARE },
+      { id: 'alumnos', label: '¿Cuántas alumnas activas tienes?', opciones: ['Menos de 50', '50-150', '150-300', '300-600', 'Más de 600'] },
+    ],
   },
   {
     id: 'salas', etiqueta: 'Tu espacio', titulo: '¿Cuántas salas tienes?',
@@ -524,6 +529,10 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
     paso,
     qPaso: paso ? `${String(e.paso + 1).padStart(2, '0')} — ${String(PASOS.length).padStart(2, '0')}` : '',
     qNota: paso ? (typeof paso.nota === 'function' ? paso.nota(e.ans) : paso.nota) : '',
+    // Las respuestas ya dadas, para que los desplegables de la pantalla de
+    // perfil sean controlados. Van por el frame como todo lo demás: el estado
+    // vive en el ref del motor y el JSX solo lee de `vals`.
+    ansPerfil: e.ans,
     // El número va calculado, no escrito a mano. Antes era la cadena literal
     // 'Continuar con 2' para cualquier cantidad mayor que 1: con cuatro clases
     // marcadas el botón decía «Continuar con 2» mientras el resumen de la
@@ -536,8 +545,12 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
     opciones,
     qOpacity: qp.toFixed(3),
     qTransform: `translateY(${(e.reduced ? 0 : 10 * (1 - qp)).toFixed(2)}px)`,
-    accionesOpacity: listo ? '1' : '0.32',
-    accionesEvents: (listo ? 'auto' : 'none') as 'auto' | 'none',
+    // En la pantalla de perfil el botón está SIEMPRE activo: las tres
+    // preguntas son opcionales («Prefiero no decirlo» es una respuesta) y
+    // dejarlo apagado hasta contestar convertiría en obligatorio lo que no lo
+    // es. En el resto sigue esperando a que haya elección.
+    accionesOpacity: listo || paso?.campos ? '1' : '0.32',
+    accionesEvents: ((listo || paso?.campos) ? 'auto' : 'none') as 'auto' | 'none',
     progresoAncho: `${Math.min(100, (hechas / tramos) * 100).toFixed(2)}%`,
     resumen,
     resumenTitulo: migra && e.ans.importar === 'Sí, importadlos'
@@ -547,7 +560,12 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
     // "Elige una opción" en vez de "Pulsa 1-N": el atajo de teclado (número)
     // sigue funcionando igual, pero la pista no puede asumir que quien
     // responde tiene teclado — la mayoría toca con el dedo o hace clic.
-    pista: enIntro ? 'Toca para acelerar' : e.fase === 'wizard' ? 'Elige una opción' : '',
+    // En la pantalla de perfil no hay opciones que elegir, hay tres
+    // desplegables — y la pista tiene que decir lo que se hace ahí, no
+    // arrastrar la del resto de pasos.
+    pista: enIntro
+      ? 'Toca para acelerar'
+      : e.fase === 'wizard' ? (paso?.campos ? 'Puedes dejarlo en blanco' : 'Elige una opción') : '',
     pistaOpacity: e.fase === 'resumen' || (enIntro && e.buttonAt != null) ? '0' : '1',
     // Este botón solo se VE en el resumen (`btnOpacity` lo deja a 0 en el
     // resto), así que su texto es siempre el del resumen. Decía «Empezar»
@@ -717,7 +735,17 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
         body: JSON.stringify({ ayuda: ans.ayuda, software: ans.software ?? null }),
       }).catch(() => { /* best-effort */ });
     }
-    if (ans.importar === 'Sí, importadlos') router.push('/migracion');
+    // A dónde sale del asistente, por orden de lo que más le desbloquea:
+    //
+    //  · Si pidió que le importemos sus datos, a la Migración Mágica: viene de
+    //    otro software con sus alumnas y su horario, y ese asistente los trae.
+    //  · Si no, AL CALENDARIO. No al panel: el calendario es donde su estudio
+    //    está vacío, y ahí le espera la propuesta de horario hecha con lo que
+    //    acaba de contestar. Medido en producción: solo 4 de 10 estudios
+    //    llegan a programar una clase, y sin clases no puede haber una primera
+    //    reserva. Soltarla en el panel es soltarla lejos del único paso que
+    //    le falta.
+    router.push(ans.importar === 'Sí, importadlos' ? '/migracion' : '/calendario');
   }, [updateStudio, router]);
 
   // P1-5 (auditoría de producto): las 11 preguntas no tenían salida — quien
@@ -777,6 +805,18 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     tock(0.62, 0.9);
     refrescar();
   }, [tock, refrescar, studio.id]);
+  /** Un desplegable de la pantalla de perfil. No auto-avanza: son tres
+   *  preguntas en la misma pantalla y saltar al contestar la primera dejaría
+   *  las otras dos sin responder. Se sale con «Continuar». */
+  const elegirCampo = useCallback((campoId: keyof Respuestas, valor: string) => {
+    const e = engineRef.current;
+    if (!e) return;
+    e.ans = { ...e.ans, [campoId]: valor || undefined };
+    e.energy = Math.min(1, e.energy + 0.4);
+    guardarProgresoWizard(studio.id, e.paso, e.ans);
+    tock(1.18, 0.9);
+    refrescar();
+  }, [studio.id, tock, refrescar]);
 
   const elegir = useCallback((paso: Paso, valor: string) => {
     const e = engineRef.current;
@@ -882,6 +922,10 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
       const paso = construirPasos(eng.ans)[eng.paso];
       if (!paso) return;
       if (ev.key === 'Enter') { avanzar(); return; }
+      // En la pantalla de perfil los números no eligen nada: son desplegables,
+      // no botones numerados. Sin esto, teclear en un select disparaba la
+      // elección de una opción inexistente.
+      if (paso.campos) return;
       const n = parseInt(ev.key, 10);
       if (n >= 1 && n <= paso.opciones.length) elegir(paso, paso.opciones[n - 1]);
     };
@@ -1025,10 +1069,36 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
                 <span className="text-[11px] font-bold tracking-[0.24em] whitespace-nowrap tabular-nums" style={{ color: '#55622C' }}>{vals.qPaso}</span>
                 <span className="text-[11px] font-semibold tracking-[0.16em] uppercase whitespace-nowrap text-muted-foreground">{vals.paso.etiqueta}</span>
               </div>
-              <div className="text-foreground font-semibold" style={{ fontSize: 'clamp(25px, 2.9vw, 37px)', lineHeight: 1.18, letterSpacing: '-0.024em', textWrap: 'pretty' }}>
+              {/* `<h1>` y no un `<div>`: es el titular de la pantalla. Con un
+                  div, un lector de pantalla recorría las once preguntas sin
+                  ninguna estructura — nada que anunciara el cambio de paso.
+                  Lo destapó un test que lo buscaba por rol y no lo encontraba. */}
+              <h1 className="text-foreground font-semibold" style={{ fontSize: 'clamp(25px, 2.9vw, 37px)', lineHeight: 1.18, letterSpacing: '-0.024em', textWrap: 'pretty' }}>
                 {vals.paso.titulo}
-              </div>
+              </h1>
               <div className="mt-2.5 text-sm leading-relaxed text-muted-foreground max-w-[460px]">{vals.qNota}</div>
+              {vals.paso.campos ? (
+                // Tres preguntas en una pantalla. Desplegables nativos y no
+                // botones: son 4, 11 y 5 opciones — pintadas como botones
+                // ocupan la pantalla entera y obligan a hacer scroll para
+                // llegar a «Continuar».
+                <div className="mt-7 flex flex-col gap-4 max-w-[420px]">
+                  {vals.paso.campos.map((campo) => (
+                    <label key={campo.id} className="block">
+                      <span className="mb-1.5 block text-[13px] font-semibold text-foreground">{campo.label}</span>
+                      <select
+                        value={(vals.ansPerfil[campo.id] as string | undefined) ?? ''}
+                        onChange={(ev) => { ev.stopPropagation(); elegirCampo(campo.id, ev.target.value); }}
+                        onClick={(ev) => ev.stopPropagation()}
+                        className="w-full rounded-xl border border-border bg-card px-3.5 py-3 text-[14.5px] text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-ring/30"
+                      >
+                        <option value="">Prefiero no decirlo</option>
+                        {campo.opciones.map((o) => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              ) : (
               <div className="flex flex-wrap gap-2 mt-7">
                 {vals.opciones.map((op) => (
                   <button
@@ -1048,6 +1118,7 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
                   </button>
                 ))}
               </div>
+              )}
               {/* Aviso de tope. `role="status"` y no `alert`: es una aclaración,
                   no un error — la propietaria no ha hecho nada mal. Se reserva
                   el alto aunque esté invisible para que el botón de continuar
