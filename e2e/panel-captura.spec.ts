@@ -13,6 +13,12 @@ import { montar, ir, enOscuro } from './panel-sembrado';
 // Hermana de `caja-captura.spec.ts`, que hace lo mismo con el TPV.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Cada test carga una pantalla ENTERA. Con los 30 s por defecto no cabe: solo
+// esperar a que el panel monte y a que se vayan sus esqueletos puede llevarse
+// 25, y entonces el test muere sin haber capturado nada. Mismo motivo y mismo
+// valor que en `panel-contraste.spec.ts`.
+test.describe.configure({ timeout: 60_000 });
+
 const RUTAS = [
   'dashboard', 'centro-de-control', 'calendario', 'clientas',
   'cobros', 'equipo', 'informes', 'productos', 'configuracion', 'citas',

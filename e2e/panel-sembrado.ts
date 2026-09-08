@@ -170,11 +170,11 @@ export async function ir(page: Page, ruta: string) {
   // test moría sin haber medido nada — el remedio salía más caro que la
   // enfermedad. Aquí una espera agotada no es un fallo: es «sigue adelante y
   // mide lo que haya», y el guardia del propio test decide si sirve.
-  await page.waitForSelector('#panel-portal-host', { timeout: 25_000 }).catch(() => {});
+  await page.waitForSelector('#panel-portal-host', { timeout: 20_000 }).catch(() => {});
   await page
-    .waitForFunction(() => !document.querySelector('.animate-pulse'), null, { timeout: 6_000 })
+    .waitForFunction(() => !document.querySelector('.animate-pulse'), null, { timeout: 5_000 })
     .catch(() => {});
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(600);
 }
 
 /** Arranca el panel en modo oscuro (preferencia por usuario, localStorage). */
