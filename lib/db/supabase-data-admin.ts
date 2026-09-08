@@ -57,6 +57,7 @@ import type {
   RowStudios,
 } from '@/lib/db-types';
 import type {
+  Factura,
   AutomationLog,
   AutomationRule,
   Automatizacion,
@@ -3484,6 +3485,79 @@ export async function resolverSociaAutenticada(slug: string, authUserId: string,
 // Devuelve el id de la socia vinculada a un usuario de Supabase Auth dentro de
 // un estudio (por auth_user_id), o null. Se usa en los endpoints que exigen
 // sesión real de socia: la identidad sale del JWT verificado, NUNCA del body.
+
+/**
+ * La factura de UN recibo, y solo si ese recibo es de esta socia.
+ *
+ * ── Por qué esto no existía, y por qué ahora sí ──────────────────────────────
+ * La pantalla de un pago llevaba una nota explicando que el botón NO estaba a
+ * propósito: no había ruta que sirviera una factura a una alumna, las de
+ * `app/api/facturas/*` son `verificarSesionStaff`, y la factura es un documento
+ * fiscal sellado con Veri*Factu. Aquella cautela era correcta —poner un botón
+ * que no entrega nada es peor que no ponerlo—, pero apuntaba al CÓMO.
+ *
+ * Entregar a la clienta su propia factura YA emitida es precisamente para lo
+ * que existe una factura. Lo que no puede hacerse es crearla, alterarla ni
+ * re-emitirla, y esto no hace nada de eso: es de solo lectura y, si no hay
+ * factura, no devuelve nada (la pantalla mantiene su respaldo de «pídesela al
+ * estudio»). En producción hay 25 facturas de socias identificables que hoy no
+ * pueden obtener.
+ *
+ * ── Autorización ─────────────────────────────────────────────────────────────
+ * El `socioId` lo pone quien llama DESDE EL TOKEN, nunca el body. Y la factura
+ * se busca por el recibo: `recibos.socio_id = socioId` y el mismo estudio. Un
+ * id de recibo ajeno no devuelve nada, no un error distinto.
+ *
+ * El NIF y la dirección del estudio SÍ salen de aquí, y es correcto: van
+ * impresos en la propia factura por obligación legal. `studioPublico` los
+ * excluye porque allí no hacen falta; aquí son el emisor del documento.
+ */
+export async function facturaDeSociaPublica(params: {
+  studioId: string; socioId: string; reciboId: string;
+}): Promise<
+  | { error: 'No autorizado' | 'Sin factura' }
+  | { ok: true; factura: Factura; emisor: { nombre: string; nif: string; direccion: string }; receptor: { telefono: string | null; email: string | null } }
+> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  // El recibo TIENE que ser suyo. Esta es la única puerta: si no cuadra, se
+  // responde igual que si no hubiera factura, sin decir si el recibo existe.
+  const { data: recibo } = await admin
+    .from('recibos').select('id, socio_id')
+    .eq('id', params.reciboId).eq('studio_id', params.studioId).eq('socio_id', params.socioId)
+    .maybeSingle();
+  if (!recibo) return { error: 'No autorizado' };
+
+  const { data: fila } = await admin
+    .from('facturas').select('*')
+    .eq('recibo_id', params.reciboId).eq('studio_id', params.studioId)
+    .maybeSingle();
+  // Sin factura emitida no se inventa ninguna: muchos recibos no la llevan
+  // (35 de 73 en producción), y eso es normal.
+  if (!fila) return { error: 'Sin factura' };
+
+  const { data: estudio } = await admin
+    .from('studios').select('nombre, razon_social, nif, direccion, ciudad, codigo_postal')
+    .eq('id', params.studioId).maybeSingle();
+
+  const { data: socia } = await admin
+    .from('socios').select('telefono, email')
+    .eq('id', params.socioId).eq('studio_id', params.studioId).maybeSingle();
+
+  const e = (estudio ?? {}) as Record<string, string | null>;
+  return {
+    ok: true,
+    factura: mapFactura(fila as RowFacturas),
+    emisor: {
+      // La razón social manda sobre el nombre comercial: es quien emite.
+      nombre: (e.razon_social || e.nombre) ?? '',
+      nif: e.nif ?? '',
+      direccion: [e.direccion, e.codigo_postal, e.ciudad].filter(Boolean).join(', '),
+    },
+    receptor: { telefono: (socia?.telefono as string | null) ?? null, email: (socia?.email as string | null) ?? null },
+  };
+}
 
 export async function socioAutenticado(authUserId: string, studioId: string): Promise<string | null> {
   const admin = getSupabaseAdmin();
