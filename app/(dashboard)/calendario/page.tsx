@@ -814,6 +814,31 @@ export default function Calendario() {
     setPestanaPanel('clientas');
   }
 
+  // ── Enlace directo a una clase: /calendario?sesion=<id> ─────────────────────
+  // Lo usa «Hoy en el estudio» (la home) para llevar a la ficha de la clase en
+  // vez de duplicar aquí sus acciones —buscar sustituta, pasar lista, resolver
+  // una incidencia—, que ya viven en el panel lateral. Es exactamente lo mismo
+  // que hace el buscador rápido: `saltarAClase`, no un camino nuevo.
+  //
+  // Se lee de window.location y no con useSearchParams para no suspender el
+  // árbol (mismo motivo que en el resto de pantallas del panel). Y se espera a
+  // que `sesiones` tenga la clase: el contexto tarda en cargar y sin esa espera
+  // el salto se perdía en silencio en la primera visita.
+  const saltoPendiente = useRef<string | null>(null);
+  useEffect(() => {
+    saltoPendiente.current = new URLSearchParams(window.location.search).get('sesion');
+  }, []);
+  useEffect(() => {
+    const id = saltoPendiente.current;
+    if (!id || !sesiones.some(x => x.id === id)) return;
+    saltoPendiente.current = null;
+    saltarAClase(id);
+    // Se limpia la URL para que recargar o compartir el enlace no reabra el
+    // panel sobre una clase que quizá ya no exista.
+    window.history.replaceState(null, '', window.location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `saltarAClase` se redefine en cada render; añadirla dispararía el efecto en bucle. Lo que decide cuándo saltar es la llegada de `sesiones`.
+  }, [sesiones]);
+
   const conflictosForm = useMemo(() => {
     if (!showForm || !form.fecha || !form.horaInicio || !form.horaFin) return null;
     const inicio = toISO(form.fecha, form.horaInicio);

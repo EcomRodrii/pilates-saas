@@ -950,6 +950,17 @@ export interface Reserva {
   ofertaExpiraEn: string | null;
   checkInEn: string | null;
   creadoEn: string;
+  // Migr 0059 (`pedir_confirmacion_riesgo`). Metadata sobre la reserva, NO un
+  // estado nuevo: la reserva sigue siendo 'CONFIRMADA' mientras se espera. Se
+  // le pide confirmar solo a quien tiene riesgo alto de plantón, y solo si el
+  // estudio encendió la opción — así que `confirmacionPedidaEn === null` es
+  // «no se le ha pedido», nunca «no ha confirmado».
+  //
+  // ⚠️ Las dos columnas llevaban desde 0059 viajando en el SELECT del panel y
+  // muriendo en `mapReserva`: la pantalla no podía distinguir «viene seguro»
+  // de «no ha contestado» porque el dato nunca llegaba al cliente.
+  confirmacionPedidaEn?: string | null;
+  confirmadoEn?: string | null;
   // Gap 4 (portal Reservas > Pasadas, migr 20260828120000): 1-5, solo sobre
   // una reserva ya ASISTIDA (CHECK en BD). null = todavía sin valorar. NO
   // confundir con `valoraciones` (migr 0044, tabla aparte que puntúa a la

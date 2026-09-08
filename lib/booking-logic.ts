@@ -103,7 +103,7 @@ export function contarReservasActivasFuturas(
 // público (`fetchPublicStudioData` → `aforoReservas`) trae a propósito una
 // fila recortada (`id, sesion_id, estado, spot_id`) para no sacar PII de nadie,
 // y con la firma ancha había que castear. Cualquier `Reserva[]` sigue valiendo.
-export function plazasOcupadas(sesionId: string, reservas: Pick<Reserva, 'sesionId' | 'estado'>[]): number {
+export function plazasOcupadas(sesionId: string, reservas: readonly Pick<Reserva, 'sesionId' | 'estado'>[]): number {
   return reservas.filter(
     r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'),
   ).length;

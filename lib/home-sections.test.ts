@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ordenarSeccionesHome, HOME_FIJAS_PRIMERO } from './home-sections.ts';
+import { ordenarSeccionesHome, HOME_FIJAS_PRIMERO, HOME_SECCIONES } from './home-sections.ts';
 
 test('ordenarSeccionesHome: onboarding va primero aunque el orden guardado lo entierre', () => {
   // El caso real detectado en producción: un orden guardado antes de que
@@ -32,6 +32,17 @@ test('ordenarSeccionesHome: estudio nuevo sin personalizar ya sale en el orden c
 
 test('HOME_FIJAS_PRIMERO contiene onboarding', () => {
   assert.ok(HOME_FIJAS_PRIMERO.includes('onboarding'));
+});
+
+// La agenda del día ES la home. Si algún día alguien la saca de las fijas, un
+// estudio con `home.orden` guardado de antes se la encontraría la última —
+// `aplicarLayout` mete los ids nuevos al final— y la pantalla volvería a
+// arrancar con las gráficas.
+test('«hoy» es la primera sección, y ninguna personalización puede enterrarla', () => {
+  assert.equal(HOME_FIJAS_PRIMERO[0], 'hoy');
+  assert.equal(HOME_SECCIONES[0].id, 'hoy');
+  const guardadoAntiguo = ['principal', 'ingresos', 'resumen', 'accion', 'onboarding', 'hoy'];
+  assert.equal(ordenarSeccionesHome(guardadoAntiguo)[0], 'hoy');
 });
 
 // ── Prioridad del asistente de bienvenida (§8) ───────────────────────────────

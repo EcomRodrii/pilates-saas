@@ -35,9 +35,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'WhatsApp no está configurado en la plataforma' }, { status: 503 });
   }
 
-  const body = (await req.json().catch(() => null)) as { sesionId?: string } | null;
+  const body = (await req.json().catch(() => null)) as { sesionId?: string; socioIds?: unknown } | null;
   const sesionId = body?.sesionId;
   if (!sesionId) return NextResponse.json({ error: 'Falta sesionId' }, { status: 400 });
+  // «Rellenar hueco» (home) manda a QUIÉN avisar; el radar de siempre no manda
+  // nada y sigue avisando a todas. La lista es un FILTRO, nunca la fuente: las
+  // candidatas se recalculan igual en servidor y esto solo puede quitar gente
+  // de esa lista, jamás añadirla — mandar un id que no cumple las reglas no
+  // hace que se le mande el WhatsApp.
+  const seleccion = Array.isArray(body?.socioIds)
+    ? new Set(body.socioIds.filter((x): x is string => typeof x === 'string'))
+    : null;
+  if (seleccion && seleccion.size === 0) {
+    return NextResponse.json({ error: 'No has seleccionado a nadie' }, { status: 400 });
+  }
 
   try {
     // Nunca confiar en lo que mande el cliente sobre ocupación/candidatas —
@@ -101,6 +112,7 @@ export async function POST(req: NextRequest) {
     // como vigente y su dueña entraba en la lista de candidatas.
     const hoyISO = hoyEnEstudio(ahora);
     let candidatas = candidatasParaHueco({ sesion: sesionObj, sesiones, socios, reservas, suscripciones, planesTarifa, hoyISO });
+    if (seleccion) candidatas = candidatas.filter(s => seleccion.has(s.id));
 
     // Cap: no tiene sentido avisar a mucha más gente que huecos reales.
     const cap = Math.min(candidatas.length, plazasLibres * 4, CAP_MAXIMO);

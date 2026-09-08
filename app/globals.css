@@ -913,3 +913,107 @@ nextjs-portal { display: none !important; }
 .portal-estudio-hero-img { animation: portal-estudio-ken 16s ease-in-out infinite alternate; }
 @keyframes portal-estudio-visor-in { from { opacity: 0; } to { opacity: 1; } }
 .portal-estudio-visor { animation: portal-estudio-visor-in .2s ease-out both; }
+
+/* ── El Orb de Tentare ───────────────────────────────────────────────────────
+   La marca de «aquí está pensando Tentare»: analizar, detectar, recomendar,
+   automatizar. Sustituye al icono de destellos (`Sparkles`), que en este
+   producto ya significa otra cosa —«novedad», el changelog— y por tanto no
+   podía significar además «inteligencia» sin decir dos cosas a la vez.
+
+   Preset «Iridescent Opal»: un ópalo, no un neón. La interferencia iridiscente
+   son dos capas cónicas girando a velocidades distintas, y encima una capa de
+   luz (`.orb-luz`) que es la que convierte el disco de color en una esfera:
+   brillo especular arriba a la izquierda, sombra abajo a la derecha y limbo
+   oscurecido en el borde. Nada de canvas, WebGL ni dependencias nuevas — a
+   20-28 px la diferencia con un render por shader no se ve, y esta es la
+   pantalla que más rápido tiene que cargar de todo el panel.
+
+   ⚠️ El color va SIN `mix-blend-mode: screen`. Fue el primer intento y a este
+   tamaño lo blanquea todo: sobre la base clara del ópalo, «screen» solo puede
+   aclarar, así que las bandas desaparecían y el Orb salía como una perla gris.
+   La iridiscencia se pinta opaca y el volumen lo pone `.orb-luz` por encima.
+
+   ⚠️ `--orb-4` (lavanda) y `--orb-5` (rubor) son los ÚNICOS sitios del producto
+   donde vuelve a haber un morado y un rosa. No contradice la purga de
+   #DB2777 / #F7A6C4 documentada más arriba: aquellos eran color de INTERFAZ
+   (botones, etiquetas) fuera de la identidad oliva. Estos son pigmento de una
+   pieza de marca de 22 px que nunca colorea un control ni codifica un dato, y
+   son los tonos apagados de la paleta definitiva del Orb, no los saturados de
+   la plantilla anterior. No usarlos fuera del Orb. */
+:root {
+  --orb-1: #343825;
+  --orb-2: #66704A;
+  --orb-3: #A8B59A;
+  --orb-4: #B7A6C9;
+  --orb-5: #D9A9B8;
+  --orb-6: #D9C29E;
+  --orb-7: #F6F4EF;
+}
+
+.orb-tentare {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  /* Sin `isolation`, el `mix-blend-mode` de las capas de dentro se mezclaría
+     con la tarjeta que hay detrás y el Orb cambiaría de color según dónde se
+     ponga. */
+  isolation: isolate;
+  background: var(--orb-3);
+  box-shadow: 0 1px 3px -1px color-mix(in srgb, var(--orb-1) 55%, transparent);
+}
+
+/* Las dos capas de interferencia. Dos cónicas en el mismo pseudoelemento no se
+   pueden girar a ritmos distintos, así que va una en cada uno. */
+.orb-tentare::before,
+.orb-tentare::after {
+  content: '';
+  position: absolute;
+  inset: -18%;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(var(--orb-difuminado, 1.5px));
+}
+
+.orb-tentare::before {
+  background: conic-gradient(
+    from 0deg,
+    var(--orb-4), var(--orb-6), var(--orb-3), var(--orb-5),
+    var(--orb-7), var(--orb-2), var(--orb-4)
+  );
+  animation: orb-giro var(--orb-ritmo, 14s) linear infinite;
+}
+
+.orb-tentare::after {
+  background: conic-gradient(
+    from 140deg,
+    transparent 0%, var(--orb-5) 18%, transparent 36%,
+    var(--orb-4) 58%, transparent 74%, var(--orb-6) 92%, transparent 100%
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.85;
+  animation: orb-giro calc(var(--orb-ritmo, 14s) * 1.9) linear infinite reverse;
+}
+
+/* El volumen. Va encima de las dos capas de color, no debajo: es lo que
+   convierte el disco iridiscente en una esfera. */
+.orb-tentare > .orb-luz {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 30% 26%, color-mix(in srgb, var(--orb-7) 96%, transparent) 0%, transparent 40%),
+    radial-gradient(circle at 72% 80%, color-mix(in srgb, var(--orb-1) 62%, transparent) 0%, transparent 58%),
+    radial-gradient(circle at 50% 50%, transparent 52%, color-mix(in srgb, var(--orb-1) 42%, transparent) 100%);
+}
+
+/* «Pensando»: mismo dibujo, más deprisa y más nítido — la única diferencia
+   entre los dos estados del kit. */
+.orb-tentare[data-estado='pensando'] {
+  --orb-ritmo: 4.5s;
+  --orb-difuminado: 1px;
+}
+
+@keyframes orb-giro { to { transform: rotate(360deg); } }

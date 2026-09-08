@@ -6,19 +6,19 @@ import { useStudio } from '@/lib/studio-context';
 import {
   TrendingUp, TrendingDown, Minus,
   UserPlus, CreditCard, Bell,
-  CheckCircle2, ChevronDown, ChevronUp,
   CalendarPlus, Zap, ArrowUpRight, RefreshCw,
   Users, BarChart3, Calendar, AlertTriangle,
-  Clock, Activity, Bot, MessageSquare, CalendarX,
+  Clock, Activity, MessageSquare,
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
 import { cn, inicioDeSemana, finDeSemana, capitalizarPrimera } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { AvisoIntegracionesCaidas } from '@/components/dashboard/aviso-integraciones-caidas';
+import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
+import { TentareOrb } from '@/components/marca/tentare-orb';
 import { ActionCenter } from '@/components/decision/action-center';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
 import { fetchLayout, authHeader } from '@/lib/api-client';
@@ -32,7 +32,6 @@ import { useRol, puedeVerFinanzas, puedeVer, puedeGestionarClientas, puedeMoverD
 import { Toast, useToast } from '@/components/ui/toast';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
 import { useAuth } from '@/lib/auth-context';
-import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
 import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pendientes';
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
@@ -248,210 +247,6 @@ function KpiCard({ label, value, sub, Icon, tint, tintBg }: {
   );
 }
 
-// ─── Clase card expandible ────────────────────────────────────────────────────
-
-function ClaseHoyCard({
-  sesion,
-  isNow,
-  esPropia,
-  onToast,
-}: {
-  sesion: ReturnType<typeof useStudio>['sesiones'][0] & {
-    tipoNombre: string;
-    tipoColor: string;
-    salaNombre: string;
-    instructorNombre: string;
-  };
-  isNow: boolean;
-  // Punto de entrada mobile-first al motor de sustituciones: "no puedo
-  // asistir" solo tiene sentido sobre la PROPIA clase de la instructora — es
-  // lo mismo que ya hace app/(dashboard)/calendario, aquí desde la tarjeta que
-  // ve nada más entrar, sin tener que navegar al calendario.
-  esPropia: boolean;
-  // P2 (auditoría de producto): aviso si se canceló la reserva pero no se
-  // pudo devolver el bono — antes se perdía en silencio.
-  onToast: (msg: string) => void;
-}) {
-  const { reservas, socios, checkin, cancelarReserva } = useStudio();
-  const [expanded, setExpanded] = useState(isNow);
-  const [showNoPuedoAsistir, setShowNoPuedoAsistir] = useState(false);
-  // P1-4 (auditoría de producto): la X quitaba la reserva sin confirmar.
-  const [reservaAQuitar, setReservaAQuitar] = useState<{ id: string; nombre: string } | null>(null);
-
-  // P0-27: Map por id en vez de socios.find() por cada reserva de la sesión.
-  const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
-  const reservasSesion = useMemo(
-    () =>
-      reservas
-        .filter(r => r.sesionId === sesion.id && r.estado !== 'CANCELADA')
-        .map(r => ({ ...r, socio: socioById.get(r.socioId) }))
-        .filter(r => r.socio),
-    [reservas, socioById, sesion.id]
-  );
-
-  const asistidas = reservasSesion.filter(r => r.estado === 'ASISTIDA').length;
-  // A-16: % de ocupación sobre plazas realmente ocupadas (CONFIRMADA/ASISTIDA),
-  // no toda reserva no cancelada (incluía espera/no-shows → superaba el 100%).
-  const ocupadas = reservasSesion.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
-  const pct =
-    sesion.aforoMaximo > 0
-      ? Math.round((ocupadas / sesion.aforoMaximo) * 100)
-      : 0;
-  const fillColor = pct >= 100 ? 'var(--destructive)' : pct >= 75 ? 'var(--warning)' : 'var(--success)';
-
-  return (
-    <div
-      className={cn(
-        'rounded-xl border overflow-hidden bg-card',
-        isNow ? 'border-foreground shadow-sm' : 'border-border'
-      )}
-    >
-      <button
-        onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted transition-colors"
-      >
-        {isNow && (
-          <span className="shrink-0 w-2 h-2 rounded-full bg-success animate-pulse" />
-        )}
-        <div
-          className="w-2.5 h-2.5 rounded-full shrink-0"
-          style={{ backgroundColor: sesion.tipoColor }}
-        />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-[13px] font-semibold text-foreground truncate">{sesion.tipoNombre}</p>
-            {isNow && (
-              <span className="text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full shrink-0">
-                AHORA
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] text-muted-foreground truncate">
-            {formatHora(sesion.inicio)}–{formatHora(sesion.fin)} · {sesion.salaNombre} ·{' '}
-            {sesion.instructorNombre}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {asistidas > 0 && (
-            <span className="text-[11px] font-bold text-success">{asistidas}✓</span>
-          )}
-          <span className="text-[12px] font-semibold text-foreground">
-            {reservasSesion.length}/{sesion.aforoMaximo}
-          </span>
-          <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full"
-              style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: fillColor }}
-            />
-          </div>
-          {expanded ? (
-            <ChevronUp size={14} className="text-muted-foreground" />
-          ) : (
-            <ChevronDown size={14} className="text-muted-foreground" />
-          )}
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="border-t border-muted">
-          {reservasSesion.length === 0 ? (
-            <p className="text-[12px] text-muted-foreground px-4 py-3">Sin reservas aún</p>
-          ) : (
-            <div className="divide-y divide-muted">
-              {reservasSesion.map(r => {
-                const asistida = r.estado === 'ASISTIDA';
-                return (
-                  <div key={r.id} className="flex items-center gap-3 px-4 py-2.5">
-                    <div
-                      className={cn(
-                        'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
-                        asistida
-                          ? 'bg-success/10 text-success'
-                          : 'bg-muted text-foreground'
-                      )}
-                    >
-                      {r.socio!.nombre[0]}
-                      {r.socio!.apellidos[0]}
-                    </div>
-                    <Link
-                      href={`/clientas/${r.socioId}`}
-                      className="flex-1 min-w-0 hover:underline"
-                    >
-                      <p className="text-[12px] font-medium text-foreground truncate">
-                        {r.socio!.nombre} {r.socio!.apellidos}
-                      </p>
-                    </Link>
-                    {asistida ? (
-                      <span className="text-[10px] font-bold text-success flex items-center gap-1 shrink-0">
-                        <CheckCircle2 size={12} /> Asistió
-                      </span>
-                    ) : (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => checkin(r.id)}
-                          className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors"
-                        >
-                          Check-in
-                        </button>
-                        <button
-                          onClick={() => setReservaAQuitar({ id: r.id, nombre: `${r.socio!.nombre} ${r.socio!.apellidos}` })}
-                          className="text-[10px] font-medium px-2 py-1 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <div className="px-4 py-2.5 border-t border-muted flex items-center justify-between gap-2">
-            <Link
-              href="/calendario"
-              className="text-[11px] font-medium text-brand-medio hover:underline"
-            >
-              Gestionar clase →
-            </Link>
-            {esPropia && (
-              <button
-                onClick={() => setShowNoPuedoAsistir(true)}
-                className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
-              >
-                <CalendarX size={11} />No puedo asistir
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      <NoPuedoAsistirDialog
-        open={showNoPuedoAsistir}
-        onOpenChange={setShowNoPuedoAsistir}
-        sesion={{ id: sesion.id, inicio: sesion.inicio, tipoClase: { nombre: sesion.tipoNombre } }}
-      />
-
-      <ConfirmDialog
-        open={!!reservaAQuitar}
-        onOpenChange={v => { if (!v) setReservaAQuitar(null); }}
-        titulo={reservaAQuitar ? `¿Quitar a ${reservaAQuitar.nombre}?` : ''}
-        descripcion="Se libera su plaza — si hay lista de espera, se promociona automáticamente a la siguiente persona."
-        textoConfirmar="Quitar"
-        destructivo
-        onConfirm={() => {
-          if (reservaAQuitar) {
-            void cancelarReserva(reservaAQuitar.id).then(res => {
-              if (!res.ok) onToast(res.error);
-              else if (res.avisoBono) onToast(res.avisoBono);
-            });
-          }
-          setReservaAQuitar(null);
-        }}
-      />
-    </div>
-  );
-}
-
 // ─── Main dashboard ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -464,7 +259,6 @@ export default function Dashboard() {
     planesTarifa,
     tiposClase,
     instructores,
-    salas,
     marcarCobrado,
     cobrarTodosPendientes,
     actividadReciente,
@@ -673,33 +467,13 @@ export default function Dashboard() {
     return { mrr: mensualMrr, renovacionesProximas: renovs };
   }, [suscripciones, planById, socioById, hoyStr, now]);
 
-  // ── Clases de hoy ───────────────────────────────────────────────────────────
+  // Cuántas clases hay hoy — solo para el subtítulo del KPI «Reservas hoy».
+  // La agenda del día (con instructora, sala, ocupación y estado) ya no se
+  // calcula aquí: la sirve la sección `hoy` desde /api/calendario.
   const clasesHoy = useMemo(
-    () =>
-      sesiones
-        .filter(s => !s.cancelada && localDate(s.inicio) === hoyStr)
-        .sort((a, b) => a.inicio.localeCompare(b.inicio))
-        .map(s => {
-          // M-3: un solo lookup en tipoClaseById en vez de dos .find() lineales
-          // (nombre y color pedían cada uno el suyo sobre el mismo tipoClaseId).
-          const tipo = tipoClaseById.get(s.tipoClaseId);
-          return {
-            ...s,
-            tipoNombre: tipo?.nombre ?? 'Clase',
-            tipoColor: tipo?.color ?? 'var(--muted-foreground)',
-            salaNombre: salas.find(x => x.id === s.salaId)?.nombre ?? '',
-            instructorNombre: instructores.find(i => i.id === s.instructorId)?.nombre ?? '',
-          };
-        }),
-    [sesiones, hoyStr, tipoClaseById, salas, instructores]
+    () => sesiones.filter(s => !s.cancelada && localDate(s.inicio) === hoyStr),
+    [sesiones, hoyStr],
   );
-
-  const isNowFn = (s: { inicio: string; fin: string }) => {
-    const start = new Date(s.inicio).getTime();
-    const end = new Date(s.fin).getTime();
-    const t = now.getTime();
-    return t >= start && t <= end;
-  };
 
   // Una instructora veía los ingresos del mes del estudio en su pantalla de
   // inicio. En una cadena con 18 instructoras eso es la cuenta de resultados del
@@ -708,10 +482,12 @@ export default function Dashboard() {
   // clic y no es un permiso.
   const rolActual = useRol();
   const { user } = useAuth();
-  // Ficha de instructora del usuario logueado — para saber si una clase de
-  // "Clases de hoy" es SUYA y ofrecerle ahí mismo "No puedo asistir", el mismo
-  // criterio que ya usa app/(dashboard)/calendario.
-  const yo = rolActual === 'INSTRUCTOR' ? (instructores.find(i => i.authUserId === user?.id) ?? null) : null;
+  // El saludo por su nombre. Mismo orden de resolución que el menú de perfil:
+  // ficha de equipo primero, y si la propietaria no tiene ficha propia, el
+  // nombre que haya guardado en Mi perfil. Sin ninguno de los dos se saluda a
+  // secas, que es mejor que saludar a un trozo de email.
+  const nombrePropio = (instructores.find(i => i.authUserId === user?.id)?.nombre
+    ?? (user?.user_metadata?.nombre as string | undefined) ?? '').trim().split(' ')[0];
   const verFinanzas = puedeVerFinanzas(rolActual);
   // Los atajos del inicio llevaban a sitios donde el rol no entra: "Nueva
   // clienta" a un alta que la RLS rechaza, "Cobrar" y "Sistema autónomo" a
@@ -845,7 +621,7 @@ export default function Dashboard() {
             la ranura que ocupa en todas las demás pantallas. */}
         <PageHeader
           style={{ order: -1 }}
-          title={`${saludo} 👋`}
+          title={nombrePropio ? `${saludo}, ${nombrePropio}` : `${saludo} 👋`}
           description={capitalizarPrimera(mesFecha)}
           actions={
             gestionaClientas ? (
@@ -866,6 +642,19 @@ export default function Dashboard() {
             devuelve filas a la propietaria, así que para el resto llega vacío.
             Se pinta solo si hay algo roto de verdad. */}
         <AvisoIntegracionesCaidas />
+
+        {/* ── Hoy en el estudio ───────────────────────────────────────────────
+            La agenda real del día: qué clases hay, quién las da, cuánta gente
+            viene, quién ha confirmado, dónde hay hueco y dónde hay un problema.
+            Es la sección que contesta «¿qué tengo hoy?» — la pregunta con la
+            que se abre el panel. Todo lo de abajo (indicadores, ingresos,
+            gráficas) sigue donde estaba, y se puede reordenar u ocultar desde
+            el editor de inicio; esto no, va siempre la primera.
+
+            No comparte datos con el resto de la home a propósito: se sirve de
+            /api/calendario acotado al día, que es el único sitio del que sale
+            «esta clase se ha quedado sin instructora». */}
+        <div {...wrap('hoy')}><HoyEnElEstudio /></div>
 
         {/* ── Lo que necesita su atención (Decision OS) ──────────────────────── */}
         {/* El Brain vivía entero en /centro-de-control y esta pantalla —la que
@@ -951,8 +740,10 @@ export default function Dashboard() {
               href="/automatizaciones"
               className="flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground transition-colors hover:bg-primary/90"
             >
+              {/* El Orb, no un robot: aquí Tentare está ejecutando cosas por
+                  su cuenta, y esa es exactamente la idea que representa. */}
               <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-card/10">
-                <Bot className="size-4 text-primary-foreground/80" />
+                <TentareOrb tam={18} />
               </div>
               <div className="min-w-0 flex-1">
                 {pendingAdmin.length === 0 ? (
@@ -1104,47 +895,14 @@ export default function Dashboard() {
         <div {...wrap('principal')}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-          {/* LEFT: Clases hoy + Pagos pendientes */}
+          {/* LEFT: Pagos pendientes + radar de huecos */}
           <div className="lg:col-span-2 space-y-5">
 
-            {/* Clases de hoy */}
-            <div className="bg-card rounded-xl border border-border">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-muted">
-                <div className="flex items-center gap-2">
-                  <Clock size={14} className="text-muted-foreground" />
-                  <h2 className="text-[13px] font-semibold text-foreground">
-                    Clases de hoy
-                  </h2>
-                  <span className="text-[11px] font-medium text-muted-foreground">
-                    {clasesHoy.length} sesiones
-                  </span>
-                </div>
-                <Link
-                  href="/calendario"
-                  className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <CalendarPlus size={12} /> Ver calendario
-                </Link>
-              </div>
-              {clasesHoy.length === 0 ? (
-                <div className="py-12 flex flex-col items-center gap-2">
-                  <Calendar size={28} className="text-border" />
-                  <p className="text-[13px] text-muted-foreground">Sin clases hoy</p>
-                  <Link
-                    href="/calendario"
-                    className="text-[12px] font-medium text-brand-medio hover:underline"
-                  >
-                    + Programar clase
-                  </Link>
-                </div>
-              ) : (
-                <div className="p-4 space-y-2">
-                  {clasesHoy.map(s => (
-                    <ClaseHoyCard key={s.id} sesion={s} isNow={isNowFn(s)} esPropia={!!yo && s.instructorId === yo.id} onToast={showToast} />
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* «Clases de hoy» vivía aquí y ya no: la agenda del día es ahora la
+                sección `hoy`, arriba del todo, y tener DOS listas de las clases de
+                hoy en la misma pantalla —con dos formas distintas de contar las
+                plazas— era exactamente lo que se estaba arreglando. El atajo de la
+                instructora («No puedo asistir») se movió con ella, no se perdió. */}
 
             {/* Pagos pendientes */}
             {verFinanzas && pendientes.length > 0 && (
