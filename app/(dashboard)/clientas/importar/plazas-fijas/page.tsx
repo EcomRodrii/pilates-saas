@@ -114,7 +114,7 @@ export default function ImportarPlazasFijasPage() {
       <PageHeader
         back={{ href: '/clientas/importar', label: 'Volver a importar clientas' }}
         title="Importar plazas fijas"
-        description="Trae las plazas fijas (el hueco semanal de cada socia) desde un CSV."
+        description="Trae las plazas fijas (el hueco semanal de cada clienta) desde un CSV."
       />
 
       <div className="flex items-start gap-2 text-[12.5px] rounded-xl px-4 py-3 border max-w-2xl" style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 6%, transparent)', borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>

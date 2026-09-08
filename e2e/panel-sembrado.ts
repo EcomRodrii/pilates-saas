@@ -170,7 +170,13 @@ export async function ir(page: Page, ruta: string) {
   // test moría sin haber medido nada — el remedio salía más caro que la
   // enfermedad. Aquí una espera agotada no es un fallo: es «sigue adelante y
   // mide lo que haya», y el guardia del propio test decide si sirve.
-  await page.waitForSelector('#panel-portal-host', { timeout: 20_000 }).catch(() => {});
+  // ⚠️ `state: 'attached'`. Es un <div> VACÍO, así que nunca llega a ser
+  // «visible» —mide 0×0— y con el estado por defecto esta espera se agotaba
+  // entera sin cumplirse nunca: 20 s por pantalla tirados, en cada corrida.
+  // Lo tapaba el `.catch()`, y el guardia del test seguía funcionando porque
+  // `querySelector` no mira el tamaño. Una espera que nunca acierta no falla:
+  // solo cuesta.
+  await page.waitForSelector('#panel-portal-host', { state: 'attached', timeout: 20_000 }).catch(() => {});
   await page
     .waitForFunction(() => !document.querySelector('.animate-pulse'), null, { timeout: 5_000 })
     .catch(() => {});

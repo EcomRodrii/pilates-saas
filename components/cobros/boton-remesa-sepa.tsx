@@ -44,7 +44,7 @@ export function BotonRemesaSepa() {
 
       if (nAdeudos === 0) {
         setAviso(sinMandato > 0
-          ? `Ningún recibo pendiente tiene mandato SEPA (${sinMandato} sin domiciliar). Añade el mandato en la ficha de cada socia.`
+          ? `Ningún recibo pendiente tiene mandato SEPA (${sinMandato} sin domiciliar). Añade el mandato en la ficha de cada clienta.`
           : 'No hay recibos pendientes que remesar.');
         return;
       }

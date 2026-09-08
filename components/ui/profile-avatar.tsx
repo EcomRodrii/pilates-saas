@@ -60,14 +60,31 @@ export const ProfileAvatar = memo(function ProfileAvatar({
   const memojiSeed = memojiSeedOf(avatarId);
   const cls = cn('rounded-full shrink-0 overflow-hidden flex items-center justify-center font-bold', SIZE_CLS[size], className);
 
-  if (fotoUrl) {
+  // ⚠️ Las dos imágenes de aquí abajo pueden no llegar, y ninguna de las dos
+  // depende de nosotros: la foto subida vive en Storage (se puede borrar a
+  // mano, o el bucket puede estar caído) y el memoji lo sirve tapback.co, un
+  // tercero. Sin plan B, el navegador pinta su icono de imagen rota donde
+  // debería estar la cara de una persona — y en una lista de clientas o en el
+  // equipo, eso es CADA fila. Se cae a las iniciales, que no dependen de nadie.
+  //
+  // El estado guarda QUÉ src falló, no un booleano: así, si el avatar cambia,
+  // la imagen nueva se intenta igualmente en vez de heredar el fallo de la
+  // anterior. Mismo patrón que `BotonFactura`.
+  const [srcFallido, setSrcFallido] = useState<string | null>(null);
+
+  if (fotoUrl && srcFallido !== fotoUrl) {
     // eslint-disable-next-line @next/next/no-img-element -- foto subida por la socia, no un asset estático conocido en build
-    return <img src={fotoUrl} alt={nombre} className={cls} style={{ objectFit: 'cover' }} loading="lazy" decoding="async" />;
+    return <img src={fotoUrl} alt={nombre} className={cls} style={{ objectFit: 'cover' }} loading="lazy" decoding="async"
+      onError={() => setSrcFallido(fotoUrl)} />;
   }
 
   if (memojiSeed) {
-    // eslint-disable-next-line @next/next/no-img-element -- imagen externa (tapback.co), no un asset estático conocido en build
-    return <img src={memojiUrl(memojiSeed)} alt={nombre} className={cls} style={{ objectFit: 'cover' }} loading="lazy" decoding="async" />;
+    const src = memojiUrl(memojiSeed);
+    if (srcFallido !== src) {
+      // eslint-disable-next-line @next/next/no-img-element -- imagen externa (tapback.co), no un asset estático conocido en build
+      return <img src={src} alt={nombre} className={cls} style={{ objectFit: 'cover' }} loading="lazy" decoding="async"
+        onError={() => setSrcFallido(src)} />;
+    }
   }
 
   // El COLOR distingue; las INICIALES se leen. Antes hacían las dos cosas: el
@@ -108,6 +125,10 @@ export const AvatarPicker = memo(function AvatarPicker({ value, onChange }: { va
     if (currentMemojiSeed && !seeds.includes(currentMemojiSeed)) seeds[0] = currentMemojiSeed;
     return seeds;
   });
+  // Un memoji que no llega deja de ofrecerse. Los sirve tapback.co, un tercero:
+  // si su imagen falla, el botón se quedaba en un círculo gris que al pulsarlo
+  // elegía un avatar que tampoco se vería después. Mejor no ofrecerlo.
+  const [seedsRotas, setSeedsRotas] = useState<string[]>([]);
 
   return (
     <div className="space-y-3">
@@ -116,14 +137,14 @@ export const AvatarPicker = memo(function AvatarPicker({ value, onChange }: { va
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Memojis</p>
           <button
             type="button"
-            onClick={() => setMemojiSeeds(Array.from({ length: MEMOJI_BATCH_SIZE }, randomSeed))}
+            onClick={() => { setMemojiSeeds(Array.from({ length: MEMOJI_BATCH_SIZE }, randomSeed)); setSeedsRotas([]); }}
             className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
           >
             <Shuffle size={11} />Ver otros
           </button>
         </div>
         <div className="flex flex-wrap gap-2">
-          {memojiSeeds.map(seed => {
+          {memojiSeeds.filter(s => !seedsRotas.includes(s)).map(seed => {
             const id = memojiIdFor(seed);
             const selected = currentMemojiSeed === seed;
             return (
@@ -137,7 +158,8 @@ export const AvatarPicker = memo(function AvatarPicker({ value, onChange }: { va
                 )}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- imagen externa (tapback.co) */}
-                <img src={memojiUrl(seed)} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                <img src={memojiUrl(seed)} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async"
+                  onError={() => setSeedsRotas(prev => prev.includes(seed) ? prev : [...prev, seed])} />
               </button>
             );
           })}

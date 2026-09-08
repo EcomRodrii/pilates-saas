@@ -20,7 +20,7 @@ export function FichaExcepciones({ socioId, onToast }: { socioId: string; onToas
       <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
         <ShieldOff size={15} className="text-muted-foreground shrink-0" /> Excepciones
       </p>
-      <p className="text-xs text-muted-foreground mb-3">Porque lo dices tú: exime a esta socia de automatizaciones concretas.</p>
+      <p className="text-xs text-muted-foreground mb-3">Porque lo dices tú: exime a esta clienta de automatizaciones concretas.</p>
       <div className="space-y-3">
         {TIPOS_EXCEPCION.map(tipo => {
           const on = tieneExcepcion(socioExcepciones, socioId, tipo);
