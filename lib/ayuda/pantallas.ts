@@ -54,7 +54,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
     resumen:
       'Las sesiones de una en una —la valoración inicial, fisio, un personal— con su propio hueco en la agenda, sin mezclarse con las clases de grupo.',
     ahorra: 'Llevar los uno a uno en otra agenda aparte y acabar pisando una clase.',
-    destino: { categoria: 'reservas' },
+    destino: { categoria: 'reservas', slug: 'citas' },
   },
 
   '/clientas': {
@@ -68,9 +68,9 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
   '/mensajeria': {
     titulo: 'Mensajería',
     resumen:
-      'Lo que hablas con tus alumnas, un hilo por persona: lo que te escriben desde el portal, tus respuestas y los avisos que han recibido. Contestas desde aquí, sin sacar el móvil.',
+      'Las cuatro formas de hablar con tus alumnas en un sitio: los avisos que te llegan a ti, el tablón, lo que te escriben ellas y los mensajes que mandas tú a un grupo.',
     ahorra: 'Tener las conversaciones repartidas entre tu WhatsApp personal y el correo.',
-    destino: { categoria: 'automatizaciones', slug: 'recordatorios-automaticos' },
+    destino: { categoria: 'automatizaciones', slug: 'mensajeria' },
   },
 
   '/comunidad': {
@@ -78,7 +78,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
     resumen:
       'El tablón de tu estudio: publicas algo aquí y tus alumnas lo ven en su portal. Un cambio de horario, el cierre de agosto, la foto de la clase del sábado.',
     ahorra: 'Montar un grupo de WhatsApp con ochenta personas para contar una cosa.',
-    destino: { categoria: 'app', slug: 'que-ve-una-alumna' },
+    destino: { categoria: 'app', slug: 'comunidad' },
   },
 
   '/cobros': {
@@ -86,7 +86,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
     resumen:
       'El dinero en un solo sitio: lo que está pendiente, lo que ya ha entrado y la factura de cada cobro. Si una tarjeta falla, aparece aquí con el motivo y el botón para volver a intentarlo.',
     ahorra: 'Perseguir pagos uno a uno y encontrarte el descuadre a fin de mes.',
-    destino: { categoria: 'pagos' },
+    destino: { categoria: 'pagos', slug: 'la-pantalla-de-cobros' },
   },
 
   '/pos': {
@@ -134,7 +134,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
     resumen:
       'Todo lo que facturaste en el año y el IVA que repercutiste, cuadrado y listo para tu gestoría. Sale de tus facturas ya selladas, así que no hay nada que rehacer.',
     ahorra: 'El Excel de enero y las llamadas de la gestoría pidiendo papeles.',
-    destino: { categoria: 'pagos', slug: 'facturas' },
+    destino: { categoria: 'pagos', slug: 'cierre-de-ano' },
   },
 
   '/libreta': {
@@ -142,7 +142,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
     resumen:
       'Tus clientas en una hoja para imprimir, siempre al día. La sacas en papel o la guardas en PDF y la tienes a mano aunque te quedes sin internet.',
     ahorra: 'Quedarte sin saber a quién llamar el día que se cae la wifi.',
-    destino: { categoria: 'clientes' },
+    destino: { categoria: 'clientes', slug: 'la-libreta' },
   },
 
   '/migracion': {
@@ -166,7 +166,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
     resumen:
       'El registro de todo lo que Tentare ha enviado en tu nombre: a quién, por qué canal y si llegó. Si algo no salió, aquí tienes el motivo y el botón para reintentarlo.',
     ahorra: 'Fiarte de que el recordatorio salió sin poder comprobarlo.',
-    destino: { categoria: 'problemas', slug: 'no-llega-un-email' },
+    destino: { categoria: 'automatizaciones', slug: 'registro-de-envios' },
   },
 
   '/automatizaciones': {
@@ -182,7 +182,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
     resumen:
       'El listado de instructoras de Pilates y Yoga que buscan estudio. Ves su experiencia, sus formaciones y cuándo puede dar clase cada una, y le escribes desde aquí.',
     ahorra: 'Publicar una oferta y quedarte esperando a ver quién aparece.',
-    destino: { categoria: 'instructores' },
+    destino: { categoria: 'instructores', slug: 'tentare-network' },
   },
 
   '/suscripcion': {
