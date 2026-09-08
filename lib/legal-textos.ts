@@ -166,3 +166,44 @@ export function textoConsentimientoMarketing(e: DatosEstudioLegal = {}): string 
   const nombreEstudio = !vacio(e.nombre) ? e.nombre!.trim() : 'el Estudio';
   return `Acepto recibir por email novedades, promociones y ofertas de ${nombreEstudio}. Puedo retirar este consentimiento en cualquier momento, sin coste ni justificación, desde el enlace de baja de cualquier email o pidiéndolo directamente al estudio. Esta comunicación es independiente de los avisos necesarios para la prestación del servicio (reservas, pagos, cambios de horario), que seguiré recibiendo aunque retire este consentimiento.`;
 }
+
+// ─── Textos legales efectivos de un estudio ─────────────────────────────────
+//
+// Vivían en `lib/studio-context.tsx`, que es `'use client'`. Se mueven aquí
+// para que el SERVIDOR pueda componer el mismo texto que firma la clienta —lo
+// necesita el sellado de la aceptación por compra— sin arrastrar React ni
+// mantener dos versiones de la misma regla.
+
+export interface StudioConfig {
+  politicaPrivacidad: string;
+  terminosServicio: string;
+}
+
+/**
+ * Textos legales efectivos de un estudio: los suyos si los ha reescrito a mano,
+ * y si no, los de por defecto REDACTADOS CON SUS DATOS fiscales.
+ *
+ * Antes el fallback era un texto fijo que decía "el responsable es el estudio de
+ * pilates" — sin nombre ni NIF, aunque el estudio los tuviera rellenos. Lo que
+ * firmaba la clienta no identificaba a nadie.
+ */
+export function configLegalDe(
+  studio: DatosEstudioLegal | null | undefined,
+  guardados: { politicaPrivacidad?: string | null; terminosServicio?: string | null } | null | undefined,
+): StudioConfig {
+  const e = studio ?? {};
+  return {
+    politicaPrivacidad: guardados?.politicaPrivacidad ?? politicaPrivacidadPorDefecto(e),
+    terminosServicio: guardados?.terminosServicio ?? terminosServicioPorDefecto(e),
+  };
+}
+
+/**
+ * Solo como estado inicial, antes de saber de qué estudio hablamos. En cuanto
+ * carga, `configLegalDe` lo sustituye por el texto con los datos reales; si
+ * alguien llegara a firmar esto, el propio documento avisa de que faltan.
+ */
+export const defaultStudioConfig: StudioConfig = {
+  politicaPrivacidad: politicaPrivacidadPorDefecto(),
+  terminosServicio: terminosServicioPorDefecto(),
+};

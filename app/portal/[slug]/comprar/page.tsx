@@ -45,6 +45,14 @@ export default function ComprarPage() {
       productos: catalogoTienda(d?.planesTarifa ?? [], d?.citasServicios ?? [], d?.productosFisicos ?? []),
       planes: d?.planesTarifa ?? [],
       stripeAccountId: d?.studio?.stripeAccountId ?? null,
+      // Los textos del estudio ya viajan en el payload (los usa el registro
+      // para la firma). Aquí sirven para poder LEERLOS antes de pagar.
+      textosLegales: (() => {
+        const s2 = d?.studio as { politicaPrivacidad?: string; terminosServicio?: string } | undefined;
+        return s2?.politicaPrivacidad || s2?.terminosServicio
+          ? { politicaPrivacidad: s2.politicaPrivacidad ?? '', terminosServicio: s2.terminosServicio ?? '' }
+          : null;
+      })(),
       // Para poder decir A QUÉ está acotado un bono hace falta el nombre del
       // tipo, no su id. Los dos datos ya viajan en el mismo payload.
       nombresTipo: new Map((d?.tiposClase ?? []).map((t) => [t.id, t.nombre])),
@@ -139,6 +147,7 @@ export default function ComprarPage() {
         studioId={estudio.id}
         socioId={socia?.socioId ?? null}
         stripeAccountId={data?.stripeAccountId ?? null}
+        textosLegales={data?.textosLegales ?? null}
         onCerrar={() => setComprando(null)}
         onComprado={() => {
           // El bono ya está en su cuenta: el catálogo cacheado ya no vale.

@@ -96,7 +96,7 @@ export type ResultadoReserva =
     }
   | { ok: false; error: string };
 import { horarioConNuevaHora } from '@/lib/serie-horario';
-import { politicaPrivacidadPorDefecto, terminosServicioPorDefecto, type DatosEstudioLegal } from '@/lib/legal-textos';
+import { type DatosEstudioLegal } from '@/lib/legal-textos';
 import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
 import type {
   Studio,
@@ -206,41 +206,17 @@ import { useProgressNotesStore } from '@/lib/stores/use-progress-notes-store';
 import type { AparienciaWidget } from '@/lib/reservar/apariencia-widget';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
-
-export interface StudioConfig {
-  politicaPrivacidad: string;
-  terminosServicio: string;
-}
-
-/**
- * Textos legales efectivos de un estudio: los suyos si los ha reescrito a mano,
- * y si no, los de por defecto REDACTADOS CON SUS DATOS fiscales.
- *
- * Antes el fallback era un texto fijo que decía "el responsable es el estudio de
- * pilates" — sin nombre ni NIF, aunque el estudio los tuviera rellenos. Lo que
- * firmaba la clienta no identificaba a nadie.
- */
-export function configLegalDe(
-  studio: DatosEstudioLegal | null | undefined,
-  guardados: { politicaPrivacidad?: string | null; terminosServicio?: string | null } | null | undefined,
-): StudioConfig {
-  const e = studio ?? {};
-  return {
-    politicaPrivacidad: guardados?.politicaPrivacidad ?? politicaPrivacidadPorDefecto(e),
-    terminosServicio: guardados?.terminosServicio ?? terminosServicioPorDefecto(e),
-  };
-}
-
-/**
- * Solo como estado inicial, antes de saber de qué estudio hablamos. En cuanto
- * carga, `configLegalDe` lo sustituye por el texto con los datos reales; si
- * alguien llegara a firmar esto, el propio documento avisa de que faltan.
- */
-export const defaultStudioConfig: StudioConfig = {
-  politicaPrivacidad: politicaPrivacidadPorDefecto(),
-  terminosServicio: terminosServicioPorDefecto(),
-};
-
+//
+// `StudioConfig`, `configLegalDe` y `defaultStudioConfig` viven ahora en
+// `lib/legal-textos.ts`, que no es de cliente. El motivo: la aceptación por
+// compra se sella en SERVIDOR (`/api/public/checkout-embebido`), y desde ahí no
+// se puede importar este fichero —es `'use client'` y arrastra React entero—.
+// Duplicar la composición del texto legal habría sido peor que moverla: dos
+// reglas para decidir qué firmó la clienta es exactamente lo que no puede pasar.
+// Se importa ADEMÁS de re-exportar: `export … from` reenvía el nombre pero no
+// lo trae al ámbito de este fichero, y aquí se usa (`studioConfig: StudioConfig`).
+import { configLegalDe, defaultStudioConfig, type StudioConfig } from '@/lib/legal-textos';
+export { configLegalDe, defaultStudioConfig, type StudioConfig };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

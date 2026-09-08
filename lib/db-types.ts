@@ -551,6 +551,10 @@ export interface RowRecibos {
   es_renovacion: boolean | null;
   // migr 20260907174656.
   cobro_mostrador_pi: string | null;
+  // migr 20260908160000.
+  terminos_hash: string | null;
+  // migr 20260908160000.
+  terminos_aceptados_en: string | null;
 }
 
 export interface RowRewardActions {
@@ -2625,5 +2629,13 @@ export interface RowMovimientosStock {
   coste_unitario: number | null;
   creado_por: string | null;
   creado_por_nombre: string | null;
+  creado_en: string;
+}
+
+export interface RowTerminosVersiones {
+  id: string;
+  studio_id: string;
+  hash: string;
+  texto: string;
   creado_en: string;
 }

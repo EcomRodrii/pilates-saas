@@ -547,6 +547,11 @@ async function entregar(
     socioId: p.socioId,
     ...datos,
     origenLead: p.origenLead,
+    // Igual que el webhook: sellado en el checkout, aquí solo se lee. El
+    // conciliador recoge cobros que el webhook no llegó a procesar, así que
+    // sin esto esas compras se quedarían sin constancia de qué se aceptó.
+    terminosHash: (sesion?.metadata?.terminosHash ?? pi?.metadata?.terminosHash) ?? null,
+    terminosAceptadosEn: (sesion?.metadata?.terminosAceptadosEn ?? pi?.metadata?.terminosAceptadosEn) ?? null,
     // Mismo criterio que el webhook (app/api/stripe/webhook/route.ts): sin
     // socioId conocido, es una compra de invitada.
     esInvitada: !p.socioId,

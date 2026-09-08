@@ -502,6 +502,10 @@ async function procesarEvento(
           studioId,
           planId,
           socioId: socioId ?? null,
+          // Qué condiciones aceptó al pagar. Se sellaron en el checkout y viajan
+          // por la metadata: aquí solo se leen para dejarlas en el recibo.
+          terminosHash: session.metadata?.terminosHash ?? null,
+          terminosAceptadosEn: session.metadata?.terminosAceptadosEn ?? null,
           // Email verificado por Stripe: es a quien hay que entregarle el bono
           // si compró antes de registrarse.
           email: session.customer_details?.email ?? session.customer_email ?? null,
@@ -842,6 +846,10 @@ async function procesarEvento(
         studioId,
         planId,
         socioId: pi.metadata.socioId ?? null,
+          // Qué condiciones aceptó al pagar. Se sellaron en el checkout y viajan
+          // por la metadata: aquí solo se leen para dejarlas en el recibo.
+          terminosHash: pi.metadata.terminosHash ?? null,
+          terminosAceptadosEn: pi.metadata.terminosAceptadosEn ?? null,
         email: pi.metadata.socioEmail ?? null,
         nombre: pi.metadata.socioNombre ?? null,
         // Saneado en checkout-embebido antes de entrar en la metadata; la

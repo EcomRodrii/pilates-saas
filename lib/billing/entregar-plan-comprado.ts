@@ -42,6 +42,13 @@ export interface CompraPlan {
   sessionId: string;
   studioId: string;
   planId: string;
+  /**
+   * Qué condiciones aceptó al pagar. Las sella el checkout en servidor y viajan
+   * por la metadata del pago; `null` en cobros que no pasan por ahí (renovación
+   * automática, mostrador) y en compras anteriores a esto.
+   */
+  terminosHash?: string | null;
+  terminosAceptadosEn?: string | null;
   /** Socia ya existente, o null si compró antes de registrarse. */
   socioId: string | null;
   /** Email verificado por Stripe. Solo se usa en modo CREAR_FICHA. */
@@ -390,6 +397,11 @@ export async function entregarPlanComprado(
     fecha_devolucion: null,
     intentos_reintento: 0,
     metodo_cobro: 'TARJETA',
+    // Qué condiciones estaban vigentes cuando decidió pagar. NULL cuando el
+    // cobro no vino del checkout de la app (renovación, mostrador): es un dato
+    // ausente, no un cero — y la columna lo admite por eso.
+    terminos_hash: compra.terminosHash ?? null,
+    terminos_aceptados_en: compra.terminosAceptadosEn ?? null,
     stripe_payment_intent_id: compra.paymentIntentId,
   });
   if (errRec && errRec.code !== YA_EXISTIA) {
