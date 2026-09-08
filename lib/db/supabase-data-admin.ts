@@ -552,8 +552,9 @@ export async function fetchPublicStudioData(
     const [
       videosRes, rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
       contenidoPortalRes, bannersPortalRes, novedadesRes, retoParticipRes, horarioRes,
+      productosRes,
     ] = liviano
-      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
+      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
       : await Promise.all([
         admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
         admin.from('reward_rules').select('*').eq('studio_id', studioId),
@@ -593,6 +594,27 @@ export async function fetchPublicStudioData(
         // existía con su RLS y su pestaña en el panel. Un texto de horario en
         // `studios` habría sido una segunda fuente del mismo dato.
         admin.from('studio_horario').select('*').eq('studio_id', studioId).order('dia_semana', { ascending: true }),
+        // Productos FÍSICOS del estudio, para el escaparate de la app.
+        //
+        // ⚠️ Filtrado a `categoria = 'PRODUCTO'` en SQL, y esto NO es cosmético.
+        // `productos_pos` mezcla cuatro categorías, y dos de ellas —SESION y
+        // PACK— son lo MISMO que el estudio ya vende por `planes_tarifa`: en
+        // producción hay 4 sesiones a 15-60 € y 3 packs a 85-175 €. Publicarlas
+        // todas pondría dos precios para la misma clase suelta en la MISMA
+        // pantalla, uno de ellos el del mostrador y otro el del catálogo.
+        //
+        // 'OTRO' tampoco entra: es un cajón de sastre, y esta sección promete
+        // algo concreto («te lo damos en recepción»). Un estudio que quiera
+        // enseñar algo lo marca como PRODUCTO.
+        //
+        // Columnas explícitas, no `select('*')`: lo que sale de aquí es público.
+        // `stock`, `sku`, `codigo_barras` e `iva_pct` son datos de mostrador y
+        // no tienen por qué salir del estudio — el stock, además, prometería
+        // una disponibilidad que nadie está reservando.
+        admin.from('productos_pos')
+          .select('id, nombre, precio, descripcion, imagen_url')
+          .eq('studio_id', studioId).eq('activo', true).eq('categoria', 'PRODUCTO')
+          .order('orden', { ascending: true, nullsFirst: false }),
       ]);
     // Estas NO tumban el catálogo, a diferencia de las de arriba: son el
     // ADORNO del portal instalable (vídeos, gamificación, banners, novedades,
@@ -659,6 +681,18 @@ export async function fetchPublicStudioData(
       levelDefinitions: (levelDefsRes?.data ?? []).map(mapLevelDefinition),
       achievementDefinitions: (achDefsRes?.data ?? []).map(mapAchievementDefinition),
       challengeDefinitions: (chalDefsRes?.data ?? []).map(mapChallengeDefinition),
+      // Ya viene filtrado y acotado de SQL; aquí solo se pasa a camelCase.
+      productosFisicos: (productosRes?.data ?? []).map((r) => {
+        const f = r as { id: string; nombre: string; precio: number; descripcion: string | null; imagen_url: string | null };
+        return {
+          id: f.id, nombre: f.nombre, precio: Number(f.precio),
+          descripcion: f.descripcion ?? null,
+          // La URL viaja TAL CUAL: lleva un `?v=<timestamp>` que rompe el caché
+          // cuando se sustituye la foto conservando la ruta. Normalizarla la
+          // dejaría pegada a la imagen vieja.
+          imagenUrl: f.imagen_url ?? null,
+        };
+      }),
       citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
       contenidoPortal: contenidoPortalRes?.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,

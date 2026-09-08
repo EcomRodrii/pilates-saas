@@ -8,7 +8,7 @@ import { useAsync } from '@/lib/student/useAsync';
 import { catalogo } from '@/lib/student/catalogo';
 import { euros } from '@/lib/student/formato';
 import { nombrePeriodo } from '@/lib/bono-logic';
-import { catalogoTienda, coberturaDeTipos, coberturaProducto, resumenProducto, TITULO_FAMILIA, type FamiliaProducto, type ProductoTienda } from '@/lib/student/tienda';
+import { AVISO_PRODUCTOS, catalogoTienda, coberturaDeTipos, coberturaProducto, resumenProducto, TITULO_FAMILIA, type FamiliaProducto, type ProductoTienda } from '@/lib/student/tienda';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Button } from '@/components/student/ui/Button';
 import { HojaCompra } from '@/components/student/domain/HojaCompra';
@@ -42,7 +42,7 @@ export default function ComprarPage() {
   const cargar = useCallback(async () => {
     const d = await catalogo(estudio.slug);
     return {
-      productos: catalogoTienda(d?.planesTarifa ?? [], d?.citasServicios ?? []),
+      productos: catalogoTienda(d?.planesTarifa ?? [], d?.citasServicios ?? [], d?.productosFisicos ?? []),
       planes: d?.planesTarifa ?? [],
       stripeAccountId: d?.studio?.stripeAccountId ?? null,
       // Para poder decir A QUÉ está acotado un bono hace falta el nombre del
@@ -55,7 +55,7 @@ export default function ComprarPage() {
 
   const productos = data?.productos ?? [];
   const nombresTipo = data?.nombresTipo ?? new Map<string, string>();
-  const familias = (['suscripcion', 'bono', 'suelta', 'servicio'] as FamiliaProducto[])
+  const familias = (['suscripcion', 'bono', 'suelta', 'servicio', 'producto'] as FamiliaProducto[])
     .map((f) => ({ familia: f, items: productos.filter((p) => p.familia === f) }))
     .filter((g) => g.items.length > 0);
 
@@ -84,6 +84,17 @@ export default function ComprarPage() {
         {data && productos.length > 0 && familias.map(({ familia, items }, gi) => (
           <section key={familia} style={{ marginTop: gi === 0 ? 0 : 6 }}>
             <h2 className="t-label" style={{ marginBottom: 9 }}>{TITULO_FAMILIA[familia]}</h2>
+            {/* El aviso va DENTRO de la sección y antes de las tarjetas, no en
+                un pie: tiene que leerse antes de que a nadie le apetezca buscar
+                el botón de pagar, porque no hay ninguno. Estos artículos no
+                tienen checkout —no hay nada detrás que aparte la unidad ni que
+                sepa que se entrega en mano— y cobrar sin eso es justo lo que
+                este repo lleva meses quitando. */}
+            {familia === 'producto' && (
+              <p data-testid="aviso-productos" className="t-meta" style={{ margin: '-2px 0 9px', fontSize: 12, lineHeight: 1.5 }}>
+                {AVISO_PRODUCTOS}
+              </p>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {items.map((p, i) => (
                 <TarjetaProducto
@@ -151,6 +162,18 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
   const resumen = resumenProducto(p, nombresTipo);
   return (
     <article className="card a-up" style={{ padding: '14px 15px', animationDelay: `${delay}ms` }}>
+      {/* La foto solo si la hay, y sin reservarle hueco cuando no: hoy NINGÚN
+          producto de producción tiene imagen, así que un marco vacío sería lo
+          que vería todo el mundo. Mismo criterio que el catálogo del TPV. */}
+      {p.imagenUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- URL de Supabase Storage con `?v=` propio; `next/image` la re-serviría por su optimizador y perdería ese rompe-cachés.
+        <img
+          src={p.imagenUrl}
+          alt=""
+          loading="lazy"
+          style={{ width: '100%', height: 132, objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: 10, display: 'block' }}
+        />
+      )}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
         <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, letterSpacing: '-.01em' }}>{p.nombre}</h3>
         <p style={{ margin: 0, fontSize: 15, fontWeight: 800, flexShrink: 0 }}>
@@ -183,9 +206,13 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
         <p style={{ margin: '7px 0 0', fontSize: 12.5, lineHeight: 1.5, color: 'var(--muted-foreground)' }}>{p.descripcion}</p>
       )}
 
-      <Button full onClick={onComprar} style={{ marginTop: 'var(--s-3)', height: 'var(--h-control-md)' }}>
-        {p.familia === 'suscripcion' ? 'Contratar' : 'Comprar'}
-      </Button>
+      {/* Sin botón en lo físico: se compra en el estudio. Un «Comprar» que
+          abriera un cobro sería mentira, y uno que no hiciera nada, peor. */}
+      {p.familia !== 'producto' && (
+        <Button full onClick={onComprar} style={{ marginTop: 'var(--s-3)', height: 'var(--h-control-md)' }}>
+          {p.familia === 'suscripcion' ? 'Contratar' : 'Comprar'}
+        </Button>
+      )}
     </article>
   );
 }
