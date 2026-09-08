@@ -38,6 +38,7 @@ import {
   planVacio,
 } from '@/lib/onboarding/plan-configuracion';
 import { guardarProgresoWizard, leerProgresoWizard, olvidarProgresoWizard } from '@/lib/onboarding/borrador-wizard';
+import { alternarSeleccion } from '@/lib/onboarding/seleccion-multiple';
 
 const FRASES = [
   'Tu estudio ya está en marcha.',
@@ -163,7 +164,11 @@ const PASOS: Paso[] = [
     // No se promete el precio: se deja el bono con la forma correcta y en
     // borrador. Un precio inventado sería un bono comprable por dinero que
     // nadie ha decidido.
-    nota: 'Dejamos preparado lo que uses; el precio lo pones tú antes de activarlo.',
+    // El tope va DICHO. Los pasos de clases y de prioridad ya anunciaban el
+    // suyo ("Elige hasta cuatro", "Elige hasta dos") y este no, así que quien
+    // marcaba las tres formas de cobro —bonos, cuota y clase suelta, que es lo
+    // normal en un estudio— se quedaba con dos sin saber cuál había perdido.
+    nota: 'Elige hasta dos. Dejamos preparado lo que uses; el precio lo pones tú antes de activarlo.',
     opciones: [...OPCIONES_COBRO],
     multi: 2,
   },
@@ -228,6 +233,15 @@ type Engine = {
   qAt: number;
   energy: number;
   prev: number;
+  /**
+   * Cuándo se intentó marcar una opción más allá del tope de un paso `multi`.
+   * Antes no existía: al llegar al tope, `elegir` hacía `sel.shift()` y metía
+   * la nueva, así que marcar una quinta clase BORRABA la primera —Reformer, en
+   * el caso real— sin decir nada. La propietaria salía del asistente creyendo
+   * que tenía cinco y tenía cuatro distintas. Ahora el clic no toca la
+   * selección y esto marca el instante para poder avisar.
+   */
+  topeAt: number | null;
 };
 
 function nuevoEngine(reduced: boolean, now: number): Engine {
@@ -247,7 +261,7 @@ function nuevoEngine(reduced: boolean, now: number): Engine {
     reduced, fase: 'wizard', ans: {}, paso: 0,
     idx: 0, typed: 0, t0: now, holdAt: null, out: null,
     lastCharAt: -1e6, charCount: 0, buttonAt: null, qAt: now,
-    energy: 0, prev: now,
+    energy: 0, prev: now, topeAt: null,
   };
 }
 
@@ -358,15 +372,27 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
   const paso = e.fase === 'wizard' ? PASOS[Math.min(e.paso, PASOS.length - 1)] : null;
   const multi = paso?.multi;
   const sel = paso ? e.ans[paso.id] : undefined;
-  const listo = multi ? ((sel as string[] | undefined)?.length ?? 0) > 0 : !!sel;
+  const nSel = (sel as string[] | undefined)?.length ?? 0;
+  const listo = multi ? nSel > 0 : !!sel;
+
+  // Con el tope lleno, las opciones sin marcar se apagan: se ve que no cabe
+  // otra ANTES de intentarlo, en vez de descubrirlo cuando ya ha desaparecido
+  // una. El aviso de abajo es la segunda red, para quien la pulse igual.
+  const topeLleno = !!multi && nSel >= multi;
+  const topeVisible = e.topeAt != null && now - e.topeAt < 3200;
+  const qTope = topeLleno && multi
+    ? `Puedes elegir ${multi === 2 ? 'dos' : multi === 4 ? 'cuatro' : multi}. Quita una para cambiarla — no se quitan solas.`
+    : '';
 
   const opciones = (paso?.opciones ?? []).map((label, i) => {
     const activo = multi ? ((sel as string[] | undefined) ?? []).includes(label) : sel === label;
+    const apagada = topeLleno && !activo;
     return {
-      label, num: String(i + 1),
+      label, num: String(i + 1), apagada,
       bg: activo ? '#343825' : '#FFFFFF',
       border: activo ? '#343825' : '#E7E7E0',
       color: activo ? '#D9C29E' : '#1A1A1A',
+      opacity: apagada ? '0.42' : '1',
       shadow: activo ? '0 1px 2px rgba(26,26,26,0.10)' : '0 1px 1px rgba(26,26,26,0.03)',
       numColor: activo ? 'rgba(217,194,158,0.55)' : 'rgba(26,26,26,0.3)',
     };
@@ -423,7 +449,15 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
     paso,
     qPaso: paso ? `${String(e.paso + 1).padStart(2, '0')} — ${String(PASOS.length).padStart(2, '0')}` : '',
     qNota: paso ? (typeof paso.nota === 'function' ? paso.nota(e.ans) : paso.nota) : '',
-    qBoton: multi ? (((sel as string[] | undefined)?.length ?? 0) > 1 ? 'Continuar con 2' : 'Continuar') : 'Continuar',
+    // El número va calculado, no escrito a mano. Antes era la cadena literal
+    // 'Continuar con 2' para cualquier cantidad mayor que 1: con cuatro clases
+    // marcadas el botón decía «Continuar con 2» mientras el resumen de la
+    // derecha listaba las cuatro. Dos cifras que se contradicen en la misma
+    // pantalla, y una de ellas en el botón que confirma.
+    qBoton: multi && nSel > 1 ? `Continuar con ${nSel}` : 'Continuar',
+    qTope,
+    qTopeOpacity: topeVisible ? '1' : '0',
+    puedeRetroceder: e.fase === 'wizard' && e.paso > 0,
     opciones,
     qOpacity: qp.toFixed(3),
     qTransform: `translateY(${(e.reduced ? 0 : 10 * (1 - qp)).toFixed(2)}px)`,
@@ -645,7 +679,25 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
       e.qAt = performance.now();
       guardarProgresoWizard(studio.id, e.paso, e.ans);
     }
+    e.topeAt = null;
     tock(0.78, 1.1);
+    refrescar();
+  }, [tock, refrescar, studio.id]);
+
+  // Trece preguntas seguidas sin manera de volver: quien se daba cuenta en el
+  // paso 9 de que había contestado mal el 5 no tenía forma de corregirlo, y
+  // las respuestas de este asistente crean salas, tipos de clase y tarifas.
+  // Las respuestas ya dadas se conservan (viven en `e.ans`), así que volver
+  // atrás enseña lo elegido y permite cambiarlo.
+  const retroceder = useCallback(() => {
+    const e = engineRef.current;
+    if (!e || e.fase !== 'wizard' || e.paso === 0) return;
+    if (avanceTRef.current) { clearTimeout(avanceTRef.current); avanceTRef.current = null; }
+    e.paso -= 1;
+    e.qAt = performance.now();
+    e.topeAt = null;
+    guardarProgresoWizard(studio.id, e.paso, e.ans);
+    tock(0.62, 0.9);
     refrescar();
   }, [tock, refrescar, studio.id]);
 
@@ -656,12 +708,21 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
     tock(1.18, 0.9);
     if (navigator.vibrate) { try { navigator.vibrate(6); } catch { /* no-op */ } }
     if (paso.multi) {
-      const sel = [...((e.ans[paso.id] as string[] | undefined) ?? [])];
-      const i = sel.indexOf(valor);
-      if (i >= 0) sel.splice(i, 1);
-      else if (sel.length < paso.multi) sel.push(valor);
-      else { sel.shift(); sel.push(valor); }
-      e.ans = { ...e.ans, [paso.id]: sel } as Respuestas;
+      // La regla vive en lib/ y está testeada allí: al llegar al tope el clic
+      // se rechaza en vez de tirar la opción más antigua. Ver el porqué —y el
+      // caso real de los bonos— en `lib/onboarding/seleccion-multiple.ts`.
+      const { seleccion, topeAlcanzado } = alternarSeleccion(
+        (e.ans[paso.id] as string[] | undefined) ?? [],
+        valor,
+        paso.multi,
+      );
+      if (topeAlcanzado) {
+        e.topeAt = performance.now();
+        refrescar();
+        return;
+      }
+      e.topeAt = null;
+      e.ans = { ...e.ans, [paso.id]: seleccion } as Respuestas;
       guardarProgresoWizard(studio.id, e.paso, e.ans);
       refrescar();
       return;
@@ -883,11 +944,12 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
                   <button
                     key={op.label}
                     type="button"
+                    aria-pressed={op.bg === '#343825'}
                     onClick={(ev) => { ev.stopPropagation(); elegir(vals.paso!, op.label); }}
-                    className="inline-flex items-center gap-2 rounded-full whitespace-nowrap cursor-pointer transition-colors"
+                    className="inline-flex items-center gap-2 rounded-full whitespace-nowrap cursor-pointer transition-[color,background-color,border-color,opacity]"
                     style={{
                       minHeight: 46, padding: '0 18px', border: `1px solid ${op.border}`,
-                      background: op.bg, color: op.color, boxShadow: op.shadow,
+                      background: op.bg, color: op.color, boxShadow: op.shadow, opacity: op.opacity,
                       fontSize: '14.5px', fontWeight: 600, letterSpacing: '-0.004em',
                     }}
                   >
@@ -896,15 +958,38 @@ function AsistenteBienvenida({ studio }: { studio: Studio }) {
                   </button>
                 ))}
               </div>
-              <div className="flex items-center gap-4 mt-6" style={{ opacity: vals.accionesOpacity, pointerEvents: vals.accionesEvents }}>
-                <button
-                  type="button"
-                  onClick={(ev) => { ev.stopPropagation(); avanzar(); }}
-                  className="inline-flex items-center justify-center h-11 px-5 rounded-full bg-brand text-brand-foreground font-semibold whitespace-nowrap cursor-pointer hover:brightness-95 transition-all"
-                  style={{ fontSize: 14, letterSpacing: '-0.005em' }}
-                >
-                  {vals.qBoton}
-                </button>
+              {/* Aviso de tope. `role="status"` y no `alert`: es una aclaración,
+                  no un error — la propietaria no ha hecho nada mal. Se reserva
+                  el alto aunque esté invisible para que el botón de continuar
+                  no dé un salto al aparecer. */}
+              <div
+                role="status"
+                className="mt-3 text-[13px] leading-snug max-w-[460px] transition-opacity duration-200"
+                style={{ color: '#8A5A26', opacity: vals.qTopeOpacity, minHeight: vals.qTope ? 18 : 0 }}
+              >
+                {vals.qTope}
+              </div>
+              <div className="flex items-center gap-4 mt-6">
+                <div style={{ opacity: vals.accionesOpacity, pointerEvents: vals.accionesEvents }}>
+                  <button
+                    type="button"
+                    onClick={(ev) => { ev.stopPropagation(); avanzar(); }}
+                    className="inline-flex items-center justify-center h-11 px-5 rounded-full bg-brand text-brand-foreground font-semibold whitespace-nowrap cursor-pointer hover:brightness-95 transition-all"
+                    style={{ fontSize: 14, letterSpacing: '-0.005em' }}
+                  >
+                    {vals.qBoton}
+                  </button>
+                </div>
+                {vals.puedeRetroceder && (
+                  <button
+                    type="button"
+                    onClick={(ev) => { ev.stopPropagation(); retroceder(); }}
+                    className="inline-flex items-center justify-center h-11 px-3 rounded-full font-semibold whitespace-nowrap cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                    style={{ fontSize: 13.5, letterSpacing: '-0.005em' }}
+                  >
+                    Volver
+                  </button>
+                )}
               </div>
             </div>
           </div>
