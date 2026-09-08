@@ -61,6 +61,59 @@ async function abrirRecompensas(page: Page) {
   await expect(page.getByText('Créditos por acción')).toBeVisible({ timeout: 30_000 });
 }
 
+test.describe('Catálogo vacío: por dónde empezar', () => {
+  test('propone tres recompensas con el coste de ESTE estudio, y añadirlas escribe', async ({ page }) => {
+    // El catálogo vacío era un callejón. Medido en producción: 1320 créditos
+    // vivos entre 20 socias y CERO recompensas — toda la maquinaria (cobro
+    // atómico, stock, idempotencia, clase gratis) funcionando para nadie porque
+    // el primer paso estaba en blanco.
+    const escrituras: string[] = [];
+    await base(page);
+    await page.route('**/rest/v1/reward_rules**', route => {
+      if (route.request().method() === 'GET') {
+        // 20 créditos por asistir: los costes propuestos salen de AQUÍ.
+        return json(route, [{
+          id: 'rwr-1', studio_id: STUDIO_ID, trigger: 'ASISTENCIA_CLASE', nombre: 'Asistir a clase',
+          descripcion: null, creditos: 20, activa: true, tope_mensual: null, creado_en: '2026-01-01T00:00:00Z',
+        }]);
+      }
+      return json(route, []);
+    });
+    await page.route('**/rest/v1/reward_catalog**', route => {
+      if (route.request().method() === 'GET') return json(route, []);
+      escrituras.push(route.request().postData() ?? '');
+      return json(route, []);
+    });
+
+    await abrirRecompensas(page);
+
+    // 12 clases × 20 = 240. Con una regla de 10 serían 120: el número NO es fijo.
+    await expect(page.getByText('Clase invitada')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('240', { exact: false }).first()).toBeVisible();
+
+    await page.getByRole('button', { name: 'Añadir' }).first().click();
+    await expect.poll(() => escrituras.length, { timeout: 10_000 }).toBe(1);
+    // Se escribe de verdad, con su efecto: la clase invitada se entrega sola.
+    expect(escrituras[0]).toContain('Clase invitada');
+    expect(escrituras[0]).toContain('CLASE_GRATIS');
+  });
+
+  test('sin regla de asistencia activa NO se proponen recompensas', async ({ page }) => {
+    // Proponerlas cuando no se gana ningún crédito sería enseñar una tienda a
+    // la que nadie puede entrar.
+    await base(page);
+    await page.route('**/rest/v1/reward_rules**', route => json(route, [{
+      id: 'rwr-1', studio_id: STUDIO_ID, trigger: 'ASISTENCIA_CLASE', nombre: 'Asistir a clase',
+      descripcion: null, creditos: 0, activa: false, tope_mensual: null, creado_en: '2026-01-01T00:00:00Z',
+    }]));
+    await page.route('**/rest/v1/reward_catalog**', route => json(route, []));
+
+    await abrirRecompensas(page);
+    await expect(page.getByText(/Aún no hay recompensas/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Añadir' })).toHaveCount(0);
+  });
+});
+
 test.describe('Créditos por acción: una escritura, no una por tecla', () => {
   test('teclear un número manda UN solo guardado, al salir del campo', async ({ page }) => {
     const escrituras: string[] = [];

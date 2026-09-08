@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Coins, Gift, Plus, Pencil, Trash2, Check } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { REWARD_TRIGGERS } from '@/lib/engines/reward-engine';
+import { sugerirRecompensas } from '@/lib/recompensas-sugeridas';
 import type { EfectoRecompensa, RewardCatalogItem } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -103,6 +104,21 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyCatalogForm());
   const [confirmDel, setConfirmDel] = useState<RewardCatalogItem | null>(null);
+
+  // Las sugerencias se calculan con la regla REAL del estudio, así que
+  // cambian solas si cambia lo que paga por clase.
+  const sugeridas = sugerirRecompensas(reglaDe('ASISTENCIA_CLASE')?.creditos ?? CREDITOS_SUGERIDOS.ASISTENCIA_CLASE);
+  const [anadiendo, setAnadiendo] = useState<string | null>(null);
+
+  async function anadirSugerida(sg: (typeof sugeridas)[number]) {
+    setAnadiendo(sg.nombre);
+    const res = await addRewardCatalogItem({
+      nombre: sg.nombre, descripcion: sg.descripcion, costeCreditos: sg.costeCreditos,
+      icono: sg.icono, activo: true, stock: null, efecto: sg.efecto,
+    });
+    setAnadiendo(null);
+    showToast(res.ok ? `«${sg.nombre}» añadida al catálogo` : res.error);
+  }
 
   function reglaDe(trigger: string) {
     return rewardRules.find(r => r.trigger === trigger) ?? null;
@@ -316,8 +332,48 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
         <p className="text-[12px] text-muted-foreground mb-3">Lo que las clientas pueden canjear con sus {moneda}.</p>
 
         {rewardCatalog.length === 0 ? (
-          <div className={cn(cardCls, 'p-8 text-center')}>
-            <p className="text-[13px] text-muted-foreground">Aún no hay recompensas en el catálogo.</p>
+          // El catálogo vacío era un callejón: «aún no hay recompensas» y ahí
+          // se acababa. Medido en producción: 1320 créditos vivos entre 20
+          // socias y CERO recompensas — la maquinaria entera funcionando para
+          // nadie porque el primer paso estaba en blanco.
+          //
+          // El coste de cada sugerencia sale de la regla de ASISTENCIA de ESTE
+          // estudio, no de un número fijo: el mismo premio cuesta 120 con una
+          // regla de 10 y 600 con una de 50.
+          <div className={cn(cardCls, 'p-6')}>
+            <p className="text-[13px] text-foreground font-semibold">Aún no hay recompensas en el catálogo.</p>
+            {sugeridas.length === 0 ? (
+              <p className="text-[12px] text-muted-foreground mt-1">
+                Enciende arriba los {moneda} por asistir y aquí te propondremos por dónde empezar.
+              </p>
+            ) : (
+              <>
+                <p className="text-[12px] text-muted-foreground mt-1 mb-3">
+                  Tus clientas ya están acumulando {moneda}. Estas tres son un punto de partida —
+                  puedes editarlas o borrarlas después.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {sugeridas.map(sg => (
+                    <div key={sg.nombre} className={cn(cardCls, 'p-3 flex flex-col gap-1')}>
+                      <span className="text-[18px]">{sg.icono}</span>
+                      <p className="text-[13px] font-semibold text-foreground">{sg.nombre}</p>
+                      <p className="text-[11px] text-muted-foreground flex-1">{sg.descripcion}</p>
+                      <p className="text-[12px] font-semibold text-foreground">
+                        {sg.costeCreditos} {moneda}
+                        <span className="text-[11px] font-normal text-muted-foreground"> · ~{sg.clasesEquivalentes} clases</span>
+                      </p>
+                      <button
+                        onClick={() => anadirSugerida(sg)}
+                        disabled={anadiendo === sg.nombre}
+                        className={cn(btnSecondary, 'mt-1 disabled:opacity-50')}
+                      >
+                        <Plus size={13} /> Añadir
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -10,7 +10,7 @@
     "typecheck:fast": "node ./node_modules/.bin/tsc --noEmit --skipLibCheck --maxNodeModuleJsDepth 0",
     "transpile:watch": "node scripts/esbuild-transpile.mjs --watch",
     "build": "npm run build:widget && next build",
-    "build:e2e": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=\"${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-pk_test_TYooMQauvdEDq54NiTphI7jx}\" npm run build",
+    "build:e2e": "NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy-anon-key-for-ci NEXT_PUBLIC_APP_URL=http://localhost:3000 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_TYooMQauvdEDq54NiTphI7jx npm run build",
     "build:widget": "node scripts/build-widget-bundle.mjs",
     "start": "next start",
     "lint": "eslint",
