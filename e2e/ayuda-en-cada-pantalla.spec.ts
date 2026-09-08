@@ -71,9 +71,8 @@ const PANTALLAS = [
   { ruta: '/informes', titulo: 'Informes', guia: '/ayuda/informes/informes-disponibles' },
   { ruta: '/sustituciones', titulo: 'Sustituciones', guia: '/ayuda/instructores/sustituciones' },
   { ruta: '/productos', titulo: 'Paquetes', guia: '/ayuda/bonos/tipos-de-bono' },
-  // Sin artículo concreto: el enlace va a la categoría entera, y esa es
-  // justo la forma que más fácil se rompe al escribir una ficha nueva.
-  { ruta: '/cobros', titulo: 'Cobros', guia: '/ayuda/pagos' },
+  { ruta: '/cobros', titulo: 'Cobros', guia: '/ayuda/pagos/la-pantalla-de-cobros' },
+  { ruta: '/citas', titulo: 'Citas', guia: '/ayuda/reservas/citas' },
 ];
 
 for (const { ruta, titulo, guia } of PANTALLAS) {

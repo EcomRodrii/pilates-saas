@@ -42,6 +42,30 @@ test('las fichas están escritas, no esbozadas', () => {
   }
 });
 
+// El fallo que esto viene a cazar no es un enlace roto: es un enlace que
+// FUNCIONA y no sirve. La Caja apuntaba a la categoría «Pagos» entera porque no
+// había ningún artículo del TPV, y desde fuera se veía como ayuda —hasta que
+// pulsabas y aterrizabas en una lista de guías sobre otra cosa.
+//
+// `urlDeAyuda` sigue sabiendo enlazar una categoría; lo que no se puede es
+// dejar una pantalla resuelta así. Si alguna vez hace falta de verdad, se añade
+// aquí con su motivo — pero lo normal es que la respuesta sea escribir el
+// artículo, no ampliar la lista.
+const SIN_ARTICULO_PROPIO: Record<string, string> = {};
+
+test('el (i) de cada pantalla lleva a un artículo suyo, no a una categoría entera', () => {
+  const aCategoria = Object.entries(AYUDA_POR_PANTALLA)
+    .filter(([ruta]) => !(ruta in SIN_ARTICULO_PROPIO))
+    .filter(([, ficha]) => !ficha.destino.slug)
+    .map(([ruta, ficha]) => `${ruta} → /ayuda/${ficha.destino.categoria}`);
+
+  assert.deepEqual(
+    aCategoria,
+    [],
+    `Estas pantallas mandan a una categoría entera en vez de a su guía. Escríbela: ${aCategoria.join(', ')}`
+  );
+});
+
 test('urlDeAyuda distingue artículo de categoría', () => {
   assert.equal(urlDeAyuda({ categoria: 'pagos' }), '/ayuda/pagos');
   assert.equal(urlDeAyuda({ categoria: 'pagos', slug: 'facturas' }), '/ayuda/pagos/facturas');

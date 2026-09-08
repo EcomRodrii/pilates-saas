@@ -140,6 +140,15 @@ export const ARTICULOS: ArticuloAyuda[] = [
     estado: 'publicado',
   },
   {
+    slug: 'citas', categoria: 'reservas', tipo: 'guia',
+    titulo: 'Citas: las sesiones de una en una',
+    descripcion: 'Valoraciones, fisio, personales y sesiones online: cómo se crean, cómo se cobran y en qué se diferencian de una clase.',
+    terminos: ['cita', 'sesión privada', 'personal', 'fisioterapia', 'evaluación', 'online', 'uno a uno'],
+    actualizado: '2026-09-08',
+    relacionados: ['reservas/crear-una-clase', 'clientes/ficha-de-clienta'],
+    estado: 'publicado',
+  },
+  {
     slug: 'no-shows', categoria: 'reservas', tipo: 'guia',
     titulo: 'No-shows y cancelaciones tardías',
     descripcion: 'Cómo se marcan, qué le pasa al bono de la alumna y cuándo puede haber una penalización económica.',
@@ -164,6 +173,15 @@ export const ARTICULOS: ArticuloAyuda[] = [
     terminos: ['crm', 'historial', 'notas de progreso', 'ficha clínica'],
     actualizado: '2026-08-28',
     relacionados: ['clientes/crear-una-clienta', 'bonos/tipos-de-bono'],
+    estado: 'publicado',
+  },
+  {
+    slug: 'la-libreta', categoria: 'clientes', tipo: 'guia',
+    titulo: 'La libreta: tus clientas en papel',
+    descripcion: 'Cada alumna con su plan, sus sesiones y sus recuperaciones, para imprimir o guardar en PDF.',
+    terminos: ['libreta', 'imprimir', 'PDF', 'copia', 'exportar', 'sin internet', 'listado'],
+    actualizado: '2026-09-08',
+    relacionados: ['clientes/ficha-de-clienta', 'bonos/recuperaciones'],
     estado: 'publicado',
   },
   {
@@ -220,6 +238,15 @@ export const ARTICULOS: ArticuloAyuda[] = [
     estado: 'publicado',
   },
   {
+    slug: 'tentare-network', categoria: 'instructores', tipo: 'guia',
+    titulo: 'Tentare Network: buscar instructoras fuera de tu estudio',
+    descripcion: 'El listado de profesionales disponibles, las vacantes que publicas tú, y en qué se diferencia de una sustitución.',
+    terminos: ['network', 'marketplace', 'contratar', 'vacante', 'buscar instructora', 'candidata'],
+    actualizado: '2026-09-08',
+    relacionados: ['instructores/sustituciones', 'instructores/dar-de-alta-una-instructora'],
+    estado: 'publicado',
+  },
+  {
     slug: 'permisos-por-rol', categoria: 'instructores', tipo: 'guia',
     titulo: 'Qué puede hacer cada rol: propietaria, recepción e instructora',
     descripcion: 'Quién ve qué en el panel — y por qué la ficha de salud no la ve cualquiera.',
@@ -267,6 +294,24 @@ export const ARTICULOS: ArticuloAyuda[] = [
     descripcion: 'Cada cobro genera su factura, firmada y enviada a la AEAT — dónde encontrarlas y descargarlas.',
     actualizado: '2026-08-28',
     relacionados: ['pagos/reembolsos', 'pagos/cobrar-en-la-caja'],
+    estado: 'publicado',
+  },
+  {
+    slug: 'la-pantalla-de-cobros', categoria: 'pagos', tipo: 'guia',
+    titulo: 'Cobros: quién te debe y qué has cobrado',
+    descripcion: 'Las tres pestañas de Cobros y para qué sirve cada una, incluida la de facturas.',
+    terminos: ['cobros', 'deudas', 'pendiente de cobro', 'recibos', 'movimientos', 'quién me debe'],
+    actualizado: '2026-09-08',
+    relacionados: ['pagos/cobros-fallidos', 'pagos/facturas', 'pagos/cobrar-en-la-caja'],
+    estado: 'publicado',
+  },
+  {
+    slug: 'cierre-de-ano', categoria: 'pagos', tipo: 'guia',
+    titulo: 'Cierre de año: lo que le pasas a tu gestoría',
+    descripcion: 'Ingresos e IVA repercutido, por trimestre y por tipo, en CSV o PDF — y el envío automático cada trimestre.',
+    terminos: ['cierre', 'gestoría', 'IVA', 'modelo 303', 'trimestre', 'impuestos', 'contabilidad', 'asesoría'],
+    actualizado: '2026-09-08',
+    relacionados: ['pagos/facturas', 'pagos/la-pantalla-de-cobros'],
     estado: 'publicado',
   },
   {
@@ -412,6 +457,24 @@ export const ARTICULOS: ArticuloAyuda[] = [
 
   // ─── Automatizaciones y avisos ──────────────────────────────────────────
   {
+    slug: 'mensajeria', categoria: 'automatizaciones', tipo: 'guia',
+    titulo: 'Mensajería: todo lo que se habla con tus alumnas',
+    descripcion: 'Avisos para tu equipo, el tablón, las conversaciones y los mensajes que mandas tú a un grupo.',
+    terminos: ['mensajería', 'conversaciones', 'bandeja', 'enviar mensaje', 'hablar con clientas', 'chat'],
+    actualizado: '2026-09-08',
+    relacionados: ['automatizaciones/recordatorios-automaticos', 'app/comunidad', 'automatizaciones/registro-de-envios'],
+    estado: 'publicado',
+  },
+  {
+    slug: 'registro-de-envios', categoria: 'automatizaciones', tipo: 'guia',
+    titulo: 'Qué se ha enviado y si llegó',
+    descripcion: 'El registro de todos los avisos: destinataria, canal, resultado y el botón de reintentar.',
+    terminos: ['notificaciones', 'registro', 'envíos', 'entregado', 'rebotado', 'reintentar', 'historial de avisos'],
+    actualizado: '2026-09-08',
+    relacionados: ['problemas/no-llega-un-email', 'problemas/no-llega-un-whatsapp', 'automatizaciones/recordatorios-automaticos'],
+    estado: 'publicado',
+  },
+  {
     slug: 'recordatorios-automaticos', categoria: 'automatizaciones', tipo: 'guia',
     titulo: 'Recordatorios y avisos automáticos',
     descripcion: 'Qué avisa Tentare solo por email y WhatsApp: recordatorio de clase, bono a punto de acabar, clase confirmada tras sustitución y más.',
@@ -431,6 +494,15 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
 
   // ─── App de tus alumnas ─────────────────────────────────────────────────
+  {
+    slug: 'comunidad', categoria: 'app', tipo: 'guia',
+    titulo: 'El tablón de tu estudio',
+    descripcion: 'Publicas algo y lo ven en su portal: avisos, fotos y eventos, con el público que tú elijas.',
+    terminos: ['comunidad', 'tablón', 'feed', 'publicar', 'post', 'evento', 'anuncio'],
+    actualizado: '2026-09-08',
+    relacionados: ['app/que-ve-una-alumna', 'automatizaciones/mensajeria'],
+    estado: 'publicado',
+  },
   {
     slug: 'que-ve-una-alumna', categoria: 'app', tipo: 'guia',
     titulo: 'Qué ve una alumna en su portal',
