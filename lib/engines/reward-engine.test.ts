@@ -74,7 +74,11 @@ test('aplicarGananciaCreditos suma al saldo y al total ganado, sin tocar el canj
 
 // ── validarCanje ─────────────────────────────────────────────────────────────
 function item(p: Partial<RewardCatalogItem> & Pick<RewardCatalogItem, 'costeCreditos'>): RewardCatalogItem {
-  return { id: 'cat-1', studioId: 'e1', nombre: 'Toalla', descripcion: null, icono: '🎁', activo: true, stock: null, efecto: 'MANUAL', creadoEn: '2026-01-01', ...p };
+  return {
+    id: 'cat-1', studioId: 'e1', nombre: 'Toalla', descripcion: null, icono: '🎁',
+    activo: true, stock: null, efecto: 'MANUAL', creadoEn: '2026-01-01',
+    limitePorSocia: null, disponibleDesde: null, disponibleHasta: null, ...p,
+  };
 }
 
 test('validarCanje: ok con saldo suficiente, activa y con stock', () => {
@@ -93,6 +97,65 @@ test('validarCanje: error si sin stock', () => {
 test('validarCanje: error si saldo insuficiente', () => {
   const r = validarCanje(item({ costeCreditos: 100 }), 99);
   assert.ok('error' in r && r.error.includes('créditos'));
+});
+
+// ── validarCanje: vigencia ───────────────────────────────────────────────────
+test('vigencia: los dos extremos ENTRAN', () => {
+  const i = item({ costeCreditos: 10, disponibleDesde: '2026-09-01', disponibleHasta: '2026-09-30' });
+  assert.deepEqual(validarCanje(i, 99, { hoy: '2026-09-01' }), { ok: true }, 'el primer día ya vale');
+  assert.deepEqual(validarCanje(i, 99, { hoy: '2026-09-30' }), { ok: true }, 'el último día todavía vale');
+  assert.deepEqual(validarCanje(i, 99, { hoy: '2026-09-15' }), { ok: true });
+});
+
+test('vigencia: fuera de la ventana no se canjea, y los dos lados dicen cosas distintas', () => {
+  const i = item({ costeCreditos: 10, disponibleDesde: '2026-09-01', disponibleHasta: '2026-09-30' });
+  const antes = validarCanje(i, 99, { hoy: '2026-08-31' });
+  const despues = validarCanje(i, 99, { hoy: '2026-10-01' });
+  // «Todavía no» invita a volver; «ya no» cierra. Dar el mismo texto a los dos
+  // mandaría a ahorrar créditos para algo que ya no existe.
+  assert.ok('error' in antes && /todavía/i.test(antes.error));
+  assert.ok('error' in despues && /ya no/i.test(despues.error));
+});
+
+test('vigencia: sin fechas, siempre vigente; y sin `hoy` no se evalúa', () => {
+  assert.deepEqual(validarCanje(item({ costeCreditos: 10 }), 99, { hoy: '2030-01-01' }), { ok: true });
+  // Quien no pasa `hoy` (contextos que no lo tienen) no se queda bloqueado: la
+  // ventana la vuelve a comprobar la BD, que es la que manda.
+  const caducada = item({ costeCreditos: 10, disponibleHasta: '2020-01-01' });
+  assert.deepEqual(validarCanje(caducada, 99), { ok: true });
+});
+
+// ── validarCanje: límite por socia ───────────────────────────────────────────
+test('límite: se puede hasta el tope, y en el tope ya no', () => {
+  const i = item({ costeCreditos: 10, limitePorSocia: 2 });
+  assert.deepEqual(validarCanje(i, 99, { canjesPrevios: 0 }), { ok: true });
+  assert.deepEqual(validarCanje(i, 99, { canjesPrevios: 1 }), { ok: true });
+  assert.ok('error' in validarCanje(i, 99, { canjesPrevios: 2 }));
+});
+
+test('límite: sin límite configurado, da igual cuántas lleve', () => {
+  assert.deepEqual(validarCanje(item({ costeCreditos: 10 }), 99, { canjesPrevios: 50 }), { ok: true });
+});
+
+test('límite: el mensaje de una sola vez no habla de «veces»', () => {
+  const una = validarCanje(item({ costeCreditos: 10, limitePorSocia: 1 }), 99, { canjesPrevios: 1 });
+  const tres = validarCanje(item({ costeCreditos: 10, limitePorSocia: 3 }), 99, { canjesPrevios: 3 });
+  assert.ok('error' in una && !/veces/.test(una.error), una);
+  assert.ok('error' in tres && /3 veces/.test(tres.error), tres);
+});
+
+test('límite: se comprueba ANTES que el stock y que el saldo', () => {
+  // Si el orden fuera al revés, a quien ya se la ha llevado se le diría «te
+  // faltan 90 créditos» y se pondría a ahorrar para algo que no puede canjear.
+  const i = item({ costeCreditos: 100, limitePorSocia: 1, stock: 0 });
+  const r = validarCanje(i, 0, { canjesPrevios: 1 });
+  assert.ok('error' in r && /canjeado/i.test(r.error), r);
+});
+
+test('vigencia manda sobre el límite: una recompensa vencida no dice «ya la has canjeado»', () => {
+  const i = item({ costeCreditos: 10, limitePorSocia: 1, disponibleHasta: '2020-01-01' });
+  const r = validarCanje(i, 99, { hoy: '2026-09-08', canjesPrevios: 1 });
+  assert.ok('error' in r && /ya no está disponible/i.test(r.error), r);
 });
 
 // ── aplicarCanjeCreditos ─────────────────────────────────────────────────────

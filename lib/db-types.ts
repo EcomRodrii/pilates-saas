@@ -580,6 +580,12 @@ export interface RowRewardCatalog {
   creado_en: string;
   // migr 20260907213000.
   efecto: string | null;
+  // migr 20260909090000.
+  limite_por_socia: number | null;
+  // migr 20260909090000.
+  disponible_desde: string | null;
+  // migr 20260909090000.
+  disponible_hasta: string | null;
 }
 
 export interface RowRewardHistory {

@@ -250,6 +250,9 @@ export interface PayloadMin {
     // `caducaEl` viaja porque la pantalla avisa antes de que se pierdan. Sin
   // nombrarlo aquí llegaría `undefined` en silencio, como todo en esta frontera.
   memberCredits?: { saldo: number; totalGanado: number; totalCanjeado: number; caducaEl?: string | null }[];
+    // Sus canjes, para saber cuáles ya ha agotado por límite. Mismo motivo que
+    // `caducaEl`: sin nombrarlo aquí llegaría `undefined` en silencio.
+    rewardRedemptions?: { catalogItemId: string; estado: string }[];
     achievementProgress?: ProgresoMin[];
     challengeProgress?: ProgresoMin[];
     retosApuntados?: string[];
@@ -393,9 +396,20 @@ export function proyectarGamificacion(d: PayloadMin, hoyISO: string): Gamificaci
   const niveles = d.levelDefinitions ?? [];
   const logros = logrosDe(d.achievementDefinitions ?? [], d.socia?.achievementProgress ?? []);
   const retos = retosDe(d.challengeDefinitions ?? [], d.socia?.challengeProgress ?? [], d.socia?.retosApuntados ?? [], hoyISO);
-  const recompensas = recompensasDe(d.rewardCatalog ?? [], saldo);
+  // Cuántas veces ha canjeado ya cada recompensa. Los CANCELADOS no cuentan,
+  // igual que en la RPC: cancelar le devuelve créditos, stock y el derecho a
+  // volver a canjearla.
+  const canjesPorItem: Record<string, number> = {};
+  for (const r of d.socia?.rewardRedemptions ?? []) {
+    if (r.estado === 'CANCELADO') continue;
+    canjesPorItem[r.catalogItemId] = (canjesPorItem[r.catalogItemId] ?? 0) + 1;
+  }
+  const recompensas = recompensasDe(d.rewardCatalog ?? [], saldo, hoyISO, canjesPorItem);
   return {
-    hay: hayGamificacion({ niveles, logros: d.achievementDefinitions ?? [], retos: d.challengeDefinitions ?? [], recompensas: d.rewardCatalog ?? [] }),
+    // `recompensas` y no el catálogo crudo: un estudio cuya única recompensa
+    // venció no tiene nada que enseñar, y la pantalla debe decirlo en vez de
+    // abrir un tablero con todas las secciones vacías.
+    hay: hayGamificacion({ niveles, logros: d.achievementDefinitions ?? [], retos: d.challengeDefinitions ?? [], recompensas }),
     saldo, totalGanado, totalCanjeado: c?.totalCanjeado ?? 0,
     // Solo se avisa cuando queda poco: una fecha a ocho meses vista es ruido
     // en una pantalla que ya tiene niveles, logros, retos y recompensas.

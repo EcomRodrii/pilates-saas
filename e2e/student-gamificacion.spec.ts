@@ -201,4 +201,71 @@ test.describe('Student PWA · gamificación', () => {
     await expect(page).toHaveURL(/\/logros$/);
     void HOY;
   });
+
+  // ── Límite por clienta y ventana de vigencia ───────────────────────────────
+  //
+  // Lo que se vigila: que la pantalla no ofrezca lo que el servidor va a
+  // rechazar (una promoción vencida, una que aún no empieza, una que ella ya
+  // se ha llevado) y que tampoco haga desaparecer lo que sí tiene sentido
+  // enseñar. El cerrojo real es `reservar_recompensa` en la base de datos;
+  // esto comprueba que la app no promete por su cuenta.
+  test('la vencida no se ofrece; la futura se ve con su fecha y no se puede pulsar', async ({ page }) => {
+    const f = conGamificacion();
+    f.rewardCatalog = [
+      { id: 'p1', studioId: STUDIO_ID, nombre: 'Siempre disponible', descripcion: null, costeCreditos: 10, icono: '✅', activo: true, stock: null, efecto: 'MANUAL' },
+      { id: 'p2', studioId: STUDIO_ID, nombre: 'Promo de julio', descripcion: null, costeCreditos: 10, icono: '⌛', activo: true, stock: null, efecto: 'MANUAL', disponibleHasta: '2026-07-31' },
+      { id: 'p3', studioId: STUDIO_ID, nombre: 'Promo de septiembre', descripcion: null, costeCreditos: 10, icono: '🔜', activo: true, stock: null, efecto: 'MANUAL', disponibleDesde: '2026-09-01' },
+    ];
+    await montar(page, f);
+    await page.goto(`${base}/logros`);
+
+    const seccion = page.getByTestId('recompensas');
+    await expect(seccion.getByText('Siempre disponible')).toBeVisible({ timeout: 30_000 });
+    // Nadie va a poder canjearla nunca más: sobra en la pantalla.
+    await expect(seccion.getByText('Promo de julio')).toHaveCount(0);
+    // Esta sí se enseña, con su fecha, y con el botón bloqueado.
+    await expect(seccion.getByText('Promo de septiembre')).toBeVisible();
+    const futura = seccion.locator('div.card').filter({ hasText: 'Promo de septiembre' });
+    await expect(futura.getByText(/desde el/i)).toBeVisible();
+    await expect(futura.getByRole('button', { name: /canjear/i })).toBeDisabled();
+  });
+
+  test('la que ya se ha llevado sigue a la vista, marcada y sin poder canjear', async ({ page }) => {
+    const f = conGamificacion();
+    f.rewardCatalog = [
+      { id: 'p1', studioId: STUDIO_ID, nombre: 'Una por cabeza', descripcion: null, costeCreditos: 10, icono: '🎁', activo: true, stock: null, efecto: 'MANUAL', limitePorSocia: 1 },
+    ];
+    const socia = f.socia as Record<string, unknown>;
+    socia.rewardRedemptions = [
+      { id: 'rr1', studioId: STUDIO_ID, socioId: 'socio-e2e-1', catalogItemId: 'p1', creditosGastados: 10, estado: 'ENTREGADO', creadoEn: '2026-08-01T00:00:00Z' },
+    ];
+    await montar(page, f);
+    await page.goto(`${base}/logros`);
+
+    const tarjeta = page.getByTestId('recompensas').locator('div.card').filter({ hasText: 'Una por cabeza' });
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    // Desaparecer daría a entender que el estudio la ha retirado, y no es eso.
+    await expect(tarjeta.getByText(/ya la has canjeado/i)).toBeVisible();
+    await expect(tarjeta.getByRole('button', { name: 'Canjeada' })).toBeDisabled();
+    // Y NO se le dice lo que le falta: tiene saldo de sobra, el problema es otro.
+    await expect(tarjeta.getByText(/te faltan/i)).toHaveCount(0);
+  });
+
+  test('un canje CANCELADO le devuelve el derecho a volver a canjearla', async ({ page }) => {
+    // Cancelar devuelve créditos y stock; tiene que devolver también el turno.
+    // Si no, una cancelación del estudio la castigaría.
+    const f = conGamificacion();
+    f.rewardCatalog = [
+      { id: 'p1', studioId: STUDIO_ID, nombre: 'Una por cabeza', descripcion: null, costeCreditos: 10, icono: '🎁', activo: true, stock: null, efecto: 'MANUAL', limitePorSocia: 1 },
+    ];
+    const socia = f.socia as Record<string, unknown>;
+    socia.rewardRedemptions = [
+      { id: 'rr1', studioId: STUDIO_ID, socioId: 'socio-e2e-1', catalogItemId: 'p1', creditosGastados: 10, estado: 'CANCELADO', creadoEn: '2026-08-01T00:00:00Z' },
+    ];
+    await montar(page, f);
+    await page.goto(`${base}/logros`);
+
+    const tarjeta = page.getByTestId('recompensas').locator('div.card').filter({ hasText: 'Una por cabeza' });
+    await expect(tarjeta.getByRole('button', { name: 'Canjear' })).toBeEnabled({ timeout: 30_000 });
+  });
 });
