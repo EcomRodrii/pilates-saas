@@ -37,12 +37,25 @@ export type EstadoDevolucion =
  * la propietaria ve UNA tarjeta, no dos.
  */
 export function referenciaDevolucion(p:
-  | { tipo: 'reembolso'; chargeId: string; acumuladoDevueltoCentimos: number }
+  | {
+      tipo: 'reembolso'; chargeId: string; acumuladoDevueltoCentimos: number;
+      /**
+       * 32ª pasada de auditoría: un cargo con matrícula reparte el reembolso
+       * entre DOS recibos (ver `procesarChargeRefunded`). Sin distinguirlas,
+       * las dos llamadas a `registrarDevolucion` compartirían la misma
+       * referencia (mismo `chargeId`+acumulado en algún reparto coincidente)
+       * y la segunda chocaría con el UNIQUE, leyéndose como "ya registrada"
+       * cuando en realidad nunca se anotó. Solo se usa en el camino de
+       * reparto; un reembolso de un único recibo no lo necesita.
+       */
+      reciboId?: string;
+    }
   | { tipo: 'chargeback'; disputeId: string },
 ): string {
-  return p.tipo === 'reembolso'
-    ? `${p.chargeId}:${p.acumuladoDevueltoCentimos}`
-    : `dispute:${p.disputeId}`;
+  if (p.tipo === 'chargeback') return `dispute:${p.disputeId}`;
+  return p.reciboId
+    ? `${p.chargeId}:${p.acumuladoDevueltoCentimos}:${p.reciboId}`
+    : `${p.chargeId}:${p.acumuladoDevueltoCentimos}`;
 }
 
 /** Un reembolso es total cuando Stripe lo dice, o cuando el acumulado alcanza el cargo. */

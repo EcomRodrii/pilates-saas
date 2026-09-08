@@ -585,7 +585,16 @@ async function procesarEvento(
           try {
             await stripe.paymentIntents.update(
               session.payment_intent,
-              { metadata: { reciboId: entrega.reciboId, origen: 'plan_web', studioId } },
+              {
+                metadata: {
+                  reciboId: entrega.reciboId, origen: 'plan_web', studioId,
+                  // 32ª pasada de auditoría: sin esto, un reembolso del cargo
+                  // combinado plan+matrícula solo sabía tocar el recibo del
+                  // plan — el de la matrícula se quedaba COBRADO para
+                  // siempre. Ver procesarChargeRefunded.
+                  ...(entrega.reciboMatriculaId ? { reciboMatriculaId: entrega.reciboMatriculaId } : {}),
+                },
+              },
               event.account ? { stripeAccount: event.account } : undefined,
             );
           } catch (err) {
@@ -973,7 +982,15 @@ async function procesarEvento(
       try {
         await stripe.paymentIntents.update(
           pi.id,
-          { metadata: { ...pi.metadata, reciboId: entrega.reciboId } },
+          {
+            metadata: {
+              ...pi.metadata, reciboId: entrega.reciboId,
+              // 32ª pasada de auditoría: mismo motivo que en Modo A — sin el
+              // id de la matrícula, un reembolso del cargo combinado no
+              // tenía forma de saber que ahí dentro había una segunda venta.
+              ...(entrega.reciboMatriculaId ? { reciboMatriculaId: entrega.reciboMatriculaId } : {}),
+            },
+          },
           event.account ? { stripeAccount: event.account } : undefined,
         );
       } catch (err) {
@@ -1303,7 +1320,12 @@ async function procesarEvento(
           return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
         }
         const resultado = await procesarChargeRefunded(admin, {
-          studioId, reciboId, origenPi: pi.metadata?.origen,
+          studioId, reciboId,
+          // 32ª pasada de auditoría: si el cargo combinó plan+matrícula, este
+          // id es lo único que permite repartir el reembolso entre los dos
+          // recibos en vez de dejar la matrícula COBRADA para siempre.
+          reciboMatriculaId: pi.metadata?.reciboMatriculaId ?? null,
+          origenPi: pi.metadata?.origen,
           charge: { id: charge.id, refunded: charge.refunded === true, amount: charge.amount ?? null, amountRefunded: charge.amount_refunded ?? null },
           fuente: 'webhook', eventAccount: event.account,
         });

@@ -67,21 +67,33 @@ export interface ResultadoProcesado {
 /** Quién llama, solo para que los mensajes de log/Sentry digan de dónde viene. */
 export type Fuente = 'webhook' | 'conciliador';
 
-export async function procesarChargeRefunded(
+/** Un recibo, ya con SU propia porción del acumulado devuelto y SU propio total. */
+async function procesarReembolsoDeUnRecibo(
   admin: SupabaseClient,
   p: {
     studioId: string;
     reciboId: string;
-    /** `pi.metadata?.origen` — decide si el reembolso parcial deja restaurado sepa_estado. */
     origenPi: string | undefined;
-    charge: ChargeReembolsado;
+    /**
+     * Lo que dice Stripe (`charge.refunded`) sobre el CARGO ENTERO. Aplica
+     * igual a los dos recibos de un cargo combinado: si Stripe dice que el
+     * cargo entero está devuelto, las dos porciones lo están, aunque el
+     * reparto en céntimos no cuadre exacto con el total de cada recibo.
+     */
+    refundedEnStripe: boolean;
+    /** Céntimos, YA repartidos para ESTE recibo (no el acumulado del cargo entero). */
+    devueltoCentimos: number;
+    /** Céntimos, el total de ESTE recibo (no `charge.amount`). */
+    totalCentimos: number;
+    chargeId: string;
     fuente: Fuente;
     eventAccount?: string | null;
+    /** Ver `referenciaDevolucion` — solo cuando el cargo reparte entre dos recibos. */
+    sufijoReferencia?: string;
   },
 ): Promise<ResultadoProcesado> {
-  const acumuladoDevuelto = p.charge.amountRefunded ?? 0;
   const origen = origenDeReembolso({
-    refunded: p.charge.refunded === true, acumulado: acumuladoDevuelto, total: p.charge.amount ?? 0,
+    refunded: p.refundedEnStripe, acumulado: p.devueltoCentimos, total: p.totalCentimos,
   });
 
   // Solo un reembolso TOTAL anula el recibo: marcar DEVUELTO un parcial
@@ -116,9 +128,12 @@ export async function procesarChargeRefunded(
   // (`null` = ya estaba registrada, por reintento del webhook o por el cron
   // llegando después).
   const dev = await registrarDevolucion(admin, {
-    studioId: p.studioId, reciboId: p.reciboId, origen, devueltoCentimos: acumuladoDevuelto,
-    referencia: referenciaDevolucion({ tipo: 'reembolso', chargeId: p.charge.id, acumuladoDevueltoCentimos: acumuladoDevuelto }),
-    stripeChargeId: p.charge.id,
+    studioId: p.studioId, reciboId: p.reciboId, origen, devueltoCentimos: p.devueltoCentimos,
+    referencia: referenciaDevolucion({
+      tipo: 'reembolso', chargeId: p.chargeId, acumuladoDevueltoCentimos: p.devueltoCentimos,
+      ...(p.sufijoReferencia ? { reciboId: p.sufijoReferencia } : {}),
+    }),
+    stripeChargeId: p.chargeId,
   });
   if (dev) {
     // Notificación best-effort: un fallo aquí no puede tumbar la conciliación
@@ -138,6 +153,99 @@ export async function procesarChargeRefunded(
     }
   }
   return { ok: true, huboEfecto: !!dev };
+}
+
+export async function procesarChargeRefunded(
+  admin: SupabaseClient,
+  p: {
+    studioId: string;
+    reciboId: string;
+    /**
+     * 32ª pasada de auditoría: recibo de la matrícula, cuando el cargo la
+     * combinó con el plan en un solo PaymentIntent (ver `entregarPlanComprado`).
+     * Presente => el acumulado devuelto se reparte entre los dos recibos en
+     * vez de atribuirse entero al del plan (`p.reciboId`), que es lo que
+     * pasaba antes: la matrícula se quedaba COBRADO para siempre tras un
+     * reembolso del cargo combinado.
+     */
+    reciboMatriculaId?: string | null;
+    /** `pi.metadata?.origen` — decide si el reembolso parcial deja restaurado sepa_estado. */
+    origenPi: string | undefined;
+    charge: ChargeReembolsado;
+    fuente: Fuente;
+    eventAccount?: string | null;
+  },
+): Promise<ResultadoProcesado> {
+  const acumuladoDevuelto = p.charge.amountRefunded ?? 0;
+
+  if (!p.reciboMatriculaId) {
+    // Camino de siempre: un único recibo, sin reparto — comportamiento
+    // idéntico al de antes de esta pasada.
+    return procesarReembolsoDeUnRecibo(admin, {
+      studioId: p.studioId, reciboId: p.reciboId, origenPi: p.origenPi,
+      refundedEnStripe: p.charge.refunded === true,
+      devueltoCentimos: acumuladoDevuelto, totalCentimos: p.charge.amount ?? 0,
+      chargeId: p.charge.id, fuente: p.fuente, eventAccount: p.eventAccount,
+    });
+  }
+
+  // Cargo combinado plan+matrícula: se lee el importe REAL de cada recibo
+  // (no `charge.amount`, que es la suma de los dos) para repartir el
+  // acumulado devuelto al céntimo. Orden fijo: el plan primero, la matrícula
+  // con el resto — mismo criterio que propuso la auditoría.
+  const [{ data: recPlan }, { data: recMatricula }] = await Promise.all([
+    admin.from('recibos').select('importe').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle(),
+    admin.from('recibos').select('importe').eq('id', p.reciboMatriculaId).eq('studio_id', p.studioId).maybeSingle(),
+  ]);
+  if (!recPlan || !recMatricula) {
+    // Uno de los dos recibos no existe (o es de otro estudio): no se puede
+    // repartir con seguridad. Se cae al camino de siempre —todo al recibo
+    // del plan— en vez de perder el reembolso entero por falta de reparto.
+    Sentry.captureMessage(`[${p.fuente}] reembolso con matrícula pero no se encontraron los dos recibos: se atribuye todo al del plan`, {
+      level: 'warning',
+      extra: { reciboId: p.reciboId, reciboMatriculaId: p.reciboMatriculaId, studioId: p.studioId },
+    });
+    return procesarReembolsoDeUnRecibo(admin, {
+      studioId: p.studioId, reciboId: p.reciboId, origenPi: p.origenPi,
+      refundedEnStripe: p.charge.refunded === true,
+      devueltoCentimos: acumuladoDevuelto, totalCentimos: p.charge.amount ?? 0,
+      chargeId: p.charge.id, fuente: p.fuente, eventAccount: p.eventAccount,
+    });
+  }
+  const planCentimos = Math.round(Number(recPlan.importe) * 100);
+  const matriculaCentimos = Math.round(Number(recMatricula.importe) * 100);
+  const devueltoPlan = Math.min(acumuladoDevuelto, planCentimos);
+  const devueltoMatricula = Math.min(Math.max(0, acumuladoDevuelto - planCentimos), matriculaCentimos);
+
+  const [resPlan, resMatricula] = await Promise.all([
+    // Nada que anotar todavía si a este recibo no le tocó reparto (un parcial
+    // pequeño que aún no llega a cubrir el plan entero) — una fila de
+    // `devoluciones` con 0 devuelto sería ruido, no información.
+    devueltoPlan > 0 ? procesarReembolsoDeUnRecibo(admin, {
+      studioId: p.studioId, reciboId: p.reciboId, origenPi: p.origenPi,
+      refundedEnStripe: p.charge.refunded === true,
+      devueltoCentimos: devueltoPlan, totalCentimos: planCentimos,
+      chargeId: p.charge.id, fuente: p.fuente, eventAccount: p.eventAccount,
+      // Sufijo SIEMPRE en el camino de reparto: sin él, las dos llamadas
+      // podrían compartir `referencia` si el importe repartido coincidiera
+      // (p. ej. plan y matrícula del mismo precio), y la segunda chocaría
+      // con el UNIQUE leyéndose como "ya registrada" sin haberlo estado nunca.
+      sufijoReferencia: p.reciboId,
+    }) : Promise.resolve<ResultadoProcesado>({ ok: true, huboEfecto: false }),
+    devueltoMatricula > 0 ? procesarReembolsoDeUnRecibo(admin, {
+      studioId: p.studioId, reciboId: p.reciboMatriculaId, origenPi: p.origenPi,
+      refundedEnStripe: p.charge.refunded === true,
+      devueltoCentimos: devueltoMatricula, totalCentimos: matriculaCentimos,
+      chargeId: p.charge.id, fuente: p.fuente, eventAccount: p.eventAccount,
+      sufijoReferencia: p.reciboMatriculaId,
+    }) : Promise.resolve<ResultadoProcesado>({ ok: true, huboEfecto: false }),
+  ]);
+
+  return {
+    ok: resPlan.ok && resMatricula.ok,
+    huboEfecto: resPlan.huboEfecto || resMatricula.huboEfecto,
+    error: resPlan.error ?? resMatricula.error,
+  };
 }
 
 export async function procesarDisputeCreated(

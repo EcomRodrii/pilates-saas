@@ -238,6 +238,22 @@ export async function POST(req: NextRequest) {
       matriculaCentimos = Math.round(Number(plan.matricula) * 100);
       metadata.matriculaCentimos = String(matriculaCentimos);
     }
+
+    // 32ª pasada de auditoría: este camino (Modo A, redirección al Checkout
+    // Session hospedado) quedó fuera del trabajo de consentimiento legal de
+    // #1756/#1761 — solo tocaron el checkout embebido (Modo B). El webhook
+    // YA sabe leer `session.metadata.terminosHash`/`terminosAceptadosEn` y
+    // dejarlos en el recibo (ver `entregarPlanComprado`); simplemente nunca
+    // se sellaban aquí, así que quedaban NULL en el 100% de estas compras.
+    // Mismo cálculo que `checkout-embebido/route.ts`: el hash lo compone el
+    // SERVIDOR a partir de los textos vigentes del estudio, nunca el cliente.
+    // Best-effort — si falla, la compra sigue sin sello (igual que Modo B).
+    const { sellarCondicionesVigentes } = await import('@/lib/legal-sellado');
+    const sello = await sellarCondicionesVigentes(admin, body.studioId);
+    if (sello) {
+      metadata.terminosHash = sello.hash;
+      metadata.terminosAceptadosEn = sello.aceptadoEn;
+    }
   } else {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el recibo o el plan a cobrar' }, { status: 400 }));
   }
