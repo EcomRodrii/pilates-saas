@@ -20,6 +20,10 @@ import { uid } from '@/lib/utils';
 import { idEstudioDe } from '@/lib/id-estudio';
 import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
+import { saldoVivo } from '@/lib/creditos-caducidad';
+// `hoyISO` fija la zona del negocio (Madrid). Sin eso, el saldo caducaría a
+// medianoche UTC — dos horas antes en verano — para todo el mundo.
+import { hoyISO } from '@/lib/student/formato';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -615,9 +619,14 @@ export function mapMemberCredits(r: RowMemberCredits): MemberCredits {
   return {
     socioId: r.socio_id,
     studioId: r.studio_id,
-    saldo: r.saldo,
+    // La caducidad se aplica AQUÍ, una vez, y no en cada pantalla: es el saldo
+    // gastable lo que interesa a todo el mundo (el canje, el portal, el panel),
+    // y dejar pasar el guardado sería enseñar un número que el servidor
+    // rechaza. Espejo de `saldo_vivo(int, date)` en SQL.
+    saldo: saldoVivo(r.saldo, r.caduca_el ?? null, hoyISO()),
     totalGanado: r.total_ganado,
     totalCanjeado: r.total_canjeado,
+    caducaEl: r.caduca_el ?? null,
     actualizadoEn: r.actualizado_en,
   } as MemberCredits;
 }
@@ -4435,6 +4444,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('anioFundacion' in changes) db.anio_fundacion = changes.anioFundacion;
   if ('creditosNombre' in changes) db.creditos_nombre = changes.creditosNombre;
+  if ('creditosCaducanMeses' in changes) db.creditos_caducan_meses = changes.creditosCaducanMeses;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
   if ('recuperacionCaducidadTipo' in changes) db.recuperacion_caducidad_tipo = changes.recuperacionCaducidadTipo;
@@ -4824,6 +4834,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     trialEndsAt: r.trial_ends_at ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
     creditosNombre: r.creditos_nombre ?? null,
+    creditosCaducanMeses: r.creditos_caducan_meses ?? null,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     cancelacionClaseDevuelveBono: r.cancelacion_clase_devuelve_bono ?? true,
     recuperacionCaducidadTipo: (r.recuperacion_caducidad_tipo as 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE') ?? 'FIN_MES_SIGUIENTE',

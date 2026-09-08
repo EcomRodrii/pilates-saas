@@ -63,13 +63,13 @@ test('decidirOtorgarCreditos: no otorga si ya se otorgó para ese refId', () => 
 // ── aplicarGananciaCreditos ──────────────────────────────────────────────────
 test('aplicarGananciaCreditos crea el registro si no existía', () => {
   const r = aplicarGananciaCreditos(undefined, 's1', 'e1', 40, '2026-03-01');
-  assert.deepEqual(r, { socioId: 's1', studioId: 'e1', saldo: 40, totalGanado: 40, totalCanjeado: 0, actualizadoEn: '2026-03-01' });
+  assert.deepEqual(r, { socioId: 's1', studioId: 'e1', saldo: 40, totalGanado: 40, totalCanjeado: 0, caducaEl: null, actualizadoEn: '2026-03-01' });
 });
 
 test('aplicarGananciaCreditos suma al saldo y al total ganado, sin tocar el canjeado', () => {
-  const existente: MemberCredits = { socioId: 's1', studioId: 'e1', saldo: 30, totalGanado: 50, totalCanjeado: 20, actualizadoEn: '2026-02-01' };
+  const existente: MemberCredits = { socioId: 's1', studioId: 'e1', saldo: 30, totalGanado: 50, totalCanjeado: 20, caducaEl: null, actualizadoEn: '2026-02-01' };
   const r = aplicarGananciaCreditos(existente, 's1', 'e1', 10, '2026-03-01');
-  assert.deepEqual(r, { socioId: 's1', studioId: 'e1', saldo: 40, totalGanado: 60, totalCanjeado: 20, actualizadoEn: '2026-03-01' });
+  assert.deepEqual(r, { socioId: 's1', studioId: 'e1', saldo: 40, totalGanado: 60, totalCanjeado: 20, caducaEl: null, actualizadoEn: '2026-03-01' });
 });
 
 // ── validarCanje ─────────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ test('validarCanje: error si saldo insuficiente', () => {
 
 // ── aplicarCanjeCreditos ─────────────────────────────────────────────────────
 test('aplicarCanjeCreditos descuenta del saldo y suma al total canjeado', () => {
-  const existente: MemberCredits = { socioId: 's1', studioId: 'e1', saldo: 100, totalGanado: 100, totalCanjeado: 0, actualizadoEn: '2026-02-01' };
+  const existente: MemberCredits = { socioId: 's1', studioId: 'e1', saldo: 100, totalGanado: 100, totalCanjeado: 0, caducaEl: null, actualizadoEn: '2026-02-01' };
   const r = aplicarCanjeCreditos(existente, 's1', 'e1', 30, '2026-03-01');
-  assert.deepEqual(r, { socioId: 's1', studioId: 'e1', saldo: 70, totalGanado: 100, totalCanjeado: 30, actualizadoEn: '2026-03-01' });
+  assert.deepEqual(r, { socioId: 's1', studioId: 'e1', saldo: 70, totalGanado: 100, totalCanjeado: 30, caducaEl: null, actualizadoEn: '2026-03-01' });
 });

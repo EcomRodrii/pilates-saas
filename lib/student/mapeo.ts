@@ -6,6 +6,7 @@
 // mismo motivo que el resto del fichero.
 import { hoyEnEstudio } from '../utils.ts';
 import { imagenDeClase } from '../imagenes-por-defecto.ts';
+import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
 import { proyectarPlazaFija as plazaFijaDe, proyectarRecuperaciones as recuperacionesDe, type PlazaFijaMin, type RecuperacionMin } from './plaza-fija.ts';
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
@@ -246,7 +247,9 @@ export interface PayloadMin {
     favoritos?: { tipoClaseId: string }[];
     plazasFijas?: PlazaFijaMin[];
     recuperaciones?: RecuperacionMin[];
-    memberCredits?: { saldo: number; totalGanado: number; totalCanjeado: number }[];
+    // `caducaEl` viaja porque la pantalla avisa antes de que se pierdan. Sin
+  // nombrarlo aquí llegaría `undefined` en silencio, como todo en esta frontera.
+  memberCredits?: { saldo: number; totalGanado: number; totalCanjeado: number; caducaEl?: string | null }[];
     achievementProgress?: ProgresoMin[];
     challengeProgress?: ProgresoMin[];
     retosApuntados?: string[];
@@ -374,6 +377,15 @@ export function proyectarInstructoras(d: PayloadMin): Instructora[] {
  * Todo lo que la alumna ve de gamificación, ya ordenado. El progreso y el saldo
  * vienen calculados del servidor; aquí solo se presenta.
  */
+/**
+ * A cuántos días de caducar se empieza a avisar.
+ *
+ * Un mes: da tiempo a venir a clase y gastarlos, y no convierte el aviso en
+ * parte del decorado. Enseñar siempre la fecha sería ruido en una pantalla que
+ * ya lleva nivel, logros, retos y recompensas.
+ */
+export const DIAS_AVISO_CADUCIDAD = 30;
+
 export function proyectarGamificacion(d: PayloadMin, hoyISO: string): GamificacionVista {
   const c = d.socia?.memberCredits?.[0];
   const saldo = c?.saldo ?? 0;
@@ -385,6 +397,12 @@ export function proyectarGamificacion(d: PayloadMin, hoyISO: string): Gamificaci
   return {
     hay: hayGamificacion({ niveles, logros: d.achievementDefinitions ?? [], retos: d.challengeDefinitions ?? [], recompensas: d.rewardCatalog ?? [] }),
     saldo, totalGanado, totalCanjeado: c?.totalCanjeado ?? 0,
+    // Solo se avisa cuando queda poco: una fecha a ocho meses vista es ruido
+    // en una pantalla que ya tiene niveles, logros, retos y recompensas.
+    diasParaCaducar: (() => {
+      const d = diasHastaCaducar(c?.caducaEl ?? null, hoyISO);
+      return d != null && d <= DIAS_AVISO_CADUCIDAD ? d : null;
+    })(),
     nivel: nivelDeCreditos(totalGanado, niveles),
     logros, retos, recompensas,
   };

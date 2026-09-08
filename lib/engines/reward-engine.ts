@@ -49,7 +49,10 @@ export function aplicarGananciaCreditos(
 ): MemberCredits {
   return existente
     ? { ...existente, saldo: existente.saldo + creditos, totalGanado: existente.totalGanado + creditos, actualizadoEn: now }
-    : { socioId, studioId, saldo: creditos, totalGanado: creditos, totalCanjeado: 0, actualizadoEn: now };
+    // `caducaEl: null` es la aproximación honesta en local: la fecha la pone el
+    // servidor (trigger `member_credits_caducidad`) y aquí no se conoce hasta
+    // la siguiente carga. Solo afecta al aviso de «caduca el X», nunca al saldo.
+    : { socioId, studioId, saldo: creditos, totalGanado: creditos, totalCanjeado: 0, caducaEl: null, actualizadoEn: now };
 }
 
 // ── Canje de recompensas ──────────────────────────────────────────────────────
@@ -75,5 +78,5 @@ export function aplicarCanjeCreditos(
 ): MemberCredits {
   return existente
     ? { ...existente, saldo: existente.saldo - coste, totalCanjeado: existente.totalCanjeado + coste, actualizadoEn: now }
-    : { socioId, studioId, saldo: -coste, totalGanado: 0, totalCanjeado: coste, actualizadoEn: now };
+    : { socioId, studioId, saldo: -coste, totalGanado: 0, totalCanjeado: coste, caducaEl: null, actualizadoEn: now };
 }
