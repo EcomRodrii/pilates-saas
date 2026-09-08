@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MetodoPago } from '@/lib/types';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import { metodoRealBizum } from './metodo-real-bizum.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,8 +105,15 @@ export interface ProveedorTerminal {
    * por columna no resta de un grant de tabla). Sin comprobarla, se podría
    * apuntar un recibo al PaymentIntent que ya pagó OTRO del mismo importe y
    * cobrar dos veces con un solo pago.
+   *
+   * `metodoReal` = con qué medio se pagó DE VERDAD, cuando el proveedor puede
+   * mentir sobre eso (Bizum: la sesión también acepta tarjeta, #1744).
+   * `undefined` cuando el proveedor no tiene ambigüedad que resolver
+   * (datáfono siempre es tarjeta; manual no lo sabe nadie más que quien
+   * cobra). Quien llama debe usarlo por encima del método que él mismo pidió
+   * (P-3, 27ª/28ª pasada) — nunca al revés.
    */
-  consultar(ctx: ContextoCobro, referencia: string): Promise<{ estado: EstadoPagoPOS; error?: string; importeCentimos?: number | null; metadata?: Record<string, string> }>;
+  consultar(ctx: ContextoCobro, referencia: string): Promise<{ estado: EstadoPagoPOS; error?: string; importeCentimos?: number | null; metadata?: Record<string, string>; metodoReal?: 'BIZUM' | 'TARJETA' }>;
   /**
    * `checkoutSessionId`: solo lo usa Bizum (ver ResultadoInicio). Con él,
    * cancelar expira la Checkout Session en vez de solo el PaymentIntent — eso
@@ -294,6 +302,9 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
           error: pi.last_payment_error?.message ?? undefined,
           importeCentimos: pi.amount_received ?? null,
           metadata: (pi.metadata ?? {}) as Record<string, string>,
+          // Solo hace falta mirar el cargo real si de verdad se cobró: pedir
+          // el cargo de un PI pendiente no tiene nada que resolver todavía.
+          metodoReal: pi.status === 'succeeded' ? await metodoRealBizum(ctx.stripe, pi, ctx.stripeAccount) : undefined,
         };
       } catch {
         return { estado: 'PROCESANDO' };

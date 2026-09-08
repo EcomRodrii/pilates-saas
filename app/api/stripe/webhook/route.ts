@@ -13,6 +13,7 @@ import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReem
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/billing/confirmar-cobro';
 import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
+import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -741,17 +742,13 @@ async function procesarEvento(
         // gemelo que ya lo hace bien en checkout.session.completed (arriba,
         // ~línea 445): se lee `payment_method_details.type` del cargo real.
         // El datáfono (card_present) nunca pasa por aquí: siempre es TARJETA.
-        let metodoCobro: 'BIZUM' | 'TARJETA' = 'TARJETA';
-        if (origenPos === 'pos_bizum') {
-          metodoCobro = 'BIZUM';
-          try {
-            const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id;
-            if (chargeId) {
-              const charge = await stripe.charges.retrieve(chargeId, {}, event.account ? { stripeAccount: event.account } : undefined);
-              metodoCobro = charge.payment_method_details?.type === 'bizum' ? 'BIZUM' : 'TARJETA';
-            }
-          } catch { /* si falla la lectura, nos quedamos con BIZUM (el origen como pista) */ }
-        }
+        // La derivación en sí vive en `metodoRealBizum` (lib/pos/metodo-real-bizum.ts),
+        // compartida con los dos caminos síncronos (recibo/venta) — 28ª
+        // pasada: antes cada camino la resolvía por su cuenta y solo este
+        // (el que casi nunca gana la carrera) quedó arreglado en la 27ª.
+        const metodoCobro: 'BIZUM' | 'TARJETA' = origenPos === 'pos_bizum'
+          ? await metodoRealBizum(stripe, pi, event.account)
+          : 'TARJETA';
         const res = await confirmarCobroRecibo(admin, {
           studioId,
           reciboId: reciboIdPos,
@@ -784,11 +781,21 @@ async function procesarEvento(
 
       const ventaIdPos = pi.metadata?.ventaId;
       if (ventaIdPos) {
+        // 28ª pasada: mismo bug de P-3 (27ª pasada) sin cerrar para las
+        // ventas de producto — el desglose por método en el arqueo
+        // (`ventas_pos.metodo_pago`) se quedaba con el que pulsó quien cobra
+        // ("Bizum"), nunca corregido si la clienta acabó pagando con
+        // tarjeta. `p_metodo_pago` deja que la RPC lo sobrescriba solo
+        // cuando el proveedor puede resolverlo de verdad.
+        const metodoPagoReal = origenPos === 'pos_bizum'
+          ? await metodoRealBizum(stripe, pi, event.account)
+          : null;
         const { data: conf, error: errConf } = await admin.rpc('confirmar_pago_venta_pos', {
           p_venta_id: ventaIdPos,
           p_studio_id: studioId,
           p_payment_intent_id: pi.id,
           p_importe_confirmado: (pi.amount_received ?? pi.amount ?? 0) / 100,
+          p_metodo_pago: metodoPagoReal,
         });
         if (errConf) {
           // 5xx a propósito: Stripe reintenta. Un cobro real cuya venta no se
