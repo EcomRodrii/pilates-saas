@@ -212,7 +212,16 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
       try {
         const sesion = await ctx.stripe.checkout.sessions.create({
           mode: 'payment',
-          payment_method_types: ['bizum'],
+          // ⚠️ `['card', 'bizum']`, NO `['bizum']` a secas. El checkout del
+          // portal —el único camino de Bizum que se sabe que FUNCIONA en
+          // producción— lo pide así (`app/api/stripe/checkout/route.ts`), y el
+          // TPV lo pedía solo con Bizum: Stripe rechazaba crear la sesión y en
+          // el mostrador salía «No se pudo generar el cobro por Bizum».
+          //
+          // Para un mostrador además es mejor: la clienta abre el enlace en su
+          // móvil y paga por Bizum o con tarjeta, lo que tenga a mano. El
+          // método REAL que use lo resuelve el webhook al confirmar.
+          payment_method_types: ['card', 'bizum'],
           line_items: [{
             quantity: 1,
             price_data: {
@@ -241,6 +250,15 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
         return { ok: true, referencia: pi, url: sesion.url, estado: 'PENDIENTE' };
       } catch (err) {
         console.error('[pos/terminal:bizum]', err instanceof Stripe.errors.StripeError ? err.message : err);
+        // ⚠️ El motivo REAL, no un genérico. «No se pudo generar el cobro por
+        // Bizum» dejaba a quien cobra sin nada que hacer: la causa casi
+        // siempre es de configuración —Bizum sin activar en la cuenta de
+        // Stripe, o la cuenta sin terminar de verificar— y eso se arregla en
+        // dos minutos SI alguien te lo dice. El mensaje de Stripe es
+        // descriptivo y no expone secretos.
+        if (err instanceof Stripe.errors.StripeError) {
+          return { ok: false, error: `Stripe no ha aceptado el cobro por Bizum: ${err.message}` };
+        }
         return { ok: false, error: 'No se pudo generar el cobro por Bizum.' };
       }
     },

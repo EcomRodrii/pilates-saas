@@ -27,16 +27,35 @@ export function esEstadoFinal(e: EstadoPagoPOS): boolean {
 }
 
 /**
- * ¿Este método de pago necesita que un tercero confirme, o basta con que lo
- * diga quien está cobrando?
+ * ¿A este método lo confirma un TERCERO, o solo la persona que cobra?
  *
- * Es LA distinción que faltaba. Antes el TPV tenía un botón «Cobro realizado»
- * en Bizum que marcaba la venta como pagada sin preguntarle nada a Stripe: el
- * mismo trato para un billete de 50 € (que se ve) que para un pago por móvil
- * (que hay que comprobar).
+ * Tiene que decir exactamente lo mismo que `proveedorPara` en
+ * `lib/pos/terminal.ts`, porque son la misma pregunta: los que van por Stripe
+ * (datáfono y Bizum) los confirma Stripe; el resto los confirma quien está en
+ * el mostrador.
+ *
+ * ⚠️ TARJETA está FUERA, y esto es una corrección, no un matiz. Antes decía
+ * que sí necesitaba confirmación externa mientras `proveedorPara` le daba el
+ * proveedor MANUAL —que devuelve PAGADO al instante—, así que dos sitios del
+ * código afirmaban lo contrario y ganaba el que cobraba. En pantalla eso era:
+ * pulsas «Tarjeta» y sale «Cobrado» sin que nadie haya comprobado nada.
+ *
+ * TARJETA significa «lo he pasado por el datáfono de MI banco», que Tentare no
+ * ve. Es legítimo registrarlo, pero hay que pedirlo explícitamente y no
+ * pintarlo como un cobro verificado.
  */
 export function requiereConfirmacionExterna(metodo: MetodoPago): boolean {
-  return metodo === 'DATAFONO' || metodo === 'BIZUM' || metodo === 'TARJETA';
+  return metodo === 'DATAFONO' || metodo === 'BIZUM';
+}
+
+/**
+ * ¿Hay que pedir a quien cobra que confirme a mano que el dinero ha entrado?
+ *
+ * Efectivo no: se ve y se cuenta, y el arqueo del cierre lo verifica. Tarjeta
+ * del banco y transferencia sí: nadie más puede decirnos que han salido bien.
+ */
+export function necesitaAtestiguar(metodo: MetodoPago): boolean {
+  return metodo === 'TARJETA' || metodo === 'TRANSFERENCIA';
 }
 
 /** Una línea tal y como la manda el TPV: ids y cantidades. NUNCA importes. */

@@ -369,6 +369,15 @@ export function PosTerminal() {
       <header className="shrink-0 h-16 px-4 sm:px-5 border-b border-border bg-card flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <h1 className="hidden md:block text-[16px] font-bold text-foreground shrink-0">Caja</h1>
+          {/* En móvil las tres métricas no caben, pero dejar la fila VACÍA era
+              peor: media cabecera en blanco encima de un catálogo que ya iba
+              justo de alto. Se enseña la única cifra que se mira de pie. */}
+          <div className="sm:hidden min-w-0">
+            <p className="text-[10.5px] uppercase tracking-wide text-muted-foreground leading-none">Hoy</p>
+            <p className="mt-1 text-[15px] font-bold leading-none tabular-nums text-success">
+              {formatEuro(catalogo?.hoy.total ?? 0)}
+            </p>
+          </div>
           <div className="hidden sm:flex items-center">
             <Metrica label="Hoy" valor={formatEuro(catalogo?.hoy.total ?? 0)} destacado />
             <Metrica label="Ventas" valor={String(catalogo?.hoy.ventas ?? 0)} />
@@ -473,7 +482,14 @@ export function PosTerminal() {
               </div>
             )}
 
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {/* Los chips se desplazan cuando no caben, y antes el último
+                quedaba cortado a media palabra («Tie…»). `pr-6` deja aire para
+                que se lea entero.
+                ⚠️ NO poner aquí un `mask-image` de degradado: se probó y dejó
+                las tarjetas del catálogo SIN RESPONDER al clic en Chromium —
+                el catálogo entero se volvía inservible. Lo cazó
+                `caja-captura.spec.ts` al no poder pulsar un artículo. */}
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 pr-6">
               {categorias.map((c) => (
                 <button
                   key={c.valor}
@@ -529,7 +545,10 @@ export function PosTerminal() {
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 sm:px-4 pb-6">
+          {/* `pb-28` cuando hay barra fija: sin ese hueco, la última fila de
+              artículos quedaba PARTIDA por debajo de «Ver el ticket» y no
+              había forma de llegar a ella. */}
+          <div className={cn('flex-1 overflow-y-auto px-3 sm:px-4', carrito.length > 0 ? 'pb-28 lg:pb-6' : 'pb-6')}>
             <div
               className="grid gap-2.5"
               style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))' }}
@@ -575,13 +594,12 @@ export function PosTerminal() {
                           sitio: antes «Quedan 3» era un texto naranja bajo el
                           precio y «Agotado» otro rojo, y sin control no había
                           nada — tres lenguajes visuales para un solo dato. */}
+                      {/* Sin botón `+`: la tarjeta ENTERA es el objetivo, y
+                          un cuadradito dentro de otro objetivo pulsable no
+                          añade nada — solo robaba el ancho que necesitan el
+                          nombre y el precio, que es lo que se lee de pie. */}
                       {est === 'BAJO' && <Chip tono="warning">Quedan {a.stock}</Chip>}
                       {est === 'AGOTADO' && <Chip tono="muted">Agotado</Chip>}
-                      {!agotado && est !== 'BAJO' && (
-                        <span className="w-8 h-8 rounded-lg bg-brand/10 text-brand-secondary flex items-center justify-center shrink-0 group-hover:bg-brand group-hover:text-brand-foreground transition-colors">
-                          <Plus size={16} />
-                        </span>
-                      )}
                     </div>
                   </button>
                 );
@@ -793,15 +811,31 @@ export function PosTerminal() {
                 </div>
               )}
 
-              {/* Totales */}
+              {/* ── Totales ─────────────────────────────────────────────
+                  ⚠️ El IVA va INCLUIDO en el precio (un artículo de 25 € son
+                  20,66 de base + 4,34 de IVA), que es lo correcto para un
+                  mostrador: el precio de la etiqueta es lo que se paga.
+                  Pero la columna lo pintaba como una línea más entre el
+                  descuento y el total —«Subtotal 130 · Descuento −10 · IVA
+                  20,83 · Total 120»— y eso se lee sumando: 130 − 10 + 20,83
+                  daría 140,83, no 120. Parecía que el IVA se añadía encima.
+                  Ahora se enseña la BASE junto a la cuota, para que la
+                  aritmética cuadre a la vista (base + IVA = total), y el
+                  bloque se separa con un título que dice que ya está dentro. */}
               <div className="space-y-1 text-[14px] pt-1">
                 <Fila label="Subtotal" valor={formatEuro(ticket.subtotal)} />
                 {ticket.descuento > 0 && <Fila label="Descuento" valor={`−${formatEuro(ticket.descuento)}`} tono="warning" />}
-                {/* El IVA, desglosado por tipo. Un ticket con género al 21 % y
-                    una clase al 10 % enseña las dos bases, no una media. */}
-                {ticket.porTipoIva.map((t) => (
-                  <Fila key={t.ivaPct} label={`IVA ${t.ivaPct}%`} valor={formatEuro(t.cuota)} />
-                ))}
+                <div className="pt-2 mt-1 border-t border-border space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Desglose (IVA ya incluido)
+                  </p>
+                  <Fila label="Base imponible" valor={formatEuro(ticket.baseImponible)} />
+                  {/* Desglosado por tipo: un ticket con género al 21 % y una
+                      clase al 10 % enseña los dos, no una media. */}
+                  {ticket.porTipoIva.map((t) => (
+                    <Fila key={t.ivaPct} label={`IVA ${t.ivaPct}%`} valor={formatEuro(t.cuota)} />
+                  ))}
+                </div>
                 <div className="flex items-center justify-between rounded-2xl bg-background border border-border px-4 py-3 mt-2">
                   <span className="text-[15px] font-bold text-foreground">Total</span>
                   <span className="text-[30px] leading-none font-extrabold text-foreground tabular-nums">{formatEuro(ticket.total)}</span>
