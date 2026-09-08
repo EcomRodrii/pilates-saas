@@ -27,25 +27,25 @@ const EQUIPO = [
 const TIPO_CLASE = { id: 'tc-1', studio_id: STUDIO_ID, nombre: 'Reformer', duracion_min: 50, color: '#F7A6C4' };
 const SALA = { id: 'sala-1', studio_id: STUDIO_ID, nombre: 'Sala Reformer', capacidad: 10, color: '#F7A6C4' };
 
-// La clase que SÍ es suya (hoy, para que salga en "Clases de hoy" del dashboard).
-const AHORA = new Date();
-const HOY = AHORA.toISOString().slice(0, 10);
-// Hora fija lejos de la hora real de ejecución: si coincidiera con "ahora",
-// ClaseHoyCard (app/(dashboard)/dashboard/page.tsx) la abre por defecto
-// (isNow) y el test, que espera partir de la tarjeta colapsada, la
-// colapsaría al hacer click en vez de expandirla — pasó de verdad en CI dos
-// veces porque el job cayó dentro de la ventana fija de 18:00-18:50 UTC.
-const HORA_SEGURA = AHORA.getUTCHours() < 12 ? 20 : 4;
-const HORA_SEGURA_STR = String(HORA_SEGURA).padStart(2, '0');
+// El reloj se CONGELA (`page.clock.setFixedTime`) en vez de partir de la hora
+// real. Antes se elegía "una hora lejos de ahora" (20:00 o 04:00 UTC según el
+// momento de la ejecución) para que la tarjeta de la home no se abriera sola,
+// y aun así el job de CI cayó dos veces dentro de esa ventana. Con el reloj
+// fijo no hay ventana que esquivar — y además la clase queda SIEMPRE en el
+// futuro, que es lo que la agenda del día necesita para ofrecer "No puedo
+// asistir": avisar de una clase que ya ha empezado lo rechaza el servidor
+// (`sesionYaEmpezada`, lib/calendario-estado.ts).
+const AHORA = new Date('2026-09-08T09:00:00.000Z');
+const HOY = '2026-09-08';
 const SESION_PROPIA = {
   id: 'ses-propia', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1',
-  instructor_id: 'ins-marta', inicio: `${HOY}T${HORA_SEGURA_STR}:00:00+00:00`, fin: `${HOY}T${HORA_SEGURA_STR}:50:00+00:00`,
+  instructor_id: 'ins-marta', inicio: `${HOY}T12:00:00+00:00`, fin: `${HOY}T12:50:00+00:00`,
   aforo_maximo: 10, cancelada: false,
 };
 // La clase de una compañera: no debe ofrecerle "No puedo asistir" ni "Buscar sustituta".
 const SESION_AJENA = {
   id: 'ses-ajena', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1',
-  instructor_id: 'ins-laura', inicio: `${HOY}T10:00:00+00:00`, fin: `${HOY}T10:50:00+00:00`,
+  instructor_id: 'ins-laura', inicio: `${HOY}T14:00:00+00:00`, fin: `${HOY}T14:50:00+00:00`,
   aforo_maximo: 10, cancelada: false,
 };
 
@@ -90,6 +90,7 @@ async function seedSesion(page: Page) {
 }
 
 async function mockBackend(page: Page) {
+  await page.clock.setFixedTime(AHORA);
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/api/layout**', route =>
     json(route, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
@@ -154,13 +155,18 @@ test.describe('Instructora: "No puedo asistir"', () => {
     expect(capturado.valor?.motivo).toBe('Tengo médico');
   });
 
-  test('en "Clases de hoy" del dashboard también puede avisar sin ir al calendario', async ({ page }) => {
+  // El atajo del panel de inicio. Vivía en la tarjeta expandible «Clases de
+  // hoy»; con el rediseño de la home vive en «Hoy en el estudio», y ahora se ve
+  // sin tener que desplegar nada — que es mejor, pero lo que este test protege
+  // es que siga estando SIN pasar por el calendario.
+  test('en la agenda del día del panel también puede avisar sin ir al calendario', async ({ page }) => {
     await mockBackend(page);
     await seedSesion(page);
     await page.goto('/dashboard');
 
-    // Expande la tarjeta de su propia clase de hoy y confirma la acción.
-    await page.getByRole('button', { name: /Marta Sanz/i }).click({ timeout: 30_000 });
-    await expect(page.getByRole('button', { name: /No puedo asistir/i })).toBeVisible({ timeout: 30_000 });
+    const agenda = page.getByRole('region', { name: 'Hoy en el estudio' });
+    await expect(agenda.getByText('Marta Sanz')).toBeVisible({ timeout: 30_000 });
+    await agenda.getByRole('button', { name: /No puedo asistir/i }).click();
+    await expect(page.getByRole('dialog').getByText(/No puedo asistir/i).first()).toBeVisible();
   });
 });

@@ -16,6 +16,7 @@ export interface HomeSeccion {
 // por defecto (studio_layout.config.home vacío); un estudio que reordene la
 // home a mano sigue viendo lo que él mismo eligió.
 export const HOME_SECCIONES: HomeSeccion[] = [
+  { id: 'hoy', label: 'Hoy en el estudio' },
   { id: 'accion', label: 'Lo que necesita tu atención' },
   { id: 'onboarding', label: 'Primeros pasos' },
   { id: 'resumen', label: 'Hoy de un vistazo' },
@@ -46,7 +47,13 @@ export const HOME_SECCIONES: HomeSeccion[] = [
 // tienen un `home.orden` guardado: `aplicarLayout` mete los ids nuevos al FINAL
 // del orden guardado, así que sin esto un estudio con la home personalizada se
 // lo encontraría abajo del todo.
-export const HOME_FIJAS_PRIMERO: readonly string[] = ['accion', 'onboarding'];
+// 'hoy' (la agenda del día) va la PRIMERA de las fijas, y no por costumbre: es
+// la pantalla. La home dejó de ser un panel de indicadores para contestar «qué
+// pasa hoy en mi estudio y dónde tengo un problema o un hueco»; si esa lista se
+// puede enterrar bajo las gráficas, la pregunta se vuelve a quedar sin
+// contestar. Por el mismo motivo tampoco se puede ocultar desde el editor de
+// inicio: lo que se puede reordenar y apagar es todo lo que va DEBAJO.
+export const HOME_FIJAS_PRIMERO: readonly string[] = ['hoy', 'accion', 'onboarding'];
 
 // Prioridad elegida en el asistente de bienvenida (`studios.onb_prioridad`) →
 // sección de la home que la atiende.

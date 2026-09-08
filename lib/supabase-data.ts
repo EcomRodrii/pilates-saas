@@ -1042,6 +1042,8 @@ export function mapReserva(r: RowReservas): Reserva {
     ofertaExpiraEn: r.oferta_expira_en ?? null,
     checkInEn: r.check_in_en ?? null,
     creadoEn: r.creado_en,
+    confirmacionPedidaEn: r.confirmacion_pedida_en ?? null,
+    confirmadoEn: r.confirmado_en ?? null,
     valoracionExperiencia: r.valoracion_experiencia ?? null,
   } as Reserva;
 }
