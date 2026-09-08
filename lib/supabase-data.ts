@@ -466,7 +466,12 @@ export type FilaReciboPanel = Omit<RowRecibos,
   // (20260907174656). Lo escriben y lo leen /api/pos/recibo y su confirmación,
   // en servidor; el panel no lo pinta ni lo decide. Mismo criterio que
   // `checkout_session_id`, que es su equivalente para Checkout.
-  | 'cobro_mostrador_pi'>;
+  | 'cobro_mostrador_pi'
+  // Aceptación por compra (migr 20260908160000). Son PRUEBA, no interfaz: el
+  // panel no las pinta ni las decide, y el hash no le dice nada a nadie sin
+  // resolverlo contra `terminos_versiones`. Mismo criterio que dejó fuera
+  // `socios.aceptacion_version`, cuyos 2,7 KB por fila inflaban el payload.
+  | 'terminos_hash' | 'terminos_aceptados_en'>;
 
 export function mapSocio(r: FilaSocioPanel): Socio {
   // ⚠️ `versionTexto` llega VACÍO desde el arranque del panel, y es a propósito.

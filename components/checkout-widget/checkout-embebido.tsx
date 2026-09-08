@@ -22,7 +22,7 @@ import { semantic } from '@/lib/portal-tokens';
 export function CheckoutEmbebido({
   t, plan, clientSecret, publishableKey, stripeAccountId, onExito, onBizum, onCerrar,
   resumenClase, textoBoton, ventanaCancelacionHoras, datosPago, fuentePago, radioInput,
-  onProcesando, importeTotal,
+  onProcesando, importeTotal, textosLegales,
 }: {
   t: ModoTokens;
   plan: PlanTarifa;
@@ -39,6 +39,15 @@ export function CheckoutEmbebido({
    * `onBizum`, el botón no se pinta.
    */
   onBizum?: () => void;
+  /**
+   * Condiciones y privacidad DEL ESTUDIO, para poder leerlas antes de pagar.
+   *
+   * Opcional: sin ellas no se pinta la línea, en vez de enseñar un enlace que
+   * no lleva a ninguna parte. La versión que estaba vigente al pagar la sella
+   * el servidor en `/api/public/checkout-embebido` — lo que se enseña aquí y
+   * lo que queda registrado salen del mismo sitio.
+   */
+  textosLegales?: { politicaPrivacidad: string; terminosServicio: string } | null;
   onCerrar: () => void;
   /**
    * "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
@@ -299,6 +308,7 @@ export function CheckoutEmbebido({
         options={elementsOptions}
       >
         <FormularioPago
+          textosLegales={textosLegales}
           t={t} plan={plan} onExito={onExito} onBizum={onBizum} onCerrar={onCerrar} textoBoton={textoBoton}
           ventanaCancelacionHoras={ventanaCancelacionHoras} datosPago={datosPago} onProcesando={onProcesando}
           importeTotal={importeTotal}
@@ -310,8 +320,11 @@ export function CheckoutEmbebido({
 
 function FormularioPago({
   t, plan, onExito, onBizum, onCerrar, textoBoton, ventanaCancelacionHoras, datosPago, onProcesando, importeTotal,
+  textosLegales,
 }: {
   t: ModoTokens; plan: PlanTarifa; onExito: () => void; onBizum?: () => void; onCerrar: () => void;
+  /** Condiciones y privacidad del estudio, para leerlas junto al botón de pago. */
+  textosLegales?: { politicaPrivacidad: string; terminosServicio: string } | null;
   textoBoton?: string; ventanaCancelacionHoras?: number;
   datosPago?: { nombre?: string; email?: string; telefono?: string };
   onProcesando?: (enVuelo: boolean) => void;
@@ -329,6 +342,8 @@ function FormularioPago({
   const stripe = useStripe();
   const elements = useElements();
   const [enviando, setEnviando] = useState(false);
+  // Qué documento se está leyendo, si es que hay alguno abierto.
+  const [legal, setLegal] = useState<{ titulo: string; texto: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   // `stripe` (useStripe) se pone en verdad en cuanto carga el SDK — antes de
   // que el PaymentElement (su propio iframe) termine de montarse y emita
@@ -498,6 +513,48 @@ function FormularioPago({
               Revisa los datos de la tarjeta o prueba con otra e inténtalo de nuevo.
             </p>
           </div>
+        </div>
+      )}
+      {/* Lo único «legal» que había aquí era el aviso de Stripe, que va sobre el
+          MEDIO DE PAGO, no sobre las condiciones del estudio. Va ANTES del
+          botón: leerlo después de pagar no sirve de nada. */}
+      {textosLegales && (
+        <p style={{ margin: '0 0 10px', fontSize: 11.5, lineHeight: 1.5, color: 'var(--portal-muted)' }}>
+          Al pagar aceptas las{' '}
+          <button
+            type="button"
+            onClick={() => setLegal({ titulo: 'Condiciones del servicio', texto: textosLegales.terminosServicio })}
+            style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+          >
+            condiciones del servicio
+          </button>{' '}y la{' '}
+          <button
+            type="button"
+            onClick={() => setLegal({ titulo: 'Política de privacidad', texto: textosLegales.politicaPrivacidad })}
+            style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+          >
+            política de privacidad
+          </button>.
+        </p>
+      )}
+      {legal && (
+        <div
+          role="dialog"
+          aria-label={legal.titulo}
+          style={{
+            maxHeight: 220, overflowY: 'auto', margin: '0 0 10px', padding: '10px 12px',
+            borderRadius: radius.cardSmall, background: t.surface,
+            border: `1px solid ${t.line}`, fontSize: 11.5, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: t.ink,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+            <strong style={{ fontSize: 12 }}>{legal.titulo}</strong>
+            <button type="button" onClick={() => setLegal(null)} aria-label="Cerrar"
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: t.muted, fontSize: 12 }}>
+              Cerrar
+            </button>
+          </div>
+          {legal.texto}
         </div>
       )}
       <button

@@ -431,11 +431,22 @@ export async function POST(req: NextRequest) {
   const amountCentimos = Math.round(importe * 100) + matriculaCentimos;
   const fee = applicationFeeAmount(amountCentimos);
 
+  // Qué condiciones estaban vigentes AHORA, cuando la clienta decide pagar.
+  // El hash lo calcula el servidor desde los textos del estudio: si lo mandara
+  // el navegador, la prueba de qué se aceptó vendría de la parte interesada.
+  // Best-effort — si falla, la compra sigue sin sello (ver `legal-sellado.ts`).
+  const { sellarCondicionesVigentes } = await import('@/lib/legal-sellado');
+  const sello = await sellarCondicionesVigentes(admin, body.studioId);
+
   const metadata: Record<string, string> = {
     studioId: body.studioId,
     planId: body.planId,
     origen: 'plan_web_embebido',
   };
+  if (sello) {
+    metadata.terminosHash = sello.hash;
+    metadata.terminosAceptadosEn = sello.aceptadoEn;
+  }
   if (socioId) metadata.socioId = socioId;
   // Stripe exige valores de metadata como string no vacío.
   if (body.origenLead) metadata.origenLead = body.origenLead;

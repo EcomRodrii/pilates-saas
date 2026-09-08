@@ -31,10 +31,12 @@ type Estado =
   | { fase: 'error'; mensaje: string; sesionCaducada?: boolean }
   | { fase: 'hecho' };
 
-export function HojaCompra({
+export function HojaCompra({ textosLegales,
   plan, cobertura, studioId, socioId, stripeAccountId, onCerrar, onComprado, onSesionCaducada,
 }: {
   plan: PlanTarifa | null;
+  /** Condiciones y privacidad del estudio, para poder leerlas ANTES de pagar. */
+  textosLegales?: { politicaPrivacidad: string; terminosServicio: string } | null;
   /**
    * A qué tipos de clase está ACOTADO el plan («Solo para Reformer»), ya
    * resuelto a nombres por `coberturaProducto`. `null` = sirve para todas.
@@ -302,6 +304,7 @@ export function HojaCompra({
               </div>
             )}
             <CheckoutEmbebido
+          textosLegales={textosLegales}
             t={MODO_TOKENS.dia}
             plan={plan}
             clientSecret={estado.clientSecret}
