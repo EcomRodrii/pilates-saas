@@ -264,6 +264,9 @@ export async function POST(req: NextRequest) {
   // PENDIENTE_PAGO: nadie la da por cobrada hasta que el proveedor lo diga.
   const { error: errRef } = await admin.from('ventas_pos').update({
     stripe_payment_intent_id: inicio.referencia || null,
+    // P-1 (27ª pasada): solo Bizum la rellena. Hace falta para poder expirar
+    // la Checkout Session de verdad al cancelar — ver lib/pos/terminal.ts.
+    checkout_session_id: inicio.checkoutSessionId ?? null,
     pago_estado: inicio.estado,
     pago_actualizado_en: new Date().toISOString(),
   }).eq('id', base.ventaId).eq('studio_id', sesion.studioId);

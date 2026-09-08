@@ -12,6 +12,7 @@ import { resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
 import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReembolsoVentaPos, procesarDisputeCreated, procesarDisputeClosed } from '@/lib/billing/procesar-reembolso';
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/billing/confirmar-cobro';
+import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -91,6 +92,42 @@ async function studioDeCuentaConnect(
     .select('id').eq('stripe_account_id_anterior', cuenta)
     .order('stripe_account_desconectado_en', { ascending: false }).limit(1).maybeSingle();
   return (anterior as { id: string } | null)?.id ?? null;
+}
+
+// P-2 (27ª pasada): un cobro POS (Bizum o datáfono) que Stripe da por
+// RECHAZADO/CANCELADO/EXPIRADO tiene que soltar lo que reservó, aunque nadie
+// esté mirando el mostrador. Antes el ÚNICO que anulaba la venta y devolvía
+// el stock era el sondeo del navegador (`app/api/pos/venta/confirmar`), que
+// muere a los 90s — sin conciliador que cubra `ventas_pos` pendientes. Se
+// llama desde `payment_intent.payment_failed` (tarjeta/Bizum rechazados) y
+// desde `checkout.session.expired` (nadie llegó a pagar). El tenant se
+// resuelve aquí (por la cuenta Connect que firma, nunca por la metadata a
+// secas — D-3, 22ª pasada); el efecto en sí (`liberarCobroPosFallido`) vive
+// en lib/pos/, testeado aparte.
+async function liberarCobroPosFallidoDelWebhook(
+  admin: AdminClient,
+  event: Stripe.Event,
+  metadata: Stripe.Metadata | undefined,
+  paymentIntentId: string | null,
+  motivo: string,
+): Promise<NextResponse | null> {
+  const origen = metadata?.origen ?? '';
+  if (!ORIGENES_POS.has(origen)) return null;
+
+  const studioIdMetadata = metadata?.studioId;
+  const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
+  if (!tenantAutorizado(studioDeCuenta, studioIdMetadata)) {
+    Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata (POS fallido)', {
+      level: 'error', tags: { area: 'cobros' },
+      extra: { eventAccount: event.account, studioIdMetadata, studioDeCuenta, origen },
+    });
+    return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
+  }
+
+  await liberarCobroPosFallido(admin, {
+    studioId: studioDeCuenta as string, metadata, paymentIntentId, motivo,
+  });
+  return NextResponse.json({ received: true });
 }
 
 export async function POST(req: NextRequest) {
@@ -696,12 +733,31 @@ async function procesarEvento(
       // un cobro huérfano que alguien tendría que casar a mano.
       const reciboIdPos = pi.metadata?.reciboId;
       if (reciboIdPos) {
+        // P-3 (27ª pasada): el método se leía del ORIGEN (`pos_bizum` →
+        // BIZUM), no del cargo real — pero la sesión de Bizum del mostrador
+        // acepta `['card', 'bizum']` (#1744), así que una clienta puede pagar
+        // con tarjeta un cobro que se lanzó como "Bizum". El total del
+        // arqueo cuadraba igual; el desglose por método mentía. Mismo
+        // gemelo que ya lo hace bien en checkout.session.completed (arriba,
+        // ~línea 445): se lee `payment_method_details.type` del cargo real.
+        // El datáfono (card_present) nunca pasa por aquí: siempre es TARJETA.
+        let metodoCobro: 'BIZUM' | 'TARJETA' = 'TARJETA';
+        if (origenPos === 'pos_bizum') {
+          metodoCobro = 'BIZUM';
+          try {
+            const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id;
+            if (chargeId) {
+              const charge = await stripe.charges.retrieve(chargeId, {}, event.account ? { stripeAccount: event.account } : undefined);
+              metodoCobro = charge.payment_method_details?.type === 'bizum' ? 'BIZUM' : 'TARJETA';
+            }
+          } catch { /* si falla la lectura, nos quedamos con BIZUM (el origen como pista) */ }
+        }
         const res = await confirmarCobroRecibo(admin, {
           studioId,
           reciboId: reciboIdPos,
           // El CHECK de `recibos.metodo_cobro` no conoce DATAFONO (es anterior
           // al TPV): un cobro por datáfono es una tarjeta.
-          metodoCobro: pi.metadata?.origen === 'pos_bizum' ? 'BIZUM' : 'TARJETA',
+          metodoCobro,
           paymentIntentId: pi.id,
           fuente: 'tpv',
         });
@@ -720,7 +776,7 @@ async function procesarEvento(
         await admin.rpc('apuntar_cobro_en_caja', {
           p_studio_id: studioId, p_recibo_id: reciboIdPos, p_por: null, p_por_nombre: 'Datáfono',
         });
-        await admin.from('recibos').update({ cobro_mostrador_pi: null })
+        await admin.from('recibos').update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
           .eq('id', reciboIdPos).eq('studio_id', studioId);
 
         return NextResponse.json({ received: true });
@@ -1160,6 +1216,50 @@ async function procesarEvento(
         });
         return NextResponse.json({ error: 'Fallo al registrar el adeudo SEPA fallido' }, { status: 500 });
       }
+    }
+
+    // P-2 (27ª pasada): Bizum/datáfono del mostrador rechazado.
+    if (ORIGENES_POS.has(pi.metadata?.origen ?? '')) {
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        console.error('[stripe webhook] service role no configurada (POS fallido)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (POS fallido)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { paymentIntentId: pi.id },
+        });
+        return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+      }
+      const respuesta = await liberarCobroPosFallidoDelWebhook(
+        admin, event, pi.metadata, pi.id,
+        pi.last_payment_error?.message ?? 'El cobro no se pudo completar',
+      );
+      if (respuesta) return respuesta;
+    }
+  }
+
+  // P-2 (27ª pasada): la Checkout Session de Bizum del mostrador caducó sin
+  // que nadie pagara — ni un fallo (eso lo cubre payment_intent.payment_failed
+  // arriba) ni una cancelación desde el mostrador (esa expira la sesión y el
+  // sondeo síncrono ya lo resuelve): simplemente nadie hizo nada durante los
+  // 30 minutos que dura el enlace (P-1, mismo cambio). Sin este handler, una
+  // clienta que abandona el checkout deja la venta en PENDIENTE_PAGO —y el
+  // stock reservado— para siempre, salvo que alguien vuelva al mostrador.
+  if (event.type === 'checkout.session.expired') {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (ORIGENES_POS.has(session.metadata?.origen ?? '')) {
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        console.error('[stripe webhook] service role no configurada (checkout POS expirado)');
+        Sentry.captureMessage('[stripe webhook] service role no configurada (checkout POS expirado)', {
+          level: 'error', tags: { area: 'cobros' }, extra: { sessionId: session.id },
+        });
+        return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+      }
+      const piId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null;
+      const respuesta = await liberarCobroPosFallidoDelWebhook(
+        admin, event, session.metadata ?? undefined, piId,
+        'El enlace de pago caducó sin completarse',
+      );
+      if (respuesta) return respuesta;
     }
   }
 

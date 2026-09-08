@@ -72,7 +72,16 @@ export interface PeticionCobro {
 }
 
 export type ResultadoInicio =
-  | { ok: true; referencia: string; url?: string | null; estado: EstadoPagoPOS }
+  | {
+      ok: true; referencia: string; url?: string | null; estado: EstadoPagoPOS;
+      /**
+       * Solo Bizum: la Checkout Session que envuelve el PaymentIntent de
+       * `referencia`. Hace falta para poder cancelar de verdad (ver
+       * `cancelar` más abajo) — cancelar el PaymentIntent a secas no invalida
+       * el enlace de pago de una Checkout Session (P-1, 27ª pasada).
+       */
+      checkoutSessionId?: string;
+    }
   | { ok: false; error: string };
 
 export interface ProveedorTerminal {
@@ -97,7 +106,14 @@ export interface ProveedorTerminal {
    * cobrar dos veces con un solo pago.
    */
   consultar(ctx: ContextoCobro, referencia: string): Promise<{ estado: EstadoPagoPOS; error?: string; importeCentimos?: number | null; metadata?: Record<string, string> }>;
-  cancelar(ctx: ContextoCobro, referencia: string): Promise<void>;
+  /**
+   * `checkoutSessionId`: solo lo usa Bizum (ver ResultadoInicio). Con él,
+   * cancelar expira la Checkout Session en vez de solo el PaymentIntent — eso
+   * es lo que de verdad invalida el enlace de pago. Sin él (ventas creadas
+   * antes de esta columna, o proveedores que no la usan), cae al
+   * comportamiento anterior.
+   */
+  cancelar(ctx: ContextoCobro, referencia: string, checkoutSessionId?: string | null): Promise<void>;
 }
 
 // ─── Traducción de los estados de Stripe a los del POS ───────────────────────
@@ -239,6 +255,11 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
           metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ...metadataDe(p.ref) },
           success_url: `${origen}/pos?bizum=ok`,
           cancel_url: `${origen}/pos?bizum=cancelado`,
+          // P-1 (27ª pasada): cota el enlace aunque nadie pulse "Cancelar" en
+          // el mostrador. 30 min es el mínimo que admite Stripe — de sobra
+          // para un cobro de mostrador, y muy por debajo de las 24h que
+          // duraba antes (el QR "seguía válido" al día siguiente).
+          expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
         }, { stripeAccount: ctx.stripeAccount });
 
         if (!sesion.url) return { ok: false, error: 'Stripe no devolvió el enlace de pago.' };
@@ -247,7 +268,9 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
         const pi = typeof sesion.payment_intent === 'string'
           ? sesion.payment_intent
           : sesion.payment_intent?.id ?? sesion.id;
-        return { ok: true, referencia: pi, url: sesion.url, estado: 'PENDIENTE' };
+        // P-1 (27ª pasada): la sesión SÍ se guarda ahora — hace falta para
+        // poder expirarla de verdad al cancelar (ver `cancelar`, más abajo).
+        return { ok: true, referencia: pi, url: sesion.url, estado: 'PENDIENTE', checkoutSessionId: sesion.id };
       } catch (err) {
         console.error('[pos/terminal:bizum]', err instanceof Stripe.errors.StripeError ? err.message : err);
         // ⚠️ El motivo REAL, no un genérico. «No se pudo generar el cobro por
@@ -277,7 +300,29 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
       }
     },
 
-    async cancelar(ctx, referencia) {
+    async cancelar(ctx, referencia, checkoutSessionId) {
+      // P-1 (27ª pasada): cancelar el PaymentIntent a secas NO invalida el
+      // enlace de pago de una Checkout Session — Stripe no permite
+      // cancelarlo directamente mientras la sesión sigue abierta (el intento
+      // falla en silencio, capturado por el catch de abajo), así que la
+      // clienta podía seguir pagando el QR después de que el mostrador diera
+      // la venta por cancelada y la cobrara en efectivo: doble cobro real.
+      // `sessions.expire` es lo que de verdad cierra la puerta — y cancela el
+      // PaymentIntent asociado como parte del mismo efecto.
+      if (checkoutSessionId) {
+        try {
+          await ctx.stripe.checkout.sessions.expire(checkoutSessionId, undefined, { stripeAccount: ctx.stripeAccount });
+          return;
+        } catch (err) {
+          // Sesión ya expirada/completada, o ya no existe: no es un error que
+          // bloquee la cancelación en el mostrador. Cae al intento de cancelar
+          // el PI por si acaso (best-effort, igual que antes).
+          console.error('[pos/terminal:bizum:cancelar]', err instanceof Stripe.errors.StripeError ? err.message : err);
+        }
+      }
+      // Ventas de antes de esta columna (sin checkoutSessionId guardado): se
+      // mantiene el comportamiento anterior en vez de dejarlas sin ningún
+      // intento de cancelación.
       try {
         await ctx.stripe.paymentIntents.cancel(referencia, {}, { stripeAccount: ctx.stripeAccount });
       } catch { /* best-effort, ver datáfono */ }

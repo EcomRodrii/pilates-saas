@@ -555,6 +555,8 @@ export interface RowRecibos {
   terminos_hash: string | null;
   // migr 20260908160000.
   terminos_aceptados_en: string | null;
+  // migr 20260908162951.
+  cobro_mostrador_checkout_session_id: string | null;
 }
 
 export interface RowRewardActions {
@@ -1066,6 +1068,8 @@ export interface RowVentasPos {
   anulada_por: string | null;
   // migr 20260907150106.
   anulada_motivo: string | null;
+  // migr 20260908162951.
+  checkout_session_id: string | null;
 }
 
 export interface RowVideosOnDemand {
