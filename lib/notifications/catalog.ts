@@ -605,17 +605,17 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.RESERVA_CONFIRMADA}#SOCIA`]: {
     title: 'Reserva confirmada',
     body: 'Tu plaza en {clase} del {cuando} está confirmada. ¡Te esperamos!',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },
   [`${EVENTOS.RESERVA_LISTA_ESPERA}#SOCIA`]: {
     title: 'Estás en lista de espera',
     body: '{clase} del {cuando} está completa. Te avisaremos si se libera una plaza.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },
   [`${EVENTOS.RESERVA_PLAZA_LIBERADA}#SOCIA`]: {
     title: '¡Se ha liberado tu plaza!',
     body: 'Ha quedado sitio en {clase} del {cuando} y ya tienes plaza confirmada.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },
   // Fase 2b: a diferencia de RESERVA_PLAZA_LIBERADA (ya confirmada), esta se
   // dispara cuando el estudio exige plazo de aceptación — la socia tiene que
@@ -649,7 +649,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA}#SOCIA`]: {
     title: 'Tu plaza fija no se ha reservado esta semana',
     body: 'No hemos podido confirmar tu plaza fija en {clase} del {cuando}.{motivoTexto}',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },
   // Reserva pendiente de aprobar → mostrador (propietaria/manager/recepción)
   [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#PROPIETARIO`]: {
@@ -687,13 +687,15 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.CLASE_CANCELADA}#SOCIA`]: {
     title: 'Clase cancelada',
     body: 'La clase de {clase} del {cuando} ha sido cancelada. Disculpa las molestias.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases`,
+    // Al HORARIO, no a la ficha de esa clase: una sesión cancelada la descarta
+    // `proyectarClases`, así que su ficha no existe. Lo útil es otra clase.
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar`,
   },
   // Clase modificada (cambio de horario/sala) → cada socia apuntada
   [`${EVENTOS.CLASE_MODIFICADA}#SOCIA`]: {
     title: 'Tu clase ha cambiado',
     body: 'Tu clase de {clase} pasa a: {cuando} · {sala}{instructora}. Revisa tu reserva.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },
   // Clase cubierta por otra instructora → cada socia apuntada. Lo primero que
   // tiene que quedar claro es que la clase SIGUE: si el aviso empieza hablando
@@ -701,7 +703,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.CLASE_SUSTITUTA}#SOCIA`]: {
     title: 'Tu clase sigue en pie',
     body: 'La clase de {clase} del {cuando} la dará {sustituta}. Tu reserva no cambia.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },
   // Los mismos dos eventos, contados desde el lado de quien imparte la clase:
   // no es "tu reserva", es tu turno de trabajo el que se cae o se mueve.
@@ -738,7 +740,9 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PAGO_FALLIDO}#SOCIA`]: {
     title: 'Problema con tu pago',
     body: 'No hemos podido cobrar {concepto} ({importe} €). Revisa tu método de pago.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
+    // Donde puede ARREGLARLO, no donde puede verlo: el aviso le pide revisar su
+    // método de pago, y una lista de recibos no tiene ningún botón que sirva.
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/perfil/pago`,
   },
   [`${EVENTOS.PAGO_REALIZADO}#SOCIA`]: {
     title: 'Pago recibido',
@@ -782,7 +786,8 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PAGO_PENALIZACION}#SOCIA`]: {
     title: 'Cargo por cancelación tardía',
     body: 'Se te ha cobrado {importe} € por cancelar dentro de la ventana permitida o no presentarte a la clase.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
+    // Un cargo que ya ocurrió: lo que quiere es verlo, con su recibo.
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/pagos`,
   },
   // audiencia: 'propietaria' resuelve solo a PROPIETARIO (ROLES_POR_AUDIENCIA) —
   // una única plantilla basta.
@@ -831,28 +836,30 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.RECORDATORIO_24H}#SOCIA`]: {
     title: 'Mañana tienes clase',
     body: 'Recuerda: {clase} mañana a las {hora}. ¡Te esperamos!',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },
   [`${EVENTOS.RECORDATORIO_1H}#SOCIA`]: {
     title: 'Tu clase es en 1 hora',
     body: '{clase} a las {hora}. ¡Nos vemos en un rato!',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservar/${s(d.sesionId)}`,
   },
   [`${EVENTOS.VALORAR_CLASE}#SOCIA`]: {
     title: '¿Qué tal la clase?',
     body: 'Cuéntanos cómo fue {clase} con {instructora}. Un minuto, y ayudas al estudio.',
     // Al detalle de SU reserva: ahí vive la tarjeta de valorar (solo tras asistir).
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/reservas/${s(d.reservaId)}`,
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/mis-reservas/${s(d.reservaId)}`,
   },
   [`${EVENTOS.BONO_POR_CADUCAR}#SOCIA`]: {
     title: 'Tu bono está por caducar',
     body: 'Te quedan {sesiones} sesiones y tu bono caduca el {fecha}. Renueva para no perderlas.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
+    // «Renueva» es comprar, no consultar: al escaparate.
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/comprar`,
   },
   [`${EVENTOS.BONO_AGOTADO}#SOCIA`]: {
     title: 'Se te ha agotado el bono',
     body: 'Has usado la última sesión de tu bono de {plan}. Renueva para seguir reservando.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/compras`,
+    // Igual que el anterior: «renueva» es comprar.
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/comprar`,
   },
   // `{clases}` llega ya en singular o plural desde el barrido: este catálogo no
   // sabe pluralizar y no se le va a enseñar por un caso.

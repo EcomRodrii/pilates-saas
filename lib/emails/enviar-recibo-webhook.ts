@@ -59,10 +59,11 @@ export async function enviarEmailReciboWebhook(
       estudioNombre: marca.estudioNombre ?? 'Tentare',
       logoUrl: marca.logoUrl,
       colorPrimario: marca.colorPrimario,
-      // Enlace a "Mis compras" del portal, donde ya se muestra la factura a la
-      // socia (badge "· Factura", lib/factura-pdf.ts). Sin slug (estudio raro
-      // sin portal resuelto), el email sale igual, sin el botón.
-      url: marca.slug ? `${appUrl()}/portal/${marca.slug}/compras` : undefined,
+      // Enlace a "Pagos" del portal, donde ya se muestra la factura a la socia
+      // (badge "· Factura", lib/factura-pdf.ts, y el botón de descarga en el
+      // detalle). Sin slug (estudio raro sin portal resuelto), el email sale
+      // igual, sin el botón.
+      url: marca.slug ? `${appUrl()}/portal/${marca.slug}/pagos` : undefined,
     }));
     const subject = `Pago confirmado — ${concepto}`;
 

@@ -656,7 +656,7 @@ export function Sidebar() {
         {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
         {studioSlug && (collapsed || horizontal ? (
           <div className={cn('flex items-center gap-0.5', horizontal ? 'shrink-0' : 'px-2 pb-2 flex-col')}>
-            <Link href={`/portal/${studioSlug}/login`} target="_blank" title="Portal clientes" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-sidebar-primary-foreground">
+            <Link href={`/portal/${studioSlug}/acceso/login`} target="_blank" title="Portal clientes" className="flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-card/5 text-sidebar-primary-foreground">
               <ExternalLink size={15} />
             </Link>
           </div>
@@ -668,7 +668,7 @@ export function Sidebar() {
                 #55622C se quedaba en 2,99:1 a 11 px. El sidebar tiene su propia
                 familia de tokens justo para esto. */}
             <Link
-              href={`/portal/${studioSlug}/login`}
+              href={`/portal/${studioSlug}/acceso/login`}
               target="_blank"
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-sidebar-primary-foreground"
             >
