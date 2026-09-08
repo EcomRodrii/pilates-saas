@@ -115,6 +115,41 @@ export async function eliminarFotoClase(tipoClaseId: string): Promise<{ ok: true
   return { ok: true };
 }
 
+// Foto de un artículo del TPV — mismo bucket público, prefijo `producto-`.
+//
+// ⚠️ La RLS (`avatars_path_autorizado`, migr 20260908094518) comprueba que el
+// artículo EXISTA y sea de este estudio. Con un id todavía sin fila, Storage
+// responde 403: al dar de alta hay que crear primero el artículo y subir la
+// foto después. Y el prefijo necesita su propia rama en esa función — sin
+// ella, `producto-<id>` cae en el `else` final, que busca una SOCIA con ese id
+// y rechaza la subida sin decir por qué (misma trampa que `subirLogoClase`).
+// Los tipos y el tope los declara el bucket `avatars`; se exponen para que el
+// formulario rechace ANTES de subir, con un mensaje que se entiende, en vez de
+// recibir un 400 de Storage que no dice nada.
+export const FOTO_PRODUCTO_TIPOS = ['image/png', 'image/jpeg', 'image/webp'];
+export const FOTO_PRODUCTO_MAX_BYTES = 5 * 1024 * 1024;
+
+export async function subirFotoProducto(productoId: string, file: File): Promise<{ url: string } | { error: string }> {
+  const path = `producto-${productoId}`;
+  const img = await redimensionarImagen(file, LADO_FOTO_CLASE);
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, img, { upsert: true, contentType: img.type });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  // `?v=` para que al reemplazar la foto no se quede la vieja en caché — mismo
+  // motivo que en `subirFotoClase`, donde el upsert conserva la URL.
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
+export async function eliminarFotoProducto(productoId: string): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.storage.from(BUCKET).remove([`producto-${productoId}`]);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
 // Logo CUADRADO de un tipo de clase — mismo bucket, prefijo propio.
 //
 // ⚠️ El prefijo es `claselogo-`, sin guion tras «clase», y no es cosmético:

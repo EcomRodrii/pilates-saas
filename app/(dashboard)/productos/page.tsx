@@ -4,12 +4,14 @@ import { useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero } from '@/lib/permisos';
-import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search, Package, Check, Boxes, Image as ImageIcon } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS, TipoPlan } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, uid } from '@/lib/utils';
 import { nombrePeriodo } from '@/lib/bono-logic';
 import { estadoStock } from '@/lib/pos/ticket';
 import { HojaStock } from '@/components/pos/hoja-stock';
+import { subirFotoProducto, eliminarFotoProducto } from '@/lib/portal-storage';
+import { FOTO_PRODUCTO_TIPOS as FOTO_TIPOS, FOTO_PRODUCTO_MAX_BYTES as FOTO_MAX_BYTES } from '@/lib/portal-storage';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
@@ -668,7 +670,8 @@ type PosFormData = {
 
 function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
   initial?: ProductoPOS;
-  onSave: (d: PosFormData) => void;
+  /** `foto` es el fichero recién elegido; `null` = quitar la que hubiera. */
+  onSave: (d: PosFormData, foto: File | null | undefined) => void;
   onClose: () => void;
   onDelete?: () => void;
   /** Solo al EDITAR: abre el libro de existencias. Al crear no hay qué mover. */
@@ -691,14 +694,55 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
   const valid = form.nombre.trim() && form.precio && Number(form.precio) >= 0;
   const controlaStock = form.stock.trim() !== '';
 
+  // `undefined` = no se ha tocado la foto; `null` = quitarla; File = subir esa.
+  const [foto, setFoto] = useState<File | null | undefined>(undefined);
+  const [fotoError, setFotoError] = useState<string | null>(null);
+  // El preview de un fichero recién elegido es un object URL; se revoca al
+  // cambiarlo o al cerrar, porque si no el navegador lo retiene hasta recargar.
+  const [previewLocal, setPreviewLocal] = useState<string | null>(null);
+  useEffect(() => () => { if (previewLocal) URL.revokeObjectURL(previewLocal); }, [previewLocal]);
+
+  const fotoActual = foto === null ? null : (previewLocal ?? initial?.imagenUrl ?? null);
+
+  function elegirFoto(file: File | undefined) {
+    if (!file) return;
+    if (!FOTO_TIPOS.includes(file.type)) { setFotoError('Formato no admitido. Usa PNG, JPG o WEBP.'); return; }
+    if (file.size > FOTO_MAX_BYTES) { setFotoError('La foto no puede superar 5 MB.'); return; }
+    setFotoError(null);
+    setPreviewLocal(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file); });
+    setFoto(file);
+  }
+
+  function quitarFoto() {
+    setPreviewLocal(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+    setFoto(null);
+    setFotoError(null);
+  }
+
   return (
-    <DashboardSheet open onClose={onClose} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}>
+    // ⚠️ `sheetClassName` explícito, con tope de alto y scroll propio. Con el
+    // de por defecto —que no lleva ninguno de los dos— este formulario crecía
+    // más que la ventana, y como el fondo es `fixed inset-0` no había nada que
+    // desplazar: la mitad de arriba (el título, el aspa de cerrar y el campo
+    // Nombre, que es obligatorio) quedaba FUERA de la pantalla y no se podía
+    // dar de alta un artículo. El modal de planes de esta misma página ya lo
+    // hacía bien; este se quedó con el default.
+    <DashboardSheet
+      open onClose={onClose} label={initial ? 'Editar producto' : 'Nuevo producto'} closeOnBackdropClick={false}
+      // ⚠️ `portal`, por lo mismo que el modal de tarifas de esta misma página
+      // (ver el comentario de arriba): el contenedor del panel lleva la
+      // animación `.panel-page-in`, cuyo `transform` crea un "containing block"
+      // nuevo, así que el `fixed inset-0` del fondo deja de medirse contra la
+      // ventana. Este modal no lo tenía, y con el tope de alto puesto seguía
+      // saliéndose 96 px por arriba — medido a 1024×768.
+      portal
+      sheetClassName="bg-card rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[92vh]">
       <>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="font-bold text-foreground">{initial ? 'Editar producto' : 'Nuevo producto'}</h2>
           <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
         </div>
-        <div className="px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           <div>
             <label htmlFor={`${uid}-1`} className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Nombre *</label>
             <input id={`${uid}-1`} value={form.nombre} onChange={e => set('nombre', e.target.value)}
@@ -728,6 +772,38 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
             <input id={`${uid}-desc`} value={form.descripcion} onChange={e => set('descripcion', e.target.value)}
               className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand"
               placeholder="Se ve bajo el nombre en la caja" />
+          </div>
+
+          {/* ── Foto ─────────────────────────────────────────────────────────
+              La ve la socia en la app y el mostrador en el catálogo de la
+              caja. Un artículo sin foto no se rompe: la caja pinta su inicial,
+              igual que hacía antes de que esto existiera. */}
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Foto</span>
+            <div className="flex items-center gap-3">
+              <div className="w-16 h-16 rounded-xl border border-border bg-muted/40 overflow-hidden shrink-0 flex items-center justify-center">
+                {fotoActual
+                  // eslint-disable-next-line @next/next/no-img-element -- foto subida por el estudio, no un asset conocido en build
+                  ? <img src={fotoActual} alt="" className="w-full h-full object-cover" />
+                  : <ImageIcon size={18} className="text-muted-foreground" />}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <label className="cursor-pointer py-2 px-3 rounded-xl border border-border text-[13px] font-semibold text-foreground hover:bg-muted">
+                  {fotoActual ? 'Cambiar' : 'Subir foto'}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only"
+                    onChange={e => elegirFoto(e.target.files?.[0])} />
+                </label>
+                {fotoActual && (
+                  <button type="button" onClick={quitarFoto}
+                    className="py-2 px-3 rounded-xl border border-border text-[13px] font-semibold text-muted-foreground hover:bg-muted">
+                    Quitar
+                  </button>
+                )}
+              </div>
+            </div>
+            {fotoError
+              ? <p className="mt-1.5 text-[11.5px] text-destructive">{fotoError}</p>
+              : <p className="mt-1.5 text-[11.5px] text-muted-foreground">PNG, JPG o WEBP, hasta 5 MB. En la caja se ve cuadrada.</p>}
           </div>
 
           {/* ── Existencias ──────────────────────────────────────────────────
@@ -814,16 +890,19 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
             <span className="text-sm font-medium text-foreground">Producto activo</span>
           </div>
         </div>
-        <div className="flex gap-3 px-6 pb-6">
+        <div className="shrink-0 flex gap-3 px-6 pb-6 pt-4 border-t border-border">
           {initial && onDelete && (
+            // `border-destructive/30`, no un `#FECACA` fijo: ese rosa claro se
+            // eligió para fondo claro y en modo oscuro dibujaba una línea
+            // brillante alrededor del botón de borrar.
             <button onClick={onDelete}
-              className="py-2.5 px-3 rounded-xl border border-[#FECACA] text-sm font-semibold text-destructive hover:bg-destructive/10"
+              className="py-2.5 px-3 rounded-xl border border-destructive/30 text-sm font-semibold text-destructive hover:bg-destructive/10"
               title="Eliminar producto">
               <Trash2 size={15} />
             </button>
           )}
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">Cancelar</button>
-          <button onClick={() => valid && onSave(form)} disabled={!valid}
+          <button onClick={() => valid && onSave(form, foto)} disabled={!valid}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40"
             style={{ backgroundColor: 'var(--brand)' }}>
             {initial ? 'Guardar cambios' : 'Crear producto'}
@@ -887,7 +966,7 @@ export default function Productos() {
     setAviso(editando ? 'Tarifa actualizada' : `"${datos.nombre}" ya está a la venta`);
   }
 
-  async function savePos(d: PosFormData) {
+  async function savePos(d: PosFormData, foto: File | null | undefined) {
     // Campo vacío → `null`, no `0`. En existencias y en IVA los dos valores
     // significan cosas distintas: null es "no controla / hereda", 0 es
     // "agotado / exento". El formulario deja vacío a propósito y aquí NO se
@@ -910,8 +989,27 @@ export default function Productos() {
       stockMinimo: numeroONulo(d.stockMinimo) ?? 0,
       ivaPct: numeroONulo(d.ivaPct),
     };
-    const res = posModal && posModal !== 'new' ? await updateProductoPOS(posModal.id, fields) : await addProductoPOS(fields);
+    const editandoPos = posModal && posModal !== 'new' ? posModal : null;
+    // ⚠️ El id se decide AQUÍ y no dentro de `addProductoPOS` porque la foto lo
+    // necesita: la RLS de Storage exige que el artículo ya exista para aceptar
+    // la subida (`avatars_path_autorizado`), así que primero se crea la fila y
+    // solo después se sube — con el id que acabamos de fijar.
+    const id = editandoPos?.id ?? `pos-${uid()}`;
+    const res = editandoPos
+      ? await updateProductoPOS(id, fields)
+      : await addProductoPOS(fields, id);
     if (!res.ok) { setAviso(res.error); return; }
+
+    // La foto va aparte y DESPUÉS: si falla, el artículo ya existe y se avisa
+    // de lo que ha fallado de verdad — no se pierde el alta entera por una
+    // imagen, ni se anuncia un éxito que no ha ocurrido.
+    if (foto !== undefined) {
+      const r = foto === null ? await eliminarFotoProducto(id) : await subirFotoProducto(id, foto);
+      if ('error' in r) { setAviso(`Guardado, pero la foto no ha subido: ${r.error}`); setPosModal(null); return; }
+      const url = 'url' in r ? r.url : null;
+      const resFoto = await updateProductoPOS(id, { imagenUrl: url });
+      if (!resFoto.ok) { setAviso(`Guardado, pero la foto no ha quedado enlazada: ${resFoto.error}`); setPosModal(null); return; }
+    }
     setPosModal(null);
   }
 

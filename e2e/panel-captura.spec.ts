@@ -16,6 +16,13 @@ import { montar, ir, enOscuro } from './panel-sembrado';
 const RUTAS = [
   'dashboard', 'centro-de-control', 'calendario', 'clientas',
   'cobros', 'equipo', 'informes', 'productos', 'configuracion', 'citas',
+  // Segunda tanda: el resto del panel vivo. Fuera quedan las tres congeladas
+  // (/chat, /ondemand y el kiosko), que no pintan página a propósito.
+  'automatizaciones', 'cierre', 'comunidad', 'contenido',
+  'explorar-funciones', 'facturas', 'libreta', 'marketing',
+  'mensajeria', 'mi-perfil', 'migracion', 'notificaciones',
+  'pagos', 'primeros-pasos', 'socios', 'sustituciones',
+  'transacciones', 'network/buscar',
 ];
 
 // ⚠️ Un test POR PANTALLA, no un bucle dentro de un test. Con el bucle, diez
@@ -27,7 +34,7 @@ for (const ruta of RUTAS) {
     await montar(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await ir(page, ruta);
-    await page.screenshot({ path: `test-results/panel-${ruta}.png`, fullPage: false });
+    await page.screenshot({ path: `test-results/panel-${ruta.replace('/', '-')}.png`, fullPage: false });
   });
 }
 

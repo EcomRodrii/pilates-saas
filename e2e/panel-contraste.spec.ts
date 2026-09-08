@@ -21,7 +21,15 @@ import { montar, ir, enOscuro } from './panel-sembrado';
 // haciendo falta mirar.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const RUTAS = ['dashboard', 'cobros', 'productos', 'clientas', 'informes', 'equipo'];
+const RUTAS = [
+  'dashboard', 'cobros', 'productos', 'clientas', 'informes', 'equipo',
+  'centro-de-control', 'calendario', 'citas', 'configuracion',
+  'automatizaciones', 'cierre', 'comunidad', 'contenido',
+  'explorar-funciones', 'facturas', 'libreta', 'marketing',
+  'mensajeria', 'mi-perfil', 'migracion', 'notificaciones',
+  'pagos', 'primeros-pasos', 'socios', 'sustituciones',
+  'transacciones', 'network/buscar',
+];
 
 interface Fallo { ruta: string; texto: string; ratio: number; color: string; fondo: string; px: number }
 
