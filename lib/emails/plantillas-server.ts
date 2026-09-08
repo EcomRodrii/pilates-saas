@@ -190,19 +190,31 @@ export function appUrl(): string {
 }
 
 // Genera un enlace de acceso firmado (magic link de Supabase Auth) para que una
-// socia active su cuenta sin tener que teclear su email en /portal/{slug}/acceso
-// ella misma. Es el MISMO mecanismo que ya usa el login sin contraseña del
-// portal (signInWithOtp) — no un token propio: Supabase ya resuelve firma,
-// expiración y un solo uso. Fallo suave: si Supabase Admin no está disponible o
-// el email no es válido, la bienvenida se manda igual, solo sin el botón de
-// acceso directo (ver bienvenida-template.tsx).
+// socia active su cuenta sin tener que teclear su email ella misma. Es el MISMO
+// mecanismo que ya usa el login sin contraseña del portal (signInWithOtp) — no
+// un token propio: Supabase ya resuelve firma, expiración y un solo uso. Fallo
+// suave: si Supabase Admin no está disponible o el email no es válido, la
+// bienvenida se manda igual, solo sin el botón de acceso directo (ver
+// bienvenida-template.tsx).
+//
+// ⚠️ El destino es `/acceso/verificar`, el MISMO al que apunta el login sin
+// contraseña de la app (`lib/student/auth.ts`). Importa por dos motivos: es la
+// pantalla que sabe resolver «sesión válida, ¿tiene ficha?, ¿tiene
+// contraseña?», y es una URL que ya está en la lista de Redirect URLs de
+// Supabase Auth — si no lo estuviera, gotrue la ignoraría y devolvería al Site
+// URL con el token ya gastado.
+//
+// Antes apuntaba a `/portal/{slug}/clave-nueva`, que existió hasta que #1591
+// («borrar el portal de la alumna», 3-sep-2026) la borró. Desde entonces el
+// botón del correo de bienvenida llevaba a una ruta inexistente: seis días con
+// dos estudios mandando bienvenidas activas.
 export async function generarEnlaceAccesoSocia(slug: string, email: string): Promise<string | null> {
   const admin = getSupabaseAdmin();
   if (!admin) return null;
   const { data, error } = await admin.auth.admin.generateLink({
     type: 'magiclink',
     email,
-    options: { redirectTo: `${appUrl()}/portal/${slug}/clave-nueva` },
+    options: { redirectTo: `${appUrl()}/portal/${slug}/acceso/verificar` },
   });
   if (error || !data?.properties?.action_link) return null;
   return data.properties.action_link;

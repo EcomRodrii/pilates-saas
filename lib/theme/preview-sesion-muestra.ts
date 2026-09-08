@@ -1,9 +1,22 @@
-import type { PortalSession } from '@/lib/portal-auth';
 import type { Socio } from '@/lib/types';
 
+/**
+ * Quién está dentro, en el portal.
+ *
+ * Vivía en `lib/portal-auth.tsx`, el proveedor de sesión del portal viejo. Ese
+ * módulo se borró al quedarse sin un solo consumidor —`PortalAuthProvider` y
+ * `usePortalAuth` no los montaba ni llamaba nadie— y este tipo era lo único
+ * que seguía usándose de él.
+ */
+export interface PortalSession {
+  socioId: string;
+  nombre: string;
+  email: string;
+}
+
 // Sesión de muestra compartida por TODAS las pantallas de /portal-preview —
-// esa ruta nunca tiene una socia real (ver app/portal-preview/[slug]/layout.tsx,
-// sin PortalAuthProvider). Antes solo vivía dentro de portal-preview-home-client.tsx;
+// esa ruta nunca tiene una socia real: no hay socia que resolver en una vista
+// previa del editor de temas. Antes solo vivía dentro de portal-preview-home-client.tsx;
 // se extrae aquí para que Clases/Bonos (y lo que se añada después) usen
 // exactamente el mismo socioId, no uno distinto por pantalla.
 export const SESION_MUESTRA: PortalSession = { socioId: 'preview-socia', nombre: 'Vista previa', email: '' };
