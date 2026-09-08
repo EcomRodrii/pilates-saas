@@ -159,6 +159,16 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
     showToast(modal === 'nuevo' ? 'Recompensa creada' : 'Recompensa actualizada');
   }
 
+  // `CampoNumero` ya normaliza (>0 o null), ya evita guardar sin cambios y ya
+  // revierte el campo si la base rechaza. Aquí solo queda guardar y decirlo.
+  // (Y el 0 → null de ahí importa: guardar 0 haría que `caduca_creditos`
+  // devolviera hoy y todo el saldo del estudio muriera esta noche.)
+  async function guardarCaducidad(meses: number | null) {
+    const res = await updateStudio({ creditosCaducanMeses: meses });
+    showToast(res.ok ? (meses ? `Caducan a los ${meses} meses` : 'Ya no caducan') : res.error);
+    return res;
+  }
+
   async function guardarMoneda(valor: string) {
     const limpio = normalizarNombreCreditos(valor);
     if ((studio?.creditosNombre ?? null) === limpio) return;
@@ -188,6 +198,30 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
             onBlur={e => void guardarMoneda(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
           />
+        </div>
+      </div>
+
+      {/* Caducidad. Va junto al nombre porque las dos son «cómo funcionan
+          tus créditos», antes de cuántos se dan y en qué se gastan. */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <Coins size={16} className="text-brand-secondary" />
+          <h3 className="text-[14px] font-semibold text-foreground">Cuánto duran</h3>
+        </div>
+        <p className="text-[12px] text-muted-foreground mb-3">
+          Meses que duran los {moneda} desde la última vez que se ganan. Cada vez que
+          una clienta gana, el plazo vuelve a empezar. Déjalo vacío para que no caduquen.
+        </p>
+        <div className={cn(cardCls, 'p-4 flex items-center gap-2')}>
+          <CampoNumero
+            valor={studio?.creditosCaducanMeses ?? null}
+            onGuardar={guardarCaducidad}
+            placeholder="∞"
+            className={cn(inputCls, 'w-20 text-center')}
+            title="Meses que duran los créditos (vacío = no caducan)"
+            ariaLabel="Meses hasta que caducan"
+          />
+          <span className="text-[12px] text-muted-foreground">meses</span>
         </div>
       </div>
 

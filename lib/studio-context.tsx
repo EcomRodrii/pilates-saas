@@ -4499,7 +4499,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         const existente = prev.find(m => m.socioId === socioId);
         const actualizado: MemberCredits = existente
           ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + res.creditos, actualizadoEn: now }
-          : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, actualizadoEn: now };
+          : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, caducaEl: null, actualizadoEn: now };
         return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
       });
     })();
@@ -4725,7 +4725,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
             const existente = prev.find(m => m.socioId === socioId);
             const actualizado: MemberCredits = existente
               ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + res.creditos, actualizadoEn: now.toISOString() }
-              : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, actualizadoEn: now.toISOString() };
+              : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, caducaEl: null, actualizadoEn: now.toISOString() };
             return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
           });
         })();
@@ -4845,7 +4845,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
               const existente = prev.find(m => m.socioId === socioId);
               const actualizado: MemberCredits = existente
                 ? { ...existente, saldo: res.saldo, totalGanado: existente.totalGanado + res.creditos, actualizadoEn: now.toISOString() }
-                : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, actualizadoEn: now.toISOString() };
+                : { socioId, studioId, saldo: res.saldo, totalGanado: res.creditos, totalCanjeado: 0, caducaEl: null, actualizadoEn: now.toISOString() };
               return existente ? prev.map(m => m.socioId === socioId ? actualizado : m) : [...prev, actualizado];
             });
           })();

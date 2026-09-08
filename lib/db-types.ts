@@ -356,6 +356,8 @@ export interface RowMemberCredits {
   total_ganado: number;
   total_canjeado: number;
   actualizado_en: string;
+  // migr 20260908020000.
+  caduca_el: string | null;
 }
 
 export interface RowMensajesEquipo {
@@ -934,6 +936,8 @@ export interface RowStudios {
   recuperacion_auto_semanal: boolean | null;
   // migr 20260908010000.
   creditos_nombre: string | null;
+  // migr 20260908020000.
+  creditos_caducan_meses: number | null;
 }
 
 export interface RowSuscripciones {

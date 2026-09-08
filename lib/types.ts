@@ -131,6 +131,8 @@ export interface Studio {
   cancelacionVentanaHoras: number;
   /** Cómo llama el estudio a su moneda de fidelización. `null` = la del producto. */
   creditosNombre?: string | null;
+  /** Meses que duran los créditos desde la última ganancia. `null` = no caducan. */
+  creditosCaducanMeses?: number | null;
   cancelacionDevolverBonoTardia: boolean;
   /** Cuando el ESTUDIO cancela una clase completa (no una reserva suelta):
    *  true = devuelve la sesión a cada socia con plaza confirmada. */
@@ -1643,9 +1645,19 @@ export interface CreditTransaction {
 export interface MemberCredits {
   socioId: string;
   studioId: string;
+  /**
+   * El saldo GASTABLE hoy, no el guardado.
+   *
+   * `mapMemberCredits` ya le aplica la caducidad: si `caducaEl` pasó, esto es
+   * 0 aunque en la base siga habiendo 500. Se hace en el mapeo y no en cada
+   * pantalla para que nadie enseñe un saldo que el servidor va a rechazar.
+   */
   saldo: number;
+  /** Lo ganado en toda su historia. NO caduca: de aquí sale el nivel. */
   totalGanado: number;
   totalCanjeado: number;
+  /** Cuándo caduca el saldo. `null` = no caduca. */
+  caducaEl: string | null;
   actualizadoEn: string;
 }
 

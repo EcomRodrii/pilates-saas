@@ -12,7 +12,7 @@ import type { GamificacionVista } from '@/lib/student/tipos';
 // decide nada: quién puede canjear y si le llega el saldo lo dice el servidor.
 
 const VACIA: GamificacionVista = {
-  hay: false, saldo: 0, totalGanado: 0, totalCanjeado: 0,
+  hay: false, saldo: 0, totalGanado: 0, totalCanjeado: 0, diasParaCaducar: null,
   nivel: { actual: null, siguiente: null, faltan: null, progreso: 0 },
   logros: [], retos: [], recompensas: [],
 };

@@ -189,6 +189,19 @@ export default function LogrosPage() {
             {data.recompensas.length > 0 && (
               <section data-testid="recompensas">
                 <p className="t-label" style={{ marginBottom: 'var(--s-2)' }}>Canjea tus {moneda}</p>
+                {/* El aviso va aquí, pegado a lo que se puede hacer con ellos:
+                    decirle que caducan sin enseñarle en qué gastarlos es darle
+                    una mala noticia y ninguna salida. Solo aparece cuando queda
+                    menos de un mes (ver DIAS_AVISO_CADUCIDAD). */}
+                {data.diasParaCaducar != null && (
+                  <p className="t-meta" style={{ marginBottom: 'var(--s-2)', color: 'var(--accent)' }}>
+                    {data.diasParaCaducar === 0
+                      ? `Tus ${moneda} caducan hoy`
+                      : data.diasParaCaducar === 1
+                        ? `Tus ${moneda} caducan mañana`
+                        : `Tus ${moneda} caducan en ${data.diasParaCaducar} días`}
+                  </p>
+                )}
                 <div className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
                   {data.recompensas.map((p) => (
                     <div key={p.id} className="card card--pad row row--between" style={{ ['--gap' as string]: 'var(--s-3)' }}>

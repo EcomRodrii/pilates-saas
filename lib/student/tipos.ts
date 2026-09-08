@@ -121,6 +121,8 @@ export interface GamificacionVista {
   /** `false` = el estudio no la usa: no se pinta nada. */
   hay: boolean;
   saldo: number; totalGanado: number; totalCanjeado: number;
+  /** Días que faltan para que caduque el saldo, solo si queda poco. `null` = no avisar. */
+  diasParaCaducar: number | null;
   nivel: import('./gamificacion.ts').NivelVista;
   logros: import('./gamificacion.ts').LogroVista[];
   retos: import('./gamificacion.ts').RetoVista[];

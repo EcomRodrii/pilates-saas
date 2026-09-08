@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { SLUG, STUDIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-lista';
+import { AHORA, SLUG, STUDIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-lista';
 
 // Gamificación en la app de la alumna.
 //
@@ -109,6 +109,40 @@ test.describe('Student PWA · gamificación', () => {
     // estudio sería falso y retrasaría que la use.
     await expect(page.getByText(/resérvala cuando quieras/i)).toBeVisible();
     await expect(page.getByText(/el estudio te avisará/i)).toHaveCount(0);
+  });
+
+  test('si los créditos están a punto de caducar, se dice — y junto a dónde gastarlos', async ({ page }) => {
+    // El aviso vive pegado al catálogo a propósito: decirle que caducan sin
+    // enseñarle en qué gastarlos es una mala noticia sin salida.
+    const f = conGamificacion();
+    const socia = f.socia as Record<string, unknown>;
+    // ⚠️ Desde AHORA, no desde `Date.now()`: `socia-lista.ts` congela el reloj
+    // del navegador con `page.clock.install`, así que «hoy» para la pantalla es
+    // el 12-ago-2026. Calculándolo con el reloj real la fecha caía a más de un
+    // mes vista y el aviso —correctamente— no salía: el test estaba mal, no el
+    // producto.
+    const dentroDeCincoDias = new Date(new Date(AHORA).getTime() + 5 * 86_400_000).toISOString().slice(0, 10);
+    socia.memberCredits = [{
+      socioId: 'socio-e2e-1', studioId: STUDIO_ID, saldo: 150, totalGanado: 250,
+      totalCanjeado: 100, caducaEl: dentroDeCincoDias, actualizadoEn: '2026-08-10T00:00:00Z',
+    }];
+    await montar(page, f);
+    await page.goto(`${base}/logros`);
+    await expect(page.getByText(/caducan en 5 días/i)).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('una caducidad lejana NO se avisa: sería ruido', async ({ page }) => {
+    const f = conGamificacion();
+    const socia = f.socia as Record<string, unknown>;
+    const dentroDeMedioAno = new Date(new Date(AHORA).getTime() + 180 * 86_400_000).toISOString().slice(0, 10);
+    socia.memberCredits = [{
+      socioId: 'socio-e2e-1', studioId: STUDIO_ID, saldo: 150, totalGanado: 250,
+      totalCanjeado: 100, caducaEl: dentroDeMedioAno, actualizadoEn: '2026-08-10T00:00:00Z',
+    }];
+    await montar(page, f);
+    await page.goto(`${base}/logros`);
+    await expect(page.getByTestId('recompensas')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/caducan/i)).toHaveCount(0);
   });
 
   test('sin nombre propio configurado, la moneda se llama «créditos»', async ({ page }) => {
