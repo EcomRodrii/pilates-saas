@@ -3792,10 +3792,10 @@ export default function ReservarPage() {
                     portal propio (sus bonos, su historial, sus próximas clases).
                     Si ya fijó contraseña en 'registro' (o entró con
                     loginConPassword), el enlace va directo a /login — mandarla
-                    a poner contraseña otra vez le pediría elegir una que ya
-                    tiene. Si no (p. ej. socia ya existente que solo firmó el
-                    contrato, sin pasar por 'registro'), sigue sin tenerla y el
-                    enlace va a /acceso/recuperar, que se la deja poner. */}
+                    Las dos ramas van a la misma puerta única
+                    (/acceso/login): lo que cambia es el TEXTO, porque quien ya
+                    tiene contraseña la escribe ahí y quien no, pide el enlace
+                    de acceso en esa misma pantalla. */}
                 <div className="w-full pt-3 mt-1 border-t border-[var(--portal-line)]">
                   <p className="text-[var(--portal-muted)] text-xs leading-relaxed text-center">
                     Tus clases y tus bonos están en tu portal.{' '}
@@ -3819,11 +3819,15 @@ export default function ReservarPage() {
                         Entra con tu contraseña
                       </a>
                     ) : (
-                      // `/acceso/recuperar` y no `/acceso/login`: quien no tiene
-                      // contraseña necesita que le manden el enlace que lleva a
-                      // ponerla (`recuperar` vuelve a `/acceso/verificar?crear=1`,
-                      // que la fuerza). Login le pediría una que no tiene.
-                      <a href={`/portal/${slug}/acceso/recuperar`} className="font-bold underline" style={{ color: PRIMARY }}
+                      // `/acceso/login` también aquí, aunque el texto diga «crea
+                      // tu contraseña»: es la puerta ÚNICA (email + contraseña
+                      // opcional) y su enlace de acceso usa `signInWithOtp`, que
+                      // CREA la cuenta si no existe. `/acceso/recuperar` parecía
+                      // más preciso y es justo lo contrario: `resetPasswordForEmail`
+                      // no crea nada, así que a quien reservó SIN CUENTA —que es
+                      // exactamente para quien es este enlace— no le llegaría
+                      // ningún correo. Lo cazó `booking.spec.ts:225`.
+                      <a href={`/portal/${slug}/acceso/login`} className="font-bold underline" style={{ color: PRIMARY }}
                         {...(embedMode ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
                         Crea tu contraseña
                       </a>

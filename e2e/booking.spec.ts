@@ -236,12 +236,22 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await page.getByRole('button', { name: /confirmar reserva/i }).click();
 
     await expect(page.getByText(/reserva confirmada|lista de espera/i)).toBeVisible();
-    // El paso 'registro' ya no pide contraseña (P0 "reservar sin cuenta") —
-    // el enlace debe llevar a /acceso, que se la deja fijar más tarde si
-    // quiere, NO a /login (que asumiría que ya tiene una).
+    // El paso 'registro' ya no pide contraseña (P0 "reservar sin cuenta"), así
+    // que el enlace NO puede asumir que la tiene.
+    //
+    // Antes apuntaba a `/portal/<slug>/acceso`, una ruta del portal borrado que
+    // sobrevivía por el catch-all de compatibilidad — y que ese mapa traduce a
+    // `/acceso/login`, o sea exactamente el destino de ahora, con un salto de
+    // más. Se apunta directo.
+    //
+    // ⚠️ Y NO a `/acceso/recuperar`, que suena más preciso para «crea tu
+    // contraseña» y es un callejón para esta persona: usa
+    // `resetPasswordForEmail`, que con un email sin cuenta no manda nada. La
+    // puerta única sí sirve — su enlace de acceso es `signInWithOtp`, que CREA
+    // la cuenta si no existe.
     const alPortal = page.getByRole('link', { name: /crea tu contraseña/i });
     await expect(alPortal).toBeVisible();
-    await expect(alPortal).toHaveAttribute('href', `/portal/${SLUG}/acceso`);
+    await expect(alPortal).toHaveAttribute('href', `/portal/${SLUG}/acceso/login`);
   });
 
   test('login: sin sesión, reservar pide magic link (no deja pasar sin email)', async ({ page }) => {
