@@ -1236,7 +1236,11 @@ export interface VentaPOS {
 }
 
 export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIANDO' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';
-export type TipoCampana = 'EMAIL' | 'WHATSAPP' | 'SMS';
+// 'SMS' salió del tipo el 2026-09-09: era la opción de un canal que nunca
+// entregó nada (0 campañas SMS en toda la historia de la tabla) y que se
+// apoyaba en Twilio, retirado por no existir en producción. Meta no manda SMS,
+// así que no había a qué migrarlo — ver WHATSAPP_AUDIT.md §0.
+export type TipoCampana = 'EMAIL' | 'WHATSAPP';
 export type SegmentoFijo =
   | 'TODAS' | 'ACTIVAS' | 'INACTIVAS' | 'SIN_PLAN' | 'BONO' | 'VIP'
   // Paso 6 de docs/marketing-integrations-arquitectura.md §8/§4: señales ya

@@ -19,7 +19,9 @@ import { resolverNivelAutonomiaPorTipo } from '@/lib/decision/confianza';
 import { mensajeParaSocia } from '@/lib/decision/mensajes-socia';
 import { personalizarMensajeSocia } from '@/lib/decision/personalizacion';
 import { generarCodigoReactivacion } from '@/lib/codigos-descuento';
-import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
+import { enviarWhatsAppTexto } from '@/lib/whatsapp';
+import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
+import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { ALGORITHM_VERSION } from '@/lib/decision/version';
 import { elegirMensajeDelDia, type ImpactoRealCalibracion } from '@/lib/decision/umbral';
 import { emitirDecisionMensajeDia } from '@/lib/notifications/emit';
@@ -393,15 +395,26 @@ async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; d
   // Mismo mensaje, reescrito con IA para que suene personal (falla-suave).
   const mensaje = await personalizarMensajeSocia(base, { nombreEstudio: studio?.nombre ?? '', tipo: r.tipo, datosUsados: r.datosUsados });
 
-  // Si la recomendación es de canal WhatsApp y hay Twilio + teléfono, se envía el
-  // WhatsApp de VERDAD al aprobar (antes era siempre un clic manual del propietario).
-  // Si Twilio falla o no está, cae al email; y si tampoco hay email, queda el botón
+  // Si la recomendación es de canal WhatsApp y el estudio tiene su WhatsApp
+  // Business conectado (Meta Cloud API, no Twilio — se retiró: en producción no
+  // existía ninguna variable TWILIO_*, así que esta rama no se ejecutó nunca),
+  // se envía el WhatsApp de VERDAD al aprobar. Si Meta lo rechaza o el estudio
+  // no lo tiene conectado, cae al email; y si tampoco hay email, queda el botón
   // manual de WhatsApp en la tarjeta.
+  //
+  // Texto y no plantilla: `mensaje.cuerpo` lo reescribe la IA para cada socia,
+  // así que no hay cuerpo fijo que Meta pueda aprobar de antemano. Fuera de la
+  // ventana de 24 h devuelve 131047 — y ahí ese respaldo por email deja de ser
+  // un detalle y pasa a ser el camino normal, que es justo por lo que este
+  // emisor no necesita plantilla propia.
   const canalRec = r.accion.tipo === 'CONTACTO_MANUAL' ? r.accion.canal : null;
-  if (canalRec === 'WHATSAPP' && socio?.telefono && twilioConfigurado('WHATSAPP')) {
-    const rw = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: socio.telefono, cuerpo: mensaje.cuerpo });
-    if (rw.ok) return { ok: true, detalle: `WhatsApp enviado a ${socio.telefono}` };
-    // no-ok → sigue al respaldo por email
+  if (canalRec === 'WHATSAPP' && socio?.telefono) {
+    const whatsapp = whatsappDelEstudio(await dbGetIntegracionConfig(r.studioId, 'WHATSAPP'));
+    if (whatsapp) {
+      const rw = await enviarWhatsAppTexto(whatsapp, socio.telefono, mensaje.cuerpo);
+      if (rw.ok) return { ok: true, detalle: `WhatsApp enviado a ${socio.telefono}` };
+      // no-ok → sigue al respaldo por email
+    }
   }
 
   if (!socio?.email) return { ok: true, detalle: 'La socia no tiene email — contáctala por WhatsApp desde la tarjeta.' };

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { entregarExternos } from '@/lib/notifications/process';
 
-// Entrega de canales EXTERNOS (push/email/WhatsApp/SMS) de notificaciones ya
+// Entrega de canales EXTERNOS (push/email) de notificaciones ya
 // creadas. Es el sustituto de la cola de Inngest: engine.publish() escribe la
 // in-app y llama aquí. Ruta interna (nunca la abre un navegador), autenticada
 // con CRON_SECRET, y aislada en su propio módulo porque process.ts arrastra

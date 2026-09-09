@@ -3,15 +3,15 @@ import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
-import { dbUpsertAutomationLog, fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor, dbUpdateAutomatizacionServidor } from '@/lib/db/supabase-data-admin';
+import { dbUpsertAutomationLog, fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor, dbUpdateAutomatizacionServidor, dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { computeAutomationCandidatos, type AutomationCandidato } from '@/lib/engines/automation-engine';
 import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } from '@/lib/engines/marketing-automation-engine';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
-import { twilioConfigurado } from '@/lib/twilio';
 import { MARCA_INACTIVIDAD } from '@/lib/engines/senales-inactividad';
 import { resendEmailProvider } from '@/lib/marketing/providers/email-resend';
-import { twilioSmsProvider } from '@/lib/marketing/providers/sms-twilio';
+import { whatsappMetaProvider } from '@/lib/marketing/providers/whatsapp-meta';
+import { whatsappDelEstudio, type WhatsAppDelEstudio } from '@/lib/whatsapp-estudio';
 import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 import { appUrl } from '@/lib/emails/plantillas-server';
@@ -89,6 +89,11 @@ interface ProcesarOpts {
   nowISO: string;
   dry: boolean;
   resend: Resend | null;
+  // Credenciales de WhatsApp del PROPIO estudio (Meta Cloud API). `null` = no
+  // las tiene conectadas, que es un estado normal y no un fallo de
+  // configuración de la plataforma: WhatsApp dejó de ser un secreto único de
+  // Tentare cuando se retiró Twilio (ver WHATSAPP_AUDIT.md §0).
+  whatsapp: WhatsAppDelEstudio | null;
 }
 
 // Procesa UN candidato: decide resultado, redacta con IA si aplica, manda el
@@ -96,7 +101,7 @@ interface ProcesarOpts {
 // persiste el log idempotente. Devuelve el log resultante. Es el cuerpo que va
 // dentro de un step.run() por candidato: durable y reintentable en aislamiento.
 export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
-  const { studioId, studioNombre, studioColor, studioLogo, index, nowISO, dry, resend } = opts;
+  const { studioId, studioNombre, studioColor, studioLogo, index, nowISO, dry, resend, whatsapp } = opts;
   const base = {
     id: logIdCandidato(studioId, c, index, nowISO),
     studioId,
@@ -167,17 +172,28 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
   } else if (c.accion === 'ENVIAR_WHATSAPP') {
     if (!c.mensajeCliente) {
       log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para la clienta', mensajeCliente: null };
-    } else if (!c.socio.telefono || !twilioConfigurado('WHATSAPP')) {
-      // Sin teléfono o sin Twilio configurado: no hay forma de mandarlo por
-      // WhatsApp. El motor solo elige este canal cuando SÍ hay teléfono (ver
-      // automation-engine.ts), así que llegar aquí sin poder enviar es un
-      // fallo real, no algo que debamos disfrazar reintentando por email.
-      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no disponible (sin teléfono o sin Twilio configurado)', mensajeCliente: c.mensajeCliente };
+    } else if (!c.socio.telefono || !whatsapp) {
+      // Sin teléfono o sin la integración de Meta conectada no hay forma de
+      // mandarlo por WhatsApp. El motor solo elige este canal cuando SÍ hay
+      // teléfono (ver automation-engine.ts), así que llegar aquí sin poder
+      // enviar es un fallo real, no algo que debamos disfrazar reintentando por
+      // email. El detalle dice CUÁL de las dos cosas falta: «no disponible» a
+      // secas mandaba a la propietaria a revisar la ficha de la socia cuando lo
+      // que faltaba era conectar su WhatsApp.
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, mensajeCliente: c.mensajeCliente,
+        detalle: c.socio.telefono
+          ? 'WhatsApp no conectado en este estudio (Configuración → Integraciones)'
+          : `${c.socio.nombre} no tiene teléfono en su ficha` };
     } else {
-      const r = await twilioSmsProvider.enviar({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: c.mensajeCliente });
+      // Texto y no plantilla: `mensajeCliente` lo redacta la IA en cada
+      // ejecución, así que no hay ningún cuerpo fijo que Meta pueda aprobar de
+      // antemano (y un parámetro de plantilla ni admite saltos de línea). Fuera
+      // de la ventana de 24 h Meta devuelve 131047, que se anota tal cual en el
+      // log — antes ese log decía «Twilio» sobre un envío que nunca se intentó.
+      const r = await whatsappMetaProvider(whatsapp).enviar({ to: c.socio.telefono, cuerpo: c.mensajeCliente });
       log = r.ok
         ? { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `WhatsApp enviado a ${c.socio.telefono}.`, mensajeCliente: c.mensajeCliente }
-        : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Twilio', mensajeCliente: c.mensajeCliente };
+        : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por WhatsApp', mensajeCliente: c.mensajeCliente };
     }
   } else if (!c.socio.email) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado', mensajeCliente: null };
@@ -242,7 +258,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
 // usuario) y persiste el log en automation_logs (ruleId = id de la
 // automatización, para dedup y contador). Idempotency-Key por id de log.
 export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: ProcesarOpts): Promise<AutomationLog> {
-  const { studioId, studioColor, studioLogo, index, nowISO, dry, resend } = opts;
+  const { studioId, studioColor, studioLogo, index, nowISO, dry, resend, whatsapp } = opts;
   const accionLog: AutomationLog['accion'] =
     c.canal === 'WHATSAPP' ? 'ENVIAR_WHATSAPP' : c.canal === 'NOTIFICACION' ? 'NOTIFICAR_ADMIN' : 'ENVIAR_EMAIL';
   const base = {
@@ -299,12 +315,13 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
       ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message }
       : { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Aviso interno creado para el equipo sobre ${c.socio.nombre}.` };
   } else if (c.canal === 'WHATSAPP') {
-    // WhatsApp vía Twilio. Sin idempotency-key nativo: la garantía anti-reenvío es
-    // la memoización del step.run (Inngest no re-ejecuta un step ya completado) +
-    // el dedup por automation_logs del motor. Gap residual (envío OK y caída antes
-    // de memoizar) igual que cualquier side-effect sin clave; aceptable para MVP.
-    if (!twilioConfigurado('WHATSAPP')) {
-      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no configurado (faltan credenciales Twilio)' };
+    // WhatsApp por la Meta Cloud API del PROPIO estudio. Sin idempotency-key
+    // nativo: la garantía anti-reenvío es la memoización del step.run (Inngest no
+    // re-ejecuta un step ya completado) + el dedup por automation_logs del motor.
+    // Gap residual (envío OK y caída antes de memoizar) igual que cualquier
+    // side-effect sin clave; aceptable para MVP.
+    if (!whatsapp) {
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no conectado en este estudio (Configuración → Integraciones)' };
     } else {
       // ⚠️ Auditoría 22ª pasada (3-sep-2026). Este camino es el del motor de
       // MARKETING: todo lo que sale por aquí es comunicación comercial. El
@@ -316,14 +333,17 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
       // mensaje. Hoy hay 0 automatizaciones activas en producción: esto se
       // cierra ANTES de que la primera dueña encienda una, no después.
       const baja = `${appUrl()}/api/marketing/baja?token=${firmarBajaMarketing(opts.studioId, c.socio.id)}`;
-      const r = await twilioSmsProvider.enviar({
-        canal: 'WHATSAPP',
+      // Texto y no plantilla: asunto, mensaje y el enlace de baja los compone
+      // la propietaria y cambian con cada automatización — no hay cuerpo fijo
+      // que aprobar, y las tres líneas separadas por saltos no caben en un
+      // parámetro de plantilla de Meta. Fuera de la ventana de 24 h, 131047.
+      const r = await whatsappMetaProvider(whatsapp).enviar({
         to: c.socio.telefono,
         cuerpo: `${c.asunto}\n\n${c.mensaje}\n\nPara dejar de recibir estos mensajes: ${baja}`,
       });
       log = r.ok
         ? { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `WhatsApp enviado a ${c.socio.telefono}: "${c.asunto}"` }
-        : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Twilio' };
+        : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por WhatsApp' };
     }
   } else if (!c.socio.email) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado' };
@@ -429,6 +449,18 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       throw new Error('Resend no configurado (RESEND_API_KEY)');
     }
 
+    // WhatsApp del PROPIO estudio, leído FUERA de cualquier `step.run` a
+    // propósito: lo que devuelve un step lo persiste Inngest como estado de la
+    // ejecución, y el token de Meta de un cliente no tiene por qué acabar ahí.
+    // Releerlo en cada replay cuesta una consulta.
+    //
+    // A diferencia de Resend, `null` NO tumba la tanda: WhatsApp es de cada
+    // estudio, así que no tenerlo es lo normal —la mayoría solo usa email— y
+    // reventar aquí dejaría sin automatizaciones de correo a todo el que no lo
+    // haya conectado. Cada candidato de canal WhatsApp lo registra como FALLIDO
+    // con el motivo, que es donde la propietaria puede verlo.
+    const whatsapp = whatsappDelEstudio(await dbGetIntegracionConfig(studioId, 'WHATSAPP'));
+
     // Lo que sale de un `step.run` se serializa ENTERO como estado de Inngest:
     // viaja a Inngest, se guarda, y se reconstruye en cada replay del handler.
     // `fetchAllStudioData` devuelve ~55 conjuntos (es el arranque completo del
@@ -509,7 +541,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       // id de step estable entre replays (índice + regla). Cada candidato es
       // un paso durable e independiente.
       const log = await step.run(`candidato-${i}-${c.rule.id}`, () =>
-        procesarCandidato(c, { studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend })
+        procesarCandidato(c, { studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend, whatsapp })
       );
 
       if (c.accion === 'COBRAR_RECIBO') cobrosPropuestos++;
@@ -547,7 +579,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     for (let i = 0; i < mktCandidatos.length; i++) {
       const c = mktCandidatos[i];
       const log = await step.run(`mkt-${i}-${c.automatizacion.id}-${c.socio.id}`, () =>
-        procesarCandidatoMkt(c, { studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend }),
+        procesarCandidatoMkt(c, { studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend, whatsapp }),
       );
       if (log.resultado === 'EJECUTADO') mktEnviados++; else if (log.resultado === 'FALLIDO') mktFallidos++;
       firedPorAuto.set(c.automatizacion.id, (firedPorAuto.get(c.automatizacion.id) ?? 0) + 1);

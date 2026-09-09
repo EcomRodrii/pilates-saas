@@ -4,9 +4,11 @@
 // lleva el prefijo `sha256=` delante del hexdigest.
 // https://developers.facebook.com/docs/graph-api/webhooks/getting-started
 //
-// Mismo criterio que lib/twilio-firma.ts: sin SDK de Meta por un cálculo de
-// HMAC de pocas líneas, y comparación en tiempo constante (timingSafeEqual)
-// para no filtrar la firma esperada por temporización.
+// Sin SDK de Meta por un cálculo de HMAC de pocas líneas, y comparación en
+// tiempo constante (timingSafeEqual) para no filtrar la firma esperada por
+// temporización. (El criterio venía de lib/twilio-firma.ts, que era su gemelo
+// para el webhook de Twilio; ese archivo se borró al retirarse Twilio el
+// 2026-09-09 — este es ya el único verificador de firmas entrantes del repo.)
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export function firmaMetaValida(

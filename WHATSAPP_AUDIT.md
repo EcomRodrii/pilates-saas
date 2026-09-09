@@ -2,25 +2,117 @@
 
 Fecha: 2026-08-27. Estado: **Fases A-I implementadas. Revisión de código (`/code-review`) hecha y sus 7 hallazgos confirmados corregidos.**
 
-## 0. Hallazgo que reencuadra todo lo demás
+## 0. Hallazgo que reencuadraba todo lo demás — CERRADO el 2026-09-09
 
-Hay **dos integraciones de WhatsApp distintas y no relacionadas** en este repo:
+Durante meses hubo **dos integraciones de WhatsApp distintas y no relacionadas** en este
+repo. Ya no: **queda una**.
 
 1. **Meta Cloud API directa, por estudio** (`lib/whatsapp.ts`) — BYO-credenciales: cada
-   estudio pega su propio `access_token`/`phone_number_id` en
-   *Configuración → Integraciones*. Consumidores: el cron de recordatorios de clase
-   (`enviarRecordatoriosClasesProximas`) y —desde 2026-09-09— el aviso de hueco libre
-   (`/api/marketing/hueco/avisar`, plantilla `hueco_disponible`, categoría MARKETING).
-   **Esta es la integración a migrar.**
-2. **Twilio, credencial única de plataforma** (`lib/twilio.ts`, env `TWILIO_*`) — motor de
-   automatizaciones, campañas de marketing, sustituciones, motor de notificaciones,
-   `/api/mensajes/send` y `/api/soporte`. No tiene nada que ver con Meta. **No se toca en
-   esta migración.**
-   ⚠️ En producción **no existe ninguna variable `TWILIO_*`** (comprobado 2026-09-09), así
-   que todo lo que cuelga de aquí no manda nada: o se salta el envío (`skipped: true`) o
-   devuelve 503. El aviso de hueco se sacó de esta lista por eso — su botón «Avisar a N
-   seleccionadas» llevaba desde el primer día sin mandar un solo mensaje, con
-   `avisos_hueco` vacía. Los demás siguen pendientes de la misma decisión.
+   estudio pega su propio `access_token`/`phone_number_id` en *Configuración →
+   Integraciones* (o lo conecta con Embedded Signup). **Es el único canal de WhatsApp del
+   producto.**
+2. ~~**Twilio, credencial única de plataforma** (`lib/twilio.ts`, env `TWILIO_*`)~~ —
+   **RETIRADO ENTERO.** `lib/twilio.ts`, `lib/twilio-firma.ts`,
+   `lib/marketing/providers/sms-twilio.ts` y `app/api/webhooks/twilio-inbound/` están
+   borrados. Twilio ya no es una dependencia de este repo: cero secretos que dar de alta,
+   cero cuenta que mantener.
+
+**Por qué se retiró, y no se configuró**: en producción **nunca existió ninguna variable
+`TWILIO_*`** (comprobado con `npx vercel env ls production` el 2026-09-09, cero
+coincidencias). Todo lo que colgaba de ahí o se saltaba el envío (`skipped: true`) o
+devolvía 503. No es una sospecha — la base de datos de producción lo confirma por
+triplicado: **0 filas** de `canal='whatsapp'`/`'sms'` en `sustitucion_contactos`, **0
+filas** de `WHATSAPP`/`SMS` en las 838 entregas de `notification_delivery`, **0 campañas**
+de tipo SMS en toda la historia de la tabla, y `mensajes_entrantes_medicion` (la medición
+que alimentaba el webhook de entrada) con **0 filas** desde el 20-ago. El único
+`automation_log` de WhatsApp con marca de ejecución real dice literalmente «WhatsApp no
+disponible (sin teléfono o sin Twilio configurado)».
+
+Los **ocho** puntos que salían por ahí (el prompt de partida listaba seis; `campanas.ts` y
+el webhook de entrada aparecieron al barrer) quedaron así:
+
+| Emisor | Destinatario | Qué se hizo |
+|---|---|---|
+| `/api/marketing/hueco/avisar` | socia | → Meta, plantilla `hueco_disponible` (MARKETING). Ya migrado en #1808 |
+| `/api/mensajes/send` | socia | → Meta, **texto** |
+| `lib/inngest/campanas.ts` | socia | → Meta, **texto** (+ guard en `/api/marketing/campanas/[id]/enviar`) |
+| `lib/inngest/automatizaciones.ts` (×2) | socia | → Meta, **texto** |
+| `lib/inngest/decision.ts` (CONTACTO_MANUAL) | socia | → Meta, **texto**, con el respaldo por email que ya tenía |
+| `lib/sustituciones/contacto.ts::recordatorioPorMensaje` | instructora | → Meta, **plantilla `sustitucion_urgente`** (UTILITY) |
+| `lib/sustituciones/contacto.ts::alertarPropietaria` | el propio estudio | canal retirado (sigue por email + panel) |
+| `lib/notifications/channels.ts` (canales WHATSAPP y SMS) | el propio estudio | canales retirados (sus 2 eventos conservan PUSH+EMAIL) |
+| `/api/soporte` | el fundador | aviso retirado (el email a soporte@tentare.app era y sigue siendo el registro) |
+
+### Las tres decisiones que sostienen esa tabla
+
+**1 · Una sola plantilla nueva, no seis.** Una plantilla HSM es trabajo manual de la
+propietaria en WhatsApp Manager, así que cada una tiene que ganárselo. Solo se ganó
+`sustitucion_urgente`, y el criterio no es de gusto sino técnico: **un parámetro de
+plantilla de Meta no admite saltos de línea, ni tabuladores, ni más de 4 espacios
+seguidos** (error 100, y tumba el envío entero). El cuerpo de una campaña, de una
+automatización o de un mensaje redactado por la IA es texto arbitrario y casi siempre
+multilínea: no es que quede feo en un `{{1}}`, es que Meta lo rechaza. Y un cuerpo fijo
+tampoco se puede pre-aprobar cuando cambia en cada envío. El aviso de sustitución sí tiene
+forma fija (nombre, clase, cuándo, enlace) **y** es el que más la necesita: es la escalada
+de un email que la instructora NO ha contestado, así que suponer que ella escribió al
+estudio en las últimas 24 h es suponer lo contrario de lo que está pasando.
+⚠️ Categoría UTILITY, con reserva: no vende nada, pero para Meta «utilidad» es el
+seguimiento de una transacción de un CLIENTE y esto va a una trabajadora. Si lo
+recategorizan a MARKETING cambia el precio de la conversación, no la entrega — confirmarlo
+con la primera aprobación real.
+Todo lo demás va como **texto**, con la consecuencia dicha en voz alta: solo llega a quien
+haya escrito al estudio en las últimas 24 h, y al resto Meta responde 131047, que queda
+anotado en la salud de la integración y en el log de cada emisor. Es estrictamente mejor
+que antes (de «a nadie, nunca y en silencio» a «a quien se pueda, y con el motivo a la
+vista»), pero no es entrega universal y no hay que venderlo como tal.
+
+**2 · SMS retirado, no migrado.** Meta no manda SMS, así que no había a qué migrarlo. Las
+opciones reales eran mantener Twilio vivo solo para SMS —dar de alta las credenciales y
+pagar la cuenta— o retirarlo. Se retiró: nunca entregó un SMS (ver los ceros de arriba), y
+`TipoCampana` pierde `'SMS'`, con su opción fuera del desplegable de campañas. Las columnas
+`whatsapp`/`sms` de `notification_preference` se quedan (son datos ya guardados y ninguna
+pantalla las ofrecía); vaciarlas es una migración aparte, no un efecto colateral.
+
+**3 · Lo que apunta al propio estudio se queda fuera de Meta.** `alertarPropietaria`, los
+canales WHATSAPP/SMS del motor de notificaciones y `/api/soporte` no son un estudio
+hablando con su clienta: son la plataforma (o el estudio) escribiendo al teléfono del
+propio estudio o al del fundador. No hay integración de estudio que aplique, y forzarla
+sería el WhatsApp Business del estudio escribiéndose a sí mismo —que para una propietaria
+sola es literalmente el mismo número, y Meta rechaza el envío—. Además haría depender el
+aviso «algo va mal en tu Tentare» de una integración que puede ser justo lo que va mal. Los
+tres avisos siguen llegando por los canales que sí funcionan: email, PUSH (VAPID
+configurado, 125 entregas reales) y el panel.
+
+### Dos arreglos que salieron al hacerlo
+
+- **El teléfono no se normalizaba.** `lib/whatsapp.ts` mandaba a Meta `to.replace(/[^\d]/g,'')`,
+  o sea que un «612 34 56 78» viajaba como `612345678`: nueve dígitos sin prefijo de país,
+  que para Meta no es nadie. Ahora usa `telefonoE164` (la misma que usaba el canal de
+  Twilio y la que construye los enlaces `wa.me` del panel). **Afectaba ya al cron de
+  recordatorios y al aviso de hueco**, no solo a lo migrado aquí; sin arreglarlo, esta
+  migración habría cambiado «no manda nada» por «manda a un número que no existe», que es
+  peor porque parece que funciona.
+- **Los parámetros de plantilla no se saneaban.** Un nombre con un salto de línea dentro
+  (perfectamente posible viniendo del importador de CSV) hacía que Meta rechazara el envío
+  ENTERO con un error genérico de parámetro inválido. `enviarWhatsAppPlantilla` ahora
+  colapsa los espacios en blanco de cada parámetro, lo que cumple las tres reglas de Meta
+  de golpe sin tocar ningún valor bien formado. Cubre las tres plantillas, no solo la
+  nueva.
+
+### Lo que queda pendiente y no se ha hecho aquí
+
+- **Nadie tiene WhatsApp conectado todavía.** 0 de los 13 estudios de producción tiene una
+  fila `integraciones` de tipo `WHATSAPP`. Esta migración **no arregla la entrega de nadie
+  hoy**: deja el código honesto y listo para el primero que lo conecte. Decirlo así importa,
+  porque «migrado a Meta» se lee fácilmente como «ya llega», y no.
+- **`mensajes_entrantes_medicion` se queda sin escritor** al borrar el webhook de Twilio.
+  La tabla sigue ahí, vacía. Si se quiere recuperar esa medición, el sitio natural es el
+  webhook de Meta (`app/api/webhooks/whatsapp`), que ya recibe los eventos de `messages` y
+  hoy reconoce los entrantes con un 200 sin procesarlos — es un cambio pequeño, pero es una
+  decisión de producto propia, no un arrastre de esta retirada.
+- **Ninguna de las tres plantillas está aprobada en ningún WABA real**, y sigue sin
+  confirmarse si una plantilla aprobada se hereda entre WABAs o hay que re-aprobarla en
+  cada uno (§8 de META_SETUP.md). Se sabrá con el primer estudio piloto.
 
 Cualquier fase de este plan que hable de "recordatorios" se refiere solo al canal (1).
 

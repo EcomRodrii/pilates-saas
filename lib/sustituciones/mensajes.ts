@@ -1,10 +1,13 @@
-// Cuerpos de WhatsApp/SMS para el motor de escalado de sustituciones. Texto plano
-// y corto (SMS ≈ 160 chars por segmento; WhatsApp sin límite pero breve gana).
-// El enlace es el mismo deep link de aceptación (un toque, sin login).
+// Cuerpos de WhatsApp para el motor de escalado de sustituciones. Texto plano y
+// corto (WhatsApp no tiene límite, pero breve gana). El enlace es el mismo deep
+// link de aceptación (un toque, sin login).
+//
+// El canal SMS se retiró con Twilio (2026-09-09): Meta no manda SMS y la
+// credencial de plataforma nunca existió en producción — ver WHATSAPP_AUDIT.md §0.
 
 const primerNombre = (n: string) => n.split(' ')[0] || n;
 
-// Recordatorio a la candidata ya avisada por email: sube de canal a WhatsApp/SMS.
+// Recordatorio a la candidata ya avisada por email: sube de canal a WhatsApp.
 export function cuerpoNudgeCandidata(params: {
   nombre: string; claseNombre: string; cuando: string; url: string;
 }): string {
@@ -12,33 +15,30 @@ export function cuerpoNudgeCandidata(params: {
   return `Hola ${primerNombre(nombre)}, ¿puedes cubrir ${claseNombre} (${cuando})? Responde en un toque: ${url}`;
 }
 
+/**
+ * Los mismos cuatro datos, ordenados para la plantilla `sustitucion_urgente`
+ * de Meta (`PLANTILLA_SUSTITUCION`, lib/whatsapp.ts):
+ *
+ *   «Hola {{1}}, ¿puedes cubrir {{2}} el {{3}}? Confírmalo en un toque aquí:
+ *    {{4}} Gracias por echar un cable.»
+ *
+ * Vive aquí, al lado del texto libre, para que las dos versiones del mismo
+ * aviso compartan `primerNombre` y no se separen con el tiempo: si un día una
+ * dice «Hola María» y la otra «Hola María Jiménez López», la instructora
+ * recibirá una u otra según si el estudio se aprobó la plantilla, que es
+ * exactamente el detalle que nadie va a recordar comprobar.
+ */
+export function parametrosNudgeCandidata(params: {
+  nombre: string; claseNombre: string; cuando: string; url: string;
+}): string[] {
+  return [primerNombre(params.nombre), params.claseNombre, params.cuando, params.url];
+}
+
 export type TipoAlertaPropietaria = 'agotada' | 'sin_respuesta' | 'baja' | 'sin_sustituta';
 
-// Alerta a la propietaria: se ha dado una baja, nadie responde, o se agotó el
-// ranking. La variante 'baja' es la que sostiene la regla dura del módulo (ella
-// se entera antes o a la vez que las alumnas) cuando la baja NO nace en el panel.
-export function cuerpoAlertaPropietaria(params: {
-  claseNombre: string;
-  cuando: string;
-  tipo: TipoAlertaPropietaria;
-  candidataNombre?: string;
-  urlPanel: string;
-  yaContactando?: boolean; // 'baja': el motor ya está avisando a candidatas (modo autónomo)
-}): string {
-  const { claseNombre, cuando, tipo, candidataNombre, urlPanel, yaContactando } = params;
-  if (tipo === 'baja') {
-    const quien = candidataNombre ?? 'Una instructora';
-    // En autónomo el motor ya se ha puesto en marcha: es un "ya lo tengo", no un
-    // "haz algo". En asistido su visto bueno es lo único que desbloquea el flujo.
-    return yaContactando
-      ? `${quien} no puede dar ${claseNombre} (${cuando}). Ya estamos buscando sustituta: ${urlPanel}`
-      : `${quien} no puede dar ${claseNombre} (${cuando}). Tenemos candidatas listas, solo falta tu visto bueno: ${urlPanel}`;
-  }
-  if (tipo === 'agotada') {
-    return `⚠️ Nadie ha podido cubrir ${claseNombre} (${cuando}). Necesita tu decisión: ${urlPanel}`;
-  }
-  if (tipo === 'sin_sustituta') {
-    return `⚠️ ${claseNombre} (${cuando}) se ha quedado sin cubrir y ya ha llegado la hora. Revisa qué ha pasado: ${urlPanel}`;
-  }
-  return `${candidataNombre ?? 'La candidata'} aún no responde para ${claseNombre} (${cuando}). Avisa a otra o cancela: ${urlPanel}`;
-}
+// El cuerpo de texto de la alerta a la propietaria (`cuerpoAlertaPropietaria`)
+// se borró el 2026-09-09 junto con Twilio: era el mensaje del canal WhatsApp/SMS
+// de `alertarPropietaria`, y ese canal se retiró entero (ver el comentario de esa
+// función en contacto.ts — no hay integración de estudio que aplique cuando el
+// destinatario ES el propio estudio). La alerta sigue saliendo por email, con su
+// plantilla propia en lib/sustituciones/email.ts, y por el panel.

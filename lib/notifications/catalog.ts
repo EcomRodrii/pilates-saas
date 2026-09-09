@@ -359,7 +359,9 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // CRÍTICAS: declaran TODOS sus canales explícitamente. Antes bastaba con ser
   // CRÍTICA para que el motor forzara email/WA/SMS aunque la regla solo pusiera
   // PUSH; ahora que la regla manda, lo que no se declara no sale.
-  [EVENTOS.SISTEMA_ERROR]:         { category: 'sistema',  priority: 'CRITICA', canales: ['PUSH', 'EMAIL', 'WHATSAPP', 'SMS'], audiencia: 'propietaria' },
+  // Sin WHATSAPP/SMS desde el 2026-09-09: esos dos canales se retiraron con
+  // Twilio y nunca entregaron nada (ver channels.ts). PUSH y EMAIL sí llegan.
+  [EVENTOS.SISTEMA_ERROR]:         { category: 'sistema',  priority: 'CRITICA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   // Automatizaciones
   [EVENTOS.RECORDATORIO_24H]:      { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.RECORDATORIO_1H]:       { category: 'reservas', priority: 'ALTA',  canales: ['PUSH'], audiencia: 'socia-del-evento' },
@@ -383,18 +385,18 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.AUTOMATIZACION_DISPARADA]: { category: 'sistema', priority: 'BAJA', canales: [], audiencia: 'mostrador' },
   // Stripe desconectado = se deja de cobrar. CRÍTICA: ignora preferencias y usa
   // todos los canales que declara (los no configurados → SKIPPED).
-  [EVENTOS.SISTEMA_STRIPE_DESCONECTADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH', 'EMAIL', 'WHATSAPP', 'SMS'], audiencia: 'propietaria' },
+  [EVENTOS.SISTEMA_STRIPE_DESCONECTADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   // Email fallido: ALTA (no CRÍTICA) y sin EMAIL declarado a propósito — avisar
   // por correo de que el correo falla sería absurdo y podría realimentarse.
   [EVENTOS.SISTEMA_EMAIL_FALLIDO]: { category: 'sistema', priority: 'ALTA', canales: [], audiencia: 'propietaria' },
   // Prueba a punto de acabar: ALTA + PUSH/EMAIL (no CRÍTICA — todavía hay
   // acceso). Una vez bloqueado sí es CRÍTICA, mismo criterio que
-  // SISTEMA_STRIPE_DESCONECTADO, pero sin WHATSAPP/SMS: bloquea el panel, no
-  // deja de cobrar dinero real de socias en curso.
+  // SISTEMA_STRIPE_DESCONECTADO: bloquea el panel, no deja de cobrar dinero
+  // real de socias en curso.
   [EVENTOS.TRIAL_PROXIMO_A_EXPIRAR]: { category: 'sistema', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   [EVENTOS.TRIAL_EXPIRADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   // ALTA + PUSH+INAPP a propósito, nada más: el Umbral solo interrumpe cuando
-  // cree que merece la pena — un canal más (EMAIL/WHATSAPP/SMS) diluiría esa
+  // cree que merece la pena — un canal más (EMAIL) diluiría esa
   // misma promesa. Sin EMAIL: el mensaje es del día, no algo para revisar
   // luego en la bandeja.
   [EVENTOS.DECISION_MENSAJE_DIA]: { category: 'decisiones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'propietaria' },

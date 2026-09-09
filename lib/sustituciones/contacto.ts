@@ -5,11 +5,14 @@ import {
   enviarEmailContactoSustituta,
   enviarEmailAlertaPropietaria,
 } from '@/lib/sustituciones/email';
-import { enviarMensajeTwilio } from '@/lib/twilio';
+import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_SUSTITUCION } from '@/lib/whatsapp';
+import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
+import { acumuladorSalud } from '@/lib/integraciones/salud';
+import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import {
   cuerpoNudgeCandidata,
-  cuerpoAlertaPropietaria,
+  parametrosNudgeCandidata,
   type TipoAlertaPropietaria,
 } from '@/lib/sustituciones/mensajes';
 
@@ -72,7 +75,7 @@ async function registrarContacto(
   admin: SupabaseClient,
   p: {
     studioId: string; sustitucionId: string; instructorId: string;
-    canal: 'email' | 'whatsapp' | 'sms'; estado: 'enviado' | 'fallido'; token?: string;
+    canal: 'email' | 'whatsapp'; estado: 'enviado' | 'fallido'; token?: string;
   },
 ): Promise<void> {
   try {
@@ -196,19 +199,44 @@ export async function contactarDesde(
 }
 
 /**
- * Manda a la candidata YA contactada un recordatorio por WhatsApp/SMS (subida de
- * canal del escalado). El email de recordatorio va aparte. Degrada limpio si
- * Twilio no está configurado o la instructora no tiene teléfono.
+ * Manda a la candidata YA contactada un recordatorio por WhatsApp (subida de
+ * canal del escalado). El email de recordatorio va aparte. Degrada limpio si el
+ * estudio no tiene su WhatsApp Business conectado o la instructora no tiene
+ * teléfono.
+ *
+ * Es el ÚNICO de los siete emisores migrados de Twilio que usa una plantilla
+ * HSM propia (`sustitucion_urgente`), y por dos razones que van juntas: su
+ * cuerpo tiene forma FIJA —a diferencia del texto libre de campañas,
+ * automatizaciones y del contacto del Decision OS, que no se puede aprobar de
+ * antemano— y es el que más la necesita, porque este aviso es precisamente la
+ * escalada de un email que la instructora NO ha contestado: dar por hecho que
+ * ella escribió al estudio en las últimas 24 h es dar por hecho lo contrario de
+ * lo que está pasando. Sin la plantilla se manda texto igual (llega a quien sí
+ * escribió hace poco) en vez de no mandar nada.
+ *
+ * El canal SMS de respaldo desapareció con Twilio: Meta no manda SMS, y aquel
+ * respaldo no llegó a enviar un solo mensaje en producción (0 filas
+ * `canal='sms'` en `sustitucion_contactos`).
  */
 export async function recordatorioPorMensaje(
   admin: SupabaseClient,
   params: { studioId: string; instructorId: string; sustitucionId: string; sesion: SesionMin },
 ): Promise<{ enviado: boolean; skipped: boolean }> {
   const { studioId, instructorId, sustitucionId, sesion } = params;
-  const { data: cand } = await admin
-    .from('instructores').select('nombre, telefono')
-    .eq('id', instructorId).eq('studio_id', studioId).maybeSingle();
+  const [{ data: cand }, { data: intg }] = await Promise.all([
+    admin.from('instructores').select('nombre, telefono')
+      .eq('id', instructorId).eq('studio_id', studioId).maybeSingle(),
+    admin.from('integraciones').select('activo, config')
+      .eq('studio_id', studioId).eq('tipo', 'WHATSAPP').maybeSingle(),
+  ]);
   if (!cand?.telefono) return { enviado: false, skipped: true };
+
+  // Sin WhatsApp conectado el canal sencillamente no existe para este estudio:
+  // `skipped`, no `fallido`. Anotarlo como fallo llenaría la traza que ve la
+  // propietaria de rojo por algo que ella no ha roto — mismo criterio que tenía
+  // el «Twilio no configurado» de antes.
+  const whatsapp = whatsappDelEstudio(intg as { activo: boolean; config: Record<string, string> | null } | null);
+  if (!whatsapp) return { enviado: false, skipped: true };
 
   const { data: tipo } = await admin
     .from('tipos_clase').select('nombre').eq('id', sesion?.tipo_clase_id ?? '').maybeSingle();
@@ -216,42 +244,49 @@ export async function recordatorioPorMensaje(
   // Reutiliza el último token de esta candidata para el enlace de aceptación.
   const token = firmarTokenInstructora(instructorId, studioId, 'aceptar_sustitucion', sustitucionId);
   const url = `${appUrl()}/aceptar-sustitucion/${token}`;
-  const cuerpo = cuerpoNudgeCandidata({
+  const datos = {
     nombre: cand.nombre,
     claseNombre: tipo?.nombre ?? 'una clase',
     cuando: sesion?.inicio ? formatCuando(sesion.inicio) : '',
     url,
+  };
+
+  const res = whatsapp.plantillaSustitucion
+    ? await enviarWhatsAppPlantilla(whatsapp, cand.telefono, PLANTILLA_SUSTITUCION, parametrosNudgeCandidata(datos))
+    : await enviarWhatsAppTexto(whatsapp, cand.telefono, cuerpoNudgeCandidata(datos));
+
+  // Un solo envío: el acumulador es aquí un formalismo, pero mantiene el
+  // criterio en un sitio (`salud.resultado()` devuelve null si no se intentó
+  // nada) en vez de reimplementarlo a mano.
+  const salud = acumuladorSalud();
+  salud.anota(res);
+  const resultadoSalud = salud.resultado();
+  if (resultadoSalud) await registrarSaludIntegracion(admin, studioId, 'WHATSAPP', resultadoSalud);
+
+  await registrarContacto(admin, {
+    studioId, sustitucionId, instructorId, canal: 'whatsapp', estado: res.ok ? 'enviado' : 'fallido',
   });
-
-  const comun = { studioId, sustitucionId, instructorId } as const;
-
-  const wa = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: cand.telefono, cuerpo });
-  if (wa.ok) {
-    await registrarContacto(admin, { ...comun, canal: 'whatsapp', estado: 'enviado' });
-    return { enviado: true, skipped: false };
-  }
-  // Si WhatsApp no está configurado, intenta SMS antes de rendirse.
-  const sms = await enviarMensajeTwilio({ canal: 'SMS', to: cand.telefono, cuerpo });
-  if (sms.ok) {
-    await registrarContacto(admin, { ...comun, canal: 'sms', estado: 'enviado' });
-    return { enviado: true, skipped: false };
-  }
-
-  // Distinguir "no configurado" de "falló": si Twilio no está puesto, el canal
-  // sencillamente no existe para este estudio y anotarlo como fallo llenaría la
-  // traza de ruido rojo. Si estaba puesto y el envío petó, eso SÍ hay que verlo.
-  const noConfigurado = !!(wa.skipped && sms.skipped);
-  if (!noConfigurado) {
-    await registrarContacto(admin, { ...comun, canal: 'whatsapp', estado: 'fallido' });
-  }
-  return { enviado: false, skipped: noConfigurado };
+  return { enviado: res.ok, skipped: false };
 }
 
 /**
  * Alerta a la propietaria: se ha dado una baja fuera del panel, nadie responde,
- * o se agotó el ranking. Email al estudio + WhatsApp/SMS si hay teléfono.
+ * o se agotó el ranking. Email al estudio.
  * Idempotencia la garantiza el llamador (un solo disparo por candidata/
  * agotamiento vía step.run de Inngest; una sola vez al crear la baja).
+ *
+ * ⚠️ Ya no manda WhatsApp/SMS, y no es una pérdida de canal: iba a
+ * `studios.telefono` con la credencial de plataforma de Twilio, que en
+ * producción no existe — nunca salió de aquí un solo mensaje. Y no se ha
+ * migrado a Meta como el resto porque aquí no hay integración de estudio que
+ * aplique: sería el WhatsApp Business del estudio escribiendo al teléfono de
+ * contacto del mismo estudio, que para una propietaria sola es EL MISMO NÚMERO
+ * —y Meta rechaza un envío a sí mismo—. Llegaría a unas sí y a otras no según
+ * cómo lo tengan montado, que es peor que no ofrecerlo.
+ *
+ * El aviso sigue llegando por email y por el panel; `mensaje` se conserva en el
+ * retorno (siempre `false`) para no tocar a los cuatro llamadores por un dato
+ * que ninguno usa para decidir nada.
  */
 export async function alertarPropietaria(
   admin: SupabaseClient,
@@ -265,7 +300,7 @@ export async function alertarPropietaria(
 ): Promise<{ email: boolean; mensaje: boolean }> {
   const { studioId, sesion, tipo } = params;
   const { data: estudio } = await admin
-    .from('studios').select('nombre, email, telefono, color_primario, logo_url').eq('id', studioId).maybeSingle();
+    .from('studios').select('nombre, email, color_primario, logo_url').eq('id', studioId).maybeSingle();
 
   const { data: tc } = await admin
     .from('tipos_clase').select('nombre').eq('id', sesion?.tipo_clase_id ?? '').maybeSingle();
@@ -286,20 +321,7 @@ export async function alertarPropietaria(
     email = 'ok' in r && r.ok === true;
   }
 
-  let mensaje = false;
-  if (estudio?.telefono) {
-    const cuerpo = cuerpoAlertaPropietaria({
-      claseNombre, cuando, tipo, candidataNombre: params.candidataNombre, urlPanel,
-      yaContactando: params.yaContactando,
-    });
-    const wa = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: estudio.telefono, cuerpo });
-    if (wa.ok) mensaje = true;
-    else {
-      const sms = await enviarMensajeTwilio({ canal: 'SMS', to: estudio.telefono, cuerpo });
-      mensaje = sms.ok;
-    }
-  }
-  return { email, mensaje };
+  return { email, mensaje: false };
 }
 
 export interface Vigencia {
