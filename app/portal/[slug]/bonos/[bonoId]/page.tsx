@@ -7,7 +7,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
-import { getBonos, getClases, getPagos, getReservas } from '@/lib/student/datos';
+import { getBonos, getPagos } from '@/lib/student/datos';
 import { euros, fechaCorta, unir } from '@/lib/student/formato';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
@@ -27,16 +27,13 @@ export default function DetalleBonoPage() {
   const href = usePortalHref();
 
   const cargar = useCallback(async () => {
-    const [bonos, reservas, clases, pagos] = await Promise.all([
-      getBonos(estudio.slug), getReservas(estudio.slug), getClases(estudio.slug), getPagos(estudio.slug),
-    ]);
+    // `getReservas`/`getClases` estaban aquí solo para alimentar la lista de
+    // «sesiones usadas» que se ha ido: se van con ella.
+    const [bonos, pagos] = await Promise.all([getBonos(estudio.slug), getPagos(estudio.slug)]);
     const b = bonos.find((x) => x.id === bonoId);
     if (!b) return null;
     return {
       b,
-      usos: reservas
-        .filter((r) => r.bonoId === b.id)
-        .map((r) => ({ r, c: clases.find((c) => c.id === r.claseId) })),
       pago: pagos.find((p) => p.bonoId === b.id),
     };
   }, [estudio.slug, bonoId]);
@@ -65,7 +62,7 @@ export default function DetalleBonoPage() {
     );
   }
 
-  const { b, usos, pago } = data;
+  const { b, pago } = data;
 
   return (
     <StudentShell>
@@ -85,25 +82,18 @@ export default function DetalleBonoPage() {
           )}
         </div>
 
-        <section>
-          <p className="t-label" style={{ margin: '0 0 8px' }}>Sesiones usadas</p>
-          {usos.length === 0 ? (
-            <p className="t-meta">Todavía no has usado ninguna sesión de este bono.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {usos.map(({ r, c }) => (
-                <div
-                  key={r.id}
-                  className="card"
-                  style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '10px 13px', fontSize: 'var(--t-small)' }}
-                >
-                  <span style={{ fontWeight: 700 }}>{c?.nombre ?? 'Clase'}</span>
-                  <span className="t-meta">{c ? `${fechaCorta(c.fecha)} · ${c.hora}` : ''}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+        {/* ⚠️ Aquí había una sección «Sesiones usadas» que listaba las clases
+            pagadas con este bono filtrando `reservas` por `r.bonoId`. Ese campo
+            NO LO ESCRIBE NADIE: el único sitio del repo que pone un `bonoId` es
+            `proyectarPagos`, y lo pone en un `Pago`, no en una `Reserva`. Así
+            que el filtro no casaba nunca y la sección salía SIEMPRE con
+            «Todavía no has usado ninguna sesión de este bono» — justo debajo de
+            una fila que decía «Usadas / total: 3 / 8». La misma pantalla, dos
+            respuestas opuestas sobre el bono que la alumna ha pagado.
+            Y no es que faltara conectarlo: `proyectarReservas` ya documenta que
+            `reservas` no guarda con qué se pagó (consumir el bono es un paso
+            aparte y no deja columna). O sea que el dato no existe. Se quita la
+            promesa en vez de fingirla. */}
       </div>
     </StudentShell>
   );
