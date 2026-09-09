@@ -83,6 +83,24 @@ test('la ventana del TIPO de clase manda sobre la del estudio', () => {
   assert.equal(avisoCancelacion(clase({ ventanaCancelacionHoras: null }), 12, a18h).devolveriaCredito, true);
 });
 
+test('el aviso dice CON QUÉ ventana ha decidido, no la del estudio', () => {
+  // El bug que esto tapa no estaba en la decisión —esa ya usaba la resuelta—
+  // sino en la FRASE: dos pantallas escribían `estudio.politicaCancelacionHoras`
+  // mientras decidían con la del tipo. Con 24 h propias y 12 del estudio,
+  // cancelar 18 h antes pintaba el aviso ámbar (correcto) y a la vez decía
+  // «quedan menos de 12 h», que es falso y se contradice solo.
+  const c = clase({ ventanaCancelacionHoras: 24 });
+  const a18h = new Date(new Date(c.fecha + 'T' + c.hora + ':00').getTime() - 18 * 36e5);
+  const a = avisoCancelacion(c, 12, a18h);
+  assert.equal(a.devolveriaCredito, false);
+  assert.equal(a.horasVentana, 24, 'la frase tiene que citar las 24 del tipo, no las 12 del estudio');
+
+  // Sin ventana propia, la del estudio es la que aplica y la que se cita.
+  assert.equal(avisoCancelacion(clase({ ventanaCancelacionHoras: null }), 12, a18h).horasVentana, 12);
+  // Y un 0 del tipo se cita como 0, no como las 12 del estudio.
+  assert.equal(avisoCancelacion(clase({ ventanaCancelacionHoras: 0 }), 12, a18h).horasVentana, 0);
+});
+
 test('una ventana de 0 h del tipo NO cae al valor del estudio', () => {
   // `??` y no `||`: un estudio que deja cancelar hasta el último minuto pone 0,
   // y con `||` se habría leído como «usa las 12 del estudio».
