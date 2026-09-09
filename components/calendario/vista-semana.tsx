@@ -251,12 +251,20 @@ export function VistaSemana({
                       onSeleccionar={() => onSeleccionar(s.id)}
                       arrastrable={arrastrable?.(d) ?? false}
                       onMover={!onMoverSesion ? undefined : (clientX, clientY) => {
+                        // ⚠️ Sin columna de destino NO se mueve nada. Antes caía a
+                        // `offsetYPx = clientY`: una coordenada de PANTALLA usada como
+                        // desplazamiento dentro de la columna, o sea la clase saltaba a
+                        // una hora inventada. Soltar sobre las horas, la cabecera o
+                        // fuera de la rejilla no es un destino: es cancelar.
                         const destino = (document.elementFromPoint(clientX, clientY) as HTMLElement | null)
                           ?.closest<HTMLElement>('[data-dia-index]');
-                        const diaColumna = destino ? Number(destino.dataset.diaIndex) : i;
-                        const rect = destino?.getBoundingClientRect();
-                        const offsetYPx = rect ? clientY - rect.top : clientY;
-                        onMoverSesion(s.id, { diaColumna, offsetYPx, pxPorHora });
+                        if (!destino) return;
+                        const rect = destino.getBoundingClientRect();
+                        onMoverSesion(s.id, {
+                          diaColumna: Number(destino.dataset.diaIndex),
+                          offsetYPx: clientY - rect.top,
+                          pxPorHora,
+                        });
                       }}
                       style={{
                         top: topPx, height: Math.max(altoPx, 14),
