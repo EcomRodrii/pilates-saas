@@ -78,13 +78,22 @@ export function Avatar({
   studio = false,
   colorClass,
   size = 'md',
+  logoUrl,
 }: {
   initials: string;
   studio?: boolean;
   colorClass?: string;
   size?: 'sm' | 'md' | 'lg';
+  /** Logo del estudio (Configuración → Tu marca) — solo tiene sentido con `studio`. Sin él, cae a las iniciales de siempre. */
+  logoUrl?: string | null;
 }) {
   const dims = size === 'sm' ? 'size-7 text-[11px]' : size === 'lg' ? 'size-11 text-[14px]' : 'size-9 text-[12px]';
+  if (studio && logoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={logoUrl} alt="" className={cn('rounded-full object-cover shrink-0', dims)} />
+    );
+  }
   return (
     <div
       className={cn(
@@ -225,6 +234,7 @@ const TEXTO_LARGO = 320;
 
 export function CompositorPost({
   inicialesEstudio,
+  logoEstudio,
   recuentoAudiencia,
   subiendoImagen,
   imagenUrl,
@@ -235,6 +245,7 @@ export function CompositorPost({
   errorImagen,
 }: {
   inicialesEstudio: string;
+  logoEstudio?: string | null;
   recuentoAudiencia: Partial<Record<DestinatariosCampana, number>>;
   subiendoImagen: boolean;
   imagenUrl: string | null;
@@ -296,7 +307,7 @@ export function CompositorPost({
       )}
     >
       <div className="flex items-start gap-3">
-        <Avatar initials={inicialesEstudio} studio size="lg" />
+        <Avatar initials={inicialesEstudio} studio size="lg" logoUrl={logoEstudio} />
         <textarea
           ref={areaRef}
           value={texto}
@@ -480,6 +491,8 @@ export function PostCardPanel({
   expandido,
   indice,
   recuentoAudiencia,
+  logoEstudio,
+  nombreEstudio,
   onLike,
   onToggleComentarios,
   onEditar,
@@ -494,6 +507,10 @@ export function PostCardPanel({
   indice: number;
   /** Solo hace falta si `onEditar` está presente (audiencia editable). */
   recuentoAudiencia?: Partial<Record<DestinatariosCampana, number>>;
+  /** Logo del estudio (Configuración → Tu marca), para el avatar cuando el autor es el estudio. */
+  logoEstudio?: string | null;
+  /** Nombre del estudio — para reconocer un post "como el estudio" por nombre (ver `esEstudio` abajo). */
+  nombreEstudio?: string;
   onLike: (id: string) => void;
   onToggleComentarios: (id: string) => void;
   /** Ausentes → sin acciones de editar/borrar (p.ej. una vista de solo lectura). */
@@ -502,7 +519,15 @@ export function PostCardPanel({
   /** El hilo de comentarios, que lo monta la página (tiene el estado). */
   children?: React.ReactNode;
 }) {
-  const esEstudio = post.autorId === null;
+  // `autor_id` SIEMPRE lleva el uuid real de quien publicó (nunca null en un
+  // post persistido — `autorId === null` solo pasa en el placeholder
+  // optimista de `use-content-store.ts` antes de que llegue la respuesta del
+  // servidor). En la práctica, "publica como el estudio" no es un booleano
+  // en BD: es que la cuenta con la que se publicó se llama igual que el
+  // estudio (mostrador/recepción compartido) — de ahí el logo genérico "PB"
+  // que reportó el usuario en SU PROPIO estudio real, no en un post de
+  // sistema. Se reconoce por nombre, no solo por `autorId === null`.
+  const esEstudio = post.autorId === null || (Boolean(nombreEstudio) && post.autorNombre === nombreEstudio);
   const esEvento = post.tipo === 'EVENTO';
   const [editando, setEditando] = useState(false);
   const [borradorEdicion, setBorradorEdicion] = useState(post.texto);
@@ -578,6 +603,7 @@ export function PostCardPanel({
             studio={esEstudio}
             colorClass={colorClass}
             size="lg"
+            logoUrl={esEstudio ? logoEstudio : undefined}
           />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[14px] font-bold text-foreground">{post.autorNombre}</p>

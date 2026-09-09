@@ -212,6 +212,7 @@ export function ComunidadFeed() {
         <div ref={compositorRef}>
           <CompositorPost
             inicialesEstudio={inicialesEstudio}
+            logoEstudio={studio?.logoUrl}
             recuentoAudiencia={recuentoAudiencia}
             subiendoImagen={subiendoImagen}
             imagenUrl={imagenUrl}
@@ -259,6 +260,8 @@ export function ComunidadFeed() {
               comentarios={total}
               expandido={expandedPosts.has(post.id)}
               recuentoAudiencia={recuentoAudiencia}
+              logoEstudio={studio?.logoUrl}
+              nombreEstudio={studio?.nombre}
               onLike={toggleLikePost}
               onToggleComentarios={handleToggleComments}
               onEditar={puedeTocarEstePost ? updatePost : undefined}
@@ -268,6 +271,7 @@ export function ComunidadFeed() {
                 postId={post.id}
                 comments={comentarios}
                 inicialesEstudio={inicialesEstudio}
+                logoEstudio={studio?.logoUrl}
                 onAddComment={handleAddComment}
               />
             </PostCardPanel>
@@ -390,11 +394,13 @@ function HiloComentarios({
   postId,
   comments,
   inicialesEstudio,
+  logoEstudio,
   onAddComment,
 }: {
   postId: string;
   comments: Comment[];
   inicialesEstudio: string;
+  logoEstudio?: string | null;
   onAddComment: (postId: string, texto: string) => void;
 }) {
   const [draft, setDraft] = useState('');
@@ -429,7 +435,7 @@ function HiloComentarios({
       ))}
 
       <div className="flex items-end gap-2.5 pt-1">
-        <Avatar initials={inicialesEstudio} studio size="sm" />
+        <Avatar initials={inicialesEstudio} studio size="sm" logoUrl={logoEstudio} />
         <textarea
           value={draft}
           onChange={e => setDraft(e.target.value)}
