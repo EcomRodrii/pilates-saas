@@ -1515,6 +1515,8 @@ export interface RowAvisosHueco {
   resultado: string;
   detalle: string | null;
   enviado_en: string;
+  // migr 20260909191157.
+  canal: string | null;
 }
 
 export interface RowCongelaciones {

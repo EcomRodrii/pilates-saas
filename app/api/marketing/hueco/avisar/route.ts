@@ -275,7 +275,12 @@ export async function POST(req: NextRequest) {
           // de cualquier email». Sin él, el correo incumple su propio permiso.
           unsubscribeUrl: `${appUrl}/api/marketing/baja?token=${firmarBajaMarketing(sesion.studioId, socia.id)}`,
         }));
-        resultado = await emailProvider!.enviar({
+        // `ResultadoEnvioProvider` es `{ ok: boolean; error?: string }`, no una
+        // unión discriminada: se normaliza aquí para que el resto del bucle
+        // trate los dos canales igual. Un `ok: false` sin mensaje del proveedor
+        // no puede quedarse sin detalle en `avisos_hueco` — la fila es
+        // justamente lo que se mira cuando alguien dice que no le llegó.
+        const envio = await emailProvider!.enviar({
           to: socia.email,
           subject: `Se ha quedado un hueco en ${nombreClase} — ${fecha}`,
           html,
@@ -286,6 +291,9 @@ export async function POST(req: NextRequest) {
           // el que ocurre ANTES de que se escriba esa fila.
           idempotencyKey: `hueco-${sesionId}-${socia.id}`,
         });
+        resultado = envio.ok
+          ? { ok: true, id: envio.id }
+          : { ok: false, error: envio.error ?? 'El proveedor de email rechazó el envío' };
       }
 
       if (resultado.ok) { enviados++; if (porWa) porWhatsapp++; else porEmail++; } else errores++;
