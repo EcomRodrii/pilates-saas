@@ -5771,6 +5771,58 @@ export async function dbListarPenalizacionesPendientes(): Promise<PenalizacionPe
 
 
 
+// ── Canjes pendientes de entregar ───────────────────────────────────────────
+//
+// Igual que `dbListarPenalizacionesPendientes`: cliente con RLS y SIN
+// `studioId` — acota la policy `reward_redemptions_lectura`, no un parámetro.
+//
+// ⚠️ Existe porque los canjes vivían SOLO en Configuración → Gamificación →
+// Canjes: tres niveles dentro de Ajustes, que no es donde se mira cada día. La
+// socia paga con sus créditos y se presenta en el mostrador esperando algo, y
+// quien la atiende no tenía forma de saberlo sin ir a buscarlo.
+
+export interface CanjePendiente {
+  id: string;
+  socioNombre: string;
+  recompensa: string;
+  creditos: number;
+  codigo: string | null;
+  creadoEn: string;
+}
+
+export async function dbListarCanjesPendientes(): Promise<CanjePendiente[]> {
+  const { data, error } = await supabase
+    .from('reward_redemptions')
+    .select('id, socio_id, catalog_item_id, creditos_gastados, codigo, creado_en')
+    .eq('estado', 'PENDIENTE')
+    .order('creado_en', { ascending: true }) as {
+      data: Pick<RowRewardRedemptions, 'id' | 'socio_id' | 'catalog_item_id' | 'creditos_gastados' | 'codigo' | 'creado_en'>[] | null;
+      error: { message: string } | null;
+    };
+  if (error) { reportDbError('[dbListarCanjesPendientes]', error); return []; }
+  if (!data?.length) return [];
+
+  const socioIds = [...new Set(data.map(c => c.socio_id).filter((x): x is string => Boolean(x)))];
+  const itemIds = [...new Set(data.map(c => c.catalog_item_id).filter((x): x is string => Boolean(x)))];
+  const [{ data: socios }, { data: items }] = await Promise.all([
+    supabase.from('socios').select('id, nombre, apellidos').in('id', socioIds),
+    supabase.from('reward_catalog').select('id, nombre').in('id', itemIds),
+  ]);
+  const nombrePorId = new Map((socios ?? []).map(s => [s.id as string, `${s.nombre} ${s.apellidos}`.trim()]));
+  const recompensaPorId = new Map((items ?? []).map(i => [i.id as string, i.nombre as string]));
+
+  return data.map(c => ({
+    id: c.id,
+    // Una socia dada de baja no borra su canje: alguien pagó por él y puede
+    // presentarse igual. Decirlo es mejor que enseñar una fila sin nombre.
+    socioNombre: (c.socio_id && nombrePorId.get(c.socio_id)) || 'Socia dada de baja',
+    recompensa: (c.catalog_item_id && recompensaPorId.get(c.catalog_item_id)) || 'Recompensa retirada del catálogo',
+    creditos: c.creditos_gastados,
+    codigo: c.codigo ?? null,
+    creadoEn: c.creado_en,
+  }));
+}
+
 // ── Devoluciones pendientes de revisar ──────────────────────────────────────
 //
 // Igual que `dbListarPenalizacionesPendientes`: cliente con RLS y SIN `studioId`
