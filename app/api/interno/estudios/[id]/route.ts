@@ -28,9 +28,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
 
   const { data: studio } = await db.from('studios')
-    .select('id, slug, nombre, plan, email, telefono, direccion, creado_en, stripe_customer_id, stripe_account_id, owner_auth_user_id, suspendido_en, suspendido_motivo, review_boost_elegible_en, review_boost_mostrado_en')
+    .select('id, slug, nombre, plan, email, telefono, direccion, creado_en, stripe_customer_id, stripe_account_id, owner_auth_user_id, suspendido_en, suspendido_motivo, review_boost_elegible_en, review_boost_mostrado_en, cadena_id')
     .eq('id', id).maybeSingle();
   if (!studio) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
+
+  // 37ª pasada de auditoría: la suscripción al SaaS de una SEDE de cadena vive
+  // en `cadenas.stripe_customer_id`, no en `studios.stripe_customer_id` (mismo
+  // criterio que ya usan /api/billing/checkout y /portal). Sin este fallback,
+  // una sede que factura con normalidad aparecía como "sin cliente de
+  // Stripe" — dato falso que llevaba a soporte a investigar un problema de
+  // cobro inexistente.
+  const cadenaStripeCustomerId = studio.cadena_id
+    ? (await db.from('cadenas').select('stripe_customer_id').eq('id', studio.cadena_id as string).maybeSingle())
+        .data?.stripe_customer_id as string | null ?? null
+    : null;
 
   const hace30 = new Date(Date.now() - 30 * 864e5).toISOString();
 
@@ -84,9 +95,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       // Lo local solo dice si llegó a existir un cliente/cuenta en Stripe. El
       // estado de la suscripción (al día, impagada, cancelada) NO se guarda
       // aquí: hay que mirarlo en Stripe. La UI enlaza allí en vez de fingir.
-      tieneClienteStripe: Boolean(studio.stripe_customer_id),
-      clienteStripeId: (studio.stripe_customer_id as string | null) ?? null,
+      // Una sede de cadena factura con el cliente de LA CADENA (ver arriba):
+      // `facturaComoCadena` es lo que le dice a la UI que "sin cliente de
+      // Stripe" en su propia fila es normal y no una alarma.
+      tieneClienteStripe: Boolean(studio.stripe_customer_id) || Boolean(cadenaStripeCustomerId),
+      clienteStripeId: (studio.stripe_customer_id as string | null) ?? cadenaStripeCustomerId,
       cobraConStripeConnect: Boolean(studio.stripe_account_id),
+      facturaComoCadena: Boolean(studio.cadena_id),
     },
     suspension: {
       suspendido: Boolean(studio.suspendido_en),

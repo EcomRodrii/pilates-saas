@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!cuerpo?.accion) return NextResponse.json({ error: 'Falta la acción' }, { status: 400 });
 
   const { data: antes } = await db.from('studios')
-    .select('id, slug, nombre, plan, suspendido_en, suspendido_motivo, review_boost_elegible_en')
+    .select('id, slug, nombre, plan, suspendido_en, suspendido_motivo, review_boost_elegible_en, cadena_id')
     .eq('id', id).maybeSingle();
   if (!antes) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
 
@@ -46,6 +46,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     if (cuerpo.plan === antes.plan) {
       return NextResponse.json({ error: `Ya está en el plan ${cuerpo.plan}.` }, { status: 409 });
+    }
+    // 37ª pasada de auditoría: en una sede de cadena el plan no vive aquí de
+    // verdad — vive en `cadenas.plan`, y `trg_propagar_plan_cadena` (migración
+    // 0066) sobrescribe `studios.plan` de TODAS las sedes en cuanto `cadenas`
+    // reciba cualquier UPDATE normal de Stripe (renovación, cambio de tarjeta,
+    // etc.). Escribir aquí parecía un cambio permanente y se revertía solo, en
+    // silencio, sin pasar por `registrar()` — el mismo tipo de rama de cadena
+    // que un camino antiguo no contemplaba (F-4, 20ª auditoría).
+    if (antes.cadena_id) {
+      return NextResponse.json(
+        { error: 'Esta sede pertenece a una cadena: el plan se gestiona sobre la cadena, no sobre la sede.' },
+        { status: 409 },
+      );
     }
 
     const { error } = await db.from('studios').update({ plan: cuerpo.plan }).eq('id', id);

@@ -79,6 +79,15 @@ export default function FichaEstudioInterno({ params }: { params: Promise<{ id: 
         <Bloque titulo="Pagos">
           <Dato etiqueta="Cliente en Stripe">{f.pagos.tieneClienteStripe ? 'Sí' : 'No'}</Dato>
           <Dato etiqueta="Cobra a sus socias (Connect)">{f.pagos.cobraConStripeConnect ? 'Sí' : 'No'}</Dato>
+          {/* 37ª pasada de auditoría: una sede de cadena factura con el
+              cliente de Stripe de LA CADENA, no el suyo propio — sin este
+              aviso, "Cliente en Stripe: Sí" con el enlace apuntando a un
+              customer_id que no es el de esta fila parecía un error. */}
+          {f.pagos.facturaComoCadena && (
+            <p className="mt-1 text-[12px] text-muted-foreground leading-snug">
+              Esta sede pertenece a una cadena: factura con el cliente de Stripe de la cadena, no uno propio.
+            </p>
+          )}
           {/* No se finge saber si está al día: eso lo sabe Stripe y solo Stripe. */}
           <p className="mt-2 text-[12px] text-muted-foreground leading-snug">
             El estado de la suscripción (al día, impagada, cancelada) y la próxima renovación no se guardan aquí.

@@ -72,7 +72,13 @@ export interface EstudioFila {
 export interface FichaEstudio {
   estudio: { id: string; slug: string; nombre: string; plan: string; email: string | null; telefono: string | null; direccion: string | null; creadoEn: string };
   duena: { email: string | null; ultimoAcceso: string | null; alta: string | null } | null;
-  pagos: { tieneClienteStripe: boolean; clienteStripeId: string | null; cobraConStripeConnect: boolean };
+  pagos: {
+    tieneClienteStripe: boolean; clienteStripeId: string | null; cobraConStripeConnect: boolean;
+    // 37ª pasada de auditoría: una sede de cadena factura con el cliente de
+    // Stripe de la cadena, no uno propio — sin este flag, "sin cliente de
+    // Stripe" en una sede de cadena parecía un problema de cobro real.
+    facturaComoCadena: boolean;
+  };
   suspension: { suspendido: boolean; desde: string | null; motivo: string | null };
   uso: { socias: number; clases: number; reservas30d: number; facturacionPropia30d: number };
   equipo: Array<{ nombre: string; rol: string; activo: boolean; tieneCuenta: boolean }>;
