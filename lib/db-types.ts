@@ -1900,6 +1900,10 @@ export interface RowLiquidacionesInstructoras {
   pagada_por: string | null;
   referencia_pago: string | null;
   generada_en: string;
+  // migr 20260909220851.
+  requiere_revision: boolean | null;
+  // migr 20260909220851.
+  revision_motivo: string | null;
 }
 
 export interface RowRetoParticipaciones {
