@@ -35,6 +35,7 @@ function overridesDeTipoClase(tc: TipoClase): string[] {
   if (tc.requiereAprobacion) chips.push('Aprobación manual');
   if (tc.listaEsperaPlazoAceptacionMinutos != null) chips.push(`Plazo espera: ${tc.listaEsperaPlazoAceptacionMinutos} min`);
   if (tc.minimoAsistentesPorClase != null) chips.push(`Mín. ${tc.minimoAsistentesPorClase} asistentes`);
+  if (tc.requiereCheckinQr != null) chips.push(tc.requiereCheckinQr ? 'Se pasa lista' : 'Sin pasar lista');
   if (tc.penalizacionImporteEur != null) chips.push(`Penalización ${formatEuro(tc.penalizacionImporteEur)}`);
   return chips;
 }

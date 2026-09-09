@@ -798,6 +798,18 @@ export interface TipoClase {
   // Fase 2c (migr 20260731140000): mismo patrón de override, resuelto en TS
   // con heredaOverride().
   minimoAsistentesPorClase: number | null;
+  /**
+   * ¿Hay que pasar lista en esta clase? (migr 20260909210000)
+   *
+   * Mismo patrón de override: NULL = hereda `studios.requiereCheckinQr`.
+   *
+   * `false` no solo esconde el escáner: hace que el barrido
+   * `marcarAsistidasAutomaticamente` dé por asistida toda reserva CONFIRMADA al
+   * TERMINAR la clase. Y como ASISTIDA es lo que dispara créditos, racha,
+   * logros y el premio de referido, esto decide si esa gente los recibe sola o
+   * no los recibe nunca — no es cosmético.
+   */
+  requiereCheckinQr: boolean | null;
   // Fase 3 (migr 20260730225253): mismo patrón de override, resuelto en SQL
   // directo dentro de cancelar_reserva_plaza (ver comentario en Studio).
   penalizacionImporteEur: number | null;

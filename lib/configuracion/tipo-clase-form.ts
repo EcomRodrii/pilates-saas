@@ -49,6 +49,8 @@ export type ClaseForm = {
   permiteListaEspera: TriEstado;
   // Fase 2a (migr 20260730192445): mismo patrón de override.
   requiereAprobacion: TriEstado;
+  /** ¿Se pasa lista? `hereda` = lo que diga el estudio. */
+  requiereCheckinQr: TriEstado;
   // Niveles (migr 20260905011213). Booleano PLANO, no tri-estado: no hereda del
   // estudio porque no hay un "por defecto" con sentido — que Avanzado pida
   // autorización y Suelo no es una propiedad de cada clase, no una política.
@@ -83,6 +85,7 @@ export const emptyClaseForm = (color: string): ClaseForm => ({
   reservaAntelacionMaximaDias: '',
   permiteListaEspera: 'hereda',
   requiereAprobacion: 'hereda',
+  requiereCheckinQr: 'hereda',
   requiereAutorizacion: false,
   listaEsperaPlazoAceptacionMinutos: '',
   minimoAsistentesPorClase: '',
@@ -108,6 +111,7 @@ export function claseToForm(t: TipoClase): ClaseForm {
     reservaAntelacionMaximaDias: numAString(t.reservaAntelacionMaximaDias),
     permiteListaEspera: boolATri(t.permiteListaEspera),
     requiereAprobacion: boolATri(t.requiereAprobacion),
+    requiereCheckinQr: boolATri(t.requiereCheckinQr),
     requiereAutorizacion: t.requiereAutorizacion ?? false,
     listaEsperaPlazoAceptacionMinutos: numAString(t.listaEsperaPlazoAceptacionMinutos),
     minimoAsistentesPorClase: numAString(t.minimoAsistentesPorClase),
@@ -155,6 +159,7 @@ export function formACampos(form: ClaseForm): Omit<TipoClase, 'id' | 'studioId' 
     reservaAntelacionMaximaDias: enteroOpcional(form.reservaAntelacionMaximaDias),
     permiteListaEspera: triABool(form.permiteListaEspera),
     requiereAprobacion: triABool(form.requiereAprobacion),
+    requiereCheckinQr: triABool(form.requiereCheckinQr),
     requiereAutorizacion: form.requiereAutorizacion,
     listaEsperaPlazoAceptacionMinutos: enteroOpcional(form.listaEsperaPlazoAceptacionMinutos),
     minimoAsistentesPorClase: enteroOpcional(form.minimoAsistentesPorClase),

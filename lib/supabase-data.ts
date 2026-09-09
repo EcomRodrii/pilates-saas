@@ -956,6 +956,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     requiereAutorizacion: r.requiere_autorizacion ?? false,
     listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? null,
     minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? null,
+    requiereCheckinQr: r.requiere_checkin_qr ?? null,
     penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
     especialidadNetwork: (r.especialidad_network as TipoClase['especialidadNetwork']) ?? null,
     esOnline: r.es_online ?? false,
@@ -4221,6 +4222,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     requiere_autorizacion: t.requiereAutorizacion ?? false,
     lista_espera_plazo_aceptacion_minutos: t.listaEsperaPlazoAceptacionMinutos ?? null,
     minimo_asistentes_por_clase: t.minimoAsistentesPorClase ?? null,
+    requiere_checkin_qr: t.requiereCheckinQr ?? null,
     penalizacion_importe_eur: t.penalizacionImporteEur ?? null,
     especialidad_network: t.especialidadNetwork ?? null,
     es_online: t.esOnline ?? false,
@@ -4249,6 +4251,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('requiereAutorizacion' in changes) db.requiere_autorizacion = changes.requiereAutorizacion;
   if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
   if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
+  if ('requiereCheckinQr' in changes) db.requiere_checkin_qr = changes.requiereCheckinQr;
   if ('penalizacionImporteEur' in changes) db.penalizacion_importe_eur = changes.penalizacionImporteEur;
   if ('especialidadNetwork' in changes) db.especialidad_network = changes.especialidadNetwork;
   if ('esOnline' in changes) db.es_online = changes.esOnline;

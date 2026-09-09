@@ -52,7 +52,7 @@ declare global {
 
 export default function LeerPasePage() {
   useParams();
-  const { studio, dataLoaded } = useStudio();
+  const { studio, tiposClase, dataLoaded } = useStudio();
   const videoRef = useRef<HTMLVideoElement>(null);
   // Ya no hay estado «sin-soporte»: con el respaldo de jsQR la cámara lee en
   // cualquier navegador con `getUserMedia`. Lo único que puede faltar ahora es
@@ -162,7 +162,13 @@ export default function LeerPasePage() {
   // móvil de recepción) además de por el enlace del calendario — ese enlace ya
   // se oculta con el flag desactivado, pero si alguien llega aquí igual, mejor
   // explicarlo que dejar la cámara encendida sin ningún pase real que leer.
-  if (dataLoaded && studio && !studio.requiereCheckinQr) {
+  //
+  // ⚠️ Desde que se puede decidir por tipo de clase (migr 20260909210000) no
+  // basta con mirar el estudio: si tiene la lista apagada en general pero UN
+  // tipo de clase la exige, esos pases sí hay que poder leerlos. Se bloquea
+  // solo cuando no queda ninguna clase donde se pase lista.
+  const algunTipoPasaLista = tiposClase.some(t => t.requiereCheckinQr === true);
+  if (dataLoaded && studio && !studio.requiereCheckinQr && !algunTipoPasaLista) {
     return (
       <div className="p-4 max-w-md mx-auto flex flex-col gap-4">
         <div className="flex items-center gap-3">

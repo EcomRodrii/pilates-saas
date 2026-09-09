@@ -27,7 +27,7 @@ import { cn, cuandoEstudio, fechaLargaEstudio, horaEstudio, capitalizarPrimera }
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarClaseCancelada, listarAusencias, type AusenciaInstructora } from '@/lib/api-client';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
-import { decidirReservaNueva } from '@/lib/booking-logic';
+import { decidirReservaNueva, heredaOverride } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
 import { sesionEncajaEnPlaza, type SesionSlot } from '@/lib/plazas-fijas-slot';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
@@ -754,6 +754,15 @@ export default function Calendario() {
   }, [sesiones, reservas, tiposClase, salas, instructores]);
 
   const sesionActual = sesionesEnriquecidas.find(s => s.id === sesionId) ?? null;
+
+  // ¿Se pasa lista en ESTA clase? El tipo de clase puede sobrescribir el ajuste
+  // del estudio (migr 20260909210000), así que el escáner se ofrece —o no—
+  // según la sesión abierta, no según el estudio entero. `?? true` es el mismo
+  // respaldo que el resto: sin valor, se pasa lista.
+  const sePasaLista = heredaOverride(
+    tiposClase.find(t => t.id === sesionActual?.tipoClaseId)?.requiereCheckinQr ?? null,
+    studio?.requiereCheckinQr ?? true,
+  );
 
   const reservasActuales = useMemo<ReservaEnriquecida[]>(() =>
     sesionActual
@@ -3041,7 +3050,7 @@ export default function Calendario() {
                   </button>
                 </div>
               ))}
-              {(studio?.requiereCheckinQr ?? true) && (
+              {sePasaLista && (
                 <Link href="/calendario/pase" className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground">
                   <QrCode size={14} />Leer un pase
                 </Link>
