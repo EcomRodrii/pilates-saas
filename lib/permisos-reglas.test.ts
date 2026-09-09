@@ -4,7 +4,7 @@ import {
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
   puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCentroNotificaciones,
-  puedeModerarComunidad,
+  puedeModerarComunidad, puedeVerFichaClinica, puedeVerSemaforo,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -319,6 +319,25 @@ test('puedeGestionarPortalHome: propietaria y manager sí, recepción e instruct
   assert.equal(puedeGestionarPortalHome('MANAGER'), true);
   assert.equal(puedeGestionarPortalHome('RECEPCION'), false);
   assert.equal(puedeGestionarPortalHome('INSTRUCTOR'), false);
+});
+
+// 38ª pasada de auditoría: MANAGER gestiona la ficha completa de cualquier
+// clienta (puedeGestionarClientas) y el calendario (puedeGestionarCalendario)
+// — más autoridad operativa que RECEPCIÓN, que ya veía el semáforo desde
+// e1d66301. No había ninguna decisión documentada que excluyera a MANAGER;
+// confirmado con el usuario que era un descuido, no una decisión.
+test('puedeVerSemaforo: propietaria, instructora, recepción y manager sí; nadie más', () => {
+  assert.equal(puedeVerSemaforo('PROPIETARIO'), true);
+  assert.equal(puedeVerSemaforo('INSTRUCTOR'), true);
+  assert.equal(puedeVerSemaforo('RECEPCION'), true);
+  assert.equal(puedeVerSemaforo('MANAGER'), true);
+});
+
+test('puedeVerFichaClinica: solo propietaria e instructora ven el detalle clínico', () => {
+  assert.equal(puedeVerFichaClinica('PROPIETARIO'), true);
+  assert.equal(puedeVerFichaClinica('INSTRUCTOR'), true);
+  assert.equal(puedeVerFichaClinica('RECEPCION'), false);
+  assert.equal(puedeVerFichaClinica('MANAGER'), false);
 });
 
 
