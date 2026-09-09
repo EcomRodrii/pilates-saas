@@ -10,7 +10,7 @@ import { Button } from '@/components/student/ui/Button';
 import { Badge } from '@/components/student/ui/Badge';
 
 // Una publicación del tablón. Mismo idioma que NotificationItem: avatar
-// redondo, título en 800, cuerpo en t-meta, fecha relativa en t-mono.
+// redondo, título en 800, cuerpo en t-meta, fecha relativa en voz baja.
 //
 // P2 (pedido expreso tras verlo en producción — "nadie puede dar like, nadie
 // puede comentar"): el corazón y el contador de comentarios eran de solo
@@ -104,7 +104,7 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
         <span aria-hidden style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 999, background: 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{post.autorInicial}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 13, fontWeight: 800, lineHeight: 1.35 }}>{post.autorNombre}</p>
-          <p className="t-mono" style={{ margin: '2px 0 0', fontSize: 9.5, color: 'var(--subtle-foreground)' }}>{relativo(post.creadoEn)}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 10, fontWeight: 600, color: 'var(--subtle-foreground)' }}>{relativo(post.creadoEn)}</p>
         </div>
         {esEvento && <span style={{ alignSelf: 'flex-start' }}><Badge tone="neutral">Evento</Badge></span>}
       </div>

@@ -48,7 +48,7 @@ export function InstructoraSheet({ instructora, clases, reservas, soportaEspera,
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {proximas.map((c) => (
                   <Link key={c.id} href={href(`/reservar/${c.id}`)} onClick={onClose} className="card card--tap" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-                    <span className="t-mono" style={{ fontSize: 12, fontWeight: 800, minWidth: 44 }}>{c.hora}</span>
+                    <span className="t-num" style={{ fontSize: 12.5, fontWeight: 800, minWidth: 44 }}>{c.hora}</span>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: 'block', fontSize: 13, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</span>
                       <span className="t-meta" style={{ display: 'block' }}>{etiquetaDia(c.fecha)} · {c.sala}</span>

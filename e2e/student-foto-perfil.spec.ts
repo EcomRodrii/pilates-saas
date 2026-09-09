@@ -100,4 +100,51 @@ test.describe('Student PWA · foto de perfil', () => {
     await expect.poll(() => url, { timeout: 30_000 }).toContain('studioId=');
     expect(cuerpo).not.toContain('socioId');
   });
+  // ── Dónde SE VE la foto, que es lo que se rompió ──────────────────────────
+  //
+  // El bug: la alumna subía su foto en «Datos personales», la veía allí, y en
+  // «Perfil» seguía viendo su monograma de iniciales. No era caché ni subida —
+  // `perfil/page.tsx` pintaba un círculo a mano y no leía `socia.fotoUrl` en
+  // ningún momento, aunque el campo viaja en el payload desde siempre.
+  //
+  // Estos dos tests son la red: cubren las DOS pantallas a la vez, porque el
+  // fallo era precisamente que una sí y la otra no.
+
+  test('la foto se ve en Perfil, no solo en Datos personales', async ({ page }) => {
+    await montar(page, { conFoto: true });
+
+    await page.goto(`${base}/perfil`, { waitUntil: 'domcontentloaded' });
+    const avatar = page.getByTestId('avatar-socia');
+    await expect(avatar).toBeVisible({ timeout: 30_000 });
+    // La foto, de verdad: el estilo la lleva de fondo.
+    await expect(avatar).toHaveAttribute('style', /cdn\.example\/foto\.png/);
+    // Y NO las iniciales encima: con foto, el monograma sobra.
+    await expect(avatar).toHaveText('');
+
+    // La misma foto, en la otra pantalla. Si algún día vuelven a divergir,
+    // este par se pone rojo.
+    await page.goto(`${base}/perfil/datos`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('avatar-boton')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('avatar-boton')).not.toContainText('MR');
+  });
+
+  test('sin foto, Perfil enseña iniciales y no un hueco', async ({ page }) => {
+    await montar(page);
+    await page.goto(`${base}/perfil`, { waitUntil: 'domcontentloaded' });
+    const avatar = page.getByTestId('avatar-socia');
+    await expect(avatar).toBeVisible({ timeout: 30_000 });
+    await expect(avatar).toHaveText('AT');
+  });
+
+  test('la cabecera de Perfil lleva a cambiar la foto', async ({ page }) => {
+    // Antes era decorado: un círculo y un nombre que no hacían nada, y la
+    // única forma de llegar a la foto era adivinar que vivía dentro de «Datos
+    // personales».
+    await montar(page);
+    await page.goto(`${base}/perfil`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('avatar-socia')).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId('avatar-socia').click();
+    await expect(page).toHaveURL(new RegExp(`${base}/perfil/datos$`));
+    await expect(page.getByTestId('avatar-boton')).toBeVisible({ timeout: 30_000 });
+  });
 });

@@ -34,7 +34,7 @@ type PreguntaForm = { pregunta: string; tipoRespuesta: PlantillaCuestionarioSalu
 const emptyForm = (): PreguntaForm => ({ pregunta: '', tipoRespuesta: 'texto', opciones: '' });
 
 export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => void }) {
-  const { plantillasCuestionarioSalud, addPlantillaCuestionarioSalud, updatePlantillaCuestionarioSalud, deletePlantillaCuestionarioSalud } = useStudio();
+  const { studio, updateStudio, plantillasCuestionarioSalud, addPlantillaCuestionarioSalud, updatePlantillaCuestionarioSalud, deletePlantillaCuestionarioSalud } = useStudio();
   const rol = useRol();
   const puedeGestionar = rol === 'PROPIETARIO';
   const [form, setForm] = useState<PreguntaForm>(emptyForm());
@@ -82,11 +82,58 @@ export function TabCuestionarioSalud({ showToast }: { showToast: (m: string) => 
     if (!r1.ok) showToast(r1.error); else if (!r2.ok) showToast(r2.error);
   }
 
+  async function cambiarValoracion(v: boolean) {
+    const res = await updateStudio({ valoracionInicialActiva: v });
+    // ⚠️ Se comprueba el resultado antes de decir nada. Un interruptor que se
+    // pinta encendido con el servidor diciendo que no es el bug más repetido
+    // de este repo, y aquí decidiría si a las alumnas se les pregunta o no
+    // por sus lesiones.
+    showToast(res.ok
+      ? (v ? 'La valoración inicial ya está activa' : 'Valoración inicial desactivada')
+      : res.error);
+  }
+
   return (
     <div className="space-y-5 max-w-2xl">
+      {/* ── VALORACIÓN INICIAL ────────────────────────────────────────────
+          Vive en esta pestaña y no en una nueva: es la otra mitad de la misma
+          pregunta —qué le preguntamos a una alumna—, y una pantalla de
+          configuración más por cada interruptor es como se llega a un panel
+          que nadie encuentra.
+
+          ⚠️ Es cosa DISTINTA del cuestionario de abajo, y por eso lo dice en
+          voz alta: aquel lo rellena el personal en la ficha, este lo rellena
+          la propia alumna desde su app. */}
       {puedeGestionar && (
         <div className={cn(cardCls, 'p-6')}>
-          <h3 className="text-[14px] font-semibold text-foreground mb-1">{editId ? 'Editar pregunta' : 'Nueva pregunta'}</h3>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-[14px] font-semibold text-foreground mb-1">Valoración inicial</h3>
+              <p className="text-[12px] text-muted-foreground">
+                Tus alumnas podrán contarte, desde su app, qué buscan, qué experiencia
+                traen y qué conviene tener en cuenta con ellas. Lo rellenan ellas mismas,
+                antes de sus primeras clases.
+              </p>
+            </div>
+            <Toggle
+              on={studio?.valoracionInicialActiva ?? false}
+              onChange={(v) => { void cambiarValoracion(v); }}
+              ariaLabel="Activar la valoración inicial para las alumnas"
+            />
+          </div>
+          {studio?.valoracionInicialActiva && (
+            <p className="mt-3 rounded-lg bg-muted/60 p-3 text-[12px] text-muted-foreground">
+              La parte de molestias o lesiones solo se guarda si la alumna da su
+              consentimiento por separado. Si no lo da, completa el resto igual —
+              y tú lo verás en su ficha, en la pestaña de Salud.
+            </p>
+          )}
+        </div>
+      )}
+
+      {puedeGestionar && (
+        <div className={cn(cardCls, 'p-6')}>
+          <h3 className="text-[14px] font-semibold text-foreground mb-1">{editId ? 'Editar pregunta' : 'Nueva pregunta del cuestionario'}</h3>
           <p className="text-[12px] text-muted-foreground mb-4">
             Preguntas de salud propias del estudio. Solo las rellenan la propietaria o las instructoras, en la
             pestaña «Salud» de la ficha de cada clienta — nunca la propia clienta desde fuera.

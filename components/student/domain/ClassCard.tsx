@@ -67,7 +67,7 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
           </span>
         )}
         <div style={{ textAlign: 'center' }}>
-          <p className="t-mono" style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{clase.hora}</p>
+          <p className="t-num" style={{ margin: 0, fontSize: 14.5, fontWeight: 700 }}>{clase.hora}</p>
           <p style={{ margin: '1px 0 0', fontSize: 9.5, color: 'var(--subtle-foreground)' }}>{clase.duracionMin} min</p>
         </div>
       </div>

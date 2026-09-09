@@ -93,6 +93,8 @@ import type {
   RowUsuarios,
   RowVentasPos,
   RowVideosOnDemand,
+  RowValoracionesIniciales,
+  RowValoracionesInicialesSalud,
 } from '@/lib/db-types';
 import type {
   AchievementDefinition,
@@ -167,7 +169,9 @@ import type {
   Usuario,
   VentaPOS,
   VideoOnDemand,
+  ValoracionSocia,
 } from '@/lib/types';
+import type { Valoracion } from '@/lib/valoracion-inicial';
 
 
 // Multi-tenancy: STUDIO_ID is resolved per logged-in user (see
@@ -430,7 +434,11 @@ export function mapUsuario(r: RowUsuarios): Usuario {
 // textoConsentimientoMarketing), idéntico para todas las socias del estudio,
 // y solo lo necesita el envío real (comparación exacta de vigencia) — no el
 // panel. El panel solo trae fecha+registradoPor (bool-ish, aproximado).
-export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'visible_en_clase'>;
+// `consentimiento_salud_texto` (migr 20260909120000) se excluye por lo mismo:
+// es el texto legal COMPLETO que aceptó, idéntico para todas las socias del
+// estudio, y solo lo necesita comparar la vigencia — no el panel, que se lo
+// comería en el payload de arranque de TODAS las pantallas.
+export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'consentimiento_salud_texto' | 'visible_en_clase'>;
 export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancelada_motivo'>;
 // El arranque del panel NO trae ni `proximo_reintento` ni el snapshot de la
 // entrega: son columnas que solo lee el dunning (servidor) y la card de
@@ -4503,6 +4511,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('horaApertura' in changes) db.hora_apertura = changes.horaApertura;
   if ('horaCierre' in changes) db.hora_cierre = changes.horaCierre;
   if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
+  if ('valoracionInicialActiva' in changes) db.valoracion_inicial_activa = changes.valoracionInicialActiva;
   if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
   if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
   if ('penalizacionImporteEur' in changes) db.penalizacion_importe_eur = changes.penalizacionImporteEur;
@@ -4893,6 +4902,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     horaApertura: r.hora_apertura ?? '08:00:00',
     horaCierre: r.hora_cierre ?? '22:00:00',
     requiereAprobacion: r.requiere_aprobacion ?? false,
+    valoracionInicialActiva: r.valoracion_inicial_activa ?? false,
     listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? 0,
     minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? 0,
     penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
@@ -5468,13 +5478,61 @@ export async function fetchFichaClientaStudio(studioId?: string) {
   // servidor, así que no hace falta el service-role — y no importarlo evita
   // arrastrar supabase-admin.ts a la cadena de imports del bundle.
   const db = supabase;
-  const [notasRes, respuestasRes] = await enTandas([
+  const [notasRes, respuestasRes, valRes, valSaludRes] = await enTandas([
     db.from('notas_internas').select('*').eq('studio_id', sid),
     db.from('respuestas_sesion').select('*').eq('studio_id', sid),
+    // ⚠️ Las DOS mitades de la valoración, por separado y a propósito.
+    // La de salud tiene su propia RLS (rol clínico + consentimiento vigente):
+    // a RECEPCIÓN le llega vacía, y eso NO es un error que haya que tratar —
+    // es la política funcionando. Por eso se piden aparte y se cruzan aquí en
+    // vez de con un embed, que devolvería la fila entera o ninguna.
+    db.from('valoraciones_iniciales').select('*').eq('studio_id', sid),
+    db.from('valoraciones_iniciales_salud').select('*').eq('studio_id', sid),
   ]);
+  const salud = new Map(
+    ((valSaludRes?.data ?? []) as RowValoracionesInicialesSalud[]).map((r) => [r.valoracion_id, r]),
+  );
   return {
     notasInternas: (notasRes?.data ?? []).map((r) => mapNotaInterna(r as RowNotasInternas)),
     respuestasSesion: (respuestasRes?.data ?? []).map((r) => mapRespuestaSesion(r as RowRespuestasSesion)),
+    valoracionesSocias: ((valRes?.data ?? []) as RowValoracionesIniciales[])
+      .map((r) => mapValoracionSocia(r, salud.get(r.id))),
+  };
+}
+
+/**
+ * Fila(s) de BD → la forma que entiende `repartirHistorial`.
+ *
+ * `completada_en ?? creado_en` para ordenar: un borrador abierto en enero y
+ * terminado en junio se CREÓ antes que una valoración de marzo, pero se
+ * completó después — y lo que ordena «cómo llegó» frente a «qué dice hoy» es
+ * cuándo lo dijo. Mismo criterio que la capa de la alumna.
+ */
+function mapValoracionSocia(
+  r: RowValoracionesIniciales,
+  s?: RowValoracionesInicialesSalud,
+): ValoracionSocia {
+  return {
+    id: r.id,
+    socioId: r.socio_id,
+    estado: r.estado === 'COMPLETADA' ? 'COMPLETADA' : 'EN_PROGRESO',
+    creadoEn: r.completada_en ?? r.creado_en,
+    valoracion: {
+      objetivos: (r.objetivos ?? []) as Valoracion['objetivos'],
+      objetivoPrincipal: r.objetivo_principal as Valoracion['objetivoPrincipal'],
+      experiencia: r.experiencia as Valoracion['experiencia'],
+      nivel: r.nivel as Valoracion['nivel'],
+      actividadHabitual: r.actividad_habitual ?? '',
+      frecuencia: r.frecuencia as Valoracion['frecuencia'],
+      expectativas: r.expectativas ?? '',
+      // Sin fila de salud —porque no la hay, o porque la RLS no deja verla—
+      // se devuelven los vacíos, nunca un `tieneMolestias: false` inventado:
+      // «no me deja mirar» y «me dijo que no» no son lo mismo.
+      tieneMolestias: s?.tiene_molestias ?? null,
+      zonas: (s?.zonas ?? []) as Valoracion['zonas'],
+      detalle: s?.detalle ?? '',
+      estadoCuerpo: (s?.estado_cuerpo ?? null) as Valoracion['estadoCuerpo'],
+    },
   };
 }
 

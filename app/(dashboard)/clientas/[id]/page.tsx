@@ -42,6 +42,8 @@ import { cn, formatEuro } from '@/lib/utils';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { Toast } from '@/components/ui/toast';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
+import { FichaValoracion, FichaValoracionSalud } from '@/components/socios/valoracion-inicial-ficha';
+import { repartirHistorial } from '@/lib/valoracion-inicial';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -224,7 +226,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const {
     studio,
     socios, suscripciones, planesTarifa, recibos, reservas, sesiones,
-    tiposClase, salas, instructores, notasInternas,
+    tiposClase, salas, instructores, notasInternas, valoracionesSocias,
     cargarFichaClienta,
     updateSocio, deleteSocio, assignPlan, marcarCobrado, addRecibo, cobrarTodosPendientes,
     addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion, reactivarSuscripcion, cancelarSuscripcion,
@@ -236,6 +238,18 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // Las notas internas y las respuestas de sesión no vienen en el arranque
   // (#1375 las sacó y nadie escribió la carga posterior). Se piden aquí.
   useEffect(() => { cargarFichaClienta(); }, [cargarFichaClienta]);
+
+  // La valoración de ESTA alumna, repartida en «cómo llegó» y «qué dice hoy».
+  //
+  // El reparto lo hace `repartirHistorial`, la MISMA función pura que usa su
+  // app: si el panel decidiera aquí cuál es la inicial con su propio criterio,
+  // las dos pantallas podrían acabar contando historias distintas del mismo
+  // dato. Se calcula en render (es un filtro sobre un array ya cargado), no en
+  // un efecto con estado.
+  const historialValoracion = useMemo(
+    () => repartirHistorial(valoracionesSocias.filter((v) => v.socioId === id)),
+    [valoracionesSocias, id],
+  );
 
 
   // Ficha de instructora del usuario logueado — la nota de progreso debe
@@ -706,6 +720,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               {/* ═══ TAB: RESUMEN ═══════════════════════════════════════════ */}
               {activeTab === 'resumen' && (
                 <div className="space-y-5">
+                  {/* La valoración va PRIMERO, por encima del plan: el encargo
+                      pide que se entienda a la alumna en 10-15 segundos, y lo
+                      que la define es qué busca y de dónde parte, no cuánto
+                      paga. Solo la mitad NO clínica — la de molestias vive en
+                      la pestaña de Salud, que ya está gateada por rol. */}
+                  <FichaValoracion historial={historialValoracion} />
 
                   {/* Current plan card */}
                   <div className="border border-border rounded-xl overflow-hidden">
@@ -1232,7 +1252,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
               {/* ═══ TAB: SALUD (ficha clínica) ═════════════════════════════ */}
               {activeTab === 'salud' && verFichaClinica && (
-                <FichaSalud socioId={id} now={now} onToast={setToast} />
+                <div className="space-y-5">
+                  {/* Encima de la ficha clínica: es lo que declaró ELLA, y da
+                      el contexto con el que leer todo lo demás. */}
+                  <FichaValoracionSalud historial={historialValoracion} />
+                  <FichaSalud socioId={id} now={now} onToast={setToast} />
+                </div>
               )}
 
               {/* ═══ TAB: PAGOS ═════════════════════════════════════════════ */}

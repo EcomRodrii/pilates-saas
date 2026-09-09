@@ -60,7 +60,7 @@ export function InvitarAmiga({ slug, socioId, nombreEstudio }: {
           </p>
 
           <p
-            className="t-mono"
+            className="t-code"
             data-testid="enlace-invitacion"
             style={{
               margin: 0, padding: 'var(--s-3)', borderRadius: 'var(--radius-sm)',

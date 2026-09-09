@@ -17,7 +17,7 @@ export function NextClassCard({ reserva, clase, instructora, onCalendario, onCom
       <div style={{ position: 'relative', padding: '14px 15px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <p className="t-label" style={{ color: 'var(--accent-deep-muted)', display: 'flex', alignItems: 'center', gap: 6 }}><span aria-hidden style={{ width: 6, height: 6, borderRadius: 99, background: '#7BC488', animation: 'apPulse 2s infinite' }} />Tu próxima clase</p>
-          <span className="t-mono" style={{ fontSize: 10.5, color: 'var(--accent-deep-muted)' }}>{etiquetaDia(clase.fecha).toLowerCase()} · {clase.hora}</span>
+          <span className="t-num" style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent-deep-muted)' }}>{etiquetaDia(clase.fecha).toLowerCase()} · {clase.hora}</span>
         </div>
         <p style={{ margin: '6px 0 0', fontSize: 15.5, fontWeight: 800, letterSpacing: '-.02em', color: '#FAF9F5' }}>{clase.nombre}</p>
         <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'rgba(234,240,231,.8)' }}>con {instructora?.nombre} · {clase.sala} · {clase.duracionMin} min</p>

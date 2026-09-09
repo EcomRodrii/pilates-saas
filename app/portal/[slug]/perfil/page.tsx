@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Link from 'next/link';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { InvitarAmiga } from '@/components/student/domain/InvitarAmiga';
 import { useRouter } from 'next/navigation';
@@ -12,11 +13,7 @@ import { getAlumna } from '@/lib/student/datos';
 import { useAuthStudent } from '@/lib/student/auth';
 import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
-
-/** Iniciales para el monograma cuando no hay foto. */
-function iniciales(nombre: string): string {
-  return nombre.trim().split(/\s+/).slice(0, 2).map((p) => p[0] ?? '').join('').toUpperCase() || '·';
-}
+import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -45,28 +42,38 @@ export default function PerfilPage() {
     <StudentShell>
       <PageHeader titulo="Perfil" />
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '16px', marginTop: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-          <span
-            aria-hidden
-            style={{
-              width: 56, height: 56, borderRadius: 999, background: 'var(--accent-soft)',
-              color: 'var(--accent-soft-foreground)', fontSize: 19, fontWeight: 800,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}
-          >
-            {iniciales(nombreCompleto)}
-          </span>
-          <div style={{ minWidth: 0 }}>
-            <p style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>{nombreCompleto}</p>
+        {/* ⚠️ Aquí estaba el bug de la foto: este bloque pintaba SIEMPRE las
+            iniciales, sin mirar `socia.fotoUrl` ni una vez. La alumna subía su
+            foto en «Datos personales», la veía allí, y al volver a Perfil
+            seguía su monograma — con toda la pinta de que no se había
+            guardado. */}
+        <Link
+          href={href('/perfil/datos')}
+          className="card card--pad-lg card--tap row"
+          style={{ ['--gap' as string]: '13px' }}
+        >
+          <AvatarSocia nombre={socia?.nombre} apellidos={socia?.apellidos} fotoUrl={socia?.fotoUrl} size={56} />
+          <div className="trunc">
+            <p className="t-card-title trunc" style={{ fontSize: 17 }}>{nombreCompleto}</p>
             <p className="t-meta" style={{ marginTop: 1, fontSize: 12 }}>Alumna de {estudio.nombre}</p>
           </div>
-        </div>
+          {/* La cabecera dejó de ser decorado: es la puerta a los datos y a la
+              foto. Antes esta fila no hacía nada, y la única forma de cambiar
+              la foto era adivinar que estaba dentro de «Datos personales». */}
+          <span aria-hidden className="push t-faint" style={{ display: 'flex' }}>
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+          </span>
+        </Link>
 
         <ProfileSection
           titulo="Cuenta"
           items={[
             { label: 'Datos personales', href: href('/perfil/datos'), valor: socia?.email ?? undefined },
             { label: 'Preferencias', href: href('/perfil/preferencias') },
+            // Aquí y no en Ajustes: es información SUYA, no una opción de la
+            // app. El encargo lo pide explícitamente («Perfil → Valoración
+            // inicial»), y coincide con el criterio del resto de esta lista.
+            { label: 'Valoración inicial', href: href('/valoracion') },
             // Antes no había ninguna entrada: la única forma de cambiar la
             // contraseña era el flujo de recuperación por correo, que es para
             // cuando NO te acuerdas.

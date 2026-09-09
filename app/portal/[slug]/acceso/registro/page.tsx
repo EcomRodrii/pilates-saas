@@ -35,11 +35,17 @@ import { useSesionStudent } from '@/lib/student/sesion';
  * aceptación. Sirve a los dos casos en que hace falta la firma y NO hace falta
  * crear credenciales:
  *
- *  · Antes de salir hacia Google, desde `/acceso/login`. Google es a la vez
- *    entrar y crear cuenta y no se sabe cuál será hasta volver, así que el
- *    consentimiento se recoge antes: si vuelve siendo alguien sin ficha, ya
- *    está firmado y `verificar` puede darla de alta sin más pantallas.
- *  · Para cerrar un alta a medias: sesión válida, sin ficha y sin firma.
+ *  · Para cerrar un alta a medias: sesión válida, sin ficha y sin firma. Es de
+ *    donde viene ahora la vuelta de Google — `/acceso/verificar` manda aquí
+ *    SOLO cuando ya ha comprobado que esa persona no tiene ficha en este
+ *    estudio.
+ *
+ * ⚠️ Antes había un segundo camino, y era un bug: `/acceso/login` desviaba
+ * aquí ANTES de salir hacia Google, para tener la firma por si acaso. Como la
+ * firma vive en `sessionStorage`, en una pestaña nueva nunca estaba, así que
+ * «Continuar con Google» no llegaba nunca a Google. Se quitó: el consentimiento
+ * se pide a la vuelta y solo a quien hay que dar de alta de verdad. Ver el
+ * comentario de `irAGoogle` en `acceso/login/page.tsx`.
  *
  * Está aquí y no en un componente aparte porque el consentimiento debe vivir en
  * UN solo sitio: el texto que se firma, la casilla y lo que se guarda son los
@@ -176,11 +182,20 @@ export default function RegistroPage() {
   return (
     <form onSubmit={(e) => { e.preventDefault(); void (soloFirma ? firmarYSeguir() : crear()); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} noValidate>
       <div>
-        <h2 className="t-h1" style={{ fontSize: 22 }}>{soloFirma ? 'Un paso antes' : 'Crea tu cuenta'}</h2>
+        <h2 className="t-h1" style={{ fontSize: 22 }}>
+          {!soloFirma ? 'Crea tu cuenta' : autenticado ? 'Ya casi estás' : 'Un paso antes'}
+        </h2>
         <p className="t-meta" style={{ marginTop: 4, fontSize: 12.5 }}>
-          {soloFirma
-            ? `Tu nombre y tu consentimiento, para poder darte de alta en ${estudio.nombre} si aún no lo estás.`
-            : `Para reservar en ${estudio.nombre}. Un minuto.`}
+          {/* ⚠️ Con sesión ya resuelta NO se dice «si aún no lo estás». Aquí
+              solo se llega desde `/acceso/verificar`, que ya ha mirado y ha
+              visto que no hay ficha en este estudio; el condicional era una
+              duda que la pantalla no tiene, y leído desde fuera parecía que
+              Tentare no sabe quién eres justo después de identificarte. */}
+          {!soloFirma
+            ? `Para reservar en ${estudio.nombre}. Un minuto.`
+            : autenticado
+              ? `Ya te hemos identificado. Solo nos falta tu nombre para darte de alta en ${estudio.nombre}.`
+              : `Tu nombre y tu consentimiento, para poder darte de alta en ${estudio.nombre} si aún no lo estás.`}
         </p>
       </div>
 

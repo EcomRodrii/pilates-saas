@@ -162,11 +162,11 @@ export default function DetalleReservaPage() {
             {paseDeEsta?.vigente && paseDeEsta.codigo && (
               // El código corto existe para cuando la cámara no lee: pantalla
               // rota, mucha luz, funda con brillo.
-              <p className="t-mono" style={{ margin: '10px 0 0', fontSize: 13, letterSpacing: '.18em', color: '#FAF9F5' }}>
+              <p className="t-code" style={{ margin: '10px 0 0', fontSize: 13, letterSpacing: '.18em', color: '#FAF9F5' }}>
                 {paseDeEsta.codigo}
               </p>
             )}
-            <p className="t-mono" style={{ margin: '8px 0 0', fontSize: 10, color: 'var(--accent-deep-muted)' }}>
+            <p style={{ margin: '8px 0 0', fontSize: 10.5, fontWeight: 600, color: 'var(--accent-deep-muted)' }}>
               Se valida solo al llegar
             </p>
           </section>

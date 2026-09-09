@@ -25,7 +25,7 @@ export function DelEstudio({ studioId, href }: { studioId: string; href: string 
         {post.tipo === 'EVENTO' && <span className="badge" style={{ marginRight: 6, verticalAlign: 'middle' }}>Evento</span>}
         {post.texto}
       </p>
-      <p className="t-mono" style={{ margin: '6px 0 0', fontSize: 9.5, color: 'var(--subtle-foreground)' }}>{post.autorNombre} · {relativo(post.creadoEn)}</p>
+      <p style={{ margin: '6px 0 0', fontSize: 10, fontWeight: 600, color: 'var(--subtle-foreground)' }}>{post.autorNombre} · {relativo(post.creadoEn)}</p>
     </Link>
   );
 }

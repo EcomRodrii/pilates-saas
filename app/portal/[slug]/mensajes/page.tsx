@@ -83,7 +83,7 @@ export default function MensajesPage() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                   <p style={{ margin: 0, fontSize: 13.5, fontWeight: sinLeer ? 800 : 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombre}</p>
-                  <span className="t-mono" style={{ fontSize: 9.5, color: 'var(--subtle-foreground)', flexShrink: 0 }}>{selloLista(c.ultimo_mensaje_en ?? c.creado_en)}</span>
+                  <span className="t-num" style={{ fontSize: 10, fontWeight: 600, color: 'var(--subtle-foreground)', flexShrink: 0 }}>{selloLista(c.ultimo_mensaje_en ?? c.creado_en)}</span>
                 </div>
                 <p style={{ margin: '2px 0 0', fontSize: 12.5, color: sinLeer ? 'var(--foreground)' : 'var(--muted-foreground)', fontWeight: sinLeer ? 700 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {unaLinea(c.ultimo_cuerpo) || 'Sin mensajes todavía'}

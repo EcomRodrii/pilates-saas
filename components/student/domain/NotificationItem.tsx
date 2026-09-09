@@ -10,7 +10,7 @@ export function NotificationItem({ n, delay = 0 }: { n: Notificacion; delay?: nu
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: 0, fontSize: 13, fontWeight: n.leida ? 700 : 800, lineHeight: 1.35 }}>{n.titulo}</p>
         <p className="t-meta" style={{ marginTop: 2, lineHeight: 1.45 }}>{n.cuerpo}</p>
-        <p className="t-mono" style={{ margin: '4px 0 0', fontSize: 9.5, color: 'var(--subtle-foreground)' }}>{relativo(n.fecha)}</p>
+        <p style={{ margin: '4px 0 0', fontSize: 10, fontWeight: 600, color: 'var(--subtle-foreground)' }}>{relativo(n.fecha)}</p>
       </div>
       {!n.leida && <span aria-label="Sin leer" style={{ width: 8, height: 8, flexShrink: 0, borderRadius: 99, background: 'var(--success)', marginTop: 6 }} />}
     </>

@@ -171,6 +171,7 @@ import type {
   Integracion,
   TipoIntegracion,
   SustitucionConfirmadaPublica,
+  ValoracionSocia,
 } from '@/lib/types';
 import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
@@ -351,6 +352,8 @@ interface StudioContextValue {
   recibos: Recibo[];
   facturas: Factura[];
   notasInternas: NotaInterna[];
+  /** Valoraciones iniciales del estudio. Carga perezosa con `cargarFichaClienta`. */
+  valoracionesSocias: ValoracionSocia[];
 
   // Socios
   addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato; cobroAlta?: CobroAlta }) => Promise<ResultadoEscritura & { id?: string }>;
@@ -813,6 +816,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // ids distintos (cobro masivo) siguen corriendo en paralelo sin trabas.
   const cobrosEnCursoRef = useRef<Set<string>>(new Set());
   const [notasInternas, setNotasInternas] = useState<NotaInterna[]>([]);
+  const [valoracionesSocias, setValoracionesSocias] = useState<ValoracionSocia[]>([]);
   const [condicionesSalud, setCondicionesSalud] = useState<CondicionSalud[]>([]);
   const [respuestasSesion, setRespuestasSesion] = useState<RespuestaSesionRow[]>([]);
   const [plantillasCuestionarioSalud, setPlantillasCuestionarioSalud] = useState<PlantillaCuestionarioSalud[]>([]);
@@ -5073,6 +5077,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const cargarFichaClienta = useCallback(() => cargarUnaVez('ficha-clienta', async sid => {
     const f = await fetchFichaClientaStudio(sid);
     setNotasInternas(f.notasInternas);
+    setValoracionesSocias(f.valoracionesSocias);
     setRespuestasSesion(f.respuestasSesion);
   }), [cargarUnaVez]);
 
@@ -5174,6 +5179,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     recibos,
     facturas,
     notasInternas,
+    valoracionesSocias,
     addSocio,
     addSocioFromPortal,
     updateSocio,

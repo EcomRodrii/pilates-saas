@@ -97,7 +97,7 @@ export default function HiloMensajesPage() {
           {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver este hilo." />}
           {listo && dias.map((dia) => (
             <div key={dia.etiqueta}>
-              <p className="t-mono" style={{ textAlign: 'center', margin: '10px 0', fontSize: 10, color: 'var(--subtle-foreground)' }}>{dia.etiqueta}</p>
+              <p style={{ textAlign: 'center', margin: '10px 0', fontSize: 10.5, fontWeight: 600, color: 'var(--subtle-foreground)' }}>{dia.etiqueta}</p>
               {dia.bloques.map((bloque, i) => {
                 const mio = bloque.remitenteAuthUserId === miId;
                 return (
@@ -115,7 +115,7 @@ export default function HiloMensajesPage() {
                         {m.cuerpo}
                       </div>
                     ))}
-                    <span className="t-mono" style={{ fontSize: 9, color: 'var(--subtle-foreground)' }}>{horaCorta(bloque.items[bloque.items.length - 1].creado_en)}</span>
+                    <span className="t-num" style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--subtle-foreground)' }}>{horaCorta(bloque.items[bloque.items.length - 1].creado_en)}</span>
                   </div>
                 );
               })}

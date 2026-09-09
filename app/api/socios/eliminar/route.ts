@@ -73,6 +73,15 @@ export async function POST(req: NextRequest) {
   for (const tabla of [
     'condiciones_salud', 'respuestas_cuestionario_salud', 'respuestas_sesion',
     'notas_internas', 'notas_progreso', 'preferencias_socio',
+    // ⚠️ Las DOS mitades de la valoración inicial, y la de salud PRIMERO.
+    // `valoraciones_iniciales_salud` cuelga de `valoraciones_iniciales` con
+    // `on delete cascade`, así que borrar solo la madre bastaría — pero se
+    // borra explícitamente igual, por dos motivos: el orden garantiza que el
+    // dato del art. 9 se va aunque la segunda sentencia falle, y quien lea
+    // esta lista tiene que poder VER que se contempla, en vez de deducirlo de
+    // una FK que está en otro fichero. Esta lista ya se dejó incompleta una
+    // vez (I-14).
+    'valoraciones_iniciales_salud', 'valoraciones_iniciales',
   ]) {
     const { error } = await admin.from(tabla).delete().eq('socio_id', socioId).eq('studio_id', sesion.studioId);
     if (error) return NextResponse.json({ error: `No se pudo limpiar ${tabla}` }, { status: 500 });
@@ -136,6 +145,21 @@ export async function POST(req: NextRequest) {
       console.error('[socios/eliminar] no se pudo cancelar una reserva futura', socioId, r.id, res.error);
     }
   }
+
+  // 2b) La FOTO, del almacenamiento y no solo de la columna.
+  //
+  // ⚠️ Poner `foto_url: null` más abajo borra el PUNTERO, no la cara. El bucket
+  // `avatars` es PÚBLICO y la ruta del objeto es el `socioId` a pelo
+  // (`app/api/public/foto-perfil/route.ts` sube con `.upload(socioId, …)`), o
+  // sea que después de un borrado RGPD la foto seguía siendo servible por una
+  // URL adivinable. `documentos_socio` ya lo hacía bien —limpia Storage antes
+  // que las filas, con su comentario— y esto se le quedó fuera.
+  //
+  // No bloquea el borrado si falla: la petición es idempotente y se puede
+  // reintentar, y dejar a la socia sin anonimizar por un fallo de Storage sería
+  // peor que un objeto huérfano que el siguiente intento se lleva.
+  const { error: errFoto } = await admin.storage.from('avatars').remove([socioId]);
+  if (errFoto) console.error('[socios:eliminar] no se pudo borrar el avatar', errFoto);
 
   // 3) Anonimizar el PII y marcar el borrado lógico. Se conservan recibos,
   //    facturas y ventas_pos (fiscal). El email lleva el id para no colisionar.

@@ -22,6 +22,7 @@ import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
 import { DelEstudio } from '@/components/student/domain/DelEstudio';
 import { MensajesCard } from '@/components/student/domain/MensajesCard';
+import { ValoracionCard } from '@/components/student/domain/ValoracionCard';
 import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
 
@@ -240,6 +241,13 @@ export default function InicioPage() {
               hrefBonos={href('/bonos')}
             />
 
+
+            {/* ── VALORACIÓN INICIAL ──────────────────────────────────────
+                Va ARRIBA, justo debajo de la próxima clase, y solo mientras
+                esté pendiente. Es lo único de esta pantalla que el estudio
+                está esperando de ella; enterrarlo entre el bono y el muro
+                sería ofrecerlo sin ofrecerlo. Desaparece al completarla. */}
+            <ValoracionCard studioId={estudio.id} href={href('/valoracion')} />
 
             {/* ── PLAZA FIJA / RECUPERACIONES (F2) ────────────────────────
                 Solo si tiene: sin plaza ni recuperaciones no se pinta nada. */}
