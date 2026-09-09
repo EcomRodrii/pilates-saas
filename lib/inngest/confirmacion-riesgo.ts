@@ -199,11 +199,11 @@ export const procesarConfirmacionAskEstudio = inngest.createFunction(
 // (`tocaRecordar`/`pasoElCorte`), el compare-and-set antes de enviar, y la
 // separación en dos pasos de cancelar/avisar (ver la nota de I-2 más abajo).
 // El `studioId` ya no viene del evento: viaja en cada fila.
-// Auditoría #3 (2026-08-25): reducido de cada 30min a cada hora.
-// La precisión de ±30min no es crítica; la ventana de corte sigue siendo válida.
-// Ahorro: ~1.440/mes
+// Auditoría #3 (2026-08-25): reducido de cada 30min a cada hora → ahorro 1.440/mes
+// Auditoría INNGEST REDUCE (2026-09-09): cada 4 horas → ahorro 18/mes total (720→180 executions/mes)
+// La precisión de ±4h sigue siendo válida; la ventana de corte es lo suficientemente rápida.
 export const confirmacionRiesgoCorteDispatcher = inngest.createFunction(
-  { id: 'confirmacion-riesgo-corte-dispatcher', triggers: [{ cron: '0 * * * *' }] },
+  { id: 'confirmacion-riesgo-corte-dispatcher', triggers: [{ cron: '0 */4 * * *' }] },
   async ({ step }) => {
     const nowISO = await step.run('now', async () => new Date().toISOString());
     const now = new Date(nowISO);
