@@ -197,14 +197,31 @@ export function useAuthStudent(slug: string) {
    * resuelve los dos casos: si ya es socia, entra; si no lo es, firma el alta
    * con la firma que se recogió ANTES de salir hacia Google.
    *
-   * ⚠️ RIESGO CONOCIDO (HIGH, config de proyecto, no de código): la URL de
-   * retorno tiene que estar en la lista de Redirect URLs de Supabase Auth.
-   * Hoy están las de personal; `/portal/<slug>/acceso/verificar` es nueva y hay
-   * un slug variable de por medio, así que hace falta un comodín en ese
-   * segmento. `*` sirve: los separadores del emparejador de Supabase son `.` y
-   * `/`, y un slug se normaliza a `[a-z0-9-]+` (lib/slug.ts), así que nunca
-   * contiene ninguno de los dos. Si falta, gotrue no honra la URL y la alumna
-   * no llega a su estudio.
+   * ✅ LA URL DE RETORNO YA ESTÁ PERMITIDA. Este comentario avisaba de lo
+   * contrario —«RIESGO CONOCIDO (HIGH)», que hacía falta añadir un comodín para
+   * el slug— y era una suposición que nadie había ido a comprobar. Comprobado
+   * el 2026-09-09 contra el proyecto real (`GET /v1/projects/<ref>/config/auth`):
+   * la lista son cuatro entradas —los dos puertos de localhost y el dominio de
+   * producción con y sin `www`— y **las cuatro terminan en `/**`**.
+   *
+   * Ahí está la clave, y es lo que nadie había mirado: en el emparejador de
+   * Supabase `**` casa con cualquier ruta INCLUIDAS las barras (`*` es el que se
+   * detiene en los separadores). O sea que la entrada del dominio ya cubre
+   * `/portal/<cualquier-slug>/acceso/verificar` sin tocar nada.
+   *
+   * (Los dominios no se escriben aquí a propósito: `lib/seo/paginas.test.ts`
+   * prohíbe el origen a mano en `app`/`components`/`lib` para que haya una sola
+   * fuente de verdad — `urlDe()` / `LEGAL.url`. Ese guardia cazó este mismo
+   * comentario.)
+   *
+   * Y no es solo teoría del glob: hay DOS altas con `aceptacion_origen='PORTAL'`
+   * (3 y 7 de septiembre de 2026), y esa fila la escribe únicamente
+   * `/acceso/verificar` DESPUÉS de volver del enlace mágico o de Google. Si el
+   * retorno no estuviera permitido, no existiría ninguna.
+   *
+   * Lo que sí sigue siendo cierto: si alguien estrecha esa lista, o si la app
+   * se sirve algún día desde otro dominio, este flujo se rompe en la vuelta y no
+   * en la ida — el síntoma es acabar en el Site URL en vez de en el estudio.
    */
   const entrarConGoogle = useCallback(async (): Promise<ResultadoAuth> => {
     const redirectTo = typeof window !== 'undefined'
