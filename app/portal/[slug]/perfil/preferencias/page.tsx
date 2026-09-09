@@ -52,7 +52,7 @@ function Toggle({ on, onChange, label, sub, disabled }: {
   return (
     <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '13px 15px', minHeight: 56, borderBottom: '1px solid var(--muted)', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.6 : 1 }}>
       <span>
-        <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>{label}</span>
+        <span style={{ display: 'block', fontSize: 'var(--t-small)', fontWeight: 700 }}>{label}</span>
         {sub && <span className="t-meta" style={{ display: 'block', marginTop: 1 }}>{sub}</span>}
       </span>
       <button
@@ -156,7 +156,7 @@ export default function PreferenciasPage() {
                     />
                   ) : (
                     <div style={{ padding: '13px 15px', minHeight: 56 }}>
-                      <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>{dispositivo.titulo}</span>
+                      <span style={{ display: 'block', fontSize: 'var(--t-small)', fontWeight: 700 }}>{dispositivo.titulo}</span>
                       <span className="t-meta" style={{ display: 'block', marginTop: 1 }}>{dispositivo.cuerpo}</span>
                     </div>
                   )}
@@ -188,7 +188,7 @@ export default function PreferenciasPage() {
               />
             </div>
 
-            <p className="t-meta" style={{ margin: '14px 0 0', fontSize: 11, lineHeight: 1.5 }}>
+            <p className="t-meta" style={{ margin: '14px 0 0', lineHeight: 1.5 }}>
               Los avisos de seguridad y los que afectan a tus reservas ya hechas se envían siempre.
             </p>
           </>

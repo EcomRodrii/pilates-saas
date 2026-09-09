@@ -29,16 +29,16 @@ export function InstructoraSheet({ instructora, clases, reservas, soportaEspera,
       {i && (
         <div data-testid="instructora-sheet" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span aria-hidden style={{ width: 56, height: 56, flexShrink: 0, borderRadius: 999, background: i.fotoUrl ? `url(${i.fotoUrl}) center/cover` : 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 18, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{!i.fotoUrl && i.iniciales}</span>
+            <span aria-hidden style={{ width: 56, height: 56, flexShrink: 0, borderRadius: 999, background: i.fotoUrl ? `url(${i.fotoUrl}) center/cover` : 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 'var(--t-h2)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{!i.fotoUrl && i.iniciales}</span>
             <div style={{ minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: '-.02em' }}>{i.nombre}</p>
+              <p style={{ margin: 0, fontSize: 'var(--t-h2)', fontWeight: 800, letterSpacing: '-.02em' }}>{i.nombre}</p>
               {nota
                 ? <p className="t-meta" style={{ margin: '2px 0 0' }}><span style={{ color: 'var(--warning)' }}>★</span> {nota}</p>
                 : <p className="t-meta" style={{ margin: '2px 0 0' }}>Instructora del estudio</p>}
             </div>
           </div>
 
-          {i.bio && <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--muted-foreground)' }}>{i.bio}</p>}
+          {i.bio && <p style={{ margin: 0, fontSize: 'var(--t-body)', lineHeight: 1.6, color: 'var(--muted-foreground)' }}>{i.bio}</p>}
 
           <div>
             <p className="t-label" style={{ margin: '0 0 7px' }}>Sus próximas clases</p>
@@ -48,9 +48,9 @@ export function InstructoraSheet({ instructora, clases, reservas, soportaEspera,
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {proximas.map((c) => (
                   <Link key={c.id} href={href(`/reservar/${c.id}`)} onClick={onClose} className="card card--tap" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-                    <span className="t-num" style={{ fontSize: 12.5, fontWeight: 800, minWidth: 44 }}>{c.hora}</span>
+                    <span className="t-num" style={{ fontSize: 'var(--t-small)', fontWeight: 800, minWidth: 44 }}>{c.hora}</span>
                     <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: 13, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</span>
+                      <span style={{ display: 'block', fontSize: 'var(--t-small)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</span>
                       <span className="t-meta" style={{ display: 'block' }}>{etiquetaDia(c.fecha)} · {c.sala}</span>
                     </span>
                     {/* El mismo badge que el horario para la misma clase: «Última plaza»,

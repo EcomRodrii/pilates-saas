@@ -48,7 +48,7 @@ export function ValorarClase({ studioId, sesionId, instructora }: { studioId: st
   return (
     <section className="card" style={{ padding: '14px 15px' }} data-testid="valorar-clase" aria-label="Valorar la clase">
       <p className="t-label" style={{ margin: 0 }}>{soloLectura ? 'Tu valoración' : 'Valorar la clase'}</p>
-      <p style={{ margin: '4px 0 0', fontSize: 14, fontWeight: 800 }}>
+      <p style={{ margin: '4px 0 0', fontSize: 'var(--t-body)', fontWeight: 800 }}>
         {soloLectura ? ETIQUETA[previa.puntuacion] : `¿Qué tal la clase${instructora ? ` con ${instructora}` : ''}?`}
       </p>
 
@@ -73,7 +73,7 @@ export function ValorarClase({ studioId, sesionId, instructora }: { studioId: st
 
       {soloLectura ? (
         <>
-          {previa.comentario && <p style={{ margin: '8px 0 0', fontSize: 13, lineHeight: 1.5, color: 'var(--muted-foreground)' }}>«{previa.comentario}»</p>}
+          {previa.comentario && <p style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', lineHeight: 1.5, color: 'var(--muted-foreground)' }}>«{previa.comentario}»</p>}
           <button type="button" className="t-meta" onClick={() => { setEditando(true); setPuntuacion(previa.puntuacion); setComentario(previa.comentario ?? ''); }}
             style={{ marginTop: 8, padding: 0, border: 'none', background: 'none', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer' }}>
             Cambiar mi valoración
@@ -85,7 +85,7 @@ export function ValorarClase({ studioId, sesionId, instructora }: { studioId: st
           <textarea
             value={comentario} onChange={(e) => setComentario(e.target.value)}
             placeholder="¿Algo que quieras contar? (opcional)" rows={2} maxLength={500} aria-label="Comentario"
-            style={{ width: '100%', marginTop: 8, padding: '9px 11px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--card)', fontFamily: 'inherit', fontSize: 13, color: 'var(--foreground)', resize: 'none' }}
+            style={{ width: '100%', marginTop: 8, padding: '9px 11px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--card)', fontFamily: 'inherit', fontSize: 'var(--t-small)', color: 'var(--foreground)', resize: 'none' }}
           />
           <div style={{ marginTop: 10 }}>
             <Button full onClick={() => void enviar()} disabled={puntuacion < 1 || enviando}>

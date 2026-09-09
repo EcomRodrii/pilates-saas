@@ -39,8 +39,41 @@ export function addDias(iso: string, n: number): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: ZONA }).format(d);
 }
 
-function comoFecha(iso: string): Date {
-  return new Date(iso + 'T12:00:00');
+/**
+ * ⚠️ Devuelve `null` cuando la fecha no es una fecha, y los tres formateadores
+ * de abajo devuelven cadena vacía en ese caso.
+ *
+ * No es defensa preventiva: la cadena vacía es un valor que el mapeo PRODUCE.
+ * `proyectarPagos` pone `fecha: r.fechaCobro ?? r.fechaVencimiento ?? ''` — un
+ * recibo sin cobrar y sin vencimiento sale con `''`, y con eso `fechaCorta`
+ * pintaba literalmente **«undefined NaN undefined»** en la lista de Pagos y en
+ * el detalle. Visto en pantalla, no deducido.
+ *
+ * `etiquetaDia` era peor que fea: `DIAS_C[NaN]` es `undefined` y leer
+ * `undefined[0]` LANZA, así que una fecha vacía no ensuciaba la pantalla, la
+ * tumbaba entera.
+ *
+ * Vacío y no «—» a propósito: quien llama decide si ese hueco merece un guion,
+ * y varios ya lo hacen (`b.expiraEn ? fechaCorta(b.expiraEn) : 'Sin caducidad'`).
+ * Un guion aquí se colaría dentro de esas frases ya resueltas.
+ */
+function comoFecha(iso: string): Date | null {
+  if (!iso) return null;
+  const d = new Date(iso + 'T12:00:00');
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Une trozos de una línea de apoyo con « · », saltándose los que vengan vacíos.
+ *
+ * Existe porque el separador estaba escrito a mano entre dos valores que pueden
+ * faltar, y entonces se queda huérfano: «Tu instructora · » en la tarjeta de
+ * Mensajes cuando la conversación aún no tiene ningún mensaje, o « · Tarjeta»
+ * en un recibo sin fecha. Un punto medio suelto no dice nada y se lee como algo
+ * que no cargó.
+ */
+export function unir(...partes: Array<string | null | undefined | false>): string {
+  return partes.filter((p): p is string => Boolean(p) && String(p).trim() !== '').join(' · ');
 }
 
 /** «Hoy», «Mañana» o «Mié 4». Lo que pinta el selector de días y las fichas. */
@@ -48,6 +81,7 @@ export function etiquetaDia(iso: string, hoy = hoyISO()): string {
   if (iso === hoy) return 'Hoy';
   if (iso === addDias(hoy, 1)) return 'Mañana';
   const d = comoFecha(iso);
+  if (!d) return '';
   const corto = DIAS_C[d.getDay()];
   return corto[0].toUpperCase() + corto.slice(1) + ' ' + d.getDate();
 }
@@ -55,12 +89,14 @@ export function etiquetaDia(iso: string, hoy = hoyISO()): string {
 /** «mié 4 sep» */
 export function fechaCorta(iso: string): string {
   const d = comoFecha(iso);
+  if (!d) return '';
   return DIAS_C[d.getDay()] + ' ' + d.getDate() + ' ' + MESES[d.getMonth()];
 }
 
 /** «miércoles 4 de septiembre» */
 export function fechaLarga(iso: string): string {
   const d = comoFecha(iso);
+  if (!d) return '';
   return DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES_L[d.getMonth()];
 }
 

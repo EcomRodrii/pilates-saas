@@ -140,8 +140,8 @@ export default function LoginPage() {
     return (
       <div className="a-pop" style={{ textAlign: 'center' }}>
         <span aria-hidden style={{ width: 64, height: 64, margin: '0 auto', borderRadius: 999, background: 'var(--success)', color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>✓</span>
-        <h2 className="t-h1" style={{ fontSize: 22, marginTop: 16 }}>Revisa tu correo</h2>
-        <p className="t-meta" style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5 }}>
+        <h2 className="t-h1" style={{ marginTop: 16 }}>Revisa tu correo</h2>
+        <p className="t-meta" style={{ marginTop: 6, lineHeight: 1.5 }}>
           Si <b>{f.email}</b> está registrado, te hemos enviado un enlace para entrar. Ábrelo en este mismo móvil.
         </p>
         <button type="button" onClick={() => setEnlaceEnviado(false)} className="btn btn--secondary" style={{ marginTop: 18 }}>
@@ -155,8 +155,8 @@ export default function LoginPage() {
   return (
     <form onSubmit={(e) => { e.preventDefault(); void entrar(); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} noValidate>
       <div>
-        <h2 className="t-h1" style={{ fontSize: 22 }}>Hola de nuevo</h2>
-        <p className="t-meta" style={{ marginTop: 4, fontSize: 12.5 }}>Entra para reservar tu próxima clase.</p>
+        <h2 className="t-h1">Hola de nuevo</h2>
+        <p className="t-meta" style={{ marginTop: 4 }}>Entra para reservar tu próxima clase.</p>
       </div>
 
       {global && (
@@ -203,14 +203,14 @@ export default function LoginPage() {
             type="button" role="checkbox" aria-checked={recordar}
             aria-label="Recordar inicio de sesión en este dispositivo"
             onClick={() => setRecordar((v) => !v)}
-            style={{ width: 19, height: 19, flexShrink: 0, borderRadius: 6, border: 'none', background: recordar ? 'var(--accent)' : 'var(--card)', boxShadow: recordar ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: '#fff', fontSize: 11.5, fontWeight: 800, transition: 'all .2s' }}
+            style={{ width: 19, height: 19, flexShrink: 0, borderRadius: 6, border: 'none', background: recordar ? 'var(--accent)' : 'var(--card)', boxShadow: recordar ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: '#fff', fontSize: 'var(--t-meta)', fontWeight: 800, transition: 'all .2s' }}
           >
             {recordar ? '✓' : ''}
           </button>
-          <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>Recordar sesión</span>
+          <span style={{ fontSize: 'var(--t-small)', color: 'var(--muted-foreground)' }}>Recordar sesión</span>
         </label>
 
-        <Link href={href('/acceso/recuperar')} style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)' }}>
+        <Link href={href('/acceso/recuperar')} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
           ¿Has olvidado la contraseña?
         </Link>
       </div>
@@ -225,7 +225,7 @@ export default function LoginPage() {
         type="button"
         onClick={() => void pedirEnlace()}
         disabled={cargando || !online}
-        style={{ border: 'none', background: 'none', fontSize: 12.5, fontWeight: 800, color: 'var(--accent)', padding: '4px 0' }}
+        style={{ border: 'none', background: 'none', fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', padding: '4px 0' }}
       >
         No tengo contraseña — mándame un enlace
       </button>
@@ -235,7 +235,7 @@ export default function LoginPage() {
           tiene contraseña que escribir y su única puerta es esta. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '2px 0' }}>
         <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-        <span className="t-meta" style={{ fontSize: 11 }}>o</span>
+        <span className="t-meta">o</span>
         <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
       </div>
 
@@ -259,7 +259,7 @@ export default function LoginPage() {
         {yendoAGoogle ? 'Abriendo Google…' : 'Continuar con Google'}
       </button>
 
-      <p className="t-meta" style={{ textAlign: 'center', fontSize: 12.5 }}>
+      <p className="t-meta" style={{ textAlign: 'center' }}>
         ¿Primera vez? <Link href={href('/acceso/registro')} style={{ fontWeight: 800, color: 'var(--foreground)' }}>Crear cuenta</Link>
       </p>
 

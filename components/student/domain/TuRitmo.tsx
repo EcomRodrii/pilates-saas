@@ -53,7 +53,7 @@ function Semana({ dias }: { dias: DiaSemana[] }) {
     <ul className="row" style={{ ['--gap' as string]: 'var(--s-1)', justifyContent: 'space-between', margin: 0, padding: 0, listStyle: 'none' }}>
       {dias.map((d) => (
         <li key={d.fecha} className="stack" style={{ ['--gap' as string]: '6px', alignItems: 'center', flex: 1 }}>
-          <span className="t-faint" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.04em' }}>{d.letra}</span>
+          <span className="t-faint" style={{ fontSize: 'var(--t-micro)', fontWeight: 700, letterSpacing: '.04em' }}>{d.letra}</span>
           <span
             aria-hidden
             style={{
@@ -96,7 +96,7 @@ export function TuRitmo({ dias, racha, estaSemana, bono, hrefBono, hrefBonos }: 
         <p className="t-label">Tu ritmo</p>
         {/* La racha solo aparece si existe: «🔥 0 sem.» no motiva a nadie. */}
         {racha > 0 && (
-          <p className="t-num t-dim no-shrink" style={{ fontSize: 11.5, fontWeight: 700 }}>🔥 {racha} sem.</p>
+          <p className="t-num t-dim no-shrink" style={{ fontSize: 'var(--t-meta)', fontWeight: 700 }}>🔥 {racha} sem.</p>
         )}
       </div>
 

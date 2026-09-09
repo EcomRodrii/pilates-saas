@@ -46,11 +46,11 @@ export function StudioHeader({ noLeidas = 0, transparente = false }: { noLeidas?
           ) : (
             // Sin logo, monograma con la inicial — el diseño lo declara como
             // estado normal, no como respaldo de error (`logoUrl: null`).
-            <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 999, background: transparente ? 'rgba(250,249,245,.22)' : 'var(--accent)', color: transparente ? '#FAF9F5' : 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, fontWeight: 800 }}>
+            <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 999, background: transparente ? 'rgba(250,249,245,.22)' : 'var(--accent)', color: transparente ? '#FAF9F5' : 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--t-meta)', fontWeight: 800 }}>
               {inicialDe(estudio.nombre)}
             </span>
           )}
-          <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-.01em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{estudio.nombre}</span>
+          <span style={{ fontSize: 'var(--t-body)', fontWeight: 800, letterSpacing: '-.01em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{estudio.nombre}</span>
         </Link>
 
         <Link

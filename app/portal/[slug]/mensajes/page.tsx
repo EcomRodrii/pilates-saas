@@ -77,15 +77,15 @@ export default function MensajesPage() {
               className="card card--tap a-up"
               style={{ display: 'flex', gap: 11, alignItems: 'center', padding: '12px 14px' }}
             >
-              <span aria-hidden style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 999, background: colorPersona(c.id), color: '#fff', fontSize: 13.5, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span aria-hidden style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 999, background: colorPersona(c.id), color: '#fff', fontSize: 'var(--t-body)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {nombre.slice(0, 1).toUpperCase()}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: sinLeer ? 800 : 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombre}</p>
-                  <span className="t-num" style={{ fontSize: 10, fontWeight: 600, color: 'var(--subtle-foreground)', flexShrink: 0 }}>{selloLista(c.ultimo_mensaje_en ?? c.creado_en)}</span>
+                  <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: sinLeer ? 800 : 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombre}</p>
+                  <span className="t-num" style={{ fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)', flexShrink: 0 }}>{selloLista(c.ultimo_mensaje_en ?? c.creado_en)}</span>
                 </div>
-                <p style={{ margin: '2px 0 0', fontSize: 12.5, color: sinLeer ? 'var(--foreground)' : 'var(--muted-foreground)', fontWeight: sinLeer ? 700 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <p style={{ margin: '2px 0 0', fontSize: 'var(--t-small)', color: sinLeer ? 'var(--foreground)' : 'var(--muted-foreground)', fontWeight: sinLeer ? 700 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {unaLinea(c.ultimo_cuerpo) || 'Sin mensajes todavía'}
                 </p>
               </div>

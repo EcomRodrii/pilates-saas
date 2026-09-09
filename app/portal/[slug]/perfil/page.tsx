@@ -54,8 +54,8 @@ export default function PerfilPage() {
         >
           <AvatarSocia nombre={socia?.nombre} apellidos={socia?.apellidos} fotoUrl={socia?.fotoUrl} size={56} />
           <div className="trunc">
-            <p className="t-card-title trunc" style={{ fontSize: 17 }}>{nombreCompleto}</p>
-            <p className="t-meta" style={{ marginTop: 1, fontSize: 12 }}>Alumna de {estudio.nombre}</p>
+            <p className="t-card-title trunc">{nombreCompleto}</p>
+            <p className="t-meta" style={{ marginTop: 1 }}>Alumna de {estudio.nombre}</p>
           </div>
           {/* La cabecera dejó de ser decorado: es la puerta a los datos y a la
               foto. Antes esta fila no hacía nada, y la única forma de cambiar
@@ -110,7 +110,7 @@ export default function PerfilPage() {
           items={[{ label: 'Cerrar sesión', onClick: () => setSalir(true), destructivo: true }]}
         />
 
-        <p className="t-meta" style={{ textAlign: 'center', fontSize: 10.5, color: 'var(--subtle-foreground)' }}>
+        <p className="t-meta" style={{ textAlign: 'center', color: 'var(--subtle-foreground)' }}>
           App de {estudio.nombre} · con Tentare
         </p>
       </div>

@@ -112,7 +112,7 @@ export default function ComprarPage() {
                 sepa que se entrega en mano— y cobrar sin eso es justo lo que
                 este repo lleva meses quitando. */}
             {familia === 'producto' && (
-              <p data-testid="aviso-productos" className="t-meta" style={{ margin: '-2px 0 9px', fontSize: 12, lineHeight: 1.5 }}>
+              <p data-testid="aviso-productos" className="t-meta" style={{ margin: '-2px 0 9px', lineHeight: 1.5 }}>
                 {AVISO_PRODUCTOS}
               </p>
             )}
@@ -197,16 +197,16 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
         />
       )}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-        <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, letterSpacing: '-.01em' }}>{p.nombre}</h3>
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 800, flexShrink: 0 }}>
+        <h3 style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800, letterSpacing: '-.01em' }}>{p.nombre}</h3>
+        <p style={{ margin: 0, fontSize: 'var(--t-h3)', fontWeight: 800, flexShrink: 0 }}>
           {euros(p.precio)}
           {p.familia === 'suscripcion' && (
-            <span className="t-meta" style={{ fontSize: 11 }}>/{nombrePeriodo({ periodicidadMeses: p.periodicidadMeses })}</span>
+            <span className="t-meta">/{nombrePeriodo({ periodicidadMeses: p.periodicidadMeses })}</span>
           )}
         </p>
       </div>
 
-      {resumen && <p className="t-meta" style={{ margin: '4px 0 0', fontSize: 12 }}>{resumen}</p>}
+      {resumen && <p className="t-meta" style={{ margin: '4px 0 0' }}>{resumen}</p>}
 
       {/* La restricción va ANTES del precio de decidir, no después de pagar:
           un bono acotado a un tipo de clase se rechaza al reservar cualquier
@@ -218,14 +218,14 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, margin: '7px 0 0',
             padding: '3px 9px', borderRadius: 999, background: 'var(--warning-soft)',
-            color: 'var(--warning-foreground)', fontSize: 11.5, fontWeight: 800,
+            color: 'var(--warning-foreground)', fontSize: 'var(--t-meta)', fontWeight: 800,
           }}
         >
           {cobertura}
         </p>
       )}
       {p.descripcion && (
-        <p style={{ margin: '7px 0 0', fontSize: 12.5, lineHeight: 1.5, color: 'var(--muted-foreground)' }}>{p.descripcion}</p>
+        <p style={{ margin: '7px 0 0', fontSize: 'var(--t-small)', lineHeight: 1.5, color: 'var(--muted-foreground)' }}>{p.descripcion}</p>
       )}
 
       {/* Sin botón en lo físico: se compra en el estudio. Un «Comprar» que

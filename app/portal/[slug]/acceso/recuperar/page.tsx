@@ -44,12 +44,12 @@ export default function RecuperarPage() {
     return (
       <div className="a-pop" style={{ textAlign: 'center' }}>
         <span aria-hidden style={{ width: 64, height: 64, margin: '0 auto', borderRadius: 999, background: 'var(--success)', color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>✓</span>
-        <h2 className="t-h1" style={{ fontSize: 22, marginTop: 16 }}>Revisa tu correo</h2>
-        <p className="t-meta" style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5 }}>
+        <h2 className="t-h1" style={{ marginTop: 16 }}>Revisa tu correo</h2>
+        <p className="t-meta" style={{ marginTop: 6, lineHeight: 1.5 }}>
           Si <b>{email}</b> está registrado, te hemos enviado un enlace para crear una contraseña nueva.
         </p>
         <Link href={href('/acceso/login')} className="btn btn--secondary" style={{ marginTop: 18 }}>Volver a entrar</Link>
-        <p className="t-meta" style={{ marginTop: 14, fontSize: 12 }}>
+        <p className="t-meta" style={{ marginTop: 14 }}>
           ¿No llega?{' '}
           <button type="button" onClick={() => setEnviado(false)} style={{ border: 'none', background: 'none', fontWeight: 800, color: 'var(--accent)', padding: 0 }}>
             Reenviar
@@ -63,12 +63,12 @@ export default function RecuperarPage() {
   return (
     <form onSubmit={(e) => { e.preventDefault(); void enviar(); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} noValidate>
       <div>
-        <h2 className="t-h1" style={{ fontSize: 22 }}>Recuperar contraseña</h2>
-        <p className="t-meta" style={{ marginTop: 4, fontSize: 12.5 }}>Te enviamos un enlace para crear una nueva.</p>
+        <h2 className="t-h1">Recuperar contraseña</h2>
+        <p className="t-meta" style={{ marginTop: 4 }}>Te enviamos un enlace para crear una nueva.</p>
       </div>
       <Input label="Email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} error={err} />
       <Button type="submit" full loading={cargando}>Enviar enlace</Button>
-      <Link href={href('/acceso/login')} style={{ textAlign: 'center', fontSize: 12.5, fontWeight: 800 }}>Volver</Link>
+      <Link href={href('/acceso/login')} style={{ textAlign: 'center', fontSize: 'var(--t-small)', fontWeight: 800 }}>Volver</Link>
       {captcha}
     </form>
   );

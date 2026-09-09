@@ -50,7 +50,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             style={{
               background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 999,
-              padding: '10px 18px', fontSize: 12.5, fontWeight: 700, boxShadow: 'var(--shadow-toast)',
+              padding: '10px 18px', fontSize: 'var(--t-small)', fontWeight: 700, boxShadow: 'var(--shadow-toast)',
               animation: 'apToast .35s var(--ease-spring) both',
             }}
           >

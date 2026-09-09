@@ -136,7 +136,29 @@ export default function InicioPage() {
             background: 'linear-gradient(185deg, rgba(8,8,8,.58), rgba(8,8,8,.18) 42%, rgba(8,8,8,.06) 58%, rgba(250,249,245,.35) 86%, var(--background))',
           }}
         />
-        <div className="px" style={{ position: 'absolute', left: 0, right: 0, bottom: 14, color: '#FAF9F5' }}>
+        {/* ⚠️ VELO PROPIO DEL TEXTO, medido en el render y no deducido.
+            El degradado de arriba termina virando a CREMA (`rgba(250,249,245,.35)`
+            al 86% y `--background` al 100%) para coser el héroe con la página —
+            y este bloque de texto, anclado a `bottom: 14`, vive ENTERO dentro de
+            ese tramo. O sea: texto crema sobre velo crema. Medido sobre la
+            captura con una foto de sala luminosa (la que sube un estudio real,
+            no la del mock): kicker **1,77:1**, saludo **2,66:1** y el titular
+            **1,00:1** — literalmente invisible donde la foto es clara.
+            El comentario de arriba ya arregló el tramo MEDIO por este mismo
+            motivo; lo que quedaba sin cubrir era el tramo final, que es donde
+            de verdad está el texto.
+            Se resuelve con un velo local en el propio contenedor en vez de
+            oscurecer el degradado del héroe: así la disolución a crema sigue
+            existiendo en los últimos 14 px y la composición no se mueve ni un
+            píxel — mismo alto, misma posición, mismos tamaños. */}
+        <div
+          className="px"
+          style={{
+            position: 'absolute', left: 0, right: 0, bottom: 14, color: '#FAF9F5',
+            paddingTop: 34, paddingBottom: 4,
+            background: 'linear-gradient(to top, rgba(8,8,8,.70), rgba(8,8,8,.62) 42%, rgba(8,8,8,.50) 70%, rgba(8,8,8,.28) 88%, transparent)',
+          }}
+        >
           {/* ⚠️ DESIGN CONFLICT · el paquete pinta esta línea con
               `--accent-deep-muted`, que es el token de las etiquetas sobre la
               superficie OSCURA (`--accent-deep`, la tarjeta «Tu próxima
@@ -149,10 +171,17 @@ export default function InicioPage() {
               punto por debajo en opacidad para conservar la jerarquía. Así la
               legibilidad no depende ni de la foto que suba el estudio ni de su
               color de marca. */}
-          <p className="t-label a-up" style={{ color: 'rgba(250,249,245,.72)' }}>
+          {/* ⚠️ El .72 de opacidad era lo último que quedaba por debajo de AA
+              en el héroe: sobre el punto más claro de una foto de sala luminosa
+              da 3,63:1 con el velo puesto, y hacen falta 4,5:1 a 11 px. Sube a
+              .9 (4,65:1 medido). No pierde jerarquía porque aquí la marcan el
+              TAMAÑO y las VERSALES —11 px en mayúsculas frente a 13 px—, no la
+              opacidad; y la opacidad, sobre una foto que sube cada estudio, es
+              justo la herramienta que no controlamos. */}
+          <p className="t-label a-up" style={{ color: 'rgba(250,249,245,.9)' }}>
             {estudio.nombre} · {fechaLarga(hoy)}
           </p>
-          <p className="a-up" style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 700, color: 'rgba(250,249,245,.9)', animationDelay: '60ms' }}>
+          <p className="a-up" style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, color: 'rgba(250,249,245,.9)', animationDelay: '60ms' }}>
             {saludo(socia?.nombre ?? '')} 👋
           </p>
           <h1 className="a-up" style={{ margin: '2px 0 0', fontSize: 32, fontWeight: 800, letterSpacing: '-.035em', lineHeight: 1, animationDelay: '120ms' }}>
@@ -182,7 +211,7 @@ export default function InicioPage() {
             type="search"
             placeholder="Buscar clases, instructoras…"
             aria-label="Buscar clases o instructoras"
-            style={{ width: '100%', height: 48, paddingLeft: 43, paddingRight: 15, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', boxShadow: 'var(--shadow-card)', fontSize: 13.5, fontFamily: 'inherit', color: 'var(--foreground)' }}
+            style={{ width: '100%', height: 48, paddingLeft: 43, paddingRight: 15, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', boxShadow: 'var(--shadow-card)', fontSize: 'var(--t-body)', fontFamily: 'inherit', color: 'var(--foreground)' }}
           />
         </div>
       </form>
@@ -269,7 +298,7 @@ export default function InicioPage() {
             <section>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>
                 <h2 className="t-h2">Huecos de hoy</h2>
-                <Link href={href('/reservar')} className="tap" style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)' }}>
+                <Link href={href('/reservar')} className="tap" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
                   Ver horario →
                 </Link>
               </div>

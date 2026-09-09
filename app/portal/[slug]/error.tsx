@@ -63,11 +63,11 @@ export default function ErrorPortalStudent({
         ⚠
       </span>
 
-      <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, letterSpacing: '-.02em' }}>
+      <h1 style={{ margin: 0, fontSize: 'var(--t-h1)', fontWeight: 800, letterSpacing: '-.02em' }}>
         {noDisponible ? 'No hemos podido cargar tu estudio' : 'Algo no ha salido bien'}
       </h1>
 
-      <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, maxWidth: '32ch', color: 'var(--muted-foreground, #5A5A52)' }}>
+      <p style={{ margin: 0, fontSize: 'var(--t-body)', lineHeight: 1.55, maxWidth: '32ch', color: 'var(--muted-foreground, #5A5A52)' }}>
         {noDisponible
           ? 'Es un problema nuestro, no tuyo, y no ha afectado a tus reservas. Vuelve a intentarlo en un momento.'
           : 'Vuelve a intentarlo. Si sigue pasando, escríbenos y lo miramos.'}
@@ -78,7 +78,7 @@ export default function ErrorPortalStudent({
         onClick={reset}
         style={{
           marginTop: 6, height: 48, padding: '0 26px', borderRadius: 999, border: 'none',
-          cursor: 'pointer', fontSize: 14.5, fontWeight: 800, fontFamily: 'inherit',
+          cursor: 'pointer', fontSize: 'var(--t-body)', fontWeight: 800, fontFamily: 'inherit',
           background: 'var(--primary, #1A1A1A)', color: 'var(--primary-foreground, #F1ECE1)',
         }}
       >

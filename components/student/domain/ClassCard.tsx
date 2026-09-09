@@ -60,28 +60,28 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
               width: 30, height: 30, borderRadius: 9,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               background: chip.fondo, color: chip.texto,
-              fontSize: 12, fontWeight: 800, letterSpacing: '-.02em',
+              fontSize: 'var(--t-small)', fontWeight: 800, letterSpacing: '-.02em',
             }}
           >
             {inicialDe(clase.tipo)}
           </span>
         )}
         <div style={{ textAlign: 'center' }}>
-          <p className="t-num" style={{ margin: 0, fontSize: 14.5, fontWeight: 700 }}>{clase.hora}</p>
-          <p style={{ margin: '1px 0 0', fontSize: 9.5, color: 'var(--subtle-foreground)' }}>{clase.duracionMin} min</p>
+          <p className="t-num" style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 700 }}>{clase.hora}</p>
+          <p style={{ margin: '1px 0 0', fontSize: 'var(--t-micro)', color: 'var(--subtle-foreground)' }}>{clase.duracionMin} min</p>
         </div>
       </div>
       <div aria-hidden style={{ width: 1, alignSelf: 'stretch', background: 'var(--muted)' }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clase.nombre}</p>
+        <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clase.nombre}</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
-          <span aria-hidden style={{ width: 20, height: 20, borderRadius: 999, flexShrink: 0, background: instructora?.fotoUrl ? 'url(' + instructora.fotoUrl + ') center/cover' : 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 8.5, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{!instructora?.fotoUrl && instructora?.iniciales}</span>
+          <span aria-hidden style={{ width: 20, height: 20, borderRadius: 999, flexShrink: 0, background: instructora?.fotoUrl ? 'url(' + instructora.fotoUrl + ') center/cover' : 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 'var(--t-micro)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{!instructora?.fotoUrl && instructora?.iniciales}</span>
           <p className="t-meta" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{instructora?.nombre ?? '—'} · {clase.sala}</p>
         </div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         <AvailabilityBadge estado={estado} plazas={clase.plazasLibres} />
-        <p style={{ margin: '5px 0 0', fontSize: 11.5, fontWeight: 800, color: 'var(--muted-foreground)' }}>{conBono ? '1 sesión' : precioClaseTexto(clase)}</p>
+        <p style={{ margin: '5px 0 0', fontSize: 'var(--t-meta)', fontWeight: 800, color: 'var(--muted-foreground)' }}>{conBono ? '1 sesión' : precioClaseTexto(clase)}</p>
       </div>
     </Link>
   );

@@ -177,7 +177,7 @@ export default function MisReservasPage() {
             className="tap"
             style={{
               flex: 1, position: 'relative', border: 'none', background: 'none', padding: '9px 0',
-              fontSize: 12.5, fontWeight: 800,
+              fontSize: 'var(--t-small)', fontWeight: 800,
               // ⚠️ `--subtle-foreground` NO vale aquí. Está calibrado contra el
               // crema del fondo (4,55:1) y contra la tarjeta blanca (4,80),
               // pero la pista de este control es `--muted`, que es más oscura:
@@ -230,7 +230,7 @@ export default function MisReservasPage() {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: espera ? 'var(--foreground)' : 'var(--accent-soft-foreground)' }}>
+                      <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800, color: espera ? 'var(--foreground)' : 'var(--accent-soft-foreground)' }}>
                         {etiquetaDia(c.fecha)} · {c.hora}
                       </p>
                       <Badge tone={ofertaViva ? 'few' : espera ? 'wait' : 'ok'}>
@@ -242,11 +242,11 @@ export default function MisReservasPage() {
                       </Badge>
                     </div>
                     {ofertaViva && (
-                      <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 700, color: 'var(--warning-foreground)' }}>
+                      <p style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--warning-foreground)' }}>
                         Tienes hasta las {new Date(r.ofertaExpiraEn as string).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} para aceptarla — si no, pasa a la siguiente de la lista.
                       </p>
                     )}
-                    <p style={{ margin: '3px 0 0', fontSize: 13.5, fontWeight: 700 }}>{c.nombre}</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 'var(--t-body)', fontWeight: 700 }}>{c.nombre}</p>
                     <p className="t-meta" style={{ marginTop: 2 }}>
                       con {i?.nombre ?? '—'} · {c.sala}
                     </p>
@@ -309,7 +309,7 @@ export default function MisReservasPage() {
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 14px' }}
                 >
                   <div>
-                    <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700 }}>{c.nombre}</p>
+                    <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>{c.nombre}</p>
                     <p className="t-meta" style={{ marginTop: 1 }}>{fechaCorta(c.fecha)} · {c.hora}</p>
                   </div>
                   <Badge tone={r.estado === 'asistida' ? 'ok' : r.estado === 'no-asistida' ? 'few' : 'neutral'}>
@@ -342,7 +342,7 @@ export default function MisReservasPage() {
               borderRadius: 14, padding: '11px 14px', marginTop: 13,
             }}
           >
-            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: aviso?.devolveriaCredito ? 'var(--accent-soft-foreground)' : 'var(--warning-foreground)' }}>
+            <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: aviso?.devolveriaCredito ? 'var(--accent-soft-foreground)' : 'var(--warning-foreground)' }}>
               {aviso?.devolveriaCredito
                 ? 'Estás dentro del plazo: deberías recuperar la sesión de tu bono.'
                 : `Quedan menos de ${estudio.politicaCancelacionHoras} h: es probable que la sesión no se devuelva.`}
