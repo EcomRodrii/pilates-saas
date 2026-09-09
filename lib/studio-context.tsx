@@ -4571,7 +4571,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const item = rewardCatalog.find(c => c.id === catalogItemId);
     // Validación pura y testeada (reward-engine): disponibilidad, vigencia,
     // límite por clienta, stock y saldo. Es un PRE-filtro para dar el mensaje
-    // correcto — quien decide de verdad es `reservar_recompensa` en la BD.
+    // correcto — quien decide de verdad es `canjear_recompensa` en la BD.
     const canjesPrevios = rewardRedemptions.filter(
       r => r.socioId === socioId && r.catalogItemId === catalogItemId && r.estado !== 'CANCELADO',
     ).length;

@@ -78,7 +78,7 @@ export function enVigencia(
  * Valida si una socia puede canjear una recompensa del catálogo.
  *
  * ⚠️ Esto NO es el cerrojo. Vigencia, límite y stock los decide de verdad la
- * RPC `reservar_recompensa`, bajo un `for update` de la fila del catálogo —
+ * RPC `canjear_recompensa`, bajo un `for update` de la fila del catálogo —
  * dos canjes a la vez pasarían esta comprobación los dos. Lo que hace aquí es
  * dar el mensaje correcto y no dejar que la pantalla prometa lo que el
  * servidor va a rechazar.

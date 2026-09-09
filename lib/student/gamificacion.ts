@@ -131,7 +131,7 @@ export interface RecompensaVista extends RecompensaDef {
  *    puede: desaparecer daría a entender que el estudio la ha retirado.
  *
  * `canjesPorItem` cuenta los canjes NO cancelados de ESTA socia. Nada de esto
- * es el cerrojo: quien decide es `reservar_recompensa` en la base de datos.
+ * es el cerrojo: quien decide es `canjear_recompensa` en la base de datos.
  */
 export function recompensasDe(
   items: RecompensaDef[],
