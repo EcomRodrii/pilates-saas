@@ -676,6 +676,12 @@ export function mapRewardRedemption(r: RowRewardRedemptions): RewardRedemption {
     creditosGastados: r.creditos_gastados,
     estado: r.estado,
     creadoEn: r.creado_en,
+    // Sin el código, el mostrador no puede casar lo que la socia le enseña con
+    // ninguna fila: era exactamente lo que faltaba para poder entregar nada.
+    codigo: r.codigo,
+    entregadoEn: r.entregado_en ?? null,
+    entregadoPor: r.entregado_por ?? null,
+    recuperacionId: r.recuperacion_id ?? null,
   } as RewardRedemption;
 }
 
@@ -3342,29 +3348,65 @@ export async function dbAjustarStock(
   return { ok: true };
 }
 
+/** Errores que la BD devuelve por nombre. El mensaje lo pone quien llama. */
+const ERRORES_CANJE = [
+  'SIN_STOCK', 'LIMITE_ALCANZADO', 'FUERA_DE_VIGENCIA', 'NO_DISPONIBLE',
+  'NO_AUTORIZADO', 'SALDO_INSUFICIENTE',
+] as const;
+
 /**
- * Reserva un canje: vigencia + límite por socia + stock, atómico (ruta panel).
+ * El canje entero, en UNA llamada (ruta panel).
  *
- * Sustituye a `dbAjustarStock(-1)` en el canje. Las tres comprobaciones tienen
- * la misma carrera —leer y luego decidir— y por eso viven juntas bajo el
- * `for update` de la fila del catálogo. Devuelve un código, no una frase: el
- * mensaje lo pone quien llama, que es el que sabe si habla con la clienta o con
- * el mostrador.
+ * Sustituye a la secuencia `reservar_recompensa` → `ajustar_creditos` → INSERT
+ * que vivía aquí arriba. No es un atajo: entre el descuento y el INSERT cabía
+ * un fallo que dejaba a la socia sin créditos y sin canje, y el INSERT ni
+ * siquiera miraba su error. Una función PL/pgSQL es una transacción, así que
+ * ahora o pasa todo o no pasa nada.
+ *
+ * Devuelve el CÓDIGO, que es lo que hace que exista algo que enseñar: sin él,
+ * el canje era una fila que ninguna pantalla podía casar con la persona que
+ * está delante del mostrador.
  */
-export async function dbReservarRecompensa(
-  itemId: string, studioId: string, socioId: string,
-): Promise<{ ok: true } | { error: string }> {
-  const { error } = await supabase.rpc('reservar_recompensa', {
-    p_item_id: itemId, p_studio_id: studioId, p_socio_id: socioId,
+export async function dbCanjearRecompensa(
+  redemptionId: string, itemId: string, studioId: string, socioId: string,
+): Promise<{ ok: true; codigo: string } | { error: string }> {
+  const { data, error } = await supabase.rpc('canjear_recompensa', {
+    p_redemption_id: redemptionId, p_item_id: itemId, p_studio_id: studioId, p_socio_id: socioId,
   });
   if (error) {
-    for (const codigo of ['SIN_STOCK', 'LIMITE_ALCANZADO', 'FUERA_DE_VIGENCIA', 'NO_DISPONIBLE', 'NO_AUTORIZADO']) {
+    for (const codigo of ERRORES_CANJE) {
       if (error.message.includes(codigo)) return { error: codigo };
     }
-    reportDbError('[dbReservarRecompensa]', error);
+    reportDbError('[dbCanjearRecompensa]', error);
     return { error: error.message };
   }
-  return { ok: true };
+  return { ok: true, codigo: data as string };
+}
+
+/**
+ * Entregar la recompensa. Por id (la propietaria la reconoce y lo hace desde el
+ * panel) o por código (la socia lo enseña) — las dos, porque el encargo insiste
+ * en que el código no puede ser la única llave.
+ *
+ * Idempotente por construcción: la RPC rechaza un canje ya ENTREGADO en vez de
+ * volver a entregarlo. Es lo que impide que la misma botella salga dos veces.
+ */
+export async function dbEntregarCanje(
+  studioId: string, quien: { redemptionId?: string; codigo?: string },
+): Promise<{ ok: true; id: string } | { error: string }> {
+  const { data, error } = await supabase.rpc('entregar_canje', {
+    p_studio_id: studioId,
+    p_redemption_id: quien.redemptionId ?? null,
+    p_codigo: quien.codigo ?? null,
+  });
+  if (error) {
+    for (const codigo of ['YA_ENTREGADO', 'CANJE_CANCELADO', 'CANJE_NO_ENCONTRADO', 'NO_AUTORIZADO', 'FALTA_IDENTIFICADOR']) {
+      if (error.message.includes(codigo)) return { error: codigo };
+    }
+    reportDbError('[dbEntregarCanje]', error);
+    return { error: error.message };
+  }
+  return { ok: true, id: data as string };
 }
 
 // R2 (ruta panel): decremento ATÓMICO de una sesión de bono vía la misma RPC

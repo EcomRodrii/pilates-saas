@@ -607,6 +607,10 @@ export interface RowRewardRedemptions {
   creditos_gastados: number;
   estado: string;
   creado_en: string;
+  codigo: string;
+  entregado_en: string | null;
+  entregado_por: string | null;
+  recuperacion_id: string | null;
 }
 
 export interface RowRewardRules {

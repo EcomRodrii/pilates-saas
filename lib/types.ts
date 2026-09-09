@@ -1721,6 +1721,14 @@ export interface RewardRedemption {
   creditosGastados: number;
   estado: EstadoCanje;
   creadoEn: string;
+  /** El que la socia enseña en el estudio (TNT-XXXXXX). Único por estudio. */
+  codigo: string;
+  /** Cuándo se entregó. NULL mientras está PENDIENTE. */
+  entregadoEn?: string | null;
+  /** `auth.uid()` de quien lo entregó. NULL en los históricos. */
+  entregadoPor?: string | null;
+  /** La recuperación que se le concedió, si la recompensa era CLASE_GRATIS. */
+  recuperacionId?: string | null;
 }
 
 // ─── Gamificación: logros ─────────────────────────────────────────────────────

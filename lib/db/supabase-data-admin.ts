@@ -4096,62 +4096,35 @@ export async function canjearRecompensaPublica(params: {
   if ('error' in validacion) return validacion;
   if (!item) return { error: 'Esta recompensa ya no está disponible.' as const };
 
-  const now = new Date().toISOString();
   const redemptionId = `rwd-${uid()}`;
 
-  // A-13: se RESERVA ATÓMICAMENTE antes de cobrar créditos. Antes se hacía
-  // `update stock = item.stock-1` con un valor leído de un snapshot → dos canjes
-  // concurrentes del último ítem lo vendían dos veces.
-  //
-  // `reservar_recompensa` hace vigencia + límite por socia + stock bajo un
-  // `for update` de la fila del catálogo. Las tres van juntas porque las tres
-  // tienen la misma carrera: la validación de arriba es un snapshot, y dos
-  // peticiones simultáneas la pasarían las dos. Si algo falla, no se debita nada.
-  const stockLimitado = item.stock != null;
-  const { error: reservaErr } = await admin.rpc('reservar_recompensa', {
-    p_item_id: params.catalogItemId, p_studio_id: params.studioId, p_socio_id: params.socioId,
+  // ⚠️ UNA sola llamada, y no por elegancia. Antes eran tres seguidas —reservar
+  // stock, descontar créditos, insertar la fila— y la tercera ni siquiera
+  // miraba su error: un fallo ahí dejaba a la socia sin créditos y sin canje.
+  // `canjear_recompensa` es una función PL/pgSQL, o sea una transacción, y
+  // devuelve el CÓDIGO que la socia enseñará en el estudio.
+  const { data: codigo, error: canjeErr } = await admin.rpc('canjear_recompensa', {
+    p_redemption_id: redemptionId, p_item_id: params.catalogItemId,
+    p_studio_id: params.studioId, p_socio_id: params.socioId,
   });
-  if (reservaErr) {
-    const m = reservaErr.message;
+  if (canjeErr) {
+    const m = canjeErr.message;
     if (m.includes('SIN_STOCK')) return { error: 'Esta recompensa está agotada.' as const };
     if (m.includes('LIMITE_ALCANZADO')) return { error: 'Ya has canjeado esta recompensa el máximo de veces.' as const };
     if (m.includes('FUERA_DE_VIGENCIA')) return { error: 'Esta recompensa no está disponible ahora mismo.' as const };
     if (m.includes('NO_DISPONIBLE')) return { error: 'Esta recompensa ya no está disponible.' as const };
+    if (m.includes('SALDO_INSUFICIENTE')) return { error: 'Saldo insuficiente' as const };
     return { error: m };
   }
-
-  // P0-20: descuento ATÓMICO del saldo (con guard de saldo suficiente). Si falla,
-  // se DEVUELVE el stock que se acababa de reservar.
-  const { error: credErr } = await admin.rpc('ajustar_creditos', {
-    p_socio_id: params.socioId, p_studio_id: params.studioId,
-    p_delta_saldo: -item.costeCreditos, p_delta_ganado: 0, p_delta_canjeado: item.costeCreditos,
-  });
-  if (credErr) {
-    if (stockLimitado) {
-      await admin.rpc('ajustar_stock', { p_item_id: params.catalogItemId, p_studio_id: params.studioId, p_delta: 1 });
-    }
-    if (credErr.message.includes('SALDO_INSUFICIENTE')) return { error: 'Saldo insuficiente' as const };
-    return { error: credErr.message };
-  }
-
-  await Promise.all([
-    admin.from('reward_redemptions').insert({
-      id: redemptionId, studio_id: params.studioId, socio_id: params.socioId,
-      catalog_item_id: params.catalogItemId, creditos_gastados: item.costeCreditos, estado: 'PENDIENTE', creado_en: now,
-    }),
-    admin.from('credit_transactions').insert({
-      id: `ctx-${uid()}`, studio_id: params.studioId, socio_id: params.socioId, tipo: 'CANJE',
-      creditos: -item.costeCreditos, descripcion: `Canje: ${item.nombre}`, ref_id: redemptionId, creado_en: now,
-    }),
-  ]);
 
   // Una recompensa de CLASE_GRATIS se entrega sola: concede una recuperación,
   // que es el derecho a una clase suelta que ya existe en el producto. No se
   // inventa un vale nuevo — la alumna la gasta reservando por el camino de
   // siempre, cuenta contra su tope y caduca con la política del estudio.
   if (item.efecto === 'CLASE_GRATIS') {
+    const recuperacionId = `rec-${uid()}`;
     const { data: resultado, error: recupErr } = await admin.rpc('crear_recuperacion', {
-      p_id: `rec-${uid()}`,
+      p_id: recuperacionId,
       p_studio_id: params.studioId,
       p_socio_id: params.socioId,
       p_origen_reserva_id: null,
@@ -4172,8 +4145,13 @@ export async function canjearRecompensaPublica(params: {
       };
     }
 
-    // No hay nada que entregar en mostrador: el canje nace resuelto.
-    await admin.from('reward_redemptions').update({ estado: 'ENTREGADO' }).eq('id', redemptionId);
+    // No hay nada que entregar en mostrador: el canje nace resuelto. Y se
+    // GUARDA la recuperación concedida — hasta ahora el único rastro era la
+    // frase «Canje de recompensa: X» en `motivo`, así que para saber si una
+    // clase se pagó con una recompensa había que leer castellano.
+    await admin.from('reward_redemptions')
+      .update({ estado: 'ENTREGADO', entregado_en: new Date().toISOString(), recuperacion_id: recuperacionId })
+      .eq('id', redemptionId);
   }
 
   // El portal le promete a la socia «El estudio te avisará». Sin esto, no se
@@ -4189,7 +4167,10 @@ export async function canjearRecompensaPublica(params: {
     recompensa: item.nombre, creditos: item.costeCreditos, redemptionId,
   });
 
-  return { ok: true as const };
+  // El código VUELVE. Devolver `{ ok: true }` a secas es lo que dejaba a la
+  // socia con un toast y nada más: sin código no hay nada que enseñar, ni que
+  // guardar, ni que volver a mirar mañana.
+  return { ok: true as const, redemptionId, codigo: codigo as string, efecto: item.efecto };
 }
 
 // Otorga créditos server-side (misma decisión pura que el contexto): si la regla
