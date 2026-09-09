@@ -17,7 +17,7 @@ export interface PlazaFijaMin {
   estado: 'ACTIVA' | 'PAUSADA' | 'BAJA';
 }
 
-export interface RecuperacionMin { caducaEl: string; estado: 'DISPONIBLE' | 'USADA' | 'CADUCADA' | 'ANULADA' }
+export interface RecuperacionMin { id?: string; caducaEl: string; estado: 'DISPONIBLE' | 'USADA' | 'CADUCADA' | 'ANULADA' }
 
 export interface PlazaFijaVista {
   diaSemana: number;
@@ -59,10 +59,59 @@ export function proyectarPlazaFija(plazas: PlazaFijaMin[], hoyISO: string, horaA
 
 export function nombreDia(diaSemana: number): string { return DIAS[diaSemana] ?? ''; }
 
-export interface RecuperacionesVista { disponibles: number; proximaCaducidad: string | null }
+export interface RecuperacionVista {
+  caducaEl: string;
+  /**
+   * La recompensa con la que la consiguió, si vino de un canje. `null` si es
+   * una recuperación normal (una clase que canceló a tiempo, el reparto
+   * semanal…): ahí no hay nada que contar que ella no sepa ya.
+   */
+  deRecompensa: string | null;
+}
+
+export interface RecuperacionesVista {
+  disponibles: number;
+  proximaCaducidad: string | null;
+  /** Las vivas, de la que antes caduca a la que menos. */
+  detalle: RecuperacionVista[];
+}
+
+/**
+ * De qué canje salió cada recuperación, para poder decirlo.
+ *
+ * ⚠️ El origen se toma del VÍNCULO (`reward_redemptions.recuperacion_id`), NUNCA
+ * de `recuperaciones.motivo`. `motivo` es texto libre que escribe quien la
+ * concede desde el panel: en producción hay uno que pone literalmente «mm».
+ * Enseñárselo a la alumna sería enseñarle eso. Por eso el canje guarda la
+ * clave — el texto nunca fue suficiente.
+ */
+export interface CanjeConRecuperacion { catalogItemId: string; recuperacionId?: string | null }
 
 /** Recuperaciones que aún se pueden usar (DISPONIBLE y no caducada a fecha de hoy). */
-export function proyectarRecuperaciones(recs: RecuperacionMin[], hoyISO: string): RecuperacionesVista {
-  const vivas = recs.filter((r) => r.estado === 'DISPONIBLE' && r.caducaEl >= hoyISO).sort((a, b) => a.caducaEl.localeCompare(b.caducaEl));
-  return { disponibles: vivas.length, proximaCaducidad: vivas[0]?.caducaEl ?? null };
+export function proyectarRecuperaciones(
+  recs: RecuperacionMin[],
+  hoyISO: string,
+  canjes: CanjeConRecuperacion[] = [],
+  catalogo: { id: string; nombre: string }[] = [],
+): RecuperacionesVista {
+  const vivas = recs
+    .filter((r) => r.estado === 'DISPONIBLE' && r.caducaEl >= hoyISO)
+    .sort((a, b) => a.caducaEl.localeCompare(b.caducaEl));
+
+  const nombre = new Map(catalogo.map((c) => [c.id, c.nombre]));
+  const recompensaPorRecuperacion = new Map<string, string>();
+  for (const c of canjes) {
+    if (!c.recuperacionId) continue;
+    const n = nombre.get(c.catalogItemId);
+    if (n) recompensaPorRecuperacion.set(c.recuperacionId, n);
+  }
+
+  return {
+    disponibles: vivas.length,
+    proximaCaducidad: vivas[0]?.caducaEl ?? null,
+    detalle: vivas.map((r) => ({
+      caducaEl: r.caducaEl,
+      deRecompensa: (r.id && recompensaPorRecuperacion.get(r.id)) ?? null,
+    })),
+  };
 }
