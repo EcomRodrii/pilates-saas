@@ -34,6 +34,7 @@ import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic
 import { useAuth } from '@/lib/auth-context';
 import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pendientes';
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
+import { CanjesPendientes } from '@/components/dashboard/canjes-pendientes';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
 
@@ -770,6 +771,13 @@ export default function Dashboard() {
             solo se pinta si hay algo pendiente — se oculta sola (ver el componente). */}
         {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
             {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
+
+        {/* ── Recompensas pendientes de entregar ─────────────────────────────── */}
+        {/* Igual que las dos de arriba: se oculta sola y no es sección del
+            layout. Gateada por el MISMO rol que la RPC `entregar_canje` exige
+            en la base — la UI no es el límite, pero tampoco debe ofrecer un
+            botón que va a rebotar. */}
+        {gestionaClientas && <CanjesPendientes onToast={showToast} />}
 
         {/* ── Ventas recientes ────────────────────────────────────────────────── */}
         {/* Vistazo rápido junto al toast+sonido de nueva venta (campana). Igual

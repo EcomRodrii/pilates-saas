@@ -14,7 +14,7 @@ import type { GamificacionVista } from '@/lib/student/tipos';
 const VACIA: GamificacionVista = {
   hay: false, saldo: 0, totalGanado: 0, totalCanjeado: 0, diasParaCaducar: null,
   nivel: { actual: null, siguiente: null, faltan: null, progreso: 0 },
-  logros: [], retos: [], recompensas: [],
+  logros: [], retos: [], recompensas: [], canjes: [],
 };
 
 export async function getGamificacion(slug: string): Promise<GamificacionVista> {
@@ -22,7 +22,11 @@ export async function getGamificacion(slug: string): Promise<GamificacionVista> 
   return d ? proyectarGamificacion(d, hoyISO()) : VACIA;
 }
 
-export type ResultadoCanje = { ok: true } | { ok: false; error: string };
+export type ResultadoCanje =
+  /** `codigo` es el que la socia enseña en el estudio. Viene del servidor: es
+   *  el mismo que queda guardado en su canje, no uno inventado aquí. */
+  | { ok: true; codigo: string | null }
+  | { ok: false; error: string };
 
 /** Canjea una recompensa. El saldo lo descuenta el servidor de forma atómica. */
 export async function canjearRecompensa(slug: string, studioId: string, catalogItemId: string): Promise<ResultadoCanje> {
@@ -32,11 +36,11 @@ export async function canjearRecompensa(slug: string, studioId: string, catalogI
       headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
       body: JSON.stringify({ studioId, catalogItemId }),
     });
-    const cuerpo = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    const cuerpo = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; codigo?: string } | null;
     if (!res.ok) return { ok: false, error: cuerpo?.error ?? 'No hemos podido canjear la recompensa.' };
     // Cambian saldo, canjes y stock: el payload cacheado ya no vale.
     invalidarCatalogo(slug);
-    return { ok: true };
+    return { ok: true, codigo: cuerpo?.codigo ?? null };
   } catch {
     return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };
   }

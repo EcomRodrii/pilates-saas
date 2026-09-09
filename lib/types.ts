@@ -1721,6 +1721,22 @@ export interface RewardRedemption {
   creditosGastados: number;
   estado: EstadoCanje;
   creadoEn: string;
+  /**
+   * El que la socia enseña en el estudio (TNT-XXXXXX). Único por estudio.
+   *
+   * ⚠️ `string | null` y no `string` aunque la columna sea NOT NULL: el
+   * generador de `db-types.ts` lee las migraciones línea a línea y no ve el
+   * `alter column codigo set not null` que va DESPUÉS del `add column`, así que
+   * la fila llega como anulable. Mejor que la pantalla sepa no pintar el código
+   * que inventarse un `''`, que se vería como un código vacío de verdad.
+   */
+  codigo: string | null;
+  /** Cuándo se entregó. NULL mientras está PENDIENTE. */
+  entregadoEn?: string | null;
+  /** `auth.uid()` de quien lo entregó. NULL en los históricos. */
+  entregadoPor?: string | null;
+  /** La recuperación que se le concedió, si la recompensa era CLASE_GRATIS. */
+  recuperacionId?: string | null;
 }
 
 // ─── Gamificación: logros ─────────────────────────────────────────────────────

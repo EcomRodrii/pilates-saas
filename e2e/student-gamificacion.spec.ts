@@ -269,3 +269,64 @@ test.describe('Student PWA · gamificación', () => {
     await expect(tarjeta.getByRole('button', { name: 'Canjear' })).toBeEnabled({ timeout: 30_000 });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Tus canjes»: el resultado del canje tiene que seguir ahí mañana.
+//
+// Hasta #1806 lo único que la socia veía al canjear era un aviso que se
+// desvanece. El 9-sep-2026 el fundador canjeó una botella en producción, no vio
+// nada, y volvió a pulsar 41 segundos después: dos canjes, diez créditos, una
+// botella. Un canje que no se puede volver a mirar es un canje que quien lo
+// hizo no sabe si ocurrió.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('Tus canjes', () => {
+  test('el código sobrevive a recargar la pantalla', async ({ page }) => {
+    const f = conGamificacion();
+    const socia = f.socia as Record<string, unknown>;
+    socia.rewardRedemptions = [
+      { id: 'cj1', studioId: STUDIO_ID, socioId: 'socio-e2e-1', catalogItemId: 'p2',
+        creditosGastados: 500, estado: 'PENDIENTE', creadoEn: '2026-08-20T10:00:00Z', codigo: 'TNT-AH6YDD' },
+    ];
+    await montar(page, f);
+    await page.goto(`/portal/${SLUG}/logros`);
+
+    const canjes = page.getByTestId('mis-canjes');
+    await expect(canjes).toBeVisible({ timeout: 30_000 });
+    await expect(canjes).toContainText('Camiseta');
+    await expect(canjes).toContainText('TNT-AH6YDD');
+    await expect(canjes).toContainText('Pendiente');
+
+    // Lo que de verdad se vigila: NO es un mensaje de la sesión. Se recarga
+    // entera —como cerrar y volver a abrir la app— y sigue ahí.
+    await page.reload();
+    await expect(page.getByTestId('mis-canjes')).toContainText('TNT-AH6YDD', { timeout: 30_000 });
+  });
+
+  test('una recompensa ya entregada no sigue enseñando su código', async ({ page }) => {
+    // El código de una entregada no abre nada: dejarlo puesto invita a ir al
+    // estudio con él y a que alguien lo intente cobrar dos veces.
+    const f = conGamificacion();
+    const socia = f.socia as Record<string, unknown>;
+    socia.rewardRedemptions = [
+      { id: 'cj1', studioId: STUDIO_ID, socioId: 'socio-e2e-1', catalogItemId: 'p2',
+        creditosGastados: 500, estado: 'ENTREGADO', creadoEn: '2026-08-20T10:00:00Z', codigo: 'TNT-2755W4' },
+    ];
+    await montar(page, f);
+    await page.goto(`/portal/${SLUG}/logros`);
+
+    const canjes = page.getByTestId('mis-canjes');
+    await expect(canjes).toBeVisible({ timeout: 30_000 });
+    await expect(canjes).toContainText('Entregada');
+    await expect(canjes).not.toContainText('TNT-2755W4');
+  });
+
+  test('sin canjes, la sección no aparece', async ({ page }) => {
+    // Una sección vacía en una pantalla que ya lleva nivel, logros, retos y
+    // recompensas es ruido.
+    await montar(page, conGamificacion());
+    await page.goto(`/portal/${SLUG}/logros`);
+    await expect(page.getByTestId('recompensas')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('mis-canjes')).toHaveCount(0);
+  });
+});

@@ -36,13 +36,12 @@ import {
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
   dbInsertRewardRule, dbUpdateRewardRule,
-  dbInsertCreditTransaction, dbAjustarCreditos,
   dbOtorgarCreditoDisparador,
-  dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem, dbAjustarStock,
-  dbReservarRecompensa,
+  dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem,
   dbConsumirSesionBono,
   dbDevolverSesionBono,
-  dbInsertRewardRedemption, dbUpdateRewardRedemption, dbCancelarCanje,
+  dbCancelarCanje,
+  dbCanjearRecompensa, dbEntregarCanje,
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
   dbUpsertAchievementProgress, dbInsertAchievementHistory,
   dbInsertLevelDefinition, dbUpdateLevelDefinition, dbDeleteLevelDefinition,
@@ -4594,52 +4593,43 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
     const studioId = getCurrentStudioId();
     const now = new Date().toISOString();
-    const redemption: RewardRedemption = {
-      id: `rwd-${uid()}`, studioId, socioId, catalogItemId, creditosGastados: item.costeCreditos,
-      estado: 'PENDIENTE', creadoEn: now,
-    };
-    const transaccion: CreditTransaction = {
-      id: `ctx-${uid()}`, studioId, socioId, tipo: 'CANJE', creditos: -item.costeCreditos,
-      descripcion: `Canje: ${item.nombre}`, refId: redemption.id, creadoEn: now,
-    };
+    const redemptionId = `rwd-${uid()}`;
 
-    // C4: secuencia ATÓMICA con rollback (espejo de canjeRecompensaServidor).
-    // Antes las cuatro escrituras eran fire-and-forget: si el débito de saldo
-    // fallaba por gasto concurrente (SALDO_INSUFICIENTE), la fila de canje y el
-    // stock YA se habían escrito → la socia se quedaba la recompensa sin pagar.
-    // Ahora: (1) reservar stock, (2) debitar saldo con guard —si falla, DEVOLVER
-    // el stock—, (3) solo entonces persistir canje/tx. La UI se aplica sobre lo ya
-    // confirmado en BD, así que no diverge en el error.
+    // UNA llamada. Antes eran tres —reservar stock, debitar saldo, insertar—
+    // con una compensación a mano en medio (devolver el stock si el débito
+    // fallaba) y un INSERT final cuyo error nadie miraba. Entre el débito y ese
+    // INSERT cabía el peor de los finales: sin créditos y sin canje. La RPC lo
+    // hace todo en una transacción y devuelve el código.
     (async () => {
-      const stockLimitado = item.stock != null;
-      // Una sola RPC para vigencia + límite + stock: el mostrador tiene que
-      // chocar con lo mismo que el portal. Antes esto solo miraba el stock, así
-      // que un límite por clienta se habría respetado en la app y no aquí.
-      const s = await dbReservarRecompensa(catalogItemId, studioId, socioId);
-      if ('error' in s) {
-        const msg = s.error === 'SIN_STOCK' ? 'Esta recompensa está agotada.'
-          : s.error === 'LIMITE_ALCANZADO' ? 'Esta clienta ya la ha canjeado el máximo de veces.'
-            : s.error === 'FUERA_DE_VIGENCIA' ? 'Esta recompensa no está disponible en esta fecha.'
-              : s.error === 'NO_DISPONIBLE' ? 'Esta recompensa ya no está disponible.'
-                : 'No se pudo completar el canje.';
+      const res = await dbCanjearRecompensa(redemptionId, catalogItemId, studioId, socioId);
+      if ('error' in res) {
+        const msg = res.error === 'SIN_STOCK' ? 'Esta recompensa está agotada.'
+          : res.error === 'LIMITE_ALCANZADO' ? 'Esta clienta ya la ha canjeado el máximo de veces.'
+            : res.error === 'FUERA_DE_VIGENCIA' ? 'Esta recompensa no está disponible en esta fecha.'
+              : res.error === 'NO_DISPONIBLE' ? 'Esta recompensa ya no está disponible.'
+                : res.error === 'SALDO_INSUFICIENTE' ? 'Saldo insuficiente para este canje.'
+                  : 'No se pudo completar el canje.';
         setDbError({ msg, key: Date.now() });
         return;
       }
-      const c = await dbAjustarCreditos(socioId, studioId, -item.costeCreditos, 0, item.costeCreditos);
-      if ('error' in c) {
-        if (stockLimitado) await dbAjustarStock(catalogItemId, studioId, 1); // devolver stock reservado
-        setDbError({ msg: c.error === 'Saldo insuficiente' ? 'Saldo insuficiente para este canje.' : 'No se pudo completar el canje.', key: Date.now() });
-        return;
-      }
-      // Confirmado en BD → registrar canje/tx y reflejar en la UI.
-      dbInsertRewardRedemption(redemption);
-      dbInsertCreditTransaction(transaccion);
+
+      // La UI se aplica sobre lo YA confirmado en base de datos, con el código
+      // que ha devuelto ella: inventarlo aquí sería enseñar uno que no existe.
+      const redemption: RewardRedemption = {
+        id: redemptionId, studioId, socioId, catalogItemId,
+        creditosGastados: item.costeCreditos, estado: 'PENDIENTE', creadoEn: now,
+        codigo: res.codigo, entregadoEn: null, entregadoPor: null, recuperacionId: null,
+      };
+      const transaccion: CreditTransaction = {
+        id: `ctx-${redemptionId}`, studioId, socioId, tipo: 'CANJE', creditos: -item.costeCreditos,
+        descripcion: `Canje: ${item.nombre}`, refId: redemptionId, creadoEn: now,
+      };
       setRewardRedemptions(prev => [redemption, ...prev]);
       setCreditTransactions(prev => [transaccion, ...prev]);
       setMemberCredits(prev => prev.map(m => m.socioId === socioId
         ? aplicarCanjeCreditos(m, socioId, studioId, item.costeCreditos, now)
         : m));
-      if (stockLimitado) {
+      if (item.stock != null) {
         setRewardCatalog(prev => prev.map(c => c.id === catalogItemId ? { ...c, stock: (c.stock ?? 1) - 1 } : c));
       }
     })();
@@ -4664,10 +4654,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       }
       return { ok: true };
     }
-    const res = await dbUpdateRewardRedemption(id, { estado });
-    if (!res.ok) return res;
-    setRewardRedemptions(prev => prev.map(r => r.id === id ? { ...r, estado } : r));
-    return res;
+    // ENTREGADO tampoco es «solo un cambio de estado»: hay que dejar constancia
+    // de QUIÉN entregó y CUÁNDO, y rechazar el segundo intento. Eso vive en la
+    // RPC `entregar_canje`; un UPDATE suelto no puede hacer ninguna de las dos.
+    const res = await dbEntregarCanje(getCurrentStudioId(), { redemptionId: id });
+    if ('error' in res) {
+      return { ok: false, error: res.error === 'YA_ENTREGADO' ? 'Este canje ya se había entregado.'
+        : res.error === 'CANJE_CANCELADO' ? 'Este canje está cancelado.'
+          : res.error === 'CANJE_NO_ENCONTRADO' ? 'No encontramos ese canje.'
+            : 'No se ha podido entregar.' };
+    }
+    setRewardRedemptions(prev => prev.map(r => r.id === id
+      ? { ...r, estado, entregadoEn: new Date().toISOString() } : r));
+    return { ok: true };
   }
 
   // ── Gamificación: logros ──────────────────────────────────────────────────────

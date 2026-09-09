@@ -134,8 +134,17 @@ test.describe('Canjes pendientes', () => {
     await expect(page.getByText(/se han devuelto 500 créditos/i)).toBeVisible({ timeout: 10_000 });
   });
 
-  test('entregar sí es solo un cambio de estado: no devuelve nada', async ({ page }) => {
-    const llamadasRpc: string[] = [];
+  test('entregar no devuelve nada, y deja constancia de quién y cuándo', async ({ page }) => {
+    // ⚠️ Este test decía «entregar es SOLO un cambio de estado» y comprobaba un
+    // `PATCH` directo. Era cierto y era el problema: un UPDATE suelto no puede
+    // grabar QUIÉN entregó ni CUÁNDO, ni rechazar el segundo intento, así que
+    // la misma botella podía salir dos veces del estudio. Desde #1806 va por la
+    // RPC `entregar_canje`, que hace las tres cosas.
+    //
+    // Lo que este test protegía y SIGUE protegiendo: entregar no puede devolver
+    // créditos. Eso es cancelar, que es otra cosa.
+    const cancelaciones: string[] = [];
+    const entregas: string[] = [];
     const patches: string[] = [];
 
     await base(page);
@@ -144,17 +153,26 @@ test.describe('Canjes pendientes', () => {
       patches.push(route.request().method());
       return json(route, []);
     });
+    await page.route('**/rest/v1/rpc/entregar_canje', route => {
+      entregas.push(route.request().postData() ?? '');
+      return json(route, 'rwd-1');
+    });
     await page.route('**/rest/v1/rpc/cancelar_canje', route => {
-      llamadasRpc.push('no debería llamarse');
+      cancelaciones.push('no debería llamarse');
       return json(route, [{ estado: 'CANCELADO', saldo: 620 }]);
     });
 
     await abrirCanjes(page);
     await page.getByRole('button', { name: 'Entregado' }).click();
 
-    await expect.poll(() => patches.length, { timeout: 10_000 }).toBe(1);
-    expect(patches[0]).toBe('PATCH');
+    await expect.poll(() => entregas.length, { timeout: 10_000 }).toBe(1);
+    // El canje y el estudio: sin `p_studio_id` el aislamiento de la función no
+    // puede aplicarse, igual que en la cancelación de arriba.
+    expect(entregas[0]).toContain('rwd-1');
+    expect(entregas[0]).toContain(STUDIO_ID);
     // Entregar NO puede devolver créditos: la socia se lleva la recompensa.
-    expect(llamadasRpc).toHaveLength(0);
+    expect(cancelaciones).toHaveLength(0);
+    // Y ya no se toca la tabla por la puerta de atrás.
+    expect(patches).toHaveLength(0);
   });
 });

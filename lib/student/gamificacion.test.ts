@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hayGamificacion, logrosDe, nivelDe, recompensasDe, retosDe } from './gamificacion.ts';
+import { canjesDe, hayGamificacion, logrosDe, nivelDe, recompensasDe, retosDe } from './gamificacion.ts';
 
 const niveles = [
   { id: 'n1', nombre: 'Inicio', orden: 1, umbralCreditos: 0, color: '#aaa', icono: '🌱', beneficios: null },
@@ -171,4 +171,61 @@ test('sin `hoy` ni canjes, el catálogo se comporta como antes', () => {
 test('sin nada configurado, la pantalla no debe existir', () => {
   assert.equal(hayGamificacion({ niveles: [], logros: [], retos: [], recompensas: [] }), false);
   assert.equal(hayGamificacion({ niveles: [], logros: [1], retos: [], recompensas: [] }), true);
+});
+
+// ── Sus canjes ───────────────────────────────────────────────────────────────
+// Esta proyección existe porque NO existía, y eso costó dinero: el 9-sep-2026
+// el fundador canjeó una botella, no vio nada más que un aviso que se
+// desvanece, y volvió a pulsar. Dos canjes, diez créditos, una botella.
+
+const CATALOGO = [{ id: 'r1', nombre: 'Botella del estudio' }, { id: 'r2', nombre: 'Clase gratis' }];
+
+test('canjesDe: resuelve el nombre y trae código, créditos y fecha', () => {
+  const v = canjesDe(
+    [{ id: 'c1', catalogItemId: 'r1', estado: 'PENDIENTE', codigo: 'TNT-AH6YDD', creditosGastados: 5, creadoEn: '2026-09-09' }],
+    CATALOGO,
+  );
+  assert.equal(v.length, 1);
+  assert.equal(v[0].recompensa, 'Botella del estudio');
+  assert.equal(v[0].codigo, 'TNT-AH6YDD');
+  assert.equal(v[0].creditos, 5);
+  assert.equal(v[0].estado, 'PENDIENTE');
+});
+
+test('canjesDe: lo pendiente va primero, y el resto por fecha descendente', () => {
+  const v = canjesDe([
+    { id: 'viejo', catalogItemId: 'r1', estado: 'ENTREGADO', creadoEn: '2026-09-01' },
+    { id: 'nuevo', catalogItemId: 'r1', estado: 'ENTREGADO', creadoEn: '2026-09-08' },
+    { id: 'pend', catalogItemId: 'r2', estado: 'PENDIENTE', creadoEn: '2026-08-01' },
+  ], CATALOGO);
+  // El pendiente es lo único que le queda por hacer (pasar por el estudio),
+  // aunque sea el más antiguo de los tres.
+  assert.deepEqual(v.map((c) => c.id), ['pend', 'nuevo', 'viejo']);
+});
+
+test('canjesDe: un CANCELADO se sigue viendo', () => {
+  // Cancelar devuelve créditos y stock. Si la fila desapareciera, a la socia le
+  // faltarían créditos sin ninguna línea que lo explicara.
+  const v = canjesDe([{ id: 'c1', catalogItemId: 'r1', estado: 'CANCELADO', creditosGastados: 5 }], CATALOGO);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].estado, 'CANCELADO');
+});
+
+test('canjesDe: una recompensa retirada del catálogo no borra su canje', () => {
+  // El estudio puede retirar una recompensa; sus canjes viejos siguen
+  // existiendo. Esconder la fila dejaría los créditos gastados sin explicar.
+  const v = canjesDe([{ id: 'c1', catalogItemId: 'borrada', estado: 'ENTREGADO', creditosGastados: 5 }], CATALOGO);
+  assert.equal(v.length, 1);
+  assert.match(v[0].recompensa, /retirada/i);
+});
+
+test('canjesDe: un estado que no conocemos se trata como pendiente, no se pierde', () => {
+  // Un estado nuevo en la base no puede hacer desaparecer un canje de la
+  // pantalla: la socia pagó por él.
+  const v = canjesDe([{ id: 'c1', catalogItemId: 'r1', estado: 'LO_QUE_SEA' }], CATALOGO);
+  assert.equal(v[0].estado, 'PENDIENTE');
+});
+
+test('canjesDe: sin canjes, lista vacía y sin reventar', () => {
+  assert.deepEqual(canjesDe([], CATALOGO), []);
 });
