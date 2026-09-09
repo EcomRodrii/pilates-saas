@@ -306,6 +306,12 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       fecha: f,
       hora: horaLocal(s.inicio),
       duracionMin: Math.max(1, Math.round((new Date(s.fin).getTime() - new Date(s.inicio).getTime()) / 60000)),
+      // Los instantes crudos, además de la fecha/hora ya formateadas. Se
+      // descartaban aquí, y por eso la app de la alumna no podía saber si una
+      // clase se está dando AHORA sin reconstruir un `Date` a partir de dos
+      // cadenas en la zona del navegador. Ver el comentario de `Clase.inicio`.
+      inicio: s.inicio,
+      fin: s.fin,
       nombre: tipo?.nombre ?? 'Clase',
       tipo: tipo?.nombre ?? 'Clase',
       // El backend no clasifica por disciplina; el diseño solo la usa como

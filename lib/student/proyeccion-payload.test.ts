@@ -41,6 +41,29 @@ test('clases: los campos que el diseño pinta llegan todos', () => {
   }
 });
 
+// Los INSTANTES, contra el payload real. Se descartaban en `proyectarClases`
+// (solo sobrevivían derivados a `duracionMin`), y sin ellos la app de la alumna
+// no puede saber si una clase se está dando AHORA sin reconstruir un `Date` en
+// la zona del navegador. Esto vigila que sigan llegando y que sean parseables:
+// si el backend renombrase `inicio`/`fin`, «en curso» dejaría de aparecer sin un
+// solo error en pantalla.
+test('clases: `inicio` y `fin` sobreviven a la proyección y son instantes válidos', () => {
+  const clases = proyectarClases(payload);
+  assert.ok(clases.length > 0);
+
+  for (const c of clases) {
+    const ini = new Date(c.inicio).getTime();
+    const fin = new Date(c.fin).getTime();
+    assert.ok(Number.isFinite(ini), `inicio no parseable en ${c.id}: ${c.inicio}`);
+    assert.ok(Number.isFinite(fin), `fin no parseable en ${c.id}: ${c.fin}`);
+    assert.ok(fin > ini, `fin no es posterior al inicio en ${c.id}`);
+    // Coherentes con lo que se PINTA: los dos vienen de la misma sesión, así que
+    // una discrepancia aquí significaría que la proyección mezcla dos fuentes.
+    assert.equal(Math.round((fin - ini) / 60000), c.duracionMin, `duracionMin no cuadra con fin-inicio en ${c.id}`);
+    assert.equal(c.inicio.slice(0, 10) <= c.fecha ? true : false, true, `la fecha pintada no cuadra con el instante en ${c.id}`);
+  }
+});
+
 test('clases: el nivel se traduce de verdad, no cae siempre a Todos', () => {
   const niveles = new Set(proyectarClases(payload).map((c) => c.nivel));
   // El estudio sembrado tiene cuatro tipos con niveles distintos. Si el mapa

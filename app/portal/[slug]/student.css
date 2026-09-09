@@ -405,6 +405,12 @@
 .student-app .badge--booked { background: var(--success); color: var(--success-foreground); }
 .student-app .badge--wait { background: var(--warning-soft); color: var(--warning-foreground); }
 .student-app .badge--neutral { background: var(--muted); color: var(--muted-foreground); }
+/* «En curso»: la clase se está dando AHORA. Sólido y con punto latiendo, la
+   convención de «en directo» — y a propósito el más fuerte de los badges,
+   porque es el único que caduca solo: dentro de un rato deja de ser verdad.
+   `--accent` y no `--success`, que ya es el de «Reservada ✓»: dos estados
+   distintos con el mismo color se leen como el mismo estado. */
+.student-app .badge--curso { background: var(--accent); color: var(--accent-foreground); }
 
 /* ── Avisos en línea ──
    El bloque «fondo suave + texto del mismo tono + radio + peso 700» aparecía

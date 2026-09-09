@@ -13,9 +13,11 @@ import { useToast } from '@/components/student/ui/Toast';
 import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { cancelarReserva, aceptarOfertaEspera } from '@/lib/student/reservas-acciones';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
-import { etiquetaDia, fechaCorta, hoyISO } from '@/lib/student/formato';
+import { etiquetaDia, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato';
 import { añadirAlCalendario } from '@/lib/student/enlaces-clase';
-import { Badge } from '@/components/student/ui/Badge';
+import { Badge, EnCursoBadge } from '@/components/student/ui/Badge';
+import { useAhoraMs } from '@/lib/student/use-ahora';
+import { estaEnCurso } from '@/lib/student/estado-clase';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 
@@ -39,11 +41,14 @@ export default function MisReservasPage() {
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelando, setCancelando] = useState(false);
   const [aceptandoId, setAceptandoId] = useState<string | null>(null);
-  // `Date.now()` es impuro y el compilador de React lo rechaza en el cuerpo
-  // del render — se captura UNA vez al montar. No hace falta que se actualice
-  // segundo a segundo: la pantalla ya se recarga entera (`reintentar()`) tras
-  // cualquier acción, y es lo único que decide si el CTA de aceptar se pinta.
-  const [ahoraMs] = useState(() => Date.now());
+  // El reloj compartido de la app, que AVANZA (ver `useAhoraMs`).
+  //
+  // Antes era `useState(() => Date.now())`, congelado al montar. Eso ya no basta
+  // por dos motivos: «en curso» tiene que aparecer y desaparecer sola mientras la
+  // pantalla está abierta, y ese inicializador corre TAMBIÉN en el SSR de este
+  // componente de cliente, así que servidor y cliente capturaban instantes
+  // distintos — un desajuste de hidratación latente. `null` hasta que hidrata.
+  const ahoraMs = useAhoraMs();
 
   const cargar = useCallback(async () => {
     const [reservas, clases, instructoras] = await Promise.all([
@@ -218,7 +223,8 @@ export default function MisReservasPage() {
                 // P-5: la oferta vive hasta `ofertaExpiraEn` — pasado ese
                 // instante el cron ya la ha caducado y el sitio no es suyo,
                 // aunque el catálogo todavía no se haya recargado.
-                const ofertaViva = espera && !!r.ofertaExpiraEn && new Date(r.ofertaExpiraEn).getTime() > ahoraMs;
+                const ofertaViva = espera && !!r.ofertaExpiraEn && ahoraMs !== null && new Date(r.ofertaExpiraEn).getTime() > ahoraMs;
+                const enCurso = estaEnCurso(c, ahoraMs);
                 return (
                   <div
                     key={r.id}
@@ -233,6 +239,9 @@ export default function MisReservasPage() {
                       <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800, color: espera ? 'var(--foreground)' : 'var(--accent-soft-foreground)' }}>
                         {etiquetaDia(c.fecha)} · {c.hora}
                       </p>
+                      {/* En curso manda sobre el estado de la reserva: si la clase
+                          está dándose, «Lista de espera · 2ª» ya no es la noticia. */}
+                      {enCurso ? <EnCursoBadge terminaA={horaFin(c.hora, c.duracionMin)} /> : (
                       <Badge tone={ofertaViva ? 'few' : espera ? 'wait' : 'ok'}>
                         {ofertaViva
                           ? '¡Plaza libre!'
@@ -240,6 +249,7 @@ export default function MisReservasPage() {
                             ? `Lista de espera${r.posicionEspera ? ` · ${r.posicionEspera}ª` : ''}`
                             : 'Confirmada ✓'}
                       </Badge>
+                      )}
                     </div>
                     {ofertaViva && (
                       <p style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--warning-foreground)' }}>
