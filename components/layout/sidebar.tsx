@@ -19,6 +19,7 @@ import { filtrarItemsMenu, ordenarItemsMenu, type MenuPosicion } from '@/lib/lay
 import { SedeActiva } from '@/components/layout/sede-activa';
 import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentare';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
+import { huecosDelMenu, BARRA_ALTO_INICIAL } from '@/lib/panel-huecos';
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
@@ -263,28 +264,29 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
 
 type SidebarSize = 'compacto' | 'normal' | 'grande';
 
-// Alto de la barra cuando el menú va arriba, MÁS su separación del borde: es
-// el hueco exacto que el contenido tiene que dejarle. Un número suelto en dos
-// sitios es como la barra acaba tapando la primera fila.
-// Separación de la barra al borde superior (`top-4` de Tailwind). El ALTO no se
-// fija aquí: se MIDE (ver `useEffect` de `--panel-top` abajo).
-const BARRA_SEPARACION = 16;
-
-// Alto de partida de la barra. Es TAMBIÉN el que se le pone por `style`, no una
-// clase `h-[…]` aparte: escrito en dos sitios, el hueco salía de un número y la
-// barra medía el otro, y el contenido daba un salto de 16 px en cada carga.
-//
-// Es un MÍNIMO, no una talla fija — de ahí que lo mida el `ResizeObserver` de
-// abajo: con el selector de sede de una cadena, con el tipo de letra del sistema
-// más grande o si algún día se le añade algo, la barra crece y el hueco crece
-// con ella. La constante solo cubre el primer pintado, antes de poder medir.
-const BARRA_ALTO_INICIAL = 68;
-
 const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label: string }> = {
   compacto: { aside: 'w-16', cssVar: '96px', label: 'Pequeño' },
   normal: { aside: 'w-56', cssVar: '256px', label: 'Normal' },
   grande: { aside: 'w-72', cssVar: '320px', label: 'Grande' },
 };
+
+/**
+ * Escribe en el DOM los huecos que calcula `huecosDelMenu`.
+ *
+ * El cálculo —y la memoria de la última medida— viven en `lib/panel-huecos.ts`,
+ * donde se pueden probar. Aquí solo queda el trozo que toca el documento.
+ *
+ * ⚠️ Omitir `altoBarra` significa «no traigo medida nueva», NO «la barra mide
+ * una fila». Ver el comentario de `altoBarraMedido` en ese fichero: confundir
+ * las dos cosas es lo que dejaba el buscador clavado dentro del menú.
+ */
+function aplicarHuecos(horizontal: boolean, size: SidebarSize, altoBarra?: number) {
+  const huecos = huecosDelMenu(horizontal, SIDEBAR_SIZES[size].cssVar, altoBarra);
+  const raiz = document.documentElement.style;
+  raiz.setProperty('--sidebar-w', huecos.sidebarW);
+  raiz.setProperty('--panel-top', huecos.panelTop);
+  raiz.setProperty('--panel-sticky-top', huecos.panelStickyTop);
+}
 
 /**
  * El menú del panel.
@@ -295,33 +297,6 @@ const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label:
  * un componente nuevo habría duplicado permisos, badges, modo esencial/todo y
  * la lista de items — cuatro sitios donde divergir en silencio.
  */
-/**
- * Los huecos que el contenido tiene que dejarle al menú.
- *
- * `--sidebar-w` es el de la izquierda y `--panel-top` el de arriba: siempre
- * uno de los dos a cero. Se escriben juntos para que no puedan contradecirse.
- *
- * `--panel-sticky-top` es DISTINTO de `--panel-top` y por eso existe: es a qué
- * altura puede clavarse algo `sticky` sin meterse debajo del menú.
- *
- *  · Tumbado, la barra es `fixed` y ocupa la banda de arriba, así que lo pegado
- *    tiene que empezar donde ella acaba. Con `top-0` —lo que había— el buscador
- *    del Topbar se clavaba en y=0 al scrollear, o sea DENTRO de la barra, y
- *    encima la tapaba (z-30 contra su z-20) dejando ver el menú por detrás de
- *    su fondo translúcido.
- *  · En columna no hay nada fijo arriba: ahí el sitio correcto es 0, no el
- *    `0.5rem` de `--panel-top` (que es el aire del contenido, no un obstáculo).
- *    Reutilizar `--panel-top` para las dos cosas dejaba una rendija de 8 px por
- *    la que se veía pasar el contenido.
- */
-function aplicarHuecos(horizontal: boolean, size: SidebarSize, altoBarra = BARRA_ALTO_INICIAL) {
-  const raiz = document.documentElement.style;
-  const bandaSuperior = `${Math.round(altoBarra + BARRA_SEPARACION)}px`;
-  raiz.setProperty('--sidebar-w', horizontal ? '0px' : SIDEBAR_SIZES[size].cssVar);
-  raiz.setProperty('--panel-top', horizontal ? bandaSuperior : '0.5rem');
-  raiz.setProperty('--panel-sticky-top', horizontal ? bandaSuperior : '0px');
-}
-
 export function Sidebar() {
   // Solo cambia el escritorio. En móvil no hay sidebar que mover: ya es barra
   // arriba + barra abajo, y así se queda.

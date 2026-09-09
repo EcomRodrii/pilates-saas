@@ -137,12 +137,15 @@ test('lo pegado arriba se clava DEBAJO del menú, no encima', () => {
     'El Topbar tiene que clavarse a la altura que publica el menú.');
 
   // Y esa variable la escribe quien mide la barra, junto a las otras dos, para
-  // que no puedan contradecirse (es lo que ya dice el comentario de la función).
+  // que no puedan contradecirse.
   assert.match(sidebar, /--panel-sticky-top/,
     '`aplicarHuecos` tiene que publicar la altura a la que se puede clavar algo.');
-  // En columna NO hay nada fijo arriba: reutilizar ahí `--panel-top` (0.5rem)
-  // dejaba una rendija de 8 px por la que se veía pasar el contenido.
-  assert.match(sidebar, /--panel-sticky-top', horizontal \? bandaSuperior : '0px'/,
+  // ⚠️ El CÁLCULO ya no vive aquí: se sacó a `lib/panel-huecos.ts` para poder
+  // probarlo de verdad (`lib/panel-huecos.test.ts` cubre el valor en columna,
+  // en barra, y el orden de llamadas que lo descuadraba). Aquí solo se vigila
+  // que el menú siga siendo quien lo publica en el DOM.
+  const huecos = leer('lib/panel-huecos.ts');
+  assert.match(huecos, /panelStickyTop: horizontal \? banda : '0px'/,
     'En columna el sitio correcto es 0, no el aire del contenido.');
 });
 
@@ -188,10 +191,21 @@ test('un color sin contraste no llega a publicarse en silencio', () => {
 // ── El armazón ───────────────────────────────────────────────────────────────
 test('los dos huecos los escribe el MENÚ, y siempre uno de los dos a cero', () => {
   const src = leer('components/layout/sidebar.tsx');
-  assert.match(src, /setProperty\('--sidebar-w', horizontal \? '0px'/,
+  const huecos = leer('lib/panel-huecos.ts');
+  assert.match(huecos, /sidebarW: horizontal \? '0px'/,
     'Sin --sidebar-w a 0 queda una franja vacía donde ya no hay menú.');
-  assert.match(src, /setProperty\('--panel-top', horizontal \?/,
+  assert.match(huecos, /panelTop: horizontal \?/,
     'Y sin hueco ARRIBA, la barra tapa la primera fila de cada pantalla.');
+  // Calculados en un sitio, escritos en otro: el menú sigue siendo el único
+  // que los publica, y los tres van juntos para que no se contradigan.
+  for (const v of ['--sidebar-w', '--panel-top', '--panel-sticky-top']) {
+    assert.ok(src.includes(`setProperty('${v}'`), `el menú ya no publica ${v}`);
+  }
+  // ⚠️ Omitir la medida NO puede volver a significar «una fila». Es lo que
+  // dejaba el buscador clavado dentro del menú, y no se arreglaba solo porque
+  // el ResizeObserver únicamente dispara si la barra CAMBIA de tamaño.
+  assert.ok(!/altoBarra\s*(:\s*number)?\s*=\s*BARRA_ALTO_INICIAL/.test(huecos),
+    'La medida ha vuelto a tener valor por defecto: omitirla supone una fila otra vez.');
   // ⚠️ El alto se MIDE, no se supone: un número fijo se queda corto con el
   // selector de sede de una cadena, con el tipo de letra del sistema más grande
   // o en cuanto la barra envuelve en varias filas.
