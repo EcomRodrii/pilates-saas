@@ -2127,6 +2127,8 @@ export interface Liquidacion {
   pagadaEn: string | null;
   referenciaPago: string | null;
   generadaEn: string;
+  requiereRevision: boolean;
+  revisionMotivo: string | null;
 }
 
 // Rendimiento de instructoras (fila 17 del informe estratégico): retención,

@@ -27,6 +27,8 @@ export interface LiquidacionRow {
   pagadaEn: string | null;
   referenciaPago: string | null;
   generadaEn: string;
+  requiereRevision: boolean;
+  revisionMotivo: string | null;
 }
 
 function mapRow(r: Record<string, unknown>): LiquidacionRow {
@@ -49,6 +51,8 @@ function mapRow(r: Record<string, unknown>): LiquidacionRow {
     pagadaEn: (r.pagada_en as string | null) ?? null,
     referenciaPago: (r.referencia_pago as string | null) ?? null,
     generadaEn: r.generada_en as string,
+    requiereRevision: (r.requiere_revision as boolean | null) ?? false,
+    revisionMotivo: (r.revision_motivo as string | null) ?? null,
   };
 }
 
@@ -153,15 +157,30 @@ export async function transicionarLiquidacion(
   admin: SupabaseClient, id: string, studioId: string,
   accion: 'confirmar' | 'marcar_pagada', actorUserId: string, referenciaPago?: string | null,
 ): Promise<{ row?: LiquidacionRow; error?: string }> {
-  const { data: actual } = await admin.from('liquidaciones_instructoras').select('id, estado')
+  const { data: actual } = await admin.from('liquidaciones_instructoras')
+    .select('id, estado, instructor_id, periodo_anio, periodo_mes')
     .eq('id', id).eq('studio_id', studioId).maybeSingle();
   if (!actual) return { error: 'Liquidación no encontrada' };
 
   if (accion === 'confirmar') {
     if (actual.estado !== 'BORRADOR') return { error: 'Solo se puede confirmar un borrador' };
+    // 44ª pasada de auditoría, hallazgo #1: un BORRADOR generado días antes
+    // puede incluir una clase cancelada después — recalcula contra el
+    // estado ACTUAL de sesiones/sustituciones/penalizaciones antes de
+    // confirmar, en vez de fiarse del último SELECT. Reutiliza
+    // generarLiquidacionBorrador (idempotente, solo toca BORRADOR).
+    const recalculado = await generarLiquidacionBorrador(
+      admin, studioId, actual.instructor_id as string,
+      actual.periodo_anio as number, actual.periodo_mes as number,
+    );
+    if (recalculado.error || !recalculado.row) {
+      return { error: recalculado.error ?? 'No se pudo recalcular antes de confirmar' };
+    }
+    // Compare-and-set (hallazgo #3): sin esto, dos PATCH casi simultáneos
+    // podían superar ambos el chequeo en memoria de arriba.
     const { data, error } = await admin.from('liquidaciones_instructoras')
       .update({ estado: 'CONFIRMADA', confirmada_en: new Date().toISOString(), confirmada_por: actorUserId })
-      .eq('id', id).select().maybeSingle();
+      .eq('id', id).eq('estado', 'BORRADOR').select().maybeSingle();
     if (error || !data) return { error: error?.message ?? 'No se ha podido confirmar' };
     return { row: mapRow(data) };
   }
@@ -170,7 +189,7 @@ export async function transicionarLiquidacion(
   if (actual.estado !== 'CONFIRMADA') return { error: 'Solo se puede marcar como pagada una liquidación ya confirmada' };
   const { data, error } = await admin.from('liquidaciones_instructoras')
     .update({ estado: 'PAGADA', pagada_en: new Date().toISOString(), pagada_por: actorUserId, referencia_pago: referenciaPago ?? null })
-    .eq('id', id).select().maybeSingle();
+    .eq('id', id).eq('estado', 'CONFIRMADA').select().maybeSingle();
   if (error || !data) return { error: error?.message ?? 'No se ha podido marcar como pagada' };
   return { row: mapRow(data) };
 }
