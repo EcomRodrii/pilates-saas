@@ -38,10 +38,65 @@ el webhook de entrada aparecieron al barrer) quedaron así:
 | `lib/inngest/campanas.ts` | socia | → Meta, **texto** (+ guard en `/api/marketing/campanas/[id]/enviar`) |
 | `lib/inngest/automatizaciones.ts` (×2) | socia | → Meta, **texto** |
 | `lib/inngest/decision.ts` (CONTACTO_MANUAL) | socia | → Meta, **texto**, con el respaldo por email que ya tenía |
-| `lib/sustituciones/contacto.ts::recordatorioPorMensaje` | instructora | → Meta, **plantilla `sustitucion_urgente`** (UTILITY) |
+| `lib/sustituciones/contacto.ts::recordatorioPorMensaje` | instructora | → Meta, **plantilla `sustitucion_urgente`** (MARKETING, ver §0.1) |
 | `lib/sustituciones/contacto.ts::alertarPropietaria` | el propio estudio | canal retirado (sigue por email + panel) |
 | `lib/notifications/channels.ts` (canales WHATSAPP y SMS) | el propio estudio | canales retirados (sus 2 eventos conservan PUSH+EMAIL) |
 | `/api/soporte` | el fundador | aviso retirado (el email a soporte@tentare.app era y sigue siendo el registro) |
+
+### 0.1 · Corrección (2026-09-10): `sustitucion_urgente` es MARKETING, no UTILITY
+
+Leída por fin la documentación oficial de Meta —no de memoria— la categoría que
+este documento y el código daban por buena estaba **mal**. La norma
+([template-categorization](https://developers.facebook.com/documentation/business-messaging/whatsapp/templates/template-categorization),
+consultada el 2026-09-10) pide **dos** cosas a la vez para que una plantilla sea
+de utilidad:
+
+1. que sea **no promocional** — el aviso de sustitución lo cumple; y
+2. que **además** sea «específica para el usuario o solicitada por él (se
+   relaciona claramente con **su pedido, cuenta, servicios o transacciones**)» **o**
+   «esencial o crítica para el usuario (por ejemplo, para garantizar su
+   seguridad)».
+
+Pedirle a una instructora que cubra un turno **no cumple la segunda**: ella no es
+una clienta con un pedido, una cuenta o una transacción con el estudio, y no ha
+pedido nada. Los cinco casos que Meta lista como utilidad lo confirman —gestión
+de suscripciones, gestión de pedidos, alertas de cuenta, encuestas sobre una
+compra concreta y continuar una conversación iniciada en otro canal—, todos de
+cliente-transacción. Y el catálogo de marketing barre explícitamente «otras
+llamadas a la acción», **«incluso si los usuarios las solicitan»**.
+
+Qué cambia de verdad: **nada en la entrega, y nada en el código de envío** —
+Tentare manda `name` + `language`, nunca la categoría, que se fija al crear la
+plantilla en WhatsApp Manager. Cambia el precio de la conversación (marketing es
+más caro que utilidad) y, sobre todo, **la instrucción que se le da a la
+propietaria**: mandarla a elegir «Utilidad» era mandarla a una categoría que Meta
+le iba a cambiar sola, sin decirle por qué. Corregido en la tarjeta de
+Integraciones.
+
+Las otras dos siguen bien, comprobadas contra la misma norma: `recordatorio_clase`
+es **UTILITY** (habla de la reserva que la socia ya tiene: es su servicio) y
+`hueco_disponible` es **MARKETING** (la invita a comprar una plaza).
+
+**El argumento de fondo de la decisión 1 no se cae, pero su motivo principal se
+matiza.** Se apoyaba en que un parámetro de plantilla no admite saltos de línea;
+ese error (`Param text cannot have new-line/tab characters or more than 4
+consecutive spaces`) está ampliamente reportado por quien se lo ha comido, pero
+**no aparece en la documentación publicada de Meta** a fecha de hoy (buscado en
+`templates/components`, en las páginas de envío y en las de categorización), así
+que no se puede presentar como norma verificada. Lo que sí está documentado y
+basta solo: una plantilla es contenido **aprobado de antemano** y el cuerpo de una
+campaña cambia en cada envío; la propia norma de categorización trata como
+marketing las plantillas «en las que el contenido no está claro (por ejemplo, si
+el contenido solo es `{{1}}`)», que es justo la plantilla-contenedor que habría
+hecho falta; y el cuerpo tiene un tope de **1.024 caracteres**, que una campaña se
+salta. La conclusión —esos seis van como texto— no cambia.
+
+Otras dos cosas vistas de paso, no aplicadas: Meta admite ya **parámetros con
+nombre** (`{{dia}}` en vez de `{{1}}`, vía `parameter_format`) —los posicionales
+siguen valiendo, así que no se toca nada—, y existe una **biblioteca de
+plantillas** en WhatsApp Manager con plantillas de utilidad ya categorizadas y
+**sin revisión previa**; su contenido es fijo, así que no sustituye a las tres de
+Tentare, pero conviene saber que existe antes de mandar a nadie a redactar una.
 
 ### Las tres decisiones que sostienen esa tabla
 
@@ -56,10 +111,8 @@ tampoco se puede pre-aprobar cuando cambia en cada envío. El aviso de sustituci
 forma fija (nombre, clase, cuándo, enlace) **y** es el que más la necesita: es la escalada
 de un email que la instructora NO ha contestado, así que suponer que ella escribió al
 estudio en las últimas 24 h es suponer lo contrario de lo que está pasando.
-⚠️ Categoría UTILITY, con reserva: no vende nada, pero para Meta «utilidad» es el
-seguimiento de una transacción de un CLIENTE y esto va a una trabajadora. Si lo
-recategorizan a MARKETING cambia el precio de la conversación, no la entrega — confirmarlo
-con la primera aprobación real.
+Categoría **MARKETING** — el §0.1 corrige la decisión equivocada que ocupaba este
+párrafo.
 Todo lo demás va como **texto**, con la consecuencia dicha en voz alta: solo llega a quien
 haya escrito al estudio en las últimas 24 h, y al resto Meta responde 131047, que queda
 anotado en la salud de la integración y en el log de cada emisor. Es estrictamente mejor
