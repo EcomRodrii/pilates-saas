@@ -331,7 +331,16 @@
    solo porque `.btn--sm` viene después en la cascada. Sin altura propia, el
    chip sigue en 36 con `.btn--sm` y el destructivo a ancho completo sube al
    44 de la base, que es lo que merece algo que no se puede deshacer. */
-.student-app .btn--danger { background: var(--destructive-soft); color: var(--destructive-foreground); }
+/* ⚠️ El borde no es adorno. Medido en el render de «Mis clases»: la píldora de
+   «Cancelar» (`--destructive-soft`, #F4E9E5) sobre la tarjeta de una reserva
+   confirmada (`--accent-soft`, que con la marca de un estudio real sale
+   #EFEBEB) da **1,01:1** — o sea, ningún límite visible. Al lado, «Detalle» y
+   «+ Calendario» sí se ven como píldoras, así que la acción destructiva era la
+   única de las tres que parecía un enlace suelto en vez de un botón.
+   El borde sale del propio `--destructive`, así que funciona igual sobre la
+   tarjeta teñida, sobre blanco y sobre el crema de la página — que es lo que no
+   se podía garantizar dependiendo solo del fondo. */
+.student-app .btn--danger { background: var(--destructive-soft); color: var(--destructive-foreground); border: 1px solid color-mix(in srgb, var(--destructive) 90%, transparent); }
 .student-app .btn--light { background: var(--background); color: var(--foreground); }
 .student-app .btn--sm { height: var(--h-control-sm); font-size: var(--t-meta); padding: 0 var(--s-3); }
 .student-app .btn--lg { height: var(--h-control-lg); font-size: 14.5px; padding: 0 var(--s-5); }
@@ -345,7 +354,7 @@
   .student-app .btn--secondary:hover:not(:disabled) { border-color: var(--foreground); }
   .student-app .btn--ghost:hover:not(:disabled) { background: var(--border); }
   .student-app .btn--light:hover:not(:disabled) { background: var(--muted); }
-  .student-app .btn--danger:hover:not(:disabled) { background: #EEDBD5; }
+  .student-app .btn--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--destructive) 12%, var(--destructive-soft)); }
 }
 
 /* ── Área táctil ──
