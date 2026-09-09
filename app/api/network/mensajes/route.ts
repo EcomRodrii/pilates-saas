@@ -104,21 +104,21 @@ export async function POST(req: NextRequest) {
   if (!participante) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!participante.autorizado) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
 
-  if (participante.estado === 'pendiente') {
-    const { count, error: errorConteo } = await admin
-      .from('red_mensajes')
-      .select('id', { count: 'exact', head: true })
-      .eq('solicitud_id', participante.solicitudId).eq('remitente', participante.userId);
-    if (errorConteo) return errorInterno('network:mensajes:POST:conteo', errorConteo, 'No se ha podido enviar el mensaje.');
-    if ((count ?? 0) >= TOPE_MENSAJES_PENDIENTE) {
+  // 35ª pasada de auditoría: contar y luego insertar en dos pasos desde TS
+  // tenía una ventana de carrera (dos POST concurrentes del mismo remitente
+  // podían leer ambos el conteo por debajo del tope). `enviar_mensaje_red`
+  // bloquea la fila de la solicitud (`FOR UPDATE`) antes de contar, cerrando
+  // la carrera — el resto de la autorización ya se comprobó arriba.
+  const { error } = await admin.rpc('enviar_mensaje_red', {
+    p_mensaje_id: `redmsg-${uid()}`, p_solicitud_id: participante.solicitudId,
+    p_remitente: participante.userId, p_cuerpo: cuerpo, p_tope_pendiente: TOPE_MENSAJES_PENDIENTE,
+  });
+  if (error) {
+    if (error.message?.includes('TOPE_ALCANZADO')) {
       return errorPeticion('Habla con más detalle una vez aceptéis el contacto — de momento solo hay margen para 3 mensajes por parte.');
     }
+    return errorInterno('network:mensajes:POST', error, 'No se ha podido enviar el mensaje.');
   }
-
-  const { error } = await admin.from('red_mensajes').insert({
-    id: `redmsg-${uid()}`, solicitud_id: participante.solicitudId, remitente: participante.userId, cuerpo,
-  });
-  if (error) return errorInterno('network:mensajes:POST', error, 'No se ha podido enviar el mensaje.');
 
   return NextResponse.json({ ok: true });
 }

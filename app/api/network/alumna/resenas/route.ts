@@ -155,6 +155,17 @@ export async function POST(req: NextRequest) {
       return errorPeticion('Solo puedes reseñar un estudio donde ya hayas completado una clase.', 403);
     }
 
+    // 35ª pasada de auditoría: sin esto, una alumna con MÁS DE UNA reserva
+    // CONFIRMADA y pasada con este estudio podía dejar una segunda reseña —
+    // el índice único real solo protege por `reserva_id` (una relación no se
+    // reseña dos veces), no "una reseña por estudio", que es lo que el
+    // producto quiere (mismo criterio que ya comprueba el GET de este mismo
+    // fichero, aquí repetido porque el POST nunca lo hacía).
+    const { data: yaResenado } = await admin.from('red_resenas').select('id')
+      .eq('studio_id', studioId).eq('autor', sesion.userId)
+      .is('perfil_id', null).not('reserva_id', 'is', null).maybeSingle();
+    if (yaResenado) return errorPeticion('Ya has reseñado este estudio.', 409);
+
     const { error } = await admin.from('red_resenas').insert({
       id: `redresena-${uid()}`,
       perfil_id: null,
@@ -183,6 +194,12 @@ export async function POST(req: NextRequest) {
   if (!gate.ok || !gate.studioId || !gate.reservaId) {
     return errorPeticion('Solo puedes reseñar a una instructora con la que ya hayas completado una clase.', 403);
   }
+
+  // 35ª pasada de auditoría: mismo motivo que en la rama de estudio de arriba
+  // — repite la comprobación del GET, que el POST nunca hacía.
+  const { data: yaResenado } = await admin.from('red_resenas').select('id')
+    .eq('perfil_id', perfilId).eq('autor', sesion.userId).not('reserva_id', 'is', null).maybeSingle();
+  if (yaResenado) return errorPeticion('Ya has reseñado a esta instructora.', 409);
 
   const { error } = await admin.from('red_resenas').insert({
     id: `redresena-${uid()}`,
