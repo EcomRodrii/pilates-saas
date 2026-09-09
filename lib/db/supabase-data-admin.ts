@@ -35,6 +35,7 @@ import {
 } from '@/lib/booking-logic';
 import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, avisaBonoAgotado, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
+import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { calcularRacha } from '@/lib/engines/streak-engine';
@@ -1410,6 +1411,67 @@ export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ cre
 // para siempre, aunque el trabajo útil sea siempre el del último día.
 const VENTANA_NO_SHOWS_DIAS = 30;
 
+/**
+ * Una reserva pendiente de barrer, con lo justo para decidir qué hacer con ella.
+ *
+ * `sesiones` llega como objeto o como array de uno según la versión de
+ * supabase-js; se normaliza en `tipoClaseDe` en vez de confiar en una forma.
+ */
+interface FilaPendienteNoShow {
+  id: string;
+  studio_id: string;
+  sesion_id: string;
+  sesiones?: { tipo_clase_id?: string | null } | { tipo_clase_id?: string | null }[] | null;
+}
+
+const idSesionDe = (r: FilaPendienteNoShow): string => r.sesion_id;
+
+function tipoClaseDe(r: FilaPendienteNoShow): string | null {
+  const s = Array.isArray(r.sesiones) ? r.sesiones[0] : r.sesiones;
+  return s?.tipo_clase_id ?? null;
+}
+
+/**
+ * De las sesiones que aparecen en `pendientes`, cuáles NO pasan lista.
+ *
+ * Dos consultas acotadas a los ids que ya tenemos delante, no al universo: el
+ * conjunto de pendientes ya es pequeño por construcción (solo reservas que
+ * siguen CONFIRMADA en clases terminadas), así que esto no reabre el coste que
+ * la consulta de arriba se quitó de encima.
+ */
+async function sesionesSinPasarLista(
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+  pendientes: FilaPendienteNoShow[],
+): Promise<string[]> {
+  if (!pendientes.length) return [];
+
+  const studioIds = [...new Set(pendientes.map(r => r.studio_id))];
+  const { data: studios } = await admin
+    .from('studios').select('id, requiere_checkin_qr').in('id', studioIds);
+  const porStudio = new Map(
+    ((studios ?? []) as { id: string; requiere_checkin_qr: boolean | null }[])
+      .map(s => [s.id, s.requiere_checkin_qr]),
+  );
+
+  const tipoIds = [...new Set(pendientes.map(tipoClaseDe).filter((t): t is string => !!t))];
+  const { data: tipos } = tipoIds.length
+    ? await admin.from('tipos_clase').select('id, requiere_checkin_qr').in('id', tipoIds)
+    : { data: [] };
+  const porTipo = new Map(
+    ((tipos ?? []) as { id: string; requiere_checkin_qr: boolean | null }[])
+      .map(t => [t.id, t.requiere_checkin_qr]),
+  );
+
+  // La misma decisión que usa `marcarAsistidasAutomaticamente`, importada y no
+  // reescrita: dos copias de esta regla divergirían, y la que se quedara vieja
+  // fallaría en silencio marcando faltas que no son.
+  return sesionesQueSeDanPorAsistidas(
+    pendientes.map(r => ({ id: idSesionDe(r), studioId: r.studio_id, tipoClaseId: tipoClaseDe(r) })),
+    porStudio,
+    porTipo,
+  );
+}
+
 export async function barrerNoShows(nowISO: string) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -1437,10 +1499,12 @@ export async function barrerNoShows(nowISO: string) {
   // haber TERMINADO y no estar cancelada (a nadie se le marca falta en una clase
   // que se canceló).
   const desdeISO = new Date(Date.parse(nowISO) - VENTANA_NO_SHOWS_DIAS * 86_400_000).toISOString();
-  const { filas: pendientes, truncado } = await leerCatalogoCompleto<{ id: string }>(
+  const { filas: pendientes, truncado } = await leerCatalogoCompleto<FilaPendienteNoShow>(
     (desde, hasta) => admin
       .from('reservas')
-      .select('id, sesiones!inner(fin, cancelada)')
+      // `studio_id` y `tipo_clase_id` viajan para poder resolver si en esa clase
+      // se pasa lista — ver el reparto justo debajo del bucle de lectura.
+      .select('id, studio_id, sesion_id, sesiones!inner(fin, cancelada, tipo_clase_id)')
       .eq('estado', 'CONFIRMADA')
       .eq('sesiones.cancelada', false)
       .lt('sesiones.fin', nowISO)
@@ -1457,7 +1521,31 @@ export async function barrerNoShows(nowISO: string) {
     });
   }
 
-  const ids = pendientes.map(r => r.id);
+  // ── Las que NO deben marcarse ausentes ──────────────────────────────────
+  //
+  // Una clase donde no se pasa lista promete lo contrario: toda reserva
+  // confirmada se da por asistida. Si `checkin-automatico` (cada 30 min, 2 h de
+  // ventana) se saltó una vuelta, esas reservas siguen CONFIRMADA — y este
+  // barrido las marcaba NO_ASISTIO, justo lo contrario de lo configurado.
+  //
+  // No es solo un estado feo: el no-show dispara el trigger de penalización, así
+  // que se le cobraba el plantón a alguien que sí fue a clase.
+  //
+  // Se reparten en dos: las de clases con lista siguen su camino de siempre, y
+  // las de clases sin lista se marcan ASISTIDA por el MISMO camino que usa
+  // `marcarAsistidasAutomaticamente` (`checkinPublico`, idempotente). Este
+  // barrido pasa a ser también su red: el de check-in solo mira 2 h atrás, así
+  // que una caída más larga dejaba esas reservas atascadas para siempre.
+  const sinLista = new Set(await sesionesSinPasarLista(admin, pendientes));
+  const paraAsistir = pendientes.filter(r => sinLista.has(idSesionDe(r)));
+  const ids = pendientes.filter(r => !sinLista.has(idSesionDe(r))).map(r => r.id);
+
+  let asistidasDeRescate = 0;
+  for (const r of paraAsistir) {
+    const res = await checkinPublico({ studioId: r.studio_id, reservaId: r.id });
+    if ('ok' in res) asistidasDeRescate++;
+  }
+
   let marcadas = 0;
   // Actualiza por lotes para no exceder límites de longitud del filtro `in`.
   for (let i = 0; i < ids.length; i += 200) {
@@ -1474,7 +1562,7 @@ export async function barrerNoShows(nowISO: string) {
     if (updErr) throw new Error(updErr.message);
     marcadas += (upd ?? []).length;
   }
-  return { reservasPendientes: ids.length, reservasMarcadas: marcadas, truncado };
+  return { reservasPendientes: ids.length, reservasMarcadas: marcadas, asistidasDeRescate, truncado };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
