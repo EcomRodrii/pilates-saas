@@ -87,7 +87,15 @@ export type EstadoReserva = 'confirmada' | 'cancelada' | 'asistida' | 'no-asisti
 export interface Reserva {
   id: string; claseId: string; alumnaId: string; estado: EstadoReserva;
   creadaEn: string;
-  bonoId?: string; posicionEspera?: number;
+  /**
+   * ⚠️ NO existe `bonoId` en una reserva, y no es un olvido: `reservas` no
+   * guarda con qué se pagó (consumir el bono es un paso aparte,
+   * `consumir_sesion_bono`, y no deja columna) — lo documenta
+   * `proyectarReservas`. El campo estaba declarado, nadie lo escribía nunca, y
+   * la ficha del bono filtraba por él: su lista de «sesiones usadas» salía
+   * vacía siempre. Se quita para que no vuelva a parecer que el dato está ahí.
+   */
+  posicionEspera?: number;
   /**
    * P-5 (auditoría 23ª pasada): si no es `undefined` y `estado === 'en-espera'`,
    * hay una oferta de plaza viva hasta esta hora ISO — hay que aceptarla o se
