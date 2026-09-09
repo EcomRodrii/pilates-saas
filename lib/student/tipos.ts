@@ -135,6 +135,14 @@ export interface GamificacionVista {
   logros: import('./gamificacion.ts').LogroVista[];
   retos: import('./gamificacion.ts').RetoVista[];
   recompensas: import('./gamificacion.ts').RecompensaVista[];
+  /**
+   * Sus canjes, lo pendiente primero.
+   *
+   * Es la mitad que faltaba: el catálogo dice qué PUEDE canjear, esto dice qué
+   * canjeó ya y en qué estado está. Sin ello, después de pulsar solo quedaba un
+   * aviso que se desvanece — y quien no ve resultado, vuelve a pulsar.
+   */
+  canjes: import('./gamificacion.ts').CanjeVista[];
 }
 
 /** Plaza fija vigente de la alumna, ya con nombres (F2). */

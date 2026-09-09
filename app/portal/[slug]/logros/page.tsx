@@ -73,11 +73,18 @@ export default function LogrosPage() {
     const r = await canjearRecompensa(estudio.slug, estudio.id, id);
     setOcupado(null);
     if (!r.ok) { toast(r.error); return; }
+    // ⚠️ El aviso NO es el resultado del canje, es solo el acuse. El resultado
+    // vive abajo, en «Tus canjes», y sigue ahí mañana. Cuando esto era solo un
+    // toast, el fundador canjeó una botella, no vio nada al desvanecerse, y
+    // volvió a pulsar: dos canjes, diez créditos, una botella.
+    //
     // Una clase gratis ya está en su cuenta: mandarla a esperar un aviso sería
     // falso, y encima retrasaría que la use.
     toast(esClaseGratis
       ? `¡Hecho! Ya tienes tu clase de ${nombre}. Resérvala cuando quieras.`
-      : `Has canjeado: ${nombre}. El estudio te avisará.`);
+      : r.codigo
+        ? `Canjeada: ${nombre}. Tu código es ${r.codigo}`
+        : `Has canjeado: ${nombre}. El estudio te avisará.`);
     await refrescar();
   };
 
@@ -248,6 +255,50 @@ export default function LogrosPage() {
                         onClick={() => void canjear(p.id, p.efecto === 'CLASE_GRATIS', p.nombre)}>
                         {ocupado === p.id ? 'Canjeando…' : p.limiteAlcanzado ? 'Canjeada' : 'Canjear'}
                       </Button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ── TUS CANJES ───────────────────────────────────────────────
+                La mitad que faltaba. Arriba está lo que PUEDE canjear; esto es
+                lo que ya canjeó, con su código y su estado, y sigue aquí al
+                volver mañana. Sin esta sección, después de pulsar no quedaba
+                nada: el aviso se iba y la pantalla se veía igual que antes. */}
+            {data.canjes.length > 0 && (
+              <section data-testid="mis-canjes">
+                <p className="t-label" style={{ marginBottom: 'var(--s-2)' }}>Tus canjes</p>
+                <div className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
+                  {data.canjes.map((c) => (
+                    <div key={c.id} className="card card--pad" data-testid="canje">
+                      <div className="row row--between" style={{ ['--gap' as string]: 'var(--s-3)' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <p className="t-card-title">{c.recompensa}</p>
+                          <p className="t-meta" style={{ marginTop: 2 }}>
+                            {c.creditos} {moneda}{c.fecha ? ` · ${fechaCorta(c.fecha)}` : ''}
+                          </p>
+                        </div>
+                        {/* El estado con palabras, no solo con color: «pendiente»
+                            tiene que entenderse sin saber qué significa el
+                            punto amarillo. */}
+                        <span className="t-meta" style={{ whiteSpace: 'nowrap', opacity: .85 }}>
+                          {c.estado === 'ENTREGADO' ? '✓ Entregada'
+                            : c.estado === 'CANCELADO' ? 'Cancelada'
+                              : '· Pendiente'}
+                        </span>
+                      </div>
+                      {/* El código solo mientras sirve de algo. En una entregada
+                          ya no abre nada, y en una cancelada nunca lo hizo:
+                          dejarlo puesto invita a ir al estudio con él. */}
+                      {c.codigo && c.estado === 'PENDIENTE' && (
+                        <div style={{ marginTop: 'var(--s-2)' }}>
+                          <p className="t-meta" style={{ marginBottom: 2 }}>Enséñalo en el estudio</p>
+                          <p className="t-code" style={{ fontSize: 18, letterSpacing: '0.06em', fontWeight: 800 }}>
+                            {c.codigo}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

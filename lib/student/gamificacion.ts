@@ -169,3 +169,63 @@ export function recompensasDe(
 export function hayGamificacion(p: { niveles: unknown[]; logros: unknown[]; retos: unknown[]; recompensas: unknown[] }): boolean {
   return p.niveles.length > 0 || p.logros.length > 0 || p.retos.length > 0 || p.recompensas.length > 0;
 }
+
+// ── Sus canjes ───────────────────────────────────────────────────────────────
+
+export interface CanjeVista {
+  id: string;
+  /** Nombre de la recompensa, o un texto honesto si ya no está en el catálogo. */
+  recompensa: string;
+  creditos: number;
+  fecha: string;
+  estado: 'PENDIENTE' | 'ENTREGADO' | 'CANCELADO';
+  codigo: string | null;
+}
+
+export interface CanjeCrudo {
+  id: string;
+  catalogItemId: string;
+  estado: string;
+  codigo?: string | null;
+  creditosGastados?: number;
+  creadoEn?: string;
+}
+
+/**
+ * El historial de canjes de la socia, lo más reciente primero.
+ *
+ * ⚠️ Existe porque hasta ahora NO existía, y eso costó dinero real: el
+ * 9-sep-2026 el fundador canjeó una botella, no vio nada más que un aviso que
+ * se desvanece, y volvió a pulsar 41 segundos después. Dos canjes, diez
+ * créditos, una botella. Un canje que no se puede volver a mirar es un canje
+ * que la socia no sabe si ocurrió.
+ *
+ * Los CANCELADOS se quedan a propósito: cancelar devuelve créditos y stock, y
+ * si desaparecieran, a la socia le faltarían créditos sin ninguna línea que lo
+ * explicara.
+ *
+ * El nombre sale del catálogo. Cuando el estudio retira una recompensa, sus
+ * canjes viejos siguen existiendo; decir «Recompensa retirada» es más honesto
+ * que esconder la fila y que no cuadren los créditos gastados.
+ */
+export function canjesDe(
+  canjes: CanjeCrudo[],
+  items: { id: string; nombre: string }[],
+): CanjeVista[] {
+  const nombre = new Map(items.map((i) => [i.id, i.nombre]));
+  return canjes
+    .map((c) => ({
+      id: c.id,
+      recompensa: nombre.get(c.catalogItemId) ?? 'Recompensa retirada del catálogo',
+      creditos: c.creditosGastados ?? 0,
+      fecha: c.creadoEn ?? '',
+      estado: (c.estado === 'ENTREGADO' || c.estado === 'CANCELADO' ? c.estado : 'PENDIENTE') as CanjeVista['estado'],
+      codigo: c.codigo ?? null,
+    }))
+    .sort((a, b) => {
+      // Lo pendiente arriba: es lo único que le queda por hacer (pasar por el
+      // estudio). El resto es histórico y se ordena por fecha.
+      if ((a.estado === 'PENDIENTE') !== (b.estado === 'PENDIENTE')) return a.estado === 'PENDIENTE' ? -1 : 1;
+      return b.fecha.localeCompare(a.fecha);
+    });
+}

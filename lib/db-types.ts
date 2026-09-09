@@ -607,9 +607,13 @@ export interface RowRewardRedemptions {
   creditos_gastados: number;
   estado: string;
   creado_en: string;
-  codigo: string;
+  // migr 20260909154359.
+  codigo: string | null;
+  // migr 20260909154359.
   entregado_en: string | null;
+  // migr 20260909154359.
   entregado_por: string | null;
+  // migr 20260909154359.
   recuperacion_id: string | null;
 }
 

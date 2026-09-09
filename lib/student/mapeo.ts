@@ -11,7 +11,7 @@ import { precioDeSesion } from './precio-suelta.ts';
 import { proyectarPlazaFija as plazaFijaDe, proyectarRecuperaciones as recuperacionesDe, type PlazaFijaMin, type RecuperacionMin } from './plaza-fija.ts';
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
 // traduce el nivel de una CLASE (PRINCIPIANTE → Iniciación). Nada que ver.
-import { hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type RetoDef } from './gamificacion.ts';
+import { canjesDe, hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type RetoDef } from './gamificacion.ts';
 import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from './tipos.ts';
 
 // Traducción PURA entre el vocabulario del backend y el del paquete de diseño.
@@ -250,9 +250,15 @@ export interface PayloadMin {
     // `caducaEl` viaja porque la pantalla avisa antes de que se pierdan. Sin
   // nombrarlo aquí llegaría `undefined` en silencio, como todo en esta frontera.
   memberCredits?: { saldo: number; totalGanado: number; totalCanjeado: number; caducaEl?: string | null }[];
-    // Sus canjes, para saber cuáles ya ha agotado por límite. Mismo motivo que
-    // `caducaEl`: sin nombrarlo aquí llegaría `undefined` en silencio.
-    rewardRedemptions?: { catalogItemId: string; estado: string }[];
+    // Sus canjes. Nacieron aquí solo para saber cuáles había agotado por límite
+    // —dos campos—, y por eso la app no podía enseñarle NADA después de canjear:
+    // el dato llegaba a su móvil y no daba ni para una línea de historial. Ahora
+    // viaja el canje entero. Mismo motivo que `caducaEl`: sin nombrarlo aquí
+    // llegaría `undefined` en silencio.
+    rewardRedemptions?: {
+      id: string; catalogItemId: string; estado: string;
+      codigo?: string | null; creditosGastados?: number; creadoEn?: string;
+    }[];
     achievementProgress?: ProgresoMin[];
     challengeProgress?: ProgresoMin[];
     retosApuntados?: string[];
@@ -419,6 +425,9 @@ export function proyectarGamificacion(d: PayloadMin, hoyISO: string): Gamificaci
     })(),
     nivel: nivelDeCreditos(totalGanado, niveles),
     logros, retos, recompensas,
+    // Su historial. Sin esto, después de canjear no le quedaba nada: el aviso
+    // se desvanecía y la pantalla volvía a estar igual que antes de pulsar.
+    canjes: canjesDe(d.socia?.rewardRedemptions ?? [], d.rewardCatalog ?? []),
   };
 }
 
