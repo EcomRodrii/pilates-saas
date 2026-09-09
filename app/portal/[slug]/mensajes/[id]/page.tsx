@@ -88,7 +88,23 @@ export default function HiloMensajesPage() {
 
   return (
     <StudentShell sinNav>
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* ⚠️ `height: 100%` NO llenaba la pantalla: el porcentaje se resuelve
+          contra el alto del padre, y `.page` no declara `height` — lo suyo sale
+          de `flex: 1`. Medido en el navegador: `.page` 844 px y esta columna
+          472, o sea el alto del contenido. Con pocos mensajes —el caso NORMAL
+          de una conversación recién abierta desde «Escribir al estudio»— el
+          compositor se quedaba flotando a media altura con 600 px de crema
+          muerta debajo, y la pantalla parecía a medio cargar.
+          Se resta la altura real de la cabecera (`--header-height`) y las áreas
+          seguras, que es lo mismo que `.page` añade como `padding` cuando
+          `sinNav`. Con un alto definido, la lista vuelve a desplazarse por
+          dentro y el compositor queda abajo. */}
+      <div
+        style={{
+          height: 'calc(100dvh - var(--header-height) - var(--safe-top) - var(--safe-bottom))',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
         <PageHeader titulo={tituloDe(tipo, estudio.nombre)} back />
 
         <div className="px" style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>

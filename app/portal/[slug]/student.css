@@ -177,6 +177,11 @@
 
   /* ── Layout ── */
   --nav-height: 74px;
+  /* ⚠️ La cabecera medía 56px a pelo dentro del `padding` de `.page`, y era el
+     único sitio donde vivía ese número. El hilo de mensajes necesita restarlo
+     para ocupar la pantalla completa, así que pasa a tener nombre: dos usos,
+     un valor. */
+  --header-height: 56px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -495,7 +500,7 @@
 
 /* ── Layout responsive del shell ── */
 .student-app .shell { min-height: 100dvh; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; position: relative; }
-.student-app .page { flex: 1; padding: calc(56px + var(--safe-top)) 0 calc(var(--nav-height) + 18px + var(--safe-bottom)); }
+.student-app .page { flex: 1; padding: calc(var(--header-height) + var(--safe-top)) 0 calc(var(--nav-height) + 18px + var(--safe-bottom)); }
 .student-app .px { padding-left: 18px; padding-right: 18px; }
 @media (min-width: 768px) {
   .student-app .shell { max-width: 640px; }
