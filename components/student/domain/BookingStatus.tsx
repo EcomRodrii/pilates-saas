@@ -13,6 +13,12 @@ import { seArreglaComprando } from '@/lib/bono-logic';
 export function BookingStatus({ state, titulo, mensaje, onRetry, onWaitlist, onClose, onComprar }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; titulo?: string; mensaje?: string; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void; onComprar?: () => void }) {
   const c = COPY[state];
   const ok = state === 'confirmed';
+  // ⚠️ `ok` decide el CONFETI, no el botón. Estar en la lista de espera no es
+  // para celebrarlo, pero sí es una reserva que existe y que vive en «Mis
+  // clases» — que es a donde la mandan LOS DOS llamadores. El botón decía
+  // «Volver al horario» y te llevaba a Mis clases: la etiqueta tiene que seguir
+  // al destino, no a la bandera del confeti.
+  const apuntada = state === 'confirmed' || state === 'waitlisted';
   // Hay rechazos que NO se arreglan reintentando: «necesitas un plan o bono
   // activo» y «tu bono no incluye este tipo de clase» seguirán igual mil veces.
   // Con el catálogo a un toque, ofrecer «Intentar de nuevo» era mandar a la
@@ -33,7 +39,7 @@ export function BookingStatus({ state, titulo, mensaje, onRetry, onWaitlist, onC
         {state === 'full' && onWaitlist && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onWaitlist}>Unirme a la lista de espera</button>}
         {compraLoArregla && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onComprar}>Ver bonos y suscripciones</button>}
         {!compraLoArregla && (state === 'error' || state === 'offline') && onRetry && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onRetry}>Intentar de nuevo</button>}
-        {onClose && <button type="button" className={'btn btn--full ' + (ok ? 'btn--primary' : 'btn--ghost')} style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onClose}>{ok ? 'Ver mis reservas' : state === 'session-expired' ? 'Iniciar sesión' : 'Volver al horario'}</button>}
+        {onClose && <button type="button" className={'btn btn--full ' + (ok ? 'btn--primary' : 'btn--ghost')} style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onClose}>{apuntada ? 'Ver mis reservas' : state === 'session-expired' ? 'Iniciar sesión' : 'Volver al horario'}</button>}
       </div>
     </div>
   );
