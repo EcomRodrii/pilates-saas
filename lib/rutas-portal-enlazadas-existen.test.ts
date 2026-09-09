@@ -75,50 +75,22 @@ test('se han encontrado enlaces al portal de verdad', () => {
   );
 });
 
-/**
- * Deuda ya existente, enumerada y CERRADA — por FICHERO y ruta, no solo por
- * ruta.
- *
- * Que la pareja sea exacta importa: con una lista de rutas a secas, tener
- * `/clases` perdonado en un sitio perdonaba un `/clases` nuevo en cualquier
- * otro. Así solo se perdona exactamente lo que ya estaba.
- *
- * Lo que queda son los dos enlaces de `lib/portal-busqueda.ts`, la búsqueda
- * del portal viejo. NO se arreglan porque ese módulo **no lo usa ninguna
- * pantalla** —solo sus propios tests—, y parchear las URLs de código que no se
- * ejecuta es mantenimiento de mentira: lo deja pareciendo vivo. Si algún día se
- * revive la búsqueda, sus destinos se deciden entonces (hoy `/reservar` filtra
- * por `?q=`, no por `?tipo=`, y las instructoras ya no tienen ruta propia: se
- * abren en una hoja dentro de la ficha de clase).
- */
-const ROTOS_CONOCIDOS = [
-  'lib/portal-busqueda.ts → /clases',
-  'lib/portal-busqueda.ts → /instructores',
-];
-
-/** La forma con la que se comparan: `<fichero> → <ruta>`. */
-function clave(h: { fichero: string; ruta: string }): string {
-  return `${h.fichero} → ${h.ruta}`;
-}
-
 function estaRota({ ruta }: { ruta: string }): boolean {
   const base = join(RAIZ, 'app/portal/[slug]', ruta);
   return !existsSync(join(base, 'page.tsx')) && !existsSync(join(base, 'route.ts'));
 }
 
 test('todo enlace a una ruta del portal apunta a una ruta que existe', () => {
-  const nuevos = hallazgos.filter((h) => estaRota(h) && !ROTOS_CONOCIDOS.includes(clave(h)));
+  // Sin lista de perdonados: la deuda que había —los dos enlaces de la
+  // búsqueda del portal viejo— se cerró borrando ese módulo, que no lo usaba
+  // ninguna pantalla. Si algún día vuelve a hacer falta perdonar algo, lo
+  // primero que hay que preguntarse es por qué se está escribiendo un enlace a
+  // una ruta que no existe.
+  const rotos = hallazgos.filter(estaRota).map((h) => `${h.fichero} → /portal/<slug>${h.ruta}`);
   assert.deepEqual(
-    [...new Set(nuevos.map(clave))], [],
-    'enlaces NUEVOS del portal a rutas que no existen (la persona aterriza en un '
-    + '404, o gotrue lo ignora y la devuelve al Site URL con el token ya gastado)',
+    [...new Set(rotos)], [],
+    'enlaces del portal a rutas que no existen (no da 404: acaba en `redirect(base)` '
+    + 'si el nombre está en el mapa de compatibilidad, y si no, deja a la persona en '
+    + 'la portada sin decirle por qué)',
   );
-});
-
-test('la lista de deuda conocida no tiene entradas de más', () => {
-  // Si alguien arregla una ruta y no la quita de arriba, la lista deja de
-  // describir la realidad y empieza a tapar la siguiente que se rompa igual.
-  const rotasDeVerdad = new Set(hallazgos.filter(estaRota).map(clave));
-  const sobran = ROTOS_CONOCIDOS.filter((r) => !rotasDeVerdad.has(r));
-  assert.deepEqual(sobran, [], 'ya no están rotas: quítalas de ROTOS_CONOCIDOS');
 });
