@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { FileText, Loader2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
+import { selloParaCliente } from '@/lib/factura-sello-cliente';
 import { cargarFacturaVenta, esError } from '@/lib/pos/cliente';
 import type { Factura } from '@/lib/types';
 
@@ -61,7 +62,12 @@ export function BotonFactura({ ventaId, compacto = false }: { ventaId: string; c
         direccion: [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || '—',
       },
       estado.receptor,
-      { produccion: process.env.NEXT_PUBLIC_VERIFACTU_ENTORNO === 'produccion' },
+      // La factura del mostrador es la de la CLIENTA: sale con el sello de
+      // cotejo si la AEAT tiene el registro, y nunca con la huella ni con el
+      // aviso de entorno de pruebas. Ver `lib/factura-sello-cliente.ts`.
+      selloParaCliente(estado.factura, studio?.nif ?? '', {
+        produccion: process.env.NEXT_PUBLIC_VERIFACTU_ENTORNO === 'produccion',
+      }),
     );
   }
 

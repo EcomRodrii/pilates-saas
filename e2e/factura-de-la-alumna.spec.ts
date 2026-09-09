@@ -23,16 +23,38 @@ import { SLUG, STUDIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-l
 
 const base = `/portal/${SLUG}`;
 
+// Lo que el servidor manda a la alumna: el DOCUMENTO, sin la cadena Veri*Factu
+// del estudio. `sello` viene ya resuelto —y hoy, en producción, es `null` en
+// todas: ninguna factura ha sido admitida todavía por la AEAT.
 const FACTURA = {
   factura: {
-    id: 'fac-1', studioId: STUDIO_ID, reciboId: 'rec-1', numeroCompleto: 'F2026/0001',
+    numeroCompleto: 'F2026/0001',
     fechaEmision: '2026-08-01', receptorNombre: 'Marta Ruiz', receptorNIF: null,
     baseImponible: 82.64, tipoIVA: 21, cuotaIVA: 17.36, total: 100,
-    verifactuHash: null, verifactuPrevHash: null, verifactuTs: null, verifactuSeq: null,
   },
   emisor: { nombre: 'Pilates Centro SL', nif: 'B00000000', direccion: 'Calle Falsa 1, 29001, Málaga' },
   receptor: { telefono: null, email: 'marta@example.com' },
+  sello: null,
 };
+
+// `abrirFacturaPDF` hace `window.open` + `document.write`. Playwright no puede
+// leer ese documento (se escribe a mano en una ventana en blanco), así que se
+// sustituye `window.open` por un doble que guarda lo escrito. Es la única forma
+// de mirar el PAPEL que recibe la alumna y no solo el botón que lo abre.
+async function espiarVentanaDeFactura(page: Page) {
+  await page.addInitScript(() => {
+    (window as unknown as { __facturaHTML?: string }).__facturaHTML = undefined;
+    window.open = () =>
+      ({
+        document: {
+          write: (html: string) => {
+            (window as unknown as { __facturaHTML?: string }).__facturaHTML = html;
+          },
+          close: () => {},
+        },
+      }) as unknown as Window;
+  });
+}
 
 async function montar(page: Page, opts: { factura?: boolean } = {}) {
   await sembrarSociaLista(page);
@@ -84,5 +106,53 @@ test.describe('Factura de la alumna', () => {
     await expect(page.getByRole('button', { name: 'Descargar factura' })).toBeVisible({ timeout: 30_000 });
     // Ya pedida ANTES de tocar nada.
     expect(peticiones.length).toBeGreaterThan(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El papel que se lleva la alumna.
+//
+// Hasta #1794 esta factura salía con la huella SHA-256 de la cadena Veri*Factu,
+// la URL de cotejo impresa como texto y —porque esta pantalla era la única que
+// no pasaba el flag de entorno— el aviso «Entorno de PRUEBAS, pendiente de
+// validación con la AEAT y asesor fiscal». Todo eso es del registro fiscal del
+// estudio; ninguna de las tres cosas es de la clienta.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function htmlDeLaFactura(page: Page): Promise<string> {
+  await page.getByRole('button', { name: 'Descargar factura' }).click();
+  const html = await page.evaluate(() => (window as unknown as { __facturaHTML?: string }).__facturaHTML);
+  expect(html, 'no se llegó a generar ninguna factura').toBeTruthy();
+  return html as string;
+}
+
+test.describe('La factura de la alumna no lleva el registro fiscal del estudio', () => {
+  test('sin sello: ni QR, ni huella, ni aviso de entorno de pruebas', async ({ page }) => {
+    await espiarVentanaDeFactura(page);
+    await montar(page, { factura: true });
+    await page.goto(`${base}/pagos/rec-1`);
+    await expect(page.getByRole('button', { name: 'Descargar factura' })).toBeVisible({ timeout: 30_000 });
+
+    const html = await htmlDeLaFactura(page);
+    expect(html).not.toMatch(/veri\*?factu/i);
+    expect(html).not.toContain('Huella');
+    expect(html).not.toContain('<svg');
+    expect(html).not.toMatch(/prewww2\.aeat\.es/);
+    expect(html).not.toMatch(/PRUEBAS/i);
+  });
+
+  test('y sí lleva lo suyo: estudio, alumna, concepto, IVA y total', async ({ page }) => {
+    await espiarVentanaDeFactura(page);
+    await montar(page, { factura: true });
+    await page.goto(`${base}/pagos/rec-1`);
+    await expect(page.getByRole('button', { name: 'Descargar factura' })).toBeVisible({ timeout: 30_000 });
+
+    const html = await htmlDeLaFactura(page);
+    expect(html).toContain('Pilates Centro SL');
+    expect(html).toContain('B00000000');
+    expect(html).toContain('Marta Ruiz');
+    expect(html).toContain('F2026/0001');
+    expect(html).toContain('IVA (21%)');
+    expect(html).toContain('100,00 €');
   });
 });
