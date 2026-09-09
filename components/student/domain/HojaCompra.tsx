@@ -7,6 +7,8 @@ import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido
 import { MODO_TOKENS } from '@/lib/portal-paleta';
 import { comprobarCodigo, iniciarCompra, clavePublicableStripe } from '@/lib/student/comprar';
 import { euros } from '@/lib/student/formato';
+import { esSuscripcion } from '@/lib/student/tienda';
+import { nombrePeriodo } from '@/lib/bono-logic';
 import type { PlanTarifa } from '@/lib/types';
 
 // La compra, DENTRO de la app.
@@ -126,7 +128,10 @@ export function HojaCompra({ textosLegales,
       <div className="px" style={{ paddingBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
           <h2 className="t-title">{plan.nombre}</h2>
-          <p style={{ margin: 0, fontSize: 'var(--t-h2)', fontWeight: 800 }}>{euros(Number(plan.precio))}</p>
+          <p style={{ margin: 0, fontSize: 'var(--t-h2)', fontWeight: 800 }}>
+            {euros(Number(plan.precio))}
+            {esSuscripcion(plan.tipo) && <span className="t-meta">/{nombrePeriodo(plan)}</span>}
+          </p>
         </div>
 
         {cobertura && (
@@ -280,7 +285,10 @@ export function HojaCompra({ textosLegales,
               >
                 <div className="row row--between">
                   <span className="t-small t-dim">Precio</span>
-                  <span className="t-small t-num">{euros(Number(plan.precio))}</span>
+                  <span className="t-small t-num">
+                    {euros(Number(plan.precio))}
+                    {esSuscripcion(plan.tipo) && <span className="t-dim">/{nombrePeriodo(plan)}</span>}
+                  </span>
                 </div>
                 {estado.descuento > 0 && (
                   <div className="row row--between">

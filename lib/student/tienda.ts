@@ -114,6 +114,17 @@ export interface ServicioTienda {
   tipo?: string | null;
 }
 
+/**
+ * ¿Este plan se cobra otra vez? Lo pregunta el escaparate para poner «/mes» y,
+ * desde el arreglo de la hoja de compra, también la hoja — que es la ÚLTIMA
+ * pantalla antes de pagar y decía «89 €» a secas donde la tienda decía
+ * «89 €/mes». Un cobro recurrente presentado como pago único, justo al
+ * confirmar. La regla vive en un sitio para que no vuelvan a divergir.
+ */
+export function esSuscripcion(tipo: string | null | undefined): boolean {
+  return familiaDePlan(tipo) === 'suscripcion';
+}
+
 /** `MENSUAL` → suscripción, `BONO` → paquete, `PUNTUAL` → clase suelta. */
 function familiaDePlan(tipo: string | null | undefined): FamiliaProducto | null {
   if (tipo === 'MENSUAL') return 'suscripcion';
