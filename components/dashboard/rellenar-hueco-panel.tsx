@@ -165,11 +165,20 @@ export function RellenarHuecoPanel({
         });
         return;
       }
-      // El servidor puede haber descartado a alguna por consentimiento, por
-      // teléfono o por haberla avisado ya hace poco. Se dice, no se calla.
+      // El servidor puede haber descartado a alguna por consentimiento, por no
+      // tener contacto o por haberla avisado ya hace poco. Se dice, no se calla.
       const enviados = data.enviados ?? 0;
-      const partes = [`${enviados} aviso${enviados === 1 ? '' : 's'} enviado${enviados === 1 ? '' : 's'}`];
-      if (data.sinTelefono) partes.push(`${data.sinTelefono} sin teléfono`);
+      // Por qué canal salió cada uno: el servidor elige WhatsApp o email por
+      // socia, así que decir solo «5 avisos enviados» deja a la propietaria sin
+      // saber dónde mirar si alguna dice que no le llegó.
+      const canales = [
+        data.porWhatsapp ? `${data.porWhatsapp} por WhatsApp` : null,
+        data.porEmail ? `${data.porEmail} por email` : null,
+      ].filter(Boolean).join(' y ');
+      const partes = [
+        `${enviados} aviso${enviados === 1 ? '' : 's'} enviado${enviados === 1 ? '' : 's'}${canales ? ` (${canales})` : ''}`,
+      ];
+      if (data.sinContacto) partes.push(`${data.sinContacto} sin teléfono ni email`);
       if (data.sinConsentimiento) partes.push(`${data.sinConsentimiento} sin consentimiento de marketing`);
       if (data.errores) partes.push(`${data.errores} con error`);
       const texto = partes.join(' · ');
@@ -341,13 +350,14 @@ export function RellenarHuecoPanel({
                   : <><Send size={14} /> Avisar a {seleccionadas.length || 'las'} seleccionada{seleccionadas.length === 1 ? '' : 's'}</>}
               </Button>
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Se envía por WhatsApp. No se avisa a quien no ha dado consentimiento de marketing
-                ni a quien ya recibió un aviso de esta clase en las últimas 24 h.
+                Se envía por WhatsApp a quien tenga teléfono, si tienes WhatsApp Business
+                conectado; al resto, por email. No se avisa a quien no ha dado consentimiento
+                de marketing ni a quien ya recibió un aviso de esta clase en las últimas 24 h.
               </p>
             </>
           ) : (
             <p className="text-[11px] text-muted-foreground">
-              El aviso automático por WhatsApp solo lo puede lanzar la propietaria. Puedes escribir
+              El aviso automático solo lo puede lanzar la propietaria. Puedes escribir
               a cada una desde el icono de WhatsApp de su fila.
             </p>
           )}
