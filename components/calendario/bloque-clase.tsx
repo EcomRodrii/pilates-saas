@@ -142,6 +142,12 @@ export function BloqueClase({
         touchAction: arrastrable ? 'none' : undefined,
         zIndex: arrastrando ? 40 : undefined,
         boxShadow: arrastrando ? '0 12px 24px -8px rgba(0,0,0,0.35)' : undefined,
+        // ⚠️ Sin transición mientras se arrastra. La clase lleva
+        // `transition-transform duration-150` para el pequeño realce al pasar
+        // por encima, pero `onPointerMove` reescribe el `transform` en CADA
+        // movimiento del dedo: con la transición puesta, el bloque no sigue al
+        // puntero, sale persiguiéndolo con 150 ms de retraso constante.
+        transition: arrastrando ? 'none' : undefined,
       }}
       className={cn(
         'absolute flex flex-col overflow-hidden rounded-r-md border border-border/60 border-l-[3px]',

@@ -137,6 +137,54 @@ async function arrastrarA(page: Page, targetOffsetMin: number) {
   await page.mouse.up();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// «El calendario borra la clase cuando la muevo».
+//
+// Reportado con vídeo: al arrastrar una clase hacia otro día, el bloque se iba
+// CORTANDO hasta desaparecer, y solo reaparecía al soltarlo. No se borraba
+// nada: la columna del día llevaba `overflow-hidden` y el bloque, que es
+// `absolute` dentro de ella, se recortaba en cuanto se salía de su caja.
+//
+// Los tres tests de abajo no lo veían porque todos arrastran DENTRO de la
+// misma columna (a otra hora), y ahí no hay nada que recortar. Este arrastra
+// en horizontal, que es el caso que fallaba.
+//
+// La comprobación no puede ser `toBeVisible()`: mira caja y visibilidad, y un
+// elemento recortado por un ancestro las pasa las dos. Se pregunta por el
+// PÍXEL —quién está pintado justo debajo del puntero— que es lo único que
+// distingue «está ahí» de «está ahí pero no se ve».
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Arrastrar entre días (vista Semana)', () => {
+  test('la clase sigue viéndose mientras se arrastra a otro día', async ({ page }) => {
+    await montar(page);
+    await page.getByRole('button', { name: 'Semana', exact: true }).click();
+    await page.getByTestId('grid-semana-scroll').evaluate(el => { el.scrollTop = 0; });
+
+    const bloque = page.getByRole('button', { name: /Reformer/i, disabled: false }).first();
+    await bloque.waitFor({ timeout: 30_000 });
+    const bBox = (await bloque.boundingBox())!;
+    const destino = (await page.locator('[data-dia-index="2"]').boundingBox())!;
+
+    await page.mouse.move(bBox.x + bBox.width / 2, bBox.y + bBox.height / 2);
+    await page.mouse.down();
+
+    // Dos días a la derecha, sin soltar.
+    const x = destino.x + destino.width / 2;
+    const y = bBox.y + bBox.height / 2;
+    await page.mouse.move(x, y, { steps: 10 });
+
+    const loQueHayDebajo = await page.evaluate(([px, py]) => {
+      const el = document.elementFromPoint(px, py);
+      return el?.closest<HTMLElement>('[role="button"]')?.getAttribute('title') ?? null;
+    }, [x, y]);
+
+    await page.mouse.up();
+
+    expect(loQueHayDebajo, 'el bloque arrastrado tiene que estar pintado bajo el puntero, no recortado por su columna')
+      .toMatch(/Reformer/);
+  });
+});
+
 test.describe('Arrastrar y soltar una clase', () => {
   test('arrastra a otra hora, sin gente apuntada: mueve directo, sin confirmar', async ({ page }) => {
     const { patchBody } = await montar(page, { reservas: [] });

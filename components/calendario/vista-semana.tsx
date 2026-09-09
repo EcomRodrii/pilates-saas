@@ -104,7 +104,7 @@ export function VistaSemana({
           vez de desincronizarse (dos scrolls separados no se sincronizan
           solos). El gutter de horas va `sticky left-0` por el mismo motivo,
           en la dirección contraria. */}
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+      <div ref={scrollRef} data-testid="grid-semana-scroll" className="min-h-0 flex-1 overflow-auto">
         <div style={{ minWidth: anchoMinTotal }}>
           <div className="sticky top-0 z-10 flex border-b border-border bg-card">
             <div className="sticky left-0 z-10 w-14 flex-none bg-card" />
@@ -185,8 +185,21 @@ export function VistaSemana({
               {columnas.map((c, i) => (
                 <div
                   key={c.dia}
+                  // ⚠️ La columna NO lleva `overflow-hidden`, y no es un olvido: lo
+                  // llevaba y RECORTABA la clase que se estaba arrastrando.
+                  // `BloqueClase` es `absolute` dentro de esta columna, así que
+                  // al arrastrarla hacia otro día se salía de su caja y se iba
+                  // cortando hasta desaparecer — parecía que el calendario
+                  // borrase la clase, y solo volvía al soltarla.
+                  //
+                  // El recorte estaba para que el rótulo «Cerrado»/«Sin clases»
+                  // (centrado, `absolute inset-0`) no desbordara sobre las
+                  // columnas vecinas con la rejilla estrecha. Eso se sigue
+                  // cumpliendo: ahora clipa el propio rótulo, que es lo único
+                  // que necesitaba clipe. Las clases nunca desbordan por su
+                  // cuenta (su `left`/`width` van en % de esta columna).
                   data-dia-index={i}
-                  className="relative min-w-0 overflow-hidden border-l border-border/60"
+                  className="relative min-w-0 border-l border-border/60"
                   style={{
                     // Mismo tinte de marca que la cabecera, mucho más flojo:
                     // la columna de hoy tiene que leerse como una sola pieza
@@ -212,7 +225,7 @@ export function VistaSemana({
                     // de que llegara a onClickVacio — la comprobación de "clic en
                     // el fondo, no en una clase" lo veía como target distinto y
                     // lo descartaba en silencio.
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-border">
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden text-[11px] font-semibold uppercase tracking-wide text-border">
                       {c.cerrado ? 'Cerrado' : 'Sin clases'}
                     </span>
                   )}
