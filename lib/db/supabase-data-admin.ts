@@ -20,6 +20,9 @@ import { primerError } from '@/lib/db/primer-error';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { esCodigoReserva } from '@/lib/reservas/errores-rpc';
 import { LEGAL } from '@/lib/legal-info';
+import { selloParaCliente, type SelloCliente } from '@/lib/factura-sello-cliente';
+import type { FacturaImprimible } from '@/lib/factura-pdf';
+import { destinoDeEntorno } from '@/lib/verifactu/config';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { decidirCierreDeEspera, suscripcionDeReservaWeb, PREFIJO_RESERVA_WEB } from '@/lib/lista-espera/esperas-sin-plaza';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
@@ -58,7 +61,6 @@ import type {
   RowStudios,
 } from '@/lib/db-types';
 import type {
-  Factura,
   AutomationLog,
   AutomationRule,
   Automatizacion,
@@ -3545,11 +3547,32 @@ export async function resolverSociaAutenticada(slug: string, authUserId: string,
  * impresos en la propia factura por obligación legal. `studioPublico` los
  * excluye porque allí no hacen falta; aquí son el emisor del documento.
  */
+/**
+ * La factura de una socia, en la forma que se le puede entregar A ELLA.
+ *
+ * ⚠️ Devuelve `FacturaImprimible`, NO `Factura`. La diferencia es el motivo de
+ * que exista esta función y no un `mapFactura` a secas: `Factura` arrastra la
+ * cadena Veri*Factu del estudio (huella, huella anterior, secuencia, estado
+ * ante la AEAT y CSV del acuse), y esto se serializa a JSON y viaja al
+ * navegador de la clienta. Devolver la fila entera ponía el registro fiscal
+ * del obligado tributario al alcance de un F12 en el móvil de una alumna,
+ * aunque la pantalla no lo pintara.
+ *
+ * El único elemento de Veri*Factu que sí es suyo —el sello de cotejo— se
+ * calcula aquí, en servidor, y viaja ya resuelto: la clienta recibe una URL,
+ * no los datos con los que se construye.
+ */
 export async function facturaDeSociaPublica(params: {
   studioId: string; socioId: string; reciboId: string;
 }): Promise<
   | { error: 'No autorizado' | 'Sin factura' }
-  | { ok: true; factura: Factura; emisor: { nombre: string; nif: string; direccion: string }; receptor: { telefono: string | null; email: string | null } }
+  | {
+      ok: true;
+      factura: FacturaImprimible;
+      emisor: { nombre: string; nif: string; direccion: string };
+      receptor: { telefono: string | null; email: string | null };
+      sello: SelloCliente | null;
+    }
 > {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -3579,16 +3602,32 @@ export async function facturaDeSociaPublica(params: {
     .eq('id', params.socioId).eq('studio_id', params.studioId).maybeSingle();
 
   const e = (estudio ?? {}) as Record<string, string | null>;
+  const completa = mapFactura(fila as RowFacturas);
+  const nif = e.nif ?? '';
+
   return {
     ok: true,
-    factura: mapFactura(fila as RowFacturas),
+    // Lista blanca explícita, no un `delete` de lo que sobra: si mañana se
+    // añade una columna a `facturas`, esto no la deja pasar sola. Mismo
+    // criterio que `studioPublico()`.
+    factura: {
+      numeroCompleto: completa.numeroCompleto,
+      fechaEmision: completa.fechaEmision,
+      receptorNombre: completa.receptorNombre,
+      receptorNIF: completa.receptorNIF,
+      baseImponible: completa.baseImponible,
+      tipoIVA: completa.tipoIVA,
+      cuotaIVA: completa.cuotaIVA,
+      total: completa.total,
+    },
     emisor: {
       // La razón social manda sobre el nombre comercial: es quien emite.
       nombre: (e.razon_social || e.nombre) ?? '',
-      nif: e.nif ?? '',
+      nif,
       direccion: [e.direccion, e.codigo_postal, e.ciudad].filter(Boolean).join(', '),
     },
     receptor: { telefono: (socia?.telefono as string | null) ?? null, email: (socia?.email as string | null) ?? null },
+    sello: selloParaCliente(completa, nif, { produccion: destinoDeEntorno().entorno === 'produccion' }),
   };
 }
 

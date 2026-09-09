@@ -166,7 +166,7 @@ export default function ReciboPage() {
         {factura ? (
           <Button
             full
-            onClick={() => abrirFacturaPDF(factura.factura, factura.emisor, factura.receptor)}
+            onClick={() => abrirFacturaPDF(factura.factura, factura.emisor, factura.receptor, factura.sello)}
             style={{ height: 'var(--h-control-md)' }}
           >
             Descargar factura

@@ -3,9 +3,24 @@
 // que lo usan tanto el panel (app/(dashboard)/facturas) como el portal de
 // socias (app/portal/[slug]/compras), donde antes el badge "· Factura" era
 // texto inerte sin forma de obtener el documento.
-import { urlQrVerifactu, fechaExpedicionDesdeISO } from './verifactu-qr.ts';
+//
+// ⚠️ ESTE FICHERO PRODUCE EL DOCUMENTO DE LA CLIENTA, no el registro fiscal
+// del estudio. Los dos existen y no son el mismo papel:
+//
+//   · Documento de la clienta (esto) — factura comercial: emisor, receptor,
+//     concepto, base, IVA, total, número y fecha. Más el sello de cotejo
+//     cuando la AEAT tiene el registro (ver `factura-sello-cliente.ts`).
+//   · Registro de facturación del estudio — la cadena Veri*Factu completa:
+//     huella, huella anterior, secuencia, estado ante la AEAT y CSV del acuse.
+//     Vive en la ficha de Cobros → Facturas (pantalla de personal) y en el
+//     cierre para la gestoría. NUNCA se imprime aquí.
+//
+// Estuvieron mezclados: la misma caja imprimía la huella y el aviso de
+// «Entorno de PRUEBAS» en la factura que descargaba la alumna. Si vuelves a
+// añadir aquí un campo de la cadena, lo estás poniendo en el papel de la
+// clienta — que es exactamente lo que este comentario intenta evitar.
 import { qrSvgMarkup } from './qr-svg.ts';
-import type { Factura } from './types.ts';
+import type { SelloCliente } from './factura-sello-cliente.ts';
 
 export interface EmisorFactura {
   nombre: string;
@@ -32,26 +47,40 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/**
+ * Los campos de la factura que se imprimen en el documento de la clienta.
+ *
+ * Es a propósito un subconjunto y no `Factura`: lo que no está en esta interfaz
+ * no puede acabar en el papel por descuido. La cadena Veri*Factu (huella,
+ * huella anterior, secuencia, estado AEAT, CSV) queda fuera por definición.
+ */
+export interface FacturaImprimible {
+  numeroCompleto: string;
+  fechaEmision: string;
+  receptorNombre: string;
+  receptorNIF: string | null;
+  baseImponible: number;
+  tipoIVA: number;
+  cuotaIVA: number;
+  total: number;
+}
+
 export function generarFacturaHTML(
-  f: Factura,
+  f: FacturaImprimible,
   emisor: EmisorFactura,
   receptor: ReceptorFactura | null,
-  opciones?: { produccion?: boolean },
+  sello: SelloCliente | null,
 ): string {
   const fmt = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const entornoProduccion = opciones?.produccion ?? false;
-  const cotejo = f.verifactuHash && emisor.nif
-    ? urlQrVerifactu({ nif: emisor.nif, numSerie: f.numeroCompleto, fecha: fechaExpedicionDesdeISO(f.fechaEmision), importeTotal: f.total }, { produccion: entornoProduccion })
-    : null;
-  const qrSvg = cotejo ? qrSvgMarkup(cotejo) : '';
-  const bloqueVerifactu = f.verifactuHash ? `
-<div style="margin-top:32px;padding:16px;border:1px solid #E7E7E0;border-radius:8px;background:#FAFAF7;font-size:11px;color:#5A5A52;display:flex;gap:16px;align-items:flex-start">
-  ${qrSvg ? `<div style="flex:0 0 96px;width:96px;height:96px">${qrSvg}</div>` : ''}
+  // El sello lo decide `selloParaCliente`, nunca esta plantilla: aquí solo se
+  // pinta lo que llegue. Si llega `null` la factura sale sin QR, que es lo
+  // correcto mientras la AEAT no tenga el registro.
+  const bloqueSello = sello ? `
+<div style="margin-top:32px;padding:16px;border:1px solid #E7E7E0;border-radius:8px;background:#FAFAF7;font-size:11px;color:#5A5A52;display:flex;gap:16px;align-items:center">
+  <div style="flex:0 0 96px;width:96px;height:96px">${qrSvgMarkup(sello.url)}</div>
   <div style="flex:1;min-width:0">
-    <div style="font-weight:700;color:#1A1A1A;margin-bottom:6px">Sistema de facturación verificable (Veri*Factu)</div>
-    <div style="margin-bottom:4px">Huella: <span style="font-family:monospace;word-break:break-all">${f.verifactuHash}</span></div>
-    ${cotejo ? `<div>QR de cotejo AEAT: <a href="${cotejo}" style="color:#7AA80E;word-break:break-all">${cotejo}</a></div>` : ''}
-    ${entornoProduccion ? '' : '<div style="margin-top:6px;color:#B45309">Entorno de PRUEBAS — pendiente de validación con la AEAT y asesor fiscal.</div>'}
+    <div style="font-weight:700;color:#1A1A1A;margin-bottom:4px">VERI*FACTU</div>
+    <div>${esc(sello.leyenda)}</div>
   </div>
 </div>` : '';
   return `<!DOCTYPE html>
@@ -132,7 +161,7 @@ export function generarFacturaHTML(
     <tr class="total-row"><td>TOTAL</td><td>${fmt(f.total)} €</td></tr>
   </tfoot>
 </table>
-${bloqueVerifactu}
+${bloqueSello}
 <div class="footer">Documento generado el ${new Date().toLocaleDateString('es-ES')} · ${esc(emisor.nombre)} · ${esc(emisor.nif)}</div>
 <script>window.onload = function(){ window.print(); }<\/script>
 </body></html>`;
@@ -140,12 +169,12 @@ ${bloqueVerifactu}
 
 /** Abre una pestaña nueva con la factura lista para imprimir/guardar como PDF. */
 export function abrirFacturaPDF(
-  f: Factura,
+  f: FacturaImprimible,
   emisor: EmisorFactura,
   receptor: ReceptorFactura | null,
-  opciones?: { produccion?: boolean },
+  sello: SelloCliente | null,
 ) {
-  const html = generarFacturaHTML(f, emisor, receptor, opciones);
+  const html = generarFacturaHTML(f, emisor, receptor, sello);
   const w = window.open('', '_blank');
   if (!w) return;
   w.document.write(html);

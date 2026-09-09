@@ -1,18 +1,24 @@
 'use client';
 
 import { portalAuthHeader } from '@/lib/api-client';
-import type { Factura } from '@/lib/types';
-import type { EmisorFactura, ReceptorFactura } from '@/lib/factura-pdf';
+import type { EmisorFactura, FacturaImprimible, ReceptorFactura } from '@/lib/factura-pdf';
+import type { SelloCliente } from '@/lib/factura-sello-cliente';
 
 // La factura de un recibo de la socia.
 //
 // Se pide contra `/api/public/factura`, que deriva la identidad del JWT: pasar
 // el `reciboId` de otra persona no devuelve su factura. Aquí no se decide nada.
+//
+// ⚠️ `FacturaImprimible`, no `Factura`: lo que llega es el documento comercial,
+// sin la cadena Veri*Factu del estudio. El sello de cotejo viene ya resuelto
+// desde el servidor (`sello`), que es quien sabe si la AEAT tiene el registro
+// y si estamos en el entorno de producción.
 
 export interface FacturaDeSocia {
-  factura: Factura;
+  factura: FacturaImprimible;
   emisor: EmisorFactura;
   receptor: ReceptorFactura;
+  sello: SelloCliente | null;
 }
 
 /**

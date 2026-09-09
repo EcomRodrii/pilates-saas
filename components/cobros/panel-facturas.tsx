@@ -10,6 +10,7 @@ import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { urlQrVerifactu, fechaExpedicionDesdeISO } from '@/lib/verifactu-qr';
 import { qrSvgMarkup } from '@/lib/qr-svg';
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
+import { selloParaCliente } from '@/lib/factura-sello-cliente';
 
 function fecha(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -159,13 +160,17 @@ export function PanelFacturas() {
     URL.revokeObjectURL(url);
   }
 
+  // ⚠️ El PDF es el documento de la CLIENTA, no la ficha fiscal del estudio —
+  // el estudio ve su cadena Veri*Factu completa en la vista previa de abajo, no
+  // en el papel que se entrega. Por eso aquí solo viaja el sello de cotejo, y
+  // solo si la AEAT tiene ya el registro (`selloParaCliente` lo decide).
   function descargarPDF(f: typeof previewFactura, socio: typeof previewSocio) {
     if (!f) return;
     abrirFacturaPDF(
       f,
       { nombre: emisorNombre, nif: emisorNif, direccion: emisorDireccion },
       socio ? { telefono: socio.telefono, email: socio.email } : null,
-      { produccion: entornoProduccion },
+      selloParaCliente(f, studio?.nif ?? '', { produccion: entornoProduccion }),
     );
   }
 
