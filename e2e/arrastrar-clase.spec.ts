@@ -9,6 +9,28 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // NO lo puede confirmar esta suite (documentado en el PR, verificar aparte).
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ⚠️ La zona horaria del navegador va FIJADA, y no es un detalle: sin esto
+// estos tests pasan en CI (que corre en UTC) y fallan en cualquier máquina que
+// no lo esté. La rejilla pinta cada clase en hora del ESTUDIO (Europe/Madrid,
+// `TZ_ESTUDIO`), así que `arrastrarA` coloca el puntero sobre una hora LOCAL —
+// pero las comprobaciones leían `getUTCHours()`. En Madrid en agosto son dos
+// horas de diferencia: apuntar a las 13:00 de la rejilla daba 11 en UTC y el
+// test decía «Expected: 13, Received: 11».
+//
+// Costó tres PRs de tiempo (#1757, #1796, #1801) darlo por «fallo local de
+// siempre» — y lo peor no es el tiempo: enseña a ignorar rojo justo en el
+// fichero que se está cambiando. Se fija la zona al estudio, que es la que el
+// producto usa de verdad, y se comprueba en su hora.
+test.use({ timezoneId: 'Europe/Madrid' });
+
+/** La hora que marca ese instante en el reloj del ESTUDIO, que es la que pinta
+ *  la rejilla y por tanto la que se apuntó con el ratón. */
+function horaEnEstudio(iso: string): number {
+  return Number(new Intl.DateTimeFormat('es-ES', {
+    timeZone: 'Europe/Madrid', hour: '2-digit', hourCycle: 'h23',
+  }).format(new Date(iso)));
+}
+
 const AUTH_UID = 'auth-e2e-duena';
 const STUDIO_ID = 'studio-test';
 const STORAGE_KEY = 'sb-example-auth-token';
@@ -226,7 +248,7 @@ test.describe('Arrastrar y soltar una clase', () => {
 
     await expect(page.getByText('Clase movida')).toBeVisible({ timeout: 30_000 });
     expect(patchBody.valor).toBeTruthy();
-    expect(new Date(patchBody.valor.inicio).getUTCHours()).toBe(13);
+    expect(horaEnEstudio(patchBody.valor.inicio)).toBe(13);
   });
 
   test('con clientas apuntadas, pide confirmación antes de mover y avisar', async ({ page }) => {
@@ -240,7 +262,7 @@ test.describe('Arrastrar y soltar una clase', () => {
 
     await page.getByRole('button', { name: 'Mover y avisar' }).click();
     await expect(page.getByText('Clase movida')).toBeVisible({ timeout: 30_000 });
-    expect(new Date(patchBody.valor.inicio).getUTCHours()).toBe(14);
+    expect(horaEnEstudio(patchBody.valor.inicio)).toBe(14);
   });
 
   test('un click normal (sin arrastrar) sigue abriendo el panel de la clase', async ({ page }) => {
@@ -250,8 +272,12 @@ test.describe('Arrastrar y soltar una clase', () => {
   });
 
   test('arrastrar a un hueco ya ocupado por otra clase: avisa del conflicto y no mueve nada', async ({ page }) => {
-    // Segunda clase de la misma sala a las 13:00 — el destino del arrastre choca con ella.
-    const otra = sesionRow('ses-2', '13:00', '13:50');
+    // Segunda clase de la misma sala EN EL DESTINO del arrastre, para que choque.
+    // ⚠️ `sesionRow` escribe la hora en UTC y `arrastrarA` apunta a una hora de
+    // la REJILLA, que va en hora del estudio: las 13:00 de la rejilla son las
+    // 11:00 UTC (Madrid, agosto). Ponerla a '13:00' la manda a las 15:00 de la
+    // rejilla, donde no choca con nada y el test se cae sin que nada esté roto.
+    const otra = sesionRow('ses-2', '11:00', '11:50');
     const { patchBody } = await montar(page, { sesiones: [SESION, otra] });
 
     await arrastrarA(page, 13 * 60);
