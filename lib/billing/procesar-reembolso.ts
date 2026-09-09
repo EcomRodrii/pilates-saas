@@ -121,6 +121,18 @@ async function procesarReembolsoDeUnRecibo(
       Sentry.captureMessage(`[${p.fuente}] devolución sin efecto (recibo ya devuelto, inexistente o de otro estudio)`, {
         level: 'warning', extra: { reciboId: p.reciboId, studioId: p.studioId, eventAccount: p.eventAccount },
       });
+    } else {
+      // 44ª pasada de auditoría, H-2: si este recibo era el de una
+      // penalización ya cobrada, avisa a la nómina de la instructora. Solo
+      // en la transición REAL a DEVUELTO (`rec` truthy), nunca en un
+      // reintento — igual que el resto de este bloque. Best-effort: el
+      // dinero ya salió, un fallo aquí no puede tumbar la conciliación.
+      try {
+        const { marcarPenalizacionReembolsada } = await import('../equipo/liquidacion-penalizacion-revertida.ts');
+        await marcarPenalizacionReembolsada(admin, p.studioId, p.reciboId);
+      } catch (e) {
+        console.error(`[${p.fuente}] no se pudo comprobar si el recibo era de una penalización`, p.reciboId, e instanceof Error ? e.message : e);
+      }
     }
   }
 

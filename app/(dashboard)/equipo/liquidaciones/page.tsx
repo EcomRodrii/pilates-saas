@@ -83,11 +83,18 @@ export default function LiquidacionesPage() {
     if (n !== null && !Number.isFinite(n)) return;
     const base: TarifaInstructor = actual ?? { instructorId, tarifaHora: null, baseMensualEur: null, recargoSustitucionPct: null };
     const siguiente: TarifaInstructor = { ...base, [campo]: n };
-    setTarifas(prev => ({ ...prev, [instructorId]: siguiente }));
+    // 44ª pasada de auditoría, hallazgo #4: antes esto se escribía optimista
+    // ANTES de confirmar el PATCH, sin revertir si fallaba (rol sin permiso,
+    // red caída). Ahora solo se refleja en el estado tras la confirmación
+    // real del servidor.
     const r = await actualizarTarifaInstructor(instructorId, siguiente.tarifaHora, {
       baseMensualEur: siguiente.baseMensualEur, recargoSustitucionPct: siguiente.recargoSustitucionPct,
     });
-    if (!r.ok) showToast(r.error ?? 'No se pudo guardar');
+    if (r.ok) {
+      setTarifas(prev => ({ ...prev, [instructorId]: siguiente }));
+    } else {
+      showToast(r.error ?? 'No se pudo guardar');
+    }
   }
 
   if (!puedeGestionarEquipo(rol)) {
@@ -137,6 +144,11 @@ export default function LiquidacionesPage() {
                         liq.estado === 'CONFIRMADA' ? 'bg-blue-500/15 text-blue-600' : 'bg-amber-500/15 text-amber-600'
                       }`}>
                         {liq.estado === 'PAGADA' ? 'Pagada' : liq.estado === 'CONFIRMADA' ? 'Confirmada' : 'Borrador'}
+                      </span>
+                    )}
+                    {liq?.requiereRevision && (
+                      <span className="inline-block mt-1 ml-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-500/15 text-red-600">
+                        Requiere revisión{liq.revisionMotivo ? `: ${liq.revisionMotivo}` : ''}
                       </span>
                     )}
                   </div>
