@@ -261,6 +261,13 @@ export const EVENTOS = {
   // dirigida (`data.socioId`), NO una lista — reusa 'socia-del-evento', mismo
   // criterio que RESERVA_CONFIRMADA.
   DOCUMENTO_SOCIO_NUEVO: 'documento_socio.nuevo',
+  // 34ª pasada de auditoría: la AEAT ha rechazado una factura Veri*Factu.
+  // Antes esto solo quedaba en un Sentry.captureMessage (lo ve Tentare, no
+  // la propietaria, que es la obligada tributaria real) — y sin aviso, toda
+  // factura posterior de ese estudio se queda PENDIENTE para siempre (ver
+  // lib/verifactu/transmitir.ts: la "última secuencia registrada" nunca
+  // avanza más allá de una fila RECHAZADA).
+  FACTURA_RECHAZADA_AEAT: 'factura.rechazada_aeat',
 } as const;
 
 // Reglas por evento. La 1ª tanda cableada de la Fase 1 cubre los 3 roles.
@@ -344,6 +351,11 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // no quede inflado — no hay plazo externo corriendo.
   [EVENTOS.VENTA_POS_DEVUELTA]: { category: 'pagos', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'mostrador' },
   [EVENTOS.PAGO_DISPUTADO]:        { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
+  // ALTA + EMAIL + propietaria: es la obligada tributaria real, y el silencio
+  // aquí es peor que en cualquier otro evento de "pagos" — una factura
+  // RECHAZADA congela para siempre la transmisión de las posteriores (34ª
+  // pasada de auditoría).
+  [EVENTOS.FACTURA_RECHAZADA_AEAT]: { category: 'pagos', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   // CRÍTICAS: declaran TODOS sus canales explícitamente. Antes bastaba con ser
   // CRÍTICA para que el motor forzara email/WA/SMS aunque la regla solo pusiera
   // PUSH; ahora que la regla manda, lo que no se declara no sale.
@@ -789,6 +801,13 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PAGO_PENALIZACION_BLOQUEADA}#PROPIETARIO`]: {
     title: 'Penalización sin cobrar',
     body: 'Una penalización de {importe} € no se ha podido cobrar porque la socia no ha aceptado el contrato con la cláusula actualizada.',
+  },
+  // audiencia: 'propietaria' resuelve solo a PROPIETARIO — mismo criterio que
+  // PAGO_PENALIZACION_BLOQUEADA, una única plantilla basta.
+  [`${EVENTOS.FACTURA_RECHAZADA_AEAT}#PROPIETARIO`]: {
+    title: 'Hacienda ha rechazado una factura',
+    body: 'La AEAT ha rechazado la factura {numero} ({motivo}). Mientras no se resuelva, ninguna factura posterior de tu estudio podrá transmitirse.',
+    deepLink: () => `/cobros?tab=facturas`,
   },
   // {tipoTexto} distingue total de parcial dentro del mismo evento — mismo
   // patrón que {motivoTexto} en RESERVA_CANCELADA. Lo que NO se puede meter en

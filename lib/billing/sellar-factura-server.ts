@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import * as Sentry from '@sentry/nextjs';
 // Relativos y con `.ts` explícita, no `@/lib/...`: este módulo ahora lo
 // importa `entregar-plan-comprado.ts` (P-6, auditoría 21ª pasada), que sí
 // tiene test unitario — el alias no lo resuelve el runner de `node --test`.
@@ -174,6 +175,23 @@ export async function sellarFacturaDeRecibo(
       if (socio) {
         receptorNombreCalc = `${socio.nombre ?? ''} ${socio.apellidos ?? ''}`.trim() || 'Cliente';
         receptorNIFCalc = (socio.nif as string | null) ?? null;
+        // 34ª pasada de auditoría: `socio.nif` es texto libre sin validar en
+        // el alta/edición de ficha — a diferencia del NIF EMISOR, que sí pasa
+        // por `nifEmisorValido()` antes de sellar. Un NIF de receptor mal
+        // formado no rompe el sellado (Veri*Factu admite factura sin NIF de
+        // receptor, o la AEAT lo decidirá), pero SÍ es la causa más probable
+        // de un rechazo real de la AEAT — y una vez rechazada, la cola de
+        // transmisión de ese estudio se congela para siempre (ver
+        // lib/verifactu/transmitir.ts). Aviso temprano, no bloqueante: se
+        // detecta AQUÍ, antes de transmitir, en vez de solo al recibir el
+        // rechazo días después.
+        if (receptorNIFCalc && !nifEmisorValido(receptorNIFCalc)) {
+          Sentry.captureMessage('Veri*Factu: NIF de receptor con formato dudoso al sellar', {
+            level: 'warning',
+            tags: { area: 'verifactu', studio: studioId },
+            extra: { socioId: recibo.socio_id, nif: receptorNIFCalc },
+          });
+        }
       }
     }
 
