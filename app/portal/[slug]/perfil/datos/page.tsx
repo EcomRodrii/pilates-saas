@@ -13,6 +13,7 @@ import { Input } from '@/components/student/ui/Input';
 import { Button } from '@/components/student/ui/Button';
 import { useAuthStudent } from '@/lib/student/auth';
 import { FotoPerfil } from '@/components/student/domain/FotoPerfil';
+import { iniciales } from '@/lib/mensajeria/presentacion';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 
 // Datos personales (§A.18).
@@ -109,12 +110,17 @@ export default function DatosPage() {
       <PageHeader titulo="Datos personales" back />
       <div className="px" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14, maxWidth: 520 }}>
         {/* La foto. Antes no había forma de poner ninguna: el avatar era
-            siempre las iniciales. */}
+            siempre las iniciales.
+            ⚠️ Y aquí vivía una CUARTA regla de iniciales, que no daba lo mismo
+            que las otras: partía `nombre` y `apellidos` por separado, así que
+            una socia dada de alta como «Ana Test», sin apellidos, salía «A» en
+            esta pantalla y «AT» en Perfil y en la cabecera. La misma cara, dos
+            monogramas. Se usa la de siempre (`lib/mensajeria/presentacion`). */}
         {socia && (
           <FotoPerfil
             studioId={estudio.id}
             url={fotoLocal !== undefined ? fotoLocal : (socia.fotoUrl ?? null)}
-            iniciales={[socia.nombre, socia.apellidos].filter(Boolean).map((x) => (x as string)[0]).join('').toUpperCase() || '·'}
+            iniciales={iniciales(socia.nombre, socia.apellidos)}
             onCambio={(u) => {
               setFotoLocal(u);
               // El catálogo cacheado lleva la foto vieja: sin invalidarlo, la

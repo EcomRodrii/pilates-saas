@@ -9,11 +9,11 @@ import { SLUG, fixtureSociaLista, sembrarSociaLista } from './socia-lista';
 
 const base = `/portal/${SLUG}`;
 
-async function montar(page: Page, opts: { subida?: { status: number; body: string }; conFoto?: boolean } = {}) {
+async function montar(page: Page, opts: { subida?: { status: number; body: string }; conFoto?: boolean; sinApellidos?: boolean } = {}) {
   await sembrarSociaLista(page);
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   const socio = (f.socia as Record<string, unknown>).socio as Record<string, unknown>;
-  socio.apellidos = 'Test';
+  socio.apellidos = opts.sinApellidos ? '' : 'Test';
   if (opts.conFoto) socio.fotoUrl = 'https://cdn.example/foto.png';
   await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f) }));
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], unread: 0 }) }));
@@ -134,6 +134,27 @@ test.describe('Student PWA · foto de perfil', () => {
     const avatar = page.getByTestId('avatar-socia');
     await expect(avatar).toBeVisible({ timeout: 30_000 });
     await expect(avatar).toHaveText('AT');
+  });
+
+  test('la misma socia tiene el MISMO monograma en Perfil y en Datos personales', async ({ page }) => {
+    // ⚠️ Con apellidos, los dos caminos coincidían por casualidad — por eso los
+    // tests de arriba, que siempre ponían «Test», no veían nada. La divergencia
+    // aparece con una socia dada de alta como «Ana Test» y el campo de
+    // apellidos VACÍO, que es como llegan casi todas desde el importador:
+    // `perfil` daba «AT» y `perfil/datos` daba «A». La misma cara, dos
+    // monogramas, porque `perfil/datos` calculaba las suyas por su cuenta.
+    await montar(page, { sinApellidos: true });
+
+    await page.goto(`${base}/perfil`, { waitUntil: 'domcontentloaded' });
+    const enPerfil = page.getByTestId('avatar-socia');
+    await expect(enPerfil).toBeVisible({ timeout: 30_000 });
+    const monograma = (await enPerfil.textContent())?.trim();
+    expect(monograma).toBe('AT');
+
+    await page.goto(`${base}/perfil/datos`, { waitUntil: 'domcontentloaded' });
+    const enDatos = page.getByTestId('avatar-boton');
+    await expect(enDatos).toBeVisible({ timeout: 30_000 });
+    await expect(enDatos).toContainText(monograma!);
   });
 
   test('la cabecera de Perfil lleva a cambiar la foto', async ({ page }) => {
