@@ -118,7 +118,7 @@ test('cada área tiene su cargador, y carga TODAS sus tablas', () => {
       'challenge_definitions', 'challenge_progress',
     ],
     fetchAgendaCitasStudio: ['citas_servicios', 'citas_disponibilidad'],
-    fetchFichaClientaStudio: ['notas_internas', 'respuestas_sesion'],
+    fetchFichaClientaStudio: ['notas_internas', 'respuestas_sesion', 'valoraciones_iniciales', 'valoraciones_iniciales_salud'],
     fetchDashboardChartsStudio: ['dashboard_charts'],
   };
 

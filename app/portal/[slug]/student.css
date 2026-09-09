@@ -209,8 +209,43 @@
 .student-app .t-card-title { font-size: var(--t-h3); font-weight: 800; letter-spacing: -.01em; line-height: 1.3; margin: 0; }
 .student-app .t-body { font-size: var(--t-body); font-weight: 500; line-height: 1.55; margin: 0; }
 .student-app .t-small { font-size: var(--t-small); font-weight: 500; line-height: 1.5; margin: 0; }
-.student-app .t-label { font-family: var(--font-mono); font-size: var(--t-label); letter-spacing: .16em; text-transform: uppercase; color: var(--subtle-foreground); margin: 0; }
+/* ⚠️ EL RÓTULO YA NO ES MONOESPACIADO, y es el cambio tipográfico de más
+   alcance de esta hoja: `.t-label` lo llevan 39 sitios en 26 ficheros — «Tu
+   ritmo», «Tu bono», «Tu próxima clase», «Del estudio», «Mensajes», «Créditos»,
+   «Elige tu sitio»… o sea, el rótulo de CADA bloque de CADA pantalla.
+
+   Por qué se cambia. La familia principal de la app ya era Plus Jakarta Sans
+   —eso no era el problema—, pero el ojo no lee «una app en sans con algún
+   detalle mono»: lee lo que se repite. Y lo que se repetía en todas las
+   pantallas, encima de cada bloque, era IBM Plex Mono en versales a 10 px con
+   .16em de entreletra. De ahí la sensación de aparato técnico, de panel de
+   control, en una app cuyo trabajo es transmitir calma. Un rótulo no es un
+   dato: es contenido, y el contenido va en la voz del producto.
+
+   Lo que NO se hace: quitar el rótulo en versales. Un eyebrow corto y espaciado
+   sobre un bloque es un recurso editorial sano —ordena sin gritar— y quitarlo
+   dejaría los bloques sin jerarquía. Lo que cambia es la VOZ, no la figura.
+
+   Los tres números están reajustados para la sans, no heredados del mono:
+   · 11px en vez de 10 — la Jakarta tiene la caja más pequeña que la Plex a
+     igual cuerpo, y a 10 px en versales se leía apretada. Además sube el
+     contraste efectivo de `--subtle-foreground`, que ya iba justo de AA.
+   · .10em en vez de .16em — el mono ya viene con su propio aire entre letras;
+     la sans no, y con .16em las palabras se deshacían en letras sueltas.
+   · 700 en vez del 500 heredado — en versales pequeñas la sans necesita cuerpo
+     para no verse desvaída al lado de un titular en 800. */
+.student-app .t-label { font-family: var(--font-sans); font-size: 11px; font-weight: 700; letter-spacing: .10em; text-transform: uppercase; color: var(--subtle-foreground); margin: 0; }
 .student-app .t-meta { font-size: 11px; color: var(--muted-foreground); margin: 0; }
+/* Mono, para lo que de verdad es un CÓDIGO: el identificador de un recibo, el
+   del pase de acceso, el de invitar a una amiga. Se lee carácter a carácter,
+   se dicta por teléfono y se compara con otro — ahí el ancho fijo trabaja.
+   Nombre nuevo a propósito: `.t-mono` decía de qué FAMILIA era y por eso
+   acabó puesta en horas, fechas y sellos de mensaje, que no son códigos.
+   `.t-code` dice CUÁNDO se usa, que es lo que hay que decidir al escribirla. */
+.student-app .t-code { font-family: var(--font-mono); letter-spacing: .04em; }
+/* Alias heredado. Se conserva porque `.t-code` no cubre el caso de quien solo
+   quiere la familia, pero si estás a punto de escribirla, para y pregúntate si
+   lo que vas a pintar es un código (`.t-code`) o una cifra (`.t-num`). */
 .student-app .t-mono { font-family: var(--font-mono); }
 /* Modificadores de color, para no repetir `color: var(--muted-foreground)` en
    cada párrafo de apoyo. */

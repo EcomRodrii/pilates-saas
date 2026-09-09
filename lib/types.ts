@@ -166,6 +166,12 @@ export interface Studio {
   // Fase 2a (migr 20260730192445): default de estudio, tipos_clase puede
   // sobrescribirlo con NULL = hereda (mismo patrón que el resto de arriba).
   requiereAprobacion: boolean;
+  /**
+   * Si la app de la alumna le ofrece rellenar su valoración inicial
+   * (migr 20260909003015). Opt-in, `false` por defecto: la pregunta misma
+   * —«¿tienes alguna molestia?»— es una decisión del estudio, no del producto.
+   */
+  valoracionInicialActiva: boolean;
   // Fase 2b (migr 20260731130000): minutos para aceptar una plaza liberada
   // de lista de espera antes de que se ofrezca a la siguiente. 0 =
   // confirmación instantánea (comportamiento clásico). tipos_clase puede
@@ -1867,3 +1873,16 @@ export interface BackupMeta {
   tipo: TipoBackup;
   creadoEn: string;
 }
+
+
+/**
+ * Una valoración inicial de una socia, tal y como la lee el PANEL.
+ *
+ * Es la `FilaValoracion` de `lib/valoracion-inicial.ts` con el `socioId`
+ * pegado: el panel carga las del estudio entero de una vez —igual que
+ * `notas_internas`— y cada ficha filtra las suyas. El reparto
+ * inicial/actual lo hace `repartirHistorial`, la MISMA función pura que usa
+ * la app de la alumna, para que las dos pantallas no puedan discrepar sobre
+ * cuál es «cómo llegó».
+ */
+export type ValoracionSocia = import('./valoracion-inicial').FilaValoracion & { socioId: string };

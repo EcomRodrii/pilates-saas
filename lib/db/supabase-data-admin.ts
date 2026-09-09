@@ -3984,6 +3984,26 @@ export async function actualizarSociaPublica(params: {
   // Postgres crudo en vez del mensaje de abajo.
   if (typeof db.usuario === 'string') db.usuario = db.usuario.trim().toLowerCase();
   if (db.usuario === '') db.usuario = null;
+  // ⚠️ `foto_url` acaba pintada como `background-image` en la ficha que abre el
+  // MOSTRADOR, y esta lista la acepta tal cual desde el cuerpo de la petición.
+  // O sea: una socia podía dejar su avatar apuntando a un servidor cualquiera y
+  // convertirlo en un contador de visitas —IP y navegador— de quien mirara su
+  // ficha. No es escalada (solo puede tocar su propia fila) y no es XSS (React
+  // asigna la propiedad por CSSOM, no concatena el atributo `style`), pero es
+  // una petición saliente a un tercero desde el panel del estudio, y el
+  // proyecto no tiene CSP que la frene.
+  //
+  // La subida legítima (`/api/public/foto-perfil`) SOLO devuelve URLs de
+  // nuestro propio Storage, así que exigir ese origen no quita ninguna vía
+  // real. Vaciarla sigue permitido: es cómo se quita la foto.
+  if ('foto_url' in db) {
+    const url = db.foto_url;
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+    if (url === null || url === '') db.foto_url = null;
+    else if (typeof url !== 'string' || !base || !url.startsWith(base)) {
+      return { error: 'Esa foto no es válida. Súbela desde tu perfil.' as const };
+    }
+  }
   // Aceptación del contrato (clickwrap): objeto anidado → columnas de registro.
   // Sin esto, la aceptación se perdía y no quedaba evidencia (C-7).
   const ac = params.cambios.aceptacionContrato as

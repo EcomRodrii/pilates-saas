@@ -9,6 +9,7 @@ import { useAuthStudent } from '@/lib/student/auth';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { leerFirma, olvidarFirma } from '@/lib/student/consentimiento';
+import { errorDeRetornoOAuth } from '@/lib/student/oauth-retorno';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 
@@ -37,7 +38,7 @@ function Verificar() {
   const r = useRouter();
   const { estudio, slug } = useEstudio();
   const href = usePortalHref();
-  const { fijarPassword } = useAuthStudent(slug);
+  const { fijarPassword, entrarConGoogle } = useAuthStudent(slug);
   const { socia, usuarioEmail, autenticado, isLoading, refrescar } = useSesionStudent(slug);
 
   const [pass, setPass] = useState('');
@@ -47,6 +48,33 @@ function Verificar() {
   const [listo, setListo] = useState(false);
 
   const emailMostrado = usuarioEmail ?? sp.get('email') ?? 'tu email';
+
+  /**
+   * A dónde iba antes de que le pidieran entrar, si venía de un enlace
+   * profundo. Lo dejó `/acceso/login` antes de salir hacia Google.
+   *
+   * Se valida que sea una ruta de ESTE estudio, igual que hace login con su
+   * `?next=`: sin esa comprobación, cualquiera que pueda escribir en el
+   * `sessionStorage` de la pestaña convierte esta pantalla en un redirector
+   * abierto.
+   */
+  const destinoTrasEntrar = () => {
+    try {
+      const n = sessionStorage.getItem(`st_next_${slug}`);
+      sessionStorage.removeItem(`st_next_${slug}`);
+      return n && n.startsWith(href() + '/') ? n : href();
+    } catch {
+      return href();
+    }
+  };
+
+  // ⚠️ Se lee UNA vez, en el inicializador de estado, y no en cada render:
+  // `errorDeRetornoOAuth` mira `window.location`, que cambia por debajo cuando
+  // auth-js limpia la URL. Leerlo en render haría que el aviso desapareciera
+  // solo, a mitad de leerlo.
+  const [errorOAuth, setErrorOAuth] = useState(
+    () => (typeof window === 'undefined' ? null : errorDeRetornoOAuth(window.location.href)),
+  );
   // `?crear=1` lo pone el enlace de recuperación: quien viene de ahí SIEMPRE
   // tiene que elegir contraseña, aunque ya tuviera una.
   const forzarPassword = sp.get('crear') === '1';
@@ -108,14 +136,22 @@ function Verificar() {
   // de entrada con la sesión ya guardada.
   useEffect(() => {
     if (isLoading || !autenticado || forzarPassword) return;
-    if (socia) { r.replace(href()); return; }
+    if (socia) { r.replace(destinoTrasEntrar()); return; }
     // Autenticada pero sin ficha en este estudio: se intenta firmar el alta.
     void firmarAlta().then((res) => {
-      if (res.ok) { r.replace(href()); return; }
+      if (res.ok) { r.replace(destinoTrasEntrar()); return; }
       // Sesión válida, sin ficha y sin firma: un alta a medias. Antes caía en
       // la pantalla de elegir contraseña, que no dice nada de lo que falta y
       // termina mandándola dentro sin ficha. Se le pide lo único que falta.
-      if (res.motivo === 'sin-firma') r.replace(`${href('/acceso/registro')}?firma=1`);
+      if (res.motivo === 'sin-firma') { r.replace(`${href('/acceso/registro')}?firma=1`); return; }
+      // ⚠️ Y si el servidor RECHAZA el alta, aquí no pasaba absolutamente
+      // nada: ni redirección ni mensaje. La pantalla se quedaba en «Elige tu
+      // contraseña», que a quien viene de Google no le dice nada.
+      // El caso realista no es un 500 — es el 403 de `LIMITE_SOCIAS`: el
+      // estudio ha llenado el cupo de socias de su plan. Con la vuelta de
+      // Google esto es más fácil de alcanzar que antes, porque el abandono
+      // ocurre DESPUÉS de que gotrue haya creado la sesión.
+      setGlobal('No hemos podido darte de alta en este estudio. Habla con el estudio o inténtalo de nuevo en un rato.');
     });
     // `firmarAlta` se recrea en cada render y meterlo en las dependencias
     // volvería a lanzarlo en bucle; lo que decide es el estado de sesión.
@@ -133,13 +169,61 @@ function Verificar() {
     const alta = await firmarAlta();
     setCargando(false);
 
-    if (!alta.ok && alta.motivo === 'servidor') {
-      setGlobal('Tu contraseña se ha guardado, pero no hemos podido completar el alta. Inténtalo de nuevo.');
+    // ⚠️ Aquí solo se contemplaba `'servidor'`, y los otros dos motivos caían
+    // en el camino feliz: check verde, «Todo listo», y adentro SIN FICHA.
+    // Alcanzable de verdad por el enlace de recuperación (`?crear=1`), que hace
+    // que el efecto de aterrizaje salga temprano y la red de seguridad
+    // «sin-firma → ?firma=1» no llegue a correr; y la firma vive en
+    // `sessionStorage`, que en la pestaña que abre el correo nunca existe.
+    // En producción hay 3 personas con identidad de Google y sin ficha.
+    if (!alta.ok) {
+      if (alta.motivo === 'sin-firma') {
+        // Le falta el consentimiento, y eso tiene pantalla: se la damos en vez
+        // de dejarla dentro a medias.
+        r.replace(`${href('/acceso/registro')}?firma=1`);
+        return;
+      }
+      setGlobal(alta.motivo === 'sin-sesion'
+        ? 'Tu contraseña se ha guardado, pero tu sesión ha caducado. Vuelve a entrar.'
+        : 'Tu contraseña se ha guardado, pero no hemos podido completar el alta. Inténtalo de nuevo.');
       return;
     }
     setListo(true);
-    setTimeout(() => r.replace(href()), 900);
+    setTimeout(() => r.replace(destinoTrasEntrar()), 900);
   };
+
+  // Sin sesión, y la URL dice que la vuelta de Google se torció: cancelada,
+  // caída o rechazada. Antes caía en «Verifica tu email», que describe un
+  // trámite que nadie había empezado — ver `lib/student/oauth-retorno.ts`.
+  if (!isLoading && !autenticado && errorOAuth) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <h2 className="t-h1" style={{ fontSize: 22 }}>No has entrado</h2>
+          <p className="t-meta" style={{ marginTop: 4, fontSize: 12.5, lineHeight: 1.5 }}>
+            {errorOAuth.mensaje}
+          </p>
+        </div>
+        {errorOAuth.reintentable && (
+          <Button
+            full
+            data-testid="reintentar-google"
+            onClick={() => {
+              // Se limpia el aviso ANTES de salir: si gotrue vuelve a fallar,
+              // el mensaje que se pinte será el nuevo y no el de hace un rato.
+              setErrorOAuth(null);
+              void entrarConGoogle();
+            }}
+          >
+            Volver a intentarlo con Google
+          </Button>
+        )}
+        <Button variant="secondary" full onClick={() => r.push(href('/acceso/login'))}>
+          Entrar con mi email
+        </Button>
+      </div>
+    );
+  }
 
   // Sin sesión: el enlace no se ha abierto todavía (o caducó).
   if (!isLoading && !autenticado) {

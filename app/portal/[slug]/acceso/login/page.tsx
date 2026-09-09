@@ -9,7 +9,6 @@ import { useOnline } from '@/lib/student/useOnline';
 import { useAuthStudent } from '@/lib/student/auth';
 import { usePortalHref, useEstudio } from '@/components/student/contexto';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
-import { leerFirma } from '@/lib/student/consentimiento';
 import { recuerdaSesion, fijarRecordarSesion } from '@/lib/db/portal-almacen-sesion';
 
 /**
@@ -38,6 +37,10 @@ export default function LoginPage() {
   const [sinConfirmar, setSinConfirmar] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
+  // Sale de `cargando` a propósito: `cargando` lo comparten entrar y pedir
+  // enlace, y usarlo aquí apagaría los tres botones a la vez sin decir cuál
+  // está trabajando.
+  const [yendoAGoogle, setYendoAGoogle] = useState(false);
   // Arranca con lo que ya eligió la última vez, no con un valor fijo.
   const [recordar, setRecordar] = useState(recuerdaSesion);
 
@@ -84,28 +87,53 @@ export default function LoginPage() {
   };
 
   /**
-   * Entrar con Google, pero NO antes de tener la firma.
+   * Entrar con Google. Va A GOOGLE.
    *
-   * Google es a la vez «entrar» y «crear cuenta», y desde aquí no hay forma de
-   * saber cuál de las dos será: no sabemos su email hasta que vuelve. Si vuelve
-   * siendo alguien sin ficha en este estudio, hace falta consentimiento para
-   * crearla — `socios.aceptacion_origen` tiene un CHECK citando el art. 7.1 del
-   * RGPD— y pedirlo DESPUÉS significa pedírselo a alguien que ya tiene sesión y
-   * ninguna ficha, que es el peor sitio donde dejar a nadie.
+   * ⚠️ Antes NO iba. Este botón empezaba por comprobar si había firma del
+   * contrato en la pestaña y, si no la había, se desviaba a
+   * `/acceso/registro?firma=1` en vez de llamar a `entrarConGoogle()`. Como la
+   * firma vive en `sessionStorage` (lib/student/consentimiento.ts, y ahí a
+   * propósito: es un trámite en curso, no una preferencia), en una pestaña
+   * recién abierta NUNCA existe — así que el 100 % de los toques en «Continuar
+   * con Google» aterrizaban en un formulario de Tentare pidiendo nombre,
+   * teléfono y una casilla de privacidad. Verificado en el navegador: el clic
+   * llevaba a `/acceso/registro?firma=1`, «Un paso antes», sin salir del
+   * dominio ni una vez.
    *
-   * Así que se recoge antes de salir, y en la pantalla que ya sabe recogerla:
-   * `/acceso/registro?firma=1`. Si ya hay firma en esta pestaña —porque viene
-   * de ahí, o porque ya lo intentó— se va derecha a Google sin repetirla.
+   * El motivo por el que se puso era real: Google es a la vez «entrar» y «crear
+   * cuenta» y no sabemos cuál será hasta que vuelve, y crear la ficha exige
+   * consentimiento (`socios.aceptacion_origen` lleva un CHECK citando el art.
+   * 7.1 del RGPD). Pero la conclusión estaba invertida: **el consentimiento
+   * solo hace falta si vuelve siendo alguien SIN ficha**, y ese caso ya lo
+   * resuelve `/acceso/verificar` a la vuelta — mira la sesión, ve que no hay
+   * socia, y si además no hay firma manda ella misma a `?firma=1`
+   * (acceso/verificar/page.tsx, rama `sin-firma`). Ese camino existía y estaba
+   * escrito antes de este cambio.
    *
-   * Para una socia que ya existe la firma sobra: `verificar` ve que es socia y
-   * entra sin llegar a usarla. Es el precio de no poder distinguir los dos casos
-   * hasta después, y se paga una vez por pestaña, no en cada entrada.
+   * O sea que la puerta de antes no protegía nada que no estuviera ya
+   * protegido: solo cobraba un formulario por adelantado a TODAS, incluidas las
+   * socias que ya existen y para las que la firma nunca llega a usarse. Se
+   * quita, y el consentimiento se pide únicamente a quien de verdad hay que
+   * darle de alta.
    */
   const irAGoogle = () => {
     setGlobal('');
+    // ⚠️ A dónde iba, guardado antes de salir. La vuelta de Google aterriza en
+    // `/acceso/verificar` y esa pantalla no ve el `?next=` de esta, así que sin
+    // esto una socia que llega a una clase concreta por un enlace acaba en la
+    // home del portal y tiene que buscarla otra vez. Se guarda donde ya viven
+    // los demás datos de trámite de esta pestaña.
+    try { sessionStorage.setItem(`st_next_${slug}`, destino); } catch { /* modo privado: se pierde el destino, no el acceso */ }
+    // El estado de carga ANTES de salir, no después: `signInWithOAuth` habla
+    // con gotrue antes de redirigir y en móvil eso es más de un segundo de
+    // pantalla quieta. Misma regla que ya obliga el captcha en `entrar()`.
+    setYendoAGoogle(true);
     fijarRecordarSesion(recordar);
-    if (!leerFirma(slug)) { r.push(`${href('/acceso/registro')}?firma=1`); return; }
-    void entrarConGoogle().then((res) => { if ('error' in res) setGlobal(res.error); });
+    void entrarConGoogle().then((res) => {
+      // Solo se vuelve aquí si gotrue rechazó ANTES de redirigir; si todo va
+      // bien, la pestaña ya se ha ido a Google.
+      if ('error' in res) { setYendoAGoogle(false); setGlobal(res.error); }
+    });
   };
 
   if (enlaceEnviado) {
@@ -214,7 +242,9 @@ export default function LoginPage() {
       <button
         type="button"
         onClick={irAGoogle}
-        disabled={cargando || !online}
+        disabled={cargando || yendoAGoogle || !online}
+        aria-busy={yendoAGoogle}
+        data-testid="entrar-con-google"
         className="btn btn--secondary"
         style={{ width: '100%', gap: 8 }}
       >
@@ -226,7 +256,7 @@ export default function LoginPage() {
           <path fill="#FBBC05" d="M10.5 28.6A14.6 14.6 0 0 1 9.7 24c0-1.6.3-3.2.8-4.6l-7.9-6.2A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.2z" />
           <path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.7-5.9l-7.7-6c-2.1 1.4-4.8 2.4-8 2.4-6.3 0-11.6-4.1-13.5-9.9l-7.9 6.2C6.5 42.6 14.6 48 24 48z" />
         </svg>
-        Continuar con Google
+        {yendoAGoogle ? 'Abriendo Google…' : 'Continuar con Google'}
       </button>
 
       <p className="t-meta" style={{ textAlign: 'center', fontSize: 12.5 }}>

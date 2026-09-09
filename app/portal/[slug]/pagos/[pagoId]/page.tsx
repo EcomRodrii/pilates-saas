@@ -151,7 +151,7 @@ export default function ReciboPage() {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
             <span style={{ color: 'var(--muted-foreground)' }}>Referencia</span>
-            <b className="t-mono">{data.id.toUpperCase()}</b>
+            <b className="t-code">{data.id.toUpperCase()}</b>
           </div>
           {data.bonoId && (
             <Link href={href(`/bonos/${data.bonoId}`)} style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)' }}>

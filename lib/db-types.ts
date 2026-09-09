@@ -722,6 +722,8 @@ export interface RowSocios {
   visible_en_clase: boolean | null;
   // migr 20260828005124.
   usuario: string | null;
+  // migr 20260909003015.
+  consentimiento_salud_texto: string | null;
 }
 
 export interface RowSoporteSolicitudes {
@@ -952,6 +954,8 @@ export interface RowStudios {
   creditos_caducan_meses: number | null;
   // migr 20260908210000.
   racha_clases_semana: number | null;
+  // migr 20260909003015.
+  valoracion_inicial_activa: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -2649,5 +2653,33 @@ export interface RowTerminosVersiones {
   studio_id: string;
   hash: string;
   texto: string;
+  creado_en: string;
+}
+
+export interface RowValoracionesIniciales {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  estado: string;
+  objetivos: string[];
+  objetivo_principal: string | null;
+  experiencia: string | null;
+  nivel: string | null;
+  actividad_habitual: string;
+  frecuencia: string | null;
+  expectativas: string;
+  creado_en: string;
+  actualizado_en: string;
+  completada_en: string | null;
+}
+
+export interface RowValoracionesInicialesSalud {
+  valoracion_id: string;
+  studio_id: string;
+  socio_id: string;
+  tiene_molestias: boolean | null;
+  zonas: string[];
+  detalle: string;
+  estado_cuerpo: string | null;
   creado_en: string;
 }
