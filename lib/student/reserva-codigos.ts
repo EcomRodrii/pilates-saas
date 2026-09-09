@@ -125,6 +125,21 @@ export interface DesenlaceReserva {
   recuperacionUsada?: { caducaEl: string | null } | null;
   /** El mensaje del servidor, para los estados que no tienen copy propio. */
   mensaje?: string;
+  /**
+   * La reserva existe y espera el visto bueno del estudio (`requiere_aprobacion`),
+   * que NO es estar en la lista de espera.
+   *
+   * ⚠️ Comparten `state: 'waitlisted'` porque la máquina del paquete no tiene un
+   * estado para esto y no se le añade uno (ver el comentario de abajo). Pero el
+   * copy de `waitlisted` dice «te avisamos al momento si se libera una plaza», y
+   * aquí no hay ninguna plaza que liberar: la plaza está, falta que el estudio
+   * diga que sí. Con esa frase, una alumna aprobada en diez minutos habría
+   * estado esperando algo que nunca iba a pasar; y si la rechazan, jamás se le
+   * llegó a mencionar que hubiera nada que aprobar.
+   * Hoy no lo sufre nadie —un tipo de clase lo tiene activado y sin sesiones
+   * programadas— pero el interruptor ya está puesto.
+   */
+  pendienteAprobacion?: boolean;
 }
 
 /**
@@ -160,7 +175,7 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
       // DESIGN CONFLICT documentado: el paquete no contempla que un estudio
       // exija aprobar cada reserva, y Tentare sí (`requiere_aprobacion`).
       case 'PENDIENTE_APROBACION':
-        return { state: 'waitlisted', reservaId: r.reservaId, posicionEspera: null };
+        return { state: 'waitlisted', reservaId: r.reservaId, posicionEspera: null, pendienteAprobacion: true };
       default:
         // Un estado que no conocemos NO se pinta como éxito.
         return { state: 'error', mensaje: `Respuesta inesperada del servidor (${r.estado}).` };

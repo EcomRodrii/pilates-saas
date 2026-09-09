@@ -24,6 +24,11 @@ test('PENDIENTE_APROBACION cae en waitlisted, no en confirmed', () => {
   // El estudio todavía tiene que aprobarla: pintarla como confirmada sería
   // decirle a la alumna que tiene plaza cuando aún no la tiene.
   assert.equal(desenlaceDeRespuesta({ ok: true, estado: 'PENDIENTE_APROBACION' }).state, 'waitlisted');
+  // …pero se distingue de estar en la cola: comparten estado y no significan lo
+  // mismo. Sin esta marca, la pantalla decía «te avisamos si se libera una
+  // plaza» a quien YA tiene la plaza y solo espera el visto bueno del estudio.
+  assert.equal(desenlaceDeRespuesta({ ok: true, estado: 'PENDIENTE_APROBACION' }).pendienteAprobacion, true);
+  assert.equal(desenlaceDeRespuesta({ ok: true, estado: 'LISTA_ESPERA' }).pendienteAprobacion, undefined);
 });
 
 test('un estado desconocido NO se pinta como éxito', () => {
