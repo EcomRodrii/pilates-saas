@@ -2142,6 +2142,18 @@ export default function ReservarPage() {
           // `window.top`) — mismo valor, sin ese efecto colateral.
           origenLead: searchParams.get('ref') ?? null,
           codigoDescuento: codigoDescuento.trim() || undefined,
+          // Pagos España: el checkout hospedado de Stripe ya sabe pintar su
+          // propio selector de método (tarjeta/Bizum) cuando se ofrecen los
+          // dos — no hace falta UI propia aquí, a diferencia del checkout
+          // embebido (Modo B), que sí necesita un botón aparte porque Bizum
+          // no cabe dentro de su Payment Element. Mismo criterio que ya usa
+          // `comprarConBizum` (lib/widget/usar-datos-widget.ts) para Modo B:
+          // se ofrece para cualquier tipo de plan, incluido MENSUAL — ver el
+          // comentario de conBizum en app/api/stripe/checkout/route.ts sobre
+          // el guardado de tarjeta por método (Bizum no la deja guardada, así
+          // que la renovación del mes siguiente dependerá de que la socia
+          // vuelva a pagar a mano si eligió Bizum aquí).
+          bizum: true,
         }),
       });
       const data = await res.json() as { url?: string; error?: string };
