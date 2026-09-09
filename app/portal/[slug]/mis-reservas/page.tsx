@@ -14,7 +14,7 @@ import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { cancelarReserva, aceptarOfertaEspera } from '@/lib/student/reservas-acciones';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, fechaCorta, hoyISO } from '@/lib/student/formato';
-import { urlCalendario } from '@/lib/student/enlaces-clase';
+import { añadirAlCalendario } from '@/lib/student/enlaces-clase';
 import { Badge } from '@/components/student/ui/Badge';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
@@ -265,7 +265,7 @@ export default function MisReservasPage() {
                           type="button"
                           className="btn btn--light btn--sm tap"
                           style={{ height: 34 }}
-                          onClick={() => window.open(urlCalendario(c, estudio.nombre, estudio.direccion), '_blank', 'noopener')}
+                          onClick={() => añadirAlCalendario(c, estudio.nombre, estudio.direccion, i?.nombre)}
                         >
                           + Calendario
                         </button>

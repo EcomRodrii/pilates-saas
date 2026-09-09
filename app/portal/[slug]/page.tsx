@@ -16,7 +16,7 @@ import { fechaLarga, hoyISO, saludo } from '@/lib/student/formato';
 import { NextClassCard } from '@/components/student/domain/NextClassCard';
 import { ClassCard } from '@/components/student/domain/ClassCard';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
-import { urlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
+import { añadirAlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
 import { TuRitmo } from '@/components/student/domain/TuRitmo';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
@@ -238,7 +238,7 @@ export default function InicioPage() {
                 // ⚠️ Sin estos dos manejadores la tarjeta pintaba «+ Calendario»
                 // y «Cómo llegar» MUERTOS: el paquete los resuelve con un toast
                 // de maqueta y al copiarlo se quedaron sin nada detrás.
-                onCalendario={() => window.open(urlCalendario(proxima.c, estudio.nombre, estudio.direccion), '_blank', 'noopener')}
+                onCalendario={() => añadirAlCalendario(proxima.c, estudio.nombre, estudio.direccion, data.instructoras.find((i) => i.id === proxima.c.instructoraId)?.nombre)}
                 onComoLlegar={() => window.open(urlComoLlegar(estudio.direccion, estudio.nombre), '_blank', 'noopener')}
               />
             ) : (
