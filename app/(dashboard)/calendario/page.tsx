@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useAuth } from '@/lib/auth-context';
+import { capturarMensaje } from '@/lib/sentry-cliente';
 import { useStudio } from '@/lib/studio-context';
 import { supabase } from '@/lib/db/supabase';
 import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
@@ -1884,6 +1885,32 @@ export default function Calendario() {
     });
     return prepararColumnasDiaSemana(cols, dias, datosVista.horarioSemana);
   }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, filtroSala, now, columnaPorFecha, dias]);
+
+  // ⚠️ Una clase que la cabecera cuenta y la rejilla no pinta.
+  //
+  // `VistaDiaSalas`/`VistaSemana` hacen `datos.get(s.id)` y, si no está, un
+  // `return null`: el bloque desaparece SIN decir nada, mientras la cabecera de
+  // la columna sigue diciendo «1 clase» porque cuenta el mismo array que el
+  // bloque no llegó a pintar. Eso es exactamente lo que se ve en el vídeo del
+  // arrastre — y por lectura los dos salen del mismo `sesionesVistaFiltradas`,
+  // así que no debería poder pasar.
+  //
+  // No se «arregla» aquí a base de inventar un dato de relleno: si el mapa no
+  // la tiene, pintarla con un tipo de clase falso sería peor. Lo que se quita
+  // es el silencio, para que la próxima vez haya por dónde empezar en vez de
+  // otro vídeo. Va en un efecto y no en el render: `capturarMensaje` encola, y
+  // eso es un efecto secundario.
+  useEffect(() => {
+    const enColumnas = new Set([
+      ...columnasDia.flatMap(c => c.sesiones.map(s => s.id)),
+      ...columnasSemana.flatMap(c => c.sesiones.map(s => s.id)),
+    ]);
+    const huerfanas = [...enColumnas].filter(id => !datosPorSesionId.has(id));
+    if (huerfanas.length === 0) return;
+    capturarMensaje('[calendario] sesión en columnas pero no en datosPorSesionId', 'error', {
+      extra: { ids: huerfanas.slice(0, 5), cuantas: huerfanas.length, enColumnas: enColumnas.size },
+    });
+  }, [columnasDia, columnasSemana, datosPorSesionId]);
 
   // La rejilla (Día/Semana) se recortaba EXACTAMENTE al horario del estudio
   // (studios.hora_apertura/hora_cierre): una clase real que empezara antes o
