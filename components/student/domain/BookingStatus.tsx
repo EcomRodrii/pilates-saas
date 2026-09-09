@@ -10,7 +10,7 @@ import { seArreglaComprando } from '@/lib/bono-logic';
  * ambos caen en `error` — y sin este texto la alumna leía «algo no ha salido
  * como esperábamos, inténtalo de nuevo» y reintentaba contra el mismo muro.
  */
-export function BookingStatus({ state, mensaje, onRetry, onWaitlist, onClose, onComprar }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; mensaje?: string; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void; onComprar?: () => void }) {
+export function BookingStatus({ state, titulo, mensaje, onRetry, onWaitlist, onClose, onComprar }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; titulo?: string; mensaje?: string; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void; onComprar?: () => void }) {
   const c = COPY[state];
   const ok = state === 'confirmed';
   // Hay rechazos que NO se arreglan reintentando: «necesitas un plan o bono
@@ -27,7 +27,7 @@ export function BookingStatus({ state, mensaje, onRetry, onWaitlist, onClose, on
         {ok && <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 999, border: '2.5px solid var(--success)', animation: 'apRing .9s ease-out both' }} />}
         <span aria-hidden style={{ position: 'absolute', inset: 0, borderRadius: 999, background: col, color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>{c.tono === 'ok' ? '✓' : c.tono === 'warn' ? '!' : '×'}</span>
       </div>
-      <h3 className="t-h2" style={{ marginTop: 15, letterSpacing: '-.025em', animation: 'apUp .4s .15s both' }}>{c.titulo}</h3>
+      <h3 className="t-h2" style={{ marginTop: 15, letterSpacing: '-.025em', animation: 'apUp .4s .15s both' }}>{titulo ?? c.titulo}</h3>
       <p style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', color: 'var(--muted-foreground)', lineHeight: 1.5, animation: 'apUp .4s .22s both' }}>{mensaje ?? c.cuerpo}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16, animation: 'apUp .4s .3s both' }}>
         {state === 'full' && onWaitlist && <button type="button" className="btn btn--primary btn--full" style={{ height: 48, fontSize: 'var(--t-body)' }} onClick={onWaitlist}>Unirme a la lista de espera</button>}

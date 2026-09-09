@@ -57,6 +57,9 @@ export default function FichaClasePage() {
   // tienes bono activo» y «has llegado a tu tope de reservas» caen los dos en
   // `error`, y sin guardar el mensaje se pintaba el copy de avería genérico.
   const [bkMensaje, setBkMensaje] = useState<string | undefined>(undefined);
+  // Título propio para «pendiente de aprobación», que comparte estado con la
+  // lista de espera pero no es lo mismo. Ver `DesenlaceReserva.pendienteAprobacion`.
+  const [bkTitulo, setBkTitulo] = useState<string | undefined>(undefined);
   // Corazón optimista: `null` = lo que diga el payload; true/false = lo que
   // acaba de pulsar la alumna (y se revierte si el servidor dice que no).
   const [favoritaLocal, setFavoritaLocal] = useState<boolean | null>(null);
@@ -105,6 +108,7 @@ export default function FichaClasePage() {
     // El mensaje pertenece a la respuesta que lo trajo: al cambiar de estado
     // por nuestra cuenta (reintentar, volver a la revisión) deja de valer.
     setBkMensaje(undefined);
+    setBkTitulo(undefined);
     setBk((de) => (transicionValida(de, a) ? a : de));
   }, []);
 
@@ -137,7 +141,14 @@ export default function FichaClasePage() {
       : null;
     // El del sitio va primero: es una expectativa suya que no se ha cumplido, y
     // pesa más que un dato informativo.
-    setBkMensaje([avisoSitio, avisoRecuperacion].filter(Boolean).join(' ') || r.mensaje);
+    setBkTitulo(r.pendienteAprobacion ? 'Tu reserva está pendiente de aprobación' : undefined);
+    setBkMensaje(
+      r.pendienteAprobacion
+        // Ni «lista de espera» ni «te avisamos si se libera una plaza»: la plaza
+        // está, lo que falta es que el estudio diga que sí.
+        ? 'Tienes la plaza guardada mientras el estudio la revisa. Te avisamos en cuanto la confirmen.'
+        : [avisoSitio, avisoRecuperacion].filter(Boolean).join(' ') || r.mensaje,
+    );
     // Los datos han cambiado: la clase tiene una plaza menos y ella una reserva
     // más. Sin recargar, volver atrás enseña el aforo de antes.
     if (r.state === 'confirmed' || r.state === 'waitlisted') reintentar();
@@ -148,13 +159,14 @@ export default function FichaClasePage() {
     // saber en qué acabó una operación que ya está en marcha.
     if (bk === 'submitting') return;
     setBkMensaje(undefined);
+    setBkTitulo(undefined);
     setBk('idle');
   }, [bk]);
 
   const finalizar = useCallback(() => {
     if (bk === 'confirmed' || bk === 'waitlisted') router.push(href('/mis-reservas'));
     else if (bk === 'session-expired') router.push(href('/acceso/login'));
-    else { setBkMensaje(undefined); setBk('idle'); }
+    else { setBkMensaje(undefined); setBkTitulo(undefined); setBk('idle'); }
   }, [bk, router, href]);
 
   if (estado === 'loading') {
@@ -346,6 +358,7 @@ export default function FichaClasePage() {
         {esFinal && (
           <BookingStatus
             state={bk as Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>}
+            titulo={bkTitulo}
             mensaje={bkMensaje}
             onRetry={() => ir('reviewing')}
             onWaitlist={() => ir('reviewing')}
