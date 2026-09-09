@@ -121,7 +121,13 @@ export default function HiloMensajesPage() {
               })}
             </div>
           ))}
-          {estado === 'empty' && (
+          {/* `useAsync` se construye con `() => false` como predicado de vacío,
+              así que `estado` NUNCA vale 'empty' y este texto no se pintaba
+              jamás — justo en el camino principal de «Escribir al estudio», que
+              aterriza aquí con cero mensajes. La alumna veía la cabecera, un
+              hueco en blanco y el compositor, sin nada que explicara dónde
+              estaba. Se deriva de los mensajes, que es el dato real. */}
+          {listo && mensajes.length === 0 && (
             <p className="t-meta" style={{ textAlign: 'center', margin: '20px 0' }}>Este es el comienzo de tu conversación.</p>
           )}
           <div ref={finRef} />

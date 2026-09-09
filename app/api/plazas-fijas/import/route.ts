@@ -51,9 +51,9 @@ export async function POST(req: NextRequest) {
   if (filas.length > MAX_FILAS) return NextResponse.json({ error: `Máximo ${MAX_FILAS} filas por importación` }, { status: 413 });
 
   const [{ data: socios, error: errS }, { data: salas, error: errSa }, { data: plazasExist, error: errP }] = await Promise.all([
-    catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', sesion.studioId).range(d, h)),
-    catalogo<{ id: string; nombre: string }>((d, h) => admin.from('salas').select('id, nombre').eq('studio_id', sesion.studioId).range(d, h)),
-    catalogo<{ socio_id: string; dia_semana: number; hora_inicio: string; sala_id: string | null; estado: string }>((d, h) => admin.from('plazas_fijas').select('socio_id, dia_semana, hora_inicio, sala_id, estado').eq('studio_id', sesion.studioId).range(d, h)),
+    catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', sesion.studioId).order('id').range(d, h)),
+    catalogo<{ id: string; nombre: string }>((d, h) => admin.from('salas').select('id, nombre').eq('studio_id', sesion.studioId).order('id').range(d, h)),
+    catalogo<{ socio_id: string; dia_semana: number; hora_inicio: string; sala_id: string | null; estado: string }>((d, h) => admin.from('plazas_fijas').select('socio_id, dia_semana, hora_inicio, sala_id, estado').eq('studio_id', sesion.studioId).order('id').range(d, h)),
   ]);
   if (errS || errSa || errP) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
 

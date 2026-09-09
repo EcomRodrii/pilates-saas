@@ -5,6 +5,12 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { deshacerBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 
+// El preflight de la cascada añade una consulta por entidad (hasta 9) que a su
+// vez cuenta sobre decenas de tablas hijas con `= any(<hasta 5000 ids>)`. Con
+// el default de Vercel se podía cortar a medias justo en la operación que menos
+// puede quedarse a medias.
+export const maxDuration = 60;
+
 // Migración Mágica · deshacer: borra exactamente lo que creó un lote de
 // migración (y nada más), en orden inverso de dependencias. Es la garantía de
 // riesgo cero del flujo: si algo no cuadra, un clic y el estudio queda como

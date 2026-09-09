@@ -71,9 +71,9 @@ export async function POST(req: NextRequest) {
 
   // ── Catálogo para emparejar ────────────────────────────────────────────────
   const [{ data: socios, error: eS }, { data: tipos, error: eT }, { data: sesiones, error: eSes }] = await Promise.all([
-    catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', studioId).is('borrado_en', null).range(d, h)),
-    catalogo<{ id: string; nombre: string }>((d, h) => admin.from('tipos_clase').select('id, nombre').eq('studio_id', studioId).range(d, h)),
-    catalogo<{ id: string; tipo_clase_id: string | null; inicio: string; aforo_maximo: number | null }>((d, h) => admin.from('sesiones').select('id, tipo_clase_id, inicio, aforo_maximo').eq('studio_id', studioId).range(d, h)),
+    catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', studioId).is('borrado_en', null).order('id').range(d, h)),
+    catalogo<{ id: string; nombre: string }>((d, h) => admin.from('tipos_clase').select('id, nombre').eq('studio_id', studioId).order('id').range(d, h)),
+    catalogo<{ id: string; tipo_clase_id: string | null; inicio: string; aforo_maximo: number | null }>((d, h) => admin.from('sesiones').select('id, tipo_clase_id, inicio, aforo_maximo').eq('studio_id', studioId).order('id').range(d, h)),
   ]);
   if (eS || eT || eSes) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
 
@@ -96,12 +96,20 @@ export async function POST(req: NextRequest) {
   // filas — un estudio con histórico de reservas real dejaría de detectar
   // duplicados pasado ese corte.
   const { data: yaReservado } = await catalogo<{ sesion_id: string | null; socio_id: string; estado: string }>(
-    (d, h) => admin.from('reservas').select('sesion_id, socio_id, estado').eq('studio_id', studioId).range(d, h),
+    (d, h) => admin.from('reservas').select('sesion_id, socio_id, estado').eq('studio_id', studioId).order('id').range(d, h),
   );
   const activas = new Set(
     (yaReservado ?? [])
       .filter(r => ['CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA'].includes(r.estado as string))
       .map(r => `${r.sesion_id}|${r.socio_id}`),
+  );
+  // Y el histórico (NO_ASISTIO, CANCELADA): el índice único es PARCIAL sobre
+  // los tres estados activos, así que la BD no frenaba estas filas y reimportar
+  // —que es lo que pide el mensaje de fallo a medias— duplicaba los plantones.
+  // Los plantones alimentan el riesgo de plantón de la socia, así que duplicarlos
+  // no es cosmético: le empeora el perfil en cada reintento.
+  const historicas = new Set(
+    (yaReservado ?? []).map(r => `${r.sesion_id}|${r.socio_id}|${r.estado}`),
   );
 
   // Ocupación actual por sesión, para avisar de sobreaforo tras importar.
@@ -144,9 +152,13 @@ export async function POST(req: NextRequest) {
     }
 
     const clave = `${sesion.id}|${socioId}`;
+    const claveHist = `${clave}|${f.estado}`;
     const esActiva = ['CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA'].includes(f.estado);
+    // Una activa choca con cualquier otra activa (el índice único lo impone);
+    // una histórica choca solo con una idéntica del mismo estado.
     if (esActiva && (activas.has(clave) || vistas.has(clave))) { duplicadas++; return; }
-    if (esActiva) vistas.add(clave);
+    if (historicas.has(claveHist) || vistas.has(claveHist)) { duplicadas++; return; }
+    vistas.add(esActiva ? clave : claveHist);
 
     pendientes.push({ sesionId: sesion.id, socioId, estado: f.estado });
   });

@@ -1954,6 +1954,8 @@ export async function importarCitas(rows: FilaCita[], batchId?: string): Promise
 export interface ResultadoImportPagos {
   batchAviso?: string | null;
   importadas: number;
+  /** Ya estaban importados (misma socia, fecha, importe y concepto). */
+  duplicadas?: number;
   sinSocia: number;
   errores: { fila: number; motivo: string }[];
   error?: string;

@@ -3,7 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
-import type { FilaPago } from '@/lib/csv';
+import { parsearFecha, type FilaPago } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeVerFinanzas } from '@/lib/permisos-reglas';
 import { catalogo } from '@/lib/migracion/catalogo';
@@ -55,18 +55,43 @@ export async function POST(req: NextRequest) {
 
   const studioId = sesionStaff.studioId;
 
-  const { data: socios, error: eS } = await catalogo<{ id: string; email: string | null }>(
-    (d, h) => admin.from('socios').select('id, email').eq('studio_id', studioId).is('borrado_en', null).range(d, h),
-  );
-  if (eS) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
+  const [{ data: socios, error: eS }, { data: pagosExist, error: eP }] = await Promise.all([
+    catalogo<{ id: string; email: string | null }>(
+      (d, h) => admin.from('socios').select('id, email').eq('studio_id', studioId).is('borrado_en', null).order('id').range(d, h)),
+    // Dedup: era el ÚNICO de los ocho importadores sin ninguno, y a la vez su
+    // mensaje de fallo a medias dice «vuelve a subirlo». Reimportar duplicaba
+    // TODOS los pagos ya cargados, inflando el histórico de facturación que la
+    // propietaria ve en la ficha de cada socia, sin forma de distinguirlos.
+    catalogo<{ socio_id: string; fecha: string; importe: number; concepto: string | null }>(
+      (d, h) => admin.from('pagos_historicos').select('socio_id, fecha, importe, concepto').eq('studio_id', studioId).order('id').range(d, h)),
+  ]);
+  if (eS || eP) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
 
   const socioPorEmail = new Map<string, string>();
   for (const s of socios ?? []) if (s.email) socioPorEmail.set(s.email.toLowerCase().trim(), s.id);
+
+  // La clave usa el importe en céntimos para no depender de cómo Postgres
+  // formatee un numeric(10,2) ('12.50' vs 12.5).
+  const claveDe = (socioId: string, fecha: string, importe: number, concepto: string | null) =>
+    `${socioId}|${fecha}|${Math.round(importe * 100)}|${(concepto ?? '').trim().toLowerCase()}`;
+  //
+  // Se cuenta CUÁNTAS veces existe ya cada clave, no si existe. Dos clases
+  // sueltas de 10 € el mismo día con el mismo concepto son dos pagos legítimos
+  // y distintos: con un Set, el segundo desaparecería del histórico. Con el
+  // recuento, se omiten tantas filas como ya haya en la base y el resto entra,
+  // así que reimportar el mismo archivo es idempotente Y un archivo con
+  // repeticiones reales se importa entero.
+  const restantes = new Map<string, number>();
+  for (const p of pagosExist ?? []) {
+    const k = claveDe(p.socio_id, String(p.fecha).slice(0, 10), Number(p.importe), p.concepto);
+    restantes.set(k, (restantes.get(k) ?? 0) + 1);
+  }
 
   interface Pendiente { socioId: string; fecha: string; concepto: string | null; importe: number; medioPago: string | null }
   const pendientes: Pendiente[] = [];
   const errores: { fila: number; motivo: string }[] = [];
   let sinSocia = 0;
+  let duplicadas = 0;
 
   filas.forEach((f, i) => {
     const socioId = socioPorEmail.get((f.email ?? '').toLowerCase().trim());
@@ -75,12 +100,39 @@ export async function POST(req: NextRequest) {
       errores.push({ fila: i + 1, motivo: `No hay ninguna socia con el email ${f.email}` });
       return;
     }
-    pendientes.push({ socioId, fecha: f.fecha, concepto: f.concepto ?? null, importe: f.importe, medioPago: f.medioPago ?? null });
+    // Revalidación en servidor. Era el único de los ocho que se fiaba del
+    // cliente para la fecha y el importe: iban crudos al INSERT. Una fecha
+    // vacía (22007) o un importe negativo (viola `importe >= 0`) tumbaban el
+    // LOTE DE 500 ENTERO, y el mensaje culpaba a las socias que faltaban, que
+    // no tenía nada que ver. La UI ya filtra estas filas, pero cualquier staff
+    // puede llamar a la API a mano.
+    const fecha = parsearFecha(f.fecha);
+    if (!fecha) {
+      errores.push({ fila: i + 1, motivo: 'La fecha del pago falta o no se entiende' });
+      return;
+    }
+    const importe = typeof f.importe === 'number' ? f.importe : Number(f.importe);
+    if (!Number.isFinite(importe) || importe < 0) {
+      errores.push({ fila: i + 1, motivo: 'El importe falta, no es un número o es negativo' });
+      return;
+    }
+    const concepto = (f.concepto ?? '').trim() || null;
+
+    const clave = claveDe(socioId, fecha, importe, concepto);
+    const yaHay = restantes.get(clave) ?? 0;
+    if (yaHay > 0) { restantes.set(clave, yaHay - 1); duplicadas++; return; }
+
+    pendientes.push({ socioId, fecha, concepto, importe, medioPago: f.medioPago ?? null });
   });
 
   if (pendientes.length === 0) {
+    // Si TODAS eran duplicadas no es un fallo: es una reimportación limpia y
+    // debe salir 200, no un 400 que la propietaria lee como «no ha funcionado».
+    if (duplicadas > 0 && errores.length === 0) {
+      return NextResponse.json({ ok: true, batchAviso: null, importadas: 0, duplicadas, sinSocia, errores: [] });
+    }
     return NextResponse.json(
-      { error: 'Ninguna fila se pudo emparejar', sinSocia, errores: errores.slice(0, 50) },
+      { error: 'Ninguna fila se pudo emparejar', sinSocia, duplicadas, errores: errores.slice(0, 50) },
       { status: 400 },
     );
   }
@@ -100,8 +152,9 @@ export async function POST(req: NextRequest) {
       }
       return errorInterno('pagos-historicos:import', error,
         `Se han importado ${importadas} pagos y el proceso se ha detenido ahí. `
-        + 'Comprueba que las socias del archivo existan ya en tu cuenta, y vuelve a subirlo.',
-        500, { importadas });
+        + 'Comprueba que las socias del archivo existan ya en tu cuenta, y vuelve a subirlo: '
+        + 'los que ya están importados se detectan y no se duplican.',
+        500, { importadas, duplicadas });
     }
     idsCreados.push(...lote.map(l => l.id));
     importadas += lote.length;
@@ -114,6 +167,7 @@ export async function POST(req: NextRequest) {
     ok: true,
     batchAviso,
     importadas,
+    duplicadas,          // ya estaban: reimportar no duplica
     sinSocia,
     errores: errores.slice(0, 50),
   });

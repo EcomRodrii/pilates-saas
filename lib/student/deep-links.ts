@@ -25,7 +25,12 @@ export function traducirEnlace(enlace: string | null | undefined, slug: string):
   const base = `/portal/${encodeURIComponent(slug)}`;
 
   // Ya está en el árbol nuevo.
-  if (/^\/portal\/[^/]+\/(reservar|mis-reservas|bonos|pagos|notificaciones|perfil|ayuda|calendario|mensajes)(\/|\?|$)/.test(enlace)) {
+  // `comprar` faltaba: BONO_POR_CADUCAR y BONO_AGOTADO (catalog.ts:875 y :881)
+  // apuntan a `/portal/<slug>/comprar` y ninguna regla posterior la reconocía
+  // (`resto.startsWith('compras')` NO casa con `comprar`), así que los dos
+  // únicos avisos cuyo objetivo es que la alumna vuelva a comprar salían en la
+  // bandeja como texto sin enlace.
+  if (/^\/portal\/[^/]+\/(reservar|mis-reservas|bonos|comprar|pagos|notificaciones|perfil|ayuda|calendario|mensajes)(\/|\?|$)/.test(enlace)) {
     return enlace;
   }
 

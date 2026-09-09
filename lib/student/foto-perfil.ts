@@ -24,7 +24,15 @@ export type ResultadoFoto = { ok: true; url: string } | { ok: false; error: stri
  * un único módulo compartido.
  */
 export async function subirFoto(studioId: string, file: File): Promise<ResultadoFoto> {
-  const malo = motivoFotoInvalida(file.type, file.size);
+  // Solo el TIPO sobre el fichero original. Comprobar aquí también el tamaño
+  // anulaba el redimensionado que viene justo debajo y que existe precisamente
+  // «para que el byte gordo no llegue a viajar»: una foto de móvil actual pesa
+  // 6-15 MB y se rechazaba con «no puede superar 5 MB» ANTES de reducirla a los
+  // ~100 KB que acabaría ocupando. La alumna se quedaba sin salida dentro de la
+  // app. El tamaño se revalida abajo sobre el fichero REAL que se sube, y otra
+  // vez en el servidor (`/api/public/foto-perfil`) y en el propio bucket, así
+  // que no se relaja ninguna cerradura de verdad.
+  const malo = motivoFotoInvalida(file.type, null);
   if (malo) return { ok: false, error: malo };
 
   try {
