@@ -21,12 +21,30 @@
 //     en lib/auth-context.tsx: se llama con el id (UUID) nada más, nunca
 //     email ni nombre.
 // ─────────────────────────────────────────────────────────────────────────────
+import type { BeforeSendFn } from 'posthog-js';
 import { crearCola, type Destino } from '@/lib/sentry-cola';
 
 type PostHogSDK = typeof import('posthog-js').default;
 
 const enNavegador = typeof window !== 'undefined';
 const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://eu.i.posthog.com';
+
+// Gemelo del `ignoreErrors` de Sentry (lib/sentry-cliente.ts): Safari en iOS
+// reduce un error de un script servido sin cabeceras CORS a un `onerror` vacío
+// — `Error: Script error.` sin fichero, línea ni pila. Sin pila la incidencia
+// no aporta nada que depurar, así que se descarta en origen para que no llegue
+// a crearse. La cura de raíz — que el próximo error cruzado llegue CON pila —
+// es `crossOrigin: 'anonymous'` en next.config.ts.
+const descartarScriptErrorOpaco: BeforeSendFn = (evento) => {
+  if (!evento || evento.event !== '$exception') return evento;
+  const lista = evento.properties?.$exception_list as unknown as
+    | Array<{ value?: string; stacktrace?: { frames?: unknown[] } }>
+    | undefined;
+  if (!Array.isArray(lista) || lista.length === 0) return evento;
+  const sinPila = lista.every((e) => !e.stacktrace?.frames?.length);
+  const esScriptError = lista.some((e) => e.value === 'Script error.');
+  return sinPila && esScriptError ? null : evento;
+};
 
 let sdk: PostHogSDK | null = null;
 let cargando: Promise<PostHogSDK | null> | null = null;
@@ -65,6 +83,7 @@ function forzarCarga(): Promise<PostHogSDK | null> {
         // una propietaria lo reportó como ruido. Sin encuestas configuradas
         // hoy en este proyecto de PostHog, desactivarlas todas no pierde nada.
         disable_surveys: true,
+        before_send: descartarScriptErrorOpaco,
       });
       sdk = instancia;
       cola.conectar(envolverDestino(instancia));
