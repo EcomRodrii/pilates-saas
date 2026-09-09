@@ -184,6 +184,9 @@ export const analizarEstudio = inngest.createFunction(
       return seleccionarAutonomas(pendientes, config, yaHoy).map(r => ({ id: r.id }));
     });
 
+    // Batch autonomías en un solo evento en lugar de N llamadas individuales.
+    // Con 200 estudios × 2-3 autonomías/día, esto es 400-600 → 200 eventos.
+    const autonomasAprobadas: string[] = [];
     for (const a of autonomas) {
       const aprobada = await step.run(`autonomia-aprobar-${a.id}`, () =>
         dbTransicionarRecomendacion(a.id, studioId, 'PENDIENTE', 'APROBADA', { resueltoPor: 'AUTONOMIA', resueltoEn: new Date().toISOString() })
@@ -191,8 +194,15 @@ export const analizarEstudio = inngest.createFunction(
       // Solo se emite el evento de ejecución si la transición realmente ocurrió
       // (evita ejecutar dos veces ante un replay del handler).
       if (aprobada.ok) {
-        await step.sendEvent(`autonomia-ejecutar-${a.id}`, { name: EVENTS.DECISION_APPROVED, data: { recomendacionId: a.id } });
+        autonomasAprobadas.push(a.id);
       }
+    }
+    // Enviar todas las aprobadas en UN evento en lugar de N eventos separados
+    if (autonomasAprobadas.length > 0) {
+      await step.sendEvent('autonomias-aprobadas-batch', autonomasAprobadas.map(id => ({
+        name: EVENTS.DECISION_APPROVED,
+        data: { recomendacionId: id }
+      })));
     }
 
     // ── El Umbral (0/decision_mensaje_dia) ────────────────────────────────────
@@ -472,7 +482,8 @@ export const ejecutarRecomendacion = inngest.createFunction(
           senalObservada: null, ventanaDias: ventanaDiasDe(recomendacion.tipo), medidoEn: null,
           impactoReal: null, confianzaMedicion: null, // aún no medido — lo rellena medirOutcomeFn
         }));
-        await step.sendEvent('programar-medicion', { name: EVENTS.DECISION_MEASURE, data: { recomendacionId } });
+        // ID único por recomendación para evitar deduplicación erróneaó del mismo evento
+        await step.sendEvent(`medicion-${recomendacionId}`, { name: EVENTS.DECISION_MEASURE, data: { recomendacionId } });
         // Traza visible en el feed "Actividad" del Centro (antes aprobar no dejaba
         // rastro alguno). El detalle ya dice qué pasó (email enviado / gestionada).
         const nombreSocia = typeof recomendacion.datosUsados.nombre === 'string' ? recomendacion.datosUsados.nombre : null;
