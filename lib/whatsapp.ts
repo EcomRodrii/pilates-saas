@@ -95,21 +95,40 @@ export const PLANTILLA_HUECO = { nombre: 'hueco_disponible', idioma: 'es' } as c
 // plantilla propia, y por una razón concreta: es el único cuyo cuerpo tiene
 // forma FIJA. Los demás (campañas, automatizaciones, el contacto del Decision
 // OS, /api/mensajes/send) mandan texto que escribe la propietaria o redacta la
-// IA — arbitrario y casi siempre multilínea, y un parámetro de plantilla de
-// Meta no admite saltos de línea ni tabuladores ni más de 4 espacios seguidos.
-// No es que quedara feo meterlo en un `{{1}}`: Meta lo rechaza. Así que esos
-// van como texto y solo llegan dentro de la ventana de 24 h.
+// IA, distinto en cada envío — y una plantilla es contenido APROBADO DE
+// ANTEMANO, así que no hay nada que aprobar. Meterlo entero en un `{{1}}`
+// tampoco vale: la norma de categorización de Meta trata como marketing las
+// plantillas «en las que el contenido no está claro (por ejemplo, si el
+// contenido solo es "{{1}}")», o sea que una plantilla-contenedor es
+// exactamente lo que esa regla nombra para no aprobarla como lo que no es.
+// Y el cuerpo tiene un tope de 1.024 caracteres, que una campaña se salta.
+// Así que esos van como texto y solo llegan dentro de la ventana de 24 h.
 //
 // Y es también el que más falta le hace: es la escalada de un email que la
 // instructora NO ha contestado, así que dar por hecho que ella escribió al
 // estudio en las últimas 24 h es dar por hecho justo lo contrario de lo que
 // está pasando.
 //
-// Categoría UTILITY: no vende nada, es una petición operativa de trabajo con
-// un enlace para responderla. ⚠️ Meta podría recategorizarla a MARKETING —
-// para ellos «utilidad» es el seguimiento de una transacción de un CLIENTE, y
-// esto va a una trabajadora. Afectaría al precio de la conversación, no a la
-// entrega; confirmarlo con la primera aprobación real.
+// ⚠️ Categoría MARKETING, aunque no venda nada. Contra la intuición, y es la
+// propia norma de Meta la que lo decide: para ser UTILITY hay que cumplir DOS
+// cosas a la vez, y esta solo cumple una. No es promocional (✓), pero tiene que
+// ser ADEMÁS «específica para el usuario o solicitada por él —relacionada
+// claramente con su pedido, cuenta, servicios o transacciones— O esencial o
+// crítica para su seguridad», y una petición de cubrir un turno no es ninguna
+// de las dos: la instructora no es una clienta con un pedido, y no ha pedido
+// nada. Los cinco casos de uso que Meta lista como utilidad (suscripciones,
+// pedidos, alertas de cuenta, encuestas sobre una compra, continuar una
+// conversación) son todos de cliente-transacción.
+// Fuente: developers.facebook.com/documentation/business-messaging/whatsapp/
+// templates/template-categorization (consultada el 2026-09-10).
+//
+// Etiquetarla UTILITY no la habría hecho más barata: Meta recategoriza sola. Lo
+// que sí habría hecho es mandar a la propietaria a elegir en WhatsApp Manager
+// una categoría que le van a cambiar, y a preguntarse por qué.
+//
+// Las otras dos SÍ están donde deben: `recordatorio_clase` es UTILITY (habla de
+// la reserva que la socia ya tiene) y `hueco_disponible` es MARKETING (la invita
+// a comprar una plaza).
 //
 // Termina en texto fijo por lo mismo que PLANTILLA_HUECO: Meta no aprueba un
 // cuerpo que acabe en variable.
@@ -118,21 +137,20 @@ export const PLANTILLA_SUSTITUCION = { nombre: 'sustitucion_urgente', idioma: 'e
 /**
  * Un valor listo para viajar como `{{n}}` de una plantilla.
  *
- * Meta rechaza un parámetro que lleve saltos de línea, tabuladores o más de 4
+ * La API rechaza un parámetro que lleve saltos de línea, tabuladores o más de 4
  * espacios seguidos («Param text cannot have new-line/tab characters or more
- * than 4 consecutive spaces», error 100) — y lo rechaza el ENVÍO ENTERO, no ese
- * trozo. Los valores que metemos ahí no son constantes nuestras: son el nombre
- * de la socia, el de la clase, el de la sala… texto que teclea la propietaria o
- * que entró por el importador de CSV. Basta un nombre pegado con un salto de
- * línea dentro para que a esa persona no le llegue nada, y el motivo aparezca
- * como un error genérico de «parámetro inválido».
+ * than 4 consecutive spaces», error 100) — y rechaza el ENVÍO ENTERO, no ese
+ * trozo. ⚠️ Honestidad sobre la fuente: ese mensaje de error está ampliamente
+ * documentado por quien se lo ha comido, pero NO aparece en la documentación
+ * publicada de Meta a fecha 2026-09-10 (se buscó en `templates/components`, en
+ * las páginas de envío y en las de categorización). Se sanea igual: colapsar
+ * los espacios en blanco a uno no toca ningún valor bien formado, así que
+ * protege sin coste aunque la regla cambiara.
  *
- * Colapsar los espacios en blanco a uno solo cumple las tres reglas de golpe y
- * no toca ningún valor bien formado.
- *
- * Es también la razón, vista desde el otro lado, por la que los emisores de
- * texto libre no pueden usar plantilla: un cuerpo de campaña son varias líneas,
- * y aplanarlas no sería sanear, sería romper el mensaje.
+ * Y protege algo real: los valores no son constantes nuestras, son el nombre de
+ * la socia, el de la clase, el de la sala… texto tecleado por la propietaria o
+ * llegado por el importador de CSV. Basta un nombre con un salto de línea
+ * dentro para que a esa persona no le llegue nada.
  */
 function parametroPlantilla(texto: string): string {
   return texto.replace(/\s+/g, ' ').trim();
