@@ -28,7 +28,15 @@ export function Topbar() {
     // limitado al z-index del propio contenedor. Las cabeceras sticky del
     // calendario (vista-semana.tsx/vista-dia-salas.tsx) usan z-10 y, al pintarse
     // más tarde en el DOM, ganaban el empate y tapaban el menú de usuario.
-    <div className="hidden lg:flex sticky top-0 z-30 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-sm">
+    //
+    // ⚠️ `top-[var(--panel-sticky-top)]`, NUNCA `top-0`. Con el menú arriba
+    // («superior») la barra del menú es `fixed` y ocupa la banda de arriba;
+    // clavarse en y=0 metía esta barra DENTRO de ella al scrollear, y como
+    // z-30 gana a su z-20, la tapaba: se veían las filas del menú por detrás
+    // de este fondo translúcido. La variable la escribe el propio menú al
+    // MEDIRSE (`aplicarHuecos`), que es lo único que no se queda desfasado
+    // cuando la barra crece de dos filas a tres.
+    <div className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-sm">
       <div className="flex items-center gap-2 flex-1 max-w-md">
         <button
           onClick={() => setLanzadorAbierto(true)}

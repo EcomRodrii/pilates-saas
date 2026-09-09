@@ -296,15 +296,30 @@ const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label:
  * la lista de items — cuatro sitios donde divergir en silencio.
  */
 /**
- * Los dos huecos que el contenido tiene que dejarle al menú.
+ * Los huecos que el contenido tiene que dejarle al menú.
  *
  * `--sidebar-w` es el de la izquierda y `--panel-top` el de arriba: siempre
  * uno de los dos a cero. Se escriben juntos para que no puedan contradecirse.
+ *
+ * `--panel-sticky-top` es DISTINTO de `--panel-top` y por eso existe: es a qué
+ * altura puede clavarse algo `sticky` sin meterse debajo del menú.
+ *
+ *  · Tumbado, la barra es `fixed` y ocupa la banda de arriba, así que lo pegado
+ *    tiene que empezar donde ella acaba. Con `top-0` —lo que había— el buscador
+ *    del Topbar se clavaba en y=0 al scrollear, o sea DENTRO de la barra, y
+ *    encima la tapaba (z-30 contra su z-20) dejando ver el menú por detrás de
+ *    su fondo translúcido.
+ *  · En columna no hay nada fijo arriba: ahí el sitio correcto es 0, no el
+ *    `0.5rem` de `--panel-top` (que es el aire del contenido, no un obstáculo).
+ *    Reutilizar `--panel-top` para las dos cosas dejaba una rendija de 8 px por
+ *    la que se veía pasar el contenido.
  */
 function aplicarHuecos(horizontal: boolean, size: SidebarSize, altoBarra = BARRA_ALTO_INICIAL) {
   const raiz = document.documentElement.style;
+  const bandaSuperior = `${Math.round(altoBarra + BARRA_SEPARACION)}px`;
   raiz.setProperty('--sidebar-w', horizontal ? '0px' : SIDEBAR_SIZES[size].cssVar);
-  raiz.setProperty('--panel-top', horizontal ? `${Math.round(altoBarra + BARRA_SEPARACION)}px` : '0.5rem');
+  raiz.setProperty('--panel-top', horizontal ? bandaSuperior : '0.5rem');
+  raiz.setProperty('--panel-sticky-top', horizontal ? bandaSuperior : '0px');
 }
 
 export function Sidebar() {
