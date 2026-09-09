@@ -3357,7 +3357,8 @@ const ERRORES_CANJE = [
 /**
  * El canje entero, en UNA llamada (ruta panel).
  *
- * Sustituye a la secuencia `reservar_recompensa` → `ajustar_creditos` → INSERT
+ * Sustituye a la secuencia `reservar_recompensa` (ya borrada de la BD) →
+ * `ajustar_creditos` → INSERT
  * que vivía aquí arriba. No es un atajo: entre el descuento y el INSERT cabía
  * un fallo que dejaba a la socia sin créditos y sin canje, y el INSERT ni
  * siquiera miraba su error. Una función PL/pgSQL es una transacción, así que
