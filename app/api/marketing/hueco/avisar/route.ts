@@ -3,7 +3,10 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
-import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
+import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_HUECO } from '@/lib/whatsapp';
+import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
+import { acumuladorSalud } from '@/lib/integraciones/salud';
+import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
 import { mapSesion, mapReserva, mapSocio, mapSuscripcion, mapPlanTarifa, hidratarTiposDePlanes } from '@/lib/supabase-data';
 import type { RowSesiones, RowReservas, RowSocios, RowSuscripciones, RowPlanesTarifa } from '@/lib/db-types';
@@ -12,10 +15,20 @@ import { filtrarPorConsentimientoMarketing } from '@/lib/marketing/consentimient
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 import { fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 
-// Radar de ocupación → "Avisar a candidatas" (Configuración → Dashboard).
-// Server-only: manda WhatsApp real con credenciales de plataforma y necesita
-// límite de gasto/spam — no hay ningún rate-limit de mensajería en el repo
-// hasta esta ruta, así que se incorpora aquí desde el principio.
+// Radar de ocupación → "Avisar a candidatas" (Configuración → Dashboard) y
+// «Rellenar hueco» de la home.
+//
+// Sale por la Meta Cloud API del PROPIO estudio (lib/whatsapp.ts +
+// `integraciones` tipo WHATSAPP, lo que la propietaria conecta en
+// Configuración → Integraciones), no por Twilio. Antes usaba
+// `enviarMensajeTwilio` con credenciales de plataforma: en producción no
+// existe ninguna variable TWILIO_*, así que esta ruta contestaba 503 sin
+// intentar nada y `avisos_hueco` se quedó vacía desde el primer día — el
+// botón «Avisar a N seleccionadas» no mandaba un solo mensaje.
+//
+// Server-only: manda WhatsApp real y necesita límite de gasto/spam — no hay
+// ningún rate-limit de mensajería en el repo hasta esta ruta, así que se
+// incorpora aquí desde el principio.
 const VENTANA_DEDUP_HORAS = 24;
 const CAP_MAXIMO = 30;
 
@@ -31,9 +44,23 @@ export async function POST(req: NextRequest) {
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
-  if (!twilioConfigurado('WHATSAPP')) {
-    return NextResponse.json({ error: 'WhatsApp no está configurado en la plataforma' }, { status: 503 });
+  // WhatsApp es de CADA estudio, no de la plataforma: sin su token/phoneId no
+  // hay a quién pedirle el envío. Se comprueba antes de tocar la base de datos
+  // — recalcular candidatas para luego no poder mandar nada es trabajo tirado,
+  // y el mensaje tiene que decir dónde se arregla, no solo que no se puede.
+  const integracion = await dbGetIntegracionConfig(sesion.studioId, 'WHATSAPP');
+  const cfg = integracion?.activo ? integracion.config : null;
+  const whatsapp = cfg?.token && cfg.phoneId ? { token: cfg.token, phoneId: cfg.phoneId } : null;
+  if (!whatsapp) {
+    return NextResponse.json(
+      { error: 'Conecta tu WhatsApp Business en Configuración → Integraciones' },
+      { status: 503 },
+    );
   }
+  // Opt-in propio, NO el del recordatorio: son dos plantillas distintas en
+  // Meta y dar por aprobada la que no lo está falla en todos los envíos
+  // (132001), no en algunos. Ver PLANTILLA_HUECO en lib/whatsapp.ts.
+  const plantillaAprobada = cfg?.plantillaHuecoAprobada === 'true';
 
   const body = (await req.json().catch(() => null)) as { sesionId?: string; socioIds?: unknown } | null;
   const sesionId = body?.sesionId;
@@ -165,14 +192,34 @@ export async function POST(req: NextRequest) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? LEGAL.url;
     const enlace = studioRow?.slug ? `${appUrl}/reservar/${studioRow.slug}` : appUrl;
 
+    const nombreEstudio = studioRow?.nombre ?? 'el estudio';
+
     let enviados = 0;
     let sinTelefono = 0;
     let errores = 0;
+    // Una sola escritura de salud por tanda, no una por mensaje — mismo
+    // criterio y mismo acumulador que el cron de recordatorios: lo que la
+    // pantalla de Integraciones necesita saber es cómo fue la ÚLTIMA
+    // conversación con Meta, no las treinta.
+    const salud = acumuladorSalud();
 
     for (const socia of candidatas) {
       if (!socia.telefono) { sinTelefono++; continue; }
-      const cuerpo = `¡Hola ${socia.nombre}! Se ha quedado un hueco en ${nombreClase} el ${fecha} a las ${hora} en ${studioRow?.nombre ?? 'el estudio'}. Resérvalo aquí: ${enlace}`;
-      const resultado = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: socia.telefono, cuerpo });
+      // Este aviso lo inicia el negocio (nadie ha escrito al estudio), así que
+      // fuera de la ventana de 24h Meta solo entrega una plantilla aprobada:
+      // como texto libre devuelve 131047. Sin plantilla registrada se manda
+      // texto igualmente —llega a quien SÍ escribió hace poco— en vez de no
+      // mandar nada; el error de Meta queda anotado en `avisos_hueco` y en la
+      // salud de la integración, que es donde se ve por qué no llegó.
+      const resultado = plantillaAprobada
+        ? await enviarWhatsAppPlantilla(whatsapp, socia.telefono, PLANTILLA_HUECO, [
+            socia.nombre, nombreClase, fecha, hora, nombreEstudio, enlace,
+          ])
+        : await enviarWhatsAppTexto(
+            whatsapp, socia.telefono,
+            `¡Hola ${socia.nombre}! Se ha quedado un hueco en ${nombreClase} el ${fecha} a las ${hora} en ${nombreEstudio}. Resérvalo aquí: ${enlace}`,
+          );
+      salud.anota(resultado);
       if (resultado.ok) enviados++; else errores++;
       await admin.from('avisos_hueco').insert({
         id: `hueco-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -183,6 +230,11 @@ export async function POST(req: NextRequest) {
         detalle: resultado.ok ? null : resultado.error ?? 'error desconocido',
       });
     }
+
+    // `null` cuando no se intentó ningún envío: sin noticia nueva del servicio,
+    // sobrescribir la salud borraría la que sí valía.
+    const resultadoSalud = salud.resultado();
+    if (resultadoSalud) await registrarSaludIntegracion(admin, sesion.studioId, 'WHATSAPP', resultadoSalud);
 
     return NextResponse.json({ enviados, sinTelefono, errores, sinConsentimiento, saltadasPorDedup: avisadasSet.size });
   } catch (err) {

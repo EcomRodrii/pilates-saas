@@ -8,11 +8,19 @@ Hay **dos integraciones de WhatsApp distintas y no relacionadas** en este repo:
 
 1. **Meta Cloud API directa, por estudio** (`lib/whatsapp.ts`) — BYO-credenciales: cada
    estudio pega su propio `access_token`/`phone_number_id` en
-   *Configuración → Integraciones*. Único consumidor: el cron de recordatorios de clase
-   (`enviarRecordatoriosClasesProximas`). **Esta es la integración a migrar.**
+   *Configuración → Integraciones*. Consumidores: el cron de recordatorios de clase
+   (`enviarRecordatoriosClasesProximas`) y —desde 2026-09-09— el aviso de hueco libre
+   (`/api/marketing/hueco/avisar`, plantilla `hueco_disponible`, categoría MARKETING).
+   **Esta es la integración a migrar.**
 2. **Twilio, credencial única de plataforma** (`lib/twilio.ts`, env `TWILIO_*`) — motor de
-   automatizaciones, campañas de marketing, sustituciones, motor de notificaciones. No
-   tiene nada que ver con Meta. **No se toca en esta migración.**
+   automatizaciones, campañas de marketing, sustituciones, motor de notificaciones,
+   `/api/mensajes/send` y `/api/soporte`. No tiene nada que ver con Meta. **No se toca en
+   esta migración.**
+   ⚠️ En producción **no existe ninguna variable `TWILIO_*`** (comprobado 2026-09-09), así
+   que todo lo que cuelga de aquí no manda nada: o se salta el envío (`skipped: true`) o
+   devuelve 503. El aviso de hueco se sacó de esta lista por eso — su botón «Avisar a N
+   seleccionadas» llevaba desde el primer día sin mandar un solo mensaje, con
+   `avisos_hueco` vacía. Los demás siguen pendientes de la misma decisión.
 
 Cualquier fase de este plan que hable de "recordatorios" se refiere solo al canal (1).
 

@@ -108,7 +108,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'WHATSAPP',
     nombre: 'WhatsApp Business',
-    descripcion: 'Envía recordatorios de clase por WhatsApp desde tu propio número de WhatsApp Business.',
+    descripcion: 'Envía recordatorios de clase y avisos de hueco libre por WhatsApp desde tu propio número de WhatsApp Business.',
     Icon: WhatsAppAppIcon,
     placaPropia: true,
     color: '#25D366',
@@ -118,6 +118,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
       { key: 'token', label: 'Token de acceso', placeholder: 'EAAxxxxxxxxxxxx...', tipo: 'password' },
       { key: 'phoneId', label: 'ID de número de teléfono', placeholder: '109xxxxxxxxxxx' },
       { key: 'plantillaAprobada', label: 'Ya me aprobaron la plantilla "recordatorio_clase" en Meta', placeholder: '', tipo: 'checkbox' },
+      { key: 'plantillaHuecoAprobada', label: 'Ya me aprobaron la plantilla "hueco_disponible" en Meta', placeholder: '', tipo: 'checkbox' },
     ],
     instrucciones: [
       'Entra en developers.facebook.com/apps y crea (o abre) una app de tipo "Business".',
@@ -126,6 +127,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
       'En la misma pantalla, genera un token de acceso permanente (token de usuario del sistema — no el token temporal de 24h de prueba).',
       'Pega aquí el token y el ID del número, y pulsa Guardar.',
       'Los recordatorios los manda un proceso automático, no una respuesta tuya, así que Meta exige una plantilla aprobada para que lleguen pasadas 24h desde el último mensaje de la clienta. En WhatsApp Manager → Plantillas de mensaje, crea una con nombre exacto "recordatorio_clase", categoría "Utilidad", idioma "Español" y este cuerpo con 5 variables: «Recordatorio · {{1}}. Tienes {{2}} el {{3}} a las {{4}} en {{5}}.» Meta suele aprobarla en minutos — cuando lo haga, marca la casilla de abajo.',
+      'Los avisos de hueco libre («Rellenar hueco» y el radar de ocupación) necesitan su PROPIA plantilla, porque para Meta son marketing y no un aviso de servicio. Crea otra con nombre exacto "hueco_disponible", categoría "Marketing", idioma "Español" y este cuerpo con 6 variables: «¡Hola {{1}}! Se ha quedado un hueco en {{2}} el {{3}} a las {{4}} en {{5}}. Reserva tu plaza aquí: {{6}} ¡Te esperamos!» Cuando te la aprueben, marca su casilla — marcar la del recordatorio NO vale para esta.',
     ],
     docsUrl: 'https://developers.facebook.com/docs/whatsapp/cloud-api/get-started',
     probarUrl: '/api/integrations/whatsapp/probar',

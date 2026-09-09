@@ -151,10 +151,12 @@ export function RellenarHuecoPanel({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        // 503 = la plataforma no tiene WhatsApp configurado. No es un fallo
-        // pasajero: por ahí no se va a poder mandar nada, así que se señala el
-        // icono de WhatsApp de cada fila, que abre el mensaje ya escrito y no
-        // depende de ninguna clave.
+        // 503 = este estudio no tiene su WhatsApp Business conectado (la
+        // integración es de cada estudio, no de la plataforma: Configuración →
+        // Integraciones). No es un fallo pasajero — por ahí no se va a poder
+        // mandar nada hasta que se conecte, así que se señala el icono de
+        // WhatsApp de cada fila, que abre el mensaje ya escrito y no depende de
+        // ninguna credencial.
         setResultado({
           mal: true,
           texto: res.status === 503
