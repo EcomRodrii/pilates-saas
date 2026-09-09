@@ -163,7 +163,11 @@ test.describe('Canjes pendientes', () => {
     });
 
     await abrirCanjes(page);
-    await page.getByRole('button', { name: 'Entregado' }).click();
+    // «Entregar», no «Entregado»: el botón dice un VERBO desde que hay un
+    // filtro «Entregados» al lado. Con el nombre viejo, esta misma línea
+    // resolvía a dos elementos y Playwright la rechazaba — con razón, porque
+    // también una persona dudaría entre los dos.
+    await page.getByRole('button', { name: 'Entregar', exact: true }).click();
 
     await expect.poll(() => entregas.length, { timeout: 10_000 }).toBe(1);
     // El canje y el estudio: sin `p_studio_id` el aislamiento de la función no

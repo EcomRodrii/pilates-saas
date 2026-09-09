@@ -108,7 +108,12 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
               disabled={ocupado}
               className={cn(btnPrimary, 'disabled:opacity-50')}
             >
-              <Check size={14} /> Entregado
+              {/* VERBO, no estado. Decía «Entregado», que es lo que la fila
+                  pasará a ser — y desde que hay un filtro «Entregados» al lado,
+                  la misma pantalla tenía dos cosas casi iguales que hacen cosas
+                  distintas. «Entregar» es además lo que dice la tarjeta de la
+                  home, que hace exactamente esto. */}
+              <Check size={14} /> Entregar
             </button>
             <button
               onClick={() => resolver(canje, 'CANCELADO')}
