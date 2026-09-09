@@ -183,6 +183,39 @@ test.describe('Arrastrar entre días (vista Semana)', () => {
     expect(loQueHayDebajo, 'el bloque arrastrado tiene que estar pintado bajo el puntero, no recortado por su columna')
       .toMatch(/Reformer/);
   });
+
+  // La primera versión de este arreglo (#1796) solo quitó el recorte de la
+  // columna, y el test de arriba —que arrastra a la DERECHA— la dio por buena.
+  // Hacia arriba el bloque se iba entonces a flotar sobre la cabecera de días,
+  // y hacia la izquierda desaparecía detrás de la columna de horas. Así que la
+  // dirección importa y hay que probar la contraria: el bloque nunca puede
+  // salirse de la rejilla, por mucho que el puntero se vaya.
+  test('el bloque no se sale de la rejilla aunque el puntero se vaya lejos', async ({ page }) => {
+    const { patchBody } = await montar(page);
+    await page.getByRole('button', { name: 'Semana', exact: true }).click();
+    await page.getByTestId('grid-semana-scroll').evaluate(el => { el.scrollTop = 0; });
+
+    const bloque = page.getByRole('button', { name: /Reformer/i, disabled: false }).first();
+    await bloque.waitFor({ timeout: 30_000 });
+    const bBox = (await bloque.boundingBox())!;
+    const rejilla = (await page.locator('[data-dia-index="0"]').boundingBox())!;
+
+    await page.mouse.move(bBox.x + bBox.width / 2, bBox.y + bBox.height / 2);
+    await page.mouse.down();
+    // Arriba y a la izquierda del todo, muy pasado: sobre la cabecera y sobre
+    // la columna de horas.
+    await page.mouse.move(bBox.x - 400, bBox.y - 400, { steps: 12 });
+
+    const arrastrado = (await bloque.boundingBox())!;
+    await page.mouse.up();
+
+    expect(arrastrado.y, 'el bloque no puede subir por encima de la rejilla (se pintaría sobre la cabecera)')
+      .toBeGreaterThanOrEqual(rejilla.y - 1);
+    expect(arrastrado.x, 'el bloque no puede pasarse a la izquierda de la primera columna (lo taparían las horas)')
+      .toBeGreaterThanOrEqual(rejilla.x - 1);
+    // Y soltar donde no hay columna no es un destino: no se mueve nada.
+    expect(patchBody.valor, 'soltar fuera de la rejilla no debe mover la clase').toBeNull();
+  });
 });
 
 test.describe('Arrastrar y soltar una clase', () => {

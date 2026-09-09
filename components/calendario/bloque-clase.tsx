@@ -40,6 +40,29 @@ export interface BloqueClaseProps {
   onMover?: (clientX: number, clientY: number) => void;
 }
 
+/**
+ * Cuánto puede moverse este bloque sin salirse de la rejilla de columnas.
+ *
+ * La rejilla es el padre de la columna, y la columna es el `offsetParent` del
+ * bloque (es la única `relative` por encima). Si algo de eso no cuadra —un
+ * cambio de maquetación futuro— devuelve `null` y el arrastre se comporta como
+ * antes, sin límites: es preferible a fijar un tope inventado.
+ */
+function limitesDeArrastre(el: HTMLElement): { minX: number; maxX: number; minY: number; maxY: number } | null {
+  const columna = el.offsetParent as HTMLElement | null;
+  const rejilla = columna?.parentElement;
+  if (!rejilla || !rejilla.contains(el)) return null;
+  const b = el.getBoundingClientRect();
+  const r = rejilla.getBoundingClientRect();
+  // Si el bloque ya fuera más grande que la rejilla, `min` acabaría por encima
+  // de `max` y el clamp devolvería cualquier cosa: en ese caso, sin límites.
+  if (b.width > r.width || b.height > r.height) return null;
+  return {
+    minX: r.left - b.left, maxX: r.right - b.right,
+    minY: r.top - b.top, maxY: r.bottom - b.bottom,
+  };
+}
+
 export function BloqueClase({
   sesion, tipo, instructor, reservasSesion, estado, modo, seleccionada, marcada,
   atenuada, style, onSeleccionar, accion, arrastrable, onMover,
@@ -47,14 +70,23 @@ export function BloqueClase({
   const p = PINTA[estado];
   const ancho = modo === 'ancho';
 
-  const arrastreRef = useRef<{ pointerId: number; startX: number; startY: number; moved: boolean } | null>(null);
+  // `limites` se mide UNA vez, al empezar el gesto: cuánto puede desplazarse el
+  // bloque en cada sentido sin salirse de la rejilla que contiene todas las
+  // columnas. Ver `onPointerDown`.
+  const arrastreRef = useRef<{
+    pointerId: number; startX: number; startY: number; moved: boolean;
+    limites: { minX: number; maxX: number; minY: number; maxY: number } | null;
+  } | null>(null);
   const ultimoFueArrastreRef = useRef(false);
   const [arrastrando, setArrastrando] = useState(false);
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (!arrastrable || !onMover) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    arrastreRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, moved: false };
+    arrastreRef.current = {
+      pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, moved: false,
+      limites: limitesDeArrastre(e.currentTarget),
+    };
   }
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     const a = arrastreRef.current;
@@ -62,7 +94,16 @@ export function BloqueClase({
     const dx = e.clientX - a.startX;
     const dy = e.clientY - a.startY;
     if (!a.moved && Math.abs(dx) + Math.abs(dy) > 4) { a.moved = true; setArrastrando(true); }
-    if (a.moved) e.currentTarget.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+    if (!a.moved) return;
+    // El puntero puede irse donde quiera; el bloque NO. Se queda dentro de la
+    // rejilla, tocando el borde cuando el dedo se pasa. Es lo que evita el
+    // fallo reportado —«el calendario borra la clase mientras la muevo»— sin
+    // depender de ningún recorte: fuera de la rejilla no hay ningún sitio
+    // donde soltarla, así que pararse en el borde es la respuesta honesta.
+    const l = a.limites;
+    const x = l ? Math.min(Math.max(dx, l.minX), l.maxX) : dx;
+    const y = l ? Math.min(Math.max(dy, l.minY), l.maxY) : dy;
+    e.currentTarget.style.transform = `translate3d(${x}px, ${y}px, 0)`;
   }
   function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
     const a = arrastreRef.current;
