@@ -65,19 +65,32 @@ export function urlCalendario(clase: ClaseParaEnlace, estudioNombre: string, dir
 /**
  * Enlace de «cómo llegar».
  *
- * `https://maps.google.com/?q=` y no un esquema propio de iOS o Android: el
- * navegador de cada plataforma ya redirige a su app de mapas, y así no hay que
- * detectar el sistema —que es justo la clase de detección que envejece mal.
+ * ⚠️ Decía: «`https://maps.google.com/?q=` y no un esquema propio de iOS o
+ * Android: el navegador de cada plataforma ya redirige a su app de mapas». La
+ * segunda mitad no es cierta. En un iPhone, `maps.google.com` abre la app de
+ * Google Maps SI la tiene instalada y, si no, Google Maps dentro de Safari;
+ * **nunca** abre Apple Maps, que es la app de mapas que ese teléfono trae y la
+ * que está conectada a su coche, sus contactos y su reloj.
+ *
+ * Es el mismo fallo que tenía «+ Calendario» justo al lado, y por el mismo
+ * motivo: dar por hecho que un enlace de Google es neutral.
+ *
+ * `maps.apple.com` es el enlace universal de Apple: en iPhone, iPad y Mac abre
+ * Mapas directamente. Se manda ahí solo a los aparatos de Apple; el resto sigue
+ * con Google, que es lo correcto en Android.
  */
-export function urlComoLlegar(direccion: string, estudioNombre: string): string {
-  return `https://maps.google.com/?q=${encodeURIComponent(direccion || estudioNombre)}`;
+export function urlComoLlegar(direccion: string, estudioNombre: string, ua = ''): string {
+  const q = encodeURIComponent(direccion || estudioNombre);
+  return esApple(ua) ? `https://maps.apple.com/?q=${q}` : `https://maps.google.com/?q=${q}`;
 }
 
 
 // ─── A qué calendario va esta persona ───────────────────────────────────────
 
 /**
- * `'apple'` si el aparato es de Apple; `'google'` para todo lo demás.
+ * ¿El aparato es de Apple? Lo usan los DOS botones de la tarjeta de próxima
+ * clase: «+ Calendario» y «Cómo llegar». Por eso ya no se llama
+ * `plataformaCalendario`.
  *
  * ⚠️ Aquí SÍ se detecta plataforma, a diferencia de `urlComoLlegar`, y la
  * diferencia no es de criterio sino del problema: para mapas existe una URL que
@@ -94,8 +107,8 @@ export function urlComoLlegar(direccion: string, estudioNombre: string): string 
  * iPad disfrazado acaba donde debe sin distinguirlo. Si algún día Mac y iPad
  * necesitaran caminos distintos, entonces sí haría falta.
  */
-export function plataformaCalendario(ua: string): 'apple' | 'google' {
-  return /iPad|iPhone|iPod|Macintosh|Mac OS X/i.test(ua) ? 'apple' : 'google';
+export function esApple(ua: string): boolean {
+  return /iPad|iPhone|iPod|Macintosh|Mac OS X/i.test(ua);
 }
 
 /** La clase, en los instantes ISO reales que pide `lib/calendario-ics.ts`. */
@@ -132,7 +145,7 @@ export function añadirAlCalendario(
   direccion: string,
   instructora?: string,
 ): void {
-  if (plataformaCalendario(navigator.userAgent) === 'google') {
+  if (!esApple(navigator.userAgent)) {
     window.open(urlCalendario(clase, estudioNombre, direccion), '_blank', 'noopener');
     return;
   }

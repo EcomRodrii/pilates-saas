@@ -239,7 +239,7 @@ export default function InicioPage() {
                 // y «Cómo llegar» MUERTOS: el paquete los resuelve con un toast
                 // de maqueta y al copiarlo se quedaron sin nada detrás.
                 onCalendario={() => añadirAlCalendario(proxima.c, estudio.nombre, estudio.direccion, data.instructoras.find((i) => i.id === proxima.c.instructoraId)?.nombre)}
-                onComoLlegar={() => window.open(urlComoLlegar(estudio.direccion, estudio.nombre), '_blank', 'noopener')}
+                onComoLlegar={() => window.open(urlComoLlegar(estudio.direccion, estudio.nombre, navigator.userAgent), '_blank', 'noopener')}
               />
             ) : (
               <EmptyState
