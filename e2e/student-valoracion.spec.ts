@@ -254,4 +254,91 @@ test.describe('Student PWA · valoración inicial', () => {
     await expect(page.getByTestId('card-valoracion')).toBeVisible({ timeout: 90_000 });
     await expect(page.getByTestId('card-valoracion')).toContainText(/cuéntanos cómo empiezas/i);
   });
+  // ── Volver cuando ya la has hecho ─────────────────────────────────────────
+  //
+  // El fallo que reportó Marco: «al finalizar, si me voy otra vez a perfil y le
+  // doy a valoración, tengo que repetir otra vez todo». Las respuestas SÍ se
+  // guardaban y SÍ se rehidrataban — lo que no se rehidrataba era el PASO: se
+  // abría siempre en la pregunta 1, así que había que pulsar «Continuar» diez
+  // veces, con todo ya marcado, para volver a llegar al botón de guardar.
+
+  const YA_COMPLETADA = {
+    id: 'v-hecha', estado: 'COMPLETADA', creadoEn: '2026-09-01T10:00:00Z',
+    valoracion: {
+      objetivos: ['movilidad', 'postura'], objetivoPrincipal: 'movilidad',
+      experiencia: 'nunca', nivel: 'principiante',
+      actividadHabitual: '', frecuencia: null, expectativas: 'Quiero mejorar la postura.',
+      tieneMolestias: null, zonas: [], detalle: '', estadoCuerpo: null,
+    },
+  };
+
+  async function montarYaHecha(page: Page) {
+    const contador = { completar: 0 };
+    await sembrarSociaLista(page);
+    await page.route((u) => u.pathname === '/api/public/valoracion', async (r) => {
+      if (r.request().method() === 'GET') {
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+          activa: true, conSalud: false,
+          historial: { inicial: YA_COMPLETADA, actual: YA_COMPLETADA, borrador: null, vueltas: 1 },
+        }) });
+      }
+      const b = JSON.parse(r.request().postData() ?? '{}') as { accion?: string };
+      if (b.accion === 'completar') contador.completar++;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+    });
+    return contador;
+  }
+
+  test('⚠️ al volver ya completada, se abre en el RESUMEN — no en la pregunta 1', async ({ page }) => {
+    await montarYaHecha(page);
+    await page.goto(`${base}/valoracion`, { waitUntil: 'domcontentloaded' });
+    // Directa al resumen: el botón de guardar está a la vista sin pulsar nada.
+    await expect(page.getByTestId('guardar-valoracion')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('heading', { name: /qué te gustaría conseguir/i })).toHaveCount(0);
+    // Y con sus respuestas, no en blanco.
+    await expect(page.getByText('Movilidad · Postura')).toBeVisible();
+    await expect(page.getByText('Principiante')).toBeVisible();
+  });
+
+  test('se le dice que ya la entregó, no se le pide que la repase antes de guardar', async ({ page }) => {
+    await montarYaHecha(page);
+    await page.goto(`${base}/valoracion`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText(/esto es lo que nos contaste/i)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/si está todo bien, no tienes que hacer nada/i)).toBeVisible();
+  });
+
+  test('⚠️ guardar SIN tocar nada no crea una versión nueva', async ({ page }) => {
+    // Append-only: una COMPLETADA idéntica ensucia el historial que la
+    // instructora usa para ver qué cambió.
+    const c = await montarYaHecha(page);
+    await page.goto(`${base}/valoracion`, { waitUntil: 'domcontentloaded' });
+    const guardar = page.getByTestId('guardar-valoracion');
+    await expect(guardar).toBeVisible({ timeout: 60_000 });
+    await expect(guardar).toHaveText(/todo correcto/i);
+    await guardar.click();
+    await expect(page.getByText(/gracias/i)).toBeVisible({ timeout: 30_000 });
+    expect(c.completar).toBe(0);
+  });
+
+  test('editar un bloque desde el resumen VUELVE al resumen, no recorre el resto', async ({ page }) => {
+    const c = await montarYaHecha(page);
+    await page.goto(`${base}/valoracion`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('guardar-valoracion')).toBeVisible({ timeout: 60_000 });
+
+    await page.getByRole('button', { name: /editar nivel/i }).click();
+    await expect(page.getByRole('heading', { name: /cómo dirías que estás/i })).toBeVisible({ timeout: 30_000 });
+    // El botón dice «Listo», no «Continuar»: no va a seguir el cuestionario.
+    await expect(page.getByTestId('continuar')).toHaveText(/listo/i);
+    await page.getByRole('button', { name: 'Intermedio' }).click();
+    await page.getByTestId('continuar').click();
+
+    // De vuelta al resumen, con el cambio puesto y sin haber pasado por nada más.
+    const guardar = page.getByTestId('guardar-valoracion');
+    await expect(guardar).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Intermedio')).toBeVisible();
+    // Y ahora SÍ hay algo que guardar.
+    await expect(guardar).toHaveText(/guardar los cambios/i);
+    await guardar.click();
+    await expect.poll(() => c.completar, { timeout: 30_000 }).toBe(1);
+  });
 });

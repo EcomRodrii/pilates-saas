@@ -132,6 +132,7 @@ export const PASO_COPY: Record<IdPaso, CopyPaso> = {
     titulo: 'Esto es lo que nos has contado',
     ayuda: 'Repásalo con calma. Puedes cambiar cualquier cosa.',
   },
+
 };
 
 /** El título corto de cada bloque en el resumen y en la ficha del panel. */

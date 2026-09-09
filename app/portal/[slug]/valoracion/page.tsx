@@ -17,7 +17,7 @@ import {
 } from '@/lib/student/valoracion';
 import {
   VALORACION_VACIA, OBJETIVOS, EXPERIENCIAS, NIVELES, ESTADOS_CUERPO, ZONAS, FRECUENCIAS,
-  pasosVisibles, loQueFalta, normalizar,
+  pasosVisibles, loQueFalta, normalizar, pasoInicial, difiereDe,
   type Valoracion, type IdPaso, type Objetivo, type Zona,
 } from '@/lib/valoracion-inicial';
 import {
@@ -62,6 +62,10 @@ export default function ValoracionPage() {
   const [error, setError] = useState('');
   const [hidratadoDe, setHidratadoDe] = useState<string | null>(null);
   const [listo, setListo] = useState(false);
+  // ⚠️ Editar un bloque desde el resumen y quedarse dentro del cuestionario es
+  // el mismo problema en pequeño: cambias el nivel y te toca recorrer las seis
+  // pantallas siguientes para volver a guardar. Con esto, «Editar» va y vuelve.
+  const [volviendoAlResumen, setVolviendoAlResumen] = useState(false);
 
   // Se rellena con lo que ya había —el borrador si lo hay, y si no la última
   // completada, porque «actualizar mi valoración» parte de lo que dijo, no de
@@ -74,6 +78,17 @@ export default function ValoracionPage() {
     setConSalud(data.conSalud);
     const previa = data.historial?.borrador ?? data.historial?.actual;
     if (previa) setV(previa.valoracion);
+    // ⚠️ Y se entra por donde toca, que es la mitad que faltaba. Rellenar las
+    // respuestas no basta: abriendo siempre en la pregunta 1, quien ya la había
+    // terminado tenía que pulsar «Continuar» diez veces —con todo ya marcado—
+    // para volver a llegar al botón de guardar. Se veía, con razón, como tener
+    // que repetirlo todo.
+    if (data.historial) {
+      const destino = pasoInicial(data.historial, previa?.valoracion ?? VALORACION_VACIA, data.conSalud);
+      const lista = pasosVisibles(previa?.valoracion ?? VALORACION_VACIA, data.conSalud);
+      const idx = lista.findIndex((p) => p.id === destino);
+      if (idx > 0) setI(idx);
+    }
   }
 
   const pasos = pasosVisibles(v, conSalud);
@@ -100,9 +115,18 @@ export default function ValoracionPage() {
     lista.includes(valor) ? lista.filter((x) => x !== valor) : [...lista, valor];
 
   /** Guarda por detrás al avanzar. Si falla, se dice — no se avanza en falso. */
+  const irAlResumen = () => {
+    const idx = pasos.findIndex((p) => p.id === 'resumen');
+    if (idx >= 0) setI(idx);
+    setVolviendoAlResumen(false);
+  };
+
   const avanzar = async () => {
     if (indice >= pasos.length - 1) return;
-    setI(indice + 1);
+    // Si vino a cambiar UNA cosa desde el resumen, vuelve al resumen — no la
+    // arrastramos por el resto del cuestionario que ya tenía contestado.
+    if (volviendoAlResumen) irAlResumen();
+    else setI(indice + 1);
     // El guardado va en segundo plano: bloquear el paso siguiente por una
     // petición de red convertiría nueve pasos en nueve esperas.
     const r = await guardarBorrador(estudio.id, v);
@@ -110,11 +134,22 @@ export default function ValoracionPage() {
   };
 
   const retroceder = () => {
+    if (volviendoAlResumen) { irAlResumen(); return; }
     if (indice === 0) { router.push(href()); return; }
     setI(indice - 1);
   };
 
   const terminar = async () => {
+    // ⚠️ Sin cambios NO se escribe nada. Es append-only: guardar sin haber
+    // tocado nada crearía una COMPLETADA idéntica a la anterior, y el
+    // historial —que existe para que la instructora vea qué cambió— se
+    // llenaría de versiones que no dicen nada. Salir sin escribir no es un
+    // fallo: es que no había nada que contar.
+    if (!difiereDe(v, data?.historial?.actual?.valoracion)) {
+      setListo(true);
+      setTimeout(() => router.replace(href()), 900);
+      return;
+    }
     setError(''); setGuardando(true);
     const r = await completarValoracion(estudio.id, v);
     setGuardando(false);
@@ -367,7 +402,16 @@ export default function ValoracionPage() {
           )}
 
           {enResumen && (
-            <Resumen v={v} conSalud={conSalud} irA={(id) => { const idx = pasos.findIndex((p) => p.id === id); if (idx >= 0) setI(idx); }} />
+            <Resumen
+              v={v}
+              conSalud={conSalud}
+              yaCompletada={Boolean(data?.historial?.actual)}
+              fechaPrevia={data?.historial?.actual?.creadoEn}
+              irA={(id) => {
+                const idx = pasos.findIndex((p) => p.id === id);
+                if (idx >= 0) { setVolviendoAlResumen(true); setI(idx); }
+              }}
+            />
           )}
         </div>
 
@@ -379,15 +423,21 @@ export default function ValoracionPage() {
         <div style={{ display: 'flex', flexDirection: 'column-reverse', gap: 'var(--s-2)', paddingBottom: 'var(--s-6)' }}>
           {enResumen ? (
             <Button full loading={guardando} disabled={!online || faltan.length > 0} onClick={() => void terminar()} data-testid="guardar-valoracion">
-              {online ? 'Guardar mi valoración' : 'Sin conexión'}
+              {!online
+                ? 'Sin conexión'
+                : !data?.historial?.actual
+                  ? 'Guardar mi valoración'
+                  : difiereDe(v, data.historial.actual.valoracion)
+                    ? 'Guardar los cambios'
+                    : 'Todo correcto'}
             </Button>
           ) : (
             <Button full onClick={() => void avanzar()} disabled={!paso?.opcional && faltaEsteePaso(paso?.id, v)} data-testid="continuar">
-              Continuar
+              {volviendoAlResumen ? 'Listo' : 'Continuar'}
             </Button>
           )}
           <Button variant="ghost" full onClick={retroceder}>
-            {indice === 0 ? 'Salir' : 'Atrás'}
+            {volviendoAlResumen ? 'Cancelar' : indice === 0 ? 'Salir' : 'Atrás'}
           </Button>
         </div>
 
@@ -418,7 +468,12 @@ function faltaEsteePaso(id: IdPaso | undefined, v: Valoracion): boolean {
  * El repaso antes de guardar. Cada bloque se puede editar sin perder el sitio:
  * lleva a su paso y se vuelve aquí.
  */
-function Resumen({ v, conSalud, irA }: { v: Valoracion; conSalud: boolean; irA: (id: IdPaso) => void }) {
+function Resumen({ v, conSalud, irA, yaCompletada, fechaPrevia }: {
+  v: Valoracion; conSalud: boolean; irA: (id: IdPaso) => void;
+  /** ¿Vuelve a mirar una valoración que ya entregó? Cambia lo que significa esta pantalla. */
+  yaCompletada?: boolean;
+  fechaPrevia?: string;
+}) {
   const filas: { id: IdPaso; titulo: string; valor: string }[] = [
     { id: 'objetivos', titulo: BLOQUE_TITULO.objetivos!, valor: v.objetivos.map((o) => OBJETIVO_CHIP[o]).join(' · ') || '—' },
     { id: 'experiencia', titulo: BLOQUE_TITULO.experiencia!, valor: v.experiencia ? EXPERIENCIA_TEXTO[v.experiencia] : '—' },
@@ -444,6 +499,16 @@ function Resumen({ v, conSalud, irA }: { v: Valoracion; conSalud: boolean; irA: 
 
   return (
     <div className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
+      {/* Quien vuelve no está «repasando antes de guardar»: está mirando lo que
+          ya entregó. Decirlo cambia lo que la pantalla le pide — nada, salvo
+          que quiera cambiar algo. */}
+      {yaCompletada && (
+        <p className="note note--ok" style={{ marginBottom: 'var(--s-2)' }}>
+          Esto es lo que nos contaste
+          {fechaPrevia ? ` el ${new Date(fechaPrevia).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}` : ''}.
+          Cambia lo que quieras; si está todo bien, no tienes que hacer nada.
+        </p>
+      )}
       {filas.map((f) => (
         <div key={f.id} className="card card--pad-lg row row--top" style={{ gap: 'var(--s-3)' }}>
           <div className="stack trunc" style={{ ['--gap' as string]: '3px', flex: 1 }}>
