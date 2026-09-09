@@ -48,6 +48,25 @@ export async function enviarWhatsAppTexto(
 // aprobación — ver instrucciones en components/configuracion/tab-integraciones.tsx.
 export const PLANTILLA_RECORDATORIO = { nombre: 'recordatorio_clase', idioma: 'es' } as const;
 
+// Aviso de hueco libre («Rellenar hueco» de la home y el radar de ocupación).
+// Plantilla PROPIA y no la de recordatorio por dos motivos que no se pueden
+// juntar en una: el cuerpo es distinto (invita a reservar, no recuerda una
+// reserva que ya existe) y sobre todo la CATEGORÍA de Meta es distinta —
+// esto es MARKETING, no UTILITY, porque su fin es que la socia compre una
+// plaza. Mandarlo bajo una plantilla de utilidad es justo lo que Meta
+// recategoriza o tumba.
+//
+// Por eso también tiene su propio interruptor en Configuración →
+// Integraciones (`plantillaHuecoAprobada`) en vez de reutilizar el del
+// recordatorio: un estudio puede tener aprobada una y no la otra, y dar por
+// aprobada la que no lo está devuelve error 132001 («template does not
+// exist») en TODOS los envíos, no en algunos.
+//
+// El cuerpo termina en texto fijo a propósito (`¡Te esperamos!`): así ninguna
+// variable queda pegada al final, que es donde Meta es más quisquillosa al
+// revisar una plantilla.
+export const PLANTILLA_HUECO = { nombre: 'hueco_disponible', idioma: 'es' } as const;
+
 /** Envía un mensaje por plantilla HSM pre-aprobada por Meta (fuera de la ventana de 24h). */
 export async function enviarWhatsAppPlantilla(
   creds: WhatsAppCredenciales,
