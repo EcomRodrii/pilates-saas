@@ -56,14 +56,21 @@ async function huecoBajoElCompositor(page: Page) {
 
 test.describe('Student PWA · hilo de mensajes', () => {
   test.describe.configure({ timeout: 120_000 });
-  test.use({ viewport: { width: 390, height: 844 } });
+  // ⚠️ Zona horaria fijada A PROPÓSITO. `horaCorta` usa
+  // `toLocaleTimeString` SIN `timeZone`, o sea la hora del DISPOSITIVO — que es
+  // lo correcto en un chat (ninguna app de mensajería te enseña la hora del
+  // servidor) y distinto de cómo la app trata las FECHAS de clase, que sí van
+  // ancladas a Madrid. Sin fijarla aquí, el test pasaba en mi Mac (Madrid) y
+  // fallaba en CI (UTC): 20:02 contra 18:02. El fallo era del test, no de la app.
+  test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });
 
   test('se ve la conversación, con quién habla y qué se dijo', async ({ page }) => {
     await montar(page);
     await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('¿Queda sitio en la de mañana a las 10?')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible();
-    // Las horas van en la zona del estudio, no en UTC: 18:02Z es 20:02 en Madrid.
+    // 18:02Z son las 20:02 en el navegador, que va fijado a Madrid arriba.
+    // (La hora del chat es la del DISPOSITIVO, no la del estudio — ver la nota.)
     await expect(page.getByText('20:02')).toBeVisible();
   });
 
