@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   VALORACION_VACIA, loQueFalta, sePuedeCompletar, normalizar, pasosVisibles,
-  repartirHistorial, queHaCambiado, type Valoracion, type FilaValoracion,
+  repartirHistorial, queHaCambiado, pasoInicial, difiereDe,
+  type Valoracion, type FilaValoracion,
 } from './valoracion-inicial.ts';
 
 const con = (over: Partial<Valoracion>): Valoracion => ({ ...VALORACION_VACIA, ...over });
@@ -272,3 +273,76 @@ test('reescribir las expectativas NO cuenta como cambio', () => {
   ]);
   assert.deepEqual(queHaCambiado(h), []);
 });
+
+// ── Por dónde se entra: el bug de «tengo que repetirlo todo» ───────────────
+
+test('⚠️ quien YA la completó entra por el RESUMEN, no por la pregunta 1', () => {
+  // El fallo original: abría siempre en el primer paso, así que volver a
+  // Perfil → Valoración obligaba a pulsar «Continuar» diez veces con las
+  // respuestas ya marcadas para llegar otra vez al botón de guardar.
+  const h = repartirHistorial([fila('hecha', 'COMPLETADA', '2026-01-10T10:00:00Z')]);
+  assert.equal(pasoInicial(h, COMPLETA, false), 'resumen');
+});
+
+test('quien no ha empezado entra por la primera pregunta', () => {
+  const h = repartirHistorial([]);
+  assert.equal(pasoInicial(h, VALORACION_VACIA, false), 'objetivos');
+});
+
+test('con un borrador a medias, entra por lo primero que le FALTA', () => {
+  // Ni al principio (ya contestó cosas) ni al final (le falta contestar).
+  const aMedias = con({ objetivos: ['fuerza'], objetivoPrincipal: 'fuerza', experiencia: 'nunca' });
+  const h = repartirHistorial([{ id: 'b', estado: 'EN_PROGRESO', creadoEn: '2026-05-01T10:00:00Z', valoracion: aMedias }]);
+  assert.equal(pasoInicial(h, aMedias, false), 'nivel');
+});
+
+test('un borrador con TODO contestado entra por el resumen', () => {
+  const h = repartirHistorial([{ id: 'b', estado: 'EN_PROGRESO', creadoEn: '2026-05-01T10:00:00Z', valoracion: COMPLETA }]);
+  assert.equal(pasoInicial(h, COMPLETA, false), 'resumen');
+});
+
+test('el hueco se busca en el ORDEN DE LA PANTALLA, no en el de loQueFalta', () => {
+  // Sin objetivos ni nivel, el primer paso visible que falta es «objetivos»:
+  // mandarla a «nivel» dejaría «atrás» llevando a un sitio que no esperaba.
+  const v = con({ objetivos: [], experiencia: 'nunca', nivel: null });
+  const h = repartirHistorial([{ id: 'b', estado: 'EN_PROGRESO', creadoEn: '2026-05-01T10:00:00Z', valoracion: v }]);
+  assert.equal(pasoInicial(h, v, false), 'objetivos');
+});
+
+test('si tiene borrador Y completada, manda el borrador', () => {
+  // Está a medias de una ACTUALIZACIÓN: sigue por donde iba, no la manda al
+  // resumen de lo viejo.
+  const aMedias = con({ objetivos: ['fuerza'], objetivoPrincipal: 'fuerza' });
+  const h = repartirHistorial([
+    fila('vieja', 'COMPLETADA', '2026-01-10T10:00:00Z'),
+    { id: 'b', estado: 'EN_PROGRESO', creadoEn: '2026-05-01T10:00:00Z', valoracion: aMedias },
+  ]);
+  assert.equal(pasoInicial(h, aMedias, false), 'experiencia');
+});
+
+// ── No crear una versión que no dice nada nuevo ────────────────────────────
+
+test('⚠️ guardar sin haber tocado nada NO cuenta como cambio', () => {
+  // Sin esto, entrar a mirar la valoración y pulsar guardar crearía una
+  // COMPLETADA idéntica: el historial se llena de versiones vacías y «qué ha
+  // cambiado» empieza a comparar duplicados.
+  assert.equal(difiereDe(COMPLETA, COMPLETA), false);
+});
+
+test('sin valoración previa, cualquier cosa es un cambio', () => {
+  assert.equal(difiereDe(COMPLETA, null), true);
+});
+
+test('difiereDe ve los campos que importan, incluidos los de salud', () => {
+  assert.equal(difiereDe(con({ ...COMPLETA, nivel: 'avanzado' }), COMPLETA), true);
+  assert.equal(difiereDe(con({ ...COMPLETA, tieneMolestias: true, zonas: ['lumbar'] }), COMPLETA), true);
+  assert.equal(difiereDe(con({ ...COMPLETA, estadoCuerpo: 'agil' }), COMPLETA), true);
+  assert.equal(difiereDe(con({ ...COMPLETA, expectativas: 'otra cosa' }), COMPLETA), true);
+});
+
+test('difiereDe no se deja engañar por espacios ni por el orden de los objetivos', () => {
+  const a = con({ ...COMPLETA, objetivos: ['postura', 'movilidad'], expectativas: '  algo  ' });
+  const b = con({ ...COMPLETA, objetivos: ['movilidad', 'postura'], expectativas: 'algo' });
+  assert.equal(difiereDe(a, b), false);
+});
+

@@ -337,3 +337,68 @@ export function queHaCambiado(h: Historial): Cambio[] {
   if (za !== zb) cambios.push({ campo: 'zonas', antes: za || '—', ahora: zb || '—' });
   return cambios;
 }
+
+// ── Por dónde se entra ──────────────────────────────────────────────────────
+
+/**
+ * En qué paso se abre la pantalla.
+ *
+ * ⚠️ Esto existe porque la primera versión abría SIEMPRE en la pregunta 1, y
+ * para quien ya la había terminado eso significaba pulsar «Continuar» diez
+ * veces —con sus propias respuestas ya marcadas— solo para volver a llegar al
+ * botón de guardar. Las respuestas no se perdían; lo que se perdía era el
+ * tiempo, y desde fuera se ve igual: «tengo que repetirlo todo».
+ *
+ * Las tres entradas son tres intenciones distintas:
+ *  · Ya la completó y no tiene nada a medias → viene a MIRAR lo que dijo, y
+ *    quizá a cambiar una cosa. Se abre en el resumen, que es justo esa pantalla.
+ *  · Tiene un borrador → viene a SEGUIR. Se abre en la primera pregunta que le
+ *    falta, no al principio: lo que ya contestó no hay que volver a pasarlo.
+ *  · No hay nada → viene a EMPEZAR. Primera pregunta.
+ */
+export function pasoInicial(h: Historial, v: Valoracion, conConsentimientoSalud: boolean): IdPaso {
+  const pasos = pasosVisibles(v, conConsentimientoSalud);
+  const primero = pasos[0]?.id ?? 'resumen';
+
+  // Terminada y sin nada a medias: al resumen.
+  if (h.actual && !h.borrador) return 'resumen';
+
+  // Con borrador (o sin nada): a lo primero que falte. Si no falta nada —un
+  // borrador con todo contestado— también al resumen, que es lo que le queda.
+  const falta = loQueFalta(v, conConsentimientoSalud);
+  if (falta.length === 0) return h.borrador ? 'resumen' : primero;
+  // El primer hueco EN EL ORDEN DE LA PANTALLA, no en el orden en que
+  // `loQueFalta` los enumera: mandarla al paso 7 teniendo el 3 en blanco haría
+  // que «atrás» la llevara a un sitio que no esperaba.
+  const enPantalla = pasos.find((p) => falta.includes(p.id));
+  return enPantalla?.id ?? primero;
+}
+
+/**
+ * ¿Ha cambiado algo respecto a lo que ya había declarado?
+ *
+ * ⚠️ Guarda el append-only de tener sentido. Sin esto, entrar a mirar la
+ * valoración y pulsar guardar sin tocar nada crea una COMPLETADA nueva
+ * idéntica a la anterior: el historial se llena de versiones que no dicen nada
+ * y «qué ha cambiado» empieza a comparar duplicados. Una versión nueva tiene
+ * que significar que dijo algo distinto.
+ */
+export function difiereDe(v: Valoracion, previa: Valoracion | undefined | null): boolean {
+  if (!previa) return true;
+  const a = normalizar(v);
+  const b = normalizar(previa);
+  return (
+    a.objetivos.join() !== b.objetivos.join()
+    || a.objetivoPrincipal !== b.objetivoPrincipal
+    || a.experiencia !== b.experiencia
+    || a.nivel !== b.nivel
+    || a.actividadHabitual !== b.actividadHabitual
+    || a.frecuencia !== b.frecuencia
+    || a.expectativas !== b.expectativas
+    || a.tieneMolestias !== b.tieneMolestias
+    || a.zonas.join() !== b.zonas.join()
+    || a.detalle !== b.detalle
+    || a.estadoCuerpo !== b.estadoCuerpo
+  );
+}
+
