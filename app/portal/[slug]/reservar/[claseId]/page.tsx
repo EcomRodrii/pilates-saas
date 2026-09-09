@@ -328,6 +328,7 @@ export default function FichaClasePage() {
                 instructora={inst}
                 bono={disp === 'completa' ? null : bono}
                 bonoNoCubre={bonoNoCubre}
+                enEspera={disp === 'completa'}
                 politicaHoras={aviso?.horasVentana ?? estudio.politicaCancelacionHoras}
               />
             </div>

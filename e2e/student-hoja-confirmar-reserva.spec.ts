@@ -26,8 +26,9 @@ async function montar(page: Page, o: {
   ventanaTipo?: number | null;
   ventanaEstudio?: number;
   conBono?: boolean;
+  llena?: boolean;
 } = {}) {
-  const { precioPuntual = null, ventanaTipo = null, ventanaEstudio = 12, conBono = false } = o;
+  const { precioPuntual = null, ventanaTipo = null, ventanaEstudio = 12, conBono = false, llena = false } = o;
   await sembrarSociaLista(page);
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   (f.studio as Record<string, unknown>).cancelacionVentanaHoras = ventanaEstudio;
@@ -48,6 +49,15 @@ async function montar(page: Page, o: {
     ];
   }
   const json = (b: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
+  if (llena) {
+    // El aforo llega por dos vías y las dos tienen que decir lo mismo: el
+    // payload (`aforoReservas`) y `/api/public/aforo`, que la ficha pide aparte.
+    // ⚠️ `sesion_id`, en snake_case: `proyectarClases` cuenta el aforo con el
+    // nombre crudo de la fila, no con el camelCase del resto de proyecciones.
+    const ocupado = Array.from({ length: 10 }, () => ({ sesion_id: SESION_ID, estado: 'CONFIRMADA' }));
+    f.aforoReservas = ocupado;
+    await page.route('**/api/public/aforo**', (r) => r.fulfill(json({ sesionIds: [SESION_ID], aforoReservas: ocupado })));
+  }
   await page.route('**/api/public/studio-data', (r) => r.fulfill(json(f)));
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill(json({ items: [], unread: 0 })));
 }
@@ -98,5 +108,25 @@ test.describe('Student PWA · hoja de confirmar la reserva', () => {
     const hoja = page.locator('[role="dialog"]').last();
     await expect(hoja).toContainText('Cancelación gratuita hasta 2 h antes');
     expect(await hoja.innerText(), 'sigue prometiendo la ventana del estudio').not.toContain('hasta 12 h antes');
+  });
+
+  test('en lista de espera NO se habla de cómo se paga', async ({ page }) => {
+    // ⚠️ Con la clase llena, la hoja pasa `bono={null}` a propósito: apuntarse a
+    // la lista no consume nada todavía. Pero eso hacía que el aviso de pago
+    // leyera «no tiene bono» y soltara «Esta clase solo se reserva con bono» a
+    // quien SÍ lo tiene — daba igual antes, porque los cuatro mensajes salían
+    // con el mismo ✓ verde y nadie lo leía como una negativa. Al darle a cada
+    // tono su cara, ese mismo texto se convierte en un × rojo delante de una
+    // alumna con bono de sobra. La respuesta no es fingir un tono: es que en
+    // una lista de espera esa pregunta todavía no toca.
+    await montar(page, { conBono: true, llena: true });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const espera = page.getByRole('button', { name: /lista de espera/i }).first();
+    await expect(espera).toBeVisible({ timeout: 30_000 });
+    await espera.click();
+    const hoja = page.locator('[role="dialog"]').last();
+    await expect(hoja).toContainText('Sin coste');
+    await expect(hoja.locator('[data-tono]'), 'la lista de espera no cobra nada, no hay «cómo se paga» que contar').toHaveCount(0);
+    expect(await hoja.innerText(), 'le niega la clase a quien tiene bono').not.toContain('solo se reserva con bono');
   });
 });

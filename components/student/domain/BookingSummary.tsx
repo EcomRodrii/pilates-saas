@@ -14,12 +14,26 @@ const CARA: Record<TonoPago, { icono: string; clase: string }> = {
 };
 
 /** Resumen antes de confirmar: clase + instructora + cómo se paga + política. */
-export function BookingSummary({ clase, instructora, bono, bonoNoCubre = false, politicaHoras }: {
+export function BookingSummary({ clase, instructora, bono, bonoNoCubre = false, enEspera = false, politicaHoras }: {
   clase: Clase;
   instructora?: Instructora;
   bono: Bono | null;
   /** Tiene bono con saldo pero ninguno cubre este tipo de clase. */
   bonoNoCubre?: boolean;
+  /**
+   * Apuntarse a la LISTA DE ESPERA, no reservar.
+   *
+   * ⚠️ Aquí no se pinta el aviso de pago, y no es una simplificación: quien
+   * llama pasa `bono={null}` a propósito porque apuntarse no consume nada
+   * todavía, así que `comoSePaga` leía «no tiene bono» y soltaba «esta clase
+   * solo se reserva con bono» a quien SÍ lo tiene. Daba igual mientras los
+   * cuatro mensajes salían con el mismo ✓ verde y nadie los leía como una
+   * negativa; en cuanto cada tono tiene su cara, ese texto es un × rojo
+   * delante de una alumna con bono de sobra. La respuesta no es fingir un
+   * tono: es que en una lista de espera esa pregunta todavía no toca — y la
+   * hoja ya dice lo que sí toca («Sin coste — solo reservas si se libera»).
+   */
+  enEspera?: boolean;
   /**
    * ⚠️ La ventana YA RESUELTA (`avisoCancelacion(...).horasVentana`), no
    * `estudio.politicaCancelacionHoras`. Esta pantalla se dejó fuera del arreglo
@@ -42,11 +56,15 @@ export function BookingSummary({ clase, instructora, bono, bonoNoCubre = false, 
           <p className="t-meta" style={{ marginTop: 1 }}>{etiquetaDia(clase.fecha)} · {clase.hora} · {clase.duracionMin} min · {instructora?.nombre}</p>
         </div>
       </div>
-      <div className={'note note--simbolo ' + cara.clase} data-tono={tono} style={{ marginTop: 9 }}>
-        <span aria-hidden className="note-simbolo"><span>{cara.icono}</span></span>
-        <span>{texto}</span>
-      </div>
-      <p className="t-meta" style={{ margin: '9px 0 0', textAlign: 'center', color: 'var(--subtle-foreground)' }}>Cancelación gratuita hasta {politicaHoras} h antes — recuperas la sesión.</p>
+      {!enEspera && (
+        <>
+          <div className={'note note--simbolo ' + cara.clase} data-tono={tono} style={{ marginTop: 9 }}>
+            <span aria-hidden className="note-simbolo"><span>{cara.icono}</span></span>
+            <span>{texto}</span>
+          </div>
+          <p className="t-meta" style={{ margin: '9px 0 0', textAlign: 'center', color: 'var(--subtle-foreground)' }}>Cancelación gratuita hasta {politicaHoras} h antes — recuperas la sesión.</p>
+        </>
+      )}
     </div>
   );
 }
