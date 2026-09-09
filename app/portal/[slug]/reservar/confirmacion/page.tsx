@@ -39,7 +39,14 @@ function Contenido() {
         onRetry={() => router.back()}
         onWaitlist={() => router.back()}
         onClose={() => router.push(
-          estado === 'confirmed' || estado === 'waitlisted' ? href('/mis-reservas') : href('/reservar'),
+          estado === 'confirmed' || estado === 'waitlisted'
+            ? href('/mis-reservas')
+            // ⚠️ `session-expired` iba al HORARIO, con un botón que dice
+            // «Iniciar sesión». Acababa en el acceso igualmente porque la
+            // guardia de sesión rebota, pero por accidente y enseñando de paso
+            // una pantalla que nadie había pedido. La ficha de clase
+            // (`finalizar`) ya lo hacía bien: era esta la que se desviaba.
+            : estado === 'session-expired' ? href('/acceso/login') : href('/reservar'),
         )}
       />
     </div>
