@@ -122,6 +122,30 @@ test('la posición del menú usa el layout que YA existía, no una columna nueva
     'El menú tiene que LEER la posición del layout: declararla y no cablearla fue el problema original.');
 });
 
+// ⚠️ Reportado con capturas: al scrollear, el buscador se metía dentro del menú.
+test('lo pegado arriba se clava DEBAJO del menú, no encima', () => {
+  const topbar = leer('components/layout/topbar.tsx');
+  const sidebar = leer('components/layout/sidebar.tsx');
+
+  // Con el menú arriba, su barra es `fixed` y ocupa la banda superior. Un
+  // `sticky top-0` se clava en y=0 —dentro de esa banda— y con z-30 contra su
+  // z-20 la tapa: se veían las filas del menú por detrás del fondo translúcido
+  // del Topbar. El umbral tiene que salir de lo que el menú MIDE de sí mismo.
+  assert.ok(!/sticky\s+top-0\b/.test(topbar),
+    'El Topbar no puede clavarse en y=0: con el menú arriba eso es dentro de la barra.');
+  assert.match(topbar, /sticky\s+top-\[var\(--panel-sticky-top/,
+    'El Topbar tiene que clavarse a la altura que publica el menú.');
+
+  // Y esa variable la escribe quien mide la barra, junto a las otras dos, para
+  // que no puedan contradecirse (es lo que ya dice el comentario de la función).
+  assert.match(sidebar, /--panel-sticky-top/,
+    '`aplicarHuecos` tiene que publicar la altura a la que se puede clavar algo.');
+  // En columna NO hay nada fijo arriba: reutilizar ahí `--panel-top` (0.5rem)
+  // dejaba una rendija de 8 px por la que se veía pasar el contenido.
+  assert.match(sidebar, /--panel-sticky-top', horizontal \? bandaSuperior : '0px'/,
+    'En columna el sitio correcto es 0, no el aire del contenido.');
+});
+
 test('guardar el color repinta el panel sin recargar', () => {
   const src = leer(PANEL);
   // `PanelThemeProvider` ya escucha este evento. No dispararlo fue exactamente
