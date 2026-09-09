@@ -33,6 +33,19 @@ export interface AvisoCancelacion {
   /** Lo que se le ANUNCIA a la alumna. La decisión final es del servidor. */
   devolveriaCredito: boolean;
   horasRestantes: number;
+  /**
+   * La ventana que se ha APLICADO, ya resuelta: la del tipo de clase si la
+   * tiene, si no la del estudio.
+   *
+   * ⚠️ Existe porque dos pantallas decidían con la ventana resuelta y luego
+   * ESCRIBÍAN la del estudio: «Quedan menos de 12 h» en el diálogo de cancelar
+   * y «Gratis hasta 12 h antes» en la ficha de la clase. Con un tipo de clase
+   * que exige 24 h y un estudio que pide 12, cancelar 18 h antes pintaba el
+   * aviso ámbar —correcto— junto a la frase «quedan menos de 12 h», que además
+   * de ser el número equivocado se contradice sola. Quien pinta el aviso tiene
+   * que poder decir el número con el que se ha decidido.
+   */
+  horasVentana: number;
 }
 
 /**
@@ -59,6 +72,7 @@ export function avisoCancelacion(c: Clase, horasPolitica: number, ahora: Date = 
     puede: restan > 0,
     devolveriaCredito: restan >= horas,
     horasRestantes: Math.max(0, Math.floor(restan)),
+    horasVentana: horas,
   };
 }
 

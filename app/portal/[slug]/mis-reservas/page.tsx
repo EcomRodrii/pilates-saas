@@ -345,12 +345,18 @@ export default function MisReservasPage() {
             <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: aviso?.devolveriaCredito ? 'var(--accent-soft-foreground)' : 'var(--warning-foreground)' }}>
               {aviso?.devolveriaCredito
                 ? 'Estás dentro del plazo: deberías recuperar la sesión de tu bono.'
-                : `Quedan menos de ${estudio.politicaCancelacionHoras} h: es probable que la sesión no se devuelva.`}
+                : `Quedan menos de ${aviso?.horasVentana ?? estudio.politicaCancelacionHoras} h: es probable que la sesión no se devuelva.`}
             </p>
-            {/* ⚠️ «deberías» / «es probable» y no una promesa: este aviso lo
-                calcula el navegador con la política del ESTUDIO, y el tipo de
-                clase puede tener la suya propia. Quien decide es la base de
-                datos, y lo que de verdad pasó se dice después, con su
+            {/* ⚠️ El número sale de `aviso.horasVentana`, que es la ventana YA
+                RESUELTA (la del tipo de clase manda sobre la del estudio), no de
+                `estudio.politicaCancelacionHoras`. Escribir la del estudio era
+                el número equivocado en cuanto un tipo de clase tuviera la suya:
+                con 24 h propias y 12 del estudio, cancelar 18 h antes pintaba
+                este aviso ámbar —bien— y a la vez decía «quedan menos de 12 h»,
+                que es falso y se contradice solo.
+                Se conserva el «deberías» / «es probable»: el navegador aplica la
+                MISMA regla que el servidor, pero quien decide sigue siendo la
+                base de datos y lo que de verdad pasó se dice después, con su
                 respuesta. */}
           </div>
         )}

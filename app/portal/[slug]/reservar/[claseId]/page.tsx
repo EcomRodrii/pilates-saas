@@ -273,7 +273,7 @@ export default function FichaClasePage() {
           <Fila
             k="Cancelación"
             v={aviso?.devolveriaCredito
-              ? `Gratis hasta ${estudio.politicaCancelacionHoras} h antes`
+              ? `Gratis hasta ${aviso.horasVentana} h antes`
               : 'Ya no devuelve la sesión'}
           />
         </div>
