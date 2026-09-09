@@ -29,7 +29,15 @@ export async function renovarPlan(studioId: string): Promise<ResultadoRenovar> {
     const res = await fetch('/api/stripe/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...auth },
-      body: JSON.stringify({ studioId, reciboId: prep.reciboId, origen: 'portal' }),
+      // Pagos España: igual que /reservar/[slug], el checkout hospedado
+      // pinta su propio selector tarjeta/Bizum — basta con ofrecerlo. Un
+      // recibo ya es un cargo puntual (el importe lo fija facturación, no
+      // este botón), así que Bizum aquí no interactúa con el guardado de
+      // tarjeta de la PRIMERA cuota (eso solo pasa en `handleContratarPlan`,
+      // que compra el plan). Si la socia paga esta renovación con Bizum en
+      // vez de tarjeta, la siguiente renovación seguirá sin tarjeta
+      // guardada y dependerá de que vuelva a pulsar este mismo botón.
+      body: JSON.stringify({ studioId, reciboId: prep.reciboId, origen: 'portal', bizum: true }),
     });
     const cuerpo = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
     if (!res.ok || !cuerpo?.url) {
