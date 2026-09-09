@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { sePasaLista, sesionesQueSeDanPorAsistidas } from './pasar-lista.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -64,6 +66,34 @@ test('el barrido solo se lleva las sesiones donde NO se pasa lista', () => {
   ], estudios, tipos);
 
   assert.deepEqual(ids.sort(), ['a', 'e', 'f']);
+});
+
+// ── Que los DOS barridos usen esta misma regla ──────────────────────────────
+//
+// Hay dos que deciden sobre las mismas reservas y en direcciones opuestas:
+// `marcarAsistidasAutomaticamente` (cada 30 min) las marca ASISTIDA, y
+// `barrerNoShows` (cada noche) las marca NO_ASISTIO. Si uno de los dos deja de
+// consultar esta regla —o la reescribe por su cuenta y diverge—, vuelve el
+// fallo que este módulo cerró: a quien fue a una clase sin lista se le marca
+// falta, y el trigger de penalización se la cobra.
+//
+// No lo ve ningún compilador: son dos ficheros distintos que casualmente
+// coinciden. Se comprueba leyéndolos, mismo enfoque que
+// `rpc-columnas-declaradas.test.ts`.
+test('los dos barridos de asistencia deciden con esta misma regla', () => {
+  const raiz = join(import.meta.dirname, '..', '..');
+  const consumidores = [
+    'lib/checkin/marcar-asistidas-automatico.ts',
+    'lib/db/supabase-data-admin.ts',
+  ];
+  for (const f of consumidores) {
+    const fuente = readFileSync(join(raiz, f), 'utf8');
+    assert.match(
+      fuente, /sesionesQueSeDanPorAsistidas/,
+      `${f}: ya no usa la regla compartida — o la reimplementó (divergirán), o dejó de mirarla `
+      + '(volverá a marcar faltas en clases donde no se pasa lista)',
+    );
+  }
 });
 
 test('un estudio que no está en el mapa no arrastra a sus sesiones', () => {
