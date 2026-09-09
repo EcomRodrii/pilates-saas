@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Gift, Check, X, Clock } from 'lucide-react';
+import { Gift, Check, X, Clock, Search } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import type { EstadoCanje, RewardRedemption } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -41,13 +41,34 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
   const moneda = nombreCreditos(studio?.creditosNombre);
   const [enCurso, setEnCurso] = useState<string | null>(null);
 
-  const { pendientes, resueltos } = useMemo(() => {
+  const [busqueda, setBusqueda] = useState('');
+  const [filtro, setFiltro] = useState<'TODOS' | EstadoCanje>('TODOS');
+
+  const { pendientes, resueltos, hayAlguno } = useMemo(() => {
     const orden = [...rewardRedemptions].sort((a, b) => (b.creadoEn ?? '').localeCompare(a.creadoEn ?? ''));
+    // Se busca por NOMBRE y por CÓDIGO. El código es lo que la socia trae en el
+    // móvil y lo que se dicta en el mostrador; sin poder buscarlo, tenerlo no
+    // sirve de nada cuando el historial pasa de una pantalla.
+    // Los nombres se resuelven AQUÍ y no con los ayudantes de abajo: usarlos
+    // metería en las dependencias del memo dos funciones que se recrean en cada
+    // render, y con el React Compiler eso cascadea. Mismo motivo por el que
+    // este repo evita variables derivadas en dependencias.
+    const q = busqueda.trim().toLowerCase();
+    const nombreDe = (id: string | null) => socios.find(s => s.id === id)?.nombre ?? '';
+    const recompensaDe = (id: string | null) => rewardCatalog.find(c => c.id === id)?.nombre ?? '';
+    const casa = (r: RewardRedemption) => !q
+      || nombreDe(r.socioId).toLowerCase().includes(q)
+      || (r.codigo ?? '').toLowerCase().includes(q)
+      || recompensaDe(r.catalogItemId).toLowerCase().includes(q);
+    const visibles = orden.filter(casa);
     return {
-      pendientes: orden.filter(r => r.estado === 'PENDIENTE'),
-      resueltos: orden.filter(r => r.estado !== 'PENDIENTE'),
+      pendientes: visibles.filter(r => r.estado === 'PENDIENTE'),
+      // El filtro solo acota el HISTORIAL. Lo pendiente es lo accionable y
+      // esconderlo tras un desplegable es cómo se queda alguien sin su botella.
+      resueltos: visibles.filter(r => r.estado !== 'PENDIENTE' && (filtro === 'TODOS' || r.estado === filtro)),
+      hayAlguno: orden.length > 0,
     };
-  }, [rewardRedemptions]);
+  }, [rewardRedemptions, busqueda, filtro, socios, rewardCatalog]);
 
   const nombreSocia = (socioId: string | null) =>
     socios.find(s => s.id === socioId)?.nombre ?? 'Socia dada de baja';
@@ -77,6 +98,7 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
           </p>
           <p className="text-[12px] text-muted-foreground truncate">
             {nombreSocia(canje.socioId)} · {canje.creditosGastados} {moneda} · {fechaCorta(canje.creadoEn)}
+            {canje.codigo ? ` · ${canje.codigo}` : ''}
           </p>
         </div>
         {accionable ? (
@@ -111,6 +133,35 @@ export function TabCanjes({ showToast }: { showToast: (m: string) => void }) {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {/* Buscar y filtrar solo aparecen si hay algo que buscar: en un estudio
+          que acaba de encender las recompensas, una barra vacía es ruido. */}
+      {hayAlguno && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              placeholder="Buscar por clienta, recompensa o código…"
+              aria-label="Buscar canjes"
+              className="h-9 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-[13px]"
+            />
+          </div>
+          {(['TODOS', 'ENTREGADO', 'CANCELADO'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setFiltro(f)}
+              className={cn(
+                'h-9 rounded-xl border px-3 text-[12px] font-semibold transition-colors',
+                filtro === f ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
+              )}
+            >
+              {f === 'TODOS' ? 'Todo el historial' : ETIQUETA[f] + 's'}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Clock size={16} className="text-brand-secondary" />

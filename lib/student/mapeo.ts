@@ -258,6 +258,9 @@ export interface PayloadMin {
     rewardRedemptions?: {
       id: string; catalogItemId: string; estado: string;
       codigo?: string | null; creditosGastados?: number; creadoEn?: string;
+      // La recuperación que le dio esta recompensa, si era una clase gratis.
+      // Es lo que permite decirle CUÁL de sus clases se ganó con créditos.
+      recuperacionId?: string | null;
     }[];
     achievementProgress?: ProgresoMin[];
     challengeProgress?: ProgresoMin[];
@@ -442,7 +445,12 @@ export function proyectarPlazaFija(d: PayloadMin, hoyISO: string, horaAhora = '0
 
 /** Recuperaciones que aún puede usar. */
 export function proyectarRecuperaciones(d: PayloadMin, hoyISO: string): RecuperacionesVista {
-  return recuperacionesDe(d.socia?.recuperaciones ?? [], hoyISO);
+  // Los canjes y el catálogo entran para poder decir de qué recompensa salió
+  // cada una. Sin ellos, la alumna ve un número y no sabe cuál se ganó.
+  return recuperacionesDe(
+    d.socia?.recuperaciones ?? [], hoyISO,
+    d.socia?.rewardRedemptions ?? [], d.rewardCatalog ?? [],
+  );
 }
 
 /** Tipos de clase favoritos de la socia. Vacío sin sesión. */

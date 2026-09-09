@@ -75,7 +75,7 @@ export async function getPlazaFija(slug: string): Promise<{ plaza: PlazaFijaVist
   const d = await catalogo(slug);
   const ahora = new Date();
   const hora = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
-  if (!d) return { plaza: null, recuperaciones: { disponibles: 0, proximaCaducidad: null } };
+  if (!d) return { plaza: null, recuperaciones: { disponibles: 0, proximaCaducidad: null, detalle: [] } };
   return { plaza: proyectarPlazaFija(d, hoyISO(ahora), hora), recuperaciones: proyectarRecuperaciones(d, hoyISO(ahora)) };
 }
 

@@ -42,6 +42,16 @@ export function PlazaFijaCard({ plaza, recuperaciones, hrefHorario, compacta = f
             {recuperaciones.proximaCaducidad && (
               <p className="t-meta" style={{ margin: '2px 0 0' }}>La primera caduca el {fechaCorta(recuperaciones.proximaCaducidad)}</p>
             )}
+            {/* De cuáles se acuerda uno: las que se ganó. Antes veía un número
+                y no sabía cuál de esas clases había pagado con sus créditos.
+                ⚠️ El nombre sale del VÍNCULO con el canje, nunca de
+                `recuperaciones.motivo` — eso es texto libre que escribe el
+                mostrador, y en producción hay uno que pone «mm». */}
+            {recuperaciones.detalle.filter((r) => r.deRecompensa).map((r, i) => (
+              <p key={i} className="t-meta" style={{ margin: '2px 0 0', color: 'var(--accent)' }}>
+                🎁 Una es tu {r.deRecompensa}
+              </p>
+            ))}
           </div>
           <Link href={hrefHorario} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>Reservar →</Link>
         </div>

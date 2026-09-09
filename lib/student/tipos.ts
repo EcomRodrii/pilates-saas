@@ -150,7 +150,14 @@ export interface PlazaFijaVista {
   diaSemana: number; hora: string; sala: string; tipo: string | null; estado: 'ACTIVA' | 'PAUSADA';
   proximaFecha: string | null; vigenciaHasta: string | null;
 }
-export interface RecuperacionesVista { disponibles: number; proximaCaducidad: string | null }
+/**
+ * ⚠️ NO se redeclara aquí: se reexporta la de `plaza-fija.ts`, que es donde vive
+ * la proyección que la construye. Estaban las dos escritas a mano y a la
+ * primera que ganó un campo (`detalle`, de dónde salió cada recuperación) el
+ * tipo dejó de cuadrar con su propia función. Un tipo con dos definiciones es
+ * dos tipos.
+ */
+export type RecuperacionesVista = import('./plaza-fija.ts').RecuperacionesVista;
 /** Publicación del tablón del estudio (`posts_comunidad`), ya filtrada por audiencia en el servidor. */
 export interface Post {
   id: string; texto: string; imagenUrl: string | null; autorNombre: string; autorInicial: string;
