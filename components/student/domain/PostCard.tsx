@@ -101,22 +101,22 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
   return (
     <article className="card a-up" data-testid="post" data-tipo={post.tipo} style={{ padding: '13px 14px', animationDelay: `${delay}ms` }}>
       <div style={{ display: 'flex', gap: 11 }}>
-        <span aria-hidden style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 999, background: 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{post.autorInicial}</span>
+        <span aria-hidden style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 999, background: 'var(--accent-soft)', color: 'var(--accent-soft-foreground)', fontSize: 'var(--t-small)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{post.autorInicial}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 800, lineHeight: 1.35 }}>{post.autorNombre}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 10, fontWeight: 600, color: 'var(--subtle-foreground)' }}>{relativo(post.creadoEn)}</p>
+          <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800, lineHeight: 1.35 }}>{post.autorNombre}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)' }}>{relativo(post.creadoEn)}</p>
         </div>
         {esEvento && <span style={{ alignSelf: 'flex-start' }}><Badge tone="neutral">Evento</Badge></span>}
       </div>
 
-      <p style={{ margin: '10px 0 0', fontSize: 13.5, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{post.texto}</p>
+      <p style={{ margin: '10px 0 0', fontSize: 'var(--t-body)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{post.texto}</p>
       {post.imagenUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={post.imagenUrl} alt="" style={{ display: 'block', width: '100%', marginTop: 10, borderRadius: 12, objectFit: 'cover', maxHeight: 260 }} />
       )}
 
       {esEvento && (
-        <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 12, background: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5 }}>
+        <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 12, background: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'var(--t-small)' }}>
           {post.eventoFecha && <p style={{ margin: 0, fontWeight: 800 }}>{fechaEvento(post.eventoFecha)}</p>}
           {post.eventoLugar && <p className="t-meta" style={{ margin: 0 }}>{post.eventoLugar}</p>}
           <p className="t-meta" style={{ margin: 0 }}>
@@ -141,11 +141,11 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
           aria-label={liked ? 'Quitar me gusta' : 'Me gusta'}
           style={{
             display: 'flex', alignItems: 'center', gap: 5, padding: '6px 8px', borderRadius: 999, border: 'none',
-            background: 'transparent', cursor: 'pointer', fontSize: 12.5, fontWeight: 700,
+            background: 'transparent', cursor: 'pointer', fontSize: 'var(--t-small)', fontWeight: 700,
             color: liked ? 'var(--destructive)' : 'var(--subtle-foreground)',
           }}
         >
-          <span aria-hidden style={{ fontSize: 14 }}>{liked ? '♥' : '♡'}</span>
+          <span aria-hidden style={{ fontSize: 'var(--t-body)' }}>{liked ? '♥' : '♡'}</span>
           {likes > 0 ? ` ${likes}` : 'Me gusta'}
         </button>
         <button
@@ -154,10 +154,10 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
           aria-expanded={comentariosAbiertos}
           style={{
             display: 'flex', alignItems: 'center', gap: 5, padding: '6px 8px', borderRadius: 999, border: 'none',
-            background: 'transparent', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, color: 'var(--subtle-foreground)',
+            background: 'transparent', cursor: 'pointer', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--subtle-foreground)',
           }}
         >
-          <span aria-hidden style={{ fontSize: 13 }}>💬</span>
+          <span aria-hidden style={{ fontSize: 'var(--t-small)' }}>💬</span>
           {totalComentarios > 0 ? `${totalComentarios} comentario${totalComentarios === 1 ? '' : 's'}` : 'Comentar'}
         </button>
       </div>
@@ -170,14 +170,14 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
           )}
           {comentarios?.map(c => (
             <div key={c.id} style={{ display: 'flex', gap: 8 }}>
-              <span aria-hidden style={{ width: 24, height: 24, flexShrink: 0, borderRadius: 999, background: 'var(--muted)', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span aria-hidden style={{ width: 24, height: 24, flexShrink: 0, borderRadius: 999, background: 'var(--muted)', fontSize: 'var(--t-micro)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {c.autorInicial ?? '?'}
               </span>
               <div style={{ flex: 1, minWidth: 0, background: 'var(--muted)', borderRadius: 12, padding: '7px 10px' }}>
-                <p style={{ margin: 0, fontSize: 12, fontWeight: 800 }}>
+                <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800 }}>
                   {c.autorNombre} {c.esMio && <span className="t-meta" style={{ fontWeight: 600 }}>(tú)</span>}
                 </p>
-                <p style={{ margin: '2px 0 0', fontSize: 12.5, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{c.texto}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 'var(--t-small)', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{c.texto}</p>
               </div>
             </div>
           ))}
@@ -192,7 +192,7 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
               placeholder="Escribe un comentario…"
               aria-label="Escribe un comentario"
               className="input"
-              style={{ flex: 1, resize: 'none', fontSize: 12.5, minHeight: 36, padding: '8px 10px' }}
+              style={{ flex: 1, resize: 'none', fontSize: 'var(--t-small)', minHeight: 36, padding: '8px 10px' }}
             />
             <Button size="sm" onClick={() => void enviarComentario()} loading={enviandoComentario} disabled={!borrador.trim()}>
               Enviar

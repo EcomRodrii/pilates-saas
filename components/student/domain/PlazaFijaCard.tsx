@@ -36,14 +36,14 @@ export function PlazaFijaCard({ plaza, recuperaciones, hrefHorario, compacta = f
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingTop: plaza ? 10 : 0, borderTop: plaza ? '1px solid var(--muted)' : 'none' }}>
           <div>
             <p className="t-label" style={{ margin: 0 }}>Recuperaciones</p>
-            <p style={{ margin: '4px 0 0', fontSize: 13.5, fontWeight: 800 }}>
+            <p style={{ margin: '4px 0 0', fontSize: 'var(--t-body)', fontWeight: 800 }}>
               {recuperaciones.disponibles === 1 ? '1 clase por recuperar' : `${recuperaciones.disponibles} clases por recuperar`}
             </p>
             {recuperaciones.proximaCaducidad && (
               <p className="t-meta" style={{ margin: '2px 0 0' }}>La primera caduca el {fechaCorta(recuperaciones.proximaCaducidad)}</p>
             )}
           </div>
-          <Link href={hrefHorario} style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>Reservar →</Link>
+          <Link href={hrefHorario} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>Reservar →</Link>
         </div>
       )}
     </div>

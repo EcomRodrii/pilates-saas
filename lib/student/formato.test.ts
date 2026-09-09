@@ -74,3 +74,24 @@ test('relativo redondea como habla una persona', () => {
   assert.equal(t(60 * 24), 'ayer');
   assert.equal(t(60 * 24 * 3), 'hace 3 días');
 });
+
+// ── Fechas que no son fechas ────────────────────────────────────────────────
+// No es un caso hipotético: `proyectarPagos` pone `fecha: ''` cuando un recibo
+// no tiene ni cobro ni vencimiento, y con eso la pantalla de Pagos enseñaba
+// «undefined NaN undefined» — dos veces, en la lista y en el detalle.
+// `etiquetaDia` era peor: leía `undefined[0]` y LANZABA.
+
+test('una fecha vacía o inválida no se pinta, y sobre todo no revienta', () => {
+  for (const malo of ['', '   ', 'no-es-una-fecha', '2026-13-45']) {
+    assert.equal(fechaCorta(malo), '', `fechaCorta(${JSON.stringify(malo)})`);
+    assert.equal(fechaLarga(malo), '', `fechaLarga(${JSON.stringify(malo)})`);
+    assert.doesNotThrow(() => etiquetaDia(malo), `etiquetaDia(${JSON.stringify(malo)})`);
+    assert.equal(etiquetaDia(malo), '', `etiquetaDia(${JSON.stringify(malo)})`);
+  }
+});
+
+test('una fecha buena sigue saliendo igual que antes', () => {
+  assert.equal(fechaCorta('2026-09-04'), 'vie 4 sep');
+  assert.equal(fechaLarga('2026-09-04'), 'viernes 4 de septiembre');
+  assert.equal(etiquetaDia('2026-09-04', '2026-09-10'), 'Vie 4');
+});

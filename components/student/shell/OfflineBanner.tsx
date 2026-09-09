@@ -22,7 +22,7 @@ export function OfflineBanner() {
         display: 'flex', alignItems: 'center', gap: 9,
         background: reconectando ? 'var(--accent-soft)' : 'var(--primary)',
         color: reconectando ? 'var(--accent-soft-foreground)' : 'var(--primary-foreground)',
-        borderRadius: 12, padding: '9px 13px', fontSize: 12, fontWeight: 700,
+        borderRadius: 12, padding: '9px 13px', fontSize: 'var(--t-small)', fontWeight: 700,
         animation: 'apSlideDown .35s var(--ease) both',
       }}
     >

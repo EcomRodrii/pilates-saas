@@ -215,7 +215,7 @@ export default function FichaClasePage() {
           onClick={() => router.back()}
           aria-label="Volver"
           className="tap tap--icono"
-          style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', left: 14, width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', fontSize: 15 }}
+          style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', left: 14, width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', fontSize: 'var(--t-h3)' }}
         >
           ←
         </button>
@@ -243,7 +243,7 @@ export default function FichaClasePage() {
             />
           )}
           <p className="t-label" style={{ color: 'rgba(255,255,255,.82)' }}>{clase.tipo} · nivel {clase.nivel.toLowerCase()}</p>
-          <h1 style={{ margin: '3px 0 0', fontSize: 26, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.nombre}</h1>
+          <h1 style={{ margin: '3px 0 0', fontSize: 'var(--t-h1)', fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.nombre}</h1>
           <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {[`${etiquetaDia(clase.fecha)} · ${clase.hora}`, `${clase.duracionMin} min`, clase.sala].map((t) => (
               <span key={t} className="badge" style={{ background: 'rgba(250,249,245,.2)', border: '1px solid rgba(255,255,255,.45)', color: '#fff' }}>{t}</span>
@@ -255,14 +255,14 @@ export default function FichaClasePage() {
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: 90 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <AvailabilityBadge estado={disp} plazas={clase.plazasLibres} />
-          <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--muted-foreground)' }}>
+          <span style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)' }}>
             {bono ? 'Con tu bono · 1 sesión' : (clase.sinPrecioSuelto ? 'Solo con bono' : `${euros(clase.precioSuelto)} clase suelta`)}
           </span>
         </div>
 
         {inst && <InstructorCard i={inst} onClick={() => setVerInstructora(true)} />}
 
-        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
+        <p style={{ margin: 0, fontSize: 'var(--t-small)', lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
           {clase.descripcion ?? `Grupo reducido de ${clase.capacidad} personas. Ven con calcetines antideslizantes; si es tu primera vez, llega 10 minutos antes.`}
         </p>
 
@@ -307,7 +307,7 @@ export default function FichaClasePage() {
       <Sheet open={enSheet} onClose={cerrar} label="Reservar clase">
         {(bk === 'reviewing' || bk === 'submitting') && (
           <>
-            <h3 className="t-h2" style={{ fontSize: 18 }}>
+            <h3 className="t-h2">
               {disp === 'completa' ? 'Clase llena — lista de espera' : 'Confirma tu plaza'}
             </h3>
             <div style={{ marginTop: 12 }}>
@@ -330,7 +330,7 @@ export default function FichaClasePage() {
                 Sin coste — solo reservas si se libera y tú confirmas.
               </p>
             )}
-            <Button full loading={bk === 'submitting'} onClick={confirmar} style={{ marginTop: 14, height: 50, fontSize: 14 }}>
+            <Button full loading={bk === 'submitting'} onClick={confirmar} style={{ marginTop: 14, height: 50, fontSize: 'var(--t-body)' }}>
               {disp === 'completa'
                 ? 'Unirme a la lista de espera'
                 : `Confirmar ${clase.hora}${bono ? ' con bono' : ` · ${precioClaseTexto(clase)}`}`}
@@ -360,7 +360,7 @@ export default function FichaClasePage() {
 
 function Fila({ k, v }: { k: string; v: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12.5 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 'var(--t-small)' }}>
       <span style={{ color: 'var(--muted-foreground)' }}>{k}</span>
       <span style={{ fontWeight: 700, textAlign: 'right' }}>{v}</span>
     </div>

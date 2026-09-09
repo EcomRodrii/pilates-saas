@@ -125,8 +125,8 @@ export function HojaCompra({ textosLegales,
     >
       <div className="px" style={{ paddingBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
-          <h2 className="t-h1" style={{ fontSize: 19 }}>{plan.nombre}</h2>
-          <p style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>{euros(Number(plan.precio))}</p>
+          <h2 className="t-title">{plan.nombre}</h2>
+          <p style={{ margin: 0, fontSize: 'var(--t-h2)', fontWeight: 800 }}>{euros(Number(plan.precio))}</p>
         </div>
 
         {cobertura && (
@@ -135,7 +135,7 @@ export function HojaCompra({ textosLegales,
             style={{
               display: 'inline-flex', margin: '8px 0 0', padding: '3px 9px', borderRadius: 999,
               background: 'var(--warning-soft)', color: 'var(--warning-foreground)',
-              fontSize: 11.5, fontWeight: 800,
+              fontSize: 'var(--t-meta)', fontWeight: 800,
             }}
           >
             {cobertura}
@@ -162,7 +162,7 @@ export function HojaCompra({ textosLegales,
         >
         {sinCobro ? (
           <>
-            <p className="t-meta" style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.55 }}>
+            <p className="t-meta" style={{ margin: '10px 0 0', lineHeight: 1.55 }}>
               Este estudio todavía no tiene los pagos activados, así que no se puede comprar desde aquí.
               Escríbeles y te lo resuelven en un momento.
             </p>
@@ -196,7 +196,7 @@ export function HojaCompra({ textosLegales,
                   autoCapitalize="characters"
                   autoCorrect="off"
                   spellCheck={false}
-                  style={{ height: 'var(--h-control-md)', fontSize: 13.5, letterSpacing: '.06em' }}
+                  style={{ height: 'var(--h-control-md)', fontSize: 'var(--t-body)', letterSpacing: '.06em' }}
                 />
                 <Button
                   variant="secondary"
@@ -225,10 +225,10 @@ export function HojaCompra({ textosLegales,
             </Button>
           </>
         ) : estado.fase === 'preparando' ? (
-          <p className="t-meta" style={{ margin: '12px 0', fontSize: 12.5 }}>Preparando el pago…</p>
+          <p className="t-meta" style={{ margin: '12px 0' }}>Preparando el pago…</p>
         ) : estado.fase === 'error' ? (
           <>
-            <p role="alert" style={{ margin: '10px 0 0', background: 'var(--destructive-soft)', color: 'var(--destructive-foreground)', borderRadius: 12, padding: '10px 13px', fontSize: 12.5, fontWeight: 700 }}>
+            <p role="alert" style={{ margin: '10px 0 0', background: 'var(--destructive-soft)', color: 'var(--destructive-foreground)', borderRadius: 12, padding: '10px 13px', fontSize: 'var(--t-small)', fontWeight: 700 }}>
               {estado.mensaje}
             </p>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -240,9 +240,9 @@ export function HojaCompra({ textosLegales,
           </>
         ) : estado.fase === 'hecho' ? (
           <div className="a-pop" style={{ textAlign: 'center', padding: '8px 0 4px' }}>
-            <span aria-hidden style={{ width: 60, height: 60, margin: '0 auto', borderRadius: 999, background: 'var(--success)', color: '#fff', fontSize: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</span>
-            <h3 className="t-h1" style={{ fontSize: 19, marginTop: 14 }}>Compra realizada</h3>
-            <p className="t-meta" style={{ marginTop: 6, fontSize: 12.5 }}>
+            <span aria-hidden style={{ width: 60, height: 60, margin: '0 auto', borderRadius: 999, background: 'var(--success)', color: '#fff', fontSize: 'var(--t-h1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</span>
+            <h3 className="t-title" style={{ marginTop: 14 }}>Compra realizada</h3>
+            <p className="t-meta" style={{ marginTop: 6 }}>
               Ya está en tu cuenta. Puedes reservar con ella ahora mismo.
             </p>
             <Button full onClick={onComprado} style={{ marginTop: 14 }}>Ver mis bonos</Button>

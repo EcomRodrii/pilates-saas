@@ -65,7 +65,7 @@ export function InvitarAmiga({ slug, socioId, nombreEstudio }: {
             style={{
               margin: 0, padding: 'var(--s-3)', borderRadius: 'var(--radius-sm)',
               background: 'var(--muted)', color: 'var(--muted-foreground)',
-              fontSize: 11.5, lineHeight: 1.5, wordBreak: 'break-all',
+              fontSize: 'var(--t-meta)', lineHeight: 1.5, wordBreak: 'break-all',
             }}
           >
             {enlace}

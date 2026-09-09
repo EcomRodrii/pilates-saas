@@ -97,7 +97,7 @@ export default function HiloMensajesPage() {
           {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver este hilo." />}
           {listo && dias.map((dia) => (
             <div key={dia.etiqueta}>
-              <p style={{ textAlign: 'center', margin: '10px 0', fontSize: 10.5, fontWeight: 600, color: 'var(--subtle-foreground)' }}>{dia.etiqueta}</p>
+              <p style={{ textAlign: 'center', margin: '10px 0', fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)' }}>{dia.etiqueta}</p>
               {dia.bloques.map((bloque, i) => {
                 const mio = bloque.remitenteAuthUserId === miId;
                 return (
@@ -109,13 +109,13 @@ export default function HiloMensajesPage() {
                           maxWidth: '80%', padding: '9px 12px', borderRadius: 16,
                           borderBottomRightRadius: mio ? 4 : 16, borderBottomLeftRadius: mio ? 16 : 4,
                           background: mio ? 'var(--accent)' : 'var(--muted)', color: mio ? 'var(--accent-foreground)' : 'var(--foreground)',
-                          fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                          fontSize: 'var(--t-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                         }}
                       >
                         {m.cuerpo}
                       </div>
                     ))}
-                    <span className="t-num" style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--subtle-foreground)' }}>{horaCorta(bloque.items[bloque.items.length - 1].creado_en)}</span>
+                    <span className="t-num" style={{ fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)' }}>{horaCorta(bloque.items[bloque.items.length - 1].creado_en)}</span>
                   </div>
                 );
               })}
@@ -140,7 +140,7 @@ export default function HiloMensajesPage() {
                 placeholder="Escribe un mensaje…"
                 aria-label="Escribe un mensaje"
                 className="input"
-                style={{ flex: 1, resize: 'none', fontSize: 13.5, minHeight: 40, maxHeight: 120, padding: '9px 12px' }}
+                style={{ flex: 1, resize: 'none', fontSize: 'var(--t-body)', minHeight: 40, maxHeight: 120, padding: '9px 12px' }}
               />
               <button
                 type="button"

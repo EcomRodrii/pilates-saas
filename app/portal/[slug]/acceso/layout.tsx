@@ -46,11 +46,11 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
             // eslint-disable-next-line @next/next/no-img-element
             <img src={estudio.logoUrl} alt="" style={{ height: 26 }} />
           ) : (
-            <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(250,249,245,.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, fontWeight: 800 }}>
+            <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(250,249,245,.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--t-meta)', fontWeight: 800 }}>
               {inicialDe(estudio.nombre)}
             </span>
           )}
-          <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-.02em' }}>{estudio.nombre}</span>
+          <span style={{ fontSize: 'var(--t-h3)', fontWeight: 800, letterSpacing: '-.02em' }}>{estudio.nombre}</span>
         </div>
 
         <div style={{ position: 'absolute', left: 22, right: 22, bottom: 22, color: '#FAF9F5' }}>

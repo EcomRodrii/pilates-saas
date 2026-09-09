@@ -127,7 +127,13 @@
   --t-body: 13.5px;    /* texto corrido */
   --t-small: 12.5px;   /* apoyo, botones pequeños */
   --t-meta: 11.5px;    /* pie de dato */
-  --t-label: 10px;     /* micro-etiqueta en mono y versales */
+  --t-label: 11px;     /* micro-etiqueta en versales; también el texto de .badge */
+  /* ⚠️ El noveno escalón, y no un capricho: por debajo de --t-label había
+     CATORCE sitios entre 8,5 y 10,5 px (las etiquetas del nav inferior, el
+     sello de hora de un mensaje, el pie de un post) porque la escala no
+     llegaba ahí y cada pantalla se inventaba el suyo. Un escalón nombrado
+     es menos sistema que cinco números sueltos, no más. */
+  --t-micro: 10px;     /* sello de hora, etiqueta del nav, pie de dato */
 
   /* ── Espaciado ──
      Base de 4. La app tenía 347 valores a pelo (13, 15, 9, 14, 22, 26…), y
@@ -201,7 +207,7 @@
    declaraban ninguna. */
 .student-app .t-display { font-size: var(--t-display); font-weight: 800; letter-spacing: -.03em; line-height: 1.02; margin: 0; }
 .student-app .t-h1 { font-size: var(--t-h1); font-weight: 800; letter-spacing: -.03em; line-height: 1.06; margin: 0; }
-.student-app .t-h2 { font-size: 16px; font-weight: 800; letter-spacing: -.02em; margin: 0; }
+.student-app .t-h2 { font-size: var(--t-h2); font-weight: 800; letter-spacing: -.02em; margin: 0; }
 /* `.t-h2` conserva el 16px del paquete: lo usan pantallas ya cerradas y
    cambiarlo movería sus cabeceras. `.t-title` (19px) es para las hojas, que hoy
    lo escriben en línea. */
@@ -234,8 +240,8 @@
      la sans no, y con .16em las palabras se deshacían en letras sueltas.
    · 700 en vez del 500 heredado — en versales pequeñas la sans necesita cuerpo
      para no verse desvaída al lado de un titular en 800. */
-.student-app .t-label { font-family: var(--font-sans); font-size: 11px; font-weight: 700; letter-spacing: .10em; text-transform: uppercase; color: var(--subtle-foreground); margin: 0; }
-.student-app .t-meta { font-size: 11px; color: var(--muted-foreground); margin: 0; }
+.student-app .t-label { font-family: var(--font-sans); font-size: var(--t-label); font-weight: 700; letter-spacing: .10em; text-transform: uppercase; color: var(--subtle-foreground); margin: 0; }
+.student-app .t-meta { font-size: var(--t-meta); color: var(--muted-foreground); margin: 0; }
 /* Mono, para lo que de verdad es un CÓDIGO: el identificador de un recibo, el
    del pase de acceso, el de invitar a una amiga. Se lee carácter a carácter,
    se dicta por teléfono y se compara con otro — ahí el ancho fijo trabaja.

@@ -44,9 +44,9 @@ export function BottomNavigation({ badgeReservas = 0 }: { badgeReservas?: number
               <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d={t.d} />
               </svg>
-              <span style={{ fontSize: 9.5, fontWeight: 800 }}>{t.label}</span>
+              <span style={{ fontSize: 'var(--t-micro)', fontWeight: 800 }}>{t.label}</span>
               {t.ruta === '/mis-reservas' && badgeReservas > 0 && (
-                <span aria-hidden style={{ position: 'absolute', top: 2, right: 8, minWidth: 15, height: 15, borderRadius: 99, background: 'var(--accent)', color: '#fff', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', animation: 'apDot .4s both' }}>
+                <span aria-hidden style={{ position: 'absolute', top: 2, right: 8, minWidth: 15, height: 15, borderRadius: 99, background: 'var(--accent)', color: '#fff', fontSize: 'var(--t-micro)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', animation: 'apDot .4s both' }}>
                   {badgeReservas}
                 </span>
               )}

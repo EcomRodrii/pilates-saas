@@ -137,7 +137,7 @@ export default function DetalleReservaPage() {
               ) : (
                 // Sin QR no se deja un hueco mudo: se dice POR QUÉ y CUÁNDO.
                 // Es la diferencia entre «esto está roto» y «todavía no toca».
-                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#5A5A52', lineHeight: 1.5 }}>
+                <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: '#5A5A52', lineHeight: 1.5 }}>
                   {paseDeEsta?.yaAsistida
                     ? 'Ya has entrado a esta clase ✓'
                     : paseDeEsta
@@ -154,26 +154,26 @@ export default function DetalleReservaPage() {
               )}
             </div>
 
-            <p style={{ margin: '14px 0 0', fontSize: 16, fontWeight: 800, color: '#FAF9F5' }}>{c.nombre}</p>
-            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(234,240,231,.75)' }}>
+            <p style={{ margin: '14px 0 0', fontSize: 'var(--t-h3)', fontWeight: 800, color: '#FAF9F5' }}>{c.nombre}</p>
+            <p style={{ margin: '3px 0 0', fontSize: 'var(--t-small)', color: 'color-mix(in srgb, var(--accent-deep-foreground) 75%, transparent)' }}>
               {fechaLarga(c.fecha)} · {c.hora} · con {i?.nombre ?? '—'}
             </p>
 
             {paseDeEsta?.vigente && paseDeEsta.codigo && (
               // El código corto existe para cuando la cámara no lee: pantalla
               // rota, mucha luz, funda con brillo.
-              <p className="t-code" style={{ margin: '10px 0 0', fontSize: 13, letterSpacing: '.18em', color: '#FAF9F5' }}>
+              <p className="t-code" style={{ margin: '10px 0 0', fontSize: 'var(--t-small)', letterSpacing: '.18em', color: '#FAF9F5' }}>
                 {paseDeEsta.codigo}
               </p>
             )}
-            <p style={{ margin: '8px 0 0', fontSize: 10.5, fontWeight: 600, color: 'var(--accent-deep-muted)' }}>
+            <p style={{ margin: '8px 0 0', fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--accent-deep-muted)' }}>
               Se valida solo al llegar
             </p>
           </section>
         ) : (
           <div className="card" style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 800 }}>{c.nombre}</p>
+              <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800 }}>{c.nombre}</p>
               <p className="t-meta" style={{ marginTop: 2 }}>{fechaLarga(c.fecha)} · {c.hora}</p>
             </div>
             <Badge tone={res.estado === 'asistida' ? 'ok' : res.estado === 'en-espera' ? 'wait' : 'neutral'}>
@@ -184,7 +184,7 @@ export default function DetalleReservaPage() {
           </div>
         )}
 
-        <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
+        <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--t-small)' }}>
           <Fila k="Instructora" v={i?.nombre ?? '—'} />
           <Fila k="Sala" v={c.sala} />
           <Fila k="Dirección" v={estudio.direccion} />

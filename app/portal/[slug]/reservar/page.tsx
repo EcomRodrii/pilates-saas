@@ -114,11 +114,11 @@ export default function HorarioPage() {
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar clases, instructoras…"
             aria-label="Buscar clases o instructoras"
-            style={{ width: '100%', height: 44, paddingLeft: 40, paddingRight: q ? 40 : 14, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', fontSize: 13.5, fontFamily: 'inherit', color: 'var(--foreground)' }}
+            style={{ width: '100%', height: 44, paddingLeft: 40, paddingRight: q ? 40 : 14, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', fontSize: 'var(--t-body)', fontFamily: 'inherit', color: 'var(--foreground)' }}
           />
           {q && (
             <button type="button" onClick={() => setQ('')} aria-label="Borrar búsqueda"
-              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: 999, border: 'none', background: 'var(--muted)', color: 'var(--muted-foreground)', fontSize: 13 }}>×</button>
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: 999, border: 'none', background: 'var(--muted)', color: 'var(--muted-foreground)', fontSize: 'var(--t-small)' }}>×</button>
           )}
         </div>
       </div>

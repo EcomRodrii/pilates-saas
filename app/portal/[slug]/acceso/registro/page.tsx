@@ -182,10 +182,10 @@ export default function RegistroPage() {
   return (
     <form onSubmit={(e) => { e.preventDefault(); void (soloFirma ? firmarYSeguir() : crear()); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} noValidate>
       <div>
-        <h2 className="t-h1" style={{ fontSize: 22 }}>
+        <h2 className="t-h1">
           {!soloFirma ? 'Crea tu cuenta' : autenticado ? 'Ya casi estás' : 'Un paso antes'}
         </h2>
-        <p className="t-meta" style={{ marginTop: 4, fontSize: 12.5 }}>
+        <p className="t-meta" style={{ marginTop: 4 }}>
           {/* ⚠️ Con sesión ya resuelta NO se dice «si aún no lo estás». Aquí
               solo se llega desde `/acceso/verificar`, que ya ha mirado y ha
               visto que no hay ficha en este estudio; el condicional era una
@@ -200,7 +200,7 @@ export default function RegistroPage() {
       </div>
 
       {global && (
-        <p role="alert" style={{ margin: 0, background: 'var(--destructive-soft)', color: 'var(--destructive-foreground)', borderRadius: 12, padding: '10px 13px', fontSize: 12.5, fontWeight: 700 }}>
+        <p role="alert" style={{ margin: 0, background: 'var(--destructive-soft)', color: 'var(--destructive-foreground)', borderRadius: 12, padding: '10px 13px', fontSize: 'var(--t-small)', fontWeight: 700 }}>
           {global}
         </p>
       )}
@@ -230,11 +230,11 @@ export default function RegistroPage() {
           type="button" role="checkbox" aria-checked={f.acepto}
           aria-label={`Acepto la política de privacidad de ${estudio.nombre}`}
           onClick={() => setF({ ...f, acepto: !f.acepto })}
-          style={{ width: 20, height: 20, flexShrink: 0, marginTop: 1, borderRadius: 6, border: 'none', background: f.acepto ? 'var(--accent)' : 'var(--card)', boxShadow: f.acepto ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: '#fff', fontSize: 12, fontWeight: 800, transition: 'all .2s' }}
+          style={{ width: 20, height: 20, flexShrink: 0, marginTop: 1, borderRadius: 6, border: 'none', background: f.acepto ? 'var(--accent)' : 'var(--card)', boxShadow: f.acepto ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: '#fff', fontSize: 'var(--t-small)', fontWeight: 800, transition: 'all .2s' }}
         >
           {f.acepto ? '✓' : ''}
         </button>
-        <span style={{ fontSize: 12, color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
+        <span style={{ fontSize: 'var(--t-small)', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
           Al inscribirme, acepto la{' '}
           <Link href="/privacidad" target="_blank" style={{ color: 'var(--foreground)', fontWeight: 700, textDecoration: 'underline' }}>
             política de privacidad
@@ -248,7 +248,7 @@ export default function RegistroPage() {
         {!online ? 'Sin conexión' : soloFirma ? (autenticado ? 'Aceptar y continuar' : 'Aceptar y continuar con Google') : 'Crear cuenta'}
       </Button>
 
-      <p className="t-meta" style={{ textAlign: 'center', fontSize: 12.5 }}>
+      <p className="t-meta" style={{ textAlign: 'center' }}>
         {soloFirma
           ? <Link href={href('/acceso/login')} style={{ fontWeight: 800, color: 'var(--foreground)' }}>Volver a acceso</Link>
           : <>¿Ya tienes cuenta? <Link href={href('/acceso/login')} style={{ fontWeight: 800, color: 'var(--foreground)' }}>Entrar</Link></>}

@@ -60,7 +60,7 @@ export function Opcion({ seleccionada, onClick, children, icono, disabled }: {
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           background: seleccionada ? 'var(--accent)' : 'transparent',
           border: seleccionada ? 'none' : '1.5px solid var(--border-strong)',
-          color: '#fff', fontSize: 11, fontWeight: 800,
+          color: '#fff', fontSize: 'var(--t-meta)', fontWeight: 800,
           transition: 'background .18s, border-color .18s',
         }}
       >

@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { getBonos, getClases, getPagos, getReservas } from '@/lib/student/datos';
-import { euros, fechaCorta } from '@/lib/student/formato';
+import { euros, fechaCorta, unir } from '@/lib/student/formato';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
 
@@ -74,12 +74,12 @@ export default function DetalleBonoPage() {
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '12px', marginTop: 14 }}>
         <CreditCard bono={b} />
 
-        <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
-          <Fila k="Comprado" v={`${fechaCorta(b.compradoEn)} · ${euros(b.precio)}`} />
+        <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--t-small)' }}>
+          <Fila k="Comprado" v={unir(fechaCorta(b.compradoEn), euros(b.precio))} />
           <Fila k="Usadas / total" v={`${b.creditosUsados} / ${b.creditosTotales}`} />
           <Fila k="Caducidad" v={b.expiraEn ? fechaCorta(b.expiraEn) : 'Sin caducidad'} />
           {pago && (
-            <Link href={href(`/pagos/${pago.id}`)} style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)' }}>
+            <Link href={href(`/pagos/${pago.id}`)} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
               Ver el recibo →
             </Link>
           )}
@@ -95,7 +95,7 @@ export default function DetalleBonoPage() {
                 <div
                   key={r.id}
                   className="card"
-                  style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '10px 13px', fontSize: 12.5 }}
+                  style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '10px 13px', fontSize: 'var(--t-small)' }}
                 >
                   <span style={{ fontWeight: 700 }}>{c?.nombre ?? 'Clase'}</span>
                   <span className="t-meta">{c ? `${fechaCorta(c.fecha)} · ${c.hora}` : ''}</span>

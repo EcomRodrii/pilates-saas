@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { getPagos } from '@/lib/student/datos';
-import { euros, fechaLarga } from '@/lib/student/formato';
+import { euros, fechaLarga, unir } from '@/lib/student/formato';
 import { Badge } from '@/components/student/ui/Badge';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
 import { ESTADO_PAGO } from '@/components/student/domain/PaymentItem';
@@ -104,9 +104,9 @@ export default function ReciboPage() {
           >
             {euros(data.importe)}
           </p>
-          <p style={{ margin: '4px 0 0', fontSize: 14, fontWeight: 700 }}>{data.concepto}</p>
+          <p style={{ margin: '4px 0 0', fontSize: 'var(--t-body)', fontWeight: 700 }}>{data.concepto}</p>
           <p className="t-meta" style={{ marginTop: 3 }}>
-            {fechaLarga(data.fecha)}{data.metodo ? ` · ${data.metodo}` : ''}
+            {unir(fechaLarga(data.fecha), data.metodo)}
           </p>
 
           {/* Los cuatro avisos comparten forma: son `.note` del sistema, no
@@ -144,7 +144,7 @@ export default function ReciboPage() {
           )}
         </div>
 
-        <div className="card" style={{ padding: '12px 14px', fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="card" style={{ padding: '12px 14px', fontSize: 'var(--t-small)', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
             <span style={{ color: 'var(--muted-foreground)' }}>Emitido por</span>
             <b style={{ textAlign: 'right' }}>{estudio.nombre}</b>
@@ -154,7 +154,7 @@ export default function ReciboPage() {
             <b className="t-code">{data.id.toUpperCase()}</b>
           </div>
           {data.bonoId && (
-            <Link href={href(`/bonos/${data.bonoId}`)} style={{ fontSize: 12, fontWeight: 800, color: 'var(--accent)' }}>
+            <Link href={href(`/bonos/${data.bonoId}`)} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
               Ver el bono →
             </Link>
           )}
@@ -172,7 +172,7 @@ export default function ReciboPage() {
             Descargar factura
           </Button>
         ) : (
-          <p className="t-meta" style={{ textAlign: 'center', fontSize: 11.5, lineHeight: 1.5 }}>
+          <p className="t-meta" style={{ textAlign: 'center', lineHeight: 1.5 }}>
             ¿Necesitas la factura? Pídesela al estudio: {estudio.email || estudio.telefono || estudio.nombre}.
           </p>
         )}

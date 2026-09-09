@@ -199,8 +199,8 @@ function Verificar() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
-          <h2 className="t-h1" style={{ fontSize: 22 }}>No has entrado</h2>
-          <p className="t-meta" style={{ marginTop: 4, fontSize: 12.5, lineHeight: 1.5 }}>
+          <h2 className="t-h1">No has entrado</h2>
+          <p className="t-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
             {errorOAuth.mensaje}
           </p>
         </div>
@@ -230,12 +230,12 @@ function Verificar() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
-          <h2 className="t-h1" style={{ fontSize: 22 }}>Verifica tu email</h2>
-          <p className="t-meta" style={{ marginTop: 4, fontSize: 12.5, lineHeight: 1.5 }}>
+          <h2 className="t-h1">Verifica tu email</h2>
+          <p className="t-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
             Te hemos enviado un enlace a <b>{emailMostrado}</b>. Ábrelo en este mismo móvil y entras directa.
           </p>
         </div>
-        <p className="t-meta" style={{ fontSize: 12, lineHeight: 1.5 }}>
+        <p className="t-meta" style={{ lineHeight: 1.5 }}>
           El enlace dura una hora. Si ya ha caducado, pide otro desde la pantalla de acceso.
         </p>
         <Button variant="secondary" full onClick={() => r.push(href('/acceso/login'))}>Volver a acceso</Button>
@@ -247,8 +247,8 @@ function Verificar() {
     return (
       <div className="a-pop" style={{ textAlign: 'center' }}>
         <span aria-hidden style={{ width: 64, height: 64, margin: '0 auto', borderRadius: 999, background: 'var(--success)', color: '#fff', fontSize: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'apCheck .55s var(--ease-spring) both' }}>✓</span>
-        <h2 className="t-h1" style={{ fontSize: 22, marginTop: 16 }}>Todo listo</h2>
-        <p className="t-meta" style={{ marginTop: 6, fontSize: 13 }}>Te llevamos a tu estudio…</p>
+        <h2 className="t-h1" style={{ marginTop: 16 }}>Todo listo</h2>
+        <p className="t-meta" style={{ marginTop: 6 }}>Te llevamos a tu estudio…</p>
       </div>
     );
   }
@@ -256,14 +256,14 @@ function Verificar() {
   return (
     <form onSubmit={(e) => { e.preventDefault(); void guardar(); }} style={{ display: 'flex', flexDirection: 'column', gap: 14 }} noValidate>
       <div>
-        <h2 className="t-h1" style={{ fontSize: 22 }}>Elige tu contraseña</h2>
-        <p className="t-meta" style={{ marginTop: 4, fontSize: 12.5, lineHeight: 1.5 }}>
+        <h2 className="t-h1">Elige tu contraseña</h2>
+        <p className="t-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
           Ya has verificado <b>{emailMostrado}</b>. Con una contraseña entras sin esperar al correo.
         </p>
       </div>
 
       {global && (
-        <p role="alert" style={{ margin: 0, background: 'var(--destructive-soft)', color: 'var(--destructive-foreground)', borderRadius: 12, padding: '10px 13px', fontSize: 12.5, fontWeight: 700 }}>
+        <p role="alert" style={{ margin: 0, background: 'var(--destructive-soft)', color: 'var(--destructive-foreground)', borderRadius: 12, padding: '10px 13px', fontSize: 'var(--t-small)', fontWeight: 700 }}>
           {global}
         </p>
       )}

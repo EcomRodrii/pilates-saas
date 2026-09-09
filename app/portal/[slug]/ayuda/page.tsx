@@ -47,10 +47,10 @@ export default function AyudaPage() {
           <div className="card" style={{ overflow: 'hidden' }}>
             {faq.map(([q, a], i) => (
               <details key={q} style={{ borderBottom: i < faq.length - 1 ? '1px solid var(--muted)' : 'none' }}>
-                <summary style={{ listStyle: 'none', cursor: 'pointer', padding: '13px 15px', fontSize: 13, fontWeight: 700, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <summary style={{ listStyle: 'none', cursor: 'pointer', padding: '13px 15px', fontSize: 'var(--t-small)', fontWeight: 700, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                   {q}<span aria-hidden style={{ color: 'var(--accent)' }}>+</span>
                 </summary>
-                <p style={{ margin: 0, padding: '0 15px 13px', fontSize: 12.5, lineHeight: 1.55, color: 'var(--muted-foreground)' }}>{a}</p>
+                <p style={{ margin: 0, padding: '0 15px 13px', fontSize: 'var(--t-small)', lineHeight: 1.55, color: 'var(--muted-foreground)' }}>{a}</p>
               </details>
             ))}
           </div>
@@ -65,7 +65,7 @@ export default function AyudaPage() {
             rutas y los grupos no aparecen en la URL. Comprobado contra el
             servidor: las tres dan 200, y `/legal/privacidad` —lo que enlazaba
             la pantalla de registro— daba 404. */}
-        <p className="t-meta" style={{ fontSize: 10.5, color: 'var(--subtle-foreground)', textAlign: 'center', marginTop: 4 }}>
+        <p className="t-meta" style={{ color: 'var(--subtle-foreground)', textAlign: 'center', marginTop: 4 }}>
           <Link href="/terminos" target="_blank" className="tap" style={{ color: 'inherit' }}>Aviso legal</Link>
           {' \u00b7 '}
           <Link href="/privacidad" target="_blank" className="tap" style={{ color: 'inherit' }}>Privacidad</Link>

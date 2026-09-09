@@ -101,7 +101,7 @@ export function FotoPerfil({ studioId, url, iniciales, onCambio }: {
           style={{
             position: 'absolute', right: 0, bottom: 0, width: 30, height: 30,
             borderRadius: 'var(--radius-pill)', background: 'var(--primary)',
-            color: 'var(--primary-foreground)', fontSize: 13,
+            color: 'var(--primary-foreground)', fontSize: 'var(--t-small)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: '2px solid var(--background)',
           }}

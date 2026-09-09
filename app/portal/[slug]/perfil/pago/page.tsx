@@ -59,7 +59,7 @@ export default function PagoPage() {
           <>
             <div className="card" data-testid="tarjeta" style={{ padding: '15px 16px' }}>
               <p className="t-label" style={{ margin: 0 }}>Tarjeta guardada</p>
-              <p style={{ margin: '6px 0 0', fontSize: 16, fontWeight: 800, letterSpacing: '-.01em' }}>
+              <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontWeight: 800, letterSpacing: '-.01em' }}>
                 {data.marca ? `${data.marca} ` : ''}•••• {data.ultimos4}
               </p>
               {data.caducidad && <p className="t-meta" style={{ margin: '2px 0 0' }}>Caduca {data.caducidad}</p>}
@@ -72,7 +72,7 @@ export default function PagoPage() {
             <Button variant="danger" full disabled={!online} onClick={() => setConfirmando(true)}>
               Quitar tarjeta
             </Button>
-            <p className="t-meta" style={{ margin: 0, textAlign: 'center', fontSize: 11.5, lineHeight: 1.5 }}>
+            <p className="t-meta" style={{ margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
               Si la quitas, los cobros automáticos de tus renovaciones dejarán de
               funcionar y tendrás que pagarlos a mano.
             </p>
@@ -81,8 +81,8 @@ export default function PagoPage() {
       </div>
 
       <Sheet open={confirmando} onClose={() => setConfirmando(false)} label="Quitar la tarjeta">
-        <h3 className="t-h2" style={{ margin: 0, fontSize: 18 }}>¿Quitar tu tarjeta?</h3>
-        <p style={{ margin: '8px 0 0', fontSize: 13, lineHeight: 1.55, color: 'var(--muted-foreground)' }}>
+        <h3 className="t-h2" style={{ margin: 0 }}>¿Quitar tu tarjeta?</h3>
+        <p style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', lineHeight: 1.55, color: 'var(--muted-foreground)' }}>
           Tus renovaciones dejarán de cobrarse solas. Podrás volver a guardarla la
           próxima vez que pagues.
         </p>
