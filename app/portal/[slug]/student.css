@@ -416,6 +416,20 @@
 .student-app .note--ok { background: var(--accent-soft); color: var(--accent-soft-foreground); }
 .student-app .note--warn { background: var(--warning-soft); color: var(--warning-foreground); }
 .student-app .note--danger { background: var(--destructive-soft); color: var(--destructive-foreground); }
+/* Con símbolo: un disco delante que dice de un vistazo si es buena noticia, si
+   cuesta dinero o si es un muro.
+   ⚠️ El disco toma su color de `currentColor` —la tinta del propio aviso— y el
+   glifo se recorta en `--card`. Así el símbolo no puede quedarse en un tono que
+   contradiga al aviso, que es exactamente el bug que lo trajo aquí: cuatro
+   mensajes distintos, dos de ellos muros, todos con el MISMO ✓ verde. */
+.student-app .note--simbolo { display: flex; align-items: center; gap: 9px; }
+.student-app .note-simbolo {
+  width: 22px; height: 22px; flex-shrink: 0; border-radius: var(--radius-pill);
+  background: currentColor; display: flex; align-items: center; justify-content: center;
+  font-size: var(--t-meta); font-weight: 800; line-height: 1;
+}
+.student-app .note-simbolo > span { color: var(--card); }
+
 /* Versión píldora, para cuando el aviso es una etiqueta corta y no un párrafo
    («Solo para Reformer»). */
 .student-app .note--pill { display: inline-flex; align-items: center; width: auto; padding: 3px 9px; border-radius: var(--radius-pill); font-size: var(--t-meta); font-weight: 800; }

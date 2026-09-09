@@ -328,7 +328,8 @@ export default function FichaClasePage() {
                 instructora={inst}
                 bono={disp === 'completa' ? null : bono}
                 bonoNoCubre={bonoNoCubre}
-                politicaHoras={estudio.politicaCancelacionHoras}
+                enEspera={disp === 'completa'}
+                politicaHoras={aviso?.horasVentana ?? estudio.politicaCancelacionHoras}
               />
             </div>
             {/* Elegir sitio: solo si la sala tiene huecos definidos, y solo
