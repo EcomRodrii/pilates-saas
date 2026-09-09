@@ -7,7 +7,7 @@ const clase = (over: Partial<Clase> = {}): Clase => ({
   id: 'c1', tipoClaseId: 'tc-1', fecha: '2026-10-01', hora: '10:00', duracionMin: 55,
   nombre: 'Reformer', tipo: 'Reformer', disciplina: 'Pilates', nivel: 'Todos',
   instructoraId: 'i1', sala: 'Sala 1', salaId: 'sala-1', color: '#7C6A52', capacidad: 10, plazasLibres: 5,
-  precioSuelto: 18, fotoUrl: '/x.webp', ventanaCancelacionHoras: null, ...over,
+  precioSuelto: 18, fotoUrl: '/x.webp', ventanaCancelacionHoras: null, permiteListaEspera: null, ...over,
 });
 const reserva = (over: Partial<Reserva> = {}): Reserva => ({
   id: 'r1', claseId: 'c1', alumnaId: 'a1', estado: 'confirmada',
@@ -27,6 +27,29 @@ test('disponibilidad: una reserva cancelada no cuenta como mía', () => {
 test('disponibilidad: sin plazas depende de si el estudio admite espera', () => {
   assert.equal(disponibilidad(clase({ plazasLibres: 0 }), [], true), 'completa');
   assert.equal(disponibilidad(clase({ plazasLibres: 0 }), [], false), 'no-disponible');
+});
+
+test('disponibilidad: el tipo de clase manda sobre el estudio para la lista de espera', () => {
+  // Es una de las cuatro reglas sobrescribibles por tipo (migr 20260730152516) y
+  // el servidor ya la resuelve con `heredaOverride`. La app solo miraba la del
+  // ESTUDIO: en un tipo que la prohíbe dentro de un estudio que la permite,
+  // ofrecía «apuntarme a la lista de espera» sobre una clase llena y el servidor
+  // lo habría rechazado.
+  const llena = { plazasLibres: 0 };
+  assert.equal(disponibilidad(clase({ ...llena, permiteListaEspera: false }), [], true), 'no-disponible');
+  assert.equal(disponibilidad(clase({ ...llena, permiteListaEspera: true }), [], false), 'completa');
+});
+
+test('disponibilidad: sin regla propia del tipo, decide el estudio', () => {
+  const llena = { plazasLibres: 0, permiteListaEspera: null };
+  assert.equal(disponibilidad(clase(llena), [], true), 'completa');
+  assert.equal(disponibilidad(clase(llena), [], false), 'no-disponible');
+});
+
+test('disponibilidad: un `false` del tipo NO cae al valor del estudio', () => {
+  // `??` y no `||`: con `||`, un tipo que prohíbe la espera se habría leído como
+  // «usa lo que diga el estudio», que es justo lo contrario de lo que pide.
+  assert.equal(disponibilidad(clase({ plazasLibres: 0, permiteListaEspera: false }), [], true), 'no-disponible');
 });
 
 test('disponibilidad: dos o menos es «pocas»', () => {

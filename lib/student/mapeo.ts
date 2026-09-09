@@ -219,7 +219,7 @@ export interface PayloadMin {
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null }[];
+  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null }[];
   levelDefinitions?: NivelDef[];
   achievementDefinitions?: LogroDef[];
   challengeDefinitions?: RetoDef[];
@@ -302,6 +302,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       id: s.id,
       tipoClaseId: s.tipoClaseId,
       ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null,
+      permiteListaEspera: tipo?.permiteListaEspera ?? null,
       fecha: f,
       hora: horaLocal(s.inicio),
       duracionMin: Math.max(1, Math.round((new Date(s.fin).getTime() - new Date(s.inicio).getTime()) / 60000)),

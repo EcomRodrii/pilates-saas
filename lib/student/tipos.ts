@@ -40,6 +40,17 @@ export interface Clase {
   tipoClaseId: string;
   /** Ventana de cancelación propia de este tipo de clase; `null` = la del estudio. */
   ventanaCancelacionHoras: number | null;
+  /**
+   * ¿Este tipo de clase admite lista de espera? `null` = lo que diga el estudio.
+   *
+   * ⚠️ Es una de las cuatro reglas de reserva sobrescribibles por tipo (migr
+   * `20260730152516`), y el servidor ya la resuelve con `heredaOverride` antes
+   * de llamar a `reservar_plaza`. La app solo conocía la del ESTUDIO, así que en
+   * un tipo que la prohíba dentro de un estudio que la permite le ofrecía a la
+   * alumna «apuntarme a la lista de espera» sobre una clase llena — y el
+   * servidor lo habría rechazado.
+   */
+  permiteListaEspera: boolean | null;
   fecha: string;            // ISO date YYYY-MM-DD
   hora: string;             // HH:mm
   duracionMin: number;
