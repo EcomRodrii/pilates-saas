@@ -19,10 +19,16 @@ import type { BookingState, Clase, Disponibilidad, Reserva } from './tipos';
 
 /** Disponibilidad visible de una clase PARA ESTA alumna. */
 export function disponibilidad(c: Clase, reservas: Reserva[], soportaEspera: boolean): Disponibilidad {
+  // ⚠️ La cascada se resuelve AQUÍ y no en cada pantalla, por el mismo motivo
+  // que `avisoCancelacion` resuelve la suya: son SEIS llamadores y todos pasan
+  // la bandera del ESTUDIO. Con la resolución fuera, basta que uno se olvide
+  // para volver a ofrecer lista de espera donde el servidor la rechaza — y el
+  // que se olvide será el próximo, no ninguno de estos seis.
+  const admiteEspera = c.permiteListaEspera ?? soportaEspera;
   const mia = reservas.find((r) => r.claseId === c.id && (r.estado === 'confirmada' || r.estado === 'en-espera'));
   if (mia?.estado === 'confirmada') return 'reservada';
   if (mia?.estado === 'en-espera') return 'lista-espera';
-  if (c.plazasLibres <= 0) return soportaEspera ? 'completa' : 'no-disponible';
+  if (c.plazasLibres <= 0) return admiteEspera ? 'completa' : 'no-disponible';
   if (c.plazasLibres <= 2) return 'pocas';
   return 'disponible';
 }
