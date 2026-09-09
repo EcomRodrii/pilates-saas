@@ -3,7 +3,13 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
+import { Resend } from 'resend';
+import { render } from '@react-email/render';
 import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_HUECO } from '@/lib/whatsapp';
+import { resendEmailProvider } from '@/lib/marketing/providers/email-resend';
+import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
+import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
+import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
@@ -18,13 +24,25 @@ import { fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 // Radar de ocupación → "Avisar a candidatas" (Configuración → Dashboard) y
 // «Rellenar hueco» de la home.
 //
-// Sale por la Meta Cloud API del PROPIO estudio (lib/whatsapp.ts +
-// `integraciones` tipo WHATSAPP, lo que la propietaria conecta en
-// Configuración → Integraciones), no por Twilio. Antes usaba
-// `enviarMensajeTwilio` con credenciales de plataforma: en producción no
-// existe ninguna variable TWILIO_*, así que esta ruta contestaba 503 sin
-// intentar nada y `avisos_hueco` se quedó vacía desde el primer día — el
-// botón «Avisar a N seleccionadas» no mandaba un solo mensaje.
+// Dos canales, resueltos por socia: WhatsApp por la Meta Cloud API del PROPIO
+// estudio (lib/whatsapp.ts + `integraciones` tipo WHATSAPP, lo que la
+// propietaria conecta en Configuración → Integraciones) y, cuando ahí no se
+// puede, email por Resend. Nunca por Twilio: en producción no existe ninguna
+// variable TWILIO_*, así que esta ruta contestaba 503 sin intentar nada y
+// `avisos_hueco` se quedó vacía desde el primer día.
+//
+// El email no es el plan B pobre: llega a MÁS gente (en producción, 19 de 19
+// socias activas tienen correo y 15 tienen teléfono) y es el único canal que
+// el consentimiento guardado nombra — «Acepto recibir por email…», con baja
+// «desde el enlace de cualquier email» (textoConsentimientoMarketing). Se
+// prefiere WhatsApp cuando el estudio lo ha conectado porque conectarlo ya es
+// decir que quiere usarlo.
+//
+// ⚠️ NO se salta de un canal al otro cuando el envío falla, a propósito: un
+// estudio con WhatsApp conectado pero sin la plantilla `hueco_disponible`
+// aprobada tiene un problema de configuración, y taparlo mandando correos por
+// detrás lo dejaría sin arreglar para siempre. Los fallos se cuentan, quedan
+// en `avisos_hueco` y se ven en el panel.
 //
 // Server-only: manda WhatsApp real y necesita límite de gasto/spam — no hay
 // ningún rate-limit de mensajería en el repo hasta esta ruta, así que se
@@ -51,16 +69,25 @@ export async function POST(req: NextRequest) {
   const integracion = await dbGetIntegracionConfig(sesion.studioId, 'WHATSAPP');
   const cfg = integracion?.activo ? integracion.config : null;
   const whatsapp = cfg?.token && cfg.phoneId ? { token: cfg.token, phoneId: cfg.phoneId } : null;
-  if (!whatsapp) {
-    return NextResponse.json(
-      { error: 'Conecta tu WhatsApp Business en Configuración → Integraciones' },
-      { status: 503 },
-    );
-  }
   // Opt-in propio, NO el del recordatorio: son dos plantillas distintas en
   // Meta y dar por aprobada la que no lo está falla en todos los envíos
   // (132001), no en algunos. Ver PLANTILLA_HUECO en lib/whatsapp.ts.
   const plantillaAprobada = cfg?.plantillaHuecoAprobada === 'true';
+
+  // `re_XXXX` significa «sin configurar», igual que `sk_test_XXXX` en Stripe —
+  // no es una clave de pruebas válida.
+  const resendKey = process.env.RESEND_API_KEY;
+  const resend = resendKey && !resendKey.startsWith('re_XXXX') ? new Resend(resendKey) : null;
+
+  // Solo se corta si no queda NINGÚN canal. Antes bastaba con no tener WhatsApp
+  // para devolver 503, y eso dejaba fuera el correo — el canal que llega a más
+  // socias y el único que el consentimiento guardado cubre.
+  if (!whatsapp && !resend) {
+    return NextResponse.json(
+      { error: 'No hay ningún canal disponible: conecta tu WhatsApp Business en Configuración → Integraciones' },
+      { status: 503 },
+    );
+  }
 
   const body = (await req.json().catch(() => null)) as { sesionId?: string; socioIds?: unknown } | null;
   const sesionId = body?.sesionId;
@@ -90,7 +117,7 @@ export async function POST(req: NextRequest) {
       admin.from('socios').select('*').eq('studio_id', sesion.studioId),
       admin.from('suscripciones').select('*').eq('studio_id', sesion.studioId),
       admin.from('planes_tarifa').select('*').eq('studio_id', sesion.studioId),
-      admin.from('studios').select('nombre, slug').eq('id', sesion.studioId).single(),
+      admin.from('studios').select('nombre, slug, logo_url, color_primario').eq('id', sesion.studioId).single(),
       admin.from('tipos_clase').select('nombre').eq('id', sesionObj.tipoClaseId).maybeSingle(),
     ]);
 
@@ -193,9 +220,14 @@ export async function POST(req: NextRequest) {
     const enlace = studioRow?.slug ? `${appUrl}/reservar/${studioRow.slug}` : appUrl;
 
     const nombreEstudio = studioRow?.nombre ?? 'el estudio';
+    const textoAviso = (nombre: string) =>
+      `¡Hola ${nombre}! Se ha quedado un hueco en ${nombreClase} el ${fecha} a las ${hora} en ${nombreEstudio}. Resérvalo aquí: ${enlace}`;
+    const emailProvider = resend ? resendEmailProvider(resend) : null;
 
     let enviados = 0;
-    let sinTelefono = 0;
+    let porWhatsapp = 0;
+    let porEmail = 0;
+    let sinContacto = 0;
     let errores = 0;
     // Una sola escritura de salud por tanda, no una por mensaje — mismo
     // criterio y mismo acumulador que el cron de recordatorios: lo que la
@@ -204,39 +236,83 @@ export async function POST(req: NextRequest) {
     const salud = acumuladorSalud();
 
     for (const socia of candidatas) {
-      if (!socia.telefono) { sinTelefono++; continue; }
-      // Este aviso lo inicia el negocio (nadie ha escrito al estudio), así que
-      // fuera de la ventana de 24h Meta solo entrega una plantilla aprobada:
-      // como texto libre devuelve 131047. Sin plantilla registrada se manda
-      // texto igualmente —llega a quien SÍ escribió hace poco— en vez de no
-      // mandar nada; el error de Meta queda anotado en `avisos_hueco` y en la
-      // salud de la integración, que es donde se ve por qué no llegó.
-      const resultado = plantillaAprobada
-        ? await enviarWhatsAppPlantilla(whatsapp, socia.telefono, PLANTILLA_HUECO, [
-            socia.nombre, nombreClase, fecha, hora, nombreEstudio, enlace,
-          ])
-        : await enviarWhatsAppTexto(
-            whatsapp, socia.telefono,
-            `¡Hola ${socia.nombre}! Se ha quedado un hueco en ${nombreClase} el ${fecha} a las ${hora} en ${nombreEstudio}. Resérvalo aquí: ${enlace}`,
-          );
-      salud.anota(resultado);
-      if (resultado.ok) enviados++; else errores++;
+      // WhatsApp si el estudio lo tiene conectado y ella tiene teléfono; si no,
+      // correo. Un solo mensaje por socia — nunca los dos.
+      // `esDominioReservado` (RFC 2606, example.com y compañía) es lo que ya
+      // hace `enviarEmailTransaccional`, y aquí hace falta igual: una ficha de
+      // demo con dirección inventada no es un fallo del correo, así que ni se
+      // intenta ni se cuenta como error.
+      const porWa = !!whatsapp && !!socia.telefono;
+      const puedeEmail = !!emailProvider && !!socia.email && !esDominioReservado(socia.email);
+      if (!porWa && !puedeEmail) { sinContacto++; continue; }
+
+      let resultado: { ok: true; id?: string } | { ok: false; error: string };
+      if (porWa) {
+        // Este aviso lo inicia el negocio (nadie ha escrito al estudio), así que
+        // fuera de la ventana de 24h Meta solo entrega una plantilla aprobada:
+        // como texto libre devuelve 131047. Sin plantilla registrada se manda
+        // texto igualmente —llega a quien SÍ escribió hace poco— en vez de no
+        // mandar nada; el error de Meta queda anotado en `avisos_hueco` y en la
+        // salud de la integración, que es donde se ve por qué no llegó.
+        resultado = plantillaAprobada
+          ? await enviarWhatsAppPlantilla(whatsapp!, socia.telefono!, PLANTILLA_HUECO, [
+              socia.nombre, nombreClase, fecha, hora, nombreEstudio, enlace,
+            ])
+          : await enviarWhatsAppTexto(whatsapp!, socia.telefono!, textoAviso(socia.nombre));
+        salud.anota(resultado);
+      } else {
+        const html = await render(AutomatizacionEmail({
+          socioNombre: socia.nombre,
+          titulo: `Se ha quedado un hueco en ${nombreClase}`,
+          mensaje: `Se ha liberado una plaza en ${nombreClase} el ${fecha} a las ${hora}. Si te viene bien, es tuya.`,
+          estudioNombre: nombreEstudio,
+          logoUrl: studioRow?.logo_url ?? null,
+          colorPrimario: studioRow?.color_primario ?? null,
+          accion: { url: enlace, texto: 'Reservar mi plaza' },
+          // LSSI art. 21: toda comunicación comercial lleva enlace de baja. Y
+          // aquí no es solo la ley — el consentimiento que firmó la socia
+          // promete literalmente poder darse de baja «desde el enlace de baja
+          // de cualquier email». Sin él, el correo incumple su propio permiso.
+          unsubscribeUrl: `${appUrl}/api/marketing/baja?token=${firmarBajaMarketing(sesion.studioId, socia.id)}`,
+        }));
+        resultado = await emailProvider!.enviar({
+          to: socia.email,
+          subject: `Se ha quedado un hueco en ${nombreClase} — ${fecha}`,
+          html,
+          studioNombre: nombreEstudio,
+          // Determinista por (sesión, socia): si la propietaria pulsa dos veces
+          // o la petición se reintenta, Resend reconoce la clave y no reenvía.
+          // El dedupe de 24h de `avisos_hueco` cubre el caso normal; esto cubre
+          // el que ocurre ANTES de que se escriba esa fila.
+          idempotencyKey: `hueco-${sesionId}-${socia.id}`,
+        });
+      }
+
+      if (resultado.ok) { enviados++; if (porWa) porWhatsapp++; else porEmail++; } else errores++;
       await admin.from('avisos_hueco').insert({
         id: `hueco-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         studio_id: sesion.studioId,
         sesion_id: sesionId,
         socio_id: socia.id,
+        canal: porWa ? 'WHATSAPP' : 'EMAIL',
         resultado: resultado.ok ? 'ok' : 'error',
         detalle: resultado.ok ? null : resultado.error ?? 'error desconocido',
       });
     }
 
-    // `null` cuando no se intentó ningún envío: sin noticia nueva del servicio,
-    // sobrescribir la salud borraría la que sí valía.
+    // `null` cuando no se intentó ningún envío por WhatsApp: sin noticia nueva
+    // del servicio, sobrescribir la salud borraría la que sí valía.
     const resultadoSalud = salud.resultado();
     if (resultadoSalud) await registrarSaludIntegracion(admin, sesion.studioId, 'WHATSAPP', resultadoSalud);
 
-    return NextResponse.json({ enviados, sinTelefono, errores, sinConsentimiento, saltadasPorDedup: avisadasSet.size });
+    return NextResponse.json({
+      enviados, porWhatsapp, porEmail, errores, sinConsentimiento,
+      // Se llamaba `sinTelefono` cuando WhatsApp era el único canal. Ahora
+      // «sin contacto» es de verdad sin ninguna vía: ni teléfono utilizable ni
+      // correo.
+      sinContacto,
+      saltadasPorDedup: avisadasSet.size,
+    });
   } catch (err) {
     return errorInterno('marketing/hueco/avisar:POST', err, 'No se pudo avisar a las candidatas. Inténtalo de nuevo más tarde.');
   }
