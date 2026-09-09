@@ -1031,6 +1031,24 @@ export default function Calendario() {
   // que el efecto de claveVista dispare el fetch correcto tras el
   // setSemana; si no navegamos, el caller es responsable de refrescar la
   // vista actual.
+  /**
+   * Borra del caché TODA ventana que contenga alguna de estas fechas.
+   *
+   * Se extrae de `invalidarCacheSerieYNavegarSiHaceFalta` para poder usarla sin
+   * navegar: mover una clase tiene que invalidar el día de ORIGEN y el de
+   * DESTINO, pero no debe llevarte de viaje a otra semana por haberla
+   * arrastrado.
+   */
+  function invalidarCacheDeFechas(fechas: Date[]) {
+    for (const [clave] of cacheVistaRef.current) {
+      const [desdeIso, hastaIso] = clave.split('_');
+      const desdeMs = new Date(desdeIso).getTime();
+      const hastaMs = new Date(hastaIso).getTime();
+      const tocaAlgunaFecha = fechas.some(f => f.getTime() >= desdeMs && f.getTime() < hastaMs);
+      if (tocaAlgunaFecha) cacheVistaRef.current.delete(clave);
+    }
+  }
+
   function invalidarCacheSerieYNavegarSiHaceFalta(fechas: Date[]): { navego: boolean } {
     if (fechas.length === 0) return { navego: false };
     // Semana progresiva: ya no hay una partición fija de 7-en-7 días que
@@ -1041,13 +1059,7 @@ export default function Calendario() {
     // entrada cuyo rango [desde,hasta) contenga alguna fecha tocada — el
     // caché nunca tiene más de un puñado de entradas vivas, así que esto no
     // es caro.
-    for (const [clave] of cacheVistaRef.current) {
-      const [desdeIso, hastaIso] = clave.split('_');
-      const desdeMs = new Date(desdeIso).getTime();
-      const hastaMs = new Date(hastaIso).getTime();
-      const tocaAlgunaFecha = fechas.some(f => f.getTime() >= desdeMs && f.getTime() < hastaMs);
-      if (tocaAlgunaFecha) cacheVistaRef.current.delete(clave);
-    }
+    invalidarCacheDeFechas(fechas);
     // "¿la primera fecha cae dentro de la ventana visible?" — antes era
     // "¿su weekStart coincide con `semana`?", que dejó de ser equivalente en
     // cuanto weekStart dejó de redondear a lunes (dos fechas de la MISMA
@@ -2195,6 +2207,14 @@ export default function Calendario() {
       );
     }
     showToast('Clase movida');
+    // ⚠️ El caché de la vista se invalida por FECHAS, no solo por el rango que
+    // se está mirando. `refrescarVista()` a secas solo borra la ventana actual,
+    // así que la clase movida se quedaba en la caché del día/semana de DESTINO
+    // tal y como estaba ANTES: al ir allí, no aparecía —el dato ya era correcto
+    // en el servidor, pero se pintaba una copia vieja—. Y hay que invalidar las
+    // dos, origen y destino: en el origen para que deje de verse donde ya no
+    // está. Mismo mecanismo que ya usaban crear y crear-recurrentes.
+    invalidarCacheDeFechas([new Date(sesion.inicio), new Date(nuevoInicio)]);
     void refrescarVista();
   }
 
