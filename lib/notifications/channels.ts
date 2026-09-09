@@ -2,9 +2,9 @@
 // Notification Engine — CANALES (server-only).
 //
 // Cada canal implementa la misma interfaz `Canal`. El motor no sabe nada del
-// canal concreto: itera el registro. Añadir un canal (EMAIL/WHATSAPP/SMS) =
-// añadir una entrada a CANALES envolviendo el wrapper que ya existe
-// (lib/emails/send-server.ts, lib/twilio.ts) — sin tocar la lógica de negocio.
+// canal concreto: itera el registro. Añadir un canal = añadir una entrada a
+// CANALES envolviendo el wrapper que ya existe (lib/emails/send-server.ts) —
+// sin tocar la lógica de negocio.
 //
 // Fase 1: INAPP (la fila ya materializada) + PUSH (stub que se completa en PR2).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -147,29 +147,30 @@ const email: Canal = {
   },
 };
 
-// WhatsApp y SMS: envuelven lib/twilio.ts (env-gated). Opt-in. Sin teléfono →
-// SKIPPED; sin Twilio configurado → SKIPPED (no es fallo duro). Nota: los
-// mensajes WhatsApp iniciados por el negocio fuera de la ventana de 24 h
-// requieren plantilla aprobada en Twilio — hasta entonces solo entregan SMS o
-// WhatsApp dentro de sesión.
-function canalTwilio(nombre: 'WHATSAPP' | 'SMS'): Canal {
-  return {
-    nombre,
-    async enviar({ notificacion, destinatario }) {
-      if (!destinatario.telefono) return { status: 'SKIPPED', error: 'destinatario sin teléfono' };
-      const { enviarMensajeTwilio } = await import('@/lib/twilio');
-      const r = await enviarMensajeTwilio({ canal: nombre, to: destinatario.telefono, cuerpo: `${notificacion.title}\n${notificacion.body}` });
-      if (r.skipped) return { status: 'SKIPPED', error: r.error };
-      if (r.ok) return { status: 'SENT', providerId: r.id };
-      return { status: 'FAILED', error: r.error };
-    },
-  };
-}
+// WHATSAPP y SMS: RETIRADOS el 2026-09-09, junto con Twilio.
+//
+// No es una degradación disimulada, y conviene entender por qué antes de que a
+// alguien le parezca un hueco que rellenar con la Meta Cloud API:
+//
+// - Nunca entregaron nada. En producción no existía ninguna variable TWILIO_*,
+//   y `notification_delivery` lo confirma: 0 filas de WHATSAPP y 0 de SMS en
+//   sus 838 entregas. El canal existía en el catálogo y en la pantalla de
+//   preferencias, no en la realidad.
+// - Solo los pedían DOS eventos —SISTEMA_ERROR y SISTEMA_STRIPE_DESCONECTADO—,
+//   los dos con `audiencia: 'propietaria'`, o sea con `studios.telefono` de
+//   destino. Los dos conservan PUSH y EMAIL, que sí funcionan (VAPID
+//   configurado, 125 entregas PUSH reales).
+// - Y por eso tampoco se han migrado a Meta como los demás emisores: aquí el
+//   destinatario ES el estudio. Mandarle un aviso de plataforma desde su propio
+//   WhatsApp Business es escribirse a sí misma —Meta rechaza un envío al mismo
+//   número que lo emite— y encima haría depender el aviso «algo va mal en tu
+//   Tentare» de una integración que puede ser justo lo que va mal.
+//
+// Si algún día hace falta un canal de móvil para avisos de plataforma, será una
+// decisión nueva (con qué credencial, de quién) y no rellenar este hueco.
 
 export const CANALES: Record<NotificationChannel, Canal | undefined> = {
   INAPP: inapp,
   PUSH: push,
   EMAIL: email,
-  WHATSAPP: canalTwilio('WHATSAPP'),
-  SMS: canalTwilio('SMS'),
 };

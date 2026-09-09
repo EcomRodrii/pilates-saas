@@ -8,7 +8,11 @@ import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
 import { filtrarPorConsentimientoMarketing } from '@/lib/marketing/consentimiento';
 import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import { resendEmailProvider } from '@/lib/marketing/providers/email-resend';
-import { twilioSmsProvider } from '@/lib/marketing/providers/sms-twilio';
+import { whatsappMetaProvider } from '@/lib/marketing/providers/whatsapp-meta';
+import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
+import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
+import { acumuladorSalud } from '@/lib/integraciones/salud';
+import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 import { appUrl } from '@/lib/emails/plantillas-server';
@@ -88,12 +92,32 @@ export const procesarEnvioCampana = inngest.createFunction(
     const apiKey = process.env.RESEND_API_KEY;
     const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
 
+    // Credenciales de WhatsApp del estudio, FUERA de cualquier `step.run` a
+    // propósito: lo que devuelve un step lo persiste Inngest como estado de la
+    // ejecución, y ahí no pinta nada el token de Meta de un cliente. Releerlas
+    // en cada replay cuesta una consulta y evita eso.
+    //
+    // `null` no es un caso raro que haya que tratar aquí: /api/marketing/campanas/[id]/enviar
+    // ya rechaza una campaña de WhatsApp sin integración antes de encolarla, así
+    // que llegar sin credenciales solo pasa si la desconectaron entre medias.
+    const whatsapp = campana.tipo === 'WHATSAPP'
+      ? whatsappDelEstudio(await dbGetIntegracionConfig(studioId, 'WHATSAPP'))
+      : null;
+    // Cómo le fue a Meta en ESTA tanda: una escritura al final, no una por
+    // destinataria (mismo acumulador y mismo criterio que el cron de
+    // recordatorios — un acierto gana a los fallos de números mal escritos).
+    const salud = acumuladorSalud();
+
     let enviados = 0;
     for (let i = 0; i < destinatarias.length; i++) {
       const socio = destinatarias[i];
-      const ok = await step.run(`envio-${i}-${socio.id}`, async () => {
+      // El step devuelve el resultado entero y no un booleano para que la salud
+      // de la integración se pueda acumular AQUÍ FUERA: un acumulador mutado
+      // dentro del step se perdería en un replay (Inngest memoiza el resultado,
+      // no vuelve a ejecutar el cuerpo).
+      const r = await step.run(`envio-${i}-${socio.id}`, async (): Promise<{ ok: boolean; error?: string; meta?: boolean }> => {
         if (campana.tipo === 'EMAIL') {
-          if (!resend || !socio.email) return false;
+          if (!resend || !socio.email) return { ok: false };
           const html = await render(AutomatizacionEmail({
             socioNombre: socio.nombre,
             titulo: campana.asunto,
@@ -113,13 +137,31 @@ export const procesarEnvioCampana = inngest.createFunction(
             // pero antes de memoizar, Resend reconoce la clave y no reenvía.
             idempotencyKey: `campana-${campanaId}-${socio.id}`,
           });
-          return r.ok;
+          return { ok: r.ok, error: r.error };
         }
+        if (!whatsapp) return { ok: false, error: 'WhatsApp Business no está conectado en este estudio' };
+        // Texto, no plantilla, y no por falta de ganas: el cuerpo lo escribe la
+        // propietaria y es distinto en cada campaña, así que no hay plantilla
+        // que Meta pueda tener aprobada de antemano — y un parámetro de
+        // plantilla ni siquiera admite el salto de línea que separa asunto de
+        // contenido. Llega a quien escribió al estudio en las últimas 24 h; al
+        // resto Meta responde 131047, que queda en la salud de la integración.
         const cuerpo = campana.asunto ? `${campana.asunto}\n\n${campana.contenido}` : campana.contenido;
-        const r = await twilioSmsProvider.enviar({ canal: campana.tipo, to: socio.telefono, cuerpo });
-        return r.ok;
+        const env = await whatsappMetaProvider(whatsapp).enviar({ to: socio.telefono, cuerpo });
+        return { ok: env.ok, error: env.error, meta: true };
       });
-      if (ok) enviados++;
+      if (r.ok) enviados++;
+      // Solo cuenta como noticia de Meta lo que de verdad habló con Meta: un
+      // email fallido no dice nada sobre el token de WhatsApp.
+      if (r.meta) salud.anota(r.ok ? { ok: true } : { ok: false, error: r.error ?? 'Error al enviar por WhatsApp' });
+    }
+
+    // `null` si no se intentó ningún envío por Meta: sin noticia nueva del
+    // servicio, sobrescribir la salud borraría la que sí valía.
+    const resultadoSalud = salud.resultado();
+    if (resultadoSalud) {
+      await step.run('salud-whatsapp', () =>
+        registrarSaludIntegracion(requireSupabaseAdmin(), studioId, 'WHATSAPP', resultadoSalud));
     }
 
     await step.run('marcar-enviada', async () => {

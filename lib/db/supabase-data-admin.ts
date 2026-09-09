@@ -10,7 +10,8 @@ import { mapLimit } from '@/lib/concurrency';
 import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, type WhatsAppCredenciales } from '@/lib/whatsapp';
+import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO } from '@/lib/whatsapp';
+import { whatsappDelEstudio, type WhatsAppDelEstudio } from '@/lib/whatsapp-estudio';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
@@ -1663,20 +1664,21 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
     admin.from('integraciones').select('studio_id, activo, config').eq('tipo', 'WHATSAPP').in('studio_id', studioIds),
   ]);
   const reservas = reservasR ?? [];
-  const whatsappPorStudio = new Map<string, WhatsAppCredenciales & { plantillaAprobada: boolean }>();
+  // `plantillaRecordatorio` es opt-in por estudio (checkbox en Configuración →
+  // Integraciones): sin ella se manda `type: 'text'` como siempre, que Meta solo
+  // entrega dentro de la ventana de 24h desde el último mensaje de la socia —
+  // con ella, se usa la plantilla HSM que Meta permite fuera de esa ventana. No
+  // forzar plantilla a estudios que no la han registrado: eso rompería TODOS sus
+  // recordatorios, no solo los que caen fuera de la ventana.
+  //
+  // La lectura de la fila la hace `whatsappDelEstudio`, la misma que usan los
+  // otros seis emisores — antes esta regla estaba copiada aquí, y una regla de
+  // «¿puede este estudio mandar WhatsApp?» duplicada en siete sitios es siete
+  // sitios donde equivocarse de nombre de clave sin que nada lo delate.
+  const whatsappPorStudio = new Map<string, WhatsAppDelEstudio>();
   for (const row of whatsappR ?? []) {
-    if (!row.activo) continue;
-    const config = (row.config as Record<string, string>) ?? {};
-    if (config.token && config.phoneId) {
-      // `plantillaAprobada` es opt-in por estudio (checkbox en Configuración →
-      // Integraciones): sin ella se manda `type: 'text'` como siempre, que
-      // Meta solo entrega dentro de la ventana de 24h desde el último mensaje
-      // de la socia — con ella, se usa la plantilla HSM que Meta permite
-      // fuera de esa ventana. No forzar plantilla a estudios que no la han
-      // registrado: eso rompería TODOS sus recordatorios, no solo los que
-      // caen fuera de la ventana.
-      whatsappPorStudio.set(row.studio_id as string, { token: config.token, phoneId: config.phoneId, plantillaAprobada: config.plantillaAprobada === 'true' });
-    }
+    const creds = whatsappDelEstudio({ activo: !!row.activo, config: row.config as Record<string, string> | null });
+    if (creds) whatsappPorStudio.set(row.studio_id as string, creds);
   }
 
   // Cómo le fue a WhatsApp en ESTA tanda. Antes los fallos solo subían un
@@ -1794,7 +1796,7 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
           .insert({ sesion_id: ses.id as string, socio_id: r.socio_id, canal: 'WHATSAPP' });
         if (dedupError && dedupError.code !== '23505') throw new Error(dedupError.message);
         if (!dedupError) {
-          const res = whatsapp.plantillaAprobada
+          const res = whatsapp.plantillaRecordatorio
             ? await enviarWhatsAppPlantilla(whatsapp, socia.telefono, PLANTILLA_RECORDATORIO, [
                 datos.estudioNombre, datos.claseNombre, datos.fecha, datos.hora, datos.sala || 'tu estudio',
               ])

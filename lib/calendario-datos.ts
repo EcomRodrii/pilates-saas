@@ -11,7 +11,7 @@ import type { Sesion, Rol } from './types.ts';
 import { puedeMoverDinero } from './permisos-reglas.ts';
 
 // Duplicado deliberadamente en vez de importado de lib/sustituciones/contacto.ts:
-// ese archivo arrastra imports @/lib/* (server-only, Twilio, billing…) que
+// ese archivo arrastra imports @/lib/* (server-only, WhatsApp, billing…) que
 // rompen bajo `node --test` (solo resuelve relativos, no alias de Next). Mismos
 // 4 valores que `ESTADOS_EN_JUEGO` allí — atados al CHECK de la tabla
 // `sustituciones` (migr 0037/0042/0043), no algo que cambie a la ligera.

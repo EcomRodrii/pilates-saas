@@ -15,7 +15,10 @@ export type NotificationCategory =
 export type NotificationPriority =
   | 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA' | 'SILENCIOSA';
 
-export type NotificationChannel = 'INAPP' | 'PUSH' | 'EMAIL' | 'WHATSAPP' | 'SMS';
+// WHATSAPP y SMS salieron del enum el 2026-09-09 al retirarse Twilio: ninguno
+// entregó jamás una notificación (0 filas de cada uno en `notification_delivery`)
+// y no tienen sustituto — ver el comentario largo en channels.ts.
+export type NotificationChannel = 'INAPP' | 'PUSH' | 'EMAIL';
 
 export type DeliveryStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED' | 'SKIPPED';
 

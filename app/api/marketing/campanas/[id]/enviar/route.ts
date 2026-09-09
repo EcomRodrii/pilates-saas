@@ -5,6 +5,8 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { mapCampana } from '@/lib/supabase-data';
+import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
+import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import type { RowCampanas } from '@/lib/db-types';
 import * as Sentry from '@sentry/nextjs';
 
@@ -36,6 +38,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (campana.tipo === 'EMAIL' && (!campana.asunto?.trim() || !campana.contenido?.trim())) {
     return NextResponse.json({ error: 'La campaña no tiene asunto o contenido' }, { status: 400 });
+  }
+
+  // WhatsApp sale por la Meta Cloud API del PROPIO estudio (no por Twilio, que
+  // se retiró: no existía en producción). Se comprueba AQUÍ, antes del
+  // compare-and-set de abajo, y no dentro del worker: si se dejara pasar, la
+  // campaña se quedaría en ENVIANDO —estado del que el propio CAS impide
+  // salir— por no tener credenciales, y la propietaria no tendría forma de
+  // recuperarla. Comprobando antes, sigue en BORRADOR: conecta WhatsApp y le da
+  // otra vez a Enviar.
+  if (campana.tipo === 'WHATSAPP' && !whatsappDelEstudio(await dbGetIntegracionConfig(sesion.studioId, 'WHATSAPP'))) {
+    return NextResponse.json(
+      { error: 'Conecta tu WhatsApp Business en Configuración → Integraciones' },
+      { status: 503 },
+    );
   }
 
   // Compare-and-set (mismo criterio que dbTransicionarRecomendacion en

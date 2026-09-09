@@ -108,7 +108,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'WHATSAPP',
     nombre: 'WhatsApp Business',
-    descripcion: 'Envía recordatorios de clase y avisos de hueco libre por WhatsApp desde tu propio número de WhatsApp Business.',
+    descripcion: 'Envía recordatorios de clase, avisos de hueco libre, campañas y avisos a tu equipo por WhatsApp desde tu propio número de WhatsApp Business.',
     Icon: WhatsAppAppIcon,
     placaPropia: true,
     color: '#25D366',
@@ -119,6 +119,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
       { key: 'phoneId', label: 'ID de número de teléfono', placeholder: '109xxxxxxxxxxx' },
       { key: 'plantillaAprobada', label: 'Ya me aprobaron la plantilla "recordatorio_clase" en Meta', placeholder: '', tipo: 'checkbox' },
       { key: 'plantillaHuecoAprobada', label: 'Ya me aprobaron la plantilla "hueco_disponible" en Meta', placeholder: '', tipo: 'checkbox' },
+      { key: 'plantillaSustitucionAprobada', label: 'Ya me aprobaron la plantilla "sustitucion_urgente" en Meta', placeholder: '', tipo: 'checkbox' },
     ],
     instrucciones: [
       'Entra en developers.facebook.com/apps y crea (o abre) una app de tipo "Business".',
@@ -128,6 +129,8 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
       'Pega aquí el token y el ID del número, y pulsa Guardar.',
       'Los recordatorios los manda un proceso automático, no una respuesta tuya, así que Meta exige una plantilla aprobada para que lleguen pasadas 24h desde el último mensaje de la clienta. En WhatsApp Manager → Plantillas de mensaje, crea una con nombre exacto "recordatorio_clase", categoría "Utilidad", idioma "Español" y este cuerpo con 5 variables: «Recordatorio · {{1}}. Tienes {{2}} el {{3}} a las {{4}} en {{5}}.» Meta suele aprobarla en minutos — cuando lo haga, marca la casilla de abajo.',
       'Los avisos de hueco libre («Rellenar hueco» y el radar de ocupación) necesitan su PROPIA plantilla, porque para Meta son marketing y no un aviso de servicio. Crea otra con nombre exacto "hueco_disponible", categoría "Marketing", idioma "Español" y este cuerpo con 6 variables: «¡Hola {{1}}! Se ha quedado un hueco en {{2}} el {{3}} a las {{4}} en {{5}}. Reserva tu plaza aquí: {{6}} ¡Te esperamos!» Cuando te la aprueben, marca su casilla — marcar la del recordatorio NO vale para esta.',
+      'Si usas las sustituciones, crea también "sustitucion_urgente", categoría "Utilidad", idioma "Español", con este cuerpo de 4 variables: «Hola {{1}}, ¿puedes cubrir {{2}} el {{3}}? Confírmalo en un toque aquí: {{4}} Gracias por echar un cable.» Es la que se le manda a la instructora cuando no ha contestado al email, así que es la que más falta hace: sin ella solo le llega si te ha escrito por WhatsApp en las últimas 24 horas.',
+      'Lo demás (campañas, automatizaciones y los mensajes sueltos de Mensajería) NO necesita plantilla y tampoco puede tenerla: el texto lo escribes tú y cambia cada vez, y Meta solo aprueba mensajes con un texto fijo. Esos llegan a quien te haya escrito en las últimas 24 horas; al resto Meta los rechaza y verás el motivo aquí mismo, en el estado de la integración.',
     ],
     docsUrl: 'https://developers.facebook.com/docs/whatsapp/cloud-api/get-started',
     probarUrl: '/api/integrations/whatsapp/probar',

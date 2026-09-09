@@ -38,7 +38,7 @@ test('prueba a punto de expirar: ALTA + PUSH/EMAIL, título con los días', () =
   assert.match(render(pl.title, { dias: 2 }), /2 días/);
 });
 
-test('prueba expirada es CRÍTICA pero sin WHATSAPP/SMS (bloquea el panel, no cobros en curso)', () => {
+test('prueba expirada es CRÍTICA y llega por los dos canales que quedan', () => {
   const r = REGLAS[EVENTOS.TRIAL_EXPIRADO];
   assert.equal(r.priority, 'CRITICA');
   assert.deepEqual(canalesExtraDe(r, PREF({ push: false, email: false }), true).sort(), ['EMAIL', 'PUSH']);
@@ -47,7 +47,10 @@ test('prueba expirada es CRÍTICA pero sin WHATSAPP/SMS (bloquea el panel, no co
 test('stripe desconectado es CRÍTICA: llega por todos los canales que declara', () => {
   const r = REGLAS[EVENTOS.SISTEMA_STRIPE_DESCONECTADO];
   assert.equal(r.priority, 'CRITICA');
-  assert.deepEqual(canalesExtraDe(r, PREF({ push: false, email: false }), true).sort(), ['EMAIL', 'PUSH', 'SMS', 'WHATSAPP']);
+  // Declaraba además WHATSAPP y SMS, retirados con Twilio el 2026-09-09 sin
+  // haber entregado nunca nada (0 filas de cada uno en `notification_delivery`).
+  // PUSH y EMAIL sí llegan, y son los que sostienen este aviso.
+  assert.deepEqual(canalesExtraDe(r, PREF({ push: false, email: false }), true).sort(), ['EMAIL', 'PUSH']);
 });
 
 test('automatizaciones: cada evento nuevo tiene regla + plantilla que renderiza', () => {
@@ -91,7 +94,7 @@ test('canales: un evento sin PUSH declarado no hace push aunque la pref esté ON
 test('canales: una CRÍTICA ignora la preferencia pero NO se inventa canales', () => {
   const r = REGLAS[EVENTOS.SISTEMA_ERROR];
   assert.equal(r.priority, 'CRITICA');
-  assert.deepEqual(canalesExtraDe(r, PREF({ push: false, email: false }), true).sort(), ['EMAIL', 'PUSH', 'SMS', 'WHATSAPP']);
+  assert.deepEqual(canalesExtraDe(r, PREF({ push: false, email: false }), true).sort(), ['EMAIL', 'PUSH']);
   // Una CRÍTICA hipotética que solo declarase PUSH no mandaría email.
   assert.deepEqual(canalesExtraDe({ ...r, canales: ['PUSH'] }, PREF({ push: false }), true), ['PUSH']);
 });

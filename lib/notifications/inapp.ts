@@ -19,6 +19,12 @@ import type {
   NotificationCategory, NotificationChannel, NotificationEvent, NotificationRow, Recipient,
 } from './types.ts';
 
+// `whatsapp`/`sms` siguen aquí porque siguen siendo columnas de
+// `notification_preference` — la fila que ya tiene guardada cada usuaria. Desde
+// que se retiraron esos dos canales (2026-09-09, ver channels.ts) no los mapea
+// ningún canal: son datos inertes, no una preferencia que haga algo. Ninguna
+// pantalla los ofrecía, así que nadie los echa de menos; quitarlos de verdad es
+// una migración aparte, no un efecto colateral de este cambio.
 export interface Preferencia { inapp: boolean; push: boolean; email: boolean; whatsapp: boolean; sms: boolean; }
 export const PREF_DEFECTO: Preferencia = { inapp: true, push: true, email: false, whatsapp: false, sms: false };
 
@@ -32,7 +38,7 @@ export const PREF_DEFECTO: Preferencia = { inapp: true, push: true, email: false
 // los declarados (los no configurados acaban en SKIPPED). Por eso no hace falta
 // una lista de exclusiones: "no declarado" ya significa "nunca".
 const PREF_DE_CANAL: Record<NotificationChannel, keyof Preferencia | null> = {
-  INAPP: 'inapp', PUSH: 'push', EMAIL: 'email', WHATSAPP: 'whatsapp', SMS: 'sms',
+  INAPP: 'inapp', PUSH: 'push', EMAIL: 'email',
 };
 
 export function canalesExtraDe(regla: ReglaEvento, pref: Preferencia, critica: boolean): NotificationChannel[] {

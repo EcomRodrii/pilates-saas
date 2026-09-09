@@ -3,7 +3,8 @@ import { Resend } from 'resend';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor } from '@/lib/db/supabase-data-admin';
+import { fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor, dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
+import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { computeAutomationCandidatos } from '@/lib/engines/automation-engine';
 import { procesarCandidato } from '@/lib/inngest/automatizaciones';
 import { mapLimit } from '@/lib/concurrency';
@@ -102,13 +103,19 @@ export async function POST(req: NextRequest) {
       new Date(nowISO),
     );
 
+    // Las credenciales de WhatsApp del estudio, para que este botón mande por
+    // el mismo sitio que el cron: son de cada estudio (Meta Cloud API), ya no un
+    // secreto único de plataforma. Se leen una vez y se pasan a los N
+    // candidatos, no una vez por candidato.
+    const whatsapp = whatsappDelEstudio(await dbGetIntegracionConfig(sesion.studioId, 'WHATSAPP'));
+
     // Concurrencia acotada (como el botón anterior): procesarCandidato es
     // independiente por candidato, escribe su log (dbUpsert, id determinista) y
     // Resend deduplica por idempotency-key, así que paralelizar es seguro.
     const logs: AutomationLog[] = await mapLimit(
       candidatos,
       6,
-      (c, i) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend }),
+      (c, i) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, studioColor, studioLogo, index: i, nowISO, dry, resend, whatsapp }),
     );
 
     // En seco no se toca el contador: no ha disparado nada.

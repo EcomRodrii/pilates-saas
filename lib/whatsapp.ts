@@ -4,12 +4,15 @@
 // no hay cuenta compartida de plataforma. Mismo mecanismo que Kisi/Resend:
 // tabla `integraciones` por estudio (ver dbUpsertIntegracion).
 //
-// Nota: esto es DISTINTO de lib/twilio.ts, que envuelve Twilio (WhatsApp+SMS)
-// y sigue siendo una integración de plataforma aparte usada por
-// /api/mensajes/send, el motor de decisión, las automatizaciones de
-// marketing y los avisos de sustituciones — no se toca aquí.
+// Es el ÚNICO canal de WhatsApp del repo desde 2026-09-09. Antes convivía con
+// lib/twilio.ts, una credencial única de plataforma que servía a otros siete
+// emisores; se retiró entera porque en producción no existía ninguna variable
+// TWILIO_*, así que ninguno de ellos mandaba un solo mensaje (ver
+// WHATSAPP_AUDIT.md §0). Si algún día vuelve a hacer falta un canal de
+// plataforma, es una decisión nueva — no un hueco pendiente.
 
 import { fetchExterno } from './fetch-externo.ts';
+import { telefonoE164 } from './decision/mensajes-socia.ts';
 
 const API_VERSION = process.env.WHATSAPP_API_VERSION ?? 'v21.0';
 
@@ -18,13 +21,31 @@ export interface WhatsAppCredenciales {
   phoneId: string;
 }
 
-/** Envía un mensaje de texto simple por WhatsApp. `to` en formato E.164 sin '+'. */
+/**
+ * El destinatario tal y como lo quiere Meta: dígitos con prefijo de país y sin
+ * '+'.
+ *
+ * Antes esto era un «quitar todo lo que no sea dígito» aquí mismo, y ese atajo se
+ * come justo el caso normal de este producto: los teléfonos se guardan como los
+ * teclea la propietaria («612 34 56 78»), y quitar lo que no es dígito deja
+ * `612345678` — nueve dígitos sin país, que para Meta no es nadie. `telefonoE164`
+ * (la misma que ya usaba el canal de Twilio antes de retirarse, y la que
+ * construye los enlaces wa.me del panel) sí añade el +34 a un móvil español.
+ * Sin esto, migrar los emisores a Meta habría cambiado «no manda nada» por
+ * «manda a un número que no existe», que es peor porque parece que funciona.
+ */
+function destinoWhatsApp(to: string | null | undefined): string | null {
+  const e164 = telefonoE164(to);
+  return e164 ? e164.slice(1) : null;
+}
+
+/** Envía un mensaje de texto simple por WhatsApp. `to` en cualquier formato: se normaliza. */
 export async function enviarWhatsAppTexto(
   creds: WhatsAppCredenciales,
-  to: string,
+  to: string | null | undefined,
   texto: string,
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  const destino = to.replace(/[^\d]/g, '');
+  const destino = destinoWhatsApp(to);
   if (!destino) return { ok: false, error: 'Número de destino inválido' };
   try {
     const res = await fetchExterno(`https://graph.facebook.com/${API_VERSION}/${creds.phoneId}/messages`, {
@@ -67,14 +88,64 @@ export const PLANTILLA_RECORDATORIO = { nombre: 'recordatorio_clase', idioma: 'e
 // revisar una plantilla.
 export const PLANTILLA_HUECO = { nombre: 'hueco_disponible', idioma: 'es' } as const;
 
+// Aviso a la instructora candidata para que cubra una clase (subida de canal
+// del motor de escalado de sustituciones, `recordatorioPorMensaje`).
+//
+// De los siete emisores que salían por Twilio, este es el ÚNICO que se lleva
+// plantilla propia, y por una razón concreta: es el único cuyo cuerpo tiene
+// forma FIJA. Los demás (campañas, automatizaciones, el contacto del Decision
+// OS, /api/mensajes/send) mandan texto que escribe la propietaria o redacta la
+// IA — arbitrario y casi siempre multilínea, y un parámetro de plantilla de
+// Meta no admite saltos de línea ni tabuladores ni más de 4 espacios seguidos.
+// No es que quedara feo meterlo en un `{{1}}`: Meta lo rechaza. Así que esos
+// van como texto y solo llegan dentro de la ventana de 24 h.
+//
+// Y es también el que más falta le hace: es la escalada de un email que la
+// instructora NO ha contestado, así que dar por hecho que ella escribió al
+// estudio en las últimas 24 h es dar por hecho justo lo contrario de lo que
+// está pasando.
+//
+// Categoría UTILITY: no vende nada, es una petición operativa de trabajo con
+// un enlace para responderla. ⚠️ Meta podría recategorizarla a MARKETING —
+// para ellos «utilidad» es el seguimiento de una transacción de un CLIENTE, y
+// esto va a una trabajadora. Afectaría al precio de la conversación, no a la
+// entrega; confirmarlo con la primera aprobación real.
+//
+// Termina en texto fijo por lo mismo que PLANTILLA_HUECO: Meta no aprueba un
+// cuerpo que acabe en variable.
+export const PLANTILLA_SUSTITUCION = { nombre: 'sustitucion_urgente', idioma: 'es' } as const;
+
+/**
+ * Un valor listo para viajar como `{{n}}` de una plantilla.
+ *
+ * Meta rechaza un parámetro que lleve saltos de línea, tabuladores o más de 4
+ * espacios seguidos («Param text cannot have new-line/tab characters or more
+ * than 4 consecutive spaces», error 100) — y lo rechaza el ENVÍO ENTERO, no ese
+ * trozo. Los valores que metemos ahí no son constantes nuestras: son el nombre
+ * de la socia, el de la clase, el de la sala… texto que teclea la propietaria o
+ * que entró por el importador de CSV. Basta un nombre pegado con un salto de
+ * línea dentro para que a esa persona no le llegue nada, y el motivo aparezca
+ * como un error genérico de «parámetro inválido».
+ *
+ * Colapsar los espacios en blanco a uno solo cumple las tres reglas de golpe y
+ * no toca ningún valor bien formado.
+ *
+ * Es también la razón, vista desde el otro lado, por la que los emisores de
+ * texto libre no pueden usar plantilla: un cuerpo de campaña son varias líneas,
+ * y aplanarlas no sería sanear, sería romper el mensaje.
+ */
+function parametroPlantilla(texto: string): string {
+  return texto.replace(/\s+/g, ' ').trim();
+}
+
 /** Envía un mensaje por plantilla HSM pre-aprobada por Meta (fuera de la ventana de 24h). */
 export async function enviarWhatsAppPlantilla(
   creds: WhatsAppCredenciales,
-  to: string,
+  to: string | null | undefined,
   plantilla: { nombre: string; idioma: string },
   parametros: string[],
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  const destino = to.replace(/[^\d]/g, '');
+  const destino = destinoWhatsApp(to);
   if (!destino) return { ok: false, error: 'Número de destino inválido' };
   try {
     const res = await fetchExterno(`https://graph.facebook.com/${API_VERSION}/${creds.phoneId}/messages`, {
@@ -87,7 +158,7 @@ export async function enviarWhatsAppPlantilla(
         template: {
           name: plantilla.nombre,
           language: { code: plantilla.idioma },
-          components: [{ type: 'body', parameters: parametros.map(texto => ({ type: 'text', text: texto })) }],
+          components: [{ type: 'body', parameters: parametros.map(texto => ({ type: 'text', text: parametroPlantilla(texto) })) }],
         },
       }),
     });

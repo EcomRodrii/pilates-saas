@@ -1499,7 +1499,6 @@ export default function MarketingPage() {
               >
                 <option value="EMAIL">Email</option>
                 <option value="WHATSAPP">WhatsApp</option>
-                <option value="SMS">SMS</option>
               </select>
             </FF>
             <FF label="Asunto">

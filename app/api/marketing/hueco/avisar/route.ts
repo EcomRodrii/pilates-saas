@@ -11,6 +11,7 @@ import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
+import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
@@ -63,16 +64,15 @@ export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
   // WhatsApp es de CADA estudio, no de la plataforma: sin su token/phoneId no
-  // hay a quién pedirle el envío. Se comprueba antes de tocar la base de datos
-  // — recalcular candidatas para luego no poder mandar nada es trabajo tirado,
-  // y el mensaje tiene que decir dónde se arregla, no solo que no se puede.
-  const integracion = await dbGetIntegracionConfig(sesion.studioId, 'WHATSAPP');
-  const cfg = integracion?.activo ? integracion.config : null;
-  const whatsapp = cfg?.token && cfg.phoneId ? { token: cfg.token, phoneId: cfg.phoneId } : null;
-  // Opt-in propio, NO el del recordatorio: son dos plantillas distintas en
-  // Meta y dar por aprobada la que no lo está falla en todos los envíos
-  // (132001), no en algunos. Ver PLANTILLA_HUECO en lib/whatsapp.ts.
-  const plantillaAprobada = cfg?.plantillaHuecoAprobada === 'true';
+  // hay a quién pedirle el envío. Se resuelve antes de tocar la base de datos
+  // porque recalcular candidatas para luego no tener por dónde mandarlas es
+  // trabajo tirado (el corte, si no queda ningún canal, va unas líneas abajo).
+  //
+  // `whatsappDelEstudio` es el único sitio del repo que interpreta esas claves
+  // de `config`, y ahí el opt-in de cada plantilla es PROPIO, nunca el del
+  // recordatorio: son plantillas distintas en Meta, y dar por aprobada la que no
+  // lo está falla en TODOS los envíos (132001), no en algunos.
+  const whatsapp = whatsappDelEstudio(await dbGetIntegracionConfig(sesion.studioId, 'WHATSAPP'));
 
   // `re_XXXX` significa «sin configurar», igual que `sk_test_XXXX` en Stripe —
   // no es una clave de pruebas válida.
@@ -254,7 +254,7 @@ export async function POST(req: NextRequest) {
         // texto igualmente —llega a quien SÍ escribió hace poco— en vez de no
         // mandar nada; el error de Meta queda anotado en `avisos_hueco` y en la
         // salud de la integración, que es donde se ve por qué no llegó.
-        resultado = plantillaAprobada
+        resultado = whatsapp!.plantillaHueco
           ? await enviarWhatsAppPlantilla(whatsapp!, socia.telefono!, PLANTILLA_HUECO, [
               socia.nombre, nombreClase, fecha, hora, nombreEstudio, enlace,
             ])
