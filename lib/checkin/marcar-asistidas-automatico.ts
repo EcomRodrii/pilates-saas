@@ -1,8 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Check-in QR opcional (migr 20260809020328): el estudio con
-// `studios.requiere_checkin_qr = false` confía en que quien reserva viene, así
+// Pasar lista es opcional (migr 20260809020328, por tipo de clase desde
+// 20260909210000): quien lo desactiva confía en que quien reserva viene, así
 // que aquí es donde se cumple esa promesa — sin este barrido, una reserva
 // CONFIRMADA se quedaría así para siempre porque nadie va a escanear nada.
+//
+// Se resuelve POR SESIÓN, no por estudio: `tipos_clase.requiere_checkin_qr`
+// (NULL = hereda del estudio) permite que un mismo estudio pase lista en el
+// Reformer de 6 plazas y no la pase en el Mat de 25.
 //
 // Por qué al TERMINAR la clase y no al confirmar la reserva: marcarla
 // ASISTIDA en el momento de reservar rompería la cancelación normal (que
@@ -20,6 +24,7 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { checkinPublico } from '@/lib/db/supabase-data-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
+import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
 
 const VENTANA_MS = 2 * 3600_000;
 
@@ -32,11 +37,11 @@ export async function marcarAsistidasAutomaticamente(): Promise<{ sesiones: numb
   // Paginado: query global (todos los estudios) y PostgREST corta a 1.000
   // filas en silencio. Una reserva truncada aquí se queda SIN marcar como
   // asistida, así que después el barrido de no-shows la da por ausente.
-  const { data: sesiones } = await fetchAllRows<{ id: string; studio_id: string }>(
+  const { data: sesiones } = await fetchAllRows<{ id: string; studio_id: string; tipo_clase_id: string | null }>(
     '(global)', 'sesiones',
     (from, to) => admin
       .from('sesiones')
-      .select('id, studio_id')
+      .select('id, studio_id, tipo_clase_id')
       .eq('cancelada', false)
       .gt('fin', desde)
       .lte('fin', ahora.toISOString())
@@ -49,14 +54,32 @@ export async function marcarAsistidasAutomaticamente(): Promise<{ sesiones: numb
     '(global)', 'studios',
     (from, to) => admin.from('studios').select('id, requiere_checkin_qr').in('id', studioIds).range(from, to),
   );
-  const sinCheckinQr = new Set(
-    studios.filter(s => s.requiere_checkin_qr === false).map(s => s.id),
-  );
-  if (!sinCheckinQr.size) return { sesiones: sesiones.length, marcadas: 0 };
+  // `?? true` es el mismo respaldo que usan el mapper y la UI: una columna sin
+  // valor significa "se pasa lista", nunca "no hace falta". Equivocarse aquí
+  // daría por asistida a gente que no vino.
+  const pideQrElEstudio = new Map(studios.map(s => [s.id, s.requiere_checkin_qr ?? true]));
 
-  const sesionIdsElegibles = sesiones
-    .filter(s => sinCheckinQr.has(s.studio_id))
-    .map(s => s.id);
+  // Override por tipo de clase (migr 20260909210000). Sin esto, un estudio que
+  // SÍ pasa lista en general nunca marcaría las clases de un tipo que la tiene
+  // desactivada, y esas reservas se quedarían CONFIRMADA para siempre — el bug
+  // exacto que este barrido existe para evitar.
+  const tipoIds = [...new Set(sesiones.map(s => s.tipo_clase_id).filter((t): t is string => !!t))];
+  const { data: tipos } = tipoIds.length
+    ? await fetchAllRows<{ id: string; requiere_checkin_qr: boolean | null }>(
+      '(global)', 'tipos_clase',
+      (from, to) => admin.from('tipos_clase').select('id, requiere_checkin_qr').in('id', tipoIds).range(from, to),
+    )
+    : { data: [] as { id: string; requiere_checkin_qr: boolean | null }[] };
+  const overridePorTipo = new Map(tipos.map(t => [t.id, t.requiere_checkin_qr]));
+
+  // La regla vive en `pasar-lista.ts`, aparte, para poder probarla sin base de
+  // datos. Una sesión sin `tipo_clase_id` (la columna es nullable) no tiene de
+  // dónde heredar más que del estudio — comportamiento de siempre.
+  const sesionIdsElegibles = sesionesQueSeDanPorAsistidas(
+    sesiones.map(s => ({ id: s.id, studioId: s.studio_id, tipoClaseId: s.tipo_clase_id })),
+    pideQrElEstudio,
+    overridePorTipo,
+  );
   if (!sesionIdsElegibles.length) return { sesiones: sesiones.length, marcadas: 0 };
 
   const { data: reservas } = await fetchAllRows<{ id: string; studio_id: string }>(

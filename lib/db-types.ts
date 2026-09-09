@@ -1021,6 +1021,8 @@ export interface RowTiposClase {
   requiere_autorizacion: boolean | null;
   // migr 20260905130124.
   logo_url: string | null;
+  // migr 20260909210000.
+  requiere_checkin_qr: boolean | null;
 }
 
 export interface RowUsuarios {

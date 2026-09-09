@@ -922,6 +922,49 @@ export function PanelTipoClase({
               <span className="text-[12.5px] text-muted-foreground">alumnas · 0 = sin mínimo</span>
             </div>
           </CampoHeredado>
+
+          {/* Pasar lista (migr 20260909210000). Va aquí, con el mínimo de
+              asistentes, porque las dos hablan de quién viene de verdad — y no
+              en «Si cancelan o no vienen», que trata de lo que pasa DESPUÉS.
+
+              El texto explica la consecuencia y no el mecanismo: la propietaria
+              no tiene por qué saber que existe un barrido, pero sí que si lo
+              apaga nadie va a escanear nada y las alumnas van a recibir sus
+              créditos igual. */}
+          <CampoHeredado
+            label="¿Hay que pasar lista en esta clase?"
+            ayuda="Si la pasas, alguien tiene que confirmar quién vino: leyendo su pase (QR o código) o marcándola en Asistentes. Si no, toda alumna con reserva confirmada cuenta como asistida en cuanto termina la clase."
+            heredado={form.requiereCheckinQr === 'hereda'}
+            onHeredar={() => setForm(f => ({ ...f, requiereCheckinQr: 'hereda' }))}
+            onPersonalizar={() =>
+              setForm(f => ({ ...f, requiereCheckinQr: studio?.requiereCheckinQr === false ? 'no' : 'si' }))
+            }
+            resumenEstudio={resumenSiNo(studio?.requiereCheckinQr ?? true, 'sí, se pasa lista', 'no se pasa lista')}
+          >
+            <div className="flex flex-col gap-2">
+              <SiNo
+                etiquetaGrupo="¿Hay que pasar lista en esta clase?"
+                value={form.requiereCheckinQr === 'no' ? 'no' : 'si'}
+                onChange={v => setForm(f => ({ ...f, requiereCheckinQr: v }))}
+                etiquetaSi="Sí, se pasa lista"
+                etiquetaNo="No hace falta"
+              />
+              {form.requiereCheckinQr === 'no' && (
+                <p className="text-[12px] text-muted-foreground">
+                  Sus alumnas recibirán créditos, racha y logros solas, sin que nadie escanee nada.
+                </p>
+              )}
+              {/* El mismo aviso que ya da el ajuste del estudio, porque aquí se
+                  puede volver a caer en ello sin verlo: sin lista no existe un
+                  «no vino» que cobrar. */}
+              {form.requiereCheckinQr === 'no' && !!studio?.penalizacionImporteEur && studio?.penalizacionAplicaNoShow && (
+                <p className="text-[12px] text-amber-600">
+                  Con la penalización por no presentarse activa, en esta clase nunca vas a poder cobrarla:
+                  todas cuentan como asistidas. Puedes seguir marcando «No asistió» a mano desde Asistentes.
+                </p>
+              )}
+            </div>
+          </CampoHeredado>
         </Seccion>
 
         {/* NIVEL 3 — cancelaciones */}
@@ -1091,6 +1134,7 @@ function resumenSeccionReservas(form: ClaseForm, studio: Studio | null): string 
     form.permiteListaEspera !== 'hereda' && (form.permiteListaEspera === 'si' ? 'con espera' : 'sin espera'),
     form.listaEsperaPlazoAceptacionMinutos.trim() !== '' && 'plazo propio',
     form.minimoAsistentesPorClase.trim() !== '' && 'mínimo propio',
+    form.requiereCheckinQr !== 'hereda' && (form.requiereCheckinQr === 'si' ? 'pasa lista' : 'sin lista'),
   ].filter(Boolean) as string[];
   if (propias.length === 0) {
     return `Como el resto de tu estudio · ${resumenSiNo(studio?.reservaExigirPlan ?? true, 'con bono', 'sin bono')}`;

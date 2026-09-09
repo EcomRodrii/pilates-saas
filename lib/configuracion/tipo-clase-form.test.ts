@@ -65,6 +65,8 @@ test('ida y vuelta: lo guardado vuelve idéntico al formulario', () => {
     ventanaCancelacionHoras: 24, reservaExigirPlan: false, reservaVentanaMinimaMinutos: 120,
     reservaAntelacionMaximaDias: 14, permiteListaEspera: true, requiereAprobacion: false,
     listaEsperaPlazoAceptacionMinutos: 30, minimoAsistentesPorClase: 3,
+    // Pasar lista (migr 20260909210000): tri-estado como el resto, NULL hereda.
+    requiereCheckinQr: false,
     penalizacionImporteEur: 12.5, especialidadNetwork: 'reformer', esOnline: true,
     aforoPorDefecto: 8, descripcion: 'Con máquina', objetivos: ['reformer'],
     // Niveles: booleano plano, no tri-estado — no hereda del estudio.
@@ -77,6 +79,7 @@ test('ida y vuelta: lo guardado vuelve idéntico al formulario', () => {
     ventanaCancelacionHoras: 24, reservaExigirPlan: false, reservaVentanaMinimaMinutos: 120,
     reservaAntelacionMaximaDias: 14, permiteListaEspera: true, requiereAprobacion: false,
     listaEsperaPlazoAceptacionMinutos: 30, minimoAsistentesPorClase: 3,
+    requiereCheckinQr: false,
     penalizacionImporteEur: 12.5, especialidadNetwork: 'reformer', esOnline: true,
     requiereAutorizacion: true,
   });
