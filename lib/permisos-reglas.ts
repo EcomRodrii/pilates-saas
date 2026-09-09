@@ -95,8 +95,16 @@ export function puedeVerFichaClinica(rol: Rol): boolean {
 // vedado. No existía esta función: las tres pantallas que pintan el semáforo
 // lo escondían entero detrás de `puedeVerFichaClinica`, así que RECEPCIÓN no
 // veía ni el punto de color, contradiciendo la propia especificación.
+//
+// MANAGER también lo ve (38ª pasada de auditoría): gestiona la ficha completa
+// de cualquier clienta (`puedeGestionarClientas`) y el calendario
+// (`puedeGestionarCalendario`) — más autoridad operativa que RECEPCIÓN, que ya
+// veía el color. No había ninguna decisión documentada que lo excluyera; era
+// un descuido de cuando se añadió el rol MANAGER, no una exclusión a propósito
+// (a diferencia de otras exclusiones de MANAGER en este fichero, que sí llevan
+// comentario explicando el motivo).
 export function puedeVerSemaforo(rol: Rol): boolean {
-  return rol === 'PROPIETARIO' || rol === 'INSTRUCTOR' || rol === 'RECEPCION';
+  return rol === 'PROPIETARIO' || rol === 'INSTRUCTOR' || rol === 'RECEPCION' || rol === 'MANAGER';
 }
 
 // Mover dinero: crear cobros, marcarlos cobrados, asignar o cancelar planes.

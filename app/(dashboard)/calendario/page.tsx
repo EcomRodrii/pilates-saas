@@ -2850,26 +2850,38 @@ export default function Calendario() {
             }) : undefined,
             filaExtra: verFichaClinica ? (r => r.estado === 'ASISTIDA' ? (
               <div className="flex items-center gap-1 mt-1.5">
-                {RESPUESTAS_ORDEN.map(resp => {
-                  const rm = RESPUESTA_META[resp];
-                  const activa = respuestaPorSocio.get(r.socioId)?.respuesta === resp;
-                  return (
-                    <button
-                      key={resp}
-                      onClick={async () => {
-                        const res = await registrarRespuestaSesion({ socioId: r.socioId, sesionId: sesionActual?.id ?? null, respuesta: resp });
-                        if (!res.ok) showToast(res.error);
-                      }}
-                      title={rm.label}
-                      aria-label={rm.label}
-                      aria-pressed={activa}
-                      className={cn('w-6 h-6 rounded-md text-xs flex items-center justify-center transition-all', activa ? 'ring-2 scale-110' : 'opacity-45 hover:opacity-100')}
-                      style={activa ? { backgroundColor: rm.bg, boxShadow: `0 0 0 2px ${rm.color}` } : { backgroundColor: rm.bg }}
-                    >
-                      {rm.emoji}
-                    </button>
-                  );
-                })}
+                {(() => {
+                  // 38ª pasada de auditoría: sin consentimiento de salud vigente,
+                  // la RLS de `respuestas_sesion` rechaza la escritura en
+                  // silencio (mismo gate que ya protege condiciones_salud y el
+                  // cuestionario) — deshabilitar el botón aquí es lo que evita
+                  // que el mostrador pulse algo que el servidor va a tirar.
+                  const tieneConsentimiento = Boolean(socios.find(s => s.id === r.socioId)?.consentimientoSalud);
+                  return RESPUESTAS_ORDEN.map(resp => {
+                    const rm = RESPUESTA_META[resp];
+                    const activa = respuestaPorSocio.get(r.socioId)?.respuesta === resp;
+                    return (
+                      <button
+                        key={resp}
+                        disabled={!tieneConsentimiento}
+                        onClick={async () => {
+                          const res = await registrarRespuestaSesion({ socioId: r.socioId, sesionId: sesionActual?.id ?? null, respuesta: resp });
+                          if (!res.ok) showToast(res.error);
+                        }}
+                        title={tieneConsentimiento ? rm.label : 'Pide primero el consentimiento de datos de salud desde su ficha'}
+                        aria-label={rm.label}
+                        aria-pressed={activa}
+                        className={cn(
+                          'w-6 h-6 rounded-md text-xs flex items-center justify-center transition-all',
+                          !tieneConsentimiento ? 'opacity-20 cursor-not-allowed' : activa ? 'ring-2 scale-110' : 'opacity-45 hover:opacity-100',
+                        )}
+                        style={activa && tieneConsentimiento ? { backgroundColor: rm.bg, boxShadow: `0 0 0 2px ${rm.color}` } : { backgroundColor: rm.bg }}
+                      >
+                        {rm.emoji}
+                      </button>
+                    );
+                  });
+                })()}
                 {enPiloto && esPropiaClase && (
                   <button
                     onClick={() => setNotaVozSocioId(r.socioId)}
