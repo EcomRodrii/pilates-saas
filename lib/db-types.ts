@@ -722,7 +722,7 @@ export interface RowSocios {
   visible_en_clase: boolean | null;
   // migr 20260828005124.
   usuario: string | null;
-  // migr 20260909120000.
+  // migr 20260909003015.
   consentimiento_salud_texto: string | null;
 }
 
@@ -954,7 +954,7 @@ export interface RowStudios {
   creditos_caducan_meses: number | null;
   // migr 20260908210000.
   racha_clases_semana: number | null;
-  // migr 20260909120000.
+  // migr 20260909003015.
   valoracion_inicial_activa: boolean | null;
 }
 

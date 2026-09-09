@@ -434,7 +434,7 @@ export function mapUsuario(r: RowUsuarios): Usuario {
 // textoConsentimientoMarketing), idéntico para todas las socias del estudio,
 // y solo lo necesita el envío real (comparación exacta de vigencia) — no el
 // panel. El panel solo trae fecha+registradoPor (bool-ish, aproximado).
-// `consentimiento_salud_texto` (migr 20260909120000) se excluye por lo mismo:
+// `consentimiento_salud_texto` (migr 20260909003015) se excluye por lo mismo:
 // es el texto legal COMPLETO que aceptó, idéntico para todas las socias del
 // estudio, y solo lo necesita comparar la vigencia — no el panel, que se lo
 // comería en el payload de arranque de TODAS las pantallas.

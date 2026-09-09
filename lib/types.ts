@@ -168,7 +168,7 @@ export interface Studio {
   requiereAprobacion: boolean;
   /**
    * Si la app de la alumna le ofrece rellenar su valoración inicial
-   * (migr 20260909120000). Opt-in, `false` por defecto: la pregunta misma
+   * (migr 20260909003015). Opt-in, `false` por defecto: la pregunta misma
    * —«¿tienes alguna molestia?»— es una decisión del estudio, no del producto.
    */
   valoracionInicialActiva: boolean;
