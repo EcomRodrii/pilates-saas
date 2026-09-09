@@ -2717,6 +2717,47 @@ export async function dbAmpliarCaducidades(
   return { ok: true, bonos: fila?.bonos_ampliados ?? 0, recuperaciones: fila?.recuperaciones_ampliadas ?? 0 };
 }
 
+/**
+ * Anota el consentimiento de marketing YA OBTENIDO de varias socias, en UNA
+ * transacción (migr 20260909195046). No lo crea: lo graba, igual que hace la
+ * tarjeta «Marketing» de la ficha con `registrado_por = 'MOSTRADOR'` — el art. 7
+ * del RGPD exige que lo dé la interesada, y la pantalla que llama aquí lo dice y
+ * pide confirmación explícita.
+ *
+ * El texto lo compone el CALLER con `textoConsentimientoMarketing`, no la RPC:
+ * ese párrafo es la clave de vigencia (se compara carácter a carácter en
+ * `tieneConsentimientoMarketingVigente`), y tenerlo escrito en SQL además de en
+ * `lib/legal-textos.ts` es cómo se acaba con dos textos que difieren en un
+ * espacio y dos grupos de socias distintos sin que nada avise.
+ *
+ * Devuelve los tres recuentos porque «hecho» a secas no distingue haber
+ * registrado 31 de no haber registrado ninguna.
+ */
+export async function dbRegistrarConsentimientoMarketing(
+  studioId: string, socioIds: string[], texto: string,
+): Promise<{ ok: true; registradas: number; yaVigentes: number; noEncontradas: number } | { ok: false; error: string }> {
+  const { data, error } = await supabase.rpc('registrar_consentimiento_marketing', {
+    p_studio_id: studioId,
+    p_socio_ids: socioIds,
+    p_texto: texto,
+  });
+  if (error) {
+    reportDbError('[dbRegistrarConsentimientoMarketing]', error);
+    if (error.message.includes('NO_AUTORIZADO')) return { ok: false, error: 'No tienes permiso para registrar consentimientos' };
+    if (error.message.includes('TEXTO_INVALIDO')) return { ok: false, error: 'No se ha podido componer el texto legal del consentimiento' };
+    return { ok: false, error: mensajeDeFalloAlGuardar(error) };
+  }
+  // `returns table` llega como array de una fila.
+  const fila = (Array.isArray(data) ? data[0] : data) as
+    { registradas?: number; ya_vigentes?: number; no_encontradas?: number } | null | undefined;
+  return {
+    ok: true,
+    registradas: fila?.registradas ?? 0,
+    yaVigentes: fila?.ya_vigentes ?? 0,
+    noEncontradas: fila?.no_encontradas ?? 0,
+  };
+}
+
 // F2 (B2.9): excepciones por socia. El toggle = poner (upsert) / quitar (delete).
 export function mapSocioExcepcion(r: RowSocioExcepciones): SocioExcepcion {
   return {

@@ -42,3 +42,18 @@ export function filtrarPorConsentimientoMarketing<T extends { id: string }>(
 ): T[] {
   return destinatarias.filter(s => tieneConsentimientoMarketingVigente(consentimientos.get(s.id), textoVigente));
 }
+
+// Las que NO tienen consentimiento anotado, para poder seleccionarlas en el
+// listado de clientas y registrarlas de una vez.
+//
+// ⚠️ Usa la aproximación de PRESENCIA, no la vigencia exacta, porque el panel
+// no trae el texto (ver el comentario de arriba). Consecuencia real y asumida:
+// una socia con un consentimiento ANTIGUO —el estudio se renombró, así que su
+// texto ya no coincide y no cuenta para enviar— NO sale en esta lista aunque
+// haga falta renovarlo. La RPC `registrar_consentimiento_marketing` sí
+// distingue los dos casos y los devuelve por separado, así que el recuento
+// final que ve la propietaria es el de verdad; esto solo decide a quién
+// preselecciona la pantalla.
+export function sinConsentimientoMarketing<T extends Socio>(socios: readonly T[]): T[] {
+  return socios.filter(s => !tieneConsentimientoMarketingAlgunaVez(s));
+}

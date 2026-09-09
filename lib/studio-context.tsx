@@ -23,6 +23,7 @@ import {
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
   dbInsertPlazaFija, dbUpdatePlazaFija, dbListPlazasFijas,
   dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion, dbAmpliarCaducidades,
+  dbRegistrarConsentimientoMarketing,
   dbPonerExcepcion, dbQuitarExcepcion,
   dbUpsertMandatoSepa, dbCancelarMandatoSepa,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
@@ -216,7 +217,7 @@ import type { AparienciaWidget } from '@/lib/reservar/apariencia-widget';
 // reglas para decidir qué firmó la clienta es exactamente lo que no puede pasar.
 // Se importa ADEMÁS de re-exportar: `export … from` reenvía el nombre pero no
 // lo trae al ámbito de este fichero, y aquí se usa (`studioConfig: StudioConfig`).
-import { configLegalDe, defaultStudioConfig, type StudioConfig } from '@/lib/legal-textos';
+import { configLegalDe, defaultStudioConfig, textoConsentimientoMarketing, type StudioConfig } from '@/lib/legal-textos';
 export { configLegalDe, defaultStudioConfig, type StudioConfig };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -342,6 +343,9 @@ interface StudioContextValue {
   ampliarCaducidades: (
     socioIds: string[], dias: number,
   ) => Promise<{ ok: true; bonos: number; recuperaciones: number } | { ok: false; error: string }>;
+  registrarConsentimientoMarketing: (
+    socioIds: string[],
+  ) => Promise<{ ok: true; registradas: number; yaVigentes: number; noEncontradas: number } | { ok: false; error: string }>;
 
   // Mutable state
   socios: Socio[];
@@ -1637,6 +1641,26 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     socioIds: string[], dias: number,
   ): Promise<{ ok: true; bonos: number; recuperaciones: number } | { ok: false; error: string }> {
     const res = await dbAmpliarCaducidades(getCurrentStudioId(), socioIds, dias);
+    if (res.ok) resetDatosPilates();
+    return res;
+  }
+
+  // Anota el consentimiento de marketing ya obtenido de varias socias a la vez.
+  // El texto lo compone AQUÍ el cliente con el nombre del estudio activo, no la
+  // RPC: es el mismo `textoConsentimientoMarketing` que escribe la ficha, y esa
+  // igualdad exacta es lo que después decide si la socia recibe o no
+  // (`tieneConsentimientoMarketingVigente`). Si la RPC compusiera un texto
+  // propio, las registradas en lote no coincidirían con las de la ficha y nadie
+  // sabría por qué a unas les llega y a otras no.
+  async function registrarConsentimientoMarketing(
+    socioIds: string[],
+  ): Promise<{ ok: true; registradas: number; yaVigentes: number; noEncontradas: number } | { ok: false; error: string }> {
+    const res = await dbRegistrarConsentimientoMarketing(
+      getCurrentStudioId(), socioIds, textoConsentimientoMarketing({ nombre: studio?.nombre }),
+    );
+    // Recarga en vez de tocar el estado a mano, igual que ampliarCaducidades: la
+    // RPC decide a quién escribe (a quien ya lo tenía vigente NO), así que
+    // reconstruir eso en el cliente sería replicar el criterio en dos sitios.
     if (res.ok) resetDatosPilates();
     return res;
   }
@@ -5153,6 +5177,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     darRecuperacion,
     anularRecuperacion,
     ampliarCaducidades,
+    registrarConsentimientoMarketing,
     addTipoClase,
     updateTipoClase,
     deleteTipoClase,

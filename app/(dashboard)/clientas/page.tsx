@@ -9,7 +9,8 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
-import { textoLegalCompleto } from '@/lib/legal-textos';
+import { textoLegalCompleto, textoConsentimientoMarketing } from '@/lib/legal-textos';
+import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
 import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
 import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, LeadStage, MetodoCobro } from '@/lib/types';
@@ -36,7 +37,7 @@ const inputCls =
 const selectCls = inputCls + ' appearance-none';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type SmartFilter = 'todas' | 'activas' | 'sin_bono' | 'bono_expirado' | 'inactivas_30d';
+type SmartFilter = 'todas' | 'activas' | 'sin_bono' | 'bono_expirado' | 'inactivas_30d' | 'sin_consentimiento_mkt';
 type SortKey = 'nombre' | 'ultima_visita' | 'sesiones_restantes' | 'fecha_registro';
 type SortDir = 'asc' | 'desc';
 
@@ -175,6 +176,11 @@ export default function Socios() {
     socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados,
     segmentosClientes, addSegmentoCliente, updateSegmentoCliente, deleteSegmentoCliente,
     ampliarCaducidades,
+    // `studio` solo para PINTAR el texto legal en el diálogo de consentimiento.
+    // Quien lo escribe de verdad es `registrarConsentimientoMarketing`, que lo
+    // compone en el contexto con el mismo helper: el diálogo tiene que enseñar
+    // exactamente lo que se va a guardar, no una versión parecida.
+    studio, registrarConsentimientoMarketing,
   } = useStudio();
   const rol = useRol();
   const verSemaforo = puedeVerSemaforo(rol);
@@ -235,6 +241,14 @@ export default function Socios() {
   const [errorAsignar, setErrorAsignar] = useState<string | null>(null);
   // Ampliar caducidad en lote (cierre del centro, festivos, vacaciones).
   const [showAmpliar, setShowAmpliar] = useState(false);
+  // Registro en lote del consentimiento de marketing. `afirmado` es el requisito
+  // que separa volcar permisos que existen de fabricar los que no: la
+  // propietaria tiene que decir que los tiene antes de que el botón se active.
+  const [showConsentMkt, setShowConsentMkt] = useState(false);
+  const [afirmadoConsentMkt, setAfirmadoConsentMkt] = useState(false);
+  const [guardandoConsentMkt, setGuardandoConsentMkt] = useState(false);
+  const [resultadoConsentMkt, setResultadoConsentMkt] = useState<string | null>(null);
+  const [errorConsentMkt, setErrorConsentMkt] = useState<string | null>(null);
   const [diasAmpliar, setDiasAmpliar] = useState(7);
   const [ampliando, setAmpliando] = useState(false);
   const [errorAmpliar, setErrorAmpliar] = useState<string | null>(null);
@@ -463,6 +477,11 @@ export default function Socios() {
       if (smartFilter === 'sin_bono') matchF = !getActiveSus(s.id);
       if (smartFilter === 'bono_expirado') matchF = isBonoExpirado(s.id);
       if (smartFilter === 'inactivas_30d') matchF = isInactiva30d(s.id, s);
+      // Presencia, no vigencia: el panel no trae el texto del consentimiento,
+      // así que una socia con uno ANTIGUO (el estudio se renombró) no sale
+      // aquí aunque haya que renovarlo. La RPC sí lo distingue y lo cuenta
+      // como registrada — ver sinConsentimientoMarketing en lib/marketing.
+      if (smartFilter === 'sin_consentimiento_mkt') matchF = !tieneConsentimientoMarketingAlgunaVez(s);
       const matchEtapa = !filtroEtapa || s.leadStage === filtroEtapa;
       const matchEtiqueta = !filtroEtiqueta || (s.tags ?? []).includes(filtroEtiqueta);
       const matchSegmento = !segmentoAplicado || !ctxSegmento || evaluarSegmento(segmentoAplicado.condiciones, s, ctxSegmento);
@@ -624,6 +643,33 @@ export default function Socios() {
     setDiasAmpliar(7);
   }
 
+  async function handleRegistrarConsentimientoMkt() {
+    if (guardandoConsentMkt || !afirmadoConsentMkt) return;
+    setGuardandoConsentMkt(true);
+    setErrorConsentMkt(null);
+    const res = await registrarConsentimientoMarketing([...selected]);
+    setGuardandoConsentMkt(false);
+    if (!res.ok) { setErrorConsentMkt(res.error); return; }
+    // Los tres recuentos, no un "hecho": el caso que más confunde es registrar
+    // 30 y que la 31 no se toque porque ya lo tenía, y sin decirlo parece que
+    // algo ha fallado. `ya_vigentes` no es un fallo — es una fecha que NO se
+    // ha falseado.
+    const partes = [`${res.registradas} consentimiento${res.registradas === 1 ? '' : 's'} registrado${res.registradas === 1 ? '' : 's'}`];
+    if (res.yaVigentes) partes.push(`${res.yaVigentes} ya lo tenía${res.yaVigentes === 1 ? '' : 'n'} (sin tocar la fecha)`);
+    if (res.noEncontradas) partes.push(`${res.noEncontradas} no encontrada${res.noEncontradas === 1 ? '' : 's'}`);
+    setResultadoConsentMkt(partes.join(' · '));
+  }
+
+  // Igual que en ampliar: la selección se suelta al CERRAR, no al registrar, para
+  // que el título del diálogo no se quede en cero mientras se lee el resultado.
+  function cerrarConsentMkt() {
+    if (resultadoConsentMkt) setSelected(new Set());
+    setShowConsentMkt(false);
+    setAfirmadoConsentMkt(false);
+    setResultadoConsentMkt(null);
+    setErrorConsentMkt(null);
+  }
+
   // ── Create / edit ──────────────────────────────────────────────────────────
   function resetModal() {
     setShowForm(null);
@@ -748,6 +794,7 @@ export default function Socios() {
     { id: 'sin_bono', label: 'Sin bono' },
     { id: 'bono_expirado', label: 'Bono expirado' },
     { id: 'inactivas_30d', label: 'Sin asistencia 30d' },
+    { id: 'sin_consentimiento_mkt', label: 'Sin consentimiento marketing' },
   ];
 
   // Mismas etiquetas de texto que el selector de la ficha individual
@@ -969,6 +1016,18 @@ export default function Socios() {
           >
             <CalendarPlus size={12} />
             Ampliar caducidad
+          </button>
+          )}
+          {/* Mismo permiso que la tarjeta «Marketing» de la ficha
+              (puedeGestionarClientas), no `mueveDinero`: anotar un
+              consentimiento no mueve producto vendido. */}
+          {gestionaClientas && (
+          <button
+            onClick={() => { setResultadoConsentMkt(null); setErrorConsentMkt(null); setAfirmadoConsentMkt(false); setShowConsentMkt(true); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-card/10 hover:bg-card/20 transition-colors"
+          >
+            <ShieldCheck size={12} />
+            Consentimiento marketing
           </button>
           )}
           <button
@@ -1725,6 +1784,84 @@ export default function Socios() {
                   className="flex-1 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
                 >
                   {ampliando ? 'Ampliando…' : `Ampliar ${diasAmpliar} días`}
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: Consentimiento de marketing en lote ──────────────────────── */}
+      {/* Esta pantalla ANOTA un consentimiento ya obtenido, no lo crea: el art. 7
+          del RGPD exige que lo dé la interesada. De ahí las tres cosas que la
+          hacen distinta de un botón de confirmar cualquiera — el texto legal
+          exacto a la vista, la casilla de afirmación que desbloquea el botón, y
+          el recuento por separado de a quién NO se ha tocado. */}
+      <Dialog open={showConsentMkt} onOpenChange={(open) => { if (!open && !guardandoConsentMkt) cerrarConsentMkt(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold text-foreground">
+              Consentimiento de marketing — {selected.size} clienta{selected.size !== 1 ? 's' : ''}
+            </DialogTitle>
+          </DialogHeader>
+          {resultadoConsentMkt ? (
+            <div className="space-y-4 mt-2">
+              <p className="text-[13px] text-foreground">{resultadoConsentMkt}</p>
+              <button
+                onClick={cerrarConsentMkt}
+                className="w-full py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary hover:brightness-95 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4 mt-2">
+              <p className="text-[13px] text-foreground">
+                Esto <strong>anota</strong> un consentimiento que ya te han dado — en mostrador,
+                en la hoja de alta, por escrito. No se lo pide a nadie: la ley exige que lo dé
+                la clienta, así que solo regístralo si de verdad lo tienes.
+              </p>
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">
+                  Texto que se guarda
+                </p>
+                <p className="text-[12px] leading-relaxed text-muted-foreground bg-muted/50 rounded-lg p-3 max-h-40 overflow-y-auto">
+                  {textoConsentimientoMarketing({ nombre: studio?.nombre })}
+                </p>
+              </div>
+              <p className="text-[12px] text-muted-foreground">
+                A quien ya lo tenga registrado no se le toca la fecha. Queda anotado como
+                registrado en mostrador, y cualquiera puede darse de baja desde el enlace de
+                cualquier email.
+              </p>
+              <label className="flex items-start gap-2 text-[12.5px] text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={afirmadoConsentMkt}
+                  disabled={guardandoConsentMkt}
+                  onChange={(e) => setAfirmadoConsentMkt(e.target.checked)}
+                />
+                <span>
+                  Confirmo que <strong>cada una</strong> de estas {selected.size} clienta{selected.size !== 1 ? 's' : ''} me
+                  {selected.size !== 1 ? ' han' : ' ha'} dado este consentimiento.
+                </span>
+              </label>
+              {errorConsentMkt && <p className="text-[12.5px] text-destructive">{errorConsentMkt}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={cerrarConsentMkt}
+                  disabled={guardandoConsentMkt}
+                  className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRegistrarConsentimientoMkt}
+                  disabled={guardandoConsentMkt || !afirmadoConsentMkt}
+                  className="flex-1 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
+                >
+                  {guardandoConsentMkt ? 'Registrando…' : 'Registrar'}
                 </button>
               </div>
             </div>
