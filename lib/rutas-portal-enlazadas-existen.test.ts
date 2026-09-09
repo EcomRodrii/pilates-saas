@@ -7,27 +7,33 @@ import { join } from 'node:path';
 // Guardián: si el código enlaza a `/portal/<slug>/algo`, ese `algo` tiene que
 // ser una ruta que exista.
 //
-// ── Por qué existe ───────────────────────────────────────────────────────────
-// #1591 («borrar el portal de la alumna», 3-sep-2026) borró
-// `app/portal/[slug]/clave-nueva`. Dos sitios seguían enlazando ahí, y uno era
-// el `redirectTo` del magic link del CORREO DE BIENVENIDA, que se manda de
-// verdad: dos estudios lo tenían activo. Durante seis días, cada clienta nueva
-// recibió un correo cuyo botón de acceso llevaba a una ruta inexistente.
+// ── Qué pasa de verdad si no existe ──────────────────────────────────────────
+// NO es un 404 —esto se afirmó al crear el guardián y era falso—. Hay una capa
+// de compatibilidad en dos niveles, y conviene entenderla antes de tocar nada:
 //
-// Nada podía verlo. La URL se construye con un template literal, así que para
-// TypeScript es un `string` como cualquier otro; el enlace se resuelve en el
-// navegador de la clienta, no en el build; y el fallo ocurre en el correo, que
-// ningún test E2E abre. Un borrado de ruta y una cadena de texto en otro
-// fichero es justo la deriva que ningún compilador cruza.
+//   · `app/portal/[slug]/[...resto]/route.ts` recoge lo que no casa con ninguna
+//     ruta real y redirige con `destinoPortalViejo` (lib/student/deep-links.ts).
+//   · `traducirEnlace` reescribe al LEERLAS las filas de `notification.deep_link`
+//     ya persistidas, que llevan las 18 formas del portal borrado.
 //
-// ── Qué mira ─────────────────────────────────────────────────────────────────
-// Cualquier `/portal/${...}/segmentos` en el código: los `${...}` son el slug,
-// que en el árbol de rutas es `[slug]`. Se admite que el destino sea una página
-// (`page.tsx`) o un manejador (`route.ts`).
+// El fallo real es más callado que un 404: un nombre que el mapa NO conoce
+// acaba en `redirect(base)` — el inicio del estudio— y un aviso que prometía
+// «tu clase de mañana» deja a la persona en la portada sin decir por qué. En
+// `traducirEnlace`, directamente se queda SIN enlace.
+//
+// ── Por qué sigue mereciendo la pena ─────────────────────────────────────────
+// Porque la red de seguridad existe para lo que ya está escrito y no se puede
+// cambiar —filas emitidas, QR impresos, la bio de Instagram del estudio—, no
+// para que el código nuevo nazca apoyándose en ella. Un enlace escrito HOY
+// contra una ruta que no existe es deuda que alguien tendrá que traducir
+// mañana, y si el nombre no está en el mapa no se traduce: se pierde.
+//
+// Nada de esto lo ve un compilador: la URL es un template literal, así que para
+// TypeScript es un `string` cualquiera.
 //
 // ── Si esto falla ────────────────────────────────────────────────────────────
-// O el enlace apunta a una ruta que ya no existe (arréglalo: mira a dónde va
-// ahora ese flujo), o acabas de crear la ruta y falta el `page.tsx`.
+// Apunta el enlace a la ruta real. No lo añadas al mapa de compatibilidad: ese
+// mapa es para URLs que ya salieron de aquí, no para las que escribes ahora.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -70,36 +76,40 @@ test('se han encontrado enlaces al portal de verdad', () => {
 });
 
 /**
- * Deuda ya existente, enumerada y CERRADA.
+ * Deuda ya existente, enumerada y CERRADA — por FICHERO y ruta, no solo por
+ * ruta.
  *
- * El mismo #1591 dejó rotas estas seis, y no se arreglan aquí porque cada una
- * necesita decidir a dónde va ahora ese flujo —`/clases/<sesionId>` puede
- * querer decir `/reservar/<claseId>` o `/mis-reservas/<reservaId>` según la
- * notificación, y eso es una decisión de producto, no un renombrado—.
+ * Que la pareja sea exacta importa: con una lista de rutas a secas, tener
+ * `/clases` perdonado en un sitio perdonaba un `/clases` nuevo en cualquier
+ * otro. Así solo se perdona exactamente lo que ya estaba.
  *
- * La lista es EXACTA, no un tope: arreglar una obliga a quitarla de aquí, y
- * añadir una rota nueva rompe el test. Es lo que impide que esto crezca
- * mientras se decide. Mismo mecanismo que `HUERFANAS_CONOCIDAS` en
- * `lazy-load-tiene-cargador.test.ts`.
- *
- *   /acceso        app/reservar/[slug]/page.tsx        → hoy es /acceso/login
- *   /login         reservar + components/layout/sidebar → hoy es /acceso/login
- *   /compras       enviar-recibo-webhook, notifications → hoy es /pagos
- *   /reservas      notifications/catalog                → hoy es /mis-reservas
- *   /clases        notifications/catalog, portal-busqueda → ¿reservar? ¿calendario?
- *   /instructores  portal-busqueda                      → no tiene equivalente
+ * Lo que queda son los dos enlaces de `lib/portal-busqueda.ts`, la búsqueda
+ * del portal viejo. NO se arreglan porque ese módulo **no lo usa ninguna
+ * pantalla** —solo sus propios tests—, y parchear las URLs de código que no se
+ * ejecuta es mantenimiento de mentira: lo deja pareciendo vivo. Si algún día se
+ * revive la búsqueda, sus destinos se deciden entonces (hoy `/reservar` filtra
+ * por `?q=`, no por `?tipo=`, y las instructoras ya no tienen ruta propia: se
+ * abren en una hoja dentro de la ficha de clase).
  */
-const ROTOS_CONOCIDOS = ['/acceso', '/clases', '/compras', '/instructores', '/login', '/reservas'];
+const ROTOS_CONOCIDOS = [
+  'lib/portal-busqueda.ts → /clases',
+  'lib/portal-busqueda.ts → /instructores',
+];
+
+/** La forma con la que se comparan: `<fichero> → <ruta>`. */
+function clave(h: { fichero: string; ruta: string }): string {
+  return `${h.fichero} → ${h.ruta}`;
+}
+
+function estaRota({ ruta }: { ruta: string }): boolean {
+  const base = join(RAIZ, 'app/portal/[slug]', ruta);
+  return !existsSync(join(base, 'page.tsx')) && !existsSync(join(base, 'route.ts'));
+}
 
 test('todo enlace a una ruta del portal apunta a una ruta que existe', () => {
-  const rotos = hallazgos.filter(({ ruta }) => {
-    const base = join(RAIZ, 'app/portal/[slug]', ruta);
-    return !existsSync(join(base, 'page.tsx')) && !existsSync(join(base, 'route.ts'));
-  });
-
-  const nuevos = rotos.filter((r) => !ROTOS_CONOCIDOS.includes(r.ruta));
+  const nuevos = hallazgos.filter((h) => estaRota(h) && !ROTOS_CONOCIDOS.includes(clave(h)));
   assert.deepEqual(
-    nuevos.map((r) => `${r.fichero} → /portal/<slug>${r.ruta}`), [],
+    [...new Set(nuevos.map(clave))], [],
     'enlaces NUEVOS del portal a rutas que no existen (la persona aterriza en un '
     + '404, o gotrue lo ignora y la devuelve al Site URL con el token ya gastado)',
   );
@@ -108,14 +118,7 @@ test('todo enlace a una ruta del portal apunta a una ruta que existe', () => {
 test('la lista de deuda conocida no tiene entradas de más', () => {
   // Si alguien arregla una ruta y no la quita de arriba, la lista deja de
   // describir la realidad y empieza a tapar la siguiente que se rompa igual.
-  const rotasDeVerdad = new Set(
-    hallazgos
-      .filter(({ ruta }) => {
-        const base = join(RAIZ, 'app/portal/[slug]', ruta);
-        return !existsSync(join(base, 'page.tsx')) && !existsSync(join(base, 'route.ts'));
-      })
-      .map((r) => r.ruta),
-  );
+  const rotasDeVerdad = new Set(hallazgos.filter(estaRota).map(clave));
   const sobran = ROTOS_CONOCIDOS.filter((r) => !rotasDeVerdad.has(r));
   assert.deepEqual(sobran, [], 'ya no están rotas: quítalas de ROTOS_CONOCIDOS');
 });

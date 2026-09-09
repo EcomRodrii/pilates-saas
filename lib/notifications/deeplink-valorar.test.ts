@@ -13,12 +13,17 @@ const catalogo = readFileSync(join(raiz, 'lib/notifications/catalog.ts'), 'utf8'
 const pagina = readFileSync(join(raiz, 'app/portal/[slug]/mis-reservas/[reservaId]/page.tsx'), 'utf8');
 const deepLinks = readFileSync(join(raiz, 'lib/student/deep-links.ts'), 'utf8');
 
-test('clase.valorar enlaza a reservas/<id> y esa pantalla tiene la tarjeta de valorar', () => {
-  assert.match(catalogo, /VALORAR_CLASE\}#SOCIA`\]:[\s\S]*?\/reservas\/\$\{s\(d\.reservaId\)\}/);
+test('clase.valorar enlaza a mis-reservas/<id> y esa pantalla tiene la tarjeta de valorar', () => {
+  // El catálogo emite ya la ruta del árbol NUEVO. Antes emitía `reservas/<id>`
+  // y lo arreglaba `traducirEnlace` al leerlo: funcionaba, pero cada aviso
+  // nuevo nacía dependiendo del traductor. Ese traductor sigue haciendo falta
+  // —las filas YA emitidas en producción llevan la forma vieja, y hay URLs
+  // impresas en QR y bios de Instagram—, pero no para lo que se escribe hoy.
+  assert.match(catalogo, /VALORAR_CLASE\}#SOCIA`\]:[\s\S]*?\/mis-reservas\/\$\{s\(d\.reservaId\)\}/);
   assert.match(pagina, /<ValorarClase\b/);
   assert.match(pagina, /estado === 'asistida'/);
 });
 
-test('la app traduce reservas/<id> conservando el id', () => {
+test('la app SIGUE traduciendo reservas/<id> conservando el id (filas ya emitidas)', () => {
   assert.match(deepLinks, /mis-reservas\/\$\{mr\[1\]\}/);
 });

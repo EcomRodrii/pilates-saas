@@ -3792,17 +3792,17 @@ export default function ReservarPage() {
                     portal propio (sus bonos, su historial, sus próximas clases).
                     Si ya fijó contraseña en 'registro' (o entró con
                     loginConPassword), el enlace va directo a /login — mandarla
-                    a /acceso otra vez le pediría elegir una contraseña que ya
-                    tiene. Si no (p. ej. socia ya existente que solo firmó el
-                    contrato, sin pasar por 'registro'), sigue sin tenerla y el
-                    enlace va a /acceso, que se la deja poner. */}
+                    Las dos ramas van a la misma puerta única
+                    (/acceso/login): lo que cambia es el TEXTO, porque quien ya
+                    tiene contraseña la escribe ahí y quien no, pide el enlace
+                    de acceso en esa misma pantalla. */}
                 <div className="w-full pt-3 mt-1 border-t border-[var(--portal-line)]">
                   <p className="text-[var(--portal-muted)] text-xs leading-relaxed text-center">
                     Tus clases y tus bonos están en tu portal.{' '}
                     {/* ⚠️ En el widget, ABRIR EN OTRA PESTAÑA no es un detalle:
                         es lo que impide que el widget deje de ser un widget.
                         Sin `target`, este enlace navegaba el propio iframe a
-                        `/portal/<slug>/acceso`, que es una pantalla de portal a
+                        `/portal/<slug>/acceso/…`, que es una pantalla de portal a
                         pantalla completa (`minHeight: 100dvh`, portada de
                         260px y `justify-content: space-between`). Metida en el
                         marco del widget, ese `space-between` reparte el
@@ -3814,12 +3814,20 @@ export default function ReservarPage() {
                         Fuera del embebido se queda como estaba — ahí navegar
                         es lo correcto. */}
                     {tienePasswordPropia ? (
-                      <a href={`/portal/${slug}/login`} className="font-bold underline" style={{ color: PRIMARY }}
+                      <a href={`/portal/${slug}/acceso/login`} className="font-bold underline" style={{ color: PRIMARY }}
                         {...(embedMode ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
                         Entra con tu contraseña
                       </a>
                     ) : (
-                      <a href={`/portal/${slug}/acceso`} className="font-bold underline" style={{ color: PRIMARY }}
+                      // `/acceso/login` también aquí, aunque el texto diga «crea
+                      // tu contraseña»: es la puerta ÚNICA (email + contraseña
+                      // opcional) y su enlace de acceso usa `signInWithOtp`, que
+                      // CREA la cuenta si no existe. `/acceso/recuperar` parecía
+                      // más preciso y es justo lo contrario: `resetPasswordForEmail`
+                      // no crea nada, así que a quien reservó SIN CUENTA —que es
+                      // exactamente para quien es este enlace— no le llegaría
+                      // ningún correo. Lo cazó `booking.spec.ts:225`.
+                      <a href={`/portal/${slug}/acceso/login`} className="font-bold underline" style={{ color: PRIMARY }}
                         {...(embedMode ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
                         Crea tu contraseña
                       </a>

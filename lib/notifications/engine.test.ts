@@ -295,7 +295,7 @@ test('reserva confirmada: crea in-app para la socia con la plantilla renderizada
   assert.equal(notifs[0].title, 'Reserva confirmada');
   assert.match(notifs[0].body as string, /Reformer/);
   assert.match(notifs[0].body as string, /sábado 25 de julio/);
-  assert.equal(notifs[0].deep_link, '/portal/mar/clases/ses1');
+  assert.equal(notifs[0].deep_link, '/portal/mar/reservar/ses1');
   assert.equal(notifs[0].priority, 'MEDIA');
   assert.equal(notifs[0].category, 'reservas');
   // Deliveries: INAPP enviado + PUSH omitido (sin VAPID en test).
