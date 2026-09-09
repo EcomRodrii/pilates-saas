@@ -27,6 +27,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { descargarObjetoR2 } from '@/lib/r2';
 import { reescribirHtml } from '@/lib/theme-import/reescribir-rutas';
 import { enlazarDatosReales, type FilaTemaImportado } from '@/lib/theme-import/servir';
+import { CABECERAS_CONTENIDO_AJENO } from '@/lib/theme-import/cabeceras';
 
 export interface EdicionEnVivo {
   ruta: string;
@@ -55,7 +56,7 @@ export async function resolverPreviewEnVivo(
   if (fichero.clase === 'html') {
     let html = reescribirHtml(edicion.contenido, edicion.ruta, esRelativoDeRuta);
     html = await enlazarDatosReales(admin, fila.studio_id, html);
-    return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+    return new NextResponse(html, { headers: { 'Content-Type': 'text/html', ...CABECERAS_CONTENIDO_AJENO } });
   }
 
   // CSS: renderiza el HTML de entrada normal (editado-si-existe, original si

@@ -32,8 +32,11 @@ export function FotoPerfil({ studioId, url, iniciales, onCambio }: {
     if (!file || subiendo) return;
     setError(null);
     // Se comprueba antes de enseñar nada: una previsualización de algo que va a
-    // ser rechazado es peor que decirlo ya.
-    const malo = motivoFotoInvalida(file.type, file.size);
+    // ser rechazado es peor que decirlo ya. Pero SOLO el formato: el tamaño del
+    // original no decide nada porque `subirFoto` lo redimensiona a 512 px antes
+    // de mandarlo, y ahí sí lo revalida. Cortar aquí por 5 MB rechazaba las
+    // fotos de cualquier móvil moderno (6-15 MB) sin dejarle salida.
+    const malo = motivoFotoInvalida(file.type, null);
     if (malo) { setError(malo); return; }
 
     const local = URL.createObjectURL(file);

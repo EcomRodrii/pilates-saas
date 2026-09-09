@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   if (filas.length > MAX_FILAS) return NextResponse.json({ error: `Máximo ${MAX_FILAS} filas por importación` }, { status: 413 });
 
   const { data: socios, error: errS } = await catalogo<{ id: string; email: string | null }>(
-    (d, h) => admin.from('socios').select('id, email').eq('studio_id', sesion.studioId).range(d, h),
+    (d, h) => admin.from('socios').select('id, email').eq('studio_id', sesion.studioId).order('id').range(d, h),
   );
   if (errS) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
 

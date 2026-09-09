@@ -27,6 +27,14 @@ const PAGINA = 1000;
 /**
  * Trae TODAS las filas de una consulta, paginando con `.range()`.
  *
+ * ⚠️ `construir` DEBE incluir un `.order(...)` por una columna única (`id` sirve
+ * en todas las tablas de este repo). Sin ORDER BY, Postgres no garantiza que
+ * LIMIT/OFFSET devuelva páginas disjuntas: una fila puede repetirse en dos
+ * páginas y otra no salir en ninguna. Y una fila que se pierde aquí es
+ * exactamente el fallo que este módulo existe para evitar —el catálogo llega
+ * corto y reimportar duplica—, solo que más difícil de ver porque depende del
+ * plan de ejecución.
+ *
  * `construir(desde, hasta)` debe devolver la consulta ya filtrada por estudio.
  * Se pide una página de más para detectar el final: cuando una página vuelve
  * incompleta, no hay más.

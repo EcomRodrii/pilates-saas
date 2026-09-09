@@ -17,6 +17,7 @@ import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { descargarObjetoR2 } from '@/lib/r2';
 import { contentTypeDe } from '@/lib/theme-import/content-type';
+import { CABECERAS_CONTENIDO_AJENO } from '@/lib/theme-import/cabeceras';
 import { reescribirHtml, reescribirCss } from '@/lib/theme-import/reescribir-rutas';
 import { enlazarPropsDeclarados, enlazarFotosDeSlots } from '@/lib/theme-import/enlazar-datos';
 import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
@@ -74,16 +75,23 @@ export async function servirFicheroTema(
   if (tipo.startsWith('text/html')) {
     let html = reescribirHtml(new TextDecoder().decode(bytes), ruta, esRelativoDeRuta);
     html = await enlazarDatosReales(admin, fila.studio_id, html);
-    return new NextResponse(html, { headers: { 'Content-Type': tipo } });
+    return new NextResponse(html, { headers: { 'Content-Type': tipo, ...CABECERAS_CONTENIDO_AJENO } });
   }
   if (tipo.startsWith('text/css')) {
     const css = reescribirCss(new TextDecoder().decode(bytes), ruta, esRelativoDeRuta);
-    return new NextResponse(css, { headers: { 'Content-Type': tipo } });
+    return new NextResponse(css, { headers: { 'Content-Type': tipo, ...CABECERAS_CONTENIDO_AJENO } });
   }
   // Assets (imágenes, fuentes, vídeo): bytes tal cual, sin tocar ni un byte —
   // el punto 8 del encargo ("no reemplazar assets, no cambiar dimensiones").
+  //
+  // Las cabeceras SÍ se aplican también aquí: un `.svg` se clasifica como
+  // `imagen` en el manifest y sale por esta rama con `image/svg+xml`, pero
+  // navegar a él lo renderiza como DOCUMENTO y ejecuta los `<script>` que
+  // lleve dentro — la misma puerta que cierra la rama de HTML. El
+  // `Cache-Control` de assets va DESPUÉS del spread para no perder la caché
+  // de imágenes y fuentes, que aquí sí interesa.
   return new NextResponse(new Blob([bytes as Uint8Array<ArrayBuffer>]), {
-    headers: { 'Content-Type': tipo, 'Cache-Control': 'private, max-age=1200' },
+    headers: { 'Content-Type': tipo, ...CABECERAS_CONTENIDO_AJENO, 'Cache-Control': 'private, max-age=1200' },
   });
 }
 

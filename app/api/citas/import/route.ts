@@ -6,7 +6,7 @@ import { uid, TZ_ESTUDIO } from '@/lib/utils';
 import type { FilaCita } from '@/lib/csv';
 import { errorInterno } from '@/lib/errores-servidor';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
-import { puedeGestionarClientas } from '@/lib/permisos-reglas';
+import { puedeGestionarClientas, puedeVerFinanzas } from '@/lib/permisos-reglas';
 import { catalogo } from '@/lib/migracion/catalogo';
 import { enforceRateLimit } from '@/lib/rate-limit';
 
@@ -67,14 +67,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Máximo ${MAX_FILAS} filas por importación` }, { status: 413 });
   }
 
+  // Una cita con `precio` es dinero: se archiva un importe y, si viene
+  // COMPLETADA, se marca `pagada`. Sus gemelos que tocan importes ya piden más
+  // que gestionar clientas (`suscripciones/import` exige puedeMoverDinero,
+  // `pagos-historicos/import` exige puedeVerFinanzas). Se pide el permiso de
+  // finanzas SOLO si el archivo trae precios, para no romper la importación de
+  // agenda sin dinero.
+  //
+  // Va DESPUÉS de comprobar la forma: leer `.some()` sobre un `rows` que no es
+  // array daba un TypeError → 500, en vez del 400 que corresponde.
+  //
+  // ⚠️ Alcance real: `puedeVerFinanzas` es PROPIETARIO o RECEPCION, así que
+  // esto NO frena a recepción — el rol que queda fuera es MANAGER. Cerrar
+  // también recepción es una decisión de producto (hoy recepción cobra en el
+  // TPV), así que no se toma aquí; queda anotado en el informe de la 39ª pasada.
+  if (filas.some(f => f?.precio != null) && !puedeVerFinanzas(sesionStaff.rol)) {
+    return NextResponse.json(
+      { error: 'Este archivo incluye importes. Para importar citas con precio necesitas permiso de finanzas. '
+             + 'Puedes quitar la columna de precio y volver a subirlo.' },
+      { status: 403 },
+    );
+  }
+
   const studioId = sesionStaff.studioId;
 
   const [{ data: socios, error: eS }, { data: servicios, error: eSv }, { data: instructores, error: eI }, { data: citasExist, error: eC }] =
     await Promise.all([
-      catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', studioId).is('borrado_en', null).range(d, h)),
-      catalogo<{ id: string; nombre: string; tipo: string; duracion_min: number | null; precio: number | null }>((d, h) => admin.from('citas_servicios').select('id, nombre, tipo, duracion_min, precio').eq('studio_id', studioId).range(d, h)),
-      catalogo<{ id: string; nombre: string }>((d, h) => admin.from('instructores').select('id, nombre').eq('studio_id', studioId).range(d, h)),
-      catalogo<{ socio_id: string | null; inicio: string; estado: string }>((d, h) => admin.from('citas').select('socio_id, inicio, estado').eq('studio_id', studioId).range(d, h)),
+      catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', studioId).is('borrado_en', null).order('id').range(d, h)),
+      catalogo<{ id: string; nombre: string; tipo: string; duracion_min: number | null; precio: number | null }>((d, h) => admin.from('citas_servicios').select('id, nombre, tipo, duracion_min, precio').eq('studio_id', studioId).order('id').range(d, h)),
+      catalogo<{ id: string; nombre: string }>((d, h) => admin.from('instructores').select('id, nombre').eq('studio_id', studioId).order('id').range(d, h)),
+      catalogo<{ socio_id: string | null; inicio: string; estado: string }>((d, h) => admin.from('citas').select('socio_id, inicio, estado').eq('studio_id', studioId).order('id').range(d, h)),
     ]);
   if (eS || eSv || eI || eC) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
 
@@ -92,7 +114,24 @@ export async function POST(req: NextRequest) {
   for (const i of instructores ?? []) instructorPorNombre.set(norm(i.nombre), i.id);
 
   // Dedup: no hay índice único en `citas`, así que se compara (socia, inicio).
+  //
+  // Antes solo se deduplicaban los estados ACTIVAS, así que reimportar el mismo
+  // archivo —que es justo lo que pide el mensaje de fallo a medias— duplicaba
+  // todas las citas COMPLETADA y CANCELADA, y las COMPLETADA llevan `precio` y
+  // `pagada`: el histórico de facturación de la socia se inflaba en cada
+  // reintento. Ahora la clave lleva el estado y cubre todas las filas, así que
+  // reimportar es idempotente de verdad, como ya prometía la respuesta.
   const existentes = new Set(
+    (citasExist ?? [])
+      .filter(c => c.socio_id)
+      .map(c => `${c.socio_id}|${new Date(c.inicio as string).toISOString()}|${c.estado}`),
+  );
+  // Y aparte, sin el estado: una socia no puede tener otra cita a la misma hora
+  // aunque el estado difiera. Se conserva el criterio original (todo salvo
+  // CANCELADA) para no abrir un hueco al arreglar el otro: si el estudio marca
+  // una cita como COMPLETADA y luego se reimporta el archivo, la fila activa
+  // del CSV tiene que seguir chocando con ella, no colarse encima.
+  const ocupadasExistentes = new Set(
     (citasExist ?? [])
       .filter(c => c.socio_id && c.estado !== 'CANCELADA')
       .map(c => `${c.socio_id}|${new Date(c.inicio as string).toISOString()}`),
@@ -106,6 +145,7 @@ export async function POST(req: NextRequest) {
   const errores: { fila: number; motivo: string }[] = [];
   let sinSocia = 0, sinInstructor = 0, duplicadas = 0, sinServicioCatalogo = 0;
   const vistas = new Set<string>();
+  const vistasActivas = new Set<string>();
 
   filas.forEach((f, i) => {
     const socioId = socioPorEmail.get((f.email ?? '').toLowerCase().trim());
@@ -127,9 +167,13 @@ export async function POST(req: NextRequest) {
     const inicioISO = inicio.toISOString();
     const finISO = new Date(inicio.getTime() + duracion * 60000).toISOString();
 
-    const clave = `${socioId}|${inicioISO}`;
-    if (ACTIVAS.includes(f.estado) && (existentes.has(clave) || vistas.has(clave))) { duplicadas++; return; }
-    if (ACTIVAS.includes(f.estado)) vistas.add(clave);
+    const clave = `${socioId}|${inicioISO}|${f.estado}`;
+    const claveActiva = `${socioId}|${inicioISO}`;
+    const chocaActiva = ACTIVAS.includes(f.estado)
+      && (ocupadasExistentes.has(claveActiva) || vistasActivas.has(claveActiva));
+    if (chocaActiva || existentes.has(clave) || vistas.has(clave)) { duplicadas++; return; }
+    vistas.add(clave);
+    if (ACTIVAS.includes(f.estado)) vistasActivas.add(claveActiva);
 
     const instructorId = f.instructor ? instructorPorNombre.get(norm(f.instructor)) ?? null : null;
     if (f.instructor && !instructorId) sinInstructor++;
@@ -167,7 +211,14 @@ export async function POST(req: NextRequest) {
       if (batchId && idsCreados.length > 0) {
         await registrarIdsBatch(admin, { studioId, batchId, entidad: 'citas', ids: idsCreados });
       }
-      return errorInterno('citas/import:POST', error, 'No se pudieron guardar las citas.', 500, { importadas });
+      // Como sus gemelos (clases:222, reservas:177): decir CUÁNTAS entraron. El
+      // texto anterior («No se pudieron guardar las citas») daba a entender que
+      // no se había guardado nada cuando podían llevar 4.500 dentro.
+      return errorInterno('citas/import:POST', error,
+        `Se han importado ${importadas} citas y el proceso se ha detenido ahí. `
+        + 'Comprueba que las socias del archivo existan ya en tu cuenta, y vuelve a subirlo: '
+        + 'las que ya están importadas se detectan y no se duplican.',
+        500, { importadas });
     }
     idsCreados.push(...lote.map(l => l.id));
     importadas += lote.length;

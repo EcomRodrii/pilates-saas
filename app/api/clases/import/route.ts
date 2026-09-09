@@ -6,6 +6,7 @@ import { horaParedAInstante } from '@/lib/citas/slots';
 import { uid, TZ_ESTUDIO } from '@/lib/utils';
 import type { FilaClase } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
+import { catalogo } from '@/lib/migracion/catalogo';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { capturar } from '@/lib/analytics';
@@ -103,10 +104,17 @@ export async function POST(req: NextRequest) {
     : new Date().toISOString().slice(0, 10);
 
   // ── Catálogo del estudio para emparejar ────────────────────────────────────
+  // Paginado con `catalogo()` como los otros siete importadores: sin `.range()`
+  // PostgREST corta en 1000 filas EN SILENCIO. Un estudio con más de 1000 tipos/
+  // salas/instructores recibía un catálogo incompleto y se le creaban tipos de
+  // clase duplicados por no encontrar los que ya tenía.
   const [{ data: tipos, error: eT }, { data: instructores, error: eI }, { data: salas, error: eS }] = await Promise.all([
-    admin.from('tipos_clase').select('id, nombre, duracion_minutos').eq('studio_id', sesion.studioId),
-    admin.from('instructores').select('id, nombre').eq('studio_id', sesion.studioId),
-    admin.from('salas').select('id, nombre, capacidad').eq('studio_id', sesion.studioId),
+    catalogo<{ id: string; nombre: string; duracion_minutos: number | null }>(
+      (d, h) => admin.from('tipos_clase').select('id, nombre, duracion_minutos').eq('studio_id', sesion.studioId).order('id').range(d, h)),
+    catalogo<{ id: string; nombre: string }>(
+      (d, h) => admin.from('instructores').select('id, nombre').eq('studio_id', sesion.studioId).order('id').range(d, h)),
+    catalogo<{ id: string; nombre: string; capacidad: number | null }>(
+      (d, h) => admin.from('salas').select('id, nombre, capacidad').eq('studio_id', sesion.studioId).order('id').range(d, h)),
   ]);
   if (eT || eI || eS) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
 
@@ -119,6 +127,7 @@ export async function POST(req: NextRequest) {
 
   // ── Tipos de clase que faltan: se crean (sin ellos no hay sesión posible) ──
   const nuevosTipos: Record<string, unknown>[] = [];
+  let tiposFueraDelDeshacer = false;
   let colorIdx = tipoPorNombre.size;
   for (const f of filas) {
     const nombre = (f.clase ?? '').trim();
@@ -140,7 +149,10 @@ export async function POST(req: NextRequest) {
     if (error) return errorInterno('clases:import:tipos', error,
       'No se han podido crear los tipos de clase del archivo. Revisa que la columna de clase no tenga celdas vacías y vuelve a subirlo.');
     if (batchId) {
-      await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'tipos_clase', ids: nuevosTipos.map(t => t.id as string) });
+      // El contrato de registrarIdsBatch dice que el llamante DEBE avisar si
+      // falla. Aquí se tragaba el false y los tipos creados quedaban fuera del
+      // deshacer sin que nadie lo supiera: se propaga al acta como los demás.
+      tiposFueraDelDeshacer = !(await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'tipos_clase', ids: nuevosTipos.map(t => t.id as string) }));
     }
   }
 
@@ -194,12 +206,32 @@ export async function POST(req: NextRequest) {
 
   // ── Dedup contra lo que ya existe (reimportar no duplica el horario) ───────
   const inicios = pendientes.map(p => p.inicio);
-  const { data: existentes } = await admin
-    .from('sesiones').select('tipo_clase_id, inicio')
-    .eq('studio_id', sesion.studioId)
-    .gte('inicio', inicios.reduce((a, b) => (a < b ? a : b)))
-    .lte('inicio', inicios.reduce((a, b) => (a > b ? a : b)));
-  const yaExiste = new Set((existentes ?? []).map(e => `${e.tipo_clase_id}|${new Date(e.inicio as string).toISOString()}`));
+  const desdeVentana = inicios.reduce((a, b) => (a < b ? a : b));
+  const hastaVentana = inicios.reduce((a, b) => (a > b ? a : b));
+  // Paginado: la ventana del dedup abarca hasta 12 semanas. Un estudio con 10
+  // clases al día pasa de 1000 sesiones y, sin `.range()`, PostgREST devolvía
+  // solo las 1000 primeras sin avisar → el dedup no veía el resto y reimportar
+  // DUPLICABA el horario entero, que es justo lo que este bloque evita.
+  const { data: existentes, error: eDedup } = await catalogo<{ tipo_clase_id: string; inicio: string }>(
+    (d, h) => admin
+      .from('sesiones').select('tipo_clase_id, inicio')
+      .eq('studio_id', sesion.studioId)
+      .gte('inicio', desdeVentana)
+      .lte('inicio', hastaVentana)
+      .order('id').range(d, h),
+  );
+  // Un fallo aquí NO puede seguir adelante: sin dedup fiable se duplica el
+  // horario del estudio, que es peor que no importar. El mensaje NO puede decir
+  // "no se ha importado nada": los tipos de clase nuevos ya se insertaron
+  // arriba. Y va por `errorInterno` para que llegue a Sentry, como sus gemelos.
+  if (eDedup) {
+    return errorInterno('clases:import:dedup', eDedup,
+      'No se ha podido comprobar qué clases tienes ya, así que no se ha creado ninguna clase '
+      + `para no duplicarte el horario${nuevosTipos.length > 0 ? ` (los ${nuevosTipos.length} tipos de clase del archivo sí se han creado)` : ''}. `
+      + 'Vuelve a intentarlo.',
+      500, { tiposCreados: nuevosTipos.length, batchAviso: tiposFueraDelDeshacer ? 'No se pudo registrar el lote para deshacer' : null });
+  }
+  const yaExiste = new Set((existentes ?? []).map(e => `${e.tipo_clase_id}|${new Date(e.inicio).toISOString()}`));
 
   const aInsertar = pendientes.filter(p => !yaExiste.has(`${p.tipoId}|${p.inicio}`));
   const omitidas = pendientes.length - aInsertar.length;
@@ -226,8 +258,11 @@ export async function POST(req: NextRequest) {
     idsCreados.push(...lote.map(l => l.id));
     creadas += lote.length;
   }
-  const batchAviso = batchId && idsCreados.length > 0
-    ? (await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'sesiones', ids: idsCreados })) ? null : 'No se pudo registrar el lote para deshacer'
+  const sesionesFueraDelDeshacer = batchId && idsCreados.length > 0
+    ? !(await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'sesiones', ids: idsCreados }))
+    : false;
+  const batchAviso = sesionesFueraDelDeshacer || tiposFueraDelDeshacer
+    ? 'No se pudo registrar el lote para deshacer'
     : null;
 
   // El paso donde se pierde más de la mitad de los estudios: 4 de 10 llegan a

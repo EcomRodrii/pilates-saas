@@ -64,9 +64,9 @@ export async function POST(req: NextRequest) {
 
   // Catálogo del estudio para emparejar: socias por email + planes por nombre.
   const [{ data: socios, error: errS }, { data: planes, error: errP }, { data: susExist, error: errX }] = await Promise.all([
-    catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', sesion.studioId).range(d, h)),
-    catalogo<{ id: string; nombre: string; tipo: string; sesiones: number | null }>((d, h) => admin.from('planes_tarifa').select('id, nombre, tipo, sesiones').eq('studio_id', sesion.studioId).range(d, h)),
-    catalogo<{ socio_id: string; plan_id: string; estado: string }>((d, h) => admin.from('suscripciones').select('socio_id, plan_id, estado').eq('studio_id', sesion.studioId).range(d, h)),
+    catalogo<{ id: string; email: string | null }>((d, h) => admin.from('socios').select('id, email').eq('studio_id', sesion.studioId).order('id').range(d, h)),
+    catalogo<{ id: string; nombre: string; tipo: string; sesiones: number | null }>((d, h) => admin.from('planes_tarifa').select('id, nombre, tipo, sesiones').eq('studio_id', sesion.studioId).order('id').range(d, h)),
+    catalogo<{ socio_id: string; plan_id: string; estado: string }>((d, h) => admin.from('suscripciones').select('socio_id, plan_id, estado').eq('studio_id', sesion.studioId).order('id').range(d, h)),
   ]);
   if (errS || errP || errX) {
     return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });

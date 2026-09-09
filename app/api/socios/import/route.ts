@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
   // 1200, la segunda pasada del CSV le crea 200 fichas repetidas.
   const { data: existentes, error: errLeer } = await catalogo<{ email: string | null }>(
     (desde, hasta) =>
-      admin.from('socios').select('email').eq('studio_id', sesion.studioId).range(desde, hasta),
+      admin.from('socios').select('email').eq('studio_id', sesion.studioId).order('id').range(desde, hasta),
   );
   if (errLeer) {
     return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });

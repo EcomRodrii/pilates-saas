@@ -76,11 +76,109 @@ export interface ResultadoDeshacer {
 }
 
 /**
+ * Tablas que NO deben impedir deshacer una migración.
+ *
+ * Son rastro que genera el propio producto —no algo que hiciera la socia— y que
+ * se puede borrar con ella sin pérdida real. Sin esta lista el preflight sería
+ * peor que el bug que arregla: `recordatorio_envios` cuelga de `sesiones` y de
+ * `socios` con CASCADE y el cron escribe ahí por cada recordatorio enviado, así
+ * que a las pocas horas de migrar TODO lote quedaría bloqueado para siempre.
+ *
+ * La lista es corta a propósito. Todo lo demás (recibos, créditos, reservas,
+ * ficha clínica, documentos, mensajes, valoraciones) SÍ bloquea: es información
+ * que alguien introdujo, y perderla en silencio es lo que se está arreglando.
+ */
+const RASTRO_DEL_SISTEMA = [
+  'recordatorio_envios',        // cron de recordatorios
+  'comunicaciones_socio',       // log de emails/WhatsApp enviados
+  'intentos_reserva_fallidos',  // telemetría de reservas que no cuajaron
+  'recomendaciones',            // Decision OS, se regenera solo
+  'memoria_socio',              // Decision OS, se regenera solo
+];
+
+// Cómo se llama cada entidad en el mensaje que lee la propietaria.
+const ETIQUETA: Record<EntidadBatch, string> = {
+  socios: 'clientas', suscripciones: 'membresías', tipos_clase: 'tipos de clase',
+  sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'plazas fijas',
+  recuperaciones: 'recuperaciones', pagos_historicos: 'pagos históricos',
+};
+
+/**
+ * Preflight del borrado: cuenta lo que la CASCADA destruiría sin avisar.
+ *
+ * El 23503 solo protege de las FK que son NO ACTION (7 de las que cuelgan de
+ * `socios`). Las otras 39 son ON DELETE CASCADE: Postgres las borra en silencio
+ * y `delete` devuelve éxito. Medido en prod sobre una socia real: 17 tablas,
+ * 128 filas, 12 de ellas recibos. Sin esta comprobación, deshacer una migración
+ * de hace tres días se llevaba por delante todo lo que esas socias hicieron
+ * DESPUÉS de migrar, y la pantalla seguía prometiendo «y nada más».
+ *
+ * Se ejecuta justo antes de borrar cada entidad; como ORDEN_DESHACER ya ha
+ * borrado lo que el propio lote creó, lo que quede colgando es ajeno al lote.
+ *
+ * Falla CERRADO: si no se puede comprobar, no se borra. Un deshacer que no se
+ * hace es un incordio; uno que borra la ficha clínica de una socia, no.
+ */
+async function dependenciasExternas(
+  admin: SupabaseClient,
+  entidad: EntidadBatch,
+  ids: string[],
+  todosLosIds: Partial<Record<EntidadBatch, string[]>>,
+): Promise<{ bloquea: false } | { bloquea: true; motivo: string }> {
+  // Lo que el propio lote creó nunca es "ajeno". El orden de ORDEN_DESHACER ya
+  // lo cubre casi siempre, pero no si `registrarIdsBatch` falló para una
+  // entidad y no para otra (justo el caso que `batchAviso` avisa): entonces las
+  // reservas del lote se verían como ajenas y bloquearían para siempre.
+  const excluir: Record<string, string[]> = {};
+  for (const [ent, lista] of Object.entries(todosLosIds) as [EntidadBatch, string[]][]) {
+    if (lista?.length) excluir[TABLA[ent]] = lista;
+  }
+
+  const { data, error } = await admin.rpc('migracion_dependencias_bloqueantes', {
+    p_tabla: TABLA[entidad],
+    p_ids: ids,
+    p_ignorar: RASTRO_DEL_SISTEMA,
+    p_excluir: excluir,
+  });
+  if (error) {
+    // El aviso NUNCA puede decidir el flujo: si el SDK no está inicializado
+    // (fuera del runtime de Next, p. ej. en `node --test`), reventar aquí
+    // convertiría un "no borro por precaución" en un 500 sin explicación. Mismo
+    // criterio que `sentry-cola.ts` con los métodos que el SDK no tenga.
+    try {
+      Sentry.captureException(new Error(`Preflight del deshacer falló: ${error.message}`), {
+        level: 'error', tags: { area: 'migracion' }, extra: { entidad, cuantos: ids.length },
+      });
+    } catch { /* observabilidad opcional; la decisión de no borrar no lo es */ }
+    return {
+      bloquea: true,
+      motivo: `No se ha podido comprobar si hay datos posteriores que dependan de ${ETIQUETA[entidad]}. `
+        + 'No se ha borrado nada para no arriesgarnos a perder información. Inténtalo de nuevo o contacta con soporte.',
+    };
+  }
+  const filas = (data ?? []) as { tabla_hija: string; filas: number }[];
+  if (filas.length === 0) return { bloquea: false };
+
+  const total = filas.reduce((n, f) => n + Number(f.filas), 0);
+  // Nombres únicos: una tabla con varias FK a la misma padre (socio_companeras
+  // tiene tres) saldría repetida en el mensaje.
+  const nombres = [...new Set(filas.map(f => f.tabla_hija.replace(/_/g, ' ')))];
+  return {
+    bloquea: true,
+    motivo: `No se puede deshacer: ${ETIQUETA[entidad]} de esta importación tienen ${total} `
+      + `${total === 1 ? 'registro creado' : 'registros creados'} después de migrar `
+      + `(${nombres.slice(0, 4).join(', ')}${nombres.length > 4 ? '…' : ''}), `
+      + 'y borrarlas se los llevaría por delante. '
+      + 'No se ha borrado nada. Contacta con soporte si aun así quieres deshacer la migración.',
+  };
+}
+
+/**
  * Borra TODO lo creado por un batch, en orden inverso de dependencias, acotado
- * al estudio. Si una FK bloquea un borrado (p. ej. una socia migrada que ya
- * tiene reservas nuevas de después de la migración), se PARA con un mensaje
- * claro y sin marcar el batch como deshecho — mejor un deshacer a medias
- * visible que uno que miente.
+ * al estudio. Si una FK bloquea un borrado, o si la CASCADA se llevaría datos
+ * ajenos al lote (ver `dependenciasExternas`), se PARA con un mensaje claro y
+ * sin marcar el batch como deshecho — mejor un deshacer a medias visible que
+ * uno que miente.
  */
 export async function deshacerBatch(
   admin: SupabaseClient,
@@ -104,6 +202,11 @@ export async function deshacerBatch(
   for (const entidad of ORDEN_DESHACER) {
     const lista = ids[entidad] ?? [];
     if (lista.length === 0) continue;
+
+    // Antes de borrar: ¿la cascada se llevaría algo que no creó este lote?
+    const dep = await dependenciasExternas(admin, entidad, lista, ids);
+    if (dep.bloquea) return { ok: false, borrados, error: dep.motivo };
+
     let total = 0;
     for (let i = 0; i < lista.length; i += 500) {
       const trozo = lista.slice(i, i + 500);
