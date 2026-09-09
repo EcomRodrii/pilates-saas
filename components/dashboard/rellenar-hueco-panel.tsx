@@ -54,6 +54,15 @@ export function RellenarHuecoPanel({
   const rol = useRol();
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
   const [enviando, setEnviando] = useState<'avisar' | 'ofrecer' | null>(null);
+  // ⚠️ El resultado se pinta DENTRO del cajón, no solo con un toast.
+  //
+  // Se reportó que «Avisar a 1 seleccionada no hace nada». Sí hacía: llamaba al
+  // servidor, el servidor contestaba —y la respuesta era invisible—. El `Toast`
+  // es `fixed z-50` y vive en el árbol de la página; este cajón se porta a
+  // `body` con el mismo z-50, así que va DESPUÉS en el DOM y lo tapa. Con un
+  // error el cajón no se cierra, así que el aviso se quedaba debajo para
+  // siempre: desde fuera, un botón muerto.
+  const [resultado, setResultado] = useState<{ mal: boolean; texto: string } | null>(null);
 
   const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
 
@@ -83,6 +92,7 @@ export function RellenarHuecoPanel({
   const seleccionadas = avisables.filter(c => seleccion.has(c.socioId));
 
   function alternar(socioId: string) {
+    setResultado(null);
     setSeleccion(prev => {
       const next = new Set(prev);
       if (next.has(socioId)) next.delete(socioId); else next.add(socioId);
@@ -92,6 +102,7 @@ export function RellenarHuecoPanel({
 
   function cerrar() {
     setSeleccion(new Set());
+    setResultado(null);
     onCerrar();
   }
 
@@ -102,40 +113,75 @@ export function RellenarHuecoPanel({
   async function ofrecerPlaza() {
     if (!sesion) return;
     setEnviando('ofrecer');
-    const res = await fetch('/api/reservas/ofrecer-plaza', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ sesionId: sesion.id }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setEnviando(null);
-    if (!res.ok) { onAviso(data?.error ?? 'No se ha podido ofrecer la plaza'); return; }
-    onAviso(data.resultado === 'confirmada'
-      ? 'Plaza confirmada a la siguiente en la lista'
-      : 'Oferta de plaza enviada');
-    onCambio();
-    cerrar();
+    setResultado(null);
+    try {
+      const res = await fetch('/api/reservas/ofrecer-plaza', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ sesionId: sesion.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setResultado({ mal: true, texto: data?.error ?? 'No se ha podido ofrecer la plaza' });
+        return;
+      }
+      onAviso(data.resultado === 'confirmada'
+        ? 'Plaza confirmada a la siguiente en la lista'
+        : 'Oferta de plaza enviada');
+      onCambio();
+      cerrar();
+    } catch {
+      setResultado({ mal: true, texto: 'No hemos podido conectar. Revisa tu conexión e inténtalo otra vez.' });
+    } finally {
+      // En `finally`: sin esto, una excepción dejaba el botón en «Ofreciendo…»
+      // para siempre y no había forma de reintentar sin recargar.
+      setEnviando(null);
+    }
   }
 
   async function avisar() {
     if (!sesion || seleccionadas.length === 0) return;
     setEnviando('avisar');
-    const res = await fetch('/api/marketing/hueco/avisar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ sesionId: sesion.id, socioIds: seleccionadas.map(c => c.socioId) }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setEnviando(null);
-    if (!res.ok) { onAviso(data?.error ?? 'No se ha podido avisar'); return; }
-    // El servidor puede haber descartado a alguna por consentimiento, por
-    // teléfono o por haberla avisado ya hace poco. Se dice, no se calla.
-    const partes = [`${data.enviados ?? 0} aviso${data.enviados === 1 ? '' : 's'} enviado${data.enviados === 1 ? '' : 's'}`];
-    if (data.sinTelefono) partes.push(`${data.sinTelefono} sin teléfono`);
-    if (data.sinConsentimiento) partes.push(`${data.sinConsentimiento} sin consentimiento de marketing`);
-    if (data.errores) partes.push(`${data.errores} con error`);
-    onAviso(partes.join(' · '));
-    cerrar();
+    setResultado(null);
+    try {
+      const res = await fetch('/api/marketing/hueco/avisar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ sesionId: sesion.id, socioIds: seleccionadas.map(c => c.socioId) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // 503 = la plataforma no tiene WhatsApp configurado. No es un fallo
+        // pasajero: por ahí no se va a poder mandar nada, así que se señala el
+        // icono de WhatsApp de cada fila, que abre el mensaje ya escrito y no
+        // depende de ninguna clave.
+        setResultado({
+          mal: true,
+          texto: res.status === 503
+            ? `${data?.error ?? 'El envío automático no está disponible'}. Puedes escribirles una a una con el icono de WhatsApp de su fila.`
+            : data?.error ?? 'No se ha podido avisar',
+        });
+        return;
+      }
+      // El servidor puede haber descartado a alguna por consentimiento, por
+      // teléfono o por haberla avisado ya hace poco. Se dice, no se calla.
+      const enviados = data.enviados ?? 0;
+      const partes = [`${enviados} aviso${enviados === 1 ? '' : 's'} enviado${enviados === 1 ? '' : 's'}`];
+      if (data.sinTelefono) partes.push(`${data.sinTelefono} sin teléfono`);
+      if (data.sinConsentimiento) partes.push(`${data.sinConsentimiento} sin consentimiento de marketing`);
+      if (data.errores) partes.push(`${data.errores} con error`);
+      const texto = partes.join(' · ');
+      // Cero enviados NO es un éxito, aunque el servidor conteste 200: se queda
+      // en el panel explicando por qué, en vez de cerrarse con un toast que
+      // suena a hecho.
+      if (enviados === 0) { setResultado({ mal: true, texto }); return; }
+      onAviso(texto);
+      cerrar();
+    } catch {
+      setResultado({ mal: true, texto: 'No hemos podido conectar. Revisa tu conexión e inténtalo otra vez.' });
+    } finally {
+      setEnviando(null);
+    }
   }
 
   if (!clase || !sesion) return null;
@@ -268,8 +314,19 @@ export function RellenarHuecoPanel({
         )}
       </div>
 
-      {avisables.length > 0 && (
+      {(avisables.length > 0 || resultado) && (
         <div className="border-t border-border px-5 py-3">
+          {resultado && (
+            <p
+              role="status"
+              className="mb-2.5 rounded-lg px-3 py-2 text-[12px]"
+              style={resultado.mal
+                ? { background: 'color-mix(in srgb, var(--destructive) 10%, var(--card))', color: 'var(--destructive)' }
+                : { background: 'var(--muted)', color: 'var(--foreground)' }}
+            >
+              {resultado.texto}
+            </p>
+          )}
           {rol === 'PROPIETARIO' ? (
             <>
               <Button

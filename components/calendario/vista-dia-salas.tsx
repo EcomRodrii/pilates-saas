@@ -132,8 +132,21 @@ export function VistaDiaSalas({
               {columnas.map(c => (
                 <div
                   key={c.sala.id}
+                  // ⚠️ La columna NO lleva `overflow-hidden`, y no es un olvido: lo
+                  // llevaba y RECORTABA la clase que se estaba arrastrando.
+                  // `BloqueClase` es `absolute` dentro de esta columna, así que
+                  // al arrastrarla hacia otra sala se salía de su caja y se iba
+                  // cortando hasta desaparecer — parecía que el calendario
+                  // borrase la clase, y solo volvía al soltarla.
+                  //
+                  // El recorte estaba para que el rótulo «Sin clases»
+                  // (centrado, `absolute inset-0`) no desbordara sobre las
+                  // columnas vecinas con la rejilla estrecha. Eso se sigue
+                  // cumpliendo: ahora clipa el propio rótulo, que es lo único
+                  // que necesitaba clipe. Las clases nunca desbordan por su
+                  // cuenta (su `left`/`width` van en % de esta columna).
                   data-sala-id={c.sala.id}
-                  className="relative min-w-0 overflow-hidden border-l border-border/60"
+                  className="relative min-w-0 border-l border-border/60"
                   style={{
                     backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${pxPorHora}px)`,
                     cursor: onClickVacio ? 'pointer' : undefined,
@@ -150,7 +163,7 @@ export function VistaDiaSalas({
                     // pointer-events-none: mismo motivo que "Cerrado" en
                     // VistaSemana — cubre toda la columna y se comía el clic
                     // antes de llegar a onClickVacio.
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-border">
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden text-[11px] font-semibold uppercase tracking-wide text-border">
                       Sin clases
                     </span>
                   )}
