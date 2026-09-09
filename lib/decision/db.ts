@@ -121,24 +121,41 @@ export function construirRecomendacion(c: CandidataPriorizada, ctx: {
 
 /**
  * Upsert por dedupe viva (Arquitectura §6 F2): refresca la existente
- * PENDIENTE/APROBADA con el mismo dedupeKey, o inserta una nueva. El índice
- * único es PARCIAL — el cliente de Supabase no soporta `ON CONFLICT ... WHERE`,
- * así que se resuelve en dos pasos (select + update/insert) en vez de
+ * PENDIENTE con el mismo dedupeKey, o inserta una nueva. El índice único es
+ * PARCIAL — el cliente de Supabase no soporta `ON CONFLICT ... WHERE`, así
+ * que se resuelve en dos pasos (select + update/insert) en vez de
  * `.upsert()`.
+ *
+ * Una APROBADA con el mismo dedupeKey NO se toca (36ª pasada de auditoría):
+ * ya está en vuelo hacia su ejecución, y refrescarla con una candidata
+ * recién construida (que siempre trae `estado: 'PENDIENTE'` y
+ * `resueltoEn/Por: null`) borraría la aprobación del propietario en silencio
+ * antes de que le diera tiempo a ejecutarse.
  */
 export async function dbUpsertRecomendacion(r: Recomendacion): Promise<void> {
   const { data: existente, error: selectError } = await db()
     .from('recomendaciones')
-    .select('id')
+    .select('id, estado')
     .eq('studio_id', r.studioId)
     .eq('dedupe_key', r.dedupeKey)
     .in('estado', ['PENDIENTE', 'APROBADA'])
     .maybeSingle();
   if (selectError) { reportError('[dbUpsertRecomendacion:select]', selectError); return; }
 
+  // 36ª pasada de auditoría: una APROBADA está en vuelo hacia su ejecución
+  // (asíncrona, vía Inngest, con reintentos) — antes esta función la
+  // refrescaba igual que una PENDIENTE, y `construirRecomendacion` siempre
+  // trae `estado: 'PENDIENTE'`/`resueltoEn/Por: null`, así que el UPDATE de
+  // más abajo borraba en silencio la aprobación del propietario (y su
+  // `accion` con los datos de HOY) antes de que le diera tiempo a
+  // ejecutarse. Se deja intacta sin tocar nada; el motor la recalculará
+  // mañana si para entonces ya transicionó a EJECUTADA/FALLIDA (el índice
+  // único parcial deja hueco libre en cuanto sale de PENDIENTE/APROBADA).
+  if (existente?.estado === 'APROBADA') return;
+
   const row = recomendacionToDb(r);
   if (existente) {
-    // id/creado_en nunca se pisan al refrescar una PENDIENTE/APROBADA viva.
+    // id/creado_en nunca se pisan al refrescar una PENDIENTE viva.
     const actualizable: Partial<typeof row> = { ...row };
     delete actualizable.id;
     delete actualizable.creado_en;
