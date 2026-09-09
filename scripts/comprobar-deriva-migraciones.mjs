@@ -41,7 +41,6 @@ const ACEPTADAS = {
     'consentimiento_salud_rls',
     'editar_serie_desde_revoke_anon',
     'mis_estudios_search_path',
-    'otorgar_credito_disparador_devuelve_accion_id',
     'penalizaciones_indice_recibo_id',
     'reclamar_webhook_event_reload_schema',
     'reserva_exigir_plan_por_defecto',
