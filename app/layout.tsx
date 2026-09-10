@@ -119,17 +119,28 @@ const figtree = Figtree({
   display: 'swap',
 });
 
+// El title/description/OG de aquí abajo llevaban la coletilla "en Barcelona"
+// desde ba4c8134 (18-ago-2026, decisión de negocio explícita del fundador de
+// reposicionar la home hacia Barcelona). #1200 ya había revertido el <h1> del
+// hero a genérico (components/landing/SeccionHero.tsx) pero dejó esto sin
+// tocar, dejando la home incoherente consigo misma — el propio JSON-LD
+// (components/landing/StructuredData.tsx) siempre describió el producto como
+// nacional ("para estudios de Pilates en España"), nunca como local. Retirado
+// el 2026-09-10 (auditoría SEO, hallazgo 2): la apuesta "Barcelona primero"
+// se da por descartada — confirmar con el fundador antes de reintroducirlo.
+// La intención de búsqueda local la cubre ahora /network/instructoras/ciudad/
+// barcelona (una vez arreglado su canonical, mismo audit, hallazgo 1).
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
-  title: 'Software de Gestión para Estudios de Pilates en Barcelona',
+  title: 'Software de Gestión para Estudios de Pilates',
   description:
-    'Gestiona tu estudio de Pilates en Barcelona con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
+    'Gestiona tu estudio de Pilates con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     locale: 'es_ES',
     siteName: 'Tentare',
-    title: 'Software para estudios de Pilates en Barcelona',
+    title: 'Software para estudios de Pilates',
     description:
       'Todo tu estudio de Pilates en un solo software — y el que cubre las bajas de instructoras solo. Sin permanencia, desde 29€/mes.',
     url: BASE_URL,
@@ -140,7 +151,7 @@ export const metadata: Metadata = {
     // enlaza el pie de la landing, components/landing/SeccionCtaFinal.tsx) —
     // sin `site` aquí, una tarjeta compartida no atribuye la mención a nadie.
     site: '@tentaresoftware',
-    title: 'Software para estudios de Pilates en Barcelona',
+    title: 'Software para estudios de Pilates',
     description:
       'Todo tu estudio de Pilates en un solo software — y el que cubre las bajas de instructoras solo.',
   },
