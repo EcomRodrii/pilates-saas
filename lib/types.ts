@@ -1625,6 +1625,12 @@ export type RewardTrigger =
   | 'SEMANA_COMPLETA'
   | 'PRIMERA_RESERVA'
   | 'OBJETIVO_MENSUAL'
+  // Logro/reto configurado por la propietaria en el catálogo de gamificación
+  // (achievement_definitions/challenge_definitions) — no son RewardRule del
+  // estudio como los demás, pero sí disparadores reales de
+  // otorgar_credito_disparador (lib/studio-context.tsx).
+  | 'LOGRO'
+  | 'RETO'
   // Comprar en el mostrador. Es el único disparador cuyos créditos NO son una
   // cifra fija: van por importe gastado (`unidadEuros`).
   | 'COMPRA';
