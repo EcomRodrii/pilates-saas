@@ -53,6 +53,21 @@ export interface OpcionesSocia {
   conTarjeta?: boolean;
   /** Recibos en el historial. */
   recibos?: number;
+  /**
+   * No fijar el reloj del navegador.
+   *
+   * ⚠️ `page.clock.install()` **vacía la Performance API**. Medido en esta app:
+   * sin él una pantalla trae 1 entrada de `navigation` y 44 de `resource`; con
+   * él, **0 y 0**. O sea que cualquier medida de tiempos o de bytes sale a cero
+   * y parece que la página no carga nada — que es exactamente lo que pareció al
+   * intentar medir el rendimiento por primera vez, y costó dos rondas
+   * entenderlo.
+   *
+   * El precio de quitarlo es que las fechas del fixture (la clase es del
+   * 12-ago-2026) quedan en el pasado: NO vale para nada que dependa de «hoy»,
+   * solo para medir.
+   */
+  sinReloj?: boolean;
 }
 
 const json = (b: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(b) });
@@ -83,7 +98,7 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
     llamadas[p] = (llamadas[p] ?? 0) + 1;
   };
 
-  await page.clock.install({ time: new Date(AHORA) });
+  if (!o.sinReloj) await page.clock.install({ time: new Date(AHORA) });
   await page.addInitScript(() => {
     localStorage.setItem('sb-portal-auth', JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
