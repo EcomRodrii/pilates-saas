@@ -75,8 +75,13 @@ export default function DetalleBonoPage() {
           <Fila k="Comprado" v={unir(fechaCorta(b.compradoEn), euros(b.precio))} />
           <Fila k="Usadas / total" v={`${b.creditosUsados} / ${b.creditosTotales}`} />
           <Fila k="Caducidad" v={b.expiraEn ? fechaCorta(b.expiraEn) : 'Sin caducidad'} />
+          {/* ⚠️ `tap`: este enlace mide 19 px de alto y el mínimo táctil de
+              WCAG 2.5.8 son 24. La clase crece la zona sensible a 44 px con un
+              `::after` SIN tocar la caja pintada — la solución que el sistema
+              ya tiene. Se quedó sin ella porque es un `<Link>` suelto dentro
+              de una tarjeta de filas, no un control con su propio estilo. */}
           {pago && (
-            <Link href={href(`/pagos/${pago.id}`)} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
+            <Link className="tap" href={href(`/pagos/${pago.id}`)} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
               Ver el recibo →
             </Link>
           )}

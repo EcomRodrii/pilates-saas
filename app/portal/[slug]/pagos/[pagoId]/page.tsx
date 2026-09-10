@@ -167,8 +167,13 @@ export default function ReciboPage() {
               <b className="t-code">{factura.factura.numeroCompleto}</b>
             </div>
           )}
+          {/* ⚠️ `tap`: este enlace mide 19 px de alto y el mínimo táctil de
+              WCAG 2.5.8 son 24. La clase crece la zona sensible a 44 px con un
+              `::after` SIN tocar la caja pintada — la solución que el sistema
+              ya tiene. Se quedó sin ella porque es un `<Link>` suelto dentro
+              de una tarjeta de filas, no un control con su propio estilo. */}
           {data.bonoId && (
-            <Link href={href(`/bonos/${data.bonoId}`)} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
+            <Link className="tap" href={href(`/bonos/${data.bonoId}`)} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
               Ver el bono →
             </Link>
           )}
