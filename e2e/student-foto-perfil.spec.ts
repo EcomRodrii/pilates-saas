@@ -110,11 +110,18 @@ test.describe('Student PWA · foto de perfil', () => {
   // Estos dos tests son la red: cubren las DOS pantallas a la vez, porque el
   // fallo era precisamente que una sí y la otra no.
 
+  // ⚠️ SIEMPRE dentro de `main`. Desde que la cabecera de la app lleva la cara
+  // de la alumna, `avatar-socia` existe DOS veces en cualquier pantalla: el de
+  // la barra de arriba y el de la pantalla. Sin acotar, Playwright resuelve dos
+  // elementos y falla por modo estricto — y aunque no fallara, estos tests
+  // hablan del de PERFIL, no del de la barra.
+  const avatarDePerfil = (p: Page) => p.getByRole('main').getByTestId('avatar-socia');
+
   test('la foto se ve en Perfil, no solo en Datos personales', async ({ page }) => {
     await montar(page, { conFoto: true });
 
     await page.goto(`${base}/perfil`, { waitUntil: 'domcontentloaded' });
-    const avatar = page.getByTestId('avatar-socia');
+    const avatar = avatarDePerfil(page);
     await expect(avatar).toBeVisible({ timeout: 30_000 });
     // La foto, de verdad: el estilo la lleva de fondo.
     await expect(avatar).toHaveAttribute('style', /cdn\.example\/foto\.png/);
@@ -131,7 +138,7 @@ test.describe('Student PWA · foto de perfil', () => {
   test('sin foto, Perfil enseña iniciales y no un hueco', async ({ page }) => {
     await montar(page);
     await page.goto(`${base}/perfil`, { waitUntil: 'domcontentloaded' });
-    const avatar = page.getByTestId('avatar-socia');
+    const avatar = avatarDePerfil(page);
     await expect(avatar).toBeVisible({ timeout: 30_000 });
     await expect(avatar).toHaveText('AT');
   });
@@ -146,7 +153,7 @@ test.describe('Student PWA · foto de perfil', () => {
     await montar(page, { sinApellidos: true });
 
     await page.goto(`${base}/perfil`, { waitUntil: 'domcontentloaded' });
-    const enPerfil = page.getByTestId('avatar-socia');
+    const enPerfil = avatarDePerfil(page);
     await expect(enPerfil).toBeVisible({ timeout: 30_000 });
     const monograma = (await enPerfil.textContent())?.trim();
     expect(monograma).toBe('AT');
@@ -163,8 +170,8 @@ test.describe('Student PWA · foto de perfil', () => {
     // personales».
     await montar(page);
     await page.goto(`${base}/perfil`, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('avatar-socia')).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId('avatar-socia').click();
+    await expect(avatarDePerfil(page)).toBeVisible({ timeout: 30_000 });
+    await avatarDePerfil(page).click();
     await expect(page).toHaveURL(new RegExp(`${base}/perfil/datos$`));
     await expect(page.getByTestId('avatar-boton')).toBeVisible({ timeout: 30_000 });
   });
