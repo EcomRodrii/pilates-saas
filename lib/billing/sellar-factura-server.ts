@@ -421,7 +421,7 @@ export async function sellarRectificativaDeFactura(
   }
 
   const { data: original } = await admin
-    .from('facturas').select('id, verifactu_hash, receptor_nombre, receptor_nif, fecha_emision')
+    .from('facturas').select('id, verifactu_hash, receptor_nombre, receptor_nif, fecha_emision, concepto')
     .eq('id', facturaOriginalId).eq('studio_id', studioId).maybeSingle();
   if (!original) {
     return { ok: false, error: 'Factura original no encontrada' };
@@ -489,6 +489,16 @@ export async function sellarRectificativaDeFactura(
         p_rectifica_a: facturaOriginalId,
         p_tipo_rectificativa: tipoRectificativa,
         p_importe_rectificacion: importeRectificacion,
+        // Hereda el concepto de la factura que rectifica: una rectificativa
+        // corrige una operación concreta, y decir «Servicios de pilates» cuando
+        // lo que se rectificó fue un «Bono 10 clases» vuelve a esconder qué se
+        // está corrigiendo. Que es una rectificativa ya lo dice el documento
+        // por su tipo (R1-R5), su serie (R) y su `rectifica_a`, así que el
+        // concepto no tiene que repetirlo.
+        //
+        // Si la original es anterior a que esto se guardara, viene `null` y la
+        // rectificativa cae al genérico igual que ella. Coherentes las dos.
+        p_concepto: (original.concepto as string | null) ?? null,
       })
       .single<{ numero_completo: string; verifactu_seq: number; verifactu_prev_hash: string }>();
 
