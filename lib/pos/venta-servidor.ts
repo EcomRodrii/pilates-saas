@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 import { hoyEnEstudio } from '@/lib/utils';
 import { calcularFechaFinBono } from '@/lib/bono-logic';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
+import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo que pasa DESPUÉS de que una venta quede cobrada.
@@ -186,7 +187,15 @@ export async function entregarVentaPOS(
   // 20260902001721. Sellar por el camino de siempre mantiene una sola cadena
   // Veri*Factu por estudio, que es lo que la AEAT espera.
   let facturaSellada = false;
-  if (reciboId) {
+  // ⚠️ El efectivo no emite factura sola (`lib/factura-automatica.ts`). Se mira
+  // el método de la VENTA, que es lo que de verdad se cobró; el `metodo_cobro`
+  // del recibo ya traduce DATAFONO→TARJETA unas líneas más arriba y aquí eso
+  // daría igual, pero leer el original evita depender de esa traducción.
+  //
+  // Nada más cambia: la venta se registra, el dinero entra en caja y la clienta
+  // se lleva su bono exactamente igual. Lo único que no ocurre es la emisión
+  // automática — la manual desde /cobros sigue disponible si la pide.
+  if (reciboId && emiteFacturaAutomatica(venta.metodo_pago)) {
     const r = await sellarFacturaDeRecibo(admin, {
       studioId, reciboId, facturaId: `fac-pos-${idBase}`,
     });

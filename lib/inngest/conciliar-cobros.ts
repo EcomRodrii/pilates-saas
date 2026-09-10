@@ -352,10 +352,10 @@ export async function vigilarCadenaVerifactu(admin: SupabaseClient): Promise<num
 // mismo criterio que `detectarPendientes` en este mismo fichero, que ya
 // compara sets en TS en vez de forzar un JOIN por PostgREST.
 export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): Promise<number> {
-  const { data: cobrados } = await fetchAllRows<{ id: string; studio_id: string; fecha_cobro: string | null }>(
+  const { data: cobrados } = await fetchAllRows<{ id: string; studio_id: string; fecha_cobro: string | null; metodo_cobro: string | null }>(
     '(global)', 'recibos',
     (from, to) => admin
-      .from('recibos').select('id, studio_id, fecha_cobro').eq('estado', 'COBRADO').range(from, to),
+      .from('recibos').select('id, studio_id, fecha_cobro, metodo_cobro').eq('estado', 'COBRADO').range(from, to),
   );
   const { data: facturadas } = await fetchAllRows<{ recibo_id: string | null }>(
     '(global)', 'facturas',
@@ -365,7 +365,7 @@ export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): P
   const idsConFactura = new Set(facturadas.map(f => f.recibo_id as string));
 
   const sinFactura: ReciboCobrado[] = recibosCobradosSinFactura(
-    cobrados.map(r => ({ id: r.id, studioId: r.studio_id, fechaCobro: r.fecha_cobro })),
+    cobrados.map(r => ({ id: r.id, studioId: r.studio_id, fechaCobro: r.fecha_cobro, metodoCobro: r.metodo_cobro })),
     idsConFactura,
   );
   if (sinFactura.length > 0) {
