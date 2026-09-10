@@ -20,6 +20,7 @@
 // añadir aquí un campo de la cadena, lo estás poniendo en el papel de la
 // clienta — que es exactamente lo que este comentario intenta evitar.
 import { qrSvgMarkup } from './qr-svg.ts';
+import { conceptoDeFactura } from './facturas/concepto.ts';
 import type { SelloCliente } from './factura-sello-cliente.ts';
 
 export interface EmisorFactura {
@@ -63,6 +64,9 @@ export interface FacturaImprimible {
   tipoIVA: number;
   cuotaIVA: number;
   total: number;
+  /** Lo que se facturó. `null`/ausente = factura anterior a que se guardara;
+   *  `conceptoDeFactura` cae entonces al texto genérico. */
+  concepto?: string | null;
 }
 
 export function generarFacturaHTML(
@@ -149,8 +153,7 @@ export function generarFacturaHTML(
   <tbody>
     <tr>
       <td>
-        <div style="font-weight:600">Servicios de pilates</div>
-        <div style="font-size:11px;color:#8E8E86;margin-top:2px">Cuota mensual / bono</div>
+        <div style="font-weight:600">${esc(conceptoDeFactura(f))}</div>
       </td>
       <td>${fmt(f.baseImponible)} €</td>
     </tr>

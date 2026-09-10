@@ -1081,6 +1081,16 @@ export interface Factura {
   tipoIVA: number;
   cuotaIVA: number;
   total: number;
+  /**
+   * Lo que se facturó, copiado de `Recibo.concepto` AL SELLAR («Bono 10
+   * clases», «Cuota mensual»…). `null` = factura sellada antes de que esto
+   * existiera; quien la pinte cae al texto genérico (`conceptoDeFactura`).
+   *
+   * ⚠️ No se resuelve leyendo el recibo en vivo a propósito: una factura
+   * emitida es un documento cerrado, y editar el concepto del recibo no puede
+   * reescribir lo que dice una factura ya sellada.
+   */
+  concepto?: string | null;
   verifactuHash: string | null;
   verifactuPrevHash: string | null;
   verifactuTs: string | null;

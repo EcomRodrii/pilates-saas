@@ -8,6 +8,7 @@
 // pendientes.ts, que es lógica pura con tests. Aquí solo está lo que toca la
 // base de datos y la red.
 
+import { descripcionAeatDeFactura } from '../facturas/concepto.ts';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { certificadoDeEntorno, destinoDeEntorno, sistemaInformatico, transmisionConfigurada, queFaltaParaTransmitir } from './config.ts';
@@ -30,6 +31,9 @@ export interface ResumenTransmision {
 }
 
 interface FilaFactura {
+  /** Lo que se facturó. `null` = sellada antes de guardarse; cae a la
+   *  descripción genérica de la AEAT (ver `descripcionAeatDeFactura`). */
+  concepto: string | null;
   id: string;
   studio_id: string;
   numero_completo: string;
@@ -120,7 +124,7 @@ export async function transmitirPendientes(): Promise<ResumenTransmision> {
     // Solo lo que está en cola. `verifactu_estado` nulo = nunca se intentó.
     const { data: filas, error } = await admin
       .from('facturas')
-      .select('id, studio_id, numero_completo, fecha_emision, verifactu_seq, verifactu_hash, verifactu_prev_hash, verifactu_ts, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, tipo, tipo_rectificativa')
+      .select('id, studio_id, numero_completo, fecha_emision, verifactu_seq, verifactu_hash, verifactu_prev_hash, verifactu_ts, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, tipo, tipo_rectificativa, concepto')
       .in('verifactu_estado', ['PENDIENTE'])
       .not('verifactu_hash', 'is', null)
       .order('verifactu_seq', { ascending: true })
@@ -230,7 +234,13 @@ export async function transmitirPendientes(): Promise<ResumenTransmision> {
           fechaExpedicionFactura: fechaAeat(f.fecha_emision),
           tipoFactura: f.tipo || (f.receptor_nif ? 'F1' : 'F2'),
           ...(f.tipo_rectificativa ? { tipoRectificativa: f.tipo_rectificativa } : {}),
-          descripcionOperacion: 'Servicios de actividad física',
+          // El concepto REAL de la factura, no un literal. Las selladas antes de
+          // guardarlo no lo llevan y caen a la descripción de siempre: son las
+          // que están en esta cola AHORA, y no se le va a contar a Hacienda una
+          // operación pasada con un texto distinto del que le correspondía.
+          // `descripcionAeatDeFactura` acota al tope del XSD (500) — un registro
+          // RECHAZADO congela toda la cadena posterior de ese estudio.
+          descripcionOperacion: descripcionAeatDeFactura({ concepto: (f.concepto as string | null) ?? null }),
           desglose: [{
             calificacionOperacion: 'S1',
             tipoImpositivo: num(f.tipo_iva),

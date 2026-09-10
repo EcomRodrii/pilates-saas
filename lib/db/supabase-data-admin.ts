@@ -3709,6 +3709,10 @@ export async function facturaDeSociaPublica(params: {
       tipoIVA: completa.tipoIVA,
       cuotaIVA: completa.cuotaIVA,
       total: completa.total,
+      // Lo que se le cobró, con su nombre. La misma pantalla del portal ya
+      // enseñaba el concepto real del recibo arriba y luego descargaba un PDF
+      // que decía «Servicios de pilates»: dos verdades en la misma pantalla.
+      concepto: completa.concepto ?? null,
     },
     emisor: {
       // La razón social manda sobre el nombre comercial: es quien emite.

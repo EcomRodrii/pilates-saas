@@ -286,6 +286,8 @@ export interface RowFacturas {
   importe_rectificacion: number | null;
   // migr 20260902001721.
   venta_pos_id: string | null;
+  // migr 20260910205055.
+  concepto: string | null;
 }
 
 export interface RowInstructores {
