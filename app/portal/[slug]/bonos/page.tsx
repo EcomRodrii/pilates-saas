@@ -107,7 +107,7 @@ function Bonos() {
         {estado === 'offline' && !data && <OfflineState />}
         {estado === 'empty' && (
           <EmptyState
-            icono="🎟"
+            ilustracion="bono"
             titulo="No tienes ningún bono"
             cuerpo="Compra uno aquí mismo, o reserva clases sueltas desde el horario."
             accion="Comprar un bono"
@@ -134,7 +134,7 @@ function Bonos() {
                 </div>
               ) : (
                 <EmptyState
-                  icono="🎟"
+                  ilustracion="bono"
                   titulo="Sin bono activo"
                   cuerpo="Tus bonos anteriores están agotados o han caducado."
                   accion="Comprar un bono"

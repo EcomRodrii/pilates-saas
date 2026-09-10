@@ -263,7 +263,7 @@ export default function InicioPage() {
               />
             ) : (
               <EmptyState
-                icono="🧘"
+                ilustracion="postura"
                 titulo="No tienes clases próximas"
                 cuerpo={huecos.length > 0
                   ? `Hay ${huecos.length} ${huecos.length === 1 ? 'clase' : 'clases'} hoy con plaza libre.`
@@ -324,7 +324,7 @@ export default function InicioPage() {
               </div>
               {huecos.length === 0 ? (
                 <EmptyState
-                  icono="📅"
+                  ilustracion="calendario"
                   titulo="Hoy ya no quedan huecos"
                   cuerpo="Mira mañana — suele haber más plazas por la mañana."
                   accion="Ver el horario"

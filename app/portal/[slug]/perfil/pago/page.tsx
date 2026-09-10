@@ -49,7 +49,7 @@ export default function PagoPage() {
         {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver tu método de pago." />}
         {estado === 'empty' && (
           <EmptyState
-            icono="💳"
+            ilustracion="tarjeta"
             titulo="No tienes ninguna tarjeta guardada"
             cuerpo="Cuando pagues online podrás guardarla para las próximas veces."
           />

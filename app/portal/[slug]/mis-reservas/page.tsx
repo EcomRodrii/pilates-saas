@@ -209,7 +209,7 @@ export default function MisReservasPage() {
           tab === 'prox' ? (
             prox.length === 0 ? (
               <EmptyState
-                icono="🗓"
+                ilustracion="postura"
                 titulo="No tienes clases próximas"
                 cuerpo="Reserva tu siguiente sesión — puede que hoy queden plazas."
                 accion="Ver horario"
@@ -309,7 +309,7 @@ export default function MisReservasPage() {
             )
           ) : (
             hist.length === 0 ? (
-              <EmptyState icono="📖" titulo="Aún no hay historial" cuerpo="Aquí verás las clases a las que has ido." />
+              <EmptyState ilustracion="recibo" titulo="Aún no hay historial" cuerpo="Aquí verás las clases a las que has ido." />
             ) : (
               hist.map(({ r, c }) => (
                 <Link

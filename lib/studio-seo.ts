@@ -73,7 +73,13 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
   if (process.env.E2E_TEST === '1') {
     return { estudio: {
       id: 'studio-test', nombre: 'Tentare', ciudad: 'Málaga', direccion: 'Calle Test 1',
-      colorPrimario: '#1A1A1A',
+      // Configurable por el mismo motivo que `E2E_LOGO_URL` y
+      // `E2E_PAGINA_OCULTA` de más abajo: el acento del estudio se inyecta en
+      // SERVIDOR (`app/portal/[slug]/layout.tsx` → `acentoCssText`), así que
+      // `page.route` no puede llegar a él y sin esta palanca NINGÚN test puede
+      // comprobar que la app se tiñe con la marca de cada estudio. Ausente =
+      // '#1A1A1A', como siempre.
+      colorPrimario: process.env.E2E_COLOR_PRIMARIO ?? '#1A1A1A',
       // Mismo motivo que `E2E_PAGINA_OCULTA` de unas líneas más abajo: el icono
       // de la PWA se compone en el SERVIDOR a partir de este campo, así que
       // `page.route` no puede llegar a él y sin esta palanca el camino «el

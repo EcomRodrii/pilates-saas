@@ -59,7 +59,7 @@ export default function CalendarioPage() {
           {estado === 'offline' && !data && <OfflineState />}
           {data && estado !== 'loading' && estado !== 'error' && (
             lista.length === 0
-              ? <EmptyState icono="🌿" titulo="Día sin clases" cuerpo="El estudio no programa clases este día." />
+              ? <EmptyState ilustracion="calendario" titulo="Día sin clases" cuerpo="El estudio no programa clases este día." />
               : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {lista.map((c, i) => (

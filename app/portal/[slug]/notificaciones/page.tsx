@@ -64,7 +64,7 @@ export default function NotificacionesPage() {
         {estado === 'offline' && !data && <OfflineState />}
         {estado === 'empty' && (
           <EmptyState
-            icono="🔔"
+            ilustracion="campana"
             titulo="Todo al día"
             cuerpo="Te avisaremos de plazas liberadas, recordatorios y novedades del estudio."
           />

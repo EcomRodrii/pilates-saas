@@ -153,7 +153,7 @@ export default function HorarioPage() {
             // borra la búsqueda, que es lo que de verdad está filtrando.
             consulta ? (
               <EmptyState
-                icono="🔍"
+                ilustracion="busqueda"
                 titulo={`Nada para «${q.trim()}»`}
                 cuerpo="Hemos buscado en todo el horario, no solo en este día."
                 accion="Borrar la búsqueda"
@@ -161,7 +161,7 @@ export default function HorarioPage() {
               />
             ) : (
               <EmptyState
-                icono="🔍"
+                ilustracion="calendario"
                 titulo={filtro === 'Todo' ? 'No hay clases este día' : `No hay ${filtro.toLowerCase()} este día`}
                 cuerpo="Prueba otro día o quita el filtro."
                 accion={filtro !== 'Todo' ? 'Quitar filtro' : undefined}
