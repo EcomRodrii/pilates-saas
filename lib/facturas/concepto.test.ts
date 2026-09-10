@@ -60,3 +60,27 @@ test('lo que se pinta no hereda el tope de la AEAT', () => {
   const largo = 'D'.repeat(MAX_DESCRIPCION_AEAT + 50);
   assert.equal(conceptoDeFactura({ concepto: largo }), largo);
 });
+
+// ─── Rectificativas ─────────────────────────────────────────────────────────
+//
+// Una rectificativa se sella desde la factura ORIGINAL, no desde un recibo, así
+// que hereda su concepto: corrige una operación concreta y tiene que decir cuál.
+// Que sea una rectificativa ya lo dice el documento por su tipo (R1-R5), su
+// serie (R) y su `rectifica_a` — el concepto no repite eso.
+
+test('la rectificativa hereda el concepto de la factura que corrige', () => {
+  const original = { concepto: 'Bono 10 clases' };
+  const rectificativa = { concepto: original.concepto };
+  assert.equal(conceptoDeFactura(rectificativa), 'Bono 10 clases');
+  assert.equal(descripcionAeatDeFactura(rectificativa), 'Bono 10 clases');
+});
+
+// Si la original es de las 40 anteriores al cambio, no tiene concepto: la
+// rectificativa cae al genérico igual que ella. Las dos dicen lo mismo, que es
+// lo correcto — una rectificativa no puede describir mejor que su original.
+test('rectificar una factura antigua deja las dos en el genérico', () => {
+  const original = { concepto: null };
+  const rectificativa = { concepto: original.concepto };
+  assert.equal(conceptoDeFactura(rectificativa), conceptoDeFactura(original));
+  assert.equal(descripcionAeatDeFactura(rectificativa), descripcionAeatDeFactura(original));
+});
