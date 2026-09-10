@@ -2,32 +2,22 @@ import Link from 'next/link';
 
 // Las cuatro cosas que hace una alumna, debajo del buscador.
 //
-// ⚠️ Dos de las cuatro repiten destino con la barra de abajo (Reservar y
-// Bonos), y es a propósito: la barra es para MOVERSE por la app y esto es la
-// primera pantalla diciendo a qué se viene. La que manda —«Reservar clase»— va
-// en tinta de marca, no en gris como las otras tres: cuatro baldosas iguales no
-// son cuatro atajos, son un menú.
+// ⚠️ Dos de las cuatro repiten destino con la barra de abajo (Clases y Bonos),
+// y es a propósito: la barra es para MOVERSE por la app y esto es la primera
+// pantalla diciendo a qué se viene.
+//
+// ⚠️ La composición sale de la guía de marca del estudio, no de mi criterio:
+// icono dentro de un disco, todo CENTRADO, y sin chevron. La primera versión
+// las traía alineadas a la izquierda, con flecha, y la primera en tinta de
+// marca para que destacara; la guía las enseña **las cuatro iguales**, y la
+// tinta de marca reservada para una quinta pieza que es una cita, no un atajo.
+// Se sigue la guía: quien decide cómo se ve su app es el estudio.
 //
 // Los iconos son del mismo set que la barra (HugeIcons stroke-rounded) y al
 // mismo grosor. Mezclar familias en la misma pantalla se nota aunque no se
 // sepa por qué.
 
-type Acceso = {
-  href: string;
-  titulo: string;
-  pie: string;
-  paths: string[];
-  principal?: boolean;
-};
-
-/** Chevron del pie de cada baldosa. */
-function Flecha() {
-  return (
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  );
-}
+type Acceso = { href: string; titulo: string; pie: string; paths: string[] };
 
 export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, hrefFavoritas }: {
   hrefReservar: string;
@@ -37,7 +27,7 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
 }) {
   const accesos: Acceso[] = [
     {
-      href: hrefReservar, titulo: 'Reservar clase', pie: 'Encuentra tu momento', principal: true,
+      href: hrefReservar, titulo: 'Clases', pie: 'Reserva tu plaza',
       paths: [
         'M16 2V6M8 2V6',
         'M3 10H21',
@@ -62,7 +52,7 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
       ],
     },
     {
-      href: hrefFavoritas, titulo: 'Mis favoritas', pie: 'Tus clases guardadas',
+      href: hrefFavoritas, titulo: 'Mis favoritos', pie: 'Tus clases guardadas',
       paths: [
         'M12 20.5C11.4 20.5 3 15.6 3 9.9C3 7.2 5.1 5 7.7 5C9.5 5 11.1 6.1 12 7.6C12.9 6.1 14.5 5 16.3 5C18.9 5 21 7.2 21 9.9C21 15.6 12.6 20.5 12 20.5Z',
       ],
@@ -71,7 +61,7 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
 
   return (
     <nav className="px" style={{ marginTop: 14 }} aria-label="Accesos rápidos">
-      <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 9, margin: 0, padding: 0, listStyle: 'none' }}>
+      <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, margin: 0, padding: 0, listStyle: 'none' }}>
         {accesos.map((a, i) => (
           // `display: flex` en el <li>: sin él la baldosa no estira hasta el
           // alto de la fila y la primera —cuyo título parte en dos líneas—
@@ -81,7 +71,7 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
               href={a.href}
               className="tap a-up"
               style={{
-                display: 'flex', flexDirection: 'column', gap: 7, height: '100%',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%',
                 // ⚠️ `minWidth: 0` o la baldosa se sale de su celda. Medido:
                 // «Instructoras» no cabe en los 63 px de contenido de una
                 // columna de 83, y sin esto el <a> crecía a 92 y su texto se
@@ -89,34 +79,40 @@ export function AccesosRapidos({ hrefReservar, hrefInstructoras, hrefBonos, href
                 // impide: un flex/grid item no encoge por debajo de su
                 // contenido mínimo si no se le dice.
                 minWidth: 0,
-                padding: '11px 10px 10px', borderRadius: 16,
-                background: a.principal ? 'var(--accent)' : 'var(--card)',
-                color: a.principal ? 'var(--accent-foreground)' : 'var(--foreground)',
-                border: '1px solid ' + (a.principal ? 'transparent' : 'var(--border)'),
-                boxShadow: a.principal ? 'none' : 'var(--shadow-card)',
+                padding: '13px 5px 12px', borderRadius: 16,
+                background: 'var(--card)', color: 'var(--foreground)',
+                border: '1px solid var(--border)', boxShadow: 'var(--shadow-card)',
+                textAlign: 'center',
                 animationDelay: `${i * 45}ms`,
               }}
             >
-              <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                {a.paths.map((d) => <path key={d} d={d} />)}
-              </svg>
-              {/* Y que pueda partirse con guion: el idioma va declarado en el
-                  <html lang="es">, así que «Instruc-toras» parte donde toca. */}
-              <span style={{ display: 'block', fontSize: 12, fontWeight: 800, letterSpacing: '-.01em', lineHeight: 1.15, hyphens: 'auto', overflowWrap: 'break-word' }}>{a.titulo}</span>
-              {/* El pie se cae por debajo de 360 px de ancho: a cuatro columnas
-                  no hay sitio para dos líneas de 10 px y un chevron, y lo que
-                  se pierde es la palabra que de verdad nombra el destino. */}
-              <span className="solo-ancho" style={{ fontSize: 10, lineHeight: 1.2, opacity: a.principal ? .78 : .62 }}>{a.pie}</span>
+              {/* El disco del icono. En la guía es un gris muy claro, no la
+                  tinta de marca: lo que tiñe la baldosa es el icono, no el
+                  fondo. */}
               <span
                 aria-hidden
                 style={{
-                  marginTop: 'auto', width: 21, height: 21, borderRadius: 999,
+                  width: 38, height: 38, borderRadius: 999, flexShrink: 0,
+                  background: 'var(--muted)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: a.principal ? 'rgba(250,249,245,.2)' : 'var(--muted, rgba(0,0,0,.05))',
                 }}
               >
-                <Flecha />
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  {a.paths.map((d) => <path key={d} d={d} />)}
+                </svg>
               </span>
+              {/* Que pueda partirse con guion: el idioma va declarado en el
+                  <html lang="es">, así que «Instruc-toras» parte donde toca. */}
+              {/* 11,5 px y no 12: a cuatro columnas de 84, «Instructoras» a 12
+                  medía 74 px en 74 de hueco y partía —«Instructo-ras», centrado,
+                  que queda peor que pequeño—. A 11,5 entra de una pieza. El
+                  guion se queda como red por si un estudio tiene un tipo de
+                  clase con una palabra aún más larga. */}
+              <span style={{ display: 'block', fontSize: 11.5, fontWeight: 800, letterSpacing: '-.015em', lineHeight: 1.15, hyphens: 'auto', overflowWrap: 'break-word' }}>{a.titulo}</span>
+              {/* El pie se cae por debajo de 360 px de ancho: a cuatro columnas
+                  no hay sitio para dos líneas de 10 px, y lo que se pierde es la
+                  palabra que de verdad nombra el destino. */}
+              <span className="solo-ancho t-dim" style={{ fontSize: 10, lineHeight: 1.2 }}>{a.pie}</span>
             </Link>
           </li>
         ))}

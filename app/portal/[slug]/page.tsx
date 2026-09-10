@@ -294,7 +294,13 @@ export default function InicioPage() {
           <input
             name="q"
             type="search"
-            placeholder="Buscar clases, instructoras…"
+            // ⚠️ Sin el «Buscar» delante, y no por gusto: la guía de marca lo
+            // escribe «Buscar clases, instructoras o actividades…», que MIDE
+            // 268 px en un hueco de 239 a 393 px de ancho — se cortaba en
+            // «…o activid». Quitando el verbo caben las tres palabras que de
+            // verdad dicen qué se puede buscar (223 px), que es lo que importa
+            // de esa frase. El icono de la lupa ya dice «buscar».
+            placeholder="Clases, instructoras o actividades…"
             aria-label="Buscar clases o instructoras"
             style={{ width: '100%', height: 48, paddingLeft: 43, paddingRight: 15, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', boxShadow: 'var(--shadow-card)', fontSize: 'var(--t-body)', fontFamily: 'inherit', color: 'var(--foreground)' }}
           />

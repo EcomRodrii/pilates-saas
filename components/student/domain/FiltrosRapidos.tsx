@@ -54,14 +54,24 @@ export function FiltrosRapidos({ tipos, conFavoritas, hrefReservar }: {
         className="tap"
         style={{
           width: 48, height: 48, flexShrink: 0, borderRadius: 999,
-          background: 'var(--foreground)', color: 'var(--background)',
+          // ⚠️ Tinta de MARCA, no `--foreground`. En la guía del estudio este
+          // botón es el único elemento en color de toda la fila del buscador, y
+          // con `--foreground` salía negro: el mismo botón para los trece
+          // estudios, que es justo lo contrario de una app de marca blanca.
+          // `--accent`/`--accent-foreground` es la pareja del sistema, así que
+          // el contraste va garantizado sea cual sea la marca.
+          background: 'var(--accent)', color: 'var(--accent-foreground)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: 'var(--shadow-card)',
         }}
       >
-        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden>
-          <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h10M18 18h2" />
-          <circle cx="16" cy="6" r="2" /><circle cx="10" cy="12" r="2" /><circle cx="16" cy="18" r="2" />
+        {/* Los tres deslizadores de la guía: la línea cruza el mando de lado a
+            lado y el mando va hueco, no macizo. */}
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
+          <path d="M3 7h18M3 12h18M3 17h18" />
+          <circle cx="16" cy="7" r="2.4" fill="var(--accent)" />
+          <circle cx="8" cy="12" r="2.4" fill="var(--accent)" />
+          <circle cx="16" cy="17" r="2.4" fill="var(--accent)" />
         </svg>
       </button>
 
