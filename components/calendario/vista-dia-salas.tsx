@@ -163,7 +163,13 @@ export function VistaDiaSalas({
                     // pointer-events-none: mismo motivo que "Cerrado" en
                     // VistaSemana — cubre toda la columna y se comía el clic
                     // antes de llegar a onClickVacio.
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden text-[11px] font-semibold uppercase tracking-wide text-border">
+                    // ⚠️ `text-muted-foreground`, no `text-border`. `--border`
+                    // (#E7E7E0) es el token de las LÍNEAS, y como tinta sobre la
+                    // tarjeta blanca da **1,24:1** — no es «tenue», es
+                    // invisible. Es un rótulo que dice algo («aquí no hay
+                    // clases»), así que tiene que leerse: `--muted-foreground`
+                    // (#6B6B64) da 5,37:1 y sigue siendo discreto.
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Sin clases
                     </span>
                   )}

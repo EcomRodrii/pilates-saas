@@ -228,9 +228,18 @@ export function BloqueClase({
           </span>
         )}
         {!ancho && !sesion.cancelada && (
+          /* ⚠️ La tinta es la del chip, NO `colorOcupacion(ratio)`. Ese color es
+             una ESCALA SEMÁNTICA pensada para pintar superficies, y como tinta
+             de 9,5 px sobre el fondo del chip daba entre 2,37 y 3,41:1 según el
+             estado — todos por debajo de AA.
+             No se pierde nada: la barra de abajo YA lleva ese mismo color
+             (`background: colorOcupacion(ratio)`), que es donde funciona. El
+             número es la cifra; el color es la señal. Duplicarlo solo servía
+             para volverlo ilegible. Mismo criterio que la barra del bono en la
+             app de la alumna (#1832). */
           <span
             className="ml-auto text-[9.5px] font-bold tabular-nums whitespace-nowrap"
-            style={{ color: colorOcupacion(ratio) }}
+            style={{ color: p.tinta }}
           >
             {confirmadas}/{sesion.aforoMaximo}
           </span>

@@ -225,7 +225,10 @@ export function VistaSemana({
                     // de que llegara a onClickVacio — la comprobación de "clic en
                     // el fondo, no en una clase" lo veía como target distinto y
                     // lo descartaba en silencio.
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden text-[11px] font-semibold uppercase tracking-wide text-border">
+                    // ⚠️ Mismo caso que «Sin clases» en VistaDiaSalas:
+                    // `--border` (#E7E7E0) es el token de las LÍNEAS y como
+                    // tinta sobre blanco da 1,24:1 — invisible, no tenue.
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {c.cerrado ? 'Cerrado' : 'Sin clases'}
                     </span>
                   )}
