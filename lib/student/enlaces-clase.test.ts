@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { plataformaCalendario, instantesDeClase, urlCalendario, type ClaseParaEnlace } from './enlaces-clase.ts';
+import { esApple, instantesDeClase, urlCalendario, urlComoLlegar, type ClaseParaEnlace } from './enlaces-clase.ts';
 
 // «+ Calendario» mandaba SIEMPRE a la plantilla de Google Calendar.
 //
@@ -26,20 +26,20 @@ const UA = {
 };
 
 test('un iPhone va al calendario de Apple, no a una página de Google', () => {
-  assert.equal(plataformaCalendario(UA.iphone), 'apple');
+  assert.equal(esApple(UA.iphone), true);
 });
 
 test('un iPad, que se hace pasar por Mac, también', () => {
-  assert.equal(plataformaCalendario(UA.ipad), 'apple');
+  assert.equal(esApple(UA.ipad), true);
 });
 
 test('un Mac abre el .ics con Calendario', () => {
-  assert.equal(plataformaCalendario(UA.mac), 'apple');
+  assert.equal(esApple(UA.mac), true);
 });
 
 test('Android y Windows siguen yendo a Google Calendar', () => {
-  assert.equal(plataformaCalendario(UA.android), 'google');
-  assert.equal(plataformaCalendario(UA.windows), 'google');
+  assert.equal(esApple(UA.android), false);
+  assert.equal(esApple(UA.windows), false);
 });
 
 test('los instantes salen de fecha + hora + duración, y el fin es el real', () => {
@@ -64,4 +64,36 @@ test('la plantilla de Google sigue llevando lo que tiene que llevar', () => {
   assert.equal(u.searchParams.get('text'), 'Reformer · Estudio Alma');
   assert.equal(u.searchParams.get('location'), 'Calle Larios 1');
   assert.match(u.searchParams.get('dates') ?? '', /^\d{8}T\d{6}Z\/\d{8}T\d{6}Z$/);
+});
+
+// ── «Cómo llegar» ───────────────────────────────────────────────────────────
+// ⚠️ El comentario decía que «el navegador de cada plataforma ya redirige a su
+// app de mapas». En iOS no: `maps.google.com` abre Google Maps (la app si la
+// tiene, si no dentro de Safari) y NUNCA Apple Maps, que es la app que ese
+// teléfono trae y la que está conectada a su coche y a su reloj.
+
+test('un iPhone va a Apple Maps, que es la app de mapas que tiene', () => {
+  const u = new URL(urlComoLlegar('Calle Larios 1', 'Estudio Alma', UA.iphone));
+  assert.equal(u.hostname, 'maps.apple.com');
+  assert.equal(u.searchParams.get('q'), 'Calle Larios 1');
+});
+
+test('Android sigue yendo a Google Maps', () => {
+  const u = new URL(urlComoLlegar('Calle Larios 1', 'Estudio Alma', UA.android));
+  assert.equal(u.hostname, 'maps.google.com');
+  assert.equal(u.searchParams.get('q'), 'Calle Larios 1');
+});
+
+test('sin dirección se busca por el nombre del estudio, no una URL rota', () => {
+  for (const ua of [UA.iphone, UA.android]) {
+    const u = new URL(urlComoLlegar('', 'Estudio Alma', ua));
+    assert.equal(u.searchParams.get('q'), 'Estudio Alma');
+  }
+});
+
+test('sin UA (servidor, o quien no la pase) el respaldo es Google', () => {
+  // Un respaldo tiene que ser el que funciona en más sitios: Google Maps abre
+  // en cualquier navegador, mientras que mandar un Android a `maps.apple.com`
+  // le deja una web que no es su app.
+  assert.equal(new URL(urlComoLlegar('Calle Larios 1', 'Estudio Alma')).hostname, 'maps.google.com');
 });
