@@ -5,6 +5,7 @@ import {
   proyectarAlumna, proyectarBonos, proyectarClases, proyectarInstructoras, proyectarPagos, proyectarPlazaFija, proyectarRecuperaciones, proyectarReservas,
 } from '@/lib/student/mapeo';
 import { hoyISO } from '@/lib/student/formato';
+import { tarjetasDescubre, type TarjetaDescubre } from '@/lib/student/descubre';
 import type { Alumna, Bono, Clase, Instructora, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from '@/lib/student/tipos';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -42,6 +43,15 @@ export async function getClasesFrescas(slug: string, fecha?: string): Promise<Cl
   if (!d) return [];
   const fresco = await refrescarAforo(slug);
   return proyectarClases(fresco ?? d, fecha);
+}
+
+/**
+ * «Descubre» — las tarjetas con foto del estudio, del MISMO payload que todo lo
+ * demás: ni una petición más por enseñarlas.
+ */
+export async function getDescubre(slug: string, hoy: string): Promise<TarjetaDescubre[]> {
+  const d = await catalogo(slug);
+  return d ? tarjetasDescubre(d.bannersPortal, hoy) : [];
 }
 
 /** Sale del mismo payload: no hay endpoint por id de clase. */

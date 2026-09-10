@@ -24,6 +24,7 @@ import { AccesosRapidos } from '@/components/student/domain/AccesosRapidos';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
 import { DelEstudio } from '@/components/student/domain/DelEstudio';
+import { Descubre } from '@/components/student/domain/Descubre';
 import { MensajesCard } from '@/components/student/domain/MensajesCard';
 import { ValoracionCard } from '@/components/student/domain/ValoracionCard';
 import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
@@ -380,6 +381,14 @@ export default function InicioPage() {
                 petición fue bien (ver MensajesCard): es la única puerta de
                 entrada al chat con el estudio para una socia nueva. */}
             <MensajesCard studioId={estudio.id} nombreEstudio={estudio.nombre} href={href('/mensajes')} />
+
+            {/* ── DESCUBRE ─────────────────────────────────────────────────
+                Las tarjetas con foto que publica el estudio. Va ANTES de
+                «Huecos de hoy» y DESPUÉS del resto: es contenido para leer, no
+                para actuar, así que no puede empujar hacia abajo lo que sirve
+                para reservar hoy. Si el estudio no ha publicado ninguna, no se
+                pinta nada. */}
+            <Descubre slug={estudio.slug} href={href} />
 
             <section>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>
