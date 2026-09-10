@@ -481,23 +481,35 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
 
       {/* Invoice preview modal */}
       {previewFactura && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="bg-card rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            {/* Mock invoice */}
-            <div className="p-8">
-              <div className="flex items-start justify-between mb-8">
-                <div>
-                  <p className="text-2xl font-extrabold text-foreground">FACTURA</p>
-                  <p className="text-sm font-mono font-bold text-brand-secondary mt-1">{previewFactura.numeroCompleto}</p>
-                </div>
-                <button
-                  onClick={() => setPreview(null)}
-                  aria-label="Cerrar vista previa"
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-                >
-                  <X size={16} />
-                </button>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setPreview(null)}
+        >
+          {/* Tres franjas —cabecera fija, cuerpo con scroll, pie fijo— y NO un
+              bloque único con `overflow-y-auto`, que era el problema: la X y los
+              botones de CSV/PDF scrolleaban fuera de la pantalla, así que en una
+              factura con Veri*Factu la ventana se veía cortada a mitad del QR y
+              para descargar el PDF había que adivinar que había que bajar. */}
+          <div
+            className="bg-card rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shrink-0 flex items-start justify-between gap-4 px-8 pt-7 pb-5 border-b border-border">
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">Factura</p>
+                <p className="text-xl font-mono font-bold text-foreground mt-0.5 truncate">{previewFactura.numeroCompleto}</p>
               </div>
+              <button
+                onClick={() => setPreview(null)}
+                aria-label="Cerrar vista previa"
+                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-8 py-6">
 
               <div className="grid grid-cols-2 gap-6 mb-8 text-sm">
                 <div>
@@ -568,11 +580,14 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
                     <p className="text-muted-foreground break-all">
                       Huella: <span className="font-mono text-foreground">{previewFactura.verifactuHash}</span>
                     </p>
+                    {/* El enlace, no la URL entera. Pintada en crudo con
+                        `break-all` ocupaba tres renglones partidos por la mitad
+                        —el bloque más feo de la ventana— y no la lee nadie: para
+                        eso está el QR de al lado, que lleva esa misma dirección. */}
                     {urlCotejo(previewFactura) && (
-                      <p className="text-muted-foreground break-all mt-1">
-                        QR de cotejo AEAT:{' '}
-                        <a href={urlCotejo(previewFactura)!} target="_blank" rel="noopener noreferrer" className="text-brand-medio underline">
-                          {urlCotejo(previewFactura)}
+                      <p className="mt-1">
+                        <a href={urlCotejo(previewFactura)!} target="_blank" rel="noopener noreferrer" className="text-brand-medio underline font-semibold">
+                          Comprobar esta factura en la AEAT →
                         </a>
                       </p>
                     )}
@@ -583,28 +598,27 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
                 </div>
               )}
 
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => exportarCSV([previewFactura])}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors"
-                >
-                  <Download size={14} />
-                  CSV
-                </button>
-                <button
-                  onClick={() => descargarPDF(previewFactura, previewSocio)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-semibold hover:brightness-95 transition-colors"
-                >
-                  <Download size={14} />
-                  Descargar PDF
-                </button>
-                <button
-                  onClick={() => setPreview(null)}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-semibold hover:brightness-95 transition-colors"
-                >
-                  Cerrar
-                </button>
-              </div>
+            </div>
+
+            {/* Pie fijo: las acciones no se van con el scroll.
+                Y UNA sola acción principal. Había dos botones de marca idénticos
+                pegados —«Descargar PDF» y «Cerrar»— que a un vistazo se leen como
+                la misma cosa; cerrar ya está en la X de la cabecera y en el fondo. */}
+            <div className="shrink-0 flex gap-3 px-8 py-5 border-t border-border bg-card">
+              <button
+                onClick={() => exportarCSV([previewFactura])}
+                className="flex items-center justify-center gap-2 px-4 h-11 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <Download size={14} />
+                CSV
+              </button>
+              <button
+                onClick={() => descargarPDF(previewFactura, previewSocio)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 h-11 rounded-xl bg-brand text-brand-foreground text-sm font-semibold hover:brightness-95 transition-colors"
+              >
+                <Download size={14} />
+                Descargar PDF
+              </button>
             </div>
           </div>
         </div>

@@ -77,7 +77,16 @@ export function DisponibilidadForm({
         </header>
 
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-          <div className="grid grid-cols-[auto_repeat(3,1fr)] items-stretch">
+          <div
+            className="grid items-stretch"
+            // ⚠️ Las columnas salen de FRANJAS, no de un número escrito a mano.
+            // Estaba fijo en `repeat(3,1fr)` y las franjas son CUATRO desde que
+            // se añadió «Última hora»: cada fila metía cinco celdas (etiqueta +
+            // 4) en una rejilla de cuatro, así que todo se desplazaba una
+            // posición y los días salían en diagonal, con la cabecera de la
+            // última franja caída dentro del cuerpo. En el móvil era ilegible.
+            style={{ gridTemplateColumns: `auto repeat(${FRANJAS.length}, minmax(0, 1fr))` }}
+          >
             {/* cabecera de franjas */}
             <div className="border-b border-slate-100" />
             {FRANJAS.map((f) => (
