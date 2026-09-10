@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
+import { useSesionStudent } from '@/lib/student/sesion';
+import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { inicialDe } from '@/lib/monograma-estudio';
 
 /**
@@ -37,6 +39,12 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
   const { estudio } = useEstudio();
   const href = usePortalHref();
   const lema = conLema ? estudio.lema : null;
+  // ⚠️ NO cuesta una petición. `useSesionStudent` resuelve por
+  // `cacheSocia` —una sola llamada a `/api/public/session` por sesión,
+  // compartida— y la pantalla de Inicio ya la hace. Por eso la cara sale de ahí
+  // y no del catálogo: ese payload es el gordo, y hay pantallas de la app que
+  // hoy no lo piden.
+  const { socia } = useSesionStudent(estudio.slug);
 
   // ⚠️ Transparente solo MIENTRAS se ve el héroe.
   //
@@ -123,6 +131,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
           </span>
         </Link>
 
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <Link
           href={href('/notificaciones')}
           aria-label={'Notificaciones' + (noLeidas ? `, ${noLeidas} sin leer` : '')}
@@ -140,6 +149,29 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
             <span aria-hidden style={{ position: 'absolute', top: 8, right: 9, width: 8, height: 8, borderRadius: 99, background: 'var(--warning)', border: '1.5px solid #fff', animation: 'apDot .4s both' }} />
           )}
         </Link>
+
+        {/* Su cara, a Perfil. Sí, Perfil ya está en la barra de abajo: esto no
+            es navegación redundante, es la señal de QUIÉN ha entrado —que en
+            una app de marca blanca, donde la alumna puede tener dos estudios,
+            no es evidente— y de paso el atajo a lo suyo.
+            Solo con sesión resuelta: un círculo vacío mientras carga es peor
+            que nada. */}
+        {socia && (
+          <Link
+            href={href('/perfil')}
+            aria-label={`Tu perfil, ${socia.nombre}`}
+            className="tap"
+            style={{
+              display: 'flex', width: 34, height: 34, flexShrink: 0, borderRadius: 999,
+              // El aro despega la foto de lo que haya detrás: sobre el héroe es
+              // una foto sobre otra foto.
+              boxShadow: flotando ? '0 0 0 1.5px rgba(250,249,245,.55)' : '0 0 0 1.5px var(--border)',
+            }}
+          >
+            <AvatarSocia nombre={socia.nombre} fotoUrl={socia.fotoUrl ?? null} size={34} />
+          </Link>
+        )}
+        </div>
       </div>
     </header>
   );

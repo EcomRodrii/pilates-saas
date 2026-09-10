@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * Bottom sheet del kit: handle 34×4, radio 24, entrada con spring, y cierre por
@@ -22,12 +23,31 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
  *    Aquí el desplazamiento se DERIVA (`open ? dy : 0`) en vez de sincronizarse,
  *    así que no hacen falta ni el efecto ni el render de más.
  *
+ * 2b. ⚠️ **Se pinta con un PORTAL a `document.body`, y esto no es estética.**
+ *    `position: fixed` deja de referirse a la ventana en cuanto un ANCESTRO
+ *    tiene `transform`, y en esta app eso pasa sin que se vea venir: `.a-up`
+ *    —la animación de entrada que llevan medio Inicio y media ficha de clase—
+ *    es `animation: apUp … both`, y aunque su último fotograma dice
+ *    `transform: none`, el `fill-mode` deja el estilo calculado en
+ *    `matrix(1, 0, 0, 1, 0, 0)`. Una matriz identidad SIGUE creando bloque
+ *    contenedor.
+ *
+ *    Medido al abrir esta hoja desde el buscador de Inicio, que vive dentro de
+ *    un `<form className="px a-up">`: el panel salía a `y=212` en vez de
+ *    pegado abajo, y el velo —`inset: 0`— cubría solo la caja del formulario,
+ *    así que la página de detrás ni se oscurecía. Con el portal, la hoja cuelga
+ *    de un anfitrión propio, hermano de `<main>`, y no hay ancestro que la
+ *    pueda mover. Mismo fallo que ya documentó `.panel-page-in` en el panel.
+ *
  * 2. El paquete decide si hay transición leyendo `y0.current` DURANTE el render.
  *    Leer una ref en render es lo que prohíbe `react-hooks/refs`, y además no es
  *    fiable: una ref no provoca re-render, así que el valor leído puede ser el
  *    del render anterior. Se sustituye por un estado `arrastrando`, que es lo
  *    que de verdad tiene que repintar.
  */
+/** No hay nada a lo que suscribirse: solo interesa servidor vs. cliente. */
+const sinSuscripcion = () => () => {};
+
 export function Sheet({ open, onClose, children, label }: {
   open: boolean; onClose: () => void; children: ReactNode; label: string;
 }) {
@@ -103,7 +123,15 @@ export function Sheet({ open, onClose, children, label }: {
     setDy(0);
   };
 
-  return (
+  // El portal solo existe tras montar: en el render del servidor no hay
+  // `document`. Con `useSyncExternalStore` y no con un `useState` + efecto,
+  // que es lo que rechaza el React Compiler de este repo (y con razón: sería
+  // un render en cascada por cada hoja de la app). Mismo patrón que
+  // `lib/use-atajo-buscar.ts`.
+  const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
+  if (!montado) return null;
+
+  return createPortal(
     <>
       <div
         onClick={onClose}
@@ -153,6 +181,12 @@ export function Sheet({ open, onClose, children, label }: {
             táctil de cerrar. */}
         <div style={{ padding: '10px 18px 26px', maxHeight: 'calc(100dvh - 120px)', overflowY: 'auto', overscrollBehavior: 'contain' }}>{children}</div>
       </div>
-    </>
+    </>,
+    // ⚠️ El anfitrión va DENTRO de `.student-app` (lo pinta `StudentShell`).
+    // A `document.body` la hoja sale bien colocada pero sin una sola regla del
+    // kit encima: todo está scopeado en `.student-app`. El respaldo a `body`
+    // es para las pantallas sueltas que no montan el shell — mejor descolocada
+    // que no pintada.
+    document.getElementById('student-portal-host') ?? document.body,
   );
 }

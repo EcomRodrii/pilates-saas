@@ -72,6 +72,17 @@ export function StudentShell({
           {children}
         </main>
         {!sinNav && <BottomNavigation badgeReservas={badgeReservas} />}
+        {/* Anfitrión de las hojas (`Sheet`). Existe por dos motivos a la vez, y
+            hacen falta LOS DOS:
+              · fuera de `main`, para que ningún `.a-up` —cuyo `transform`
+                queda en matriz identidad al terminar— le robe el
+                `position: fixed`;
+              · DENTRO de `.student-app`, porque todo el kit está scopeado ahí
+                (`.student-app .pill`, `.student-app .t-h2`, y los tokens de
+                color del estudio). Al portar a `document.body` la hoja salía
+                bien colocada y COMPLETAMENTE sin estilo: texto plano, sin
+                píldoras, sin el tono de la marca. */}
+        <div id="student-portal-host" />
       </div>
     </GuardiaSesion>
   );

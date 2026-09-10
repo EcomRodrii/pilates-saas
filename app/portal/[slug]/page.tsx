@@ -9,6 +9,7 @@ import { compararPorCaducidad } from '@/lib/student/bono-cubre';
 import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { getBonos, getClases, getInstructoras, getPlazaFija, getMinimoRacha, getReservas } from '@/lib/student/datos';
+import { getFavoritos } from '@/lib/student/favoritos';
 import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { getGamificacion } from '@/lib/student/gamificacion-datos';
 import { disponibilidad } from '@/lib/student/maquina-reserva';
@@ -21,6 +22,8 @@ import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/stu
 import { añadirAlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
 import { TuRitmo } from '@/components/student/domain/TuRitmo';
 import { AccesosRapidos } from '@/components/student/domain/AccesosRapidos';
+import { ProximaClaseVacia } from '@/components/student/domain/ProximaClaseVacia';
+import { FiltrosRapidos } from '@/components/student/domain/FiltrosRapidos';
 import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
 import { NivelCard } from '@/components/student/domain/NivelCard';
 import { DelEstudio } from '@/components/student/domain/DelEstudio';
@@ -48,10 +51,13 @@ export default function InicioPage() {
   const ahoraMs = useAhoraMs();
 
   const cargar = useCallback(async () => {
-    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha] = await Promise.all([
-      getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug), getGamificacion(estudio.slug), getMinimoRacha(estudio.slug),
+    // `getFavoritos` sale del MISMO payload que el resto (`catalogo`), así que
+    // no añade petición: hace falta para saber si la hoja de filtros puede
+    // ofrecer «Favoritas», que solo tiene sentido si ha guardado alguna.
+    const [clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos] = await Promise.all([
+      getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug), getGamificacion(estudio.slug), getMinimoRacha(estudio.slug), getFavoritos(estudio.slug),
     ]);
-    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha };
+    return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos };
   }, [estudio.slug]);
 
   const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
@@ -273,7 +279,7 @@ export default function InicioPage() {
           horario por nombre de clase, tipo o instructora, ignorando acentos. */}
       <form
         className="px a-up"
-        style={{ marginTop: 12 }}
+        style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center' }}
         onSubmit={(e) => {
           e.preventDefault();
           const q = new FormData(e.currentTarget).get('q');
@@ -281,18 +287,29 @@ export default function InicioPage() {
           router.push(texto ? `${href('/reservar')}?q=${encodeURIComponent(texto)}` : href('/reservar'));
         }}
       >
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
           <span aria-hidden style={{ position: 'absolute', left: 15, top: '50%', transform: 'translateY(-50%)', color: 'var(--subtle-foreground)', display: 'flex' }}>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM16.5 16.5 21 21" /></svg>
           </span>
           <input
             name="q"
             type="search"
-            placeholder="Buscar clases, instructoras…"
+            // ⚠️ Sin el «Buscar» delante, y no por gusto: la guía de marca lo
+            // escribe «Buscar clases, instructoras o actividades…», que MIDE
+            // 268 px en un hueco de 239 a 393 px de ancho — se cortaba en
+            // «…o activid». Quitando el verbo caben las tres palabras que de
+            // verdad dicen qué se puede buscar (223 px), que es lo que importa
+            // de esa frase. El icono de la lupa ya dice «buscar».
+            placeholder="Clases, instructoras o actividades…"
             aria-label="Buscar clases o instructoras"
             style={{ width: '100%', height: 48, paddingLeft: 43, paddingRight: 15, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', boxShadow: 'var(--shadow-card)', fontSize: 'var(--t-body)', fontFamily: 'inherit', color: 'var(--foreground)' }}
           />
         </div>
+        <FiltrosRapidos
+          tipos={Array.from(new Set((data?.clases ?? []).map((c) => c.tipo)))}
+          conFavoritas={(data?.favoritos.size ?? 0) > 0}
+          hrefReservar={href('/reservar')}
+        />
       </form>
 
       <AccesosRapidos
@@ -328,15 +345,7 @@ export default function InicioPage() {
                 onComoLlegar={() => window.open(urlComoLlegar(estudio.direccion, estudio.nombre, navigator.userAgent), '_blank', 'noopener')}
               />
             ) : (
-              <EmptyState
-                ilustracion="postura"
-                titulo="No tienes clases próximas"
-                cuerpo={huecos.length > 0
-                  ? `Hay ${huecos.length} ${huecos.length === 1 ? 'clase' : 'clases'} hoy con plaza libre.`
-                  : 'Mira el horario para encontrar tu próxima clase.'}
-                accion="Ver el horario"
-                href={href('/reservar')}
-              />
+              <ProximaClaseVacia huecosHoy={huecos.length} hrefReservar={href('/reservar')} />
             )}
 
             {/* ── TU RITMO ─────────────────────────────────────────────────

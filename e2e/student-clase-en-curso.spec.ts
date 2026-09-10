@@ -41,7 +41,12 @@ const A_LAS = (hhmm: string) => new Date(`2026-08-12T${hhmm}:00+02:00`);
 // localizador flojo miente en las dos direcciones.
 const badgeEnCurso = (page: Page) => page.getByTestId('badge-en-curso');
 /** El rótulo de la tarjeta héroe, EXACTO (ver el aviso de arriba). */
-const rotuloProxima = (page: Page) => page.getByText(/^Tu próxima clase$/);
+// ⚠️ La REGIÓN, no el texto. Desde que el estado vacío de Inicio se rediseñó,
+// «Tu próxima clase» también se lee cuando NO hay ninguna —es el rótulo de la
+// tarjeta vacía, como en la maqueta—, así que buscar ese texto ya no distingue
+// «hay clase» de «no hay». Lo que sí distingue es la tarjeta: `NextClassCard`
+// se anuncia como región con ese nombre y el estado vacío no se anuncia.
+const rotuloProxima = (page: Page) => page.getByRole('region', { name: 'Tu próxima clase' });
 const rotuloEnCurso = (page: Page) => page.getByText(/^Tu clase, en curso$/);
 
 async function montar(page: Page, opciones: { conReserva?: boolean } = {}) {
