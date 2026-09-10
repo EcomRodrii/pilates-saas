@@ -1,4 +1,9 @@
 import type { Reserva, Sesion } from '@/lib/types';
+// Import RELATIVO con extensión explícita, no `@/` — este fichero se prueba
+// con `node --test --experimental-strip-types`, que no resuelve el alias en
+// un import de VALOR (el de arriba es `import type`, se borra al compilar y
+// por eso nunca dio problema). Ver alias-arroba-oculta-tests-node-test.md.
+import { claveSemanaEstudio } from '../utils.ts';
 
 export interface RachaInfo {
   semanas: number;
@@ -87,7 +92,13 @@ export function calcularRacha(reservas: Reserva[], sesiones: Sesion[], now: Date
     semanas: racha,
     enRiesgo,
     diasParaPerder,
-    claveSemanaActual: claveActual,
+    // `claveActual` (arriba) usa el reloj/huso del RUNTIME y solo vale para
+    // el bucketing interno de esta función (qué semanas tienen clase). El
+    // campo expuesto, en cambio, es lo que panel y kiosko usan como `ref_id`
+    // de "semana completa" — ahí SÍ importa que ambos den la misma clave para
+    // la misma semana real, así que se ancla a la hora del estudio, no a la
+    // del entorno donde corre cada uno (I-4, auditoría 2026-09-10).
+    claveSemanaActual: claveSemanaEstudio(now),
     esMejor: racha > 0 && racha >= mejor,
   };
 }

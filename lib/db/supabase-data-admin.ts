@@ -34,7 +34,7 @@ import {
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
 import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, avisaBonoAgotado, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
-import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
+import { validarCanje } from '@/lib/engines/reward-engine';
 import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
@@ -4271,10 +4271,18 @@ export async function canjearRecompensaPublica(params: {
   return { ok: true as const, redemptionId, codigo: codigo as string, efecto: item.efecto };
 }
 
-// Otorga créditos server-side (misma decisión pura que el contexto): si la regla
-// está activa y no se otorgó ya para ese refId, inserta action/history/tx y
-// actualiza el saldo. El UNIQUE(studio,trigger,ref_id) es el cerrojo real.
-
+// Otorga créditos server-side delegando ENTERO en la RPC atómica
+// `otorgar_credito_disparador` — antes escribía a pelo con service_role
+// (insert en reward_actions + ajustar_creditos) sin comprobar ninguna
+// condición real, un motor de gamificación distinto del que usa el panel
+// (dbOtorgarCreditoDisparador → misma RPC) con reglas distintas (hallazgo I-3
+// de la 49ª pasada de auditoría, 2026-09-10: ASISTENCIA_CLASE/REFERIDO_AMIGO/
+// SEMANA_COMPLETA se podían conceder desde el kiosko sin que existiera la
+// condición que dice conceder). `auth.uid()` es NULL al llamar sin sesión de
+// usuario (kiosko con token propio, no JWT de socia/staff) — la RPC ya trata
+// ese caso correctamente (validar_studio_mismatch se salta su chequeo de
+// tenant cuando auth.uid() es NULL), mismo camino que ya usan
+// evaluarLogrosServidor/evaluarRetosServidor para LOGRO/RETO más abajo.
 async function otorgarCreditosServidor(
   admin: SupabaseClient, studioId: string, socioId: string,
   trigger: RewardTrigger, refId: string | null,
@@ -4284,38 +4292,18 @@ async function otorgarCreditosServidor(
   // créditos nuevos aquí. `evaluarFeature` falla abierto si BILLING_ENFORCED no
   // está activo, igual que el resto de gates del producto (ver billing-rules.ts).
   if (await evaluarFeature(studioId, 'gamificacion')) return;
+  if (!refId) return;
 
-  const [{ data: rulesRows }, { data: actionRows }] = await Promise.all([
-    admin.from('reward_rules').select('*').eq('studio_id', studioId),
-    admin.from('reward_actions').select('*').eq('studio_id', studioId),
-  ]);
-  const rules = (rulesRows ?? []).map(mapRewardRule);
-  const actions = (actionRows ?? []).map(mapRewardAction);
-  const { otorgar, regla } = decidirOtorgarCreditos(rules, actions, trigger, refId);
-  if (!otorgar || !regla) return;
-
-  const now = new Date().toISOString();
-  const actionId = `rwa-${uid()}`;
-  const { error } = await admin.from('reward_actions').insert({
-    id: actionId, studio_id: studioId, socio_id: socioId, trigger, ref_id: refId, creado_en: now,
+  const { error } = await admin.rpc('otorgar_credito_disparador', {
+    p_studio_id: studioId, p_socio_id: socioId,
+    p_trigger: trigger, p_ref_id: refId, p_config_id: null,
   });
-  if (error) return; // choque con el UNIQUE → ya otorgado, no seguimos
-
-  // P0-20: incremento ATÓMICO del saldo (una ganancia nunca lo deja negativo).
-  await admin.rpc('ajustar_creditos', {
-    p_socio_id: socioId, p_studio_id: studioId,
-    p_delta_saldo: regla.creditos, p_delta_ganado: regla.creditos, p_delta_canjeado: 0,
-  });
-  await Promise.all([
-    admin.from('reward_history').insert({
-      id: `rwh-${uid()}`, studio_id: studioId, socio_id: socioId, rule_id: regla.id, action_id: actionId,
-      creditos: regla.creditos, descripcion: regla.nombre, creado_en: now,
-    }),
-    admin.from('credit_transactions').insert({
-      id: `ctx-${uid()}`, studio_id: studioId, socio_id: socioId, tipo: 'GANANCIA', creditos: regla.creditos,
-      descripcion: regla.nombre, ref_id: refId, creado_en: now,
-    }),
-  ]);
+  // SIN_REGLA_ACTIVA/CONDICION_NO_CUMPLIDA/REF_ID_NO_DERIVADO no son errores de
+  // sistema: son el "no toca conceder" de la propia RPC (mismo criterio que
+  // dbOtorgarCreditoDisparador en lib/supabase-data.ts).
+  if (error && !/SIN_REGLA_ACTIVA|CONDICION_NO_CUMPLIDA|REF_ID_NO_DERIVADO/.test(error.message)) {
+    reportDbError('[otorgarCreditosServidor]', error);
+  }
 }
 
 // ─── Gamificación en servidor (S-1) ──────────────────────────────────────────

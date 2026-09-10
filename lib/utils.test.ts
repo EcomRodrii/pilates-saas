@@ -12,7 +12,7 @@
 // que un formateo que ignorase la zona fallaría en al menos uno de los dos.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana, compararVersiones, copiarAlPortapapeles, nombreCortoInstructora, masDias } from './utils.ts';
+import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana, compararVersiones, copiarAlPortapapeles, nombreCortoInstructora, masDias, claveSemanaEstudio } from './utils.ts';
 
 test('compararVersiones: doble cifra no se ordena como texto', () => {
   assert.ok(compararVersiones('0.10', '0.9') > 0, '0.10 es mayor que 0.9 numéricamente');
@@ -254,4 +254,29 @@ test('masDias no se mueve con el cambio de hora', () => {
   // de 24 h, un rango que cruce ese día se queda corto; sobre la fecha, no.
   assert.equal(masDias('2026-10-24', 2), '2026-10-26');
   assert.equal(masDias('2026-03-28', 2), '2026-03-30');
+});
+
+// I-4 de la auditoría de seguridad (2026-09-10): un mismo instante daba una
+// clave de semana distinta según si quien la calculaba corría en UTC (kiosko,
+// Vercel) o en hora de Madrid (panel, navegador). El propio instante de más
+// abajo es el caso real: en Madrid (CEST, +2) ya es lunes de madrugada, pero
+// en UTC el reloj todavía marca domingo por la noche.
+test('claveSemanaEstudio: mismo instante, misma clave, sin importar el huso de quien pregunta', () => {
+  // 2026-09-06T22:30:00Z = domingo 22:30 UTC = lunes 00:30 en Madrid (CEST).
+  assert.equal(claveSemanaEstudio(new Date('2026-09-06T22:30:00Z')), '2026-09-07');
+});
+
+test('claveSemanaEstudio: toda la semana natural del estudio cae en el mismo lunes', () => {
+  const lunes = '2026-09-07';
+  // Lunes a primera hora, miércoles a mediodía, domingo por la noche: los tres
+  // instantes son de la MISMA semana en hora de Madrid.
+  assert.equal(claveSemanaEstudio(new Date('2026-09-07T05:00:00Z')), lunes);
+  assert.equal(claveSemanaEstudio(new Date('2026-09-09T10:00:00Z')), lunes);
+  assert.equal(claveSemanaEstudio(new Date('2026-09-13T20:00:00Z')), lunes);
+});
+
+test('claveSemanaEstudio: también es estable en invierno (UTC+1)', () => {
+  // 2026-01-11 es domingo; 2026-01-11T23:30:00Z (domingo 23:30 UTC) ya es
+  // lunes 00:30 en Madrid (CET, +1).
+  assert.equal(claveSemanaEstudio(new Date('2026-01-11T23:30:00Z')), '2026-01-12');
 });
