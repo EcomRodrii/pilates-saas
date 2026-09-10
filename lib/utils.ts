@@ -221,6 +221,28 @@ export function franjaLocalDe(inicioISO: string): FranjaLocal {
   return { dow, hora, minuto };
 }
 
+const FORMATO_DIA_ESTUDIO = new Intl.DateTimeFormat('en-CA', { timeZone: TZ_ESTUDIO });
+
+/**
+ * Clave ('YYYY-MM-DD', LUNES) de la semana natural del ESTUDIO que contiene
+ * `instante` — determinista con independencia del huso del runtime que la
+ * calcule.
+ *
+ * Existe porque el panel corre en el navegador (Europe/Madrid) y el kiosko en
+ * Vercel (`TZ=UTC`): con `Date.getDay()`/`toISOString()` del runtime, la
+ * medianoche local del lunes cae en domingo para uno y en lunes para el otro,
+ * y el `UNIQUE(studio_id, trigger, ref_id)` de `otorgar_credito_disparador`
+ * nunca deduplicaba entre los dos caminos porque generaban `ref_id` distintos
+ * para la MISMA semana real (auditoría de seguridad, hallazgo I-4,
+ * 2026-09-10). Ambos deben derivar la clave de "semana completa" con ESTA
+ * función, nunca con el reloj/huso propio del entorno donde corren.
+ */
+export function claveSemanaEstudio(instante: Date): string {
+  const { dow } = franjaLocalDe(instante.toISOString()); // 0=domingo..6=sábado, hora del estudio
+  const diaEstudio = FORMATO_DIA_ESTUDIO.format(instante); // 'YYYY-MM-DD' en hora del estudio
+  return masDias(diaEstudio, -((dow + 6) % 7));
+}
+
 /** "sábado, 25 de julio" en hora del estudio. */
 export function fechaLargaEstudio(fecha: Date | string): string {
   return new Date(fecha).toLocaleDateString('es-ES', {
